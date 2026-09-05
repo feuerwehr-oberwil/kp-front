@@ -1,7 +1,7 @@
 import { appConfig } from '../config/appConfig'
 import { floorLabel } from './whiteboard'
 import { matchesQuery, type SearchQuery } from './search'
-import type { BoardAnno, BoardDoc, Entity, LngLat, PlanDocument, Trupp } from '../types'
+import type { BoardAnno, BoardDoc, Entity, LngLat, PlanDocument, Trupp, TruppKind } from '../types'
 
 /**
  * Every Trupp that is standing somewhere on this Einsatz — the Lage map AND the plan boards,
@@ -28,6 +28,10 @@ export interface PlacedTrupp {
   /** the Atemschutz Trupp behind this chip, when there is one */
   truppId?: string
   status?: Trupp['status']
+  /** the Trupp's Art, when this chip is bound to one (types · TruppKind). Read through
+   *  `isAtemschutzTrupp` — absent on a chip that carries no Trupp at all, and absent ON a Trupp
+   *  recorded before 03.09., which MEANS «unter Atemschutz». */
+  kind?: TruppKind
   /** the people in it — shown under the name, and searched */
   members: string[]
   target:
@@ -84,6 +88,7 @@ export function placedTrupps(
       where: appConfig.copy.modes.map,
       truppId: t?.id,
       status: t?.status,
+      kind: t?.kind,
       members: membersOf(t),
       target: { kind: 'map', entityId: e.id, coord: e.coord },
     })
@@ -104,6 +109,7 @@ export function placedTrupps(
         where: [doc?.code ?? planId, stack ? floorLabel(floor) : ''].filter(Boolean).join(' · '),
         truppId: t?.id,
         status: t?.status,
+        kind: t?.kind,
         members: membersOf(t),
         target: { kind: 'plan', planId, annoId: a.id, x: a.x ?? 0.5, y: a.y ?? 0.5, floor },
       })

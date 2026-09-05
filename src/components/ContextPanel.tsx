@@ -196,12 +196,11 @@ export interface ContextPanelProps {
   onFocusLine?: (id: string) => void
   // --- free-text note (Lage 'note' / Plan 'text') -------------------------------------------
   // Wiring ANY of these turns the panel into a note editor: the Notiz section appears and the
-  // symbol-only chrome (steppers, hazard readout) stays hidden. The width is what makes a note
-  // a wrapping box, but its UNIT differs per surface (plan fraction vs. screen px), so the
-  // caller passes it through opaquely and only the surface interprets it.
-  /** marks this entity as a note (the width itself lives on the surface, which owns the grip). */
-  onNoteWidth?: (w: number | null) => void
+  // symbol-only chrome (steppers, hazard readout) stays hidden.
   onNoteSize?: (size: NoteSize) => void
+  /** the note was just PLACED: open with the caret in its text field, so putting a Notiz down
+   *  and writing it are one act. Read once, on mount — the panel is keyed by the note's id. */
+  autoFocusNote?: boolean
   onNotePlain?: (plain: boolean) => void
   /** note ink colour ('' clears back to the default note ink). */
   onColor?: (color: string) => void
@@ -229,7 +228,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteWidth, onNoteSize, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -341,6 +340,21 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   useEffect(() => {
     if (document.activeElement !== noteTextRef.current) setTitle(entity.label ?? '')
   }, [entity.label])
+  /* A just-placed Notiz opens with the caret already in its text field (05.09.): placing one and
+   * writing it are one act, and the operator was left looking at an empty box with no obvious
+   * place to type. Mount-only — the panel is keyed by the note's id, so a later reopen of the
+   * same note is an ordinary read and must not grab the focus (or, on a phone, the keyboard).
+   * `preventScroll`: the sheet is a fixed flex column and the browser's own scroll-into-view
+   * jumps it. */
+  useEffect(() => {
+    if (!autoFocusNote) return
+    const el = noteTextRef.current
+    if (!el) return
+    el.focus({ preventScroll: true })
+    const n = el.value.length
+    try { el.setSelectionRange(n, n) } catch { /* nothing selectable yet */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // live-title editing: stream each keystroke to onTitleLive (silent surface update) and
   // finalise on blur via onTitle (one undo step + audit). Without onTitleLive we fall back
@@ -442,7 +456,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // rotate, no preset fields, and its own text already IS the free-text field — a second
   // "Notizen" box inside a note would be a riddle. So the details block is suppressed outright
   // and the Notiz section below is all a note gets.
-  const isNote = !!(onNoteWidth || onNoteSize || onNotePlain)
+  const isNote = !!(onNoteSize || onNotePlain)
   /** A symbol whose LABEL is its identity — today exactly the generic Fahrzeug, recognised by the
    *  fact that the station configured a title list for it. Those keep an editable name (as a
    *  «Bezeichnung» field below); every other symbol's header is its own name and read-only. */

@@ -62,21 +62,23 @@ function Wheel({ items, index, onIndex, ariaLabel, loop = false }: {
       const el = ref.current
       if (!el) return
       const at = Math.round(el.scrollTop / ITEM_H)
-      if (!loop) {
-        const i = Math.max(0, Math.min(n - 1, at))
-        if (i !== index) onIndex(i)
-        return
-      }
-      const i = ((at % n) + n) % n
-      // back to the middle band, on the SAME value — the row under the band is identical, so
-      // nothing moves on screen. Only when it is actually needed: assigning scrollTop cancels
-      // iOS momentum, and doing it after every flick would make the wheel feel sticky.
-      if (at < n || at >= (LOOPS - 1) * n) el.scrollTop = top(i)
+      const i = loop ? ((at % n) + n) % n : Math.max(0, Math.min(n - 1, at))
+      const target = loop ? top(i) : i * ITEM_H
+      // The strip snaps with `scroll-snap-type: y PROXIMITY`, not `mandatory` (see
+      // [data-scroll-physics] in the module CSS) — mandatory forces a hard stop at every 44px row
+      // mid-fling, which is what made a real flick feel notchy/stiff instead of sailing through
+      // several rows the way the native iOS wheel does.
+      // Proximity gives up that guarantee, so this settle is what lands the row exactly once the
+      // finger (and the browser's own momentum) has actually stopped — `scrollBehavior()` skips the
+      // animated correction under reduced motion. Looping still hops the band edge instantly (see
+      // LOOPS above): animating THAT jump would visibly scroll backwards through the whole list.
+      if (loop && (at < n || at >= (LOOPS - 1) * n)) el.scrollTop = target
+      else if (Math.round(el.scrollTop) !== target) el.scrollTo({ top: target, behavior: scrollBehavior() })
       if (i !== index) onIndex(i)
     }, 90)
   }
   return (
-    <div className="wheel" ref={ref} onScroll={onScroll} role="listbox" aria-label={ariaLabel} tabIndex={0}>
+    <div className="wheel" data-scroll-physics ref={ref} onScroll={onScroll} role="listbox" aria-label={ariaLabel} tabIndex={0}>
       <div className="wheel-pad" aria-hidden />
       {rows.map((it, i) => {
         const value = loop ? i % n : i

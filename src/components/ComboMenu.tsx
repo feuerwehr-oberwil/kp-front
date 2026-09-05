@@ -37,6 +37,26 @@ interface MenuPos { left: number; top: number; width: number; maxH: number; up: 
  *  underneath it. */
 const MAX_MENU_H = 440
 
+/** The nearest ancestor that actually clips its content (a Sheet's `.ip-body`, any
+ *  `overflow: auto/scroll/hidden` panel) — falling back to the viewport when there is none.
+ *  `place()` measures room against THIS, not `window.innerHeight`: a trigger near the top of a
+ *  short `ip-fit` sheet has plenty of WINDOW space below it, but the menu is portalled straight
+ *  to `<body>`, so sizing it off the window let it run taller than the sheet itself and spill
+ *  past its bottom edge into the backdrop — a dropdown that reads as broken chrome rather than
+ *  an open menu. */
+function clipBounds(el: HTMLElement): { top: number; bottom: number } {
+  let node = el.parentElement
+  while (node && node !== document.body) {
+    const oy = getComputedStyle(node).overflowY
+    if (oy === 'auto' || oy === 'scroll' || oy === 'hidden' || oy === 'clip') {
+      const r = node.getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom }
+    }
+    node = node.parentElement
+  }
+  return { top: 0, bottom: window.innerHeight }
+}
+
 export interface ComboMenuState {
   open: boolean
   typing: boolean
@@ -119,8 +139,9 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
       const el = pick.current
       if (!el) return
       const r = el.getBoundingClientRect()
-      const below = window.innerHeight - r.bottom - 12
-      const above = r.top - 12
+      const bound = clipBounds(el)
+      const below = bound.bottom - r.bottom - 12
+      const above = r.top - bound.top - 12
       const up = below < 200 && above > below
       // TAKE the room that is there: `below`/`above` already hold the real space, so MAX_MENU_H
       // only has to stop the menu becoming a full-screen curtain over the form it belongs to.

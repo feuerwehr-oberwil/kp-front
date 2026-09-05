@@ -8,8 +8,8 @@
   .ip-objrow { min-height: var(--tap); }
   .ip-loc-clear { width: var(--tap); height: var(--tap); display: grid; place-items: center; }
   .ip-ix-methods .ip-btn { min-height: var(--tap); }
-  /* the Übung checkbox is a native ~16px box — the ROW is what gets aimed at */
-  .ip-check { min-height: var(--tap); }
+  /* .ip-ex-toggle (the «Übung» chip) already carries `min-height: var(--tap)` unconditionally
+     (13-incident.css) — it is a real button now, not a native checkbox with a ~16px hit box. */
 }
 
 /* ---- Rapport: the gloved floor ------------------------------------------------------------
@@ -23,11 +23,7 @@
   .report-partner { min-height: var(--tap); }
   .report-partner-tick { min-height: var(--tap); }
   .report-row-add { min-height: var(--tap); }
-  /* «Bearbeiten» is the ONE way into the Einsatzdaten from here, and it was a ~28px text link.
-     The negative margin keeps it optically flush with the eyebrow it sits beside, so it has to
-     grow with the hit area rather than being left behind by it. */
-  .report-meta-editlink { min-height: var(--tap); padding: 0 8px; margin: -8px -8px -8px 0; }
-  /* ⚠️ NOT the «noch offen» chips next to it, though they are the smallest targets in the product
+  /* ⚠️ NOT the Rapport head's «noch offen» chips, though they are the smallest targets in the product
      (55×18px, 5–7px apart) and are real jump-links — each switches the phone tab, scrolls the
      sheet, flashes the target and focuses the field.
      Raising them to var(--tap) was tried and reverted: four 44px pills wrap onto two rows and take

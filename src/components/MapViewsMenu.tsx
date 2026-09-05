@@ -6,6 +6,7 @@ import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { DockInfo } from './DockInfo'
 import { useLongPress } from '../lib/useLongPress'
+import { useIsPhone } from '../lib/useIsPhone'
 import s from './MapViewsMenu.module.css'
 
 /** Everything the saved-views control needs from App — the synced list plus the camera ops. */
@@ -66,6 +67,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
 }) {
   const cp = appConfig.copy.mapViews
   const [editingId, setEditingId] = useState<string | null>(null)
+  const isPhone = useIsPhone()
   const commitRename = (id: string, name: string) => { api.onRename(id, name.trim()); setEditingId(null) }
 
   // No backdrop scrim — exactly like the measure/draw ToolDock: the dock just sits over the map,
@@ -117,9 +119,16 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
           </button>
         )}
         {/* coordinate readout toggle — lives here instead of as its own rail-footer button
-            (rarely used; freed the slot for Ebenen). Stays open so the state flip is visible. */}
+            (rarely used; freed the slot for Ebenen). On a tablet/desktop it stays open so the
+            state flip is visible in place.
+            ⚠️ On a PHONE it closes (05.09.). This dock is nearly the whole screen there, and the
+            readout it switches on lands under it — the coordinate the operator asked for, behind
+            the menu they asked for it from. Closing in BOTH directions on purpose: nothing of
+            the flip is readable behind the dock either way, so «tap the row, see the map» is the
+            one rule to remember. */}
         {onToggleCoords && (
-          <button className={cx(s.row, s.north, coordsOn && s.on)} aria-pressed={coordsOn} onClick={onToggleCoords}>
+          <button className={cx(s.row, s.north, coordsOn && s.on)} aria-pressed={coordsOn}
+            onClick={() => { onToggleCoords(); if (isPhone) onClose() }}>
             <span className={s.ico}><Icon id="coords" /></span>
             <span className={s.name}>{appConfig.copy.nav.coords}</span>
           </button>

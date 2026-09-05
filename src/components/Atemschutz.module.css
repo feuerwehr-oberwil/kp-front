@@ -657,9 +657,25 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    the one element wearing `.formColWide` AND this class (AtemschutzView · assignedConflict), and
    `.formColWide` is a flex COLUMN — so without this the ⚠️ sat centred ABOVE its sentence instead
    of beside it, which reads as a heading rather than as a warning about the line under it. */
+/* ⚠️ …and it is a BUTTON since 05.09. (it opens the Mannschaft, which is the only place the
+   double assignment can be undone), so it also has to un-inherit the button chrome the browser
+   gives it: no border, the row's own text-align, the app's press wash. `--tap` because it is now
+   a real target under a glove. */
 .formWarn { margin: 0; display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--red-strong);
-  background: color-mix(in srgb, var(--red) 9%, transparent); border-radius: var(--r-ctl); padding: 10px 12px; }
+  background: color-mix(in srgb, var(--red) 9%, transparent); border-radius: var(--r-ctl); padding: 10px 12px;
+  border: 0; width: 100%; min-height: var(--tap); text-align: left; font-family: var(--body); cursor: pointer; }
+.formWarn:active { background-image: linear-gradient(var(--press), var(--press)); }
 .formWarn :global(.i) { width: 16px; height: 16px; flex: none; }
+/* «Auftrag fehlt.» and friends — the reason the save did not happen, snug above the actions it
+   is about (05.09.). It used to be a toast, i.e. a pill floating in the sheet's own empty space
+   AND eating the taps of whatever field it happened to cover (see TruppForm · `blocked`). Full
+   width, on the footer's own hairline, so it reads as part of the footer rather than as a
+   fourth thing on the form. */
+.formBlocked { margin: 0; flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 8px 20px; font-size: 13px; font-weight: 700; color: var(--red-strong);
+  background: color-mix(in srgb, var(--red) 10%, var(--glass));
+  border-top: 1px solid color-mix(in srgb, var(--red) 28%, transparent); }
+.formBlocked :global(.i) { width: 16px; height: 16px; flex: none; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 /* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
 .formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }
@@ -820,6 +836,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .comboChev { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
   color: var(--ink-faint); pointer-events: none; }
 .comboChev :global(.i) { width: 16px; height: 16px; }
+/* the ▾ flip: the shared `.chev` (02-base.css) reads the state off an ANCESTOR, and this chevron
+   is a SIBLING of the button that carries it (the trigger is swapped for an input while typing),
+   so the state is handed down from the wrapper here. The rotation + transition stay the shared
+   ones — this rule only says when. */
+.combo:has([aria-expanded='true']) :global(.chev) { transform: rotate(180deg); }
 .comboType { color: var(--blue-strong); font-weight: 700; border-top: 1px solid var(--glass-edge); margin-top: 2px; }
 .comboType :global(.i) { width: 15px; height: 15px; }
 .comboEmpty { padding: 8px 12px; font-size: 12.5px; color: var(--ink-faint); }
@@ -913,6 +934,66 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
 .teamName { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 700 14px var(--body); color: var(--ink); }
+
+/* ── The PHONE skin of the same Trupp: a wrapping row of chips (05.09.) ───────────────────────
+   Same control, same labels, same `value[0]` record — see TruppTeam · `skin`. What changes is
+   what it costs: three full-width slot rows plus a standing roster filled a 375px form before
+   anybody had been picked, and the crew that was actually chosen was the smallest thing on it.
+   A chip is `--tap` tall and carries BOTH of the row's jobs — the body crowns, the ✕ removes —
+   so the two are separate targets rather than one row with a glyph on its edge. */
+.teamChips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+/* ⚠️ `--r-sm`, not the row's `--r-ctl`: a chip is a button in the house spec (AGENTS.md ·
+   Buttons), and it sits beside the search field's own `--r-ctl` — two different shapes is what
+   says «these are targets, that is a field». */
+.chip { display: inline-flex; align-items: center; max-width: 100%; min-height: var(--tap);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
+  padding: 0 2px 0 0; }
+.chipPick { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 7px;
+  align-self: stretch; padding: 0 4px 0 9px; border: none; background: none; cursor: pointer;
+  text-align: left; font: inherit; color: inherit; border-radius: var(--r-sm);
+  -webkit-tap-highlight-color: transparent;
+  /* the chip promotes on a HOLD too (TruppTeam · useLongPress), and iOS answers a hold over text
+     with the selection callout — which eats the gesture and leaves a highlighted name */
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.chipPick:disabled { cursor: default; }
+@media (hover: hover) { .chipPick:hover:not(:disabled) { background: var(--fill-soft); } }
+.chipPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* the role as a pill rather than the row's 30px column: on a chip there is no column to line up
+   with, and «GF» has to read as a mark ON this person */
+.chipRole { flex: none; font: 800 10px var(--body); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--ink-faint); background: var(--fill-soft); border-radius: var(--r-pill); padding: 3px 6px; }
+.chipName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 700 13.5px var(--body); color: var(--ink); }
+/* the Gruppenführer is the FIRST chip and the only coloured one — the same amber rule
+   `.teamRowLead` carries on the tablet, because the card, the Rapport and the map tag all print
+   this person first */
+.chipLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  background: color-mix(in srgb, var(--amber) 12%, var(--surface)); }
+.chipRoleLead { color: var(--on-fill); background: var(--amber); }
+/* ⚠️ 34px wide against the chip's full height: a mis-grip must never take somebody OUT of the
+   Trupp — at worst it crowns them, which is one tap to undo. */
+.chipX { flex: none; display: grid; place-items: center; width: 34px; align-self: stretch;
+  border: none; background: none; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
+.chipX :global(.i) { width: 15px; height: 15px; }
+@media (hover: hover) { .chipX:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
+.chipX:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* the empty Trupp: ONE dashed chip that names the role and points down at the field. Not a
+   control — the search is the very next thing on screen, so there is nothing to reveal. */
+.chipEmpty { flex: 1 1 auto; gap: 8px; padding: 0 12px; border-style: dashed; background: none;
+  color: var(--ink-faint); font: 600 13.5px var(--body); }
+.chipEmpty .chipRole { color: var(--ink-dim); }
+
+/* The matches under the field, and ONLY while something is typed. Shrink-wrapped, never a
+   scroller: it is as tall as its ≤4 rows and pushes the two closed sections down by exactly that
+   much (see TruppTeam · PHONE_HITS).
+   ⚠️ Its own class, not `.teamList` — the `.modalStack … :has(.teamList)` rules below hand the
+   open section the sheet's spare height, which must not switch on and off with the keyboard. */
+.teamHits { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--glass-edge);
+  border-radius: var(--r-ctl); background: var(--surface); }
+/* …and what the standing roster used to say for free: how many people are here at all. Without
+   it, «no list» reads as «no idea who is on scene». */
+.teamHint { margin: 0; font: 600 11.5px var(--body); color: var(--ink-faint); }
+.teamHint b { color: var(--ink-dim); font-weight: 700; }
 
 .teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
@@ -1016,6 +1097,24 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      The 38dvh box above is what keeps all three headers reachable while the roster is open. */
   .modalStack .modalBody { display: flex; flex-direction: column; gap: 10px; }
   .modalStack .stack { flex: none; }
+  /* ⚠️ …with ONE exception, and it is the whole of the «the first section already scrolls»
+     defect (05.09., Safari with its browser chrome up). While the MANNSCHAFT is open, the fixed
+     `38dvh` roster box plus three slots plus a search field is taller than the room the sheet
+     actually has — so the list ran under the footer and section 1 had to be scrolled before it
+     could be read. Here the stack takes the room that is left and the list flexes into exactly
+     that: section 1 fits, and the two closed headers below it and the footer all stay put. The
+     list keeps its own scroll (it is the one thing that legitimately has more rows than room),
+     which is still ONE scroller — the sheet itself no longer has to move.
+     `:has(.teamList)` = «the Mannschaft is the open section»: a closed StackRow renders no body
+     at all, so this cannot match two sections at once, and every other section keeps the natural
+     height + sheet scroll the stack was built with. */
+  .modalStack .stack:has(.teamList) { flex: 1 1 auto; min-height: 0; }
+  .modalStack .stack:has(.teamList) > .sec { flex: none; }
+  .modalStack .stack > .sec:has(.teamList) { flex: 1 1 auto; min-height: 0; }
+  .modalStack .sec:has(.teamList) .secBody { flex: 1 1 auto; min-height: 0; }
+  .modalStack .sec:has(.teamList) .field:has(> .team) { flex: 1 1 auto; min-height: 0; }
+  .modalStack .sec:has(.teamList) .team { flex: 1 1 auto; min-height: 0; }
+  .modalStack .sec:has(.teamList) .teamList { flex: 1 1 0; max-height: none; min-height: 108px; }
 }
 
 /* ===========================================================================================
@@ -1231,7 +1330,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .headTitlesCompact :global(.az-sync-quiet) { font-size: 10.5px; }
 .headTitlesCompact :global(.az-sync-quiet .i) { width: 11px; height: 11px; }
 .bodyFocus { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 0 12px 12px; }
+/* ⚠️ A top padding, not 0 (05.09.): the card's own coloured status edge landed flush against the
+   header's hairline, so the green/red band read as a rule belonging to the bar above it rather
+   than as the top of a card. Same 12px as the sides — the card sits IN the body, not against it.
+   The strip that used to buy this gap moved to the bottom rail on 03.09. and took it along. */
+.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 12px 12px; }
 /* ── Bottom rail (mock 03, maintainer correction 03.09.) ─────────────────────────────────────
    The strip and «+ Trupp» move DOWN, out of `.body`, into a rail that sits in the thumb zone —
    the same idea the app's own phone bottom bars use (`--rail-h`, src/styles/15-mobile.css):
@@ -1248,8 +1351,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   border-top: 1px solid var(--glass-edge); background: var(--surface); }
 /* A wrapping grid, NOT a horizontal strip (02.09., unchanged by the move down here): every
    Trupp stays in view, three to a row, and a fifth one starts a second row instead of hiding
-   off the right edge. `flex: 1 1 auto` — the rail's main occupant — so `.railActs` beside it
-   only ever costs the grid its own fixed width, never a whole row. */
+   off the right edge. `flex: 1 1 auto` — and since 05.09. the rail's ONLY occupant: «+ Trupp»
+   is a cell of this grid rather than a fixed column beside it (see `.tabAdd`). */
 .strip { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
 .tab { min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   padding: 6px 10px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
@@ -1261,16 +1364,24 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    min-height is a minimum, not a cap, so the chip grows with it. */
 .tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
 .tabClock { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--green); }
-.tabIdle .tabClock { color: var(--ink-faint); }
+/* ⚠️ ONE quiet format for every clock that is NOT running (05.09.): a Trupp that is angemeldet,
+   one that is back out, and a work squad with no contact clock at all are all «nothing is
+   ticking here», and the placeholder was carrying the same 800-weight mono presence as a live
+   number — a full-brightness «–:––» reads as a value. Dimmed AND unbolded, so the eye runs
+   straight past it to the chips that are actually counting. */
+.tabIdle .tabClock { color: color-mix(in srgb, var(--ink-faint) 72%, transparent); font-weight: 600; }
 .tabWarn .tabClock { color: var(--amber-strong); }
 .tabCrit { background: color-mix(in srgb, var(--red) 12%, var(--surface)); border-color: var(--red); }
 .tabCrit .tabClock { color: var(--red); }
 .tabOn { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink) inset; }
-/* «+ Trupp», at the rail's OWN trailing end — a fixed-width column beside the chip grid, so it
-   never costs the grid a whole row the way the old full-width «+ Trupp» tab
-   (`grid-column: 1 / -1`) did. Reuses the header's own icon-button chrome (`.orderBtn`) rather
-   than inventing a second 44px-square style. The bell stays in the header, not here. */
-.railActs { flex: none; display: flex; align-items: center; }
+/* «+ Trupp» — one more cell of the SAME grid, so it is exactly as wide as a chip and as tall as
+   its row (05.09.). Before this it was a 44px square in a fixed column of its own beside the
+   strip: the only thing on the rail that matched neither the width nor the height of a tab, and
+   it took the width the Trupp names needed. It carries the tab's chrome and only drops what a
+   tab has and it does not — the two text lines. */
+.tabAdd { color: var(--ink-dim); }
+.tabAdd :global(.i) { width: 20px; height: 20px; }
+@media (hover: hover) { .tabAdd:hover { color: var(--ink); border-color: var(--ink-faint); } }
 /* As tall as its content, never stretched: the card should fit the screen with Druck and the
    actions in view, and only scroll when it truly cannot. Nothing shrinks under its content
    (sections overlapped when they did). */

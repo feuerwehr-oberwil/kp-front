@@ -18,13 +18,14 @@ export function isMapReadOnlyTool(id: string): boolean {
   return (MAP_READONLY_TOOLS as readonly string[]).includes(id)
 }
 
-interface RailEntry { id: string; sep?: boolean; slot?: boolean }
+interface RailEntry { id: string; sep?: boolean; slot?: boolean; alt?: { id: string } }
 
 /**
  * Filter a tool-rail list down to `allowed`, keeping the rail's group rhythm honest: the
- * `slot` marker (the Symbol primary — always a create tool) is dropped, and a separator
+ * `slot` marker (the Symbol primary — always a create tool) is dropped, a separator
  * survives only when it still divides two kept tools, so no rail ever opens or closes on a
- * stray divider.
+ * stray divider, and a kept tool loses its second state (`alt`, e.g. Auswahl's Mehrfach) unless
+ * that one is allowed too — a locked rail must not offer a toggle the surface bounces out of.
  */
 export function slimTools<T extends RailEntry>(tools: readonly T[], allowed: readonly string[]): T[] {
   const kept: T[] = []
@@ -34,7 +35,7 @@ export function slimTools<T extends RailEntry>(tools: readonly T[], allowed: rea
     if (t.sep) { if (kept.length) pendingSep = t; continue }
     if (!allowed.includes(t.id)) continue
     if (pendingSep) { kept.push(pendingSep); pendingSep = null }
-    kept.push(t)
+    kept.push(t.alt && !allowed.includes(t.alt.id) ? { ...t, alt: undefined } : t)
   }
   return kept
 }

@@ -37,7 +37,9 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
     <div className="opacity" onClick={(e) => e.stopPropagation()}>
       <Slider value={opacity} onChange={(v) => onOpacity(id, v)}
         ariaLabel={`${label} – ${appConfig.copy.layerPanel.opacity}`} valueText={`${opacity} %`} />
-      <span>{opacity}%</span>
+      {/* the live read-out — its own class, never a bare `span`: the row's styling would
+          otherwise reach into the Slider's own spans (see 05-navrail.css · .opacity-v) */}
+      <span className="opacity-v">{opacity}%</span>
     </div>
   )
   const bases = layers.filter((l) => l.base)

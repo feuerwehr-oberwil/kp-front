@@ -28,6 +28,12 @@ export interface LaneDraw { from: number; to: number }
  * the Deckung strip keep theirs, so the axis can still be pushed along by dragging those). A hold
  * that has to be discovered before the surface does anything is a worse answer than not needing one.
  *
+ * `touch-action: pan-y` only wins the axis at the CSS level — a touch pointer captured on
+ * pointerdown still fights it, because a captured pointer stops being a scroll candidate the
+ * moment it is claimed. So on touch the capture itself waits for a confirmed horizontal drag
+ * (onPointerMove bails to the browser instead, and clears any pending hold, the instant a move
+ * turns out to be vertical-dominant); mouse/pen have no rival gesture and still capture at once.
+ *
  * Everything snaps to the half-hour grid (lib/shifts). Live gestures are reported through
  * `preview` / `draw` so a bar follows the finger without a workspace write per pointer event —
  * only the release commits, which also keeps undo to one step per gesture.
@@ -50,7 +56,7 @@ export function useLaneGesture(opts: {
   const [preview, setPreview] = useState<Shift | null>(null)
   const [draw, setDraw] = useState<LaneDraw | null>(null)
   const drag = useRef<{
-    shift: Shift | null; edge: DragEdge; startX: number; startAt: number
+    shift: Shift | null; edge: DragEdge; startX: number; startY: number; startAt: number
     rect: DOMRect; moved: boolean; held: boolean
   } | null>(null)
   const holdTimer = useRef<number | null>(null)
@@ -72,10 +78,15 @@ export function useLaneGesture(opts: {
     const lane = e.currentTarget.closest('[data-lane]') as HTMLElement | null
     if (!lane) return
     e.stopPropagation()
-    e.currentTarget.setPointerCapture?.(e.pointerId)
+    // Touch defers pointer capture until a horizontal drag is actually confirmed (see
+    // onPointerMove) — claiming it on every press, before anything has moved, is what made a
+    // plain vertical swipe fail to scroll the Mannschaft: once a touch pointer is captured,
+    // WebKit stops treating it as a scroll candidate even though `touch-action: pan-y` still
+    // permits one. Mouse/pen have no such rival gesture, so they capture at once, as before.
+    if (e.pointerType !== 'touch') e.currentTarget.setPointerCapture?.(e.pointerId)
     const rect = lane.getBoundingClientRect()
     drag.current = {
-      shift: sh, edge, startX: e.clientX, startAt: timeAt(e.clientX, rect), rect, moved: false, held: false,
+      shift: sh, edge, startX: e.clientX, startY: e.clientY, startAt: timeAt(e.clientX, rect), rect, moved: false, held: false,
     }
     clearHold()
     // FINGER ONLY. The hold timer fires after 450ms of near-stillness, and a stylus is more
@@ -96,10 +107,23 @@ export function useLaneGesture(opts: {
     const d = drag.current
     if (!d || d.held) return
     const dx = e.clientX - d.startX
-    if (!Number.isFinite(dx)) return
-    if (!d.moved && Math.abs(dx) < DRAG_PX) return
-    d.moved = true
-    clearHold()
+    const dy = e.clientY - d.startY
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
+    if (!d.moved) {
+      // Touch, mostly-VERTICAL move: this is a scroll of the Mannschaft, not a sweep or a bar
+      // drag — hand it back to the browser instead of arming anything. Checked before the
+      // DRAG_PX gate below (not after), so a diagonal-ish swipe whose dy outruns its dx bails
+      // to scroll before dx ever gets a chance to cross its own threshold from finger jitter.
+      if (e.pointerType === 'touch' && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) >= DRAG_PX) {
+        drag.current = null
+        clearHold()
+        return
+      }
+      if (Math.abs(dx) < DRAG_PX) return
+      d.moved = true
+      clearHold()
+      if (e.pointerType === 'touch') e.currentTarget.setPointerCapture?.(e.pointerId)
+    }
     if (d.shift) {
       const total = opts.span.to - opts.span.from
       setPreview(dragShift(d.shift, d.edge, (dx / Math.max(1, d.rect.width)) * total, opts.span))

@@ -511,8 +511,8 @@
 .adm-select.open .adm-select-btn { border-color: var(--blue); background: var(--surface); }
 .adm-select-btn.mono .adm-select-val { font-family: var(--mono); font-weight: 500; }
 .adm-select-val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.adm-select-chev { width: 16px; height: 16px; flex: none; color: var(--ink-faint); transition: transform .15s var(--ease); }
-.adm-select.open .adm-select-chev { transform: rotate(180deg); }
+.adm-select-chev { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
+/* the ▾ flip is the app-wide `.chev` (02-base.css), driven by this button's aria-expanded */
 .adm-select-list {
   position: absolute; z-index: var(--z-dock); top: calc(100% + 4px); left: 0; right: 0;
   margin: 0; padding: 5px; list-style: none; max-height: 264px; overflow-y: auto;

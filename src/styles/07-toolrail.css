@@ -62,8 +62,11 @@
    46px icon box: mid-collapse the box no longer fits and the chevron painted outside the rail
    for a frame or two, floating over the map. Clipped, it slides under the edge instead. */
 .vrail-exp { overflow: hidden; flex-direction: row-reverse; }
-.vrail-exp .i { width: 18px; height: 18px; transform: rotate(180deg); }
+/* state-driven via the ancestor `.vrail.expanded` (not aria-expanded, so the global `.chev`
+   rule stays out of it); the transition matches 02-base's chevron beat */
+.vrail-exp .i { width: 18px; height: 18px; transform: rotate(180deg); transition: transform .16s var(--ease); }
 .vrail.expanded .vrail-exp .i { transform: rotate(0deg); }
+@media (prefers-reduced-motion: reduce) { .vrail-exp .i { transition: none; } }
 /* tool buttons mirror the left rail's nav-item: a fixed right-edge glyph column + a
    label that shows only in the committed expanded state (never mid-drag, so it can't clip) */
 .vrail-tool { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none;

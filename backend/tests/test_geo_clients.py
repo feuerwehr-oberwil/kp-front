@@ -264,6 +264,41 @@ async def test_search_retries_unbiased_when_the_biased_pass_finds_nothing(patch_
     assert "bbox" not in calls[1]
 
 
+async def test_search_merges_in_national_hits_when_the_biased_pass_is_short(patch_httpx, monkeypatch):
+    """⚠️ The reported bug (05.09.): pass 1 is not EMPTY just because the wanted address is
+    out of region — a loose local match (a same-named street, a stray parcel) can fill
+    `results` on its own, and the old `if not results` retry never fired once it did. A
+    genuine mutual-aid address (Muttenz, searched from the Oberwil deployment) then never
+    got a second pass no matter how precisely it was typed. Now pass 2 fires whenever the
+    region hasn't already filled the request, and its hits are MERGED in (deduped by
+    coordinate) rather than discarded — the home hit still ranks first via `_home_first`,
+    but the far one is no longer invisible."""
+    monkeypatch.setattr(settings, "geocoder_default_locality", "4104 Oberwil", raising=False)
+    monkeypatch.setattr(settings, "geocoder_bbox_lv95", "2610000,1265000,2620000,1267000", raising=False)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        if "bbox" in params:
+            # one loose local match — non-empty, so the pre-fix retry never fired
+            return httpx.Response(
+                200,
+                json={"results": [{"attrs": {"lat": 47.52, "lon": 7.57, "label": "Hauptstrasse 1 4104 Oberwil"}}]},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {"attrs": {"lat": 47.52, "lon": 7.57, "label": "Hauptstrasse 1 4104 Oberwil"}},
+                    {"attrs": {"lat": 47.53, "lon": 7.65, "label": "Hauptstrasse 1 4132 Muttenz"}},
+                ]
+            },
+        )
+
+    patch_httpx(handler)
+    hits = await geocode.search("Hauptstrasse 1")
+    assert [h.label for h in hits] == ["Hauptstrasse 1 4104 Oberwil", "Hauptstrasse 1 4132 Muttenz"]
+
+
 async def test_search_with_no_bias_configured_is_a_single_national_pass(patch_httpx, monkeypatch):
     """No bbox → no retry-on-empty either: the first pass is already unbiased, so a second,
     identical request would only waste a round-trip."""

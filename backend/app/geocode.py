@@ -157,24 +157,39 @@ async def search(address: str, limit: int = 6) -> list[GeoHit]:
     }
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            # Pass 1: bias to the region when a bbox is configured (restricts the result
-            # set); with no bias this first pass is already an unbiased national search.
+            # Pass 1: bias to the region when a bbox is configured. ⚠️ swisstopo's `bbox` is a
+            # hard geographic filter on the SearchServer, not merely a ranking hint (docs/
+            # CONFIGURATION.md's own "to rank local hits" comment notwithstanding) — nothing
+            # outside it comes back from this pass, `sortbbox` only orders what's inside.
             params1 = {**base}
             if bbox:
                 params1 = {**base, "bbox": bbox, "sortbbox": "true"}
             r = await client.get(settings.geocoder_url, params=params1)
             r.raise_for_status()
             results = r.json().get("results", [])
-            # Pass 2: nothing local → retry unbiased so a genuine out-of-region address
-            # (mutual aid in a neighbouring town) still resolves.
-            if not results and bbox:
+            # Pass 2: fill the rest nationally. ⚠️ 05.09. fix — this used to fire only when
+            # pass 1 came back COMPLETELY empty, on the assumption that any local hit meant the
+            # region had answered. It hadn't: a query for a genuinely out-of-region address
+            # (Muttenz, searched from the Oberwil deployment) can still turn up a loose local
+            # match — a same-named street, a parcel — that fills `results` without being what
+            # was typed, and the real answer never got a second pass. Mutual-aid addresses are
+            # real, so this now runs whenever the region hasn't already filled the request,
+            # merging in whatever the region pass missed (deduped by coordinate, region first)
+            # rather than replacing it — a partial local match still belongs at the top.
+            if bbox and len(results) < limit:
                 r = await client.get(settings.geocoder_url, params=base)
                 r.raise_for_status()
-                results = r.json().get("results", [])
+                extra = r.json().get("results", [])
+                seen = {(a["lat"], a["lon"]) for res in results if (a := res.get("attrs", {})) and "lat" in a}
+                results = results + [
+                    res
+                    for res in extra
+                    if (a := res.get("attrs", {})) and "lat" in a and (a["lat"], a["lon"]) not in seen
+                ]
     except (httpx.HTTPError, ValueError) as e:
         logger.warning("Geocode failed for %r: %s", address, e)
         return []
-    return _home_first(_parse(results), default_locality)
+    return _home_first(_parse(results), default_locality)[:limit]
 
 
 async def geocode(address: str) -> tuple[float, float] | None:

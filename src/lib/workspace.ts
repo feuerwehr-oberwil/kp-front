@@ -3,6 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
 import { keyCartoTileTemplates } from './carto'
+import { loadLayerPrefs } from './layerPrefs'
 import type { ChecklistState } from './checklists'
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
@@ -575,8 +576,11 @@ export function demoSeedRebase(ws: Saved, incidentId: string, rev: number, now: 
  * Derive App's initial state slices from an incident's workspace blob (or empty for a
  * brand-new incident — no demo seed; a fresh incident starts blank). `prefs` carries the
  * remembered surface/plan so reopening the SAME incident honours it. `incidentType` (the
- * Einsatz category) pre-activates matching reference layers — but only on a workspace that
- * has never persisted layer state, so a deliberate hide is never overridden on reopen.
+ * Einsatz category) pre-activates matching reference layers — but only where no layer state has
+ * been persisted for this device yet, so a deliberate hide is never overridden on reopen.
+ *
+ * ⚠️ Which Ebenen are on comes from the DEVICE (lib/layerPrefs), with the blob's `layerState` as
+ * a one-time seed — see the layer block below.
  */
 export function deriveInitial(
   ws: Saved | null,
@@ -592,8 +596,13 @@ export function deriveInitial(
   const seen = new Set(initialLayers.map((l) => l.id))
   const allLayers = [...initialLayers, ...referenceLayersFromConfig().filter((l) => !seen.has(l.id))]
     .map(keyCartoTileTemplates)
-  let layers = ws?.layerState
-    ? allLayers.map((l) => { const s = ws.layerState!.find((x) => x.id === l.id); return s ? { ...l, visible: s.visible, opacity: s.opacity } : l })
+  /* Which Ebenen to open with is a DEVICE question (lib/layerPrefs): what this tablet was last
+   * looking at, not what somebody else's phone was. The blob's `layerState` is only the seed, for
+   * a device that has never said — an incident recorded before 05.09., or a second device joining
+   * one — so nothing an existing workspace carries is lost, and nothing new is imposed. */
+  const saved = loadLayerPrefs(incidentId) ?? (ws?.layerState?.length ? ws.layerState : undefined)
+  let layers = saved
+    ? allLayers.map((l) => { const s = saved.find((x) => x.id === l.id); return s ? { ...l, visible: s.visible, opacity: s.opacity } : l })
     : allLayers
   // A workspace whose selected base map no longer exists (base defs were trimmed) would
   // otherwise render NO background — fall back to the first base (Carto, the default).
@@ -602,8 +611,8 @@ export function deriveInitial(
     if (fallbackId) layers = layers.map((l) => (l.id === fallbackId ? { ...l, visible: true } : l))
   }
   // Category-driven pre-activation (hydrants for a fire, …) — fresh workspaces only:
-  // once layerState has been persisted, the operator's own toggles are authoritative.
-  if (!ws?.layerState) layers = autoActivateLayers(layers, incidentType)
+  // once a layer state has been persisted, the operator's own toggles are authoritative.
+  if (!saved) layers = autoActivateLayers(layers, incidentType)
   const ids = new Set(entities.map((e) => e.id))
   const timeline = (ws?.timeline ?? []).map((e) => (e.entityId && !ids.has(e.entityId) ? { ...e, entityId: undefined } : e))
   return {

@@ -404,6 +404,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 }
 .wb-trupp-opt b { flex: 1; }
 .wb-trupp-opt i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
+/* «AS» — the Trupp in this row is under Atemschutz. A FACT about the crew, not an alarm, so it
+   wears the quiet status tone; amber and red belong to a clock running out and must never turn
+   up on a picker. Same mark, same tone, as the Trupp-Suche's row (TruppFinder.module.css). */
+.wb-trupp-as { flex: none; font: 800 11px var(--body); padding: 2px 6px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--blue) 13%, transparent); color: var(--blue); }
 /* already placed on this surface: visible (so you can see WHY it is not offered) but inert —
    picking it would move the existing marker, not add a second one */
 .wb-trupp-opt.placed { opacity: var(--disabled); cursor: default; }

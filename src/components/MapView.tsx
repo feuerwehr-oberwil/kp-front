@@ -214,8 +214,6 @@ interface Props {
   onNoteEdit?: (id: string) => void
   /** open a note's detail panel (the ⚙ handle) — see MapMarkers */
   onNotePanel?: (id: string) => void
-  /** drag a note text box's width in screen px — see MapMarkers */
-  onNoteWidth?: (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => void
   /** team markers (Trupp tracking on the map) — see MapMarkers */
   trupps?: Trupp[]
   /** per-Trupp contact-clock tier (see atemschutz · AtemschutzAlarmState.severities) — tints the
@@ -387,7 +385,7 @@ interface Props {
 }
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
@@ -2634,7 +2632,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onNoteCommit={onNoteCommit}
         onNoteEdit={onNoteEdit}
         onNotePanel={onNotePanel}
-        onNoteWidth={onNoteWidth}
         trupps={trupps}
         onShowTrupp={onShowTrupp}
         onTeamTrupp={onTeamTrupp}

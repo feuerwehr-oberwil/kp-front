@@ -45,6 +45,16 @@ describe('LayerPanel · Deckkraft', () => {
     expect([id, v]).toEqual([twin.id, 54])
   })
 
+  // …and the read-out beside it is NOT a bare <span>. `.opacity span` matched every span inside
+  // the slider too — and beat `.uslider-thumb` on specificity, so its 34px width painted the
+  // 18px round thumb as an ellipse. The class is what keeps the row's styling off the control.
+  it('names its read-out, so the row cannot style the slider', () => {
+    const { container } = render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop} />)
+    const row = container.querySelector('.opacity')!
+    expect(row.querySelector('.opacity-v')?.textContent).toBe('60%')
+    expect(Array.from(row.children).filter((c) => c.tagName === 'SPAN' && !c.className)).toHaveLength(0)
+  })
+
   it('has no row where there is nothing to make transparent', () => {
     // a mirrored SYMBOL layer is shown or it is not — it carries no `opacity` (georefTwins)
     render(<LayerPanel layers={[{ ...plan, opacity: undefined }]} twins={[{ ...twin, opacity: undefined }]} onToggle={noop} onOpacity={noop} />)

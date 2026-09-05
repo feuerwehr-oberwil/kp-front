@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ROTATION_ASPECT_MIN, ROTATION_MAX_M, ROTATION_MAX_N, SHAPE_MAX_M, SHAPE_MAX_N, ROTATION_W_M, SHAPE_TWO_POINT, rotationBox, rotationRun, rotationWidth, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MIN_M, SHAPE_MIN_N, SHAPE_ORDER, SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, rotationInner, rotationViewBox, shapeAspect, shapeAspectMax, shapeStrokeFactor, squareInner, squareViewBox } from './shapes'
+import { ROTATION_ASPECT_MIN, ROTATION_DEFAULT_RUN_M, ROTATION_DEFAULT_RUN_N, ROTATION_MAX_M, ROTATION_MAX_N, SHAPE_MAX_M, SHAPE_MAX_N, ROTATION_W_M, ROTATION_W_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationRun, rotationWidth, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MIN_M, SHAPE_MIN_N, SHAPE_ORDER, SHAPE_STROKE_DEFAULT, SQUARE_FILL_DEFAULT, rotationInner, rotationViewBox, shapeAspect, shapeAspectMax, shapeStrokeFactor, squareInner, squareViewBox } from './shapes'
 import type { ShapeKind } from '../types'
 
 describe('SHAPE_ORDER / SHAPE_DEFS', () => {
@@ -288,6 +288,69 @@ describe('Rotation als zwei Punkte', () => {
     expect(SHAPE_TWO_POINT.rotation).toBe(true)
     expect(SHAPE_AXIS_GRIPS.rotation).toBe(false)
     expect(SHAPE_ORDER.filter((k) => SHAPE_TWO_POINT[k])).toEqual(['rotation'])
+  })
+})
+
+// ⚠️ Lage ↔ Plan parity, arithmetic edition (05.09.). The metre constants and the fraction ones
+// were two unreconciled statements of one size: on Modul 1 (~1.5 km across) the same tap laid a
+// 600 m loop on the Plan against the Karte's 300 m. A sheet that knows its ground width now says
+// the same distance in its own unit.
+describe('rotationBoundsN — the Plan says the same ground distance as the Karte', () => {
+  it('reproduces the old default run on the ~750 m sheet the two unit systems were tuned on', () => {
+    const b = rotationBoundsN(ROTATION_DEFAULT_RUN_M / ROTATION_DEFAULT_RUN_N) // 750 m
+    expect(b.runN).toBeCloseTo(ROTATION_DEFAULT_RUN_N, 12)
+    // …the width band and the ceiling were never tuned on the same sheet — they agreed at ~900 m,
+    // ~1333 m and ~6667 m — so they only land in the same neighbourhood, not on the old numbers
+    expect(b.w.max / ROTATION_W_N.max).toBeGreaterThan(0.5)
+    expect(b.w.max / ROTATION_W_N.max).toBeLessThan(2)
+  })
+
+  it('halves every fraction on a sheet twice as wide — the ground distances do not move', () => {
+    const wide = rotationBoundsN(1500)
+    expect(wide.runN).toBeCloseTo(0.2, 12) // still 300 m
+    expect(wide.runN * 1500).toBeCloseTo(ROTATION_DEFAULT_RUN_M, 9)
+    expect(wide.w.min * 1500).toBeCloseTo(ROTATION_W_M.min, 9)
+    expect(wide.w.max * 1500).toBeCloseTo(ROTATION_W_M.max, 9)
+    expect(wide.maxN * 1500).toBeCloseTo(ROTATION_MAX_M, 6)
+    // …and exactly half of what the same numbers are on a 750 m sheet
+    const narrow = rotationBoundsN(750)
+    expect(wide.runN).toBeCloseTo(narrow.runN / 2, 12)
+    expect(wide.w.min).toBeCloseTo(narrow.w.min / 2, 12)
+    expect(wide.maxN).toBeCloseTo(narrow.maxN / 2, 12)
+  })
+
+  // A Gebäude floor stack derives its scale from the footprint span, so a ~30 m sheet KNOWS what
+  // it is worth — and 300 m there is ten sheet widths of object with its grips off the paper.
+  it('never lays a default longer than the sheet, but still lets the drag reach 300 m', () => {
+    const tiny = rotationBoundsN(30)
+    expect(tiny.runN).toBe(ROTATION_DEFAULT_RUN_N)
+    // the ceiling is on the DEFAULT only — the end drag and the ± stepper still reach 20 km
+    expect(tiny.maxN * 30).toBeCloseTo(ROTATION_MAX_M, 6)
+    expect(ROTATION_DEFAULT_RUN_M / 30).toBeLessThanOrEqual(tiny.maxN)
+  })
+
+  it('falls back to the plain fraction constants when the sheet has no scale', () => {
+    for (const noScale of [null, undefined, 0, -1, NaN]) {
+      const b = rotationBoundsN(noScale)
+      expect(b.runN).toBe(ROTATION_DEFAULT_RUN_N)
+      expect(b.w).toEqual(ROTATION_W_N)
+      expect(b.maxN).toBe(ROTATION_MAX_N)
+    }
+  })
+
+  // The derivation feeds `rotationBox` unchanged — a sheet fraction goes in, a sheet fraction is
+  // stored — so a default tap on a scaled Plan must round-trip to the Karte's own box.
+  it('lays a default loop whose ground run and width match the Karte metre for metre', () => {
+    for (const widthM of [750, 1500, 3000]) {
+      const b = rotationBoundsN(widthM)
+      const planBox = rotationBox(b.runN, b.w)
+      const mapBox = rotationBox(ROTATION_DEFAULT_RUN_M, ROTATION_W_M)
+      expect(rotationRun(planBox.size, planBox.aspect) * widthM).toBeCloseTo(rotationRun(mapBox.size, mapBox.aspect), 6)
+      expect(planBox.size * widthM).toBeCloseTo(mapBox.size, 6)
+      // the loop stays a racetrack, never a degenerate sliver, however wide the sheet
+      expect(planBox.aspect).toBeGreaterThanOrEqual(ROTATION_ASPECT_MIN)
+      expect(planBox.aspect).toBeLessThanOrEqual(shapeAspectMax('rotation'))
+    }
   })
 })
 

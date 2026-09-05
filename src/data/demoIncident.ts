@@ -44,7 +44,7 @@ export const layers: LayerDef[] = [
   { id: 'base-air', group: 'Basis', label: 'Satellit', icon: 'sat', base: true, visible: false, opacity: 100, tiles: [wmts('ch.swisstopo.swissimage')], maxzoom: 19, attribution: '© swisstopo' },
 
   // Operational layers: symbols → taktisch, vehicles → fahrzeuge, drawings/notes → markup.
-  // Wind/Wetter is always shown via the corner WindBadge (no toggle).
+  // Wind/Wetter is always shown via the TopBar's WeatherBadge (no toggle).
   { id: 'taktisch', group: 'Inhalte', label: 'Taktische Zeichen', icon: 'hex', visible: true },
   { id: 'fahrzeuge', group: 'Inhalte', label: 'Fahrzeuge', icon: 'truck', visible: true },
   // Off by default on purpose: the tracks answer "where did it come from?", which is an

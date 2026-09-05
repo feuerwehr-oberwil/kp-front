@@ -73,6 +73,27 @@
 .rowEdit { flex: none; display: flex; align-items: center; gap: 8px; }
 .over { color: var(--red); }
 
+/* The compact idle row's «+» — the whole control an untouched Position (0 verwendet) carries.
+   var(--tap) tall with a −4px block margin: the hit area is the full 44px, but it only claims
+   the row's 36px content box, so a compact row stays at the 48px every other row is, instead of
+   growing to 56 and undoing the space this compaction exists to win. No negative margin on the
+   right — the «+» ends where the ±stepper of a counted row ends, so the two forms share one
+   right edge down a group (the same rule the stock dots follow). */
+.addOne {
+  flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
+  margin-block: -4px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  background: transparent; color: var(--ink-dim); cursor: pointer;
+}
+@media (hover: hover) { .addOne:hover { border-color: var(--ink-faint); color: var(--ink); } }
+.addOne:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.addOne :global(.i) { width: 17px; height: 17px; }
+/* multi-source head line: the expand toggle and – while the row is compact – the «+» beside it.
+   A button cannot nest in a button, so they are siblings; the toggle keeps the whole rest of
+   the line, which is what makes the row's label its own hit target. */
+.rowMultiHead { display: flex; align-items: center; }
+.rowMultiHead > .rowExpand { flex: 1 1 auto; min-width: 0; }
+.rowMultiHead > .addOne { margin-right: 12px; }
+
 /* remaining-stock readout on a list row: filled dot = still there, empty = used; larger
    stocks fall back to the «noch N» chip. Low → amber, nothing left / over-use → red. */
 .dots { flex: none; display: inline-flex; align-items: center; gap: 3px; min-width: 34px; justify-content: flex-end; }
@@ -146,6 +167,13 @@
      line, so an expanded sub-row showed its dot in a completely different place from every
      collapsed row. Readout and controls travel as ONE right-aligned group. */
   .rowMain > .rowLabel + *, .rowMain > .subLabel + * { margin-left: auto; }
+  /* ⚠️ …except on a COMPACT row, where the whole point is that it does not wrap. The rule above
+     is sized for the ±stepper (~130px, which genuinely leaves the name nothing); Restbestand +
+     «+» take ~80px, so the name shares the line and the row is 48px instead of the ~72px two
+     wrapped lines cost — on a full catalogue that is most of the phone's screen back, and the
+     second line it saves only ever showed a 0. */
+  .rowCompact .rowMain { flex-wrap: nowrap; }
+  .rowCompact .rowMain > .rowLabel { flex: 1 1 auto; }
 }
 
 /* per-line remark — the sentence a quantity can't carry («an Werkhof übergeben»). Full width

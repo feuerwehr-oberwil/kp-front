@@ -24,7 +24,7 @@ export interface ToastStep {
   state: 'done' | 'now' | 'future' | 'fail'
   icon?: 'check' | 'warn' | 'printer'
 }
-interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; leaving?: boolean }
+interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle: ToneStyle; action?: ToastAction; steps?: ToastStep[]; onDismiss?: () => void; leaving?: boolean }
 /** A confirm that is on screen and waiting for its answer — the shared `ConfirmSpec` plus what
  *  only the pending state needs: which request it is, and the promise to settle. */
 interface ConfirmReq extends ConfirmSpec {
@@ -62,6 +62,10 @@ export function dismissToast(id: number) {
   if (!t || t.leaving) return
   const prev = timers.get(id)
   if (prev) { clearTimeout(prev); timers.delete(id) }
+  // every exit path runs through here (✕, swipe, timer, programmatic), so a toast that stands
+  // for a MODE (the Leitung-pick hint) can end the mode with itself. Must be idempotent —
+  // the mode's own teardown also dismisses the toast.
+  t.onDismiss?.()
   // leave the way it came in: `.toast.out` plays (.14s, shorter than the entrance), then the
   // node goes. The removal timer stays out of `timers` — nothing may cancel the second half.
   toasts = toasts.map((x) => (x.id === id ? { ...x, leaving: true } : x))
@@ -69,9 +73,9 @@ export function dismissToast(id: number) {
   setTimeout(() => { toasts = toasts.filter((x) => x.id !== id); emit() }, 160)
 }
 
-export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[] }): number {
+export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void }): number {
   const id = seq++
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? 'fill', action: opts?.action, steps: opts?.steps }]
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? 'fill', action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss }]
   emit()
   // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
   // action (e.g. confirm-with-undo) needs time to be seen and tapped.
@@ -208,6 +212,12 @@ function ToastCheck() {
   )
 }
 
+// …in CSS pixels of finger travel. Below this a drag springs back: the button/pill is a target
+// first and a slider second, so a shaky press must not throw away the undo — or the message —
+// it was aimed at. Shared by ToastAction's own cluster-flick and ToastRow's whole-pill swipe
+// below, so both read as the same gesture at the same distance.
+const FLICK = 56
+
 /**
  * The action cluster of a confirm-with-undo toast — «Rückgängig», and the way to get rid of it.
  *
@@ -217,14 +227,14 @@ function ToastCheck() {
  * directly when the operator needs the map area back.
  *
  * Two ways out, because they suit different moments: the ✕ for «not now, move», and a flick in
- * either direction for the hand that is already on its way to whatever sits underneath.
+ * either direction for the hand that is already on its way to whatever sits underneath. This
+ * cluster keeps its OWN drag rather than riding the whole-pill one ToastRow now offers — its
+ * buttons are real tap targets (Rückgängig fires the undo, ✕ is a plain close), and a whole-pill
+ * swipe starting under them would fire both gestures from one drag.
  */
 function ToastAction({ toast: t }: { toast: Toast }) {
   const [dx, setDx] = useState(0)
   const drag = useRef<{ id: number; x0: number } | null>(null)
-  // …in CSS pixels of finger travel. Below this it springs back: the button is a target first and
-  // a slider second, so a shaky press must not throw away the undo it was aimed at.
-  const FLICK = 56
   const end = (e: React.PointerEvent) => {
     if (!drag.current) return
     const moved = e.clientX - drag.current.x0
@@ -233,7 +243,11 @@ function ToastAction({ toast: t }: { toast: Toast }) {
     else setDx(0)
   }
   return (
-    <span className="toast-actions" style={dx ? { transform: `translateX(${dx}px)`, opacity: Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)) } : undefined}>
+    // bubble-phase stopPropagation: each button's OWN onPointerDown still fires first (target
+    // before ancestor), it just never reaches ToastRow's whole-pill drag above it — so the drag
+    // that now spans the whole pill never arms alongside a button's own tap/flick from one touch.
+    <span className="toast-actions" onPointerDown={(e) => e.stopPropagation()}
+      style={dx ? { transform: `translateX(${dx}px)`, opacity: Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)) } : undefined}>
       <button
         className="btn toast-action"
         // ⚠️ optional call: pointer capture keeps the flick tracking once the finger leaves the
@@ -264,6 +278,79 @@ function ToastAction({ toast: t }: { toast: Toast }) {
   )
 }
 
+/**
+ * One row of the toast stack. The whole PILL now follows a horizontal drag, not just the
+ * «Rückgängig»/✕ cluster (ToastAction, above) — below `FLICK` it springs back, past it the pill
+ * keeps travelling the way the finger went (inline transform, no transition — the drag itself
+ * must never lag the touch) and the toast dismisses once released. The CSS `transition` that then
+ * carries it the rest of the way off-screen is the ONLY animated part, so it — like every other
+ * CSS transition in the app — is already zeroed by the app-wide `prefers-reduced-motion` rule
+ * (03-map.css `* { transition-duration: .001ms !important }`); a reduced-motion viewer sees the
+ * same jump to «gone» without the travel, with no separate code path needed here.
+ *
+ * A tap must still work: a plain toast (no action/steps) dismisses on tap exactly as before —
+ * that's still the DOM `onClick`, unchanged, firing after a release the browser judged small
+ * enough to count as a tap rather than a swipe. The drag only ever *adds* the sideways follow;
+ * it never calls `preventDefault`, so the native click is never swallowed. And the cluster's own
+ * buttons stop the drag from arming under them (`onPointerDown` `stopPropagation`) — those keep
+ * their own tap and flick untouched, exactly as before this pill-wide swipe existed.
+ */
+function ToastRow({ t }: { t: Toast }) {
+  const [dx, setDx] = useState(0)
+  const [flung, setFlung] = useState(false)
+  const drag = useRef<{ id: number; x0: number } | null>(null)
+
+  const onDown = (e: React.PointerEvent) => {
+    drag.current = { id: e.pointerId, x0: e.clientX }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+  }
+  const onMove = (e: React.PointerEvent) => {
+    if (drag.current?.id !== e.pointerId) return
+    setDx(e.clientX - drag.current.x0)
+  }
+  const onUp = (e: React.PointerEvent) => {
+    if (drag.current?.id !== e.pointerId) return
+    const moved = e.clientX - drag.current.x0
+    drag.current = null
+    if (Math.abs(moved) < FLICK) { setDx(0); return }
+    // clear of the lane, not just past the threshold — the transition (JSX below) carries it the
+    // rest of the way while the pill fades, then dismissToast's own .16s (matching) takes the node
+    // out from under it.
+    setFlung(true)
+    setDx(moved < 0 ? -480 : 480)
+    dismissToast(t.id)
+  }
+
+  return (
+    <div
+      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${t.leaving ? ' out' : ''}${!t.action && !t.steps ? ' tap' : ''}`}
+      style={dx ? {
+        transform: `translateX(${dx}px)`,
+        opacity: flung ? 0 : Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)),
+        transition: flung ? 'transform .16s var(--ease), opacity .16s var(--ease)' : undefined,
+      } : undefined}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+      // a pill with no action had NO way off the screen but waiting, while still eating
+      // the taps aimed underneath it — plain toasts dismiss on a tap. Action pills keep
+      // their own controls (button + flick), live step toasts stay until their job ends.
+      onClick={!t.action && !t.steps ? () => dismissToast(t.id) : undefined}
+    >
+      {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
+        <>
+          {/* success + check gets the drawn-in tick; other icons (mic, map, …) stay the
+              sprite — their strokes can't be draw-animated through <use> anyway */}
+          {t.icon && (t.tone === 'success' && t.icon === 'check' ? <ToastCheck /> : <Icon id={t.icon} />)}
+          <span className="toast-message">{t.text}</span>
+        </>
+      )}
+      {t.action && <ToastAction toast={t} />}
+    </div>
+  )
+}
+
 export function Overlays() {
   useForceUpdate()
   const req = confirmReq
@@ -286,26 +373,7 @@ export function Overlays() {
           until the stack overflows its lane, and then starts the scroll at the OLDEST toast, so a
           burst hides the pill carrying «Rückgängig» below the fold with nothing saying so. */}
       <div className="toaster" aria-live="polite" aria-atomic="false">
-        {[...toasts].reverse().map((t) => (
-          <div
-            key={t.id}
-            className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${t.leaving ? ' out' : ''}${!t.action && !t.steps ? ' tap' : ''}`}
-            // a pill with no action had NO way off the screen but waiting, while still eating
-            // the taps aimed underneath it — plain toasts dismiss on a tap. Action pills keep
-            // their own controls (button + flick), live step toasts stay until their job ends.
-            onClick={!t.action && !t.steps ? () => dismissToast(t.id) : undefined}
-          >
-            {t.steps ? <ToastSteps steps={t.steps} text={t.text} /> : (
-              <>
-                {/* success + check gets the drawn-in tick; other icons (mic, map, …) stay the
-                    sprite — their strokes can't be draw-animated through <use> anyway */}
-                {t.icon && (t.tone === 'success' && t.icon === 'check' ? <ToastCheck /> : <Icon id={t.icon} />)}
-                <span className="toast-message">{t.text}</span>
-              </>
-            )}
-            {t.action && <ToastAction toast={t} />}
-          </div>
-        ))}
+        {[...toasts].reverse().map((t) => <ToastRow key={t.id} t={t} />)}
       </div>
 
       <ConfirmCard

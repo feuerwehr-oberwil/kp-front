@@ -2,6 +2,26 @@
    themselves — see app.css for the popover frame, the wheels and the actions row.
    Kept in a module of its own so the shared frame stays where it is. */
 
+/* Momentum + rubber-band for the scroll-snap columns themselves (mimicking the native Apple
+   picker feel) — targets the shared `.wheel` class (13-incident.css) plus a marker attribute set
+   in WheelPicker.tsx, fully `:global` so it never claims `.wheel` as a CSS-modules-local class;
+   kept here rather than in that file so the frame stays owned where it is.
+   `proximity`, not `mandatory`: mandatory forces a hard stop at every 44px row mid-fling, which
+   read as stiff/notchy under a real flick — WheelPicker.tsx's onScroll settle now lands the exact
+   row once movement actually stops (scrollBehavior() skips the animated correction under
+   prefers-reduced-motion). `overscroll-behavior: contain` keeps the native iOS rubber-band at
+   the list's own ends local to it, matching every other scrollport in this app, instead of
+   trying — and failing, since <body> blocks it — to hand the bounce off past the wheel. */
+:global(.wheel[data-scroll-physics]) {
+  scroll-snap-type: y proximity;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* no momentum to smooth over under reduced motion — go back to a hard, predictable stop */
+  :global(.wheel[data-scroll-physics]) { scroll-snap-type: y mandatory; }
+}
+
 /* Keyboard entry, on any device that has one. It does not REPLACE the wheels — it sits above them
    and moves them, so «ab Start», «noch da» and the day wheel are reachable with a mouse too. That
    split (wheels on touch, a bare text box at the desk) is why three rounds of features existed on

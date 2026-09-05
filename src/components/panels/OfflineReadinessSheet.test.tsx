@@ -17,7 +17,7 @@ const base = {
   symbolsReady: true, planCount: 0, objectLabel: null,
   weatherOk: false, weatherError: false, personnelCount: 0,
   syncStatus: 'synced' as const, lastSyncedAt: null,
-  onSyncNow: () => {}, onLoadAll: () => {}, onCancel: () => {},
+  onLoadAll: () => {}, onCancel: () => {},
 }
 
 afterEach(cleanup)

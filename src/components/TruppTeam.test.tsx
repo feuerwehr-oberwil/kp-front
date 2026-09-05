@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import type { Person } from '../types'
 import { TruppTeam } from './TruppTeam'
 import type { Slot } from './PersonField'
@@ -18,16 +20,17 @@ const personnel: Person[] = [
   person('p4', 'Graf Stefan'),
 ]
 
-function setup(value: Slot[] = [], opts: { assigned?: string[] } = {}) {
+function setup(value: Slot[] = [], opts: { assigned?: string[]; phone?: boolean; personnel?: Person[] } = {}) {
   const onChange = vi.fn<(next: Slot[]) => void>()
   render(
     <TruppTeam
       value={value}
       onChange={onChange}
-      personnel={personnel}
+      personnel={opts.personnel ?? personnel}
       legacyRoster={[]}
       presentIds={new Set(['p1', 'p2', 'p3'])}
       assignedIds={new Set(opts.assigned ?? [])}
+      phone={opts.phone}
     />,
   )
   return onChange
@@ -214,6 +217,88 @@ describe('TruppTeam', () => {
     })
     expect(screen.getByLabelText('Person suchen …').closest('label')!.className).toContain('teamSearchHint')
     expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))
+  })
+
+  /* ── The phone skin (05.09.) ────────────────────────────────────────────────────────────────
+   * Same control and the SAME record — `value[0]` is still the Gruppenführer, the same handlers
+   * crown and remove. What is gone on 375px is the room the tablet spends before anybody has been
+   * picked: three reserved slot rows and a standing roster list. The Trupp is a wrapping row of
+   * chips, and the Mannschaft appears only under a typed query.
+   */
+  describe('on a phone', () => {
+    const az = appConfig.copy.atemschutz
+    const phone = { phone: true }
+
+    it('shows no roster at rest — one dashed chip and the count the list used to carry', () => {
+      setup([], phone)
+      expect(screen.queryByRole('listbox')).toBeNull()
+      expect(screen.queryByRole('option')).toBeNull()
+      // three people are present in `setup`
+      expect(screen.getByText(fillTemplate(az.teamPresentCount, { n: 3 }))).toBeTruthy()
+      expect(screen.getByText(az.teamHintFirst)).toBeTruthy()
+      expect(screen.getByText(az.teamChipsEmpty)).toBeTruthy()
+    })
+
+    // …and once somebody is in it, the line says what the two halves of a chip do instead
+    it('reads the chip out once the Trupp has somebody in it', () => {
+      setup([{ name: 'Meier Anna', personId: 'p1' }], phone)
+      expect(screen.getByText(az.teamHintChips)).toBeTruthy()
+      expect(screen.queryByText(az.teamChipsEmpty)).toBeNull()
+      expect(screen.getByPlaceholderText(az.teamSearchMore)).toBeTruthy()
+    })
+
+    /* ⚠️ The list is the ANSWER to a query, not a surface to browse: four matches, and the Gast
+     * door under them. A fifth row would only be reached by scrolling a box that opened under the
+     * keyboard. */
+    it('caps the matches at four and keeps the Gast row under them', () => {
+      const many: Person[] = Array.from({ length: 7 }, (_, i) => person(`m${i}`, `Muster ${i}`))
+      setup([], { ...phone, personnel: many })
+      fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: 'Muster' } })
+      const opts = screen.getAllByRole('option')
+      expect(opts).toHaveLength(5) // 4 matches + the Gast door
+      expect(opts[4].textContent).toContain('als Gast hinzufügen')
+    })
+
+    it('adds the person a tapped result names, and clears the query with them', () => {
+      const onChange = setup([], phone)
+      const search = screen.getByLabelText(az.teamSearchPlaceholder)
+      fireEvent.change(search, { target: { value: 'bru' } })
+      fireEvent.click(screen.getByRole('option', { name: /Brunner Thomas/ }))
+      expect(onChange).toHaveBeenCalledWith([{ name: 'Brunner Thomas', personId: 'p3' }])
+      expect((search as HTMLInputElement).value).toBe('')
+      // …and with nothing typed the list is gone again, not left standing
+      expect(screen.queryByRole('listbox')).toBeNull()
+    })
+
+    /* The chip carries BOTH of the row's jobs on one target's worth of space, so the two must
+     * stay separate: the body crowns, the ✕ removes. A mis-grip crowns somebody, never takes
+     * them out of the Trupp. */
+    it('crowns from the chip body and removes from its ✕ — same record as the tablet', () => {
+      const value: Slot[] = [
+        { name: 'Meier Anna', personId: 'p1' },
+        { name: 'Huber Sarah', personId: 'p2' },
+      ]
+      const onChange = setup(value, phone)
+      fireEvent.click(screen.getByRole('button', { name: 'Huber Sarah als Gruppenführer' }))
+      expect(onChange).toHaveBeenCalledWith([
+        { name: 'Huber Sarah', personId: 'p2' },
+        { name: 'Meier Anna', personId: 'p1' },
+      ])
+      onChange.mockClear()
+      fireEvent.click(screen.getByRole('button', { name: 'Huber Sarah aus dem Trupp nehmen' }))
+      expect(onChange).toHaveBeenCalledWith([{ name: 'Meier Anna', personId: 'p1' }])
+      // the Gruppenführer's own chip states the fact and is not offered again
+      expect((screen.getByRole('button', { name: az.leaderLabel }) as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    // one person, one Trupp — the warning flow is unchanged, it just arrives through the search
+    it('still shows somebody already in another Trupp, greyed and not offered', () => {
+      setup([], { ...phone, assigned: ['p3'] })
+      fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: 'bru' } })
+      const taken = screen.getByRole('option', { name: /Brunner Thomas/ }) as HTMLButtonElement
+      expect(taken.disabled).toBe(true)
+      expect(taken.textContent).toContain(az.teamTaken)
+    })
   })
 
   it('drops a member without touching the rest of the order', () => {

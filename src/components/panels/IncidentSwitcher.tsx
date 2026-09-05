@@ -210,7 +210,8 @@ export function IncidentSwitcher({
             {statusMark}
           </span>
         )}
-        <Icon id="chevron-down" />
+        {/* ▾ while the dropdown is shut, ▴ while it stands open (02-base.css · .chev) */}
+        <Icon id="chevron-down" className="chev" />
       </button>
       {open && !sheetOpen && (
         <div className="ip-menu">

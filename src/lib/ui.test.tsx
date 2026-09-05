@@ -201,3 +201,57 @@ describe('getting a confirm-with-undo toast out of the way', () => {
     await waitFor(() => expect(screen.queryByText('zittrig gedrückt')).toBeNull())
   })
 })
+
+// The flick used to live only on the action cluster (Rückgängig/✕); the whole pill follows a
+// horizontal drag now, so a message with no action cluster at all can be swiped away too.
+// ⚠️ Look each pill up by its OWN text via `closest('.toast')`, never "the last `.toast` in the
+// DOM" — the store is module-level and a previous test's still-visible pill can outlive its test,
+// and the stack renders NEWEST-first (see Overlays), so a position-based lookup would as often as
+// not grab someone else's toast.
+describe('swiping the whole toast pill', () => {
+  const pillFor = (text: string) => screen.getByText(text).closest('.toast') as HTMLElement
+  const swipe = (el: Element, dx: number) => {
+    fireEvent.pointerDown(el, { pointerId: 1, clientX: 0 })
+    fireEvent.pointerMove(el, { pointerId: 1, clientX: dx })
+    fireEvent.pointerUp(el, { pointerId: 1, clientX: dx })
+  }
+
+  it('dismisses a plain toast on a drag past the flick threshold — no click needed', async () => {
+    render(<Overlays />)
+    act(() => { toast('weggewischte Nachricht') })
+    swipe(pillFor('weggewischte Nachricht'), 90)
+    await waitFor(() => expect(screen.queryByText('weggewischte Nachricht')).toBeNull())
+  })
+
+  it('springs back below the threshold — the pill stays, and a tap still dismisses it', async () => {
+    render(<Overlays />)
+    act(() => { toast('kaum bewegt') })
+    swipe(pillFor('kaum bewegt'), 10)
+    expect(screen.getByText('kaum bewegt')).toBeTruthy()
+    fireEvent.click(pillFor('kaum bewegt'))
+    await waitFor(() => expect(screen.queryByText('kaum bewegt')).toBeNull())
+  })
+
+  it('dragging the message area of an action toast dismisses it without running the undo', async () => {
+    render(<Overlays />)
+    const onClick = vi.fn()
+    act(() => { toast('Aktion weggewischt', { action: { label: 'Rückgängig', onClick } }) })
+    swipe(screen.getByText('Aktion weggewischt'), 90)
+    await waitFor(() => expect(screen.queryByText('Aktion weggewischt')).toBeNull())
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  // ToastAction keeps its OWN drag (see ui.tsx) — starting a press on Rückgängig/✕ must never
+  // also arm the whole-pill drag underneath it, or the two would fight over one touch.
+  it('does not arm the whole-pill drag when the drag starts on the action cluster', () => {
+    render(<Overlays />)
+    act(() => { toast('nur Cluster', { action: { label: 'Rückgängig', onClick: vi.fn() } }) })
+    const pill = pillFor('nur Cluster')
+    swipe(screen.getByRole('button', { name: 'Rückgängig' }), 30) // below the button's own 56px flick
+    expect(pill.style.transform).toBe('')
+  })
+
+  // No JS-side prefers-reduced-motion branch here on purpose (see ToastRow's comment): the travel
+  // is a plain CSS transition, so it is already zeroed by the app-wide reduced-motion rule
+  // (03-map.css) the same way every other CSS-only motion in the app is — nothing to unit-test.
+})

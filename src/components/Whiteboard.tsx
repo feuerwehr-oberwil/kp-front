@@ -35,9 +35,10 @@ import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { TwinTeamPill } from './TwinTeamPill'
 import { LockChip } from './LockChip'
-import { ShapeGlyph, ROTATION_DEFAULT_RUN_N, ROTATION_MAX_N, ROTATION_W_N, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
+import { ShapeGlyph, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
-import { noteScale, autoNoteWN, clampNoteWN, noteWN } from '../lib/notes'
+import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
+import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
@@ -374,6 +375,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // a freshly PLACED note goes straight into typing (editId) and must not mount the panel
   // over the keyboard, so placement selects without opening this.
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
+  // …and which of them was just PLACED, so its panel opens with the caret in the text field
+  // (the Karte's twin — IncidentWorkspace · notePlacedId). A one-shot: a later reopen is a read.
+  const [notePlacedId, setNotePlacedId] = useState<string | null>(null)
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
   const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
     { size: 'm', plain: false, color: '' },
@@ -469,7 +473,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // on pointer-down so a corner drag can be resolved in the shape's own rotated frame
   const rotate = useRef<{
     id: string; cx: number; cy: number; moved: boolean
-    mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'width' | 'radius' | 'endA' | 'endB'
+    mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'radius' | 'endA' | 'endB'
     rot: number; free: boolean; keepHeightN: number | null; aspectMax: number; maxN: number
     /** the shape's storey — stored y is storey-LOCAL (floorGeometry · localY), so every write
      *  of a board-global coordinate has to come back through it */
@@ -692,6 +696,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
     closeCalPrompt, commitCalibration,
   } = usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale })
+  /**
+   * The sheet's own ground width in metres — one normalized sheet width is `mPerU · measureAR`,
+   * because the measurement space is `(nx · measureAR, ny)` (lib/planScale's header) and a stored
+   * `x`/`sizeN` is a fraction of the WIDTH. Identical to `georefTwins · planGroundWidthM` for a
+   * georeferenced sheet (`activeScale.mPerU` is then the fit's `scaleMPerU`), but it also answers
+   * for a Gebäude stack and for a hand-calibrated plan, which is exactly what «the plan knows its
+   * scale» has to mean. Null on a sheet that does not know.
+   */
+  const planWidthM = activeScale ? activeScale.mPerU * measureAR : null
+  /** …so a Rotation on a scaled sheet states the same 300 m / 20–45 m / 20 km the Karte does
+   *  (lib/shapes · rotationBoundsN). Read by the placement tap, the two end grips and the ±
+   *  «Länge» stepper, so all three agree with each other and with the map. */
+  const rotN = rotationBoundsN(planWidthM)
 
   // --- Karte verknüpfen (Georeferenz) --------------------------------------------------------
   // The pairing mode itself lives in lib/georefMode — outside React, because on a phone this
@@ -1310,8 +1327,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         notePlain: noteDefaults.plain || undefined,
         color: noteDefaults.color || undefined,
       })
-      // straight into typing on the surface; the detail panel waits for the ⚙
-      setSelId(id); setEditId(id); setTool('pan'); log('type', appConfig.copy.whiteboard.placeText, { annoId: id, x, y, floor })
+      // Straight into typing — in the detail sheet, with the caret already in its text field
+      // (05.09., in lockstep with the Karte: IncidentWorkspace's note placement). The on-canvas
+      // inline editor is still the desktop double-tap.
+      setSelId(id); setNotePanelId(id); setNotePlacedId(id); setTool('pan'); log('type', appConfig.copy.whiteboard.placeText, { annoId: id, x, y, floor })
       return
     }
     if (tool === 'symbol') {
@@ -1349,7 +1368,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         const dx = x - rotStart[0], dy = (gy1 - gy0) * (sH / sW)
         const span = Math.hypot(dx, dy)
         const apart = span >= SHAPE_MIN_N
-        const box = rotationBox(apart ? span : ROTATION_DEFAULT_RUN_N, ROTATION_W_N)
+        const box = rotationBox(apart ? span : rotN.runN, rotN.w)
         geom = {
           x: apart ? (x + rotStart[0]) / 2 : rotStart[0],
           // the midpoint is halved in BOARD space and re-localised into the first tap's storey —
@@ -2102,7 +2121,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   // angle from the glyph centre to the pointer becomes the rotation (+90° so the
   // top knob leads); the whole gesture is one undo step (checkpoint on first move).
-  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'width' | 'radius' | 'endA' | 'endB' = 'rotate') => {
+  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'radius' | 'endA' | 'endB' = 'rotate') => {
     if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
     const a = annos.find((x) => x.id === id)
@@ -2146,8 +2165,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           : Math.max(0.005, (a?.sizeN ?? SHAPE_DEFS[shp].defaultSizeN) * shapeAspect(shp, a?.aspect)),
       aspectMax: shp ? shapeAspectMax(shp) : 5,
       // a Wasserpendel spans the plan; every other form stays inside the ordinary cap
-      // (lib/shapes · SHAPE_MAX_N — the same number the ± stepper clamps to)
-      maxN: SHAPE_MAX_N[shp ?? 'square'],
+      // (lib/shapes · SHAPE_MAX_N — the same number the ± stepper clamps to). The loop's ceiling
+      // is 20 km of GROUND, so on a scaled sheet it is that distance in the sheet's unit.
+      maxN: shp === 'rotation' ? rotN.maxN : SHAPE_MAX_N[shp ?? 'square'],
     }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }
@@ -2165,7 +2185,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const snap = trackEndMagnet(st.id, { x: ex, y: ey })
       if (snap) { ex = snap.x; ey = snap.y }
       const runN = Math.max(SHAPE_MIN_N, Math.min(st.maxN, Math.hypot(ex - f.x, ey - f.y) / sW))
-      const box = rotationBox(runN, ROTATION_W_N)
+      const box = rotationBox(runN, rotN.w)
       const deg = st.mode === 'endB'
         ? (Math.atan2(ey - f.y, ex - f.x) * 180) / Math.PI
         : (Math.atan2(f.y - ey, f.x - ex) * 180) / Math.PI
@@ -2229,13 +2249,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       patch(st.id, { radiusN: Math.max(appConfig.drawing.circleMinRadiusN, Math.min(CIRCLE_MAX_N, Math.hypot(e.clientX - st.cx, e.clientY - st.cy) / rect.width)) })
       return
     }
-    if (st.mode === 'width') {
-      // note text box: the grip sits on the RIGHT edge of a centre-anchored box, so the pointer
-      // distance from the centre is half the width. Normalized against the (scaled) plan width
-      // so the box keeps its proportion at every zoom — and prints at that same proportion.
-      patch(st.id, { wN: clampNoteWN((2 * Math.abs(e.clientX - st.cx)) / sW), noteAutoW: undefined })
-      return
-    }
     if (st.mode === 'cage') {
       // Hubretter cage tip: one handle sets the boom bearing (rotation2, no offset — the handle IS the
       // tip) AND the reach as a fraction of the (scaled) plan width — the plan analogue of reachM.
@@ -2258,7 +2271,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const patchOut = st.mode === 'endA' || st.mode === 'endB'
         ? { x: a.x, y: a.y, rotation: a.rotation, sizeN: a.sizeN, aspect: a.aspect }
       : st.mode === 'resize' || st.mode === 'sizeY' ? { sizeN: a.sizeN, aspect: a.aspect }
-      : st.mode === 'width' ? { wN: a.wN }
       : st.mode === 'radius' ? { radiusN: a.radiusN }
       : st.mode === 'cage' ? { rotation2: a.rotation2, reachN: a.reachN }
       : st.mode === 'rotate2' ? { rotation2: a.rotation2 } : { rotation: a.rotation }
@@ -2519,6 +2531,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // reaching for a tool means you are done reading this note — the panel should not sit there
   // while you place the next thing (selection alone doesn't change until that thing lands)
   useEffect(() => { if (tool !== 'pan') setNotePanelId(null) }, [tool])
+  // the «just placed» mark lives exactly as long as that panel does
+  useEffect(() => { if (notePlacedId && notePanelId !== notePlacedId) setNotePlacedId(null) }, [notePanelId, notePlacedId])
   // …and the same for a Zwilling's details, plus one more reason: the twin is a projection of
   // ANOTHER sheet's fit, so switching plan or arming the pairing mode makes the panel describe
   // something that is no longer on screen.
@@ -3611,13 +3625,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     a bare ✕ hovering a mis-tap away from the thing it destroys. The team pill's
                     trash and the multi-select group trash stay (decided): both are guarded
                     (trail lock / connection confirm) and have no panel of their own. */}
-                {/* right-edge width grip — a text box only. A one-line note has nothing to drag:
-                    its width IS its text, and the box shape is what «Zu Textfeld» hands out. */}
-                {a.kind === 'text' && selId === a.id && tool === 'pan' && !readOnly && (
-                  <button className="note-wgrip" title={appConfig.copy.notes.resizeHint} aria-label={appConfig.copy.notes.resizeHint} data-holdaction
-                    onPointerDown={(e) => rotDown(e, a.id, 'width')} onPointerMove={rotMove} onPointerUp={rotUp} onPointerCancel={rotUp}
-                    onClick={(e) => e.stopPropagation()}><Icon id="resize" /></button>
-                )}
+                {/* ⚠️ …and no right-edge width grip on a Textfeld either (05.09., with its Karte
+                    twin — MapMarkers). A note sizes itself to what is typed (`noteAutoW`), so the
+                    grip only ever un-did that, and it sat where a finger reaches for the note
+                    itself. Breite is not a decision the Kroki needs from anybody. */}
                 {/* generic shape: its size grips, riding the shape's rotation (identical to the
                     Lage map). The rotate knob left on 02.09. — the SelectionBar's ⟳ is the one
                     way to turn a Form. */}
@@ -3937,6 +3948,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           tools={readOnly ? slimPlanTools : planTools}
           active={tool}
           toolRefs={toolBtn}
+          // ⚠️ Auswahl and Mehrfach share ONE rail slot (05.09., the same on the Karte): the rail
+          // resolves that toggle, so a second tap on the armed Auswahl arrives here as 'lasso'
+          // and a tap on the armed Mehrfach as 'pan' — both plain tool switches from here.
           onPick={(id) => {
             if (id === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
             setTool(tool === id ? 'pan' : (id as BoardTool)); setPending(null)
@@ -4082,14 +4096,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         />
       )}
 
-      {/* note detail panel — the same ContextPanel, opened from the ⚙ handle rather than by
-          selecting (see notePanelId). The note's TEXT is its title, so the panel's title field
-          edits the note itself; `noteWidth` drives the Form row + the "Zu Textfeld" default. */}
+      {/* note detail panel — the same ContextPanel, opened by the tap that selects the note (see
+          notePanelId) and by placing one. The note's TEXT is its title, so the panel's title
+          field edits the note itself. */}
       {editorSlotFree && selNote && (
         <ContextPanel
           key={selNote.id}
           entity={{ ...selNote, label: selNote.text, subtitle: appConfig.copy.notes.section }}
           readOnly={readOnly}
+          // a note that was just put down opens ready to be written (see notePlacedId)
+          autoFocusNote={notePlacedId === selNote.id && !readOnly}
           onClose={() => setNotePanelId(null)}
           // one checkpoint when typing starts, one audit row on blur — the live `patch` writes
           // without a checkpoint, so committing again on blur used to snapshot the ALREADY typed
@@ -4107,7 +4123,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onFields={(fields) => patchCommit(selNote.id, { fields })}
           onNotes={(v) => patchCommit(selNote.id, { notes: v || undefined })}
           // a width set by hand ends the auto-fit; the size-slider step keeps it and re-measures
-          onNoteWidth={(w) => patchCommit(selNote.id, { wN: w ?? undefined, noteAutoW: undefined })}
           onNoteSize={(s) => patchCommit(selNote.id, selNote.noteAutoW
             ? { noteSize: s, wN: autoNoteWN(selNote.text ?? '', txtBase * scale * noteScale(s), sW) }
             : { noteSize: s })}
@@ -4353,7 +4368,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // are the two ends' gesture in fixed steps (lib/shapes · rotationBox).
           onScaleLength={(f) => {
             const run = rotationRun(selShape.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN, selShape.aspect)
-            const box = rotationBox(Math.max(SHAPE_MIN_N, Math.min(ROTATION_MAX_N, run * f)), ROTATION_W_N)
+            const box = rotationBox(Math.max(SHAPE_MIN_N, Math.min(rotN.maxN, run * f)), rotN.w)
             patchCommit(selShape.id, { sizeN: box.size, aspect: Math.round(box.aspect * 1000) / 1000 })
           }}
           onStop={(v) => patchCommit(selShape.id, { stop: v })}
@@ -4392,6 +4407,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 onClick={() => { placeTeamChip(truppPick.x, truppPick.y, truppPick.floor, t); setTruppPick(null) }}
               >
                 <span className="wb-trupp-cap" /><b>{t.name}</b>
+                {/* «AS» — this crew is under Presslufatmer. Both lists mix Atemschutz-Trupps and
+                    work squads, and the difference matters before the chip lands. Quiet blue: a
+                    fact about the Trupp, never the board's amber/red (a clock running out). */}
+                {isAtemschutzTrupp(t) && <span className="wb-trupp-as" title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>}
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
                   : (t.lineNo != null || t.lineNumber) ? <i>Ltg {t.lineNo ?? t.lineNumber}</i> : null}

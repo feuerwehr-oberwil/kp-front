@@ -411,6 +411,30 @@ describe('journalVocabulary · the Trupps', () => {
   })
 })
 
+/* ⚠️ The reported bug (05.09.): `truppOf` carries the Trupp's bare NAME, which IS its
+ * Gruppenführer's own name (types · Trupp.name) — so on the GF's OWN suggestion chip the hint
+ * used to repeat the name it already sits beside verbatim: a chip reading «Stich Markus ·
+ * Stich Markus». */
+describe('journalVocabulary · the crew hint on a person chip', () => {
+  const person = (id: string, displayName: string): Person => ({ id, displayName, active: true, updatedAt: '2026-09-04T06:00:00.000Z' })
+  const present = (displayNameSnapshot: string) =>
+    ({ status: 'present' as const, displayNameSnapshot, intervals: [{ from: '2026-09-04T06:00:00.000Z' }] })
+  const personnel = [person('p1', 'Stich Markus'), person('p2', 'Müller Hans')]
+  const attendance: AttendanceState = { p1: present('Stich Markus'), p2: present('Müller Hans') }
+  // Both members of «Trupp Stich Markus» map to the SAME bare string — its GF's own name.
+  const truppOf = new Map([['p1', 'Stich Markus'], ['p2', 'Stich Markus']])
+
+  it('suppresses the hint on the Gruppenführer’s own chip — it would only repeat the name', () => {
+    const vocab = journalVocabulary(personnel, attendance, truppOf)
+    expect(vocab.find((l) => l.id === 'p1')).toMatchObject({ name: 'Stich Markus', hint: undefined })
+  })
+
+  it('words everybody else’s hint through the same «Trupp …» term the Trupp chip itself uses', () => {
+    const vocab = journalVocabulary(personnel, attendance, truppOf)
+    expect(vocab.find((l) => l.id === 'p2')).toMatchObject({ name: 'Müller Hans', hint: 'Trupp Stich Markus' })
+  })
+})
+
 // ⚠️ A handover leaves the previous EL's Bemerkung standing (the app warns, it does not overwrite
 // what somebody wrote). Without a time the answer came out of the roster sort, so the journal could
 // keep naming the person who handed over an hour ago.

@@ -50,6 +50,10 @@
 .members { color: var(--ink-faint); }
 .chip { flex: none; font: 800 11px var(--body); padding: 3px 8px; border-radius: var(--r-pill);
   background: var(--fill-soft); color: var(--ink-faint); }
+/* «AS» — under Atemschutz. A FACT about the crew, not an alarm, so it wears the quiet status
+   tone; amber and red are reserved for a clock running out and must not appear on a picker. */
+.as { flex: none; font: 800 11px var(--body); padding: 3px 7px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--blue) 13%, transparent); color: var(--blue); }
 .go { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
 .go svg { width: 16px; height: 16px; }
 .rowOn .go { color: var(--blue); }

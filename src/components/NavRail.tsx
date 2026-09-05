@@ -67,8 +67,8 @@ export function NavRail(p: Props) {
           position. It stays for everybody else, which is who it was for: somebody who does not
           know the glyphs yet and wants the names once, without a trip to the Einstellungen. */}
       {p.labels !== 'short' && (
-        <button className="nav-exp rail-exp" onClick={() => rail.apply(!expanded)} aria-label={expanded ? nav.collapse : nav.expand}>
-          <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+        <button className="nav-exp rail-exp" onClick={() => rail.apply(!expanded)} aria-expanded={expanded} aria-label={expanded ? nav.collapse : nav.expand}>
+          <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" className="chev" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
         </button>
       )}
 
