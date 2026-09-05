@@ -7,6 +7,7 @@ air.
 """
 
 import asyncio
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -145,7 +146,9 @@ async def test_the_correct_pin_succeeds_once_the_bounded_cooldown_elapses(client
     cooldown ceiling and the operator's correct PIN gets in. Proves the throttle above is not an
     indefinite lockout, only a delay bounded by `pin_cooldown_steps_seconds`."""
     clock = {"t": 1000.0}
-    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+    # Swap the whole `time` reference, not `time.monotonic`: the latter mutates the shared stdlib
+    # module that asyncio's event loop also reads (loop.time()), which corrupts loop timing.
+    monkeypatch.setattr(pin_limiter_module, "time", SimpleNamespace(monotonic=lambda: clock["t"]))
     monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
 
     for _ in range(settings.pin_free_attempts + 6):
@@ -168,7 +171,9 @@ def test_a_flood_of_attempts_during_a_cooldown_does_not_extend_it(monkeypatch):
     flood that re-armed the timer would be the indefinite lockout property (A) courts)."""
     lim = PinLimiter()
     clock = {"t": 1000.0}
-    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+    # Swap the whole `time` reference, not `time.monotonic`: the latter mutates the shared stdlib
+    # module that asyncio's event loop also reads (loop.time()), which corrupts loop timing.
+    monkeypatch.setattr(pin_limiter_module, "time", SimpleNamespace(monotonic=lambda: clock["t"]))
 
     for _ in range(settings.pin_free_attempts + 1):
         assert lim.reserve("u|ip") == 0  # free tier, then the attempt that trips the ladder
@@ -192,7 +197,9 @@ def test_a_flood_of_attempts_during_a_cooldown_does_not_extend_it(monkeypatch):
 async def test_the_correct_admin_secret_succeeds_once_the_bounded_cooldown_elapses(client, monkeypatch):
     """Property (B) for the admin door."""
     clock = {"t": 1000.0}
-    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+    # Swap the whole `time` reference, not `time.monotonic`: the latter mutates the shared stdlib
+    # module that asyncio's event loop also reads (loop.time()), which corrupts loop timing.
+    monkeypatch.setattr(pin_limiter_module, "time", SimpleNamespace(monotonic=lambda: clock["t"]))
     monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
 
     for _ in range(settings.pin_free_attempts + 6):
@@ -254,7 +261,9 @@ async def test_the_bounded_verifier_caps_concurrent_bcrypt(client, editor, monke
 def test_buckets_from_unknown_users_expire(monkeypatch):
     lim = PinLimiter()
     clock = {"t": 1000.0}
-    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+    # Swap the whole `time` reference, not `time.monotonic`: the latter mutates the shared stdlib
+    # module that asyncio's event loop also reads (loop.time()), which corrupts loop timing.
+    monkeypatch.setattr(pin_limiter_module, "time", SimpleNamespace(monotonic=lambda: clock["t"]))
 
     for i in range(50):
         lim.reserve(f"{i}|203.0.113.1")
@@ -269,7 +278,9 @@ def test_buckets_from_unknown_users_expire(monkeypatch):
 def test_bucket_map_stays_bounded_under_a_flood_of_invented_keys(monkeypatch):
     lim = PinLimiter()
     clock = {"t": 1000.0}
-    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+    # Swap the whole `time` reference, not `time.monotonic`: the latter mutates the shared stdlib
+    # module that asyncio's event loop also reads (loop.time()), which corrupts loop timing.
+    monkeypatch.setattr(pin_limiter_module, "time", SimpleNamespace(monotonic=lambda: clock["t"]))
 
     for i in range(pin_limiter_module.MAX_BUCKETS * 2):
         clock["t"] += 0.001
@@ -281,7 +292,9 @@ def test_bucket_map_stays_bounded_under_a_flood_of_invented_keys(monkeypatch):
 def test_an_expired_cooldown_returns_the_key_to_the_free_tier(monkeypatch):
     lim = PinLimiter()
     clock = {"t": 1000.0}
-    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+    # Swap the whole `time` reference, not `time.monotonic`: the latter mutates the shared stdlib
+    # module that asyncio's event loop also reads (loop.time()), which corrupts loop timing.
+    monkeypatch.setattr(pin_limiter_module, "time", SimpleNamespace(monotonic=lambda: clock["t"]))
 
     for _ in range(settings.pin_free_attempts + 1):
         lim.reserve("u|ip")

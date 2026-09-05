@@ -21,7 +21,7 @@ import json
 import logging
 import math
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     import requests
@@ -34,6 +34,11 @@ from .models import Incident, JournalEntry, PushSubscription
 from .transaction_hooks import after_commit
 
 logger = logging.getLogger(__name__)
+
+# What the push service said about one send. Only "accepted" is a real delivery — a "retry"
+# (transient failure, e.g. 503) must NOT be recorded as delivered, or the renotify ledger would
+# suppress that endpoint's next Atemschutz alarm for a whole window; "gone" (404/410) is pruned.
+SendOutcome = Literal["accepted", "retry", "gone"]
 
 
 def push_enabled() -> bool:
@@ -332,9 +337,10 @@ def _no_redirect_session() -> "requests.Session":
     return session
 
 
-def _send_one(sub: dict, payload: str) -> bool:
-    """Blocking pywebpush send; returns False when the subscription should be pruned
-    (endpoint gone per the push service, or the stored keys are unusable)."""
+def _send_one(sub: dict, payload: str) -> SendOutcome:
+    """Blocking pywebpush send. "accepted" = the push service took it; "gone" = the endpoint is
+    dead (404/410) or its keys are unusable, so the caller prunes it; "retry" = a transient failure
+    (e.g. 503) — keep the row and let the next sweep try again (never counted as delivered)."""
     from pywebpush import WebPushException, webpush
 
     from .credentials import get as credential
@@ -349,16 +355,16 @@ def _send_one(sub: dict, payload: str) -> bool:
             timeout=PUSH_TIMEOUT_SECONDS,
             requests_session=_no_redirect_session(),
         )
-        return True
+        return "accepted"
     except WebPushException as e:
         code = getattr(getattr(e, "response", None), "status_code", None)
         if code in (404, 410):
-            return False  # endpoint gone — caller prunes it
+            return "gone"  # endpoint gone — caller prunes it
         logger.warning("Web push failed (%s): %s", code, e)
-        return True
+        return "retry"  # transient (503, timeout, …): NOT a delivery — retry next sweep
     except Exception:  # intake must survive a broken push path  # malformed keys must not abort the whole sweep
         logger.exception("Web push subscription unusable — pruning %s", sub["endpoint"][:60])
-        return False
+        return "gone"
 
 
 async def broadcast(
@@ -393,25 +399,27 @@ async def broadcast(
     # STOPS WAITING at BROADCAST_DEADLINE_SECONDS rather than holding the alarm path open.
     gate = asyncio.Semaphore(BROADCAST_CONCURRENCY)
 
-    async def send(s: PushSubscription) -> tuple[str, bool]:
+    async def send(s: PushSubscription) -> tuple[str, SendOutcome]:
         async with gate:
-            keep = await asyncio.to_thread(
+            outcome = await asyncio.to_thread(
                 _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
             )
-        return s.endpoint, keep
+        return s.endpoint, outcome
 
     tasks = {asyncio.create_task(send(s)) for s in subs}
     _broadcast_tasks.update(tasks)
 
     def _record(task: asyncio.Task) -> None:
         _broadcast_tasks.discard(task)
-        # Note the recipient the push service ANSWERED — even a send that finishes AFTER this
-        # broadcast's deadline records here, so the next sweep skips it and never delivers twice.
+        # Note only the recipients the push service ACCEPTED — even a send that finishes AFTER this
+        # broadcast's deadline records here, so the next sweep skips it and never delivers twice. A
+        # "retry" (transient failure) is deliberately NOT recorded, so the next sweep tries it again.
         # Closes over this round's exact set object: a later renotify round replaces it (see
         # `_should_send`), so a very-late completion cannot pollute the fresh round.
         if delivered_set is None or task.cancelled() or task.exception() is not None:
             return
-        delivered_set.add(task.result()[0])
+        if task.result()[1] == "accepted":
+            delivered_set.add(task.result()[0])
 
     for t in tasks:
         t.add_done_callback(_record)
@@ -426,6 +434,7 @@ async def broadcast(
 
     delivered = 0
     dead: list[str] = []
+    retryable = False  # a send that failed transiently (503, …) — retry it on the next sweep
     for task in done:
         if task.cancelled():
             continue
@@ -435,12 +444,15 @@ async def broadcast(
             # unexpected. Log it and KEEP the subscription — pruning on an unknown fault would
             # silently unsubscribe a working device.
             logger.warning("Web push raised unexpectedly: %s", exc)
+            retryable = True
             continue
-        endpoint, keep = task.result()
-        if keep:
+        endpoint, outcome = task.result()
+        if outcome == "accepted":
             delivered += 1
-        else:
+        elif outcome == "gone":
             dead.append(endpoint)
+        else:  # "retry": keep the row, don't count it, and re-arm the crossing below
+            retryable = True
     if dead:
         # Only endpoints whose send finished before the deadline are pruned — a slow push service
         # is not a gone one, and a still-running send has no verdict yet.
@@ -454,11 +466,12 @@ async def broadcast(
             len(subs),
             BROADCAST_DEADLINE_SECONDS,
         )
-        # Re-arm this crossing so the NEXT sweep retries the recipients still outstanding rather
-        # than waiting a full renotify window. `_delivered` keeps the ones already reached, so the
-        # retry goes only to the missing — nobody is notified twice.
-        if dedup_key is not None:
-            _notified.pop(dedup_key, None)
+    # Re-arm this crossing so the NEXT sweep retries the recipients still missing — those still
+    # outstanding at the deadline (`pending`) AND those that failed transiently (`retryable`).
+    # `_delivered` keeps the ones already ACCEPTED, so the retry goes only to the missing and
+    # nobody is notified twice. Without this a 503'd device would wait a whole renotify window.
+    if dedup_key is not None and (pending or retryable):
+        _notified.pop(dedup_key, None)
     return delivered
 
 

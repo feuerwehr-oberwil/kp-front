@@ -485,8 +485,11 @@ class TestBroadcast:
     async def test_transient_failure_keeps_the_subscription(self, db_session, monkeypatch):
         import pywebpush
 
-        from app.push import broadcast
+        import app.push as push_mod
 
+        push_mod._notified.clear()
+        push_mod._delivered.clear()
+        push_mod._broadcast_tasks.clear()
         _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/flaky")
         await db_session.commit()
 
@@ -494,8 +497,16 @@ class TestBroadcast:
             raise pywebpush.WebPushException("busy", response=SimpleNamespace(status_code=503))
 
         monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
-        await broadcast(db_session, title="T", body="B", tag="t", target="")
+        push_mod._notified["az:x"] = NOW  # _should_send would have set this before broadcast
+        sent = await push_mod.broadcast(db_session, title="T", body="B", tag="t", target="", dedup_key="az:x")
+
+        # The row survives (a 503 is not a gone endpoint)…
         assert await _endpoints(db_session) == ["https://fcm.googleapis.com/fcm/send/flaky"]
+        assert sent == 0  # a transient failure is NOT a delivery
+        # …and, crucially, the flaky endpoint is NOT recorded delivered and the crossing is
+        # re-armed, so the next sweep retries it instead of suppressing it for a whole window.
+        assert "https://fcm.googleapis.com/fcm/send/flaky" not in push_mod._delivered.get("az:x", set())
+        assert "az:x" not in push_mod._notified  # re-armed for the retry
 
     async def test_happy_path_returns_full_count_and_keeps_the_crossing_armed(self, db_session, monkeypatch):
         """Every send lands within the deadline: the full count comes back, all recipients are
