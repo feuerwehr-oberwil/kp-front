@@ -264,3 +264,76 @@ def test_the_glyphs_a_rapport_needs_still_render(tmp_path):
         '<rect width="32" height="32" fill="url(#g)"/></svg>'
     )
     assert _has_magenta(kk.raster_svg(grad, 32))
+
+
+# --- native-raster pixel budget (SEC, 05.09.) ----------------------------------------------
+# Every native raster allocates one RGBA buffer of width·height. A caller-controlled plan
+# annotation drove those dimensions unbounded, so one authenticated request could exhaust the
+# process that renders every command tablet's Rapport. These pin the ceiling: hostile sizes are
+# clamped BEFORE resvg is asked for a buffer, legitimate sizes reach it untouched.
+
+_RECT_SVG = '<svg viewBox="0 0 4 4" xmlns="http://www.w3.org/2000/svg"><rect width="4" height="4"/></svg>'
+
+
+def _capture_raster_dims(monkeypatch):
+    """Intercept the native rasteriser and record every (width, height) it is ASKED for,
+    returning a 1×1 PNG so the test never allocates a real buffer — the auditor's own probe:
+    it is the dimensions handed to resvg, not the pixels, that prove the budget holds."""
+    import resvg_py
+
+    calls: list[tuple[int, int]] = []
+    tiny = io.BytesIO()
+    Image.new("RGBA", (1, 1), (0, 0, 0, 0)).save(tiny, "PNG")
+    png = tiny.getvalue()
+
+    def fake(*, svg_string, width, height, **_kw):
+        calls.append((width, height))
+        return png
+
+    monkeypatch.setattr(resvg_py, "svg_to_bytes", fake)
+    return calls
+
+
+def test_a_giant_north_size_n_never_allocates_beyond_the_budget(monkeypatch):
+    """The auditor's reproduction: a VIEWER POSTs a plan page whose north anno carries
+    ``sizeN:10``. On a 3200 px page that scaled to a 32000×32000 ≈ 4 GB resvg buffer — a
+    one-request memory-exhaustion DoS of the single service every command tablet shares."""
+    calls = _capture_raster_dims(monkeypatch)
+    kk.render_blank_page(0.2, [{"kind": "north", "x": 0.5, "y": 0.5, "sizeN": 10}], None)
+    assert calls, "the north dial never reached the rasteriser"
+    assert all(w <= kk._RASTER_MAX_EDGE and h <= kk._RASTER_MAX_EDGE for w, h in calls), calls
+
+
+def test_a_giant_symbol_size_n_and_aspect_never_allocate_beyond_the_budget(monkeypatch):
+    """A generic-shape anno drives BOTH edges — ``sizeN`` the width and ``aspect`` the height
+    (up to 5×), so it is the worse lever. Both are bounded at the source and again at resvg."""
+    calls = _capture_raster_dims(monkeypatch)
+    anno = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbolSvg": _RECT_SVG, "sizeN": 10, "aspect": 5}
+    kk.render_blank_page(1.0, [anno], None)
+    assert calls, "the symbol never reached the rasteriser"
+    assert all(w <= kk._RASTER_MAX_EDGE and h <= kk._RASTER_MAX_EDGE for w, h in calls), calls
+
+
+def test_raster_svg_clamps_a_directly_oversized_dimension(monkeypatch):
+    """The funnel itself is the last line: whatever a caller path computes, resvg is never asked
+    for more than the budget — and the exception fallback below allocates the same clamped box."""
+    calls = _capture_raster_dims(monkeypatch)
+    kk.raster_svg(_RECT_SVG, 40_000, 40_000)
+    assert calls == [(kk._RASTER_MAX_EDGE, kk._RASTER_MAX_EDGE)]
+
+
+def test_a_giant_blank_aspect_stays_within_the_page_budget():
+    """``blankAspect`` is caller-sent too; the base canvas it sizes is clamped ([0.2, 4.0]) so an
+    absurd aspect can never be the lever (a raw 10000 would be ~1.6 GB of white base)."""
+    img = kk.render_blank_page(10_000, [], None)
+    assert max(img.size) <= 1600 * 4 * 2  # aspect clamp × width × supersample
+
+
+def test_a_normal_annotation_still_reaches_resvg_unclamped(monkeypatch):
+    """The budget bites only hostile input: a default north dial (~0.055 of the page width)
+    rasterises at its true small size, well below the ceiling — legitimate plans are untouched."""
+    calls = _capture_raster_dims(monkeypatch)
+    kk.render_blank_page(1.0, [{"kind": "north", "x": 0.5, "y": 0.5}], None)
+    assert calls, "the north dial never reached the rasteriser"
+    w, h = calls[0]
+    assert w == h and 0 < w < kk._RASTER_MAX_EDGE  # ~176 px, nowhere near 8192
