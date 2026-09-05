@@ -9,9 +9,10 @@ cookie carrying no user identity (admin authority is the secret, not a role).
 import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
+from ..auth.client_ip import client_ip
 from ..auth.cookies import clear_admin_cookie, revoke_token, set_admin_cookie
 from ..auth.pin_limiter import pin_limiter
 from ..auth.security import admin_token_is_current, create_admin_token, decode_token
@@ -20,7 +21,10 @@ from ..config import settings
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# Single shared credential → one rate-limit bucket (the limiter is keyed by string).
+# One shared credential, but the cooldown is keyed per SOURCE, not globally (security audit
+# SEC-08). A single global bucket made hostile traffic from anywhere a remote lockout switch:
+# it kept winning the next slot, so a correct secret from the operator's own machine was met
+# with 429. Per-source, an attacker only ever throttles their own address.
 _RATE_KEY = "admin-secret"
 
 
@@ -53,15 +57,25 @@ async def admin_session_state(admin_session: Annotated[str | None, Cookie()] = N
 
 
 @router.post("/login")
-async def admin_login(body: AdminLogin, response: Response) -> dict:
+async def admin_login(body: AdminLogin, request: Request, response: Response) -> dict:
     if not settings.admin_secret:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin-Zugang ist auf diesem Server nicht eingerichtet (ADMIN_SECRET fehlt).",
         )
 
-    wait = pin_limiter.retry_after(_RATE_KEY)
-    if wait > 0:
+    # Reserve one slot for THIS source up front (like the PIN login), so a concurrent burst
+    # cannot slip past a check nobody has yet failed. A bucket already IN COOLDOWN is REJECTED
+    # here, BEFORE the secret is compared — a wrong guess AND a correct one. Rejecting the
+    # correct guess too is what throttles guessing: round 3 compared even while throttled
+    # ("a correct secret always wins"), so an attacker who exhausted the bucket could keep
+    # checking candidates and the moment one matched it authenticated (SEC-08 round 3
+    # regression). The block is bounded (pin_cooldown_steps_seconds caps at 120s) and
+    # non-extending (reserve counts nothing while blocked), so it always elapses into a recovery
+    # window; per-source keying keeps an attacker's flood on their own address only.
+    bucket = pin_limiter.key(_RATE_KEY, client_ip(request))
+    wait = pin_limiter.reserve(bucket)
+    if wait:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
@@ -69,7 +83,7 @@ async def admin_login(body: AdminLogin, response: Response) -> dict:
         )
 
     if not secrets.compare_digest(body.secret, settings.admin_secret):
-        cooldown = pin_limiter.record_failure(_RATE_KEY)
+        cooldown = pin_limiter.retry_after(bucket)  # installed by the reservation above
         # «Adminschlüssel» — the ONE name for this credential across the whole surface (the
         # unlock screen and the docs say the same). ADMIN_SECRET stays the env-var name only.
         detail = (
@@ -77,7 +91,7 @@ async def admin_login(body: AdminLogin, response: Response) -> dict:
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
-    pin_limiter.record_success(_RATE_KEY)
+    pin_limiter.record_success(bucket)
     set_admin_cookie(response, create_admin_token())
     return {"ok": True}
 

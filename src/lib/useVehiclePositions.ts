@@ -110,12 +110,13 @@ export const GPS_STALE_AFTER_MS = 60_000
 
 /**
  * What ends the Traccar polls for this session. 503 = this deployment has no Traccar configured;
- * 404 = no such route (no backend at all, or an older one). Either way the layer stays empty by
- * design, so an unconfigured deployment costs one request per app load instead of a 15 s
+ * 404 = no such route (no backend at all, or an older one); 403 = this session may not see the
+ * fleet (a report-view link — live vehicles are off its allowlist). Either way the layer stays
+ * empty by design, so an unconfigured deployment costs one request per app load instead of a 15 s
  * heartbeat — the battery concern that motivated the old build-time skip, which wrongly also
  * disabled the same-origin prod path. Shared with the trails feed, which has the same contract.
  */
-export const TRACCAR_DEAD_STATUSES = [503, 404] as const
+export const TRACCAR_DEAD_STATUSES = [503, 404, 403] as const
 
 /**
  * A signature of only the map-relevant state of the fleet — id, position and rotation per vehicle.

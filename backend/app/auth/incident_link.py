@@ -11,12 +11,16 @@ money or leaves the building.
 THE THIRD KIND OF LINK (2026-09-01)
 -----------------------------------
 The description above is the *alarm* link. Two more kinds land on the same door, tell
-themselves apart by one claim, and differ only in what keeps them alive:
+themselves apart by one claim, and differ in what keeps them alive — and, since 05.09., in
+how much they reach:
 
   · alarm (``kf``)      — alive while the station's minting key is unchanged AND the Einsatz
                           is open. Reaches ``LINK_ALLOWED``.
   · view (``vk``)       — alive while ``Incident.view_link_key`` is unchanged; survives the
-                          Einsatz closing, because that is its normal case. ``LINK_ALLOWED``.
+                          Einsatz closing, because that is its normal case. Reaches
+                          ``VIEW_LINK_ALLOWED``, which is strictly smaller: it is the only
+                          link that goes OUTSIDE the station, so it gets this Einsatz's own
+                          record and nothing that enumerates the station.
   · Atemschutz (``ak``) — alive while ``Incident.atemschutz_link_key`` is unchanged AND the
                           Einsatz is open. Reaches ``LINK_ALLOWED`` ∪ ``ATEMSCHUTZ_LINK_ALLOWED``.
 
@@ -101,6 +105,7 @@ incident the token was minted for, or a link to one incident reads every other o
 Fail-closed: no ``incident_link_key`` configured → the whole surface answers 403.
 """
 
+import contextlib
 import hashlib
 import secrets
 import uuid
@@ -159,6 +164,15 @@ _LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/api/incident-link/session"),
     }
 )
+
+#: The session-EXCHANGE endpoint — the one route that MINTS a link session from a mint/view/
+#: Atemschutz token. It is the bootstrap, so it is called with ``X-Incident-Link: use`` and no
+#: link cookie yet, and on the operator's own admin browser that means the forced-mode
+#: ambient-admin denial below (H2) would 403 it before the exchange runs. Exempt ONLY this path
+#: from that denial: it authenticates on the token's own signature, not on any cookie, and the
+#: response replaces the cookie wholesale. Every OTHER route stays denied ambient admin in
+#: forced mode, so the H2 containment guarantee is untouched.
+_SESSION_EXCHANGE: frozenset[tuple[str, str]] = frozenset({("POST", "/api/incident-link/session")})
 
 #: JWT ``type`` claim for both the inbound mint token and the session cookie. Distinct from
 #: "access"/"refresh"/"admin" so a link credential can never be mistaken for a real session.
@@ -284,9 +298,86 @@ ATEMSCHUTZ_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
     }
 )
 
+#: What a RAPPORT VIEW link may reach — its own, strictly narrower list (2026-09-05).
+#:
+#: The other two links go to somebody INSIDE the station, for an Einsatz that is running. This
+#: one goes outside it, for an Einsatz that is over: a Gemeinde, a Nachbarwehr, an insurer, and
+#: whoever they forward the URL to. Handing that holder the alarm link's list handed them the
+#: station's object register, the roster including people who have left, every Objektplan PDF
+#: and the live position of every vehicle — none of which is in the Rapport they were sent, and
+#: none of which becomes incident-scoped just because the token carries an incident claim.
+#:
+#: The rule is: THIS incident's record, plus the station material that record points at.
+#:
+#: Dropped from ``LINK_ALLOWED``, each for a stated reason:
+#:   /api/objects                    — the station's object register; enumeration, and the
+#:                                     viewer never calls it (the map uses …/objects below)
+#:   /api/traccar/*                  — where the fleet is RIGHT NOW; not in any Rapport, and an
+#:                                     outbound call triggered by someone outside the station
+#:   /api/weather                    — the other outbound call, and meaningless for a finished
+#:                                     Einsatz
+#:   /api/admin/login                — the admin door has no business on a forwarded page
+#:   …/positions POST + DELETE       — the alarm link's one write. Whoever is reading a
+#:                                     finished Rapport is not on the Einsatz; this link
+#:                                     writes NOTHING
+#:   …/{incident_id}/state           — no caller in the app at all
+#:
+#: Three entries stay but are narrowed per request by ``_view_link_param_allowed``, because the
+#: route is needed and the route's *answer* is station-wide:
+#:   /api/objects/{object_id}        — only objects surfaced FOR this Einsatz
+#:   /api/reference/{dataset_id}     — station reference data (hydrants, Checklisten, symbols)
+#:                                     yes; an Objektplan only for those same objects
+#:   /api/personnel                  — active roster only; ``?include_inactive`` is refused
+#:
+#: ⚠️ Kept deliberately: ``/api/auth/roster`` and ``/api/auth/login``. The roster route is
+#: PUBLIC (auth/router · roster takes no session), so refusing it here would protect nothing
+#: while breaking the member who taps a Rapport link and wants their own account back.
+VIEW_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
+    {
+        # the app, its manifest, and re-opening the link itself
+        ("GET", _SPA_FALLBACK),
+        ("GET", _WEBMANIFEST),
+        ("POST", "/api/incident-link/session"),
+        # signing in from the page — see the note above
+        ("GET", "/api/auth/roster"),
+        ("POST", "/api/auth/login"),
+        ("GET", "/api/auth/me"),
+        # what the app needs to render as this station at all
+        ("GET", "/api/config"),
+        ("GET", "/api/plan-scales"),
+        ("GET", "/api/branding/file/{key:path}"),
+        # the incident's own record — the Rapport, and everything it is derived from
+        ("GET", "/api/incidents/{incident_id}"),
+        ("GET", "/api/incidents/{incident_id}/workspace"),
+        ("GET", "/api/incidents/{incident_id}/journal"),
+        ("GET", "/api/incidents/{incident_id}/events"),
+        ("GET", "/api/incidents/{incident_id}/snapshot"),
+        ("GET", "/api/incidents/{incident_id}/samples"),
+        ("GET", "/api/incidents/{incident_id}/verify"),
+        ("GET", "/api/incidents/{incident_id}/objects"),
+        # …and its pictures. Already narrowed to this incident in api/media
+        # (`_deny_media_outside_link_scope`), since neither route carries an incident_id.
+        ("GET", "/api/media/{media_id}"),
+        ("GET", "/api/media/{media_id}/thumb"),
+        # station reference material, narrowed per request below
+        ("GET", "/api/reference"),
+        ("GET", "/api/reference/{dataset_id}"),
+        ("GET", "/api/objects/{object_id}"),
+        ("GET", "/api/personnel"),
+    }
+)
+
 #: Path params that name an incident. A route on the allowlist carrying one of these must
 #: carry the token's own incident.
 _INCIDENT_PARAMS = ("incident_id",)
+
+#: Reference datasets with NO object behind them that a Rapport view link legitimately needs:
+#: the hydrant/GeoJSON layers, the bundled symbol pack, and the Checklisten templates/assets —
+#: map and report furniture, the same for every Einsatz. A PDF is never furniture: an unbound
+#: one is still a document (a station-object plan), and handing it to a forwarded Rapport link
+#: is the SEC-02 leak. Anything not on this whitelist — a PDF, an unknown future kind — has to
+#: clear the surfaced-object bar instead, so ``object_id is None`` on its own grants nothing.
+_VIEW_LINK_FURNITURE_KINDS: frozenset[str] = frozenset({"geojson", "symbols", "checklists"})
 
 
 def link_page_owns_session(request: Request) -> bool:
@@ -437,6 +528,91 @@ async def _incident_still_open(db: AsyncSession, incident_id: str) -> bool:
     return row is not None and row.is_open
 
 
+async def _surfaced_object_ids(db: AsyncSession, incident_id: str) -> frozenset[uuid.UUID]:
+    """The Einsatzobjekte one incident points at.
+
+    The same set ``GET /api/incidents/{id}/objects`` serves — address match, then 400 m — plus
+    the object an editor picked by hand on the KP tablet, which the workspace carries as
+    ``pickedObjectId`` and which may sit well outside that radius.
+
+    Derived by CALLING the listing handler rather than re-deriving its rule: a second copy of
+    the address/radius logic would drift, and it would drift silently in the worst direction —
+    the Rapport's own Objektplan answering 403 to the person it was sent to.
+    """
+    from ..api.objects import objects_near_incident
+    from ..models import Incident
+
+    try:
+        ident = uuid.UUID(incident_id)
+    except (ValueError, AttributeError, TypeError):
+        return frozenset()
+
+    try:
+        # `_user` is that handler's auth dependency and is otherwise unused; this caller has
+        # already been authorised by the link session, so there is nobody to pass.
+        rows = await objects_near_incident(ident, None, db)  # type: ignore[arg-type]
+    except HTTPException:  # the incident is gone → it surfaces nothing
+        return frozenset()
+
+    ids = {row.id for row in rows}
+    workspace = (await db.execute(select(Incident.map_workspace_json).where(Incident.id == ident))).scalar_one_or_none()
+    picked = (workspace or {}).get("pickedObjectId") if isinstance(workspace, dict) else None
+    if isinstance(picked, str):
+        with contextlib.suppress(ValueError):
+            ids.add(uuid.UUID(picked))
+    return frozenset(ids)
+
+
+async def _view_link_param_allowed(request: Request, db: AsyncSession, path: str, incident_id: str) -> bool:
+    """The second half of ``VIEW_LINK_ALLOWED``: three routes that a Rapport view genuinely
+    needs but that answer with station-wide data unless the request itself is narrowed.
+
+    A (method, path) allowlist cannot see this — it is about WHICH object, WHICH dataset, WHICH
+    roster — so it is decided here, on the parameters, against what this one incident points at.
+
+    Refusals are the ordinary ``_Denied``: "no such dataset" and "not for this Einsatz" must
+    stay one answer, or a holder maps the station's plan store by watching status codes.
+    """
+    from ..models import ReferenceDataset
+
+    if path == "/api/personnel":
+        # The list route hands out people who have left the corps on `?include_inactive=true`.
+        # That is administration, and it is what the finding reproduced.
+        raw = (request.query_params.get("include_inactive") or "").strip().lower()
+        return raw in ("", "false", "0", "no")
+
+    if path == "/api/objects/{object_id}":
+        got = request.path_params.get("object_id")
+        try:
+            wanted = uuid.UUID(str(got))
+        except (ValueError, TypeError):
+            return False
+        return wanted in await _surfaced_object_ids(db, incident_id)
+
+    if path == "/api/reference/{dataset_id}":
+        dataset_id = str(request.path_params.get("dataset_id"))
+        ds = (
+            await db.execute(
+                select(ReferenceDataset.object_id, ReferenceDataset.kind).where(ReferenceDataset.id == dataset_id)
+            )
+        ).one_or_none()
+        if ds is None:
+            return False  # unknown → refused exactly like forbidden
+        object_id, kind = ds
+        # An Objektplan IS somebody's building. Only for the objects this Einsatz surfaced — and
+        # a document has to clear that bar even with NO object behind it, or an unbound plan/PDF
+        # (object_id absent, kind "pdf") leaks whole to a forwarded Rapport link (SEC-02). So
+        # ``object_id is None`` grants nothing on its own: only the genuine station furniture
+        # below passes without an object.
+        if object_id is not None:
+            return object_id in await _surfaced_object_ids(db, incident_id)
+        # No object behind it → allow ONLY map/report furniture: hydrant/GeoJSON layers, the
+        # symbol pack, the Checklisten templates/assets. A PDF or an unknown kind is refused.
+        return kind in _VIEW_LINK_FURNITURE_KINDS
+
+    return True
+
+
 async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db)) -> None:
     """App-level gate. Runs on every route; no-ops unless the caller holds a link session.
 
@@ -445,8 +621,30 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     allowlist can be matched against path templates instead of re-implementing path matching
     with regexes that would drift from the real routes.
     """
+    # Both imported lazily: `cookies` imports LINK_COOKIE from this module, and `dependencies`
+    # imports read_link_session, so either at module level is a cycle.
+    from .cookies import ADMIN_COOKIE
+    from .dependencies import _admin_session_valid
+
     claims = read_link_session(request)
     if claims is None:
+        # ⚠️ Forced mode with no link session (H2). A page that sent `X-Incident-Link: use` asked
+        # to be the RESTRICTED link identity — not whatever the device is otherwise logged in as.
+        # `read_link_session` already withheld any ambient identity, so if there are no claims
+        # (link cookie absent or expired) the caller has none. An admin cookie lying in the same
+        # browser must NOT silently hand admin routes back: Codex reached /api/capture/secret with
+        # `use` + an admin cookie + no link cookie. Deny that path outright; the operator's own
+        # /admin pages send "off" and never enter this branch.
+        if link_page_owns_session(request) and await _admin_session_valid(request.cookies.get(ADMIN_COOKIE)):
+            # …except the session-EXCHANGE endpoint, which is how a link session is BORN: the
+            # bootstrap sends "use" with no link cookie yet, so denying it here 403'd the mint on
+            # an admin browser and disabled the Atemschutz feature (H2 regression). It
+            # authenticates on the token's signature, not this cookie, and replaces the cookie
+            # wholesale — so exempting only this route reopens nothing. Every other route stays
+            # denied.
+            if (request.method.upper(), _effective_path(request)) in _SESSION_EXCHANGE:
+                return
+            raise _Denied()
         return
 
     # A live admin session must not be narrowed by a leftover link cookie: the operator who
@@ -455,22 +653,31 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # present — skipping the allowlist on an unverified cookie would let anyone holding a
     # link and a scrap of garbage walk straight past it. Someone with a real admin session
     # already outranks every route this guard protects.
-    # Both imported lazily: `cookies` imports LINK_COOKIE from this module, and
-    # `dependencies` imports read_link_session, so either at module level is a cycle.
-    from .cookies import ADMIN_COOKIE
-    from .dependencies import _admin_session_valid
-
-    if await _admin_session_valid(request.cookies.get(ADMIN_COOKIE)):
+    #
+    # ⚠️ Except when the PAGE said it is the link (`LINK_MODE_HEADER` = "use"). That header is
+    # a request for the restricted identity, and `read_link_session` has already honoured it —
+    # so lifting the allowlist here anyway made the two disagree: /auth/me answered as the
+    # Atemschutz session for incident A while every route was reachable for incident B. A page
+    # that asks to be the link is the link, on an admin browser as much as any other; the
+    # operator's own /admin pages send "off" and are untouched by this.
+    if not link_page_owns_session(request) and await _admin_session_valid(request.cookies.get(ADMIN_COOKIE)):
         return
 
     path = _effective_path(request)
     if path is None:  # unrouted (404) — refuse rather than fall through
         raise _Denied()
 
-    # An Atemschutz session is the only one that widens the list, and it widens it by exactly
-    # three entries. Everything else about this guard is unchanged for it.
+    # One list per kind. The Atemschutz session widens the alarm list by exactly three entries;
+    # the VIEW session gets its own, strictly narrower one (see VIEW_LINK_ALLOWED) because it
+    # is the only link that leaves the station.
     atemschutz = bool(claims.get("ak"))
-    allowed = (LINK_ALLOWED | ATEMSCHUTZ_LINK_ALLOWED) if atemschutz else LINK_ALLOWED
+    view = bool(claims.get("vk"))
+    if atemschutz:
+        allowed = LINK_ALLOWED | ATEMSCHUTZ_LINK_ALLOWED
+    elif view:
+        allowed = VIEW_LINK_ALLOWED
+    else:
+        allowed = LINK_ALLOWED
     if (request.method.upper(), path) not in allowed:
         raise _Denied()
 
@@ -480,6 +687,11 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
         got = request.path_params.get(param)
         if got is not None and str(got) != str(scoped):
             raise _Denied()
+
+    # …and the routes that name no incident but answer with station-wide data are narrowed on
+    # their own parameters. Only the view link needs this: it is the only one handed outside.
+    if view and not await _view_link_param_allowed(request, db, path, str(scoped)):
+        raise _Denied()
 
     # Liveness checks: closing the Einsatz — or rotating the minting key — revokes every
     # link to it, immediately. Skipped for the SPA shell itself so a responder whose link

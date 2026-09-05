@@ -3,6 +3,7 @@ import { Icon } from '../lib/icons'
 import { useSymbols } from '../lib/useSymbols'
 import { symbolConfigurableFields, symbolControls } from '../lib/symbols'
 import { formatSymbolName } from '../lib/format'
+import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { appConfig } from '../config/appConfig'
 import { Table } from './ui'
 import type { FleetAttributeList } from '../lib/deploymentConfig'
@@ -170,7 +171,10 @@ export function FleetAttributesViewer({ lists }: { lists: FleetAttributeList[] }
                       <td rowSpan={span}>
                         <span className="adm-vname">
                           <span className="adm-view-glyph" aria-hidden>
-                            {glyph ? <span dangerouslySetInnerHTML={{ __html: glyph }} /> : <Icon id="hex" />}
+                            {/* ⚠️ SEC-01 — sanitise AT THIS SINK: a symbol's glyph can be
+                                editor-supplied `symbolSvg`. The sink sanitiser is the authoritative
+                                gate; every `dangerouslySetInnerHTML` taking an SVG string wraps it. */}
+                            {glyph ? <span dangerouslySetInnerHTML={{ __html: sanitizeSvg(glyph) }} /> : <Icon id="hex" />}
                           </span>
                           <span className="adm-view-id">
                             <span className="adm-view-name">{formatSymbolName(s.name) || s.name}</span>

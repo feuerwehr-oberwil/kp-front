@@ -146,6 +146,17 @@ class Settings(BaseSettings):
     # deletes it. Backstop for the Einsatz nobody closes — closing deletes the rows outright.
     position_ttl_hours: int = 6
 
+    # How many trusted reverse-proxy hops sit in front of this app (app/auth/client_ip.py).
+    # This is the ONLY thing that makes `X-Forwarded-For` trustworthy — the header is plain and
+    # forgeable, so a rate-limit key derived from it lets a direct client mint unlimited buckets
+    # (security audit SEC-08). SAFE DEFAULT 0: XFF is ignored entirely and the direct peer is the
+    # key. When set to N, exactly the N rightmost XFF entries are honoured as trusted hops and the
+    # client is taken from just left of them; a shorter chain than promised falls back to the peer.
+    # ⚠️ Railway/Caddy same-origin deployment: the reverse proxy is the one trusted hop, so set
+    # TRUSTED_FORWARDED_HOPS=1 there or every request keys on the proxy's address (one shared
+    # bucket) and the per-source throttle collapses. Add one hop per additional trusted proxy.
+    trusted_forwarded_hops: int = 0
+
     # --- Incident view links (logged-out read-only session; app/auth/incident_link.py) ---
     # Lifetime of the SESSION cookie minted in exchange for a link token. A backstop only:
     # the real rule is "valid until the incident is closed", which is enforced per request
@@ -326,6 +337,13 @@ class Settings(BaseSettings):
     # encrypted credential store still prevents it from being committed or baked into images.
     carto_api_key: str = ""
 
+    # Extra tile HOSTS the server-rendered Rapport may fetch a basemap from, comma-separated
+    # (e.g. "tiles.example.ch"). The three providers the app itself offers are built in
+    # (app/kroki.py · _TILE_PROVIDER_HOSTS); this is the escape hatch for a station running its
+    # own tile server. ⚠️ Env only — the tile template arrives in a caller's request body, so
+    # who may add a destination has to be whoever runs the deployment, not whoever is logged in.
+    report_tile_hosts: str = ""
+
     # --- Web Push (killed-app alarms: Atemschutz überfällig + Wiedervorlagen) ---
     # Generate a VAPID pair once per deployment (see .env.example); push is silently
     # disabled while unset — the in-app tone/notification path keeps working regardless.
@@ -334,6 +352,14 @@ class Settings(BaseSettings):
     vapid_subject: str = "mailto:kp-front@localhost"
     push_check_seconds: int = 30
     push_renotify_seconds: int = 120
+
+    # Extra Web-Push service HOSTS the alarm sender may POST an endpoint to, comma-separated
+    # (e.g. "push.mystation.ch"). The four major browser push services are built in
+    # (app/push.py · _PUSH_SERVICE_HOSTS); this is the escape hatch for a station running its own
+    # push service. Matched as host suffixes, like the built-ins. ⚠️ Env only — the endpoint
+    # arrives in a caller's request body, so who may add a destination has to be whoever runs the
+    # deployment, not whoever is logged in (SEC-09).
+    push_extra_hosts: str = ""
 
     # --- Weather / wind ---
     # Provider order: "meteoswiss" (nearest SMN station, primary) or "open-meteo"

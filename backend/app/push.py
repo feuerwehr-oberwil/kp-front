@@ -20,8 +20,11 @@ import asyncio
 import json
 import logging
 import math
-from datetime import UTC, datetime
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import requests
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -55,6 +58,13 @@ DEFAULT_INTERVAL_MIN = 5
 DEFAULT_GRACE_SEC = 60
 DEFAULT_ALARM_BAR = 100
 DEFAULT_ALARM_BAR_RUECKZUG = 50
+
+#: How long a registration stays a delivery target without being renewed. The SPA re-subscribes on
+#: every boot (src/lib/push.ts), so a row nobody has refreshed in half a year belongs to a browser
+#: profile that is gone. Registration expires the user's stale rows; delivery ALSO excludes them
+#: (`_deliverable`), so an expired row is never pushed to even before its owner next re-registers
+#: (SEC-09, 05.09.). Lives here, the sending side, and is imported by the registration route.
+SUBSCRIPTION_TTL_DAYS = 180
 
 
 def _ms(iso: str | None) -> float | None:
@@ -190,8 +200,130 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
 #: alarm sweeps still await a broadcast; every path needs a finite upper bound.
 PUSH_TIMEOUT_SECONDS = 10
 
+#: Sends in flight at once. The blocking sender runs on the default thread pool, which the rest
+#: of the app shares — an unbounded fan-out over every subscribed browser is how a push sweep
+#: starves the request path it was queued from.
+BROADCAST_CONCURRENCY = 8
+
+#: Wall clock for ONE broadcast. A per-endpoint timeout bounds one send; with more rows than
+#: `BROADCAST_CONCURRENCY` the queue behind them is what an awaiting alarm actually waits for,
+#: and an alarm that arrives late is the failure this whole module exists to prevent.
+BROADCAST_DEADLINE_SECONDS = 45
+
 # Strong references to post-commit tasks. asyncio itself holds only weak references.
 _inflight: set[asyncio.Task] = set()
+
+
+#: Web-Push endpoints this server will POST to: the four major browser push services, matched as
+#: host SUFFIXES (WNS and Apple shard by region — `sN.notify.windows.com`, `<region>.push.apple.com`
+#: — so an exact set would reject real endpoints). Before this, ANY public-HTTPS host a logged-in
+#: user registered became an outbound POST target, i.e. the alarm sender was a request forwarder
+#: from the server's own network position. SEC-09 closes that by rejecting arbitrary hosts and
+#: accepting only a known push service (plus the admin escape hatch below). Mirrors
+#: kroki._TILE_PROVIDER_HOSTS — the two caller-chosen egress surfaces this app has.
+_PUSH_SERVICE_HOSTS = frozenset(
+    {
+        "fcm.googleapis.com",  # Chromium / FCM
+        "updates.push.services.mozilla.com",  # Firefox / Mozilla autopush
+        "notify.windows.com",  # WNS: regional shards, e.g. sg2p.notify.windows.com
+        "push.apple.com",  # Safari / WebKit: web.push.apple.com + regional *.push.apple.com
+    }
+)
+
+
+def _push_extra_hosts() -> frozenset[str]:
+    """Extra push-service hosts this deployment's operator configured (PUSH_EXTRA_HOSTS) — the
+    escape hatch for a self-hosted push service. Env only, like REPORT_TILE_HOSTS: the endpoint
+    arrives in a caller's request body, so who may add a destination is whoever runs the
+    deployment, never whoever is logged in."""
+    return frozenset(h.strip().lower() for h in settings.push_extra_hosts.split(",") if h.strip())
+
+
+def is_known_push_host(host: str) -> bool:
+    """Whether an endpoint host is a major push service (or an admin-allowlisted one). Suffix
+    match on the DECODED, lower-cased host: the leading dot keeps a lookalike like
+    `fcm.googleapis.com.evil.example` out, and decoding first means a `%xx`-encoded host is judged
+    as what the transport will actually send it to — it can neither smuggle an arbitrary host past
+    the allowlist nor hide a known one from it (SEC-09, 05.09.)."""
+    from urllib.parse import unquote
+
+    h = unquote((host or "").strip()).strip().strip("[]").rstrip(".").lower()
+    if not h:
+        return False
+    return any(h == s or h.endswith(f".{s}") for s in _PUSH_SERVICE_HOSTS | _push_extra_hosts())
+
+
+def _deliverable():
+    """Subscriptions an alarm may go to: kiosk rows without a user, plus every ACTIVE user's.
+
+    An outer join, not a filter on a joined column — a `user_id` of NULL is a legitimate row
+    (a shared station browser that subscribed before it had a login) and an inner join would
+    silently stop notifying it.
+
+    Expired rows (past the TTL, never refreshed) are excluded here too: expiry ran only when a
+    user re-registered, so a phone that stopped booting the app was still being POSTed to for
+    months (SEC-09, 05.09.).
+    """
+    from .models import User
+
+    cutoff = datetime.now(UTC) - timedelta(days=SUBSCRIPTION_TTL_DAYS)
+    return (
+        select(PushSubscription)
+        .outerjoin(User, User.id == PushSubscription.user_id)
+        .where(
+            (PushSubscription.user_id.is_(None)) | (User.is_active.is_(True)),
+            PushSubscription.created_at >= cutoff,
+        )
+    )
+
+
+def _sendable(endpoint: str) -> bool:
+    """Last gate before the sender: a row stored before the destination policy existed (or
+    written by an older release) must not become an outbound request now. The policy DECODES the
+    host before judging it, so a stored `https://%31%32%37.0.0.1/…` — which `requests` would
+    normalise to loopback — is refused HERE rather than reaching 127.0.0.1 (SEC-09, 05.09.).
+
+    Two gates, both re-checked here so registration cannot be the ONLY enforcement point: the
+    endpoint must be public-HTTPS (`require_public_https`), and its host must be a known push
+    service or admin-allowlisted (`is_known_push_host`). The send-path re-check is what stops a
+    row written before SEC-09 — an arbitrary host that was accepted then — from being POSTed to now.
+
+    Static checks only — no DNS on the alarm path (a sweep re-validates dozens of rows inline on
+    the event loop, and registration is where resolution happens, app/api/push.py). Refusing an
+    already-resolvable name that has since rebound INWARDS would need `resolve=True` here; that is
+    left as the documented DNS-rebind residual (app/egress.py) and the `block_unresolved` seam."""
+    from .egress import EgressRefusedError, require_public_https
+
+    try:
+        host = require_public_https(endpoint, what="Push-Endpunkt")
+    except EgressRefusedError as e:
+        logger.warning("Push-Endpunkt übersprungen (%s): %.60s", e, endpoint)
+        return False
+    if not is_known_push_host(host):
+        logger.warning("Push-Endpunkt ist kein bekannter Push-Dienst — übersprungen: %.60s", endpoint)
+        return False
+    return True
+
+
+def _no_redirect_session() -> "requests.Session":
+    """A `requests` session that refuses to FOLLOW redirects.
+
+    ⚠️ pywebpush uses a default session, which follows redirects — so a subscription on a validated
+    public-HTTPS host that answers «301 → http://169.254.169.254» would have the encrypted body
+    re-POSTed to that loopback/metadata target (SEC-09, 05.09.). The destination stays the endpoint
+    registration and `_sendable` already vetted; a 3xx is simply not delivered (and not pruned — a
+    redirecting push service is not a gone one). Redirects are separate from the accepted
+    DNS-rebinding residual (app/egress.py); this closes them.
+    """
+    import requests
+
+    session = requests.Session()
+
+    def _no_redirects(resp, *_args, **_kwargs):  # requests calls this to build the redirect chain
+        return iter(())
+
+    session.resolve_redirects = _no_redirects  # type: ignore[method-assign]
+    return session
 
 
 def _send_one(sub: dict, payload: str) -> bool:
@@ -209,6 +341,7 @@ def _send_one(sub: dict, payload: str) -> bool:
             vapid_claims={"sub": credential("vapid_subject")},
             ttl=120,
             timeout=PUSH_TIMEOUT_SECONDS,
+            requests_session=_no_redirect_session(),
         )
         return True
     except WebPushException as e:
@@ -223,8 +356,12 @@ def _send_one(sub: dict, payload: str) -> bool:
 
 
 async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target: str | None) -> int:
-    """Push to every subscribed browser; prunes dead endpoints. Returns the send count."""
-    subs = list((await db.execute(select(PushSubscription))).scalars())
+    """Push to every subscribed browser of an ACTIVE user; prunes dead endpoints.
+
+    Returns the send count. A deactivated login keeps no delivery: the row survives (the person
+    may come back) but the alarm does not follow an account somebody switched off.
+    """
+    subs = [s for s in (await db.execute(_deliverable())).scalars() if _sendable(s.endpoint)]
     if not subs:
         return 0
     payload = json.dumps({"title": title, "body": body, "tag": tag, "target": target})
@@ -233,13 +370,27 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target
     # len(subs) x PUSH_TIMEOUT_SECONDS — twenty subscribed devices with one dead push service
     # meant minutes of hanging, and this is awaited inline in the alarm intake path. Fanned
     # out, the whole sweep costs one timeout regardless of how many endpoints are unreachable.
-    results = await asyncio.gather(
-        *(
-            asyncio.to_thread(_send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload)
-            for s in subs
-        ),
-        return_exceptions=True,
-    )
+    # Bounded on both axes: at most BROADCAST_CONCURRENCY threads, and the whole broadcast
+    # gives up at BROADCAST_DEADLINE_SECONDS rather than holding the alarm path open.
+    gate = asyncio.Semaphore(BROADCAST_CONCURRENCY)
+
+    async def send(s: PushSubscription) -> bool:
+        async with gate:
+            return await asyncio.to_thread(
+                _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
+            )
+
+    try:
+        results: list[bool | BaseException] = await asyncio.wait_for(
+            asyncio.gather(*(send(s) for s in subs), return_exceptions=True),
+            timeout=BROADCAST_DEADLINE_SECONDS,
+        )
+    except TimeoutError:
+        # The sends that did land are already delivered; what is dropped is the WAIT, so the
+        # caller (an alarm intake, a due-ness sweep) gets its thread back. Nothing is pruned on
+        # a timeout — a slow push service is not a gone one.
+        logger.warning("Push-Broadcast (%s) nach %ss abgebrochen", tag, BROADCAST_DEADLINE_SECONDS)
+        return 0
 
     dead: list[str] = []
     for s, ok in zip(subs, results, strict=True):

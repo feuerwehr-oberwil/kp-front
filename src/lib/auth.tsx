@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { apiGet, apiPost, ApiError, isUnverifiable, SESSION_EXPIRED_EVENT } from './api'
 import { idbGet, idbSet, idbDel } from './idb'
 import { getDeploymentConfig, isDemoMode, loadDeploymentConfig } from './deploymentConfig'
 import { syncMediaCacheAuth } from './authMediaCache'
+import { denyWorkspaceCache, setWorkspaceCacheOwner } from './api/workspaceSync'
 import { linkPageOwnsSession } from './linkMode'
 
 // The demo's public PIN (shown to every visitor) — used to auto-sign-in on demo instances so
@@ -52,9 +53,10 @@ interface AuthContextValue {
    *  that merely lost signal is told so, instead of «Dieser Link gilt nicht mehr». */
   probeUnreachable: boolean
   /** the session died mid-use and the transparent refresh could not repair it (api ·
-   *  SESSION_EXPIRED_EVENT). `user` stays set on purpose — the workspace keeps working on its
-   *  local cache — so a surface has to SAY it; this is the one flag that surface reads.
-   *  Cleared by a fresh login or a logout. */
+   *  SESSION_EXPIRED_EVENT). `user` stays set while that is all we know — the workspace keeps
+   *  working on its local cache — so a surface has to SAY it; this is the one flag that surface
+   *  reads. It is withdrawn once the server has ANSWERED: a live /me clears it, and a refusal
+   *  ends the session outright (see the listener below). Cleared by a fresh login or a logout. */
   sessionExpired: boolean
   login: (userId: string, pin: string) => Promise<void>
   logout: () => Promise<void>
@@ -91,14 +93,68 @@ function writeCachedUser(u: AuthUser | null) {
  *  before the splash gives up; a slow-but-alive server then simply gets the designed offline
  *  boot, which the next poll corrects. */
 const CACHED_PROBE_TIMEOUT_MS = 7_000
+
 /** how long the boot probe waits for the session-bearing config re-read before mounting the app */
 const SESSION_CONFIG_BUDGET_MS = 4_000
+
+/** Did the server ANSWER «no»? The whole offline story turns on this one distinction: a refusal
+ *  ends the session (and with it every cached read), silence changes nothing at all. */
+function isDenial(e: unknown): boolean {
+  return e instanceof ApiError && (e.status === 401 || e.status === 403)
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [probeUnreachable, setProbeUnreachable] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
+
+  /** Set the session AND tell the offline caches whose it is, in ONE step. Deliberately not an
+   *  effect: App mounts INSIDE this provider, so its own effects (opening the boot Einsatz off
+   *  the cache) run before ours would, and would read against a stale owner. */
+  const adoptUser = (u: AuthUser | null) => {
+    setWorkspaceCacheOwner(u?.id ?? null)
+    setUser(u)
+  }
+
+  // Cross-tab denial. The session cookie is shared by every tab, so a refusal in one tab must lock
+  // the others too — otherwise a second tab keeps serving cached reads, and can even re-grant the
+  // media worker on a service-worker controllerchange, until its OWN next server contact notices
+  // (that convergence-on-next-401 still stands — api · SESSION_EXPIRED_EVENT — this only makes it
+  // immediate). One BroadcastChannel carries the denial; a receiver runs the same lockdown locally,
+  // minus the re-broadcast. Proportionate: no shared state, no leader, just a one-shot signal.
+  const denialChannel = useRef<BroadcastChannel | null>(null)
+
+  /** The local half of a denial: lock the workspace cache, drop the view to the kiosk login, and
+   *  forbid an offline restore. Shared by a locally-detected refusal and one another tab broadcast.
+   *  Owner-stamped unsynced work stays on disk, gated to the same account's next sign-in. */
+  const denyLocally = () => {
+    denyWorkspaceCache()
+    adoptUser(null)       // …and the effect below tells the worker (authMediaCache · «logged-out»)
+    writeCachedUser(null) // no offline restore may resurrect a session the server has ended
+  }
+
+  /** A reachable server refused this session. The device loses its cached VIEW at once — a null
+   *  user IS the lock, since the kiosk login is what the gate renders then (main · Gate) — while
+   *  everything unsynced stays on disk, gated to the same account's next sign-in
+   *  (api/workspaceSync · denyWorkspaceCache). Deleting the operator's unflushed work because
+   *  their 8 h token ran out would be the worse failure of the two. Also tells the other tabs. */
+  const denySession = () => {
+    denyLocally()
+    denialChannel.current?.postMessage('denied')
+  }
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return // e.g. an old WebView: falls back to next-401 convergence
+    const channel = new BroadcastChannel('kp-auth-denial')
+    denialChannel.current = channel
+    // Another tab was refused. Do NOT re-broadcast (denyLocally, not denySession) — the sender
+    // already told everyone, and echoing would loop.
+    channel.onmessage = (e) => { if (e.data === 'denied') denyLocally() }
+    return () => { channel.close(); denialChannel.current = null }
+    // denyLocally only calls setState + module-level cache gates; no closure can go stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one channel for the page's life
+  }, [])
 
   // Demo instances skip the login screen: on a fresh visit (no session) auto-sign-in as the
   // demo editor so a visitor lands straight in the action. Fetch the roster, pick the editor,
@@ -152,16 +208,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!getDeploymentConfig().integrations?.cartoBasemapKey) {
           await Promise.race([loadDeploymentConfig().catch(() => {}), new Promise((r) => setTimeout(r, SESSION_CONFIG_BUDGET_MS))])
         }
-        if (alive) { setUser(u); writeCachedUser(u) }
+        if (alive) { adoptUser(u); writeCachedUser(u) }
       } catch (e) {
         if (!alive) return
         if (isUnverifiable(e)) {
-          if (cached) setUser(cached) // unverifiable, not refused — keep the session usable
+          if (cached) adoptUser(cached) // unverifiable, not refused — keep the session usable
           else setProbeUnreachable(true)
-        } else if (e instanceof ApiError && e.status === 401) {
-          writeCachedUser(null) // genuinely logged out
-          const demoUser = await tryDemoAutoLogin() // demo → straight in; real stations → login screen
-          if (alive && demoUser) { setUser(demoUser); writeCachedUser(demoUser) }
+        } else if (isDenial(e)) {
+          // A reachable refusal, 401 OR 403, clears the cached identity — or a later OFFLINE boot
+          // would restore a login the server has already rejected (SEC-10). Only a 401 means
+          // «not logged in», so only it lets the demo auto-sign-in; a 403 just lands on the login.
+          writeCachedUser(null)
+          if (e instanceof ApiError && e.status === 401) {
+            const demoUser = await tryDemoAutoLogin() // demo → straight in; real stations → login screen
+            if (alive && demoUser) { adoptUser(demoUser); writeCachedUser(demoUser) }
+          }
         }
       } finally {
         if (alive) setLoading(false)
@@ -170,11 +231,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { alive = false }
   }, [])
 
-  // The one listener for a session that died mid-use; the flag is what a banner consumes.
+  // The one listener for a session that died mid-use — and the one place that decides what that
+  // MEANS. `kp:session-expired` fires when a 401 could not be repaired, but the refresh POST
+  // deciding it counts a dropped connection as a refusal too (api · tryRefresh), so the event on
+  // its own cannot tell «the server said no» from «the server could not be asked». So ask once:
+  //
+  //   · a reachable 401/403 → the session is genuinely gone. Lock this device out of its caches
+  //     immediately (denySession); unsynced work is kept, not deleted.
+  //   · silence (offline, gateway, timeout) → NOTHING has been refused. The flag alone stands, the
+  //     Meldung says «Änderungen bleiben auf diesem Gerät», and the cached user, the cached media
+  //     and the cached workspace are as good as they were a minute ago. A cellar with no signal
+  //     must never be answered by signing the tablet out.
+  //   · a live /me → another tab repaired the session meanwhile: withdraw the warning.
+  //
+  // Single-flight: every failing request re-fires the event, and one answer settles all of them.
   useEffect(() => {
-    const onExpired = () => setSessionExpired(true)
+    let alive = true
+    let asking = false
+    const onExpired = () => {
+      setSessionExpired(true)
+      if (asking) return
+      asking = true
+      void (async () => {
+        try {
+          const u = await apiGet<AuthUser>('/api/auth/me', { timeoutMs: CACHED_PROBE_TIMEOUT_MS })
+          if (!alive) return
+          adoptUser(u)
+          writeCachedUser(u)
+          setSessionExpired(false)
+        } catch (e) {
+          if (alive && isDenial(e)) denySession()
+        } finally {
+          asking = false
+        }
+      })()
+    }
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    return () => { alive = false; window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired) }
+    // denySession only calls setState and module-level cache gates — no closure can go stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one listener for the page's life
   }, [])
 
   // Protected media is cached only for a known real-user client. Do not signal during the
@@ -189,7 +284,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // the backend's German `detail` (and disable the pad on a Retry-After).
   const login = async (userId: string, pin: string) => {
     const u = await apiPost<AuthUser>('/api/auth/login', { user_id: userId, pin })
-    setUser(u)
+    // The account is back: this is what lifts a denial and hands the offline cache — including
+    // any edit that never reached the server — to the user who left it there.
+    adoptUser(u)
     setSessionExpired(false)
     writeCachedUser(u)
     // ⚠️ Re-read the deployment config now that there IS a session. Parts of it are withheld
@@ -204,9 +301,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try { await apiPost('/api/auth/logout') } catch { /* best-effort — clear locally regardless */ }
-    setUser(null)
+    // Signing out is a refusal the operator asked for: the caches close behind it exactly as
+    // they do on a server-side revocation, and unsynced edits wait for the same user's return.
+    denySession()
     setSessionExpired(false)
-    writeCachedUser(null)
   }
 
   return (
