@@ -41,7 +41,12 @@ self.addEventListener('message', (event) => {
     // A link may fetch media the backend authorizes, but never via another user's cache.
     kpMediaClients.set(clientId, { kind: 'link' })
   } else if (event.data.kind === 'logged-out') {
-    kpMediaClients.delete(clientId)
+    // Sign-out AND explicit server denial arrive here (lib/auth · denySession). Both are about
+    // the whole browser, not one tab: every client shares the one cookie the server just
+    // refused, so every grant is dropped, not only the sender's. Other tabs fall back to
+    // unknown — network-only, no cache read — and only their own next sign-in re-arms them.
+    // A restarting worker starts with this same empty map, so it fails closed by construction.
+    kpMediaClients.clear()
     event.waitUntil(kpClearMediaOwner())
   }
 })

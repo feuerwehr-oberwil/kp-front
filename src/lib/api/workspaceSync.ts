@@ -21,8 +21,49 @@ type CacheEntry = {
   dirty: boolean
   lastSyncedAt: number | null
   base?: Workspace
+  /** WHO filled this cache (AuthUser.id at write time). Entries without one predate ownership
+   *  and belong to whoever is signed in on this device — see `mayRead`. */
+  owner?: string
 }
 const cacheKey = (id: string) => `kp-front-ws-${id}`
+
+// --- Who may read this device's offline cache ----------------------------------------
+// The cache is the product's core promise, so exactly two things close it, and NEITHER of them
+// is a lost connection: a session a reachable server has explicitly refused (SEC-10 — a revoked
+// or signed-out login must not keep reading the device's copy), and a cache another user filled.
+// Silence — airplane mode, a restarting server — refuses nothing and still reads.
+//
+// Device state, not per-instance: one engine exists per open incident, but the answer is about
+// the browser session. lib/auth is the only writer, because it is the only place that knows.
+let cacheOwner: string | null = null
+let cacheDenied = false
+
+/** The signed-in user settled (boot probe, login, logout). A real user id also LIFTS a denial —
+ *  the account is back, and the edits it left behind are its own again; `null` only drops
+ *  ownership, so a logout keeps the lock it set. */
+export function setWorkspaceCacheOwner(userId: string | null): void {
+  cacheOwner = userId
+  if (userId) cacheDenied = false
+}
+
+/** A reachable server explicitly refused this session (401 / logout). Cached workspaces stop
+ *  being readable at once. Nothing is deleted: unsynced edits stay on the device and are handed
+ *  back the moment the same user signs in — writing is never locked, only reading. */
+export function denyWorkspaceCache(): void {
+  cacheDenied = true
+}
+
+/** May this session be answered from what the cache holds? */
+function mayRead(entry: CacheEntry): boolean {
+  if (cacheDenied) return false
+  return !entry.owner || !cacheOwner || entry.owner === cacheOwner
+}
+
+/** Did the server ANSWER «no», as opposed to not answering at all (api · isUnverifiable)? Only
+ *  this closes the offline fallback; every other failure keeps the device usable. */
+function isDenial(e: unknown): boolean {
+  return e instanceof ApiError && (e.status === 401 || e.status === 403)
+}
 /** how long after the last save() the offline cache write waits for the next one */
 export const CACHE_DEBOUNCE_MS = 300
 
@@ -149,7 +190,9 @@ export class WorkspaceSync {
     this.debounceMs = opts.debounceMs ?? 3000
     // The cache lives in IndexedDB (async), so it can't be read in the constructor; init()
     // loads it before the first edit. Start empty/synced until then.
-    this.entry = { workspace: {}, baseRev: 0, dirty: false, lastSyncedAt: null }
+    // …stamped with the session that opened this incident, so a teardown write that lands AFTER
+    // that session ended (a denial unmounts the app) still says whose work it is.
+    this.entry = { workspace: {}, baseRev: 0, dirty: false, lastSyncedAt: null, owner: cacheOwner ?? undefined }
     this.base = 'synced'
     this.status = 'synced'
   }
@@ -188,6 +231,9 @@ export class WorkspaceSync {
     if (!this.cacheTimer) return
     clearTimeout(this.cacheTimer)
     this.cacheTimer = null
+    // Stamp the current session on the way out, so a later reopen can tell whose edits these
+    // are (mayRead). An unknown owner never erases the one already on the entry.
+    this.entry = { ...this.entry, owner: cacheOwner ?? this.entry.owner }
     void withTileEviction(() => idbSet(cacheKey(this.incidentId), this.entry)).then((ok) => {
       if (this.disposed || this.cacheDurable === ok) return
       this.cacheDurable = ok
@@ -228,12 +274,16 @@ export class WorkspaceSync {
     return buf
   }
 
-  /** Load initial state: prefer server; fall back to offline cache when offline. */
+  /** Load initial state: prefer server; fall back to offline cache when the server could not be
+   *  ASKED. A server that answered «no» gets no fallback — see mayRead / isDenial. */
   async init(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
     // Read the offline cache once up front and seed entry/status from it, so the sync badge is
     // correct even while the server fetch is in flight (and so a cold offline reopen restores
     // unsynced edits immediately). The server fetch below refines this.
-    const cached = await readCache(this.incidentId)
+    const stored = await readCache(this.incidentId)
+    // A stored entry this session may not read is left ALONE, not deleted: it is another user's
+    // unsynced work (or this one's, waiting out a denial) and it is theirs to come back to.
+    const cached = stored && mayRead(stored) ? stored : null
     if (cached) {
       this.entry = cached
       this.setStatus(cached.dirty ? 'pending' : 'synced')
@@ -267,6 +317,16 @@ export class WorkspaceSync {
       this.setStatus('synced')
       return { workspace, rev: workspace_rev, fromCache: false }
     } catch (e) {
+      // ⚠️ The offline fallback answers SILENCE, never a refusal (SEC-10). A 401 says this
+      // browser has no session left, so the device may not answer from its own copy either —
+      // and a 401 is device-wide, so every other open incident is locked with it. A 403 is
+      // narrower (this session, this incident: an Einsatz-Link outside its Einsatz), so it
+      // closes this read alone. Everything else — 5xx, a 404, a merge that threw — keeps the
+      // old fallback: nothing about it says the operator lost their right to their own work.
+      if (isDenial(e)) {
+        if (e instanceof ApiError && e.status === 401) denyWorkspaceCache()
+        throw e
+      }
       if (cached) {
         this.entry = cached
         this.setStatus(cached.dirty ? 'pending' : 'synced')
