@@ -362,6 +362,14 @@ VIEW_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
 #: carry the token's own incident.
 _INCIDENT_PARAMS = ("incident_id",)
 
+#: Reference datasets with NO object behind them that a Rapport view link legitimately needs:
+#: the hydrant/GeoJSON layers, the bundled symbol pack, and the Checklisten templates/assets —
+#: map and report furniture, the same for every Einsatz. A PDF is never furniture: an unbound
+#: one is still a document (a station-object plan), and handing it to a forwarded Rapport link
+#: is the SEC-02 leak. Anything not on this whitelist — a PDF, an unknown future kind — has to
+#: clear the surfaced-object bar instead, so ``object_id is None`` on its own grants nothing.
+_VIEW_LINK_FURNITURE_KINDS: frozenset[str] = frozenset({"geojson", "symbols", "checklists"})
+
 
 def link_page_owns_session(request: Request) -> bool:
     """True when the page making this request IS a link page that answers for itself
@@ -575,17 +583,23 @@ async def _view_link_param_allowed(request: Request, db: AsyncSession, path: str
     if path == "/api/reference/{dataset_id}":
         dataset_id = str(request.path_params.get("dataset_id"))
         ds = (
-            await db.execute(select(ReferenceDataset.object_id).where(ReferenceDataset.id == dataset_id))
+            await db.execute(
+                select(ReferenceDataset.object_id, ReferenceDataset.kind).where(ReferenceDataset.id == dataset_id)
+            )
         ).one_or_none()
         if ds is None:
             return False  # unknown → refused exactly like forbidden
-        (object_id,) = ds
-        # No object behind it → station reference material (hydrants, Leitungskataster, the
-        # symbol pack, Checklisten-Vorlagen): map/report furniture, not somebody's building.
-        if object_id is None:
-            return True
-        # An Objektplan IS somebody's building. Only for the objects this Einsatz surfaced.
-        return object_id in await _surfaced_object_ids(db, incident_id)
+        object_id, kind = ds
+        # An Objektplan IS somebody's building. Only for the objects this Einsatz surfaced — and
+        # a document has to clear that bar even with NO object behind it, or an unbound plan/PDF
+        # (object_id absent, kind "pdf") leaks whole to a forwarded Rapport link (SEC-02). So
+        # ``object_id is None`` grants nothing on its own: only the genuine station furniture
+        # below passes without an object.
+        if object_id is not None:
+            return object_id in await _surfaced_object_ids(db, incident_id)
+        # No object behind it → allow ONLY map/report furniture: hydrant/GeoJSON layers, the
+        # symbol pack, the Checklisten templates/assets. A PDF or an unknown kind is refused.
+        return kind in _VIEW_LINK_FURNITURE_KINDS
 
     return True
 
@@ -598,8 +612,22 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     allowlist can be matched against path templates instead of re-implementing path matching
     with regexes that would drift from the real routes.
     """
+    # Both imported lazily: `cookies` imports LINK_COOKIE from this module, and `dependencies`
+    # imports read_link_session, so either at module level is a cycle.
+    from .cookies import ADMIN_COOKIE
+    from .dependencies import _admin_session_valid
+
     claims = read_link_session(request)
     if claims is None:
+        # ⚠️ Forced mode with no link session (H2). A page that sent `X-Incident-Link: use` asked
+        # to be the RESTRICTED link identity — not whatever the device is otherwise logged in as.
+        # `read_link_session` already withheld any ambient identity, so if there are no claims
+        # (link cookie absent or expired) the caller has none. An admin cookie lying in the same
+        # browser must NOT silently hand admin routes back: Codex reached /api/capture/secret with
+        # `use` + an admin cookie + no link cookie. Deny that path outright; the operator's own
+        # /admin pages send "off" and never enter this branch.
+        if link_page_owns_session(request) and await _admin_session_valid(request.cookies.get(ADMIN_COOKIE)):
+            raise _Denied()
         return
 
     # A live admin session must not be narrowed by a leftover link cookie: the operator who
@@ -615,11 +643,6 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # Atemschutz session for incident A while every route was reachable for incident B. A page
     # that asks to be the link is the link, on an admin browser as much as any other; the
     # operator's own /admin pages send "off" and are untouched by this.
-    # Both imported lazily: `cookies` imports LINK_COOKIE from this module, and
-    # `dependencies` imports read_link_session, so either at module level is a cycle.
-    from .cookies import ADMIN_COOKIE
-    from .dependencies import _admin_session_valid
-
     if not link_page_owns_session(request) and await _admin_session_valid(request.cookies.get(ADMIN_COOKIE)):
         return
 

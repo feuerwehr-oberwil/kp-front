@@ -62,8 +62,12 @@ async def test_a_concurrent_burst_of_wrong_pins_cannot_skip_admission(client, ed
     assert codes.count(401) + codes.count(429) == burst
 
 
-async def test_hostile_traffic_on_an_account_does_not_lock_out_its_operator(client, editor):
-    """A burst from one source must not take the Einsatzleiter's own tablet off the air."""
+async def test_hostile_traffic_on_an_account_does_not_lock_out_its_operator(client, editor, monkeypatch):
+    """A burst from one source must not take the Einsatzleiter's own tablet off the air.
+
+    The ASGI peer is loopback (the stand-in for the reverse proxy), so this asks for one trusted
+    hop — the Railway/Caddy shape — to make the forwarded client the source key (SEC-08)."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 1)
     async with _request({"x-forwarded-for": ATTACKER_IP}) as attacker:
         for _ in range(settings.pin_free_attempts + 4):
             await attacker.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
@@ -75,8 +79,9 @@ async def test_hostile_traffic_on_an_account_does_not_lock_out_its_operator(clie
     assert allowed.status_code == 200
 
 
-async def test_a_correct_pin_clears_that_sources_cooldown(client, editor):
+async def test_a_correct_pin_clears_that_sources_cooldown(client, editor, monkeypatch):
     """Recovery is immediate: the operator's own fat-fingering does not outlive the login."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 1)
     async with _request({"x-forwarded-for": OPERATOR_IP}) as operator:
         for _ in range(settings.pin_free_attempts):
             await operator.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
@@ -85,6 +90,24 @@ async def test_a_correct_pin_clears_that_sources_cooldown(client, editor):
         # Back in the free tier — the next slip is not answered with a cooldown.
         again = await operator.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
     assert again.status_code == 401
+
+
+async def test_hostile_admin_login_traffic_does_not_lock_out_the_operator(client, monkeypatch):
+    """SEC-08(a): the admin cooldown was ONE global bucket, checked before the secret was even
+    compared, so hostile traffic from anywhere kept winning the next slot and a correct secret
+    was met with 429 — a remote admin lockout. Keyed per source now: the attacker throttles only
+    their own address, and the operator's correct secret still gets in."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 1)
+
+    async with _request({"x-forwarded-for": ATTACKER_IP}) as attacker:
+        for _ in range(settings.pin_free_attempts + 4):
+            await attacker.post("/api/admin/login", json={"secret": "wrong-secret"})
+        blocked = await attacker.post("/api/admin/login", json={"secret": "wrong-secret"})
+    assert blocked.status_code == 429
+
+    async with _request({"x-forwarded-for": OPERATOR_IP}) as operator:
+        ok = await operator.post("/api/admin/login", json={"secret": settings.admin_secret})
+    assert ok.status_code == 200, ok.text
 
 
 # --- bucket hygiene ---------------------------------------------------------------
@@ -145,26 +168,53 @@ def _req(peer: str | None, **headers: str):
     return Request(scope)
 
 
-def test_a_direct_client_cannot_forge_its_own_source():
-    """Public peer = nobody we trust to describe the hop before it."""
+# Trust is explicit now (SEC-08b): `settings.trusted_forwarded_hops` decides whether the
+# forgeable X-Forwarded-For counts at all. Each test sets it for its own case; the default is 0.
+
+
+def test_xff_is_ignored_when_no_proxy_is_configured(monkeypatch):
+    """The safe default: a plain, forgeable header is not consulted. A direct client — public OR
+    on the LAN — keys on the peer it actually connected from and cannot mint fresh buckets. The
+    old code implicitly trusted any private/loopback peer's XFF, which this closes."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
     assert client_ip(_req(OPERATOR_IP, x_forwarded_for=ATTACKER_IP)) == OPERATOR_IP
+    # a private LAN peer's forwarded header used to be trusted implicitly — no longer
+    assert client_ip(_req("10.0.0.2", x_forwarded_for=ATTACKER_IP)) == "10.0.0.2"
+    assert client_ip(_req("127.0.0.1", x_forwarded_for=OPERATOR_IP)) == "127.0.0.1"
 
 
-def test_a_trusted_proxy_hands_over_the_real_client():
+def test_one_trusted_hop_hands_over_the_real_client(monkeypatch):
+    """TRUSTED_FORWARDED_HOPS=1 — the Railway/Caddy shape. The proxy appended the peer it saw, so
+    the rightmost XFF entry is the client."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 1)
     assert client_ip(_req("127.0.0.1", x_forwarded_for=OPERATOR_IP)) == OPERATOR_IP
 
 
-def test_prepended_entries_do_not_win_over_the_proxys_own_append():
-    """The proxy appends the peer it saw; anything to the left of it is caller-supplied."""
+def test_only_the_configured_rightmost_hops_are_honoured(monkeypatch):
+    """With one trusted hop, anything a caller prepended sits to the LEFT of the proxy's own
+    append and is never reached."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 1)
     chain = f"8.8.8.8, 8.8.4.4, {OPERATOR_IP}"
     assert client_ip(_req("10.0.0.2", x_forwarded_for=chain)) == OPERATOR_IP
 
 
-def test_an_all_private_chain_falls_back_to_the_peer():
-    assert client_ip(_req("10.0.0.2", x_forwarded_for="10.0.0.9, 192.168.1.4")) == "10.0.0.2"
+def test_two_trusted_hops_reach_past_the_inner_proxy(monkeypatch):
+    """Two proxies → the client sits two entries from the right (client, then the inner proxy's
+    own append)."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 2)
+    chain = f"{OPERATOR_IP}, 10.0.0.9"
+    assert client_ip(_req("10.0.0.2", x_forwarded_for=chain)) == OPERATOR_IP
 
 
-def test_garbage_forwarded_values_are_ignored():
+def test_a_chain_shorter_than_promised_falls_back_to_the_peer(monkeypatch):
+    """Fewer entries than the trusted-hop count is not the shape the deployment declared, so the
+    un-forgeable peer is the key rather than a caller-controlled guess."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 2)
+    assert client_ip(_req("10.0.0.2", x_forwarded_for=OPERATOR_IP)) == "10.0.0.2"
+
+
+def test_an_unparseable_trusted_entry_falls_back_to_the_peer(monkeypatch):
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 1)
     assert client_ip(_req("127.0.0.1", x_forwarded_for="not-an-ip")) == "127.0.0.1"
 
 

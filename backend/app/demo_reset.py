@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select
 
+from .auth.router import revoke_sessions
 from .auth.security import hash_pin
 from .database import async_session_maker
 from .models import DeploymentConfig, DiveraEmergency, Incident, JournalEntry, ObjectSite, Personnel, User
@@ -674,6 +675,7 @@ async def reset(wipe_objects: bool = True) -> None:
 
         for u in DEMO_USERS:
             user = (await db.execute(select(User).where(User.username == u["username"]))).scalar_one_or_none()
+            existed = user is not None
             if user is None:
                 user = User(username=u["username"])
                 db.add(user)
@@ -683,6 +685,11 @@ async def reset(wipe_objects: bool = True) -> None:
             user.color = u["color"]
             user.pin_hash = hash_pin(u["pin"])
             user.is_active = True
+            # The PIN is re-asserted on every reset — end whatever sessions the previous one
+            # opened, same as the admin API (SEC-05). Only for a pre-existing row: a freshly
+            # added user has no id yet and no session to drop.
+            if existed:
+                await revoke_sessions(db, user)
         await db.commit()
     logger.info(
         "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present, %d Verlauf) "

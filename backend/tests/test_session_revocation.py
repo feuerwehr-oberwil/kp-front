@@ -10,8 +10,10 @@ import asyncio
 
 import httpx
 import pytest
+from sqlalchemy import select
 
 from app.auth.security import create_access_token, create_refresh_token
+from app.models import User
 
 pytestmark = pytest.mark.asyncio
 
@@ -143,6 +145,60 @@ async def test_tokens_minted_before_the_generation_claim_existed_keep_working(cl
 
     async with _bearer(access_token=create_access_token(legacy)) as inflight:
         assert (await inflight.get("/api/auth/me")).status_code == 200
+
+
+# --- SEC-05 round-2: the bump must be atomic, not a read-modify-write --------------------
+
+
+async def test_two_overlapping_resets_advance_the_generation_by_two(editor, session_factory):
+    """The old bump read the ORM value and wrote value+1. Two resets that both read generation 0
+    each wrote 1, so the account only advanced by ONE — a session minted after the first reset
+    survived the second. `UPDATE ... SET gen = gen + 1` serialises at the row: N resets advance
+    by N. The overlap is made deterministic here — both sessions load the user before either
+    writes — so this fails on the buggy read-modify-write and passes on the atomic bump."""
+    from app.auth.router import revoke_sessions
+
+    async with session_factory() as a, session_factory() as b:
+        ua = (await a.execute(select(User).where(User.id == editor.id))).scalar_one()
+        ub = (await b.execute(select(User).where(User.id == editor.id))).scalar_one()
+        assert ua.auth_generation == 0 and ub.auth_generation == 0
+
+        await revoke_sessions(a, ua)
+        await a.commit()
+        # b read generation 0 before a committed — the read-modify-write bug rewrites 1 here.
+        await revoke_sessions(b, ub)
+        await b.commit()
+
+    async with session_factory() as c:
+        fresh = (await c.execute(select(User).where(User.id == editor.id))).scalar_one()
+    assert fresh.auth_generation == 2
+
+
+async def test_a_session_minted_between_two_overlapping_resets_is_dead(client, editor, session_factory):
+    """The concrete SEC-05 failure: a session minted AFTER the first reset (generation 1) must not
+    survive the second. The buggy non-atomic bump re-wrote 1, leaving that generation-1 token
+    valid; the atomic bump takes the row to 2, so both the pre-reset and the between-resets token
+    are dead at /auth/me."""
+    from app.auth.router import _claims, revoke_sessions
+
+    tok_gen0 = create_access_token(_claims(editor))  # before any reset
+
+    async with session_factory() as a, session_factory() as b:
+        ua = (await a.execute(select(User).where(User.id == editor.id))).scalar_one()
+        ub = (await b.execute(select(User).where(User.id == editor.id))).scalar_one()  # reads gen 0
+
+        await revoke_sessions(a, ua)  # first reset → generation 1
+        await a.commit()
+        await a.refresh(ua)
+        tok_gen1 = create_access_token(_claims(ua))  # a session minted after the first reset
+
+        await revoke_sessions(b, ub)  # b still holds generation 0
+        await b.commit()
+
+    async with _bearer(access_token=tok_gen0) as s0:
+        assert (await s0.get("/api/auth/me")).status_code == 401
+    async with _bearer(access_token=tok_gen1) as s1:
+        assert (await s1.get("/api/auth/me")).status_code == 401
 
 
 async def test_a_pre_deploy_token_dies_at_the_first_reset(client, editor, admin_login):

@@ -2,46 +2,47 @@
 
 A throttle is only as good as the key it counts against. `X-Forwarded-For` is a plain request
 header: a client talking to the app directly can write whatever it likes into it, and a limiter
-keyed on the first value it finds hands that client an unlimited supply of fresh buckets
+keyed on a value it finds there hands that client an unlimited supply of fresh buckets
 (security audit SEC-08).
 
-The rule here is the standard one, and it needs no configuration to be safe: walk the forwarded
-chain from the RIGHT and take the first address we do not recognise as infrastructure. A proxy
-*appends* the peer it saw, so the rightmost untrusted entry is the closest real client, and
-anything a caller prepended sits to the left of it and is never reached. "Infrastructure" is
-loopback plus the private/link-local/unique-local ranges — Railway's edge, a Caddy in front of
-the container and a docker-compose network all reach the app from one of those, and no client
-on the public internet does. When the direct peer is itself public, nothing in the chain is
-trusted and the peer is the answer.
+So trust is EXPLICIT, never inferred from the peer looking like infrastructure. The old rule
+trusted any private/loopback peer's forwarded header, which means a direct client on the station
+LAN could spoof arbitrary forwarded identities. Instead, `settings.trusted_forwarded_hops` names
+how many reverse proxies sit in front of the app:
 
-Consequence worth naming: on a station LAN with no proxy at all, every device is a "trusted"
-private peer, so a device there can name its own bucket. That is a host on the station's own
-network, which is not the traffic this brake exists for.
+  · 0 (the safe default) — XFF is not consulted at all. The peer that actually opened the
+    connection is the only thing the caller cannot forge, so it is the key. A deployment with no
+    proxy needs no configuration to be safe; one behind a proxy that has not opted in loses
+    per-client granularity (every request keys on the proxy) but is never spoofable.
+  · N — each proxy *appends* the peer it saw, so the real client sits N entries from the right of
+    the chain. Exactly the N rightmost entries are honoured as our own hops; anything a caller
+    prepended sits to the left and is never reached. A chain shorter than promised is not the
+    shape the deployment declared, so it falls back to the un-forgeable peer.
+
+Railway/Caddy same-origin deployment: the reverse proxy is the one trusted hop → set
+TRUSTED_FORWARDED_HOPS=1 (see config.py).
 """
 
 import ipaddress
 
 from fastapi import Request
 
+from ..config import settings
+
 #: Answer for a request with no peer at all (ASGI servers may omit `client`). One shared
 #: bucket is the safe direction: unattributable traffic throttles together.
 UNKNOWN_SOURCE = "unknown"
 
 
-def _caller_address(value: str) -> str | None:
-    """The address, if it is a parseable one belonging to a caller rather than to a hop.
-
-    An IPv4-mapped IPv6 literal is unwrapped so a proxy writing "::ffff:198.51.100.4" and one
-    writing "198.51.100.4" name the same bucket.
-    """
+def _normalize(value: str) -> str | None:
+    """A parseable IP as a canonical string, or None. An IPv4-mapped IPv6 literal is unwrapped
+    so a proxy writing "::ffff:198.51.100.4" and one writing "198.51.100.4" name one bucket."""
     try:
         ip = ipaddress.ip_address(value)
     except ValueError:
         return None
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
         ip = ip.ipv4_mapped
-    if ip.is_loopback or ip.is_private or ip.is_link_local:
-        return None
     return str(ip)
 
 
@@ -50,14 +51,17 @@ def client_ip(request: Request) -> str:
     peer = request.client.host if request.client else None
     if peer is None:
         return UNKNOWN_SOURCE
-    direct = _caller_address(peer)
-    if direct is not None:
-        # Talking to us directly: its own address is the only thing it cannot forge.
-        return direct
 
-    forwarded = request.headers.get("x-forwarded-for", "")
-    for hop in reversed([h.strip() for h in forwarded.split(",") if h.strip()]):
-        caller = _caller_address(hop)
-        if caller is not None:
-            return caller
-    return peer
+    hops = settings.trusted_forwarded_hops
+    if hops <= 0:
+        # No trusted proxy configured: ignore the forgeable header, key on the real peer.
+        return _normalize(peer) or peer
+
+    # `hops` trusted proxies → the client is the entry `hops` from the right (each proxy appended
+    # the peer it saw). Fewer entries than promised, or an unparseable one → fall back to the peer.
+    forwarded = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+    if len(forwarded) >= hops:
+        client = _normalize(forwarded[-hops])
+        if client is not None:
+            return client
+    return _normalize(peer) or peer

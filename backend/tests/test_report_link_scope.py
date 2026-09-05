@@ -133,6 +133,18 @@ async def _object_with_plan(db, *, name: str, address: str | None, dataset_id: s
     return obj, dataset_id
 
 
+async def _unbound_dataset(db, *, dataset_id: str, kind: str, ext: str, content_type: str | None = None) -> str:
+    """A reference dataset with NO object behind it. ``kind`` decides whether it is genuine
+    station furniture (geojson/symbols/checklists) or a document that only looks unbound (pdf)."""
+    key = storage.new_key("reference", ext)
+    storage.put_bytes(
+        key, b"%PDF-1.4 not-a-real-plan" if kind == "pdf" else b'{"type":"FeatureCollection","features":[]}'
+    )
+    db.add(ReferenceDataset(id=dataset_id, object_id=None, kind=kind, storage_key=key, content_type=content_type))
+    await db.commit()
+    return dataset_id
+
+
 # --- the list itself ----------------------------------------------------------------------
 
 
@@ -182,6 +194,43 @@ async def test_view_link_cannot_read_an_unrelated_objects_plan(client, editor, i
 
     r = await client.get("/api/objects/00000000-0000-0000-0000-0000000000ff")
     assert r.status_code == 403, r.text
+
+
+async def test_view_link_cannot_read_an_unbound_reference_pdf(client, editor, incident, db_session):
+    """SEC-02 round-2: the reference branch authorised EVERY dataset whose ``object_id`` is None,
+    so a station-object PDF that simply carried no object link leaked whole to a forwarded Rapport
+    link. Only genuine map/report furniture (geojson/symbols/checklists) may pass without an
+    object; a PDF must clear the surfaced-object bar it cannot meet here. Tested raw AND
+    percent-encoded, because the dataset id decode must not open a second door."""
+    ds = await _unbound_dataset(
+        db_session, dataset_id="plan:unbound:modul1", kind="pdf", ext=".pdf", content_type="application/pdf"
+    )
+    await _open_view_link(client, editor, incident)
+
+    r = await client.get(f"/api/reference/{ds}")
+    assert r.status_code == 403, f"an unbound reference PDF leaked to a report link: {r.text[:200]}"
+    assert r.json()["detail"] == DENIED_DETAIL
+
+    r = await client.get("/api/reference/plan%3Aunbound%3Amodul1")
+    assert r.status_code == 403, f"a percent-encoded unbound PDF leaked to a report link: {r.text[:200]}"
+    assert r.json()["detail"] == DENIED_DETAIL
+
+
+async def test_view_link_still_reads_unbound_station_furniture(client, editor, incident, db_session):
+    """The legitimate ``object_id``-None datasets a Rapport viewer needs: the hydrant/GeoJSON
+    layers, the bundled symbol pack, the Checklisten templates. The SEC-02 narrowing must keep
+    these reachable — refusing them would replace one defect with a link not worth tapping."""
+    for dataset_id, kind, ext in [
+        ("geo:hydranten", "geojson", ".geojson"),
+        ("symbols:tactical", "symbols", ".json"),
+        ("checklists:fu-aktion", "checklists", ".json"),
+    ]:
+        await _unbound_dataset(db_session, dataset_id=dataset_id, kind=kind, ext=ext)
+
+    await _open_view_link(client, editor, incident)
+    for dataset_id in ("geo:hydranten", "symbols:tactical", "checklists:fu-aktion"):
+        r = await client.get(f"/api/reference/{dataset_id}")
+        assert r.status_code == 200, f"station furniture {dataset_id} was refused a report link: {r.text[:200]}"
 
 
 async def test_view_link_cannot_see_where_the_vehicles_are(client, editor, incident):
@@ -375,6 +424,21 @@ async def test_a_forced_link_page_is_not_widened_by_an_admin_cookie(client, admi
 
     # …and the operator's own pages, which say "off", are untouched: /admin still works
     assert (await client.get("/api/incident-link/secret", headers=BARE_SITE)).status_code == 200
+
+
+async def test_forced_link_mode_with_no_link_cookie_denies_ambient_admin(client, admin_login):
+    """H2: `X-Incident-Link: use` asks for the restricted link identity even when there is NO
+    link cookie at all (absent or expired). An admin cookie lying in the same browser must not
+    silently hand admin routes back — Codex reached /api/capture/secret this way (`use` + admin
+    cookie + no link cookie). Forced mode denies the ambient admin path regardless."""
+    await admin_login(client)  # the browser holds ONLY an admin session, no link cookie
+
+    r = await client.get("/api/capture/secret", headers=LINK_PAGE)
+    assert r.status_code == 403, f"forced link mode rode an ambient admin cookie to an admin route: {r.text[:200]}"
+    assert r.json()["detail"] == DENIED_DETAIL
+
+    # …and the operator's own pages (header "off") reach the very same admin route unchanged.
+    assert (await client.get("/api/capture/secret", headers=BARE_SITE)).status_code == 200
 
 
 async def test_an_ambient_admin_cookie_still_lifts_the_gate_for_the_ordinary_app(
