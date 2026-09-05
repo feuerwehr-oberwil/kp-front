@@ -364,14 +364,21 @@ export class WorkspaceSync {
       }
     }
     if (cacheOwner && !cacheDenied) {
-      const parked = await idbGet<CacheEntry>(ownerCacheKey(this.incidentId, cacheOwner))
-      if (parked && parked.owner === cacheOwner) {
+      // Capture the owner (hence the parked-copy key) BEFORE the re-home await: a login/logout can
+      // move `cacheOwner` while the main-slot write is in flight, and we must delete exactly the
+      // copy we just durably re-homed — never a key derived from whoever is live afterwards, which
+      // would delete a DIFFERENT owner's still-parked draft (SEC-10 — same ownerAtStart TOCTOU
+      // discipline init() already applies).
+      const rehomeOwner = cacheOwner
+      const parkedKey = ownerCacheKey(this.incidentId, rehomeOwner)
+      const parked = await idbGet<CacheEntry>(parkedKey)
+      if (parked && parked.owner === rehomeOwner) {
         // The slot is mine again: re-home my work, then clear the bucket — but ONLY once the main
         // write is CONFIRMED durable. Deleting the parked copy after a failed write (a full store)
         // would be the exact data loss the parking exists to prevent, so on failure the sole copy
         // stays under the owner key for the next attempt.
         const wrote = await idbSet(cacheKey(this.incidentId), parked)
-        if (wrote) await idbDel(ownerCacheKey(this.incidentId, cacheOwner))
+        if (wrote) await idbDel(parkedKey)
         return { entry: parked, parkBlocked: false }
       }
     }
