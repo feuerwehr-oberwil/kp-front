@@ -21,11 +21,17 @@ type CacheEntry = {
   dirty: boolean
   lastSyncedAt: number | null
   base?: Workspace
-  /** WHO filled this cache (AuthUser.id at write time). Entries without one predate ownership
-   *  and belong to whoever is signed in on this device — see `mayRead`. */
+  /** WHO this entry belongs to (AuthUser.id), captured when the entry was BUILT or last edited —
+   *  never re-stamped from the live session at write time, so a debounced/teardown write that
+   *  lands after the identity changed still says whose work it is. An entry without one predates
+   *  ownership (see `loadReadableEntry` for how it is adopted or preserved). */
   owner?: string
 }
 const cacheKey = (id: string) => `kp-front-ws-${id}`
+// A fallback slot, one per (incident, owner). Another user's UNSYNCED work is parked here so the
+// main slot can be reused without destroying it, and so its owner recovers it on their next
+// sign-in (see loadReadableEntry). NEVER read across owners — the key IS the ownership proof.
+const ownerCacheKey = (id: string, owner: string) => `kp-front-ws-${id}::${owner}`
 
 // --- Who may read this device's offline cache ----------------------------------------
 // The cache is the product's core promise, so exactly two things close it, and NEITHER of them
@@ -53,10 +59,26 @@ export function denyWorkspaceCache(): void {
   cacheDenied = true
 }
 
-/** May this session be answered from what the cache holds? */
+/** May this session be answered from what the cache holds, as-is? A refusal closes every read.
+ *
+ *  The two guarantees this balances: offline-first (a device reopened with no reachable server
+ *  must still show its own last work) and cross-user isolation (a DIFFERENT signed-in user must
+ *  never read or inherit another's cache). They only ever collide once a competing identity
+ *  exists — so ownership gates reads ONLY when an owner has actually settled:
+ *    · denied            → false. A reachable server said «no»; this is the SEC-10 lock.
+ *    · no settled owner  → true. Boot before /me resolves, or offline where it can't: there is
+ *                          no other identity to protect against, so the device reads its own
+ *                          cache (auth gates the moment a user — the same or a different one —
+ *                          settles). Physical-device access with no login is the accepted
+ *                          "device loss is operational" boundary, unchanged from before the batch.
+ *    · owner settled     → an ownerless entry is NOT blind-served (loadReadableEntry adopts it if
+ *                          clean, preserves it if dirty); an owned entry is served only to its
+ *                          owner. */
 function mayRead(entry: CacheEntry): boolean {
   if (cacheDenied) return false
-  return !entry.owner || !cacheOwner || entry.owner === cacheOwner
+  if (!cacheOwner) return true
+  if (!entry.owner) return false
+  return entry.owner === cacheOwner
 }
 
 /** Did the server ANSWER «no», as opposed to not answering at all (api · isUnverifiable)? Only
@@ -231,9 +253,10 @@ export class WorkspaceSync {
     if (!this.cacheTimer) return
     clearTimeout(this.cacheTimer)
     this.cacheTimer = null
-    // Stamp the current session on the way out, so a later reopen can tell whose edits these
-    // are (mayRead). An unknown owner never erases the one already on the entry.
-    this.entry = { ...this.entry, owner: cacheOwner ?? this.entry.owner }
+    // The entry already carries the owner captured when it was BUILT or last edited (construction
+    // / init / save / adopt). We write it VERBATIM — re-stamping the live `cacheOwner` here would
+    // relabel a debounced or teardown write that lands after the identity changed, handing one
+    // user's unsynced edit another user's name (SEC-10 owner races).
     void withTileEviction(() => idbSet(cacheKey(this.incidentId), this.entry)).then((ok) => {
       if (this.disposed || this.cacheDurable === ok) return
       this.cacheDurable = ok
@@ -274,6 +297,46 @@ export class WorkspaceSync {
     return buf
   }
 
+  /**
+   * The whole owner model, in one place. Decide what the current session may load from the main
+   * cache slot, and protect what it may not — so a DIFFERENT user can never inherit or destroy
+   * another user's cached or unsynced work:
+   *   · owned by me → mine, serve it (the fast, common path).
+   *   · ownerless + clean → a pre-ownership snapshot (the server already has it). Adopt it to me,
+   *     so the NEXT, different user can't read it, then serve it.
+   *   · ownerless + dirty → unattributable unsynced work. Preserve it, never serve it: I can't
+   *     prove I'm its author, so handing it over risks leaking a stranger's work.
+   *   · owned by someone else + dirty → their unsynced work. PARK it under their own key so I can
+   *     reuse the main slot without destroying it (the SEC-10 regression: a plain reload used to
+   *     clobber it), and they recover it on their next sign-in.
+   *   · owned by someone else + clean → the server has it; leave it (the next write overwrites it).
+   * Then, whatever the main slot held, look for MY OWN parked work — a different user (or a
+   * denial) may have taken the slot after I left — and re-home it. A denial closes all of this.
+   */
+  private async loadReadableEntry(stored: CacheEntry | null): Promise<CacheEntry | null> {
+    if (stored && mayRead(stored)) return stored
+    if (stored && !cacheDenied) {
+      if (!stored.owner && !stored.dirty && cacheOwner) {
+        const adopted: CacheEntry = { ...stored, owner: cacheOwner }
+        await idbSet(cacheKey(this.incidentId), adopted)
+        return adopted
+      }
+      if (stored.owner && stored.owner !== cacheOwner && stored.dirty) {
+        await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
+      }
+    }
+    if (cacheOwner && !cacheDenied) {
+      const parked = await idbGet<CacheEntry>(ownerCacheKey(this.incidentId, cacheOwner))
+      if (parked && parked.owner === cacheOwner) {
+        // The slot is mine again: re-home my work and clear the bucket.
+        await idbSet(cacheKey(this.incidentId), parked)
+        await idbDel(ownerCacheKey(this.incidentId, cacheOwner))
+        return parked
+      }
+    }
+    return null
+  }
+
   /** Load initial state: prefer server; fall back to offline cache when the server could not be
    *  ASKED. A server that answered «no» gets no fallback — see mayRead / isDenial. */
   async init(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
@@ -281,9 +344,9 @@ export class WorkspaceSync {
     // correct even while the server fetch is in flight (and so a cold offline reopen restores
     // unsynced edits immediately). The server fetch below refines this.
     const stored = await readCache(this.incidentId)
-    // A stored entry this session may not read is left ALONE, not deleted: it is another user's
-    // unsynced work (or this one's, waiting out a denial) and it is theirs to come back to.
-    const cached = stored && mayRead(stored) ? stored : null
+    // Decide what THIS session may load — and protect what it may not (see loadReadableEntry:
+    // another user's unsynced work is parked, never destroyed or served to a different account).
+    const cached = await this.loadReadableEntry(stored)
     if (cached) {
       this.entry = cached
       this.setStatus(cached.dirty ? 'pending' : 'synced')
@@ -304,14 +367,14 @@ export class WorkspaceSync {
         }
         const server = workspace ?? {}
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
-        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt }
+        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: cacheOwner ?? cached.owner }
         this.writeCache()
         this.opts.onRev?.(workspace_rev)
         this.setStatus('pending')
         return { workspace: merged, rev: workspace_rev, fromCache: true }
       }
       const ws = workspace ?? {}
-      this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
+      this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined }
       this.writeCache()
       this.opts.onRev?.(workspace_rev)
       this.setStatus('synced')
@@ -340,7 +403,10 @@ export class WorkspaceSync {
   save(workspace: Workspace) {
     if (this.disposed) return
     this.saveSeq++
-    this.entry = { ...this.entry, workspace, dirty: true }
+    // Stamp the editing session NOW (the enqueue moment), so the debounced write can't be
+    // relabelled if the identity changes before it lands (SEC-10 owner races). An entry that
+    // already knows its owner keeps it — recovered/parked work stays its author's.
+    this.entry = { ...this.entry, workspace, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined }
     this.writeCache()
     this.setStatus('pending')
     this.armDebounce()
@@ -365,10 +431,18 @@ export class WorkspaceSync {
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         await this.resolveConflict()
+      } else if (e instanceof ApiError && e.status === 401) {
+        // The server REVOKED this session mid-flush. A 401 is device-wide, exactly as in init():
+        // lock every cached read at once (denyWorkspaceCache), so a tab left open past revocation
+        // stops serving on its next flush/poll instead of only when it happens to re-init. NOT a
+        // 403 — that can be the Atemschutz-Link slice legitimately refused the full PUT, which is
+        // not revocation. Stay dirty: the work is kept for the same user's next sign-in, never lost.
+        denyWorkspaceCache()
+        this.setStatus('error')
       } else if (e instanceof ApiError && e.status === 0) {
         this.setStatus('offline') // stay dirty; the `online` event or the backoff retries
       } else {
-        this.setStatus('error') // server/other error; stay dirty, retried by the backoff
+        this.setStatus('error') // server/other error (incl. 403); stay dirty, retried by the backoff
       }
     } finally {
       this.flushing = false
@@ -488,6 +562,7 @@ export class WorkspaceSync {
         return
       } catch (e) {
         if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
+        if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
         return // offline/other: stay dirty + merged; a later flush retries
       }
@@ -506,7 +581,7 @@ export class WorkspaceSync {
    */
   adoptServer(workspace: Workspace, rev: number) {
     if (this.disposed) return
-    this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now() }
+    this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? this.entry.owner }
     this.writeCache()
     this.opts.onRev?.(rev)
     this.setStatus('synced')

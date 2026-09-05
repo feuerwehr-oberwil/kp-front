@@ -3,6 +3,11 @@
 // Reference data stays station-scoped and remains under Workbox's normal runtime cache.
 const KP_MEDIA_CACHE = 'incident-media'
 const KP_MEDIA_OWNER_CACHE = 'kp-media-cache-owner'
+// Station reference data (symbols + geojson), cached by Workbox (vite.config · reference-data).
+// Not owner-scoped, so an EXPLICIT denial has to purge it here too — otherwise a revoked device
+// keeps reading the station's reference datasets. A mere loss of connectivity never reaches this
+// worker with «logged-out», so offline reads of reference data are untouched.
+const KP_REFERENCE_CACHE = 'reference-data'
 const KP_MEDIA_OWNER_URL = new URL('/__kp/media-cache-owner', self.location.origin).toString()
 const KP_MEDIA_MAX_ENTRIES = 200
 const KP_MEDIA_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
@@ -24,10 +29,11 @@ async function kpSetMediaOwner(userId) {
   }
 }
 
-async function kpClearMediaOwner() {
+async function kpClearOnDenial() {
   await Promise.all([
     caches.delete(KP_MEDIA_CACHE),
     caches.delete(KP_MEDIA_OWNER_CACHE),
+    caches.delete(KP_REFERENCE_CACHE),
   ])
 }
 
@@ -46,8 +52,9 @@ self.addEventListener('message', (event) => {
     // refused, so every grant is dropped, not only the sender's. Other tabs fall back to
     // unknown — network-only, no cache read — and only their own next sign-in re-arms them.
     // A restarting worker starts with this same empty map, so it fails closed by construction.
+    // The media, owner AND station reference caches are all purged — see kpClearOnDenial.
     kpMediaClients.clear()
-    event.waitUntil(kpClearMediaOwner())
+    event.waitUntil(kpClearOnDenial())
   }
 })
 
