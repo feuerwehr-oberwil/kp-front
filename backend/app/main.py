@@ -6,7 +6,7 @@ same origin — so cookies are SameSite=Lax and there is no CORS.
 
 import logging
 import re
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 logging.basicConfig(level=logging.INFO)
 # httpx logs every request at INFO with the FULL URL incl. query string — that leaks the
@@ -93,15 +93,20 @@ install_log_redaction()
 
 logger = logging.getLogger(__name__)
 
+import json
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import visits
-from .auth.incident_link import enforce_link_scope
+from .auth.cookies import ACCESS_COOKIE, ADMIN_COOKIE, REFRESH_COOKIE
+from .auth.incident_link import LINK_COOKIE, enforce_link_scope
 from .auth.router import router as auth_router
 from .auth.token_blocklist import token_blocklist
 from .config import settings
@@ -214,17 +219,130 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.api_docs_enabled else None,
 )
 
+
+async def _asgi_json(send, status: int, detail: str) -> None:
+    """Answer straight from the ASGI layer — the middlewares below run before routing, so
+    there is no `Response` machinery available to them yet."""
+    payload = json.dumps({"detail": detail}).encode()
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(payload)).encode()),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": payload})
+
+
+class _BodyTooLargeError(Exception):
+    """Raised inside :class:`LimitRequestBody`'s receive wrapper and caught by it. It travels
+    through the app to get there, which is the point: whatever was mid-parse stops."""
+
+
+class LimitRequestBody:
+    """Cap the RAW bytes a request may deliver, counted as they arrive (pure ASGI).
+
+    ⚠️ THE DECLARED LENGTH IS NOT THE LIMIT. This used to be a `Content-Length` check and
+    nothing else, so a client that simply omitted the header — chunked, streamed, trivially
+    scripted, and unauthenticated — walked past it with a body of any size and reached request
+    parsing and validation. The header check stays because refusing before reading a byte is
+    strictly better, but it is now the fast path, not the guarantee.
+
+    The guarantee is the receive wrapper: every `http.request` chunk is counted, and the first
+    one that crosses the cap ends the request. Nothing further is read from the connection, and
+    the exception unwinds out of whatever `await request.body()`/multipart parse asked for it,
+    so the app never sees the truncated body either.
+
+    Two caps, chosen per request: `multipart/form-data` is a file upload (media, plans,
+    reference data) and gets ``max_upload_mb``; everything else gets the much smaller
+    ``max_json_body_mb``. ⚠️ ``max_upload_mb`` must stay ABOVE the media route's own 100 MB
+    per-file cap plus multipart overhead, or an imported voice memo dies here instead of
+    getting the media route's own answer (see config · max_upload_mb).
+
+    Settings are read per request, not captured at construction: `/admin` and the tests move
+    them, and a middleware holding a stale copy would be the one place that disagreed.
+
+    ⚠️ Installed OUTSIDE `GzipRequestMiddleware` on purpose. This bounds the WIRE size; the
+    decompressed size is that middleware's own separate cap, and neither substitutes for the
+    other — a gzip bomb is tiny on the wire, and a plain 2 GB POST never inflates at all.
+    """
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        is_upload = "multipart/form-data" in headers.get("content-type", "")
+        cap_mb = settings.max_upload_mb if is_upload else settings.max_json_body_mb
+        cap = cap_mb * 1024 * 1024
+        too_large = f"Anfrage zu gross (max. {cap_mb} MB)"
+
+        declared = headers.get("content-length")
+        if declared is not None:
+            try:
+                size = int(declared)
+            except ValueError:
+                await _asgi_json(send, 400, "Ungültige Content-Length")
+                return
+            if size > cap:
+                await _asgi_json(send, 413, too_large)
+                return
+
+        received = 0
+        exceeded = False
+        responded = False
+
+        async def limited_receive():
+            nonlocal received, exceeded
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > cap:
+                    exceeded = True
+                    raise _BodyTooLargeError
+            return message
+
+        async def guarded_send(message) -> None:
+            nonlocal responded
+            # ⚠️ `exceeded` outranks whatever the app decided. FastAPI wraps ANY failure of
+            # `await request.body()` in its own «There was an error parsing the body» 400
+            # (and a multipart parser has its own opinions), so the raise alone stops the
+            # parse but does not own the answer — this does. Once a response has genuinely
+            # gone out (a streamed download that read the body afterwards) it stands.
+            if exceeded and not responded:
+                return
+            if message["type"] == "http.response.start":
+                responded = True
+            await send(message)
+
+        with suppress(_BodyTooLargeError):
+            await self.app(scope, limited_receive, guarded_send)
+        if exceeded and not responded:
+            await _asgi_json(send, 413, too_large)
+
+
 # Sync-channel compression, both directions: responses (workspace/journal/reference JSON is
 # highly repetitive → ~8–10× smaller on field LTE) and gzip-encoded request bodies from the
 # frontend (large workspace saves). Request inflation enforces a decompressed-size cap so a
-# gzip bomb can't expand past the JSON body limit; the Content-Length middleware below still
-# bounds the wire size. No streaming/SSE endpoints exist, so response gzip is safe globally.
+# gzip bomb can't expand past the JSON body limit; LimitRequestBody above it bounds the wire
+# size. No streaming/SSE endpoints exist, so response gzip is safe globally.
 from starlette.middleware.gzip import GZipMiddleware
 
 from .gzip_request import GzipRequestMiddleware
 
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(GzipRequestMiddleware, max_decompressed_bytes=settings.max_json_body_mb * 1024 * 1024)
+# ⚠️ ADDED AFTER the gzip pair, and that is what puts it OUTSIDE them: `add_middleware`
+# prepends, so the last one added is the outermost. It must see the bytes as they came off
+# the wire, before anything inflates them.
+app.add_middleware(LimitRequestBody)
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -241,6 +359,35 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
         status_code=exc.status_code,
         headers=exc.headers,
     )
+
+
+#: How much of a rejected request may appear in its own 422. Enough to say what is wrong with
+#: which field, never enough to be worth sending a big body to provoke.
+_MAX_VALIDATION_ERRORS = 8
+_MAX_VALIDATION_MSG_CHARS = 200
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 with the same `{"detail": [{loc, msg, type}, …]}` shape clients already read — minus
+    the submitted data.
+
+    ⚠️ FastAPI's default puts every offending value back in the response under `input` (and
+    again inside `ctx`), so a rejected 1 MiB body answered with a 2 MB error. That is an
+    amplifier an unauthenticated caller can aim at the one service every tablet talks to, and
+    it is also the request's own contents echoed to whoever sent it. Both go: `loc` names the
+    field, `msg` says what was expected, and neither needs the value to do it.
+    """
+    errors = [
+        {
+            "loc": [str(part) for part in err.get("loc", ())],
+            # A custom validator's message can quote what it was given; the cap bounds that too.
+            "msg": str(err.get("msg", ""))[:_MAX_VALIDATION_MSG_CHARS],
+            "type": str(err.get("type", "")),
+        }
+        for err in exc.errors()[:_MAX_VALIDATION_ERRORS]
+    ]
+    return JSONResponse({"detail": errors}, status_code=422)
 
 
 @app.exception_handler(Exception)
@@ -284,24 +431,119 @@ async def api_json_no_store(request: Request, call_next):
     return response
 
 
-@app.middleware("http")
-async def limit_body_size(request: Request, call_next):
-    """Reject oversized bodies early (413) so a single large POST can't OOM the instance.
+#: Unsafe methods — the ones a cross-origin page could use to CHANGE something.
+_UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
-    Multipart uploads (media / plans / reference files) get the larger cap; JSON bodies
-    (workspace blob, details, …) the smaller one. Keyed off the declared Content-Length.
+#: Every cookie in this app that authenticates something (auth/cookies · auth/incident_link).
+#: One of these riding along is what makes a request worth stealing.
+_SESSION_COOKIES = (ACCESS_COOKIE, REFRESH_COOKIE, ADMIN_COOKIE, LINK_COOKIE)
+
+#: The explicit non-cookie credentials, as the routes that read them spell them (api/capture,
+#: api/divera, api/alarms, api/firehub, api/traccar, api/stats, api/print_relay).
+_CREDENTIAL_HEADERS = ("x-capture-token", "x-webhook-secret", "x-stats-token", "x-print-agent-secret")
+
+#: `Sec-Fetch-Site` values a request from our own page (or a typed address) carries.
+_OWN_FETCH_SITES = frozenset({"same-origin", "none"})
+
+
+def _own_origins(request: Request) -> set[str]:
+    """The origins this deployment answers as, lowercased and without a trailing slash.
+
+    Derived from the request itself rather than configured, because the app IS its origin:
+    frontend and API are one service behind one hostname (see the module docstring), so the
+    `Host` the caller reached — `X-Forwarded-Host`/`-Proto` when a proxy rewrote it — is the
+    only address the browser could legitimately have loaded the page from. `PUBLIC_URL` joins
+    it when set, for the ingress that does not preserve `Host`.
     """
-    cl = request.headers.get("content-length")
-    if cl is not None:
-        try:
-            size = int(cl)
-        except ValueError:
-            return JSONResponse({"detail": "Ungültige Content-Length"}, status_code=400)
-        is_upload = "multipart/form-data" in request.headers.get("content-type", "")
-        cap_mb = settings.max_upload_mb if is_upload else settings.max_json_body_mb
-        if size > cap_mb * 1024 * 1024:
-            return JSONResponse({"detail": f"Anfrage zu gross (max. {cap_mb} MB)"}, status_code=413)
+    headers = request.headers
+    scheme = (headers.get("x-forwarded-proto") or request.url.scheme).split(",")[0].strip()
+    host = (headers.get("x-forwarded-host") or headers.get("host") or "").split(",")[0].strip()
+    origins = {f"{scheme}://{host}".lower()} if host else set()
+    if settings.public_url:
+        origins.add(settings.public_url.strip().rstrip("/").lower())
+    return origins
+
+
+def _dev_loopback(origin: str) -> bool:
+    """`just dev` serves the SPA from Vite on :5188 and proxies /api with `changeOrigin: true`,
+    which rewrites `Host` to the backend's — so the derived origin cannot match and every
+    logged-in write would 403. Loopback only, and never in production."""
+    if settings.is_production:
+        return False
+    return (urlsplit(origin).hostname or "") in {"localhost", "127.0.0.1", "::1"}
+
+
+@app.middleware("http")
+async def enforce_request_origin(request: Request, call_next):
+    """Same-origin gate for cookie-authenticated mutations (the CSRF half of SEC-12).
+
+    SameSite=Lax stops an unrelated site from attaching this station's cookies to a cross-site
+    POST. It does NOT stop a same-site sibling — another host under the station's own domain,
+    hostile or merely compromised — and for that one the browser sends them. A credentialed
+    empty POST with a foreign `Origin` rotated the Erfassungs-Poster secret, invalidating every
+    printed poster in the station.
+
+    Who this applies to, and why each exemption is safe:
+
+    * **unsafe methods only.** A GET changes nothing; gating reads would break `<img>` and the
+      service worker for no gain.
+    * **only when a session cookie rides along.** A caller with none has no ambient authority
+      to borrow — whatever authorized it travelled in the request on purpose.
+    * **no `Origin` header → through.** The admin CLI, the print agent and the alerting
+      webhooks send none (nor does curl), and they carry their own explicit credential. Only a
+      browser adds `Origin`, and this is the same browser/non-browser split `PUT /api/config`
+      already draws to decide whether `If-Match` is mandatory.
+    * **an explicit credential HEADER → through**, foreign origin and all. A cross-origin page
+      cannot set `X-Capture-Token` without a CORS preflight, and this app answers none — so
+      such a header means a caller that already holds the secret, and its route's own 401 is
+      the honest answer rather than this one's 403.
+
+    `Sec-Fetch-Site` is a SECOND signal, never the only one: it catches the browser request
+    that arrives without `Origin`, and a client that omits both is by then indistinguishable
+    from the CLI it must not break.
+    """
+    if request.method in _UNSAFE_METHODS and any(c in request.cookies for c in _SESSION_COOKIES):
+        headers = request.headers
+        if not any(h in headers for h in _CREDENTIAL_HEADERS):
+            origin = headers.get("origin")
+            site = (headers.get("sec-fetch-site") or "").lower()
+            foreign_origin = origin is not None and not (
+                origin.lower().rstrip("/") in _own_origins(request) or _dev_loopback(origin)
+            )
+            if foreign_origin or (site and site not in _OWN_FETCH_SITES):
+                logger.warning(
+                    "Fremde Herkunft abgewiesen: %s %s (origin=%r, sec-fetch-site=%r)",
+                    request.method,
+                    request.url.path,
+                    origin,
+                    site or None,
+                )
+                return JSONResponse({"detail": "Anfrage von einer fremden Herkunft"}, status_code=403)
     return await call_next(request)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """The conservative, compatibility-safe half of a browser-defence header layer.
+
+    `nosniff` so a response's declared type is its only type; a referrer policy so an incident
+    URL (which carries an incident id, and on the link pages a token) does not travel to a
+    third-party host; and `frame-ancestors 'self'` — with `X-Frame-Options` for the browsers
+    that still only read that — so the app cannot be framed and clickjacked.
+
+    ⚠️ NOT a script-src CSP. That is a real compatibility question for MapLibre, pdf.js and the
+    service worker, and it is a deliberate follow-up rather than something to switch on blind.
+
+    `setdefault` throughout: a route that already decided something stricter for its own
+    response keeps it — api/branding's sandboxed CSP for admin-uploaded SVG is exactly that,
+    and so is api/reference's.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'self'")
+    return response
 
 
 @app.middleware("http")
