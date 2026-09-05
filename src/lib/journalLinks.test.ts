@@ -492,9 +492,26 @@ describe('suggestNext · what usually comes next', () => {
     expect(next('Meier Anna ', [row('TLF unterwegs')])).toEqual([])
   })
 
-  // the anchor is whatever the sentence ends on — a Textbaustein asks the record the same question
-  it('answers a Textbaustein the sentence ends on, too', () => {
-    expect(next('Feuer aus', TIMELINE).map((c) => c.label)).toEqual(['Meier Anna'])
+  it('does not turn an earlier term into a continuation', () => {
+    expect(next('Feuer aus', TIMELINE)).toEqual([])
+    expect(next('Feuer aus', [row('Feuer aus, Polizei informiert')]).map((c) => c.label)).toEqual(['Polizei'])
+  })
+
+  it('keeps the anchor after an arrow and learns that direction only', () => {
+    const timeline = [row('Meier Anna → Polizei: TLF unterwegs'), row('Meier Anna ← TLF: Feuer aus')]
+    expect(next('Meier Anna → ', timeline).map((c) => c.label)).toEqual(['Polizei'])
+    expect(next('Meier Anna ← ', timeline).map((c) => c.label)).toEqual(['TLF'])
+  })
+
+  it('keeps punctuation inside known recipients and distinguishes nested role names', () => {
+    const vocab: JournalLink[] = [{ name: 'EL', kind: 'person' }, { name: 'Stv. EL', kind: 'person' }, ...NEXT_VOCAB]
+    const timeline = [row('EL → Stv. EL: Auftrag'), row('Stv. EL → Polizei: Auftrag')]
+    expect(suggestNext('EL → ', { vocab, phrases: [], timeline }).map((c) => c.label)).toEqual(['Stv. EL'])
+  })
+
+  it('counts the next term, not everything later in the row or another sentence', () => {
+    const timeline = [row('Meier Anna meldet Polizei vor Ort, TLF unterwegs'), row('Meier Anna wartet. TLF unterwegs')]
+    expect(next('Meier Anna ', timeline).map((c) => c.label)).toEqual(['Polizei'])
   })
 
   // the sentence has to END on the term: mid-word the fragment has better answers (names,

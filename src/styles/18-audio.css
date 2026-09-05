@@ -159,12 +159,13 @@
    was seven chips over three rows, which on a phone is most of the sheet, and it changed height
    with almost every keystroke. One row is one row: the sheet's shape stops depending on how
    many matches the last letter happened to produce.
-   Nothing is dropped. The DOM order is already priority order — names first (the cursor is
-   inside one), then phrases by score — so the best matches are the ones on screen and the rest
-   are a swipe away. The chip cut off at the right edge is the cue that there are more.
+   Text suggestions share one ranking and a six-chip limit. The strongest matches come first;
+   the rest are a swipe away. The chip cut off at the right edge is the cue that there are more.
    8px gap like every other gap on this sheet. */
 .jc-phrases { display: flex; flex-wrap: nowrap; gap: 8px;
   overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+  /* Horizontal touch drag is handled by useSuggestionPan; vertical sheet scrolling stays native. */
+  touch-action: pan-y;
   /* no scrollbar: at 44px the band has no height to spare for one, and it would sit across the
      chips rather than under them */
   scrollbar-width: none; }

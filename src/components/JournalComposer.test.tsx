@@ -104,6 +104,15 @@ describe('JournalComposer · the arrow', () => {
   })
 
   // ⚠️ The space after the name still counts — nobody writes a name and then stops mid-air.
+  it('keeps the Tab arrow shortcut to one step, then allows focus navigation', () => {
+    setup({ vocab: VOCAB })
+    type('EL ')
+    expect(fireEvent.keyDown(field(), { key: 'Tab' })).toBe(false)
+    expect(field().value).toBe('EL → ')
+    expect(fireEvent.keyDown(field(), { key: 'Tab' })).toBe(true)
+    expect(field().value).toBe('EL → ')
+  })
+
   it('stays through the space after the name', () => {
     setup({ vocab: VOCAB })
     type('EL ')
@@ -137,6 +146,11 @@ describe('JournalComposer · what an empty field offers', () => {
     expect(chips).toContain('Polizei aufgeboten')
   })
 
+  it('keeps EL first even before the incident vocabulary arrives', () => {
+    setup({ vocab: [], timeline: TL })
+    expect(document.querySelector('.jc-phrases button')?.textContent).toBe('EL →')
+  })
+
   // ⚠️ The row STAYS after its own first tap — «EL →» is exactly the moment the second chip becomes
   // useful, and a row that empties itself offers help once and then takes it away.
   it('writes the opener and keeps the row, so the next chip appends to it', () => {
@@ -144,7 +158,8 @@ describe('JournalComposer · what an empty field offers', () => {
     const field = () => screen.getByRole('textbox') as HTMLTextAreaElement
     fireEvent.click(screen.getByRole('button', { name: 'EL →' }))
     expect(field().value).toBe('EL → ')
-    expect(document.querySelector('.jc-phrase-starter')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'EL →' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Polizei aufgeboten' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Polizei aufgeboten' }))
     expect(field().value).toBe('EL → Polizei aufgeboten')
@@ -488,6 +503,43 @@ describe('JournalComposer · what comes next', () => {
     type('Meier Anna ')
     expect(chip('Sanität')).toBeUndefined()
   })
+
+  it('continues after an arrow without losing the person who was just named', () => {
+    setup({ vocab: VOCAB, timeline: TIMELINE })
+    type('Meier Anna → ')
+    fireEvent.click(chip('Sanität'))
+    expect(field().value).toBe('Meier Anna → Sanität ')
+  })
+
+  it('edits at the selected cursor position and leaves the following sentence intact', async () => {
+    setup({ vocab: VOCAB })
+    type('Meier meldet Rauch. Sanität unterwegs')
+    field().focus()
+    field().setSelectionRange(3, 3)
+    fireEvent.select(field())
+    fireEvent.click(chip('Meier Anna'))
+    expect(field().value).toBe('Meier Anna meldet Rauch. Sanität unterwegs')
+    await waitFor(() => expect(field().selectionStart).toBe(10))
+    expect(document.activeElement).toBe(field())
+  })
+
+  it('Tab accepts the same highest-ranked suggestion that touch sees first', () => {
+    setup({ vocab: [{ name: 'Unterstützung', kind: 'group' }] })
+    type('Brand un')
+    expect(document.querySelector('.jc-phrases button')?.textContent).toBe('Brand unter Kontrolle')
+    fireEvent.keyDown(field(), { key: 'Tab' })
+    expect(field().value).toBe('Brand unter Kontrolle')
+  })
+
+  it('leaves Tab navigation available when only starters or continuations are visible', () => {
+    setup({ vocab: VOCAB, timeline: TIMELINE })
+    expect(fireEvent.keyDown(field(), { key: 'Tab' })).toBe(true)
+    expect(field().value).toBe('')
+    type('Meier Anna → ')
+    expect(chip('Sanität')).toBeTruthy()
+    expect(fireEvent.keyDown(field(), { key: 'Tab' })).toBe(true)
+    expect(field().value).toBe('Meier Anna → ')
+  })
 })
 
 // The band never wraps and regularly holds more than it can show, so side-scroll is how the rest
@@ -500,9 +552,9 @@ describe('JournalComposer · swiping the suggestion band', () => {
   it('a still tap picks the chip', () => {
     setup({ vocab: VOCAB })
     type('Meier')
-    fireEvent.pointerDown(chip(), { clientX: 100, clientY: 200 })
-    fireEvent.pointerMove(chip(), { clientX: 102, clientY: 201 })
-    fireEvent.click(chip())
+    fireEvent.pointerDown(chip(), { pointerType: 'touch', pointerId: 1, button: 0, clientX: 100, clientY: 200 })
+    fireEvent.pointerMove(chip(), { pointerType: 'touch', pointerId: 1, button: 0, clientX: 102, clientY: 201 })
+    fireEvent.click(chip(), { detail: 1 })
     expect(field().value).toBe('Meier Anna ')
   })
 
@@ -512,9 +564,9 @@ describe('JournalComposer · swiping the suggestion band', () => {
   it('a swipe scrolls it and picks nothing', () => {
     setup({ vocab: VOCAB })
     type('Meier')
-    fireEvent.pointerDown(chip(), { clientX: 100, clientY: 200 })
-    fireEvent.pointerMove(chip(), { clientX: 160, clientY: 204 })
-    fireEvent.click(chip())
+    fireEvent.pointerDown(chip(), { pointerType: 'touch', pointerId: 1, button: 0, clientX: 100, clientY: 200 })
+    fireEvent.pointerMove(chip(), { pointerType: 'touch', pointerId: 1, button: 0, clientX: 160, clientY: 204 })
+    fireEvent.click(chip(), { detail: 1 })
     expect(field().value).toBe('Meier')
   })
 })
