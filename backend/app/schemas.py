@@ -1,6 +1,7 @@
 """Pydantic request/response schemas (grows per phase)."""
 
 import logging
+import math
 import re
 import uuid
 from datetime import datetime
@@ -165,9 +166,65 @@ class WorkspaceOut(BaseModel):
     workspace_rev: int
 
 
+#: Colours a saved drawing may carry.
+#:
+#: ⚠️ A colour is written into an SVG ATTRIBUTE by both renderers and by the print path
+#: (src/lib/shapes.tsx), so a stored value carrying a quote used to close that attribute and open
+#: an event handler in the next operator's browser (SEC-01). Everything the app writes is a hex
+#: literal; the function forms and the bare CSS keywords are accepted so a hand-written or legacy
+#: blob keeps rendering. Kept in step with `isSafeColor` on the client.
+_COLOR_RE = re.compile(
+    r"^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$"
+    r"|^(?:rgb|hsl)a?\([\d\s.,%/+-]*\)$"
+    r"|^[a-z]{3,20}$",
+    re.IGNORECASE,
+)
+
+#: …and the numbers that describe an object's artwork (client twin: lib/workspace · DRAW_NUMBERS).
+_NUMERIC_DRAWING_KEYS = frozenset(
+    {"aspect", "fillOpacity", "rotation", "rotation2", "sizeM", "sizeN", "strokeW", "width"}
+)
+
+
+def _scrub_drawing_props(workspace: dict[str, Any]) -> None:
+    """Strip every drawing property that no client of this app could have written.
+
+    Neutralise, never reject: a 422 on a whole workspace stops the incident syncing on every
+    tablet, and a hostile colour has no meaning to lose — the object keeps its geometry, its
+    clocks and its history, and simply renders in the default ink. Because the capture and
+    Atemschutz saves re-wrap the server's own blob into a `WorkspacePut`, this also cleans data
+    that was stored before the gate existed.
+
+    Iterative on purpose: the blob is caller-supplied JSON, and recursing into a deliberately
+    deep one would turn a bad request into a 500.
+    """
+    stack: list[Any] = [workspace]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            colour = node.get("color")
+            if isinstance(colour, str) and not _COLOR_RE.match(colour):
+                del node["color"]
+            for key in _NUMERIC_DRAWING_KEYS & node.keys():
+                value = node[key]
+                # bool is an int in Python, and `fill-opacity="True"` is not a number
+                if value is not None and (
+                    isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+                ):
+                    del node[key]
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+
+
 class WorkspacePut(BaseModel):
     workspace: dict[str, Any]
     base_rev: int
+
+    @model_validator(mode="after")
+    def _validate_workspace(self) -> "WorkspacePut":
+        _scrub_drawing_props(self.workspace)
+        return self
 
 
 #: A wide-open workspace holds hundreds of objects; the Atemschutz roster of one Einsatz is a
