@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from jwt import InvalidTokenError as JWTError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
@@ -54,7 +54,7 @@ def _claims(user: User) -> dict:
     }
 
 
-def revoke_sessions(user: User) -> None:
+async def revoke_sessions(db: AsyncSession, user: User) -> None:
     """End every session this account currently holds — access cookies AND refresh tokens.
 
     The one lever behind «throw them out»: a PIN reset and a deactivation both pull it, so an
@@ -62,9 +62,20 @@ def revoke_sessions(user: User) -> None:
     (security audit SEC-05). Deactivation pulling it too is what stops a later reactivation
     from reviving the sessions the deactivation denied.
 
-    Callers are inside the request's transaction; the bump is flushed with everything else.
+    The bump is an atomic ``gen = gen + 1`` at the row, NOT a read-modify-write on the ORM
+    value: two overlapping resets that both read generation 0 would each write 1, leaving a
+    session minted after the first reset alive through the second (SEC-05). Serialising at the
+    row makes N resets advance the generation by N. ``synchronize_session=False`` leaves the
+    identity-mapped value stale, so it is expired here — the callers' own ``db.refresh(user)``
+    then re-reads the bumped value without clobbering their other pending edits.
     """
-    user.auth_generation = (user.auth_generation or 0) + 1
+    await db.execute(
+        update(User)
+        .where(User.id == user.id)
+        .values(auth_generation=User.auth_generation + 1)
+        .execution_options(synchronize_session=False)
+    )
+    db.expire(user, ["auth_generation"])
 
 
 @router.get("/roster", response_model=list[RosterUser])
@@ -281,7 +292,7 @@ async def update_user(
         if deactivating:
             # Denying access and leaving the sessions standing is only half a deactivation:
             # reactivating later would hand them back (SEC-05).
-            revoke_sessions(user)
+            await revoke_sessions(db, user)
         user.is_active = body.is_active
     if body.el_view_default is not None:
         user.el_view_default = body.el_view_default
@@ -304,7 +315,7 @@ async def reset_pin(
     user.pin_hash = _hash_pin_or_400(body.pin)
     # The whole point of resetting a PIN is that the old one stops working — for the sessions
     # it already opened too, not just for the login screen.
-    revoke_sessions(user)
+    await revoke_sessions(db, user)
     await db.flush()
     await db.refresh(user)
     return user

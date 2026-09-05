@@ -146,6 +146,17 @@ class Settings(BaseSettings):
     # deletes it. Backstop for the Einsatz nobody closes — closing deletes the rows outright.
     position_ttl_hours: int = 6
 
+    # How many trusted reverse-proxy hops sit in front of this app (app/auth/client_ip.py).
+    # This is the ONLY thing that makes `X-Forwarded-For` trustworthy — the header is plain and
+    # forgeable, so a rate-limit key derived from it lets a direct client mint unlimited buckets
+    # (security audit SEC-08). SAFE DEFAULT 0: XFF is ignored entirely and the direct peer is the
+    # key. When set to N, exactly the N rightmost XFF entries are honoured as trusted hops and the
+    # client is taken from just left of them; a shorter chain than promised falls back to the peer.
+    # ⚠️ Railway/Caddy same-origin deployment: the reverse proxy is the one trusted hop, so set
+    # TRUSTED_FORWARDED_HOPS=1 there or every request keys on the proxy's address (one shared
+    # bucket) and the per-source throttle collapses. Add one hop per additional trusted proxy.
+    trusted_forwarded_hops: int = 0
+
     # --- Incident view links (logged-out read-only session; app/auth/incident_link.py) ---
     # Lifetime of the SESSION cookie minted in exchange for a link token. A backstop only:
     # the real rule is "valid until the incident is closed", which is enforced per request
