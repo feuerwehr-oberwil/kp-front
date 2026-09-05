@@ -159,11 +159,35 @@ describe('sw-media-cache — a denial converges across tabs', () => {
     expect(await media('tab-a')).toBe('network-1')
     expect(await media('tab-b')).toBe('network-1')
 
+    // Station reference data (symbols/geojson) is not owner-scoped, so an explicit denial must
+    // purge it too — otherwise a revoked device keeps reading it. Seed it as Workbox would.
+    stores.set('reference-data', new Map([['https://kp.test/api/reference/symbols', new Response('ref')]]))
+
     // tab A is the one whose request 401s → the whole device loses the cache and every grant
     await message('tab-a', { type: 'kp-media-auth', kind: 'logged-out' })
     expect(stores.has('incident-media')).toBe(false)
+    expect(stores.has('reference-data')).toBe(false) // …the reference cache is gone as well
     expect(await media('tab-b')).toBe('network-2')
     expect(await media('tab-b')).toBe('network-3') // …and nothing is being cached for it either
+  })
+})
+
+describe('AuthProvider — the boot probe is refused', () => {
+  it.each([401, 403])('an explicit %i clears the cached identity, so no offline boot restores a dead session', async (status) => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValueOnce(new ApiError(status, 'refused'))
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.user).toBeNull()
+    expect(idbDel).toHaveBeenCalledWith('kp-front-user') // the 403 used to leave the identity behind
+  })
+
+  it.each([0, 503])('keeps the cached identity when the server could not be asked (%i)', async (status) => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    apiGet.mockRejectedValueOnce(new ApiError(status, 'Netzwerkfehler'))
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(idbDel).not.toHaveBeenCalled() // silence refuses nothing — the cached session stands
   })
 })
 
