@@ -10,6 +10,7 @@ uses CurrentUser, not CurrentEditor.
 
 import re
 import uuid
+from dataclasses import dataclass
 from urllib.parse import unquote
 
 import anyio
@@ -86,11 +87,124 @@ async def _resolve_logo_bytes(db: AsyncSession) -> bytes | None:
     return figs.get(_LOGO_KEY)
 
 
-async def resolve_report_assets(db: AsyncSession, data: ReportPayload, figs: dict[str, bytes]) -> dict[str, bytes]:
+#: The one refusal for every way a payload can reach past the incident its route authorised.
+#: One message, like the incident link's `_Denied`: «gibt es nicht» and «gehört nicht dir» must
+#: not be distinguishable, or the refusal draws a map of the media store.
+OUT_OF_SCOPE_DETAIL = "Rapport enthält Inhalte ausserhalb dieses Einsatzes"
+
+
+@dataclass(frozen=True)
+class ReportAssetScope:
+    """Which server-owned assets a caller may pull into the rapport it asks us to compose.
+
+    Only a caller whose read surface is NARROWER than the station needs one, which is why the
+    parameter is optional everywhere and defaults to ``None`` = no extra restriction: an
+    ordinary session already reads every incident's media and every reference dataset through
+    the plain API, so scoping its own rapport would remove legitimate documents and close
+    nothing.
+
+    The Erfassungs-Poster is the one caller that IS narrower. Its token reaches a window of
+    incidents, never the map and never the Pläne, and each of its routes authorises exactly one
+    incident. The route knew that; the resolver below — the code that actually opens files —
+    did not, so a payload could name an archived incident's photo UUID and get the bytes back
+    inside a PDF for an incident the poster may reach (SEC-06). The authorisation now travels
+    with the payload.
+    """
+
+    #: The incident the route authorised. A payload claiming a different one is refused.
+    incident_id: uuid.UUID
+    #: Incidents whose media may be embedded.
+    media_incident_ids: frozenset[uuid.UUID]
+    #: Reference datasets whose plan PDFs may be printed. Empty = no plans at all.
+    plan_dataset_ids: frozenset[str]
+
+
+def _out_of_scope() -> HTTPException:
+    return HTTPException(status_code=403, detail=OUT_OF_SCOPE_DETAIL)
+
+
+def _media_urls(data: ReportPayload) -> list[str]:
+    """Every `/api/media/<uuid>` the payload asks the server to open — journal pictures (incl.
+    the legacy single `photoUrl`) and Beilagen. One list so the scope check and the resolver
+    below cannot drift apart on which doors exist."""
+    urls: list[str] = []
+    for row in data.journal:
+        urls.extend(row.photoUrls or ([row.photoUrl] if row.photoUrl else []))
+    urls.extend(att.url for att in data.attachments if att.url)
+    return urls
+
+
+async def _check_asset_scope(db: AsyncSession, data: ReportPayload, scope: ReportAssetScope) -> None:
+    """Refuse — never silently drop — a payload that reaches past `scope`.
+
+    Refusing rather than skipping is deliberate: a missing picture is an accident the rapport
+    survives (see the resolver's own `continue`s), but a picture from another Einsatz is a
+    request nobody's form can produce, and answering it with a quietly incomplete PDF would
+    make the boundary invisible to whoever is holding the paper.
+    """
+    claimed = (data.incident.id or "").strip()
+    if claimed and claimed != str(scope.incident_id):
+        raise _out_of_scope()
+
+    for url in _media_urls(data):
+        m = _MEDIA_URL.match(url)
+        if not m:
+            continue  # not a media reference at all — the resolver ignores it too
+        media = (await db.execute(select(Media).where(Media.id == uuid.UUID(m.group(1))))).scalar_one_or_none()
+        # A row that is GONE stays the resolver's "ship without it" case: deleting a Beilage
+        # mid-Erfassung must not turn the next print into a refusal.
+        if media is not None and media.incident_id not in scope.media_incident_ids:
+            raise _out_of_scope()
+
+    for pp in data.planPages:
+        if not pp.url:
+            continue
+        m = _REFERENCE_URL.match(pp.url)
+        if not m:
+            continue
+        # Checked against the allowed set BEFORE any lookup, so «no such dataset» and «not
+        # yours» stay one answer.
+        if unquote(m.group(1)) not in scope.plan_dataset_ids:
+            raise _out_of_scope()
+
+
+async def enforce_report_asset_scope(db: AsyncSession, payload: str, scope: ReportAssetScope) -> None:
+    """The scope check on a raw payload, for a caller that composes somewhere else.
+
+    ``resolve_report_assets`` runs this for every path that goes through it. The print queue
+    does not go through it with a scope: ``print_relay.enqueue_print_job`` owns the composer
+    call there and takes no scope argument, so its capture twin runs the check itself before
+    queueing anything. Same policy, same refusal, one implementation.
+    """
+    await _check_asset_scope(db, parse_report_payload(payload), scope)
+
+
+def parse_report_payload(payload: str) -> ReportPayload:
+    """The one place the wire payload is validated, so every caller answers 422 identically."""
+    try:
+        return ReportPayload.model_validate_json(payload)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=422, detail=f"Ungültige Rapport-Daten: {e.errors(include_url=False)[:5]}"
+        ) from e
+
+
+async def resolve_report_assets(
+    db: AsyncSession,
+    data: ReportPayload,
+    figs: dict[str, bytes],
+    scope: ReportAssetScope | None = None,
+) -> dict[str, bytes]:
     """Load the server-owned assets the composer needs: journal photos from the media
     store (keyed `photo:<url>` into `figs`) and plan PDFs from the reference store
     (returned as url→bytes). Missing/foreign assets are skipped — the rapport ships
-    without that picture rather than failing."""
+    without that picture rather than failing.
+
+    `scope`, when given, is the narrower caller's authorisation (see `ReportAssetScope`): the
+    payload is refused outright before a single file is opened if it names anything outside it.
+    """
+    if scope is not None:
+        await _check_asset_scope(db, data, scope)
     await _resolve_logo(db, figs)
 
     for row in data.journal:
@@ -176,19 +290,21 @@ async def _alarm_ref(db: AsyncSession, incident_id: str) -> str | None:
 
 
 async def compose_report_from_payload(
-    db: AsyncSession, payload: str, figs: dict[str, bytes] | None = None
+    db: AsyncSession,
+    payload: str,
+    figs: dict[str, bytes] | None = None,
+    scope: ReportAssetScope | None = None,
 ) -> tuple[bytes, ReportPayload]:
     """Validate the JSON `payload` and compose the Rapport-PDF — the one path shared by
-    the download endpoints (editor + capture) and the print-relay enqueue endpoints."""
-    try:
-        data = ReportPayload.model_validate_json(payload)
-    except ValidationError as e:
-        raise HTTPException(
-            status_code=422, detail=f"Ungültige Rapport-Daten: {e.errors(include_url=False)[:5]}"
-        ) from e
+    the download endpoints (editor + capture) and the print-relay enqueue endpoints.
+
+    `scope` narrows which server-owned assets the payload may reach (`ReportAssetScope`);
+    omitting it keeps the station-wide behaviour every logged-in session already has.
+    """
+    data = parse_report_payload(payload)
     figs = figs if figs is not None else {}
     data.incident.alarmRef = await _alarm_ref(db, data.incident.id)
-    plan_pdfs = await resolve_report_assets(db, data, figs)
+    plan_pdfs = await resolve_report_assets(db, data, figs, scope)
     try:
         # composition does real work now (tile fetch + rasterising) — off the event loop
         pdf = await anyio.to_thread.run_sync(compose_report_pdf, data, figs, plan_pdfs)

@@ -44,6 +44,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarms import is_demo_deployment
 from ..auth.capture_limiter import position_limiter
+from ..auth.client_ip import client_ip
 from ..auth.dependencies import CurrentUser
 from ..database import dialect_insert, execute_dml, get_db
 from ..models import Incident, Personnel, PersonPosition
@@ -80,16 +81,10 @@ class PositionOut(BaseModel):
 router = APIRouter(prefix="/incidents", tags=["positions"])
 
 
-def _client_ip(request: Request) -> str:
-    # Behind the platform proxy the real client is the first X-Forwarded-For hop.
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
 def _rate_limit(request: Request) -> None:
-    wait = position_limiter.check(_client_ip(request))
+    # ⚠️ `client_ip`, never the raw first `X-Forwarded-For` hop: that value is client-supplied
+    # and used to hand a scripted caller a fresh bucket per request (SEC-08 · auth/client_ip).
+    wait = position_limiter.check(client_ip(request))
     if wait:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
