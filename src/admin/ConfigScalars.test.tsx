@@ -54,7 +54,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function setup(node: React.ReactNode, ready: () => unknown) {
-  render(<ConfigProvider>{node}</ConfigProvider>)
+  await act(async () => { render(<ConfigProvider>{node}</ConfigProvider>) })
   await waitFor(() => expect(ready()).toBeTruthy())
 }
 

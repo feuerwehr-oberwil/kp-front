@@ -25,10 +25,18 @@ class TooLargeError(Exception):
 
 
 def _full(key: str) -> str:
-    # Prevent path traversal: keys are relative, normalised, and must stay under root.
-    safe = os.path.normpath(key).lstrip("/")
-    path = os.path.abspath(os.path.join(_ROOT, safe))
-    if not path.startswith(_ROOT + os.sep) and path != _ROOT:
+    # Keys are relative blob names. Resolve links before checking containment so a
+    # restored/misconfigured volume cannot redirect a read, write or delete outside it.
+    if not key or os.path.isabs(key) or "\\" in key or "\x00" in key or ".." in key.split("/"):
+        raise ValueError(f"Unsafe storage key: {key!r}")
+    root = os.path.realpath(_ROOT)
+    candidate = os.path.abspath(os.path.join(root, key))
+    path = os.path.realpath(candidate)
+    if not path.startswith(root + os.sep):
+        raise ValueError(f"Unsafe storage key: {key!r}")
+    # Blobs never need symlinks. Refuse aliases within the volume too: otherwise a
+    # public branding key could point at private incident media under the same root.
+    if path != candidate:
         raise ValueError(f"Unsafe storage key: {key!r}")
     return path
 

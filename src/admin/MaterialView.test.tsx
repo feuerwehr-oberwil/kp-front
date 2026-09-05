@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, act, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Verwaltung › Station › Material. The Mittel catalogue used to be reachable from nowhere in
@@ -45,7 +45,7 @@ afterEach(cleanup)
 async function setup(cfg: unknown) {
   apiGet.mockReset().mockResolvedValue(cfg)
   const onNavigate = vi.fn()
-  render(<ConfigProvider><MaterialView onNavigate={onNavigate} /></ConfigProvider>)
+  await act(async () => { render(<ConfigProvider><MaterialView onNavigate={onNavigate} /></ConfigProvider>) })
   await waitFor(() => expect(document.querySelectorAll('.adm-card').length).toBe(3))
   return onNavigate
 }

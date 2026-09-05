@@ -232,7 +232,7 @@ flowchart TB
   UI -. "tiles direct to browser" .-> TILES
 ```
 
-**Frontend:** React 18, TypeScript, Vite 5, MapLibre GL, Workbox/PWA, and Vitest. Incident
+**Frontend:** React 19, TypeScript, Vite 8, MapLibre GL, Workbox/PWA, and Vitest. Incident
 workspaces persist in IndexedDB and sync with the backend when online.
 
 **Backend:** FastAPI, PostgreSQL, Alembic, and `uv`. It serves the frontend from the same origin

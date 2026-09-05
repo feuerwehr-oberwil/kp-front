@@ -66,7 +66,7 @@ type Stt =
 
 function useStt(audioUrl: string | undefined, enabled: boolean) {
   const [stt, setStt] = useState<Stt>({ phase: 'idle' })
-  const pollRef = useRef<ReturnType<typeof setTimeout>>()
+  const pollRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const refresh = async (url: string) => {
     try {
       const r = await apiGet<{ status: string; error: string | null; segments: SttSegment[] | null }>(`${url}/transcription`)

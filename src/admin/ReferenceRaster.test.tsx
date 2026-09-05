@@ -63,7 +63,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function setup(cfg: unknown = STATION) {
   apiGet.mockResolvedValue(structuredClone(cfg))
-  render(<ConfigProvider><LayersSection /></ConfigProvider>)
+  await act(async () => { render(<ConfigProvider><LayersSection /></ConfigProvider>) })
   await waitFor(() => expect(screen.queryByText(C.rasterAdd)).toBeTruthy())
 }
 

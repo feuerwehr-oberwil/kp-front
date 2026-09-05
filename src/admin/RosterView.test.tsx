@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, act, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The CSV import stops BEFORE it writes — for EVERY file, not only for one that uses a
@@ -75,7 +75,7 @@ afterEach(cleanup)
 /** Mount the page and hand it a file, as the operator does. */
 async function pickFile(preview: unknown = PREVIEW) {
   previewRosterCsv.mockResolvedValue(preview)
-  const { container } = render(<ConfigProvider><RosterView /></ConfigProvider>)
+  const { container } = await act(async () => render(<ConfigProvider><RosterView /></ConfigProvider>))
   const input = await waitFor(() => {
     const el = container.querySelector('input[type="file"]')
     if (!el) throw new Error('no file input')

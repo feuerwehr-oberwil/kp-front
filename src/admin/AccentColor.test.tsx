@@ -51,7 +51,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function setup(cfg: unknown = EMPTY) {
   apiGet.mockResolvedValue(cfg)
-  render(<ConfigProvider><AccentColorField /></ConfigProvider>)
+  await act(async () => { render(<ConfigProvider><AccentColorField /></ConfigProvider>) })
   await waitFor(() => expect(document.querySelectorAll('input').length).toBe(2))
 }
 

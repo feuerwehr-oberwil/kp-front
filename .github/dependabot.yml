@@ -32,6 +32,10 @@ updates:
   # all watched, and the one dependency a station actually RUNS was not.
   - package-ecosystem: docker
     directory: "/"
+    # Node 25 is end-of-life; keep updates on the supported Node 24 LTS line.
+    ignore:
+      - dependency-name: node
+        versions: [">=25.0.0 <26.0.0"]
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

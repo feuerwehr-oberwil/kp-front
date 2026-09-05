@@ -49,7 +49,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function setup(cfg: unknown = CENTRED) {
   apiGet.mockReset().mockResolvedValue(cfg)
-  render(<ConfigProvider><MapSection /></ConfigProvider>)
+  await act(async () => { render(<ConfigProvider><MapSection /></ConfigProvider>) })
   await waitFor(() => expect(document.querySelectorAll('.adm-card').length).toBeGreaterThan(1))
 }
 

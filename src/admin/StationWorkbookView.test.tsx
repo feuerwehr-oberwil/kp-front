@@ -125,7 +125,7 @@ afterEach(cleanup)
 
 /** ⚠️ Inside the ConfigProvider, the way AdminShell mounts it — this page is one of the config
  *  document's writers, and what it has to do about that is the subject of the last describe. */
-const mount = () => render(<ConfigProvider><StationWorkbookView /></ConfigProvider>)
+const mount = () => act(async () => render(<ConfigProvider><StationWorkbookView /></ConfigProvider>))
 
 describe('the confirmation screen', () => {
   it('names what goes away instead of only counting it', async () => {
@@ -138,7 +138,7 @@ describe('the confirmation screen', () => {
         }),
       ],
     }))
-    mount()
+    await mount()
     await pick()
 
     const cell = row('Fahrzeuge')
@@ -157,7 +157,7 @@ describe('the confirmation screen', () => {
         }),
       ],
     }))
-    mount()
+    await mount()
     await pick()
     expect(within(row('Mittel')).getByText(/und 6 weitere/)).toBeTruthy()
   })
@@ -177,7 +177,7 @@ describe('the confirmation screen', () => {
         }),
       ],
     }))
-    mount()
+    await mount()
     await pick()
 
     const crew = within(row('Mannschaft'))
@@ -201,7 +201,7 @@ describe('the confirmation screen', () => {
       ],
       emptied: ['mittel.catalogue'],
     }))
-    mount()
+    await mount()
     await pick()
 
     expect(within(row('Fahrzeuge')).getByText(C.sheetAbsent)).toBeTruthy()
@@ -219,7 +219,7 @@ describe('the confirmation screen', () => {
       'Mittel-Bestände Zeile 7 – Quellen-Kennung «hlf-99» gibt es nicht …',
     ]
     apiUpload.mockResolvedValue(preview({ ok: false, errors }))
-    mount()
+    await mount()
     await pick()
 
     expect(confirmButton()).toHaveProperty('disabled', true)
@@ -235,7 +235,7 @@ describe('the confirmation screen', () => {
       + 'Nachname geht dabei verloren – diese Person folgt danach nicht mehr der Namensreihenfolge '
       + 'der Station, sondern steht genau so da wie in der Zelle.'
     apiUpload.mockResolvedValue(preview({ warnings: [warn] }))
-    mount()
+    await mount()
     await pick()
 
     expect(screen.getByText(C.warningsTitle)).toBeTruthy()
@@ -248,7 +248,7 @@ describe('the confirmation screen', () => {
 describe('nothing is written until the operator says so', () => {
   it('only previews on pick, and sends the confirmed file with the digest it read', async () => {
     apiUpload.mockResolvedValueOnce(preview()).mockResolvedValueOnce({ sheets: [], warnings: [], emptied: [] })
-    mount()
+    await mount()
     await pick()
     expect(apiUpload).toHaveBeenCalledTimes(1)
 
@@ -266,7 +266,7 @@ describe('nothing is written until the operator says so', () => {
     apiUpload.mockResolvedValue(preview({
       sheets: [impact('Fahrzeuge', { removed: ['tlf-31'], removed_total: 1, removal_kind: 'removed' })],
     }))
-    mount()
+    await mount()
     await pick()
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: Cc.cancel })) })
@@ -279,7 +279,7 @@ describe('nothing is written until the operator says so', () => {
     apiUpload
       .mockResolvedValueOnce(preview())
       .mockRejectedValueOnce(new ApiError(409, 'Die Datei hat sich seit der Vorschau geändert. Bitte die Vorschau neu erstellen.'))
-    mount()
+    await mount()
     await pick()
     await act(async () => { fireEvent.click(confirmButton()) })
 
@@ -288,10 +288,10 @@ describe('nothing is written until the operator says so', () => {
 })
 
 describe('the page says what the workbook is not', () => {
-  it('names the backup that this file is not, before anything else', () => {
+  it('names the backup that this file is not, before anything else', async () => {
     // ⚠️ A file that looks like the whole station is the file somebody reaches for after a bad
     // day. It carries six of a dozen config sections; the restore path is elsewhere.
-    mount()
+    await mount()
     expect(screen.getByText(C.notBackup)).toBeTruthy()
     expect(screen.getByText(new RegExp(C.carriesNot.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeTruthy()
   })
@@ -300,7 +300,7 @@ describe('the page says what the workbook is not', () => {
     const blob = new Blob([new Uint8Array([80, 75])])
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => blob })
     vi.stubGlobal('fetch', fetchMock)
-    mount()
+    await mount()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: C.download })) })
 
     expect(downloadBlob).toHaveBeenCalledTimes(1)
@@ -327,7 +327,7 @@ describe('after an import, the editor holds the document the server now has', ()
   /** Import a workbook, with the server answering `AFTER` on the re-read. */
   async function importWorkbook() {
     apiUpload.mockResolvedValueOnce(preview()).mockResolvedValueOnce({ sheets: [], warnings: [], emptied: [] })
-    render(<ConfigProvider><StationWorkbookView /><IdentitySection /></ConfigProvider>)
+    await act(async () => { render(<ConfigProvider><StationWorkbookView /><IdentitySection /></ConfigProvider>) })
     await waitFor(() => expect(apiGet).toHaveBeenCalled())
     await pick()
     apiGet.mockResolvedValue(structuredClone(AFTER))
@@ -363,7 +363,7 @@ describe('after an import, the editor holds the document the server now has', ()
     apiUpload
       .mockResolvedValueOnce(preview())
       .mockRejectedValueOnce(new ApiError(409, 'Die Datei hat sich seit der Vorschau geändert.'))
-    mount()
+    await mount()
     await waitFor(() => expect(apiGet).toHaveBeenCalledTimes(1))
     await pick()
     await act(async () => { fireEvent.click(confirmButton()) })
@@ -372,7 +372,7 @@ describe('after an import, the editor holds the document the server now has', ()
 
   it('says the page is stale when the re-read itself fails, instead of staying quiet', async () => {
     apiUpload.mockResolvedValueOnce(preview()).mockResolvedValueOnce({ sheets: [], warnings: [], emptied: [] })
-    mount()
+    await mount()
     await waitFor(() => expect(apiGet).toHaveBeenCalled())
     await pick()
     apiGet.mockRejectedValue(new ApiError(503, 'offline'))

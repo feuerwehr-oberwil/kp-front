@@ -37,10 +37,9 @@ ALLOWED = {
 OVERRIDES = {
     # metadata gap: fork of jsonlint, upstream is MIT; no license field in package.json
     "@mapbox/jsonlint-lines-primitives": "MIT upstream; package metadata missing",
-    # react-map-gl v7 hard peer dep; the app imports ONLY react-map-gl/maplibre, and the
-    # built bundle was verified mapbox-free (2026-07-03). Remove this override when
-    # react-map-gl v8 (which drops the mapbox-gl peer) lands.
-    "mapbox-gl": "unused peer of react-map-gl v7; not imported, not bundled",
+    # react-map-gl also resolves its optional Mapbox peer; the app imports only
+    # react-map-gl/maplibre. The Vite 8 production bundle remains Mapbox-free.
+    "mapbox-gl": "unused optional peer of react-map-gl; not imported, not bundled",
     # the backend package itself
     "kp-front-backend": "first-party (AGPL-3.0-or-later)",
     # PDFium is BSD-3-Clause, the pypdfium2 wrapper Apache-2.0; both permissive. The

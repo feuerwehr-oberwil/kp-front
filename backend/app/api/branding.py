@@ -242,11 +242,15 @@ async def serve_branding(key: str, db: AsyncSession = Depends(get_db)) -> FileRe
     """
     if not key.startswith("branding/") or ".." in key:
         raise HTTPException(status_code=404, detail="Nicht gefunden")
+    try:
+        path = storage.local_path(key)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Nicht gefunden") from None
     if not storage.exists(key):
         raise HTTPException(status_code=404, detail="Nicht gefunden")
     media_type = mimetypes.guess_type(key)[0] or "application/octet-stream"
     return FileResponse(
-        storage.local_path(key),
+        path,
         media_type=media_type,
         headers={
             "X-Content-Type-Options": "nosniff",
