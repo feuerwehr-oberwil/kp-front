@@ -36,7 +36,12 @@ _MAX_FIGURES = 40
 _MAX_FIGURE_BYTES = 12 * 1024 * 1024  # 12 MB per captured page — generous for a full-res map PNG
 _ALLOWED_FIGURE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
-_MEDIA_URL = re.compile(r"^/api/media/([0-9a-fA-F-]{36})$")
+# ⚠️ The canonical 8-4-4-4-12 UUID shape, NOT a loose 36 hex-or-dash characters: `uuid.UUID()`
+# on a matching-but-invalid string («0»×36, dashes in the wrong places) raised a ValueError that
+# surfaced as a 500 for everyone on the incident — reachable with a low-trust capture/poster token
+# (SEC-06, 05.09.). Every string this now matches is a UUID the constructor accepts, so a malformed
+# media URL simply fails to match and is skipped like a missing row.
+_MEDIA_URL = re.compile(r"^/api/media/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$")
 #: ⚠️ The query string is OPTIONAL, and ignored. Plan URLs carry the dataset's version
 #: (`?v=3`) so that re-uploading a Modul-PDF produces a NEW url and every cache — the service
 #: worker's, pdf.js' document cache, the rendered-bitmap cache — misses instead of serving the
@@ -179,14 +184,35 @@ async def enforce_report_asset_scope(db: AsyncSession, payload: str, scope: Repo
     await _check_asset_scope(db, parse_report_payload(payload), scope)
 
 
+#: How much of a rejected Rapport payload may echo back in its 422 — enough to name the offending
+#: field, never enough to be worth POSTing a big body to provoke. Mirrors the caps the app-wide
+#: RequestValidationError handler applies in app/main.py.
+_MAX_PAYLOAD_ERRORS = 5
+_MAX_PAYLOAD_MSG_CHARS = 200
+_MAX_LOC_PARTS = 10
+_MAX_LOC_PART_CHARS = 100
+
+
 def parse_report_payload(payload: str) -> ReportPayload:
     """The one place the wire payload is validated, so every caller answers 422 identically."""
     try:
         return ReportPayload.model_validate_json(payload)
     except ValidationError as e:
-        raise HTTPException(
-            status_code=422, detail=f"Ungültige Rapport-Daten: {e.errors(include_url=False)[:5]}"
-        ) from e
+        # ⚠️ Redacted, never `e.errors()` raw: pydantic puts the offending value back under `input`
+        # (and again inside `ctx`), so a 200 KB invalid field answered with a ~200 KB body — an
+        # amplifier a caller with report access (a poster token included) could aim at the one
+        # service every tablet talks to (SEC-04, 05.09.). `loc`/`msg`/`type` name the field and what
+        # was expected; the value is gone, and `loc` itself is bounded — a caller-chosen dict key
+        # lives there too.
+        fields = [
+            {
+                "loc": [str(p)[:_MAX_LOC_PART_CHARS] for p in err.get("loc", ())[:_MAX_LOC_PARTS]],
+                "msg": str(err.get("msg", ""))[:_MAX_PAYLOAD_MSG_CHARS],
+                "type": str(err.get("type", "")),
+            }
+            for err in e.errors(include_url=False)[:_MAX_PAYLOAD_ERRORS]
+        ]
+        raise HTTPException(status_code=422, detail={"error": "Ungültige Rapport-Daten", "fields": fields}) from e
 
 
 async def resolve_report_assets(

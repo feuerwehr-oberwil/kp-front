@@ -20,8 +20,11 @@ import asyncio
 import json
 import logging
 import math
-from datetime import UTC, datetime
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import requests
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -55,6 +58,13 @@ DEFAULT_INTERVAL_MIN = 5
 DEFAULT_GRACE_SEC = 60
 DEFAULT_ALARM_BAR = 100
 DEFAULT_ALARM_BAR_RUECKZUG = 50
+
+#: How long a registration stays a delivery target without being renewed. The SPA re-subscribes on
+#: every boot (src/lib/push.ts), so a row nobody has refreshed in half a year belongs to a browser
+#: profile that is gone. Registration expires the user's stale rows; delivery ALSO excludes them
+#: (`_deliverable`), so an expired row is never pushed to even before its owner next re-registers
+#: (SEC-09, 05.09.). Lives here, the sending side, and is imported by the registration route.
+SUBSCRIPTION_TTL_DAYS = 180
 
 
 def _ms(iso: str | None) -> float | None:
@@ -210,13 +220,21 @@ def _deliverable():
     An outer join, not a filter on a joined column — a `user_id` of NULL is a legitimate row
     (a shared station browser that subscribed before it had a login) and an inner join would
     silently stop notifying it.
+
+    Expired rows (past the TTL, never refreshed) are excluded here too: expiry ran only when a
+    user re-registered, so a phone that stopped booting the app was still being POSTed to for
+    months (SEC-09, 05.09.).
     """
     from .models import User
 
+    cutoff = datetime.now(UTC) - timedelta(days=SUBSCRIPTION_TTL_DAYS)
     return (
         select(PushSubscription)
         .outerjoin(User, User.id == PushSubscription.user_id)
-        .where((PushSubscription.user_id.is_(None)) | (User.is_active.is_(True)))
+        .where(
+            (PushSubscription.user_id.is_(None)) | (User.is_active.is_(True)),
+            PushSubscription.created_at >= cutoff,
+        )
     )
 
 
@@ -234,6 +252,27 @@ def _sendable(endpoint: str) -> bool:
     return True
 
 
+def _no_redirect_session() -> "requests.Session":
+    """A `requests` session that refuses to FOLLOW redirects.
+
+    ⚠️ pywebpush uses a default session, which follows redirects — so a subscription on a validated
+    public-HTTPS host that answers «301 → http://169.254.169.254» would have the encrypted body
+    re-POSTed to that loopback/metadata target (SEC-09, 05.09.). The destination stays the endpoint
+    registration and `_sendable` already vetted; a 3xx is simply not delivered (and not pruned — a
+    redirecting push service is not a gone one). Redirects are separate from the accepted
+    DNS-rebinding residual (app/egress.py); this closes them.
+    """
+    import requests
+
+    session = requests.Session()
+
+    def _no_redirects(resp, *_args, **_kwargs):  # requests calls this to build the redirect chain
+        return iter(())
+
+    session.resolve_redirects = _no_redirects  # type: ignore[method-assign]
+    return session
+
+
 def _send_one(sub: dict, payload: str) -> bool:
     """Blocking pywebpush send; returns False when the subscription should be pruned
     (endpoint gone per the push service, or the stored keys are unusable)."""
@@ -249,6 +288,7 @@ def _send_one(sub: dict, payload: str) -> bool:
             vapid_claims={"sub": credential("vapid_subject")},
             ttl=120,
             timeout=PUSH_TIMEOUT_SECONDS,
+            requests_session=_no_redirect_session(),
         )
         return True
     except WebPushException as e:

@@ -112,6 +112,34 @@ async def test_gzip_request_keeps_its_decompressed_cap(client, editor):
     assert r.status_code == 413, r.text
 
 
+async def test_a_json_body_lying_about_multipart_gets_the_json_cap(client):
+    """SEC-04 (05.09.): the cap was chosen by a substring search, so
+    `application/json; charset=multipart/form-data` selected the 110 MB upload cap for a JSON
+    body. The bare media type decides now, not a substring anywhere in the header."""
+    total = TEST_JSON_CAP_MB * 1024 * 1024 + 4096
+    r = await client.post(
+        "/api/auth/login",
+        content=_stream(total),
+        headers={"content-type": "application/json; charset=multipart/form-data"},
+    )
+    assert r.status_code == 413, f"{r.status_code}: {r.text[:200]}"
+
+
+async def test_a_caller_chosen_loc_key_cannot_inflate_the_422():
+    """SEC-04 (05.09.): `loc` is caller-influenced (a rejected dict field's key lives there), and
+    it was serialised unbounded — so the redaction that dropped `input` could still be defeated
+    through a giant key. Both the count of parts and each part's length are bounded now."""
+    from fastapi.exceptions import RequestValidationError
+
+    from app.main import validation_exception_handler
+
+    exc = RequestValidationError(
+        [{"loc": ("body", "k" * 500_000, *(str(i) for i in range(50))), "msg": "x" * 500_000, "type": "value_error"}]
+    )
+    resp = await validation_exception_handler(None, exc)  # type: ignore[arg-type]
+    assert len(resp.body) < 4096, f"422 body was {len(resp.body)} bytes"
+
+
 async def test_validation_error_does_not_echo_the_request(client):
     """A rejected body must not come back doubled. The default 422 repeats every offending
     value under `input`, which turned a large-but-legal request into a larger response."""

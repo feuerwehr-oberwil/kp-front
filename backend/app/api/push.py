@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 import anyio
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,8 +24,8 @@ from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import get_db
 from ..egress import EgressRefusedError, require_public_https
-from ..models import PushSubscription
-from ..push import push_enabled
+from ..models import PushSubscription, User
+from ..push import SUBSCRIPTION_TTL_DAYS, push_enabled
 
 router = APIRouter(prefix="/push", tags=["push"])
 
@@ -34,19 +34,21 @@ router = APIRouter(prefix="/push", tags=["push"])
 #: one login can add to every alarm sweep. The oldest registration goes when the cap is hit.
 MAX_SUBSCRIPTIONS_PER_USER = 10
 
-#: How long a registration stays a delivery target without being renewed. The SPA re-subscribes
-#: on every boot (src/lib/push.ts), so a row nobody has refreshed in half a year belongs to a
-#: browser profile that is gone.
-SUBSCRIPTION_TTL_DAYS = 180
+#: Absolute size ceilings on what a browser may register. A Web-Push endpoint is a URL and the
+#: keys are short base64 (a P-256 point, a 16-byte auth secret); ~500 KB of «key» was accepted
+#: before. Generous enough for any real push service, small enough that the row is not a store
+#: (SEC-09, 05.09.). Over the line is a 422, like any other bad field.
+MAX_ENDPOINT_CHARS = 2048
+MAX_KEY_CHARS = 256
 
 
 class SubscriptionKeys(BaseModel):
-    p256dh: str
-    auth: str
+    p256dh: str = Field(max_length=MAX_KEY_CHARS)
+    auth: str = Field(max_length=MAX_KEY_CHARS)
 
 
 class SubscriptionIn(BaseModel):
-    endpoint: str
+    endpoint: str = Field(max_length=MAX_ENDPOINT_CHARS)
     keys: SubscriptionKeys
 
 
@@ -80,9 +82,11 @@ async def subscribe(body: SubscriptionIn, user: CurrentUser, db: AsyncSession = 
     now = datetime.now(UTC)
     if existing:
         # ⚠️ Ownership, not an upsert on a shared key: the endpoint is what the push service
-        # delivers to, so re-pointing somebody else's row would hand their device's
-        # notifications to another login's keys.
-        if existing.user_id is not None and existing.user_id != user.id:
+        # delivers to, so re-pointing somebody else's row would hand their device's notifications
+        # to another login's keys. A NULL-owner (kiosk) row is not ours to claim either — the
+        # endpoint is that browser's own capability URL; a logged-in caller who merely knows it
+        # must not overwrite its keys (SEC-09, 05.09.). The kiosk row keeps delivering as a kiosk.
+        if existing.user_id != user.id:
             raise HTTPException(status_code=403, detail="Dieser Push-Endpunkt gehört einem anderen Konto.")
         existing.p256dh = body.keys.p256dh
         existing.auth = body.keys.auth
@@ -102,6 +106,12 @@ async def subscribe(body: SubscriptionIn, user: CurrentUser, db: AsyncSession = 
 
 async def _enforce_quota(db: AsyncSession, user_id: uuid.UUID, now: datetime) -> None:
     """Expire this user's stale registrations, then keep only the newest MAX per user."""
+    # ⚠️ Serialise concurrent registrations for THIS user behind a row lock: without it two
+    # parallel POSTs each counted < MAX and both inserted, jointly overshooting the cap (SEC-09,
+    # 05.09.). The lock is on the user row, taken before the count-and-evict below, so a second
+    # transaction waits for the first to commit and then sees its rows. (A no-op on SQLite, which
+    # serialises writers anyway; it earns its keep on Postgres.)
+    await db.execute(select(User.id).where(User.id == user_id).with_for_update())
     cutoff = now - timedelta(days=SUBSCRIPTION_TTL_DAYS)
     await db.execute(
         delete(PushSubscription).where(PushSubscription.user_id == user_id, PushSubscription.created_at < cutoff)

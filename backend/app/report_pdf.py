@@ -950,6 +950,14 @@ def _esc(s: str | None) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _esc_attr(s: str | None) -> str:
+    """`_esc` for a double-quoted ReportLab attribute value — the quote characters too. A decoded
+    link (`&quot;` in the source becomes a literal `"` after the parser) would otherwise close the
+    `href="…"` and make ReportLab's mini-parser raise, breaking the whole print, besides being an
+    escaping gap (SEC-07, 05.09.)."""
+    return _esc(s).replace('"', "&quot;").replace("'", "&#39;")
+
+
 #: The whole formatting vocabulary a journal row can arrive with — what
 #: `src/lib/journalLinks.ts · linkMarkup` produces and nothing else: a bold vocabulary name, the
 #: link around an address or a callback number with its underline, and a line break.
@@ -985,7 +993,7 @@ class _MarkupFilter(HTMLParser):
             href = next((v or "" for k, v in attrs if k == "href"), "")
             if not href.lower().startswith(_LINK_SCHEMES):
                 return  # not a link anybody can follow off paper — keep the words, drop the tag
-            self.out.append(f'<a href="{_esc(href)}">')
+            self.out.append(f'<a href="{_esc_attr(href)}">')
         else:
             self.out.append(f"<{tag}>")  # attributes are never carried through
         self._open.append(tag)

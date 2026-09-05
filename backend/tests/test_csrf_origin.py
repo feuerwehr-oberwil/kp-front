@@ -114,6 +114,84 @@ async def test_credential_header_is_exempt_from_the_origin_gate(client, editor, 
     assert "Erfassungs-Token" in r.json()["detail"]
 
 
+async def test_a_lan_dev_origin_is_allowed_off_production(client, admin_login):
+    """SEC-12 regression (05.09.): `VITE_LAN=1` serves the SPA from a private LAN address for
+    iPad testing and proxies `/api` with `changeOrigin`, so the tablet's `Origin` is that LAN
+    host while the derived own-origin is the backend's. Off production that must pass — an iPad
+    on the bench is not the hostile same-site sibling the gate exists for."""
+    await admin_login(client)
+    r = await client.post("/api/capture/secret/rotate", headers={"Origin": "http://192.168.7.20:5188"})
+    assert r.status_code == 200, r.text
+
+
+async def test_an_empty_credential_header_does_not_disable_the_gate(client, admin_login):
+    """SEC-12 residual (05.09.): the exemption was presence-only, so a blank `X-Stats-Token:`
+    (no credential at all) switched the origin gate off on unrelated routes."""
+    await admin_login(client)
+    before = await _capture_secret(client)
+    r = await client.post("/api/capture/secret/rotate", headers={"Origin": FOREIGN, "X-Stats-Token": ""})
+    assert r.status_code == 403, r.text
+    assert await _capture_secret(client) == before, "the mutation must not have happened"
+
+
+def _fake_request(headers: dict[str, str], scheme: str = "http"):
+    from starlette.requests import Request
+
+    raw = [(k.lower().encode(), v.encode()) for k, v in headers.items()]
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "scheme": scheme,
+        "path": "/",
+        "query_string": b"",
+        "headers": raw,
+        "server": ("app", 80),
+    }
+    return Request(scope)
+
+
+def test_a_forwarded_host_cannot_add_an_allowed_origin_in_production(monkeypatch):
+    """SEC-12 residual (05.09.): `X-Forwarded-Host` was unioned into the own-origin set, and it is
+    client-suppliable — so an attacker header could ADD an allowed origin. In production only the
+    platform `Host` and `PUBLIC_URL` count."""
+    from app.config import settings
+    from app.main import _own_origins
+
+    monkeypatch.setattr("app.config.is_production", lambda: True)
+    monkeypatch.setattr(settings, "public_url", "https://front.example.org/")
+    req = _fake_request(
+        {"host": "front.example.org", "x-forwarded-host": "boese.example", "x-forwarded-proto": "https"}
+    )
+    origins = _own_origins(req)
+    assert "https://front.example.org" in origins
+    assert "https://boese.example" not in origins
+
+
+def test_a_forwarded_host_still_recovers_the_dev_origin_off_production(monkeypatch):
+    """The dev proxy rewrites `Host`, so off production the forwarded headers are trusted to
+    recover the origin the browser actually loaded — there is no hostile sibling to exploit them."""
+    from app.main import _own_origins
+
+    monkeypatch.setattr("app.config.is_production", lambda: False)
+    req = _fake_request(
+        {"host": "backend.internal", "x-forwarded-host": "192.168.1.5:5188", "x-forwarded-proto": "http"}
+    )
+    assert "http://192.168.1.5:5188" in _own_origins(req)
+
+
+def test_a_lan_origin_is_a_dev_only_exemption(monkeypatch):
+    """Production never accepts the LAN exemption — the gate is not weakened there."""
+    from app.main import _dev_origin
+
+    monkeypatch.setattr("app.config.is_production", lambda: False)
+    assert _dev_origin("http://192.168.7.20:5188")
+    assert _dev_origin("http://10.1.2.3:5188")
+    assert not _dev_origin("https://boese.example")  # a public host is never a dev origin
+
+    monkeypatch.setattr("app.config.is_production", lambda: True)
+    assert not _dev_origin("http://192.168.7.20:5188")
+
+
 # --- the header layer -----------------------------------------------------------------
 
 
