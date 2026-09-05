@@ -2,7 +2,7 @@
 import { render } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { describe, expect, it } from 'vitest'
-import { ShapeGlyph, rotationInner, shapeAspect, squareInner } from './shapes'
+import { ShapeGlyph, isSafeColor, rotationInner, shapeAspect, squareInner } from './shapes'
 import { sanitizeWorkspace } from './workspace'
 
 type ShapeProps = ComponentProps<typeof ShapeGlyph>
@@ -127,6 +127,51 @@ describe('SEC-01 · the load gate neutralises a hostile colour in cached or sync
     })
     expect(g.ws!.entities.map((e) => e.color)).toEqual(['#e8392b', '#fff', 'rgba(31, 111, 235, 0.5)'])
     expect(g.ws!.drawings[0].color).toBe('#1f6feb')
+    expect(g.dropped).toBe(0)
+  })
+
+  // ⚠️ The Python twin (_COLOR_RE) needed `$`→`\Z` because Python `$` also matches before a
+  // trailing newline; JS `$` without the `m` flag does not, so isSafeColor already rejects a
+  // value with any newline. Pinned so the two gates cannot silently drift apart.
+  it('rejects a colour carrying a newline (the anchor cannot be slipped)', () => {
+    expect(isSafeColor('red\n<script>')).toBe(false)
+    expect(isSafeColor('#fff\n')).toBe(false)
+    expect(isSafeColor('red')).toBe(true)
+    expect(isSafeColor('#fff')).toBe(true)
+  })
+})
+
+// SEC-01 (round 2) · `Entity.symbolSvg` is a free-form glyph string that also reaches the DOM
+// through `dangerouslySetInnerHTML` (lib/symbolRender). The render sink sanitises it, but the load
+// gate must clean a POISONED STORED value so a device with a stale cache — and every reader that is
+// not TacticalSymbol (the ContextPanel's own sink) — sees safe markup.
+describe('SEC-01 · the load gate neutralises a hostile symbolSvg in cached or synced data', () => {
+  const HOSTILE_SVG = '<svg xmlns="http://www.w3.org/2000/svg"><image href="x" onerror="window.__pwned=1"/></svg>'
+
+  it('strips the injection from a stored glyph and keeps the entity, and drops an unparseable one', () => {
+    const g = sanitizeWorkspace({
+      entities: [
+        { id: 'e1', kind: 'vehicle', coord: [7.5, 47.5], symbolSvg: HOSTILE_SVG },
+        { id: 'e2', kind: 'vehicle', coord: [7.5, 47.5], symbolSvg: 'not svg at all' },
+      ],
+      board: { p1: [{ id: 'b1', kind: 'symbol', x: 0.5, y: 0.5, symbolSvg: HOSTILE_SVG }] },
+    })
+    expect(g.ws!.entities).toHaveLength(2)
+    expect(g.ws!.entities[0].symbolSvg).not.toContain('onerror')
+    expect(g.ws!.entities[0].symbolSvg).toContain('<svg') // the glyph itself is preserved
+    expect(g.ws!.entities[1].symbolSvg).toBeUndefined()    // garbage → dropped
+    // a plan twin carries symbolSvg at runtime (twinGlyph · glyphFor reads it) though it is not a
+    // declared BoardAnno field — the gate cleans it there too
+    expect((g.ws!.board!.p1[0] as unknown as Record<string, unknown>).symbolSvg).not.toContain('onerror')
+    expect(g.dropped).toBe(3)
+  })
+
+  it('leaves a legitimate glyph byte-for-byte untouched and uncounted', () => {
+    const glyph = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="#00a0ff"/></svg>'
+    const g = sanitizeWorkspace({
+      entities: [{ id: 'e1', kind: 'vehicle', coord: [7.5, 47.5], symbolSvg: glyph }],
+    })
+    expect(g.ws!.entities[0].symbolSvg).toBe(glyph)
     expect(g.dropped).toBe(0)
   })
 })

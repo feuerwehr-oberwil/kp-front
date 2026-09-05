@@ -5,6 +5,7 @@ import { referenceLayersFromConfig } from './deploymentConfig'
 import { keyCartoTileTemplates } from './carto'
 import { loadLayerPrefs } from './layerPrefs'
 import { isSafeColor } from './shapes'
+import { sanitizeSvgResult } from './sanitizeSvg'
 import type { ChecklistState } from './checklists'
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
@@ -388,6 +389,21 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
       out = out ?? { ...r }
       delete out[k]
       dropped++
+    }
+    // …and `symbolSvg`, a live-vehicle/twin glyph that also ends up in the DOM (lib/symbolRender ·
+    // TacticalSymbol → dangerouslySetInnerHTML). The render sink already sanitises it, but a
+    // poisoned STORED value must be cleaned as it loads — not merely hidden at paint — so a device
+    // whose IndexedDB copy predates this gate, and every reader that is NOT TacticalSymbol (the
+    // ContextPanel's own sink), see safe markup. A clean glyph is left byte-for-byte untouched
+    // (only a hostile one is rewritten/dropped, and only that counts). SEC-01.
+    if (typeof r.symbolSvg === 'string' && r.symbolSvg) {
+      const res = sanitizeSvgResult(r.symbolSvg)
+      if (res.modified) {
+        out = out ?? { ...r }
+        if (res.svg) out.symbolSvg = res.svg
+        else delete out.symbolSvg
+        dropped++
+      }
     }
     return (out ?? o) as T
   }
