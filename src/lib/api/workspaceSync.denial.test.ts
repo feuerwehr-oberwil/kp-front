@@ -212,6 +212,74 @@ describe('WorkspaceSync · a different user cannot destroy or inherit another’
     a.dispose()
     expect(store.get('kp-front-ws-i1')).toEqual(orphan) // …but left untouched
   })
+
+  // The HIGH data-loss the round-2 fix still had: every workspace edited offline BEFORE this batch
+  // shipped is ownerless AND dirty. On an ONLINE reopen the server fetch would overwrite the only
+  // unsynced copy. It must be PARKED first — preserved, and never handed to whoever is signed in.
+  it('parks a pre-batch ownerless DIRTY entry on an ONLINE upgrade — never destroyed, never served', async () => {
+    const orphan = { workspace: { entities: [{ id: 'orphan' }] }, base: {}, baseRev: 5, dirty: true, lastSyncedAt: 1 }
+    const store = backingStore({ 'kp-front-ws-i1': orphan })
+    signedInAs('u1')
+    getWorkspace.mockResolvedValue({ workspace: { entities: [{ id: 'srv' }] }, workspace_rev: 9 })
+
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    const r = await sync.init()
+    expect(r.fromCache).toBe(false)                          // u1 gets the SERVER copy…
+    expect(r.workspace).toEqual({ entities: [{ id: 'srv' }] })
+    expect(sync.hasUnsynced).toBe(false)                     // …not the orphan's unsynced state
+    sync.dispose()                                           // flushes the clean snapshot into the slot
+    expect(store.get('kp-front-ws-i1::__preupgrade__')).toEqual(orphan) // the dirty work is preserved
+    expect(store.get('kp-front-ws-i1')).toMatchObject({ owner: 'u1', dirty: false }) // slot reused, no loss
+
+    // …and it is NEVER auto-served: u1 reopening offline reads the clean server snapshot, not the orphan.
+    getWorkspace.mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+    const again = new WorkspaceSync('i1', { debounceMs: 0 })
+    const r2 = await again.init()
+    expect(r2.workspace).toEqual({ entities: [{ id: 'srv' }] })
+    expect(again.hasUnsynced).toBe(false)
+    again.dispose()
+    expect(store.get('kp-front-ws-i1::__preupgrade__')).toEqual(orphan) // still parked, recoverable by hand
+  })
+
+  // A storage error during the re-home must not turn parked work into lost work: the parked copy
+  // is the ONLY copy, so it is deleted only after the main write is confirmed durable.
+  it('keeps the parked copy when the re-home write fails (a full store must not destroy the only copy)', async () => {
+    const store = backingStore({ 'kp-front-ws-i1::u1': cachedEdit('u1') }) // u1's work parked; main slot empty
+    signedInAs('u1')
+    getWorkspace.mockRejectedValue(new ApiError(0, 'Netzwerkfehler')) // offline: only the cache can answer
+    idbSet.mockImplementation((k: string, v: unknown) => {
+      if (k === 'kp-front-ws-i1') return Promise.resolve(false) // the durable main-slot write is refused
+      store.set(k, v); return Promise.resolve(true)
+    })
+
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    const r = await sync.init()
+    expect(r.workspace).toEqual({ entities: [{ id: 'mine' }] }) // still served from the parked copy
+    sync.dispose()
+    expect(store.get('kp-front-ws-i1::u1')).toEqual(cachedEdit('u1')) // …and it was NOT deleted
+  })
+
+  // TOCTOU: init() reads the owner, awaits the server, then writes. A login/logout landing during
+  // that await must not let the PREVIOUS session's unsynced work be served to — or stamped with —
+  // the new identity.
+  it('does not serve or mislabel the previous session’s dirty work when identity flips mid-fetch', async () => {
+    const store = backingStore({ 'kp-front-ws-i1': cachedEdit('u1') })
+    signedInAs('u1')
+    getWorkspace.mockImplementation(async () => {
+      signedInAs('u2') // a different account signs in while the server fetch is in flight
+      return { workspace: { entities: [{ id: 'srv' }] }, workspace_rev: 9 }
+    })
+
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    const r = await sync.init()
+    expect(r.fromCache).toBe(false)                          // u2 (now live) gets the clean server copy…
+    expect(r.workspace).toEqual({ entities: [{ id: 'srv' }] })
+    expect(sync.hasUnsynced).toBe(false)                     // …never u1's dirty edits
+    sync.dispose()
+    // u1's work was parked for u1, stamped u1 — not merged/served under u2.
+    expect(store.get('kp-front-ws-i1::u1')).toMatchObject({ owner: 'u1', workspace: { entities: [{ id: 'mine' }] } })
+    expect(store.get('kp-front-ws-i1')).toMatchObject({ owner: 'u2', dirty: false })
+  })
 })
 
 describe('WorkspaceSync.flush · a revoked session locks the cache mid-flush', () => {

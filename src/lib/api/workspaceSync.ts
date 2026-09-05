@@ -32,6 +32,13 @@ const cacheKey = (id: string) => `kp-front-ws-${id}`
 // main slot can be reused without destroying it, and so its owner recovers it on their next
 // sign-in (see loadReadableEntry). NEVER read across owners — the key IS the ownership proof.
 const ownerCacheKey = (id: string, owner: string) => `kp-front-ws-${id}::${owner}`
+// The orphan slot: unsynced work that carries NO owner — every entry written before ownership
+// existed (this batch), when an online upgrade would otherwise let a clean server fetch overwrite
+// the only unsynced copy. It is unattributable, so it is NEVER served (we can't prove who wrote
+// it), but it is also never destroyed: it is parked here before the slot is reused, and recovered
+// by hand from this key (there is deliberately no auto-restore — see loadReadableEntry). First
+// writer wins, so an already-parked orphan (the real pre-upgrade copy) is never clobbered.
+const orphanCacheKey = (id: string) => `kp-front-ws-${id}::__preupgrade__`
 
 // --- Who may read this device's offline cache ----------------------------------------
 // The cache is the product's core promise, so exactly two things close it, and NEITHER of them
@@ -304,12 +311,15 @@ export class WorkspaceSync {
    *   · owned by me → mine, serve it (the fast, common path).
    *   · ownerless + clean → a pre-ownership snapshot (the server already has it). Adopt it to me,
    *     so the NEXT, different user can't read it, then serve it.
-   *   · ownerless + dirty → unattributable unsynced work. Preserve it, never serve it: I can't
-   *     prove I'm its author, so handing it over risks leaking a stranger's work.
+   *   · ownerless + dirty → unattributable unsynced work (written before owners existed). Park it
+   *     under the orphan key, never serve it: I can't prove I'm its author. The park is what makes
+   *     an ONLINE upgrade safe — without it, init()'s server fetch overwrites the only copy.
    *   · owned by someone else + dirty → their unsynced work. PARK it under their own key so I can
    *     reuse the main slot without destroying it (the SEC-10 regression: a plain reload used to
    *     clobber it), and they recover it on their next sign-in.
    *   · owned by someone else + clean → the server has it; leave it (the next write overwrites it).
+   * The rule for the two dirty cases is one rule: an UNSERVED dirty entry must be preserved BEFORE
+   * init() reuses its slot for a server fetch, whether it is foreign-owned or ownerless.
    * Then, whatever the main slot held, look for MY OWN parked work — a different user (or a
    * denial) may have taken the slot after I left — and re-home it. A denial closes all of this.
    */
@@ -321,25 +331,46 @@ export class WorkspaceSync {
         await idbSet(cacheKey(this.incidentId), adopted)
         return adopted
       }
-      if (stored.owner && stored.owner !== cacheOwner && stored.dirty) {
-        await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
+      // An unserved DIRTY entry is about to have its slot reused by init()'s server fetch. Copy it
+      // somewhere safe FIRST — the main slot is left as-is and only a real server answer overwrites
+      // it, by which point the copy exists. This is the fix for the ONLINE-upgrade data loss:
+      // an ownerless dirty entry used to fall through here and be destroyed by the server fetch.
+      if (stored.dirty) {
+        if (stored.owner && stored.owner !== cacheOwner) await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
+        else if (!stored.owner) await this.parkOrphan(stored)
       }
     }
     if (cacheOwner && !cacheDenied) {
       const parked = await idbGet<CacheEntry>(ownerCacheKey(this.incidentId, cacheOwner))
       if (parked && parked.owner === cacheOwner) {
-        // The slot is mine again: re-home my work and clear the bucket.
-        await idbSet(cacheKey(this.incidentId), parked)
-        await idbDel(ownerCacheKey(this.incidentId, cacheOwner))
+        // The slot is mine again: re-home my work, then clear the bucket — but ONLY once the main
+        // write is CONFIRMED durable. Deleting the parked copy after a failed write (a full store)
+        // would be the exact data loss the parking exists to prevent, so on failure the sole copy
+        // stays under the owner key for the next attempt.
+        const wrote = await idbSet(cacheKey(this.incidentId), parked)
+        if (wrote) await idbDel(ownerCacheKey(this.incidentId, cacheOwner))
         return parked
       }
     }
     return null
   }
 
+  /** Preserve unattributable pre-ownership unsynced work before its slot is reused. First writer
+   *  wins: an orphan already parked is the real pre-upgrade copy, so it is never overwritten by a
+   *  later (necessarily post-upgrade, hence owner-stamped) main-slot state. */
+  private async parkOrphan(stored: CacheEntry): Promise<void> {
+    const existing = await idbGet<CacheEntry>(orphanCacheKey(this.incidentId))
+    if (!existing) await idbSet(orphanCacheKey(this.incidentId), stored)
+  }
+
   /** Load initial state: prefer server; fall back to offline cache when the server could not be
    *  ASKED. A server that answered «no» gets no fallback — see mayRead / isDenial. */
   async init(): Promise<{ workspace: Workspace | null; rev: number; fromCache: boolean }> {
+    // Capture who opened this incident BEFORE any await. A login/logout can land during the server
+    // fetch below (auth.adoptUser moves the module-level owner), and the cached unsynced work we
+    // may serve or stamp belongs to THIS session — never the one that happened to be live when the
+    // fetch resolved. Everything owner-related below keys off `ownerAtStart`, not the live value.
+    const ownerAtStart = cacheOwner
     // Read the offline cache once up front and seed entry/status from it, so the sync badge is
     // correct even while the server fetch is in flight (and so a cold offline reopen restores
     // unsynced edits immediately). The server fetch below refines this.
@@ -353,7 +384,12 @@ export class WorkspaceSync {
     }
     try {
       const { workspace, workspace_rev } = await getWorkspace(this.incidentId)
-      if (cached?.dirty) {
+      // TOCTOU guard: if the identity switched during the fetch, the cached dirty work is the
+      // PREVIOUS session's. Serving or re-stamping it under the new identity would leak/mislabel
+      // it, so park it for its real owner (same rule as loadReadableEntry) and give the new
+      // identity the clean server snapshot instead.
+      const identityHeld = cacheOwner === ownerAtStart
+      if (cached?.dirty && identityHeld) {
         // Unsynced local edits sit in the offline cache. If they're at the same base the server
         // is at, keep them verbatim. If the server advanced while we were offline (a cold reopen
         // after another device pushed), three-way merge our edits against it using the cached
@@ -367,11 +403,16 @@ export class WorkspaceSync {
         }
         const server = workspace ?? {}
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
-        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: cacheOwner ?? cached.owner }
+        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: ownerAtStart ?? cached.owner }
         this.writeCache()
         this.opts.onRev?.(workspace_rev)
         this.setStatus('pending')
         return { workspace: merged, rev: workspace_rev, fromCache: true }
+      }
+      if (cached?.dirty && !identityHeld) {
+        const owner = cached.owner ?? ownerAtStart
+        if (owner) await idbSet(ownerCacheKey(this.incidentId, owner), { ...cached, owner })
+        else await this.parkOrphan(cached)
       }
       const ws = workspace ?? {}
       this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined }

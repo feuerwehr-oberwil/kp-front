@@ -39,6 +39,11 @@ export function syncMediaCacheAuth(user: MediaCacheUser): void {
 
   if (!listening) {
     listening = true
+    // A controllerchange (a new worker took over) re-sends the LATEST context, read fresh from the
+    // module var — never a value captured when the listener was registered. So once a denial has
+    // set `current` to «logged-out» (lib/auth · denyLocally → syncMediaCacheAuth(null), including a
+    // denial another tab broadcast), a controllerchange can only re-post «logged-out»: a refused
+    // session is never re-granted to the worker. A fresh sign-in is what sets a user grant again.
     sw.addEventListener('controllerchange', () => postCurrent(sw.controller))
   }
 }
