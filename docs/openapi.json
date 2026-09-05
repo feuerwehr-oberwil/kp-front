@@ -15061,6 +15061,7 @@
         "properties": {
           "endpoint": {
             "type": "string",
+            "maxLength": 2048,
             "title": "Endpoint"
           },
           "keys": {
@@ -15078,10 +15079,12 @@
         "properties": {
           "p256dh": {
             "type": "string",
+            "maxLength": 256,
             "title": "P256Dh"
           },
           "auth": {
             "type": "string",
+            "maxLength": 256,
             "title": "Auth"
           }
         },
