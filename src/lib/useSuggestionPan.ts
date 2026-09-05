@@ -38,6 +38,8 @@ export function useSuggestionPan() {
         id: e.pointerId, x: e.clientX, y: e.clientY, left: e.currentTarget.scrollLeft,
         dragging: false,
       }
+      // Capture the original chip, not the row, so a pen tap keeps its native click target.
+      if (e.pointerType === 'pen' && e.target instanceof Element) e.target.setPointerCapture(e.pointerId)
     },
     onPointerMoveCapture: track,
     onPointerUpCapture: (e: PointerEvent<HTMLDivElement>) => {
@@ -46,6 +48,11 @@ export function useSuggestionPan() {
       pan.current = null
     },
     onPointerCancelCapture: (e: PointerEvent<HTMLDivElement>) => {
+      if (pan.current?.id !== e.pointerId) return
+      moved.current = true
+      pan.current = null
+    },
+    onLostPointerCaptureCapture: (e: PointerEvent<HTMLDivElement>) => {
       if (pan.current?.id !== e.pointerId) return
       moved.current = true
       pan.current = null

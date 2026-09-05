@@ -95,4 +95,28 @@ describe('suggestion strip touch drag', () => {
     fireEvent.pointerMove(chip, pointer(100))
     expect(row.scrollLeft).toBe(100)
   })
+
+  it('captures the pressed chip for pen input so an ordinary pen tap still selects it', () => {
+    const { row, chip, pick, pointer } = setup()
+    chip.setPointerCapture = vi.fn()
+    row.setPointerCapture = vi.fn()
+    fireEvent.pointerDown(chip, pointer(200, 100, 'pen'))
+    expect(chip.setPointerCapture).toHaveBeenCalledWith(1)
+    expect(row.setPointerCapture).not.toHaveBeenCalled()
+    fireEvent.pointerUp(chip, pointer(200, 100, 'pen'))
+    fireEvent.click(chip, { detail: 1 })
+    expect(pick).toHaveBeenCalledOnce()
+  })
+
+  it('clears a lost pen capture so the next touch can scroll', () => {
+    const { row, chip, pick, pointer } = setup()
+    chip.setPointerCapture = vi.fn()
+    fireEvent.pointerDown(chip, pointer(200, 100, 'pen'))
+    fireEvent.lostPointerCapture(chip, pointer(200, 100, 'pen'))
+    fireEvent.click(chip, { detail: 1 })
+    expect(pick).not.toHaveBeenCalled()
+    fireEvent.pointerDown(chip, pointer(200))
+    fireEvent.pointerMove(chip, pointer(100))
+    expect(row.scrollLeft).toBe(100)
+  })
 })
