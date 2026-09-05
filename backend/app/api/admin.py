@@ -65,18 +65,22 @@ async def admin_login(body: AdminLogin, request: Request, response: Response) ->
         )
 
     # Reserve one slot for THIS source up front (like the PIN login), so a concurrent burst
-    # cannot slip past a check nobody has yet failed. `compare_digest` is synchronous, but a
-    # correct secret hands the slot straight back below.
+    # cannot slip past a check nobody has yet failed. A throttled bucket is NOT rejected here,
+    # though: a correct secret must always win, or an attacker sharing the operator's source
+    # bucket (a NAT/proxy, or the default TRUSTED_FORWARDED_HOPS=0) could keep it blocked and
+    # lock the operator out remotely (SEC-08). `compare_digest` is synchronous and cheap, so
+    # running it under throttle costs nothing; only a WRONG attempt from a throttled bucket 429s.
     bucket = pin_limiter.key(_RATE_KEY, client_ip(request))
-    wait = pin_limiter.reserve(bucket)
-    if wait > 0:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
-            headers={"Retry-After": str(wait)},
-        )
+    throttled = pin_limiter.reserve(bucket) > 0
 
     if not secrets.compare_digest(body.secret, settings.admin_secret):
+        if throttled:
+            wait = pin_limiter.retry_after(bucket)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
+                headers={"Retry-After": str(wait)},
+            )
         cooldown = pin_limiter.retry_after(bucket)  # installed by the reservation above
         # «Adminschlüssel» — the ONE name for this credential across the whole surface (the
         # unlock screen and the docs say the same). ADMIN_SECRET stays the env-var name only.

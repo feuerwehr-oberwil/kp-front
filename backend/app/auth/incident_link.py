@@ -165,6 +165,15 @@ _LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
     }
 )
 
+#: The session-EXCHANGE endpoint — the one route that MINTS a link session from a mint/view/
+#: Atemschutz token. It is the bootstrap, so it is called with ``X-Incident-Link: use`` and no
+#: link cookie yet, and on the operator's own admin browser that means the forced-mode
+#: ambient-admin denial below (H2) would 403 it before the exchange runs. Exempt ONLY this path
+#: from that denial: it authenticates on the token's own signature, not on any cookie, and the
+#: response replaces the cookie wholesale. Every OTHER route stays denied ambient admin in
+#: forced mode, so the H2 containment guarantee is untouched.
+_SESSION_EXCHANGE: frozenset[tuple[str, str]] = frozenset({("POST", "/api/incident-link/session")})
+
 #: JWT ``type`` claim for both the inbound mint token and the session cookie. Distinct from
 #: "access"/"refresh"/"admin" so a link credential can never be mistaken for a real session.
 LINK_TOKEN_TYPE = "incident-link"  # noqa: S105 — a claim discriminator, not a credential
@@ -627,6 +636,14 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
         # `use` + an admin cookie + no link cookie. Deny that path outright; the operator's own
         # /admin pages send "off" and never enter this branch.
         if link_page_owns_session(request) and await _admin_session_valid(request.cookies.get(ADMIN_COOKIE)):
+            # …except the session-EXCHANGE endpoint, which is how a link session is BORN: the
+            # bootstrap sends "use" with no link cookie yet, so denying it here 403'd the mint on
+            # an admin browser and disabled the Atemschutz feature (H2 regression). It
+            # authenticates on the token's signature, not this cookie, and replaces the cookie
+            # wholesale — so exempting only this route reopens nothing. Every other route stays
+            # denied.
+            if (request.method.upper(), _effective_path(request)) in _SESSION_EXCHANGE:
+                return
             raise _Denied()
         return
 
