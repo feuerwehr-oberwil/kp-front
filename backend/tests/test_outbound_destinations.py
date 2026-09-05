@@ -125,6 +125,30 @@ def test_the_deployments_own_basemaps_still_render(tile_transport, tiles):
     assert all(str(r.url).startswith(tiles.split("{")[0]) for r in seen)
 
 
+def test_an_approved_host_that_resolves_inward_is_refused(tile_transport, monkeypatch):
+    """SEC-03 (05.09.): the provider table pins the NAME, but a name that resolves to 10.x is
+    still an internal target. Validation resolves the approved host, so a poisoned/rebound CARTO
+    host prints a grey base instead of fetching from the server's own network position."""
+    from app import egress
+
+    monkeypatch.setattr(egress, "_resolved_addresses", lambda host: ["10.0.0.5"])
+    seen = tile_transport(lambda _r: httpx.Response(200, content=_png()))
+    assert kk.approved_tile_template(CARTO) == "", "an approved host resolving inward must be refused"
+    warm_report_tiles(_payload(CARTO))
+    assert seen == []
+
+
+def test_a_malformed_tile_host_is_a_grey_base_not_a_500(tile_transport):
+    """SEC-03 (05.09.): an unclosed IPv6 bracket used to raise a bare ValueError out of
+    `require_public_https` — a 500 on the report path. A bad authority is a neutral grey base."""
+    seen = tile_transport(lambda _r: httpx.Response(200, content=_png()))
+    assert kk.approved_tile_template("https://[1:2:3/{z}/{x}/{y}.png") == ""
+    view = kk.center_view((7.55, 47.51), 17, 320, 200)
+    img = kk.render_base(view, kk.approved_tile_template("https://[1:2:3/{z}/{x}/{y}.png"))
+    assert img.size == (320, 200)
+    assert seen == []
+
+
 def test_a_refused_source_still_prints_a_kroki(tile_transport):
     """A basemap this server does not know is a grey base, not a failed Rapport: the drawings
     and symbols on top are the part of the sheet nobody can redraw by hand."""
@@ -224,6 +248,107 @@ async def test_a_real_push_service_registers(client, editor, endpoint):
     assert (await client.post("/api/push/subscriptions", json=_sub(endpoint))).status_code == 201
 
 
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://fcm.googleapis.com/fcm/send/cQ1abc",
+        "https://updates.push.services.mozilla.com/wpush/v2/gAAAA",
+        "https://web.push.apple.com/QCw8s",
+        "https://sg2p.notify.windows.com/w/?token=abc",
+    ],
+)
+async def test_a_real_push_service_is_delivered_to(db_session, monkeypatch, endpoint):
+    """SEC-09: the four major browser push services are the built-in allowlist and must send."""
+    import pywebpush
+
+    from app.models import PushSubscription
+    from app.push import broadcast
+
+    db_session.add(PushSubscription(endpoint=endpoint, p256dh="k", auth="a"))
+    await db_session.commit()
+
+    delivered: list[str] = []
+    monkeypatch.setattr(
+        pywebpush, "webpush", lambda subscription_info, **_kw: delivered.append(subscription_info["endpoint"])
+    )
+    await broadcast(db_session, title="T", body="B", tag="t", target="")
+    assert delivered == [endpoint]
+
+
+async def test_an_arbitrary_public_host_is_refused_at_registration(client, editor):
+    """SEC-09: public-HTTPS is not enough — an arbitrary public host would make the alarm sender
+    a request forwarder, so a host that is not a known push service is a 422 at registration."""
+    await _login(client, editor)
+    r = await client.post("/api/push/subscriptions", json=_sub("https://evil.example.com/push"))
+    assert r.status_code == 422
+
+
+async def test_an_arbitrary_public_host_is_filtered_at_send(db_session, monkeypatch):
+    """SEC-09: the send path re-checks the allowlist, so a row written before the policy (or by an
+    older release) whose endpoint is an arbitrary public host is never POSTed to."""
+    import pywebpush
+
+    from app.models import PushSubscription
+    from app.push import broadcast
+
+    db_session.add(PushSubscription(endpoint="https://evil.example.com/push", p256dh="k", auth="a"))
+    db_session.add(PushSubscription(endpoint="https://fcm.googleapis.com/fcm/send/ok", p256dh="k", auth="a"))
+    await db_session.commit()
+
+    delivered: list[str] = []
+    monkeypatch.setattr(
+        pywebpush, "webpush", lambda subscription_info, **_kw: delivered.append(subscription_info["endpoint"])
+    )
+    await broadcast(db_session, title="T", body="B", tag="t", target="")
+    assert delivered == ["https://fcm.googleapis.com/fcm/send/ok"]
+
+
+async def test_an_admin_allowlisted_host_is_accepted(client, editor, db_session, monkeypatch):
+    """SEC-09: a station running its own push service adds its host through PUSH_EXTRA_HOSTS — an
+    env setting, whoever runs the deployment, never a caller. Both gates honour it."""
+    import pywebpush
+
+    from app.config import settings
+    from app.push import broadcast
+
+    monkeypatch.setattr(settings, "push_extra_hosts", "push.mystation.ch")
+    endpoint = "https://push.mystation.ch/wpush/v2/x"
+
+    await _login(client, editor)
+    assert (await client.post("/api/push/subscriptions", json=_sub(endpoint))).status_code == 201
+
+    delivered: list[str] = []
+    monkeypatch.setattr(
+        pywebpush, "webpush", lambda subscription_info, **_kw: delivered.append(subscription_info["endpoint"])
+    )
+    await broadcast(db_session, title="T", body="B", tag="t", target="")
+    assert delivered == [endpoint]
+
+
+async def test_a_percent_encoded_arbitrary_host_cannot_slip_past(client, editor, db_session, monkeypatch):
+    """SEC-09 (05.09.): the allowlist judges the DECODED host — `%65vil.example.com` normalises to
+    `evil.example.com` at the transport, so it is refused at registration and filtered at send
+    rather than smuggled past as an opaque encoded name."""
+    import pywebpush
+
+    from app.models import PushSubscription
+    from app.push import broadcast
+
+    encoded = "https://%65vil.example.com/push"
+    await _login(client, editor)
+    assert (await client.post("/api/push/subscriptions", json=_sub(encoded))).status_code == 422
+
+    db_session.add(PushSubscription(endpoint=encoded, p256dh="k", auth="a"))
+    db_session.add(PushSubscription(endpoint="https://fcm.googleapis.com/fcm/send/ok", p256dh="k", auth="a"))
+    await db_session.commit()
+    delivered: list[str] = []
+    monkeypatch.setattr(
+        pywebpush, "webpush", lambda subscription_info, **_kw: delivered.append(subscription_info["endpoint"])
+    )
+    await broadcast(db_session, title="T", body="B", tag="t", target="")
+    assert delivered == ["https://fcm.googleapis.com/fcm/send/ok"]
+
+
 async def test_a_resolvable_name_pointing_inside_is_refused(client, editor, monkeypatch):
     """DNS is the other half of the destination: a public NAME may still answer with 10.x."""
     from app import egress
@@ -232,6 +357,39 @@ async def test_a_resolvable_name_pointing_inside_is_refused(client, editor, monk
     await _login(client, editor)
     r = await client.post("/api/push/subscriptions", json=_sub("https://rebind.example/wpush/v2/x"))
     assert r.status_code == 422
+
+
+async def test_a_percent_encoded_loopback_is_refused_at_registration(client, editor, monkeypatch):
+    """SEC-09 (05.09.): `%31%32%37.0.0.1` resolves as a literal NAME to nothing (empty DNS was
+    accepted), and `requests` later normalises it to 127.0.0.1. The host is percent-DECODED
+    before the policy runs, so it is judged as the loopback it becomes."""
+    from app import egress
+
+    monkeypatch.setattr(egress, "_resolved_addresses", lambda host: [])  # the crafted name resolves to nothing
+    await _login(client, editor)
+    r = await client.post("/api/push/subscriptions", json=_sub("https://%31%32%37.0.0.1/wpush/v2/x"))
+    assert r.status_code == 422
+
+
+async def test_a_stored_encoded_loopback_is_never_sent_to(db_session, monkeypatch):
+    """SEC-09 (05.09.): the send path DECODES too, so a row written before the policy (or by an
+    older release) whose endpoint hides loopback behind percent-encoding is filtered out at send,
+    not POSTed to 127.0.0.1."""
+    import pywebpush
+
+    from app.models import PushSubscription
+    from app.push import broadcast
+
+    db_session.add(PushSubscription(endpoint="https://%31%32%37.0.0.1/wpush/v2/x", p256dh="k", auth="a"))
+    db_session.add(PushSubscription(endpoint="https://fcm.googleapis.com/fcm/send/ok", p256dh="k", auth="a"))
+    await db_session.commit()
+
+    delivered: list[str] = []
+    monkeypatch.setattr(
+        pywebpush, "webpush", lambda subscription_info, **_kw: delivered.append(subscription_info["endpoint"])
+    )
+    await broadcast(db_session, title="T", body="B", tag="t", target="")
+    assert delivered == ["https://fcm.googleapis.com/fcm/send/ok"]
 
 
 # --- Web Push: quota, ownership, delivery --------------------------------------------------
@@ -408,6 +566,37 @@ async def test_quota_enforcement_takes_a_user_row_lock(db_session, editor, monke
     monkeypatch.setattr(db_session, "execute", spy)
     await push_api._enforce_quota(db_session, editor.id, datetime.now(UTC))
     assert any("for update" in s for s in seen), "the count-and-evict must be serialised by a row lock"
+
+
+async def test_subscribe_locks_the_parent_user_before_inserting(db_session, editor, monkeypatch):
+    """SEC-09 (05.09.): on Postgres the child INSERT takes a `KEY SHARE` FK lock on the user row,
+    so the quota's `FOR UPDATE` must come BEFORE the insert/flush — two registrations upgrading
+    KEY SHARE → FOR UPDATE deadlock otherwise. Pin the ordering by observing the lock and the
+    pending PushSubscription flush in the order they hit the session."""
+    from app.api.push import SubscriptionIn, subscribe
+    from app.models import PushSubscription
+
+    ops: list[str] = []
+    orig_execute, orig_flush = db_session.execute, db_session.flush
+
+    async def exec_spy(stmt, *a, **k):
+        if "for update" in str(stmt).lower():
+            ops.append("lock")
+        return await orig_execute(stmt, *a, **k)
+
+    async def flush_spy(*a, **k):
+        if "insert" not in ops and any(isinstance(o, PushSubscription) for o in db_session.new):
+            ops.append("insert")
+        return await orig_flush(*a, **k)
+
+    monkeypatch.setattr(db_session, "execute", exec_spy)
+    monkeypatch.setattr(db_session, "flush", flush_spy)
+
+    body = SubscriptionIn.model_validate(_sub("https://fcm.googleapis.com/fcm/send/order"))
+    await subscribe(body, editor, db_session)
+
+    assert ops and ops[0] == "lock", f"the user row must be locked before the child insert, saw {ops}"
+    assert "insert" in ops and ops.index("lock") < ops.index("insert")
 
 
 async def test_a_slow_endpoint_cannot_hold_the_sweep_open(db_session, monkeypatch):
