@@ -259,6 +259,50 @@ describe('WorkspaceSync · a different user cannot destroy or inherit another’
     expect(store.get('kp-front-ws-i1::u1')).toEqual(cachedEdit('u1')) // …and it was NOT deleted
   })
 
+  // The round-3 fix protected RE-HOMING (delete parked only after the main write lands) but not
+  // PARKING: a failed park write was ignored, and the server fetch then overwrote the main slot —
+  // destroying the only unsynced copy. Parking must be durable-or-abort too. A full store can still
+  // permit the smaller clean-snapshot write, so the abort has to be explicit, not incidental.
+  it('does not overwrite user A’s dirty main slot when the (foreign-owned) park write fails — B gets the server, A survives', async () => {
+    const aEntry = cachedEdit('u1')
+    const store = backingStore({ 'kp-front-ws-i1': aEntry }) // A's unsynced work in the main slot
+    signedInAs('u2')
+    getWorkspace.mockResolvedValue({ workspace: { entities: [{ id: 'srv' }] }, workspace_rev: 9 })
+    // Copying A's dirty blob to A's owner key is refused (a full store); the smaller writes still pass.
+    idbSet.mockImplementation((k: string, v: unknown) => {
+      if (k === 'kp-front-ws-i1::u1') return Promise.resolve(false)
+      store.set(k, v); return Promise.resolve(true)
+    })
+
+    const b = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    const rb = await b.init()
+    expect(rb.fromCache).toBe(false)
+    expect(rb.workspace).toEqual({ entities: [{ id: 'srv' }] }) // B is served the server, never A's data
+    expect(b.hasUnsynced).toBe(false)
+    b.dispose() // teardown must NOT flush anything over A's slot
+    expect(store.get('kp-front-ws-i1')).toEqual(aEntry) // A's only copy is intact — not overwritten
+    expect(idbDel).not.toHaveBeenCalledWith('kp-front-ws-i1')
+  })
+
+  it('does not overwrite an ownerless pre-upgrade dirty entry when the orphan park write fails', async () => {
+    const orphan = { workspace: { entities: [{ id: 'orphan' }] }, base: {}, baseRev: 5, dirty: true, lastSyncedAt: 1 }
+    const store = backingStore({ 'kp-front-ws-i1': orphan })
+    signedInAs('u1')
+    getWorkspace.mockResolvedValue({ workspace: { entities: [{ id: 'srv' }] }, workspace_rev: 9 })
+    idbSet.mockImplementation((k: string, v: unknown) => {
+      if (k === 'kp-front-ws-i1::__preupgrade__') return Promise.resolve(false) // orphan park refused
+      store.set(k, v); return Promise.resolve(true)
+    })
+
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    const r = await sync.init()
+    expect(r.fromCache).toBe(false)
+    expect(r.workspace).toEqual({ entities: [{ id: 'srv' }] }) // the server, not the unattributable orphan
+    expect(sync.hasUnsynced).toBe(false)
+    sync.dispose()
+    expect(store.get('kp-front-ws-i1')).toEqual(orphan) // the only unsynced copy survives untouched
+  })
+
   // TOCTOU: init() reads the owner, awaits the server, then writes. A login/logout landing during
   // that await must not let the PREVIOUS session's unsynced work be served to — or stamped with —
   // the new identity.
