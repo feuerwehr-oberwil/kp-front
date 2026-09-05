@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { sanitizeSvg, sanitizeSvgResult } from './sanitizeSvg'
-import symbols from '../../dist/tactical-symbols.json'
+// The committed source of the bundled pack (Vite copies public/ verbatim into dist/ at build);
+// import it from public/ so type-check and CI don't depend on a build artifact being present.
+import symbols from '../../public/tactical-symbols.json'
 
 // SEC-01 · `Entity.symbolSvg` is editor-supplied free text rendered through
 // `dangerouslySetInnerHTML` (lib/symbolRender). This is the authoritative XSS gate: it parses the
