@@ -36,6 +36,23 @@ _admin_auth_exc = HTTPException(
 )
 
 
+#: JWT claim carrying `User.auth_generation` — the counter a PIN reset or a deactivation bumps
+#: to end every session an account holds (auth/router.revoke_sessions).
+AUTH_GENERATION_CLAIM = "gen"
+
+
+def token_generation(payload: dict) -> int:
+    """The generation a token was minted under; 0 for one minted before the claim existed.
+
+    Reading a missing claim as 0 is what carries cookies in flight across the deploy: every
+    row starts at generation 0, so nobody is signed out by the upgrade itself, and the first
+    reset or deactivation after it still ends those sessions. A claim of the wrong shape is
+    not a generation and is treated as `-1`, which matches nothing.
+    """
+    raw = payload.get(AUTH_GENERATION_CLAIM, 0)
+    return raw if isinstance(raw, int) and not isinstance(raw, bool) else -1
+
+
 #: Identity of a logged-out incident-link visitor. A fixed sentinel rather than a real row:
 #: there is no account behind a link, and inventing one would put a fake person into the
 #: roster, the audit trail and every `created_by` a future writer might stamp.
@@ -139,6 +156,9 @@ async def get_current_user(
 
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None or not user.is_active:
+        raise _credentials_exc
+    # A cookie minted before the account's credential was rotated is not a session any more.
+    if token_generation(payload) != user.auth_generation:
         raise _credentials_exc
     request.state.user = user
     return user

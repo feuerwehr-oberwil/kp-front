@@ -21,13 +21,14 @@ from ..schemas import (
     UserOut,
     UserUpdate,
 )
+from .client_ip import client_ip
 from .cookies import (
     REFRESH_COOKIE,
     clear_auth_cookies,
     revoke_token,
     set_auth_cookies,
 )
-from .dependencies import CurrentAdmin, CurrentUser, OptionalUser
+from .dependencies import AUTH_GENERATION_CLAIM, CurrentAdmin, CurrentUser, OptionalUser, token_generation
 from .pin_limiter import pin_limiter
 from .security import (
     TRIVIAL_PINS,
@@ -35,7 +36,7 @@ from .security import (
     create_refresh_token,
     decode_token,
     hash_pin,
-    verify_pin,
+    verify_pin_async,
 )
 from .token_blocklist import token_blocklist
 
@@ -43,7 +44,27 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _claims(user: User) -> dict:
-    return {"sub": str(user.id), "username": user.username, "role": user.role}
+    # The generation travels in every token this app mints; `dependencies.get_current_user`
+    # and /auth/refresh refuse one that is behind the row's (see revoke_sessions).
+    return {
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role,
+        AUTH_GENERATION_CLAIM: user.auth_generation,
+    }
+
+
+def revoke_sessions(user: User) -> None:
+    """End every session this account currently holds — access cookies AND refresh tokens.
+
+    The one lever behind «throw them out»: a PIN reset and a deactivation both pull it, so an
+    admin rotating a compromised credential actually removes whoever was already inside
+    (security audit SEC-05). Deactivation pulling it too is what stops a later reactivation
+    from reviving the sessions the deactivation denied.
+
+    Callers are inside the request's transaction; the bump is flushed with everything else.
+    """
+    user.auth_generation = (user.auth_generation or 0) + 1
 
 
 @router.get("/roster", response_model=list[RosterUser])
@@ -54,10 +75,15 @@ async def roster(db: AsyncSession = Depends(get_db)) -> list[User]:
 
 
 @router.post("/login", response_model=UserOut)
-async def login(body: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)) -> User:
-    uid = str(body.user_id)
+async def login(body: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> User:
+    # Per (account, source): a cooldown shared by every caller of one account would be a remote
+    # switch for locking the Einsatzleiter out of their own tile (pin_limiter's docstring).
+    bucket = pin_limiter.key(str(body.user_id), client_ip(request))
 
-    wait = pin_limiter.retry_after(uid)
+    # Reserved, not checked: the slot is taken in the same synchronous step that decides to
+    # admit the attempt, BEFORE the first await. Checking here and recording the failure after
+    # the database round trip and bcrypt let a concurrent burst through the door together.
+    wait = pin_limiter.reserve(bucket)
     if wait > 0:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -67,13 +93,15 @@ async def login(body: LoginRequest, response: Response, db: AsyncSession = Depen
 
     user = (await db.execute(select(User).where(User.id == body.user_id))).scalar_one_or_none()
     # Spelled out rather than via an `ok` flag so the None-check actually narrows `user` for
-    # everything below; short-circuiting keeps verify_pin off the unknown-user path as before.
-    if user is None or not user.is_active or not verify_pin(body.pin, user.pin_hash):
-        cooldown = pin_limiter.record_failure(uid)
+    # everything below; short-circuiting keeps bcrypt off the unknown-user path as before.
+    if user is None or not user.is_active or not await verify_pin_async(body.pin, user.pin_hash):
+        cooldown = pin_limiter.retry_after(bucket)  # installed by the reservation above
         detail = "Falsche PIN" if cooldown == 0 else f"Falsche PIN. Nächster Versuch in {cooldown}s."
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
-    pin_limiter.record_success(uid)
+    # Knowing the PIN gives the slot back, so an operator's own mistyping never follows them
+    # into the next attempt.
+    pin_limiter.record_success(bucket)
     user.last_login = datetime.now(UTC)
 
     claims = _claims(user)
@@ -109,6 +137,10 @@ async def refresh(
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Benutzer inaktiv")
+    # A refresh token outlives the access cookie it came with and mints a fresh successor every
+    # time, so this is the check that decides whether a revoked session can rebuild itself.
+    if token_generation(payload) != user.auth_generation:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sitzung widerrufen")
 
     # Atomically consume before rotating. A check followed by a separate revoke lets two
     # concurrent requests both pass the check and each mint a valid successor token.
@@ -246,6 +278,10 @@ async def update_user(
     if body.role is not None:
         user.role = body.role
     if body.is_active is not None:
+        if deactivating:
+            # Denying access and leaving the sessions standing is only half a deactivation:
+            # reactivating later would hand them back (SEC-05).
+            revoke_sessions(user)
         user.is_active = body.is_active
     if body.el_view_default is not None:
         user.el_view_default = body.el_view_default
@@ -266,6 +302,9 @@ async def reset_pin(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
     user.pin_hash = _hash_pin_or_400(body.pin)
+    # The whole point of resetting a PIN is that the old one stops working — for the sessions
+    # it already opened too, not just for the login screen.
+    revoke_sessions(user)
     await db.flush()
     await db.refresh(user)
     return user
