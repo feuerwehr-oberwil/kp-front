@@ -73,6 +73,61 @@ def test_unusable_numeric_drawing_properties_are_dropped():
     assert good == {"id": "e2", "aspect": 0.32, "strokeW": 8, "fillOpacity": 0}
 
 
+def test_hostile_symbolsvg_is_neutralised_not_rejected():
+    # `Entity.symbolSvg` is a free glyph string the client writes into the DOM; a crafted value was
+    # a stored-XSS vector (SEC-01). The server neutralises it (the browser DOMParser sanitiser is
+    # the authoritative gate) rather than 422-ing the whole workspace.
+    hostile = (
+        '<svg xmlns="http://www.w3.org/2000/svg">'
+        '<image href="https://evil.example/x" onerror="window.__pwned=1"/>'
+        "<script>window.__pwned=1</script>"
+        '<a href="javascript:alert(1)"><rect/></a>'
+        "</svg>"
+    )
+    body = WorkspacePut(
+        base_rev=0,
+        workspace={
+            "entities": [{"id": "e1", "kind": "vehicle", "symbolSvg": hostile}],
+            "board": {"plan-1": [{"id": "b1", "kind": "symbol", "symbolSvg": hostile}]},
+        },
+    )
+    for cleaned in (body.workspace["entities"][0]["symbolSvg"], body.workspace["board"]["plan-1"][0]["symbolSvg"]):
+        assert "onerror" not in cleaned
+        assert "<script" not in cleaned
+        assert "javascript:" not in cleaned
+        assert "evil.example" not in cleaned  # the external href attribute is dropped
+        assert "<svg" in cleaned  # …but the glyph itself is kept
+
+
+def test_legit_symbolsvg_survives_unchanged():
+    glyph = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="#00a0ff"/></svg>'
+    body = WorkspacePut(base_rev=0, workspace={"entities": [{"id": "e1", "symbolSvg": glyph}]})
+    assert body.workspace["entities"][0]["symbolSvg"] == glyph  # idempotent: nothing to scrub
+
+
+def test_a_colour_with_a_trailing_newline_is_dropped():
+    # ⚠️ Python `$` matches before a trailing newline; the regex is anchored with `\Z` so `"#fff\n"`
+    # cannot slip the gate and be stored with a stray newline in an SVG attribute value.
+    body = WorkspacePut(
+        base_rev=0, workspace={"entities": [{"id": "e1", "color": "#fff\n"}, {"id": "e2", "color": "#fff"}]}
+    )
+    assert "color" not in body.workspace["entities"][0]
+    assert body.workspace["entities"][1]["color"] == "#fff"
+
+
+def test_a_huge_integer_drawing_prop_is_dropped_not_500():
+    # ⚠️ math.isfinite(10**400) raises OverflowError — the round-1 validator called it unguarded, so
+    # a JSON body carrying such an int turned PUT /workspace into a 500. It must be treated as an
+    # unusable value and dropped, exactly like a NaN.
+    body = WorkspacePut(
+        base_rev=0,
+        workspace={"entities": [{"id": "e1", "sizeM": 10**400, "rotation": 42}]},
+    )
+    entity = body.workspace["entities"][0]
+    assert "sizeM" not in entity  # the overflowing value is gone
+    assert entity["rotation"] == 42  # the usable neighbour is kept
+
+
 def test_a_deeply_nested_blob_does_not_blow_the_stack():
     deep: dict = {"color": HOSTILE}
     for _ in range(3000):

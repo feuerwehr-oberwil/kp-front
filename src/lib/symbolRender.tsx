@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import type { Spread } from '../types'
 import { SPREAD_DIRS, boundedKey, hasSpread, normalizeSpread, type SpreadDir } from './spread'
 import { DEFAULT_INK } from './lineStyle'
+import { sanitizeSvg } from './sanitizeSvg'
 
 // Shared rendering of a placed FireGIS tactical symbol — used IDENTICALLY by the
 // Lage map (MapView) and the Plan whiteboard (Whiteboard), so the glyph, the
@@ -239,13 +241,21 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
   className?: string
 }) {
   const hasRange = floor == null && (floorFrom != null || floorTo != null)
+  // ⚠️ The one XSS sink for a placed glyph: `svg` may be an entity's editor-supplied `symbolSvg`
+  // (a free string synced through the workspace PUT), and it is written straight into the DOM
+  // below. Sanitising HERE covers every caller that renders through TacticalSymbol — MapMarkers,
+  // the georef twins (twinGlyph · glyphFor), the Whiteboard and the palette — in one place. The
+  // string is stable per entity, so memoise it rather than re-parse on every paint (the bundled
+  // pack and vehicle/person glyphs are trusted but sanitise identically). See lib/sanitizeSvg.
+  const safeSvg = useMemo(() => sanitizeSvg(svg), [svg])
+  const safeOverlay = useMemo(() => (overlay ? sanitizeSvg(overlay.svg) : ''), [overlay?.svg])
   return (
     <div className={`ts ${className ?? ''}`} style={{ width: sizePx, height: sizePx }}>
       {spread && <SpreadArrows spread={spread} color={symColor(svg)} />}
       <div
         className={`ts-rot ${needsWhite(svg) ? 'white' : ''}`}
         style={rotation ? { transform: `rotate(${rotation}deg)` } : undefined}
-        dangerouslySetInnerHTML={{ __html: svg }}
+        dangerouslySetInnerHTML={{ __html: safeSvg }}
       />
       {overlay && (
         <div
@@ -253,7 +263,7 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
           // translate FIRST in the CSS list = applied last, so the part spins in place at its
           // mounting point rather than orbiting the centre — same order as composeCompositeSvg.
           style={{ transform: `translateX(${((overlay.offsetX ?? 0) * 100).toFixed(2)}%) rotate(${overlay.rotation ?? 0}deg) scale(${overlay.scale ?? FAN_OVERLAY_SCALE})` }}
-          dangerouslySetInnerHTML={{ __html: overlay.svg }}
+          dangerouslySetInnerHTML={{ __html: safeOverlay }}
         />
       )}
       {/* ⚠️ NOT tinted with `symColor`. The storey was printed in the symbol's own colour on a
