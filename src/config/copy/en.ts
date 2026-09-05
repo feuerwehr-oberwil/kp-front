@@ -2391,7 +2391,7 @@ export const en: Localizable<Copy> = {
     gerettetePersonen: 'People',
     geretteteTiere: 'Animals',
     geretteteNone: 'None',
-    geretteteNoneHint: 'Nobody and nothing was rescued',
+    geretteteNoneHint: 'Nothing rescued',
     geretteteNonePrint: 'none',
     gruppenLabel: 'Group alarm times',
     fahrzeugeLabel: 'Vehicle turnout times',

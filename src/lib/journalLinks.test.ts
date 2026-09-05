@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { JournalLink } from './journalLinks'
-import { journalVocabulary, linkMarkup, linkParts, linkRanges } from './journalLinks'
-import type { AttendanceState, Person, Trupp } from '../types'
+import { journalVocabulary, linkMarkup, linkParts, linkRanges, suggestNext } from './journalLinks'
+import type { AttendanceState, Person, TimelineEvent, Trupp } from '../types'
 
 const vocab: JournalLink[] = [
   { name: 'Meier', kind: 'person' },
@@ -458,5 +458,77 @@ describe('journalVocabulary · who holds the post NOW', () => {
       { p1: el('Aebi Anna'), p2: el('Zünd Beat', '2026-08-18T21:30:00.000Z') },
     )
     expect(vocab.find((l) => l.name === 'EL')?.role).toBe('Zünd Beat')
+  })
+})
+
+// Accepting a chip used to end the offer — the term was inserted and the row went quiet until the
+// next fragment matched again. `suggestNext` answers the same moment the «→» answers: what has
+// stood beside this term before, on THIS Einsatz.
+describe('suggestNext · what usually comes next', () => {
+  const NEXT_VOCAB: JournalLink[] = [
+    { name: 'Meier Anna', kind: 'person' },
+    { name: 'TLF', kind: 'vehicle' },
+    { name: 'Polizei', kind: 'partner' },
+  ]
+  const PHRASES = ['Feuer aus', 'Brand unter Kontrolle']
+  const row = (text: string): TimelineEvent => ({ id: `e${text.length}${text}`, t: '20:10', icon: 'note', text })
+  const next = (text: string, timeline: TimelineEvent[], limit?: number) =>
+    suggestNext(text, { vocab: NEXT_VOCAB, phrases: PHRASES, timeline, limit })
+
+  const TIMELINE = [
+    row('Meier Anna meldet Feuer aus'),
+    row('Meier Anna: Feuer aus bestätigt'),
+    row('Meier Anna und TLF vor Ort'),
+    row('TLF unterwegs'), // says nothing about the anchor — no evidence either way
+  ]
+
+  it('offers what this Einsatz has written beside the term, most-seen first', () => {
+    expect(next('Meier Anna ', TIMELINE).map((c) => c.label)).toEqual(['Feuer aus', 'TLF'])
+  })
+
+  // ⚠️ The whole rule: evidence, never a list of what a sentence «should» say. A fresh Einsatz
+  // offers nothing at all and the row stays exactly as quiet as it is today.
+  it('offers nothing while the record holds no evidence', () => {
+    expect(next('Meier Anna ', [row('TLF unterwegs')])).toEqual([])
+  })
+
+  // the anchor is whatever the sentence ends on — a Textbaustein asks the record the same question
+  it('answers a Textbaustein the sentence ends on, too', () => {
+    expect(next('Feuer aus', TIMELINE).map((c) => c.label)).toEqual(['Meier Anna'])
+  })
+
+  // the sentence has to END on the term: mid-word the fragment has better answers (names,
+  // Textbausteine), and further in it would be a chip that never goes away
+  it('says nothing while the sentence has moved on', () => {
+    expect(next('Meier Anna meldet aus dem 2. OG', TIMELINE)).toEqual([])
+  })
+
+  it('never offers a word the sentence already carries', () => {
+    expect(next('TLF und Meier Anna ', TIMELINE).map((c) => c.label)).toEqual(['Feuer aus'])
+  })
+
+  // the same word-boundary rule the marking follows — «Polizei» is not in «Kantonspolizei»
+  it('counts whole words only', () => {
+    const timeline = [row('Meier Anna: Kantonspolizei aufgeboten')]
+    expect(next('Meier Anna ', timeline)).toEqual([])
+  })
+
+  it('keeps the band short', () => {
+    expect(next('Meier Anna ', TIMELINE, 1).map((c) => c.label)).toEqual(['Feuer aus'])
+  })
+
+  // a term leaves the caret ready for the next word; a Textbaustein ends the clause
+  it('inserts a term with its trailing space and a Textbaustein without one', () => {
+    const hits = next('Meier Anna ', TIMELINE)
+    expect(hits.find((c) => c.source === 'term')?.insert).toBe('TLF ')
+    expect(hits.find((c) => c.source === 'phrase')?.insert).toBe('Feuer aus')
+  })
+
+  it('marks a term with its kind, so the chip wears the tint the name suggestions wear', () => {
+    expect(next('Feuer aus, Meier Anna ', TIMELINE).map((c) => c.kind)).toEqual(['vehicle'])
+  })
+
+  it('is silent on an empty field', () => {
+    expect(next('', TIMELINE)).toEqual([])
   })
 })

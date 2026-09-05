@@ -427,10 +427,11 @@
    below the glyph) and the ✕ itself rode a couple of pixels high of centre — which is what made
    it look both smaller and off next to a title or a search pill. The 30px size stays as decided
    (see .rp-head .ip-x for the one surface that raises it); only the centring changes. */
-.ip-x { border: none; background: none; cursor: pointer; color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm);
+.ip-x { border: none; background: color-mix(in srgb, var(--ink) 7%, transparent); cursor: pointer;
+  color: var(--ink-dim); padding: 6px; border-radius: var(--r-sm);
   display: grid; place-items: center; }
 @media (hover: hover) {
-  .ip-x:hover { background: var(--hover); }
+  .ip-x:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
 }
 .ip-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-x svg { width: 18px; height: 18px; }
@@ -1206,11 +1207,12 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   min-height: var(--tap); border-radius: var(--r-sm);
 }
 /* The print action as a SPLIT button: press it and it prints, or take the ▾ for the same print
-   and the way into «Abschnitte». ONE flex item, so the row's wrap at ≤720px carries the pair
-   down together — an arrow that has wrapped away from its button belongs to nothing. The rule
-   above levels both halves (it matches however deep they sit); what is overridden here is only
-   the SEAM between them, and that is what says this is one control rather than two that happen
-   to touch. The outer silhouette keeps the row's --r-sm. */
+   and the way into «Abschnitte». ONE flex item — an arrow that wrapped away from its button
+   would belong to nothing, so above 1080px, where the row may still wrap, the pair travels down
+   together rather than splitting apart (at ≤1080px the row no longer wraps at all; see the
+   `nowrap` block below). The rule above levels both halves (it matches however deep they sit);
+   what is overridden here is only the SEAM between them, and that is what says this is one
+   control rather than two that happen to touch. The outer silhouette keeps the row's --r-sm. */
 .rp-split { display: inline-flex; align-items: stretch; min-width: 0; max-width: 100%; }
 .rp-split .rp-split-main { min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1257,12 +1259,15 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    On `--surface-2` + `--border` the chip read as a slightly translucent hole between two solid
    buttons; the row levelled height and corner but never the surface. */
 .rp-state { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; cursor: pointer;
-  border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
+  min-width: 0; border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim);
   font: 700 12.5px var(--body); }
-.rp-state svg { width: 15px; height: 15px; }
+.rp-state svg { width: 15px; height: 15px; flex: none; }
 .rp-state.ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
 .rp-state.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
   background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
+/* the count is the one part allowed to give under the same squeeze as `.rp-head-open-menu-label`
+   (17-rapport.css) — this chip's text is exactly as variable («N Hinweis(e)»). */
+.rp-state-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The Kontrolle detail as a POPOVER on its chip. A band across the page pushed the form down
    every time anything was amiss, for a handful of lines about the record; anchored here, «what is
    wrong» and «the thing that told me» are one object. The chip stays amber and counts, so a
@@ -1355,6 +1360,19 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   /* «Ausdrucken» keeps its offline reason, so it is the one that may stay wider than a square */
   .rp-head-actions .ip-btn.print-send.offline { width: auto; padding: 0 10px; }
   .rp-head-actions .print-send-main { gap: 5px; }
+  /* ⚠️ The row no longer WRAPS here (05.09. fix). At this width the archive/print squares and the
+     split pair are fixed, so the only things that ever grow are the two chips with counted text —
+     the «N noch offen» menu and the Kontrolle «N Hinweis(e)» chip — and wrapping used to move the
+     split PDF button (the one with a distinct fill, the one action a glance has to find) onto a
+     second line whenever either count changed. Those two chips are the controls that give: they
+     keep `flex: none` everywhere else in this row (see above), but here they take the squeeze and
+     ellipsize instead of pushing their neighbours down. The archive/print squares and the split
+     pair stay pinned at their exact widths (`flex: none`) so none of them can be squeezed into a
+     clipped icon by the same rule — the surface shell clips overflow, so a control that cannot
+     shrink and cannot wrap would run off the edge instead. */
+  .rp-head-actions { flex-wrap: nowrap; }
+  .rp-head-actions > .rp-head-open-menu, .rp-head-actions > .rp-state { flex: 1 1 auto; min-width: 0; }
+  .rp-head-actions > .rp-split { flex: none; }
 }
 /* ⚠️ Rendered on every width, hidden everywhere but the phone — so the tab STATE is always
    there (a resize cannot land on a surface with no tab chosen) while the layout above 600px
@@ -1426,9 +1444,8 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 /* --- Einsatz eröffnen wizard --- */
 .ip-ix-head { margin: 4px 0 -2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 /* «Objekt aus Feuerwehrplänen» / «Auf Karte setzen» — the two location fallbacks share a row;
-   «Hier» (GPS) moved into the address field's own dropdown as its first row (`.ip-ac-here`
-   below), because it is the PRIMARY method and has to be reachable the moment that field is
-   focused, not a separate full-width button underneath it. */
+   «Hier» (GPS) lives as an icon-only button on the address field itself (`.ip-ac-locate`
+   below), because it is the PRIMARY method and has to be reachable without opening anything. */
 .ip-ix-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ip-ix-methods .ip-btn { justify-content: center; min-width: 0; }
 .ip-btn.on { background: var(--blue); color: var(--on-fill); border-color: var(--blue); }
@@ -1447,11 +1464,19 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-ac-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-ac-row:disabled { opacity: var(--disabled); cursor: default; }
 .ip-ac-row svg { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
-/* the «Hier» row: blue like the primary button it replaced, and set off from the search
-   results under it with a hairline so it never reads as one of the swisstopo hits. */
-.ip-ac-here { color: var(--blue); font-weight: 600; margin-bottom: 4px; padding-bottom: 10px;
-  border-bottom: 1px solid var(--glass-edge); border-radius: var(--r-ctl) var(--r-ctl) 0 0; }
-.ip-ac-here svg { color: var(--blue); }
+/* the «Hier» (GPS) button riding the field's right edge — same overlap idiom as the ClearableInput
+   ✕ above (`.ci-clear`), sized to the full ≥44px tap target rather than the label's own font size.
+   The field gets matching right padding (below) so typed text never runs under the glyph. */
+.ip-ac-input-wrap { position: relative; }
+.ip-ac-input-wrap input { width: 100%; box-sizing: border-box; padding: 12px 44px 12px 12px; }
+.ip-ac-locate {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; width: 44px; height: 44px;
+  border: none; background: none; cursor: pointer; color: var(--blue); padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.ip-ac-locate:disabled { opacity: var(--disabled); cursor: default; }
+.ip-ac-locate svg { width: 17px; height: 17px; }
 .ip-ac-note { padding: 9px 10px; font: 500 12.5px var(--body); color: var(--ink-faint); }
 /* terse transient "no matches" note, centered for a filtered list/grid destination */
 .ip-ac-note-center { text-align: center; padding: 18px 12px; }

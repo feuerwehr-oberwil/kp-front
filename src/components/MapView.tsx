@@ -165,6 +165,47 @@ function NewNodeHandle({ title, onInsert, className = 'measure-insert', icon = '
   return <button ref={ref} type="button" className={className} title={title} aria-label={title} style={style}><Icon id={icon} /></button>
 }
 
+/** The pairs of ADJACENT shown handles a «+» goes between: `[a, b]` index pairs into the stored
+ *  coords, walking the path in order. An area adds the closing gap (last shown → first, through
+ *  the wrap), which is the edge `pathSegmentCount` has always counted for it. */
+export function handleGaps(shown: number[], n: number, isArea: boolean): [number, number][] {
+  if (shown.length < 2) return []
+  const out: [number, number][] = []
+  for (let k = 0; k < shown.length - 1; k++) out.push([shown[k], shown[k + 1]])
+  if (isArea && n >= 3) out.push([shown[shown.length - 1], shown[0]])
+  return out
+}
+
+/** Where a «+» between the shown pads `a` and `b` sits, and at which index its node is inserted:
+ *  the point half-way ALONG the stored path between them, not on the chord across it. So the node
+ *  it leaves lies on the ink and the line does not change shape — on a line whose every vertex has
+ *  a pad (b === a + 1) this is the plain segment midpoint.
+ *
+ *  Lengths are measured planar in degrees, like `editCentroid` beside it: the whole path is a few
+ *  hundred metres, and «half-way» only has to land somewhere sensible in the gap. */
+export function subPathInsert(coords: LngLat[], a: number, b: number): { index: number; coord: LngLat } {
+  const n = coords.length
+  const steps = ((b - a + n) % n) || n // the area's closing gap wraps past the last vertex
+  const at = (k: number) => coords[(a + k) % n]
+  const seg: number[] = []
+  let total = 0
+  for (let k = 0; k < steps; k++) {
+    const p = at(k), q = at(k + 1)
+    const d = Math.hypot(q[0] - p[0], q[1] - p[1])
+    seg.push(d); total += d
+  }
+  let acc = 0
+  for (let k = 0; k < steps; k++) {
+    const last = k === steps - 1
+    if (!last && acc + seg[k] < total / 2) { acc += seg[k]; continue }
+    const t = seg[k] > 0 ? Math.min(1, Math.max(0, (total / 2 - acc) / seg[k])) : 0.5
+    const p = at(k), q = at(k + 1)
+    return { index: (a + k) % n + 1, coord: [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t] }
+  }
+  // unreachable (steps ≥ 1), but a total of 0 must still hand back a usable point
+  return { index: a + 1, coord: coords[a] }
+}
+
 // planar shoelace area (deg², relative only) of a clicked feature's outer ring; non-polygon
 // (line) features return 0 so they stay the most specific pick when overlapping a fill.
 const featArea = (f: { geometry?: { type?: string; coordinates?: unknown } }): number => {
@@ -945,6 +986,24 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 },
     )
   }, [locateNonce, staticView])
+  // …and the dot is THERE by default (05.09.), rather than only after somebody has thought to ask
+  // for it: «wo stehe ich, relativ zum Einsatzort» is the question a phone is pulled out for, and
+  // an indicator you must first discover a menu row for is not an indicator. So one COARSE fix is
+  // taken when the Karte first opens — no `enableHighAccuracy`, a five-minute `maximumAge`, and
+  // no flyTo: the map keeps the framing it was given, the dot simply appears on it.
+  // ⚠️ Not a watch, and not the high-accuracy path: the battery reasoning above is untouched —
+  // this asks the platform for whatever it already knows. The one thing that can turn it off is
+  // the device's own location permission, and a denial is silently honoured (no dot, no prompt
+  // twice, and the «Mein Standort» row still works the moment it is granted).
+  useEffect(() => {
+    if (staticView) return
+    if (!('geolocation' in navigator)) return
+    navigator.geolocation.getCurrentPosition(
+      (p) => setUserPos((prev) => prev ?? [p.coords.longitude, p.coords.latitude]),
+      () => { /* denied / unavailable — no dot, and nothing said about it */ },
+      { enableHighAccuracy: false, maximumAge: 300_000, timeout: 15_000 },
+    )
+  }, [staticView])
 
   // Frame the incident's existing content — ONCE per incident, not once per map instance.
   // ⚠️ `didFit`, because `mapReady` is not a one-way flag: a lost WebGL context remounts <Map>
@@ -1389,11 +1448,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       ? vertexHandleIndices(editDraw.coords.map((c) => { const p = mapInst.current!.project(c as [number, number]); return [p.x, p.y] as [number, number] }))
       : evenIndices(editDraw.coords.length)
     : []
-  // every node is on screen ⇒ the «+» midpoint handles are honest. On a thinned line they are not:
-  // the midpoint between two SHOWN nodes is nowhere near the path when real vertices sit between
-  // them, so inserting there would yank the line straight. Tapping the fat hit-line still inserts
-  // at the right segment (segInsertIndex walks all points), which is the affordance that survives.
-  const editAllNodes = editNodes && !!editDraw && editHandleIdx.length === editDraw.coords.length
+  // A «+» in every gap between two SHOWN pads — one per gap, never one per stored segment.
+  // ⚠️ Until 05.09. the «+» row was all-or-nothing: it appeared only while EVERY vertex still had
+  // a pad, on the grounds that the midpoint of the chord between two shown nodes is nowhere near
+  // the ink when real vertices sit between them. True, and the wrong conclusion — the line the
+  // tool draws by default is FREEHAND (lib/useMapDrawing · lineMode), which carries a point every
+  // 3.5px and is therefore thinned on any screen and hardest on a phone, where the whole stroke
+  // fits in a few hundred px. So the affordance was missing exactly where the finger needs it
+  // most, on the kind of line people actually draw. The «+» goes back ON the path instead
+  // (subPathInsert): it sits at the
+  // half-way point ALONG the stroke between the two pads, and inserting it changes no geometry at
+  // all — it only leaves a grabbable node where there was none. On an unthinned line that is
+  // exactly the segment midpoint the «+» has always been.
+  const editInserts = editNodes && editDraw && editDraw.coords.length >= 2
+    ? handleGaps(editHandleIdx, editDraw.coords.length, editArea).map(([a, b]) => subPathInsert(editDraw.coords, a, b))
+    : []
   const editFC = fc(editDraw ? [editCircle ? polyFeat(circleRing(editDraw)) : editArea ? polyFeat(editDraw.coords) : lineFeat(editDraw.coords)] : [])
   const editCentroid: LngLat | null = editDraw
     ? [editDraw.coords.reduce((s, c) => s + c[0], 0) / editDraw.coords.length,
@@ -2391,31 +2460,27 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           turning and deleting the selection all moved off the ink and onto the one fixed bar at
           the bottom of the surface (SelectionBar, rendered below) — the floating hub they used to
           form grew exactly where the finger was already reaching. */}
-      {/* «+» at each segment's midpoint of the SELECTED drawing — the same affordance the Messung
-          has always had, and the Plan too. On the map inserting a node used to mean hitting the
-          line's invisible 18px hit-band with no sign that this was possible at all (19.08.).
-          Rendered BEFORE the vertices so a node handle wins wherever the two overlap. */}
-      {editDraw && editAllNodes && onDrawingVertexInsert && editDraw.coords.length >= 2 && (() => {
-        const n = editDraw.coords.length
-        return Array.from({ length: pathSegmentCount(n, editArea) }, (_, i) => {
-          const a = editDraw.coords[i], b = editDraw.coords[(i + 1) % n]
-          const mid: LngLat = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
-          return (
-            <Marker key={`di${i}`} longitude={mid[0]} latitude={mid[1]} anchor="center" style={handleZ}>
-              <NewNodeHandle title={appConfig.copy.measure.insertPoint}
-                onInsert={(ev) => {
-                  onDrawingVertexInsert(editDraw.id, i + 1, mid)
-                  // the geometry is snapshotted WITH the new node (same reason the body-move grip
-                  // snapshots: 'move' streams into the doc, so reading it back races the shape away)
-                  if (!ev || !onDrawingEdit) return
-                  const grown = [...editDraw.coords.slice(0, i + 1), mid, ...editDraw.coords.slice(i + 1)]
-                  handOffNodeDrag(ev, (ll, phase) => onDrawingEdit(editDraw.id,
-                    ll ? grown.map((q, j) => (j === i + 1 ? ll : q)) : grown, phase))
-                }} />
-            </Marker>
-          )
-        })
-      })()}
+      {/* «+» in each gap between two node pads of the SELECTED drawing — the same affordance the
+          Messung has always had, and the Plan too. On the map inserting a node used to mean hitting
+          the line's invisible 18px hit-band with no sign that this was possible at all (19.08.).
+          On a thinned stroke the grip sits half-way ALONG the ink rather than across the chord, so
+          it is offered on every line and not only on one whose every vertex still has a pad — see
+          `editInserts`. Rendered BEFORE the vertices so a node handle wins wherever the two
+          overlap. */}
+      {editDraw && onDrawingVertexInsert && editInserts.map(({ index, coord }) => (
+        <Marker key={`di${index}`} longitude={coord[0]} latitude={coord[1]} anchor="center" style={handleZ}>
+          <NewNodeHandle title={appConfig.copy.measure.insertPoint}
+            onInsert={(ev) => {
+              onDrawingVertexInsert(editDraw.id, index, coord)
+              // the geometry is snapshotted WITH the new node (same reason the body-move grip
+              // snapshots: 'move' streams into the doc, so reading it back races the shape away)
+              if (!ev || !onDrawingEdit) return
+              const grown = [...editDraw.coords.slice(0, index), coord, ...editDraw.coords.slice(index)]
+              handOffNodeDrag(ev, (ll, phase) => onDrawingEdit(editDraw.id,
+                ll ? grown.map((q, j) => (j === index ? ll : q)) : grown, phase))
+            }} />
+        </Marker>
+      ))}
 
       {/* the node pads. On a dense stroke this is a SUBSET of the vertices (vertexHandleIndices) —
           `i` stays the real index into `coords`, so a drag/delete still hits the point it points at. */}

@@ -4,6 +4,7 @@ import logging
 import secrets
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlalchemy import delete, func, select, update
@@ -46,11 +47,30 @@ router = APIRouter(prefix="/incidents", tags=["incidents"])
 _TRACKED_META = ("title", "type", "priority", "address", "lng", "lat", "started_at")
 
 
+def _numeric(v: object) -> object:
+    """A `Numeric` column's value as the plain float everything else in this app treats it as.
+
+    ⚠️ `lat`/`lng` are `Numeric(10, 7)`, and a row read back from the database hands them over
+    as `Decimal` — while the patch that is about to overwrite them carries a `float`. Two
+    consequences, both bugs: `Decimal('47.5123456') != 47.5123456`, so re-sending an untouched
+    coordinate looked like a correction, and a `Decimal` cannot be encoded into the JSONB
+    payload below at all.
+    """
+    return float(v) if isinstance(v, Decimal) else v
+
+
 def _json_safe(v: object) -> object:
-    """A value the audit payload can hold. The tracked fields are strings, floats and one
-    datetime; the chain hashes its payload as JSON, so a datetime has to become a string here
-    rather than at serialisation time — the hash must be reproducible from the stored row."""
-    return v.isoformat() if isinstance(v, datetime) else v
+    """A value the audit payload can hold. The tracked fields are strings, two coordinates and
+    one datetime; the payload is stored as JSONB *and* hashed as JSON, so a datetime has to
+    become a string and a `Decimal` a float HERE rather than at serialisation time — the hash
+    must be reproducible from the stored row.
+
+    ⚠️ Not cosmetic. The JSONB encoder is plain `json.dumps`, which refuses a `Decimal`
+    outright: correcting the Einsatzort of an incident that already HAD one — moving the pin,
+    picking another address, clearing it — died on the INSERT and answered «Interner Fehler».
+    Every other tracked field is a string, which is why this only ever hit the location.
+    """
+    return v.isoformat() if isinstance(v, datetime) else _numeric(v)
 
 
 #: What every surface says when the incident behind an id is not there. One string, because
@@ -344,7 +364,11 @@ async def patch_incident(
     changed = {
         k: {"from": _json_safe(before[k]), "to": _json_safe(getattr(inc, k))}
         for k in _TRACKED_META
-        if k in data and getattr(inc, k) != before[k]
+        # ⚠️ Compared through `_numeric`, not raw: a coordinate leaves the database as `Decimal`
+        # and comes back from the client as `float`, so an untouched lat/lng compared unequal to
+        # itself and every save re-recorded a correction that never happened. Datetimes stay
+        # datetimes — the same instant written in another UTC offset must still compare equal.
+        if k in data and _numeric(getattr(inc, k)) != _numeric(before[k])
     }
     if changed:
         await audit.append_event(

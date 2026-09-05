@@ -345,11 +345,18 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
    * place to type. Mount-only — the panel is keyed by the note's id, so a later reopen of the
    * same note is an ordinary read and must not grab the focus (or, on a phone, the keyboard).
    * `preventScroll`: the sheet is a fixed flex column and the browser's own scroll-into-view
-   * jumps it. */
+   * jumps it.
+   * ⚠️ And on a phone the sheet is opened FULL first (05.09.): at its 46dvh default the focused
+   * textarea sits in the bottom half of the screen, which is precisely where the iOS keyboard
+   * then comes up — so the field this effect exists to put the caret in was the one thing not on
+   * screen. Same class the grip's own tap sets (SheetGrip · useSheetDrag), so the operator drags
+   * it back down exactly as usual; inert on every wider surface, where `.sheet-full` is not a
+   * state the panel has. */
   useEffect(() => {
     if (!autoFocusNote) return
     const el = noteTextRef.current
     if (!el) return
+    el.closest('.ctx')?.classList.add('sheet-full')
     el.focus({ preventScroll: true })
     const n = el.value.length
     try { el.setSelectionRange(n, n) } catch { /* nothing selectable yet */ }

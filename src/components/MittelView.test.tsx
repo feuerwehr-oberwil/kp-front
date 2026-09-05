@@ -83,7 +83,7 @@ describe('«In Verwendung» — the tick filter stays put while active', () => {
   })
 })
 
-describe('kompakte Ruhezeile — eine unberührte Position trägt nur ein «+»', () => {
+describe('kompakte Ruhezeile — eine Position bei 0 trägt nur ein «+»', () => {
   const addOne = (label: string) => fillTemplate(M.addOne, { label })
   const pickSource = (label: string) => fillTemplate(M.addPickSource, { label })
   /** the ±stepper of a row, by the aria-label MittelView gives it */
@@ -111,7 +111,7 @@ describe('kompakte Ruhezeile — eine unberührte Position trägt nur ein «+»'
     expect(screen.queryByRole('button', { name: addOne('Tauchpumpe') })).toBeNull()
   })
 
-  it('keeps the stepper when the count is taken back to 0 — nothing is yanked from under the finger', () => {
+  it('folds straight back to the «+» when the count is taken to 0 — not only on the next visit', () => {
     cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
     const saves: MittelDraft[] = []
     render(<Live saves={saves} />)
@@ -122,8 +122,22 @@ describe('kompakte Ruhezeile — eine unberührte Position trägt nur ein «+»'
     fireEvent.pointerUp(window)
 
     expect(saves.map((d) => d.menge)).toEqual([1, 0])
+    expect(stepper('Tauchpumpe Stk.')).toBeNull()
+    expect(screen.getByRole('button', { name: addOne('Tauchpumpe') })).toBeTruthy()
+  })
+
+  it('and the «+» it hands back still books — the round trip survives the fold', () => {
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    const saves: MittelDraft[] = []
+    render(<Live saves={saves} />)
+
+    fireEvent.click(screen.getByRole('button', { name: addOne('Tauchpumpe') }))
+    fireEvent.pointerDown(screen.getByRole('button', { name: appConfig.copy.stepper.less }), { button: 0 })
+    fireEvent.pointerUp(window)
+    fireEvent.click(screen.getByRole('button', { name: addOne('Tauchpumpe') }))
+
+    expect(saves.map((d) => d.menge)).toEqual([1, 0, 1])
     expect(stepper('Tauchpumpe Stk.')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: addOne('Tauchpumpe') })).toBeNull()
   })
 
   it('leaves a row that already carries a count in today\'s full form', () => {

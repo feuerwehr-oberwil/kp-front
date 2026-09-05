@@ -2389,7 +2389,7 @@ export const it: Localizable<Copy> = {
     gerettetePersonen: 'Persone',
     geretteteTiere: 'Animali',
     geretteteNone: 'Nessuno',
-    geretteteNoneHint: 'Non sono stati salvati né persone né animali',
+    geretteteNoneHint: 'Nulla salvato',
     geretteteNonePrint: 'nessuno',
     gruppenLabel: 'Allarme dei gruppi',
     fahrzeugeLabel: 'Partenze dei veicoli',

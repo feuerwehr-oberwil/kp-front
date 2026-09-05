@@ -1363,7 +1363,7 @@ export function ReportPreflight({
                   <button type="button" className="rp-head-open-menu"
                     aria-label={`${missing.length} ${P.headStillOpen}`} title={`${missing.length} ${P.headStillOpen}`}>
                     <Icon id="warn" />
-                    <span>{missing.length} {P.headStillOpen}</span>
+                    <span className="rp-head-open-menu-label">{missing.length} {P.headStillOpen}</span>
                     <Icon id="chevron-down" className="chev" />
                   </button>
                 }
@@ -1411,7 +1411,7 @@ export function ReportPreflight({
                 trigger={(
                   <button type="button" className={cx('rp-state', 'warn')} title={P.controlHead}>
                     <Icon id="warn" />
-                    <span>{fillTemplate(P.controlOpen, { n: warnCount })}</span>
+                    <span className="rp-state-label">{fillTemplate(P.controlOpen, { n: warnCount })}</span>
                   </button>
                 )}
               >

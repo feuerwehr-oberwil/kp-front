@@ -180,11 +180,13 @@ async def search(address: str, limit: int = 6) -> list[GeoHit]:
                 r = await client.get(settings.geocoder_url, params=base)
                 r.raise_for_status()
                 extra = r.json().get("results", [])
-                seen = {(a["lat"], a["lon"]) for res in results if (a := res.get("attrs", {})) and "lat" in a}
+                # .get for BOTH keys: a result carrying lat without lon would otherwise KeyError
+                # past the httpx/ValueError net below and 500 the whole create.
+                seen = {(a.get("lat"), a.get("lon")) for res in results if (a := res.get("attrs", {})) and "lat" in a}
                 results = results + [
                     res
                     for res in extra
-                    if (a := res.get("attrs", {})) and "lat" in a and (a["lat"], a["lon"]) not in seen
+                    if (a := res.get("attrs", {})) and "lat" in a and (a.get("lat"), a.get("lon")) not in seen
                 ]
     except (httpx.HTTPError, ValueError) as e:
         logger.warning("Geocode failed for %r: %s", address, e)

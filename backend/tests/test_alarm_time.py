@@ -323,3 +323,55 @@ async def test_a_patch_that_changes_nothing_writes_no_event(client, db_session, 
         (await db_session.execute(select(IncidentEvent).where(IncidentEvent.op_type == "meta.change"))).scalars().all()
     )
     assert rows == []
+
+
+async def test_moving_an_existing_einsatzort_is_recorded_and_does_not_500(client, db_session, editor):
+    """⚠️ Regression: «Interner Fehler» on saving the Einsatzdaten.
+
+    `lat`/`lng` are `Numeric` columns, so the row hands them back as `Decimal` while the patch
+    carries a `float`. The correction event put the `Decimal` straight into its JSONB payload,
+    whose encoder is plain `json.dumps` — which refuses one. So correcting an Einsatz that
+    ALREADY had a coordinate (moving the pin, picking another address, clearing it) died on the
+    INSERT and the operator got a 500; correcting only the Stichwort or the address worked,
+    which is what made it look intermittent.
+    """
+    from app.models import IncidentEvent
+
+    await _login(client, editor)
+    r = await client.post(
+        "/api/incidents",
+        json={"title": "Zimmerbrand", "address": "Schulstrasse 4", "lat": 47.5123456, "lng": 7.5123456},
+    )
+    assert r.status_code == 201, r.text
+    incident_id = r.json()["id"]
+
+    r = await client.patch(f"/api/incidents/{incident_id}", json={"lat": 47.6, "lng": 7.6})
+    assert r.status_code == 200, r.text
+
+    rows = (
+        (await db_session.execute(select(IncidentEvent).where(IncidentEvent.op_type == "meta.change"))).scalars().all()
+    )
+    assert len(rows) == 1, "moving the Einsatzort has to be on the record"
+    fields = rows[0].payload_json["fields"]
+    # plain floats on both sides — the payload must be readable back out of JSONB as numbers
+    assert fields["lat"] == {"from": 47.5123456, "to": 47.6}
+    assert fields["lng"] == {"from": 7.5123456, "to": 7.6}
+
+
+async def test_resending_an_unchanged_coordinate_writes_no_event(client, db_session, editor):
+    """The `Decimal`/`float` mismatch also made every save look like a move: an untouched
+    coordinate compared unequal to itself, so a client sending the full record re-recorded a
+    correction of the Einsatzort that never happened."""
+    from app.models import IncidentEvent
+
+    await _login(client, editor)
+    r = await client.post("/api/incidents", json={"title": "Zimmerbrand", "lat": 47.5123456, "lng": 7.5123456})
+    incident_id = r.json()["id"]
+
+    r = await client.patch(f"/api/incidents/{incident_id}", json={"lat": 47.5123456, "lng": 7.5123456})
+    assert r.status_code == 200, r.text
+
+    rows = (
+        (await db_session.execute(select(IncidentEvent).where(IncidentEvent.op_type == "meta.change"))).scalars().all()
+    )
+    assert rows == []

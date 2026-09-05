@@ -1516,8 +1516,12 @@ function TruppCard({
      (deriveTruppLive) and no tier, so the tier ladder would have called it «Kontakt ok» over
      «–:––» — an OK statement about somebody nobody is watching, and `truppStatusLabel`'s
      distinction between «Draussen» and «Nicht eingesetzt» would have reached no screen at all.
-     And it gets NO time either (05.09., reversing the 04.09. break clock): once a crew is out
-     we don't care how long it has been resting — the word alone is the whole statement. */
+     WHICH TIME an out card carries is the question that took three passes (settled 05.09.
+     evening): the break clock is back for ATEMSCHUTZ, and only for it. A crew that has been
+     under PA cannot go back in until it has rested and re-equipped, so «wie lange ist der schon
+     draussen» is the next operational question about it and the card answers it. A work squad
+     has no such rule — nothing about it is being monitored — so «Draussen» is the whole
+     statement there and no clock stands under it. */
   const out = status === 'raus'
   /* ⚠️ «Nicht eingesetzt» gets NO running clock (04.09.). A Sicherungstrupp that was stood down
      without ever going under PA wore the break clock — big, bold, ticking, under «Draussen seit» —
@@ -1527,11 +1531,18 @@ function TruppCard({
      old enough to carry no `registered` row simply shows the word alone rather than a dash. */
   const neverDeployed = out && truppNeverDeployed(t)
   const registeredAt = neverDeployed ? truppRegisteredAt(t) : null
+  /* The break clock — «Draussen seit» plus a ticking duration, in the band's quiet type. Only an
+     Atemschutz-Trupp that actually came out of something gets it: `neverDeployed` is the crew
+     that never went under PA (its own line below) and a work squad has no recovery time to
+     count. `outSec` is null until an `exitTime` exists, so a Trupp stood down without one keeps
+     the word alone rather than showing «00:00». */
+  const breakClock = out && monitored && !neverDeployed && live.outSec != null
   const bandWord = out || preEntry || !monitored
     ? (preEntry ? az.bandPreEntry : statusLabel)
     : pressureCrit ? az.clockAlarmPressure
     : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
   const bandSub = neverDeployed ? (registeredAt != null ? az.bandRegisteredAt : '')
+    : breakClock ? az.outFor
     : out ? ''
     // ⚠️ the long «…sobald der Trupp unter Atemschutz…» hint is NOT the sub-line: it repeats the
     // word above it and it names Atemschutz, which a work squad does not have. It is a hint, and
@@ -1540,16 +1551,17 @@ function TruppCard({
     : pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line })
     : az.sinceContact
   const bandValue = neverDeployed ? (registeredAt != null ? fmtTime(new Date(registeredAt).toISOString()) : '')
+    : breakClock ? fmtClock(live.outSec)
     : out ? ''
     : preEntry ? fmtClock(null)
     : !monitored ? fmtClock(t.entryTime ? live.elapsedSec : null)
     : pressureCrit ? `${live.currentBar} bar`
     : fmtClock(live.sinceContactSec)
   /* ⚠️ A Trupp that is OUT does not get the card's loudest element (04.09.). The 40px bold number
-     is reserved for a crew that is inside — that is the whole reading order of this board. Since
-     05.09. an out card carries no time at all (the band holds the word alone); quiet type stays:
-     `.bandQuiet` (Atemschutz.module.css). Covers both out states, the never-deployed one
-     included, whose Anmeldezeit is a static time and keeps printing. */
+     is reserved for a crew that is inside — that is the whole reading order of this board. The
+     break clock runs in this quiet type (`.bandQuiet`, Atemschutz.module.css), which is also what
+     the never-deployed card's static Anmeldezeit and the bare word of an out work squad wear:
+     one out state, one weight, whatever the band happens to hold. */
   const bandQuiet = out
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
@@ -1812,7 +1824,7 @@ function TruppCard({
           </div>
         )}
         {/* No exit timestamp line here: the exit event is in the per-Trupp Verlauf and on the
-            Rapport, and what the Überwacher needs NOW is the running break clock below (outFor). */}
+            Rapport, and what the Überwacher needs NOW is the running break clock in the band. */}
         {status === 'raus' && canEdit && (
           <div className={s.actions}>
             <button className={cx(s.actBtn, s.actReenter)} onClick={onReenter}>
@@ -1833,9 +1845,10 @@ function TruppCard({
             <b>{fmtClock(live.elapsedSec)}</b>
           </div>
         )}
-        {/* ⚠️ A Trupp that is OUT shows no time at all (05.09.) — not here and not in the band.
-            This row survives only for the odd record whose exitTime is set while its status is
-            not `raus` (legacy data), so a real out card never prints a resting clock. */}
+        {/* ⚠️ The break clock is said ONCE, and on an out card it is said in the band (see
+            `breakClock` above) — printing it here as well would put the same ticking number twice
+            on one card. This row survives for the odd record whose exitTime is set while its
+            status is not `raus` (legacy data), which the band does not cover. */}
         {live.outSec != null && !out && (
           <div className={s.metaRow}>
             <span>{az.outFor}</span>
@@ -2210,10 +2223,15 @@ function TruppForm({
   /* ── The phone STACK (04.09.) ─────────────────────────────────────────────────────────────
    * Which of the three sections is open. `null` = all collapsed, which is a legitimate state:
    * the whole form is then three lines that read their own answers, and that overview is what
-   * the stack is FOR. Editing opens «Luft & Funk» (the Eingangsdruck is what an edit is usually
-   * for), a card gap opens the section that closes it, and creating opens the Mannschaft. */
+   * the stack is FOR. A card gap opens the section that closes it; otherwise only an EDIT opens
+   * «Luft & Funk» (correcting the Eingangsdruck is what an edit is usually for).
+   * ⚠️ «Wieder einrücken» opens the MANNSCHAFT, like creating (05.09. evening). A re-deployment
+   * is a new Einsatz for that crew and the crew is the first thing that changes about it —
+   * somebody is swapped, somebody stays behind — while the fresh cylinder and the channel are
+   * defaults that are checked, not typed. Opening on «Luft & Funk» asked the one question that
+   * usually answers itself and hid the one that does not. */
   const [openSection, setOpenSection] = useState<StackSection | null>(
-    focusSection === 'auftrag' ? 'auftrag' : mode === 'create' ? 'team' : 'luft',
+    focusSection === 'auftrag' ? 'auftrag' : mode === 'edit' ? 'luft' : 'team',
   )
   /** open it, or close it again if it is the open one — three collapsed lines that each read
    *  their own answer is the overview the stack exists for, so closing must stay possible

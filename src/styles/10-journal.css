@@ -317,9 +317,10 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* with the replay button taking the auto margin, the × just trails it */
 .journal-replay + .journal-x { margin-left: 0; }
 .journal-x { margin-left: auto; width: 28px; height: 28px; border-radius: var(--r-sm); border: none; cursor: pointer;
-  background: var(--surface-2); color: var(--ink-dim); display: grid; place-items: center; }
+  /* the shared close-pill fill (see .ctx-x) — --surface-2 is white-based and vanished on the card */
+  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
 @media (hover: hover) {
-  .journal-x:hover { background: var(--hover-strong); color: var(--ink); }
+  .journal-x:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
 }
 .journal-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-x .i { width: 14px; height: 14px; }
