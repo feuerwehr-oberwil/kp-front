@@ -93,32 +93,39 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
 
     # Reserved, not checked: the slot is taken in the same synchronous step that decides to
     # admit the attempt, BEFORE the first await, so a concurrent burst is counted rather than
-    # slipping past a check nobody has yet failed. But a throttled bucket is NOT rejected here:
-    # under a shared NAT/proxy bucket (or the default TRUSTED_FORWARDED_HOPS=0) an attacker's
-    # wrong attempts would otherwise keep the operator's own bucket blocked and refuse a CORRECT
-    # PIN indefinitely (SEC-08). We remember whether the bucket was throttled and still verify —
-    # a correct PIN always wins; only a WRONG attempt from a throttled bucket gets the 429.
-    # Verifying under throttle is safe because bcrypt is offloaded through the bounded
-    # `_PIN_VERIFY_LIMITER`, so it cannot exhaust the event loop or the thread pool.
-    throttled = pin_limiter.reserve(bucket) > 0
+    # slipping past a check nobody has yet failed (SEC-08 round 1). A bucket already IN COOLDOWN
+    # is REJECTED here, before the verify — a wrong guess AND a correct one. Rejecting the
+    # correct guess too is the whole point: it is what actually throttles guessing. Round 3
+    # verified even while throttled ("a correct PIN always wins"), so an attacker who exhausted
+    # the bucket could keep bcrypt-checking candidates and the moment one hit it returned 200 —
+    # the 6-digit space was brute-forceable (SEC-08 round 3 regression). So: cooldown ⇒ no verify.
+    #
+    # This is safe against locking the operator out because the cooldown is BOUNDED and
+    # NON-EXTENDING. `pin_cooldown_steps_seconds` caps the ladder (currently at 120s), and
+    # `pin_limiter.reserve` counts nothing while a bucket is blocked — attempts made DURING a
+    # cooldown do not deepen it. So the block always elapses, opening a recovery window in which
+    # the operator's correct PIN gets in. Under a sustained flood on the SAME source bucket
+    # (a shared NAT/proxy, or the default TRUSTED_FORWARDED_HOPS=0) the operator faces periodic
+    # bounded cooldowns and competes for those windows — never a permanent lockout. Per (account,
+    # source) keying means an operator on their own address is never blocked by someone else's.
+    wait = pin_limiter.reserve(bucket)
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
+            headers={"Retry-After": str(wait)},
+        )
 
     user = (await db.execute(select(User).where(User.id == body.user_id))).scalar_one_or_none()
     # Spelled out rather than via an `ok` flag so the None-check actually narrows `user` for
     # everything below; short-circuiting keeps bcrypt off the unknown-user path as before.
     if user is None or not user.is_active or not await verify_pin_async(body.pin, user.pin_hash):
-        if throttled:
-            wait = pin_limiter.retry_after(bucket)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
-                headers={"Retry-After": str(wait)},
-            )
         cooldown = pin_limiter.retry_after(bucket)  # installed by the reservation above
         detail = "Falsche PIN" if cooldown == 0 else f"Falsche PIN. Nächster Versuch in {cooldown}s."
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
-    # Knowing the PIN gives the slot back and clears any cooldown the bucket was carrying, so an
-    # operator's own mistyping — or an attacker sharing their bucket — never follows them in.
+    # Knowing the PIN gives the reserved slot back and clears any cooldown the bucket was
+    # carrying, so an operator's own mistyping never follows them in once they type it right.
     pin_limiter.record_success(bucket)
     user.last_login = datetime.now(UTC)
 

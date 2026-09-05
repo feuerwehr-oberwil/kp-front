@@ -110,43 +110,104 @@ async def test_hostile_admin_login_traffic_does_not_lock_out_the_operator(client
     assert ok.status_code == 200, ok.text
 
 
-async def test_a_shared_bucket_under_attack_still_admits_the_correct_pin(client, editor, monkeypatch):
-    """SEC-08 (round-2 residual): behind a NAT/reverse proxy — or with the default
-    `trusted_forwarded_hops=0`, where everyone shares the peer bucket — an attacker and the
-    operator land in the SAME source bucket. Round 2 rejected a throttled bucket BEFORE verifying,
-    so the attacker's wrong attempts kept the shared bucket blocked and the operator's CORRECT
-    PIN was refused indefinitely. A correct PIN must win even from a throttled bucket."""
-    # Default deployment: no trusted proxy, so every caller keys on the same loopback peer.
+async def test_a_correct_pin_during_cooldown_is_throttled_not_admitted(client, editor, monkeypatch):
+    """SEC-08 round 4 — property (A), the crux. Once the bucket is in cooldown, the CORRECT PIN
+    submitted DURING that cooldown is answered 429 and issues NO cookie. Round 3 verified even
+    while throttled and returned 200 the moment a guess was right, so an attacker who exhausted
+    the bucket could brute-force the 6-digit space one hit at a time. A correct guess that slips
+    through IS the throttle failing, so it must be rejected."""
+    # Default deployment: no trusted proxy, so attacker and operator share the loopback peer bucket.
     monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
 
-    # The attacker floods the shared bucket into a deep cooldown.
     for _ in range(settings.pin_free_attempts + 6):
         await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
-    blocked = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
+
+    blocked = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": PIN})
     assert blocked.status_code == 429, blocked.text
-
-    # The operator, sharing that very bucket, still gets in with the correct PIN.
-    good = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": PIN})
-    assert good.status_code == 200, f"a correct PIN was locked out by a shared, throttled bucket: {good.text}"
+    assert "set-cookie" not in {k.lower() for k in blocked.headers}, "a throttled correct PIN must not authenticate"
 
 
-async def test_a_shared_bucket_under_attack_still_admits_the_correct_admin_secret(client, monkeypatch):
-    """The admin door has the same shape (one shared credential, one source bucket). A throttled
-    bucket must not refuse the correct Adminschlüssel."""
+async def test_a_correct_admin_secret_during_cooldown_is_throttled_not_admitted(client, monkeypatch):
+    """Property (A) for the admin door: the same shape (one shared credential, one source bucket).
+    The correct Adminschlüssel offered DURING a cooldown gets 429 and no admin-session cookie."""
     monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
 
     for _ in range(settings.pin_free_attempts + 6):
         await client.post("/api/admin/login", json={"secret": "wrong-secret"})
-    blocked = await client.post("/api/admin/login", json={"secret": "wrong-secret"})
+
+    blocked = await client.post("/api/admin/login", json={"secret": settings.admin_secret})
     assert blocked.status_code == 429, blocked.text
+    assert "set-cookie" not in {k.lower() for k in blocked.headers}, "a throttled correct secret must not authenticate"
 
+
+async def test_the_correct_pin_succeeds_once_the_bounded_cooldown_elapses(client, editor, monkeypatch):
+    """SEC-08 round 4 — property (B). The block is BOUNDED: advance the limiter's clock past the
+    cooldown ceiling and the operator's correct PIN gets in. Proves the throttle above is not an
+    indefinite lockout, only a delay bounded by `pin_cooldown_steps_seconds`."""
+    clock = {"t": 1000.0}
+    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
+
+    for _ in range(settings.pin_free_attempts + 6):
+        clock["t"] += 0.01
+        await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
+    # In cooldown right now: even the correct PIN is refused.
+    assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": PIN})).status_code == 429
+
+    # Wait out the ceiling → recovery window opens.
+    clock["t"] += max(settings.pin_cooldown_steps_seconds) + 1
+    good = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": PIN})
+    assert good.status_code == 200, f"correct PIN still blocked after the bounded cooldown: {good.text}"
+
+
+def test_a_flood_of_attempts_during_a_cooldown_does_not_extend_it(monkeypatch):
+    """Property (B), non-extending half — at the limiter level, deterministic. A bucket already
+    in cooldown counts nothing more, so its unblock instant is fixed the moment the ladder trips.
+    Repeated attempts throughout the step leave the remaining wait counting only DOWN, never back
+    up — the property that makes recovery arrive on schedule even under a continuous flood (a
+    flood that re-armed the timer would be the indefinite lockout property (A) courts)."""
+    lim = PinLimiter()
+    clock = {"t": 1000.0}
+    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+
+    for _ in range(settings.pin_free_attempts + 1):
+        assert lim.reserve("u|ip") == 0  # free tier, then the attempt that trips the ladder
+    step0 = settings.pin_cooldown_steps_seconds[0]
+    assert lim.reserve("u|ip") == step0  # blocked, the first rung in full
+
+    # Hammer throughout the rung. Each attempt is rejected (>0) and re-arms nothing: the wait
+    # only ever shrinks as the clock advances toward the ORIGINAL unblock instant.
+    prev = step0
+    for _ in range(100):
+        clock["t"] += step0 / 200.0
+        wait = lim.reserve("u|ip")
+        assert 0 < wait <= prev, "an attempt during cooldown pushed the unblock time out"
+        prev = wait
+
+    # Exactly one rung after the trip — no more — the window is open again.
+    clock["t"] = 1000.0 + step0 + 0.001
+    assert lim.reserve("u|ip") == 0
+
+
+async def test_the_correct_admin_secret_succeeds_once_the_bounded_cooldown_elapses(client, monkeypatch):
+    """Property (B) for the admin door."""
+    clock = {"t": 1000.0}
+    monkeypatch.setattr(pin_limiter_module.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
+
+    for _ in range(settings.pin_free_attempts + 6):
+        clock["t"] += 0.01
+        await client.post("/api/admin/login", json={"secret": "wrong-secret"})
+    assert (await client.post("/api/admin/login", json={"secret": settings.admin_secret})).status_code == 429
+
+    clock["t"] += max(settings.pin_cooldown_steps_seconds) + 1
     ok = await client.post("/api/admin/login", json={"secret": settings.admin_secret})
-    assert ok.status_code == 200, f"a correct admin secret was locked out by a shared bucket: {ok.text}"
+    assert ok.status_code == 200, f"correct secret still blocked after the bounded cooldown: {ok.text}"
 
 
-async def test_wrong_attempts_still_get_429_under_load_even_when_verify_always_runs(client, editor, monkeypatch):
-    """Verifying under throttle must not soften the throttle for WRONG attempts: once the shared
-    bucket is in cooldown, a wrong PIN is still answered 429, not 401."""
+async def test_wrong_attempts_get_429_once_the_bucket_is_in_cooldown(client, editor, monkeypatch):
+    """A wrong PIN offered while the bucket is blocked is answered 429, not 401 — the throttle
+    holds for wrong guesses just as it does for the correct one above."""
     monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
     for _ in range(settings.pin_free_attempts + 2):
         await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
@@ -154,11 +215,10 @@ async def test_wrong_attempts_still_get_429_under_load_even_when_verify_always_r
     assert r.status_code == 429, r.text
 
 
-async def test_the_bounded_verifier_still_caps_concurrent_bcrypt(client, editor, monkeypatch):
-    """Verifying even when throttled is only safe because bcrypt runs through a bounded
-    `CapacityLimiter`. A concurrent burst of throttled-but-verifying attempts must never exceed
-    that ceiling of simultaneous verifications — the property that keeps «verify under throttle»
-    from exhausting the thread pool."""
+async def test_the_bounded_verifier_caps_concurrent_bcrypt(client, editor, monkeypatch):
+    """bcrypt on the verify path runs through a bounded `CapacityLimiter`. A concurrent burst
+    (of which only the free tier plus the one that trips the ladder actually reach verify — the
+    rest are rejected before it) must never exceed that ceiling of simultaneous verifications."""
     from app.auth import security
 
     live = 0
