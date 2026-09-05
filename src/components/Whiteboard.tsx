@@ -1389,11 +1389,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     if (tool === 'resource') {
-      // if any Atemschutz Trupps are being tracked, ask WHICH one this chip is (listing the
-      // names); otherwise drop a generic Team N. Placed trupps are listed too so the names
-      // always appear once a Trupp is tracked.
-      const active = trupps.filter((t) => t.status !== 'raus')
-      if (active.length) { setTruppPick({ x, y, floor }); setTool('pan') }
+      // if any Trupps are being tracked, ask WHICH one this chip is (listing the names);
+      // otherwise drop a generic Team N. Placed trupps are listed too so the names always appear
+      // once a Trupp is tracked — and so are the ones that are OUT (05.09.), which is the same
+      // list the picker itself renders.
+      if (trupps.length) { setTruppPick({ x, y, floor }); setTool('pan') }
       else { placeTeamChip(x, y, floor); setTool('pan') }
     }
   }
@@ -4398,8 +4398,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
           {/* twin of the Lage picker (IncidentWorkspace): a Trupp already on THIS plan is
               greyed out, because picking it would move its chip rather than add one. One on
-              the map or another plan stays selectable — that is a real move. */}
-          {trupps.filter((t) => t.status !== 'raus').map((t) => {
+              the map or another plan stays selectable — that is a real move.
+              ⚠️ …and one that is OUT is offered too (05.09.), for the reason the Lage's twin
+              spells out: the crew at the vehicle is exactly the one whose place gets asked
+              about. It says «Draussen» rather than being withheld. */}
+          {trupps.map((t) => {
             const here = !!t.annoId && t.planId === activeId
             return (
               <button
@@ -4413,6 +4416,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 {isAtemschutzTrupp(t) && <span className="wb-trupp-as" title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>}
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
+                  : t.status === 'raus' ? <i>{appConfig.copy.atemschutz.status.raus}</i>
                   : (t.lineNo != null || t.lineNumber) ? <i>Ltg {t.lineNo ?? t.lineNumber}</i> : null}
               </button>
             )

@@ -985,9 +985,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 /* The matches under the field, and ONLY while something is typed. Shrink-wrapped, never a
    scroller: it is as tall as its ≤4 rows and pushes the two closed sections down by exactly that
-   much (see TruppTeam · PHONE_HITS).
-   ⚠️ Its own class, not `.teamList` — the `.modalStack … :has(.teamList)` rules below hand the
-   open section the sheet's spare height, which must not switch on and off with the keyboard. */
+   much (see TruppTeam · PHONE_HITS). What gets those four rows ONTO the screen with a keyboard up
+   is not a height here but where the field stands — see the `is-kb` block at the end of this
+   file, and TruppTeam · liftSearch.
+   ⚠️ Its own class, not `.teamList` — the phone's Mannschaft is a different control (chips + a
+   query), and the tablet's roster rules must not follow it around. */
 .teamHits { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); background: var(--surface); }
 /* …and what the standing roster used to say for free: how many people are here at all. Without
@@ -1078,8 +1080,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    the sheet» and the Eingangsdruck — the one field besides the names you cannot skip — would end
    up a dozen rows below the fold. There the list is a fixed box again. Two letters in the search
    above it and it is three rows anyway.
-   ⚠️ Gate = `PHONE_QUERY` (see the modal block above). Everything below is the WIZARD's own
-   layout, and the wizard is switched on by `useIsPhone()` — same condition, one source. */
+   ⚠️ Gate = `PHONE_QUERY` (see the modal block above), which is also what `useIsPhone()` reads —
+   so at these widths the form is ALWAYS the stack and the Mannschaft is always the chip skin.
+   The `.formCol` / `.teamList` rules here are therefore the safety net under a width the JS and
+   the CSS could momentarily disagree about, not the layout anybody sees; what the phone actually
+   wears is the `.modalStack` block below. */
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* Stacked, the columns are rows of ONE grid whose height is the sheet's — so «fill what is
      left» has no meaning and «may shrink below my content» is actively harmful. Both take the
@@ -1094,27 +1099,33 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      The wizard used to undo this block and re-grant the grow chain, so that step 1's roster
      filled the step; a stack has three sections in one scroll instead of one step per screen,
      and «fill the rest» there would push the two closed section headers a whole screen down.
-     The 38dvh box above is what keeps all three headers reachable while the roster is open. */
+     What keeps the section that is OPEN readable is not a cap on the list — the phone's hits box
+     is at most four rows anyway — but where the search field stands; see the block below. */
   .modalStack .modalBody { display: flex; flex-direction: column; gap: 10px; }
   .modalStack .stack { flex: none; }
-  /* ⚠️ …with ONE exception, and it is the whole of the «the first section already scrolls»
-     defect (05.09., Safari with its browser chrome up). While the MANNSCHAFT is open, the fixed
-     `38dvh` roster box plus three slots plus a search field is taller than the room the sheet
-     actually has — so the list ran under the footer and section 1 had to be scrolled before it
-     could be read. Here the stack takes the room that is left and the list flexes into exactly
-     that: section 1 fits, and the two closed headers below it and the footer all stay put. The
-     list keeps its own scroll (it is the one thing that legitimately has more rows than room),
-     which is still ONE scroller — the sheet itself no longer has to move.
-     `:has(.teamList)` = «the Mannschaft is the open section»: a closed StackRow renders no body
-     at all, so this cannot match two sections at once, and every other section keeps the natural
-     height + sheet scroll the stack was built with. */
-  .modalStack .stack:has(.teamList) { flex: 1 1 auto; min-height: 0; }
-  .modalStack .stack:has(.teamList) > .sec { flex: none; }
-  .modalStack .stack > .sec:has(.teamList) { flex: 1 1 auto; min-height: 0; }
-  .modalStack .sec:has(.teamList) .secBody { flex: 1 1 auto; min-height: 0; }
-  .modalStack .sec:has(.teamList) .field:has(> .team) { flex: 1 1 auto; min-height: 0; }
-  .modalStack .sec:has(.teamList) .team { flex: 1 1 auto; min-height: 0; }
-  .modalStack .sec:has(.teamList) .teamList { flex: 1 1 0; max-height: none; min-height: 108px; }
+
+  /* ── THE KEYBOARD IS THE FORM'S SECOND SCREEN (05.09. evening, field feedback) ─────────────
+     «Trupp erstellen» with the keyboard up had one and a half roster rows between the search
+     field and the footer, so the answer to what was being typed had to be scrolled to. The
+     answer is what that screen is FOR, and it gets its room from two places:
+       · the SEARCH FIELD rides to the top of the sheet's scroller when it is focused, so the
+         band from the caret down to «Trupp anmelden» belongs to the hits (TruppTeam · liftSearch
+         — the chrome above is not collapsed, it is simply not in the way while typing);
+       · and the frame's own padding gives back what a keyboard makes expensive. The head keeps
+         its title and the footer keeps its two buttons; only the air around them goes, plus the
+         bottom safe-area reserve, which is dead space while the home indicator sits behind the
+         keyboard anyway.
+     ⚠️ `:global(.is-kb)` — this is a CSS module and `is-kb` is a literal class lib/overlays
+     appends, so a bare `.is-kb` compiles to a selector nothing wears (see `.modal:global(.is-kb)`
+     above, where exactly that shipped dead once).
+     (The rules that used to stand here handed the open section the sheet's spare height and let
+     `.teamList` flex into it. They were dead from the moment the phone got its own Mannschaft
+     skin the same day: on the stack `TruppTeam` renders `.teamHits`, never `.teamList`. And the
+     shape does not transfer — the hits box holds at most four rows, so it has no use for spare
+     height; what it needs is not to be pushed off the bottom.) */
+  .modalStack:global(.is-kb) .modalHead { padding-bottom: 2px; }
+  .modalStack:global(.is-kb) .modalBody { padding: 2px 14px 8px; }
+  .modalStack:global(.is-kb) .modalFoot { padding: 8px 14px; }
 }
 
 /* ===========================================================================================

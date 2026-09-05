@@ -22,7 +22,7 @@ import {
 } from '../lib/audioImport'
 import type { JournalEntryType, TimelineEvent } from '../types'
 import { acceptName, suggestLinks } from '../lib/journalEntry'
-import { linkParts, type JournalLink } from '../lib/journalLinks'
+import { linkParts, suggestNext, type JournalLink } from '../lib/journalLinks'
 import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
 import { startChips } from '../lib/startChips'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
@@ -41,6 +41,11 @@ const MIN_STEP = 1 // exact-time minute granularity (hold the ± to repeat-fast)
  *  reversing the sentence you just heard. */
 const ARROW = '→'
 const ARROW_BACK = '←'
+/** How far a finger may travel on the suggestion band and still be a tap. The app's own travel
+ *  tolerance — the number the hold-tooltip uses to decide a press has become a drag
+ *  (lib/holdTooltip · MOVE_TOL_PX) — so one number answers «this was a gesture, not a press»
+ *  everywhere. */
+const PAN_TOL_PX = 8
 
 export interface JournalDraft {
   text: string
@@ -267,6 +272,19 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // «www.vkf.ch → » is nobody talking to anybody — the arrow means «and now the other side».
     return !!last?.kind && last.kind !== 'url'
   }, [text, vocab])
+  // ── …and what usually FOLLOWS what was just accepted ──────────────────────────────────────
+  // ⚠️ The other half of the same moment the arrow answers. Accepting a chip ended the offer:
+  // the term was inserted and the row went quiet until the next fragment was long enough to
+  // match again, so the second half of every «Trupp Meier Anna → Sanität» was typed by hand.
+  // Now the sentence's last completed term asks the record what has stood beside it before, and
+  // the answer is a tap (lib/journalLinks · suggestNext — evidence from this Einsatz's own rows
+  // and the station's Textbausteine, never a new vocabulary of its own).
+  // ⚠️ Capped against what is already in the row: the two arrows are offered in exactly the same
+  // state, and a band of six chips is one nobody reads — the first few are what a glance gets.
+  const nextHits = useMemo(
+    () => suggestNext(text, { vocab, phrases: quickPhrases, timeline, limit: arrowHit ? 3 : 4 }),
+    [text, vocab, quickPhrases, timeline, arrowHit],
+  )
   // ── and what the sheet offers before a single letter is typed ──
   // ⚠️ Only while the field is EMPTY. The Textbausteine stopped being a permanent strip on
   // 02.07. because a row of them competed with the sentence; these are gone with the first
@@ -290,7 +308,10 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     return startChips(timeline, quickPhrases, el ? `${el} ${ARROW}` : undefined)
   }, [typed, vocab, timeline, quickPhrases])
   /** …and a second chip APPENDS. «EL → » followed by «Polizei aufgeboten» is one sentence being
-   *  built out of two taps, which is the whole point of leaving the row standing. */
+   *  built out of two taps, which is the whole point of leaving the row standing. The same
+   *  mechanic carries the continuation chips (`nextHits`): one space between what stands and what
+   *  is added, and whatever trailing space the insert carries is kept, so a term leaves the caret
+   *  ready for the next word and a Textbaustein ends the clause. */
   const takeStarter = (insert: string) => {
     setText((t) => (t.trim() ? `${t.trimEnd()} ${insert}` : insert))
     requestAnimationFrame(() => {
@@ -331,6 +352,30 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       el.focus()
       el.setSelectionRange(el.value.length, el.value.length)
     })
+  }
+  // ── the suggestion band: a swipe scrolls it, a still tap picks a chip ──────────────────────
+  // The row never wraps and regularly holds more than it can show, so side-scroll is how the rest
+  // of it is reached — and the finger doing that scroll lifts on whatever chip it stopped over.
+  // Nothing here may CANCEL the gesture to prevent that (that is the trap the row's own comment
+  // below describes: a cancelled `pointerdown` cancels the touch's default and the band stops
+  // panning at all). So the travel is measured and only the resulting `click` is swallowed.
+  const panFrom = useRef<{ x: number; y: number } | null>(null)
+  const panMoved = useRef(false)
+  const panGuard = {
+    onPointerDownCapture: (e: React.PointerEvent) => {
+      panFrom.current = { x: e.clientX, y: e.clientY }
+      panMoved.current = false
+    },
+    onPointerMoveCapture: (e: React.PointerEvent) => {
+      const from = panFrom.current
+      if (from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > PAN_TOL_PX) panMoved.current = true
+    },
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!panMoved.current) return
+      panMoved.current = false
+      e.preventDefault()
+      e.stopPropagation()
+    },
   }
   // ── the clock: any entry may say when it has to come back ─────────────────────────────────
   // ⚠️ There is no «Eintrag · Erinnerung» switch any more. Asking for the KIND of row first cost
@@ -931,7 +976,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             lived in this row — and once that chip moved onto the ○ switch, the condition kept
             holding an otherwise empty 44px row open for it, so the ordinary Eintrag sheet stood
             taller than the Meldung sheet with nothing in the gap. */}
-        {(nameHits.length === 0 && !arrowHit && starters.length === 0 && suggestions.length === 0 && pendenzHits.length === 0)
+        {(nameHits.length === 0 && !arrowHit && starters.length === 0 && suggestions.length === 0
+          && nextHits.length === 0 && pendenzHits.length === 0)
           ? <div className="jc-phrases is-empty" aria-hidden /> : (
           // ⚠️ Every chip in this row keeps the textarea focused through the tap — no blur, no
           // keyboard closing under the sentence being written — and it does that on MOUSEdown,
@@ -940,7 +986,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           // sideways on an iPad, and side-scroll is this row's only overflow (it never wraps —
           // see .jc-phrases in 18-audio.css). `mousedown` is what MOVES focus and cannot cancel
           // a gesture, so both facts hold at once.
-          <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
+          // ⚠️ …and the OTHER half of that: the swipe must not end in a chip. A finger that pans
+          // this band lifts on whatever chip it stopped over, and a `click` after a scroll wrote
+          // a word nobody picked — which on this row means the suggestions recompute and the
+          // band jumps back to the left, i.e. the swipe reads as «it will not scroll». So the
+          // travel is measured (`panGuard`) and a click that moved is swallowed. Measured, never
+          // prevented: nothing here cancels a pointer event, for the reason above.
+          <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria} {...panGuard}>
             {/* the empty-field chips: the opener first, then what this Einsatz keeps writing */}
             {starters.map((c) => (
               <button
@@ -961,6 +1013,22 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => takeArrow(ch)}
               >{ch}</button>
+            ))}
+            {/* …then what has stood beside that term before, on THIS Einsatz (lib/journalLinks ·
+                suggestNext). A term wears the tint of its kind, exactly as the name suggestions
+                do — the row keeps saying at a glance which chips write a word of the Einsatz and
+                which write a Textbaustein. They APPEND (takeStarter), so «EL → Sanität» followed
+                by «Patient übergeben» is one sentence built out of taps, spaced like a sentence.
+                ⚠️ Not a Tab target. Tab is the keyboard reflex for «complete what I am typing»,
+                and these are offered exactly when nothing is being typed; the arrow keeps that
+                keystroke in the state where both are on the row. */}
+            {nextHits.map((c) => (
+              <button
+                key={`x:${c.source}:${c.label}`}
+                className={`jc-phrase${c.kind ? ` jc-phrase-link jc-link-${c.kind}` : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => takeStarter(c.insert)}
+              >{c.label}</button>
             ))}
             {nameHits.map((n) => (
               <button

@@ -597,7 +597,7 @@
    Sized like the head's other buttons so the row reads as one set, and amber because it is the
    same signal the chips carried. Reaches the tap floor, which four wrapped chips never could. */
 .rp-head-open-menu { display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap);
-  padding: 0 12px; border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+  min-width: 0; padding: 0 12px; border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
   border-radius: var(--r-sm); cursor: pointer; font: 700 13px var(--body);
   color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
 @media (hover: hover) {
@@ -605,6 +605,9 @@
 }
 .rp-head-open-menu:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rp-head-open-menu :global(.i), .rp-head-open-menu .i { width: 15px; height: 15px; flex: none; }
+/* the label is the one part of the pill allowed to give — it ellipsizes rather than forcing the
+   PDF split button in the same row onto a second line (13-incident.css · rp-head-actions). */
+.rp-head-open-menu-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Anwesenheits-Abweichungen: the card that SETTLES one (04.09., Rapport-Review) ────────────
    The row does not merely acknowledge a «bitte prüfen» line, it shows both values and asks which

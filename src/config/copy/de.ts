@@ -1714,7 +1714,9 @@ export const de = {
     elapsed: 'Einsatzzeit',
     // Break clock: how long the Trupp has been out. The Einsatzzeit stands still from «Raus» on
     // (it is finished), this one runs instead – that is the number the Überwacher needs for the
-    // recovery time before the next Einsatz.
+    // recovery time before the next Einsatz. It heads the out card's BAND (AtemschutzView ·
+    // breakClock) and it belongs to Atemschutz alone: a work squad has no recovery rule, so its
+    // out card says «Draussen» and nothing else.
     outFor: 'Draussen seit',
     estimated: 'Geschätzter Druck',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
@@ -3786,7 +3788,7 @@ export const de = {
     // weil eine Rettung entweder stattgefunden hat oder nicht – anders als eine Kontaktperson,
     // die es bei einem Fehlalarm schlicht nicht GIBT (darum dort «Entfällt»).
     geretteteNone: 'Keine',
-    geretteteNoneHint: 'Es wurde niemand und nichts gerettet',
+    geretteteNoneHint: 'Nichts gerettet',
     // …und was auf dem Papier steht, wenn die Frage beantwortet wurde
     geretteteNonePrint: 'keine',
     gruppenLabel: 'Alarmierung Gruppen',

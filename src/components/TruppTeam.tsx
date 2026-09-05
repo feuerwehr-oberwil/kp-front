@@ -85,6 +85,7 @@ export function TruppTeam({
   // (The Gast link used to blink with them. It is gone — the answer for somebody who is not on
   // the Mannschaft now appears IN the list, so the list is already the thing being pointed at.)
   const searchRef = useRef<HTMLInputElement>(null)
+  const rowRef = useRef<HTMLLabelElement>(null)
   const [hint, setHint] = useState(false)
   const pointAtSearch = () => {
     searchRef.current?.focus()
@@ -99,6 +100,37 @@ export function TruppTeam({
     const t = window.setTimeout(() => setHint(false), 1200)
     return () => window.clearTimeout(t)
   }, [hint])
+
+  /* ── The keyboard is the phone's second screen (05.09., field feedback) ─────────────────────
+   * With the keyboard up, the Trupp form had ~1½ answer rows left between the search field and
+   * the footer: the section header, the crew chips and the field label were all still standing
+   * above the caret, holding the room the ANSWER needs. So the field rides to the top of the
+   * form's scroller the moment it is focused, and the hits get the whole band from there down to
+   * «Trupp anmelden» — three to four rows instead of one and a half. Nothing is hidden and
+   * nothing is collapsed: what scrolled up is one flick away, and it is back as soon as the
+   * keyboard goes.
+   * ⚠️ Phone only. On a tablet the whole Mannschaft is on screen with room to spare, and moving
+   * the form under a hand that only tapped a field would be motion for nothing.
+   * ⚠️ …and after a beat, not on the focus event itself: iOS scrolls the focused field into view
+   * on its own and the sheet re-measures the keyboard a frame or two later (lib/useKeyboardInset),
+   * so a scroll issued now is a scroll issued against both. */
+  const liftMs = 260
+  const liftTimer = useRef(0)
+  useEffect(() => () => window.clearTimeout(liftTimer.current), [])
+  const liftSearch = () => {
+    if (!phone) return
+    window.clearTimeout(liftTimer.current)
+    liftTimer.current = window.setTimeout(() => {
+      const row = rowRef.current
+      if (!row) return
+      // the box that actually scrolls this form — the sheet's body (Atemschutz.module.css)
+      let port = row.parentElement
+      while (port && port.scrollHeight <= port.clientHeight + 1) port = port.parentElement
+      if (!port) return
+      const top = port.scrollTop + row.getBoundingClientRect().top - port.getBoundingClientRect().top
+      port.scrollTo({ top: Math.max(0, top - 4), behavior: 'smooth' })
+    }, liftMs)
+  }
 
   const chosenIds = new Set(value.map((v) => v.personId).filter(Boolean) as string[])
   const chosenNames = new Set(value.map((v) => v.name.trim()).filter(Boolean))
@@ -300,12 +332,12 @@ export function TruppTeam({
           not the search's: whatever stands here can end up on the Personalblatt.
           ⚠️ `stripUnprintable` on the way IN, for the same reason — the query is a search until
           the moment it is committed as a name, and there is no second field left to clean it. */}
-      <label className={cx(s.teamSearch, hint && s.teamSearchHint)}>
+      <label ref={rowRef} className={cx(s.teamSearch, hint && s.teamSearchHint)}>
         <Icon id="search" />
         <input
           ref={searchRef}
           value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} inputMode="search"
-          maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
+          maxLength={40} onFocus={(e) => { caretToEnd(e); liftSearch() }} onKeyDown={onSearchKeyDown}
           // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
           // suchen …» — because on the phone this field is the only way in and «Person suchen»
           // over three chips reads as if it were asking again for whoever is already standing

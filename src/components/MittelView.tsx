@@ -92,10 +92,10 @@ function StockDots({ remaining, total, label }: { remaining: number; total: numb
 // stocked on several vehicles expand to per-source stepper sub-rows. Free-typed lines live
 // in a trailing «Weitere» group (the composer exists only for those). «nach Quelle» stays as
 // the second view — the Nachschub question (what does the TLF need back).
-// A row nobody has touched yet renders COMPACT (05.09.): Bezeichnung + Restbestand + one «+»,
+// A row that carries no count renders COMPACT (05.09.): Bezeichnung + Restbestand + one «+»,
 // no ±stepper — a full catalogue is otherwise a screen of zeroes, and on a phone every one of
 // those zeroes costs a second, wrapped line. The «+» books 1 AND opens the full row in the same
-// tap; from there the row stays open for as long as the surface does (`touched`).
+// tap; the row folds back to the «+» the moment its count is 0 again (`touched`).
 export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbols }: {
   entries: MittelEntry[]
   canEdit: boolean
@@ -117,13 +117,22 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const [adding, setAdding] = useState(false)
   // multi-source rows expanded to their per-source stepper sub-rows
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
-  // Row keys the operator has actually touched on this visit. A row at 0 renders COMPACT (see
-  // the `compact` flags below), and without this set the stepper would vanish from under the
-  // finger the moment somebody counted a position back down to 0 — mid-interaction, with the
-  // thumb still on «−». So every write to a row marks it, and the mark simply lives as long as
-  // the surface does: leaving Material and coming back gives the untouched catalogue back.
+  // Row keys whose full ±form is standing. A row at 0 renders COMPACT (see the `compact` flags
+  // below); this set is what keeps the form up across the write round trip, so the stepper the
+  // «+» just opened is there before the new entry has come back as a prop.
+  // ⚠️ It follows the count BOTH ways (05.09., product owner): a write that lands the row back
+  // at 0 drops the key, so the «+» returns on that very tap instead of after leaving Material
+  // and coming back. The stepper does go out from under the thumb on the tap that reaches 0 —
+  // that is the asked-for trade, and the «−» it was on sits nowhere near the «+» it leaves.
   const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set())
-  const touch = (key: string) => setTouched((cur) => (cur.has(key) ? cur : new Set(cur).add(key)))
+  /** @param total what the row's own total will read after this write — 0 folds it back up */
+  const mark = (key: string, total: number) => setTouched((cur) => {
+    if (total > 0) return cur.has(key) ? cur : new Set(cur).add(key)
+    if (!cur.has(key)) return cur
+    const next = new Set(cur)
+    next.delete(key)
+    return next
+  })
   // free-text search + category quick filter, built like the Anwesenheit's search line: one row
   // of chrome over the list, never two. A full catalogue is a long scroll on a phone, and
   // «wo war nochmal der Ölbinder» is the question this surface gets asked under pressure.
@@ -451,7 +460,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                 if (!multi) {
                   const cell = row.cells[0]
                   const over = row.totalStock != null && cell.used > row.totalStock
-                  // A catalogue row nobody has touched yet says one thing — «da, nicht gebraucht»
+                  // A catalogue row standing at 0 says one thing — «da, nicht gebraucht»
                   // — and spent a whole ±stepper (plus, on a phone, a second wrapped line) saying
                   // it. Compact: Bezeichnung + Restbestand + one «+». A hand-added line is never
                   // compact: its pencil at 0 is the ONLY way back to its Bezeichnung, Einheit,
@@ -471,7 +480,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                             type="button" className={s.addOne}
                             title={fillTemplate(M.addOne, { label: row.label })}
                             aria-label={fillTemplate(M.addOne, { label: row.label })}
-                            onClick={() => { touch(row.key); saveCell(row, cell, 1) }}
+                            onClick={() => { mark(row.key, 1); saveCell(row, cell, 1) }}
                           ><Icon id="plus" /></button>
                         ) : (
                           <>
@@ -486,7 +495,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                             )}
                             {canEdit ? (
                               <div className={s.rowEdit}>
-                                <Stepper value={cell.used} min={0} max={9999} over={over} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => { touch(row.key); saveCell(row, cell, v) }} />
+                                <Stepper value={cell.used} min={0} max={9999} over={over} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => { mark(row.key, v); saveCell(row, cell, v) }} />
                                 <span className={s.rowUnit}>{row.unit}</span>
                               </div>
                             ) : (
@@ -534,7 +543,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                           type="button" className={s.addOne} title={addLabel} aria-label={addLabel}
                           onClick={() => {
                             if (!addTo) { toggleExpand(row.key); return }
-                            touch(row.key)
+                            mark(row.key, 1)
                             saveCell(row, addTo, 1)
                           }}
                         ><Icon id="plus" /></button>
@@ -556,7 +565,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                                 out than every other row, which moved the stock dots with it */}
                             {canEdit ? (
                               <div className={s.rowEdit}>
-                                <Stepper value={cell.used} min={0} max={9999} over={cellOver} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => { touch(row.key); saveCell(row, cell, v) }} />
+                                {/* a sub-row's write is marked with the ROW's new total, not the
+                                    cell's: what folds the head back up is every Quelle at 0 */}
+                                <Stepper value={cell.used} min={0} max={9999} over={cellOver} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => { mark(row.key, row.totalUsed - cell.used + v); saveCell(row, cell, v) }} />
                                 <span className={s.rowUnit}>{row.unit}</span>
                               </div>
                             ) : (

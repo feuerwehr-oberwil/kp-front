@@ -336,31 +336,29 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       <div className="ip-ix-head">{ix.locationHead}</div>
       <div className="ip-field ip-ac" ref={addrRef}>
         <span>{ix.addressLabel}</span>
-        <input
-          value={address}
-          placeholder={ix.addressPlaceholder}
-          onChange={(e) => { setAddress(e.target.value); setAddrOpen(true) }}
-          onFocus={() => setAddrOpen(true)}
-        />
-        {/* «Hier» is the FIRST row of this menu rather than a button of its own — the EL usually
+        {/* «Hier» (GPS) is an icon-only button riding the field's own right edge — the EL usually
             stands at (or near) the Einsatzort, so it has to be reachable the moment the address
-            field is focused, before three characters make the swisstopo hits appear. It keeps
-            its own row styling (`ip-ac-here`) — a hairline under it — so it reads as the one
-            row that isn't a search result. */}
-        {addrOpen && (
+            field is in view, not buried as the first row of a menu that only opens on focus. */}
+        <div className="ip-ac-input-wrap">
+          <input
+            value={address}
+            placeholder={ix.addressPlaceholder}
+            onChange={(e) => { setAddress(e.target.value); setAddrOpen(true) }}
+            onFocus={() => setAddrOpen(true)}
+          />
+          <button type="button" className="ip-ac-locate" disabled={locating} onClick={useHere} aria-label={ix.hereButton}>
+            <Icon id={locating ? 'rotate' : 'locate'} className={locating ? 'spin' : undefined} />
+          </button>
+        </div>
+        {addrOpen && address.trim().length >= 3 && (
           <div className="ip-ac-menu">
-            <button type="button" className="ip-ac-row ip-ac-here" disabled={locating} onClick={useHere}>
-              <Icon id={locating ? 'rotate' : 'locate'} className={locating ? 'spin' : undefined} /> <span>{ix.hereButton}</span>
-            </button>
-            {address.trim().length >= 3 && <>
-              {addrLoading && <div className="ip-ac-note">{ix.addressSearching}</div>}
-              {!addrLoading && hits.length === 0 && <div className="ip-ac-note">{ix.addressNoHits}</div>}
-              {hits.map((h, i) => (
-                <button key={i} type="button" className="ip-ac-row" onClick={() => pickHit(h)}>
-                  <Icon id="flag" /> <span>{h.label}</span>
-                </button>
-              ))}
-            </>}
+            {addrLoading && <div className="ip-ac-note">{ix.addressSearching}</div>}
+            {!addrLoading && hits.length === 0 && <div className="ip-ac-note">{ix.addressNoHits}</div>}
+            {hits.map((h, i) => (
+              <button key={i} type="button" className="ip-ac-row" onClick={() => pickHit(h)}>
+                <Icon id="flag" /> <span>{h.label}</span>
+              </button>
+            ))}
           </div>
         )}
       </div>

@@ -377,3 +377,29 @@ describe('ContextPanel — Löschen on an otherwise read-only panel', () => {
     expect(screen.queryByRole('textbox')).toBeNull()
   })
 })
+
+// A just-placed Notiz opens with the caret in its text field — and on a phone the sheet has to be
+// FULL for that field to be above the iOS keyboard (05.09.). `.sheet-full` rides on the panel's
+// own `.ctx` root (SheetGrip · CtxShell), which is the element the sheet height hangs off and the
+// one the grip's tap toggles. `onNoteSize` is what makes this panel a note editor.
+describe('ContextPanel — a placed Notiz opens the sheet full', () => {
+  const note = (autoFocusNote: boolean) => {
+    render(
+      <ContextPanel entity={{ id: 'n1', label: '' }} onClose={vi.fn()} onTitle={vi.fn()}
+        onFields={vi.fn()} onDelete={vi.fn()}
+        onTitleLive={vi.fn()} onNoteSize={vi.fn()} autoFocusNote={autoFocusNote} />,
+    )
+    return document.querySelector('.ctx')!
+  }
+
+  it('expands the sheet and puts the caret in the note text', () => {
+    const ctx = note(true)
+    expect(ctx.classList.contains('sheet-full')).toBe(true)
+    expect(document.activeElement?.className).toBe('ctx-note-input')
+  })
+
+  it('leaves a sheet reopened on an existing Notiz at whatever height it had', () => {
+    const ctx = note(false)
+    expect(ctx.classList.contains('sheet-full')).toBe(false)
+  })
+})

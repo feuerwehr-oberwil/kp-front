@@ -36,14 +36,26 @@ interface MenuPos { left: number; top: number; width: number; maxH: number; up: 
  *  full-height Rapport the roster then scrolled inside a short box with half the sheet empty
  *  underneath it. */
 const MAX_MENU_H = 440
+/** Floor: two or three rows and a search box. Below this a menu is a sliver, not a list — so a
+ *  DOWN menu is allowed to spend it even where the sheet is shorter, and an UP menu may not
+ *  (see `place`), because an up menu's overflow goes off the top of the screen. */
+const MIN_MENU_H = 140
+/** Breathing room kept between the menu and whichever edge it is measured against. */
+const EDGE = 12
 
 /** The nearest ancestor that actually clips its content (a Sheet's `.ip-body`, any
  *  `overflow: auto/scroll/hidden` panel) — falling back to the viewport when there is none.
- *  `place()` measures room against THIS, not `window.innerHeight`: a trigger near the top of a
- *  short `ip-fit` sheet has plenty of WINDOW space below it, but the menu is portalled straight
- *  to `<body>`, so sizing it off the window let it run taller than the sheet itself and spill
- *  past its bottom edge into the backdrop — a dropdown that reads as broken chrome rather than
- *  an open menu. */
+ *  `place()` measures the room BELOW the trigger against THIS, not `window.innerHeight`: a
+ *  trigger near the top of a short `ip-fit` sheet has plenty of WINDOW space below it, but the
+ *  menu is portalled straight to `<body>`, so sizing it off the window let it run taller than
+ *  the sheet itself and spill past its bottom edge into the backdrop — a dropdown that reads as
+ *  broken chrome rather than an open menu.
+ *  ⚠️ ABOVE is deliberately NOT measured against it (05.09.). Nothing actually clips the
+ *  portalled menu, and the room above a bottom sheet is exactly the room a bottom sheet has:
+ *  measuring it against the sheet's own top edge left «Material erfassen» and the EL sheet's
+ *  Einsatzleiter picker with ~20px above and ~170px below, i.e. a cramped down-menu with half
+ *  the screen empty over it. Above the sheet the menu is over the backdrop, which is where a
+ *  dropdown opened from a sheet's first field belongs. */
 function clipBounds(el: HTMLElement): { top: number; bottom: number } {
   let node = el.parentElement
   while (node && node !== document.body) {
@@ -140,12 +152,20 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
       if (!el) return
       const r = el.getBoundingClientRect()
       const bound = clipBounds(el)
-      const below = bound.bottom - r.bottom - 12
-      const above = r.top - bound.top - 12
-      const up = below < 200 && above > below
+      // below: against the clipping ancestor. above: against the VIEWPORT — see clipBounds.
+      const below = bound.bottom - r.bottom - EDGE
+      const above = r.top - EDGE
+      // Flip up when the room below has run out AND the viewport genuinely offers more, with
+      // enough of it to be a list. Both anchors leave the trigger uncovered: an up menu ends
+      // 4px above `r.top`, a down one starts 4px below `r.bottom` — so a picker whose trigger
+      // is itself a field (and the menu's own search row) always stays reachable.
+      const up = below < 200 && above > below && above >= MIN_MENU_H
       // TAKE the room that is there: `below`/`above` already hold the real space, so MAX_MENU_H
       // only has to stop the menu becoming a full-screen curtain over the form it belongs to.
-      setPos({ left: r.left, top: up ? r.top : r.bottom, width: r.width, maxH: Math.max(140, Math.min(MAX_MENU_H, up ? above : below)), up })
+      // ⚠️ The MIN floor is for the DOWN case only — an up menu capped above its room would run
+      // its top (where the search row sits) off the top of the screen.
+      const maxH = up ? Math.min(MAX_MENU_H, above) : Math.min(MAX_MENU_H, Math.max(MIN_MENU_H, below))
+      setPos({ left: r.left, top: up ? r.top : r.bottom, width: r.width, maxH, up })
     }
     place()
     window.addEventListener('scroll', place, true)

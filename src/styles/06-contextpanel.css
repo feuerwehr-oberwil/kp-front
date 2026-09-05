@@ -59,8 +59,14 @@
 .ph svg { width: 30px; height: 30px; }
 .ctx-head h3 { margin: 0; font-size: 17px; font-weight: 700; }
 .ctx-head p { margin: 2px 0 0; font-size: 12px; color: var(--ink-dim); font-weight: 500; }
-.ctx-x { margin-left: auto; align-self: flex-start; background: var(--surface-2); border: none; border-radius: var(--r-sm);
+/* ⚠️ ink-mix, not --surface-2: the glass tokens are white-based and vanish on this white card —
+   the ✕ family (ip-x / ctx-x / journal-x) shares this quiet ink pill so every close reads alike */
+.ctx-x { margin-left: auto; align-self: flex-start; background: color-mix(in srgb, var(--ink) 7%, transparent);
+  border: none; border-radius: var(--r-sm);
   width: 32px; height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--ink-dim); }
+@media (hover: hover) {
+  .ctx-x:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+}
 .ctx-body { padding: 0 18px 8px; }
 /* ⚠️ `flex-wrap: wrap` + a shrinkable label. A field row is «Beschriftung + Bedienelement» and
    both halves were unshrinkable: the label because text does not shrink on its own, the control

@@ -237,7 +237,7 @@
     /* bottom sheet enters from below (ctxIn slides sideways — desktop side-panel chrome),
        and the half↔full snap eases instead of jumping; live grip-drags disable the
        transition (SheetGrip sets .sheet-dragging) so the sheet tracks the finger 1:1 */
-    animation: sheetUp .22s var(--ease); transition: height .22s var(--ease); }
+    animation: sheetUp .22s var(--ease); transition: height .22s var(--ease), opacity .16s var(--ease); }
   .ctx.sheet-dragging { transition: none; }
   .ctx.sheet-full { height: var(--sheet-h, 88dvh); }
   /* …and a FULLY expanded sheet owns the screen: nothing behind it still answers a tap.
@@ -258,9 +258,14 @@
   body.sheet-peek .ctx { height: calc(76px + env(safe-area-inset-bottom)); }
   /* …and it steps aside the same way for the Einsatz-Menü (05.09.): that dropdown hangs off the
      top bar and reaches well down the screen, where a half- or full-height sheet meets it in the
-     middle. The menu is what is being read, so the sheet lowers to its grip line for as long as
-     the menu stands — the very height the drag peek uses — and comes back when it closes. */
-  .app:has(.ip-menu) .ctx { height: calc(76px + env(safe-area-inset-bottom)); }
+     middle. The menu is what is being read, so the sheet goes for as long as the menu stands and
+     comes back when it closes.
+     ⚠️ Lowering it to its grip line (the drag peek's height) was tried first and is not enough:
+     the menu runs the length of the phone, so the strip left at the bottom is still a second
+     surface under the one being read. PAINTED away, not unmounted — the sheet keeps its
+     half/full class, its content, its in-progress edits and its scroll position, exactly like
+     the peek above; `visibility` so nothing inside it answers a tap or holds the focus. */
+  .app:has(.ip-menu) .ctx { opacity: 0; visibility: hidden; }
   /* …and the selection bar rides just above that sheet, because the two describe the SAME
      selection and a bar hidden behind its own editor is a bar nobody can reach. The two heights
      are the sheet's own defaults, repeated here on purpose and kept in this one place beside

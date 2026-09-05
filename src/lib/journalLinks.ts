@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
-import type { AttendanceState, Person, Trupp } from '../types'
+import type { AttendanceState, Person, TimelineEvent, Trupp } from '../types'
 import { isPresent } from './attendanceIntervals'
 import { getDeploymentConfig } from './deploymentConfig'
 import { rankOrder } from './rank'
@@ -514,4 +514,121 @@ export function linkMarkup(
       return role ? `<b>${esc(p.text)}</b> (${esc(role)})` : `<b>${esc(p.text)}</b>`
     })
     .join('')
+}
+
+/** One chip offered right AFTER something was accepted — see `suggestNext`. */
+export interface NextChip {
+  /** what the chip says */
+  label: string
+  /** what gets APPENDED to the sentence. A term carries its own trailing space (the caret goes
+   *  on writing after it, exactly as `acceptName` leaves it); a Textbaustein ends the clause and
+   *  does not. */
+  insert: string
+  /** a word of this Einsatz's vocabulary, or one of the station's Textbausteine */
+  source: 'term' | 'phrase'
+  /** for a term: which kind, so the chip wears the same tint the name suggestions do */
+  kind?: LinkKind
+}
+
+/** A handful — the row scrolls sideways, but what is worth reading at 3am is the first few. */
+const NEXT_LIMIT = 4
+
+/**
+ * What usually comes NEXT, offered the moment something was accepted and before another letter
+ * is typed.
+ *
+ * Accepting a chip used to end the offer: the name was inserted and the row went quiet until the
+ * next fragment was long enough to match again — so the second half of «Trupp Meier Anna → …»
+ * was typed out by hand every single time, on the surface where typing is most expensive.
+ *
+ * ⚠️ Everything offered here is EVIDENCE from this Einsatz's own rows, never a list of what a
+ * sentence «should» say. The anchor is the term the sentence currently ends on; the chips are the
+ * other terms and the station's Textbausteine that have already stood in a row WITH that anchor,
+ * ranked by how often. So an Einsatz that has not written anything yet offers nothing at all —
+ * the row stays as empty as it is today — and one that has been running for two hours offers what
+ * it keeps writing. Same instrument as the empty-field chips (lib/startChips), one step later.
+ *
+ * ⚠️ And no NEW vocabulary. The Atemschutz status words («Rückzug», «Draussen», «eingerückt») are
+ * deliberately NOT in here, tempting as they look: the Truppkarte writes those rows itself, with
+ * the clock behind them, and a hand-typed copy in the Verlauf would be a second, unclocked record
+ * of a fact the board owns. What this offers is what somebody on THIS Einsatz has already typed.
+ */
+export function suggestNext(
+  text: string,
+  opts: {
+    vocab: JournalLink[]
+    /** the station's Textbausteine (deployment config journal.quickPhrases over the defaults) */
+    phrases: readonly string[]
+    /** this Einsatz's own rows — the only evidence there is */
+    timeline: readonly TimelineEvent[]
+    limit?: number
+  },
+): NextChip[] {
+  const { vocab, phrases, timeline, limit = NEXT_LIMIT } = opts
+  const anchor = endingTerm(text, vocab, phrases)
+  if (!anchor) return []
+  // the rows of this Einsatz that name the anchor. Filtered FIRST, so the expensive pass below
+  // runs over a handful of rows rather than over the whole record on every keystroke.
+  const rows = timeline.filter((e) => e.text && containsTerm(e.text, anchor))
+  if (!rows.length) return []
+
+  // ⚠️ Order is the tiebreak, and terms come before phrases in it: two candidates seen equally
+  // often should offer the WORD of this Einsatz first — it is the one the operator cannot spell
+  // from memory, which is the whole reason the vocabulary is offered at all.
+  const seen = new Set<string>([anchor.toLowerCase()])
+  const candidates: NextChip[] = []
+  for (const l of vocab) {
+    const name = l.name?.trim()
+    if (!name || name.length < 2 || seen.has(name.toLowerCase())) continue
+    seen.add(name.toLowerCase())
+    candidates.push({ label: name, insert: `${name} `, source: 'term', kind: l.kind })
+  }
+  for (const p of phrases) {
+    const phrase = p.trim()
+    if (!phrase || seen.has(phrase.toLowerCase())) continue
+    seen.add(phrase.toLowerCase())
+    candidates.push({ label: phrase, insert: phrase, source: 'phrase' })
+  }
+
+  return candidates
+    // never offer what the sentence already says — that is how a chip writes a word twice
+    .filter((c) => !containsTerm(text, c.label))
+    .map((c, i) => ({ c, i, n: rows.filter((e) => containsTerm(e.text, c.label)).length }))
+    .filter((m) => m.n > 0)
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .slice(0, Math.max(0, limit))
+    .map((m) => m.c)
+}
+
+/**
+ * The term the sentence currently ENDS on — with or without the space after it, and nothing else
+ * behind it. That is the one moment a continuation is an answer rather than an interruption: mid
+ * word the fragment has better ones (names, Textbausteine), and further into the sentence the
+ * chip would be a row that never goes away.
+ *
+ * A vocabulary word first (the same test the «→» is offered on, addresses excluded — «www.vkf.ch»
+ * is nobody the sentence is about), then a Textbaustein the text ends with, longest first.
+ */
+function endingTerm(text: string, vocab: JournalLink[], phrases: readonly string[]): string | null {
+  const end = text.trimEnd()
+  if (!end) return null
+  const last = linkParts(end, vocab).pop()
+  if (last?.kind && last.kind !== 'url' && last.kind !== 'phone') return last.text
+  const lower = end.toLowerCase()
+  return [...phrases]
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 2 && lower.endsWith(p.toLowerCase()))
+    .sort((a, b) => b.length - a.length)[0] ?? null
+}
+
+/** Does this text carry that term as a WHOLE word? The same rule `linkRanges` marks by — «Polizei»
+ *  must not count inside «Kantonspolizei» — but asked about one term, so it costs one scan. */
+function containsTerm(text: string, term: string): boolean {
+  const hay = text.toLowerCase()
+  const needle = term.trim().toLowerCase()
+  if (needle.length < 2) return false
+  for (let i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + 1)) {
+    if (!isWordChar(hay[i - 1]) && !isWordChar(hay[i + needle.length])) return true
+  }
+  return false
 }

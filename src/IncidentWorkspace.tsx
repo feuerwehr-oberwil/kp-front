@@ -5518,8 +5518,13 @@ export function IncidentWorkspace({
               does not add a second marker — it MOVES the existing one, silently, and the
               operator who wanted a second Trupp has just relocated the first. Placed ones
               are greyed out and say where they are instead. A Trupp on a PLAN stays
-              selectable: moving it to the map is a real thing to want. */}
-          {trupps.filter((t) => t.status !== 'raus').map((t) => {
+              selectable: moving it to the map is a real thing to want.
+              ⚠️ A Trupp that is OUT is offered too (05.09.). It used to be filtered away, which
+              meant the crew standing at the vehicle — the one about to go back in, the one whose
+              position somebody is asking about — was the one name the picker refused to show. It
+              carries its «Draussen» so the choice is made knowingly; placing a marker changes no
+              clock (lib/placedTrupps · the join doctrine). */}
+          {trupps.map((t) => {
             const here = !!t.entityId
             return (
               <button
@@ -5531,6 +5536,7 @@ export function IncidentWorkspace({
                 {isAtemschutzTrupp(t) && <span className="wb-trupp-as" title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>}
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
+                  : t.status === 'raus' ? <i>{appConfig.copy.atemschutz.status.raus}</i>
                   : t.lineNumber ? <i>Ltg {t.lineNumber}</i> : null}
               </button>
             )

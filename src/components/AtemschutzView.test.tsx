@@ -132,14 +132,28 @@ describe('the state a tier cannot say', () => {
     expect(screen.getByText(az.status.rueckzug)).toBeTruthy()   // …and the fact it cannot carry
   })
 
-  /* ⚠️ …and no time either (05.09., reversing the 04.09. break clock): once a crew is out we
-   * don't care how long it has been resting — the word alone is the whole statement. */
-  it('gives a Trupp that is out its word alone — no tier, no clock, no time', () => {
+  /* WHICH time an out card carries depends on whether anybody was ever monitoring it (settled
+   * 05.09. evening). An Atemschutz-Trupp that came out of something keeps the BREAK CLOCK: it
+   * cannot go back in until it has rested and re-equipped, so «wie lange ist der schon draussen»
+   * is the next question about it. No tier and no contact word though — nobody is watching it. */
+  it('gives an Atemschutz-Trupp that is out its break clock, and no tier', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
     expect(screen.getByText(az.status.raus)).toBeTruthy()
-    expect(screen.queryByText(az.outFor)).toBeNull()
+    expect(screen.getByText(az.outFor)).toBeTruthy()
     expect(screen.queryByText(az.clockOk)).toBeNull()
     expect(screen.queryByText(az.sinceContact)).toBeNull()
+    const band = document.querySelector(`.${s.bandVal}`)!
+    expect(band.textContent).toMatch(/^0?5:00$/)
+  })
+
+  /* …and a WORK SQUAD that is out gets the word alone. Nothing about it was ever monitored, so
+   * there is no recovery time to count down and no reason to put a running number on a card
+   * nobody has to act on — «Draussen» is the whole statement. */
+  it('gives a work squad that is out its word alone — no clock, no time', () => {
+    mount({ trupps: [{ ...aktivTrupp(), kind: 'einfach', status: 'raus', exitTime: iso(5 * 60_000) }] })
+    expect(screen.getByText(az.status.raus)).toBeTruthy()
+    expect(screen.queryByText(az.outFor)).toBeNull()
+    expect(screen.queryByText(az.elapsed)).toBeNull()
     const band = document.querySelector(`.${s.bandVal}`)!
     expect(band.textContent).toBe('')
   })
@@ -862,6 +876,29 @@ describe('the Trupp form on the main board’s phone layout', () => {
     fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
     expect(screen.queryByText(az.kindLabel)).toBeNull()
+  })
+
+  /* ⚠️ «Wieder einrücken» opens the MANNSCHAFT, not «Luft & Funk» (05.09. evening, field
+   * feedback). A re-deployment is a new Einsatz for that crew, and the crew is the first thing
+   * that changes about it — somebody is swapped, somebody stays behind — while the fresh cylinder
+   * and the channel are defaults to be checked, not typed. EDITING still opens «Luft & Funk»:
+   * correcting the Eingangsdruck is what an edit is usually for. */
+  it('opens «Wieder einrücken» on the Mannschaft, and an edit on «Luft & Funk»', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    // the handed-over board, because that is the phone surface that shows a whole CARD (the main
+    // board's phone layout is the row list) — the form behind the button is the same one
+    mount({ lite: { subtitle: 'Brand' }, trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }] })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: true })).toBeTruthy()
+    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    expect(screen.queryByText(az.newPressureLabel)).toBeNull()
+
+    cleanup()
+    mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()] })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    expect(screen.getByRole('button', { name: new RegExp(az.stackLuft), expanded: true })).toBeTruthy()
+    expect(screen.getByText(az.editPressureLabel)).toBeTruthy()
   })
 
   it('a tablet keeps the single screen — the stack is for 375px, not for touch', () => {

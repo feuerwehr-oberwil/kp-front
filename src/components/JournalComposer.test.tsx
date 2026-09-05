@@ -454,3 +454,67 @@ describe('JournalComposer · «Wer» is read off the sentence', () => {
     expect(onSubmit.mock.calls[0][0].assignee).toBe('Werkhof Oberwil')
   })
 })
+
+// Accepting a chip used to end the offer: the term was written and the band went quiet until the
+// next fragment matched something again — so the second half of a line everybody writes twenty
+// times a night was typed by hand every time.
+describe('JournalComposer · what comes next', () => {
+  const VOCAB = [
+    { name: 'Meier Anna', kind: 'person' as const },
+    { name: 'Sanität', kind: 'partner' as const },
+  ]
+  const TIMELINE = [
+    { id: 'e1', t: '20:10', icon: 'note', text: 'Meier Anna → Sanität: Patient stabil' },
+    { id: 'e2', t: '20:20', icon: 'note', text: 'Meier Anna meldet Sanität eingetroffen' },
+  ]
+  const field = () => screen.getByRole('textbox') as HTMLTextAreaElement
+  const chip = (name: string) => screen.queryAllByRole('button', { name })[0]
+
+  it('offers what has stood beside the accepted term, and appends it cleanly', async () => {
+    setup({ vocab: VOCAB, timeline: TIMELINE })
+    type('Meier')
+    fireEvent.click(chip('Meier Anna'))
+    expect(field().value).toBe('Meier Anna ')
+    await waitFor(() => expect(chip('Sanität')).toBeTruthy())
+    fireEvent.click(chip('Sanität'))
+    // one space between what stood and what was added, and the caret is left ready to write on
+    expect(field().value).toBe('Meier Anna Sanität ')
+  })
+
+  // ⚠️ Evidence only: an Einsatz that has written nothing offers nothing, and the band is as
+  // quiet as it was before the feature existed.
+  it('stays quiet on an Einsatz with no rows yet', () => {
+    setup({ vocab: VOCAB, timeline: [] })
+    type('Meier Anna ')
+    expect(chip('Sanität')).toBeUndefined()
+  })
+})
+
+// The band never wraps and regularly holds more than it can show, so side-scroll is how the rest
+// of it is reached — and the finger doing that lifts on whatever chip it stopped over.
+describe('JournalComposer · swiping the suggestion band', () => {
+  const VOCAB = [{ name: 'Meier Anna', kind: 'person' as const }]
+  const field = () => screen.getByRole('textbox') as HTMLTextAreaElement
+  const chip = () => screen.queryAllByRole('button', { name: 'Meier Anna' })[0]
+
+  it('a still tap picks the chip', () => {
+    setup({ vocab: VOCAB })
+    type('Meier')
+    fireEvent.pointerDown(chip(), { clientX: 100, clientY: 200 })
+    fireEvent.pointerMove(chip(), { clientX: 102, clientY: 201 })
+    fireEvent.click(chip())
+    expect(field().value).toBe('Meier Anna ')
+  })
+
+  // ⚠️ Swallowed on the CLICK. Nothing here may cancel the pointer event itself: WebKit builds
+  // its pointer events on the touch stream, so a cancelled pointerdown cancels the touch's
+  // default and the band stops panning at all — which is the bug this row already had once.
+  it('a swipe scrolls it and picks nothing', () => {
+    setup({ vocab: VOCAB })
+    type('Meier')
+    fireEvent.pointerDown(chip(), { clientX: 100, clientY: 200 })
+    fireEvent.pointerMove(chip(), { clientX: 160, clientY: 204 })
+    fireEvent.click(chip())
+    expect(field().value).toBe('Meier')
+  })
+})

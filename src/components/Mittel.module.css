@@ -73,15 +73,18 @@
 .rowEdit { flex: none; display: flex; align-items: center; gap: 8px; }
 .over { color: var(--red); }
 
-/* The compact idle row's «+» — the whole control an untouched Position (0 verwendet) carries.
-   var(--tap) tall with a −4px block margin: the hit area is the full 44px, but it only claims
-   the row's 36px content box, so a compact row stays at the 48px every other row is, instead of
-   growing to 56 and undoing the space this compaction exists to win. No negative margin on the
-   right — the «+» ends where the ±stepper of a counted row ends, so the two forms share one
-   right edge down a group (the same rule the stock dots follow). */
+/* The compact idle row's «+» — the whole control a Position at 0 verwendet carries.
+   var(--tap) square with a −4px margin on three sides: the hit area is the full 44px, but it
+   only claims the row's 36px content box, so a compact row stays at the 48px every other row is
+   (instead of growing to 56 and undoing the space this compaction exists to win) and its right
+   edge sits where the counted row's controls do rather than a button's worth of padding inside
+   them. ⚠️ The overhang is what aligns it: the «+» is a 17px glyph centred in a 44px target, so
+   a border box stopped at the row's 12px padding reads as indented next to the dense ±stepper /
+   unit beside it — a rhythm break down a group where most rows are compact. */
 .addOne {
   flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
-  margin-block: -4px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+  margin-block: -4px; margin-inline-end: -4px;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: transparent; color: var(--ink-dim); cursor: pointer;
 }
 @media (hover: hover) { .addOne:hover { border-color: var(--ink-faint); color: var(--ink); } }
@@ -92,7 +95,9 @@
    the line, which is what makes the row's label its own hit target. */
 .rowMultiHead { display: flex; align-items: center; }
 .rowMultiHead > .rowExpand { flex: 1 1 auto; min-width: 0; }
-.rowMultiHead > .addOne { margin-right: 12px; }
+/* 12px row padding − the 4px overhang above: a multi-source row pads itself (.rowMulti has
+   none), so the «+» has to reproduce the single row's right edge by hand. */
+.rowMultiHead > .addOne { margin-right: 8px; }
 
 /* remaining-stock readout on a list row: filled dot = still there, empty = used; larger
    stocks fall back to the «noch N» chip. Low → amber, nothing left / over-use → red. */
