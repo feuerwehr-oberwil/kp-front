@@ -10,7 +10,52 @@ import { appConfig } from '../config/appConfig'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
-import { condition, fromLabel, fromLabelLong, windArrowRotation } from './WindBadge'
+
+/* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
+ * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
+ * component that nothing has rendered since the readout moved into this bar (and into the
+ * phone's `.phone-wx` float); the file was deleted on 05.09. and these came with it. */
+
+const cardinalIndex = (deg: number) => Math.round((((deg % 360) + 360) % 360) / 45) % 8
+
+/** German cardinal for a FROM bearing, e.g. 225° → «aus SW». */
+export function fromLabel(deg: number): string {
+  const w = appConfig.copy.weather
+  return `${w.from} ${w.cardinals[cardinalIndex(deg)]}`
+}
+
+/** Spelled-out German cardinal for a FROM bearing, e.g. 225° → «aus Südwest». */
+export function fromLabelLong(deg: number): string {
+  const w = appConfig.copy.weather
+  return `${w.from} ${w.cardinalsLong[cardinalIndex(deg)]}`
+}
+
+/** CSS rotation (deg) for the wind arrow. The arrow's SVG points DOWN at rest (bearing 180°),
+ *  and we want it pointing where the wind blows TOWARD = the FROM bearing + 180. toward − 180 =
+ *  dir, so rotating by `dir` aims the arrow downwind on a north-up map. When the map is rotated
+ *  to a bearing, a compass direction θ appears on screen at θ − bearing, so the arrow follows the
+ *  map's rotation (like the compass needle) by subtracting it. */
+export function windArrowRotation(dir: number, bearing = 0): number {
+  return dir - bearing
+}
+
+/** WMO present-weather code → a single condition icon + localized label. */
+export function condition(code: number | null): { icon: string; label: string } | null {
+  if (code == null) return null
+  const c = appConfig.copy.weather.conditions
+  if (code === 0) return { icon: 'sun', label: c.clear }
+  if (code === 1) return { icon: 'wx-partly', label: c.fair }
+  if (code === 2) return { icon: 'wx-partly', label: c.partly }
+  if (code === 3) return { icon: 'wx-cloud', label: c.overcast }
+  if (code === 45 || code === 48) return { icon: 'wx-fog', label: c.fog }
+  if (code >= 51 && code <= 57) return { icon: 'wx-rain', label: c.drizzle }
+  if (code >= 61 && code <= 67) return { icon: 'wx-rain', label: c.rain }
+  if (code >= 71 && code <= 77) return { icon: 'wx-snow', label: c.snow }
+  if (code >= 80 && code <= 82) return { icon: 'wx-rain', label: c.rainShowers }
+  if (code === 85 || code === 86) return { icon: 'wx-snow', label: c.snowShowers }
+  if (code >= 95) return { icon: 'wx-storm', label: c.thunder }
+  return { icon: 'wx-cloud', label: c.cloudy }
+}
 
 type ClockMode = 'elapsed' | 'now' | 'start'
 const CLOCK_MODES: ClockMode[] = ['elapsed', 'now', 'start']
@@ -166,7 +211,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               title={fillTemplate(E.title, { t: formatTime(new Date(startedAt)) })}
               aria-label={`${clockLabel[clockMode]}: ${clockText}`}
             >
-              <Icon id={CLOCK_ICON[clockMode]} /><b>{clockText}</b><Icon id="chevron-down" className="tb-uhr-chev" />
+              <Icon id={CLOCK_ICON[clockMode]} /><b>{clockText}</b><Icon id="chevron-down" className="tb-uhr-chev chev" />
             </button>
           }
         >

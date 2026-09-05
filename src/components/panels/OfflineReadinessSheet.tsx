@@ -52,7 +52,7 @@ function fmtAgo(ms: number | null): string {
 export function OfflineReadinessSheet({
   onClose, probeUrls, symbolsReady, planCount, objectLabel,
   weatherOk, weatherError, personnelCount, syncStatus, lastSyncedAt,
-  onSyncNow, onLoadAll, onCancel, loading, progress,
+  onLoadAll, onCancel, loading, progress,
 }: {
   onClose: () => void
   /** URLs probed against the SW Cache for real offline presence. tiles = the incident-centre
@@ -66,8 +66,12 @@ export function OfflineReadinessSheet({
   personnelCount: number
   syncStatus: SyncStatus
   lastSyncedAt: number | null
-  /** push any edits queued while offline (also fires automatically on reconnect) */
-  onSyncNow: () => void
+  /** ⚠️ Dropped 05.09.: this sheet no longer offers a manual «Jetzt synchronisieren» — sync
+   *  already runs automatically (queued edits push on reconnect), and the button did nothing an
+   *  operator could tell apart from that. Kept OPTIONAL rather than removed outright, because
+   *  IncidentWorkspace still passes it into both mount sites; drop the prop there when that
+   *  wiring is cleaned up too. */
+  onSyncNow?: () => void
   /** warm everything cacheable (tiles, plans, symbols, geojson) + refresh the roster */
   onLoadAll: () => void
   /** abort a running download — what is already stored stays stored, the button returns */
@@ -173,13 +177,15 @@ export function OfflineReadinessSheet({
           : o.error
 
   // The sync line stays in BOTH states: it answers «sind meine Einträge weg?», which is a
-  // live question in a browser tab too, and it carries the only manual resync there is.
+  // live question in a browser tab too.
+  // ⚠️ No «Jetzt synchronisieren» button here any more (dropped 05.09.): sync already runs on
+  // its own — on reconnect and on every mutation — so the button never did anything the operator
+  // could observe beyond what this line already reports, and a control with no felt effect is
+  // worse than no control (3am tenet: recognition, not a lever that looks like it should do
+  // something). If a real manual-resync need shows up, it is a fresh control, not this one back.
   const syncRow = (
     <div className={`or-stand or-sync-${syncStatus}`}>
-      {/* always offered — a manual refresh must be reachable even when the badge claims
-          synced, e.g. when the operator suspects another device's edit hasn't landed yet */}
       {syncMark}<span>{syncText}</span>
-      <button className="or-resync" onClick={onSyncNow}><Icon id="rotate" /> {o.syncNow}</button>
     </div>
   )
 

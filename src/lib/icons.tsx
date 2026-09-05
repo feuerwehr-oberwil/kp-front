@@ -131,7 +131,7 @@ export function IconSprite() {
       <symbol id="wind" viewBox="0 0 24 24"><path d="M3 8h11a2.5 2.5 0 1 0-2.5-2.5" /><path d="M3 16h15a2.5 2.5 0 1 1-2.5 2.5" /><path d="M3 12h7a2 2 0 1 0-2-2" /></symbol>
       <symbol id="moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" /></symbol>
       <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" /><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.2 5.2l1.7 1.7M17.1 17.1l1.7 1.7M18.8 5.2l-1.7 1.7M6.9 17.1l-1.7 1.7" /></symbol>
-      {/* Present-weather family (WindBadge · TopBar). All six embed the SAME cloud silhouette,
+      {/* Present-weather family (TopBar · WeatherBadge). All six embed the SAME cloud silhouette,
           each translated down by the room its accessory needs below it — and the fog variant
           rides so high that its top arc fell outside the 0 0 24 24 box and was cropped flat by
           the <symbol> viewport (snow and storm cleared that edge by a third of a stroke). The

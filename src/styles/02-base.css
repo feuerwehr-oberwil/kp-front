@@ -171,3 +171,17 @@ input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 
 .i { width: 1em; height: 1em; stroke: currentColor; stroke-width: 1.8; fill: none;
   stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -.12em; }
+
+/* ── One disclosure chevron for the whole app ──────────────────────────────────────────────────
+ * A ▾ that turns to ▴ while the thing it opens is open, so the glyph answers «which way does the
+ * next tap go» instead of pointing down forever. Put `.chev` on the Icon; the STATE comes from
+ * whatever the control already carries — `aria-expanded="true"`, Base UI's `data-popup-open`, or
+ * an `.open` class — so no surface has to invent its own flip, and none of them can disagree.
+ *
+ * ⚠️ It goes on the ICON, never on a positioned wrapper: several of these chevrons sit in an
+ * absolutely placed span that centres itself with a translate, and a rotation here would replace
+ * that. Where the state lives on a SIBLING rather than an ancestor (PersonField swaps its trigger
+ * for an input while typing), the surface hands the state down itself — see `.comboChev`. */
+.chev { transition: transform .16s var(--ease); }
+:is([aria-expanded='true'], [data-popup-open], .open) .chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .chev { transition: none; } }

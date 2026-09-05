@@ -13,6 +13,7 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
@@ -45,7 +46,7 @@ import { useUndoableDoc } from './lib/useUndoableDoc'
 import { useUndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
-import { toast, confirmDialog, undoToast } from './lib/ui'
+import { toast, dismissToast, confirmDialog, undoToast } from './lib/ui'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
 import { loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
@@ -90,7 +91,7 @@ import { DrawEditor } from './components/DrawEditor'
 import { ToolDock } from './components/ToolDock'
 import { ShapeEditor } from './components/ShapeEditor'
 import { MeasurePanel } from './components/MeasurePanel'
-import { ROTATION_DEFAULT_RUN_M, ROTATION_MAX_M, ROTATION_W_M, ROTATION_W_N, SHAPE_DEFS, SHAPE_MAX_M, SHAPE_MIN_M, SHAPE_MIN_N, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationRun, shapeAspect } from './lib/shapes'
+import { ROTATION_DEFAULT_RUN_M, ROTATION_MAX_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MAX_M, SHAPE_MIN_M, SHAPE_MIN_N, SHAPE_TWO_POINT, ShapeGlyph, rotationBoundsN, rotationBox, rotationRun, shapeAspect } from './lib/shapes'
 import { Journal } from './components/Journal'
 import { JournalComposer, type JournalDraft } from './components/JournalComposer'
 import { composeJournalText } from './lib/journalEntry'
@@ -829,10 +830,11 @@ export function IncidentWorkspace({
   }
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
   const [rapportReturn, setRapportReturn] = useState(false)
-  // «Leitung wählen»: the Trupp waiting for a hose to be tapped. Ephemeral (never saved) and
-  // honoured by BOTH surfaces, so the operator can arm it here and tap the line on the Lage or on
-  // a plan — whichever is where they drew it.
+  // «Leitung wählen»: the Trupp waiting for a hose to be tapped. Ephemeral (never saved), and
+  // bound to the surface it was armed on — see pickTruppLine for why it no longer travels.
   const [linePickTrupp, setLinePickTrupp] = useState<string | null>(null)
+  // the sticky hint pill belonging to that mode, so clearing the mode takes it off screen too
+  const linePickToast = useRef<number | null>(null)
   // the Verlauf drawer sits BELOW the Rapport sheet (z 61 vs 80), so opening it from the
   // checklist closes the sheet and reopens it when the Verlauf closes — a real round trip
   const [journalFromRapport, setJournalFromRapport] = useState(false)
@@ -1196,6 +1198,9 @@ export function IncidentWorkspace({
   // a note stays quiet — it is placed mid-sentence and a panel sliding in on every tap would be
   // in the way. Only the ⚙ handle sets this.
   const [notePanelId, setNotePanelId] = useState<string | null>(null)
+  // …and which of them was just PLACED, so its panel opens with the caret in the text field. A
+  // one-shot: reopening the same note later is an ordinary read and must not grab the keyboard.
+  const [notePlacedId, setNotePlacedId] = useState<string | null>(null)
   // which Georeferenz twin has its source-backed editor open — a linked plan's symbol mirrored
   // onto the map. Selection belongs to the shared source object; the projection carries its halo.
   const [twinView, setTwinView] = useState<MapTwin | null>(null)
@@ -1234,16 +1239,6 @@ export function IncidentWorkspace({
   const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
     { size: 'm', plain: false, color: '' },
   )
-  // width drag on a note text box (screen px) — the 'start'/'end' phases bracket the gesture so
-  // the whole drag folds into one undo step, exactly like the shape transform handles.
-  const noteWidthDrag = (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => {
-    if (tacticalLocked) return
-    if (phase === 'start') { beginDrag(); return }
-    if (phase === 'end') { endDrag(); emit('entity.edit', { id, patch: { noteW: doc.entities.find((e) => e.id === id)?.noteW } }); return }
-    // a hand-dragged width ends the auto-fit for good — the operator has decided how wide this
-    // note is, and nothing may resize it under them afterwards
-    setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, noteW: w, noteAutoW: undefined } : e)) }))
-  }
   const [view, setView] = useState<{ bearing: number; center: LngLat; zoom: number }>({ bearing: 0, center: incidentView.center, zoom: getDeploymentConfig().map?.defaultView?.zoom ?? 17.6 })
   // coordinate picker (one-shot crosshair + LV95/WGS84 readout) — extracted to useCoordPicker.
   const coord = useCoordPicker(false, view.center)
@@ -1288,9 +1283,18 @@ export function IncidentWorkspace({
   // needs the roster and the attendance actions), while this merge path has to exist up here.
   // Same shape as `planHist` below.
   const attHistClear = useRef<(() => void) | null>(null)
+  /* The blob's `layerState` as it stands on the SERVER — carried through untouched.
+   *
+   * Which Ebenen are on is a device preference now (lib/layerPrefs), so this device's toggles
+   * must not travel; but the field is not ours to empty either. It is what `lib/replay` folds
+   * `layer.toggle` onto when an old Einsatz is scrubbed, and it is the one-time seed a second
+   * device reads on its first open (lib/workspace · deriveInitial). So: never written from the
+   * live layers, never wiped — whatever the record already says goes back unchanged. */
+  const syncedLayerState = useRef<Saved['layerState']>(bootGate.ws?.layerState ?? [])
   const applyWorkspace = useCallback((ws: Saved) => {
     const gate = sanitizeWorkspace(ws)
     reportGate(gate)
+    syncedLayerState.current = gate.ws?.layerState ?? []
     const next = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
     // replaceDoc swaps the doc AND drops undo history (the local stacks no longer apply to
     // remote/merged state — undoing into it would resurrect remotely-deleted content).
@@ -1315,12 +1319,21 @@ export function IncidentWorkspace({
   const buildPayload = useCallback((): Saved => ({
     entities: doc.entities.filter((e) => e.kind !== 'photo'),
     drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings, intakeReviewedAt,
-    layerState: layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })),
+    // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
+    // syncedLayerState above and lib/layerPrefs). The record's own value goes back unchanged.
+    layerState: syncedLayerState.current,
     // Verlauf rows live in the journal store now; the blob echoes an older incident's legacy
     // rows only until they're safely on the server, then ships empty forever (see JournalStore).
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }), [doc, layers, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, intakeReviewedAt])
+  }), [doc, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, intakeReviewedAt])
+
+  // …and they are remembered here instead, per incident, on this device only. Written on every
+  // change (not just on a deliberate toggle) so the set derived at boot — including the
+  // category pre-activation — is what this device comes back to.
+  useEffect(() => {
+    saveLayerPrefs(incidentMeta.id, layers.map((l) => ({ id: l.id, visible: l.visible, opacity: l.opacity })))
+  }, [layers, incidentMeta.id])
 
   // SCBA contact-clock alarm runs app-wide (not just on the Atemschutz surface) so an überfällig
   // Trupp alerts no matter which page is open. Paused during replay (read-only past view).
@@ -2362,8 +2375,11 @@ export function IncidentWorkspace({
     if (id === 'symbol') { clearMapUi(); setPaletteOpen(true); return }
     // Auswahl (select) is the default navigate state: one finger pans the map, a tap
     // selects, a drag on an object moves it. There is no separate pan mode any more —
-    // panning is always available — so tapping Auswahl while active just clears any
-    // current selection rather than toggling into a hidden mode.
+    // panning is always available.
+    // ⚠️ Auswahl and Mehrfach SHARE one rail slot (05.09.), and the rail resolves that toggle
+    // itself: a second tap on the armed Auswahl arrives here as `'lasso'` (and a tap on the armed
+    // Mehrfach as `'select'`), so it falls through to the setTool below — clearing the selection
+    // on the way, exactly as picking the separate Mehrfach button always did.
     // tapping the already-active tool again exits it → back to Auswahl (closes its option dock)
     if (id === tool) { clearMapUi(); return }
     clearMapUi(); setTool(id)
@@ -2446,8 +2462,12 @@ export function IncidentWorkspace({
     } else if (tool === 'note') {
       const id = newId('n')
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
-      // straight into typing on the surface; the detail panel waits for the ⚙
-      setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
+      // Straight into typing — in the detail sheet, with the caret already in its text field
+      // (05.09.). It used to open the on-canvas inline editor instead, which is a text cursor
+      // sitting on the map with no visible field, no room for a second line and, on a phone, the
+      // keyboard over the very spot just tapped. Double-tap still opens that inline editor for
+      // the desktop hand that wants it.
+      setSelectedId(id); setSelectedDrawingId(null); setNotePanelId(id); setNotePlacedId(id); setTool('select'); log('type', appConfig.copy.log.notePlaced, 'note', undefined, id)
       emit('entity.add', { id, kind: 'note', entity: { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined } })
     } else if (tool === 'team') {
       setTeamPick(c) // which Trupp? — picker over the tapped spot (mirrors the plan's Team tool)
@@ -2682,6 +2702,8 @@ export function IncidentWorkspace({
   // reaching for a tool means you are done reading this note — the panel should not sit there
   // while you place the next thing (selection alone doesn't change until that thing lands)
   useEffect(() => { if (tool !== 'select') setNotePanelId(null) }, [tool])
+  // the «just placed» mark lives exactly as long as that panel does
+  useEffect(() => { if (notePlacedId && notePanelId !== notePlacedId) setNotePlacedId(null) }, [notePanelId, notePlacedId])
 
   const mapWorkRect = (container: DOMRect, panelEl: Element): NudgeBox | null => {
     const panel = panelEl.getBoundingClientRect()
@@ -3369,8 +3391,15 @@ export function IncidentWorkspace({
     }))
     if (selectedId === id) setSelectedId(null)
     if (editNoteId === id) setEditNoteId(null)
-    log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }),
-      undefined, undefined, undefined, { subjectId: id })
+    // ⚠️ An EMPTY Notiz writes no row. Its label is `''`, not undefined, so `??` never reached the
+    // fallback name and the Verlauf printed a bare «gelöscht» — a row that names nothing, about a
+    // note that said nothing. The same predicate already decides that this deletion asks nothing
+    // (see the confirm above): a note with no text is a placement being taken back, not a record.
+    // Rows already written stay: the journal is append-only, this only stops writing a new one.
+    if (!(ent?.kind === 'note' && !(ent.label ?? '').trim())) {
+      log('close', fillTemplate(appConfig.copy.log.objectDeleted, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }),
+        undefined, undefined, undefined, { subjectId: id })
+    }
     emit('entity.delete', { id })
     if (ent) connected.forEach((dr) => {
       for (const endpoint of ['start', 'end'] as const) {
@@ -3428,13 +3457,16 @@ export function IncidentWorkspace({
   // floor-stack ONLY once it's been created from the Umrisse (building != null), plus Modul 6
   // ONLY if this object has that plan. ≥1 target always — the picker adapts (1 → place
   // directly, 2+ → choose).
-  const placeTargets = useMemo(() => {
-    const t: { id: string; label: string }[] = [{ id: LAGE_TARGET, label: appConfig.copy.atemschutz.placeLage }]
-    if (building) t.push({ id: gebaeudeDoc.id, label: gebaeudeDoc.code })
-    const m6 = planDocs.find((p) => p.id === 'modul6')
-    if (m6) t.push({ id: m6.id, label: m6.code })
-    return t
-  }, [building, planDocs])
+  const placeTargets = useMemo(() => [
+    { id: LAGE_TARGET, label: appConfig.copy.atemschutz.placeLage },
+    // …plus every plan sheet this object actually HAS, in rail order — not just Modul 6 (05.09.).
+    // A Trupp works on the Modul the Einsatz is being run off, and hard-coding one slot meant a
+    // station whose floor plans live on Modul 2/3 could only put a crew on the Karte. Two are
+    // left out on purpose: a `viewer` sheet carries no annotation surface, and the Umrisse picker
+    // (isSelectOnlySurface) is where a Gebäude is CHOSEN — the Gebäude itself is in `planDocs` the
+    // moment it exists, and that is the one to stand on.
+    ...planDocs.filter((p) => !p.viewer && !isSelectOnlySurface(p)).map((p) => ({ id: p.id, label: p.code })),
+  ], [planDocs])
   // one placement dispatcher for the AtemschutzView picker: Lage target → map, else plan
   const placeTrupp = (id: string, targetId?: string) =>
     targetId === LAGE_TARGET ? placeTruppOnMap(id) : placeTruppOnPlan(id, targetId)
@@ -3448,17 +3480,45 @@ export function IncidentWorkspace({
   // The Trupp symbols that already stand somewhere, for the placement picker. A function, like
   // the Leitung quick-picks: «gehört zu» has to ignore the Trupp being placed itself.
   const truppMarkerOptions = (exceptTruppId?: string) => markerOptions(placed, effTrupps, exceptTruppId)
-  // «Leitung wählen»: arm the pick and leave the Atemschutz board for the Lage — there is nothing
-  // to tap on the board itself. The arming survives a surface switch, so a hose drawn on a plan is
-  // just as reachable. The toast carries the way out (no modal, no trapped state).
+  /* Is there a hose drawn ANYWHERE? «Leitung wählen» takes the operator off the Atemschutz board
+   * and asks them to tap one — with nothing drawn, that is an instruction that cannot be followed,
+   * and the board comes back with the pick still armed. So the row is only offered once there is
+   * something to hit. Deliberately NOT `truppLeitungOptions()`: that lists NUMBERED Leitungen for
+   * the form's quick-picks, while the pick accepts any drawn hose and stamps the number itself —
+   * the same predicate linkTruppLine answers to (useTruppActions). */
+  const anyLeitung = useMemo(
+    () => drawings.some((d) => d.kind === 'line') || Object.values(board).some((as) => as.some((a) => a.kind === 'draw')),
+    [drawings, board],
+  )
+  /* «Leitung wählen»: arm the pick and leave the Atemschutz board for the Karte — there is
+   * nothing to tap on the board itself.
+   *
+   * ⚠️ The arming no longer SURVIVES a surface switch (05.09.). It used to, so a hose drawn on a
+   * plan was reachable too — but nothing then took it back down: the hint toast is gone after six
+   * seconds, the mode is invisible, and every later tap on the Karte or the Kroki was swallowed by
+   * a pick nobody remembered arming. A surface that stops opening its own symbols, at 3am, with no
+   * chrome saying why, is the worse of the two. So the pick belongs to the ONE surface it was
+   * armed on (see the effect below); a hose on a plan is linked from the line's own editor
+   * («Gehört zu Trupp …», DrawEditor), which is the other half of this pair and always was. */
+  const linePickSurface = useRef<string>('')
   const pickTruppLine = (id: string) => {
     const az = appConfig.copy.atemschutz
+    linePickSurface.current = 'map'
     setLinePickTrupp(id)
     setMode('map')
     // land in Auswahl: with a draw tool still active from earlier, the aiming tap would start a
     // new line instead of picking the one that is already there
     setTool('select'); setPending(null); setPendingShape(null); setDraft([])
-    toast(az.linePickHint, { icon: 'drop', action: { label: az.linePickCancel, onClick: () => setLinePickTrupp(null) } })
+    // sticky: the toast IS the way out of an otherwise invisible mode, so it stays for as long as
+    // the mode does — a six-second pill left the operator armed with nothing left saying so. It is
+    // dismissed wherever the pick is cleared (see below).
+    linePickToast.current = toast(az.linePickHint, {
+      icon: 'drop', sticky: true,
+      action: { label: az.linePickCancel, onClick: () => setLinePickTrupp(null) },
+      // the pill IS the mode's only chrome, so closing it however (✕, swipe) ends the mode too —
+      // idempotent against the teardown effect below, which dismisses this very toast
+      onDismiss: () => setLinePickTrupp(null),
+    })
   }
   // A tap that did NOT land on a hose (a Fläche, the Absperrkreis, a freehand stroke) leaves the
   // pick armed: the operator aimed and missed, and disarming here would look like the feature
@@ -3467,6 +3527,23 @@ export function IncidentWorkspace({
     if (!linePickTrupp) return
     if (linkTruppLine(linePickTrupp, lineId)) setLinePickTrupp(null)
   }
+  // Leaving the surface the pick was armed on disarms it — switching mode, or paging to another
+  // plan. The comparison is against the surface RECORDED at arming (pickTruppLine jumps to the
+  // Karte itself, and that jump must not read as walking away from it).
+  useEffect(() => {
+    if (!linePickTrupp) return
+    const here = mode === 'plans' ? `plans:${activePlanId}` : mode
+    if (here !== linePickSurface.current) setLinePickTrupp(null)
+  }, [mode, activePlanId, linePickTrupp])
+  // …and the hint goes with the mode, however the mode ended: linked, cancelled, or left behind —
+  // including by this workspace unmounting under it (closing the Einsatz), which would otherwise
+  // leave a sticky pill on screen pointing at a Trupp that is no longer on it.
+  useEffect(() => {
+    if (linePickTrupp || linePickToast.current == null) return
+    dismissToast(linePickToast.current)
+    linePickToast.current = null
+  }, [linePickTrupp])
+  useEffect(() => () => { if (linePickToast.current != null) dismissToast(linePickToast.current) }, [])
   // --- Anwesenheit (attendance over the Divera Mannschaft) ---
   // Roster is session-loaded; attendance rides the per-incident workspace blob. Marking
   // is append-only in spirit: a no-op tap never logs, "Gegangen" keeps the earlier presence,
@@ -4155,6 +4232,8 @@ export function IncidentWorkspace({
       truppColors={truppColors()}
       showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()} lineNoOf={truppLineNos()}
       pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
+      // …and «Leitung wählen» is only offered while there is a hose to tap (see anyLeitung)
+      anyLeitung={anyLeitung}
       // the ONE slice an Atemschutz-Link may write — see canEditTrupps
       canEdit={canEditTrupps}
       personnel={pickablePersonnel}
@@ -4282,7 +4361,6 @@ export function IncidentWorkspace({
           // the ⚙ stays on a locked surface — it opens the note READ-ONLY (a long note is
           // truncated on the map, and reading it is not editing it)
           onNotePanel={(id) => { setTwinView(null); setContentTwinView(null); setNotePanelId(id) }}
-          onNoteWidth={tacticalLocked ? undefined : noteWidthDrag}
           trupps={effTrupps}
           truppSeverities={azAlarm.severities}
           // …and it LANDS on the card: the board can be a wall of Trupps, so «Im Atemschutz
@@ -5054,8 +5132,13 @@ export function IncidentWorkspace({
               // the same clamps the sheet's own shape editor uses (Whiteboard · selShape)
               onScale={(f) => patchTwin({ sizeN: Math.max(SHAPE_MIN_N, Math.min(0.9, (a.sizeN ?? SHAPE_DEFS[a.shape ?? 'square'].defaultSizeN) * f)) })}
               onScaleLength={(f) => {
+                // …and a twin only exists on a GEOREFERENCED sheet, so its plan unit always knows
+                // what it is worth on the ground: the loop's 20–45 m width band and its 20 km
+                // ceiling are the Karte's own numbers, expressed in the sheet's width
+                // (lib/shapes · rotationBoundsN), exactly as the Plan's own stepper does it.
+                const b = rotationBoundsN(planWidthMFor(t.planId, t.fit))
                 const run = rotationRun(a.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN, a.aspect)
-                const box = rotationBox(Math.max(SHAPE_MIN_N, Math.min(3, run * f)), ROTATION_W_N)
+                const box = rotationBox(Math.max(SHAPE_MIN_N, Math.min(b.maxN, run * f)), b.w)
                 patchTwin({ sizeN: box.size, aspect: Math.round(box.aspect * 1000) / 1000 })
               }}
               onStop={(stop) => patchTwin({ stop })}
@@ -5125,13 +5208,15 @@ export function IncidentWorkspace({
         />
       )}
 
-      {/* note detail panel — the same ContextPanel, but opened from the ⚙ handle rather than by
-          selecting (see notePanelId above). The note's TEXT is its title, so the panel's title
-          field edits the note itself. */}
+      {/* note detail panel — the same ContextPanel, opened by the tap that selects the note (see
+          notePanelId above) and by placing one. The note's TEXT is its title, so the panel's
+          title field edits the note itself. */}
       {detailSlotFree && noteEntity && (
         <ContextPanel
           key={noteEntity.id}
           entity={noteEntity}
+          // a note that was just put down opens ready to be written (see notePlacedId)
+          autoFocusNote={notePlacedId === noteEntity.id && !tacticalLocked}
           // locked surfaces open the same panel with every edit affordance stripped — the note's
           // full text is exactly the kind of thing an Einsatzleiter needs to read off the map
           readOnly={tacticalLocked}
@@ -5143,7 +5228,6 @@ export function IncidentWorkspace({
           }}
           onFields={(fields) => patchEntity(noteEntity.id, { fields })}
           // setting a width in the panel is a hand-made decision too — it ends the auto-fit
-          onNoteWidth={(w) => patchEntity(noteEntity.id, { noteW: w ?? undefined, noteAutoW: undefined })}
           // the S/M/L step keeps following the text, so it re-measures at the new font size
           onNoteSize={(s) => patchEntity(noteEntity.id, noteEntity.noteAutoW
             ? { noteSize: s, noteW: autoNoteWPx(noteEntity.label ?? '', s) }
@@ -5443,6 +5527,8 @@ export function IncidentWorkspace({
                 onClick={() => { placeTruppOnMap(t.id, teamPick); setTeamPick(null); setTool('select') }}
               >
                 <span className="wb-trupp-cap" /><b>{t.name}</b>
+                {/* «AS» — see the plan's twin of this picker (Whiteboard · wb-trupp-as) */}
+                {isAtemschutzTrupp(t) && <span className="wb-trupp-as" title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>}
                 {here
                   ? <i>{appConfig.copy.whiteboard.truppPlacedHere}</i>
                   : t.lineNumber ? <i>Ltg {t.lineNumber}</i> : null}

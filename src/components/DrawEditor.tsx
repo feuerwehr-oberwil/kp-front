@@ -441,7 +441,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                             struck through + labelled, the same read as its dimmed marker on the map */}
                         <span className={truppOnLineOut ? 'de-trupp-out' : undefined}>{truppOnLine ?? appConfig.copy.drawingEditor.truppNone}</span>
                         {truppOnLine && truppOnLineOut && <em className="de-trupp-outnote">{appConfig.copy.drawingEditor.truppOut}</em>}
-                        <Icon id="chevron-down" />
+                        <Icon id="chevron-down" className="chev" />
                       </button>
                     }
                     popupClassName="de-menu-pop"
@@ -520,7 +520,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             {hasProfileCoords && (
               <>
                 <button type="button" className={`de-prof-toggle${profileOpen ? ' on' : ''}`} aria-expanded={profileOpen} onClick={() => setProfileOpen((o) => !o)}>
-                  <span>{appConfig.copy.measure.profile}</span><Icon id="chevron-down" />
+                  <span>{appConfig.copy.measure.profile}</span><Icon id="chevron-down" className="chev" />
                 </button>
                 {profileOpen && (profileLoading ? (
                   <div className="de-prof-msg">{appConfig.copy.measure.profileLoading}</div>

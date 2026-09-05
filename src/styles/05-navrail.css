@@ -35,7 +35,7 @@
    problem because its expanded glyph boxes shrink to the icon and pack against the rail's
    right edge, which aligns their edges rather than their centres. */
 .nav-exp .i { width: 22px; height: 22px; }
-.navrail.expanded .nav-exp .i { transform: rotate(180deg); }
+/* …and the flip is the app-wide `.chev` (02-base.css), off this button's aria-expanded */
 .nav-sep { height: 1px; flex: none; background: var(--border); margin: 5px 9px; }
 .nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
   cursor: pointer; color: var(--ink); font: inherit; padding: 0; width: 100%; position: relative; transition: background .14s var(--ease); }
@@ -274,5 +274,9 @@ html.rail-dragging .layers-card { transition: none; }
    appears under a layer that is actually SHOWN and carries a transparency, so it is at most a
    handful of them in a list that already scrolls. */
 .opacity { display: flex; gap: 9px; align-items: center; padding: 0 8px 4px 34px; }
-.opacity span { font-family: var(--mono); font-size: 10px; color: color-mix(in srgb, var(--on-accent-ink) 60%, transparent);
+/* ⚠️ The read-out carries its OWN class, and it is not decoration. `.opacity span` also matches
+   every span inside the slider — the band, the track, the fill and the THUMB — and at (0,1,1) it
+   outranks `.uslider-thumb` (0,1,0): the 34px landed on an 18px round thumb and painted it as a
+   34×18 ellipse. A descendant selector cannot be used for a row that contains a component. */
+.opacity .opacity-v { font-family: var(--mono); font-size: 10px; color: color-mix(in srgb, var(--on-accent-ink) 60%, transparent);
   width: 34px; text-align: right; }

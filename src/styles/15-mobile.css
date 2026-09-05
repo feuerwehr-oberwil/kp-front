@@ -146,9 +146,21 @@
   :is(.tool-rail, .wb-tools) .vrail-sep-foot { width: 1px; height: 26px; margin: 0 4px; flex: none; align-self: center; }
   :is(.tool-rail, .wb-tools) .vrail-scroll-wrap { flex: 1 1 auto; min-width: 0; }
   :is(.tool-rail, .wb-tools) .vrail-scroll {
-    flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 2px;
+    flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 2px; }
+  /* ⚠️ The fade is a CUE, so it only paints where there is something to scroll TO. Unconditional,
+     it put a soft white edge after «Messen» on a bar that was already at its end — content
+     dissolving into nothing, which is exactly what the cue is supposed to mean. `more-top` /
+     `more-bottom` are the rail's own start/end flags (lib/useRail, which measures whichever axis
+     actually overflows — on this bar the horizontal one). */
+  :is(.tool-rail, .wb-tools) .vrail-scroll.more-bottom:not(.more-top) {
     -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
     mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
+  :is(.tool-rail, .wb-tools) .vrail-scroll.more-top:not(.more-bottom) {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 22px);
+    mask-image: linear-gradient(90deg, transparent, #000 22px); }
+  :is(.tool-rail, .wb-tools) .vrail-scroll.more-top.more-bottom {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
   :is(.tool-rail, .wb-tools) .vrail-tool { width: 50px; min-width: 50px; flex: 0 0 auto; }
 
   /* …and the same for the tool bar, which is the same shape one bar higher. ⚠️ `.vrail-label` is
@@ -194,7 +206,16 @@
      every icon 18px — was a jumble (34/38 buttons, 16/17/18 icons). ℹ already matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
   .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: 44px; min-width: 44px; height: 40px; border-radius: var(--r-sm); }
-  .phone-tools .wb-dock .wb-dock-x { width: 40px; height: 40px; }
+  /* ⚠️ The ✕ is sticky at the bar's leading end, and the ring that hides the options sliding
+     under it is a `box-shadow: 0 0 0 10px` — which reaches 10px past the button on EVERY side.
+     This bar clips its own overflow on both axes and carries 12px of side padding, so that ring
+     was sliced away exactly where an option scrolls into the padding: half a grey option chip
+     surfaced beside the ✕ and read as a ✕ with a bite taken out of it. Two flat offsets instead
+     — one covering the leading padding, one the gap to the next control — both at the button's
+     own height, so nothing has to reach outside the port to do its job. `z-index` because the
+     ✕ has to paint over what it is hiding, whatever order the dock ends up in. */
+  .phone-tools .wb-dock .wb-dock-x { width: 40px; height: 40px; z-index: 2;
+    box-shadow: -14px 0 0 var(--ink-fill), 12px 0 0 var(--ink-fill); }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* A Plan-side detail sheet is fixed, but its z-index still cannot escape the whiteboard's
@@ -219,21 +240,44 @@
     animation: sheetUp .22s var(--ease); transition: height .22s var(--ease); }
   .ctx.sheet-dragging { transition: none; }
   .ctx.sheet-full { height: var(--sheet-h, 88dvh); }
+  /* …and a FULLY expanded sheet owns the screen: nothing behind it still answers a tap.
+     The two surfaces got here from opposite directions and arrived at the same fault. On the
+     Karte the sheet (z 62) paints over the top bar (z 56) but stops a little short of it; on the
+     Plan the sheet is trapped inside `.whiteboard`'s own stacking context (z 36, see the rule
+     further down), so the bar paints ON TOP of it. Either way the controls up there — the Meteo
+     chip above all, whose popover then opens over the open sheet — were live under a finger
+     aiming at the sheet. Inert rather than hidden: the bar still says which Einsatz this is and
+     what the clock reads, and that is worth seeing while a detail sheet is open. Only at FULL
+     height — a half sheet leaves the bar its own screen. */
+  .app:has(.ctx.sheet-full) :is(.topbar, .phone-wx) { pointer-events: none; }
   /* …and while a placed object is actually being DRAGGED, the sheet peeks down to its grip +
      header line so the whole surface is available to move the thing in (lib/sheetPeek). It is
      a height change and nothing else — the sheet keeps its half/full class, its content, its
      in-progress edits and its scroll position, and springs back on drop through the same
      transition. Beats .sheet-full on specificity, so a full sheet peeks away too. */
   body.sheet-peek .ctx { height: calc(76px + env(safe-area-inset-bottom)); }
+  /* …and it steps aside the same way for the Einsatz-Menü (05.09.): that dropdown hangs off the
+     top bar and reaches well down the screen, where a half- or full-height sheet meets it in the
+     middle. The menu is what is being read, so the sheet lowers to its grip line for as long as
+     the menu stands — the very height the drag peek uses — and comes back when it closes. */
+  .app:has(.ip-menu) .ctx { height: calc(76px + env(safe-area-inset-bottom)); }
   /* …and the selection bar rides just above that sheet, because the two describe the SAME
      selection and a bar hidden behind its own editor is a bar nobody can reach. The two heights
      are the sheet's own defaults, repeated here on purpose and kept in this one place beside
      them — there is no way for a sibling to read a fixed sheet's height in CSS.
-     Deliberately NOT tied to `body.sheet-peek`: the peek exists for the length of a drag, and a
-     bar that jumps 300px the moment the finger presses ✥ is worse than one sitting a little
-     high. It simply stays where the press found it. */
-  .app:has(.ctx) .sel-bar { bottom: calc(46dvh + 12px); }
+     ⚠️ Reversed in part on 05.09. — see the peek rule under these two. */
+  .app:has(.ctx) .sel-bar { bottom: calc(46dvh + 12px); transition: bottom .22s var(--ease); }
   .app:has(.ctx.sheet-full) .sel-bar { bottom: calc(88dvh + 12px); }
+  /* …and it follows the sheet DOWN for the length of a drag (05.09.). It used to stay put on
+     purpose, on the grounds that a bar jumping 300px the moment ✥ is pressed is worse than one
+     sitting a little high — but a bar parked at 46/88dvh stands in the middle of the very
+     surface the object is being dragged across, which is the whole reason the sheet peeked away.
+     So it rides 12px above the peeked sheet, on the same eased travel, and springs back with it.
+     ⚠️ EXCEPT while the drag is on the bar's OWN ✥ / ⟳ grip (`.grabbing`, set by SelectionBar
+     once the press becomes a drag): there the finger IS on the button, and a control that runs
+     away from the hand holding it is exactly what the old rule refused. The armed mode's drags —
+     the ones taken anywhere on the Karte or the Kroki — are the ones this was asked for. */
+  body.sheet-peek .app .sel-bar:not(.grabbing) { bottom: calc(88px + env(safe-area-inset-bottom)); }
   /* phone scroll model: the sheet is a fixed flex column. The grip + header are pinned, and so
      is the ACTIONS row — by layout, never position:sticky, because sticky inside a
      backdrop-filtered scroller proved unreliable on iOS and `.ctx` carries a blur.
@@ -398,10 +442,22 @@
      destinations tappable behind the active task. */
   .phone-georef .navrail { display: none; }
   .nav-exp { display: none; }            /* no expand/collapse on the bar */
-  .nav-scroll { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 2px;
-    /* fade the right edge so a clipped item reads as "scroll for more" */
+  /* …and no nudge chevrons either: they are drawn across the FULL width of the scroller (they are
+     the column's top/bottom edge buttons), which on a bar is a chevron laid over every item. The
+     fade below is the whole cue here, and a bar is dragged with a thumb. */
+  .nav-more { display: none; }
+  .nav-scroll { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 2px; }
+  /* fade whichever edge still has items behind it, so a clipped item reads as «scroll for more»
+     — and the bar's END reads as the end. Same start/end flags as the tool bar above. */
+  .nav-scroll.more-bottom:not(.more-top) {
     -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
     mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent); }
+  .nav-scroll.more-top:not(.more-bottom) {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 22px);
+    mask-image: linear-gradient(90deg, transparent, #000 22px); }
+  .nav-scroll.more-top.more-bottom {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
   .nav-item { width: 50px; min-width: 50px; flex: 0 0 auto; }
 
   /* ── «Wort unter dem Zeichen» on a PHONE ──

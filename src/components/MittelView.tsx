@@ -92,6 +92,10 @@ function StockDots({ remaining, total, label }: { remaining: number; total: numb
 // stocked on several vehicles expand to per-source stepper sub-rows. Free-typed lines live
 // in a trailing «Weitere» group (the composer exists only for those). «nach Quelle» stays as
 // the second view — the Nachschub question (what does the TLF need back).
+// A row nobody has touched yet renders COMPACT (05.09.): Bezeichnung + Restbestand + one «+»,
+// no ±stepper — a full catalogue is otherwise a screen of zeroes, and on a phone every one of
+// those zeroes costs a second, wrapped line. The «+» books 1 AND opens the full row in the same
+// tap; from there the row stays open for as long as the surface does (`touched`).
 export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbols }: {
   entries: MittelEntry[]
   canEdit: boolean
@@ -113,6 +117,13 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const [adding, setAdding] = useState(false)
   // multi-source rows expanded to their per-source stepper sub-rows
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+  // Row keys the operator has actually touched on this visit. A row at 0 renders COMPACT (see
+  // the `compact` flags below), and without this set the stepper would vanish from under the
+  // finger the moment somebody counted a position back down to 0 — mid-interaction, with the
+  // thumb still on «−». So every write to a row marks it, and the mark simply lives as long as
+  // the surface does: leaving Material and coming back gives the untouched catalogue back.
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set())
+  const touch = (key: string) => setTouched((cur) => (cur.has(key) ? cur : new Set(cur).add(key)))
   // free-text search + category quick filter, built like the Anwesenheit's search line: one row
   // of chrome over the list, never two. A full catalogue is a long scroll on a phone, and
   // «wo war nochmal der Ölbinder» is the question this surface gets asked under pressure.
@@ -440,31 +451,50 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                 if (!multi) {
                   const cell = row.cells[0]
                   const over = row.totalStock != null && cell.used > row.totalStock
+                  // A catalogue row nobody has touched yet says one thing — «da, nicht gebraucht»
+                  // — and spent a whole ±stepper (plus, on a phone, a second wrapped line) saying
+                  // it. Compact: Bezeichnung + Restbestand + one «+». A hand-added line is never
+                  // compact: its pencil at 0 is the ONLY way back to its Bezeichnung, Einheit,
+                  // Bestand and to removing it, and the compact row carries no pencil.
+                  const compact = canEdit && !row.custom && cell.used === 0 && !touched.has(row.key)
                   return (
-                    <div key={row.key} className={s.row}>
+                    <div key={row.key} className={cx(s.row, compact && s.rowCompact)}>
                       <div className={s.rowMain}>
                         <span className={s.rowLabel}>{row.label}</span>
                         {/* remaining-stock indicator sits BEFORE the ±stepper so the counting
                             buttons line up on a consistent right edge across rows */}
                         {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
-                        {/* the remark pencil travels WITH the count, not at the row's far edge —
-                            it annotates the number, and the eye is already there after a ±tap.
-                            Saved as its own append-only event (lib/useMittelActions · saveMittel). */}
-                        {/* a hand-added line keeps its pencil at 0 — that dialog is the only way
-                            back to its name, unit, Bestand and to removing it on purpose */}
-                        {(cell.used > 0 || row.custom) && noteField(
-                          { materialId: row.materialId, label: row.label, unit: row.unit, sourceId: cell.sourceId, sourceLabel: cell.sourceLabel },
-                          cell.used, row.label, row.custom,
-                        )}
-                        {canEdit ? (
-                          <div className={s.rowEdit}>
-                            <Stepper value={cell.used} min={0} max={9999} over={over} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => saveCell(row, cell, v)} />
-                            <span className={s.rowUnit}>{row.unit}</span>
-                          </div>
+                        {compact ? (
+                          // ONE tap, not two: it books the 1 and opens the row's full form in the
+                          // same beat, so «noch eine» lands on the ±stepper that is already there.
+                          <button
+                            type="button" className={s.addOne}
+                            title={fillTemplate(M.addOne, { label: row.label })}
+                            aria-label={fillTemplate(M.addOne, { label: row.label })}
+                            onClick={() => { touch(row.key); saveCell(row, cell, 1) }}
+                          ><Icon id="plus" /></button>
                         ) : (
                           <>
-                            <span className={cx(s.rowQty, over && s.over)}>{cell.used}</span>
-                            <span className={s.rowUnit}>{row.unit}</span>
+                            {/* the remark pencil travels WITH the count, not at the row's far edge —
+                                it annotates the number, and the eye is already there after a ±tap.
+                                Saved as its own append-only event (lib/useMittelActions · saveMittel). */}
+                            {/* a hand-added line keeps its pencil at 0 — that dialog is the only way
+                                back to its name, unit, Bestand and to removing it on purpose */}
+                            {(cell.used > 0 || row.custom) && noteField(
+                              { materialId: row.materialId, label: row.label, unit: row.unit, sourceId: cell.sourceId, sourceLabel: cell.sourceLabel },
+                              cell.used, row.label, row.custom,
+                            )}
+                            {canEdit ? (
+                              <div className={s.rowEdit}>
+                                <Stepper value={cell.used} min={0} max={9999} over={over} ariaLabel={`${row.label} ${row.unit}`} onChange={(v) => { touch(row.key); saveCell(row, cell, v) }} />
+                                <span className={s.rowUnit}>{row.unit}</span>
+                              </div>
+                            ) : (
+                              <>
+                                <span className={cx(s.rowQty, over && s.over)}>{cell.used}</span>
+                                <span className={s.rowUnit}>{row.unit}</span>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -472,17 +502,44 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                   )
                 }
                 const open = expanded.has(row.key)
+                // the same compact idle row on the COLLAPSED parent: it already shows no stepper,
+                // so what it drops here is the bare «0 Stk» and what it gains is the one tap.
+                const compact = canEdit && !open && row.totalUsed === 0 && !touched.has(row.key)
+                // Which Quelle would that tap book from? An untouched row's cells ARE the item's
+                // stock config, biggest first (lib/mittel · mittelListGroups sorts them so), which
+                // makes this the same answer as defaultSourceFor/stockedSourcesFor without a
+                // catalogue lookup per row. Exactly one Fahrzeug carries it ⇒ no question to ask;
+                // none or several ⇒ the tap must not guess, so it opens the sources instead.
+                const stocked = row.cells.filter((c) => (c.stock ?? 0) > 0)
+                const addTo = stocked.length === 1 ? stocked[0] : undefined
+                const addLabel = fillTemplate(addTo ? M.addOne : M.addPickSource, { label: row.label })
                 return (
                   <div key={row.key} ref={(el) => { rowRefs.current[row.key] = el }} className={cx(s.row, s.rowMulti)}>
-                    <button type="button" className={s.rowExpand} aria-expanded={open} onClick={() => toggleExpand(row.key)}>
-                      <Icon id={open ? 'chevron-down' : 'chevron'} />
-                      <span className={s.rowLabel}>{row.label}</span>
-                      {/* stock indicator before the count, matching the single rows */}
-                      {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
-                      {/* #8: allow over-use but flag it — count turns red past the available stock */}
-                      <span className={cx(s.rowQty, row.totalStock != null && row.totalUsed > row.totalStock && s.over)}>{row.totalUsed}</span>
-                      <span className={s.rowUnit}>{row.unit}</span>
-                    </button>
+                    {/* the head line is the expand toggle PLUS, while compact, the «+» beside it —
+                        a button cannot live inside a button, so the two are siblings in a row */}
+                    <div className={s.rowMultiHead}>
+                      <button type="button" className={s.rowExpand} aria-expanded={open} onClick={() => toggleExpand(row.key)}>
+                        <Icon id="chevron-down" className="chev" />
+                        <span className={s.rowLabel}>{row.label}</span>
+                        {/* stock indicator before the count, matching the single rows */}
+                        {row.totalStock != null && <StockDots remaining={row.totalStock - row.totalUsed} total={row.totalStock} label={row.label} />}
+                        {!compact && <>
+                          {/* #8: allow over-use but flag it — count turns red past the available stock */}
+                          <span className={cx(s.rowQty, row.totalStock != null && row.totalUsed > row.totalStock && s.over)}>{row.totalUsed}</span>
+                          <span className={s.rowUnit}>{row.unit}</span>
+                        </>}
+                      </button>
+                      {compact && (
+                        <button
+                          type="button" className={s.addOne} title={addLabel} aria-label={addLabel}
+                          onClick={() => {
+                            if (!addTo) { toggleExpand(row.key); return }
+                            touch(row.key)
+                            saveCell(row, addTo, 1)
+                          }}
+                        ><Icon id="plus" /></button>
+                      )}
+                    </div>
                     {open && row.cells.map((cell) => {
                           const cellOver = cell.stock != null && cell.used > cell.stock
                           return (
@@ -499,7 +556,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
                                 out than every other row, which moved the stock dots with it */}
                             {canEdit ? (
                               <div className={s.rowEdit}>
-                                <Stepper value={cell.used} min={0} max={9999} over={cellOver} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => saveCell(row, cell, v)} />
+                                <Stepper value={cell.used} min={0} max={9999} over={cellOver} ariaLabel={`${row.label} · ${cell.sourceLabel ?? M.noSource}`} onChange={(v) => { touch(row.key); saveCell(row, cell, v) }} />
                                 <span className={s.rowUnit}>{row.unit}</span>
                               </div>
                             ) : (
@@ -696,7 +753,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
             <div className={s.dialogRow}>
               <div className="ip-field">
                 <span>{M.unitLabel}</span>
-                <Combo value={unit} options={units} placeholder={M.unitPlaceholder} allowCustom clearable={false} onChange={setUnit} />
+                <Combo value={unit} options={units} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={setUnit} />
               </div>
               <label className="ip-field">
                 <span>{M.stockLabel}</span>
@@ -710,6 +767,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
               <span>{M.sourceLabel}</span>
               <Combo
                 value={sourceLabel} options={sources.map((x) => x.label)} placeholder={M.sourcePlaceholder}
+                searchPlaceholder={M.sourceSearchPlaceholder}
                 allowCustom customLabel={M.sourceCustom} onChange={setSourceLabel}
               />
             </div>
@@ -828,11 +886,12 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
               somebody typed and then wants to type differently. Clearing it used to mean
               reopening the picker and hunting for the free-type row again. */}
           <Combo value={label} options={catalogue.map((c) => c.label)} groups={matGroups} placeholder={M.materialPlaceholder}
+            searchPlaceholder={M.materialSearchPlaceholder}
             allowCustom customLabel={M.customMaterial} onChange={pickMaterial} />
         </div>
         <div className={cx(s.field, s.fieldNarrow)}>
           <label>{M.unitLabel}</label>
-          <Combo value={unit} options={units} placeholder={M.unitPlaceholder} allowCustom clearable={false} onChange={setUnit} />
+          <Combo value={unit} options={units} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={setUnit} />
         </div>
         {/* shown even where the station configured NO sources: with the free-text escape there
             is still something to pick, and «woher kam das» is worth recording either way */}
@@ -844,6 +903,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
               sourceId unset), so only the escape hatch was missing. */}
           <Combo
             value={sourceLabel ?? ''} options={sources.map((x) => x.label)} placeholder={M.sourcePlaceholder}
+            searchPlaceholder={M.sourceSearchPlaceholder}
             allowCustom customLabel={M.sourceCustom} onChange={pickSource}
           />
         </div>

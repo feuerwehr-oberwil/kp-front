@@ -13,6 +13,11 @@ export interface ToolDef {
   sep?: boolean
   /** render the `primary` (Symbol) button at this position instead of pinning it to the top */
   slot?: boolean
+  /** The tool's SECOND state, sharing this rail slot (Auswahl ↔ Mehrfach, 05.09.). Tapping the
+   *  button while it is already active switches to `alt`; tapping again switches back. The button
+   *  then wears the alt's glyph AND word, so the mode is readable on the rail rather than hidden
+   *  behind it — the 3am rule: recognition, not recall. */
+  alt?: { id: string; icon: string; label: string }
 }
 
 interface Props {
@@ -123,18 +128,24 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
           // a sentinel entry renders a group divider so the rail reads as clusters
           // (selection · symbol · create · annotate) instead of one undifferentiated stack
           if (t.sep) return <span key={t.id} className="vrail-sep" aria-hidden />
-          const on = active === t.id
+          // a two-state tool (Auswahl ↔ Mehrfach) wears whichever half is armed, and a tap while
+          // armed flips to the other one — so one slot carries both without a hidden mode: the
+          // glyph, the word, the tooltip and the accessible name all say which state you are in.
+          const alt = t.alt && active === t.alt.id ? t.alt : null
+          const on = active === t.id || alt !== null
+          const shown = alt ?? t
+          const target = alt ? t.id : (on && t.alt ? t.alt.id : t.id)
           return (
             <button
               key={t.id}
               ref={toolRefs ? (el) => { toolRefs.current[t.id] = el } : undefined}
               className={`vrail-tool ${on ? 'on' : ''}`}
-              title={t.label}
-              aria-label={t.label}
+              title={shown.label}
+              aria-label={shown.label}
               aria-pressed={on}
-              onClick={() => onPick(t.id)}
+              onClick={() => onPick(target)}
             >
-              <span className="vrail-glyph"><Icon id={t.icon} /></span><span className="vrail-label">{t.label}</span>
+              <span className="vrail-glyph"><Icon id={shown.icon} /></span><span className="vrail-label">{shown.label}</span>
             </button>
           )
         })}

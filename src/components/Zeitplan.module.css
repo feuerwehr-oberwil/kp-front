@@ -451,24 +451,35 @@
 .numPlanned { color: var(--st-planned); }
 .numActual { color: var(--st-actual); }
 
-/* the one-line teaching note under an empty grid. It lived only in the markup until now — the
-   rule was never in THIS stylesheet, so `s.emptyNote` resolved to undefined and it rendered
-   as raw unstyled body text with a full-size icon beside it. */
+/* the teaching note under an empty grid. It lived only in the markup until now — the rule was
+   never in THIS stylesheet, so `s.emptyNote` resolved to undefined and it rendered as raw
+   unstyled body text with a full-size icon beside it. */
 /* the conflict notice already sits inside this surface's own padding */
 .conflictNotice { margin: 4px 0 6px; }
-.emptyNote {
-  display: flex; align-items: center; gap: 6px; margin: 4px 0 0;
-  font: 500 12.5px var(--body); color: var(--ink-faint);
+.emptyNote { margin: 4px 0 0; }
+/* the tap target: the empty title stays visible (it is the one-glance «nothing planned yet»
+   teach), the trailing (i) is DockInfo/InfoTip's own tap-toggle glyph — sized to this surface's
+   own tokens rather than that component's dark-dock styling, which does not read on a light
+   card. The «Ziehen erfasst …» sentence (below, .legendHint) is the one with a real height cost
+   (four clauses), so it is what stays behind the tap. */
+.emptyInfoBtn {
+  display: flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 2px;
+  border: none; border-radius: var(--r-sm); background: none; cursor: pointer;
+  font: 500 12.5px var(--body); color: var(--ink-faint); text-align: left;
+  -webkit-tap-highlight-color: transparent;
 }
-.emptyNote svg { width: 14px; height: 14px; flex: none; }
+.emptyInfoBtn svg { width: 14px; height: 14px; flex: none; }
+.emptyInfoBtn svg:last-child { color: var(--ink-dim); }
+@media (hover: hover) { .emptyInfoBtn:hover { color: var(--ink); } }
+.emptyInfoBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ---- foot ---------------------------------------------------------------------------- */
 
 /* The colour legend that used to live here is GONE — it moved into the Deckung row, beside the
-   three lines it names (see .covKeys). What is left is the one line that teaches the lane
-   gestures, and it shows only while nothing is planned: once there are bars the whole footer
-   disappears and the grid takes the height back, which on a phone is one more person on screen. */
-.legendHint { display: block; margin: 2px 0 0; font: 500 12.5px var(--body); color: var(--ink-faint); }
+   three lines it names (see .covKeys). What is left is the gesture explainer, folded behind the
+   (i) above: once there are bars the whole row disappears and the grid takes the height back,
+   which on a phone is one more person on screen. */
+.legendHint { display: block; margin: 2px 0 0; padding-left: 2px; font: 500 12.5px var(--body); color: var(--ink-faint); }
 
 /* ---- the per-person sheet ------------------------------------------------------------ */
 

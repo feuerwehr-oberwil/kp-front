@@ -23,20 +23,29 @@
    on --ink-faint, one shade quieter, directly above three headings that did not — same size,
    same weight, same tracking, different colour, stacked in one column. */
 .report-meta-dispatch-head > span { font: 700 11px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim); }
-.report-meta-editlink { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; min-height: 36px;
-  font: 600 12px var(--body); color: var(--blue); background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--border); border: none; border-radius: var(--r-sm); cursor: pointer; }
-.report-meta-editlink:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* the icon-only «Bearbeiten» — the whole card is the press target for a pointer (see
+   `.report-meta-dispatch-click` below), so this exists as the keyboard/AT target the card can
+   never be (ReportPreflight keeps the <dl> readable content rather than a button's label) and as
+   the visible cue that the card does something. Deliberately smaller than `--tap`: it is the
+   SECONDARY way in, same reasoning as the toast pill's `.toast-x` — the card around it is the
+   uncapped primary touch target, so a touch that misses this glyph still lands on the card. */
+.report-meta-dispatch-hint { width: 26px; height: 26px; flex: none; padding: 0; border: none;
+  border-radius: var(--r-sm); background: none; color: var(--ink-faint); cursor: pointer;
+  display: grid; place-items: center; }
+.report-meta-dispatch-hint .i { width: 15px; height: 15px; }
+@media (hover: hover) {
+  .report-meta-dispatch-hint:hover { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
+}
+.report-meta-dispatch-hint:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the whole dispatch card opens the Einsatzdaten (mirrors an Anwesenheit person row) — the
-   target grows from a 12px corner link to the full card, without the card BEING a button:
-   the <dl> has to stay readable content rather than become a button's label (see
-   ReportPreflight). «Bearbeiten» now LOOKS like the real button it is — on a tablet there is
-   no hover to advertise the card, so the button carries the affordance on its own. */
+   target grows from the small edit glyph to the full card, without the card BEING a button: see
+   the <dl> note above. On a tablet there is no hover to advertise the card, so the pen glyph
+   carries the affordance on its own even where the wash below never plays. */
 .report-meta-dispatch-click { cursor: pointer;
   border: 1px solid transparent; border-radius: var(--r-ctl); padding: 8px; margin: -8px; }
 @media (hover: hover) {
   .report-meta-dispatch-click:hover { background: var(--fill-soft); border-color: var(--glass-edge); }
-  .report-meta-dispatch-click:hover .report-meta-editlink { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+  .report-meta-dispatch-click:hover .report-meta-dispatch-hint { color: var(--blue); }
 }
 .report-meta-dispatch-click:active { background-image: linear-gradient(var(--press), var(--press)); }
 .report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: 10px; }

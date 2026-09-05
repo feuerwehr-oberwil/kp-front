@@ -224,9 +224,14 @@
    edge dissolved and toast + button read as one block. A light inner edge gives the pill its own
    contour on any base; --on-accent-ink is near-white in both themes, so it also holds on the
    red/green tone fills below. */
+/* `touch-action: pan-y` — same instrument `.toast-actions` already uses: it hands horizontal
+   movement to the pill's own pointer handlers (lib/ui.tsx · ToastRow) while leaving vertical
+   panning of the stack to the browser. The drag itself is INLINE transform (no transition) so it
+   never lags the finger; `.toast.out`'s own transition only plays once the pill isn't being
+   dragged any more (leaving without ever having been swiped). */
 .toast { display: flex; flex: none; align-items: center; gap: 9px; pointer-events: auto;
   background: var(--ink-fill); color: var(--on-accent-ink); font-size: 13px; font-weight: 600;
-  padding: 10px 16px; border-radius: var(--r-cluster); white-space: nowrap;
+  padding: 10px 16px; border-radius: var(--r-cluster); white-space: nowrap; touch-action: pan-y;
   box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--on-accent-ink) 24%, transparent);
   animation: toastIn .22s var(--ease); }
 /* out the way it came in, only quicker — dismissToast marks the pill `.out`, lets this play,
@@ -486,14 +491,6 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .wb-text-input.plain, .note-pill-input.plain {
   background: color-mix(in srgb, var(--note-bg) 22%, transparent); border-color: var(--note-border-sel); }
 
-/* right-edge width grip on a text box. Sits OUTSIDE the box so it never covers the text, and
-   is a full 30px tall for a gloved drag even when the box itself is one small line. */
-.note-wgrip { position: absolute; right: -9px; top: 50%; transform: translateY(-50%);
-  width: 16px; height: 32px; padding: 0; border-radius: 5px; background: var(--surface);
-  border: 1px solid var(--note-border-sel); color: var(--ink-dim); cursor: ew-resize;
-  display: grid; place-items: center; touch-action: none; z-index: 2;
-  box-shadow: 0 2px 6px rgba(30, 45, 70, .25); }
-.note-wgrip .i { width: 12px; height: 12px; }
 /* ✓ "Fertig" on a text box being edited: in box mode Enter makes a newline, so touch needs a
    visible way out (tap-away and Esc work too, but neither is discoverable with gloves on). */
 .note-done { position: absolute; right: -12px; bottom: -12px; width: 32px; height: 32px;
@@ -604,8 +601,13 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    state to be in. It used to wear the `.de-toggle` chip — the same box a yes/no property wore —
    so a row that can never light up looked like one that was merely off. Every yes/no answer in
    this panel is a Segmented pair now, and an action reads as a row, in the grammar the
-   Verbindungen block's «Verbindung lösen» already set (11-measure · .de-conn-detach). */
-.draw-editor .de-action { display: inline-flex; align-items: center; gap: 7px; min-height: 48px; padding: 2px 0;
+   Verbindungen block's «Verbindung lösen» already set (11-measure · .de-conn-detach).
+   ⚠️ Right-aligned (05.09.): every other line in this panel is a label on the left and its
+   CONTROL on the right edge, and «Richtung umkehren» sat directly under «Abschluss» — whose
+   Segmented pair holds that edge — as the one press starting at the far left. It is a full-width
+   row so the whole 48px band stays tappable; only its glyph + word move to the controls' edge. */
+.draw-editor .de-action { display: flex; width: 100%; justify-content: flex-end; align-items: center;
+  gap: 7px; min-height: 48px; padding: 2px 0;
   border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 12.5px;
   font-weight: 700; cursor: pointer; }
 .draw-editor .de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }

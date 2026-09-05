@@ -57,6 +57,13 @@ const tafel: PlanDocument = {
   id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape',
 }
 const sym: SymbolsApi = { ready: false, error: false, reload: () => {}, order: [], symbols: [], byName: {} }
+/** Mehrfach shares the Auswahl rail slot (05.09.): a second tap on the already-armed Auswahl arms
+ *  the marquee, and the button then wears its glyph and word — which is what makes the mode
+ *  visible instead of hidden. Every test that needs a boxed group goes through this door. */
+const armMehrfach = () => {
+  fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
+  expect(screen.getByRole('button', { name: 'Mehrfach' })).toBeTruthy()
+}
 // an annotation somebody drew on the Umrisse sheet BEFORE it became selection-only
 const oldNote: BoardAnno = { id: 'a1', kind: 'text', x: 0.4, y: 0.4, floor: 0, text: 'Alte Notiz' }
 
@@ -97,20 +104,24 @@ const renderBoard = (activeId: string, annos: BoardAnno[] = [], readOnly = false
 // annotate a live OSM backdrop is a tool that lies, so the whole drawing apparatus is gone here —
 // deliberately NOT the Lage↔Plan parity the other plan surfaces keep.
 describe('the Umrisse surface', () => {
-  const CREATE_TOOLS = ['Linie', 'Fläche', 'Notiz', 'Trupp', 'Mehrfach']
+  // Mehrfach is not in this list any more: it shares the Auswahl slot (05.09.) and only wears its
+  // own word once armed, so it is checked through «Auswahl» below.
+  const CREATE_TOOLS = ['Linie', 'Fläche', 'Notiz', 'Trupp']
 
   it('offers no tool at all — not even the read-only Auswahl · Messen rail', () => {
     renderBoard('osm')
-    for (const label of [...CREATE_TOOLS, 'Auswahl', 'Messen']) {
+    for (const label of [...CREATE_TOOLS, 'Auswahl', 'Mehrfach', 'Messen']) {
       expect(screen.queryByRole('button', { name: label })).toBeNull()
     }
   })
 
   it('keeps every tool on the Tafel — the rail is missing because of the SURFACE, not the build', () => {
     renderBoard('tafel')
-    for (const label of CREATE_TOOLS) {
+    for (const label of [...CREATE_TOOLS, 'Auswahl']) {
       expect(screen.getByRole('button', { name: label })).toBeTruthy()
     }
+    // …and Auswahl still carries Mehrfach as its second state
+    armMehrfach()
   })
 
   it('still picks a building — the one interaction the sheet is for', () => {
@@ -830,7 +841,7 @@ describe('the plan’s selection bar', () => {
 
   it('is the SAME bar for a Mehrfach group — one drag moves every boxed object', () => {
     const { container, onChange } = renderPlan([line, box])
-    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    armMehrfach()
     const stage = container.querySelector('.wb-stage > div')!
     fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
     fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
@@ -869,7 +880,7 @@ describe('the plan’s selection bar', () => {
 
   it('deletes a whole Mehrfach group by the key, exactly as a single object goes', () => {
     const { container, onChange } = renderPlan([line, box])
-    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    armMehrfach()
     const stage = container.querySelector('.wb-stage > div')!
     fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
     fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })
@@ -936,7 +947,7 @@ describe('the plan’s selection bar', () => {
 
   it('stays out of a Mehrfach group and off a read-only sheet — as on the Karte', () => {
     const { container, onChange, keysRef } = withKeys([line, box])
-    fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+    armMehrfach()
     const stage = container.querySelector('.wb-stage > div')!
     fireEvent.pointerDown(stage, { clientX: 0, clientY: 0, pointerId: 1 })
     fireEvent.pointerMove(stage, { clientX: 400, clientY: 400, pointerId: 1 })

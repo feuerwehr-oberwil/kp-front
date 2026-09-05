@@ -262,6 +262,10 @@ export function ZeitplanView({
   /* the Deckung numbers are folded away by default: the SHAPE of the three lines is what you read
      at a glance, and three extra rows of digits cost a phone two people off the Mannschaft */
   const [covOpen, setCovOpen] = useState(false)
+  /* the gesture explainer is folded away by default, same reasoning as the Deckung numbers above:
+     the empty grid already teaches «nothing planned yet» on its own (Z.emptyTitle stays visible),
+     so the longer «Ziehen erfasst …» sentence only has to cost space once it is actually asked for */
+  const [helpOpen, setHelpOpen] = useState(false)
 
   const span = useMemo(
     () => timelineSpan(startedAt, shifts, attendance, nowMs, horizonH),
@@ -449,15 +453,23 @@ export function ZeitplanView({
       </div>
 
       {/* a full EmptyState block here squeezed the grid down to five visible rows — and the grid
-          is not empty, it is a ready-to-use form. One line under it says the same thing. */}
-      {nothingPlanned && <p className={s.emptyNote}><Icon id="clock" />{Z.emptyTitle}</p>}
-
-      {/* The three-state colour key used to sit here on a line of its own. It moved into the
-          Deckung row, which draws those very three colours — so the key is now beside the thing it
-          explains instead of twelve rows below it, and the footer costs nothing once the grid is
-          in use. What stays is the gesture hint, and only while nothing is planned: that is when
-          it teaches. Once there are bars it has done its job and the grid takes the height back. */}
-      {nothingPlanned && <span className={s.legendHint}>{Z.laneHint}</span>}
+          is not empty, it is a ready-to-use form. One line under it says the same thing, and it
+          teaches on its own — the empty title stays put. The «Ziehen erfasst …» gesture explainer
+          is the sentence with the actual cost (four clauses), so IT sits behind a tap (i) — the
+          app's DockInfo/InfoTip pattern — instead of permanently under the grid on every phone
+          that has nothing planned yet. Once there are bars the whole row is gone and the grid
+          takes the height back. */}
+      {nothingPlanned && (
+        <div className={s.emptyNote}>
+          <button type="button" className={s.emptyInfoBtn} onClick={() => setHelpOpen((v) => !v)}
+            aria-expanded={helpOpen} title={helpOpen ? Z.laneHintHide : Z.laneHintShow}>
+            <Icon id="clock" />
+            {Z.emptyTitle}
+            <Icon id="info" />
+          </button>
+          {helpOpen && <p className={s.legendHint}>{Z.laneHint}</p>}
+        </div>
+      )}
 
       {person && (
         <PersonShiftSheet

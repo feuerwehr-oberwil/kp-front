@@ -1,6 +1,6 @@
 /* North dial for the Gebäude floor stack — a fixed HUD chip in the plan viewport's top-right
    corner (see PlanCompass.tsx for why it left the storey tile). Glass on a round 44px target,
-   the same recipe as the map's floating utilities (MapUtility · WindBadge), so both surfaces put
+   the same recipe as the map's floating utilities (MapUtility · .phone-wx), so both surfaces put
    the same kind of thing in the same corner. */
 .chip {
   position: absolute; top: calc(16px + env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right));

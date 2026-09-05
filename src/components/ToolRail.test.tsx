@@ -47,6 +47,69 @@ describe('the read-only tool rail', () => {
   })
 })
 
+// ── Auswahl ↔ Mehrfach share ONE rail slot (05.09.) ──────────────────────────────────────────
+// Two selection tools cost two rows of a rail that has none to spare, and Mehrfach is reached
+// often enough to need a button but rarely enough not to own one. So the second tap on the armed
+// Auswahl arms the marquee — and the button then WEARS it: glyph, word, tooltip and accessible
+// name all swap, because a mode nobody can see on the button is a mode nobody can leave.
+describe('the two-state Auswahl', () => {
+  type Tools = React.ComponentProps<typeof ToolRail>['tools']
+  const renderRail = (tools: Tools, active: string) => {
+    const onPick = vi.fn()
+    render(<ToolRail
+      className="tool-rail"
+      primary={appConfig.copy.primarySymbol}
+      tools={tools}
+      active={active}
+      onPick={onPick}
+      footer={<button>{appConfig.copy.nav.zoomIn}</button>}
+    />)
+    return onPick
+  }
+
+  // both surfaces, one interaction — the Karte's Auswahl is 'select', the Plan's is 'pan'
+  for (const [surface, tools, selectId] of [
+    ['Karte', appConfig.copy.mapTools, 'select'],
+    ['Plan', appConfig.copy.planTools, 'pan'],
+  ] as const) {
+    describe(surface, () => {
+      it('shows one selection button, not two', () => {
+        renderRail(tools, selectId)
+        expect(screen.getByRole('button', { name: 'Auswahl' })).toBeTruthy()
+        expect(screen.queryByRole('button', { name: 'Mehrfach' })).toBeNull()
+      })
+
+      it('arms Mehrfach on the second tap, and says so on the button', () => {
+        const onPick = renderRail(tools, selectId)
+        fireEvent.click(screen.getByRole('button', { name: 'Auswahl' }))
+        expect(onPick).toHaveBeenCalledWith('lasso')
+        cleanup()
+        renderRail(tools, 'lasso')
+        const btn = screen.getByRole('button', { name: 'Mehrfach' })
+        expect(btn.getAttribute('aria-pressed')).toBe('true')
+        expect(btn.getAttribute('title')).toBe('Mehrfach')
+        expect(btn.querySelector('.vrail-label')?.textContent).toBe('Mehrfach')
+      })
+
+      it('goes back to Auswahl on the tap after that', () => {
+        const onPick = renderRail(tools, 'lasso')
+        fireEvent.click(screen.getByRole('button', { name: 'Mehrfach' }))
+        expect(onPick).toHaveBeenCalledWith(selectId)
+      })
+
+      // coming from another tool the button is still just «Auswahl» — the first tap arms it, and
+      // only a tap on the ARMED button reaches the second state
+      it('arms plain Auswahl from another tool', () => {
+        const onPick = renderRail(tools, 'line')
+        const btn = screen.getByRole('button', { name: 'Auswahl' })
+        expect(btn.getAttribute('aria-pressed')).toBe('false')
+        fireEvent.click(btn)
+        expect(onPick).toHaveBeenCalledWith(selectId)
+      })
+    })
+  }
+})
+
 // «Einstellungen · Beschriftung der Werkzeugleisten» says «Wort unter jedem Zeichen in den BEIDEN Leisten».
 // It reached the Lage rail and not the Plan's, because Whiteboard rendered this same component
 // without the prop — one setting, two rails, one of them not listening. The class is what the
@@ -104,4 +167,51 @@ it('keeps its expanded state across a remount (surface switch)', () => {
   // …and collapsing writes back, so the next mount starts closed again
   fireEvent.click(screen.getByRole('button', { name: 'Einklappen' }))
   expect(document.querySelector('.vrail.expanded')).toBeNull()
+})
+
+// ── the scroll-for-more edge, on the axis that actually scrolls ──────────────────────────────
+// On a phone this rail is a horizontal BAR, and its fade used to be painted unconditionally
+// because the mechanic only ever measured `scrollTop` (lib/useRail). That put a "more this way"
+// edge over the last tool on a bar already sitting at its end.
+describe('the rail marks the edge that still has tools behind it', () => {
+  // jsdom lays nothing out, so the port's metrics are stubbed the way a phone bar's are:
+  // a horizontal scroller narrower than its content, with the vertical axis flat.
+  const port = (scrollLeft: number, clientWidth = 300) => {
+    const el = document.querySelector('.vrail-scroll') as HTMLElement
+    el.style.flexDirection = 'row'   // the bar shape — what lib/useRail reads the axis off
+    for (const [k, v] of [['clientWidth', clientWidth], ['scrollWidth', 600], ['scrollLeft', scrollLeft]] as const) {
+      Object.defineProperty(el, k, { configurable: true, value: v })
+    }
+    fireEvent.scroll(el)
+    return el
+  }
+  const renderBar = () => render(<ToolRail
+    className="tool-rail"
+    primary={appConfig.copy.primarySymbol}
+    tools={appConfig.copy.mapTools}
+    active="select"
+    onPick={vi.fn()}
+    footer={<button>{appConfig.copy.nav.zoomIn}</button>}
+  />)
+
+  it('marks both ends mid-scroll', () => {
+    renderBar()
+    const el = port(120)
+    expect(el.classList.contains('more-top')).toBe(true)
+    expect(el.classList.contains('more-bottom')).toBe(true)
+  })
+
+  it('drops the end marker once the last tool is reached', () => {
+    renderBar()
+    const el = port(300)
+    expect(el.classList.contains('more-top')).toBe(true)
+    expect(el.classList.contains('more-bottom')).toBe(false)
+  })
+
+  it('marks nothing when every tool fits', () => {
+    renderBar()
+    const el = port(0, 600)
+    expect(el.classList.contains('more-top')).toBe(false)
+    expect(el.classList.contains('more-bottom')).toBe(false)
+  })
 })

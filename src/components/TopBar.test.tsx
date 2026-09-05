@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import { TopBar } from './TopBar'
+import { TopBar, windArrowRotation } from './TopBar'
 import { appConfig } from '../config/appConfig'
 import type { Incident } from '../types'
 
@@ -54,5 +54,21 @@ describe('«Teilen» im Einsatzkopf', () => {
   it('stays after the Abschluss', () => {
     bar({ onShare: () => {}, archived: true })
     expect(screen.getByRole('button', { name: C.share })).toBeTruthy()
+  })
+})
+
+// The wind arrow's one piece of maths, kept here since WindBadge (its old home) was deleted as
+// dead code on 05.09. — it aims the arrow DOWNWIND, and it has to follow the map's rotation.
+describe('windArrowRotation', () => {
+  it('rotates by the FROM bearing on a north-up map (aims the arrow downwind)', () => {
+    expect(windArrowRotation(225)).toBe(225)
+    expect(windArrowRotation(0)).toBe(0)
+  })
+
+  it('follows the map rotation by subtracting the bearing (like the compass needle)', () => {
+    // map rotated 90° clockwise → the same wind reads 90° less on screen
+    expect(windArrowRotation(225, 90)).toBe(135)
+    expect(windArrowRotation(45, 45)).toBe(0)
+    expect(windArrowRotation(10, 40)).toBe(-30)
   })
 })

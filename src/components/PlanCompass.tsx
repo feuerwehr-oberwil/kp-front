@@ -10,7 +10,7 @@ import s from './PlanCompass.module.css'
  * the board: the one read-out that answers «which way am I looking» drifted around the screen
  * and off it, and the rotation control it carries went along for the ride. Anchored to the
  * viewport it is always in the same corner, on every form factor — the map's floating utilities
- * (MapUtility · WindBadge) wear the same glass, because this belongs to the screen, not to the
+ * (MapUtility · the phone's .phone-wx read-out) wear the same glass, because this belongs to the screen, not to the
  * paper.
  *
  * `deg` is the ACTIVE view angle including the popover's live preview, so the needle turns with

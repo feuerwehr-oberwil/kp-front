@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
@@ -69,6 +69,12 @@ interface Props {
  */
 export function SelectionBar({ onMove, onRotate, onDone, onGrab, armed = null, onArm }: Props) {
   const drag = useRef<{ kind: 'move' | 'rotate'; x0: number; y0: number; live: boolean } | null>(null)
+  // «the drag is on the bar itself» — the ONE thing the stylesheet cannot work out on its own.
+  // On a phone the bar follows the peeking detail sheet down for the length of a transform
+  // (15-mobile.css · body.sheet-peek), which is right for the armed mode's drags on the Karte /
+  // the Kroki, and wrong for a drag on this bar's own grip: the finger is on the button, and a
+  // control that travels 300px away from the hand holding it is not a control.
+  const [grabbing, setGrabbing] = useState(false)
   const C = appConfig.copy.drawingEditor
 
   const down = (kind: 'move' | 'rotate') => (e: React.PointerEvent) => {
@@ -88,6 +94,7 @@ export function SelectionBar({ onMove, onRotate, onDone, onGrab, armed = null, o
       // selection that never moved
       if (Math.hypot(dx, dy) < DRAG_DEADZONE_PX) return
       st.live = true
+      setGrabbing(true)
       // the selection's own geometry grips step aside for the gesture (lib/transformChrome)
       beginTransformChrome()
       if (st.kind === 'move') onMove(0, 0, 'start')
@@ -99,6 +106,7 @@ export function SelectionBar({ onMove, onRotate, onDone, onGrab, armed = null, o
   const up = (e: React.PointerEvent) => {
     const st = drag.current
     drag.current = null
+    setGrabbing(false)
     endTransformChrome()
     onGrab?.(false)
     if (!st?.live) {
@@ -118,7 +126,7 @@ export function SelectionBar({ onMove, onRotate, onDone, onGrab, armed = null, o
     // deselects the very thing the bar is about to move
     // `data-arm-exempt`: the armed mode owns every press on the surface EXCEPT the ones on this
     // bar, which is how ✥ keeps its own drag and how the mode can be tapped off again
-    <div className="sel-bar" role="toolbar" aria-label={C.selectionBar} data-arm-exempt
+    <div className={`sel-bar${grabbing ? ' grabbing' : ''}`} role="toolbar" aria-label={C.selectionBar} data-arm-exempt
       onPointerDown={(e) => e.stopPropagation()}>
       <button className={`sel-bar-act${armed === 'move' ? ' on' : ''}`} aria-pressed={armed === 'move'}
         title={armed === 'move' ? C.moveArmed : C.move} aria-label={armed === 'move' ? C.moveArmed : C.move} data-holdaction

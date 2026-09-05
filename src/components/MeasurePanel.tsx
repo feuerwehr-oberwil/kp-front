@@ -64,9 +64,9 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
             <div className={s['mp-stat']}><span className={s['mp-k']}>{C.distance}</span><b className={s['mp-v']}>{fmtDistance(lengthM)}</b></div>
             <div className={s['mp-stat']}><span className={s['mp-k']}>{C.hoses} à {appConfig.drawing.hoseLengthM} m</span><b className={s['mp-v']}>{hoseCount(lengthM)}</b></div>
             {hasProfile && (
-              <button type="button" className={cx(s['mp-prof-toggle'], profileOpen && s['mp-prof-open'])}
+              <button type="button" className={s['mp-prof-toggle']}
                 aria-expanded={profileOpen} aria-label={C.profile} onClick={() => setProfileOpen((o) => !o)}>
-                <Icon id="chevron-down" />
+                <Icon id="chevron-down" className="chev" />
               </button>
             )}
           </div>

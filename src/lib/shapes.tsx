@@ -15,8 +15,10 @@ export const SHAPE_ORDER: ShapeKind[] = ['arrow', 'cloud', 'square', 'rotation']
 // and stretching is what a shape can do and a symbol cannot (decision 01.09.).
 export const FORMEN_ORDER: ShapeKind[] = ['arrow', 'square', 'rotation']
 
-// defaultSizeM sizes on the map (metres on the ground); defaultSizeN on a plan
-// (fraction of the plan width — a plan has no metric scale). Smoke starts larger.
+// defaultSizeM sizes on the map (metres on the ground); defaultSizeN on a plan (fraction of the
+// plan width — the sheet's own unit, which is what gets stored either way). A plan that KNOWS its
+// scale — georeferenced, Gebäude-derived or calibrated — can state the same ground distance in
+// that unit; see `rotationBoundsN`. Smoke starts larger.
 export const SHAPE_DEFS: Record<ShapeKind, { defaultColor: string; defaultSizeM: number; defaultSizeN: number; defaultAspect?: number }> = {
   arrow: { defaultColor: DEFAULT_INK, defaultSizeM: 45, defaultSizeN: 0.1 },
   cloud: { defaultColor: '#6b7280', defaultSizeM: 80, defaultSizeN: 0.18 },
@@ -72,7 +74,10 @@ export const SHAPE_MIN_N = 0.03
 /** How long a Rotation may be drawn: in metres on the Karte, as a share of the plan width on the
  *  Kroki. Every other shape is capped far lower (SHAPE_MAX_M / SHAPE_MAX_N) — a Wasserpendel
  *  between the Weiher and the Brandstelle is kilometres, and that cap was the reason the only way
- *  to make the loop long was to make it enormous in both axes. */
+ *  to make the loop long was to make it enormous in both axes.
+ *
+ *  ⚠️ ROTATION_MAX_N is the fallback for a sheet with NO scale; a sheet that knows its ground
+ *  width derives the same 20 km from `rotationBoundsN`. */
 export const ROTATION_MAX_M = 20000
 export const ROTATION_MAX_N = 3
 
@@ -152,6 +157,9 @@ export const ROTATION_WIDTH_RATIO = 0.15
  * The cap is what keeps a kilometres-long Wasserpendel a thin racetrack instead of a blob (0.15 ×
  * 3 km would be 450 m of loop width); the floor keeps a short run from being drawn as a hairline.
  * Between them the loop simply looks like the FKS sheet's at every length.
+ *
+ * ⚠️ ROTATION_W_N is the fallback for a sheet with NO scale — a scaled one derives 20–45 m in its
+ * own unit through `rotationBoundsN`, so both surfaces cap the loop at the same ground width.
  */
 export const ROTATION_W_M = { min: 20, max: 45 }
 export const ROTATION_W_N = { min: 0.015, max: 0.05 }
@@ -181,11 +189,54 @@ export function rotationBox(run: number, b: { min: number; max: number }): { siz
 export const rotationGripOffPx = (heightPx: number) => Math.max(18, heightPx / 2 + 14)
 
 /** What a Rotation is laid down with when the operator taps ONCE instead of naming two places
- *  (see IncidentWorkspace / Whiteboard placement): a 300 m run on the map, 40 % of the plan width
- *  on the Plan. Both go through `rotationBox`, so a default-placed loop obeys the same width rule
- *  as one that was stretched between two symbols. */
+ *  (see IncidentWorkspace / Whiteboard placement): a 300 m run on the map, and on the Plan the
+ *  share of the sheet that IS 300 m (`rotationBoundsN`) — 40 % only where the sheet cannot say.
+ *  Both go through `rotationBox`, so a default-placed loop obeys the same width rule as one that
+ *  was stretched between two symbols. */
 export const ROTATION_DEFAULT_RUN_M = 300
 export const ROTATION_DEFAULT_RUN_N = 0.4
+
+/**
+ * The Rotation's three size constants IN THE UNIT THE PLAN STORES — derived from the metre ones
+ * whenever the sheet knows what it is worth on the ground.
+ *
+ * ⚠️ The two unit systems above are the SAME statement written twice, and until 05.09. nothing
+ * reconciled them: 300 m / 0.4 of a sheet, 20–45 m / 0.015–0.05, 20 km / 3 sheet widths. They only
+ * ever agreed on a sheet about 750 m wide. On Modul 1 (FKS Übersicht, ~1.5 km across) the same tap
+ * laid a 600 m Wasserpendel on the Plan and a 300 m one on the Karte, and the loop's width cap was
+ * 75 m against the Karte's 45 m — the Lage ↔ Plan parity rule broken by arithmetic alone.
+ *
+ * So on a sheet with a known ground width the fractions are simply the metre constants divided by
+ * it: a fraction of the sheet IS `metres / planWidthM`, because `sizeN`, like `x`, is a share of
+ * the plan WIDTH. `planWidthM` comes from the surface's live scale (Whiteboard · activeScale ×
+ * measureAR — the georef fit, the Gebäude stack derivation or a manual calibration, whichever is
+ * in force), and equals `georefTwins · planGroundWidthM` for the georeferenced case.
+ *
+ * `null` — an unfitted, uncalibrated sheet that genuinely has no metric scale — keeps the plain
+ * fraction constants, which is the only thing such a sheet can mean.
+ *
+ * ⚠️ The one-tap DEFAULT is additionally capped at ROTATION_DEFAULT_RUN_N of the sheet. A Gebäude
+ * floor plan is ~30 m across (and it knows that, from the footprint span), where 300 m would be
+ * ten sheet widths: an object laid almost entirely off the paper, with its two end grips out of
+ * reach. A default is a visible starting point the operator then drags; the honest 300 m is what
+ * the drag and the ± stepper reach, and those are NOT capped. On every sheet wide enough to hold
+ * the run — which is every sheet this fix is about — the cap does nothing.
+ *
+ * The STORED representation does not change: `rotationBox` still writes a sheet fraction, and it
+ * is fed the bounds returned here instead of the frozen ones.
+ */
+export function rotationBoundsN(planWidthM: number | null | undefined): {
+  runN: number
+  w: { min: number; max: number }
+  maxN: number
+} {
+  if (!planWidthM || !(planWidthM > 0)) return { runN: ROTATION_DEFAULT_RUN_N, w: ROTATION_W_N, maxN: ROTATION_MAX_N }
+  return {
+    runN: Math.min(ROTATION_DEFAULT_RUN_N, ROTATION_DEFAULT_RUN_M / planWidthM),
+    w: { min: ROTATION_W_M.min / planWidthM, max: ROTATION_W_M.max / planWidthM },
+    maxN: ROTATION_MAX_M / planWidthM,
+  }
+}
 
 /** …and back out of the box: how far the two ends actually stand apart. */
 export const rotationRun = (size: number, aspect: number | undefined) =>

@@ -1364,7 +1364,7 @@ export function ReportPreflight({
                     aria-label={`${missing.length} ${P.headStillOpen}`} title={`${missing.length} ${P.headStillOpen}`}>
                     <Icon id="warn" />
                     <span>{missing.length} {P.headStillOpen}</span>
-                    <Icon id="chevron-down" />
+                    <Icon id="chevron-down" className="chev" />
                   </button>
                 }
                 popupClassName="rp-print-menu"
@@ -1485,7 +1485,7 @@ export function ReportPreflight({
               <Menu
                 trigger={
                   <button type="button" className="ip-btn primary rp-split-more" aria-label={P.printMenu} title={P.printMenu}>
-                    <Icon id="chevron-down" />
+                    <Icon id="chevron-down" className="chev" />
                   </button>
                 }
                 popupClassName="rp-print-menu"
@@ -1618,17 +1618,19 @@ export function ReportPreflight({
               handler can't slip past the markup. */}
           <fieldset className="report-fieldset" disabled={!canEdit}>
           <section className="report-pre-section report-pre-meta" data-tab="bericht">
-            {/* No <h3> here: the dispatch block carries its own «Aus den Einsatzdaten» heading and
-                the edit link that belongs to it, so a section title above it was the same words
-                twice. The other three sections have one because they have nothing else to say
-                what they are. */}
+            {/* No <h3> here: the dispatch block carries its own «Aus den Einsatzdaten» heading,
+                and the whole card is the edit affordance, so a section title above it was the
+                same words twice. The other three sections have one because they have nothing
+                else to say what they are. */}
             {/* ⚠️ The card is CLICKABLE, not a <button>. Wrapping the whole thing in a button
                 made the dispatch facts part of its label: a screen reader then gets one stop
                 announcing «Aus den Einsatzdaten – Bearbeiten», and the Alarmmeldung, the
                 Einsatzplan and the Alarmierung — the things this block exists to state —
-                collapse into it. So the <dl> stays readable content, the click on the card is
-                pure pointer convenience, and «Bearbeiten» remains a real button: the keyboard
-                and AT target, and the visible cue that the card does something. */}
+                collapse into it. So the <dl> stays readable content and the click on the card is
+                pure pointer convenience — exactly as before. The visible «Bearbeiten» chip is
+                gone, but a real (icon-only) button stays: it is the keyboard/AT target the card
+                itself can never be, and `stopPropagation` keeps the card's own handler from
+                also firing and asking twice from one tap. */}
             <div
               className={`report-meta-dispatch${onEditDispatch ? ' report-meta-dispatch-click' : ''}`}
               onClick={onEditDispatch}
@@ -1636,11 +1638,9 @@ export function ReportPreflight({
               <div className="report-meta-dispatch-head">
                 <span>{P.fromDispatch}</span>
                 {onEditDispatch && (
-                  // stopPropagation: without it the card's own handler fires too and the
-                  // Einsatzdaten panel is asked to open twice from one tap
-                  <button type="button" className="report-meta-editlink"
+                  <button type="button" className="report-meta-dispatch-hint" aria-label={P.edit} title={P.edit}
                     onClick={(e) => { e.stopPropagation(); onEditDispatch() }}>
-                    <Icon id="pen" /> {P.edit}
+                    <Icon id="pen" />
                   </button>
                 )}
               </div>
@@ -1781,17 +1781,24 @@ export function ReportPreflight({
                 <span>{P.geretteteLabel}</span>
                 {/* two labelled ±steppers (shared Stepper) — tap −/+ or the value to type; matches the
                     details-modal count control. over-object carries the fresh values (state set in the
-                    same tick is stale). Empty = null (shows «0» placeholder, − disabled). */}
+                    same tick is stale). Empty = null (shows «0» placeholder, − disabled).
+                    `readOnly` while «Keine» is active (below): both fields are already empty when
+                    that answer is given, and an enabled stepper let a tap edge one of them off zero
+                    while still showing «niemand gerettet» — the same contradiction «Entfällt» guards
+                    against on Kontaktperson. Stepping either one back OFF the answer is the ✕ next
+                    to it, same as everywhere else. */}
                 <div className="rz-counts">
                   <div className="rz-count" data-sync="geretteteP">
                     <span>{P.gerettetePersonen}</span>
                     <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.gerettetePersonen}
+                      readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteP(String(v)); persist(geretteteOver(String(v), geretteteT)) }}
                       onClear={() => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) }} canClear={geretteteP !== ''} />
                   </div>
                   <div className="rz-count" data-sync="geretteteT">
                     <span>{P.geretteteTiere}</span>
                     <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} placeholder="0" ariaLabel={P.geretteteTiere}
+                      readOnly={meta.geretteteNone}
                       onChange={(v) => { setGeretteteT(String(v)); persist(geretteteOver(geretteteP, String(v))) }}
                       onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
                   </div>

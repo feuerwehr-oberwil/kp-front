@@ -93,7 +93,10 @@ export interface JournalLink {
 export function journalVocabulary(
   personnel: Person[],
   attendance: AttendanceState,
-  /** personId → the Trupp they are in right now, for the chip's hint (see JournalLink.hint) */
+  /** personId → the bare NAME of the Trupp they are in right now (its Gruppenführer's name —
+   *  types · Trupp.name), for the chip's hint (see JournalLink.hint). Worded through
+   *  `truppTerm` below before it reaches the hint; passed bare because the caller building this
+   *  map has no reason to know that wording. */
   truppOf?: Map<string, string>,
   /** every Trupp of this Einsatz — the UNFILTERED slice, removed and `raus` ones included (see
    *  `teams` below) */
@@ -102,11 +105,24 @@ export function journalVocabulary(
   const cfg = getDeploymentConfig()
   const people: JournalLink[] = personnel
     .filter((p) => p.active)
-    .map((p) => ({
-      name: p.displayName, kind: 'person' as const, id: p.id, present: isPresent(attendance[p.id]),
-      role: shortRole((attendance[p.id]?.note ?? '').trim()),
-      hint: truppOf?.get(p.id),
-    }))
+    .map((p) => {
+      // ⚠️ 05.09. fix: `truppOf` carries the Trupp's bare NAME, which (types · Trupp.name) IS
+      // its Gruppenführer's own name — so on the GF's own chip the hint used to repeat the name
+      // it already sits beside verbatim: «Stich Markus · Stich Markus». Worded through the same
+      // `truppTerm` the vocabulary's own Trupp entries use («Trupp Stich Markus», line below)
+      // fixes the wording for everybody else in the crew too — but on the GF it still says
+      // nothing the name chip has not already said, so it is suppressed there rather than
+      // shown as «Stich Markus · Trupp Stich Markus», which is not new information either.
+      const teamOf = truppOf?.get(p.id)
+      const hint = teamOf && teamOf !== p.displayName
+        ? fillTemplate(appConfig.copy.atemschutz.truppTerm, { name: teamOf })
+        : undefined
+      return {
+        name: p.displayName, kind: 'person' as const, id: p.id, present: isPresent(attendance[p.id]),
+        role: shortRole((attendance[p.id]?.note ?? '').trim()),
+        hint,
+      }
+    })
     .sort((a, b) => Number(b.present) - Number(a.present)
       || rankOrder(personnel.find((p) => p.id === a.id)?.rank) - rankOrder(personnel.find((p) => p.id === b.id)?.rank)
       || a.name.localeCompare(b.name, 'de'))

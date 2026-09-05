@@ -67,7 +67,7 @@ function snapBar(v: number): number {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, unlinkTruppLine,
+  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, anyLeitung = false, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, onShareLink, shareLinkActive = false, lite, frozenAt,
@@ -135,8 +135,11 @@ export function AtemschutzView({
    *  truppLineNos) — the picture is the source of truth for the number, the Trupp's stored
    *  copy only the fallback for a hose that has since been deleted. */
   lineNoOf?: ReadonlyMap<string, number>
-  /** arm «Leitung wählen»: the next tap on a hose line (Lage or Plan) links it to this Trupp */
+  /** arm «Leitung wählen»: the next tap on a hose line links it to this Trupp */
   pickTruppLine: (id: string) => void
+  /** is a hose drawn anywhere at all? The pick sends the operator to the Karte to tap one, so
+   *  with nothing drawn the row is an instruction that cannot be followed — it is withheld. */
+  anyLeitung?: boolean
   /** release a Trupp's Leitung — used when another Trupp takes it over (confirmed Ablösung) */
   unlinkTruppLine: (id: string) => void
   /** put a hand-typed Gast on the Anwesenheit — a Gast under PA was at the Einsatz, and a name
@@ -210,7 +213,7 @@ export function AtemschutzView({
    *
    * The later nonce wins, so whichever pointed last is the one the board obeys.
    */
-  const [selfFocus, setSelfFocus] = useState<{ id: string; nonce: number } | null>(null)
+  const [selfFocus, setSelfFocus] = useState<{ id: string; nonce: number; markAll?: boolean } | null>(null)
   // the incoming pointer, minus a nonce this view has already rung the bell for once (module-scope
   // guard against a REMOUNT replaying a stale one — see `lastShownFocusNonce` above). A genuinely
   // NEW nonce — an actual repeat tap, or a fresh jump arriving while this page stays mounted —
@@ -680,11 +683,22 @@ export function AtemschutzView({
     card.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [compact, openRow])
 
+  /* WHICH cards the current pointer marks — and which one the board scrolls to.
+   *
+   * ⚠️ The header badge counts EVERY Trupp in alarm, so pressing it rings every one of them
+   * (05.09.): «2 Alarme» that ringed a single card said the opposite of the number on it, and
+   * the answer to «welche denn?» was still a scroll. The scroll stays on the one card the badge
+   * ranks first (`activeFocus.id`, = the TopBar chip's pick) — two smooth scrolls fired at once
+   * fight each other and land wherever the last one happened to render. */
+  const markAll = !!(selfFocus && activeFocus === selfFocus && selfFocus.markAll)
+  const focusNonceOf = (id: string) =>
+    activeFocus && (activeFocus.id === id || (markAll && sevOf(id) >= 2)) ? activeFocus.nonce : undefined
+
   const cards = (list: Trupp[]) => list.map((t) => (
     compact && !focusMode && openRow !== t.id ? (
       <TruppRow
         key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
-        focusNonce={activeFocus?.id === t.id ? activeFocus.nonce : undefined}
+        focusNonce={focusNonceOf(t.id)} focusScroll={activeFocus?.id === t.id}
         onContact={(id) => { freezeOrder(); recordContact(id) }}
         onOpen={() => setOpenRow(t.id)}
       />
@@ -699,7 +713,7 @@ export function AtemschutzView({
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
       intervalMin={intervalMin}
-      focusNonce={activeFocus?.id === t.id ? activeFocus.nonce : undefined}
+      focusNonce={focusNonceOf(t.id)} focusScroll={activeFocus?.id === t.id}
       onContact={(id) => { freezeOrder(); recordContact(id) }}
       onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
@@ -710,7 +724,7 @@ export function AtemschutzView({
       // did nothing — and these Trupps never had them (they lived on `PlainTruppRow`, which had
       // no such control at all). See the note on `.cardActs`' old ‹ › pair above.
       onMove={order === 'manuell' && !compact && isAtemschutzTrupp(t) ? onMove : undefined}
-      onPickLine={pickTruppLine}
+      onPickLine={pickTruppLine} anyLine={anyLeitung}
       onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)}
       // «Tafel pur»: everything that points at the Karte or a drawn Leitung is unreachable from
       // this session, and a control that will fail is worse than no control (see `lite` above).
@@ -862,10 +876,35 @@ export function AtemschutzView({
             aria-live="assertive"
             title={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
-            onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now() })}
+            onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now(), markAll: true })}
           >
             <Icon id="warn" /><span>{az.overdueBadge(overdueCount)}</span>
           </button>
+        )}
+        {/* ⚠️ The way back that does not expire. Deleting a Trupp raises a «Rückgängig» toast for six
+            seconds; miss it — gloves, 3am, a second Trupp overdue — and the card was unreachable,
+            even though the record itself keeps it (types · Trupp.removedAt). Shown only while there
+            IS something to bring back, so an ordinary board never carries it.
+            ⚠️ BEFORE the sort filter (05.09.): the two icons sat the other way round, and the one
+            that undoes something belongs nearer the badge than the one that only changes how the
+            board is looked at. */}
+        {canEdit && removedTrupps.length > 0 && (
+          <Menu
+            trigger={
+              <button type="button" className={s.orderBtn} aria-label={az.restoreMenu} title={az.restoreMenu}>
+                <Icon id="undo" />
+              </button>
+            }
+            popupClassName="rp-print-menu"
+            itemClassName={() => 'rp-print-menu-item'}
+            items={[
+              { kind: 'head' as const, label: az.restoreMenu },
+              ...removedTrupps.map((t) => ({
+                label: fillTemplate(az.restoreItem, { name: t.name }),
+                onClick: () => restoreTrupp(t),
+              })),
+            ]}
+          />
         )}
         {/* ⚠️ A MENU, not a segmented control. Four options laid out in full needed ~380px in a
             header that also carries a title, a subtitle, an überfällig badge, the alarm toggle and
@@ -895,28 +934,6 @@ export function AtemschutzView({
                   { value: 'name', label: az.orderName },
                 ],
               },
-            ]}
-          />
-        )}
-        {/* ⚠️ The way back that does not expire. Deleting a Trupp raises a «Rückgängig» toast for six
-            seconds; miss it — gloves, 3am, a second Trupp overdue — and the card was unreachable,
-            even though the record itself keeps it (types · Trupp.removedAt). Shown only while there
-            IS something to bring back, so an ordinary board never carries it. */}
-        {canEdit && removedTrupps.length > 0 && (
-          <Menu
-            trigger={
-              <button type="button" className={s.orderBtn} aria-label={az.restoreMenu} title={az.restoreMenu}>
-                <Icon id="undo" />
-              </button>
-            }
-            popupClassName="rp-print-menu"
-            itemClassName={() => 'rp-print-menu-item'}
-            items={[
-              { kind: 'head' as const, label: az.restoreMenu },
-              ...removedTrupps.map((t) => ({
-                label: fillTemplate(az.restoreItem, { name: t.name }),
-                onClick: () => restoreTrupp(t),
-              })),
             ]}
           />
         )}
@@ -1036,18 +1053,21 @@ export function AtemschutzView({
                 </button>
               )
             })}
-          </div>
-          {/* «+ Trupp» no longer eats a full chip row (`.tabNew` used to be its own
-              `grid-column: 1 / -1`) — it is a compact icon button at the rail's own trailing
-              end, so it never competes with the chip grid for width. The bell stays in the
-              header (maintainer correction, 03.09.) — this rail carries chips + «+» only. */}
-          {canEdit && (
-            <div className={s.railActs}>
-              <button type="button" className={s.orderBtn} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
+            {/* «+ Trupp» — the LAST CELL OF THE SAME GRID (05.09.). It used to be a 44px icon
+                button in a fixed column of its own beside the strip, which made it the one thing
+                on the rail that was neither as wide nor as tall as a chip, and it ate width the
+                names needed («Stich Markus» clipped against it). In the grid it is one more cell:
+                same width, same row height, and it flows on after the last Trupp instead of
+                hanging off the top-right corner. It is a plain action inside the tablist for the
+                same reason a browser's own tab strip carries one — the thing that adds a tab
+                belongs where the tabs are. The bell stays in the header (03.09.). */}
+            {canEdit && (
+              <button type="button" className={cx(s.tab, s.tabAdd)} onClick={() => openForm('create')}
+                aria-label={az.newTrupp} title={az.newTrupp}>
                 <Icon id="plus-bold" />
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
@@ -1236,7 +1256,7 @@ function PressureInline({ value, onCommit, alarmBar }: {
  *  leads to. Everything else (Druck, Rückzug, Raus, Leitung, Bearbeiten, Entfernen) stays in the
  *  card, one tap deeper — including delete, which is a good place for it to be. */
 function TruppRow({
-  t, live, alarm, now, color, canEdit, onContact, onOpen, focusNonce,
+  t, live, alarm, now, color, canEdit, onContact, onOpen, focusNonce, focusScroll = true,
 }: {
   t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the card use */
@@ -1244,6 +1264,9 @@ function TruppRow({
   onContact: (id: string) => void
   onOpen: () => void
   focusNonce?: number
+  /** ring, but do NOT scroll — the badge marks every alarmed Trupp and only ONE of them may own
+   *  the scroll port (see `focusNonceOf`); two smooth scrolls at once land nowhere in particular */
+  focusScroll?: boolean
 }) {
   const az = appConfig.copy.atemschutz
   const status = live.status
@@ -1276,7 +1299,7 @@ function TruppRow({
   useEffect(() => {
     const el = rowRef.current
     if (focusNonce == null || !el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (focusScroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.classList.remove(s.cardFlash)
     void el.offsetWidth
     el.classList.add(s.cardFlash)
@@ -1286,7 +1309,7 @@ function TruppRow({
     // and leave the class on. Under prefers-reduced-motion `.cardFlash` is a STATIC ring with no
     // animation to end, so that stuck class is a permanent one.
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
-  }, [focusNonce])
+  }, [focusNonce, focusScroll])
   const team = (t.members ?? []).filter(Boolean).join(' · ')
   return (
     <button ref={rowRef} type="button" className={cx(s.trow, tone)} onClick={onOpen}
@@ -1375,7 +1398,7 @@ function TruppRow({
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, anyLine = false, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
@@ -1390,6 +1413,9 @@ function TruppCard({
   onStatus: (id: string, status: Trupp['status']) => void
   /** this is the card somebody was just sent to — scroll it under their eyes and mark it */
   focusNonce?: number
+  /** ring, but do NOT scroll — the header badge marks every alarmed Trupp and only ONE of them
+   *  may own the scroll port (see `focusNonceOf`) */
+  focusScroll?: boolean
   onEdit: (focus?: 'auftrag') => void
   onReenter: () => void
   onDelete: (id: string) => void
@@ -1398,8 +1424,10 @@ function TruppCard({
   onRestore: (t: Trupp) => void
   onPlace: (id: string) => void
   onShowPlan: (id: string) => void
-  /** start «Leitung wählen» — the next tap on a hose (Lage or Plan) links it to this Trupp */
+  /** start «Leitung wählen» — the next tap on a hose links it to this Trupp */
   onPickLine: (id: string) => void
+  /** is there a hose drawn anywhere to tap? Without one the row is withheld — see AtemschutzView */
+  anyLine?: boolean
   /** jump to the drawn Leitung (Lage or Plan) — the counterpart of «auf Plan zeigen» */
   onShowLine: (id: string) => void
   /** is there actually a hose drawn for this Trupp? Decides whether the chip is a jump or plain
@@ -1435,7 +1463,7 @@ function TruppCard({
   useEffect(() => {
     const el = cardRef.current
     if (focusNonce == null || !el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (focusScroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.classList.remove(s.cardFlash)
     void el.offsetWidth
     el.classList.add(s.cardFlash)
@@ -1445,7 +1473,7 @@ function TruppCard({
     // the card for good — visibly so under prefers-reduced-motion, where `.cardFlash` is a static
     // ring rather than an animation that ends by itself.
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
-  }, [focusNonce])
+  }, [focusNonce, focusScroll])
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   const auftrag = truppAuftragLabel(t.auftrag)
   // ⚠️ forced to 0 off the Atemschutz section rather than trusted from `alarm`: every tint, every
@@ -1488,7 +1516,8 @@ function TruppCard({
      (deriveTruppLive) and no tier, so the tier ladder would have called it «Kontakt ok» over
      «–:––» — an OK statement about somebody nobody is watching, and `truppStatusLabel`'s
      distinction between «Draussen» and «Nicht eingesetzt» would have reached no screen at all.
-     What the Überwacher needs from then on is the break clock, so that is what the band holds. */
+     And it gets NO time either (05.09., reversing the 04.09. break clock): once a crew is out
+     we don't care how long it has been resting — the word alone is the whole statement. */
   const out = status === 'raus'
   /* ⚠️ «Nicht eingesetzt» gets NO running clock (04.09.). A Sicherungstrupp that was stood down
      without ever going under PA wore the break clock — big, bold, ticking, under «Draussen seit» —
@@ -1503,7 +1532,7 @@ function TruppCard({
     : pressureCrit ? az.clockAlarmPressure
     : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
   const bandSub = neverDeployed ? (registeredAt != null ? az.bandRegisteredAt : '')
-    : out ? az.outFor
+    : out ? ''
     // ⚠️ the long «…sobald der Trupp unter Atemschutz…» hint is NOT the sub-line: it repeats the
     // word above it and it names Atemschutz, which a work squad does not have. It is a hint, and
     // it sits in the hint zone (below) on the cards it is actually true for.
@@ -1511,16 +1540,16 @@ function TruppCard({
     : pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line })
     : az.sinceContact
   const bandValue = neverDeployed ? (registeredAt != null ? fmtTime(new Date(registeredAt).toISOString()) : '')
-    : out ? fmtClock(live.outSec)
+    : out ? ''
     : preEntry ? fmtClock(null)
     : !monitored ? fmtClock(t.entryTime ? live.elapsedSec : null)
     : pressureCrit ? `${live.currentBar} bar`
     : fmtClock(live.sinceContactSec)
   /* ⚠️ A Trupp that is OUT does not get the card's loudest element (04.09.). The 40px bold number
-     is reserved for a crew that is inside — that is the whole reading order of this board — and a
-     break clock in the same weight put a Trupp nobody is watching at the top of the eye's list.
-     Same facts, quiet type: `.bandQuiet` (Atemschutz.module.css). Covers both out states, the
-     never-deployed one included, which is a static time and had even less business shouting. */
+     is reserved for a crew that is inside — that is the whole reading order of this board. Since
+     05.09. an out card carries no time at all (the band holds the word alone); quiet type stays:
+     `.bandQuiet` (Atemschutz.module.css). Covers both out states, the never-deployed one
+     included, whose Anmeldezeit is a static time and keeps printing. */
   const bandQuiet = out
 
   // The Leitung chip: the numeric field, else the free text an older record still carries. Shown
@@ -1562,7 +1591,10 @@ function TruppCard({
       : canEdit && status !== 'raus' ? [{ label: az.place, onClick: () => onPlace(t.id) }] : []),
     ...(lite ? [] : hasLine
       ? [{ label: az.lineShow, onClick: () => onShowLine(t.id) }]
-      : canEdit && status !== 'raus' ? [{ label: az.linePick, onClick: () => onPickLine(t.id) }] : []),
+      // ⚠️ …and only while a hose is actually drawn somewhere. The row leaves this board for the
+      // Karte and asks for a tap; with nothing to tap it armed an invisible mode over an empty
+      // picture and the operator came back none the wiser.
+      : canEdit && anyLine && status !== 'raus' ? [{ label: az.linePick, onClick: () => onPickLine(t.id) }] : []),
     // Only while the hand-set order is the one on screen: moving a card under any other sort
     // would rearrange something the sort is about to rearrange back.
     ...(onMove && canEdit && !lite ? [
@@ -1801,11 +1833,9 @@ function TruppCard({
             <b>{fmtClock(live.elapsedSec)}</b>
           </div>
         )}
-        {/* The break clock. Once a Trupp is out its Einsatzzeit is finished and stands still —
-            what the Überwacher needs from then on is how long the crew has been resting before
-            it can be sent in again, so that is the number that keeps running. */}
-        {/* …unless the band is already holding it, which is the whole of what a card says once a
-            Trupp is out (see `bandValue` above) */}
+        {/* ⚠️ A Trupp that is OUT shows no time at all (05.09.) — not here and not in the band.
+            This row survives only for the odd record whose exitTime is set while its status is
+            not `raus` (legacy data), so a real out card never prints a resting clock. */}
         {live.outSec != null && !out && (
           <div className={s.metaRow}>
             <span>{az.outFor}</span>
@@ -1980,6 +2010,27 @@ function StackRow({ n, label, summary, due, done, open, onToggle, children }: {
   )
 }
 
+/**
+ * Is `el` already fully visible inside the box that scrolls it?
+ *
+ * ⚠️ The point is what NOT to do: a smooth `scrollIntoView` on an element that is already in
+ * view still starts an animation, and iOS spends the next tap on stopping it. Ringing a field
+ * that never moved therefore cost the operator their first tap on the chip beside it.
+ * Falls back to the viewport when nothing above the element scrolls; an element with no layout
+ * (jsdom, a sheet that has not painted yet) counts as out of view, so the scroll still happens.
+ */
+function inScrollPort(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect()
+  if (r.width === 0 && r.height === 0) return false
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    if (p.scrollHeight > p.clientHeight + 1) {
+      const pr = p.getBoundingClientRect()
+      return r.top >= pr.top && r.bottom <= pr.bottom
+    }
+  }
+  return r.top >= 0 && r.bottom <= window.innerHeight
+}
+
 /** Which part of the phone stack is open. Also the id every «point at the field that blocks
  *  the save» path uses, because a field can only be rung once its section is open. */
 type StackSection = 'team' | 'luft' | 'auftrag'
@@ -2116,7 +2167,7 @@ function TruppForm({
   const teamRef = useRef<HTMLDivElement>(null)
   const zielRef = useRef<HTMLLabelElement>(null)
   const pressureRef = useRef<HTMLDivElement>(null)
-  const conflictRef = useRef<HTMLParagraphElement>(null)
+  const conflictRef = useRef<HTMLButtonElement>(null)
 
   // ⚠️ Shown in EVERY mode, including 'edit'. Hiding it there meant a mistyped Eingangsdruck could
   // never be corrected — and it is the number the Verbrauch and the tiefster Druck on the Rapport
@@ -2198,13 +2249,41 @@ function TruppForm({
     }, standby)
   }
 
+  /**
+   * Why the save did not happen, said WHERE the save is — a line right above the footer actions
+   * (05.09., field feedback).
+   *
+   * ⚠️ NOT a toast any more. The app's toast lane is pinned to the bottom of the VIEWPORT, which
+   * on this sheet is a pill hanging in the form's own empty space above the footer — and, worse,
+   * a pill with `pointer-events: auto` sitting over whatever field happens to be under it. On a
+   * phone that is the Auftrag «Art» chips: the first tap on «Löschen» hit the pill instead of the
+   * chip, which is the «needs two taps to change the Art» defect. The reason belongs to the form,
+   * so it is rendered by the form, anchored to the button it is about.
+   *
+   * DERIVED, not stored: the sentence is read off the same fields in the same precedence
+   * `canSubmit` and `attemptSubmit` check, so it can never go stale — fixing the Mannschaft while
+   * the Auftrag is still open re-reads as «Auftrag fehlt.» rather than keeping the answer to a
+   * question that has been answered. All the state is whether a blocked tap has happened at all.
+   * (The double assignment is the one reason with no line here: it already prints its own
+   * sentence on the form, and saying it twice is not saying it louder.)
+   */
+  const [blockedShown, setBlockedShown] = useState(false)
+  const blocked = !blockedShown || canSubmit || assignedConflict ? null
+    : !leaderOk ? az.saveBlockedTeam
+    : !auftragOk || !auftragFilled ? (auftragOk ? az.saveBlockedAuftragMissing : az.saveBlockedAuftrag)
+    : showPressure && pressure <= 0 ? az.saveBlockedPressure
+    : null
+
   /** Retrigger the same flash-ring `focusSection` gives an opened section (`.formFlash` above),
    *  imperatively — a second blocked tap must ring again, which a className tied to render state
    *  alone cannot do without a remount. Mirrors the identical remove/reflow/add idiom the board's
    *  own card flash uses (AtemschutzView · TruppCard/TruppRow) for the same reason. */
   const flashSection = (el: HTMLElement | null) => {
     if (!el) return
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // ⚠️ Only when it is actually out of view (05.09.). A smooth scroll that has nowhere to go
+    // still runs, and iOS spends the next tap on stopping it — so ringing a field that was on
+    // screen all along cost the operator their first tap on it.
+    if (!inScrollPort(el)) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.classList.remove(s.formFlash)
     void el.offsetWidth
     el.classList.add(s.formFlash)
@@ -2230,16 +2309,24 @@ function TruppForm({
    * collapsed section opens that section first (`pointAt`).
    */
   const attemptSubmit = (standby = false) => {
-    if (canSubmit) { submit(standby); return }
+    if (canSubmit) { setBlockedShown(false); submit(standby); return }
     if (!leaderOk) {
-      toast(az.saveBlockedTeam, { icon: 'warn', tone: 'warn' })
+      setBlockedShown(true)
       pointAt('team', () => teamRef.current)
       return
     }
-    // the conflict already prints its own sentence right on the form (see below) — a toast
-    // repeating it would say the same thing twice, so this only points at it. It is rendered
-    // outside the sections, so it is on screen whatever is open.
-    if (assignedConflict) { flashSection(conflictRef.current); return }
+    // the conflict already prints its own sentence right on the form (see below) — a second copy
+    // of it above the footer would say the same thing twice, so this only points at it. It is
+    // rendered outside the sections, so it is on screen whatever is open.
+    // ⚠️ …and it opens the MANNSCHAFT (05.09.): the sentence names a person, and the only way to
+    // resolve it is to take that person out of this Trupp — which is done one section up, not in
+    // whichever section happened to be open when the save was tried.
+    if (assignedConflict) {
+      setBlockedShown(false)
+      pointAt('team', () => teamRef.current)
+      flashSection(conflictRef.current)
+      return
+    }
     // ⚠️ NO dead disabled button, and no hunting for the chevron: a blocked «Trupp anmelden»
     // OPENS the section that holds the Auftrag (on the phone stack it is behind a fold), rings
     // both halves of the answer and puts the focus on the first Auftrag tile — the same place the
@@ -2247,7 +2334,7 @@ function TruppForm({
     // text input here throws the on-screen keyboard over the rest of the form (see the note at
     // «No autofocus» above).
     if (!auftragOk || !auftragFilled) {
-      toast(auftragOk ? az.saveBlockedAuftragMissing : az.saveBlockedAuftrag, { icon: 'warn', tone: 'warn' })
+      setBlockedShown(true)
       pointAt('auftrag', () => auftragRef.current)
       const ring = () => {
         flashSection(zielRef.current)
@@ -2258,7 +2345,7 @@ function TruppForm({
       return
     }
     if (showPressure && pressure <= 0) {
-      toast(az.saveBlockedPressure, { icon: 'warn', tone: 'warn' })
+      setBlockedShown(true)
       pointAt('luft', () => pressureRef.current)
     }
   }
@@ -2274,8 +2361,10 @@ function TruppForm({
     ? team.map((m, i) => (i === 0 ? fillTemplate(az.stackLeader, { name: m.name.trim(), role: az.leaderBadge }) : m.name.trim()))
       .filter(Boolean).join(' · ')
     : az.stackTeamEmpty
+  // ⚠️ No «Unter Atemschutz» here since 05.09. — the Art moved up into «Auftrag & Leitung» with
+  // its tiles, and a closed row must read out what is actually inside it or the stack stops
+  // being the form.
   const summaryLuft = [
-    isPa ? az.kindAtemschutz : az.kindPlain,
     showPressure ? fillTemplate(az.stackPressure, { n: pressure }) : null,
     fillTemplate(az.stackFunk, { n: funkkanal }),
   ].filter(Boolean).join(' · ')
@@ -2284,6 +2373,9 @@ function TruppForm({
   // needs more. On the lite Tafel there is no Ltg field at all, so the line is dropped too.
   const auftragText = auftrag ? (az.auftragLabels[auftrag] ?? auftrag) : null
   const summaryAuftrag = [
+    // …and the Art leads it (05.09.), because the tiles that ask it now live in this section
+    // (`lite` is the one board that never asks — see `kindChooser`)
+    lite ? null : isPa ? az.kindAtemschutz : az.kindPlain,
     [auftragText, ziel.trim()].filter(Boolean).join(' – ') || az.auftragOpen,
     lite ? null : lineNo ? fillTemplate(az.stackLine, { n: lineNo }) : az.stackNoLine,
   ].filter(Boolean).join(' · ')
@@ -2321,9 +2413,12 @@ function TruppForm({
       <span>{az.sectionTeam}</span>
       {/* One list, leader first. A Trupp is valid with exactly one name (the Gruppenführer),
           so a two-person Trupp, a four-person Trupp and a mis-tap are all one tap apart —
-          which the three fixed slots could not do. */}
+          which the three fixed slots could not do.
+          ⚠️ `phone` is the same `stack` that decides the three-section form (05.09.): on 375px
+          the Mannschaft is a wrapping chip row and the roster appears only under a typed query.
+          Same record, same handlers — see TruppTeam · `phone`. */}
       <TruppTeam
-        value={team} onChange={setTeam}
+        value={team} onChange={setTeam} phone={stack}
         personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
         assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
       />
@@ -2467,22 +2562,24 @@ function TruppForm({
             >
               {teamFields}
             </StackRow>
-            {/* ⚠️ «Art des Trupps» rides with the fields it GOVERNS (03.09.) — the Druck it adds
-                or drops, and the Auftrag list it narrows. So it leads this section rather than
-                standing on one of its own, and section 1 is the Mannschaft alone: who is in the
-                Trupp is the one thing the Art does not decide. */}
+            {/* ⚠️ «Auftrag & Leitung» comes SECOND, and «Art des Trupps» comes with it (05.09.,
+                field feedback). Order: who goes in → what for → with how much air. The Art was
+                placed with the Druck it governs (03.09.), but on the stack the question it
+                actually decides FIRST is what the crew is being sent to do — it narrows the
+                Auftrag vocabulary, and «Ohne Atemschutz» removes the Druck field from the section
+                below entirely. Asking it there meant walking back up a section to change it. */}
             <StackRow
-              n={2} label={az.stackLuft} summary={summaryLuft} done
-              open={openSection === 'luft'} onToggle={() => toggleSection('luft')}
-            >
-              {kindChooser}
-              {luftFields}
-            </StackRow>
-            <StackRow
-              n={3} label={az.stackAuftrag} summary={summaryAuftrag} due={!auftragText} done={!!auftragText}
+              n={2} label={az.stackAuftrag} summary={summaryAuftrag} due={!auftragText} done={!!auftragText}
               open={openSection === 'auftrag'} onToggle={() => toggleSection('auftrag')}
             >
+              {kindChooser}
               {auftragFields}
+            </StackRow>
+            <StackRow
+              n={3} label={az.stackLuft} summary={summaryLuft} done
+              open={openSection === 'luft'} onToggle={() => toggleSection('luft')}
+            >
+              {luftFields}
             </StackRow>
           </div>
         ) : (<>
@@ -2495,12 +2592,25 @@ function TruppForm({
           <div className={s.formCol}>{luftFields}{auftragFields}</div>
         </>)}
 
+        {/* ⚠️ A BUTTON since 05.09. The sentence names a person who is in another Trupp, and the
+            only place that can be fixed is the Mannschaft — so pressing the sentence opens it,
+            the same jump a blocked «Trupp anmelden» now makes. It used to be an inert <p>: the
+            loudest thing on the form, naming the one thing in the way, and doing nothing. */}
         {assignedConflict && (
-          <p ref={conflictRef} className={cx(s.formColWide, s.formWarn)}>
+          <button ref={conflictRef} type="button" className={cx(s.formColWide, s.formWarn)}
+            onClick={() => pointAt('team', () => teamRef.current)}>
             <Icon id="warn" /><span>{fillTemplate(az.assignedConflict, { name: assignedConflict })}</span>
-          </p>
+          </button>
         )}
       </div>
+
+      {/* Why the save did not happen, where the save is — see `blocked` above for why this is not
+          a toast. `role="alert"` so it is spoken the moment it appears, exactly as the toast was. */}
+      {blocked && (
+        <p className={s.formBlocked} role="alert">
+          <Icon id="warn" /><span>{blocked}</span>
+        </p>
+      )}
 
       <div className={s.modalFoot}>
         {/* the house button family — three private classes here were the last of this modal's

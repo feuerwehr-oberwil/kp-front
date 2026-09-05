@@ -5,6 +5,7 @@ import { cx } from '../lib/cx'
 import { Overlay } from '../lib/overlays'
 import { searchQuery } from '../lib/search'
 import { truppMatches, type PlacedTrupp } from '../lib/placedTrupps'
+import { isAtemschutzTrupp } from '../lib/atemschutz'
 import s from './TruppFinder.module.css'
 
 /**
@@ -87,6 +88,15 @@ export function TruppFinder({ trupps, onPick, onClose }: {
                     {t.members.length > 0 && <span className={s.members}> · {t.members.join(', ')}</span>}
                   </span>
                 </span>
+                {/* «AS» — this crew is under Presslufatmer. The list mixes Atemschutz-Trupps and
+                    work squads, and which one you are about to jump to is worth knowing before
+                    the tap. A fact, not an alarm: quiet blue, never the board's amber/red.
+                    ⚠️ Only for a chip that HAS a Trupp: `isAtemschutzTrupp` reads an absent
+                    `kind` as «unter Atemschutz» (that is what it meant before 03.09.), which on a
+                    loose «Team 2» marker would be a claim nobody made. */}
+                {!!t.truppId && isAtemschutzTrupp(t) && (
+                  <span className={s.as} title={appConfig.copy.atemschutz.kindAtemschutz}>{appConfig.copy.atemschutz.asMark}</span>
+                )}
                 {t.status === 'raus' && <span className={s.chip}>{C.raus}</span>}
                 <span className={s.go} aria-hidden><Icon id="chevron" /></span>
               </button>

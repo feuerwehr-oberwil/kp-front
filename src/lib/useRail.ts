@@ -53,6 +53,25 @@ export interface RailOptions {
   releaseOnUnmount?: boolean
 }
 
+/**
+ * Which way this rail scrolls, and where it stands on that axis.
+ *
+ * Both rails are a vertical COLUMN on tablet/desktop and a horizontal BAR on a phone, and the
+ * stylesheet is what decides — so the axis is read off the laid-out element (`flex-direction`)
+ * rather than re-derived from a breakpoint the JS would then have to keep in step with
+ * `PHONE_QUERY`. Comparing overflow on both axes is NOT the same test: a column whose label runs
+ * a pixel wide would call itself a bar.
+ */
+function railAxis(el: HTMLElement) {
+  const row = getComputedStyle(el).flexDirection === 'row'
+  return {
+    row,
+    band: row ? el.clientWidth : el.clientHeight,
+    full: row ? el.scrollWidth : el.scrollHeight,
+    at: row ? el.scrollLeft : el.scrollTop,
+  }
+}
+
 /** Grip handlers, ready to spread onto the `<button className="…-grip">`. */
 type GripProps = Pick<ComponentProps<'button'>, 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel'>
 
@@ -64,19 +83,24 @@ export function useRail(o: RailOptions) {
   /** write the live width so everything that sits beside the rail can follow it via calc() */
   const setRailVar = (px: number) => document.documentElement.style.setProperty(varName, `${px}px`)
 
-  // The vertical rail scrolls when its list outgrows the viewport (the common case on an iPad:
-  // Anwesenheit sits just below the fold). Without a cue that's invisible, so we fade whichever
-  // edge has more content — the same "scroll for more" affordance the phone bottom-bar uses, here
-  // on the vertical axis. (On phones the rail is a horizontal bar with its own right-edge fade,
-  // where scrollTop stays 0, so neither class is applied.)
+  // The rail scrolls when its list outgrows the band it is given. Without a cue that's invisible,
+  // so we mark whichever edge still has content behind it — the fade (and, on the vertical rail,
+  // the nudge chevron) hangs off these two flags.
+  //
+  // ⚠️ The rail is a COLUMN on tablet/desktop and a horizontal BAR on phones, so the axis that
+  // scrolls is not fixed. Measuring `scrollTop` alone left both flags false on a phone, and the
+  // two bars painted their fade unconditionally instead — a «there is more this way» edge after
+  // the LAST tool, on a bar already sitting at its end. So the axis is read off the element
+  // (`railAxis`, above) and `top`/`bottom` mean the START/END of whichever one it is.
   const scrollRef = useRef<HTMLDivElement>(null)
   const [edge, setEdge] = useState({ top: false, bottom: false })
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     const update = () => {
-      const top = el.scrollTop > 1
-      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1
+      const { band, full, at } = railAxis(el)
+      const top = at > 1
+      const bottom = at + band < full - 1
       setEdge((e) => (e.top === top && e.bottom === bottom ? e : { top, bottom }))
     }
     update()
@@ -97,13 +121,18 @@ export function useRail(o: RailOptions) {
   // past the middle to the last item, and «Atemschutz», «Anwesenheit» and «Checkliste» were
   // reachable by neither end. The chevron is the entire route to seven surfaces there. The right
   // rail shows 2 of 9 tools at 852×393, where a jump to the end skipped «Symbol».
+  //
+  // Same axis question as the edges above: on a phone the rail is a bar, so a nudge pages
+  // sideways. (Its chevrons are hidden there today — the fade carries the cue on a bar — but the
+  // two must not be able to disagree about which way «more» is.)
   const nudge = (dir: 1 | -1) => {
     const el = scrollRef.current
     if (!el) return
-    const page = Math.max(el.clientHeight - 50, 50)   // a screenful, less one item of overlap
-    const rest = dir === 1 ? el.scrollHeight - el.clientHeight - el.scrollTop : el.scrollTop
-    const top = rest <= page ? (dir === 1 ? el.scrollHeight : 0) : el.scrollTop + dir * page
-    el.scrollTo({ top, behavior: scrollBehavior() })
+    const { row, band, full, at } = railAxis(el)
+    const page = Math.max(band - 50, 50)   // a screenful, less one item of overlap
+    const rest = dir === 1 ? full - band - at : at
+    const to = rest <= page ? (dir === 1 ? full : 0) : at + dir * page
+    el.scrollTo({ [row ? 'left' : 'top']: to, behavior: scrollBehavior() })
   }
 
   // keep the ACTIVE item visible: the phone bottom bar (and a crowded tablet rail) scrolls, and

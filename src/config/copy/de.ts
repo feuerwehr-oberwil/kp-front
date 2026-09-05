@@ -186,7 +186,7 @@ export const de = {
             '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit dem Schloss mehrere nacheinander setzen.',
             '**Formen** – im selben Fenster, hinter den Gefahren: **Pfeil** und **Rechteck**, für alles, wofür es kein taktisches Zeichen gibt. Der Griff dreht, die Ecke zieht das Rechteck in die Länge (der Pfeil bleibt proportional, eine verzerrte Spitze liest sich schlecht). Beim Pfeil schaltet **Stopp-Balken** den Querbalken quer zur Spitze ein – die Entwicklungsgrenze: bis hier, und dort gestoppt.',
             '**Auswahl** – Objekte antippen, verschieben, im Editor anpassen.',
-            '**Mehrfach** – Lasso: mehrere Symbole/Zeichnungen auf einmal auswählen.',
+            '**Mehrfach** – nochmals auf **Auswahl** tippen, während sie aktiv ist: der Knopf wechselt auf Mehrfach (Zeichen und Wort), und ein gezogener Rahmen wählt mehrere Symbole/Zeichnungen auf einmal aus. Ein weiterer Tipp führt zurück zur Auswahl.',
             '**Linie** – ziehen oder Punkte tippen; der Stil wird danach im Editor gewählt: **Freihand**, **Pfeil** oder **Rettungsachse**. Darunter der **Abschluss** – **Keiner**, **Pfeil**, **Pfeil mit Stopp** (derselbe Querbalken an der Spitze) oder **Teilstück**; **Richtung umkehren** setzt ihn ans andere Ende, ohne die Linie zu verschieben.',
             '**Fläche** – Eckpunkte tippen (ab 3 Punkten mit Flächeninhalt); Eckpunkte ziehen/einfügen/löschen.',
             '**Absperrkreis** – von der Mitte zum Rand ziehen setzt den Radius in Metern (Füllung einstellbar).',
@@ -408,7 +408,7 @@ export const de = {
           { kind: 'sub', text: 'Tippen & Ziehen (Touch/iPad)' },
           { kind: 'list', items: [
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
-            'Mit **Mehrfach** ein Lasso ziehen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
+            'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
           { kind: 'sub', text: 'Maus' },
           { kind: 'list', items: [
@@ -694,8 +694,10 @@ export const de = {
     // grouped: selection · create (Symbol + drawing) · annotate/measure. One divider before
     // the create group; Symbol leads it as a plain tool — no divider isolating it from the
     // drawing tools and no special styling.
-    { id: 'select', icon: 'select', label: 'Auswahl', kind: 'tool' },
-    { id: 'lasso', icon: 'marquee', label: 'Mehrfach', kind: 'tool' },
+    // Auswahl carries Mehrfach as its SECOND state (05.09.) instead of a rail slot of its own:
+    // tapping the already-armed Auswahl swaps glyph AND word to Mehrfach, tapping again swaps
+    // back. Both keys keep working ([[V]] / [[W]]) — this is chrome, not a new tool.
+    { id: 'select', icon: 'select', label: 'Auswahl', kind: 'tool', alt: { id: 'lasso', icon: 'marquee', label: 'Mehrfach' } },
     { id: 'sep-symbol', sep: true, icon: '', label: '' },
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
     { id: 'line', icon: 'pen', label: 'Linie', kind: 'tool' },
@@ -708,13 +710,14 @@ export const de = {
     { id: 'team', icon: 'flag', label: 'Trupp', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Messen', kind: 'tool' },
   ],
-  // Plan/whiteboard tool list — mirrors mapTools' ordering (Auswahl · Mehrfach · Symbol ·
-  // then the create tools) so the two shared tool rails read the same. Symbol leads the
-  // create group as a plain tool (no divider isolating it from Zeichnen).
+  // Plan/whiteboard tool list — mirrors mapTools' ordering (Auswahl · Symbol · then the create
+  // tools) so the two shared tool rails read the same. Symbol leads the create group as a plain
+  // tool (no divider isolating it from Zeichnen).
   planTools: [
     // grouped: selection · create — mirrors mapTools' divider rhythm
-    { id: 'pan', icon: 'select', label: 'Auswahl' },
-    { id: 'lasso', icon: 'marquee', label: 'Mehrfach' },
+    // …and the same two-state Auswahl the Karte has: 'pan' IS the plan's Auswahl, Mehrfach is
+    // the second tap on it. Lage ↔ Plan parity — one interaction, both surfaces.
+    { id: 'pan', icon: 'select', label: 'Auswahl', alt: { id: 'lasso', icon: 'marquee', label: 'Mehrfach' } },
     { id: 'sep-symbol', sep: true, icon: '', label: '' },
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
     // single Linie tool (Freihand-drag ↔ Punkte toggle lives in its dock), mirroring the Karte map
@@ -773,7 +776,7 @@ export const de = {
   // that used to sit in the bottom hint bar
   dockHints: {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
-    lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte.',
+    lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Stil (Freihand · Pfeil · Rettungsachse) danach im Editor wählen.',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
@@ -1468,6 +1471,12 @@ export const de = {
     kindAtemschutzHint: 'Mit Druck und Kontaktuhr',
     kindPlain: 'Ohne Atemschutz',
     kindPlainHint: 'Nur Auftrag und Zeit',
+    // Das kleine Zeichen an einer Truppzeile in den AUSWAHLEN («Welcher Trupp?» auf Karte und
+    // Plan, Trupp-Suche): dort stehen Atemschutz- und Arbeitstrupps in EINER Liste, und wer
+    // gleich unter Presslufatmer geht, ist die Zeile, die man beim Platzieren nicht verwechseln
+    // darf. Kurz, weil es neben dem Namen sitzt – dasselbe Kürzel, das die Anwesenheit auf die
+    // Personenzeile schreibt (personnel · roleAtemschutz).
+    asMark: 'AS',
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
     newTrupp: 'Trupp erstellen',
@@ -1573,6 +1582,19 @@ export const de = {
     teamSlotEmpty: '–',
     teamSearchPlaceholder: 'Person suchen …',
     teamNoMatches: 'Kein Treffer',
+    /* ── Die Chip-Zeile (nur Telefon, 05.09.) ───────────────────────────────────────────────
+     * Auf 375px kosteten drei aufklappende Slot-Zeilen plus eine dauernd sichtbare
+     * Mannschaftsliste die halbe Form. Der Trupp ist dort EINE umbrechende Chip-Zeile, und die
+     * Liste erscheint erst beim Tippen. Was die Liste sonst nebenbei sagte – wie viele überhaupt
+     * anwesend sind – steht als eine Zeile darunter, damit «keine Liste» nicht «keine Ahnung
+     * wie viele hier sind» heisst. Auf Tablet/Desktop bleibt alles, wie es war. */
+    teamSearchMore: 'Weitere Person suchen …',
+    // Der leere Trupp: EIN gestrichelter Chip, der die Rolle nennt und sagt, wohin man greift.
+    teamChipsEmpty: 'Noch niemand – unten suchen',
+    // Fragment, kein Satz – deshalb ohne Punkt (siehe AGENTS.md · Interpunktion).
+    teamPresentCount: '{n} anwesend',
+    teamHintFirst: 'Name tippen – der Erste wird GF.',
+    teamHintChips: 'Chip antippen = GF · ✕ = aus dem Trupp nehmen',
     // a placed marker whose name was never typed – it still has to be findable, and «Trupp»
     // is what it is. Only ever shown in a list, never written onto the record.
     truppFallbackName: 'Trupp',
@@ -1611,7 +1633,10 @@ export const de = {
     lineOptTaken: 'Trupp {name} ist auf dieser Leitung',
     lineShow: 'Leitung auf der Karte zeigen',
     linePick: 'Leitung wählen',
-    linePickHint: 'Leitung auf der Karte oder im Plan antippen',
+    // ⚠️ Nur noch «auf der Karte» (05.09.): der Modus gehört zu der Fläche, auf der er scharf
+    // gestellt wurde, und das ist die Karte. Vorher überlebte er den Flächenwechsel – und blieb
+    // dann unsichtbar scharf, bis niemand mehr wusste, warum kein Symbol mehr aufgeht.
+    linePickHint: 'Leitung auf der Karte antippen',
     linePickCancel: 'Auswahl abbrechen',
     lineLinkedToast: 'Leitung {n} mit {name} verknüpft',
     logLineLinked: 'Trupp {name} auf Leitung {n}',
@@ -2086,7 +2111,6 @@ export const de = {
     lookPill: 'Zettel',
     lookPlain: 'Klartext',
     color: 'Farbe',
-    resizeHint: 'Breite ziehen',
     done: 'Fertig',
   },
   whiteboard: {
@@ -2857,7 +2881,7 @@ export const de = {
     hint: 'Auf die Karte tippen, um den Standort zu setzen',
     confirm: 'Standort übernehmen',
   },
-  // weather badge + popover (TopBar/WindBadge) — condition labels, cardinals, readout rows
+  // weather badge + popover (TopBar · WeatherBadge) — condition labels, cardinals, readout rows
   weather: {
     label: 'Wetter',
     details: 'Wetterdetails',
@@ -3047,7 +3071,6 @@ export const de = {
     // Platforms with no install path (desktop Firefox …) — say honestly that there is nothing to
     // install here, instead of pointing at instructions that don't exist.
     browserNoInstall: 'Dieses Gerät bietet keine Installation an. Für den Einsatz offline KP Front auf dem Tablet oder Handy installieren.',
-    syncNow: 'Jetzt synchronisieren',
     syncedAgo: 'Einsatzdaten {ago} synchronisiert',
     offline: 'Offline – lokal gespeichert',
     pending: 'Wird gespeichert …',
@@ -4342,6 +4365,9 @@ export const de = {
     fromStart: 'ab Beginn',
     sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
     laneHint: 'Ziehen erfasst die Verfügbarkeit · Balken antippen teilt die Person ein · Ziehen verschiebt den Balken · Gedrückt halten öffnet die Schichten',
+    // the (i) tap-toggle above the gesture explainer — title only, so it costs no line of its own
+    laneHintShow: 'Bedienung anzeigen',
+    laneHintHide: 'Bedienung ausblenden',
     // Three states of a row: what somebody OFFERS, what was ASSIGNED out of it, and what actually
     // happened. A bar tap switches the first two, the third comes from the Anwesenheit and is
     // never written here.
@@ -4463,6 +4489,14 @@ export const de = {
     // remaining-stock readout: dots up to 7 Stück, «noch N» beyond; aria/tooltip spells it out
     noch: 'noch {n}',
     stockAria: '{label}: noch {remaining} von {total}',
+    // Kompakte Ruhezeile: eine unberührte Position (0 verwendet) zeigt nur Bezeichnung,
+    // Restbestand und dieses «+» statt des ganzen ±Stellers – ein voller Katalog ist sonst auf
+    // dem Telefon zwei Zeilen pro Position, von denen die zweite nur eine Null zeigt. Der erste
+    // Tipp setzt 1 UND klappt die Zeile auf den ±Steller auf: ein Tipp, nicht zwei.
+    addOne: '{label} erfassen',
+    // …ausser die Position liegt auf mehreren Fahrzeugen und mehr als eines führt sie: dann
+    // klappt der Tipp die Quellen auf und fragt «von wo», statt eine zu raten.
+    addPickSource: '{label} – Quelle wählen',
     emptyTitle: 'Noch kein Material erfasst.',
     emptyHint: 'Erfasse mit «+ Material», was verbraucht wurde – fürs Rapport und um zu sehen, ob Nachschub nötig ist.',
     emptyReadonly: 'Noch kein Material erfasst.',
@@ -4470,11 +4504,16 @@ export const de = {
     composerTitle: 'Material erfassen',
     materialLabel: 'Material',
     materialPlaceholder: 'Material wählen',
+    // the OPEN picker's own search row — Combo defaults this to «Person suchen …» (built for
+    // roster fields), which is the wrong noun for a material/unit/Quelle picker
+    materialSearchPlaceholder: 'Material suchen …',
     customMaterial: 'Anderes Material',
     unitLabel: 'Einheit',
     unitPlaceholder: 'Einheit',
+    unitSearchPlaceholder: 'Einheit suchen …',
     sourceLabel: 'Quelle',
     sourcePlaceholder: 'Quelle (optional)',
+    sourceSearchPlaceholder: 'Quelle suchen …',
     // ⚠️ The configured Fahrzeuge are the usual answer, never the whole one. Material comes off a
     // Nachbarwehr's TLF, out of the Depot, from the Werkhof, off a lorry that happened to be
     // there — and the picker offered no way to say so, so those lines were recorded with no

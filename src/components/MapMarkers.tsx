@@ -19,7 +19,7 @@ import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHu
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { fanOffsets, markerZ, pileAt } from '../lib/labelPass'
-import { noteScale, noteWPx, clampNoteWPx } from '../lib/notes'
+import { noteScale, noteWPx } from '../lib/notes'
 import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
@@ -169,9 +169,6 @@ interface Props {
   /** open a note's detail panel. Since 29.08. this rides on the SELECT tap itself (see
    *  selectEntity) — tap = panel, drag = move, the same grammar as a symbol. */
   onNotePanel?: (id: string) => void
-  /** drag the note text box's width (screen px). 'start'/'end' carry no width — they only
-   *  bracket the gesture so it folds into one undo step. */
-  onNoteWidth?: (id: string, w: number | undefined, phase: 'start' | 'move' | 'end') => void
   // --- kind 'team' (Trupp markers — the map mirror of the plan board's resource chips) ---
   /** monitored Trupps, for the «raus» dim/strike on a linked team marker */
   trupps?: Trupp[]
@@ -207,7 +204,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, twinMagnets = [], twinPiles = [], onFan, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, onNoteWidth, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, twinMagnets = [], twinPiles = [], onFan, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)
@@ -562,25 +559,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   }
   const shapeUp = () => { const st = shapeRef.current; clearEndMagnet(); if (!st) return; shapeRef.current = null; onShapeTransform?.(st.id, {}, 'end') }
 
-  // drag the right-edge grip of a note text box. The pill is centred on its coord, so the
-  // pointer's distance from the centre is HALF the width. Screen px, not metres: a map note is
-  // pinned to a constant screen size, so a ground-scaled width would shrink as you zoom out.
-  // A 'start'/'end' pair folds the whole drag into one undo step, like the shape handles.
-  const noteWRef = useRef<{ id: string; cx: number } | null>(null)
-  const noteWDown = (clientX: number, clientY: number, el: HTMLElement, id: string) => {
-    hold.cancel()
-    const pill = el.closest('.marker')?.querySelector('.note-pill') as HTMLElement | null
-    if (!pill) return
-    const r = pill.getBoundingClientRect()
-    noteWRef.current = { id, cx: r.left + r.width / 2 }
-    onNoteWidth?.(id, undefined, 'start')
-  }
-  const noteWMove = (clientX: number) => {
-    const st = noteWRef.current; if (!st) return
-    onNoteWidth?.(st.id, clampNoteWPx(2 * Math.abs(clientX - st.cx)), 'move')
-  }
-  const noteWUp = () => { const st = noteWRef.current; if (!st) return; noteWRef.current = null; onNoteWidth?.(st.id, undefined, 'end') }
-
   // ONE select path for every tap that means «this one». A NOTE opens its panel on that same
   // tap (decided 29.08.) — the symbol grammar, unified: tap = panel, drag = move. The panel
   // carries edit + Löschen, and a read-only surface opens it read-only.
@@ -927,29 +905,14 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 </>
               )
             })()}
-            {/* ⚠️ The inline ✕ (and the pen/⚙ grips row) is GONE — decided 29.08. The row existed
-                because a note's panel only opened from the ⚙, so the ✕ was its everyday delete;
-                now the panel opens on the TAP itself (see selectEntity above), same grammar as
-                every symbol, and Löschen/edit live in the panel like everywhere else. What a
-                selected note keeps is drag-only: the width grip below (the body moves by
-                hold-drag, as before). Double-tap stays the desktop shortcut into inline edit. */}
-            {selectedId === e.id && !e.live && e.kind === 'note' && (
-              <>
-                {/* right-edge width grip — a text box only. A one-line note has nothing to drag;
-                    its width IS its text. Native listeners (TransformHandle) so the drag beats
-                    react-map-gl's marker drag, same as the shape handles. */}
-                {onNoteWidth && (
-                  <TransformHandle
-                    className="note-wgrip"
-                    icon="resize"
-                    title={appConfig.copy.notes.resizeHint}
-                    onStart={(x, y, el) => noteWDown(x, y, el, e.id)}
-                    onMove={(x) => noteWMove(x)}
-                    onEnd={noteWUp}
-                  />
-                )}
-              </>
-            )}
+            {/* ⚠️ A selected Notiz carries NO on-canvas grips at all. The inline ✕ and the pen/⚙
+                row went on 29.08. (the panel opens on the tap itself — see selectEntity); the
+                right-edge width grip followed on 05.09. A note sizes itself to what is typed
+                (`noteAutoW` · lib/notes · autoNoteWPx), so the grip only ever un-did that — and it
+                sat where a finger reaches for the note itself, on the one object whose everyday
+                gesture is «move it out of the way». Width is not a decision the Kroki needs from
+                anybody. The body still moves by hold-drag, and double-tap stays the desktop
+                shortcut into inline edit. */}
             {/* ✓ Fertig — box mode only, where Enter no longer commits */}
             {e.kind === 'note' && editNoteId === e.id && (
               <button

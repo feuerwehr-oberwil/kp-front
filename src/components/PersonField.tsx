@@ -158,7 +158,7 @@ export function PersonField({
             <span className={s.comboPickName}>{value.name || placeholder}</span>
           </button>
         )}
-        {!combo.typing && !value.name && <span className={s.comboChev} aria-hidden><Icon id="chevron-down" /></span>}
+        {!combo.typing && !value.name && <span className={s.comboChev} aria-hidden><Icon id="chevron-down" className="chev" /></span>}
         {value.name && (
           <button
             type="button" className={s.comboClear} title={appConfig.copy.clear} aria-label={az.clearName}

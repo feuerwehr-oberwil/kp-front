@@ -342,23 +342,30 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           onChange={(e) => { setAddress(e.target.value); setAddrOpen(true) }}
           onFocus={() => setAddrOpen(true)}
         />
-        {addrOpen && (addrLoading || hits.length > 0 || address.trim().length >= 3) && (
+        {/* «Hier» is the FIRST row of this menu rather than a button of its own — the EL usually
+            stands at (or near) the Einsatzort, so it has to be reachable the moment the address
+            field is focused, before three characters make the swisstopo hits appear. It keeps
+            its own row styling (`ip-ac-here`) — a hairline under it — so it reads as the one
+            row that isn't a search result. */}
+        {addrOpen && (
           <div className="ip-ac-menu">
-            {addrLoading && <div className="ip-ac-note">{ix.addressSearching}</div>}
-            {!addrLoading && hits.length === 0 && <div className="ip-ac-note">{ix.addressNoHits}</div>}
-            {hits.map((h, i) => (
-              <button key={i} type="button" className="ip-ac-row" onClick={() => pickHit(h)}>
-                <Icon id="flag" /> <span>{h.label}</span>
-              </button>
-            ))}
+            <button type="button" className="ip-ac-row ip-ac-here" disabled={locating} onClick={useHere}>
+              <Icon id={locating ? 'rotate' : 'locate'} className={locating ? 'spin' : undefined} /> <span>{ix.hereButton}</span>
+            </button>
+            {address.trim().length >= 3 && <>
+              {addrLoading && <div className="ip-ac-note">{ix.addressSearching}</div>}
+              {!addrLoading && hits.length === 0 && <div className="ip-ac-note">{ix.addressNoHits}</div>}
+              {hits.map((h, i) => (
+                <button key={i} type="button" className="ip-ac-row" onClick={() => pickHit(h)}>
+                  <Icon id="flag" /> <span>{h.label}</span>
+                </button>
+              ))}
+            </>}
           </div>
         )}
       </div>
 
       <div className="ip-ix-methods">
-        <button type="button" className="ip-btn primary" disabled={locating} onClick={useHere}>
-          <Icon id={locating ? 'rotate' : 'locate'} className={locating ? 'spin' : undefined} /> {ix.hereButton}
-        </button>
         <button type="button" className={`ip-btn${objOpen ? ' on' : ''}`} onClick={() => setObjOpen((v) => !v)}>
           <Icon id="doc" /> {ix.objectButton}
         </button>
@@ -423,10 +430,20 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           onChange={(label) => setPriority(label === ix.priorityHigh ? 'HIGH' : 'LOW')}
         />
       </div>
-      <label className="ip-check">
-        <input type="checkbox" checked={isExercise} onChange={(e) => setIsExercise(e.target.checked)} />
-        <span>{ix.exerciseToggle}</span>
-      </label>
+      {/* ⚠️ A toggle CHIP, not a native `<input type="checkbox">` (05.09. fix) — this surface's
+          other controls already keep the house rule of no native form chrome (AGENTS.md · «the
+          editor sheets have one control per kind of question»), and a bare checkbox was the one
+          exception nobody had caught. `aria-pressed` (not `role="checkbox"`): it is a button that
+          DOES something on tap, in the same idiom as the Segmented/`jc-due-chip` toggles
+          elsewhere, not an input inside a form that gets submitted. */}
+      <button
+        type="button" className={`ip-ex-toggle${isExercise ? ' on' : ''}`}
+        aria-pressed={isExercise}
+        onClick={() => setIsExercise((v) => !v)}
+      >
+        <span className="ip-ex-toggle-box" aria-hidden><Icon id="check" /></span>
+        {ix.exerciseToggle}
+      </button>
       {/* create: free-text Meldungstext stays under the keyword section */}
       {!edit && (
         <label className="ip-field"><span>{ix.detailsLabel}</span>

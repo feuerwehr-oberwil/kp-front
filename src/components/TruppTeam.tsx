@@ -20,6 +20,11 @@ import c from './ComboMenu.module.css'
  *  ASKING for, and a fourth empty slot on every single Trupp read as one man missing. */
 const SLOTS = 3
 
+/** How many matches the PHONE shows under the search field. Four is the answer to a typed query,
+ *  not a list to browse: it fits above the fold with the keyboard up, and the Gast row underneath
+ *  stays under the thumb. (On a tablet the whole Mannschaft is on screen and nothing is capped.) */
+const PHONE_HITS = 4
+
 /**
  * Who is in this Trupp, and which of them leads it.
  *
@@ -35,6 +40,7 @@ const SLOTS = 3
  */
 export function TruppTeam({
   value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, onAddGuest,
+  phone = false,
 }: {
   /** the Trupp, in printed order — `value[0]` is the Gruppenführer */
   value: Slot[]
@@ -54,6 +60,11 @@ export function TruppTeam({
   /** record a hand-typed Gast on the Anwesenheit too. Absent for a session that may not write. */
   /** records the Gast on the Anwesenheit and hands back the id it filed them under */
   onAddGuest?: (name: string) => string | undefined
+  /** THE PHONE SKIN (05.09.). Same control, same words, same record — a wrapping row of chips
+   *  instead of three full-width slot rows, and the Mannschaft appears only under a typed query
+   *  (at most `PHONE_HITS` of it). On 375px the old block was three slot rows plus a 38dvh
+   *  roster before the operator had picked anybody. Tablet/desktop is untouched. */
+  phone?: boolean
 }) {
   const az = appConfig.copy.atemschutz
   /* ONE field (04.09.). There used to be two: a search, and — after the whole roster list — a
@@ -126,6 +137,15 @@ export function TruppTeam({
   // gloves on, and a name that will not come up reads as a person who is not on the list
   const needle = searchQuery(q)
   const filtered = needle ? options.filter((o) => matchesQuery(needle, o.name)) : options
+  /* What the list actually OFFERS, and the only array anything acts on. On a tablet that is every
+   * match. On a phone the list exists only while something is typed and shows the first
+   * `PHONE_HITS` of it: a typed name has an answer, and four rows are that answer with room to
+   * have mistyped it. Enter reads this same array, so the key and the finger can never take two
+   * different people. */
+  const visible = phone ? (needle ? filtered.slice(0, PHONE_HITS) : []) : filtered
+  /** …and what replaces the list when nothing is typed: how many people are here at all. The
+   *  count is the one thing the standing roster said without being asked. */
+  const presentCount = presentIds.size
 
   // Adding the FIRST person makes them Gruppenführer, because the overwhelmingly common case is
   // that the Trupp is entered leader-first. Nothing is locked by it — the crown moves with a tap.
@@ -177,55 +197,47 @@ export function TruppTeam({
   const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
     e.preventDefault()
-    if (filtered.length) {
-      const first = filtered.find((o) => !o.taken)
+    if (visible.length) {
+      const first = visible.find((o) => !o.taken)
       if (first) add({ name: first.name, personId: first.personId })
       return
     }
     addGuest()
   }
 
+  /* THE TWO SKINS of one control (05.09.). Full-width rows on a tablet, a wrapping row of chips
+   * on a phone — same buttons, same labels, same handlers, same `value[0]` record. Only the class
+   * names differ, so «who leads» and «take them out» cannot drift apart between the two layouts. */
+  const skin = phone
+    ? { list: s.teamChips, row: s.chip, lead: s.chipLead, pick: s.chipPick,
+        role: s.chipRole, roleLead: s.chipRoleLead, name: s.chipName, remove: s.chipX }
+    : { list: s.teamChosen, row: s.teamRow, lead: s.teamRowLead, pick: s.teamPick,
+        role: s.teamRole, roleLead: s.teamRoleLead, name: s.teamName, remove: s.slotRemove }
+
   return (
     <div className={s.team}>
       {/* THE TRUPP — first, because it is the answer; the Mannschaft below it is the way to it.
-          THREE slots at rest: that is the Trupp the form is asking for (GF + 2), the box does not
-          change height as the usual three are ticked, and an empty slot says «this is where the
-          next one goes» far better than a sentence would. A fourth, fifth, tenth person simply
-          adds a row — `Math.max(SLOTS, value.length)` — so a big Trupp is never refused. */}
-      <ul className={s.teamChosen}>
-        {Array.from({ length: Math.max(SLOTS, value.length) }, (_, i) => {
-          const m = value[i]
-          if (!m) {
-            // ⚠️ The empty slot NAMES its role — «GF», «AdF», «AdF». Three identical dashes said
-            // only «something is missing here»; the badge column was blank on exactly the rows
-            // where a first-time user needs to be told what a Trupp is made of. The role is the
-            // one thing the form knows about a slot nobody is in yet, so it is what the slot says.
-            // ⚠️ …and it is TAPPABLE, but never a field: the tap hands the caret to the search
-            // below (pointAtSearch). Out of the screen reader's way — it announces nothing a
-            // «–» row could tell it, and the search field is the next thing in the tab order.
-            return (
-              <li key={`empty-${i}`} className={cx(s.teamRow, s.teamRowEmpty)}>
-                <button
-                  type="button" className={s.teamPick} tabIndex={-1} aria-hidden
-                  title={az.teamSearchPlaceholder} onClick={pointAtSearch}
-                >
-                  <span className={s.teamRole}>{i === 0 ? az.leaderBadge : az.memberLabel}</span>
-                  <span className={s.teamName}>{az.teamSlotEmpty}</span>
-                </button>
-              </li>
-            )
-          }
+          On a TABLET: three slots at rest — that is the Trupp the form is asking for (GF + 2), the
+          box does not change height as the usual three are ticked, and an empty slot says «this is
+          where the next one goes» far better than a sentence would. The crew comes first and the
+          slots FILL UP to `SLOTS` behind it, so a fourth, fifth, tenth person simply adds a row
+          and a big Trupp is never refused.
+          On a PHONE the same reservation costs three rows of a 375px form before anybody has been
+          picked, so the empty Trupp is ONE dashed chip and the crew wraps into as many rows as it
+          actually needs. */}
+      <ul className={skin.list}>
+        {value.map((m, i) => {
           const lead = i === 0
           return (
-            <li key={`${m.personId ?? m.name}-${i}`} className={cx(s.teamRow, lead && s.teamRowLead)}>
-              {/* ⚠️ The ROW is the control, not a star at its edge. Exactly one Gruppenführer,
-                  always — so this behaves like a radio, and a radio is chosen by tapping the
-                  option, not a glyph beside it. The leader's own row is inert: tapping «make
-                  this one the leader» on the leader has no meaning, and a live control that
+            <li key={`${m.personId ?? m.name}-${i}`} className={cx(skin.row, lead && skin.lead)}>
+              {/* ⚠️ The ROW/CHIP BODY is the control, not a star at its edge. Exactly one
+                  Gruppenführer, always — so this behaves like a radio, and a radio is chosen by
+                  tapping the option, not a glyph beside it. The leader's own is inert: tapping
+                  «make this one the leader» on the leader has no meaning, and a live control that
                   does nothing teaches that taps here sometimes fail. */}
               <button
                 type="button"
-                className={s.teamPick}
+                className={skin.pick}
                 aria-pressed={lead}
                 disabled={lead}
                 title={lead ? az.leaderLabel : fillTemplate(az.makeLeader, { name: m.name })}
@@ -233,16 +245,16 @@ export function TruppTeam({
                 {...(lead ? {} : hold.press(() => promoteByHold(i)))}
                 onClick={() => { if (!clickAfterHold()) promote(i) }}
               >
-                <span className={cx(s.teamRole, lead && s.teamRoleLead)}>
+                <span className={cx(skin.role, lead && skin.roleLead)}>
                   {lead ? az.leaderBadge : az.memberLabel}
                 </span>
-                <span className={s.teamName}>{m.name}</span>
+                <span className={skin.name}>{m.name}</span>
                 {/* a typed name carries no roster link — say so, so nobody wonders later why
                     this one person never appeared in the statistics export */}
                 {!m.personId && <span className={s.comboHint}>{az.teamManual}</span>}
               </button>
               <button
-                type="button" className={s.slotRemove}
+                type="button" className={skin.remove}
                 title={fillTemplate(az.teamRemove, { name: m.name })}
                 aria-label={fillTemplate(az.teamRemove, { name: m.name })}
                 onClick={() => remove(i)}
@@ -250,6 +262,36 @@ export function TruppTeam({
             </li>
           )
         })}
+        {!phone && Array.from({ length: Math.max(SLOTS - value.length, 0) }, (_, k) => {
+          const i = value.length + k
+          // ⚠️ The empty slot NAMES its role — «GF», «AdF», «AdF». Three identical dashes said
+          // only «something is missing here»; the badge column was blank on exactly the rows
+          // where a first-time user needs to be told what a Trupp is made of. The role is the
+          // one thing the form knows about a slot nobody is in yet, so it is what the slot says.
+          // ⚠️ …and it is TAPPABLE, but never a field: the tap hands the caret to the search
+          // below (pointAtSearch). Out of the screen reader's way — it announces nothing a
+          // «–» row could tell it, and the search field is the next thing in the tab order.
+          return (
+            <li key={`empty-${i}`} className={cx(s.teamRow, s.teamRowEmpty)}>
+              <button
+                type="button" className={s.teamPick} tabIndex={-1} aria-hidden
+                title={az.teamSearchPlaceholder} onClick={pointAtSearch}
+              >
+                <span className={s.teamRole}>{i === 0 ? az.leaderBadge : az.memberLabel}</span>
+                <span className={s.teamName}>{az.teamSlotEmpty}</span>
+              </button>
+            </li>
+          )
+        })}
+        {/* the phone's whole empty state: ONE dashed chip that names the role and says where to
+            reach. Not a control — the field it would have pointed at is the very next thing on
+            screen, so there is nothing left for a tap here to reveal. */}
+        {phone && !value.length && (
+          <li className={cx(s.chip, s.chipEmpty)}>
+            <span className={s.chipRole}>{az.leaderBadge}</span>
+            <span>{az.teamChipsEmpty}</span>
+          </li>
+        )}
       </ul>
 
       {/* THE MANNSCHAFT. A search box rather than a scroll list: on a 66-person roster the old
@@ -264,7 +306,13 @@ export function TruppTeam({
           ref={searchRef}
           value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} inputMode="search"
           maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
-          placeholder={az.teamSearchPlaceholder} aria-label={az.teamSearchPlaceholder}
+          // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
+          // suchen …» — because on the phone this field is the only way in and «Person suchen»
+          // over three chips reads as if it were asking again for whoever is already standing
+          // there. The a11y NAME stays put: a label that renames itself under the same control
+          // is a second control to a screen reader.
+          placeholder={phone && value.length ? az.teamSearchMore : az.teamSearchPlaceholder}
+          aria-label={az.teamSearchPlaceholder}
         />
         {q && (
           <button type="button" className={s.teamSearchClear} onClick={() => setQ('')}
@@ -272,8 +320,16 @@ export function TruppTeam({
         )}
       </label>
 
-      <ul className={cx(s.teamList, hint && s.teamListHint)} role="listbox" aria-label={az.sectionTeam}>
-        {filtered.map((o) => (
+      {/* ⚠️ On a PHONE the Mannschaft appears only under a typed query, and the list is the
+          ANSWER to it rather than a surface to browse: `.teamHits` shrink-wraps its ≤4 rows
+          instead of reserving 38dvh of standing roster, and it deliberately carries a class of
+          its own — the `:has(.teamList)` rules that hand the open section the sheet's spare room
+          (Atemschutz.module.css) must not fire on a box that comes and goes with the keyboard.
+          What the standing list used to say for free is the one line under it («N anwesend»). */}
+      {(!phone || !!needle) && (
+      <ul className={cx(phone ? s.teamHits : s.teamList, hint && s.teamListHint)}
+        role="listbox" aria-label={az.sectionTeam}>
+        {visible.map((o) => (
           <li key={o.key}>
             <button
               type="button" className={cx(s.comboOpt, o.taken && s.teamOptTaken)}
@@ -298,7 +354,7 @@ export function TruppTeam({
             </button>
           </li>
         ))}
-        {!filtered.length && <li className={s.comboEmpty}>{needle ? az.teamNoMatches : az.noRoster}</li>}
+        {!visible.length && <li className={s.comboEmpty}>{needle ? az.teamNoMatches : az.noRoster}</li>}
         {/* THE GAST DOOR, and it exists only while something is typed (04.09.). It carries the
             query in its own label, so the row states what pressing it will do rather than opening
             a second field to say it again — «"Keller" als Gast hinzufügen». The label is short
@@ -322,6 +378,20 @@ export function TruppTeam({
           </li>
         )}
       </ul>
+      )}
+
+      {/* THE LINE THAT REPLACES THE LIST (phone, at rest). Dropping the standing roster also drops
+          the one thing it said without being asked — how many people are here at all — and «no
+          list» must not read as «no idea who is on scene». So: the count, plus the one sentence
+          that says what the surface expects next. It is a HINT, never a control: everything it
+          describes is a chip or the field right above it. */}
+      {phone && !needle && (
+        <p className={s.teamHint}>
+          <b>{fillTemplate(az.teamPresentCount, { n: presentCount })}</b>
+          {' '}
+          <span>{value.length ? az.teamHintChips : az.teamHintFirst}</span>
+        </p>
+      )}
     </div>
   )
 }

@@ -420,8 +420,16 @@
    six decorations were allowed in front of the sentence, all `flex: none` against the one
    shrinkable child, so the text was pushed out of the way by whatever the row happened to carry.
    Now nothing precedes it and nothing can shrink it.
+   ⚠️ Track 4 is `fit-content(50%)`, not bare `auto` (05.09. fix): «only takes the width it
+   needs» stopped being true the day a row carried two wide footnotes at once («insgesamt 2×» +
+   «Atemschutz-Link») — `auto` sizes to the trail's full nowrap max-content with no ceiling, so
+   the fr sentence column was squeezed toward its 0 minimum and `.jr-text`'s `overflow-wrap:
+   anywhere` then broke every single letter onto its own line. `fit-content(50%)` still shrinks
+   to content when the trail is short, but never claims more than half the row — the other half
+   always stays the sentence's. `.jr-trail`/`.jr-foot` wrap onto a second line inside that half
+   rather than overflow it.
    overflow: hidden — the connector halves below are drawn 100vh long and clipped to the row. */
-.hist-ev { display: grid; grid-template-columns: 38px 26px minmax(0, 1fr) auto;
+.hist-ev { display: grid; grid-template-columns: 38px 26px minmax(0, 1fr) fit-content(50%);
   column-gap: 10px; row-gap: 2px; align-items: center;
   padding: 8px 10px; border-radius: var(--r-ctl); font-size: 13px; font-weight: 500; overflow: hidden; }
 /* the sub-lines (transcript, its editor, the row's own correction box) take the sentence's
@@ -440,10 +448,12 @@
 }
 .hist-ev.clickable:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* ── the trailing group: footnotes, the Meldung anchor, the row's controls, the chevron ──
-   Everything that is not the sentence, on one line at the right margin, in the order it is read:
-   what the record says ABOUT the row, then what you can do with it. It is the fourth grid track,
-   so it can never push the sentence off its axis — it can only take the width it needs. */
-.jr-trail { grid-column: 4; display: flex; align-items: center; gap: 9px; justify-self: end; min-width: 0; }
+   Everything that is not the sentence, at the right margin, in the order it is read: what the
+   record says ABOUT the row, then what you can do with it. It is the fourth grid track, capped
+   at `fit-content(50%)` above, so it can never push the sentence below its own half of the row —
+   `flex-wrap` is what it spends the rest of a crowded row on instead of stealing the sentence's. */
+.jr-trail { grid-column: 4; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
+  gap: 4px 9px; justify-self: end; min-width: 0; }
 /* persistent affordance so touch users can tell a row navigates without hovering */
 .hist-go { color: var(--ink-faint); display: grid; place-items: center; flex: none; opacity: .55; transition: transform .14s var(--ease), opacity .14s var(--ease); }
 .hist-go .i { width: 15px; height: 15px; }

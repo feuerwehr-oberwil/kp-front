@@ -161,9 +161,8 @@
   .draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
 }
 .draw-editor .de-prof-toggle.on { color: var(--ink); }
-.draw-editor .de-prof-toggle .i { width: 16px; height: 16px; transition: transform .18s var(--ease); }
-.draw-editor .de-prof-toggle.on { color: var(--ink); }
-.draw-editor .de-prof-toggle.on .i { transform: rotate(180deg); }
+/* …and the ▾ flip is the app-wide `.chev` (02-base.css), off this button's aria-expanded */
+.draw-editor .de-prof-toggle .i { width: 16px; height: 16px; }
 .draw-editor .de-prof-msg { padding: 10px 0; font-size: 12px; color: var(--ink-faint); text-align: center; }
 
 /* Verbindungen — reuses the editor's own .de-row / .de-preset rows verbatim so it reads as one more
@@ -356,11 +355,18 @@ body.sel-transforming .wb-grow { display: none; }
    the label under the finger steps aside and the tool's number — total distance or area —
    stands HERE instead: fixed top-centre, where nothing moves while it changes. Same reasoning
    as the offset .node-del chip above and the georef corner loupe. Display-only. */
+/* ⚠️ Two spacing details, both from the mono face and both worth a line each:
+   `15px/1` — the shorthand without a line-height takes the FACE's `normal` leading, which on a
+   monospace is generous enough that the pill grew ~6px taller than its own text and the number
+   sat visibly high in it. And `word-spacing` — a mono space is a full character wide, so
+   «282 m» carried a gap as wide as the «2» beside it and read as two separate readings. The
+   value comes from geo · fmtDistance as one string (both surfaces share it), so the gap is
+   closed here rather than by splitting the number from its unit. */
 .measure-readout { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 50%; translate: -50% 0;
   z-index: var(--z-map-util); background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--shadow);
-  padding: 9px 16px; font: 700 15px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
-  pointer-events: none; white-space: nowrap; }
+  padding: 10px 15px; font: 700 15px/1 var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
+  word-spacing: -.3ch; pointer-events: none; white-space: nowrap; }
 /* below 860px the TopBar spans the full width (see MapUtility · .toputil) — drop under it */
 @media (max-width: 860px) {
   .measure-readout { top: calc(66px + env(safe-area-inset-top)); }

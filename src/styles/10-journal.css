@@ -17,6 +17,12 @@
   background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
   font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .tb-act .i { width: 15px; height: 15px; }
+/* ⚠️ The undo/redo glyphs (lib/icons · #undo/#redo) are NOT centred in their own 24×24 viewBox
+   the way the sprite's other icons are (their curve reaches y 22, the arrowhead only y 7 — true
+   centre 14.5, not 12), so at 15px they render ~1.5px low and read as sitting off the row the
+   rest of `.tb-actions` lines up on. Nudged back onto that line here rather than in the shared
+   symbol, which other callers (the undo toast, the Rückgängig-Uhr) draw against their own box. */
+.tb-act-history .i { transform: translateY(-1.5px); }
 .tb-act.icon { padding: 7px 9px; min-width: 42px; background: transparent; }
 @media (hover: hover) {
   .tb-act:hover { color: var(--ink); background: var(--fill-soft); }
@@ -440,9 +446,16 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    they were chips in front of the text, where they pushed it off its axis and read as warnings.
    Only «Nachtrag» keeps a colour — a line appended after the Einsatzende is the one of the three
    with legal weight. */
-.jr-foot { flex: none; display: inline-flex; align-items: baseline; gap: 9px;
+/* ⚠️ `flex-wrap: wrap`, not `nowrap` (05.09. fix): two footnotes on one row («insgesamt 2×» +
+   «Atemschutz-Link») used to force this whole group onto one unbreakable line, which is what
+   made `.jr-trail`'s `fit-content(50%)` cap toothless — the badges just overflowed it sideways
+   into the sentence column. Individual badges stay `white-space: nowrap` (a footnote word never
+   splits mid-token); it is the GROUP that now stacks them instead. */
+.jr-foot { flex: none; display: inline-flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end;
+  gap: 3px 9px;
   font: 700 10px/1.3 var(--body); letter-spacing: .04em; text-transform: uppercase;
-  color: var(--ink-faint); white-space: nowrap; }
+  color: var(--ink-faint); }
+.jr-foot > * { white-space: nowrap; }
 .jr-foot-nachtrag { color: var(--red); font-weight: 700; }
 .jr-foot-rep { font-variant-numeric: tabular-nums; }
 /* ⚠️ WHICH item a Meldung answers. Without it three «PENDENZ» rows in a row are three unrelated

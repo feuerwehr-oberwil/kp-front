@@ -394,7 +394,7 @@ export function Select({ value, onChange, options, ariaLabel, mono }: {
         onKeyDown={onKey}
       >
         <span className="adm-select-val">{current?.label ?? ''}</span>
-        <Icon id="chevron-down" className="adm-select-chev" />
+        <Icon id="chevron-down" className="adm-select-chev chev" />
       </button>
       {open && (
         <ul className="adm-select-list" role="listbox" id={listId} aria-label={ariaLabel}>

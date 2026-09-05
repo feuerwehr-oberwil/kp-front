@@ -22,13 +22,17 @@ const CLASSES: ComboMenuClasses = {
  * `value=""` + a non-empty placeholder makes it a pure prefill picker (it shows the placeholder
  * and never retains a selection, since the parent keeps value empty).
  */
-export function Combo({ value, options, groups, placeholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, openTick, onInput, onChange }: {
+export function Combo({ value, options, groups, placeholder, searchPlaceholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, openTick, onInput, onChange }: {
   value: string
   options: string[]
   /** optional grouped rendering: section headers with their own options. When set, the menu
    *  renders these groups instead of the flat `options` list (which still backs value matching). */
   groups?: { label: string; options: string[] }[]
   placeholder: string
+  /** the OPEN menu's own search row placeholder. Defaults to `copy.combo.searchPlaceholder`
+   *  («Person suchen …») — right for the roster pickers this control was built for, wrong for a
+   *  picker over anything else (material, unit, Quelle …), so a non-roster caller passes its own. */
+  searchPlaceholder?: string
   allowCustom?: boolean
   customLabel?: string
   clearable?: boolean
@@ -94,7 +98,7 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
     <div className="combo" ref={rootRef}>
       <button ref={pickRef} type="button" className={`combo-pick${value ? '' : ' empty'}`} aria-haspopup="listbox" aria-expanded={combo.open} onClick={combo.toggle}>
         <span className="combo-pick-name">{value || placeholder}</span>
-        <span className="combo-chev" aria-hidden><Icon id="chevron-down" /></span>
+        <span className="combo-chev" aria-hidden><Icon id="chevron-down" className="chev" /></span>
       </button>
       {clearable && value && (
         <button type="button" className="combo-clear" aria-label={appConfig.copy.clear} onMouseDown={(e) => e.preventDefault()} onClick={() => onChange('')}><Icon id="close" /></button>
@@ -104,7 +108,7 @@ export function Combo({ value, options, groups, placeholder, allowCustom, custom
         menuRef={menuRef}
         classes={CLASSES}
         copy={{
-          search: appConfig.copy.combo.searchPlaceholder,
+          search: searchPlaceholder ?? appConfig.copy.combo.searchPlaceholder,
           empty: appConfig.copy.combo.empty,
           noMatches: appConfig.copy.combo.noMatches,
         }}
