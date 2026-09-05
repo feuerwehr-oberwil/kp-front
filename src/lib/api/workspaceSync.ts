@@ -211,6 +211,12 @@ export class WorkspaceSync {
    *  isStorageDegraded() flag also moves for unrelated keys (config, roster), which would make
    *  this incident's badge flap. */
   private cacheDurable = true
+  /** The main cache slot holds ANOTHER session's unsynced dirty work that init() could NOT copy
+   *  to a durable parking slot (a full store). That copy is the only one, so this session must
+   *  never overwrite the slot — writeCache/flushCache no-op here and report the cache as
+   *  non-durable instead. Cleared only by a reload (a fresh init re-attempts the park once the
+   *  storage pressure has cleared). See init / serveServerWithoutCaching. */
+  private mainSlotBlocked = false
 
   constructor(
     private readonly incidentId: string,
@@ -260,6 +266,13 @@ export class WorkspaceSync {
     if (!this.cacheTimer) return
     clearTimeout(this.cacheTimer)
     this.cacheTimer = null
+    // The main slot is holding another session's un-parked unsynced work (see
+    // serveServerWithoutCaching). Writing our state over it would destroy the only copy, so this
+    // session stays in memory only and reports the cache as non-durable — nothing is written here.
+    if (this.mainSlotBlocked) {
+      if (!this.disposed && this.cacheDurable) { this.cacheDurable = false; this.publish() }
+      return
+    }
     // The entry already carries the owner captured when it was BUILT or last edited (construction
     // / init / save / adopt). We write it VERBATIM — re-stamping the live `cacheOwner` here would
     // relabel a debounced or teardown write that lands after the identity changed, handing one
@@ -322,22 +335,32 @@ export class WorkspaceSync {
    * init() reuses its slot for a server fetch, whether it is foreign-owned or ownerless.
    * Then, whatever the main slot held, look for MY OWN parked work — a different user (or a
    * denial) may have taken the slot after I left — and re-home it. A denial closes all of this.
+   *
+   * `parkBlocked` is the durable-or-abort signal: a dirty entry we may not serve was found in the
+   * main slot but could NOT be copied to a durable parking slot (a full store). Its slot must then
+   * be left exactly as it is — it is the only copy — so init() must not overwrite it with the
+   * server snapshot, and we skip the re-home below too (that also writes the main slot).
    */
-  private async loadReadableEntry(stored: CacheEntry | null): Promise<CacheEntry | null> {
-    if (stored && mayRead(stored)) return stored
+  private async loadReadableEntry(stored: CacheEntry | null): Promise<{ entry: CacheEntry | null; parkBlocked: boolean }> {
+    if (stored && mayRead(stored)) return { entry: stored, parkBlocked: false }
     if (stored && !cacheDenied) {
       if (!stored.owner && !stored.dirty && cacheOwner) {
         const adopted: CacheEntry = { ...stored, owner: cacheOwner }
         await idbSet(cacheKey(this.incidentId), adopted)
-        return adopted
+        return { entry: adopted, parkBlocked: false }
       }
       // An unserved DIRTY entry is about to have its slot reused by init()'s server fetch. Copy it
       // somewhere safe FIRST — the main slot is left as-is and only a real server answer overwrites
-      // it, by which point the copy exists. This is the fix for the ONLINE-upgrade data loss:
-      // an ownerless dirty entry used to fall through here and be destroyed by the server fetch.
+      // it, by which point the copy exists. DURABLE-OR-ABORT: if that copy is not durable (a full
+      // store — which can still permit the smaller clean-snapshot write that would then destroy the
+      // only copy), leave the slot untouched and abort the reuse (parkBlocked). Foreign-owned goes
+      // to its owner's key; ownerless (pre-upgrade) goes to the orphan key. `stored.owner` here is
+      // necessarily a DIFFERENT user — an entry owned by me would have been served by mayRead above.
       if (stored.dirty) {
-        if (stored.owner && stored.owner !== cacheOwner) await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
-        else if (!stored.owner) await this.parkOrphan(stored)
+        const durable = stored.owner
+          ? await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
+          : await this.parkOrphan(stored)
+        if (!durable) return { entry: null, parkBlocked: true }
       }
     }
     if (cacheOwner && !cacheDenied) {
@@ -349,18 +372,36 @@ export class WorkspaceSync {
         // stays under the owner key for the next attempt.
         const wrote = await idbSet(cacheKey(this.incidentId), parked)
         if (wrote) await idbDel(ownerCacheKey(this.incidentId, cacheOwner))
-        return parked
+        return { entry: parked, parkBlocked: false }
       }
     }
-    return null
+    return { entry: null, parkBlocked: false }
   }
 
   /** Preserve unattributable pre-ownership unsynced work before its slot is reused. First writer
    *  wins: an orphan already parked is the real pre-upgrade copy, so it is never overwritten by a
-   *  later (necessarily post-upgrade, hence owner-stamped) main-slot state. */
-  private async parkOrphan(stored: CacheEntry): Promise<void> {
+   *  later (necessarily post-upgrade, hence owner-stamped) main-slot state — and, being already
+   *  parked, it is itself a durable copy. Returns whether a durable copy now exists at the orphan
+   *  key (an existing one, or a freshly written one), so the caller can honour durable-or-abort. */
+  private async parkOrphan(stored: CacheEntry): Promise<boolean> {
     const existing = await idbGet<CacheEntry>(orphanCacheKey(this.incidentId))
-    if (!existing) await idbSet(orphanCacheKey(this.incidentId), stored)
+    if (existing) return true
+    return idbSet(orphanCacheKey(this.incidentId), stored)
+  }
+
+  /** The server answered, but the main slot holds another session's unsynced dirty work that could
+   *  not be parked durably (a full store). Overwriting it would destroy the only copy, so serve the
+   *  fetched workspace from MEMORY and leave the cache untouched: this session runs without a
+   *  durable cache for this incident (mainSlotBlocked) until a reload re-attempts the park after the
+   *  storage pressure clears. The degraded durability surfaces via cacheDurable — the honest place
+   *  for it is the Offline-Bereitschaft sheet (device readiness), since the server has our latest. */
+  private serveServerWithoutCaching(ws: Workspace, rev: number): { workspace: Workspace; rev: number; fromCache: false } {
+    this.mainSlotBlocked = true
+    this.entry = { workspace: ws, base: ws, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined }
+    this.cacheDurable = false
+    this.opts.onRev?.(rev)
+    this.setStatus('synced')
+    return { workspace: ws, rev, fromCache: false }
   }
 
   /** Load initial state: prefer server; fall back to offline cache when the server could not be
@@ -377,13 +418,18 @@ export class WorkspaceSync {
     const stored = await readCache(this.incidentId)
     // Decide what THIS session may load — and protect what it may not (see loadReadableEntry:
     // another user's unsynced work is parked, never destroyed or served to a different account).
-    const cached = await this.loadReadableEntry(stored)
+    const { entry: cached, parkBlocked } = await this.loadReadableEntry(stored)
     if (cached) {
       this.entry = cached
       this.setStatus(cached.dirty ? 'pending' : 'synced')
     }
     try {
       const { workspace, workspace_rev } = await getWorkspace(this.incidentId)
+      const ws = workspace ?? {}
+      // The main slot holds an unserved dirty entry loadReadableEntry could NOT park durably. It is
+      // the only copy of that work, so we must not reuse the slot: serve the server snapshot from
+      // memory and leave the cache untouched (durable-or-abort — see serveServerWithoutCaching).
+      if (parkBlocked) return this.serveServerWithoutCaching(ws, workspace_rev)
       // TOCTOU guard: if the identity switched during the fetch, the cached dirty work is the
       // PREVIOUS session's. Serving or re-stamping it under the new identity would leak/mislabel
       // it, so park it for its real owner (same rule as loadReadableEntry) and give the new
@@ -410,11 +456,14 @@ export class WorkspaceSync {
         return { workspace: merged, rev: workspace_rev, fromCache: true }
       }
       if (cached?.dirty && !identityHeld) {
+        // Same durable-or-abort rule as loadReadableEntry: the previous session's work is the only
+        // copy until this park lands, so a failed park must not let the slot be overwritten below.
         const owner = cached.owner ?? ownerAtStart
-        if (owner) await idbSet(ownerCacheKey(this.incidentId, owner), { ...cached, owner })
-        else await this.parkOrphan(cached)
+        const durable = owner
+          ? await idbSet(ownerCacheKey(this.incidentId, owner), { ...cached, owner })
+          : await this.parkOrphan(cached)
+        if (!durable) return this.serveServerWithoutCaching(ws, workspace_rev)
       }
-      const ws = workspace ?? {}
       this.entry = { workspace: ws, base: ws, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? undefined }
       this.writeCache()
       this.opts.onRev?.(workspace_rev)
