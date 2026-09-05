@@ -13,8 +13,8 @@ vi.mock('./api', async () => {
   const actual = await vi.importActual<typeof import('./api')>('./api')
   return { ...actual, apiGet, apiPost }
 })
-const { idbSet, idbDel } = vi.hoisted(() => ({ idbSet: vi.fn(), idbDel: vi.fn() }))
-vi.mock('./idb', () => ({ idbGet: vi.fn().mockResolvedValue(null), idbSet, idbDel }))
+const { idbGet, idbSet, idbDel } = vi.hoisted(() => ({ idbGet: vi.fn(), idbSet: vi.fn(), idbDel: vi.fn() }))
+vi.mock('./idb', () => ({ idbGet, idbSet, idbDel }))
 const { syncMediaCacheAuth } = vi.hoisted(() => ({ syncMediaCacheAuth: vi.fn() }))
 vi.mock('./authMediaCache', () => ({ syncMediaCacheAuth }))
 const { denyWorkspaceCache, setWorkspaceCacheOwner } = vi.hoisted(() => ({
@@ -42,6 +42,7 @@ async function signedIn() {
 
 beforeEach(() => {
   apiGet.mockReset(); apiPost.mockReset(); idbSet.mockReset(); idbDel.mockReset()
+  idbGet.mockReset().mockResolvedValue(null) // no cached user unless a test seeds one
   syncMediaCacheAuth.mockReset(); denyWorkspaceCache.mockReset(); setWorkspaceCacheOwner.mockReset()
 })
 // ⚠️ No global RTL auto-cleanup in this repo (vite.config · test has no setupFiles), and these
@@ -239,6 +240,62 @@ describe('AuthProvider — the boot probe is refused', () => {
     const { result } = renderHook(() => useAuth(), { wrapper })
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(idbDel).not.toHaveBeenCalled() // silence refuses nothing — the cached session stands
+  })
+})
+
+// SEC-10 — denial resurrection. Boot captures the cached user U and awaits GET /auth/me. While
+// that await is in flight, another tab logs out; the broadcast runs denyLocally() HERE (denial
+// set, user cleared, cache locked). Then this tab's probe fails with a NETWORK error (status 0),
+// not a 401. The offline-fallback branch used to read that as «unverifiable → keep working» and
+// restore U — and adoptUser(U) cleared the denial. The logout was silently undone. A denial epoch
+// captured before the probe and re-checked after now makes the logout win.
+describe('AuthProvider — a logout during the boot probe is not undone', () => {
+  it('stays LOCKED when a broadcast denial lands mid-probe and the probe then fails on the network', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    idbGet.mockResolvedValue(EDITOR_USER) // a cached session waiting behind the probe
+
+    let rejectProbe!: (e: unknown) => void
+    apiGet.mockReturnValueOnce(new Promise((_res, rej) => { rejectProbe = rej }))
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    // let boot read the cache and fire the (now pending) /me probe
+    await act(async () => { await Promise.resolve(); await Promise.resolve() })
+
+    // another tab logs out while our /me is still in flight
+    const otherTab = new BroadcastChannel('kp-auth-denial')
+    otherTab.postMessage('denied')
+    await waitFor(() => expect(denyWorkspaceCache).toHaveBeenCalled())
+    expect(result.current.user).toBeNull()
+
+    // …and only THEN does our probe fail with a NETWORK error (status 0), not a refusal
+    await act(async () => { rejectProbe(new ApiError(0, 'Netzwerkfehler')); await Promise.resolve() })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // the logout WON: no offline restore, denial intact, the worker never re-granted
+    expect(result.current.user).toBeNull()
+    expect(setWorkspaceCacheOwner).not.toHaveBeenCalledWith('ed-1')
+    expect(syncMediaCacheAuth).not.toHaveBeenCalledWith(EDITOR_USER)
+    otherTab.close()
+  })
+
+  it('still logs in on a live /me 200 mid-boot — a real answer legitimately lifts a denial', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
+    vi.spyOn(deploymentConfig, 'getDeploymentConfig').mockReturnValue({ integrations: { cartoBasemapKey: 'k' } })
+    idbGet.mockResolvedValue(EDITOR_USER)
+
+    let resolveProbe!: (u: unknown) => void
+    apiGet.mockReturnValueOnce(new Promise((res) => { resolveProbe = res }))
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    await act(async () => { await Promise.resolve(); await Promise.resolve() })
+
+    const otherTab = new BroadcastChannel('kp-auth-denial')
+    otherTab.postMessage('denied')
+    await waitFor(() => expect(denyWorkspaceCache).toHaveBeenCalled())
+
+    // the server ANSWERS: this session is alive. The 200 lifts the denial (unlike the offline restore).
+    await act(async () => { resolveProbe(EDITOR_USER); await Promise.resolve() })
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+    expect(setWorkspaceCacheOwner).toHaveBeenLastCalledWith('ed-1')
+    otherTab.close()
   })
 })
 

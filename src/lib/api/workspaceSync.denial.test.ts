@@ -303,6 +303,34 @@ describe('WorkspaceSync · a different user cannot destroy or inherit another’
     expect(store.get('kp-front-ws-i1')).toEqual(orphan) // the only unsynced copy survives untouched
   })
 
+  // TOCTOU on the RE-HOME (loadReadableEntry): A's parked draft is written back into the main slot,
+  // then the parked copy is deleted. If the owner flips to B (who has their OWN parked draft) during
+  // the main-slot write, a delete keyed off the live `cacheOwner` would erase B's copy even though
+  // only A's was re-homed. The key is captured before the write, so exactly A's copy is cleared.
+  it('re-homes A’s parked draft without deleting B’s when the owner flips to B mid-write', async () => {
+    const aParked = cachedEdit('u1')
+    const bParked = { ...cachedEdit('u2'), workspace: { entities: [{ id: 'b-draft' }] } }
+    const store = backingStore({ 'kp-front-ws-i1::u1': aParked, 'kp-front-ws-i1::u2': bParked })
+    signedInAs('u1')
+    getWorkspace.mockRejectedValue(new ApiError(0, 'Netzwerkfehler')) // offline: only the cache answers
+
+    // The main-slot re-home write is exactly where a login lands — flip the live owner to B there.
+    const realSet = idbSet.getMockImplementation()!
+    idbSet.mockImplementation((k: string, v: unknown) => {
+      if (k === 'kp-front-ws-i1') signedInAs('u2')
+      return realSet(k, v)
+    })
+
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    const r = await sync.init()
+    expect(r.workspace).toEqual({ entities: [{ id: 'mine' }] }) // A's draft was re-homed and served
+    sync.dispose()
+
+    expect(store.get('kp-front-ws-i1::u2')).toEqual(bParked)   // B's parked draft is UNTOUCHED
+    expect(store.get('kp-front-ws-i1::u1')).toBeUndefined()    // A's parked copy was the one cleared
+    expect(store.get('kp-front-ws-i1')).toMatchObject({ owner: 'u1', workspace: { entities: [{ id: 'mine' }] } })
+  })
+
   // TOCTOU: init() reads the owner, awaits the server, then writes. A login/logout landing during
   // that await must not let the PREVIOUS session's unsynced work be served to — or stamped with —
   // the new identity.

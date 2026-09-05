@@ -125,10 +125,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // minus the re-broadcast. Proportionate: no shared state, no leader, just a one-shot signal.
   const denialChannel = useRef<BroadcastChannel | null>(null)
 
+  /** Bumped by EVERY local denial (a logout, a broadcast from another tab, a confirmed refusal).
+   *  The boot probe captures it before its `/me` await and re-checks after: a denial that fires
+   *  WHILE the probe is in flight must win, so the offline-fallback restore cannot resurrect the
+   *  very session that was just ended (SEC-10 — denial resurrection). */
+  const denialEpoch = useRef(0)
+
   /** The local half of a denial: lock the workspace cache, drop the view to the kiosk login, and
    *  forbid an offline restore. Shared by a locally-detected refusal and one another tab broadcast.
    *  Owner-stamped unsynced work stays on disk, gated to the same account's next sign-in. */
   const denyLocally = () => {
+    denialEpoch.current++ // invalidate any boot restore whose probe is still awaiting
     denyWorkspaceCache()
     adoptUser(null)       // …and the effect below tells the worker (authMediaCache · «logged-out»)
     writeCachedUser(null) // no offline restore may resurrect a session the server has ended
@@ -193,6 +200,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true
     void (async () => {
+      // Snapshot the denial epoch BEFORE anything awaits: a logout/deny landing during the probe
+      // below (this tab, or a broadcast from another) bumps it, and the offline restore must lose
+      // to it — see the isUnverifiable branch.
+      const denialEpochAtStart = denialEpoch.current
       const cached = await readCachedUser()
       const probe = () => apiGet<AuthUser>('/api/auth/me', cached ? { timeoutMs: CACHED_PROBE_TIMEOUT_MS } : undefined)
       try {
@@ -212,6 +223,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         if (!alive) return
         if (isUnverifiable(e)) {
+          // A logout/deny that fired while this probe was awaiting must WIN: restoring `cached`
+          // here re-adopts the user and clears the denial (adoptUser → setWorkspaceCacheOwner),
+          // silently reversing the logout. Only a live 200 above may lift a denial; the offline
+          // fallback may not. Stay locked and require a fresh login.
+          if (denialEpoch.current !== denialEpochAtStart) return
           if (cached) adoptUser(cached) // unverifiable, not refused — keep the session usable
           else setProbeUnreachable(true)
         } else if (isDenial(e)) {
