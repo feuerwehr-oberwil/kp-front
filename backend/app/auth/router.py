@@ -92,26 +92,33 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
     bucket = pin_limiter.key(str(body.user_id), client_ip(request))
 
     # Reserved, not checked: the slot is taken in the same synchronous step that decides to
-    # admit the attempt, BEFORE the first await. Checking here and recording the failure after
-    # the database round trip and bcrypt let a concurrent burst through the door together.
-    wait = pin_limiter.reserve(bucket)
-    if wait > 0:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
-            headers={"Retry-After": str(wait)},
-        )
+    # admit the attempt, BEFORE the first await, so a concurrent burst is counted rather than
+    # slipping past a check nobody has yet failed. But a throttled bucket is NOT rejected here:
+    # under a shared NAT/proxy bucket (or the default TRUSTED_FORWARDED_HOPS=0) an attacker's
+    # wrong attempts would otherwise keep the operator's own bucket blocked and refuse a CORRECT
+    # PIN indefinitely (SEC-08). We remember whether the bucket was throttled and still verify —
+    # a correct PIN always wins; only a WRONG attempt from a throttled bucket gets the 429.
+    # Verifying under throttle is safe because bcrypt is offloaded through the bounded
+    # `_PIN_VERIFY_LIMITER`, so it cannot exhaust the event loop or the thread pool.
+    throttled = pin_limiter.reserve(bucket) > 0
 
     user = (await db.execute(select(User).where(User.id == body.user_id))).scalar_one_or_none()
     # Spelled out rather than via an `ok` flag so the None-check actually narrows `user` for
     # everything below; short-circuiting keeps bcrypt off the unknown-user path as before.
     if user is None or not user.is_active or not await verify_pin_async(body.pin, user.pin_hash):
+        if throttled:
+            wait = pin_limiter.retry_after(bucket)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
+                headers={"Retry-After": str(wait)},
+            )
         cooldown = pin_limiter.retry_after(bucket)  # installed by the reservation above
         detail = "Falsche PIN" if cooldown == 0 else f"Falsche PIN. Nächster Versuch in {cooldown}s."
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
-    # Knowing the PIN gives the slot back, so an operator's own mistyping never follows them
-    # into the next attempt.
+    # Knowing the PIN gives the slot back and clears any cooldown the bucket was carrying, so an
+    # operator's own mistyping — or an attacker sharing their bucket — never follows them in.
     pin_limiter.record_success(bucket)
     user.last_login = datetime.now(UTC)
 
