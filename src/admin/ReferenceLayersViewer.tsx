@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { useSymbols } from '../lib/useSymbols'
 import { fillTemplate } from '../lib/format'
+import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { appConfig } from '../config/appConfig'
 import { Table, fmtDate } from './ui'
 import type { DeploymentReferenceLayer } from '../lib/deploymentConfig'
@@ -141,7 +142,10 @@ export function ReferenceLayersViewer({
                   <td>
                     <span className="adm-vname">
                       <span className="adm-view-glyph" aria-hidden>
-                        {glyph ? <span dangerouslySetInnerHTML={{ __html: glyph }} /> : <Icon id="layers" />}
+                        {/* ⚠️ SEC-01 — sanitise AT THIS SINK: a layer's symbol glyph can be
+                            editor-supplied `symbolSvg`. The sink sanitiser is the authoritative
+                            gate; every `dangerouslySetInnerHTML` taking an SVG string wraps it. */}
+                        {glyph ? <span dangerouslySetInnerHTML={{ __html: sanitizeSvg(glyph) }} /> : <Icon id="layers" />}
                       </span>
                       <span className="adm-view-id">
                         <span className="adm-view-name">{l.label || l.id}</span>
