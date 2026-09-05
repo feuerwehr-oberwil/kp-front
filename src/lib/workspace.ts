@@ -4,6 +4,7 @@ import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
 import { keyCartoTileTemplates } from './carto'
 import { loadLayerPrefs } from './layerPrefs'
+import { isSafeColor } from './shapes'
 import type { ChecklistState } from './checklists'
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
@@ -297,6 +298,12 @@ const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'sym
 const LEGACY_BOARD_KINDS: ReadonlySet<string> = new Set([...BOARD_KINDS, 'trupp'])
 /** fewest vertices a drawing of each kind can render with (a circle is its centre) */
 const MIN_DRAW_PTS: Record<DrawKind, number> = { circle: 1, line: 2, area: 3 }
+/** The numbers that describe the ARTWORK of an object — its outline weight, its wash, the box the
+ *  glyph is stretched into. Anything unusable is dropped at the gate (sanitizeWorkspace ·
+ *  fixDrawProps) rather than carried into the renderers' arithmetic, where a NaN paints an empty
+ *  shape and a string paints a shape nobody chose. Mirrored server-side
+ *  (backend/app/schemas.py · _NUMERIC_DRAWING_KEYS). */
+const DRAW_NUMBERS = ['aspect', 'fillOpacity', 'rotation', 'rotation2', 'sizeM', 'sizeN', 'strokeW', 'width'] as const
 
 const lngLat = (v: unknown): v is LngLat =>
   Array.isArray(v) && v.length === 2 && num(v[0]) && num(v[1]) && Math.abs(v[0]) <= 180 && Math.abs(v[1]) <= 90
@@ -366,8 +373,26 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     for (const k of keys) if (typeof out[k] !== 'string') { if (out[k] != null) dropped++; out[k] = '' }
     return out as T
   }
+  // A third verb, for the handful of fields that end up INSIDE the artwork: they are REMOVED, so
+  // the renderer falls back to its own default. A colour becomes an SVG attribute value on both
+  // surfaces and on paper (lib/shapes), and a cached or synced blob is free text — one carrying a
+  // quote used to close that attribute and open an event handler in the next operator's browser
+  // (SEC-01). Mirrored at the write end (backend/app/schemas.py · _scrub_drawing_props), so this
+  // is what protects a device whose IndexedDB copy predates that.
+  const fixDrawProps = <T extends object>(o: T): T => {
+    const r = o as Record<string, unknown>
+    let out: Record<string, unknown> | undefined
+    if (r.color != null && !isSafeColor(r.color)) { out = { ...r }; delete out.color; dropped++ }
+    for (const k of DRAW_NUMBERS) {
+      if (r[k] == null || num(r[k])) continue
+      out = out ?? { ...r }
+      delete out[k]
+      dropped++
+    }
+    return (out ?? o) as T
+  }
   const fixTrupp = (t: Trupp): Trupp => {
-    const o = strFields(t, ['name']) as Trupp & { readings?: unknown }
+    const o = fixDrawProps(strFields(t, ['name'])) as Trupp & { readings?: unknown }
     if (o.readings == null) return o
     const readings = arr<TruppReading>(o.readings, isReading)
     return { ...o, readings }
@@ -380,7 +405,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     if (!b) return undefined
     const out: BoardDoc = {}
     for (const [k, v] of Object.entries(b)) {
-      const annos = arr<BoardAnno>(v, isBoardAnno, (a) => (a.trail == null ? a : { ...a, trail: arr<TrailPoint>(a.trail, isTrailPt) }))
+      const annos = arr<BoardAnno>(v, isBoardAnno, (a) => fixDrawProps(a.trail == null ? a : { ...a, trail: arr<TrailPoint>(a.trail, isTrailPt) }))
       if (annos) out[k] = annos
     }
     return out
@@ -409,8 +434,8 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
   const sv = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : undefined
   // (stepwise migrations for sv < WORKSPACE_SCHEMA_VERSION go here once version 2 exists)
   const ws: Saved = {
-    entities: (arr<Entity>(raw.entities, isEntity, (e) => (e.trail == null ? e : { ...e, trail: arr<GeoTrailPoint>(e.trail, isGeoTrailPt) })) ?? []).map(migrateRauchCloud),
-    drawings: arr<Drawing>(raw.drawings, isDrawing) ?? [],
+    entities: (arr<Entity>(raw.entities, isEntity, (e) => fixDrawProps(e.trail == null ? e : { ...e, trail: arr<GeoTrailPoint>(e.trail, isGeoTrailPt) })) ?? []).map(migrateRauchCloud),
+    drawings: arr<Drawing>(raw.drawings, isDrawing, fixDrawProps) ?? [],
     recent: arr<string>(raw.recent, (x) => typeof x === 'string') ?? [],
     layerState: arr<Saved['layerState'][number]>(raw.layerState, (x) => hasId(x) && typeof x.visible === 'boolean') ?? [],
     timeline: arr<TimelineEvent>(raw.timeline, hasId, (e) => strFields(e, ['text', 't'])) ?? [],
