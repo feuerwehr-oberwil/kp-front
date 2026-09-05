@@ -203,7 +203,10 @@ export default defineConfig(({ mode }) => {
       dropManifestFromPrecache(),
     ],
     server: {
-      host: true,
+      // Loopback-only by default (SEC-11): a bare `pnpm dev` no longer exposes the dev server —
+      // and its known-vulnerable-class advisories — to the whole LAN. Set VITE_LAN=1 to restore
+      // the tablet-over-LAN workflow (`VITE_LAN=1 pnpm dev`) when testing on a real device.
+      host: env.VITE_LAN ? true : undefined,
       port: 5188,
       strictPort: true,
       proxy: { '/api': { target: apiTarget, changeOrigin: true } },
@@ -222,9 +225,11 @@ export default defineConfig(({ mode }) => {
           // initial app chunk. maplibre (~800 KB) loads with the map; pdfjs (~1.2 MB incl. the
           // worker) is dynamically imported by PdfViewport, so this chunk only ships when the
           // Plan tab is opened. Result: a smaller initial JS payload → faster tablet first paint.
-          manualChunks: {
-            maplibre: ['maplibre-gl'],
-            pdfjs: ['pdfjs-dist'],
+          // Function form required since Vite 8's Rolldown bundler dropped the object-map form
+          // of `manualChunks` that rollup accepted — same grouping, just expressed per-module-id.
+          manualChunks(id) {
+            if (id.includes('node_modules/maplibre-gl')) return 'maplibre'
+            if (id.includes('node_modules/pdfjs-dist')) return 'pdfjs'
           },
         },
       },
