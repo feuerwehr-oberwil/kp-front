@@ -5,30 +5,76 @@
  * editor can set it through the workspace-sync PUT — and it is rendered verbatim through
  * `dangerouslySetInnerHTML` (lib/symbolRender · TacticalSymbol). A crafted value such as
  * `<svg><image href=x onerror=…></svg>` therefore ran script in another operator's origin
- * (SEC-01, the class the audit's shape-colour fix left open). This is the AUTHORITATIVE XSS gate:
- * it parses the markup with the browser's `DOMParser` — deliberately not a hand-rolled regex,
- * which is exactly the sink the audit warned against — walks the tree, and keeps only the
- * structural/presentational SVG a static tactical glyph is made of.
+ * (SEC-01, the class the audit's shape-colour fix left open). This is the AUTHORITATIVE XSS gate.
  *
- * The ELEMENT list is a strict allowlist: the shapes, text, gradients, patterns, uses and raster
- * <image>s the bundled symbol pack, the vehicle/person glyph builders and the shape renderers
- * actually emit — and NONE of the elements that carry behaviour (`<script>`, `<foreignObject>`,
- * `<animate*>`, `<set>`), which are dropped whole. ATTRIBUTES are filtered rather than
- * allowlisted, so a legitimate glyph survives byte-for-byte: only the real vectors are stripped —
- * any `on*` event handler, and any `href`/`xlink:href`/CSS `url(…)` that points anywhere but a
- * `#fragment` or a `data:image/…` raster (so `javascript:` and external/local loads cannot fire).
- * A DOCTYPE/ENTITY prologue is dropped for free: only the `<svg>` element is re-serialised.
+ * ⚠️ WHY WE PARSE IN HTML CONTEXT (this is the whole fix — do not regress it to an XML parse):
+ * the sink is `innerHTML`, i.e. the browser's HTML parser. Two earlier fixes parsed the markup as
+ * XML (`image/svg+xml`), filtered, and re-serialised to a STRING — but that string was then
+ * re-parsed by the HTML sink, and the two parsers do NOT agree. Content that is inert under XML
+ * becomes live under HTML: a `<![CDATA[ … ]]>` section survives XML serialisation untouched, and
+ * inside an SVG HTML-integration element (`<title>`, `<desc>`, `<foreignObject>`) the HTML parser
+ * turns that CDATA text back into real markup — so
+ *   `<title><text><![CDATA[><img/src=""/onerror="…">]]></text></title>`
+ * passed straight through an XML-based sanitiser and then FIRED in the sink. The only way to close
+ * a parser-differential is to sanitise in the SAME parser the sink uses. So we parse with
+ * `DOMParser.parseFromString(markup, 'text/html')` (browsers parse inline `<svg>` as foreign
+ * content in an HTML document — exactly what the sink does), walk that tree, and serialise the
+ * cleaned `<svg>` back with `outerHTML`. There is no second parse to disagree with.
  *
- * Never throws: unparseable markup (or a root that is not `<svg>`) yields '' so the caller renders
+ * ON TOP of the HTML-context parse we also, belt-and-suspenders:
+ *  • DROP every non-element node that can carry a parser-context trap — CDATA sections (nodeType 4),
+ *    comments (8) and processing instructions (7). None belong in a static glyph and all three are
+ *    places the two parsers diverge.
+ *  • ELEMENT ALLOWLIST: keep only the structural/presentational shapes a static tactical glyph is
+ *    built from. Everything else is dropped whole — including every HTML/MathML integration point
+ *    (`<foreignObject>`, `<title>`, `<desc>`, `<metadata>`, `<annotation*>`) and every behaviour
+ *    carrier (`<script>`, `<style>`, `<animate*>`, `<set>`), none of which a glyph needs.
+ *  • ATTRIBUTE ALLOWLIST (not a denylist): keep only known-safe SVG presentation/geometry/text
+ *    attributes. This is what makes `onerror`, `/onerror`, `onload`, namespaced event handlers and
+ *    any unknown/`data-*` attribute fall away no matter how they are spelled — a `startsWith('on')`
+ *    denylist misses slash- and namespace-separated evasions, an allowlist cannot. `href`/`xlink:href`
+ *    are allowed ONLY when they point at a `#fragment` or a `data:image/…` raster; `style` is dropped
+ *    entirely (a glyph gets its colour from `fill`/`stroke`, and `style` can smuggle `url()`).
+ *
+ * Never throws: unparseable markup (or a document with no `<svg>`) yields '' so the caller renders
  * nothing — losing one glyph must never take down a live incident.
  */
 
 /** Structural + presentational SVG elements a static glyph is built from (compared lowercased, so
- *  the camelCase originals `linearGradient`/`clipPath`/… match). Everything else is removed. */
+ *  the camelCase originals `linearGradient`/`clipPath`/… match). Everything else — behaviour
+ *  carriers and every HTML/MathML integration point — is removed. NB `<title>`/`<desc>` are NOT
+ *  here: they are text integration points where the HTML parser re-enters HTML mode, the exact
+ *  trap this gate exists to shut, and a static glyph never needs them. */
 const ALLOWED_ELEMENTS = new Set([
   'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon',
   'text', 'tspan', 'defs', 'lineargradient', 'radialgradient', 'stop', 'clippath',
-  'mask', 'pattern', 'use', 'title', 'symbol', 'marker', 'image',
+  'mask', 'pattern', 'use', 'symbol', 'marker', 'image',
+])
+
+/** Known-safe SVG presentation / geometry / text / gradient attributes (compared lowercased; the
+ *  HTML parser restores the camelCase of foreign attributes like `viewBox`, so we lower them to
+ *  match). `href`/`xlink:href` are handled separately (value-checked); `style`, every `on*` handler
+ *  and everything not named here is dropped. */
+const ALLOWED_ATTRS = new Set([
+  // geometry / layout
+  'd', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'fx', 'fy',
+  'points', 'width', 'height', 'viewbox', 'preserveaspectratio', 'transform', 'dx', 'dy',
+  // paint / presentation
+  'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-linecap',
+  'stroke-linejoin', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-miterlimit',
+  'stroke-opacity', 'opacity', 'color', 'visibility', 'display',
+  // text
+  'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant',
+  'text-anchor', 'dominant-baseline', 'alignment-baseline', 'letter-spacing', 'word-spacing',
+  // gradient / pattern
+  'offset', 'stop-color', 'stop-opacity', 'gradientunits', 'gradienttransform', 'spreadmethod',
+  'patternunits', 'patterncontentunits', 'patterntransform',
+  // clip / mask
+  'clip-path', 'clip-rule', 'mask', 'maskunits', 'maskcontentunits', 'clippathunits',
+  // marker
+  'markerwidth', 'markerheight', 'refx', 'refy', 'orient', 'markerunits',
+  // identity / namespaces
+  'id', 'class', 'xmlns', 'xmlns:xlink',
 ])
 
 /** A resource reference (`href`, CSS `url(…)`) a glyph may legitimately carry: an in-document
@@ -50,8 +96,11 @@ const hasUnsafeUrl = (value: string): boolean => {
 
 const keepAttribute = (name: string, value: string): boolean => {
   const n = name.toLowerCase()
-  if (n.startsWith('on')) return false // event handler — the direct script sink
+  // `href`/`xlink:href` (however namespaced) may only point at a fragment or an inline raster.
   if (n === 'href' || n.endsWith(':href')) return isSafeRef(value)
+  // ALLOWLIST: anything not explicitly named is dropped — this is what stops `onerror`, `/onerror`,
+  // `onload`, `xlink:actuate`, unknown/`data-*` attributes and `style` regardless of spelling.
+  if (!ALLOWED_ATTRS.has(n)) return false
   if (/javascript:/i.test(value)) return false
   if (/url\(/i.test(value) && hasUnsafeUrl(value)) return false
   return true
@@ -83,40 +132,56 @@ function sanitize(markup: string): SanitizeResult {
   return result
 }
 
+// Node types that carry a parser-context trap and are dropped wherever they appear (querySelectorAll
+// never returns them, so they are handled in the childNode walk): CDATA section, processing
+// instruction, comment. See the file header — CDATA in particular is the round-2 bypass.
+const TRAP_NODE_TYPES = new Set<number>([4 /* CDATA_SECTION */, 7 /* PROCESSING_INSTRUCTION */, 8 /* COMMENT */])
+
 function clean(markup: string): SanitizeResult {
   let doc: Document
   try {
-    doc = new DOMParser().parseFromString(markup, 'image/svg+xml')
+    // ⚠️ 'text/html', NOT 'image/svg+xml': the sink is `innerHTML`, so we MUST parse in the same
+    // parser to avoid the XML→HTML differential that the CDATA-in-<title> bypass exploited. The HTML
+    // parser handles inline `<svg>` as foreign content exactly as the sink will.
+    doc = new DOMParser().parseFromString(markup, 'text/html')
   } catch {
     return { svg: '', modified: true } // no DOM to parse with (never in a browser) → render nothing
   }
-  const root = doc.documentElement
-  // A malformed document parses to a <parsererror> tree (or none at all); a root that is not an
-  // <svg> is not a glyph. Either way there is nothing safe to render.
-  if (!root || root.nodeName === 'parsererror' || doc.querySelector('parsererror')) {
-    return { svg: '', modified: true }
-  }
-  if (root.localName.toLowerCase() !== 'svg') return { svg: '', modified: true }
+  // The glyph is the first <svg> in document order; anything wrapping it (a stray <div>, a dropped
+  // integration element) is discarded by taking only the svg subtree. No <svg> → nothing to render.
+  const root = doc.querySelector('svg')
+  if (!root) return { svg: '', modified: true }
 
   let modified = false
-  // Snapshot the elements first — removing one mutates the live tree underneath querySelectorAll.
-  for (const el of [root, ...root.querySelectorAll('*')]) {
-    if (!el.isConnected) continue // an ancestor was already dropped, taking this with it
-    if (!ALLOWED_ELEMENTS.has(el.localName.toLowerCase())) {
-      el.remove()
-      modified = true
-      continue
-    }
+
+  const scrub = (el: Element): void => {
     for (const attr of [...el.attributes]) {
       if (!keepAttribute(attr.name, attr.value)) {
         el.removeAttribute(attr.name)
         modified = true
       }
     }
+    for (const child of [...el.childNodes]) {
+      if (child.nodeType === 1 /* ELEMENT_NODE */) {
+        const c = child as Element
+        if (!ALLOWED_ELEMENTS.has(c.localName.toLowerCase())) {
+          el.removeChild(c)
+          modified = true
+          continue
+        }
+        scrub(c)
+      } else if (TRAP_NODE_TYPES.has(child.nodeType)) {
+        el.removeChild(child) // CDATA / comment / PI — the parser-context traps
+        modified = true
+      }
+      // plain text nodes (nodeType 3) are kept: they are a glyph's visible label
+    }
   }
 
+  scrub(root)
+
   try {
-    return { svg: new XMLSerializer().serializeToString(root), modified }
+    return { svg: root.outerHTML, modified }
   } catch {
     return { svg: '', modified: true }
   }

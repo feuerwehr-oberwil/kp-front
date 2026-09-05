@@ -197,8 +197,19 @@ _NUMERIC_DRAWING_KEYS = frozenset(
 #: server-side Rapport raster (app/kroki.py · raster_svg) never carry an executable payload and a
 #: hostile glyph cannot become a render-time 500. Idempotent on legitimate markup (nothing to
 #: match), so re-wrapping the server's own blob through a `WorkspacePut` does not churn it.
-_SCRIPTISH_TAG_RE = re.compile(r"</?\s*(?:script|foreignobject|animate\w*|set)\b[^>]*>", re.IGNORECASE)
-_EVENT_ATTR_RE = re.compile(r"""\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
+# ⚠️ CDATA + comments come out FIRST: they are the round-3 parser-differential the auditor named —
+# a `<![CDATA[ … ]]>` survives an XML round-trip and the HTML sink then re-parses its body as live
+# markup (`<title><text><![CDATA[><img onerror=…>]]>`). The client's HTML-context DOMParser is the
+# authoritative gate; stripping them here keeps the stored blob and the server raster path clean.
+_CDATA_RE = re.compile(r"<!\[CDATA\[.*?\]\]>", re.DOTALL | re.IGNORECASE)
+_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_SCRIPTISH_TAG_RE = re.compile(
+    r"</?\s*(?:script|foreignobject|title|desc|metadata|style|animate\w*|set)\b[^>]*>", re.IGNORECASE
+)
+# ⚠️ Keyed on whitespace OR a slash before `on…`: `<img/onerror=…>` is a valid HTML start tag whose
+# `/` separates attributes, so a whitespace-only anchor (the round-1/2 regex) missed it — the exact
+# slash-attribute evasion the auditor called out.
+_EVENT_ATTR_RE = re.compile(r"""[\s/]on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
 _HREF_ATTR_RE = re.compile(r"""(\s(?:xlink:)?href\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
 _JS_URI_RE = re.compile(r"javascript:", re.IGNORECASE)
 
@@ -206,10 +217,12 @@ _JS_URI_RE = re.compile(r"javascript:", re.IGNORECASE)
 def _scrub_svg(markup: str) -> str:
     """Neutralise the executable parts of an editor-supplied SVG glyph — never raise, never reject.
 
-    Not a parser: it strips the behaviour-carrying tags, the `on*=` event handlers, the
+    Not a parser: it strips CDATA sections and comments (the parser-differential traps), the
+    behaviour-carrying / integration tags (`script`, `foreignObject`, `title`, `desc`, `metadata`,
+    `style`, `animate*`, `set`), the `on*=` event handlers (whitespace- OR slash-separated), the
     `javascript:` scheme, and any `href`/`xlink:href` that is not a `#fragment` or a `data:image/…`
-    raster. The client's DOMParser sanitiser is what actually decides what renders; this only has
-    to make sure nothing dangerous is persisted.
+    raster. The client's HTML-context DOMParser sanitiser is what actually decides what renders;
+    this only has to make sure nothing dangerous is persisted or handed to the raster path.
     """
 
     def _href(m: re.Match[str]) -> str:
@@ -218,7 +231,9 @@ def _scrub_svg(markup: str) -> str:
             return m.group(0)
         return ""  # external / local / javascript: reference — drop the whole attribute
 
-    text = _SCRIPTISH_TAG_RE.sub("", markup)
+    text = _COMMENT_RE.sub("", markup)
+    text = _CDATA_RE.sub("", text)
+    text = _SCRIPTISH_TAG_RE.sub("", text)
     text = _EVENT_ATTR_RE.sub("", text)
     text = _HREF_ATTR_RE.sub(_href, text)
     return _JS_URI_RE.sub("", text)

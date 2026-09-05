@@ -99,6 +99,34 @@ def test_hostile_symbolsvg_is_neutralised_not_rejected():
         assert "<svg" in cleaned  # …but the glyph itself is kept
 
 
+def test_hostile_symbolsvg_parser_differential_is_neutralised():
+    # SEC-01 (round 3) · the auditor's reopened bypass. A `<![CDATA[…]]>` survives an XML round-trip
+    # and the HTML sink re-parses its body as live markup; `<img/onerror=…>` is a slash-separated
+    # handler a whitespace-anchored regex misses. The server scrub must strip both, plus comments and
+    # the <title>/<desc>/<style> integration/behaviour tags — and never reject.
+    hostile = (
+        '<svg xmlns="http://www.w3.org/2000/svg">'
+        '<title><text><![CDATA[><img/src=""/onerror="window.__probe=1">]]></text></title>'
+        "<!--<img src=x onerror=alert(1)>-->"
+        "<desc><![CDATA[<script>alert(1)</script>]]></desc>"
+        "<style>* { background: url(javascript:1) }</style>"
+        '<image href="#a"/onerror="window.__probe=1"/>'
+        '<rect width="1" height="1"/></svg>'
+    )
+    body = WorkspacePut(
+        base_rev=0,
+        workspace={"entities": [{"id": "e1", "kind": "vehicle", "symbolSvg": hostile}]},
+    )
+    cleaned = body.workspace["entities"][0]["symbolSvg"]
+    assert "CDATA" not in cleaned
+    assert "onerror" not in cleaned
+    assert "<!--" not in cleaned
+    assert "javascript:" not in cleaned
+    assert "<script" not in cleaned
+    assert "<title" not in cleaned and "<desc" not in cleaned and "<style" not in cleaned
+    assert "<rect" in cleaned  # the legitimate shape is kept
+
+
 def test_legit_symbolsvg_survives_unchanged():
     glyph = '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="#00a0ff"/></svg>'
     body = WorkspacePut(base_rev=0, workspace={"entities": [{"id": "e1", "symbolSvg": glyph}]})
