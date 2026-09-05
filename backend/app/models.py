@@ -64,6 +64,12 @@ class User(Base):
     el_view_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Bumped whenever this account's sessions must all end at once — a PIN reset, a
+    # deactivation (auth/router). Every access and refresh token carries the generation it was
+    # minted under and is refused once the row moves past it, so rotating the credential
+    # actually removes whoever was already inside. Tokens minted before this column existed
+    # carry no generation and are read as 0, which is where every row starts.
+    auth_generation: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
 
     __table_args__ = (CheckConstraint("role in ('editor','viewer')", name="ck_users_role"),)
 

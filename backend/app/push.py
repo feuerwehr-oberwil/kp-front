@@ -20,8 +20,11 @@ import asyncio
 import json
 import logging
 import math
-from datetime import UTC, datetime
-from typing import Any
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    import requests
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -31,6 +34,11 @@ from .models import Incident, JournalEntry, PushSubscription
 from .transaction_hooks import after_commit
 
 logger = logging.getLogger(__name__)
+
+# What the push service said about one send. Only "accepted" is a real delivery — a "retry"
+# (transient failure, e.g. 503) must NOT be recorded as delivered, or the renotify ledger would
+# suppress that endpoint's next Atemschutz alarm for a whole window; "gone" (404/410) is pruned.
+SendOutcome = Literal["accepted", "retry", "gone"]
 
 
 def push_enabled() -> bool:
@@ -55,6 +63,13 @@ DEFAULT_INTERVAL_MIN = 5
 DEFAULT_GRACE_SEC = 60
 DEFAULT_ALARM_BAR = 100
 DEFAULT_ALARM_BAR_RUECKZUG = 50
+
+#: How long a registration stays a delivery target without being renewed. The SPA re-subscribes on
+#: every boot (src/lib/push.ts), so a row nobody has refreshed in half a year belongs to a browser
+#: profile that is gone. Registration expires the user's stale rows; delivery ALSO excludes them
+#: (`_deliverable`), so an expired row is never pushed to even before its owner next re-registers
+#: (SEC-09, 05.09.). Lives here, the sending side, and is imported by the registration route.
+SUBSCRIPTION_TTL_DAYS = 180
 
 
 def _ms(iso: str | None) -> float | None:
@@ -190,13 +205,142 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
 #: alarm sweeps still await a broadcast; every path needs a finite upper bound.
 PUSH_TIMEOUT_SECONDS = 10
 
+#: Sends in flight at once. The blocking sender runs on the default thread pool, which the rest
+#: of the app shares — an unbounded fan-out over every subscribed browser is how a push sweep
+#: starves the request path it was queued from.
+BROADCAST_CONCURRENCY = 8
+
+#: Wall clock for ONE broadcast. A per-endpoint timeout bounds one send; with more rows than
+#: `BROADCAST_CONCURRENCY` the queue behind them is what an awaiting alarm actually waits for,
+#: and an alarm that arrives late is the failure this whole module exists to prevent.
+BROADCAST_DEADLINE_SECONDS = 45
+
 # Strong references to post-commit tasks. asyncio itself holds only weak references.
 _inflight: set[asyncio.Task] = set()
 
+#: Strong references to the individual per-endpoint send tasks a broadcast fans out. The deadline
+#: below deliberately does NOT cancel them (see `broadcast`), so this set — not the awaiting
+#: gather — is what keeps a still-running send from being garbage-collected mid-flight. Each task
+#: removes itself on completion.
+_broadcast_tasks: set[asyncio.Task] = set()
 
-def _send_one(sub: dict, payload: str) -> bool:
-    """Blocking pywebpush send; returns False when the subscription should be pruned
-    (endpoint gone per the push service, or the stored keys are unusable)."""
+
+#: Web-Push endpoints this server will POST to: the four major browser push services, matched as
+#: host SUFFIXES (WNS and Apple shard by region — `sN.notify.windows.com`, `<region>.push.apple.com`
+#: — so an exact set would reject real endpoints). Before this, ANY public-HTTPS host a logged-in
+#: user registered became an outbound POST target, i.e. the alarm sender was a request forwarder
+#: from the server's own network position. SEC-09 closes that by rejecting arbitrary hosts and
+#: accepting only a known push service (plus the admin escape hatch below). Mirrors
+#: kroki._TILE_PROVIDER_HOSTS — the two caller-chosen egress surfaces this app has.
+_PUSH_SERVICE_HOSTS = frozenset(
+    {
+        "fcm.googleapis.com",  # Chromium / FCM
+        "updates.push.services.mozilla.com",  # Firefox / Mozilla autopush
+        "notify.windows.com",  # WNS: regional shards, e.g. sg2p.notify.windows.com
+        "push.apple.com",  # Safari / WebKit: web.push.apple.com + regional *.push.apple.com
+    }
+)
+
+
+def _push_extra_hosts() -> frozenset[str]:
+    """Extra push-service hosts this deployment's operator configured (PUSH_EXTRA_HOSTS) — the
+    escape hatch for a self-hosted push service. Env only, like REPORT_TILE_HOSTS: the endpoint
+    arrives in a caller's request body, so who may add a destination is whoever runs the
+    deployment, never whoever is logged in."""
+    return frozenset(h.strip().lower() for h in settings.push_extra_hosts.split(",") if h.strip())
+
+
+def is_known_push_host(host: str) -> bool:
+    """Whether an endpoint host is a major push service (or an admin-allowlisted one). Suffix
+    match on the DECODED, lower-cased host: the leading dot keeps a lookalike like
+    `fcm.googleapis.com.evil.example` out, and decoding first means a `%xx`-encoded host is judged
+    as what the transport will actually send it to — it can neither smuggle an arbitrary host past
+    the allowlist nor hide a known one from it (SEC-09, 05.09.)."""
+    from urllib.parse import unquote
+
+    h = unquote((host or "").strip()).strip().strip("[]").rstrip(".").lower()
+    if not h:
+        return False
+    return any(h == s or h.endswith(f".{s}") for s in _PUSH_SERVICE_HOSTS | _push_extra_hosts())
+
+
+def _deliverable():
+    """Subscriptions an alarm may go to: kiosk rows without a user, plus every ACTIVE user's.
+
+    An outer join, not a filter on a joined column — a `user_id` of NULL is a legitimate row
+    (a shared station browser that subscribed before it had a login) and an inner join would
+    silently stop notifying it.
+
+    Expired rows (past the TTL, never refreshed) are excluded here too: expiry ran only when a
+    user re-registered, so a phone that stopped booting the app was still being POSTed to for
+    months (SEC-09, 05.09.).
+    """
+    from .models import User
+
+    cutoff = datetime.now(UTC) - timedelta(days=SUBSCRIPTION_TTL_DAYS)
+    return (
+        select(PushSubscription)
+        .outerjoin(User, User.id == PushSubscription.user_id)
+        .where(
+            (PushSubscription.user_id.is_(None)) | (User.is_active.is_(True)),
+            PushSubscription.created_at >= cutoff,
+        )
+    )
+
+
+def _sendable(endpoint: str) -> bool:
+    """Last gate before the sender: a row stored before the destination policy existed (or
+    written by an older release) must not become an outbound request now. The policy DECODES the
+    host before judging it, so a stored `https://%31%32%37.0.0.1/…` — which `requests` would
+    normalise to loopback — is refused HERE rather than reaching 127.0.0.1 (SEC-09, 05.09.).
+
+    Two gates, both re-checked here so registration cannot be the ONLY enforcement point: the
+    endpoint must be public-HTTPS (`require_public_https`), and its host must be a known push
+    service or admin-allowlisted (`is_known_push_host`). The send-path re-check is what stops a
+    row written before SEC-09 — an arbitrary host that was accepted then — from being POSTed to now.
+
+    Static checks only — no DNS on the alarm path (a sweep re-validates dozens of rows inline on
+    the event loop, and registration is where resolution happens, app/api/push.py). Refusing an
+    already-resolvable name that has since rebound INWARDS would need `resolve=True` here; that is
+    left as the documented DNS-rebind residual (app/egress.py) and the `block_unresolved` seam."""
+    from .egress import EgressRefusedError, require_public_https
+
+    try:
+        host = require_public_https(endpoint, what="Push-Endpunkt")
+    except EgressRefusedError as e:
+        logger.warning("Push-Endpunkt übersprungen (%s): %.60s", e, endpoint)
+        return False
+    if not is_known_push_host(host):
+        logger.warning("Push-Endpunkt ist kein bekannter Push-Dienst — übersprungen: %.60s", endpoint)
+        return False
+    return True
+
+
+def _no_redirect_session() -> "requests.Session":
+    """A `requests` session that refuses to FOLLOW redirects.
+
+    ⚠️ pywebpush uses a default session, which follows redirects — so a subscription on a validated
+    public-HTTPS host that answers «301 → http://169.254.169.254» would have the encrypted body
+    re-POSTed to that loopback/metadata target (SEC-09, 05.09.). The destination stays the endpoint
+    registration and `_sendable` already vetted; a 3xx is simply not delivered (and not pruned — a
+    redirecting push service is not a gone one). Redirects are separate from the accepted
+    DNS-rebinding residual (app/egress.py); this closes them.
+    """
+    import requests
+
+    session = requests.Session()
+
+    def _no_redirects(resp, *_args, **_kwargs):  # requests calls this to build the redirect chain
+        return iter(())
+
+    session.resolve_redirects = _no_redirects  # type: ignore[method-assign]
+    return session
+
+
+def _send_one(sub: dict, payload: str) -> SendOutcome:
+    """Blocking pywebpush send. "accepted" = the push service took it; "gone" = the endpoint is
+    dead (404/410) or its keys are unusable, so the caller prunes it; "retry" = a transient failure
+    (e.g. 503) — keep the row and let the next sweep try again (never counted as delivered)."""
     from pywebpush import WebPushException, webpush
 
     from .credentials import get as credential
@@ -209,22 +353,40 @@ def _send_one(sub: dict, payload: str) -> bool:
             vapid_claims={"sub": credential("vapid_subject")},
             ttl=120,
             timeout=PUSH_TIMEOUT_SECONDS,
+            requests_session=_no_redirect_session(),
         )
-        return True
+        return "accepted"
     except WebPushException as e:
         code = getattr(getattr(e, "response", None), "status_code", None)
         if code in (404, 410):
-            return False  # endpoint gone — caller prunes it
+            return "gone"  # endpoint gone — caller prunes it
         logger.warning("Web push failed (%s): %s", code, e)
-        return True
+        return "retry"  # transient (503, timeout, …): NOT a delivery — retry next sweep
     except Exception:  # intake must survive a broken push path  # malformed keys must not abort the whole sweep
         logger.exception("Web push subscription unusable — pruning %s", sub["endpoint"][:60])
-        return False
+        return "gone"
 
 
-async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target: str | None) -> int:
-    """Push to every subscribed browser; prunes dead endpoints. Returns the send count."""
-    subs = list((await db.execute(select(PushSubscription))).scalars())
+async def broadcast(
+    db: AsyncSession, *, title: str, body: str, tag: str, target: str | None, dedup_key: str | None = None
+) -> int:
+    """Push to every subscribed browser of an ACTIVE user; prunes dead endpoints.
+
+    Returns the number of sends that actually COMPLETED. A deactivated login keeps no delivery:
+    the row survives (the person may come back) but the alarm does not follow an account somebody
+    switched off.
+
+    ``dedup_key`` ties this call to a sweep crossing (``check_and_push``). When given, the shared
+    per-recipient ledger ``_delivered[dedup_key]`` is consulted so a browser already reached this
+    round is skipped, and re-armed via ``_notified`` so a recipient still outstanding at the
+    deadline is retried next sweep. The new-alarm path fires once and passes no key.
+    """
+    delivered_set = _delivered.setdefault(dedup_key, set()) if dedup_key is not None else None
+    subs = [
+        s
+        for s in (await db.execute(_deliverable())).scalars()
+        if _sendable(s.endpoint) and not (delivered_set is not None and s.endpoint in delivered_set)
+    ]
     if not subs:
         return 0
     payload = json.dumps({"title": title, "body": body, "tag": tag, "target": target})
@@ -233,28 +395,84 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target
     # len(subs) x PUSH_TIMEOUT_SECONDS — twenty subscribed devices with one dead push service
     # meant minutes of hanging, and this is awaited inline in the alarm intake path. Fanned
     # out, the whole sweep costs one timeout regardless of how many endpoints are unreachable.
-    results = await asyncio.gather(
-        *(
-            asyncio.to_thread(_send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload)
-            for s in subs
-        ),
-        return_exceptions=True,
-    )
+    # Bounded on both axes: at most BROADCAST_CONCURRENCY threads, and the whole broadcast
+    # STOPS WAITING at BROADCAST_DEADLINE_SECONDS rather than holding the alarm path open.
+    gate = asyncio.Semaphore(BROADCAST_CONCURRENCY)
 
+    async def send(s: PushSubscription) -> tuple[str, SendOutcome]:
+        async with gate:
+            outcome = await asyncio.to_thread(
+                _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
+            )
+        return s.endpoint, outcome
+
+    tasks = {asyncio.create_task(send(s)) for s in subs}
+    _broadcast_tasks.update(tasks)
+
+    def _record(task: asyncio.Task) -> None:
+        _broadcast_tasks.discard(task)
+        # Note only the recipients the push service ACCEPTED — even a send that finishes AFTER this
+        # broadcast's deadline records here, so the next sweep skips it and never delivers twice. A
+        # "retry" (transient failure) is deliberately NOT recorded, so the next sweep tries it again.
+        # Closes over this round's exact set object: a later renotify round replaces it (see
+        # `_should_send`), so a very-late completion cannot pollute the fresh round.
+        if delivered_set is None or task.cancelled() or task.exception() is not None:
+            return
+        if task.result()[1] == "accepted":
+            delivered_set.add(task.result()[0])
+
+    for t in tasks:
+        t.add_done_callback(_record)
+
+    # ⚠️ The deadline STOPS WAITING; it does not cancel. Cancelling would (1) drop the WAIT on a
+    # queued send whose recipient the renotify key already counts as notified — silently skipping
+    # a safety alarm for a whole `push_renotify_seconds` window — and (2) abandon an already-
+    # admitted `to_thread` send that keeps running on its thread anyway, which the next sweep
+    # would then DUPLICATE. So the unfinished sends run to completion (kept alive by
+    # `_broadcast_tasks`) and record themselves via `_record`; here we only collect what is done.
+    done, pending = await asyncio.wait(tasks, timeout=BROADCAST_DEADLINE_SECONDS)
+
+    delivered = 0
     dead: list[str] = []
-    for s, ok in zip(subs, results, strict=True):
-        if isinstance(ok, BaseException):
+    retryable = False  # a send that failed transiently (503, …) — retry it on the next sweep
+    for task in done:
+        if task.cancelled():
+            continue
+        exc = task.exception()
+        if exc is not None:
             # _send_one already swallows everything it knows about; anything arriving here is
             # unexpected. Log it and KEEP the subscription — pruning on an unknown fault would
             # silently unsubscribe a working device.
-            logger.warning("Web push raised unexpectedly for %s: %s", s.endpoint[:60], ok)
+            logger.warning("Web push raised unexpectedly: %s", exc)
+            retryable = True
             continue
-        if not ok:
-            dead.append(s.endpoint)
+        endpoint, outcome = task.result()
+        if outcome == "accepted":
+            delivered += 1
+        elif outcome == "gone":
+            dead.append(endpoint)
+        else:  # "retry": keep the row, don't count it, and re-arm the crossing below
+            retryable = True
     if dead:
+        # Only endpoints whose send finished before the deadline are pruned — a slow push service
+        # is not a gone one, and a still-running send has no verdict yet.
         await db.execute(delete(PushSubscription).where(PushSubscription.endpoint.in_(dead)))
         logger.info("Pruned %d dead push subscription(s)", len(dead))
-    return len(subs) - len(dead)
+    if pending:
+        logger.warning(
+            "Push-Broadcast (%s): %d von %d Sendungen offen nach %ss",
+            tag,
+            len(pending),
+            len(subs),
+            BROADCAST_DEADLINE_SECONDS,
+        )
+    # Re-arm this crossing so the NEXT sweep retries the recipients still missing — those still
+    # outstanding at the deadline (`pending`) AND those that failed transiently (`retryable`).
+    # `_delivered` keeps the ones already ACCEPTED, so the retry goes only to the missing and
+    # nobody is notified twice. Without this a 503'd device would wait a whole renotify window.
+    if dedup_key is not None and (pending or retryable):
+        _notified.pop(dedup_key, None)
+    return delivered
 
 
 async def notify_new_alarm(
@@ -306,11 +524,23 @@ async def _broadcast_committed(
 # in-memory crossing → last-notified ms (restart = one re-notification, safe direction)
 _notified: dict[str, float] = {}
 
+#: Per-crossing, the endpoints already reached in the CURRENT renotify round — populated by
+#: `broadcast` (including sends that land after its deadline). It is what lets a partly-delivered
+#: sweep retry only the recipients still outstanding, without re-notifying the ones already
+#: reached. Reset at the start of each new renotify round (below) so a fresh round reaches
+#: everyone again. In-memory like `_notified`: a restart re-notifies once, the safe direction.
+_delivered: dict[str, set[str]] = {}
+
 
 def _should_send(key: str, now_ms: float) -> bool:
     last = _notified.get(key)
-    if last is not None and now_ms - last < settings.push_renotify_seconds * 1000:
-        return False
+    if last is not None:
+        if now_ms - last < settings.push_renotify_seconds * 1000:
+            return False
+        # A new renotify round: everyone is notified again, so forget who was reached last round.
+        # (An outstanding retry leaves `last` unset — `broadcast` popped it — and keeps the
+        # per-recipient progress so only the missing browsers are re-sent.)
+        _delivered.pop(key, None)
     _notified[key] = now_ms
     return True
 
@@ -358,6 +588,7 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
                     # the ':<truppId>' suffix (sw-notify.js passes the target through opaquely);
                     # a Trupp without an id falls back to the bare surface target.
                     target=f"atemschutz:{t['id']}" if t.get("id") else "atemschutz",
+                    dedup_key=key,
                 )
         # journal rows (seq order) + any pre-migration blob rows still carrying reminders
         rows = [
@@ -381,5 +612,6 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
                     body=r["text"],
                     tag=f"reminder-{r['id']}",
                     target="journal",
+                    dedup_key=key,
                 )
     return sent

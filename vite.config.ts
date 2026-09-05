@@ -203,7 +203,12 @@ export default defineConfig(({ mode }) => {
       dropManifestFromPrecache(),
     ],
     server: {
-      host: true,
+      // Loopback-only by default (SEC-11): a bare `pnpm dev` no longer exposes the dev server —
+      // and its known-vulnerable-class advisories — to the whole LAN. Set VITE_LAN=1 to restore
+      // the tablet-over-LAN workflow (`VITE_LAN=1 pnpm dev`) when testing on a real device.
+      // Strictly `=== '1'`: a bare truthiness test would bind to the LAN for `VITE_LAN=0` and
+      // `VITE_LAN=false` too (non-empty strings are truthy), the opposite of what the operator meant.
+      host: env.VITE_LAN === '1' ? true : undefined,
       port: 5188,
       strictPort: true,
       proxy: { '/api': { target: apiTarget, changeOrigin: true } },

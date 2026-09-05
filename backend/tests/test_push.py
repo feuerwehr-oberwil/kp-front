@@ -239,6 +239,11 @@ async def test_killed_app_sweep_pushes_confirmed_pressure_with_station_threshold
 
     monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
     assert await push_mod.check_and_push(db_session, NOW) == 1
+    # the dedup_key ties the send to this crossing (incident id + trupp + crossing ts + reason);
+    # the per-recipient ledger and renotify re-arm hang off it. Its incident id is dynamic.
+    assert len(calls) == 1
+    dedup_key = calls[0].pop("dedup_key")
+    assert dedup_key.startswith("az:") and dedup_key.endswith(":a:1783001370000.0:pressure")
     assert calls == [
         {
             "title": "Alarmdruck erreicht – Angriff 1",
@@ -355,11 +360,17 @@ async def test_sweep_stays_silent_for_an_identity_only_demo(db_session, monkeypa
     assert await push_mod.check_and_push(db_session, NOW) == 0
 
 
-async def test_subscription_endpoints(client, editor, viewer):
+async def test_subscription_endpoints(client, editor, viewer, monkeypatch):
+    # Registration resolves the endpoint host (app/api/push.py · resolve=True); answer for the
+    # resolver so nothing leaves the machine. The host itself must be a known push service now
+    # (SEC-09), so use a real fcm endpoint rather than an arbitrary placeholder.
+    from app import egress
+
+    monkeypatch.setattr(egress, "_resolved_addresses", lambda host: ["93.184.216.34"])
     login = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
     assert login.status_code == 200
 
-    sub = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "k1", "auth": "a1"}}
+    sub = {"endpoint": "https://fcm.googleapis.com/fcm/send/abc", "keys": {"p256dh": "k1", "auth": "a1"}}
     assert (await client.post("/api/push/subscriptions", json=sub)).status_code == 201
     # re-subscribing the same endpoint upserts (no duplicate-key error)
     sub["keys"]["p256dh"] = "k2"
@@ -374,7 +385,7 @@ async def test_subscription_endpoints(client, editor, viewer):
 
 async def test_push_endpoints_require_auth(client):
     assert (await client.get("/api/push/vapid-key")).status_code == 401
-    sub = {"endpoint": "https://push.example/x", "keys": {"p256dh": "k", "auth": "a"}}
+    sub = {"endpoint": "https://fcm.googleapis.com/fcm/send/x", "keys": {"p256dh": "k", "auth": "a"}}
     assert (await client.post("/api/push/subscriptions", json=sub)).status_code == 401
 
 
@@ -402,8 +413,8 @@ class TestBroadcast:
 
         from app.push import broadcast
 
-        _add_sub(db_session, "https://push.example/ok")
-        _add_sub(db_session, "https://push.example/gone")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/ok")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/gone")
         await db_session.commit()
 
         delivered: list[str] = []
@@ -416,9 +427,9 @@ class TestBroadcast:
         monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
         sent = await broadcast(db_session, title="T", body="B", tag="t", target="")
         assert sent == 1
-        assert delivered == ["https://push.example/ok"]
+        assert delivered == ["https://fcm.googleapis.com/fcm/send/ok"]
         # the 410 endpoint is deleted, the live one kept
-        assert await _endpoints(db_session) == ["https://push.example/ok"]
+        assert await _endpoints(db_session) == ["https://fcm.googleapis.com/fcm/send/ok"]
 
     async def test_a_hung_endpoint_gets_a_timeout_and_does_not_stall_the_others(self, db_session, monkeypatch):
         """
@@ -430,7 +441,7 @@ class TestBroadcast:
 
         from app.push import PUSH_TIMEOUT_SECONDS, broadcast
 
-        _add_sub(db_session, "https://push.example/a")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/a")
         await db_session.commit()
 
         seen: list[float | None] = []
@@ -455,7 +466,7 @@ class TestBroadcast:
         from app.push import broadcast
 
         for i in range(5):
-            _add_sub(db_session, f"https://push.example/slow{i}")
+            _add_sub(db_session, f"https://fcm.googleapis.com/fcm/send/slow{i}")
         await db_session.commit()
 
         def fake_webpush(subscription_info, **_kw):
@@ -469,22 +480,201 @@ class TestBroadcast:
         # Sequential would be ~1.0s; concurrent is ~0.2s. The bound is deliberately loose —
         # this asserts "not serialised", not a performance number.
         assert elapsed < 0.7, f"sends look serialised ({elapsed:.2f}s for 5 x 0.2s)"
-        assert await _endpoints(db_session) == [f"https://push.example/slow{i}" for i in range(5)]
+        assert await _endpoints(db_session) == [f"https://fcm.googleapis.com/fcm/send/slow{i}" for i in range(5)]
 
     async def test_transient_failure_keeps_the_subscription(self, db_session, monkeypatch):
         import pywebpush
 
-        from app.push import broadcast
+        import app.push as push_mod
 
-        _add_sub(db_session, "https://push.example/flaky")
+        push_mod._notified.clear()
+        push_mod._delivered.clear()
+        push_mod._broadcast_tasks.clear()
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/flaky")
         await db_session.commit()
 
         def fake_webpush(subscription_info, **_kw):
             raise pywebpush.WebPushException("busy", response=SimpleNamespace(status_code=503))
 
         monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
-        await broadcast(db_session, title="T", body="B", tag="t", target="")
-        assert await _endpoints(db_session) == ["https://push.example/flaky"]
+        push_mod._notified["az:x"] = NOW  # _should_send would have set this before broadcast
+        sent = await push_mod.broadcast(db_session, title="T", body="B", tag="t", target="", dedup_key="az:x")
+
+        # The row survives (a 503 is not a gone endpoint)…
+        assert await _endpoints(db_session) == ["https://fcm.googleapis.com/fcm/send/flaky"]
+        assert sent == 0  # a transient failure is NOT a delivery
+        # …and, crucially, the flaky endpoint is NOT recorded delivered and the crossing is
+        # re-armed, so the next sweep retries it instead of suppressing it for a whole window.
+        assert "https://fcm.googleapis.com/fcm/send/flaky" not in push_mod._delivered.get("az:x", set())
+        assert "az:x" not in push_mod._notified  # re-armed for the retry
+
+    async def test_happy_path_returns_full_count_and_keeps_the_crossing_armed(self, db_session, monkeypatch):
+        """Every send lands within the deadline: the full count comes back, all recipients are
+        recorded delivered, and the renotify key is NOT re-armed — the crossing is done for the
+        window."""
+        import pywebpush
+
+        import app.push as push_mod
+
+        push_mod._notified.clear()
+        push_mod._delivered.clear()
+        push_mod._broadcast_tasks.clear()
+        for i in range(3):
+            _add_sub(db_session, f"https://fcm.googleapis.com/fcm/send/ok{i}")
+        await db_session.commit()
+
+        monkeypatch.setattr(pywebpush, "webpush", lambda subscription_info, **_kw: None)
+        push_mod._notified["az:x"] = NOW  # _should_send would have set this before broadcast
+        sent = await push_mod.broadcast(db_session, title="T", body="B", tag="t", target="", dedup_key="az:x")
+
+        assert sent == 3
+        assert push_mod._delivered["az:x"] == {f"https://fcm.googleapis.com/fcm/send/ok{i}" for i in range(3)}
+        assert push_mod._notified.get("az:x") == NOW  # not re-armed: nobody was left outstanding
+
+    async def test_deadline_returns_completed_count_and_rearms_the_outstanding_crossing(self, db_session, monkeypatch):
+        """The SEC-09 fix. One send finishes; one is still running when the deadline hits. The
+        broadcast returns the count that actually LANDED (not 0), leaves the outstanding recipient
+        out of the delivered ledger, and re-arms the crossing so the next sweep retries it. The
+        still-running send is not cancelled — it finishes and records itself, so a later sweep
+        will not deliver it twice."""
+        import asyncio
+        import threading
+
+        import pywebpush
+
+        import app.push as push_mod
+
+        push_mod._notified.clear()
+        push_mod._delivered.clear()
+        push_mod._broadcast_tasks.clear()
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/fast")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/slow")
+        await db_session.commit()
+
+        release = threading.Event()
+        delivered: list[str] = []
+
+        def fake_webpush(subscription_info, **_kw):
+            ep = subscription_info["endpoint"]
+            if "slow" in ep:
+                release.wait(5)  # still running when the deadline fires
+            delivered.append(ep)
+
+        monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+        monkeypatch.setattr(push_mod, "BROADCAST_DEADLINE_SECONDS", 0.3)
+        push_mod._notified["az:x"] = NOW  # _should_send marked the crossing before broadcast
+
+        sent = await push_mod.broadcast(db_session, title="T", body="B", tag="t", target="", dedup_key="az:x")
+
+        # only the fast send landed before the deadline — reported, not swallowed as 0
+        assert sent == 1
+        assert delivered == ["https://fcm.googleapis.com/fcm/send/fast"]
+        # the outstanding recipient is not recorded, and the crossing is re-armed for a retry
+        assert push_mod._delivered["az:x"] == {"https://fcm.googleapis.com/fcm/send/fast"}
+        assert "az:x" not in push_mod._notified
+
+        # let the still-running send finish: it records itself even though the deadline passed
+        outstanding = tuple(push_mod._broadcast_tasks)
+        release.set()
+        await asyncio.gather(*outstanding)
+        assert push_mod._delivered["az:x"] == {
+            "https://fcm.googleapis.com/fcm/send/fast",
+            "https://fcm.googleapis.com/fcm/send/slow",
+        }
+
+    async def test_a_recorded_recipient_is_not_delivered_twice_on_the_next_round(self, db_session, monkeypatch):
+        """Completion tracking prevents duplication: a browser already reached this renotify round
+        is skipped on the next sweep, so the alarm is not pushed to it a second time."""
+        import pywebpush
+
+        import app.push as push_mod
+
+        push_mod._notified.clear()
+        push_mod._delivered.clear()
+        push_mod._broadcast_tasks.clear()
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/a")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/b")
+        await db_session.commit()
+
+        delivered: list[str] = []
+        monkeypatch.setattr(
+            pywebpush, "webpush", lambda subscription_info, **_kw: delivered.append(subscription_info["endpoint"])
+        )
+
+        push_mod._notified["az:x"] = NOW
+        first = await push_mod.broadcast(db_session, title="T", body="B", tag="t", target="", dedup_key="az:x")
+        assert first == 2
+        assert sorted(delivered) == [
+            "https://fcm.googleapis.com/fcm/send/a",
+            "https://fcm.googleapis.com/fcm/send/b",
+        ]
+
+        # same crossing, same round (renotify window not elapsed): both already reached → no re-send
+        second = await push_mod.broadcast(db_session, title="T", body="B", tag="t", target="", dedup_key="az:x")
+        assert second == 0
+        assert len(delivered) == 2  # nobody pushed a second time
+
+
+async def test_sweep_re_arms_a_partly_delivered_crossing_then_does_not_duplicate(db_session, monkeypatch):
+    """End to end over check_and_push: a sweep whose broadcast times out with one recipient still
+    in flight leaves the crossing eligible (not marked notified). Once the slow send finishes it is
+    recorded, so the next sweep does not deliver to it again — the alarm reaches everyone exactly
+    once."""
+    import asyncio
+    import threading
+
+    import pywebpush
+
+    import app.push as push_mod
+    from app.models import DeploymentConfig, Incident
+
+    push_mod._notified.clear()
+    push_mod._delivered.clear()
+    push_mod._broadcast_tasks.clear()
+    monkeypatch.setattr(push_mod, "BROADCAST_DEADLINE_SECONDS", 0.3)
+
+    db_session.add(DeploymentConfig(id=1, config_json={"doctrine": {"alarmBar": 140}}))
+    db_session.add(
+        Incident(
+            title="Zimmerbrand",
+            source="manual",
+            status="offen",
+            is_archived=False,
+            map_workspace_json={"trupps": [trupp("a", "2026-07-02T14:03:00Z", name="Angriff 1")]},
+        )
+    )
+    _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/fast")
+    _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/slow")
+    await db_session.commit()
+
+    release = threading.Event()
+    delivered: list[str] = []
+
+    def fake_webpush(subscription_info, **_kw):
+        ep = subscription_info["endpoint"]
+        if "slow" in ep:
+            release.wait(5)
+        delivered.append(ep)
+
+    monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+
+    # sweep 1: the slow endpoint is still in flight at the deadline
+    assert await push_mod.check_and_push(db_session, NOW) == 1
+    assert delivered == ["https://fcm.googleapis.com/fcm/send/fast"]
+    assert push_mod._notified == {}  # crossing re-armed — NOT left in a skip state
+
+    # the slow send finishes in the gap before the next sweep and records itself
+    outstanding = tuple(push_mod._broadcast_tasks)
+    release.set()
+    await asyncio.gather(*outstanding)
+
+    # sweep 2: the crossing is eligible again, but both recipients are now delivered → no re-push
+    assert await push_mod.check_and_push(db_session, NOW + 30_000) == 0
+    assert sorted(delivered) == [
+        "https://fcm.googleapis.com/fcm/send/fast",
+        "https://fcm.googleapis.com/fcm/send/slow",
+    ]  # slow delivered exactly once, fast not re-sent
+    assert push_mod._notified != {}  # now that everyone is reached, the crossing is marked
 
 
 # ---------------------------------------------------------------------------------------

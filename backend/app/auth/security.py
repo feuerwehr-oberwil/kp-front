@@ -10,6 +10,8 @@ import hmac
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import anyio
+import anyio.to_thread
 import bcrypt
 import jwt
 from jwt import InvalidTokenError as JWTError
@@ -57,6 +59,18 @@ def verify_pin(pin: str, pin_hash: str) -> bool:
         return bcrypt.checkpw(_pepper(pin), pin_hash.encode("utf-8"))
     except (ValueError, TypeError):
         return False
+
+
+#: Bcrypt at 12 rounds costs ~0.3 s of CPU. Run inline in an async route it stalls the event
+#: loop for every other tablet on the deployment, so `verify_pin_async` hands it to a worker
+#: thread — and does so through a limiter, because "off the loop" unbounded would just move a
+#: login burst's cost into the thread pool that reports, uploads and tiles also share.
+_PIN_VERIFY_LIMITER = anyio.CapacityLimiter(4)
+
+
+async def verify_pin_async(pin: str, pin_hash: str) -> bool:
+    """`verify_pin` off the event loop, with bounded concurrency (login hot path)."""
+    return await anyio.to_thread.run_sync(verify_pin, pin, pin_hash, limiter=_PIN_VERIFY_LIMITER)
 
 
 def _encode(data: dict, *, token_type: str, expires: timedelta) -> str:

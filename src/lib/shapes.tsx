@@ -1,3 +1,4 @@
+import { createElement, type SVGProps } from 'react'
 import type { ShapeKind } from '../types'
 import { DEFAULT_INK } from './lineStyle'
 
@@ -306,6 +307,73 @@ const HATCH_PERIOD_PX = 16
 const HATCH_WIDTH_PX = 1.6
 
 /**
+ * Which colours may be painted into the artwork.
+ *
+ * ⚠️ A shape's colour becomes an SVG ATTRIBUTE VALUE — on screen and in the string the print path
+ * rasters — and `color` is a free string in a synced workspace blob. A stored value carrying a
+ * quote therefore used to close that attribute and open an event handler in the next operator's
+ * browser (SEC-01). Everything this app writes is a hex literal (`appConfig.drawing.colors`,
+ * `<input type="color">`, `teamColors`); the function forms and the bare CSS keywords are accepted
+ * so a hand-written or legacy blob keeps rendering. Anything else falls back to the default ink
+ * rather than being drawn or refused — an incident must never lose a shape over its colour.
+ *
+ * The gates that keep such a value from being stored in the first place mirror this pattern:
+ * lib/workspace · sanitizeWorkspace (read) and backend/app/schemas.py · _scrub_drawing_props
+ * (write). This is the last line, and it is the one that has to hold for a device whose cache
+ * predates them.
+ */
+const COLOR_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$|^(?:rgb|hsl)a?\([\d\s.,%/+-]*\)$|^[a-z]{3,20}$/i
+
+export const isSafeColor = (color: unknown): color is string => typeof color === 'string' && COLOR_RE.test(color)
+const safeColor = (color: string | undefined) => (isSafeColor(color) ? color : DEFAULT_INK)
+
+/**
+ * One element of a shape's artwork.
+ *
+ * ONE description, two renderers: `shapeElsToString` for the print path (lib/krokiPayload →
+ * resvg), `<ShapeEls>` for the screen. Before this the screen parsed the print string back
+ * through `dangerouslySetInnerHTML`, which is what made an attribute value able to become
+ * markup; now the DOM path sets typed attributes and the string path escapes.
+ *
+ * Attribute names are REACT's, so a typo is a compile error; `SVG_ATTR` spells the handful that
+ * SVG writes with a hyphen. Numbers are passed pre-formatted (`toFixed`) wherever the emitted
+ * string is part of the artwork's contract.
+ */
+type ShapeEl = {
+  tag: 'defs' | 'g' | 'line' | 'path' | 'pattern' | 'rect' | 'text'
+  attrs: SVGProps<SVGElement>
+  kids?: ShapeEl[]
+  text?: string
+}
+
+const SVG_ATTR: Record<string, string> = {
+  fillOpacity: 'fill-opacity', fontFamily: 'font-family', fontSize: 'font-size', fontWeight: 'font-weight',
+  strokeLinejoin: 'stroke-linejoin', strokeWidth: 'stroke-width', textAnchor: 'text-anchor',
+}
+const escAttr = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const escText = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/** …as the SVG string the print path hands to resvg (lib/krokiPayload · shapeSvgString). */
+const shapeElsToString = (els: ShapeEl[]): string =>
+  els.map((el) => {
+    const attrs = (Object.entries(el.attrs) as [string, string | number | undefined][])
+      .filter(([, v]) => v != null)
+      .map(([k, v]) => ` ${SVG_ATTR[k] ?? k}="${escAttr(String(v))}"`)
+      .join('')
+    if (el.text == null && !el.kids) return `<${el.tag}${attrs}/>`
+    return `<${el.tag}${attrs}>${el.text != null ? escText(el.text) : shapeElsToString(el.kids ?? [])}</${el.tag}>`
+  }).join('')
+
+/** …and as React elements, for the live glyph. */
+const ShapeEls = ({ els }: { els: ShapeEl[] }) => (
+  <>{els.map((el, i) => createElement(
+    el.tag,
+    { key: i, ...el.attrs },
+    el.text ?? (el.kids ? <ShapeEls els={el.kids} /> : undefined),
+  ))}</>
+)
+
+/**
  * The Rechteck outline, shared as a string so the print path prints the identical artwork.
  *
  * Fill is the SAME question a Fläche answers — a wash at `fillOpacity`, or the Schraffur — because
@@ -313,7 +381,8 @@ const HATCH_WIDTH_PX = 1.6
  * so screen and paper draw one drawing (resvg renders patterns); its period is converted through
  * `boxPx` like the stroke, so stretching the box cannot smear it.
  */
-export function squareInner(color: string, asp: number, strokeW?: number, boxPx?: number, fillOpacity?: number, hatch?: boolean, sharpCorners?: boolean): string {
+function squareEls(color: string, asp: number, strokeW?: number, boxPx?: number, fillOpacity?: number, hatch?: boolean, sharpCorners?: boolean): ShapeEl[] {
+  const ink = safeColor(color)
   const h = 100 * asp
   // the same rule as the Rotation: the weight belongs to the shape, not to how big it was dragged
   const sw = strokeUnits(SQUARE_STROKE_UNITS, strokeW, boxPx, Math.min(100, h))
@@ -321,20 +390,30 @@ export function squareInner(color: string, asp: number, strokeW?: number, boxPx?
   // rounded by default, square on request — a hand-drawn Fläche has the corners its points make
   const r = sharpCorners ? 0 : Math.min(6, Math.max(0, (Math.min(100, h) - 2 * inset) / 4))
   const perUnit = boxPx && boxPx > 0 ? 100 / boxPx : 1
-  const id = `sqh-${color.replace(/[^a-z0-9]/gi, '')}-${Math.round(perUnit * 1000)}`
+  const id = `sqh-${ink.replace(/[^a-z0-9]/gi, '')}-${Math.round(perUnit * 1000)}`
   const period = HATCH_PERIOD_PX * perUnit
-  const defs = hatch
-    ? `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${period.toFixed(3)}" height="${period.toFixed(3)}"`
-      + ` patternTransform="rotate(-45)"><line x1="0" y1="0" x2="0" y2="${period.toFixed(3)}" stroke="${color}"`
-      + ` stroke-width="${(HATCH_WIDTH_PX * perUnit).toFixed(3)}"/></pattern></defs>`
-    : ''
-  const opacity = fillOpacity ?? SQUARE_FILL_DEFAULT
-  const fill = hatch ? `fill="url(#${id})"` : `fill="${color}" fill-opacity="${opacity}"`
-  return defs
-    + `<rect x="${inset.toFixed(2)}" y="${inset.toFixed(2)}" width="${Math.max(0.5, 100 - 2 * inset).toFixed(2)}"`
-    + ` height="${Math.max(0.5, h - 2 * inset).toFixed(2)}" rx="${r.toFixed(2)}"`
-    + ` ${fill} stroke="${color}" stroke-width="${sw.toFixed(3)}"/>`
+  const defs: ShapeEl[] = hatch
+    ? [{ tag: 'defs', attrs: {}, kids: [{
+        tag: 'pattern',
+        attrs: { id, patternUnits: 'userSpaceOnUse', width: period.toFixed(3), height: period.toFixed(3), patternTransform: 'rotate(-45)' },
+        kids: [{ tag: 'line', attrs: { x1: 0, y1: 0, x2: 0, y2: period.toFixed(3), stroke: ink, strokeWidth: (HATCH_WIDTH_PX * perUnit).toFixed(3) } }],
+      }] }]
+    : []
+  // a stored non-number would render as `fill-opacity="NaN"` — the wash simply disappears
+  const opacity = typeof fillOpacity === 'number' && Number.isFinite(fillOpacity) ? fillOpacity : SQUARE_FILL_DEFAULT
+  const fill: SVGProps<SVGElement> = hatch ? { fill: `url(#${id})` } : { fill: ink, fillOpacity: opacity }
+  return [...defs, {
+    tag: 'rect',
+    attrs: {
+      x: inset.toFixed(2), y: inset.toFixed(2),
+      width: Math.max(0.5, 100 - 2 * inset).toFixed(2), height: Math.max(0.5, h - 2 * inset).toFixed(2),
+      rx: r.toFixed(2), ...fill, stroke: ink, strokeWidth: sw.toFixed(3),
+    },
+  }]
 }
+
+export const squareInner = (color: string, asp: number, strokeW?: number, boxPx?: number, fillOpacity?: number, hatch?: boolean, sharpCorners?: boolean): string =>
+  shapeElsToString(squareEls(color, asp, strokeW, boxPx, fillOpacity, hatch, sharpCorners))
 
 // Effective height/width ratio of a placed shape (absent = 1 = the original square box).
 // Clamped so a degenerate stored value can't render a sliver; aspect-locked kinds are always 1.
@@ -385,7 +464,8 @@ export const rotationViewBox = (asp: number, fit = false) => {
   return `-2 ${(-over).toFixed(2)} 104 ${(h + 2 * over).toFixed(2)}`
 }
 
-export function rotationInner(color: string, asp: number, carrier?: RotationCarrier, strokeW?: number, boxPx?: number, reverse?: boolean): string {
+function rotationEls(color: string, asp: number, carrier?: RotationCarrier, strokeW?: number, boxPx?: number, reverse?: boolean): ShapeEl[] {
+  const ink = safeColor(color)
   const h = 100 * asp
   // ⚠️ EVERYTHING here is a fraction of the loop's HEIGHT, with no absolute floor. A user unit is
   // width/100, and the box's px width grows with the run — so h itself is CONSTANT in px as the
@@ -404,20 +484,33 @@ export function rotationInner(color: string, asp: number, carrier?: RotationCarr
   const a = Math.min(h * 0.42, sw * 2.2)
   const inset = sw / 2 + h * 0.02
   const r = Math.max(0.5, (h - 2 * inset) / 2)
-  const head = (cx: number, cy: number, dir: 1 | -1) =>
-    `<path d="M ${(cx - dir * a).toFixed(2)} ${(cy - a).toFixed(2)} L ${(cx + dir * a).toFixed(2)} ${cy.toFixed(2)}`
-    + ` L ${(cx - dir * a).toFixed(2)} ${(cy + a).toFixed(2)} Z" fill="${color}"/>`
+  const head = (cx: number, cy: number, dir: 1 | -1): ShapeEl => ({
+    tag: 'path',
+    attrs: {
+      d: `M ${(cx - dir * a).toFixed(2)} ${(cy - a).toFixed(2)} L ${(cx + dir * a).toFixed(2)} ${cy.toFixed(2)}`
+        + ` L ${(cx - dir * a).toFixed(2)} ${(cy + a).toFixed(2)} Z`,
+      fill: ink,
+    },
+  })
   // the heads sit well out towards the ends, which keeps them clear of a carrier badge in the
   // middle and still on the straight legs at any length. `reverse` mirrors them (position AND
   // direction): the circulation sense turns around, the loop itself stays put — a rotation of
   // the whole box could never say this, it preserves the sense.
-  return `<rect x="${inset.toFixed(2)}" y="${inset.toFixed(2)}" width="${(100 - 2 * inset).toFixed(2)}"`
-    + ` height="${Math.max(0.5, h - 2 * inset).toFixed(2)}" rx="${r.toFixed(2)}" ry="${r.toFixed(2)}"`
-    + ` fill="none" stroke="${color}" stroke-width="${sw.toFixed(3)}"/>`
-    + head(reverse ? 26 : 74, inset, reverse ? -1 : 1)          // outbound, on the top leg
-    + head(reverse ? 74 : 26, h - inset, reverse ? 1 : -1)      // …and back along the bottom
-    + rotationCarrierGlyph(carrier, color, h, sw)
+  return [
+    { tag: 'rect', attrs: {
+      x: inset.toFixed(2), y: inset.toFixed(2),
+      width: (100 - 2 * inset).toFixed(2), height: Math.max(0.5, h - 2 * inset).toFixed(2),
+      rx: r.toFixed(2), ry: r.toFixed(2),
+      fill: 'none', stroke: ink, strokeWidth: sw.toFixed(3),
+    } },
+    head(reverse ? 26 : 74, inset, reverse ? -1 : 1),          // outbound, on the top leg
+    head(reverse ? 74 : 26, h - inset, reverse ? 1 : -1),      // …and back along the bottom
+    ...rotationCarrierEls(carrier, ink, h, sw),
+  ]
 }
+
+export const rotationInner = (color: string, asp: number, carrier?: RotationCarrier, strokeW?: number, boxPx?: number, reverse?: boolean): string =>
+  shapeElsToString(rotationEls(color, asp, carrier, strokeW, boxPx, reverse))
 
 /** Which vehicle runs the shuttle — the FKS sheet draws the loop with its carrier above it
  *  («Rotation-Helikopter», «Rotation TLF», Vegetationsbrand S. 52). */
@@ -436,8 +529,8 @@ export type RotationCarrier = 'heli' | 'tlf'
  * Still clamped against `h`: on a deliberately thin loop the badge must sit inside its own sign
  * rather than swallow it.
  */
-function rotationCarrierGlyph(carrier: RotationCarrier | undefined, color: string, h: number, sw: number): string {
-  if (!carrier) return ''
+function rotationCarrierEls(carrier: RotationCarrier | undefined, color: string, h: number, sw: number): ShapeEl[] {
+  if (!carrier) return []
   const cy = h / 2
   // ⚠️ the «don't vanish» floor is in USER UNITS, which are a share of the box — so it has to be
   // tiny, or it becomes the binding number on exactly the long runs this sizing is for
@@ -445,20 +538,27 @@ function rotationCarrierGlyph(carrier: RotationCarrier | undefined, color: strin
   if (carrier === 'heli') {
     // the lying eight, the same rotor disc as the FKS Helikopter sign
     const w = s * 1.25, k = s * 0.7
-    return `<path d="M ${50 - w} ${cy} C ${50 - w} ${cy - k} ${50 - w * 0.32} ${cy - k} 50 ${cy}`
-      + ` C ${50 + w * 0.32} ${cy + k} ${50 + w} ${cy + k} ${50 + w} ${cy}`
-      + ` C ${50 + w} ${cy - k} ${50 + w * 0.32} ${cy - k} 50 ${cy}`
-      + ` C ${50 - w * 0.32} ${cy + k} ${50 - w} ${cy + k} ${50 - w} ${cy} Z"`
-      + ` fill="none" stroke="${color}" stroke-width="${(s * 0.2).toFixed(2)}" stroke-linejoin="round"/>`
+    return [{ tag: 'path', attrs: {
+      d: `M ${50 - w} ${cy} C ${50 - w} ${cy - k} ${50 - w * 0.32} ${cy - k} 50 ${cy}`
+        + ` C ${50 + w * 0.32} ${cy + k} ${50 + w} ${cy + k} ${50 + w} ${cy}`
+        + ` C ${50 + w} ${cy - k} ${50 + w * 0.32} ${cy - k} 50 ${cy}`
+        + ` C ${50 - w * 0.32} ${cy + k} ${50 - w} ${cy + k} ${50 - w} ${cy} Z`,
+      fill: 'none', stroke: color, strokeWidth: (s * 0.2).toFixed(2), strokeLinejoin: 'round',
+    } }]
   }
   // TLF: the FKS box, lettered
   const bw = s * 1.85, bh = s
-  return `<g><rect x="${(50 - bw).toFixed(2)}" y="${(cy - bh).toFixed(2)}" width="${(2 * bw).toFixed(2)}"`
-    + ` height="${(2 * bh).toFixed(2)}" fill="#ffffff" fill-opacity="0.85" stroke="${color}"`
-    + ` stroke-width="${(s * 0.18).toFixed(2)}"/>`
-    + `<text x="50" y="${cy.toFixed(2)}" text-anchor="middle" dy="0.35em"`
-    + ` font-family="Arial,sans-serif" font-weight="bold" font-size="${(s * 1.25).toFixed(2)}"`
-    + ` fill="${color}">TLF</text></g>`
+  return [{ tag: 'g', attrs: {}, kids: [
+    { tag: 'rect', attrs: {
+      x: (50 - bw).toFixed(2), y: (cy - bh).toFixed(2),
+      width: (2 * bw).toFixed(2), height: (2 * bh).toFixed(2),
+      fill: '#ffffff', fillOpacity: 0.85, stroke: color, strokeWidth: (s * 0.18).toFixed(2),
+    } },
+    { tag: 'text', attrs: {
+      x: 50, y: cy.toFixed(2), textAnchor: 'middle', dy: '0.35em',
+      fontFamily: 'Arial,sans-serif', fontWeight: 'bold', fontSize: (s * 1.25).toFixed(2), fill: color,
+    }, text: 'TLF' },
+  ] }]
 }
 
 
@@ -486,7 +586,7 @@ export function ShapeGlyph({ kind, color, stop, aspect, fit, carrier, reverse, s
       // and the plan the box IS the shape, so it paints edge to edge.
       <svg className="shape-svg" viewBox={rotationViewBox(asp, fit)} width="100%" height="100%"
         preserveAspectRatio={fit ? 'xMidYMid meet' : 'none'} style={{ overflow: fit ? 'hidden' : 'visible' }}>
-        <g dangerouslySetInnerHTML={{ __html: rotationInner(color, asp, carrier, strokeW, boxPx, reverse) }} />
+        <g><ShapeEls els={rotationEls(color, asp, carrier, strokeW, boxPx, reverse)} /></g>
       </svg>
     )
   }
@@ -494,10 +594,10 @@ export function ShapeGlyph({ kind, color, stop, aspect, fit, carrier, reverse, s
     return (
       <svg className="shape-svg" viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="none">
         <path d="M50 6 L80 50 L60 50 L60 94 L40 94 L40 50 L20 50 Z"
-          fill={color} stroke="#fff" strokeWidth={4} strokeLinejoin="round" />
+          fill={safeColor(color)} stroke="#fff" strokeWidth={4} strokeLinejoin="round" />
         {stop && <>
           <path d="M20 7 L80 7" stroke="#fff" strokeWidth={9} strokeLinecap="round" />
-          <path d="M20 7 L80 7" stroke={color} strokeWidth={5} strokeLinecap="round" />
+          <path d="M20 7 L80 7" stroke={safeColor(color)} strokeWidth={5} strokeLinecap="round" />
         </>}
       </svg>
     )
@@ -511,7 +611,7 @@ export function ShapeGlyph({ kind, color, stop, aspect, fit, carrier, reverse, s
     return (
       <svg className="shape-svg" viewBox={squareViewBox(asp)} width="100%" height="100%"
         preserveAspectRatio={fit ? 'xMidYMid meet' : 'none'}>
-        <g dangerouslySetInnerHTML={{ __html: squareInner(color, asp, strokeW, boxPx, fillOpacity, hatch, sharpCorners) }} />
+        <g><ShapeEls els={squareEls(color, asp, strokeW, boxPx, fillOpacity, hatch, sharpCorners)} /></g>
       </svg>
     )
   }
@@ -519,7 +619,7 @@ export function ShapeGlyph({ kind, color, stop, aspect, fit, carrier, reverse, s
   return (
     <svg className="shape-svg" viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="none">
       <path d="M27 76 Q12 76 12 62 Q12 49 26 50 Q26 34 43 35 Q52 24 65 33 Q82 31 81 48 Q94 50 90 64 Q86 76 71 76 Z"
-        fill={color} fillOpacity={0.5} stroke={color} strokeWidth={4.5} strokeLinejoin="round" strokeLinecap="round" />
+        fill={safeColor(color)} fillOpacity={0.5} stroke={safeColor(color)} strokeWidth={4.5} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   )
 }

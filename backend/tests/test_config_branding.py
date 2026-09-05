@@ -293,13 +293,17 @@ async def test_a_browser_put_without_the_version_is_refused(client, editor, admi
 
 
 async def test_an_origin_header_counts_as_a_browser_too(client, editor, admin_login):
-    """A cross-origin write carries `Origin` even where `Sec-Fetch-*` is absent (older Safari)."""
+    """A same-origin write carries `Origin` even where `Sec-Fetch-*` is absent (older Safari).
+
+    Own origin on purpose: a FOREIGN origin is now refused earlier (403) by the
+    SEC-12 origin gate — this test is about browser detection, not CSRF.
+    """
     await _login(client, editor)
     await admin_login(client)
     r = await client.put(
         "/api/config",
         json={"identity": {"appName": "X"}},
-        headers={"Origin": "https://front.example.ch"},
+        headers={"Origin": "http://test"},
     )
     assert r.status_code == 428
 

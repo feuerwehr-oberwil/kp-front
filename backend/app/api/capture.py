@@ -23,6 +23,7 @@ import mimetypes
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile, status
 from sqlalchemy import or_, select
@@ -34,6 +35,7 @@ from ..alarms import get_alarms_config
 from ..api.media import _ALLOWED_PHOTO, MAX_UPLOAD_BYTES
 from ..api.media import _CHUNK as _MEDIA_CHUNK
 from ..auth.capture_limiter import capture_limiter
+from ..auth.client_ip import client_ip
 from ..auth.dependencies import CurrentAdmin
 from ..auth.secret_token import SecretGate
 from ..database import get_db
@@ -48,6 +50,9 @@ from ..schemas import (
     WorkspaceOut,
     WorkspacePut,
 )
+
+if TYPE_CHECKING:  # the composer chain is heavy; this file only names the type
+    from .report import ReportAssetScope
 
 # The only workspace keys the Erfassungs-Poster may see or change. Everything else in the
 # blob — entities, drawings, board, building, planScale, timeline, trupps, shifts, bands,
@@ -96,19 +101,14 @@ def _merge_capture_keys(stored: dict | None, submitted: dict | None) -> dict:
     return merged
 
 
-def _client_ip(request: Request) -> str:
-    # Behind the platform proxy (Railway) the real client arrives in X-Forwarded-For and
-    # the direct peer is the proxy; first hop wins. Direct connections fall back to the peer.
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
 async def _rate_limit(request: Request) -> None:
     """Per-IP token bucket over the whole capture surface (see capture_limiter for sizing:
-    a fast legit operator never trips it, only scripted abuse of the poster token does)."""
-    wait = capture_limiter.check(_client_ip(request))
+    a fast legit operator never trips it, only scripted abuse of the poster token does).
+
+    ⚠️ `client_ip`, never the raw first `X-Forwarded-For` hop. That value is written by the
+    caller, so keying on it handed a scripted poster-token holder an unlimited supply of empty
+    buckets (SEC-08); `auth/client_ip` walks the chain from the right instead."""
+    wait = capture_limiter.check(client_ip(request))
     if wait:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -310,21 +310,48 @@ async def capture_verify_chain(
     return await audit.verify_chain(db, incident_id)
 
 
+def _asset_scope(inc: Incident) -> "ReportAssetScope":
+    """What the poster may put INTO its rapport — the other half of `_reachable_incident`.
+
+    The route decides which incident this token may address; this decides which server-owned
+    files the payload it sends may then name. Without it the two came apart: the composer's
+    resolver looked media up by UUID alone, so a payload for a permitted incident could carry
+    an archived incident's photo id and get the bytes back inside the PDF (SEC-06).
+
+    · media — this incident's own, and nothing else. The rapport is OF this Einsatz, and the
+      only upload path the poster has (`capture_upload_media`) stamps this incident on the row.
+    · plans — none at all. `CAPTURE_WORKSPACE_KEYS` never hands the poster the board, and the
+      capture form posts `plans: []`; a reference-plan URL can therefore only come from a
+      caller reaching past its own surface.
+    """
+    from .report import ReportAssetScope
+
+    return ReportAssetScope(
+        incident_id=inc.id,
+        media_incident_ids=frozenset({inc.id}),
+        plan_dataset_ids=frozenset(),
+    )
+
+
 @router.post("/incidents/{incident_id}/report/pdf")
 async def capture_report_pdf(
     payload: str = Form(...),
-    _inc: Incident = Depends(_reachable_incident),
+    inc: Incident = Depends(_reachable_incident),
     db: AsyncSession = Depends(get_db),
 ):
     """Data-only Rapport-PDF for the capture view (no kiosk cookie there — poster token
     auth). Same composer as the editor endpoint; journal photos resolve from the media
     store server-side (the poster token never carried the media cookie, so the old
     client-side photo fetch silently dropped them). Read-only output."""
+    # ⚠️ The composer is shared with the logged-in path, so the poster's narrower reach has to
+    # TRAVEL with the payload (`_asset_scope`) instead of being left behind in this route —
+    # that gap is what let a permitted incident's rapport pull an archived one's photo (SEC-06).
+    # (Kept out of the docstring: route docstrings are published in docs/openapi.json.)
     from fastapi.responses import Response
 
     from .report import compose_report_from_payload
 
-    pdf, _ = await compose_report_from_payload(db, payload)
+    pdf, _ = await compose_report_from_payload(db, payload, scope=_asset_scope(inc))
     return Response(content=pdf, media_type="application/pdf")
 
 
@@ -346,8 +373,14 @@ async def capture_report_print(
 ) -> dict:
     """Queue the data-only Rapport-PDF on the station printer — the phone needs no
     printer setup, possession of the poster token is the authority (same as the PDF)."""
+    # ⚠️ `enqueue_print_job` composes through the SAME resolver as the download, but it owns
+    # that call and takes no scope — so the poster's asset policy is applied HERE, before
+    # anything is queued. A refusal must leave no job behind for the agent to collect.
+    # (Kept out of the docstring: route docstrings are published in docs/openapi.json.)
     from .print_relay import enqueue_print_job
+    from .report import enforce_report_asset_scope
 
+    await enforce_report_asset_scope(db, payload, _asset_scope(inc))
     job = await enqueue_print_job(db, inc, payload, kind="capture_report", requested_by=None)
     return {"job_id": str(job.id), "status": job.status}
 

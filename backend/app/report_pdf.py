@@ -24,6 +24,7 @@ from __future__ import annotations
 import io
 import logging
 import re
+from html.parser import HTMLParser
 
 from PIL import Image as PILImage
 from PIL import ImageOps
@@ -153,7 +154,9 @@ class JournalRowIn(BaseModel):
     #: then ``text`` prints verbatim as it always did.
     #:
     #: ⚠️ Already escaped by the client, because only the client can tell its own markup from an
-    #: «&» somebody typed. It is therefore NOT run through ``_esc`` again here.
+    #: «&» somebody typed. It is therefore NOT run through ``_esc`` again here — it goes through
+    #: ``safe_markup``, which keeps that escaping and drops every tag outside the app's own
+    #: vocabulary (ReportLab markup can read files; see the class comment there).
     markup: str | None = None
     transcript: str | None = None
     #: a memo transcribed in SECTIONS — one pre-formatted line per section, offset-prefixed
@@ -279,7 +282,11 @@ class KrokiIn(BaseModel):
     # literal MapLibre viewport [west, south, east, north] — preferred over center/zoom
     bounds: list[float] | None = None
     maxTileZoom: int | None = None
-    tiles: str | None = None  # active base layer's XYZ template
+    #: The active base layer's XYZ template, as the operator's map had it. ⚠️ A caller string,
+    #: and the server fetches from it — every read of this field goes through
+    #: ``kroki.approved_tile_template`` first, which answers with the empty template (grey base)
+    #: for anything that is not one of this deployment's known providers (SEC-03, 05.09.).
+    tiles: str | None = None
     attribution: str = "© CARTO, © OpenStreetMap-Mitwirkende"
 
 
@@ -943,6 +950,92 @@ def _esc(s: str | None) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _esc_attr(s: str | None) -> str:
+    """`_esc` for a double-quoted ReportLab attribute value — the quote characters too. A decoded
+    link (`&quot;` in the source becomes a literal `"` after the parser) would otherwise close the
+    `href="…"` and make ReportLab's mini-parser raise, breaking the whole print, besides being an
+    escaping gap (SEC-07, 05.09.)."""
+    return _esc(s).replace('"', "&quot;").replace("'", "&#39;")
+
+
+#: The whole formatting vocabulary a journal row can arrive with — what
+#: `src/lib/journalLinks.ts · linkMarkup` produces and nothing else: a bold vocabulary name, the
+#: link around an address or a callback number with its underline, and a line break.
+_MARKUP_TAGS = frozenset({"b", "i", "u", "br", "a"})
+#: Schemes a printed link may carry. The PDF reader turns an anchor into a tap — `tel:` straight
+#: into a call — so the set is the three that mean something on paper.
+_LINK_SCHEMES = ("http://", "https://", "mailto:", "tel:")
+
+
+class _MarkupFilter(HTMLParser):
+    """Rewrites client markup into the tags ReportLab may be handed.
+
+    ⚠️ THE THREAT. ``Paragraph`` markup is not text with some bold in it — it is a document
+    language with `<img src>` (read a file or a URL), `<onDraw>` and `<font face>` in it, and the
+    row it renders arrives from the client already escaped, i.e. trusted (SEC-07, 05.09.). A
+    caller with report access could name any image file the container can read and have it
+    printed into the Rapport. Everything outside `_MARKUP_TAGS` is dropped — the tag, not its
+    words: a Meldung whose formatting this server does not know still has to print its sentence.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.out: list[str] = []
+        self._open: list[str] = []  # kept tags still to be closed, innermost last
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "br":
+            self.out.append("<br/>")
+            return
+        if tag not in _MARKUP_TAGS:
+            return
+        if tag == "a":
+            href = next((v or "" for k, v in attrs if k == "href"), "")
+            if not href.lower().startswith(_LINK_SCHEMES):
+                return  # not a link anybody can follow off paper — keep the words, drop the tag
+            self.out.append(f'<a href="{_esc_attr(href)}">')
+        else:
+            self.out.append(f"<{tag}>")  # attributes are never carried through
+        self._open.append(tag)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "br":
+            self.out.append("<br/>")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag not in self._open:
+            return  # a stray close tag would unbalance the paragraph
+        while self._open:
+            open_tag = self._open.pop()
+            self.out.append(f"</{open_tag}>")
+            if open_tag == tag:
+                break
+
+    def handle_data(self, data: str) -> None:
+        self.out.append(_esc(data))
+
+    def result(self) -> str:
+        return "".join(self.out) + "".join(f"</{t}>" for t in reversed(self._open))
+
+
+def safe_markup(markup: str | None) -> str:
+    """Client journal markup, reduced to the formatting this app itself produces.
+
+    Unparseable input falls back to the escaped source text: a row that cannot be formatted
+    still has to appear in the Beilage — it is the legal record, not decoration.
+    """
+    if not markup:
+        return ""
+    try:
+        f = _MarkupFilter()
+        f.feed(markup)
+        f.close()
+        return f.result()
+    except Exception:  # noqa: BLE001 — a malformed row must not cost the whole Rapport
+        logger.warning("Journal-Markup unlesbar — die Zeile wird als reiner Text gedruckt", exc_info=True)
+        return _esc(re.sub(r"<[^>]*>", "", markup))
+
+
 #: A Swiss phone number, and deliberately only that — the mirror of ``phoneRanges`` in
 #: src/lib/journalLinks.ts, which marks the numbers inside journal entries. Ten digits written
 #: nationally («079 123 45 67», «044 123 45 67») or internationally («+41 79 123 45 67»), grouped
@@ -1408,7 +1501,12 @@ def warm_report_tiles(payload: ReportPayload) -> None:
         from . import kroki as kk
 
         view = _kroki_view(payload.kroki, *(_KROKI_PX if opt.krokiLandscape else _KROKI_PX_PORTRAIT))
-        kk.render_base(view, payload.kroki.tiles, cache=kk.get_tile_cache(), max_tile_z=payload.kroki.maxTileZoom or 19)
+        kk.render_base(
+            view,
+            kk.approved_tile_template(payload.kroki.tiles),
+            cache=kk.get_tile_cache(),
+            max_tile_z=payload.kroki.maxTileZoom or 19,
+        )
     except Exception:  # noqa: BLE001 — a cold cache must not fail the rapport
         # Was a silent `pass`. A failed prewarm is recoverable (the real render refetches),
         # but silence here is how a permanently unreachable tile source stays invisible.
@@ -1790,7 +1888,7 @@ def compose_report_pdf(
         body: list[list] = []
         for r in payload.journal:
             rep = f' <font color="{_LABEL}">{r.repeats}×</font>' if (r.repeats or 1) > 1 else ""
-            entry_cells: list = [Paragraph((r.markup or _esc(r.text)) + rep, st["cell"])]
+            entry_cells: list = [Paragraph((safe_markup(r.markup) or _esc(r.text)) + rep, st["cell"])]
             if r.correctedAt and r.textOriginal:
                 corrected = L["correctedLine"].format(t=_esc(r.correctedAt), text=_esc(r.textOriginal))
                 entry_cells.append(Paragraph(corrected, st["muted"]))
@@ -1926,7 +2024,7 @@ def compose_report_pdf(
             img_out = kk.render_kroki(
                 scene,
                 pack,
-                payload.kroki.tiles,
+                kk.approved_tile_template(payload.kroki.tiles),
                 width=kw,
                 height=kh,
                 view=view,

@@ -33,6 +33,13 @@ async def test_session_state_before_and_after_login(client):
     assert after.json() == {"configured": True, "authenticated": True}
 
 
+async def test_a_non_ascii_secret_guess_fails_closed_not_500(client):
+    # secrets.compare_digest raises TypeError on a non-ASCII str; the guess must fail closed (401),
+    # never 500 (which would leak that the endpoint choked rather than rejected).
+    r = await client.post("/api/admin/login", json={"secret": "Adminschlüssel-café-π-😀"})
+    assert r.status_code == 401
+
+
 async def test_admin_endpoint_needs_admin_session_not_editor(client, editor, admin_login):
     # A logged-in editor alone cannot reach an admin endpoint.
     await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})

@@ -13,6 +13,7 @@ import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
 import { compositeSpec } from '../lib/symbolRender'
+import { sanitizeSvg } from '../lib/sanitizeSvg'
 
 // detail-field controls: short fixed lists render as directly-tappable segmented tabs (they
 // wrap to multiple rows), longer lists (and the person roster) as a native dropdown; roster
@@ -535,8 +536,13 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
         <div className="ph">
           {/* header chip: the small copy. The full-size preview below (.ctx-photo) is the
               point of a photo marker's panel and keeps the real picture. */}
+          {/* ⚠️ SEC-01 — sanitise AT THIS SINK. `svg` is the selected entity's editor-supplied
+              `symbolSvg`, free workspace data that round-trips through the PUT/GET. The finding
+              reopened four times because a sink like this one rendered it raw while only
+              TacticalSymbol was covered; the sink sanitiser is the authoritative gate, so EVERY
+              `dangerouslySetInnerHTML` that takes an SVG string must wrap it, never trust the prop. */}
           {entity.photoUrl ? <img src={thumbUrl(entity.photoUrl)} alt="" decoding="async" />
-            : svg ? <span dangerouslySetInnerHTML={{ __html: svg }} />
+            : svg ? <span dangerouslySetInnerHTML={{ __html: sanitizeSvg(svg) }} />
             : (entity.badge ?? <Icon id="type" />)}
         </div>
         <div className="ctx-titlewrap">

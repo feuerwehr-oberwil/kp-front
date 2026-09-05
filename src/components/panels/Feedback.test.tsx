@@ -26,17 +26,21 @@ vi.mock('../../lib/imagePrep', () => ({ prepareFeedbackPhoto: vi.fn(async () => 
 const cp = appConfig.copy.feedback
 const trouble: TroubleEvent = { kind: 'crashLoop', at: 1_800_000_000_000 }
 
-// This project's jsdom env exposes no localStorage (see ErrorBoundary.test.tsx).
+// jsdom's Window defines `localStorage` as a getter-only accessor (spec-accurate, same as a
+// real browser), so a plain assignment throws — must replace the property descriptor instead.
 function installLocalStorage() {
   const store = new Map<string, string>()
-  ;(globalThis as { localStorage?: Storage }).localStorage = {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => { store.set(k, String(v)) },
-    removeItem: (k: string) => { store.delete(k) },
-    clear: () => store.clear(),
-    key: () => null,
-    length: 0,
-  } as unknown as Storage
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, String(v)) },
+      removeItem: (k: string) => { store.delete(k) },
+      clear: () => store.clear(),
+      key: () => null,
+      length: 0,
+    } as unknown as Storage,
+  })
 }
 
 beforeEach(() => {

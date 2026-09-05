@@ -1,6 +1,7 @@
 """Pydantic request/response schemas (grows per phase)."""
 
 import logging
+import math
 import re
 import uuid
 from datetime import datetime
@@ -165,9 +166,132 @@ class WorkspaceOut(BaseModel):
     workspace_rev: int
 
 
+#: Colours a saved drawing may carry.
+#:
+#: ⚠️ A colour is written into an SVG ATTRIBUTE by both renderers and by the print path
+#: (src/lib/shapes.tsx), so a stored value carrying a quote used to close that attribute and open
+#: an event handler in the next operator's browser (SEC-01). Everything the app writes is a hex
+#: literal; the function forms and the bare CSS keywords are accepted so a hand-written or legacy
+#: blob keeps rendering. Kept in step with `isSafeColor` on the client.
+#:
+#: ⚠️ Anchored with `\Z`, not `$`: in Python `$` also matches just before a trailing newline, so
+#: `"#fff\n"` would slip through and be stored with a stray newline in an attribute value. `\Z` is
+#: the true end of string. (JS `$` without the `m` flag has no such leniency, so the client twin
+#: `isSafeColor` needs no counterpart change.)
+_COLOR_RE = re.compile(
+    r"^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\Z"
+    r"|^(?:rgb|hsl)a?\([\d\s.,%/+-]*\)\Z"
+    r"|^[a-z]{3,20}\Z",
+    re.IGNORECASE,
+)
+
+#: …and the numbers that describe an object's artwork (client twin: lib/workspace · DRAW_NUMBERS).
+_NUMERIC_DRAWING_KEYS = frozenset(
+    {"aspect", "fillOpacity", "rotation", "rotation2", "sizeM", "sizeN", "strokeW", "width"}
+)
+
+#: A live-vehicle / twin glyph (`Entity.symbolSvg`) is editor-supplied free text that the client
+#: writes into the DOM (src/lib/symbolRender · dangerouslySetInnerHTML), so a crafted value was a
+#: stored-XSS vector (SEC-01). The browser `DOMParser` sanitiser (src/lib/sanitizeSvg) is the
+#: AUTHORITATIVE gate; these do a minimal server-side NEUTRALISATION so the stored blob and the
+#: server-side Rapport raster (app/kroki.py · raster_svg) never carry an executable payload and a
+#: hostile glyph cannot become a render-time 500. Idempotent on legitimate markup (nothing to
+#: match), so re-wrapping the server's own blob through a `WorkspacePut` does not churn it.
+# ⚠️ CDATA + comments come out FIRST: they are the round-3 parser-differential the auditor named —
+# a `<![CDATA[ … ]]>` survives an XML round-trip and the HTML sink then re-parses its body as live
+# markup (`<title><text><![CDATA[><img onerror=…>]]>`). The client's HTML-context DOMParser is the
+# authoritative gate; stripping them here keeps the stored blob and the server raster path clean.
+_CDATA_RE = re.compile(r"<!\[CDATA\[.*?\]\]>", re.DOTALL | re.IGNORECASE)
+_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_SCRIPTISH_TAG_RE = re.compile(
+    r"</?\s*(?:script|foreignobject|title|desc|metadata|style|animate\w*|set)\b[^>]*>", re.IGNORECASE
+)
+# ⚠️ Keyed on whitespace OR a slash before `on…`: `<img/onerror=…>` is a valid HTML start tag whose
+# `/` separates attributes, so a whitespace-only anchor (the round-1/2 regex) missed it — the exact
+# slash-attribute evasion the auditor called out.
+_EVENT_ATTR_RE = re.compile(r"""[\s/]on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
+_HREF_ATTR_RE = re.compile(r"""(\s(?:xlink:)?href\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
+_JS_URI_RE = re.compile(r"javascript:", re.IGNORECASE)
+
+
+def _scrub_svg(markup: str) -> str:
+    """Neutralise the executable parts of an editor-supplied SVG glyph — never raise, never reject.
+
+    Not a parser: it strips CDATA sections and comments (the parser-differential traps), the
+    behaviour-carrying / integration tags (`script`, `foreignObject`, `title`, `desc`, `metadata`,
+    `style`, `animate*`, `set`), the `on*=` event handlers (whitespace- OR slash-separated), the
+    `javascript:` scheme, and any `href`/`xlink:href` that is not a `#fragment` or a `data:image/…`
+    raster. The client's HTML-context DOMParser sanitiser is what actually decides what renders;
+    this only has to make sure nothing dangerous is persisted or handed to the raster path.
+    """
+
+    def _href(m: re.Match[str]) -> str:
+        value = m.group(2).strip("\"'").strip().lower()
+        if value.startswith(("#", "data:image/")):
+            return m.group(0)
+        return ""  # external / local / javascript: reference — drop the whole attribute
+
+    text = _COMMENT_RE.sub("", markup)
+    text = _CDATA_RE.sub("", text)
+    text = _SCRIPTISH_TAG_RE.sub("", text)
+    text = _EVENT_ATTR_RE.sub("", text)
+    text = _HREF_ATTR_RE.sub(_href, text)
+    return _JS_URI_RE.sub("", text)
+
+
+def _scrub_drawing_props(workspace: dict[str, Any]) -> None:
+    """Strip every drawing property that no client of this app could have written.
+
+    Neutralise, never reject: a 422 on a whole workspace stops the incident syncing on every
+    tablet, and a hostile colour (or glyph) has no meaning to lose — the object keeps its geometry,
+    its clocks and its history, and simply renders in the default ink. Because the capture and
+    Atemschutz saves re-wrap the server's own blob into a `WorkspacePut`, this also cleans data
+    that was stored before the gate existed.
+
+    Iterative on purpose: the blob is caller-supplied JSON, and recursing into a deliberately
+    deep one would turn a bad request into a 500.
+    """
+    stack: list[Any] = [workspace]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            colour = node.get("color")
+            if isinstance(colour, str) and not _COLOR_RE.match(colour):
+                del node["color"]
+            svg = node.get("symbolSvg")
+            if isinstance(svg, str):
+                cleaned = _scrub_svg(svg)
+                if cleaned != svg:
+                    node["symbolSvg"] = cleaned
+            for key in _NUMERIC_DRAWING_KEYS & node.keys():
+                value = node[key]
+                if value is None:
+                    continue
+                # bool is an int in Python, and `fill-opacity="True"` is not a number.
+                # ⚠️ math.isfinite raises OverflowError on an int too large to convert to float
+                # (a JSON body may carry 10**400) — the round-1 validator called it unguarded and
+                # so turned that body into a 500, the very thing this function's docstring forbids.
+                try:
+                    unusable = (
+                        isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+                    )
+                except OverflowError:
+                    unusable = True
+                if unusable:
+                    del node[key]
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+
+
 class WorkspacePut(BaseModel):
     workspace: dict[str, Any]
     base_rev: int
+
+    @model_validator(mode="after")
+    def _validate_workspace(self) -> "WorkspacePut":
+        _scrub_drawing_props(self.workspace)
+        return self
 
 
 #: A wide-open workspace holds hundreds of objects; the Atemschutz roster of one Einsatz is a

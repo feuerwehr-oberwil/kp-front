@@ -32,6 +32,7 @@ import os
 
 from sqlalchemy import select
 
+from .auth.router import revoke_sessions
 from .auth.security import TRIVIAL_PINS, hash_pin
 from .config import settings
 from .database import async_session_maker
@@ -94,11 +95,19 @@ async def reset_roster() -> None:
                 u.color = e.get("color")
                 u.pin_hash = hash_pin(pins[e["username"]])
                 u.is_active = True
+                # The PIN just changed — end the sessions the old one opened, exactly as the
+                # admin API does (SEC-05). This is the DOCUMENTED compromise-recovery path (run
+                # from a laptop against a prod URL), so leaving old access/refresh cookies alive
+                # here would defeat the reset on the one path an operator reaches for.
+                await revoke_sessions(db, u)
                 logger.info("updated user %s (PIN reset)", e["username"])
 
         for username, u in existing.items():
             if username not in wanted and u.is_active:
                 u.is_active = False
+                # Deactivation is the other «throw them out» gesture; drop live sessions too, or
+                # a later reactivation would revive them (SEC-05).
+                await revoke_sessions(db, u)
                 logger.info("deactivated user %s", username)
 
         await db.commit()
