@@ -183,6 +183,35 @@ def test_sanitize_neutralises_quote_mismatched_refs():
     assert "evil" not in kk.sanitize_svg("<rect fill='url(\"http://evil/x#a\")'/>")
 
 
+def test_an_href_planted_in_another_attribute_cannot_reference_a_file(tmp_path):
+    """SEC-07 (round 2, 05.09.): a quote-aware regex still starts on a decoy `href` PLANTED in a
+    `data-*` value, runs across the genuine local-file `href`, and keeps the whole span because
+    the value it captured opens with «#». Only a parser tells an attribute from a value — Codex
+    embedded a generated PNG through exactly this shape and it rendered."""
+    p = tmp_path / "planted.png"
+    Image.new("RGB", (64, 64), MAGENTA).save(p, "PNG")
+    svg = (
+        '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">'
+        f'<image data-note="href=\'#" href="{p}" data-tail="\'" width="64" height="64"/></svg>'
+    )
+    assert str(p) not in kk.sanitize_svg(svg), "the real href survived the parse"
+    assert not _has_magenta(kk.raster_svg(svg, 64)), "a planted-decoy href reached the filesystem"
+
+
+def test_scripting_and_foreignobject_never_reach_the_renderer():
+    """A parser can drop whole elements a regex could only hope to blank: `<script>`,
+    `<foreignObject>` (an HTML escape hatch) and every `on*` event handler."""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg">'
+        '<script>fetch("http://evil/x")</script>'
+        '<foreignObject><body xmlns="http://www.w3.org/1999/xhtml">x</body></foreignObject>'
+        '<rect onload="alert(1)" onclick="x" width="8" height="8"/></svg>'
+    )
+    out = kk.sanitize_svg(svg).lower()
+    assert "script" not in out and "foreignobject" not in out
+    assert "onload" not in out and "onclick" not in out and "evil" not in out
+
+
 def test_a_journal_link_carrying_a_quote_prints_and_stays_escaped():
     """SEC-07 (05.09.): a decoded link (`&quot;` → a literal `"`) was inserted into the quoted
     ReportLab attribute unescaped, so it closed the `href="…"` and ReportLab raised — broken

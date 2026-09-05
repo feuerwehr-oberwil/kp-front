@@ -25,7 +25,7 @@ from ..credentials import load as load_credentials
 from ..database import get_db
 from ..egress import EgressRefusedError, require_public_https
 from ..models import PushSubscription, User
-from ..push import SUBSCRIPTION_TTL_DAYS, push_enabled
+from ..push import SUBSCRIPTION_TTL_DAYS, is_known_push_host, push_enabled
 
 router = APIRouter(prefix="/push", tags=["push"])
 
@@ -55,9 +55,17 @@ class SubscriptionIn(BaseModel):
 async def _checked_endpoint(endpoint: str) -> str:
     """The endpoint, or a 422 an operator can read. Resolution runs off the event loop."""
     try:
-        await anyio.to_thread.run_sync(lambda: require_public_https(endpoint, what="Push-Endpunkt", resolve=True))
+        host = await anyio.to_thread.run_sync(
+            lambda: require_public_https(endpoint, what="Push-Endpunkt", resolve=True)
+        )
     except EgressRefusedError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    # SEC-09: public-HTTPS is necessary but not sufficient — an arbitrary public host would still
+    # make the alarm sender a request forwarder. Accept only a known push service or an
+    # admin-allowlisted one (the send path re-checks this, so a row that predates the policy
+    # cannot ship either).
+    if not is_known_push_host(host):
+        raise HTTPException(status_code=422, detail="Push-Endpunkt: kein bekannter Push-Dienst.")
     return endpoint.strip()
 
 
@@ -76,10 +84,16 @@ async def vapid_key(_user: CurrentUser, db: AsyncSession = Depends(get_db)) -> d
 @router.post("/subscriptions", status_code=201)
 async def subscribe(body: SubscriptionIn, user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict:
     endpoint = await _checked_endpoint(body.endpoint)
+    now = datetime.now(UTC)
+    # ⚠️ Take the parent user's `FOR UPDATE` lock BEFORE the child INSERT below (SEC-09, 05.09.).
+    # On Postgres, inserting a row with an FK to `users` grabs a `KEY SHARE` lock on that user
+    # row; if the quota's `FOR UPDATE` came AFTER the insert, two concurrent registrations would
+    # each hold `KEY SHARE` and deadlock trying to upgrade. Locking the parent first orders the
+    # acquisition so a second txn simply waits. (A no-op on SQLite, which serialises writers.)
+    await db.execute(select(User.id).where(User.id == user.id).with_for_update())
     existing = (
         await db.execute(select(PushSubscription).where(PushSubscription.endpoint == endpoint))
     ).scalar_one_or_none()
-    now = datetime.now(UTC)
     if existing:
         # ⚠️ Ownership, not an upsert on a shared key: the endpoint is what the push service
         # delivers to, so re-pointing somebody else's row would hand their device's notifications
@@ -105,12 +119,15 @@ async def subscribe(body: SubscriptionIn, user: CurrentUser, db: AsyncSession = 
 
 
 async def _enforce_quota(db: AsyncSession, user_id: uuid.UUID, now: datetime) -> None:
-    """Expire this user's stale registrations, then keep only the newest MAX per user."""
-    # ⚠️ Serialise concurrent registrations for THIS user behind a row lock: without it two
-    # parallel POSTs each counted < MAX and both inserted, jointly overshooting the cap (SEC-09,
-    # 05.09.). The lock is on the user row, taken before the count-and-evict below, so a second
-    # transaction waits for the first to commit and then sees its rows. (A no-op on SQLite, which
-    # serialises writers anyway; it earns its keep on Postgres.)
+    """Expire this user's stale registrations, then keep only the newest MAX per user.
+
+    ⚠️ Runs under this user's `FOR UPDATE` row lock, which serialises concurrent registrations so
+    two parallel POSTs cannot each count < MAX and both insert, jointly overshooting the cap
+    (SEC-09, 05.09.). `subscribe` now takes that lock BEFORE its child INSERT so FK-lock
+    acquisition stays correctly ordered and cannot deadlock on Postgres; the re-acquisition here
+    keeps this function safe to call on its own (a no-op inside the txn that already holds it, and
+    a no-op on SQLite, which serialises writers anyway).
+    """
     await db.execute(select(User.id).where(User.id == user_id).with_for_update())
     cutoff = now - timedelta(days=SUBSCRIPTION_TTL_DAYS)
     await db.execute(

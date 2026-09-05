@@ -20,7 +20,7 @@ and the push body itself is encrypted to the subscription's own keys).
 import ipaddress
 import logging
 import socket
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +64,22 @@ def _resolved_addresses(host: str) -> list[str]:
         return []
 
 
-def is_blocked_host(host: str, *, resolve: bool = False) -> bool:
+def is_blocked_host(host: str, *, resolve: bool = False, block_unresolved: bool = False) -> bool:
     """Would a request to this host stay inside the network the server sits in?
 
     ``resolve=True`` additionally asks the resolver, so a public NAME pointing at 10.x is
     caught too. A bare name with no dot is a LAN name («intranet», «printer») and is refused
     without asking anyone.
+
+    ``block_unresolved`` decides the empty-DNS case: a name that resolves to NOTHING is tolerated
+    at registration (a push service can be briefly unresolvable) but refused on a send path that
+    opts in — a name with no address is not one this server should be POSTing to.
     """
-    h = (host or "").strip().strip("[]").rstrip(".").lower()
+    # Percent-DECODE before judging. httpx/`requests` normalise `%31%32%37.0.0.1` to `127.0.0.1`
+    # at send time, so a host left encoded would slip past as an opaque NAME (DNS fails →
+    # «empty, not blocked») and then reach loopback anyway (SEC-09, 05.09.). Decoding here means
+    # the policy sees the same host the transport eventually will.
+    h = unquote((host or "").strip()).strip().strip("[]").rstrip(".").lower()
     if not h:
         return True
     try:
@@ -82,11 +90,13 @@ def is_blocked_host(host: str, *, resolve: bool = False) -> bool:
         return True
     if resolve:
         addrs = _resolved_addresses(h)
+        if not addrs:
+            return block_unresolved
         return any(_blocked_ip(ipaddress.ip_address(a)) for a in addrs)
     return False
 
 
-def require_public_https(url: str, *, what: str, resolve: bool = False) -> str:
+def require_public_https(url: str, *, what: str, resolve: bool = False, block_unresolved: bool = False) -> str:
     """The destination policy in one call: https, no credentials in the URL, the default port,
     and a host on the public internet. Returns the hostname; raises :class:`EgressRefusedError`.
 
@@ -94,18 +104,21 @@ def require_public_https(url: str, *, what: str, resolve: bool = False) -> str:
     picks up from a caller is an ordinary public https service, and an off-port URL is the shape
     an internal service takes far more often than a real one.
     """
-    parts = urlsplit(url.strip())
-    if parts.scheme != "https":
-        raise EgressRefusedError(f"{what}: nur https:// ist erlaubt.")
-    if parts.username or parts.password:
-        raise EgressRefusedError(f"{what}: eine URL mit Zugangsdaten wird nicht akzeptiert.")
     try:
-        port = parts.port
-    except ValueError as e:  # unparseable port — urlsplit only raises when it is read
-        raise EgressRefusedError(f"{what}: ungültiger Port.") from e
+        parts = urlsplit(url.strip())
+        scheme, username, password = parts.scheme, parts.username, parts.password
+        port = parts.port  # urlsplit defers netloc parsing; an unparseable port raises here
+        host = parts.hostname or ""
+    except ValueError as e:
+        # A malformed authority — an unclosed IPv6 bracket, a bad port — must be a clean refusal,
+        # not a bare ValueError that turns a crafted tile/push URL into a 500 (SEC-03, 05.09.).
+        raise EgressRefusedError(f"{what}: ungültige Adresse.") from e
+    if scheme != "https":
+        raise EgressRefusedError(f"{what}: nur https:// ist erlaubt.")
+    if username or password:
+        raise EgressRefusedError(f"{what}: eine URL mit Zugangsdaten wird nicht akzeptiert.")
     if port not in (None, 443):
         raise EgressRefusedError(f"{what}: nur der Standard-Port 443 ist erlaubt.")
-    host = parts.hostname or ""
-    if is_blocked_host(host, resolve=resolve):
+    if is_blocked_host(host, resolve=resolve, block_unresolved=block_unresolved):
         raise EgressRefusedError(f"{what}: diese Adresse liegt nicht im öffentlichen Internet.")
     return host
