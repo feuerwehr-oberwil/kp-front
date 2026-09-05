@@ -22,19 +22,23 @@ function Boom(): never {
   throw new Error('malformed anno')
 }
 
-// This project's jsdom env exposes no localStorage, so the crash streak needs the same minimal
-// stub storageMigration.test.ts uses — without it recordCrash silently no-ops and the escalation
-// assertions below would pass for the wrong reason.
+// The crash streak needs a minimal localStorage stub (same one storageMigration.test.ts uses) —
+// without it recordCrash silently no-ops and the escalation assertions below would pass for the
+// wrong reason. jsdom's Window defines `localStorage` as a getter-only accessor (spec-accurate,
+// same as a real browser), so a plain assignment throws — must replace the descriptor instead.
 function installLocalStorage() {
   const store = new Map<string, string>()
-  ;(globalThis as { localStorage?: Storage }).localStorage = {
-    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
-    setItem: (k: string, v: string) => void store.set(k, String(v)),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-    key: (i: number) => [...store.keys()][i] ?? null,
-    get length() { return store.size },
-  } as Storage
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+      setItem: (k: string, v: string) => void store.set(k, String(v)),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+      key: (i: number) => [...store.keys()][i] ?? null,
+      get length() { return store.size },
+    } as Storage,
+  })
 }
 
 beforeEach(() => {
