@@ -23,6 +23,7 @@ import json
 import logging
 import math
 import re
+import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -199,7 +200,10 @@ def approved_tile_template(tile_url: str | None) -> str:
     if not url:
         return ""
     try:
-        host = require_public_https(url, what="Kartenquelle")
+        # resolve=True: an approved/configured tile host that resolves INWARDS (a provider name
+        # pointed at 10.x, or a malformed authority) is refused at validation time, not fetched
+        # from the server's own network position (SEC-03, 05.09.).
+        host = require_public_https(url, what="Kartenquelle", resolve=True)
     except EgressRefusedError as e:
         logger.warning("Kartenquelle abgelehnt (%s): %.120s", e, url)
         return ""
@@ -359,17 +363,25 @@ def render_base(
 # ----------------------------------------------------------------------------- symbols
 
 
-#: An `href` / `xlink:href` attribute and its value. Quote-aware: a double-quoted value runs to
-#: the matching double-quote (and may hold an apostrophe), a single-quoted one to its own quote —
-#: NOT «up to either quote», which left `href="a'b.png"` unmatched so the reference survived the
-#: scrub (SEC-07, 05.09.). The attribute NAME is captured so a neutralised `xlink:href` stays
-#: `xlink:href` and does not collide with a sibling `href` into a duplicate attribute resvg rejects.
-_HREF_RE = re.compile(r"""\b(?P<name>(?:xlink:)?href)\s*=\s*(?:"(?P<hd>[^"]*)"|'(?P<hs>[^']*)')""", re.IGNORECASE)
-#: A CSS `url(...)` reference (gradients, patterns, `@import`), quote-aware in the same way; the
-#: value may also be unquoted, as `url(#id)` and `url(data:…)` are.
+#: A CSS `url(...)` reference (gradients, patterns, `@import`) inside an attribute value or a
+#: `<style>` body. Quote-aware; the value may also be unquoted, as `url(#id)` and `url(data:…)`
+#: are. This one stays a regex on purpose: a url() lives WITHIN a value the XML parser hands
+#: back already unescaped, so there is no markup left to misparse — the SEC-07 trap was parsing
+#: the SVG's element/attribute structure with a regex, not scanning a single decoded string.
 _CSS_URL_RE = re.compile(r"""url\(\s*(?:"(?P<ud>[^"]*)"|'(?P<us>[^']*)'|(?P<uu>[^)"'\s]*))\s*\)""", re.IGNORECASE)
-#: A DTD / entity declaration — the XXE half of an SVG parser.
+#: A DTD / entity declaration — the XXE half of an SVG parser. Stripped before the parse so
+#: expat cannot expand an internal entity whose value smuggles a `file://` reference.
 _DOCTYPE_RE = re.compile(r"<!DOCTYPE[^>[]*(\[[^\]]*\])?[^>]*>|<!ENTITY[^>]*>", re.IGNORECASE)
+#: An inline event handler (`onload`, `onclick`, …) — a scripting hook, stripped wherever it sits.
+_ON_ATTR_RE = re.compile(r"^on\w+$", re.IGNORECASE)
+
+_SVG_NS = "http://www.w3.org/2000/svg"
+_XLINK_NS = "http://www.w3.org/1999/xlink"
+#: Re-serialise with the conventional prefixes resvg expects, not ElementTree's auto ns0:/ns1:.
+ElementTree.register_namespace("", _SVG_NS)
+ElementTree.register_namespace("xlink", _XLINK_NS)
+#: What a malformed SVG becomes: a valid, empty document that rasterises to a transparent box.
+_EMPTY_SVG = f'<svg xmlns="{_SVG_NS}"/>'
 
 
 def _local_ref(value: str) -> bool:
@@ -379,6 +391,11 @@ def _local_ref(value: str) -> bool:
     this server to go and read something."""
     v = value.strip()
     return v.startswith("#") or v.lower().startswith("data:")
+
+
+def _local_name(tag: str) -> str:
+    """The element/attribute local name without ElementTree's `{namespace}` prefix."""
+    return tag.rsplit("}", 1)[-1]
 
 
 def sanitize_svg(svg: str) -> str:
@@ -391,17 +408,74 @@ def sanitize_svg(svg: str) -> str:
     the client's: the pack's own artwork and the sheets' generated overlays reference nothing
     external, so the scrub is a no-op on them and there is no second path to forget.
 
+    ⚠️ PARSE, don't regex. A quote-aware regex still cannot tell a real `href` from one PLANTED
+    inside another attribute («data-note="href='#"») — it starts on the decoy, runs across the
+    genuine local-file `href`, and keeps the whole span because the captured value opens with a
+    «#» (SEC-07 round 2, 05.09.). Only a parser knows which text is an attribute and which is a
+    value. We walk the tree with the stdlib `xml.etree.ElementTree` (expat) and drop, per element:
+    `<script>`/`<foreignObject>`, `on*` event handlers, non-local `href`/`xlink:href`, and every
+    non-local `url(...)` in a presentation attribute or `<style>` body. Comments/PIs are dropped
+    by the default parser; the DTD is stripped first so no entity survives to be expanded.
+
     Scrubbed rather than rejected — a Rapport that loses one decorative reference still prints,
     and every glyph the app actually produces (paths, text, fills, its own `#defs`) is untouched.
+    On a parse error the result is a valid empty SVG: the raster path must not raise (SEC-01).
     """
-    out = _DOCTYPE_RE.sub("", svg)
-    out = _HREF_RE.sub(lambda m: m.group(0) if _local_ref(_group(m, "hd", "hs")) else f'{m.group("name")}=""', out)
-    return _CSS_URL_RE.sub(lambda m: m.group(0) if _local_ref(_group(m, "ud", "us", "uu")) else "none", out)
+    text = _DOCTYPE_RE.sub("", svg)
+    # ElementTree rejects an undeclared prefix, but SVGs in the wild — and glyphs the client
+    # composes — use `xlink:href` without declaring `xmlns:xlink`, and resvg renders them anyway.
+    # Inject the declaration lexically so the parse can proceed. This is a namespace fixup on the
+    # first tag, not an attempt to read the SVG's structure — which is the part a regex got wrong.
+    if "xlink:" in text and "xmlns:xlink" not in text:
+        text = re.sub(r"<\s*([A-Za-z][\w.\-]*)", rf'<\1 xmlns:xlink="{_XLINK_NS}"', text, count=1)
+    try:
+        # The XML attacks the linter warns about here are already closed: the DTD/entity subset
+        # is stripped above (no internal-entity expansion, so no billion-laughs), and expat fetches
+        # no external DTD or entity on its own. stdlib is a hard constraint (no defusedxml).
+        root = ElementTree.fromstring(text)  # noqa: S314
+    except ElementTree.ParseError:
+        return _EMPTY_SVG
+    _scrub_element(root)
+    try:
+        return ElementTree.tostring(root, encoding="unicode")
+    except (TypeError, ValueError):  # a tree ElementTree cannot re-serialise must still not raise
+        return _EMPTY_SVG
+
+
+def _scrub_element(elem: ElementTree.Element) -> None:
+    """Depth-first scrub of one element: strip scripting and external references in place, and
+    remove `<script>`/`<foreignObject>` children entirely (recursing into the rest)."""
+    for name in list(elem.attrib):
+        local = _local_name(name)
+        value = elem.attrib[name]
+        if _ON_ATTR_RE.match(local):
+            del elem.attrib[name]  # onload/onclick/… — a scripting hook has no place in a glyph
+        elif local == "href":  # bare `href` or `{xlink}href` — resvg reads both off the filesystem
+            if not _local_ref(value):
+                elem.attrib[name] = ""
+        elif "url(" in value.lower():
+            # fill/stroke/filter/mask/clip-path/marker-*/style may all carry a url(); keep the
+            # local ones (a gradient's `url(#id)`) and neutralise anything that would fetch.
+            elem.attrib[name] = _scrub_css(value)
+    if _local_name(elem.tag) == "style" and elem.text:
+        elem.text = _scrub_css(elem.text)
+    for child in list(elem):
+        if _local_name(child.tag) in ("script", "foreignObject"):
+            elem.remove(child)
+        else:
+            _scrub_element(child)
+
+
+def _scrub_css(css: str) -> str:
+    """Neutralise every non-local `url(...)` in a CSS fragment (a presentation attribute or a
+    `<style>` body). A `url(#id)` / `data:image/…` reference stays; everything else becomes
+    `none`, so a gradient survives but an `@import`/background fetch does not."""
+    return _CSS_URL_RE.sub(lambda m: m.group(0) if _local_ref(_group(m, "ud", "us", "uu")) else "none", css)
 
 
 def _group(m: re.Match[str], *names: str) -> str:
     """The first of the alternation's named groups that actually matched — the quote-aware
-    regexes above capture a value under one of two or three names depending on the quoting."""
+    `_CSS_URL_RE` captures its value under one of three names depending on the quoting."""
     return next((v for n in names if (v := m.group(n)) is not None), "")
 
 

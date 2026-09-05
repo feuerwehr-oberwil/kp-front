@@ -353,6 +353,14 @@ class Settings(BaseSettings):
     push_check_seconds: int = 30
     push_renotify_seconds: int = 120
 
+    # Extra Web-Push service HOSTS the alarm sender may POST an endpoint to, comma-separated
+    # (e.g. "push.mystation.ch"). The four major browser push services are built in
+    # (app/push.py · _PUSH_SERVICE_HOSTS); this is the escape hatch for a station running its own
+    # push service. Matched as host suffixes, like the built-ins. ⚠️ Env only — the endpoint
+    # arrives in a caller's request body, so who may add a destination has to be whoever runs the
+    # deployment, not whoever is logged in (SEC-09).
+    push_extra_hosts: str = ""
+
     # --- Weather / wind ---
     # Provider order: "meteoswiss" (nearest SMN station, primary) or "open-meteo"
     # (point-based, fallback). The non-default provider is always tried as fallback.

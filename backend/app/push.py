@@ -214,6 +214,45 @@ BROADCAST_DEADLINE_SECONDS = 45
 _inflight: set[asyncio.Task] = set()
 
 
+#: Web-Push endpoints this server will POST to: the four major browser push services, matched as
+#: host SUFFIXES (WNS and Apple shard by region — `sN.notify.windows.com`, `<region>.push.apple.com`
+#: — so an exact set would reject real endpoints). Before this, ANY public-HTTPS host a logged-in
+#: user registered became an outbound POST target, i.e. the alarm sender was a request forwarder
+#: from the server's own network position. SEC-09 closes that by rejecting arbitrary hosts and
+#: accepting only a known push service (plus the admin escape hatch below). Mirrors
+#: kroki._TILE_PROVIDER_HOSTS — the two caller-chosen egress surfaces this app has.
+_PUSH_SERVICE_HOSTS = frozenset(
+    {
+        "fcm.googleapis.com",  # Chromium / FCM
+        "updates.push.services.mozilla.com",  # Firefox / Mozilla autopush
+        "notify.windows.com",  # WNS: regional shards, e.g. sg2p.notify.windows.com
+        "push.apple.com",  # Safari / WebKit: web.push.apple.com + regional *.push.apple.com
+    }
+)
+
+
+def _push_extra_hosts() -> frozenset[str]:
+    """Extra push-service hosts this deployment's operator configured (PUSH_EXTRA_HOSTS) — the
+    escape hatch for a self-hosted push service. Env only, like REPORT_TILE_HOSTS: the endpoint
+    arrives in a caller's request body, so who may add a destination is whoever runs the
+    deployment, never whoever is logged in."""
+    return frozenset(h.strip().lower() for h in settings.push_extra_hosts.split(",") if h.strip())
+
+
+def is_known_push_host(host: str) -> bool:
+    """Whether an endpoint host is a major push service (or an admin-allowlisted one). Suffix
+    match on the DECODED, lower-cased host: the leading dot keeps a lookalike like
+    `fcm.googleapis.com.evil.example` out, and decoding first means a `%xx`-encoded host is judged
+    as what the transport will actually send it to — it can neither smuggle an arbitrary host past
+    the allowlist nor hide a known one from it (SEC-09, 05.09.)."""
+    from urllib.parse import unquote
+
+    h = unquote((host or "").strip()).strip().strip("[]").rstrip(".").lower()
+    if not h:
+        return False
+    return any(h == s or h.endswith(f".{s}") for s in _PUSH_SERVICE_HOSTS | _push_extra_hosts())
+
+
 def _deliverable():
     """Subscriptions an alarm may go to: kiosk rows without a user, plus every ACTIVE user's.
 
@@ -240,14 +279,28 @@ def _deliverable():
 
 def _sendable(endpoint: str) -> bool:
     """Last gate before the sender: a row stored before the destination policy existed (or
-    written by an older release) must not become an outbound request now. Static checks only —
-    no DNS on the alarm path; registration is where resolution happens (app/api/push.py)."""
+    written by an older release) must not become an outbound request now. The policy DECODES the
+    host before judging it, so a stored `https://%31%32%37.0.0.1/…` — which `requests` would
+    normalise to loopback — is refused HERE rather than reaching 127.0.0.1 (SEC-09, 05.09.).
+
+    Two gates, both re-checked here so registration cannot be the ONLY enforcement point: the
+    endpoint must be public-HTTPS (`require_public_https`), and its host must be a known push
+    service or admin-allowlisted (`is_known_push_host`). The send-path re-check is what stops a
+    row written before SEC-09 — an arbitrary host that was accepted then — from being POSTed to now.
+
+    Static checks only — no DNS on the alarm path (a sweep re-validates dozens of rows inline on
+    the event loop, and registration is where resolution happens, app/api/push.py). Refusing an
+    already-resolvable name that has since rebound INWARDS would need `resolve=True` here; that is
+    left as the documented DNS-rebind residual (app/egress.py) and the `block_unresolved` seam."""
     from .egress import EgressRefusedError, require_public_https
 
     try:
-        require_public_https(endpoint, what="Push-Endpunkt")
+        host = require_public_https(endpoint, what="Push-Endpunkt")
     except EgressRefusedError as e:
         logger.warning("Push-Endpunkt übersprungen (%s): %.60s", e, endpoint)
+        return False
+    if not is_known_push_host(host):
+        logger.warning("Push-Endpunkt ist kein bekannter Push-Dienst — übersprungen: %.60s", endpoint)
         return False
     return True
 

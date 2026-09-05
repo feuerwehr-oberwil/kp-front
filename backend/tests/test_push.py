@@ -355,11 +355,17 @@ async def test_sweep_stays_silent_for_an_identity_only_demo(db_session, monkeypa
     assert await push_mod.check_and_push(db_session, NOW) == 0
 
 
-async def test_subscription_endpoints(client, editor, viewer):
+async def test_subscription_endpoints(client, editor, viewer, monkeypatch):
+    # Registration resolves the endpoint host (app/api/push.py · resolve=True); answer for the
+    # resolver so nothing leaves the machine. The host itself must be a known push service now
+    # (SEC-09), so use a real fcm endpoint rather than an arbitrary placeholder.
+    from app import egress
+
+    monkeypatch.setattr(egress, "_resolved_addresses", lambda host: ["93.184.216.34"])
     login = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
     assert login.status_code == 200
 
-    sub = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "k1", "auth": "a1"}}
+    sub = {"endpoint": "https://fcm.googleapis.com/fcm/send/abc", "keys": {"p256dh": "k1", "auth": "a1"}}
     assert (await client.post("/api/push/subscriptions", json=sub)).status_code == 201
     # re-subscribing the same endpoint upserts (no duplicate-key error)
     sub["keys"]["p256dh"] = "k2"
@@ -374,7 +380,7 @@ async def test_subscription_endpoints(client, editor, viewer):
 
 async def test_push_endpoints_require_auth(client):
     assert (await client.get("/api/push/vapid-key")).status_code == 401
-    sub = {"endpoint": "https://push.example/x", "keys": {"p256dh": "k", "auth": "a"}}
+    sub = {"endpoint": "https://fcm.googleapis.com/fcm/send/x", "keys": {"p256dh": "k", "auth": "a"}}
     assert (await client.post("/api/push/subscriptions", json=sub)).status_code == 401
 
 
@@ -402,8 +408,8 @@ class TestBroadcast:
 
         from app.push import broadcast
 
-        _add_sub(db_session, "https://push.example/ok")
-        _add_sub(db_session, "https://push.example/gone")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/ok")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/gone")
         await db_session.commit()
 
         delivered: list[str] = []
@@ -416,9 +422,9 @@ class TestBroadcast:
         monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
         sent = await broadcast(db_session, title="T", body="B", tag="t", target="")
         assert sent == 1
-        assert delivered == ["https://push.example/ok"]
+        assert delivered == ["https://fcm.googleapis.com/fcm/send/ok"]
         # the 410 endpoint is deleted, the live one kept
-        assert await _endpoints(db_session) == ["https://push.example/ok"]
+        assert await _endpoints(db_session) == ["https://fcm.googleapis.com/fcm/send/ok"]
 
     async def test_a_hung_endpoint_gets_a_timeout_and_does_not_stall_the_others(self, db_session, monkeypatch):
         """
@@ -430,7 +436,7 @@ class TestBroadcast:
 
         from app.push import PUSH_TIMEOUT_SECONDS, broadcast
 
-        _add_sub(db_session, "https://push.example/a")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/a")
         await db_session.commit()
 
         seen: list[float | None] = []
@@ -455,7 +461,7 @@ class TestBroadcast:
         from app.push import broadcast
 
         for i in range(5):
-            _add_sub(db_session, f"https://push.example/slow{i}")
+            _add_sub(db_session, f"https://fcm.googleapis.com/fcm/send/slow{i}")
         await db_session.commit()
 
         def fake_webpush(subscription_info, **_kw):
@@ -469,14 +475,14 @@ class TestBroadcast:
         # Sequential would be ~1.0s; concurrent is ~0.2s. The bound is deliberately loose —
         # this asserts "not serialised", not a performance number.
         assert elapsed < 0.7, f"sends look serialised ({elapsed:.2f}s for 5 x 0.2s)"
-        assert await _endpoints(db_session) == [f"https://push.example/slow{i}" for i in range(5)]
+        assert await _endpoints(db_session) == [f"https://fcm.googleapis.com/fcm/send/slow{i}" for i in range(5)]
 
     async def test_transient_failure_keeps_the_subscription(self, db_session, monkeypatch):
         import pywebpush
 
         from app.push import broadcast
 
-        _add_sub(db_session, "https://push.example/flaky")
+        _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/flaky")
         await db_session.commit()
 
         def fake_webpush(subscription_info, **_kw):
@@ -484,7 +490,7 @@ class TestBroadcast:
 
         monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
         await broadcast(db_session, title="T", body="B", tag="t", target="")
-        assert await _endpoints(db_session) == ["https://push.example/flaky"]
+        assert await _endpoints(db_session) == ["https://fcm.googleapis.com/fcm/send/flaky"]
 
 
 # ---------------------------------------------------------------------------------------
