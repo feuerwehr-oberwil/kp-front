@@ -441,6 +441,29 @@ async def test_forced_link_mode_with_no_link_cookie_denies_ambient_admin(client,
     assert (await client.get("/api/capture/secret", headers=BARE_SITE)).status_code == 200
 
 
+async def test_forced_link_mode_can_still_mint_a_link_session_on_an_admin_browser(
+    client, admin_login, editor, incident
+):
+    """H2 regression (round 2): the session-EXCHANGE endpoint is itself called with
+    `X-Incident-Link: use` and no link cookie yet — that is how a link session is born. Round 2's
+    forced-mode ambient-admin denial fired on it too, so on the operator's own admin browser the
+    exchange 403'd before it could run and the Atemschutz feature reported as disabled. Only the
+    mint path is exempt; the containment test below still holds for every other route."""
+    # Mint the Atemschutz link as the editor, then keep only what the URL carries — the token.
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/atemschutz-link")
+    assert r.status_code == 200, r.text
+    token = r.json()["token"]
+    client.cookies.delete(ACCESS_COOKIE)
+
+    # The operator's browser also holds an admin session; the link page sends `use`, no link
+    # cookie yet. The bootstrap must succeed and actually establish the session.
+    await admin_login(client)
+    r = await client.post("/api/incident-link/session", json={"token": token}, headers=LINK_PAGE)
+    assert r.status_code == 200, f"the link-session exchange was refused on an admin browser: {r.text[:200]}"
+    assert LINK_COOKIE in client.cookies
+
+
 async def test_an_ambient_admin_cookie_still_lifts_the_gate_for_the_ordinary_app(
     client, admin_login, link_key, incident
 ):

@@ -110,6 +110,81 @@ async def test_hostile_admin_login_traffic_does_not_lock_out_the_operator(client
     assert ok.status_code == 200, ok.text
 
 
+async def test_a_shared_bucket_under_attack_still_admits_the_correct_pin(client, editor, monkeypatch):
+    """SEC-08 (round-2 residual): behind a NAT/reverse proxy — or with the default
+    `trusted_forwarded_hops=0`, where everyone shares the peer bucket — an attacker and the
+    operator land in the SAME source bucket. Round 2 rejected a throttled bucket BEFORE verifying,
+    so the attacker's wrong attempts kept the shared bucket blocked and the operator's CORRECT
+    PIN was refused indefinitely. A correct PIN must win even from a throttled bucket."""
+    # Default deployment: no trusted proxy, so every caller keys on the same loopback peer.
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
+
+    # The attacker floods the shared bucket into a deep cooldown.
+    for _ in range(settings.pin_free_attempts + 6):
+        await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
+    blocked = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
+    assert blocked.status_code == 429, blocked.text
+
+    # The operator, sharing that very bucket, still gets in with the correct PIN.
+    good = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": PIN})
+    assert good.status_code == 200, f"a correct PIN was locked out by a shared, throttled bucket: {good.text}"
+
+
+async def test_a_shared_bucket_under_attack_still_admits_the_correct_admin_secret(client, monkeypatch):
+    """The admin door has the same shape (one shared credential, one source bucket). A throttled
+    bucket must not refuse the correct Adminschlüssel."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
+
+    for _ in range(settings.pin_free_attempts + 6):
+        await client.post("/api/admin/login", json={"secret": "wrong-secret"})
+    blocked = await client.post("/api/admin/login", json={"secret": "wrong-secret"})
+    assert blocked.status_code == 429, blocked.text
+
+    ok = await client.post("/api/admin/login", json={"secret": settings.admin_secret})
+    assert ok.status_code == 200, f"a correct admin secret was locked out by a shared bucket: {ok.text}"
+
+
+async def test_wrong_attempts_still_get_429_under_load_even_when_verify_always_runs(client, editor, monkeypatch):
+    """Verifying under throttle must not soften the throttle for WRONG attempts: once the shared
+    bucket is in cooldown, a wrong PIN is still answered 429, not 401."""
+    monkeypatch.setattr(settings, "trusted_forwarded_hops", 0)
+    for _ in range(settings.pin_free_attempts + 2):
+        await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
+    r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": WRONG_PIN})
+    assert r.status_code == 429, r.text
+
+
+async def test_the_bounded_verifier_still_caps_concurrent_bcrypt(client, editor, monkeypatch):
+    """Verifying even when throttled is only safe because bcrypt runs through a bounded
+    `CapacityLimiter`. A concurrent burst of throttled-but-verifying attempts must never exceed
+    that ceiling of simultaneous verifications — the property that keeps «verify under throttle»
+    from exhausting the thread pool."""
+    from app.auth import security
+
+    live = 0
+    peak = 0
+    real_verify = security.verify_pin
+
+    def _counting_verify(pin: str, pin_hash: str) -> bool:
+        nonlocal live, peak
+        live += 1
+        peak = max(peak, live)
+        try:
+            # A touch of real work so overlapping calls actually coincide inside the limiter.
+            return real_verify(pin, pin_hash)
+        finally:
+            live -= 1
+
+    monkeypatch.setattr(security, "verify_pin", _counting_verify)
+
+    async def attempt(pin: str):
+        return await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": pin})
+
+    # Push the shared bucket into cooldown, then fire a burst that all reach the (bounded) verify.
+    await asyncio.gather(*(attempt(WRONG_PIN) for _ in range(24)))
+    assert peak <= security._PIN_VERIFY_LIMITER.total_tokens
+
+
 # --- bucket hygiene ---------------------------------------------------------------
 
 
