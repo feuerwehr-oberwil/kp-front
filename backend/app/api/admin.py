@@ -82,7 +82,9 @@ async def admin_login(body: AdminLogin, request: Request, response: Response) ->
             headers={"Retry-After": str(wait)},
         )
 
-    if not secrets.compare_digest(body.secret, settings.admin_secret):
+    # Encode to bytes: compare_digest raises TypeError on a non-ASCII str, so a non-ASCII secret
+    # guess would 500 instead of failing closed with 401. Bytes compare in constant time too.
+    if not secrets.compare_digest(body.secret.encode("utf-8"), settings.admin_secret.encode("utf-8")):
         cooldown = pin_limiter.retry_after(bucket)  # installed by the reservation above
         # «Adminschlüssel» — the ONE name for this credential across the whole surface (the
         # unlock screen and the docs say the same). ADMIN_SECRET stays the env-var name only.

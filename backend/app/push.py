@@ -213,6 +213,12 @@ BROADCAST_DEADLINE_SECONDS = 45
 # Strong references to post-commit tasks. asyncio itself holds only weak references.
 _inflight: set[asyncio.Task] = set()
 
+#: Strong references to the individual per-endpoint send tasks a broadcast fans out. The deadline
+#: below deliberately does NOT cancel them (see `broadcast`), so this set — not the awaiting
+#: gather — is what keeps a still-running send from being garbage-collected mid-flight. Each task
+#: removes itself on completion.
+_broadcast_tasks: set[asyncio.Task] = set()
+
 
 #: Web-Push endpoints this server will POST to: the four major browser push services, matched as
 #: host SUFFIXES (WNS and Apple shard by region — `sN.notify.windows.com`, `<region>.push.apple.com`
@@ -355,13 +361,26 @@ def _send_one(sub: dict, payload: str) -> bool:
         return False
 
 
-async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target: str | None) -> int:
+async def broadcast(
+    db: AsyncSession, *, title: str, body: str, tag: str, target: str | None, dedup_key: str | None = None
+) -> int:
     """Push to every subscribed browser of an ACTIVE user; prunes dead endpoints.
 
-    Returns the send count. A deactivated login keeps no delivery: the row survives (the person
-    may come back) but the alarm does not follow an account somebody switched off.
+    Returns the number of sends that actually COMPLETED. A deactivated login keeps no delivery:
+    the row survives (the person may come back) but the alarm does not follow an account somebody
+    switched off.
+
+    ``dedup_key`` ties this call to a sweep crossing (``check_and_push``). When given, the shared
+    per-recipient ledger ``_delivered[dedup_key]`` is consulted so a browser already reached this
+    round is skipped, and re-armed via ``_notified`` so a recipient still outstanding at the
+    deadline is retried next sweep. The new-alarm path fires once and passes no key.
     """
-    subs = [s for s in (await db.execute(_deliverable())).scalars() if _sendable(s.endpoint)]
+    delivered_set = _delivered.setdefault(dedup_key, set()) if dedup_key is not None else None
+    subs = [
+        s
+        for s in (await db.execute(_deliverable())).scalars()
+        if _sendable(s.endpoint) and not (delivered_set is not None and s.endpoint in delivered_set)
+    ]
     if not subs:
         return 0
     payload = json.dumps({"title": title, "body": body, "tag": tag, "target": target})
@@ -371,41 +390,76 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, tag: str, target
     # meant minutes of hanging, and this is awaited inline in the alarm intake path. Fanned
     # out, the whole sweep costs one timeout regardless of how many endpoints are unreachable.
     # Bounded on both axes: at most BROADCAST_CONCURRENCY threads, and the whole broadcast
-    # gives up at BROADCAST_DEADLINE_SECONDS rather than holding the alarm path open.
+    # STOPS WAITING at BROADCAST_DEADLINE_SECONDS rather than holding the alarm path open.
     gate = asyncio.Semaphore(BROADCAST_CONCURRENCY)
 
-    async def send(s: PushSubscription) -> bool:
+    async def send(s: PushSubscription) -> tuple[str, bool]:
         async with gate:
-            return await asyncio.to_thread(
+            keep = await asyncio.to_thread(
                 _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
             )
+        return s.endpoint, keep
 
-    try:
-        results: list[bool | BaseException] = await asyncio.wait_for(
-            asyncio.gather(*(send(s) for s in subs), return_exceptions=True),
-            timeout=BROADCAST_DEADLINE_SECONDS,
-        )
-    except TimeoutError:
-        # The sends that did land are already delivered; what is dropped is the WAIT, so the
-        # caller (an alarm intake, a due-ness sweep) gets its thread back. Nothing is pruned on
-        # a timeout — a slow push service is not a gone one.
-        logger.warning("Push-Broadcast (%s) nach %ss abgebrochen", tag, BROADCAST_DEADLINE_SECONDS)
-        return 0
+    tasks = {asyncio.create_task(send(s)) for s in subs}
+    _broadcast_tasks.update(tasks)
 
+    def _record(task: asyncio.Task) -> None:
+        _broadcast_tasks.discard(task)
+        # Note the recipient the push service ANSWERED — even a send that finishes AFTER this
+        # broadcast's deadline records here, so the next sweep skips it and never delivers twice.
+        # Closes over this round's exact set object: a later renotify round replaces it (see
+        # `_should_send`), so a very-late completion cannot pollute the fresh round.
+        if delivered_set is None or task.cancelled() or task.exception() is not None:
+            return
+        delivered_set.add(task.result()[0])
+
+    for t in tasks:
+        t.add_done_callback(_record)
+
+    # ⚠️ The deadline STOPS WAITING; it does not cancel. Cancelling would (1) drop the WAIT on a
+    # queued send whose recipient the renotify key already counts as notified — silently skipping
+    # a safety alarm for a whole `push_renotify_seconds` window — and (2) abandon an already-
+    # admitted `to_thread` send that keeps running on its thread anyway, which the next sweep
+    # would then DUPLICATE. So the unfinished sends run to completion (kept alive by
+    # `_broadcast_tasks`) and record themselves via `_record`; here we only collect what is done.
+    done, pending = await asyncio.wait(tasks, timeout=BROADCAST_DEADLINE_SECONDS)
+
+    delivered = 0
     dead: list[str] = []
-    for s, ok in zip(subs, results, strict=True):
-        if isinstance(ok, BaseException):
+    for task in done:
+        if task.cancelled():
+            continue
+        exc = task.exception()
+        if exc is not None:
             # _send_one already swallows everything it knows about; anything arriving here is
             # unexpected. Log it and KEEP the subscription — pruning on an unknown fault would
             # silently unsubscribe a working device.
-            logger.warning("Web push raised unexpectedly for %s: %s", s.endpoint[:60], ok)
+            logger.warning("Web push raised unexpectedly: %s", exc)
             continue
-        if not ok:
-            dead.append(s.endpoint)
+        endpoint, keep = task.result()
+        if keep:
+            delivered += 1
+        else:
+            dead.append(endpoint)
     if dead:
+        # Only endpoints whose send finished before the deadline are pruned — a slow push service
+        # is not a gone one, and a still-running send has no verdict yet.
         await db.execute(delete(PushSubscription).where(PushSubscription.endpoint.in_(dead)))
         logger.info("Pruned %d dead push subscription(s)", len(dead))
-    return len(subs) - len(dead)
+    if pending:
+        logger.warning(
+            "Push-Broadcast (%s): %d von %d Sendungen offen nach %ss",
+            tag,
+            len(pending),
+            len(subs),
+            BROADCAST_DEADLINE_SECONDS,
+        )
+        # Re-arm this crossing so the NEXT sweep retries the recipients still outstanding rather
+        # than waiting a full renotify window. `_delivered` keeps the ones already reached, so the
+        # retry goes only to the missing — nobody is notified twice.
+        if dedup_key is not None:
+            _notified.pop(dedup_key, None)
+    return delivered
 
 
 async def notify_new_alarm(
@@ -457,11 +511,23 @@ async def _broadcast_committed(
 # in-memory crossing → last-notified ms (restart = one re-notification, safe direction)
 _notified: dict[str, float] = {}
 
+#: Per-crossing, the endpoints already reached in the CURRENT renotify round — populated by
+#: `broadcast` (including sends that land after its deadline). It is what lets a partly-delivered
+#: sweep retry only the recipients still outstanding, without re-notifying the ones already
+#: reached. Reset at the start of each new renotify round (below) so a fresh round reaches
+#: everyone again. In-memory like `_notified`: a restart re-notifies once, the safe direction.
+_delivered: dict[str, set[str]] = {}
+
 
 def _should_send(key: str, now_ms: float) -> bool:
     last = _notified.get(key)
-    if last is not None and now_ms - last < settings.push_renotify_seconds * 1000:
-        return False
+    if last is not None:
+        if now_ms - last < settings.push_renotify_seconds * 1000:
+            return False
+        # A new renotify round: everyone is notified again, so forget who was reached last round.
+        # (An outstanding retry leaves `last` unset — `broadcast` popped it — and keeps the
+        # per-recipient progress so only the missing browsers are re-sent.)
+        _delivered.pop(key, None)
     _notified[key] = now_ms
     return True
 
@@ -509,6 +575,7 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
                     # the ':<truppId>' suffix (sw-notify.js passes the target through opaquely);
                     # a Trupp without an id falls back to the bare surface target.
                     target=f"atemschutz:{t['id']}" if t.get("id") else "atemschutz",
+                    dedup_key=key,
                 )
         # journal rows (seq order) + any pre-migration blob rows still carrying reminders
         rows = [
@@ -532,5 +599,6 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
                     body=r["text"],
                     tag=f"reminder-{r['id']}",
                     target="journal",
+                    dedup_key=key,
                 )
     return sent

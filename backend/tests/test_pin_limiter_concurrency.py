@@ -240,8 +240,11 @@ async def test_the_bounded_verifier_caps_concurrent_bcrypt(client, editor, monke
     async def attempt(pin: str):
         return await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": pin})
 
-    # Push the shared bucket into cooldown, then fire a burst that all reach the (bounded) verify.
+    # Push the shared bucket into cooldown, then fire a burst that reaches the (bounded) verify.
     await asyncio.gather(*(attempt(WRONG_PIN) for _ in range(24)))
+    # Guard against a vacuous pass: if every request were rejected BEFORE verify, peak would stay
+    # 0 and the ceiling check below would hold trivially without ever exercising the verifier.
+    assert peak > 0, "no attempt reached verify_pin — the test did not exercise the bounded verifier"
     assert peak <= security._PIN_VERIFY_LIMITER.total_tokens
 
 

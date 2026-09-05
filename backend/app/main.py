@@ -548,7 +548,8 @@ async def enforce_request_origin(request: Request, call_next):
             )
             if foreign_origin or (site and site not in _OWN_FETCH_SITES):
                 logger.warning(
-                    "Fremde Herkunft abgewiesen: %s %s (origin=%r, sec-fetch-site=%r)",
+                    # %r on the path: a decoded %0a in it would otherwise forge log lines (CWE-117).
+                    "Fremde Herkunft abgewiesen: %s %r (origin=%r, sec-fetch-site=%r)",
                     request.method,
                     request.url.path,
                     origin,

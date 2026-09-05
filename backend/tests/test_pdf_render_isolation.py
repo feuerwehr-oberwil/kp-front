@@ -139,6 +139,12 @@ def test_a_client_svg_cannot_pull_a_remote_resource(tmp_path):
         '<image width="64" height="64" href="http://127.0.0.1:9999/x.png"/>'
         "</svg>"
     )
+    # Assert the SCRUB, not just that a bitmap of the right size came back: the remote host must be
+    # gone from the sanitized markup (an external href → "", an external CSS url() → none). The SVG
+    # namespace is itself an http URL, so we check the attacker host, not the scheme.
+    scrubbed = kk.sanitize_svg(svg)
+    assert "127.0.0.1" not in scrubbed
+    assert "x.png" not in scrubbed and "x.css" not in scrubbed
     img = kk.raster_svg(svg, 64)  # must not raise and must not reach the network
     assert img.size == (64, 64)
 

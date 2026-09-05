@@ -85,6 +85,19 @@ const isSafeRef = (value: string): boolean => {
   return v.startsWith('#') || v.startsWith('data:image/')
 }
 
+/** Decode CSS escape sequences so a validator can't be fooled by them. CSS lets `url(` be
+ *  written `u\72l(` (hex escape) or `u\rl(` (literal escape), and the browser decodes it before
+ *  resolving the value — so `/url\(/` on the raw string would miss an external reference hidden
+ *  behind an escape (CWE-116). Decode `\<1-6 hex>` (optional trailing space) to its codepoint and
+ *  `\<char>` to that char, then validate the decoded form. */
+const decodeCssEscapes = (value: string): string =>
+  value
+    .replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, hex) => {
+      const cp = parseInt(hex, 16)
+      return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : ''
+    })
+    .replace(/\\(.)/g, '$1')
+
 /** Every `url(…)` in a presentation attribute must target a `#fragment`; anything else (an
  *  external stylesheet/image, a `javascript:` URI) makes the whole attribute unsafe. */
 const hasUnsafeUrl = (value: string): boolean => {
@@ -101,8 +114,10 @@ const keepAttribute = (name: string, value: string): boolean => {
   // ALLOWLIST: anything not explicitly named is dropped — this is what stops `onerror`, `/onerror`,
   // `onload`, `xlink:actuate`, unknown/`data-*` attributes and `style` regardless of spelling.
   if (!ALLOWED_ATTRS.has(n)) return false
-  if (/javascript:/i.test(value)) return false
-  if (/url\(/i.test(value) && hasUnsafeUrl(value)) return false
+  // Decode CSS escapes first: `u\72l(evil)` / `\6a avascript:` must not slip past these checks.
+  const decoded = decodeCssEscapes(value)
+  if (/javascript:/i.test(decoded)) return false
+  if (/url\(/i.test(decoded) && hasUnsafeUrl(decoded)) return false
   return true
 }
 

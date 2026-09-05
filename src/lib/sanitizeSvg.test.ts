@@ -67,6 +67,22 @@ describe('sanitizeSvg · strips the injection attributes', () => {
     const js = sanitizeSvg('<svg xmlns="http://www.w3.org/2000/svg"><a href="javascript:window.__pwned=1"><rect width="1" height="1"/></a></svg>')
     expect(js).not.toContain('javascript:')
   })
+
+  it('drops a CSS-escaped external url() that would decode past a literal `url(` check (CWE-116)', () => {
+    // `u\72l(` decodes to `url(`; a naive `/url\(/` check would miss it and keep the external ref.
+    const escaped = sanitizeSvg(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="u\\72l(https://evil.example/x)" width="1" height="1"/></svg>',
+    )
+    expect(escaped).not.toContain('evil.example')
+    // a hex-escaped javascript: URI must fall the same way
+    const jsEsc = sanitizeSvg(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="\\6a avascript:alert(1)" width="1" height="1"/></svg>',
+    )
+    expect(jsEsc.toLowerCase()).not.toContain('avascript:alert')
+    // …and a legitimate url(#id) with an incidental escape still renders
+    const safe = sanitizeSvg('<svg xmlns="http://www.w3.org/2000/svg"><rect fill="url(#grad)" width="1" height="1"/></svg>')
+    expect(safe).toContain('url(#grad)')
+  })
 })
 
 describe('sanitizeSvg · malformed input never throws', () => {
