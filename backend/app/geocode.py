@@ -182,7 +182,8 @@ async def search(address: str, limit: int = 6) -> list[GeoHit]:
                 extra = r.json().get("results", [])
                 seen = {(a["lat"], a["lon"]) for res in results if (a := res.get("attrs", {})) and "lat" in a}
                 results = results + [
-                    res for res in extra
+                    res
+                    for res in extra
                     if (a := res.get("attrs", {})) and "lat" in a and (a["lat"], a["lon"]) not in seen
                 ]
     except (httpx.HTTPError, ValueError) as e:
