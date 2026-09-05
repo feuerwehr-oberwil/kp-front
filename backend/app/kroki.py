@@ -479,6 +479,24 @@ def _group(m: re.Match[str], *names: str) -> str:
     return next((v for n in names if (v := m.group(n)) is not None), "")
 
 
+# Native-raster pixel budget. Every native raster allocates one RGBA buffer of width·height —
+# resvg for the try path below, PIL for the fallback. A caller-controlled dimension flows in
+# unbounded: a plan annotation's `sizeN` is scaled by the page width (`_overlay_board_annos`),
+# so `sizeN:10` on a 3200 px page asks resvg for 32000×32000 ≈ 4 GB — a one-request
+# memory-exhaustion DoS of the single service every command tablet shares. No legitimate report
+# raster comes near this: the widest is the ~4160 px kroki canvas, the tallest the ~12800 px
+# aspect-4 blank plan (whose base is built directly, not here). Cap every edge well above the
+# largest legitimate size and far below the exhaustion range; the square render at max(w, h) is
+# then bounded to _RASTER_MAX_EDGE² ≈ 268 MB, and an over-budget request degrades to the clamped
+# size rather than allocating gigabytes or 500-ing the whole Rapport.
+_RASTER_MAX_EDGE = 8192
+
+
+def _clamp_raster_edge(px: int) -> int:
+    """Bound a raster edge to the native-render pixel budget (see _RASTER_MAX_EDGE)."""
+    return max(1, min(int(px), _RASTER_MAX_EDGE))
+
+
 def raster_svg(svg: str, size_px: int, height_px: int | None = None) -> Image.Image:
     """Rasterise an SVG string to an RGBA image (resvg — same renderer for pack
     symbols and the client-resolved dynamic glyphs like vehicles/placards). Every string goes
@@ -496,7 +514,10 @@ def raster_svg(svg: str, size_px: int, height_px: int | None = None) -> Image.Im
     first, so the pin is inert there."""
     import resvg_py
 
-    h = height_px or size_px
+    # Clamp both edges before anything allocates: the native call, the exception fallback and
+    # the final resize all read these, so no path escapes the budget (see _RASTER_MAX_EDGE).
+    h = _clamp_raster_edge(height_px or size_px)
+    size_px = _clamp_raster_edge(size_px)
     s = max(size_px, h)
     try:
         png = bytes(
@@ -1719,7 +1740,9 @@ def _overlay_board_annos(
             # north_dial_svg). It used to arrive as a `symbol` anno carrying an SVG the CLIENT
             # had written — a second dial, a red triangle with its N under the centre, on a page
             # that gets stapled to the Kroki. The client now sends the angle and nothing else.
-            size = round((a.get("sizeN") or 0.055) * w)
+            # sizeN is a caller-sent fraction of the page width; bound the pixel size at the
+            # source so an absurd value never drives the raster (see _RASTER_MAX_EDGE).
+            size = min(round((a.get("sizeN") or 0.055) * w), _RASTER_MAX_EDGE)
             dial = raster_svg(north_dial_svg(float(a.get("deg") or 0)), size)
             x, y = pp(a.get("x") or 0, a.get("y") or 0)
             overlay.alpha_composite(dial, (int(x - dial.width / 2), int(y - dial.height / 2)))
@@ -1732,10 +1755,16 @@ def _overlay_board_annos(
             # and may be stretched (aspect = height/width, clamp as lib/shapes · shapeAspect).
             # `gh`, not `h` — `h` is this function's page height.
             if a.get("sizeN"):
-                size = round(a["sizeN"] * w)
+                # sizeN (and the aspect below) are caller-sent; bound both derived edges at the
+                # source so an absurd anno cannot drive a huge canvas (see _RASTER_MAX_EDGE).
+                size = min(round(a["sizeN"] * w), _RASTER_MAX_EDGE)
                 # per kind, as on the map above: a Rotation is far leaner than any box
-                gh = round(
-                    size * max(0.002 if a.get("shape") == "rotation" else 0.02, min(5.0, float(a.get("aspect") or 1)))
+                gh = min(
+                    round(
+                        size
+                        * max(0.002 if a.get("shape") == "rotation" else 0.02, min(5.0, float(a.get("aspect") or 1)))
+                    ),
+                    _RASTER_MAX_EDGE,
                 )
             else:
                 size = round(_BOARD_SYMBOL_PX * u * ss)
