@@ -65,22 +65,24 @@ async def admin_login(body: AdminLogin, request: Request, response: Response) ->
         )
 
     # Reserve one slot for THIS source up front (like the PIN login), so a concurrent burst
-    # cannot slip past a check nobody has yet failed. A throttled bucket is NOT rejected here,
-    # though: a correct secret must always win, or an attacker sharing the operator's source
-    # bucket (a NAT/proxy, or the default TRUSTED_FORWARDED_HOPS=0) could keep it blocked and
-    # lock the operator out remotely (SEC-08). `compare_digest` is synchronous and cheap, so
-    # running it under throttle costs nothing; only a WRONG attempt from a throttled bucket 429s.
+    # cannot slip past a check nobody has yet failed. A bucket already IN COOLDOWN is REJECTED
+    # here, BEFORE the secret is compared — a wrong guess AND a correct one. Rejecting the
+    # correct guess too is what throttles guessing: round 3 compared even while throttled
+    # ("a correct secret always wins"), so an attacker who exhausted the bucket could keep
+    # checking candidates and the moment one matched it authenticated (SEC-08 round 3
+    # regression). The block is bounded (pin_cooldown_steps_seconds caps at 120s) and
+    # non-extending (reserve counts nothing while blocked), so it always elapses into a recovery
+    # window; per-source keying keeps an attacker's flood on their own address only.
     bucket = pin_limiter.key(_RATE_KEY, client_ip(request))
-    throttled = pin_limiter.reserve(bucket) > 0
+    wait = pin_limiter.reserve(bucket)
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
+            headers={"Retry-After": str(wait)},
+        )
 
     if not secrets.compare_digest(body.secret, settings.admin_secret):
-        if throttled:
-            wait = pin_limiter.retry_after(bucket)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Zu viele Fehlversuche. Bitte {wait}s warten.",
-                headers={"Retry-After": str(wait)},
-            )
         cooldown = pin_limiter.retry_after(bucket)  # installed by the reservation above
         # «Adminschlüssel» — the ONE name for this credential across the whole surface (the
         # unlock screen and the docs say the same). ADMIN_SECRET stays the env-var name only.
