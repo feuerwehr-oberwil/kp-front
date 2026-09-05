@@ -533,26 +533,8 @@ export interface NextChip {
 /** A handful — the row scrolls sideways, but what is worth reading at 3am is the first few. */
 const NEXT_LIMIT = 4
 
-/**
- * What usually comes NEXT, offered the moment something was accepted and before another letter
- * is typed.
- *
- * Accepting a chip used to end the offer: the name was inserted and the row went quiet until the
- * next fragment was long enough to match again — so the second half of «Trupp Meier Anna → …»
- * was typed out by hand every single time, on the surface where typing is most expensive.
- *
- * ⚠️ Everything offered here is EVIDENCE from this Einsatz's own rows, never a list of what a
- * sentence «should» say. The anchor is the term the sentence currently ends on; the chips are the
- * other terms and the station's Textbausteine that have already stood in a row WITH that anchor,
- * ranked by how often. So an Einsatz that has not written anything yet offers nothing at all —
- * the row stays as empty as it is today — and one that has been running for two hours offers what
- * it keeps writing. Same instrument as the empty-field chips (lib/startChips), one step later.
- *
- * ⚠️ And no NEW vocabulary. The Atemschutz status words («Rückzug», «Draussen», «eingerückt») are
- * deliberately NOT in here, tempting as they look: the Truppkarte writes those rows itself, with
- * the clock behind them, and a hand-typed copy in the Verlauf would be a second, unclocked record
- * of a fact the board owns. What this offers is what somebody on THIS Einsatz has already typed.
- */
+/** Continuations observed after the last completed term in this Einsatz. An arrow keeps its
+ * speaker as the anchor and only learns recipients written in the same arrow direction. */
 export function suggestNext(
   text: string,
   opts: {
@@ -565,7 +547,8 @@ export function suggestNext(
   },
 ): NextChip[] {
   const { vocab, phrases, timeline, limit = NEXT_LIMIT } = opts
-  const anchor = endingTerm(text, vocab, phrases)
+  const arrow = text.trimEnd().match(/[→←]$/)?.[0]
+  const anchor = endingTerm(arrow ? text.trimEnd().slice(0, -1) : text, vocab, phrases)
   if (!anchor) return []
   // the rows of this Einsatz that name the anchor. Filtered FIRST, so the expensive pass below
   // runs over a handful of rows rather than over the whole record on every keystroke.
@@ -590,10 +573,33 @@ export function suggestNext(
     candidates.push({ label: phrase, insert: phrase, source: 'phrase' })
   }
 
+  const counts = new Map<string, number>()
+  const anchorIsTerm = vocab.some((l) => l.name.toLowerCase() === anchor.toLowerCase())
+  for (const row of rows) {
+    const found = new Set<string>()
+    const positions = anchorIsTerm
+      ? linkRanges(row.text, vocab).filter((r) => row.text.slice(r.start, r.end).toLowerCase() === anchor.toLowerCase()).map((r) => r.start)
+      : termPositions(row.text, anchor)
+    for (const at of positions) {
+      let after = row.text.slice(at + anchor.length)
+      if (arrow) {
+        if (!after.trimStart().startsWith(arrow)) continue
+        after = after.trimStart().slice(1).trimStart()
+      }
+      const following = candidates
+        .filter((c) => !arrow || c.source === 'term')
+        .map((c, i) => ({ c, i, at: termPositions(after, c.label)[0] ?? -1 }))
+        .filter((m) => m.at >= 0 && (!arrow || m.at === 0))
+        // Stop between sentences, but retain punctuation inside a known term such as «Stv. EL».
+        .filter((m) => !/\n|[.!?;](?:\s|$)/.test(after.slice(0, m.at)))
+        .sort((a, b) => a.at - b.at || b.c.label.length - a.c.label.length || a.i - b.i)[0]
+      if (following) found.add(following.c.label)
+    }
+    for (const label of found) counts.set(label, (counts.get(label) ?? 0) + 1)
+  }
   return candidates
-    // never offer what the sentence already says — that is how a chip writes a word twice
     .filter((c) => !containsTerm(text, c.label))
-    .map((c, i) => ({ c, i, n: rows.filter((e) => containsTerm(e.text, c.label)).length }))
+    .map((c, i) => ({ c, i, n: counts.get(c.label) ?? 0 }))
     .filter((m) => m.n > 0)
     .sort((a, b) => b.n - a.n || a.i - b.i)
     .slice(0, Math.max(0, limit))
@@ -624,11 +630,16 @@ function endingTerm(text: string, vocab: JournalLink[], phrases: readonly string
 /** Does this text carry that term as a WHOLE word? The same rule `linkRanges` marks by — «Polizei»
  *  must not count inside «Kantonspolizei» — but asked about one term, so it costs one scan. */
 function containsTerm(text: string, term: string): boolean {
+  return termPositions(text, term).length > 0
+}
+
+function termPositions(text: string, term: string): number[] {
   const hay = text.toLowerCase()
   const needle = term.trim().toLowerCase()
-  if (needle.length < 2) return false
+  const positions: number[] = []
+  if (needle.length < 2) return positions
   for (let i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + 1)) {
-    if (!isWordChar(hay[i - 1]) && !isWordChar(hay[i + needle.length])) return true
+    if (!isWordChar(hay[i - 1]) && !isWordChar(hay[i + needle.length])) positions.push(i)
   }
-  return false
+  return positions
 }
