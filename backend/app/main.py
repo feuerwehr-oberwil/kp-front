@@ -4,6 +4,7 @@ Single service: serves the API under /api and (in production) the built SPA from
 same origin — so cookies are SameSite=Lax and there is no CORS.
 """
 
+import ipaddress
 import logging
 import re
 from contextlib import asynccontextmanager, suppress
@@ -279,7 +280,12 @@ class LimitRequestBody:
             return
 
         headers = Headers(scope=scope)
-        is_upload = "multipart/form-data" in headers.get("content-type", "")
+        # ⚠️ The MEDIA type itself, not a substring: `"multipart/form-data" in header` also matched
+        # `application/json; charset=multipart/form-data`, so an unauthenticated caller could pick
+        # the 110 MB upload cap for a JSON body (SEC-04). Split off the parameters and compare the
+        # bare type.
+        media_type = headers.get("content-type", "").split(";", 1)[0].strip().lower()
+        is_upload = media_type == "multipart/form-data"
         cap_mb = settings.max_upload_mb if is_upload else settings.max_json_body_mb
         cap = cap_mb * 1024 * 1024
         too_large = f"Anfrage zu gross (max. {cap_mb} MB)"
@@ -365,6 +371,10 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 #: which field, never enough to be worth sending a big body to provoke.
 _MAX_VALIDATION_ERRORS = 8
 _MAX_VALIDATION_MSG_CHARS = 200
+#: `loc` is caller-influenced too — a rejected field's path can contain a dict key the caller
+#: chose — so the number of parts and each part's length are bounded like `msg` (SEC-04).
+_MAX_VALIDATION_LOC_PARTS = 10
+_MAX_VALIDATION_LOC_PART_CHARS = 100
 
 
 @app.exception_handler(RequestValidationError)
@@ -380,7 +390,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """
     errors = [
         {
-            "loc": [str(part) for part in err.get("loc", ())],
+            "loc": [
+                str(part)[:_MAX_VALIDATION_LOC_PART_CHARS] for part in err.get("loc", ())[:_MAX_VALIDATION_LOC_PARTS]
+            ],
             # A custom validator's message can quote what it was given; the cap bounds that too.
             "msg": str(err.get("msg", ""))[:_MAX_VALIDATION_MSG_CHARS],
             "type": str(err.get("type", "")),
@@ -449,28 +461,49 @@ _OWN_FETCH_SITES = frozenset({"same-origin", "none"})
 def _own_origins(request: Request) -> set[str]:
     """The origins this deployment answers as, lowercased and without a trailing slash.
 
-    Derived from the request itself rather than configured, because the app IS its origin:
-    frontend and API are one service behind one hostname (see the module docstring), so the
-    `Host` the caller reached — `X-Forwarded-Host`/`-Proto` when a proxy rewrote it — is the
-    only address the browser could legitimately have loaded the page from. `PUBLIC_URL` joins
-    it when set, for the ingress that does not preserve `Host`.
+    The app IS its origin: frontend and API are one service behind one hostname (see the module
+    docstring). `PUBLIC_URL`, when set, is the authoritative answer — the browser loaded the page
+    from it and no caller can forge it.
+
+    ⚠️ In production the `Host` header is trusted (the platform sets it), but `X-Forwarded-Host`
+    is NOT unioned in: it is client-suppliable, so unioning it would let a caller ADD an allowed
+    origin and walk through this gate (SEC-12). Off production the SPA reaches `/api` through
+    Vite's proxy with `changeOrigin`, which rewrites `Host`, so the forwarded headers are trusted
+    there to recover the origin the browser actually loaded — there is no hostile sibling on a
+    developer's machine to exploit them.
     """
     headers = request.headers
-    scheme = (headers.get("x-forwarded-proto") or request.url.scheme).split(",")[0].strip()
-    host = (headers.get("x-forwarded-host") or headers.get("host") or "").split(",")[0].strip()
-    origins = {f"{scheme}://{host}".lower()} if host else set()
+    origins: set[str] = set()
     if settings.public_url:
         origins.add(settings.public_url.strip().rstrip("/").lower())
+    if settings.is_production:
+        scheme = (headers.get("x-forwarded-proto") or request.url.scheme).split(",")[0].strip()
+        host = (headers.get("host") or "").split(",")[0].strip()
+    else:
+        scheme = (headers.get("x-forwarded-proto") or request.url.scheme).split(",")[0].strip()
+        host = (headers.get("x-forwarded-host") or headers.get("host") or "").split(",")[0].strip()
+    if host:
+        origins.add(f"{scheme}://{host}".lower())
     return origins
 
 
-def _dev_loopback(origin: str) -> bool:
-    """`just dev` serves the SPA from Vite on :5188 and proxies /api with `changeOrigin: true`,
-    which rewrites `Host` to the backend's — so the derived origin cannot match and every
-    logged-in write would 403. Loopback only, and never in production."""
+def _dev_origin(origin: str) -> bool:
+    """`just dev` serves the SPA from Vite (loopback on :5188, or a LAN address under `VITE_LAN=1`
+    for iPad testing) and proxies `/api` with `changeOrigin: true`, which rewrites `Host` to the
+    backend's — so the derived own-origin can never match the browser's and every logged-in write
+    would 403. Accept the developer's own machine and the private LAN it serves from, never in
+    production (SEC-12's threat is a hostile same-site sibling, which only exists on a real
+    deployment; a developer's LAN has no such sibling)."""
     if settings.is_production:
         return False
-    return (urlsplit(origin).hostname or "") in {"localhost", "127.0.0.1", "::1"}
+    host = urlsplit(origin).hostname or ""
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_link_local
 
 
 @app.middleware("http")
@@ -504,11 +537,14 @@ async def enforce_request_origin(request: Request, call_next):
     """
     if request.method in _UNSAFE_METHODS and any(c in request.cookies for c in _SESSION_COOKIES):
         headers = request.headers
-        if not any(h in headers for h in _CREDENTIAL_HEADERS):
+        # ⚠️ A non-empty VALUE, not mere presence: an empty `X-Stats-Token:` (or any of these sent
+        # blank) is no credential, and presence-only let it switch the gate off on unrelated routes
+        # (SEC-12). A real header credential still exempts the request — its own route answers 401.
+        if not any(headers.get(h, "").strip() for h in _CREDENTIAL_HEADERS):
             origin = headers.get("origin")
             site = (headers.get("sec-fetch-site") or "").lower()
             foreign_origin = origin is not None and not (
-                origin.lower().rstrip("/") in _own_origins(request) or _dev_loopback(origin)
+                origin.lower().rstrip("/") in _own_origins(request) or _dev_origin(origin)
             )
             if foreign_origin or (site and site not in _OWN_FETCH_SITES):
                 logger.warning(

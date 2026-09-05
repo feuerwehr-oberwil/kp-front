@@ -160,6 +160,57 @@ def test_a_drawing_colour_cannot_open_an_attribute():
     assert kk._safe_color('</svg><image href="/etc/hosts"/>') == "#1f6feb"
 
 
+def test_a_quote_mismatched_href_cannot_reference_a_file(tmp_path):
+    """SEC-07 (05.09.): the old value class excluded BOTH quotes, so a valid double-quoted href
+    whose value held an apostrophe was never matched and the reference survived the scrub. Codex
+    embedded a generated PNG through exactly such an attribute and it rendered."""
+    p = tmp_path / "lea'k.png"  # an apostrophe INSIDE a double-quoted attribute value
+    Image.new("RGB", (64, 64), MAGENTA).save(p, "PNG")
+    svg = (
+        '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">'
+        f'<image x="0" y="0" width="64" height="64" href="{p}"/></svg>'
+    )
+    assert not _has_magenta(kk.raster_svg(svg, 64)), "a quote-mismatched href reached the filesystem"
+
+
+def test_sanitize_neutralises_quote_mismatched_refs():
+    assert "/srv/x" not in kk.sanitize_svg('<image href="/srv/x\'.png"/>')
+    # both attribute names survive as DISTINCT empty attrs — a double `href=""` would be a
+    # duplicate resvg rejects, turning a scrub into a parse error
+    out = kk.sanitize_svg('<image href="/a\'.png" xlink:href="/b\'.png"/>')
+    assert 'href=""' in out and 'xlink:href=""' in out
+    # a single-quoted url() holding a double-quote is caught too
+    assert "evil" not in kk.sanitize_svg("<rect fill='url(\"http://evil/x#a\")'/>")
+
+
+def test_a_journal_link_carrying_a_quote_prints_and_stays_escaped():
+    """SEC-07 (05.09.): a decoded link (`&quot;` → a literal `"`) was inserted into the quoted
+    ReportLab attribute unescaped, so it closed the `href="…"` and ReportLab raised — broken
+    printing and an escaping gap. It is escaped for attribute context now."""
+    from app.report_pdf import safe_markup
+
+    out = safe_markup('<a href="https://example.test/x&quot;y"><u>klick</u></a>')
+    assert 'href="https://example.test/x&quot;y"' in out, out  # the quote is escaped, never raw
+    pdf = _pdf('<a href="https://example.test/x&quot;y"><u>klick</u></a>')
+    assert pdf[:5] == b"%PDF-" and len(pdf) > 3_000  # ReportLab parsed the anchor without raising
+
+
+@pytest.mark.parametrize(
+    "svg",
+    [
+        '<!DOCTYPE svg [<!ENTITY x "a]b">]><svg xmlns="http://www.w3.org/2000/svg"><text>&x;</text></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><image href=/unquoted.png /></svg>',
+        "<svg xmlns='http://www.w3.org/2000/svg'><rect fill='#zzz' width='not-a-number'/></svg>",
+        "<not-svg at all",
+    ],
+)
+def test_a_hostile_symbol_svg_yields_an_empty_glyph_never_a_500(svg):
+    """SEC-01 server side (05.09.): a crafted `symbolSvg` resvg refuses to parse must become an
+    empty box, not a raise that turns render_kroki into a 500 for the whole incident."""
+    img = kk.raster_svg(svg, 48)
+    assert img.size == (48, 48)
+
+
 def test_the_glyphs_a_rapport_needs_still_render(tmp_path):
     # a pack symbol (the client's own artwork)
     pack = kk.get_pack()

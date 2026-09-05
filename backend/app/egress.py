@@ -33,13 +33,21 @@ class EgressRefusedError(ValueError):
 #: Name suffixes that never leave the local network, whatever DNS answers.
 _LOCAL_SUFFIXES = (".local", ".localhost", ".internal", ".home.arpa", ".lan", ".intranet")
 
+#: The well-known NAT64 prefix (RFC 6052). An address in it wraps an IPv4 destination in its low
+#: 32 bits, so `64:ff9b::7f00:1` reaches 127.0.0.1 — but the IPv6 literal itself reads as global,
+#: which slipped a NAT64-wrapped loopback/private target past the check.
+_NAT64_PREFIX = ipaddress.IPv6Network("64:ff9b::/96")
+
 
 def _blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Everything that is not a routable public address — private ranges, loopback, link-local
     (169.254.169.254 is the metadata service), multicast, reserved and the unspecified address.
-    An IPv4-mapped IPv6 literal is judged as the address it maps to."""
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
+    An IPv4-mapped or NAT64-wrapped IPv6 literal is judged as the IPv4 address it carries."""
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        elif ip in _NAT64_PREFIX:
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
     return not ip.is_global or ip.is_multicast
 
 

@@ -10,6 +10,7 @@ and the push sender against a stubbed `pywebpush`.
 """
 
 import io
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -295,6 +296,118 @@ async def test_a_deactivated_user_gets_no_alarm_push(db_session, monkeypatch):
     sent = await broadcast(db_session, title="T", body="B", tag="t", target="")
     assert delivered == ["https://fcm.googleapis.com/fcm/send/kiosk"]
     assert sent == 1
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://[64:ff9b::7f00:1]/wpush/v2/x",  # NAT64-wrapped 127.0.0.1
+        "https://[64:ff9b::a00:5]/wpush/v2/x",  # NAT64-wrapped 10.0.0.5
+    ],
+)
+async def test_a_nat64_wrapped_internal_target_is_refused(client, editor, endpoint):
+    """The well-known NAT64 prefix hides an IPv4 destination in its low 32 bits; the IPv6 literal
+    reads as global, which slipped a wrapped loopback/private target past the check."""
+    await _login(client, editor)
+    assert (await client.post("/api/push/subscriptions", json=_sub(endpoint))).status_code == 422, endpoint
+
+
+def test_nat64_addresses_are_judged_by_their_inner_ipv4():
+    from app import egress
+
+    assert egress.is_blocked_host("64:ff9b::7f00:1")  # 127.0.0.1
+    assert egress.is_blocked_host("64:ff9b::a00:5")  # 10.0.0.5
+    assert not egress.is_blocked_host("64:ff9b::5db8:d822")  # 93.184.216.34, a public host
+
+
+async def test_absurd_endpoint_or_key_material_is_refused(client, editor):
+    """A row is a delivery target, not a store: ~500 KB of «key» was accepted before."""
+    await _login(client, editor)
+    huge_ep = {"endpoint": "https://fcm.googleapis.com/fcm/send/" + "a" * 4000, "keys": {"p256dh": "k", "auth": "a"}}
+    assert (await client.post("/api/push/subscriptions", json=huge_ep)).status_code == 422
+    huge_key = {"endpoint": "https://fcm.googleapis.com/fcm/send/x", "keys": {"p256dh": "k" * 4000, "auth": "a"}}
+    assert (await client.post("/api/push/subscriptions", json=huge_key)).status_code == 422
+
+
+async def test_a_logged_in_user_cannot_claim_a_kiosk_subscription(client, editor, db_session):
+    """SEC-09: a NULL-owner (kiosk) row's endpoint is that browser's own capability URL. A
+    logged-in caller who merely knows it must not overwrite its keys or claim it."""
+    from sqlalchemy import select
+
+    from app.models import PushSubscription
+
+    endpoint = "https://fcm.googleapis.com/fcm/send/kioskclaim"
+    db_session.add(PushSubscription(endpoint=endpoint, p256dh="kioskkey", auth="kioskauth"))
+    await db_session.commit()
+
+    await _login(client, editor)
+    assert (await client.post("/api/push/subscriptions", json=_sub(endpoint))).status_code == 403
+
+    db_session.expire_all()
+    row = (await db_session.execute(select(PushSubscription).where(PushSubscription.endpoint == endpoint))).scalar_one()
+    assert row.user_id is None and row.p256dh == "kioskkey"
+
+
+def test_push_send_never_follows_a_redirect(monkeypatch):
+    """SEC-09: pywebpush's default session follows redirects, so a validated public host that
+    answers «301 → http://loopback» would have the body re-POSTed there. The session we hand it
+    resolves no redirects at all."""
+    import pywebpush
+
+    from app.push import _send_one
+
+    captured: dict = {}
+
+    def fake_webpush(subscription_info, **kw):
+        captured["session"] = kw.get("requests_session")
+
+    monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+    _send_one({"endpoint": "https://fcm.googleapis.com/fcm/send/x", "p256dh": "k", "auth": "a"}, "{}")
+
+    session = captured["session"]
+    assert session is not None, "a session must be handed to pywebpush, not the default one"
+    # A 3xx yields no follow-up request → the encrypted body never reaches the redirect target.
+    assert list(session.resolve_redirects(object(), object())) == []
+
+
+async def test_an_expired_subscription_is_never_delivered_to(db_session, monkeypatch):
+    """SEC-09: expiry used to run only when the owner re-registered, so a phone that stopped
+    booting the app was still POSTed to for months. Delivery selection excludes it now."""
+    import pywebpush
+
+    from app.models import PushSubscription
+    from app.push import SUBSCRIPTION_TTL_DAYS, broadcast
+
+    old = datetime.now(UTC) - timedelta(days=SUBSCRIPTION_TTL_DAYS + 1)
+    db_session.add(
+        PushSubscription(endpoint="https://fcm.googleapis.com/fcm/send/old", p256dh="k", auth="a", created_at=old)
+    )
+    db_session.add(PushSubscription(endpoint="https://fcm.googleapis.com/fcm/send/fresh", p256dh="k", auth="a"))
+    await db_session.commit()
+
+    delivered: list[str] = []
+    monkeypatch.setattr(
+        pywebpush, "webpush", lambda subscription_info, **_kw: delivered.append(subscription_info["endpoint"])
+    )
+    await broadcast(db_session, title="T", body="B", tag="t", target="")
+    assert delivered == ["https://fcm.googleapis.com/fcm/send/fresh"]
+
+
+async def test_quota_enforcement_takes_a_user_row_lock(db_session, editor, monkeypatch):
+    """SEC-09: concurrent registrations each counted < MAX and both inserted without a lock. The
+    count-and-evict runs behind a `FOR UPDATE` read of the user row so a second txn waits."""
+    from app.api import push as push_api
+
+    seen: list[str] = []
+    orig = db_session.execute
+
+    async def spy(stmt, *a, **k):
+        seen.append(str(stmt).lower())
+        return await orig(stmt, *a, **k)
+
+    monkeypatch.setattr(db_session, "execute", spy)
+    await push_api._enforce_quota(db_session, editor.id, datetime.now(UTC))
+    assert any("for update" in s for s in seen), "the count-and-evict must be serialised by a row lock"
 
 
 async def test_a_slow_endpoint_cannot_hold_the_sweep_open(db_session, monkeypatch):
