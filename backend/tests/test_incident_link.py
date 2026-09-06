@@ -1259,6 +1259,36 @@ async def test_journal_takes_team_rows_only_and_stamps_them(client, editor, inci
     assert rows[0]["row"]["via"] == "atemschutz-link"
 
 
+async def test_link_cannot_smuggle_an_unsafe_url_into_a_team_row(client, editor, incident):
+    """H1: rows are stored verbatim and their `files[].url`/`photoUrls` render as raw hrefs
+    on every full session's screen — so the link path, which may append team rows, must not
+    be a javascript:-URL injection channel. Safe media URLs keep working."""
+    await _open_atemschutz(client, editor, incident)
+    at = datetime.now(UTC).isoformat()
+
+    r = await client.post(
+        f"/api/incidents/{incident.id}/journal",
+        json={
+            "entries": [
+                {
+                    "id": "jx1",
+                    "kind": "team",
+                    "at": at,
+                    "text": "Trupp 1",
+                    "files": [{"url": "javascript:alert(1)", "name": "Plan.pdf"}],
+                }
+            ]
+        },
+    )
+    assert r.status_code == 422, r.text
+
+    r = await client.post(
+        f"/api/incidents/{incident.id}/journal",
+        json={"entries": [{"id": "jx2", "kind": "team", "at": at, "text": "Trupp 1", "photoUrls": ["/api/media/abc"]}]},
+    )
+    assert r.status_code == 201, r.text
+
+
 async def test_events_take_atemschutz_op_types_only(client, editor, incident):
     """Same rule on the chain, plus the provenance it exists to record: these rows did not
     come from the FU tablet, and `source` has to say so."""

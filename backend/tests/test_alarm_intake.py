@@ -140,6 +140,21 @@ async def test_intake_without_source_id_cannot_dedupe_and_says_so_by_creating_tw
     assert len((await db_session.execute(select(Incident))).scalars().all()) == 2
 
 
+async def test_intake_caps_field_lengths(client, alarm_secret, db_session):
+    """title/text/address flow into the incident, push notifications and the printed
+    Rapport — megabyte-scale values are refused. Title's cap is 1000, NOT 255: the shared
+    conformance corpus pins «title longer than 255 → accept» as a recorded divergence from
+    KP Rück, so tightening it is a coordinated corpus change, not a one-sided edit."""
+    for oversized in (
+        {**PAYLOAD, "title": "T" * 1001},
+        {**PAYLOAD, "text": "T" * 10_001},
+        {**PAYLOAD, "address": "A" * 256},
+    ):
+        r = await client.post("/api/alarms?secret=alarm-secret-123", json=oversized)
+        assert r.status_code == 422, r.text
+    assert (await db_session.execute(select(Incident))).scalars().first() is None
+
+
 async def test_zero_coordinates_mean_no_location():
     """Divera sends lat/lng 0/0 for alarms without a location («Einrücken ins Magazin») —
     stored verbatim it centred map + weather on Null Island (nearest Swiss station:

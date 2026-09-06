@@ -21,6 +21,11 @@ from .incidents import INCIDENT_NOT_FOUND
 
 router = APIRouter(prefix="/incidents", tags=["events"])
 
+# Same batch bound as the journal twin (api/journal · MAX_BATCH): the chain is appended row
+# by row inside one transaction, so an unbounded batch holds the incident lock for its whole
+# length. The per-row payload cap lives in the schema (EventIn), like the journal's.
+MAX_BATCH = 500
+
 
 async def _ensure(db: AsyncSession, incident_id: uuid.UUID) -> None:
     exists = (await db.execute(select(Incident.id).where(Incident.id == incident_id))).scalar_one_or_none()
@@ -60,6 +65,8 @@ async def ingest_events(
     chain has to record that this came from a phone at the Eingang, not from the FU tablet.
     Any other op_type is the generic link refusal, not a 422 (no probing).
     """
+    if len(body.events) > MAX_BATCH:
+        raise HTTPException(status_code=422, detail=f"Batch zu gross (max. {MAX_BATCH})")
     await _ensure(db, incident_id)
     link = is_atemschutz_link(user)
     if link and any(not e.op_type.startswith("atemschutz.") for e in body.events):

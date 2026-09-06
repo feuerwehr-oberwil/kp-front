@@ -42,9 +42,14 @@ class ImmutableStaticFiles(StaticFiles):
         return response
 
 
+def spa_index_path() -> str:
+    """Absolute path of the served index.html — also the CSP's hash source (app/csp.py)."""
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", settings.spa_dir, "index.html"))
+
+
 def mount_spa(app: FastAPI) -> None:
-    spa_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", settings.spa_dir))
-    index = os.path.join(spa_dir, "index.html")
+    index = spa_index_path()
+    spa_dir = os.path.dirname(index)
     if not os.path.isfile(index):
         logger.info("SPA build not found at %s — API runs standalone (Vite serves the SPA in dev).", spa_dir)
         return

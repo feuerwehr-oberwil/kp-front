@@ -338,9 +338,21 @@ class ViewLinkOut(BaseModel):
 # --- Audit events -------------------------------------------------------------------
 class EventIn(BaseModel):
     client_id: str | None = Field(default=None, min_length=1, max_length=128)
-    op_type: str
+    # bounded like the column (models · IncidentEvent.op_type String(32)) — an oversized
+    # value must be a 422 at the door, not a DB error mid-batch
+    op_type: str = Field(min_length=1, max_length=32)
     payload: dict[str, Any] | None = None
     occurred_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _cap_payload(self) -> "EventIn":
+        import json as _json
+
+        # same per-row bound as a Verlauf row (JournalAppendIn): the chain is append-only,
+        # and an unbounded payload would make the audit log blob storage
+        if self.payload is not None and len(_json.dumps(self.payload)) > 32_768:
+            raise ValueError("Ereignis-Payload zu gross (max. 32 KB)")
+        return self
 
 
 class EventBatchIn(BaseModel):
@@ -362,10 +374,53 @@ class EventOut(BaseModel):
 
 
 # --- Journal (Verlauf) store ----------------------------------------------------------
+# Journal rows are stored verbatim and the client renders their media references as raw
+# hrefs (photo chips, Beilagen-Downloads) — so the append path is where a smuggled
+# javascript:/data: URL has to die. Whitespace and control characters are stripped BEFORE
+# the check: browsers strip them when resolving a scheme, which is exactly what
+# `java\tscript:` relies on. Ingest only — legacy stored rows are read back untouched.
+_URL_JUNK = re.compile(r"[\x00-\x20\x7f]")
+
+
+def _is_safe_row_url(value: object) -> bool:
+    """Only the app's own media store or an absolute https URL may enter a row.
+
+    `/api/media/` is a single leading slash by construction, so a protocol-relative `//host`
+    fails the prefix; anything else (http:, data:, javascript:, backslash tricks) fails both.
+    """
+    if not isinstance(value, str):
+        return False
+    url = _URL_JUNK.sub("", value)
+    return url.startswith("/api/media/") or url.lower().startswith("https://")
+
+
+def _validate_row_urls(row: dict, rid: str) -> None:
+    """Reject a row whose media references are not safe URLs (see _is_safe_row_url).
+
+    The empty string is NOT a URL here: it is the client's append-only clear marker
+    (journalStore · appendPatch sends '' because JSON.stringify drops undefined).
+    """
+    urls: list[object] = []
+    photos = row.get("photoUrls")
+    if isinstance(photos, list):
+        urls += photos
+    elif photos not in (None, ""):
+        raise ValueError(f"Journalzeile {rid!r}: photoUrls muss eine Liste sein")
+    files = row.get("files")
+    if isinstance(files, list):
+        urls += [f.get("url") if isinstance(f, dict) else f for f in files]
+    elif files not in (None, ""):
+        raise ValueError(f"Journalzeile {rid!r}: files muss eine Liste sein")
+    urls += [row[k] for k in ("photoUrl", "audioUrl") if row.get(k) not in (None, "")]
+    if not all(_is_safe_row_url(u) for u in urls):
+        raise ValueError(f"Journalzeile {rid!r} enthält eine unzulässige URL")
+
+
 class JournalAppendIn(BaseModel):
     """Batch of Verlauf rows (frontend TimelineEvent dicts, stored verbatim). The row's
     own `id` is the idempotency key; a 32 KB per-row cap keeps a bad client from turning
-    the journal into blob storage (photos/audio go through /media, never in rows)."""
+    the journal into blob storage (photos/audio go through /media, never in rows); media
+    references must be safe URLs (`_validate_row_urls`) because they render as raw hrefs."""
 
     entries: list[dict[str, Any]]
 
@@ -380,6 +435,7 @@ class JournalAppendIn(BaseModel):
                 raise ValueError("Jede Journalzeile braucht eine nichtleere String-id")
             if len(_json.dumps(e)) > 32_768:
                 raise ValueError(f"Journalzeile {rid!r} zu gross (max. 32 KB)")
+            _validate_row_urls(e, rid)
         return self
 
 
@@ -497,9 +553,14 @@ class AlarmIn(BaseModel):
     # Without it there is nothing to dedupe on, so a redelivery creates a second incident;
     # that is the sender's trade to make, and it is the same trade KP Rück offers.
     source_id: str | None = Field(default=None, min_length=1, max_length=128)
-    title: str = Field(min_length=1)
-    text: str | None = None
-    address: str | None = None
+    # Bounded: these flow into the incident, push notifications and the printed Rapport.
+    # Title is NOT 255 — the conformance corpus pins «title longer than 255 → accept» as a
+    # recorded divergence from KP Rück, so tightening to 255 is a coordinated corpus change,
+    # not a one-sided edit. 1000 still stops megabyte-scale garbage. Text is real dispatch
+    # prose and legitimately long, so its cap is generous.
+    title: str = Field(min_length=1, max_length=1000)
+    text: str | None = Field(default=None, max_length=10_000)
+    address: str | None = Field(default=None, max_length=255)
     lat: float | None = None
     lng: float | None = None
     type: str | None = None

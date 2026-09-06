@@ -1,9 +1,11 @@
 """Auth endpoints: roster → login (PIN) → me / refresh / logout."""
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
+import anyio
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from jwt import InvalidTokenError as JWTError
 from sqlalchemy import func, select, update
@@ -29,7 +31,7 @@ from .cookies import (
     set_auth_cookies,
 )
 from .dependencies import AUTH_GENERATION_CLAIM, CurrentAdmin, CurrentUser, OptionalUser, token_generation
-from .pin_limiter import pin_limiter
+from .pin_limiter import AGGREGATE_THRESHOLD, login_aggregate, pin_limiter
 from .security import (
     TRIVIAL_PINS,
     create_access_token,
@@ -41,6 +43,50 @@ from .security import (
 from .token_blocklist import token_blocklist
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+logger = logging.getLogger(__name__)
+
+
+async def _throttle_delay(seconds: float) -> None:
+    """The aggregate slowdown's sleep, behind one seam so tests observe it instead of waiting.
+
+    `anyio.sleep` yields the event loop — the delay costs the ATTACKER wall-clock time and an
+    open connection per attempt without stalling anyone else's request.
+    """
+    await anyio.sleep(seconds)
+
+
+def _refuse_cross_site(request: Request) -> None:
+    """Same-origin gate for the roster (L5) — the READ counterpart of `enforce_request_origin`.
+
+    The roster is unauthenticated by design (the kiosk login screen needs it before anyone is
+    logged in), but display names plus login UUIDs are not for any internet caller. The gate
+    middleware only covers unsafe methods, so this GET draws the same line itself, with the
+    middleware's own helpers rather than a second opinion on what «own origin» means:
+
+    * an `Origin` that is not ours (nor a dev origin) → 403;
+    * a `Sec-Fetch-Site` that is neither `same-origin` nor `none` → 403;
+    * NO origin evidence at all → through. That is the middleware's browser/non-browser split:
+      curl, the e2e harness and the backend tests send neither header, and every real browser
+      loading the kiosk sends `Sec-Fetch-Site: same-origin` (or `none` for a typed address) —
+      so nothing a browser actually does gets refused, only a page that is provably elsewhere.
+    """
+    # Deferred import — app.main imports this router at startup, so a module-level import
+    # here would be circular. The helpers are main's on purpose: one definition of own-origin.
+    from ..main import _OWN_FETCH_SITES, _dev_origin, _own_origins
+
+    origin = request.headers.get("origin")
+    site = (request.headers.get("sec-fetch-site") or "").lower()
+    foreign_origin = origin is not None and not (
+        origin.lower().rstrip("/") in _own_origins(request) or _dev_origin(origin)
+    )
+    if foreign_origin or (site and site not in _OWN_FETCH_SITES):
+        logger.warning(
+            "Roster request from a foreign origin refused (origin=%r, sec-fetch-site=%r)",
+            origin,
+            site or None,
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Anfrage von einer fremden Herkunft")
 
 
 def _claims(user: User) -> dict:
@@ -79,8 +125,9 @@ async def revoke_sessions(db: AsyncSession, user: User) -> None:
 
 
 @router.get("/roster", response_model=list[RosterUser])
-async def roster(db: AsyncSession = Depends(get_db)) -> list[User]:
-    """Tappable login tiles for the kiosk — active users only, no secrets."""
+async def roster(request: Request, db: AsyncSession = Depends(get_db)) -> list[User]:
+    """Tappable login tiles for the kiosk — active users only, no secrets, same-origin only."""
+    _refuse_cross_site(request)
     result = await db.execute(select(User).where(User.is_active.is_(True)).order_by(User.display_name))
     return list(result.scalars().all())
 
@@ -89,7 +136,9 @@ async def roster(db: AsyncSession = Depends(get_db)) -> list[User]:
 async def login(body: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> User:
     # Per (account, source): a cooldown shared by every caller of one account would be a remote
     # switch for locking the Einsatzleiter out of their own tile (pin_limiter's docstring).
-    bucket = pin_limiter.key(str(body.user_id), client_ip(request))
+    source = client_ip(request)
+    account = str(body.user_id)
+    bucket = pin_limiter.key(account, source)
 
     # Reserved, not checked: the slot is taken in the same synchronous step that decides to
     # admit the attempt, BEFORE the first await, so a concurrent burst is counted rather than
@@ -116,17 +165,44 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
             headers={"Retry-After": str(wait)},
         )
 
+    # M1a — aggregate slowdown. The per-(account, source) ladder above is availability-first,
+    # so an attacker rotating source addresses mints fresh buckets at will; once the ACCOUNT's
+    # failure tally across all sources is abusive (no crew ever gets near it), every verify is
+    # preceded by a small sleep. Slows, NEVER refuses — there is no 4xx on this path — and a
+    # correct PIN behind the delay still logs in. Applied after the 429 gate (a refused attempt
+    # needs no slowing) and before the DB fetch, so the unknown-user path pays it too.
+    delay = login_aggregate.delay(account)
+    if delay:
+        await _throttle_delay(delay)
+
     user = (await db.execute(select(User).where(User.id == body.user_id))).scalar_one_or_none()
     # Spelled out rather than via an `ok` flag so the None-check actually narrows `user` for
     # everything below; short-circuiting keeps bcrypt off the unknown-user path as before.
     if user is None or not user.is_active or not await verify_pin_async(body.pin, user.pin_hash):
+        aggregate_failures = login_aggregate.record_failure(account)
+        if aggregate_failures == AGGREGATE_THRESHOLD:
+            # Exactly-at-threshold fires once per window — the moment worth alerting on.
+            logger.warning(
+                "Aggregate PIN throttle engaged: user=%s, %d failures across all sources this window",
+                body.user_id,
+                aggregate_failures,
+            )
+        # user UUID and limiter source key only — never the PIN or anything derived from it.
+        logger.warning(
+            "PIN login failed: user=%s source=%s aggregate_failures=%d",
+            body.user_id,
+            source,
+            aggregate_failures,
+        )
         cooldown = pin_limiter.retry_after(bucket)  # installed by the reservation above
         detail = "Falsche PIN" if cooldown == 0 else f"Falsche PIN. Nächster Versuch in {cooldown}s."
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
     # Knowing the PIN gives the reserved slot back and clears any cooldown the bucket was
     # carrying, so an operator's own mistyping never follows them in once they type it right.
+    # The aggregate tally clears too — see LoginAggregate's docstring for the trade-off.
     pin_limiter.record_success(bucket)
+    login_aggregate.record_success(account)
     user.last_login = datetime.now(UTC)
 
     claims = _claims(user)

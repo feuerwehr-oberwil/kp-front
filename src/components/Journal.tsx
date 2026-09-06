@@ -7,7 +7,7 @@ import { Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
-import { thumbUrl } from '../lib/mediaUrl'
+import { safeHref, thumbUrl } from '../lib/mediaUrl'
 import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import type { OpenReminder } from '../lib/reminders'
@@ -826,16 +826,23 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       opens it in whatever can read it. ⚠️ The server's Content-Disposition BEATS
                       the `download` attribute, so the operator's own filename travels as `?name=`
                       and the route sanitises it there; `download` stays as the same-origin hint. */}
-                  {(e.files ?? []).map((f) => (
-                    <a
-                      key={f.url} className="jr-file" download={f.name}
-                      href={`${f.url}${f.url.includes('?') ? '&' : '?'}name=${encodeURIComponent(f.name)}`}
-                      title={C.attachOpen} aria-label={`${C.attachOpen}: ${f.name}`}
-                      onClick={(ev) => ev.stopPropagation()}
-                    >
-                      <Icon id="attach" /><span>{f.name}</span>
-                    </a>
-                  ))}
+                  {(e.files ?? []).map((f) => {
+                    // …and the URL itself through safeHref before it becomes an href: the row is
+                    // synced data another device wrote, so a poisoned record must not put
+                    // javascript:/data: behind a chip (lib/mediaUrl). Rejected → the chip stays,
+                    // link-less: the NAME is information, the dead link is not.
+                    const href = safeHref(f.url)
+                    return (
+                      <a
+                        key={f.url} className="jr-file" download={href ? f.name : undefined}
+                        href={href ? `${href}${href.includes('?') ? '&' : '?'}name=${encodeURIComponent(f.name)}` : undefined}
+                        title={C.attachOpen} aria-label={`${C.attachOpen}: ${f.name}`}
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
+                        <Icon id="attach" /><span>{f.name}</span>
+                      </a>
+                    )
+                  })}
                   {/* ── Der Stift ist von der Zeile gezogen (29.08., Variante 2) ──
                       Correcting a hand-written line stays exactly what it was — an appended
                       `textEdit` patch, both wordings in the record and in the hash chain, the

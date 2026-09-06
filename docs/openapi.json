@@ -49,7 +49,7 @@
           "auth"
         ],
         "summary": "Roster",
-        "description": "Tappable login tiles for the kiosk — active users only, no secrets.",
+        "description": "Tappable login tiles for the kiosk — active users only, no secrets, same-origin only.",
         "operationId": "roster_api_auth_roster_get",
         "responses": {
           "200": {
@@ -9634,13 +9634,15 @@
           },
           "title": {
             "type": "string",
+            "maxLength": 1000,
             "minLength": 1,
             "title": "Title"
           },
           "text": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 10000
               },
               {
                 "type": "null"
@@ -9651,7 +9653,8 @@
           "address": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 255
               },
               {
                 "type": "null"
@@ -11258,6 +11261,8 @@
           },
           "op_type": {
             "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
             "title": "Op Type"
           },
           "payload": {
@@ -12716,7 +12721,7 @@
           "entries"
         ],
         "title": "JournalAppendIn",
-        "description": "Batch of Verlauf rows (frontend TimelineEvent dicts, stored verbatim). The row's\nown `id` is the idempotency key; a 32 KB per-row cap keeps a bad client from turning\nthe journal into blob storage (photos/audio go through /media, never in rows)."
+        "description": "Batch of Verlauf rows (frontend TimelineEvent dicts, stored verbatim). The row's\nown `id` is the idempotency key; a 32 KB per-row cap keeps a bad client from turning\nthe journal into blob storage (photos/audio go through /media, never in rows); media\nreferences must be safe URLs (`_validate_row_urls`) because they render as raw hrefs."
       },
       "JournalConfig": {
         "properties": {

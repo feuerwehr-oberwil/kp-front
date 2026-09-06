@@ -5,6 +5,7 @@ Pure functions + in-memory limiter — no DB, no live server. Run with `uv run p
 
 import pytest
 
+from app.auth import pin_limiter as pin_limiter_module
 from app.auth.pin_limiter import PinLimiter
 from app.auth.security import hash_pin, verify_pin
 from app.config import settings
@@ -98,3 +99,82 @@ def test_limiter_is_per_user():
         lim.record_failure("a")
     assert lim.retry_after("a") > 0
     assert lim.retry_after("b") == 0  # unrelated user unaffected
+
+
+# --- LoginAggregate slowdown (M1a) ------------------------------------------------
+
+
+def test_aggregate_below_threshold_never_delays():
+    agg = pin_limiter_module.LoginAggregate()
+    for _ in range(pin_limiter_module.AGGREGATE_THRESHOLD - 1):
+        agg.record_failure("acct")
+    assert agg.delay("acct") == 0.0
+    assert agg.delay("other-acct") == 0.0  # unrelated account unaffected
+
+
+def test_aggregate_delay_engages_grows_and_is_capped():
+    agg = pin_limiter_module.LoginAggregate()
+    threshold = pin_limiter_module.AGGREGATE_THRESHOLD
+    for _ in range(threshold):
+        agg.record_failure("acct")
+    assert agg.delay("acct") == pin_limiter_module.AGGREGATE_BASE_DELAY_SECONDS
+
+    # Sustained abuse deepens the delay modestly — and never past the hard cap: the delay is
+    # a slowdown, not a lockout, however long the flood runs.
+    for _ in range(threshold * 10):
+        agg.record_failure("acct")
+        d = agg.delay("acct")
+        assert pin_limiter_module.AGGREGATE_BASE_DELAY_SECONDS <= d <= pin_limiter_module.AGGREGATE_MAX_DELAY_SECONDS
+    assert agg.delay("acct") == pin_limiter_module.AGGREGATE_MAX_DELAY_SECONDS
+
+
+def test_aggregate_success_clears_the_account():
+    """The documented trade-off: a success (only the PIN's owner can produce one) clears the
+    tally, so the operator is not throttled for the rest of the window after logging in."""
+    agg = pin_limiter_module.LoginAggregate()
+    for _ in range(pin_limiter_module.AGGREGATE_THRESHOLD + 5):
+        agg.record_failure("acct")
+    assert agg.delay("acct") > 0
+    agg.record_success("acct")
+    assert agg.delay("acct") == 0.0
+    assert agg.failures("acct") == 0
+
+
+def test_aggregate_window_expires(monkeypatch):
+    from types import SimpleNamespace
+
+    clock = {"t": 1000.0}
+    # Swap the whole `time` reference, not `time.monotonic`: the latter mutates the shared stdlib
+    # module that asyncio's event loop also reads (loop.time()), which corrupts loop timing.
+    monkeypatch.setattr(pin_limiter_module, "time", SimpleNamespace(monotonic=lambda: clock["t"]))
+    agg = pin_limiter_module.LoginAggregate()
+    for _ in range(pin_limiter_module.AGGREGATE_THRESHOLD):
+        agg.record_failure("acct")
+    assert agg.delay("acct") > 0
+
+    clock["t"] += pin_limiter_module.AGGREGATE_WINDOW_SECONDS + 1
+    assert agg.delay("acct") == 0.0
+
+
+def test_aggregate_eviction_keeps_the_hot_account_throttled():
+    """A flood of invented account ids must neither grow the map unboundedly nor evict the one
+    genuinely-abused account — eviction sheds low tallies first, so it never meaningfully
+    re-grants capacity to the account under attack."""
+    agg = pin_limiter_module.LoginAggregate()
+    for _ in range(pin_limiter_module.AGGREGATE_THRESHOLD):
+        agg.record_failure("hot")
+    for i in range(pin_limiter_module.MAX_AGGREGATE_ACCOUNTS + 500):
+        agg.record_failure(f"invented-{i}")
+    assert agg.account_count() <= pin_limiter_module.MAX_AGGREGATE_ACCOUNTS
+    assert agg.delay("hot") > 0
+
+
+def test_settings_refuse_an_inverted_pin_range():
+    """min > max means NO pin can ever validate — that must be a loud boot failure, not a
+    deployment where every SEED_PIN and admin PIN is rejected by an unsatisfiable range."""
+    from pydantic import ValidationError
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError, match="PIN_MIN_LENGTH"):
+        Settings(pin_min_length=10, pin_max_length=8)

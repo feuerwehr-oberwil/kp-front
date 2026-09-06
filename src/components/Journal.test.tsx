@@ -426,3 +426,29 @@ describe('Journal · an address in an entry', () => {
     expect(onSeekTo).not.toHaveBeenCalled()
   })
 })
+
+// The Beilagen chip's href is row data another device wrote — the chip may only link to what
+// safeHref (lib/mediaUrl) vouches for. Defence in depth beside the server's ingest validation.
+describe('Journal · Beilagen chips (files on a row)', () => {
+  const withFiles = [{
+    ...row('f1', 1_000_000, 'Bericht angehängt'),
+    files: [
+      { url: '/api/media/abc', name: 'Bericht.pdf' },
+      { url: 'javascript:alert(1)', name: 'Falle.pdf' },
+    ],
+  }]
+
+  it('links the chip to the store URL, carrying the operator’s filename', () => {
+    setup({ events: withFiles })
+    const chips = [...document.querySelectorAll<HTMLAnchorElement>('.jr-file')]
+    expect(chips.map((c) => c.getAttribute('href'))).toEqual(['/api/media/abc?name=Bericht.pdf', null])
+    expect(chips[0].getAttribute('download')).toBe('Bericht.pdf')
+  })
+
+  it('a poisoned URL keeps the chip — the NAME is information — but never becomes a link', () => {
+    setup({ events: withFiles })
+    const dead = screen.getByText('Falle.pdf').closest('.jr-file')
+    expect(dead?.getAttribute('href')).toBeNull()
+    expect(dead?.getAttribute('download')).toBeNull()
+  })
+})

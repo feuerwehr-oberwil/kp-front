@@ -149,7 +149,7 @@ async def client(engine, session_factory):
     import httpx
 
     from app.auth.capture_limiter import capture_limiter, position_limiter
-    from app.auth.pin_limiter import pin_limiter
+    from app.auth.pin_limiter import login_aggregate, pin_limiter
     from app.auth.token_blocklist import token_blocklist
     from app.database import get_db
     from app.main import app
@@ -164,6 +164,9 @@ async def client(engine, session_factory):
     capture_limiter.reset()
     position_limiter.reset()
     pin_limiter.reset()
+    # The per-account aggregate (M1a) is a FOURTH singleton: a test that seeds it over the
+    # throttle threshold would otherwise slow every later login for the same seeded user.
+    login_aggregate.reset()
 
     async def _override_get_db():
         async with session_factory() as session:

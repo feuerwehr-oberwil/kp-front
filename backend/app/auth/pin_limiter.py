@@ -131,3 +131,117 @@ class PinLimiter:
 
 
 pin_limiter = PinLimiter()
+
+
+# --- per-account aggregate slowdown (M1a) -----------------------------------------
+
+#: Failures per account, across ALL sources, within one window before the slowdown engages.
+#: Deliberately far above anything a legitimate crew produces — every operator on station
+#: burning their full free tier at once is still well under it — while a source-rotating
+#: attacker at the bcrypt ceiling (~13 verifies/s) crosses it in under ten seconds.
+AGGREGATE_THRESHOLD = 100
+
+#: Tumbling window the failures are counted in. An hour: long enough that an attacker cannot
+#: simply wait it out between bursts, short enough that yesterday's attack does not slow
+#: today's alarm.
+AGGREGATE_WINDOW_SECONDS = 60 * 60
+
+#: The slowdown ladder: base delay once engaged, one step deeper per further THRESHOLD
+#: failures, hard-capped. Small on purpose — the legit operator behind it waits a breath,
+#: never a lockout — while an attacker's per-attempt cost roughly triples over bcrypt alone
+#: and each attempt now holds a connection open for seconds.
+AGGREGATE_BASE_DELAY_SECONDS = 1.5
+AGGREGATE_DELAY_STEP_SECONDS = 0.5
+AGGREGATE_MAX_DELAY_SECONDS = 3.0
+
+#: Ceiling on tracked accounts. The key is the CLAIMED user id (attacker-suppliable), so the
+#: map must stay bounded like the cooldown limiter's above.
+MAX_AGGREGATE_ACCOUNTS = 10_000
+
+
+class LoginAggregate:
+    """Failure tally per ACCOUNT across all sources — the answer to source rotation.
+
+    The per-(account, source) cooldown above is availability-first by design: a rotating
+    attacker gets a fresh bucket per address, so their real ceiling is only the bcrypt
+    CapacityLimiter. This tally closes that hole without giving up the availability property:
+    above `AGGREGATE_THRESHOLD` failures/window every verify for the account is DELAYED a
+    couple of seconds (`delay`), never refused — there is no path from here to a 4xx. The
+    delay multiplies what an attacker must spend (time, and connections held open) per
+    attempt; the operator caught behind it waits a breath and gets in.
+
+    Success handling — the trade-off, deliberately: `record_success` clears the account's
+    tally outright. Only a caller who KNOWS the PIN can trigger it, so a guessing attacker
+    cannot reach it on purpose; the residual cost is that during an active attack each real
+    crew login re-opens one threshold's worth of undelayed attempts — seconds of guessing at
+    the bcrypt ceiling, negligible against the PIN space — accepted so an operator is never
+    left dragging an hour of somebody else's failures after proving who they are.
+
+    Process-local and approximate, like the cooldown limiter (its docstring says why that is
+    documented rather than pretended away). Counting happens on the failed verify rather than
+    being reserved up front — a concurrent burst can undercount by its own width once, which
+    shaves a delay step, never bypasses admission (there is no admission here to bypass).
+    """
+
+    def __init__(self) -> None:
+        # account id -> (window_start_monotonic, failures_in_window)
+        self._state: dict[str, tuple[float, int]] = {}
+
+    def _count(self, account: str, now: float) -> int:
+        start, fails = self._state.get(account, (now, 0))
+        if now - start > AGGREGATE_WINDOW_SECONDS:
+            return 0
+        return fails
+
+    def failures(self, account: str) -> int:
+        """Failures counted against this account in the current window."""
+        return self._count(account, time.monotonic())
+
+    def delay(self, account: str) -> float:
+        """Seconds to sleep before verifying for this account — 0.0 below the threshold."""
+        fails = self.failures(account)
+        if fails < AGGREGATE_THRESHOLD:
+            return 0.0
+        steps = (fails - AGGREGATE_THRESHOLD) // AGGREGATE_THRESHOLD
+        return min(
+            AGGREGATE_BASE_DELAY_SECONDS + AGGREGATE_DELAY_STEP_SECONDS * steps,
+            AGGREGATE_MAX_DELAY_SECONDS,
+        )
+
+    def record_failure(self, account: str) -> int:
+        """Count one failed verify; return the account's new window total."""
+        now = time.monotonic()
+        fails = self._count(account, now) + 1
+        start = self._state.get(account, (now, 0))[0] if fails > 1 else now
+        self._state[account] = (start, fails)
+        if len(self._state) > MAX_AGGREGATE_ACCOUNTS:
+            self._prune(now)
+        return fails
+
+    def record_success(self, account: str) -> None:
+        # See the class docstring for why a success clears the whole tally.
+        self._state.pop(account, None)
+
+    def reset(self) -> None:
+        self._state.clear()
+
+    def account_count(self) -> int:
+        return len(self._state)
+
+    def _prune(self, now: float) -> None:
+        for stale in [a for a, (start, _f) in self._state.items() if now - start > AGGREGATE_WINDOW_SECONDS]:
+            del self._state[stale]
+        if len(self._state) <= MAX_AGGREGATE_ACCOUNTS:
+            return
+        # Still over the ceiling: shed the LOWEST tallies first. Evicting a hot account would
+        # re-grant it a fresh undelayed window — exactly the capacity eviction must not hand
+        # back — while a one-failure account loses nothing that matters. Shed to a margin
+        # below the ceiling so a flood of invented ids pays for one sort per ~thousand
+        # inserts, not per insert.
+        target = MAX_AGGREGATE_ACCOUNTS * 9 // 10
+        ordered = sorted(self._state.items(), key=lambda item: item[1][1])
+        for account, _entry in ordered[: len(self._state) - target]:
+            del self._state[account]
+
+
+login_aggregate = LoginAggregate()

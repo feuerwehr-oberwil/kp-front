@@ -16,6 +16,39 @@ import { localThumb } from './imagePrep'
 /** Media URLs this app serves itself — the only ones with a thumbnail to ask for. */
 const STORED = /^\/api\/media\/[0-9a-f-]+$/i
 
+// A synced row carries whatever URL another device wrote — data, not a place the browser may go.
+// The base is only a sentinel for parsing relative candidates; its origin is what a same-origin
+// path resolves to, and anything that resolves elsewhere («//host/…», «/\host/…») smuggled a host.
+const RELATIVE_BASE = 'https://relative.invalid'
+
+/**
+ * `url`, if it may be handed to the browser as an href: a same-origin path (starts with «/», and
+ * not the protocol-relative «//») or an absolute http(s) URL. Everything else — javascript:,
+ * data:, blob:, vbscript:, a scheme smuggled behind whitespace or control characters — comes back
+ * `undefined`, and the caller renders its chip without the link. Judged by `URL` parsing, i.e. by
+ * the same rules the browser would resolve the href with, not by string guessing. Defence in
+ * depth: the server validates media URLs on ingest, this guards the render sinks against rows
+ * written before it did.
+ */
+export function safeHref(url: string | undefined): string | undefined {
+  if (!url) return undefined
+  // absolute with an explicit scheme? http(s) may pass as written, any other scheme may not
+  let abs: URL | undefined
+  try { abs = new URL(url) } catch { /* no scheme — a relative candidate, judged below */ }
+  if (abs) return abs.protocol === 'http:' || abs.protocol === 'https:' ? url : undefined
+  try {
+    const u = new URL(url, RELATIVE_BASE)
+    // resolving off the sentinel origin means the «relative» URL named its own host
+    if (u.origin !== RELATIVE_BASE) return undefined
+    // …and what stayed on it must LITERALLY start with «/»: a fragment, a bare relative
+    // segment, or leading whitespace/controls the parser would forgive are all things the
+    // app's own URLs never carry — rejecting them is the fail-closed side of this check.
+    return url.startsWith('/') ? url : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Session thumbnails for pictures that are still `blob:` URLs, keyed by the full picture's
  * object URL: a photo taken offline (lib/mediaQueue), one staged in the composer, a Beilage
@@ -28,18 +61,29 @@ const localThumbs = new Map<string, string>()
 
 /**
  * The thumbnail for a photo URL — the server's small copy for a stored picture, the session
- * thumbnail for a `blob:` one; anything else comes back untouched.
+ * thumbnail for a `blob:` one.
  *
  * A `blob:` URL whose thumbnail has not been minted (or could not be) resolves to NOTHING, not to
  * the full picture: an empty chip until the next render is the safe failure, a full decode per
  * chip is the one that takes the tab down. The viewer a chip opens still gets the full URL.
+ *
+ * ⚠️ Anything that is neither this app's own media store nor an explicit https address ALSO
+ * resolves to nothing. This URL lands in an `<img>` on every open device of the Einsatz, so a
+ * row-supplied URL passed through untouched would make every operator's device call whatever
+ * address the row carries — an IP beacon aimed at the whole crew. Same empty-chip failure as a
+ * missing session thumbnail; the ingest validation on the server is the other half.
  */
 export function thumbUrl(url: string | undefined): string | undefined {
-  if (!url) return url
+  if (!url) return undefined
   if (url.startsWith('blob:')) return localThumbs.get(url)
-  const [path, query] = url.split('?', 2)
-  if (!STORED.test(path)) return url
-  return `${path}/thumb${query ? `?${query}` : ''}`
+  const safe = safeHref(url)
+  if (!safe) return undefined
+  const [path, query] = safe.split('?', 2)
+  if (STORED.test(path)) return `${path}/thumb${query ? `?${query}` : ''}`
+  // the store's other shapes (an already-built …/thumb URL) stay as they are
+  if (path.startsWith('/api/media/')) return safe
+  // https only — an http image would leak in cleartext and is mixed content on the app anyway
+  return /^https:/i.test(safe) ? safe : undefined
 }
 
 /**

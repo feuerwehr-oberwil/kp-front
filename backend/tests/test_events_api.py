@@ -100,6 +100,34 @@ async def test_unknown_incident_is_404_on_every_endpoint(client, editor):
         assert r.json()["detail"] == "Einsatz nicht gefunden"
 
 
+# --- ingest bounds (mirrors the journal twin's caps) ----------------------------------------
+
+
+async def test_oversized_batch_and_oversized_row_are_refused(client, editor):
+    from app.api.events import MAX_BATCH
+
+    await _login(client, editor)
+    inc = await _incident(client)
+
+    too_many = {"events": [{"op_type": "draw.create"} for _ in range(MAX_BATCH + 1)]}
+    r = await client.post(f"/api/incidents/{inc}/events", json=too_many)
+    assert r.status_code == 422, r.text
+
+    fat = {"events": [{"op_type": "draw.create", "payload": {"blob": "x" * 40_000}}]}
+    r = await client.post(f"/api/incidents/{inc}/events", json=fat)
+    assert r.status_code == 422, r.text
+
+
+async def test_op_type_longer_than_the_column_is_422_not_500(client, editor):
+    """op_type lands in a String(32) column — an oversized value must be refused in
+    validation, not surface as a DB error mid-batch."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    r = await client.post(f"/api/incidents/{inc}/events", json=_events("x" * 33))
+    assert r.status_code == 422, r.text
+    assert (await client.post(f"/api/incidents/{inc}/events", json=_events("x" * 32))).status_code == 201
+
+
 # --- ingest: chaining, ordering, defaults ---------------------------------------------------
 
 
