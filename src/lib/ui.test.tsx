@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { Overlays, toast, updateToast, dismissToast, confirmDialog } from './ui'
+import { Overlays, toast, updateToast, dismissToast, confirmDialog, openPhoto } from './ui'
+import { appConfig } from '../config/appConfig'
 
 afterEach(() => {
   // toasts leave in two phases now (mark `.out`, remove .16s later) and the store is
@@ -254,4 +255,35 @@ describe('swiping the whole toast pill', () => {
   // No JS-side prefers-reduced-motion branch here on purpose (see ToastRow's comment): the travel
   // is a plain CSS transition, so it is already zeroed by the app-wide reduced-motion rule
   // (03-map.css) the same way every other CSS-only motion in the app is — nothing to unit-test.
+})
+
+// The viewer's «Herunterladen» href is row data another device wrote — only what safeHref
+// (lib/mediaUrl) vouches for may become the link. Defence in depth beside the ingest validation.
+describe('photo viewer download link', () => {
+  const dl = appConfig.copy.photoViewer.download
+  // the photo request is module state like a toast — close it so no viewer leaks into other
+  // tests. By class, not by name: a lingering toast's ✕ answers to «Schliessen» too.
+  const closeViewer = () => fireEvent.click(document.querySelector('.photo-view .ctx-x')!)
+
+  it('offers the download for the app’s own media URL', () => {
+    render(<Overlays />)
+    act(() => openPhoto('/api/media/abc', { filename: 'foto.jpg' }))
+    expect(screen.getByText(dl).closest('a')?.getAttribute('href')).toBe('/api/media/abc')
+    closeViewer()
+  })
+
+  it('…and for an offline photo’s locally minted blob: URL', () => {
+    render(<Overlays />)
+    act(() => openPhoto('blob:https://front.example/1', { filename: 'foto.jpg' }))
+    expect(screen.getByText(dl).closest('a')?.getAttribute('href')).toBe('blob:https://front.example/1')
+    closeViewer()
+  })
+
+  it('a poisoned row URL gets no download link — the viewer itself still opens', () => {
+    render(<Overlays />)
+    act(() => openPhoto('javascript:alert(1)', { filename: 'foto.jpg', caption: 'Bild' }))
+    expect(screen.getByRole('dialog', { name: 'Bild' })).toBeTruthy()
+    expect(screen.queryByText(dl)).toBeNull()
+    closeViewer()
+  })
 })

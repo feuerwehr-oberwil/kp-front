@@ -244,6 +244,35 @@ describe('Journal · the classification column', () => {
     expect(document.querySelector('[data-ev="d1"] .jr-ring-done')).toBeTruthy()
   })
 
+  // «wieder in …» — the Führungsrhythmus move: the done row offers the next Wiedervorlage.
+  it('offers «wieder in 30/60 min» on a done row, and reports id + minutes', () => {
+    const onReminderAgain = vi.fn()
+    setup({
+      events: [
+        { id: 'd1', t: '', at: new Date(1_030_000).toISOString(), icon: 'check', kind: 'reminder',
+          text: 'Pendenz erledigt: Lagerapport durchführen', reminder: { op: 'done', id: 'p2' } },
+        auftrag,
+      ],
+      onReminderAgain,
+    })
+    const chips = document.querySelectorAll('[data-ev="d1"] .jr-again-btn')
+    expect(chips).toHaveLength(2)
+    fireEvent.click(chips[0])
+    expect(onReminderAgain).toHaveBeenCalledWith('p2', 30)
+    // …and never on the row that raised the item, or without the handler (viewer/replay)
+    expect(document.querySelectorAll('[data-ev="a1"] .jr-again-btn')).toHaveLength(0)
+  })
+
+  it('renders no «wieder in» chips when the handler is absent', () => {
+    setup({
+      events: [
+        { id: 'd1', t: '', at: new Date(1_030_000).toISOString(), icon: 'check', kind: 'reminder',
+          text: 'Pendenz erledigt: Lagerapport durchführen', reminder: { op: 'done', id: 'p2' } },
+      ],
+    })
+    expect(document.querySelectorAll('.jr-again-btn')).toHaveLength(0)
+  })
+
   // a Meldung and a snooze are log lines ABOUT the item — they keep their glyph and, for the
   // Meldung, the anchor that names which item it answers
   it('leaves a Meldung row its own glyph', () => {
@@ -424,5 +453,31 @@ describe('Journal · an address in an entry', () => {
     setup({ events: withUrl, replayAtMs: 1_060_000, onSeekTo })
     fireEvent.click(screen.getByText('www.vkf.ch'))
     expect(onSeekTo).not.toHaveBeenCalled()
+  })
+})
+
+// The Beilagen chip's href is row data another device wrote — the chip may only link to what
+// safeHref (lib/mediaUrl) vouches for. Defence in depth beside the server's ingest validation.
+describe('Journal · Beilagen chips (files on a row)', () => {
+  const withFiles = [{
+    ...row('f1', 1_000_000, 'Bericht angehängt'),
+    files: [
+      { url: '/api/media/abc', name: 'Bericht.pdf' },
+      { url: 'javascript:alert(1)', name: 'Falle.pdf' },
+    ],
+  }]
+
+  it('links the chip to the store URL, carrying the operator’s filename', () => {
+    setup({ events: withFiles })
+    const chips = [...document.querySelectorAll<HTMLAnchorElement>('.jr-file')]
+    expect(chips.map((c) => c.getAttribute('href'))).toEqual(['/api/media/abc?name=Bericht.pdf', null])
+    expect(chips[0].getAttribute('download')).toBe('Bericht.pdf')
+  })
+
+  it('a poisoned URL keeps the chip — the NAME is information — but never becomes a link', () => {
+    setup({ events: withFiles })
+    const dead = screen.getByText('Falle.pdf').closest('.jr-file')
+    expect(dead?.getAttribute('href')).toBeNull()
+    expect(dead?.getAttribute('download')).toBeNull()
   })
 })

@@ -69,6 +69,20 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
     out.push(next.floorTag == null ? L.floorCleared : fillTemplate(L.floorSet, { value: floorLabel(next.floorTag) }))
   }
 
+  // ── Abschnitt: Leiter + Auftrag — the two fields that make a drawn Sektor an Abschnitt
+  // (FKS Einsatzführung 3.5.2). Exactly the record the Rapport is later read for: who led
+  // which Abschnitt, with what Auftrag, from when.
+  if ((prev.abschnittLeiter ?? '') !== (next.abschnittLeiter ?? '')) {
+    out.push(!next.abschnittLeiter
+      ? fillTemplate(L.fieldCleared, { field: E.abschnittLeiter })
+      : fillTemplate(prev.abschnittLeiter ? L.fieldChanged : L.fieldSet, { field: E.abschnittLeiter, value: next.abschnittLeiter }))
+  }
+  if ((prev.abschnittAuftrag ?? '') !== (next.abschnittAuftrag ?? '')) {
+    out.push(!next.abschnittAuftrag
+      ? fillTemplate(L.fieldCleared, { field: E.abschnittAuftrag })
+      : fillTemplate(prev.abschnittAuftrag ? L.fieldChanged : L.fieldSet, { field: E.abschnittAuftrag, value: next.abschnittAuftrag }))
+  }
+
   // ── Abschluss: arrow / arrow-with-stop / Teilstück, as ONE statement. The Entwicklungsgrenze
   // bar is the row the record is read for — «bis hier, und dort gestoppt» — and it used to
   // appear and vanish silently.

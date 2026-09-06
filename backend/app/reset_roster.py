@@ -56,7 +56,8 @@ def resolve_reset_pins(entries: list[dict]) -> dict[str, str]:
             raise ValueError(
                 f"Seed file entry '{e['username']}' carries the publicly-known PIN {pin} — it is "
                 "printed in the README, so resetting to it would hand out a login anyone can use. "
-                f"Set SEED_PIN to a {settings.pin_length}-digit PIN (it replaces every entry's "
+                f"Set SEED_PIN to a {settings.pin_min_length}-{settings.pin_max_length}-digit "
+                "PIN (it replaces every entry's "
                 "PIN), or put a real PIN in the seed file."
             )
         pins[e["username"]] = pin

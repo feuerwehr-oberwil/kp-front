@@ -1384,6 +1384,9 @@ export const de = {
     dueAtLabel: 'fällig {t}',
     overdueLabel: 'überfällig',
     markDoneTitle: 'Als erledigt markieren',
+    // «wieder in …» auf der Erledigt-Zeile — legt eine NEUE Wiedervorlage mit gleichem Text an
+    againChip: '{mins} min',
+    againTitle: 'In {mins} Minuten wieder daran erinnern',
     // ── Legende ───────────────────────────────────────────────────────────────────────────
     // The Verlauf row's 26px disc carries the Bereich (it replaced a chip that printed the same
     // word the sentence already carried). A glyph has to be LEARNED, so the drawer's head keeps
@@ -2609,6 +2612,12 @@ export const de = {
     label: 'Text',
     labelPlaceholder: 'Beschriftung …',
     areaLabelPlaceholder: 'z. B. Sektor A',
+    // ── Abschnitt auf der Fläche (FKS Einsatzführung 3.5.2) ──
+    abschnittLeiter: 'Leiter',
+    abschnittLeiterPlaceholder: 'Leiter wählen …',
+    abschnittAuftrag: 'Auftrag',
+    abschnittAuftragPlaceholder: 'z. B. Brandbekämpfung Trakt B',
+    abschnittMaxHint: 'FKS-Richtwert: höchstens 3–4 Abschnitte.',
     marker: 'Marker',
     markerPlaceholder: 'z. B. R',
     arrow: 'Pfeilspitze',
@@ -2684,11 +2693,6 @@ export const de = {
     // one-minute-old ones.
     gpsFrozen: 'GPS eingefroren',
     gpsFrozenHint: 'Der Live-GPS-Feed antwortet nicht. Die Fahrzeuge stehen auf ihrer zuletzt bekannten Position.',
-    // ── «Teilen»: die EINE Stelle, an der etwas weitergegeben wird (03.09.) ──
-    // Ein Knopf im Einsatzkopf, wo der Einsatz benannt ist – er öffnet direkt das Teilen-Blatt.
-    // WELCHEN Link man weitergibt, entscheiden dessen zwei Reiter (preflight · shareKind*), nicht
-    // ein Menü davor: die Frage zweimal zu stellen war der eigentliche Umweg.
-    share: 'Teilen',
   },
   // shared compact ±stepper chrome (Stepper.tsx — used everywhere incl. the Einstellungen sheet)
   stepper: {
@@ -2741,6 +2745,8 @@ export const de = {
     loginFailed: 'Anmeldung fehlgeschlagen',
     pleaseWait: 'Bitte kurz warten …',
     clearDigit: 'Löschen',
+    // the ✓ key on the pad — a PIN submits deliberately, never on some Nth digit
+    submitPin: 'Anmelden',
     retry: 'Erneut versuchen',
     // a 403 on the roster: this device still holds the cookie of an Einsatz-Link whose Einsatz
     // has ended, and every retry fails identically until that session is dropped
@@ -5452,7 +5458,7 @@ export const de = {
     },
     members: {
       add: 'Mitglied hinzufügen',
-      addCaption: 'Benutzername zum Anmelden, Anzeigename auf den Login-Kacheln. PIN: genau {n} Ziffern.',
+      addCaption: 'Benutzername zum Anmelden, Anzeigename auf den Login-Kacheln. PIN: {min}–{max} Ziffern.',
       username: 'Benutzername',
       usernamePlaceholder: 'z. B. fu',
       displayName: 'Anzeigename',
@@ -5466,7 +5472,7 @@ export const de = {
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',
       pinLabel: 'PIN',
-      pinDigits: '{n} Ziffern',
+      pinDigits: '{min}–{max} Ziffern',
       title: 'Erfasste Mitglieder',
       caption: 'Wer sich anmelden darf und mit welcher Rolle. Mitglieder werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
       loading: 'Mitglieder werden geladen …',
@@ -5507,7 +5513,7 @@ export const de = {
       pinSheetSub: 'Die bisherige PIN gilt sofort nicht mehr.',
       pinConfirmTitle: 'Nochmals eingeben',
       pinConfirmSub: 'Damit ein Vertipper niemanden aussperrt.',
-      pinEnterHint: '{n} Ziffern eingeben',
+      pinEnterHint: '{min}–{max} Ziffern eingeben',
       pinConfirmHint: 'Zur Bestätigung nochmals eingeben',
       pinMatch: 'Stimmt überein',
       pinMismatch: 'Die beiden Eingaben stimmen nicht überein.',

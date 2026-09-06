@@ -120,13 +120,6 @@ interface Props {
    *  say so on the screen they are already looking at, and it is the only such control a
    *  link-scoped session gets (Einstellungen is hidden for those). */
   shareSlot?: React.ReactNode
-  /** «Teilen» — THE place this app hands an Einsatz to somebody, in the head where the Einsatz is
-   *  named (03.09.). One press, straight to the share sheet: WHICH of the two links is decided
-   *  by its tabs, not by a menu in front of it (components/panels/ShareIncident).
-   *  Editors only: what is minted there lets a stranger read — or, for the Truppüberwacher,
-   *  operate — this Einsatz, so the whole button is absent for viewers, for a read-only surface
-   *  and for a link session. Omitted ⇒ nothing renders. */
-  onShare?: () => void
   /** The Einsatz is closed and open read-only. It rides HERE, beside its name, rather than as a
    *  banner in the message layer: «Nur ansehen» is a property of the incident, and the incident
    *  lives in the head (23.08.). The chip carries the two deliberate exits with it. */
@@ -140,7 +133,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, onShare, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -283,7 +276,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               </>}
           </button>
         )}
-        <TeilenButton onShare={onShare} />
         {/* wrapped in a stable class so the phone rule can lift it out of the bar — see
             .tb-share in app.css. The bar's four 44px actions do not fit a 390px screen. */}
         {shareSlot && <span className="tb-share">{shareSlot}</span>}
@@ -342,31 +334,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         })()}
       </div>
     </div>
-  )
-}
-
-/** «Teilen» — the handover of an Einsatz, in the head where the Einsatz is named. ONE press,
- *  straight to the share sheet: which of the two links you hand over is its own first question
- *  («Ganzer Einsatz – nur lesen» ↔ «Nur Atemschutz – bedienen»), and asking it in a menu and
- *  then again in the sheet the menu opens was the same question twice (03.09.).
- *
- *  It stays a plain button after the Abschluss: the read-only link outlives the Einsatz and is
- *  exactly the one somebody comes back for days later. Which tabs the sheet then offers is the
- *  sheet's business (`lib/viewLink · shareDoors`).
- *
- *  Editor-only, and it arrives as ONE optional callback: a viewer, a read-only surface and a link
- *  session render no button at all rather than one that then refuses.
- *
- *  On a phone `.tb-act-teilen` steps aside (15-mobile.css — the bar's 44px budget is spoken for)
- *  and the Einsatz-Karte's «Teilen» row opens the same sheet instead. */
-function TeilenButton({ onShare }: { onShare?: () => void }) {
-  const C = appConfig.copy.topBar
-  if (!onShare) return null
-  return (
-    <button type="button" className="tb-act icon tb-act-teilen" title={C.share} aria-label={C.share}
-      onClick={onShare}>
-      <Icon id="share-ios" />
-    </button>
   )
 }
 

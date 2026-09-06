@@ -39,6 +39,8 @@ async function login(page: Page) {
     await tile.click()
     await expect(page.locator('.pinpad')).toBeVisible()
     for (const digit of PIN) await page.keyboard.press(digit)
+    // the pad no longer auto-submits on a fixed length (06.09.) — Enter is the ✓
+    await page.keyboard.press('Enter')
   }
 
   // The demo's first-visit contract intentionally owns the screen until acknowledged. Read the

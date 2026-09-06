@@ -168,8 +168,13 @@ export interface JournalPrintRow {
 }
 
 /** ReportLab's Paragraph takes a tiny HTML subset, so anything that is not our own markup has
- *  to be escaped before it goes in — an «&» or a «<» in a note would otherwise break the row. */
-const escapeXml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+ *  to be escaped before it goes in — an «&» or a «<» in a note would otherwise break the row.
+ *  Quotes too: this escaper also fills ATTRIBUTE positions (`linkMarkup` puts it inside
+ *  `href="…"`), where an unescaped «"» ends the attribute and whatever follows becomes markup.
+ *  «'» as the numeric «&#39;» — every XML/HTML parser takes it, unlike the XML-only «&apos;». */
+const escapeXml = (v: string) => v
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 
 /**
  * The «Bereich» column: WHERE in the app this entry came from.

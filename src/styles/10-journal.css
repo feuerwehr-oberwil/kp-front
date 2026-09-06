@@ -483,6 +483,17 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    with nothing between them. */
 .jr-note-on i { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; }
 .jr-note-on::after { content: "›"; flex: none; color: var(--ink-faint); font-weight: 400; }
+/* «wieder in …» on a done row — small dashed pills, the same «this creates something» look the
+   composer's preset chips wear. Quiet on purpose: a closed Pendenz is a fact first, an offer
+   second. ≥28px tap height inside a text row via padding (the row itself adds the rest). */
+.jr-again { display: inline-flex; gap: 5px; flex: none; }
+.jr-again-btn { border: 1px dashed color-mix(in srgb, var(--amber-strong) 55%, transparent);
+  background: none; border-radius: var(--r-pill, 999px); padding: 3px 9px; cursor: pointer;
+  font: 600 11.5px var(--body); color: var(--amber-strong); white-space: nowrap; }
+@media (hover: hover) {
+  .jr-again-btn:hover { background: color-mix(in srgb, var(--amber-strong) 10%, transparent); }
+}
+
 /* The sentence. It owns grid track 3 (06-contextpanel · .hist-ev), so there is nothing left to
    take space from it and no `flex` left to defend. `overflow-wrap: anywhere` stays: an unbroken
    40-letter street name has to break somewhere, and that is what it is for. */

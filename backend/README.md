@@ -49,7 +49,7 @@ repo root does the whole thing (Postgres + backend + frontend) in one terminal. 
 > it changes every restart, so set a fixed value in `.env`.
 
 ## Seeding
-- **Users:** `app/seed_users.json` (display_name, role, 6-digit PIN) – default user `fu`
+- **Users:** `app/seed_users.json` (display_name, role, 6–12-digit PIN) – default user `fu`
   (Führungsunterstützung), role `editor`. The file's `000000` is used in DEVELOPMENT only:
   in production `SEED_PIN` is required and the seeding raises without it, which now aborts the
   boot rather than leaving a deployment with no accounts (`app/main.py`). PIN reset is
@@ -94,7 +94,7 @@ Build via the repo-root `Dockerfile` (builds the SPA, then runs this backend ser
 | --- | --- |
 | `DATABASE_URL` | the database |
 | `SECRET_KEY` | `openssl rand -hex 32`; production refuses to boot without it (`config.py` · `_secret`) |
-| `SEED_PIN` | six digits; production refuses to boot while `SEED_DATABASE` is on, because the seed file's PIN is public (`seed.py` · `resolve_seed_pin`). Missing it is a restart loop, not a warning |
+| `SEED_PIN` | 6–12 digits; production refuses to boot while `SEED_DATABASE` is on, because the seed file's PIN is public (`seed.py` · `resolve_seed_pin`). Missing it is a restart loop, not a warning |
 | `ADMIN_SECRET` | `openssl rand -hex 24`; empty = the whole `/admin` surface answers 403, fail-closed, and nothing says so |
 
 Optional: Divera (`DIVERA_ACCESS_KEY`, `DIVERA_WEBHOOK_SECRET`), Traccar

@@ -312,6 +312,18 @@ describe('report journal rows', () => {
     expect(rows.get('o')?.markup).toBe('<b>Müller Hans</b> (AS) meldet Rauch')
   })
 
+  it('escapes quotes in the printed markup — the escaper also fills href="…" positions', () => {
+    // a «"» left raw would end the href attribute and turn the rest of the row into markup;
+    // the apostrophe travels as the numeric &#39; every parser takes
+    const e: TimelineEvent = {
+      id: 'q', t: '10:00', at: '2026-09-06T08:00:00.000Z', icon: 'type', kind: 'journal',
+      text: 'Meldung "Wasser halt" an L\'EL, Details: www.vkf.ch/?a=1&b=2',
+    }
+    expect(journalRows([e], plans)[0].markup).toBe(
+      'Meldung &quot;Wasser halt&quot; an L&#39;EL, Details: '
+      + '<a href="https://www.vkf.ch/?a=1&amp;b=2"><u>www.vkf.ch/?a=1&amp;b=2</u></a>')
+  })
+
   it('uses fallback date for legacy HH:MM rows', () => {
     const e: TimelineEvent = { id: 'a', t: '12:34', icon: 'type', text: 'Alt', kind: 'journal' }
     expect(eventIso(e, '2026-06-23T00:00:00.000Z')).toContain('2026-06-23T')

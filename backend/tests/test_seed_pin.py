@@ -70,7 +70,7 @@ def test_the_seeder_reads_the_shared_list(monkeypatch):
         seed_module.resolve_seed_pin()
 
 
-@pytest.mark.parametrize("bad", ["12345", "1234567", "abcdef", "12 456", ""])
+@pytest.mark.parametrize("bad", ["12345", "1234567890123", "abcdef", "12 456", ""])
 def test_production_rejects_malformed_pins(production, monkeypatch, bad):
     monkeypatch.setattr(settings, "seed_pin", bad)
     with pytest.raises(ValueError):

@@ -110,6 +110,42 @@ async def test_validation_and_404(client, editor):
     assert (await client.post(f"/api/incidents/{missing}/journal", json={"entries": _rows(1)})).status_code == 404
 
 
+async def test_media_urls_are_validated_on_ingest(client, editor):
+    """Rows are stored verbatim and rendered as raw hrefs, so a smuggled javascript:/data:
+    URL must die at the append door (H1). Only /api/media/… and absolute https survive."""
+    await _login(client, editor)
+    inc = await _incident(client)
+
+    def row(rid, **extra):
+        return {"entries": [{"id": rid, "t": "14:00", "icon": "photo", "text": "x", **extra}]}
+
+    rejected = [
+        row("b1", photoUrls=["javascript:alert(1)"]),
+        row("b2", photoUrls=["java\tscript:alert(1)"]),  # whitespace inside the scheme
+        row("b3", photoUrls=["http://evil.example/x"]),
+        row("b4", photoUrls=["//evil.example/x"]),  # protocol-relative
+        row("b5", photoUrls=["data:text/html,<script>1</script>"]),
+        row("b6", files=[{"url": "javascript:alert(1)", "name": "Plan.pdf"}]),
+        row("b7", photoUrls="javascript:alert(1)"),  # not even a list
+        row("b8", audioUrl="javascript:alert(1)"),
+        row("b9", photoUrl="data:text/html,x"),  # legacy single-photo field
+    ]
+    for body in rejected:
+        r = await client.post(f"/api/incidents/{inc}/journal", json=body)
+        assert r.status_code == 422, f"{body} was accepted: {r.text[:200]}"
+
+    accepted = [
+        row("g1", photoUrls=["/api/media/abc", "https://map.geo.admin.ch/x"]),
+        row("g2", files=[{"url": "/api/media/def", "name": "Plan.pdf"}]),
+        row("g3", audioUrl="/api/media/ghi"),
+        # appendPatch clears a field with '' (JSON.stringify drops undefined) — not a URL
+        row("g4", photoUrls="", audioUrl=""),
+    ]
+    for body in accepted:
+        r = await client.post(f"/api/incidents/{inc}/journal", json=body)
+        assert r.status_code == 201, f"{body} was refused: {r.text[:200]}"
+
+
 async def test_archive_stamps_einsatzende_and_documents_the_boundary(client, editor):
     await _login(client, editor)
     inc = await _incident(client)

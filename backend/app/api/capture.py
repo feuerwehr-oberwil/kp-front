@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import personnel as personnel_svc
 from .. import storage
 from ..alarms import get_alarms_config
-from ..api.media import _ALLOWED_PHOTO, MAX_UPLOAD_BYTES
+from ..api.media import _ALLOWED_PHOTO, MAX_UPLOAD_BYTES, _matches_declared_type
 from ..api.media import _CHUNK as _MEDIA_CHUNK
 from ..auth.capture_limiter import capture_limiter
 from ..auth.client_ip import client_ip
@@ -438,11 +438,17 @@ async def capture_upload_media(
             status_code=415,
             detail=f"Dateityp {content_type!r} nicht erlaubt (erwartet: {', '.join(sorted(_ALLOWED_PHOTO))})",
         )
+    # Same magic-byte rule as the editor route (api/media · _matches_declared_type): this is
+    # the ONE upload path a poster token holds, so a body merely LABELLED image/* must not be
+    # stored under that trusted label here either.
+    first = await file.read(_MEDIA_CHUNK)
+    if not _matches_declared_type(content_type, first):
+        raise HTTPException(status_code=415, detail=f"Dateiinhalt entspricht nicht dem Typ {content_type!r}")
     ext = mimetypes.guess_extension(content_type) or ".jpg"
     key = storage.new_key(f"media/{incident_id}", ext)
 
     async def _chunks():
-        chunk = await file.read(_MEDIA_CHUNK)
+        chunk = first
         while chunk:
             yield chunk
             chunk = await file.read(_MEDIA_CHUNK)

@@ -3,6 +3,7 @@ import { Icon, PrinterFeedIcon } from './icons'
 import { appConfig } from '../config/appConfig'
 import { ConfirmCard, type ConfirmSpec } from './overlays/ConfirmCard'
 import { Overlay } from './overlays'
+import { safeHref } from './mediaUrl'
 
 // Lightweight app-wide toast + confirm host. Replaces native alert()/confirm()
 // so transient feedback and destructive confirmations stay inside the glass
@@ -399,12 +400,20 @@ export function Overlays() {
         >
           <div className="photo-view-head">
             <span className="photo-view-cap">{photo.caption || appConfig.copy.photoViewer.title}</span>
-            {/* same-origin /api/media URL, so `download` really downloads instead of navigating */}
-            {photo.download && (
-              <a className="ip-btn" href={photo.url} download={photo.filename}>
-                <Icon id="download" />{appConfig.copy.photoViewer.download}
-              </a>
-            )}
+            {/* same-origin /api/media URL, so `download` really downloads instead of navigating.
+                The URL is row data from another device, so it goes through safeHref before it
+                becomes an href (lib/mediaUrl) — a poisoned record must not put javascript:/data:
+                behind «Herunterladen». `blob:` stays: an OFFLINE photo is a locally minted object
+                URL (its download is real), and a foreign «blob:» string synced in is a dead
+                reference, not a script sink. Rejected → no download link, same as download:false. */}
+            {photo.download && (() => {
+              const href = photo.url.startsWith('blob:') ? photo.url : safeHref(photo.url)
+              return href && (
+                <a className="ip-btn" href={href} download={photo.filename}>
+                  <Icon id="download" />{appConfig.copy.photoViewer.download}
+                </a>
+              )
+            })()}
             <button className="ctx-x" onClick={closePhoto} aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}>
               <Icon id="close" />
             </button>

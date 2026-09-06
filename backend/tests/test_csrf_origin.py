@@ -196,6 +196,38 @@ def test_a_lan_origin_is_a_dev_only_exemption(monkeypatch):
     assert not _dev_origin("http://192.168.7.20:5188")
 
 
+# --- the roster gate (L5) -------------------------------------------------------------
+# GET /api/auth/roster is unauthenticated by design (the kiosk needs it before anyone is
+# logged in) but hands out display names + login UUIDs — so it draws the SAME line the
+# mutation gate above draws, itself: a provably foreign browser request is refused, a
+# request with no origin evidence at all (curl, the CLIs, this test client) passes.
+
+
+async def test_roster_same_origin_fetch_is_allowed(client):
+    """The kiosk's own fetch: a same-origin GET carries `Sec-Fetch-Site` but no `Origin`."""
+    r = await client.get("/api/auth/roster", headers={"Sec-Fetch-Site": "same-origin"})
+    assert r.status_code == 200, r.text
+
+
+async def test_roster_cross_origin_is_refused(client):
+    assert (await client.get("/api/auth/roster", headers={"Origin": FOREIGN})).status_code == 403
+    # The second signal, for a browser request that somehow arrives without `Origin`.
+    assert (await client.get("/api/auth/roster", headers={"Sec-Fetch-Site": "cross-site"})).status_code == 403
+
+
+async def test_roster_without_origin_evidence_stays_open(client):
+    """The browser/non-browser split: neither header → not provably foreign → served. This is
+    what keeps curl, the e2e harness and a typed address (`Sec-Fetch-Site: none`) working."""
+    assert (await client.get("/api/auth/roster")).status_code == 200
+    assert (await client.get("/api/auth/roster", headers={"Sec-Fetch-Site": "none"})).status_code == 200
+
+
+async def test_roster_own_origin_header_is_allowed(client):
+    """A same-origin request that DOES carry `Origin` (e.g. a CORS-mode fetch) is ours too."""
+    r = await client.get("/api/auth/roster", headers={"Origin": STATION, "Sec-Fetch-Site": "same-origin"})
+    assert r.status_code == 200, r.text
+
+
 # --- the header layer -----------------------------------------------------------------
 
 

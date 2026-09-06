@@ -165,6 +165,53 @@ async def test_size_limit_enforced_and_partial_cleaned(client, editor, monkeypat
     assert len(files) == 1
 
 
+async def test_pdf_label_on_a_non_pdf_body_is_refused(client, editor):
+    """L6: the content type is client-supplied, and a stored blob is served back under that
+    trusted label — so a 'PDF' has to start with %PDF-."""
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    r = await client.post(
+        f"/api/incidents/{inc}/media",
+        files={"file": ("bericht.pdf", b"<html>kein pdf</html>", "application/pdf")},
+        data={"kind": "file"},
+    )
+    assert r.status_code == 415, r.text
+    assert "entspricht nicht" in r.json()["detail"]
+
+    ok = await client.post(
+        f"/api/incidents/{inc}/media",
+        files={"file": ("bericht.pdf", b"%PDF-1.4\nleer", "application/pdf")},
+        data={"kind": "file"},
+    )
+    assert ok.status_code == 201, ok.text
+
+
+async def test_image_magic_bytes_are_checked_and_a_real_png_passes(client, editor):
+    await _login(client, editor)
+    inc = await _create_incident(client)
+
+    # GIF bytes wearing a JPEG label — refused before anything is stored
+    r = await client.post(
+        f"/api/incidents/{inc}/media",
+        files={"file": ("foto.jpg", b"GIF89a not a jpeg", "image/jpeg")},
+        data={"kind": "photo"},
+    )
+    assert r.status_code == 415, r.text
+
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (8, 8), (10, 20, 30)).save(buf, format="PNG")
+    ok = await client.post(
+        f"/api/incidents/{inc}/media",
+        files={"file": ("foto.png", buf.getvalue(), "image/png")},
+        data={"kind": "photo"},
+    )
+    assert ok.status_code == 201, ok.text
+
+
 async def test_upload_to_unknown_incident_404(client, editor):
     await _login(client, editor)
     r = await client.post(f"/api/incidents/{uuid.uuid4()}/media", files=_photo(), data={"kind": "photo"})

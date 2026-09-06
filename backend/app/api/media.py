@@ -94,6 +94,25 @@ def _looks_like_isobmff(head: bytes) -> bool:
     return len(head) >= 12 and head[4:8] == b"ftyp"
 
 
+# The declared content type is whatever the client claims, and get_media serves the stored
+# bytes back UNDER that label — so for the types a decoder or viewer will open, the head
+# bytes have to actually be that type. Hand-rolled prefix checks on the first chunk (which
+# is read anyway), deliberately not python-magic. Types without an entry (txt/csv/zip/office)
+# pass unsniffed; audio keeps its own M4A check above.
+_MAGIC_PREFIXES = {
+    "image/jpeg": b"\xff\xd8\xff",
+    "image/png": b"\x89PNG\r\n\x1a\n",
+    "application/pdf": b"%PDF-",
+}
+
+
+def _matches_declared_type(content_type: str, head: bytes) -> bool:
+    if content_type == "image/webp":  # RIFF container: 'RIFF' <size> 'WEBP'
+        return len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    prefix = _MAGIC_PREFIXES.get(content_type)
+    return prefix is None or head.startswith(prefix)
+
+
 @router.post("/incidents/{incident_id}/media", status_code=201)
 async def upload_media(
     incident_id: uuid.UUID,
@@ -120,6 +139,10 @@ async def upload_media(
     first = await file.read(_CHUNK)
     if content_type in _M4A_TYPES and not _looks_like_isobmff(first):
         raise HTTPException(status_code=415, detail="Datei ist keine gültige M4A-Aufnahme")
+    # Same rule for images and PDF: a body merely LABELLED as one must not be stored under
+    # that trusted label.
+    if not _matches_declared_type(content_type, first):
+        raise HTTPException(status_code=415, detail=f"Dateiinhalt entspricht nicht dem Typ {content_type!r}")
 
     ext = _EXT.get(content_type) or mimetypes.guess_extension(content_type) or ""
     key = storage.new_key(f"media/{incident_id}", ext)

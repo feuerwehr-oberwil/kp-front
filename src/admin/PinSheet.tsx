@@ -3,7 +3,7 @@ import { apiPost, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, initials } from '../lib/format'
 import { Sheet } from '../lib/overlays'
-import { PinPad, PIN_LENGTH } from '../components/PinPad'
+import { PinPad, isValidPin, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '../components/PinPad'
 
 const NEUTRAL_COLOR = '#6c7686' // --ink-faint, same fallback as the login roster tiles
 
@@ -12,12 +12,10 @@ const NEUTRAL_COLOR = '#6c7686' // --ink-faint, same fallback as the login roste
  *
  *  A HINT, not the guard: `POST /api/auth/users/{id}/pin` now refuses the same six itself
  *  (`auth/router._hash_pin_or_400`), and the server is the authority. The copy lives here so the
- *  refusal appears as the sixth digit lands — before «Weiter», before a round trip — instead of
- *  letting somebody confirm a PIN twice and only then be told no. Keep it in sync; if the two
+ *  refusal appears while typing — before «Weiter», before a round trip — instead of letting
+ *  somebody confirm a PIN twice and only then be told no. Keep it in sync; if the two
  *  ever disagree, the server's answer is the one that counts. */
 const TRIVIAL_PINS = new Set(['000000', '111111', '123456', '654321', '999999', '012345'])
-
-const isComplete = (pin: string) => pin.length === PIN_LENGTH && /^\d+$/.test(pin)
 
 export interface PinSheetUser {
   id: string
@@ -47,9 +45,11 @@ export function PinSheet({ user, onClose, onSaved }: {
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const trivial = isComplete(first) && TRIVIAL_PINS.has(first)
-  const matches = step === 'confirm' && isComplete(second) && second === first
-  const canContinue = isComplete(first) && !trivial
+  const trivial = isValidPin(first) && TRIVIAL_PINS.has(first)
+  const matches = step === 'confirm' && isValidPin(second) && second === first
+  // a confirm that is already as long as the first entry and still differs can never match
+  const mismatch = step === 'confirm' && second.length >= first.length && second !== first
+  const canContinue = isValidPin(first) && !trivial
 
   const identity = (
     <div className="pin-backuser adm-pin-who">
@@ -80,9 +80,9 @@ export function PinSheet({ user, onClose, onSaved }: {
   const setting = step === 'set'
   const message = err
     ?? (setting
-      ? (trivial ? C.pinTrivial : fillTemplate(C.pinEnterHint, { n: PIN_LENGTH }))
-      : (matches ? C.pinMatch : C.pinConfirmHint))
-  const tone = err || trivial ? 'error' : matches ? 'ok' : 'hint'
+      ? (trivial ? C.pinTrivial : fillTemplate(C.pinEnterHint, { min: PIN_MIN_LENGTH, max: PIN_MAX_LENGTH }))
+      : (matches ? C.pinMatch : mismatch ? C.pinMismatch : C.pinConfirmHint))
+  const tone = err || trivial || mismatch ? 'error' : matches ? 'ok' : 'hint'
 
   return (
     <Sheet
@@ -124,10 +124,6 @@ export function PinSheet({ user, onClose, onSaved }: {
       <PinPad
         value={setting ? first : second}
         onChange={(next) => { setErr(null); if (setting) setFirst(next); else setSecond(next) }}
-        onComplete={(full) => {
-          if (setting) return // the explicit «Weiter» advances — no silent jump on the 6th digit
-          if (full !== first) { setErr(C.pinMismatch); setSecond('') }
-        }}
         disabled={busy}
         message={message}
         tone={tone}

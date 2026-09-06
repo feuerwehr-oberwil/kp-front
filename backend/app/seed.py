@@ -40,13 +40,13 @@ def resolve_seed_pin() -> str | None:
                 "SEED_PIN is required in production. The bundled seed file's PIN is public "
                 "(it is in the README), so seeding without an explicit PIN would create an "
                 "editor account anyone can log into. Set SEED_PIN to a "
-                f"{settings.pin_length}-digit PIN in your .env, or set SEED_DATABASE=false "
-                "and create accounts through the admin UI."
+                f"{settings.pin_min_length}-{settings.pin_max_length}-digit PIN in your .env, "
+                "or set SEED_DATABASE=false and create accounts through the admin UI."
             )
         return None  # development: the seed file's own PIN is fine
 
-    if len(pin) != settings.pin_length or not pin.isdigit():
-        raise ValueError(f"SEED_PIN must be exactly {settings.pin_length} digits.")
+    if not (settings.pin_min_length <= len(pin) <= settings.pin_max_length) or not pin.isdigit():
+        raise ValueError(f"SEED_PIN must be {settings.pin_min_length}-{settings.pin_max_length} digits.")
     if pin in TRIVIAL_PINS:
         raise ValueError("SEED_PIN is one of the well-known weak PINs — choose another.")
     return pin

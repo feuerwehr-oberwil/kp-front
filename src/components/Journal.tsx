@@ -7,7 +7,7 @@ import { Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
-import { thumbUrl } from '../lib/mediaUrl'
+import { safeHref, thumbUrl } from '../lib/mediaUrl'
 import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import type { OpenReminder } from '../lib/reminders'
@@ -150,7 +150,7 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
 // The unified Verlauf — the single, append-only stream of everything that
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened.
-export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice }: {
+export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice }: {
   deliveryNotice?: ReactNode
   events: TimelineEvent[]
   plans: PlanDocument[]
@@ -172,6 +172,11 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   onReminderDone?: (r: OpenReminder) => void
   /** write a Meldung on an open item — opens the ordinary composer pre-linked to it. */
   onReminderNote?: (r: OpenReminder) => void
+  /** «wieder in …»: re-raise a CLOSED item as a fresh timed Wiedervorlage (new id, same
+   *  text — appends a new `created` row, the record stays whole). Offered on `done` rows,
+   *  because the moment a Lagerapport-Pendenz is ticked off is exactly when the next one
+   *  gets its time (Führungsrhythmus, Handbuch 2.4). Absent ⇒ no chips (viewer, replay). */
+  onReminderAgain?: (reminderId: string, mins: number) => void
   /** offline-queue status of a row's media (photo/audio not yet on the server), or undefined
    *  once uploaded — drives the "wird geladen"/"nicht geladen" chip on media rows. */
   mediaStatusOf?: (rowId: string) => 'pending' | 'failed' | undefined
@@ -805,6 +810,23 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       {remOverdue ? C.overdueLabel : C.dueAtLabel.replace('{t}', dueClock(openRem.dueAt))}
                     </span>
                   )}
+                  {/* «wieder in …» on the row that CLOSED an item: the moment a Lagerapport is
+                      ticked off is when the next one gets its time (Führungsrhythmus). Each tap
+                      appends a FRESH `created` row with a new id — the closed item stays closed,
+                      the record stays append-only. Deliberately on every done row, not only the
+                      newest: re-raising an hours-old Pendenz from where it was closed is the use. */}
+                  {e.reminder?.op === 'done' && onReminderAgain && (
+                    <span className="jr-again">
+                      {[30, 60].map((m) => (
+                        <button
+                          key={m} type="button" className="jr-again-btn"
+                          title={fillTemplate(C.againTitle, { mins: String(m) })}
+                          aria-label={fillTemplate(C.againTitle, { mins: String(m) })}
+                          onClick={(ev) => { ev.stopPropagation(); onReminderAgain(e.reminder!.id, m) }}
+                        >↻ {fillTemplate(C.againChip, { mins: String(m) })}</button>
+                      ))}
+                    </span>
+                  )}
                   {/* opens IN the app (lib/ui · openPhoto): `target="_blank"` handed the picture to
                       Safari on an installed iPad, which means leaving a running Einsatz to look at
                       a photo of it. The viewer keeps the one thing the new tab was good for — a
@@ -826,16 +848,23 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       opens it in whatever can read it. ⚠️ The server's Content-Disposition BEATS
                       the `download` attribute, so the operator's own filename travels as `?name=`
                       and the route sanitises it there; `download` stays as the same-origin hint. */}
-                  {(e.files ?? []).map((f) => (
-                    <a
-                      key={f.url} className="jr-file" download={f.name}
-                      href={`${f.url}${f.url.includes('?') ? '&' : '?'}name=${encodeURIComponent(f.name)}`}
-                      title={C.attachOpen} aria-label={`${C.attachOpen}: ${f.name}`}
-                      onClick={(ev) => ev.stopPropagation()}
-                    >
-                      <Icon id="attach" /><span>{f.name}</span>
-                    </a>
-                  ))}
+                  {(e.files ?? []).map((f) => {
+                    // …and the URL itself through safeHref before it becomes an href: the row is
+                    // synced data another device wrote, so a poisoned record must not put
+                    // javascript:/data: behind a chip (lib/mediaUrl). Rejected → the chip stays,
+                    // link-less: the NAME is information, the dead link is not.
+                    const href = safeHref(f.url)
+                    return (
+                      <a
+                        key={f.url} className="jr-file" download={href ? f.name : undefined}
+                        href={href ? `${href}${href.includes('?') ? '&' : '?'}name=${encodeURIComponent(f.name)}` : undefined}
+                        title={C.attachOpen} aria-label={`${C.attachOpen}: ${f.name}`}
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
+                        <Icon id="attach" /><span>{f.name}</span>
+                      </a>
+                    )
+                  })}
                   {/* ── Der Stift ist von der Zeile gezogen (29.08., Variante 2) ──
                       Correcting a hand-written line stays exactly what it was — an appended
                       `textEdit` patch, both wordings in the record and in the hash chain, the

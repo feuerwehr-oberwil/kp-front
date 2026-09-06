@@ -354,7 +354,7 @@ function LivePositionChip({ live, center, onShow }: {
 // under your finger while you tap.
 export function AnwesenheitView({
   people, attendance, canEdit, loading, error, blockedIds, truppOfPerson,
-  onAddGuest, onMarkPresent, onMarkLeft, onClear, onSetOrt, onJumpToTrupp, onReload, onUndo, onRedo, canUndo = false, canRedo = false, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
+  onAddGuest, onMarkPresent, onMarkLeft, onClear, onSetOrt, onJumpToTrupp, onReload, onUndo, onRedo, canUndo = false, canRedo = false, topBarUndoHidden = false, onSetTimes, onRemoveBlock, onSetNote, captureUsage,
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onPrintZeitplan, onDownloadZeitplan, zeitplanPrintOnline,
@@ -382,15 +382,19 @@ export function AnwesenheitView({
   onReload: () => void
   /** Take back the last tap on THIS list — the same step the ↶ in the top bar makes.
    *
-   * ⚠️ It is offered here for the PHONE only (see the header), and only because the top bar hides
-   * its history pair as soon as an Atemschutz-Alarmchip is on it (15-mobile.css: an overdue Trupp
-   * outranks two edit buttons at 390px). That is exactly the moment this list is being tapped
-   * fastest, so the way back cannot be the thing that disappears. Absent for a session that may
-   * not write, and on a tablet, where the top bar keeps the pair. */
+   * ⚠️ It renders here ONLY on a phone while `topBarUndoHidden` says the top bar has dropped its
+   * history pair — which it does as soon as an Atemschutz-Alarmchip is on it (15-mobile.css: an
+   * overdue Trupp outranks two edit buttons at 390px). That is exactly the moment this list is
+   * being tapped fastest, so the way back cannot be the thing that disappears. Any other time
+   * the top bar's pair is the one door (06.09. — the always-on phone copy here duplicated it).
+   * Absent for a session that may not write. */
   onUndo?: () => void
   onRedo?: () => void
   canUndo?: boolean
   canRedo?: boolean
+  /** the top bar has dropped its ↶ ↷ (Atemschutz-Alarmchip on a phone) — only then does this
+   *  head offer its own pair, see onUndo */
+  topBarUndoHidden?: boolean
   /** correct a wrong auto-stamped time via the row's time chip (e.g. "gegangen" marked
    *  after the person already left) — same handler as the Rapport Stunden editor. Patches the
    *  CURRENT presence block; `index` targets an earlier one. */
@@ -654,17 +658,19 @@ export function AnwesenheitView({
             muddled «wie steht es» with «womit wurde erfasst». One line each. */}
         <p className={s.headQr}><CaptureUsageChip usage={captureUsage} /></p>
         <div className={s.headActions}>
-          {/* ⚠️ Phone only. The pair is whole — a ↶ without its ↷ makes the step back the one
-              thing that cannot itself be taken back, and this cluster has the room at phone width
-              (the overflow it hit between 601 and ~850px is above this breakpoint). On a tablet
-              the top bar keeps both, and nothing is duplicated here. */}
-          {isPhone && onUndo && (
+          {/* ⚠️ Phone only, and ONLY while the top bar has dropped its own pair (Atemschutz-
+              Alarmchip — see topBarUndoHidden): any other time the bar's ↶ ↷ are the one door,
+              and this head showing a second pair was pure duplication (06.09.). The pair is
+              whole — a ↶ without its ↷ makes the step back the one thing that cannot itself be
+              taken back, and this cluster has the room at phone width (the overflow it hit
+              between 601 and ~850px is above this breakpoint). */}
+          {isPhone && topBarUndoHidden && onUndo && (
             <button className={c.iconBtn} onClick={onUndo} disabled={!canUndo}
               aria-label={A.undoTap} title={A.undoTap}>
               <Icon id="undo" />
             </button>
           )}
-          {isPhone && onRedo && (
+          {isPhone && topBarUndoHidden && onRedo && (
             <button className={c.iconBtn} onClick={onRedo} disabled={!canRedo}
               aria-label={A.redoTap} title={A.redoTap}>
               <Icon id="redo" />

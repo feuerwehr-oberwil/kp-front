@@ -443,6 +443,21 @@ async def test_capture_uploads_a_beilage_photo_but_refuses_audio(client, capture
     assert anon.status_code in (401, 403)
 
 
+async def test_capture_upload_checks_magic_bytes(client, capture_secret, db_session):
+    """Same rule as the editor route (api/media): a body merely LABELLED image/png must not be
+    stored under that trusted label — this is the one upload path a poster token holds."""
+    inc = _incident()
+    db_session.add(inc)
+    await db_session.commit()
+
+    r = await client.post(
+        f"/api/capture/incidents/{inc.id}/media?t={TOKEN}",
+        files={"file": ("fake.png", b"<html>not a png</html>", "image/png")},
+    )
+    assert r.status_code == 415
+    assert "Dateiinhalt" in r.json()["detail"]
+
+
 async def test_capture_workspace_carries_beilagen(client, capture_secret, db_session):
     """`attachments` is one of the capture keys, so a Beilage recorded at the poster is visible
     to the poster on the next read — and everything outside the key set still stays invisible."""

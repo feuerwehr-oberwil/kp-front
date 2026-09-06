@@ -1489,10 +1489,15 @@ def render_kroki(
         elif kind == "area" and len(d.get("coords", [])) >= 3:
             pts = [pt(a, b) for a, b in d["coords"]]
             draw.line([*pts, pts[0]], fill=color, width=w, joint="curve")
-            if d.get("label"):
+            # Abschnitt fields ride the label chip: Leiter on the name line («Abschnitt 1 ·
+            # Oblt Steiner»), Auftrag on its own. ⚠️ Same composition as the live map
+            # (MapView · drawLabels) — screen and paper must say the same thing.
+            head = " · ".join(x for x in (d.get("label"), d.get("abschnittLeiter")) if x)
+            chip_lines = [x for x in (head, d.get("abschnittAuftrag")) if x]
+            if chip_lines:
                 cx = sum(p[0] for p in pts) / len(pts)
                 cy = sum(p[1] for p in pts) / len(pts)
-                labels.append(((cx, cy), [d["label"]], int(14 * u * ss)))
+                labels.append(((cx, cy), chip_lines, int(14 * u * ss)))
         elif len(d.get("coords", [])) >= 2:
             pts = [pt(a, b) for a, b in d["coords"]]
             if d.get("dashed"):

@@ -97,6 +97,7 @@ logger = logging.getLogger(__name__)
 import json
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Request
@@ -111,9 +112,10 @@ from .auth.incident_link import LINK_COOKIE, enforce_link_scope
 from .auth.router import router as auth_router
 from .auth.token_blocklist import token_blocklist
 from .config import settings
+from .csp import csp_for
 from .database import Base, engine
 from .i18n import set_locale, translate_detail
-from .spa import mount_spa
+from .spa import mount_spa, spa_index_path
 from .webmanifest import register_manifest_route
 
 
@@ -561,27 +563,44 @@ async def enforce_request_origin(request: Request, call_next):
     return await call_next(request)
 
 
+# One warning, not one per request: a deployment behind a proxy that never set
+# TRUSTED_FORWARDED_HOPS keys every per-client throttle on the proxy's own IP — attacker
+# failures then share cooldown buckets with the operator's tablet. The header's presence is
+# the tell, and it has to be said out loud because everything still WORKS, just badly.
+_xff_unconfigured_warned = False
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
-    """The conservative, compatibility-safe half of a browser-defence header layer.
+    """Browser-defence header layer.
 
     `nosniff` so a response's declared type is its only type; a referrer policy so an incident
     URL (which carries an incident id, and on the link pages a token) does not travel to a
-    third-party host; and `frame-ancestors 'self'` — with `X-Frame-Options` for the browsers
+    third-party host; `frame-ancestors 'self'` — with `X-Frame-Options` for the browsers
     that still only read that — so the app cannot be framed and clickjacked.
 
-    ⚠️ NOT a script-src CSP. That is a real compatibility question for MapLibre, pdf.js and the
-    service worker, and it is a deliberate follow-up rather than something to switch on blind.
+    Since 06.09. also the script half (app/csp.py): `script-src 'self'` + the hashed inline
+    boot script + `'wasm-unsafe-eval'` (pdf.js codecs), `worker-src 'self' blob:` (MapLibre
+    builds its worker from a Blob URL), `object-src 'none'`, `base-uri 'self'`. Verified
+    against the built app — see csp.py for the per-library reasoning.
 
     `setdefault` throughout: a route that already decided something stricter for its own
     response keeps it — api/branding's sandboxed CSP for admin-uploaded SVG is exactly that,
     and so is api/reference's.
     """
+    global _xff_unconfigured_warned
+    if not _xff_unconfigured_warned and settings.trusted_forwarded_hops == 0 and "x-forwarded-for" in request.headers:
+        _xff_unconfigured_warned = True
+        logger.warning(
+            "Requests carry X-Forwarded-For but TRUSTED_FORWARDED_HOPS=0 — every per-client "
+            "throttle (PIN cooldown, capture/position limiter) is keying on the proxy IP. "
+            "Behind Railway/Caddy set TRUSTED_FORWARDED_HOPS=1."
+        )
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-    response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'self'")
+    response.headers.setdefault("Content-Security-Policy", csp_for(Path(spa_index_path())))
     return response
 
 

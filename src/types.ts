@@ -315,6 +315,14 @@ export interface Drawing {
   showDistance?: boolean
   /** free-text label shown at the polyline midpoint. */
   label?: string
+  // --- Abschnitt fields (areas only). FKS Einsatzführung 3.5.2: an Abschnitt has a Leiter
+  //     and an Auftrag — and the drawn Fläche IS the Abschnitt, no separate object (06.09.).
+  /** who leads the Abschnitt — a display NAME (roster-picked or typed), not a person id: the
+   *  map label, the Rapport and the paper Kroki all want the words, and nothing resolves a
+   *  person through this field. Renders after `label` («Abschnitt 1 · Oblt Steiner»). */
+  abschnittLeiter?: string
+  /** what the Abschnitt is to achieve — one line, rendered under the label/Leiter line */
+  abschnittAuftrag?: string
   /** screen-space px offset of the distance/text label from the polyline midpoint, so it
    *  can be nudged off overlapping drawings. Absent / 0 = pinned at the midpoint.
    *  DEPRECATED on the Lage map (drifted on zoom) — superseded by the georeferenced

@@ -7,7 +7,7 @@ import { Icon } from '../lib/icons'
 import { ActionMenu, EmptyState, fmtDate } from './ui'
 import { RoleChoice, type MemberRole } from './RoleChoice'
 import { PinSheet } from './PinSheet'
-import { PIN_LENGTH } from '../components/PinPad'
+import { isValidPin, PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '../components/PinPad'
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -24,8 +24,6 @@ interface AdminUser {
   el_view_default: boolean
 }
 
-const PIN_LEN = PIN_LENGTH // mirrors backend settings.pin_length
-
 /** The account every fresh deployment boots with (backend/app/seed_users.json). Its PIN comes
  *  from SEED_PIN — printed by the installer, in the docs for a development install — so it stays
  *  a working editor login until somebody re-PINs or deactivates it. «Einrichtung» cannot see
@@ -35,10 +33,6 @@ const PIN_LEN = PIN_LENGTH // mirrors backend settings.pin_length
 const SEEDED_USERNAME = 'fu'
 
 // ─── helpers ───────────────────────────────────────────────────────────────
-
-function isValidPin(pin: string): boolean {
-  return pin.length === PIN_LEN && /^\d+$/.test(pin)
-}
 
 function errText(e: unknown): string {
   if (e instanceof ApiError) return e.detail
@@ -121,7 +115,7 @@ function AddMemberForm({ open, setOpen, onCreated }: {
       <header className="adm-card-head">
         <h2 className="adm-card-title">{C.add}</h2>
         <p className="adm-card-cap">
-          {fillTemplate(C.addCaption, { n: PIN_LEN })}
+          {fillTemplate(C.addCaption, { min: PIN_MIN_LENGTH, max: PIN_MAX_LENGTH })}
         </p>
       </header>
       <div className="adm-card-body">
@@ -156,12 +150,12 @@ function AddMemberForm({ open, setOpen, onCreated }: {
         <div className="adm-row-2">
           <label className="adm-field">
             <span className="adm-field-label">
-              {C.pinLabel} <span className="adm-field-hint">{fillTemplate(C.pinDigits, { n: PIN_LEN })}</span>
+              {C.pinLabel} <span className="adm-field-hint">{fillTemplate(C.pinDigits, { min: PIN_MIN_LENGTH, max: PIN_MAX_LENGTH })}</span>
             </span>
             <input
               className="adm-input adm-input-mono"
               value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_LEN))}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_MAX_LENGTH))}
               inputMode="numeric"
               autoComplete="off"
               placeholder="••••••"
