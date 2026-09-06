@@ -204,8 +204,9 @@ First boot seeds one editor from `backend/app/seed_users.json`. Its PIN is the *
 backend refuses to use in production precisely because it is public
 ([`seed.py`](../backend/app/seed.py) · `resolve_seed_pin`, the well-known-PIN blocklist).
 
-**Logging in is two taps and six digits.** The login screen is a kiosk: it lists the active
-accounts as tiles and you pick a face, then type the PIN. The seeded tile reads
+**Logging in is a tap, a PIN and ✓.** The login screen is a kiosk: it lists the active
+accounts as tiles and you pick a face, then type the 6–12-digit PIN and confirm with ✓ – the
+pad shows one dot per typed digit and deliberately never reveals how long the PIN is. The seeded tile reads
 **«Führungsunterstützung»** – that is the account's *display name*, and it is the only name a
 human ever sees.
 

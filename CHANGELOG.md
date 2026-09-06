@@ -29,6 +29,40 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **A Trupp no longer has to be an Atemschutz-Trupp – the board becomes «Trupps».** The former
+  Atemschutz view is now the home of every Trupp: Sektionen and other Trupps ohne Atemschutz
+  stand alongside AS-Trupps, each with its own Auftragsliste, and the Art of a Trupp can be
+  corrected after the fact – «Wieder einrücken» asks it again. Anmelden requires an Auftrag, the
+  Gruppenführer is a Funktion rather than a name, and Trupp events joined the journal
+  vocabulary, so the Verlauf and the printed report say who led and what changed. The safety
+  side is untouched: only AS-Trupps that are out tick, the handed-over Tafel keeps its
+  «Atemschutzüberwachung» title, and the printed section stays the ASÜ. On a phone the Trupp
+  form is a stack of three sections; in the rail the view is «Trupps» with a stopwatch icon.
+  Closing an Einsatz now stops the clocks – and asks before it does.
+- **The Atemschutz-Link – a QR that hands the Überwachung to a phone.** «Überwachung abgeben»
+  mints a link from a running Einsatz; the scanned phone gets a focused board – one Trupp per
+  screen, a two-step form – and sheds the phone's own login first, so a private session never
+  bleeds into the handed-over Tafel. Revocable like the other incident links.
+- **Abschnitte on Flächen, and a Führungsrhythmus re-raise.** A drawn Fläche can carry a Leiter
+  and an Auftrag – the shape *is* the Abschnitt (FKS Einsatzführung 3.5.2) – rendered on the map
+  label and identically on the paper Kroki, with a quiet Richtwert hint above four assigned
+  Abschnitte. And every done Pendenz in the Verlauf offers «wieder in 30/60 min»: one tap
+  appends a fresh timed Wiedervorlage while the closed item stays closed and the record stays
+  append-only.
+- **Rapport and Verlauf carry more of the record.** The Verlauf takes generic Beilagen (photos,
+  audio, any file) with named downloads and their own Rapport rows; URLs in entries become links
+  – in the app and on paper; «Gerettete» offers what already stands on the Lage;
+  Anwesenheits-Abweichungen can be settled with the log saying what that means; «Foto
+  hinzufügen» takes the whole pick instead of one photo at a time; and «Weitergeben» on the
+  Rapport page mints a revocable view-only link for one Einsatz.
+- **Drawing and symbols keep growing into the FKS.** Chain lines, freehand Flächen with
+  Schraffur, ten more signatures from the Vegetationsbrand and Zivile sets, a von–bis Geschoss
+  for symbols that span storeys, a rotation control with an explicit pivot, and a fixed compass
+  chip that owns plan rotation.
+- An attached alarm can deliver its Zeiten at once instead of field by field.
+
 ### Fixed
 
 - Online backups retain replaced files through SQL capture and pin complete blobs before
@@ -51,6 +85,24 @@ so this file – not the log – is the record of what shipped up to that point.
   storage readiness before reporting health. Interrupted blob replacement preserves the old file.
 - Startup rejects an unknown database revision before creating or rotating migration backups,
   preserving the pre-upgrade dump when an incompatible older image is repeatedly restarted.
+- **Three field-feedback rounds (01.–06.09.)** closed an iPhone crash, lost Ausrückzeiten, a
+  real 500 on an Einsatzort move, Atemschutz timers that ticked for Trupps that were not out,
+  and the on-screen keyboard covering the field being typed into. Journal suggestions became
+  incident-aware, keep the text around the cursor, and can be dragged horizontally on touch
+  again.
+- **The printed Rapport tells the truth in more corners.** Keyword highlighting is
+  word-bounded, photos print upright, half-typed notes no longer leak onto paper, «Nicht
+  eingesetzt» gets its span, a long Kontaktperson wraps instead of losing its second half, the
+  Zeitplan says «1 Schicht» and «eingeteilt» consistently, and the station logo sits on both
+  sheets. Trupp rows in the Verlauf dedupe per cycle, report honest crew diffs and «Rückzug
+  abgebrochen», and the closed row and the open card tell one time.
+- **Resilience and memory sweeps.** One fault line per view instead of a white screen, a
+  bounded boot that skips a crashing Einsatz, a symbol pack that degrades instead of
+  disappearing, an exit for every stuck state, and image memory budgeted in bytes – session
+  thumbnails, one decode at a time, plan bitmaps capped – so an iPhone survives a photo-heavy
+  Einsatz.
+- The public demo no longer requests notification or geolocation permission uninvited on first
+  taps.
 
 ### Changed
 
@@ -72,8 +124,29 @@ so this file – not the log – is the record of what shipped up to that point.
   treats manual incident creation as a complete operating mode, and makes automatic alarm intake
   an optional Divera/webhook upgrade. Setup, deployment, backup and restore documentation were
   reconciled with the Docker path and verified against an isolated clean install.
+- **«Teilen» has one door.** The top bar's own Teilen button is gone on every width – the
+  Einsatz card's Teilen row opens the same sheet and is now the only entry.
+- A terminology consistency round (31.08.): Anwesenheit, Karte/Lagekarte, Einsatzende,
+  Kurzbericht, «Wer & was», and the settings labels now use one word per thing, in all four
+  languages.
 
 ### Security
+
+- **The 2026-09-05 security audit (SEC-01…SEC-12) and its residual findings are closed.**
+  Journal media URLs are validated at ingest and neutralized at render, so a poisoned row
+  degrades to a linkless chip instead of stored XSS. The app ships an **enforced** script CSP
+  (`script-src 'self'` plus a runtime hash of its own theme-boot line). Online PIN guessing
+  meets a per-account bounded delay – it slows, never locks – and failed logins are logged.
+  Uploads are checked by magic bytes rather than declared content type, event and alarm intake
+  get batch/size caps, and the per-source throttle ignores the forgeable `X-Forwarded-For`
+  header unless `TRUSTED_FORWARDED_HOPS` declares how many proxy hops to trust.
+  **Upgrade note:** behind exactly one reverse proxy (Railway, the compose Caddy profile) set
+  `TRUSTED_FORWARDED_HOPS=1`, or every request keys on the proxy's address and the per-source
+  throttle collapses into one shared bucket – the backend now warns at startup about that shape.
+- **PINs are 6–12 digits behind a submit-based pad.** The pad shows one dot per typed digit, no
+  empty slots, and submits only on ✓ (or Enter) – a bystander watching a login learns nothing
+  about the PIN's length. Existing 6-digit PINs keep verifying untouched; `SEED_PIN` accepts the
+  new range.
 
 - Storage operations reject symlink aliases and paths outside the configured storage root.
   Invalid public branding paths return 404. Refreshed vulnerable transitive tooling dependencies.

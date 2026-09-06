@@ -21,9 +21,9 @@ every twelve hours (00:00 and 12:00 Europe/Zurich) – edits persist until the n
 The repository includes the same synthetic station dataset in
 [`examples/demo-data/`](examples/demo-data/). No real station data is bundled.
 
-| Lage – live command picture | Atemschutz – SCBA teams on the clock |
+| Lage – live command picture | Trupps – SCBA teams on the clock |
 | --- | --- |
-| ![Lage map](docs/screenshots/lage.png) | ![Atemschutz](docs/screenshots/atemschutz.png) |
+| ![Lage map](docs/screenshots/lage.png) | ![Trupps](docs/screenshots/atemschutz.png) |
 | **Gebäude – floor stack and AGT tracking** | **Material – material use by source** |
 | ![Gebäude](docs/screenshots/gebaeude.png) | ![Material](docs/screenshots/mittel.png) |
 
@@ -37,7 +37,7 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
   Divera, Traccar, hydrant, and cadastre data.
 - **Offline-first.** Field data is cached, readiness is verified, and edits sync when the
   connection returns.
-- **One command surface.** Lage, Plan, Checkliste, Atemschutz, Anwesenheit, Material, Verlauf,
+- **One command surface.** Lage, Plan, Checkliste, Trupps, Anwesenheit, Material, Verlauf,
   and reporting share consistent controls.
 - **Made for 3am.** Recognition over recall, safe defaults, large touch targets, and undo for
   mutable actions.
@@ -54,7 +54,8 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 - **Einsatz-Intake:** Guided incident creation from Divera, an address, an object, or the map.
 - **Checklisten:** The brigade's own command checklists, phase by phase, with direct jumps to
   the plan, the Verlauf, and the tools – loaded from station data like everything else.
-- **Atemschutz:** Trupp setup, pressure and return estimates, alarms, map links, and logging.
+- **Trupps:** every Trupp on one board – Atemschutz or not – with its Auftragsliste; AS-Trupps
+  add pressure and return estimates, alarms, map links, and the Überwachungs-Log.
 - **Anwesenheit:** Divera or manual attendance against the station's Personal roster, and
   assignments.
 - **Material:** The station's Material catalogue on a stepper list – what was used, from which

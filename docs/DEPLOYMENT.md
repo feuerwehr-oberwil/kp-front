@@ -273,7 +273,10 @@ Do it in this order. Steps 3 and 4 are the ones people discover afterwards.
    Nothing else is required. `PORT` is injected by Railway and read by `start.sh`;
    `ENVIRONMENT`/`APP_ENV` are unnecessary because Railway is detected; `MEDIA_STORAGE_DIR` is
    already correct as long as step 3 was done. Optional but usually wanted: `PUBLIC_URL` (the
-   deployment's public origin, so outbound webhooks can carry absolute links). **Integration
+   deployment's public origin, so outbound webhooks can carry absolute links) and
+   `TRUSTED_FORWARDED_HOPS=1` – Railway's proxy is the one trusted hop, and without it the
+   per-source login throttle keys every request on the proxy's address instead of the real
+   client (the backend warns at startup about that shape). **Integration
    credentials do not belong here** – Divera, Traccar, Web Push, STT, CARTO, the webhook secrets
    and the monitor ping go into `/admin` → Zugangsdaten, encrypted in the deployment's own
    database and changeable without a redeploy (§4).
