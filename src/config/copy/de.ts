@@ -2684,11 +2684,6 @@ export const de = {
     // one-minute-old ones.
     gpsFrozen: 'GPS eingefroren',
     gpsFrozenHint: 'Der Live-GPS-Feed antwortet nicht. Die Fahrzeuge stehen auf ihrer zuletzt bekannten Position.',
-    // ── «Teilen»: die EINE Stelle, an der etwas weitergegeben wird (03.09.) ──
-    // Ein Knopf im Einsatzkopf, wo der Einsatz benannt ist – er öffnet direkt das Teilen-Blatt.
-    // WELCHEN Link man weitergibt, entscheiden dessen zwei Reiter (preflight · shareKind*), nicht
-    // ein Menü davor: die Frage zweimal zu stellen war der eigentliche Umweg.
-    share: 'Teilen',
   },
   // shared compact ±stepper chrome (Stepper.tsx — used everywhere incl. the Einstellungen sheet)
   stepper: {

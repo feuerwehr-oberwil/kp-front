@@ -4564,15 +4564,6 @@ export function IncidentWorkspace({
           setShareParent('status')
           setSharePick('pick')
         }} />}
-        // «Teilen» in the head — THE place an Einsatz is handed to somebody (03.09.), on the
-        // surface the FU is already looking at instead of behind the Abschluss or the Atemschutz
-        // board. One press opens the share sheet on its read-only tab; the tabs are the chooser,
-        // so no path can show a different set of links. Same gate as every minting door
-        // (`canShareLink`): editors, never a viewer, a read-only surface or a link session — the
-        // button is absent rather than present and then refusing. After the Abschluss the gate
-        // moves INSIDE the sheet (`archived` below → shareDoors): the read-only link is exactly
-        // the one wanted days later, so the button stays — with only that door behind it.
-        onShare={canShareLink ? () => setShareLink('view') : undefined}
         // «Einsatz abgeschlossen»: a mode of the incident, so it stands beside the Einsatzname
         // instead of floating as a fifth banner. Its two exits ride in the chip's menu.
         archived={incidentMeta.is_archived}
@@ -4610,10 +4601,10 @@ export function IncidentWorkspace({
             // …the Trupps that are still out included: the badge exists so the open points can be
             // read BEFORE the row is pressed, and «niemand hat den Trupp rausgemeldet» is one.
             archiveOpenCount={abschlussMissing.length + (truppsStillOut > 0 ? 1 : 0)}
-            // «Teilen» — the SAME sheet the Einsatzkopf's button opens, on the same tab. It
-            // stays because of the phone: there the Teilen button in the bar has no room
-            // (15-mobile.css · .tb-act-teilen), and this is that device's way in, so a phone is
-            // not offered fewer links than a tablet.
+            // «Teilen» — THE door to the share sheet (06.09.): the bar's own Teilen button is
+            // gone on every width, so this Einsatz-Karte row is the one place an Einsatz is
+            // handed to somebody. Same gate as every minting door (`canShareLink`): editors,
+            // never a viewer, a read-only surface or a link session.
             onShare={canShareLink ? () => setShareLink('view') : undefined}
             onHelp={() => setHelpOpen(true)}
             onInstall={isStandalone() || !installOffered(getInstallPlatform()) ? undefined : () => setInstallGuideOpen(true)}
@@ -5820,12 +5811,15 @@ export function IncidentWorkspace({
             if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
           }}
           onReload={() => { void reloadPersonnel() }}
-          // the phone's way back: the top bar drops its ↶ ↷ as soon as an Atemschutz-Alarmchip
-          // claims the room, which is exactly when this list is tapped fastest (AnwesenheitView · onUndo)
+          // the phone's way back — but ONLY while the top bar's own ↶ ↷ are off the bar. The
+          // bar drops its history pair as soon as an Atemschutz-Alarmchip claims the room
+          // (15-mobile.css · .tb-az), which is exactly when this list is tapped fastest; any
+          // other time the bar pair is the one door, so nothing is duplicated (06.09.).
           onUndo={canEditIncident ? () => stepAttendance('undo') : undefined}
           onRedo={canEditIncident ? () => stepAttendance('redo') : undefined}
           canUndo={attHist.canUndo}
           canRedo={attHist.canRedo}
+          topBarUndoHidden={azAlarm.peak >= 1 && !!azAlarm.urgent}
           onSetTimes={canEditIncident ? setAttendanceTimes : undefined}
           onRemoveBlock={canEditIncident ? removeAttendanceBlock : undefined}
           onSetNote={canEditIncident ? setAttendanceNote : undefined}

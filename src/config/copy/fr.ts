@@ -1719,7 +1719,6 @@ export const fr: Localizable<Copy> = {
     recording: 'REC',
     gpsFrozen: 'GPS figé',
     gpsFrozenHint: 'Le flux GPS en direct ne répond plus. Les véhicules restent à leur dernière position connue.',
-    share: 'Partager',
   },
   stepper: {
     less: 'moins',

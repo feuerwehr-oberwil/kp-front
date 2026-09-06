@@ -1719,7 +1719,6 @@ export const it: Localizable<Copy> = {
     recording: 'REC',
     gpsFrozen: 'GPS congelato',
     gpsFrozenHint: 'Il feed GPS in tempo reale non risponde. I veicoli restano sull’ultima posizione nota.',
-    share: 'Condividi',
   },
   stepper: {
     less: 'meno',

@@ -1725,7 +1725,6 @@ export const en: Localizable<Copy> = {
     recording: 'REC',
     gpsFrozen: 'GPS frozen',
     gpsFrozenHint: 'The live GPS feed is not responding. Vehicles are shown at their last known position.',
-    share: 'Share',
   },
   stepper: {
     less: 'less',
