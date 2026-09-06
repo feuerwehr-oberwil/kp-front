@@ -106,12 +106,15 @@
   font-size: 14px; font-weight: 700; color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
 .pin-username { font-size: 14.5px; font-weight: 600; }
 
-.pin-dots { display: flex; gap: 15px; padding: 6px 0 2px; }
+/* One dot per TYPED digit, no empty slots (06.09.): the pad must not say how long a PIN is.
+   min-height holds the row open while it is empty; 12px dots at a 10px gap put the 12-digit
+   maximum at exactly the grid's 254px, so the row can never outgrow the keys below it. */
+.pin-dots { display: flex; justify-content: center; gap: 10px; padding: 6px 0 2px; min-height: 20px; }
 .pin-dots.err { animation: pinShake .35s var(--ease); }
 /* --ink is the MARK token and flips with the theme; --ink-fill is a dark SURFACE that stays dark
    in both, so on the night login card the filled dot sat at 1.4:1 — you typed a PIN and the screen
    showed nothing back. Day is unchanged: --ink is byte-identical to the old --ink-fill there. */
-.pin-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--ink-tint);
+.pin-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ink-tint);
   box-shadow: inset 0 0 0 1px var(--ink-tint); transition: background .14s var(--ease), transform .14s var(--ease), box-shadow .14s var(--ease); }
 .pin-dot.on { background: var(--ink); transform: scale(1.14); box-shadow: 0 0 0 4px var(--ink-tint); }
 .pin-dots.err .pin-dot.on { background: var(--red); box-shadow: 0 0 0 4px color-mix(in srgb, var(--red) 18%, transparent); }
@@ -141,4 +144,10 @@
   .pin-key-fn:hover:not(:disabled) { box-shadow: none; }
 }
 .pin-key-fn .i { width: 22px; height: 22px; color: var(--ink-faint); }
+/* the ✓ — a digit-key body (same 76px target), its mark green once the PIN is long enough
+   to submit. Greying the ICON, not the key: a whole key fading in and out beside the digits
+   read as the pad itself becoming unavailable. */
+.pin-key-ok .i { width: 26px; height: 26px; color: var(--green-strong); }
+.pin-key-ok:disabled { opacity: 1; }
+.pin-key-ok:disabled .i { color: var(--ink-tint); }
 .pin-key-spacer { width: 76px; height: 76px; }

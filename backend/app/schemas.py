@@ -53,7 +53,7 @@ class UserOut(BaseModel):
 
 # --- User administration (Slice 2 — Members & access) -------------------------------
 # Editor-only management of the login users. NEVER exposes pin_hash. The PIN policy
-# (exactly `settings.pin_length` digits) is mirrored from auth.security.hash_pin; the
+# (`settings.pin_min_length`–`pin_max_length` digits) lives in auth.security.hash_pin; the
 # router re-hashes through hash_pin so a malformed PIN is rejected consistently.
 
 
@@ -78,7 +78,7 @@ class UserCreate(BaseModel):
     role: Literal["editor", "viewer"]
     color: str | None = None
     el_view_default: bool = False
-    pin: str = Field(min_length=4, max_length=12)  # exact digit policy enforced via hash_pin
+    pin: str = Field(min_length=4, max_length=12)  # digit policy (6–12) enforced via hash_pin
 
 
 class UserUpdate(BaseModel):
@@ -92,7 +92,7 @@ class UserUpdate(BaseModel):
 
 
 class PinReset(BaseModel):
-    pin: str = Field(min_length=4, max_length=12)  # exact digit policy enforced via hash_pin
+    pin: str = Field(min_length=4, max_length=12)  # digit policy (6–12) enforced via hash_pin
 
 
 # --- Incidents ----------------------------------------------------------------------

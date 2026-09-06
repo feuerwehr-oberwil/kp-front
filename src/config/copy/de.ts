@@ -2736,6 +2736,8 @@ export const de = {
     loginFailed: 'Anmeldung fehlgeschlagen',
     pleaseWait: 'Bitte kurz warten …',
     clearDigit: 'Löschen',
+    // the ✓ key on the pad — a PIN submits deliberately, never on some Nth digit
+    submitPin: 'Anmelden',
     retry: 'Erneut versuchen',
     // a 403 on the roster: this device still holds the cookie of an Einsatz-Link whose Einsatz
     // has ended, and every retry fails identically until that session is dropped
@@ -5447,7 +5449,7 @@ export const de = {
     },
     members: {
       add: 'Mitglied hinzufügen',
-      addCaption: 'Benutzername zum Anmelden, Anzeigename auf den Login-Kacheln. PIN: genau {n} Ziffern.',
+      addCaption: 'Benutzername zum Anmelden, Anzeigename auf den Login-Kacheln. PIN: {min}–{max} Ziffern.',
       username: 'Benutzername',
       usernamePlaceholder: 'z. B. fu',
       displayName: 'Anzeigename',
@@ -5461,7 +5463,7 @@ export const de = {
       colorOptional: 'optional',
       pickColor: 'Farbe wählen',
       pinLabel: 'PIN',
-      pinDigits: '{n} Ziffern',
+      pinDigits: '{min}–{max} Ziffern',
       title: 'Erfasste Mitglieder',
       caption: 'Wer sich anmelden darf und mit welcher Rolle. Mitglieder werden deaktiviert, nie gelöscht (der Verlauf bleibt erhalten).',
       loading: 'Mitglieder werden geladen …',
@@ -5502,7 +5504,7 @@ export const de = {
       pinSheetSub: 'Die bisherige PIN gilt sofort nicht mehr.',
       pinConfirmTitle: 'Nochmals eingeben',
       pinConfirmSub: 'Damit ein Vertipper niemanden aussperrt.',
-      pinEnterHint: '{n} Ziffern eingeben',
+      pinEnterHint: '{min}–{max} Ziffern eingeben',
       pinConfirmHint: 'Zur Bestätigung nochmals eingeben',
       pinMatch: 'Stimmt überein',
       pinMismatch: 'Die beiden Eingaben stimmen nicht überein.',

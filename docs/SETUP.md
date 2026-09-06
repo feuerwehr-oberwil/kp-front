@@ -192,7 +192,7 @@ right now depending on which image you run, so recognise either:
 | The `app` container restarting forever, logs say *"SEED_PIN is required in production"* | working tree / anything after v0.6.0 | The refusal, working as intended |
 | Everything healthy, `/ready` ok, `/api/auth/roster` returns `[]` | old v0.6.0 image | The same cause, silently swallowed |
 
-Same fix for both: a six-digit `SEED_PIN` in `.env` that is not one of the well-known ones, then
+Same fix for both: a 6–12-digit `SEED_PIN` in `.env` that is not one of the well-known ones, then
 `docker compose up -d --force-recreate app`. `setup.sh` performs this roster check itself – it
 fails the install with that explanation, and on success says how many accounts the login screen
 offers – so the two commands above are only yours to run on the by-hand path at the end of §2.

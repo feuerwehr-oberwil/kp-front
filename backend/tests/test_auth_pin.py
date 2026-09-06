@@ -13,7 +13,7 @@ from app.config import settings
 
 
 def test_hash_pin_roundtrip():
-    pin = "1" * settings.pin_length
+    pin = "1" * settings.pin_min_length
     h = hash_pin(pin)
     assert h != pin  # not stored in clear
     assert h.startswith("$2")  # bcrypt hash marker
@@ -21,33 +21,37 @@ def test_hash_pin_roundtrip():
 
 
 def test_verify_pin_rejects_wrong_pin():
-    pin = "123456"[: settings.pin_length].ljust(settings.pin_length, "0")
-    other = "654321"[: settings.pin_length].ljust(settings.pin_length, "0")
+    pin = "1" * settings.pin_min_length
+    other = "2" * settings.pin_min_length
     h = hash_pin(pin)
     assert verify_pin(other, h) is False
 
 
 def test_hash_pin_is_salted_unique():
     """Two hashes of the same PIN differ (random bcrypt salt) but both verify."""
-    pin = "0" * settings.pin_length
+    pin = "0" * settings.pin_min_length
     h1, h2 = hash_pin(pin), hash_pin(pin)
     assert h1 != h2
     assert verify_pin(pin, h1)
     assert verify_pin(pin, h2)
 
 
-@pytest.mark.parametrize("bad", ["", "12345", "1234567", "12a456", "abcdef"])
+@pytest.mark.parametrize("bad", ["", "12345", "1234567890123", "12a456", "abcdef"])
 def test_hash_pin_rejects_malformed(bad):
-    # Skip any input that happens to be a valid length of digits for this config.
-    if len(bad) == settings.pin_length and bad.isdigit():
-        pytest.skip("valid for this pin_length")
+    """Too short, too long (13 > pin_max_length) or non-digit — all refused."""
     with pytest.raises(ValueError):
         hash_pin(bad)
 
 
+def test_hash_pin_accepts_the_whole_range():
+    """The policy is a 6–12 digit RANGE (06.09.), not exactly six — both ends round-trip."""
+    for pin in ("1" * settings.pin_min_length, "2" * settings.pin_max_length):
+        assert verify_pin(pin, hash_pin(pin)) is True
+
+
 def test_verify_pin_tolerates_garbage_hash():
     """A corrupt/non-bcrypt stored hash must return False, never raise."""
-    assert verify_pin("0" * settings.pin_length, "not-a-bcrypt-hash") is False
+    assert verify_pin("0" * settings.pin_min_length, "not-a-bcrypt-hash") is False
 
 
 # --- PinLimiter cooldown ----------------------------------------------------------

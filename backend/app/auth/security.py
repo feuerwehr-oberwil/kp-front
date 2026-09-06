@@ -46,9 +46,9 @@ def _pepper(pin: str) -> bytes:
 
 
 def hash_pin(pin: str) -> str:
-    """Pepper then bcrypt a 6-digit PIN."""
-    if len(pin) != settings.pin_length or not pin.isdigit():
-        raise ValueError(f"PIN must be exactly {settings.pin_length} digits")
+    """Pepper then bcrypt a PIN (policy: `pin_min_length`–`pin_max_length` digits)."""
+    if not (settings.pin_min_length <= len(pin) <= settings.pin_max_length) or not pin.isdigit():
+        raise ValueError(f"PIN must be {settings.pin_min_length}-{settings.pin_max_length} digits")
     salt = bcrypt.gensalt(rounds=settings.pin_bcrypt_rounds)
     return bcrypt.hashpw(_pepper(pin), salt).decode("utf-8")
 

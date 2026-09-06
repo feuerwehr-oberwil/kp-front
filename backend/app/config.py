@@ -9,7 +9,7 @@ import secrets
 import sys
 from datetime import timedelta
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .telemetry.dsn import UPSTREAM_DSN
@@ -118,9 +118,21 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 480  # 8h
     refresh_token_expire_days: int = 7
 
-    # PIN policy
-    pin_length: int = 6
+    # PIN policy: 6–12 digits (06.09. — was exactly 6). The login pad no longer announces a
+    # length, so a station may hand out longer PINs; existing 6-digit hashes keep verifying.
+    # Mirrored in the frontend as PIN_MIN_LENGTH / PIN_MAX_LENGTH (src/components/PinPad.tsx).
+    pin_min_length: int = 6
+    pin_max_length: int = 12
     pin_bcrypt_rounds: int = 12
+
+    @model_validator(mode="after")
+    def _pin_length_bounds(self) -> "Settings":
+        """Refuse an inverted range at boot: with min > max no PIN can ever validate, and the
+        failure would otherwise surface as every SEED_PIN and admin PIN being rejected with a
+        range message that is satisfiable by nothing — a silent lockout, not a config error."""
+        if self.pin_min_length > self.pin_max_length:
+            raise ValueError("PIN_MIN_LENGTH must not exceed PIN_MAX_LENGTH.")
+        return self
 
     # Cooldown limiter (availability-safe; never permanent)
     pin_free_attempts: int = 5

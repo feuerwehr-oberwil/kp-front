@@ -11,8 +11,8 @@ import { PinPad } from './PinPad'
 const NEUTRAL_COLOR = '#6c7686' // --ink-faint, for roster tiles without an assigned colour
 
 // Kiosk login gate. Built for fast, gloved 3am use on shared station/vehicle
-// tablets: pick a face (no typed identity), then tap a 6-digit PIN. Matches the
-// "Karte Minimal" dark tactical language.
+// tablets: pick a face (no typed identity), then tap a PIN and confirm with ✓.
+// Matches the "Karte Minimal" dark tactical language.
 export function LoginScreen() {
   const { login } = useAuth()
   const [roster, setRoster] = useState<RosterEntry[] | null>(null)
@@ -130,8 +130,9 @@ function Roster({ roster, error, onPick, onRetry }: {
   )
 }
 
-// The login gate's use of the shared pad (src/components/PinPad.tsx): auto-submit on the 6th
-// digit, plus the 429 cooldown lock that only this caller has.
+// The login gate's use of the shared pad (src/components/PinPad.tsx): the ✓ key (or Enter)
+// submits — never a silent jump on some Nth digit, so the screen cannot betray how long the
+// PIN is — plus the 429 cooldown lock that only this caller has.
 function LoginPinPad({ user, onLogin, onBack }: {
   user: RosterEntry
   onLogin: (userId: string, pin: string) => Promise<void>
@@ -184,7 +185,7 @@ function LoginPinPad({ user, onLogin, onBack }: {
     <PinPad
       value={pin}
       onChange={(next) => { setError(null); setPin(next) }}
-      onComplete={(full) => void submit(full)} // auto-submit on the 6th digit
+      onSubmit={(full) => void submit(full)}
       disabled={disabled}
       message={error ?? (locked ? appConfig.copy.login.pleaseWait : undefined)}
       header={

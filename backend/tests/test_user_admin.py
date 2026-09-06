@@ -20,7 +20,7 @@ pytestmark = pytest.mark.asyncio
 # The two German refusals a PIN write can produce (app/auth/router.py). Asserted verbatim
 # because the admin PIN sheet renders `detail` straight onto the operator's screen.
 PIN_TOO_SIMPLE = "Diese PIN ist zu einfach – bitte eine andere wählen."
-PIN_WRONG_LENGTH = f"PIN muss genau {settings.pin_length} Ziffern haben."
+PIN_WRONG_LENGTH = f"PIN muss {settings.pin_min_length}–{settings.pin_max_length} Ziffern haben."
 
 
 async def _login(client, user) -> None:
@@ -107,7 +107,7 @@ async def test_create_user_duplicate_username_409(client, editor, admin_login):
 async def test_create_user_bad_pin_policy_400(client, editor, admin_login):
     await _login(client, editor)
     await admin_login(client)
-    # 5 digits passes Field(min_length=4) but violates the 6-digit hash_pin policy → 400
+    # 5 digits passes Field(min_length=4) but violates the 6–12-digit hash_pin policy → 400
     r = await client.post(
         "/api/auth/users",
         json={

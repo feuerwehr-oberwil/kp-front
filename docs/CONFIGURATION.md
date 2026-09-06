@@ -1049,7 +1049,7 @@ and locks the field – see the rule above).
 | `OVERPASS_MIRRORS` | comma-separated https Overpass endpoints behind the «Umrisse» building-outline surface, raced fastest-first. **Privacy-relevant:** the query is a bounding box around the incident, so it leaves the station – and the shipped third mirror is hosted in Russia. Called by the backend, never the browser (`app/overpass.py`), so this one variable is the whole control. Override with your own Overpass to keep it in-house, or set it **empty to switch the surface off**. ⚠️ Empty means off, not "use the default" – so `.env.example` ships the line commented out rather than blank ([`PRIVACY.md`](../PRIVACY.md)) |
 | `EXPOSE_API_DOCS` | serve `/docs`, `/redoc` and `/openapi.json` on a **production** deployment (always on in dev). Default off |
 | `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables. `DEV_CREATE_ALL` does nothing in production – it is gated by `not is_production()`, so on compose (which pins `ENVIRONMENT=production`) Alembic owns the schema whatever it says |
-| `SEED_PIN` | **Required in production** when `SEED_DATABASE` is on: the six-digit PIN the seeded account gets. The seed file's own PIN is public, so the backend refuses to boot without this rather than create a login anyone knows |
+| `SEED_PIN` | **Required in production** when `SEED_DATABASE` is on: the 6–12-digit PIN the seeded account gets. The seed file's own PIN is public, so the backend refuses to boot without this rather than create a login anyone knows |
 
 > ⚠️ **On compose, a variable only exists if `docker-compose.yml` names it.** Compose's `.env` is
 > read for *interpolation*, not handed to the container – so a line in `.env` that the
@@ -1393,7 +1393,7 @@ crew list still shows only the seeded people.
 
 ```bash
 # from backend/ – with the TARGET environment's SECRET_KEY (the PIN pepper) and DATABASE_URL
-SECRET_KEY=<target> DATABASE_URL=<target-public> SEED_PIN=<six digits> \
+SECRET_KEY=<target> DATABASE_URL=<target-public> SEED_PIN=<6–12 digits> \
   uv run python -m app.reset_roster
 ```
 

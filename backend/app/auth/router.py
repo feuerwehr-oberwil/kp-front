@@ -211,7 +211,7 @@ async def me(current_user: CurrentUser) -> User:
 # server's say the same sentence. `hash_pin`'s ValueError stays English: it is a console/CLI
 # message and used to be the one raw English string that reached an operator's screen.
 _PIN_TOO_SIMPLE = "Diese PIN ist zu einfach – bitte eine andere wählen."
-_PIN_WRONG_LENGTH = f"PIN muss genau {settings.pin_length} Ziffern haben."
+_PIN_WRONG_LENGTH = f"PIN muss {settings.pin_min_length}–{settings.pin_max_length} Ziffern haben."
 
 
 def _hash_pin_or_400(pin: str) -> str:
