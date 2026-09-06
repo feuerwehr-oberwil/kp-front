@@ -141,6 +141,29 @@ def test_restore_no_start_leaves_database_at_restored_revision(restore_command, 
     assert "stopped" in result.stdout.lower()
 
 
+@pytest.mark.parametrize("content", [b"not a tar archive", b""])
+def test_restore_refuses_invalid_storage_before_any_container_mutation(restore_command, tmp_path, content):
+    (tmp_path / "storage-example.tar.gz").write_bytes(gzip.compress(content))
+    result, calls = restore_command("--no-start")
+    assert result.returncode != 0
+    assert "no tar archive" in result.stderr
+    # Only the existing read-only project identification is allowed before refusal.
+    assert calls == [
+        "compose ps -aq db",
+        'inspect -f {{index .Config.Labels "com.docker.compose.project"}} db-fixture',
+    ]
+
+
+def test_restore_accepts_empty_storage_volume(restore_command, tmp_path):
+    empty_volume = tmp_path / "empty volume"
+    empty_volume.mkdir()
+    with tarfile.open(tmp_path / "storage-example.tar.gz", "w:gz") as archive:
+        archive.add(empty_volume, arcname=".")
+    result, calls = restore_command("--no-start")
+    assert result.returncode == 0, result.stderr
+    assert any("tar xzf" in call for call in calls)
+
+
 def test_no_start_instructions_keep_custom_environment_selection(restore_command):
     result, _calls = restore_command("--no-start", "--env-file", "settings file.env")
     assert result.returncode == 0, result.stderr

@@ -127,6 +127,8 @@ def valid_transport() -> bytes:
         "invalid-dump",
         "invalid-storage-gzip",
         "invalid-storage-tar",
+        "empty-storage-stream",
+        "truncated-storage-tar",
     ],
 )
 def test_failed_backup_preserves_every_previous_file_without_publishing_half_a_pair(backup_shell, failure):
@@ -142,6 +144,11 @@ def test_failed_backup_preserves_every_previous_file_without_publishing_half_a_p
         files["storage.tar.gz"] = b"interrupted gzip"
     elif failure == "invalid-storage-tar":
         files["storage.tar.gz"] = gzip.compress(b"not a tar archive")
+    elif failure == "empty-storage-stream":
+        files["storage.tar.gz"] = gzip.compress(b"")
+    elif failure == "truncated-storage-tar":
+        # A name can be listed before tar discovers the member body is incomplete.
+        files["storage.tar.gz"] = gzip.compress(tar_bytes({"media/test": b"photo"})[:514])
     payload = tar_bytes(files)
     if failure == "partial-transport":
         # Stop in the second member's body, after the database has already extracted.
@@ -151,6 +158,24 @@ def test_failed_backup_preserves_every_previous_file_without_publishing_half_a_p
     assert log.exists(), result.stderr
     assert {path.name: path.read_bytes() for path in backups.iterdir()} == original
     assert not (env_file.parent / ".kp-front-operation.lock").exists()
+
+
+def test_empty_storage_volume_still_publishes_a_valid_pair(backup_shell, tmp_path):
+    run, backups, original, _log, _env_file, _checkout = backup_shell
+    empty_volume = tmp_path / "empty volume"
+    empty_volume.mkdir()
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode="w:gz") as archive:
+        # Match app.backup, including its root entry even when no blobs exist.
+        archive.add(empty_volume, arcname=".")
+    result = run(tar_bytes({"db.sql.gz": gzip.compress(DUMP), "storage.tar.gz": output.getvalue()}))
+    assert result.returncode == 0, result.stderr
+    added = {path.name for path in backups.iterdir()} - original.keys()
+    assert len(added) == 2
+    assets = next(backups / name for name in added if name.startswith("storage-"))
+    with tarfile.open(assets, mode="r:gz") as archive:
+        members = archive.getmembers()
+    assert len(members) == 1 and members[0].name == "." and members[0].isdir()
 
 
 def test_success_publishes_verified_pair_and_retains_whole_pairs_with_paths_and_env_containing_spaces(backup_shell):

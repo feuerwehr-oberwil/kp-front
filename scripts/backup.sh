@@ -97,7 +97,7 @@ fi
 # an empty stream. Keep the dump prefix in a variable to avoid grep's early-exit SIGPIPE.
 DB_PART="$STAGE/db.sql.gz"
 STORAGE_PART="$STAGE/storage.tar.gz"
-if ! gzip -t "$DB_PART" || ! gzip -t "$STORAGE_PART" || ! tar tzf "$STORAGE_PART" >/dev/null; then
+if ! gzip -t "$DB_PART" || ! gzip -t "$STORAGE_PART" || ! kp_storage_archive_list "$STORAGE_PART" >/dev/null; then
   echo "ERROR: backup pair is missing or unreadable – NOT kept." >&2
   exit 1
 fi

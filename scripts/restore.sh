@@ -316,7 +316,7 @@ else
   # (above); this half had only `gzip -t`, and the file count that follows ends in `|| true`,
   # so a failing `tar tzf` printed «0 Dateien» and the script still said «beide Dateien sind
   # intakt» — the two states an operator most needs told apart, reported identically.
-  tar tzf "$STORAGE_FILE" >/dev/null 2>&1 \
+  kp_storage_archive_list "$STORAGE_FILE" >/dev/null 2>&1 \
     || die "$(sayf "$T_ERR_NOT_A_TAR_FMT" "$STORAGE_FILE")"
   ARCHIVE_FILES="$(tar tzf "$STORAGE_FILE" 2>/dev/null | grep -cv '/$' || true)"
   info "$(sayf "$T_FILES_FMT" "$DB_FILE" "$db_size" "$db_when" \

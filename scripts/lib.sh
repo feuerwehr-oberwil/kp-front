@@ -131,6 +131,14 @@ kp_env_value() {
   printf '%s' "${value:-$fallback}"
 }
 
+# GNU tar can accept a short non-tar stream as an empty archive. Our storage archives always
+# contain at least their root directory, even for an empty volume. Consume the whole listing
+# so a late tar error is preserved, rather than accepting its first successfully read member.
+kp_storage_archive_list() (
+  set -o pipefail
+  tar tzf "$1" | awk '{ found=1; print } END { if (!found) exit 1 }'
+)
+
 # ─── host backup / restore exclusion ──────────────────────────────────────────────────────
 
 # Call before any operation mutates the deployment. A restore explicitly hands its token
