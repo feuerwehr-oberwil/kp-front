@@ -554,8 +554,12 @@ export function AtemschutzView({
 
   // unlock the alarm tone + ask for OS-notification permission on this gesture, so a later
   // überfällig alert can both sound and reach the tray when the app is backgrounded.
+  // ⚠️ NOT on the public demo (06.09.): a visitor poking at Musterdorf gets no browser
+  // permission dialog thrown at their first taps — it reads as data grabbing on a demo site.
+  // The audio unlock stays (idempotent, no permission involved) — moot on the demo itself,
+  // where useAtemschutzAlarm suppresses the audible alarm anyway.
   const openForm = (mode: FormMode, trupp?: Trupp, focus?: 'auftrag') => {
-    unlockAlarm(); void ensureNotifyPermission(); setForm({ mode, trupp, focus })
+    unlockAlarm(); if (!isDemoMode()) void ensureNotifyPermission(); setForm({ mode, trupp, focus })
   }
 
   /**
@@ -573,7 +577,8 @@ export function AtemschutzView({
   const primeOnFirstTap = () => {
     if (primedGesture.current) return
     primedGesture.current = true
-    unlockAlarm(); void ensureNotifyPermission()
+    // demo: audio only — see openForm for why the permission ask stays off the demo's first taps
+    unlockAlarm(); if (!isDemoMode()) void ensureNotifyPermission()
   }
 
   const submitForm = async (f: TruppFields, standby = false) => {
