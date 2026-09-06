@@ -287,7 +287,9 @@ async def capture_put_workspace(
     """
     from .incidents import apply_workspace_put
 
-    scoped = WorkspacePut(
+    # The incoming WorkspacePut is validated already. Merging its permitted keys must
+    # not reject unchanged legacy fields owned by the main app.
+    scoped = WorkspacePut.model_construct(
         workspace=_merge_capture_keys(inc.map_workspace_json, body.workspace),
         base_rev=body.base_rev,
     )

@@ -1,44 +1,47 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { ingestEvents, ingestEventsBeacon, type ClientEvent } from './incidents'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AuditEventStore } from './auditEventStore'
+import { newId } from './ids'
+import type { SyncStatus } from './api/workspaceSync'
 
-/**
- * Audit capture (substrate A): buffer client tactical events (`emit`) and flush them to the server
- * debounced, re-queueing on a failed flush. `flushEventsBeacon` is the teardown-safe variant (a
- * keepalive beacon that survives the document unloading on tab-hide / pagehide). Extracted from
- * App's god-component so the audit-stream wiring lives as one small, testable unit.
- */
-export function useAuditEvents(incidentId: string, readOnly: boolean) {
-  const evBuf = useRef<ClientEvent[]>([])
-  const evTimer = useRef<number | null>(null)
-  const flushEventsRef = useRef<() => void>(() => {})
-  const flushEvents = useCallback(() => {
-    if (evTimer.current) { clearTimeout(evTimer.current); evTimer.current = null }
-    const batch = evBuf.current
-    if (!batch.length) return
-    evBuf.current = []
-    void ingestEvents(incidentId, batch).catch(() => {
-      // Don't silently drop audit events on a failed flush — re-queue (oldest first) and retry.
-      // Capped so a long offline spell can't grow the buffer without bound; the workspace blob
-      // still carries the resulting state, this preserves the event stream.
-      evBuf.current = [...batch, ...evBuf.current].slice(-1000)
-      if (!evTimer.current) evTimer.current = window.setTimeout(() => flushEventsRef.current(), 8000)
-    })
-  }, [incidentId])
-  useEffect(() => { flushEventsRef.current = flushEvents }, [flushEvents])
-
-  const flushEventsBeacon = useCallback(() => {
-    const batch = evBuf.current
-    if (!batch.length) return
-    evBuf.current = []
-    ingestEventsBeacon(incidentId, batch)
-  }, [incidentId])
+/** Capture tactical events durably under the incident and actor who made them. The server
+ *  deduplicates client_id, so a lost response or unacknowledged teardown can safely retry. */
+export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: string | null = null) {
+  const [, changed] = useState(0)
+  const store = useMemo(() => ownerId ? new AuditEventStore(incidentId, ownerId, readOnly) : null, [incidentId, ownerId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!store) return
+    const unsubscribe = store.subscribe(() => changed((n) => n + 1))
+    store.start()
+    const online = () => { void store.flush() }
+    const hidden = () => { if (document.visibilityState === 'hidden') store.flushKeepalive() }
+    const pagehide = () => store.flushKeepalive()
+    window.addEventListener('online', online)
+    document.addEventListener('visibilitychange', hidden)
+    window.addEventListener('pagehide', pagehide)
+    return () => {
+      unsubscribe()
+      store.stop()
+      window.removeEventListener('online', online)
+      document.removeEventListener('visibilitychange', hidden)
+      window.removeEventListener('pagehide', pagehide)
+    }
+  }, [store])
+  useEffect(() => { store?.setReadOnly(readOnly) }, [store, readOnly])
 
   const emit = useCallback((op_type: string, payload?: Record<string, unknown>) => {
     if (readOnly) return
-    evBuf.current.push({ op_type, payload, occurred_at: new Date().toISOString() })
-    if (evTimer.current) clearTimeout(evTimer.current)
-    evTimer.current = window.setTimeout(flushEvents, 4000)
-  }, [readOnly, flushEvents])
+    store?.append({ client_id: newId('audit'), op_type, payload, occurred_at: new Date().toISOString() })
+  }, [store, readOnly])
+  const flushEvents = useCallback(() => store?.flush() ?? Promise.resolve(), [store])
+  const flushEventsBeacon = useCallback(() => store?.flushKeepalive(), [store])
 
-  return { emit, flushEvents, flushEventsBeacon }
+  const retry = useCallback(() => store?.retry() ?? Promise.resolve(), [store])
+  const getStatus = useCallback((): SyncStatus => store?.status ?? 'synced', [store])
+  const getRecoveryData = useCallback(() => store?.getRecoveryData() ?? null, [store])
+
+  return {
+    emit, flushEvents, flushEventsBeacon, retry, getStatus, getRecoveryData,
+    pendingCount: store?.pendingCount ?? 0, rejectedCount: store?.rejectedCount ?? 0,
+    cacheDurable: store?.cacheDurable ?? true, status: store?.status ?? 'synced',
+  }
 }

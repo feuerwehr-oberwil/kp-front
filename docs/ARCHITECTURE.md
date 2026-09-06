@@ -139,8 +139,12 @@ sequenceDiagram
   participant API as FastAPI
   participant DB as PostgreSQL
   participant B as Device B
-  A->>API: PUT workspace (full blob)
-  API->>API: merge per object by id (last-write-wins)
+  A->>API: PUT workspace (full blob + base_rev)
+  opt revision conflict
+    API-->>A: 409 (current workspace + rev)
+    A->>A: three-way merge by id, apply merged document locally
+    A->>API: retry merged workspace + current rev
+  end
   API->>DB: append IncidentEvent (hash-chained)
   API->>DB: store workspace + workspace_rev++
   API-->>A: 200 (new rev)
@@ -152,6 +156,22 @@ sequenceDiagram
 The browser also keeps the incident in **IndexedDB** (`src/lib/idb.ts`; localStorage is only a
 fallback for small device preferences) and queues writes while offline, so the
 app keeps working without connectivity and reconciles on reconnect.
+
+Workspace writes, journal rows and client audit events have separate durable queues. The
+shared saved indicator combines all three: it cannot turn green while one queue still has
+pending or rejected work. Failed local persistence is reported separately from failed upload.
+The journal offers one recovery notice with retry and a JSON export of unsent entries.
+
+Client audit events use a stable `client_id`, unique within an incident. The server serializes
+appends under the incident row lock and returns the existing event for an identical retry;
+reusing an ID for different content or authorship fails the whole batch. The hash chain remains
+unchanged. Events without an ID retain legacy append behavior. The browser queue is scoped to
+incident and actor, survives reload, and removes events only after an acknowledged response;
+teardown beacons may safely be delivered again. Journal rows retain their existing idempotent IDs.
+
+Tab promotion reloads the previous writer's IndexedDB queue before persisting. Initial cache
+reads merge entries captured while the read was in flight. Legacy localStorage migrations
+remove their source only after IndexedDB confirms the replacement write.
 
 ## Deployment
 

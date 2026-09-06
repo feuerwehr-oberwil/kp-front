@@ -23,12 +23,13 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, onSettings, onSwitch, onHistory, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
   isEditor: boolean
   syncStatus: SyncStatus
+  syncDetail?: string
   lastSyncedAt: number | null
   user: { display_name: string; color: string | null; role: string }
   /** open the Einstellungen sheet (device prefs + synced incident settings) */
@@ -141,7 +142,7 @@ export function IncidentSwitcher({
   // text + save time in the dropdown the user taps open (hover tooltips don't fire on a tablet).
   const savedText = syncStatus === 'synced'
     ? (lastSyncedAt != null ? fillTemplate(cp.savedAt, { t: fmtClock(lastSyncedAt) }) : cp.saved)
-    : badgeTitle[syncStatus]
+    : syncDetail ?? badgeTitle[syncStatus]
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
     : syncStatus === 'error' || syncStatus === 'storage'

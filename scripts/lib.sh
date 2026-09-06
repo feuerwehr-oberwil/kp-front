@@ -131,6 +131,75 @@ kp_env_value() {
   printf '%s' "${value:-$fallback}"
 }
 
+# ─── host backup / restore exclusion ──────────────────────────────────────────────────────
+
+# Call before any operation mutates the deployment. A restore explicitly hands its token
+# to its safety backup; unrelated backups (including cron) must wait for a later invocation.
+# The lock lives OUTSIDE storage, whose entire contents a restore deliberately replaces.
+KP_OPERATION_LOCK_PATH=""
+KP_OPERATION_LOCK_OWNED=0
+KP_OPERATION_TOKEN=""
+
+kp_operation_lock() {
+  local env_file="$1" operation="$2" inherited="${3:-}" directory link hops=0 saved=""
+  while [[ -L "$env_file" ]]; do
+    hops=$((hops + 1))
+    [[ "$hops" -le 40 ]] || { warn "Cannot resolve environment-file symlink: $1"; return 1; }
+    link="$(readlink "$env_file")" || return 1
+    if [[ "$link" == /* ]]; then env_file="$link"; else env_file="$(dirname "$env_file")/$link"; fi
+  done
+  directory="$(cd -P -- "$(dirname "$env_file")" && pwd)" || return 1
+  KP_OPERATION_LOCK_PATH="$directory/.kp-front-operation.lock"
+  KP_OPERATION_LOCK_OWNED=0
+  KP_OPERATION_TOKEN=""
+
+  if [[ -n "$inherited" ]]; then
+    if [[ -d "$KP_OPERATION_LOCK_PATH" && ! -L "$KP_OPERATION_LOCK_PATH" ]]; then
+      IFS= read -r saved < "$KP_OPERATION_LOCK_PATH/token" 2>/dev/null || true
+    fi
+    if [[ -n "$saved" && "$saved" == "$inherited" ]]; then
+      KP_OPERATION_TOKEN="$inherited"
+      return 0
+    fi
+    warn "The parent recovery lock is missing or changed; refusing $operation."
+    return 1
+  fi
+
+  if (umask 077; mkdir -- "$KP_OPERATION_LOCK_PATH") 2>/dev/null; then
+    KP_OPERATION_TOKEN="$$-$RANDOM-$RANDOM-$RANDOM"
+    if ! (umask 077
+      printf '%s\n' "$KP_OPERATION_TOKEN" > "$KP_OPERATION_LOCK_PATH/token" &&
+        printf 'operation=%s\npid=%s\n' "$operation" "$$" > "$KP_OPERATION_LOCK_PATH/owner"
+    ); then
+      # We created this directory but could not establish a token. Leave it for inspection.
+      warn "Could not write operation-lock ownership at $KP_OPERATION_LOCK_PATH; refusing $operation."
+      return 1
+    fi
+    KP_OPERATION_LOCK_OWNED=1
+    return 0
+  fi
+
+  warn "Backup/restore operation lock is present (or cannot be created): $KP_OPERATION_LOCK_PATH"
+  if [[ -d "$KP_OPERATION_LOCK_PATH" && ! -L "$KP_OPERATION_LOCK_PATH" && -f "$KP_OPERATION_LOCK_PATH/owner" ]]; then
+    cat "$KP_OPERATION_LOCK_PATH/owner" >&2
+  fi
+  warn "Refusing $operation before changing data. A killed process can leave this lock behind."
+  warn "Only after confirming no backup or restore process is still running, remove the stale lock:"
+  printf '    rm -r -- %q\n' "$KP_OPERATION_LOCK_PATH" >&2
+  return 1
+}
+
+# Safe in an EXIT trap: an inherited token never owns cleanup, and a replaced lock is left alone.
+kp_operation_unlock() {
+  local saved=""
+  [[ "$KP_OPERATION_LOCK_OWNED" -eq 1 && -d "$KP_OPERATION_LOCK_PATH" && ! -L "$KP_OPERATION_LOCK_PATH" ]] || return 0
+  IFS= read -r saved < "$KP_OPERATION_LOCK_PATH/token" 2>/dev/null || true
+  [[ -n "$saved" && "$saved" == "$KP_OPERATION_TOKEN" ]] || return 0
+  rm -f -- "$KP_OPERATION_LOCK_PATH/token" "$KP_OPERATION_LOCK_PATH/owner"
+  rmdir -- "$KP_OPERATION_LOCK_PATH"
+  KP_OPERATION_LOCK_OWNED=0
+}
+
 # ─── docker / compose ─────────────────────────────────────────────────────────────────────
 
 # COMPOSE_ARGS carries --env-file / --profile. The ${…+…} guard is for `set -u`: an empty

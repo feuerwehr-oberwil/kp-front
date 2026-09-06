@@ -206,6 +206,26 @@ describe('request – the 422 validation array (ApiError.fields)', () => {
 })
 
 describe('request — transparent 401 refresh + retry', () => {
+  it('renews the expired access cookie during the cold-boot /me probe', async () => {
+    const user = { id: 'editor', role: 'editor' }
+    fetchMock
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(json(user))
+      .mockResolvedValueOnce(json(user))
+    await expect(apiGet('/api/auth/me')).resolves.toEqual(user)
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/api/auth/me', '/api/auth/refresh', '/api/auth/me',
+    ])
+  })
+
+  it('does not renew the device login for an expired Atemschutz-link /me probe', async () => {
+    vi.stubGlobal('location', { pathname: '/l/a12345678' })
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }))
+    await expect(apiGet('/api/auth/me')).rejects.toMatchObject({ status: 401 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+
   it('refreshes once on a 401 (non-auth path) and retries the original request', async () => {
     fetchMock
       .mockResolvedValueOnce(new Response(null, { status: 401 }))   // original 401s
@@ -289,6 +309,24 @@ describe('request — timeouts (half-open connections)', () => {
 })
 
 describe('apiGetRaw — caller-branched statuses', () => {
+  it('renews an expired cookie for an idle live-follow poll and preserves the 304 response', async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(json({ id: 'editor' }))
+      .mockResolvedValueOnce(new Response(null, { status: 304 }))
+    const path = '/api/incidents/x/workspace?since=4&wait=1'
+    expect((await apiGetRaw(path)).status).toBe(304)
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([path, '/api/auth/refresh', path])
+  })
+
+  it('does not renew the device login when an Atemschutz link poll expires', async () => {
+    vi.stubGlobal('location', { pathname: '/l/a12345678' })
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }))
+    expect((await apiGetRaw('/api/incidents/x/workspace?since=4')).status).toBe(401)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+
   it('returns the Response without throwing on a non-2xx (e.g. 304)', async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 304 }))
     const res = await apiGetRaw('/api/incidents/x/workspace?since=4')

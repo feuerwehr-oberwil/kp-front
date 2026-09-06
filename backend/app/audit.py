@@ -23,6 +23,10 @@ from .models import Incident, IncidentEvent, VehicleSample, WorkspaceSnapshot
 GENESIS = "0" * 64
 
 
+class EventIdentityConflictError(ValueError):
+    """A client event ID was reused for a different operation or author."""
+
+
 def _stamp(dt: datetime) -> str:
     """The timestamp exactly as the chain hashes it: UTC, tz-aware, ISO.
 
@@ -58,6 +62,7 @@ async def append_event(
     payload: dict | None = None,
     user_id: uuid.UUID | None = None,
     occurred_at: datetime | None = None,
+    client_id: str | None = None,
 ) -> IncidentEvent:
     """Append one event to an incident's chain, assigning seq/prev_hash/hash.
 
@@ -73,6 +78,27 @@ async def append_event(
     # hash chain, which is the more expensive half. Serialising is the fix; the wait is one
     # INSERT long. No-op on SQLite, which has neither row locks nor concurrent writers.
     await db.execute(select(Incident.id).where(Incident.id == incident_id).with_for_update())
+
+    # The lock also serialises retry lookup with append. A lost response must not turn one
+    # action into two chain links. Existing clients without IDs retain append semantics.
+    if client_id is not None:
+        existing = (
+            await db.execute(
+                select(IncidentEvent).where(
+                    IncidentEvent.incident_id == incident_id, IncidentEvent.client_id == client_id
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            if (
+                existing.source != source
+                or existing.user_id != user_id
+                or existing.op_type != op_type
+                or _canonical(existing.payload_json or {}) != _canonical(payload or {})
+                or (occurred_at is not None and _stamp(existing.occurred_at) != _stamp(occurred_at))
+            ):
+                raise EventIdentityConflictError("Event ID already belongs to a different operation")
+            return existing
 
     last = (
         await db.execute(
@@ -99,6 +125,7 @@ async def append_event(
     digest = compute_hash(prev_hash, fields)
 
     event = IncidentEvent(
+        client_id=client_id,
         incident_id=incident_id,
         seq=seq,
         occurred_at=occurred,

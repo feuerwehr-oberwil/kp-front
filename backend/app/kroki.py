@@ -1657,15 +1657,22 @@ def render_plan_page(
     every existing caller stays exactly as it was."""
     import pypdfium2 as pdfium
 
+    from .pdfium_lock import pdfium_lock
+
     ss = supersample
-    doc = pdfium.PdfDocument(pdf_bytes)
-    try:
-        page = doc[0]
-        pw, _ph = page.get_size()
-        scale = (width * ss) / pw
-        base = page.render(scale=scale).to_pil().convert("RGBA")
-    finally:
-        doc.close()
+    with pdfium_lock:
+        doc = pdfium.PdfDocument(pdf_bytes)
+        try:
+            page = doc[0]
+            pw, _ph = page.get_size()
+            scale = (width * ss) / pw
+            bitmap = page.render(scale=scale)
+            try:
+                base = bitmap.to_pil().convert("RGBA")
+            finally:
+                bitmap.close()
+        finally:
+            doc.close()
     return _overlay_board_annos(base, annos, pack, width, supersample, ref_width, legend_out)
 
 

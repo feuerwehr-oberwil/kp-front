@@ -70,15 +70,21 @@ async def ingest_events(
     # uq_incident_events_seq, which is what a 500 on somebody's phone mid-Einsatz used to be.
     out = []
     for e in body.events:
-        ev = await audit.append_event(
-            db,
-            incident_id=incident_id,
-            op_type=e.op_type,
-            source="atemschutz-link" if link else "client",
-            payload=e.payload,
-            user_id=None if link else user.id,
-            occurred_at=e.occurred_at,
-        )
+        try:
+            ev = await audit.append_event(
+                db,
+                incident_id=incident_id,
+                op_type=e.op_type,
+                source="atemschutz-link" if link else "client",
+                payload=e.payload,
+                user_id=None if link else user.id,
+                occurred_at=e.occurred_at,
+                client_id=e.client_id,
+            )
+        except audit.EventIdentityConflictError as exc:
+            raise HTTPException(
+                status_code=409, detail="Ereignis-ID bereits für einen anderen Eintrag verwendet"
+            ) from exc
         out.append(ev)
     return out
 

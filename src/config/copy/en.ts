@@ -786,6 +786,14 @@ export const en: Localizable<Copy> = {
     draftDiscarded: 'Incomplete drawing discarded',
   },
   journal: {
+    delivery: {
+      failedTitle: '{n} entries not uploaded',
+      storageTitle: 'Entries not safely stored',
+      storageBody: 'Keep the app open and save a copy. Closing the app may lose these entries.',
+      savedBody: 'Saved on this device. These entries are missing on other devices.',
+      offlineBody: 'Saved on this device. Upload retries automatically when a connection is available.',
+      retry: 'Retry', retrying: 'Retrying …', export: 'Save entries', short: 'Entries not uploaded',
+    },
     open: 'Log',
     add: 'Entry',
     addHint: 'Tap for an entry · hold, then slide onto a voice memo or a photo',

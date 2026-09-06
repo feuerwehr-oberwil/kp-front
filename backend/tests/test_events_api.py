@@ -7,8 +7,7 @@ evident, and `verify` recomputes it to say so. Contract under test:
 - read is any authenticated user, ingest needs an editor (a viewer is refused);
 - ingest assigns seq in ARRIVAL order and chains hash→prev_hash, regardless of the client's
   own `occurred_at` — the chain is over ingest order, the timeline is over `occurred_at`;
-  a batch replayed twice is NOT deduped (unlike the journal store) — every attempt is a
-  fresh, distinct chain link, which is the point of an append-only audit trail;
+  identified retries return their original event; legacy clients without IDs still append;
 - `snapshot`/`state` reconstruct from the nearest workspace snapshot <= a requested instant;
 - `verify` reports an intact chain, and pinpoints exactly where a tampered one first breaks.
 
@@ -21,12 +20,14 @@ source="atemschutz-link") is already covered end-to-end in test_incident_link.py
 duplicated here.
 """
 
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app import audit, storage
 from app.models import IncidentEvent, VehicleSample, WorkspaceSnapshot
@@ -148,10 +149,7 @@ async def test_ingest_defaults_occurred_at_to_now_when_omitted(client, editor):
 
 
 async def test_a_replayed_batch_is_not_deduped(client, editor):
-    """Unlike the journal store (row `id` is an idempotency key), events have none: a client
-    that retries a flush after a lost response appends the SAME events again as fresh chain
-    links. This is deliberate for an append-only audit trail (every attempt is recorded), but
-    it does mean the client — not this endpoint — owns not double-sending a successful flush."""
+    """Older clients without a client_id retain their append-only wire contract."""
     await _login(client, editor)
     inc = await _incident(client)
     batch = _events("draw.create")
@@ -161,6 +159,107 @@ async def test_a_replayed_batch_is_not_deduped(client, editor):
     listed = (await client.get(f"/api/incidents/{inc}/events")).json()
     assert len(listed) == 3  # incident.create + the two identical flushes
     assert [e["seq"] for e in listed] == [1, 2, 3]
+
+
+async def test_identified_retry_returns_original_event_and_keeps_chain_intact(client, editor):
+    await _login(client, editor)
+    inc = await _incident(client)
+    event = {"client_id": "audit123-1", "op_type": "draw.create", "payload": {"id": "line1"}}
+    first = await client.post(f"/api/incidents/{inc}/events", json={"events": [event, event]})
+    assert first.status_code == 201
+    assert first.json()[0]["id"] == first.json()[1]["id"]
+    retry = await client.post(f"/api/incidents/{inc}/events", json={"events": [event]})
+    assert retry.json()[0]["id"] == first.json()[0]["id"]
+    verified = (await client.get(f"/api/incidents/{inc}/verify")).json()
+    assert verified["intact"] is True
+    assert verified["count"] == 2
+
+
+async def test_reused_event_id_cannot_hide_different_content(client, editor):
+    await _login(client, editor)
+    inc = await _incident(client)
+    event = {"client_id": "audit123-2", "op_type": "draw.create", "payload": {"id": "line1"}}
+    assert (await client.post(f"/api/incidents/{inc}/events", json={"events": [event]})).status_code == 201
+    changed = {**event, "payload": {"id": "line2"}}
+    response = await client.post(f"/api/incidents/{inc}/events", json={"events": [changed]})
+    assert response.status_code == 409
+    assert (await client.get(f"/api/incidents/{inc}/verify")).json()["count"] == 2
+
+
+async def test_event_id_is_scoped_to_incident(client, editor):
+    await _login(client, editor)
+    first, second = await _incident(client), await _incident(client)
+    event = {"client_id": "audit123-3", "op_type": "draw.create"}
+    a = await client.post(f"/api/incidents/{first}/events", json={"events": [event]})
+    b = await client.post(f"/api/incidents/{second}/events", json={"events": [event]})
+    assert a.status_code == b.status_code == 201
+    assert a.json()[0]["id"] != b.json()[0]["id"]
+
+
+async def test_conflicting_id_rolls_back_earlier_new_events_in_the_batch(client, editor):
+    await _login(client, editor)
+    inc = await _incident(client)
+    original = {"client_id": "audit-original", "op_type": "draw.create"}
+    await client.post(f"/api/incidents/{inc}/events", json={"events": [original]})
+    response = await client.post(
+        f"/api/incidents/{inc}/events",
+        json={
+            "events": [
+                {"client_id": "audit-new", "op_type": "entity.move"},
+                {**original, "op_type": "draw.delete"},
+            ]
+        },
+    )
+    assert response.status_code == 409
+    assert (await client.get(f"/api/incidents/{inc}/verify")).json()["count"] == 2
+
+
+async def test_event_id_cannot_be_reused_for_a_different_author_or_time(client, editor, db_session):
+    await _login(client, editor)
+    inc = uuid.UUID(await _incident(client))
+    stamp = datetime(2026, 9, 6, tzinfo=UTC)
+    await audit.append_event(
+        db_session,
+        incident_id=inc,
+        op_type="draw.create",
+        source="client",
+        user_id=editor.id,
+        occurred_at=stamp,
+        client_id="audit-author",
+    )
+    for changed in ({"source": "atemschutz-link", "user_id": None}, {"occurred_at": stamp + timedelta(seconds=1)}):
+        args = {"source": "client", "user_id": editor.id, "occurred_at": stamp, **changed}
+        with pytest.raises(audit.EventIdentityConflictError):
+            await audit.append_event(
+                db_session, incident_id=inc, op_type="draw.create", client_id="audit-author", **args
+            )
+
+
+async def test_concurrent_identified_retry_appends_once_on_postgres(client, editor, engine):
+    if engine.dialect.name != "postgresql":
+        pytest.skip("requires PostgreSQL row locks and independent transactions")
+    await _login(client, editor)
+    inc = uuid.UUID(await _incident(client))
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def append():
+        async with sessions() as db:
+            event = await audit.append_event(
+                db,
+                incident_id=inc,
+                op_type="draw.create",
+                source="client",
+                user_id=editor.id,
+                client_id="audit-concurrent",
+            )
+            await db.commit()
+            return event.id
+
+    a, b = await asyncio.gather(append(), append())
+    assert a == b
+    verified = (await client.get(f"/api/incidents/{inc}/verify")).json()
+    assert verified["intact"] is True
+    assert verified["count"] == 2
 
 
 async def test_list_events_filters_by_occurred_at_window(client, editor):

@@ -788,6 +788,14 @@ export const it: Localizable<Copy> = {
     draftDiscarded: 'Disegno incompleto scartato',
   },
   journal: {
+    delivery: {
+      failedTitle: '{n} voci non trasmesse',
+      storageTitle: 'Voci non salvate in modo sicuro',
+      storageBody: 'Mantieni aperta l’app e salva una copia. Chiudendo l’app, queste voci potrebbero andare perse.',
+      savedBody: 'Salvate su questo dispositivo. Queste voci mancano sugli altri dispositivi.',
+      offlineBody: 'Salvate su questo dispositivo. La trasmissione riprende automaticamente quando è disponibile una connessione.',
+      retry: 'Riprova', retrying: 'Nuovo tentativo …', export: 'Salva le voci', short: 'Voci non trasmesse',
+    },
     open: 'Diario',
     add: 'Voce',
     addHint: 'Tocca per una voce · tieni premuto, poi scorri su memo vocale o foto',

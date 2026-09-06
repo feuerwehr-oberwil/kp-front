@@ -374,6 +374,31 @@ describe('WorkspaceSync.flush · a revoked session locks the cache mid-flush', (
     other.dispose()
   })
 
+  it('a 401 on the follow-on PUT denies reads before the shared drain finishes', async () => {
+    const store = backingStore()
+    signedInAs('u1')
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    await sync.init()
+    sync.save({ n: 1 })
+    putWorkspace.mockImplementationOnce(async () => {
+      sync.save({ n: 2 }) // a newer edit lands while the first request is in flight
+      return { workspace: null, workspace_rev: 8 }
+    }).mockRejectedValueOnce(new ApiError(401, 'Nicht angemeldet'))
+
+    await Promise.all([sync.flush(), sync.flush()])
+
+    expect(putWorkspace).toHaveBeenCalledTimes(2)
+    expect(sync.hasUnsynced).toBe(true)
+    expect(sync.syncStatus).toBe('error')
+    sync.dispose()
+    expect(store.get('kp-front-ws-i1')).toMatchObject({ workspace: { n: 2 }, owner: 'u1', dirty: true })
+    store.set('kp-front-ws-i2', cachedEdit('u1'))
+    getWorkspace.mockRejectedValue(new ApiError(0, 'Netzwerkfehler'))
+    const other = new WorkspaceSync('i2')
+    await expect(other.init()).rejects.toBeInstanceOf(ApiError)
+    other.dispose()
+  })
+
   it('a 403 on the write path does NOT deny — it can be the Atemschutz-Link slice legitimately refused', async () => {
     backingStore()
     signedInAs('u1')

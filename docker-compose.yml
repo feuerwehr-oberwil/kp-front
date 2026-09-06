@@ -11,7 +11,8 @@
 # a usable deployment; what it looks like depends on the image (docs/SETUP.md §1).
 #
 # Updating:  docker compose pull && docker compose up -d
-# Pinning:   set KP_FRONT_TAG=0.3.0 in .env (default: latest). Rollback = pin the older tag.
+# Pinning:   set KP_FRONT_TAG=0.3.0 in .env (default: latest). Schema rollback needs an explicit
+# pre-upgrade restore with --no-start before pinning the older tag; see docs/DEPLOYMENT.md.
 #
 # Serves plain HTTP on ${APP_BIND:-0.0.0.0}:${APP_PORT:-8000} – pick a free port if something
 # else on the host already owns 8000. For automatic HTTPS on a domain, add Caddy:

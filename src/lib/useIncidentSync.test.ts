@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The live-follow loop's only network call. Mocked at the module boundary (the hook imports the
@@ -10,6 +10,11 @@ vi.mock('./incidents', async () => {
   return { ...actual, pollWorkspaceSince }
 })
 
+import { useCallback, useState } from 'react'
+import { WorkspaceSync } from './api/workspaceSync'
+import * as workspaceApi from './api/workspace'
+import * as idb from './idb'
+import { ApiError } from './api'
 import { appConfig } from '../config/appConfig'
 import * as deploymentConfig from './deploymentConfig'
 import { LONG_POLL_SPACING_MS } from './pollBackoff'
@@ -209,5 +214,66 @@ describe('useIncidentSync — live-follow loop', () => {
     await vi.advanceTimersByTimeAsync(1) // visible again → catch up at once
     expect(pollWorkspaceSince).toHaveBeenCalledTimes(2)
     expect(pollWorkspaceSince.mock.calls[1][2].wait).toBe(true)
+  })
+})
+
+// Keep both the real sync engine and its React consumer: an internal merge alone used to
+// pass while the UI kept the old blob and deleted remote data on its next ordinary edit.
+describe('useIncidentSync – edit during a conflict merge', () => {
+  it('hydrates the rebased union without an echo save, then preserves it on the next edit', async () => {
+    vi.spyOn(idb, 'idbGet').mockResolvedValue(null)
+    vi.spyOn(idb, 'idbSet').mockResolvedValue(true)
+    const initial: Saved = { entities: [], drawings: [], recent: [], layerState: [], timeline: [] }
+    vi.spyOn(workspaceApi, 'getWorkspace')
+      .mockResolvedValueOnce({ workspace: { ...initial }, workspace_rev: 1 })
+      .mockResolvedValueOnce({ workspace: { ...initial, reportMeta: { summary: 'Remote report' } }, workspace_rev: 2 })
+    let releaseMerge!: () => void
+    let mergeStarted!: () => void
+    const enteredMerge = new Promise<void>((resolve) => { mergeStarted = resolve })
+    const mergeResponse = new Promise<void>((resolve) => { releaseMerge = resolve })
+    const put = vi.spyOn(workspaceApi, 'putWorkspace')
+      .mockRejectedValueOnce(new ApiError(409, 'stale'))
+      .mockImplementationOnce(async () => {
+        mergeStarted()
+        await mergeResponse
+        return { workspace: null, workspace_rev: 3 }
+      })
+      .mockResolvedValueOnce({ workspace: null, workspace_rev: 4 })
+      .mockResolvedValueOnce({ workspace: null, workspace_rev: 5 })
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    await sync.init()
+    const save = vi.spyOn(sync, 'save')
+    const flushEvents = () => {}
+    const flushEventsBeacon = () => {}
+    const { result, unmount } = renderHook(() => {
+      const [ws, setWs] = useState(initial)
+      const buildPayload = useCallback(() => ws, [ws])
+      const status = useIncidentSync({
+        sync, incidentId: 'i1', readOnly: false, buildPayload,
+        applyWorkspace: setWs, flushEvents, flushEventsBeacon,
+      })
+      return { ws, setWs, status }
+    })
+    const edit = (remarks: string) => act(() => {
+      result.current.setWs((ws) => ({ ...ws, reportMeta: { ...ws.reportMeta, remarks } }))
+    })
+    edit('First edit')
+    let flushing!: Promise<void>
+    await act(async () => { flushing = sync.flush(); await enteredMerge })
+    edit('Edit while merge PUT is pending')
+    await act(async () => { releaseMerge(); await flushing })
+    await act(async () => { await sync.flush() })
+    // The rehydrate must not re-save, clear the pending edit, or start a push/pull echo.
+    expect(save).toHaveBeenCalledTimes(2)
+    expect(result.current.status.syncStatus).toBe('synced')
+    edit('Next ordinary edit')
+    await act(async () => { await sync.flush() })
+    expect(put.mock.calls[put.mock.calls.length - 1][1]).toMatchObject({
+      reportMeta: { summary: 'Remote report', remarks: 'Next ordinary edit' },
+    })
+    expect(result.current.ws.reportMeta).toEqual({ summary: 'Remote report', remarks: 'Next ordinary edit' })
+    expect(save).toHaveBeenCalledTimes(3)
+    unmount()
+    sync.dispose()
   })
 })

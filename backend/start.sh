@@ -32,8 +32,28 @@ abort_or_override() {
 }
 
 if [ -n "${DATABASE_URL:-}" ]; then
-  current="$(uv run alembic current 2>/dev/null | grep -oE '^[0-9a-f]+' | sort | tr '\n' ',' || true)"
-  head="$(uv run alembic heads 2>/dev/null | grep -oE '^[0-9a-f]+' | sort | tr '\n' ',' || true)"
+  # An older image cannot resolve a newer database revision. Treating that error as an empty
+  # database took another dump on every failed boot and eventually rotated away the actual
+  # pre-upgrade backup. Resolve BOTH sides successfully before creating or rotating any dump.
+  # Keep Alembic's stderr visible: it distinguishes an unknown revision from an unreachable DB.
+  if ! current_output="$(uv run alembic current)"; then
+    echo "✖ Cannot resolve the database migration revision; refusing to start." >&2
+    echo "✖ No migration backup was created or rotated. Check the Alembic error above." >&2
+    echo "✖ If the revision is unknown, use the image that last migrated this database;" >&2
+    echo "✖ an older image cannot start it simply by changing the image tag." >&2
+    exit 1
+  fi
+  if ! head_output="$(uv run alembic heads)"; then
+    echo "✖ Cannot resolve this image's migration head; refusing to start." >&2
+    echo "✖ No migration backup was created or rotated. Use an image with a valid migration history." >&2
+    exit 1
+  fi
+  current="$(printf '%s\n' "$current_output" | grep -oE '^[0-9a-f]+' | sort | tr '\n' ',' || true)"
+  head="$(printf '%s\n' "$head_output" | grep -oE '^[0-9a-f]+' | sort | tr '\n' ',' || true)"
+  if [ -z "$head" ]; then
+    echo "✖ This image has no recognised migration head; refusing to start without touching backups." >&2
+    exit 1
+  fi
   if [ "$current" != "$head" ]; then
     # pg_dump speaks postgresql://, not SQLAlchemy's postgresql+asyncpg:// driver URL.
     dump_url="${DATABASE_URL/+asyncpg/}"

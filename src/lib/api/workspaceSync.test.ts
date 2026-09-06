@@ -156,3 +156,51 @@ describe('WorkspaceSync · the cache write is debounced', () => {
     expect(idbSet.mock.calls[3][1]).toMatchObject({ workspace: { n: 3 } })
   })
 })
+
+
+describe('WorkspaceSync – awaited flush', () => {
+  it('joins the in-flight PUT and waits for the newer edit sent after its acknowledgement', async () => {
+    vi.useFakeTimers()
+    let releaseFirst!: () => void
+    let releaseSecond!: () => void
+    let secondStarted!: () => void
+    const first = new Promise<void>((resolve) => { releaseFirst = resolve })
+    const second = new Promise<void>((resolve) => { releaseSecond = resolve })
+    const enteredSecond = new Promise<void>((resolve) => { secondStarted = resolve })
+    putWorkspace.mockImplementationOnce(async () => { await first; return { workspace_rev: 8 } })
+      .mockImplementationOnce(async () => { secondStarted(); await second; return { workspace_rev: 9 } })
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    await sync.init()
+    sync.save({ n: 1 })
+    const automatic = sync.flush()
+    sync.save({ n: 2 })
+    let completed = false
+    const manual = sync.flush().then(() => { completed = true })
+    await Promise.resolve()
+    expect(completed).toBe(false)
+    releaseFirst()
+    await enteredSecond
+    expect(completed).toBe(false)
+    releaseSecond()
+    await Promise.all([automatic, manual])
+    expect(putWorkspace).toHaveBeenLastCalledWith('i1', { n: 2 }, 8)
+    expect(sync.syncStatus).toBe('synced')
+    sync.dispose()
+  })
+
+  it('joined flushes share one failed attempt and retain the existing automatic retry delay', async () => {
+    vi.useFakeTimers()
+    putWorkspace.mockRejectedValue(new ApiError(0, 'offline'))
+    const sync = new WorkspaceSync('i1')
+    await sync.init()
+    sync.save({ n: 1 })
+    await Promise.all([sync.flush(), sync.flush()])
+    expect(putWorkspace).toHaveBeenCalledTimes(1)
+    expect(sync.syncStatus).toBe('offline')
+    await vi.advanceTimersByTimeAsync(4_999)
+    expect(putWorkspace).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(putWorkspace).toHaveBeenCalledTimes(2)
+    sync.dispose()
+  })
+})

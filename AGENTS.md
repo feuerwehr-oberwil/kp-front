@@ -56,6 +56,24 @@ to prod.
   media queue metadata, reference/checklist/object metadata, and readiness; localStorage only for
   tiny preferences and migration flags. UI copy/locale/defaults/storage keys live in
   `src/config/appConfig.ts`; the neutral fallback incident is `src/data/demoIncident.ts`.
+- **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
+  outboxes contribute to the shared sync status. Preserve rejected entries for retry/export;
+  a failed IndexedDB write must never claim local durability. Hydrate and merge a predecessor's
+  queue before a promoted tab writes it. Client audit events carry a stable `client_id` through
+  retries; a beacon does not acknowledge delivery.
+  A Web Lock request rejected before a grant must not immediately requeue: an inactive
+  document can reject forever and prevent navigation. Requeue only after a held lock is lost,
+  and ignore grants that arrive after the owner stopped.
+- **Backup originals are immutable.** Publish original blobs under fresh/content-addressed
+  keys before committing their SQL reference; delete obsolete files through `storage.delete`
+  (including transaction callbacks). The online backup guard retains deleted originals until
+  `app.backup` pins them; never bypass it with direct unlink or overwrite original keys in place.
+  Derived thumbnails/waveforms may be regenerated. Keep `.kp-backup` coordination files private
+  and never unlink its lock files. Incompatible schema rollback is an explicit restore with
+  `scripts/restore.sh --no-start`, followed by selecting the matching image; never auto-downgrade.
+- **PDFium calls share one process-wide lock.** Hold `app/pdfium_lock.py`'s lock through object
+  creation, rendering and explicit closure, including print-page reversal. Run this synchronous
+  work off the request event loop; separate PDF documents are not thread-safe either.
 - **Undo/redo – every mutating op should be undoable, scoped to the workspace.** The standing
   rule: Lage map has document-level undo (`useUndoableDoc`), Plan has per-plan-document undo
   (`useBoardDoc`), and one-shot ops (Gebäude floor add/remove, building replace) use

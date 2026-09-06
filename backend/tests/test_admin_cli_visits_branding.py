@@ -35,7 +35,7 @@ from sqlalchemy import select
 from app import admin_branding, admin_visits, storage, visits
 from app import database as database_module
 from app.config import settings
-from app.models import DeploymentConfig, VisitHash, VisitStat
+from app.models import DeploymentConfig, DeploymentConfigHistory, VisitHash, VisitStat
 
 
 def _main(monkeypatch: pytest.MonkeyPatch, *args: str) -> None:
@@ -392,10 +392,10 @@ async def test_load_writes_the_blob_and_points_the_config_at_it(tmp_path, brandi
 
     url = await admin_branding._load("reportLogo", svg)
 
-    assert url == "/api/branding/file/branding/reportLogo.svg"
+    assert re.fullmatch(r"/api/branding/file/branding/reportLogo-[0-9a-f]{64}\.svg", url)
     row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
     assert row.config_json["identity"]["assets"]["reportLogo"] == url
-    assert storage.get_bytes("branding/reportLogo.svg") == payload
+    assert storage.get_bytes(url.removeprefix("/api/branding/file/")) == payload
 
 
 @pytest.mark.asyncio
@@ -445,16 +445,14 @@ async def test_load_accepts_a_correctly_sized_icon(tmp_path, branding_db, db_ses
 
     url = await admin_branding._load("iconPng192", icon)
 
-    assert url == "/api/branding/file/branding/iconPng192.png"
+    assert re.fullmatch(r"/api/branding/file/branding/iconPng192-[0-9a-f]{64}\.png", url)
     row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
     assert row.config_json["identity"]["assets"]["iconPng192"] == url
 
 
 @pytest.mark.asyncio
-async def test_reloading_the_same_slot_overwrites_the_blob_in_place(tmp_path, branding_db):
-    """The nightly demo reset re-runs `load` for the same slot every night — a stable key
-    matters so it overwrites rather than leaving one orphaned blob per night (see
-    `admin_branding._stable_key`'s own rationale)."""
+async def test_changed_branding_preserves_the_blob_referenced_by_config_history(tmp_path, branding_db, db_session):
+    """A backup/config-history URL must keep its original bytes after branding changes."""
     first = tmp_path / "logo1.svg"
     first.write_bytes(b"<svg>v1</svg>")
     second = tmp_path / "logo2.svg"
@@ -463,5 +461,25 @@ async def test_reloading_the_same_slot_overwrites_the_blob_in_place(tmp_path, br
     url1 = await admin_branding._load("logo", first)
     url2 = await admin_branding._load("logo", second)
 
-    assert url1 == url2  # a browser holding the old URL keeps resolving it
-    assert storage.get_bytes("branding/logo.svg") == b"<svg>v2</svg>"
+    assert url1 != url2
+    history = (await db_session.execute(select(DeploymentConfigHistory))).scalar_one()
+    assert history.config_json["identity"]["assets"]["logo"] == url1
+    assert storage.get_bytes(url1.removeprefix("/api/branding/file/")) == first.read_bytes()
+    assert storage.get_bytes(url2.removeprefix("/api/branding/file/")) == second.read_bytes()
+    row = (await db_session.execute(select(DeploymentConfig))).scalar_one()
+    assert row.config_json["identity"]["assets"]["logo"] == url2
+
+
+@pytest.mark.asyncio
+async def test_identical_branding_reload_reuses_the_same_url(tmp_path, branding_db):
+    """Nightly demo reloads remain idempotent even if the input filename changes."""
+    first = tmp_path / "logo1.svg"
+    first.write_bytes(b"<svg>brand</svg>")
+    second = tmp_path / "renamed.SVG"
+    second.write_bytes(first.read_bytes())
+
+    url1 = await admin_branding._load("logo", first)
+    url2 = await admin_branding._load("logo", second)
+
+    assert url1 == url2
+    assert storage.get_bytes(url1.removeprefix("/api/branding/file/")) == first.read_bytes()

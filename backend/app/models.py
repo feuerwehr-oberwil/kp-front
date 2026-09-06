@@ -564,6 +564,7 @@ class IncidentEvent(Base):
     __tablename__ = "incident_events"
 
     id: Mapped[uuid.UUID] = _uuid_pk()
+    client_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     incident_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -579,6 +580,7 @@ class IncidentEvent(Base):
 
     __table_args__ = (
         UniqueConstraint("incident_id", "seq", name="uq_incident_events_seq"),
+        Index("uq_incident_events_client_id", "incident_id", "client_id", unique=True),
         # «Der Einsatz-Link wurde erstellt» is recorded ONCE per Einsatz, and this is what makes
         # that true rather than the check-then-append that reads for it (api/incidents ·
         # create_einsatz_link). The endpoint mints on sheet-open, so a React StrictMode double

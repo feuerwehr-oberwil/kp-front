@@ -35,6 +35,7 @@ from ..schemas import (
     ViewLinkOut,
     WorkspaceOut,
     WorkspacePut,
+    _scrub_drawing_props,
 )
 
 logger = logging.getLogger(__name__)
@@ -247,6 +248,9 @@ async def apply_workspace_put(
     rev=N can't both win — the loser matches 0 rows and gets the 409 (the app-level
     check alone raced because autoflush is off and the row isn't locked).
     """
+    # Internal slice/capture writes retain unrelated legacy alarm data without validating
+    # the full schema. Drawing sanitization must still cover their assembled workspace.
+    _scrub_drawing_props(body.workspace)
     result = await execute_dml(
         db,
         update(Incident)
@@ -317,10 +321,13 @@ async def put_workspace_trupps(
     if not link:
         await _latch_editor_opened(db, incident_id)
     new_ws = {**(inc.map_workspace_json or {}), "trupps": body.trupps}
+    # TruppsPut already validated the incoming slice. Avoid revalidating unrelated
+    # legacy alarm fields: a malformed old reminder must not prevent a healthy Trupp save.
+    scoped = WorkspacePut.model_construct(workspace=new_ws, base_rev=body.base_rev)
     saved = await apply_workspace_put(
         db,
         incident_id,
-        WorkspacePut(workspace=new_ws, base_rev=body.base_rev),
+        scoped,
         user_id=None if link else user.id,
         source="atemschutz-link" if link else "client",
     )

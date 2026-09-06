@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 
 // White-screen smoke: log in, open an incident, render each core surface, and
 // survive a reload with state intact. This is the catastrophic-regression guard
@@ -108,4 +109,64 @@ test('core surfaces render and survive reload', async ({ page }) => {
   await page.reload()
   await expect(page.locator('nav.navrail'), 'still authenticated and in an incident after reload').toBeVisible()
   await expectNoCrash(page, 'after reload')
+})
+
+async function enterJournalRow(page: Page, text: string) {
+  await page.getByRole('button', { name: 'Eintrag', exact: true }).click()
+  await page.getByPlaceholder('Was ist passiert? Meldung, Beobachtung, Entscheid …').fill(text)
+  await page.getByRole('button', { name: 'Erfassen', exact: true }).click()
+  await page.getByRole('button', { name: 'Verlauf', exact: true }).click()
+}
+
+test('session renewal and rejected journal delivery recover', async ({ page, context }) => {
+  await login(page)
+  const config = await page.request.get('/api/config')
+  test.skip((await config.json()).identity?.demoMode === true, 'Recovery drill requires an ordinary station session')
+  await ensureIncidentOpen(page)
+  await context.clearCookies({ name: 'access_token' })
+  await page.reload()
+  await expect(page.locator('nav.navrail')).toBeVisible()
+
+  // A locally visible row must never masquerade as accepted by the server.
+  const endpoint = '**/api/incidents/*/journal'
+  await page.route(endpoint, (route) => route.request().method() === 'POST'
+    ? route.fulfill({ status: 422, contentType: 'application/json', body: '{"detail":"Synthetic rejection drill"}' })
+    : route.continue())
+  const rejected = `E2E recovery ${Date.now()}`
+  await enterJournalRow(page, rejected)
+  const notice = page.locator('.jr-delivery')
+  await expect(notice).toContainText('Auf diesem Gerät gespeichert')
+  const downloading = page.waitForEvent('download')
+  await notice.getByRole('button', { name: 'Einträge sichern' }).click()
+  const path = await (await downloading).path()
+  if (!path) throw new Error('Recovery export was not downloaded')
+  expect(await readFile(path, 'utf8')).toContain(rejected)
+  await expect(notice).toBeVisible() // exporting does not acknowledge delivery
+  await page.unroute(endpoint)
+  await notice.getByRole('button', { name: 'Erneut versuchen' }).click()
+  await expect(notice).toHaveCount(0)
+})
+
+test('offline journal entries survive reload and reconnect', async ({ page, context, browserName }) => {
+  // Playwright's service-worker support is Chromium-only (playwright.dev/docs/service-workers).
+  // WebKit offline emulation fails even for a minimal cached page; physical Safari remains
+  // an acceptance gate. Core reload + session/rejection recovery above still run in WebKit.
+  test.skip(browserName !== 'chromium', 'Offline service-worker automation requires Chromium')
+  await login(page)
+  const config = await page.request.get('/api/config')
+  test.skip((await config.json()).identity?.demoMode === true, 'Recovery drill requires an ordinary station session')
+  await ensureIncidentOpen(page)
+  await page.evaluate(async () => { await navigator.serviceWorker.ready })
+  await context.setOffline(true)
+  const offline = `E2E offline ${Date.now()}`
+  await enterJournalRow(page, offline)
+  const notice = page.locator('.jr-delivery')
+  await expect(notice).toBeVisible()
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('nav.navrail')).toBeVisible()
+  await page.getByRole('button', { name: 'Verlauf', exact: true }).click()
+  await expect(page.getByText(offline, { exact: true })).toBeVisible()
+  await context.setOffline(false)
+  await expect(notice).toHaveCount(0)
+  await expectNoCrash(page, 'after offline journal recovery')
 })

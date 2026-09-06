@@ -32,8 +32,8 @@ function isOperationalKey(key: string): boolean {
  * Move operational localStorage entries into IndexedDB exactly once. Each value is JSON-parsed
  * (everything we wrote was JSON) and stored as a structured-clone object, matching what the
  * IDB-backed callers now read. After a successful copy the localStorage key is removed so the
- * two stores don't drift. Best-effort: a single corrupt/oversized entry is skipped, never
- * fatal — a missed cache entry just re-fetches from the server on next use.
+ * two stores don't drift. A refused write keeps the original and leaves migration pending
+ * for the next boot: it may be the only copy of unsynced incident work.
  *
  * Safe to call on every boot; returns immediately once the flag is set.
  */
@@ -44,14 +44,15 @@ export async function migrateLocalStorageToIdb(): Promise<void> {
     return // no localStorage at all — nothing to migrate
   }
 
-  let keys: string[] = []
+  const keys: string[] = []
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
       if (k && isOperationalKey(k)) keys.push(k)
     }
-  } catch { keys = [] }
+  } catch { return }
 
+  let complete = true
   for (const key of keys) {
     let value: unknown
     try {
@@ -61,9 +62,10 @@ export async function migrateLocalStorageToIdb(): Promise<void> {
     } catch {
       continue // corrupt entry — leave it; the cache will simply re-fetch
     }
-    await idbSet(key, value)
-    try { localStorage.removeItem(key) } catch { /* ignore */ }
+    if (!(await idbSet(key, value))) { complete = false; continue }
+    try { localStorage.removeItem(key) } catch { complete = false }
   }
 
+  if (!complete) return
   try { localStorage.setItem(MIGRATED_FLAG, '1') } catch { /* ignore — retry next boot */ }
 }

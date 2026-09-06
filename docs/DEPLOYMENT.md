@@ -411,9 +411,14 @@ is fixes only and always safe; a **MINOR** bump adds features and migrates autom
   On Railway it is an ordinary service variable – set it, deploy, then remove it again.
 - **The whole batch of pending migrations runs in ONE transaction**, so there is no
   half-migrated schema to clean up: either they all land or none do.
-- **Rollback:** set `KP_FRONT_TAG` to the previous version and re-run the two commands.
-  Migrations are kept backward-safe within a minor series, so the prior image runs against the
-  migrated schema.
+- **Rollback:** changing `KP_FRONT_TAG` alone works only when the previous image recognises
+  the database's current migration revision. An older image cannot resolve a newer revision,
+  even if the schema change was additive. Startup refuses before touching migration backups;
+  `ALLOW_MIGRATION_WITHOUT_BACKUP=1` does not bypass revision resolution. Returning to the
+  image that migrated the database preserves current data. Restoring a verified pre-upgrade
+  backup (§6) is a separate recovery operation and can discard work recorded after that backup;
+  use the explicit [schema rollback procedure](#rolling-back-across-a-schema-upgrade) below.
+  There is no automatic downgrade, and no revision stamping to hide an unknown revision.
 - **Which build am I running?** `/admin` → System shows the version, commit and environment;
   the app menu carries the same stamp (`vX.Y.Z · <sha> · <date>`) on the tablet itself.
 - **Postgres major upgrades** (e.g. 16→17) are *not* automatic – a 16 data volume won't be
@@ -430,7 +435,10 @@ wrong, and the compose healthcheck has no consumer that alerts anybody.
 The app has a **dead-man's switch** built in and switched off. Point `HEALTHCHECK_PING_URL` at a
 ping URL (healthchecks.io is free and enough) – at `/admin` → **Zugangsdaten**, where it takes
 effect immediately, or in `.env`, which wins and locks the field (§4) – and it pings **every 60 s**
-while it is alive (`backend/app/scheduler.py` – the heartbeat job is registered with `seconds=60`).
+after its database and storage readiness checks succeed (`backend/app/scheduler.py` – the
+heartbeat job is registered with `seconds=60`). Failed or timed-out checks withhold the ping.
+This checks the service's data layer; an independent HTTPS check is still needed to detect
+a broken public route or certificate.
 While it is unset it is also the «Überwachung» row on the «Einrichtung» card a fresh admin
 lands on, so it is hard to leave undone by accident.
 Configure the check to match: **period 1 min, grace ~3 min**, which alerts about four minutes
@@ -451,7 +459,20 @@ to 503, which on compose does not restart anything.
 - **`scripts/backup.sh` does both** (dump + volume tarball into one directory, with
   retention via `BACKUP_KEEP`, default 14 – settable in `.env`, which is the only place cron
   will ever see it). It writes **`db-<stamp>.sql.gz` and `storage-<stamp>.tar.gz`**; those two
-  names are what `scripts/restore.sh` pairs up, so leave them alone.
+  names are what `scripts/restore.sh` pairs up, so leave them alone. The current image must
+  include `app.backup`; keep host scripts and image on the same release.
+- **Incident edits continue during capture.** Before the SQL snapshot starts, a shared volume
+  guard makes file deletion retain obsolete originals. After the dump, the helper pins the
+  complete files with hardlinks; compression reads those fixed inodes while the app continues
+  writing new versions. Old files are reclaimed after pinning, or by the next backup if the
+  helper was killed. Repeated uploads use immutable keys, including content-addressed branding.
+  Derived caches may be newer than the SQL snapshot; original referenced files remain available.
+- **Allow temporary disk space for the compressed pair and replaced files.** Hardlink pinning
+  does not copy every original, but compressed output is staged on the storage volume before
+  transport to the backup directory. Full-disk or interrupted capture fails without publishing
+  a pair or rotating previous backups. A later run removes the abandoned staging directory.
+  Prior migration backups and internal scratch files are excluded from the asset archive.
+  The helper also works while the app is stopped; it needs the database and storage volume.
 - ⚠️ **Three things in `/admin` look like backups and are not.** The **Arbeitsmappe** `.xlsx` is
   list-shaped station data only – no config, no assets, no keys – and re-importing it restores
   none of the rest. **Sicherung → Export** and **«Letzte Änderungen»** cover the whole
@@ -494,9 +515,8 @@ calling shell), so a station that changed either one is backed up correctly unde
 produced a recent file – an installed line that has never written anything is not a backup.
 
 ```bash
-# Manual equivalents (run with the stack up):
-docker compose exec -T db pg_dump -U kpfront kpfront | gzip > db-$(date +%F).sql.gz
-docker compose exec -T app tar czf - -C /data/storage . > storage-$(date +%F).tar.gz
+# Manual run of the same coordinated procedure:
+./scripts/backup.sh /var/backups/kp-front
 ```
 
 ### Restoring
@@ -515,6 +535,31 @@ It finds `storage-<same stamp>.tar.gz` next to the dump by itself. `--db-only` r
 database alone – that is for the **pre-migration dumps** (§5), which have no storage half; on
 an ordinary backup it leaves you with rows pointing at the wrong blobs, and it says so.
 
+The app is stopped **before** its pre-restore safety copy, so that copy includes the final
+committed writes before replacement. If stopping or the safety copy fails, nothing is restored;
+the app stays stopped. Fix the backup failure and retry. Only when the current database or
+storage cannot be backed up, explicitly add **`--skip-safety-copy`**. The confirmation then warns
+that the current state will have **no safety copy** to return to; the script never chooses this
+exception automatically. It does not skip validation of the backup being restored. By default the
+script starts the configured image after restoration; **`--no-start` leaves it stopped** and
+prints the restored database revision. A failed restart or readiness check exits nonzero.
+
+The runtime's `pg_dump` 18 also captures the supported PostgreSQL 16 Compose database. Its
+header includes `SET transaction_timeout = 0;`, a setting PostgreSQL 16 does not have. Restore
+checks the target server version before changing data and, only for targets below 17, omits
+that exact statement from the initial dump preamble. It leaves object definitions, literal
+COPY data and every other SQL statement untouched; `ON_ERROR_STOP` still stops on any other
+error. This is not permission to restore a newer PostgreSQL server's schema into an older major.
+
+Backup and restore share a host-side operation lock next to the resolved environment file
+(`.kp-front-operation.lock`). Overlapping invocations stop before changing the deployment;
+the restore's own safety backup explicitly joins its parent's lock. Environment files in the
+same directory intentionally share this exclusion, and the lock remains outside the storage
+volume that restoration replaces. Normal exits and handled interruption release only the
+invocation's own lock. A killed process can leave a stale lock: the refusal prints its recorded
+operation/PID and the removal command. **Confirm no backup or restore process or maintenance
+container is still running before removing it**; the scripts never steal a lock automatically.
+
 > ⚠️ **Do not restore by piping a dump into `psql` on a stack that has booted.** The app runs
 > its migrations on boot, so the database already has every table – and `psql` without
 > `ON_ERROR_STOP` prints one "already exists" per object, carries on, and **exits 0** on a
@@ -524,14 +569,62 @@ an ordinary backup it leaves you with rows pointing at the wrong blobs, and it s
 - **Do one restore drill** into a fresh stack before relying on the files – the incident
   record is only provably recoverable once you've actually restored it. `--dry-run` is not the
   drill; it is the rehearsal for the drill.
-- On **Railway** the database is managed – use scheduled `pg_dump` against
-  `DATABASE_PUBLIC_URL` from a machine you control, plus the automatic pre-migration dumps
-  on the volume (§5).
+- On **Railway** the database is managed. A SQL dump alone is not a complete deployment
+  backup. Coordinated capture requires running `uv run python -m app.backup` in an environment
+  with both the deployment database connection and its mounted storage volume; its stdout is
+  a transport tar containing `db.sql.gz` and `storage.tar.gz`. Transfer and verify both off-host.
+  The Compose scheduling script does not manage Railway volumes. Automatic pre-migration dumps
+  (§5) are an additional database-only safety copy, not a substitute for the paired backup.
 - Single-instance isolation means **all your station's data is in your DB** – strong story for
   cantonal data-protection. If you process personal/operational data, follow your canton's DSG
   guidance. Minimum operational stance for an internal station release: keep exports and database
   backups access-controlled, document who can restore them, and define how long incident records,
   roster data, GPS traces, uploaded plans, photos, and audio notes are retained.
+
+### Rolling back across a schema upgrade
+
+An older image cannot run a database whose migration revision it does not recognise. The
+supported recovery is an **explicit restore of a backup taken before that upgrade**, followed
+by selecting the matching older image. This replaces the running record: **work recorded after
+the backup will no longer be in the running database**. The pre-restore safety copy preserves
+the current state separately; it is not automatically merged into the recovered deployment.
+
+Before a planned upgrade, take a paired `scripts/backup.sh` backup and record the image version
+that produced it. Prefer that pair for rollback. The automatic pre-migration dump has no storage
+half: `--db-only` cannot recover a photo or plan whose file was removed after the dump. Keep
+`SECRET_KEY` unchanged throughout.
+
+Keep the **current image selected while restoring**. Its maintenance container takes the
+safety copy even with the app stopped. Do not select an older image first: it may not contain
+the current backup helper.
+
+```bash
+# Rehearse against the paired backup taken before the upgrade; then explicitly confirm restore.
+./scripts/restore.sh --no-start --dry-run backups/db-<stamp>.sql.gz
+./scripts/restore.sh --no-start           backups/db-<stamp>.sql.gz
+
+# If only the automatic pre-migration DB dump is available, use these instead:
+./scripts/restore.sh --db-only --no-start --dry-run pre-migrate-<stamp>.sql.gz
+./scripts/restore.sh --db-only --no-start           pre-migrate-<stamp>.sql.gz
+```
+
+The restore reports the recovered schema revision and leaves the app stopped. Now **edit
+`KP_FRONT_TAG` in `.env` to the previous version that matches that backup**, then:
+
+```bash
+docker compose pull app
+docker compose config --images           # check the app image really is the selected version
+docker compose up -d                     # add --profile tls if Caddy also needs to be started
+./scripts/doctor.sh
+```
+
+A source-build override can replace the image named by `KP_FRONT_TAG`; resolve that before
+starting. For a non-default environment file, pass the same `--env-file <path>` to restore and
+every Compose command. Do not simply run `up` against the newer image after restoring: it would
+immediately migrate the recovered database forward again. Once running, log in and open a
+restored incident and its photos before returning the deployment to service. On Railway the
+same ordering applies through its database/volume restore and deployment controls; the Compose
+script does not manage Railway resources.
 
 ### ⚠️ Back up `.env` somewhere else – `SECRET_KEY` is the key to two things
 
@@ -638,17 +731,16 @@ producing files. It prints the command that fixes what it finds. It is the same 
   docker compose run --rm --no-deps -T app cat /data/storage/backups/pre-migrate-<stamp>.sql.gz \
       > pre-migrate-<stamp>.sql.gz          # copy it OUT before you touch anything
 
-  # 4a. Roll back: pin the previous release and start again. The schema is still the old one,
-  #     because the whole batch of migrations runs in one transaction (§5) – there is no
-  #     half-migrated state to undo.
-  sed -i 's|^KP_FRONT_TAG=.*|KP_FRONT_TAG=<previous>|' .env && docker compose up -d
-
-  # 4b. …or, if something did get through, put the pre-migration database back:
-  ./scripts/restore.sh --db-only pre-migrate-<stamp>.sql.gz
+  # 4. If recovery needs the pre-upgrade DB, restore WITHOUT restarting the newer image:
+  ./scripts/restore.sh --db-only --no-start --dry-run pre-migrate-<stamp>.sql.gz
+  ./scripts/restore.sh --db-only --no-start           pre-migrate-<stamp>.sql.gz
   ```
 
   `run --rm --no-deps` rather than `exec` in step 3 on purpose: the app container is not
-  running, and that is the only reason you are here. **Do not delete the Postgres volume as a
+  running, and that is the only reason you are here. A failed migration transaction leaves
+  the old schema intact, so restoring may be unnecessary; first read the actual error. When
+  restoration is needed, follow [the schema rollback procedure](#rolling-back-across-a-schema-upgrade)
+  to select the matching older image **after** restoring and before any restart. **Do not delete the Postgres volume as a
   recovery shortcut** – it is the thing you are trying to save.
 
 ---

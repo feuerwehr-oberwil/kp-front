@@ -294,6 +294,8 @@ class LimitRequestBody:
         if declared is not None:
             try:
                 size = int(declared)
+                if size < 0:
+                    raise ValueError
             except ValueError:
                 await _asgi_json(send, 400, "Ungültige Content-Length")
                 return
@@ -639,24 +641,9 @@ async def health() -> dict:
 async def ready() -> JSONResponse:
     """Readiness: can this instance do real work? Probes the database and the storage volume
     so the orchestrator restarts/alerts on a data-layer outage instead of serving green."""
-    from sqlalchemy import text
+    from .readiness import check_readiness
 
-    from . import storage
-
-    checks: dict[str, str] = {}
-    try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        checks["database"] = "ok"
-    except Exception:
-        logger.exception("Readiness probe: database unreachable")
-        checks["database"] = "error"
-    try:
-        storage.probe_writable()
-        checks["storage"] = "ok"
-    except Exception:
-        logger.exception("Readiness probe: storage not writable")
-        checks["storage"] = "error"
+    checks = await check_readiness(engine)
     ok = all(v == "ok" for v in checks.values())
     return JSONResponse(
         {"status": "ok" if ok else "error", "version": settings.version, **checks},

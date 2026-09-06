@@ -788,6 +788,14 @@ export const fr: Localizable<Copy> = {
     draftDiscarded: 'Dessin incomplet abandonné',
   },
   journal: {
+    delivery: {
+      failedTitle: '{n} entrées non transmises',
+      storageTitle: 'Entrées non enregistrées de manière sûre',
+      storageBody: 'Gardez l’application ouverte et enregistrez une copie. Fermer l’application peut entraîner la perte de ces entrées.',
+      savedBody: 'Enregistrées sur cet appareil. Ces entrées manquent sur les autres appareils.',
+      offlineBody: 'Enregistrées sur cet appareil. La transmission reprend automatiquement dès qu’une connexion est disponible.',
+      retry: 'Réessayer', retrying: 'Nouvelle tentative …', export: 'Enregistrer les entrées', short: 'Entrées non transmises',
+    },
     open: 'Journal',
     add: 'Entrée',
     addHint: 'Toucher pour une entrée · maintenir, puis glisser sur mémo vocal ou photo',

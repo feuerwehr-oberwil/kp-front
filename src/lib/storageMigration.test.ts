@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as idb from './idb'
 import { idbGet, __resetIdbForTests } from './idb'
 import { migrateLocalStorageToIdb } from './storageMigration'
 
@@ -22,7 +23,26 @@ beforeEach(() => {
   installLocalStorage()
 })
 
+afterEach(() => vi.restoreAllMocks())
+
 describe('migrateLocalStorageToIdb', () => {
+  it('preserves an unsynced legacy workspace after a refused write and retries next boot', async () => {
+    const key = 'kp-front-ws-pending'
+    const value = { workspace: { entities: [{ id: 'local' }] }, baseRev: 2, dirty: true }
+    localStorage.setItem(key, JSON.stringify(value))
+    const write = vi.spyOn(idb, 'idbSet').mockResolvedValueOnce(false)
+
+    await migrateLocalStorageToIdb()
+
+    expect(localStorage.getItem(key)).toBe(JSON.stringify(value))
+    expect(localStorage.getItem('kp-front-idb-migrated-v1')).toBeNull()
+    write.mockRestore()
+    await migrateLocalStorageToIdb()
+    expect(await idbGet(key)).toEqual(value)
+    expect(localStorage.getItem(key)).toBeNull()
+    expect(localStorage.getItem('kp-front-idb-migrated-v1')).toBe('1')
+  })
+
   it('moves operational keys into IDB (parsed) and clears them from localStorage', async () => {
     localStorage.setItem('kp-front-incidents', JSON.stringify([{ id: 'i1' }]))
     localStorage.setItem('kp-front-ws-abc', JSON.stringify({ workspace: { a: 1 }, baseRev: 2, dirty: true, lastSyncedAt: null }))

@@ -81,5 +81,11 @@ export function useJournal({ incidentId, readOnly, legacy }: {
   const swapPhoto = useCallback((id: string, from: string, to: string) => store.swapPhoto(id, from, to), [store])
   const ingestLegacy = useCallback((tl: TimelineEvent[]) => store.ingestLegacy(tl), [store])
 
-  return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy, pendingCount: store.pendingCount }
+  const retry = useCallback(() => store.retry(), [store])
+  const recoveryData = useCallback(() => store.recoveryData(), [store])
+  const getStatus = useCallback(() => store.syncStatus, [store])
+
+  return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy,
+    retry, recoveryData, getStatus, syncStatus: store.syncStatus,
+    pendingCount: store.pendingCount, rejectedCount: store.rejectedCount }
 }

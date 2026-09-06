@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { IncidentTabLock } from './tabLock'
 
 // A faithful in-memory LockManager: exclusive named locks with ifAvailable / queue /
@@ -17,8 +17,8 @@ class FakeLocks {
         const stolen = new Promise<never>((_, r) => { rejectHold = r })
         const run = cb({ name, mode: 'exclusive' })
         const done = Promise.race([run, stolen]).then(
-          (v) => { this.release(name); resolve(v) },
-          (e) => { this.release(name); reject(e) },
+          (v) => { this.release(name, done); resolve(v) },
+          (e) => { this.release(name, done); reject(e) },
         ) as Promise<void>
         this.held.set(name, { reject: rejectHold, done })
       }
@@ -43,18 +43,20 @@ class FakeLocks {
     })
   }
 
-  private release(name: string) {
+  private release(name: string, done: Promise<void>) {
+    // A stolen holder settling cannot release the replacement holder.
+    if (this.held.get(name)?.done !== done) return
     this.held.delete(name)
     const q = this.queue.get(name) ?? []
     const next = q.shift()
     if (!next) return
     let rejectHold!: (e: Error) => void
     const stolen = new Promise<never>((_, r) => { rejectHold = r })
-    const done = Promise.race([next.cb({ name, mode: 'exclusive' }), stolen]).then(
-      (v) => { this.release(name); next.resolve(v) },
-      (e) => { this.release(name); next.reject(e) },
+    const nextDone = Promise.race([next.cb({ name, mode: 'exclusive' }), stolen]).then(
+      (v) => { this.release(name, nextDone); next.resolve(v) },
+      (e) => { this.release(name, nextDone); next.reject(e) },
     ) as Promise<void>
-    this.held.set(name, { reject: rejectHold, done })
+    this.held.set(name, { reject: rejectHold, done: nextDone })
   }
 }
 
@@ -112,6 +114,45 @@ describe('IncidentTabLock', () => {
     await tick()
     expect(a.held).toBe(true)
     a.lock.stop()
+  })
+
+  it.each(['AbortError', 'InvalidStateError'])('stops reacquiring after an ungranted %s during navigation', async (name) => {
+    let rejectHeld!: (error: Error) => void
+    let requests = 0
+    const states: boolean[] = []
+    const request = vi.fn((_: string, _opts: unknown, cb: Cb) => {
+      requests++
+      if (requests === 1) {
+        void cb({ name: 'inc', mode: 'exclusive' })
+        return new Promise((_, reject) => { rejectHeld = reject })
+      }
+      // Cap the old retry loop so the regression fails without locking the test runner.
+      return requests < 5 ? Promise.reject(new DOMException('Document is not fully active', name)) : new Promise(() => {})
+    })
+    const lock = new IncidentTabLock('inc', (held) => states.push(held), { request } as unknown as Pick<LockManager, 'request'>)
+    lock.start()
+    rejectHeld(new DOMException('The lock was released', 'AbortError'))
+    await tick()
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(states[states.length - 1]).toBe(false)
+    lock.stop()
+  })
+
+  it.each(['start', 'takeOver'] as const)('ignores a delayed %s grant after stop', async (action) => {
+    let grant!: Cb
+    const request = vi.fn((_: string, _opts: unknown, cb: Cb) => {
+      grant = cb
+      return new Promise(() => {})
+    })
+    const states: boolean[] = []
+    const lock = new IncidentTabLock('inc', (held) => states.push(held), { request } as unknown as Pick<LockManager, 'request'>)
+    lock[action]()
+    lock.stop()
+    let completed = false
+    void grant({ name: 'inc', mode: 'exclusive' }).then(() => { completed = true })
+    await tick()
+    expect(states).toEqual([])
+    expect(completed).toBe(true)
   })
 
   it('without Web Locks (no API) the tab just stays editable', async () => {

@@ -262,8 +262,8 @@ jobs:
       - name: Install deps (Playwright)
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright Chromium and WebKit
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: E2E smoke (browser → running container)
         env:
