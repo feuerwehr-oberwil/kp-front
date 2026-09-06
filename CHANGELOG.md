@@ -102,7 +102,9 @@ so this file – not the log – is the record of what shipped up to that point.
   thumbnails, one decode at a time, plan bitmaps capped – so an iPhone survives a photo-heavy
   Einsatz.
 - The public demo no longer requests notification or geolocation permission uninvited on first
-  taps.
+  taps, and no longer greets every visitor with a false «Anmeldung abgelaufen» banner: the cold
+  boot's refused token refresh set the expiry flag before the automatic sign-in existed, and
+  nothing lifted it afterwards.
 
 ### Changed
 

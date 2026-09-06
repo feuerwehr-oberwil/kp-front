@@ -237,7 +237,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           writeCachedUser(null)
           if (e instanceof ApiError && e.status === 401) {
             const demoUser = await tryDemoAutoLogin() // demo → straight in; real stations → login screen
-            if (alive && demoUser) { adoptUser(demoUser); writeCachedUser(demoUser) }
+            if (alive && demoUser) {
+              adoptUser(demoUser)
+              writeCachedUser(demoUser)
+              // The cold boot's own refused refresh fired SESSION_EXPIRED_EVENT before this
+              // login existed, and that flag would banner «Anmeldung abgelaufen» over a
+              // session that is seconds old. Lift it exactly as the kiosk login() does.
+              setSessionExpired(false)
+            }
           }
         }
       } finally {

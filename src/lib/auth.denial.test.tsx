@@ -326,3 +326,26 @@ describe('AuthProvider — signing out and back in', () => {
     expect(result.current.sessionExpired).toBe(false)
   })
 })
+
+describe('AuthProvider — the demo auto-login', () => {
+  // Regression (06.09.): a cold boot with no cookies 401s its probe, the refused refresh fires
+  // SESSION_EXPIRED_EVENT, and the flag it set outlived the auto-login — every demo visitor got
+  // a permanent «Anmeldung abgelaufen» banner over a session that was seconds old.
+  it('lifts the boot 401 expiry flag once the visitor is signed in', async () => {
+    vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
+    vi.spyOn(deploymentConfig, 'loadDeploymentConfig').mockResolvedValue({})
+    apiGet.mockImplementation((path: string) =>
+      path === '/api/auth/roster'
+        ? Promise.resolve([{ id: 'ed-1', role: 'editor' }])
+        : Promise.reject(new ApiError(401, 'Nicht angemeldet')),
+    )
+    apiPost.mockResolvedValue(EDITOR_USER)
+
+    const { result } = renderHook(() => useAuth(), { wrapper })
+    // the boot's own failed refresh — fired while the probe is still deciding
+    act(() => { window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT)) })
+
+    await waitFor(() => expect(result.current.user).toEqual(EDITOR_USER))
+    await waitFor(() => expect(result.current.sessionExpired).toBe(false))
+  })
+})

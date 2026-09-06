@@ -63,7 +63,7 @@ const shots = [
   { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte', docs: 'lage', hero: true },
   { name: 'plan', nav: 'Modul 1', settle: 4000, note: 'Objektplan als Whiteboard' },
   { name: 'gebaeude', nav: 'Gebäude', settle: 1500, docs: 'gebaeude' },
-  { name: 'atemschutz', nav: 'Atemschutz', settle: 1200, docs: 'atemschutz' },
+  { name: 'atemschutz', nav: 'Trupps', settle: 1200, docs: 'atemschutz' },
   { name: 'anwesenheit', nav: 'Anwesenheit', settle: 1500 },
   {
     name: 'zeitplan',
@@ -90,7 +90,7 @@ const shots = [
       await page.waitForTimeout(600)
     },
   },
-  { name: 'mittel', nav: 'Mittel', settle: 1200, docs: 'mittel' },
+  { name: 'mittel', nav: 'Material', settle: 1200, docs: 'mittel' },
   { name: 'checkliste', nav: 'Checkliste', settle: 1500 },
   {
     name: 'verlauf',
