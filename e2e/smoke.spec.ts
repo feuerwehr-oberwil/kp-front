@@ -118,33 +118,44 @@ async function enterJournalRow(page: Page, text: string) {
   await page.getByRole('button', { name: 'Verlauf', exact: true }).click()
 }
 
-test('session renewal and rejected journal delivery recover', async ({ page, context }) => {
-  await login(page)
-  const config = await page.request.get('/api/config')
-  test.skip((await config.json()).identity?.demoMode === true, 'Recovery drill requires an ordinary station session')
-  await ensureIncidentOpen(page)
-  await context.clearCookies({ name: 'access_token' })
-  await page.reload()
-  await expect(page.locator('nav.navrail')).toBeVisible()
+test.describe(() => {
+  // A service worker can forward requests outside page.route (observed on Linux WebKit).
+  // This drill needs a guaranteed server rejection; actual service-worker coverage stays
+  // in the core reload and separate offline-recovery tests.
+  test.use({ serviceWorkers: 'block' })
 
-  // A locally visible row must never masquerade as accepted by the server.
-  const endpoint = '**/api/incidents/*/journal'
-  await page.route(endpoint, (route) => route.request().method() === 'POST'
-    ? route.fulfill({ status: 422, contentType: 'application/json', body: '{"detail":"Synthetic rejection drill"}' })
-    : route.continue())
-  const rejected = `E2E recovery ${Date.now()}`
-  await enterJournalRow(page, rejected)
-  const notice = page.locator('.jr-delivery')
-  await expect(notice).toContainText('Auf diesem Gerät gespeichert')
-  const downloading = page.waitForEvent('download')
-  await notice.getByRole('button', { name: 'Einträge sichern' }).click()
-  const path = await (await downloading).path()
-  if (!path) throw new Error('Recovery export was not downloaded')
-  expect(await readFile(path, 'utf8')).toContain(rejected)
-  await expect(notice).toBeVisible() // exporting does not acknowledge delivery
-  await page.unroute(endpoint)
-  await notice.getByRole('button', { name: 'Erneut versuchen' }).click()
-  await expect(notice).toHaveCount(0)
+  test('session renewal and rejected journal delivery recover', async ({ page, context }) => {
+    await login(page)
+    const config = await page.request.get('/api/config')
+    test.skip((await config.json()).identity?.demoMode === true, 'Recovery drill requires an ordinary station session')
+    await ensureIncidentOpen(page)
+    await context.clearCookies({ name: 'access_token' })
+    await page.reload()
+    await expect(page.locator('nav.navrail')).toBeVisible()
+
+    // A locally visible row must never masquerade as accepted by the server.
+    const endpoint = '**/api/incidents/*/journal'
+    let rejectedPosts = 0
+    await page.route(endpoint, async (route) => {
+      if (route.request().method() !== 'POST') return route.continue()
+      await route.fulfill({ status: 422, contentType: 'application/json', body: '{"detail":"Synthetic rejection drill"}' })
+      rejectedPosts++
+    })
+    const rejected = `E2E recovery ${Date.now()}`
+    await enterJournalRow(page, rejected)
+    await expect.poll(() => rejectedPosts, 'The journal POST must receive the synthetic 422').toBeGreaterThan(0)
+    const notice = page.locator('.jr-delivery')
+    await expect(notice).toContainText('Auf diesem Gerät gespeichert')
+    const downloading = page.waitForEvent('download')
+    await notice.getByRole('button', { name: 'Einträge sichern' }).click()
+    const path = await (await downloading).path()
+    if (!path) throw new Error('Recovery export was not downloaded')
+    expect(await readFile(path, 'utf8')).toContain(rejected)
+    await expect(notice).toBeVisible() // exporting does not acknowledge delivery
+    await page.unroute(endpoint)
+    await notice.getByRole('button', { name: 'Erneut versuchen' }).click()
+    await expect(notice).toHaveCount(0)
+  })
 })
 
 test('offline journal entries survive reload and reconnect', async ({ page, context, browserName }) => {

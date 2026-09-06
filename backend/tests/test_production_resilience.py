@@ -267,3 +267,48 @@ async def test_readiness_bounds_a_stalled_database_and_still_checks_storage(monk
         result = await readiness.check_readiness(SimpleNamespace(connect=StalledConnection))
     assert result == {"database": "error", "storage": "ok"}
     assert checked_storage == [True]
+
+
+async def test_repeated_storage_timeouts_keep_one_physical_probe_and_recover(monkeypatch):
+    import anyio
+
+    from app import readiness, storage
+
+    release = threading.Event()
+    finished = threading.Event()
+    calls = []
+
+    class HealthyConnection:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def execute(self, query):
+            pass
+
+    def stalled_storage():
+        calls.append(threading.get_ident())
+        try:
+            assert release.wait(timeout=2), "test must release the blocked filesystem probe"
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(readiness, "PROBE_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(storage, "probe_writable", stalled_storage)
+    engine = SimpleNamespace(connect=HealthyConnection)
+    try:
+        with anyio.fail_after(1):
+            for _ in range(6):
+                assert await readiness.check_readiness(engine) == {"database": "ok", "storage": "error"}
+        assert len(calls) == 1, "timed-out requests must not start more physically blocked probes"
+    finally:
+        release.set()
+        assert await anyio.to_thread.run_sync(finished.wait, 1)
+
+    monkeypatch.setattr(storage, "probe_writable", lambda: calls.append(threading.get_ident()))
+    with anyio.fail_after(1):
+        while (await readiness.check_readiness(engine))["storage"] != "ok":  # noqa: ASYNC110 -- observe recovery through the public check
+            await anyio.sleep(0.001)
+    assert len(calls) == 2, "a completed stuck probe must allow a fresh recovery check"
