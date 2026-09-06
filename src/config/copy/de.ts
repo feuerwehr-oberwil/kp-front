@@ -1384,6 +1384,9 @@ export const de = {
     dueAtLabel: 'fällig {t}',
     overdueLabel: 'überfällig',
     markDoneTitle: 'Als erledigt markieren',
+    // «wieder in …» auf der Erledigt-Zeile — legt eine NEUE Wiedervorlage mit gleichem Text an
+    againChip: '{mins} min',
+    againTitle: 'In {mins} Minuten wieder daran erinnern',
     // ── Legende ───────────────────────────────────────────────────────────────────────────
     // The Verlauf row's 26px disc carries the Bereich (it replaced a chip that printed the same
     // word the sentence already carried). A glyph has to be LEARNED, so the drawer's head keeps
@@ -2609,6 +2612,12 @@ export const de = {
     label: 'Text',
     labelPlaceholder: 'Beschriftung …',
     areaLabelPlaceholder: 'z. B. Sektor A',
+    // ── Abschnitt auf der Fläche (FKS Einsatzführung 3.5.2) ──
+    abschnittLeiter: 'Leiter',
+    abschnittLeiterPlaceholder: 'Leiter wählen …',
+    abschnittAuftrag: 'Auftrag',
+    abschnittAuftragPlaceholder: 'z. B. Brandbekämpfung Trakt B',
+    abschnittMaxHint: 'FKS-Richtwert: höchstens 3–4 Abschnitte.',
     marker: 'Marker',
     markerPlaceholder: 'z. B. R',
     arrow: 'Pfeilspitze',

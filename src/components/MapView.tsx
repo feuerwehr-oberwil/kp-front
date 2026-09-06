@@ -1208,7 +1208,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // measure-label HTML-marker pattern). Distance uses the SAME geodesic length the Measure
   // tool uses (pathLengthM), and adds the hose-length helper line on Messpfeil lines.
   const drawLabels = drawings
-    .filter((d) => (d.showDistance || d.label) && Array.isArray(d.coords) && d.coords.length >= 2)
+    .filter((d) => (d.showDistance || d.label || d.abschnittLeiter || d.abschnittAuftrag) && Array.isArray(d.coords) && d.coords.length >= 2)
     .map((d) => {
       // a labelled `area` (= a Sektor/Abschnitt) pins its label at the polygon centroid;
       // a line pins at its midpoint. Distance is line-only (an area has no path length).
@@ -1222,7 +1222,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // the editor panel only and could never reach the map.
       if (d.showDistance && !isArea) { const len = pathLengthM(d.coords); lines.push(`${fmtDistance(len)} · ${hoseLengthHint(len)}`) }
       if (d.showDistance && isArea) lines.push(fmtArea(polygonAreaM2(d.coords)))
-      if (d.label) lines.push(d.label)
+      // Abschnitt: the Leiter rides the name line («Abschnitt 1 · Oblt Steiner»), the Auftrag
+      // gets its own — who leads where must be readable off the Lage, not only in the panel.
+      // ⚠️ Same composition as the paper Kroki (backend/app/kroki.py): screen and print agree.
+      const head = [d.label, d.abschnittLeiter].filter(Boolean).join(' · ')
+      if (head) lines.push(head)
+      if (d.abschnittAuftrag) lines.push(d.abschnittAuftrag)
       // a dragged label is pinned to its georeferenced anchor; otherwise the midpoint/centroid
       return { id: d.id, coord: d.labelAt ?? base, lines }
     })

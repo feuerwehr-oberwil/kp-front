@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import { Icon } from '../lib/icons'
+import { Combo } from './Combo'
 import { TwinOrigin } from './TwinOrigin'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
@@ -83,6 +84,9 @@ export interface DrawStyle {
   content?: LineContent
   lineNo?: number
   floorTag?: number
+  // Abschnitt fields (areas only — see types.ts · Drawing)
+  abschnittLeiter?: string
+  abschnittAuftrag?: string
   /** the Atemschutz link anchor (Drawing/BoardAnno · truppId) */
   truppId?: string
   startAttachment?: LineAttachment
@@ -133,6 +137,16 @@ interface Props {
   /** Druckleitung number + storey badge on the line (undefined clears) */
   onLineNo?: (lineNo: number | undefined) => void
   onFloorTag?: (floor: number | undefined) => void
+  /** Abschnitt-Leiter on a Fläche (undefined clears). Offered only where the caller passes it —
+   *  the Lage; a Plan sketch is not an Abschnitt (FKS Einsatzführung 3.5.2). */
+  onAbschnittLeiter?: (name: string | undefined) => void
+  /** …and the Abschnitt's Auftrag, committed on blur/Enter (one undo step, one record row) */
+  onAbschnittAuftrag?: (auftrag: string | undefined) => void
+  /** roster names for the Leiter picker (present people first is the caller's ordering) */
+  people?: string[]
+  /** how many Flächen already carry Leiter or Auftrag, THIS one included — drives the quiet
+   *  FKS hint above 4 (Richtwert 3–4 Abschnitte; a hint, never a block) */
+  abschnittCount?: number
   /** link this hose to an Atemschutz-Trupp (undefined unlinks). Omitted ⇒ the row is hidden. */
   onTrupp?: (truppId: string | undefined) => void
   /** Trupps offerable in that picker (the ones still in — a Trupp that is out gets no new line) */
@@ -173,7 +187,9 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, onOriginal, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, onOriginal, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+  // free-typed Abschnitt-Leiter draft (see the Combo below): null = not typing
+  const [leiterDraft, setLeiterDraft] = useState<string | null>(null)
   const color = drawing.color ?? DEFAULT_INK
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -307,12 +323,25 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
         </div>}
 
         {/* read-only: the shape's own text is the one style field worth stating — it names the
-            thing («Sektor A»), and on a small marker the map label can be hard to read. */}
-        {readOnly && (drawing.label ?? '').trim() && (
+            thing («Sektor A»), and on a small marker the map label can be hard to read. The
+            Abschnitt fields ride along: who leads it is exactly what a Führungsansicht asks. */}
+        {readOnly && ((drawing.label ?? '').trim() || drawing.abschnittLeiter || drawing.abschnittAuftrag) && (
           <div className="de-group">
-            <div className="de-row"><span>{appConfig.copy.drawingEditor.label}</span>
-              <b className="de-measure-v">{drawing.label}</b>
-            </div>
+            {(drawing.label ?? '').trim() && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.label}</span>
+                <b className="de-measure-v">{drawing.label}</b>
+              </div>
+            )}
+            {drawing.abschnittLeiter && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.abschnittLeiter}</span>
+                <b className="de-measure-v">{drawing.abschnittLeiter}</b>
+              </div>
+            )}
+            {drawing.abschnittAuftrag && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.abschnittAuftrag}</span>
+                <b className="de-measure-v">{drawing.abschnittAuftrag}</b>
+              </div>
+            )}
           </div>
         )}
 
@@ -334,6 +363,47 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     stray «▲» in a box the operator is meant to type a letter into */}
                 <input className="de-input de-input-short" value={markerGlyph(drawing.marker) ? '' : (drawing.marker ?? '')} placeholder={appConfig.copy.drawingEditor.markerPlaceholder} maxLength={3} onChange={(e) => onMarker(e.target.value)} />
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Abschnitt group — the Fläche IS the Abschnitt (FKS Einsatzführung 3.5.2): who leads
+            it, what it is to achieve. Only where the caller passes the handlers — the Lage; a
+            Plan sketch is not an Abschnitt. Both fields feed the map label and the paper Kroki. */}
+        {!readOnly && isArea && (onAbschnittLeiter || onAbschnittAuftrag) && (
+          <div className="de-group">
+            {onAbschnittLeiter && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.abschnittLeiter}</span>
+                {/* the roster picker every leader field uses (Combo) — free typing stays open
+                    for the neighbour Wehr's officer, who is on nobody's list */}
+                <Combo
+                  value={leiterDraft ?? drawing.abschnittLeiter ?? ''}
+                  options={people}
+                  placeholder={appConfig.copy.drawingEditor.abschnittLeiterPlaceholder}
+                  allowCustom
+                  // keystrokes land in the draft; the record (undo step + Verlauf row) is
+                  // written ONCE when the field is left — without onInput, Combo hands every
+                  // typed character to onChange, and a typed name was eleven journal rows
+                  onInput={setLeiterDraft}
+                  onChange={(v) => { setLeiterDraft(null); onAbschnittLeiter(v || undefined) }}
+                />
+              </div>
+            )}
+            {onAbschnittAuftrag && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.abschnittAuftrag}</span>
+                {/* uncontrolled + keyed: committed ONCE on blur/Enter (one undo step, one record
+                    row — the same reason the label splits live/commit), and a synced value
+                    arriving from another device re-keys the field rather than fighting a draft */}
+                <input className="de-input" key={drawing.abschnittAuftrag ?? ''} defaultValue={drawing.abschnittAuftrag ?? ''}
+                  placeholder={appConfig.copy.drawingEditor.abschnittAuftragPlaceholder}
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v !== (drawing.abschnittAuftrag ?? '')) onAbschnittAuftrag(v || undefined) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+              </div>
+            )}
+            {/* the FKS Richtwert, as a hint and never a gate — counted over Flächen that carry
+                Leiter or Auftrag, so plain drawn Sektoren don't trip it */}
+            {abschnittCount > 4 && (
+              <div className="de-warn"><Icon id="warn" />{appConfig.copy.drawingEditor.abschnittMaxHint}</div>
             )}
           </div>
         )}

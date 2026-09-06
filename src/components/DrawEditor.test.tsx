@@ -205,3 +205,49 @@ describe('the twin’s one line of provenance', () => {
     expect(onOriginal).toHaveBeenCalledTimes(1)
   })
 })
+
+// The Fläche IS the Abschnitt (FKS Einsatzführung 3.5.2): Leiter + Auftrag live on the shape.
+// Offered only where the caller passes the handlers — the Lage; a Plan sketch passes none.
+describe('Abschnitt on a Fläche', () => {
+  const D = appConfig.copy.drawingEditor
+
+  it('offers Leiter + Auftrag on an area, and commits the Auftrag once on blur', () => {
+    const onLeiter = vi.fn(), onAuftrag = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'area' }}
+      onAbschnittLeiter={onLeiter} onAbschnittAuftrag={onAuftrag} people={['Oblt Steiner']} />)
+    expect(screen.getByText(D.abschnittLeiter)).toBeTruthy()
+    const input = screen.getByPlaceholderText(D.abschnittAuftragPlaceholder)
+    fireEvent.change(input, { target: { value: 'Brandbekämpfung Trakt B' } })
+    expect(onAuftrag).not.toHaveBeenCalled() // one undo step, one record row — never per keystroke
+    fireEvent.blur(input)
+    expect(onAuftrag).toHaveBeenCalledWith('Brandbekämpfung Trakt B')
+  })
+
+  it('clears via an emptied field, as undefined', () => {
+    const onAuftrag = vi.fn()
+    render(<DrawEditor {...base} drawing={{ kind: 'area', abschnittAuftrag: 'alt' }} onAbschnittAuftrag={onAuftrag} />)
+    const input = screen.getByPlaceholderText(D.abschnittAuftragPlaceholder)
+    fireEvent.change(input, { target: { value: '  ' } })
+    fireEvent.blur(input)
+    expect(onAuftrag).toHaveBeenCalledWith(undefined)
+  })
+
+  it('stays hidden on a line, and on an area without handlers (the Plan)', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onAbschnittLeiter={vi.fn()} />)
+    expect(screen.queryByText(D.abschnittLeiter)).toBeNull()
+    cleanup()
+    render(<DrawEditor {...base} drawing={{ kind: 'area' }} />)
+    expect(screen.queryByText(D.abschnittLeiter)).toBeNull()
+  })
+
+  it('shows the FKS Richtwert above four Abschnitte — a hint, never a gate', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'area' }} onAbschnittLeiter={vi.fn()} abschnittCount={5} />)
+    expect(screen.getByText(D.abschnittMaxHint)).toBeTruthy()
+  })
+
+  it('states Leiter + Auftrag read-only for the Führungsansicht', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'area', abschnittLeiter: 'Oblt Steiner', abschnittAuftrag: 'Wasserversorgung' }} readOnly />)
+    expect(screen.getByText('Oblt Steiner')).toBeTruthy()
+    expect(screen.getByText('Wasserversorgung')).toBeTruthy()
+  })
+})

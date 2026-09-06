@@ -97,3 +97,23 @@ describe('drawingEditChanges — the Vegetationsbrand letters', () => {
     expect(drawingEditChanges(line({ content: 'N' }), line({ content: 'G' }))).toEqual(['Typ auf Gegenfeuer geändert'])
   })
 })
+
+// The two fields that make a drawn Sektor an Abschnitt (FKS Einsatzführung 3.5.2) — who led
+// which Abschnitt with what Auftrag is exactly what the Rapport is later read for.
+describe('Abschnitt fields on a Fläche', () => {
+  const area = (over: Partial<Drawing>): Drawing => ({
+    id: 'a1', kind: 'area', coords: [[7.5, 47.4], [7.51, 47.41], [7.51, 47.4]], ...over,
+  })
+
+  it('records Leiter set / changed / cleared', () => {
+    expect(drawingEditChanges(area({}), area({ abschnittLeiter: 'Oblt Steiner' }))).toEqual(['Leiter: Oblt Steiner'])
+    expect(drawingEditChanges(area({ abschnittLeiter: 'Oblt Steiner' }), area({ abschnittLeiter: 'Lt Hofer' }))).toEqual(['Leiter auf Lt Hofer geändert'])
+    expect(drawingEditChanges(area({ abschnittLeiter: 'Lt Hofer' }), area({}))).toEqual(['Leiter entfernt'])
+  })
+
+  it('records the Auftrag the same way', () => {
+    expect(drawingEditChanges(area({}), area({ abschnittAuftrag: 'Brandbekämpfung Trakt B' }))).toEqual(['Auftrag: Brandbekämpfung Trakt B'])
+    expect(drawingEditChanges(area({ abschnittAuftrag: 'Brandbekämpfung' }), area({ abschnittAuftrag: 'Wasserversorgung' }))).toEqual(['Auftrag auf Wasserversorgung geändert'])
+    expect(drawingEditChanges(area({ abschnittAuftrag: 'x' }), area({}))).toEqual(['Auftrag entfernt'])
+  })
+})

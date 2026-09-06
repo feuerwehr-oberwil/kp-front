@@ -244,6 +244,35 @@ describe('Journal · the classification column', () => {
     expect(document.querySelector('[data-ev="d1"] .jr-ring-done')).toBeTruthy()
   })
 
+  // «wieder in …» — the Führungsrhythmus move: the done row offers the next Wiedervorlage.
+  it('offers «wieder in 30/60 min» on a done row, and reports id + minutes', () => {
+    const onReminderAgain = vi.fn()
+    setup({
+      events: [
+        { id: 'd1', t: '', at: new Date(1_030_000).toISOString(), icon: 'check', kind: 'reminder',
+          text: 'Pendenz erledigt: Lagerapport durchführen', reminder: { op: 'done', id: 'p2' } },
+        auftrag,
+      ],
+      onReminderAgain,
+    })
+    const chips = document.querySelectorAll('[data-ev="d1"] .jr-again-btn')
+    expect(chips).toHaveLength(2)
+    fireEvent.click(chips[0])
+    expect(onReminderAgain).toHaveBeenCalledWith('p2', 30)
+    // …and never on the row that raised the item, or without the handler (viewer/replay)
+    expect(document.querySelectorAll('[data-ev="a1"] .jr-again-btn')).toHaveLength(0)
+  })
+
+  it('renders no «wieder in» chips when the handler is absent', () => {
+    setup({
+      events: [
+        { id: 'd1', t: '', at: new Date(1_030_000).toISOString(), icon: 'check', kind: 'reminder',
+          text: 'Pendenz erledigt: Lagerapport durchführen', reminder: { op: 'done', id: 'p2' } },
+      ],
+    })
+    expect(document.querySelectorAll('.jr-again-btn')).toHaveLength(0)
+  })
+
   // a Meldung and a snooze are log lines ABOUT the item — they keep their glyph and, for the
   // Meldung, the anchor that names which item it answers
   it('leaves a Meldung row its own glyph', () => {

@@ -140,8 +140,11 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
  * gesetzt für {t}: » lead-in is peeled off it. The pattern is derived FROM the copy template rather
  * than hard-coded, so it keeps working in every locale and stays correct if the wording changes;
  * anything that does not match is returned untouched.
+ *
+ * Exported for the «wieder in …» re-raise (IncidentWorkspace): the new `created` row has to
+ * carry the ITEM, not the closed row's sentence — same one implementation, both directions.
  */
-function bareText(e: TimelineEvent): string {
+export function bareText(e: TimelineEvent): string {
   const explicit = e.reminder?.text?.trim()
   if (explicit) return explicit
   const tpl = appConfig.copy.journal.reminderCreated

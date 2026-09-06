@@ -117,6 +117,7 @@ import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { isAtemschutzTrupp, truppStillDeployed, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
+import { bareText } from './lib/reminders'
 import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
@@ -2339,6 +2340,31 @@ export function IncidentWorkspace({
     !replayActive,
     incidentMeta.closed_at,
   )
+
+  // «wieder in …» on a done row (Journal · onReminderAgain): re-raise a closed item as a FRESH
+  // timed Wiedervorlage — new id, same bare text, due in `mins`. The Führungsrhythmus move
+  // (Handbuch 2.4): the moment the Lagerapport-Pendenz is ticked off is when the next one gets
+  // its time. Appends a normal `created` row; the closed item stays closed, nothing mutates.
+  const reRaisePendenz = (reminderId: string, mins: number) => {
+    const src = timeline.find((e) => e.reminder?.op === 'created' && e.reminder.id === reminderId)
+    if (!src) return
+    const text = bareText(src)
+    // server clock, like the row's own `at` (pushEvent): the Wiedervorlage is read by every
+    // device, so a fast tablet must not make it ring early for the whole deployment
+    const dueAt = new Date(Date.parse(serverNowIso()) + mins * 60_000).toISOString()
+    const id = `pnd${Date.now()}`
+    pushEvent({
+      icon: 'bell', kind: 'reminder',
+      // the record row carries the time in words (same template the legacy composer wrote, and
+      // exactly what lib/reminders · bareText knows how to strip back off)
+      text: fillTemplate(appConfig.copy.journal.reminderCreated, { t: formatTime(new Date(dueAt)), text }),
+      surface: mode === 'plans' ? 'plan' : 'map', planId: mode === 'plans' ? activePlanId : undefined,
+      reminder: { op: 'created', id, dueAt, text },
+    })
+    emit('reminder.create', { id, dueAt })
+    // a row that will ring asks for the OS permission on this gesture, like the composer does
+    void ensureNotifyPermission()
+  }
 
   // Voice memo driven by the TopBar's Eintrag button (hold to start, tap to stop) —
   // lifecycle in useVoiceMemo; here we persist the finished clip into the journal. The
@@ -5277,6 +5303,15 @@ export function IncidentWorkspace({
           // renumbered hose renumbers the Trupp too (useTruppActions · syncLineNoToTrupp)
           onLineNo={(lineNo) => { patchDrawing({ lineNo }); syncLineNoToTrupp(selectedDrawing.id, lineNo) }}
           onFloorTag={(floorTag) => patchDrawing({ floorTag })}
+          // Abschnitt on the Fläche — Leiter + Auftrag (FKS Einsatzführung 3.5.2). Lage only:
+          // a Plan sketch is not an Abschnitt, so the Whiteboard passes no handlers.
+          onAbschnittLeiter={selectedDrawing.kind === 'area' ? (name) => patchDrawing({ abschnittLeiter: name }) : undefined}
+          onAbschnittAuftrag={selectedDrawing.kind === 'area' ? (auftrag) => patchDrawing({ abschnittAuftrag: auftrag }) : undefined}
+          people={pickablePersonnel.map((p) => p.displayName)}
+          // Flächen that carry Leiter or Auftrag, THIS one counted as if already assigned —
+          // so the FKS hint (max 3–4) shows while the 5th is being set up, not one edit late
+          abschnittCount={drawings.filter((d) => d.kind === 'area' && (d.abschnittLeiter || d.abschnittAuftrag)).length
+            + (selectedDrawing.abschnittLeiter || selectedDrawing.abschnittAuftrag ? 0 : 1)}
           // «Gehört zu Trupp …»: linking from the LINE's side. Routed through the same action the
           // Atemschutz board uses, so both directions write both collections identically.
           onTrupp={(truppId) => (truppId ? linkTruppLine(truppId, selectedDrawing.id) : unlinkLine(selectedDrawing.id))}
@@ -5990,6 +6025,7 @@ export function IncidentWorkspace({
             setNoteOn({ id: r.id, text: r.text })
             setComposerOpen(true)
           } : undefined}
+          onReminderAgain={!readOnly && !replayActive ? reRaisePendenz : undefined}
           mediaStatusOf={media.statusOf}
           onOpenPlayer={(e, seekSec) => setPlayer({ row: e, seekSec })}
           onEditText={!readOnly ? (id, text) => journal.appendPatch(id, { textEdit: text }) : undefined}
