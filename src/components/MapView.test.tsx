@@ -76,3 +76,23 @@ describe('subPathInsert — the grip sits ON the ink', () => {
     expect(subPathInsert(flat, 0, 1)).toEqual({ index: 1, coord: [5, 5] })
   })
 })
+
+// The demo threw the browser's LOCATION dialog at a visitor on arrival: the default blue
+// dot (05.09.) takes its coarse fix un-gestured, on first map paint. Same data-protection
+// line as the demo's notification ask — the demo asks for no permission uninvited.
+describe('autoCoarseFixWanted — the un-gestured own-position fix', () => {
+  it('runs on a station, never on the public demo, never on a static render', async () => {
+    const { autoCoarseFixWanted } = await import('./MapView')
+    const cfg = await import('../lib/deploymentConfig')
+    const spy = vi.spyOn(cfg, 'isDemoMode')
+    try {
+      spy.mockReturnValue(false)
+      expect(autoCoarseFixWanted(false)).toBe(true)
+      expect(autoCoarseFixWanted(true)).toBe(false)
+      spy.mockReturnValue(true)
+      expect(autoCoarseFixWanted(false)).toBe(false)
+    } finally {
+      spy.mockRestore() // even on a failing assertion — later tests must not inherit the demo
+    }
+  })
+})

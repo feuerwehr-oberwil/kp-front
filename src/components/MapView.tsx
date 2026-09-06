@@ -8,6 +8,7 @@ import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
+import { isDemoMode } from '../lib/deploymentConfig'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML, ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
 import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
@@ -424,6 +425,13 @@ interface Props {
     coordinates: [[number, number], [number, number], [number, number], [number, number]]
   }[]
 }
+
+/** Whether the Karte takes its automatic coarse own-position fix (the default blue dot,
+ *  05.09.). NOT on the public demo (06.09.): the map is the first thing a visitor sees, so
+ *  the un-gestured fix threw the browser's LOCATION dialog at them on arrival — the same
+ *  data-protection line as the demo's notification ask, and Musterdorf is nobody's Standort
+ *  anyway. «Mein Standort» stays: a tap is intent, demo or not (locateNonce path). */
+export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView && !isDemoMode()
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
@@ -996,7 +1004,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // the device's own location permission, and a denial is silently honoured (no dot, no prompt
   // twice, and the «Mein Standort» row still works the moment it is granted).
   useEffect(() => {
-    if (staticView) return
+    if (!autoCoarseFixWanted(staticView)) return
     if (!('geolocation' in navigator)) return
     navigator.geolocation.getCurrentPosition(
       (p) => setUserPos((prev) => prev ?? [p.coords.longitude, p.coords.latitude]),

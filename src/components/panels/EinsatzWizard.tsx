@@ -188,7 +188,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
   // device GPS (watched only while the object picker is open) so "Objekt aus
   // Feuerwehrplänen" ranks by where the responder actually stands, not the incident coord
-  const myPos = useGeoPosition(objOpen)
+  // NOT on the public demo: opening the Objekt step must not throw the browser's location
+  // dialog at a visitor (same line as MapView · autoCoarseFixWanted)
+  const myPos = useGeoPosition(objOpen && !isDemoMode())
 
   // a coordinate from the map picker → set it and reverse-geocode the address (so a
   // map-click fills the nearest registered address, not just bare coords)
