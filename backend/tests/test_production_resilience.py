@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from app import push, scheduler
 from app.models import Incident, JournalEntry
-from app.schemas import JournalAppendIn, TruppsPut, WorkspacePut
+from app.schemas import JournalAppendIn, TruppsPut
 
 
 @pytest.mark.parametrize("second", ["render", "reverse"])
@@ -128,9 +128,13 @@ async def test_unauthenticated_streamed_request_stops_at_body_cap(client):
         {"timeline": [{"id": "bad", "reminder": "broken"}]},
     ],
 )
-def test_new_workspace_rejects_malformed_alarm_fields(workspace):
-    with pytest.raises(ValidationError):
-        WorkspacePut(workspace=workspace, base_rev=0)
+async def test_new_workspace_rejects_malformed_alarm_fields(workspace, client, editor, db_session):
+    incident = Incident(title="Synthetic new workspace", source="manual")
+    db_session.add(incident)
+    await db_session.commit()
+    await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    response = await client.put(f"/api/incidents/{incident.id}/workspace", json={"workspace": workspace, "base_rev": 0})
+    assert response.status_code == 422, response.text
 
 
 def test_slice_and_journal_reject_malformed_alarm_fields():

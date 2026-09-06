@@ -1,6 +1,8 @@
 """Validate alarm-bearing fields on writes without restricting unrelated workspace data."""
 
+import json
 import math
+from collections import Counter
 from datetime import datetime
 from typing import TypeGuard
 
@@ -58,19 +60,45 @@ def validate_reminder_row(row: object) -> None:
     _timestamps(reminder, ("dueAt",))
 
 
-def validate_alarm_workspace(workspace: dict) -> None:
+def _encoded(value: object) -> str:
+    """JSON identity ignores object-key order but distinguishes booleans from numbers."""
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def validate_alarm_workspace(workspace: dict, previous: dict | None = None) -> None:
+    """Reject new invalid alarm values; preserve exact, counted legacy rows already stored."""
+    previous = previous or {}
     for key, validator in (("trupps", validate_trupp), ("timeline", validate_reminder_row)):
         rows = workspace.get(key)
         if rows is not None:
             if not isinstance(rows, list):
+                if _encoded(rows) == _encoded(previous.get(key)):
+                    continue
                 raise ValueError(f"{key}: Liste erforderlich")
+            old_rows = previous.get(key)
+            retained: Counter[str] | None = None
             for row in rows:
-                validator(row)
+                try:
+                    validator(row)
+                except ValueError:
+                    if retained is None:
+                        retained = (
+                            Counter(_encoded(old) for old in old_rows) if isinstance(old_rows, list) else Counter()
+                        )
+                    identity = _encoded(row)
+                    if not retained[identity]:
+                        raise
+                    retained[identity] -= 1
     settings = workspace.get("settings")
+    old_settings = previous.get("settings")
     if settings is not None:
         if not isinstance(settings, dict):
+            if _encoded(settings) == _encoded(old_settings):
+                return
             raise ValueError("Workspace-Einstellungen müssen ein Objekt sein")
         for key in ("contactIntervalMin", "contactGraceSec"):
             value = settings.get(key)
             if value is not None and not finite_nonnegative(value):
+                if isinstance(old_settings, dict) and _encoded(value) == _encoded(old_settings.get(key)):
+                    continue
                 raise ValueError(f"{key}: nichtnegative Zahl erforderlich")

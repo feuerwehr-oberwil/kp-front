@@ -168,8 +168,10 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
     for e in rows:  # oldest→newest (seq order)
         try:
             validate_reminder_row(e)
-        except ValueError:
-            logger.warning("Skipping malformed legacy reminder row")
+        except ValueError as exc:
+            row_id = e.get("id") if isinstance(e, dict) else None
+            row_id = row_id[:128] if isinstance(row_id, str) else None
+            logger.warning("Skipping malformed legacy reminder row %r: %s", row_id, exc)
             continue
         r = e.get("reminder")
         if not r or not r.get("id"):

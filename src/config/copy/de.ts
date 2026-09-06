@@ -1123,6 +1123,7 @@ export const de = {
   },
   journal: {
     delivery: {
+      failedTitleOne: '1 Eintrag nicht übertragen',
       failedTitle: '{n} Einträge nicht übertragen',
       storageTitle: 'Einträge nicht sicher gespeichert',
       storageBody: 'App offen lassen und Einträge sichern. Beim Schliessen können diese Einträge verloren gehen.',

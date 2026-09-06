@@ -61,6 +61,7 @@ to prod.
   a failed IndexedDB write must never claim local durability. Hydrate and merge a predecessor's
   queue before a promoted tab writes it. Client audit events carry a stable `client_id` through
   retries; a beacon does not acknowledge delivery.
+  A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,
   and ignore grants that arrive after the owner stopped.
@@ -69,11 +70,16 @@ to prod.
   (including transaction callbacks). The online backup guard retains deleted originals until
   `app.backup` pins them; never bypass it with direct unlink or overwrite original keys in place.
   Derived thumbnails/waveforms may be regenerated. Keep `.kp-backup` coordination files private
-  and never unlink its lock files. Incompatible schema rollback is an explicit restore with
+  and never unlink its lock files. Corrupt deletion markers retain their pins for inspection;
+  they must not prevent other cleanup or backups. Incompatible schema rollback is an explicit restore with
   `scripts/restore.sh --no-start`, followed by selecting the matching image; never auto-downgrade.
 - **PDFium calls share one process-wide lock.** Hold `app/pdfium_lock.py`'s lock through object
   creation, rendering and explicit closure, including print-page reversal. Run this synchronous
   work off the request event loop; separate PDF documents are not thread-safe either.
+- **Alarm validation must preserve unchanged legacy data.** Full workspace saves validate at
+  `apply_workspace_put` against the stored incident, retaining exact existing malformed rows
+  while rejecting new, edited or duplicated invalid rows. Never silently drop operational
+  records or skip validation because a revision differs; return the normal conflict instead.
 - **Undo/redo – every mutating op should be undoable, scoped to the workspace.** The standing
   rule: Lage map has document-level undo (`useUndoableDoc`), Plan has per-plan-document undo
   (`useBoardDoc`), and one-shot ops (Gebäude floor add/remove, building replace) use

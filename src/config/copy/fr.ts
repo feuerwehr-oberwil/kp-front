@@ -789,12 +789,13 @@ export const fr: Localizable<Copy> = {
   },
   journal: {
     delivery: {
+      failedTitleOne: '1 entrée non transmise',
       failedTitle: '{n} entrées non transmises',
       storageTitle: 'Entrées non enregistrées de manière sûre',
       storageBody: 'Gardez l’application ouverte et enregistrez une copie. Fermer l’application peut entraîner la perte de ces entrées.',
       savedBody: 'Enregistrées sur cet appareil. Ces entrées manquent sur les autres appareils.',
       offlineBody: 'Enregistrées sur cet appareil. La transmission reprend automatiquement dès qu’une connexion est disponible.',
-      retry: 'Réessayer', retrying: 'Nouvelle tentative …', export: 'Enregistrer les entrées', short: 'Entrées non transmises',
+      retry: 'Réessayer', retrying: 'Nouvelle tentative …', export: 'Exporter les entrées', short: 'Entrées non transmises',
     },
     open: 'Journal',
     add: 'Entrée',

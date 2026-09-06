@@ -787,6 +787,7 @@ export const en: Localizable<Copy> = {
   },
   journal: {
     delivery: {
+      failedTitleOne: '1 entry not uploaded',
       failedTitle: '{n} entries not uploaded',
       storageTitle: 'Entries not safely stored',
       storageBody: 'Keep the app open and save a copy. Closing the app may lose these entries.',

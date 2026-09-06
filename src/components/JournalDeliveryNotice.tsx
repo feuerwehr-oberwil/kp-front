@@ -21,7 +21,7 @@ export function JournalDeliveryNotice({ status, count, onRetry, onExport }: {
   }
   return (
     <div className={`jr-delivery${unsafe ? ' jr-delivery-danger' : ''}`} role={unsafe || status === 'error' ? 'alert' : 'status'}>
-      <strong>{unsafe ? C.storageTitle : fillTemplate(C.failedTitle, { n: count })}</strong>
+      <strong>{unsafe ? C.storageTitle : count === 1 ? C.failedTitleOne : fillTemplate(C.failedTitle, { n: count })}</strong>
       <p>{unsafe ? C.storageBody : status === 'offline' ? C.offlineBody : C.savedBody}</p>
       <div className="jr-delivery-actions">
         <button type="button" className="ip-btn primary" disabled={busy} onClick={() => void run()}>{busy ? C.retrying : C.retry}</button>

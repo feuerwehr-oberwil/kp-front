@@ -789,6 +789,7 @@ export const it: Localizable<Copy> = {
   },
   journal: {
     delivery: {
+      failedTitleOne: '1 voce non trasmessa',
       failedTitle: '{n} voci non trasmesse',
       storageTitle: 'Voci non salvate in modo sicuro',
       storageBody: 'Mantieni aperta l’app e salva una copia. Chiudendo l’app, queste voci potrebbero andare perse.',

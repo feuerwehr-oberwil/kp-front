@@ -1,8 +1,11 @@
 """Interrupted deletion metadata must release retained bytes without racing a live producer."""
 
+import gzip
+import io
 import json
 import multiprocessing
 import os
+import tarfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -99,3 +102,40 @@ def test_collector_leaves_in_progress_producer_until_metadata_is_published(defer
 
     assert list(directory.iterdir()) == []
     assert not storage.exists("media/example.wav")
+
+
+@pytest.mark.parametrize(
+    "metadata", [b"{", b"[]", b"{}", b'{"key": null}', b'{"key": 1}', b'{"key": "../outside"}', b"\xff"]
+)
+def test_corrupt_marker_preserves_its_only_pin_and_does_not_block_other_cleanup_or_backup(
+    deferred_root, monkeypatch, caplog, metadata
+):
+    storage.put_bytes("media/valid.wav", b"obsolete recording")
+    with storage.backup_guard():
+        storage.delete("media/example.wav")
+        storage.delete("media/valid.wav")
+    directory = Path(storage.backup_directory()) / "deferred"
+    marker = next(
+        path for path in directory.glob("*.json") if json.loads(path.read_text())["key"] == "media/example.wav"
+    )
+    marker.write_bytes(metadata)
+    # The pin may be the only recoverable old bytes after another physical deletion.
+    os.remove(storage.local_path("media/example.wav"))
+    pin = marker.with_suffix(".blob")
+    storage.put_bytes("media/current.wav", b"current recording")
+
+    def dump(destination):
+        destination.write_bytes(gzip.compress(b"PostgreSQL database dump"))
+
+    monkeypatch.setattr(backup, "dump_database", dump)
+    output = io.BytesIO()
+    backup.write_pair(output)
+    storage.collect_deferred_deletes()
+
+    assert marker.read_bytes() == metadata
+    assert pin.read_bytes() == b"original recording"
+    assert set(directory.iterdir()) == {marker, pin}
+    assert not storage.exists("media/valid.wav")
+    assert "retaining marker and pinned blob for inspection" in caplog.text
+    with tarfile.open(fileobj=io.BytesIO(output.getvalue())) as transport:
+        assert {item.name for item in transport.getmembers()} == {"db.sql.gz", "storage.tar.gz"}

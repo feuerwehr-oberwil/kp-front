@@ -2,14 +2,72 @@
 
 import gzip
 import io
+import json
 import multiprocessing
 import os
+import sys
 import tarfile
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import pytest
 
 from app import backup, storage
+
+
+@pytest.mark.parametrize(
+    ("credential", "password_query", "expected_password"),
+    [
+        ("p%40ss%3Aword%2F%25%2B", "", "p@ss:word/%+"),
+        ("inline-secret", "&password=query%40secret%2B", "query@secret+"),
+        (None, "", "inherited-secret"),
+    ],
+)
+def test_dump_password_uses_child_environment_and_preserves_encoded_connection_options(
+    tmp_path, monkeypatch, credential, password_query, expected_password
+):
+    executable = tmp_path / "pg_dump"
+    trace = tmp_path / "invocation.json"
+    executable.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, pathlib, sys\n"
+        "pathlib.Path(os.environ['KP_TEST_DUMP_TRACE']).write_text(json.dumps({\n"
+        "    'argv': sys.argv[1:], 'password': os.environ.get('PGPASSWORD')}))\n"
+        "sys.stdout.write('-- PostgreSQL database dump\\n')\n"
+    )
+    executable.chmod(0o700)
+    monkeypatch.setenv("KP_TEST_DUMP_TRACE", str(trace))
+    monkeypatch.setenv("PGPASSWORD", "inherited-secret")
+    auth = "user%40station" + (f":{credential}" if credential is not None else "")
+    monkeypatch.setattr(
+        backup.settings,
+        "database_url",
+        f"postgresql+asyncpg://{auth}@[::1]:5433/incident%20db%3F"
+        "?sslmode=require&options=-c%20statement_timeout%3D0&application_name=backup%2Bdrill" + password_query,
+    )
+    monkeypatch.setattr(backup.shutil, "which", lambda _name: str(executable))
+
+    destination = tmp_path / "dump.sql.gz"
+    backup.dump_database(destination)
+
+    invocation = json.loads(trace.read_text())
+    assert invocation["password"] == expected_password
+    assert invocation["argv"][0] == "--dbname"
+    connection = urlsplit(invocation["argv"][1])
+    assert connection.scheme == "postgresql"
+    assert connection.password is None
+    assert unquote(connection.username) == "user@station"
+    assert connection.hostname == "::1" and connection.port == 5433
+    assert unquote(connection.path) == "/incident db?"
+    assert parse_qs(connection.query) == {
+        "sslmode": ["require"],
+        "options": ["-c statement_timeout=0"],
+        "application_name": ["backup+drill"],
+    }
+    assert "options=-c%20statement_timeout%3D0" in connection.query
+    assert expected_password not in " ".join(invocation["argv"])
+    assert os.environ["PGPASSWORD"] == "inherited-secret"
+    assert gzip.decompress(destination.read_bytes()) == b"-- PostgreSQL database dump\n"
 
 
 def test_replacing_a_blob_preserves_an_existing_snapshot(tmp_path, monkeypatch):

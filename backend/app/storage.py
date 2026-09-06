@@ -8,6 +8,7 @@ module's internals for R2/S3 at scale without touching callers.
 import contextlib
 import fcntl
 import json
+import logging
 import os
 import tempfile
 import uuid
@@ -22,6 +23,7 @@ from .transaction_hooks import after_commit, after_rollback
 
 _ROOT = os.path.abspath(settings.media_storage_dir)
 _BACKUP_INTERNAL = ".kp-backup"
+log = logging.getLogger(__name__)
 
 
 class TooLargeError(Exception):
@@ -195,10 +197,20 @@ def collect_deferred_deletes() -> None:
                         if not os.path.exists(marker.removesuffix(".blob") + ".json"):
                             os.remove(marker)
                     elif name.endswith(".json"):
-                        with open(marker) as fh:
-                            record = json.load(fh)
+                        try:
+                            with open(marker) as fh:
+                                record = json.load(fh)
+                            if not isinstance(record, dict) or not isinstance(record.get("key"), str):
+                                raise ValueError("Invalid deferred deletion record")
+                            path = _full(record["key"])
+                        except ValueError:
+                            # An unreadable intent cannot authorise deletion. Keep its pin too:
+                            # it may be the only surviving old bytes. Other records still progress.
+                            log.warning(
+                                "Invalid deferred deletion %s; retaining marker and pinned blob for inspection", marker
+                            )
+                            continue
                         pin = marker.removesuffix(".json") + ".blob"
-                        path = _full(record["key"])
                         with contextlib.suppress(FileNotFoundError):
                             pinned = os.stat(pin)
                             current = os.stat(path)

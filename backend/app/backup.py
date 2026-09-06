@@ -19,6 +19,9 @@ import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import BinaryIO
+from urllib.parse import quote, urlencode
+
+from sqlalchemy.engine import make_url
 
 from . import storage
 from .config import settings
@@ -43,12 +46,32 @@ def backup_run() -> Iterator[Path]:
 
 def dump_database(destination: Path) -> None:
     """Check pg_dump itself, not only the gzip stream produced from its stdout."""
-    url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    url = make_url(settings.database_url)
+    query = dict(url.query)
+    password = query.pop("password", url.password)
+    if isinstance(password, tuple):
+        password = password[-1]
+    environment = os.environ.copy()
+    if password is not None:
+        environment["PGPASSWORD"] = password
+    # Build libpq's URI with percent encoding, including query spaces (SQLAlchemy's
+    # display renderer uses '+' there). Never include either form of password in argv.
+    host = url.host or ""
+    if ":" in host:
+        host = f"[{host}]"
+    authority = f"{quote(url.username, safe='')}@" if url.username is not None else ""
+    authority += host + (f":{url.port}" if url.port is not None else "")
+    # make_url decodes credentials/query values but leaves database percent escapes intact.
+    connection = f"postgresql://{authority}/{quote(url.database or '', safe='%')}"
+    if query:
+        connection += "?" + urlencode(query, doseq=True, quote_via=quote)
     executable = shutil.which("pg_dump")
     if executable is None:
         raise RuntimeError("pg_dump is not installed in this image")
     # Fixed executable, argv (no shell), operator-configured database connection only.
-    with subprocess.Popen([executable, "--dbname", url], stdout=subprocess.PIPE) as process:  # noqa: S603
+    with subprocess.Popen(  # noqa: S603
+        [executable, "--dbname", connection], stdout=subprocess.PIPE, env=environment
+    ) as process:
         if process.stdout is None:
             raise RuntimeError("pg_dump stdout is unavailable")
         try:

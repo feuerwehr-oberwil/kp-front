@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
-from .alarm_validation import validate_alarm_workspace, validate_reminder_row, validate_trupp
+from .alarm_validation import validate_reminder_row, validate_trupp
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +293,8 @@ class WorkspacePut(BaseModel):
     @model_validator(mode="after")
     def _validate_workspace(self) -> "WorkspacePut":
         _scrub_drawing_props(self.workspace)
-        validate_alarm_workspace(self.workspace)
+        # Alarm validation needs the current stored workspace to distinguish unchanged
+        # malformed legacy records from new invalid data; apply_workspace_put owns it.
         return self
 
 

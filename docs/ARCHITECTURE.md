@@ -173,6 +173,11 @@ Tab promotion reloads the previous writer's IndexedDB queue before persisting. I
 reads merge entries captured while the read was in flight. Legacy localStorage migrations
 remove their source only after IndexedDB confirms the replacement write.
 
+Alarm-bearing workspace fields are validated at the shared save boundary against the stored
+incident. Unchanged malformed legacy rows are retained, so an unrelated edit can still save;
+new or changed invalid rows are rejected. Revision conflicts remain conflicts, and no save
+bypasses drawing sanitization or alarm validation.
+
 ## Deployment
 
 One image, built in two stages (Vite SPA → `dist/`, then the FastAPI app that serves it),

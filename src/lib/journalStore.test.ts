@@ -108,6 +108,109 @@ describe('JournalStore — append/flush/pull', () => {
     expect(reopened.display().map((r) => r.id).sort()).toEqual(['new', 'old'])
   })
 
+  it('a disposed store finishing hydration cannot overwrite its replacement’s outbox', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const cached = { rows: [], latestSeq: 0, outbox: [row('old')] }
+    await idb.idbSet(`kp-journal-${INC}`, cached)
+    let finishRead!: (value: unknown) => void
+    const read = vi.spyOn(idb, 'idbGet').mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    const old = new JournalStore(INC, false)
+    const replacement = new JournalStore(INC, false)
+    try {
+      const opening = old.init([])
+      old.dispose()
+      await replacement.init([])
+      replacement.append(row('new'))
+      await replacement.retry()
+
+      finishRead(cached)
+      await opening
+      const reopened = new JournalStore(INC, true)
+      await reopened.init([])
+      expect(reopened.display().map((r) => r.id).sort()).toEqual(['new', 'old'])
+      reopened.dispose()
+    } finally { read.mockRestore(); old.dispose(); replacement.dispose() }
+  })
+
+  it.each([false, true])('hands a pre-hydration append to its replacement (demoted before disposal: %s)', async (demoted) => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const cached = { rows: [], latestSeq: 0, outbox: [row('cached')] }
+    await idb.idbSet(`kp-journal-${INC}`, cached)
+    let finishRead!: (value: unknown) => void
+    const read = vi.spyOn(idb, 'idbGet').mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    const old = new JournalStore(INC, false)
+    const replacement = new JournalStore(INC, false)
+    try {
+      const opening = old.init([])
+      old.append(row('before-dispose'))
+      expect(old.syncStatus).toBe('storage')
+      if (demoted) old.setReadOnly(true)
+      old.dispose()
+      const viewer = new JournalStore(INC, true)
+      await viewer.init([])
+      expect(viewer.display().map((r) => r.id)).toEqual(['cached'])
+      viewer.dispose()
+      const replacing = replacement.init([])
+      replacement.append(row('replacement'))
+      await replacing
+      finishRead(cached)
+      await opening
+      const reopened = new JournalStore(INC, true)
+      await reopened.init([])
+      expect(reopened.display().map((r) => r.id).sort()).toEqual(['before-dispose', 'cached', 'replacement'])
+      reopened.dispose()
+    } finally { read.mockRestore(); old.dispose(); replacement.dispose() }
+  })
+
+  it('StrictMode revival keeps a pre-hydration handoff once, without duplicating its row', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    let finishRead!: (value: null) => void
+    const read = vi.spyOn(idb, 'idbGet').mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    const store = new JournalStore(INC, false)
+    try {
+      const opening = store.init([])
+      store.append(row('strict-mode'))
+      store.dispose()
+      store.revive()
+      const revived = store.init([])
+      finishRead(null)
+      await Promise.all([opening, revived])
+      expect(store.recoveryData().entries.map((r) => r.id)).toEqual(['strict-mode'])
+      const reopened = new JournalStore(INC, true)
+      await reopened.init([])
+      expect(reopened.display().map((r) => r.id)).toEqual(['strict-mode'])
+      reopened.dispose()
+    } finally { read.mockRestore(); store.dispose() }
+  })
+
+  it('disposal still lets an already-issued write preserve the last genuine append', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const store = new JournalStore(INC, false)
+    await store.init([])
+    let finishWrite!: () => void
+    const acknowledgement = new Promise<void>((resolve) => { finishWrite = resolve })
+    const realWrite = idb.idbSet
+    const write = vi.spyOn(idb, 'idbSet').mockImplementationOnce(async (key, value) => {
+      const writing = realWrite(key, value)
+      await acknowledgement
+      return writing
+    })
+    try {
+      store.append(row('last-before-close'))
+      store.dispose()
+      finishWrite()
+      await settle()
+      const reopened = new JournalStore(INC, true)
+      await reopened.init([])
+      expect(reopened.display().map((r) => r.id)).toEqual(['last-before-close'])
+      reopened.dispose()
+    } finally { write.mockRestore(); store.dispose() }
+  })
+
   it('rehydrates a promoted tab before writing so another tab’s offline rows survive', async () => {
     apiGet.mockRejectedValue(new ApiError(0, 'offline'))
     apiPost.mockRejectedValue(new ApiError(0, 'offline'))
