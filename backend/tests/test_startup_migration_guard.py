@@ -43,8 +43,11 @@ case "$*" in
 esac
 """,
         "pg_dump": """#!/usr/bin/env bash
-printf 'pg_dump\n' >> "$KP_TEST_COMMAND_LOG"
-if [[ "${1:-}" == '--version' ]]; then echo 'pg_dump (PostgreSQL) 18.0'; exit; fi
+if [[ "${1:-}" == '--version' ]]; then
+  printf 'pg_dump version probe\n' >> "$KP_TEST_COMMAND_LOG"
+  echo 'pg_dump (PostgreSQL) 18.0'; exit
+fi
+printf 'pg_dump content\n' >> "$KP_TEST_COMMAND_LOG"
 echo '-- PostgreSQL database dump'
 echo 'dump contents'
 """,
@@ -110,6 +113,7 @@ def test_fresh_database_still_takes_a_backup_before_migrating(startup):
     run, _original = startup
     result, calls, remaining = run("empty")
     assert result.returncode == 0, result.stderr
-    assert calls.index("pg_dump") < calls.index("upgrade head") < calls.index("uvicorn")
+    assert calls.index("pg_dump version probe") < calls.index("pg_dump content")
+    assert calls.index("pg_dump content") < calls.index("upgrade head") < calls.index("uvicorn")
     assert len(remaining) == 5
     assert any(b"PostgreSQL database dump" in gzip.decompress(value) for value in remaining.values())

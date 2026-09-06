@@ -425,8 +425,9 @@ compose stop app </dev/null >/dev/null 2>&1 || die "$T_R_STOP_FAIL"
 
 if [[ "$SKIP_SAFETY_COPY" -eq 0 ]]; then
   say "$(sayf "$T_R_SAFETY_FMT" "$SAFETY_DIR")"
-  mkdir -p "$SAFETY_DIR"
-  chmod 700 "$SAFETY_DIR" 2>/dev/null || true
+  # Unlike a general shared backup target, this new child holds a private recovery copy.
+  # Restrict creation itself, and refuse before writing data if permissions cannot be set.
+  (umask 077; mkdir -p "$SAFETY_DIR") && chmod 700 "$SAFETY_DIR" || die "$T_R_SAFETY_FAIL"
   # Preserve the chosen deployment, including a custom environment file, in the safety copy.
   safety_env="$ENV_FILE"
   [[ "$safety_env" == ".env" ]] || safety_env="$(cd "$(dirname "$ENV_FILE")" && pwd)/$(basename "$ENV_FILE")"

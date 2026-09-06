@@ -54,6 +54,25 @@ printf 'backup\\n' >> "$KP_TEST_RESTORE_LOG"
     (scripts / "backup.sh").chmod(0o700)
     commands = tmp_path / "bin"
     commands.mkdir()
+    # Observe the safety directory immediately after mkdir, before chmod can hide a
+    # permissive creation mode; command failures must prevent the actual restore.
+    for name in ("mkdir", "chmod"):
+        real_command = shutil.which(name)
+        assert real_command is not None
+        command = commands / name
+        command.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, os, pathlib, subprocess, sys\n"
+            "target=pathlib.Path(sys.argv[-1])\n"
+            "safety=target.name.startswith('pre-restore-')\n"
+            f"if safety and os.environ['KP_TEST_RESTORE_FAILURE'] == 'safety-{name}': sys.exit(1)\n"
+            f"result=subprocess.run([{real_command!r}, *sys.argv[1:]], check=False)\n"
+            f"if safety and {name!r} == 'mkdir' and result.returncode == 0:\n"
+            "    with open(os.environ['KP_TEST_RESTORE_LOG'], 'a') as log:\n"
+            "        log.write(json.dumps(['safety-directory-mode', oct(target.stat().st_mode & 0o777)])+'\\n')\n"
+            "sys.exit(result.returncode)\n"
+        )
+        command.chmod(0o700)
     docker = commands / "docker"
     docker.write_text("""#!/usr/bin/env python3
 import json, os, sys
@@ -116,6 +135,7 @@ elif 'tar xzf' in joined: sys.stdin.buffer.read()
             text=True,
             timeout=15,
             check=False,
+            umask=0o022,
         )
         calls = log.read_text().splitlines() if log.exists() else []
         if failure == "locked":
@@ -198,6 +218,23 @@ def test_failed_safety_backup_stops_before_replacing_any_data(restore_command):
     assert "backup" in calls
     assert not any("DROP SCHEMA" in call or "tar xzf" in call or "up -d" in call for call in calls)
     assert "--skip-safety-copy" in result.stderr
+
+
+def test_safety_directory_is_private_from_creation_with_permissive_host_umask(restore_command):
+    result, calls = restore_command("--no-start")
+    assert result.returncode == 0, result.stderr
+    assert "safety-directory-mode 0o700" in calls
+    assert calls.index("safety-directory-mode 0o700") < calls.index("backup")
+
+
+@pytest.mark.parametrize("failure", ["safety-mkdir", "safety-chmod"])
+def test_safety_directory_failure_stops_before_backup_or_database_replacement(restore_command, failure):
+    result, calls = restore_command("--no-start", failure=failure)
+    assert result.returncode != 0
+    assert "compose stop app" in calls
+    assert "backup" not in calls
+    assert not any("DROP SCHEMA" in call or "tar xzf" in call or "up -d" in call for call in calls)
+    assert "NOTHING was restored" in result.stderr
 
 
 def test_explicit_skip_does_not_attempt_backup_and_warns_before_recovery(restore_command):
