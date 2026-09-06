@@ -174,7 +174,7 @@ export class WorkspaceSync {
   /** the offline-cache write waiting for the keystrokes to stop — see writeCache */
   private cacheTimer: ReturnType<typeof setTimeout> | null = null
   private entry: CacheEntry
-  private flushing = false
+  private flushing: Promise<void> | null = null
   private disposed = false
   private saveSeq = 0 // bumped on each save(); lets a flush detect an edit that landed mid-PUT
   private readonly debounceMs: number
@@ -514,38 +514,37 @@ export class WorkspaceSync {
     this.timer = setTimeout(() => void this.flush(), this.debounceMs)
   }
 
-  /** Force a synchronous-ish flush (tab hide / beforeunload / reconnect / incident switch). */
-  async flush(): Promise<void> {
-    if (this.flushing || !this.entry.dirty || this.disposed) return
-    this.flushing = true
-    if (this.timer) {
-      clearTimeout(this.timer)
-      this.timer = null
-    }
-    try {
-      this.flushCache() // the cache must carry what is about to become the ancestor
-      await this.pushCurrent()
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        await this.resolveConflict()
-      } else if (e instanceof ApiError && e.status === 401) {
-        // The server REVOKED this session mid-flush. A 401 is device-wide, exactly as in init():
-        // lock every cached read at once (denyWorkspaceCache), so a tab left open past revocation
-        // stops serving on its next flush/poll instead of only when it happens to re-init. NOT a
-        // 403 — that can be the Atemschutz-Link slice legitimately refused the full PUT, which is
-        // not revocation. Stay dirty: the work is kept for the same user's next sign-in, never lost.
-        denyWorkspaceCache()
-        this.setStatus('error')
-      } else if (e instanceof ApiError && e.status === 0) {
-        this.setStatus('offline') // stay dirty; the `online` event or the backoff retries
-      } else {
-        this.setStatus('error') // server/other error (incl. 403); stay dirty, retried by the backoff
-      }
-    } finally {
-      this.flushing = false
-      // Still dirty with no flush queued (offline / server error / exhausted merge retries)
-      // → arm the automatic backoff so an idle device recovers without a manual sync.
+  /** Await the shared attempt and any newer edit rebased onto its successful response. */
+  flush(): Promise<void> {
+    if (this.flushing) return this.flushing
+    if (!this.entry.dirty || this.disposed) return Promise.resolve()
+    this.flushing = this.drain().finally(() => {
+      this.flushing = null
+      // A failed attempt keeps the existing automatic backoff; joining callers never spin.
       if (this.entry.dirty && !this.timer) this.scheduleRetry()
+    })
+    return this.flushing
+  }
+
+  private async drain(): Promise<void> {
+    while (this.entry.dirty && !this.disposed) {
+      if (this.timer) { clearTimeout(this.timer); this.timer = null }
+      try {
+        this.flushCache() // the cache must carry what is about to become the ancestor
+        await this.pushCurrent()
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) {
+          if (!(await this.resolveConflict())) return
+        } else {
+          // A revoked session closes cached reads device-wide while preserving dirty work.
+          // A 403 can be a legitimately refused link slice and must not revoke the device.
+          if (e instanceof ApiError && e.status === 401) denyWorkspaceCache()
+          this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
+          return
+        }
+      }
+      // Only successful acknowledgements reach the next iteration. A save made during
+      // the PUT stays dirty and is sent now, so an explicit sync cannot finish ahead of it.
     }
   }
 
@@ -616,14 +615,14 @@ export class WorkspaceSync {
   // merge our edits and the server's against their common ancestor (entry.base) and push the
   // union: independent edits both survive, same-object edits are last-writer-wins, deletes
   // beat concurrent edits. We're inside an in-flight flush(), so push DIRECTLY (calling
-  // flush() would see flushing===true and no-op). Retry on a fresh 409 by re-merging.
+  // flush() would join the very promise we are resolving). Retry a fresh 409 by re-merging.
   //
   // The fetch and the merge sit INSIDE the try on purpose: a GET that dies offline mid-merge,
   // or a merge that throws on a server blob this app did not write, used to escape flush()'s
   // own catch as an unhandled rejection — no status, no toast, and the backoff re-threw it every
   // 5–60 s. Now either lands in 'offline' / 'error' like a failed push, so the sync toast and
   // «Jetzt synchronisieren» appear and the edits stay dirty in the cache.
-  private async resolveConflict() {
+  private async resolveConflict(): Promise<boolean> {
     // The content that 409'd — the common ancestor for any local edit that lands while the
     // merge PUT is in flight (so that newer edit can be re-based onto the merge, not lost).
     const mine0 = this.entry.workspace
@@ -641,10 +640,6 @@ export class WorkspaceSync {
           this.entry = { ...this.entry, base: merged, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
           this.writeCache()
           this.setStatus('synced')
-          // Surface the merged union to the live view in place, so the resolver sees the other
-          // device's additions without a remount.
-          if (this.onApplyMerged) this.onApplyMerged(merged, workspace_rev)
-          else this.opts.onServerWorkspace?.(merged, workspace_rev)
         } else {
           // A local edit landed during the merge PUT. It was built on `mine0` (pre-merge), so
           // re-base it onto the merged result — otherwise pushing it blindly next flush would
@@ -655,17 +650,23 @@ export class WorkspaceSync {
           this.setStatus('pending')
           this.armDebounce()
         }
+        // Apply BOTH branches to the live view. Its next edit is built from this state;
+        // leaving the remerged union only in the cache would delete remote additions on
+        // that next save, now at a current revision where no 409 can rescue them.
+        if (this.onApplyMerged) this.onApplyMerged(this.entry.workspace, workspace_rev)
+        else this.opts.onServerWorkspace?.(this.entry.workspace, workspace_rev)
         this.opts.onMerged?.()
-        return
+        return true
       } catch (e) {
         if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
-        return // offline/other: stay dirty + merged; a later flush retries
+        return false // offline/other: stay dirty + merged; a later flush retries
       }
     }
     // retries exhausted — leave it dirty for a later flush to pick up
     this.setStatus('error')
+    return false
   }
 
   /**

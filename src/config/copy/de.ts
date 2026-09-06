@@ -1122,6 +1122,18 @@ export const de = {
     draftDiscarded: 'Unvollständige Zeichnung verworfen',
   },
   journal: {
+    delivery: {
+      failedTitleOne: '1 Eintrag nicht übertragen',
+      failedTitle: '{n} Einträge nicht übertragen',
+      storageTitle: 'Einträge nicht sicher gespeichert',
+      storageBody: 'App offen lassen und Einträge sichern. Beim Schliessen können diese Einträge verloren gehen.',
+      savedBody: 'Auf diesem Gerät gespeichert. Auf anderen Geräten fehlen diese Einträge.',
+      offlineBody: 'Auf diesem Gerät gespeichert. Die Übertragung wird automatisch erneut versucht, sobald eine Verbindung besteht.',
+      retry: 'Erneut versuchen',
+      retrying: 'Wird versucht …',
+      export: 'Einträge sichern',
+      short: 'Einträge nicht übertragen',
+    },
     open: 'Verlauf',
     add: 'Eintrag',
     addHint: 'Tippen für Eintrag · halten und auf Sprachnotiz oder Foto schieben',

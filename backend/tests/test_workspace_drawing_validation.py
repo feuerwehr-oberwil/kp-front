@@ -43,6 +43,37 @@ def test_hostile_colour_is_dropped_everywhere_it_can_hide():
     assert ws["entities"][0]["kind"] == "shape"
 
 
+async def test_trupp_slice_scrubs_new_and_stored_drawing_props_without_rejecting_unrelated_legacy_alarms(
+    client, editor, db_session
+):
+    from app.models import Incident
+
+    incident = Incident(
+        title="Synthetic legacy workspace",
+        source="manual",
+        map_workspace_json={
+            "entities": [{"id": "e1", "color": HOSTILE}],
+            "timeline": [{"id": "old", "reminder": "broken"}],
+        },
+    )
+    db_session.add(incident)
+    await db_session.commit()
+    await _login(client, editor)
+    response = await client.put(
+        f"/api/incidents/{incident.id}/workspace/trupps",
+        json={
+            "base_rev": incident.workspace_rev,
+            "trupps": [{"id": "t1", "color": HOSTILE, "symbolSvg": "<svg><script>bad()</script></svg>"}],
+        },
+    )
+    assert response.status_code == 200, response.text
+    stored = (await client.get(f"/api/incidents/{incident.id}/workspace")).json()["workspace"]
+    assert "color" not in stored["entities"][0]
+    assert "color" not in stored["trupps"][0]
+    assert "<script" not in stored["trupps"][0]["symbolSvg"]
+    assert stored["timeline"] == [{"id": "old", "reminder": "broken"}]
+
+
 def test_every_colour_the_app_writes_survives():
     colours = ["#1f6feb", "#fff", "#e8392bcc", "rgba(31, 111, 235, 0.5)", "rgb(0,0,0)", "white"]
     body = WorkspacePut(

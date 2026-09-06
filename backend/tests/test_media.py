@@ -160,7 +160,8 @@ async def test_size_limit_enforced_and_partial_cleaned(client, editor, monkeypat
         data={"kind": "audio"},
     )
     assert r.status_code == 413
-    files = [p for p in pathlib.Path(storage_mod._ROOT).rglob("*") if p.is_file()]
+    # The persistent backup guard is metadata, not an uploaded/partial media blob.
+    files = [p for p in (pathlib.Path(storage_mod._ROOT) / "media").rglob("*") if p.is_file()]
     assert len(files) == 1
 
 
@@ -176,7 +177,7 @@ async def test_missing_blob_is_404_not_500(client, editor):
     up = await client.post(f"/api/incidents/{inc}/media", files=_photo(), data={"kind": "photo"})
     assert up.status_code == 201
     # simulate a restored DB pointing at a lost/older storage volume
-    for blob in [p for p in pathlib.Path(storage_mod._ROOT).rglob("*") if p.is_file()]:
+    for blob in [p for p in (pathlib.Path(storage_mod._ROOT) / "media").rglob("*") if p.is_file()]:
         blob.unlink()
     r = await client.get(up.json()["url"])
     assert r.status_code == 404

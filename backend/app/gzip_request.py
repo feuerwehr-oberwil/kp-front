@@ -3,8 +3,8 @@
 The frontend compresses large JSON bodies (workspace saves) with ``Content-Encoding: gzip``
 — repetitive JSON shrinks ~8–10×, which matters on field LTE. Starlette has response
 compression built in but nothing for request bodies, so this middleware inflates them
-before the app sees the request. Two size guards apply: the existing Content-Length cap
-in main.py bounds the WIRE size, and this middleware bounds the DECOMPRESSED size so a
+before the app sees the request. Two size guards apply: LimitRequestBody counts actual
+WIRE bytes, and this middleware bounds the DECOMPRESSED size so a
 gzip bomb can't expand past the JSON body cap.
 """
 

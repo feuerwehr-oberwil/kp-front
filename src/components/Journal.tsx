@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
@@ -150,7 +150,8 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
 // The unified Verlauf — the single, append-only stream of everything that
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened.
-export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn }: {
+export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice }: {
+  deliveryNotice?: ReactNode
   events: TimelineEvent[]
   plans: PlanDocument[]
   /** the linkable vocabulary (lib/journalLinks) — the SAME memo the composer marks with, so a
@@ -529,6 +530,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           )}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
         </div>
+        {deliveryNotice}
         {showLegend && (
           <div className="jr-legend">
             {legendEntries().map((l) => (

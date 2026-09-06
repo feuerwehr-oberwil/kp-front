@@ -29,6 +29,29 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Fixed
+
+- Online backups retain replaced files through SQL capture and pin complete blobs before
+  compression. Interrupted captures preserve previous backup pairs; scheduled backups cannot
+  overlap a restore. Branding imports retain immutable asset versions for backups and history.
+- Schema rollback has an explicit restore-and-leave-stopped path before selecting the older
+  image. Restore failures no longer report success or proceed without a safety copy unless
+  that omission was explicitly requested.
+- Concurrent workspace conflict recovery now applies the merged document to the editor before
+  its next save. Cold starts renew a valid session instead of unnecessarily showing login.
+- Authenticated reloads no longer get stuck in WebKit when tab-lock acquisition is rejected
+  during navigation. Core reload and rejected-entry recovery checks now run in WebKit as well
+  as Chromium; offline service-worker automation runs in Chromium.
+- Journal and audit delivery survive offline reloads and expose rejected or unstored entries
+  through one recovery notice. Audit retries retain stable IDs and cannot duplicate the record;
+  localStorage migration keeps its source when IndexedDB refuses a write.
+- Concurrent PDF rendering and print reversal share a process-wide PDFium lock. Malformed
+  legacy alarm values cannot stop healthy teams' notifications; new writes validate those values.
+- Request limits count actual streamed bytes, and the external heartbeat checks database and
+  storage readiness before reporting health. Interrupted blob replacement preserves the old file.
+- Startup rejects an unknown database revision before creating or rotating migration backups,
+  preserving the pre-upgrade dump when an incompatible older image is repeatedly restarted.
+
 ### Changed
 
 - Updated React, the map wrapper, Vite, Vitest, jsdom, and pinned CI actions together.

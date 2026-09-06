@@ -3,6 +3,7 @@
 import logging
 import secrets
 import uuid
+from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from .. import audit, live_wait, storage
+from ..alarm_validation import validate_alarm_workspace
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
     CurrentAtemschutzWriter,
@@ -35,6 +37,7 @@ from ..schemas import (
     ViewLinkOut,
     WorkspaceOut,
     WorkspacePut,
+    _scrub_drawing_props,
 )
 
 logger = logging.getLogger(__name__)
@@ -232,6 +235,17 @@ async def get_workspace(
     return WorkspaceOut(workspace=inc.map_workspace_json, workspace_rev=inc.workspace_rev)
 
 
+def _workspace_revision_conflict(server_rev: int, base_rev: int) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={
+            "message": "Workspace wurde zwischenzeitlich geändert",
+            "server_rev": server_rev,
+            "your_base_rev": base_rev,
+        },
+    )
+
+
 async def apply_workspace_put(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -247,6 +261,18 @@ async def apply_workspace_put(
     rev=N can't both win — the loser matches 0 rows and gets the 409 (the app-level
     check alone raced because autoflush is off and the row isn't locked).
     """
+    # Validate against this incident's persisted state, including internal slice/capture
+    # merges. Never use an observed revision mismatch as permission to skip validation.
+    inc = await get_incident_or_404(db, incident_id)
+    if inc.workspace_rev != body.base_rev:
+        raise _workspace_revision_conflict(inc.workspace_rev, body.base_rev)
+    _scrub_drawing_props(body.workspace)
+    previous = deepcopy(inc.map_workspace_json) if isinstance(inc.map_workspace_json, dict) else {}
+    _scrub_drawing_props(previous)
+    try:
+        validate_alarm_workspace(body.workspace, previous)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     result = await execute_dml(
         db,
         update(Incident)
@@ -259,14 +285,7 @@ async def apply_workspace_put(
     )
     if result.rowcount == 0:
         inc = await get_incident_or_404(db, incident_id)
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "message": "Workspace wurde zwischenzeitlich geändert",
-                "server_rev": inc.workspace_rev,
-                "your_base_rev": body.base_rev,
-            },
-        )
+        raise _workspace_revision_conflict(inc.workspace_rev, body.base_rev)
     new_rev = body.base_rev + 1
     # Wake the devices long-polling this incident's workspace — once this transaction commits,
     # so they re-read the blob they are being woken for (see app/live_wait).
@@ -317,10 +336,13 @@ async def put_workspace_trupps(
     if not link:
         await _latch_editor_opened(db, incident_id)
     new_ws = {**(inc.map_workspace_json or {}), "trupps": body.trupps}
+    # TruppsPut already validated the incoming slice. Avoid revalidating unrelated
+    # legacy alarm fields: a malformed old reminder must not prevent a healthy Trupp save.
+    scoped = WorkspacePut.model_construct(workspace=new_ws, base_rev=body.base_rev)
     saved = await apply_workspace_put(
         db,
         incident_id,
-        WorkspacePut(workspace=new_ws, base_rev=body.base_rev),
+        scoped,
         user_id=None if link else user.id,
         source="atemschutz-link" if link else "client",
     )

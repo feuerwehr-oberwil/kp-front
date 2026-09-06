@@ -2,6 +2,7 @@ import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './ap
 import { idbGet, idbSet } from './idb'
 import { rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
+import type { SyncStatus } from './api/workspaceSync'
 
 /**
  * Journal (Verlauf) client store — the row-based replacement for the in-blob timeline.
@@ -36,6 +37,9 @@ interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEven
 
 const KEY = (incidentId: string) => `kp-journal-${incidentId}`
 const FLUSH_BATCH = 400
+// Same-page handoff only: rows entered before hydration have no safe full snapshot yet.
+// The next writable store merges them with its current cache; disposed stores never write.
+const hydrationHandoffs = new Map<string, Map<string, TimelineEvent>>()
 
 const isBlob = (u: string) => u.startsWith('blob:')
 
@@ -98,13 +102,21 @@ export class JournalStore {
    *  workspace save memo doesn't re-fire (and re-PUT the whole blob) on every journal row */
   private blobEcho: TimelineEvent[] = []
   private overlay = new Map<string, Partial<TimelineEvent>>()
-  private flushing = false
+  private flushing: Promise<void> | null = null
   private disposed = false
   private initDone = false
+  private preHydrationAppends = new Map<string, TimelineEvent>()
+  private initializing: Promise<void> | null = null
+  private rehydrateRequested = false
   /** after a 4xx: send rows one at a time to isolate the poisoned one */
   private singleMode = false
   private patchSeq = 0
   private readOnly: boolean
+  private cacheDurable = true
+  private writeSeq = 0
+  private persisting = false
+  private writeTail: Promise<void> = Promise.resolve()
+  private deliveryFailure: 'offline' | 'error' | null = null
   onChange?: () => void
 
   constructor(private readonly incidentId: string, readOnly: boolean) {
@@ -116,28 +128,57 @@ export class JournalStore {
     const was = this.readOnly
     this.readOnly = v
     if (was && !v) {
-      this.persist() // we own the IDB key again — write our state before anything else
-      void this.flush()
+      // The previous writer may have accumulated offline rows while this tab was read-only.
+      // Re-read them before publishing this tab's own snapshot or starting a flush.
+      this.initDone = false
+      this.rehydrateRequested = true
+      void this.init([...this.legacy].reverse())
     }
   }
 
   async init(legacyNewestFirst: TimelineEvent[]): Promise<void> {
+    if (!this.initializing) this.initializing = (async () => {
+      do {
+        this.rehydrateRequested = false
+        await this.hydrate(legacyNewestFirst)
+      } while (this.rehydrateRequested && !this.disposed)
+    })().finally(() => { this.initializing = null })
+    // Network reads must not hold the hydration gate: promotion needs the current
+    // writer's cache immediately, even while an earlier server request is stalled.
+    await this.initializing
+    await this.pull()
+    await this.flush()
+  }
+
+  private async hydrate(legacyNewestFirst: TimelineEvent[]): Promise<void> {
     const cached = await idbGet<Persisted>(KEY(this.incidentId))
-    if (cached && !this.disposed) {
+    if (this.disposed) return
+    if (cached) {
       // MERGE the snapshot into current state — rows may have been appended while the
       // idbGet was in flight, and replacing the state would silently drop them.
       const rowIds = new Set(this.state.rows.map((r) => r.row.id))
       for (const r of cached.rows) if (!rowIds.has(r.row.id)) this.state.rows.push(r)
       this.state.rows.sort((a, b) => a.seq - b.seq)
-      const outIds = new Set(this.state.outbox.map((r) => r.id))
-      this.state.outbox = [...cached.outbox.filter((r) => !outIds.has(r.id)), ...this.state.outbox]
-      this.state.dead = [...(cached.dead ?? []), ...(this.state.dead ?? [])]
+      const accepted = new Set(this.state.rows.map((r) => r.row.id))
+      const pending = new Map([...cached.outbox, ...this.state.outbox].map((r) => [r.id, r]))
+      this.state.outbox = [...pending.values()].filter((r) => !accepted.has(r.id))
+      const dead = new Map([...(cached.dead ?? []), ...(this.state.dead ?? [])].map((r) => [r.id, r]))
+      this.state.dead = [...dead.values()].filter((r) => !accepted.has(r.id) && !pending.has(r.id))
       this.state.latestSeq = Math.max(this.state.latestSeq, cached.latestSeq)
+    }
+    if (!this.readOnly) {
+      const known = this.knownIds()
+      for (const row of hydrationHandoffs.get(this.incidentId)?.values() ?? []) {
+        if (!known.has(row.id)) {
+          this.state.outbox.push(row)
+          this.cacheDurable = false
+        }
+      }
     }
     this.initDone = true
     this.ingestLegacy(legacyNewestFirst)
-    await this.pull()
-    await this.flush()
+    this.persist()
+    await this.writeTail
   }
 
   /** Blob-timeline rows arriving at open or via any live-poll/merge inflow. */
@@ -163,12 +204,20 @@ export class JournalStore {
   /** Append a new row (the single write path — every log/logPlan/composer row lands here). */
   append(row: TimelineEvent) {
     if (this.disposed) return
+    // An upload callback may finish after this tab lost ownership. Keep its result for
+    // recovery/promotion, but never imply it is durable or overwrite the new writer's cache.
+    if (this.readOnly) this.cacheDurable = false
     if (row.audioUrl?.startsWith('blob:')) this.overlaySession(row.id, { audioUrl: row.audioUrl })
     if (row.photoUrl?.startsWith('blob:')) this.overlaySession(row.id, { photoUrl: row.photoUrl })
     // the overlay holds the FULL list (uploaded + pending) — it replaces the field wholesale
     // in display(), so a partial list here would hide the row's already-uploaded pictures
     if (row.photoUrls?.some(isBlob)) this.overlaySession(row.id, { photoUrls: row.photoUrls })
-    this.state.outbox.push(stripSessionUrls(row))
+    const clean = stripSessionUrls(row)
+    this.state.outbox.push(clean)
+    if (!this.initDone) {
+      this.preHydrationAppends.set(clean.id, clean)
+      this.cacheDurable = false // memory alone cannot survive page termination
+    }
     this.persist()
     this.emit()
     if (this.initDone) void this.flush()
@@ -220,14 +269,28 @@ export class JournalStore {
     else this.overlay.delete(id)
   }
 
-  async flush(): Promise<void> {
-    if (this.flushing || this.readOnly || this.disposed || !this.state.outbox.length) return
-    this.flushing = true
+  /** Concurrent callers await the same drain, including every successful follow-on batch. */
+  flush(): Promise<void> {
+    if (this.flushing) return this.flushing
+    if (!this.initDone || this.readOnly || this.disposed || !this.state.outbox.length) return Promise.resolve()
+    this.flushing = this.drain().finally(() => { this.flushing = null })
+    return this.flushing
+  }
+
+  private async drain(): Promise<void> {
+    while (this.initDone && !this.readOnly && !this.disposed && this.state.outbox.length) {
+      if (!(await this.flushBatch())) return // failures wait for the existing poll/online retry
+    }
+    if (!this.disposed && !this.readOnly) void this.pull() // converge without moving the push cursor
+  }
+
+  private async flushBatch(): Promise<boolean> {
     let accepted = false
     try {
       const batch = this.state.outbox.slice(0, this.singleMode ? 1 : FLUSH_BATCH)
       const res = await apiPost<JournalPage>(`/api/incidents/${this.incidentId}/journal`, { entries: batch })
-      if (this.disposed) return
+      if (this.disposed) return false
+      this.deliveryFailure = null
       // the server accepted (or idempotently already held) every row in the batch
       const sent = new Set(batch.map((r) => r.id))
       this.state.outbox = this.state.outbox.filter((r) => !sent.has(r.id))
@@ -237,6 +300,7 @@ export class JournalStore {
       this.emit()
       accepted = true
     } catch (e) {
+      this.deliveryFailure = e instanceof ApiError && e.status === 0 ? 'offline' : 'error'
       if (isPermanentRejection(e)) {
         if (this.singleMode || this.state.outbox.length === 1) {
           // the poisoned row itself — dead-letter it so the rest of the journal keeps flowing
@@ -252,16 +316,9 @@ export class JournalStore {
         }
       }
       /* transient (offline / 5xx) — outbox stays, retried on the next poll tick or 'online' */
-    } finally {
-      this.flushing = false
+      this.emit()
     }
-    if (accepted && !this.disposed) {
-      if (this.state.outbox.length) {
-        void this.flush() // drain the rest ONLY after a successful batch (no failure spin)
-      } else {
-        void this.pull() // converge: pick up our accepted seqs + anything appended meanwhile
-      }
-    }
+    return accepted
   }
 
   /** Last-ditch teardown push (pagehide / app swiped away): the outbox rides a keepalive
@@ -297,6 +354,7 @@ export class JournalStore {
       // another device may have pushed rows we still hold in the outbox (migration overlap)
       const server = new Set(this.state.rows.map((r) => r.row.id))
       this.state.outbox = this.state.outbox.filter((r) => !server.has(r.id))
+      this.state.dead = (this.state.dead ?? []).filter((r) => !server.has(r.id))
       this.persist()
       this.emit()
       return 'new'
@@ -317,6 +375,43 @@ export class JournalStore {
   /** rows waiting for the server (report preflight / sync hints) */
   get pendingCount(): number {
     return this.state.outbox.length
+  }
+
+  get rejectedCount(): number {
+    return this.state.dead?.length ?? 0
+  }
+
+  /** A synced workspace must not hide an unsent or undurable journal. */
+  get syncStatus(): SyncStatus {
+    if (!this.pendingCount && !this.rejectedCount) return 'synced'
+    if (!this.cacheDurable) return 'storage'
+    if (this.persisting) return 'pending'
+    if (this.rejectedCount) return 'error'
+    return this.deliveryFailure ?? 'pending'
+  }
+
+  /** Retry with the original row IDs, including explicitly rejected rows. */
+  async retry(): Promise<void> {
+    if (this.initializing) await this.initializing
+    if (this.readOnly || this.disposed) return
+    this.state.outbox.push(...(this.state.dead ?? []))
+    this.state.dead = []
+    this.singleMode = false
+    this.deliveryFailure = null
+    this.persist()
+    this.emit()
+    await this.writeTail
+    await this.flush()
+    await this.writeTail
+  }
+
+  /** Portable recovery copy; exporting never acknowledges or removes queued work. */
+  recoveryData() {
+    return {
+      version: 1,
+      incidentId: this.incidentId,
+      entries: [...this.state.outbox, ...(this.state.dead ?? [])],
+    }
   }
 
   /** The UI's timeline: union (server ∪ legacy-not-yet-on-server ∪ outbox ∪ dead-lettered),
@@ -376,6 +471,13 @@ export class JournalStore {
   }
 
   dispose() {
+    if (this.disposed) return
+    if (this.preHydrationAppends.size) {
+      const pending = hydrationHandoffs.get(this.incidentId) ?? new Map<string, TimelineEvent>()
+      for (const [id, row] of this.preHydrationAppends) pending.set(id, row)
+      hydrationHandoffs.set(this.incidentId, pending)
+      this.preHydrationAppends.clear()
+    }
     this.disposed = true
   }
 
@@ -416,9 +518,29 @@ export class JournalStore {
 
   private persist() {
     // a read-only store (viewer, or an editor tab demoted by the tab lock) must never
-    // write the shared per-incident IDB key — it would clobber the editing tab's outbox
-    if (this.readOnly) return
-    void idbSet(KEY(this.incidentId), this.state)
+    // write the shared per-incident IDB key — it would clobber the editing tab's outbox.
+    // Disposal blocks new snapshots; already-issued IDB writes still finish below.
+    if (this.readOnly || !this.initDone || this.disposed) return
+    const snapshot = structuredClone(this.state)
+    const seq = ++this.writeSeq
+    this.persisting = true
+    // Start the transaction while we still own the tab. IDB orders these writes; deferring
+    // its creation until an earlier write settles can cross a tab handover and lose the last edit.
+    const write = idbSet(KEY(this.incidentId), snapshot)
+    this.writeTail = Promise.all([this.writeTail, write]).then(([, durable]) => {
+      if (seq !== this.writeSeq) return
+      this.cacheDurable = durable
+      if (durable) {
+        // Clear only rows actually contained in this committed snapshot. A new append can
+        // arrive during another hydration while an older write is still settling.
+        const ids = new Set([...snapshot.rows.map((r) => r.row.id), ...snapshot.outbox.map((r) => r.id), ...(snapshot.dead ?? []).map((r) => r.id)])
+        const handed = hydrationHandoffs.get(this.incidentId)
+        for (const id of ids) { this.preHydrationAppends.delete(id); handed?.delete(id) }
+        if (handed?.size === 0) hydrationHandoffs.delete(this.incidentId)
+      }
+      this.persisting = false
+      this.emit()
+    })
   }
 
   private emit() {

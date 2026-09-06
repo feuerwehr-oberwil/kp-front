@@ -127,7 +127,8 @@ async def test_db_direct_branding_load_keeps_the_config_it_replaced(
 
     url = await admin_branding._load("logo", logo)
 
-    assert url == "/api/branding/file/branding/logo.png"
+    assert url.startswith("/api/branding/file/branding/logo-")
+    assert url.endswith(".png")
     async with session_factory() as db:
         kept = (await db.execute(select(DeploymentConfigHistory))).scalars().all()
     assert [row.source for row in kept] == ["branding"]

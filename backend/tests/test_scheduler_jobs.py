@@ -456,10 +456,11 @@ async def test_without_a_ping_url_the_heartbeat_makes_no_request_at_all(monkeypa
     await scheduler._heartbeat()
 
 
-async def test_the_heartbeat_pings_exactly_the_url_that_was_configured(monkeypatch):
+async def test_the_heartbeat_pings_exactly_the_url_that_was_configured(monkeypatch, engine):
     """A dead-man's-switch nobody could switch on without a restart is the failure it exists to
     prevent — so the URL is read from the credential snapshot on every tick, not at boot."""
     calls = _stub_httpx(monkeypatch, on_get=_ok)
+    monkeypatch.setattr(scheduler, "engine", engine)
     monkeypatch.setattr(settings, "healthcheck_ping_url", "https://hc.example/ping/abc")
 
     await scheduler._heartbeat()
@@ -467,7 +468,7 @@ async def test_the_heartbeat_pings_exactly_the_url_that_was_configured(monkeypat
     assert calls == ["https://hc.example/ping/abc"]
 
 
-async def test_a_dead_monitor_never_disturbs_the_app(monkeypatch, caplog):
+async def test_a_dead_monitor_never_disturbs_the_app(monkeypatch, caplog, engine):
     """Fail-open, and deliberately at WARNING: the monitor being unreachable is not the
     station's problem, and it must not read as an incident in the log."""
 
@@ -475,6 +476,7 @@ async def test_a_dead_monitor_never_disturbs_the_app(monkeypatch, caplog):
         raise OSError("connection refused")
 
     _stub_httpx(monkeypatch, on_get=_refuse)
+    monkeypatch.setattr(scheduler, "engine", engine)
     monkeypatch.setattr(settings, "healthcheck_ping_url", "https://hc.example/ping/abc")
 
     with caplog.at_level(logging.WARNING, logger="app.scheduler"):

@@ -59,11 +59,12 @@ async def test_declared_oversized_body_is_413(client):
     assert "gross" in r.json()["detail"]
 
 
-async def test_unparsable_content_length_is_400(client):
+@pytest.mark.parametrize("declared", ["not-a-number", "-1", ""])
+async def test_invalid_content_length_is_400(client, declared):
     r = await client.post(
         "/api/auth/login",
         content=b"{}",
-        headers={"content-type": "application/json", "content-length": "not-a-number"},
+        headers={"content-type": "application/json", "content-length": declared},
     )
     assert r.status_code == 400
 

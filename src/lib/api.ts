@@ -220,10 +220,13 @@ function tryRefresh(): Promise<boolean> {
   return refreshInFlight
 }
 
-async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
-  // /api/auth/* and /api/admin/* are excluded from the 401→refresh→retry below: a failing
-  // login/refresh (or a wrong admin secret) must not loop or get silently double-submitted.
-  const isAuthPath = path.startsWith('/api/auth/') || path.startsWith('/api/admin/')
+/** JSON requests and raw live-follow polls share cookie renewal. A quiet viewer must not
+ *  stop following after access expiry merely because it never issues a JSON mutation. */
+async function requestResponse(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
+  // The cold-boot /me probe must renew an expired access cookie using the still-live
+  // refresh cookie. Other auth/admin calls (failed login, refresh, wrong admin secret)
+  // must not loop or get silently double-submitted.
+  const isAuthPath = (path.startsWith('/api/auth/') && path !== '/api/auth/me') || path.startsWith('/api/admin/')
   let res: Response
   try {
     res = await rawFetch(path, init, timeoutMs)
@@ -232,8 +235,8 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
     throw networkError(e)
   }
 
-  // 401 on a non-auth path → attempt one refresh + retry. /api/auth/* is excluded so a
-  // failing login/refresh can't loop, and so is a page whose own link session is the
+  // 401 on a renewable path → attempt one refresh + retry. A failing login/refresh
+  // cannot loop, and neither can a page whose own link session is the
   // authority: its 401 is about the LINK, and refreshing would renew a device login the link
   // page has no business touching (and could not use anyway).
   if (res.status === 401 && !isAuthPath && !linkPageOwnsSession()) {
@@ -251,6 +254,11 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
     }
   }
 
+  return res
+}
+
+async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+  const res = await requestResponse(path, init, timeoutMs)
   if (!res.ok) {
     // Our own backend speaks German and knows the situation, so its {detail} always wins. Only
     // when it said nothing (a proxy error page, an empty body) do we explain the status
@@ -397,10 +405,6 @@ export function apiBeacon(path: string, body: unknown, method: 'POST' | 'PUT' = 
  * workspace live-follow poll). Returns the Response so the caller can branch on status.
  * A network failure throws `ApiError(0, …)` for consistency with `request()`.
  */
-export async function apiGetRaw(path: string, opts?: GetOpts): Promise<Response> {
-  try {
-    return await rawFetch(path, { method: 'GET', signal: opts?.signal }, opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS)
-  } catch (e) {
-    throw networkError(e)
-  }
+export function apiGetRaw(path: string, opts?: GetOpts): Promise<Response> {
+  return requestResponse(path, { method: 'GET', signal: opts?.signal }, opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS)
 }

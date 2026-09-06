@@ -19,7 +19,6 @@ the right failure direction for a safety alarm.
 import asyncio
 import json
 import logging
-import math
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -29,6 +28,7 @@ if TYPE_CHECKING:
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from .alarm_validation import finite_nonnegative, timestamp_ms, validate_reminder_row
 from .config import settings
 from .models import Incident, JournalEntry, PushSubscription
 from .transaction_hooks import after_commit
@@ -73,12 +73,7 @@ SUBSCRIPTION_TTL_DAYS = 180
 
 
 def _ms(iso: str | None) -> float | None:
-    if not iso:
-        return None
-    try:
-        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000
-    except ValueError:
-        return None
+    return timestamp_ms(iso)
 
 
 def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str, Any]]:
@@ -90,16 +85,17 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
 
     Only Trupps under Atemschutz are considered — see the ``kind`` gate in the loop.
     """
-    settings_ws = workspace.get("settings") or {}
+    settings_ws = workspace.get("settings")
+    settings_ws = settings_ws if isinstance(settings_ws, dict) else {}
     interval_min = settings_ws.get("contactIntervalMin")
-    if interval_min is None:
+    if not finite_nonnegative(interval_min):
         interval_min = doctrine.get("contactIntervalMin")
-    if interval_min is None:
+    if not finite_nonnegative(interval_min):
         interval_min = DEFAULT_INTERVAL_MIN
     grace_sec = settings_ws.get("contactGraceSec")
-    if grace_sec is None:
+    if not finite_nonnegative(grace_sec):
         grace_sec = doctrine.get("contactGraceSec")
-    if grace_sec is None:
+    if not finite_nonnegative(grace_sec):
         grace_sec = DEFAULT_GRACE_SEC
     alarm_bar = doctrine.get("alarmBar")
     if alarm_bar is None:
@@ -111,7 +107,10 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
         alarm_bar_rueckzug = DEFAULT_ALARM_BAR_RUECKZUG
     alarm_bar_rueckzug = min(alarm_bar_rueckzug, alarm_bar)
     out = []
-    for t in workspace.get("trupps") or []:
+    trupps = workspace.get("trupps")
+    for t in trupps if isinstance(trupps, list) else []:
+        if not isinstance(t, dict):
+            continue
         # ⚠️ Trupps under PA only. A plain work squad (``kind: "einfach"`` — src/types.ts ·
         # TruppKind) has no cylinder and no Funkkontakt-Intervall, so neither reason below can
         # apply to it; without this gate its ``entryPressureBar`` of 0 sits at or below every
@@ -129,9 +128,7 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
             current_bar = t.get("entryPressureBar")
         line = alarm_bar_rueckzug if t.get("status") == "rueckzug" else alarm_bar
         pressure_due = (
-            isinstance(current_bar, (int, float))
-            and not isinstance(current_bar, bool)
-            and math.isfinite(current_bar)
+            finite_nonnegative(current_bar)
             and isinstance(line, (int, float))
             and not isinstance(line, bool)
             and line > 0
@@ -169,6 +166,13 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
     created: dict[str, dict] = {}
     latest: dict[str, dict] = {}
     for e in rows:  # oldest→newest (seq order)
+        try:
+            validate_reminder_row(e)
+        except ValueError as exc:
+            row_id = e.get("id") if isinstance(e, dict) else None
+            row_id = row_id[:128] if isinstance(row_id, str) else None
+            logger.warning("Skipping malformed legacy reminder row %r: %s", row_id, exc)
+            continue
         r = e.get("reminder")
         if not r or not r.get("id"):
             continue
@@ -573,7 +577,8 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
         ).scalars()
     )
     for inc in incidents:
-        ws = inc.map_workspace_json or {}
+        ws = inc.map_workspace_json
+        ws = ws if isinstance(ws, dict) else {}
         for t in due_trupps(ws, doctrine, now_ms):
             crossing = t.get("pressureAt") if t["reason"] == "pressure" else t["since"]
             key = f"az:{inc.id}:{t['id']}:{crossing}:{t['reason']}"
@@ -599,9 +604,11 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
                 )
             ).scalars()
         ]
-        legacy = list(reversed(ws.get("timeline") or []))  # blob stores newest-first
-        seen = {r.get("id") for r in rows}
-        rows.extend(r for r in legacy if r.get("id") not in seen)
+        legacy = ws.get("timeline")
+        legacy = list(reversed(legacy)) if isinstance(legacy, list) else []  # newest-first blob
+        rows = [r for r in rows if isinstance(r, dict)]
+        seen = {r.get("id") for r in rows if isinstance(r.get("id"), str)}
+        rows.extend(r for r in legacy if isinstance(r, dict) and isinstance(r.get("id"), str) and r["id"] not in seen)
         closed_at = inc.closed_at.isoformat() if inc.closed_at else None
         for r in due_reminders(rows, now_ms, closed_at):
             key = f"rem:{inc.id}:{r['id']}:{r['dueAt']}"

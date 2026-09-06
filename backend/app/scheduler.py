@@ -352,7 +352,9 @@ async def _heartbeat() -> None:
     """Dead-man's-switch: ping an external check URL (healthchecks.io / cron-monitor) on a short
     cadence. If the app or its event loop dies, the pings stop and the monitor alerts — catching
     the "silently down / scheduler wedged" class a plain HTTP probe of /ready can miss. Fail-open:
-    no URL = disabled; a failed ping never disturbs the app.
+    no URL = disabled; a failed ping never disturbs the app. Success also requires the
+    same bounded DB/storage check as /ready, so a live process with an unusable data layer
+    cannot keep the external monitor green.
 
     ⚠️ Registered unconditionally and no-oping without a URL, rather than gated at boot the way
     it used to be. The thing that tells anybody the station is down was the one setting an
@@ -364,6 +366,11 @@ async def _heartbeat() -> None:
     await load_credentials()
     url = credential("healthcheck_ping_url")
     if not url:
+        return
+    from .readiness import check_readiness
+
+    if any(value != "ok" for value in (await check_readiness(engine)).values()):
+        logger.warning("Heartbeat success withheld: station data layer is unavailable")
         return
     try:
         async with httpx.AsyncClient(timeout=10) as client:

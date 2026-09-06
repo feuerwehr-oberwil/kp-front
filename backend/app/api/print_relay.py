@@ -20,6 +20,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
+import anyio
 from fastapi import APIRouter, Depends, Form, Header, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select, update
@@ -153,15 +154,24 @@ def reverse_pdf_pages(pdf: bytes) -> bytes:
     try:
         import pypdfium2 as pdfium
 
-        src = pdfium.PdfDocument(pdf)
-        n = len(src)
-        if n < 2:
-            return pdf
-        out = pdfium.PdfDocument.new()
-        out.import_pages(src, list(reversed(range(n))))
-        buf = io.BytesIO()
-        out.save(buf)
-        return buf.getvalue()
+        from ..pdfium_lock import pdfium_lock
+
+        with pdfium_lock:
+            src = pdfium.PdfDocument(pdf)
+            try:
+                n = len(src)
+                if n < 2:
+                    return pdf
+                out = pdfium.PdfDocument.new()
+                try:
+                    out.import_pages(src, list(reversed(range(n))))
+                    buf = io.BytesIO()
+                    out.save(buf)
+                    return buf.getvalue()
+                finally:
+                    out.close()
+            finally:
+                src.close()
     except Exception:  # noqa: BLE001 — see the docstring: never lose the print over the order
         logger.warning("Reversing the Rapport pages failed; printing in reading order", exc_info=True)
         return pdf
@@ -188,7 +198,8 @@ async def enqueue_print_job(
     pdf, data = await compose_report_from_payload(db, payload)
     # the PRINTER gets the stack it can deliver in order; the downloaded PDF stays as it reads
     if await wants_reverse_order(db):
-        pdf = reverse_pdf_pages(pdf)
+        # Waiting for another PDFium operation must not block the API event loop.
+        pdf = await anyio.to_thread.run_sync(reverse_pdf_pages, pdf)
     job = PrintJob(
         incident_id=inc.id,
         kind=kind,

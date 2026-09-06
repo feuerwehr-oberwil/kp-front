@@ -27,7 +27,7 @@ export class IncidentTabLock {
   private release: (() => void) | null = null
   private abort: AbortController | null = null
   private stopped = false
-  private promoting = false
+  private generation = 0
 
   constructor(
     private readonly name: string,
@@ -37,6 +37,7 @@ export class IncidentTabLock {
   ) {}
 
   start(): void {
+    if (this.stopped) return
     if (!this.locks) {
       this.onChange(true) // no Web Locks → no coordination, behave as before
       return
@@ -51,58 +52,63 @@ export class IncidentTabLock {
 
   private async acquire(tryFirst: boolean): Promise<void> {
     if (this.stopped || !this.locks) return
+    const generation = ++this.generation
+    const current = () => !this.stopped && generation === this.generation
+    let granted = false
     this.abort = new AbortController()
     try {
       if (tryFirst) {
         let got = false
         await this.locks.request(this.name, { ifAvailable: true }, async (lock) => {
-          if (!lock) return // another tab holds it
+          if (!lock || !current()) return // another tab holds it, or this request ended
           got = true
+          granted = true
           this.onChange(true)
           await this.hold()
         })
-        if (got || this.stopped) return
+        if (got || !current()) return
         this.onChange(false)
       }
       // queue behind the current holder — granted (→ editing) when that tab goes away
       await this.locks.request(this.name, { signal: this.abort.signal }, async () => {
-        if (this.stopped) return
+        if (!current()) return
+        granted = true
         this.onChange(true)
         await this.hold()
       })
     } catch {
-      // our hold/queue was stolen or aborted. A deliberate stop()/takeOver() handles its own
-      // state; anything else means another tab took editing → drop to read-only and re-queue
-      // so we're promoted again if that tab closes.
-      if (!this.stopped && !this.promoting) {
-        this.onChange(false)
-        void this.acquire(false)
-      }
+      if (!current()) return
+      this.onChange(false)
+      // A stolen holder may queue again. An ungranted rejection must stop: WebKit rejects
+      // requests from a departing document, and immediate retries freeze navigation.
+      if (granted) void this.acquire(false)
     }
   }
 
   /** Move editing into THIS tab (the current holder drops to read-only). */
   takeOver(): void {
     if (!this.locks || this.stopped) return
-    this.promoting = true
+    const generation = ++this.generation
+    const current = () => !this.stopped && generation === this.generation
+    let granted = false
     this.abort?.abort() // leave the waiting queue; the steal below replaces it
     void this.locks
       .request(this.name, { steal: true }, async () => {
-        this.promoting = false
+        if (!current()) return
+        granted = true
         this.onChange(true)
         await this.hold()
       })
       .catch(() => {
-        this.promoting = false
-        if (!this.stopped) {
-          this.onChange(false)
-          void this.acquire(false) // stolen back by yet another tab → wait in line again
-        }
+        if (!current()) return
+        this.onChange(false)
+        if (granted) void this.acquire(false) // stolen back → wait in line again
       })
   }
 
   stop(): void {
     this.stopped = true
+    this.generation++
     this.abort?.abort()
     this.release?.()
     this.release = null

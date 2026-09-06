@@ -11,7 +11,8 @@ import { defineConfig } from '@playwright/test'
 //   • Local: `pnpm dev` (:5188) proxying /api to a running backend (:8000).
 // Point it at the stack with E2E_BASE_URL.
 //
-// Browser: in CI we `playwright install chromium`. In the preconfigured web
+// Browsers: CI installs Chromium and WebKit. WebKit runs the core/recovery smoke because
+// its navigation and Web Locks lifecycle can fail even when Chromium passes. In the preconfigured web
 // environment the browser is already on disk — run with
 //   PW_EXECUTABLE_PATH=/opt/pw-browsers/chromium
 // to use it instead of downloading.
@@ -33,7 +34,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     // tablet-first app — a roomy landscape viewport mirrors the field device
     viewport: { width: 1280, height: 900 },
-    launchOptions: executablePath ? { executablePath } : {},
   },
-  projects: [{ name: 'chromium' }],
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium', launchOptions: executablePath ? { executablePath } : {} } },
+    { name: 'webkit', testMatch: '**/smoke.spec.ts', use: { browserName: 'webkit' } },
+  ],
 })

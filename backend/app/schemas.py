@@ -9,6 +9,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
+from .alarm_validation import validate_reminder_row, validate_trupp
+
 logger = logging.getLogger(__name__)
 
 
@@ -291,6 +293,8 @@ class WorkspacePut(BaseModel):
     @model_validator(mode="after")
     def _validate_workspace(self) -> "WorkspacePut":
         _scrub_drawing_props(self.workspace)
+        # Alarm validation needs the current stored workspace to distinguish unchanged
+        # malformed legacy records from new invalid data; apply_workspace_put owns it.
         return self
 
 
@@ -315,6 +319,7 @@ class TruppsPut(BaseModel):
         if len(self.trupps) > MAX_TRUPPS:
             raise ValueError(f"Zu viele Trupps (max. {MAX_TRUPPS})")
         for t in self.trupps:
+            validate_trupp(t)
             tid = t.get("id")
             if not isinstance(tid, str) or not tid.strip():
                 raise ValueError("Jeder Trupp braucht eine nichtleere String-id")
@@ -332,6 +337,7 @@ class ViewLinkOut(BaseModel):
 
 # --- Audit events -------------------------------------------------------------------
 class EventIn(BaseModel):
+    client_id: str | None = Field(default=None, min_length=1, max_length=128)
     op_type: str
     payload: dict[str, Any] | None = None
     occurred_at: datetime | None = None
@@ -368,6 +374,7 @@ class JournalAppendIn(BaseModel):
         import json as _json
 
         for e in self.entries:
+            validate_reminder_row(e)
             rid = e.get("id")
             if not isinstance(rid, str) or not rid.strip():
                 raise ValueError("Jede Journalzeile braucht eine nichtleere String-id")

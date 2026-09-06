@@ -181,35 +181,39 @@ describe('WorkspaceSync conflict resolution (409) — three-way auto-merge', () 
 })
 
 describe('WorkspaceSync — flush must not drop the newest edit', () => {
-  it('keeps dirty when a save() lands mid-PUT, and re-flushes the newest content', async () => {
-    // Make the in-flight PUT slow so we can sneak a save() in while it's pending. The first
-    // PUT resolves at rev 1; because saveSeq advanced during it, the engine keeps the newest
-    // edit dirty and re-arms a flush, which pushes the newest content at the advanced base.
-    let resolveFirst!: (v: unknown) => void
+  it('keeps the newest edit dirty until its follow-on PUT is acknowledged', async () => {
+    // Hold BOTH acknowledgements: the shared flush drains the newer edit itself, but
+    // must not claim it is synced merely because the older snapshot reached the server.
+    let resolveFirst!: (v: ReturnType<typeof wsPut>) => void
+    let resolveSecond!: (v: ReturnType<typeof wsPut>) => void
+    let secondStarted!: () => void
+    const enteredSecond = new Promise<void>((resolve) => { secondStarted = resolve })
     apiPut
-      .mockImplementationOnce(() => new Promise((res) => { resolveFirst = res }))
-      .mockResolvedValueOnce(wsPut(2))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve; secondStarted() }))
 
     const sync = mk(ID, { debounceMs: 0 })
     sync.save({ v: 1 })
-    const flushP = sync.flush() // begins the slow first PUT
+    let completed = false
+    const flushP = sync.flush().then(() => { completed = true })
 
-    // A newer edit arrives while the PUT is still in flight.
     sync.save({ v: 2 })
     resolveFirst(wsPut(1))
-    await flushP
+    await enteredSecond
 
-    // The newest edit must NOT have been silently marked synced.
+    expect(completed).toBe(false)
     expect(sync.hasUnsynced).toBe(true)
-
-    // The re-armed flush (debounceMs 0) pushes the newest content; drain microtasks/timers.
-    await new Promise((r) => setTimeout(r, 0))
-    await new Promise((r) => setTimeout(r, 0))
-
+    expect(sync.syncStatus).toBe('pending')
+    expect(sync.rev).toBe(1)
     expect(apiPut).toHaveBeenCalledTimes(2)
-    expect(apiPut.mock.calls[1][1]).toMatchObject({ workspace: { v: 2 } })
+    expect(apiPut.mock.calls[1][1]).toMatchObject({ workspace: { v: 2 }, base_rev: 1 })
+
+    resolveSecond(wsPut(2))
+    await flushP
+    expect(completed).toBe(true)
     expect(sync.rev).toBe(2)
     expect(sync.hasUnsynced).toBe(false)
+    expect(sync.syncStatus).toBe('synced')
   })
 })
 

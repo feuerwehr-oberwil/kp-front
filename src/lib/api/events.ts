@@ -2,6 +2,7 @@
 import { apiBeacon, apiGet, apiPost } from '../api'
 
 export interface ClientEvent {
+  client_id?: string
   op_type: string
   payload?: Record<string, unknown>
   occurred_at?: string

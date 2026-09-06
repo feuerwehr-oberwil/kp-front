@@ -304,6 +304,11 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .journal-head { display: flex; align-items: center; gap: 8px; padding: 4px 4px 10px; }
 .journal-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
 .journal-title .i { width: 17px; height: 17px; }
+.jr-delivery { padding: 14px; margin-block: 4px 12px; border-radius: var(--r-ctl); background: color-mix(in srgb, var(--amber) 16%, var(--glass)); color: var(--ink); }
+.jr-delivery-danger { background: color-mix(in srgb, var(--red) 14%, var(--glass)); }
+.jr-delivery strong { font-size: 14px; }
+.jr-delivery p { margin-block: 8px 12px; font-size: 13px; line-height: 1.5; }
+.jr-delivery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .journal-replay { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
   height: 28px; padding: 0 11px; border: none; border-radius: var(--r-sm); cursor: pointer;
   background: var(--amber); color: var(--on-fill); font-family: var(--body); font-weight: 700; font-size: 12px; }

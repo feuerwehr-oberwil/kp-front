@@ -47,12 +47,18 @@ storage-<stamp>.tar.gz) and restored with it — they are one backup.
   --db-only          Restore the database alone. For the pre-migration dumps written by
                      backend/start.sh, which have no storage half. ⚠️ Read the warning it
                      prints: uploads made since that dump become rows pointing at nothing.
+  --no-start         Leave the app stopped after restoring. Required when rolling back to
+                     an older image: pin its tag in .env BEFORE starting the app again,
+                     or the current image will immediately migrate the restored database.
+  --skip-safety-copy Explicitly restore WITHOUT backing up the current state first. Only
+                     for a source database/storage that cannot be backed up. Current data
+                     replaced by this restore will have NO safety copy to return to.
   --storage <file>   Use this tarball instead of the one found by timestamp.
   --env-file <path>  Read this instead of ./.env.
   -y, --yes          Skip the typed confirmation. For scripted recovery only.
   -h, --help         This text.
 
-Afterwards the stack is started again and this script waits for /ready before reporting."
+Unless --no-start is set, the stack is started again and this script waits for /ready."
 
 T_TITLE="KP Front — restore"
 T_STEP_FILES="The backup"
@@ -93,6 +99,10 @@ T_ERR_NO_ENV_FMT="No %s here, so there is nothing to restore INTO. Run this from
 the deployment was installed from."
 T_ERR_NO_DB_SERVICE="This compose project has no 'db' service running and none could be
 started, so there is no database to restore into. Look:  docker compose ps"
+T_ERR_DB_VERSION="Cannot read the target PostgreSQL server version. NOTHING was restored.
+Fix the database connection before restoring; dump compatibility cannot safely be guessed."
+T_COMPAT_TIMEOUT="PostgreSQL <17: the unsupported 'SET transaction_timeout = 0;' is ignored
+only in the pg_dump preamble. Schema, data, and all other SQL errors remain unchanged."
 T_WARN_DB_ONLY="⚠️ --db-only: the storage volume is left exactly as it is. Anything uploaded
   after this dump was taken — photos, voice memos, plan PDFs — will survive as files with no
   row pointing at them, and anything the dump expects that is NOT on the volume is a broken
@@ -115,14 +125,14 @@ T_TARGET_UNREADABLE="Could not read the current contents (the database is not an
 
 T_DESTROY="⚠️ EVERYTHING above is REPLACED, not merged:
      · the database is dropped and rebuilt from the dump
-     · the storage volume is emptied and refilled from the tarball
-  A safety copy of the CURRENT state is taken first, into
+     · the storage volume is emptied and refilled from the tarball"
+T_DESTROY_DB_ONLY="⚠️ The database above is REPLACED, not merged: dropped and rebuilt from the
+  dump. The storage volume is left alone."
+T_SAFETY_PROMISE_FMT="A safety copy of the CURRENT database and storage is taken first, into
      %s
   so that picking the wrong backup file is survivable."
-T_DESTROY_DB_ONLY="⚠️ The database above is REPLACED, not merged: dropped and rebuilt from the
-  dump. The storage volume is left alone. A safety copy of the current state — database AND
-  volume, so the pair stays restorable — is taken first, into
-     %s"
+T_SKIP_SAFETY_WARN="⚠️ --skip-safety-copy: the current database and storage will have NO safety copy.
+Anything this restore replaces cannot be recovered from a pre-restore safety backup."
 T_SECRET_KEY_WARN="⚠️ Check SECRET_KEY in %s before you rely on the result. It is not in any
   backup, and it peppers every PIN hash in the database being restored. If this file's
   SECRET_KEY is not the one that was live when the backup was taken, every account will be
@@ -135,19 +145,23 @@ T_DRY_RUN="--dry-run: stopping here. Nothing was restored and no data was touche
   without --dry-run to do it."
 
 T_R_STOP="Stopping the app so nothing writes while the data underneath it is replaced…"
+T_R_STOP_FAIL="Could not stop the app. NOTHING was restored. Stop it successfully before
+replacing the database or storage; otherwise active requests can write into the restore."
 T_R_SAFETY_FMT="Safety copy of the current state → %s"
-T_R_SAFETY_FAIL="Could not take the safety copy (output above). That usually means the thing
-you are restoring is already too broken to dump — which is a reason to continue, not to stop.
-Continuing WITHOUT a safety copy."
+T_R_SAFETY_FAIL="Could not take the safety copy (output above). NOTHING was restored; the app
+remains stopped. Fix the backup failure and retry. Only if the current database/storage cannot
+be backed up, deliberately re-run with --skip-safety-copy to accept recovery without that copy."
 T_R_DB="Rebuilding the database from the dump…"
 T_R_DB_FAIL="The database restore FAILED (output above) and stopped at the first error rather
-than half-applying the dump. The stack is still stopped. Nothing else was touched; the safety
-copy above is your way back."
+than half-applying the dump. The stack is still stopped. Keep any safety copy taken above;
+it preserves the state from before this restore attempt."
 T_R_STORAGE="Emptying and refilling the storage volume…"
 T_R_STORAGE_FAIL="The storage restore FAILED (output above). The DATABASE has already been
 replaced, so this deployment is now a restored database against a half-restored volume — do
 not put it into service. Fix the cause and re-run this same command."
 T_R_START="Starting the stack again…"
+T_R_START_FAIL="The restore finished, but the stack could not be started. The app has not been
+verified. Check docker compose logs and run ./scripts/doctor.sh before using it."
 
 T_V_TABLES_FMT="Database: %s incident(s), %s account(s), %s media row(s), schema at %s."
 T_V_STORAGE_FMT="Storage volume: %s file(s) restored."
@@ -155,6 +169,22 @@ T_V_READY_FMT="/ready is green after %ds."
 T_V_ROSTER_FMT="The login screen offers %s account(s)."
 T_V_NOT_READY="The stack came back up but /ready is not green. The restore itself finished;
 this is now an ordinary startup problem:  ./scripts/doctor.sh"
+T_V_DB_FAIL="The restore command finished, but its database counts or migration revision could
+not be verified. The app remains stopped. Inspect the database before starting anything."
+T_V_STORAGE_FAIL="The restored storage file count could not be verified. The app remains
+stopped. Inspect the storage volume before starting anything."
+T_NO_START_FMT="Restored; the app remains STOPPED (--no-start). No application migration ran.
+Before starting it, persist the intended KP_FRONT_TAG in %s, then run:
+    %sdocker compose%s pull app
+    %sdocker compose%s config --images
+    %sdocker compose%s up -d
+Check that the configured app image is the version you selected (an override file can replace
+it). Starting the newer image would migrate this restored database forward again.
+Then verify the same deployment:
+    %s./scripts/doctor.sh%s
+Log in and open a restored incident and its photos."
+T_LOSS_WARN="This restore replaces the current record with the backup's record. Work recorded
+after that backup is lost from the running database."
 T_DONE="Restored. Two things to do before you call it done:
   1. Log in. If PINs are refused, SECRET_KEY does not match the backup (see the warning above).
   2. Open a restored incident and its photos — that is the half no query can verify."
@@ -163,6 +193,8 @@ T_DONE="Restored. Two things to do before you call it done:
 
 DRY_RUN=0
 DB_ONLY=0
+NO_START=0
+SKIP_SAFETY_COPY=0
 ASSUME_YES=0
 DB_FILE=""
 STORAGE_FILE=""
@@ -173,6 +205,8 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)  DRY_RUN=1; shift ;;
     --db-only)  DB_ONLY=1; shift ;;
+    --no-start) NO_START=1; shift ;;
+    --skip-safety-copy) SKIP_SAFETY_COPY=1; shift ;;
     --storage)  [[ $# -ge 2 && "$2" != -* ]] || die "--storage needs a file after it."
                 STORAGE_FILE="$2"; shift 2 ;;
     --env-file) [[ $# -ge 2 && "$2" != -* ]] || die "--env-file needs a path after it."
@@ -193,6 +227,11 @@ printf '\n%s%s%s\n' "$C_B" "$T_TITLE" "$C_0"
 preflight >/dev/null || { preflight; exit 1; }
 [[ -e "$ENV_FILE" ]] || die "$(sayf "$T_ERR_NO_ENV_FMT" "$ENV_FILE")"
 [[ "$ENV_FILE" == ".env" ]] || COMPOSE_ARGS+=(--env-file "$ENV_FILE")
+# This also covers --dry-run, which may temporarily start the database to inspect it.
+kp_operation_lock "$ENV_FILE" restore || exit 1
+trap kp_operation_unlock EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 PORT="$(kp_env_value APP_PORT 8000 "$ENV_FILE")"
 PGUSER_="$(kp_env_value POSTGRES_USER kpfront "$ENV_FILE")"
@@ -277,7 +316,7 @@ else
   # (above); this half had only `gzip -t`, and the file count that follows ends in `|| true`,
   # so a failing `tar tzf` printed «0 Dateien» and the script still said «beide Dateien sind
   # intakt» — the two states an operator most needs told apart, reported identically.
-  tar tzf "$STORAGE_FILE" >/dev/null 2>&1 \
+  kp_storage_archive_list "$STORAGE_FILE" >/dev/null 2>&1 \
     || die "$(sayf "$T_ERR_NOT_A_TAR_FMT" "$STORAGE_FILE")"
   ARCHIVE_FILES="$(tar tzf "$STORAGE_FILE" 2>/dev/null | grep -cv '/$' || true)"
   info "$(sayf "$T_FILES_FMT" "$DB_FILE" "$db_size" "$db_when" \
@@ -314,6 +353,10 @@ psql_scalar() {
   compose exec -T db psql -U "$PGUSER_" -d "$PGDB_" -At -c "$1" </dev/null 2>/dev/null | head -1 || true
 }
 
+TARGET_PG_VERSION="$(psql_scalar 'SHOW server_version_num')"
+[[ "$TARGET_PG_VERSION" =~ ^[0-9]+$ ]] || die "$T_ERR_DB_VERSION"
+if ((10#$TARGET_PG_VERSION < 170000)); then info "$T_COMPAT_TIMEOUT"; fi
+
 CUR_INCIDENTS="$(psql_scalar 'select count(*) from incidents')"
 CUR_USERS="$(psql_scalar 'select count(*) from users')"
 CUR_MEDIA="$(psql_scalar 'select count(*) from media')"
@@ -337,12 +380,18 @@ SAFETY_DIR="$(dirname "$DB_FILE")/pre-restore-$(date +%F-%H%M%S)"
 
 step "$T_STEP_CONFIRM"
 if [[ "$DB_ONLY" -eq 1 ]]; then
-  say "$(sayf "$T_DESTROY_DB_ONLY" "$SAFETY_DIR")"
+  say "$T_DESTROY_DB_ONLY"
 else
-  say "$(sayf "$T_DESTROY" "$SAFETY_DIR")"
+  say "$T_DESTROY"
+fi
+if [[ "$SKIP_SAFETY_COPY" -eq 1 ]]; then
+  warn "$T_SKIP_SAFETY_WARN"
+else
+  say "$(sayf "$T_SAFETY_PROMISE_FMT" "$SAFETY_DIR")"
 fi
 say ""
 warn "$(sayf "$T_SECRET_KEY_WARN" "$ENV_FILE")"
+warn "$T_LOSS_WARN"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   # Put the host back the way it was found. Only the container THIS run started, and only on
@@ -369,35 +418,46 @@ fi
 
 step "$T_STEP_RESTORE"
 
-# The safety copy, and it comes BEFORE the app is stopped — the storage half of a backup is
-# read out of the app container, so a stack stopped first is a safety copy with no storage in
-# it. (backup.sh falls back to a one-off container when the app is genuinely down; this order
-# is what makes the ordinary case ordinary.)
-#
-# Best effort by design: on the day this script is for, the thing being replaced is often too
-# broken to dump, and refusing to restore because the wreck cannot be backed up would be the
-# wrong answer.
-say "$(sayf "$T_R_SAFETY_FMT" "$SAFETY_DIR")"
-mkdir -p "$SAFETY_DIR"
-chmod 700 "$SAFETY_DIR" 2>/dev/null || true
-# ⚠️ KP_ENV_FILE, or the safety copy is taken from the WRONG DEPLOYMENT. backup.sh cd's to the
-# repo root and used to read `./.env` and call bare `docker compose` regardless of what this
-# restore was pointed at — so with `--env-file`, the copy that is supposed to be the way back
-# came from a different stack, and said «✓» while doing it.
-# Absolute, because backup.sh cd's to the repo root before it reads anything — a relative
-# `--env-file ../other/.env` would resolve against a different directory there. The default
-# stays the literal ".env" so the ordinary run is unchanged.
-safety_env="$ENV_FILE"
-[[ "$safety_env" == ".env" ]] || safety_env="$(cd "$(dirname "$ENV_FILE")" && pwd)/$(basename "$ENV_FILE")"
-if ! safety_out="$(BACKUP_KEEP=99 KP_ENV_FILE="$safety_env" "$KP_SCRIPT_DIR/backup.sh" "$SAFETY_DIR" 2>&1)"; then
-  printf '%s\n' "$safety_out" | tail -10 >&2
-  warn "$T_R_SAFETY_FAIL"
+# Stop before the safety copy so it includes the final committed writes before replacement.
+# backup.sh uses a one-off maintenance container and does not need the app to be running.
+say "$T_R_STOP"
+compose stop app </dev/null >/dev/null 2>&1 || die "$T_R_STOP_FAIL"
+
+if [[ "$SKIP_SAFETY_COPY" -eq 0 ]]; then
+  say "$(sayf "$T_R_SAFETY_FMT" "$SAFETY_DIR")"
+  # Unlike a general shared backup target, this new child holds a private recovery copy.
+  # Restrict creation itself, and refuse before writing data if permissions cannot be set.
+  (umask 077; mkdir -p "$SAFETY_DIR") && chmod 700 "$SAFETY_DIR" || die "$T_R_SAFETY_FAIL"
+  # Preserve the chosen deployment, including a custom environment file, in the safety copy.
+  safety_env="$ENV_FILE"
+  [[ "$safety_env" == ".env" ]] || safety_env="$(cd "$(dirname "$ENV_FILE")" && pwd)/$(basename "$ENV_FILE")"
+  if ! safety_out="$(BACKUP_KEEP=99 KP_ENV_FILE="$safety_env" KP_OPERATION_PARENT_TOKEN="$KP_OPERATION_TOKEN" \
+      "$KP_SCRIPT_DIR/backup.sh" "$SAFETY_DIR" 2>&1)"; then
+    printf '%s\n' "$safety_out" | tail -10 >&2
+    die "$T_R_SAFETY_FAIL"
+  fi
 fi
 
-say "$T_R_STOP"
-compose stop app </dev/null >/dev/null 2>&1 || true
-
 say "$T_R_DB"
+# pg_dump 18 can dump the supported Compose PostgreSQL 16 server, but emits one session
+# setting introduced in 17. Ignore that exact no-op only in the initial header. Once any
+# object marker or non-preamble SQL appears, every byte-shaped line (including COPY data
+# containing that same text) passes through. ON_ERROR_STOP remains enabled below.
+restore_sql() {
+  if ((10#$TARGET_PG_VERSION < 170000)); then
+    gunzip -c "$DB_FILE" | awk '
+      BEGIN { preamble = 1 }
+      preamble && /^-- Name:/ { preamble = 0 }
+      preamble && $0 == "SET transaction_timeout = 0;" { next }
+      preamble && NF && $0 !~ /^--/ && $0 !~ /^SET [a-z_]+ = .*;$/ &&
+        $0 !~ /^SELECT pg_catalog[.]set_config[(].*[)];$/ && $0 !~ /^\\restrict / { preamble = 0 }
+      { print }
+    '
+  else
+    gunzip -c "$DB_FILE"
+  fi
+}
+
 # DROP SCHEMA rather than DROP DATABASE: it needs no second database to connect through, no
 # disconnect dance, and it works the same against a managed Postgres. ON_ERROR_STOP is what
 # makes this a restore instead of a mess — psql's default is to print the error, carry on to
@@ -407,7 +467,7 @@ if ! restore_out="$(compose exec -T db psql -U "$PGUSER_" -d "$PGDB_" -v ON_ERRO
   printf '%s\n' "$restore_out" | tail -20 >&2
   die "$T_R_DB_FAIL"
 fi
-if ! restore_out="$(gunzip -c "$DB_FILE" | compose exec -T db psql -U "$PGUSER_" -d "$PGDB_" \
+if ! restore_out="$(restore_sql | compose exec -T db psql -U "$PGUSER_" -d "$PGDB_" \
       -v ON_ERROR_STOP=1 -q 2>&1)"; then
   printf '%s\n' "$restore_out" | tail -20 >&2
   die "$T_R_DB_FAIL"
@@ -427,9 +487,6 @@ if [[ "$DB_ONLY" -eq 0 ]]; then
   fi
 fi
 
-say "$T_R_START"
-compose up -d </dev/null >/dev/null 2>&1 || true
-
 # ─── 5. verify ────────────────────────────────────────────────────────────────────────────
 #
 # Nothing here is decoration. A restore that reports success without counting rows and files
@@ -441,12 +498,38 @@ NEW_INCIDENTS="$(psql_scalar 'select count(*) from incidents')"
 NEW_USERS="$(psql_scalar 'select count(*) from users')"
 NEW_MEDIA="$(psql_scalar 'select count(*) from media')"
 NEW_REV="$(psql_scalar 'select version_num from alembic_version')"
+[[ "$NEW_INCIDENTS" =~ ^[0-9]+$ && "$NEW_USERS" =~ ^[0-9]+$ && "$NEW_MEDIA" =~ ^[0-9]+$ && -n "$NEW_REV" ]] \
+  || die "$T_V_DB_FAIL"
 ok "$(sayf "$T_V_TABLES_FMT" "${NEW_INCIDENTS:-?}" "${NEW_USERS:-?}" "${NEW_MEDIA:-?}" "${NEW_REV:-?}")"
 
 if [[ "$DB_ONLY" -eq 0 ]]; then
-  NEW_FILES="$(compose exec -T app sh -c 'find /data/storage -type f | wc -l' </dev/null 2>/dev/null | tr -d ' \r' || true)"
+  NEW_FILES="$(compose run --rm --no-deps -T app sh -c 'find /data/storage -type f | wc -l' </dev/null 2>/dev/null | tr -d ' \r' || true)"
+  [[ "$NEW_FILES" =~ ^[0-9]+$ ]] || die "$T_V_STORAGE_FAIL"
   ok "$(sayf "$T_V_STORAGE_FMT" "${NEW_FILES:-?}")"
 fi
+
+if [[ "$NO_START" -eq 1 ]]; then
+  compose_env_hint=""
+  compose_context_hint=""
+  if [[ "$ENV_FILE" != ".env" ]]; then
+    printf -v compose_env_hint ' --env-file %q' "$ENV_FILE"
+  fi
+  if [[ -n "${COMPOSE_FILE:-}" ]]; then
+    printf -v compose_context_hint 'COMPOSE_FILE=%q ' "$COMPOSE_FILE"
+  fi
+  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    printf -v compose_project_hint 'COMPOSE_PROJECT_NAME=%q ' "$COMPOSE_PROJECT_NAME"
+    compose_context_hint+="$compose_project_hint"
+  fi
+  say ""
+  say "$(sayf "$T_NO_START_FMT" "$ENV_FILE" \
+    "$compose_context_hint" "$compose_env_hint" "$compose_context_hint" "$compose_env_hint" \
+    "$compose_context_hint" "$compose_env_hint" "$compose_context_hint" "$compose_env_hint")"
+  exit 0
+fi
+
+say "$T_R_START"
+compose up -d </dev/null >/dev/null 2>&1 || die "$T_R_START_FAIL"
 
 READY_URL="http://127.0.0.1:${PORT}/ready"
 SECONDS=0
@@ -459,7 +542,7 @@ if probe_ready "$READY_URL"; then
   accounts="$(roster_count "$PORT")"
   ok "$(sayf "$T_V_ROSTER_FMT" "$accounts")"
 else
-  warn "$T_V_NOT_READY"
+  die "$T_V_NOT_READY"
 fi
 
 say ""

@@ -29,6 +29,7 @@ dependencies = [
     # edits in Excel/Numbers/LibreOffice and uploads back. Read-only for the import (values
     # only, `data_only=True`), write for the export. MIT.
     "openpyxl>=3.1.5",
+    "anyio>=4.14.0",
 ]
 
 [project.optional-dependencies]

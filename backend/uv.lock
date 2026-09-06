@@ -847,6 +847,7 @@ version = "0.9.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "anyio" },
     { name = "apscheduler" },
     { name = "asyncpg" },
     { name = "bcrypt" },
@@ -879,6 +880,7 @@ dev = [
 requires-dist = [
     { name = "aiosqlite", marker = "extra == 'dev'", specifier = ">=0.20.0" },
     { name = "alembic", specifier = ">=1.13.0" },
+    { name = "anyio", specifier = ">=4.14.0" },
     { name = "apscheduler", specifier = ">=3.10.4" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "bcrypt", specifier = ">=4.2.0" },

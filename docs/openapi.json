@@ -11243,6 +11243,19 @@
       },
       "EventIn": {
         "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
           "op_type": {
             "type": "string",
             "title": "Op Type"

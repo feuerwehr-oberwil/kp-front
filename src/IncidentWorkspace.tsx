@@ -139,6 +139,9 @@ import {
   isIncidentRunning,
 } from './lib/incidents'
 import { useAuditEvents } from './lib/useAuditEvents'
+import { combinedSyncStatus } from './lib/combinedSyncStatus'
+import { downloadBlob } from './lib/download'
+import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from './lib/lineAttachments'
 import { centroid, rotateAround, transformThroughFit, turnedBy } from './lib/selectionTransform'
@@ -1244,7 +1247,8 @@ export function IncidentWorkspace({
   const coord = useCoordPicker(false, view.center)
 
   // --- audit capture (substrate A): batch client tactical events, flush debounced (see useAuditEvents) ---
-  const { emit, flushEvents, flushEventsBeacon } = useAuditEvents(incidentMeta.id, readOnly)
+  const auditDelivery = useAuditEvents(incidentMeta.id, readOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null)
+  const { emit, flushEvents, flushEventsBeacon } = auditDelivery
 
   // Weather for the incident location. Polled live; each NEW observation is recorded as a
   // `weather.observe` event so the replay fold can show the wind/condition as it stood at any
@@ -1344,7 +1348,7 @@ export function IncidentWorkspace({
 
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
-  const { syncStatus, lastSyncedAt, syncNow, clockSkewMs } = useIncidentSync({
+  const { syncStatus: workspaceSyncStatus, lastSyncedAt, syncNow: syncWorkspaceNow, clockSkewMs } = useIncidentSync({
     sync, readOnly, incidentId: incidentMeta.id,
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
@@ -1356,6 +1360,13 @@ export function IncidentWorkspace({
     // usually entered on another device and arrives via this very poll
     alarmUrgent: azAlarm.peak >= 2,
   })
+  const syncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
+  const syncNow = async () => {
+    await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
+    if (combinedSyncStatus(sync.syncStatus, journal.getStatus(), auditDelivery.getStatus()) !== 'synced') {
+      throw new Error('Operational records have not all been acknowledged')
+    }
+  }
 
   // Publish this device's «Einsatzdaten geprüft» to the crew. The question belongs to the Einsatz,
   // not to the tablet it was answered on (lib/incidentAlerts), and this component is the only
@@ -4580,6 +4591,7 @@ export function IncidentWorkspace({
             incidents={incidents}
             isEditor={isEditor}
             syncStatus={syncStatus}
+            syncDetail={(journal.syncStatus === 'error' || auditDelivery.status === 'error') && syncStatus !== 'storage' ? appConfig.copy.journal.delivery.short : undefined}
             lastSyncedAt={lastSyncedAt}
             user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
@@ -5951,6 +5963,12 @@ export function IncidentWorkspace({
           and AFTER the Rapport sheet so its checklist row can stack the Verlauf on top */}
       {journalOpen && guarded('journal', (
         <Journal
+          deliveryNotice={<JournalDeliveryNotice
+            status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
+            count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
+            onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
+            onExport={() => downloadBlob(new Blob([JSON.stringify({ ...journal.recoveryData(), audit: auditDelivery.getRecoveryData() }, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)}
+          />}
           vocab={journalVocab}
           events={timeline}
           closedAt={incidentMeta.closed_at}

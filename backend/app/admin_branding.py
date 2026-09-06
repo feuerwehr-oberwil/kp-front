@@ -21,8 +21,8 @@ makes it safe to run from a workstation against a remote deployment.
 
 `load` is the DB-direct sibling — the same path ``admin_config load`` and ``admin_geodata load``
 take, for a dataset that is loaded next to them (``examples/demo-data/load.sh``) rather than
-uploaded by a person. It writes the blob under a key derived from the SLOT, so re-running it
-overwrites in place instead of leaving a new orphan behind every night.
+uploaded by a person. Its key includes the slot and content digest: identical reloads reuse
+the URL, while changed assets preserve the old bytes for config history and online backups.
 
 Slots: ``logo`` (login screen, header), ``reportLogo`` (letterhead of the printed
 Einsatzrapport; falls back to ``logo`` when unset), ``favicon`` (browser tab),
@@ -31,6 +31,7 @@ Einsatzrapport; falls back to ``logo`` when unset), ``favicon`` (browser tab),
 """
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
 
@@ -50,12 +51,9 @@ _CONTENT_TYPES = {
 }
 
 
-#: DB-direct `load` writes under a stable, slot-derived key. The HTTP upload mints a random one
-#: per file (a person replacing a logo wants the old URL to stop resolving), but a dataset that
-#: is re-loaded on every demo reset would then leave one orphaned blob per night — and the
-#: config URL would change under a browser that had cached it.
-def _stable_key(slot: str, suffix: str) -> str:
-    return f"branding/{slot}{suffix}"
+def _stable_key(slot: str, suffix: str, data: bytes) -> str:
+    """Reuse identical assets without overwriting bytes that a retained config references."""
+    return f"branding/{slot}-{hashlib.sha256(data).hexdigest()}{suffix}"
 
 
 def _push(slot: str, path: Path, base: str, admin_secret: str) -> str:
@@ -89,7 +87,7 @@ async def _load(slot: str, path: Path) -> str:
     except HTTPException as e:
         fail(f"ERROR: {e.detail}")
 
-    key = _stable_key(slot, path.suffix.lower())
+    key = _stable_key(slot, path.suffix.lower(), data)
     storage.put_bytes(key, data)
     url = f"/api/branding/file/{key}"
     async with async_session_maker() as db:
