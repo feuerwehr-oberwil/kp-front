@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { deploymentName } from '../lib/deploymentConfig'
+import { SnailLoader } from './SnailLoader'
 
 /**
  * Shared boot screen: the brand pulse + station wordmark, optionally a status line.
@@ -32,7 +33,7 @@ export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
   return (
     <div className={inApp ? `loading${stuck ? ' stuck' : ''}` : 'login splash'}>
       <div className="loading-card">
-        <div className="ping"><span /><span /><span className="core" /></div>
+        <SnailLoader />
         <div className="loading-name">{deploymentName()}</div>
         {sub && <div className="loading-sub">{sub}</div>}
         {stuck && (

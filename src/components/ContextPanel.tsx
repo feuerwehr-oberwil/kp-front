@@ -10,6 +10,7 @@ import { appConfig } from '../config/appConfig'
 import { allStoffNames, decodeKemler, lookupUN, lookupUNByName, type UnHazardEntry } from '../lib/unHazard'
 import { ERG_VERSION, lookupErg } from '../lib/erg'
 import { DEFAULT_ERG_RING_MODE, parseErgDistance } from '../lib/ergRings'
+import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
@@ -402,7 +403,18 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
     if (liveEdited.current) { liveEdited.current = false; onTitle(title) }
     else if (title !== (entity.label ?? '')) onTitle(title)
   }
-  const blurNotes = () => { if (notes !== (entity.notes ?? '')) onNotes?.(notes) }
+  // Committed against a ref, not `entity.notes`: the unmount commit below re-runs blurNotes
+  // after a normal blur→close, when the entity prop may not have caught up yet — the ref keeps
+  // that second call a no-op instead of a duplicate undo step + audit emit.
+  const notesCommitted = useRef(entity.notes ?? '')
+  const blurNotes = () => {
+    if (notes === notesCommitted.current || notes === (entity.notes ?? '')) return
+    notesCommitted.current = notes
+    onNotes?.(notes)
+  }
+  // A swipe-dismiss / slot swap unmounts the focused textarea without a blur — commit the draft
+  // then, or the typed Notiz dies with the sheet (Feldtest 07.09.).
+  useCommitDraftOnUnmount(blurNotes)
   // Gefahrentafel auto-fill: when a UN-Nr row resolves to an ADR substance and the
   // Stoff row is still empty, seed its German name. Only fills an empty Stoff so a
   // manually-typed substance is never clobbered.

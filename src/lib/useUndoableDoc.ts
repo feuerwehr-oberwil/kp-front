@@ -27,38 +27,56 @@ export interface UndoableDoc<D> {
 }
 
 export function useUndoableDoc<D>(init: D, readOnly: boolean): UndoableDoc<D> {
-  const [doc, setDocRaw] = useState<D>(init)
+  const [doc, setDoc] = useState<D>(init)
+  // ⚠️ The live value, advanced synchronously by every write below — `doc` (state) is a
+  // per-render snapshot and only feeds renders. Reading the snapshot in commit() meant two
+  // commits in the same tick each built on the pre-render doc and the second silently
+  // reverted the first (Übernehmen: createCircle + the ergRings patch ate the circle).
+  const docRef = useRef(doc)
   const [past, setPast] = useState<D[]>([])
   const [future, setFuture] = useState<D[]>([])
   const dragSnap = useRef<D | null>(null)
   const cap = appConfig.defaults.historyCap
 
+  // The one write funnel: keeps docRef the per-tick truth, so writers compose instead of
+  // racing. The updater runs eagerly, exactly once — never inside setDoc, where StrictMode
+  // would double-invoke callers' logging side effects.
+  const setDocRaw: Dispatch<SetStateAction<D>> = (a) => {
+    docRef.current = typeof a === 'function' ? (a as (d: D) => D)(docRef.current) : a
+    setDoc(docRef.current)
+  }
+
   // For viewers/replay readOnly is true, so commit is a no-op — even if an editing path is
   // reached it can never change the document (defense in depth, same as before).
   const commit = (updater: (d: D) => D) => {
     if (readOnly) return
-    setPast((p) => [...p, doc].slice(-cap)); setFuture([]); setDocRaw(updater(doc))
+    const snap = docRef.current
+    setPast((p) => [...p, snap].slice(-cap)); setFuture([]); setDocRaw(updater(snap))
   }
-  const beginDrag = () => { dragSnap.current = doc }
+  const beginDrag = () => { dragSnap.current = docRef.current }
   const endDrag = () => {
     if (!dragSnap.current) return
     const snap = dragSnap.current
     setPast((p) => [...p, snap].slice(-cap)); setFuture([]); dragSnap.current = null
   }
+  // ⚠️ docRef is read into a local BEFORE the setState updaters below: an updater must stay
+  // pure (StrictMode re-invokes it after docRef has already advanced).
   const undo = (): boolean => {
     if (readOnly || !past.length) return false
-    setFuture((f) => [doc, ...f]); setDocRaw(past[past.length - 1]); setPast((p) => p.slice(0, -1))
+    const cur = docRef.current
+    setFuture((f) => [cur, ...f]); setDocRaw(past[past.length - 1]); setPast((p) => p.slice(0, -1))
     return true
   }
   const redo = (): boolean => {
     if (readOnly || !future.length) return false
-    setPast((p) => [...p, doc]); setDocRaw(future[0]); setFuture((f) => f.slice(1))
+    const cur = docRef.current
+    setPast((p) => [...p, cur]); setDocRaw(future[0]); setFuture((f) => f.slice(1))
     return true
   }
   // The doc was replaced by remote/merged state, so the local undo history no longer
   // applies — undoing into it would push a stale doc and resurrect remotely-deleted content.
-  // Stable (only stable setters) so callers can keep it out of effect/callback deps.
-  const replace = useCallback((d: D) => { setDocRaw(d); setPast([]); setFuture([]) }, [])
+  // Stable (only the ref + stable setters) so callers can keep it out of effect/callback deps.
+  const replace = useCallback((d: D) => { docRef.current = d; setDoc(d); setPast([]); setFuture([]) }, [])
 
   return { doc, setDocRaw, commit, beginDrag, endDrag, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, replace }
 }

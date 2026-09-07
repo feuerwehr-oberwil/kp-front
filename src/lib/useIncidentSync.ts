@@ -228,10 +228,12 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // last successful save timestamp — surfaced as a positive "gespeichert HH:MM" trust
   // signal next to the sync badge. Read alongside the status (it lands together).
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(sync.lastSyncedAt)
-  // Sync-trouble surfacing (decision 2026-07-18: one-shot warn toast, NO persistent banner):
-  // entering 'error' — or staying 'offline' beyond the grace window — fires ONE toast per
-  // episode with a «Jetzt synchronisieren» action; the badge in the switcher stays the
-  // always-visible indicator. syncNow via ref so the subscription effect stays keyed on `sync`.
+  // Sync-trouble surfacing: entering 'error' — or staying 'offline' beyond the grace window —
+  // fires ONE toast per episode with a «Jetzt synchronisieren» action; the badge in the
+  // switcher stays the always-visible indicator. The 2026-07-18 «no persistent banner» half of
+  // that decision was reversed 2026-09-07 for the offline case only: a device offline past
+  // 60 s additionally shows a standing Meldung (components/OfflineMeldung), withdrawn the
+  // moment the link is back. syncNow via ref so the subscription effect stays keyed on `sync`.
   const syncNowRef = useRef(syncNow)
   useEffect(() => { syncNowRef.current = syncNow }, [syncNow])
   useEffect(() => {

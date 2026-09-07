@@ -136,6 +136,9 @@ export function legacyFleetToAttributeLists(fleet: DeploymentFleet | null | unde
 
 export interface DeploymentDoctrine {
   defaultFunkkanal?: number | null
+  /** default channel for a Trupp OHNE Atemschutz — stations that run their Sektionen on a
+   *  separate channel set it here; unset means «same as defaultFunkkanal» */
+  defaultFunkkanalEinfach?: number | null
   funkkanalMin?: number | null
   funkkanalMax?: number | null
   alarmBar?: number | null
@@ -533,6 +536,8 @@ export function atemschutzDoctrine() {
     contactIntervalMin: d.contactIntervalMin ?? a.contactIntervalMin,
     contactGraceSec: d.contactGraceSec ?? a.contactGraceSec,
     defaultFunkkanal: d.defaultFunkkanal ?? a.defaultFunkkanal,
+    // unset falls back to the station's (then the shipped) AS channel — one channel unless split
+    defaultFunkkanalEinfach: d.defaultFunkkanalEinfach ?? d.defaultFunkkanal ?? a.defaultFunkkanal,
     funkkanalMin: d.funkkanalMin ?? a.funkkanalMin,
     funkkanalMax: d.funkkanalMax ?? a.funkkanalMax,
     cylinderLiters: d.cylinderLiters ?? a.cylinderLiters,

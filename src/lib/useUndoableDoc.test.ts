@@ -24,6 +24,22 @@ describe('useUndoableDoc', () => {
     expect(result.current.doc).toEqual({ n: 2 })
   })
 
+  // Regression (07.09.): «Übernehmen» ran createCircle + patchEntity in one tick; commit read
+  // the per-render doc snapshot, so the second commit built on the pre-tick doc and silently
+  // reverted the first — the Absperrkreis never appeared.
+  it('two commits in the same tick compose — the second builds on the first', () => {
+    const { result } = renderHook(() => useUndoableDoc<Doc>(INIT, false))
+    act(() => {
+      result.current.commit((d) => ({ n: d.n + 1 }))
+      result.current.commit((d) => ({ n: d.n + 10 }))
+    })
+    expect(result.current.doc).toEqual({ n: 11 })
+    act(() => { result.current.undo() })
+    expect(result.current.doc).toEqual({ n: 1 }) // two commits stay two undo steps
+    act(() => { result.current.undo() })
+    expect(result.current.doc).toEqual({ n: 0 })
+  })
+
   it('undo/redo return whether they acted (so the caller can log only real steps)', () => {
     const { result } = renderHook(() => useUndoableDoc<Doc>(INIT, false))
     let acted = true

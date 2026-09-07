@@ -66,3 +66,25 @@ describe('LayerPanel · Deckkraft', () => {
     expect(screen.queryAllByRole('slider')).toHaveLength(0)
   })
 })
+
+// The quick-taps (field ask 07.09.): one gesture over the whole panel. All three or none —
+// the Plan-surface panel passes none, so its lent-twin rows keep their own drawer.
+describe('LayerPanel · quick-taps', () => {
+  it('renders the three actions when wired, and fires each', () => {
+    const onShowAll = vi.fn(); const onHideAll = vi.fn(); const onReset = vi.fn()
+    render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop}
+      onShowAll={onShowAll} onHideAll={onHideAll} onReset={onReset} />)
+    const C = appConfig.copy.layerPanel
+    fireEvent.click(screen.getByText(C.showAll))
+    fireEvent.click(screen.getByText(C.hideAll))
+    fireEvent.click(screen.getByText(C.reset))
+    expect(onShowAll).toHaveBeenCalledTimes(1)
+    expect(onHideAll).toHaveBeenCalledTimes(1)
+    expect(onReset).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders no quick row when the surface offers none (the Plan panel)', () => {
+    const { container } = render(<LayerPanel layers={[plan]} onToggle={noop} onOpacity={noop} />)
+    expect(container.querySelector('.lc-quick')).toBeNull()
+  })
+})

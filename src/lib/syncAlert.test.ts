@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CLOCK_SKEW_WARN_MIN, createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
+import { CLOCK_SKEW_WARN_MIN, createClockSkewAlert, createOfflinePresence, createSyncAlertTracker } from './syncAlert'
 
 describe('createSyncAlertTracker', () => {
   beforeEach(() => vi.useFakeTimers())
@@ -131,5 +131,53 @@ describe('createClockSkewAlert', () => {
     a.onSkew(null) // no information — must not end the episode either
     a.onSkew(CLOCK_SKEW_WARN_MIN + 1)
     expect(notify).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('createOfflinePresence (the standing banner, field ask 07.09.)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('raises after the delay, and withdraws the moment the sync succeeds', () => {
+    const onChange = vi.fn()
+    const t = createOfflinePresence(onChange, { delayMs: 60_000 })
+    t.onStatus('offline')
+    vi.advanceTimersByTime(59_000)
+    expect(onChange).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1_000)
+    expect(onChange).toHaveBeenLastCalledWith(true)
+    t.onStatus('synced')
+    expect(onChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('rides out the offline→pending→offline flap of a retrying save', () => {
+    const onChange = vi.fn()
+    const t = createOfflinePresence(onChange, { delayMs: 60_000 })
+    t.onStatus('offline')
+    vi.advanceTimersByTime(30_000)
+    t.onStatus('pending')
+    t.onStatus('offline')
+    vi.advanceTimersByTime(30_000)
+    expect(onChange).toHaveBeenLastCalledWith(true)
+  })
+
+  it('a blip that recovers before the delay never raises, and says nothing redundant', () => {
+    const onChange = vi.fn()
+    const t = createOfflinePresence(onChange, { delayMs: 60_000 })
+    t.onStatus('offline')
+    vi.advanceTimersByTime(10_000)
+    t.onStatus('synced')
+    vi.advanceTimersByTime(120_000)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('an answer from the server (error/storage) is not «offline» — the banner clears', () => {
+    const onChange = vi.fn()
+    const t = createOfflinePresence(onChange, { delayMs: 60_000 })
+    t.onStatus('offline')
+    vi.advanceTimersByTime(60_000)
+    expect(onChange).toHaveBeenLastCalledWith(true)
+    t.onStatus('error')
+    expect(onChange).toHaveBeenLastCalledWith(false)
   })
 })

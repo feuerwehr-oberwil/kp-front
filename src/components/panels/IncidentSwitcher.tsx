@@ -190,7 +190,9 @@ export function IncidentSwitcher({
         {/* Offline and sync-error get a LOUD text chip (not just the tiny mark) — offline
             blocks switching incidents to the server, and a failing sync means edits are
             stranded on this device; the operator needs to recognise both at a glance
-            WITHOUT opening the dropdown (there is deliberately no persistent banner). */}
+            WITHOUT opening the dropdown. (Since 07.09. an offline spell past 60 s also
+            raises a standing Meldung — components/OfflineMeldung; this chip stays the
+            immediate, always-on indicator.) */}
         {/* Storage-full is the loudest of the three: offline and sync-error both still mean the
             work is safely cached on this device, this one means it is not saved ANYWHERE. */}
         {active && syncStatus === 'storage' ? (

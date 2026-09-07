@@ -72,6 +72,14 @@ export function useArmedTransform({ enabled, surface, centreClient, onMove, onRo
   const armKey = `${enabled ? 'on' : 'off'}|${resetKey}`
   const [arm, setArm] = useState<{ mode: ArmMode; key: string } | null>(null)
   const armed = enabled && arm?.key === armKey ? arm.mode : null
+  // ⚠️ A key mismatch DELETES the record rather than just masking it (Feldtest 07.09.): kept
+  // around, the dormant mode came back BY ITSELF the moment the byte-identical key recurred —
+  // close the Fläche's sheet, tap the Fläche again, and ✥ was armed with no tap on the grip,
+  // with the click guard below swallowing every tap («can only move the area, never pan»).
+  // Disarming is final: a mode is only ever entered by a tap on the grip.
+  useEffect(() => {
+    setArm((cur) => (cur && cur.key !== armKey ? null : cur))
+  }, [armKey])
   /** the live turn, for the on-surface guide; null whenever no turn is in the hand */
   const [turn, setTurn] = useState<ArmedTurn | null>(null)
   const live = useRef<{

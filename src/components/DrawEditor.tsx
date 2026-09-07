@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { Combo } from './Combo'
 import { TwinOrigin } from './TwinOrigin'
@@ -11,6 +11,7 @@ import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { useLineProfile } from '../lib/useLineProfile'
+import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Stepper } from './Stepper'
 import { MenuPick } from './MenuPick'
@@ -190,6 +191,17 @@ const FILL_OPACITIES = appConfig.drawing.fillOpacities
 export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, onOriginal, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   // free-typed Abschnitt-Leiter draft (see the Combo below): null = not typing
   const [leiterDraft, setLeiterDraft] = useState<string | null>(null)
+  // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
+  // node — kept, never nulled, because React detaches element refs before passive cleanups run.
+  // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
+  const auftragEl = useRef<HTMLInputElement | null>(null)
+  const auftragCommitted = useRef<string | null>(null)
+  const commitAuftrag = (v: string) => {
+    if (v === auftragCommitted.current || v === (drawing.abschnittAuftrag ?? '')) return
+    auftragCommitted.current = v
+    onAbschnittAuftrag?.(v || undefined)
+  }
+  useCommitDraftOnUnmount(() => { if (auftragEl.current) commitAuftrag(auftragEl.current.value.trim()) })
   const color = drawing.color ?? DEFAULT_INK
   const width = drawing.width ?? 4
   const dashed = !!drawing.dashed
@@ -395,8 +407,9 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     row — the same reason the label splits live/commit), and a synced value
                     arriving from another device re-keys the field rather than fighting a draft */}
                 <input className="de-input" key={drawing.abschnittAuftrag ?? ''} defaultValue={drawing.abschnittAuftrag ?? ''}
+                  ref={(el) => { if (el) auftragEl.current = el }}
                   placeholder={appConfig.copy.drawingEditor.abschnittAuftragPlaceholder}
-                  onBlur={(e) => { const v = e.target.value.trim(); if (v !== (drawing.abschnittAuftrag ?? '')) onAbschnittAuftrag(v || undefined) }}
+                  onBlur={(e) => commitAuftrag(e.target.value.trim())}
                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
               </div>
             )}

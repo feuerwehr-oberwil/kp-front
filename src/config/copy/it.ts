@@ -38,6 +38,9 @@ export const it: Localizable<Copy> = {
     stateVisible: 'visibile, nascondi',
     stateHidden: 'nascosto, mostra',
     opacity: 'Opacità',
+    showAll: 'Mostra tutti',
+    hideAll: 'Nascondi tutti',
+    reset: 'Standard',
   },
   help: {
     menu: 'Funzioni e aiuto',
@@ -2207,6 +2210,8 @@ export const it: Localizable<Copy> = {
     errorShort: 'Errore di sync',
     syncErrorToast: 'Sincronizzazione non riuscita – le modifiche sono salvate localmente.',
     syncOfflineToast: 'Ancora offline – le modifiche vengono salvate localmente.',
+    offlineMeldungTitle: 'Offline – le modifiche vengono salvate localmente',
+    offlineMeldungSub: 'La sincronizzazione riprende appena torna la connessione.',
     clockSkewToast: 'L\'orologio di questo dispositivo devia di {n} minuti – controlla gli orari registrati.',
     bootOffline: 'Offline – vengono mostrati i dati salvati.',
     bootListFailed: 'Impossibile caricare l\'elenco degli interventi',
@@ -3222,6 +3227,8 @@ export const it: Localizable<Copy> = {
     doctrine: {
       defaultFunkkanal: 'Canale radio (predefinito)',
       defaultFunkkanalTip: 'Canale radio preimpostato di un nuovo intervento.',
+      defaultFunkkanalEinfach: 'Canale radio senza protezione respiratoria',
+      defaultFunkkanalEinfachTip: 'Canale radio preimpostato di una nuova squadra senza protezione respiratoria. Vuoto = stesso canale come sotto protezione respiratoria.',
       contactInterval: 'Intervallo di contatto (min)',
       contactIntervalTip: 'Intervallo di contatto ARA; una volta trascorso, il contatto è dovuto (ambra).',
       contactGrace: 'Tolleranza (s)',

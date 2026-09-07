@@ -59,6 +59,10 @@ export const de = {
     // Der Regler unter einer eingeblendeten Ebene – im Screenreader hinter dem Ebenennamen,
     // damit «Deckkraft» sagt, wovon.
     opacity: 'Deckkraft',
+    // Schnellzugriffe oben im Panel: alles ein/aus, zurück zum Standard des Einsatztyps
+    showAll: 'Alle ein',
+    hideAll: 'Alle aus',
+    reset: 'Standard',
   },
   help: {
     menu: 'Funktionen & Hilfe',
@@ -3450,9 +3454,14 @@ export const de = {
     offlineShort: 'Offline',
     errorShort: 'Sync-Fehler',
     storageShort: 'Speicher voll',
-    // one-shot warning toasts (useIncidentSync) — once per episode, deliberately no permanent banner
+    // one-shot warning toasts (useIncidentSync) — once per episode
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
+    // …and the standing Meldung once the device STAYS offline past the longer window
+    // (components/OfflineMeldung, syncAlert · createOfflinePresence). Half-reverses the
+    // 2026-07-18 «no permanent banner» decision on field request 2026-09-07.
+    offlineMeldungTitle: 'Offline – Änderungen werden lokal gespeichert',
+    offlineMeldungSub: 'Wird synchronisiert, sobald die Verbindung zurück ist.',
     // clock skew (useIncidentSync · X-Server-Time): device-local timestamps feed the legal
     // record, so a clock minutes off is said once per episode — same wording as the capture
     // surface's skew line (capture.clockSkew)
@@ -5291,6 +5300,8 @@ export const de = {
       auftragColorsTip: 'Optional: Startfarbe je Auftrag. Leer lassen heisst «jeder Trupp eine eigene Farbe» (Identität). Wer die Karte lieber nach Rolle liest – alle Löschtrupps rot –, setzt hier eine Farbe; pro Trupp ist sie weiterhin änderbar.',
       defaultFunkkanal: 'Funkkanal (Standard)',
       defaultFunkkanalTip: 'Voreingestellter Funkkanal eines neuen Einsatzes.',
+      defaultFunkkanalEinfach: 'Funkkanal ohne Atemschutz',
+      defaultFunkkanalEinfachTip: 'Voreingestellter Funkkanal eines neuen Trupps ohne Atemschutz. Leer = gleicher Kanal wie unter Atemschutz.',
       contactInterval: 'Kontaktintervall (min)',
       contactIntervalTip: 'AGT-Kontaktintervall; nach Ablauf gilt der Kontakt als fällig (orange).',
       contactGrace: 'Nachfrist (s)',
