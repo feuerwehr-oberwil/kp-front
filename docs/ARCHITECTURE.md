@@ -101,7 +101,10 @@ flowchart LR
 ```
 
 Auth is a PIN-kiosk login issuing JWTs in httpOnly cookies. Product roles are **editor** (FU /
-incident editing) and **viewer** (read-only); the stored backend value was migrated from the
+incident editing), **el** (Einsatzleiter function, added 2026-09-07: full read, but writes only
+the operational record – Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen –
+through a server-enforced workspace slice; the tactical picture stays editor-only) and
+**viewer** (read-only); the stored backend value was migrated from the
 legacy `commander` name to `editor` on 2026-06-30. Deployment administration is separated
 behind its own `ADMIN_SECRET` env var: the `/admin` UI and admin-write API (config, branding,
 system, user CRUD, geodata/objects) gate on a secret-backed admin-session cookie, never on the

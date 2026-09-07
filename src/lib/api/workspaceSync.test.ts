@@ -9,12 +9,16 @@ const putWorkspace = vi.fn()
 const putWorkspaceBeacon = vi.fn()
 const putWorkspaceTrupps = vi.fn()
 const putWorkspaceTruppsBeacon = vi.fn()
+const putWorkspaceRecord = vi.fn()
+const putWorkspaceRecordBeacon = vi.fn()
 vi.mock('./workspace', () => ({
   getWorkspace: (...a: unknown[]) => getWorkspace(...a),
   putWorkspace: (...a: unknown[]) => putWorkspace(...a),
   putWorkspaceBeacon: (...a: unknown[]) => putWorkspaceBeacon(...a),
   putWorkspaceTrupps: (...a: unknown[]) => putWorkspaceTrupps(...a),
   putWorkspaceTruppsBeacon: (...a: unknown[]) => putWorkspaceTruppsBeacon(...a),
+  putWorkspaceRecord: (...a: unknown[]) => putWorkspaceRecord(...a),
+  putWorkspaceRecordBeacon: (...a: unknown[]) => putWorkspaceRecordBeacon(...a),
 }))
 vi.mock('../idb', () => ({
   idbGet: vi.fn(async () => null),
@@ -36,6 +40,8 @@ beforeEach(() => {
   putWorkspaceBeacon.mockReset()
   putWorkspaceTrupps.mockReset().mockResolvedValue({ workspace: null, workspace_rev: 8 })
   putWorkspaceTruppsBeacon.mockReset()
+  putWorkspaceRecord.mockReset().mockResolvedValue({ workspace: null, workspace_rev: 8 })
+  putWorkspaceRecordBeacon.mockReset()
   idbSet.mockClear()
 })
 afterEach(() => { vi.useRealTimers() })
@@ -57,6 +63,38 @@ describe('WorkspaceSync · slice: «trupps»', () => {
     sync.save(blob)
     sync.flushKeepalive()
     expect(putWorkspaceTruppsBeacon).toHaveBeenCalledWith('i1', [trupp], 7)
+    expect(putWorkspaceBeacon).not.toHaveBeenCalled()
+    sync.dispose()
+  })
+
+  // The `el` role's slice (07.09.): only the record keys travel, and only its route is taken —
+  // the blob's tactical keys must never appear in the payload, whatever the local state holds.
+  const recordBlob = {
+    attendance: { p1: { status: 'present' } }, mittel: [{ id: 'm1' }], checklists: { t1: {} },
+    reportMeta: { einsatzort: 'X' }, entities: [{ id: 'e1' }], drawings: [{ id: 'd1' }], trupps: [trupp],
+  }
+
+  it('slice: «record» pushes the record keys only, never the map', async () => {
+    const sync = new WorkspaceSync('i1', { slice: 'record', debounceMs: 0 })
+    await sync.init()
+    sync.save(recordBlob)
+    await sync.flush()
+    expect(putWorkspaceRecord).toHaveBeenCalledWith('i1', {
+      attendance: { p1: { status: 'present' } }, mittel: [{ id: 'm1' }], checklists: { t1: {} },
+      reportMeta: { einsatzort: 'X' },
+    }, 7)
+    expect(putWorkspace).not.toHaveBeenCalled()
+    expect(putWorkspaceTrupps).not.toHaveBeenCalled()
+    sync.dispose()
+  })
+
+  it('sends the record teardown beacon down the same slice route', async () => {
+    const sync = new WorkspaceSync('i1', { slice: 'record', debounceMs: 10_000 })
+    await sync.init()
+    sync.save({ ...recordBlob, attachments: [{ id: 'a1' }] })
+    sync.flushKeepalive()
+    expect(putWorkspaceRecordBeacon).toHaveBeenCalledWith('i1', expect.objectContaining({ attachments: [{ id: 'a1' }] }), 7)
+    expect(putWorkspaceRecordBeacon.mock.calls[0][1]).not.toHaveProperty('entities')
     expect(putWorkspaceBeacon).not.toHaveBeenCalled()
     sync.dispose()
   })

@@ -33,6 +33,23 @@ export const putWorkspaceTrupps = (id: string, trupps: readonly Trupp[], base_re
 export const putWorkspaceTruppsBeacon = (id: string, trupps: readonly Trupp[], base_rev: number) =>
   apiBeacon(`/api/incidents/${id}/workspace/trupps`, { trupps, base_rev }, 'PUT')
 
+// --- the record slice on its own -----------------------------------------------------------
+// The `el` role (Einsatzleiter function, 07.09.2026) may write the operational RECORD —
+// Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen — and nothing else; the full
+// workspace PUT 403s for it. The body is a whole `workspace` object like the editor PUT, but
+// the server applies ONLY its RECORD_WORKSPACE_KEYS over its own stored blob (api/incidents ·
+// put_workspace_record, capture.py's proven merge), so the tactical picture is bounded
+// server-side whatever this client sends. Same contract otherwise — `base_rev` in, rev out,
+// 409 on a race. WorkspaceSync's `slice: 'record'` routes here.
+export const putWorkspaceRecord = (id: string, workspace: Workspace, base_rev: number) =>
+  apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace/record`, {
+    workspace,
+    base_rev,
+  })
+/** Teardown twin of putWorkspaceRecord — see putWorkspaceBeacon. */
+export const putWorkspaceRecordBeacon = (id: string, workspace: Workspace, base_rev: number) =>
+  apiBeacon(`/api/incidents/${id}/workspace/record`, { workspace, base_rev }, 'PUT')
+
 // clock-skew watch (mirrors captureClient · onServerTime): workspace responses carry
 // X-Server-Time (backend · api_server_time middleware), and the live-follow poll is the one
 // request every device — editor and viewer alike — repeats for the whole session, so it is the

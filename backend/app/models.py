@@ -71,7 +71,7 @@ class User(Base):
     # carry no generation and are read as 0, which is where every row starts.
     auth_generation: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
 
-    __table_args__ = (CheckConstraint("role in ('editor','viewer')", name="ck_users_role"),)
+    __table_args__ = (CheckConstraint("role in ('editor','viewer','el')", name="ck_users_role"),)
 
 
 class RevokedToken(Base):

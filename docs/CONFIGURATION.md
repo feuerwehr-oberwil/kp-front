@@ -939,7 +939,9 @@ The product role model is deliberately small:
 
 - **Login:** pick your name from the roster → enter your **PIN** (fast at 3am, per-person
   identity for the audit trail). JWT access (8h) + refresh (7d) with rotation + revocation.
-- **Roles:** `editor` (FU / Einsatzleitung support; can mutate incident state) and `viewer`
+- **Roles:** `editor` (FU / Einsatzleitung support; can mutate incident state), `el`
+  (Einsatzleiter function, since 2026-09-07: reads everything, edits only Anwesenheit/Zeitplan,
+  Material, Checklisten and the Rapport incl. Beilagen – server-enforced) and `viewer`
   (read-only display/follow mode). The stored role value was migrated from the legacy `commander`
   name to `editor` on 2026-06-30.
 - **Deployment administration:** does not depend on being an incident editor. The `/admin` UI

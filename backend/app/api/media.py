@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
 
 from .. import audio, database, storage
-from ..auth.dependencies import CurrentEditor, CurrentUser
+from ..auth.dependencies import CurrentEditor, CurrentRecordWriter, CurrentUser
 from ..auth.incident_link import link_session_incident
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
@@ -113,10 +113,13 @@ def _matches_declared_type(content_type: str, head: bytes) -> bool:
     return prefix is None or head.startswith(prefix)
 
 
+# CurrentRecordWriter, not CurrentEditor (07.09.2026): the ``el`` role adds Rapport-Beilagen,
+# and the bytes come through here. Links stay excluded; the transcription routes below stay
+# editor-only — they belong to the Verlauf, not the record slice.
 @router.post("/incidents/{incident_id}/media", status_code=201)
 async def upload_media(
     incident_id: uuid.UUID,
-    user: CurrentEditor,
+    user: CurrentRecordWriter,
     file: UploadFile = File(...),
     kind: str = Form(...),
     db: AsyncSession = Depends(get_db),

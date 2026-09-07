@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit
-from ..auth.dependencies import CurrentAtemschutzWriter, CurrentUser, is_atemschutz_link
+from ..auth.dependencies import CurrentAppendWriter, CurrentUser, is_atemschutz_link
 from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, IncidentEvent
@@ -51,9 +51,22 @@ async def list_events(
     return list((await db.execute(q)).scalars())
 
 
+# The event vocabulary the ``el`` role may append — the record domains its workspace slice
+# writes (incidents.py · RECORD_WORKSPACE_KEYS) plus what record-keeping emits alongside: the
+# journal echo, Wiedervorlagen, and the weather stamp the Rapport prints. Prefix-matched so
+# new ops inside a domain need no list edit; a new DOMAIN is the same deliberate decision as
+# widening the workspace allowlist. ⚠️ Keep in step with what the frontend's canWriteRecord
+# surfaces emit — one refused op_type 403s the whole batch and wedges the outbox behind it.
+EL_EVENT_PREFIXES = ("attendance.", "checklist.", "mittel.", "report.", "journal.", "reminder.", "weather.")
+
+
+def _el_event_ok(op_type: str) -> bool:
+    return op_type.startswith(EL_EVENT_PREFIXES)
+
+
 @router.post("/{incident_id}/events", response_model=list[EventOut], status_code=201)
 async def ingest_events(
-    incident_id: uuid.UUID, body: EventBatchIn, user: CurrentAtemschutzWriter, db: AsyncSession = Depends(get_db)
+    incident_id: uuid.UUID, body: EventBatchIn, user: CurrentAppendWriter, db: AsyncSession = Depends(get_db)
 ):
     """Flush a batch of client tactical events (entity.*, draw.*, layer.toggle, undo, redo).
 
@@ -63,13 +76,18 @@ async def ingest_events(
     Editors write the whole vocabulary. An ATEMSCHUTZ-link session writes `atemschutz.*` and
     nothing else, and its rows carry `source="atemschutz-link"` rather than "client" — the
     chain has to record that this came from a phone at the Eingang, not from the FU tablet.
-    Any other op_type is the generic link refusal, not a 422 (no probing).
+    An ``el`` session (07.09.2026) writes the RECORD vocabulary only — the audit chain feeds
+    the replay's tactical reconstruction, so a fake `entity.edit` from a role that cannot
+    write entities must never enter it. Any other op_type is the generic refusal, not a 422
+    (no probing).
     """
     if len(body.events) > MAX_BATCH:
         raise HTTPException(status_code=422, detail=f"Batch zu gross (max. {MAX_BATCH})")
     await _ensure(db, incident_id)
     link = is_atemschutz_link(user)
     if link and any(not e.op_type.startswith("atemschutz.") for e in body.events):
+        raise _Denied()
+    if not link and user.role == "el" and any(not _el_event_ok(e.op_type) for e in body.events):
         raise _Denied()
     # A batch is one transaction, and `audit.append_event` takes the incident row before it
     # computes a seq — so this flush landing at the same moment as another appender (a second
@@ -82,7 +100,7 @@ async def ingest_events(
                 db,
                 incident_id=incident_id,
                 op_type=e.op_type,
-                source="atemschutz-link" if link else "client",
+                source="atemschutz-link" if link else "el" if user.role == "el" else "client",
                 payload=e.payload,
                 user_id=None if link else user.id,
                 occurred_at=e.occurred_at,

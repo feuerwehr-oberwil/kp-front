@@ -304,7 +304,14 @@ export function IncidentWorkspace({
   // read-only would neuter `commit`, the journal store and the sync push alike, leaving a board
   // whose Kontakt button did nothing. What it is NOT is an editor: `isEditor`/`canEditIncident`
   // stay false, so every affordance outside the Tafel is withheld exactly as for a viewer.
-  const baseReadOnly = (user?.role !== 'editor' && !asLink) || forceReadOnly || tabLockLost
+  /** The `el` ROLE (Einsatzleiter function, 07.09.): the asLink pattern generalised — NOT
+   *  read-only (its record writes are real: the `workspace/record` slice, journal rows,
+   *  record-vocabulary events, Beilagen uploads — the backend allowlists exactly those), and
+   *  NOT an editor (`isEditor`/`canEditIncident` stay false, `tacticalLocked` is permanently
+   *  on, and the sync pushes only the record slice, so a local doc write could never reach
+   *  the server). Distinct from `elView` below, which is an EDITOR's hands-off mode. */
+  const isEl = user?.role === 'el'
+  const baseReadOnly = (user?.role !== 'editor' && !asLink && !isEl) || forceReadOnly || tabLockLost
   const isEditor = user?.role === 'editor'
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. Read-only is not
   // enough here — a plain viewer may still generate the Rapport/Zeitplan PDFs and drive the
@@ -345,6 +352,13 @@ export function IncidentWorkspace({
    *  rather than on `canEditIncident`, so the handed-over Tafel is operable while the rest of
    *  the workspace stays as read-only for it as it is for any viewer. */
   const canEditTrupps = canEditIncident || (asLink && !readOnly)
+  /** «may keep the incident RECORD» — the Einsatzleiter function (07.09.): Anwesenheit (incl.
+   *  Zeitplan), Mittel, Checklisten and the Rapport (incl. Beilagen). True for the `el` role
+   *  AND for an editor in the Führungsansicht — the EL's view means the same thing whichever
+   *  account holds the device; a plain editor has it anyway via `canEditIncident`. The
+   *  backend enforces the same boundary (`workspace/record` · RECORD_WORKSPACE_KEYS), so this
+   *  flag is presentation, not the protection. */
+  const canEditRecord = (isEditor || isEl) && !readOnly
   /**
    * «may write the incident RECORD at large» — the flag every writer that used to gate on bare
    * `readOnly` now uses.
@@ -361,7 +375,7 @@ export function IncidentWorkspace({
   // Phones edit like tablets — the tool bar is simply always there on the drawing surfaces
   // (stacked above the surface bar). Viewers and the EL-Ansicht stay hands-off; a brigade
   // that wants a view-only phone uses exactly those.
-  const tacticalLocked = readOnly || elView
+  const tacticalLocked = readOnly || elView || isEl
 
   // Seed all state slices once from this incident's workspace (the component is keyed
   // by incident id upstream, so this runs exactly once per incident). The blob passes the
@@ -1391,9 +1405,11 @@ export function IncidentWorkspace({
   // other device drops the banner on its next poll. Auto-opened Einsätze only: a hand-typed one
   // was never up for review, and stamping it would dirty the blob for nothing.
   useEffect(() => {
-    if (!canWriteRecord || !reviewedLocallyAt || intakeReviewedAt || !incidentMeta.auto_opened) return
+    // `isEl` too: the stamp lives outside the record slice, so an el write would only ever
+    // reach this device — the banner would drop here and stand everywhere else, a silent lie
+    if (!canWriteRecord || isEl || !reviewedLocallyAt || intakeReviewedAt || !incidentMeta.auto_opened) return
     setIntakeReviewedAt(reviewedLocallyAt)
-  }, [canWriteRecord, reviewedLocallyAt, intakeReviewedAt, incidentMeta.auto_opened, setIntakeReviewedAt])
+  }, [canWriteRecord, isEl, reviewedLocallyAt, intakeReviewedAt, incidentMeta.auto_opened, setIntakeReviewedAt])
 
   // Keep the screen awake while an incident workspace is open (this component only mounts for an
   // open incident) — so the map never dims/sleeps mid-operation on a station/vehicle tablet.
@@ -2104,7 +2120,11 @@ export function IncidentWorkspace({
     // id so the Ebenen panel stays ONE list with one gesture (lib/georefTwins · isTwinLayerId).
     if (isTwinLayerId(id)) { toggleTwinLayer(id); return }
     const target = layers.find((l) => l.id === id)
-    emit('layer.toggle', { id, base: !!target?.base, visible: target?.base ? true : !(target?.visible ?? true) })
+    // ⚠️ Not from an `el` session: its audit stream carries the record vocabulary only (the
+    // backend refuses the whole batch otherwise), and which Ebenen an EL is looking at is
+    // their own view, not the FU's tactical picture the replay reconstructs. A viewer's emit
+    // is already dropped by the read-only event store; `el` is the one writable non-editor.
+    if (!isEl) emit('layer.toggle', { id, base: !!target?.base, visible: target?.base ? true : !(target?.visible ?? true) })
     setLayers((ls) => {
       const target = ls.find((l) => l.id === id)
       if (!target) return ls
@@ -2118,12 +2138,13 @@ export function IncidentWorkspace({
    *  Each real change emits the ordinary `layer.toggle`, so the replay reconstructs bulk taps
    *  with the vocabulary it already speaks. */
   const setAllLayers = (visible: boolean) => {
-    for (const l of layers) if (!l.base && l.visible !== visible) emit('layer.toggle', { id: l.id, base: false, visible })
+    // same `!isEl` rule as toggleLayer above — an EL's Ebenen are their own view
+    if (!isEl) for (const l of layers) if (!l.base && l.visible !== visible) emit('layer.toggle', { id: l.id, base: false, visible })
     setLayers((ls) => ls.map((l) => (l.base || l.visible === visible ? l : { ...l, visible })))
   }
   const resetLayers = () => {
     const next = defaultLayers(incidentMeta.type)
-    for (const l of next) {
+    if (!isEl) for (const l of next) {
       const cur = layers.find((x) => x.id === l.id)
       if (!cur || cur.visible === l.visible) continue
       // a base is a radio: only the one that BECOMES visible is announced, or the replay's
@@ -4273,7 +4294,9 @@ export function IncidentWorkspace({
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
   // (editor, incl. on a phone) rather than tacticalLocked — but still blocked for
   // true viewers and during replay. Presence in `ticks` = checked.
-  const canTick = canEditIncident
+  // canEditRecord, not canEditIncident (07.09.): ticking is record-keeping — the el role
+  // and an editor's Führungsansicht keep it; the backend enforces the same boundary.
+  const canTick = canEditRecord
   const { toggleTick, setBranch } = useChecklistActions({ canTick, checklists, setChecklists, authorName: user?.display_name, log, emit })
   // Deep links: an item's `action` jumps to the matching surface (best-effort, reusing
   // existing setters). journal → open the composer; plan → Plan tab; draw → Lage + pen.
@@ -4853,7 +4876,9 @@ export function IncidentWorkspace({
               onZoomOut={() => mapRef.current?.zoomOut()}
               bearing={view.bearing}
               views={viewsApi}
-              readOnly={readOnly}
+              // `|| isEl`: saved camera views live in the shared blob (cameraViews), which the
+              // el record slice never pushes — offering «Speichern» would fake a shared save
+              readOnly={readOnly || isEl}
               viewsOpen={viewsOpen}
               onViewsOpenChange={toggleViews}
               coordsOn={coord.mode !== 'off'}
@@ -5926,11 +5951,11 @@ export function IncidentWorkspace({
         <AnwesenheitView
           people={personnel}
           attendance={effAttendance}
-          canEdit={canEditIncident}
+          canEdit={canEditRecord}
           loading={personnelLoading}
           error={personnelError}
           blockedIds={blockedAttendanceIds}
-          onAddGuest={canEditIncident ? addGuest : undefined}
+          onAddGuest={canEditRecord ? addGuest : undefined}
           onMarkPresent={markPresent}
           onMarkLeft={markLeft}
           onClear={clearAttendance}
@@ -5944,33 +5969,33 @@ export function IncidentWorkspace({
           // bar drops its history pair as soon as an Atemschutz-Alarmchip claims the room
           // (15-mobile.css · .tb-az), which is exactly when this list is tapped fastest; any
           // other time the bar pair is the one door, so nothing is duplicated (06.09.).
-          onUndo={canEditIncident ? () => stepAttendance('undo') : undefined}
-          onRedo={canEditIncident ? () => stepAttendance('redo') : undefined}
+          onUndo={canEditRecord ? () => stepAttendance('undo') : undefined}
+          onRedo={canEditRecord ? () => stepAttendance('redo') : undefined}
           canUndo={attHist.canUndo}
           canRedo={attHist.canRedo}
           topBarUndoHidden={azAlarm.peak >= 1 && !!azAlarm.urgent}
-          onSetTimes={canEditIncident ? setAttendanceTimes : undefined}
-          onRemoveBlock={canEditIncident ? removeAttendanceBlock : undefined}
-          onSetNote={canEditIncident ? setAttendanceNote : undefined}
-          onSetOrt={canEditIncident ? setAttendanceOrt : undefined}
+          onSetTimes={canEditRecord ? setAttendanceTimes : undefined}
+          onRemoveBlock={canEditRecord ? removeAttendanceBlock : undefined}
+          onSetNote={canEditRecord ? setAttendanceNote : undefined}
+          onSetOrt={canEditRecord ? setAttendanceOrt : undefined}
           captureUsage={captureUsage}
           shifts={effShifts}
           bands={effBands}
-          onCreateBand={canEditIncident ? (label, from, to) => { bandActions.addBand(label, from, to) } : undefined}
-          onSaveBand={canEditIncident ? (id, label, from, to) => {
+          onCreateBand={canEditRecord ? (label, from, to) => { bandActions.addBand(label, from, to) } : undefined}
+          onSaveBand={canEditRecord ? (id, label, from, to) => {
             bandActions.renameBand(id, label)
             void bandActions.askAndSetBandTimes(id, from, to)
           } : undefined}
-          onRemoveBand={canEditIncident ? bandActions.removeBand : undefined}
-          onCycleCell={canEditIncident ? bandActions.cycleCell : undefined}
-          onSetCellState={canEditIncident ? bandActions.setCellState : undefined}
-          onPutCellState={canEditIncident ? bandActions.putCellState : undefined}
+          onRemoveBand={canEditRecord ? bandActions.removeBand : undefined}
+          onCycleCell={canEditRecord ? bandActions.cycleCell : undefined}
+          onSetCellState={canEditRecord ? bandActions.setCellState : undefined}
+          onPutCellState={canEditRecord ? bandActions.putCellState : undefined}
           startedAt={incidentMeta.started_at}
-          onAddShift={canEditIncident ? addShift : undefined}
-          onAddShiftSpan={canEditIncident ? addShiftSpan : undefined}
-          onReplaceShift={canEditIncident ? replaceShift : undefined}
-          onSetShiftTime={canEditIncident ? setShiftTime : undefined}
-          onRemoveShift={canEditIncident ? removeShift : undefined}
+          onAddShift={canEditRecord ? addShift : undefined}
+          onAddShiftSpan={canEditRecord ? addShiftSpan : undefined}
+          onReplaceShift={canEditRecord ? replaceShift : undefined}
+          onSetShiftTime={canEditRecord ? setShiftTime : undefined}
+          onRemoveShift={canEditRecord ? removeShift : undefined}
           // Zeitplan-PDF and Zeitplan-Druck are both refused for a link session (the sheet
           // carries the crew's names) — without either prop the block hides itself
           onPrintZeitplan={!linkScoped && zeitplanRelay?.available ? onPrintZeitplan : undefined}
@@ -5988,7 +6013,7 @@ export function IncidentWorkspace({
       {mode === 'mittel' && guarded('mittel', (
         <MittelView
           entries={effMittel}
-          canEdit={canEditIncident}
+          canEdit={canEditRecord}
           onSave={saveMittel}
           captureUsage={captureUsage}
           placedSymbols={placedSymbols}
@@ -6058,15 +6083,17 @@ export function IncidentWorkspace({
           building={effBuilding}
           captureUsage={captureUsage}
           attachments={attachments}
-          onAddAttachments={canEditIncident && !readOnly ? addAttachments : undefined}
-          onCaptionAttachment={canEditIncident && !readOnly ? captionAttachment : undefined}
-          onRemoveAttachment={canEditIncident && !readOnly ? removeAttachment : undefined}
-          canEdit={canEditIncident && !readOnly}
+          onAddAttachments={canEditRecord ? addAttachments : undefined}
+          onCaptionAttachment={canEditRecord ? captionAttachment : undefined}
+          onRemoveAttachment={canEditRecord ? removeAttachment : undefined}
+          canEdit={canEditRecord}
           onRolePicked={assignRole}
           // the Einsatzleiter / Rückmeldung pickers: a typed name is a Gast, so the EL named on
           // the front page of the rapport is on the Anwesenheit behind it even for a Nachbarwehr
-          onAddGuest={canEditIncident && !readOnly ? assignTypedName : undefined}
+          onAddGuest={canEditRecord ? assignTypedName : undefined}
           onSaveMeta={saveReportMeta}
+          // dispatch data + Abschluss stay incident-level: PATCH /incidents is editor-only,
+          // and archiving an Einsatz is not record-keeping (the el role reads both).
           onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setMode('anwesenheit'); setRapportReturn(true) }}
           onOpenMittel={() => { setMode('mittel'); setRapportReturn(true) }}

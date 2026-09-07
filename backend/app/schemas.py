@@ -75,7 +75,7 @@ class UserAdminOut(BaseModel):
 class UserCreate(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     display_name: str = Field(min_length=1)
-    role: Literal["editor", "viewer"]
+    role: Literal["editor", "viewer", "el"]
     color: str | None = None
     el_view_default: bool = False
     pin: str = Field(min_length=4, max_length=12)  # digit policy (6–12) enforced via hash_pin
@@ -86,7 +86,7 @@ class UserUpdate(BaseModel):
 
     display_name: str | None = Field(default=None, min_length=1)
     color: str | None = None
-    role: Literal["editor", "viewer"] | None = None
+    role: Literal["editor", "viewer", "el"] | None = None
     is_active: bool | None = None
     el_view_default: bool | None = None
 

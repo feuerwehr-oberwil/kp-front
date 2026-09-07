@@ -1,8 +1,11 @@
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 
-/** The two incident roles. There is no third one — deployment admin is the ADMIN_SECRET session. */
-export type MemberRole = 'editor' | 'viewer'
+/** The three incident roles — deployment admin is NOT one (that is the ADMIN_SECRET session).
+ *  `el` (07.09.2026) is the Einsatzleiter function: reads everything, edits ONLY the record
+ *  domains (Anwesenheit/Zeitplan, Material, Checklisten, Rapport + Beilagen) through the
+ *  server-enforced `workspace/record` slice; the tactical picture stays editor-only. */
+export type MemberRole = 'editor' | 'el' | 'viewer'
 
 export interface RoleChoiceProps {
   /** `null` = nothing chosen yet. Only the CREATE form may pass null: for an existing member the
@@ -13,9 +16,9 @@ export interface RoleChoiceProps {
   label: string
   /** One line under the cards, e.g. that the choice can be changed later. */
   hint?: string
-  /** A role that cannot be picked right now, with the reason shown on its card
-   *  (the last active editor may not be demoted). */
-  locked?: { role: MemberRole; reason: string }
+  /** Roles that cannot be picked right now, with the reason shown on their cards
+   *  (the last active editor may not be demoted — to either non-editor role). */
+  locked?: { roles: MemberRole[]; reason: string }
 }
 
 /**
@@ -33,6 +36,7 @@ export function RoleChoice({ value, onChange, label, hint, locked }: RoleChoiceP
   const C = appConfig.copy.admin.members
   const roles: { role: MemberRole; title: string; means: string }[] = [
     { role: 'editor', title: C.roleEditor, means: C.roleEditorMeans },
+    { role: 'el', title: C.roleEl, means: C.roleElMeans },
     { role: 'viewer', title: C.roleViewer, means: C.roleViewerMeans },
   ]
 
@@ -44,7 +48,7 @@ export function RoleChoice({ value, onChange, label, hint, locked }: RoleChoiceP
       <div className="adm-pick" role="radiogroup" aria-label={label}>
         {roles.map(({ role, title, means }) => {
           const on = value === role
-          const isLocked = locked?.role === role && !on
+          const isLocked = !!locked?.roles.includes(role) && !on
           return (
             <button
               key={role}
@@ -59,7 +63,7 @@ export function RoleChoice({ value, onChange, label, hint, locked }: RoleChoiceP
                 <span className="adm-pick-mark" aria-hidden>{on && <Icon id="check" />}</span>
                 {title}
               </span>
-              <span className="adm-pick-sub">{isLocked ? locked.reason : means}</span>
+              <span className="adm-pick-sub">{isLocked && locked ? locked.reason : means}</span>
             </button>
           )
         })}

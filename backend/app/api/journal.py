@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import live_wait
-from ..auth.dependencies import CurrentAtemschutzWriter, CurrentUser, is_atemschutz_link
+from ..auth.dependencies import CurrentAppendWriter, CurrentUser, is_atemschutz_link
 from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, JournalEntry
@@ -130,14 +130,16 @@ async def append_system_row(db: AsyncSession, incident_id: uuid.UUID, *, icon: s
 async def append_journal(
     incident_id: uuid.UUID,
     body: JournalAppendIn,
-    user: CurrentAtemschutzWriter,
+    user: CurrentAppendWriter,
     db: AsyncSession = Depends(get_db),
 ) -> JournalPage:
     """Append a batch of rows. Idempotent on the client row id: rows this incident already
     holds are skipped silently, so an offline outbox may retry the same batch after a lost
     response without duplicating the record. Returns the accepted rows with their seqs.
 
-    Editors append anything. An ATEMSCHUTZ-link session appends `kind == "team"` rows and
+    Editors — and since 07.09.2026 the ``el`` role, whose record edits log here — append
+    anything: the Verlauf is append-only and rows are attributable, so a wider vocabulary
+    costs the record nothing. An ATEMSCHUTZ-link session appends `kind == "team"` rows and
     nothing else — it holds the Atemschutzüberwachung, not the Verlauf — and every row it
     writes is stamped `via` so the record says where it came from. A row of any other kind is
     the link refusal, never a 422: the generic message is what keeps a link holder from
