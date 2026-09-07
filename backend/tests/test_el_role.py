@@ -114,7 +114,9 @@ async def test_el_appends_journal_rows_and_record_events_but_no_tactical_ops(cli
 
     ok = await client.post(
         f"/api/incidents/{inc_id}/events",
-        json={"events": [{"op_type": "checklist.tick", "payload": {"item": "i1"}, "occurred_at": "2026-09-07T22:10:00Z"}]},
+        json={
+            "events": [{"op_type": "checklist.tick", "payload": {"item": "i1"}, "occurred_at": "2026-09-07T22:10:00Z"}]
+        },
     )
     assert ok.status_code == 201, ok.text
 

@@ -359,7 +359,9 @@ async def put_workspace_trupps(
 # cameraViews, settings — is the tactical picture and stays with the editors. Same doctrine as
 # capture.py · CAPTURE_WORKSPACE_KEYS: widening this set is a deliberate decision with a doc
 # change attached (docs/API.md · roles).
-RECORD_WORKSPACE_KEYS = frozenset({"attendance", "shifts", "bands", "mittel", "checklists", "reportMeta", "attachments"})
+RECORD_WORKSPACE_KEYS = frozenset(
+    {"attendance", "shifts", "bands", "mittel", "checklists", "reportMeta", "attachments"}
+)
 
 
 @router.put("/{incident_id}/workspace/record", response_model=WorkspaceOut)
