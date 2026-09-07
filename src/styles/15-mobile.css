@@ -339,8 +339,13 @@
   .ctx .ph { width: 38px; height: 38px; }
   .ctx .ph svg { width: 26px; height: 26px; }
 
-  /* nothing on a phone may push the page sideways */
-  html, body, #root { overflow-x: hidden; }
+  /* Nothing on a phone may push the page sideways.
+     ⚠️ NOT on a `page-scroll` document (the Erfassungs-Poster): `overflow-x: hidden` makes
+     body/#root scroll containers, and a sticky element pins to the nearest one — a box that
+     never scrolls itself — so every sticky header on the poster (page head, section heads,
+     the search band) silently stopped sticking on phones (Feldtest 07.09.). The app shell is
+     a fixed body and keeps the guard; the poster's column layout has nothing to overflow. */
+  html:not(.page-scroll), html:not(.page-scroll) body, html:not(.page-scroll) #root { overflow-x: hidden; }
 
   /* top bar — one clean full-width row; the title truncates, Eintrag is the FAB.
      top/left/right hug the safe area so the bar clears the notch + rounded corners */

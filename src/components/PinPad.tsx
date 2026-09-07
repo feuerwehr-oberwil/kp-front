@@ -35,9 +35,11 @@ export interface PinPadProps {
  *
  * Built for gloved 3am taps: 76px round keys, dot progress, a physical keyboard that mirrors
  * the pad (digits append, Backspace deletes, Enter submits). Since 06.09. a PIN is 6–12 digits
- * and the pad never announces how many: one dot per typed digit, no empty slots, and nothing
- * happens until the ✓ (or Enter) confirms — so watching the screen teaches a bystander nothing
- * about a PIN's length. Painted with the `.pin-*` classes in src/styles/12-login.css.
+ * and the pad never announces how many: one dot per typed digit, no empty slots — the IDLE
+ * screen teaches a bystander nothing about a PIN's length. The pad itself only submits on ✓
+ * (or Enter); the login gate additionally auto-submits at a length this device has already
+ * proved (07.09., LoginScreen · knownPinLen) — which reveals nothing an onlooker could not
+ * count off a successful ✓ login anyway. Painted with `.pin-*` in src/styles/12-login.css.
  */
 export function PinPad({
   value, onChange, onSubmit, disabled = false, message, tone = 'error', header,

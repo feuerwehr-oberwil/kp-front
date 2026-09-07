@@ -1676,3 +1676,11 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    With a dialog open the lane returns to the app's normal bottom anchor (08-toasts.css). */
 :root:has(.as-link-shell):has(.ip-sheet) .toaster {
   top: auto; bottom: max(28px, calc(16px + env(safe-area-inset-bottom))); flex-direction: column-reverse; }
+/* The Erfassungs-Poster gets the same TOP lane (Feldtest 07.09.): it is a scrolling PAGE, and
+   on iOS the layout viewport pans under the keyboard and the collapsing URL bar — a
+   bottom-fixed pill rode that pan into the middle of the roster, square over the rows being
+   tapped («Rückgängig» covering the next name). Under the sticky page header the pill is
+   always where the eye already is, and never over a row. --cv-head-h is the measured header
+   height (CaptureApp), safe-area included, so no second inset here. */
+:root:has(.cv-shell) .toaster {
+  top: calc(var(--cv-head-h, 64px) + 8px); bottom: auto; flex-direction: column; }
