@@ -170,6 +170,35 @@ async def get_current_editor(current_user: Annotated[User, Depends(get_current_u
     return current_user
 
 
+async def get_record_writer(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    """An editor, OR the ``el`` role (Einsatzleiter function, 07.09.2026) — the door on the
+    RECORD surfaces: the ``workspace/record`` slice, journal/event appends, and the Rapport's
+    media uploads. An ``el`` session reads like a viewer everywhere else and never reaches the
+    full workspace PUT, so the tactical picture (Karte, Pläne, Trupps, Settings) stays
+    editor-only however the frontend evolves. Link sessions are NOT admitted here — a link's
+    writes go through its own allowlist (``get_atemschutz_writer``)."""
+    if current_user.role not in ("editor", "el") or getattr(current_user, "link_kind", None):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
+    return current_user
+
+
+async def get_append_writer(
+    request: Request,
+    access_token: Annotated[str | None, Cookie()] = None,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """An editor, the ``el`` role, or an Atemschutz-link session — the door on the two
+    APPEND-ONLY streams (journal rows, audit events). What each caller may append stays the
+    handlers' business: the link its ``team`` rows / ``atemschutz.*`` ops, an ``el`` session
+    the record vocabulary (api/events.py · ``EL_EVENT_PREFIXES``). ⚠️ Deliberately NOT the
+    trupps slice: the safety watch is tactical and stays editor-or-link
+    (``get_atemschutz_writer`` below)."""
+    user = await get_current_user(request, access_token, db)
+    if user.role in ("editor", "el") or is_atemschutz_link(user):
+        return user
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
+
+
 async def get_atemschutz_writer(
     request: Request,
     access_token: Annotated[str | None, Cookie()] = None,
@@ -312,6 +341,8 @@ async def get_editor_or_admin(
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentEditor = Annotated[User, Depends(get_current_editor)]
+CurrentRecordWriter = Annotated[User, Depends(get_record_writer)]
+CurrentAppendWriter = Annotated[User, Depends(get_append_writer)]
 CurrentAtemschutzWriter = Annotated[User, Depends(get_atemschutz_writer)]
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 CurrentAdmin = Annotated[None, Depends(get_current_admin)]

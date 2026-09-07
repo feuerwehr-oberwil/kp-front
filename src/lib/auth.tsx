@@ -16,7 +16,7 @@ export interface AuthUser {
   id: string
   username: string
   display_name: string
-  role: 'editor' | 'viewer'
+  role: 'editor' | 'el' | 'viewer'
   color: string | null
   last_login: string | null
   /** start this login in the Einsatzleiter view (frontend default; device pref overrides) */
@@ -40,7 +40,7 @@ export interface AuthUser {
 export interface RosterEntry {
   id: string
   display_name: string
-  role: 'editor' | 'viewer'
+  role: 'editor' | 'el' | 'viewer'
   color: string | null
 }
 

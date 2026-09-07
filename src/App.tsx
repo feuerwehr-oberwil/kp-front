@@ -100,6 +100,11 @@ export default function App() {
   const asLink = linkScoped && user?.link_kind === 'atemschutz'
   const asLinkRef = useRef(asLink)
   useEffect(() => { asLinkRef.current = asLink }, [asLink])
+  // …and the `el` ROLE (Einsatzleiter function, 07.09.): a signed-in account whose pushes carry
+  // only the record slice — same ref treatment, same reason (selectIncident is stable).
+  const isEl = user?.role === 'el'
+  const isElRef = useRef(isEl)
+  useEffect(() => { isElRef.current = isEl }, [isEl])
 
   // register this browser for server push once per session (no-op unless notification
   // permission is already granted AND the deployment has VAPID keys) — killed-app alarms.
@@ -241,7 +246,7 @@ export default function App() {
       // unchanged: the merge still reasons about the whole blob, because the server's copy has
       // one. Read as of THIS call: selectIncident is a stable ([] deps) callback, and the
       // link_kind cannot change without a fresh session anyway.
-      ...(asLinkRef.current ? { slice: 'trupps' as const } : {}),
+      ...(asLinkRef.current ? { slice: 'trupps' as const } : isElRef.current ? { slice: 'record' as const } : {}),
       // Concurrent edits are auto-merged three-way (see mergeWorkspace), so no blocking
       // dialog — just a quiet notice. The merged result is applied in place via onApplyMerged
       // (registered by the live view); onServerWorkspace is the remount fallback.

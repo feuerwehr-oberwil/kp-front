@@ -6,7 +6,7 @@ import { idbDel, idbGet, idbSet } from '../idb'
 import { withTileEviction } from '../tileEvict'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
 import {
-  getWorkspace, putWorkspace, putWorkspaceBeacon, putWorkspaceTrupps, putWorkspaceTruppsBeacon,
+  getWorkspace, putWorkspace, putWorkspaceBeacon, putWorkspaceRecord, putWorkspaceRecordBeacon, putWorkspaceTrupps, putWorkspaceTruppsBeacon,
   type Workspace,
 } from './workspace'
 import type { Trupp } from '../../types'
@@ -148,20 +148,33 @@ export interface WorkspaceSyncOptions {
    * Push only ONE slice of the blob instead of the whole document.
    *
    * `'trupps'` is the Atemschutz-Link session (auth · AuthUser.link_kind): it may write the
-   * Überwachungstafel and nothing else, so the full workspace PUT 403s for it. Only the push
+   * Überwachungstafel and nothing else, so the full workspace PUT 403s for it. `'record'`
+   * (07.09.2026) is the `el` role's slice the same way: the operational record — Anwesenheit/
+   * Zeitplan, Mittel, Checklisten, Rapport + Beilagen — on its own route. Only the push
    * and the teardown beacon change — the cache, the debounce, the three-way merge on 409, the
    * retry backoff and the live-follow poll are the same engine, because the merge still has to
    * reason about the WHOLE blob (the server's copy carries everything).
    */
-  slice?: 'trupps'
+  slice?: 'trupps' | 'record'
 }
 
 /** The trupp slice of an opaque workspace blob. The engine treats the blob as data it only
- *  moves, so this is the one place that looks inside it — absent or malformed reads as «no
- *  Trupps», which is what a fresh Einsatz genuinely has. */
+ *  moves, so this (and recordSlice below) is the one place that looks inside it — absent or
+ *  malformed reads as «no Trupps», which is what a fresh Einsatz genuinely has. */
 function truppSlice(ws: Workspace): readonly Trupp[] {
   const t = ws.trupps
   return Array.isArray(t) ? (t as Trupp[]) : []
+}
+
+/** The keys of the `el` role's record slice — MUST mirror the server's allowlist
+ *  (backend api/incidents · RECORD_WORKSPACE_KEYS); anything else would be silently dropped
+ *  there, so sending it would only fake a successful save. Absent keys mean «no change». */
+const RECORD_SLICE_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments'] as const
+
+function recordSlice(ws: Workspace): Workspace {
+  const out: Workspace = {}
+  for (const k of RECORD_SLICE_KEYS) if (k in ws) out[k] = ws[k]
+  return out
 }
 
 /**
@@ -575,16 +588,17 @@ export class WorkspaceSync {
     this.flushCache() // the page is dying — the debounce would never fire
     if (!this.entry.dirty || this.disposed) return
     if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev)
+    else if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev)
     else putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev)
   }
 
-  /** The ONE write. `slice: 'trupps'` sends the Atemschutz slice on its own route; everything
-   *  else about a push — when, at which base_rev, and what a 409 means — is identical, which is
-   *  why the merge/retry machinery below never has to know which session it is running in. */
+  /** The ONE write. A `slice` sends its subset on its own route; everything else about a
+   *  push — when, at which base_rev, and what a 409 means — is identical, which is why the
+   *  merge/retry machinery below never has to know which session it is running in. */
   private push(workspace: Workspace, baseRev: number) {
-    return this.opts.slice === 'trupps'
-      ? putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev)
-      : putWorkspace(this.incidentId, workspace, baseRev)
+    if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev)
+    if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev)
+    return putWorkspace(this.incidentId, workspace, baseRev)
   }
 
   // Push the current workspace at the current baseRev. On success, advance baseRev and

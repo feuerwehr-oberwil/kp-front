@@ -246,7 +246,9 @@ session.
    account is either renamed to a real person or deactivated – accounts are deactivated, never
    deleted, so the audit trail keeps pointing at somebody.
 
-Incident roles are only two: **`editor`** may change incident state, **`viewer`** is read-only.
+Incident roles are three: **`editor`** may change incident state, **`el`** (Einsatzleiter)
+reads everything and keeps only the record – Anwesenheit, Material, Checklisten, Rapport –
+while map and plans stay view-only for it, and **`viewer`** is read-only.
 Deployment administration is not a role – it lives behind `ADMIN_SECRET` and is fail-closed, so
 an unset secret means the admin surface is simply off.
 

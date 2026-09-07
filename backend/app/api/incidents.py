@@ -19,6 +19,7 @@ from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
     CurrentAtemschutzWriter,
     CurrentEditor,
+    CurrentRecordWriter,
     CurrentUser,
     EditorOrAdmin,
     UserOrAdmin,
@@ -348,6 +349,47 @@ async def put_workspace_trupps(
     )
     # Only the revision goes back: the caller sent a slice and reads nothing but the rev
     # (workspaceSync · push), and a phone on one bar has no use for the whole blob per tap.
+    return WorkspaceOut(workspace=None, workspace_rev=saved.workspace_rev)
+
+
+# The workspace keys the Einsatzleiter function (role ``el``, 07.09.2026) may write: the
+# operational RECORD — who is here (attendance + the Zeitplan pair shifts/bands, one surface),
+# what was used (mittel), what was checked (checklists), and the Rapport (reportMeta +
+# Beilagen). Everything else — entities, drawings, board, building, planScale, trupps,
+# cameraViews, settings — is the tactical picture and stays with the editors. Same doctrine as
+# capture.py · CAPTURE_WORKSPACE_KEYS: widening this set is a deliberate decision with a doc
+# change attached (docs/API.md · roles).
+RECORD_WORKSPACE_KEYS = frozenset({"attendance", "shifts", "bands", "mittel", "checklists", "reportMeta", "attachments"})
+
+
+@router.put("/{incident_id}/workspace/record", response_model=WorkspaceOut)
+async def put_workspace_record(
+    incident_id: uuid.UUID,
+    body: WorkspacePut,
+    user: CurrentRecordWriter,
+    db: AsyncSession = Depends(get_db),
+) -> WorkspaceOut:
+    """Save ONLY the record domains — the one write shape the ``el`` role has.
+
+    Mirrors the capture endpoint's key merge: the server's own blob is the base and only
+    RECORD_WORKSPACE_KEYS present in the submitted workspace are replaced, so what an ``el``
+    session can change is bounded whatever its client sends — the full PUT stays editor-only
+    (AGENTS.md · role gating). Same ``base_rev`` conditional UPDATE as every other save, so a
+    concurrent editor makes this the identical 409, never a silent overwrite. Editors may use
+    the route too, and only they latch ``editor_opened_at`` — an EL following along is not
+    «the KP has this incident»."""
+    inc = await get_incident_or_404(db, incident_id)
+    if user.role == "editor":
+        await _latch_editor_opened(db, incident_id)
+    stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
+    new_ws = {**stored, **{k: body.workspace[k] for k in RECORD_WORKSPACE_KEYS if k in body.workspace}}
+    # The incoming WorkspacePut is validated already; carrying over the editors' own keys must
+    # not re-reject unchanged legacy fields (same reasoning as the trupps slice above).
+    scoped = WorkspacePut.model_construct(workspace=new_ws, base_rev=body.base_rev)
+    saved = await apply_workspace_put(
+        db, incident_id, scoped, user_id=user.id, source="el" if user.role == "el" else "client"
+    )
+    # Only the revision goes back — the caller sent a slice and reads nothing but the rev.
     return WorkspaceOut(workspace=None, workspace_rev=saved.workspace_rev)
 
 

@@ -1920,6 +1920,76 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/workspace/record": {
+      "put": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Put Workspace Record",
+        "description": "Save ONLY the record domains — the one write shape the ``el`` role has.\n\nMirrors the capture endpoint's key merge: the server's own blob is the base and only\nRECORD_WORKSPACE_KEYS present in the submitted workspace are replaced, so what an ``el``\nsession can change is bounded whatever its client sends — the full PUT stays editor-only\n(AGENTS.md · role gating). Same ``base_rev`` conditional UPDATE as every other save, so a\nconcurrent editor makes this the identical 409, never a silent overwrite. Editors may use\nthe route too, and only they latch ``editor_opened_at`` — an EL following along is not\n«the KP has this incident».",
+        "operationId": "put_workspace_record_api_incidents__incident_id__workspace_record_put",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspacePut"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/view-link": {
       "get": {
         "tags": [
@@ -7209,7 +7279,7 @@
           "events"
         ],
         "summary": "Ingest Events",
-        "description": "Flush a batch of client tactical events (entity.*, draw.*, layer.toggle, undo, redo).\n\nServer assigns seq + recorded_at + chain hash; client supplies occurred_at (scene\nwall-clock, possibly buffered offline).\n\nEditors write the whole vocabulary. An ATEMSCHUTZ-link session writes `atemschutz.*` and\nnothing else, and its rows carry `source=\"atemschutz-link\"` rather than \"client\" — the\nchain has to record that this came from a phone at the Eingang, not from the FU tablet.\nAny other op_type is the generic link refusal, not a 422 (no probing).",
+        "description": "Flush a batch of client tactical events (entity.*, draw.*, layer.toggle, undo, redo).\n\nServer assigns seq + recorded_at + chain hash; client supplies occurred_at (scene\nwall-clock, possibly buffered offline).\n\nEditors write the whole vocabulary. An ATEMSCHUTZ-link session writes `atemschutz.*` and\nnothing else, and its rows carry `source=\"atemschutz-link\"` rather than \"client\" — the\nchain has to record that this came from a phone at the Eingang, not from the FU tablet.\nAn ``el`` session (07.09.2026) writes the RECORD vocabulary only — the audit chain feeds\nthe replay's tactical reconstruction, so a fake `entity.edit` from a role that cannot\nwrite entities must never enter it. Any other op_type is the generic refusal, not a 422\n(no probing).",
         "operationId": "ingest_events_api_incidents__incident_id__events_post",
         "parameters": [
           {
@@ -7662,7 +7732,7 @@
           "journal"
         ],
         "summary": "Append Journal",
-        "description": "Append a batch of rows. Idempotent on the client row id: rows this incident already\nholds are skipped silently, so an offline outbox may retry the same batch after a lost\nresponse without duplicating the record. Returns the accepted rows with their seqs.\n\nEditors append anything. An ATEMSCHUTZ-link session appends `kind == \"team\"` rows and\nnothing else — it holds the Atemschutzüberwachung, not the Verlauf — and every row it\nwrites is stamped `via` so the record says where it came from. A row of any other kind is\nthe link refusal, never a 422: the generic message is what keeps a link holder from\nmapping this API by watching which rejections differ.",
+        "description": "Append a batch of rows. Idempotent on the client row id: rows this incident already\nholds are skipped silently, so an offline outbox may retry the same batch after a lost\nresponse without duplicating the record. Returns the accepted rows with their seqs.\n\nEditors — and since 07.09.2026 the ``el`` role, whose record edits log here — append\nanything: the Verlauf is append-only and rows are attributable, so a wider vocabulary\ncosts the record nothing. An ATEMSCHUTZ-link session appends `kind == \"team\"` rows and\nnothing else — it holds the Atemschutzüberwachung, not the Verlauf — and every row it\nwrites is stamped `via` so the record says where it came from. A row of any other kind is\nthe link refusal, never a 422: the generic message is what keeps a link holder from\nmapping this API by watching which rejections differ.",
         "operationId": "append_journal_api_incidents__incident_id__journal_post",
         "parameters": [
           {
@@ -11084,6 +11154,17 @@
               }
             ],
             "title": "Defaultfunkkanal"
+          },
+          "defaultFunkkanalEinfach": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultfunkkanaleinfach"
           },
           "funkkanalMin": {
             "anyOf": [
@@ -15222,7 +15303,8 @@
             "type": "string",
             "enum": [
               "editor",
-              "viewer"
+              "viewer",
+              "el"
             ],
             "title": "Role"
           },
@@ -15379,7 +15461,8 @@
                 "type": "string",
                 "enum": [
                   "editor",
-                  "viewer"
+                  "viewer",
+                  "el"
                 ]
               },
               {

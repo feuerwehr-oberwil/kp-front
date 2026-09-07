@@ -31,8 +31,12 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 
 **Two authorization layers:**
 
-- **Incident role** – `editor` (can mutate incident state) vs `viewer` (read-only). Mutating
-  incident endpoints require `editor`.
+- **Incident role** – `editor` (can mutate incident state), `el` (Einsatzleiter function,
+  since 2026-09-07: reads everything, writes ONLY the record domains – attendance/shifts/bands,
+  mittel, checklists, reportMeta/attachments – through `PUT …/workspace/record`, plus journal
+  rows, record-vocabulary events and media uploads), and `viewer` (read-only). Mutating
+  incident endpoints require `editor`; the record slice, journal/event appends and media
+  uploads admit `el` too.
 - **Deployment admin** – the `/admin` surface and admin-write endpoints (config, branding,
   system, user CRUD, geodata/objects) require an **admin session**, unlocked by the deployment
   `ADMIN_SECRET` via `POST /api/admin/login` `{secret}` – separate from the editor PIN, and

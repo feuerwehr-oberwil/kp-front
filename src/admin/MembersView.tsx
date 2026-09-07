@@ -265,7 +265,7 @@ function EditRow({ user, canDemote, onSaved, onCancel }: {
             value={role}
             onChange={setRole}
             label={fillTemplate(C.roleQuestion, { name: displayName.trim() || user.display_name })}
-            locked={canDemote ? undefined : { role: 'viewer', reason: C.guardLastCmdRole }}
+            locked={canDemote ? undefined : { roles: ['el', 'viewer'], reason: C.guardLastCmdRole }}
           />
           <label className="adm-field">
             <span className="adm-field-label">{C.colorLabel}</span>
