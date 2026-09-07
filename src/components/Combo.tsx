@@ -17,12 +17,13 @@ const CLASSES: ComboMenuClasses = {
  * A custom dropdown over plain strings, styled like the Atemschutz Trupp picker (tap-to-open
  * menu, no native select chrome). The portalled menu and everything in it comes from
  * `ComboMenu`; this file is the string policy — what the options are, how they sort, and the
- * field itself. Optionally offers a free-type escape ("… eingeben") for non-listed values.
+ * field itself. With `allowCustom` a non-listed value is typed straight into the menu's search
+ * row and committed via the «‹X› verwenden» row (the Gast door — see ComboMenu's `custom.use`).
  *
  * `value=""` + a non-empty placeholder makes it a pure prefill picker (it shows the placeholder
  * and never retains a selection, since the parent keeps value empty).
  */
-export function Combo({ value, options, groups, placeholder, searchPlaceholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, openTick, onInput, onChange }: {
+export function Combo({ value, options, groups, placeholder, searchPlaceholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, openTick, limit, onInput, onChange }: {
   value: string
   options: string[]
   /** optional grouped rendering: section headers with their own options. When set, the menu
@@ -47,14 +48,17 @@ export function Combo({ value, options, groups, placeholder, searchPlaceholder, 
   /** Imperative open: bump the number and the menu opens as if the trigger had been tapped.
    *  The Fahrzeug header title falls through to its «Bezeichnung» field this way (ContextPanel). */
   openTick?: number
-  /** Free typing, keystroke by keystroke — `onChange` then fires ONCE, when the field is left.
-   *  ⚠️ Without it every letter is a finished value, which is fine for a text field and wrong
-   *  for a person: a typed Gast is recorded on the Anwesenheit the moment the name is committed,
-   *  and «Muster Felix» typed letter by letter would put thirteen people on the list. */
+  /** cap the RENDERED rows (search still counts every match) — for a corpus like the full ADR
+   *  substance list, where the un-searched menu would otherwise be two thousand <li>. */
+  limit?: number
+  /** ⚠️ No-op since the Gast door (07.09.): the bare-input escape it streamed keystrokes for is
+   *  gone — a custom value is typed in the menu's search row and committed ONCE via the
+   *  «‹X› verwenden» row, so `onChange` already carries the whole name. Kept so existing call
+   *  sites keep compiling; remove alongside them. */
   onInput?: (v: string) => void
   onChange: (v: string) => void
 }) {
-  const [combo, { rootRef, pickRef, menuRef, inputRef }] = useComboMenu(openTick)
+  const [combo, { rootRef, pickRef, menuRef }] = useComboMenu(openTick)
 
   // A filter that can only ever empty the list is worse than no filter: without Dienstgrade
   // (no personnel source, or a roster that carries none) «nur Offiziere» offered a toggle
@@ -84,16 +88,6 @@ export function Combo({ value, options, groups, placeholder, searchPlaceholder, 
     }
   }
 
-  if (combo.typing) {
-    return (
-      <div className="combo">
-        <input ref={inputRef} className="combo-input" value={value} placeholder={placeholder}
-          onChange={(e) => (onInput ?? onChange)(e.target.value)}
-          onBlur={() => { combo.stopTyping(); if (onInput) onChange(value) }}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
-      </div>
-    )
-  }
   return (
     <div className="combo" ref={rootRef}>
       <button ref={pickRef} type="button" className={`combo-pick${value ? '' : ' empty'}`} aria-haspopup="listbox" aria-expanded={combo.open} onClick={combo.toggle}>
@@ -108,7 +102,9 @@ export function Combo({ value, options, groups, placeholder, searchPlaceholder, 
         menuRef={menuRef}
         classes={CLASSES}
         copy={{
-          search: searchPlaceholder ?? appConfig.copy.combo.searchPlaceholder,
+          // With the free-type escape the search row doubles as the type field (Gast door), so
+          // its placeholder must invite typing a NEW value, not just searching the list.
+          search: searchPlaceholder ?? (allowCustom ? appConfig.copy.combo.searchOrType : appConfig.copy.combo.searchPlaceholder),
           empty: appConfig.copy.combo.empty,
           noMatches: appConfig.copy.combo.noMatches,
         }}
@@ -117,8 +113,11 @@ export function Combo({ value, options, groups, placeholder, searchPlaceholder, 
         // below this the whole list is on screen anyway — counted on the RAW options, so the
         // box does not vanish under the operator when «nur Offiziere» narrows the list
         showSearch={(groups ? groups.reduce((n, g) => n + g.options.length, 0) : options.length) > 8}
+        limit={limit}
         toggle={hasOfficers ? { label: appConfig.copy.combo.officersOnly } : undefined}
-        custom={allowCustom ? { label: customLabel } : undefined}
+        // Gast door (Feldtest Manuel, 07.09.): type into the search row, commit via the
+        // query-carrying «‹X› verwenden» row — no mode switch into a bare input any more.
+        custom={allowCustom ? { label: customLabel, use: { template: appConfig.copy.combo.useTyped, commit: onChange } } : undefined}
         onPick={onChange}
       />
     </div>

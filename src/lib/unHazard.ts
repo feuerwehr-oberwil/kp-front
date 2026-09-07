@@ -73,6 +73,49 @@ export function allEntries(): readonly UnHazardEntry[] {
   return entries
 }
 
+// ── Substance NAME lookup (Feldtest Manuel, 07.09.) ─────────────────────────────
+// The Stoff field searches by what a firefighter knows — the substance — and the UN
+// number follows. Lazily built: the app boots without paying for a 2000-name index
+// nobody has opened a hazard symbol for yet.
+
+const normName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase()
+
+let byName: Map<string, UnHazardEntry> | null = null
+let stoffNames: string[] | null = null
+
+/** Exact (case/whitespace-insensitive) match on the German ADR name. ~80 official names map
+ *  to several UN numbers (mostly ordnance); the FIRST dataset entry wins — for a Planungshilfe
+ *  the operator sees the filled UN-Nr. and corrects it where the fine print matters. */
+export function lookupUNByName(name: string): UnHazardEntry | null {
+  const key = normName(name)
+  if (!key) return null
+  if (!byName) {
+    byName = new Map()
+    for (const e of entries) {
+      const k = normName(e.name_de ?? '')
+      if (k && !byName.has(k)) byName.set(k, e)
+    }
+  }
+  return byName.get(key) ?? null
+}
+
+/** Every distinct German substance name, sorted — the Stoff combobox's search corpus. */
+export function allStoffNames(): readonly string[] {
+  if (!stoffNames) {
+    const seen = new Set<string>()
+    const names: string[] = []
+    for (const e of entries) {
+      const n = (e.name_de ?? '').trim()
+      const k = normName(n)
+      if (!k || seen.has(k)) continue
+      seen.add(k)
+      names.push(n)
+    }
+    stoffNames = names.sort((a, b) => a.localeCompare(b, 'de-CH'))
+  }
+  return stoffNames
+}
+
 // ── Kemler / Gefahrnummer decoding ──────────────────────────────────────────────
 // The orange-plate hazard-identification number (Kemler code) tells responders the
 // nature of the hazard at a glance — crucially whether WATER may be used. We decode it

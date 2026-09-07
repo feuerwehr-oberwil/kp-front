@@ -39,6 +39,16 @@ export const ROTATABLE: Set<string> = new Set(
     .map(([name]) => name),
 )
 
+/** Names of every symbol whose preset carries a UN-Nr. field (dot-tolerant, like every other
+ *  reader of that key): the Gefahrentafel plus the Gas/Chemie hazard symbols. Derived from the
+ *  presets — the ONE source — so the ADR/ERG panel, the Stoff search and the Schutzabstand
+ *  rings (lib/ergRings) can never disagree about which symbols speak UN. */
+export const UN_CAPABLE: Set<string> = new Set(
+  Object.entries(presets.byName)
+    .filter(([, p]) => p.fields?.some((f) => f.replace(/\.$/, '') === 'UN-Nr'))
+    .map(([name]) => name),
+)
+
 /** Names of every DRIVEN vehicle — derived, like ROTATABLE, from the presets rather than a
  *  hand-kept list: a vehicle is a symbol that carries a «Fahrer». That is exactly the set the
  *  config comment already calls the driven vehicles (Fahrzeug, Drehleiter, Hubretter,

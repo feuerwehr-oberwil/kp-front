@@ -247,6 +247,127 @@ describe('ContextPanel — preset fields always surface', () => {
   })
 })
 
+// The Gefahrentafel's UN-Nr. row drives the ADR chain (Stoff autofill, hazard readout, the
+// orange-plate glyph). Operators transcribe the physical plate top-to-bottom — Gefahrnummer,
+// then UN — so the classic mis-entry is the swap; fillFromUN repairs it when it is unambiguous.
+describe('ContextPanel — Gefahrentafel UN-Nr. autofill', () => {
+  const tafel = (fields: Record<string, string>) => ({
+    entity: { id: 'g1', symbol: 'FW Gefahr Tafel', fields } as SymbolView,
+    protectedKeys: new Set(['UN-Nr.', 'Stoff']),
+  })
+
+  it('fills an empty Stoff from a typed UN number', () => {
+    const onFields = vi.fn()
+    setup({ ...tafel({ 'UN-Nr.': '1', Stoff: '' }), onFields })
+    const un = screen.getByDisplayValue('1') as HTMLInputElement
+    fireEvent.change(un, { target: { value: '1233' } })
+    fireEvent.blur(un)
+    expect(onFields).toHaveBeenCalledWith({ 'UN-Nr.': '1233', Stoff: 'METHYLAMYLACETAT' })
+  })
+
+  it('repairs the plate-order swap: Kemler in UN-Nr., UN in Stoff', () => {
+    const onFields = vi.fn()
+    setup({ ...tafel({ 'UN-Nr.': '3', Stoff: '1233' }), onFields })
+    const un = screen.getByDisplayValue('3') as HTMLInputElement
+    fireEvent.change(un, { target: { value: '30' } }) // 30 = the ADR Kemler of UN 1233
+    fireEvent.blur(un)
+    expect(onFields).toHaveBeenCalledWith({ 'UN-Nr.': '1233', Stoff: 'METHYLAMYLACETAT' })
+  })
+
+  it('leaves a non-matching pair alone — no swap on a guess', () => {
+    const onFields = vi.fn()
+    setup({ ...tafel({ 'UN-Nr.': '4', Stoff: '1233' }), onFields })
+    const un = screen.getByDisplayValue('4') as HTMLInputElement
+    fireEvent.change(un, { target: { value: '44' } }) // 44 is not 1233's Kemler
+    fireEvent.blur(un)
+    expect(onFields).toHaveBeenCalledWith({ 'UN-Nr.': '44', Stoff: '1233' })
+  })
+
+  // a symbol saved before the key gained its dot stores 'UN-Nr' — the panel absorbs it into
+  // the canonical preset row (no duplicate) and the next commit writes it back renamed
+  it('absorbs the legacy dotless UN-Nr key into the preset row', () => {
+    const onFields = vi.fn()
+    setup({ ...tafel({ 'UN-Nr': '1233' }), onFields })
+    const keys = screen.getAllByText((_t, el) => el?.className === 'kv-key-ro').map((el) => el.textContent)
+    expect(keys).toEqual(['UN-Nr.', 'Stoff'])
+    const un = screen.getByDisplayValue('1233') as HTMLInputElement
+    fireEvent.blur(un)
+    expect(onFields).toHaveBeenCalledWith({ 'UN-Nr.': '1233', Stoff: 'METHYLAMYLACETAT' })
+  })
+})
+
+/* The ADR readout explains its codes (Feldtest 07.09.: «keine Ahnung, was 6.1 heisst»), and
+ * every ERG distance carries an «Übernehmen» that turns it into a real Absperrkreis. */
+describe('ContextPanel — ADR meanings and ERG Übernehmen', () => {
+  const tafel = (fields: Record<string, string>) => ({
+    entity: { id: 'g1', symbol: 'FW Gefahr Tafel', fields } as SymbolView,
+    protectedKeys: new Set(['UN-Nr.', 'Stoff']),
+  })
+
+  it('prints the meaning beside class, label and packing-group codes', () => {
+    // UN 1230 (METHANOL): class 3, labels 3 + 6.1, packing group II
+    setup(tafel({ 'UN-Nr.': '1230', Stoff: '' }))
+    expect(screen.getAllByText(/3 – Entzündbare flüssige Stoffe/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/6\.1 – Giftige Stoffe/)).toBeTruthy()
+    expect(screen.getByText(/II – mittlere Gefahr/)).toBeTruthy()
+  })
+
+  it('«Übernehmen» hands the parsed distance to onAdoptRadius', () => {
+    const onAdoptRadius = vi.fn()
+    // UN 1005 (Ammoniak): si 30 m / pd 0.1 km / pn 0.2 km
+    setup({ ...tafel({ 'UN-Nr.': '1005', Stoff: '' }), onAdoptRadius })
+    const buttons = screen.getAllByRole('button', { name: appConfig.copy.contextPanel.ergAdopt })
+    expect(buttons.length).toBe(3)
+    fireEvent.click(buttons[0])
+    expect(onAdoptRadius).toHaveBeenCalledWith(30)
+    fireEvent.click(buttons[2])
+    expect(onAdoptRadius).toHaveBeenCalledWith(200)
+  })
+
+  it('without onAdoptRadius the rows stay plain (Plan side)', () => {
+    setup(tafel({ 'UN-Nr.': '1005', Stoff: '' }))
+    expect(screen.queryByRole('button', { name: appConfig.copy.contextPanel.ergAdopt })).toBeNull()
+  })
+})
+
+/* The reverse door (Feldtest Manuel, 07.09.): on the Gas/Chemie hazard symbols the operator
+ * knows the SUBSTANCE, not the number. The Stoff row is a search combobox — the station-common
+ * list first, the full ADR table behind the search — and a committed Stoff resolves its UN-Nr.,
+ * which is what lights the ADR readout and the Schutzabstand rings. */
+describe('ContextPanel — Stoff → UN-Nr. (Gas/Chemie substance search)', () => {
+  const chemie = (fields: Record<string, string>) => ({
+    entity: { id: 'c1', symbol: 'FW Gefahr C', fields } as SymbolView,
+    protectedKeys: new Set(['Stoff', 'UN-Nr.']),
+  })
+  const openStoff = () => fireEvent.click(screen.getByRole('button', { name: /Wert/ }))
+
+  it('a common substance is one pick away and fills its UN number', () => {
+    const onFields = vi.fn()
+    setup({ ...chemie({ Stoff: '', 'UN-Nr.': '' }), onFields })
+    openStoff()
+    fireEvent.click(screen.getByRole('button', { name: 'Salzsäure' }))
+    expect(onFields).toHaveBeenCalledWith({ Stoff: 'Salzsäure', 'UN-Nr.': '1789' })
+  })
+
+  it('an official ADR name found through the search resolves by name', () => {
+    const onFields = vi.fn()
+    setup({ ...chemie({ Stoff: '', 'UN-Nr.': '' }), onFields })
+    openStoff()
+    fireEvent.change(screen.getByPlaceholderText(appConfig.copy.contextPanel.stoffSearch), { target: { value: 'Methylamylacetat' } })
+    fireEvent.click(screen.getByRole('button', { name: 'METHYLAMYLACETAT' }))
+    expect(onFields).toHaveBeenCalledWith({ Stoff: 'METHYLAMYLACETAT', 'UN-Nr.': '1233' })
+  })
+
+  it('an unknown substance stays as typed, the UN row honestly empty', () => {
+    const onFields = vi.fn()
+    setup({ ...chemie({ Stoff: '', 'UN-Nr.': '' }), onFields })
+    openStoff()
+    fireEvent.change(screen.getByPlaceholderText(appConfig.copy.contextPanel.stoffSearch), { target: { value: 'Wundermittel' } })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.combo.useTyped.replace('{name}', 'Wundermittel') }))
+    expect(onFields).toHaveBeenCalledWith({ Stoff: 'Wundermittel', 'UN-Nr.': '' })
+  })
+})
+
 // A NOTE is the surface that still types into `label` — its text IS its content. Every other
 // symbol's header became read-only on 11.08., so this is where the live-edit path lives now.
 describe('ContextPanel — live text editing on a note', () => {

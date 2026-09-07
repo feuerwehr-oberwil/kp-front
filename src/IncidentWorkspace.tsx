@@ -18,6 +18,8 @@ import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
+import { ergRingOverlays } from './lib/ergRings'
+import { carryDocked, isPlacard, nearestDockHost } from './lib/docking'
 import type { BoardAnno, BoardPoint, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
@@ -49,7 +51,7 @@ import { useWakeLock } from './lib/useWakeLock'
 import { toast, dismissToast, confirmDialog, undoToast } from './lib/ui'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
-import { loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
+import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
@@ -559,6 +561,16 @@ export function IncidentWorkspace({
     [replayActive, replayEntities, doc.entities, liveVehicles, livePeople.people],
   )
   const drawings = replayActive ? (replayWs?.drawings ?? []) : doc.drawings
+
+  // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
+  // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
+  // The day/night split is read at compute time; a board left open across 07/19 h picks the
+  // flip up with the next re-render, which any interaction provides — a Planungshilfe does not
+  // warrant its own clock.
+  const mapOverlays = useMemo(
+    () => [...preparedOverlays, ...ergRingOverlays(entities, new Date())],
+    [entities],
+  )
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
   // undo/redo wrap the hook's pure history step with the audit log + emit (App-level).
   const undo = () => { if (undoDoc()) { log('undo', appConfig.copy.log.undo, 'history'); emit('undo') } }
@@ -707,11 +719,13 @@ export function IncidentWorkspace({
   // measurement tool (distance/height-profile line, or area) — extracted to useMeasure.
   // All ephemeral (never saved); gated on the measure tool being active.
   const measure = useMeasure(tool === 'measure')
-  // surface + active plan are remembered across reloads via a cookie
-  // ⚠️ An Atemschutz-Link session has exactly ONE surface, so the remembered one is ignored:
-  // that device may have been on the Karte as an editor yesterday, and the lite shell renders
-  // whatever `mode` says. There is no rail to steer back with.
-  const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'>(asLink ? 'atemschutz' : (prefs.mode ?? 'map'))
+  // The surface is remembered across reloads — but only within the SAME Einsatz: a new
+  // emergency opens on the Karte, never on whatever tab the last one ended on (lib/prefs ·
+  // initialMode, Feldtest Manuel 07.09.). An Atemschutz-Link session has exactly ONE surface,
+  // so the remembered one is ignored there: the lite shell renders whatever `mode` says and
+  // has no rail to steer back with. Fresh loadPrefs(), not the module-level boot snapshot —
+  // an in-session incident switch must see the mode the LAST workspace saved.
+  const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'>(() => initialMode(loadPrefs(), incidentMeta.id, asLink))
   /** The Rapport is a surface now, so «open it» is «go there». Kept as a named helper because
    *  half a dozen entry points say it (Abschluss-Assistent, the print action, the return chip). */
   const openRapport = () => setMode('rapport')
@@ -1759,7 +1773,7 @@ export function IncidentWorkspace({
   // remember the active surface + plan document in a cookie (preserve incidentId)
   // (…but never FROM a link session: its surface is forced, so remembering it would make the
   // next ordinary open of this browser land on the Atemschutz board for no reason anyone gave.)
-  useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [asLink, mode, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
+  useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode, modeIncidentId: incidentMeta.id }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [asLink, mode, incidentMeta.id, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
 
   // warm the plan bitmaps at app load (on idle) so the first open of the Plan tab appears
   // instantly — the exact-fit bake reuses these unless the stage is larger. ⚠️ Only the active
@@ -3102,7 +3116,10 @@ export function IncidentWorkspace({
     if (liveIds.has(id)) { setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } })); return }
     setDocRaw((d) => ({
       ...d,
-      entities: d.entities.map((e) => (e.id === id ? { ...e, coord: c } : e)),
+      // an angedockte Gefahrentafel rides along mid-drag too (lib/docking), keeping the
+      // offset the operator chose — not just snapping into place on release
+      entities: carryDocked(d.entities, id, d.entities.find((e) => e.id === id)?.coord ?? c, c)
+        .map((e) => (e.id === id ? { ...e, coord: c } : e)),
       drawings: d.drawings.map((dr) => {
         if (dr.kind !== 'line') return dr
         let next = dr
@@ -3118,9 +3135,39 @@ export function IncidentWorkspace({
     if (tacticalLocked) return
     if (liveIds.has(id)) setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
     else {
+      // Andocken (lib/docking, Feldtest Manuel 07.09.): a Gefahrentafel dropped beside a
+      // dockable object becomes its placard; dropped in the open, an existing bond lets go.
+      // Decided here, once, on release — never re-resolved — and the whole answer folds into
+      // the same undo step as the move itself.
+      const ent = doc.entities.find((x) => x.id === id)
+      const map = mapRef.current
+      let dockPatch: { dockedTo: string | undefined } | null = null
+      let dockHost: Entity | undefined
+      if (isPlacard(ent) && map) {
+        dockHost = nearestDockHost(c, doc.entities.filter((e) => e.id !== id), (p) => map.project(p)) ?? undefined
+        if ((dockHost?.id ?? undefined) !== ent?.dockedTo) dockPatch = { dockedTo: dockHost?.id }
+      }
       // a moved team marker re-stamps its «last moved» time; it does NOT breadcrumb
-      setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, coord: c, ...(e.kind === 'team' ? { t: formatTime(new Date()) } : {}) } : e)) }))
+      setDocRaw((d) => ({
+        ...d,
+        entities: carryDocked(d.entities, id, d.entities.find((e) => e.id === id)?.coord ?? c, c)
+          .map((e) => (e.id === id ? { ...e, coord: c, ...(dockPatch ?? {}), ...(e.kind === 'team' ? { t: formatTime(new Date()) } : {}) } : e)),
+      }))
       endDrag()
+      if (dockPatch) {
+        const name = ent?.label || appConfig.copy.entities.fallbackObjectName
+        const hostName = (dockHost ?? doc.entities.find((e) => e.id === ent?.dockedTo))?.label
+          || appConfig.copy.entities.fallbackObjectName
+        log('select', fillTemplate(dockHost ? appConfig.copy.log.placardDocked : appConfig.copy.log.placardUndocked,
+          { name, host: hostName }), 'symbol', undefined, id)
+        emit('entity.edit', { id, patch: dockPatch })
+      }
+      // …and the placards this host carried along re-emit like the trace-routed lines below
+      for (const e of doc.entities) {
+        if (e.dockedTo === id && e.coord && ent?.coord) {
+          emit('entity.move', { id: e.id, coord: [e.coord[0] + c[0] - ent.coord[0], e.coord[1] + c[1] - ent.coord[1]] })
+        }
+      }
     }
     log('select', fillTemplate(appConfig.copy.log.objectMoved, { name: entities.find((x) => x.id === id)?.label ?? appConfig.copy.entities.fallbackObjectName }), 'symbol', undefined, id)
     emit(liveIds.has(id) ? 'entity.edit' : 'entity.move', { id, coord: c })
@@ -3422,7 +3469,9 @@ export function IncidentWorkspace({
     }
     commit((d) => ({
       ...d,
-      entities: d.entities.filter((e) => e.id !== id),
+      // …and a deleted host releases its angedockte Gefahrentafel (the placard stays — it is
+      // still a record of the substance — it just stops following a ghost)
+      entities: d.entities.filter((e) => e.id !== id).map((e) => (e.dockedTo === id ? { ...e, dockedTo: undefined } : e)),
       // the same detach «Hierher übertragen» performs — see detachDrawingFrom
       drawings: ent ? d.drawings.map((dr) => detachDrawingFrom(dr, ent)) : d.drawings,
     }))
@@ -4422,7 +4471,7 @@ export function IncidentWorkspace({
           }}
           onTeamRename={tacticalLocked ? undefined : renameTeam}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
-          preparedOverlays={preparedOverlays}
+          preparedOverlays={mapOverlays}
           // Georeferenz twins: every linked plan's symbols, mirrored onto the map. Read-only,
           // and never part of `entities` — a twin must not be selectable, printable or countable
           // anywhere (see components/GeorefTwinMark).
@@ -4960,6 +5009,22 @@ export function IncidentWorkspace({
           onSpread={selected.kind === 'symbol' && !selected.live ? (s) => patchEntity(selected.id, { spread: s ?? undefined }) : undefined}
           onCount={selected.kind === 'symbol' && !selected.live ? (n) => patchEntity(selected.id, { count: n && n > 1 ? n : undefined }) : undefined}
           onRotate={selected.kind === 'symbol' && !selected.live ? (deg) => patchEntity(selected.id, { rotation: deg ?? undefined }) : undefined}
+          // Karte only: the Schutzabstand rings are metric geometry, which the Plan cannot draw
+          // (lib/ergRings). 'small' is the default and is stored as absent, so a fresh placard
+          // syncs the same in both directions.
+          onErgRings={selected.kind === 'symbol' && !selected.live ? (mode) => patchEntity(selected.id, { ergRings: mode === 'small' ? undefined : mode }) : undefined}
+          // «Übernehmen» (Feldtest 07.09.): the ERG distance becomes a REAL Absperrkreis around
+          // the symbol — createCircle selects it, so the operator lands on the editable cordon.
+          // The derived preview rings go quiet for this placard: the real circle replaces them,
+          // and two red rings at the same radius would read as a rendering bug.
+          onAdoptRadius={selected.kind === 'symbol' && !selected.live && !tacticalLocked ? (radiusM) => {
+            createCircle(selected.coord, radiusM)
+            patchEntity(selected.id, { ergRings: 'off' })
+          } : undefined}
+          // Angedockte Gefahrentafel (lib/docking): name the host, offer the release — the drop
+          // gesture that made the bond draws nothing, so this row is where it becomes visible.
+          dockedToLabel={selected.dockedTo ? doc.entities.find((e) => e.id === selected.dockedTo)?.label || appConfig.copy.entities.fallbackObjectName : undefined}
+          onUndock={selected.dockedTo && !tacticalLocked ? () => patchEntity(selected.id, { dockedTo: undefined }) : undefined}
           onRotate2={selected.kind === 'symbol' && !selected.live ? (deg) => patchEntity(selected.id, { rotation2: deg ?? undefined }) : undefined}
           onCaption={selected.kind === 'symbol' && !selected.live ? (m) => patchEntity(selected.id, { caption: m }) : undefined}
           captionDefault={symbolCaptions ?? 'auto'}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
+import { fillTemplate } from '../lib/format'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import c from './ComboMenu.module.css'
@@ -257,8 +258,13 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
   /** the «nur Offiziere» row. Present only where it can select something: without Dienstgrade a
    *  filter whose single outcome is «keine Einträge» is worse than no filter. */
   toggle?: { label: string }
-  /** the free-type escape — the only way the keyboard opens on this control */
-  custom?: { label: string }
+  /** The free-type escape. Without `use`: a static bottom row whose tap swaps the control for a
+   *  bare input (`startTyping`) — the only way the keyboard opens on this control. With `use`:
+   *  the Gast door instead (Feldtest Manuel, 07.09.) — the search row IS the type field, and a
+   *  query-carrying «‹X› verwenden» row commits it directly. Two taps and a retype become one
+   *  motion, exactly like «‹Name› als Gast hinzufügen» on the Trupp picker. Only works where
+   *  the picked value is the string itself, which is why `commit` is the caller's. */
+  custom?: { label: string; use?: { template: string; commit: (typed: string) => void } }
   onPick: (value: V) => void
 }) {
   // one shared idea of what a query finds (lib/search): umlauts either way, one typo forgiven
@@ -266,6 +272,16 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
   const match = (e: ComboEntry<V>) => !needle || matchesQuery(needle, e.label)
   const listed = entries.filter(match)
   const anyHit = groups ? groups.some((g) => g.options.some(match)) : listed.length > 0
+
+  // Gast mode: the typed query, and the search row it needs even on a three-option list —
+  // hidden behind the >8 threshold there would be nowhere to type the custom value at all.
+  const typed = custom?.use ? state.search.trim() : ''
+  const searchShown = showSearch || !!custom?.use
+  const commitTyped = () => {
+    if (!custom?.use || !typed) return
+    custom.use.commit(typed)
+    state.close()
+  }
 
   const row = (e: ComboEntry<V>) => (
     <li key={e.key}>
@@ -287,15 +303,16 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
       // stretched the menu into a 0-height sliver OFF-screen whenever the trigger sat low.
       // That is the phone bottom sheet's "the dropdown does nothing".
       style={{ left: pos.left, width: pos.width, maxHeight: pos.maxH, ...(pos.up ? { top: 'auto', bottom: window.innerHeight - pos.top + 4 } : { top: pos.top + 4 }) }}>
-      {showSearch && (
+      {searchShown && (
         <li className={c.searchRow}>
           <span className={c.searchIcon} aria-hidden><Icon id="search" /></span>
           <input
             className={c.search} value={state.search} inputMode="search"
             placeholder={copy.search} aria-label={copy.search}
             onChange={(e) => state.setSearch(e.target.value)}
-            // a stray Enter in a picker must not submit the form the picker sits in
-            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+            // a stray Enter in a picker must not submit the form the picker sits in — but in
+            // Gast mode an Enter on a query nothing matches IS the commit (mirrors TruppTeam)
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!anyHit) commitTyped() } }}
           />
           {state.search && (
             <button type="button" className={c.searchClear} aria-label={appConfig.copy.clear}
@@ -321,13 +338,24 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
         ))
         : (limit ? listed.slice(0, limit) : listed).map(row)}
       {!anyHit && <li className={classes.empty}>{needle ? copy.noMatches : copy.empty}</li>}
-      {custom && (
-        <li>
-          <button type="button" className={cx(classes.opt, classes.type)} onClick={state.startTyping}>
-            <Icon id="type" /><span>{custom.label}</span>
-          </button>
-        </li>
-      )}
+      {/* The free-type door, LAST under the matches like the Gast row: with `use` it exists
+          only while something is typed and carries the query in its own label; without `use`
+          it is the static row that opens the bare input. */}
+      {custom?.use
+        ? typed && (
+          <li>
+            <button type="button" className={cx(classes.opt, classes.type)} onClick={commitTyped}>
+              <Icon id="type" /><span>{fillTemplate(custom.use.template, { name: typed })}</span>
+            </button>
+          </li>
+        )
+        : custom && (
+          <li>
+            <button type="button" className={cx(classes.opt, classes.type)} onClick={state.startTyping}>
+              <Icon id="type" /><span>{custom.label}</span>
+            </button>
+          </li>
+        )}
     </ul>,
     document.body,
   )

@@ -33,6 +33,11 @@ export interface SymbolScaleRange { min: number; max: number; step: number; defa
 
 export interface Prefs {
   mode?: 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
+  /** The Einsatz `mode` was last chosen in. The remembered surface only applies when the SAME
+   *  Einsatz reopens (a mid-Einsatz reload lands back where the operator was); a different —
+   *  above all a NEW — Einsatz starts on the Karte (Feldtest Manuel, 07.09.: a fresh alarm
+   *  opened on yesterday's Atemschutz tab). See `initialMode`. */
+  modeIncidentId?: string
   activePlanId?: string
   /** last active incident id, so a reload reopens it */
   incidentId?: string
@@ -218,6 +223,15 @@ export function planSymbolScale(scales: Record<SymbolSurface, number>, georefere
 function readCookie(name: string): string | null {
   const match = document.cookie.split('; ').find((row) => row.startsWith(`${name}=`))
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null
+}
+
+/** The surface a just-opened Einsatz starts on. An Atemschutz-Link session has exactly one
+ *  surface; everyone else gets the remembered `mode` only when it was chosen in THIS Einsatz —
+ *  otherwise the Karte, because a new emergency must open on the Lage, not on whatever tab the
+ *  last one ended on (Feldtest Manuel, 07.09.). */
+export function initialMode(prefs: Prefs, incidentId: string, asLink: boolean): NonNullable<Prefs['mode']> {
+  if (asLink) return 'atemschutz'
+  return prefs.modeIncidentId === incidentId ? (prefs.mode ?? 'map') : 'map'
 }
 
 export function loadPrefs(): Prefs {

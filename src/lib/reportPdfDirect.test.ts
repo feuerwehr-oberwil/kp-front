@@ -37,7 +37,7 @@ describe('planAnnosForPdf', () => {
   it('sends the caption the board shows under the glyph, composed by the ONE resolver', () => {
     // ⚠️ Same call as the board and the Kroki payload (lib/symbols · symbolCaptionText), so the
     // sheet's legend and the screen cannot word the same symbol differently.
-    const anno: BoardAnno = { id: 's3', kind: 'symbol', symbol: 'FW Gefahr Tafel', x: 0.5, y: 0.5, fields: { 'UN-Nr': '1203', Stoff: 'Benzin' } }
+    const anno: BoardAnno = { id: 's3', kind: 'symbol', symbol: 'FW Gefahr Tafel', x: 0.5, y: 0.5, fields: { 'UN-Nr.': '1203', Stoff: 'Benzin' } }
     expect(planAnnosForPdf([anno], {})[0].caption).toBe('Benzin')           // 'auto': the one value
     expect(planAnnosForPdf([anno], {}, 'all')[0].caption).toBe('1203\nBenzin')
     expect(planAnnosForPdf([anno], {}, 'off')[0].caption).toBeUndefined()   // Beschriftungen aus

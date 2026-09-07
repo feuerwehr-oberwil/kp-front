@@ -107,11 +107,11 @@ describe('symbolCaptionText — metadata printed under a symbol glyph', () => {
 
   it('auto follows the preset `caption` key, not just the first field', () => {
     // Gefahrentafel leads with UN-Nr but captions on Stoff (appConfig preset)
-    expect(symbolCaptionText({ symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr': '1203', Stoff: 'Benzin' } }, 'auto')).toBe('Benzin')
+    expect(symbolCaptionText({ symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr.': '1203', Stoff: 'Benzin' } }, 'auto')).toBe('Benzin')
   })
 
   it('auto falls back to the first filled field when the primary is empty', () => {
-    expect(symbolCaptionText({ symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr': '1203', Stoff: '' } }, 'auto')).toBe('1203')
+    expect(symbolCaptionText({ symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr.': '1203', Stoff: '' } }, 'auto')).toBe('1203')
   })
 
   it('an Offizier composes «Funktion · Name» when both halves are filled (auto)', () => {
@@ -131,14 +131,14 @@ describe('symbolCaptionText — metadata printed under a symbol glyph', () => {
   })
 
   it('all mode joins every filled field with newlines, in preset field order', () => {
-    expect(symbolCaptionText({ symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr': '1203', Stoff: 'Benzin' } }, 'all')).toBe('1203\nBenzin')
+    expect(symbolCaptionText({ symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr.': '1203', Stoff: 'Benzin' } }, 'all')).toBe('1203\nBenzin')
   })
 
   it('all mode includes custom (non-preset) fields after the preset ones, then notes', () => {
     // preset fields first (canonical order), then any custom key the operator added, then notes
     expect(symbolCaptionText({
       symbol: 'FW Gefahr Tafel',
-      fields: { 'UN-Nr': '1203', Stoff: 'Benzin', Menge: '200 l' },
+      fields: { 'UN-Nr.': '1203', Stoff: 'Benzin', Menge: '200 l' },
       notes: 'ausgelaufen',
     }, 'all')).toBe('1203\nBenzin\n200 l\nausgelaufen')
   })

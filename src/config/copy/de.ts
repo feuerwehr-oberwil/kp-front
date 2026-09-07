@@ -1055,6 +1055,9 @@ export const de = {
      *  deletion of the same object did not even use the same verb. */
     shapeDrawn: '{name} gezeichnet',
     objectMoved: '{name} verschoben',
+    // Gefahrentafel-Andocken (lib/docking): the bond and its release, as Verlauf rows
+    placardDocked: '{name} angedockt an «{host}»',
+    placardUndocked: '{name} von «{host}» gelöst',
     // ein Zwilling wechselt die Fläche: das Objekt ist danach wirklich dort und nicht mehr hier
     twinTransferredToMap: '{name} auf die Karte übertragen',
     twinTransferredToPlan: '{name} auf den Plan übertragen',
@@ -2537,14 +2540,45 @@ export const de = {
     // UN-Nr → Stoff auto-fill (Gefahrentafel). unField/stoffField are the detail-row
     // keys the lookup reads/writes (must match the preset's `fields`). The summary is
     // read-only and always carries the "ungeprüft" caveat (dataset not expert-reviewed).
-    unField: 'UN-Nr',
+    unField: 'UN-Nr.',
     stoffField: 'Stoff',
+    // the Stoff search row's placeholder (the Gas/Chemie/Tafel substance combobox)
+    stoffSearch: 'Stoff suchen oder eingeben …',
     unHazardTitle: 'Gefahrgut (ADR)',
+    // What the ADR codes MEAN (Feldtest 07.09.: «keine Ahnung, was 6.1 heisst») — shown
+    // beside every code so the readout explains itself. Class AND label codes in one map
+    // (they overlap); an unknown code prints bare.
+    adrMeanings: {
+      '1': 'Explosive Stoffe',
+      '1.4': 'Explosive Stoffe (geringe Gefahr)',
+      '1.5': 'Explosive Stoffe (sehr unempfindlich)',
+      '1.6': 'Explosive Stoffe (extrem unempfindlich)',
+      '2': 'Gase',
+      '2.1': 'Entzündbares Gas',
+      '2.2': 'Nicht entzündbares, nicht giftiges Gas',
+      '2.3': 'Giftiges Gas',
+      '3': 'Entzündbare flüssige Stoffe',
+      '4.1': 'Entzündbare feste Stoffe',
+      '4.2': 'Selbstentzündliche Stoffe',
+      '4.3': 'Bildet mit Wasser entzündbare Gase',
+      '5.1': 'Entzündend (oxidierend) wirkende Stoffe',
+      '5.2': 'Organische Peroxide',
+      '6.1': 'Giftige Stoffe',
+      '6.2': 'Ansteckungsgefährliche Stoffe',
+      '7': 'Radioaktive Stoffe',
+      '7E': 'Radioaktive Stoffe (spaltbar)',
+      '7X': 'Radioaktive Stoffe',
+      '8': 'Ätzende Stoffe',
+      '9': 'Verschiedene gefährliche Stoffe',
+      '9A': 'Lithiumbatterien',
+    } as Record<string, string>,
+    // Verpackungsgruppe: the danger GRADE, which the bare Roman numeral does not say.
+    packingGroups: { I: 'hohe Gefahr', II: 'mittlere Gefahr', III: 'geringe Gefahr' } as Record<string, string>,
     unClass: 'Klasse',
     unKemler: 'Gefahrnummer',
     unLabels: 'Gefahrzettel',
     unPacking: 'Verpackungsgruppe',
-    unNoMatch: 'UN-Nr nicht in ADR-Tabelle gefunden',
+    unNoMatch: 'UN-Nr. nicht in ADR-Tabelle gefunden',
     // ERG 2024 response block (bundled, offline): guide number + TIH-Distanzen — Planungshilfe
     ergGuide: 'ERG-Leitfaden',
     ergPolymerization: 'Polymerisationsgefahr (P) – Behälter kann gewaltsam bersten',
@@ -2555,16 +2589,29 @@ export const de = {
     ergTable3: 'siehe ERG Tabelle 3 (Behälter/Wind)',
     ergDayShort: 'Tag',
     ergNightShort: 'Nacht',
+    // The Schutzabstand rings on the Karte (lib/ergRings, Feldtest Manuel 07.09.): the
+    // control sits under the distances it draws, and the ergSource caveat covers both.
+    // Andocken (lib/docking): the panel row that makes the invisible bond visible
+    dockedTo: 'Angedockt an «{name}»',
+    dockedRelease: 'Lösen',
+    // one tap turns an ERG distance into a real Absperrkreis around the symbol
+    ergAdopt: 'Übernehmen',
+    ergRingsLabel: 'Radius auf der Karte',
+    ergRingsOff: 'Aus',
+    ergRingsSmall: 'Klein',
+    ergRingsLarge: 'Gross',
     ergSource: 'Quelle: {v} (PHMSA) – Planungshilfe, nicht validiert',
     ergCameoLabel: 'CAMEO Chemicals (ERG-Details)',
     // the decoded Gefahrnummer hazards (the tactical "kann ich löschen?" answer); the
     // water line is shown red+bold when the Kemler code carries a leading "X".
     unWater: 'Reagiert gefährlich mit Wasser – KEIN Wasser einsetzen!',
-    // Deep link to a Sicherheitsdatenblatt-grade source (online; opens in the browser —
-    // no live auto-fetch, offline-first). GESTIS is the authoritative German hazmat DB
-    // (it has no public by-UN deep link, so it opens its search). `{un}`/`{name}` fill in.
-    unLookupLabel: 'Sicherheitsdatenblatt (GESTIS)',
-    unLookupUrl: 'https://gestis.dguv.de/search',
+    // Deep link to the Cefic ERI card (online; opens in the browser — no live auto-fetch,
+    // offline-first). ERI cards are the fire-crew first-action cards for chemical transport
+    // accidents; the result list opens with the UN number pre-filled, one tap from the card
+    // (GESTIS, the previous target, has no by-UN deep link). `{un}`/`{name}` fill in;
+    // p_lang/lang pick the site language — each copy overlay carries its own URL.
+    unLookupLabel: 'ERI-Card (Cefic)',
+    unLookupUrl: 'https://www.ericards.net/psp/ericards.psp_search_result?p_lang=3&lang=3&unnumber={un}',
     // Kemler/Gefahrnummer decoded hazard meanings (decodeKemler) — the tactical readout.
     // keyed by ADR hazard digit; `kemlerDoubled` = a doubled digit (intensified hazard).
     kemler: {
@@ -2714,6 +2761,11 @@ export const de = {
     // Deliberately NOT auto-focused: this stays a tap picker, and a keyboard that opens by
     // itself covers exactly the list it filters on a tablet.
     searchPlaceholder: 'Person suchen …',
+    // The Gast-door skin of the same row (Feldtest Manuel, 07.09.): with the free-type
+    // escape the search field doubles as the input for a NEW value, and the query-carrying
+    // commit row mirrors «als Gast hinzufügen» — short, because long values ellipsize.
+    searchOrType: 'Suchen oder eingeben …',
+    useTyped: '«{name}» verwenden',
     noMatches: 'Kein Treffer',
   },
   // Login gate (face picker + PIN pad)
@@ -5420,7 +5472,7 @@ export const de = {
       guideTitle: 'Felder und Eigenschaften erklärt',
       fieldGlossary: {
         Titel: 'Sichtbare Fahrzeugbezeichnung, z. B. TLF 1.', Status: 'Lageabhängiger Zustand, z. B. gerettet oder Schieber offen/zu.',
-        Stoff: 'Gefahrstoffbezeichnung.', 'UN-Nr': 'Vierstellige UN-Gefahrgutnummer.', Einheit: 'Organisation oder eingesetzte Einheit.',
+        Stoff: 'Gefahrstoffbezeichnung.', 'UN-Nr.': 'Vierstellige UN-Gefahrgutnummer.', Einheit: 'Organisation oder eingesetzte Einheit.',
         Name: 'Person aus dem Personalstamm.', Funktion: 'Führungsaufgabe, z. B. Front oder SiBe.', Fahrer: 'Fahrer aus dem Personalstamm.', Typ: 'Geräte- oder Ausführungstyp.',
       },
       propsLabel: 'Eigenschaften',

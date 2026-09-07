@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { CaptionMode, NoteSize, Spread, SymbolControl, SymbolProps } from '../types'
 import { thumbUrl } from '../lib/mediaUrl'
 import { Icon } from '../lib/icons'
@@ -7,12 +7,14 @@ import { openPhoto } from '../lib/ui'
 import { formatSymbolName, stripUnprintable } from '../lib/format'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
-import { lookupUN, decodeKemler, type UnHazardEntry } from '../lib/unHazard'
+import { allStoffNames, decodeKemler, lookupUN, lookupUNByName, type UnHazardEntry } from '../lib/unHazard'
 import { ERG_VERSION, lookupErg } from '../lib/erg'
+import { DEFAULT_ERG_RING_MODE, parseErgDistance } from '../lib/ergRings'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Segmented } from './Segmented'
 import { compositeSpec } from '../lib/symbolRender'
+import { UN_CAPABLE } from '../lib/symbols'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 
 // detail-field controls: short fixed lists render as directly-tappable segmented tabs (they
@@ -72,15 +74,18 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
   )
 }
 
-// Gefahrentafel UN-Nr → Stoff auto-fill. The detail rows are free key/value pairs, so
+// Gefahrentafel UN-Nr. → Stoff auto-fill. The detail rows are free key/value pairs, so
 // we recognise the source/target rows by their (configurable) key, case-insensitively.
 // structural DATA keys (not display labels): read from the copy directly here — they are
 // intentionally NOT localized (they match the language-independent preset fields
-// ['UN-Nr','Stoff']), so a module-level read of the base value is correct. See config/copy.
-const UN_KEY = appConfig.copy.contextPanel.unField.trim().toLowerCase()
-const STOFF_KEY = appConfig.copy.contextPanel.stoffField.trim().toLowerCase()
+// ['UN-Nr.','Stoff']), so a module-level read of the base value is correct. See config/copy.
+// A trailing abbreviation dot never discriminates keys: symbols saved before 'UN-Nr'
+// became 'UN-Nr.' must keep matching, so normKey strips it on both sides.
+const normKey = (k: string) => k.trim().toLowerCase().replace(/\.$/, '')
+const UN_KEY = normKey(appConfig.copy.contextPanel.unField)
+const STOFF_KEY = normKey(appConfig.copy.contextPanel.stoffField)
 const findVal = (rows: { k: string; v: string }[], key: string) =>
-  rows.find((r) => r.k.trim().toLowerCase() === key)?.v ?? ''
+  rows.find((r) => normKey(r.k) === key)?.v ?? ''
 
 /** The surface-agnostic shape this editor reads. Both a map `Entity` and a plan
  *  `BoardAnno` satisfy it (they share `SymbolProps`; `floor`/`photoUrl`/`badge`
@@ -134,6 +139,14 @@ export interface ContextPanelProps {
   /** set/clear the rotation in degrees (null resets to 0). Absent where rotation
    *  makes no sense (e.g. live vehicles, whose heading comes from the GPS feed). */
   onRotate?: (deg: number | null) => void
+  /** ERG Schutzabstand rings around a Gefahrentafel (SymbolProps.ergRings, lib/ergRings) —
+   *  Aus / Klein / Gross. Wired only on the Karte (the Plan has no metric scale), and the
+   *  control only renders where the UN number actually resolves to TIH distances. */
+  onErgRings?: (mode: 'off' | 'small' | 'large') => void
+  /** «Übernehmen» on an ERG distance row (Feldtest 07.09.): turn that distance into a REAL
+   *  Absperrkreis drawing around this symbol — editable, printable, synced — instead of the
+   *  derived preview ring. Karte-only, like the rings. */
+  onAdoptRadius?: (radiusM: number) => void
   /** secondary rotation (the composite Grosslüfter's fan/airflow). Absent on every other
    *  symbol; when wired AND the symbol's preset lists 'rotation2', the rotation control
    *  splits into a Fahrzeug (body) + Lüfter (fan) pair. */
@@ -194,6 +207,11 @@ export interface ContextPanelProps {
    *  it is the one thing about a live vehicle only a human can say. */
   driver?: { value: string; options: string[]; onChange: (v: string) => void }
   connectedLines?: { id: string; label: string }[]
+  /** Angedockte Gefahrentafel (SymbolProps.dockedTo, lib/docking): the host's display name.
+   *  Rendered with a «Lösen» action when `onUndock` is wired — the panel is the one place the
+   *  bond is VISIBLE, since the drop gesture that makes it draws nothing. */
+  dockedToLabel?: string
+  onUndock?: () => void
   onFocusLine?: (id: string) => void
   // --- free-text note (Lage 'note' / Plan 'text') -------------------------------------------
   // Wiring ANY of these turns the panel into a note editor: the Notiz section appears and the
@@ -229,7 +247,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -288,9 +306,13 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   const seedRows = (fields: Record<string, string> | undefined): Row[] => {
     const base = toRows(fields)
     if (!protectedKeys?.size) return base
-    const byKey = new Map(base.map((r) => [r.k.trim(), r]))
-    const preset = [...protectedKeys].filter(Boolean).map((k) => byKey.get(k) ?? { k, v: '' })
-    const extra = base.filter((r) => !protectedKeys.has(r.k.trim()))
+    // normKey absorbs rows stored under a preset key's pre-dot spelling ('UN-Nr' →
+    // 'UN-Nr.'): the value survives under the canonical key, and the next commit
+    // writes it back renamed — a lazy per-symbol migration.
+    const byKey = new Map(base.map((r) => [normKey(r.k), r]))
+    const presetNorm = new Set([...protectedKeys].map(normKey))
+    const preset = [...protectedKeys].filter(Boolean).map((k) => ({ k, v: byKey.get(normKey(k))?.v ?? '' }))
+    const extra = base.filter((r) => !presetNorm.has(normKey(r.k)))
     return [...preset, ...extra]
   }
   const [rows, setRows] = useState<Row[]>(() => seedRows(entity.fields))
@@ -384,10 +406,53 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // Gefahrentafel auto-fill: when a UN-Nr row resolves to an ADR substance and the
   // Stoff row is still empty, seed its German name. Only fills an empty Stoff so a
   // manually-typed substance is never clobbered.
+  //
+  // Swap repair (07.09.2026): operators transcribe the physical orange plate top-to-bottom —
+  // Gefahrnummer first, UN second — so the Kemler lands in UN-Nr. and the UN in Stoff. When
+  // the UN-Nr. value is no UN but the Stoff value IS a known UN whose ADR Kemler equals the
+  // typed digits, the entry is unambiguously that swap: move the UN into its field and fill
+  // Stoff with the substance name (the Kemler is auto-derived, it lives nowhere as data).
+  // UN-speaking symbols (Tafel, Gas, Chemie — lib/symbols · UN_CAPABLE): the Stoff row turns
+  // into a substance search over the station's common list plus the full ADR table, and a
+  // committed Stoff resolves its UN number the same way a committed UN resolves its Stoff.
+  const unCapable = !!entity.symbol && UN_CAPABLE.has(entity.symbol)
+  const commons = (unCapable && appConfig.symbols.unCommons[entity.symbol!]) || []
+  const stoffOptions = useMemo(() => {
+    if (!unCapable) return []
+    // commons lead (the one-tap answers), the official names follow — minus the officials a
+    // common label already covers («Propan» vs the dataset's «PROPAN»)
+    const covered = new Set(commons.map((c) => c.label.toLowerCase()))
+    return [...commons.map((c) => c.label), ...allStoffNames().filter((n) => !covered.has(n.toLowerCase()))]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- commons is derived from the symbol
+  }, [unCapable, entity.symbol])
+
   const fillFromUN = (rs: Row[]): Row[] => {
-    const hit = lookupUN(findVal(rs, UN_KEY))
-    if (!hit?.name_de) return rs
-    return rs.map((r) => (r.k.trim().toLowerCase() === STOFF_KEY && !r.v.trim() ? { ...r, v: hit.name_de! } : r))
+    const un = findVal(rs, UN_KEY).trim()
+    const stoff = findVal(rs, STOFF_KEY).trim()
+    // The swap check runs BEFORE lookupUN(un): lookupUN zero-pads, so a transcribed
+    // Kemler like «30» would otherwise resolve to the class-1 UN 0030 (detonators) and
+    // mask the far likelier reading of the pair.
+    const swapHit = /^x?\d{2,3}$/i.test(un) && /^\d{4}$/.test(stoff) ? lookupUN(stoff) : null
+    if (swapHit?.hazardNumber?.toUpperCase() === un.toUpperCase()) {
+      return rs.map((r) =>
+        normKey(r.k) === UN_KEY ? { ...r, v: stoff }
+        : normKey(r.k) === STOFF_KEY ? { ...r, v: swapHit.name_de ?? '' }
+        : r)
+    }
+    const hit = lookupUN(un)
+    if (hit?.name_de) {
+      return rs.map((r) => (normKey(r.k) === STOFF_KEY && !r.v.trim() ? { ...r, v: hit.name_de! } : r))
+    }
+    // The reverse door (Feldtest Manuel, 07.09.): the operator knows the SUBSTANCE. A committed
+    // Stoff with an empty UN-Nr. resolves through the symbol's common list first («Salzsäure» →
+    // 1789), then the exact official ADR name — never a fuzzy guess: a wrong UN would put wrong
+    // ERG distances on the map, and an unresolved Stoff simply stays a labelled hazard.
+    if (!un && stoff) {
+      const target = commons.find((c) => c.label.toLowerCase() === stoff.toLowerCase())?.un
+        ?? lookupUNByName(stoff)?.un
+      if (target) return rs.map((r) => (normKey(r.k) === UN_KEY ? { ...r, v: target } : r))
+    }
+    return rs
   }
   // build the detail map from the editable rows (drop blank keys) and commit it
   const commitRows = (raw: Row[]) => {
@@ -446,12 +511,24 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // type. Only present when this symbol carries a UN-Nr field with a value.
   const unValue = findVal(rows, UN_KEY).trim()
   const unHit: UnHazardEntry | null = unValue ? lookupUN(unValue) : null
+  // Every code carries its meaning («6.1 – Giftige Stoffe») — the readout has to explain
+  // itself at 3am, and the bare number only speaks to somebody who trains ADR (Feldtest
+  // 07.09.). The Gefahrnummer stays bare here: the Kemler block below decodes it in full.
+  const adrMeaning = (code: string) => {
+    const m = C.adrMeanings[code]
+    return m ? `${code} – ${m}` : code
+  }
   const hazRows: { k: string; v: string }[] = unHit
     ? [
-        { k: C.unClass, v: unHit.class ?? '' },
+        { k: C.unClass, v: unHit.class ? adrMeaning(unHit.class) : '' },
         { k: C.unKemler, v: unHit.hazardNumber ?? '' },
-        { k: C.unLabels, v: unHit.hazardLabels.join(', ') },
-        { k: C.unPacking, v: unHit.packingGroup ?? '' },
+        { k: C.unLabels, v: unHit.hazardLabels.map(adrMeaning).join(', ') },
+        {
+          k: C.unPacking,
+          v: unHit.packingGroup
+            ? `${unHit.packingGroup}${C.packingGroups[unHit.packingGroup] ? ` – ${C.packingGroups[unHit.packingGroup]}` : ''}`
+            : '',
+        },
       ].filter((r) => r.v)
     : []
   const showUnHazard = unValue.length > 0
@@ -801,12 +878,24 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
             <div className="ctx-rows" ref={fieldsRef} data-entity-edit="">
               {rows.map((r, i) => {
                 const fixed = readOnly || !!protectedKeys?.has(r.k.trim())
+                // The Stoff row of a UN-speaking symbol is a substance search, not a plain
+                // field: the common list one tap away, the full ADR table behind the search
+                // row, free text through the Gast door — and the commit resolves the UN-Nr.
+                // (fillFromUN's reverse branch), which lights the readout and the rings.
+                const stoffSearch = unCapable && normKey(r.k) === STOFF_KEY
                 const field = (
                   <>
+                    {stoffSearch ? (
+                      <Combo value={r.v} options={stoffOptions} allowCustom limit={40}
+                        placeholder={C.fieldPlaceholders[r.k.trim()] ?? C.fieldValuePlaceholder}
+                        searchPlaceholder={C.stoffSearch}
+                        onChange={(v) => setRowValue(i, v)} />
+                    ) : (
                     <FieldControl fieldKey={r.k} value={r.v} options={fieldOptions?.[r.k]}
                       placeholder={C.fieldPlaceholders[r.k.trim()] ?? C.fieldValuePlaceholder}
                       officerFilter={officerSym} rankOf={rankOf} statusOf={personStatus}
                       onInput={(v) => setRow(i, { v })} onCommit={(v) => setRowValue(i, v)} />
+                    )}
                     {/* the contradiction stays put, under the field it is about */}
                     {fieldHints?.[r.k.trim()] && (
                       <p className="kv-hint"><Icon id="warn" />{fieldHints[r.k.trim()]}</p>
@@ -896,12 +985,30 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                     </div>
                   )}
                   {erg.p && <p className="un-haz-water"><Icon id="warn" /> {C.ergPolymerization}</p>}
-                  {(erg.tih ?? []).map((row, i) => (
+                  {(erg.tih ?? []).map((row, i) => {
+                    // «Übernehmen» beside each distance (Feldtest 07.09.): the value becomes a
+                    // real Absperrkreis around the symbol, one tap, no re-typing of «0.2 km».
+                    const distRow = (label: string, value?: string) => {
+                      if (!value) return null
+                      const metres = parseErgDistance(value)
+                      return (
+                        <div className="un-haz-row">
+                          <span className="un-haz-k">{label}</span>
+                          <span className="un-haz-v">{value}</span>
+                          {onAdoptRadius && metres != null && (
+                            <button type="button" className="un-erg-adopt" onClick={() => onAdoptRadius(metres)}>
+                              {C.ergAdopt}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    }
+                    return (
                     <div className="un-erg-tih" key={i}>
                       {row.n && <span className="un-erg-n">{row.n}</span>}
-                      {row.si && <div className="un-haz-row"><span className="un-haz-k">{C.ergIsolate}</span><span className="un-haz-v">{row.si}</span></div>}
-                      {row.pd && <div className="un-haz-row"><span className="un-haz-k">{C.ergProtectDay}</span><span className="un-haz-v">{row.pd}</span></div>}
-                      {row.pn && <div className="un-haz-row"><span className="un-haz-k">{C.ergProtectNight}</span><span className="un-haz-v">{row.pn}</span></div>}
+                      {distRow(C.ergIsolate, row.si)}
+                      {distRow(C.ergProtectDay, row.pd)}
+                      {distRow(C.ergProtectNight, row.pn)}
                       {row.l === 'T3'
                         ? <div className="un-haz-row"><span className="un-haz-k">{C.ergLarge}</span><span className="un-haz-v">{C.ergTable3}</span></div>
                         : row.l && (
@@ -911,7 +1018,28 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                           </div>
                         )}
                     </div>
-                  ))}
+                    )
+                  })}
+                  {/* Schutzabstand rings on the Karte (Feldtest Manuel, 07.09.): on by default
+                      («Klein»), because the distances above only help once they are geometry.
+                      «Gross» is offered only where the large-spill column holds numbers — on
+                      the 'T3' sentinel a circle would claim to know what only container and
+                      wind decide. The ergSource caveat above is the ring's caveat too. */}
+                  {onErgRings && !!erg.tih?.length && (
+                    <div className="un-erg-rings">
+                      <span className="un-haz-k">{C.ergRingsLabel}</span>
+                      <Segmented
+                        ariaLabel={C.ergRingsLabel}
+                        value={entity.ergRings ?? DEFAULT_ERG_RING_MODE}
+                        options={[
+                          { value: 'off' as const, label: C.ergRingsOff },
+                          { value: 'small' as const, label: C.ergRingsSmall },
+                          { value: 'large' as const, label: C.ergRingsLarge, disabled: !erg.tih[0]?.l || erg.tih[0].l === 'T3' },
+                        ]}
+                        onChange={onErgRings}
+                      />
+                    </div>
+                  )}
                   <p className="un-erg-src">{C.ergSource.replace('{v}', ERG_VERSION)}</p>
                 </div>
               )}
@@ -960,6 +1088,10 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
             (components/TwinTeamPill · acts.color, wired in IncidentWorkspace). That is the
             surface where a colour is actually read, so it is the surface that may set it — and
             the panel does not repeat the offer. */}
+        {dockedToLabel && <div className="ctx-section ctx-connections">
+          <span className="ctx-section-label">{C.dockedTo.replace('{name}', dockedToLabel)}</span>
+          {onUndock && <button onClick={onUndock}><span>{C.dockedRelease}</span><span className="ctx-conn-go" aria-hidden>×</span></button>}
+        </div>}
         {connectedLines.length > 0 && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>
           {connectedLines.map((line) => <button key={line.id} onClick={() => onFocusLine?.(line.id)}><span>{line.label}</span><span className="ctx-conn-go" aria-hidden>›</span></button>)}

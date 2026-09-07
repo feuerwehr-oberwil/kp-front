@@ -14,7 +14,8 @@
 //     and are matched against German alarm keyword text; translating desyncs category derivation.
 //   • contextPanel.unField / contextPanel.stoffField — detail-row DATA keys the UN→substance
 //     lookup matches against the (language-independent) preset fields.
-//   • contextPanel.unLookupUrl — an address, not a sentence.
+//   • contextPanel.unLookupUrl — an address, not a sentence (each overlay sets its own
+//     ericards.net URL: p_lang/lang pick the site language).
 //   • primarySymbol.id / primarySymbol.icon — a tool id and a sprite name; a translated
 //     «plus-bold» renders no icon at all.
 //   • journal.reminderChips — minute values.
@@ -741,6 +742,8 @@ export const fr: Localizable<Copy> = {
     notePlaced: 'Note posée',
     shapeDrawn: '{name} dessiné',
     objectMoved: '{name} déplacé',
+    placardDocked: '{name} amarré à «{host}»',
+    placardUndocked: '{name} détaché de «{host}»',
     twinTransferredToMap: '{name} transféré sur la carte',
     twinTransferredToPlan: '{name} transféré sur le plan',
     objectDeleted: '{name} supprimé',
@@ -1579,14 +1582,41 @@ export const fr: Localizable<Copy> = {
     fieldKeyPlaceholder: 'Désignation',
     fieldValuePlaceholder: 'Valeur',
     duplicateField: '«{key}» existe déjà – seule la dernière valeur est conservée.',
+    stoffSearch: 'Rechercher ou saisir une substance …',
     unHazardTitle: 'Matières dangereuses (ADR)',
+    adrMeanings: {
+      '1': 'Matières explosibles',
+      '1.4': 'Matières explosibles (danger mineur)',
+      '1.5': 'Matières explosibles (très peu sensibles)',
+      '1.6': 'Matières explosibles (extrêmement peu sensibles)',
+      '2': 'Gaz',
+      '2.1': 'Gaz inflammable',
+      '2.2': 'Gaz ininflammable, non toxique',
+      '2.3': 'Gaz toxique',
+      '3': 'Liquides inflammables',
+      '4.1': 'Matières solides inflammables',
+      '4.2': 'Matières sujettes à l’inflammation spontanée',
+      '4.3': 'Dégage des gaz inflammables au contact de l’eau',
+      '5.1': 'Matières comburantes',
+      '5.2': 'Peroxydes organiques',
+      '6.1': 'Matières toxiques',
+      '6.2': 'Matières infectieuses',
+      '7': 'Matières radioactives',
+      '7E': 'Matières radioactives (fissiles)',
+      '7X': 'Matières radioactives',
+      '8': 'Matières corrosives',
+      '9': 'Marchandises dangereuses diverses',
+      '9A': 'Piles au lithium',
+    } as Record<string, string>,
+    packingGroups: { I: 'danger élevé', II: 'danger moyen', III: 'danger faible' } as Record<string, string>,
     unClass: 'Classe',
     unKemler: 'Numéro de danger',
     unLabels: 'Étiquettes de danger',
     unPacking: 'Groupe d’emballage',
     unNoMatch: 'N° ONU introuvable dans la table ADR',
     unWater: 'Réagit dangereusement avec l’eau – NE PAS utiliser d’eau !',
-    unLookupLabel: 'Fiche de données de sécurité (GESTIS)',
+    unLookupLabel: 'Fiche ERI (Cefic)',
+    unLookupUrl: 'https://www.ericards.net/psp/ericards.psp_search_result?p_lang=2&lang=2&unnumber={un}',
     kemler: {
       '2': 'Gaz (fuite sous pression ou par réaction)',
       '3': 'Liquide / gaz inflammable',
@@ -1633,6 +1663,13 @@ export const fr: Localizable<Copy> = {
     ergTable3: 'voir ERG tableau 3 (récipient/vent)',
     ergDayShort: 'Jour',
     ergNightShort: 'Nuit',
+    dockedTo: 'Amarré à «{name}»',
+    dockedRelease: 'Détacher',
+    ergAdopt: 'Reprendre',
+    ergRingsLabel: 'Rayon sur la carte',
+    ergRingsOff: 'Non',
+    ergRingsSmall: 'Petit',
+    ergRingsLarge: 'Grand',
     ergSource: 'Source : {v} (PHMSA) – aide à la planification, non validée',
     ergCameoLabel: 'CAMEO Chemicals (détails ERG)',
   },
@@ -1741,6 +1778,8 @@ export const fr: Localizable<Copy> = {
     customDefault: 'Saisir …',
     empty: 'Aucun choix',
     searchPlaceholder: 'Rechercher une personne …',
+    searchOrType: 'Rechercher ou saisir …',
+    useTyped: 'Utiliser «{name}»',
     noMatches: 'Aucun résultat',
 
     officersOnly: 'officiers seulement',
@@ -3351,7 +3390,7 @@ export const fr: Localizable<Copy> = {
       guideTitle: 'Explication des champs et propriétés',
       fieldGlossary: {
         Titel: 'Désignation visible du véhicule.', Status: 'État selon le contexte, p. ex. sauvé ou vanne ouverte/fermée.',
-        Stoff: 'Nom de la matière dangereuse.', 'UN-Nr': 'Numéro ONU à quatre chiffres.', Einheit: 'Organisation ou unité engagée.',
+        Stoff: 'Nom de la matière dangereuse.', 'UN-Nr.': 'Numéro ONU à quatre chiffres.', Einheit: 'Organisation ou unité engagée.',
         Name: 'Personne issue de l’effectif.', Funktion: 'Fonction de commandement.', Fahrer: 'Conducteur issu de l’effectif.', Typ: 'Type d’appareil ou d’exécution.',
       },
       propsLabel: 'Propriétés',

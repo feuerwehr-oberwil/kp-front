@@ -50,7 +50,9 @@ export function placardSvg(un: string, kemler?: string | null): string {
  */
 export function placardSvgForSymbol(symbol?: string, fields?: Record<string, string>): string | null {
   if (symbol !== appConfig.symbols.placardName) return null
-  const un = fields?.[appConfig.copy.contextPanel.unField]?.trim()
+  const unKey = appConfig.copy.contextPanel.unField
+  // symbols saved before the key gained its abbreviation dot store 'UN-Nr' — read both
+  const un = (fields?.[unKey] ?? fields?.[unKey.replace(/\.$/, '')])?.trim()
   if (!un) return null
   return placardSvg(un, lookupUN(un)?.hazardNumber ?? null)
 }

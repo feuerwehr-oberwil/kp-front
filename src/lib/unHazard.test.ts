@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allEntries, lookupUN, normalizeUN, decodeKemler } from './unHazard'
+import { allEntries, lookupUN, normalizeUN, decodeKemler, lookupUNByName, allStoffNames } from './unHazard'
 
 describe('decodeKemler', () => {
   it('flags the water-reactive "X" prefix', () => {
@@ -102,5 +102,29 @@ describe('dataset integrity', () => {
   it('has no duplicate UN numbers', () => {
     const uns = data.map((e) => e.un)
     expect(new Set(uns).size).toBe(uns.length)
+  })
+})
+
+/* The reverse lookup (Feldtest Manuel, 07.09.): the Stoff field resolves by NAME. Exact and
+ * case/whitespace-insensitive only — a fuzzy hit here would put a wrong UN, and with it wrong
+ * ERG distances, on the map. */
+describe('lookupUNByName / allStoffNames', () => {
+  it('resolves an official German name, case-insensitively', () => {
+    expect(lookupUNByName('METHYLAMYLACETAT')?.un).toBe('1233')
+    expect(lookupUNByName('  methylamylacetat ')?.un).toBe('1233')
+  })
+
+  it('refuses what it does not know exactly', () => {
+    expect(lookupUNByName('Methylamyl')).toBeNull()
+    expect(lookupUNByName('')).toBeNull()
+  })
+
+  it('offers every distinct name, sorted, as the search corpus', () => {
+    const names = allStoffNames()
+    expect(names.length).toBeGreaterThan(2000)
+    expect(names).toContain('METHYLAMYLACETAT')
+    // sorted de-CH and deduplicated
+    expect([...names].sort((a, b) => a.localeCompare(b, 'de-CH'))).toEqual([...names])
+    expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(names.length)
   })
 })

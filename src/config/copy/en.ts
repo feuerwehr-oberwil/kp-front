@@ -13,7 +13,8 @@
 //     and are matched against German alarm keyword text; translating desyncs category derivation.
 //   • contextPanel.unField / contextPanel.stoffField — detail-row DATA keys the UN→substance
 //     lookup matches against the (language-independent) preset fields.
-//   • contextPanel.unLookupUrl — an address, not a sentence.
+//   • contextPanel.unLookupUrl — an address, not a sentence (each overlay sets its own
+//     ericards.net URL: p_lang/lang pick the site language).
 //   • primarySymbol.id / primarySymbol.icon — a tool id and a sprite name; a translated
 //     «plus-bold» renders no icon at all.
 //   • journal.reminderChips — minute values.
@@ -740,6 +741,8 @@ export const en: Localizable<Copy> = {
     teamPlaced: '{name} placed on the map',
     shapeDrawn: '{name} drawn',
     objectMoved: '{name} moved',
+    placardDocked: '{name} docked to «{host}»',
+    placardUndocked: '{name} released from «{host}»',
     twinTransferredToMap: '{name} transferred to the map',
     twinTransferredToPlan: '{name} transferred to the plan',
     objectDeleted: '{name} deleted',
@@ -1589,15 +1592,42 @@ export const en: Localizable<Copy> = {
     duplicateField: '«{key}» already exists – only the last value is kept.',
     // unField/stoffField are intentionally NOT translated — they are the detail-row DATA keys
     // the UN→substance lookup matches against the (language-independent) preset fields
-    // ['UN-Nr','Stoff']; translating them would break the autofill. They fall back to German.
+    // ['UN-Nr.','Stoff']; translating them would break the autofill. They fall back to German.
+    stoffSearch: 'Search or enter substance …',
     unHazardTitle: 'Dangerous goods (ADR)',
+    adrMeanings: {
+      '1': 'Explosives',
+      '1.4': 'Explosives (minor hazard)',
+      '1.5': 'Explosives (very insensitive)',
+      '1.6': 'Explosives (extremely insensitive)',
+      '2': 'Gases',
+      '2.1': 'Flammable gas',
+      '2.2': 'Non-flammable, non-toxic gas',
+      '2.3': 'Toxic gas',
+      '3': 'Flammable liquids',
+      '4.1': 'Flammable solids',
+      '4.2': 'Spontaneously combustible',
+      '4.3': 'Emits flammable gas with water',
+      '5.1': 'Oxidizing substances',
+      '5.2': 'Organic peroxides',
+      '6.1': 'Toxic substances',
+      '6.2': 'Infectious substances',
+      '7': 'Radioactive material',
+      '7E': 'Radioactive material (fissile)',
+      '7X': 'Radioactive material',
+      '8': 'Corrosive substances',
+      '9': 'Miscellaneous dangerous goods',
+      '9A': 'Lithium batteries',
+    } as Record<string, string>,
+    packingGroups: { I: 'high danger', II: 'medium danger', III: 'low danger' } as Record<string, string>,
     unClass: 'Class',
     unKemler: 'Hazard number',
     unLabels: 'Hazard labels',
     unPacking: 'Packing group',
     unNoMatch: 'UN no. not found in the ADR table',
     unWater: 'Reacts dangerously with water – do NOT use water!',
-    unLookupLabel: 'Safety data sheet (GESTIS)',
+    unLookupLabel: 'ERI card (Cefic)',
+    unLookupUrl: 'https://www.ericards.net/psp/ericards.psp_search_result?p_lang=1&lang=1&unnumber={un}',
     kemler: {
       '2': 'Gas (escaping under pressure or by reaction)',
       '3': 'Flammable liquid / gas',
@@ -1639,6 +1669,13 @@ export const en: Localizable<Copy> = {
     ergTable3: 'see ERG table 3 (container/wind)',
     ergDayShort: 'Day',
     ergNightShort: 'Night',
+    dockedTo: 'Docked to «{name}»',
+    dockedRelease: 'Release',
+    ergAdopt: 'Apply',
+    ergRingsLabel: 'Radius on the map',
+    ergRingsOff: 'Off',
+    ergRingsSmall: 'Small',
+    ergRingsLarge: 'Large',
     ergSource: 'Source: {v} (PHMSA) — a planning aid, not validated',
     ergCameoLabel: 'CAMEO Chemicals (ERG details)',
   },
@@ -1747,6 +1784,8 @@ export const en: Localizable<Copy> = {
     customDefault: 'Enter …',
     empty: 'No choices',
     searchPlaceholder: 'Search person …',
+    searchOrType: 'Search or enter …',
+    useTyped: 'Use «{name}»',
     noMatches: 'No match',
 
     officersOnly: 'officers only',
@@ -3547,7 +3586,7 @@ export const en: Localizable<Copy> = {
       guideTitle: 'Fields and properties explained',
       fieldGlossary: {
         Titel: 'Visible vehicle label, e.g. Engine 1.', Status: 'Context-specific state, e.g. rescued or valve open/closed.',
-        Stoff: 'Hazardous substance name.', 'UN-Nr': 'Four-digit UN dangerous-goods number.', Einheit: 'Organisation or deployed unit.',
+        Stoff: 'Hazardous substance name.', 'UN-Nr.': 'Four-digit UN dangerous-goods number.', Einheit: 'Organisation or deployed unit.',
         Name: 'Person from the roster.', Funktion: 'Command assignment, e.g. sector or safety.', Fahrer: 'Driver from the roster.', Typ: 'Equipment or configuration type.',
       },
       propsLabel: 'Properties',

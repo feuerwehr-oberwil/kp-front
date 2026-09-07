@@ -49,7 +49,7 @@ describe('English (full overlay)', () => {
 
   it('keeps the UN/Stoff DATA keys German (they match preset field names)', () => {
     applyLocale('en')
-    expect(getCopy().contextPanel.unField).toBe('UN-Nr')
+    expect(getCopy().contextPanel.unField).toBe('UN-Nr.')
     expect(getCopy().contextPanel.stoffField).toBe('Stoff')
   })
 })
@@ -69,7 +69,7 @@ describe('French / Italian (full translations)', () => {
     // mirror the backend German keyword map — fr/it omit them, so German shows through.
     for (const loc of ['fr', 'it']) {
       applyLocale(loc)
-      expect(getCopy().contextPanel.unField).toBe('UN-Nr')
+      expect(getCopy().contextPanel.unField).toBe('UN-Nr.')
       expect(getCopy().contextPanel.stoffField).toBe('Stoff')
       expect(getCopy().intake.kategorien).toContain('Brandbekämpfung')
     }

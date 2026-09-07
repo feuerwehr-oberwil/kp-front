@@ -10,7 +10,7 @@ interface SymbolPreset {
   /** which detail field is the symbol's identity at a glance — printed under the glyph in
    *  the 'auto' caption mode (lib/symbols · symbolCaptionText). Defaults to the first `fields`
    *  entry when omitted; set it where the first field isn't the readable one (e.g. a
-   *  Gefahrentafel leads with 'UN-Nr' but 'Stoff' is what a passing operator wants to read). */
+   *  Gefahrentafel leads with 'UN-Nr.' but 'Stoff' is what a passing operator wants to read). */
   caption?: string
   /** shipped suggestion lists for detail fields, keyed by field name. A hint, never a cage:
    *  the field stays free text, and a deployment's own `fleet.attributeLists` entry for the
@@ -176,6 +176,37 @@ const base = {
     // as a real plate with the Gefahrnummer (Kemler) over the UN number baked in (see
     // lib/placard · placardSvgForSymbol), the same way the vehicle bakes its name.
     placardName: 'FW Gefahr Tafel',
+    /** The station-common substances offered one pick away on the Gas/Chemie hazard symbols
+     *  (Feldtest Manuel, 07.09.). Labels are the words a firefighter says — «Salzsäure», not
+     *  the official «CHLORWASSERSTOFFSÄURE» — and the UN behind each label is what feeds the
+     *  ADR/ERG readout and the Schutzabstand rings; anything not on a list is found by name
+     *  through the Stoff search (full ADR table) or typed free. German like every other
+     *  structural preset value (see the Rettungen Status list). */
+    unCommons: {
+      'FW Gefahr G': [
+        { label: 'Propan', un: '1978' },
+        { label: 'Butan', un: '1011' },
+        { label: 'Erdgas / Methan', un: '1971' },
+        { label: 'Flüssiggas (LPG)', un: '1965' },
+        { label: 'Acetylen', un: '1001' },
+        { label: 'Ammoniak', un: '1005' },
+        { label: 'Chlor', un: '1017' },
+        { label: 'Wasserstoff', un: '1049' },
+        { label: 'Sauerstoff', un: '1072' },
+        { label: 'Kohlendioxid', un: '1013' },
+      ],
+      'FW Gefahr C': [
+        { label: 'Salzsäure', un: '1789' },
+        { label: 'Schwefelsäure', un: '1830' },
+        { label: 'Natronlauge', un: '1824' },
+        { label: 'Ammoniaklösung', un: '2672' },
+        { label: 'Javelwasser (Hypochlorit)', un: '1791' },
+        { label: 'Wasserstoffperoxid', un: '2014' },
+        { label: 'Benzin', un: '1203' },
+        { label: 'Diesel / Heizöl', un: '1202' },
+        { label: 'Aceton', un: '1090' },
+      ],
+    } as Record<string, { label: string; un: string }[]>,
     // the Rettungs-Symbol. Its count stepper reads «Anzahl Personen» and its second field is
     // «Anzahl Tiere», so it carries both figures the Rapport asks for under «Gerettete» — which
     // is what lib/gerettete offers back into the form instead of making somebody re-count the
@@ -325,11 +356,18 @@ const base = {
         // dangerous here» — WHAT it is («Einsturz», «Dachlawine») is the map's actual message.
         'FW Gefahr allgemein': { controls: ['floor'], fields: ['Gefahr'] },
         // Gas leaks/rises through more than one storey as often as a fire does (03.09.: von/bis).
-        'FW Gefahr G': { controls: ['floorRange'], fields: ['Stoff'] },
-        'FW Gefahr C': { controls: ['floor'], fields: ['Stoff'] },
-        // Gefahrentafel = orange UN placard; UN-Nr first (future lookup UN→Stoff fills the rest),
+        // Both hazard symbols carry the UN pair since 07.09. (Feldtest Manuel): the Stoff row
+        // offers the station-common substances one pick away (symbols.unCommons below) plus a
+        // full-ADR name search, and a resolved UN lights the same ADR/ERG readout and
+        // Schutzabstand rings the Gefahrentafel has. Stoff first — the substance is what the
+        // operator knows and what the caption reads.
+        'FW Gefahr G': { controls: ['floorRange'], fields: ['Stoff', 'UN-Nr.'], caption: 'Stoff' },
+        'FW Gefahr C': { controls: ['floor'], fields: ['Stoff', 'UN-Nr.'], caption: 'Stoff' },
+        // Gefahrentafel = orange UN placard; UN-Nr. first (future lookup UN→Stoff fills the rest),
         // but the substance is what an operator reads off the map → caption on 'Stoff'.
-        'FW Gefahr Tafel': { controls: ['floor'], fields: ['UN-Nr', 'Stoff'], caption: 'Stoff' },
+        // ⚠️ symbols saved before the key gained its dot store 'UN-Nr' — readers match
+        // dot-tolerantly (ContextPanel, placard) so those keep working.
+        'FW Gefahr Tafel': { controls: ['floor'], fields: ['UN-Nr.', 'Stoff'], caption: 'Stoff' },
         'FW Gefahr Radioaktiv': { controls: ['floor'] },
         'FW Elektroanlage': { controls: ['floor'] },
         'FW Gefahr W': { controls: ['floor'] },
@@ -454,6 +492,13 @@ const base = {
      *  shows each symbol's one discriminating value so an operator reads it without opening
      *  the dashboard — the 3am "recognition over recall" rule. */
     captionDefault: 'auto',
+  },
+  /** ERG Schutzabstand rings around a Gefahrentafel (lib/ergRings): the isolation circle in the
+   *  Absperrkreis red, the protective distance as a dashed amber planning line. */
+  ergRings: {
+    isolationColor: '#e8392b',
+    protectColor: '#e2920a',
+    isolationFillOpacity: 0.12,
   },
   drawing: {
     colors: ['#1f6feb', '#e8392b', '#1f9d57', '#e2920a', '#1b2330', '#ffffff'],

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SYMBOL_SCALE, clampSymbolScale, legacySymbolMul, planSymbolScale, symbolScales, type Prefs } from './prefs'
+import { SYMBOL_SCALE, clampSymbolScale, initialMode, legacySymbolMul, planSymbolScale, symbolScales, type Prefs } from './prefs'
 
 // The Symbolgrösse rework: one global S/M/L pref became one multiplier PER SURFACE (Karte /
 // Module). Two things have to hold — the bands the sliders offer, and that nobody's stored
@@ -89,5 +89,26 @@ describe('planSymbolScale', () => {
 
   it('automatically follows the Karte setting once the plan is georeferenced', () => {
     expect(planSymbolScale(scales, true)).toBe(1.25)
+  })
+})
+
+/* A new emergency opens on the Karte (Feldtest Manuel, 07.09.): the remembered surface only
+ * applies to the Einsatz it was chosen in — yesterday's Atemschutz tab must not be the first
+ * thing a fresh alarm shows. */
+describe('initialMode', () => {
+  it('restores the remembered surface only for the SAME Einsatz', () => {
+    const prefs = { mode: 'atemschutz' as const, modeIncidentId: 'inc-1' }
+    expect(initialMode(prefs, 'inc-1', false)).toBe('atemschutz')
+    expect(initialMode(prefs, 'inc-2', false)).toBe('map')
+  })
+
+  it('defaults to the Karte with no remembered surface, and legacy prefs without an id', () => {
+    expect(initialMode({}, 'inc-1', false)).toBe('map')
+    // a pref saved before modeIncidentId existed names no Einsatz → treated as foreign
+    expect(initialMode({ mode: 'mittel' }, 'inc-1', false)).toBe('map')
+  })
+
+  it('an Atemschutz-Link session always lands on its one surface', () => {
+    expect(initialMode({ mode: 'map', modeIncidentId: 'inc-1' }, 'inc-1', true)).toBe('atemschutz')
   })
 })

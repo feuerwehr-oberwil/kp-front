@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
+import { placardSvgForSymbol } from './placard'
 import { sanitizeSvg, sanitizeSvgResult } from './sanitizeSvg'
 // The committed source of the bundled pack (Vite copies public/ verbatim into dist/ at build);
 // import it from public/ so type-check and CI don't depend on a build artifact being present.
@@ -256,6 +257,16 @@ describe('sanitizeSvg · legitimate glyphs render identically', () => {
     expect(res.modified).toBe(false)
     expect(tagNames(res.svg)).toEqual(expect.arrayContaining(['lineargradient', 'stop', 'circle']))
     expect(res.svg).toContain('url(#g)')
+  })
+
+  // the ADR placard condenses a 4-digit UN number to the plate width via textLength —
+  // stripping it let the digits bleed over the plate border (found 07.09.2026)
+  it('keeps the placard textLength/lengthAdjust condensing attributes', () => {
+    const res = sanitizeSvgResult(placardSvgForSymbol('FW Gefahr Tafel', { 'UN-Nr.': '1233' })!)
+    expect(res.modified).toBe(false)
+    expect(res.svg).toContain('textLength')
+    expect(res.svg).toContain('lengthAdjust')
+    expect(res.svg).toContain('>1233<')
   })
 
   it('reports modified only when something was actually stripped', () => {

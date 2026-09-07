@@ -127,6 +127,15 @@ export interface SymbolProps {
   extract?: boolean
   /** symbol/shape accent colour */
   color?: string
+  /** ERG Schutzabstand rings around a Gefahrentafel (lib/ergRings). Absent = 'small': the
+   *  small-spill isolation + protective circles appear automatically once a UN number resolves
+   *  to TIH distances; 'large' switches to the large-spill column, 'off' silences this placard.
+   *  Map-only presentation — the Plan has no metric scale, so the field just rides along there. */
+  ergRings?: 'off' | 'small' | 'large'
+  /** Gefahrentafel angedockt (lib/docking): the id of the entity this placard belongs to.
+   *  Set/cleared by the drop gesture on the Karte; the host drags its placard along and a
+   *  deleted host releases the bond. Only placards carry it, only on the map. */
+  dockedTo?: string
   /** on-canvas caption mode for this one symbol — overrides the global device default
    *  (`appConfig.symbols.captionDefault`). Absent = follow the global default. 'off' hides
    *  it, 'auto' shows the one discriminating value (e.g. a Kleinlöscher's Typ), 'all' shows

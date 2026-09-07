@@ -71,36 +71,55 @@ describe('Combo — officer filter', () => {
 // A name typed into a roster field is recorded as a Gast on the Anwesenheit the moment it is
 // committed. Every keystroke used to be a commit, so «Muster Felix» would have put thirteen
 // people on the list — one per prefix. `onInput` is what separates typing from finishing.
-describe('Combo — the free-type escape', () => {
-  function typeGuest(onCommit: (v: string) => void) {
+/* The free-type escape is the Gast door since 07.09. (Feldtest Manuel): no mode switch into a
+ * bare input any more — the custom value is typed into the menu's search row (offered even on a
+ * three-option list) and committed ONCE via the query-carrying «‹X› verwenden» row. The two
+ * guarantees the old bare-input tests pinned still hold: keystrokes commit nothing, and the
+ * commit carries the whole name exactly once. */
+describe('Combo — the free-type escape (Gast door)', () => {
+  const useRow = (name: string) => appConfig.copy.combo.useTyped.replace('{name}', name)
+
+  function openAndSearch(onCommit: (v: string) => void) {
     function Harness() {
       const [v, setV] = useState('')
       return (
         <Combo value={v} options={NAMES} placeholder="Name wählen …" allowCustom
-          onInput={setV} onChange={(x) => { setV(x); onCommit(x) }} />
+          onChange={(x) => { setV(x); onCommit(x) }} />
       )
     }
     render(<Harness />)
     fireEvent.click(screen.getByRole('button', { name: /Name wählen/ }))
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.combo.customDefault }))
-    return screen.getByPlaceholderText('Name wählen …')
+    // the search row exists although the list has only three options — it is the type field
+    return screen.getByPlaceholderText(appConfig.copy.combo.searchOrType)
   }
 
-  it('streams keystrokes without committing any of them', () => {
+  it('typing in the search row commits nothing by itself', () => {
     const onCommit = vi.fn()
-    const input = typeGuest(onCommit)
+    const input = openAndSearch(onCommit)
     fireEvent.change(input, { target: { value: 'Mu' } })
     fireEvent.change(input, { target: { value: 'Muster Felix' } })
     expect(onCommit).not.toHaveBeenCalled()
-    expect((input as HTMLInputElement).value).toBe('Muster Felix')
   })
 
-  it('commits the whole name once, when the field is left', () => {
+  it('the «‹X› verwenden» row exists only while something is typed, and commits it once', () => {
     const onCommit = vi.fn()
-    const input = typeGuest(onCommit)
+    const input = openAndSearch(onCommit)
+    expect(screen.queryByRole('button', { name: useRow('') })).toBeNull()
     fireEvent.change(input, { target: { value: 'Muster Felix' } })
-    fireEvent.blur(input)
+    fireEvent.click(screen.getByRole('button', { name: useRow('Muster Felix') }))
     expect(onCommit).toHaveBeenCalledTimes(1)
+    expect(onCommit).toHaveBeenCalledWith('Muster Felix')
+  })
+
+  it('Enter commits the query only when nothing matches', () => {
+    const onCommit = vi.fn()
+    const input = openAndSearch(onCommit)
+    // «Meier» matches Anna Meier — Enter must not silently commit the fragment as a value
+    fireEvent.change(input, { target: { value: 'Meier' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onCommit).not.toHaveBeenCalled()
+    fireEvent.change(input, { target: { value: 'Muster Felix' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
     expect(onCommit).toHaveBeenCalledWith('Muster Felix')
   })
 })

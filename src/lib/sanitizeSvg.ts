@@ -63,9 +63,11 @@ const ALLOWED_ATTRS = new Set([
   'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-linecap',
   'stroke-linejoin', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-miterlimit',
   'stroke-opacity', 'opacity', 'color', 'visibility', 'display',
-  // text
+  // text — textlength/lengthadjust condense the placard's 4-digit UN number to the plate
+  // width (lib/placard · numText); stripping them let the digits bleed over the border
   'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant',
   'text-anchor', 'dominant-baseline', 'alignment-baseline', 'letter-spacing', 'word-spacing',
+  'textlength', 'lengthadjust',
   // gradient / pattern
   'offset', 'stop-color', 'stop-opacity', 'gradientunits', 'gradienttransform', 'spreadmethod',
   'patternunits', 'patterncontentunits', 'patterntransform',
