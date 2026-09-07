@@ -613,6 +613,21 @@ export function demoSeedRebase(ws: Saved, incidentId: string, rev: number, now: 
   return stamp == null ? ws : rebaseDemoClocks(ws, demoClockAnchor(incidentId, stamp, now))
 }
 
+/** Built-in app layers (base maps + operational Lage layers) + the station's reference layers
+ *  from the deployment config. Append config layers only when their id is new, so the same
+ *  layer can never appear twice during a transition where a def lives in both places. */
+function builtinAndConfigLayers(): LayerDef[] {
+  const seen = new Set(initialLayers.map((l) => l.id))
+  return [...initialLayers, ...referenceLayersFromConfig().filter((l) => !seen.has(l.id))]
+    .map(keyCartoTileTemplates)
+}
+
+/** The layer list an Einsatz of this category opens with when no device/blob state exists —
+ *  what the Ebenen panel's «Zurücksetzen» returns to (same derivation deriveInitial seeds). */
+export function defaultLayers(incidentType?: string | null): LayerDef[] {
+  return autoActivateLayers(builtinAndConfigLayers(), incidentType)
+}
+
 /**
  * Derive App's initial state slices from an incident's workspace blob (or empty for a
  * brand-new incident — no demo seed; a fresh incident starts blank). `prefs` carries the
@@ -631,12 +646,7 @@ export function deriveInitial(
 ): InitialState {
   const entities = ws?.entities ?? []
   const drawings = ws?.drawings ?? []
-  // Built-in app layers (base maps + operational Lage layers) + the station's reference layers
-  // from the deployment config. Append config layers only when their id is new, so the same
-  // layer can never appear twice during a transition where a def lives in both places.
-  const seen = new Set(initialLayers.map((l) => l.id))
-  const allLayers = [...initialLayers, ...referenceLayersFromConfig().filter((l) => !seen.has(l.id))]
-    .map(keyCartoTileTemplates)
+  const allLayers = builtinAndConfigLayers()
   /* Which Ebenen to open with is a DEVICE question (lib/layerPrefs): what this tablet was last
    * looking at, not what somebody else's phone was. The blob's `layerState` is only the seed, for
    * a device that has never said — an incident recorded before 05.09., or a second device joining

@@ -218,6 +218,19 @@ html.rail-dragging .layers-card { transition: none; }
   .lc-x:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
 }
 .lc-x .i { width: 16px; height: 16px; }
+/* Ebenen quick-taps under the title — all on / all off / Standard. Same chrome family as the
+   .lc-x pill; colour via the on-ink token, never frozen white (the card is --ink-fill in both
+   themes). Labels are 12.5/700 compact per the button spec, height stays the --tap floor. */
+.lc-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px 4px 2px; }
+.lc-quick button { height: var(--tap); border: none; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); color: var(--on-accent-ink);
+  font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  gap: 5px; padding: 0 4px; cursor: pointer; transition: background .14s var(--ease); }
+.lc-quick button:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) {
+  .lc-quick button:hover { background: color-mix(in srgb, var(--on-accent-ink) 24%, transparent); }
+}
+.lc-quick .i { width: 15px; height: 15px; flex: none; }
 .lgroup { font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, .7); padding: 13px 8px 5px; }
 /* Basiskarte tiles — one row for a one-of-three choice. auto-fit so a deployment with a
    different number of bases still lays out; 70px is the floor a glyph + short name needs. */

@@ -210,6 +210,8 @@ both now have browser pages – §9e and §9f.
 
   "doctrine": {                                  // FKS defaults shown; override per corps
     "defaultFunkkanal": 11,                       // null = no preset (national default)
+    "defaultFunkkanalEinfach": null,              // default channel for Trupps OHNE Atemschutz;
+                                                  // null = same as defaultFunkkanal
     "funkkanalMin": 1, "funkkanalMax": 9999,
     "alarmBar": 100,                              // Alarmdruck (bar) for a Trupp AT WORK. One line
                                                   // on the way in – the older 60-bar

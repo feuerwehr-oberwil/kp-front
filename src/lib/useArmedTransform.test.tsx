@@ -89,6 +89,22 @@ describe('the armed mode’s lifecycle', () => {
     rerender(<Harness enabled={false} />)   // read-only, no selection, or a tool armed
     expect(state()).toBe('off:—')
   })
+
+  // Regression (Feldtest 07.09.): the disarm only MASKED the record, so re-selecting the very
+  // same object rebuilt the byte-identical key and ✥ came back armed by itself — every drag
+  // moved the Fläche and the click guard ate every tap («never pan the map again»).
+  it('stays off when the identical selection returns — a mode is only entered by a tap', () => {
+    const { rerender } = render(<Harness />)
+    armWith('✥')
+    rerender(<Harness resetKey="sel-2" />)   // sheet closed / deselected
+    rerender(<Harness resetKey="sel-1" />)   // the same Fläche tapped again
+    expect(state()).toBe('off:—')
+
+    armWith('✥')
+    rerender(<Harness enabled={false} />)    // bar gone (tool change, lock)
+    rerender(<Harness />)                    // …and back, same selection
+    expect(state()).toBe('off:—')
+  })
 })
 
 describe('a drag on the surface while ✥ is armed', () => {

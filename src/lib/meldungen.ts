@@ -39,12 +39,15 @@ export const MELDUNG_RANK = {
   symbols: 7,
   /** offline with no cached basemap for this view — the map is a flat colour */
   basemap: 8,
+  /** the device has been offline past the grace window — edits are piling up locally
+   *  (syncAlert · createOfflinePresence); stands until the link is back */
+  offline: 9,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
-  session: 9,
+  session: 10,
   /** a new build is waiting for the next app start */
-  update: 10,
+  update: 11,
   /** «KP Front als App installieren» */
-  install: 11,
+  install: 12,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK

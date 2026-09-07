@@ -524,3 +524,43 @@ describe('ContextPanel — a placed Notiz opens the sheet full', () => {
     expect(ctx.classList.contains('sheet-full')).toBe(false)
   })
 })
+
+describe('ContextPanel — Notizen survive every way the sheet can close', () => {
+  const notesBox = () =>
+    screen.getByPlaceholderText(appConfig.copy.contextPanel.notesPlaceholder) as HTMLTextAreaElement
+
+  // Regression (Feldtest 07.09.): the field committed only on BLUR, and a swipe-dismiss /
+  // slot swap unmounts the focused textarea without one — the typed Notiz died with the sheet.
+  it('commits a draft on unmount, when no blur ever fired', () => {
+    const onNotes = vi.fn()
+    const { unmount } = render(
+      <ContextPanel entity={{ id: 's1', symbol: 'VKF Feuer', label: 'Brand' }} onClose={vi.fn()}
+        onTitle={vi.fn()} onFields={vi.fn()} onDelete={vi.fn()} onNotes={onNotes} />,
+    )
+    fireEvent.change(notesBox(), { target: { value: 'EG stark verraucht' } })
+    unmount()
+    expect(onNotes).toHaveBeenCalledExactlyOnceWith('EG stark verraucht')
+  })
+
+  it('does not commit twice when blur already wrote the value (the ordinary close)', () => {
+    const onNotes = vi.fn()
+    const { unmount } = render(
+      <ContextPanel entity={{ id: 's1', symbol: 'VKF Feuer', label: 'Brand' }} onClose={vi.fn()}
+        onTitle={vi.fn()} onFields={vi.fn()} onDelete={vi.fn()} onNotes={onNotes} />,
+    )
+    fireEvent.change(notesBox(), { target: { value: 'EG stark verraucht' } })
+    fireEvent.blur(notesBox())
+    unmount()
+    expect(onNotes).toHaveBeenCalledExactlyOnceWith('EG stark verraucht')
+  })
+
+  it('writes nothing on unmount when nothing was typed', () => {
+    const onNotes = vi.fn()
+    const { unmount } = render(
+      <ContextPanel entity={{ id: 's1', symbol: 'VKF Feuer', label: 'Brand', notes: 'alt' }} onClose={vi.fn()}
+        onTitle={vi.fn()} onFields={vi.fn()} onDelete={vi.fn()} onNotes={onNotes} />,
+    )
+    unmount()
+    expect(onNotes).not.toHaveBeenCalled()
+  })
+})

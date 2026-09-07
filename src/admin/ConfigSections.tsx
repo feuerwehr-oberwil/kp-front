@@ -836,8 +836,18 @@ export function DoctrineSection() {
   return (
     <Card>
       <h3 className="adm-fieldgroup">{C.groupFunk}</h3>
-      <div className="adm-row-3">
+      <div className="adm-row-2">
         {numField(C.defaultFunkkanal, C.defaultFunkkanalTip, 'defaultFunkkanal')}
+        {/* not in appConfig.atemschutz (its shipped fallback is «same as defaultFunkkanal»),
+            so it bypasses the numField helper: the placeholder shows the channel an empty box
+            actually yields — the station's AS default, else the shipped one. */}
+        {numberField({
+          path: ['doctrine', 'defaultFunkkanalEinfach'], label: C.defaultFunkkanalEinfach,
+          tip: C.defaultFunkkanalEinfachTip, guard: { kind: 'int', nullable: true },
+          fallback: getPath<number>(draft, ['doctrine', 'defaultFunkkanal']) ?? appConfig.atemschutz.defaultFunkkanal,
+        })}
+      </div>
+      <div className="adm-row-2">
         {numField(C.funkkanalMin, C.funkkanalMinTip, 'funkkanalMin')}
         {numField(C.funkkanalMax, C.funkkanalMaxTip, 'funkkanalMax')}
       </div>

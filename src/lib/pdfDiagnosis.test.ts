@@ -44,6 +44,24 @@ describe('classifyPdfError', () => {
       .toEqual({ reason: 'unsupported', code: 'no-withResolvers' })
   })
 
+  // Regression (Feldtest 07.09.): a phone showed «typeerror · db9d2e3» for every PDF and the
+  // report was undiagnosable — a dead fetch and a missing engine API rendered identically.
+  it('reads a fetch that died without a status as offline, even while the browser claims reach', () => {
+    expect(classifyPdfError(new TypeError('Failed to fetch'), ctx()))
+      .toEqual({ reason: 'offline', code: 'doc-fetch' })            // Chrome
+    expect(classifyPdfError(new TypeError('Load failed'), ctx()))
+      .toEqual({ reason: 'offline', code: 'doc-fetch' })            // Safari
+    expect(classifyPdfError(new TypeError('NetworkError when attempting to fetch resource.'), ctx()))
+      .toEqual({ reason: 'offline', code: 'doc-fetch' })            // Firefox
+  })
+
+  it('carries the thrown message on an unknown failure, so the photo of the screen says more', () => {
+    expect(classifyPdfError(new TypeError('Promise.try is not a function'), ctx()))
+      .toEqual({ reason: 'unknown', code: 'typeerror', detail: 'Promise.try is not a function' })
+    // …and stays a plain pair when there is no message to carry
+    expect(classifyPdfError({ name: 'TypeError' }, ctx()).detail).toBeUndefined()
+  })
+
   it('tells a chunk that is gone from the server apart from one that is merely unreachable', () => {
     expect(classifyPdfError(new Error('Failed to fetch dynamically imported module'), ctx({ chunkLoaded: false })))
       .toEqual({ reason: 'stale', code: 'chunk-import' })

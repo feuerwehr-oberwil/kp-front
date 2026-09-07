@@ -446,6 +446,8 @@ export function PdfFailDetail({ fail, reasonClass, codeClass }: { fail: PdfFailu
     <>
       <span className={reasonClass}>{appConfig.copy.pdf.reason[fail.reason]}</span>
       <code className={codeClass}>{`${fail.code} · ${GIT_SHA}`}</code>
+      {/* an `unknown` carries the thrown message — the one clue a photo of this screen has */}
+      {fail.detail && <code className={codeClass}>{fail.detail}</code>}
     </>
   )
 }

@@ -167,6 +167,7 @@ EXAMPLE_CONFIG: dict[str, Any] = {
     },
     "doctrine": {
         "defaultFunkkanal": 1,
+        "defaultFunkkanalEinfach": 4,
         "contactIntervalMin": 5,
         "contactGraceSec": 60,
         "alarmBar": 100,

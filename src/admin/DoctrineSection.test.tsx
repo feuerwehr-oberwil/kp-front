@@ -57,7 +57,7 @@ const STATION = {
   },
 }
 
-/** The doctrine number boxes in DOM order: Funk (3), Druck (5), Kontakt (2), Luft (2). */
+/** The doctrine number boxes in DOM order: Funk (4), Druck (5), Kontakt (2), Luft (2). */
 const nums = () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'))
 const autoButtons = () => screen.getAllByText(AUTO)
 
@@ -70,7 +70,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function open() {
   await act(async () => { render(<ConfigProvider><DoctrineSection /></ConfigProvider>) })
-  await waitFor(() => expect(nums().length).toBe(12))
+  await waitFor(() => expect(nums().length).toBe(13))
 }
 
 describe('Auftrag-Farben — «Automatisch» is the default state, not a null value', () => {
@@ -129,7 +129,7 @@ describe('the doctrine numbers are integers on the backend, so a fraction never 
     expect(apiPut).not.toHaveBeenCalled()
     expect(screen.getByText(N.integer)).toBeTruthy()
 
-    await type(nums()[3], '280') // Eingangsdruck, on the same page and untouched by the refusal
+    await type(nums()[4], '280') // Eingangsdruck, on the same page and untouched by the refusal
     await settle()
     expect(sent()?.doctrine?.defaultPressureBar).toBe(280)
     expect(sent()?.doctrine?.defaultFunkkanal).toBe(11) // the stored value, not the typed one
@@ -155,7 +155,7 @@ describe('the doctrine numbers are integers on the backend, so a fraction never 
 // autosave for all five Station pages with it.
 describe('Alarmdruck im Rückzug — the lower line, bounded by the bare Alarmdruck', () => {
   /** the third box in the Druck group */
-  const rueckzug = () => nums()[5]
+  const rueckzug = () => nums()[6]
 
   it('stores a value at or below the Alarmdruck', async () => {
     await open()
@@ -185,8 +185,8 @@ describe('Alarmdruck im Rückzug — the lower line, bounded by the bare Alarmdr
 
 describe('Alarmdruck — zero belongs to the public demo only', () => {
   /** the middle box in the Druck group */
-  const alarm = () => nums()[4]
-  const rueckzug = () => nums()[5]
+  const alarm = () => nums()[5]
+  const rueckzug = () => nums()[6]
 
   it('holds 0 back on an ordinary station', async () => {
     await open()
@@ -274,7 +274,7 @@ describe('Alarmdruck — zero belongs to the public demo only', () => {
 
 describe('the air estimate — the two decimals with hard bounds', () => {
   /** cylinderLiters, estConsumptionLPerMin — the last two boxes on the page. */
-  const cylinder = () => nums()[10]
+  const cylinder = () => nums()[11]
 
   it('takes a 9-litre cylinder, which is the point of the field', async () => {
     await open()

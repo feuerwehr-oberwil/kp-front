@@ -26,9 +26,15 @@ interface Props {
   twinsAfterGroup?: string
   /** round ✕ in the title row — dock chrome parity with the views popover / tool docks */
   onClose?: () => void
+  /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once / return to the Einsatz
+   *  category's default set. Karte panel only — the Plan panel's rows are lent twins with their
+   *  own persistence, where «alle» has nothing coherent to mean. All three or none. */
+  onShowAll?: () => void
+  onHideAll?: () => void
+  onReset?: () => void
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -92,6 +98,17 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
         <Icon id="layers" />{appConfig.copy.panels.layers}
         {onClose && <button type="button" className="lc-x" aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>}
       </div>
+
+      {/* quick-taps under the title: the whole panel in one gesture — all on, all off, back to
+          the Einsatz default. Rows stay the fine control; these answer «too much on the map»
+          and «where did everything go» without ten taps. */}
+      {onShowAll && onHideAll && onReset && (
+        <div className="lc-quick">
+          <button type="button" onClick={onShowAll}><Icon id="eye" />{appConfig.copy.layerPanel.showAll}</button>
+          <button type="button" onClick={onHideAll}><Icon id="eyeoff" />{appConfig.copy.layerPanel.hideAll}</button>
+          <button type="button" onClick={onReset}><Icon id="undo" />{appConfig.copy.layerPanel.reset}</button>
+        </div>
+      )}
 
       {/* Basiskarte as the panel's first group — the base IS a layer; this replaced the separate
           BaseSwitcher popover so one pinned button covers all of it. A ONE-OF-N choice between

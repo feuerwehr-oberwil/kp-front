@@ -35,6 +35,9 @@ export const en: Localizable<Copy> = {
     stateVisible: 'visible, hide',
     stateHidden: 'hidden, show',
     opacity: 'Opacity',
+    showAll: 'Show all',
+    hideAll: 'Hide all',
+    reset: 'Default',
   },
   help: {
     menu: 'Features & help',
@@ -2140,6 +2143,8 @@ export const en: Localizable<Copy> = {
     storageShort: 'Storage full',
     syncErrorToast: 'Sync failed – changes are saved locally.',
     syncOfflineToast: 'Still offline – changes are saved locally.',
+    offlineMeldungTitle: 'Offline – changes are saved locally',
+    offlineMeldungSub: 'Everything syncs as soon as the connection is back.',
     clockSkewToast: 'This device\'s clock is off by {n} minutes – check recorded times.',
     bootOffline: 'Offline – showing saved data.',
     bootListFailed: 'Incident list could not be loaded',
@@ -3420,6 +3425,8 @@ export const en: Localizable<Copy> = {
     doctrine: {
       defaultFunkkanal: 'Radio channel (default)',
       defaultFunkkanalTip: 'Preset radio channel of a new incident.',
+      defaultFunkkanalEinfach: 'Radio channel without BA',
+      defaultFunkkanalEinfachTip: 'Preset radio channel of a new team without breathing apparatus. Empty = same channel as under BA.',
       contactInterval: 'Contact interval (min)',
       contactIntervalTip: 'SCBA contact interval; once elapsed, contact is due (amber).',
       contactGrace: 'Grace (s)',

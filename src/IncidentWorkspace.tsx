@@ -12,7 +12,7 @@ import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
@@ -102,6 +102,7 @@ import { AudioPlayerSheet } from './components/AudioPlayerSheet'
 import { ReminderBanner } from './components/ReminderBanner'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { UpdateBanner } from './components/UpdateBanner'
+import { OfflineMeldung } from './components/OfflineMeldung'
 import { InstallBanner } from './components/InstallBanner'
 import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
@@ -2110,6 +2111,27 @@ export function IncidentWorkspace({
       if (target.base) return ls.map((l) => (l.base ? { ...l, visible: l.id === id } : l))
       return ls.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l))
     })
+  }
+  /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once, or return to the layer
+   *  set this Einsatz category opens with. Bases stay out of the bulk flip (a map with no base
+   *  is a flat colour, and the base row is a radio, not an eye); twins keep their own drawer.
+   *  Each real change emits the ordinary `layer.toggle`, so the replay reconstructs bulk taps
+   *  with the vocabulary it already speaks. */
+  const setAllLayers = (visible: boolean) => {
+    for (const l of layers) if (!l.base && l.visible !== visible) emit('layer.toggle', { id: l.id, base: false, visible })
+    setLayers((ls) => ls.map((l) => (l.base || l.visible === visible ? l : { ...l, visible })))
+  }
+  const resetLayers = () => {
+    const next = defaultLayers(incidentMeta.type)
+    for (const l of next) {
+      const cur = layers.find((x) => x.id === l.id)
+      if (!cur || cur.visible === l.visible) continue
+      // a base is a radio: only the one that BECOMES visible is announced, or the replay's
+      // radio semantics would re-select whichever base event happened to come last
+      if (l.base && !l.visible) continue
+      emit('layer.toggle', { id: l.id, base: !!l.base, visible: l.visible })
+    }
+    setLayers(next)
   }
   const setOpacity = (id: LayerId, v: number) => {
     if (isTwinLayerId(id)) {
@@ -4763,6 +4785,10 @@ export function IncidentWorkspace({
       {/* non-blocking "new build ready" prompt — waits for the operator instead of auto-reloading */}
       <UpdateBanner />
 
+      {/* standing «Offline» row once the sync has sat in 'offline' past the grace window —
+          the one-shot toast announces, this stays until the link is back (field ask 07.09.) */}
+      <OfflineMeldung status={syncStatus} onSyncNow={() => void syncNow()} />
+
       {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
           on this device (the menu keeps the permanent entry).
           Hidden on the demo: a visitor isn't installing the demo as their command app. */}
@@ -4896,6 +4922,9 @@ export function IncidentWorkspace({
           // mirrored plan symbol is one more tactical symbol on this map, not a reference
           // overlay to be found past Wasser and Gefahren.
           twinsAfterGroup={layers.find((l) => l.id === appConfig.defaults.operationalLayerId)?.group}
+          onShowAll={() => setAllLayers(true)}
+          onHideAll={() => setAllLayers(false)}
+          onReset={resetLayers}
           onClose={() => setPanel(null)}
         />
       )}

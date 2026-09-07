@@ -1076,6 +1076,8 @@ class FleetConfig(BaseModel):
 class DoctrineConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultFunkkanal: int | None = None
+    #: Default channel for a Trupp OHNE Atemschutz; unset = same as ``defaultFunkkanal``.
+    defaultFunkkanalEinfach: int | None = None
     funkkanalMin: int | None = None
     funkkanalMax: int | None = None
     # Zero is a deliberate public-demo escape hatch. DeploymentConfigIn rejects it for

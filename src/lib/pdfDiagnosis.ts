@@ -26,8 +26,11 @@ export type PdfFailReason =
   | 'unsupported' // this browser cannot run pdf.js at all
   | 'unknown'
 
-/** Reason + a short technical code (`worker-404`, `doc-401`, `no-withResolvers`, …). */
-export type PdfFailure = { reason: PdfFailReason; code: string }
+/** Reason + a short technical code (`worker-404`, `doc-401`, `no-withResolvers`, …). An
+ *  `unknown` additionally carries the thrown message, truncated — «typeerror» alone cannot
+ *  tell a dead fetch from a missing engine API, and the message is what a field photo of the
+ *  error needs to say (the 07.09. report was undiagnosable without it). */
+export type PdfFailure = { reason: PdfFailReason; code: string; detail?: string }
 
 /** Everything the classifier needs to know about the world, so it stays pure and testable. */
 export interface PdfFailContext {
@@ -47,6 +50,14 @@ export interface PdfFailContext {
 export function missingPdfCapability(): string | null {
   // probed, not called — the repo targets ES2021, so `Promise.withResolvers` is not in lib
   if (typeof (Promise as { withResolvers?: unknown }).withResolvers !== 'function') return 'no-withResolvers'
+  // pdf.js v6 additionally requires these two UNGUARDED (verified in the shipped bundle):
+  // the module patches `Iterator.prototype.join` at import time (ReferenceError below
+  // Chrome 122 — which would otherwise be misread as a stale build, because the chunk import
+  // itself dies), and MessageHandler calls `Promise.try` on every document open (a bare
+  // TypeError below Chrome 128 — Samsung Internet trails Chrome by months, so a current-
+  // looking phone can sit exactly in that window; suspected culprit of the 07.09. report).
+  if (typeof (globalThis as { Iterator?: unknown }).Iterator === 'undefined') return 'no-iterator'
+  if (typeof (Promise as { try?: unknown }).try !== 'function') return 'no-promiseTry'
   if (typeof Worker === 'undefined') return 'no-worker'
   if (typeof createImageBitmap !== 'function') return 'no-createImageBitmap'
   return null
@@ -65,7 +76,8 @@ export function classifyPdfError(err: unknown, ctx: PdfFailContext): PdfFailure 
 
   const e = asPdfError(err)
   const name = typeof e.name === 'string' ? e.name : ''
-  const message = typeof e.message === 'string' ? e.message : String(err ?? '')
+  // a thrown string is its own message; an object without one has none («[object Object]» helps nobody)
+  const message = typeof e.message === 'string' ? e.message : typeof err === 'string' ? err : ''
 
   if (message.includes('pdf load timeout')) return { reason: 'timeout', code: 'timeout' }
 
@@ -80,6 +92,14 @@ export function classifyPdfError(err: unknown, ctx: PdfFailContext): PdfFailure 
   if (name === 'InvalidPDFException') return { reason: 'missing', code: 'doc-invalid' }
   if (name === 'PasswordException') return { reason: 'denied', code: 'doc-password' }
 
+  // The fetch itself died with no HTTP status — a dead network path, a proxy/content blocker,
+  // or a service-worker route whose network fetch failed with nothing cached. The browser may
+  // well still CLAIM to be online (5G bars ≠ reach), so this must not wait for `!ctx.online`.
+  // Chrome says «Failed to fetch», Safari «Load failed», Firefox «NetworkError when …».
+  if (name === 'TypeError' && /fetch|network|load failed/i.test(message)) {
+    return { reason: 'offline', code: 'doc-fetch' }
+  }
+
   // The pdfjs chunk never even resolved: the JS the running build points at is no longer served.
   if (!ctx.chunkLoaded) return ctx.online ? { reason: 'stale', code: 'chunk-import' } : { reason: 'offline', code: 'chunk-import' }
 
@@ -87,7 +107,12 @@ export function classifyPdfError(err: unknown, ctx: PdfFailContext): PdfFailure 
   if (ctx.workerStatus === null) return { reason: 'offline', code: 'worker-unreachable' }
   if (ctx.workerStatus >= 400) return { reason: 'stale', code: `worker-${ctx.workerStatus}` }
 
-  return { reason: 'unknown', code: name ? name.replace(/Exception$/, '').toLowerCase().slice(0, 24) : 'error' }
+  return {
+    reason: 'unknown',
+    code: name ? name.replace(/Exception$/, '').toLowerCase().slice(0, 24) : 'error',
+    // the message rides along — without it «typeerror» is a dead end (see PdfFailure)
+    ...(message.trim() ? { detail: message.trim().slice(0, 120) } : {}),
+  }
 }
 
 /**

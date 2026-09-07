@@ -2181,6 +2181,17 @@ function TruppForm({
    * where saying no still leaves the operator in the form. (A re-deploy needs none: the Trupp is
    * out, so there is no running watch to take away.) */
   const [kind, setKind] = useState<TruppKind>(initial?.kind ?? 'atemschutz')
+  /** The Funkkanal follows the Art while it is still the seeded default: stations may run their
+   *  ohne-AS Trupps on a separate channel (doctrine.defaultFunkkanalEinfach). The form always
+   *  opens under PA, so the ohne-AS seed can only apply on the «Ohne Atemschutz» tap — and a
+   *  channel the operator already dialled, or a stored one being edited, is never overwritten. */
+  const pickKind = (next: TruppKind) => {
+    if (next !== kind && initial?.funkkanal == null) {
+      const seedFor = (k: TruppKind) => (k === 'atemschutz' ? defaultFunkkanal : atemschutzDoctrine().defaultFunkkanalEinfach)
+      if (funkkanal === seedFor(kind)) setFunkkanal(seedFor(next))
+    }
+    setKind(next)
+  }
   const isPa = kind === 'atemschutz'
   /** This edit is turning the Überwachung ON — the Trupp had no cylinder until a moment ago, so
    *  the Druck field asks for a first Eingangsdruck rather than offering a correction. */
@@ -2452,12 +2463,12 @@ function TruppForm({
       <span>{az.kindLabel}</span>
       <div className={s.kindSeg} role="radiogroup" aria-label={az.kindLabel}>
         <button type="button" role="radio" aria-checked={isPa}
-          className={cx(s.kindOpt, isPa && s.on)} onClick={() => setKind('atemschutz')}>
+          className={cx(s.kindOpt, isPa && s.on)} onClick={() => pickKind('atemschutz')}>
           <Icon id="gauge" />
           <span className={s.kindOptTxt}><b>{az.kindAtemschutz}</b><span>{az.kindAtemschutzHint}</span></span>
         </button>
         <button type="button" role="radio" aria-checked={!isPa}
-          className={cx(s.kindOpt, !isPa && s.on)} onClick={() => setKind('einfach')}>
+          className={cx(s.kindOpt, !isPa && s.on)} onClick={() => pickKind('einfach')}>
           <Icon id="people" />
           <span className={s.kindOptTxt}><b>{az.kindPlain}</b><span>{az.kindPlainHint}</span></span>
         </button>
