@@ -1816,6 +1816,13 @@ function TruppCard({
       <div className={s.actZone}>
         {canEdit && preEntry && (
           <div className={s.actions}>
+            {/* ⚠️ IN THE ORDER THE EINSATZ RUNS (07.09., Feldtest Manuel — same rule as the
+                in-field row below): «Einrücken» first, because deploying is what usually happens
+                to a waiting Trupp, and the stand-down right — where «Raus melden» also lives, so
+                the exit is always the right-hand column. «Einrücken» keeps its primary weight. */}
+            <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
+              <Icon id="flag" /><span>{az.actEnter}</span>
+            </button>
             {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
                 was the bin — which throws away the one record that says a crew stood ready, on a
                 document that is the legal account of the Einsatz. This closes it like any other
@@ -1828,9 +1835,6 @@ function TruppCard({
                 <Icon id="logout" /><span>{az.actNotDeployed}</span>
               </button>
             )}
-            <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
-              <Icon id="flag" /><span>{az.actEnter}</span>
-            </button>
           </div>
         )}
         {canEdit && inField && (

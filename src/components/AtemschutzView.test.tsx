@@ -218,10 +218,14 @@ describe('the lifecycle row: in the order the Einsatz runs', () => {
     }
   })
 
-  it('leaves the pre-entry row led by «Nicht eingesetzt», with «Einrücken» taking the room', () => {
+  /* ⚠️ Reversed again 07.09. (Feldtest Manuel): the pre-entry row also runs in the order the
+   * Einsatz runs — deploying is what usually happens to a waiting Trupp, so «Einrücken» leads and
+   * the stand-down sits right, where «Raus melden» also lives. The width flip is CSS
+   * (`.actions:has(> .actEnter:first-child)`), so «Einrücken» still takes the room. */
+  it('leads the pre-entry row with «Einrücken», the stand-down on the right', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'angemeldet' }] })
     const labels = [...document.querySelectorAll(`.${s.actions} .${s.actBtn}`)].map((b) => b.textContent)
-    expect(labels).toEqual([az.actNotDeployed, az.actEnter])
+    expect(labels).toEqual([az.actEnter, az.actNotDeployed])
   })
 })
 

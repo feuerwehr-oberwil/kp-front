@@ -420,11 +420,17 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    exactly as much of the card as the decision beside it. Here the card's own action takes the
    room (`1fr`, filled) and the quiet way out takes only its words (`auto`, no fill, no border) —
    still a full 48px target, still a real button, just not one that competes.
-   ⚠️ The order in the markup is therefore fixed: QUIET first, LOUD second (see TruppCard). And
-   the primary keeps at least half the row, so a long secondary label («Nicht eingesetzt») can
-   never end up the widest thing in it. */
+   ⚠️ The default markup order is QUIET first, LOUD second (see TruppCard) — except the
+   pre-entry row, which since 07.09. (Feldtest Manuel) leads with «Einrücken»: rows read in the
+   order the Einsatz runs, and the exit lives in the right-hand column on every card. The
+   :has() rule below flips the widths for that row, so the primary keeps at least half the row
+   either way and a long secondary label («Nicht eingesetzt») can never end up the widest thing
+   in it. */
 .actions { display: grid; grid-auto-flow: column; grid-template-columns: minmax(0, auto) minmax(50%, 1fr);
   gap: 8px; }
+/* the pre-entry row leads with the loud «Einrücken» — wide column first, words-only second */
+.actions:has(> .actEnter:first-child:not(:only-child)) {
+  grid-template-columns: minmax(50%, 1fr) minmax(0, auto); }
 /* a single action («Wieder einrücken») owns the whole row rather than half of it */
 .actions:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
 .actBtn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer;
