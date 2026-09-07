@@ -6,7 +6,7 @@ import { demoNote } from '../lib/deploymentConfig'
 import { IconSprite, Icon } from '../lib/icons'
 import { fillTemplate, initials, roleLabel } from '../lib/format'
 import { appConfig } from '../config/appConfig'
-import { PinPad } from './PinPad'
+import { isValidPin, PinPad } from './PinPad'
 
 const NEUTRAL_COLOR = '#6c7686' // --ink-faint, for roster tiles without an assigned colour
 
@@ -130,9 +130,29 @@ function Roster({ roster, error, onPick, onRetry }: {
   )
 }
 
+/** Per-device memory of each account's PIN LENGTH, learned only from a SUCCESSFUL login —
+ *  what lets the pad submit by itself at that length (field ask 07.09.: «auto-login with the
+ *  correct password, don't require the manual checkmark»). localStorage, never the prefs
+ *  cookie: a cookie rides to the server on every request, and a PIN's length belongs to this
+ *  device alone. Silent-guessing every length ≥6 instead was ruled out on purpose — the
+ *  cooldown ladder admits 5 free failures per (account, source), so a 12-digit PIN would 429
+ *  on its own correct entry. */
+const PIN_LEN_KEY = 'kp.pinlen'
+const knownPinLen = (userId: string): number | undefined => {
+  try { return (JSON.parse(localStorage.getItem(PIN_LEN_KEY) ?? '{}') as Record<string, number>)[userId] } catch { return undefined }
+}
+const rememberPinLen = (userId: string, len: number) => {
+  try {
+    const all = JSON.parse(localStorage.getItem(PIN_LEN_KEY) ?? '{}') as Record<string, number>
+    localStorage.setItem(PIN_LEN_KEY, JSON.stringify({ ...all, [userId]: len }))
+  } catch { /* private mode / storage disabled — the ✓ keeps working */ }
+}
+
 // The login gate's use of the shared pad (src/components/PinPad.tsx): the ✓ key (or Enter)
-// submits — never a silent jump on some Nth digit, so the screen cannot betray how long the
-// PIN is — plus the 429 cooldown lock that only this caller has.
+// submits, and on a device that has signed this account in before, reaching the REMEMBERED
+// length submits by itself — the pad still paints no empty slots, and a first login (or a
+// changed PIN) still goes through the ✓. The idle screen betrays nothing it did not before:
+// an onlooker watching a successful ✓ login could always count the dots.
 function LoginPinPad({ user, onLogin, onBack }: {
   user: RosterEntry
   onLogin: (userId: string, pin: string) => Promise<void>
@@ -141,6 +161,9 @@ function LoginPinPad({ user, onLogin, onBack }: {
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // read once per mount; a failed auto-attempt disarms it for this visit to the pad, or a PIN
+  // that grew LONGER after a reset could never be typed past its old remembered length
+  const autoLen = useRef<number | undefined>(knownPinLen(user.id))
   // disabled until this monotonic timestamp (ms) — drives the 429 cooldown lock
   const [lockedUntil, setLockedUntil] = useState(0)
   const [, force] = useState(0) // re-render to release the lock when the cooldown elapses
@@ -163,8 +186,11 @@ function LoginPinPad({ user, onLogin, onBack }: {
     setError(null)
     try {
       await onLogin(user.id, value)
-      // success unmounts the whole LoginScreen via the auth gate — nothing else to do
+      // success unmounts the whole LoginScreen via the auth gate — remember the length that
+      // just proved itself, so the next login on this device needs no ✓
+      rememberPinLen(user.id, value.length)
     } catch (e: unknown) {
+      autoLen.current = undefined // stop auto-firing at a length that just failed
       setPin('') // wipe the failed attempt so the next try starts clean
       if (e instanceof ApiError) {
         setError(e.detail)
@@ -184,7 +210,10 @@ function LoginPinPad({ user, onLogin, onBack }: {
   return (
     <PinPad
       value={pin}
-      onChange={(next) => { setError(null); setPin(next) }}
+      onChange={(next) => {
+        setError(null); setPin(next)
+        if (next.length === autoLen.current && isValidPin(next)) void submit(next)
+      }}
       onSubmit={(full) => void submit(full)}
       disabled={disabled}
       message={error ?? (locked ? appConfig.copy.login.pleaseWait : undefined)}
