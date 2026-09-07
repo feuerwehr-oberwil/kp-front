@@ -218,16 +218,18 @@
           "Conduites avec annotations CSSP, chacune rattachée à une équipe",
           "Mesure de distances et de surfaces, à l’échelle également sur le plan",
           "Couches : bornes hydrantes, cadastre des conduites, services cartographiques cantonaux",
+          "<strong>Répertoire des matières dangereuses</strong>&nbsp;: numéros ONU, informations sur les substances et indications concernant les distances d’isolation et de protection, disponibles directement pendant l’intervention",
+          "Informations météorologiques et données sur le vent pour soutenir l’appréciation de la situation",
           "Plans d’objet comme tableau blanc, étages superposés, tableau vierge",
           "<strong>Géoréférencement</strong>&nbsp;: relier un plan à la carte par des points de repère communs – les symboles apparaissent en double sur les deux surfaces, avec une indication honnête de la précision",
-          "Annuler/rétablir sur chaque surface"
+          "Annuler/rétablir sur chaque surface – les événements documentés restent traçables"
         ]
       },
       {
         "h3": "Effectif &amp; moyens",
         "items": [
           "<strong>Surveillance PR</strong> : pression, moment du repli, temps depuis le dernier contact, alarmes",
-          "Équipes sur la carte, sur le plan et dans les étages – avec leur propre couleur, la même partout",
+          "<strong>Équipes avec ou sans protection respiratoire</strong>&nbsp;: effectif, mission et chef d’équipe – sur la carte, sur le plan et dans les étages, avec leur propre couleur, la même partout",
           "Présences avec heures d’arrivée et grades",
           "<strong>Plan de relève</strong> : planifier les disponibilités et les tours par\n            personne, visualiser la couverture sur toute l’intervention et imprimer les\n            formulaires de conduite",
           "<strong>Partager sa position</strong> : qui ouvre le lien apparaît comme un point sur la\n            carte de situation – volontairement, et pour cette intervention seulement",
@@ -245,6 +247,7 @@
           "<strong>Rejouer</strong> : repasser l’intervention minute par minute, attentes sautées –\n            pour le débriefing",
           "Rapport d’intervention prêt au format PDF, avec effectif, matériel, horaires, journal,\n            croquis, photos et surveillance PR",
           "Photos en annexe au rapport",
+          "<strong>Contrôle final</strong>&nbsp;: avant la clôture, KP Front indique quelles informations ou clarifications manquent encore dans le rapport",
           "Organisations partenaires avec leur remarque dans le rapport",
           "Feuille de saisie par code QR, pour tous ceux qui ont quelque chose à apporter",
           "Heures d’alarme et d’intervention tirées du déroulement, pas de la mémoire"
@@ -253,11 +256,11 @@
       {
         "h3": "Exploitation",
         "items": [
-          "<strong>Fonctionne hors ligne</strong> comme application installable, contrôle de disponibilité compris",
-          "Plusieurs appareils à la fois, tout se synchronise automatiquement",
+          "<strong>Fonctionne hors ligne</strong> comme application installable – le contrôle de disponibilité indique avant l’intervention si les données nécessaires sont sur l’appareil",
+          "Plusieurs appareils connectés travaillent sur le même état – après une interruption de connexion, les modifications sont à nouveau synchronisées",
           "Rôles : modifier, ou seulement suivre",
           "Mode jour/nuit, taille des symboles, grandes zones tactiles pour la tablette",
-          "Peut reprendre les alarmes de Divera ou FireHub <span class=\"opt\">facultatif</span>",
+          "Peut reprendre les alarmes de Divera ou FireHub ; d’autres systèmes d’alerte peuvent être raccordés par l’interface ouverte <span class=\"opt\">facultatif</span>",
           "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
           "Impression PDF à la caserne <span class=\"opt\">facultatif</span>",
           "<strong>Espace d’administration propre</strong> à chaque corps : effectif, véhicules, checklists, couches cartographiques et modèles",

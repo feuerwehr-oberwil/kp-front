@@ -217,8 +217,10 @@
           "Hose lines with FKS annotations, each assigned to a team",
           "Measuring distance and area, to scale on the plan as well",
           "Layers: hydrants, utility cadastre, cantonal map services",
+          "<strong>Hazardous materials reference</strong>: UN numbers, substance information and guidance on isolation and protective distances, available directly during the incident",
+          "Weather and wind information to support the situation assessment",
           "Building plans as a whiteboard, stack of floors, blank board",
-          "Undo/redo on every surface",
+          "Undo/redo on every surface – documented events remain traceable",
           "<strong>Georeferencing</strong>: link a plan to the map through shared landmarks – symbols appear as twins on both surfaces, with an honest read-out of the accuracy"
         ]
       },
@@ -226,7 +228,7 @@
         "h3": "Crew &amp; resources",
         "items": [
           "<strong>SCBA monitoring</strong>: pressure, turnaround time, contact clock, alarms",
-          "Teams on the map, on the plan and in the stack of floors – each with its own team colour, the same everywhere",
+          "<strong>Teams with or without breathing apparatus</strong>: crew, assignment and team leader – on the map, on the plan and in the stack of floors, each with its own team colour, the same everywhere",
           "Attendance with arrival times and ranks",
           "<strong>Shift plan</strong>: plan availability and shifts per person, see coverage\n            across the incident and print command forms",
           "<strong>Share location</strong>: whoever opens the link appears as a dot on the\n            situation map – voluntary, and only for this incident",
@@ -244,6 +246,7 @@
           "<strong>Replay</strong>: play the incident back minute by minute, waits skipped –\n            for the debrief",
           "Ready-made incident report as a PDF, including crew, resources, times, log, sketch,\n            photos and SCBA monitoring",
           "Photos as attachments to the report",
+          "<strong>Completion check</strong>: before closing, KP Front shows which information or clarifications are still missing from the report",
           "Partner organisations with their remarks in the report",
           "A capture sheet by QR code for everyone who has something to contribute",
           "Alert and incident times from what actually happened, not from memory"
@@ -252,11 +255,11 @@
       {
         "h3": "Running it",
         "items": [
-          "<strong>Offline-capable</strong> as an installable app, readiness check included",
-          "Several devices at once, everything syncs by itself",
+          "<strong>Offline-capable</strong> as an installable app – the readiness check shows before an incident whether the required data is on the device",
+          "Several connected devices work on the same state – after a connection interruption, changes are synchronised again",
           "Roles: edit, or read along only",
           "Day/night mode, symbol size, large touch targets for the tablet",
-          "Can take over alerts from Divera or FireHub <span class=\"opt\">optional</span>",
+          "Can take over alerts from Divera or FireHub; further alerting systems can be connected through the open interface <span class=\"opt\">optional</span>",
           "Vehicle positions by GPS <span class=\"opt\">optional</span>",
           "PDF printing at the station <span class=\"opt\">optional</span>",
           "<strong>Your own administration area</strong> per fire brigade: crew, vehicles, checklists, map layers and templates",

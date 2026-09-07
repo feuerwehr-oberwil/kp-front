@@ -247,16 +247,18 @@
           "Schlauchleitungen mit FKS-Annotationen, jede einem Trupp zugeordnet",
           "Messen von Distanz und Fläche, massstabsgetreu auch auf dem Plan",
           "Ebenen: Hydranten, Leitungskataster, kantonale Kartendienste",
+          "<strong>Gefahrgut-Nachschlagewerk</strong>: UN-Nummern, Stoffinformationen sowie Hinweise zu Absperr- und Schutzdistanzen, direkt im Einsatz verfügbar",
+          "Wetter- und Windinformationen als Unterstützung für die Lagebeurteilung",
           "Objektpläne als Whiteboard, Geschossstapel, leere Tafel",
           "<strong>Georeferenz</strong>: Plan und Karte über gemeinsame Landmarken verknüpfen – Symbole erscheinen als Zwillinge auf beiden Flächen, mit ehrlicher Angabe der Genauigkeit",
-          "Rückgängig/Wiederholen auf jeder Fläche"
+          "Rückgängig/Wiederholen auf jeder Fläche – dokumentierte Vorgänge bleiben nachvollziehbar"
         ]
       },
       {
         "h3": "Mannschaft &amp; Mittel",
         "items": [
           "<strong>Atemschutzüberwachung</strong>: Druck, Rückzugszeit, Kontaktuhr, Alarme",
-          "Trupps auf Karte, Plan und im Geschossstapel – mit eigener Truppfarbe, überall dieselbe",
+          "<strong>Trupps mit oder ohne Atemschutz</strong>: Mannschaft, Auftrag und Führungsperson – auf Karte, Plan und im Geschossstapel, mit eigener Truppfarbe, überall dieselbe",
           "Anwesenheit mit Ankunftszeiten und Dienstgraden",
           "<strong>Zeitplan</strong>: Verfügbarkeiten und Schichten pro Person planen, Deckung\n            über den ganzen Einsatz erkennen und als Führungsformular ausgeben",
           "<strong>Standort teilen</strong>: wer den Link öffnet, erscheint als Punkt auf der\n            Lagekarte – freiwillig, und nur für diesen Einsatz",
@@ -274,6 +276,7 @@
           "<strong>Zeitreise</strong>: den Einsatz Minute für Minute nachspielen, Wartezeiten\n            übersprungen – für die Nachbesprechung",
           "Einsatzrapport als fixfertiges PDF mit Personal, Material, Zeiten, Journal, Kroki,\n            Fotos und Atemschutzüberwachung",
           "Fotos als Beilagen zum Rapport",
+          "<strong>Abschlussprüfung</strong>: vor dem Abschluss zeigt KP Front, welche Angaben oder Klärungen im Rapport noch fehlen",
           "Partnerorganisationen mit Bemerkung im Rapport",
           "Erfassungsblatt für alle, die etwas beitragen, per QR-Code",
           "Alarm- und Einsatzzeiten aus dem Ablauf statt aus dem Gedächtnis"
@@ -282,11 +285,11 @@
       {
         "h3": "Betrieb",
         "items": [
-          "<strong>Offline-fähig</strong> als installierbare App, inkl. Bereitschaftsprüfung",
-          "Mehrere Geräte gleichzeitig, alles synchronisiert sich automatisch",
+          "<strong>Offline-fähig</strong> als installierbare App – die Bereitschaftsprüfung zeigt vor dem Einsatz, ob die benötigten Daten auf dem Gerät sind",
+          "Mehrere verbundene Geräte arbeiten auf demselben Stand – nach einem Verbindungsunterbruch werden Änderungen wieder abgeglichen",
           "Rollen: bearbeiten oder nur mitlesen",
           "Tag-/Nachtmodus, Symbolgrösse, grosse Bedienflächen fürs Tablet",
-          "Kann Alarme aus Divera oder FireHub übernehmen <span class=\"opt\">optional</span>",
+          "Kann Alarme aus Divera oder FireHub übernehmen; weitere Alarmierungssysteme lassen sich über die offene Schnittstelle anbinden <span class=\"opt\">optional</span>",
           "Fahrzeugpositionen per GPS <span class=\"opt\">optional</span>",
           "PDF-Druck im Magazin <span class=\"opt\">optional</span>",
           "<strong>Eigener Verwaltungsbereich</strong> pro Feuerwehr: Mannschaft, Fahrzeuge, Checklisten, Karten-Ebenen und Vorlagen",

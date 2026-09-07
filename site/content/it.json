@@ -218,8 +218,10 @@
           "Condotte con annotazioni CSP, ognuna assegnata a una squadra",
           "Misurazione di distanze e superfici, in scala anche sul piano",
           "Livelli: idranti, catasto delle condotte, servizi cartografici cantonali",
+          "<strong>Prontuario delle sostanze pericolose</strong>: numeri ONU, informazioni sulle sostanze e indicazioni sulle distanze di isolamento e protezione, disponibili direttamente durante l’intervento",
+          "Informazioni meteorologiche e sul vento a supporto della valutazione della situazione",
           "Piani d’oggetto come lavagna, piani sovrapposti, lavagna vuota",
-          "Annulla/ripristina su ogni superficie",
+          "Annulla/ripristina su ogni superficie – le attività documentate restano tracciabili",
           "<strong>Georeferenziazione</strong>: collegare una planimetria alla mappa tramite punti di riferimento comuni – i simboli compaiono come gemelli su entrambe le superfici, con un'indicazione onesta della precisione"
         ]
       },
@@ -227,7 +229,7 @@
         "h3": "Uomini &amp; mezzi",
         "items": [
           "<strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, orologio di contatto, allarmi",
-          "Squadre sulla carta, sul piano e nei piani sovrapposti – con il proprio colore di squadra, lo stesso ovunque",
+          "<strong>Squadre con o senza protezione respiratoria</strong>: personale, incarico e caposquadra – sulla carta, sul piano e nei piani sovrapposti, con il proprio colore di squadra, lo stesso ovunque",
           "Presenze con orari di arrivo e gradi",
           "<strong>Piano turni</strong>: pianificare disponibilità e turni per persona,\n            visualizzare la copertura dell’intero intervento e stampare i formulari di condotta",
           "<strong>Condividere la posizione</strong>: chi apre il link appare come punto sulla\n            carta della situazione – volontario, e solo per questo intervento",
@@ -245,6 +247,7 @@
           "<strong>Viaggio nel tempo</strong>: riprodurre l’intervento minuto per minuto, con le\n            attese saltate – per il debriefing",
           "Rapporto d’intervento pronto in PDF, con personale, materiale, orari, diario, croquis,\n            foto e sorveglianza della protezione respiratoria",
           "Foto come allegati al rapporto",
+          "<strong>Controllo finale</strong>: prima della chiusura, KP Front mostra quali informazioni o chiarimenti mancano ancora nel rapporto",
           "Organizzazioni partner con la loro osservazione nel rapporto",
           "Scheda di rilevamento via codice QR per tutti quelli che hanno qualcosa da aggiungere",
           "Orari di allarme e d’intervento dallo svolgimento invece che dalla memoria"
@@ -253,11 +256,11 @@
       {
         "h3": "Esercizio",
         "items": [
-          "<strong>Funziona offline</strong> come app installabile, verifica di prontezza inclusa",
-          "Più dispositivi insieme, tutto si sincronizza da solo",
+          "<strong>Funziona offline</strong> come app installabile – la verifica di prontezza indica prima dell’intervento se i dati necessari sono sul dispositivo",
+          "Più dispositivi collegati lavorano sullo stesso stato – dopo un’interruzione della connessione, le modifiche vengono nuovamente sincronizzate",
           "Ruoli: modificare, oppure solo leggere",
           "Modo giorno/notte, dimensione dei simboli, superfici di comando grandi per il tablet",
-          "Può riprendere allarmi da Divera o FireHub <span class=\"opt\">opzionale</span>",
+          "Può riprendere allarmi da Divera o FireHub; altri sistemi di allertamento possono essere collegati tramite l’interfaccia aperta <span class=\"opt\">opzionale</span>",
           "Posizioni dei veicoli via GPS <span class=\"opt\">opzionale</span>",
           "Stampa PDF in rimessa <span class=\"opt\">opzionale</span>",
           "<strong>Area amministrativa propria</strong> per ogni corpo: uomini, veicoli, liste di controllo, livelli cartografici e modelli",
