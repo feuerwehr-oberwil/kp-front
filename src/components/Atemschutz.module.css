@@ -401,6 +401,10 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .logChev { color: var(--ink-faint); }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 .logList { list-style: none; margin: 0; padding: 0 14px 10px; max-height: 168px; overflow-y: auto; scrollbar-gutter: stable; }
+/* «Tafel pur»: the CARD is the page and the page already scrolls (.focusCard .card) — a 168px
+   scrollbox inside it was a scroll within a scroll (field ask 08.09.), so there the
+   Ablesungen run their full length and the thumb stays on one scrolling surface. */
+.surfaceLite .logList { max-height: none; overflow-y: visible; }
 .logRow { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 10px; padding: 5px 2px;
   font-size: 12px; border-top: 1px solid var(--glass-edge); }
 .logRow:first-child { border-top: none; }

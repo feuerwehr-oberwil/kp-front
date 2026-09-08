@@ -1983,7 +1983,11 @@ function TruppCard({
             </button>
             {logOpen && (
               <div className={s.vopen}>
-                {timesShown && lastContactAt != null && (
+                {/* NOT on the Link-Tafel (08.09., field ask): the phone at the Eingang works
+                    off the ticking clock on the card — a second «Letzter/Nächster» readout in
+                    the Verlauf restated it in wall-clock terms, and its history here is the
+                    ABLESUNGEN, nothing else. The FU tablet keeps the folded timing rows. */}
+                {timesShown && lastContactAt != null && !lite && (
                   <div className={s.zonePanel}>
                     <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{hm(lastContactAt)}</b></div>
                     <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{hm(lastContactAt + intervalMin * 60_000)}</b></div>
