@@ -1241,7 +1241,12 @@ export function useTruppActions(deps: Deps) {
     // (see restoreTrupp): the chip on the plan cannot be resurrected faithfully.
     // ⚠️ The delete's own «Rückgängig» toast still stands (AtemschutzView) and drops this entry,
     // and so does the non-expiring «Entfernte Trupps» menu — three doors, one act.
-    return remember(id, line, tr, apply)
+    // ⚠️ …and the placement refs are STRIPPED on the way back, exactly as `restoreTrupp` strips
+    // them: `dropPlacements` above took the plan chip and the map marker with it, and they cannot
+    // be resurrected faithfully. Restoring the card verbatim would point it at an annotation id
+    // that no longer exists — the Trupp comes back and «auf Plan zeigen» leads nowhere. It is
+    // re-placed via «Platzieren», which is what the other two doors already leave the operator to.
+    return remember(id, line, tr && { ...tr, annoId: undefined, planId: undefined, entityId: undefined }, apply)
   }
   // undo for deleteTrupp (the delete-now + Rückgängig toast): re-add the captured Trupp with
   // its full monitoring record (readings, times, pressures). The plan chip / map marker was

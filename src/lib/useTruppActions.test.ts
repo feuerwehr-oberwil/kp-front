@@ -1689,6 +1689,23 @@ describe('useTruppActions — what the global timeline can take back', () => {
     expect(state.trupps[0].removedAt).toBeUndefined()
   })
 
+  it('brings a deleted Trupp back WITHOUT its dead placement refs', () => {
+    // ⚠️ The delete took the plan chip with it and it cannot be resurrected faithfully, so the
+    // card must not come back pointing at an annotation id that is gone — «auf Plan zeigen» would
+    // lead nowhere. Same strip `restoreTrupp` does; the Trupp is re-placed via «Platzieren».
+    const chip = { id: 'a1', kind: 'resource' as const, x: 0.5, y: 0.5, floor: 0, text: 'Keller A.' }
+    const timeline = createUndoTimeline()
+    const h = harness(baseTrupp({ annoId: 'a1', planId: 'p1' }), { board: { p1: [chip] } })
+    const actions = useTruppActions({ ...h.deps, undoTimeline: timeline, liveTrupps: () => h.state.trupps })
+    actions.deleteTrupp('T1')
+    expect(h.state.board.p1).toEqual([])
+
+    timeline.undo()
+    expect(h.state.trupps[0].removedAt).toBeUndefined()
+    expect(h.state.trupps[0].annoId).toBeUndefined()
+    expect(h.state.trupps[0].planId).toBeUndefined()
+  })
+
   it('takes an Anmeldung back by stamping it off the board, not by deleting the record', () => {
     const { actions, state, timeline } = timed(baseTrupp({}))
     actions.createTrupp(baseTrupp({ id: 'T2', name: 'Meier Urs' }))
