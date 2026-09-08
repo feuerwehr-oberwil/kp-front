@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
@@ -1314,7 +1314,7 @@ function collapsedClock(t: Trupp, live: TruppLive): { val: string; sub: string }
   const out = live.status === 'raus'
   if (!isAtemschutzTrupp(t)) {
     if (out) return { val: '', sub: '' }
-    return { val: fmtClock(t.entryTime ? live.elapsedSec : null), sub: az.elapsed }
+    return { val: fmtElapsedFull(t.entryTime ? live.elapsedSec : null), sub: az.elapsed }
   }
   if (out) {
     if (truppNeverDeployed(t)) {
@@ -1323,7 +1323,7 @@ function collapsedClock(t: Trupp, live: TruppLive): { val: string; sub: string }
         ? { val: fmtTime(new Date(reg).toISOString()), sub: az.bandRegisteredAt }
         : { val: '', sub: '' }
     }
-    return live.outSec != null ? { val: fmtClock(live.outSec), sub: az.outFor } : { val: '', sub: '' }
+    return live.outSec != null ? { val: fmtElapsedFull(live.outSec), sub: az.outFor } : { val: '', sub: '' }
   }
   if (live.status === 'angemeldet') return { val: fmtClock(null), sub: az.elapsed }
   return { val: fmtClock(live.sinceContactSec), sub: az.sinceContact }
@@ -1921,7 +1921,7 @@ function TruppCard({
         {monitored && t.entryTime && (
           <div className={s.metaRow}>
             <span>{az.elapsed}</span>
-            <b>{fmtClock(live.elapsedSec)}</b>
+            <b>{fmtElapsedFull(live.elapsedSec)}</b>
           </div>
         )}
         {/* ⚠️ The break clock is said ONCE, and on an out card it is said in the band (see
@@ -1931,7 +1931,7 @@ function TruppCard({
         {live.outSec != null && !out && (
           <div className={s.metaRow}>
             <span>{az.outFor}</span>
-            <b>{fmtClock(live.outSec)}</b>
+            <b>{fmtElapsedFull(live.outSec)}</b>
           </div>
         )}
         {estimate && (
