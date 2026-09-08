@@ -205,9 +205,10 @@ describe('TruppTeam', () => {
   // first-time user sits there waiting for a keyboard that never opens. The LIST blinks with the
   // field: «where do I type» is not the question, «where are the names» is — and since 04.09. the
   // Gast door is a row of that same list, so the blink already covers it.
-  it('points an empty slot at the search field and the list', async () => {
+  it('points the «noch niemand» chip at the search field and the list', async () => {
     setup()
-    const slot = screen.getAllByTitle('Person suchen …')[0]
+    // one dashed chip instead of reserved role slots (08.09.) — and it is a real control
+    const slot = screen.getByRole('button', { name: 'Noch niemand – unten suchen' })
     expect(slot.querySelector('input')).toBe(null)
     fireEvent.click(slot)
     expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))

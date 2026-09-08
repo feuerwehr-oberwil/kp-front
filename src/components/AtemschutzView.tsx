@@ -2026,43 +2026,6 @@ function TruppCard({
  */
 
 /**
- * One row of the phone stack: a 56px header that carries the section's own ANSWER, and the
- * fields themselves when it is open.
- *
- * ⚠️ Module level on purpose. Defined inside `TruppForm` this is a new component type on every
- * render, so React unmounts and remounts its subtree — and the Mannschaftssuche inside it would
- * lose the caret on every keystroke.
- */
-function StackRow({ n, label, summary, due, done, open, onToggle, children }: {
-  n: number
-  label: string
-  /** what the closed row says instead of the fields — «Unter Atemschutz · 300 bar · Kanal 5» */
-  summary: string
-  /** the answer is missing and worth saying so — the ONE amber word in the form */
-  due?: boolean
-  /** answered (a default counts): the number becomes a tick */
-  done: boolean
-  open: boolean
-  onToggle: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className={cx(s.sec, open && s.secOpen, done && !open && s.secDone)}>
-      <button type="button" className={s.secHead} aria-expanded={open} onClick={onToggle}>
-        <span className={s.secNo}>{done && !open ? <Icon id="check" /> : n}</span>
-        <span className={s.secTxt}>
-          <b>{label}</b>
-          {/* the answer only when it is not standing right below anyway */}
-          {!open && <span className={cx(due && s.secDue)}>{summary}</span>}
-        </span>
-        <Icon id={open ? 'chevron-down' : 'chevron'} />
-      </button>
-      {open && <div className={s.secBody}>{children}</div>}
-    </div>
-  )
-}
-
-/**
  * Is `el` already fully visible inside the box that scrolls it?
  *
  * ⚠️ The point is what NOT to do: a smooth `scrollIntoView` on an element that is already in
@@ -2083,9 +2046,6 @@ function inScrollPort(el: HTMLElement): boolean {
   return r.top >= 0 && r.bottom <= window.innerHeight
 }
 
-/** Which part of the phone stack is open. Also the id every «point at the field that blocks
- *  the save» path uses, because a field can only be rung once its section is open. */
-type StackSection = 'team' | 'luft' | 'auftrag'
 function TruppForm({
   mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, lite = false, stack = false, onAddGuest, onCancel, onSubmit,
 }: {
@@ -2196,6 +2156,14 @@ function TruppForm({
   /** This edit is turning the Überwachung ON — the Trupp had no cylinder until a moment ago, so
    *  the Druck field asks for a first Eingangsdruck rather than offering a correction. */
   const upgrading = mode === 'edit' && isPa && !!initial && !isAtemschutzTrupp(initial)
+  /** Druck + Kanal folded behind the «Standard: … — Ändern» line (see `luftFields`), in the
+   *  CREATE form only (08.09., field ask): there the pair is an OFFER — the station defaults,
+   *  right on almost every Anmeldung — and two steppers nobody touches cost the form its calm.
+   *  Every other mode keeps the classic fields open, because there the number is a QUESTION
+   *  with a real answer: an edit exists to correct the Eingangsdruck, an upgrade asks its
+   *  first one, and a Wieder-einrücken's fresh cylinder has a gauge reading that must not be
+   *  assumed at 300. Opens for good once tapped. */
+  const [defaultsOpen, setDefaultsOpen] = useState(mode !== 'create')
   // …and the Auftrag tiles follow it: each kind has its own six-word vocabulary (config ·
   // atemschutz.auftrag / .auftragEinfach). Only the OFFER is narrowed — an already-stored value
   // from the other list keeps rendering everywhere (lib/report · truppAuftragLabel).
@@ -2270,23 +2238,10 @@ function TruppForm({
   }, [team, assignedIds])
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
   const canSubmit = auftragOk && auftragFilled && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
-  /* ── The phone STACK (04.09.) ─────────────────────────────────────────────────────────────
-   * Which of the three sections is open. `null` = all collapsed, which is a legitimate state:
-   * the whole form is then three lines that read their own answers, and that overview is what
-   * the stack is FOR. A card gap opens the section that closes it; otherwise only an EDIT opens
-   * «Luft & Funk» (correcting the Eingangsdruck is what an edit is usually for).
-   * ⚠️ «Wieder einrücken» opens the MANNSCHAFT, like creating (05.09. evening). A re-deployment
-   * is a new Einsatz for that crew and the crew is the first thing that changes about it —
-   * somebody is swapped, somebody stays behind — while the fresh cylinder and the channel are
-   * defaults that are checked, not typed. Opening on «Luft & Funk» asked the one question that
-   * usually answers itself and hid the one that does not. */
-  const [openSection, setOpenSection] = useState<StackSection | null>(
-    focusSection === 'auftrag' ? 'auftrag' : mode === 'edit' ? 'luft' : 'team',
-  )
-  /** open it, or close it again if it is the open one — three collapsed lines that each read
-   *  their own answer is the overview the stack exists for, so closing must stay possible
-   *  (field feedback 04.09.) */
-  const toggleSection = (id: StackSection) => setOpenSection((cur) => (cur === id ? null : id))
+  /* No sections on the phone any more (08.09., field ask): with the Mannschaft reduced to the
+   search + populate-on-pick list and Druck/Kanal folded into the Standard line, the flat form
+   fits — the three collapsible sections and their summary lines went with the space problem
+   they were built for. */
 
   const dropDraft = () => { clearAuftrag(); clearZiel(); clearTeam() }
   const submit = (standby = false) => {
@@ -2357,15 +2312,9 @@ function TruppForm({
     el.classList.add(s.formFlash)
     window.setTimeout(() => el.classList.remove(s.formFlash), 1900)
   }
-  /** Point at a field that is inside a COLLAPSED section: open it first, then ring it on the
-   *  next frame (it does not exist in the DOM until the section opens). On one screen the
-   *  section is already open and this is just the ring. */
-  const pointAt = (id: StackSection, el: () => HTMLElement | null) => {
-    if (stack && openSection !== id) {
-      setOpenSection(id)
-      requestAnimationFrame(() => flashSection(el()))
-    } else flashSection(el())
-  }
+  /** Point at the field that blocks the save — scroll it into view and ring it. (The phone
+   *  form is flat since 08.09., so there is no collapsed section left to open first.) */
+  const pointAt = (el: () => HTMLElement | null) => flashSection(el())
   /**
    * «Speichern» while the Trupp isn't valid yet used to just sit there disabled — with Art
    * «Anderes» and an empty Auftrag/Ziel, nothing on screen said why (field feedback, 02.09.:
@@ -2380,73 +2329,43 @@ function TruppForm({
     if (canSubmit) { setBlockedShown(false); submit(standby); return }
     if (!leaderOk) {
       setBlockedShown(true)
-      pointAt('team', () => teamRef.current)
+      pointAt(() => teamRef.current)
       return
     }
     // the conflict already prints its own sentence right on the form (see below) — a second copy
-    // of it above the footer would say the same thing twice, so this only points at it. It is
-    // rendered outside the sections, so it is on screen whatever is open.
-    // ⚠️ …and it opens the MANNSCHAFT (05.09.): the sentence names a person, and the only way to
-    // resolve it is to take that person out of this Trupp — which is done one section up, not in
-    // whichever section happened to be open when the save was tried.
+    // of it above the footer would say the same thing twice, so this only points at it AND at
+    // the Mannschaft, where taking the named person out of this Trupp actually happens.
     if (assignedConflict) {
       setBlockedShown(false)
-      pointAt('team', () => teamRef.current)
+      pointAt(() => teamRef.current)
       flashSection(conflictRef.current)
       return
     }
-    // ⚠️ NO dead disabled button, and no hunting for the chevron: a blocked «Trupp anmelden»
-    // OPENS the section that holds the Auftrag (on the phone stack it is behind a fold), rings
+    // ⚠️ NO dead disabled button: a blocked «Trupp anmelden» points at the Auftrag, rings
     // both halves of the answer and puts the focus on the first Auftrag tile — the same place the
     // card's «Auftrag offen» pill sends the operator. The tiles, not the Ziel field: focusing a
     // text input here throws the on-screen keyboard over the rest of the form (see the note at
     // «No autofocus» above).
     if (!auftragOk || !auftragFilled) {
       setBlockedShown(true)
-      pointAt('auftrag', () => auftragRef.current)
-      const ring = () => {
-        flashSection(zielRef.current)
-        auftragRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
-      }
-      if (!stack || openSection === 'auftrag') ring()
-      else requestAnimationFrame(ring)
+      pointAt(() => auftragRef.current)
+      flashSection(zielRef.current)
+      auftragRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
       return
     }
     if (showPressure && pressure <= 0) {
       setBlockedShown(true)
-      pointAt('luft', () => pressureRef.current)
+      // the Druck may sit folded behind the Standard-line — unfold first, ring on the next
+      // frame (same contract pointAt keeps for a collapsed stack section)
+      if (!defaultsOpen) {
+        setDefaultsOpen(true)
+        requestAnimationFrame(() => pointAt(() => pressureRef.current))
+      } else pointAt(() => pressureRef.current)
     }
   }
 
   const title = mode === 'edit' ? az.formEditTitle : mode === 'redeploy' ? az.formRedeployTitle : az.formCreateTitle
   const submitLabel = mode === 'edit' ? az.save : mode === 'redeploy' ? az.reenterSubmit : az.start
-
-  /* ── What a COLLAPSED section says ────────────────────────────────────────────────────────
-   * Each one reads its own answer out in plain words, so the closed stack IS the form: three
-   * lines that can be checked at a glance. A section whose answer is only a default still says
-   * it — «300 bar · Kanal 5» is a statement to verify, not a blank to remember. */
-  const summaryTeam = team.length
-    ? team.map((m, i) => (i === 0 ? fillTemplate(az.stackLeader, { name: m.name.trim(), role: az.leaderBadge }) : m.name.trim()))
-      .filter(Boolean).join(' · ')
-    : az.stackTeamEmpty
-  // ⚠️ No «Unter Atemschutz» here since 05.09. — the Art moved up into «Auftrag & Leitung» with
-  // its tiles, and a closed row must read out what is actually inside it or the stack stops
-  // being the form.
-  const summaryLuft = [
-    showPressure ? fillTemplate(az.stackPressure, { n: pressure }) : null,
-    fillTemplate(az.stackFunk, { n: funkkanal }),
-  ].filter(Boolean).join(' · ')
-  // ⚠️ Auftrag AND Leitung, because they are one section now (04.09.). The Leitung is part of
-  // what the Trupp is doing; a fourth section for one number cost a row the Mannschaftsliste
-  // needs more. On the lite Tafel there is no Ltg field at all, so the line is dropped too.
-  const auftragText = auftrag ? (az.auftragLabels[auftrag] ?? auftrag) : null
-  const summaryAuftrag = [
-    // …and the Art leads it (05.09.), because the tiles that ask it now live in this section
-    // (`lite` is the one board that never asks — see `kindChooser`)
-    lite ? null : isPa ? az.kindAtemschutz : az.kindPlain,
-    [auftragText, ziel.trim()].filter(Boolean).join(' – ') || az.auftragOpen,
-    lite ? null : lineNo ? fillTemplate(az.stackLine, { n: lineNo }) : az.stackNoLine,
-  ].filter(Boolean).join(' · ')
 
   /* ── The three groups of fields ───────────────────────────────────────────────────────────
    * Written once and placed twice: on one screen they fill the two columns, on the stack they
@@ -2458,21 +2377,19 @@ function TruppForm({
    * Everything downstream already follows the answer rather than the record: the Druck field and
    * the submit gate (`showPressure`), the Auftrag vocabulary, and «Bereitstellen», which is a
    * Sicherungstrupp and therefore under PA by definition. */
+  /* A compact pair at the HEAD's right since 08.09. (field ask): the two big tiles with their
+     explainer subtitles said what every AdF already knows, and cost the form its first row.
+     The words alone carry it — and the buttons keep the TILE chrome the form has always worn
+     (bordered `--surface` cards, ink outline + faint ink wash on the chosen one), just at a
+     header's size. Deliberately NOT the Segmented track: the Art is which of two THINGS is
+     being registered, not a property toggle — the same argument the original tiles made.
+     `pickKind` still re-seeds the Funkkanal while it is the untouched default. */
   const kindChooser = !lite ? (
-    <div className={s.field}>
-      <span>{az.kindLabel}</span>
-      <div className={s.kindSeg} role="radiogroup" aria-label={az.kindLabel}>
-        <button type="button" role="radio" aria-checked={isPa}
-          className={cx(s.kindOpt, isPa && s.on)} onClick={() => pickKind('atemschutz')}>
-          <Icon id="gauge" />
-          <span className={s.kindOptTxt}><b>{az.kindAtemschutz}</b><span>{az.kindAtemschutzHint}</span></span>
-        </button>
-        <button type="button" role="radio" aria-checked={!isPa}
-          className={cx(s.kindOpt, !isPa && s.on)} onClick={() => pickKind('einfach')}>
-          <Icon id="people" />
-          <span className={s.kindOptTxt}><b>{az.kindPlain}</b><span>{az.kindPlainHint}</span></span>
-        </button>
-      </div>
+    <div className={s.kindHeadSeg} role="radiogroup" aria-label={az.kindLabel}>
+      <button type="button" role="radio" aria-checked={isPa}
+        className={cx(s.kindHeadOpt, isPa && s.on)} onClick={() => pickKind('atemschutz')}>{az.kindAtemschutz}</button>
+      <button type="button" role="radio" aria-checked={!isPa}
+        className={cx(s.kindHeadOpt, !isPa && s.on)} onClick={() => pickKind('einfach')}>{az.kindPlain}</button>
     </div>
   ) : null
 
@@ -2493,7 +2410,19 @@ function TruppForm({
     </div>
   )
 
-  const luftFields = (
+  /* Druck + Kanal live behind ONE readable line since 08.09. («Standard: 300 bar · Kanal 11 —
+   * Ändern», field ask): on almost every Anmeldung both ARE the station defaults, and two
+   * steppers nobody touches cost the form its calm. The line always reads the ACTUAL current
+   * values — a corrected pair keeps showing itself (and drops the word «Standard»), so nothing
+   * true is ever hidden; «Ändern» unfolds the same two fields as before, for good (per mount).
+   * Auto-open where the number IS the question: an upgrade asks its first Eingangsdruck. */
+  const luftValue = [
+    showPressure ? fillTemplate(az.stackPressure, { n: pressure }) : null,
+    fillTemplate(az.stackFunk, { n: funkkanal }),
+  ].filter(Boolean).join(' · ')
+  const luftIsDefault = (!showPressure || pressure === atemschutzDoctrine().defaultPressureBar)
+    && funkkanal === (isPa ? defaultFunkkanal : atemschutzDoctrine().defaultFunkkanalEinfach)
+  const luftFields = defaultsOpen ? (
     <>
       {showPressure && (
         <div ref={pressureRef} className={s.field}>
@@ -2518,6 +2447,15 @@ function TruppForm({
         <FunkkanalStepper value={funkkanal} onChange={setFunkkanal} compact />
       </div>
     </>
+  ) : (
+    <div ref={pressureRef} className={s.luftDefaults}>
+      <span className={s.luftDefaultsText}>
+        {luftIsDefault ? fillTemplate(az.luftDefaults, { v: luftValue }) : luftValue}
+      </span>
+      <button type="button" className={s.luftDefaultsChange} onClick={() => setDefaultsOpen(true)}>
+        {az.luftChange}
+      </button>
+    </div>
   )
 
   const auftragFields = (
@@ -2613,51 +2551,33 @@ function TruppForm({
         <h3>{title}</h3>
         <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
+      {/* the stack keeps the Art as its own slim row under the head — above the sections it
+          governs; on ONE screen it is its own labelled section leading the right column */}
+      {stack && kindChooser && <div className={s.kindHeadRow}>{kindChooser}</div>}
 
       <div className={s.modalBody}>
         {stack ? (
-          /* ── PHONE: three sections, all of them always on screen ──────────────────────────
-             Replaces the two-step wizard (02.–04.09.). The wizard fixed the fold it was built
-             for and then grew its own: step 2 carried seven fields and ran off the bottom of a
-             375px screen, and the common Trupp — GF + 2, full cylinder, default channel — still
-             had to walk through a «Weiter» that asked nothing. Here nothing is behind a step,
-             every section says what it holds even while closed, and «Trupp anmelden» sits in
-             the footer from the first moment. */
+          /* ── PHONE: ONE flat column (08.09., field ask) — the three collapsible sections
+             went with the space problem they were built for: the Mannschaft is the search +
+             a populate-on-pick list, Druck/Kanal sit folded in the Standard line, so the
+             whole form stands in one scroll. Order matches the tablet's right column. */
           <div className={s.stack}>
-            <StackRow
-              n={1} label={az.stackTeam} summary={summaryTeam} due={!leaderOk} done={leaderOk}
-              open={openSection === 'team'} onToggle={() => toggleSection('team')}
-            >
-              {teamFields}
-            </StackRow>
-            {/* ⚠️ «Auftrag & Leitung» comes SECOND, and «Art des Trupps» comes with it (05.09.,
-                field feedback). Order: who goes in → what for → with how much air. The Art was
-                placed with the Druck it governs (03.09.), but on the stack the question it
-                actually decides FIRST is what the crew is being sent to do — it narrows the
-                Auftrag vocabulary, and «Ohne Atemschutz» removes the Druck field from the section
-                below entirely. Asking it there meant walking back up a section to change it. */}
-            <StackRow
-              n={2} label={az.stackAuftrag} summary={summaryAuftrag} due={!auftragText} done={!!auftragText}
-              open={openSection === 'auftrag'} onToggle={() => toggleSection('auftrag')}
-            >
-              {kindChooser}
-              {auftragFields}
-            </StackRow>
-            <StackRow
-              n={3} label={az.stackLuft} summary={summaryLuft} done
-              open={openSection === 'luft'} onToggle={() => toggleSection('luft')}
-            >
-              {luftFields}
-            </StackRow>
+            {teamFields}
+            {auftragFields}
+            {luftFields}
           </div>
         ) : (<>
           {/* ── ONE SCREEN (tablet, desktop): nothing has to be walked to, and the whole Trupp
-              is visible while it is being formed. ORDER: what starts the clock comes first —
-              who goes in, and with how much air.
-              «Art des Trupps» spans both columns above the fields it governs (see above). */}
-          {kindChooser && <div className={s.formColWide}>{kindChooser}</div>}
+              is visible while it is being formed. RIGHT-COLUMN ORDER (08.09.): the Art leads
+              as its own section (it governs the Auftrag vocabulary below it), then Auftrag /
+              Ziel / Leitung — and the folded Standard row goes LAST: defaults that are checked,
+              not typed, sit after everything that is actually asked. */}
           <div className={s.formCol}>{teamFields}</div>
-          <div className={s.formCol}>{luftFields}{auftragFields}</div>
+          <div className={s.formCol}>
+            {kindChooser && <div className={cx(s.field, s.kindField)}><span>{az.kindLabel}</span>{kindChooser}</div>}
+            {auftragFields}
+            {luftFields}
+          </div>
         </>)}
 
         {/* ⚠️ A BUTTON since 05.09. The sentence names a person who is in another Trupp, and the
@@ -2666,7 +2586,7 @@ function TruppForm({
             loudest thing on the form, naming the one thing in the way, and doing nothing. */}
         {assignedConflict && (
           <button ref={conflictRef} type="button" className={cx(s.formColWide, s.formWarn)}
-            onClick={() => pointAt('team', () => teamRef.current)}>
+            onClick={() => pointAt(() => teamRef.current)}>
             <Icon id="warn" /><span>{fillTemplate(az.assignedConflict, { name: assignedConflict })}</span>
           </button>
         )}
