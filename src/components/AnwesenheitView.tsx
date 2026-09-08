@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { Icon } from '../lib/icons'
 import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
@@ -387,9 +387,14 @@ export function AnwesenheitView({
    * overdue Trupp outranks two edit buttons at 390px). That is exactly the moment this list is
    * being tapped fastest, so the way back cannot be the thing that disappears. Any other time
    * the top bar's pair is the one door (06.09. — the always-on phone copy here duplicated it).
-   * Absent for a session that may not write. */
-  onUndo?: () => void
-  onRedo?: () => void
+   * Absent for a session that may not write.
+   *
+   * ⚠️ Since 08.09.2026 it drives the ONE global timeline, not a stack of this list's own — so
+   * «der letzte Tipp» here means the last tap anywhere, and it can perfectly well take back
+   * something that happened on the Karte. It is handed the event so the confirmation caption
+   * can be anchored at this button (lib/undoFlash), which is what keeps that honest. */
+  onUndo?: (e: MouseEvent<HTMLButtonElement>) => void
+  onRedo?: (e: MouseEvent<HTMLButtonElement>) => void
   canUndo?: boolean
   canRedo?: boolean
   /** the top bar has dropped its ↶ ↷ (Atemschutz-Alarmchip on a phone) — only then does this

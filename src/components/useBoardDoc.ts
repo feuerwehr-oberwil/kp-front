@@ -44,6 +44,10 @@ interface BoardDocDeps {
    *  by plan id, so surviving the unmount does NOT leak one plan's history into another's. */
   hist: BoardHistory
   setHist: Dispatch<SetStateAction<BoardHistory>>
+  /** Told whenever a step is laid down on THIS plan, so the one global timeline
+   *  (`lib/undoTimeline`) can record that the plan moved, in the same chronology as the Karte and
+   *  the Tafel. The per-plan stacks above stay the thing that answers the step itself. */
+  onCheckpoint?: (planId: string) => void
 }
 
 /**
@@ -58,7 +62,7 @@ interface BoardDocDeps {
  * drag is one step. The functions stay byte-for-byte equivalent to their former inline selves; the
  * gesture handlers in Whiteboard call the returned pushPast/commit/patchCommit/… as before.
  */
-export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist }: BoardDocDeps) {
+export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint }: BoardDocDeps) {
   // Per-document undo/redo, mirroring the map's history model. Every discrete
   // mutation checkpoints the previous annotation array; a continuous gesture
   // (chip drag) checkpoints once, on first movement, so a whole drag is one step.
@@ -66,7 +70,7 @@ export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSe
   const h = hist[activeId] ?? EMPTY_HIST
   const canUndo = h.past.length > 0
   const canRedo = h.future.length > 0
-  const pushPast = () => setHist((m) => pushBoardPast(m, activeId, annos))
+  const pushPast = () => { setHist((m) => pushBoardPast(m, activeId, annos)); onCheckpoint?.(activeId) }
   const set = (next: BoardAnno[]) => onChange(next)                      // raw write, no checkpoint
   const commit = (next: BoardAnno[]) => { pushPast(); onChange(next) }   // checkpoint + write
   // plan mutations now feed the hash-chained audit trail too (board.* ops) — previously
@@ -89,14 +93,17 @@ export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSe
     const prev = c.past[c.past.length - 1]
     setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: cc.past.slice(0, -1), future: [annos, ...cc.future] } } })
     onChange(prev); setSelId(null); setEditId(null)
-    log('undo', appConfig.copy.log.undo, { kind: 'history' })
+    // ⚠️ No Verlauf row here since 08.09.2026. This is reached ONLY through the one global
+    // timeline now (IncidentWorkspace · planStepAt), which writes the row itself — and writes
+    // the SAME row whether the plan happened to be open or not. Logging in both places gave a
+    // step on the open plan two lines and a step on a closed one a different wording.
   }
   const redo = () => {
     const c = hist[activeId]; if (!c || !c.future.length) return
     const next = c.future[0]
     setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: [...cc.past, annos], future: cc.future.slice(1) } } })
     onChange(next); setSelId(null); setEditId(null)
-    log('redo', appConfig.copy.log.redo, { kind: 'history' })
+    // …and the same for the way forward (see `undo` above).
   }
   // hand this plan's history to the global TopBar undo/redo (App routes by surface).
   // Re-assign after every commit so the captured undo/redo always close over the latest

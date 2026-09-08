@@ -688,6 +688,26 @@ export const de = {
   delete: 'Löschen',
   undo: 'Rückgängig',
   redo: 'Wiederholen',
+  // ⚠️ Das ↶ im Kopf greift seit 08.09.2026 über ALLE Flächen (lib/undoTimeline), also muss es
+  // sagen, was es zurücknimmt – sonst nimmt es auf der Karte etwas zurück, das zwei Tipps vorher
+  // auf der Atemschutz-Tafel passiert ist, und niemand sieht es. Der Text steht in der
+  // Halte-Blase (Versprechen) und blitzt beim Tippen an derselben Stelle auf (Bestätigung).
+  undoNamed: 'Rückgängig: {action}',
+  redoNamed: 'Wiederholen: {action}',
+  // Der Schritt zeigte auf etwas, das es nicht mehr gibt (Fremdgerät hat es gelöscht, Merge hat
+  // die Fläche ersetzt). Kein Fehler des Bedieners – darum ohne Knopf und ohne «fehlgeschlagen».
+  undoLost: 'Nicht mehr rückgängig machbar',
+  /** Womit «Rückgängig: …» weitergeht, wenn die Fläche selbst die Aktion nicht benennt. Die
+   *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
+   *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */
+  undoDomains: {
+    karte: 'Änderung auf der Karte',
+    plan: 'Änderung auf «{plan}»',
+    anwesenheit: 'Anwesenheit',
+    mittel: 'Mittel',
+    checkliste: 'Checkliste',
+    gebaeude: 'Gebäude',
+  },
   play: 'Abspielen',
   clear: 'Suche löschen',
   // kind drives how the tool-rail button reads & behaves:
@@ -1073,6 +1093,12 @@ export const de = {
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederholt',
+    // ⚠️ Der Verlauf ist append-only: eine Rücknahme LÖSCHT die Zeile von vorhin nicht, sie
+    // schreibt eine neue dazu. Und sie benennt, was zurückgenommen wurde – seit ein ↶ auf der
+    // Karte eine Atemschutz-Aktion treffen kann, wäre «Aktion rückgängig gemacht» eine Zeile,
+    // die auf Papier niemand mehr zuordnen kann.
+    undoNamed: '{action} rückgängig gemacht',
+    redoNamed: '{action} wiederholt',
     journalNote: 'Notiz',
     // ⚠️ EDITING the Kroki, not just placing and removing on it (10.08.). A symbol got one row
     // when it appeared and one when it went, and everything in between — the Stockwerk, the name

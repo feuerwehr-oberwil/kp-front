@@ -63,7 +63,13 @@ function eligible(target: EventTarget | null): { el: HTMLElement; label: string 
   return label ? { el, label } : null
 }
 
-function showBubble(el: HTMLElement, label: string): HTMLElement {
+/** Paint the bubble above `el` (below it when there is no room), clamped into the viewport.
+ *
+ *  Exported because the hold-tooltip is not its only caller any more: the header's ↶ answers
+ *  «Rückgängig: Kontakt Trupp 2» when it is HELD, and flashes the very same words when it is
+ *  PRESSED (`undoFlash.ts`) – the promise and the confirmation have to look alike, or the second
+ *  one reads as a different kind of message. */
+export function showHoldBubble(el: HTMLElement, label: string): HTMLElement {
   const b = document.createElement('div')
   b.className = 'hold-tip'
   b.textContent = label
@@ -114,7 +120,7 @@ export function installHoldTooltip(): () => void {
     cancelHover()
     dropBubble()
     hoverEl = hit.el
-    hoverTimer = window.setTimeout(() => { bubble = showBubble(hit.el, hit.label) }, HOVER_MS)
+    hoverTimer = window.setTimeout(() => { bubble = showHoldBubble(hit.el, hit.label) }, HOVER_MS)
   }
   const onOut = (e: PointerEvent) => {
     if (e.pointerType !== 'mouse' || !hoverEl) return
@@ -131,7 +137,7 @@ export function installHoldTooltip(): () => void {
     bubbleFor = null
     const timer = window.setTimeout(() => {
       if (!press) return
-      bubble = showBubble(press.el, press.label)
+      bubble = showHoldBubble(press.el, press.label)
       bubbleFor = press.el
       press = null
       buzz() // the hold latched into an answer — same cue as every other armed hold

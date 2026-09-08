@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Popover, PopoverClose } from '../lib/overlays'
 import { fmtElapsedHM, fmtMMSS } from '../lib/format'
 import { formatTime, fillTemplate } from '../lib/format'
@@ -87,11 +87,18 @@ interface Props {
   onHoldPhoto?: () => void
   /** replaces the static incident title/address (e.g. the incident switcher) */
   titleSlot?: React.ReactNode
-  /** global undo/redo — re-homed here from the old left Rail so both surfaces reach it */
-  onUndo: () => void
-  onRedo: () => void
+  /** ONE undo/redo pair for the whole Einsatz — re-homed here from the old left Rail, and since
+   *  08.09.2026 driving the one global timeline rather than whichever surface is showing.
+   *  ⚠️ It is handed the EVENT, because the confirmation is anchored at the button that was
+   *  pressed (lib/undoFlash): a step taken on another surface is otherwise invisible. */
+  onUndo: (e: MouseEvent<HTMLButtonElement>) => void
+  onRedo: (e: MouseEvent<HTMLButtonElement>) => void
   canUndo: boolean
   canRedo: boolean
+  /** what ↶ would take back, in the operator's words («Kontakt Trupp 2») — the hold-tooltip reads
+   *  it off `aria-label`, so naming the action here is all the promise needs. */
+  undoLabel?: string | null
+  redoLabel?: string | null
   /** viewers (read-only) get inspection but not the editing history controls */
   showHistory?: boolean
   /** phone-only surface controls folded into the bar: a primary view action (locate →
@@ -133,7 +140,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -145,6 +152,13 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   }, [])
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
   const hasWind = weather?.wind_dir_deg != null
+  // ⚠️ The pair's word IS its promise. Both buttons are icon-only, so the app-wide hold-tooltip
+  // reads exactly this off `aria-label` (lib/holdTooltip · labelOf) — and since ↶ now reaches
+  // every surface, a bare «Rückgängig» would be the app declining to say what it is about to do
+  // on a surface the operator is not even looking at. Falls back to the bare word when there is
+  // nothing to take back, where the button is disabled anyway.
+  const undoWord = undoLabel ? fillTemplate(appConfig.copy.undoNamed, { action: undoLabel }) : appConfig.copy.undo
+  const redoWord = redoLabel ? fillTemplate(appConfig.copy.redoNamed, { action: redoLabel }) : appConfig.copy.redo
 
   // Einsatzuhr can show the running duration, the wall clock, or the start time. It's the only
   // clock in the bar (the OS status bar covers wall time), so all three are reachable — from a
@@ -233,8 +247,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                 überfällig chip in the bar these two are what steps aside — see app.css. Positional
                 selectors would have picked the wrong buttons, because the mapNav action ahead of
                 them is a .tb-act.icon too and comes and goes with the surface. */}
-            <button className="tb-act icon tb-act-history" title={appConfig.copy.undo} aria-label={appConfig.copy.undo} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
-            <button className="tb-act icon tb-act-history" title={appConfig.copy.redo} aria-label={appConfig.copy.redo} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
+            <button className="tb-act icon tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
+            <button className="tb-act icon tb-act-history" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
             <span className="tb-vr tb-vr-history" />
           </>
         )}

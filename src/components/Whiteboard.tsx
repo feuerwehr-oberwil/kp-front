@@ -181,6 +181,11 @@ interface Props {
    *  Verlauf. Keyed by plan id, so it stays per-plan-document. See useBoardDoc · BoardHistory. */
   hist: BoardHistory
   setHist: React.Dispatch<React.SetStateAction<BoardHistory>>
+  /** Tell the caller that this plan gained an undo step, so it lands on the ONE global timeline
+   *  (lib/undoTimeline) in the same chronology as the Karte and the Atemschutz-Tafel. Every
+   *  `setHist(pushBoardPast(…))` in this file owes it a call — the stacks and the timeline are
+   *  two halves of one step and must never come apart. */
+  onCheckpoint?: (planId: string) => void
   /** ⚠️ The per-plan zoom/pan memory, also held by the caller and for the same reason as `hist`:
    *  a glance at the Lage unmounts this component, and a board that reset to «eingepasst» every
    *  time you looked away is a board you have to re-find your way around on every return. A REF,
@@ -306,7 +311,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, onTwinDrawingFocusOriginal, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, onTwinDrawingFocusOriginal, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -934,7 +939,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // «Sicherung» is nine undo steps and nine audit rows.
   const titleLive = useRef<string | null>(null)
   const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
-    annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist,
+    annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint,
   })
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
@@ -1610,7 +1615,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         onClick: () => {
           if (activeIdRef.current === planId) {
             // still on this sheet: take the anno back and put the shape in the hand again
-            setHist((m) => pushBoardPast(m, planId, annosRef.current))
+            setHist((m) => pushBoardPast(m, planId, annosRef.current)); onCheckpoint?.(planId)
             onChangeRef.current(annosRef.current.filter((a) => a.id !== anno.id))
             emit('board.delete', { id: anno.id, planId })
             draftAttachments.current = att
@@ -1624,7 +1629,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             // the document was left mid-toast: the anno still comes off its own sheet (through
             // this closure, which still points there), but a draft cannot be handed back onto a
             // document that is no longer open
-            setHist((m) => pushBoardPast(m, planId, [...annos, anno]))
+            setHist((m) => pushBoardPast(m, planId, [...annos, anno])); onCheckpoint?.(planId)
             onChange(annos)
             emit('board.delete', { id: anno.id, planId })
           }
