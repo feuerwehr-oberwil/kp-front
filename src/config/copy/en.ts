@@ -421,6 +421,17 @@ export const en: Localizable<Copy> = {
   delete: 'Delete',
   undo: 'Undo',
   redo: 'Redo',
+  undoNamed: 'Undo: {action}',
+  redoNamed: 'Redo: {action}',
+  undoLost: 'No longer undoable',
+  undoDomains: {
+    karte: 'Change on the map',
+    plan: 'Change on «{plan}»',
+    anwesenheit: 'Attendance',
+    mittel: 'Material',
+    checkliste: 'Checklist',
+    gebaeude: 'Building',
+  },
   play: 'Play',
   clear: 'Clear search',
   mapTools: [
@@ -752,6 +763,8 @@ export const en: Localizable<Copy> = {
     drawingDeleted: 'Drawing deleted',
     undo: 'Action undone',
     redo: 'Action redone',
+    undoNamed: '{action} undone',
+    redoNamed: '{action} redone',
     journalNote: 'Note',
 
     selectionDeleted: '{n} objects deleted',

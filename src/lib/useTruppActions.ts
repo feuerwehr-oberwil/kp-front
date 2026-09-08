@@ -18,6 +18,7 @@ import { alarmBarFor, currentRunStart, isAtemschutzTrupp, truppAwaitsEntry, trup
 // unaffected.
 import { serverNowIso } from './serverClock'
 import { resolveMarkerJoin } from './placedTrupps'
+import type { UndoTimeline } from './undoTimeline'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
@@ -212,6 +213,15 @@ interface Deps {
   focusMapEntity: (entityId: string, coord?: LngLat, fly?: boolean) => void
   /** jump to + select a Lage DRAWING (the hose a Trupp works on) */
   focusMapDrawing: (drawingId: string) => void
+  /** The ONE global undo timeline (`lib/undoTimeline`). Every Tafel mutation below records itself
+   *  here, so the header's ↶ reaches the Atemschutzüberwachung too – it used to be reachable only
+   *  through a toast that expired after six seconds. Optional: a caller without a timeline (the
+   *  tests) keeps the old behaviour exactly. */
+  undoTimeline?: UndoTimeline
+  /** The trupps as they stand NOW, not as the render that recorded the action saw them. An undo
+   *  can be tapped minutes later, and by then a merge may have taken the card away – that is the
+   *  one case the entry has to decline instead of writing a ghost back. */
+  liveTrupps?: () => Trupp[]
 }
 
 /**
@@ -222,7 +232,55 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing } = deps
+  const { trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps } = deps
+
+  /** The Verlauf row + audit event a step owes the record — append-only, so a correction is a NEW
+   *  row and never a rewritten one. Icon 'undo' with kind 'team' lands the row under «Atemschutz»
+   *  (lib/report · journalArea), which is where the act it corrects is filed.
+   *  ⚠️ `atemschutz.undo`, not a bare `undo`: the handed-over Link-Tafel may send `atemschutz.*`
+   *  and nothing else, and ONE refused op_type 403s the whole batch and wedges the outbox
+   *  (backend · auth/incident_link.py). */
+  const logStep = (dir: 'undo' | 'redo', label: string, id: string) => {
+    const C = appConfig.copy.log
+    log('undo', fillTemplate(dir === 'undo' ? C.undoNamed : C.redoNamed, { action: label }), 'team', undefined, undefined, { subjectId: id })
+    emit(`atemschutz.${dir}`, { id })
+  }
+
+  /**
+   * Put one Trupp mutation on the global timeline, and hand back the way to take it off again.
+   *
+   * `apply` is the very patch the action just wrote — the SAME function, not a re-derivation — so
+   * ↷ reproduces the original result exactly, down to the instant it was stamped.
+   *
+   * ⚠️ Doctrine, and the reason `apply` is reused rather than the action re-run: a redo must never
+   * invent a NEWER Funkkontakt. Re-running «Kontakt» would stamp the clock at the moment of the
+   * redo and quietly buy the crew fresh minutes. Undo restores the card as it stood, which can
+   * only ever show MORE elapsed time — the safe direction.
+   *
+   * ⚠️ And the status/clock fields go back as ONE unit (the whole Trupp object), never field by
+   * field: `mergeWorkspace` resolves status + entryTime + exitTime together for exactly this
+   * reason, and half a state machine can silence the contact clock for a crew that is inside.
+   */
+  const remember = (id: string, label: string, before: Trupp | undefined, apply: (t: Trupp) => Trupp): (() => void) => {
+    if (!before || !undoTimeline) return () => {}
+    const present = () => (liveTrupps?.() ?? trupps).some((t) => t.id === id)
+    const write = (next: (t: Trupp) => Trupp): boolean => {
+      if (!present()) return false // the card is gone (merge, delete-beats-edit) — decline, quietly
+      setTrupps((ts) => ts.map((t) => (t.id === id ? next(t) : t)))
+      return true
+    }
+    const step = (dir: 'undo' | 'redo', next: (t: Trupp) => Trupp): boolean => {
+      if (!write(next)) return false
+      logStep(dir, label, id)
+      return true
+    }
+    return undoTimeline.push({
+      domain: 'trupps',
+      label,
+      undo: () => step('undo', () => before),
+      redo: () => step('redo', apply),
+    })
+  }
 
   /**
    * What this RENDER has already recorded for a Trupp — the other half of the double-tap guard.
@@ -296,11 +354,32 @@ export function useTruppActions(deps: Deps) {
     // Gruppenführer's Anwesenheits-Funktion, and the Verlauf prints that behind his name on its
     // own (lib/roleAssignment · truppRoleNote, lib/journalLinks · linkRanges).
     const az = appConfig.copy.atemschutz
-    log('flag', fillTemplate(
+    const line = fillTemplate(
       hasEntryPressure(t, t.entryPressureBar) ? az.logRegister : az.logRegisterPlain,
       { name: truppLogName(t), bar: String(t.entryPressureBar) },
-    ), 'team', undefined, undefined, { subjectId: t.id })
+    )
+    log('flag', line, 'team', undefined, undefined, { subjectId: t.id })
     emit('atemschutz.register', { id: t.id })
+    // ⚠️ Taking an Anmeldung back STAMPS `removedAt` — it does not splice the card out of the
+    // array. Same doctrine as Löschen (17.08.): every Trupp ever registered prints on the
+    // Atemschutz page, marked «vom Board entfernt». A Trupp registered on the wrong card at 3am
+    // is still a thing that was written down, and the record says so.
+    // The redo un-stamps it again, which is why `apply` is not the registration itself.
+    if (undoTimeline) {
+      const removedAt = serverNowIso()
+      const present = () => (liveTrupps?.() ?? trupps).some((x) => x.id === t.id)
+      const stamp = (v: string | undefined) => {
+        if (!present()) return false
+        setTrupps((ts) => ts.map((x) => (x.id === t.id ? { ...x, removedAt: v } : x)))
+        return true
+      }
+      const step = (dir: 'undo' | 'redo', v: string | undefined): boolean => {
+        if (!stamp(v)) return false
+        logStep(dir, line, t.id)
+        return true
+      }
+      undoTimeline.push({ domain: 'trupps', label: line, undo: () => step('undo', removedAt), redo: () => step('redo', undefined) })
+    }
   }
   const updateTrupp = (id: string, patch: Partial<Trupp>) =>
     setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)))
@@ -633,20 +712,19 @@ export function useTruppActions(deps: Deps) {
   // in AtemschutzView stops it happening; this is the way back when it does.
   const recordContact = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
-    const snapshot = tr // the Trupp as it was BEFORE the contact — for the undo
     const now = serverNowIso()
-    setTrupps((ts) => ts.map((t) => (t.id === id
-      ? { ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] }
-      : t)))
-    log('radio', fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr ? truppLogName(tr) : '' }), 'team', undefined, undefined, { subjectId: id })
+    const apply = (t: Trupp): Trupp => ({ ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] })
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    const line = fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr ? truppLogName(tr) : '' })
+    log('radio', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.contact', { id })
-    if (snapshot) {
-      // names the Trupp, because the whole failure mode is having meant a different one
-      toast(fillTemplate(appConfig.copy.atemschutz.logContact, { name: tr ? truppLogName(tr) : '' }), {
-        icon: 'radio',
-        action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
-      })
-    }
+    // ⚠️ NO toast (08.09.2026). Kontakt is the highest-frequency tap on the board — a dozen an
+    // hour per Trupp — and its own confirmation was already on the card: the clock the tap just
+    // reset, ticking again from zero. The toast added a pill over the board for six seconds after
+    // every one of them, which is how the operator learns to swipe toasts away without reading —
+    // and then misses the one that mattered. The way back is the header's ↶, which now names
+    // this Trupp, so «I meant the card above» is one press instead of a six-second window.
+    remember(id, line, tr, apply)
   }
   // record a cylinder pressure reading — logged for the record, and counts as a contact. All
   // derived state (lowestBar, the log row) is computed INSIDE the updater so it never reads stale.
@@ -665,10 +743,9 @@ export function useTruppActions(deps: Deps) {
     const crossed = !!tr && alarmBar > 0 && wasAbove && bar <= alarmBar
     // …and the LOG ROW says so too, so the printed Atemschutz-Journal can name the moment
     // instead of leaving a reader to compare a column of numbers against the station's doctrine
-    setTrupps((ts) => ts.map((t) => (t.id === id
-      ? { ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
-          readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure' }] }
-      : t)))
+    const apply = (t: Trupp): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
+      readings: [...(t.readings ?? []), { t: now, bar, kind: crossed ? 'alarm' : 'pressure' }] })
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     const line = fillTemplate(
       crossed ? appConfig.copy.atemschutz.logPressureAlarm : appConfig.copy.atemschutz.logPressure,
       { name: tr ? truppLogName(tr) : '', bar },
@@ -680,12 +757,15 @@ export function useTruppActions(deps: Deps) {
     // way back. Undo restores the Trupp's pre-reading state (pressure, contact clock, lowestBar,
     // per-Trupp readings). The Verlauf line stays (append-only doctrine — the record shows the
     // correction happened), but the safety-critical derived state is fixed.
+    // …and on the timeline, so the way back outlives the toast's six seconds. The toast's own
+    // «Rückgängig» drops the entry again (`drop`): one act must not be undoable twice.
+    const drop = remember(id, line, tr, apply)
     if (snapshot) {
       // the SAME line the record got — a toast that says «Druck 100 bar» while the Verlauf says
       // «Alarmdruck erreicht» is the app confirming something other than what it wrote down
       toast(line, {
         icon: crossed ? 'warn' : 'drop',
-        action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
+        action: { label: appConfig.copy.undo, onClick: () => { setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))); drop() } },
       })
     }
   }
@@ -719,8 +799,10 @@ export function useTruppActions(deps: Deps) {
     const now = serverNowIso()
     const isResume = status === 'aktiv' && !!tr?.entryTime // back into the field after a Rückzug
     const impliesContact = status === 'rueckzug' || isResume
-    setTrupps((ts) => ts.map((t) => {
-      if (t.id !== id) return t
+    // ⚠️ Named, and reused verbatim by the timeline's ↷ (see `remember`): the whole transition —
+    // status plus entryTime plus exitTime plus the reading — is ONE unit, and re-running the
+    // action instead would stamp `now` a second time and move a safety clock forward.
+    const apply = (t: Trupp): Trupp => {
       if (status === 'aktiv' && !t.entryTime) {
         return { ...t, status, entryTime: now, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.entryPressureBar, kind: 'entry' }] }
       }
@@ -743,7 +825,8 @@ export function useTruppActions(deps: Deps) {
         return { ...t, status, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind }] }
       }
       return { ...t, status }
-    }))
+    }
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     // «draussen» on a Trupp that never went in is a false statement about where people were —
     // a Sicherungstrupp that was stood down gets its own line (see atemschutz · truppNeverDeployed)
     const neverDeployed = status === 'raus' && !tr?.entryTime
@@ -774,11 +857,13 @@ export function useTruppActions(deps: Deps) {
      * which is the same contract Kontakt, Druck and Bearbeiten already offer. The toast repeats
      * the line the record got and names the Trupp, because meaning a different one IS the
      * failure mode. */
+    // …and the same step goes on the global timeline, which is the door that does not expire.
+    const drop = remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
     if (line && tr) {
       const snapshot = tr
       toast(line, {
         icon,
-        action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
+        action: { label: appConfig.copy.undo, onClick: () => { setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))); drop() } },
       })
     }
   }
@@ -848,7 +933,10 @@ export function useTruppActions(deps: Deps) {
     // ⚠️ the kind patch comes LAST: on an upgrade it owns `readings`, `entryPressureBar` and
     // `lowestBar` outright, and `pressurePatch` would otherwise have rewritten the old Eintritt
     // row to the new Eingangsdruck — claiming the Trupp went in under PA all along.
-    updateTrupp(id, { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}), ...(tr ? kindPatch(tr) : {}) })
+    // ⚠️ Built once and kept: the timeline's ↷ re-applies THIS patch rather than re-running the
+    // edit, so `kindPatch`'s Hochstuf-Zeitstempel is the one the record already carries.
+    const patch = { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}), ...(tr ? kindPatch(tr) : {}) }
+    updateTrupp(id, patch)
     // Clearing (or changing) the Leitung number in the form IS how a Trupp lets go of a hose —
     // that is where the operator already is when they change their mind, so the card needs no
     // «lösen» icon. The anchor goes with it, or the tag would survive its own number.
@@ -878,11 +966,14 @@ export function useTruppActions(deps: Deps) {
     // this one was the gap. It rewrites the Eingangsdruck that «Verbrauch» and «tiefster Druck» are
     // measured against, and an AdF removed from the crew here is removed from the record. Only the
     // derived state comes back; the Verlauf keeps its line, because the correction did happen.
+    // Nothing changed ⇒ no row, and nothing on the timeline either: ↶ must never offer to take
+    // back a save that wrote nothing (the operator would watch it do visibly nothing).
+    const drop = line ? remember(id, line, tr, (t) => ({ ...t, ...patch })) : () => {}
     if (tr && line) {
       const snapshot = tr
       toast(line, {
         icon: 'pen',
-        action: { label: appConfig.copy.undo, onClick: () => setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))) },
+        action: { label: appConfig.copy.undo, onClick: () => { setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))); drop() } },
       })
     }
   }
@@ -924,8 +1015,8 @@ export function useTruppActions(deps: Deps) {
     const nowPa = (f.kind ?? (tr ? (isAtemschutzTrupp(tr) ? 'atemschutz' : 'einfach') : 'atemschutz')) === 'atemschutz'
     const kindPatch: Partial<Trupp> = !tr || nowPa === isAtemschutzTrupp(tr) ? {}
       : { kind: nowPa ? 'atemschutz' : 'einfach' }
-    setTrupps((ts) => ts.map((t) => (t.id === id
-      ? { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
+    const apply = (t: Trupp): Trupp => (
+      { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
           leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...kindPatch,
           status: standby ? 'angemeldet' : 'aktiv',
           entryTime: standby ? '' : now, lastContactTime: standby ? '' : now, exitTime: undefined,
@@ -944,8 +1035,8 @@ export function useTruppActions(deps: Deps) {
           // truppRunTimes), so a plain re-deployment would otherwise leave the sheet showing the
           // first cycle and not the second. The Druck column stays empty on its own: only a
           // measured, positive value prints (report · readingBarShown).
-          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' }] }
-      : t)))
+          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' }] })
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
     if (tr) recolorPlacement({ ...tr, color: f.color === null ? undefined : f.color ?? tr.color, auftrag: f.auftrag })
@@ -958,7 +1049,14 @@ export function useTruppActions(deps: Deps) {
     // and claims nothing about masks.
     const reenterTpl = !nowPa ? az.logReenterNoAs
       : hasEntryPressure({ kind: 'atemschutz' }, f.pressure) ? az.logReenter : az.logReenterPlain
-    log('flag', fillTemplate(standby ? az.logStandby : reenterTpl, { name: truppLogName(f), bar: String(f.pressure ?? '') }), 'team', undefined, undefined, { subjectId: id })
+    const reenterLine = fillTemplate(standby ? az.logStandby : reenterTpl, { name: truppLogName(f), bar: String(f.pressure ?? '') })
+    log('flag', reenterLine, 'team', undefined, undefined, { subjectId: id })
+    // ⚠️ «Wieder einrücken» never had a way back at all — it is the one Trupp action that resets
+    // the safety clock, the Eingangsdruck AND lowestBar in one go, and a mis-tap on the card above
+    // rewrote the running deployment of a crew that was already inside. It has one now, and it
+    // arrives through the header rather than a new toast: the re-deploy form is a deliberate act
+    // with a Speichern, not a per-tap confirmation that wants six seconds of pill over the board.
+    remember(id, reenterLine, tr, apply)
     /* …and WHAT WAS CHANGED on the way back in (04.09., Feldtest: «Funkkanal wird gar nicht
      * protokolliert»). The re-deploy form is the full Trupp form — Art, Auftrag, Ziel, Funkkanal,
      * Leitung, Mannschaft — and every one of those edits used to vanish behind the re-entry row:
@@ -1127,13 +1225,23 @@ export function useTruppActions(deps: Deps) {
     // can still see it. But the Atemschutz page of the Rapport is a safety document: a crew that
     // was under PA and then taken off the Tafel used to vanish from the paper too, readings and
     // entry pressure with it. Every Trupp ever registered now prints.
-    setTrupps((ts) => ts.map((t) => (t.id === id ? { ...t, removedAt: serverNowIso() } : t)))
+    const at = serverNowIso()
+    const apply = (t: Trupp): Trupp => ({ ...t, removedAt: at })
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     if (tr) dropPlacements(tr)
     // A Trupp leaving the Tafel is the one Atemschutz action the Verlauf never recorded: the
     // toast said so and vanished, and the reconstruction afterwards showed a crew that had been
     // under PA simply not existing. Every other lifecycle step has its line; so does this one.
-    log('trash', fillTemplate(appConfig.copy.atemschutz.logRemoved, { name: tr?.name ?? '' }), 'team', undefined, undefined, { subjectId: id })
+    const line = fillTemplate(appConfig.copy.atemschutz.logRemoved, { name: tr?.name ?? '' })
+    log('trash', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.delete', { id })
+    // ⚠️ The undo CLEARS `removedAt`; it does not re-create the Trupp. Löschen is a stamp, so the
+    // card never left the record and putting it back is un-stamping it — a fresh Trupp would be a
+    // second registration of a crew that only ever registered once. The placement refs stay gone
+    // (see restoreTrupp): the chip on the plan cannot be resurrected faithfully.
+    // ⚠️ The delete's own «Rückgängig» toast still stands (AtemschutzView) and drops this entry,
+    // and so does the non-expiring «Entfernte Trupps» menu — three doors, one act.
+    return remember(id, line, tr, apply)
   }
   // undo for deleteTrupp (the delete-now + Rückgängig toast): re-add the captured Trupp with
   // its full monitoring record (readings, times, pressures). The plan chip / map marker was

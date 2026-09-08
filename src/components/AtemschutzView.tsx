@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
@@ -71,6 +71,7 @@ export function AtemschutzView({
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, onShareLink, shareLinkActive = false, lite, frozenAt,
+  onUndo, onRedo, canUndo = false, canRedo = false, undoLabel, redoLabel,
   syncStatus, lastSyncedAt, clockSkewMs,
 }: {
   trupps: Trupp[]
@@ -170,6 +171,18 @@ export function AtemschutzView({
   lite?: {
     subtitle: string
   }
+  /** The app's ONE undo/redo pair, for the handed-over «Tafel pur» that has no TopBar to carry it.
+   *  It drives the same global timeline everything else does (lib/undoTimeline) — see the markup
+   *  in `headActs` for why it renders only under `lite`. Handed the event so the confirmation
+   *  caption can be anchored at the button (lib/undoFlash). */
+  onUndo?: (e: MouseEvent<HTMLButtonElement>) => void
+  onRedo?: (e: MouseEvent<HTMLButtonElement>) => void
+  canUndo?: boolean
+  canRedo?: boolean
+  /** what ↶ ↷ would take back / put back, in the operator's words — the hold-tooltip reads it off
+   *  `aria-label`, so naming it here is the whole promise. */
+  undoLabel?: string | null
+  redoLabel?: string | null
   /** Epoch ms to read every clock against instead of the running one — the Einsatzende of an
    *  abgeschlossener Einsatz (IncidentWorkspace). Absent while the Einsatz is open, which is the
    *  only state in which a Trupp's time is still passing. */
@@ -654,6 +667,9 @@ export function AtemschutzView({
    * forward the moment it becomes one; a tap on a tab is a deliberate choice that stands until
    * the next alarm or an external jump (`focus`). */
   const focusMode = !!lite && compact
+  // the pair's word IS its promise — the hold-tooltip reads it off `aria-label` (lib/holdTooltip)
+  const undoWord = undoLabel ? fillTemplate(appConfig.copy.undoNamed, { action: undoLabel }) : appConfig.copy.undo
+  const redoWord = redoLabel ? fillTemplate(appConfig.copy.redoNamed, { action: redoLabel }) : appConfig.copy.redo
   const [picked, setPicked] = useState<string | null>(null)
   const focusId = focusMode
     ? (picked && board.some((t) => t.id === picked) ? picked : board[0]?.id ?? null)
@@ -892,12 +908,16 @@ export function AtemschutzView({
             IS something to bring back, so an ordinary board never carries it.
             ⚠️ BEFORE the sort filter (05.09.): the two icons sat the other way round, and the one
             that undoes something belongs nearer the badge than the one that only changes how the
-            board is looked at. */}
+            board is looked at.
+            ⚠️ #archive, not #undo (08.09.2026). This header carries a REAL ↶ ↷ pair now, and two
+            undo arrows in one row meaning two different things is the kind of guess nobody should
+            be making at 3am. Archive is also the truer word: these cards were taken off the board
+            and are still in the record, which is exactly what the menu offers back. */}
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
               <button type="button" className={s.orderBtn} aria-label={az.restoreMenu} title={az.restoreMenu}>
-                <Icon id="undo" />
+                <Icon id="archive" />
               </button>
             }
             popupClassName="rp-print-menu"
@@ -910,6 +930,26 @@ export function AtemschutzView({
               })),
             ]}
           />
+        )}
+        {/* ⚠️ The handed-over Tafel has no TopBar at all (IncidentWorkspace · «Tafel pur»), so the
+            app's one ↶ ↷ pair has to live here — driving the SAME global timeline (lib/undoTimeline),
+            not a second history of its own. Only trupp actions can reach this session's stack, so
+            what it takes back is always something on this board.
+            ⚠️ `lite` only: in the full app the TopBar carries the pair, and a second door beside it
+            would be two controls for one history — the mistake AnwesenheitView documents. And the
+            pair is WHOLE: a ↶ without its ↷ makes the step back the one thing that cannot itself
+            be taken back. */}
+        {lite && canEdit && onUndo && onRedo && (
+          <>
+            <button type="button" className={s.orderBtn} onClick={onUndo} disabled={!canUndo}
+              aria-label={undoWord} title={undoWord}>
+              <Icon id="undo" />
+            </button>
+            <button type="button" className={s.orderBtn} onClick={onRedo} disabled={!canRedo}
+              aria-label={redoWord} title={redoWord}>
+              <Icon id="redo" />
+            </button>
+          </>
         )}
         {/* ⚠️ A MENU, not a segmented control. Four options laid out in full needed ~380px in a
             header that also carries a title, a subtitle, an überfällig badge, the alarm toggle and

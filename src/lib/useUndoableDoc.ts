@@ -26,7 +26,13 @@ export interface UndoableDoc<D> {
   replace: (d: D) => void
 }
 
-export function useUndoableDoc<D>(init: D, readOnly: boolean): UndoableDoc<D> {
+/**
+ * `onCheckpoint` is told every time a step is actually laid down – a `commit`, or a gesture folded
+ * by `endDrag`. It exists so the ONE global timeline (`lib/undoTimeline`) can record that the Karte
+ * moved, in the same chronology as everything else; the document's own stack keeps working exactly
+ * as before and stays the thing that answers `undo()`.
+ */
+export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: () => void): UndoableDoc<D> {
   const [doc, setDoc] = useState<D>(init)
   // ⚠️ The live value, advanced synchronously by every write below — `doc` (state) is a
   // per-render snapshot and only feeds renders. Reading the snapshot in commit() meant two
@@ -52,12 +58,14 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean): UndoableDoc<D> {
     if (readOnly) return
     const snap = docRef.current
     setPast((p) => [...p, snap].slice(-cap)); setFuture([]); setDocRaw(updater(snap))
+    onCheckpoint?.()
   }
   const beginDrag = () => { dragSnap.current = docRef.current }
   const endDrag = () => {
     if (!dragSnap.current) return
     const snap = dragSnap.current
     setPast((p) => [...p, snap].slice(-cap)); setFuture([]); dragSnap.current = null
+    onCheckpoint?.()
   }
   // ⚠️ docRef is read into a local BEFORE the setState updaters below: an updater must stay
   // pure (StrictMode re-invokes it after docRef has already advanced).

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
@@ -45,7 +45,10 @@ import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
 import { useUndoableDoc } from './lib/useUndoableDoc'
-import { useUndoableSlice } from './lib/useUndoableSlice'
+import { useUndoTimeline } from './lib/useUndoTimeline'
+import type { UndoDomain } from './lib/undoTimeline'
+import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
+import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, dismissToast, confirmDialog, undoToast } from './lib/ui'
@@ -450,8 +453,71 @@ export function IncidentWorkspace({
   // the locked surface's tool set — see lib/readOnlyTools for why only these two qualify
   const slimMapTools = useMemo(() => slimTools(appConfig.copy.mapTools, MAP_READONLY_TOOLS), [])
 
+  /**
+   * ── ONE undo timeline for the whole Einsatz (08.09.2026) ──────────────────────────────────
+   * The header's ↶ used to mean «take back what you last did HERE», which asked the operator to
+   * already know which surface his last tap landed on — the recall the 3am tenet exists to
+   * refuse. It now means «take back the last thing that happened», wherever that was, and it
+   * says what that is before and after the press (`peekUndo().label`, `flashUndoCaption`).
+   *
+   * ⚠️ The domain stacks below are NOT replaced. The Karte doc, each Plan document and the
+   * Anwesenheit slice keep their own history and remain the thing that performs the step; the
+   * timeline records the CHRONOLOGY and delegates. Only the surfaces that never had a stack —
+   * the Atemschutz-Tafel, Mittel, Checklisten, the Gebäude one-shots — carry their inverse in
+   * the entry itself. See `lib/undoTimeline`.
+   */
+  const { timeline: undoHist, canUndo: histCanUndo, canRedo: histCanRedo, undoLabel, redoLabel } = useUndoTimeline()
+  const C_HIST = appConfig.copy
+  /** `log`/`emit` are built far below (they need half this component); a timeline entry pushed up
+   *  here has to reach the versions that exist when the ↶ is actually pressed. */
+  const histSide = useRef<{ log: typeof log; emit: typeof emit }>({ log: () => {}, emit: () => {} })
+  /** ⚠️ Through a ref: `applyWorkspace` below is a `useCallback` pinned to the incident, so it
+   *  must not close over a timeline handle from one particular render. */
+  const histClear = useRef(() => {})
+  histClear.current = () => undoHist.clear()
+  /**
+   * The Verlauf row + audit event one step owes the record — append-only, so this ADDS a row
+   * saying the correction happened and never touches the row it corrects.
+   *
+   * ⚠️ `op` is domain-scoped on purpose, and a bare `undo` is only ever sent from the tactical
+   * surfaces an editor alone can reach. An `el` session may append the RECORD vocabulary only
+   * (`EL_EVENT_PREFIXES` in backend · api/events.py) and a link session only `atemschutz.*` —
+   * one refused op_type 403s the WHOLE batch and wedges the outbox, so an Anwesenheits-↶ sends
+   * `attendance.undo`, a Mittel-↶ `mittel.undo`, a Checklisten-↶ `checklist.undo`.
+   */
+  const logHistStep = (dir: 'undo' | 'redo', label: string, op: string, icon = 'undo', kind: TimelineEvent['kind'] = 'history') => {
+    const L = appConfig.copy.log
+    histSide.current.log(icon, fillTemplate(dir === 'undo' ? L.undoNamed : L.redoNamed, { action: label }), kind)
+    histSide.current.emit(`${op}${dir}`)
+  }
+  /** A delegating entry's step: the domain's own history does the work, and the record gets its
+   *  row ONLY if that history actually moved. `false` travels back to the timeline as «this one
+   *  is gone» — the entry is discarded and the operator is told, quietly. */
+  const histStep = (moved: boolean, dir: 'undo' | 'redo', label: string, op: string, icon?: string, kind?: TimelineEvent['kind']): boolean => {
+    if (!moved) return false
+    logHistStep(dir, label, op, icon, kind)
+    return true
+  }
+
   // --- document (undoable) — doc + history funnel extracted to useUndoableDoc ---
-  const { doc, setDocRaw, commit, beginDrag, endDrag, undo: undoDoc, redo: redoDoc, canUndo, canRedo, replace: replaceDoc } = useUndoableDoc<Doc>(init.doc, readOnly)
+  // ⚠️ The Karte's checkpoint carries a DOMAIN label, not the name of the edit: `commit` is
+  // reached from every drawing, symbol and property path in the app, and threading a word through
+  // all of them would be a different change. The Tafel, Mittel and the Checklisten name their
+  // action exactly, because there the timeline entry is written by hand anyway.
+  const { doc, setDocRaw, commit, beginDrag, endDrag, undo: undoDoc, redo: redoDoc, replace: replaceDoc } = useUndoableDoc<Doc>(
+    init.doc,
+    readOnly,
+    () => undoHist.push({
+      domain: 'karte',
+      label: C_HIST.undoDomains.karte,
+      undo: () => histStep(undoDocRef.current(), 'undo', C_HIST.undoDomains.karte, ''),
+      redo: () => histStep(redoDocRef.current(), 'redo', C_HIST.undoDomains.karte, ''),
+    }),
+  )
+  // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
+  // render's `past`/`future`. Calling the captured one would step a stack that has moved on.
+  const undoDocRef = useRef(undoDoc); undoDocRef.current = undoDoc
+  const redoDocRef = useRef(redoDoc); redoDocRef.current = redoDoc
   // Live vehicles from kp-rueck's GPS feed — kept out of the editable document so
   // they auto-update and never get persisted. The operator can drag a vehicle to
   // reposition it and drag its handle to orient it; those overrides live here
@@ -564,6 +630,11 @@ export function IncidentWorkspace({
     () => allTrupps.filter((t) => t.removedAt).sort((a, b) => (b.removedAt ?? '').localeCompare(a.removedAt ?? '')),
     [allTrupps],
   )
+  /** ⚠️ `allTrupps`, NOT the filtered board list — this is what the timeline's Trupp entries ask
+   *  «is the card you describe still there?». Löschen is a stamp, so a deleted Trupp is filtered
+   *  out of `trupps` while very much still in the record; asking the filtered list would make
+   *  «Löschen rückgängig» decline itself as pointing at something gone. */
+  const truppsRef = useRef(allTrupps); truppsRef.current = allTrupps
 
   // --- time-travel replay (read-only past view) — state/reconstruction owned by useReplay ---
   // enterReplay lives further down, next to clearMapUi, whose reset list it shares.
@@ -587,9 +658,27 @@ export function IncidentWorkspace({
     [entities],
   )
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
-  // undo/redo wrap the hook's pure history step with the audit log + emit (App-level).
-  const undo = () => { if (undoDoc()) { log('undo', appConfig.copy.log.undo, 'history'); emit('undo') } }
-  const redo = () => { if (redoDoc()) { log('redo', appConfig.copy.log.redo, 'history'); emit('redo') } }
+  /**
+   * The ONE thing the header pair does: step the global timeline, then SAY what it stepped.
+   *
+   * The caption is not a toast (`lib/undoFlash`): it is the button answering the press that was
+   * just made, in the same bubble the hold shows when it is asked what it would do. It matters
+   * because ↶ now reaches across surfaces — the operator is looking at the Karte and the thing
+   * that came back happened on the Tafel, where he cannot see it happen.
+   *
+   * The one FAILURE is soft and button-less: the step pointed at something a merge has taken
+   * away. Nothing is half-done (the entry declined before writing), so there is nothing to
+   * retry and nothing to confirm — just a word, and the next ↶ moves on to the step below.
+   */
+  const stepHistory = (dir: 'undo' | 'redo', anchor?: HTMLElement | null): void => {
+    const r = dir === 'undo' ? undoHist.undo() : undoHist.redo()
+    if (r.status === 'empty') return
+    if (r.status === 'lost') { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
+    if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: r.entry.label }))
+  }
+  /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
+  const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
+  useEffect(() => clearUndoCaption, [])
   // the Plan keeps its own per-document history (inside Whiteboard); it reports its
   // step fns + can-flags up here so the GLOBAL TopBar undo/redo drives whichever
   // surface is showing — one control, both surfaces, no rail-level duplication.
@@ -601,6 +690,62 @@ export function IncidentWorkspace({
   // nicht rückgängig machen lässt» broken by a tab switch. Keyed by plan id (see BoardHistory),
   // so surviving the unmount never leaks one plan's undo into another plan's.
   const [planHistory, setPlanHistory] = useState<BoardHistory>({})
+  // ⚠️ Live copies for the timeline's entries. An entry is pushed in one render and pressed in
+  // another, and both of these move constantly — a plan's step read off the render that recorded
+  // it would restore an annotation array from before everything that happened since.
+  const planHistoryRef = useRef(planHistory); planHistoryRef.current = planHistory
+  /**
+   * Record that ONE plan document moved, on the global timeline.
+   *
+   * ⚠️ Scoped by plan id, and stepped by plan id — never through `planHist` (which points at
+   * whichever plan is OPEN). The header's ↶ is chronological now, so the last thing that happened
+   * may well be on a plan the operator has since navigated away from; delegating to the open
+   * plan's history would then quietly undo a step on the wrong document. Where the plan IS open
+   * we still go through `planHist`, because that path also clears the board's selection and
+   * writes the Verlauf row the Whiteboard has always written.
+   */
+  const planStepAt = (planId: string, dir: 'undo' | 'redo'): boolean => {
+    if (planId === activePlanIdRef.current && planHist.current) {
+      const can = planHistoryRef.current[planId]
+      const has = dir === 'undo' ? !!can?.past.length : !!can?.future.length
+      if (!has) return false
+      if (dir === 'undo') planHist.current.undo(); else planHist.current.redo()
+      return true
+    }
+    const cur = planHistoryRef.current[planId]
+    const stack = dir === 'undo' ? cur?.past : cur?.future
+    if (!stack?.length) return false
+    const to = dir === 'undo' ? stack[stack.length - 1] : stack[0]
+    const from = boardRef.current[planId] ?? []
+    setPlanHistory((m) => {
+      const c = m[planId]
+      if (!c) return m
+      return { ...m, [planId]: dir === 'undo'
+        ? { past: c.past.slice(0, -1), future: [from, ...c.future] }
+        : { past: [...c.past, from], future: c.future.slice(1) } }
+    })
+    setBoard((all) => ({ ...all, [planId]: to }))
+    return true
+  }
+  /** Record on the timeline that one plan document just gained a step. The Whiteboard pushes its
+   *  own checkpoints (useBoardDoc · pushPast) and calls only this; the writers above the unmounted
+   *  board use `planCheckpoint`, which does both halves. */
+  const rememberPlanStep = (planId: string) => {
+    const label = fillTemplate(C_HIST.undoDomains.plan, { plan: planLabelRef.current(planId) })
+    undoHist.push({
+      domain: 'plan',
+      scope: planId,
+      label,
+      undo: () => histStep(planStepAt(planId, 'undo'), 'undo', label, ''),
+      redo: () => histStep(planStepAt(planId, 'redo'), 'redo', label, ''),
+    })
+  }
+  /** Checkpoint one plan AND record it on the timeline — the two halves of «this is a step» that
+   *  must never come apart, so every writer above the unmounted Whiteboard goes through here. */
+  const planCheckpoint = (planId: string, annos: BoardAnno[]) => {
+    setPlanHistory((m) => pushBoardPast(m, planId, annos))
+    rememberPlanStep(planId)
+  }
   // …and the zoom/pan of each plan, for the same reason: coming back from the Karte to a board
   // that had reset itself to «eingepasst» means finding your place on it again, every time.
   // Same scope as the Lage map's own view memory (MapView · viewRef): this component is keyed
@@ -1080,6 +1225,13 @@ export function IncidentWorkspace({
   // first and worked on the second, and the first stayed in the rail forever afterwards doing
   // nothing. See lib/useObjectPlans · railPlanTiles for why the two ids survive the merge.
   const railPlanDocs = useMemo(() => railPlanTiles(planDocs, activePlanId), [planDocs, activePlanId])
+  // ⚠️ The live values the timeline's plan entries read (see `planStepAt` / `planCheckpoint`).
+  // A step is pressed long after the render that recorded it, so nothing there may close over
+  // this render's `board`, `activePlanId` or plan titles.
+  const boardRef = useRef(board); boardRef.current = board
+  const activePlanIdRef = useRef(activePlanId); activePlanIdRef.current = activePlanId
+  const planLabelRef = useRef<(id: string) => string>(() => '')
+  planLabelRef.current = (id) => planDocs.find((p) => p.id === id)?.title ?? id
 
   // both bars are stacked on the two drawing surfaces (tool bar above the surface bar) — this drives
   // the extra bottom clearances for FAB / docks / stage / whiteboard on phones. A viewer-only plan
@@ -1340,6 +1492,13 @@ export function IncidentWorkspace({
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's
     // unmount (see `planHistory`), so nothing else drops them any more.
     attHistClear.current?.(); setPlanHistory({})
+    // ⚠️ …and the ONE global timeline goes with ALL of them. This path replaces every slice at
+    // once — the doc, the board, the trupps, the Anwesenheit, Mittel, Checklisten — so there is
+    // no entry left that describes anything real: a delegating one would step a stack that has
+    // just been emptied, and a closure one would write a pre-merge snapshot back over what
+    // another device merged in. Dropping the whole timeline is the honest answer, and it is why
+    // `invalidate(domain)` exists for the narrower case rather than being used here.
+    histClear.current()
     // Drop any selection pointing at an entity/drawing that no longer exists after the merge.
     setSelectedId((id) => (id && next.doc.entities.some((e) => e.id === id) ? id : null))
     setSelectedDrawingId((id) => (id && next.doc.drawings.some((d) => d.id === id) ? id : null))
@@ -1972,6 +2131,9 @@ export function IncidentWorkspace({
   // plan events carry document + (optional) team / coordinate context for jump-back
   const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) =>
     pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor })
+  // …and now that both exist, hand them to the timeline's entries (see `histSide` far above:
+  // an entry is pushed long before this line runs and pressed long after it).
+  histSide.current = { log, emit }
 
   // Lage-map drawing surface (draft, line mode/preset, draw-style controls, Drawing CRUD +
   // on-canvas editing) lives in useMapDrawing — the undoable doc and selection state are
@@ -2751,8 +2913,11 @@ export function IncidentWorkspace({
         e.preventDefault()
         if (onPlan) planFit.current?.(); else if (onMap) centerIncident()
         break
-      case 'undo': e.preventDefault(); if (onPlan) planHist.current?.undo(); else undo(); break
-      case 'redo': e.preventDefault(); if (onPlan) planHist.current?.redo(); else redo(); break
+      // ⚠️ The keyboard reaches the SAME one timeline the header pair does, and no longer routes
+      // by surface: Cmd-Z means «take back the last thing that happened», wherever it happened.
+      // No caption — a keyboard user is not asking a button what it did.
+      case 'undo': e.preventDefault(); stepHistory('undo'); break
+      case 'redo': e.preventDefault(); stepHistory('redo'); break
       // both drawing surfaces duplicate their own single selection; every other surface has
       // nothing Cmd+D could mean (A22 — the key used to resolve and then do nothing on the Plan)
       case 'duplicate':
@@ -2931,7 +3096,12 @@ export function IncidentWorkspace({
       // outlines at once say nothing, and one of two would be a lie. (The bound itself is
       // enforced per sheet either way — see the frame below.)
       if (plans.length === 1 && items[0]) showTwinBound(items[0].fit, [])
-      setPlanHistory((m) => plans.reduce((acc, planId) => pushBoardPast(acc, planId, board[planId] ?? []), m))
+      // ⚠️ One checkpoint per touched plan, so each document's own stack stays consistent — and
+      // therefore one timeline entry per plan too. Taking a cross-sheet group move back is then
+      // one ↶ per sheet, which is what the per-plan history has always meant; folding them into
+      // a single entry would have to step several documents at once and could not fail softly
+      // on one of them without leaving the others half-moved.
+      for (const planId of plans) planCheckpoint(planId, board[planId] ?? [])
       return
     }
     const { items, centre: c } = twinGroupOrig.current
@@ -3283,7 +3453,7 @@ export function IncidentWorkspace({
     if ((t.anno.kind === 'draw' || t.anno.kind === 'area') && t.anno.pts?.length) {
       // one checkpoint + the anchor for the whole drag, on the first movement
       if (phase === 'start') {
-        setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+        planCheckpoint(t.planId, board[t.planId] ?? [])
         twinPathDrag.current = { pts: t.anno.pts, from: p }
         showTwinBound(t.fit, [])
         return
@@ -3306,7 +3476,7 @@ export function IncidentWorkspace({
     }
     // one checkpoint for the whole drag, on the first movement — the map's own model
     if (phase === 'start') {
-      setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+      planCheckpoint(t.planId, board[t.planId] ?? [])
       showTwinBound(t.fit, [])
       return
     }
@@ -3341,7 +3511,7 @@ export function IncidentWorkspace({
     const removal = deleteBoardTwinSource(annos, t.annoId)
     if (!removal) return
     const detachedOriginals = annos.filter((a) => removal.affectedIds.includes(a.id))
-    setPlanHistory((m) => pushBoardPast(m, t.planId, annos))
+    planCheckpoint(t.planId, annos)
     setBoard((all) => ({ ...all, [t.planId]: removal.next }))
     setDocRaw((d) => ({ ...d, entities: [...d.entities, entity] }))
     setTwinView(null); setSelectedId(entity.id)
@@ -3393,7 +3563,7 @@ export function IncidentWorkspace({
     // not jump. Without this the «Verbunden mit» row fell back to printing the raw id
     // (DrawEditor · attachmentLabels) and trace-routing silently stopped working for good.
     const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === entity.id))
-    setPlanHistory((m) => pushBoardPast(m, planId, board[planId] ?? []))
+    planCheckpoint(planId, board[planId] ?? [])
     setDocRaw((d) => ({
       ...d,
       entities: d.entities.filter((e) => e.id !== entity.id),
@@ -3550,6 +3720,14 @@ export function IncidentWorkspace({
   const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
     useTruppActions({
       trupps, drawings, entities, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
+      // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
+      // Statuswechsel, Bearbeitung, Wieder-Einrücken, Anmeldung and Löschen records itself there,
+      // so ↶ in the header reaches the board — including from the handed-over Link-Tafel, which
+      // has no TopBar and gets its own pair (AtemschutzView · headActs).
+      undoTimeline: undoHist,
+      // ⚠️ …and reads the CURRENT trupps when a step is finally pressed, not the render that
+      // recorded it. A merge between the tap and the ↶ is exactly the case that has to decline.
+      liveTrupps: () => truppsRef.current,
       // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
       // recoloured here would change only on this phone and be undone by the next poll, while
       // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
@@ -3754,13 +3932,44 @@ export function IncidentWorkspace({
   // ⚠️ `canWriteRecord`, not `readOnly`: the Anwesenheit is not the Atemschutz-Link's slice.
   const attHist = useUndoableSlice(attendance, setAttendance, !canWriteRecord)
   attHistClear.current = attHist.clear
+  /** Record an Anwesenheits-Schritt on the global timeline. The slice keeps its own stack and
+   *  performs the step (delegation); this only says WHEN it happened relative to everything else.
+   *  ⚠️ Through a ref, and declared up here: `attSet` is handed to `useAttendanceActions` during
+   *  THIS render, while `stepAttendance` needs the roster that is built further down.
+   *  ⚠️ The label is the surface, not the names. At push time the write has not landed, so who
+   *  moved is not knowable yet — and the Verlauf row `stepAttendance` writes still names them,
+   *  which is where a reader six months later actually looks. */
+  const stepAttendanceRef = useRef<(dir: 'undo' | 'redo') => boolean>(() => false)
+  const rememberAttendanceStep = () => undoHist.push({
+    domain: 'anwesenheit',
+    label: C_HIST.undoDomains.anwesenheit,
+    undo: () => stepAttendanceRef.current('undo'),
+    redo: () => stepAttendanceRef.current('redo'),
+  })
+  /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. */
+  const attSet: typeof attHist.set = (update) => { attHist.set(update); rememberAttendanceStep() }
+  /**
+   * A Gebäude one-shot on the timeline. These own no stack at all — a storey added, a storey
+   * removed, a building replaced — so the entry carries BOTH states itself, the way the
+   * confirm-with-undo toast used to carry one of them.
+   *
+   * ⚠️ The toasts stay (they are the fast door for the mistake you notice at once) and each one
+   * drops its entry when it is used, so an act is never undoable twice. The label is the toast's
+   * own sentence, so the header says «Rückgängig: Geschoss gelöscht» and not «… Gebäude».
+   */
+  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) => undoHist.push({
+    domain: 'gebaeude',
+    label,
+    undo: () => { restore(); logHistStep('undo', label, ''); return true },
+    redo: () => { reapply(); logHistStep('redo', label, ''); return true },
+  })
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record
   // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back
   // when the same person is ticked present again — see useAttendanceActions · noteMemory. Per
   // incident by construction: this component remounts with the incident.
   const attNotes = useRef<Record<string, string>>({})
   const { markPresent, markLeft, clearAttendance, setAttendanceTimes, removeAttendanceBlock, setAttendanceNote, setAttendanceOrt, addGuest } = useAttendanceActions({
-    attendance, setAttendance: attHist.set, blockedAttendanceIds, noteMemory: attNotes,
+    attendance, setAttendance: attSet, blockedAttendanceIds, noteMemory: attNotes,
     startedAt: incidentMeta.started_at, reportDoneAt: incidentMeta.report_done_at, log,
   })
   /** Step the Anwesenheit back or forward and SAY SO in the Verlauf. The record is append-only, so
@@ -3782,14 +3991,14 @@ export function IncidentWorkspace({
     if (choice !== 'both') {
       const picked = open.sides[choice]?.entry
       // …through the history-aware setter, so ↶ takes it back like every other Anwesenheit tap
-      if (picked && open.key) attHist.set((cur) => ({ ...cur, [open.key]: picked }))
+      if (picked && open.key) attSet((cur) => ({ ...cur, [open.key]: picked }))
     }
     journal.append(conflictResolvedRow(open, choice, user?.display_name))
     emit('attendance.conflict.resolved', { key: open.key, sig: open.sig })
   }
-  const stepAttendance = (dir: 'undo' | 'redo') => {
+  const stepAttendance = (dir: 'undo' | 'redo'): boolean => {
     const moved = dir === 'undo' ? attHist.undo() : attHist.redo()
-    if (!moved) return
+    if (!moved) return false
     const names = changedAttendanceNames(moved.from, moved.to, rosterById)
     const A = appConfig.copy.anwesenheit
     // ⚠️ icon 'people', not 'undo'. The Bereich column and the Verlauf chip are derived from the
@@ -3797,9 +4006,40 @@ export function IncidentWorkspace({
     // «Anwesenheit zurückgenommen» printed under «Atemschutz», on a sheet whose whole job is
     // saying where a row came from. The undo-ness is in the sentence; the icon says the surface.
     log('people', fillTemplate(dir === 'undo' ? A.undone : A.redone, { names: names.join(', ') || '–' }), 'team')
-    emit(dir)
+    // ⚠️ `attendance.undo`, NOT a bare `undo` (fixed 08.09.2026). An `el` session may write the
+    // Anwesenheit but may append only the RECORD event vocabulary (backend · EL_EVENT_PREFIXES),
+    // and ONE refused op_type 403s the whole batch — so the first ↶ an Einsatzleiter pressed
+    // wedged their entire audit outbox. `attendance.` is already on that allowlist.
+    emit(`attendance.${dir}`)
+    return true
   }
-  const { saveMittel } = useMittelActions({ mittel, setMittel, authorName: user?.display_name, log })
+  stepAttendanceRef.current = stepAttendance
+  /**
+   * Mittel and Checklisten join the timeline the same way the Anwesenheit does: their slice gets
+   * an undo stack (`useUndoableSlice`), every write goes through it, and the entry delegates.
+   *
+   * ⚠️ Whole-slice snapshots, not reverse patches — the same reason the Anwesenheit takes them.
+   * A Mittel save is append-only with tombstones and a Checklisten-Haken carries who ticked it
+   * and when, so «put the list back as it stood» is a statement the record can make; «un-tick
+   * item 4» is not, once a merge has been through it.
+   * ⚠️ `canEditRecord`, like the Anwesenheit: both are record surfaces an `el` may write.
+   */
+  const mittelHist = useUndoableSlice(mittel, setMittel, !canWriteRecord)
+  const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord)
+  /** One recorded step over a slice somebody else owns. `op` is the domain-scoped audit prefix —
+   *  see `logHistStep` for why a bare `undo` would wedge an `el` session's outbox. */
+  const rememberSliceStep = <T,>(domain: UndoDomain, hist: UndoableSlice<T>, label: string, op: string, icon: string) => undoHist.push({
+    domain,
+    label,
+    undo: () => histStep(!!hist.undo(), 'undo', label, op, icon, 'journal'),
+    redo: () => histStep(!!hist.redo(), 'redo', label, op, icon, 'journal'),
+  })
+  const mittelSet: typeof mittelHist.set = (u) => { mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef.current, C_HIST.undoDomains.mittel, 'mittel.', 'box') }
+  const checklistSet: typeof checklistHist.set = (u) => { checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef.current, C_HIST.undoDomains.checkliste, 'checklist.', 'check') }
+  // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
+  const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
+  const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
+  const { saveMittel } = useMittelActions({ mittel, setMittel: mittelSet, authorName: user?.display_name, log })
   // Symbol→Mittel moved OUT of the symbol's card (28.08.): the Material surface itself now shows
   // the «Gesetzt, aber nicht erfasst» strip, fed with every symbol standing on Lage + all plans.
   // The «has this station mapped anything» gate lives inside mittelRecommendations.
@@ -3976,7 +4216,7 @@ export function IncidentWorkspace({
     if (!fresh.length && !needNote.length) return
     // through the history, like every other write to this slice — being made Fahrer or EL puts
     // somebody on the Anwesenheit, and «that was the wrong name» is the same mistake as a tap
-    attHist.set((cur) => {
+    attSet((cur) => {
       const next = { ...cur }
       for (const id of fresh) {
         const name = rosterById.get(id)?.displayName ?? cur[id]?.displayNameSnapshot ?? id
@@ -4144,7 +4384,7 @@ export function IncidentWorkspace({
     const liveKey = `${t.planId}:${t.annoId}`
     if (phase === 'live') {
       if (planTwinTitleLive.current !== liveKey) {
-        setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+        planCheckpoint(t.planId, board[t.planId] ?? [])
         planTwinTitleLive.current = liveKey
       }
       setBoard((all) => ({ ...all, [t.planId]: patchBoardTwinSource(all[t.planId] ?? [], t.annoId, patch) }))
@@ -4152,7 +4392,7 @@ export function IncidentWorkspace({
     }
     const wasLive = planTwinTitleLive.current === liveKey
     planTwinTitleLive.current = null
-    if (!wasLive) setPlanHistory((m) => pushBoardPast(m, t.planId, board[t.planId] ?? []))
+    if (!wasLive) planCheckpoint(t.planId, board[t.planId] ?? [])
     setBoard((all) => ({ ...all, [t.planId]: patchBoardTwinSource(all[t.planId] ?? [], t.annoId, patch) }))
     emit('board.edit', { planId: t.planId, id: t.annoId, patch })
     const source = { ...current, kind: 'symbol' as const, layer: appConfig.defaults.operationalLayerId, coord: t.coord ?? ([0, 0] as LngLat), floor: current.storey } as Entity
@@ -4165,7 +4405,7 @@ export function IncidentWorkspace({
    *  the lot, one `board.edit` per anno that actually changed (lib/georefTwinEdit · BoardTwinWrite). */
   const applyPlanTwinWrite = (planId: string, write: BoardTwinWrite | null) => {
     if (tacticalLocked || !write) return
-    setPlanHistory((m) => pushBoardPast(m, planId, board[planId] ?? []))
+    planCheckpoint(planId, board[planId] ?? [])
     setBoard((all) => ({ ...all, [planId]: write.next }))
     write.patches.forEach(({ id, patch }) => emit('board.edit', { planId, id, patch }))
   }
@@ -4209,7 +4449,7 @@ export function IncidentWorkspace({
       })
       if (!ok) return
     }
-    setPlanHistory((m) => pushBoardPast(m, t.planId, annos))
+    planCheckpoint(t.planId, annos)
     const result = deleteBoardTwinSource(annos, target.id)
     if (!result) return
     setBoard((all) => ({ ...all, [t.planId]: result.next }))
@@ -4297,7 +4537,7 @@ export function IncidentWorkspace({
   // canEditRecord, not canEditIncident (07.09.): ticking is record-keeping — the el role
   // and an editor's Führungsansicht keep it; the backend enforces the same boundary.
   const canTick = canEditRecord
-  const { toggleTick, setBranch } = useChecklistActions({ canTick, checklists, setChecklists, authorName: user?.display_name, log, emit })
+  const { toggleTick, setBranch } = useChecklistActions({ canTick, checklists, setChecklists: checklistSet, authorName: user?.display_name, log, emit })
   // Deep links: an item's `action` jumps to the matching surface (best-effort, reusing
   // existing setters). journal → open the composer; plan → Plan tab; draw → Lage + pen.
   const checklistAction = (_item: Item, a: NonNullable<Item['action']>) => {
@@ -4415,6 +4655,15 @@ export function IncidentWorkspace({
       lite={asLink ? {
         subtitle: [incidentMeta.title, incidentMeta.address].filter(Boolean).join(' · '),
       } : undefined}
+      // …and with no TopBar on that screen, the app's ONE ↶ ↷ pair rides in the board's own
+      // header. Same timeline as everywhere else — only trupp actions can reach this session's
+      // stack, and its writes go down the trupps slice, which a link session already syncs.
+      onUndo={onHistoryPress('undo')}
+      onRedo={onHistoryPress('redo')}
+      canUndo={histCanUndo}
+      canRedo={histCanRedo}
+      undoLabel={undoLabel}
+      redoLabel={redoLabel}
       // a closed Einsatz is a record, not a situation: every clock stands at the Einsatzende
       frozenAt={azFrozenAt}
     />
@@ -4646,14 +4895,18 @@ export function IncidentWorkspace({
         onHoldStart={linkScoped ? undefined : startVoiceMemo}
         onHoldEnd={linkScoped ? undefined : voice.stop}
         onHoldPhoto={linkScoped ? undefined : startQuickPhoto}
-        // ⚠️ One pair, wherever you are — and it always means «take back what you last did HERE».
-        // Each surface keeps its OWN stack, so stepping back in the Anwesenheit can never reach
-        // into the map's document, and switching surfaces changes what ↶ points at rather than
-        // what it does.
-        onUndo={mode === 'plans' ? () => planHist.current?.undo() : mode === 'anwesenheit' ? () => stepAttendance('undo') : undo}
-        onRedo={mode === 'plans' ? () => planHist.current?.redo() : mode === 'anwesenheit' ? () => stepAttendance('redo') : redo}
-        canUndo={mode === 'plans' ? planCan.canUndo : mode === 'anwesenheit' ? attHist.canUndo : canUndo}
-        canRedo={mode === 'plans' ? planCan.canRedo : mode === 'anwesenheit' ? attHist.canRedo : canRedo}
+        // ⚠️ ONE pair, ONE history (08.09.2026). It used to route by surface — «take back what you
+        // last did HERE» — which asked the operator to already know which surface his last tap
+        // landed on, and left the Tafel's actions reachable only through a toast that expired.
+        // It now steps the one global timeline and NAMES what it will take back, so an undo that
+        // lands on another surface is never invisible (lib/undoTimeline · IncidentWorkspace ·
+        // stepHistory).
+        onUndo={onHistoryPress('undo')}
+        onRedo={onHistoryPress('redo')}
+        canUndo={histCanUndo}
+        canRedo={histCanRedo}
+        undoLabel={undoLabel}
+        redoLabel={redoLabel}
         // …and it is only offered where there IS something to step through. On the remaining
         // surfaces (Checklisten, Mittel, Atemschutz, Rapport) it would still be the map's document
         // being changed invisibly, so the pair and its separator stay hidden there.
@@ -5825,12 +6078,16 @@ export function IncidentWorkspace({
             if (hasWork) {
               // confirm-with-undo: the previous stack (floors + markings) is restorable in place,
               // and the toast repeats the counts — «Gebäude ersetzt» alone never said what happened.
-              undoToast(amend.legacy
+              const line = amend.legacy
                 ? (markCount > 0 ? fillTemplate(wb.buildingReplacedMarks, { n: markCount }) : wb.buildingReplaced)
                 : amend.dropped > 0 ? fillTemplate(wb.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
                 : markCount > 0 ? fillTemplate(wb.buildingReplacedCarried, { n: amend.carried })
-                : wb.buildingReplacedKept,
-                () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) })
+                : wb.buildingReplacedKept
+              const nextBuilding = { src, orientDeg, geo, northUp: false, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect, floors: amend.floors }
+              const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) }
+              const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: amend.annos })) }
+              const drop = rememberGebaeudeStep(line, restore, reapply)
+              undoToast(line, () => { restore(); drop() })
             }
           }}
           // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
@@ -5842,22 +6099,30 @@ export function IncidentWorkspace({
             if (!building) return
             const prevBuilding = building
             const newFloor = dir > 0 ? Math.max(...building.floors) + 1 : Math.min(...building.floors) - 1
-            setBuilding((b) => (b ? { ...b, floors: dir > 0 ? [...b.floors, newFloor] : [newFloor, ...b.floors] } : b))
+            const nextBuilding = { ...prevBuilding, floors: dir > 0 ? [...prevBuilding.floors, newFloor] : [newFloor, ...prevBuilding.floors] }
+            setBuilding(nextBuilding)
             // confirm-with-undo (standing rule): the undo also sweeps any annotation already
             // dropped on the brand-new storey so nothing orphans
-            undoToast(appConfig.copy.whiteboard.floorAdded,
-              () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: (b.gebaeude ?? []).filter((a) => (a.floor ?? 0) !== newFloor) })) })
+            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: (b.gebaeude ?? []).filter((a) => (a.floor ?? 0) !== newFloor) })) }
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
+            undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
           }}
           onRemoveFloor={(floor) => {
             const prevBuilding = building
             const prevGebaeude = board.gebaeude ?? []
             const resolvedBeforeRemoval = new Map(resolvePlanAnnos(prevGebaeude).map((a) => [a.id, a]))
-            setBuilding((b) => (b ? { ...b, floors: b.floors.filter((f) => f !== floor) } : b))
-            setBoard((b) => {
-              const removedIds = new Set((b.gebaeude ?? []).filter((a) => a.pts?.length
+            const nextBuilding = prevBuilding ? { ...prevBuilding, floors: prevBuilding.floors.filter((f) => f !== floor) } : prevBuilding
+            setBuilding(nextBuilding)
+            // ⚠️ The sweep is computed HERE, off `prevGebaeude`, rather than inside the setter's
+            // updater — which is the same array (captured one line above) and therefore the same
+            // result. It has to be a value the closure can keep, because the timeline's ↷ has to
+            // put back exactly the stack this removal produced, not re-run a sweep against a
+            // document that has moved on since.
+            const nextGebaeude = (() => {
+              const removedIds = new Set(prevGebaeude.filter((a) => a.pts?.length
                 ? a.pts.every((p) => (p[2] ?? a.floor ?? 0) === floor)
                 : (a.floor ?? 0) === floor).map((a) => a.id))
-              const gebaeude = (b.gebaeude ?? []).filter((a) => !removedIds.has(a.id)).map((a) => {
+              return prevGebaeude.filter((a) => !removedIds.has(a.id)).map((a) => {
                 const oldPts = a.pts ?? []
                 let pts = oldPts.filter((p) => (p[2] ?? a.floor ?? 0) !== floor)
                 const droppedStart = oldPts.length > 0 && pts.length > 0 && oldPts[0] !== pts[0]
@@ -5874,11 +6139,13 @@ export function IncidentWorkspace({
                   ...((droppedEnd || targetGone(a.endAttachment)) ? { endAttachment: undefined } : {}),
                 }
               }).filter((a) => !a.pts || a.pts.length >= (a.kind === 'area' ? 3 : 2))
-              return { ...b, gebaeude }
-            })
+            })()
+            setBoard((b) => ({ ...b, gebaeude: nextGebaeude }))
             // confirm-with-undo: the removed storey's annotations come back with it
-            undoToast(appConfig.copy.whiteboard.floorRemoved,
-              () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) })
+            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) }
+            const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: nextGebaeude })) }
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
+            undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
           }}
           sym={sym}
           rosterNames={rosterNames}
@@ -5898,6 +6165,7 @@ export function IncidentWorkspace({
           onHistoryState={setPlanCan}
           hist={planHistory}
           setHist={setPlanHistory}
+          onCheckpoint={rememberPlanStep}
           views={planViews}
           fitRef={planFit}
           keysRef={planKeys}
@@ -5969,10 +6237,10 @@ export function IncidentWorkspace({
           // bar drops its history pair as soon as an Atemschutz-Alarmchip claims the room
           // (15-mobile.css · .tb-az), which is exactly when this list is tapped fastest; any
           // other time the bar pair is the one door, so nothing is duplicated (06.09.).
-          onUndo={canEditRecord ? () => stepAttendance('undo') : undefined}
-          onRedo={canEditRecord ? () => stepAttendance('redo') : undefined}
-          canUndo={attHist.canUndo}
-          canRedo={attHist.canRedo}
+          onUndo={canEditRecord ? onHistoryPress('undo') : undefined}
+          onRedo={canEditRecord ? onHistoryPress('redo') : undefined}
+          canUndo={histCanUndo}
+          canRedo={histCanRedo}
           topBarUndoHidden={azAlarm.peak >= 1 && !!azAlarm.urgent}
           onSetTimes={canEditRecord ? setAttendanceTimes : undefined}
           onRemoveBlock={canEditRecord ? removeAttendanceBlock : undefined}

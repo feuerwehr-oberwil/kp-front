@@ -6,6 +6,7 @@ import { appConfig } from '../config/appConfig'
 import { anyTruppInField, isAtemschutzTrupp, truppNeverDeployed } from './atemschutz'
 import { fillTemplate } from './format'
 import type { Doc } from './workspace'
+import { createUndoTimeline } from './undoTimeline'
 
 // Capture the confirm-with-undo toasts, so the undo the operator would tap can be tapped here.
 // `vi.hoisted` because vi.mock's factory is hoisted above the imports and would otherwise read
@@ -53,8 +54,7 @@ function harness(
     doc: { entities: seed?.entities ?? [], drawings: seed?.drawings ?? [] } as Doc,
   }
   const apply = <T,>(cur: T, a: SetStateAction<T>): T => (typeof a === 'function' ? (a as (p: T) => T)(cur) : a)
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
-  const actions = useTruppActions({
+  const deps: Parameters<typeof useTruppActions>[0] = {
     trupps: state.trupps,
     // the live Lage drawings the hose link reads (which numbers are taken, where a line lives)
     drawings: state.doc.drawings,
@@ -74,8 +74,10 @@ function harness(
     mapCenter: () => [7.53, 47.41],
     focusMapEntity: () => {},
     focusMapDrawing: () => {},
-  })
-  return { actions, state }
+  }
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+  const actions = useTruppActions(deps)
+  return { actions, state, deps }
 }
 
 describe('useTruppActions placement (one place per Trupp)', () => {
@@ -1617,5 +1619,111 @@ describe('useTruppActions — the check-in ask on placement', () => {
     await Promise.resolve()
     await Promise.resolve()
     expect(ui.confirms).toHaveLength(0)
+  })
+})
+
+/* ── The Tafel on the ONE global timeline (08.09.2026) ────────────────────────────────────────
+ * Every Atemschutz mutation used to be reachable only through its own toast, which expired after
+ * six seconds. It is on the header's ↶ now — so these pin the two things that make that safe:
+ * the step goes back as ONE unit, and a ↷ never invents a NEWER Funkkontakt. */
+describe('useTruppActions — what the global timeline can take back', () => {
+  const timed = (trupp: Trupp) => {
+    const timeline = createUndoTimeline()
+    const rows: { text: string; subjectId?: string }[] = []
+    const h = harness(trupp, undefined, () => {}, rows)
+    // the same closure factory, now knowing the timeline and how to read the CURRENT board
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+    const actions = useTruppActions({
+      ...(h.deps), undoTimeline: timeline, liveTrupps: () => h.state.trupps,
+    })
+    return { actions, state: h.state, timeline, rows }
+  }
+
+  it('takes a Kontakt back on the card it was booked on, clock and reading together', () => {
+    const { actions, state, timeline } = timed(baseTrupp({ lastContactTime: '2026-07-06T10:00:00Z' }))
+    actions.recordContact('T1')
+    const after = state.trupps[0]
+    expect(after.lastContactTime).not.toBe('2026-07-06T10:00:00Z')
+    expect(after.readings?.filter((r) => r.kind === 'contact')).toHaveLength(1)
+
+    expect(timeline.peekUndo()?.label).toBe('Trupp Keller Anna: Kontakt bestätigt')
+    timeline.undo()
+    expect(state.trupps[0].lastContactTime).toBe('2026-07-06T10:00:00Z')
+    expect(state.trupps[0].readings ?? []).toEqual([])
+  })
+
+  it('re-stamps the ORIGINAL contact time on a redo, never a fresher one', () => {
+    // ⚠️ The safety doctrine: an undo may leave a clock showing MORE elapsed time, never less.
+    // Re-running the action would stamp «now» and quietly buy the crew back minutes it never had.
+    const { actions, state, timeline } = timed(baseTrupp({}))
+    actions.recordContact('T1')
+    const stamped = state.trupps[0].lastContactTime
+    timeline.undo()
+    timeline.redo()
+    expect(state.trupps[0].lastContactTime).toBe(stamped)
+    expect(state.trupps[0].readings?.filter((r) => r.kind === 'contact')).toHaveLength(1)
+  })
+
+  it('puts a whole Eintritt back as one unit — status, clock and entry row', () => {
+    const { actions, state, timeline } = timed(baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '' }))
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(state.trupps[0].status).toBe('aktiv')
+    expect(state.trupps[0].entryTime).toBeTruthy()
+
+    timeline.undo()
+    expect(state.trupps[0].status).toBe('angemeldet')
+    expect(state.trupps[0].entryTime).toBe('')
+    expect(state.trupps[0].lastContactTime).toBe('')
+    expect(state.trupps[0].readings ?? []).toEqual([])
+  })
+
+  it('un-stamps removedAt rather than re-creating a deleted Trupp', () => {
+    // ⚠️ Löschen is a stamp (17.08.), so its undo is un-stamping. A re-created card would be a
+    // second registration of a crew that only ever registered once.
+    const { actions, state, timeline } = timed(baseTrupp({}))
+    actions.deleteTrupp('T1')
+    expect(state.trupps[0].removedAt).toBeTruthy()
+
+    timeline.undo()
+    expect(state.trupps).toHaveLength(1)
+    expect(state.trupps[0].removedAt).toBeUndefined()
+  })
+
+  it('takes an Anmeldung back by stamping it off the board, not by deleting the record', () => {
+    const { actions, state, timeline } = timed(baseTrupp({}))
+    actions.createTrupp(baseTrupp({ id: 'T2', name: 'Meier Urs' }))
+    expect(state.trupps).toHaveLength(2)
+
+    timeline.undo()
+    expect(state.trupps).toHaveLength(2)            // still on the Rapport …
+    expect(state.trupps[1].removedAt).toBeTruthy()  // … and off the board
+  })
+
+  it('writes its own Verlauf row for the step, and never rewrites the one it corrects', () => {
+    const { actions, timeline, rows } = timed(baseTrupp({}))
+    actions.recordContact('T1')
+    expect(rows).toHaveLength(1)
+    timeline.undo()
+    expect(rows).toHaveLength(2)
+    expect(rows[0].text).toBe('Trupp Keller Anna: Kontakt bestätigt')
+    expect(rows[1].text).toBe('Trupp Keller Anna: Kontakt bestätigt rückgängig gemacht')
+    expect(rows[1].subjectId).toBe('T1')
+  })
+
+  it('declines quietly when the card the step points at is gone', () => {
+    const { actions, state, timeline } = timed(baseTrupp({}))
+    actions.recordContact('T1')
+    state.trupps = [] // a merge took it away between the tap and the ↶
+
+    expect(timeline.undo()).toMatchObject({ status: 'lost' })
+    expect(state.trupps).toEqual([])
+  })
+
+  it('stops offering a delete the toast’s own «Rückgängig» already took back', () => {
+    const { actions, timeline } = timed(baseTrupp({}))
+    const drop = actions.deleteTrupp('T1')
+    expect(timeline.canUndo()).toBe(true)
+    drop?.()
+    expect(timeline.canUndo()).toBe(false)
   })
 })
