@@ -8,8 +8,8 @@ import { vertexHandleIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
 
 const COLORS = appConfig.drawing.colors
-/** id namespace for the ink layer's Schraffur — its patterns are scaled against the 1×1 sheet and
- *  must not be handed to the px-space defs beside them (lib/draw · hatchPatternId). */
+/** id namespace for the ink layer's Schraffur — kept distinct from the circle layer's defs so
+ *  the two SVGs never define the same GLOBAL pattern id twice (lib/draw · hatchPatternId). */
 const INK_HATCH_SPACE = 'sheet'
 
 interface InkProps {
@@ -33,36 +33,42 @@ interface InkProps {
   /** anno id → Atemschutz alarm tone for the Leitung it draws ('warn' | 'crit'). Those lines get
    *  a soft outline in that tone — the plan twin of the Lage's l-draw-atemschutz layer. */
   truppTones?: Record<string, 'warn' | 'crit'>
-  /** the sheet's size in CSS px. Only the Schraffur needs it: this SVG is a 1×1 sheet stretched
-   *  over the page, and an SVG pattern is measured in THAT space (lib/draw · HatchDefs). */
+  /** the sheet's size in CSS px — the coordinate space this whole layer renders in */
   sW: number
   sH: number
 }
 
 /**
- * The vector ink layer (single non-scaling-stroke SVG): committed freehand/line polylines, filled
- * areas, the in-progress draft, and team trails. When `onPickDraw` is given (pan mode), each shape
- * also gets a fat transparent hit surface so it can be tapped to select — the visible shape stays
- * non-interactive. (Line arrowheads + marker letters render OUTSIDE this layer, in board px, since
- * this SVG is stretched 1×1 and would distort them.)
+ * The vector ink layer: committed freehand/line polylines, filled areas, the in-progress draft,
+ * and team trails. When `onPickDraw` is given (pan mode), each shape also gets a fat transparent
+ * hit surface so it can be tapped to select — the visible shape stays non-interactive.
+ *
+ * ⚠️ Rendered in BOARD PIXELS, exactly like WbCircleLayer below — deliberately NOT the old 1×1
+ * stretched viewBox whose stroke widths and dashes existed only through
+ * `vector-effect: non-scaling-stroke`. That effect is the single point of failure this layer
+ * must not have: the moment an engine drops it (a live exercise on iOS 26, 08.09.2026), a
+ * width-5 stroke becomes five SHEETS wide and one drawn Leitung paints the whole surface solid
+ * blue. In px space the widths are plain numbers and no renderer feature is load-bearing.
+ * (Line arrowheads + marker letters still render OUTSIDE this layer — they need their own
+ * un-stretched transforms either way.)
  */
 export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {}, sW, sH }: InkProps) {
-  const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0]},${mapY(p[2] ?? floor, p[1])}`).join(' ')
-  // …and the Schraffur's own tile, stated in px and undone by the sheet's stretch — see HatchDefs.
+  const W = Math.max(1, sW), H = Math.max(1, sH)
+  const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0] * W},${mapY(p[2] ?? floor, p[1]) * H}`).join(' ')
   const hatchId = (c: string) => hatchPatternId(c, INK_HATCH_SPACE)
   return (
-    <svg className="wb-ink-svg" viewBox="0 0 1 1" preserveAspectRatio="none">
-      <HatchDefs colors={COLORS} space={INK_HATCH_SPACE} unitScale={[1 / Math.max(1, sW), 1 / Math.max(1, sH)]} />
+    <svg className="wb-ink-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+      <HatchDefs colors={COLORS} space={INK_HATCH_SPACE} />
       {/* filled areas (under the lines) */}
       {annos.filter((a) => a.kind === 'area' && a.pts && a.pts.length >= 3).map((a) => {
         const pts = pointStr(a.pts!, a.floor)
         return (
         <g key={a.id}>
-          {selId === a.id && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 3) + 6} strokeOpacity={0.35} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+          {selId === a.id && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 3) + 6} strokeOpacity={0.35} strokeLinejoin="round" />}
           <polygon points={pts} fill={a.hatch ? `url(#${hatchId(a.color || COLORS[0])})` : (a.color || COLORS[0])}
             fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? 0.14)}
             stroke={a.color || COLORS[0]} strokeWidth={a.width || 3} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
-            strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            strokeLinejoin="round" />
           {onPickDraw && <polygon points={pts} fill="transparent" stroke="transparent" strokeWidth={18}
             style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickDraw(a.id, e)} />}
         </g>
@@ -75,26 +81,26 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
           {truppTones[a.id] && (
             <polyline points={pts} fill="none" stroke={truppTones[a.id] === 'crit' ? 'var(--red)' : 'var(--amber)'}
               strokeWidth={(a.width || 5) + 8} strokeOpacity={0.45}
-              strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              strokeLinecap="round" strokeLinejoin="round" />
           )}
-          {networkIds.includes(a.id) && <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth={(a.width || 5) + 9} strokeOpacity={selId === a.id ? 0.34 : 0.16} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+          {networkIds.includes(a.id) && <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth={(a.width || 5) + 9} strokeOpacity={selId === a.id ? 0.34 : 0.16} strokeLinecap="round" strokeLinejoin="round" />}
           {flashId === a.id && (
             <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 14}
-              strokeOpacity={0.3} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              strokeOpacity={0.3} strokeLinecap="round" strokeLinejoin="round" />
           )}
           {selId === a.id && (
             <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 6}
-              strokeOpacity={0.35} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              strokeOpacity={0.35} strokeLinecap="round" strokeLinejoin="round" />
           )}
           <polyline
             points={pts}
             fill="none" stroke={a.color || COLORS[0]} strokeWidth={a.width || 5}
             strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
-            strokeLinecap={a.dashed ? 'butt' : 'round'} strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+            strokeLinecap={a.dashed ? 'butt' : 'round'} strokeLinejoin="round"
           />
           {onPickDraw && (
             <polyline points={pts} fill="none" stroke="transparent" strokeWidth={18}
-              strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"
+              strokeLinecap="round" strokeLinejoin="round"
               style={{ pointerEvents: 'stroke', cursor: 'grab' }}
               onPointerDown={(e) => onPickDraw(a.id, e)} />
           )}
@@ -103,17 +109,16 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
       })}
       {draft && draft.length >= 2 && (
         draftClosed && draft.length >= 3
-          ? <polygon points={pointStr(draft, draftFloor)} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-          : <polyline points={pointStr(draft, draftFloor)} fill="none" stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinecap={dashed ? 'butt' : 'round'} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          ? <polygon points={pointStr(draft, draftFloor)} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinejoin="round" />
+          : <polyline points={pointStr(draft, draftFloor)} fill="none" stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinecap={dashed ? 'butt' : 'round'} strokeLinejoin="round" />
       )}
-      {/* team trails — path through the explicitly RECORDED positions only
-          (not the live pill); non-scaling stroke keeps the weight constant */}
+      {/* team trails — path through the explicitly RECORDED positions only (not the live pill) */}
       {annos.filter((a) => a.kind === 'resource' && (a.trail?.length ?? 0) > 1 && !hiddenTrails.has(a.id)).map((a) => (
         <polyline
           key={`trail-${a.id}`}
-          points={(a.trail ?? []).map((p) => `${p.x},${mapY(p.floor ?? a.floor, p.y)}`).join(' ')}
+          points={(a.trail ?? []).map((p) => `${p.x * W},${mapY(p.floor ?? a.floor, p.y) * H}`).join(' ')}
           fill="none" stroke={a.color || COLORS[0]} strokeWidth={2} strokeDasharray="5 5"
-          strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={0.85}
+          strokeLinecap="round" strokeLinejoin="round" opacity={0.85}
         />
       ))}
     </svg>
@@ -124,7 +129,7 @@ interface CircleProps {
   annos: BoardAnno[]
   /** the Absperrkreis being dragged out right now (centre + radius, plan-normalized) */
   draft: { x: number; y: number; floor: number; r: number } | null
-  /** board size in px — this layer works in PIXELS, unlike the 1×1 ink layer above */
+  /** board size in px — the same px space the ink layer above renders in */
   sW: number
   sH: number
   mapY: (floor: number | undefined, ly: number) => number
@@ -138,11 +143,10 @@ interface CircleProps {
 /**
  * Absperrkreise (Gefahrenradius) — the plan twin of the Karte's `circle` drawings.
  *
- * ⚠️ Its own SVG, in BOARD PIXELS, and deliberately not part of WbInkLayer: that one is stretched
- * 1×1 with `preserveAspectRatio="none"`, where a circle can only be drawn as an ellipse whose
- * radii have to be re-derived from the sheet's aspect on every render. A plan circle is round in
- * pixels — its stored `radiusN` is a fraction of the plan WIDTH (types · BoardAnno.radiusN) — so
- * one px-space layer says it once and says it exactly, hatch pattern included.
+ * ⚠️ Its own SVG, in BOARD PIXELS. Historically the separation existed because the ink layer was
+ * a 1×1 stretch (where a circle can only be an ellipse re-derived from the aspect); the ink layer
+ * is px-space too now, but a circle stays here: its stored `radiusN` is a fraction of the plan
+ * WIDTH (types · BoardAnno.radiusN), and one layer owning that conversion keeps it exact.
  *
  * Painted UNDER the ink layer on purpose: a Leitung drawn across a big cordon must win the tap,
  * the same ordering rule the Karte states (MapView · handleClick).

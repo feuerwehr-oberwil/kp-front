@@ -77,11 +77,12 @@ export const hatchPatternId = (color: string, space = '') => `hatch-${space ? `$
  * tile can be stated once (16 px, 45°) and land at that size on screen wherever it is used.
  *
  * ⚠️ `userSpaceOnUse` is the referencing element's user space — the viewBox — and NOT CSS pixels.
- * The Plan's ink layer is a `viewBox="0 0 1 1"` sheet stretched over the page, so an untransformed
- * 16-unit tile is sixteen SHEETS wide there: every Fläche landed inside one stroke of the first
- * line and came out a flat, fully opaque block of colour (field report 02.09.). Passing
- * `unitScale={[1 / sheetPxW, 1 / sheetPxH]}` cancels that stretch — the net screen transform is a
- * pure rotation again, so the hatch is 16 px at 45° there exactly as it is everywhere else.
+ * The Plan's ink layer USED to be a `viewBox="0 0 1 1"` sheet stretched over the page, where an
+ * untransformed 16-unit tile is sixteen SHEETS wide: every Fläche landed inside one stroke of the
+ * first line and came out a flat, fully opaque block of colour (field report 02.09.) — cancelled
+ * then by `unitScale={[1 / sheetPxW, 1 / sheetPxH]}`. That layer renders in board px now
+ * (08.09., after non-scaling-stroke failed the same way on iOS 26 — WbInkLayer's header), so
+ * every current host passes the default [1, 1]; the knob stays for any future stretched host.
  */
 export function HatchDefs({ colors, space = '', unitScale = [1, 1] }: {
   colors: readonly string[]

@@ -3158,9 +3158,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       it panned and zoomed away with the paper, taking the rotation control with
                       it. One compass, one corner, on every device.) */}
                   <div className="wb-floor-fp" style={{ width: fpBox?.w, height: fpBox?.h }}>
-                    <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="wb-floor-svg">
+                    {/* px viewBox, no vector-effect — see WbInkLayer's header for why the 1×1
+                        stretch + non-scaling-stroke pattern is banned on the board */}
+                    <svg viewBox={`0 0 ${fpBox?.w || 1} ${fpBox?.h || 1}`} preserveAspectRatio="none" className="wb-floor-svg">
                       {(fpView?.rings ?? building.rings ?? [building.ring]).map((ring, ri) => (
-                        <polygon key={ri} points={ring.map((p) => `${p[0]},${p[1]}`).join(' ')} vectorEffect="non-scaling-stroke" />
+                        <polygon key={ri} points={ring.map((p) => `${p[0] * (fpBox?.w || 1)},${p[1] * (fpBox?.h || 1)}`).join(' ')} />
                       ))}
                     </svg>
                   </div>
@@ -3175,6 +3177,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               // «ergänzen». A building saved without a georeference has nothing to match on and
               // still starts empty, which `replacing` then says out loud.
               <OsmOutline key={active.id} center={osm.center} radiusM={osm.radiusM} onAspect={setAspect}
+                sW={sW} sH={sH}
                 interactive={!readOnlyProp} replacing={!!building}
                 preselectSrc={building?.geo ? building.src : undefined} preselectGeo={building?.geo}
                 onPick={onSelectBuilding} />

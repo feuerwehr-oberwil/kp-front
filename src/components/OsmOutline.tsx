@@ -132,12 +132,18 @@ interface Props {
    *  its rendered views from the first two and re-anchors its annotations with the third —
    *  see lib/footprint + lib/buildingTransfer + BuildingDoc. */
   onPick?: (src: [number, number][][], orientDeg: number, geo: SrcGeoref) => void
+  /** the board tile's size in CSS px — the coordinate space the outline SVG renders in.
+   *  ⚠️ Not a 1×1 stretch with non-scaling-stroke: that made the CSS stroke widths depend on
+   *  a renderer feature whose failure turns hairlines into sheet-wide floods (WbInkLayer's
+   *  header tells the full story, iOS 26, 08.09.2026). */
+  sW: number
+  sH: number
 }
 
 // Live OSM building-outline backdrop for the whiteboard — a traceable base, and
 // the surface where the affected building(s) are picked into the floor-stack.
 // Tapping footprints toggles a selection; "Übernehmen" transfers them all at once.
-export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, preselectSrc, preselectGeo, onPick }: Props) {
+export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, preselectSrc, preselectGeo, onPick, sW, sH }: Props) {
   // Seed from the resolved cache so a warm hit (prefetched at boot, or a prior open) paints the
   // outlines immediately instead of flashing the loader while the async IDB read settles.
   const [rings, setRings] = useState<Ring[] | null>(() => resolved.get(bboxKey(center, radiusM).key) ?? null)
@@ -245,13 +251,12 @@ export function OsmOutline({ center, radiusM, onAspect, interactive, replacing, 
 
   return (
     <>
-      <svg className={cx(s['wb-osm-svg'], interactive && s.pick)} viewBox="0 0 1 1" preserveAspectRatio="none">
+      <svg className={cx(s['wb-osm-svg'], interactive && s.pick)} viewBox={`0 0 ${Math.max(1, sW)} ${Math.max(1, sH)}`} preserveAspectRatio="none">
         {rings.map((ring, i) => (
           <polygon
             key={i}
             className={selected.has(i) ? s.sel : undefined}
-            points={ring.map((p) => `${p[0]},${p[1]}`).join(' ')}
-            vectorEffect="non-scaling-stroke"
+            points={ring.map((p) => `${p[0] * Math.max(1, sW)},${p[1] * Math.max(1, sH)}`).join(' ')}
             onPointerDown={interactive ? (e) => { e.stopPropagation(); toggle(i) } : undefined}
           />
         ))}
