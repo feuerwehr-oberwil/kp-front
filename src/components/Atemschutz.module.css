@@ -160,9 +160,12 @@
 /* Two clean lines, not a four-line staircase: label + value hold ONE row (the label never wraps),
    and the provenance line the 3am tenet demands on every Schätzung sits full-width beneath them,
    right-aligned under the value it explains. */
-.metaEstimate { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 10px; row-gap: 1px; }
+.metaEstimate { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 10px; row-gap: 3px; }
 .metaEstLabel { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.metaEstSource { grid-column: 1 / -1; justify-self: end; text-align: right;
+/* the assumption reads as the row's own quiet FOOTNOTE, under the label like every other
+   left-aligned word here — ragged-right under the value it crowded the neighbouring rows
+   (field shot 08.09.) */
+.metaEstSource { grid-column: 1 / -1; justify-self: start; text-align: left;
   font-size: 10.5px; line-height: 1.25; color: var(--ink-faint); }
 /* Alarmdruck on a pressure value. Declared AFTER .metaEst so it wins over that rule's dimmed
    !important when the Schätzung itself has crossed the threshold. */

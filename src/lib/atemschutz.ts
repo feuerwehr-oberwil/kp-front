@@ -493,3 +493,16 @@ export function fmtClock(sec: number | null): string {
   const r = s % 60
   return `${m}:${pad2(r)}`
 }
+
+/** A LONG duration read as one («Einsatzzeit», «Draussen seit») — NOT the safety clock.
+ *  fmtClock counts raw minutes on purpose: a contact gap must read 90:12, never 1:30:12. But
+ *  the plinth's Einsatzzeit on a record that ran across shifts printed «7936:27» (field shot
+ *  08.09.), a number nobody can read as time — so past the hour it rolls to h:mm:ss, and past
+ *  a day it stops pretending to tick and says «5 d 12 h». */
+export function fmtElapsedFull(sec: number | null): string {
+  if (sec == null) return '–:––'
+  const s = Math.max(0, sec)
+  if (s < 3600) return fmtClock(s)
+  if (s < 86_400) return `${Math.floor(s / 3600)}:${pad2(Math.floor(s / 60) % 60)}:${pad2(s % 60)}`
+  return `${Math.floor(s / 86_400)} d ${Math.floor(s / 3600) % 24} h`
+}

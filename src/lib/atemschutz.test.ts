@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed } from './atemschutz'
+import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -543,5 +543,20 @@ describe('a Trupp without Atemschutz', () => {
     expect(anyTruppInField([plain])).toBe(false)
     // one PA Trupp in the field is still enough to arm it
     expect(anyTruppInField([plain, base])).toBe(true)
+  })
+})
+
+describe('fmtElapsedFull — long durations read as time, not as raw minutes', () => {
+  it('keeps the clock shape below the hour and rolls to h:mm:ss past it', () => {
+    expect(fmtElapsedFull(0)).toBe('0:00')
+    expect(fmtElapsedFull(59 * 60 + 59)).toBe('59:59')
+    expect(fmtElapsedFull(3600)).toBe('1:00:00')
+    expect(fmtElapsedFull(2 * 3600 + 12 * 60 + 27)).toBe('2:12:27')
+  })
+
+  // the 08.09. field shot: a record that ran across shifts printed «7936:27»
+  it('stops pretending to tick past a day', () => {
+    expect(fmtElapsedFull(7936 * 60 + 27)).toBe('5 d 12 h')
+    expect(fmtElapsedFull(null)).toBe('–:––')
   })
 })
