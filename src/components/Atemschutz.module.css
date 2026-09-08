@@ -1416,8 +1416,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    explainer subtitles said what every AdF already knows and cost the form its first row).
    The pair keeps the form's own TILE chrome — bordered `--surface` cards, ink outline + the
    faint ink wash on the chosen one, the press wash on :active — just smaller. On ONE screen
-   it is its own labelled section leading the right column (`.kindField`, two equal tiles);
-   the phone renders it as its own right-aligned row under the head (`.kindHeadRow`). */
+   it is its own labelled section (`.kindField`, two equal tiles) — leading the right column
+   on one screen, standing below the Mannschaft in the phone's flat column. */
 .kindHeadSeg { flex: none; display: flex; gap: 8px; }
 .kindHeadOpt { min-height: 44px; padding: 0 14px; border: 2px solid var(--glass-edge);
   background: var(--surface); border-radius: var(--r-ctl); cursor: pointer;
@@ -1429,7 +1429,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .kindHeadOpt.on { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
 .kindField .kindHeadSeg { display: flex; width: 100%; }
 .kindField .kindHeadOpt { flex: 1 1 0; }
-.kindHeadRow { flex: none; display: flex; justify-content: flex-end; padding: 0 20px 6px; }
 
 /* ── The phone form is ONE flat column (08.09., field ask) ───────────────────────────────────
    The three collapsible sections (04.09.–08.09.) went with the space problem they were built
