@@ -560,8 +560,11 @@
 .un-erg { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--glass-edge); }
 .un-erg-tih { margin-top: 4px; }
 .un-erg-n { display: block; font-size: 11px; font-weight: 700; color: var(--ink-dim); margin-bottom: 2px; }
-/* the Schutzabstand ring control (Aus/Klein/Gross) — label + segmented on one row */
-.un-erg-rings { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+/* the Schutzabstand ring control (Aus/Klein/Gross) — label + segmented on one row. The
+   13px matches the .un-haz-row keys above it; without it the label inherits the panel's
+   base size and dwarfs the rest of the block (Feldtest Manuel, 08.09.). */
+.un-erg-rings { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 13px; }
+.un-erg-rings .un-haz-k { flex: 1 1 auto; }
 /* «Übernehmen» beside a distance value — a quiet inline action, underlined, never filled:
    the row's information stays the loudest thing in it */
 .un-erg-adopt { margin-left: auto; border: 0; background: none; padding: 0 2px; cursor: pointer;
