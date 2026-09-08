@@ -51,10 +51,12 @@ to prod.
 
 ## Architecture & conventions
 
-- **Operational browser state should live in IndexedDB, not localStorage.** Current code still has
-  localStorage workspace paths, but the target is: IndexedDB for incident workspaces, pending sync,
-  media queue metadata, reference/checklist/object metadata, and readiness; localStorage only for
-  tiny preferences and migration flags. UI copy/locale/defaults/storage keys live in
+- **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
+  storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
+  moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
+  media queue metadata, reference/checklist/object metadata, and readiness; localStorage holds
+  only tiny device flags (update banners, install prompts, once-per-device hints) and migration
+  flags. UI copy/locale/defaults/storage keys live in
   `src/config/appConfig.ts`; the neutral fallback incident is `src/data/demoIncident.ts`.
 - **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
   outboxes contribute to the shared sync status. Preserve rejected entries for retry/export;
