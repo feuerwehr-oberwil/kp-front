@@ -33,6 +33,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Automatic plan alignment (app/georef_suggest.py). Deliberately optional — ~60 MB of numeric
+# stack the base image does not pay for; without it POST /api/georef/suggest answers 503 and
+# the app falls back to the manual point flow.
+georef = [
+    "opencv-python-headless>=4.10",
+    "numpy>=2.0",
+    "scipy>=1.14",
+]
 dev = [
     "ruff>=0.8.0",
     "mypy>=1.13.0",

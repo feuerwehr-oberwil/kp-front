@@ -573,3 +573,113 @@
     .loupeCorner { width: 96px; height: 96px; top: calc(64px + env(safe-area-inset-top)); }
   }
 }
+
+/* ── the automatic suggestion: chooser card + proposal review chrome ─────────────────────────
+   (GeorefLinkChooser · GeorefProposalActions · GeorefAdjustLayer — see the approved mock,
+   mockups/auto-alignment/a.html). */
+
+/* the chooser's content; the Whiteboard's .wb-georef-dock supplies the panel chrome */
+.chooser { display: grid; gap: 8px; width: 320px; max-width: calc(100vw - 24px); padding: 12px 12px 12px 16px; }
+.chooserHeadRow { display: flex; align-items: center; gap: 8px; }
+.chooserHead { flex: 1; min-width: 0; font-size: 14px; }
+.chooserX {
+  flex: none; width: var(--tap); height: var(--tap); border: 0; border-radius: var(--r-sm);
+  background: var(--fill-soft); color: var(--ink-dim); display: grid; place-items: center;
+  cursor: pointer; padding: 0; margin-right: -2px;
+}
+.chooserX svg { width: 15px; height: 15px; }
+/* one way in per row: icon, the verb, and what happens next — an option list, not a form */
+.chooserOpt {
+  display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+  min-height: 56px; padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--surface); color: var(--ink); cursor: pointer;
+  margin-right: 4px; box-sizing: border-box;
+}
+.chooserOpt svg { width: 19px; height: 19px; flex: none; color: var(--ink-dim); }
+.chooserOpt > span { min-width: 0; }
+.chooserOpt b { display: block; font: 700 13px/1.3 var(--body); }
+.chooserOpt i { display: block; font: 500 11.5px/1.35 var(--body); font-style: normal; color: var(--ink-dim); margin-top: 2px; }
+/* the leading option wears the link tone — the same blue every georef instrument speaks */
+.chooserOptAuto { border-color: color-mix(in srgb, var(--blue) 45%, transparent);
+  background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
+.chooserOptAuto svg, .chooserOptAuto b { color: var(--blue-strong); }
+.chooserOpt:active { background-image: linear-gradient(var(--press), var(--press)); }
+.chooserBusy { display: grid; gap: 7px; padding: 2px 4px 2px 0; }
+/* the matcher's REAL phases, checked off as the endpoint reports them */
+.stepRow { display: flex; align-items: center; gap: 9px; min-height: 22px;
+  font: 600 12.5px var(--body); color: var(--ink-faint); }
+.stepRow svg { width: 15px; height: 15px; flex: none; color: var(--green-strong); }
+.stepNow { color: var(--ink); font-weight: 700; }
+.stepDone { color: var(--ink-dim); }
+.stepDot { flex: none; width: 7px; height: 7px; margin: 0 4px;
+  border-radius: 50%; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+.stepBar { display: block; height: 4px; margin: 6px 4px 2px 0; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--blue) 14%, transparent); overflow: hidden; }
+.stepBar > span { display: block; height: 100%; border-radius: var(--r-pill);
+  background: var(--blue); transition: width .35s var(--ease); }
+.chooserSpin {
+  flex: none; width: 15px; height: 15px; border-radius: 50%; box-sizing: border-box;
+  border: 2.5px solid color-mix(in srgb, var(--blue) 25%, transparent); border-top-color: var(--blue);
+  animation: georefSpin .9s linear infinite;
+}
+@keyframes georefSpin { to { transform: rotate(360deg); } }
+/* a still ring is fine — the busy line beside it carries the message */
+@media (prefers-reduced-motion: reduce) { .chooserSpin { animation: none; } }
+
+/* ✥ / ⟳ — the SelectionBar's grip colours verbatim (11-measure.css · .sel-bar-act):
+   resting solid --blue, armed --ink-fill with the blue ring drawn OUTSIDE the button */
+.grip {
+  width: 52px; height: 44px; flex: none; border: 0; border-radius: var(--r-sm); padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--blue); color: var(--on-fill); cursor: pointer;
+  transition: background-color .14s var(--ease), box-shadow .14s var(--ease);
+}
+@media (hover: hover) { .grip:not(.gripOn):hover { background: var(--blue-strong); } }
+.grip svg { width: 19px; height: 19px; }
+.gripOn { background: var(--ink-fill); color: var(--on-accent-ink);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--blue); }
+@media (hover: hover) { .gripOn:hover { background: var(--ink-fill-hover); } }
+@media (prefers-reduced-motion: reduce) { .grip { transition: none; } }
+
+/* Plangrösse — the app's Stepper grammar (07-toolrail.css · .step): bare ± buttons, a
+   tabular-nums value between them, no outer box */
+.sizeStep { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.sizeLabel { font: 650 12px var(--body); color: var(--ink-dim); margin-right: 2px; white-space: nowrap; }
+.stepBtn {
+  width: var(--tap); height: var(--tap); flex: none; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink);
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+}
+@media (hover: hover) { .stepBtn:hover:not(:disabled) { background: var(--surface); } }
+.stepBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.stepBtn:disabled { opacity: var(--disabled); cursor: default; }
+.stepBtn svg { width: 16px; height: 16px; }
+.sizeVal { min-width: 52px; text-align: center; font: 600 13px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+.adjustAction { min-width: 0; }
+/* the desktop pill needs the quiet grammar too (it was phone-only before the proposal review) */
+.quietBtn { border-color: transparent; background: transparent; }
+@media (hover: hover) { .pill .quietBtn:hover { border-color: transparent; background: var(--fill-soft); } }
+
+/* the armed grip's capture surface over the Karte — transparent, but it owns every pointer */
+.adjustCapture { position: absolute; inset: 0; z-index: 6; touch-action: none; cursor: move; }
+.adjustRotate { cursor: crosshair; }
+.adjustHint {
+  /* below the floating TopBar (04-topbar), which hovers over the map's own top edge */
+  position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 7;
+  background: var(--label-bg); color: var(--ink); padding: 8px 14px; border-radius: var(--r-sm);
+  font: 650 12.5px var(--body); white-space: nowrap; box-shadow: var(--shadow-sm); pointer-events: none;
+}
+/* the turn's degrees, beside the pivot on the surface — never off a button at the bar */
+.pivotBadge {
+  display: inline-block; background: var(--label-bg); color: var(--blue-strong);
+  padding: 3px 8px; border-radius: var(--r-xs); font: 700 13px var(--body);
+  font-variant-numeric: tabular-nums; box-shadow: var(--shadow-sm); pointer-events: none;
+}
+
+/* the review-carefully proposal head — the amber the Ampel line already speaks */
+.warnHead { color: var(--amber-strong); }
+
+/* the synthetic anchors of an accepted automatic alignment: ghosted, badged «A» — draggable
+   (dragging promotes one to a real 'korrigiert' reference) but visibly nobody's tap */
+.autoAnchor { opacity: .55; }
+.autoAnchor .badge { background: var(--ink-faint); }

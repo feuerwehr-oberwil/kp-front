@@ -27,7 +27,7 @@ default:
 [group('Setup')]
 setup:
     pnpm install
-    cd backend && uv sync --extra dev
+    cd backend && uv sync --extra dev --extra georef
     @echo "\033[1;32m✓ Setup complete. Next: 'just demo-load' (demo data), then 'just dev' (db + backend + frontend).\033[0m"
 
 # (The real entry point is `bash scripts/setup.sh` — this recipe is only here so a developer

@@ -259,7 +259,26 @@ async function requestResponse(path: string, init?: RequestInit, timeoutMs = DEF
 
 async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   const res = await requestResponse(path, init, timeoutMs)
-  if (!res.ok) {
+  if (!res.ok) await throwApiError(res)
+  // 204 / empty bodies: don't try to parse
+  if (res.status === 204 || res.headers.get('Content-Length') === '0') return undefined as T
+  const text = await res.text()
+  try {
+    return (text ? JSON.parse(text) : undefined) as T
+  } catch {
+    // A 200 whose body is not JSON is a captive portal or an interception proxy answering
+    // for the backend — the coffee-shop/hotel WLAN case, and one a fire station hits on any
+    // guest network. Raw, this threw a SyntaxError instead of an ApiError, so the callers'
+    // `status === 0` offline branches never ran: `listIncidentsResilient` gave up its cached
+    // list and AuthProvider dropped the user at the login screen, with a perfectly good
+    // offline cache sitting untouched behind it. Reported as unreachable, which is the truth.
+    throw new ApiError(0, 'Server nicht erreichbar (unerwartete Antwort)')
+  }
+}
+
+/** Turn a non-2xx Response into the app's ApiError — one shaping for JSON requests and the
+ *  raw/streaming callers alike (`apiUploadRaw`). Always throws. */
+async function throwApiError(res: Response): Promise<never> {
     // Our own backend speaks German and knows the situation, so its {detail} always wins. Only
     // when it said nothing (a proxy error page, an empty body) do we explain the status
     // ourselves — and the bare "HTTP n" is the last resort, not the first.
@@ -304,22 +323,6 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_
     err.fields = fields
     err.code = code
     throw err
-  }
-
-  // 204 / empty bodies: don't try to parse
-  if (res.status === 204 || res.headers.get('Content-Length') === '0') return undefined as T
-  const text = await res.text()
-  try {
-    return (text ? JSON.parse(text) : undefined) as T
-  } catch {
-    // A 200 whose body is not JSON is a captive portal or an interception proxy answering
-    // for the backend — the coffee-shop/hotel WLAN case, and one a fire station hits on any
-    // guest network. Raw, this threw a SyntaxError instead of an ApiError, so the callers'
-    // `status === 0` offline branches never ran: `listIncidentsResilient` gave up its cached
-    // list and AuthProvider dropped the user at the login screen, with a perfectly good
-    // offline cache sitting untouched behind it. Reported as unreachable, which is the truth.
-    throw new ApiError(0, 'Server nicht erreichbar (unerwartete Antwort)')
-  }
 }
 
 /** Per-call overrides for the two live-follow GETs. `signal` makes a held long poll abortable
@@ -376,6 +379,15 @@ export function apiDelete<T>(path: string): Promise<T> {
 /** multipart upload (FormData). Lets the browser set the boundary Content-Type. */
 export function apiUpload<T>(path: string, form: FormData, method = 'POST'): Promise<T> {
   return request<T>(path, { method, body: form }, UPLOAD_TIMEOUT_MS)
+}
+
+/** multipart upload returning the RAW Response — for endpoints that STREAM their answer (the
+ *  georef suggest's NDJSON progress lines). A non-2xx goes through the same ApiError shaping
+ *  as every JSON request; a 2xx hands the body back unread for the caller's reader. */
+export async function apiUploadRaw(path: string, form: FormData): Promise<Response> {
+  const res = await requestResponse(path, { method: 'POST', body: form }, UPLOAD_TIMEOUT_MS)
+  if (!res.ok) await throwApiError(res)
+  return res
 }
 
 /**

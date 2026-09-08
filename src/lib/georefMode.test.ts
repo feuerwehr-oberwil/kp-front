@@ -31,7 +31,7 @@ import {
   type GeorefModeState,
   type GeorefSlot,
 } from './georefMode'
-import { fitSimilarity, PAIR_EPS_N, type GeoPt, type Georef, type GeorefPair, type PlanPt } from './georef'
+import { fitSimilarity, realPairCount, PAIR_EPS_N, type GeoPt, type Georef, type GeorefPair, type PlanPt } from './georef'
 
 // The store persists on its own (the surface that completes a pair may be unmounted by then), so
 // the write is stubbed rather than the network.
@@ -915,5 +915,105 @@ describe('georefTapOnMarker — a cross owns its own gesture', () => {
     expect(georefTapOnMarker(null)).toBe(false)
     expect(georefTapOnMarker(undefined)).toBe(false)
     expect(georefTapOnMarker({} as EventTarget)).toBe(false)
+  })
+})
+
+describe('georefReduce · the automatic suggestion (proposal review)', () => {
+  const SUG: GeorefPair[] = [
+    { plan: { x: 0.15, y: 0.15 }, lngLat: mapOf({ x: 0.15, y: 0.15 }), kind: 'auto' },
+    { plan: { x: 0.85, y: 0.85 }, lngLat: mapOf({ x: 0.85, y: 0.85 }), kind: 'auto' },
+  ]
+  const proposal = (): GeorefModeState =>
+    georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', storageKey: 'object:o1:plan:modul2', pairs: SUG, aspect: AR, check: true, proposal: true })
+
+  it('arms straight into coverage with the suggestion held as proposal, unsaved', () => {
+    const s = proposal()
+    expect(s.check).toBe(true)
+    expect(s.proposal).toBe(SUG)
+    expect(s.pairs).toBe(SUG)
+    expect(s.adjusting).toBe(false)
+    // a proposal review is not a Passung-launched check — no quality return
+    expect(s.checkReturn).toBeNull()
+  })
+
+  it('«Anpassen» opens the transform chrome and arms ✥; grips toggle; «Fertig» disarms both', () => {
+    let s = georefReduce(proposal(), { type: 'adjustOpen', on: true })
+    expect(s.adjusting).toBe(true)
+    expect(s.adjust).toBe('move')
+    s = georefReduce(s, { type: 'adjustArm', kind: 'rotate' })
+    expect(s.adjust).toBe('rotate')
+    s = georefReduce(s, { type: 'adjustArm', kind: 'rotate' }) // same grip again disarms
+    expect(s.adjust).toBeNull()
+    expect(s.adjusting).toBe(true) // …but the chrome stays until «Fertig»
+    s = georefReduce(s, { type: 'adjustOpen', on: false })
+    expect(s.adjusting).toBe(false)
+    expect(s.adjust).toBeNull()
+  })
+
+  it('nudges transform the pairs, keep coverage up, checkpoint for undo, and restore', () => {
+    let s = georefReduce(proposal(), { type: 'adjustOpen', on: true })
+    s = georefReduce(s, { type: 'proposalNudge', nudge: { dxM: 12 }, checkpoint: true })
+    expect(s.check).toBe(true) // a nudge must never dismiss the coverage it is judged on
+    expect(s.pairs).not.toBe(SUG)
+    expect(s.undoStack).toHaveLength(1)
+    // a streamed drag frame without checkpoint grows no undo step
+    s = georefReduce(s, { type: 'proposalNudge', nudge: { dxM: 3 } })
+    expect(s.undoStack).toHaveLength(1)
+    const nudged = s.pairs
+    s = georefReduce(s, { type: 'proposalUndo' })
+    expect(s.pairs).toBe(SUG)
+    expect(s.undoStack).toHaveLength(0)
+    // restore goes back to the suggestion from anywhere, itself undoable
+    s = georefReduce(s, { type: 'proposalNudge', nudge: { rotDeg: 5 }, checkpoint: true })
+    s = georefReduce(s, { type: 'proposalRestore' })
+    expect(s.pairs).toBe(SUG)
+    expect(s.undoStack.length).toBeGreaterThan(0)
+    expect(nudged).not.toBe(SUG)
+  })
+
+  it('finishCheck is a no-op on a proposal — coverage IS the review surface', () => {
+    const s = proposal()
+    expect(georefReduce(s, { type: 'finishCheck' })).toBe(s)
+  })
+
+  it('«Verwerfen» (end) drops the whole review — nothing survives', () => {
+    const s = georefReduce(georefReduce(proposal(), { type: 'adjustOpen', on: true }), { type: 'proposalNudge', nudge: { dxM: 5 }, checkpoint: true })
+    expect(georefReduce(s, { type: 'end' })).toBe(GEOREF_OFF)
+  })
+
+  it('proposal actions are no-ops outside a proposal review', () => {
+    const s = armed(TRI)
+    expect(georefReduce(s, { type: 'adjustOpen', on: true })).toBe(s)
+    expect(georefReduce(s, { type: 'proposalNudge', nudge: { dxM: 5 }, checkpoint: true })).toBe(s)
+    expect(georefReduce(s, { type: 'proposalUndo' })).toBe(s)
+    expect(georefReduce(s, { type: 'proposalRestore' })).toBe(s)
+  })
+})
+
+describe('georefReduce · the scaffolding handover (auto pairs step aside)', () => {
+  const AUTO: GeorefPair[] = [
+    { plan: { x: 0.15, y: 0.15 }, lngLat: mapOf({ x: 0.15, y: 0.15 }), kind: 'auto' },
+    { plan: { x: 0.85, y: 0.85 }, lngLat: mapOf({ x: 0.85, y: 0.85 }), kind: 'auto' },
+  ]
+
+  it('one real pair keeps the autos; the second drops them', () => {
+    // the ordinary pairing mode, seeded with an ACCEPTED automatic reference
+    let s = georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', pairs: AUTO, aspect: AR })
+    s = run(s, [{ type: 'planTap', pt: T1 }, { type: 'mapTap', lngLat: mapOf(T1) }])
+    // a single own pair fixes only the translation — the scaffolding still anchors the rest
+    expect(s.slots.filter((sl) => sl.kind === 'auto')).toHaveLength(2)
+    expect(realPairCount(s.pairs)).toBe(1)
+    s = run(s, [{ type: 'planTap', pt: T2 }, { type: 'mapTap', lngLat: mapOf(T2) }])
+    // two own pairs solve the sheet — nothing synthetic survives
+    expect(s.slots.some((sl) => sl.kind === 'auto')).toBe(false)
+    expect(s.pairs).toHaveLength(2)
+    expect(s.pairs.every((p) => p.kind === 'gesetzt')).toBe(true)
+  })
+
+  it('dragging an auto cross promotes it to a real (korrigiert) reference', () => {
+    let s = georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', pairs: AUTO, aspect: AR })
+    s = georefReduce(s, { type: 'dragMap', idx: 0, lngLat: mapOf({ x: 0.16, y: 0.16 }) })
+    expect(s.slots[0].kind).toBe('korrigiert')
+    expect(realPairCount(s.pairs)).toBe(1)
   })
 })

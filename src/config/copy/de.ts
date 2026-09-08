@@ -2263,6 +2263,48 @@ export const de = {
       checkOpacity: 'Sichtbarkeit der Modul-Deckung',
       checkMap: 'Karte',
       checkPlan: 'Modul',
+      // ── «Automatisch ausrichten» – der CV-Vorschlag (lib/georefSuggest · app/georef_suggest) ──
+      // Der Einstieg auf einem unverknüpften Blatt bietet zwei Wege: den automatischen Vorschlag
+      // und den bestehenden Punkte-Ablauf. Der Vorschlag erscheint als Deckung («Deckung prüfen»
+      // mit dem Blatt auf der Karte), wird geprüft/nachgeführt und erst mit «Übernehmen»
+      // gespeichert – als 2 Punkte, also ehrlich «exakt, aber ungeprüft» (amber).
+      autoStart: 'Automatisch ausrichten',
+      autoStartSub: 'Vorschlag auf der Karte prüfen, dann übernehmen',
+      autoManual: 'Punkte selbst setzen',
+      autoManualSub: 'Dieselbe Stelle auf Modul und Karte antippen – Reihenfolge egal',
+      autoBusy: 'Automatische Ausrichtung läuft…',
+      // die echten Phasen des Endpunkts (NDJSON-Fortschritt) – keine erfundene Prozentzahl
+      autoStepRender: 'Plan rendern',
+      autoStepOsm: 'Gebäudedaten laden',
+      autoStepMatch: 'Gebäude vergleichen',
+      // «kein Vorschlag» ist ein normales Ergebnis, kein Fehler – der Satz führt zum Ausweg
+      autoNone: 'Kein sicherer Vorschlag gefunden – Punkte selbst setzen',
+      // ohne bekannten Massstab läuft der Matcher gar nicht erst: ein fixierter falscher
+      // Massstab liefert überzeugend aussehende, falsche Posen (Messung Gymnasium 08.09.)
+      autoNoScale: 'Massstab des Plans nicht erkannt – zuerst kalibrieren oder Punkte selbst setzen',
+      autoFailed: 'Automatische Ausrichtung fehlgeschlagen',
+      autoUnavailable: 'Automatische Ausrichtung ist auf diesem Server nicht eingerichtet',
+      // die Review-Leiste über der Deckung
+      proposalHead: 'Automatisch ausgerichtet',
+      proposalSub: 'Gebäudekanten vergleichen, dann übernehmen',
+      // die unsichere Bandbreite des Matchers (score zwischen Cutoff und Ceiling):
+      // Anweisung zuerst, Grund nach dem Gedankenstrich (Regel von warnCollinear)
+      proposalCheckHead: 'Deckung nachprüfen',
+      proposalCheckSub: 'Gebäude stimmen nur teilweise überein – genau vergleichen, bei Bedarf anpassen',
+      proposalAdjustHead: 'Plan anpassen',
+      proposalAdjustSub: 'Verschieben oder drehen, bis die Gebäudekanten passen.',
+      adjust: 'Anpassen',
+      accept: 'Übernehmen',
+      discard: 'Verwerfen',
+      restore: 'Vorschlag wiederherstellen',
+      planSize: 'Plangrösse',
+      sizeSmaller: 'Plan um 1 Prozent verkleinern',
+      sizeBigger: 'Plan um 1 Prozent vergrössern',
+      undoNudge: 'Letzte Anpassung rückgängig',
+      rotateGrip: 'Drehen',
+      hintMove: 'Ziehen verschiebt den Plan',
+      hintRotate: 'Ziehen dreht den Plan um den Mittelpunkt',
+      acceptedToast: 'Ausrichtung übernommen',
       crossTitle: 'Punkt {n} – ziehen verschiebt, antippen zeigt Optionen',
       pendingCrossTitle: 'Punkt {n} offen – ziehen verschiebt, antippen zeigt Optionen',
       // das kleine Popover eines angetippten Kreuzes – ersetzt den unsichtbaren Aufnehm-Zustand,
@@ -2303,6 +2345,20 @@ export const de = {
       // Die Zahl bekommt ihren Satz. «⌀ 1.4 m» allein sagt nicht, ob man weitermachen soll.
       lampGoodBody: 'Genau genug, um Symbole zwischen Plan und Karte zu spiegeln.',
       addThird: 'Dritten Punkt setzen',
+      // ── übernommene automatische Ausrichtung (georef · isAutoGeoref) ──────────────────────
+      // Die zwei Blattecken-Paare sind synthetisch: die Flächen sprechen die HERKUNFT aus,
+      // statt Punkte zu zählen, die niemand gesetzt hat («2 Paare» wirkte wie erfunden).
+      lampAutoHead: 'Automatisch ausgerichtet',
+      chipAuto: 'ungemessen',
+      warnAuto: 'Referenzpunkte setzen, um die Passung zu messen – bisher gilt die Sichtprüfung der Deckung.',
+      autoAddPoints: 'Referenzpunkte setzen',
+      // genau EIN eigener Punkt neben der Automatik (zwei ersetzen sie – settleSlots)
+      autoOneHead: 'Automatisch ausgerichtet · 1 Punkt',
+      autoOneBody: 'Ein zweiter Punkt ersetzt die Automatik durch echte Referenzpunkte.',
+      autoOnePoint: '1 Punkt',
+      // «Fertig»/«Schliessen» mit offenen Hälften: sagen, was wegfiel, statt still zu schlucken
+      openDroppedOne: 'Offener Punkt verworfen – ein Referenzpunkt braucht beide Flächen',
+      openDroppedMany: '{k} offene Punkte verworfen – ein Referenzpunkt braucht beide Flächen',
       // ab dem dritten Paar: es gibt keinen «vierten Punkt» zu lehren, nur noch einen weiteren
       addMore: 'Punkte hinzufügen',
       transfer: 'Übertragen',

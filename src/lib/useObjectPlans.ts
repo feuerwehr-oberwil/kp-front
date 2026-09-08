@@ -182,8 +182,8 @@ export function useObjectPlans(
   /** persist a new pick (or undefined to reset) into the synced workspace blob. */
   onPick: (objectId: string | undefined) => void,
 ) {
-  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; name?: string; address?: string | null }>({ plans: {}, titles: {} })
-  const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; plans: Record<string, string>; titles: Record<string, string> } | null>(null)
+  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; name?: string; address?: string | null; pos?: LngLat | null }>({ plans: {}, titles: {} })
+  const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; pos?: LngLat | null; plans: Record<string, string>; titles: Record<string, string> } | null>(null)
   const backendPlans = manualObject?.plans ?? autoInfo.plans
   const backendTitles = manualObject?.titles ?? autoInfo.titles
   const activeObjectId = manualObject?.id ?? autoInfo.id
@@ -228,7 +228,15 @@ export function useObjectPlans(
       .then((objs) => {
         if (!alive) return
         const nearest = objs[0]
-        setAutoInfo(nearest ? { id: nearest.id, ...buildPlanInfo(nearest.plans), name: nearest.name, address: nearest.address } : { plans: {}, titles: {} })
+        setAutoInfo(nearest
+          ? {
+            id: nearest.id,
+            ...buildPlanInfo(nearest.plans),
+            name: nearest.name,
+            address: nearest.address,
+            pos: nearest.lat != null && nearest.lng != null ? [nearest.lng, nearest.lat] : null,
+          }
+          : { plans: {}, titles: {} })
       })
       .catch(() => { /* no object reachable → Umrisse + Tafel only */ })
     return () => { alive = false }
@@ -243,7 +251,7 @@ export function useObjectPlans(
     if (manualObject?.id === pickedObjectId) return
     let alive = true
     getObjectResilient(pickedObjectId) // offline → falls back to the IDB-cached object
-      .then((obj) => { if (alive) setManualObject({ id: obj.id, name: obj.name, address: obj.address, ...buildPlanInfo(obj.plans) }) })
+      .then((obj) => { if (alive) setManualObject({ id: obj.id, name: obj.name, address: obj.address, pos: obj.lat != null && obj.lng != null ? [obj.lng, obj.lat] : null, ...buildPlanInfo(obj.plans) }) })
       .catch(() => { /* object removed → fall back to auto */ })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,7 +262,7 @@ export function useObjectPlans(
   // jump to the first module so the chosen object's PDF is visible immediately.
   const pickObject = useCallback((obj: ObjectWithPlans) => {
     const info = buildPlanInfo(obj.plans)
-    setManualObject({ id: obj.id, name: obj.name, address: obj.address, ...info })
+    setManualObject({ id: obj.id, name: obj.name, address: obj.address, pos: obj.lat != null && obj.lng != null ? [obj.lng, obj.lat] : null, ...info })
     onPick(obj.id) // sync the pick per incident (workspace blob), so it survives switching + reload
     // jump to Modul 1 if the object has it, else its lowest-numbered module
     const firstModule = info.plans.modul1 ? 'modul1' : Object.keys(info.plans).sort()[0]
@@ -276,5 +284,8 @@ export function useObjectPlans(
   // stays the label everywhere the object is CHOSEN (the picker, the toast), where it is what
   // you search for. Falls back to the name when an object carries no address.
   const activeObjectAddress = manualObject?.address ?? autoInfo.address ?? null
-  return { backendPlans, resolvedPlanDocs, manualObject, activeObjectId, activeObjectName, activeObjectAddress, pickObject, resetObject }
+  // the active object's own coordinate — the anchor «Automatisch ausrichten» fetches its OSM
+  // reference box around. Null when the object carries none (callers fall back to the incident).
+  const activeObjectPos = manualObject ? manualObject.pos ?? null : autoInfo.pos ?? null
+  return { backendPlans, resolvedPlanDocs, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, pickObject, resetObject }
 }

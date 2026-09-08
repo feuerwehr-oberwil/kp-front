@@ -28,7 +28,7 @@
  *  with a small margin (`TWIN_CLIP_MARGIN`) so a hydrant a hair past the paper edge still shows.
  *  Plan → map needs no clip: a plan point is on the sheet by definition.
  */
-import { fitSimilarity, residualClaim, type Georef, type GeorefFit, type PlanPt } from './georef'
+import { fitSimilarity, hasAutoPairs, residualClaim, type Georef, type GeorefFit, type PlanPt } from './georef'
 import type { PlanScale } from './planScale'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
@@ -97,6 +97,9 @@ export interface GeorefPlan {
   /** ground width of the fitted sheet in metres (planGroundWidthM at the fit's own aspect) —
    *  what turns the sheet's normalized sizes into real distances on the Karte */
   widthM: number
+  /** the fit still leans on the automatic scaffolding (georef · hasAutoPairs) — the Ebenen
+   *  rows then say «ungemessen» instead of claiming a ⌀ off the contaminated fit */
+  auto?: boolean
 }
 
 /**
@@ -120,7 +123,7 @@ export function georefPlans(
     if (!pairs?.length) continue
     const aspect = aspectOf(p)
     const fit = fitSimilarity(pairs, aspect)
-    if (fit) out.push({ id: p.id, code: p.code, title: p.title, imageUrl: p.imageUrl, fit, widthM: planGroundWidthM(fit, aspect) })
+    if (fit) out.push({ id: p.id, code: p.code, title: p.title, imageUrl: p.imageUrl, fit, widthM: planGroundWidthM(fit, aspect), auto: hasAutoPairs(pairs) })
   }
   return out
 }
@@ -632,8 +635,12 @@ export function twinPlanImageVisible(prefs: Record<string, boolean> | undefined,
 
 /** How well this plan sits, in the same words the Passung chip uses — «aus 2 Punkten» when the
  *  fit is exact and therefore UNMEASURED, a residual once a third pair has measured it. */
-export function twinFitNote(fit: GeorefFit): string {
+export function twinFitNote(fit: GeorefFit, auto = false): string {
   const C = appConfig.copy.whiteboard.georef
+  // an automatic scaffolding in the fit voids every claim: no ⌀ (the synthetic pairs
+  // contaminate the number) and no «aus 2 Punkten» (nobody set them) — the row says what it
+  // is, exactly as the chip/lamp/Passung do
+  if (auto) return C.chipAuto
   const m = residualClaim(fit)
   return m == null ? C.chipTwoPoints : fillTemplate(C.chipResidual, { m: m.toFixed(2) })
 }
@@ -650,7 +657,7 @@ export function planTwinRows(
       id: twinPlanLayerId(p.id),
       group: C.layerGroupPlans,
       label: fillTemplate(C.layerPlanSymbols, { plan: p.code }),
-      sub: twinFitNote(p.fit),
+      sub: twinFitNote(p.fit, p.auto),
       icon: 'doc',
       visible: twinVisible(prefs, twinPlanLayerId(p.id)),
     },
@@ -658,7 +665,7 @@ export function planTwinRows(
       id: twinPlanImageLayerId(p.id),
       group: C.layerGroupPlans,
       label: fillTemplate(C.layerPlanImage, { plan: p.code }),
-      sub: twinFitNote(p.fit),
+      sub: twinFitNote(p.fit, p.auto),
       icon: 'map',
       visible: twinPlanImageVisible(prefs, p.id),
       opacity: opacity?.[twinPlanImageLayerId(p.id)] ?? 55,
@@ -668,10 +675,10 @@ export function planTwinRows(
 
 /** The Plan side: live vehicles plus the Karte's operational markings (symbols, drawings,
  *  notes, shapes, Atemschutz markers and positions). Empty when the sheet has no fit. */
-export function mapTwinRows(fit: GeorefFit | null, prefs: Record<string, boolean> | undefined): TwinLayerRow[] {
+export function mapTwinRows(fit: GeorefFit | null, prefs: Record<string, boolean> | undefined, auto = false): TwinLayerRow[] {
   if (!fit) return []
   const C = appConfig.copy.whiteboard.georef
-  const sub = twinFitNote(fit)
+  const sub = twinFitNote(fit, auto)
   return [
     { id: TWIN_MAP_VEHICLES, group: C.layerGroupMap, label: C.layerMapVehicles, sub, icon: 'truck', visible: twinVisible(prefs, TWIN_MAP_VEHICLES) },
     { id: TWIN_MAP_SYMBOLS, group: C.layerGroupMap, label: C.layerMapSymbols, sub, icon: 'hex', visible: twinVisible(prefs, TWIN_MAP_SYMBOLS) },

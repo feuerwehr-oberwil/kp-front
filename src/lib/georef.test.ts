@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   fitSimilarity,
+  nudgePairsOnMap,
   rematchPairs,
   replacePair,
   residualClaim,
@@ -294,5 +295,55 @@ describe('rematchPairs — the operator numbered the two sides differently', () 
 
   it('needs three pairs to say anything', () => {
     expect(rematchPairs(misdealt(SQUARE, [1, 0, 2, 3]).slice(0, 2), AR)).toBeNull()
+  })
+})
+
+describe('nudgePairsOnMap — whole-sheet adjustment of a suggestion', () => {
+  const base = truth(TRIANGLE, 90, 20)
+
+  it('translates every map half by the given metres and changes nothing else', () => {
+    const moved = nudgePairsOnMap(base, { dxM: 10, dyM: -5 })
+    const before = fitSimilarity(base, AR)!
+    const after = fitSimilarity(moved, AR)!
+    // per-pair displacement is the nudge, in real metres (haversine vs the fit's corrected
+    // Mercator frame differ by ~a per mille — the same honesty margin the fit itself claims)
+    for (let i = 0; i < base.length; i++) {
+      const d = haversineM([base[i].lngLat.lng, base[i].lngLat.lat], [moved[i].lngLat.lng, moved[i].lngLat.lat])
+      expect(d).toBeCloseTo(Math.hypot(10, 5), 1)
+    }
+    expect(after.rotationDeg).toBeCloseTo(before.rotationDeg, 5)
+    // the refit picks its cos(lat) reference at the MOVED pairs' mean latitude, so a southward
+    // translation shifts the reported scale by ~1e-7/m — far under anything a surface prints
+    expect(after.scaleMPerU).toBeCloseTo(before.scaleMPerU, 3)
+    // the sheet's identity never moves — plan halves are the same objects
+    expect(moved.every((p, i) => p.plan === base[i].plan)).toBe(true)
+  })
+
+  it('rotates about the map centroid: rotation shifts, scale and centroid stay', () => {
+    const turned = nudgePairsOnMap(base, { rotDeg: 30 })
+    const before = fitSimilarity(base, AR)!
+    const after = fitSimilarity(turned, AR)!
+    expect(after.rotationDeg).toBeCloseTo(before.rotationDeg + 30, 4)
+    expect(after.scaleMPerU).toBeCloseTo(before.scaleMPerU, 6)
+    const cLng = (ps: GeorefPair[]) => ps.reduce((a, p) => a + p.lngLat.lng, 0) / ps.length
+    const cLat = (ps: GeorefPair[]) => ps.reduce((a, p) => a + p.lngLat.lat, 0) / ps.length
+    expect(cLng(turned)).toBeCloseTo(cLng(base), 8)
+    expect(cLat(turned)).toBeCloseTo(cLat(base), 8)
+  })
+
+  it('scales about the map centroid: scale shifts by the factor, rotation stays', () => {
+    const grown = nudgePairsOnMap(base, { scaleFactor: 1.1 })
+    const before = fitSimilarity(base, AR)!
+    const after = fitSimilarity(grown, AR)!
+    expect(after.scaleMPerU / before.scaleMPerU).toBeCloseTo(1.1, 6)
+    expect(after.rotationDeg).toBeCloseTo(before.rotationDeg, 4)
+  })
+
+  it('a no-op or invalid nudge returns the SAME array', () => {
+    expect(nudgePairsOnMap(base, {})).toBe(base)
+    expect(nudgePairsOnMap(base, { dxM: 0, dyM: 0, rotDeg: 0, scaleFactor: 1 })).toBe(base)
+    expect(nudgePairsOnMap(base, { scaleFactor: 0 })).toBe(base)
+    expect(nudgePairsOnMap(base, { dxM: Number.NaN })).toBe(base)
+    expect(nudgePairsOnMap([], { dxM: 5 })).toEqual([])
   })
 })

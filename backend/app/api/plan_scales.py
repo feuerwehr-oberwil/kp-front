@@ -66,11 +66,12 @@ class LngLat(BaseModel):
 
 class GeorefPair(BaseModel):
     """One landmark seen on both surfaces. `kind` records how it came to be ('gesetzt' = newly
-    placed, 'korrigiert' = an existing reference re-tapped); it carries no weight in the fit."""
+    placed, 'korrigiert' = an existing reference re-tapped, 'auto' = derived from an accepted
+    automatic alignment suggestion); it carries no weight in the fit."""
 
     plan: PlanPoint
     lngLat: LngLat  # noqa: N815
-    kind: Literal["gesetzt", "korrigiert"] | None = None
+    kind: Literal["gesetzt", "korrigiert", "auto"] | None = None
 
 
 class Georef(BaseModel):

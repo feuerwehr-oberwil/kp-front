@@ -36,8 +36,14 @@ function warningText(w: GeorefWarning, fit: GeorefFit): string {
  * The popover body. The chip owns the trigger; this owns nothing but the reading and the two
  * actions that follow from it — set another point, or throw the reference away.
  */
-export function GeorefQuality({ fit, onClose, onAddPoint, onCheck, onTransfer, onReset }: {
+export function GeorefQuality({ fit, auto = false, realPoints = 0, onClose, onAddPoint, onCheck, onTransfer, onReset }: {
   fit: GeorefFit
+  /** the reference still leans on the automatic scaffolding (georef · hasAutoPairs) — the
+   *  summary then names the provenance instead of counting pairs nobody set, and no ⌀ is
+   *  claimed off the contaminated fit */
+  auto?: boolean
+  /** operator-set pairs beside the scaffolding — 0 or 1 (two drop the autos, settleSlots) */
+  realPoints?: number
   /** «Dritten Punkt setzen» / «Punkte hinzufügen» — re-arms the pairing mode */
   onAddPoint: () => void
   /** «Deckung prüfen» — the sheet's outline on the map, side by side (lib/georefMode · check) */
@@ -78,17 +84,23 @@ export function GeorefQuality({ fit, onClose, onAddPoint, onCheck, onTransfer, o
         <button className={s.qX} onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className={s.qSummary}>
-        <span><b>{fit.n}</b> {C.pairs}</span>
-        <strong>{claim == null ? C.chipTwoPoints : fillTemplate(C.qualityDeviation, { m: m(claim) })}</strong>
+        {/* the value column stays SHORT — «· 1 Punkt» in the head plus «ungemessen» beside it
+            overflowed the row; the warning line below carries the rest of the sentence */}
+        {auto
+          ? <span><b>{C.lampAutoHead}</b></span>
+          : <span><b>{fit.n}</b> {C.pairs}</span>}
+        <strong>{auto ? (realPoints > 0 ? C.autoOnePoint : C.chipAuto) : claim == null ? C.chipTwoPoints : fillTemplate(C.qualityDeviation, { m: m(claim) })}</strong>
       </div>
-      {warning && <div className={s.qWarn}><Icon id="warn" />{warningText(warning, fit)}</div>}
+      {auto
+        ? <div className={s.qWarn}><Icon id="warn" />{realPoints > 0 ? C.autoOneBody : C.warnAuto}</div>
+        : warning && <div className={s.qWarn}><Icon id="warn" />{warningText(warning, fit)}</div>}
       <div className={`${s.qActions} ${onTransfer ? s.qActionsFour : ''}`}>
         {/* ⚠️ This action always ADDS a point; it does not pick up the pair with the largest
             residual. Calling it «Punkt 2 korrigieren» made the result depend on a calculation the
             operator could neither see nor choose. A plus icon and an adding verb say what happens. */}
         <button className="btn primary" onClick={onAddPoint}>
           <Icon id="plus" />
-          {fit.n < 3 ? C.addThird : C.addMore}
+          {auto ? C.autoAddPoints : fit.n < 3 ? C.addThird : C.addMore}
         </button>
         {/* the eye is the last arbiter: a residual of half a metre still says nothing about
             whether THIS corner sits on THAT corner. Opens the split with the sheet's outline

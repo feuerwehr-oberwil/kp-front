@@ -18,8 +18,7 @@ router = APIRouter(prefix="/overpass", tags=["overpass"])
 
 # Overpass QL is a query language, and this endpoint is authenticated but not admin-only, so
 # the query is not forwarded verbatim — the client sends a bounding box and the server builds
-# the query. That keeps the relay from being a general-purpose Overpass console.
-_QUERY = '[out:json][timeout:25];(way["building"]({bbox});relation["building"]({bbox}););out geom;'
+# the query (..overpass · BUILDINGS_QUERY, shared with the georef suggest's reference fetch).
 
 
 class BuildingsRequest(BaseModel):
@@ -48,6 +47,6 @@ async def buildings(_user: CurrentUser, box: BuildingsRequest) -> dict:
 
     bbox = f"{box.south},{box.west},{box.north},{box.east}"
     try:
-        return await overpass_client.fetch_buildings(_QUERY.format(bbox=bbox))
+        return await overpass_client.fetch_buildings(overpass_client.BUILDINGS_QUERY.format(bbox=bbox))
     except Exception as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Overpass nicht erreichbar") from exc

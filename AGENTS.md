@@ -200,6 +200,22 @@ to prod.
   both live surfaces resolve but the print/export adapters cannot – there, and after a far-side
   delete, it falls back to the stored coordinate the way every unresolvable attachment does
   (`resolveLinePoints`).
+- **«Automatisch ausrichten» PROPOSES a georeference; it never asserts one** (08.09.2026). An
+  unlinked module sheet's «Karte verknüpfen» chip offers the CV suggestion beside the point
+  flow: `POST /api/georef/suggest` (matcher in `app/georef_suggest.py`, evaluation + provenance
+  in the gitignored `docs/planning/auto-alignment/`) segments the client-rendered sheet
+  (`PdfViewport · planMatcherImage` reuses the resident bake), matches it against OSM building
+  rings via the Overpass proxy, and streams NDJSON progress for the step card. The heavy CV
+  deps are the **optional `georef` dependency group** (`uv sync --extra georef`) — not in the
+  production image yet; without them the endpoint answers 503 and the app degrades to the point
+  flow (fail-closed). The honesty rules are load-bearing: an accepted fit is stored as exactly
+  **two pairs `kind: 'auto'`** (more would fabricate zero-residual evidence); while any auto
+  pair is in the fit no surface claims a ⌀ (chip/lamp/Passung read «Automatisch ausgerichtet ·
+  ungemessen»); auto anchors are ghosted, badged «A», excluded from every count, and the
+  SECOND operator-set pair drops them (`georefMode · settleSlots`); score ≤ 6 = confident,
+  under the template ceiling (12 · m1 16) = amber «Deckung nachprüfen», above = «kein
+  Vorschlag» — and an **m1 result is never confident**. The proposal review lives on «Deckung
+  prüfen» (nothing persists before «Übernehmen», which is confirm-with-undo).
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live

@@ -98,6 +98,30 @@ export function loadDocTimed(url: string): Promise<PDFDocumentProxy> {
   })
 }
 
+/**
+ * The sheet's ground height in metres, read off its own printed «1:NNN» scale.
+ *
+ * The LAST textual `1:NNN` on page 1 (the FireGIS sheets print it in the footer; a page with
+ * several drawings/scales is ambiguous and the last one matched every tested sheet — the same
+ * heuristic the auto-alignment experiment validated). PDF points are 1/72 inch, so the page's
+ * physical height × the printed denominator is the ground distance the sheet's full height
+ * covers — exactly the `mPerU` semantics of the plan calibration (planScale.ts), and per-sheet
+ * truth where a station-default calibration can silently be the WRONG module's scale.
+ * Null when no scale text is found (a scan, a foreign template).
+ */
+export async function planPrintedMPerU(url: string): Promise<number | null> {
+  const doc = await loadDocTimed(url)
+  const page = await doc.getPage(1)
+  const tc = await page.getTextContent()
+  const text = tc.items.map((it) => ('str' in it ? it.str : '')).join(' ')
+  const found = [...text.matchAll(/1\s*:\s*(\d{3,5})\b/g)]
+  if (!found.length) return null
+  const den = Number(found[found.length - 1][1])
+  const vp = page.getViewport({ scale: 1 })
+  if (!(vp.height > 0)) return null
+  return den * (vp.height / 72) * 0.0254
+}
+
 // Forget everything cached for one plan URL — the «Erneut laden» tap goes through here
 // so the re-bake starts from a clean fetch instead of a stuck/rejected promise.
 export function evictPlan(url: string) {
@@ -218,6 +242,37 @@ function bake(url: string, vw: number, vh: number, maxSide = Infinity): Promise<
 
 /** The bake already held for `url`, whatever its size — a stale preview is still a first paint. */
 const cachedBake = (url: string) => bitmapCache.get(url)
+
+/** The matcher's working resolution (A4 @ 150 dpi ≈ 1755 px long side) — the server normalizes
+ *  to it anyway, so baking finer only burns time. */
+const MATCHER_SIDE = 1755
+
+/**
+ * The raster «Automatisch ausrichten» uploads, as a JPEG blob.
+ *
+ * ⚠️ REUSES the resident bake whenever one is crisp enough: the operator is LOOKING at this
+ * sheet, so its bitmap is normally already in `bitmapCache` — encoding it costs a fraction of a
+ * second. Only a cold sheet is rasterized, and then CAPPED at the matcher's own resolution:
+ * `planPreviewUrl`'s display-oriented path bakes at display × DPR × headroom (4096 px on a
+ * retina screen), which is exactly what made «Plan rendern» take forever.
+ */
+export async function planMatcherImage(url: string): Promise<Blob> {
+  const resident = await cachedBake(url)?.catch(() => null)
+  const baked = resident && Math.max(resident.bitmap.width, resident.bitmap.height) >= 1200
+    ? resident
+    : await bake(url, MATCHER_SIDE, MATCHER_SIDE, MATCHER_SIDE)
+  const k = Math.min(1, MATCHER_SIDE / Math.max(baked.bitmap.width, baked.bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(baked.bitmap.width * k))
+  canvas.height = Math.max(1, Math.round(baked.bitmap.height * k))
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('no 2d ctx')
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(baked.bitmap, 0, 0, canvas.width, canvas.height)
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86))
+  if (!blob) throw new Error('jpeg encode failed')
+  return blob
+}
 
 function render(url: string, vw: number, vh: number, maxSide: number): Promise<Baked> {
   return loadDocTimed(url).then(async (pdf) => {

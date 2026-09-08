@@ -6,7 +6,7 @@ import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
 import { Palette } from './Palette'
-import { PdfViewport, prewarmPlans } from './PdfViewport'
+import { PdfViewport, planMatcherImage, planPrintedMPerU, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
@@ -23,6 +23,7 @@ import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/tr
 import { nextTeamName } from '../lib/placedTrupps'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
+import { ApiError } from '../lib/api'
 import { Overlay, Popover } from '../lib/overlays'
 import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
@@ -50,12 +51,13 @@ import { fmtDistance, fmtArea, hoseLengthHint, pathLengthM, polygonAreaM2 } from
 import { activeViewDeg, buildView, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
-import { GeorefBoardLayer, GeorefInstrument, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
+import { GeorefBoardLayer, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
 import { GeorefQuality } from './GeorefQuality'
 import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
-import { fitSimilarity } from '../lib/georef'
+import { fitSimilarity, hasAutoPairs, realPairCount } from '../lib/georef'
 import { georefForPlan, refreshStationPlanScales } from '../lib/stationPlanScale'
-import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
+import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
+import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
 import { boardDrawingTwins, boardEntityTwins, boardTwins, planGroundWidthM, type BoardTwin } from '../lib/georefTwins'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
 import { GeorefContentBoard } from './GeorefContentBoard'
@@ -235,6 +237,9 @@ interface Props {
   objectName?: string | null
   /** the object's street address — what the chip over the plans reads (see objectChip) */
   objectAddress?: string | null
+  /** anchor for «Automatisch ausrichten» — the active object's coordinate (else the Einsatzort);
+   *  the backend fetches its OSM building reference box around it (lib/georefSuggest) */
+  georefAnchor?: LngLat | null
   /** open the PlanPicker. Omitted (an Einsatz-Link, which is bound to one object's plans)
    *  hides the whole control — a read-out nobody may act on is chrome. */
   onObjectSwitch?: () => void
@@ -311,7 +316,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, onTwinDrawingFocusOriginal, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, onTwinDrawingFocusOriginal, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -729,7 +734,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // measureAR is the plan's width/height — exactly the `planAspect` the fit is taken at. Solved
   // per render rather than memoised: it is a closed-form fit over at most a handful of points,
   // and a memo here would depend on an array identity the linter cannot reason about.
-  const georefState = georefChip(georefFit, georef, activeId)
+  const georefState = georefChip(georefFit, georef, activeId, georefPairs)
   /** The real plan bitmap for «Deckung prüfen». The PDF viewport already rendered it into its
    *  first canvas, so taking a same-origin snapshot is both cheaper and more faithful than
    *  rendering the PDF a second time on the map side. It rides in the cross-surface mode store,
@@ -745,6 +750,63 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     returnToQuality: opts?.returnToQuality,
     previewUrl: georefPreviewUrl(),
   })
+  // ── «Automatisch ausrichten» — the CV suggestion path of an unlinked sheet ─────────────────
+  // The unlinked chip opens a two-way chooser when the matcher CAN be asked (Modul-2 template,
+  // an anchor coordinate, a resolvable calibration); otherwise it arms the point flow directly,
+  // exactly as before. The suggestion arrives as a PROPOSAL review on the coverage view —
+  // nothing is stored until «Übernehmen» there (lib/georefMode · startGeorefProposal).
+  const [linkChoice, setLinkChoice] = useState(false)
+  // the phase the busy card names (render → Gebäudedaten → vergleichen); null = not running
+  const [autoStep, setAutoStep] = useState<GeorefSuggestStep | null>(null)
+  const autoBusy = autoStep != null
+  // Token of the CURRENT auto-align run. The matcher takes seconds and a thread cannot be
+  // recalled — but its ANSWER can be orphaned: closing the chooser, switching sheets or
+  // starting a fresh run bumps the token, so a stale completion can never yank the workspace
+  // into a proposal review nobody is waiting for.
+  const autoRunRef = useRef(0)
+  useEffect(() => { autoRunRef.current++; setLinkChoice(false); setAutoStep(null) }, [activeId])
+  // Warm «Plan rendern» — the matcher raster (usually the resident bake, encoded) and the
+  // printed-scale read — the moment the chooser opens, so the seconds the operator spends
+  // reading the card cover whatever little work remains.
+  useEffect(() => {
+    if (!linkChoice || !active?.imageUrl) return
+    const url = planUrl(active.imageUrl)
+    void planMatcherImage(url).catch(() => {})
+    void planPrintedMPerU(url).catch(() => {})
+  }, [linkChoice]) // eslint-disable-line react-hooks/exhaustive-deps
+  const georefAnchorPt = georefAnchor ? { lng: georefAnchor[0], lat: georefAnchor[1] } : null
+  const canAutoAlign = !!active?.imageUrl && georefSuggestEligible(activeId, georefAnchorPt)
+  const runAutoAlign = async () => {
+    if (!georefAnchorPt || !active?.imageUrl || autoBusy) return
+    const runId = ++autoRunRef.current
+    setAutoStep('render')
+    try {
+      const out = await requestGeorefSuggestion(
+        {
+          planUrl: planUrl(active.imageUrl),
+          anchor: georefAnchorPt,
+          mPerU: activeScale?.mPerU,
+          template: activeId.startsWith('modul1') ? 'm1' : 'm2',
+        },
+        (step) => { if (runId === autoRunRef.current) setAutoStep(step) },
+      )
+      // the chooser was closed / the sheet switched while the matcher ran — orphaned answer
+      if (runId !== autoRunRef.current) return
+      if (out.kind !== 'fit') {
+        // a normal outcome, not an error: the chooser stays up, «Punkte selbst setzen» is right there
+        toast(out.kind === 'noScale' ? appConfig.copy.whiteboard.georef.autoNoScale : appConfig.copy.whiteboard.georef.autoNone, { icon: 'warn', tone: 'warn' })
+        return
+      }
+      setLinkChoice(false)
+      startGeorefProposal(activeId, measureAR, { storageKey: activeGeorefKey, pairs: out.suggestion.pairs, previewUrl: georefPreviewUrl(), uncertain: !out.suggestion.confident })
+    } catch (e) {
+      if (runId !== autoRunRef.current) return // an orphaned failure has no audience either
+      const unavailable = e instanceof ApiError && e.status === 503
+      toast(unavailable ? appConfig.copy.whiteboard.georef.autoUnavailable : appConfig.copy.whiteboard.georef.autoFailed, { icon: 'warn', tone: 'warn' })
+    } finally {
+      if (runId === autoRunRef.current) setAutoStep(null)
+    }
+  }
   const georefQuality = qualityFor === activeId
   const [georefTransferOpen, setGeorefTransferOpen] = useState(false)
   const georefPanelPlan = useRef(activeId)
@@ -4555,10 +4617,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           disabled={readOnly}
           aria-expanded={georefState.kind === 'linked' ? georefQuality : undefined}
           onClick={() => {
-            // linked ⇒ the chip opens the Passung; unlinked ⇒ it arms the pairing straight away.
-            // A plan that has no reference has nothing to show, so the reading would be an empty
-            // panel where the verb belongs.
+            // linked ⇒ the chip opens the Passung; unlinked ⇒ the chooser when the matcher can
+            // be asked, else the pairing straight away. A plan that has no reference has nothing
+            // to show, so the reading would be an empty panel where the verb belongs.
             if (georefState.kind === 'linked') setQualityFor(georefQuality ? null : activeId)
+            else if (canAutoAlign) setLinkChoice((v) => !v)
             else beginGeoref()
           }}
         >
@@ -4593,6 +4656,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <div className="wb-georef-dock" role="group" aria-label={appConfig.copy.whiteboard.georef.qualityTitle}>
           <GeorefQuality
             fit={georefFit}
+            auto={hasAutoPairs(georefPairs)}
+            realPoints={realPairCount(georefPairs)}
             onClose={() => setQualityFor(null)}
             onAddPoint={() => beginGeoref({ returnToQuality: true })}
             // «Deckung prüfen» needs BOTH pictures on screen, which is exactly what the armed
@@ -4600,6 +4665,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             onCheck={() => beginGeoref({ check: true, returnToQuality: true })}
             onTransfer={georefTransferTargets.length ? () => setGeorefTransferOpen(true) : undefined}
             onReset={() => { setQualityFor(null); resetGeorefPlan(activeGeorefKey); toast(appConfig.copy.whiteboard.georef.resetDone) }}
+          />
+        </div>
+      )}
+
+      {/* the unlinked chip's chooser — «Automatisch ausrichten» / «Punkte selbst setzen». Same
+          dock (and the same stay-live rule) as the Passung above; only offered when the matcher
+          can actually be asked (canAutoAlign), else the chip arms the point flow directly. */}
+      {linkChoice && !georefArmed && georefState.kind !== 'linked' && !readOnly && (
+        <div className="wb-georef-dock" role="group" aria-label={appConfig.copy.whiteboard.georef.linkTitle}>
+          <GeorefLinkChooser
+            busyStep={autoStep}
+            onAuto={() => void runAutoAlign()}
+            onManual={() => { setLinkChoice(false); beginGeoref() }}
+            onClose={() => { autoRunRef.current++; setAutoStep(null); setLinkChoice(false) }}
           />
         </div>
       )}

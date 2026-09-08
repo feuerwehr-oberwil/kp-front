@@ -132,7 +132,11 @@ jobs:
         run: uv python install 3.12
 
       - name: Sync dependencies (incl. dev)
-        run: uv sync --extra dev
+        # `georef` too: without it the auto-alignment tests importorskip themselves away and
+        # the feature's load-bearing honesty rules go ungated. The PRODUCTION image still
+        # excludes the extra on purpose (the endpoint 503s and the app degrades to the
+        # manual point flow) — this is test tooling, not a deployment decision.
+        run: uv sync --extra dev --extra georef
 
       # Formatting is a gate, not a suggestion — same as kp-rueck. Fix locally with
       # `uv run ruff format .` from backend/.

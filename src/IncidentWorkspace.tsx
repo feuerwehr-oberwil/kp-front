@@ -126,7 +126,7 @@ import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
-import { georefDispatch, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
+import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
 import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
 import { deleteBoardTwinSource, detachBoardTwinEndpoint, patchBoardTwinSource, reverseBoardTwinSource,
   setBoardTwinEnding, teilstueckDependents, type BoardTwinWrite } from './lib/georefTwinEdit'
@@ -893,6 +893,18 @@ export function IncidentWorkspace({
   // two-pane split, so the app follows the mode instead of asking anyone to find the other
   // surface. This one line is the whole bridge; the mode itself lives in lib/georefMode.
   useGeorefSurfaceBridge(setMode)
+  // «Fertig»/«Schliessen»/Esc drop reference halves that never found their counterpart, and
+  // the toast saying so must fire on WHICHEVER surface the exit happened — on a phone the
+  // mode's map half runs with the Whiteboard unmounted, so the handler lives at app level.
+  useEffect(() => {
+    setGeorefOpenDroppedHandler((k) => toast(
+      k === 1
+        ? appConfig.copy.whiteboard.georef.openDroppedOne
+        : fillTemplate(appConfig.copy.whiteboard.georef.openDroppedMany, { k: String(k) }),
+      { icon: 'warn' },
+    ))
+    return () => setGeorefOpenDroppedHandler(null)
+  }, [])
   const georefMode = useGeorefMode()
   const georefActive = !!georefMode.planId
   // «Karte verknüpfen» must not survive navigation to a surface it cannot run on: a notification
@@ -1020,7 +1032,7 @@ export function IncidentWorkspace({
   useEffect(() => { if (mode !== 'anwesenheit' && mode !== 'mittel') setRapportReturn(false) }, [mode])
   // per-object backend module plans (auto-surfaced near object, or a manual PlanPicker override),
   // plus the resolved plan-doc list with module PDFs swapped in — see useObjectPlans
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId)
+  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId)
 
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
@@ -5221,7 +5233,7 @@ export function IncidentWorkspace({
           layers={[]}
           onToggle={toggleLayer}
           onOpacity={setOpacity}
-          twins={mapTwinRows(activeLinkedPlan.fit, twinLayers)}
+          twins={mapTwinRows(activeLinkedPlan.fit, twinLayers, activeLinkedPlan.auto)}
           onClose={() => setPanel(null)}
         />
       )}
@@ -5983,6 +5995,9 @@ export function IncidentWorkspace({
           // the rail lists). A link session is bound to one object, so it gets no switch.
           objectName={activeObjectName}
           objectAddress={activeObjectAddress}
+          // the anchor «Automatisch ausrichten» fetches its OSM reference box around: the active
+          // object's own coordinate, else the Einsatzort (they coincide for a near object)
+          georefAnchor={activeObjectPos ?? incidentView.center}
           onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
           // A georeferenced Modul has the Karte's real scale, so its tactical symbols follow the
           // Karte setting too. Standalone sheets keep the independent Modul preference.

@@ -6322,6 +6322,100 @@
         }
       }
     },
+    "/api/georef/suggest": {
+      "post": {
+        "tags": [
+          "georef"
+        ],
+        "summary": "Suggest Alignment",
+        "operationId": "suggest_alignment_api_georef_suggest_post",
+        "parameters": [
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "mPerPx",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "title": "Mperpx"
+            }
+          },
+          {
+            "name": "template",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "m2",
+              "title": "Template"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_suggest_alignment_api_georef_suggest_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/overpass/buildings": {
       "post": {
         "tags": [
@@ -10249,6 +10343,20 @@
         ],
         "title": "Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post"
       },
+      "Body_suggest_alignment_api_georef_suggest_post": {
+        "properties": {
+          "image": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image"
+        ],
+        "title": "Body_suggest_alignment_api_georef_suggest_post"
+      },
       "Body_upload_branding_api_branding__slot__post": {
         "properties": {
           "file": {
@@ -11884,7 +11992,8 @@
                 "type": "string",
                 "enum": [
                   "gesetzt",
-                  "korrigiert"
+                  "korrigiert",
+                  "auto"
                 ]
               },
               {
@@ -11900,7 +12009,7 @@
           "lngLat"
         ],
         "title": "GeorefPair",
-        "description": "One landmark seen on both surfaces. `kind` records how it came to be ('gesetzt' = newly\nplaced, 'korrigiert' = an existing reference re-tapped); it carries no weight in the fit."
+        "description": "One landmark seen on both surfaces. `kind` records how it came to be ('gesetzt' = newly\nplaced, 'korrigiert' = an existing reference re-tapped, 'auto' = derived from an accepted\nautomatic alignment suggestion); it carries no weight in the fit."
       },
       "HTTPValidationError": {
         "properties": {

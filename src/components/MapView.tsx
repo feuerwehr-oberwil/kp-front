@@ -42,7 +42,7 @@ import { useIsPhone } from '../lib/useIsPhone'
 import { reportClientError } from '../lib/reportError'
 import { isTypingTarget } from '../lib/hotkeys'
 import { QuietAttributionControl } from './MapAttribution'
-import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
+import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { GeorefTwinsMap } from './GeorefTwinsMap'
 import { GeorefContentMap } from './GeorefContentMap'
 import type { MapContentTwin, MapTwin } from '../lib/georefTwins'
@@ -2043,6 +2043,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {!georef.check && <GeorefMapMarks mode={georef} map={mapInst.current} />}
       {/* …and the one-shot «Deckung prüfen»: the sheet's outline, where the fit puts it */}
       <GeorefCheckOutline mode={georef} map={mapInst.current} />
+      {/* …and the automatic suggestion's transform surface: while ✥/⟳ is armed on a proposal
+          review, drags on the Karte move/turn the whole sheet instead of panning */}
+      <GeorefAdjustLayer mode={georef} map={mapInst.current} />
 
       {/* …and what the finished reference produces: the plans' own symbols, mirrored onto the
           map as quieter twins. Drawn UNDER everything the operator can actually edit (the

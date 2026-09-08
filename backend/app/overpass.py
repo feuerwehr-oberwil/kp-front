@@ -33,6 +33,12 @@ FETCH_TIMEOUT_S = 20.0
 # Overpass rejects unfamiliar clients on some mirrors; be honest about who is calling.
 _USER_AGENT = "kp-front (+https://github.com/feuerwehr-oberwil/kp-front)"
 
+# THE building-footprint query, shared by every caller (/overpass/buildings and the georef
+# suggest's reference fetch). Overpass QL is a query language and the callers are
+# authenticated-but-not-admin, so the server always builds the query itself — the callers only
+# supply a bounding box. One definition, or the two copies drift apart silently.
+BUILDINGS_QUERY = '[out:json][timeout:25];(way["building"]({bbox});relation["building"]({bbox}););out geom;'
+
 
 def mirrors() -> list[str]:
     """Configured mirrors, https-only. Empty list = the surface is unavailable."""

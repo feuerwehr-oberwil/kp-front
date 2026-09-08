@@ -46,12 +46,13 @@ export interface GeoPt {
 /** One landmark, seen on both surfaces.
  *
  *  `kind` records HOW the pair came to be: 'gesetzt' when it was placed as a new reference,
- *  'korrigiert' when an existing cross was re-tapped to fix the error the operator could see.
+ *  'korrigiert' when an existing cross was re-tapped to fix the error the operator could see,
+ *  'auto' when it was derived from an accepted automatic alignment suggestion (georefSuggest).
  *  It carries no weight in the fit — it exists so the UI can say which pairs were adjusted. */
 export interface GeorefPair {
   plan: PlanPt
   lngLat: GeoPt
-  kind?: 'gesetzt' | 'korrigiert'
+  kind?: 'gesetzt' | 'korrigiert' | 'auto'
 }
 
 /** The stored georeference of one plan. An object rather than a bare array so the document can
@@ -112,6 +113,29 @@ export const COLLINEAR_AXIS_RATIO = 0.08
  *  0.2 % of the sheet (≈3.6 px on a 1819 px plan), comfortably under a fingertip but far below
  *  the distance any two useful references have. See `replacePair`. */
 export const PAIR_EPS_N = 0.002
+
+/** Is this reference PURELY the accepted automatic suggestion — no operator-set landmark yet?
+ *  The surfaces then speak provenance («Automatisch ausgerichtet») instead of counting pairs
+ *  the operator never placed, and the sheet draws no crosses for the synthetic corners. The
+ *  first real point (kind 'gesetzt'/'korrigiert') switches everything back to the measured
+ *  vocabulary. */
+export function isAutoGeoref(pairs: GeorefPair[]): boolean {
+  return pairs.length > 0 && pairs.every((p) => p.kind === 'auto')
+}
+
+/** Does the reference still lean on the automatic scaffolding at all? While it does, no
+ *  surface may claim a measured residual — synthetic pairs in the fit contaminate the number
+ *  (the experiment's rule against derived points posing as evidence). */
+export function hasAutoPairs(pairs: GeorefPair[]): boolean {
+  return pairs.some((p) => p.kind === 'auto')
+}
+
+/** How many pairs are the OPERATOR'S own observations (placed, or an auto pair they dragged —
+ *  a corrected pair is a seen and judged one). Two of these solve the sheet without the
+ *  scaffolding, which is when settleSlots drops the synthetic pairs. */
+export function realPairCount(pairs: GeorefPair[]): number {
+  return pairs.filter((p) => p.kind !== 'auto').length
+}
 
 /** Are these two plan points the SAME landmark? The one place that question is answered, so
  *  «re-tapping corrects instead of appending» (`replacePair`), «this drag would land on top of a
@@ -314,6 +338,51 @@ export function replacePair(pairs: GeorefPair[], pair: GeorefPair, eps = PAIR_EP
   const next = [...pairs]
   next[i] = pair
   return next
+}
+
+// ── whole-sheet adjustment of an automatic suggestion ──────────────────────────────────────────
+
+/** One incremental nudge of the whole sheet: metres of translation, degrees of turn, and a
+ *  ×-factor of size — whichever of the three the gesture carried. */
+export interface SheetNudge {
+  /** east / north, in latitude-corrected metres */
+  dxM?: number
+  dyM?: number
+  /** counter-clockwise, math sense — the same sense `GeorefFit.rotationDeg` reports */
+  rotDeg?: number
+  /** uniform size factor (1 = unchanged) */
+  scaleFactor?: number
+}
+
+/**
+ * Move / turn / resize the WHOLE sheet by transforming every pair's MAP half.
+ *
+ * This is how «Anpassen» on an automatic suggestion works: the plan halves are the sheet's own
+ * identity and never move; rotating and scaling happen about the map halves' centroid in the
+ * same latitude-corrected metre frame the fit itself solves in, so a 1 m nudge here is the same
+ * metre a residual would report. Returns a new array (kinds kept); the input is untouched.
+ * A no-op nudge returns the SAME array, so callers can compare by reference.
+ */
+export function nudgePairsOnMap(pairs: GeorefPair[], nudge: SheetNudge): GeorefPair[] {
+  const { dxM = 0, dyM = 0, rotDeg = 0, scaleFactor = 1 } = nudge
+  if (!pairs.length || (dxM === 0 && dyM === 0 && rotDeg === 0 && scaleFactor === 1)) return pairs
+  if (!(Number.isFinite(dxM) && Number.isFinite(dyM) && Number.isFinite(rotDeg) && scaleFactor > 0)) return pairs
+  const lat0 = pairs.reduce((s, p) => s + p.lngLat.lat, 0) / pairs.length
+  const { project, unproject } = projector(lat0)
+  const M = pairs.map((p) => project(p.lngLat))
+  const c = centroid(M)
+  const th = (rotDeg * Math.PI) / 180
+  const cos = Math.cos(th), sin = Math.sin(th)
+  return pairs.map((p, i) => {
+    const vx = M[i].x - c.x, vy = M[i].y - c.y
+    return {
+      ...p,
+      lngLat: unproject({
+        x: c.x + scaleFactor * (cos * vx - sin * vy) + dxM,
+        y: c.y + scaleFactor * (sin * vx + cos * vy) + dyM,
+      }),
+    }
+  })
 }
 
 // ── automatic re-matching of mismatched pair ORDER ─────────────────────────────────────────────
