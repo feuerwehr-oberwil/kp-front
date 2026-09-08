@@ -2591,18 +2591,17 @@ function TruppForm({
         <h3>{title}</h3>
         <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>
       </div>
-      {/* the stack keeps the Art as its own slim row under the head — above the sections it
-          governs; on ONE screen it is its own labelled section leading the right column */}
-      {stack && kindChooser && <div className={s.kindHeadRow}>{kindChooser}</div>}
-
       <div className={s.modalBody}>
         {stack ? (
           /* ── PHONE: ONE flat column (08.09., field ask) — the three collapsible sections
              went with the space problem they were built for: the Mannschaft is the search +
              a populate-on-pick list, Druck/Kanal sit folded in the Standard line, so the
-             whole form stands in one scroll. Order matches the tablet's right column. */
+             whole form stands in one scroll. ORDER: who goes in first, then the Art as its
+             own labelled section (it governs the Auftrag vocabulary right below it), then
+             Auftrag / Ziel / Leitung, the folded Standard row last. */
           <div className={s.stack}>
             {teamFields}
+            {kindChooser && <div className={cx(s.field, s.kindField)}><span>{az.kindLabel}</span>{kindChooser}</div>}
             {auftragFields}
             {luftFields}
           </div>
