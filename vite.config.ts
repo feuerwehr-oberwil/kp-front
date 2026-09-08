@@ -86,6 +86,12 @@ export default defineConfig(({ mode }) => {
       __GIT_SHA__: JSON.stringify(gitSha),
       __BUILD_TIME__: JSON.stringify(buildTime),
     },
+    // ⚠️ The pdf.js WORKER must stay out of the dep optimizer. lib/pdfWorkerEntry imports it
+    // bare, and in dev the optimizer answered that import with 504 «Outdated Optimize Dep» —
+    // the worker died, pdf.js fell back to the fake worker, whose main-thread import of the
+    // same URL died the same way («Setting up fake worker failed», 08.09.). It is one
+    // self-contained minified ESM with nothing to pre-bundle, so serving it as source is free.
+    optimizeDeps: { exclude: ['pdfjs-dist/build/pdf.worker.min.mjs'] },
     plugins: [
       react(),
       VitePWA({
