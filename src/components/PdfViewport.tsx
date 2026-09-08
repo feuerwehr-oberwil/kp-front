@@ -5,6 +5,12 @@ import { appConfig } from '../config/appConfig'
 import { GIT_SHA } from '../lib/buildInfo'
 import { ByteBudgetCache } from '../lib/byteBudgetCache'
 import { diagnosePdfFailure, type PdfFailure } from '../lib/pdfDiagnosis'
+// MAIN-THREAD side of the pdf.js engine polyfills (Samsung Internet, 08.09.) — static and
+// first, so they are installed before the pdfjs chunk can resolve; the fake-worker fallback
+// runs on this thread too. The real worker gets its own copy through the shim below.
+import '../lib/pdfPolyfills'
+// the worker BOOT SHIM as one bundled asset: polyfills + pdf.worker.min.mjs (lib/pdfWorkerEntry)
+import pdfWorkerShimUrl from '../lib/pdfWorkerEntry?worker&url'
 import { RetryButton } from './RetryButton'
 import s from './PdfViewport.module.css'
 
@@ -18,23 +24,23 @@ export const pdfWorkerUrl = () => workerUrl
 // needed on the Plan tab. Load it lazily via dynamic import() so it lands in its own chunk
 // and never ships in the initial bundle — the PDF stack downloads on first plan render.
 //
-// ⚠️ `?url` makes the worker its own EMITTED ASSET (pdf.worker.min-<hash>.mjs), not a chunk —
-// so it has to be matched by the service worker's `globPatterns` BY EXTENSION. It was not
-// (`.mjs` was missing) until 2026-08-25, which meant the one file the whole PDF stack cannot
-// work without was the one file never precached: fetched from the server on every open, and
-// gone from the server the moment the next deploy replaced its hash. Devices still on the old
-// build — registerType is 'prompt', and an installed iOS app is never closed — then failed
-// EVERY PDF while the rest of the app ran happily out of their precache.
+// ⚠️ `?worker&url` makes the worker its own EMITTED ASSET (pdfWorkerEntry-<hash>.js since
+// 08.09., pdf.worker.min-<hash>.mjs before), not a chunk — so it has to be matched by the
+// service worker's `globPatterns` BY EXTENSION. It was not (`.mjs` was missing) until
+// 2026-08-25, which meant the one file the whole PDF stack cannot work without was the one
+// file never precached: fetched from the server on every open, and gone from the server the
+// moment the next deploy replaced its hash. Devices still on the old build — registerType is
+// 'prompt', and an installed iOS app is never closed — then failed EVERY PDF while the rest
+// of the app ran happily out of their precache.
 let pdfjsPromise: Promise<typeof PdfjsLib> | null = null
 function getPdfjs(): Promise<typeof PdfjsLib> {
   if (!pdfjsPromise) {
     const p = (async () => {
-      const [pdfjsLib, { default: url }] = await Promise.all([
-        import('pdfjs-dist'),
-        import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-      ])
-      workerUrl = url
-      pdfjsLib.GlobalWorkerOptions.workerSrc = url
+      // the worker boots through lib/pdfWorkerEntry (polyfills + the real worker, one bundled
+      // asset) — never the bare pdf.worker.min.mjs, which throws on engines below ~Chrome 141
+      const pdfjsLib = await import('pdfjs-dist')
+      workerUrl = pdfWorkerShimUrl
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerShimUrl
       return pdfjsLib
     })()
     // a failed chunk load (brief offline moment) must not poison the app until a full
