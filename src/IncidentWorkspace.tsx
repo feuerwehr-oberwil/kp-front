@@ -4907,10 +4907,15 @@ export function IncidentWorkspace({
         canRedo={histCanRedo}
         undoLabel={undoLabel}
         redoLabel={redoLabel}
-        // …and it is only offered where there IS something to step through. On the remaining
-        // surfaces (Checklisten, Mittel, Atemschutz, Rapport) it would still be the map's document
-        // being changed invisibly, so the pair and its separator stay hidden there.
-        showHistory={!tacticalLocked && (mode === 'map' || mode === 'plans' || mode === 'anwesenheit')}
+        // ⚠️ No longer gated by SURFACE (08.09.2026). It used to be «map, plans or anwesenheit,
+        // and not tacticalLocked», because on Checklisten or Mittel the pair would have stepped
+        // the map's document invisibly — the very thing that made it a per-surface control. With
+        // one timeline that reason is gone and the gate inverts: those surfaces are exactly the
+        // ones whose actions had no way back at all, and hiding the pair there would hide the
+        // only door to them. What is left is the honest question — may this session write
+        // anything? An Einsatzleiter may (the record surfaces), so `tacticalLocked` is the wrong
+        // test for it; a viewer may not, and gets nothing.
+        showHistory={canEditIncident || canEditRecord}
         // On EVERY surface, not only the Karte: which way the smoke goes matters exactly as much
         // on the Atemschutz board and a Modul as on the map, and the chip vanishing on a surface
         // switch read as «the weather indicator is broken» in the field. Phones keep their

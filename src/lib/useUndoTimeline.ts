@@ -26,7 +26,13 @@ export function useUndoTimeline(): { timeline: UndoTimeline } & UndoTimelineStat
   const timeline = ref.current
   const snap = useRef<UndoTimelineState>(EMPTY)
 
-  const subscribe = useCallback((fn: () => void) => timeline.subscribe(() => { snap.current = read(timeline); fn() }), [timeline])
+  // ⚠️ Read once ON subscribe as well as on every notification: anything pushed between the first
+  // render and the effect that subscribes would otherwise be invisible to the buttons — the store
+  // would hold it and the snapshot would still say «nothing to undo».
+  const subscribe = useCallback((fn: () => void) => {
+    snap.current = read(timeline)
+    return timeline.subscribe(() => { snap.current = read(timeline); fn() })
+  }, [timeline])
   const getSnapshot = useCallback(() => snap.current, [])
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
