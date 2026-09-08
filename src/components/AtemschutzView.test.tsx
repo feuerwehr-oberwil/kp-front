@@ -119,6 +119,16 @@ describe('the contact times (the head of the Verlauf)', () => {
     fireEvent.click(row)
     expect(screen.queryByText(az.lastContactAt)).toBeNull()
   })
+
+  // …but NOT on the Link-Tafel (08.09., field ask): the phone at the Eingang works off the
+  // ticking clock on the card, and the Verlauf there is the ABLESUNGEN, nothing else.
+  it('keeps the Link-Tafel’s Verlauf to the Ablesungen — no Letzter/Nächster rows', () => {
+    mount({ lite: { subtitle: 'Brand' } })
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
+    expect(screen.queryByText(az.lastContactAt)).toBeNull()
+    expect(screen.queryByText(az.nextContactDue)).toBeNull()
+    expect(screen.getByText(az.readingsHead)).toBeTruthy()
+  })
 })
 
 /* The three things the card says about a STATE rather than a tier. Each of them was reachable
