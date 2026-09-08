@@ -403,30 +403,29 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
   })
 
-  it('opens the Trupp form as three sections, one open and the others readable', () => {
+  it('opens the Trupp form as ONE flat column — everything visible, Druck+Kanal folded', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()], createTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    // the open one is the Mannschaft; «Luft & Funk» is closed but READS ITS ANSWER OUT, so the
-    // Eingangsdruck is knowable without opening anything
+    // no sections since 08.09.: the Mannschaft, the Auftrag and the folded Standard line all
+    // stand in one scroll — nothing is behind a chevron
+    expect(screen.getByText(az.teamChipsEmpty)).toBeTruthy()
+    expect(screen.getByText(az.auftragLabel)).toBeTruthy()
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
-    expect(screen.getByRole('button', { name: new RegExp(az.stackLuft) }).textContent)
-      .toContain(fillTemplate(az.stackPressure, { n: dz.defaultPressureBar }))
-    // …and opening it puts the field itself there
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
+    expect(screen.getByText(fillTemplate(az.luftDefaults, {
+      v: `${fillTemplate(az.stackPressure, { n: dz.defaultPressureBar })} · ${fillTemplate(az.stackFunk, { n: dz.defaultFunkkanal })}`,
+    }))).toBeTruthy()
+    fireEvent.click(screen.getByText(az.luftChange))
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
     // …only the final submit is gated on a valid Trupp — `aria-disabled`, not the native
-    // attribute, so a blocked tap still reaches attemptSubmit (which must not submit) and can
-    // explain itself instead of the browser silently swallowing the click (field feedback, 02.09.)
+    // attribute, so a blocked tap still reaches attemptSubmit and can explain itself
     const submitBtn = screen.getByRole('button', { name: az.start })
     expect(submitBtn.getAttribute('aria-disabled')).toBe('true')
-    // the roster is still empty, so the blocked tap OPENS the section that holds the reason —
-    // never a «Speichern» sitting there with nothing to say why (field feedback, 02.09.)
+    // the roster is still empty, so the blocked tap POINTS at the Mannschaft (ring + scroll)
     fireEvent.click(submitBtn)
     expect(createTrupp).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: true })).toBeTruthy()
-    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    expect(document.querySelector(`.${s.formFlash}`)?.textContent).toContain(az.sectionTeam)
   })
 
   // ⚠️ NO second card for this board (03.09.). It had one — `cardBig`, with its own condensed
@@ -599,7 +598,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(document.querySelector(`.${s.cardPlain}`)).toBeNull()
     expect(screen.queryByText(az.sectionPlain)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    expect(screen.queryByText(az.kindLabel)).toBeNull()
+    expect(screen.queryByRole('radiogroup', { name: az.kindLabel })).toBeNull()
   })
 
   /* ⚠️ Changeable while EDITING since 04.09. A Verkehrstrupp that ends up going in under PA, and a
@@ -609,12 +608,12 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
     fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
-    expect(screen.getByText(az.kindLabel)).toBeTruthy()
+    expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     // …and no Druck while it is still a work squad: there is no cylinder to ask about
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
     expect(screen.queryByText(az.editPressureLabel)).toBeNull()
 
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindAtemschutz) }))
+    fireEvent.click(screen.getByRole('radio', { name: az.kindAtemschutz }))
     // an upgrade records a FIRST Eingangsdruck — never «korrigieren», which would claim the Trupp
     // already had one
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
@@ -632,10 +631,10 @@ describe('the board with Trupps that are not under Atemschutz', () => {
       trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }],
     })
     fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
-    expect(screen.getByText(az.kindLabel)).toBeTruthy()
+    expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     // a fresh cylinder is what the form opens on…
     expect(screen.getByText(az.newPressureLabel)).toBeTruthy()
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    fireEvent.click(screen.getByRole('radio', { name: az.kindPlain }))
     // …and there is none to ask for once the crew goes back in without a mask
     expect(screen.queryByText(az.newPressureLabel)).toBeNull()
     // «Bereitstellen» goes with it: a Sicherungstrupp is by definition a crew standing by under PA
@@ -658,7 +657,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
     expect(screen.queryByText(az.newPressureLabel)).toBeNull()
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindAtemschutz) }))
+    fireEvent.click(screen.getByRole('radio', { name: az.kindAtemschutz }))
     // the station's default cylinder, not the 0 bar the plain card carries — a stepper opening on
     // a value the submit then refuses is the dead button this form does not have
     expect(screen.getByText(az.newPressureLabel)).toBeTruthy()
@@ -672,9 +671,10 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, personnel: [], trupps: [] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    // the Druck field is there for Atemschutz…
+    // the Druck field is behind the Standard line on a create (08.09.) — and there for Atemschutz…
+    fireEvent.click(screen.getByText(az.luftChange))
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    fireEvent.click(screen.getByRole('radio', { name: az.kindPlain }))
     // …and gone the moment it is not
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
     typeGuest('Gerber Urs')
@@ -696,7 +696,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     const tiles = () => within(screen.getByRole('group', { name: az.auftragLabel }))
       .getAllByRole('button').map((b) => b.textContent)
     expect(tiles()).toEqual(['Retten', 'Löschen', 'Absuchen', 'Sichern', 'Erkunden', 'Anderes'])
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    fireEvent.click(screen.getByRole('radio', { name: az.kindPlain }))
     expect(tiles()).toEqual(['Verkehr', 'Sanität', 'Wasserversorgung', 'Sichern', 'Bereitstellung', 'Anderes'])
     expect(tiles()).not.toContain('Löschen')
   })
@@ -722,7 +722,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
       const createTrupp = vi.fn()
       mount({ createTrupp, trupps: [] })
       fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-      fireEvent.click(screen.getByRole('radio', { name: new RegExp(kindLabel) }))
+      fireEvent.click(screen.getByRole('radio', { name: kindLabel }))
       typeGuest('Gerber Urs')
       fireEvent.click(within(screen.getByRole('group', { name: az.auftragLabel })).getByText('Anderes'))
       fireEvent.click(screen.getByRole('button', { name: az.start }))
@@ -783,19 +783,15 @@ describe('the Auftrag a Trupp is registered for', () => {
     expect(createTrupp).toHaveBeenCalledTimes(1)
   })
 
-  it('opens the collapsed «Auftrag & Leitung» section on the phone and puts the focus on the tiles', async () => {
+  it('points a blocked save at the Auftrag tiles and hands them the focus', async () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     typeGuest('Meier Thomas')
-    // creating opens the Mannschaft, so the Auftrag is behind a fold — nobody has to find the
-    // chevron for it
-    expect(screen.getByRole('button', { name: new RegExp(az.stackAuftrag), expanded: false })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect(createTrupp).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: new RegExp(az.stackAuftrag), expanded: true })).toBeTruthy()
-    // the ring + focus land on the next frame — the fields do not exist until the section opens
+    // flat form (08.09.): the tiles are already on screen, the block rings them and moves focus
     await waitFor(() => {
       const tiles = within(screen.getByRole('group', { name: az.auftragLabel })).getAllByRole('button')
       expect(document.activeElement).toBe(tiles[0])
@@ -827,8 +823,7 @@ describe('the Trupp form on the main board’s phone layout', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    expect(screen.queryByText(az.lineNoLabel)).toBeNull() // its section is closed
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackAuftrag) }))
+    // flat form: the Auftrag block stands open from the first moment
     expect(screen.getByText(az.auftragLabel)).toBeTruthy()
     expect(screen.getByText(az.zielLabel)).toBeTruthy()
     expect(screen.getByText(az.lineNoLabel)).toBeTruthy()
@@ -858,52 +853,23 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(screen.queryByRole('listbox', { name: az.sectionTeam })).toBeNull()
   })
 
-  /* A closed section is not a table of contents — it carries the ANSWER, which is what makes
-     three collapsed lines a usable form rather than three doors. */
-  it('reads every closed section’s answer out beside its title', () => {
+  /* The flat column's order (08.09.): Art above the form, then Mannschaft → Auftrag/Ziel/
+   * Leitung → the folded Standard line last — the same order the tablet's right column runs. */
+  it('runs Art → Mannschaft → Auftrag → Standard-Zeile, all on one flat screen', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    // ⚠️ An OPEN section says nothing beside its title — the fields are right below it, and the
-    // answer twice over is noise. So the Mannschaft has to be closed to be read.
-    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam) }).textContent)
-      .not.toContain(az.stackTeamEmpty)
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackTeam) }))
-    // nobody picked yet — the one thing no default can answer, so it is said in as many words
-    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam) }).textContent)
-      .toContain(az.stackTeamEmpty)
-    const luft = screen.getByRole('button', { name: new RegExp(az.stackLuft) }).textContent ?? ''
-    expect(luft).toContain(fillTemplate(az.stackPressure, { n: dz.defaultPressureBar }))
-    // …and an Auftrag nobody has set says so, in the same words the card uses — led by the Art,
-    // whose tiles moved into this section on 05.09.
-    const auftrag = screen.getByRole('button', { name: new RegExp(az.stackAuftrag) }).textContent ?? ''
-    expect(auftrag).toContain(az.kindAtemschutz)
-    expect(auftrag).toContain(az.auftragOpen)
-  })
-
-  /* ⚠️ The stack's order is Mannschaft → Auftrag & Leitung → Luft & Funk, and «Art des Trupps»
-   * rides with the AUFTRAG (05.09., field feedback). What the Art decides first is what the crew
-   * is sent to do — it narrows the Auftrag vocabulary, and «Ohne Atemschutz» removes the Druck
-   * from the section BELOW it, so asking it there meant walking back up to change it. Section 1
-   * stays the Mannschaft alone: who is in the Trupp is the one thing the Art does not govern. */
-  it('puts «Auftrag & Leitung» second, with the Art des Trupps chooser, and «Luft & Funk» last', () => {
-    vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({ trupps: [aktivTrupp()] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    const heads = [...document.querySelectorAll(`.${s.secHead}`)].map((e) => e.textContent ?? '')
-    expect(heads[0]).toContain(az.stackTeam)
-    expect(heads[1]).toContain(az.stackAuftrag)
-    expect(heads[2]).toContain(az.stackLuft)
-    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
-    expect(screen.queryByText(az.kindLabel)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackAuftrag) }))
-    expect(screen.getByText(az.kindLabel)).toBeTruthy()
-    expect(screen.getByText(az.auftragLabel)).toBeTruthy()
-    expect(screen.queryByText(az.sectionTeam)).toBeNull()
-    // …and it is NOT in «Luft & Funk» any more
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
+    // the Art rides its own row above the fields it governs
+    expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
+    // …and everything else stands in one column, in reading order
+    const txt = document.querySelector(`.${s.stack}`)?.textContent ?? ''
+    const order = [az.sectionTeam, az.auftragLabel, az.lineNoLabel, az.luftChange].map((t) => txt.indexOf(t))
+    expect(order.every((n) => n >= 0)).toBe(true)
+    expect([...order]).toEqual([...order].slice().sort((a, b) => a - b))
+    // the Standard line folds Druck+Kanal until «Ändern»
+    expect(screen.queryByText(az.pressureLabel)).toBeNull()
+    fireEvent.click(screen.getByText(az.luftChange))
     expect(screen.getByText(az.pressureLabel)).toBeTruthy()
-    expect(screen.queryByText(az.kindLabel)).toBeNull()
   })
 
   /* ⚠️ «Wieder einrücken» opens the MANNSCHAFT, not «Luft & Funk» (05.09. evening, field
@@ -911,33 +877,38 @@ describe('the Trupp form on the main board’s phone layout', () => {
    * that changes about it — somebody is swapped, somebody stays behind — while the fresh cylinder
    * and the channel are defaults to be checked, not typed. EDITING still opens «Luft & Funk»:
    * correcting the Eingangsdruck is what an edit is usually for. */
-  it('opens «Wieder einrücken» on the Mannschaft, and an edit on «Luft & Funk»', async () => {
+  it('a re-deploy asks the NEW Eingangsdruck and an edit offers «korrigieren» — both in the open', async () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     // the handed-over board, because that is the phone surface that shows a whole CARD (the main
     // board's phone layout is the row list) — the form behind the button is the same one
     mount({ lite: { subtitle: 'Brand' }, trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }] })
     fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
-    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: true })).toBeTruthy()
     expect(screen.getByText(az.sectionTeam)).toBeTruthy()
-    expect(screen.queryByText(az.newPressureLabel)).toBeNull()
+    // the folded Standard line is a CREATE affair — a fresh cylinder's reading is a question
+    expect(screen.getByText(az.newPressureLabel)).toBeTruthy()
 
     cleanup()
     mount({ lite: { subtitle: 'Brand' }, trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
     fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
-    expect(screen.getByRole('button', { name: new RegExp(az.stackLuft), expanded: true })).toBeTruthy()
     expect(screen.getByText(az.editPressureLabel)).toBeTruthy()
   })
 
   it('a tablet keeps the single screen — the stack is for 375px, not for touch', () => {
     mount({ trupps: [aktivTrupp()] }) // useIsPhone false
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    expect(screen.queryByRole('button', { name: new RegExp(az.stackLuft) })).toBeNull()
-    expect(screen.getByText(az.pressureLabel)).toBeTruthy() // everything is already there
-    // …and there the chooser is still FIRST and spans the form, above the two columns it governs
+    expect(document.querySelector(`.${s.stack}`)).toBeNull() // no phone column on a tablet
+    // …the Art leads the RIGHT column as its own labelled section (08.09.), with the folded
+    // Standard row at the column's end — after the Leitung
+    expect(screen.getByText(az.kindLabel)).toBeTruthy()
     const body = document.querySelector(`.${s.modalBody}`)
-    expect(body?.firstElementChild?.className).toContain(s.formColWide)
-    expect(body?.firstElementChild?.textContent).toContain(az.kindLabel)
+    expect(body?.firstElementChild?.className).toContain(s.formCol)
+    const right = body?.children[1]
+    expect(right?.firstElementChild?.textContent).toContain(az.kindLabel)
+    expect(right?.lastElementChild?.textContent).toContain(az.luftChange)
+    // …and everything is still there: «Ändern» unfolds Druck+Kanal in place
+    fireEvent.click(screen.getByText(az.luftChange))
+    expect(screen.getByText(az.pressureLabel)).toBeTruthy()
   })
 
   /* ── The Reihenfolge menu (04.09., Feldtest Manuel) ───────────────────────────────────────────
@@ -992,23 +963,19 @@ describe('the Reihenfolge menu', () => {
 /* ⚠️ Reversed on 03.09., and it still holds: the Art must never restructure the FORM, only which
    * fields «Luft & Funk» contains. The tap drops the Druck row from the section below it —
    * ordinary form behaviour — and never moves which section is open or what the others hold. */
-  it('keeps the same three sections for a Trupp without Atemschutz, minus the Druck', () => {
+  it('keeps the same flat form for a Trupp without Atemschutz, minus the Druck', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackAuftrag) }))
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
-    // the section itself is unchanged by the tap: still open, still the chooser, still the Auftrag
-    expect(screen.getByRole('button', { name: new RegExp(az.stackAuftrag), expanded: true })).toBeTruthy()
-    expect(screen.getByText(az.kindLabel)).toBeTruthy()
+    fireEvent.click(screen.getByRole('radio', { name: az.kindPlain }))
+    // the form is unchanged by the tap: chooser, Auftrag and Mannschaft all still standing
+    expect(screen.getByRole('radiogroup', { name: az.kindLabel })).toBeTruthy()
     expect(screen.getByText(az.auftragLabel)).toBeTruthy()
-    // …and «Luft & Funk» keeps the Kanal, minus the one field a Verkehrstrupp has no cylinder for
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
+    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    // …and «Ändern» unfolds the Kanal, minus the one field a Verkehrstrupp has no cylinder for
+    fireEvent.click(screen.getByText(az.luftChange))
     expect(screen.getByText(az.funkkanalSection)).toBeTruthy()
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
-    // and the other sections are untouched — the Mannschaft is where it was left
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackTeam) }))
-    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
   })
 
   /* The «point at what blocks the save» path keys off the stack alone, so a plain Trupp gets the
@@ -1019,12 +986,11 @@ describe('the Reihenfolge menu', () => {
     const createTrupp = vi.fn()
     mount({ trupps: [aktivTrupp()], createTrupp })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackAuftrag) }))
-    fireEvent.click(screen.getByRole('radio', { name: new RegExp(az.kindPlain) }))
+    fireEvent.click(screen.getByRole('radio', { name: az.kindPlain }))
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect(createTrupp).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: true })).toBeTruthy()
-    expect(screen.getByText(az.sectionTeam)).toBeTruthy()
+    // flat form: the block RINGS the Mannschaft instead of opening a section
+    expect(document.querySelector(`.${s.formFlash}`)?.textContent).toContain(az.sectionTeam)
   })
 
   /* ⚠️ The reason a save was refused belongs to the FORM, not to the app's toast lane (05.09.,
@@ -1060,31 +1026,15 @@ describe('the Reihenfolge menu', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /Steiner/ })[0]) // the row → its card
     fireEvent.click(screen.getAllByRole('button', { name: az.cardMenu })[0])
     fireEvent.click(screen.getByRole('menuitem', { name: az.edit }))
-    // the form opens on «Luft & Funk» for an edit — the section the warning is NOT about
-    expect(screen.getByRole('button', { name: new RegExp(az.stackLuft), expanded: true })).toBeTruthy()
     const warn = document.querySelector<HTMLButtonElement>(`.${s.formWarn}`)!
     expect(warn.textContent).toContain(fillTemplate(az.assignedConflict, { name: 'Steiner' }))
+    // flat form: the sentence RINGS the Mannschaft it is about
     fireEvent.click(warn)
-    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: true })).toBeTruthy()
+    expect(document.querySelector(`.${s.formFlash}`)?.textContent).toContain(az.sectionTeam)
     // …and so does a blocked save, instead of only ringing the sentence
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackLuft) }))
     fireEvent.click(screen.getByRole('button', { name: az.save }))
     expect(editTrupp).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: true })).toBeTruthy()
-  })
-
-  /* ⚠️ A section can be CLOSED again, including the one that opened first (field feedback,
-   * 04.09.). Three collapsed lines that each read their own answer is the overview the stack
-   * exists for — locking one open would make it a wizard with extra steps. */
-  it('lets every section be closed again, leaving three lines that still say everything', () => {
-    vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({ trupps: [aktivTrupp()] })
-    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.stackTeam) }))
-    expect(screen.queryByText(az.sectionTeam)).toBeNull()
-    expect(screen.getByRole('button', { name: new RegExp(az.stackTeam), expanded: false })).toBeTruthy()
-    // …and the one control that finishes the job is still right there, never behind a step
-    expect(screen.getByRole('button', { name: az.start })).toBeTruthy()
+    expect(document.querySelector(`.${s.formFlash}`)?.textContent).toContain(az.sectionTeam)
   })
 
   /* ONE placeholder for every Auftrag (03.09.): «z. B. 2OG links» proposed a storey to a

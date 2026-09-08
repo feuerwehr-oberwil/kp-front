@@ -1490,9 +1490,7 @@ export const de = {
     // (types · Trupp.kind). Beide Optionen sagen, was sie mitbringen, nicht was sie sind.
     kindLabel: 'Art des Trupps',
     kindAtemschutz: 'Unter Atemschutz',
-    kindAtemschutzHint: 'Mit Druck und Kontaktuhr',
     kindPlain: 'Ohne Atemschutz',
-    kindPlainHint: 'Nur Auftrag und Zeit',
     // Das kleine Zeichen an einer Truppzeile in den AUSWAHLEN («Welcher Trupp?» auf Karte und
     // Plan, Trupp-Suche): dort stehen Atemschutz- und Arbeitstrupps in EINER Liste, und wer
     // gleich unter Presslufatmer geht, ist die Zeile, die man beim Platzieren nicht verwechseln
@@ -1526,18 +1524,14 @@ export const de = {
      * ⚠️ «Auftrag & Leitung» ist EIN Abschnitt (04.09.): die Leitung ist Teil dessen, was der
      * Trupp tut, und ein eigener vierter Abschnitt für eine Zahl kostete eine Zeile, die man auf
      * dem Telefon der Mannschaftsliste wegnimmt. */
-    stackTeam: 'Mannschaft',
-    stackLuft: 'Luft & Funk',
-    stackAuftrag: 'Auftrag & Leitung',
     /** die zugeklappte Mannschaftszeile, solange niemand gewählt ist – der einzige Abschnitt,
      *  den keine Vorgabe beantworten kann */
-    stackTeamEmpty: 'Noch niemand gewählt',
     /** «Meier Thomas (GF) · Huber Simon» – der Gruppenführer trägt sein Kürzel mit */
-    stackLeader: '{name} ({role})',
     stackPressure: '{n} bar',
     stackFunk: 'Kanal {n}',
-    stackLine: 'Ltg {n}',
-    stackNoLine: 'Ltg –',
+    // die zusammengefaltete Druck+Kanal-Zeile im Trupp-Formular (08.09.)
+    luftDefaults: 'Standard: {v}',
+    luftChange: 'Ändern',
     // Sync-/Uhr-Status im Tafelkopf (Sicherheitsreview 01.09.): die EINE Fläche, an der ein
     // Leben hängt, sagt selbst, ob ihr Stand gesichert und ihre Uhr richtig ist. Leise reicht
     // incidentSwitcher.savedAt; laut trägt der Chip das Kurzlabel des Zustands plus, wie alt
@@ -1589,7 +1583,6 @@ export const de = {
     moveBack: 'Karte nach vorne schieben',
     moveForward: 'Karte nach hinten schieben',
     leaderLabel: 'Gruppenführer',
-    memberLabel: 'AdF',
     // (`guestNamePlaceholder` / `teamAdd` are gone with the second field they belonged to — see
     //  `teamGuestAdd` below. `typeName` stays: PersonField still opens a name field of its own.)
     // Trupp selection (TruppTeam) — a list to tap instead of three fixed fields. The three
@@ -1601,7 +1594,6 @@ export const de = {
     // ⚠️ The slot wears its ROLE in the badge column (leaderBadge / memberLabel); this is only the
     // quiet placeholder in the name column, and it is the same en dash every other empty value in
     // the app uses — not an em dash, which read as a heavier statement than «noch niemand».
-    teamSlotEmpty: '–',
     teamSearchPlaceholder: 'Person suchen …',
     teamNoMatches: 'Kein Treffer',
     /* ── Die Chip-Zeile (nur Telefon, 05.09.) ───────────────────────────────────────────────

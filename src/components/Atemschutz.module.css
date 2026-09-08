@@ -499,7 +499,11 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
      column needs with the small steppers — so on an installed iPad in landscape (768px, no
      browser chrome) the whole form stands without scrolling, and on anything taller the
      Mannschaftsliste takes the surplus instead of the frame growing empty. */
-  width: min(680px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
+  /* 680 → 820 (08.09., field ask): with Druck + Funkkanal folded into the one-line
+     Standard-row the columns carry less, and the extra width goes to the two things that
+     scale with it — the Mannschaftsliste and the Auftrag tiles. Still inside an iPad's
+     1024px landscape with air around it. */
+  width: min(820px, calc(100vw - 32px)); height: min(760px, calc(100dvh - 32px)); overflow: hidden;
   background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
   display: flex; flex-direction: column; }
 /* Keyboard up (Overlay · useKeyboardInset) — same signal, same shape of fix `.ip-sheet` already
@@ -530,7 +534,7 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    (`.modalStack .modalBody`): this row-gap is what separates the «Art des Trupps» block from the
    field columns under it, and it sits directly above `.formCol`'s own 10px between two fields —
    12 against 10 read as a ladder nobody chose. The COLUMN gap (22px) is a different question and
-   stays where it is; it is argued at `.kindSeg` below. */
+   stays where it is. */
 .modalBody { flex: 1 1 auto; min-height: 0; overflow-y: auto;
   padding: 4px 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px;
   /* `stretch`, not `start`: the Trupp column has to be as tall as ITS ROW for its list to have
@@ -587,8 +591,7 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    single Trupp column took half the frame with an empty second column beside it, and the sheet
    was still a 760px centred box on a 390px-tall viewport. If this gate ever changes, change
    `PHONE_QUERY` with it (and vice versa), or that band comes straight back.
-   The one narrower step below it is `max-width: 340px` (`.kindSeg`), which is a real width
-   argument about the tiles and not a second device gate. */
+*/
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .modalBody { grid-template-columns: 1fr; }
 }
@@ -694,6 +697,16 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* what an older Trupp record had typed in the free-text Leitung field, shown as entered — the
    record is never rewritten, so the Überwacher can still read what they wrote */
 .fieldNote { margin: 0; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
+/* Druck + Kanal folded into one readable line («Standard: 300 bar · Kanal 11 — Ändern»,
+   08.09.): a soft inset row, the values carrying the weight, the one action in link blue at
+   the right. The row keeps the field column's height rhythm so folding never reflows the
+   Auftrag column beside it. */
+.luftDefaults { display: flex; align-items: center; gap: 12px; min-height: var(--tap);
+  padding: 4px 14px; background: var(--fill-soft); border-radius: var(--r-ctl); }
+.luftDefaultsText { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; color: var(--ink); }
+.luftDefaultsChange { flex: none; min-height: 36px; padding: 0 6px; border: none; background: transparent;
+  font: 700 13px var(--body); color: var(--blue); cursor: pointer; border-radius: var(--r-sm); }
+.luftDefaultsChange:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 
 /* NOT --accent on hover: that token is this deployment's brand red, so the whole chip lit up
@@ -912,11 +925,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* ⚠️ The inset and gap live on the button INSIDE (.teamPick, same values a filled row uses), not
    on the row — an empty slot is tappable too, and a hit area that stops short of the dashes is
    the one place the tap has to land. */
-.teamRowEmpty { border-style: dashed; background: none; color: var(--ink-faint); }
-.teamRowEmpty .teamName { color: var(--ink-faint); font-weight: 600; }
 /* the ROLE is what an empty slot has to say («GF», «AdF»), so it reads a shade stronger than the
    placeholder beside it — otherwise the one piece of information on the row is the faintest */
-.teamRowEmpty .teamRole { color: var(--ink-dim); }
 
 /* THE ROW is the control that picks the Gruppenführer — one of N, so it behaves like a radio,
    and a radio is chosen by tapping the option rather than a glyph beside it. */
@@ -931,9 +941,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .teamPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); border-radius: var(--r-ctl); }
 /* the role, spelled out on the left — «GF» or «AdF». It replaced a star: a symbol that has to
    be learnt, on a row whose whole job is to say who leads. */
-.teamRole { flex: none; width: 30px; font: 800 10.5px var(--body); letter-spacing: .03em;
-  color: var(--ink-faint); text-transform: uppercase; }
-.teamRoleLead { color: var(--amber-strong); }
 /* the Gruppenführer's row carries the emphasis, not just a badge — the card, the Rapport and the
    map tag all print this person first, so the form should look the way the paper reads */
 .teamRowLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
@@ -966,8 +973,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .chipPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the role as a pill rather than the row's 30px column: on a chip there is no column to line up
    with, and «GF» has to read as a mark ON this person */
-.chipRole { flex: none; font: 800 10px var(--body); letter-spacing: .04em; text-transform: uppercase;
-  color: var(--ink-faint); background: var(--fill-soft); border-radius: var(--r-pill); padding: 3px 6px; }
 .chipName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 700 13.5px var(--body); color: var(--ink); }
 /* the Gruppenführer is the FIRST chip and the only coloured one — the same amber rule
@@ -975,7 +980,6 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    this person first */
 .chipLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
   background: color-mix(in srgb, var(--amber) 12%, var(--surface)); }
-.chipRoleLead { color: var(--on-fill); background: var(--amber); }
 /* ⚠️ 34px wide against the chip's full height: a mis-grip must never take somebody OUT of the
    Trupp — at worst it crowns them, which is one tap to undo. */
 .chipX { flex: none; display: grid; place-items: center; width: 34px; align-self: stretch;
@@ -987,7 +991,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    control — the search is the very next thing on screen, so there is nothing to reveal. */
 .chipEmpty { flex: 1 1 auto; gap: 8px; padding: 0 12px; border-style: dashed; background: none;
   color: var(--ink-faint); font: 600 13.5px var(--body); }
-.chipEmpty .chipRole { color: var(--ink-dim); }
+/* the «noch niemand» chip is a real control now (08.09.): the button is bare text — the
+   dashed chip itself carries the look, the tap points at the search (TruppTeam) */
+.chipEmptyBtn { border: none; background: transparent; font: inherit; color: inherit; cursor: pointer; padding: 0; }
 
 /* The matches under the field, and ONLY while something is typed. Shrink-wrapped, never a
    scroller: it is as tall as its ≤4 rows and pushes the two closed sections down by exactly that
@@ -1406,101 +1412,30 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .focusCard .card > * { flex: 0 0 auto; }
 
 
-/* «Art des Trupps» (TruppForm, create only): two labelled tiles, not a Segmented pair — the
-   choice is not a yes/no property of one thing but WHICH of two things is being registered, and
-   each side has to say what it brings.
-   ⚠️ The COLUMN gap is `.modalBody`'s own (22px) ON THE TABLET and is not a free choice there:
-   the tiles sit in a `.formColWide` directly above the form's TWO columns, so with any other gap
-   they cut the width at a different place than the fields under them and read as a separate
-   control that happens to be near the form. Matched, they read as the column headers of what
-   follows. The ROW gap stays tight (8px).
-   ⚠️ …and on a PHONE that argument is void, because `.modalBody` is ONE column there — nothing
-   is left to line up with, so the phone spends the difference on the tiles instead (see below).
-   Which is why the gap below rides the same `PHONE_QUERY` gate as the column collapse and not a
-   width of its own: the two are the same decision read twice. */
-.kindSeg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 22px; }
-.kindOpt { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 14px;
-  border: 2px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);
-  text-align: left; cursor: pointer; font-family: var(--body); color: var(--ink); }
-/* ⚠️ TWO COLUMNS ON THE PHONE TOO (03.09.) — they used to stack here, and side by side they cost
-   half the height. That is what the wizard's step 2 needs: the tiles LEAD that step (they govern
-   what it asks) and everything the step is actually for — Eingangsdruck, Funkkanal, Auftrag —
-   follows underneath, so ~64px of stacked tile is ~64px of the Druck pushed towards the fold.
-   What has to give for that is the TILE, not the column count. At a 375px viewport the sheet is
-   the full width, `.modalBody` takes 20px each side, and a 10px gutter leaves ~163px per tile —
-   ~135px inside the border and padding. «Unter Atemschutz» at 800 14px needs ~117px of that, so
-   it fits on ONE line only once the icon stops sitting BESIDE it: stacked above, the text gets
-   the whole width. The subtitle wraps to two lines and is meant to; the grid stretches both tiles
-   to the same height regardless. Same arithmetic holds at 360px (~127px of text width).
-   ⚠️ Gate = `PHONE_QUERY`, like every phone block in this file. On a WIDE landscape phone the
-   tile has room the stack does not need (~325px), so the icon-above-text layout costs ~27px of
-   height it need not — accepted on purpose: a second, width-only gate here is exactly the kind of
-   near-miss that produced the 561–600 hole, and on a landscape phone step 2 scrolls either way.
-   A tile too narrow even stacked is handled one step down, at 340px. */
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .kindSeg { gap: 8px 10px; }
-  /* `stretch`, not the base rule's `center`: turned on its side, «center» would centre the text
-     block horizontally AND shrink-wrap it, and the title has to have the tile's full width to
-     stay on one line. */
-  .kindOpt { flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 12px; }
-}
-/* …and the last stop. Below ~340px («inside» is ~107px) the title wraps anyway, the tile grows
-   two lines taller, and two columns stop buying anything over the stack — so there they stack,
-   one option per row, as they did everywhere before 03.09. */
-@media (max-width: 340px) {
-  .kindSeg { grid-template-columns: 1fr; }
-  .kindOpt { flex-direction: row; align-items: center; gap: 10px; padding: 10px 14px; }
-}
-.kindOpt :global(.i) { width: 20px; height: 20px; flex: none; color: var(--ink-faint); }
-.kindOptTxt { min-width: 0; }
-.kindOptTxt b { display: block; font: 800 14px var(--body); }
-.kindOptTxt span { display: block; margin-top: 2px; font: 600 11.5px var(--body); color: var(--ink-faint); }
-@media (hover: hover) { .kindOpt:hover { border-color: var(--ink-faint); } }
-.kindOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* ⚠️ INK, not --blue. Blue means «in progress / normal status» on this board and --accent means
-   alarm; the chosen tile is neither — it is simply the one that is selected, which is what the
-   ink outline says everywhere else in this form. (The counter-example used to be the Farbe row's
-   own blue «Automatisch», which marked a VALUE rather than a branch of the form; that row was
-   removed on 04.09. — the colour is no longer asked here.) */
-.kindOpt.on { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
-.kindOpt.on :global(.i) { color: var(--ink); }
+/* «Art des Trupps» as its own compact pair (08.09., field ask — the two labelled tiles with
+   explainer subtitles said what every AdF already knows and cost the form its first row).
+   The pair keeps the form's own TILE chrome — bordered `--surface` cards, ink outline + the
+   faint ink wash on the chosen one, the press wash on :active — just smaller. On ONE screen
+   it is its own labelled section leading the right column (`.kindField`, two equal tiles);
+   the phone renders it as its own right-aligned row under the head (`.kindHeadRow`). */
+.kindHeadSeg { flex: none; display: flex; gap: 8px; }
+.kindHeadOpt { min-height: 44px; padding: 0 14px; border: 2px solid var(--glass-edge);
+  background: var(--surface); border-radius: var(--r-ctl); cursor: pointer;
+  font: 700 13px var(--body); color: var(--ink); }
+@media (hover: hover) { .kindHeadOpt:hover:not(.on) { border-color: var(--ink-faint); } }
+.kindHeadOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* ⚠️ INK, not --blue — blue means «in progress» on this board and --accent means alarm; the
+   chosen Art is simply the selected branch, which is what the ink outline says form-wide. */
+.kindHeadOpt.on { border-color: var(--ink); background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
+.kindField .kindHeadSeg { display: flex; width: 100%; }
+.kindField .kindHeadOpt { flex: 1 1 0; }
+.kindHeadRow { flex: none; display: flex; justify-content: flex-end; padding: 0 20px 6px; }
 
-/* ── The phone STACK (TruppForm · stack, 04.09.) ──────────────────────────────────────────────
-   Three sections, all of them on screen at all times; one is open, the other two read their own
-   answers out beside their titles. Replaces the two-step wizard's progress bar and caption
-   (`.steps` / `.stepCap`) — there is no step to be «in» any more, so there is nothing to report.
-   The header is a 56px row, which is also what the closed section IS: the summary beside the
-   title is the form's content, not a hint about it. */
-.stack { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.sec { display: flex; flex-direction: column; border: 1px solid var(--glass-edge);
-  border-radius: var(--r-ctl); background: var(--surface); overflow: hidden; }
-/* the open one wears the same ink outline a chosen `.kindOpt` does — «this is the one you are
-   in», in the colour this form uses for selection everywhere */
-.secOpen { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
-.secHead { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px;
-  padding: 0 12px; border: none; background: none; cursor: pointer; text-align: left;
-  font: inherit; color: inherit; }
-@media (hover: hover) { .secHead:hover { background: var(--fill-soft); } }
-.secHead:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* the number is the ORDER, the tick is the state — one badge, never both. A section counts as
-   answered when a default answers it («300 bar · Kanal 5»), which is why «Luft & Funk» is green
-   before anybody has touched it: the form is asking you to CHECK it, not to fill it. */
-.secNo { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
-  border-radius: 50%; background: var(--fill-soft); color: var(--ink-faint); font: 800 11px var(--mono); }
-.secNo :global(.i) { width: 13px; height: 13px; }
-.secDone .secNo { background: var(--green); color: var(--on-fill); }
-.secOpen .secNo { background: var(--ink-fill); color: var(--on-accent-ink); }
-.secTxt { flex: 1 1 auto; min-width: 0; }
-.secTxt b { display: block; font: 800 13.5px var(--body); color: var(--ink); }
-/* ONE line, ellipsised: «Unter Atemschutz · 300 bar · Kanal 5» has to stay a line you scan, and
-   a summary that wraps turns the closed section into a paragraph. */
-.secTxt > span { display: block; margin-top: 1px; font: 600 12px var(--body); color: var(--ink-faint);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the ONE amber word in the form — the answer that no default can give (a Gruppenführer, an
-   Auftrag). Amber, not red: nothing here is wrong yet, something is simply still open. */
-.secTxt > .secDue { color: var(--amber-strong); font-weight: 700; }
-.secHead > :global(.i) { flex: none; width: 17px; height: 17px; color: var(--ink-faint); }
-.secBody { display: flex; flex-direction: column; gap: 10px; padding: 2px 12px 12px; min-width: 0; }
+/* ── The phone form is ONE flat column (08.09., field ask) ───────────────────────────────────
+   The three collapsible sections (04.09.–08.09.) went with the space problem they were built
+   for: the Mannschaft is the search + a populate-on-pick list, Druck/Kanal sit folded in the
+   Standard line, so the whole form stands in one scroll. This container is just the column. */
+.stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 
 /* ⚠️ LAST in the file on purpose: the phone/landscape media queries above re-`inset` the
    floating `.surface`, and at equal specificity source order is the whole rule.

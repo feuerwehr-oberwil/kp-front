@@ -1022,9 +1022,7 @@ export const en: Localizable<Copy> = {
     sectionPlainHint: 'Without SCBA – no pressure and no contact monitoring.',
     kindLabel: 'Type of team',
     kindAtemschutz: 'Under SCBA',
-    kindAtemschutzHint: 'With pressure and contact clock',
     kindPlain: 'Without SCBA',
-    kindPlainHint: 'Order and time only',
     asMark: 'SCBA',
     empty: 'No team under monitoring yet.',
     emptyHint: 'Create a team to start monitoring.',
@@ -1037,15 +1035,10 @@ export const en: Localizable<Copy> = {
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard. Titles name the FIELDS; a collapsed section reads its own answer out beside the
      *  title, and «Order & line» is one section (see de.ts). */
-    stackTeam: 'Crew',
-    stackLuft: 'Air & radio',
-    stackAuftrag: 'Order & line',
-    stackTeamEmpty: 'Nobody picked yet',
-    stackLeader: '{name} ({role})',
     stackPressure: '{n} bar',
     stackFunk: 'Channel {n}',
-    stackLine: 'Line {n}',
-    stackNoLine: 'Line –',
+    luftDefaults: 'Default: {v}',
+    luftChange: 'Change',
     // no longer asked in the Trupp form (04.09.) – still offered on the Lage/plan and in admin
     colorLabel: 'Colour',
     colorAuto: 'Automatic',
@@ -1078,7 +1071,6 @@ export const en: Localizable<Copy> = {
     zielPlaceholder: 'Describe the assignment',
     zielClear: 'Clear assignment / target',
     leaderLabel: 'Team leader',
-    memberLabel: 'Member',
     teamEmpty: 'Nobody on this team yet. Tap a name below.',
     teamSearchPlaceholder: 'Search person …',
     teamNoMatches: 'No match',
@@ -1257,7 +1249,6 @@ export const en: Localizable<Copy> = {
     orderName: 'Name',
     moveBack: 'Move card forward',
     moveForward: 'Move card back',
-    teamSlotEmpty: '–',
     truppFallbackName: 'Team',
     editPressureLabel: 'Correct the entry pressure (bar)',
     editPressureHint: 'Corrects the recorded entry pressure — does not count as radio contact.',

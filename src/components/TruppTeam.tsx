@@ -4,7 +4,6 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { fillTemplate, stripUnprintable } from '../lib/format'
-import { rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { useLongPress } from '../lib/useLongPress'
 import type { Person } from '../types'
@@ -18,7 +17,6 @@ import c from './ComboMenu.module.css'
 /** A Trupp is a Gruppenführer and two AdF — three slots, always shown. A bigger Trupp is a real
  *  Trupp and simply grows the box (see the render below); three is what the form should be
  *  ASKING for, and a fourth empty slot on every single Trupp read as one man missing. */
-const SLOTS = 3
 
 /** How many matches the PHONE shows under the search field. Four is the answer to a typed query,
  *  not a list to browse: it fits above the fold with the keyboard up, and the Gast row underneath
@@ -147,17 +145,16 @@ export function TruppTeam({
           // not on the Mannschaftsliste (lib/guests) — offered like anybody else, but SAID
           guest: p.guest,
         }))
-        // present first, then by seniority, then alphabetical — the same order every other
-        // picker in the app uses, so a name sits where the hand already expects it. Somebody
-        // already in another Trupp sinks to the bottom: they are shown, never hunted for.
-        .sort((a, b) =>
-          Number(a.taken) - Number(b.taken)
-          || Number(b.present) - Number(a.present)
-          // …and of the people who ARE here, the ones on scene come before the ones still at
-          // the Magazin: a Trupp is formed from who is standing in front of you
-          || Number(a.atStation) - Number(b.atStation)
-          || rankOrder(a.rank) - rankOrder(b.rank)
-          || a.name.localeCompare(b.name, 'de'))
+        // FULLY alphabetical since 08.09. (field ask), in exactly two bands: whoever is
+        // anwesend AND free to take stands first, everyone else (absent, or already in a
+        // Trupp) follows — each band A–Z. Seniority and the Magazin ordering retired: a name
+        // is found by its letter, not by guessing its rank's position; the Magazin and
+        // «in Trupp X» hints keep SAYING what they said, they just stop re-sorting the list.
+        .sort((a, b) => {
+          const aReady = a.present && !a.taken
+          const bReady = b.present && !b.taken
+          return Number(bReady) - Number(aReady) || a.name.localeCompare(b.name, 'de')
+        })
     }
     return legacyRoster.filter((n) => !chosenNames.has(n))
       .map((n) => ({ key: n, name: n, present: false, atStation: false, taken: false }))
@@ -249,14 +246,9 @@ export function TruppTeam({
   return (
     <div className={s.team}>
       {/* THE TRUPP — first, because it is the answer; the Mannschaft below it is the way to it.
-          On a TABLET: three slots at rest — that is the Trupp the form is asking for (GF + 2), the
-          box does not change height as the usual three are ticked, and an empty slot says «this is
-          where the next one goes» far better than a sentence would. The crew comes first and the
-          slots FILL UP to `SLOTS` behind it, so a fourth, fifth, tenth person simply adds a row
-          and a big Trupp is never refused.
-          On a PHONE the same reservation costs three rows of a 375px form before anybody has been
-          picked, so the empty Trupp is ONE dashed chip and the crew wraps into as many rows as it
-          actually needs. */}
+          No reserved slots since 08.09.: the crew POPULATES as people are picked (one dashed
+          hint chip while empty, on both skins), and a fourth, fifth, tenth person simply adds
+          a row — a big Trupp is never refused. */}
       <ul className={skin.list}>
         {value.map((m, i) => {
           const lead = i === 0
@@ -277,9 +269,10 @@ export function TruppTeam({
                 {...(lead ? {} : hold.press(() => promoteByHold(i)))}
                 onClick={() => { if (!clickAfterHold()) promote(i) }}
               >
-                <span className={cx(skin.role, lead && skin.roleLead)}>
-                  {lead ? az.leaderBadge : az.memberLabel}
-                </span>
+                {/* no GF/AdF badge since 08.09. (field ask): the amber outline IS the leader
+                    marker — the same tone the card, the Rapport and the map tag print — and
+                    every other row is an AdF by definition. The role words live on in the
+                    a11y labels and the stack summary. */}
                 <span className={skin.name}>{m.name}</span>
                 {/* a typed name carries no roster link — say so, so nobody wonders later why
                     this one person never appeared in the statistics export */}
@@ -294,34 +287,15 @@ export function TruppTeam({
             </li>
           )
         })}
-        {!phone && Array.from({ length: Math.max(SLOTS - value.length, 0) }, (_, k) => {
-          const i = value.length + k
-          // ⚠️ The empty slot NAMES its role — «GF», «AdF», «AdF». Three identical dashes said
-          // only «something is missing here»; the badge column was blank on exactly the rows
-          // where a first-time user needs to be told what a Trupp is made of. The role is the
-          // one thing the form knows about a slot nobody is in yet, so it is what the slot says.
-          // ⚠️ …and it is TAPPABLE, but never a field: the tap hands the caret to the search
-          // below (pointAtSearch). Out of the screen reader's way — it announces nothing a
-          // «–» row could tell it, and the search field is the next thing in the tab order.
-          return (
-            <li key={`empty-${i}`} className={cx(s.teamRow, s.teamRowEmpty)}>
-              <button
-                type="button" className={s.teamPick} tabIndex={-1} aria-hidden
-                title={az.teamSearchPlaceholder} onClick={pointAtSearch}
-              >
-                <span className={s.teamRole}>{i === 0 ? az.leaderBadge : az.memberLabel}</span>
-                <span className={s.teamName}>{az.teamSlotEmpty}</span>
-              </button>
-            </li>
-          )
-        })}
-        {/* the phone's whole empty state: ONE dashed chip that names the role and says where to
-            reach. Not a control — the field it would have pointed at is the very next thing on
-            screen, so there is nothing left for a tap here to reveal. */}
-        {phone && !value.length && (
+        {/* NO reserved role slots since 08.09. (field ask): the crew simply populates as
+            people are picked — the first is the Gruppenführer, said by the amber outline and
+            the summary rather than a badge column. The whole empty state on BOTH skins is one
+            dashed «noch niemand» chip — and it IS a control: the search sits right below, but
+            the hand that taps the empty Trupp anyway gets pointed there (caret + blink)
+            instead of a dead press. */}
+        {!value.length && (
           <li className={cx(s.chip, s.chipEmpty)}>
-            <span className={s.chipRole}>{az.leaderBadge}</span>
-            <span>{az.teamChipsEmpty}</span>
+            <button type="button" className={s.chipEmptyBtn} onClick={pointAtSearch}>{az.teamChipsEmpty}</button>
           </li>
         )}
       </ul>

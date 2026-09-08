@@ -223,6 +223,10 @@
 }
 .combo-pick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-pick.empty .combo-pick-name { color: var(--ink-faint); }
+/* ⚠️ With a ✕ standing next to the chevron, 30px of right padding runs the value straight
+   under the clear icon («SCHWARZPULVER, gekörnt ode✕…», Feldtest 08.09.) — the name must
+   stop where the two controls begin. */
+.combo:has(.combo-clear) .combo-pick { padding-right: 56px; }
 .combo-pick-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combo-chev { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; color: var(--ink-faint); pointer-events: none; }
 .combo-chev .i { width: 15px; height: 15px; }
