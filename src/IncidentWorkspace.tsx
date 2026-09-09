@@ -387,6 +387,9 @@ export function IncidentWorkspace({
    *  derived through those fits, and a ref is invisible to a memo — this is the one value that
    *  tells the store a corrected georeference moved every projection on that sheet. */
   const [fitsVersion, setFitsVersion] = useState(0)
+  /** the caption the NEXT store checkpoint carries, when its writer knows a better word than
+   *  the domain's — see `onCheckpoint` below */
+  const stepLabel = useRef<string | null>(null)
   // On open, fit the map to the incident's existing map content (symbols + drawings) instead of
   // zooming onto the bare Einsatzort point — so a pre-filled Lage is framed ("eingepasst"). One
   // snapshot per incident (mirrors `init`), so it never snaps the view back while you draw.
@@ -518,12 +521,20 @@ export function IncidentWorkspace({
       getFits,
       fitsVersion,
       defaultLayer: appConfig.defaults.operationalLayerId,
-      onCheckpoint: () => undoHist.push({
-        domain: 'karte',
-        label: C_HIST.undoDomains.karte,
-        undo: () => histStep(undoDocRef.current(), 'undo', C_HIST.undoDomains.karte, ''),
-        redo: () => histStep(redoDocRef.current(), 'redo', C_HIST.undoDomains.karte, ''),
-      }),
+      /** ⚠️ The caption names what the step DID where the writer knows it — the ↶ bubble
+       *  saying «Änderung auf der Karte» for a corrected georeference described the wrong act
+       *  entirely. One-shot: a writer sets it just before its checkpoint, everything else keeps
+       *  the domain word, which for a store step is honest (the object IS the Karte's). */
+      onCheckpoint: () => {
+        const label = stepLabel.current ?? C_HIST.undoDomains.karte
+        stepLabel.current = null
+        undoHist.push({
+          domain: 'karte',
+          label,
+          undo: () => histStep(undoDocRef.current(), 'undo', label, ''),
+          redo: () => histStep(redoDocRef.current(), 'redo', label, ''),
+        })
+      },
     },
   )
   // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
@@ -2054,7 +2065,9 @@ export function IncidentWorkspace({
       return
     }
     bakedFits.current = sig
+    if (!seeding) stepLabel.current = C_HIST.undoDomains.reference
     const moved = rebake({ checkpoint: !seeding })
+    stepLabel.current = null
     if (!seeding && moved) log('map', fillTemplate(appConfig.copy.log.referenceRebaked, { n: moved }), 'layer')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedPlans, readOnly, tacticalLocked])

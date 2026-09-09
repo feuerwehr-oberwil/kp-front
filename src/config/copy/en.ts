@@ -425,6 +425,7 @@ export const en: Localizable<Copy> = {
   redoNamed: 'Redo: {action}',
   undoLost: 'No longer undoable',
   undoDomains: {
+    reference: 'Reference adjusted',
     karte: 'Change on the map',
     plan: 'Change on «{plan}»',
     anwesenheit: 'Attendance',

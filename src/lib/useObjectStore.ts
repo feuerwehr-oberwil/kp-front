@@ -215,10 +215,11 @@ export function useObjectStore(
   }
 
   const rebake: ObjectStore['rebake'] = (opts) => {
-    // a dry pass first: `commit` lays down a checkpoint whether or not its updater changes
-    // anything, and an undo step for a fit change on a sheet nobody has drawn on is a step
-    // the operator never took
-    if (bakeAll(store.doc, getFits(), defaultLayer) === store.doc) return 0
+    // A dry pass first: `commit` lays down a checkpoint whether or not its updater changes
+    // anything, and an undo step for a fit change on a sheet nobody has drawn on is a step the
+    // operator never took. ⚠️ Against the LIVE store (`current()`), the same value the updater
+    // below will see — reading this render's snapshot answered about a state one write behind.
+    if (bakeAll(store.current(), getFits(), defaultLayer) === store.current()) return 0
     let moved = 0
     const of = (objects: TacticalObject[]) => {
       const next = bakeAll(objects, getFits(), defaultLayer)

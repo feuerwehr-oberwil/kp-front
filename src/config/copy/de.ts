@@ -701,6 +701,8 @@ export const de = {
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
    *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */
   undoDomains: {
+    /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
+    reference: 'Referenz angepasst',
     karte: 'Änderung auf der Karte',
     plan: 'Änderung auf «{plan}»',
     anwesenheit: 'Anwesenheit',

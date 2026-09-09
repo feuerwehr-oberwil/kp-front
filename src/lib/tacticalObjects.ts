@@ -1,7 +1,7 @@
 import type { BoardAnno, BoardDoc, BoardPoint, Drawing, Entity, LngLat } from '../types'
 import type { GeorefFit } from './georef'
 import { planGroundWidthM, boardSymbolToEntity, entityToBoardSymbol, entitySharedProps } from './georefTwins'
-import { directionalGlyph, projectOnto, turnedToGround } from './planProjection'
+import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround } from './planProjection'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
@@ -184,9 +184,15 @@ function pick<T extends object, K extends readonly (keyof T)[]>(o: T, keys: K): 
  */
 const SHARED_PATH_PROPS = [
   'color', 'width', 'dashed', 'arrow', 'arrowStop', 'marker', 'fillOpacity', 'hatch', 'locked',
-  'teilstueck', 'content', 'lineNo', 'floorTag', 'showDistance', 'labelDx', 'labelDy',
+  'teilstueck', 'content', 'lineNo', 'floorTag', 'showDistance',
   'label', 'truppId',
 ] as const satisfies readonly (keyof Drawing & keyof BoardAnno)[]
+
+/* ⚠️ `labelDx`/`labelDy` deliberately absent: they are a fraction of the SHEET on a plan and
+   screen PIXELS on the Karte (the map anchors its label to the ground through `labelAt`
+   instead), so the same number means two different distances. Carried across, it wrote a
+   meaningless value into the record; the map's own anchor survives a re-bake through
+   BAKE_PRESERVED, which is where a nudged label actually lives. */
 
 /**
  * ⚠️ Map-only PRESENTATION the bake must not throw away.
@@ -253,7 +259,11 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   if (anno.kind === 'symbol' && anno.x != null && anno.y != null) {
     const born = boardSymbolToEntity(anno, at(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
     // ⚠️ …and back out of the paper's frame into north's — see planProjection · turnedToSheet
-    const entity = born && { ...born, rotation: turnedToGround(born.rotation, plan.fit, directionalGlyph(born)) }
+    const entity = born && {
+      ...born,
+      rotation: turnedToGround(born.rotation, plan.fit, directionalGlyph(born)),
+      rotation2: turnedToGround(born.rotation2, plan.fit, directionalGlyph2(born)),
+    }
     return entity ? settle({ entity }) : o
   }
   if (anno.kind === 'text' && anno.x != null && anno.y != null) {
@@ -268,7 +278,8 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   if (anno.kind === 'shape' && anno.x != null && anno.y != null && anno.shape) {
     const entity: Entity = {
       id: o.id, kind: 'shape', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
-      shape: anno.shape, rotation: turnedToGround(anno.rotation, plan.fit, true), rotation2: anno.rotation2, color: anno.color,
+      shape: anno.shape, rotation: turnedToGround(anno.rotation, plan.fit, true),
+      rotation2: turnedToGround(anno.rotation2, plan.fit, directionalGlyph2(anno)), color: anno.color,
       sizeM: anno.sizeN != null ? anno.sizeN * widthM : undefined,
       aspect: anno.aspect, stop: anno.stop, carrier: anno.carrier, reverse: anno.reverse,
       strokeW: anno.strokeW, fillOpacity: anno.fillOpacity, hatch: anno.hatch,

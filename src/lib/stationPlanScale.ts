@@ -115,8 +115,13 @@ export async function loadStationPlanScales(): Promise<StationPlanScales> {
     // device. A miss (or an IDB that refuses to open) leaves us knowing nothing at all, and
     // `loaded` has to stay false so that no read-modify-write builds on the void.
     const cached = await idbGet<StationPlanScales>(CACHE_KEY).catch(() => null)
+    const changed = JSON.stringify(normalize(cached)) !== JSON.stringify(resolved)
     resolved = normalize(cached)
     loaded = !!cached
+    // ⚠️ …and SAY so. A reader that is waiting for a real document before deriving anything from
+    // it (IncidentWorkspace's seed bake) has nothing else to re-run on, and a cache hit IS a real
+    // document — silently swallowing it left that reader waiting for a load that had landed.
+    if (changed || loaded) notify()
     return resolved
   }
 }

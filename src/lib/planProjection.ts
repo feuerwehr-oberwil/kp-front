@@ -1,6 +1,7 @@
 import type { BoardAnno, BoardPoint, Entity, LngLat } from '../types'
 import type { GeorefFit, PlanPt } from './georef'
 import { ROTATABLE } from './symbols'
+import { SHAPE_DEFS } from './shapes'
 import { entityToBoardSymbol, onSheet, planGroundWidthM, TWIN_CLIP_MARGIN } from './georefTwins'
 import type { PlanFit, TacticalObject } from './tacticalObjects'
 
@@ -59,6 +60,12 @@ export const turnedToGround = (deg: number | undefined, fit: GeorefFit, directio
 export const directionalGlyph = (o: { kind?: string; symbol?: string }): boolean =>
   o.kind === 'shape' || (o.kind === 'symbol' && !!o.symbol && ROTATABLE.has(o.symbol))
 
+/** …and a SECOND one? `rotation2` aims the Grosslüfter's fan and the Hubretter's boom, and it is
+ *  a north-referenced bearing exactly like `rotation` — so it takes the same frame change, or a
+ *  flip on a turned sheet would swing the boom while leaving the truck where it was. */
+export const directionalGlyph2 = (o: { kind?: string; rotation2?: number }): boolean =>
+  o.rotation2 != null
+
 const pt = (fit: GeorefFit, c: LngLat): PlanPt => fit.toPlan({ lng: c[0], lat: c[1] })
 
 /**
@@ -84,11 +91,13 @@ export function projectOnto(o: TacticalObject, plan: PlanFit, margin = TWIN_CLIP
     const turn = (deg: number | undefined) => turnedToSheet(deg, fit, directionalGlyph(e))
     if (e.kind === 'symbol') {
       const anno = entityToBoardSymbol(e, p, widthM)
-      return anno ? { ...anno, rotation: turn(anno.rotation) } : null
+      return anno ? { ...anno, rotation: turn(anno.rotation), rotation2: turnedToSheet(anno.rotation2, fit, directionalGlyph2(anno)) } : null
     }
     if (e.kind === 'note') {
       return {
-        id: o.id, kind: 'text', x: p.x, y: p.y, text: e.label ?? '', color: e.color,
+        // ⚠️ `e.label` verbatim, NOT `?? ''` — the bake reads `text ?? label`, so an empty
+        // string would come back as a note that HAS a label, and absent must stay absent.
+        id: o.id, kind: 'text', x: p.x, y: p.y, text: e.label, color: e.color,
         notePlain: e.notePlain, noteSize: e.noteSize, noteAutoW: e.noteAutoW,
         rotation: e.rotation, storey: e.floor,
       }
@@ -96,7 +105,11 @@ export function projectOnto(o: TacticalObject, plan: PlanFit, margin = TWIN_CLIP
     if (e.kind === 'shape') {
       return {
         id: o.id, kind: 'shape', shape: e.shape, x: p.x, y: p.y,
-        sizeN: asN(e.sizeM, 40), aspect: e.aspect, rotation: turn(e.rotation), rotation2: e.rotation2,
+        // ⚠️ the SAME default the surfaces draw an unsized Form at (lib/shapes · SHAPE_DEFS).
+        // A flat 40 m here meant an unsized Pfeil visibly resized the moment it was flipped.
+        sizeN: asN(e.sizeM, SHAPE_DEFS[e.shape ?? 'square'].defaultSizeM),
+        aspect: e.aspect, rotation: turn(e.rotation),
+        rotation2: turnedToSheet(e.rotation2, fit, directionalGlyph2(e)),
         color: e.color, stop: e.stop, carrier: e.carrier, reverse: e.reverse, strokeW: e.strokeW,
         fillOpacity: e.fillOpacity, hatch: e.hatch, sharpCorners: e.sharpCorners, locked: e.locked,
         storey: e.floor,
@@ -104,7 +117,7 @@ export function projectOnto(o: TacticalObject, plan: PlanFit, margin = TWIN_CLIP
     }
     if (e.kind === 'team') {
       return {
-        id: o.id, kind: 'resource', x: p.x, y: p.y, text: e.label ?? '', color: e.color,
+        id: o.id, kind: 'resource', x: p.x, y: p.y, text: e.label, color: e.color,
         truppId: e.truppId, t: e.t,
         trail: e.trail?.map(({ coord, t }) => { const q = pt(fit, coord); return { x: q.x, y: q.y, t } }),
       }

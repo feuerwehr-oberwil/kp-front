@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import { liveOverlay, projectOnto, projectedAnnos } from './planProjection'
 import { applyBoardToObjects, bakeGeoBody, viewsOf, type PlanFit, type TacticalObject } from './tacticalObjects'
+import { SHAPE_DEFS } from './shapes'
 import type { Drawing, Entity } from '../types'
 
 /* The Karte in one sheet's own words. This is the mirror of `bakeGeoBody`, and the pair has to
@@ -162,5 +163,41 @@ describe('applyBoardToObjects — a sheet edit of what it was only SHOWING', () 
     // e1 stayed geo-anchored at its index; the native anno is still the only thing on the sheet
     expect(viewsOf(next).board.modul2?.map((a) => a.id)).toEqual(['n1'])
     expect(next[0].id).toBe('e1')
+  })
+})
+
+describe('inverse in the details, not just in the geometry', () => {
+  const TURNED: PlanFit = {
+    fit: fitSimilarity([{ plan: { x: 0, y: 0 }, lngLat: ORIGIN }, { plan: { x: 1, y: 0 }, lngLat: { lng: ORIGIN.lng, lat: ORIGIN.lat - 0.0009 } }], 1)!,
+    aspect: 1,
+  }
+  const roundTrip = (o: TacticalObject, plan = PLAN): TacticalObject =>
+    bakeGeoBody({ id: o.id, sheet: { planId: 'm', anno: projectOnto(o, plan)! } }, plan, 'taktisch')
+
+  it('an UNSIZED Form comes back the size it was drawn at', () => {
+    // ⚠️ a flat default here meant an unsized Pfeil visibly resized the moment it was flipped
+    const arrow = geo(ent({ id: 'a1', kind: 'shape', shape: 'arrow', coord: coordEast(50) }))
+    const back = roundTrip(arrow).entity!
+    expect(back.sizeM).toBeCloseTo(SHAPE_DEFS.arrow.defaultSizeM, 3)
+  })
+
+  it('a SECOND bearing turns with the paper too — the boom stays on its truck', () => {
+    const mid = TURNED.fit.toMap({ x: 0.5, y: 0.5 })
+    const hubretter = geo(ent({ id: 'h1', symbol: 'VKF Hubretter', coord: [mid.lng, mid.lat], rotation: 10, rotation2: 80 }))
+    const anno = projectOnto(hubretter, TURNED)!
+    expect(anno.rotation2).not.toBe(80) // …expressed in the paper's frame
+    const back = bakeGeoBody({ id: 'h1', sheet: { planId: 'm', anno } }, TURNED, 'taktisch').entity!
+    expect(back.rotation).toBeCloseTo(10, 6)
+    expect(back.rotation2).toBeCloseTo(80, 6)
+  })
+
+  it('absent stays absent — nothing materializes as 0 or an empty string', () => {
+    const bare = geo(ent({ id: 'b1', symbol: 'Feuer', coord: coordEast(50) }))
+    const back = roundTrip(bare).entity!
+    expect(back.rotation).toBeUndefined()
+    expect(back.rotation2).toBeUndefined()
+    expect(back.label).toBeUndefined()
+    const note = roundTrip(geo(ent({ id: 'n1', kind: 'note', coord: coordEast(50) }))).entity!
+    expect(note.label).toBeUndefined()
   })
 })
