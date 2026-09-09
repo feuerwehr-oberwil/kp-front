@@ -36,7 +36,7 @@ import { ApiError } from './lib/api'
 import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
-import { loadReviewedIncidents, needsIntakeReview, pickBootIncident, sameIncidentList, saveReviewedIncident } from './lib/incidentAlerts'
+import { loadReviewedIncidents, needsIntakeReview, pickBootIncident, sameIncidentList, saveReviewedIncident, shouldReopenClosed } from './lib/incidentAlerts'
 import { EinsatzWizard, DatenquellenPanel, FeedbackPrompt, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
@@ -314,11 +314,11 @@ export default function App() {
   // The auto-open itself stays silent when it fails: it lands on the launcher, whose card
   // says what is wrong the moment it is tapped (openIncident).
   useEffect(() => {
-    const bootOpen = async (inc: IncidentMeta) => {
+    const bootOpen = async (inc: IncidentMeta, opts: { readOnly?: boolean } = {}) => {
       const my = ++bootOpenSeq.current
       setBootOpening(true)
       try {
-        await selectIncident(inc.id, { meta: inc, boot: true })
+        await selectIncident(inc.id, { meta: inc, boot: true, readOnly: opts.readOnly })
       } catch { /* launcher + openIncident's toast on the next tap */ } finally {
         if (bootOpenSeq.current === my) setBootOpening(false)
       }
@@ -351,7 +351,21 @@ export default function App() {
       // precedence: a killed app reopens onto the live alarm, not yesterday's Einsatz.
       const bootPrefs = loadPrefs()
       const pick = pickBootIncident(list, bootPrefs.incidentId, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })
-      if (pick) await bootOpen(pick)
+      if (pick) { await bootOpen(pick); return }
+      // ⚠️ Nothing picked does NOT mean «nothing to go back to». The list boot works from holds
+      // only the OPEN Einsätze, so an abgeschlossener one — viewed read-only out of «Alle
+      // Einsätze», or closed by a colleague while it was on screen — is invisible to
+      // `pickBootIncident` and a reload dropped the operator onto the launch card, which with
+      // its Brand and Anmelde-Untertitel reads as «ich bin abgemeldet worden». It is fetched by
+      // id (it is not in the list to look up) and reopened READ-ONLY, exactly as «Alle Einsätze»
+      // opens it — «Wieder öffnen» stays the one way back to editing. Bounds: incidentAlerts ·
+      // shouldReopenClosed.
+      const savedId = bootPrefs.incidentId
+      if (!savedId || list.some((i) => i.id === savedId)) return
+      const saved = await getIncident(savedId).catch(() => null)
+      if (saved && shouldReopenClosed(saved, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })) {
+        await bootOpen(saved, { readOnly: saved.is_archived })
+      }
     })()
   }, [selectIncident, linkIncidentId])
 

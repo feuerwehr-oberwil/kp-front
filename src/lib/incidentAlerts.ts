@@ -59,6 +59,41 @@ export function pickBootIncident(
   return saved ?? open[0]
 }
 
+/** How long a reload still returns to an Einsatz that is ABGESCHLOSSEN — longer than the alarm
+ *  window, because it has to span the Einsatz you just closed plus the Rapport-Nacharbeit that
+ *  follows it, and shorter than «für immer», because the next day's launch belongs on the clean
+ *  launcher (see `shouldReopenClosed`). */
+export const CLOSED_RETURN_MAX_AGE_MS = 12 * 60 * 60 * 1000
+
+/**
+ * Boot's SECOND door, for the Einsatz that is not in the open list at all because it is
+ * abgeschlossen. `pickBootIncident` deliberately never picks an archived Einsatz, and the list
+ * boot works from is the non-archived one — so an Einsatz being viewed read-only out of «Alle
+ * Einsätze», and one a colleague closed while it was on screen, both vanished on reload and left
+ * the operator on the launch card. With its Brand and its Anmelde-Untertitel that card reads as
+ * «ich bin abgemeldet worden», which is the worst possible answer to a reload at 3am.
+ *
+ * The caller fetches the remembered Einsatz by id (it is not in the list to look up) and opens it
+ * read-only when this says so. Bounded like every other rule in this file, on either half of
+ * «I was actually there»:
+ *   - `chosenAt` — the operator opened this Einsatz BY HAND recently (the Verlauf case: the
+ *     Einsatz itself may be months old, the decision to look at it is minutes old), and
+ *   - the Abschluss itself is recent (the mid-Einsatz case: an Einsatz that auto-opened never
+ *     stamps `chosenAt`, so it has no hand-chosen moment to point at).
+ * Neither → the clean launcher, unchanged. A crash-looping Einsatz is never returned to either:
+ * the boundary's «Einsatz schliessen» escape must not lead back in through this door.
+ */
+export function shouldReopenClosed(
+  inc: IncidentMeta,
+  opts: { now: number; chosenAt?: number; crash?: CrashRecord | null },
+): boolean {
+  const crash = opts.crash === undefined ? readCrash() : opts.crash
+  if (isLooping(crash, inc.id, opts.now)) return false
+  const chosenRecently = opts.chosenAt != null && opts.now - opts.chosenAt < CLOSED_RETURN_MAX_AGE_MS
+  const ended = ts(inc.closed_at ?? inc.report_done_at ?? inc.updated_at)
+  return chosenRecently || (ended > 0 && opts.now - ended < CLOSED_RETURN_MAX_AGE_MS)
+}
+
 /**
  * The incident (if any) the «Neuer Einsatz» banner should announce: alarm-created, fresh,
  * not the one already active, appeared AFTER this session's baseline poll, and not yet
