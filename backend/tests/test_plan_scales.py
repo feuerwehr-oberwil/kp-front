@@ -4,6 +4,8 @@
 - The georeference (landmark pairs per plan) shares the document and stays backward compatible:
   a body without it still validates, and the PUT replaces the WHOLE document.
 - A stored document that is partly malformed is served entry by entry, never blanked wholesale.
+- The whole-document PUT is guarded by `If-Match` (409 on a stale token), and still accepted
+  without one for one release — see `put_plan_scales`.
 """
 
 import pytest
@@ -25,7 +27,7 @@ async def _login(client, user) -> None:
 async def test_get_is_public_and_empty_by_default(client):
     r = await client.get("/api/plan-scales")
     assert r.status_code == 200
-    assert r.json() == {"default": None, "byPlan": {}, "georefByPlan": {}}
+    assert {k: v for k, v in r.json().items() if k != "version"} == {"default": None, "byPlan": {}, "georefByPlan": {}}
 
 
 async def test_editor_puts_and_it_round_trips(client, editor):
@@ -129,3 +131,62 @@ async def test_one_bad_georef_entry_does_not_blank_the_others(client, db_session
     assert got["byPlan"]["modul1"]["mPerU"] == 8.0
     assert got["georefByPlan"]["good"]["pairs"] == PAIRS
     assert "bad" not in got["georefByPlan"]
+
+
+# --- optimistic concurrency ---------------------------------------------------------------------
+# ⚠️ The hazard the token exists for: this is a full-document replace, and since the unified
+# tactical object the georeference is BAKED into every symbol standing on the sheet. An overwritten
+# reference no longer costs a calibration somebody can re-measure — it moves objects on the Karte.
+
+
+async def test_every_answer_carries_a_version(client, editor):
+    assert (await client.get("/api/plan-scales")).json()["version"]
+    await _login(client, editor)
+    r = await client.put("/api/plan-scales", json={"default": SCALE, "byPlan": {}})
+    assert r.json()["version"] == (await client.get("/api/plan-scales")).json()["version"]
+
+
+async def test_a_fresh_token_is_accepted_and_a_stale_one_refused(client, editor):
+    await _login(client, editor)
+    version = (await client.get("/api/plan-scales")).json()["version"]
+
+    ok = await client.put(
+        "/api/plan-scales", json={"georefByPlan": {"m1": {"pairs": PAIRS}}}, headers={"If-Match": version}
+    )
+    assert ok.status_code == 200
+
+    # a second editor still holding the token from before that write
+    stale = await client.put("/api/plan-scales", json={"default": SCALE, "byPlan": {}}, headers={"If-Match": version})
+    assert stale.status_code == 409
+    assert stale.headers["ETag"] == ok.json()["version"]  # …and says what to re-read
+    # the refused body must NOT have landed: the georeference is still there
+    assert (await client.get("/api/plan-scales")).json()["georefByPlan"]["m1"]["pairs"] == PAIRS
+
+
+async def test_a_quoted_token_matches_too(client, editor):
+    """`If-Match` is conventionally quoted, and a client (or a proxy) may add the quotes."""
+    await _login(client, editor)
+    version = (await client.get("/api/plan-scales")).json()["version"]
+    r = await client.put("/api/plan-scales", json={"default": SCALE}, headers={"If-Match": f'"{version}"'})
+    assert r.status_code == 200
+
+
+async def test_an_identical_document_is_not_a_conflict(client, editor):
+    """A content hash, not a timestamp: storing what is already stored leaves the token alone, so
+    a second device writing the same thing is not told it is out of date."""
+    await _login(client, editor)
+    body = {"default": SCALE, "byPlan": {}, "georefByPlan": {}}
+    first = await client.put("/api/plan-scales", json=body)
+    again = await client.put("/api/plan-scales", json=body, headers={"If-Match": first.json()["version"]})
+    assert again.status_code == 200
+    assert again.json()["version"] == first.json()["version"]
+
+
+async def test_a_client_without_the_header_still_writes(client, editor):
+    """The one-release compatibility window (see `put_plan_scales`): an old build must not lose the
+    ability to save a Georeferenz in the field."""
+    await _login(client, editor)
+    await client.put("/api/plan-scales", json={"georefByPlan": {"m1": {"pairs": PAIRS}}})
+    r = await client.put("/api/plan-scales", json={"default": SCALE, "byPlan": {}})
+    assert r.status_code == 200
+    assert r.json()["version"]

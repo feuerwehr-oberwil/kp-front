@@ -1,4 +1,4 @@
-import { apiGet, apiPut } from './api'
+import { ApiError, apiGet, apiPut } from './api'
 import { idbGet, idbSet } from './idb'
 import { isStale, type PlanScale } from './planScale'
 import type { Georef } from './georef'
@@ -25,6 +25,11 @@ export interface StationPlanScales {
   georefByPlan: Record<string, Georef>
 }
 
+/** What the endpoint answers with: the document, plus the token of the version it was read at
+ *  (backend app/api/plan_scales.py · `PlanScalesOut`). The token is deliberately NOT part of
+ *  `StationPlanScales` — `normalize` drops it — so a read-modify-write can never store one. */
+interface StationPlanScalesWire extends Partial<StationPlanScales> { version?: string }
+
 const EMPTY: StationPlanScales = { default: null, byPlan: {}, georefByPlan: {} }
 const CACHE_KEY = 'kp-front-plan-scales'
 
@@ -36,6 +41,34 @@ function normalize(v: Partial<StationPlanScales> | null | undefined): StationPla
 }
 
 let resolved: StationPlanScales = EMPTY
+
+/**
+ * The version of the STORED document this device last saw, sent back as `If-Match` on the next
+ * PUT (backend app/api/plan_scales.py · put_plan_scales).
+ *
+ * ⚠️ Null means «we have no idea what the server holds», and that is a real state, not a bug: an
+ * offline boot resolves out of the IDB cache, which is a document the server confirmed at some
+ * point but says nothing about now. A write then goes out unguarded — the endpoint still accepts
+ * one, deliberately — because refusing it would mean a Georeferenz that cannot be saved in the
+ * field, which is the thing this document exists for.
+ */
+let version: string | null = null
+
+/** Take a server answer as THE document: the singleton, the offline cache, the version token and
+ *  the «a real document has landed» flag all move together. Returns whether anything actually
+ *  changed, so a refresh that brought nothing new costs no re-render — the caller decides whether
+ *  to notify. The cache is refilled either way, and deliberately: an answer identical to what is
+ *  in memory is not necessarily what is on disk, and a station whose document is empty has to be
+ *  cacheable too or an offline boot would go on knowing nothing at all. */
+function adopt(wire: StationPlanScalesWire | null | undefined): boolean {
+  const next = normalize(wire)
+  version = wire?.version ?? null
+  const changed = JSON.stringify(next) !== JSON.stringify(resolved)
+  resolved = next
+  loaded = true
+  void idbSet(CACHE_KEY, next)
+  return changed
+}
 
 /** Has a REAL document ever landed in `resolved` — from the server, or from the offline cache
  *  that the server once filled? ⚠️ `resolved` is EMPTY both before the boot load and after a load
@@ -92,23 +125,59 @@ let writeTail: Promise<void> = Promise.resolve()
  *  producing two perfectly ordered writes whose second body still omits the first change. */
 let updateTail: Promise<void> = Promise.resolve()
 
+/**
+ * Read-modify-write, with the ONE recovery a stale token deserves.
+ *
+ * `change` is a per-plan merge in every caller — it adds or removes one key of `byPlan` /
+ * `georefByPlan` and hands the rest of the document straight back — so a 409 («somebody stored a
+ * newer document between our read and our PUT») is not a failure at all: it is an instruction to
+ * take THEIR document and apply the same one-key change on top of it. That is why the recovery
+ * re-runs `change` rather than re-sending the body we built, which would clobber exactly what the
+ * token was there to protect.
+ *
+ * Once, and once only. A second 409 means two devices are writing this document faster than a
+ * round trip, and the honest answer to that is the caller's own «… fehlgeschlagen» rather than a
+ * loop that eventually lands on whichever of them retried last.
+ */
 function updateStationPlanScales(change: (current: StationPlanScales) => StationPlanScales): Promise<void> {
   const update = updateTail.catch(() => {}).then(async () => {
     const current = await baseForWrite()
-    await saveStationPlanScales(change(current))
+    try {
+      await saveStationPlanScales(change(current))
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status !== 409) throw e
+      const fresh = await rereadForConflict()
+      if (!fresh) throw e
+      await saveStationPlanScales(change(fresh))
+    }
   })
   updateTail = update
   return update
 }
 
+/**
+ * The re-read a refused write recovers on — and NOT `loadStationPlanScales`.
+ *
+ * That one falls back to the IDB cache, which is precisely the wrong answer here: we are
+ * recovering from the server saying «you are out of date», and a cached document is by definition
+ * not the one it refused us over. A re-read that cannot reach the server therefore returns null
+ * and the original 409 stands, leaving the optimistic local document alone rather than replacing
+ * it with something older still.
+ */
+async function rereadForConflict(): Promise<StationPlanScales | null> {
+  try {
+    const wire = await apiGet<StationPlanScalesWire>('/api/plan-scales')
+    if (!wire?.version) return null // an endpoint that names no version cannot settle a conflict
+    if (adopt(wire)) notify()
+    return resolved
+  } catch {
+    return null
+  }
+}
+
 export async function loadStationPlanScales(): Promise<StationPlanScales> {
   try {
-    const next = normalize(await apiGet<StationPlanScales>('/api/plan-scales'))
-    const changed = JSON.stringify(next) !== JSON.stringify(resolved)
-    resolved = next
-    loaded = true
-    void idbSet(CACHE_KEY, resolved)
-    if (changed) notify()
+    if (adopt(await apiGet<StationPlanScalesWire>('/api/plan-scales'))) notify()
     return resolved
   } catch {
     // A cache HIT is a real document too — it is the last one the server confirmed to this
@@ -129,13 +198,26 @@ export async function loadStationPlanScales(): Promise<StationPlanScales> {
 /** Persist the full document (editor). Updates the singleton + cache so reads see it at once.
  *  ⚠️ The PUT REPLACES the stored document — the server keeps no field it isn't sent. Every
  *  writer therefore read-modify-writes on top of `baseForWrite()`, as the helpers below do;
- *  building a body from scratch would drop whatever the other half of the document holds. */
+ *  building a body from scratch would drop whatever the other half of the document holds.
+ *
+ *  ⚠️ It carries `If-Match`, and a stale token comes back as a 409 that this function does NOT
+ *  handle — `updateStationPlanScales` does, because recovering means re-applying the caller's
+ *  change onto the document the server actually holds, and only the caller's `change` knows how.
+ *  A direct caller therefore gets the 409, which is the honest thing to hand a writer that
+ *  replaced the whole document on purpose. */
 export async function saveStationPlanScales(next: StationPlanScales): Promise<void> {
   writeSeq++
   resolved = next
   void idbSet(CACHE_KEY, next)
   notify()
-  const write = writeTail.catch(() => {}).then(() => apiPut('/api/plan-scales', next).then(() => undefined))
+  // ⚠️ The token is read INSIDE the queued step, not when the write was scheduled: two writes in
+  // quick succession are ordered by this very chain, and the second one's base is the document
+  // the first one just stored — so it has to send the token that write came back with, or it
+  // would refuse itself.
+  const write = writeTail.catch(() => {}).then(async () => {
+    const res = await apiPut<StationPlanScalesWire>('/api/plan-scales', next, version ? { 'If-Match': version } : undefined)
+    version = res?.version ?? null
+  })
   writeTail = write
   await write
 }
@@ -155,19 +237,16 @@ export async function saveStationPlanScales(next: StationPlanScales): Promise<vo
  */
 export async function refreshStationPlanScales(): Promise<void> {
   const seenWrites = writeSeq
-  let next: StationPlanScales
+  let wire: StationPlanScalesWire
   try {
-    next = normalize(await apiGet<StationPlanScales>('/api/plan-scales'))
+    wire = await apiGet<StationPlanScalesWire>('/api/plan-scales')
   } catch {
     return
   }
-  // a local write started while the GET was in the air — its body is newer than this answer
+  // a local write started while the GET was in the air — its body is newer than this answer, and
+  // so is the token it came back with
   if (writeSeq !== seenWrites) return
-  loaded = true
-  if (JSON.stringify(next) === JSON.stringify(resolved)) return
-  resolved = next
-  void idbSet(CACHE_KEY, next)
-  notify()
+  if (adopt(wire)) notify()
 }
 
 /**
@@ -176,8 +255,8 @@ export async function refreshStationPlanScales(): Promise<void> {
  * ⚠️ THE TRAP this exists for. `getStationPlanScales()` hands back the EMPTY singleton until the
  * boot load resolves, and `loadStationPlanScales` lands on EMPTY as well when the GET failed and
  * the IDB cache was cold — offline in the field, or a 500. The PUT above then REPLACES the whole
- * stored document, `/api/plan-scales` has no If-Match guard, and `plan_scales_json` keeps no
- * history and no backup. So a writer that merges onto that void ships
+ * stored document, and `plan_scales_json` keeps no history and no backup. So a writer that merges
+ * onto that void ships
  * `{default: null, byPlan: {}, georefByPlan: {…}}` and deletes the station's default Massstab
  * and every per-plan override — on every device, unrecoverably, from one georeference.
  *
@@ -186,6 +265,11 @@ export async function refreshStationPlanScales(): Promise<void> {
  * not at boot, the first move is simply to try the GET again; if that fails too the write is
  * REFUSED loudly, so the caller can raise the app's save-failed toast instead of destroying a
  * document it never read.
+ *
+ * ⚠️ The If-Match guard does NOT cover this case and cannot: a device that never read the
+ * document holds no version token either, so its write goes out unguarded and the server has
+ * nothing to compare. The token protects a stale reader; this protects a blind one, and both are
+ * needed.
  */
 async function baseForWrite(): Promise<StationPlanScales> {
   if (loaded) return resolved
