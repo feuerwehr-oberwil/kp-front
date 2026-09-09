@@ -150,9 +150,8 @@
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--red) 46%, transparent); }
 @media (hover: hover) { .kontaktCrit:hover { background: color-mix(in srgb, var(--red) 24%, var(--surface)); } }
 
-.metaRow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12.5px;
-  color: var(--ink-dim); }
-.metaRow b { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--ink); }
+/* (`.metaRow` retired 09.09. — it WAS the stacked Sockel row. `.metaAlarm` below outlives it:
+   the red an alarming pressure wears is still worn, now by a value on `.metaLine`.) */
 .metaAlarm { color: var(--red) !important; }
 
 /* ── THE ONE LINE THE SOCKEL LEFT STANDING (09.09.) ───────────────────────────────────────────
@@ -167,8 +166,13 @@
 /* ⚠️ `--ink-dim`, the Verlauf row's own ink, not the fainter `--ink-faint` the stacked rows
    used: this line is the last permanently-visible readout of the Einsatzzeit and the Schätzung,
    and a line that survived a fit pass must not come out of it quieter than it went in. */
+/* ⚠️ 5/5 → 6/0 (09.09., field review: «this needs better padding»). The line and the Verlauf row
+   under it are ONE block, and they did not read as one: 5px of padding under the line plus the
+   ~13.5px the 44px tap floor leaves above the row's own text made the gap BETWEEN them twice
+   the gap above the line. Dropping the bottom padding hands that job entirely to the row's own
+   centring — one gap, not two stacked ones — and takes 5px off the card while doing it. */
 .metaLine { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 9px;
-  padding: 5px 14px; font: 600 12px/17px var(--body); color: var(--ink-dim); }
+  padding: 6px 14px 0; font: 600 12px/17px var(--body); color: var(--ink-dim); }
 .metaLine > span { display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; }
 .metaLine > span + span::before { content: '·'; margin-right: 4px; color: var(--ink-faint); opacity: .7; }
 .metaLine i { font-style: normal; }
@@ -176,16 +180,10 @@
 /* the expected-pressure Schätzung: mono for alignment with the real Druck, but dimmed + lighter
    so it reads as a subordinate estimate, never mistaken for a logged reading. */
 .metaEst { color: var(--ink-dim) !important; font-weight: 500 !important; }
-/* Two clean lines, not a four-line staircase: label + value hold ONE row (the label never wraps),
-   and the provenance line the 3am tenet demands on every Schätzung sits full-width beneath them,
-   right-aligned under the value it explains. */
-.metaEstimate { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 10px; row-gap: 3px; }
-.metaEstLabel { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* the assumption reads as the row's own quiet FOOTNOTE, under the label like every other
-   left-aligned word here — ragged-right under the value it crowded the neighbouring rows
-   (field shot 08.09.) */
-.metaEstSource { grid-column: 1 / -1; justify-self: start; text-align: left;
-  font-size: 10.5px; line-height: 1.25; color: var(--ink-faint); }
+/* (`.metaEstimate` / `.metaEstLabel` / `.metaEstSource` retired 09.09. with the stacked Sockel
+   row they dressed. The Schätzung's number lives on `.metaLine`, its provenance is the value of
+   a `.zonePanelRow` in the opened Verlauf — `.zoneNote` — where it sits against the label it
+   explains instead of floating under two of them.) */
 /* Alarmdruck on a pressure value. Declared AFTER .metaEst so it wins over that rule's dimmed
    !important when the Schätzung itself has crossed the threshold. */
 .metaEst.metaAlarm { font-weight: 700 !important; }
@@ -407,6 +405,12 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .zonePanelRow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
   font-size: 12px; color: var(--ink-dim); }
 .zonePanelRow b { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink); }
+/* A row whose VALUE is a sentence rather than a number — «Schätzung | aus 2 Druckwerten · Stand
+   16:48». It used to be a `<p>` slung under the row, which is where the browser's own 1em
+   paragraph margins opened the dead band before ABLESUNGEN (field review 09.09.). Kept out of
+   the mono voice on purpose: this is the provenance OF a number, never a number itself. */
+.zoneNote { flex: 0 1 auto; min-width: 0; text-align: right; font-style: normal;
+  font-size: 11px; line-height: 1.35; color: var(--ink-faint); }
 /* the VERLAUF footer — the card's bottom row: latest event as preview, tap expands the log */
 .vfoot { border-top: 1px solid var(--glass-edge); background: var(--fill-soft, rgba(0, 0, 0, .045)); }
 /* a Trupp created without Atemschutz starts with NO readings and has no contact times either
@@ -1437,10 +1441,18 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    head back the height the row just saved. It is a wide target (the whole line) and a forgiving
    one (a mis-tap opens a panel that closes on the next tap anywhere). */
 .headTitleH { display: flex; min-width: 0; }
-.headTitleBtn { flex: 1 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 4px;
-  border: none; background: none; padding: 4px 2px; margin: -4px -2px; cursor: pointer;
+/* ⚠️ A REAL target since 09.09.: `--tap` tall, and it carries the sync mark inside it (see
+   AtemschutzView · the trigger). It costs the head nothing — the row is already 44px because of
+   the three controls beside it — and it turns a line of text that happened to be clickable into
+   a button somebody can hit with a glove. The negative side margin keeps the title's first
+   letter on the head's own 14px inset despite the button's padding. */
+.headTitleBtn { flex: 1 1 auto; min-width: 0; min-height: var(--tap);
+  display: inline-flex; align-items: center; gap: 6px;
+  border: none; background: none; padding: 0 2px; margin: 0 -2px; cursor: pointer;
   font: inherit; color: inherit; text-align: left; border-radius: var(--r-xs);
   -webkit-tap-highlight-color: transparent; }
+/* the mark sits between the name and the chevron and never competes for the name's width */
+.headTitleSync { flex: none; display: inline-flex; align-items: center; }
 .headTitleBtn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the chevron is the whole affordance — an ellipsis alone says «cut», not «there is more here» */
 .headTitleBtn :global(.i) { flex: none; width: 13px; height: 13px; color: var(--ink-faint); }
@@ -1450,9 +1462,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    review (01.09.) asked that this one surface always says whether what it shows is saved, so it
    stays, just tiny and inline beside the title: quiet text at rest, and still the app-wide loud
    chip (`.ip-offline-chip`) the instant the record is not. */
+/* …and inside the trigger it is a mark travelling with the title, so it neither grows the line
+   nor takes the sub-line margin it wears under a two-line header */
 .headTitlesCompact :global(.az-syncline) { flex: none; margin-top: 0; }
 .headTitlesCompact :global(.az-sync-quiet) { font-size: 10.5px; }
-.headTitlesCompact :global(.az-sync-quiet .i) { width: 11px; height: 11px; }
+/* ⚠️ The quiet state is a MARK here, not a reading (09.09.) — AtemschutzView renders no text
+   beside it in focus mode. A hair larger than the 11px it wore under the time, because on its
+   own it has to be legible as a symbol rather than as punctuation next to a number. */
+.headTitlesCompact :global(.az-sync-quiet .i) { width: 14px; height: 14px; }
+.headTitlesCompact :global(.az-sync-quiet .ip-status-dot) { width: 9px; height: 9px; }
 .bodyFocus { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 /* ⚠️ A top padding, not 0 (05.09.): the card's own coloured status edge landed flush against the
    header's hairline, so the green/red band read as a rule belonging to the bar above it rather
@@ -1547,22 +1565,23 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
        .band                    9 + 34 + 9                          52      (was  62)
        .kontaktBtn              1.5 + 48                            49.5    (was  51.5)
        .pressureBlock           1 + 8 + 44 + 8                      61      (was  65)
-     .actZone                   8 + 48 + 8                          64      (was  82 — «Rückzug
+     .actZone                   8 + 48 + 6                          62      (was  82 — «Rückzug
                                                                              melden» wrapped)
      .vfoot   hairline           1                                          (was 72 + 45: a
-              .metaLine          5 + 17 + 5                         72       standing `.plinth`
+              .metaLine          6 + 17 + 0                         68       standing `.plinth`
               .vrow              44 (tap floor, untouched)                   above this row)
      .focusCard padding-bottom                                       6      (was  12, then 10)
      .bottomRail                1 + 8 + 48 + 16                     73      (was 143 — «+» on a
                                                                              second row)
      ────────────────────────────────────────────────────────────────────────────────────────
-                                                                   545.5    (was 736.5 → 602.5)
+                                                                   539.5    (was 736.5 → 602.5)
 
    ⚠️ MEASURED, not only counted (Chromium, the real built CSS, the test fixture's one-line
-   Kennzeile): 582.1px before pass 2, 527.0px after — −55.1px. At 375×667 the usable band is
-   ~567px, so the same card went from 15px OVER to 40px of reserve. The 545.5 above is the same
-   card with the table's two-line Kennzeile, which is the honest worst case.
-   ~198px of margin at 390×844, which is what pays for the cases that used to break the fit: an
+   Kennzeile): 582.1px before pass 2, 527.0px after it, 521.0px after the padding review that
+   followed — −61.1px in all. At 375×667 the usable band is ~567px, so the same card went from
+   15px OVER to 46px of reserve. The 539.5 above is the same card with the table's two-line
+   Kennzeile, which is the honest worst case.
+   ~204px of margin at 390×844, which is what pays for the cases that used to break the fit: an
    `.airNote` (~51), a three-line Kennzeile (+17.5), a rail whose names wrap to two lines (+10).
    ⚠️ The head's 61 was the one line of this table that was NOT yet true when it was written
    (09.09.): `.head` wrapped, so the three controls stood on a second row of their own and the
@@ -1604,7 +1623,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    pseudo-class weighs the same as a class — so a plain `.focusCard .actZone` ties with it and,
    being later in the file, would win: a viewer's card (no action row) would grow back the
    padding and the hairline the empty-zone rule exists to take away. */
-.focusCard .actZone:not(:empty) { padding: 8px 12px; }
+/* ⚠️ Asymmetric since 09.09. (field review): the bottom 8 sat directly above the Verlauf
+   block's own hairline and its 6px, so ~14px of air crossed a rule that is there to separate,
+   not to space. Six below the buttons, and the block underneath brings its own. */
+.focusCard .actZone:not(:empty) { padding: 8px 12px 6px; }
 /* «Rückzug melden» on ONE line. The row gives its left column whatever the right one does not
    need (`minmax(0, auto)` against `minmax(50%, 1fr)`), which at 390px is ~165px — and at 14px/800
    plus a 16px icon, a 7px gap and 12px of padding either side the label needed ~168 and wrapped,

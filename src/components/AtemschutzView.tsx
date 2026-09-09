@@ -859,17 +859,26 @@ export function AtemschutzView({
   }
   const skewMin = clockSkewMs != null ? Math.round(clockSkewMs / 60_000) : null
   const skewLoud = skewMin != null && Math.abs(skewMin) > CLOCK_SKEW_WARN_MIN
+  /* ⚠️ A <span>, not a <div> (09.09.): on the phone focus board this whole line rides INSIDE the
+   * title's popover trigger, and a <button> may only contain phrasing content. `.az-syncline` is
+   * `display: flex`, which a span wears exactly as a div does — the tablet header is unchanged. */
   const syncLine = (syncStatus || skewLoud) && (
-    <div className="az-syncline">
+    <span className="az-syncline">
       {syncStatus === 'synced' || syncStatus === 'pending' ? (
         <span className={cx('az-sync-quiet', syncStatus === 'pending' && 'az-sync-pending')}
           title={syncStatus === 'pending' ? cpSync.badgePending : savedAtText}>
           {syncStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
-          {/* On the lite/phone focus board (mock 03) the header row has no width to spare for
-              the whole sentence — the check icon already says «saved», so this shrinks to the
-              bare time. The full «Gespeichert um HH:MM» stays in `title` (a11y/hover) and is
-              what the tablet header keeps saying out loud (focusMode false). */}
-          <span>{focusMode ? (lastSyncedAt != null ? formatTime(new Date(lastSyncedAt)) : null) : savedAtText}</span>
+          {/* ⚠️ On the phone focus board the QUIET state is the mark ALONE — no «18:05» beside
+              it (09.09., maintainer review of the one-row head). It shrank to the bare time on
+              03.09. because there was no room for the sentence; on a one-row head there is no
+              room for the time either, and a naked clock in a header is the one thing on this
+              screen that could be read as an operational time rather than a save stamp.
+              ⚠️ The Stand is NOT gone: it stands in full — «Gespeichert um 18:05» — behind the
+              Einsatz title beside it (`headDetail`), and in `title` here. The 01.09. safety rule
+              is that this surface says ITSELF whether what it shows is saved; the mark still
+              says it, at a glance, and so do the LOUD states below, which keep printing their
+              Stand inline because they are the states that rule exists for. */}
+          {!focusMode && <span>{savedAtText}</span>}
         </span>
       ) : syncStatus ? (
         <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}
@@ -888,7 +897,7 @@ export function AtemschutzView({
           <span>{fillTemplate(az.clockSkewChip, { d: skewMin > 0 ? `+${skewMin}` : String(skewMin) })}</span>
         </span>
       )}
-    </div>
+    </span>
   )
 
   /* ── What the cut-off title opens (09.09., mock 01) ────────────────────────────────────────
@@ -957,9 +966,20 @@ export function AtemschutzView({
                      otherwise sit at `auto` UNDER this very surface, which is `--z-surface` 20. */
                   zIndex={60}
                   trigger={
+                    /* ⚠️ ONE target, and the sync mark is INSIDE it (09.09., maintainer review).
+                       The ✓ lost its time in this pass, and a bare mark sitting beside a door is
+                       the kind of ornament a thumb aims at and nothing happens — while the thing
+                       it stands for (the full «Gespeichert um 18:05») is exactly what the door
+                       opens. So the mark travels with the title, the whole line is the button,
+                       and `--tap` keeps it a real target rather than a line of text.
+                       ⚠️ The a11y NAME stays the door's — «Einsatzangaben anzeigen». The mark is
+                       `aria-hidden` inside it: read out, «Häkchen» in the middle of a button
+                       label names neither the button nor the state, and the state is spoken in
+                       full by the panel the button opens. */
                     <button type="button" className={s.headTitleBtn}
                       title={az.headDetailOpen} aria-label={az.headDetailOpen}>
                       <span>{lite?.subtitle ?? az.boardTitle}</span>
+                      {syncLine && <span className={s.headTitleSync} aria-hidden="true">{syncLine}</span>}
                       <Icon id="chevron-down" className="chev" />
                     </button>
                   }
@@ -967,7 +987,6 @@ export function AtemschutzView({
                   {headDetail}
                 </Popover>
               </h2>
-              {syncLine}
             </div>
           ) : (
             <>
@@ -1909,6 +1928,14 @@ function TruppCard({
   const timesShown = monitored && live.sinceContactSec != null
   const lastContactAt = live.sinceContactSec != null ? now - live.sinceContactSec * 1000 : null
   const hm = (ms: number) => fmtTime(new Date(ms).toISOString())
+  /* The two conditional groups of the opened Verlauf's look-up panel, named here so the markup
+   * below can ask ONE question per row and the panel itself can ask «is there anything at all».
+   * ⚠️ `lowestShown` is deliberately narrow: the tiefster Druck is only a fact of its own once
+   * the Trupp has come back UP (a fresh bottle after «Wieder in den Einsatz»). While it is still
+   * descending, `lowestBar === currentBar` and the row would restate the number the card already
+   * shows in 19px mono. */
+  const lowestShown = monitored && live.lowestBar < live.currentBar
+  const timingShown = timesShown && lastContactAt != null && !lite
 
   return (
     /* ⚠️ The border colour follows the TIER, not the lifecycle status: a Trupp at its Alarmdruck
@@ -2129,8 +2156,13 @@ function TruppCard({
           <>
             <button type="button" className={s.vrow} aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
               <Icon id="history" /><span className={s.vrowLbl}>{az.verlauf}</span>
+              {/* ⚠️ The preview belongs to the CLOSED row only (09.09.). Its whole job is to
+                  answer «und dann?» without opening anything — and open, it printed the newest
+                  Ablesung ~40px above the list that starts with that very row. The span stays
+                  (it is the row's flexible middle) so the chevron does not walk left when the
+                  words go. */}
               <span className={s.vrowLast}>
-                {lastReading
+                {logOpen ? null : lastReading
                   ? fillTemplate(az.verlaufLatest, {
                       time: fmtTime(lastReading.t),
                       what: (az.readingKind[lastReading.kind] ?? lastReading.kind)
@@ -2142,40 +2174,48 @@ function TruppCard({
             </button>
             {logOpen && (
               <div className={s.vopen}>
-                {/* what the Sockel folded in here (09.09.): the Schätzung's provenance and the
-                    tiefster Druck. Both answer «woher kommt die Zahl / wie tief war er schon» —
-                    questions asked ABOUT the card, never while reading it. They borrow the
-                    timing rows' own panel, so the opened Verlauf is one surface and not a stack
-                    of differently-dressed strips. */}
-                {(estimate || (monitored && live.lowestBar < live.currentBar)) && (
+                {/* ── ONE panel of look-up rows, then the list (09.09., maintainer review) ────
+                    It was two panels and a floating footnote, and it said the Schätzung twice
+                    within 80px: «≈ 31 bar» on the line above and «Geschätzter Druck ≈ 31 bar»
+                    here. A number stated twice at the same moment is a number somebody will one
+                    day read as two.
+                    So the value is said ONCE — up on `.metaLine`, where it also survives the
+                    collapse — and this panel carries only what the line cannot: where the
+                    Schätzung comes FROM, how deep the Trupp has already been, and (on the FU
+                    tablet) the contact timing. The provenance is that row's own value, sitting
+                    against the label it explains instead of floating under both.
+                    ⚠️ «Tiefster» is conditional and stays that way: `lowestBar < currentBar` is
+                    only true once a Trupp has come back UP — a fresh bottle after «Wieder in den
+                    Einsatz». On a normal descent the tiefster Druck IS the current one, and a
+                    row restating it would be the very duplication this rework removes.
+                    ⚠️ The timing rows keep their `!lite` gate (08.09., field ask): the phone at
+                    the Eingang works off the ticking clock on the card. */}
+                {(estimate || lowestShown || timingShown) && (
                   <div className={s.zonePanel}>
                     {estimate && (
-                      <>
-                        <div className={s.zonePanelRow}>
-                          <span>{az.estimated}</span>
-                          <b className={cx(s.metaEst, estimateLow && s.metaAlarm)}>≈ {estimate.bar} bar</b>
-                        </div>
-                        <p className={s.metaEstSource}>{estimate.source === 'history'
-                          ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
-                          : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}</p>
-                      </>
+                      <div className={s.zonePanelRow}>
+                        <span>{az.estimatedShort}</span>
+                        <em className={s.zoneNote} title={estimate.source === 'history'
+                          ? az.estimatedHintHistory
+                          : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
+                          {estimate.source === 'history'
+                            ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
+                            : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}
+                        </em>
+                      </div>
                     )}
-                    {monitored && live.lowestBar < live.currentBar && (
+                    {lowestShown && (
                       <div className={s.zonePanelRow}>
                         <span>{az.lowestPressure}</span><b>{live.lowestBar} bar</b>
                       </div>
                     )}
-                  </div>
-                )}
-                {/* NOT on the Link-Tafel (08.09., field ask): the phone at the Eingang works
-                    off the ticking clock on the card — a second «Letzter/Nächster» readout in
-                    the Verlauf restated it in wall-clock terms, and its history here is the
-                    ABLESUNGEN, nothing else. The FU tablet keeps the folded timing rows. */}
-                {timesShown && lastContactAt != null && !lite && (
-                  <div className={s.zonePanel}>
-                    <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{hm(lastContactAt)}</b></div>
-                    <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{hm(lastContactAt + intervalMin * 60_000)}</b></div>
-                    <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b>{fillTemplate(az.contactIntervalValue, { min: intervalMin })}</b></div>
+                    {timingShown && (
+                      <>
+                        <div className={s.zonePanelRow}><span>{az.lastContactAt}</span><b>{hm(lastContactAt!)}</b></div>
+                        <div className={s.zonePanelRow}><span>{az.nextContactDue}</span><b>{hm(lastContactAt! + intervalMin * 60_000)}</b></div>
+                        <div className={s.zonePanelRow}><span>{az.contactIntervalLabel}</span><b>{fillTemplate(az.contactIntervalValue, { min: intervalMin })}</b></div>
+                      </>
+                    )}
                   </div>
                 )}
                 {readings.length > 0 && (() => {

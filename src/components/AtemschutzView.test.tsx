@@ -162,10 +162,36 @@ describe('the contact times (the head of the Verlauf)', () => {
       expect(screen.queryByText(/Druckwerten|angenommen/)).toBeNull()
 
       fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
-      // the full label comes back with the room to print it, alongside its provenance
-      expect(screen.getByText(az.estimated)).toBeTruthy()
       expect(screen.getByText(/Druckwerten|angenommen/)).toBeTruthy()
       expect(screen.getByText(az.lowestPressure)).toBeTruthy()
+    })
+
+    /* ⚠️ …and the opened panel says the Schätzung's NUMBER nowhere (09.09., field review: «rather
+     * messy»). It used to print «Geschätzter Druck ≈ 31 bar» ~80px under the «≈ 31 bar» that is
+     * already standing on the line above — a number said twice at one moment is a number somebody
+     * will one day read as two. The panel carries only where the number comes FROM. */
+    it('never states the Schätzung twice — the panel carries its provenance, not its number', () => {
+      mount()
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
+      const bars = screen.queryAllByText(/≈ \d+ bar/)
+      expect(bars).toHaveLength(1)
+      expect(bars[0].closest(`.${s.metaLine}`)).toBeTruthy()
+      // the panel's own row is labelled and explains, in the footnote voice, never in mono
+      expect(screen.getByText(/Druckwerten|angenommen/).className).toContain(s.zoneNote)
+    })
+
+    /* The closed row's «zuletzt: 16:48 Druck 270 bar» is there to answer «und dann?» WITHOUT
+     * opening anything. Open, it printed the newest Ablesung right above the list that starts
+     * with that very row (same field review). */
+    it('drops the row’s preview once the list it previews is on screen', () => {
+      mount()
+      const row = screen.getByRole('button', { name: new RegExp(az.verlauf) })
+      expect(row.textContent).toMatch(/zuletzt/)
+      fireEvent.click(row)
+      expect(row.textContent).not.toMatch(/zuletzt/)
+      expect(screen.getByText(az.readingsHead)).toBeTruthy()
+      fireEvent.click(row)
+      expect(row.textContent).toMatch(/zuletzt/)
     })
 
     // …and the one line never goes with it: closing the Verlauf must not take the two numbers
@@ -507,6 +533,35 @@ describe('the handed-over board on a phone (focus mode)', () => {
     await waitFor(() => { expect(screen.getByText('Amselstrasse 28, 4104 Oberwil')).toBeTruthy() })
     // the Stand in its LONG voice, not the bare time the row shrank it to
     expect(document.querySelector('.az-head-detail')?.textContent).toContain('Gespeichert um')
+  })
+
+  /* ── The head keeps the MARK and gives up the time (09.09., maintainer review) ──────────────
+   * «✓ 18:05» beside a cut-off Einsatz name is a clock in a header — the one place on this
+   * screen where a naked time could be read as operational rather than as a save stamp. The ✓
+   * stays, because the 01.09. safety rule is that this surface says ITSELF whether what it
+   * shows is saved; the WHEN moves into the panel the same tap opens.
+   * ⚠️ …and the mark is inside that tap: a sync indicator sitting beside a door is an ornament
+   * a thumb aims at for nothing. */
+  it('shows the sync mark without its time, and inside the title’s own target', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({
+      lite: { subtitle: 'Brand PV Anlage', title: 'Brand PV Anlage' },
+      trupps: [aktivTrupp()], syncStatus: 'synced', lastSyncedAt: Date.parse('2026-09-09T18:05:00'),
+    })
+    const head = document.querySelector(`.${s.headRow}`)!
+    expect(head.querySelector('.az-syncline')).toBeTruthy()   // the mark is there…
+    expect(head.textContent).not.toMatch(/18:05/)             // …and says no time beside it
+
+    // one target: the mark rides INSIDE the popover trigger, not next to it
+    const opener = screen.getByRole('button', { name: az.headDetailOpen })
+    expect(opener.querySelector('.az-syncline')).toBeTruthy()
+    // …whose accessible name is still the door's, not «Häkchen»
+    expect(opener.getAttribute('aria-label')).toBe(az.headDetailOpen)
+
+    fireEvent.click(opener)
+    await waitFor(() => {
+      expect(document.querySelector('.az-head-detail')?.textContent).toMatch(/Gespeichert um.*18:05/)
+    })
   })
 
   // A new Trupp used to leave the PREVIOUS one selected on this board — the operator registered
