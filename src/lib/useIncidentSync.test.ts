@@ -60,10 +60,12 @@ function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function render(sync: any) {
-  const blob = {} as unknown as Saved
   const { rerender } = mount(sync)
-  // A NEW buildPayload identity re-fires the save effect (the first run is skipped by design).
-  rerender({ bp: () => blob })
+  // A new buildPayload identity re-fires the save effect (the first run is skipped by design) —
+  // and the blob has to have actually CHANGED, because an identical one is not a save (see the
+  // no-op test below).
+  const edited = { activePlanId: 'modul2' } as unknown as Saved
+  rerender({ bp: () => edited })
 }
 
 /** jsdom reports the tab as visible; the loop reads `document.hidden` on every round. */
@@ -78,6 +80,22 @@ beforeEach(() => { vi.useFakeTimers(); pollWorkspaceSince.mockReset(); setHidden
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
 
 describe('useIncidentSync — persistence', () => {
+  it('does NOT push a blob identical to the last one — an echo is not an edit', () => {
+    // ⚠️ The effect fires on buildPayload's IDENTITY, and a hydrate re-seeds every slice: a merge
+    // that changed nothing still produced a fresh identity. Two devices with the same Einsatz
+    // open then pushed each other's echoes in a loop, and since a hydrate drops both undo stacks
+    // by design, the loop quietly ate every ↶ on both of them.
+    const sync = makeSync()
+    const blob = {} as unknown as Saved
+    const { rerender } = mount(sync)
+    rerender({ bp: () => ({ ...blob }) as unknown as Saved })
+    rerender({ bp: () => ({ ...blob }) as unknown as Saved })
+    expect(sync.save).not.toHaveBeenCalled()
+    // …and a real edit still goes
+    rerender({ bp: () => ({ activePlanId: 'modul3' }) as unknown as Saved })
+    expect(sync.save).toHaveBeenCalledTimes(1)
+  })
+
   it('DOES push a visitor edit in demo mode (edits persist + are shared; reset happens nightly)', () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(true)
     const sync = makeSync()

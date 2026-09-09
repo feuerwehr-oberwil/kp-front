@@ -155,6 +155,19 @@ describe('useObjectStore — one collection, two documents', () => {
     expect(result.current.canUndo).toBe(false)
   })
 
+  it('a rebake that changes nothing keeps every reference — so it never marks the store dirty', () => {
+    // ⚠️ THE open-loop bug: the rebake fires on any render that rebuilt the fits (a hydrate
+    // does), and a fresh-but-equal body made the store look edited. Two devices with the same
+    // Einsatz open pushed each other in a loop, wiping both undo stacks on every round.
+    const { result } = store()
+    act(() => result.current.setBoard(() => ({ modul2: [anno('s1')] })))
+    const before = result.current.objects
+    const beforeBody = before[0].entity
+    act(() => result.current.rebake())
+    expect(result.current.objects).toBe(before)
+    expect(result.current.objects[0].entity).toBe(beforeBody)
+  })
+
   it('rebake re-derives every map body when the georeference has moved', () => {
     const fits = new Map([['modul2', PLAN]])
     const { result } = store([], fits)

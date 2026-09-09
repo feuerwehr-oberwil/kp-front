@@ -133,6 +133,19 @@ export function georefPlans(
   return out
 }
 
+/**
+ * ⚠️ What a fit DOES, as a string — the four numbers that fully determine a similarity transform
+ * (scale, turn, where the sheet's origin lands) plus the sheet's ground width, which carries the
+ * aspect. Two fits with the same signature put every symbol on the same ground point, so this is
+ * the honest test for «the georeference was corrected» — as opposed to «the memo that solves it
+ * ran again», which happens on any re-render that touches planDocs or the station scales and
+ * must NOT be read as a correction (it would re-bake, mark the store dirty and push).
+ */
+export function fitSignature(p: GeorefPlan): string {
+  const o = p.fit.toMap({ x: 0, y: 0 })
+  return `${p.id}:${p.fit.scaleMPerU}:${p.fit.rotationDeg}:${o.lng},${o.lat}:${p.widthM}`
+}
+
 /* ⚠️ No twin-specific size bands. Until 30.08. twins wore their own «quieter» px bands — in the
    field that read as «different object», not as «projection». Doctrine: twins are
    presentation-equivalent — the board sizes a twin with its own native rule (Whiteboard · symBase). */

@@ -125,6 +125,26 @@ export interface PlanFit { fit: GeorefFit; aspect: number }
 /** A sheet point's x/y without its optional per-point floor. */
 const ptXY = (p: BoardPoint): { x: number; y: number } => ({ x: p[0], y: p[1] })
 
+/**
+ * ⚠️ Is this derived body the one the record already carries? Structural, `undefined`-blind
+ * (a missing key and an explicit `undefined` are the same absence), and the reason the bake can
+ * run as often as it likes: a re-derivation that changes nothing must return the SAME references,
+ * or every hydrate would mark the store dirty and two open devices would push each other in a
+ * loop over a picture neither of them changed.
+ */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (a == null || b == null) return a == null && b == null
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => sameValue(v, b[i]))
+  }
+  if (typeof a !== 'object' || typeof b !== 'object') return false
+  const own = (o: object) => Object.keys(o).filter((k) => (o as Record<string, unknown>)[k] !== undefined)
+  const ka = own(a), kb = own(b)
+  return ka.length === kb.length
+    && ka.every((k) => sameValue((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+}
+
 /** Copy exactly the listed keys, and only the ones the source actually carries. */
 function pick<T extends object, K extends readonly (keyof T)[]>(o: T, keys: K): Pick<T, K[number]> {
   const out: Partial<T> = {}
@@ -172,11 +192,18 @@ const SHARED_CIRCLE_PROPS = [
 export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer: Entity['layer']): TacticalObject {
   if (!o.sheet || !plan) return o
   const { anno } = o.sheet
+  /** The one exit: swap the map body in — or hand the record straight back when the derivation
+   *  landed on exactly what it already had. See `sameValue` for why identity matters here. */
+  const settle = (body: { entity?: Entity; drawing?: Drawing }): TacticalObject => {
+    if (body.entity) return !o.drawing && sameValue(o.entity, body.entity) ? o : { ...o, entity: body.entity, drawing: undefined }
+    if (body.drawing) return !o.entity && sameValue(o.drawing, body.drawing) ? o : { ...o, drawing: body.drawing, entity: undefined }
+    return o
+  }
   const widthM = planGroundWidthM(plan.fit, plan.aspect)
   const at = (x: number, y: number): LngLat => { const p = plan.fit.toMap({ x, y }); return [p.lng, p.lat] }
   if (anno.kind === 'symbol' && anno.x != null && anno.y != null) {
     const entity = boardSymbolToEntity(anno, at(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
-    return entity ? { ...o, entity, drawing: undefined } : o
+    return entity ? settle({ entity }) : o
   }
   if (anno.kind === 'text' && anno.x != null && anno.y != null) {
     const entity: Entity = {
@@ -185,7 +212,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       noteSize: anno.noteSize, noteAutoW: anno.noteAutoW, notePlain: anno.notePlain,
       floor: anno.storey,
     }
-    return { ...o, entity, drawing: undefined }
+    return settle({ entity })
   }
   if (anno.kind === 'shape' && anno.x != null && anno.y != null && anno.shape) {
     const entity: Entity = {
@@ -196,7 +223,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       strokeW: anno.strokeW, fillOpacity: anno.fillOpacity, hatch: anno.hatch,
       sharpCorners: anno.sharpCorners, locked: anno.locked, floor: anno.storey,
     }
-    return { ...o, entity, drawing: undefined }
+    return settle({ entity })
   }
   if (anno.kind === 'resource' && anno.x != null && anno.y != null) {
     // the Trupp chip is the plan twin of the map's 'team' marker — same object, same id, and
@@ -206,7 +233,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       label: anno.text ?? anno.label, color: anno.color, truppId: anno.truppId, t: anno.t,
       trail: anno.trail?.map((p) => ({ coord: at(p.x, p.y), t: p.t })),
     }
-    return { ...o, entity, drawing: undefined }
+    return settle({ entity })
   }
   if ((anno.kind === 'draw' || anno.kind === 'area') && anno.pts?.length) {
     const drawing: Drawing = {
@@ -214,7 +241,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       id: o.id, kind: anno.kind === 'draw' ? 'line' : 'area',
       coords: anno.pts.map((p) => { const { x, y } = ptXY(p); return at(x, y) }),
     }
-    return { ...o, drawing, entity: undefined }
+    return settle({ drawing })
   }
   if (anno.kind === 'circle' && anno.x != null && anno.y != null) {
     const drawing: Drawing = {
@@ -222,7 +249,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       id: o.id, kind: 'circle', coords: [at(anno.x, anno.y)],
       radiusM: anno.radiusN != null ? anno.radiusN * widthM : undefined,
     }
-    return { ...o, drawing, entity: undefined }
+    return settle({ drawing })
   }
   return o
 }
@@ -371,9 +398,17 @@ export function applyBoardToObjects(objects: TacticalObject[], planId: string, a
   return next
 }
 
+/** Map a bake over the store, giving the SAME array back when nothing moved — see `sameValue`.
+ *  Everything that re-derives bodies goes through here, so «no change» never reaches the store. */
+function bakeEach(objects: TacticalObject[], of: (o: TacticalObject) => TacticalObject): TacticalObject[] {
+  let changed = false
+  const next = objects.map((o) => { const b = of(o); if (b !== o) changed = true; return b })
+  return changed ? next : objects
+}
+
 /** Re-derive the map bodies of ONE plan's objects — what a plan mutation owes the Karte. */
 export function bakePlan(objects: TacticalObject[], planId: string, plan: PlanFit | undefined, defaultLayer: Entity['layer']): TacticalObject[] {
-  return objects.map((o) => (o.sheet?.planId === planId ? bakeGeoBody(o, plan, defaultLayer) : o))
+  return bakeEach(objects, (o) => (o.sheet?.planId === planId ? bakeGeoBody(o, plan, defaultLayer) : o))
 }
 
 /**
@@ -382,5 +417,5 @@ export function bakePlan(objects: TacticalObject[], planId: string, plan: PlanFi
  * on that sheet — see tmp/design-unified-objects.md · «Reference change»).
  */
 export function bakeAll(objects: TacticalObject[], fits: ReadonlyMap<string, PlanFit>, defaultLayer: Entity['layer']): TacticalObject[] {
-  return objects.map((o) => (o.sheet ? bakeGeoBody(o, fits.get(o.sheet.planId), defaultLayer) : o))
+  return bakeEach(objects, (o) => (o.sheet ? bakeGeoBody(o, fits.get(o.sheet.planId), defaultLayer) : o))
 }

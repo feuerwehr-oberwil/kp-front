@@ -78,7 +78,7 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import {
-  boardTwinAnnosForPrint, georefPlans, mapTwinRows, planAspect, planRasterRows,
+  boardTwinAnnosForPrint, fitSignature, georefPlans, mapTwinRows, planAspect, planRasterRows,
   twinPlanImageLayerId, twinPlanImageVisible, twinVisible, isTwinLayerId, TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
   contentTwinName, entityToBoardSymbol, onSheet, planGroundWidthM, revealTwinLayer,
 } from './lib/georefTwins'
@@ -2013,18 +2013,28 @@ export function IncidentWorkspace({
   )
   // …the same fits, keyed for the unified-object bake (the store's writers read this through
   // `getFits` — see the note there). aspect = widthM / scaleMPerU inverts planGroundWidthM.
-  // ⚠️ And whenever they change, every baked map body is re-derived: a corrected georeference
-  // MOVES every symbol standing on that sheet, and correcting itself is the entire point of
-  // correcting a fit (tmp/design-unified-objects.md · «Reference change»). Written before the
-  // rebake, in the same effect, so no bake can run against the fit that has just been replaced.
-  // ⚠️ It also runs ONCE on open, which is what gives a legacy blob its map bodies at all — and
-  // therefore writes the incident once shortly after opening it. That save is the store becoming
-  // self-contained, so it is worth the round trip; a viewer never makes it (readOnly skips save).
+  // ⚠️ And whenever a fit REALLY changes, every baked map body is re-derived: a corrected
+  // georeference MOVES every symbol standing on that sheet, and correcting itself is the entire
+  // point of correcting a fit (tmp/design-unified-objects.md · «Reference change»).
+  //
+  // ⚠️ «Really» is what `fitSignature` measures, and it has to: `linkedPlans` is rebuilt by any
+  // render that touches planDocs or the station scales — including the one every hydrate causes —
+  // and re-baking on identity would mark the store dirty after a merge that changed nothing. Two
+  // devices with the same Einsatz open then push each other in a loop, wiping both undo stacks on
+  // every round (applyWorkspace drops them by design). The bake itself is no-op-safe too (see
+  // tacticalObjects · sameValue), so this is a belt beside that brace, not instead of it.
+  const bakedFits = useRef<string | null>(null)
   useEffect(() => {
     planFitsRef.current = new Map(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
+    const sig = linkedPlans.map(fitSignature).join('|')
+    if (sig === bakedFits.current) return
+    // A viewer derives nothing into the record. The signature stays unrecorded with it, so a
+    // session that later becomes editable (replay left) still gets its bake.
+    if (readOnly || tacticalLocked) return
+    bakedFits.current = sig
     rebake()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkedPlans])
+  }, [linkedPlans, readOnly, tacticalLocked])
   // The Karte's content standing on each linked sheet, as PRINTABLE annos (30.08.): the
   // exported Objektplan page shows what the screen's sheet shows. Same visibility gates as
   // boardTwinSources — a layer hidden on screen must not resurface on paper.

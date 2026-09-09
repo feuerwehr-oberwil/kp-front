@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapTwinRows, onSheet, planAspect,
+  boardTwinAnnosForPrint, boardDrawingTwins, fitSignature, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapTwinRows, onSheet, planAspect,
   planRasterRows, revealTwinLayer, twinPlanImageLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
@@ -296,5 +296,19 @@ describe('the Ebenen rows', () => {
     expect(isTwinLayerId(twinPlanImageLayerId('modul2'))).toBe(true)
     expect(isTwinLayerId(TWIN_MAP_VEHICLES)).toBe(true)
     expect(isTwinLayerId('hydrant')).toBe(false)
+  })
+})
+
+describe('fitSignature — «was the georeference corrected, or did the memo just run again?»', () => {
+  const of = (pairs: GeorefPair[], aspect = 1) => georefPlans([plan('modul2')], () => ({ pairs }), () => aspect)[0]
+
+  it('two solves of the SAME pairs sign identically — a re-render is not a correction', () => {
+    expect(fitSignature(of(PAIRS))).toBe(fitSignature(of(PAIRS)))
+  })
+
+  it('…and a moved pair, a turned sheet or a different aspect all change it', () => {
+    const base = fitSignature(of(PAIRS))
+    expect(fitSignature(of([PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }]))).not.toBe(base)
+    expect(fitSignature(of(PAIRS, 1.5))).not.toBe(base)
   })
 })
