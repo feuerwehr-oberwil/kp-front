@@ -963,7 +963,18 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    anybody had been picked, and the crew that was actually chosen was the smallest thing on it.
    A chip is `--tap` tall and carries BOTH of the row's jobs — the body crowns, the ✕ removes —
    so the two are separate targets rather than one row with a glyph on its edge. */
-.teamChips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+/* ⚠️ A GRID OF FIXED CELLS, not a free-wrapping flex row (09.09., field ask «das Chip springt
+   um»). Crowning MOVES a chip to the front — that is the record, `value[0]` is the Gruppenführer
+   — and under `flex-wrap` the line breaks are computed from the chips' own widths, so one tap on
+   a name re-wrapped the whole row: the same three people suddenly on two lines instead of one,
+   or a different person left alone on the second. The cells here are the same width whatever
+   stands in them, so a tap changes which cell holds which name and nothing else.
+   `justify-items: start` keeps a chip hugging its own name — the cell is the GRID's size, not
+   the chip's — so nothing about the look changes, only what can move.
+   ⚠️ 150px: at 390px the sheet leaves ~362px between its paddings, which is two cells; the
+   third person starts a second row exactly as before. */
+.teamChips { list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; justify-items: start; }
 /* ⚠️ `--r-sm`, not the row's `--r-ctl`: a chip is a button in the house spec (AGENTS.md ·
    Buttons), and it sits beside the search field's own `--r-ctl` — two different shapes is what
    says «these are targets, that is a field». */
@@ -986,7 +997,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   font: 700 13.5px var(--body); color: var(--ink); }
 /* the Gruppenführer is the FIRST chip and the only coloured one — the same amber rule
    `.teamRowLead` carries on the tablet, because the card, the Rapport and the map tag all print
-   this person first */
+   this person first.
+   ⚠️ COLOUR ONLY, and that is a rule rather than an accident: the crown moves with a tap, so
+   anything this state adds to the chip's BOX — a badge, a thicker border, more padding — is a
+   size change under a finger and re-wraps the row around it. A marker that needs weight uses an
+   inset `box-shadow` (the way `.tabOn` rings a Trupp tab), never geometry. */
 .chipLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
   background: color-mix(in srgb, var(--amber) 12%, var(--surface)); }
 /* ⚠️ 34px wide against the chip's full height: a mis-grip must never take somebody OUT of the
@@ -1137,6 +1152,38 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      deliberately stay: both are about the very list on screen, and both already sit below it. */
   .modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > *:not(:first-child),
   .modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot { display: none; }
+
+  /* ── …AND THEY COME BACK GENTLY (09.09.) ───────────────────────────────────────────────────
+     What the field saw as «hässliches Aufblitzen» when the search closes is two snaps, not one,
+     and they are ~300ms apart:
+       1. the input blurs → the sections and the footer un-hide in a single frame, WHILE the
+          frame is still capped against `--kb-inset`, i.e. the footer lands halfway up the
+          screen on the keyboard's edge;
+       2. `useKeyboardInset` commits 0 (it re-measures 250/700ms after `focusout`, because iOS
+          does not always fire a viewport event for a dismissal) → the sheet grows its last
+          ~300px in one frame and the footer drops with it.
+     So: fade what returns, and let the frame's height carry itself down instead of jumping.
+     ⚠️ Entry only. The transition and `@starting-style` sit on the VISIBLE rule, and the hidden
+     rule above is plain `display: none` — so taking the screen is still instant (the keyboard is
+     already sliding in over it) and only the way back is animated. `@starting-style` is what an
+     element gets on the frame it stops being `display: none`; without support the sections
+     simply appear, which is exactly today's behaviour.
+     ⚠️ The height transition is on the FRAME, and only here: `.modal` is a fixed box whose
+     children are a pinned head, a `flex: none` foot and one scroller, so the animated frames
+     re-measure a scrollport — the form inside it does not re-flow. */
+  .modalStack:global(.is-kb) .stack > *:not(:first-child),
+  .modalStack:global(.is-kb) .modalFoot { transition: opacity 160ms ease-out; }
+  @starting-style {
+    .modalStack:global(.is-kb) .stack > *:not(:first-child),
+    .modalStack:global(.is-kb) .modalFoot { opacity: 0; }
+  }
+  .modal { transition: height 160ms ease, max-height 160ms ease; }
+  /* the movement carries nothing the colour and the words do not already say */
+  @media (prefers-reduced-motion: reduce) {
+    .modal,
+    .modalStack:global(.is-kb) .stack > *:not(:first-child),
+    .modalStack:global(.is-kb) .modalFoot { transition: none; }
+  }
 }
 
 /* ===========================================================================================
@@ -1344,6 +1391,43 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .headTitlesCompact .headRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .headTitlesCompact .headRow h2 { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 700; color: var(--ink);
   text-transform: none; letter-spacing: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── ONE ROW (09.09., mock 01 · maintainer pick) ───────────────────────────────────────────────
+   The head used to spend two rows on this board: the Einsatz name on the first, and the three
+   44px controls wrapped onto a second of their own, right-aligned under it. `.head` is
+   `flex-wrap: wrap` and `:where(.headTitles)` asks for a 240px BASIS — so on 390px the titles
+   claimed 240 of the ~362 available and the ~156px of controls had nowhere to go but down. The
+   band that bought is ~44px, and on this board 44px is the difference between the contact clock
+   reading at arm's length and reading at reading distance.
+   So on the focus board the titles block may shrink instead (`flex: 1 1 auto`), the head refuses
+   to wrap at all, and the name is cut where the buttons begin. Nothing moves and nothing gets
+   smaller: the three controls stay 44 × 44, the sync check keeps its place at the right end of
+   the title row, and every word that no longer fits is behind `.headTitleBtn` (AtemschutzView ·
+   `headDetail`).
+   ⚠️ `nowrap` is the load-bearing half. Without it the SAME shrink would still let a long name
+   push the group down the moment the badge or the QR button joins the row on some other build of
+   this header — a two-row head that appears only sometimes is worse than one that always does. */
+.head.headCompact { flex-wrap: nowrap; gap: 8px; }
+/* …and the controls stand 8px apart rather than the head's 16px column gap: three 44px squares
+   at 16px spent 32px on air in the one row that has none, and 8px is still a clear gap between
+   two separate targets. The SQUARES do not shrink — that was the condition of the one-row head. */
+.head.headCompact .headActs { gap: 8px; }
+.headTitlesCompact { flex: 1 1 auto; min-width: 0; }
+/* The title IS the trigger, so it carries the row's ellipsis and the row's font — a button that
+   looks like the heading it replaced. `--tap` is deliberately NOT applied: this is a line of
+   text in a header, not a control in a row of controls, and a 44px box around it would give the
+   head back the height the row just saved. It is a wide target (the whole line) and a forgiving
+   one (a mis-tap opens a panel that closes on the next tap anywhere). */
+.headTitleH { display: flex; min-width: 0; }
+.headTitleBtn { flex: 1 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 4px;
+  border: none; background: none; padding: 4px 2px; margin: -4px -2px; cursor: pointer;
+  font: inherit; color: inherit; text-align: left; border-radius: var(--r-xs);
+  -webkit-tap-highlight-color: transparent; }
+.headTitleBtn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the chevron is the whole affordance — an ellipsis alone says «cut», not «there is more here» */
+.headTitleBtn :global(.i) { flex: none; width: 13px; height: 13px; color: var(--ink-faint); }
+@media (hover: hover) { .headTitleBtn:hover { background: var(--fill-soft); } }
+.headTitleBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* «Gespeichert um» shrinks to the check + bare time rather than disappearing — the safety
    review (01.09.) asked that this one surface always says whether what it shows is saved, so it
    stays, just tiny and inline beside the title: quiet text at rest, and still the app-wide loud
@@ -1427,7 +1511,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    step on two numbers, and the reserve `.kenn` keeps for a card GRID that this board does not
    have. Stacked, at 390×844 (safe areas 0 in a Safari tab, ~100px of browser chrome ⇒ 744px):
 
-     .head.headCompact          8 + 44 + 8 + 1px hairline           61      (was  61)
+     .head.headCompact          8 + 44 + 8 + 1px hairline           61      (was  93 — see below)
      .focusCard padding-top                                         10      (was  12)
      .card border-top                                                5
      .cardHead                  4 + 44 + 4                          52      (was  60)
@@ -1449,6 +1533,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 
    ~141px of margin, which is what pays for the cases that used to break the fit: an `.airNote`
    (~51), a three-line Kennzeile (+17.5), a rail whose names wrap to two lines (+10).
+   ⚠️ The head's 61 was the one line of this table that was NOT yet true when it was written
+   (09.09.): `.head` wrapped, so the three controls stood on a second row of their own and the
+   head measured 8 + 20 + 12 + 44 + 8 + 1 = 93. The one-row head further up this file
+   (`.head.headCompact { flex-wrap: nowrap }`, mock 01) is what makes the number above the
+   number on screen — and it is 32px of the margin quoted here, not a saving on top of it.
    ⚠️ SCOPED to `.focusCard`. `.cardHead`, `.kenn`, `.band`, `.kontaktBtn`, `.actZone` and
    `.plinth` are the SAME classes the tablet's card grid and the phone's opened row wear — an
    opened row on a non-lite phone renders its card inside `.rowList`, not inside `.focusCard`, so

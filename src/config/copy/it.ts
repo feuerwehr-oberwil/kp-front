@@ -1030,6 +1030,9 @@ export const it: Localizable<Copy> = {
     title: 'Sorveglianza autoprotezione',
     // titolo della tavola nell'app completa — porta entrambe le sezioni (vedi de.ts)
     boardTitle: 'Squadre',
+    // il titolo troncato apre i dati dell'intervento (09.09., vedi de.ts)
+    headDetailOpen: 'Mostra i dati dell\'intervento',
+    headDetailTitle: 'Intervento',
     sectionAtemschutz: 'ARA',
     sectionAtemschutzEmpty: 'Al momento nessuna squadra è sotto ARA.',
     sectionPlain: 'Altre squadre',
@@ -2227,7 +2230,11 @@ export const it: Localizable<Copy> = {
   },
   standingLink: {
     idleTitle: 'Nessun intervento in corso',
-    idleHint: 'Appena arriva un allarme, l\'intervento si apre qui automaticamente.',
+    // una frase per superficie (09.09., vedi de.ts)
+    idleHintTerminal: 'Appena arriva un allarme, questo schermo passa da solo all\'intervento.',
+    idleHintAs: 'Appena è in corso un intervento o un\'esercitazione, questo codice apre la sorveglianza APR.',
+    terminalKicker: 'Terminale di caserma',
+    checkedLabel: 'Ultimo controllo',
     chooseTitle: 'Più interventi in corso',
     chooseHint: 'Scegli quale intervento deve mostrare questo schermo.',
     exerciseTag: 'Esercitazione',

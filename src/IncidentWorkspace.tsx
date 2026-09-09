@@ -4665,8 +4665,12 @@ export function IncidentWorkspace({
       syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} clockSkewMs={clockSkewMs}
       // «Tafel pur»: the whole app for this session, so the subtitle has to name the Einsatz —
       // nothing else on that screen does.
+      // …and the two halves apart as well: the phone's one-row head cuts the joined line and
+      // prints these two whole in the popover behind the title (AtemschutzView · headDetail).
       lite={asLink ? {
         subtitle: [incidentMeta.title, incidentMeta.address].filter(Boolean).join(' · '),
+        title: incidentMeta.title || undefined,
+        address: incidentMeta.address || undefined,
       } : undefined}
       // …and with no TopBar on that screen, the app's ONE ↶ ↷ pair rides in the board's own
       // header. Same timeline as everywhere else — only trupp actions can reach this session's

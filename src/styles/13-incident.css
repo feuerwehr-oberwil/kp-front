@@ -60,6 +60,31 @@
 .az-sync-quiet .ip-status-dot { width: 8px; height: 8px; background: var(--amber); }
 /* the warn glyph inside a chip — the switcher sizes it via .ip-switch-btn, this line is not in one */
 .az-syncline .ip-offline-chip .i { width: 12px; height: 12px; flex: none; opacity: 1; }
+
+/* ── …and what the CUT-OFF title opens (09.09., mock 01) ────────────────────────────────────
+   The phone's one-row head buys its second row by ending the Einsatz name where the buttons
+   begin, so the name is a door: it opens exactly what the two-row head used to print, with the
+   room to print it whole. Deliberately three short blocks and no controls — a panel that could
+   DO something on this board would be a second Einsatz-Karte, and the board is for Trupps.
+   ⚠️ Global, not module-scoped: the popup is portalled to <body> (lib/overlays · Popover), where
+   a CSS-module hash on the surface around it reaches nothing.
+   The width is the phone's, capped: wrapping is the whole point (an address that ellipsized
+   here would repeat the row's own failure), and a panel wider than the screen cannot wrap. */
+.az-head-detail { width: min(320px, calc(100vw - 24px)); padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+  /* the app's popup chrome, the same set `.tb-uhr-menu` carries — `.ui-pop` owns only the
+     enter/exit hook, not the surface */
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--shadow); }
+.az-head-detail .az-hd-title { margin: 0; font: 800 16px/1.35 var(--body); color: var(--ink);
+  overflow-wrap: anywhere; }
+.az-head-detail .az-hd-addr { margin: 0; font: 600 13.5px/1.4 var(--body); color: var(--ink-dim);
+  overflow-wrap: anywhere; }
+/* the Stand, in its LONG voice — «Gespeichert um 18:05», not the bare time the row shrank it to.
+   Its own rule above the line, because it answers a different question than the two lines do. */
+.az-head-detail .az-hd-sync { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--glass-line); }
+.az-head-detail .az-hd-sync .ip-offline-chip .i { width: 12px; height: 12px; flex: none; opacity: 1; }
 /* THE ACTIVE EINSATZ AS A CARD — the heaviest object in the menu, and the only one with a
    surface of its own: green status edge, Titel, Adresse, two status pills, and the Einsatz's
    own actions along its bottom. Everything below it is deliberately lighter, so one look
@@ -689,6 +714,75 @@
   border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
   font: 700 14px var(--body); cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
 .rp-return svg { width: 16px; height: 16px; }
+
+/* --- Standing links: the WAITING screen (/terminal · /l/s…) ---------------------------- */
+/* «Bereitschaft» (Entwurf B, maintainer pick 09.09.) — see src/link/StandingApp · IdleScreen
+   for what the two surfaces show and why they show different things. This is the state both
+   spend most of their life in: a depot screen that is on all night, a laminated card between
+   two Einsätze. So it is designed, not left as the gap between the interesting states.
+   ⚠️ Tokens only, both themes for free: the night palette redefines `--ink`, `--surface-veil`
+   and `--green` (01-tokens.css), so the big clock lands as light ink on the dark ground and the
+   hairline glyph stays a hairline instead of a frozen rgba() that only works by day. */
+.sl-idle { position: relative; min-height: 100dvh; display: flex; flex-direction: column;
+  align-items: center; text-align: center; font-family: var(--body); color: var(--ink);
+  padding: max(22px, env(safe-area-inset-top)) 20px calc(18px + env(safe-area-inset-bottom)); }
+/* The quiet sign — recognised, never read. `.055` is the whole trick: any louder and it
+   competes with the one sentence in front of it; any fainter and the screen is empty. */
+.sl-glyph { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -62%);
+  width: 260px; height: 260px; color: var(--ink); opacity: .055; pointer-events: none; }
+.sl-glyph svg { width: 100%; height: 100%; stroke-width: .8; }
+@media (min-width: 760px) { .sl-glyph { width: 300px; height: 300px; transform: translate(-50%, -54%); } }
+/* which surface this is, in the voice a kicker uses — small, tracked, quiet */
+.sl-kicker { display: inline-flex; align-items: center; gap: 8px; flex: none;
+  font: 600 12px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+.sl-kicker svg { width: 14px; height: 14px; flex: none; }
+.sl-middle { position: relative; margin: auto 0; display: flex; flex-direction: column; align-items: center; }
+
+/* TERMINAL: the Stationsuhr is the resting state. Mono + tabular figures so the minute change
+   never shifts the line, and `--mono` rather than a size of its own — this is a readout. */
+.sl-clock { font: 500 84px/1 var(--mono); font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em; color: var(--ink); }
+.sl-date { margin-top: 8px; font: 500 13.5px var(--body); color: var(--ink-faint); letter-spacing: .02em; }
+
+/* ATEMSCHUTZ: a breath, not a blink. Three rings on one 6s cycle, 2s apart, each fading out as
+   it grows — the reading is «this is alive», which is the only question somebody who has just
+   scanned the card actually has. */
+.sl-ring { position: relative; width: 132px; height: 132px; display: grid; place-items: center;
+  margin-bottom: 6px; }
+.sl-ring i { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--ink-faint);
+  opacity: .28; animation: sl-breathe 6s cubic-bezier(.2, .7, .3, 1) infinite; }
+.sl-ring i:nth-child(2) { animation-delay: 2s; }
+.sl-ring i:nth-child(3) { animation-delay: 4s; }
+.sl-ring svg { position: relative; width: 46px; height: 46px; color: var(--ink-dim); stroke-width: 1.4; }
+@keyframes sl-breathe {
+  0% { transform: scale(.66); opacity: .34; }
+  70%, 100% { transform: scale(1); opacity: 0; }
+}
+
+.sl-state { margin: 22px 0 0; font: 700 26px var(--body); color: var(--ink); letter-spacing: -.01em; }
+.sl-state small { display: block; margin-top: 10px; max-width: 32ch;
+  font: 500 14px/1.55 var(--body); color: var(--ink-dim); }
+@media (max-width: 600px) { .sl-state { margin-top: 18px; font-size: 23px; } }
+
+/* «Zuletzt geprüft 03:14:22» — the proof that a calm screen is not a dead one (the last
+   standing poll, STANDING_POLL_MS). The dot blips once per 10s cycle and then stands down. */
+.sl-checked { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px;
+  border-radius: var(--r-pill); background: var(--surface-veil);
+  font: 500 12px var(--body); color: var(--ink-faint); }
+.sl-checked b { font: 500 12px var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.sl-blip { width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+  animation: sl-blip 10s linear infinite; }
+@keyframes sl-blip { 0%, 4% { opacity: 1; } 12%, 100% { opacity: .3; } }
+
+/* ⚠️ Reduced motion takes BOTH: the ring stands still as one quiet circle (the other two would
+   be three stacked outlines saying nothing), and the dot simply stays lit. Neither carries
+   information the words and the timestamp beside them do not already carry — which is the test
+   for whether an animation may be dropped outright rather than merely slowed. */
+@media (prefers-reduced-motion: reduce) {
+  .sl-ring i { animation: none; opacity: .2; }
+  .sl-ring i:nth-child(2), .sl-ring i:nth-child(3) { display: none; }
+  .sl-blip { animation: none; opacity: .7; }
+}
 
 /* --- Station capture view (/e/<token>) — phone-first, poster-opened -------------------- */
 .cv-shell { max-width: 560px; margin: 0 auto; padding: 0 14px calc(24px + env(safe-area-inset-bottom));

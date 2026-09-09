@@ -1030,6 +1030,9 @@ export const fr: Localizable<Copy> = {
     title: 'Surveillance ARI',
     // titre du tableau dans l'application complète — il porte les deux sections (voir de.ts)
     boardTitle: 'Binômes',
+    // le titre tronqué ouvre les indications de l'intervention (09.09., voir de.ts)
+    headDetailOpen: 'Afficher les indications',
+    headDetailTitle: 'Intervention',
     sectionAtemschutz: 'ARI',
     sectionAtemschutzEmpty: 'Aucun binôme sous ARI actuellement.',
     sectionPlain: 'Autres binômes',
@@ -2171,7 +2174,11 @@ export const fr: Localizable<Copy> = {
   },
   standingLink: {
     idleTitle: 'Aucune intervention en cours',
-    idleHint: 'Dès qu\'une alarme arrive, l\'intervention s\'ouvre ici automatiquement.',
+    // une phrase par surface (09.09., voir de.ts)
+    idleHintTerminal: 'Dès qu\'une alarme arrive, cet écran bascule tout seul sur l\'intervention.',
+    idleHintAs: 'Dès qu\'une intervention ou un exercice est en cours, ce code ouvre la surveillance ARI.',
+    terminalKicker: 'Terminal de caserne',
+    checkedLabel: 'Dernière vérification',
     chooseTitle: 'Plusieurs interventions en cours',
     chooseHint: 'Choisis quelle intervention cet écran doit afficher.',
     exerciseTag: 'Exercice',

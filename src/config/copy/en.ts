@@ -1029,6 +1029,9 @@ export const en: Localizable<Copy> = {
     title: 'SCBA monitoring',
     // the board title in the FULL app — it carries both sections since 03.09. (see de.ts)
     boardTitle: 'Teams',
+    // the cut-off title is the door to the full incident details (09.09., see de.ts)
+    headDetailOpen: 'Show incident details',
+    headDetailTitle: 'Incident',
     sectionAtemschutz: 'SCBA',
     sectionAtemschutzEmpty: 'No team is under SCBA right now.',
     sectionPlain: 'Other teams',
@@ -2175,7 +2178,12 @@ export const en: Localizable<Copy> = {
   },
   standingLink: {
     idleTitle: 'No incident running',
-    idleHint: 'As soon as an alert comes in, the incident opens here automatically.',
+    // one sentence per surface (09.09., see de.ts) — the terminal switches itself, the
+    // laminated QR is read by somebody who has just scanned it
+    idleHintTerminal: 'When an alert comes in, this screen switches to the incident by itself.',
+    idleHintAs: 'As soon as an incident or an exercise is running, this code opens SCBA monitoring.',
+    terminalKicker: 'Station terminal',
+    checkedLabel: 'Last checked',
     chooseTitle: 'Several incidents are running',
     chooseHint: 'Pick which incident this display should show.',
     exerciseTag: 'Exercise',

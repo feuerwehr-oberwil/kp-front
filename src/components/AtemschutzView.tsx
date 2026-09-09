@@ -6,7 +6,7 @@ import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
-import { Menu, Overlay } from '../lib/overlays'
+import { Menu, Overlay, Popover } from '../lib/overlays'
 import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -192,6 +192,12 @@ export function AtemschutzView({
    */
   lite?: {
     subtitle: string
+    /** The two halves `subtitle` is joined out of. The one-row head (09.09.) cuts the joined
+     *  line and hands the whole thing to the detail popover behind it, which prints them apart
+     *  — «Stichwort · Adresse» wrapped mid-address reads as one long broken string. Optional:
+     *  without them the popover falls back to the joined line, which is still true. */
+    title?: string
+    address?: string
   }
   /** The app's ONE undo/redo pair, for the handed-over «Tafel pur» that has no TopBar to carry it.
    *  It drives the same global timeline everything else does (lib/undoTimeline) — see the markup
@@ -885,6 +891,46 @@ export function AtemschutzView({
     </div>
   )
 
+  /* ── What the cut-off title opens (09.09., mock 01) ────────────────────────────────────────
+   * The one-row head buys its row by cutting the Einsatz name, so the cut part needs a door —
+   * and the title itself is the only place anybody would knock. What stands behind it is
+   * exactly what the two-row head used to print and nothing more: the Stichwort and the
+   * Adresse whole (wrapping, never ellipsized — this panel has the room the row does not), and
+   * the sync state in its LONG voice, «Gespeichert um 18:05» rather than the bare time the row
+   * shrank it to. Anything else here would be a second Einsatz-Karte on a board whose whole
+   * point is that it shows Trupps.
+   * ⚠️ `title`/`address` come from the same two fields `subtitle` is joined out of
+   * (IncidentWorkspace) — printed apart here, because a wrapped «Stichwort · Adresse» breaks
+   * at whatever character the width happens to land on. The join stays the fallback, so an
+   * older caller that only passes `subtitle` still says something true. */
+  const headDetail = (
+    <div className="az-hd">
+      <p className="az-hd-title">{lite?.title ?? lite?.subtitle ?? az.boardTitle}</p>
+      {lite?.address && <p className="az-hd-addr">{lite.address}</p>}
+      {(syncStatus || skewLoud) && (
+        <div className="az-hd-sync">
+          {syncStatus === 'synced' || syncStatus === 'pending' ? (
+            <span className={cx('az-sync-quiet', syncStatus === 'pending' && 'az-sync-pending')}>
+              {syncStatus === 'synced' ? <Icon id="check" /> : <span className="ip-status-dot" />}
+              <span>{syncStatus === 'pending' ? cpSync.badgePending : savedAtText}</span>
+            </span>
+          ) : syncStatus ? (
+            <span className={cx('ip-offline-chip', syncStatus !== 'offline' && 'ip-error-chip')}>
+              {syncStatus === 'offline' ? <span className="ip-status-dot" /> : <Icon id="warn" />}
+              <span>{syncLong[syncStatus]}</span>
+            </span>
+          ) : null}
+          {skewLoud && (
+            <span className="ip-offline-chip">
+              <Icon id="warn" />
+              <span>{fillTemplate(cpSync.clockSkewToast, { n: Math.abs(skewMin) })}</span>
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className={cx(s.surface, lite && s.surfaceLite)} onPointerDownCapture={primeOnFirstTap}>
       <header className={cx(s.head, focusMode && s.headCompact)}>
@@ -896,8 +942,31 @@ export function AtemschutzView({
                sync state (see `syncLine` above); the bell stays right of it, in `.headActs`. */
             <div className={s.headRow}>
               {/* focusMode is `lite && compact`, so this is always the Einsatz — the fallback
-                  exists only so the line can never render empty. */}
-              <h2>{lite?.subtitle ?? az.boardTitle}</h2>
+                  exists only so the line can never render empty.
+                  ⚠️ …and the line is now a DOOR (09.09., mock 01). One row means the name is cut
+                  where the buttons begin — «Brand PV Anlage · Amselstr…» — so the part that was
+                  cut has to be reachable, and the truncated title is the one place anybody would
+                  look for it. It opens the same three facts the two-row head used to print in
+                  full: Stichwort, Adresse, und ob der Stand gespeichert ist. */}
+              <h2 className={s.headTitleH}>
+                <Popover
+                  side="bottom" align="start" popupClassName="az-head-detail"
+                  ariaLabel={az.headDetailTitle}
+                  /* ⚠️ `--z-popover` (01-tokens.css · 60) as a number, because the Positioner
+                     takes an inline z-index. The popup is portalled to <body> and would
+                     otherwise sit at `auto` UNDER this very surface, which is `--z-surface` 20. */
+                  zIndex={60}
+                  trigger={
+                    <button type="button" className={s.headTitleBtn}
+                      title={az.headDetailOpen} aria-label={az.headDetailOpen}>
+                      <span>{lite?.subtitle ?? az.boardTitle}</span>
+                      <Icon id="chevron-down" className="chev" />
+                    </button>
+                  }
+                >
+                  {headDetail}
+                </Popover>
+              </h2>
               {syncLine}
             </div>
           ) : (

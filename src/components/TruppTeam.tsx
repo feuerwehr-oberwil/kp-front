@@ -86,10 +86,12 @@ export function TruppTeam({
    * hidden — the remaining sections and the footer — and the chips, the field and the hits get
    * the whole band above the keyboard. Everything is back the moment the keyboard goes.
    * ⚠️ It is CSS, not React state (Atemschutz.module.css · `.modalStack:global(.is-kb)` +
-   * `:has(.teamSearch input:focus)`), and that is the load-bearing part: a tap on a hits row
-   * blurs this field BEFORE the click lands, so anything driven by a blur handler would re-lay
-   * the form out mid-gesture. Only things BELOW the hits come and go, so the row under the thumb
-   * never moves — and there is no timer whose un-hide can be mistimed.
+   * `:has(.teamSearch input:focus)`), and that is the load-bearing part: a blur handler would
+   * re-lay the form out mid-gesture. Only things BELOW the hits come and go, so the row under
+   * the thumb never moves — and there is no timer whose un-hide can be mistimed.
+   * ⚠️ …and because the takeover hangs on this field's `:focus`, a tap on a hits row must not
+   * take it away — see `keepSearch` below, which is what lets a second and third person be
+   * added without the search closing between them (09.09.).
    * ⚠️ The selector names this field, not «an input»: focusing the Ziel leaves the form as it is.
    * (`liftSearch` went with the layout it was built for. With the sections gone the field is
    * already near the top of the sheet, and a 260ms smooth scroll still running when a tap lands
@@ -138,9 +140,30 @@ export function TruppTeam({
    * different people. */
   const visible = phone ? (needle ? filtered.slice(0, PHONE_HITS) : []) : filtered
 
+  /** the search field itself — the takeover above is driven by ITS `:focus` (see `keepSearch`) */
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  /* ⚠️ THE SEARCH SURVIVES THE TAP (09.09., field ask). A Trupp is entered several people at a
+   * time, and adding one used to end the search: the tap moved focus onto the hits row, `add`
+   * cleared the query, the row unmounted with the list — and focus fell to the body, which drops
+   * the keyboard AND ends the takeover (which is `:has(.teamSearch input:focus)`). The next name
+   * cost a tap back into the field and a second keyboard animation, every time.
+   * Two halves, and both are needed:
+   *   · `keepSearch` — the row refuses the focus in the first place (`mousedown` default
+   *     prevented, the standard combobox move), so nothing blurs and iOS never starts closing
+   *     the keyboard. It is also what keeps the CSS takeover from re-laying the form out
+   *     mid-gesture, which is exactly what its own ⚠️ above warns about.
+   *   · the `focus()` in `add` — the belt under it, for the paths that DO leave the field
+   *     (Enter is already there; a browser that focuses on `pointerdown` regardless is not).
+   *     Called inside the tap's own handler, so iOS accepts it as a user gesture and the
+   *     keyboard stays up rather than reopening.
+   * The QUERY still clears: the hits that answered «bru» are not the way to the next person, and
+   * an empty field is what the placeholder («Weitere Person suchen …») promises. */
+  const keepSearch = { onMouseDown: (e: React.MouseEvent) => e.preventDefault() }
+
   // Adding the FIRST person makes them Gruppenführer, because the overwhelmingly common case is
   // that the Trupp is entered leader-first. Nothing is locked by it — the crown moves with a tap.
-  const add = (slot: Slot) => { onChange([...value, slot]); setQ('') }
+  const add = (slot: Slot) => { onChange([...value, slot]); setQ(''); searchRef.current?.focus() }
   const remove = (i: number) => onChange(value.filter((_, j) => j !== i))
   /** crown: the chosen person moves to the front, everyone else keeps their order */
   const promote = (i: number) => onChange([value[i], ...value.filter((_, j) => j !== i)])
@@ -157,6 +180,12 @@ export function TruppTeam({
 
   /** What the query would be taken as, if it is taken as a name at all. */
   const typedName = q.trim()
+  /* …and only while the Trupp does not already have that name standing in it. The roster options
+   * have dropped whoever is chosen since the beginning (`chosenNames`); the Gast door never did,
+   * so typing a member's own name back offered to add them a SECOND time. Nobody means that —
+   * and one name twice is also what would let two chips claim the same identity (see the chip
+   * `key` below, which is that identity). */
+  const guestOffer = typedName && !chosenNames.has(typedName) ? typedName : ''
 
   /* The Gast / Nachbarwehr commit. Deliberately EXPLICIT — a tap on the action row, or Enter on a
    * query the Mannschaft cannot answer.
@@ -175,8 +204,8 @@ export function TruppTeam({
    * einem Trupp», and «einer, ein Trupp» holds for a Nachbarwehr too. Added by name only, the
    * Gast was two unrelated entries that happened to read alike. */
   const addGuest = () => {
-    if (!typedName) return
-    add({ name: typedName, personId: onAddGuest?.(typedName) })
+    if (!guestOffer) return
+    add({ name: guestOffer, personId: onAddGuest?.(guestOffer) })
   }
 
   /* Enter keeps the keyboard flow one step, and it never has to be aimed: with matches on screen
@@ -216,8 +245,17 @@ export function TruppTeam({
       <ul className={skin.list}>
         {value.map((m, i) => {
           const lead = i === 0
+          /* ⚠️ IDENTITY, not position. The key carried the index until 09.09., and crowning
+             re-orders this very list — so every promote tore all N chips down and built them
+             again, one frame of blank in the middle of the gesture that is supposed to move a
+             single outline. Keyed by the person, React MOVES the node it already has.
+             The suffix is a guard, not a case: a person can be in the Trupp once (the options
+             drop `chosenIds`/`chosenNames`, and the Gast door refuses a name already standing
+             here), so it only ever fires for a legacy record that came in with a duplicate. */
+          const id = m.personId ?? m.name
+          const first = value.findIndex((o) => (o.personId ?? o.name) === id)
           return (
-            <li key={`${m.personId ?? m.name}-${i}`} className={cx(skin.row, lead && skin.lead)}>
+            <li key={first === i ? id : `${id}#${i}`} className={cx(skin.row, lead && skin.lead)}>
               {/* ⚠️ The ROW/CHIP BODY is the control, not a star at its edge. Exactly one
                   Gruppenführer, always — so this behaves like a radio, and a radio is chosen by
                   tapping the option, not a glyph beside it. The leader's own is inert: tapping
@@ -262,6 +300,7 @@ export function TruppTeam({
       <label className={s.teamSearch}>
         <Icon id="search" />
         <input
+          ref={searchRef}
           value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} inputMode="search"
           maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
           // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
@@ -291,6 +330,7 @@ export function TruppTeam({
             <button
               type="button" className={cx(s.comboOpt, o.taken && s.teamOptTaken)}
               role="option" aria-selected={false} disabled={o.taken}
+              {...keepSearch}
               onClick={() => add({ name: o.name, personId: o.personId })}
             >
               {o.personId && <span className={cx(s.comboDot, o.present ? s.comboDotPresent : s.comboDotOff)} />}
@@ -323,14 +363,14 @@ export function TruppTeam({
             ⚠️ LAST, under the matches, and that is not a reachability problem: a name the
             Mannschaft cannot answer leaves few matches or none, so this row is right under the
             thumb exactly when it is the row that is wanted. */}
-        {typedName && (
+        {guestOffer && (
           <li>
             <button
               type="button" className={cx(s.comboOpt, s.comboType)}
-              role="option" aria-selected={false} onClick={addGuest}
+              role="option" aria-selected={false} {...keepSearch} onClick={addGuest}
             >
               <Icon id="type" />
-              <span className={c.name}>{fillTemplate(az.teamGuestAdd, { name: typedName })}</span>
+              <span className={c.name}>{fillTemplate(az.teamGuestAdd, { name: guestOffer })}</span>
             </button>
           </li>
         )}

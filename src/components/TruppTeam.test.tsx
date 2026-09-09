@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { appConfig } from '../config/appConfig'
@@ -34,6 +35,19 @@ function setup(value: Slot[] = [], opts: { assigned?: string[]; phone?: boolean;
     />,
   )
   return onChange
+}
+
+/** The control with its own record behind it — for the flows that only exist across two taps
+ *  (adding a second person, crowning one who is already in). `setup` hands `onChange` a spy and
+ *  the value never moves, which is what the single-action tests want. */
+function Stateful({ initial = [], phone }: { initial?: Slot[]; phone?: boolean }) {
+  const [value, setValue] = useState<Slot[]>(initial)
+  return (
+    <TruppTeam
+      value={value} onChange={setValue} personnel={personnel} legacyRoster={[]}
+      presentIds={new Set(['p1', 'p2', 'p3', 'p4'])} assignedIds={new Set()} phone={phone}
+    />
+  )
 }
 
 describe('TruppTeam', () => {
@@ -135,6 +149,16 @@ describe('TruppTeam', () => {
     fireEvent.change(search, { target: { value: 'Kel' } })
     expect(guestRow('Kel')).toBeTruthy()
     fireEvent.change(search, { target: { value: '' } })
+    expect(screen.queryByRole('option', { name: /als Gast hinzufügen/ })).toBeNull()
+  })
+
+  // …and it never offers a name that is already standing in the Trupp. The roster options have
+  // dropped whoever is chosen since the beginning; the Gast door did not, so typing a member's
+  // own name back offered to add them a second time — which is also the one way two chips could
+  // ever claim the same person.
+  it('does not offer the Gast row for somebody already in the Trupp', () => {
+    setup([{ name: 'Keller Urs' }])
+    fireEvent.change(screen.getByPlaceholderText('Person suchen …'), { target: { value: 'Keller Urs' } })
     expect(screen.queryByRole('option', { name: /als Gast hinzufügen/ })).toBeNull()
   })
 
@@ -266,6 +290,66 @@ describe('TruppTeam', () => {
       expect((search as HTMLInputElement).value).toBe('')
       // …and with nothing typed the list is gone again, not left standing
       expect(screen.queryByRole('listbox')).toBeNull()
+    })
+
+    /* ── The search survives the tap (09.09.) ──────────────────────────────────────────────
+     * A Trupp is entered several people at a time. Adding one used to end the search: focus
+     * went to the hits row, the query cleared, the row unmounted with the list, and focus fell
+     * to the body — which drops the keyboard AND ends the takeover, since that is CSS on this
+     * field's `:focus`. Every further name cost a tap back into the field.
+     */
+    it('keeps the field focused after a hit, so the next name is one tap away', () => {
+      render(<Stateful phone />)
+      const search = screen.getByLabelText(az.teamSearchPlaceholder) as HTMLInputElement
+      search.focus()
+      fireEvent.change(search, { target: { value: 'bru' } })
+      // the row REFUSES the focus rather than taking it off the field (mousedown default
+      // prevented) — nothing blurs, so iOS never starts closing the keyboard
+      const hit = screen.getByRole('option', { name: /Brunner Thomas/ })
+      expect(fireEvent.mouseDown(hit)).toBe(false)
+      fireEvent.click(hit)
+      expect(document.activeElement).toBe(search)
+      // the QUERY goes, though: those hits are not the way to the next person
+      expect(search.value).toBe('')
+
+      // …and the second name goes in without re-opening anything
+      fireEvent.change(search, { target: { value: 'graf' } })
+      fireEvent.click(screen.getByRole('option', { name: /Graf Stefan/ }))
+      expect(screen.getByRole('button', { name: az.leaderLabel }).textContent).toContain('Brunner Thomas')
+      expect(screen.getByRole('button', { name: 'Graf Stefan als Gruppenführer' })).toBeTruthy()
+      expect(document.activeElement).toBe(search)
+    })
+
+    // the belt under it: a browser that moves the focus on `pointerdown` regardless gets the
+    // field handed back inside the tap's own handler, so the keyboard stays up
+    it('takes the field back even when the tap did land on the row', () => {
+      render(<Stateful phone />)
+      const search = screen.getByLabelText(az.teamSearchPlaceholder) as HTMLInputElement
+      search.focus()
+      fireEvent.change(search, { target: { value: 'bru' } })
+      const hit = screen.getByRole('option', { name: /Brunner Thomas/ }) as HTMLButtonElement
+      hit.focus()
+      fireEvent.click(hit)
+      expect(document.activeElement).toBe(search)
+    })
+
+    /* ── Crowning moves a chip, it does not rebuild it (09.09.) ───────────────────────────────
+     * `value[0]` is the Gruppenführer, so a tap re-orders this list. Keyed by position, React
+     * tore every chip down and built it again — a frame of blank in the middle of the gesture
+     * that is supposed to move one outline. Keyed by the person, it moves the node it has.
+     * (The other half of «the chip must not jump» is CSS: the chips sit in fixed grid cells and
+     * `.chipLead` may only ever change COLOUR — see Atemschutz.module.css.)
+     */
+    it('re-orders the chips it already has when the crown moves', () => {
+      render(<Stateful phone initial={[
+        { name: 'Meier Anna', personId: 'p1' },
+        { name: 'Huber Sarah', personId: 'p2' },
+      ]} />)
+      const chip = screen.getByRole('button', { name: 'Huber Sarah als Gruppenführer' }).closest('li')
+      fireEvent.click(screen.getByRole('button', { name: 'Huber Sarah als Gruppenführer' }))
+      const crowned = screen.getByRole('button', { name: az.leaderLabel }).closest('li')
+      expect(crowned!.textContent).toContain('Huber Sarah')
+      expect(crowned).toBe(chip)
     })
 
     /* The chip carries BOTH of the row's jobs on one target's worth of space, so the two must

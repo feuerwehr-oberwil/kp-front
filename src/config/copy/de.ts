@@ -1506,6 +1506,15 @@ export const de = {
     // «Atemschutzüberwachung» über einer Zeile «Verkehr» wäre schlicht falsch. Die abgegebene
     // Tafel («Tafel pur») behält `title`: dort gibt es nur den Atemschutz.
     boardTitle: 'Trupps',
+    /* ── Die abgeschnittene Titelzeile als Tür (09.09., Mock 01) ────────────────────────────
+     * Der einzeilige Kopf kauft seine Zeile damit, dass der Einsatzname dort endet, wo die
+     * Knöpfe anfangen. Was abgeschnitten ist, muss erreichbar bleiben – und niemand sucht es
+     * woanders als an der Zeile selbst. `headDetailOpen` beschriftet den Knopf (also die
+     * Handlung), `headDetailTitle` benennt die Fläche, die aufgeht.
+     * ⚠️ «Einsatz», nicht «Details»: was aufgeht, sind Stichwort, Adresse und der Stand –
+     * die Angaben zum Einsatz, nicht eine Einstellungsfläche. */
+    headDetailOpen: 'Einsatzangaben anzeigen',
+    headDetailTitle: 'Einsatz',
     // Abschnittsköpfe der Tafel. Die Linie ist die Trennung, das Wort das Versprechen: was oben
     // steht, wird überwacht – was unten steht, nicht.
     sectionAtemschutz: 'Atemschutz',
@@ -3478,7 +3487,24 @@ export const de = {
   // here, not failures.
   standingLink: {
     idleTitle: 'Kein laufender Einsatz',
-    idleHint: 'Sobald ein Alarm eingeht, öffnet sich der Einsatz hier automatisch.',
+    /* ⚠️ EIN Satz je Fläche, und sie sagen verschiedene Dinge (09.09., Entwurf B). Das Terminal
+     * ist ein Bildschirm, der von selbst umschaltet – niemand steht davor und wartet. Der
+     * laminierte QR ist ein Stück Papier an der Überwachungstafel: wer davorsteht, hat gerade
+     * gescannt und will wissen, warum nichts kommt. Der gemeinsame `idleHint` sagte beiden das
+     * eine («sobald ein Alarm eingeht»), was auf dem Papier schlicht die falsche Antwort war –
+     * eine Übung ist kein Alarm, und der Code gilt für sie genauso.
+     * ⚠️ NICHT hier: «Die Karte hängen lassen …». Vom Maintainer am 09.09. gestrichen – die
+     * Karte hängt bereits, und ein Satz, der das Offensichtliche beruhigt, liest sich, als
+     * gäbe es einen Grund zur Sorge. */
+    idleHintTerminal: 'Geht ein Alarm ein, wechselt dieser Bildschirm von selbst auf den Einsatz.',
+    idleHintAs: 'Sobald ein Einsatz oder eine Übung läuft, öffnet dieser Code die Atemschutzüberwachung.',
+    // Die Kopfzeile des Wartezustands: welche Fläche das hier ist. Beim Terminal hinter dem
+    // Namen der Wehr, beim QR allein – wer den Code scannt, steht in der eigenen Station.
+    terminalKicker: 'Stations-Terminal',
+    // Der Beleg, dass die Anzeige nicht eingefroren ist: der Zeitstempel des letzten Polls
+    // (STANDING_POLL_MS, 10 s). Ohne ihn ist ein ruhiger Bildschirm nicht von einem toten zu
+    // unterscheiden – und genau das ist die Frage, die vor einem leeren Terminal aufkommt.
+    checkedLabel: 'Zuletzt geprüft',
     chooseTitle: 'Mehrere Einsätze laufen',
     chooseHint: 'Wähle, welchen Einsatz diese Anzeige zeigen soll.',
     exerciseTag: 'Übung',

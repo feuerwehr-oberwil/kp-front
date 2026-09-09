@@ -421,6 +421,28 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
   })
 
+  /* ── The one-row head, and the door in its cut-off title (09.09., mock 01) ─────────────────
+   * The head spends ONE row now: name left, the three controls right, nothing wrapped. The
+   * price is that the Einsatz name ends where the buttons begin — so the name is a button, and
+   * behind it stands what the two-row head used to print in full. */
+  it('opens the full Einsatz behind the cut-off title', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({
+      lite: { subtitle: 'Brand PV Anlage · Amselstrasse 28', title: 'Brand PV Anlage', address: 'Amselstrasse 28, 4104 Oberwil' },
+      trupps: [aktivTrupp()], syncStatus: 'synced', lastSyncedAt: Date.parse('2026-09-09T18:05:00'),
+    })
+    // the row itself carries the joined line — cut by CSS, whole in the DOM
+    const opener = screen.getByRole('button', { name: az.headDetailOpen })
+    expect(opener.textContent).toContain('Brand PV Anlage · Amselstrasse 28')
+    // …and the address, which the row can never show at 390px, is only behind it
+    expect(screen.queryByText('Amselstrasse 28, 4104 Oberwil')).toBeNull()
+
+    fireEvent.click(opener)
+    await waitFor(() => { expect(screen.getByText('Amselstrasse 28, 4104 Oberwil')).toBeTruthy() })
+    // the Stand in its LONG voice, not the bare time the row shrank it to
+    expect(document.querySelector('.az-head-detail')?.textContent).toContain('Gespeichert um')
+  })
+
   // A new Trupp used to leave the PREVIOUS one selected on this board — the operator registered
   // the crew that needed it and was still looking at somebody else's card (09.09., field ask).
   it('selects a newly created Trupp — the operator lands on the crew they just made', async () => {
