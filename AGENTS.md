@@ -179,10 +179,15 @@ to prod.
     georeference (`bakeGeoBody`) and re-baked when that fit changes. An object hand-placed on the
     Karte carries no `sheet` at all: geo is its truth, and a linked sheet draws it by PROJECTING
     it through the same fit (`src/lib/planProjection.ts`). Both derivations are pure, and they
-    are exact inverses — a projected anno handed back off a sheet becomes the stored sheet body
-    verbatim, so an asymmetry between them would rotate, resize or displace the object a little
-    on every flip. Where one converts (the sheet's own turn into and out of the paper's frame;
-    metres into sheet fractions and back) the other undoes it, and the comment at each says so.
+    are **inverse in geometry AND in absence** — a projected anno handed back off a sheet becomes
+    the stored sheet body verbatim, so an asymmetry between them would rotate, resize or displace
+    the object a little on every flip, and an absent field materialising as `0` or `''` would
+    invent one. Where one converts (the sheet's own turn into and out of the paper's frame, for
+    BOTH bearings; metres into sheet fractions and back, at the same default an unsized object is
+    drawn at) the other undoes it, and the comment at each says so. A field that cannot be said in
+    both units — a note's width, a label's nudge — does not cross at all: it is preserved through
+    the bake instead (`BAKE_PRESERVED`), because a number that means two distances is worse in the
+    record than no number.
   - **Last hand-placement owns the truth.** A drag flips the anchor to the surface it happened
     on: dragging a sheet-anchored object on the Karte DROPS its sheet body, dragging a map object
     onto a sheet CREATES one. Both seams (`applyDocToObjects`, `applyBoardToObjects`) therefore
@@ -197,8 +202,11 @@ to prod.
     history — the Karte's `commit`, a plan's per-document `planHistory` / `useBoardDoc`. An edit
     that touches an object the surface does NOT own is a store-level act, and checkpoints on the
     store's stack: a per-sheet snapshot of annotations cannot express «this object was
-    geo-anchored», so it could not undo an anchor flip at all. One gesture stays one step
-    (`useObjectStore · beginSheetStep`).
+    geo-anchored», so it could not undo an anchor flip at all. One gesture stays one step: a plan
+    step opens a TOKEN (`useObjectStore · beginSheetStep`) whose first cross-ownership fold takes
+    the step and whose remaining samples fold into it, and the token closes when the finger lifts
+    — a plan step is a pointer gesture. With none open, every write is its own step, which is what
+    the writers that are not gestures (the Trupp sweeps, a plan ↶, a Gebäude amend) need.
   - **Presentation stays equivalent, and nothing is lent that is owned.** Each surface draws the
     other's objects with its OWN native chrome and sizing (map `symPx`, board `symBase`) — no
     projection tone, no reduced opacity, no twin-only band — and every capability the surface has
@@ -218,6 +226,13 @@ to prod.
     object field-wise last-writer-wins — a concurrent edit still carrying the dropped sheet body
     brings it back. Absence cannot say «deliberately dropped»; a tombstone or an explicit anchor
     enum can, and that is a schema change.
+  - ⚠️ **An attachment may name an object in the other document, and that is now the common
+    case.** A Leitung end docked onto an object stores the object's id; both live surfaces resolve
+    it, because it is the same id on both. The server-side print/export adapters cannot — they see
+    one document at a time — and neither can a reader after the far side deleted it. Both land on
+    the SAME safe answer every unresolvable attachment gets: the stored coordinate, which is
+    exactly where the endpoint was dropped (`lineAttachments · resolveLinePoints`). Do not «fix»
+    that by resolving across documents in an adapter; the fallback is the contract.
   - The word «twin» survives in two places on purpose: `twin:` is a persisted Ebenen-preference
     prefix (`lib/prefs`), and `TWIN_CLIP_MARGIN` is the one clip both derivations quote. Renaming
     either would rewrite device preferences for a word.
