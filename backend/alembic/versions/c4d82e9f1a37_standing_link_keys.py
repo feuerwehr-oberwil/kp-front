@@ -1,7 +1,7 @@
 """Standing link keys: Stations-Terminal + fixe Atemschutz-URL (deployment-level secrets).
 
 Revision ID: c4d82e9f1a37
-Revises: b2f61c8d5e30
+Revises: a1e50b7c4d2f
 """
 
 from collections.abc import Sequence
@@ -10,7 +10,9 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c4d82e9f1a37"
-down_revision: str | None = "b2f61c8d5e30"
+# Parents must be COMMITTED migrations: this shipped pointing at "b2f61c8d5e30", an untracked
+# WIP revision, so every deploy died at `alembic upgrade head` (09.09.2026).
+down_revision: str | None = "a1e50b7c4d2f"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
