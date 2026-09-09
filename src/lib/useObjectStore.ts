@@ -86,9 +86,13 @@ export function useObjectStore(
 
   /** Fold a map document back into the store. `next === view` is the no-op an updater signals by
    *  returning what it was given (the live-GPS pass does it on every poll) — passing that on
-   *  would rebuild the store, and with it every identity the memos above hang off. */
+   *  would rebuild the store, and with it every identity the memos above hang off.
+   *
+   *  ⚠️ The fits travel WITH the fold: a Karte edit of a sheet-anchored object writes its
+   *  unit-bearing fields — a Form's width, a Hubretter's reach, an Absperrkreis's radius, a
+   *  Trupp's recorded breadcrumbs — back onto the anno through that plan's own fit. */
   const foldDoc = (objects: TacticalObject[], next: Doc, view: Doc): TacticalObject[] =>
-    next === view ? objects : applyDocToObjects(objects, next)
+    next === view ? objects : applyDocToObjects(objects, next, getFits())
 
   const setDocRaw: Dispatch<SetStateAction<Doc>> = (a) => {
     setObjects((objects) => {

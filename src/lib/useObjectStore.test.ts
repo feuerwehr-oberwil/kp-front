@@ -180,3 +180,53 @@ describe('useObjectStore — one collection, two documents', () => {
     expect(result.current.objects[0].sheet?.anno.x).toBe(0.5) // the sheet coords are the truth
   })
 })
+
+/* The unit-bearing seam (10.09.): a metre width means nothing on paper, so these fields cross
+ * onto the anno through the plan's own fit. Dropped, the Karte silently refused edits it had
+ * just accepted — the next bake put the old number back. */
+describe('a Karte edit that is measured in metres', () => {
+  const withBoard = (annos: BoardAnno[]) => {
+    const h = store()
+    act(() => h.result.current.setBoard(() => ({ modul2: annos })))
+    return h
+  }
+
+  it('a marked position on a plan-drawn Trupp survives the next bake', () => {
+    const { result } = withBoard([anno('r1', { kind: 'resource', x: 0.5, y: 0, text: 'Trupp 1' })])
+    act(() => result.current.commit((d) => ({
+      ...d,
+      entities: d.entities.map((e) => ({ ...e, t: '10:20', trail: [{ coord: [mEast(50).lng, ORIGIN.lat] as [number, number], t: '10:20' }] })),
+    })))
+    expect(result.current.board.modul2[0].trail).toHaveLength(1)
+    expect(result.current.board.modul2[0].trail![0]).toMatchObject({ t: '10:20' })
+    expect(result.current.board.modul2[0].trail![0].x).toBeCloseTo(0.5, 6)
+    act(() => result.current.rebake())
+    expect(result.current.doc.entities[0].trail).toHaveLength(1) // the dot is still there
+  })
+
+  it('widening an Absperrkreis keeps it on its sheet — a radius is a size, not a placement', () => {
+    const { result } = withBoard([anno('c1', { kind: 'circle', x: 0.5, y: 0.5, radiusN: 0.1 })])
+    act(() => result.current.commit((d) => ({ ...d, drawings: d.drawings.map((x) => ({ ...x, radiusM: 40 })) })))
+    expect(result.current.board.modul2?.[0].radiusN).toBeCloseTo(0.4, 4) // 40 m of a 100 m sheet
+    act(() => result.current.rebake())
+    expect(result.current.doc.drawings[0].radiusM).toBeCloseTo(40, 6)
+  })
+
+  it('a Form resized on the Karte keeps the size it was given', () => {
+    const { result } = withBoard([anno('sh1', { kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.1 })])
+    act(() => result.current.commit((d) => ({ ...d, entities: d.entities.map((e) => ({ ...e, sizeM: 25 })) })))
+    expect(result.current.board.modul2?.[0].sizeN).toBeCloseTo(0.25, 4)
+    act(() => result.current.rebake())
+    expect(result.current.doc.entities[0].sizeM).toBeCloseTo(25, 6)
+  })
+
+  it('map-only presentation survives a re-bake — the sheet has no word for it', () => {
+    const { result } = withBoard([anno('l1', { kind: 'draw', x: undefined, y: undefined, pts: [[0, 0], [1, 0]] })])
+    act(() => result.current.commit((d) => ({
+      ...d, drawings: d.drawings.map((x) => ({ ...x, abschnittLeiter: 'Oblt Steiner', abschnittAuftrag: 'Riegelstellung', labelAt: [mEast(20).lng, ORIGIN.lat] as [number, number] })),
+    })))
+    act(() => result.current.rebake())
+    expect(result.current.doc.drawings[0]).toMatchObject({ abschnittLeiter: 'Oblt Steiner', abschnittAuftrag: 'Riegelstellung' })
+    expect(result.current.doc.drawings[0].labelAt).toBeDefined()
+  })
+})

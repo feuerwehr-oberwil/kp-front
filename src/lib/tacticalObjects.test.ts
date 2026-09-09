@@ -134,6 +134,14 @@ describe('the setDoc / setBoard seams', () => {
       expect(applyDocToObjects(unbaked, { entities: [], drawings: [] })).toEqual(unbaked)
     })
 
+    it('the bake PRESERVES what only the Karte has a word for', () => {
+      // a re-derived body replaced everything the sheet cannot say — a note's dragged width,
+      // a label's georeferenced anchor, an Abschnitt's Leiter — every single bake
+      const o = bakeGeoBody({ id: 'n1', sheet: { planId: 'modul2', anno: anno('n1', { kind: 'text', text: 'Zugang' }) } }, PLAN, 'taktisch')
+      const widened = { ...o, entity: { ...o.entity!, noteW: 240 } }
+      expect(bakeGeoBody(widened, PLAN, 'taktisch').entity?.noteW).toBe(240)
+    })
+
     it('a reshaped plan LINE flips the anchor; a re-coloured one does not', () => {
       const line = bakeGeoBody(
         { id: 'l1', sheet: { planId: 'modul2', anno: anno('l1', { kind: 'draw', x: undefined, y: undefined, pts: [[0, 0], [1, 0]] }) } },

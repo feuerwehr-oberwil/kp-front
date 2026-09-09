@@ -187,6 +187,29 @@ const SHARED_PATH_PROPS = [
   'label', 'truppId',
 ] as const satisfies readonly (keyof Drawing & keyof BoardAnno)[]
 
+/**
+ * ⚠️ Map-only PRESENTATION the bake must not throw away.
+ *
+ * A baked body is derived, so re-deriving it replaces it — and everything the sheet has no word
+ * for went with it every time: a note's dragged width, a Leitung's label and end-tag anchors
+ * (georeferenced on the Karte, a board-relative nudge on the sheet), an Abschnitt's Leiter and
+ * Auftrag, and a magnetic endpoint's relationship intent. These are the map's own answers to
+ * questions the plan never asked; the derived geometry and the shared props still win, these
+ * merely survive.
+ */
+const BAKE_PRESERVED = [
+  'noteW', 'labelAt', 'endLabelAt', 'endDx', 'endDy',
+  'abschnittLeiter', 'abschnittAuftrag', 'startAttachment', 'endAttachment',
+] as const satisfies readonly (keyof Entity | keyof Drawing)[]
+
+/** …the subset of that list one body actually carries (an Entity has no `labelAt`, and so on). */
+function preservedFrom<T extends object>(body: T | undefined): Partial<T> {
+  if (!body) return {}
+  const out: Partial<T> = {}
+  for (const k of BAKE_PRESERVED) if (k in body) out[k as keyof T] = body[k as keyof T]
+  return out
+}
+
 /** …and the subset a circle has (it is a point object with an extent — no stroke vocabulary). */
 const SHARED_CIRCLE_PROPS = [
   'color', 'fillOpacity', 'hatch', 'locked', 'showDistance',
@@ -214,8 +237,14 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   /** The one exit: swap the map body in — or hand the record straight back when the derivation
    *  landed on exactly what it already had. See `sameValue` for why identity matters here. */
   const settle = (body: { entity?: Entity; drawing?: Drawing }): TacticalObject => {
-    if (body.entity) return !o.drawing && sameValue(o.entity, body.entity) ? o : { ...o, entity: body.entity, drawing: undefined }
-    if (body.drawing) return !o.entity && sameValue(o.drawing, body.drawing) ? o : { ...o, drawing: body.drawing, entity: undefined }
+    if (body.entity) {
+      const entity = { ...body.entity, ...preservedFrom(o.entity) }
+      return !o.drawing && sameValue(o.entity, entity) ? o : { ...o, entity, drawing: undefined }
+    }
+    if (body.drawing) {
+      const drawing = { ...body.drawing, ...preservedFrom(o.drawing) }
+      return !o.entity && sameValue(o.drawing, drawing) ? o : { ...o, drawing, entity: undefined }
+    }
     return o
   }
   const widthM = planGroundWidthM(plan.fit, plan.aspect)
@@ -303,11 +332,10 @@ const sameCoords = (a: LngLat[] | undefined, b: LngLat[] | undefined): boolean =
  */
 function movedOnMap(prev: TacticalObject, body: { entity?: Entity; drawing?: Drawing }): boolean {
   if (body.entity) return !prev.entity || !sameCoord(prev.entity.coord, body.entity.coord)
-  if (body.drawing) {
-    return !prev.drawing
-      || !sameCoords(prev.drawing.coords, body.drawing.coords)
-      || prev.drawing.radiusM !== body.drawing.radiusM
-  }
+  // ⚠️ NOT `radiusM`: widening an Absperrkreis is a size change, and reading it as a placement
+  // tore the circle off its sheet — silently, on a drag that says nothing about where it stands.
+  // It crosses as `radiusN` through the fit instead, like every other unit-bearing field.
+  if (body.drawing) return !prev.drawing || !sameCoords(prev.drawing.coords, body.drawing.coords)
   return false
 }
 
@@ -321,24 +349,41 @@ function movedOnMap(prev: TacticalObject, body: { entity?: Entity; drawing?: Dra
  * paths, plus the two renames the transfer converters have always made — the map's `floor`
  * badge is the sheet's `storey`, and a note's text is `text` rather than `label`.
  *
- * ⚠️ What deliberately does NOT cross: the position (that flips the anchor instead — see
- * applyDocToObjects) and everything unit-bearing — `sizeM`/`reachM`/`noteW` and a team's
- * trail. Each of them needs the plan's fit to be said in sheet units, and this seam is handed
- * a document, never a fit. Resizing a plan-drawn symbol on the Karte therefore does not stick;
- * resizing it on its own sheet does.
+ * ⚠️ The UNIT-BEARING fields cross through the plan's own fit, which is why this seam is handed
+ * one: a metre width means nothing on paper, and dropping it meant the Karte silently refused
+ * edits it had just accepted — a widened Form snapped back, a Hubretter's reach never moved, and
+ * a position marked on a plan-drawn Trupp lost its breadcrumb on the next bake. Without a fit
+ * (an unlinked sheet) they stay out, which is the honest answer: nothing on that sheet has a
+ * ground size yet either.
+ *
+ * ⚠️ What does NOT cross: the position — that flips the anchor instead (applyDocToObjects) — and
+ * `noteW`. A note's width is deliberately per-surface (`noteW` is screen px, `wN` a fraction of
+ * the plan width); it survives a re-bake through BAKE_PRESERVED instead.
  */
-function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Drawing }): BoardAnno {
+function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Drawing }, plan?: PlanFit): BoardAnno {
   const { entity, drawing } = body
+  const widthM = plan ? planGroundWidthM(plan.fit, plan.aspect) : undefined
+  /** a metre length as a fraction of the sheet's ground width — absent without a fit */
+  const asN = (m: number | undefined) => (m != null && widthM ? m / widthM : undefined)
   if (entity) {
     const shared = entitySharedProps(entity)
     if (anno.kind === 'text') return { ...anno, ...shared, text: entity.label, storey: entity.floor }
     // the chip's name lives in `text`, and truppId/`t` are map-only for a SYMBOL but are the
-    // shared identity of a team marker — which is the one kind that carries them
-    if (anno.kind === 'resource') return { ...anno, ...shared, text: entity.label, truppId: entity.truppId, t: entity.t }
-    return { ...anno, ...shared, storey: entity.floor }
+    // shared identity of a team marker — which is the one kind that carries them. Its recorded
+    // breadcrumbs are part of the incident record, so they come back through the fit too.
+    if (anno.kind === 'resource') {
+      const trail = plan && entity.trail
+        ? entity.trail.map(({ coord, t }) => { const p = plan.fit.toPlan({ lng: coord[0], lat: coord[1] }); return { x: p.x, y: p.y, t } })
+        : anno.trail
+      return { ...anno, ...shared, text: entity.label, truppId: entity.truppId, t: entity.t, trail }
+    }
+    if (anno.kind === 'shape') return { ...anno, ...shared, storey: entity.floor, ...(asN(entity.sizeM) != null ? { sizeN: asN(entity.sizeM) } : null) }
+    return { ...anno, ...shared, storey: entity.floor, ...(asN(entity.reachM) != null ? { reachN: asN(entity.reachM) } : null) }
   }
   if (drawing) {
-    if (anno.kind === 'circle') return { ...anno, ...pick(drawing, SHARED_CIRCLE_PROPS) }
+    if (anno.kind === 'circle') {
+      return { ...anno, ...pick(drawing, SHARED_CIRCLE_PROPS), ...(asN(drawing.radiusM) != null ? { radiusN: asN(drawing.radiusM) } : null) }
+    }
     return { ...anno, ...pick(drawing, SHARED_PATH_PROPS) }
   }
   return anno
@@ -363,7 +408,11 @@ function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Dr
  * Geo-anchored objects are replaced wholesale by the document, absence meaning deletion, as
  * before. Sheet-anchored records keep their store order; new map objects append.
  */
-export function applyDocToObjects(objects: TacticalObject[], doc: { entities: Entity[]; drawings: Drawing[] }): TacticalObject[] {
+export function applyDocToObjects(
+  objects: TacticalObject[],
+  doc: { entities: Entity[]; drawings: Drawing[] },
+  fits?: ReadonlyMap<string, PlanFit>,
+): TacticalObject[] {
   const entities = new Map(doc.entities.filter((e) => !e.live).map((e) => [e.id, e])) // live overlays are derived, never records
   const drawings = new Map(doc.drawings.map((d) => [d.id, d]))
   const next: TacticalObject[] = []
@@ -380,7 +429,7 @@ export function applyDocToObjects(objects: TacticalObject[], doc: { entities: En
     }
     const body = entity ? { entity } : { drawing }
     if (movedOnMap(o, body)) next.push({ id: o.id, ...body })
-    else next.push({ ...o, entity: undefined, drawing: undefined, ...body, sheet: { ...o.sheet, anno: annoAfterMapEdit(o.sheet.anno, body) } })
+    else next.push({ ...o, entity: undefined, drawing: undefined, ...body, sheet: { ...o.sheet, anno: annoAfterMapEdit(o.sheet.anno, body, fits?.get(o.sheet.planId)) } })
   }
   for (const e of entities.values()) if (!sheetIds.has(e.id)) next.push({ id: e.id, entity: e })
   for (const d of drawings.values()) if (!sheetIds.has(d.id)) next.push({ id: d.id, drawing: d })
