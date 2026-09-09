@@ -79,6 +79,151 @@ export function Field({ label, hint, tip, children }: {
   )
 }
 
+/* ── the settings table ──────────────────────────────────────────────────────────────────────
+   The Station pages are a LIST OF SETTINGS, and they were laid out as a stack of two-up form
+   rows where every field carried a paragraph of prose under it. Fourteen doctrine numbers came
+   to nearly three screens, and «what is the Alarmdruck here» meant scrolling past the answer.
+
+   These four primitives are that same page as one strict table: Einstellung | Wert | Standard |
+   ⓘ, one row per setting, uppercase group dividers, and the prose moved verbatim into the row's
+   ⓘ (InfoTip — hover on a desktop, tap on an iPad, no layout shift either way).
+
+   ⚠️ A GRID, NOT A <table>. A setting's label has to wrap its control to stay associated with
+   it — that is what keeps every call site free of an id and `getByLabelText` working — and a
+   <label> cannot span two <td>s. So each row is a `display: contents` <label> whose cells become
+   the grid's own items. Same columns, same hairlines, association intact. Its cells therefore
+   carry the row's borders and hover themselves (a `display: contents` box paints nothing).   */
+
+/** One page's settings, as the strict table. `title`/`caption`/`tip` are the card head; a
+ *  single-sheet page leans on the page head instead and passes none of them. */
+export function SettingsSheet({ id, title, caption, tip, children }: {
+  id?: string
+  title?: string
+  caption?: string
+  tip?: string
+  children: ReactNode
+}) {
+  const C = appConfig.copy.admin.common
+  return (
+    <section className="adm-card adm-sheet" id={id}>
+      {(title || caption) && (
+        <header className="adm-card-head">
+          {title && (
+            <h2 className="adm-card-title">
+              {title}
+              {tip && <InfoTip label={title} text={tip} />}
+            </h2>
+          )}
+          {caption && <p className="adm-card-cap">{caption}</p>}
+        </header>
+      )}
+      <div className="adm-settings">
+        <div className="adm-set-head">
+          <span className="adm-set-h">{C.colSetting}</span>
+          <span className="adm-set-h">{C.colValue}</span>
+          <span className="adm-set-h adm-set-h-std">{C.colStandard}</span>
+          <span className="adm-set-h adm-set-h-info" aria-label={C.colInfo}>ⓘ</span>
+        </div>
+        {children}
+      </div>
+    </section>
+  )
+}
+
+/** A divider row inside a sheet — the uppercase group heading (Funk · Atemschutz – Druck …).
+ *  `tip` is where a group's own explanation goes, which is most of the prose this table
+ *  replaced: it explained the GROUP, not any one field in it. */
+export function SettingsGroup({ title, tip, action }: {
+  title: string
+  tip?: string
+  /** the row's own control, right-aligned in the divider — a list editor's delete bin. This is
+   *  what lets ONE RECORD of a list editor (an Alarmgruppe, a Fahrzeug, ein Formular) be a
+   *  divider plus its fields as rows, instead of a card floating inside a table. */
+  action?: ReactNode
+}) {
+  return (
+    <p className="adm-set-grp">
+      {title}
+      {tip && <InfoTip label={title} text={tip} />}
+      {action && <span className="adm-set-grp-act">{action}</span>}
+    </p>
+  )
+}
+
+/** A full-width row for what is not a setting: a validation message, a worked example, an offer,
+ *  or a list editor that owns its own shape (Alarmgruppen, Fahrzeuge, Formulare & Links).
+ *  `tone='warn'` is the amber «noch nicht gespeichert» band. */
+export function SettingsNote({ tone, children }: { tone?: 'warn'; children: ReactNode }) {
+  return <div className={`adm-set-note${tone === 'warn' ? ' warn' : ''}`}>{children}</div>
+}
+
+/** Value + shipped default in the one form the Standard column prints them in. A boolean is a
+ *  Ja/Nein there, because «true» is not a word anybody set. */
+function readable(v: string | number | boolean): string {
+  const C = appConfig.copy.admin.common
+  return typeof v === 'boolean' ? (v ? C.standardOn : C.standardOff) : String(v)
+}
+
+/**
+ * The Standard column's cell: «Standard 100 · geändert», or null when there is nothing to say.
+ *
+ * ⚠️ The column is EMPTY on most rows on purpose. It answers one question — «is this still what
+ * ships?» — so it speaks only when the answer is no. Printing «Standard 100» on every row would
+ * put the wall of text back, one column to the right. Two cases are silence, not omission:
+ * an unset value (the document stores nothing, so the setting IS running on the default), and a
+ * setting with no default a reader could act on (a station's own map centre, its Kommandant).
+ */
+export function standardNote(
+  current: string | number | boolean | null | undefined,
+  standard: string | number | boolean | null | undefined,
+): string | null {
+  if (current == null || current === '' || standard == null) return null
+  if (readable(current) === readable(standard)) return null
+  return fillTemplate(appConfig.copy.admin.common.standardChanged, { value: readable(standard) })
+}
+
+/**
+ * One setting: label | control | Standard | ⓘ.
+ *
+ * Two widenings, for controls a 240px column would either squash or hide:
+ *   · `span` keeps the row a row and lets the control take the Wert AND Standard columns,
+ *     wrapping inside them. For swatch rows and chip lists, which used to scroll sideways —
+ *     and a control that scrolls to hide half of itself is a control nobody knows the rest of.
+ *   · `stack` puts the control on its own full-width line under the label. For a textarea.
+ * Both change the cell ORDER, because the grid places by source order.
+ */
+export function SettingRow({ label, hint, tip, standard, stack, span, children }: {
+  label: string
+  /** the rare qualifier that belongs ON the label rather than in the ⓘ */
+  hint?: string
+  /** the explanation, verbatim from the copy catalogue — this is where the prose went */
+  tip?: string
+  /** `standardNote(…)`, or null while the value is the shipped default */
+  standard?: string | null
+  stack?: boolean
+  span?: boolean
+  children: ReactNode
+}) {
+  const lbl = (
+    <span className="adm-set-lbl" key="lbl">
+      <span className="adm-set-name">{label}</span>
+      {hint && <span className="adm-field-hint">{hint}</span>}
+    </span>
+  )
+  const ctl = <span className="adm-set-ctl" key="ctl">{children}</span>
+  const std = <span className="adm-set-std" key="std">{standard}</span>
+  const info = (
+    <span className="adm-set-info" key="info">
+      {tip && <InfoTip label={label} text={tip} />}
+    </span>
+  )
+  return (
+    <label className={`adm-set-row${stack ? ' stack' : ''}${span ? ' span' : ''}`}>
+      {stack ? [lbl, std, info, ctl] : [lbl, ctl, std, info]}
+    </label>
+  )
+}
+
 /** Status pill: tone drives the dot + text colour. */
 export function StatusBadge({ tone, label, state }: {
   tone: 'on' | 'off' | 'warn' | 'err'

@@ -10,16 +10,115 @@
 // Überwachungstafel of the running Einsatz). Same trio each, on their own keys — rotating one
 // never touches the others.
 //
-// The first two cards are the shared secret-token card (admin/ui · useSecret + SecretCard);
-// the Atemschutz card is its own markup because it hangs a printable QR card (A5 PDF, lazy
-// jsPDF chunk — see standingAsPdf) between the rows, like the Erfassungs-Poster does.
+// The page is ONE settings sheet (admin/ui · «the settings table»): three group dividers, one
+// per surface, each carrying its own prose in the divider's ⓘ and a single row saying whether
+// its key exists. Everything that is not a setting — the freshly minted value, the link shape
+// the other system needs, the actions — follows as full-width notes. The shared `SecretCard`
+// (still the Statistik-Export's card) is a Card and could not be a row of that table, so this
+// view lays the same three parts out itself.
 
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { Card, ConfirmButton, CopyChip, ResultChip, SecretCard, StatusBadge, useSecret } from './ui'
+import {
+  ConfirmButton, CopyChip, ResultChip, SettingRow, SettingsGroup, SettingsNote, SettingsSheet,
+  StatusBadge, useSecret, type SecretApi,
+} from './ui'
 
 const standingAsUrl = (token: string) => `${window.location.origin}/l/s${token}`
 const terminalEnrollUrl = (token: string) => `${window.location.origin}/l/t${token}`
+
+/** What one of the three surfaces says about itself. The same keys the shared `SecretCard`
+ *  reads, minus the ones only a card head used — `body` and `hint` are now the two ⓘ. */
+interface LinkSecretCopy {
+  body: string
+  stateLabel: string
+  stateOn: string
+  stateOff: string
+  keyLabel: string
+  exampleLabel: string
+  docsLink: string
+  enableBtn: string
+  rotateBtn: string
+  rotateMsg: string
+  disableBtn: string
+  disableMsg: string
+  hint: string
+}
+
+/**
+ * One secret surface as rows of the settings sheet.
+ *
+ * ⚠️ Returns a Fragment, never a wrapper element: `.adm-settings` is a CSS grid whose rows are
+ * `display: contents`, so a <div> around them would take every cell out of the table's columns.
+ */
+function SecretRows({ secret, copy, docsUrl, example, showKey, print }: {
+  secret: SecretApi
+  copy: LinkSecretCopy
+  docsUrl: string
+  /** the one line the other system needs, built around the freshly minted value */
+  example: (token: string) => string
+  /** the Einsatz-Link hands out the KEY itself (the alerting system signs with it); the two
+   *  standing links only ever hand out the URL that carries theirs */
+  showKey?: boolean
+  /** the fixe Atemschutz-URL hangs its printable QR card in the action row */
+  print?: { label: string; run: () => void }
+}) {
+  const { state, busy, result, clearResult, rotate, disable } = secret
+  if (state === null) return null
+  return (
+    <>
+      <SettingsGroup title={copy.stateLabel} tip={copy.body} />
+      {/* The badge carries no label of its own here — the row's Einstellung column already
+          names it, and the divider above names the surface. */}
+      <SettingRow label={copy.keyLabel} tip={copy.hint}>
+        <StatusBadge
+          tone={state.configured ? 'on' : 'off'}
+          label=""
+          state={state.configured ? copy.stateOn : copy.stateOff}
+        />
+      </SettingRow>
+      {state.token && showKey && (
+        <SettingsNote>
+          <CopyChip value={state.token} display={`${copy.keyLabel}: ${state.token}`} />
+        </SettingsNote>
+      )}
+      {state.token && (
+        <SettingsNote>
+          <div className="adm-cap-example">
+            <p className="adm-card-cap">
+              {copy.exampleLabel} — <a href={docsUrl} target="_blank" rel="noreferrer">{copy.docsLink}</a>
+            </p>
+            <CopyChip value={example(state.token)} />
+          </div>
+        </SettingsNote>
+      )}
+      <SettingsNote>
+        <div className="adm-actions">
+          {state.configured ? (
+            <>
+              {print && (
+                <button type="button" className="btn adm-save-btn" disabled={busy} onClick={print.run}>
+                  {print.label}
+                </button>
+              )}
+              {/* the primary slot belongs to whatever is the useful action here: printing the
+                  card where there is one to print, rotating where there is not */}
+              <ConfirmButton label={copy.rotateBtn} question={copy.rotateMsg} primary={!print}
+                disabled={busy} onConfirm={() => void rotate()} />
+              <ConfirmButton label={copy.disableBtn} question={copy.disableMsg} danger
+                disabled={busy} onConfirm={() => void disable()} />
+            </>
+          ) : (
+            <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => void rotate()}>
+              {copy.enableBtn}
+            </button>
+          )}
+          {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
+        </div>
+      </SettingsNote>
+    </>
+  )
+}
 
 export function IncidentLinkAdminView() {
   const C = appConfig.copy.admin.einsatzlink
@@ -39,54 +138,28 @@ export function IncidentLinkAdminView() {
     } catch { standing.report('err', A.printFailed) }
   }
 
+  const docsUrl = `${D.repo}${D.incidentLink}`
+
   return (
-    <>
-      <SecretCard
+    <SettingsSheet>
+      <SecretRows
         secret={secret}
         // this surface calls the value a Schlüssel, not a Token — it signs, it does not authenticate
-        copy={{ ...C, tokenLabel: C.keyLabel }}
-        docsUrl={`${D.repo}${D.incidentLink}`}
+        copy={C}
+        docsUrl={docsUrl}
+        showKey
         // The URL shape the alerting system composes around its own signed token — the one thing
         // besides the key an operator has to type into the other system.
         example={() => `${window.location.origin}/l/<token>`}
       />
-
-      <SecretCard
-        secret={terminal}
-        copy={{ ...T, tokenLabel: T.keyLabel }}
-        docsUrl={`${D.repo}${D.incidentLink}`}
-        example={terminalEnrollUrl}
+      <SecretRows secret={terminal} copy={T} docsUrl={docsUrl} showKey example={terminalEnrollUrl} />
+      <SecretRows
+        secret={standing}
+        copy={A}
+        docsUrl={docsUrl}
+        example={standingAsUrl}
+        print={{ label: A.printBtn, run: () => void printCard() }}
       />
-
-      {standing.state !== null && (
-        <Card>
-          <p className="adm-card-cap">{A.body}</p>
-          <div className="adm-cap-rows">
-            <div className="adm-cap-status">
-              <StatusBadge tone={standing.state.configured ? 'on' : 'off'} label={A.stateLabel} state={standing.state.configured ? A.stateOn : A.stateOff} />
-            </div>
-            {standing.state.token && (
-              <div className="adm-cap-example">
-                <p className="adm-card-cap">{A.exampleLabel} — <a href={`${D.repo}${D.incidentLink}`} target="_blank" rel="noreferrer">{A.docsLink}</a></p>
-                <CopyChip value={standingAsUrl(standing.state.token)} />
-              </div>
-            )}
-          </div>
-          <div className="adm-actions">
-            {standing.state.configured ? (
-              <>
-                <button type="button" className="btn adm-save-btn" disabled={standing.busy} onClick={() => void printCard()}>{A.printBtn}</button>
-                <ConfirmButton label={A.rotateBtn} question={A.rotateMsg} disabled={standing.busy} onConfirm={() => void standing.rotate()} />
-                <ConfirmButton label={A.disableBtn} question={A.disableMsg} danger disabled={standing.busy} onConfirm={() => void standing.disable()} />
-              </>
-            ) : (
-              <button type="button" className="btn adm-save-btn" disabled={standing.busy} onClick={() => void standing.rotate()}>{A.enableBtn}</button>
-            )}
-            {standing.result && <ResultChip tone={standing.result.tone} onExpire={standing.clearResult}>{standing.result.text}</ResultChip>}
-          </div>
-          <p className="adm-card-cap">{A.hint}</p>
-        </Card>
-      )}
-    </>
+    </SettingsSheet>
   )
 }

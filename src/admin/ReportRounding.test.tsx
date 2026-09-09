@@ -133,10 +133,18 @@ describe('Rundung — a station that counts whole hours sets it here', () => {
 
   it('keeps the worked example on the STORED rule while a typed one is refused', async () => {
     await open()
-    const before = screen.getByText(new RegExp(R.example)).closest('.adm-field')?.textContent
+    // ⚠️ `.adm-set-row`, the settings-table row — NOT the old `.adm-field`, which no longer
+    // exists here and made `closest()` return null: the assertion then compared undefined to
+    // undefined and passed no matter what the example said.
+    const example = () => {
+      const row = screen.getByText(new RegExp(R.example)).closest('.adm-set-row')
+      expect(row).toBeTruthy()
+      return row?.textContent
+    }
+    const before = example()
     await type(nums()[0], '')
     await settle()
-    expect(screen.getByText(new RegExp(R.example)).closest('.adm-field')?.textContent).toBe(before)
+    expect(example()).toBe(before)
   })
 })
 

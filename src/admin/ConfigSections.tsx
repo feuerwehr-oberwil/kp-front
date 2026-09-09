@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from '../lib/deploymentConfig'
 import { legacyFleetToAttributeLists, DEFAULT_MODULES } from '../lib/deploymentConfig'
 import { listReference, listObjects, type ReferenceDataset, type ObjectWithPlans } from '../lib/incidents'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, uploadReference } from '../lib/api/reference'
 import { ApiError, apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
-import { Card, ConfirmButton, Field, NameCombo, Offer, Select, fmtDate } from './ui'
+// No `Field` any more: every setting on these pages is a row of the settings table now, and
+// the list editors' records are a divider plus their fields as rows of the same grid.
+import {
+  Card, ConfirmButton, NameCombo, Offer, Select, SettingRow, SettingsGroup, SettingsNote,
+  SettingsSheet, fmtDate, standardNote,
+} from './ui'
 import { AVAILABLE_LOCALES } from '../config/copy'
 import { ReferenceLayersViewer } from './ReferenceLayersViewer'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
@@ -113,6 +118,10 @@ function useNumberField() {
     placeholder?: string
     /** a section with its own wording for the refusal (Alarme & Einsätze) */
     message?: string
+    /** what the Standard column names when the stored value deviates from it. Defaults to
+     *  `fallback`; a field whose default is not one of those (Rapport: a schema default the GET
+     *  projection always fills in) passes it here. */
+    standard?: number
     /** Keep coupled fields valid when this accepted value changes their meaning. */
     onAccepted?: (value: number | null) => void
   }) {
@@ -120,9 +129,12 @@ function useNumberField() {
     const stored = numStr(getPath<number>(draft, opts.path) ?? opts.fallback)
     const text = editing[key] ?? stored
     const value = guardedNumber(text, opts.guard)
+    // ⚠️ The DOCUMENT's value, not `text`: a half-typed number is not a deviation yet, and the
+    // Standard column must not flicker on every keystroke.
+    const standard = standardNote(getPath<number>(draft, opts.path), opts.standard ?? opts.fallback)
     return (
-      <div key={key}>
-        <Field label={opts.label} tip={opts.tip}>
+      <Fragment key={key}>
+        <SettingRow label={opts.label} tip={opts.tip} standard={standard}>
           <input
             className="adm-input adm-input-mono"
             type="number"
@@ -142,11 +154,11 @@ function useNumberField() {
               // else: the stored number stays as it is, and the warning below says why
             }}
           />
-        </Field>
+        </SettingRow>
         {value === undefined && (
-          <p className="adm-hint adm-formlink-warn">{opts.message ?? guardMessage(opts.guard)}</p>
+          <SettingsNote tone="warn">{opts.message ?? guardMessage(opts.guard)}</SettingsNote>
         )}
-      </div>
+      </Fragment>
     )
   }
 }
@@ -216,7 +228,11 @@ export function AccentColorField() {
   }
 
   return (
-    <Field label={C.accentColor} hint={C.accentColorHint} tip={C.accentColorTip}>
+    <>
+    <SettingRow
+      label={C.accentColor} hint={C.accentColorHint} tip={C.accentColorTip}
+      standard={standardNote(stored, DEFAULT_ACCENT)}
+    >
       <div className="adm-color-row">
         <input
           className="adm-color-swatch"
@@ -236,8 +252,9 @@ export function AccentColorField() {
           aria-invalid={problem ? true : undefined}
         />
       </div>
-      {problem && <p className="adm-hint adm-formlink-warn">{problem}</p>}
-    </Field>
+    </SettingRow>
+    {problem && <SettingsNote tone="warn">{problem}</SettingsNote>}
+    </>
   )
 }
 
@@ -290,54 +307,47 @@ export function IdentitySection() {
   ]
   return (
     <>
-    <Card>
-      <div className="adm-row-2">
-        <Field label={C.appName} tip={C.appNameTip}>
-          <input
-            className="adm-input"
-            type="text"
-            value={getPath<string>(draft, ['identity', 'appName']) ?? ''}
-            onChange={(e) => set(['identity', 'appName'], e.target.value || null)}
-            placeholder="KP Front"
-          />
-        </Field>
-        <AccentColorField />
-      </div>
-      <div className="adm-row-2">
-        <Field
-          label={C.language}
-          hint={C.languageHint}
-          tip={C.languageTip}
-        >
-          <Select
-            value={localeChoice}
-            onChange={(v) => set(['identity', 'locale'], v || null)}
-            options={localeOptions}
-            ariaLabel={C.pickLanguage}
-          />
-        </Field>
-        {/* ⚠️ The Personalstamm first, free text last (04.09., Rapport-Review). Typed by hand
-            this became «Paul Hauptmann» on a Rapport whose Einsatzleiter read «Hauptmann Paul» —
-            the same person in two orders, because every other name on that sheet comes from the
-            roster and this one did not. Picking from the list makes the order unavailable and
-            carries a Kommandantenwechsel along; typing still works, for the station that has no
-            roster loaded yet and for a Kommandant who is not in this one's list. */}
-        <Field label={C.kommandant} tip={C.kommandantTip}>
-          <NameCombo
-            value={getPath<string>(draft, ['identity', 'kommandant']) ?? ''}
-            onChange={(v) => set(['identity', 'kommandant'], v || null)}
-            options={rosterNames}
-            placeholder={C.kommandantPlaceholder}
-            ariaLabel={C.kommandant}
-          />
-        </Field>
-      </div>
+    <SettingsSheet>
+      <SettingRow label={C.appName} tip={C.appNameTip}>
+        <input
+          className="adm-input"
+          type="text"
+          value={getPath<string>(draft, ['identity', 'appName']) ?? ''}
+          onChange={(e) => set(['identity', 'appName'], e.target.value || null)}
+          placeholder="KP Front"
+        />
+      </SettingRow>
+      <AccentColorField />
+      <SettingRow label={C.language} hint={C.languageHint} tip={C.languageTip}>
+        <Select
+          value={localeChoice}
+          onChange={(v) => set(['identity', 'locale'], v || null)}
+          options={localeOptions}
+          ariaLabel={C.pickLanguage}
+        />
+      </SettingRow>
+      {/* ⚠️ The Personalstamm first, free text last (04.09., Rapport-Review). Typed by hand
+          this became «Paul Hauptmann» on a Rapport whose Einsatzleiter read «Hauptmann Paul» —
+          the same person in two orders, because every other name on that sheet comes from the
+          roster and this one did not. Picking from the list makes the order unavailable and
+          carries a Kommandantenwechsel along; typing still works, for the station that has no
+          roster loaded yet and for a Kommandant who is not in this one's list. */}
+      <SettingRow label={C.kommandant} tip={C.kommandantTip}>
+        <NameCombo
+          value={getPath<string>(draft, ['identity', 'kommandant']) ?? ''}
+          onChange={(v) => set(['identity', 'kommandant'], v || null)}
+          options={rosterNames}
+          placeholder={C.kommandantPlaceholder}
+          ariaLabel={C.kommandant}
+        />
+      </SettingRow>
       {/* The first paragraph of «Was kann KP Front?» — the one text every new AdF reads, and
           until now the only way to write it was a JSON file and a terminal. Free text: the API
           takes any string (schemas.py · IdentityConfig.helpIntro), so there is nothing to hold
           back and nothing that can 422 the rest of the document. The placeholder is the
-          SHIPPED text, not an invented example, so «leer heisst das hier» is readable. */}
-      <Field label={C.helpIntro} tip={C.helpIntroTip}>
+          SHIPPED text, not an invented example, so «leer heisst das hier» is readable.
+          `stack`: four rows of prose do not belong in a 240px column. */}
+      <SettingRow label={C.helpIntro} tip={C.helpIntroTip} stack>
         <textarea
           className="adm-input adm-textarea"
           rows={4}
@@ -345,15 +355,17 @@ export function IdentitySection() {
           placeholder={appConfig.copy.help.introFallback}
           onChange={(e) => set(['identity', 'helpIntro'], e.target.value || null)}
         />
-      </Field>
+      </SettingRow>
       {/* ⚠️ `applyServerAssets`, NOT a full re-seed: the upload endpoint answers with the whole
           document, and adopting it threw away everything typed on this page but not yet saved
           (see ConfigContext · applyServerAssets). */}
-      <BrandingFields
-        assets={getPath<DeploymentConfig['identity']>(draft ?? {}, ['identity'])?.assets}
-        onApplied={applyServerAssets}
-      />
-    </Card>
+      <SettingsNote>
+        <BrandingFields
+          assets={getPath<DeploymentConfig['identity']>(draft ?? {}, ['identity'])?.assets}
+          onApplied={applyServerAssets}
+        />
+      </SettingsNote>
+    </SettingsSheet>
     <MapSection />
     </>
   )
@@ -466,43 +478,43 @@ export function MapSection() {
 
   return (
     <>
-    <Card title={appConfig.copy.admin.nav.karte.title}>
-      <Field label={C.crs} tip={C.crsTip}>
+    <SettingsSheet title={appConfig.copy.admin.nav.karte.title}>
+      <SettingRow label={C.crs} tip={C.crsTip}>
         <Select
           value={crs}
           onChange={(v) => switchCrs(v as CenterCrs)}
           options={[{ value: 'wgs84', label: C.crsWgs84 }, { value: 'lv95', label: C.crsLv95 }]}
           ariaLabel={C.pickCrs}
         />
-      </Field>
-      <div className="adm-row-2">
-        <Field
-          label={crs === 'lv95' ? C.centerE : C.centerLon}
-          tip={crs === 'lv95' ? C.centerETip : C.centerLonTip}
-        >
-          <input
-            className="adm-input adm-input-mono"
-            type="number"
-            step="any"
-            value={pair.a}
-            onChange={(e) => write({ ...pair, a: e.target.value })}
-          />
-        </Field>
-        <Field
-          label={crs === 'lv95' ? C.centerN : C.centerLat}
-          tip={crs === 'lv95' ? C.centerNTip : C.centerLatTip}
-        >
-          <input
-            className="adm-input adm-input-mono"
-            type="number"
-            step="any"
-            value={pair.b}
-            onChange={(e) => write({ ...pair, b: e.target.value })}
-          />
-        </Field>
-      </div>
-      {problem && <p className="adm-hint adm-formlink-warn">{problem}</p>}
-      <Field label={C.zoom} tip={C.zoomTip}>
+      </SettingRow>
+      {/* ⚠️ Two rows, ONE value — see the doc comment above. Neither box has a «Standard»: a
+          station's own map centre is not a value anything ships. */}
+      <SettingRow
+        label={crs === 'lv95' ? C.centerE : C.centerLon}
+        tip={crs === 'lv95' ? C.centerETip : C.centerLonTip}
+      >
+        <input
+          className="adm-input adm-input-mono"
+          type="number"
+          step="any"
+          value={pair.a}
+          onChange={(e) => write({ ...pair, a: e.target.value })}
+        />
+      </SettingRow>
+      <SettingRow
+        label={crs === 'lv95' ? C.centerN : C.centerLat}
+        tip={crs === 'lv95' ? C.centerNTip : C.centerLatTip}
+      >
+        <input
+          className="adm-input adm-input-mono"
+          type="number"
+          step="any"
+          value={pair.b}
+          onChange={(e) => write({ ...pair, b: e.target.value })}
+        />
+      </SettingRow>
+      {problem && <SettingsNote tone="warn">{problem}</SettingsNote>}
+      <SettingRow label={C.zoom} tip={C.zoomTip}>
         <input
           className="adm-input adm-input-mono"
           type="number"
@@ -510,8 +522,8 @@ export function MapSection() {
           value={numStr(getPath<number>(draft, ['map', 'defaultView', 'zoom']))}
           onChange={(e) => set(['map', 'defaultView', 'zoom'], numOrNull(e.target.value))}
         />
-      </Field>
-    </Card>
+      </SettingRow>
+    </SettingsSheet>
     <GeocoderCard centre={centreWgs84} />
     <ExternalLinksCard centre={centreWgs84} />
     </>
@@ -585,9 +597,9 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
   const offer = derived && text.trim() === '' && !dismissed
 
   return (
-    <Card title={C.groupGeocoder}>
-      <p className="adm-hint">{C.geocoderTip}</p>
+    <SettingsSheet title={C.groupGeocoder} tip={C.geocoderTip}>
       {offer && (
+        <SettingsNote>
         <Offer
           tone="blue" icon="locate"
           title={C.bboxOfferTitle} body={C.bboxOfferBody} preview={derived}
@@ -599,8 +611,9 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
             {C.bboxOfferDismiss}
           </button>
         </Offer>
+        </SettingsNote>
       )}
-      <Field label={C.locality} tip={C.localityTip}>
+      <SettingRow label={C.locality} tip={C.localityTip}>
         <input
           className="adm-input"
           type="text"
@@ -608,8 +621,8 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
           placeholder={C.localityPlaceholder}
           onChange={(e) => set(['map', 'geocoder', 'defaultLocality'], e.target.value || null)}
         />
-      </Field>
-      <Field label={C.bbox} tip={C.bboxTip}>
+      </SettingRow>
+      <SettingRow label={C.bbox} tip={C.bboxTip}>
         <input
           className="adm-input adm-input-mono"
           type="text"
@@ -618,16 +631,18 @@ function GeocoderCard({ centre }: { centre: [number, number] | null }) {
           aria-invalid={problem ? true : undefined}
           onChange={(e) => writeBbox(e.target.value)}
         />
-      </Field>
-      {problem && <p className="adm-hint adm-formlink-warn">{problem}</p>}
-      <button
-        type="button" className="adm-formlink-add" disabled={!centre}
-        title={centre ? undefined : C.bboxFromCenterHint}
-        onClick={fromCentre}
-      >
-        <Icon id="locate" />{C.bboxFromCenter}
-      </button>
-    </Card>
+      </SettingRow>
+      {problem && <SettingsNote tone="warn">{problem}</SettingsNote>}
+      <SettingsNote>
+        <button
+          type="button" className="adm-formlink-add" disabled={!centre}
+          title={centre ? undefined : C.bboxFromCenterHint}
+          onClick={fromCentre}
+        >
+          <Icon id="locate" />{C.bboxFromCenter}
+        </button>
+      </SettingsNote>
+    </SettingsSheet>
   )
 }
 
@@ -686,45 +701,52 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
   }
 
   return (
-    <Card title={C.groupExternal}>
-      <p className="adm-hint">{C.externalTip}</p>
+    /* A list editor, not a list of settings: every row is a whole record with its own token
+       chips and preview, so it keeps its `.adm-formlink` shape and rides in one full-width
+       note. The card's own explanation moved into the head's ⓘ like everywhere else. */
+    <SettingsSheet title={C.groupExternal} tip={C.externalTip}>
       {rows.map((row, i) => {
         const preview = resolve(row.urlTemplate ?? '')
         return (
           // index key: an external link has no id of its own, and every value in the row is
           // controlled from `rows` anyway
           <div className="adm-formlink" key={i}>
-            <div className="adm-formlink-head">
-              <Field label={C.extLabel}>
-                <input
-                  className="adm-input" type="text" value={row.label ?? ''}
-                  placeholder={C.extLabelPlaceholder}
-                  onChange={(e) => patch(i, { label: e.target.value })}
-                />
-              </Field>
-              <button
-                type="button" className="adm-formlink-x" title={C.extRemove} aria-label={C.extRemove}
-                onClick={() => write(rows.filter((_, j) => j !== i))}
-              >
-                <Icon id="trash" />
-              </button>
-            </div>
-            <Field label={C.extUrl} tip={C.extUrlTip}>
-              <textarea
-                className="adm-input adm-input-mono adm-formlink-url" rows={3}
-                value={row.urlTemplate ?? ''} placeholder={C.extUrlPlaceholder} data-row={i}
-                onFocus={(e) => { urlRef.current = e.currentTarget }}
-                onChange={(e) => patch(i, { urlTemplate: e.target.value })}
-              />
-            </Field>
-            <div className="adm-formlink-tokens" role="group" aria-label={C.extTokens}>
-              {['E', 'N', 'lng', 'lat'].map((t) => (
-                <button type="button" key={t} className="adm-token" onClick={() => insertToken(i, t)}>
-                  {`{${t}}`}
+            <SettingsGroup
+              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+              action={(
+                <button
+                  type="button" className="adm-formlink-x" title={C.extRemove} aria-label={C.extRemove}
+                  onClick={() => write(rows.filter((_, j) => j !== i))}
+                >
+                  <Icon id="trash" />
                 </button>
-              ))}
-            </div>
-            <Field label={C.extPreview}>
+              )}
+            />
+            <SettingRow label={C.extLabel}>
+              <input
+                className="adm-input" type="text" value={row.label ?? ''}
+                placeholder={C.extLabelPlaceholder}
+                onChange={(e) => patch(i, { label: e.target.value })}
+              />
+            </SettingRow>
+            <SettingRow label={C.extUrl} tip={C.extUrlTip} stack>
+              <>
+                <textarea
+                  className="adm-input adm-input-mono adm-formlink-url" rows={3}
+                  value={row.urlTemplate ?? ''} placeholder={C.extUrlPlaceholder} data-row={i}
+                  onFocus={(e) => { urlRef.current = e.currentTarget }}
+                  onChange={(e) => patch(i, { urlTemplate: e.target.value })}
+                />
+                <span className="adm-formlink-tokens" role="group" aria-label={C.extTokens}>
+                  {['E', 'N', 'lng', 'lat'].map((t) => (
+                    <button type="button" key={t} className="adm-token" onClick={() => insertToken(i, t)}>
+                      {`{${t}}`}
+                    </button>
+                  ))}
+                </span>
+              </>
+            </SettingRow>
+            <SettingRow label={C.extPreview} stack>
               {isOpenableUrl(preview) && !!row.label?.trim()
                 ? <p className="adm-formlink-preview">{preview}</p>
                 : (
@@ -732,21 +754,35 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
                     {row.label?.trim() ? C.extNoUrl : C.extNoTitle}
                   </p>
                 )}
-            </Field>
+            </SettingRow>
           </div>
         )
       })}
-      <button
-        type="button" className="adm-formlink-add"
-        onClick={() => write([...rows, { label: '', urlTemplate: '' }])}
-      >
-        <Icon id="plus" />{C.extAdd}
-      </button>
-    </Card>
+      <SettingsNote>
+        <button
+          type="button" className="adm-formlink-add"
+          onClick={() => write([...rows, { label: '', urlTemplate: '' }])}
+        >
+          <Icon id="plus" />{C.extAdd}
+        </button>
+      </SettingsNote>
+    </SettingsSheet>
   )
 }
 
-export function JournalSection() {
+/**
+ * Textbausteine für den Verlauf — a GROUP on the Rapport page, not a page of its own.
+ *
+ * It was one setting behind its own nav entry, its own sheet head and its own column header,
+ * with the sheet title and the row label both reading «Textbausteine»: three headings and a
+ * navigation stop for a single textarea. It sits under Rapport because that is where the same
+ * question already lives — what this Wehr's own wording does to the record it leaves behind:
+ * the Verlauf these phrases write IS what the Rapport prints.
+ *
+ * ⚠️ The nav entry went with it (AdminShell · NAV), and a device that still remembers
+ * `adminSection: 'journal'` is redirected to Rapport rather than dumped on the default page.
+ */
+function JournalGroup() {
   const { draft, set } = useConfig()
   const C = appConfig.copy.admin.journal
   // Empty deployment config means the national defaults are effective. Seed the textarea
@@ -765,8 +801,11 @@ export function JournalSection() {
     el.style.height = `${Math.min(el.scrollHeight, Math.round(window.innerHeight * 0.72))}px`
   }, [raw])
   return (
-    <Card title={C.quickPhrases} caption={C.quickPhrasesTip}>
-      <Field label={C.quickPhrases} tip={C.quickPhrasesTip}>
+    <>
+      {/* The group carries the explanation; the row below it is a page of text, so it stacks
+          its control rather than pretending a 240px column could hold sixty Textbausteine. */}
+      <SettingsGroup title={C.quickPhrases} tip={C.quickPhrasesTip} />
+      <SettingRow label={C.quickPhrases} stack>
         <textarea
           ref={textareaRef}
           className="adm-input adm-textarea adm-textarea-tall"
@@ -778,8 +817,8 @@ export function JournalSection() {
             set(['journal', 'quickPhrases'], lines)
           }}
         />
-      </Field>
-    </Card>
+      </SettingRow>
+    </>
   )
 }
 
@@ -834,25 +873,21 @@ export function DoctrineSection() {
     set(['doctrine', 'auftragColors'], Object.keys(next).length ? next : null)
   }
   return (
-    <Card>
-      <h3 className="adm-fieldgroup">{C.groupFunk}</h3>
-      <div className="adm-row-2">
-        {numField(C.defaultFunkkanal, C.defaultFunkkanalTip, 'defaultFunkkanal')}
-        {/* not in appConfig.atemschutz (its shipped fallback is «same as defaultFunkkanal»),
-            so it bypasses the numField helper: the placeholder shows the channel an empty box
-            actually yields — the station's AS default, else the shipped one. */}
-        {numberField({
-          path: ['doctrine', 'defaultFunkkanalEinfach'], label: C.defaultFunkkanalEinfach,
-          tip: C.defaultFunkkanalEinfachTip, guard: { kind: 'int', nullable: true },
-          fallback: getPath<number>(draft, ['doctrine', 'defaultFunkkanal']) ?? appConfig.atemschutz.defaultFunkkanal,
-        })}
-      </div>
-      <div className="adm-row-2">
-        {numField(C.funkkanalMin, C.funkkanalMinTip, 'funkkanalMin')}
-        {numField(C.funkkanalMax, C.funkkanalMaxTip, 'funkkanalMax')}
-      </div>
+    <SettingsSheet>
+      <SettingsGroup title={C.groupFunk} />
+      {numField(C.defaultFunkkanal, C.defaultFunkkanalTip, 'defaultFunkkanal')}
+      {/* not in appConfig.atemschutz (its shipped fallback is «same as defaultFunkkanal»),
+          so it bypasses the numField helper: the placeholder shows the channel an empty box
+          actually yields — the station's AS default, else the shipped one. */}
+      {numberField({
+        path: ['doctrine', 'defaultFunkkanalEinfach'], label: C.defaultFunkkanalEinfach,
+        tip: C.defaultFunkkanalEinfachTip, guard: { kind: 'int', nullable: true },
+        fallback: getPath<number>(draft, ['doctrine', 'defaultFunkkanal']) ?? appConfig.atemschutz.defaultFunkkanal,
+      })}
+      {numField(C.funkkanalMin, C.funkkanalMinTip, 'funkkanalMin')}
+      {numField(C.funkkanalMax, C.funkkanalMaxTip, 'funkkanalMax')}
 
-      <h3 className="adm-fieldgroup">{C.groupPressure}</h3>
+      <SettingsGroup title={C.groupPressure} />
       {/* The Rückzug line sits BESIDE the Alarmdruck it is bounded by — it was file-only until
           now (schemas.py · DoctrineConfig), so a browser-configured station never got it and a
           CLI-template one silently ran on an invisible 50 bar.
@@ -863,9 +898,8 @@ export function DoctrineSection() {
           that box is empty — and never above the schema's own 300.
           A zero Alarmdruck exists only in the public demo: it disables both pressure alarms, so
           the Rückzug line becomes a read-only 0 there. Station deployments require at least 1. */}
-      <div className="adm-row-3">
-        {numField(C.defaultPressure, C.defaultPressureTip, 'defaultPressureBar')}
-        {numberField({
+      {numField(C.defaultPressure, C.defaultPressureTip, 'defaultPressureBar')}
+      {numberField({
           path: ['doctrine', 'alarmBar'],
           label: C.alarmBar,
           tip: isDemo ? C.alarmBarDemoTip : C.alarmBarTip,
@@ -886,11 +920,11 @@ export function DoctrineSection() {
             }
           },
         })}
-        {effectiveAlarmBar === 0 ? (
-          <Field label={C.alarmBarRueckzug} tip={C.alarmBarRueckzugDisabledTip}>
-            <input className="adm-input adm-input-mono" type="number" value="0" disabled />
-          </Field>
-        ) : numberField({
+      {effectiveAlarmBar === 0 ? (
+        <SettingRow label={C.alarmBarRueckzug} tip={C.alarmBarRueckzugDisabledTip}>
+          <input className="adm-input adm-input-mono" type="number" value="0" disabled />
+        </SettingRow>
+      ) : numberField({
           path: ['doctrine', 'alarmBarRueckzug'],
           label: C.alarmBarRueckzug,
           tip: fillTemplate(C.alarmBarRueckzugTip, {
@@ -901,35 +935,29 @@ export function DoctrineSection() {
           message: fillTemplate(C.alarmBarRueckzugInvalid, { max: rueckzugMax }),
           // Typing here IS the choice — it becomes the value a later Alarmdruck edit restores to.
           onAccepted: (value) => { rueckzugIntentRef.current = value },
-        })}
-      </div>
-      <div className="adm-row-2">
-        {numField(C.pressureStep, C.pressureStepTip, 'pressureStep')}
-        {numField(C.pressureMax, C.pressureMaxTip, 'pressureMax')}
-      </div>
+      })}
+      {numField(C.pressureStep, C.pressureStepTip, 'pressureStep')}
+      {numField(C.pressureMax, C.pressureMaxTip, 'pressureMax')}
 
-      <h3 className="adm-fieldgroup">{C.groupContact}</h3>
-      <div className="adm-row-2">
-        {numField(C.contactInterval, C.contactIntervalTip, 'contactIntervalMin')}
-        {numField(C.contactGrace, C.contactGraceTip, 'contactGraceSec')}
-      </div>
+      <SettingsGroup title={C.groupContact} />
+      {numField(C.contactInterval, C.contactIntervalTip, 'contactIntervalMin')}
+      {numField(C.contactGrace, C.contactGraceTip, 'contactGraceSec')}
 
       {/* The air estimate's two inputs. The app has read them from the config all along and the
           card says «geschätzt mit 7 L Flasche und 50 L/min», which reads like a station setting —
           it wasn't one, because the backend dropped both fields on save and there was nowhere to
           type them. A 9-litre cylinder is an ordinary thing for a Wehr to own. */}
-      <h3 className="adm-fieldgroup">{C.groupAir}</h3>
-      <p className="adm-hint">{C.airTip}</p>
+      {/* ⚠️ The group's own explanation is the group's ⓘ — it explained the GROUP, never one of
+          the two boxes, which is exactly the prose this table was built to get off the page. */}
+      <SettingsGroup title={C.groupAir} tip={C.airTip} />
       {/* ⚠️ The two decimals on this page, and the only bounded ones: `gt=0, le=30` / `gt=0,
           le=200` (schemas.py · DoctrineConfig). A 0-litre cylinder is not a smaller cylinder,
           it is a division by zero in the estimate — which is why the API refuses it and why
           this box has to refuse it here, where the operator can still see what happened. */}
-      <div className="adm-row-2">
-        {numField(C.cylinderLiters, C.cylinderLitersTip, 'cylinderLiters',
-          { kind: 'decimal', min: 0, exclusiveMin: true, max: 30, nullable: true })}
-        {numField(C.estConsumption, C.estConsumptionTip, 'estConsumptionLPerMin',
-          { kind: 'decimal', min: 0, exclusiveMin: true, max: 200, nullable: true })}
-      </div>
+      {numField(C.cylinderLiters, C.cylinderLitersTip, 'cylinderLiters',
+        { kind: 'decimal', min: 0, exclusiveMin: true, max: 30, nullable: true })}
+      {numField(C.estConsumption, C.estConsumptionTip, 'estConsumptionLPerMin',
+        { kind: 'decimal', min: 0, exclusiveMin: true, max: 200, nullable: true })}
 
       {/* Optional station colour per Auftrag. Empty = the default behaviour, where a Trupp's
           colour means IDENTITY (every Trupp a different one from the palette). Filling a row in
@@ -940,12 +968,13 @@ export function DoctrineSection() {
           ⚠️ BOTH Auftrag lists (config · allAuftragTypes), PA first, each id once: the colour is
           keyed by the stored id and a Trupp ohne Atemschutz wears it exactly like one under PA,
           so offering only the PA words would leave «Verkehr» with no way to be coloured. */}
-      <h3 className="adm-fieldgroup">{C.groupAuftragColors}</h3>
-      <p className="adm-hint">{C.auftragColorsTip}</p>
+      <SettingsGroup title={C.groupAuftragColors} tip={C.auftragColorsTip} />
       {allAuftragTypes.map((a) => {
         const value = auftragColors?.[a.id]
         return (
-          <Field key={a.id} label={appConfig.copy.atemschutz.auftragLabels[a.id] ?? a.label}>
+          // `span`: eleven swatches never fitted the Wert column and scrolled sideways instead,
+          // which hid the second half of the palette behind a scrollbar nobody looks for.
+          <SettingRow key={a.id} label={appConfig.copy.atemschutz.auftragLabels[a.id] ?? a.label} span>
             <div className="adm-colorrow">
               <button
                 type="button" className={`adm-swatch-auto${value ? '' : ' on'}`} aria-pressed={!value}
@@ -959,10 +988,10 @@ export function DoctrineSection() {
                 />
               ))}
             </div>
-          </Field>
+          </SettingRow>
         )
       })}
-    </Card>
+    </SettingsSheet>
   )
 }
 
@@ -981,14 +1010,12 @@ export function FleetSection() {
   const lists = fleet?.attributeLists ?? legacyFleetToAttributeLists(fleet)
   return (
     <>
-      <Card>
-        <h3 className="adm-fieldgroup">{C.groupVehicles}</h3>
-        <p className="adm-hint">{C.vehiclesTip}</p>
-        {/* once per card group, not per row: the page autosaves 700 ms after a deleted row and
+      <SettingsSheet title={C.groupVehicles} tip={C.vehiclesTip}>
+        {/* once per sheet, not per row: the page autosaves 700 ms after a deleted row and
             nothing else on it says where the previous state went. */}
-        <p className="adm-hint">{appConfig.copy.admin.common.deleteRecovery}</p>
+        <SettingsNote>{appConfig.copy.admin.common.deleteRecovery}</SettingsNote>
         <FleetVehiclesEditor />
-      </Card>
+      </SettingsSheet>
       <h3 className="adm-view-subhead">{C.attributesTitle}</h3>
       <Card>
         <p className="adm-hint">{C.cliHint} <code>{C.cliCmd}</code></p>
@@ -1054,44 +1081,49 @@ function FleetVehiclesEditor() {
 
   return (
     <>
-      {rows.length === 0 && <p className="adm-hint">{C.vehiclesEmpty}</p>}
+      {rows.length === 0 && <SettingsNote>{C.vehiclesEmpty}</SettingsNote>}
       {rows.map((row, i) => {
         const warn = problem(row, i, rows)
         return (
           // index key: a vehicle has no identity beyond the `id` the operator is still typing,
           // and every value in the row is controlled from `rows` anyway.
           <div className="adm-formlink" key={i}>
-            <div className="adm-formlink-head">
-              <Field label={C.vehicleLabel} tip={C.vehicleLabelTip}>
-                <input
-                  className="adm-input" type="text" value={row.label ?? ''}
-                  placeholder={C.vehicleLabelPlaceholder}
-                  onChange={(e) => setLabel(i, e.target.value)}
+            <SettingsGroup
+              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+              action={(
+                <ConfirmButton
+                  className="adm-formlink-x" ariaLabel={C.vehicleRemove} label={<Icon id="trash" />}
+                  question={C.vehicleRemoveConfirm} danger
+                  onConfirm={() => write(rows.filter((_, j) => j !== i))}
                 />
-              </Field>
-              <Field label={C.vehicleId} tip={C.vehicleIdTip}>
-                <input
-                  className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
-                  placeholder={C.vehicleIdPlaceholder}
-                  onChange={(e) => patch(i, { id: e.target.value })}
-                />
-              </Field>
-              <ConfirmButton
-                className="adm-formlink-x" ariaLabel={C.vehicleRemove} label={<Icon id="trash" />}
-                question={C.vehicleRemoveConfirm} danger
-                onConfirm={() => write(rows.filter((_, j) => j !== i))}
+              )}
+            />
+            <SettingRow label={C.vehicleLabel} tip={C.vehicleLabelTip}>
+              <input
+                className="adm-input" type="text" value={row.label ?? ''}
+                placeholder={C.vehicleLabelPlaceholder}
+                onChange={(e) => setLabel(i, e.target.value)}
               />
-            </div>
-            {warn && <p className="adm-hint adm-formlink-warn">{warn}</p>}
+            </SettingRow>
+            <SettingRow label={C.vehicleId} tip={C.vehicleIdTip}>
+              <input
+                className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
+                placeholder={C.vehicleIdPlaceholder}
+                onChange={(e) => patch(i, { id: e.target.value })}
+              />
+            </SettingRow>
+            {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
           </div>
         )
       })}
-      <button
-        type="button" className="adm-formlink-add"
-        onClick={() => write([...rows, { id: '', label: '' }])}
-      >
-        <Icon id="plus" />{C.vehicleAdd}
-      </button>
+      <SettingsNote>
+        <button
+          type="button" className="adm-formlink-add"
+          onClick={() => write([...rows, { id: '', label: '' }])}
+        >
+          <Icon id="plus" />{C.vehicleAdd}
+        </button>
+      </SettingsNote>
     </>
   )
 }
@@ -1155,23 +1187,23 @@ export function LayersSection() {
 
   return (
     <>
+      {/* A viewer, not a settings list — it keeps the plain Card; its two CLI lines are the
+          instruction, not commentary, so they stay on the page. */}
       <Card>
         <p className="adm-hint">{C.cliHint} <code>{C.cliCmd}</code></p>
         <p className="adm-hint">{C.panelHint}</p>
         <ReferenceLayersViewer layers={draft?.referenceLayers ?? []} datasets={datasets} />
       </Card>
       <h3 className="adm-view-subhead">{C.geojsonTitle}</h3>
-      <Card>
-        <p className="adm-hint">{C.geojsonTip}</p>
-        {/* stands once for BOTH editors on this page — the raster card follows directly below */}
-        <p className="adm-hint">{appConfig.copy.admin.common.deleteRecovery}</p>
+      <SettingsSheet tip={C.geojsonTip} title={C.geojsonTitle}>
+        {/* stands once for BOTH editors on this page — the raster sheet follows directly below */}
+        <SettingsNote>{appConfig.copy.admin.common.deleteRecovery}</SettingsNote>
         <ReferenceGeojsonEditor all={all} write={write} datasets={datasets} onUploaded={reloadDatasets} />
-      </Card>
+      </SettingsSheet>
       <h3 className="adm-view-subhead">{C.rasterTitle}</h3>
-      <Card>
-        <p className="adm-hint">{C.rasterTip}</p>
+      <SettingsSheet tip={C.rasterTip} title={C.rasterTitle}>
         <ReferenceRasterEditor all={all} write={write} />
-      </Card>
+      </SettingsSheet>
       <h3 className="adm-view-subhead">{C.datasetsTitle}</h3>
       <GeodataView key={nonce} />
     </>
@@ -1269,76 +1301,79 @@ function ReferenceRasterEditor({ all, write }: {
 
   return (
     <>
-      {rasterIdx.length === 0 && <p className="adm-hint">{C.rasterEmpty}</p>}
+      {rasterIdx.length === 0 && <SettingsNote>{C.rasterEmpty}</SettingsNote>}
       {rasterIdx.map(([row, i]) => {
         const warn = problem(row, i)
         return (
           <div className="adm-formlink" key={i}>
-            <div className="adm-formlink-head">
-              <Field label={C.rasterLabel}>
-                <input
-                  className="adm-input" type="text" value={row.label ?? ''}
-                  placeholder={C.rasterLabelPlaceholder}
-                  onChange={(e) => setLabel(i, e.target.value)}
+            <SettingsGroup
+              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+              action={(
+                <ConfirmButton
+                  className="adm-formlink-x" ariaLabel={C.rasterRemove} label={<Icon id="trash" />}
+                  question={C.rasterRemoveConfirm} danger
+                  onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
                 />
-              </Field>
-              <Field label={C.rasterId} tip={C.rasterIdTip}>
-                <input
-                  className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
-                  placeholder={C.rasterIdPlaceholder}
-                  onChange={(e) => patch(i, { id: e.target.value })}
-                />
-              </Field>
-              <ConfirmButton
-                className="adm-formlink-x" ariaLabel={C.rasterRemove} label={<Icon id="trash" />}
-                question={C.rasterRemoveConfirm} danger
-                onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
+              )}
+            />
+            <SettingRow label={C.rasterLabel}>
+              <input
+                className="adm-input" type="text" value={row.label ?? ''}
+                placeholder={C.rasterLabelPlaceholder}
+                onChange={(e) => setLabel(i, e.target.value)}
               />
-            </div>
-            <div className="adm-row-2">
-              <Field label={C.group}>
-                <input
-                  className="adm-input" type="text" value={row.group ?? ''}
-                  placeholder={C.rasterGroupPlaceholder}
-                  onChange={(e) => patch(i, { group: e.target.value })}
-                />
-              </Field>
-              {/* WMS / WMTS are protocol names, not copy — never translated. */}
-              <Field label={C.rasterKind}>
-                <Select
-                  value={row.kind ?? 'wms'}
-                  onChange={(v) => patch(i, { kind: v as 'wms' | 'wmts' })}
-                  options={[{ value: 'wms', label: 'WMS' }, { value: 'wmts', label: 'WMTS' }]}
-                  ariaLabel={C.rasterKind}
-                />
-              </Field>
-            </div>
+            </SettingRow>
+            <SettingRow label={C.rasterId} tip={C.rasterIdTip}>
+              <input
+                className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
+                placeholder={C.rasterIdPlaceholder}
+                onChange={(e) => patch(i, { id: e.target.value })}
+              />
+            </SettingRow>
+            <SettingRow label={C.group}>
+              <input
+                className="adm-input" type="text" value={row.group ?? ''}
+                placeholder={C.rasterGroupPlaceholder}
+                onChange={(e) => patch(i, { group: e.target.value })}
+              />
+            </SettingRow>
+            {/* WMS / WMTS are protocol names, not copy — never translated. */}
+            <SettingRow label={C.rasterKind}>
+              <Select
+                value={row.kind ?? 'wms'}
+                onChange={(v) => patch(i, { kind: v as 'wms' | 'wmts' })}
+                options={[{ value: 'wms', label: 'WMS' }, { value: 'wmts', label: 'WMTS' }]}
+                ariaLabel={C.rasterKind}
+              />
+            </SettingRow>
             {/* One template per line: a canton that publishes several tile hosts hands over
                 several URLs, and `tiles` is a list on both sides (schemas.py). */}
-            <Field label={C.rasterTiles} tip={C.rasterTilesTip}>
+            <SettingRow label={C.rasterTiles} tip={C.rasterTilesTip} stack>
               <textarea
                 className="adm-input adm-input-mono adm-formlink-url" rows={2}
                 value={(row.tiles ?? []).join('\n')} placeholder={C.rasterTilesPlaceholder}
                 onChange={(e) => patch(i, { tiles: e.target.value.split('\n').map((t) => t.trim()).filter(Boolean) })}
               />
-            </Field>
-            <Field label={C.attribution}>
+            </SettingRow>
+            <SettingRow label={C.attribution}>
               <input
                 className="adm-input" type="text" value={row.attribution ?? ''}
                 placeholder={C.rasterAttributionPlaceholder}
                 onChange={(e) => patch(i, { attribution: e.target.value || null })}
               />
-            </Field>
-            {warn && <p className="adm-hint adm-formlink-warn">{warn}</p>}
+            </SettingRow>
+            {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
           </div>
         )
       })}
-      <button
-        type="button" className="adm-formlink-add"
-        onClick={() => write((prev) => [...prev, { id: '', label: '', kind: 'wms', icon: 'map', tiles: [] }])}
-      >
-        <Icon id="plus" />{C.rasterAdd}
-      </button>
+      <SettingsNote>
+        <button
+          type="button" className="adm-formlink-add"
+          onClick={() => write((prev) => [...prev, { id: '', label: '', kind: 'wms', icon: 'map', tiles: [] }])}
+        >
+          <Icon id="plus" />{C.rasterAdd}
+        </button>
+      </SettingsNote>
     </>
   )
 }
@@ -1521,46 +1556,46 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
         const msg = rowMsg?.i === i ? rowMsg : null
         return (
           <div className="adm-formlink" key={row.id ?? i}>
-            <div className="adm-formlink-head">
-              <Field label={C.geojsonLabel}>
-                <input
-                  className="adm-input" type="text" value={row.label ?? ''}
-                  placeholder={C.geojsonLabelPlaceholder}
-                  onChange={(e) => renameLayer(i, e.target.value)}
+            <SettingsGroup
+              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+              action={(
+                <ConfirmButton
+                  className="adm-formlink-x" ariaLabel={C.geojsonRemove} label={<Icon id="trash" />}
+                  question={C.geojsonRemoveConfirm} danger
+                  onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
                 />
-              </Field>
-              <Field label={C.geojsonId} tip={C.geojsonIdTip}>
-                <input
-                  className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
-                  placeholder={C.geojsonIdPlaceholder}
-                  onChange={(e) => patch(i, { id: e.target.value })}
-                />
-              </Field>
-              <ConfirmButton
-                className="adm-formlink-x" ariaLabel={C.geojsonRemove} label={<Icon id="trash" />}
-                question={C.geojsonRemoveConfirm} danger
-                onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
+              )}
+            />
+            <SettingRow label={C.geojsonLabel}>
+              <input
+                className="adm-input" type="text" value={row.label ?? ''}
+                placeholder={C.geojsonLabelPlaceholder}
+                onChange={(e) => renameLayer(i, e.target.value)}
               />
-            </div>
-            <div className="adm-row-2">
-              <Field label={C.group}>
-                <input
-                  className="adm-input" type="text" value={row.group ?? ''}
-                  placeholder={C.geojsonGroupPlaceholder}
-                  onChange={(e) => patch(i, { group: e.target.value })}
-                />
-              </Field>
-              <Field label={C.geometry} tip={C.geojsonGeometryTip}>
-                <Select
-                  value={row.vectorKind === 'point' ? 'point' : 'line'}
-                  onChange={(v) => patch(i, { vectorKind: v })}
-                  options={[{ value: 'line', label: C.geometryLine }, { value: 'point', label: C.geometryPoint }]}
-                  ariaLabel={C.geometry}
-                />
-              </Field>
-            </div>
-            <div className="adm-row-2">
-              <Field label={C.colorDay}>
+            </SettingRow>
+            <SettingRow label={C.geojsonId} tip={C.geojsonIdTip}>
+              <input
+                className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
+                placeholder={C.geojsonIdPlaceholder}
+                onChange={(e) => patch(i, { id: e.target.value })}
+              />
+            </SettingRow>
+            <SettingRow label={C.group}>
+              <input
+                className="adm-input" type="text" value={row.group ?? ''}
+                placeholder={C.geojsonGroupPlaceholder}
+                onChange={(e) => patch(i, { group: e.target.value })}
+              />
+            </SettingRow>
+            <SettingRow label={C.geometry} tip={C.geojsonGeometryTip}>
+              <Select
+                value={row.vectorKind === 'point' ? 'point' : 'line'}
+                onChange={(v) => patch(i, { vectorKind: v })}
+                options={[{ value: 'line', label: C.geometryLine }, { value: 'point', label: C.geometryPoint }]}
+                ariaLabel={C.geometry}
+              />
+            </SettingRow>
+            <SettingRow label={C.colorDay}>
                 <div className="adm-color-row">
                   <input
                     className="adm-color-swatch" type="color"
@@ -1574,8 +1609,8 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
                     onChange={(e) => patch(i, { color: e.target.value || null })}
                   />
                 </div>
-              </Field>
-              <Field label={C.geojsonFile}>
+            </SettingRow>
+            <SettingRow label={C.geojsonFile} span>
                 <div className="adm-brand-row">
                   <span className="adm-vfacts">{facts}</span>
                   {datasetId && (
@@ -1598,21 +1633,21 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
                     </>
                   )}
                 </div>
-              </Field>
-            </div>
+            </SettingRow>
             {msg && (
-              <p className={msg.ok ? 'adm-hint' : 'adm-hint adm-formlink-warn'}>
+              <SettingsNote tone={msg.ok ? undefined : 'warn'}>
                 {msg.msg}{msg.hint ? ` ${msg.hint}` : ''}
-              </p>
+              </SettingsNote>
             )}
-            {warn && <p className="adm-hint adm-formlink-warn">{warn}</p>}
+            {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
           </div>
         )
       })}
 
       {open ? (
         <div className="adm-formlink">
-          <Field label={C.geojsonFile} tip={C.geojsonFileTip}>
+          <SettingsGroup title={label.trim() || appConfig.copy.admin.common.newEntry} />
+          <SettingRow label={C.geojsonFile} tip={C.geojsonFileTip} span>
             <div className="adm-brand-row">
               <input
                 ref={addFileRef} type="file" accept={GEOJSON_ACCEPT} className="adm-file-hidden"
@@ -1635,44 +1670,40 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
                 </span>
               )}
             </div>
-          </Field>
-          <div className="adm-formlink-head">
-            <Field label={C.geojsonLabel}>
-              <input
-                className="adm-input" type="text" value={label}
-                placeholder={C.geojsonLabelPlaceholder}
-                onChange={(e) => {
-                  setLabel(e.target.value)
-                  if (!id.trim() || id === layerSlug(label)) setId(layerSlug(e.target.value))
-                }}
-              />
-            </Field>
-            <Field label={C.geojsonId} tip={C.geojsonIdTip}>
-              <input
-                className="adm-input adm-input-mono" type="text" value={id}
-                placeholder={C.geojsonIdPlaceholder}
-                onChange={(e) => setId(e.target.value)}
-              />
-            </Field>
-          </div>
-          <div className="adm-row-2">
-            <Field label={C.group}>
-              <input
-                className="adm-input" type="text" value={group}
-                placeholder={C.geojsonGroupPlaceholder}
-                onChange={(e) => setGroup(e.target.value)}
-              />
-            </Field>
-            <Field label={C.geometry} tip={C.geojsonGeometryTip}>
-              <Select
-                value={vectorKind}
-                onChange={(v) => setVectorKind(v === 'point' ? 'point' : 'line')}
-                options={[{ value: 'line', label: C.geometryLine }, { value: 'point', label: C.geometryPoint }]}
-                ariaLabel={C.geometry}
-              />
-            </Field>
-          </div>
-          <Field label={C.colorDay}>
+          </SettingRow>
+          <SettingRow label={C.geojsonLabel}>
+            <input
+              className="adm-input" type="text" value={label}
+              placeholder={C.geojsonLabelPlaceholder}
+              onChange={(e) => {
+                setLabel(e.target.value)
+                if (!id.trim() || id === layerSlug(label)) setId(layerSlug(e.target.value))
+              }}
+            />
+          </SettingRow>
+          <SettingRow label={C.geojsonId} tip={C.geojsonIdTip}>
+            <input
+              className="adm-input adm-input-mono" type="text" value={id}
+              placeholder={C.geojsonIdPlaceholder}
+              onChange={(e) => setId(e.target.value)}
+            />
+          </SettingRow>
+          <SettingRow label={C.group}>
+            <input
+              className="adm-input" type="text" value={group}
+              placeholder={C.geojsonGroupPlaceholder}
+              onChange={(e) => setGroup(e.target.value)}
+            />
+          </SettingRow>
+          <SettingRow label={C.geometry} tip={C.geojsonGeometryTip}>
+            <Select
+              value={vectorKind}
+              onChange={(v) => setVectorKind(v === 'point' ? 'point' : 'line')}
+              options={[{ value: 'line', label: C.geometryLine }, { value: 'point', label: C.geometryPoint }]}
+              ariaLabel={C.geometry}
+            />
+          </SettingRow>
+          <SettingRow label={C.colorDay}>
             <div className="adm-color-row">
               <input
                 className="adm-color-swatch" type="color"
@@ -1686,30 +1717,34 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
                 onChange={(e) => setColor(e.target.value)}
               />
             </div>
-          </Field>
+          </SettingRow>
           {/* Nothing here has touched the document yet — the row is written only once its file
               is in the store, which is also the only moment its URL exists. */}
-          {idTaken && <p className="adm-hint adm-formlink-warn">{C.rasterDuplicate}</p>}
-          {datasetTaken && <p className="adm-hint adm-formlink-warn">{C.geojsonDatasetTaken}</p>}
-          {!ready && !idTaken && <p className="adm-hint">{C.geojsonIncomplete}</p>}
+          {idTaken && <SettingsNote tone="warn">{C.rasterDuplicate}</SettingsNote>}
+          {datasetTaken && <SettingsNote tone="warn">{C.geojsonDatasetTaken}</SettingsNote>}
+          {!ready && !idTaken && <SettingsNote>{C.geojsonIncomplete}</SettingsNote>}
           {failed && (
-            <p className="adm-hint adm-formlink-warn">{failed.msg}{failed.hint ? ` ${failed.hint}` : ''}</p>
+            <SettingsNote tone="warn">{failed.msg}{failed.hint ? ` ${failed.hint}` : ''}</SettingsNote>
           )}
-          <div className="adm-brand-row">
-            <button type="button" className="btn adm-save-btn" disabled={!ready || busy} onClick={() => void commit()}>
-              {busy ? C.geojsonUploading : C.geojsonUpload}
-            </button>
-            <button type="button" className="btn adm-int-btn" disabled={busy} onClick={reset}>
-              {C.geojsonCancel}
-            </button>
-          </div>
+          <SettingsNote>
+            <span className="adm-brand-row">
+              <button type="button" className="btn adm-save-btn" disabled={!ready || busy} onClick={() => void commit()}>
+                {busy ? C.geojsonUploading : C.geojsonUpload}
+              </button>
+              <button type="button" className="btn adm-int-btn" disabled={busy} onClick={reset}>
+                {C.geojsonCancel}
+              </button>
+            </span>
+          </SettingsNote>
         </div>
       ) : (
-        <button type="button" className="adm-formlink-add" onClick={() => { setDone(null); setOpen(true) }}>
-          <Icon id="plus" />{C.geojsonAdd}
-        </button>
+        <SettingsNote>
+          <button type="button" className="adm-formlink-add" onClick={() => { setDone(null); setOpen(true) }}>
+            <Icon id="plus" />{C.geojsonAdd}
+          </button>
+        </SettingsNote>
       )}
-      {done && !open && <p className="adm-hint">{done}</p>}
+      {done && !open && <SettingsNote>{done}</SettingsNote>}
     </>
   )
 }
@@ -1767,74 +1802,78 @@ export function ReportSection() {
   const raw = sample.map((m) => fmtHours(m)).join(' · ')
   const rounded = fmtHours(sample.reduce((n, m) => n + roundedMinutes(m, rule), 0))
   return (
-    <Card>
-      <h3 className="adm-fieldgroup">{C.groupRounding}</h3>
-      <p className="adm-hint">{C.roundingTip}</p>
+    <SettingsSheet>
+      <SettingsGroup title={C.groupRounding} tip={C.roundingTip} />
       {/* ⚠️ Both are plain `int` with a default (schemas.py · HoursRoundingConfig) and the GET
           projection always fills them in, so there is no `null` to write back: backspacing «30»
           to type «60» is an EMPTY box for a keystroke or two, and that emptiness used to reach
           the draft and 422 the whole document — every Station page with it. Held locally
           instead, exactly like the map centre and the three Alarm-Uhren. */}
-      <div className="adm-row-2">
-        {numberField({
-          path: ['report', 'hoursRounding', 'stepMin'], label: C.stepMin, tip: C.stepMinTip,
-          guard: { kind: 'int', min: 1, max: 480 }, placeholder: String(DEFAULT_HOURS_ROUNDING.stepMin),
-        })}
-        {numberField({
-          path: ['report', 'hoursRounding', 'graceMin'], label: C.graceMin, tip: C.graceMinTip,
-          guard: { kind: 'int', min: 0, max: 479 }, placeholder: String(DEFAULT_HOURS_ROUNDING.graceMin),
-        })}
-      </div>
-      <Field label={C.example}>
-        <p className="adm-hint">{fillTemplate(C.exampleHint, { raw, rounded })}</p>
-      </Field>
+      {numberField({
+        path: ['report', 'hoursRounding', 'stepMin'], label: C.stepMin, tip: C.stepMinTip,
+        guard: { kind: 'int', min: 1, max: 480 }, placeholder: String(DEFAULT_HOURS_ROUNDING.stepMin),
+        standard: DEFAULT_HOURS_ROUNDING.stepMin,
+      })}
+      {numberField({
+        path: ['report', 'hoursRounding', 'graceMin'], label: C.graceMin, tip: C.graceMinTip,
+        guard: { kind: 'int', min: 0, max: 479 }, placeholder: String(DEFAULT_HOURS_ROUNDING.graceMin),
+        standard: DEFAULT_HOURS_ROUNDING.graceMin,
+      })}
+      {/* Not a setting — the two numbers above, worked through. It stays a ROW rather than
+          moving into an ⓘ, because it is the only thing on the page that changes when they do. */}
+      <SettingRow label={C.example}>
+        <span className="adm-set-example">{fillTemplate(C.exampleHint, { raw, rounded })}</span>
+      </SettingRow>
 
       {/* The other number that decides what the Personalblatt says about a person's time. It
           belongs beside the rounding rather than in its own card: both are the station's
           convention for turning a recorded presence into a printed figure. */}
-      <h3 className="adm-fieldgroup">{C.groupMerge}</h3>
-      <p className="adm-hint">{C.mergeTip}</p>
-      <div className="adm-row-2">
-        {numberField({
-          path: ['report', 'attendanceMergeGapMin'], label: C.mergeGapMin, tip: C.mergeGapMinTip,
-          guard: { kind: 'int', min: 0, max: 240 }, placeholder: String(DEFAULT_ATTENDANCE_MERGE_GAP_MIN),
-        })}
-      </div>
+      <SettingsGroup title={C.groupMerge} tip={C.mergeTip} />
+      {numberField({
+        path: ['report', 'attendanceMergeGapMin'], label: C.mergeGapMin, tip: C.mergeGapMinTip,
+        guard: { kind: 'int', min: 0, max: 240 }, placeholder: String(DEFAULT_ATTENDANCE_MERGE_GAP_MIN),
+        standard: DEFAULT_ATTENDANCE_MERGE_GAP_MIN,
+      })}
 
       {/* Partnerorganisationen — printed as an Ankreuz-Zeile on the Rapport AND on the paper
           Erfassungsblatt (admin/capturePdf). It sat in the config document with no editor, so a
           Wehr could not add one without a JSON file and a terminal. */}
-      <h3 className="adm-fieldgroup">{C.groupPartners}</h3>
-      <p className="adm-hint">{C.partnersTip}</p>
-      <StringList
-        ariaLabel={C.groupPartners}
-        value={getPath<string[]>(draft, ['report', 'partnerOrgs']) ?? []}
-        onChange={(next) => set(['report', 'partnerOrgs'], next)}
-        placeholder={C.partnerAddPlaceholder}
-      />
+      {/* One setting whose value happens to be a list of words — so it is ONE row, spanning
+          Wert+Standard and wrapping, rather than a chip cloud floating under a heading. */}
+      <SettingRow label={C.groupPartners} tip={C.partnersTip} span>
+        <StringList
+          ariaLabel={C.groupPartners}
+          value={getPath<string[]>(draft, ['report', 'partnerOrgs']) ?? []}
+          onChange={(next) => set(['report', 'partnerOrgs'], next)}
+          placeholder={C.partnerAddPlaceholder}
+        />
+      </SettingRow>
 
-      <h3 className="adm-fieldgroup">{C.groupLinks}</h3>
-      <p className="adm-hint">{C.linksTip}</p>
+      <SettingsGroup title={C.groupLinks} tip={C.linksTip} />
       <ReportLinksEditor />
 
       {/* The one switch that only a station with a print relay ever meets — and the one it meets
           every single time, because a face-up printer delivers the Rapport back-to-front and
           somebody re-sorts the stack by hand. Default ON (schemas.py · ReportConfig), so the
           checkbox starts ticked on a station that has never touched it. */}
-      <h3 className="adm-fieldgroup">{C.groupPrint}</h3>
-      <p className="adm-hint">{C.printTip}</p>
-      <label className="adm-field adm-check">
+      <SettingsGroup title={C.groupPrint} tip={C.printTip} />
+      {/* Default ON (schemas.py · ReportConfig), so the Standard column speaks only for the
+          station that turned it off. */}
+      <SettingRow
+        label={C.reverseOrder} tip={C.reverseOrderHint}
+        standard={standardNote(getPath<boolean>(draft, ['report', 'reversePrintOrder']), true)}
+      >
         <input
+          className="adm-set-check"
           type="checkbox"
           checked={getPath<boolean>(draft, ['report', 'reversePrintOrder']) ?? true}
           onChange={(e) => set(['report', 'reversePrintOrder'], e.target.checked)}
         />
-        <span>
-          {C.reverseOrder}
-          <span className="adm-field-hint"> — {C.reverseOrderHint}</span>
-        </span>
-      </label>
-    </Card>
+      </SettingRow>
+
+      {/* …and the Verlauf's own wording, which used to be a whole page for one textarea. */}
+      <JournalGroup />
+    </SettingsSheet>
   )
 }
 
@@ -1865,23 +1904,21 @@ export function AlarmsSection() {
 
   return (
     <>
-      <Card title={C.groupGroups} caption={C.groupsTip}>
-        <p className="adm-hint">{appConfig.copy.admin.common.deleteRecovery}</p>
+      <SettingsSheet title={C.groupGroups} tip={C.groupsTip}>
+        <SettingsNote>{appConfig.copy.admin.common.deleteRecovery}</SettingsNote>
         <AlarmGroupsEditor />
-      </Card>
-      <Card>
-        <h3 className="adm-fieldgroup">{C.groupArchive}</h3>
-        <p className="adm-hint">{C.archiveTip}</p>
+      </SettingsSheet>
+      <SettingsSheet>
+        <SettingsGroup title={C.groupArchive} tip={C.archiveTip} />
         {intField('autoArchiveDays', C.autoArchiveDays, C.autoArchiveDaysTip, 0, 3650)}
         {intField('staleIncidentDays', C.staleIncidentDays, C.staleIncidentDaysTip, 0, 3650)}
 
-        <h3 className="adm-fieldgroup">{C.groupCapture}</h3>
-        <p className="adm-hint">{C.captureTip}</p>
+        <SettingsGroup title={C.groupCapture} tip={C.captureTip} />
         {intField('captureWindowHours', C.captureWindowHours, C.captureWindowHoursTip, 1, 168)}
-      </Card>
-      <Card title={C.groupWebhooks} caption={C.webhooksTip}>
+      </SettingsSheet>
+      <SettingsSheet title={C.groupWebhooks} tip={C.webhooksTip}>
         <WebhooksEditor />
-      </Card>
+      </SettingsSheet>
     </>
   )
 }
@@ -1946,58 +1983,65 @@ function AlarmGroupsEditor() {
 
   return (
     <>
-      {rows.length === 0 && <p className="adm-hint">{C.groupsEmpty}</p>}
+      {rows.length === 0 && <SettingsNote>{C.groupsEmpty}</SettingsNote>}
       {rows.map((row, i) => {
         const warn = problem(row, i, rows)
         const note = row.color?.trim()
         return (
+          // ⚠️ `.adm-formlink` is `display: contents` inside the settings table: it groups ONE
+          // record for React (and for the tests) without becoming a box of its own. The record
+          // reads as a divider plus its fields as rows of the same grid — not a card floating
+          // inside a table, which is what every list editor used to be.
           // index key: a group has no identity beyond the `id` the operator is still typing,
           // and every value in the row is controlled from `rows` anyway.
           <div className="adm-formlink" key={i}>
-            <div className="adm-formlink-head">
-              <Field label={C.groupLabel} tip={C.groupLabelTip}>
-                <input
-                  className="adm-input" type="text" value={row.label ?? ''}
-                  placeholder={C.groupLabelPlaceholder}
-                  onChange={(e) => setLabel(i, e.target.value)}
+            <SettingsGroup
+              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+              action={(
+                <ConfirmButton
+                  className="adm-formlink-x" ariaLabel={C.groupRemove} label={<Icon id="trash" />}
+                  question={C.groupRemoveConfirm} danger
+                  onConfirm={() => write(rows.filter((_, j) => j !== i))}
                 />
-              </Field>
-              <Field label={C.groupId} tip={C.groupIdTip}>
-                <input
-                  className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
-                  placeholder={C.groupIdPlaceholder}
-                  onChange={(e) => patch(i, { id: e.target.value })}
-                />
-              </Field>
-              <ConfirmButton
-                className="adm-formlink-x" ariaLabel={C.groupRemove} label={<Icon id="trash" />}
-                question={C.groupRemoveConfirm} danger
-                onConfirm={() => write(rows.filter((_, j) => j !== i))}
+              )}
+            />
+            <SettingRow label={C.groupLabel} tip={C.groupLabelTip}>
+              <input
+                className="adm-input" type="text" value={row.label ?? ''}
+                placeholder={C.groupLabelPlaceholder}
+                onChange={(e) => setLabel(i, e.target.value)}
               />
-            </div>
-            {/* Own row rather than a third box in the head: two inputs plus the bin already fill
-                that line on a tablet, and this one is the optional field of the three. */}
-            <Field label={C.groupNote} tip={C.groupNoteTip}>
+            </SettingRow>
+            <SettingRow label={C.groupId} tip={C.groupIdTip}>
+              <input
+                className="adm-input adm-input-mono" type="text" value={row.id ?? ''}
+                placeholder={C.groupIdPlaceholder}
+                onChange={(e) => patch(i, { id: e.target.value })}
+              />
+            </SettingRow>
+            <SettingRow label={C.groupNote} tip={C.groupNoteTip}>
               <input
                 className="adm-input" type="text" value={row.color ?? ''}
                 placeholder={C.groupNotePlaceholder}
                 onChange={(e) => patch(i, { color: e.target.value || null })}
               />
-            </Field>
+            </SettingRow>
             {warn
-              ? <p className="adm-hint adm-formlink-warn">{warn}</p>
+              ? <SettingsNote tone="warn">{warn}</SettingsNote>
               // «Zusatz» is the one field whose effect is not obvious from its own value, so the
               // row says what it will print rather than describing it.
-              : note && <p className="adm-hint">{fillTemplate(C.groupPreview, { zeile: `${row.label?.trim()} (${note})` })}</p>}
+              : note && <SettingsNote>{fillTemplate(C.groupPreview, { zeile: `${row.label?.trim()} (${note})` })}</SettingsNote>}
           </div>
         )
       })}
-      <button
-        type="button" className="adm-formlink-add"
-        onClick={() => write([...rows, { id: '', label: '' }])}
-      >
-        <Icon id="plus" />{C.groupAdd}
-      </button>
+      <SettingsNote>
+        <button
+          type="button" className="adm-formlink-add"
+          onClick={() => write([...rows, { id: '', label: '' }])}
+        >
+          <Icon id="plus" />{C.groupAdd}
+        </button>
+      </SettingsNote>
     </>
   )
 }
@@ -2036,35 +2080,39 @@ function WebhooksEditor() {
 
   return (
     <>
-      {rows.length === 0 && <p className="adm-hint">{C.webhooksEmpty}</p>}
+      {rows.length === 0 && <SettingsNote>{C.webhooksEmpty}</SettingsNote>}
       {rows.map((row, i) => {
         const warn = problem(row, i, rows)
         return (
+          // One field per record, so it needs no divider of its own: a webhook IS a row, and
+          // the bin travels inside the control rather than costing a fourth column.
           // index key: a webhook has no identity beyond the URL being typed into it
           <div className="adm-formlink" key={i}>
-            <div className="adm-formlink-head">
-              <Field label={C.webhookUrl}>
+            <SettingRow label={C.webhookUrl} span>
+              <span className="adm-set-inline">
                 <input
                   className="adm-input adm-input-mono" type="url" value={row}
                   placeholder={C.webhookPlaceholder}
                   onChange={(e) => write(rows.map((r, j) => (j === i ? e.target.value : r)))}
                 />
-              </Field>
-              <button
-                type="button" className="adm-formlink-x"
-                title={C.webhookRemove} aria-label={C.webhookRemove}
-                onClick={() => write(rows.filter((_, j) => j !== i))}
-              >
-                <Icon id="trash" />
-              </button>
-            </div>
-            {warn && <p className="adm-hint adm-formlink-warn">{warn}</p>}
+                <button
+                  type="button" className="adm-formlink-x"
+                  title={C.webhookRemove} aria-label={C.webhookRemove}
+                  onClick={() => write(rows.filter((_, j) => j !== i))}
+                >
+                  <Icon id="trash" />
+                </button>
+              </span>
+            </SettingRow>
+            {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
           </div>
         )
       })}
-      <button type="button" className="adm-formlink-add" onClick={() => write([...rows, ''])}>
-        <Icon id="plus" />{C.webhookAdd}
-      </button>
+      <SettingsNote>
+        <button type="button" className="adm-formlink-add" onClick={() => write([...rows, ''])}>
+          <Icon id="plus" />{C.webhookAdd}
+        </button>
+      </SettingsNote>
     </>
   )
 }
@@ -2155,49 +2203,56 @@ function ReportLinksEditor() {
         const preview = resolveLinkUrl(row.url ?? '', linkTokenValues(SAMPLE_LINK_FACTS))
         return (
           <div className="adm-formlink" key={row.id}>
-            <div className="adm-formlink-head">
-              <Field label={C.linkTitle}>
-                <input
-                  className="adm-input" type="text" value={row.title ?? ''}
-                  placeholder={C.linkTitlePlaceholder}
-                  onChange={(e) => patch(i, { title: e.target.value })}
-                />
-              </Field>
-              <button
-                type="button" className="adm-formlink-x" title={C.linkRemove} aria-label={C.linkRemove}
-                onClick={() => write(rows.filter((_, j) => j !== i))}
-              >
-                <Icon id="trash" />
-              </button>
-            </div>
-            <Field label={C.linkNote}>
+            <SettingsGroup
+              title={row.title?.trim() || appConfig.copy.admin.common.newEntry}
+              action={(
+                <button
+                  type="button" className="adm-formlink-x" title={C.linkRemove} aria-label={C.linkRemove}
+                  onClick={() => write(rows.filter((_, j) => j !== i))}
+                >
+                  <Icon id="trash" />
+                </button>
+              )}
+            />
+            <SettingRow label={C.linkTitle}>
+              <input
+                className="adm-input" type="text" value={row.title ?? ''}
+                placeholder={C.linkTitlePlaceholder}
+                onChange={(e) => patch(i, { title: e.target.value })}
+              />
+            </SettingRow>
+            <SettingRow label={C.linkNote}>
               <input
                 className="adm-input" type="text" value={row.note ?? ''}
                 placeholder={C.linkNotePlaceholder}
                 onChange={(e) => patch(i, { note: e.target.value || null })}
               />
-            </Field>
-            <Field label={C.linkUrl} tip={C.linkUrlTip}>
-              <textarea
-                className="adm-input adm-input-mono adm-formlink-url" rows={3} value={row.url ?? ''}
-                placeholder={C.linkUrlPlaceholder} data-id={row.id}
-                onFocus={(e) => { urlRef.current = e.currentTarget }}
-                onChange={(e) => patch(i, { url: e.target.value })}
-              />
-            </Field>
-            <div className="adm-formlink-tokens" role="group" aria-label={C.linkTokens}>
-              {REPORT_LINK_TOKENS.map((t) => (
-                <button type="button" key={t} className="adm-token" onClick={() => insertToken(i, t)}>
-                  {`{${t}}`}
-                </button>
-              ))}
-            </div>
+            </SettingRow>
+            {/* `stack`: a prefill URL is 400 characters whose interesting end is the {…} pairs,
+                and the chips that insert them belong directly under it. */}
+            <SettingRow label={C.linkUrl} tip={C.linkUrlTip} stack>
+              <>
+                <textarea
+                  className="adm-input adm-input-mono adm-formlink-url" rows={3} value={row.url ?? ''}
+                  placeholder={C.linkUrlPlaceholder} data-id={row.id}
+                  onFocus={(e) => { urlRef.current = e.currentTarget }}
+                  onChange={(e) => patch(i, { url: e.target.value })}
+                />
+                <span className="adm-formlink-tokens" role="group" aria-label={C.linkTokens}>
+                  {REPORT_LINK_TOKENS.map((t) => (
+                    <button type="button" key={t} className="adm-token" onClick={() => insertToken(i, t)}>
+                      {`{${t}}`}
+                    </button>
+                  ))}
+                </span>
+              </>
+            </SettingRow>
             {/* What the Rapport will actually open — and, where it would not, WHY.
                 ⚠️ This warns on exactly the conditions `reportLinks()` drops a row on, title
                 included. Checking only the URL let an admin paste a link, see a correct green
                 preview, save without a title, and get a row that never appears on any Rapport
                 while Verwaltung said it was fine. */}
-            <Field label={C.linkPreview}>
+            <SettingRow label={C.linkPreview} stack>
               {isOpenableUrl(preview) && !!row.title?.trim()
                 ? <p className="adm-formlink-preview">{preview}</p>
                 : (
@@ -2205,16 +2260,18 @@ function ReportLinksEditor() {
                     {row.title?.trim() ? C.linkPreviewNone : C.linkPreviewNoTitle}
                   </p>
                 )}
-            </Field>
+            </SettingRow>
           </div>
         )
       })}
-      <button
-        type="button" className="adm-formlink-add"
-        onClick={() => write([...rows, { id: `lnk${Date.now()}-${rows.length}`, title: '', url: '' }])}
-      >
-        <Icon id="plus" />{C.linkAdd}
-      </button>
+      <SettingsNote>
+        <button
+          type="button" className="adm-formlink-add"
+          onClick={() => write([...rows, { id: `lnk${Date.now()}-${rows.length}`, title: '', url: '' }])}
+        >
+          <Icon id="plus" />{C.linkAdd}
+        </button>
+      </SettingsNote>
     </>
   )
 }

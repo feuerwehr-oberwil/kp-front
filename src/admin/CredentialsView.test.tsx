@@ -105,6 +105,21 @@ describe('saving', () => {
   })
 })
 
+describe('the settings table', () => {
+  // ⚠️ The sheet is a CSS grid whose rows are `display: contents`, so a row wrapped in any
+  // element at all loses its four cells to that wrapper and every column on the page collapses
+  // — silently, with no error anywhere. A row must be a DIRECT child of `.adm-settings`.
+  it('hangs every credential row straight off the grid, never inside a wrapper', async () => {
+    serve([cred({}), cred({ name: 'traccar_url', group: 'traccar', label: 'Traccar-Server', secret: false })])
+    render(<CredentialsView />)
+
+    await screen.findByLabelText('STT-API-Key')
+    expect(document.querySelectorAll('.adm-settings > .adm-set-row')).toHaveLength(2)
+    // …and the integration is a group divider, not a card of its own.
+    expect(document.querySelectorAll('.adm-settings > .adm-set-grp')).toHaveLength(2)
+  })
+})
+
 describe('the page says what a browser deliberately cannot set', () => {
   it('names SECRET_KEY and ADMIN_SECRET with the reason each stays in .env', async () => {
     serve([cred({})])

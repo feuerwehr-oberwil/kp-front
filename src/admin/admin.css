@@ -195,8 +195,6 @@
 .adm-card-head { margin-bottom: 16px; }
 .adm-card-title { font-size: 15px; font-weight: 700; letter-spacing: .01em; margin: 0; }
 .adm-card-cap { font-size: 12px; color: var(--ink-faint); margin: 5px 0 0; line-height: 1.45; }
-/* a caption that is a caveat, not background — sits right under the copyable capture link */
-.adm-cap-warn { color: var(--amber-strong); }
 .adm-card-body { display: flex; flex-direction: column; gap: 16px; }
 
 /* ── fields ───────────────────────────────────────────────────────────────── */
@@ -241,11 +239,175 @@
 
 /* explanatory line under a field group heading (why you would fill this in at all) */
 .adm-hint { margin: 6px 0 2px; font-size: 12px; line-height: 1.45; color: var(--ink-dim); max-width: 62ch; }
+
+/* ── the settings table (ui.tsx · SettingsSheet / SettingsGroup / SettingRow) ──────────────────
+   One row per setting: Einstellung | Wert | Standard | ⓘ. The explanatory prose that used to
+   stand under each field now lives in the row's ⓘ, which is what makes the page scannable.
+
+   ⚠️ NOT a <table>: the row is a <label> so it keeps wrapping its own control, and a <label>
+   cannot span two <td>s (see ui.tsx). It is `display: contents`, so its CELLS carry the
+   hairline and the hover — the row box itself paints nothing at all. */
+.adm-sheet { padding: 0; overflow: visible; }
+.adm-sheet .adm-card-head { margin: 0; padding: 16px 18px 13px; border-bottom: 1px solid var(--border-soft); }
+.adm-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) minmax(0, auto) 34px;
+  align-items: center;
+}
+
+/* column header — sticky against the scrolling content column, so the four columns keep their
+   names on a long page. Opaque, not tinted: it scrolls OVER rows. */
+.adm-set-head { display: contents; }
+.adm-set-h {
+  position: sticky; top: 0; z-index: 2;
+  padding: 9px 8px; background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.adm-set-h:first-child { padding-left: 18px; }
+.adm-set-h-info { padding-right: 14px; text-align: right; font-size: 12px; letter-spacing: normal; }
+/* ⚠️ The head is an opaque box painted OVER the card, and the card's corner is round. A square
+   head therefore filled the corner the card had just rounded away and cut straight across its
+   own hairline — a dark step at the top-left, visible on every titleless sheet. It has to carry
+   the same radius, minus the 1px border it sits inside of. Only where the grid IS the card's
+   first child: under a card head the corner is not the head's to round. */
+.adm-settings:first-child .adm-set-h:first-child { border-top-left-radius: calc(var(--r-surface) - 1px); }
+.adm-settings:first-child .adm-set-h-info { border-top-right-radius: calc(var(--r-surface) - 1px); }
+
+/* group divider (Funk · Atemschutz – Druck …). Also the head of ONE RECORD in a list editor
+   («Gr. 2», «TLF 1», a Formular) — same shape, plus the row's own action on the right. */
+.adm-set-grp {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 7px;
+  margin: 0; padding: 14px 18px 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--blue);
+}
+.adm-set-grp-act { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+/* the bin of a record head — the two-step ConfirmButton keeps its own width when armed */
+.adm-set-grp-act .adm-formlink-x { width: 32px; height: 32px; }
+.adm-set-grp-act .adm-confirm { text-transform: none; letter-spacing: normal; }
+
+/* one setting */
+.adm-set-row { display: contents; }
+.adm-set-row > * {
+  padding: 5px 8px; min-height: var(--tap);
+  display: flex; align-items: center; gap: 7px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.adm-set-lbl { padding-left: 18px; flex-wrap: wrap; }
+.adm-set-info { padding-right: 14px; justify-content: flex-end; }
+@media (hover: hover) {
+  .adm-set-row:hover > * { background: color-mix(in srgb, var(--ink) 3.5%, transparent); }
+}
+.adm-set-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.adm-set-unit { font: 500 11.5px var(--mono); color: var(--ink-faint); }
+/* the Standard column is empty on every row that still runs on the shipped value — it speaks
+   only for a deviation, which is the whole reason it can sit there without adding noise */
+.adm-set-std { font: 500 11.5px var(--mono); color: var(--amber-strong); white-space: nowrap; }
+.adm-set-ctl > .adm-input,
+.adm-set-ctl > .adm-color-row,
+.adm-set-ctl > .adm-combo,
+.adm-set-ctl > .adm-select { width: 100%; }
+/* A control in the table is a table control: `.adm-input`'s 44px is a gloved-tap floor, and at
+   44 per row the table is a stack of cards again — which is the thing this layout set out to
+   stop being.
+   ⚠️ Only where a fine pointer is doing the pointing. `.adm-input` carries `min-height: var(--tap)`
+   itself and NOTHING in 20-touch-floors.css puts it back, so lowering it unconditionally would
+   hand an iPad 34px targets on the one screen a Kommandant fills in with a finger. */
+@media (pointer: fine) {
+  .adm-set-ctl .adm-input { min-height: 34px; padding: 6px 10px; }
+  .adm-set-row > * { min-height: 40px; }
+}
+
+/* a row whose «value» is a sentence the page computed, not something to type (Rapport ·
+   Beispiel) — same column, no input chrome */
+.adm-set-example { font-size: 12px; line-height: 1.4; color: var(--ink-dim); }
+/* a row whose value is a yes/no. Left-aligned in its column so the box lines up with the
+   inputs above it rather than floating in the middle of an empty cell. */
+.adm-set-check { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+
+/* ⚠️ A control that cannot be 240px wide and must not scroll sideways to hide the rest of
+   itself — the Truppfarben swatches, a chip list, a long URL. It takes the Wert AND Standard
+   columns and WRAPS; the ⓘ stays in its own column, so the row still reads as a row. */
+.adm-set-row.span > .adm-set-ctl { grid-column: 2 / 4; }
+.adm-set-row.span > .adm-set-std { display: none; }
+.adm-set-row.span > .adm-set-ctl > * { min-width: 0; }
+
+/* two controls sharing one cell — a field and the bin that deletes its row */
+.adm-set-inline { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.adm-set-inline > .adm-input { flex: 1 1 auto; min-width: 0; }
+.adm-set-inline > .adm-formlink-x { flex: none; width: 34px; height: 34px; }
+
+/* a list editor's «+ hinzufügen», sitting in the table rather than under it */
+.adm-settings .adm-formlink-add { margin-top: 0; }
+/* the URL field and the placeholder chips under it are one stacked control */
+.adm-set-row.stack .adm-formlink-tokens { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.adm-set-row.stack .adm-formlink-preview { margin-top: 2px; }
+/* ⚠️ …and a record's fields are ROWS of the same grid now, so the old card chrome around them
+   would be a box inside a table. The class stays (its children still use it); what goes is
+   everything that made it float. */
+.adm-settings .adm-formlink {
+  display: contents;
+}
+
+/* the full-width control (textarea, chip list) sits under its own label */
+.adm-set-row.stack > .adm-set-lbl { border-bottom: 0; }
+.adm-set-row.stack > .adm-set-std,
+.adm-set-row.stack > .adm-set-info { border-bottom: 0; }
+.adm-set-row.stack > .adm-set-ctl {
+  grid-column: 1 / -1; display: block;
+  padding: 0 18px 12px; min-height: 0;
+}
+
+/* full-width row that is not a setting: a validation line, a worked example, a list editor */
+.adm-set-note {
+  grid-column: 1 / -1; padding: 10px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 12px; line-height: 1.45; color: var(--ink-dim);
+}
+.adm-set-note.warn { background: color-mix(in srgb, var(--amber) 9%, transparent); }
+.adm-set-note .adm-hint { margin: 0; }
+/* an action row inside a note already has the note's padding — its card-era bottom margin
+   would add a second gap above the hairline */
+.adm-set-note .adm-actions { margin-bottom: 0; }
+.adm-settings > *:last-child,
+.adm-settings > *:last-child > * { border-bottom: 0; }
+
+/* ⚠️ Narrow screens drop the Standard column rather than scrolling the page sideways: it is the
+   one column that is commentary. Below the phone breakpoint the control moves under its label,
+   so a 13-character label never squeezes the value box into two characters. */
+@media (max-width: 900px) {
+  .adm-settings { grid-template-columns: minmax(0, 1fr) minmax(150px, 200px) 34px; }
+  .adm-set-h-std, .adm-set-row > .adm-set-std { display: none; }
+}
+/* ⚠️ …and below the phone breakpoint it stops being a table at all: the row becomes a flex
+   block (label + ⓘ on one line, control under them). NOT a narrower grid — `order` cannot
+   reshuffle one row's cells without reshuffling every group divider with them, because a
+   `display: contents` row's cells are the GRID's items, not the row's. */
+@media (max-width: 560px) {
+  .adm-settings { display: block; }
+  .adm-set-h { display: none; }
+  .adm-set-row {
+    display: flex; flex-wrap: wrap; align-items: center;
+    padding: 6px 0 8px; border-bottom: 1px solid var(--border-soft);
+  }
+  .adm-set-row > * { border-bottom: 0; min-height: 0; padding: 3px 18px; }
+  .adm-set-lbl { flex: 1 1 auto; }
+  .adm-set-info { flex: 0 0 auto; }
+  .adm-set-ctl { order: 3; flex: 1 0 100%; }
+  .adm-set-ctl .adm-input { width: 100%; }
+}
 /* Truppfarbe row (Atemschutz doctrine): «Automatisch» + the ten team colours in ONE scrolling
    row per Auftrag — six wrapped rows of eleven swatches was a wall, not a setting. Its own class,
    NOT .adm-swatches: that one is the read-only colour list in the Darstellung views. */
-.adm-colorrow { display: flex; align-items: center; gap: 7px; min-width: 0; overflow-x: auto;
-  overscroll-behavior-x: contain; padding-bottom: 4px; }
+/* ⚠️ It WRAPS, it does not scroll. Sideways scrolling was the compromise while this row sat in
+   a form column; in the settings table the row spans Wert+Standard (SettingRow · span), so the
+   palette has the width to show all of itself. A control that hides half its options behind a
+   scrollbar is a control whose other half does not exist. */
+.adm-colorrow { display: flex; align-items: center; gap: 7px; min-width: 0; flex-wrap: wrap;
+  padding: 3px 0; }
 .adm-colorrow > * { flex: none; }
 .adm-colorrow .dh-color { width: 24px; height: 24px; }
 .adm-colorrow .dh-color.on { box-shadow: 0 0 0 2.5px var(--blue); }
@@ -1045,8 +1207,6 @@
 .adm-cap-example .adm-card-cap { margin: 0; }
 .adm-actions { margin-bottom: 12px; }
 .adm-cap-rows + .adm-actions { margin-top: 2px; }
-.adm-cap-actions { padding-top: 16px; border-top: 1px solid var(--border-soft); }
-.adm-cap-actions .adm-danger-btn { margin-left: auto; }
 
 /* ─── `Offer` — a tinted panel that names a CONSEQUENCE and puts the fix next to it ─────
    (mockups/admin-alarmeingang-b-anbindung.html · mockups/admin-geocoder-b-autoangebot.html)

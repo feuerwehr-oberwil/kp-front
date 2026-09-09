@@ -9,7 +9,6 @@ import { appConfig } from '../config/appConfig'
 import {
   IdentitySection,
   DoctrineSection,
-  JournalSection,
   ReportSection,
   AlarmsSection,
   FleetSection,
@@ -35,7 +34,7 @@ import { CredentialsView } from './CredentialsView'
 // split into five focused "Station" pages that share a single config draft + Save bar
 // (see ConfigContext); everything else is one self-contained page per entry.
 type SectionId =
-  | 'identitaet' | 'doktrin' | 'journal' | 'rapport' | 'alarme' | 'fahrzeuge' | 'material' | 'ebenen' | 'objektplaene'
+  | 'identitaet' | 'doktrin' | 'rapport' | 'alarme' | 'fahrzeuge' | 'material' | 'ebenen' | 'objektplaene'
   | 'checklisten'
   | 'mitglieder' | 'mannschaft' | 'erfassung'
   | 'einsaetze' | 'divera' | 'traccar' | 'statistik' | 'einsatzlink' | 'arbeitsmappe'
@@ -61,7 +60,6 @@ const NAV: NavGroup[] = [
     entries: [
       { id: 'identitaet', icon: 'flag' },
       { id: 'doktrin', icon: 'compass' },
-      { id: 'journal', icon: 'history' },
       { id: 'rapport', icon: 'doc' },
       { id: 'alarme', icon: 'bell' },
       { id: 'fahrzeuge', icon: 'truck' },
@@ -118,6 +116,9 @@ function navCopy(id: SectionId): { label: string; title: string; lede: string; t
 function initialSection(): SectionId {
   const saved = loadPrefs().adminSection
   if (saved === 'karte') return 'identitaet'
+  // «Journal» was one setting behind its own nav stop; it is a group on Rapport now
+  // (ConfigSections · JournalGroup), so a device that remembers it lands where it went.
+  if (saved === 'journal') return 'rapport'
   // System & Wartung replaced the former Übersicht as the landing page (2026-07-18) —
   // it answers "is everything healthy/connected?" at a glance, which IS the landing question.
   if (saved === 'uebersicht') return 'system'
@@ -127,14 +128,14 @@ function initialSection(): SectionId {
 // Station pages that read the shared config document — they get the ConfigGate (draft-loading state).
 // 'mannschaft' is on the list for ONE config field (the station's name order); the rest of that
 // page talks to the personnel API directly.
-const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'alarme', 'fahrzeuge', 'material', 'ebenen', 'objektplaene', 'mannschaft'])
+const CONFIG_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'rapport', 'alarme', 'fahrzeuge', 'material', 'ebenen', 'objektplaene', 'mannschaft'])
 // Of those, only the genuinely-editable pages get the sticky autosave bar. Objektpläne is a
 // read-only viewer — edited via the CLI — so no save bar. 'fahrzeuge' IS on the list: its vehicle
 // list is edited in place (ConfigSections · FleetVehiclesEditor), and a page that autosaves
 // without saying so is a page nobody can tell has saved. 'ebenen' likewise, since its raster
 // layers (WMS/WMTS) became editable (ConfigSections · ReferenceRasterEditor) — the overview
 // above them stays a viewer.
-const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'journal', 'rapport', 'alarme', 'fahrzeuge', 'ebenen', 'mannschaft'])
+const AUTOSAVE_SECTIONS = new Set<SectionId>(['identitaet', 'doktrin', 'rapport', 'alarme', 'fahrzeuge', 'ebenen', 'mannschaft'])
 
 /** A page's «go there» callback, narrowed by a real lookup rather than a cast: the pages that
  *  link out name their target as a plain string (they have no business importing this union),
@@ -151,7 +152,6 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
   switch (id) {
     case 'identitaet': return <IdentitySection />
     case 'doktrin': return <DoctrineSection />
-    case 'journal': return <JournalSection />
     case 'rapport': return <ReportSection />
     case 'alarme': return <AlarmsSection />
     case 'fahrzeuge': return <FleetSection />

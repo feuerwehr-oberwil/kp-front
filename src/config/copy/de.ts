@@ -4826,6 +4826,21 @@ export const de = {
       // zurück ist sonst nirgends erwähnt, und die Konfiguration speichert nach 700 ms von
       // selbst.
       deleteRecovery: 'Gelöschte Zeilen holt «Sicherung › Letzte Änderungen» zurück.',
+      // Spaltentitel der Einstellungs-Tabelle. Eine Zeile je Einstellung – die Erklärung steht
+      // im ⓘ, nicht mehr als Fliesstext unter dem Feld.
+      colSetting: 'Einstellung',
+      colValue: 'Wert',
+      colStandard: 'Standard',
+      colInfo: 'Info',
+      // ⚠️ Steht NUR, wenn der Wert vom mitgelieferten Standard abweicht. Ein leeres Feld läuft
+      // auf dem Standard und ist keine Abweichung – sonst stünde die Spalte auf jeder Zeile und
+      // wäre wieder das, was sie ersetzen soll.
+      standardChanged: 'Standard {value} · geändert',
+      standardOn: 'Ja',
+      standardOff: 'Nein',
+      // Überschrift einer Listen-Zeile, solange sie noch keinen eigenen Namen trägt
+      // (Alarmgruppe, Fahrzeug, Formular, Kartenportal).
+      newEntry: 'Neuer Eintrag',
     },
     // ⚠️ Adressen, keine Übersetzung: die Links ins Handbuch dieser Verwaltung. Ein Fork zeigt
     // sie mit EINER Zeile – `repo` – auf sein eigenes Repository um; die Pfade bleiben gleich.

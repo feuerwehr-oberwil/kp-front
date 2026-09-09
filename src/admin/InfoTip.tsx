@@ -4,10 +4,16 @@ import { fillTemplate } from '../lib/format'
 
 // A small, dependency-free, accessible "ⓘ" hint. The trigger is a real <button>
 // so it's keyboard-focusable and announced; the popover is linked via
-// aria-describedby and carries role="tooltip". It opens on hover, keyboard focus
-// AND tap (the button toggles on click for touch), closes on blur / mouse-leave /
-// Escape / outside-tap. The popover is absolutely positioned and never reflows the
-// surrounding layout (no layout shift).
+// aria-describedby and carries role="tooltip". The popover is absolutely positioned
+// and never reflows the surrounding layout (no layout shift) — which is what lets it
+// carry the explanatory copy that used to sit under the field as prose.
+//
+// ⚠️ HOVER AND PIN ARE TWO STATES, not one. They were one `open` boolean, and on a
+// touch device that made the ⓘ unopenable: a tap synthesises mouseenter → open, and
+// the click that follows toggled the SAME flag back to closed. So the pointer's hover
+// and the click/tap's pin are tracked separately and the pop is open while either is
+// true. A tap therefore opens (and pins) it; a second tap, Escape or a tap anywhere
+// outside closes it; a mouse leaving a pinned pop leaves it standing.
 //
 // `tone="warn"` tints the trigger amber — used to flag doctrine values that are
 // stored but "noch nicht wirksam".
@@ -21,9 +27,18 @@ export function InfoTip({
   label: string
   tone?: 'default' | 'warn'
 }) {
-  const [open, setOpen] = useState(false)
+  // hovered: the pointer is over the trigger. pinned: a click/tap — or keyboard focus — is
+  // holding it open. Either one shows the pop; both have to go for it to close.
+  const [hovered, setHovered] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const open = hovered || pinned
   const wrapRef = useRef<HTMLSpanElement>(null)
   const popRef = useRef<HTMLSpanElement>(null)
+  // ⚠️ Did a pointer put the focus here? A pointer press focuses the button BEFORE it clicks it,
+  // so pinning on focus too would have the click immediately un-pin what the press just pinned —
+  // the same one-flag bug in a second costume. Keyboard focus still pins; a pointer's does not,
+  // because its click is one event away and says so itself.
+  const pointerFocus = useRef(false)
   const id = useId()
 
   // The pop is hard-centered on the trigger; near a viewport edge that centers it
@@ -45,15 +60,16 @@ export function InfoTip({
   // Esc closes (and returns focus to the trigger via natural focus retention).
   useEffect(() => {
     if (!open) return
+    const close = () => { setPinned(false); setHovered(false) }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        setOpen(false)
+        close()
       }
     }
     const onDocPointer = (e: PointerEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false)
+        close()
       }
     }
     document.addEventListener('keydown', onKey, true)
@@ -68,8 +84,8 @@ export function InfoTip({
     <span
       ref={wrapRef}
       className="adm-tip"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <button
         type="button"
@@ -78,13 +94,17 @@ export function InfoTip({
         aria-describedby={open ? id : undefined}
         aria-expanded={open}
         onClick={(e) => {
-          // Inside a <label> the click would otherwise focus the wrapped input.
+          // ⚠️ Inside a settings row the whole row is a <label>, so without this the click
+          // would focus the control the row wraps instead of opening the hint.
           e.preventDefault()
           e.stopPropagation()
-          setOpen((o) => !o)
+          // The pin alone flips — a mouse user's `hovered` is true here, and toggling one
+          // shared flag is what made this untappable on an iPad.
+          setPinned((p) => !p)
         }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        onPointerDown={() => { pointerFocus.current = true }}
+        onFocus={() => { if (!pointerFocus.current) setPinned(true) }}
+        onBlur={() => { pointerFocus.current = false; setPinned(false) }}
       >
         <span aria-hidden>ⓘ</span>
       </button>

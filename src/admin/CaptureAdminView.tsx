@@ -3,23 +3,28 @@
 // anyone can record attendance/material/notes for a recent incident — no login, no
 // training. Rotation invalidates every printed poster at once (print a fresh one).
 //
-// Two cards, two jobs (UX rework 2026-07-14): «Erfassungs-Poster» = the digital QR path
-// (status → link → actions in consequence order, destructive last), «Erfassungsblatt» =
-// the paper fallback. Copy buttons on the link; rotate/disable use the inline two-step
-// confirm instead of native dialogs.
+// Two jobs, now two groups of ONE settings sheet (admin/ui · «the settings table»):
+// «Erfassungs-Poster» = the digital QR path (status → link → actions in consequence order,
+// destructive last), «Erfassungsblatt» = the paper fallback. The prose that stood as captions
+// and hints under the fields is the two dividers' ⓘ and the status row's ⓘ; the link, its
+// warning, the rehearsal and the buttons are full-width notes, because none of them is a
+// setting. Copy buttons on the link; rotate/disable use the inline two-step confirm.
 
 import { apiGet } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { Card, ConfirmButton, CopyChip, ResultChip, StatusBadge, useSecret } from './ui'
+import {
+  ConfirmButton, CopyChip, ResultChip, SettingRow, SettingsGroup, SettingsNote, SettingsSheet,
+  StatusBadge, useSecret,
+} from './ui'
 
 const captureUrl = (token: string) => `${window.location.origin}/e/${token}`
 
 export function CaptureAdminView() {
   const C = appConfig.copy.admin.erfassung
   // the same get/rotate/disable trio the Statistik and Einsatz-Link surfaces run on. This one
-  // keeps its OWN card: the poster button, the copy-warning and the Übung note sit between the
-  // shared card's rows, and it carries a second card (the paper Erfassungsblatt) besides.
+  // keeps its OWN markup: the poster button, the copy-warning and the Übung note sit between
+  // the rows, and the paper Erfassungsblatt is a second group of the same sheet.
   const { state, busy, result, clearResult, report, rotate, disable } = useSecret('/api/capture/secret', {
     rotated: C.rotated, disabled: C.disabled, failed: C.failed,
   })
@@ -62,18 +67,23 @@ export function CaptureAdminView() {
 
   if (state === null) return null
   return (
-    <>
-      <Card title={C.cardTitle} caption={C.body}>
-        <div className="adm-cap-rows">
-          <div className="adm-cap-status">
-            <StatusBadge tone={state.configured ? 'on' : 'off'} label={C.stateLabel} state={state.configured ? C.stateOn : C.stateOff} />
-          </div>
-          {state.token && <CopyChip value={captureUrl(state.token)} />}
-        </div>
-        {/* The copy button hands out the poster's whole secret. That is fine for a test or a
-            Schulung — but it has to be said next to the button, not in a doc nobody opens. */}
-        {state.token && <p className="adm-card-cap adm-cap-warn">{C.linkWarn}</p>}
-        <div className="adm-actions adm-cap-actions">
+    <SettingsSheet>
+      <SettingsGroup title={C.cardTitle} tip={C.body} />
+      {/* The badge carries no label of its own — the row's Einstellung column names it. */}
+      <SettingRow label={C.stateLabel} tip={C.hint}>
+        <StatusBadge tone={state.configured ? 'on' : 'off'} label=""
+          state={state.configured ? C.stateOn : C.stateOff} />
+      </SettingRow>
+      {state.token && (
+        <SettingsNote>
+          <CopyChip value={captureUrl(state.token)} />
+        </SettingsNote>
+      )}
+      {/* The copy button hands out the poster's whole secret. That is fine for a test or a
+          Schulung — but it has to be said next to the button, not behind an ⓘ nobody opens. */}
+      {state.token && <SettingsNote tone="warn">{C.linkWarn}</SettingsNote>}
+      <SettingsNote>
+        <div className="adm-actions">
           {state.configured ? (
             <>
               <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => void printPoster()}>{C.printBtn}</button>
@@ -83,22 +93,23 @@ export function CaptureAdminView() {
           ) : (
             <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => void rotate()}>{C.enableBtn}</button>
           )}
+          {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
         </div>
-        {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
-        <p className="adm-card-cap">{C.hint}</p>
-        {/* the rehearsal, spelled out where the poster is made — an Übung is the one incident
-            kind that is stats-excluded and may be deleted afterwards, which is what makes it
-            the safe thing to hand a colleague before the poster goes on the wall */}
-        {state.configured && (
-          <p className="adm-card-cap"><strong>{C.testTitle}:</strong> {C.testBody}</p>
-        )}
-      </Card>
+      </SettingsNote>
+      {/* the rehearsal, spelled out where the poster is made — an Übung is the one incident
+          kind that is stats-excluded and may be deleted afterwards, which is what makes it
+          the safe thing to hand a colleague before the poster goes on the wall. A named
+          procedure, not an explanation of a field, so it stays readable in the sheet. */}
+      {state.configured && (
+        <SettingsNote><strong>{C.testTitle}:</strong> {C.testBody}</SettingsNote>
+      )}
 
-      <Card title={C.sheetCardTitle} caption={C.sheetCardBody}>
+      <SettingsGroup title={C.sheetCardTitle} tip={C.sheetCardBody} />
+      <SettingsNote>
         <div className="adm-actions">
           <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => void printSheet()}>{C.sheetBtn}</button>
         </div>
-      </Card>
-    </>
+      </SettingsNote>
+    </SettingsSheet>
   )
 }

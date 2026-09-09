@@ -170,10 +170,13 @@ function OfflineCacheCard() {
     ? state.caches.reduce((sum, c) => sum + c.entries, 0)
     : 0
 
+  // ⚠️ The «Lokale Wartung …» paragraph used to sit UNDER the button it explains — the last line
+  // of the card, read after the tap it was meant to inform. It is head ⓘ now, next to what the
+  // cache itself is: same two sentences, one place, before the decision instead of after it.
   return (
     <Card
       title={C.offlineCache}
-      tip={C.offlineCacheTip}
+      tip={`${C.offlineCacheTip} ${C.offlineCacheCaption}`}
     >
       {state.kind === 'loading' && <div className="adm-state">{C.cacheReading}</div>}
       {state.kind === 'unavailable' && (
@@ -225,9 +228,6 @@ function OfflineCacheCard() {
               <ResultChip key="cleared" tone="ok" onExpire={() => setCleared(false)}>{C.cleared}</ResultChip>
             )}
           </div>
-          <p className="adm-card-cap">
-            {C.offlineCacheCaption}
-          </p>
         </>
       )}
     </Card>
@@ -241,6 +241,16 @@ type ServerState =
   | { kind: 'error' }
   | { kind: 'ok'; data: SystemResponse }
 
+/**
+ * System & Wartung — a READ-OUT, not a settings page, and it deliberately stays cards.
+ *
+ * ⚠️ Nothing here is a setting: Version, Verbindungen, Datenbank, Bestand and Speicher are
+ * measurements the server took, and the only two controls on the page are actions
+ * («Aktualisieren», «Caches leeren»). Pouring them into the settings table (ui.tsx ·
+ * SettingsSheet) would put an Einstellung | Wert | Standard header over numbers that have no
+ * default and cannot be typed — a table promising an edit for every row, none of which exists.
+ * Explanatory prose still belongs in a ⓘ, so each card carries its own on the head.
+ */
 export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const { draft } = useConfig()
   const [state, setState] = useState<ServerState>({ kind: 'loading' })
