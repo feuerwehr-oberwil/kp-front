@@ -45,20 +45,33 @@ export function useKeyboardInset(enabled = true): number {
     const measure = () => {
       frame = 0
       const kb = Math.max(0, Math.round(window.innerHeight - vv.height))
-      // treat anything below the step as «no change» — including the way back to 0, which is
-      // never a small step when a keyboard actually closes
-      if (Math.abs(kb - committed.current) < MIN_STEP) return
+      // treat anything below the step as «no change» — EXCEPT the way back to 0: iOS can close
+      // the keyboard in stages (or land a hair off), and a swallowed final step left a dialog
+      // permanently squeezed to the top half of the screen (Feldtest 08.09., «Tastatur fehlt»)
+      if (kb !== 0 && Math.abs(kb - committed.current) < MIN_STEP) return
+      if (kb === committed.current) return
       committed.current = kb
       setInset(kb)
     }
     const update = () => { if (!frame) frame = requestAnimationFrame(measure) }
+    // iOS does not always fire a visualViewport event for a dismissal (scroll-to-dismiss, the
+    // accessory hide key inside a focus trap) — re-measure a beat after focus leaves any field,
+    // once mid-animation and once after it has settled
+    let late: ReturnType<typeof setTimeout>[] = []
+    const onFocusOut = () => {
+      late.forEach(clearTimeout)
+      late = [setTimeout(update, 250), setTimeout(update, 700)]
+    }
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
+    window.addEventListener('focusout', onFocusOut)
     update()
     return () => {
       if (frame) cancelAnimationFrame(frame)
+      late.forEach(clearTimeout)
       vv.removeEventListener('resize', update)
       vv.removeEventListener('scroll', update)
+      window.removeEventListener('focusout', onFocusOut)
       // a sheet that closes with the keyboard up must not reopen lifted by a stale value
       committed.current = 0
       setInset(0)
