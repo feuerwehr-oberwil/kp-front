@@ -5,7 +5,7 @@ action, and that is deliberate: a journal that records every nudge of a symbol i
 you can no longer find the Funkspruch.
 
 This page pins down **which action lands where**, so nobody relies on something being in the
-Verlauf that was never written there. As of 2026-08-30.
+Verlauf that was never written there. As of 2026-09-10.
 
 ## There are two records, not one
 
@@ -100,24 +100,62 @@ was a gap in the *docs*, not in the Verlauf – this is what the truth looks lik
 Why a real log can still show 0 «Fläche» hits: on the Lage people draw mostly with lines and
 symbols – the row appears the moment somebody drags out a Fläche.
 
-## Georef twins: transferring an object between Plan and Karte is on the record
+## One object, two surfaces: what a reference change writes (2026-09-10)
 
-A georeferenced Plan can hold the same object as the map, as a twin; dragging it across the
-transfer target moves it for real – it leaves one surface and appears on the other, not a copy
-on both. Both directions write a Verlauf row (`src/IncidentWorkspace.tsx`):
+⚠️ **The transfer is gone, and so is the row it wrote.** «Hierher übertragen» existed because an
+object lived on exactly one surface and had to be *moved* between them; it does not any more. An
+object is ONE record whose position is knowable on both surfaces (`src/lib/tacticalObjects.ts`),
+and dragging it from one to the other is an ordinary drag that flips its anchor. There is no
+committed «transfer» to write down, and the two rows `twinTransferredToMap` /
+`twinTransferredToPlan` are deleted. Rows already written stay: the journal is append-only.
 
-- **Plan → Karte** – `transferPlanTwinToMap`: «{name} auf die Karte übertragen»
-  (`twinTransferredToMap`, `src/IncidentWorkspace.tsx:2751`).
-- **Karte → Plan** – `transferMapTwinToPlan`: «{name} auf den Plan übertragen»
-  (`twinTransferredToPlan`, `src/IncidentWorkspace.tsx:2801`).
+**Dragging an object between the surfaces writes nothing of its own.** A drag on the Karte writes
+«{name} verschoben» (`objectMoved`) exactly as it always did, wherever the object was standing
+before; a drag on a sheet is a plan edit and stays as silent as every other one (see the doctrine
+table above). What *is* on the record is the object's position, in both views – see the audit half
+below.
 
-⚠️ **Both halves of the audit stream are written too, not just one.** A transfer is a committed
-domain action – the object is somewhere else now – so it emits both the `board.delete`/
-`entity.add` (or `entity.delete`/`board.add`) pair and any `board.edit` events for Leitungen
-whose attachment was detached in the move. Replay folds `board.*` and `entity.*` alike; with
-only the arriving half's event, the reconstructed picture kept the symbol on its old surface
-too. Undoing a transfer (the toast action) reverses both halves and re-attaches those
-Leitungen – it does not write its own Verlauf row, the same as every other undo.
+**What a changed GEOREFERENCE writes – four rows, because they are four different acts**
+(`src/IncidentWorkspace.tsx`, the `linkedPlans` effect; the wording lives in
+`config/copy/*` · `log`, the decision in `src/lib/georefTwins.ts` · `fitChangeCause`):
+
+| Row | When | ↶ |
+|---|---|---|
+| «Referenz angepasst – {n} Objekte neu verortet» (`referenceRebaked`) | a **hand** corrected the fit: moved a cross, accepted «Automatisch ausrichten», transferred a Passung | yes – one step for all n |
+| «Blattform gemessen – {n} Objekte neu verortet» (`referenceRemeasured`) | the **app** measured the sheet and re-solved the SAME pairs in a truer shape (`noteMeasuredAspect`) | yes |
+| «Referenz entfernt» / «… – {n} Objekte behalten ihre letzte Position» (`referenceDropped` / `referenceDroppedKept`) | «Referenz zurücksetzen»: the fit is gone, and **nothing moves** – both bodies stand where they stood | no – nothing moved |
+| «Referenz-Änderung verworfen – Speichern fehlgeschlagen» (`referenceRolledBack`) | the station document PUT was refused (409 or offline) and the optimistic write was rolled back | no – the correction above it never stuck |
+
+⚠️ **The same visible effect is not the same act.** The first two both move every symbol on that
+sheet and both are one journalled step, but «Referenz angepasst» over a measurement credits the
+operator with a correction nobody made, and the ↶ then offers to take back an act that never
+happened. The last two earn **no undo step at all**: nothing moved, so there is nothing to step
+back to, and a stack entry for it would be a step the operator never took.
+
+⚠️ **A deleted reference has to say so itself.** Nothing moves when a fit vanishes, so the re-bake
+honestly reports 0 – and without its own row the Verlauf would say *nothing whatever* about an act
+somebody performed on purpose, after which every symbol on that sheet stands on a ground position
+nothing will correct again.
+
+### The audit half: two views, and the events that keep them coherent
+
+Replay reconstructs the three legacy views (`entities` / `drawings` / `board`) out of a snapshot
+plus folded events (`src/lib/replay.ts`), and it stays view-based on purpose – an object would
+have to be projected through a fit, and the only fit a replay has is *today's*.
+
+- **An anchor flip emits a PAIR.** The surface a finger is on speaks its own document only, so a
+  map drag of a sheet-anchored object emits `entity.move` **plus** the `board.delete` for the anno
+  that left the sheet, and a plan drag of a projected one emits `board.add` **plus** the
+  `entity.move` to the freshly baked ground point. The store is what reports the flip
+  (`tacticalObjects · anchorChanges`), because neither surface can see it. Without the second half
+  the scrub showed one object twice, or in neither place. Audit only – no Verlauf row.
+- **`board.move` is folded** (since 2026-09-10). It is what the plan surface emits on every native
+  release – Trupp chip, Absperrkreis, stroke body, SelectionBar group – and nothing folded it, so a
+  symbol advanced on a Modul sheet stood still in the replay until the next snapshot. Audit only.
+- **The georef re-bake emits nothing**, deliberately: n `entity.move` rows would put n placements
+  into the record that nobody made. The **snapshot** carries it – the re-bake marks the workspace
+  dirty and the save that follows is snapshotted server-side. Between the two, a scrub shows the
+  pre-correction positions. That is the one place the fold's coverage stops.
 
 ## What a Verlauf row can carry since 17.08.
 

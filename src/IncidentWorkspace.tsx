@@ -786,8 +786,11 @@ export function IncidentWorkspace({
     return true
   }
   /** Record on the timeline that one plan document just gained a step. The Whiteboard pushes its
-   *  own checkpoints (useBoardDoc · pushPast) and calls only this; the writers above the unmounted
-   *  board use `planCheckpoint`, which does both halves. */
+   *  own checkpoint (useBoardDoc · pushPast) and calls only this — it is the ONLY writer of these
+   *  per-document stacks. A writer that reaches a plan while the board is unmounted (the Trupp
+   *  sweeps, a Gebäude amend) goes through the store's `setBoard` instead, which lays its step on
+   *  the STORE's stack where the write touched an object the sheet does not own (lib/useObjectStore
+   *  · touchedForeign) — the one stack such a write can reach. */
   const rememberPlanStep = (planId: string) => {
     // ⚠️ …and the STORE is told too, because a plan gesture may reach an object the sheet does
     // not own (lib/useObjectStore · setBoard): one gesture is one step on whichever stack owns
@@ -1288,7 +1291,7 @@ export function IncidentWorkspace({
   // first and worked on the second, and the first stayed in the rail forever afterwards doing
   // nothing. See lib/useObjectPlans · railPlanTiles for why the two ids survive the merge.
   const railPlanDocs = useMemo(() => railPlanTiles(planDocs, activePlanId), [planDocs, activePlanId])
-  // ⚠️ The live values the timeline's plan entries read (see `planStepAt` / `planCheckpoint`).
+  // ⚠️ The live values the timeline's plan entries read (see `planStepAt`).
   // A step is pressed long after the render that recorded it, so nothing there may close over
   // this render's `board`, `activePlanId` or plan titles.
   const boardRef = useRef(board); boardRef.current = board
@@ -2187,9 +2190,11 @@ export function IncidentWorkspace({
       coordinates: points as [[number, number], [number, number], [number, number], [number, number]],
     }]
   }), [replayActive, linkedPlans, georefPlanPreviews, twinLayers, twinLayerOpacity])
-  // …and the other direction: what the Karte lends the OPEN sheet. Only the raw lists travel —
-  // the Whiteboard projects and clips them against its own fit, which is solved at the aspect it
-  // has actually measured (see Whiteboard · twinVehicles).
+  // …and the other direction: what the Karte lends the OPEN sheet — the LIVE feed, and nothing
+  // else (everything that is a record arrives as the sheet's own anno through the store's board
+  // view). Only the raw lists travel: the Whiteboard projects and clips them against its own fit,
+  // which is solved at the aspect it has actually measured (lib/planProjection · liveOverlay,
+  // drawn by components/PlanLiveLayer).
   const activeLinkedPlan = linkedPlans.find((p) => p.id === activePlanId) ?? null
   /** Which linked sheet DRAWS the selected object — the active one first, so «auf Plan zeigen»
    *  goes where the operator is looking. It is the sheet's own board view that answers, because
@@ -2379,10 +2384,12 @@ export function IncidentWorkspace({
   }
 
   const toggleLayer = (id: LayerId) => {
-    // A Georeferenz twin row is not a `LayerDef` and does not live in `layerState`: its ids are
-    // per plan (and per object), so they have no home in the fixed layer list `deriveInitial`
-    // reconciles against. It is a device pref instead — same scope, different drawer. Routed by
-    // id so the Ebenen panel stays ONE list with one gesture (lib/georefTwins · isTwinLayerId).
+    // A linked plan's RASTER row (its sheet, drawn under the Karte's ink — lib/georefTwins ·
+    // planRasterRows) is not a `LayerDef` and does not live in `layerState`: its ids are per plan
+    // and per object, so they have no home in the fixed layer list `deriveInitial` reconciles
+    // against. It is a device pref instead — same scope, different drawer. Routed by id so the
+    // Ebenen panel stays ONE list with one gesture. ⚠️ The `twin:` prefix these ids carry is
+    // PERSISTED on the device; it keeps its word because renaming it would reset everyone's rows.
     if (isTwinLayerId(id)) { toggleTwinLayer(id); return }
     const target = layers.find((l) => l.id === id)
     // ⚠️ Not from an `el` session: its audit stream carries the record vocabulary only (the
@@ -2399,7 +2406,8 @@ export function IncidentWorkspace({
   }
   /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once, or return to the layer
    *  set this Einsatz category opens with. Bases stay out of the bulk flip (a map with no base
-   *  is a flat colour, and the base row is a radio, not an eye); twins keep their own drawer.
+   *  is a flat colour, and the base row is a radio, not an eye); the plan raster rows keep their
+   *  own drawer.
    *  Each real change emits the ordinary `layer.toggle`, so the replay reconstructs bulk taps
    *  with the vocabulary it already speaks. */
   const setAllLayers = (visible: boolean) => {

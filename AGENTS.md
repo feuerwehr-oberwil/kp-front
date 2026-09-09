@@ -251,8 +251,8 @@ to prod.
     REMOVAL, and `mergeWorkspace` merges an object field-wise last-writer-wins — a concurrent edit
     still carrying the dropped sheet body brings it back. Absence cannot say «deliberately
     dropped»; a tombstone or an explicit anchor enum could, and that is a schema change nobody has
-    asked for. Phase 4 gives replay its own projection, which is why a sheet in replay shows only
-    what was recorded.
+    asked for. Replay is unaffected: it folds VIEWS, so a sheet there shows only what was recorded
+    on it.
   - ⚠️ **An attachment may name an object in the other document, and that is now the common
     case.** A Leitung end docked onto an object stores the object's id; both live surfaces resolve
     it, because it is the same id on both. The server-side print/export adapters cannot — they see
@@ -260,9 +260,22 @@ to prod.
     the SAME safe answer every unresolvable attachment gets: the stored coordinate, which is
     exactly where the endpoint was dropped (`lineAttachments · resolveLinePoints`). Do not «fix»
     that by resolving across documents in an adapter; the fallback is the contract.
-  - The word «twin» survives in two places on purpose: `twin:` is a persisted Ebenen-preference
-    prefix (`lib/prefs`), and `TWIN_CLIP_MARGIN` is the one clip both derivations quote. Renaming
-    either would rewrite device preferences for a word.
+  - ⚠️ **Replay stays VIEW-based, deliberately** (`lib/replay`). A `Saved` blob carries the three
+    legacy collections even though they are derived, so a recorded incident replays through
+    anything that ever spoke those shapes — and a view is *what was on the screen*, whereas an
+    object would have to be projected through a fit, and the only fit a replay has is TODAY's.
+    The price is that the event stream has to be COHERENT across both views, so the seams pay it:
+    an anchor flip emits the PAIR (the store reports the flip — `tacticalObjects · anchorChanges`
+    — because neither surface can see the other's half), `board.move` is folded, and the georef
+    re-bake deliberately emits NOTHING (n `entity.move` rows would claim n placements nobody made;
+    the snapshot the ensuing save writes is what carries it). Full ledger:
+    `docs/verlauf-coverage.md`.
+  - The word «twin» survives where renaming it would cost something real: `twin:` is a persisted
+    Ebenen-preference prefix (`lib/prefs`) and would reset every device's rows, and
+    `TWIN_CLIP_MARGIN` is the one clip both derivations quote. Elsewhere it is only a name that
+    has outlived its concept — the file `lib/georefTwins.ts`, `components/TwinTeamPill`, the copy
+    keys `twinFromMap` / `twinUnnamed`, the `LayerPanel` `twins` prop — and any of those may be
+    renamed by whoever is next in that file anyway. Nothing in the app is a twin.
 - **«Automatisch ausrichten» PROPOSES a georeference; it never asserts one** (08.09.2026). An
   unlinked module sheet's «Karte verknüpfen» chip offers the CV suggestion beside the point
   flow: `POST /api/georef/suggest` (matcher in `app/georef_suggest.py`, evaluation + provenance
