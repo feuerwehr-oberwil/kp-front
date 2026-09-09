@@ -2124,6 +2124,25 @@ export function IncidentWorkspace({
     // and the row, answered in one place beside the cause itself (georefTwins · fitChangeUndoLabel).
     const undoLabel = fitChangeUndoLabel(cause)
     stepLabel.current = undoLabel
+    /**
+     * ⚠️ THE RE-BAKE EMITS NO EVENTS, and that is the decided answer rather than an omission
+     * (phase 4). It moves n map bodies at once, so the two obvious alternatives are:
+     *
+     *   · n `entity.move` rows — which would put n placements into the record that nobody made.
+     *     The stream is what the replay folds AND what the chain attests: «the operator moved 40
+     *     objects» is not what happened, «the reference was corrected» is, and the Verlauf already
+     *     says exactly that, once, above.
+     *   · one row of a new op type — which no fold could apply anyway. Re-deriving the positions
+     *     here would need a FIT, and the only fit a replay ever has is today's; applying it to
+     *     yesterday's record is the one thing the bake exists to make unnecessary (the map bodies
+     *     are baked at WRITE time precisely so the record is self-contained).
+     *
+     * So the SNAPSHOT carries it, which is what snapshots are for: this write marks the workspace
+     * dirty, the save that follows within the autosave window stores the blob, and the backend
+     * snapshots every save (backend · api/incidents · apply_workspace_put). Between the re-bake
+     * and that save — seconds — a scrub shows the pre-correction positions. Written down here
+     * because it is the one place the fold's coverage stops, and lib/replay's header points at it.
+     */
     const moved = rebake({ checkpoint: !!undoLabel })
     stepLabel.current = null
     const row = fitChangeRow(cause, moved)
