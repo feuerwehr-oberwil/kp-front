@@ -119,6 +119,21 @@ export function objectsFromLegacy(
   return [...byId.values()]
 }
 
+/**
+ * The ids anchored on ONE sheet — what that sheet draws NATIVELY, and therefore exactly what the
+ * still-projected map→plan mirror must not lend it back.
+ *
+ * ⚠️ Since the Karte draws a sheet-anchored object itself, that object is an ordinary member of
+ * `entities`/`drawings`, and a mirror that reads those lists would hand it straight back to the
+ * sheet it is drawn on: the symbol appeared twice on its own Modul — once as its anno, once as a
+ * twin of its own baked body — and printed twice.
+ */
+export function sheetAnchoredIds(objects: TacticalObject[], planId: string): Set<string> {
+  const out = new Set<string>()
+  for (const o of objects) if (o.sheet?.planId === planId) out.add(o.id)
+  return out
+}
+
 /** What one linked plan contributes to baking: its fit and the sheet's aspect. */
 export interface PlanFit { fit: GeorefFit; aspect: number }
 

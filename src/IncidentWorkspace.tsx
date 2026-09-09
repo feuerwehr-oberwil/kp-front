@@ -13,7 +13,7 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
-import { viewsOf, type PlanFit } from './lib/tacticalObjects'
+import { sheetAnchoredIds, viewsOf, type PlanFit } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
@@ -2035,6 +2035,16 @@ export function IncidentWorkspace({
     rebake()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedPlans, readOnly, tacticalLocked])
+  /**
+   * ⚠️ What ONE sheet must not be lent: its own objects.
+   *
+   * The Karte draws a sheet-anchored object natively now, so it is in `doc.entities` /
+   * `doc.drawings` like anything else — and the map→plan mirror, which is still a projection,
+   * would hand it straight back to the very sheet it is drawn on. The symbol appeared twice on
+   * its own Modul (once as its anno, once as a twin of its own baked body), and printed twice.
+   * The ANCHOR is the answer, and the store is where it lives (tacticalObjects · sheetAnchoredIds).
+   */
+  const sheetOwn = (planId: string) => sheetAnchoredIds(objects, planId)
   // The Karte's content standing on each linked sheet, as PRINTABLE annos (30.08.): the
   // exported Objektplan page shows what the screen's sheet shows. Same visibility gates as
   // boardTwinSources — a layer hidden on screen must not resurface on paper.
@@ -2047,11 +2057,13 @@ export function IncidentWorkspace({
     const twinDrawings = isVisible(appConfig.defaults.drawingLayerId) ? doc.drawings : []
     const out: Record<string, BoardAnno[]> = {}
     for (const p of linkedPlans) {
-      const annos = boardTwinAnnosForPrint(p, twinEntities, twinDrawings)
+      const own = sheetOwn(p.id)
+      const annos = boardTwinAnnosForPrint(p, twinEntities.filter((e) => !own.has(e.id)), twinDrawings.filter((d) => !own.has(d.id)))
       if (annos.length) out[p.id] = annos
     }
     return out
-  }, [replayActive, linkedPlans, twinLayers, doc.entities, doc.drawings, entities, isVisible])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replayActive, linkedPlans, twinLayers, doc.entities, doc.drawings, entities, isVisible, objects])
   const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
   useEffect(() => {
     if (replayActive) return
@@ -2095,22 +2107,26 @@ export function IncidentWorkspace({
   }, [doc.entities, selectedId, linkedPlans, activePlanId])
   const boardTwinSources = useMemo(() => {
     if (replayActive || !activeLinkedPlan) return undefined
+    // …and this sheet is never lent its own objects — see sheetOwn
+    const own = sheetOwn(activeLinkedPlan.id)
+    const lent = <T extends { id: string }>(list: T[]) => list.filter((e) => !own.has(e.id))
     return {
       vehicles: twinVisible(twinLayers, TWIN_MAP_VEHICLES) ? liveVehicles : [],
       // the Lage's own tactical symbols, honouring the Karte's layer switch: a symbol hidden
       // there must not reappear on the sheet through the back door
       symbols: twinVisible(twinLayers, TWIN_MAP_SYMBOLS)
-        ? doc.entities.filter((e) => e.kind === 'symbol' && isVisible(effectiveLayer(e)))
+        ? lent(doc.entities.filter((e) => e.kind === 'symbol' && isVisible(effectiveLayer(e))))
         : [],
       // Notes, ground shapes, Atemschutz markers and shared responder positions share the Lage
       // content row with drawings. Photos remain source-only for now (the requested rollout is
       // operational markings, not media overlays).
       content: twinVisible(twinLayers, TWIN_MAP_SYMBOLS)
-        ? entities.filter((e) => (e.kind === 'note' || e.kind === 'shape' || e.kind === 'team' || e.kind === 'person') && isVisible(effectiveLayer(e)))
+        ? lent(entities.filter((e) => (e.kind === 'note' || e.kind === 'shape' || e.kind === 'team' || e.kind === 'person') && isVisible(effectiveLayer(e))))
         : [],
-      drawings: twinVisible(twinLayers, TWIN_MAP_SYMBOLS) && isVisible(appConfig.defaults.drawingLayerId) ? doc.drawings : [],
+      drawings: twinVisible(twinLayers, TWIN_MAP_SYMBOLS) && isVisible(appConfig.defaults.drawingLayerId) ? lent(doc.drawings) : [],
     }
-  }, [replayActive, activeLinkedPlan, twinLayers, liveVehicles, doc.entities, doc.drawings, entities, isVisible])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replayActive, activeLinkedPlan, twinLayers, liveVehicles, doc.entities, doc.drawings, entities, isVisible, objects])
 
   // The journal is append-only: every action pushes a row, and nothing ever edits
   // or removes one — undo/redo log their own lines. So the stream stays a faithful

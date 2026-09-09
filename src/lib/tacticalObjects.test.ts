@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   applyBoardToObjects, applyDocToObjects, bakeGeoBody, bakeSheetSymbol,
-  objectsFromLegacy, viewsOf, type TacticalObject,
+  objectsFromLegacy, sheetAnchoredIds, viewsOf, type TacticalObject,
 } from './tacticalObjects'
 import type { BoardAnno, Drawing, Entity } from '../types'
 
@@ -268,5 +268,28 @@ describe('bakeSheetSymbol — the drag-onto-the-sheet door', () => {
   it('refuses a live vehicle — an overlay is not a record', () => {
     const o: TacticalObject = { id: 'v1', entity: ent('v1', { live: true }) }
     expect(bakeSheetSymbol(o, 'modul2', { x: 0.5, y: 0.5 }, PLAN)).toBeNull()
+  })
+})
+
+describe('sheetAnchoredIds — a sheet is never lent its own objects', () => {
+  /* ⚠️ The regression this exists for: the Karte draws a plan-drawn symbol itself now, so it
+   * is an ordinary entity — and the map→plan mirror, which is still a projection, handed it
+   * straight back to the sheet it was drawn on. It appeared TWICE on its own Modul (its anno
+   * plus a twin of its own baked body) and printed twice. */
+  const store = (): TacticalObject[] => [
+    bakeGeoBody({ id: 's1', sheet: { planId: 'modul2', anno: anno('s1') } }, PLAN, 'taktisch'),
+    { id: 'm1', entity: ent('m1') },
+  ]
+
+  it('names exactly the ids anchored on that plan', () => {
+    expect([...sheetAnchoredIds(store(), 'modul2')]).toEqual(['s1'])
+    expect([...sheetAnchoredIds(store(), 'modul3')]).toEqual([]) // …and nothing on a sibling sheet
+  })
+
+  it('the Karte entity list minus that set is what the sheet may be lent', () => {
+    const objects = store()
+    const own = sheetAnchoredIds(objects, 'modul2')
+    const lent = viewsOf(objects).entities.filter((e) => !own.has(e.id))
+    expect(lent.map((e) => e.id)).toEqual(['m1']) // the map's own object crosses; the sheet's does not
   })
 })
