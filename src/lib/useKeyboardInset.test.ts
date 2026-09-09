@@ -43,6 +43,35 @@ describe('useKeyboardInset — the way back to 0', () => {
     expect(result.current).toBe(0)
   })
 
+  /* index.html ships `interactive-widget=overlays-content`; on Android that stops the keyboard
+   * from resizing EITHER viewport, so `innerHeight - vv.height` reads 0 with the keyboard fully
+   * up — the Journaleintrag composer sat behind it (Feldtest 09.09.). The VirtualKeyboard API is
+   * the one source of geometry there. */
+  it('reads the VirtualKeyboard API when neither viewport shrinks (Android overlays-content)', () => {
+    vi.useFakeTimers()
+    stubViewport() // full height, never changes — exactly what overlays-content does
+    class FakeVk extends EventTarget {
+      overlaysContent = false
+      boundingRect = { height: 0 } as DOMRectReadOnly
+      raise(height: number) {
+        this.boundingRect = { height } as DOMRectReadOnly
+        this.dispatchEvent(new Event('geometrychange'))
+      }
+    }
+    const vk = new FakeVk()
+    Object.defineProperty(navigator, 'virtualKeyboard', { configurable: true, value: vk })
+    try {
+      const { result } = renderHook(() => useKeyboardInset(true))
+      expect(vk.overlaysContent).toBe(true) // the hook opts in, or the API reports nothing
+      act(() => vk.raise(320)); settle()
+      expect(result.current).toBe(320)
+      act(() => vk.raise(0)); settle()
+      expect(result.current).toBe(0)
+    } finally {
+      delete (navigator as Navigator & { virtualKeyboard?: unknown }).virtualKeyboard
+    }
+  })
+
   it('re-measures after focusout when the dismissal fired no viewport event', () => {
     vi.useFakeTimers()
     const vv = stubViewport()

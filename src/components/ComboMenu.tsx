@@ -6,6 +6,7 @@ import { cx } from '../lib/cx'
 import { fillTemplate } from '../lib/format'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
+import { visibleViewportBottom } from '../lib/useKeyboardInset'
 import c from './ComboMenu.module.css'
 
 /**
@@ -153,12 +154,14 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
       if (!el) return
       const r = el.getBoundingClientRect()
       const bound = clipBounds(el)
-      // The VISUAL viewport, not the layout one: the OS keyboard shrinks only the former, and a
-      // menu measured against `window.innerHeight` kept opening downward INTO the keyboard —
-      // the operator saw a search row and nothing else (Feldtest 08.09., «man sieht nix mehr»).
+      // The VISIBLE screen, not the layout viewport: the OS keyboard shrinks only the former,
+      // and a menu measured against `window.innerHeight` kept opening downward INTO the keyboard
+      // — the operator saw a search row and nothing else (Feldtest 08.09., «man sieht nix
+      // mehr»). visibleViewportBottom() also reads the VirtualKeyboard API, because on Android
+      // (`overlays-content`) NEITHER viewport shrinks and the visual viewport alone lies.
       const vv = window.visualViewport
       const visTop = vv ? vv.offsetTop : 0
-      const visBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
+      const visBottom = visibleViewportBottom()
       // below: against the clipping ancestor. above: against the VIEWPORT — see clipBounds.
       const below = Math.min(bound.bottom, visBottom) - r.bottom - EDGE
       const above = r.top - Math.max(0, visTop) - EDGE
@@ -177,16 +180,20 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
     place()
     window.addEventListener('scroll', place, true)
     window.addEventListener('resize', place)
-    // the keyboard rising/falling fires only visualViewport events on iOS — without these the
-    // menu is placed once and never learns the screen just lost its bottom 40%
+    // the keyboard rising/falling fires only visualViewport events on iOS — and on Android
+    // (`overlays-content`) only VirtualKeyboard geometrychange — without these the menu is
+    // placed once and never learns the screen just lost its bottom 40%
     const vv = window.visualViewport
+    const vk = (navigator as Navigator & { virtualKeyboard?: EventTarget }).virtualKeyboard
     vv?.addEventListener('resize', place)
     vv?.addEventListener('scroll', place)
+    vk?.addEventListener('geometrychange', place)
     return () => {
       window.removeEventListener('scroll', place, true)
       window.removeEventListener('resize', place)
       vv?.removeEventListener('resize', place)
       vv?.removeEventListener('scroll', place)
+      vk?.removeEventListener('geometrychange', place)
     }
   }, [open])
 
