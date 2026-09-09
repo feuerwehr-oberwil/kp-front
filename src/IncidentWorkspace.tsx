@@ -139,7 +139,7 @@ import { planPreviewUrl, prewarmPlans } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
-import { useAuth } from './lib/auth'
+import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia,
   type IncidentMeta,
@@ -301,7 +301,7 @@ export function IncidentWorkspace({
    * (the lite branch at the bottom of this component), which is why the rest of the workspace
    * never has to reason about it beyond the three flags below.
    */
-  const asLink = user?.link_kind === 'atemschutz'
+  const asLink = isAtemschutzLinkKind(user?.link_kind)
   // ⚠️ `asLink` is NOT read-only. Its writes are real (the trupp slice of the workspace, journal
   // rows of kind 'team', `atemschutz.*` events — the backend allowlists exactly those), and
   // read-only would neuter `commit`, the journal store and the sync push alike, leaving a board

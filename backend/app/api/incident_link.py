@@ -60,30 +60,55 @@ system never has to learn our incident UUIDs; we are not an alerting system, and
 created Einsatz or an Übung carries no `source_ref` at all — so an app-minted token names the
 incident by its id (`inc`). Same signature, same key, same authority: the key already means «may
 open a read session on any incident this station has».
+
+THE STANDING LINKS (2026-09-09)
+-------------------------------
+`/l/t<secret>` (Stations-Terminal) and `/l/s<secret>` (fixe Atemschutz-URL) are station-level:
+the secret lives on `deployment_config`, printed/enrolled ONCE, and the URL names no Einsatz —
+«whichever is open» is resolved here, at exchange time. Exactly one open → the session is bound
+to it and everything downstream is an ordinary one-incident link session. None open → a
+structured «idle» answer, NOT the uniform 404: the holder is station-internal by trust model
+(physical presence at the station / the laminated QR at the Eingang), and the idle screen has to
+tell «nichts läuft» apart from «revoked». More than one open → a «choose» answer listing the
+open Einsätze (enumeration is acceptable for exactly these two kinds, and must never reach the
+external view link); the client re-posts with its pick, which is re-verified against the open
+set. A poll passes its currently bound incident the same way, so an already-made choice sticks
+while that Einsatz runs and re-resolves the moment it closes.
+
+The terminal additionally leaves a DEVICE cookie behind on first exchange (auth/cookies ·
+TERMINAL_COOKIE): the PC re-exchanges on `/terminal-session` with that cookie alone, so the
+secret appears once — in the admin's enrollment QR — and never again, not even in a bookmark.
+Both standing keys revoke the vk way, checked on every request: rotate/delete the column and
+every printed QR, every enrolled device and every open session dies at once.
 """
 
 import secrets
 import uuid
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from jwt import InvalidTokenError as JWTError
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..alarms import open_pooled_alarm
-from ..auth.cookies import set_link_cookie
+from ..auth.cookies import TERMINAL_COOKIE, set_link_cookie, set_terminal_cookie
 from ..auth.dependencies import CurrentAdmin
 from ..auth.incident_link import (
     LINK_TOKEN_TYPE,
     create_atemschutz_session_token,
     create_link_session_token,
+    create_standing_atemschutz_session_token,
+    create_terminal_device_token,
+    create_terminal_session_token,
     create_view_session_token,
+    key_fingerprint,
+    read_terminal_device_fingerprint,
 )
 from ..database import get_db
 from ..deployment_config import config_row
-from ..models import DeploymentConfig, Incident
+from ..models import INCIDENT_ACTIVE_STATUSES, DeploymentConfig, Incident
 
 router = APIRouter(prefix="/incident-link", tags=["incident-link"])
 
@@ -95,6 +120,10 @@ LINK_ALGORITHM = "HS256"
 
 class LinkTokenIn(BaseModel):
     token: str
+    # Standing links only (`t…`/`s…`): the pick out of a previous «choose» answer, or the
+    # incident a poll is already bound to. Ignored for the per-incident kinds — their token
+    # names its Einsatz and a body field must not be able to rebind it.
+    incident_id: str | None = None
 
 
 # --- admin: the minting key -------------------------------------------------------------
@@ -175,6 +204,58 @@ async def disable_link(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db))
     return {"configured": False}
 
 
+# --- admin: the two standing keys ---------------------------------------------------------
+# The same trio twice more, on the deployment's standing columns (models · DeploymentConfig).
+# Deployment-admin gated like the minting key: a standing secret opens (terminal) or writes
+# into (Atemschutz) every Einsatz the station will ever run, which is deployment
+# administration. Rotation is the revocation: the printed QR, every enrolled device and every
+# open session die together (auth/incident_link · _deployment_key_unchanged).
+
+
+@router.get("/terminal/secret")
+async def get_terminal_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+    row = await config_row(db)
+    return {"configured": bool(row.terminal_link_key), "token": row.terminal_link_key}
+
+
+@router.post("/terminal/secret/rotate")
+async def rotate_terminal_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+    row = await config_row(db)
+    row.terminal_link_key = secrets.token_urlsafe(32)
+    await db.flush()
+    return {"configured": True, "token": row.terminal_link_key}
+
+
+@router.delete("/terminal/secret")
+async def disable_terminal(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+    row = await config_row(db)
+    row.terminal_link_key = None
+    await db.flush()
+    return {"configured": False}
+
+
+@router.get("/atemschutz/secret")
+async def get_standing_atemschutz_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+    row = await config_row(db)
+    return {"configured": bool(row.atemschutz_standing_key), "token": row.atemschutz_standing_key}
+
+
+@router.post("/atemschutz/secret/rotate")
+async def rotate_standing_atemschutz_key(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+    row = await config_row(db)
+    row.atemschutz_standing_key = secrets.token_urlsafe(32)
+    await db.flush()
+    return {"configured": True, "token": row.atemschutz_standing_key}
+
+
+@router.delete("/atemschutz/secret")
+async def disable_standing_atemschutz(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+    row = await config_row(db)
+    row.atemschutz_standing_key = None
+    await db.flush()
+    return {"configured": False}
+
+
 # --- the exchange (link token → session cookie) ------------------------------------------
 
 
@@ -198,6 +279,11 @@ VIEW_TOKEN_PREFIX = "v"  # noqa: S105 — a URL marker, not a credential
 #: system token begins with an "a" either. The two app-minted secrets are `secrets.token_urlsafe`
 #: output and carry no prefix of their own, so one leading character tells all three kinds apart.
 ATEMSCHUTZ_TOKEN_PREFIX = "a"  # noqa: S105 — a URL marker, not a credential
+
+#: The standing kinds' markers (see «THE STANDING LINKS» above) — same guarantee: no JWT
+#: begins with either, and the secret behind the prefix carries no marker of its own.
+TERMINAL_TOKEN_PREFIX = "t"  # noqa: S105 — a URL marker, not a credential
+STANDING_ATEMSCHUTZ_TOKEN_PREFIX = "s"  # noqa: S105 — a URL marker, not a credential
 
 
 async def _open_view_session(token: str, response: Response, db: AsyncSession) -> dict:
@@ -246,6 +332,143 @@ async def _open_atemschutz_session(token: str, response: Response, db: AsyncSess
     return {"incident_id": str(inc.id)}
 
 
+# --- the standing exchange ----------------------------------------------------------------
+
+
+async def _open_incident_rows(db: AsyncSession) -> list[Incident]:
+    """Every Einsatz a standing link may bind to right now — `Incident.is_open`, as a query.
+    Übungen INCLUDED, deliberately: the Atemschutzüberwachung is exactly what gets drilled,
+    and a laminated QR that goes dead in the Übung defeats the training purpose."""
+    rows = (
+        await db.execute(
+            select(Incident)
+            .where(Incident.is_archived.is_(False), Incident.status.in_(INCIDENT_ACTIVE_STATUSES))
+            .order_by(Incident.started_at.desc())
+        )
+    ).scalars()
+    return list(rows)
+
+
+def _candidate(inc: Incident) -> dict:
+    """One row of a «choose» answer — enough to pick by, nothing that isn't on the chooser."""
+    return {
+        "id": str(inc.id),
+        "title": inc.title,
+        "address": inc.address,
+        "started_at": inc.started_at.isoformat() if inc.started_at else None,
+        "is_exercise": inc.is_exercise,
+    }
+
+
+async def _resolve_standing(db: AsyncSession, chosen: str | None) -> tuple[str, Incident | None, list[Incident]]:
+    """Which Einsatz a standing credential binds to → ("ok", incident, _) | ("idle", None, _) |
+    ("choose", None, candidates).
+
+    A `chosen` id that is still open wins — that is how a made choice STICKS across the poll
+    while others open and close around it. A chosen id that is not in the open set any more is
+    not an error: the poll's Einsatz just closed, and the honest answer is a fresh resolution.
+    """
+    rows = await _open_incident_rows(db)
+    if chosen:
+        for inc in rows:
+            if str(inc.id) == chosen:
+                return "ok", inc, rows
+    if not rows:
+        return "idle", None, rows
+    if len(rows) == 1:
+        return "ok", rows[0], rows
+    return "choose", None, rows
+
+
+async def _standing_key(db: AsyncSession, column: str) -> str | None:
+    return (
+        await db.execute(select(getattr(DeploymentConfig, column)).where(DeploymentConfig.id == 1))
+    ).scalar_one_or_none()
+
+
+def _standing_secret_ok(secret: str, key: str) -> bool:
+    """The vk lookup, inverted: the standing key is one column on a singleton row, so the
+    secret is COMPARED rather than looked up — constant-time, like every credential check."""
+    return bool(secret) and secrets.compare_digest(secret, key)
+
+
+async def _open_standing_atemschutz_session(
+    token: str, chosen: str | None, response: Response, db: AsyncSession
+) -> dict:
+    """Trade the fixed Atemschutz URL for a write-narrowed session on whichever Einsatz is
+    open. An unknown or revoked secret answers the uniform 401; a station with nothing running
+    answers «idle», because the laminated QR's holder is inside the station and the board page
+    has to say «kein Einsatz» rather than pretend the link died."""
+    secret = token[len(STANDING_ATEMSCHUTZ_TOKEN_PREFIX) :]
+    key = await _standing_key(db, "atemschutz_standing_key")
+    if key is None or not _standing_secret_ok(secret, key):
+        raise _invalid_token()
+    state, inc, rows = await _resolve_standing(db, chosen)
+    if state == "ok" and inc is not None:
+        set_link_cookie(response, create_standing_atemschutz_session_token(str(inc.id), key))
+        return {"status": "ok", "incident_id": str(inc.id)}
+    if state == "idle":
+        return {"status": "idle"}
+    return {"status": "choose", "candidates": [_candidate(i) for i in rows]}
+
+
+async def _terminal_answer(key: str, chosen: str | None, response: Response, db: AsyncSession) -> dict:
+    """The terminal's half of the standing resolution — shared by the enrollment exchange
+    (token in the URL, once) and the device-cookie poll (every ~10 s thereafter)."""
+    state, inc, rows = await _resolve_standing(db, chosen)
+    if state == "ok" and inc is not None:
+        set_link_cookie(response, create_terminal_session_token(str(inc.id), key))
+        return {"status": "ok", "incident_id": str(inc.id)}
+    if state == "idle":
+        return {"status": "idle"}
+    return {"status": "choose", "candidates": [_candidate(i) for i in rows]}
+
+
+async def _open_terminal_session(token: str, chosen: str | None, response: Response, db: AsyncSession) -> dict:
+    """The ENROLLMENT: the one time the terminal secret travels. Verifies it, leaves the
+    long-lived device cookie behind (auth/cookies · TERMINAL_COOKIE), and answers like the
+    poll — the page then drops the secret from its address bar and lives on the cookie."""
+    secret = token[len(TERMINAL_TOKEN_PREFIX) :]
+    key = await _standing_key(db, "terminal_link_key")
+    if key is None or not _standing_secret_ok(secret, key):
+        raise _invalid_token()
+    set_terminal_cookie(response, create_terminal_device_token(key))
+    return await _terminal_answer(key, chosen, response, db)
+
+
+class TerminalSessionIn(BaseModel):
+    """The poll's body — no token (the device cookie is the credential), only the incident the
+    terminal is currently bound to, if any, so a made choice sticks (see `_resolve_standing`)."""
+
+    incident_id: str | None = None
+
+
+@router.post("/terminal-session")
+async def open_terminal_session(
+    body: TerminalSessionIn,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """The enrolled terminal's poll: no token, just the device cookie. Runs idle on the PC
+    every few seconds, so its answers are the terminal's whole world — «ok» (mount the
+    Einsatz), «idle» (kein Einsatz), «choose» (more than one running).
+
+    One 401 for a missing, expired, mistyped or ROTATED-AWAY cookie: they all mean the same
+    thing to the person at the PC («Terminal neu einrichten»), and telling them apart helps
+    only a probe. Fail-closed on a deleted key like every other link door: 403, feature off.
+    """
+    fingerprint = read_terminal_device_fingerprint(request.cookies.get(TERMINAL_COOKIE))
+    if fingerprint is None:
+        raise _invalid_token()
+    key = await _standing_key(db, "terminal_link_key")
+    if not key:
+        raise no_minting_key()
+    if not secrets.compare_digest(fingerprint, key_fingerprint(key)):
+        raise _invalid_token()
+    return await _terminal_answer(key, body.incident_id, response, db)
+
+
 @router.post("/session")
 async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSession = Depends(get_db)) -> dict:
     """Trade a link token minted by the alerting system for a link-session cookie.
@@ -255,12 +478,16 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
     on. That is what keeps this provider-neutral: nothing here knows what Divera is, and an
     alerting system never has to learn our incident UUIDs to link to one.
     """
-    # One door, three kinds of link — the SPA forwards whatever stood in `/l/<…>` and does not
-    # need to know which it is holding.
+    # One door, five kinds of link — the SPA forwards whatever stood in `/l/<…>` and does not
+    # need to know which it is holding. Only the standing kinds read `incident_id`.
     if body.token.startswith(VIEW_TOKEN_PREFIX):
         return await _open_view_session(body.token, response, db)
     if body.token.startswith(ATEMSCHUTZ_TOKEN_PREFIX):
         return await _open_atemschutz_session(body.token, response, db)
+    if body.token.startswith(TERMINAL_TOKEN_PREFIX):
+        return await _open_terminal_session(body.token, body.incident_id, response, db)
+    if body.token.startswith(STANDING_ATEMSCHUTZ_TOKEN_PREFIX):
+        return await _open_standing_atemschutz_session(body.token, body.incident_id, response, db)
 
     # Through the same helper the in-app mint uses, so «kein Schlüssel» cannot come to mean two
     # different things: the app must never offer a link this exchange would then refuse.

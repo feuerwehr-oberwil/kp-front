@@ -502,6 +502,15 @@ class DeploymentConfig(Base):
     # it could issue themselves deployment-admin access. Same rules as the two above: never in
     # config_json, NULL = disabled (fail-closed); rotating invalidates every link already sent.
     incident_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Standing links (2026-09-09) — station-level secrets that ARE a URL, like the per-incident
+    # view/atemschutz keys but on the deployment: they bind to «whichever Einsatz is open»,
+    # resolved at exchange time (app/api/incident_link.py). Same rules as every secret column
+    # here: never in config_json, NULL = disabled (fail-closed), rotating invalidates the
+    # printed QR / enrolled devices AND every session already open.
+    #   terminal_link_key      — the Stations-Terminal enrollment (read-only, kf-scope)
+    #   atemschutz_standing_key — the laminated Atemschutz QR (the ak write slice)
+    terminal_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    atemschutz_standing_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     # --- Telemetry (opt-in, see app/telemetry/) --------------------------------------
     # Consent for the BACKGROUND channel only: 'off' (or NULL) | 'errors'. NULL is the
     # column default and the value every existing and every fresh install starts at, which

@@ -176,6 +176,11 @@ class Settings(BaseSettings):
     # the damage if a phone with a live session is lost. The station's MINTING key is not a
     # setting: it lives on the deployment_config row (incident_link_key), admin-rotatable.
     incident_link_session_ttl: timedelta = timedelta(hours=12)
+    # Lifetime of the Stations-Terminal DEVICE cookie (auth/cookies · TERMINAL_COOKIE) — the
+    # enrollment, not a session. A backstop like the TTL above: the real lever is rotating
+    # `terminal_link_key`, which ends every enrolled device on its next request. A year keeps
+    # «enrolled once» true in practice; browsers cap cookies at ~400 days anyway.
+    terminal_device_ttl: timedelta = timedelta(days=365)
 
     # --- Deployment-admin auth (separate from the incident editor role) ---
     # A shared secret unlocks the /admin UI and the admin-write API/CLI (config,

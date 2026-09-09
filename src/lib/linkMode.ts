@@ -29,31 +29,46 @@ export function linkTokenFromPath(pathname: string): string | null {
 }
 
 /** Which kind of link a token is, by the marker the backend puts in front of the secret
- *  (api/incident_link · VIEW_TOKEN_PREFIX / ATEMSCHUTZ_TOKEN_PREFIX); a JWT has neither. */
-export function linkKindFromToken(token: string): 'alarm' | 'view' | 'atemschutz' {
+ *  (api/incident_link · VIEW/ATEMSCHUTZ/TERMINAL/STANDING_ATEMSCHUTZ_TOKEN_PREFIX); a JWT —
+ *  always `eyJ…` — has none, so it falls through to `alarm`. The two STANDING kinds
+ *  (2026-09-09) carry station-level secrets that bind to whichever Einsatz is open; the
+ *  exchange for them goes through lib/standingLink, not lib/incidentLink. */
+export function linkKindFromToken(token: string): 'alarm' | 'view' | 'atemschutz' | 'atemschutz-standing' | 'terminal' {
   if (token.startsWith('a')) return 'atemschutz'
   if (token.startsWith('v')) return 'view'
+  if (token.startsWith('t')) return 'terminal'
+  if (token.startsWith('s')) return 'atemschutz-standing'
   return 'alarm'
 }
+
+/** The enrolled Stations-Terminal's home. The enrollment QR (`/l/t<secret>`) rewrites itself
+ *  here once the device cookie is set, so the secret leaves the address bar for good. */
+export const TERMINAL_PATH = '/terminal'
 
 const currentPath = (): string => (typeof location === 'undefined' ? '/' : location.pathname)
 
 /**
  * Does this page's own link session outrank whatever login the device holds?
  *
- * True only for the ATEMSCHUTZ link: «Überwachung abgeben» means this phone becomes the
- * Überwachung, and the colleague at the Eingang may well be a member with a login of their
- * own — the board is still what that page must show. The alarm and view links keep the older
- * rule (a signed-in member who taps an alert link stays who they are), so they say nothing
- * and the server falls back to «only where there is no login».
+ * True for the ATEMSCHUTZ links (per-incident and standing): «Überwachung abgeben» means this
+ * phone becomes the Überwachung, and the colleague at the Eingang may well be a member with a
+ * login of their own — the board is still what that page must show. True for the TERMINAL for
+ * the same reason turned around: the enrolled PC IS the terminal, whoever last logged in on
+ * that browser. The alarm and view links keep the older rule (a signed-in member who taps an
+ * alert link stays who they are), so they say nothing and the server falls back to «only
+ * where there is no login».
  */
 export function linkPageOwnsSession(pathname = currentPath()): boolean {
+  if (pathname === TERMINAL_PATH) return true
   const token = linkTokenFromPath(pathname)
-  return !!token && linkKindFromToken(token) === 'atemschutz'
+  if (!token) return false
+  const kind = linkKindFromToken(token)
+  return kind === 'atemschutz' || kind === 'atemschutz-standing' || kind === 'terminal'
 }
 
 /** The header for one request, from the address bar. */
 export function linkSessionHeaders(pathname = currentPath()): Record<string, string> {
+  if (linkPageOwnsSession(pathname)) return { [LINK_MODE_HEADER]: 'use' }
   if (!linkTokenFromPath(pathname)) return { [LINK_MODE_HEADER]: 'off' }
-  return linkPageOwnsSession(pathname) ? { [LINK_MODE_HEADER]: 'use' } : {}
+  return {}
 }

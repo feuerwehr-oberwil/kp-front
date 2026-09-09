@@ -24,6 +24,7 @@ from ..auth.dependencies import (
     EditorOrAdmin,
     UserOrAdmin,
     _admin_session_valid,
+    atemschutz_link_source,
     is_atemschutz_link,
 )
 from ..database import execute_dml, get_db
@@ -345,7 +346,7 @@ async def put_workspace_trupps(
         incident_id,
         scoped,
         user_id=None if link else user.id,
-        source="atemschutz-link" if link else "client",
+        source=atemschutz_link_source(user) if link else "client",
     )
     # Only the revision goes back: the caller sent a slice and reads nothing but the rev
     # (workspaceSync · push), and a phone on one bar has no use for the whole blob per tap.

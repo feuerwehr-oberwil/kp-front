@@ -27,13 +27,21 @@ export interface AuthUser {
   link_scoped?: boolean
   /** the one incident that session may see — the app opens it directly instead of listing */
   link_incident_id?: string
-  /** WHICH link this session came in on. `alarm` and `view` are read-only; `atemschutz` is the
-   *  Atemschutz-Link (the QR a non-FU scans to run only the Überwachungstafel of this one
-   *  Einsatz), and it MAY write — the trupp slice of the workspace, journal rows of kind
-   *  'team', and `atemschutz.*` events. Everything else still 403s, so the app renders that
-   *  session as the lite board and nothing more (IncidentWorkspace · `asLink`). */
-  link_kind?: 'alarm' | 'view' | 'atemschutz'
+  /** WHICH link this session came in on. `alarm`, `view` and `terminal` (the enrolled
+   *  Stations-PC) are read-only; `atemschutz` is the Atemschutz-Link (the QR a non-FU scans to
+   *  run only the Überwachungstafel of this one Einsatz) and `atemschutz-standing` its
+   *  station-level twin (the laminated QR — same surface, standing credential). Both MAY
+   *  write — the trupp slice of the workspace, journal rows of kind 'team', and `atemschutz.*`
+   *  events. Everything else still 403s, so the app renders those sessions as the lite board
+   *  and nothing more (IncidentWorkspace · `asLink`). */
+  link_kind?: 'alarm' | 'view' | 'atemschutz' | 'atemschutz-standing' | 'terminal'
 }
+
+/** The two Atemschutz-link kinds behave identically in the app — only the credential (and its
+ *  revocation lever) differs, which is the backend's business. One predicate, so a surface
+ *  cannot honour one and forget the other. */
+export const isAtemschutzLinkKind = (kind: AuthUser['link_kind']): boolean =>
+  kind === 'atemschutz' || kind === 'atemschutz-standing'
 
 // One tappable roster tile from GET /api/auth/roster (no PIN / username here —
 // identity is chosen by tapping, then confirmed by the PIN pad).

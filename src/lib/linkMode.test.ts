@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { linkKindFromToken, linkPageOwnsSession, linkSessionHeaders, linkTokenFromPath } from './linkMode'
+import { TERMINAL_PATH, linkKindFromToken, linkPageOwnsSession, linkSessionHeaders, linkTokenFromPath } from './linkMode'
 
 const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJpbmMiOiJhYmMifQ.sig-part_1' // an alarm link (a JWT)
 const ATEMSCHUTZ = 'aSECRET-secret-secret'
 const VIEW = 'vSECRET-secret-secret'
+const TERMINAL = 'tSECRET-secret-secret'
+const STANDING_AS = 'sSECRET-secret-secret'
 
 describe('linkTokenFromPath', () => {
   it('reads the token out of /l/<token> (with and without a trailing slash)', () => {
@@ -21,9 +23,11 @@ describe('linkTokenFromPath', () => {
 })
 
 describe('linkKindFromToken', () => {
-  it('tells the three kinds apart by the marker in front of the secret', () => {
+  it('tells the five kinds apart by the marker in front of the secret', () => {
     expect(linkKindFromToken(ATEMSCHUTZ)).toBe('atemschutz')
     expect(linkKindFromToken(VIEW)).toBe('view')
+    expect(linkKindFromToken(TERMINAL)).toBe('terminal')
+    expect(linkKindFromToken(STANDING_AS)).toBe('atemschutz-standing')
     expect(linkKindFromToken(TOKEN)).toBe('alarm')
   })
 })
@@ -47,5 +51,12 @@ describe('which session a page asks with', () => {
     expect(linkSessionHeaders(`/l/${TOKEN}`)).toEqual({})
     expect(linkSessionHeaders(`/l/${VIEW}`)).toEqual({})
     expect(linkPageOwnsSession(`/l/${VIEW}`)).toBe(false)
+  })
+
+  it('claims the session on the standing surfaces — the enrolled terminal IS the terminal, and the laminated board IS the board', () => {
+    for (const path of [TERMINAL_PATH, `/l/${TERMINAL}`, `/l/${STANDING_AS}`]) {
+      expect(linkSessionHeaders(path)).toEqual({ 'X-Incident-Link': 'use' })
+      expect(linkPageOwnsSession(path)).toBe(true)
+    }
   })
 })

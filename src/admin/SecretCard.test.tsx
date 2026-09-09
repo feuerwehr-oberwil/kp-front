@@ -68,7 +68,9 @@ describe('secret-token card — the contract three admin surfaces share', () => 
     expect(screen.getByText(L.exampleLabel, { exact: false })).toBeTruthy()
 
     confirm(L.disableBtn)
-    await waitFor(() => expect(screen.getByText(L.stateOff)).toBeTruthy())
+    // the view carries THREE cards since the standing links (terminal, fixe AS-URL) moved in;
+    // all say «deaktiviert» once the minting key is off — before, the first said «aktiv».
+    await waitFor(() => expect(screen.getAllByText(L.stateOff)).toHaveLength(3))
     expect(screen.queryByText(`${L.keyLabel}: k-1`)).toBeNull()
     expect(screen.queryByText(L.exampleLabel, { exact: false })).toBeNull()
   })

@@ -139,7 +139,9 @@ void (async () => {
   // below could not scroll and the unpainted area under the shell showed through WHITE. Mark the
   // document so the stylesheet can let this one page scroll and keep its background.
   if (isCapture) document.documentElement.classList.add('page-scroll')
-  const isLink = window.location.pathname.startsWith('/l/')
+  // /terminal is the enrolled Stations-Terminal — a standing link session without a token in
+  // the address (its credential is a device cookie), routed through the same link chunk.
+  const isLink = window.location.pathname.startsWith('/l/') || window.location.pathname === '/terminal'
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       {/* Root boundary: login, landing list, overlays, and the admin app used to sit

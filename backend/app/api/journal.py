@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import live_wait
-from ..auth.dependencies import CurrentAppendWriter, CurrentUser, is_atemschutz_link
+from ..auth.dependencies import CurrentAppendWriter, CurrentUser, atemschutz_link_source, is_atemschutz_link
 from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, JournalEntry
@@ -151,7 +151,7 @@ async def append_journal(
         if any(e.get("kind") != "team" for e in body.entries):
             raise _Denied()
         for e in body.entries:
-            e["via"] = "atemschutz-link"
+            e["via"] = atemschutz_link_source(user)
     accepted = await append_rows(db, incident_id, body.entries)
     if accepted:
         latest = accepted[-1].seq

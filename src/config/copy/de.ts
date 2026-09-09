@@ -3457,6 +3457,23 @@ export const de = {
     // says so instead of showing an empty incident list
     unavailable: 'Dieser Einsatz ist gerade nicht abrufbar. Seite neu laden, sobald du wieder Empfang hast.',
   },
+  // Standing links (Stations-Terminal /terminal + fixe Atemschutz-URL /l/s…): the states such
+  // a page can be in besides «the app» — src/link/StandingApp renders them. Both bind to
+  // «whichever Einsatz is open», so «kein Einsatz» and «mehrere Einsätze» are ordinary states
+  // here, not failures.
+  standingLink: {
+    idleTitle: 'Kein laufender Einsatz',
+    idleHint: 'Sobald ein Alarm eingeht, öffnet sich der Einsatz hier automatisch.',
+    chooseTitle: 'Mehrere Einsätze laufen',
+    chooseHint: 'Wähle, welchen Einsatz diese Anzeige zeigen soll.',
+    exerciseTag: 'Übung',
+    notEnrolledTitle: 'Dieses Gerät ist nicht als Stations-Terminal eingerichtet.',
+    notEnrolledHint: 'In der Verwaltung unter «Einsatz-Links» den Einrichtungs-Link erzeugen und auf diesem Gerät öffnen.',
+    asInvalidTitle: 'Dieser Atemschutz-Code gilt nicht mehr.',
+    asInvalidHint: 'Der Code wurde erneuert. In der Verwaltung den aktuellen QR-Code drucken und aufhängen.',
+    disabledTitle: 'Diese Funktion ist nicht freigeschaltet.',
+    disabledHint: 'Die Verwaltung kann sie unter «Einsatz-Links» aktivieren.',
+  },
   // Standort teilen — the question put to your own phone and what the pill says afterwards.
   // Deliberately without marketing text: who sees what and when is spelled out in full, because
   // that is exactly the question somebody asks at 3am before tapping «Ja».
@@ -5068,6 +5085,48 @@ export const de = {
       exampleLabel: 'Link-Muster (die Alarmierung setzt ihren signierten Token ein)',
       docsLink: 'Integrations-Doku',
       hint: 'Der Schlüssel wird hier erzeugt und in die Alarmierung kopiert – KP Front nimmt keinen fremden Schlüssel entgegen und wird beim Alarmieren nie aufgerufen: Die Alarmierung signiert die Links selbst. Schlüssel geheim halten, er öffnet Lesezugriff auf jeden laufenden Einsatz. Ohne Schlüssel gibt es keine Einsatz-Links – «Deaktivieren» schaltet die Funktion ganz ab.',
+    },
+    // Stations-Terminal — der einmal eingerichtete Depot-Bildschirm (standing link `tk`).
+    terminal: {
+      body: 'Ein fest eingerichteter Computer im Depot zeigt ohne Anmeldung immer den laufenden Einsatz – Karte, Pläne, Hydranten, Verlauf, schreibgeschützt. Einmal einrichten, danach ist der Bildschirm einfach richtig, sobald ein Alarm eingeht; dazwischen zeigt er «Kein laufender Einsatz».',
+      stateLabel: 'Stations-Terminal',
+      stateOn: 'aktiv',
+      stateOff: 'deaktiviert',
+      keyLabel: 'Schlüssel',
+      exampleLabel: 'Einrichtungs-Link – auf dem Terminal einmal öffnen, danach genügt die Adresse /terminal',
+      docsLink: 'Doku',
+      enableBtn: 'Aktivieren & Einrichtungs-Link erzeugen',
+      rotateBtn: 'Schlüssel rotieren',
+      rotateMsg: 'Neuen Schlüssel erzeugen? Alle eingerichteten Terminals verlieren sofort den Zugriff und müssen neu eingerichtet werden.',
+      rotated: 'Neuer Schlüssel erzeugt – Terminals mit dem neuen Einrichtungs-Link neu einrichten.',
+      disableBtn: 'Deaktivieren',
+      disableMsg: 'Stations-Terminal deaktivieren? Alle eingerichteten Geräte verlieren sofort den Zugriff.',
+      disabled: 'Stations-Terminal deaktiviert.',
+      failed: 'Aktion fehlgeschlagen',
+      hint: 'Der Einrichtungs-Link wird genau einmal auf dem Gerät geöffnet und hinterlässt dort eine Freigabe – der Schlüssel selbst bleibt auf dem Gerät nirgends sichtbar. «Schlüssel rotieren» nimmt die Freigabe von allen Geräten auf einmal zurück.',
+    },
+    // Fixer Atemschutz-Code — der laminierte QR an der Überwachungstafel (standing link `sk`).
+    atemschutzUrl: {
+      body: 'Ein fester QR-Code – laminiert an der Überwachungstafel oder auf dem Klemmbrett – öffnet die Atemschutzüberwachung des gerade laufenden Einsatzes, ohne dass zuerst jemand im Einsatz einen Link erzeugen muss. Gleiche Rechte wie der Atemschutz-Link aus dem Einsatz: nur die Tafel, sonst nichts.',
+      stateLabel: 'Fixer Atemschutz-Code',
+      stateOn: 'aktiv',
+      stateOff: 'deaktiviert',
+      keyLabel: 'Schlüssel',
+      exampleLabel: 'Feste Adresse hinter dem QR-Code',
+      docsLink: 'Doku',
+      enableBtn: 'Aktivieren & Code erzeugen',
+      rotateBtn: 'Code erneuern',
+      rotateMsg: 'Neuen Code erzeugen? Der aufgehängte QR-Code wird sofort ungültig und muss neu gedruckt werden.',
+      rotated: 'Neuer Code erzeugt – QR-Karte neu drucken und aufhängen.',
+      disableBtn: 'Deaktivieren',
+      disableMsg: 'Fixen Atemschutz-Code deaktivieren? Der aufgehängte QR-Code funktioniert danach nicht mehr.',
+      disabled: 'Fixer Atemschutz-Code deaktiviert.',
+      failed: 'Aktion fehlgeschlagen',
+      hint: 'Der Code tut nur etwas, solange ein Einsatz läuft; dazwischen zeigt er «Kein laufender Einsatz». «Code erneuern» ist das Zurücknehmen: alte Karte abhängen, neue aufhängen.',
+      printBtn: 'QR-Karte (PDF)',
+      printFailed: 'QR-Karte konnte nicht erzeugt werden',
+      cardHead: 'Atemschutzüberwachung',
+      cardHint: 'QR-Code scannen – öffnet die Überwachungstafel des laufenden Einsatzes. Keine Anmeldung nötig.',
     },
     // Zugangsdaten — die Schlüssel der Anbindungen, aus dem Terminal in den Browser geholt.
     // ⚠️ Der Text sagt an jeder Stelle dasselbe wie die API: gesetzt ja/nein, nie der Wert.

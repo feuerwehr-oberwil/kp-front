@@ -45,10 +45,10 @@ class UserOut(BaseModel):
     # button — a real account has neither attribute and both fall back to the defaults.
     link_scoped: bool = False
     link_incident_id: uuid.UUID | None = None
-    # WHICH kind of link, because they do not offer the same app: "alarm" and "view" are
-    # read-only, "atemschutz" may operate the Atemschutzüberwachung of that one Einsatz and
-    # nothing else. None for a real account.
-    link_kind: Literal["alarm", "view", "atemschutz"] | None = None
+    # WHICH kind of link, because they do not offer the same app: "alarm", "view" and
+    # "terminal" are read-only, "atemschutz" and "atemschutz-standing" may operate the
+    # Atemschutzüberwachung of that one Einsatz and nothing else. None for a real account.
+    link_kind: Literal["alarm", "view", "atemschutz", "atemschutz-standing", "terminal"] | None = None
 
 
 # --- User administration (Slice 2 — Members & access) -------------------------------

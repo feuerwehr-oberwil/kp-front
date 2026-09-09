@@ -23,7 +23,7 @@ import { useIncidentTabLock } from './lib/tabLock'
 import { clearIncidentMedia, clearUploadedMedia } from './lib/mediaQueue'
 import { ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { useAuth } from './lib/auth'
+import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import { IncidentWorkspace } from './IncidentWorkspace'
 import {
   WorkspaceSync, listIncidentsResilient, getIncident, archiveIncident, reactivateIncident,
@@ -97,7 +97,7 @@ export default function App() {
   // …and WHICH link. The Atemschutz one is the only session that is link-scoped and may still
   // write (auth · AuthUser.link_kind); IncidentWorkspace renders it as «Tafel pur». Mirrored in
   // a ref because `selectIncident` below is a stable ([] deps) callback.
-  const asLink = linkScoped && user?.link_kind === 'atemschutz'
+  const asLink = linkScoped && isAtemschutzLinkKind(user?.link_kind)
   const asLinkRef = useRef(asLink)
   useEffect(() => { asLinkRef.current = asLink }, [asLink])
   // …and the `el` ROLE (Einsatzleiter function, 07.09.): a signed-in account whose pushes carry

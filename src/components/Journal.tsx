@@ -720,7 +720,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             // the footnotes on the row — appended facts about it, so they read AFTER the sentence
             const repeated = repeats.counts.get(e.id) ?? 1
             const nachtrag = isNachtrag(e, closedAt)
-            const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1 || e.via === 'atemschutz-link'
+            const hasFootnotes = nachtrag || !!e.correctedAt || repeated > 1 || e.via === 'atemschutz-link' || e.via === 'atemschutz-fix'
             return (
               <div
                 className={`hist-ev ${clickable ? 'clickable' : ''} ${future ? 'jr-future' : ''}`}
@@ -774,11 +774,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                         <span className="jr-foot-rep" title={C.repeatedTitle}>{fillTemplate(C.repeated, { n: String(repeated) })}</span>
                       )}
                       {/* The row came in over the Atemschutz-Link — the board handed to somebody's
-                          own phone. It is deliberately NOT a name (that session is asked for
-                          none), so the footnote says WHERE it was written, which is the honest
-                          answer and the one the Rapport can be read against. Server-written
-                          (types · TimelineEvent.via); this client never sets it. */}
-                      {e.via === 'atemschutz-link' && (
+                          own phone — or over the standing fixe URL (`atemschutz-fix`, the
+                          laminated QR at the Tafel). It is deliberately NOT a name (those
+                          sessions are asked for none), so the footnote says WHERE it was
+                          written, which is the honest answer and the one the Rapport can be
+                          read against; the reader-facing sense is the same for both, only the
+                          record keeps them apart. Server-written (types · TimelineEvent.via);
+                          this client never sets it. */}
+                      {(e.via === 'atemschutz-link' || e.via === 'atemschutz-fix') && (
                         <span title={C.viaAtemschutzLinkTitle}>{C.viaAtemschutzLink}</span>
                       )}
                     </span>

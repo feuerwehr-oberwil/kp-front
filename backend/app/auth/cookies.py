@@ -68,6 +68,19 @@ def set_link_cookie(response: Response, token: str) -> None:
     _set_session_cookie(response, LINK_COOKIE, token, int(settings.incident_link_session_ttl.total_seconds()))
 
 
+#: The Stations-Terminal enrollment (auth/incident_link · `tk`) — the one deliberately
+#: long-lived cookie in this app. It is a device credential, not a session: it can do exactly
+#: one thing (ask the terminal exchange for a link session), it carries a key FINGERPRINT and
+#: never the key, and rotating `terminal_link_key` ends it everywhere at once. Deliberately
+#: NOT cleared by «Abmelden»: the enrollment is the station's (an admin set this PC up), not
+#: the person's who happens to log in and out on the same browser.
+TERMINAL_COOKIE = "terminal_device"
+
+
+def set_terminal_cookie(response: Response, token: str) -> None:
+    _set_session_cookie(response, TERMINAL_COOKIE, token, int(settings.terminal_device_ttl.total_seconds()))
+
+
 async def revoke_token(token: str | None) -> None:
     """Best-effort: add a token's JTI to the blocklist until its own expiry."""
     if not token:

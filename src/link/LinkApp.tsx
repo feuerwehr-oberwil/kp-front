@@ -16,7 +16,8 @@ import { Splash } from '../components/Splash'
 import { AuthProvider, useAuth } from '../lib/auth'
 import App from '../App'
 import { openIncidentLink, type LinkFailure } from '../lib/incidentLink'
-import { linkTokenFromPath } from '../lib/linkMode'
+import { TERMINAL_PATH, linkKindFromToken, linkTokenFromPath } from '../lib/linkMode'
+import StandingApp from './StandingApp'
 
 type State =
   | { phase: 'opening' }
@@ -102,9 +103,15 @@ function LinkBoot({ token }: { token: string }) {
 }
 
 export default function LinkApp() {
+  // The enrolled Stations-Terminal has no token in its address — its credential is the
+  // device cookie the enrollment left behind (link/StandingApp).
+  if (window.location.pathname === TERMINAL_PATH) return <StandingApp token={null} />
   // A path that isn't a link URL at all is answerable without state or a round trip.
   const token = linkTokenFromPath(window.location.pathname)
-  return token
-    ? <LinkBoot token={token} />
-    : <LinkMessage reason="invalid" onRetry={() => window.location.reload()} />
+  if (!token) return <LinkMessage reason="invalid" onRetry={() => window.location.reload()} />
+  // The standing kinds (terminal enrollment, fixe Atemschutz-URL) resolve «whichever Einsatz
+  // is open» and own their whole lifecycle — idle screen, chooser, poll — in StandingApp.
+  const kind = linkKindFromToken(token)
+  if (kind === 'terminal' || kind === 'atemschutz-standing') return <StandingApp token={token} />
+  return <LinkBoot token={token} />
 }

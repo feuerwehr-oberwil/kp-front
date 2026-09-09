@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit
-from ..auth.dependencies import CurrentAppendWriter, CurrentUser, is_atemschutz_link
+from ..auth.dependencies import CurrentAppendWriter, CurrentUser, atemschutz_link_source, is_atemschutz_link
 from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, IncidentEvent
@@ -100,7 +100,7 @@ async def ingest_events(
                 db,
                 incident_id=incident_id,
                 op_type=e.op_type,
-                source="atemschutz-link" if link else "el" if user.role == "el" else "client",
+                source=atemschutz_link_source(user) if link else "el" if user.role == "el" else "client",
                 payload=e.payload,
                 user_id=None if link else user.id,
                 occurred_at=e.occurred_at,

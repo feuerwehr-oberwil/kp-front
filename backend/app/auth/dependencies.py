@@ -60,13 +60,17 @@ LINK_GUEST_ID = uuid.UUID("00000000-0000-0000-0000-00000000110c")
 
 
 def _link_kind(claims: dict) -> str:
-    """Which of the three link kinds minted this session — see auth/incident_link.
+    """Which of the link kinds minted this session — see auth/incident_link.
 
     Read off the claim that already decides the session's liveness rule, so there is one
     source of truth rather than a second marker that could disagree with it.
     """
     if claims.get("ak"):
         return "atemschutz"
+    if claims.get("sk"):
+        return "atemschutz-standing"
+    if claims.get("tk"):
+        return "terminal"
     if claims.get("vk"):
         return "view"
     return "alarm"
@@ -219,9 +223,23 @@ async def get_atemschutz_writer(
 
 
 def is_atemschutz_link(user: User) -> bool:
-    """True when the caller is an Atemschutz LINK session rather than a signed-in editor.
-    Decides who a write is attributed to (`user_id=None`) and what source it is stamped with."""
-    return getattr(user, "link_kind", None) == "atemschutz"
+    """True when the caller is an Atemschutz LINK session — per-incident (`ak`) or standing
+    (`sk`), which share the write surface — rather than a signed-in editor. Decides who a
+    write is attributed to (`user_id=None`) and that it is stamped as a link's."""
+    return getattr(user, "link_kind", None) in ("atemschutz", "atemschutz-standing")
+
+
+def atemschutz_link_source(user: User) -> str:
+    """The provenance stamp for an Atemschutz-link write: which CREDENTIAL wrote. The record
+    keeps it (journal `via`, event/journal `source`), so the two must stay distinguishable —
+    a laminated standing QR and a link an editor handed out mid-Einsatz are different levers
+    with different revocations. Only meaningful when `is_atemschutz_link` already said yes.
+
+    ⚠️ "atemschutz-fix", not "-standing": the stamp lands in `String(16)` source columns
+    (models · IncidentEvent.source), and Postgres enforces that where the SQLite test DB does
+    not — a longer stamp 500s every board write in production only (test_standing_links pins
+    the budget)."""
+    return "atemschutz-fix" if getattr(user, "link_kind", None) == "atemschutz-standing" else "atemschutz-link"
 
 
 async def get_optional_user(

@@ -493,6 +493,38 @@ station roster, who is on the Einsatz and what the Verlauf says. Weigh that wher
 data-protection notes live ([`PRIVACY.md`](../PRIVACY.md)); if it does not hold for a
 deployment, leave `incident_link_key` unset and the surface does not exist.
 
+## 5. Standing links: Stations-Terminal & fixe Atemschutz-URL
+
+Two station-level variants of the Einsatz-Link (2026-09-09), for people *inside* the station
+who should not need an alert message, a login or a colleague to mint anything. Their secret
+lives on the deployment row, not on an incident, and the URL names no Einsatz – the exchange
+resolves **whichever Einsatz is currently open** (Übungen included). Exactly one open → the
+session binds to it; none → a calm «Kein laufender Einsatz» screen that keeps polling; more
+than one → a chooser. Everything after the exchange is an ordinary one-incident link session:
+same allowlist, same double scope check, same per-request liveness.
+
+- **Stations-Terminal** (`/l/t<secret>` → `/terminal`): a depot PC enrolled once. The
+  enrollment link is opened a single time on the device and leaves a long-lived httpOnly
+  device cookie carrying a key *fingerprint* – the secret itself never persists on the device,
+  not even in a bookmark (the page rewrites itself to `/terminal`). From then on the screen is
+  simply right when an alarm comes in. Read-only, the alarm link's exact surface.
+- **Fixe Atemschutz-URL** (`/l/s<secret>`): a laminated QR on the Überwachungstafel. Opens the
+  Atemschutzüberwachung of the running Einsatz with the Atemschutz link's exact write slice
+  (trupps, `team` journal rows, `atemschutz.*` events), stamped `atemschutz-fix` so the
+  record says which credential wrote. It complements the per-incident Atemschutz-Link; it does
+  not replace it.
+
+Both are managed at `/admin` → Daten › Einsatz-Link, each on its own key
+(`terminal_link_key`, `atemschutz_standing_key`), so rotating one never touches the other –
+or the alerting system's minting key. Rotation is the revocation and it is total: the printed
+QR, every enrolled device and every session already open die on their next request. Unset =
+the surface does not exist (fail-closed, like everything above).
+
+Trust model: **physical presence at the station** – possession of the laminated card or of
+the enrolled machine. That is why these two (and only these two) may see the list of open
+Einsätze in the chooser, and why the standing Atemschutz writes are proportionate: the same
+person could reach the paper board on the same wall.
+
 ## Security notes
 
 - All four secrets are independent and fail-closed: the alarm webhook secret (inbound), the

@@ -24,6 +24,25 @@ how much they reach:
   · Atemschutz (``ak``) — alive while ``Incident.atemschutz_link_key`` is unchanged AND the
                           Einsatz is open. Reaches ``LINK_ALLOWED`` ∪ ``ATEMSCHUTZ_LINK_ALLOWED``.
 
+THE STANDING KINDS (2026-09-09)
+-------------------------------
+Two more claims, and what is new about them is WHERE the key lives: on ``DeploymentConfig``,
+not on an ``Incident``. A standing credential is printed once (a laminated QR on the
+Überwachungstafel) or enrolled once (the station PC), and binds to «whichever Einsatz is
+open», resolved at exchange time (api/incident_link · the standing exchange). The session a
+standing credential opens is still bound to ONE incident — resolution happens at the door,
+so everything below (scope, liveness) treats it like any other session.
+
+  · Terminal (``tk``)   — the Stations-Terminal. Alive while ``DeploymentConfig.
+                          terminal_link_key`` is unchanged AND the Einsatz is open. Reaches
+                          ``LINK_ALLOWED`` — read-mostly, station-internal, exactly the alarm
+                          link's surface.
+  · Standing AS (``sk``)— the fixed Atemschutz URL. Alive while ``DeploymentConfig.
+                          atemschutz_standing_key`` is unchanged AND the Einsatz is open.
+                          Reaches ``LINK_ALLOWED`` ∪ ``ATEMSCHUTZ_LINK_ALLOWED`` — the same
+                          narrow write slice as ``ak``, stamped ``atemschutz-fix`` so the
+                          record says which credential wrote.
+
 The Atemschutz link is the only one that writes anything the record keeps, and the shape of
 that permission is the whole control. An editor mints it from a running Einsatz and hands the
 QR to somebody who is *not* on the FU — a colleague at the Eingang with a clipboard — who then
@@ -162,6 +181,10 @@ _LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
         ("GET", _SPA_FALLBACK),
         ("GET", _WEBMANIFEST),
         ("POST", "/api/incident-link/session"),
+        # The terminal's poll — it re-resolves «which Einsatz is open» on the device cookie,
+        # so it is exactly the recovery path: it must keep answering after the bound Einsatz
+        # closed, or the terminal is stuck on a dead session until someone clears cookies.
+        ("POST", "/api/incident-link/terminal-session"),
     }
 )
 
@@ -172,7 +195,15 @@ _LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
 #: from that denial: it authenticates on the token's own signature, not on any cookie, and the
 #: response replaces the cookie wholesale. Every OTHER route stays denied ambient admin in
 #: forced mode, so the H2 containment guarantee is untouched.
-_SESSION_EXCHANGE: frozenset[tuple[str, str]] = frozenset({("POST", "/api/incident-link/session")})
+_SESSION_EXCHANGE: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("POST", "/api/incident-link/session"),
+        # The terminal exchange authenticates on the terminal-device cookie's own signature,
+        # exactly like the token exchange authenticates on the token's — same bootstrap, same
+        # exemption, same containment (every other route stays denied ambient admin).
+        ("POST", "/api/incident-link/terminal-session"),
+    }
+)
 
 #: JWT ``type`` claim for both the inbound mint token and the session cookie. Distinct from
 #: "access"/"refresh"/"admin" so a link credential can never be mistaken for a real session.
@@ -219,6 +250,8 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", _WEBMANIFEST),
         # Re-opening a link that is already open must not be refused by its own guard.
         ("POST", "/api/incident-link/session"),
+        # …and the terminal's own poll, for the same reason: it runs WHILE a session exists.
+        ("POST", "/api/incident-link/terminal-session"),
         # Signing in must stay reachable *from* a link session. Someone who tapped the link
         # on the way to the Einsatz and then wants their real account — an editor arriving
         # on scene, or the operator opening /admin — would otherwise be locked out by this
@@ -506,6 +539,25 @@ async def _atemschutz_key_unchanged(db: AsyncSession, incident_id: str, fingerpr
     return secrets.compare_digest(fingerprint, key_fingerprint(current))
 
 
+async def _deployment_key_unchanged(db: AsyncSession, column_name: str, fingerprint: str | None) -> bool:
+    """False once the named station-level standing key is rotated or deleted, which ends every
+    session it ever opened — the ``_minting_key_unchanged`` shape, for the standing kinds.
+
+    One helper for both columns: the rule («rotation means everything, now») is the same, and
+    two copies of it would drift.
+    """
+    from ..models import DeploymentConfig
+
+    if not fingerprint:
+        return False
+    current = (
+        await db.execute(select(getattr(DeploymentConfig, column_name)).where(DeploymentConfig.id == 1))
+    ).scalar_one_or_none()
+    if not current:  # deleted → feature off → every open session ends with it
+        return False
+    return secrets.compare_digest(fingerprint, key_fingerprint(current))
+
+
 async def _incident_still_open(db: AsyncSession, incident_id: str) -> bool:
     """Re-checked on EVERY request, not just at exchange.
 
@@ -667,10 +719,11 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     if path is None:  # unrouted (404) — refuse rather than fall through
         raise _Denied()
 
-    # One list per kind. The Atemschutz session widens the alarm list by exactly three entries;
-    # the VIEW session gets its own, strictly narrower one (see VIEW_LINK_ALLOWED) because it
-    # is the only link that leaves the station.
-    atemschutz = bool(claims.get("ak"))
+    # One list per kind. The Atemschutz sessions (per-incident `ak` AND standing `sk` — same
+    # surface, different credential) widen the alarm list by exactly three entries; the VIEW
+    # session gets its own, strictly narrower one (see VIEW_LINK_ALLOWED) because it is the
+    # only link that leaves the station. The terminal (`tk`) is the alarm list, unwidened.
+    atemschutz = bool(claims.get("ak")) or bool(claims.get("sk"))
     view = bool(claims.get("vk"))
     if atemschutz:
         allowed = LINK_ALLOWED | ATEMSCHUTZ_LINK_ALLOWED
@@ -713,8 +766,24 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # An ATEMSCHUTZ link is the alarm link's lifecycle on a per-incident key: it exists while
     # the Einsatz runs and not one request longer, and the editor can take it back on its own
     # without rotating the station's key or ending the Einsatz. Both conditions, always.
-    if atemschutz:
+    if claims.get("ak"):
         if not await _atemschutz_key_unchanged(db, str(scoped), claims.get("ak")):
+            raise _Denied()
+        if not await _incident_still_open(db, str(scoped)):
+            raise _Denied()
+        return
+
+    # The STANDING kinds are that same lifecycle on a station-level key: the Einsatz still
+    # running, and the standing key unchanged — rotating it is how the laminated QR or an
+    # enrolled terminal is taken back, and it has to mean every open session, now.
+    if claims.get("sk"):
+        if not await _deployment_key_unchanged(db, "atemschutz_standing_key", claims.get("sk")):
+            raise _Denied()
+        if not await _incident_still_open(db, str(scoped)):
+            raise _Denied()
+        return
+    if claims.get("tk"):
+        if not await _deployment_key_unchanged(db, "terminal_link_key", claims.get("tk")):
             raise _Denied()
         if not await _incident_still_open(db, str(scoped)):
             raise _Denied()
@@ -790,3 +859,66 @@ def create_atemschutz_session_token(incident_id: str, key: str) -> str:
         token_type=LINK_TOKEN_TYPE,
         expires=settings.incident_link_session_ttl,
     )
+
+
+def create_terminal_session_token(incident_id: str, key: str) -> str:
+    """The same session cookie for the Stations-Terminal, marked with `tk` — the fingerprint of
+    the station's ``terminal_link_key``, so rotating that key ends sessions already open. The
+    incident is whichever one the exchange resolved; the session itself is one-incident like
+    every other, and the terminal re-exchanges to follow the station's state."""
+    from .security import _encode
+
+    return _encode(
+        {"inc": str(incident_id), "scope": "incident-link", "tk": key_fingerprint(key)},
+        token_type=LINK_TOKEN_TYPE,
+        expires=settings.incident_link_session_ttl,
+    )
+
+
+def create_standing_atemschutz_session_token(incident_id: str, key: str) -> str:
+    """The same session cookie for the FIXED Atemschutz URL, marked with `sk` — the standing
+    station key's fingerprint instead of a per-incident one. Same widened allowlist as `ak`,
+    same two liveness conditions; only the lever that revokes it differs (the station rotates
+    ``atemschutz_standing_key``, i.e. re-laminates, instead of an editor clearing one Einsatz's
+    link)."""
+    from .security import _encode
+
+    return _encode(
+        {"inc": str(incident_id), "scope": "incident-link", "sk": key_fingerprint(key)},
+        token_type=LINK_TOKEN_TYPE,
+        expires=settings.incident_link_session_ttl,
+    )
+
+
+#: The Stations-Terminal DEVICE credential (auth/cookies · TERMINAL_COOKIE) — distinct from
+#: LINK_TOKEN_TYPE so an enrollment can never be replayed as a session, or vice versa.
+TERMINAL_DEVICE_TOKEN_TYPE = "terminal-device"  # noqa: S105 — a claim discriminator, not a credential
+
+
+def create_terminal_device_token(key: str) -> str:
+    """The enrollment cookie's value: signed by this app, carrying only the terminal key's
+    FINGERPRINT — the PC must not hold the station's standing secret, even httpOnly. The
+    fingerprint is what lets rotation end every enrolled device: the terminal exchange
+    compares it against the current key on every call."""
+    from .security import _encode
+
+    return _encode(
+        {"scope": "terminal-device", "tk": key_fingerprint(key)},
+        token_type=TERMINAL_DEVICE_TOKEN_TYPE,
+        expires=settings.terminal_device_ttl,
+    )
+
+
+def read_terminal_device_fingerprint(raw: str | None) -> str | None:
+    """The key fingerprint out of a terminal-device cookie, or None for anything that is not a
+    live, well-typed enrollment. A refusal, never an exception — the cookie is caller-supplied."""
+    if not raw:
+        return None
+    try:
+        payload = decode_token(raw)
+    except JWTError:
+        return None
+    if payload.get("type") != TERMINAL_DEVICE_TOKEN_TYPE:
+        return None
+    fingerprint = payload.get("tk")
+    return fingerprint if isinstance(fingerprint, str) else None
