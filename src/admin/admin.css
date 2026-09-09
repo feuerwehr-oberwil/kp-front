@@ -249,10 +249,14 @@
    hairline and the hover — the row box itself paints nothing at all. */
 .adm-sheet { padding: 0; overflow: visible; }
 .adm-sheet .adm-card-head { margin: 0; padding: 16px 18px 13px; border-bottom: 1px solid var(--border-soft); }
+/* ⚠️ `stretch`, never `center`. The cells ARE the row — they carry its hairline and its hover —
+   so a centred cell that is shorter than the track draws its border across the middle of the row
+   and leaves the hover tint in a band. One wrapping label, or a swatch row, was enough to break
+   the line. Each cell centres its own content instead (`.adm-set-row > *` below). */
 .adm-settings {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) minmax(0, auto) 34px;
-  align-items: center;
+  align-items: stretch;
 }
 
 /* column header — sticky against the scrolling content column, so the four columns keep their
@@ -330,8 +334,10 @@
 
 /* ⚠️ A control that cannot be 240px wide and must not scroll sideways to hide the rest of
    itself — the Truppfarben swatches, a chip list, a long URL. It takes the Wert AND Standard
-   columns and WRAPS; the ⓘ stays in its own column, so the row still reads as a row. */
-.adm-set-row.span > .adm-set-ctl { grid-column: 2 / 4; }
+   columns and WRAPS; the ⓘ stays in its own column, so the row still reads as a row.
+   `2 / -2` = «everything but the ⓘ», in BOTH layouts: the narrow grid below drops the Standard
+   column, and a hard `2 / 4` there would have pushed the ⓘ into a fourth column of its own. */
+.adm-set-row.span > .adm-set-ctl { grid-column: 2 / -2; }
 .adm-set-row.span > .adm-set-std { display: none; }
 .adm-set-row.span > .adm-set-ctl > * { min-width: 0; }
 
@@ -356,6 +362,13 @@
 .adm-set-row.stack > .adm-set-lbl { border-bottom: 0; }
 .adm-set-row.stack > .adm-set-std,
 .adm-set-row.stack > .adm-set-info { border-bottom: 0; }
+/* ⚠️ …and both keep their OWN columns. A stack row emits its cells in the order
+   [Einstellung, Standard, ⓘ, control] so that the control lands on the second line — but the
+   grid places by SOURCE order, so unpinned the Standard cell would auto-place into Wert and
+   the ⓘ one column left of its own header, on these rows alone. `-2 / -1` is the last column
+   in both layouts (the narrow grid below has three). */
+.adm-set-row.stack > .adm-set-std { grid-column: 3; }
+.adm-set-row.stack > .adm-set-info { grid-column: -2 / -1; }
 .adm-set-row.stack > .adm-set-ctl {
   grid-column: 1 / -1; display: block;
   padding: 0 18px 12px; min-height: 0;

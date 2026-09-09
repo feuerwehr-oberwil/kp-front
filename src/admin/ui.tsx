@@ -92,7 +92,9 @@ export function Field({ label, hint, tip, children }: {
    it — that is what keeps every call site free of an id and `getByLabelText` working — and a
    <label> cannot span two <td>s. So each row is a `display: contents` <label> whose cells become
    the grid's own items. Same columns, same hairlines, association intact. Its cells therefore
-   carry the row's borders and hover themselves (a `display: contents` box paints nothing).   */
+   carry the row's borders and hover themselves (a `display: contents` box paints nothing), and
+   the grid STRETCHES them to the row's height — otherwise one wrapping label leaves its
+   neighbours' hairlines halfway up the row (admin.css · .adm-settings).                      */
 
 /** One page's settings, as the strict table. `title`/`caption`/`tip` are the card head; a
  *  single-sheet page leans on the page head instead and passes none of them. */
@@ -185,12 +187,18 @@ export function standardNote(
 /**
  * One setting: label | control | Standard | ⓘ.
  *
- * Two widenings, for controls a 240px column would either squash or hide:
+ * ⚠️ The rule, so that two controls that look alike are not laid out differently: `span` is for
+ * a control that must WRAP wider than the 240px Wert column (a swatch row, a chip list, a long
+ * URL and its buttons), `stack` for a genuinely full-width control that belongs UNDER its label
+ * (a textarea, a token editor) — and everything else stays in the Wert column, un-widened.
  *   · `span` keeps the row a row and lets the control take the Wert AND Standard columns,
  *     wrapping inside them. For swatch rows and chip lists, which used to scroll sideways —
  *     and a control that scrolls to hide half of itself is a control nobody knows the rest of.
  *   · `stack` puts the control on its own full-width line under the label. For a textarea.
- * Both change the cell ORDER, because the grid places by source order.
+ * `stack` therefore emits the cells in a different ORDER — the control has to come last, because
+ * the grid places by source order. Its Standard and ⓘ cells are pinned back to their own columns
+ * in admin.css (`.adm-set-row.stack > .adm-set-std / .adm-set-info`); moving one here without
+ * the other would slide the ⓘ out from under its header.
  */
 export function SettingRow({ label, hint, tip, standard, stack, span, children }: {
   label: string
