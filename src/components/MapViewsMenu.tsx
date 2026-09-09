@@ -102,7 +102,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
         {api.share && (
           <button
             type="button"
-            className={cx(s.row, s.north, api.share.on && s.on, api.share.disabled && s.rowOff)}
+            className={cx(s.row, s.north, api.share.on && s.on, api.share.disabled && s.rowOff, api.share.note && s.hasNote)}
             aria-pressed={api.share.on}
             disabled={!!api.share.disabled}
             onClick={() => { if (!api.share!.onToggle()) onClose() }}
@@ -167,7 +167,8 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
             </button>
           </>
         )}
-        <div className={s.sep} />
+        {/* no separator here on purpose — see .foot in the module CSS: a rule this close to
+            the ⓘ's own padding just doubled up the empty band around it. */}
         <div className={s.foot}><DockInfo text={cp.hint} inline /></div>
       </div>
     </>,

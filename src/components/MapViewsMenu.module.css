@@ -36,7 +36,11 @@
 .close:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .close :global(.i) { width: 16px; height: 16px; }
 
-.row { display: flex; align-items: center; gap: 2px; width: 100%; min-height: 44px; border-radius: var(--r-sm); }
+/* margin-bottom, not a `.pop` flex-gap: a plain (unfilled) row already reads as "spaced out"
+   against the dark background, but two adjacent HIGHLIGHTED rows (.on, or the saved-views list)
+   share the same background fill with nothing between them and merge into one solid block. A
+   real gap after every row gives both cases the same visible seam. */
+.row { display: flex; align-items: center; gap: 2px; width: 100%; min-height: 44px; border-radius: var(--r-sm); margin-bottom: 4px; }
 .row.on { background: color-mix(in srgb, var(--blue) 30%, transparent); }
 /* the tap-to-fly target fills the row; mini actions sit to its right */
 .go, .north, .save { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0;
@@ -60,6 +64,13 @@
 .rowOff .ico, .rowOff .name { opacity: var(--disabled); }
 .why { display: block; margin-top: 1px; font-size: 11.5px; line-height: 1.25;
   white-space: normal; opacity: .85; }
+/* the only row with a caption: `.row`'s `align-items: center` centres the icon on the WHOLE
+   flex item, and with `.why` wrapping onto two more lines that item is a lot taller than the
+   icon — so the icon slid down to the midpoint of label+caption instead of sitting next to the
+   label. Top-align it instead: the icon lands next to the label line, and the caption just
+   hangs underneath, same as it reads visually. */
+.hasNote { align-items: flex-start; }
+.hasNote .ico { margin-top: 2px; }
 
 .mini { flex: none; width: 40px; height: 44px; display: grid; place-items: center; border: none;
   background: transparent; border-radius: var(--r-sm); color: rgba(255, 255, 255, .6); cursor: pointer;
@@ -80,5 +91,7 @@
   border: 1px solid rgba(255, 255, 255, .3); border-radius: var(--r-sm); outline: none; }
 
 /* the ⓘ sits bottom-right, like the dock's trailing info affordance — flush to the popover's
-   own padding, exactly as the close button does at the head (.head) */
-.foot { display: flex; justify-content: flex-end; padding: 1px 0 0; }
+   own padding, exactly as the close button does at the head (.head). No `.sep` above it either
+   (mirrors `.head`, which has none below the ✕): a hairline plus its own margin right next to
+   this button's own padding just doubled up the empty band the lone icon already sits in. */
+.foot { display: flex; justify-content: flex-end; padding: 6px 0 0; }

@@ -9,7 +9,13 @@
 .fb-prompt-kicker { font: 700 11px var(--body); text-transform: uppercase; letter-spacing: .06em; }
 .fb-prompt-what { font: 600 11px var(--body); color: var(--ink-faint); margin-left: auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
+/* `p.fb-prompt-q`, not `.fb-prompt-q`: this card mounts inside `.ip-emptyapp-card`, whose
+   `.ip-emptyapp-card p` rule (13-incident.css) puts an 18px bottom margin under every <p> —
+   meant for that card's own prose, but a class+element selector outranks a bare class one, so
+   it was winning over this `margin: 0` regardless of source order and stacking with `.fb-prompt`'s
+   own 8px gap into an oversized gap before the button row. Matching its specificity here, in a
+   sheet that loads after 13-incident.css, lets this rule win instead. */
+p.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
 .fb-prompt-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
 .fb-sheet { display: flex; flex-direction: column; gap: 12px; }
