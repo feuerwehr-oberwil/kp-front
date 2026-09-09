@@ -703,6 +703,11 @@ export const de = {
   undoDomains: {
     /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
     reference: 'Referenz angepasst',
+    /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das
+     *  Blatt vermessen und dieselben Passpunkte in der richtigen Form neu gelöst. Der Verlauf
+     *  behauptet keine Handlung, die niemand ausgeführt hat — und ein ↶ hat zu benennen, was
+     *  es zurücknimmt. */
+    blattform: 'Blattform gemessen',
     karte: 'Änderung auf der Karte',
     plan: 'Änderung auf «{plan}»',
     anwesenheit: 'Anwesenheit',
@@ -1088,6 +1093,12 @@ export const de = {
     /** Die Passung eines Plans wurde korrigiert: alles, was auf diesem Blatt gezeichnet ist,
      *  steht damit an einem anderen Ort auf der Karte. Eine Zeile, nicht n Zeilen. */
     referenceRebaked: 'Referenz angepasst – {n} Objekte neu verortet',
+    /** ⚠️ Dieselbe Wirkung, andere Ursache — und darum eine andere Zeile. Hier hat die App
+     *  das Blatt vermessen und die Passung mit denselben Passpunkten in der richtigen Form
+     *  neu gelöst; «Referenz angepasst» würde dem Bediener eine Korrektur zuschreiben, die er
+     *  nie vorgenommen hat. Der Verlauf ist ein Protokoll dessen, was geschehen ist, nicht
+     *  dessen, was jemand getan haben könnte. */
+    referenceRemeasured: 'Blattform gemessen – {n} Objekte neu verortet',
     /** …und die Passung wurde ENTFERNT («Referenz zurücksetzen»). Dabei verschiebt sich nichts:
      *  Was auf dem Blatt gezeichnet ist, bleibt dort UND behält seine zuletzt berechnete Position
      *  auf der Karte – letzte bekannte Wahrheit, wie ein Fahrzeug, das aufgehört hat zu melden.

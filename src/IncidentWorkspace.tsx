@@ -79,7 +79,7 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import {
-  fitSignature, georefPlans, planAspect, planRasterRows, referenceDelta,
+  fitChangeCause, fitSignature, georefPlans, pairsSignature, planAspect, planRasterRows, referenceDelta,
   twinPlanImageLayerId, twinPlanImageVisible, twinVisible, isTwinLayerId,
 } from './lib/georefTwins'
 import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded } from './lib/stationPlanScale'
@@ -2047,6 +2047,10 @@ export function IncidentWorkspace({
    * and every plan the rail stops offering — as a reference somebody deleted.
    */
   const referencedSheets = useRef<ReadonlySet<string> | null>(null)
+  /** …and what the OPERATOR had set at that bake: the landmark pairs, and nothing derived from
+   *  them. It is the whole difference between «Referenz angepasst» and «Blattform gemessen» —
+   *  see georefTwins · fitChangeCause for why the Verlauf reads the cause instead of assuming it. */
+  const bakedPairs = useRef<string | null>(null)
   useEffect(() => {
     // ⚠️ ABOVE the guard, both of them. The fits and the version that carries them into the
     // memos are what every surface RENDERS through (lib/useObjectStore · board); only writing
@@ -2075,11 +2079,21 @@ export function IncidentWorkspace({
       void loadStationPlanScales()
       return
     }
+    // ⚠️ …and WHY it changed, which the row and the ↶ caption must not guess: a hand corrected the
+    // reference, or the app measured the sheet and re-solved the SAME pairs in a truer shape. Both
+    // move every symbol on that sheet; only one of them is something somebody did.
+    const pairSig = pairsSignature(planDocs, georefForPlan)
+    const cause = seeding ? 'seed' : fitChangeCause(pairSig, bakedPairs.current)
     bakedFits.current = sig
-    if (!seeding) stepLabel.current = C_HIST.undoDomains.reference
-    const moved = rebake({ checkpoint: !seeding })
+    bakedPairs.current = pairSig
+    const C_LOG = appConfig.copy.log
+    const measured = cause === 'measurement'
+    if (cause !== 'seed') stepLabel.current = measured ? C_HIST.undoDomains.blattform : C_HIST.undoDomains.reference
+    const moved = rebake({ checkpoint: cause !== 'seed' })
     stepLabel.current = null
-    if (!seeding && moved) log('map', fillTemplate(appConfig.copy.log.referenceRebaked, { n: moved }), 'layer')
+    if (cause !== 'seed' && moved) {
+      log('map', fillTemplate(measured ? C_LOG.referenceRemeasured : C_LOG.referenceRebaked, { n: moved }), 'layer')
+    }
 
     // …and the other half of a fit change: a reference that is GONE (see `referencedSheets`).
     const { dropped, referenced } = referenceDelta(planDocs, linkedPlans.map((p) => p.id), referencedSheets.current)
@@ -2089,8 +2103,7 @@ export function IncidentWorkspace({
       // ground position the last fit gave them — last known truth, deliberately not marked stale
       // (tmp/design-unified-objects.md · decision 2).
       const kept = objects.reduce((n, o) => n + (o.sheet && dropped.has(o.sheet.planId) ? 1 : 0), 0)
-      const C = appConfig.copy.log
-      log('map', kept ? fillTemplate(C.referenceDroppedKept, { n: kept }) : C.referenceDropped, 'layer')
+      log('map', kept ? fillTemplate(C_LOG.referenceDroppedKept, { n: kept }) : C_LOG.referenceDropped, 'layer')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedPlans, readOnly, tacticalLocked])

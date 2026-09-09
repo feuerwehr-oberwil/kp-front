@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   fitSignature, boardSymbolToEntity, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, planAspect,
-  planRasterRows, referenceDelta, twinPlanImageLayerId, twinVisible,
+  planRasterRows, pairsSignature, fitChangeCause, referenceDelta, twinPlanImageLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
@@ -260,5 +260,44 @@ describe('referenceDelta — which sheets lost their reference', () => {
   it('falls back to the plan id for a sheet that carries no georefKey', () => {
     const bare = [plan('modul2')]
     expect([...referenceDelta(bare, [], new Set(['modul2'])).dropped]).toEqual(['modul2'])
+  })
+})
+
+/* ⚠️ The Verlauf never claims an act nobody performed — the doctrine that renamed «Wiedereinstieg».
+ * A fit change reaches the re-bake from two directions: a hand corrected the reference, or the app
+ * measured the sheet and re-solved the SAME pairs in a truer shape. They look identical downstream
+ * (both move every symbol on the sheet, both are one journalled step), so the cause has to be read
+ * off the one thing only a hand changes. */
+describe('fitChangeCause — a correction, or a measurement', () => {
+  const docs = [
+    plan('modul2', { georefKey: 'object:a:plan:modul2' }),
+    plan('modul3', { georefKey: 'object:a:plan:modul3' }),
+  ]
+  const only2 = (pairs: GeorefPair[]) => (key: string) => (key === 'object:a:plan:modul2' ? { pairs } : null)
+
+  it('the first bake of a session is nobody’s act', () => {
+    expect(fitChangeCause(pairsSignature(docs, only2(PAIRS)), null)).toBe('seed')
+  })
+
+  it('unchanged pairs mean the app re-solved them — the operator touched nothing', () => {
+    const sig = pairsSignature(docs, only2(PAIRS))
+    expect(fitChangeCause(sig, sig)).toBe('measurement')
+  })
+
+  it('a moved cross is a correction', () => {
+    const before = pairsSignature(docs, only2(PAIRS))
+    const moved = [PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }]
+    expect(fitChangeCause(pairsSignature(docs, only2(moved)), before)).toBe('reference')
+  })
+
+  it('…and so is a reset, which removes them', () => {
+    const before = pairsSignature(docs, only2(PAIRS))
+    expect(fitChangeCause(pairsSignature(docs, () => null), before)).toBe('reference')
+  })
+
+  it('the signature names the sheet, so a reference gained ELSEWHERE is still a correction', () => {
+    const before = pairsSignature(docs, only2(PAIRS))
+    const both = (key: string) => (key.startsWith('object:a:') ? { pairs: PAIRS } : null)
+    expect(fitChangeCause(pairsSignature(docs, both), before)).toBe('reference')
   })
 })

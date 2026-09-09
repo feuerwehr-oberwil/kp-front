@@ -428,6 +428,7 @@ export const it: Localizable<Copy> = {
   undoLost: 'Non più annullabile',
   undoDomains: {
     reference: 'Riferimento adattato',
+    blattform: 'Forma del foglio misurata',
     karte: 'Modifica sulla mappa',
     plan: 'Modifica su «{plan}»',
     anwesenheit: 'Presenza',
@@ -760,6 +761,7 @@ export const it: Localizable<Copy> = {
     placardDocked: '{name} agganciato a «{host}»',
     placardUndocked: '{name} sganciato da «{host}»',
     referenceRebaked: 'Riferimento adattato – {n} oggetti riposizionati',
+    referenceRemeasured: 'Forma del foglio misurata – {n} oggetti riposizionati',
     referenceDropped: 'Riferimento rimosso',
     referenceDroppedKept: 'Riferimento rimosso – {n} oggetti mantengono la loro ultima posizione',
     objectDeleted: '{name} eliminato',

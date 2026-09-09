@@ -139,6 +139,39 @@ export function fitSignature(p: GeorefPlan): string {
 export const sheetKeyOf = (p: Pick<PlanDocument, 'id' | 'georefKey'>): string => p.georefKey ?? p.id
 
 /**
+ * ⚠️ WHY a fit changed — because the Verlauf may not guess, and the two causes are not the same
+ * act.
+ *
+ * Either somebody CORRECTED the reference (moved a cross, accepted an automatic alignment,
+ * transferred a Passung), or the app MEASURED the sheet and re-solved the very same landmark pairs
+ * in a truer shape (stationPlanScale · noteMeasuredAspect). Both move every symbol standing on
+ * that sheet and both are one journalled step — but «Referenz angepasst» over the second one
+ * credits the operator with a correction nobody made, and the ↶ then offers to take back an act
+ * that never happened. So the cause is READ, from the one thing only a hand changes: the pairs.
+ *
+ * ⚠️ Both devices get it right, which is why this is not a flag the writer sets. A second tablet
+ * merely refreshes the station document and re-solves; it wrote nothing and could not have said
+ * what happened — but it sees the same unchanged pairs and reaches the same answer.
+ */
+export type FitChangeCause = 'seed' | 'reference' | 'measurement'
+
+/** The landmark pairs of every sheet, as a string — what the OPERATOR set, and nothing derived
+ *  from it. The counterpart to `fitSignature`, which is entirely derived. */
+export function pairsSignature(
+  plans: Pick<PlanDocument, 'id' | 'georefKey'>[],
+  georefOf: (georefKey: string) => Georef | null,
+): string {
+  return plans.map((p) => `${p.id}:${JSON.stringify(georefOf(sheetKeyOf(p))?.pairs ?? [])}`).join('|')
+}
+
+/** …and the reading. `before === null` is the very first bake of a session, which is nobody's act
+ *  at all: a blob simply gains its map bodies, nothing moved from anywhere. */
+export function fitChangeCause(now: string, before: string | null): FitChangeCause {
+  if (before === null) return 'seed'
+  return now === before ? 'measurement' : 'reference'
+}
+
+/**
  * What happened to the REFERENCES between two bakes — specifically, which sheets lost theirs.
  *
  * A fit that vanishes moves nothing (`bakeGeoBody` hands a record straight back when its plan has
