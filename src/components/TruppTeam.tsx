@@ -219,7 +219,8 @@ export function TruppTeam({
 
   /* Enter keeps the keyboard flow one step, and it never has to be aimed: with matches on screen
    * it takes the first one that can be taken (the list is already sorted the way the hand
-   * expects — present first, then seniority); with NO matches the query can only have been a
+   * expects — present first, then alphabetical; confirmed 09.09. against the field ask for rank
+   * order); with NO matches the query can only have been a
    * name, so it becomes the Gast. A list whose every match is already in another Trupp does
    * nothing: those rows are shown greyed for a reason, and inventing a Gast with the same name is
    * the one outcome nobody meant. */

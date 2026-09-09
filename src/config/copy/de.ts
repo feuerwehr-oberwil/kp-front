@@ -246,7 +246,7 @@ export const de = {
             'Gross die Uhr **Seit letztem Kontakt**: grün **Kontakt ok** → nach {contactMin} min gelb **Kontakt fällig** → nach weiteren {graceSec} s rot **Überfällig** mit Alarm. Beide Werte gelten für diese Wehr und stehen in den Einsatz-Einstellungen ([[⌘]] [[,]]).',
             '**Kontakt** (grosser Knopf) bestätigt den Funkkontakt und stellt die Uhr zurück.',
             '**Druck** direkt mit ± einstellen und mit **Bestätigen** übernehmen – das zählt als Kontakt und wird protokolliert; ein Fehlklick ohne Bestätigen ändert nichts. Niedriger Druck wird rot.',
-            'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug melden** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder einrücken** (neue Flasche) zurück in die Überwachung – der **Druckverlauf der ersten Ausrückung bleibt dabei erhalten** und steht später vollständig auf dem Rapport.',
+            'Status **Angemeldet → Im Einsatz → Rückzug → Draussen**. **Rückzug melden** lässt sich mit **Fortsetzen** widerrufen; ein draussener Trupp geht mit **Wieder in den Einsatz** (neue Flasche) zurück in die Überwachung – der **Druckverlauf der ersten Ausrückung bleibt dabei erhalten** und steht später vollständig auf dem Rapport.',
             'Draussene Trupps behalten ihren Platz auf der Tafel (grau und gedämpft) statt in einen eigenen Abschnitt zu wandern – die Karte, die du suchst, steht dort, wo sie vorher stand.',
             'Ein **gelöschter Trupp** verschwindet nur von der Tafel: auf dem Rapport steht er weiter, mit allem, was gemessen wurde, und als **«Von Tafel entfernt»**. Über **Entfernte Trupps** in der Kopfzeile kommt er zurück – der «Rückgängig»-Hinweis ist die schnelle Tür, nicht die einzige.',
             '**Verlauf** je Trupp (ausklappbar) zeigt jeden Kontakt mit Uhrzeit und Druck.',
@@ -1571,7 +1571,8 @@ export const de = {
     // create / edit / re-deploy form (one shared form, section labels + per-mode titles)
     formCreateTitle: 'Trupp erstellen',
     formEditTitle: 'Trupp bearbeiten',
-    formRedeployTitle: 'Wieder einrücken',
+    // «in den Einsatz», nie «einrücken» (09.09.) – siehe die Notiz bei entryAskTitle
+    formRedeployTitle: 'Wieder in den Einsatz',
     sectionTeam: 'Trupp',
     auftragLabel: 'Art',
     auftragOpen: 'Auftrag offen',
@@ -1697,8 +1698,11 @@ export const de = {
     // Ein gesetzter Trupp sagt «hier steht die Mannschaft» – die Tafel sagt beim angemeldeten
     // Trupp «noch niemand drin». Beim Platzieren wird deshalb gefragt, statt die Kontaktuhr
     // ungefragt zu starten: ein Sicherungstrupp wird genau deshalb ans Fahrzeug gesetzt.
-    entryAskTitle: 'Trupp einrücken?',
-    entryAskMsg: 'Trupp {name} ist angemeldet, aber noch nicht eingerückt. Jetzt einrücken? Die Kontaktuhr läuft ab sofort.',
+    // «Im Einsatz», nie «einrücken» (09.09.): im Feuerwehr-Sprachgebrauch heisst einrücken
+    // ZURÜCK ins Magazin – der Knopf sagte für die Hälfte der Leser das Gegenteil. Die Aktion
+    // trägt jetzt den Namen des Zustands, den sie herstellt (status.aktiv).
+    entryAskTitle: 'Trupp in den Einsatz?',
+    entryAskMsg: 'Trupp {name} ist angemeldet, aber noch nicht im Einsatz. Jetzt in den Einsatz? Die Kontaktuhr läuft ab sofort.',
     entryAskCancel: 'Noch nicht',
     pressureLabel: 'Eingangsdruck (bar)',
     newPressureLabel: 'Neuer Eingangsdruck (bar)',
@@ -1735,11 +1739,11 @@ export const de = {
     cancel: 'Abbrechen',
     save: 'Speichern',
     start: 'Trupp anmelden',
-    reenterSubmit: 'Einrücken',
+    reenterSubmit: 'Im Einsatz',
     // Second path when re-entering: new cylinder, new Auftrag, but not under PA yet – the Trupp
-    // waits as a Sicherungstrupp and is started later with «Einrücken».
+    // waits as a Sicherungstrupp and is started later with «Im Einsatz».
     reenterStandby: 'Bereitstellen',
-    reenterStandbyHint: 'Trupp als Reserve anmelden – die Kontaktuhr startet erst mit «Einrücken».',
+    reenterStandbyHint: 'Trupp als Reserve anmelden – die Kontaktuhr startet erst mit «Im Einsatz».',
     // ⚠️ Im TRUPP-FORMULAR wird die Farbe nicht mehr gewählt (04.09.) – auf keinem Gerät, auch
     // nicht auf dem Tablet: sie war die einzige Angabe, die dort nie jemand gesetzt hat, und auf
     // dem Telefon kostete sie einen ganzen Abschnitt. Ein Trupp, der vorher mit gewählter Farbe
@@ -1794,8 +1798,8 @@ export const de = {
     // the ⋯ on the card: Bearbeiten · Platzieren · Leitung · Sortierung · Entfernen, as words
     cardMenu: 'Weitere Aktionen',
     // the state band on a Trupp still at the door — the long sentence below it stays the hint
-    bandPreEntry: 'Noch nicht eingerückt',
-    // ⚠️ Die Unterzeile eines Trupps, der NIE eingerückt ist (truppNeverDeployed): keine laufende
+    bandPreEntry: 'Noch nicht im Einsatz',
+    // ⚠️ Die Unterzeile eines Trupps, der NIE im Einsatz war (truppNeverDeployed): keine laufende
     // Uhr, sondern die Uhrzeit der Anmeldung. Bis 04.09. stand über ihm «Draussen seit» und eine
     // tickende, fette Uhr – ein Sicherungstrupp, der nie unter Atemschutz war, las sich damit wie
     // einer in der Erholungspause, und die Uhr drängte auf etwas, was niemand tun muss.
@@ -1814,8 +1818,8 @@ export const de = {
       // ⚠️ «Eintritt», nicht «Eingerückt» (04.09., Feldtest Manuel). Diese Liste ist das
       // Protokoll des Trupps, und das Protokoll spricht Eintritt/Austritt – die Karte stand mit
       // «Eingerückt» zwischen «Angemeldet» und «Austritt» und als einzige Zeile quer dazu. Auf
-      // dem gedruckten Blatt steht dasselbe Wort (report.truppEntry); die Tasten heissen weiter
-      // «Einrücken» – die drückt, wer an der Tafel steht (siehe die Notiz bei logEntry).
+      // dem gedruckten Blatt steht dasselbe Wort (report.truppEntry); die Taste heisst seit
+      // 09.09. «Im Einsatz» (siehe die Notiz bei entryAskTitle).
       registered: 'Angemeldet', entry: 'Eintritt', contact: 'Kontakt', pressure: 'Druck',
       // ⚠️ «Austritt», nicht «Draussen» (04.09., Rapport-Review). Diese Spalte heisst «Art» und
       // benennt das EREIGNIS – der Trupp ist ausgetreten. «Draussen» ist der Zustand danach, und
@@ -1878,13 +1882,14 @@ export const de = {
     // back from an opened card to the compact row it was opened from (only shown in that mode —
     // «Übersicht» rather than «Einklappen», because what you go back to is the comparison)
     collapse: 'Zur Übersicht',
-    // lifecycle action buttons
-    actEnter: 'Einrücken',
+    // lifecycle action buttons — «Im Einsatz» statt «Einrücken» (09.09.): der Knopf trägt den
+    // Namen des Zustands, den er herstellt; einrücken heisst im Feuerwehrdeutsch das Gegenteil
+    actEnter: 'Im Einsatz',
     actContact: 'Kontakt',
     actRueckzug: 'Rückzug melden',
     actContinue: 'Fortsetzen',
     actExit: 'Raus melden',
-    actReenter: 'Wieder einrücken',
+    actReenter: 'Wieder in den Einsatz',
     // A Sicherungstrupp mostly does NOT go in. Until 08.08. you could only delete it – i.e. throw
     // away the one thing proving it stood ready. It is now closed out like any other: under
     // «Draussen», with a break clock, ready to re-enter at any time.
@@ -1902,7 +1907,7 @@ export const de = {
     placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',
     showOnPlan: 'Auf Plan zeigen',
     showOnMap: 'Auf der Karte zeigen',
-    preEntryHint: 'Noch nicht eingerückt – «Einrücken» drücken, sobald der Trupp unter Atemschutz in den Einsatz geht.',
+    preEntryHint: 'Noch nicht im Einsatz – «Im Einsatz» drücken, sobald der Trupp unter Atemschutz vorgeht.',
     // Die Glocke: ein Knopf, drei ehrliche Zustände (siehe useAtemschutzMute). Jeder sagt, was
     // GERADE gilt, und nennt seine Reichweite – die Beschriftung war früher die Handlung
     // («Alarmton ausschalten», also ist er an), ein Versprechen, das der Knopf nicht halten
@@ -1965,8 +1970,8 @@ export const de = {
     // einrücken zuerst einmal: zurück ins Magazin. Die Zeile sagte also im Verlauf das Gegenteil
     // dessen, was passiert war – und die Atemschutzübersicht daneben schrieb für denselben
     // Moment längst «Eintritt». Ein Wort für eine Sache, und zwar das, das auf Papier stimmt.
-    // Die Knöpfe heissen weiter «Einrücken» / «Raus melden»: die drückt, wer an der Tafel steht
-    // und weiss, was gemeint ist – gelesen wird der Rapport von Leuten, die nicht dabei waren.
+    // Seit 09.09. sagen auch die Knöpfe nicht mehr «Einrücken», sondern «Im Einsatz» / «Raus
+    // melden» (siehe die Notiz bei entryAskTitle) – die Verlaufszeile bleibt beim Papierwort.
     logEntry: 'Trupp {name}: Eintritt',
     /**
      * …und dieselbe Zeile für einen Trupp OHNE Atemschutz (04.09., Feldtest Manuel).

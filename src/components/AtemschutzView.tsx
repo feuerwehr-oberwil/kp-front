@@ -1879,16 +1879,16 @@ function TruppCard({
         {canEdit && preEntry && (
           <div className={s.actions}>
             {/* ⚠️ IN THE ORDER THE EINSATZ RUNS (07.09., Feldtest Manuel — same rule as the
-                in-field row below): «Einrücken» first, because deploying is what usually happens
+                in-field row below): «Im Einsatz» first, because deploying is what usually happens
                 to a waiting Trupp, and the stand-down right — where «Raus melden» also lives, so
-                the exit is always the right-hand column. «Einrücken» keeps its primary weight. */}
+                the exit is always the right-hand column. «Im Einsatz» keeps its primary weight. */}
             <button className={cx(s.actBtn, s.actEnter)} onClick={() => onStatus(t.id, 'aktiv')}>
               <Icon id="flag" /><span>{az.actEnter}</span>
             </button>
             {/* The Sicherungstrupp that was never needed. Until 08.08. the only way to close one
                 was the bin — which throws away the one record that says a crew stood ready, on a
                 document that is the legal account of the Einsatz. This closes it like any other
-                Trupp: under «Draussen», break clock running, «Wieder einrücken» right there.
+                Trupp: under «Draussen», break clock running, «Wieder in den Einsatz» right there.
                 ⚠️ Only under Atemschutz: a Sicherungstrupp is by definition under PA, so on a
                 work squad this is a second button offering an answer to a question nobody asks. */}
             {monitored && (
