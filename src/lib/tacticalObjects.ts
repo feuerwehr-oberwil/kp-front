@@ -414,6 +414,14 @@ function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Dr
  *   · moved on the Karte → ANCHOR FLIP. «Last hand-placement owns the truth»: the document's
  *     body becomes the object and the sheet body is dropped. Dragging a symbol off the building
  *     is exactly the statement that it no longer stands on that sheet.
+ *
+ *     ⚠️ KNOWN LIMITATION, accepted for now (see kp-front-sync-limitations). The flip is a
+ *     FIELD REMOVAL, and `mergeWorkspace` merges an object field-wise, last-writer-wins: a
+ *     concurrent edit on another device that still carries the sheet body can therefore bring
+ *     it back, and the object is sheet-anchored again at coordinates nobody chose. The record
+ *     needs a «this body was deliberately dropped» marker (a tombstone or an explicit anchor
+ *     enum) rather than absence, which is a schema change and belongs with the reference
+ *     semantics of phase 3.
  *   · re-styled only → the sheet keeps the anchor, and the shared props are written through
  *     onto its anno, where the next bake reads them back.
  *   · gone from the document → deleted on the Karte, and deleting an object deletes the object.

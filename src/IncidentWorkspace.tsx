@@ -3412,9 +3412,15 @@ export function IncidentWorkspace({
     setPlanFocus({ x: target.pt.x, y: target.pt.y, floor: 0, twinEntityId: entity.id, nonce: Date.now() })
   }
   /** «Auf der Karte zeigen», from a plan-drawn object's own panel. It IS a map object — same id,
-   *  same selection, same detail panel — so this is the ordinary jump, not a door to a projection. */
+   *  same selection, same detail panel — so this is the ordinary jump, not a door to a projection.
+   *
+   *  ⚠️ …unless it is not there yet: a sheet whose georeference has just been made, or an object
+   *  the fit cannot place, has no map body to select. `coord` is the projected point the caller
+   *  already worked out, and flying to it is the honest answer — the operator asked to be shown
+   *  where this is, not to have it selected. */
   const showPlanSourceOnMap = (_planId: string, annoId: string, coord: LngLat) => {
-    setPanel(null); setMode('map'); focusEntity(annoId)
+    setPanel(null); setMode('map')
+    if (doc.entities.some((e) => e.id === annoId)) focusEntity(annoId)
     flyToMapVisible(coord, 18.4)
   }
   const goToTrupp = (t: PlacedTrupp) => {
