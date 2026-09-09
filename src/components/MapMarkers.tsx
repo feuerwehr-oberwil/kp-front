@@ -145,16 +145,6 @@ interface Props {
   /** ⚠️ `coord` too: dragging one END of a Rotation moves its centre as well as its size and
    *  bearing — the box is derived from the two ends, so all four change together. */
   onShapeTransform?: (id: string, patch: { coord?: LngLat; rotation?: number; rotation2?: number; sizeM?: number; aspect?: number; reachM?: number }, phase: 'start' | 'move' | 'end') => void
-  /** the mirrored objects a Rotation end may dock onto, resolved by the surface (MapView ·
-   *  twinMagnets) — a twin is a docking place exactly like the native it mirrors */
-  twinMagnets?: { id: string; coord: LngLat }[]
-  /** the mirrored SYMBOLS that join the fat-finger pile (D-10). A twin sits below every native
-   *  marker by design, so one covered by a symbol could never receive the tap AND was not offered
-   *  by the fan either — the second half was not deliberate. Same kinds `PILE_KINDS` accepts. */
-  twinPiles?: { id: string; coord: LngLat }[]
-  /** the fan this component opened, so the surface can offset the mirrored members too — they
-   *  are drawn by other layers (GeorefTwinsMap) and cannot see this state. */
-  onFan?: (offsets: Record<string, { dx: number; dy: number }> | null) => void
   /** unlock a locked shape (short-hold on its centre chip) → unlocks + selects. Absent ⇒ the
    *  chip is not drawn (viewer / tactically locked), matching MapView · onUnlockDrawing. */
   onUnlockShape?: (id: string) => void
@@ -204,7 +194,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, twinMagnets = [], twinPiles = [], onFan, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)
@@ -287,14 +277,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   type FanOffsets = Record<string, { dx: number; dy: number }>
   const fanKey = (offsets: FanOffsets) => `${zoom}|${bearing}|` + Object.keys(offsets).sort()
     .map((id) => {
-      const at = entities.find((x) => x.id === id)?.coord ?? twinPiles.find((x) => x.id === id)?.coord
+      const at = entities.find((x) => x.id === id)?.coord
       return at ? `${id}@${at[0]},${at[1]}` : id
     })
     .join('|')
   const [fanState, setFan] = useState<{ key: string; offsets: FanOffsets } | null>(null)
   const fan = fanState && fanState.key === fanKey(fanState.offsets) ? fanState.offsets : null
-  // the mirrored members ride along in the surface's own state — see the `onFan` prop
-  useEffect(() => { onFan?.(fan) }, [fan]) // eslint-disable-line react-hooks/exhaustive-deps
   const openFan = (offsets: FanOffsets) => setFan({ key: fanKey(offsets), offsets })
   // A tap anywhere that is not a fanned glyph closes the fan — including a tap on the map, which
   // this component never sees otherwise. Capture phase, and bound only while a fan is open.
@@ -330,11 +318,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // pad diameter mirrors .marker::before in 03-map.css — the hit test has to measure the
         // same slop the operator can see the effect of
         return p ? [{ id: x.id, x: p.x, y: p.y, pad: pad(x.kind, x.coord as LngLat) }] : []
-      }),
-      // …and the mirrored symbols standing in the same spot (D-10)
-      ...twinPiles.flatMap((x) => {
-        const p = project(x.coord)
-        return p ? [{ id: x.id, x: p.x, y: p.y, pad: pad('symbol', x.coord) }] : []
       }),
     ])
   }
@@ -378,13 +361,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   const trackEndMagnet = (id: string, pt: { x: number; y: number }, toCont: { x: number; y: number }) => {
     const p = { x: pt.x + toCont.x, y: pt.y + toCont.y }
     let best: { key: string; coord: LngLat; d: number; q: { x: number; y: number } } | null = null
-    // the same targets the PLACEMENT magnet accepts (MapView · trackPlaceMagnet) — an end
-    // laid onto a TLF must be re-dockable when it is dragged later, and a MIRRORED TLF is the
-    // same truck seen from the other surface (twinMagnets, D-08)
+    // the same targets the PLACEMENT magnet accepts (MapView · trackPlaceMagnet) — an end laid
+    // onto a TLF must be re-dockable when it is dragged later, plan-drawn TLF included: it is an
+    // entity on this map like any other now (lib/tacticalObjects)
     const anchors: { key: string; coord: LngLat }[] = [
       ...entities.flatMap((x) => (x.id !== id && isMagnetEntity(x) && Array.isArray(x.coord) && isVisible(effectiveLayer(x))
         ? [{ key: x.id, coord: x.coord as LngLat }] : [])),
-      ...twinMagnets.flatMap((m) => (m.id === id ? [] : [{ key: m.id, coord: m.coord }])),
     ]
     for (const a of anchors) {
       const q = project(a.coord); if (!q) continue

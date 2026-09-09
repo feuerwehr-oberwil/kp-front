@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, clampToSheet, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect, sheetCorners, sheetEdgeEnds, sheetShift, twinPathDelta,
-  planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinVisible,
+  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapTwinRows, onSheet, planAspect,
+  planRasterRows, revealTwinLayer, twinPlanImageLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
@@ -92,36 +92,6 @@ describe('georefPlans', () => {
   })
 })
 
-describe('mapTwins (plan → Karte)', () => {
-  const linked = georefPlans([plan('modul2')], () => ({ pairs: PAIRS }), () => 1)
-
-  it('projects plan symbols onto the map and names the plan they came from', () => {
-    const twins = mapTwins(linked, { modul2: [anno('a1')] })
-    expect(twins).toHaveLength(1)
-    expect(twins[0]).toMatchObject({ planId: 'modul2', planCode: 'MODUL2', annoId: 'a1' })
-    // the sheet's centre is 50 m east and 50 m south of its top-left corner
-    expect(twins[0].coord[0]).toBeCloseTo(mEast(50).lng, 6)
-    expect(twins[0].coord[1]).toBeLessThan(ORIGIN.lat)
-  })
-
-  it('mirrors symbols only — a hose line, a note and a Trupp chip belong to their own surface', () => {
-    const board = { modul2: [anno('sym'), anno('line', { kind: 'draw' }), anno('note', { kind: 'text' }), anno('team', { kind: 'resource' })] }
-    expect(mapTwins(linked, board).map((t) => t.annoId)).toEqual(['sym'])
-  })
-
-  it('skips an annotation with no anchor rather than putting it at the sheet corner', () => {
-    expect(mapTwins(linked, { modul2: [anno('nowhere', { x: undefined, y: undefined })] })).toEqual([])
-  })
-
-  it('carries the sheet’s ground width on the plan record (reach conversion reads it)', () => {
-    // the 100 m FIT at aspect 1 makes the ground width exactly 100
-    expect(linked[0].widthM).toBeCloseTo(100, 3)
-  })
-})
-
-// No twin size bands to pin any more (30.08.): twins are presentation-equivalent — each
-// surface sizes them with its own native rule (mapView · symPx, Whiteboard · symBase).
-
 describe('boardTwinAnnosForPrint (mirrored Karte content on the exported Objektplan page)', () => {
   const gp = { id: 'modul2', code: 'M2', title: 'Modul 2', fit: FIT, widthM: 100 }
   const mid = mEast(50)
@@ -154,80 +124,6 @@ describe('boardTwinAnnosForPrint (mirrored Karte content on the exported Objektp
   })
 })
 
-describe('movedTwinPath (whole-object drag of a mirrored line/area)', () => {
-  const pts: [number, number][] = [[0.1, 0.2], [0.5, 0.2], [0.5, 0.6]]
-
-  it('translates every vertex by the same plan-space delta', () => {
-    const out = movedTwinPath(pts, { x: 0.3, y: 0.3 }, { x: 0.4, y: 0.35 })
-    const want = [[0.2, 0.25], [0.6, 0.25], [0.6, 0.65]]
-    out.forEach((p, i) => { expect(p[0]).toBeCloseTo(want[i][0], 9); expect(p[1]).toBeCloseTo(want[i][1], 9) })
-  })
-
-  it('keeps a per-point floor untouched — the drag moves paper position, never storeys', () => {
-    const out = movedTwinPath([[0.1, 0.2, 2], [0.5, 0.2, 3]], { x: 0, y: 0 }, { x: 0.1, y: 0 })
-    expect(out.map((p) => p[2])).toEqual([2, 3])
-  })
-
-  it('clamps the DELTA to the sheet, so the shape stops at the edge instead of squashing', () => {
-    const out = movedTwinPath(pts, { x: 0.3, y: 0.3 }, { x: 2, y: -2 })
-    expect(out.map((p) => p[0].toFixed(3))).toEqual(['0.600', '1.000', '1.000'])
-    expect(out.map((p) => p[1].toFixed(3))).toEqual(['0.000', '0.000', '0.400'])
-  })
-})
-
-/**
- * ⚠️ The «nur auf einer Achse» constraint, stated. A twin's source lives on a BOUNDED document,
- * so a drag that crosses the projected paper edge pins that coordinate while the free one keeps
- * following the finger — the object slides along the edge instead of stopping dead. That is the
- * right behaviour and it is invisible on a map that draws no paper, so the surface has to be able
- * to name the edge that is holding (MapView · twinBound).
- */
-describe('the sheet’s own edge', () => {
-  it('slides along the edge it met, and names it', () => {
-    expect(clampToSheet({ x: 1.4, y: 0.6 })).toEqual({ pt: { x: 1, y: 0.6 }, held: ['right'] })
-    expect(clampToSheet({ x: -0.2, y: 0.3 })).toEqual({ pt: { x: 0, y: 0.3 }, held: ['left'] })
-    expect(clampToSheet({ x: 0.5, y: -0.1 })).toEqual({ pt: { x: 0.5, y: 0 }, held: ['top'] })
-    expect(clampToSheet({ x: 0.5, y: 9 })).toEqual({ pt: { x: 0.5, y: 1 }, held: ['bottom'] })
-    // a corner holds both, and a point on the paper holds nothing
-    expect(clampToSheet({ x: 2, y: 2 }).held).toEqual(['right', 'bottom'])
-    expect(clampToSheet({ x: 0.5, y: 0.5 })).toEqual({ pt: { x: 0.5, y: 0.5 }, held: [] })
-  })
-
-  it('holds a whole PATH by its delta, so the shape stops instead of squashing', () => {
-    const pts: [number, number][] = [[0.1, 0.2], [0.5, 0.2], [0.5, 0.6]]
-    // asked for +2 across: the widest vertex sits at 0.5, so 0.5 is all the sheet has left
-    const out = twinPathDelta(pts, { x: 0.3, y: 0.3 }, { x: 2.3, y: 0.3 })
-    expect(out.dx).toBeCloseTo(0.5, 9)
-    expect(out.dy).toBeCloseTo(0, 9)
-    expect(out.held).toEqual(['right'])
-    expect(twinPathDelta(pts, { x: 0.3, y: 0.3 }, { x: 0.4, y: 0.35 }).held).toEqual([])
-  })
-
-  it('shifts a whole rigid selection back onto the sheet, never its members apart', () => {
-    // three points spanning 0.2..0.9, pushed 0.3 to the right: only 0.1 of paper is left
-    const pts = [{ x: 0.2, y: 0.5 }, { x: 0.6, y: 0.5 }, { x: 0.9, y: 0.5 }]
-    const out = sheetShift(pts, { x: 0.3, y: 0 })
-    expect(out.dx).toBeCloseTo(0.1, 9)
-    expect(out.held).toEqual(['right'])
-    // …and a selection WIDER than the sheet freezes that axis rather than teleporting half a sheet
-    const wide = sheetShift([{ x: -0.4, y: 0.5 }, { x: 1.4, y: 0.5 }], { x: 0.2, y: 0 })
-    expect(wide.dx).toBe(0)
-    expect(wide.held).toEqual(['right'])
-  })
-
-  it('puts the sheet on the ground as four corners and four edges', () => {
-    const [tl, tr, br, bl] = sheetCorners(FIT)
-    // the fit is a square 100 m sheet laid north-up: (0,0) is its top-left corner
-    expect(tl[0]).toBeCloseTo(ORIGIN.lng, 9)
-    expect(tr[0]).toBeGreaterThan(tl[0])   // x grows east
-    expect(bl[1]).toBeLessThan(tl[1])      // …and plan y runs DOWN, so south
-    expect(sheetEdgeEnds(FIT, 'right')).toEqual([tr, br])
-    expect(sheetEdgeEnds(FIT, 'top')).toEqual([tl, tr])
-    expect(sheetEdgeEnds(FIT, 'left')).toEqual([tl, bl])
-    expect(sheetEdgeEnds(FIT, 'bottom')).toEqual([bl, br])
-  })
-})
-
 describe('contentTwinName', () => {
   it('uses the object’s own words first, then the kind’s tool name', () => {
     expect(contentTwinName({ kind: 'draw', label: 'Zufahrt' })).toBe('Zufahrt')
@@ -237,25 +133,6 @@ describe('contentTwinName', () => {
     expect(contentTwinName({ kind: 'note' })).toBe('Notiz')
     expect(contentTwinName({ kind: 'shape', shape: 'cloud' })).toBe('Rauch')
     expect(contentTwinName({ kind: 'team' })).toBe('Trupp')
-  })
-})
-
-describe('mapContentTwins (plan → Karte)', () => {
-  const linked = georefPlans([plan('modul2')], () => ({ pairs: PAIRS }), () => 1)
-
-  it('projects lines, areas, notes, shapes and Atemschutz markers while symbols keep their interactive path', () => {
-    const board = { modul2: [
-      anno('line', { kind: 'draw', pts: [[0.1, 0.2], [0.8, 0.2]], x: undefined, y: undefined }),
-      anno('area', { kind: 'area', pts: [[0.1, 0.1], [0.4, 0.1], [0.2, 0.4]], x: undefined, y: undefined }),
-      anno('note', { kind: 'text', text: 'Notiz' }),
-      anno('shape', { kind: 'shape', shape: 'cloud' }),
-      anno('team', { kind: 'resource', text: 'Trupp 1' }),
-      anno('symbol'),
-    ] }
-    const twins = mapContentTwins(linked, board)
-    expect(twins.map((t) => t.annoId)).toEqual(['line', 'area', 'note', 'shape', 'team'])
-    expect(twins.find((t) => t.annoId === 'line')?.coords).toHaveLength(2)
-    expect(twins.find((t) => t.annoId === 'note')?.coord).toBeDefined()
   })
 })
 
@@ -376,17 +253,15 @@ describe('ownership transfer keeps one object', () => {
 describe('the Ebenen rows', () => {
   const linked = georefPlans([plan('modul2'), plan('modul3')], () => ({ pairs: PAIRS }), () => 1)
 
-  it('gives every linked plan separate symbol and image rows on the Karte', () => {
-    const rows = planTwinRows(linked, undefined, undefined)
-    expect(rows.map((r) => r.id)).toEqual([
-      twinPlanLayerId('modul2'), twinPlanImageLayerId('modul2'),
-      twinPlanLayerId('modul3'), twinPlanImageLayerId('modul3'),
-    ])
-    expect(rows[0].label).toBe('Inhalte (MODUL2)')
+  it('gives every linked plan ONE row on the Karte — its sheet, opt-in under the ink', () => {
+    // the symbols that stand on the sheet need no row of their own: they are ordinary map
+    // objects now and answer to the Ebene they were placed on
+    const rows = planRasterRows(linked, undefined, undefined)
+    expect(rows.map((r) => r.id)).toEqual([twinPlanImageLayerId('modul2'), twinPlanImageLayerId('modul3')])
+    expect(rows[0].label).toBe('Plan (MODUL2)')
     // two pairs solve exactly, so the row may not claim a measured residual
     expect(rows[0].sub).toBe('aus 2 Punkten')
-    expect(rows.filter((r) => r.id.startsWith('twin:plan:')).every((r) => r.visible)).toBe(true)
-    expect(rows.filter((r) => r.id.startsWith('twin:plan-image:')).every((r) => !r.visible)).toBe(true)
+    expect(rows.every((r) => !r.visible)).toBe(true)
   })
 
   it('offers the two Karte rows on a linked sheet, and nothing at all on an unlinked one', () => {
@@ -414,11 +289,11 @@ describe('the Ebenen rows', () => {
     // a third pair that does not fit perfectly — now there IS a residual to state
     const three = [...PAIRS, { plan: { x: 0.5, y: 0.5 }, lngLat: mEast(60) }]
     const [p] = georefPlans([plan('m2')], () => ({ pairs: three }), () => 1)
-    expect(planTwinRows([p], undefined)[0].sub).toMatch(/^⌀ \d+\.\d\d m$/)
+    expect(planRasterRows([p], undefined)[0].sub).toMatch(/^⌀ \d+\.\d\d m$/)
   })
 
   it('marks its ids as twin ids, so the panel can route the toggle', () => {
-    expect(isTwinLayerId(twinPlanLayerId('modul2'))).toBe(true)
+    expect(isTwinLayerId(twinPlanImageLayerId('modul2'))).toBe(true)
     expect(isTwinLayerId(TWIN_MAP_VEHICLES)).toBe(true)
     expect(isTwinLayerId('hydrant')).toBe(false)
   })

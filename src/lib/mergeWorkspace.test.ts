@@ -101,7 +101,9 @@ describe('mergeWorkspace — unified objects (schema 2)', () => {
     const theirs = { entities: [ent('x1')], board: { modul2: [{ id: 'x1', kind: 'symbol', x: 0.5, y: 0.5 }] } }
     const out = mergeWorkspace({}, { objects: [] }, theirs) as Record<string, unknown>
     expect((out.objects as { id: string }[]).map((x) => x.id)).toEqual(['x1'])
-    expect(out.entities).toEqual([]) // it materializes on the sheet it was placed on
+    // ONE record, drawn on both surfaces — the sheet from its anno, the Karte from its map
+    // body. What the heal removes is the second RECORD, not the second picture.
+    expect((out.entities as { id: string }[]).map((x) => x.id)).toEqual(['x1'])
     expect((out.board as Record<string, { id: string }[]>).modul2.map((x) => x.id)).toEqual(['x1'])
   })
 })

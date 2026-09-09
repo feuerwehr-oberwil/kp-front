@@ -1,9 +1,9 @@
 /** The one «Zwilling» mark — the look both surfaces share.
  *
- *  Two renderers sit on top of it (GeorefTwinsMap, GeorefTwinsBoard), because the surfaces
- *  position differently (a MapLibre `<Marker>` at a lng/lat vs. an absolutely positioned child of
- *  `.wb-board` at a normalized point) but must LOOK identical: the same source glyph and caption.
- *  A twin that looked different on each side would be two features instead of one idea.
+ *  ⚠️ ONE renderer sits on it now (GeorefTwinsBoard): the Karte, which used to have its own,
+ *  draws plan-drawn objects as ordinary markers instead (lib/tacticalObjects). The mark stays a
+ *  module of its own because the look it defines is still a statement — «this is here because it
+ *  is somewhere else» — and because the PLAN surface can then draw it without importing MapLibre.
  *
  *  ⚠️ ONE mark per mirrored object, and the mark is the SYMBOL ITSELF. It used to stack a dashed
  *  ring, a ⇄ badge and an extra name plaque around that glyph. Half a dozen of them near each
@@ -75,15 +75,12 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
    */
   onMove?: (phase: 'start' | 'move' | 'end', dx: number, dy: number) => void
   /**
-   * The SURROUNDING surface owns the whole gesture — used on the Karte, where the press is fed
-   * to the shared hold-to-drag (lib/mapTwinDrag) so a projection behaves exactly like the native
-   * marker beside it: mouse press-drags at once, touch arms only after a still 180 ms hold plus
-   * its buzz, and anything shorter stays a map pan.
+   * The SURROUNDING surface owns the whole gesture instead of the mark — the escape hatch for a
+   * host that has to arbitrate the press against its own pan before deciding it was a drag.
    *
-   * ⚠️ The map half must NOT run the `onMove` gesture below, and must NOT be a react-map-gl
-   * `draggable` Marker either: that claims the pointer on pointerdown and suppresses the map's
-   * pan, so every pan starting on a twin dragged the twin (the exact failure `useHoldToDrag` was
-   * written to avoid). With the press delegated, the tap arrives through the hold's own onTap —
+   * ⚠️ A host that takes this must NOT also run the `onMove` gesture below: two gestures on one
+   * pointer is the exact failure `useHoldToDrag` was written to avoid. With the press delegated,
+   * the tap arrives through the hold's own onTap —
    * this element's click then only serves the keyboard (detail 0).
    */
   onGesture?: (ev: React.PointerEvent<HTMLButtonElement>) => void
@@ -102,9 +99,8 @@ export function TwinMark({ svg, sizePx, rotation, count, floor, floorFrom, floor
   network?: boolean
   style?: React.CSSProperties
   className?: string
-  /** surface-owned chrome drawn INSIDE the mark — currently only the fan's hairline home
-   *  (GeorefTwinsMap), which has to sit in the mark's own stacking box to point back at the
-   *  true position. */
+  /** surface-owned chrome drawn INSIDE the mark — it has to sit in the mark's own stacking box
+   *  to be able to point back at the true position. */
   children?: React.ReactNode
 }) {
   // The live gesture. A ref, not state: it is written on every pointer sample, and nothing about

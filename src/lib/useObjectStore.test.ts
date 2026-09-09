@@ -58,7 +58,8 @@ describe('useObjectStore — one collection, two documents', () => {
       result.current.setBoard((b) => ({ ...b, modul2: [anno('s1')] }))
       result.current.commit((d) => ({ ...d, entities: [...d.entities, ent('e2')] }))
     })
-    expect(result.current.doc.entities.map((e) => e.id)).toEqual(['e1', 'e2'])
+    // e1, e2 are the Karte's own; s1 arrives last as the baked body of the sheet object
+    expect(result.current.doc.entities.map((e) => e.id)).toEqual(['e1', 'e2', 's1'])
     expect(result.current.board.modul2).toHaveLength(1)
   })
 
@@ -91,10 +92,54 @@ describe('useObjectStore — one collection, two documents', () => {
     act(() => result.current.commit((d) => ({ ...d, entities: [...d.entities, ent('e1')] })))
     expect(result.current.objects.map((o) => o.id)).toEqual(['s1', 'e1'])
     act(() => { result.current.undo() })
-    expect(result.current.doc.entities).toEqual([])
+    expect(result.current.doc.entities.map((e) => e.id)).toEqual(['s1']) // only the sheet object's baked body
     const restored = result.current.objects.find((o) => o.id === 's1')!
     expect(restored.sheet?.planId).toBe('modul2')
     expect(restored.entity?.coord).toBeDefined() // …with its baked map body intact
+  })
+
+  /* The Karte draws plan-drawn objects natively now (viewsOf), so the ordinary map mutators
+   * reach them — and what comes back has to be read as the gesture it was. */
+  describe('a plan-drawn object, edited on the Karte', () => {
+    const withSheetSymbol = () => {
+      const h = store()
+      act(() => h.result.current.setBoard(() => ({ modul2: [anno('s1', { x: 0.5, y: 0, label: 'Feuer' })] })))
+      return h
+    }
+
+    it('shows up in the doc view as an ordinary entity', () => {
+      const { result } = withSheetSymbol()
+      expect(result.current.doc.entities.map((e) => e.id)).toEqual(['s1'])
+      expect(result.current.doc.entities[0].label).toBe('Feuer')
+    })
+
+    it('a MOVE on the map flips the anchor — it leaves the sheet', () => {
+      const { result } = withSheetSymbol()
+      act(() => result.current.commit((d) => ({
+        ...d, entities: d.entities.map((e) => ({ ...e, coord: [mEast(400).lng, ORIGIN.lat] as [number, number] })),
+      })))
+      expect(result.current.board.modul2).toBeUndefined()
+      expect(result.current.doc.entities[0].coord[0]).toBeCloseTo(mEast(400).lng, 8)
+    })
+
+    it('a STYLE edit on the map keeps the anchor and survives the next bake', () => {
+      const { result } = withSheetSymbol()
+      act(() => result.current.commit((d) => ({
+        ...d, entities: d.entities.map((e) => ({ ...e, label: 'Brandherd', color: '#f00' })),
+      })))
+      expect(result.current.board.modul2?.[0]).toMatchObject({ label: 'Brandherd', color: '#f00', x: 0.5 })
+      // the rebake is what would undo an edit parked on the map body instead of the anno
+      act(() => result.current.rebake())
+      expect(result.current.doc.entities[0].label).toBe('Brandherd')
+      expect(result.current.doc.entities[0].coord[0]).toBeCloseTo(mEast(50).lng, 8)
+    })
+
+    it('a DELETE on the map deletes the object, sheet body and all', () => {
+      const { result } = withSheetSymbol()
+      act(() => result.current.commit((d) => ({ ...d, entities: [] })))
+      expect(result.current.objects).toEqual([])
+      expect(result.current.board.modul2).toBeUndefined()
+    })
   })
 
   it('a viewer cannot commit, and replaceObjects drops the history with the state', () => {

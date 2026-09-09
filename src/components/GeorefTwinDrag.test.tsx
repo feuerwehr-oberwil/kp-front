@@ -9,19 +9,12 @@
  * (TwinMark's own tap-vs-drag rule lives in GeorefTwinMark.test.tsx.)
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import type { BoardAnno, Entity } from '../types'
+import type { Entity } from '../types'
 import { GeorefTwinsBoard } from './GeorefTwinsBoard'
 import { fitSimilarity } from '../lib/georef'
-import { clampToSheet, sheetShift, SHEET_DOMAIN, twinBoundOf, type SheetEdge } from '../lib/georefTwins'
-import type { BoardTwin, MapTwin } from '../lib/georefTwins'
-
-// the map half of the mirror only needs the Marker to place its child somewhere
-vi.mock('react-map-gl/maplibre', () => ({
-  Marker: ({ children }: { children: ReactNode }) => <div data-testid="marker">{children}</div>,
-}))
-import { GeorefTwinsMap } from './GeorefTwinsMap'
+import type { BoardTwin } from '../lib/georefTwins'
 
 afterEach(cleanup)
 
@@ -224,128 +217,6 @@ const planDelta = (east: number, north: number) => ({
 })
 
 describe('a diagonal drag on a turned, non-square sheet', () => {
-  const feuer: BoardAnno = { id: 'a1', kind: 'symbol', symbol: 'Feuer', x: 0.4, y: 0.4, floor: 0 }
-  const svg = '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>'
-  // a plain 4 px per metre map transform, in the same metric space the fit works in
-  const PPM = 4
-  const project = (c: [number, number]) => { const m = toMetre(c[0], c[1]); return { x: (m.x - M0.x) * PPM, y: -(m.y - M0.y) * PPM } }
-  const unproject = (p: { x: number; y: number }) => { const g = toLngLat(M0.x + p.x / PPM, M0.y - p.y / PPM); return [g.lng, g.lat] as [number, number] }
-
-  it('moves a mirrored symbol on the KARTE in both plan coordinates at once', () => {
-    let written = { x: feuer.x!, y: feuer.y! }
-    const Live = () => {
-      const [a, setA] = useState<BoardAnno>(feuer)
-      const { lng, lat } = TURNED_FIT.toMap({ x: a.x!, y: a.y! })
-      const twin = { key: 'm:a1', planId: 'm', planCode: 'M', annoId: 'a1', coord: [lng, lat], anno: a, fit: TURNED_FIT } as MapTwin
-      return <GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18} selectedKey="m:a1"
-        onOpen={() => {}} project={project} unproject={unproject}
-        // the surface's own write-through, in the one shape IncidentWorkspace writes it
-        // (moveMapTwinSource): fold the ground coordinate back and store BOTH halves
-        onMove={(t, coord, phase) => {
-          if (phase === 'start') return
-          const p = t.fit.toPlan({ lng: coord[0], lat: coord[1] })
-          written = { x: Math.max(0, Math.min(1, p.x)), y: Math.max(0, Math.min(1, p.y)) }
-          setA((prev) => ({ ...prev, ...written }))
-        }} />
-    }
-    render(<Live />)
-    const mark = screen.getByRole('button')
-    fireEvent.pointerDown(mark, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
-    fireEvent.pointerMove(window, { pointerId: 1, clientX: 120, clientY: 130 })
-    fireEvent.pointerMove(window, { pointerId: 1, clientX: 140, clientY: 160 })
-    fireEvent.pointerUp(window, { pointerId: 1, clientX: 140, clientY: 160 })
-    // +40 px east = +10 m, +60 px DOWN = 15 m south
-    const want = planDelta(10, -15)
-    expect(want.x).not.toBeCloseTo(0, 3)   // the drag really does ask both axes to move
-    expect(want.y).not.toBeCloseTo(0, 3)
-    expect(written.x).toBeCloseTo(0.4 + want.x, 5)
-    expect(written.y).toBeCloseTo(0.4 + want.y, 5)
-  })
-
-  /**
-   * ⚠️ THE «nur auf einer Achse» report, in one test (02.09.). It is not a transform bug: the
-   * source lives on a BOUNDED sheet, so a diagonal drag that crosses the projected paper edge
-   * pins that plan coordinate and goes on following the finger with the other. The object slides
-   * along the edge — which is right, and which the Karte now also SHOWS, because a map draws no
-   * paper (MapView · twinBound).
-   */
-  it('slides a mirrored symbol along the sheet edge it met, and names that edge', () => {
-    const feuerEdge: BoardAnno = { ...feuer, x: 0.9, y: 0.4 }
-    let written = { x: feuerEdge.x!, y: feuerEdge.y! }
-    let held: SheetEdge[] = []
-    const Live = () => {
-      const [a, setA] = useState<BoardAnno>(feuerEdge)
-      const { lng, lat } = TURNED_FIT.toMap({ x: a.x!, y: a.y! })
-      const twin = { key: 'm:a1', planId: 'm', planCode: 'M', annoId: 'a1', coord: [lng, lat], anno: a, fit: TURNED_FIT } as MapTwin
-      return <GeorefTwinsMap twins={[twin]} byName={{ Feuer: svg }} zoom={18} selectedKey="m:a1"
-        onOpen={() => {}} project={project} unproject={unproject}
-        onMove={(t, coord, phase) => {
-          if (phase === 'start') return
-          const out = clampToSheet(t.fit.toPlan({ lng: coord[0], lat: coord[1] }))
-          written = out.pt; held = out.held
-          setA((prev) => ({ ...prev, ...out.pt }))
-        }} />
-    }
-    render(<Live />)
-    const mark = screen.getByRole('button')
-    // straight along the sheet's own +x axis (30° off east), far past its right-hand edge, while
-    // ALSO travelling down the sheet — one diagonal drag, one axis of it impossible
-    const step = (n: number): [number, number] => [
-      100 + Math.cos(TURN) * n, 100 - Math.sin(TURN) * n + n * 0.4,
-    ]
-    fireEvent.pointerDown(mark, { pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 100, clientY: 100 })
-    for (const n of [40, 120, 400]) {
-      const [x, y] = step(n)
-      fireEvent.pointerMove(window, { pointerId: 1, clientX: x, clientY: y })
-    }
-    const [ex, ey] = step(400)
-    fireEvent.pointerUp(window, { pointerId: 1, clientX: ex, clientY: ey })
-    expect(written.x).toBe(1)                        // pinned at the paper's right edge…
-    expect(written.y).toBeGreaterThan(0.4)           // …while the free axis kept following
-    expect(written.y).toBeLessThan(1)
-    expect(held).toEqual(['right'])                  // and the surface can light that edge
-  })
-
-  /**
-   * ⚠️ THE «die Umrandung passt nicht zum Anschlag» regression (02.09.).
-   *
-   * The outline the Karte draws and the bound a drag actually meets have to be ONE thing. They
-   * were not derived from one: the rectangle came from beside the clamp rather than from it, and
-   * the bar's own twin move drew the rectangle while enforcing nothing at all, so a mirrored
-   * object pulled from ✥ sailed straight through the line that had just promised where it would
-   * stop. Both now read `SHEET_DOMAIN` — and this is the assertion that keeps them there: the
-   * drawn corners ARE that domain through the drag's own fit, and a clamped landing is ON the
-   * drawn edge, to the same numbers.
-   */
-  it('draws exactly the rectangle it clamps to, and clamps exactly onto what it drew', () => {
-    const bound = twinBoundOf(TURNED_FIT, ['right'])
-    // 1 — the corners are the clamp domain, through the very fit the write-through inverts
-    const projected = SHEET_DOMAIN.map((p) => { const c = TURNED_FIT.toMap(p); return [c.lng, c.lat] })
-    expect(bound.ring).toEqual(projected)
-    // …and every one of them comes back as a corner of the domain, so nothing was re-derived
-    bound.ring.forEach((c, i) => {
-      const back = TURNED_FIT.toPlan({ lng: c[0], lat: c[1] })
-      expect(back.x).toBeCloseTo(SHEET_DOMAIN[i].x, 9)
-      expect(back.y).toBeCloseTo(SHEET_DOMAIN[i].y, 9)
-    })
-    // 2 — a drag pushed off the right-hand side lands ON the segment that was drawn for it
-    const [a, b] = bound.held[0]
-    const { pt, held } = clampToSheet(TURNED_FIT.toPlan(TURNED_FIT.toMap({ x: 2.4, y: 0.55 })))
-    expect(held).toEqual(['right'])
-    const g = TURNED_FIT.toMap(pt)
-    // collinear with the drawn edge (cross product of the two spans) and between its ends
-    expect(Math.abs((b[0] - a[0]) * (g.lat - a[1]) - (b[1] - a[1]) * (g.lng - a[0]))).toBeLessThan(1e-12)
-    // …and at the right place ALONG it. Measured in raw lng/lat, where the segment is straight
-    // but its parameterisation is not quite uniform (a degree of latitude is not a degree of
-    // longitude): 1e-5 of the edge is ~1 mm on an 80 m sheet.
-    const along = ((g.lng - a[0]) * (b[0] - a[0]) + (g.lat - a[1]) * (b[1] - a[1]))
-      / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2)
-    expect(along).toBeCloseTo(0.55, 5)
-    // 3 — and the bar's own writer measures against the same domain, so it stops there too
-    const barShift = sheetShift([{ x: 0.9, y: 0.5 }], { x: 0.4, y: 0 })
-    expect(barShift.dx).toBeCloseTo(0.1, 9)
-    expect(barShift.held).toEqual(['right'])
-  })
 
   it('…and a mirrored Karte object on the PLAN lands where it was dropped, both ways', () => {
     const tlfHere = { ...tlf, coord: [0, 0] } as Entity

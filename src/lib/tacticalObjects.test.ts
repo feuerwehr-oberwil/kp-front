@@ -7,10 +7,10 @@ import {
 import type { BoardAnno, Drawing, Entity } from '../types'
 
 /* The unified tactical object (tmp/design-unified-objects.md, 09.09.2026): one record per
- * object; the sheet body's PRESENCE is the anchor. These tests pin the phase-1 contract —
- * views render-identical to the three legacy collections, the migration heals transfer
- * duplicates, the doc/board seams keep whole-object delete semantics, and the bake makes
- * the record self-contained (a map body computed once through the fit, no fit at read time). */
+ * object; the sheet body's PRESENCE is the anchor. These tests pin the contract — the views
+ * both surfaces render, the migration that heals transfer duplicates, the bake that makes a
+ * record self-contained (a map body computed once through the fit, no fit at read time), and
+ * the four readings the map seam gives a document that now contains those baked bodies. */
 
 const ORIGIN = { lng: 7.5525, lat: 47.5145 }
 const mEast = (m: number) => ({ lng: ORIGIN.lng + m / (111320 * Math.cos((ORIGIN.lat * Math.PI) / 180)), lat: ORIGIN.lat })
@@ -42,15 +42,30 @@ describe('objectsFromLegacy + viewsOf — the round trip', () => {
     expect(views.board).toEqual(board)
   })
 
+  it('a plan-only incident has a map scene — which is what un-disables the Kroki', () => {
+    // the Kroki payload and its toggle are built from `entities + drawings` (IncidentWorkspace ·
+    // mapContentCount / scene). Plan-drawn work never reached either of them while the map view
+    // was anchor-only; a baked body IS that scene now, for a Rapport with no Karte work at all.
+    const objects = [
+      bakeGeoBody({ id: 's1', sheet: { planId: 'modul2', anno: anno('s1') } }, PLAN, 'taktisch'),
+      bakeGeoBody({ id: 'l1', sheet: { planId: 'modul2', anno: anno('l1', { kind: 'draw', x: undefined, y: undefined, pts: [[0, 0], [1, 1]] }) } }, PLAN, 'taktisch'),
+    ]
+    const views = viewsOf(objects)
+    expect(views.entities).toHaveLength(1)
+    expect(views.drawings).toHaveLength(1)
+    expect(views.board.modul2).toHaveLength(2)
+  })
+
   it('heals a transfer duplicate into ONE object — the sheet placement wins the anchor', () => {
     // the old delete+add transfer could be resurrected on both sides by a concurrent merge
     const objects = objectsFromLegacy([ent('x1')], [], { modul2: [anno('x1')] })
     expect(objects).toHaveLength(1)
     expect(objects[0].sheet?.planId).toBe('modul2')
     expect(objects[0].entity?.id).toBe('x1')
-    // …and the views show it ONCE, on the sheet it was placed on
+    // …and it renders on BOTH surfaces from that ONE record: the sheet draws its anno, the
+    // Karte its map body. Two pictures of one object is the point; two records was the bug.
     const views = viewsOf(objects)
-    expect(views.entities).toEqual([])
+    expect(views.entities.map((e) => e.id)).toEqual(['x1'])
     expect(views.board.modul2).toHaveLength(1)
   })
 })
@@ -70,6 +85,65 @@ describe('the setDoc / setBoard seams', () => {
   it('a geo id missing from the document deletes the WHOLE object', () => {
     const next = applyDocToObjects(store(), { entities: [], drawings: [] })
     expect(next.map((o) => o.id)).toEqual(['a1'])
+  })
+
+  /* The Karte hands back a document that CONTAINS the baked bodies of sheet-anchored objects,
+   * so applyDocToObjects has to read it as a gesture. Four readings, one per branch. */
+  describe('a Karte edit of a sheet-anchored object', () => {
+    const sheetStore = (over: Partial<BoardAnno> = {}): TacticalObject[] =>
+      [bakeGeoBody({ id: 's1', sheet: { planId: 'modul2', anno: anno('s1', { x: 0.5, y: 0, ...over }) } }, PLAN, 'taktisch')]
+
+    const backFromMap = (objects: TacticalObject[], patch: Partial<Entity>) =>
+      applyDocToObjects(objects, { entities: [{ ...objects[0].entity!, ...patch }], drawings: [] })
+
+    it('MOVED on the map → the anchor flips: the sheet body is dropped', () => {
+      const next = backFromMap(sheetStore(), { coord: mEastCoord(300) })
+      expect(next[0].sheet).toBeUndefined()
+      expect(next[0].entity!.coord).toEqual(mEastCoord(300))
+      expect(viewsOf(next).board.modul2).toBeUndefined() // it has left that sheet
+    })
+
+    it('RE-STYLED only → the sheet keeps the anchor and the edit lands on the anno', () => {
+      const next = backFromMap(sheetStore(), { label: 'Brandherd', color: '#f00', count: 3 })
+      expect(next[0].sheet?.planId).toBe('modul2')
+      expect(next[0].sheet?.anno).toMatchObject({ label: 'Brandherd', color: '#f00', count: 3, x: 0.5, y: 0 })
+    })
+
+    it('…and that edit SURVIVES the next bake, which is the whole reason it lands there', () => {
+      const edited = backFromMap(sheetStore(), { label: 'Brandherd', rotation: 90 })
+      const rebaked = bakeGeoBody(edited[0], PLAN, 'taktisch')
+      expect(rebaked.entity).toMatchObject({ label: 'Brandherd', rotation: 90 })
+      expect(rebaked.entity!.coord[0]).toBeCloseTo(mEast(50).lng, 8) // …and the sheet still says where
+    })
+
+    it('the map badge crosses under the sheet’s own name for it', () => {
+      // Entity.floor is BoardAnno.storey — the one rename the transfer converters have always
+      // made, and the reason a floor edit does not silently revert on the next bake
+      const next = backFromMap(sheetStore(), { floor: -1 })
+      expect(next[0].sheet?.anno.storey).toBe(-1)
+      expect(bakeGeoBody(next[0], PLAN, 'taktisch').entity?.floor).toBe(-1)
+    })
+
+    it('GONE from the document → the whole object goes, sheet body and all', () => {
+      const next = applyDocToObjects(sheetStore(), { entities: [], drawings: [] })
+      expect(next).toEqual([])
+    })
+
+    it('…but an object with no baked body was never on the Karte to delete', () => {
+      const unbaked: TacticalObject[] = [{ id: 's1', sheet: { planId: 'modul2', anno: anno('s1') } }]
+      expect(applyDocToObjects(unbaked, { entities: [], drawings: [] })).toEqual(unbaked)
+    })
+
+    it('a reshaped plan LINE flips the anchor; a re-coloured one does not', () => {
+      const line = bakeGeoBody(
+        { id: 'l1', sheet: { planId: 'modul2', anno: anno('l1', { kind: 'draw', x: undefined, y: undefined, pts: [[0, 0], [1, 0]] }) } },
+        PLAN, 'taktisch',
+      )
+      const styled = applyDocToObjects([line], { entities: [], drawings: [{ ...line.drawing!, color: '#0f0', lineNo: 2 }] })
+      expect(styled[0].sheet?.anno).toMatchObject({ color: '#0f0', lineNo: 2 })
+      const reshaped = applyDocToObjects([line], { entities: [], drawings: [{ ...line.drawing!, coords: [mEastCoord(0), mEastCoord(400)] }] })
+      expect(reshaped[0].sheet).toBeUndefined()
+    })
   })
 
   it('live overlays never become records', () => {
@@ -109,8 +183,10 @@ describe('the setDoc / setBoard seams', () => {
   it('handing a map object to a plan list flips its anchor to the sheet', () => {
     const next = applyBoardToObjects(store(), 'modul2', [anno('a1'), anno('e1')])
     const flipped = next.find((o) => o.id === 'e1')!
-    expect(flipped.sheet?.planId).toBe('modul2')
-    expect(viewsOf(next).entities).toEqual([]) // it now materializes on the sheet
+    expect(flipped.sheet?.planId).toBe('modul2') // the sheet is its truth from here on
+    // it still shows on the Karte — as a BAKED body now, which the next bake re-derives from
+    // the anno; what changed is which surface a move has to be written back to
+    expect(viewsOf(next).board.modul2?.map((a) => a.id)).toEqual(['a1', 'e1'])
   })
 })
 

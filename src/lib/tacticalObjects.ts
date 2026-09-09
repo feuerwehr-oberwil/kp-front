@@ -1,6 +1,6 @@
 import type { BoardAnno, BoardDoc, BoardPoint, Drawing, Entity, LngLat } from '../types'
 import type { GeorefFit } from './georef'
-import { planGroundWidthM, boardSymbolToEntity, entityToBoardSymbol } from './georefTwins'
+import { planGroundWidthM, boardSymbolToEntity, entityToBoardSymbol, entitySharedProps } from './georefTwins'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
@@ -44,23 +44,41 @@ export interface ObjectViews {
 }
 
 /**
- * Phase-1 views: render-identical to the old three collections. A sheet-anchored object
- * materializes ONLY its sheet body (the map shows it through the twin projection, as
- * before); a geo-anchored object materializes only its map body. Phase 2 flips this to
- * «any body renders natively» and deletes the projection machinery.
+ * The views every surface renders.
+ *
+ * `entities`/`drawings` are THE Karte, and they now carry the BAKED map body of every
+ * sheet-anchored object alongside the geo-anchored ones. A plan-drawn symbol is an ordinary
+ * marker on the map — ordinary selection, ordinary panel, ordinary drag, ordinary undo — and
+ * that is what retired the plan→Karte twin projection with its own layers, its own selection
+ * list, its own drag gesture and its own panels.
+ *
+ * `board` stays ANCHOR-ONLY: a sheet draws its own annos natively and everything else by the
+ * live map→plan projection, which is still the twin machinery (that direction is the next
+ * step; see tmp/design-unified-objects.md · phasing).
+ *
+ * ⚠️ Order is deliberate and stable: geo-anchored first, baked after, each in store order.
+ * The later half paints over the earlier one, so a symbol drawn on the Modul sheet is never
+ * hidden under the Karte's own work.
  */
 export function viewsOf(objects: TacticalObject[]): ObjectViews {
   const entities: Entity[] = []
   const drawings: Drawing[] = []
   const board: BoardDoc = {}
+  const baked: TacticalObject[] = []
   for (const o of objects) {
     if (o.sheet) {
       ;(board[o.sheet.planId] ??= []).push(o.sheet.anno)
+      // no fit for its plan → no baked body → honestly absent from the Karte
+      if (o.entity || o.drawing) baked.push(o)
     } else if (o.entity) {
       entities.push(o.entity)
     } else if (o.drawing) {
       drawings.push(o.drawing)
     }
+  }
+  for (const o of baked) {
+    if (o.entity) entities.push(o.entity)
+    else if (o.drawing) drawings.push(o.drawing)
   }
   return { entities, drawings, board }
 }
@@ -115,10 +133,14 @@ function pick<T extends object, K extends readonly (keyof T)[]>(o: T, keys: K): 
 }
 
 /**
- * THE shared vocabulary of a path object and its sheet anno: the fields both surfaces spell the
- * same way, in ONE list rather than two hand-kept literals — the type only admits a name that
- * really is on both sides. Geometry is deliberately absent: `pts`/`coords` and
- * `radiusN`/`radiusM` are the same statement in two different units, converted by hand below.
+ * ⚠️ THE shared vocabulary of a path object and its sheet anno: the fields both surfaces spell
+ * the same way, in ONE list rather than two hand-kept literals — read by the bake (anno → map
+ * body) and written back by the map write-through (annoAfterMapEdit), so an edit made on either
+ * surface survives the other's derivation. A name missing here that the bake nonetheless copied
+ * would be silently reverted on the next bake; the type only admits names that are on both sides.
+ *
+ * Geometry is deliberately absent: `pts`/`coords` and `radiusN`/`radiusM` ARE the position, and
+ * a position edit on the Karte flips the anchor rather than crossing.
  */
 const SHARED_PATH_PROPS = [
   'color', 'width', 'dashed', 'arrow', 'arrowStop', 'marker', 'fillOpacity', 'hatch', 'locked',
@@ -222,27 +244,100 @@ export function withSheetAnno(o: TacticalObject, anno: BoardAnno): TacticalObjec
   return o.sheet ? { ...o, sheet: { ...o.sheet, anno } } : o
 }
 
+const sameCoord = (a: LngLat | undefined, b: LngLat | undefined): boolean =>
+  a === b || (!!a && !!b && a[0] === b[0] && a[1] === b[1])
+
+const sameCoords = (a: LngLat[] | undefined, b: LngLat[] | undefined): boolean =>
+  a === b || (!!a && !!b && a.length === b.length && a.every((c, i) => sameCoord(c, b[i])))
+
 /**
- * The setDoc seam: apply a full `{entities, drawings}` document — the shape every existing
- * map mutator produces — onto the unified store. Geo-anchored objects are replaced
- * wholesale by the document; sheet-anchored objects are untouched (the map materializes
- * them through the projection in phase 1, so no map mutator can legitimately hand them
- * back here). A geo-anchored id missing from the document is a deletion — of the whole
- * object, which is exactly what deleting is under one-record semantics.
+ * Did this map body MOVE, or was it only re-styled? Measured against the object's OWN baked
+ * body — which is exactly what the Karte put under the operator's finger — so the question
+ * being answered is «did that gesture change the position», not «does the fit still agree».
+ */
+function movedOnMap(prev: TacticalObject, body: { entity?: Entity; drawing?: Drawing }): boolean {
+  if (body.entity) return !prev.entity || !sameCoord(prev.entity.coord, body.entity.coord)
+  if (body.drawing) {
+    return !prev.drawing
+      || !sameCoords(prev.drawing.coords, body.drawing.coords)
+      || prev.drawing.radiusM !== body.drawing.radiusM
+  }
+  return false
+}
+
+/**
+ * A Karte edit of a SHEET-anchored object, written back where its truth lives: onto the anno.
+ *
+ * ⚠️ It has to land here and not on the map body, because the bake re-derives that body from
+ * this anno on the very next plan write or fit change — an edit parked on the map body would
+ * simply disappear. Only the vocabulary both surfaces share crosses: `entitySharedProps` (the
+ * complement of georefTwins · ENTITY_MAP_ONLY) for point bodies, the SHARED_*_PROPS lists for
+ * paths, plus the two renames the transfer converters have always made — the map's `floor`
+ * badge is the sheet's `storey`, and a note's text is `text` rather than `label`.
+ *
+ * ⚠️ What deliberately does NOT cross: the position (that flips the anchor instead — see
+ * applyDocToObjects) and everything unit-bearing — `sizeM`/`reachM`/`noteW` and a team's
+ * trail. Each of them needs the plan's fit to be said in sheet units, and this seam is handed
+ * a document, never a fit. Resizing a plan-drawn symbol on the Karte therefore does not stick;
+ * resizing it on its own sheet does.
+ */
+function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Drawing }): BoardAnno {
+  const { entity, drawing } = body
+  if (entity) {
+    const shared = entitySharedProps(entity)
+    if (anno.kind === 'text') return { ...anno, ...shared, text: entity.label, storey: entity.floor }
+    // the chip's name lives in `text`, and truppId/`t` are map-only for a SYMBOL but are the
+    // shared identity of a team marker — which is the one kind that carries them
+    if (anno.kind === 'resource') return { ...anno, ...shared, text: entity.label, truppId: entity.truppId, t: entity.t }
+    return { ...anno, ...shared, storey: entity.floor }
+  }
+  if (drawing) {
+    if (anno.kind === 'circle') return { ...anno, ...pick(drawing, SHARED_CIRCLE_PROPS) }
+    return { ...anno, ...pick(drawing, SHARED_PATH_PROPS) }
+  }
+  return anno
+}
+
+/**
+ * The setDoc seam: apply a full `{entities, drawings}` document — the shape every map mutator
+ * produces — onto the unified store.
+ *
+ * Now that the Karte renders sheet-anchored objects natively (viewsOf), the document CONTAINS
+ * their baked bodies, and what comes back has to be read as a GESTURE rather than as the truth:
+ *
+ *   · moved on the Karte → ANCHOR FLIP. «Last hand-placement owns the truth»: the document's
+ *     body becomes the object and the sheet body is dropped. Dragging a symbol off the building
+ *     is exactly the statement that it no longer stands on that sheet.
+ *   · re-styled only → the sheet keeps the anchor, and the shared props are written through
+ *     onto its anno, where the next bake reads them back.
+ *   · gone from the document → deleted on the Karte, and deleting an object deletes the object.
+ *     A sheet object with no baked body was never on the Karte to delete, so its absence says
+ *     nothing about it and it stays.
+ *
+ * Geo-anchored objects are replaced wholesale by the document, absence meaning deletion, as
+ * before. Sheet-anchored records keep their store order; new map objects append.
  */
 export function applyDocToObjects(objects: TacticalObject[], doc: { entities: Entity[]; drawings: Drawing[] }): TacticalObject[] {
-  const sheetAnchored = objects.filter((o) => o.sheet)
-  const next: TacticalObject[] = sheetAnchored.slice()
-  const sheetIds = new Set(sheetAnchored.map((o) => o.id))
-  for (const e of doc.entities) {
-    if (e.live) continue // live overlays are derived, never records
-    if (sheetIds.has(e.id)) continue
-    next.push({ id: e.id, entity: e })
+  const entities = new Map(doc.entities.filter((e) => !e.live).map((e) => [e.id, e])) // live overlays are derived, never records
+  const drawings = new Map(doc.drawings.map((d) => [d.id, d]))
+  const next: TacticalObject[] = []
+  const sheetIds = new Set<string>()
+  for (const o of objects) {
+    if (!o.sheet) continue // geo-anchored objects are rebuilt from the document below
+    sheetIds.add(o.id)
+    const entity = entities.get(o.id)
+    const drawing = drawings.get(o.id)
+    if (!entity && !drawing) {
+      if (o.entity || o.drawing) continue // it stood on the Karte, and it was deleted there
+      next.push(o)
+      continue
+    }
+    const body = entity ? { entity } : { drawing }
+    if (movedOnMap(o, body)) next.push({ id: o.id, ...body })
+    else next.push({ ...o, entity: undefined, drawing: undefined, ...body, sheet: { ...o.sheet, anno: annoAfterMapEdit(o.sheet.anno, body) } })
   }
-  for (const d of doc.drawings) {
-    if (sheetIds.has(d.id)) continue
-    next.push({ id: d.id, drawing: d })
-  }
+  for (const e of entities.values()) if (!sheetIds.has(e.id)) next.push({ id: e.id, entity: e })
+  for (const d of drawings.values()) if (!sheetIds.has(d.id)) next.push({ id: d.id, drawing: d })
   return next
 }
 

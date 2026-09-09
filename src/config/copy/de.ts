@@ -1083,7 +1083,6 @@ export const de = {
     placardDocked: '{name} angedockt an «{host}»',
     placardUndocked: '{name} von «{host}» gelöst',
     // ein Zwilling wechselt die Fläche: das Objekt ist danach wirklich dort und nicht mehr hier
-    twinTransferredToMap: '{name} auf die Karte übertragen',
     twinTransferredToPlan: '{name} auf den Plan übertragen',
     objectDeleted: '{name} gelöscht',
     drawingDeleted: 'Zeichnung gelöscht',
@@ -2408,15 +2407,12 @@ export const de = {
       // In den Ebenen bekommt jedes verknüpfte Blatt seine eigene Zeile – der Plan-Code steht
       // drin, damit «welches Blatt spiegelt hier?» keine Rückfrage ist.
       layerGroupPlans: 'Pläne',
-      layerPlanSymbols: 'Inhalte ({plan})',
       layerPlanImage: 'Plan ({plan})',
       layerGroupMap: 'Karte',
       layerMapVehicles: 'Karte – Fahrzeuge',
       layerMapSymbols: 'Karte – Markierungen',
-      twinFromPlan: '{name} – gespiegelt von {plan}. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
       twinFromMap: '{name} – gespiegelt von der Karte. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
       // Untertitel im Detailfenster eines Zwillings: sagt, warum hier nichts eingebbar ist
-      twinPanelFromPlan: 'Gespiegelt von {plan}',
       twinPanelFromMap: 'Gespiegelt von der Karte',
       // Ein Zwilling ohne Namen: das Wort steht im Etikett, damit die Plakette nie leer bleibt.
       twinUnnamed: 'Symbol',

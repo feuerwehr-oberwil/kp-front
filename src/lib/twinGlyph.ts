@@ -1,8 +1,8 @@
 /** How a «Zwilling» picks its glyph and its name.
  *
- *  Plain functions rather than part of the mark component, because both renderers
- *  (GeorefTwinsMap / GeorefTwinsBoard) need them and neither owns them — see
- *  components/GeorefTwinMark for what a twin is, and lib/georefTwins for where it comes from.
+ *  Plain functions rather than part of the mark component, because the renderer and the panels
+ *  both need them and neither owns them — see components/GeorefTwinMark for what a twin is, and
+ *  lib/georefTwins for where it comes from.
  */
 import { appConfig } from '../config/appConfig'
 import { placardSvgForSymbol } from './placard'
