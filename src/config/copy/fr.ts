@@ -1091,7 +1091,7 @@ export const fr: Localizable<Copy> = {
     teamChipsEmpty: 'Personne pour l\'instant – chercher ci-dessous',
     teamPresentCount: '{n} présents',
     teamHintFirst: 'Taper un nom – le premier devient CG.',
-    teamHintChips: 'Toucher un badge = CG · ✕ = retirer de l\'équipe',
+    teamHintChips: 'Toucher un nom = CG · ✕ = retirer de l\'équipe',
     leaderBadge: 'CG',
     makeLeader: 'Désigner {name} chef de groupe',
     teamRemove: 'Retirer {name} de l’équipe',

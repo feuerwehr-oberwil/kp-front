@@ -712,14 +712,25 @@ export function AtemschutzView({
    * ranks first (`activeFocus.id`, = the TopBar chip's pick) — two smooth scrolls fired at once
    * fight each other and land wherever the last one happened to render. */
   const markAll = !!(selfFocus && activeFocus === selfFocus && selfFocus.markAll)
-  const focusNonceOf = (id: string) =>
-    activeFocus && (activeFocus.id === id || (markAll && sevOf(id) >= 2)) ? activeFocus.nonce : undefined
+  // Which (Trupp, nonce) pairs have already COMPLETED their ring. Expand/collapse swaps
+  // TruppRow ⇄ TruppCard under the same key, i.e. a REMOUNT — without this memory the fresh
+  // mount replayed the ring + scroll on every collapse, long after the gesture that pointed
+  // there (Feldtest 08.09., «Trupp Schmid blinkt nach collapse»). A ref, not state: recording a
+  // finished flash must not itself re-render the board.
+  const flashSeen = useRef(new Map<string, number>())
+  const focusNonceOf = (id: string) => {
+    if (!activeFocus || !(activeFocus.id === id || (markAll && sevOf(id) >= 2))) return undefined
+    return flashSeen.current.get(id) === activeFocus.nonce ? undefined : activeFocus.nonce
+  }
 
-  const cards = (list: Trupp[]) => list.map((t) => (
+  const cards = (list: Trupp[]) => list.map((t) => {
+    const nonce = focusNonceOf(t.id)
+    const flashed = nonce == null ? undefined : () => flashSeen.current.set(t.id, nonce)
+    return (
     compact && !focusMode && openRow !== t.id ? (
       <TruppRow
         key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
-        focusNonce={focusNonceOf(t.id)} focusScroll={activeFocus?.id === t.id}
+        focusNonce={nonce} focusScroll={activeFocus?.id === t.id} onFlashed={flashed}
         onContact={(id) => { freezeOrder(); recordContact(id) }}
         onOpen={() => setOpenRow(t.id)}
       />
@@ -734,7 +745,7 @@ export function AtemschutzView({
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
       intervalMin={intervalMin}
-      focusNonce={focusNonceOf(t.id)} focusScroll={activeFocus?.id === t.id}
+      focusNonce={nonce} focusScroll={activeFocus?.id === t.id} onFlashed={flashed}
       onContact={(id) => { freezeOrder(); recordContact(id) }}
       onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
@@ -753,7 +764,7 @@ export function AtemschutzView({
       onCollapse={compact && !focusMode ? () => setOpenRow(null) : undefined}
     />
     )
-  ))
+  )})
 
   // What the bell says of itself. The order matters: «nicht freigegeben» only applies while the
   // alarm claims to be on — a muted bell promises no tone anyway, so two warnings about the same
@@ -1330,7 +1341,7 @@ function collapsedClock(t: Trupp, live: TruppLive): { val: string; sub: string }
 }
 
 function TruppRow({
-  t, live, alarm, now, color, canEdit, onContact, onOpen, focusNonce, focusScroll = true,
+  t, live, alarm, now, color, canEdit, onContact, onOpen, focusNonce, focusScroll = true, onFlashed,
 }: {
   t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the card use */
@@ -1341,6 +1352,9 @@ function TruppRow({
   /** ring, but do NOT scroll — the badge marks every alarmed Trupp and only ONE of them may own
    *  the scroll port (see `focusNonceOf`); two smooth scrolls at once land nowhere in particular */
   focusScroll?: boolean
+  /** the ring has run its full 1.9s — the board writes the nonce down so a later expand/collapse
+   *  REMOUNT of this Trupp does not replay a gesture that already landed (see `focusNonceOf`) */
+  onFlashed?: () => void
 }) {
   const az = appConfig.copy.atemschutz
   const status = live.status
@@ -1370,6 +1384,9 @@ function TruppRow({
     : sev >= 2 ? s.trowCrit : sev === 1 ? s.trowWarn : inField ? '' : status === 'raus' ? s.trowOut : s.trowIdle
   const rowRef = useRef<HTMLButtonElement>(null)
   // A nonce, not a boolean: tapping the same alarm again must replay the pointing gesture.
+  // `onFlashed` rides in a ref so its (per-render) identity never restarts the flash effect.
+  const onFlashedRef = useRef(onFlashed)
+  useEffect(() => { onFlashedRef.current = onFlashed }, [onFlashed])
   useEffect(() => {
     const el = rowRef.current
     if (focusNonce == null || !el) return
@@ -1377,7 +1394,7 @@ function TruppRow({
     el.classList.remove(s.cardFlash)
     void el.offsetWidth
     el.classList.add(s.cardFlash)
-    const timer = window.setTimeout(() => el.classList.remove(s.cardFlash), 1900)
+    const timer = window.setTimeout(() => { el.classList.remove(s.cardFlash); onFlashedRef.current?.() }, 1900)
     // ⚠️ the cleanup UNDOES the mark, it does not merely cancel its removal: an interrupted flash
     // (focusNonce changing — or going away — inside the 1.9s window) would otherwise drop the timer
     // and leave the class on. Under prefers-reduced-motion `.cardFlash` is a STATIC ring with no
@@ -1473,7 +1490,7 @@ function TruppRow({
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, anyLine = false, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, onFlashed, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, anyLine = false, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
@@ -1491,6 +1508,8 @@ function TruppCard({
   /** ring, but do NOT scroll — the header badge marks every alarmed Trupp and only ONE of them
    *  may own the scroll port (see `focusNonceOf`) */
   focusScroll?: boolean
+  /** see TruppRow — the completed ring reports back so a remount does not replay it */
+  onFlashed?: () => void
   onEdit: (focus?: 'auftrag') => void
   onReenter: () => void
   onDelete: (id: string) => void
@@ -1535,6 +1554,9 @@ function TruppCard({
   // «why can I not tick this person» was still a search. The nonce replays both scroll and ring
   // when the same notification is tapped again while this card remains mounted.
   const cardRef = useRef<HTMLDivElement>(null)
+  // `onFlashed` rides in a ref so its (per-render) identity never restarts the flash effect.
+  const onFlashedRef = useRef(onFlashed)
+  useEffect(() => { onFlashedRef.current = onFlashed }, [onFlashed])
   useEffect(() => {
     const el = cardRef.current
     if (focusNonce == null || !el) return
@@ -1542,7 +1564,7 @@ function TruppCard({
     el.classList.remove(s.cardFlash)
     void el.offsetWidth
     el.classList.add(s.cardFlash)
-    const timer = window.setTimeout(() => el.classList.remove(s.cardFlash), 1900)
+    const timer = window.setTimeout(() => { el.classList.remove(s.cardFlash); onFlashedRef.current?.() }, 1900)
     // ⚠️ same as TruppRow: the cleanup must REMOVE the class, not just clear the timer. A flash cut
     // short (focusNonce changing or clearing inside the 1.9s window) otherwise leaves the mark on
     // the card for good — visibly so under prefers-reduced-motion, where `.cardFlash` is a static

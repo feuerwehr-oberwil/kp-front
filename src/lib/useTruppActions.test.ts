@@ -1243,6 +1243,14 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
       .toEqual(['Auftrag Tank sichern'])
   })
 
+  // ⚠️ …unless dropping the label makes the row IDENTICAL to what stood before: setting the Art
+  // to «Anderes» over an already-standing Ziel emitted a second «Auftrag Halten», and the change
+  // was unfindable in the Verlauf (Feldtest 08.09., «Art Auftrag an Trupp nicht gefunden»).
+  it('names «Anderes» when that flip is the only thing the row would otherwise not show', () => {
+    expect(truppEditChanges(baseTrupp({ ...prev, ziel: 'Halten' }), fields({ auftrag: 'anderes', ziel: 'Halten' })))
+      .toEqual(['Auftrag Anderes – Halten'])
+  })
+
   it('says an Auftrag was taken away rather than naming an empty one', () => {
     expect(truppEditChanges(baseTrupp({ ...prev, auftrag: 'retten', ziel: '2OG links' }), fields()))
       .toEqual(['Auftrag entfernt'])

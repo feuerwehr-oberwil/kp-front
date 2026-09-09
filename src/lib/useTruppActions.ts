@@ -143,7 +143,14 @@ export function truppEditChanges(
   // is the same people (copy · atemschutz.changeCrewNow).
   if (gone.length || added.length) out.push(fillTemplate(az.changeCrewNow, { crew: truppLogName(f) }))
   if (prev.auftrag !== f.auftrag || (prev.ziel ?? '') !== (f.ziel ?? '')) {
-    const to = auftragText(f.auftrag, f.ziel)
+    let to = auftragText(f.auftrag, f.ziel)
+    // A row that renders IDENTICALLY to what stood before records nothing — the one way that
+    // happens is the Art flipping to «anderes» over an unchanged Ziel (Feldtest 08.09.: the Art
+    // was set later and its row read like a repeat of the Ziel, so the change was unfindable in
+    // the Verlauf). Only then does «Anderes» earn its place in front of the free text.
+    if (f.auftrag === 'anderes' && to === auftragText(prev.auftrag, prev.ziel)) {
+      to = [az.auftragLabels['anderes'], (f.ziel ?? '').trim()].filter(Boolean).join(' – ')
+    }
     out.push(to ? fillTemplate(az.changeAuftragTo, { auftrag: to }) : az.changeAuftragCleared)
   }
   if ((prev.lineNo ?? null) !== (f.lineNo ?? null)) {

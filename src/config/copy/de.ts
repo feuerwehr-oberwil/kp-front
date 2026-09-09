@@ -1634,7 +1634,9 @@ export const de = {
     // Fragment, kein Satz – deshalb ohne Punkt (siehe AGENTS.md · Interpunktion).
     teamPresentCount: '{n} anwesend',
     teamHintFirst: 'Name tippen – der Erste wird GF.',
-    teamHintChips: 'Chip antippen = GF · ✕ = aus dem Trupp nehmen',
+    // «Name antippen», nicht «Chip antippen» – Feldtest 08.09.: «Chip» ist UI-Jargon,
+    // der Name ist das, was die Person auf dem Bildschirm tatsächlich sieht.
+    teamHintChips: 'Name antippen = GF · ✕ = aus dem Trupp nehmen',
     // a placed marker whose name was never typed – it still has to be findable, and «Trupp»
     // is what it is. Only ever shown in a list, never written onto the record.
     truppFallbackName: 'Trupp',

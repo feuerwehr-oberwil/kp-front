@@ -1092,7 +1092,7 @@ export const en: Localizable<Copy> = {
     teamChipsEmpty: 'Nobody yet – search below',
     teamPresentCount: '{n} present',
     teamHintFirst: 'Type a name – the first one leads.',
-    teamHintChips: 'Tap a chip = leader · ✕ = take off the team',
+    teamHintChips: 'Tap a name = leader · ✕ = take off the team',
     leaderBadge: 'Leader',
     makeLeader: 'Make {name} team leader',
     teamRemove: 'Take {name} off the team',
