@@ -130,6 +130,72 @@ describe('the contact times (the head of the Verlauf)', () => {
     expect(screen.queryByText(az.nextContactDue)).toBeNull()
     expect(screen.getByText(az.readingsHead)).toBeTruthy()
   })
+
+  /* ── The Sockel folds in here too (09.09., maintainer pick — mock 02 with Bastian's variant) ─
+   * The card carried a standing strip of look-up rows between the actions and this expander —
+   * Einsatzzeit, Geschätzter Druck with its provenance line, Druck, Tiefster — ~70px permanently
+   * on a card that did not fit a 375×667 phone. It folds into the expander it was sitting on
+   * top of, and exactly two numbers stay out on ONE line: the Einsatzzeit and the Schätzung.
+   * ⚠️ The Schätzung staying visible is the safety half of this trade and is asserted first.
+   */
+  describe('the Sockel, folded into the same expander', () => {
+    it('leaves the Einsatzzeit and the Schätzung standing on one line', () => {
+      mount()
+      const line = document.querySelector(`.${s.metaLine}`)!
+      expect(line.textContent).toContain(az.elapsed)
+      // the short form of «Geschätzter Druck» — see de.ts · estimatedShort
+      expect(line.textContent).toContain(az.estimatedShort)
+      expect(line.textContent).toMatch(/≈ \d+ bar/)
+    })
+
+    it('puts the provenance and the tiefster Druck behind the tap, not on the card', () => {
+      // ⚠️ the «Tiefster» row exists only while the crew is ABOVE its own low-water mark — a
+      // fresh bottle after «Wieder in den Einsatz», which is the case it was written for
+      // ⚠️ the card reads these off the RECORD (lib/atemschutz · deriveTruppLive), not off the
+      // readings array — a fixture that only lists readings has no low-water mark at all
+      mount({ trupps: [{ ...aktivTrupp(), lowestBar: 200, lastPressureBar: 260, readings: [
+        { t: iso(30 * 60_000), bar: 300, kind: 'entry' as const },
+        { t: iso(12 * 60_000), bar: 200, kind: 'pressure' as const },
+        { t: iso(4 * 60_000), bar: 260, kind: 'pressure' as const },
+      ] }] })
+      expect(screen.queryByText(az.lowestPressure)).toBeNull()
+      expect(screen.queryByText(/Druckwerten|angenommen/)).toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
+      // the full label comes back with the room to print it, alongside its provenance
+      expect(screen.getByText(az.estimated)).toBeTruthy()
+      expect(screen.getByText(/Druckwerten|angenommen/)).toBeTruthy()
+      expect(screen.getByText(az.lowestPressure)).toBeTruthy()
+    })
+
+    // …and the one line never goes with it: closing the Verlauf must not take the two numbers
+    // that were the whole point of keeping a line at all.
+    it('keeps the line while the Verlauf opens and closes', () => {
+      mount()
+      const row = screen.getByRole('button', { name: new RegExp(az.verlauf) })
+      const text = () => document.querySelector(`.${s.metaLine}`)?.textContent ?? ''
+      expect(text()).toContain(az.elapsed)
+      fireEvent.click(row)
+      expect(text()).toContain(az.elapsed)
+      fireEvent.click(row)
+      expect(text()).toContain(az.elapsed)
+    })
+
+    /* The ONE value that is allowed to join the line, and only where nothing else shows it: a
+     * viewer has no ± block, so «Druck 240 bar» would otherwise be a tap away on the surface a
+     * life depends on. With the block live, the number is already there in 19px mono and the
+     * line must not say it twice. */
+    it('adds the aktueller Druck for a viewer, and never beside the live ± block', () => {
+      mount({ canEdit: false })
+      expect(document.querySelector(`.${s.metaLine}`)!.textContent).toContain(az.currentPressure)
+      cleanup()
+      mount({ canEdit: true })
+      const line = document.querySelector(`.${s.metaLine}`)!.textContent!
+      // «Druck» appears on the ± block above; the line carries only the Einsatzzeit + Schätzung
+      expect(line).not.toContain(`${az.currentPressure}240`)
+      expect(line).toContain(az.estimatedShort)
+    })
+  })
 })
 
 /* The three things the card says about a STATE rather than a tier. Each of them was reachable
@@ -496,7 +562,10 @@ describe('the handed-over board on a phone (focus mode)', () => {
   // header and its own flattened clock — and a phone-only arrangement of a safety card is a
   // second thing to keep in step with the first. The card the phone gets here is the card the
   // tablet grid and the row list get; what makes it fit is that the card itself got denser.
-  it('uses the same card as every other board — same seven zones, in the same order', () => {
+  // ⚠️ SIX zones since 09.09., not seven: the Sockel folded into the Verlauf block under it
+  // (`.metaLine` + the expander), so there is no standing look-up strip on the card any more —
+  // at any width, on any board. That is the point of asserting the list rather than one class.
+  it('uses the same card as every other board — same six zones, in the same order', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [aktivTrupp()] })
     const card = document.querySelector(`.${s.card}`)!
@@ -505,7 +574,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     // Asserting «.cardHead exists» proves nothing: it exists on every card at every width.
     // the FIRST class of each child: the block also carries its tier, which is not the point here
     expect([...card.children].map((c) => c.className.trim().split(/\s+/)[0])).toEqual([
-      s.cardHead, s.kenn, s.block, s.noteZone, s.actZone, s.plinth, s.vfoot,
+      s.cardHead, s.kenn, s.block, s.noteZone, s.actZone, s.vfoot,
     ])
     // Kontakt is still an in-card control, not a pinned screen-edge bar
     expect(card.querySelector(`.${s.kontaktBtn}`)).toBeTruthy()

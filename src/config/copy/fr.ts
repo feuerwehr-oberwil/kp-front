@@ -1269,6 +1269,8 @@ export const fr: Localizable<Copy> = {
     officersOnly: 'officiers seulement',
     assignedFallbackName: 'Cette personne',
     estimated: 'Pression estimée',
+    // la forme courte pour la ligne qui reste du socle (09.09., voir de.ts)
+    estimatedShort: 'Estimation',
     estimatedHint: 'Aide à la planification – tant qu\'il n\'y a pas assez d\'historique de pression, estimé avec une bouteille de {liters} L et une consommation de {rate} L/min. Ne remplace pas l\'annonce de pression.',
     estimatedHintHistory: 'Aide à la planification – extrapolé de la consommation de pression confirmée de ce binôme. Ne remplace pas l\'annonce de pression.',
     estimatedSourceHistory: 'sur {count} relevés de pression · état {time}',

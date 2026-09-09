@@ -1718,6 +1718,7 @@ function TruppCard({
     ? fillTemplate(az.alarmNoteEst, { bar: line })
     : null
 
+
   /* ── the band: the state, said once, over the number it is about ───────────────────────────
    * The word and the number swap for a pressure alarm, because a radio check does not fix that
    * one and the word must never read «überfällig» for it (the Verlauf records two different
@@ -1844,6 +1845,39 @@ function TruppCard({
   const crew = crewNames.join(' · ')
 
   const lastReading = readings.length > 0 ? readings[readings.length - 1] : null
+
+  /* ── The one line the Sockel leaves standing (09.09.) ──────────────────────────────────────
+   * See the markup at «6 + 7» below for what folded and why. This is the part that may not:
+   * the two clocks-and-numbers somebody reads WHILE a Trupp is inside, in one compact,
+   * label-and-value line instead of four stacked rows.
+   * ⚠️ The aktueller Druck joins it only where the ± block above is NOT showing it. That is not
+   * a saving, it is the guard on one: hiding a viewer's only pressure readout behind a chevron
+   * would make this pass cost exactly the kind of number it exists to keep in view.
+   * ⚠️ Built as data rather than markup so the separators are the LINE's business (CSS), not
+   * four call sites each remembering to print a «·» — and so «what stays out» is one list to
+   * read when somebody asks that question again. */
+  const sockelLine: { key: string; label: string; value: string; alarm?: boolean; dim?: boolean; title?: string }[] = [
+    ...(monitored && t.entryTime
+      ? [{ key: 'elapsed', label: az.elapsed, value: fmtElapsedFull(live.elapsedSec) }] : []),
+    ...(live.outSec != null && !out
+      ? [{ key: 'out', label: words.outFor, value: fmtElapsedFull(live.outSec) }] : []),
+    ...(monitored && !(canEdit && inField)
+      ? [{ key: 'bar', label: az.currentPressure, value: `${live.currentBar} bar`, alarm: pressureLow }] : []),
+    ...(estimate
+      ? [{
+        key: 'est',
+        label: az.estimatedShort,
+        value: `≈ ${estimate.bar} bar`,
+        alarm: estimateLow,
+        // …and it keeps the row's dimming (`.metaEst`): on a line that also carries a MEASURED
+        // «Druck 240 bar», a Schätzung in full ink is exactly the mix-up that rule prevents
+        dim: true,
+        // the Planungshilfe caveat travels with the number, exactly as it did on the old row
+        title: estimate.source === 'history'
+          ? az.estimatedHintHistory
+          : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin }),
+      }] : []),
+  ]
   /* ⚠️ A Trupp WITHOUT Atemschutz has no cylinder, so every row of its log carries a bar of 0 —
    * the `entryPressureBar` a work squad was never asked for (useTruppActions · createTrupp). The
    * Verlauf printed «Eingerückt 0 bar» on a card that otherwise says nothing about pressure at
@@ -2059,59 +2093,38 @@ function TruppCard({
         )}
       </div>
 
-      {/* ── 6 Sockel: everything one LOOKS UP ──────────────────────────────────────────────────
-          Deliberately the quiet end of the card: same small rows the card has always used, no
-          separators, dimmed ground. A Trupp without Atemschutz has only its break clock to put
-          here — its Einsatzzeit is the number in the band. */}
-      <div className={s.plinth}>
-        {monitored && t.entryTime && (
-          <div className={s.metaRow}>
-            <span>{az.elapsed}</span>
-            <b>{fmtElapsedFull(live.elapsedSec)}</b>
-          </div>
-        )}
-        {/* ⚠️ The break clock is said ONCE, and on an out card it is said in the band (see
-            `breakClock` above) — printing it here as well would put the same ticking number twice
-            on one card. This row survives for the odd record whose exitTime is set while its
-            status is not `raus` (legacy data), which the band does not cover. */}
-        {live.outSec != null && !out && (
-          <div className={s.metaRow}>
-            <span>{words.outFor}</span>
-            <b>{fmtElapsedFull(live.outSec)}</b>
-          </div>
-        )}
-        {estimate && (
-          <div className={cx(s.metaRow, s.metaEstimate)} title={estimate.source === 'history'
-            ? az.estimatedHintHistory
-            : fillTemplate(az.estimatedHint, { liters: dz.cylinderLiters, rate: dz.estConsumptionLPerMin })}>
-            <span className={s.metaEstLabel}>{az.estimated}</span>
-            <b className={cx(s.metaEst, estimateLow && s.metaAlarm)}>≈ {estimate.bar} bar</b>
-            <small className={s.metaEstSource}>{estimate.source === 'history'
-              ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
-              : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}</small>
-          </div>
-        )}
-        {/* the setter lives in the block above while it can be used; this is the read-only face
-            of the same number, for a viewer or a Trupp that is no longer in the field */}
-        {monitored && !(canEdit && inField) && (
-          <div className={s.metaRow}>
-            <span>{az.currentPressure}</span>
-            <b className={cx(pressureLow && s.metaAlarm)}>{live.currentBar} bar</b>
-          </div>
-        )}
-        {monitored && live.lowestBar < live.currentBar && (
-          <div className={s.metaRow}>
-            <span>{az.lowestPressure}</span>
-            <b>{live.lowestBar} bar</b>
-          </div>
-        )}
-      </div>
-
-      {/* ── 7 Verlauf ─────────────────────────────────────────────────────────────────────────
-          One expander, not two: the contact times are the head of this Trupp's log, which is
-          what they factually are. The preview carries the latest event (Kontakt, Druck,
-          Ausgerückt, …) so the closed row already answers «and then?». */}
+      {/* ── 6 + 7 Sockel und Verlauf, EIN Block (09.09., Maintainer-Entscheid) ────────────────
+          The Sockel used to be a standing stack of look-up rows between the actions and the
+          Verlauf — «Einsatzzeit», «Geschätzter Druck» with its provenance line under it,
+          «Druck», «Tiefster» — ~70px that were permanently on screen on a card that does not
+          fit a 375×667 phone. It is the quiet end of the card by its own description: things
+          one LOOKS UP, not things one reads while a Trupp is inside.
+          So it folds into the expander that was already sitting under it, and what stays out is
+          one compact line:
+            · the Einsatzzeit, because it is the second clock of this card;
+            · the geschätzter Druck, because it is safety-adjacent and must never be a tap away
+              (mock 02 kept it as a chip for exactly this reason — here it keeps its own words);
+            · the aktueller Druck, but ONLY where nothing else on the card shows it (a viewer, or
+              a Trupp that is out) — where the ± block above is live, the number is already there
+              in 19px mono and saying it twice on one card is what this pass exists to stop.
+          Behind the tap: the Schätzung's provenance («aus 2 Druckwerten · Stand 18:03»), the
+          tiefster Druck, and the timing rows that were already there.
+          ⚠️ The break clock stays OUT of the fold: it is a ticking number, and the one record it
+          appears for (exitTime set while the status is not `raus`, legacy data) is exactly the
+          case the band does not cover. A running clock behind a chevron is not a readout.
+          ⚠️ The line WRAPS rather than ellipsizing. Three items only meet on a read-only card,
+          and a cut «≈ 20…» is a wrong number where a second line is merely a second line. */}
       <div className={s.vfoot}>
+        {sockelLine.length > 0 && (
+          <div className={s.metaLine}>
+            {sockelLine.map((it) => (
+              <span key={it.key} title={it.title}>
+                <i>{it.label}</i>
+                <b className={cx(it.dim && s.metaEst, it.alarm && s.metaAlarm)}>{it.value}</b>
+              </span>
+            ))}
+          </div>
+        )}
         {(lastReading || timesShown) && (
           <>
             <button type="button" className={s.vrow} aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
@@ -2129,6 +2142,31 @@ function TruppCard({
             </button>
             {logOpen && (
               <div className={s.vopen}>
+                {/* what the Sockel folded in here (09.09.): the Schätzung's provenance and the
+                    tiefster Druck. Both answer «woher kommt die Zahl / wie tief war er schon» —
+                    questions asked ABOUT the card, never while reading it. They borrow the
+                    timing rows' own panel, so the opened Verlauf is one surface and not a stack
+                    of differently-dressed strips. */}
+                {(estimate || (monitored && live.lowestBar < live.currentBar)) && (
+                  <div className={s.zonePanel}>
+                    {estimate && (
+                      <>
+                        <div className={s.zonePanelRow}>
+                          <span>{az.estimated}</span>
+                          <b className={cx(s.metaEst, estimateLow && s.metaAlarm)}>≈ {estimate.bar} bar</b>
+                        </div>
+                        <p className={s.metaEstSource}>{estimate.source === 'history'
+                          ? fillTemplate(az.estimatedSourceHistory, { count: estimate.sampleCount, time: fmtTime(estimate.basedAt) })
+                          : fillTemplate(az.estimatedSourceFallback, { rate: dz.estConsumptionLPerMin, time: fmtTime(estimate.basedAt) })}</p>
+                      </>
+                    )}
+                    {monitored && live.lowestBar < live.currentBar && (
+                      <div className={s.zonePanelRow}>
+                        <span>{az.lowestPressure}</span><b>{live.lowestBar} bar</b>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* NOT on the Link-Tafel (08.09., field ask): the phone at the Eingang works
                     off the ticking clock on the card — a second «Letzter/Nächster» readout in
                     the Verlauf restated it in wall-clock terms, and its history here is the

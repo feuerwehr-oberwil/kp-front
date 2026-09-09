@@ -1154,6 +1154,8 @@ export const en: Localizable<Copy> = {
     outFor: 'Out for',
     outForPlain: 'No task for', // ⚠️ app only — see de.ts · outForPlain
     estimated: 'Estimated pressure',
+    // the short form for the one line the Sockel leaves standing (09.09., see de.ts)
+    estimatedShort: 'Estimate',
     estimatedHint: 'Planning aid – estimated using a {liters} L cylinder and {rate} L/min consumption until enough pressure history exists. Does not replace a pressure report.',
     estimatedHintHistory: 'Planning aid – projected from this team’s confirmed pressure consumption. Does not replace a pressure report.',
     estimatedSourceHistory: 'from {count} pressure values · as of {time}',

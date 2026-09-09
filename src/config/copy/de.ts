@@ -1793,6 +1793,12 @@ export const de = {
     // seit» für jeden Trupp, AS oder nicht.
     outForPlain: 'Ohne Auftrag seit',
     estimated: 'Geschätzter Druck',
+    /* ⚠️ Dieselbe Zahl, kurz – für die eine Zeile, die vom Sockel stehen bleibt (09.09.). Dort
+     * steht sie neben «Druck 240 bar», und «Geschätzter Druck» daneben liest sich als zweiter
+     * Druck statt als Schätzung desselben. Das «≈» vor dem Wert sagt den Rest, der volle Wortlaut
+     * samt Herkunft steht im aufgeklappten Verlauf. NICHT als Ersatz für `estimated` verwenden:
+     * wo Platz ist, gilt das ganze Wort. */
+    estimatedShort: 'Schätzung',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
     estimatedHintHistory: 'Planungshilfe – aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',
     estimatedSourceHistory: 'aus {count} Druckwerten · Stand {time}',

@@ -154,6 +154,25 @@
   color: var(--ink-dim); }
 .metaRow b { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--ink); }
 .metaAlarm { color: var(--red) !important; }
+
+/* ── THE ONE LINE THE SOCKEL LEFT STANDING (09.09.) ───────────────────────────────────────────
+   Four stacked look-up rows became one label-and-value line at the head of the Verlauf block —
+   see AtemschutzView · `sockelLine` for WHICH values stay out and why. It is the same ink and
+   the same mono figures the rows had; what is gone is one row per number and the air between
+   them (~70px on a card that does not fit a 375×667 phone).
+   ⚠️ `flex-wrap`, not an ellipsis. A cut «≈ 20…» is a wrong number; a second line is a second
+   line, and three items only ever meet on a read-only card.
+   ⚠️ The «·» is drawn by the LINE, not typed at four call sites — so a value that stops being
+   shown cannot leave a dangling separator behind it. */
+/* ⚠️ `--ink-dim`, the Verlauf row's own ink, not the fainter `--ink-faint` the stacked rows
+   used: this line is the last permanently-visible readout of the Einsatzzeit and the Schätzung,
+   and a line that survived a fit pass must not come out of it quieter than it went in. */
+.metaLine { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 9px;
+  padding: 5px 14px; font: 600 12px/17px var(--body); color: var(--ink-dim); }
+.metaLine > span { display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+.metaLine > span + span::before { content: '·'; margin-right: 4px; color: var(--ink-faint); opacity: .7; }
+.metaLine i { font-style: normal; }
+.metaLine b { font: 700 12.5px var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
 /* the expected-pressure Schätzung: mono for alignment with the real Druck, but dimmed + lighter
    so it reads as a subordinate estimate, never mistaken for a logged reading. */
 .metaEst { color: var(--ink-dim) !important; font-weight: 500 !important; }
@@ -185,7 +204,7 @@
 
 /* ══ The card, zone by zone (03.09.) ═══════════════════════════════════════════════════════════
    ONE arrangement at every width and on every board — see TruppCard for the zone list. The zones
-   that can be empty (`.noteZone`, `.actZone`, `.plinth`, `.vfoot`) drop their own padding and
+   that can be empty (`.noteZone`, `.actZone`, `.vfoot`) drop their own padding and
    rules when they are, so a zone with nothing to say costs nothing: since 04.09. the cards no
    longer share grid rows, so it takes no height either. */
 
@@ -318,10 +337,9 @@
 /* The 12px above it is the gutter under the framed block — the dimmed ground starts below it,
    not against it. When there ARE buttons that gutter is already theirs (`.actZone`'s padding),
    so the Sockel drops its own and the two never add up to 24px. */
-.plinth { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; padding: 12px 14px;
-  background: var(--fill-soft, rgba(0, 0, 0, .045)); border-top: 1px solid var(--glass-edge); }
-.actZone:not(:empty) + .plinth { margin-top: 0; }
-.plinth:empty { margin-top: 0; padding: 0; border-top: 0; }
+/* (`.plinth` retired 09.09. — the Sockel folded into the Verlauf block below it. Its rows live
+   on: the two that must stay readable as `.metaLine` at the head of that block, the rest inside
+   `.vopen`. There is no standing look-up strip on the card any more, at any width.) */
 
 /* ── 7 Verlauf: the log, with the contact times as its head ─────────────────────────────────── */
 .vopen { padding-bottom: 2px; }
@@ -1441,7 +1459,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    than as the top of a card. Same number on all four sides — the card sits IN the body, not
    against it. (12 → 10 on 09.09. with the fit pass below; the gap still reads as a gap.)
    The strip that used to buy this gap moved to the bottom rail on 03.09. and took it along. */
-.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 10px 10px; }
+/* ⚠️ 10 → 6 top/bottom (09.09., second fit pass — the 375×667 phone). The SIDES stay 10: they
+   are what keeps the card off the screen's own edges, and nothing is won there. Six still reads
+   as a gap between the head's hairline and the card's coloured status edge, which is the whole
+   job of this padding (see the 05.09. note above: at 0 the green band read as a rule belonging
+   to the bar above it). */
+.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 6px 10px; }
 /* ── Bottom rail (mock 03, maintainer correction 03.09.) ─────────────────────────────────────
    The strip and «+ Trupp» move DOWN, out of `.body`, into a rail that sits in the thumb zone —
    the same idea the app's own phone bottom bars use (`--rail-h`, src/styles/15-mobile.css):
@@ -1501,20 +1524,23 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .focusCard .card { flex: none; width: 100%; max-height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
 .focusCard .card > * { flex: 0 0 auto; }
 
-/* ── ONE CARD FITS ONE PHONE (09.09., field shot: iPhone, 390×844) ───────────────────────────
+/* ── ONE CARD FITS ONE PHONE (09.09., two passes) ────────────────────────────────────────────
    The rule above says the card only scrolls «when it truly cannot» fit. On a normal Trupp it
    truly could not: an in-field Atemschutz card plus a three-Trupp rail measured ~736px against
    the ~744px Safari leaves of an 844pt screen, so a Kennzeile that ran to three lines, a
    `.airNote`, or a Trupp name that wrapped in the rail was enough to put the card's foot and the
    rail in competition — you scrolled to see one or the other.
-   Nothing is removed here. Every element the card had it still has; what goes is air, one type
-   step on two numbers, and the reserve `.kenn` keeps for a card GRID that this board does not
-   have. Stacked, at 390×844 (safe areas 0 in a Safari tab, ~100px of browser chrome ⇒ 744px):
+   Pass 1 (field shot, iPhone 390×844) took air, one type step on two numbers, and the reserve
+   `.kenn` keeps for a card GRID this board does not have. Pass 2 (09.09. evening, maintainer
+   pick) is aimed a size lower — 375×667, the SE and the 13 mini, where pass 1 still overran —
+   and it is the first one that MOVES something: the Sockel folds into the Verlauf under it
+   (AtemschutzView · `sockelLine`), leaving one compact line of the two numbers that may not go
+   behind a tap. Stacked, at 390×844 (safe areas 0 in a Safari tab, ~100px chrome ⇒ 744px):
 
      .head.headCompact          8 + 44 + 8 + 1px hairline           61      (was  93 — see below)
-     .focusCard padding-top                                         10      (was  12)
+     .focusCard padding-top                                          6      (was  12, then 10)
      .card border-top                                                5
-     .cardHead                  4 + 44 + 4                          52      (was  60)
+     .cardHead                  2 + 44 + 2                          48      (was  60, then 52)
      .kenn                      two lines 2×17.5 + 10               45      (was  53, a fixed
                                                                              reserve — see below)
      .block borders             2 × 1.5                              3
@@ -1523,30 +1549,43 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
        .pressureBlock           1 + 8 + 44 + 8                      61      (was  65)
      .actZone                   8 + 48 + 8                          64      (was  82 — «Rückzug
                                                                              melden» wrapped)
-     .plinth                    1 + 8 + 17 + 5 + 33 + 8             72      (was  82)
-     .vfoot                     1 + 44 (tap floor, untouched)       45
-     .focusCard padding-bottom                                      10      (was  12)
+     .vfoot   hairline           1                                          (was 72 + 45: a
+              .metaLine          5 + 17 + 5                         72       standing `.plinth`
+              .vrow              44 (tap floor, untouched)                   above this row)
+     .focusCard padding-bottom                                       6      (was  12, then 10)
      .bottomRail                1 + 8 + 48 + 16                     73      (was 143 — «+» on a
                                                                              second row)
      ────────────────────────────────────────────────────────────────────────────────────────
-                                                                   602.5    (was 736.5)
+                                                                   545.5    (was 736.5 → 602.5)
 
-   ~141px of margin, which is what pays for the cases that used to break the fit: an `.airNote`
-   (~51), a three-line Kennzeile (+17.5), a rail whose names wrap to two lines (+10).
+   ⚠️ MEASURED, not only counted (Chromium, the real built CSS, the test fixture's one-line
+   Kennzeile): 582.1px before pass 2, 527.0px after — −55.1px. At 375×667 the usable band is
+   ~567px, so the same card went from 15px OVER to 40px of reserve. The 545.5 above is the same
+   card with the table's two-line Kennzeile, which is the honest worst case.
+   ~198px of margin at 390×844, which is what pays for the cases that used to break the fit: an
+   `.airNote` (~51), a three-line Kennzeile (+17.5), a rail whose names wrap to two lines (+10).
    ⚠️ The head's 61 was the one line of this table that was NOT yet true when it was written
    (09.09.): `.head` wrapped, so the three controls stood on a second row of their own and the
    head measured 8 + 20 + 12 + 44 + 8 + 1 = 93. The one-row head further up this file
    (`.head.headCompact { flex-wrap: nowrap }`, mock 01) is what makes the number above the
    number on screen — and it is 32px of the margin quoted here, not a saving on top of it.
    ⚠️ SCOPED to `.focusCard`. `.cardHead`, `.kenn`, `.band`, `.kontaktBtn`, `.actZone` and
-   `.plinth` are the SAME classes the tablet's card grid and the phone's opened row wear — an
+   `.metaLine` are the SAME classes the tablet's card grid and the phone's opened row wear — an
    opened row on a non-lite phone renders its card inside `.rowList`, not inside `.focusCard`, so
    neither of them sees any of this. (`.strip` / `.tab` above need no such scoping: the bottom
    rail is rendered in focus mode and nowhere else.)
+   ⚠️ …with ONE deliberate exception, and it is pass 2's whole shape: the Sockel fold is NOT
+   scoped. A phone-only arrangement of a safety card is a second thing to keep in step with the
+   first (see AtemschutzView.test · «same six zones, in the same order»), so the card lost its
+   standing look-up strip on every board and at every width.
    ⚠️ Touch floors are NOT part of the saving: the ± buttons, the Verlauf row and the ⋯/⌃ stay at
    44px, «Kontakt» keeps the 48px a card's main action is owed, and so does each lifecycle
-   button. What shrinks around them is padding. */
-.focusCard .cardHead { min-height: 48px; padding: 4px 8px 4px 12px; }
+   button. What shrinks around them is padding — and, in pass 2, four look-up rows that became
+   one line plus a tap. Nothing that ticks and nothing that alarms moved behind that tap. */
+/* ⚠️ 4 → 2 top/bottom (09.09., second fit pass): `min-height: 48px` already holds the row open
+   for its 44px control, so this padding was only ever air AROUND a floor that does not move.
+   The row still measures 48; it stops measuring 52. */
+.focusCard .cardHead { min-height: 48px; padding: 2px 8px 2px 12px; }
 /* ⚠️ The two-line reserve goes, and only here. It exists so the band — the clock the board is
    compared BY — starts at the same height on every card in a GRID ROW (see `.kenn`). Focus mode
    shows exactly one card, so there is nothing to align it with and the reserve is 27px of blank
@@ -1561,11 +1600,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .focusCard .band:not(.bandQuiet) .bandVal { font-size: 34px; }
 .focusCard .block .kontaktBtn { min-height: 48px; padding: 11px 10px; }
 .focusCard .block .pressureBlock { padding: 8px 10px; }
-/* ⚠️ `:not(:empty)` on the two zones that collapse. `.actZone:empty` / `.plinth:empty` zero their
-   own padding, and a pseudo-class weighs the same as a class — so a plain `.focusCard .actZone`
-   ties with them and, being later in the file, would win: a viewer's card (no action row) or a
-   Trupp ohne Atemschutz (nothing to look up) would grow back the padding and the hairline the
-   empty-zone rules exist to take away. */
+/* ⚠️ `:not(:empty)` on the zone that collapses. `.actZone:empty` zeroes its own padding, and a
+   pseudo-class weighs the same as a class — so a plain `.focusCard .actZone` ties with it and,
+   being later in the file, would win: a viewer's card (no action row) would grow back the
+   padding and the hairline the empty-zone rule exists to take away. */
 .focusCard .actZone:not(:empty) { padding: 8px 12px; }
 /* «Rückzug melden» on ONE line. The row gives its left column whatever the right one does not
    need (`minmax(0, auto)` against `minmax(50%, 1fr)`), which at 390px is ~165px — and at 14px/800
@@ -1575,7 +1613,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    HEIGHT is untouched: these buttons commit a status on a safety board. */
 .focusCard .actBtn { padding: 8px 6px; gap: 5px; font-size: 12.5px; }
 .focusCard .actBtn :global(.i) { width: 15px; height: 15px; }
-.focusCard .plinth:not(:empty) { padding: 8px 14px; gap: 5px; }
+/* (`.focusCard .plinth` retired with the Sockel on 09.09. — `.metaLine` is compact by
+   construction and needs no board-specific squeeze.) */
 
 
 /* «Art des Trupps» as its own compact pair (08.09., field ask — the two labelled tiles with
