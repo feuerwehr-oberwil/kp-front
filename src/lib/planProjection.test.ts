@@ -102,7 +102,10 @@ describe('projection ⇄ bake are inverse', () => {
     const o = geo(ent({ id: 'e1', symbol: 'VKF Fahrzeug', coord: coordEast(0), rotation: 0 }))
     const anno = projectOnto(o, turned)!
     expect(anno.rotation).not.toBe(0) // …turned into the paper's frame
-    expect(bakeGeoBody({ id: 'e1', sheet: { planId: 'm', anno } }, turned, 'taktisch').entity!.rotation).toBeCloseTo(0, 6)
+    // …and back to north, where «points north» is said the shorter way: absent
+    expect(bakeGeoBody({ id: 'e1', sheet: { planId: 'm', anno } }, turned, 'taktisch').entity!.rotation).toBeUndefined()
+    const turnedOnPaper = { ...anno, rotation: (anno.rotation ?? 0) + 30 }
+    expect(bakeGeoBody({ id: 'e1', sheet: { planId: 'm', anno: turnedOnPaper } }, turned, 'taktisch').entity!.rotation).toBeCloseTo(30, 6)
   })
 
   it('…but a symbol with no direction never acquires one from the paper it lies on', () => {
@@ -179,6 +182,7 @@ describe('inverse in the details, not just in the geometry', () => {
     const arrow = geo(ent({ id: 'a1', kind: 'shape', shape: 'arrow', coord: coordEast(50) }))
     const back = roundTrip(arrow).entity!
     expect(back.sizeM).toBeCloseTo(SHAPE_DEFS.arrow.defaultSizeM, 3)
+    expect(back.rotation).toBeUndefined() // …and it did not acquire a bearing on the way
   })
 
   it('a SECOND bearing turns with the paper too — the boom stays on its truck', () => {
@@ -192,7 +196,9 @@ describe('inverse in the details, not just in the geometry', () => {
   })
 
   it('absent stays absent — nothing materializes as 0 or an empty string', () => {
-    const bare = geo(ent({ id: 'b1', symbol: 'Feuer', coord: coordEast(50) }))
+    // ⚠️ a ROTATABLE glyph, because that is the case the frame change touches: an ordinary
+    // unturned Fahrzeug used to come back carrying `rotation: 0` the first time it was flipped
+    const bare = geo(ent({ id: 'b1', symbol: 'VKF Fahrzeug', coord: coordEast(50) }))
     const back = roundTrip(bare).entity!
     expect(back.rotation).toBeUndefined()
     expect(back.rotation2).toBeUndefined()

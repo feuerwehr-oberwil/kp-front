@@ -52,9 +52,21 @@ import type { PlanFit, TacticalObject } from './tacticalObjects'
 export const turnedToSheet = (deg: number | undefined, fit: GeorefFit, directional: boolean): number | undefined =>
   (directional ? (deg ?? 0) + fit.rotationDeg : deg)
 
-/** …and back to north, the inverse the bake applies. */
-export const turnedToGround = (deg: number | undefined, fit: GeorefFit, directional: boolean): number | undefined =>
-  (directional ? (deg ?? 0) - fit.rotationDeg : deg)
+/**
+ * …and back to north, the inverse the bake applies.
+ *
+ * ⚠️ A ground bearing of exactly 0 comes back ABSENT, and that is the whole point of normalising
+ * on the way BACK rather than on the way out: an object with no rotation genuinely IS turned by
+ * `rotationDeg` in the paper's frame, so the projection must state that — but «points north» is
+ * the same fact as «has no bearing», and the record should say the shorter one. Without this,
+ * every ordinary unturned Fahrzeug acquired `rotation: 0` the first time it was flipped, and the
+ * inverse was one field short of being an inverse.
+ */
+export const turnedToGround = (deg: number | undefined, fit: GeorefFit, directional: boolean): number | undefined => {
+  if (!directional) return deg
+  const ground = (deg ?? 0) - fit.rotationDeg
+  return ground === 0 ? undefined : ground
+}
 
 /** Does this body's glyph carry a direction the paper's turn applies to? */
 export const directionalGlyph = (o: { kind?: string; symbol?: string }): boolean =>

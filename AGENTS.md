@@ -184,10 +184,14 @@ to prod.
     the object a little on every flip, and an absent field materialising as `0` or `''` would
     invent one. Where one converts (the sheet's own turn into and out of the paper's frame, for
     BOTH bearings; metres into sheet fractions and back, at the same default an unsized object is
-    drawn at) the other undoes it, and the comment at each says so. A field that cannot be said in
-    both units — a note's width, a label's nudge — does not cross at all: it is preserved through
-    the bake instead (`BAKE_PRESERVED`), because a number that means two distances is worse in the
-    record than no number.
+    drawn at) the other undoes it, and the comment at each says so. ⚠️ The absence half is
+    normalised on the way BACK, not on the way out: an object with no bearing genuinely IS turned
+    by `rotationDeg` in the paper's frame, so the projection has to state that — and «points
+    north» is the same fact as «has no bearing», so the bake returns the shorter one
+    (`turnedToGround`). Without it every ordinary unturned Fahrzeug acquired `rotation: 0` on its
+    first flip. A field that cannot be said in both units — a note's width, a label's nudge —
+    does not cross at all: it is preserved through the bake instead (`BAKE_PRESERVED`), because a
+    number that means two distances is worse in the record than no number.
   - **Last hand-placement owns the truth.** A drag flips the anchor to the surface it happened
     on: dragging a sheet-anchored object on the Karte DROPS its sheet body, dragging a map object
     onto a sheet CREATES one. Both seams (`applyDocToObjects`, `applyBoardToObjects`) therefore
