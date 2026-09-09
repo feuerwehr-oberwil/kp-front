@@ -79,7 +79,7 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import {
-  fitSignature, georefPlans, planAspect, planRasterRows,
+  fitSignature, georefPlans, planAspect, planRasterRows, referenceDelta,
   twinPlanImageLayerId, twinPlanImageVisible, twinVisible, isTwinLayerId,
 } from './lib/georefTwins'
 import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded } from './lib/stationPlanScale'
@@ -2034,6 +2034,19 @@ export function IncidentWorkspace({
   const shownFits = useRef<string | null>(null)
   /** one retry for the station document before the first bake — see the note below */
   const seedWaited = useRef(false)
+  /**
+   * The SHEETS that carried a fit at the last bake — so a reference that VANISHED can be told from
+   * one that merely changed. It has to be told: a vanished fit moves nothing at all (bakeGeoBody
+   * hands a record straight back when its plan has no fit), so `rebake` honestly reports 0 and the
+   * Verlauf would say nothing whatever about «Referenz zurücksetzen» — an act somebody performed
+   * on purpose, after which every symbol on that sheet is standing on a ground position nothing
+   * will correct again.
+   *
+   * ⚠️ By `georefKey`, not by plan id, and only for sheets STILL among this object's plans. Every
+   * Einsatzobjekt has a «Modul 2», so a drop measured on plan ids would read every object switch —
+   * and every plan the rail stops offering — as a reference somebody deleted.
+   */
+  const referencedSheets = useRef<ReadonlySet<string> | null>(null)
   useEffect(() => {
     // ⚠️ ABOVE the guard, both of them. The fits and the version that carries them into the
     // memos are what every surface RENDERS through (lib/useObjectStore · board); only writing
@@ -2067,6 +2080,18 @@ export function IncidentWorkspace({
     const moved = rebake({ checkpoint: !seeding })
     stepLabel.current = null
     if (!seeding && moved) log('map', fillTemplate(appConfig.copy.log.referenceRebaked, { n: moved }), 'layer')
+
+    // …and the other half of a fit change: a reference that is GONE (see `referencedSheets`).
+    const { dropped, referenced } = referenceDelta(planDocs, linkedPlans.map((p) => p.id), referencedSheets.current)
+    referencedSheets.current = referenced
+    if (!seeding && dropped.size) {
+      // Nothing moved, so the row counts what STAYS: the objects drawn on that sheet keep the
+      // ground position the last fit gave them — last known truth, deliberately not marked stale
+      // (tmp/design-unified-objects.md · decision 2).
+      const kept = objects.reduce((n, o) => n + (o.sheet && dropped.has(o.sheet.planId) ? 1 : 0), 0)
+      const C = appConfig.copy.log
+      log('map', kept ? fillTemplate(C.referenceDroppedKept, { n: kept }) : C.referenceDropped, 'layer')
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedPlans, readOnly, tacticalLocked])
   const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})

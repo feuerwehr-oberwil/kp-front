@@ -1088,6 +1088,14 @@ export const de = {
     /** Die Passung eines Plans wurde korrigiert: alles, was auf diesem Blatt gezeichnet ist,
      *  steht damit an einem anderen Ort auf der Karte. Eine Zeile, nicht n Zeilen. */
     referenceRebaked: 'Referenz angepasst – {n} Objekte neu verortet',
+    /** …und die Passung wurde ENTFERNT («Referenz zurücksetzen»). Dabei verschiebt sich nichts:
+     *  Was auf dem Blatt gezeichnet ist, bleibt dort UND behält seine zuletzt berechnete Position
+     *  auf der Karte – letzte bekannte Wahrheit, wie ein Fahrzeug, das aufgehört hat zu melden.
+     *  Genau darum braucht es die Zeile: die Rückverortung meldet 0 verschobene Objekte, und ohne
+     *  sie stünde über eine bewusste Handlung gar nichts im Verlauf. Zwei Fassungen, weil «0
+     *  Objekte behalten ihre letzte Position» keine Aussage ist. */
+    referenceDropped: 'Referenz entfernt',
+    referenceDroppedKept: 'Referenz entfernt – {n} Objekte behalten ihre letzte Position',
     objectDeleted: '{name} gelöscht',
     drawingDeleted: 'Zeichnung gelöscht',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is

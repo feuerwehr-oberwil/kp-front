@@ -222,14 +222,37 @@ to prod.
     held-in-place override the Karte writes.
   - **Reference change or delete loses nothing.** Correcting a fit re-bakes every sheet-anchored
     object's map body — that correction is the whole point of correcting a fit — as ONE undo step
-    with one Verlauf row («Referenz angepasst – n Objekte neu verortet»). A deleted reference
-    leaves both bodies standing: last known truth, like a vehicle that stopped reporting. Phase 3
-    completes the re-bake semantics (bake-on-link, `If-Match` on the plan-scales PUT); phase 4
-    gives replay its own projection, which is why a sheet in replay shows only what was recorded.
-  - ⚠️ Known limitation, phase 3: the flip is a FIELD REMOVAL, and `mergeWorkspace` merges an
-    object field-wise last-writer-wins — a concurrent edit still carrying the dropped sheet body
-    brings it back. Absence cannot say «deliberately dropped»; a tombstone or an explicit anchor
-    enum can, and that is a schema change.
+    with one Verlauf row («Referenz angepasst – n Objekte neu verortet»). A DELETED reference
+    leaves both bodies standing: the sheet keeps its annos, the Karte keeps the ground positions
+    the last fit baked, and neither is marked stale — last known truth, like a vehicle that
+    stopped reporting. Nothing moves, so the re-bake honestly reports 0, and the row is therefore
+    its own («Referenz entfernt – n Objekte behalten ihre letzte Position»): without it the
+    Verlauf would say nothing whatever about an act somebody performed on purpose. ⚠️ It is
+    derived from SHEET KEYS still on the rail (`georefTwins · referenceDelta`) — every
+    Einsatzobjekt has a «Modul 2», so counting plan ids would read every object switch as a
+    deletion. Re-linking later re-links both directions and re-bakes.
+  - ⚠️ **The aspect the fit is solved in is its own stored fact** (`measuredArByPlan`), NOT
+    `PlanScale.ar`. `ar` is half of a pair — a sheet's ground width is `ar · mPerU` — so
+    correcting it in place silently rescales every measured distance on that plan. The measured
+    aspect says only «this sheet is this shape»; correcting it re-solves the fit from the SAME
+    pairs (a pair is an aspect-independent statement), so `fitSignature` changes and the ordinary
+    journalled re-bake does the rest. The surface holding the bitmap writes it, once per sheet per
+    session, past the same 2 % drift calibration staleness uses. It matters because a replaced
+    Modul PDF leaves a stale `ar` that staleness CANNOT catch (it is measured against the very
+    aspect being looked for, and the pairs were fitted at the same wrong one), and a wrong aspect
+    is now a wrong position in the record rather than a tilted picture.
+  - **The station document is version-guarded.** `PUT /api/plan-scales` is a whole-document
+    replace and now carries `If-Match` — the same content-hash token and 409 as `PUT /api/config`
+    — because a lost update no longer costs a re-measurable calibration but MOVES objects. The
+    client recovers by re-reading and re-applying its per-plan change on top, once. A PUT without
+    the header is still accepted for one release (there is no CLI writer here, and an old build
+    must not lose the ability to save a Georeferenz in the field).
+  - ⚠️ Known limitation, ACCEPTED and not to be re-opened without a decision: the flip is a FIELD
+    REMOVAL, and `mergeWorkspace` merges an object field-wise last-writer-wins — a concurrent edit
+    still carrying the dropped sheet body brings it back. Absence cannot say «deliberately
+    dropped»; a tombstone or an explicit anchor enum could, and that is a schema change nobody has
+    asked for. Phase 4 gives replay its own projection, which is why a sheet in replay shows only
+    what was recorded.
   - ⚠️ **An attachment may name an object in the other document, and that is now the common
     case.** A Leitung end docked onto an object stores the object's id; both live surfaces resolve
     it, because it is the same id on both. The server-side print/export adapters cannot — they see

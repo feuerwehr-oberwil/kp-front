@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   fitSignature, boardSymbolToEntity, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, planAspect,
-  planRasterRows, twinPlanImageLayerId, twinVisible,
+  planRasterRows, referenceDelta, twinPlanImageLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
@@ -216,5 +216,49 @@ describe('fitSignature — «was the georeference corrected, or did the memo jus
     const base = fitSignature(of(PAIRS))
     expect(fitSignature(of([PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }]))).not.toBe(base)
     expect(fitSignature(of(PAIRS, 1.5))).not.toBe(base)
+  })
+})
+
+/* ⚠️ «Referenz zurücksetzen» moves nothing — a plan without a fit is simply not baked — so the
+ * re-bake honestly reports 0 objects moved and the Verlauf would otherwise say NOTHING about an
+ * act the operator deliberately performed. This is what the row is derived from, and every trap in
+ * it is a false POSITIVE: a row claiming somebody deleted a reference they never touched. */
+describe('referenceDelta — which sheets lost their reference', () => {
+  const docs = [
+    plan('modul2', { georefKey: 'object:a:plan:modul2' }),
+    plan('modul3', { georefKey: 'object:a:plan:modul3' }),
+  ]
+  const keys = (ids: string[]) => new Set(ids.map((i) => `object:a:plan:${i}`))
+
+  it('reports a sheet that was referenced and is not any more', () => {
+    const d = referenceDelta(docs, ['modul3'], keys(['modul2', 'modul3']))
+    expect([...d.dropped]).toEqual(['modul2'])
+    expect(d.referenced).toEqual(keys(['modul3']))
+  })
+
+  it('drops nothing on the FIRST comparison — there is no «before» to have lost anything from', () => {
+    expect(referenceDelta(docs, [], null).dropped.size).toBe(0)
+  })
+
+  it('an object switch is not a deletion, however identical the plan ids look', () => {
+    // every Einsatzobjekt has a «Modul 2» — measured on ids alone, switching object would claim
+    // the operator had just reset both references
+    const other = [plan('modul2', { georefKey: 'object:b:plan:modul2' })]
+    expect(referenceDelta(other, [], keys(['modul2'])).dropped.size).toBe(0)
+  })
+
+  it('a plan the rail no longer offers has not lost anything — it is not there to lose it', () => {
+    expect(referenceDelta([docs[1]], ['modul3'], keys(['modul2', 'modul3'])).dropped.size).toBe(0)
+  })
+
+  it('a sheet that GAINS a reference is not a drop, and is remembered for next time', () => {
+    const d = referenceDelta(docs, ['modul2', 'modul3'], keys(['modul2']))
+    expect(d.dropped.size).toBe(0)
+    expect(d.referenced).toEqual(keys(['modul2', 'modul3']))
+  })
+
+  it('falls back to the plan id for a sheet that carries no georefKey', () => {
+    const bare = [plan('modul2')]
+    expect([...referenceDelta(bare, [], new Set(['modul2'])).dropped]).toEqual(['modul2'])
   })
 })

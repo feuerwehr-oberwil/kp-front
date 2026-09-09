@@ -133,6 +133,44 @@ export function fitSignature(p: GeorefPlan): string {
   return `${p.id}:${p.fit.scaleMPerU}:${p.fit.rotationDeg}:${o.lng},${o.lat}:${p.widthM}`
 }
 
+/** The key a plan's reference is stored under: its `georefKey` where it has one, else its own id
+ *  (stationPlanScale · georefForPlan). ⚠️ A `planId` is the reusable Modul slot every
+ *  Einsatzobjekt shares; the reference belongs to one concrete building's sheet. */
+export const sheetKeyOf = (p: Pick<PlanDocument, 'id' | 'georefKey'>): string => p.georefKey ?? p.id
+
+/**
+ * What happened to the REFERENCES between two bakes — specifically, which sheets lost theirs.
+ *
+ * A fit that vanishes moves nothing (`bakeGeoBody` hands a record straight back when its plan has
+ * no fit), so the re-bake honestly reports 0 objects moved and the Verlauf would say nothing at
+ * all about «Referenz zurücksetzen» — an act somebody performed on purpose, after which every
+ * symbol on that sheet stands on a ground position nothing will correct again.
+ *
+ * ⚠️ Measured on SHEET KEYS, and only for sheets still on the rail. Every Einsatzobjekt has a
+ * «Modul 2», so counting plan ids would read every object switch as a reference somebody deleted;
+ * and a plan the rail simply stops offering has not lost anything — it is not there to lose it.
+ */
+export interface ReferenceDelta {
+  /** the PLAN IDS whose sheet lost its reference — what the Verlauf row counts objects on */
+  dropped: Set<string>
+  /** the sheet keys that carry a reference NOW: the caller's `before` for the next comparison */
+  referenced: Set<string>
+}
+
+export function referenceDelta(
+  plans: Pick<PlanDocument, 'id' | 'georefKey'>[],
+  linkedIds: Iterable<string>,
+  /** the sheet keys that carried one at the last bake — null on the very first, which drops nothing */
+  before: ReadonlySet<string> | null,
+): ReferenceDelta {
+  const byId = new Map(plans.map((p) => [p.id, p]))
+  const referenced = new Set<string>()
+  for (const id of linkedIds) { const p = byId.get(id); if (p) referenced.add(sheetKeyOf(p)) }
+  const dropped = new Set<string>()
+  if (before) for (const p of plans) { const k = sheetKeyOf(p); if (before.has(k) && !referenced.has(k)) dropped.add(p.id) }
+  return { dropped, referenced }
+}
+
 /* ⚠️ No twin-specific size bands. Until 30.08. twins wore their own «quieter» px bands — in the
    field that read as «different object», not as «projection». Doctrine: twins are
    presentation-equivalent — the board sizes a twin with its own native rule (Whiteboard · symBase). */

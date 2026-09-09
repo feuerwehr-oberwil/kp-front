@@ -760,6 +760,8 @@ export const it: Localizable<Copy> = {
     placardDocked: '{name} agganciato a «{host}»',
     placardUndocked: '{name} sganciato da «{host}»',
     referenceRebaked: 'Riferimento adattato – {n} oggetti riposizionati',
+    referenceDropped: 'Riferimento rimosso',
+    referenceDroppedKept: 'Riferimento rimosso – {n} oggetti mantengono la loro ultima posizione',
     objectDeleted: '{name} eliminato',
     drawingDeleted: 'Disegno eliminato',
     undo: 'Azione annullata',
