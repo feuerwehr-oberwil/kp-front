@@ -230,7 +230,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, twinAnnos, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -281,9 +281,6 @@ export function ReportPreflight({
   }
   /** plan whiteboard annotations — server-rendered annotated Objektplan pages */
   board?: BoardDoc
-  /** mirrored Karte content per linked plan (workspace · printTwinAnnos) — printed with the
-   *  sheet's own annos, and enough on its own for a plan to count as annotated */
-  twinAnnos?: Record<string, BoardAnno[]>
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null
   /** QR self-reporting in use — «QR: N Einträge · zuletzt HH:MM» chip (informational) */
@@ -824,7 +821,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, twinAnnos, building,
+        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
         // included, or the paper would mark every name in a row except the crew it is about
         vocab: journalVocabulary(personnel, attendance, undefined, trupps),
@@ -858,7 +855,7 @@ export function ReportPreflight({
     if (warmedRef.current || !printStatus?.available || !options.kroki || mapContentCount === 0 || !scene) return
     warmedRef.current = true
     const payload = buildDirectReportPayload({
-      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, twinAnnos, building,
+      incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
       roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
     })
     void prewarmPrint(editorPrintTransport(), incident.id, payload)
@@ -879,7 +876,7 @@ export function ReportPreflight({
     try {
       const t = editorPrintTransport()
       const payload = buildDirectReportPayload({
-        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, twinAnnos, building,
+        incident, draft: buildDraft(), trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
         roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
       })
       const jobId = await enqueuePrint(t, incident.id, payload)

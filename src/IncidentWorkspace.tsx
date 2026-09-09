@@ -2058,27 +2058,6 @@ export function IncidentWorkspace({
     if (!seeding && moved) log('map', fillTemplate(appConfig.copy.log.referenceRebaked, { n: moved }), 'layer')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedPlans, readOnly, tacticalLocked])
-  /**
-   * ⚠️ What ONE sheet must not be lent: its own objects.
-   *
-   * The Karte draws a sheet-anchored object natively now, so it is in `doc.entities` /
-   * `doc.drawings` like anything else — and the map→plan mirror, which is still a projection,
-   * would hand it straight back to the very sheet it is drawn on. The symbol appeared twice on
-   * its own Modul (once as its anno, once as a twin of its own baked body), and printed twice.
-   * The ANCHOR is the answer, and the store is where it lives (tacticalObjects · sheetAnchoredIds).
-   */
-  // The Karte's content standing on each linked sheet, as PRINTABLE annos (30.08.): the
-  // exported Objektplan page shows what the screen's sheet shows. Same visibility gates as
-  // boardTwinSources — a layer hidden on screen must not resurface on paper.
-  /**
-   * ⚠️ ONE derivation for the screen and the paper. The exported Objektplan page must show what
-   * the sheet shows, and it does so by construction now: both read the store's board view, which
-   * is the sheet's own annos plus the Karte's objects projected onto it (lib/useObjectStore).
-   * The twin era needed a second, parallel derivation here — and it drifted, which is what the
-   * device-layer gates in it were compensating for. Visibility follows the ordinary Ebenen the
-   * objects live on, exactly as it does on the Karte.
-   */
-  const planPrintAnnos = replayActive ? {} : board
   const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
   useEffect(() => {
     if (replayActive) return
@@ -5572,7 +5551,6 @@ export function IncidentWorkspace({
           presentIds={presentIds}
           events={timeline}
           annotatedPlanCount={annotatedPlanCount}
-          twinAnnos={planPrintAnnos}
           // ⚠️ `allTrupps`, here and on the `trupps` prop below — the two places that print. A Trupp
           // taken off the Tafel was still under PA, and its readings, entry pressure and times are
           // exactly what the Atemschutz page exists to record (types · Trupp.removedAt).
