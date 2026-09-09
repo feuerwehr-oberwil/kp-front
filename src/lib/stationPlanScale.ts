@@ -238,6 +238,14 @@ export async function loadStationPlanScales(): Promise<StationPlanScales> {
  *  A direct caller therefore gets the 409, which is the honest thing to hand a writer that
  *  replaced the whole document on purpose. */
 export async function saveStationPlanScales(next: StationPlanScales): Promise<void> {
+  // ⚠️ …and what to go back to when it does NOT land. The write is optimistic — the singleton and
+  // the offline cache are moved first, so the surfaces show the operator's change at once — and
+  // without this the REFUSED document simply stayed the local truth. The operator was told
+  // «fehlgeschlagen», the sheet went on showing the reference the server had rejected, a reload
+  // adopted it back out of the cache, and the next unrelated save (a Massstab on some other plan)
+  // read-modify-wrote on top of it and smuggled the refused georeference into the stored document
+  // as a side effect of something else.
+  const before = resolved
   writeSeq++
   resolved = next
   void idbSet(CACHE_KEY, next)
@@ -247,8 +255,24 @@ export async function saveStationPlanScales(next: StationPlanScales): Promise<vo
   // the first one just stored — so it has to send the token that write came back with, or it
   // would refuse itself.
   const write = writeTail.catch(() => {}).then(async () => {
-    const res = await apiPut<StationPlanScalesWire>('/api/plan-scales', next, version ? { 'If-Match': version } : undefined)
-    version = res?.version ?? null
+    try {
+      const res = await apiPut<StationPlanScalesWire>('/api/plan-scales', next, version ? { 'If-Match': version } : undefined)
+      version = res?.version ?? null
+    } catch (e) {
+      // ⚠️ Only if OURS is still the document standing. A later write may already have replaced
+      // it, and putting this one's base back would then revert somebody else's landed change.
+      if (resolved === next) {
+        resolved = before
+        void idbSet(CACHE_KEY, before)
+        notify()
+      }
+      // ⚠️ `version` is deliberately NOT rolled back: it is only ever advanced by a PUT that
+      // came back, so a refusal has not touched it. Restoring it here would instead undo the
+      // token of a concurrent write that DID land. And if the server committed while the answer
+      // was lost, the token we keep is merely stale — the next write's 409 re-reads and
+      // re-applies, which is the path that already exists.
+      throw e
+    }
   })
   writeTail = write
   await write

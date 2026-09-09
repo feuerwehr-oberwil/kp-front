@@ -206,6 +206,56 @@ describe('If-Match — a write that would overwrite somebody else', () => {
     expect(m.getStationPlanScales().default?.mPerU).toBe(100)
   })
 
+  it('a refused write stops being the local truth — singleton, cache and the NEXT write', async () => {
+    /* ⚠️ The write is optimistic, and a refusal used to leave the refused document standing. The
+     * operator was told «fehlgeschlagen» while the sheet went on showing the rejected reference, a
+     * reload adopted it back out of the cache, and the next unrelated save read-modify-wrote on
+     * top of it — smuggling the refused georeference in as a side effect of a Massstab. */
+    const m = await booted({ default: scale(100) }, 'v1')
+    apiPut.mockRejectedValue(new ApiError(409))
+    apiGet.mockResolvedValue(served({ default: scale(100) }, 'v2'))
+    await expect(m.saveGeoref(KEY, georef(2))).rejects.toThrow()
+
+    expect(m.georefForPlan(KEY)).toBeNull()                       // not on the surfaces
+    const cached = idbSet.mock.calls[idbSet.mock.calls.length - 1][1] as StationPlanScales
+    expect(cached.georefByPlan).toEqual({})                       // …nor in the offline cache
+    expect(m.getStationPlanScales().default?.mPerU).toBe(100)     // …and the rest is intact
+
+    // …and the next, unrelated write does not carry it either
+    apiPut.mockReset(); apiPut.mockResolvedValue({ version: 'v3' })
+    await m.saveStationDefault(scale(42))
+    expect(written().georefByPlan).toEqual({})
+    expect(written().default?.mPerU).toBe(42)
+  })
+
+  it('an ordinary rejection rolls back too — it is not only about 409', async () => {
+    const m = await booted({ default: scale(100) }, 'v1')
+    apiPut.mockRejectedValue(new Error('offline'))
+    await expect(m.saveStationPlanOverride('p1', scale(50))).rejects.toThrow()
+    expect(m.getStationPlanScales()).toEqual(doc({ default: scale(100) }))
+  })
+
+  it('…but never over a LATER write that landed', async () => {
+    // rolling back on identity, not unconditionally: the failing write's base must not revert
+    // somebody else's change that has since become the local document
+    const m = await booted({}, 'v1')
+    let refuseFirst!: (e: unknown) => void
+    apiPut
+      .mockImplementationOnce(() => new Promise((_, rej) => { refuseFirst = rej }))
+      .mockResolvedValue({ version: 'v2' })
+
+    // both calls move the singleton at once; only their PUTs are queued behind each other
+    const first = m.saveStationPlanScales(doc({ default: scale(11) }))
+    const second = m.saveStationPlanScales(doc({ default: scale(22) }))
+    expect(m.getStationPlanScales().default?.mPerU).toBe(22)
+
+    await vi.waitFor(() => expect(apiPut).toHaveBeenCalledTimes(1)) // the queue got to the first
+    refuseFirst(new Error('offline'))
+    await expect(first).rejects.toThrow()
+    await second
+    expect(m.getStationPlanScales().default?.mPerU).toBe(22)
+  })
+
   it('a device that booted out of its cache writes without a token — and still writes', async () => {
     // it holds a document the server confirmed at SOME point and no token at all. Refusing here
     // would mean a Georeferenz that cannot be saved in the field; the endpoint accepts it.
