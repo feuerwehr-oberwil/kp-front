@@ -381,6 +381,50 @@ does not.
 
 ## 5. Updating
 
+### Deployment doctrine: pin a release, update deliberately
+
+**Run a fixed `vX.Y.Z` tag, never `main` and never bare `latest`, once the station is actually
+running incidents.** Set `KP_FRONT_TAG` in `.env` to a version from the
+[releases page](https://github.com/feuerwehr-oberwil/kp-front/releases) (§3's table above has the
+three shapes it accepts). `latest` is the right choice only for evaluation and demo instances that
+have nobody depending on them mid-shift.
+
+With a pin in place, **updating is something you decide to do, not something that happens to
+you** – nothing in this stack ever moves `KP_FRONT_TAG` on its own, so a station stays on the
+image it chose until an operator edits `.env` and runs `docker compose pull`. Do that between
+incidents, never during one: pick a quiet moment, take a backup first (§6 – migrations only run
+forward, see below), then update. This is the doctrine a field-test review asked for in writing
+(08.09.2026): *"Produktive Installationen dürfen während eines Einsatzes nicht automatisch
+aktualisiert werden. Jede Feuerwehr soll eine feste Release-Version einsetzen und Updates bewusst
+ausserhalb des Einsatzbetriebs auslösen."*
+
+Two things back that doctrine beyond "please don't":
+
+- **The app itself never reloads a running session out from under an operator.** The in-app
+  update banner only *announces* a new build – it never applies one in place. A fresh deploy
+  installs and waits (`registerType: 'prompt'`, `vite.config.ts`); the only automatic, no-prompt
+  activation happens in the boot window right after a page loads, before any interaction – there
+  is nothing running yet to interrupt. Once someone is mid-session, a waiting build is only ever
+  surfaced as the calm «Update verfügbar» message and becomes active on the operator's own next
+  full close-and-reopen; the in-place "Neu laden" was deliberately removed (unreliable
+  activation on iOS standalone). This is enforced in code, not merely by convention –
+  [`src/lib/swUpdate.ts`](../src/lib/swUpdate.ts) and
+  [`src/components/UpdateBanner.tsx`](../src/components/UpdateBanner.tsx).
+- **A published tag has already passed the whole gate.** `.github/workflows/release.yml` builds
+  the image only after `needs: gate` on the complete `.github/workflows/ci.yml` suite for that
+  exact tag – frontend build + lint + unit tests, backend ruff + mypy + `alembic upgrade head` +
+  pytest, and a real build-boot-smoke-test of the production container – so pulling a newer tag
+  never means pulling one whose migrations or tests never ran.
+
+**Rollback path:** GHCR keeps every previously published tag – nothing is deleted when a new one
+ships – so rolling back is redeploying the prior `vX.Y.Z` in `KP_FRONT_TAG`, the same two
+commands as an update. The one caveat is the database: migrations are forward-only, and an older
+image cannot resolve a schema revision it does not recognise, so a plain tag edit is only safe
+when the previous image already understood the current schema. Take a `scripts/backup.sh` backup
+*before* every update for exactly this reason – see the **Rollback** bullet below and
+[Rolling back across a schema upgrade](#rolling-back-across-a-schema-upgrade) for the full
+procedure once a migration is involved.
+
 ```bash
 docker compose pull
 docker compose up -d                  # add --profile tls if you run Caddy

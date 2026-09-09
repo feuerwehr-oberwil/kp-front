@@ -793,7 +793,9 @@ Pin your version while you are here. A full version (`KP_FRONT_TAG=X.Y.Z`) follo
 series (`X.Y`) follows patch fixes, `latest` follows everything. A station that updates
 deliberately wants one of the first two; which versions exist is the
 [releases page](https://github.com/feuerwehr-oberwil/kp-front/releases). What a version bump
-costs you is the table at the top of [`CHANGELOG.md`](../CHANGELOG.md).
+costs you is the table at the top of [`CHANGELOG.md`](../CHANGELOG.md). The reasoning behind
+pinning – and why an update is something you schedule, never something that lands mid-incident –
+is [`DEPLOYMENT.md` §5](DEPLOYMENT.md#5-updating).
 
 ---
 

@@ -192,6 +192,8 @@ Updating is `docker compose pull && docker compose up -d`; migrations run on boo
 version with `KP_FRONT_TAG` in `.env` and follow the
 [releases](https://github.com/feuerwehr-oberwil/kp-front/releases) –
 [`CHANGELOG.md`](CHANGELOG.md) explains what a MAJOR/MINOR/PATCH bump means for a deployment.
+Doctrine: pin, never `latest`/`main`, and update between incidents, not during one –
+[`docs/DEPLOYMENT.md` §5](docs/DEPLOYMENT.md#5-updating).
 
 **Every published image has already run a real fire station.** Feuerwehr Oberwil's production
 deployment and the public demo both track `main` continuously; a version tag is a label on a
