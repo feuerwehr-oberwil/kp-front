@@ -1,11 +1,10 @@
 import { useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useUndoableDoc } from './useUndoableDoc'
 import {
-  applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, viewsOf,
+  applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, sheetAnnos, viewsOf,
   type PlanFit, type TacticalObject,
 } from './tacticalObjects'
 import type { Doc } from './workspace'
-import { projectedAnnos } from './planProjection'
 import type { BoardDoc, Entity } from '../types'
 
 /**
@@ -160,9 +159,33 @@ export function useObjectStore(
    * is an empty list, which deletes that sheet's objects — the same reading `setBoard` has always
    * had, now with the object going rather than just its anno.
    */
-  /** «a plan gesture is running, and its store step is already laid down» */
-  const sheetStep = useRef<'open' | 'done' | null>(null)
-  const beginSheetStep = () => { sheetStep.current = 'open' }
+  /**
+   * The plan gesture currently running, as a token — and the token the store's step for it was
+   * laid down under.
+   *
+   * ⚠️ A token that is OPENED and CLOSED, not a flag. As a tri-state that only ever moved
+   * «open» → «done» this latched: after the first plan gesture of a session every later
+   * cross-ownership write — the seven board sweeps in useTruppActions, a plan ↶ through
+   * planStepAt, a Gebäude amend — found it already «done» and laid down no undo step at all.
+   *
+   * A plan step is a POINTER gesture, so it ends when the finger lifts; that is the only signal
+   * the surfaces already give, and it is enough. While one is open, its first cross-ownership
+   * fold takes the step and the rest of the samples fold into it. With none open — every writer
+   * that is not a gesture — each write is its own step.
+   */
+  const sheetStep = useRef<symbol | null>(null)
+  const stepped = useRef<symbol | undefined>(undefined)
+  const beginSheetStep = () => {
+    const token = Symbol('sheet-step')
+    sheetStep.current = token
+    const close = () => {
+      if (sheetStep.current === token) sheetStep.current = null
+      window.removeEventListener('pointerup', close, true)
+      window.removeEventListener('pointercancel', close, true)
+    }
+    window.addEventListener('pointerup', close, true)
+    window.addEventListener('pointercancel', close, true)
+  }
 
   const setBoard: Dispatch<SetStateAction<BoardDoc>> = (a) => {
     setObjects((objects) => {
@@ -176,9 +199,11 @@ export function useObjectStore(
         const plan = getFits().get(planId)
         out = bakePlan(applyBoardToObjects(out, planId, annos, plan, defaultLayer), planId, plan, defaultLayer)
       }
-      if (out !== objects && touchedForeign(objects, out)) {
-        if (sheetStep.current !== 'done') store.checkpoint(objects)
-        if (sheetStep.current === 'open') sheetStep.current = 'done'
+      const gesture = sheetStep.current
+      // no gesture open ⇒ a discrete write, and every one of those is its own step
+      if (out !== objects && touchedForeign(objects, out) && (gesture === null || stepped.current !== gesture)) {
+        store.checkpoint(objects)
+        stepped.current = gesture ?? undefined // …the gesture's remaining samples fold into it
       }
       return out
     })
@@ -221,15 +246,16 @@ function touchedForeign(before: TacticalObject[], after: TacticalObject[]): bool
   return false
 }
 
-/** …and what every sheet DRAWS, for the same reason: an updater must see the LIVE store. */
+/** …and what every sheet DRAWS, for the same reason: an updater must see the LIVE store. ONE
+ *  builder per sheet (tacticalObjects · sheetAnnos), shared with the write seam's own «what did
+ *  it look like a moment ago» — see the note there for what two orders cost. */
 function boardViewOf(objects: TacticalObject[], fits: ReadonlyMap<string, PlanFit>): BoardDoc {
   const out: BoardDoc = {}
-  for (const [planId, plan] of fits) {
-    const projected = projectedAnnos(objects, plan)
-    if (projected.length) out[planId] = projected
-  }
-  for (const [planId, annos] of Object.entries(viewsOf(objects).board)) {
-    out[planId] = out[planId] ? [...out[planId], ...annos] : annos
+  const planIds = new Set<string>(fits.keys())
+  for (const o of objects) if (o.sheet) planIds.add(o.sheet.planId)
+  for (const planId of planIds) {
+    const annos = sheetAnnos(objects, planId, fits.get(planId))
+    if (annos.length) out[planId] = annos
   }
   return out
 }

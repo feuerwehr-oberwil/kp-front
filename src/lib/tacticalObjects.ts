@@ -483,6 +483,33 @@ export function applyDocToObjects(
  * the store and come back in the old order. Slots, not an append: the interleaving with the
  * map's own objects — which is the KARTE's paint order — must survive a plan edit untouched.
  */
+/**
+ * ⚠️ THE anno list ONE sheet draws — its own annos plus every geo-anchored object projected onto
+ * it, in ONE order, from ONE place.
+ *
+ * Both the view handed to the surface and the «what did it look like a moment ago» the write
+ * seam compares against are built here, and they have to be: the seam decides whether an anno
+ * MOVED by comparing positions index for index, and building the two lists in different orders
+ * made every no-op write look like a full re-arrangement — a checkpoint per pointer sample, a
+ * dirty push per poll, and near-inverse conversions writing `rotation: 0` and default sizes onto
+ * map objects nobody had touched.
+ *
+ * Projections first, the sheet's own annos after: a sheet's ink paints over what the Karte lends
+ * it, the mirror of the map view putting geo-anchored objects before the baked bodies of
+ * sheet-drawn ones. Each surface paints the other's work underneath its own.
+ */
+export function sheetAnnos(objects: TacticalObject[], planId: string, plan?: PlanFit): BoardAnno[] {
+  const projected: BoardAnno[] = []
+  const own: BoardAnno[] = []
+  for (const o of objects) {
+    if (o.sheet?.planId === planId) { own.push(o.sheet.anno); continue }
+    if (!plan || o.sheet) continue
+    const p = projectOnto(o, plan)
+    if (p) projected.push(p)
+  }
+  return projected.length ? [...projected, ...own] : own
+}
+
 export function applyBoardToObjects(
   objects: TacticalObject[],
   planId: string,
@@ -503,8 +530,10 @@ export function applyBoardToObjects(
   // ⚠️ A writer that rebuilds EVERY plan's array on principle (useTruppActions rewrites all of
   // them to adopt or release one chip) hands most of them back unchanged in value and fresh in
   // identity. Folding those would churn the store, re-bake every sheet and mark the incident
-  // dirty for an edit that touched one plan — so the store checks the value, once, here.
-  const before = objects.flatMap((o) => (anchoredHere(o) ? [o.sheet!.anno] : shown.get(o.id) ? [shown.get(o.id)!] : []))
+  // dirty for an edit that touched one plan — so the store checks the value, once, here, against
+  // the SAME builder the surface was handed (sheetAnnos): compared in a different order, every
+  // no-op write looked like a re-arrangement.
+  const before = sheetAnnos(objects, planId, plan)
   if (before.length === annos.length && before.every((a, i) => sameValue(a, annos[i]))) return objects
 
   const byId = new Map(objects.map((o) => [o.id, o]))

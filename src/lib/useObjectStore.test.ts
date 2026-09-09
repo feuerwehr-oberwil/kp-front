@@ -359,3 +359,56 @@ describe('what a sheet draws, and what it hands back', () => {
     expect(result.current.board.modul2.map((a) => a.id)).toEqual(['e1', 's1'])
   })
 })
+
+/* ⚠️ The view a sheet is handed and the «what did it look like a moment ago» the write seam
+ * compares against have to be built by the same code, in the same order. Built separately they
+ * disagreed after any map write (which reorders the store), and every no-op setBoard then read
+ * as a full re-arrangement: a checkpoint per pointer sample, a dirty push per poll, and the
+ * near-inverse conversions writing `rotation: 0` and default sizes onto untouched map objects. */
+describe('a sheet with both kinds on it, after the Karte has been written', () => {
+  const mixed = (): TacticalObject[] => [
+    { id: 'e1', entity: ent('e1', { coord: [mEast(40).lng, ORIGIN.lat] }) },
+    { id: 'n1', sheet: { planId: 'modul2', anno: anno('n1', { x: 0.1, y: 0.1 }) } },
+    { id: 'e2', entity: ent('e2', { coord: [mEast(70).lng, ORIGIN.lat] }) },
+  ]
+
+  it('hands the same list back unchanged — no fold, no checkpoint, no dirty store', () => {
+    const { result } = store(mixed())
+    // a map write: this reorders the store (sheet-anchored records keep their place, map
+    // objects are rebuilt from the document) without touching the sheet at all
+    act(() => result.current.commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === 'e2' ? { ...e, label: 'X' } : e)) })))
+    const before = result.current.objects
+    act(() => result.current.setBoard((b) => ({ ...b })))
+    expect(result.current.objects).toBe(before)   // …not folded
+    expect(result.current.canUndo).toBe(true)     // …and only the map's own commit is on the stack
+    act(() => { result.current.undo() })
+    expect(result.current.canUndo).toBe(false)
+  })
+})
+
+describe('the plan gesture token', () => {
+  /* ⚠️ It latched as a tri-state: after the first plan gesture of a session every later
+   * cross-ownership write — the board sweeps in useTruppActions, a plan ↶, a Gebäude amend —
+   * found it already «done» and laid down no undo step at all. */
+  const two = (): TacticalObject[] => [
+    { id: 'e1', entity: ent('e1', { coord: [mEast(40).lng, ORIGIN.lat] }) },
+    { id: 'e2', entity: ent('e2', { coord: [mEast(70).lng, ORIGIN.lat] }) },
+  ]
+
+  it('a discrete write is still its own step, however many gestures came before', () => {
+    const { result } = store(two())
+    const at = (b: Record<string, { id: string }[]>, id: string) => b.modul2.findIndex((a) => a.id === id)
+    act(() => {
+      result.current.beginSheetStep()
+      result.current.setBoard((b) => ({ ...b, modul2: b.modul2.map((a, i) => (i === at(b, 'e1') ? { ...a, x: 0.25 } : a)) }))
+    })
+    expect(result.current.objects.find((o) => o.id === 'e1')!.sheet?.planId).toBe('modul2')
+    // the finger lifts — a plan step is a pointer gesture, and that is where it ends
+    act(() => { window.dispatchEvent(new Event('pointerup')) })
+    // …and now a write with NO gesture open — a Trupp sweep, a plan ↶, a Gebäude amend
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: b.modul2.map((a, i) => (i === at(b, 'e2') ? { ...a, color: '#f00' } : a)) })))
+    act(() => { result.current.undo() })
+    expect(result.current.doc.entities.find((e) => e.id === 'e2')!.color).toBeUndefined() // that write came back off
+    expect(result.current.objects.find((o) => o.id === 'e1')!.sheet?.planId).toBe('modul2') // …the flip is a step below
+  })
+})
