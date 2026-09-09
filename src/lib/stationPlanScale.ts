@@ -43,6 +43,15 @@ let resolved: StationPlanScales = EMPTY
  *  calibration yet» may be written on top of, «we never found out» may not. See `baseForWrite`. */
 let loaded = false
 
+/** Has a real document landed yet (server or the cache the server once filled)? The same
+ *  distinction `baseForWrite` guards a WRITE with, exposed for readers that are about to DERIVE
+ *  something persistent from a georeference — an empty singleton and «this station has none» are
+ *  worlds apart, and baking map positions out of the first would store a picture built on a
+ *  document nobody has read. */
+export function stationPlanScalesLoaded(): boolean {
+  return loaded
+}
+
 /** Synchronous accessor — {} until load resolves; safe to READ early (callers fall back).
  *  ⚠️ Never a merge base for a write: that is `baseForWrite`, and the difference is a wiped
  *  station document. */

@@ -84,7 +84,7 @@ import {
 } from './lib/georefTwins'
 import { twinName } from './lib/twinGlyph'
 import { GeorefTwinPanel } from './components/GeorefTwinPanel'
-import { georefForPlan, getStationPlanScales } from './lib/stationPlanScale'
+import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded } from './lib/stationPlanScale'
 import { effectiveLayer } from './lib/mapView'
 import { ToolRail } from './components/ToolRail'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
@@ -2025,6 +2025,8 @@ export function IncidentWorkspace({
   // every round (applyWorkspace drops them by design). The bake itself is no-op-safe too (see
   // tacticalObjects · sameValue), so this is a belt beside that brace, not instead of it.
   const bakedFits = useRef<string | null>(null)
+  /** one retry for the station document before the first bake — see the note below */
+  const seedWaited = useRef(false)
   useEffect(() => {
     planFitsRef.current = new Map(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
     const sig = linkedPlans.map(fitSignature).join('|')
@@ -2038,6 +2040,17 @@ export function IncidentWorkspace({
     // reference, and that MOVES every symbol on that sheet — one undo step and one row for the
     // lot, because it was one gesture (tmp/design-unified-objects.md · «Reference change»).
     const seeding = bakedFits.current === null
+    // ⚠️ The seed bake WRITES ground positions into the record, derived from a station document
+    // that is a module singleton — empty until the boot load resolves, and empty again when that
+    // load found nothing anywhere. Baking out of the second would store a picture built on a
+    // reference nobody has read. So the first bake waits for a real answer; the load notifies,
+    // which re-runs this effect. Offline (or after a failed retry) the cache is the honest
+    // answer and the bake proceeds — once, so a dead network cannot spin here.
+    if (seeding && !stationPlanScalesLoaded() && !seedWaited.current) {
+      seedWaited.current = true
+      void loadStationPlanScales()
+      return
+    }
     bakedFits.current = sig
     const moved = rebake({ checkpoint: !seeding })
     if (!seeding && moved) log('map', fillTemplate(appConfig.copy.log.referenceRebaked, { n: moved }), 'layer')

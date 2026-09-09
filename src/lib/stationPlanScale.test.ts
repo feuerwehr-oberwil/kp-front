@@ -167,7 +167,7 @@ describe('a write never builds on a document that never loaded', () => {
 
   it('retries the GET once, and the recovered document is what the georeference merges into', async () => {
     const m = await load()
-    apiGet.mockRejectedValueOnce(new Error('offline'))
+    apiGet.mockRejectedValue(new Error('offline'))
     await m.loadStationPlanScales()
     apiGet.mockResolvedValue(doc({ default: scale(100), byPlan: { p1: scale(50) } }))
     await m.saveGeoref(KEY, georef(2))
@@ -231,5 +231,22 @@ describe('refreshStationPlanScales — a second device picks up the change', () 
     await refreshing
 
     expect(m.getStationPlanScales().default?.mPerU).toBe(42)
+  })
+})
+
+describe('stationPlanScalesLoaded', () => {
+  it('is false until a real document lands, and true once one has — cache included', async () => {
+    const m = await load()
+    expect(m.stationPlanScalesLoaded()).toBe(false) // an empty singleton is not an answer
+    apiGet.mockResolvedValue(doc({}))
+    await m.loadStationPlanScales()
+    expect(m.stationPlanScalesLoaded()).toBe(true)  // …«this station has none» is one
+  })
+
+  it('stays false when the GET failed and no cache answered — «we never found out»', async () => {
+    const m = await load()
+    apiGet.mockRejectedValue(new Error('offline'))
+    await m.loadStationPlanScales()
+    expect(m.stationPlanScalesLoaded()).toBe(false)
   })
 })
