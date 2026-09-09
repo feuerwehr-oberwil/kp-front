@@ -153,9 +153,15 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
       if (!el) return
       const r = el.getBoundingClientRect()
       const bound = clipBounds(el)
+      // The VISUAL viewport, not the layout one: the OS keyboard shrinks only the former, and a
+      // menu measured against `window.innerHeight` kept opening downward INTO the keyboard —
+      // the operator saw a search row and nothing else (Feldtest 08.09., «man sieht nix mehr»).
+      const vv = window.visualViewport
+      const visTop = vv ? vv.offsetTop : 0
+      const visBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
       // below: against the clipping ancestor. above: against the VIEWPORT — see clipBounds.
-      const below = bound.bottom - r.bottom - EDGE
-      const above = r.top - EDGE
+      const below = Math.min(bound.bottom, visBottom) - r.bottom - EDGE
+      const above = r.top - Math.max(0, visTop) - EDGE
       // Flip up when the room below has run out AND the viewport genuinely offers more, with
       // enough of it to be a list. Both anchors leave the trigger uncovered: an up menu ends
       // 4px above `r.top`, a down one starts 4px below `r.bottom` — so a picker whose trigger
@@ -171,7 +177,17 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
     place()
     window.addEventListener('scroll', place, true)
     window.addEventListener('resize', place)
-    return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place) }
+    // the keyboard rising/falling fires only visualViewport events on iOS — without these the
+    // menu is placed once and never learns the screen just lost its bottom 40%
+    const vv = window.visualViewport
+    vv?.addEventListener('resize', place)
+    vv?.addEventListener('scroll', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+      vv?.removeEventListener('resize', place)
+      vv?.removeEventListener('scroll', place)
+    }
   }, [open])
 
   // close on an outside tap — counting BOTH the trigger and the portalled menu as "inside".

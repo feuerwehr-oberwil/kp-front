@@ -8,7 +8,7 @@ import { formatSymbolName, stripUnprintable } from '../lib/format'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { allStoffNames, decodeKemler, lookupUN, lookupUNByName, type UnHazardEntry } from '../lib/unHazard'
-import { ERG_VERSION, lookupErg } from '../lib/erg'
+import { ERG_VERSION, lookupErg, type ErgEntry } from '../lib/erg'
 import { DEFAULT_ERG_RING_MODE, parseErgDistance } from '../lib/ergRings'
 import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { Combo } from './Combo'
@@ -330,10 +330,16 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // something somebody set once (03.09., 08:01 and 08:10).
   // Skipped while the caret is in one of these rows: a re-seed there would clobber live typing,
   // and whoever is typing is about to commit their own record anyway.
+  // ⚠️ «one of these rows» includes the Combo search menu, which is PORTALLED to document.body —
+  // `fieldsRef.contains(activeElement)` alone never saw it, so a sync echo mid-search re-seeded
+  // the rows, remounted the Combo and closed the menu under the operator's thumb (Feldtest
+  // 08.09., «Da verschwindet das Fenster plötzlich»).
   useEffect(() => {
     const stored = JSON.stringify(entity.fields ?? {})
     if (stored === writtenRef.current) return
-    if (fieldsRef.current?.contains(document.activeElement)) return
+    const active = document.activeElement
+    if (fieldsRef.current?.contains(active)) return
+    if (active instanceof Element && active.closest('.combo-menu-portal')) return
     writtenRef.current = stored
     setRows(seedRows(entity.fields))
     // seedRows reads protectedKeys — the symbol's own preset, which cannot change while one panel
@@ -441,6 +447,14 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   const fillFromUN = (rs: Row[]): Row[] => {
     const un = findVal(rs, UN_KEY).trim()
     const stoff = findVal(rs, STOFF_KEY).trim()
+    // «Changed» is measured against the STORED record: whichever of the pair this commit
+    // touched pulls the other one along. Fill-only-if-empty left the plate lying twice over
+    // (Feldtest 08.09.): a new UN-Nr. kept the previous Stoff standing, a newly picked Stoff
+    // kept the previous UN-Nr. — and the readout/rings follow the UN, so the mismatch was live.
+    const storedVal = (key: string) =>
+      (Object.entries(entity.fields ?? {}).find(([k]) => normKey(k) === key)?.[1] ?? '').trim()
+    const unChanged = un !== storedVal(UN_KEY)
+    const stoffChanged = stoff !== storedVal(STOFF_KEY)
     // The swap check runs BEFORE lookupUN(un): lookupUN zero-pads, so a transcribed
     // Kemler like «30» would otherwise resolve to the class-1 UN 0030 (detonators) and
     // mask the far likelier reading of the pair.
@@ -451,14 +465,26 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
         : normKey(r.k) === STOFF_KEY ? { ...r, v: swapHit.name_de ?? '' }
         : r)
     }
+    // The substance was just picked/typed and the UN-Nr. was not: the Stoff wins. Resolve it
+    // (commons first, then the exact official ADR name — never a fuzzy guess) and REPLACE the
+    // standing UN-Nr.; an unresolvable substance clears it, because a UN-Nr. left over from the
+    // previous substance is wrong ERG distances on the map, not a leftover.
+    if (stoff && stoffChanged && !unChanged) {
+      const target = commons.find((c) => c.label.toLowerCase() === stoff.toLowerCase())?.un
+        ?? lookupUNByName(stoff)?.un
+      if ((target ?? '') !== un) return rs.map((r) => (normKey(r.k) === UN_KEY ? { ...r, v: target ?? '' } : r))
+      return rs
+    }
     const hit = lookupUN(un)
     if (hit?.name_de) {
-      return rs.map((r) => (normKey(r.k) === STOFF_KEY && !r.v.trim() ? { ...r, v: hit.name_de! } : r))
+      // A just-changed UN-Nr. replaces the substance name; an untouched one only fills a blank.
+      // Overwriting demands a PROPER 4-digit UN: lookupUN zero-pads, so a Kemler-like «44» would
+      // resolve to 0044 and clobber a Stoff over what is most likely a transcription slip.
+      const write = unChanged && /^\d{4}$/.test(un) ? stoff !== hit.name_de : !stoff
+      return write ? rs.map((r) => (normKey(r.k) === STOFF_KEY ? { ...r, v: hit.name_de! } : r)) : rs
     }
     // The reverse door (Feldtest Manuel, 07.09.): the operator knows the SUBSTANCE. A committed
-    // Stoff with an empty UN-Nr. resolves through the symbol's common list first («Salzsäure» →
-    // 1789), then the exact official ADR name — never a fuzzy guess: a wrong UN would put wrong
-    // ERG distances on the map, and an unresolved Stoff simply stays a labelled hazard.
+    // Stoff with an empty UN-Nr. resolves the same way and fills the UN row.
     if (!un && stoff) {
       const target = commons.find((c) => c.label.toLowerCase() === stoff.toLowerCase())?.un
         ?? lookupUNByName(stoff)?.un
@@ -545,7 +571,16 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
     : []
   const showUnHazard = unValue.length > 0
   const kemler = decodeKemler(unHit?.hazardNumber)
-  const erg = showUnHazard ? lookupErg(unValue) : null
+  // The transcribed ERG yellow pages carry the class-1 explosives without id numbers, so they
+  // compile away (tools/gen_erg.py) and a Gefahrentafel with e.g. UN 0027 showed no guide at all
+  // (Feldtest 08.09., «hier ohne Details»). The printed rule is deterministic — every class 1 is
+  // guide 112, division 1.4 is 114 — so the guide is synthesized from the ADR classification.
+  // Explosives have no Table-1 rows, so no distances are being withheld by this.
+  const ergDirect = showUnHazard ? lookupErg(unValue) : null
+  const erg: ErgEntry | null = ergDirect
+    ?? (showUnHazard && unHit?.class === '1'
+      ? { g: unHit.classificationCode?.startsWith('1.4') ? 114 : 112 }
+      : null)
   const unLookupHref = C.unLookupUrl
     .replace('{un}', encodeURIComponent(unValue))
     .replace('{name}', encodeURIComponent(unHit?.name_de ?? ''))

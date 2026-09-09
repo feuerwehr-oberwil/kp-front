@@ -283,6 +283,17 @@ describe('ContextPanel — Gefahrentafel UN-Nr. autofill', () => {
     expect(onFields).toHaveBeenCalledWith({ 'UN-Nr.': '44', Stoff: '1233' })
   })
 
+  // the other half of the 08.09. pair (see the Stoff → UN-Nr. block below): a CHANGED UN-Nr.
+  // replaces the substance name instead of leaving the previous Stoff standing beside it
+  it('a changed UN-Nr. replaces the stale Stoff', () => {
+    const onFields = vi.fn()
+    setup({ ...tafel({ 'UN-Nr.': '0027', Stoff: 'SCHWARZPULVER, gekörnt oder in Mehlform' }), onFields })
+    const un = screen.getByDisplayValue('0027') as HTMLInputElement
+    fireEvent.change(un, { target: { value: '1203' } })
+    fireEvent.blur(un)
+    expect(onFields).toHaveBeenCalledWith({ 'UN-Nr.': '1203', Stoff: 'BENZIN oder OTTOKRAFTSTOFF' })
+  })
+
   // a symbol saved before the key gained its dot stores 'UN-Nr' — the panel absorbs it into
   // the canonical preset row (no duplicate) and the next commit writes it back renamed
   it('absorbs the legacy dotless UN-Nr key into the preset row', () => {
@@ -328,6 +339,20 @@ describe('ContextPanel — ADR meanings and ERG Übernehmen', () => {
     setup(tafel({ 'UN-Nr.': '1005', Stoff: '' }))
     expect(screen.queryByRole('button', { name: appConfig.copy.contextPanel.ergAdopt })).toBeNull()
   })
+
+  // the transcribed yellow pages drop the class-1 explosives (no id numbers in the source), so
+  // the guide is synthesized from the printed rule: class 1 → 112, division 1.4 → 114
+  // (Feldtest 08.09.: UN 0027 — Schwarzpulver — showed no ERG guide at all)
+  it('synthesizes the ERG guide for class-1 explosives', () => {
+    setup(tafel({ 'UN-Nr.': '0027', Stoff: '' })) // 1.1D
+    expect(screen.getByText(appConfig.copy.contextPanel.ergGuide)).toBeTruthy()
+    expect(screen.getByText('112')).toBeTruthy()
+  })
+
+  it('…and 114 for division 1.4', () => {
+    setup(tafel({ 'UN-Nr.': '0012', Stoff: '' })) // PATRONEN FÜR HANDFEUERWAFFEN, 1.4S
+    expect(screen.getByText('114')).toBeTruthy()
+  })
 })
 
 /* The reverse door (Feldtest Manuel, 07.09.): on the Gas/Chemie hazard symbols the operator
@@ -362,6 +387,28 @@ describe('ContextPanel — Stoff → UN-Nr. (Gas/Chemie substance search)', () =
     const onFields = vi.fn()
     setup({ ...chemie({ Stoff: '', 'UN-Nr.': '' }), onFields })
     openStoff()
+    fireEvent.change(screen.getByPlaceholderText(appConfig.copy.contextPanel.stoffSearch), { target: { value: 'Wundermittel' } })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.combo.useTyped.replace('{name}', 'Wundermittel') }))
+    expect(onFields).toHaveBeenCalledWith({ Stoff: 'Wundermittel', 'UN-Nr.': '' })
+  })
+
+  /* Fill-only-if-empty left the plate lying twice over (Feldtest 08.09.): a new UN-Nr. kept the
+   * previous Stoff standing, a newly picked Stoff kept the previous UN-Nr. — and the readout and
+   * the rings follow the UN, so the mismatch was live on the Karte. Whichever of the pair the
+   * commit touched pulls the other one along. */
+  it('a newly picked Stoff replaces the standing UN-Nr.', () => {
+    const onFields = vi.fn()
+    setup({ ...chemie({ Stoff: 'Salzsäure', 'UN-Nr.': '1789' }), onFields })
+    fireEvent.click(screen.getByRole('button', { name: /Salzsäure/ }))
+    fireEvent.change(screen.getByPlaceholderText(appConfig.copy.contextPanel.stoffSearch), { target: { value: 'Methylamylacetat' } })
+    fireEvent.click(screen.getByRole('button', { name: 'METHYLAMYLACETAT' }))
+    expect(onFields).toHaveBeenCalledWith({ Stoff: 'METHYLAMYLACETAT', 'UN-Nr.': '1233' })
+  })
+
+  it('an unresolvable substance clears the standing UN-Nr. rather than leaving the old one', () => {
+    const onFields = vi.fn()
+    setup({ ...chemie({ Stoff: 'Salzsäure', 'UN-Nr.': '1789' }), onFields })
+    fireEvent.click(screen.getByRole('button', { name: /Salzsäure/ }))
     fireEvent.change(screen.getByPlaceholderText(appConfig.copy.contextPanel.stoffSearch), { target: { value: 'Wundermittel' } })
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.combo.useTyped.replace('{name}', 'Wundermittel') }))
     expect(onFields).toHaveBeenCalledWith({ Stoff: 'Wundermittel', 'UN-Nr.': '' })
