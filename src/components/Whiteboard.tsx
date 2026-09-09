@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
-import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionMode, Drawing, Entity, LineAttachment, LineEndpoint, LineRoutingMode, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
+import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
@@ -11,7 +11,7 @@ import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
 import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
-import { centroid, rotateAround, transformThroughFit, turnedBy } from '../lib/selectionTransform'
+import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
@@ -25,7 +25,7 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { Overlay, Popover } from '../lib/overlays'
-import { isBottomSheet, nudgePointIntoRect, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
+import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
@@ -47,7 +47,7 @@ import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
-import { fmtDistance, fmtArea, hoseLengthHint, pathLengthM, polygonAreaM2 } from '../lib/geo'
+import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
 import { activeViewDeg, buildView, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
@@ -58,11 +58,8 @@ import { fitSimilarity, hasAutoPairs, realPairCount } from '../lib/georef'
 import { georefForPlan, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
 import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
-import { boardDrawingTwins, boardEntityTwins, boardTwins, planGroundWidthM, type BoardTwin } from '../lib/georefTwins'
-import { GeorefTwinsBoard } from './GeorefTwinsBoard'
-import { GeorefContentBoard } from './GeorefContentBoard'
-import { GeorefTwinPanel } from './GeorefTwinPanel'
-import { glyphFor, twinName } from '../lib/twinGlyph'
+import { PlanLiveLayer } from './PlanLiveLayer'
+import type { LiveMark } from '../lib/planProjection'
 import { MAX_SCALE, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
@@ -248,51 +245,14 @@ interface Props {
   planScale?: PlanScales
   /** persist a plan's calibration (null clears it). Rides the workspace blob via App. */
   onCalibrate?: (planId: string, scale: PlanScale | null) => void
-  /** Georeferenz twins — what the Karte lends a georeferenced sheet (lib/georefTwins). Lists are
-   *  already filtered by their Ebenen visibility; projection + clipping happen here against the
-   *  sheet's measured fit, so content never disagrees with the reference crosses beside it. */
-  mapTwins?: { vehicles: Entity[]; symbols: Entity[]; content: Entity[]; drawings: Drawing[] }
-  /** tap on a twin → show its source-backed editor */
-  onTwinJump?: (entity: Entity) => void
-  /** the mirrored Truppmarker's context-bar actions (GeorefContentBoard · teamActions) —
-   *  absent on a locked surface, where the tap falls back to the read-only plaque */
-  twinTeam?: React.ComponentProps<typeof GeorefContentBoard>['teamActions']
-  /** presses that dismiss the board's own twin selections also close the WORKSPACE-level twin
-   *  panels (note/shape plaque) — without this they floated above everything and never closed */
-  onDismissTwinPanels?: () => void
-  /** Move the map-owned source onto this plan, preserving its id and offering one-step undo. */
-  onTwinTransferHere?: (entity: Entity, planId: string, pt: { x: number; y: number }) => void
-  /** Show a plan-owned source at its projected position on the Lage map. */
+  /** The Karte's live feed on this sheet — vehicles and shared responder positions, already
+   *  projected and clipped by the caller (lib/planProjection · liveOverlay). Everything else
+   *  the Karte holds is an OBJECT and arrives in `annos` like the sheet's own work. */
+  live?: LiveMark[]
+  /** Drag a live VEHICLE on this sheet: the same held-in-place override the Karte writes. */
+  onPlanLiveMove?: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** Show a plan-owned object at its projected position on the Lage map. */
   onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
-  /**
-   * A projection of a Karte object was dragged on this sheet — move the SOURCE entity there.
-   *
-   * The coordinate has already been folded back through this sheet's own fit, so the caller
-   * writes an ordinary map move: one source of truth, one undo step, one audit event, and
-   * trace-routed Leitungen follow exactly as they do when the marker is dragged on the Karte.
-   * `phase` mirrors the map's own drag (start ⇒ snapshot for undo, end ⇒ log + emit).
-   */
-  onTwinMove?: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
-  /** Edit the one Karte-owned source through its projection. `live` streams title keystrokes
-   *  inside one undo step; `commit` finalises it or applies an ordinary discrete patch. */
-  onTwinEdit?: (entityId: string, patch: Partial<Entity>, phase?: 'live' | 'commit') => void
-  /** Delete the Karte-owned source through its projection, using the map's normal safeguards. */
-  onTwinDelete?: (entityId: string) => boolean | Promise<boolean>
-  /** Source-backed Karte drawing controls shown through its projection on this sheet. */
-  onTwinDrawingCoords?: (drawingId: string, coords: LngLat[], phase: 'start' | 'move' | 'end') => void
-  onTwinDrawingEdit?: (drawingId: string, patch: Partial<Drawing>, phase?: 'live' | 'commit') => void
-  onTwinDrawingEnding?: (drawingId: string, ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => void
-  onTwinDrawingReverse?: (drawingId: string) => void
-  onTwinDrawingTrupp?: (drawingId: string, truppId: string | undefined) => void
-  onTwinDrawingRouting?: (drawingId: string, endpoint: LineEndpoint, routing: LineRoutingMode) => void
-  onTwinDrawingDetach?: (drawingId: string, endpoint: LineEndpoint) => void
-  onTwinDrawingFocusAttachment?: (drawingId: string, endpoint: LineEndpoint) => void
-  onTwinDrawingDelete?: (drawingId: string) => void
-  /** «zum Original» out of the mirrored drawing's editor — pan the Karte to the one it mirrors */
-  onTwinDrawingFocusOriginal?: (drawingId: string) => void
-  /** the mirrored Karte note/Form whose panel the workspace has open — the selection state has
-   *  to come from there, because that panel is the workspace's, not this surface's */
-  twinSelectedEntityId?: string | null
   /** the Ebenen panel is open (it lives in the app shell; the plan only owns the button) */
   layersOn?: boolean
   /** Ebenen button in the rail footer — omitted ⇒ no button, which is the state of every sheet
@@ -316,7 +276,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, mapTwins, onTwinJump, twinTeam, onDismissTwinPanels, onTwinTransferHere, onPlanProjection, onTwinMove, onTwinEdit, onTwinDelete, onTwinDrawingCoords, onTwinDrawingEdit, onTwinDrawingEnding, onTwinDrawingReverse, onTwinDrawingTrupp, onTwinDrawingRouting, onTwinDrawingDetach, onTwinDrawingFocusAttachment, onTwinDrawingDelete, onTwinDrawingFocusOriginal, twinSelectedEntityId = null, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -378,7 +338,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // …and the mirrored Karte objects the same box caught (D-09), by their twin key
   // (lib/georefTwins · `drawing:<id>` / `content:<id>`). The bar's writers fold each one back
   // through the fit and write the ONE source object on the Karte.
-  const [selTwinIds, setSelTwinIds] = useState<string[]>([])
   const [editId, setEditId] = useState<string | null>(null)
   // which note has its detail panel open. Since 29.08. TAPPING a note opens it (chipDown) —
   // the same grammar as a symbol, unified across Karte and Plan. Still separate from selId:
@@ -394,8 +353,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   )
   // which Georeferenz twin has its source-backed editor open — the Karte's object, mirrored onto
   // this sheet. Its open panel gives the projection the source object's normal selection halo.
-  const [twinView, setTwinView] = useState<BoardTwin | null>(null)
-  const [twinDrawingId, setTwinDrawingId] = useState<string | null>(null)
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
   // The NEXT ink's style — «the last line is the template» (the Lage map's drawColor/…).
@@ -430,9 +387,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // per-team trail visibility (anno ids hidden this session) — the eye on a selected team
   // hides only THAT team's trail; there is no global Spuren toggle anymore
   const [hiddenTrails, setHiddenTrails] = useState<ReadonlySet<string>>(new Set())
-  // the selected mirrored Truppmarker (its context bar shows) — lives HERE beside twinView so
-  // the shared outside-tap dismissal below closes it exactly like every other twin selection
-  const [twinTeamSel, setTwinTeamSel] = useState<string | null>(null)
   const toggleTrail = (id: string) => setHiddenTrails((prev) => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
@@ -590,8 +544,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       if (rotStart) { setRotStart(null); clearRotMagnet() }
       else if (draft) { setDraft(null); draftAttachments.current = {}; lastTap.current = null }
       else if (circleDraft) setCircleDraft(null)
-      // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
-      else if (twinView) setTwinView(null)
       // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
       // behind a scrim while a fit is being judged), so it has no Escape of its own and would
       // otherwise be the ONE panel on this surface that the key cannot dismiss.
@@ -601,7 +553,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [draft, circleDraft, twinView, qualityFor, selId, notePanelId])
+  }, [draft, circleDraft, qualityFor, selId, notePanelId])
 
   // Stable ref callback that focuses a freshly-mounted text/resource input. The focus is
   // DEFERRED past the current placement tap: focusing synchronously on mount gets immediately
@@ -881,7 +833,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // …but arming the mode is a tap-away like any other: a committable node draft is
     // auto-committed (with its undo toast) instead of silently discarded — A6, 29.08.
     releaseRef.current(tool)
-    setSelId(null); setSelIds([]); setSelTwinIds([]); setEditId(null); setPending(null); setPendingShape(null)
+    setSelId(null); setSelIds([]); setEditId(null); setPending(null); setPendingShape(null)
     setPaletteOpen(false); setTruppPick(null)
     resetEphemeral() // the calibration nodes usePlanMeasure owns
     setTool('pan')
@@ -893,83 +845,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // reference crosses drawn beside it — the app shell resolves a plan's aspect from its stored
   // calibration, while this surface has actually measured the bitmap (usePlanMeasure · measureAR).
   //
-  // ⚠️ Separate memos on purpose. Vehicle/person feeds, tactical entities and drawings change on
-  // different clocks; joining them would re-project the whole Lage every time one source moves.
-  // `fit` is a fresh object each render, so deps name its INPUTS instead — the pairs identity and
-  // the aspect it is solved at.
-  const twinVehicles = useMemo(
-    () => (georefFit && mapTwins?.vehicles.length ? boardTwins(mapTwins.vehicles, georefFit, 'vehicle') : []),
-    [mapTwins?.vehicles, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
-  )
-  const twinSymbols = useMemo(
-    () => (georefFit && mapTwins?.symbols.length ? boardTwins(mapTwins.symbols, georefFit, 'symbol') : []),
-    [mapTwins?.symbols, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
-  )
-  const twinContent = useMemo(
-    () => (georefFit && mapTwins?.content.length ? boardEntityTwins(mapTwins.content, georefFit) : []),
-    [mapTwins?.content, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
-  )
-  const twinDrawings = useMemo(
-    () => (georefFit && mapTwins?.drawings.length ? boardDrawingTwins(mapTwins.drawings, georefFit) : []),
-    [mapTwins?.drawings, georefPairs, measureAR], // eslint-disable-line react-hooks/exhaustive-deps
-  )
-  // ⚠️ Joined ONCE, not in the JSX. `GeorefTwinsBoard` is `memo()`d and its own comment promises
-  // it "re-renders only when that list actually moves" — a `[...a, ...b]` literal in the prop is
-  // a fresh array identity every render, so the memo could never bail and every twin re-ran its
-  // glyph/caption work. This board re-renders on every pan frame (`applyView` is state), while
-  // the twins' board-space positions do not move at all during a pan.
-  const twins = useMemo(() => [...twinVehicles, ...twinSymbols], [twinVehicles, twinSymbols])
-  /** Ground width of the fitted sheet in metres — the ONE conversion every metre-scaled map
-   *  geometry needs to become a sheet fraction (a Form's `sizeM`, a Hubretter's `reachM`).
-   *  Same product `georefPlans` records as `GeorefPlan.widthM` on the Karte's side. */
-  const twinPlanWidthM = georefFit ? planGroundWidthM(georefFit, measureAR) : 1
-  /** Where every mirrored Karte object stands on this sheet, in board-normalized points: what a
-   *  lasso boxes it by and what the selection bar takes its centre from. Locked sources stay out,
-   *  exactly as locked natives do. */
-  const twinBoxes = useMemo(() => [
-    ...twins.flatMap((t) => (t.entity.locked ? [] : [{ key: t.key, pts: [t.pt] }])),
-    ...twinContent.flatMap((t) => (t.entity.locked ? [] : [{ key: t.key, pts: [t.pt] }])),
-    ...twinDrawings.flatMap((t) => (t.drawing.locked || !t.anno.pts?.length ? []
-      : [{ key: t.key, pts: t.anno.pts.map(([x, y]) => ({ x, y })) }])),
-  ], [twins, twinContent, twinDrawings])
-  // State keeps the stable selection key; the object itself is re-derived so edits made through
-  // the mirrored panel are reflected immediately instead of leaving that panel on its old snapshot.
-  const viewedTwin = twinView ? twins.find((t) => t.key === twinView.key) ?? twinView : null
-  const viewedTwinDrawing = twinDrawingId
-    ? twinDrawings.find((t) => t.drawing.id === twinDrawingId)?.drawing ?? null
-    : null
-  // …and the handler with it. Empty deps are correct and not a shortcut: every call here is a
-  // `useState` setter, and those identities are stable for the life of the component.
-  /**
-   * Drag a mirrored Karte object on this sheet.
-   *
-   * ⚠️ The write goes to the MAP entity, never to a copy on this board — a twin is a projection,
-   * and a projection that could be moved independently would be a second position for one object.
-   * `georefFit.toMap` is the exact inverse of the projection that drew it, so the mark lands
-   * where it was dropped; what the fit's residual costs is how well that plan point matches the
-   * real ground, which is the same error the twin was already drawn with.
-   *
-   * Gated on `readOnly`: a viewer or a locked surface may open a twin's details and nothing more.
-   */
-  const moveBoardTwin = useCallback((twin: BoardTwin, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => {
-    if (readOnly || !georefFit || !onTwinMove) return
+  /** A live VEHICLE dropped on the paper: folded back through this sheet's own fit and handed to
+   *  the Karte's writer, which turns it into the same held-in-place override the Karte writes.
+   *  `georefFit.toMap` is the exact inverse of the projection that drew the mark, so it lands
+   *  where it was dropped. Gated on `readOnly`: a viewer may look and nothing more. */
+  const moveLiveMark = useCallback((id: string, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => {
+    if (readOnly || !georefFit || !onPlanLiveMove) return
     const c = georefFit.toMap(pt)
-    onTwinMove(twin.entityId, [c.lng, c.lat], phase)
-  }, [readOnly, georefFit, onTwinMove])
-  // …and the mirrored Trupp chips take the same road: the write lands on the one map entity.
-  const moveContentTeam = useCallback((entity: Entity, pt: { x: number; y: number }, phase: 'start' | 'move' | 'end') => {
-    if (readOnly || !georefFit || !onTwinMove) return
-    const c = georefFit.toMap(pt)
-    onTwinMove(entity.id, [c.lng, c.lat], phase)
-  }, [readOnly, georefFit, onTwinMove])
-  const openBoardTwin = useCallback((twin: BoardTwin) => {
-    setSelId(null); setSelIds([]); setSelTwinIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null); setTwinDrawingId(null)
-    setTwinView(twin)
-  }, [])
-  const openTwinDrawing = useCallback((drawing: Drawing) => {
-    setSelId(null); setSelIds([]); setSelTwinIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null); setTwinView(null)
-    setTwinDrawingId(drawing.id)
-  }, [])
+    onPlanLiveMove(id, [c.lng, c.lat], phase)
+  }, [readOnly, georefFit, onPlanLiveMove])
 
   // reset transient state when switching document; seed an aspect from the
   // orientation (image docs refine it on load, blank sheets keep it). Sits BELOW the hook
@@ -977,7 +861,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // ⚠️ The VIEW is no longer reset here: useBoardView restores the plan's remembered zoom/pan
   // (falling back to fit on a first visit), and a reset here would run after it and undo it.
   useEffect(() => {
-    setSelId(null); setSelIds([]); setSelTwinIds([]); setEditId(null); setDraft(null); setPending(null)
+    setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
     resetEphemeral() // the calibrate state usePlanMeasure owns
     if (tool === 'symbol') setTool('pan')
     setAspect(active.orientation === 'portrait' ? 1.414 : 1 / 1.414)
@@ -1034,7 +918,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       ...(src.y != null ? { y: src.y + DUP_OFFSET_N } : {}),
     }
     add(copy)
-    setSelId(id); setSelIds([]); setSelTwinIds([]); setTwinDrawingId(null)
+    setSelId(id); setSelIds([])
     log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
   }
 
@@ -1134,14 +1018,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * list (MapView · twinMagnets) for what that costs: the live surfaces resolve it, print and
    * a far-side delete fall back to the stored point, which resolveLinePoints already does safely.
    */
-  const twinMagnets = georefFit && !georefArmed ? [
-    ...twins.map((t) => ({ id: t.entityId, pt: t.pt, kind: 'symbol' as const, rotation: (t.entity.rotation ?? 0) + t.fit.rotationDeg })),
-    ...twinContent.flatMap((t) => (t.entity.kind === 'team' ? [{ id: t.entityId, pt: t.pt, kind: 'resource' as const, rotation: 0 }] : [])),
-  ] : []
   const objectPoint = (id: string, toward: BoardPoint, _a: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
-    const own = annos.find((a) => a.id === id && isMagnetAnno(a))
-    const twin = own ? null : twinMagnets.find((m) => m.id === id)
-    const target = own ?? (twin ? { kind: twin.kind, x: twin.pt.x, y: twin.pt.y, floor: 0, rotation: twin.rotation } : null)
+    const target = annos.find((a) => a.id === id && isMagnetAnno(a)) ?? null
     if (!target || target.x == null || target.y == null || !sW || !sH) return null
     const floor = target.floor ?? 0
     const box = attachBox(target)
@@ -1174,13 +1052,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: a.rotation }, pointer)
         return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: a.kind === 'resource' ? 'trace' : 'direct' }
       })
-    // …and the mirrored ones, offered exactly like a native standing in the same spot
-    const twinObjects: MagneticTarget[] = twinMagnets.map((m) => {
-      const box = attachBox(m)
-      const center: [number, number] = [m.pt.x * sW + box.dx, m.pt.y * sH]
-      const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: m.rotation }, pointer)
-      return { key: `object:${m.id}`, target: { kind: 'object', id: m.id }, point: edge, defaultRouting: m.kind === 'resource' ? 'trace' : 'direct' }
-    })
     const lines: MagneticTarget[] = renderAnnos
       .filter((a) => a.kind === 'draw' && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
       .flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
@@ -1197,7 +1068,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           return { key: `line:${a.id}:${endpoint}:${port}`, target: { kind: 'line', id: a.id, endpoint }, point, capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, a.id), defaultRouting: 'direct' as const }
         })
       }))
-    return [...objects, ...twinObjects, ...lines]
+    return [...objects, ...lines]
   }
   const planAttachmentFor = (c: MagneticTarget): LineAttachment => ({
     target: c.target, routing: c.defaultRouting ?? 'direct',
@@ -1322,7 +1193,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // «Team 1» is mirrored right here, and a second «Team 1» read as one duplicated Trupp
     const name = trupp ? trupp.name : nextTeamName([
       ...annos.filter((a) => a.kind === 'resource').map((a) => a.text),
-      ...(georefFit ? (mapTwins?.content ?? []).filter((e) => e.kind === 'team').map((e) => e.label) : []),
     ])
     const color = TEAM_COLORS[teams % TEAM_COLORS.length]
     add({ id, kind: 'resource', x, y, floor, text: name, t: formatTime(new Date()), color, trail: [], truppId: trupp?.id })
@@ -1729,7 +1599,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // too big for its bounds to mean anything (lib/panelNudge · panelNudgeSelection). Client px,
     // the same space the nudge's box is built in.
     setAnnoTap({ id, x: e.clientX, y: e.clientY })
-    setSelId(id); setSelIds([]); setSelTwinIds([])
+    setSelId(id); setSelIds([])
     const a = annos.find((x) => x.id === id); if (!a || (a.kind !== 'draw' && a.kind !== 'area')) return
     // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
     // applied to the original geometry — no drift across re-renders (mirrors the group-move math)
@@ -1773,7 +1643,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     setAnnoTap({ id, x: e.clientX, y: e.clientY })
-    setSelId(id); setSelIds([]); setSelTwinIds([])
+    setSelId(id); setSelIds([])
     circleDrag.current = { id, sx: e.clientX, sy: e.clientY, x0: a.x ?? 0, by0: mapY(a.floor, a.y ?? 0), floor: a.floor ?? 0, moved: false }
   }
   const circleMove = (e: React.PointerEvent) => {
@@ -2041,7 +1911,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // view-only (viewer / replay / EL view): a tap still SELECTS — so the read-only
       // detail panel can open, parity with the Lage map — but never arms a drag
       e.stopPropagation()
-      setSelId(id); setSelIds([]); setSelTwinIds([])
+      setSelId(id); setSelIds([])
       if (isNote) setNotePanelId(id)
       return
     }
@@ -2053,7 +1923,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY }
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     }
-    setSelId(id); setSelIds([]); setSelTwinIds([])
+    setSelId(id); setSelIds([])
     if (isNote && editId !== id) setNotePanelId(id)
   }
   const chipMove = (e: React.PointerEvent) => {
@@ -2113,7 +1983,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
   const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp } = useBoardGestures({
-    tool, annos, setSelId, setSelIds, twinBoxes, setSelTwinIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
+    tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
   // --- drag-to-rotate a selected directional symbol (rotor handle) ---
@@ -2514,21 +2384,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId, notePanelId])
 
-  // A map-owned twin's editor occupies the same .ctx space as a real annotation. Keep the
-  // projected glyph itself inside the padded work area when it opens.
-  useEffect(() => {
-    if (!viewedTwin) return
-    const raf = requestAnimationFrame(() => {
-      const rect = boardRef.current?.getBoundingClientRect()
-      const canvas = canvasRef.current?.getBoundingClientRect()
-      const panelEl = document.querySelector('.ctx')
-      if (!rect?.width || !canvas || !panelEl) return
-      const point = { x: rect.left + viewedTwin.pt.x * rect.width, y: rect.top + viewedTwin.pt.y * rect.height }
-      const nudge = nudgePointIntoRect(point, planWorkRect(canvas, panelEl))
-      if (nudge) applyView(scaleRef.current, { x: posRef.current.x - nudge[0], y: posRef.current.y - nudge[1] })
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [viewedTwin?.key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // report the current view centre (tile-local x/y + floor) upward so the journal
   // composer can pin an entry to "here" on the plan. Cheap — just a ref write.
@@ -2554,10 +2409,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     setTool('pan')
     if (focus.annoId && focus.flash) setFlashId(focus.annoId)
     else if (focus.annoId) setSelId(focus.annoId)
-    if (focus.twinEntityId) {
-      const twin = [...twinVehicles, ...twinSymbols].find((t) => t.entityId === focus.twinEntityId)
-      if (twin) setTwinView(twin)
-    }
+    // ⚠️ No twin branch any more: a Karte object shown on this sheet IS an anno with the same
+    // id, so «zeigen» finds it through `focus.annoId` like anything else the sheet draws.
     // Selection mounts its panel as state settles. Measure on the next frame so an explicit
     // “show” centres in the space that remains visible, not under the newly opened panel.
     requestAnimationFrame(() => centerOnPoint(focus.x, focus.y, focus.floor))
@@ -2579,11 +2432,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * selected object belongs to. 06-contextpanel.css gives the pair separate horizontal slots.
    *
    * A phone cannot fit two bottom sheets. There the old one-slot rule remains: Ebenen temporarily
-   * hides the detail panel without dropping `selId` / `twinView`, so closing it restores the same
+   * hides the detail panel without dropping `selId`, so closing it restores the same
    * selected object and halo. `tool === 'pan'` remains the long-standing selection-only gate.
    */
   const detailPanelVisible = !layersOn || !isPhone
-  const editorSlotFree = !twinView && !twinDrawingId && detailPanelVisible && tool === 'pan'
+  const editorSlotFree = detailPanelVisible && tool === 'pan'
   // a selected plan symbol gets the SAME editor as the map (label / fields / notes /
   // count / rotation) — floor is omitted because on the plan it's the tile, not a badge
   const selSymbol = annos.find((a) => a.id === selId && a.kind === 'symbol')
@@ -2599,10 +2452,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   useEffect(() => { if (tool !== 'pan') setNotePanelId(null) }, [tool])
   // the «just placed» mark lives exactly as long as that panel does
   useEffect(() => { if (notePlacedId && notePanelId !== notePlacedId) setNotePlacedId(null) }, [notePanelId, notePlacedId])
-  // …and the same for a Zwilling's details, plus one more reason: the twin is a projection of
-  // ANOTHER sheet's fit, so switching plan or arming the pairing mode makes the panel describe
-  // something that is no longer on screen.
-  useEffect(() => { setTwinView(null); setTwinDrawingId(null) }, [tool, activeId, georefArmed])
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
   // ⚠️ 'circle' rides along: an Absperrkreis is styled, locked, measured and deleted through the
   // same DrawEditor as a Linie/Fläche (the Karte does exactly this — MapView · editDraw). It is
@@ -2650,18 +2499,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     : editDraw ? [editDraw.id]
     : selShape && !readOnly ? [selShape.id]
     : []
-  /**
-   * The MIRRORED members of the same selection (D-13/D-09). A single mirrored Linie/Fläche/
-   * Absperrkreis or Form gets the bar for the same reason its native does; a mirrored symbol,
-   * Notiz or Truppmarker keeps its original's grammar instead (its own drag, its panel's
-   * stepper), so the bar never appears where the surface has never had one.
-   */
-  const barTwinKeys: string[] = selIds.length > 1 || selTwinIds.length > 1 ? selTwinIds
-    : twinDrawingId ? [`drawing:${twinDrawingId}`]
-    : twinSelectedEntityId && twinContent.some((t) => t.entityId === twinSelectedEntityId && t.entity.kind === 'shape') ? [`content:${twinSelectedEntityId}`]
-    : selTwinIds
-  const barActive = (barIds.length > 0 || barTwinKeys.length > 0)
-    && (selIds.length > 1 || selTwinIds.length > 1 ? tool === 'pan' || tool === 'lasso' : tool === 'pan')
+  const barActive = barIds.length > 0
+    && (selIds.length > 1 ? tool === 'pan' || tool === 'lasso' : tool === 'pan')
     && !readOnly && !georefArmed
   /** The selection's centre in board-normalized space — the shared resolver (lib/selectionTransform),
    *  and the reason a line, a Fläche and an Absperrkreis have one at all: rotDown reads the
@@ -2675,48 +2514,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         if (a.pts?.length) return a.pts.map(([x, y, floor]) => [x, mapY(floor ?? a.floor, y)])
         return [[a.x ?? 0, mapY(a.floor, a.y ?? 0)]]
       }),
-      ...twinBoxes.flatMap((t): [number, number][] => (barTwinKeys.includes(t.key) ? t.pts.map(({ x, y }) => [x, y]) : [])),
     ])
     return c ? { x: c[0], y: c[1] } : null
   })()
-  /** Every mirrored member's ORIGINAL geometry, in the KARTE's own coordinates — the frame the
-   *  one source object is actually written in. Snapshotted at gesture start for the same reason
-   *  the native members are: a delta applied to live geometry compounds across re-renders. */
-  const twinOrig = useRef<{ drawings: { id: string; coords: LngLat[] }[]; ents: { id: string; coord: LngLat; rotation?: number; rotation2?: number }[]; centre: { x: number; y: number } | null }>({ drawings: [], ents: [], centre: null })
-  const barTwinSnapshot = () => {
-    twinOrig.current = {
-      drawings: twinDrawings.filter((t) => barTwinKeys.includes(t.key)).map((t) => ({ id: t.drawing.id, coords: t.drawing.coords })),
-      ents: [...twins, ...twinContent].filter((t) => barTwinKeys.includes(t.key))
-        .map((t) => ({ id: t.entityId, coord: t.entity.coord, rotation: t.entity.rotation, rotation2: t.entity.rotation2 })),
-      centre: barCentre,
-    }
-  }
-  /** One frame of the gesture, for the mirrored members. The turn happens in BOARD space about
-   *  the projected centre — that is what the finger sees — and each moved point is folded back
-   *  through the fit, so the write lands on the Karte in its own frame. */
-  const barTwinApply = (t: { ndx: number; ndy: number; deg: number }, phase: 'start' | 'move' | 'end') => {
-    const fit = georefFit
-    if (!fit) return
-    const { drawings: ds, ents, centre } = twinOrig.current
-    // x and y are fractions of DIFFERENT edges, so a turn has to happen in px proportions
-    const xScale = (sW || 1) / (sH || 1)
-    const moved = (c: LngLat): LngLat => transformThroughFit(
-      c as [number, number],
-      ([lng, lat]) => { const q = fit.toPlan({ lng, lat }); return [q.x, q.y] },
-      ([x, y]) => { const m = fit.toMap({ x, y }); return [m.lng, m.lat] },
-      { dx: t.ndx, dy: t.ndy, deg: t.deg }, centre ? [centre.x, centre.y] : null, { xScale },
-    ) as LngLat
-    ds.forEach((d) => onTwinDrawingCoords?.(d.id, d.coords.map(moved), phase))
-    ents.forEach((e) => {
-      onTwinMove?.(e.id, moved(e.coord), phase)
-      // a map symbol's bearing is geographic and the twin's board angle is `rotation +
-      // fit.rotationDeg`, so a clockwise turn here is the same turn there
-      if (t.deg && phase !== 'start') onTwinEdit?.(e.id, {
-        ...(e.rotation !== undefined ? { rotation: turnedBy(e.rotation, t.deg) } : null),
-        ...(e.rotation2 !== undefined ? { rotation2: turnedBy(e.rotation2, t.deg) } : null),
-      }, phase === 'end' ? 'commit' : 'live')
-    })
-  }
   /** snapshot every member's ORIGINAL board-space geometry, so each frame's delta is applied to
    *  the start position and never compounds across re-renders */
   const barSnapshot = () => {
@@ -2755,11 +2555,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     .forEach((a) => emit('board.move', { id: a.id, x: a.x, y: a.y, floor: a.floor, planId: activeId }))
   const barMove = (dx: number, dy: number, phase: 'start' | 'move' | 'end') => {
     if (readOnly) return
-    if (phase === 'start') { barSnapshot(); barTwinSnapshot(); beginSheetPeek(); return }
+    if (phase === 'start') { barSnapshot(); beginSheetPeek(); return }
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
     const t = { ndx: dx / rect.width, ndy: dy / rect.height, deg: 0 }
     barApply(t, barCentre)
-    barTwinApply(t, phase)
     if (phase === 'end') { endSheetPeek(); barCommit() }
   }
   const barRotate = (deg: number, phase: 'start' | 'move' | 'end') => {
@@ -2768,9 +2567,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (phase === 'end') setBarTurn(null)
     else if (phase === 'start') { const c = barCentreClient(); setBarTurn(c ? { cx: c.x, cy: c.y, deg: 0 } : null) }
     else setBarTurn((t) => (t ? { ...t, deg } : t))
-    if (phase === 'start') { barRotCentre.current = barCentre; barSnapshot(); barTwinSnapshot(); return }
+    if (phase === 'start') { barRotCentre.current = barCentre; barSnapshot(); return }
     barApply({ ndx: 0, ndy: 0, deg }, barRotCentre.current)
-    barTwinApply({ ndx: 0, ndy: 0, deg }, phase)
     if (phase === 'end') { barCommit(); barRotCentre.current = null }
   }
   /** Remove whatever the bar is pointed at — a Mehrfach group, a single Linie/Fläche/
@@ -2780,10 +2578,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    *  object's own editor sheet runs. The bar's third slot is «Fertig». */
   const deleteSelection = () => {
     if (readOnly) return
-    // D-06/D-13: the mirror's Löschen lives here too, writing the ONE Karte object
-    twinDrawings.filter((t) => barTwinKeys.includes(t.key)).forEach((t) => onTwinDrawingDelete?.(t.drawing.id))
-    ;[...twins, ...twinContent].filter((t) => barTwinKeys.includes(t.key)).forEach((t) => { void onTwinDelete?.(t.entityId) })
-    if (barTwinKeys.length) { setSelTwinIds([]); setTwinDrawingId(null); onDismissTwinPanels?.() }
     if (selIds.length > 1) { void deleteGroup(); return }
     const a = annos.find((x) => barIds.includes(x.id))
     if (a) void removeWithConnections(a)
@@ -2792,16 +2586,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    *  open for this selection closed. The bar carries no Löschen any more: an object is deleted
    *  from its own editor sheet and with the Delete key, which reaches natives and mirrors alike. */
   const barDone = () => {
-    setSelId(null); setSelIds([]); setSelTwinIds([]); setTwinDrawingId(null); setTwinView(null)
-    setTwinTeamSel(null); setNotePanelId(null); setEditId(null); setAnnoTap(null)
-    onDismissTwinPanels?.()
+    setSelId(null); setSelIds([]); setNotePanelId(null); setEditId(null); setAnnoTap(null)
   }
   /** ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a centre and a
    *  radius — the native's and the mirror's alike. */
-  const barCanRotate = selIds.length > 1 || selTwinIds.length > 1
-    || (barTwinKeys.length === 1
-      ? !twinDrawings.some((t) => t.key === barTwinKeys[0] && t.drawing.kind === 'circle')
-      : editDraw?.kind !== 'circle')
+  const barCanRotate = selIds.length > 1 || editDraw?.kind !== 'circle'
   /** ✥ / ⟳ tapped instead of dragged: the same two writers, taken on the sheet itself. Capturing
    *  on `.wb-canvas` is also this surface's pan guard — the press never reaches `stageDown`, so
    *  no pan, no marquee and no placement can start under an armed drag (lib/useArmedTransform). */
@@ -2818,7 +2607,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     onRotate: barCanRotate ? barRotate : undefined,
     // a different selection is a different thing to move, and an armed tool is a different
     // answer to the same press: neither carries the mode over
-    resetKey: `${tool}|${barIds.join(',')}|${barTwinKeys.join(',')}`,
+    resetKey: `${tool}|${barIds.join(',')}`,
   })
 
   /**
@@ -2840,14 +2629,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const el = e.target instanceof HTMLElement ? e.target : null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (readOnly) return
-      if (barIds.length || barTwinKeys.length) { e.preventDefault(); deleteSelection(); return }
+      if (barIds.length) { e.preventDefault(); deleteSelection(); return }
       const a = annos.find((x) => x.id === selId)
       if (a) { e.preventDefault(); void removeWithConnections(a) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // `annos` is a dep so the delete closes over the live document, as on the Karte
-  }, [annos, selId, selIds, barIds, barTwinKeys, readOnly]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [annos, selId, selIds, barIds, readOnly]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * «Richtung umkehren» on the plan — the twin of the Lage's useMapDrawing · reverseDrawing, built
@@ -3125,12 +2914,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // element and would dismiss the twin panel of the object the drag is about to move.
           onPointerDownCapture={(e) => {
             if (arm.armed && !(e.target as HTMLElement | null)?.closest?.('[data-arm-exempt]')) return
-            if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setTwinView(null); setTwinTeamSel(null); onDismissTwinPanels?.() }
+            if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setNotePanelId(null) }
             trackDown(e)
           }}
           onPointerUpCapture={trackUp}
           onPointerCancelCapture={trackUp}
-          onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setTwinView(null); setTwinTeamSel(null); onDismissTwinPanels?.() } stageDown(e) }}
+          onPointerDown={(e) => { if (!(e.target as HTMLElement | null)?.closest?.('[data-twin]')) { setNotePanelId(null) } stageDown(e) }}
           onPointerMove={stageMove}
           onPointerUp={stageUp}
           onPointerCancel={stageUp}
@@ -3848,51 +3637,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {canGeoref && (georefArmed || georefQuality) && (
               <GeorefBoardLayer pairs={georefPairs} mode={georef} armed={georefArmed} sW={sW} sH={sH} view={georefView} />
             )}
-            {!georefArmed && georefFit && (twinContent.length > 0 || twinDrawings.length > 0) && (
-              <GeorefContentBoard entities={twinContent} drawings={twinDrawings} fit={georefFit}
-                planWidthM={twinPlanWidthM} sW={sW} sH={sH} byName={sym.byName}
-                trupps={trupps} truppSeverities={truppSeverities}
-                interactive={tool === 'pan'} onOpenTeam={onTwinJump}
-                onMoveTeam={readOnly ? undefined : moveContentTeam}
-                selectedDrawingId={twinDrawingId} onOpenDrawing={openTwinDrawing}
-                selectedEntityId={twinSelectedEntityId} selectedKeys={selTwinIds}
-                onDrawingCoords={readOnly ? undefined : onTwinDrawingCoords}
-                onDrawingRadius={readOnly || !onTwinDrawingEdit ? undefined : (id, radiusM, phase) =>
-                  onTwinDrawingEdit(id, { radiusM }, phase === 'move' ? 'live' : 'commit')}
-                onDrawingDetach={readOnly ? undefined : onTwinDrawingDetach}
-                // unlocking hands editing back and selects, the same pair of steps the sheet's
-                // own lock chip makes — both write the ONE Karte object
-                onUnlockDrawing={readOnly || !onTwinDrawingEdit ? undefined : (id) => { onTwinDrawingEdit(id, { locked: undefined }); setTwinDrawingId(id) }}
-                onUnlockEntity={readOnly || !onTwinEdit ? undefined : (id) => onTwinEdit(id, { locked: undefined })}
-                selectedTeamId={twinTeamSel} onSelectTeam={setTwinTeamSel}
-                teamActions={readOnly ? undefined : twinTeam}
-                hiddenTrails={hiddenTrails} onToggleTrail={toggleTrail} />
-            )}
-            {/* …and the Karte's own objects, mirrored ONTO this sheet. In the board so they pan
-                and zoom with it, and clipped to the sheet (lib/georefTwins · onSheet) so a
-                vehicle two kilometres away is simply absent rather than smeared along the edge.
-                Not while the pairing mode is armed: the sheet then belongs to the mode, and a
-                twin under the aim would be one more thing to mis-tap. */}
-            {!georefArmed && onTwinJump && (twinVehicles.length > 0 || twinSymbols.length > 0) && (
-              <GeorefTwinsBoard
-                twins={twins}
+            {!georefArmed && live.length > 0 && (
+              <PlanLiveLayer
+                marks={live}
                 byName={sym.byName}
                 sW={sW}
                 sH={sH}
-                // the sheet's own symbol size (symBase): a twin renders exactly like a symbol
-                // somebody placed on this sheet — presentation-equivalent, doctrine 30.08.
+                // the sheet's own symbol size (symBase): the live feed renders exactly like a
+                // symbol somebody placed here — presentation-equivalent, doctrine 30.08.
                 sizePx={symBase}
-                planWidthM={twinPlanWidthM}
                 captionMode={captionMode}
-                sourceSuppressedCaptions={mapSuppressedCaptions}
-                interactive={tool === 'pan'}
-                selectedKey={twinView?.key}
-                selectedKeys={selTwinIds}
-                networkIds={relationship.objectIds}
-                onOpen={openBoardTwin}
-                // undefined (not a no-op) on a locked surface, so the mark shows no grab
-                // cursor and no drag affordance it would refuse to honour
-                onMove={readOnly ? undefined : moveBoardTwin}
+                suppressedCaptions={mapSuppressedCaptions}
+                // undefined (not a no-op) on a locked surface, so the mark shows no grab cursor
+                // and no drag affordance it would refuse to honour
+                onMove={readOnly || tool !== 'pan' ? undefined : moveLiveMark}
               />
             )}
             {/* add a storey above (OG) / below (UG) — attached to the stack itself, just above
@@ -4195,109 +3953,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onNotePlain={(p) => { patchCommit(selNote.id, { notePlain: p || undefined }); setNoteDefaults((d) => ({ ...d, plain: p })) }}
           onColor={(c) => { patchCommit(selNote.id, { color: c || undefined }); setNoteDefaults((d) => ({ ...d, color: c })) }}
           onDelete={() => { setNotePanelId(null); void removeWithConnections(selNote) }}
-        />
-      )}
-
-      {/* A Karte-owned source edited through its projection. The subtitle keeps ownership clear;
-          every mutation below is routed upward to the one map entity. */}
-      {detailPanelVisible && viewedTwin && onTwinJump && (
-        <GeorefTwinPanel
-          entity={viewedTwin.entity}
-          svg={viewedTwin.kind === 'vehicle' || viewedTwin.entity.symbol === appConfig.symbols.vehicleName
-            ? vehicleSymbolSvg(twinName(viewedTwin.entity), viewedTwin.entity.rotation ?? 0, viewedTwin.entity.directed ?? true)
-            : glyphFor(viewedTwin.entity, sym.byName)}
-          subtitle={appConfig.copy.whiteboard.georef.twinPanelFromMap}
-          readOnly={readOnly || viewedTwin.entity.live || !onTwinEdit}
-          onClose={() => setTwinView(null)}
-          onCenter={() => centerOnPoint(viewedTwin.pt.x, viewedTwin.pt.y, 0)}
-          onOriginal={() => { const e = viewedTwin.entity; setTwinView(null); onTwinJump(e) }}
-          originalLabel={appConfig.copy.contextPanel.showOnMap}
-          onTransferHere={!readOnly && onTwinTransferHere && viewedTwin.kind === 'symbol' && !viewedTwin.entity.live
-            ? () => { const t = viewedTwin; setTwinView(null); onTwinTransferHere(t.entity, activeId, t.pt) }
-            : undefined}
-          onTitleLive={(v) => onTwinEdit?.(viewedTwin.entityId, { label: v }, 'live')}
-          onTitle={(v) => onTwinEdit?.(viewedTwin.entityId, { label: v }, 'commit')}
-          onFields={(fields) => onTwinEdit?.(viewedTwin.entityId, { fields })}
-          onNotes={(v) => onTwinEdit?.(viewedTwin.entityId, { notes: v || undefined })}
-          onFloor={(f) => onTwinEdit?.(viewedTwin.entityId, { floor: f ?? undefined })}
-          onFloorFrom={(f) => onTwinEdit?.(viewedTwin.entityId, { floorFrom: f ?? undefined })}
-          onFloorTo={(f) => onTwinEdit?.(viewedTwin.entityId, { floorTo: f ?? undefined })}
-          onSpread={(spread) => onTwinEdit?.(viewedTwin.entityId, { spread: spread ?? undefined })}
-          onCount={(count) => onTwinEdit?.(viewedTwin.entityId, { count: count && count > 1 ? count : undefined })}
-          onRotate={(rotation) => onTwinEdit?.(viewedTwin.entityId, { rotation: rotation ?? undefined })}
-          onRotate2={(rotation2) => onTwinEdit?.(viewedTwin.entityId, { rotation2: rotation2 ?? undefined })}
-          onCaption={(caption) => onTwinEdit?.(viewedTwin.entityId, { caption })}
-          captionDefault={captionMode}
-          onAirflow={(extract) => onTwinEdit?.(viewedTwin.entityId, { extract: extract || undefined })}
-          controls={symbolControls(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat)}
-          titleOptions={symbolTitleOptions(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat)}
-          fieldOptions={symbolFieldOptions(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat, rosterNames)}
-          rosterRank={rosterRank}
-          personStatus={personStatus}
-          fieldHints={fieldHints?.(viewedTwin.entity.symbol, viewedTwin.entity.label, viewedTwin.entity.fields)}
-          protectedKeys={new Set(symbolPresetFieldKeys(viewedTwin.entity.symbol, sym.symbols.find((x) => x.name === viewedTwin.entity.symbol)?.cat))}
-          onDelete={() => { void Promise.resolve(onTwinDelete?.(viewedTwin.entityId) ?? false).then((deleted) => { if (deleted) setTwinView(null) }) }}
-        />
-      )}
-
-      {/* A Karte-owned line/area edited through its projection. The standard DrawEditor writes
-          every field and gesture back to the one map drawing; the sheet never creates a copy. */}
-      {detailPanelVisible && viewedTwinDrawing && (
-        <DrawEditor
-          key={viewedTwinDrawing.id}
-          readOnly={readOnly || !onTwinDrawingEdit}
-          drawing={viewedTwinDrawing}
-          pointCount={viewedTwinDrawing.coords.length}
-          supportsDistance
-          lengthM={viewedTwinDrawing.coords.length >= 2 ? pathLengthM(viewedTwinDrawing.coords) : null}
-          areaM2={viewedTwinDrawing.kind === 'circle' ? Math.PI * (viewedTwinDrawing.radiusM ?? 0) ** 2
-            : viewedTwinDrawing.kind === 'area' && viewedTwinDrawing.coords.length >= 3 ? polygonAreaM2(viewedTwinDrawing.coords) : null}
-          perimeterM={viewedTwinDrawing.kind === 'circle' ? 2 * Math.PI * (viewedTwinDrawing.radiusM ?? 0)
-            : viewedTwinDrawing.kind === 'area' && viewedTwinDrawing.coords.length >= 3
-              ? pathLengthM([...viewedTwinDrawing.coords, viewedTwinDrawing.coords[0]]) : null}
-          profileCoords={viewedTwinDrawing.coords}
-          onColor={(color) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { color })}
-          onWidth={(width) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { width })}
-          onDashed={(dashed) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { dashed })}
-          onLabel={(label) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { label }, 'live')}
-          onLabelCommit={(label) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { label }, 'commit')}
-          onMarker={(marker) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { marker })}
-          onArrow={(arrow) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { arrow })}
-          onEnding={(ending) => onTwinDrawingEnding?.(viewedTwinDrawing.id, ending)}
-          onReverse={onTwinDrawingReverse ? () => onTwinDrawingReverse(viewedTwinDrawing.id) : undefined}
-          onContent={(content) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { content })}
-          onLineNo={(lineNo) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { lineNo })}
-          onFloorTag={(floorTag) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { floorTag })}
-          onTrupp={onTwinDrawingTrupp ? (truppId) => onTwinDrawingTrupp(viewedTwinDrawing.id, truppId) : undefined}
-          trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
-          usedLineNos={(mapTwins?.drawings ?? []).filter((d) => d.kind === 'line' && d.id !== viewedTwinDrawing.id && d.lineNo != null).map((d) => d.lineNo!)}
-          truppOnLine={truppForLine(viewedTwinDrawing, trupps)?.name}
-          truppOnLineOut={truppIsOut(truppForLine(viewedTwinDrawing, trupps))}
-          onShowTrupp={onShowTrupp && truppForLine(viewedTwinDrawing, trupps) ? () => onShowTrupp(truppForLine(viewedTwinDrawing, trupps)!.id) : undefined}
-          onShowDistance={(showDistance) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { showDistance })}
-          onRadius={(radiusM) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { radiusM })}
-          onFillOpacity={(fillOpacity) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { fillOpacity })}
-          onHatch={(hatch, fillOpacity) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { hatch: hatch || undefined, fillOpacity })}
-          locked={!!viewedTwinDrawing.locked}
-          onToggleLock={readOnly ? undefined : () => {
-            onTwinDrawingEdit?.(viewedTwinDrawing.id, { locked: viewedTwinDrawing.locked ? undefined : true })
-            if (!viewedTwinDrawing.locked) setTwinDrawingId(null)
-          }}
-          attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
-            const a = endpoint === 'start' ? viewedTwinDrawing.startAttachment : viewedTwinDrawing.endAttachment
-            if (!a) return []
-            const targetDrawing = (mapTwins?.drawings ?? []).find((d) => d.id === a.target.id)
-            const targetEntity = [...(mapTwins?.vehicles ?? []), ...(mapTwins?.symbols ?? []), ...(mapTwins?.content ?? [])].find((e) => e.id === a.target.id)
-            return [[endpoint, a.target.kind === 'object' ? targetEntity?.label ?? a.target.id : targetDrawing ? lineLabel(targetDrawing) : appConfig.copy.drawingEditor.line]]
-          }))}
-          onRouting={onTwinDrawingRouting ? (endpoint, routing) => onTwinDrawingRouting(viewedTwinDrawing.id, endpoint, routing) : undefined}
-          onDetach={onTwinDrawingDetach ? (endpoint) => onTwinDrawingDetach(viewedTwinDrawing.id, endpoint) : undefined}
-          onFocusAttachment={onTwinDrawingFocusAttachment ? (endpoint) => onTwinDrawingFocusAttachment(viewedTwinDrawing.id, endpoint) : undefined}
-          onDelete={() => { onTwinDrawingDelete?.(viewedTwinDrawing.id); setTwinDrawingId(null) }}
-          // this editor is the SHEET's own, so nothing in it says which document the object
-          // lives in — one quiet line does, and it is also the way there (components/TwinOrigin)
-          onOriginal={onTwinDrawingFocusOriginal ? () => { setTwinDrawingId(null); onTwinDrawingFocusOriginal(viewedTwinDrawing.id) } : undefined}
-          onClose={() => setTwinDrawingId(null)}
         />
       )}
 

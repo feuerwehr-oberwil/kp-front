@@ -1083,7 +1083,6 @@ export const de = {
     placardDocked: '{name} angedockt an «{host}»',
     placardUndocked: '{name} von «{host}» gelöst',
     // ein Zwilling wechselt die Fläche: das Objekt ist danach wirklich dort und nicht mehr hier
-    twinTransferredToPlan: '{name} auf den Plan übertragen',
     /** Die Passung eines Plans wurde korrigiert: alles, was auf diesem Blatt gezeichnet ist,
      *  steht damit an einem anderen Ort auf der Karte. Eine Zeile, nicht n Zeilen. */
     referenceRebaked: 'Referenz angepasst – {n} Objekte neu verortet',
@@ -2411,19 +2410,14 @@ export const de = {
       // drin, damit «welches Blatt spiegelt hier?» keine Rückfrage ist.
       layerGroupPlans: 'Pläne',
       layerPlanImage: 'Plan ({plan})',
-      layerGroupMap: 'Karte',
-      layerMapVehicles: 'Karte – Fahrzeuge',
-      layerMapSymbols: 'Karte – Markierungen',
       twinFromMap: '{name} – gespiegelt von der Karte. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
       // Untertitel im Detailfenster eines Zwillings: sagt, warum hier nichts eingebbar ist
-      twinPanelFromMap: 'Gespiegelt von der Karte',
       // Ein Zwilling ohne Namen: das Wort steht im Etikett, damit die Plakette nie leer bleibt.
       twinUnnamed: 'Symbol',
       // Die Herkunft im geteilten Editor: Farbe, Breite, Löschen sind hier dieselben wie bei
       // einem eigenen Objekt – nur EINE Sache ist anders, und die steht als Weg dahin, nicht als
       // Warnung. (Die Zwillings-Plakette sagt es im Untertitel; die beiden Flächen-Editoren
       // hatten dafür bis 01.09. gar keine Stelle.)
-      twinOrigin: 'Gespiegelt – zum Original',
     },
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
@@ -2588,8 +2582,6 @@ export const de = {
     toProjection: 'Auf verknüpfter Fläche zeigen',
     showOnMap: 'Auf Karte zeigen',
     showOnPlan: 'Auf {plan} zeigen',
-    transferHere: 'Hierher übertragen',
-    transferredHere: '{name} hierher übertragen',
     resetGps: 'GPS',
     resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
     // The Kroki is printed hours later. A Fahrzeug that has since driven home takes its symbol

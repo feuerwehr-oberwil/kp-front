@@ -26,7 +26,7 @@ const anno = (id: string, over: Partial<BoardAnno> = {}): BoardAnno =>
   ({ id, kind: 'symbol', x: 0.5, y: 0.5, ...over })
 
 const store = (init: TacticalObject[] = [], fits: ReadonlyMap<string, PlanFit> = FITS, readOnly = false) =>
-  renderHook(() => useObjectStore(init, readOnly, { getFits: () => fits, defaultLayer: 'taktisch' }))
+  renderHook(() => useObjectStore(init, readOnly, { getFits: () => fits, defaultLayer: 'taktisch', fitsVersion: 0 }))
 
 describe('useObjectStore — one collection, two documents', () => {
   it('a map commit lands in the store and shows up in the doc view', () => {
@@ -55,12 +55,13 @@ describe('useObjectStore — one collection, two documents', () => {
     const { result } = store()
     act(() => {
       result.current.commit((d) => ({ ...d, entities: [...d.entities, ent('e1')] }))
-      result.current.setBoard((b) => ({ ...b, modul2: [anno('s1')] }))
+      result.current.setBoard((b) => ({ ...b, modul2: [...(b.modul2 ?? []), anno('s1')] }))
       result.current.commit((d) => ({ ...d, entities: [...d.entities, ent('e2')] }))
     })
     // e1, e2 are the Karte's own; s1 arrives last as the baked body of the sheet object
     expect(result.current.doc.entities.map((e) => e.id)).toEqual(['e1', 'e2', 's1'])
-    expect(result.current.board.modul2).toHaveLength(1)
+    // …and the sheet draws its own anno plus whatever of the Karte lands on it
+    expect(result.current.board.modul2.map((a) => a.id)).toEqual(['e1', 'e2', 's1'])
   })
 
   it('an updater that returns what it was given changes nothing — not even an identity', () => {
@@ -277,5 +278,84 @@ describe('a machine write never places anything', () => {
     const { result } = withLine()
     act(() => result.current.setDocRaw((d) => rerouted(d) as typeof d))
     expect(result.current.objects[0].sheet).toBeUndefined()
+  })
+})
+
+/* ⚠️ OWNERSHIP DECIDES THE STACK (10.09.). A sheet draws objects it does not own — the Karte's,
+ * projected onto it — and an edit of one of those is a store-level act. A per-sheet snapshot of
+ * annotations cannot express «this object was geo-anchored», so it could not undo an anchor flip
+ * at all: restoring the pre-flip list re-anchored the object at its old spot, or deleted it. */
+describe('a sheet edit of an object the sheet does not own', () => {
+  const geoStore = (): TacticalObject[] => [{ id: 'e1', entity: ent('e1', { coord: [mEast(50).lng, ORIGIN.lat] }) }]
+  /** the anno that sheet is showing for it — what the Whiteboard would hand back */
+  const shownAnno = (x: number, y = 0) => anno('e1', { x, y, label: undefined })
+
+  it('lays a step on the STORE stack, and undo puts the anchor back', () => {
+    const { result } = store(geoStore())
+    expect(result.current.canUndo).toBe(false)
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: [shownAnno(0.25)] })))
+    expect(result.current.objects[0].sheet?.planId).toBe('modul2') // the hand placed it there
+    expect(result.current.canUndo).toBe(true)
+    act(() => { result.current.undo() })
+    expect(result.current.objects[0].sheet).toBeUndefined() // …and it is the Karte's again
+    // the sheet still SHOWS it — as a projection, back at the place the Karte says it stands
+    expect(result.current.board.modul2[0].x).toBeCloseTo(0.5, 6)
+  })
+
+  it('one gesture is ONE step, however many samples it writes', () => {
+    const { result } = store(geoStore())
+    act(() => {
+      result.current.beginSheetStep()
+      for (const x of [0.4, 0.3, 0.25]) result.current.setBoard((b) => ({ ...b, modul2: [shownAnno(x)] }))
+    })
+    act(() => { result.current.undo() })
+    expect(result.current.objects[0].sheet).toBeUndefined() // one ↶ undid the whole drag
+  })
+
+  it('…while an edit of the sheet’s OWN anno leaves this stack alone', () => {
+    const { result } = store()
+    act(() => result.current.setBoard(() => ({ modul2: [anno('s1')] })))
+    act(() => result.current.setBoard(() => ({ modul2: [anno('s1', { x: 0.9 })] })))
+    expect(result.current.canUndo).toBe(false) // the plan's own history owns that step
+  })
+})
+
+/* The plan side of the unified object (stage 2). A sheet DRAWS the Karte's objects and edits them
+ * with its own chrome; what it hands back is read as the gesture it was. */
+describe('what a sheet draws, and what it hands back', () => {
+  const mapObject = (): TacticalObject[] => [{ id: 'e1', entity: ent('e1', { coord: [mEast(50).lng, ORIGIN.lat], label: 'TLF' }) }]
+
+  it('a Karte object lands in the sheet’s own anno list, under its own id', () => {
+    const { result } = store(mapObject())
+    expect(result.current.board.modul2.map((a) => a.id)).toEqual(['e1'])
+    expect(result.current.board.modul2[0]).toMatchObject({ kind: 'symbol', label: 'TLF' })
+    expect(result.current.board.modul2[0].x).toBeCloseTo(0.5, 6)
+  })
+
+  it('…and an object anchored on ANOTHER sheet is not lent to this one', () => {
+    const elsewhere: TacticalObject[] = [{ id: 's1', sheet: { planId: 'modul3', anno: anno('s1') } }]
+    expect(store(elsewhere).result.current.board.modul2).toBeUndefined()
+  })
+
+  it('a prop edit on the sheet lands on the MAP body; the object stays the Karte’s', () => {
+    const { result } = store(mapObject())
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: [{ ...b.modul2[0], label: 'TLF 1', color: '#f00' }] })))
+    expect(result.current.objects[0].sheet).toBeUndefined()
+    expect(result.current.doc.entities[0]).toMatchObject({ label: 'TLF 1', color: '#f00' })
+    expect(result.current.doc.entities[0].coord[0]).toBeCloseTo(mEast(50).lng, 8) // …and it did not move
+  })
+
+  it('deleting it on the sheet deletes the object everywhere — it IS the object', () => {
+    const { result } = store(mapObject())
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: b.modul2.filter((a) => a.id !== 'e1') })))
+    expect(result.current.objects).toEqual([])
+    expect(result.current.doc.entities).toEqual([])
+  })
+
+  it('the sheet’s own annos and the Karte’s objects share one list, natives on top', () => {
+    const { result } = store(mapObject())
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: [...b.modul2, anno('s1')] })))
+    // projections first, the sheet's own ink after — each surface paints the other's underneath
+    expect(result.current.board.modul2.map((a) => a.id)).toEqual(['e1', 's1'])
   })
 })

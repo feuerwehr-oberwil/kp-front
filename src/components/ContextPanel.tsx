@@ -111,7 +111,6 @@ export interface ContextPanelProps {
   onOriginal?: () => void
   originalLabel?: string
   /** Move ownership of a projected object onto the surface currently being viewed. */
-  onTransferHere?: () => void
   /** The inverse of «Zum Original»: show this source object on its linked surface. */
   onProjection?: () => void
   projectionLabel?: string
@@ -248,7 +247,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onTransferHere, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -628,7 +627,6 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
       {/* first, and in the link tone: on a twin's panel it is the only thing that DOES anything,
           and what it does is leave for the real object. */}
       {onOriginal && <button className="btn link" onClick={onOriginal}><Icon id="external" />{originalLabel ?? C.toOriginal}</button>}
-      {onTransferHere && <button className="btn" onClick={onTransferHere}><Icon id="move" />{C.transferHere}</button>}
       {onProjection && <button className="btn link" onClick={onProjection}><Icon id="external" />{projectionLabel ?? C.toProjection}</button>}
       {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{C.center}</button>}
       {/* «GPS» (reset a vehicle's manual override) and «Löschen» are alternatives, and a live

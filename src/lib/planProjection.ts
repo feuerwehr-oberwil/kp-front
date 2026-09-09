@@ -181,17 +181,21 @@ export function projectedAnnos(objects: TacticalObject[], plan: PlanFit, margin 
  * while the board clips at the paper edge leaves a white crescent plus a caption — the stray
  * «Trupp marker thing» from the field. Someone outside this plan is simply outside.
  */
-export function liveOverlay(entities: Entity[], plan: PlanFit, margin = TWIN_CLIP_MARGIN): BoardAnno[] {
-  const { fit } = plan
-  const widthM = planGroundWidthM(fit, plan.aspect)
-  const out: BoardAnno[] = []
+export interface LiveMark {
+  id: string
+  /** where it stands on the paper */
+  pt: PlanPt
+  entity: Entity
+  /** the sheet's own turn, so a directional glyph can be drawn in the paper's frame */
+  rotationDeg: number
+}
+
+export function liveOverlay(entities: Entity[], plan: PlanFit, margin = TWIN_CLIP_MARGIN): LiveMark[] {
+  const out: LiveMark[] = []
   for (const e of entities) {
-    const p = pt(fit, e.coord)
+    const p = pt(plan.fit, e.coord)
     if (!onSheet(p, e.kind === 'person' ? 0 : margin)) continue
-    const anno = e.kind === 'symbol' ? entityToBoardSymbol({ ...e, live: undefined }, p, widthM) : null
-    out.push(anno
-      ? { ...anno, id: e.id, rotation: turnedToSheet(anno.rotation, fit, directionalGlyph(e)) }
-      : { id: e.id, kind: 'resource', x: p.x, y: p.y, text: e.label ?? '', color: e.color })
+    out.push({ id: e.id, pt: p, entity: e, rotationDeg: plan.fit.rotationDeg })
   }
   return out
 }

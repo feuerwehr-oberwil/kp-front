@@ -62,16 +62,3 @@ describe('the size ± is a factor, not a value', () => {
   })
 })
 
-describe('the twin’s one line of provenance', () => {
-  const origin = () => screen.queryAllByRole('button', { name: appConfig.copy.whiteboard.georef.twinOrigin })
-
-  it('is absent on a native Form and present on a mirrored one', () => {
-    render(<ShapeEditor entity={{ shape: 'square' }} onColor={noop} onDelete={noop} onClose={noop} />)
-    expect(origin()).toHaveLength(0)
-    cleanup()
-    const onOriginal = vi.fn()
-    render(<ShapeEditor entity={{ shape: 'square' }} onColor={noop} onDelete={noop} onClose={noop} onOriginal={onOriginal} />)
-    fireEvent.click(origin()[0])
-    expect(onOriginal).toHaveBeenCalledTimes(1)
-  })
-})

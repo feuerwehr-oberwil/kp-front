@@ -1,10 +1,11 @@
-import { useMemo, type Dispatch, type SetStateAction } from 'react'
+import { useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useUndoableDoc } from './useUndoableDoc'
 import {
   applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, viewsOf,
   type PlanFit, type TacticalObject,
 } from './tacticalObjects'
 import type { Doc } from './workspace'
+import { projectedAnnos } from './planProjection'
 import type { BoardDoc, Entity } from '../types'
 
 /**
@@ -38,7 +39,16 @@ export interface ObjectStore {
   objects: TacticalObject[]
   /** the Karte's document, derived */
   doc: Doc
-  /** every plan sheet's annotations, derived */
+  /**
+   * What every plan sheet DRAWS: the annos anchored on it, plus every geo-anchored object
+   * projected onto it through its own fit (lib/planProjection). The sheet edits both with its
+   * native chrome and hands the whole list back through `setBoard`, which reads each anno as the
+   * gesture it was.
+   *
+   * ⚠️ NOT what gets persisted. `viewsOf(objects).board` is the anchor-only view the blob
+   * carries: a projection is derived, and writing one into the record would give an object two
+   * homes again — the very thing the unified store exists to end.
+   */
   board: BoardDoc
   /** raw map write, NO history checkpoint — silent updates mid-drag.
    *
@@ -48,10 +58,23 @@ export interface ObjectStore {
    *  caller: it rewrites an attached Leitung's coords on every poll, and read as a placement it
    *  would have torn plan-drawn hoses off their sheet with nobody touching anything. */
   setDocRaw: (update: SetStateAction<Doc>, opts?: { gesture?: boolean }) => void
-  /** plan write. Silent by the same rule as before: the plan surface keeps its OWN per-document
-   *  history (IncidentWorkspace · planHistory, Whiteboard · useBoardDoc), which snapshots that
-   *  plan's annos and restores them straight back through here. */
+  /**
+   * Plan write.
+   *
+   * ⚠️ OWNERSHIP DECIDES THE STACK. An edit of the sheet's OWN annos is silent here, because the
+   * plan surface keeps its own per-document history (IncidentWorkspace · planHistory, Whiteboard
+   * · useBoardDoc) and restores it straight back through this setter. But a sheet also draws
+   * objects it does not own — the Karte's, projected onto it — and an edit of one of those is a
+   * store-level act: it moves a map object, or flips its anchor, and a per-sheet snapshot of
+   * annotations cannot express «this object was geo-anchored» to undo it with. So a fold that
+   * touches a non-sheet-anchored object lays a checkpoint on THIS stack — the one the twin era
+   * already used for exactly these edits, through the Karte's own writers.
+   */
   setBoard: Dispatch<SetStateAction<BoardDoc>>
+  /** A plan step is beginning (IncidentWorkspace · rememberPlanStep). One gesture is one step on
+   *  either stack, so the first cross-ownership fold after this arms is the only one that
+   *  checkpoints; a discrete write outside a gesture is its own step and needs no arming. */
+  beginSheetStep: () => void
   /** checkpoint the store, then apply a map update — one undo step (no-op if readOnly) */
   commit: (updater: (d: Doc) => Doc) => void
   beginDrag: () => void
@@ -83,6 +106,10 @@ export interface ObjectStoreOptions {
   getFits: () => ReadonlyMap<string, PlanFit>
   /** the layer a freshly baked map body lands on when the object has never had one */
   defaultLayer: Entity['layer']
+  /** ⚠️ Bumped when a fit REALLY changes (IncidentWorkspace · fitSignature). The board view is
+   *  derived THROUGH the fits, and `getFits` is a ref no memo can see into — this is what tells
+   *  it a corrected georeference moved every projection on that sheet. */
+  fitsVersion: number
   /** told whenever a step is laid down, so the global timeline can record it (see useUndoableDoc) */
   onCheckpoint?: () => void
 }
@@ -90,13 +117,17 @@ export interface ObjectStoreOptions {
 export function useObjectStore(
   init: TacticalObject[],
   readOnly: boolean,
-  { getFits, defaultLayer, onCheckpoint }: ObjectStoreOptions,
+  { getFits, defaultLayer, fitsVersion, onCheckpoint }: ObjectStoreOptions,
 ): ObjectStore {
   const store = useUndoableDoc<TacticalObject[]>(init, readOnly, onCheckpoint)
   const { setDocRaw: setObjects } = store
 
   const views = useMemo(() => viewsOf(store.doc), [store.doc])
   const doc = useMemo<Doc>(() => ({ entities: views.entities, drawings: views.drawings }), [views])
+  // ⚠️ Projections FIRST, the sheet's own annos after — a sheet's ink paints over what the Karte
+  // lends it, the mirror of the map view putting geo-anchored objects before the baked bodies of
+  // sheet-drawn ones. Each surface paints the other's work underneath its own.
+  const board = useMemo(() => boardViewOf(store.doc, getFits()), [store.doc, fitsVersion]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Fold a map document back into the store. `next === view` is the no-op an updater signals by
    *  returning what it was given (the live-GPS pass does it on every poll) — passing that on
@@ -129,16 +160,25 @@ export function useObjectStore(
    * is an empty list, which deletes that sheet's objects — the same reading `setBoard` has always
    * had, now with the object going rather than just its anno.
    */
+  /** «a plan gesture is running, and its store step is already laid down» */
+  const sheetStep = useRef<'open' | 'done' | null>(null)
+  const beginSheetStep = () => { sheetStep.current = 'open' }
+
   const setBoard: Dispatch<SetStateAction<BoardDoc>> = (a) => {
     setObjects((objects) => {
-      const view = viewsOf(objects).board
+      const view = boardViewOf(objects, getFits())
       const next = typeof a === 'function' ? a(view) : a
       if (next === view) return objects
       let out = objects
       for (const planId of new Set([...Object.keys(view), ...Object.keys(next)])) {
         const annos = next[planId] ?? []
         if (annos === view[planId]) continue
-        out = bakePlan(applyBoardToObjects(out, planId, annos), planId, getFits().get(planId), defaultLayer)
+        const plan = getFits().get(planId)
+        out = bakePlan(applyBoardToObjects(out, planId, annos, plan, defaultLayer), planId, plan, defaultLayer)
+      }
+      if (out !== objects && touchedForeign(objects, out)) {
+        if (sheetStep.current !== 'done') store.checkpoint(objects)
+        if (sheetStep.current === 'open') sheetStep.current = 'done'
       }
       return out
     })
@@ -162,12 +202,36 @@ export function useObjectStore(
   }
 
   return {
-    objects: store.doc, doc, board: views.board,
-    setDocRaw, setBoard, commit,
+    objects: store.doc, doc, board,
+    setDocRaw, setBoard, beginSheetStep, commit,
     beginDrag: store.beginDrag, endDrag: store.endDrag,
     undo: store.undo, redo: store.redo, canUndo: store.canUndo, canRedo: store.canRedo,
     replaceObjects: store.replace, rebake,
   }
+}
+
+/**
+ * Did this fold touch an object the sheet does not OWN — one the Karte holds and the sheet was
+ * merely showing? That is what decides which undo stack is owed a step: a sheet's own
+ * annotations are restored by its own history, and anything else is a store-level act.
+ */
+function touchedForeign(before: TacticalObject[], after: TacticalObject[]): boolean {
+  const now = new Map(after.map((o) => [o.id, o]))
+  for (const o of before) if (!o.sheet && now.get(o.id) !== o) return true
+  return false
+}
+
+/** …and what every sheet DRAWS, for the same reason: an updater must see the LIVE store. */
+function boardViewOf(objects: TacticalObject[], fits: ReadonlyMap<string, PlanFit>): BoardDoc {
+  const out: BoardDoc = {}
+  for (const [planId, plan] of fits) {
+    const projected = projectedAnnos(objects, plan)
+    if (projected.length) out[planId] = projected
+  }
+  for (const [planId, annos] of Object.entries(viewsOf(objects).board)) {
+    out[planId] = out[planId] ? [...out[planId], ...annos] : annos
+  }
+  return out
 }
 
 /** The Karte's document of one store snapshot. Derived per write (the render path uses the memo
