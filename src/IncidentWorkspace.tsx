@@ -2018,14 +2018,23 @@ export function IncidentWorkspace({
   // every round (applyWorkspace drops them by design). The bake itself is no-op-safe too (see
   // tacticalObjects · sameValue), so this is a belt beside that brace, not instead of it.
   const bakedFits = useRef<string | null>(null)
+  /** …and the signature the RENDER was last derived at. ⚠️ Two refs, deliberately: a viewer
+   *  derives the picture but writes nothing into the record, so «what is on screen» and «what has
+   *  been baked» move independently. Sharing one ref put Stage 2 behind the read-only guard —
+   *  a Führungsansicht computed every sheet against an empty fits map and never re-ran. */
+  const shownFits = useRef<string | null>(null)
   /** one retry for the station document before the first bake — see the note below */
   const seedWaited = useRef(false)
   useEffect(() => {
+    // ⚠️ ABOVE the guard, both of them. The fits and the version that carries them into the
+    // memos are what every surface RENDERS through (lib/useObjectStore · board); only writing
+    // derived geometry back into the record is an editor's privilege.
     planFitsRef.current = new Map(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
     const sig = linkedPlans.map(fitSignature).join('|')
+    if (sig !== shownFits.current) { shownFits.current = sig; setFitsVersion((v) => v + 1) }
     if (sig === bakedFits.current) return
-    // A viewer derives nothing into the record. The signature stays unrecorded with it, so a
-    // session that later becomes editable (replay left) still gets its bake.
+    // A viewer derives nothing INTO the record. The baked signature stays unrecorded with it, so
+    // a session that later becomes editable (replay left) still gets its bake.
     if (readOnly || tacticalLocked) return
     // ⚠️ The SEED bake is not a correction. A blob written before the store existed simply gains
     // its map bodies; nothing moved from anywhere, so there is no step to take back and nothing
@@ -2045,7 +2054,6 @@ export function IncidentWorkspace({
       return
     }
     bakedFits.current = sig
-    setFitsVersion((v) => v + 1)
     const moved = rebake({ checkpoint: !seeding })
     if (!seeding && moved) log('map', fillTemplate(appConfig.copy.log.referenceRebaked, { n: moved }), 'layer')
     // eslint-disable-next-line react-hooks/exhaustive-deps
