@@ -50,6 +50,7 @@ import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
 import { activeViewDeg, buildView, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
+import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
 import { GeorefBoardLayer, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
 import { GeorefQuality } from './GeorefQuality'
@@ -295,6 +296,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Anything already drawn here before this rule still RENDERS (read-only, no handles) — the
   // board is a synced document and nothing may silently disappear from it.
   const selectOnly = isSelectOnlySurface(active)
+  /** THE SHEET, as opposed to the Modul slot `activeId` names — every Einsatzobjekt has a «Modul
+   *  2», and everything that belongs to one concrete building's paper (its reference, its measured
+   *  shape) is keyed on this. Read this high up because the aspect hook below already needs it. */
+  const activeGeorefKey = active?.georefKey ?? activeId
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
   const readOnly = readOnlyProp || active?.viewer === true || selectOnly
@@ -388,15 +393,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [rotStart, setRotStart] = useState<BoardPoint | null>(null)
   // last node-tap (time + point) to detect a double-tap that finishes the shape
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null)
-  const [aspect, setAspect] = useState(1.414) // h/w, A4 default until image loads
-  /**
-   * …and WHICH document that number was actually measured from. `aspect` always holds something —
-   * it is seeded from the plan's orientation on every switch — so «is this a measurement or the
-   * A4 guess» cannot be read off the value. Only the surface that rendered the bitmap knows, and
-   * `noteMeasuredAspect` may only ever be told a real measurement.
-   */
-  const [measuredFor, setMeasuredFor] = useState<string | null>(null)
-  const takeAspect = useCallback((a: number) => { setAspect(a); setMeasuredFor(activeId) }, [activeId])
+  // h/w of the document box, plus «is that a measurement of THIS sheet or the A4 seed» — one hook,
+  // keyed on the sheet rather than on the Modul slot, because the two questions go wrong together
+  // (components/useMeasuredSheet). Seeded and reseeded there; nothing else may set it.
+  const { aspect, takeAspect, measured: aspectMeasured } = useMeasuredSheet(activeGeorefKey, active?.orientation)
   const [vp, setVp] = useState({ w: 0, h: 0 })
   // per-team trail visibility (anno ids hidden this session) — the eye on a selected team
   // hides only THAT team's trail; there is no global Spuren toggle anymore
@@ -639,7 +639,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const georef = useGeorefMode()
   useGeorefStorage()
   const georefArmed = georef.planId === activeId
-  const activeGeorefKey = active?.georefKey ?? activeId
   // Opening a sheet is the moment its station data has to be current: the Massstab and the
   // Georeferenz are set by whoever happens to be holding a device, and every OTHER device only
   // read the document once, at boot. Re-reads on plan switch (and on focus, from main.tsx);
@@ -677,10 +676,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * conditions, so this is just the offer.
    */
   useEffect(() => {
-    if (readOnlyProp || !canGeoref || !active || measuredFor !== activeId) return
+    if (readOnlyProp || !canGeoref || !active || !aspectMeasured) return
     if (!georefForPlan(activeGeorefKey)?.pairs.length) return
     noteMeasuredAspect(activeGeorefKey, measureARForGeoref, planAspect(active, getStationPlanScales(), planScale[activeId]))
-  }, [readOnlyProp, canGeoref, active, measuredFor, activeId, activeGeorefKey, measureARForGeoref, planScale])
+  }, [readOnlyProp, canGeoref, active, aspectMeasured, activeId, activeGeorefKey, measureARForGeoref, planScale])
   const {
     calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode, setMeasLine, setMeasArea,
@@ -886,16 +885,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     onPlanLiveMove(id, [c.lng, c.lat], phase)
   }, [readOnly, georefFit, onPlanLiveMove])
 
-  // reset transient state when switching document; seed an aspect from the
-  // orientation (image docs refine it on load, blank sheets keep it). Sits BELOW the hook
-  // because it clears the state the hook owns — above it, resetEphemeral is not yet declared.
+  // reset transient state when switching document. Sits BELOW the hook because it clears the
+  // state the hook owns — above it, resetEphemeral is not yet declared.
+  // ⚠️ The ASPECT is no longer seeded here, and deliberately: this effect is keyed on the Modul
+  // SLOT, which does not change when the operator switches Einsatzobjekt — so the seed never ran
+  // for the new building and the previous one's shape carried over into its fit. It is reseeded
+  // per SHEET now (components/useMeasuredSheet), which covers a plan switch as well.
   // ⚠️ The VIEW is no longer reset here: useBoardView restores the plan's remembered zoom/pan
   // (falling back to fit on a first visit), and a reset here would run after it and undo it.
   useEffect(() => {
     setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
     resetEphemeral() // the calibrate state usePlanMeasure owns
     if (tool === 'symbol') setTool('pan')
-    setAspect(active.orientation === 'portrait' ? 1.414 : 1 / 1.414)
     // Leaving the DOCUMENT (plan switch, or unmounting the whole surface) is a tap-away too
     // (A6, 29.08.). Through releaseRef, because this cleanup's own closure is from the render
     // the document was OPENED in, when the draft did not exist yet — the ref, re-pointed every
