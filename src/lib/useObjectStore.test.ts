@@ -386,6 +386,93 @@ describe('a sheet with both kinds on it, after the Karte has been written', () =
   })
 })
 
+/* ⚠️ «Referenz zurücksetzen» — and «der Plan ist weg» (tmp/design-unified-objects.md · «Reference
+ * delete», phase 3). NOTHING DISAPPEARS. That is the whole rule, and it has three halves the store
+ * has to keep on its own: a sheet-anchored object keeps its sheet body AND the ground position the
+ * last fit baked for it (a vehicle that stopped reporting is still where it last was, and the
+ * design says NOT to mark it stale); a geo-anchored object merely stops being lent to a sheet that
+ * can no longer say where it lands; and re-linking the sheet later re-links both directions.
+ *
+ * The first half is true BY CONSTRUCTION — `bakeGeoBody` returns the record untouched when its
+ * plan has no fit, so `bakeAll` over a fits map that lost a key is a no-op for exactly those
+ * objects — but «by construction» is one refactor away from «by accident», so it is pinned here. */
+describe('when a plan loses its reference', () => {
+  /** …the fits map is what a lost reference actually looks like from in here: `linkedPlans` drops
+   *  the plan, so its key is simply gone (IncidentWorkspace · planFitsRef). The version counter
+   *  rides along, because the board view is derived THROUGH the fits and no memo can see into the
+   *  ref-backed getter. */
+  const linked = (init: TacticalObject[], fits: Map<string, PlanFit>) =>
+    renderHook(({ v }: { v: number }) => useObjectStore(init, false, { getFits: () => fits, defaultLayer: 'taktisch', fitsVersion: v }), { initialProps: { v: 0 } })
+
+  const unlink = (h: ReturnType<typeof linked>, fits: Map<string, PlanFit>, v = 1) => {
+    fits.delete('modul2')
+    h.rerender({ v })
+    act(() => { h.result.current.rebake() })
+  }
+
+  it('a sheet-drawn object keeps its sheet body AND the ground position the last fit baked', () => {
+    const fits = new Map([['modul2', PLAN]])
+    const h = linked([], fits)
+    act(() => h.result.current.setBoard(() => ({ modul2: [anno('s1', { x: 0.5, y: 0 })] })))
+    const before = h.result.current.objects
+    expect(before[0].entity!.coord[0]).toBeCloseTo(mEast(50).lng, 8)
+
+    unlink(h, fits)
+    // not «unchanged in value» — the SAME array, so a reset can never mark the store dirty
+    expect(h.result.current.objects).toBe(before)
+    expect(h.result.current.objects[0].sheet?.anno.x).toBe(0.5)
+    expect(h.result.current.doc.entities[0].coord[0]).toBeCloseTo(mEast(50).lng, 8)
+    expect(h.result.current.board.modul2.map((a) => a.id)).toEqual(['s1']) // …still on its sheet
+  })
+
+  it('a Karte object simply stops being lent to the sheet — and is NOT deleted by it', () => {
+    const fits = new Map([['modul2', PLAN]])
+    const h = linked([{ id: 'e1', entity: ent('e1', { coord: [mEast(50).lng, ORIGIN.lat] }) }], fits)
+    expect(h.result.current.board.modul2.map((a) => a.id)).toEqual(['e1'])
+
+    unlink(h, fits)
+    expect(h.result.current.board.modul2).toBeUndefined() // the sheet cannot say where it lands
+    // …and the sheet handing back the list it now draws (nothing) must not read as a deletion:
+    // absence only means «deleted here» for an object the sheet was actually showing.
+    act(() => h.result.current.setBoard((b) => ({ ...b, modul2: [] })))
+    expect(h.result.current.objects.map((o) => o.id)).toEqual(['e1'])
+    expect(h.result.current.doc.entities[0].coord[0]).toBeCloseTo(mEast(50).lng, 8)
+  })
+
+  it('drawing on the unlinked sheet is honest: sheet coords, no ground position', () => {
+    const fits = new Map([['modul2', PLAN]])
+    const h = linked([], fits)
+    unlink(h, fits)
+    act(() => h.result.current.setBoard(() => ({ modul2: [anno('s2', { x: 0.25, y: 0 })] })))
+    const o = h.result.current.objects.find((x) => x.id === 's2')!
+    expect(o.sheet?.planId).toBe('modul2')
+    expect(o.entity).toBeUndefined() // nothing on that sheet has a ground position yet
+  })
+
+  it('re-referencing links both directions again and re-bakes everything on the sheet', () => {
+    const fits = new Map([['modul2', PLAN]])
+    const h = linked([{ id: 'e1', entity: ent('e1', { coord: [mEast(50).lng, ORIGIN.lat] }) }], fits)
+    act(() => h.result.current.setBoard((b) => ({ ...b, modul2: [...b.modul2, anno('s1', { x: 0.5, y: 0 })] })))
+    unlink(h, fits)
+    // …and now the sheet is drawn on while it has no reference at all
+    act(() => h.result.current.setBoard((b) => ({ ...b, modul2: [...(b.modul2 ?? []), anno('s2', { x: 0.25, y: 0 })] })))
+
+    // the operator references the sheet again — and gets it right this time: twice as wide
+    const corrected: PlanFit = { fit: fitSimilarity([PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }], 1)!, aspect: 1 }
+    fits.set('modul2', corrected)
+    h.rerender({ v: 2 })
+    act(() => { h.result.current.rebake() })
+
+    const byId = new Map(h.result.current.objects.map((o) => [o.id, o]))
+    // both sheet-anchored objects now stand on the ground — the one that had a stale body
+    // re-derived from its sheet coords, the one drawn unreferenced baked for the first time
+    expect(byId.get('s1')!.entity!.coord[0]).toBeCloseTo(mEast(100).lng, 8)
+    expect(byId.get('s2')!.entity!.coord[0]).toBeCloseTo(mEast(50).lng, 8)
+    // …and the Karte's own object is lent back to the sheet, through the corrected fit
+    expect(h.result.current.board.modul2.find((a) => a.id === 'e1')!.x).toBeCloseTo(0.25, 6)
+  })
+})
+
 describe('the plan gesture token', () => {
   /* ⚠️ It latched as a tri-state: after the first plan gesture of a session every later
    * cross-ownership write — the board sweeps in useTruppActions, a plan ↶, a Gebäude amend —
