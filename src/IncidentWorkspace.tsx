@@ -2271,7 +2271,10 @@ export function IncidentWorkspace({
         return drawing
       })
       return changed ? { ...cur, drawings: next } : cur
-    })
+    // ⚠️ `gesture: false` — a poll is not a hand. This pass rewrites an attached Leitung's
+    // geometry every few seconds, and read as a hand-placement it would tear a plan-drawn hose
+    // off its sheet with nobody touching anything (lib/useObjectStore · setDocRaw).
+    }, { gesture: false })
   }, [liveVehicles, replayActive, setDocRaw])
 
   // «Wann ist das TLF weggefahren?» — the feed answers it into the Verlauf, because an hour

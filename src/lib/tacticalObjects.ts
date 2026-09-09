@@ -360,14 +360,29 @@ function movedOnMap(prev: TacticalObject, body: { entity?: Entity; drawing?: Dra
  * `noteW`. A note's width is deliberately per-surface (`noteW` is screen px, `wN` a fraction of
  * the plan width); it survives a re-bake through BAKE_PRESERVED instead.
  */
-function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Drawing }, plan?: PlanFit): BoardAnno {
+function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Drawing }, plan?: PlanFit, movedBy?: 'machine'): BoardAnno {
   const { entity, drawing } = body
   const widthM = plan ? planGroundWidthM(plan.fit, plan.aspect) : undefined
+  /**
+   * ⚠️ A MACHINE moved it, so the position crosses instead of flipping the anchor. Only a hand
+   * places an object (tmp/design-unified-objects.md · «last hand-placement owns the truth»); the
+   * live-GPS pass re-routes an attached Leitung on every poll, and read as a placement it would
+   * have torn plan-drawn hoses off their sheet with nobody touching anything.
+   */
+  const at = (c: LngLat) => plan!.fit.toPlan({ lng: c[0], lat: c[1] })
+  const machine = movedBy === 'machine' && plan
+  const point = (c: LngLat | undefined) => (machine && c ? { x: at(c).x, y: at(c).y } : null)
+  const path = (coords: LngLat[] | undefined): { pts: BoardPoint[] } | null => {
+    if (!machine || !coords?.length) return null
+    // a per-point storey is the paper's own answer and rides along by index; a machine write
+    // moves a line ON the sheet, never between floors
+    return { pts: coords.map((c, i): BoardPoint => { const p = at(c); const f = anno.pts?.[i]?.[2]; return f == null ? [p.x, p.y] : [p.x, p.y, f] }) }
+  }
   /** a metre length as a fraction of the sheet's ground width — absent without a fit */
   const asN = (m: number | undefined) => (m != null && widthM ? m / widthM : undefined)
   if (entity) {
     const shared = entitySharedProps(entity)
-    if (anno.kind === 'text') return { ...anno, ...shared, text: entity.label, storey: entity.floor }
+    if (anno.kind === 'text') return { ...anno, ...shared, text: entity.label, storey: entity.floor, ...point(entity.coord) }
     // the chip's name lives in `text`, and truppId/`t` are map-only for a SYMBOL but are the
     // shared identity of a team marker — which is the one kind that carries them. Its recorded
     // breadcrumbs are part of the incident record, so they come back through the fit too.
@@ -375,16 +390,16 @@ function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Dr
       const trail = plan && entity.trail
         ? entity.trail.map(({ coord, t }) => { const p = plan.fit.toPlan({ lng: coord[0], lat: coord[1] }); return { x: p.x, y: p.y, t } })
         : anno.trail
-      return { ...anno, ...shared, text: entity.label, truppId: entity.truppId, t: entity.t, trail }
+      return { ...anno, ...shared, text: entity.label, truppId: entity.truppId, t: entity.t, trail, ...point(entity.coord) }
     }
-    if (anno.kind === 'shape') return { ...anno, ...shared, storey: entity.floor, ...(asN(entity.sizeM) != null ? { sizeN: asN(entity.sizeM) } : null) }
-    return { ...anno, ...shared, storey: entity.floor, ...(asN(entity.reachM) != null ? { reachN: asN(entity.reachM) } : null) }
+    if (anno.kind === 'shape') return { ...anno, ...shared, storey: entity.floor, ...(asN(entity.sizeM) != null ? { sizeN: asN(entity.sizeM) } : null), ...point(entity.coord) }
+    return { ...anno, ...shared, storey: entity.floor, ...(asN(entity.reachM) != null ? { reachN: asN(entity.reachM) } : null), ...point(entity.coord) }
   }
   if (drawing) {
     if (anno.kind === 'circle') {
-      return { ...anno, ...pick(drawing, SHARED_CIRCLE_PROPS), ...(asN(drawing.radiusM) != null ? { radiusN: asN(drawing.radiusM) } : null) }
+      return { ...anno, ...pick(drawing, SHARED_CIRCLE_PROPS), ...(asN(drawing.radiusM) != null ? { radiusN: asN(drawing.radiusM) } : null), ...point(drawing.coords[0]) }
     }
-    return { ...anno, ...pick(drawing, SHARED_PATH_PROPS) }
+    return { ...anno, ...pick(drawing, SHARED_PATH_PROPS), ...path(drawing.coords) }
   }
   return anno
 }
@@ -412,6 +427,9 @@ export function applyDocToObjects(
   objects: TacticalObject[],
   doc: { entities: Entity[]; drawings: Drawing[] },
   fits?: ReadonlyMap<string, PlanFit>,
+  /** `false` = a MACHINE produced this document (the live-GPS re-route), so a changed position
+   *  is not a hand-placement: it writes through onto the anno instead of flipping the anchor. */
+  gesture = true,
 ): TacticalObject[] {
   const entities = new Map(doc.entities.filter((e) => !e.live).map((e) => [e.id, e])) // live overlays are derived, never records
   const drawings = new Map(doc.drawings.map((d) => [d.id, d]))
@@ -428,8 +446,13 @@ export function applyDocToObjects(
       continue
     }
     const body = entity ? { entity } : { drawing }
-    if (movedOnMap(o, body)) next.push({ id: o.id, ...body })
-    else next.push({ ...o, entity: undefined, drawing: undefined, ...body, sheet: { ...o.sheet, anno: annoAfterMapEdit(o.sheet.anno, body, fits?.get(o.sheet.planId)) } })
+    const moved = movedOnMap(o, body)
+    if (moved && gesture) next.push({ id: o.id, ...body })
+    else {
+      const plan = fits?.get(o.sheet.planId)
+      const anno = annoAfterMapEdit(o.sheet.anno, body, plan, moved ? 'machine' : undefined)
+      next.push({ ...o, entity: undefined, drawing: undefined, ...body, sheet: { ...o.sheet, anno } })
+    }
   }
   for (const e of entities.values()) if (!sheetIds.has(e.id)) next.push({ id: e.id, entity: e })
   for (const d of drawings.values()) if (!sheetIds.has(d.id)) next.push({ id: d.id, drawing: d })

@@ -230,3 +230,33 @@ describe('a Karte edit that is measured in metres', () => {
     expect(result.current.doc.drawings[0].labelAt).toBeDefined()
   })
 })
+
+describe('a machine write never places anything', () => {
+  /* ⚠️ Only a hand places an object. The live-GPS pass re-routes an attached Leitung on every
+   * poll, and read as a hand-placement it tore plan-drawn hoses off their sheet with nobody
+   * touching anything. */
+  const withLine = () => {
+    const h = store()
+    act(() => h.result.current.setBoard(() => ({ modul2: [anno('l1', { kind: 'draw', x: undefined, y: undefined, pts: [[0, 0], [0.5, 0]] })] })))
+    return h
+  }
+  const rerouted = (d: { drawings: { coords: unknown }[] }) => ({
+    ...d, drawings: d.drawings.map((x) => ({ ...x, coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(90).lng, ORIGIN.lat]] })),
+  })
+
+  it('keeps the sheet anchor and writes the new geometry onto the anno', () => {
+    const { result } = withLine()
+    act(() => result.current.setDocRaw((d) => rerouted(d) as typeof d, { gesture: false }))
+    const o = result.current.objects[0]
+    expect(o.sheet?.planId).toBe('modul2')
+    expect(o.sheet!.anno.pts![1][0]).toBeCloseTo(0.9, 4) // …in the sheet's own units
+    act(() => result.current.rebake())
+    expect(result.current.doc.drawings[0].coords[1][0]).toBeCloseTo(mEast(90).lng, 6)
+  })
+
+  it('…while the same document from a HAND still flips the anchor', () => {
+    const { result } = withLine()
+    act(() => result.current.setDocRaw((d) => rerouted(d) as typeof d))
+    expect(result.current.objects[0].sheet).toBeUndefined()
+  })
+})
