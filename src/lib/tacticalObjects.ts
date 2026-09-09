@@ -218,6 +218,28 @@ export function applyDocToObjects(objects: TacticalObject[], doc: { entities: En
 }
 
 /**
+ * Reconcile the unified store against the CURRENT runtime state — the one function the
+ * workspace calls at the persistence boundary. `prev` carries what the runtime views do
+ * not (anchors, baked bodies, healed duplicates); `doc`/`board` carry what the operator
+ * just did. Baking runs unconditionally over every sheet-anchored object: it is pure
+ * per-object arithmetic, and an always-fresh map body is the entire point of the
+ * write-through (Kroki and map replay read it, never a fit).
+ */
+export function reconcileObjects(
+  prev: TacticalObject[],
+  doc: { entities: Entity[]; drawings: Drawing[] },
+  board: BoardDoc,
+  fits: ReadonlyMap<string, PlanFit>,
+  defaultLayer: Entity['layer'],
+): TacticalObject[] {
+  let next = applyDocToObjects(prev, doc)
+  // the union of plan keys, so a plan whose LAST anno was deleted still deletes its objects
+  const planIds = new Set([...Object.keys(board), ...prev.flatMap((o) => (o.sheet ? [o.sheet.planId] : []))])
+  for (const planId of planIds) next = applyBoardToObjects(next, planId, board[planId] ?? [])
+  return next.map((o) => (o.sheet ? bakeGeoBody(o, fits.get(o.sheet.planId), defaultLayer) : o))
+}
+
+/**
  * The setBoard seam: apply one plan's full anno list — the shape every existing plan
  * mutator produces — onto the unified store. An anno id new to the store becomes a
  * sheet-anchored object; a known one is updated in place (its baked map body is left

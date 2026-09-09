@@ -13,6 +13,7 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { reconcileObjects, type PlanFit, type TacticalObject } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
@@ -385,6 +386,15 @@ export function IncidentWorkspace({
   // sanitize/version gate first — a stale or malformed cached blob must never crash the open.
   const bootGate = useMemo(() => sanitizeWorkspace(workspace), [])  // eslint-disable-line react-hooks/exhaustive-deps
   const init = useMemo(() => deriveInitial(bootGate.ws, incidentMeta.id, prefs, incidentMeta.type), [])  // eslint-disable-line react-hooks/exhaustive-deps
+  /* The unified tactical objects (schema 2, lib/tacticalObjects) — the store `doc` and `board`
+   * are views of. A ref, not state: the runtime works on the views through the existing doc/board
+   * funnels, and the objects are reconciled against them at the persistence boundary
+   * (buildPayload) — carrying what the views cannot (anchors, baked far-surface bodies, healed
+   * transfer duplicates) without re-rendering anything. */
+  const objectsRef = useRef<TacticalObject[]>(init.objects)
+  /** the linked plans' fits for the bake, keyed by planId — written where linkedPlans is
+   *  derived (much further down), read by buildPayload above it */
+  const planFitsRef = useRef<Map<string, PlanFit>>(new Map())
   // On open, fit the map to the incident's existing map content (symbols + drawings) instead of
   // zooming onto the bare Einsatzort point — so a pre-filled Lage is framed ("eingepasst"). One
   // snapshot per incident (mirrors `init`), so it never snaps the view back while you draw.
@@ -1494,6 +1504,7 @@ export function IncidentWorkspace({
     reportGate(gate)
     syncedLayerState.current = gate.ws?.layerState ?? []
     const next = deriveInitial(gate.ws, incidentMeta.id, prefs, incidentMeta.type)
+    objectsRef.current = next.objects
     // replaceDoc swaps the doc AND drops undo history (the local stacks no longer apply to
     // remote/merged state — undoing into it would resurrect remotely-deleted content).
     replaceDoc(next.doc); setLayers(next.layers); journal.ingestLegacy(next.timeline)
@@ -1521,7 +1532,19 @@ export function IncidentWorkspace({
   // Build the workspace blob from the current slices. The memo deps are exactly the persisted
   // slices, so its identity changes iff one of them does — that's what re-fires the save in
   // useIncidentSync (replacing the old slice-keyed persistence effect's dependency array).
-  const buildPayload = useCallback((): Saved => ({
+  const buildPayload = useCallback((): Saved => {
+    // Reconcile the unified store against what the operator just did (lib/tacticalObjects):
+    // the doc/board funnels stay the working state, the objects carry the anchors and the
+    // baked far-surface bodies. Read through refs — the fits live further down the component
+    // and a save always runs after render; a fit that changed re-bakes on the next save.
+    const objects = reconcileObjects(
+      objectsRef.current,
+      { entities: doc.entities.filter((e) => e.kind !== 'photo'), drawings: doc.drawings },
+      board, planFitsRef.current, appConfig.defaults.operationalLayerId,
+    )
+    objectsRef.current = objects
+    return {
+    objects,
     entities: doc.entities.filter((e) => e.kind !== 'photo'),
     drawings: doc.drawings, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings, intakeReviewedAt,
     // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
@@ -1531,7 +1554,8 @@ export function IncidentWorkspace({
     // rows only until they're safely on the server, then ships empty forever (see JournalStore).
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
-  }), [doc, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, intakeReviewedAt])
+  }
+  }, [doc, journal.blobTimeline, recent, board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, intakeReviewedAt])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every
   // change (not just on a deliberate toggle) so the set derived at boot — including the
@@ -2016,6 +2040,11 @@ export function IncidentWorkspace({
     () => georefPlans(planDocs, georefForPlan, (p) => planAspect(p, stationScales, planScale[p.id])),
     [planDocs, planScale, stationScales],
   )
+  // …the same fits, keyed for the unified-object bake (buildPayload reads this through the
+  // ref — see the note there). aspect = widthM / scaleMPerU inverts planGroundWidthM.
+  useEffect(() => {
+    planFitsRef.current = new Map(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
+  }, [linkedPlans])
   // The plans' symbols, projected onto the map. Re-projected only when a board or a fit actually
   // moves — never on a pan, a zoom or a vehicle poll, none of which change where a plan symbol is
   // on the ground. Hidden wholesale during replay: the georeference is station data that was

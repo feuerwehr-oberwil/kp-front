@@ -12,6 +12,9 @@
 // mine) apart from "I never had X" (absent in both base and mine). Without it a naive union
 // can't honor deletes and would resurrect everything the other device removed.
 
+import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
+import type { BoardAnno, BoardDoc, Drawing, Entity } from '../types'
+
 type Id = string
 interface HasId {
   id: Id
@@ -20,6 +23,9 @@ interface HasId {
 /** Minimal structural view of the workspace blob — only the id-keyed collaborative
  *  collections matter for merging; everything else (view/config) defaults to the local side. */
 interface WsShape {
+  /** the unified tactical objects (schema 2) — authoritative when present; the three legacy
+   *  collections below are its derived views (see lib/workspace · Saved.objects) */
+  objects?: HasId[]
   entities?: HasId[]
   drawings?: HasId[]
   timeline?: HasId[]
@@ -343,18 +349,8 @@ function mergeReportMeta(
   return out
 }
 
-/** Merge the per-plan board (planId → annotations[]), merging each plan's annotations by id. */
-function mergeBoard(
-  base: Record<string, HasId[]>,
-  mine: Record<string, HasId[]>,
-  theirs: Record<string, HasId[]>,
-): Record<string, HasId[]> {
-  const out: Record<string, HasId[]> = {}
-  for (const k of new Set([...Object.keys(theirs), ...Object.keys(mine)])) {
-    out[k] = mergeById(base[k] ?? [], mine[k] ?? [], theirs[k] ?? [])
-  }
-  return out
-}
+// (per-plan board merging is gone — since schema 2 the board is a derived view of the merged
+// `objects` collection, so a plan's annos merge as whole objects like everything else)
 
 /**
  * Three-way merge of whole workspace blobs, built for TASK-SCOPED multi-editor use: two operators
@@ -397,10 +393,30 @@ export function mergeWorkspace(
   const t = theirs as WsShape
   const list = (k: keyof WsShape) => [asList(b[k]), asList(m[k]), asList(t[k])] as const
   const record = (k: keyof WsShape) => [asRecord(b[k]), asRecord(m[k]), asRecord(t[k])] as const
+  // The unified objects (schema 2) are the authoritative tactical collection: each side
+  // unifies FIRST (a legacy side — an un-updated device's save — derives its objects from
+  // its views), the objects merge per id like any collection, and the three legacy views
+  // are then DERIVED from the merged result. Merging views independently beside the
+  // objects could let the two disagree about the same id — one truth, derived twice.
+  const objectsOf = (ws: WsShape): TacticalObject[] =>
+    Array.isArray(ws.objects)
+      ? (ws.objects as unknown as TacticalObject[])
+      : objectsFromLegacy(
+          asList(ws.entities) as unknown as Entity[],
+          asList(ws.drawings) as unknown as Drawing[],
+          asBoard(ws.board) as unknown as Record<string, BoardAnno[]>,
+        )
+  const objects = mergeById(
+    objectsOf(b) as unknown as HasId[],
+    objectsOf(m) as unknown as HasId[],
+    objectsOf(t) as unknown as HasId[],
+  ) as unknown as TacticalObject[]
+  const views = viewsOf(objects)
   return {
     ...m, // local view/device state (activePlanId, layerState, recent, activeModule) defaults to mine
-    entities: mergeById(...list('entities')),
-    drawings: mergeById(...list('drawings')),
+    objects,
+    entities: views.entities,
+    drawings: views.drawings,
     timeline: mergeById(...list('timeline')),
     trupps: mergeById(...list('trupps'), (ancestor, mi, th) => {
       onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
@@ -411,7 +427,7 @@ export function mergeWorkspace(
     bands: mergeById(...list('bands')),
     cameraViews: mergeById(...list('cameraViews')),
     attachments: mergeById(...list('attachments')),
-    board: mergeBoard(asBoard(b.board), asBoard(m.board), asBoard(t.board)),
+    board: views.board as BoardDoc,
     vehicleOverrides: mergeRecord(...record('vehicleOverrides')),
     checklists: mergeRecord(...record('checklists')),
     // domains that previously fell through to `...m` (the resolver's whole blob) and so could be
