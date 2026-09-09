@@ -1099,6 +1099,11 @@ export const de = {
      *  nie vorgenommen hat. Der Verlauf ist ein Protokoll dessen, was geschehen ist, nicht
      *  dessen, was jemand getan haben könnte. */
     referenceRemeasured: 'Blattform gemessen – {n} Objekte neu verortet',
+    /** ⚠️ Die dritte Ursache: der Server hat die Änderung abgelehnt, und die Passung steht wieder
+     *  so da wie vorher. Die Objekte stehen ebenfalls wieder dort, wo sie standen – niemand hat
+     *  etwas verschoben, und darum gibt es hier auch keinen ↶: Es gibt nichts zurückzunehmen.
+     *  Ohne die Zeile hätte der Verlauf «Referenz angepasst» ein zweites Mal behauptet. */
+    referenceRolledBack: 'Referenz-Änderung verworfen – Speichern fehlgeschlagen',
     /** …und die Passung wurde ENTFERNT («Referenz zurücksetzen»). Dabei verschiebt sich nichts:
      *  Was auf dem Blatt gezeichnet ist, bleibt dort UND behält seine zuletzt berechnete Position
      *  auf der Karte – letzte bekannte Wahrheit, wie ein Fahrzeug, das aufgehört hat zu melden.

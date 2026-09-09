@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   fitSignature, boardSymbolToEntity, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, planAspect,
-  planRasterRows, pairsSignature, fitChangeCause, referenceDelta, twinPlanImageLayerId, twinVisible,
+  planRasterRows, pairsSignature, fitChangeCause, fitChangeRow, fitChangeUndoLabel, referenceDelta,
+  twinPlanImageLayerId, twinVisible,
 } from './georefTwins'
+import { appConfig } from '../config/appConfig'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
 
@@ -299,5 +301,81 @@ describe('fitChangeCause — a correction, or a measurement', () => {
     const before = pairsSignature(docs, only2(PAIRS))
     const both = (key: string) => (key.startsWith('object:a:') ? { pairs: PAIRS } : null)
     expect(fitChangeCause(pairsSignature(docs, both), before)).toBe('reference')
+  })
+
+  /* ⚠️ The third cause, and the one the pairs CANNOT tell: a refused write puts the old document
+   * back, so the pairs change a second time and read exactly like a second hand correcting them
+   * back. That phantom «Referenz angepasst» — with a ↶ over an act the server had already
+   * undone — is what the writer's flag exists to prevent. */
+  it('a rolled-back write is neither a correction nor a measurement', () => {
+    const before = pairsSignature(docs, only2(PAIRS))
+    const restored = pairsSignature(docs, () => null)
+    expect(fitChangeCause(restored, before, true)).toBe('rollback')
+  })
+
+  it('…even when the restored document happens to leave the pairs identical', () => {
+    const sig = pairsSignature(docs, only2(PAIRS))
+    expect(fitChangeCause(sig, sig, true)).toBe('rollback')
+  })
+
+  it('but the first bake of a session outranks it — there is nothing to have taken back', () => {
+    expect(fitChangeCause(pairsSignature(docs, only2(PAIRS)), null, true)).toBe('seed')
+  })
+})
+
+/* ⚠️ THE WIRING, end to end: what changed → which cause → what the fit effect writes
+ * (IncidentWorkspace, the `linkedPlans` effect). The three rows and the one question «did somebody
+ * perform this?» are pinned together here because they drifted apart once: the rollback's second
+ * notify was read as a fresh correction, and the Verlauf carried «Referenz angepasst» twice with
+ * a ↶ over an act the server had already refused. */
+describe('the fit effect’s vocabulary — cause, row, and whether a step is owed', () => {
+  const C = appConfig.copy
+  const docs = [plan('modul2', { georefKey: 'object:a:plan:modul2' })]
+  const only2 = (pairs: GeorefPair[]) => (key: string) => (key === 'object:a:plan:modul2' ? { pairs } : null)
+  const before = pairsSignature(docs, only2(PAIRS))
+  const moved = [PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }]
+
+  /** exactly what the effect does with the three inputs it has */
+  const effect = (now: string, prev: string | null, rolledBack: boolean, movedCount: number) => {
+    const cause = fitChangeCause(now, prev, rolledBack)
+    return { cause, undoLabel: fitChangeUndoLabel(cause), row: fitChangeRow(cause, movedCount) }
+  }
+
+  it('the app measured the sheet: «Blattform gemessen», and a step named after it', () => {
+    const r = effect(before, before, false, 4)
+    expect(r.cause).toBe('measurement')
+    expect(r.undoLabel).toBe(C.undoDomains.blattform)
+    expect(r.row).toBe('Blattform gemessen – 4 Objekte neu verortet')
+  })
+
+  it('a hand corrected a pair: «Referenz angepasst», and a step named after that', () => {
+    const r = effect(pairsSignature(docs, only2(moved)), before, false, 4)
+    expect(r.cause).toBe('reference')
+    expect(r.undoLabel).toBe(C.undoDomains.reference)
+    expect(r.row).toBe('Referenz angepasst – 4 Objekte neu verortet')
+  })
+
+  it('the server REFUSED the write: the refusal row, and NO step', () => {
+    // the rollback restores the pre-correction document, so the pairs move a second time — which
+    // on their own read exactly like a second hand putting them back
+    const r = effect(before, pairsSignature(docs, only2(moved)), true, 4)
+    expect(r.cause).toBe('rollback')
+    expect(r.undoLabel).toBeNull()
+    expect(r.row).toBe(C.log.referenceRolledBack)
+  })
+
+  it('…and it says so even when the re-bake put nothing back', () => {
+    expect(effect(before, before, true, 0).row).toBe(C.log.referenceRolledBack)
+  })
+
+  it('the first bake of a session writes nothing and steps nowhere', () => {
+    const r = effect(before, null, false, 12)
+    expect(r.cause).toBe('seed')
+    expect(r.undoLabel).toBeNull()
+    expect(r.row).toBeNull()
+  })
+
+  it('a correction that moved nothing is not a row about nothing', () => {
+    expect(effect(pairsSignature(docs, only2(moved)), before, false, 0).row).toBeNull()
   })
 })

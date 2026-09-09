@@ -238,6 +238,27 @@ describe('If-Match — a write that would overwrite somebody else', () => {
     expect(m.getStationPlanScales()).toEqual(doc({ default: scale(100) }))
   })
 
+  /* ⚠️ …and it SAYS it rolled back. The restored document is byte-for-byte the one that was there
+   * before, so nothing downstream can tell the rollback from a second operator correcting the
+   * reference back — which is exactly what the fit reader did, journalling «Referenz angepasst» a
+   * second time and laying a ↶ over an act the server had already refused. */
+  it('a rollback announces itself, once', async () => {
+    const m = await booted({ default: scale(100) }, 'v1')
+    expect(m.takeRolledBackStationWrite()).toBe(false) // nothing has failed yet
+    apiPut.mockRejectedValue(new Error('offline'))
+    await expect(m.saveStationPlanOverride('p1', scale(50))).rejects.toThrow()
+    expect(m.takeRolledBackStationWrite()).toBe(true)
+    // consumed by the taking: a refused write that moved no fit must not leave the flag armed for
+    // the operator's NEXT real correction
+    expect(m.takeRolledBackStationWrite()).toBe(false)
+  })
+
+  it('…and a write that LANDS announces nothing', async () => {
+    const m = await booted({ default: scale(100) }, 'v1')
+    await m.saveStationPlanOverride('p1', scale(50))
+    expect(m.takeRolledBackStationWrite()).toBe(false)
+  })
+
   it('…but never over a LATER write that landed', async () => {
     // rolling back on identity, not unconditionally: the failing write's base must not revert
     // somebody else's change that has since become the local document

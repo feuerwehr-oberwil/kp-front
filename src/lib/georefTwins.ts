@@ -139,8 +139,7 @@ export function fitSignature(p: GeorefPlan): string {
 export const sheetKeyOf = (p: Pick<PlanDocument, 'id' | 'georefKey'>): string => p.georefKey ?? p.id
 
 /**
- * ⚠️ WHY a fit changed — because the Verlauf may not guess, and the two causes are not the same
- * act.
+ * ⚠️ WHY a fit changed — because the Verlauf may not guess, and the causes are not the same act.
  *
  * Either somebody CORRECTED the reference (moved a cross, accepted an automatic alignment,
  * transferred a Passung), or the app MEASURED the sheet and re-solved the very same landmark pairs
@@ -149,11 +148,22 @@ export const sheetKeyOf = (p: Pick<PlanDocument, 'id' | 'georefKey'>): string =>
  * credits the operator with a correction nobody made, and the ↶ then offers to take back an act
  * that never happened. So the cause is READ, from the one thing only a hand changes: the pairs.
  *
- * ⚠️ Both devices get it right, which is why this is not a flag the writer sets. A second tablet
- * merely refreshes the station document and re-solves; it wrote nothing and could not have said
- * what happened — but it sees the same unchanged pairs and reaches the same answer.
+ * ⚠️ Both devices get it right, which is why the first two are not a flag the writer sets. A
+ * second tablet merely refreshes the station document and re-solves; it wrote nothing and could
+ * not have said what happened — but it sees the same unchanged pairs and reaches the same answer.
+ *
+ * ⚠️ The THIRD one cannot be read that way, and that is exactly why it is passed in. A refused
+ * write is rolled back (stationPlanScale · saveStationPlanScales), which restores the document
+ * the operator's correction replaced — so the pairs change a second time, and read on their own
+ * that is indistinguishable from a second hand correcting the reference back. It journalled the
+ * correction twice and laid a ↶ over an act the server had already undone. Only the writer knows,
+ * so the writer says so (`takeRolledBackStationWrite`).
+ *
+ * Exhaustive: `seed` (the first bake of a session — nobody's act), `measurement`, `reference`,
+ * `rollback`. Adding a fifth means deciding its Verlauf row AND whether it earns an undo step;
+ * only the two that somebody actually performed do (IncidentWorkspace · the fit effect).
  */
-export type FitChangeCause = 'seed' | 'reference' | 'measurement'
+export type FitChangeCause = 'seed' | 'reference' | 'measurement' | 'rollback'
 
 /** The landmark pairs of every sheet, as a string — what the OPERATOR set, and nothing derived
  *  from it. The counterpart to `fitSignature`, which is entirely derived. */
@@ -165,10 +175,45 @@ export function pairsSignature(
 }
 
 /** …and the reading. `before === null` is the very first bake of a session, which is nobody's act
- *  at all: a blob simply gains its map bodies, nothing moved from anywhere. */
-export function fitChangeCause(now: string, before: string | null): FitChangeCause {
+ *  at all: a blob simply gains its map bodies, nothing moved from anywhere — and it outranks a
+ *  rollback, because there is no earlier state for a refusal to have taken anything back to. */
+export function fitChangeCause(now: string, before: string | null, rolledBack = false): FitChangeCause {
   if (before === null) return 'seed'
+  if (rolledBack) return 'rollback'
   return now === before ? 'measurement' : 'reference'
+}
+
+/**
+ * ⚠️ …and what the fit effect WRITES for a cause: the ↶ caption, or null when NOBODY PERFORMED
+ * the act and therefore no undo step is owed.
+ *
+ * Two of the four causes are somebody's doing. A `seed` is a blob gaining its map bodies for the
+ * first time — nothing moved from anywhere. A `rollback` is the server refusing a write, after
+ * which the objects stand exactly where they stood before it: there is nothing to take back, and
+ * a ↶ over it would re-apply a reference the server has already refused to store.
+ */
+export function fitChangeUndoLabel(cause: FitChangeCause): string | null {
+  const C = appConfig.copy.undoDomains
+  if (cause === 'measurement') return C.blattform
+  if (cause === 'reference') return C.reference
+  return null
+}
+
+/**
+ * …and the Verlauf row, or null when there is nothing worth saying.
+ *
+ * ⚠️ `moved` gates only the two that COUNT objects: «Referenz angepasst – 0 Objekte neu verortet»
+ * is a row about nothing. The rollback's row counts nothing — it reports the SAVE — so it stands
+ * whatever the re-bake moved, and it has to: the operator's «Referenz angepasst» row is already
+ * above it and is now false.
+ */
+export function fitChangeRow(cause: FitChangeCause, moved: number): string | null {
+  const C = appConfig.copy.log
+  if (cause === 'rollback') return C.referenceRolledBack
+  if (!moved) return null
+  if (cause === 'measurement') return fillTemplate(C.referenceRemeasured, { n: moved })
+  if (cause === 'reference') return fillTemplate(C.referenceRebaked, { n: moved })
+  return null
 }
 
 /**

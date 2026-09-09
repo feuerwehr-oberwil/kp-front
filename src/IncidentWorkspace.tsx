@@ -79,10 +79,11 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import {
-  fitChangeCause, fitSignature, georefPlans, pairsSignature, planAspect, planRasterRows, referenceDelta,
+  fitChangeCause, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, pairsSignature,
+  planAspect, planRasterRows, referenceDelta,
   twinPlanImageLayerId, twinPlanImageVisible, twinVisible, isTwinLayerId,
 } from './lib/georefTwins'
-import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded } from './lib/stationPlanScale'
+import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded, takeRolledBackStationWrite } from './lib/stationPlanScale'
 import { effectiveLayer } from './lib/mapView'
 import { ToolRail } from './components/ToolRail'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
@@ -2056,6 +2057,11 @@ export function IncidentWorkspace({
     // memos are what every surface RENDERS through (lib/useObjectStore · board); only writing
     // derived geometry back into the record is an editor's privilege.
     planFitsRef.current = new Map(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
+    // ⚠️ Taken FIRST, above every early return, because the taking is what disarms it. A refused
+    // write that changed no fit — a Massstab on some other plan — notifies this effect just the
+    // same, and a flag left standing there would have made the operator's NEXT real correction
+    // read as a rollback (lib/stationPlanScale · takeRolledBackStationWrite).
+    const rolledBack = takeRolledBackStationWrite()
     const sig = linkedPlans.map(fitSignature).join('|')
     if (sig !== shownFits.current) { shownFits.current = sig; setFitsVersion((v) => v + 1) }
     if (sig === bakedFits.current) return
@@ -2083,17 +2089,18 @@ export function IncidentWorkspace({
     // reference, or the app measured the sheet and re-solved the SAME pairs in a truer shape. Both
     // move every symbol on that sheet; only one of them is something somebody did.
     const pairSig = pairsSignature(planDocs, georefForPlan)
-    const cause = seeding ? 'seed' : fitChangeCause(pairSig, bakedPairs.current)
+    const cause = seeding ? 'seed' : fitChangeCause(pairSig, bakedPairs.current, rolledBack)
     bakedFits.current = sig
     bakedPairs.current = pairSig
     const C_LOG = appConfig.copy.log
-    const measured = cause === 'measurement'
-    if (cause !== 'seed') stepLabel.current = measured ? C_HIST.undoDomains.blattform : C_HIST.undoDomains.reference
-    const moved = rebake({ checkpoint: cause !== 'seed' })
+    // ⚠️ Which of the four causes somebody PERFORMED — the one question that decides both the ↶
+    // and the row, answered in one place beside the cause itself (georefTwins · fitChangeUndoLabel).
+    const undoLabel = fitChangeUndoLabel(cause)
+    stepLabel.current = undoLabel
+    const moved = rebake({ checkpoint: !!undoLabel })
     stepLabel.current = null
-    if (cause !== 'seed' && moved) {
-      log('map', fillTemplate(measured ? C_LOG.referenceRemeasured : C_LOG.referenceRebaked, { n: moved }), 'layer')
-    }
+    const row = fitChangeRow(cause, moved)
+    if (row) log('map', row, 'layer')
 
     // …and the other half of a fit change: a reference that is GONE (see `referencedSheets`).
     const { dropped, referenced } = referenceDelta(planDocs, linkedPlans.map((p) => p.id), referencedSheets.current)

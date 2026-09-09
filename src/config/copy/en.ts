@@ -761,6 +761,7 @@ export const en: Localizable<Copy> = {
     placardUndocked: '{name} released from «{host}»',
     referenceRebaked: 'Reference adjusted – {n} objects relocated',
     referenceRemeasured: 'Sheet shape measured – {n} objects relocated',
+    referenceRolledBack: 'Reference change discarded – saving failed',
     referenceDropped: 'Reference removed',
     referenceDroppedKept: 'Reference removed – {n} objects keep their last position',
     objectDeleted: '{name} deleted',

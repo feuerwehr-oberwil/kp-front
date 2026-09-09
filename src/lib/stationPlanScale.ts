@@ -228,6 +228,31 @@ export async function loadStationPlanScales(): Promise<StationPlanScales> {
   }
 }
 
+/**
+ * ⚠️ A refused write has just PUT THE OLD DOCUMENT BACK, and the surfaces have to be told which
+ * of the two things that look identical from outside actually happened.
+ *
+ * The rollback below restores `resolved` and notifies, and a notify is all a reader ever sees. So
+ * the fit-change reader (IncidentWorkspace) watched the reference change to the operator's value,
+ * wrote the row and the undo step for it, and then watched it change BACK — which, read by the
+ * pairs alone, is a second correction by a second hand. It journalled «Referenz angepasst» twice
+ * and offered a ↶ for an act that had already been undone by the server refusing it.
+ *
+ * A flag, not a third signature: the rollback is the ONE cause that cannot be read off the
+ * document, because the document it leaves behind is exactly the one that was there before.
+ * Set here, taken by the next reader, and consumed by the taking — a refused Massstab write, which
+ * changes no fit and therefore produces no row, must not leave it armed for the next real
+ * correction.
+ */
+let rolledBack = false
+
+/** Did the last notification come from a REFUSED write being rolled back? Consumes the flag. */
+export function takeRolledBackStationWrite(): boolean {
+  const was = rolledBack
+  rolledBack = false
+  return was
+}
+
 /** Persist the full document (editor). Updates the singleton + cache so reads see it at once.
  *  ⚠️ The PUT REPLACES the stored document — the server keeps no field it isn't sent. Every
  *  writer therefore read-modify-writes on top of `baseForWrite()`, as the helpers below do;
@@ -265,6 +290,10 @@ export async function saveStationPlanScales(next: StationPlanScales): Promise<vo
       if (resolved === next) {
         resolved = before
         void idbSet(CACHE_KEY, before)
+        // …and SAY that this notification is a rollback, BEFORE it goes out: it is the notify
+        // that re-runs the fit reader, and that reader decides from this flag whether an
+        // operator corrected a reference or a save failed (see `rolledBack` above).
+        rolledBack = true
         notify()
       }
       // ⚠️ `version` is deliberately NOT rolled back: it is only ever advanced by a PUT that

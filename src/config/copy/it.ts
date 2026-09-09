@@ -762,6 +762,7 @@ export const it: Localizable<Copy> = {
     placardUndocked: '{name} sganciato da «{host}»',
     referenceRebaked: 'Riferimento adattato – {n} oggetti riposizionati',
     referenceRemeasured: 'Forma del foglio misurata – {n} oggetti riposizionati',
+    referenceRolledBack: 'Modifica del riferimento annullata – salvataggio non riuscito',
     referenceDropped: 'Riferimento rimosso',
     referenceDroppedKept: 'Riferimento rimosso – {n} oggetti mantengono la loro ultima posizione',
     objectDeleted: '{name} eliminato',
