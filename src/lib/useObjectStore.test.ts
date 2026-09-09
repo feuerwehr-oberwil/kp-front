@@ -412,3 +412,36 @@ describe('the plan gesture token', () => {
     expect(result.current.objects.find((o) => o.id === 'e1')!.sheet?.planId).toBe('modul2') // …the flip is a step below
   })
 })
+
+describe('a write that carries objects the hand did not move', () => {
+  /* ⚠️ A gesture is per-object; a map write is per-document. Dragging a Gefahrentafel's HOST
+   * carries the placard along and re-routes every hose attached to it, all in one write — read
+   * as «the hand placed all of these», the carried placard tore itself off its sheet because
+   * something else was dragged. */
+  const hostAndPlacard = (): TacticalObject[] => [
+    { id: 'host', entity: ent('host', { coord: [mEast(40).lng, ORIGIN.lat] }) },
+    { id: 'placard', sheet: { planId: 'modul2', anno: anno('placard', { x: 0.45, y: 0 }) } },
+  ]
+
+  it('a docked placard whose host is dragged keeps its sheet', () => {
+    const h = store(hostAndPlacard())
+    // the placard has a baked map body once the sheet is known
+    act(() => h.result.current.rebake())
+    const carried = (d: { entities: Entity[] }) => ({
+      ...d,
+      entities: d.entities.map((e) => ({ ...e, coord: [e.coord[0] + 0.0005, e.coord[1]] as [number, number] })),
+    })
+    act(() => h.result.current.setDocRaw((d) => carried(d) as typeof d, { movedIds: ['host'] }))
+    expect(h.result.current.objects.find((o) => o.id === 'placard')!.sheet?.planId).toBe('modul2')
+    expect(h.result.current.objects.find((o) => o.id === 'host')!.entity!.coord[0]).toBeCloseTo(mEast(40).lng + 0.0005, 8)
+  })
+
+  it('…and naming it moved flips it, so the narrowing is the only thing holding it', () => {
+    const h = store(hostAndPlacard())
+    act(() => h.result.current.rebake())
+    act(() => h.result.current.setDocRaw((d) => ({
+      ...d, entities: d.entities.map((e) => (e.id === 'placard' ? { ...e, coord: [e.coord[0] + 0.0005, e.coord[1]] as [number, number] } : e)),
+    }), { movedIds: ['placard'] }))
+    expect(h.result.current.objects.find((o) => o.id === 'placard')!.sheet).toBeUndefined()
+  })
+})

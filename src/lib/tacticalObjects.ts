@@ -441,6 +441,17 @@ export function applyDocToObjects(
   /** `false` = a MACHINE produced this document (the live-GPS re-route), so a changed position
    *  is not a hand-placement: it writes through onto the anno instead of flipping the anchor. */
   gesture = true,
+  /**
+   * ⚠️ WHICH ids the hand actually moved, when the write moved more than them.
+   *
+   * A gesture is per-object, but a map write is per-document: dragging a Gefahrentafel's HOST
+   * carries the placard along (lib/docking · carryDocked) and re-routes every hose attached to
+   * it (lineAttachments · applyRouting), all in one write. Read as «the hand placed all of
+   * these», a carried placard or a re-routed Leitung tore itself off its sheet because something
+   * else was dragged. Absent ⇒ every id in the document may flip, which is right for a write
+   * that moves exactly what it names.
+   */
+  movedIds?: ReadonlySet<string>,
 ): TacticalObject[] {
   const entities = new Map(doc.entities.filter((e) => !e.live).map((e) => [e.id, e])) // live overlays are derived, never records
   const drawings = new Map(doc.drawings.map((d) => [d.id, d]))
@@ -458,7 +469,8 @@ export function applyDocToObjects(
     }
     const body = entity ? { entity } : { drawing }
     const moved = movedOnMap(o, body)
-    if (moved && gesture) next.push({ id: o.id, ...body })
+    const byHand = gesture && (!movedIds || movedIds.has(o.id))
+    if (moved && byHand) next.push({ id: o.id, ...body })
     else {
       const plan = fits?.get(o.sheet.planId)
       const anno = annoAfterMapEdit(o.sheet.anno, body, plan, moved ? 'machine' : undefined)

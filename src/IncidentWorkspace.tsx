@@ -3093,7 +3093,8 @@ export function IncidentWorkspace({
           ...(t.deg && o.rotation2 !== undefined ? { rotation2: turnedBy(o.rotation2, t.deg) } : null),
         }
       }),
-    }))
+    // the boxed group IS what the hand moved — every member of it, and nothing else
+    }), { movedIds: [...ids, ...entIds] })
     if (phase === 'end') {
       endDrag()
       groupOrig.current = { draws: {}, ents: {}, centre: null }
@@ -3205,7 +3206,9 @@ export function IncidentWorkspace({
         }
         return next
       }),
-    }))
+    // ⚠️ ONE id: the write carries the docked placard and re-routes the attached hoses, and
+    // none of those were placed by the hand that dragged this (lib/tacticalObjects · movedIds).
+    }), { movedIds: [id] })
   }
   const finishEntityMove = (id: string, c: LngLat) => {
     if (tacticalLocked) return
@@ -3228,7 +3231,7 @@ export function IncidentWorkspace({
         ...d,
         entities: carryDocked(d.entities, id, d.entities.find((e) => e.id === id)?.coord ?? c, c)
           .map((e) => (e.id === id ? { ...e, coord: c, ...(dockPatch ?? {}), ...(e.kind === 'team' ? { t: formatTime(new Date()) } : {}) } : e)),
-      }))
+      }), { movedIds: [id] })
       endDrag()
       if (dockPatch) {
         const name = ent?.label || appConfig.copy.entities.fallbackObjectName

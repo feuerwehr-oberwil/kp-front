@@ -55,8 +55,12 @@ export interface ObjectStore {
    *  an object, so a machine's changed position writes through onto the sheet anno instead of
    *  flipping the anchor to the Karte — see applyDocToObjects. The live-GPS re-route is the one
    *  caller: it rewrites an attached Leitung's coords on every poll, and read as a placement it
-   *  would have torn plan-drawn hoses off their sheet with nobody touching anything. */
-  setDocRaw: (update: SetStateAction<Doc>, opts?: { gesture?: boolean }) => void
+   *  would have torn plan-drawn hoses off their sheet with nobody touching anything.
+   *
+   *  ⚠️ `movedIds` narrows the same question WITHIN a hand gesture: a map write is per-document,
+   *  so dragging one object also carries its docked placard and re-routes the hoses attached to
+   *  it. Only the named ids were placed by the hand; the rest of that write is machine-treated. */
+  setDocRaw: (update: SetStateAction<Doc>, opts?: { gesture?: boolean; movedIds?: readonly string[] }) => void
   /**
    * Plan write.
    *
@@ -135,13 +139,14 @@ export function useObjectStore(
    *  ⚠️ The fits travel WITH the fold: a Karte edit of a sheet-anchored object writes its
    *  unit-bearing fields — a Form's width, a Hubretter's reach, an Absperrkreis's radius, a
    *  Trupp's recorded breadcrumbs — back onto the anno through that plan's own fit. */
-  const foldDoc = (objects: TacticalObject[], next: Doc, view: Doc, gesture = true): TacticalObject[] =>
-    next === view ? objects : applyDocToObjects(objects, next, getFits(), gesture)
+  const foldDoc = (objects: TacticalObject[], next: Doc, view: Doc, opts?: { gesture?: boolean; movedIds?: readonly string[] }): TacticalObject[] =>
+    next === view ? objects : applyDocToObjects(objects, next, getFits(), opts?.gesture ?? true,
+      opts?.movedIds ? new Set(opts.movedIds) : undefined)
 
   const setDocRaw: ObjectStore['setDocRaw'] = (a, opts) => {
     setObjects((objects) => {
       const view = docViewOf(objects)
-      return foldDoc(objects, typeof a === 'function' ? a(view) : a, view, opts?.gesture ?? true)
+      return foldDoc(objects, typeof a === 'function' ? a(view) : a, view, opts)
     })
   }
 
