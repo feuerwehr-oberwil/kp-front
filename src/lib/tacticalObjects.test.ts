@@ -129,14 +129,38 @@ describe('bakeGeoBody — the write-through that makes the record self-contained
     expect(baked.drawing?.radiusM).toBeCloseTo(25, 3) // 0.25 of a 100 m sheet
   })
 
+  it('bakes a Trupp chip into the map team marker, trail and all', () => {
+    // the chip and the map's team marker are ONE object — without this the plan-placed Trupp
+    // would simply vanish from the Karte, and its recorded breadcrumbs with it
+    const o: TacticalObject = {
+      id: 'r1',
+      sheet: { planId: 'modul2', anno: anno('r1', {
+        kind: 'resource', x: 0.5, y: 0, text: 'Trupp 1', color: '#f00', truppId: 't7', t: '10:15',
+        trail: [{ x: 0, y: 0, t: '10:00' }, { x: 1, y: 0, t: '10:15' }],
+      }) },
+    }
+    const baked = bakeGeoBody(o, PLAN, 'taktisch')
+    expect(baked.entity?.kind).toBe('team')
+    expect(baked.entity?.label).toBe('Trupp 1')
+    expect(baked.entity?.truppId).toBe('t7')
+    expect(baked.entity?.t).toBe('10:15')
+    expect(baked.entity?.color).toBe('#f00')
+    expect(baked.entity!.coord[0]).toBeCloseTo(mEast(50).lng, 8)
+    expect(baked.entity?.trail).toHaveLength(2)
+    expect(baked.entity!.trail![1].coord[0]).toBeCloseTo(mEast(100).lng, 8)
+    expect(baked.entity!.trail![0].t).toBe('10:00')
+    // …and the sheet stays the anchor, as for every other kind
+    expect(baked.sheet).toEqual(o.sheet)
+  })
+
+  it('a chip that has never moved bakes without a trail', () => {
+    const o: TacticalObject = { id: 'r2', sheet: { planId: 'modul2', anno: anno('r2', { kind: 'resource', text: 'Trupp 2' }) } }
+    expect(bakeGeoBody(o, PLAN, 'taktisch').entity?.trail).toBeUndefined()
+  })
+
   it('without a fit the object stays sheet-only — honestly absent from the map', () => {
     const o: TacticalObject = { id: 's1', sheet: { planId: 'modul2', anno: anno('s1') } }
     expect(bakeGeoBody(o, undefined, 'taktisch')).toBe(o)
-  })
-
-  it('a resource chip stays plan-only for now', () => {
-    const o: TacticalObject = { id: 'r1', sheet: { planId: 'modul2', anno: anno('r1', { kind: 'resource', text: 'Trupp 1' }) } }
-    expect(bakeGeoBody(o, PLAN, 'taktisch')).toBe(o)
   })
 })
 

@@ -107,19 +107,45 @@ export interface PlanFit { fit: GeorefFit; aspect: number }
 /** A sheet point's x/y without its optional per-point floor. */
 const ptXY = (p: BoardPoint): { x: number; y: number } => ({ x: p[0], y: p[1] })
 
+/** Copy exactly the listed keys, and only the ones the source actually carries. */
+function pick<T extends object, K extends readonly (keyof T)[]>(o: T, keys: K): Pick<T, K[number]> {
+  const out: Partial<T> = {}
+  for (const k of keys) if (k in o) out[k] = o[k]
+  return out as Pick<T, K[number]>
+}
+
+/**
+ * THE shared vocabulary of a path object and its sheet anno: the fields both surfaces spell the
+ * same way, in ONE list rather than two hand-kept literals — the type only admits a name that
+ * really is on both sides. Geometry is deliberately absent: `pts`/`coords` and
+ * `radiusN`/`radiusM` are the same statement in two different units, converted by hand below.
+ */
+const SHARED_PATH_PROPS = [
+  'color', 'width', 'dashed', 'arrow', 'arrowStop', 'marker', 'fillOpacity', 'hatch', 'locked',
+  'teilstueck', 'content', 'lineNo', 'floorTag', 'showDistance', 'labelDx', 'labelDy',
+  'label', 'truppId',
+] as const satisfies readonly (keyof Drawing & keyof BoardAnno)[]
+
+/** …and the subset a circle has (it is a point object with an extent — no stroke vocabulary). */
+const SHARED_CIRCLE_PROPS = [
+  'color', 'fillOpacity', 'hatch', 'locked', 'showDistance',
+] as const satisfies readonly (keyof Drawing & keyof BoardAnno)[]
+
 /**
  * Bake the MAP body of one sheet-anchored object through its plan's fit — the write-through
  * half that makes the record self-contained (Kroki and map replay read baked bodies, never
- * a fit). Returns the object unchanged when the anno kind has no map counterpart (resource
- * chips stay plan-only for now) or no fit is known for its sheet.
+ * a fit). Returns the object unchanged when the anno kind has no map counterpart or no fit is
+ * known for its sheet — the latter is honest, not a gap: a plan without a georeference cannot
+ * say where on the ground its symbols stand.
  *
  * Vocabulary mapping (the same one the transfer door and the content twins use):
- *   symbol → Entity 'symbol' (storey → floor, reachN → reachM)
- *   text   → Entity 'note'   (wN is a plan fraction, noteW screen px — width NOT carried)
- *   shape  → Entity 'shape'  (sizeN → sizeM)
- *   draw   → Drawing 'line'  (pts → coords; FKS annotations ride along)
- *   area   → Drawing 'area'
- *   circle → Drawing 'circle' (radiusN → radiusM)
+ *   symbol   → Entity 'symbol' (storey → floor, reachN → reachM)
+ *   text     → Entity 'note'   (wN is a plan fraction, noteW screen px — width NOT carried)
+ *   shape    → Entity 'shape'  (sizeN → sizeM)
+ *   resource → Entity 'team'   (the Trupp chip; its plan-space trail becomes a geo trail)
+ *   draw     → Drawing 'line'  (pts → coords; FKS annotations ride along)
+ *   area     → Drawing 'area'
+ *   circle   → Drawing 'circle' (radiusN → radiusM)
  */
 export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer: Entity['layer']): TacticalObject {
   if (!o.sheet || !plan) return o
@@ -150,26 +176,29 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
     }
     return { ...o, entity, drawing: undefined }
   }
+  if (anno.kind === 'resource' && anno.x != null && anno.y != null) {
+    // the Trupp chip is the plan twin of the map's 'team' marker — same object, same id, and
+    // the recorded breadcrumbs are part of the incident record, so they cross with it
+    const entity: Entity = {
+      id: o.id, kind: 'team', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
+      label: anno.text ?? anno.label, color: anno.color, truppId: anno.truppId, t: anno.t,
+      trail: anno.trail?.map((p) => ({ coord: at(p.x, p.y), t: p.t })),
+    }
+    return { ...o, entity, drawing: undefined }
+  }
   if ((anno.kind === 'draw' || anno.kind === 'area') && anno.pts?.length) {
     const drawing: Drawing = {
+      ...pick(anno, SHARED_PATH_PROPS),
       id: o.id, kind: anno.kind === 'draw' ? 'line' : 'area',
       coords: anno.pts.map((p) => { const { x, y } = ptXY(p); return at(x, y) }),
-      color: anno.color, width: anno.width, dashed: anno.dashed,
-      arrow: anno.arrow, arrowStop: anno.arrowStop, marker: anno.marker,
-      fillOpacity: anno.fillOpacity, hatch: anno.hatch, locked: anno.locked,
-      teilstueck: anno.teilstueck, content: anno.content, lineNo: anno.lineNo,
-      floorTag: anno.floorTag, showDistance: anno.showDistance,
-      labelDx: anno.labelDx, labelDy: anno.labelDy,
-      label: anno.label, truppId: anno.truppId,
     }
     return { ...o, drawing, entity: undefined }
   }
   if (anno.kind === 'circle' && anno.x != null && anno.y != null) {
     const drawing: Drawing = {
+      ...pick(anno, SHARED_CIRCLE_PROPS),
       id: o.id, kind: 'circle', coords: [at(anno.x, anno.y)],
       radiusM: anno.radiusN != null ? anno.radiusN * widthM : undefined,
-      color: anno.color, fillOpacity: anno.fillOpacity, hatch: anno.hatch, locked: anno.locked,
-      showDistance: anno.showDistance,
     }
     return { ...o, drawing, entity: undefined }
   }
