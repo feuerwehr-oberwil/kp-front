@@ -4,6 +4,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
+import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
 import { rowPhotos } from '../lib/verlauf'
@@ -1529,12 +1530,13 @@ export function ReportPreflight({
                   { kind: 'sep' as const },
                   // the Beilagen in ORIGINAL quality — one ZIP with manifest + SHA-256 per file,
                   // for the digital Ablage. An ACTION among the section ticks, so it sits last;
-                  // plain navigation, the session cookie does the auth. Absent (404) when the
-                  // Einsatz has no stored media — the disabled state mirrors that.
+                  // an anchor download, not a navigation (lib/download · downloadUrl) — the
+                  // session cookie still does the auth. Absent (404) when the Einsatz has no
+                  // stored media — the disabled state mirrors that.
                   {
                     label: P.archiveZip,
                     disabled: !hasStoredMedia,
-                    onClick: () => { window.location.assign(`/api/incidents/${incident.id}/media.zip`) },
+                    onClick: () => { downloadUrl(`/api/incidents/${incident.id}/media.zip`) },
                   },
                 ]}
               />
