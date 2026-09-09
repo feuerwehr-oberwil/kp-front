@@ -484,7 +484,8 @@ describe('useTruppActions — a second tap on a state the Trupp already holds re
     expect(lines).toEqual([`Trupp ${out.name}: Austritt`])
     expect(second.state.trupps[0].exitTime).toBe(out.exitTime)
     expect(second.state.trupps[0].readings?.filter((r) => r.kind === 'exit')).toHaveLength(1)
-    expect(ui.toasts).toHaveLength(1)
+    // no confirm toasts on the board at all since 09.09. — the ↶ pair is the way back
+    expect(ui.toasts).toHaveLength(0)
   })
 
   it('«Einrücken» twice does not turn the second tap into a «Einsatz fortgesetzt»', () => {
@@ -528,7 +529,8 @@ describe('useTruppActions — two taps in one frame', () => {
     actions.setTruppStatus('T1', 'raus')
     expect(lines).toEqual([`Trupp ${state.trupps[0].name}: Austritt`])
     expect(state.trupps[0].readings?.filter((r) => r.kind === 'exit')).toHaveLength(1)
-    expect(ui.toasts).toHaveLength(1)
+    // no confirm toasts on the board at all since 09.09. — the ↶ pair is the way back
+    expect(ui.toasts).toHaveLength(0)
   })
 
   it('«Einrücken» twice does not add a «Einsatz fortgesetzt» behind the Eintritt', () => {
@@ -720,55 +722,58 @@ describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Ei
 
 /* The three lifecycle taps that touch the SAFETY CLOCK — «Eingerückt» starts it, «Rückzug» and
  * «Fortsetzen» reset it. A mis-tap on the wrong card therefore silences that Trupp's alarm and
- * writes a false line into an append-only record, so each one owes the same confirm-with-undo
- * «Raus» has always had. The Verlauf line stays either way (append-only); the undo restores the
- * Trupp. */
+ * writes a false line into an append-only record, so each one is undoable. The Verlauf line
+ * stays either way (append-only); the undo restores the Trupp — via the GLOBAL ↶ timeline
+ * since 09.09.: the board's own confirm toasts are gone (they popped over the very board being
+ * watched), so the timeline is the ONE door and these tests step it directly. */
 describe('useTruppActions — every status transition is undoable', () => {
   const stale = { lastContactTime: '2026-07-06T10:00:00Z', readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' as const }] }
-  const undoLast = () => {
-    const undo = ui.toasts[ui.toasts.length - 1]?.undo
-    expect(undo).toBeTypeOf('function')
-    undo?.()
+  const timed = (t: Trupp) => {
+    const timeline = createUndoTimeline()
+    const h = harness(t)
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+    const actions = useTruppActions({ ...h.deps, undoTimeline: timeline, liveTrupps: () => h.state.trupps })
+    return { actions, state: h.state, timeline }
+  }
+  const undoLast = (timeline: ReturnType<typeof createUndoTimeline>) => {
+    expect(timeline.peekUndo()).toBeTruthy()
+    timeline.undo()
   }
 
   it('Rückzug: the undo brings back the status AND the contact clock it reset', () => {
-    ui.toasts.length = 0
     const before = baseTrupp({ status: 'aktiv', lastPressureBar: 140, ...stale })
-    const { actions, state } = harness(before)
+    const { actions, state, timeline } = timed(before)
     actions.setTruppStatus('T1', 'rueckzug')
     expect(state.trupps[0].lastContactTime).not.toBe(stale.lastContactTime)
-    undoLast()
+    undoLast(timeline)
     expect(state.trupps[0]).toEqual(before)
   })
 
   it('Fortsetzen: same clock, same way back', () => {
-    ui.toasts.length = 0
     const before = baseTrupp({ status: 'rueckzug', ...stale })
-    const { actions, state } = harness(before)
+    const { actions, state, timeline } = timed(before)
     actions.setTruppStatus('T1', 'aktiv')
     const readings = state.trupps[0].readings ?? []
     expect(readings[readings.length - 1]).toMatchObject({ kind: 'resume' })
-    undoLast()
+    undoLast(timeline)
     expect(state.trupps[0]).toEqual(before)
   })
 
   it('Eingerückt: the undo un-stamps entryTime, so the clock is not left running on a crew that never went in', () => {
-    ui.toasts.length = 0
     const before = baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] })
-    const { actions, state } = harness(before)
+    const { actions, state, timeline } = timed(before)
     actions.setTruppStatus('T1', 'aktiv')
     expect(state.trupps[0].entryTime).toBeTruthy()
-    undoLast()
+    undoLast(timeline)
     expect(state.trupps[0]).toEqual(before)
   })
 
   it('Raus keeps its own undo (unchanged)', () => {
-    ui.toasts.length = 0
     const before = baseTrupp({ status: 'aktiv', ...stale })
-    const { actions, state } = harness(before)
+    const { actions, state, timeline } = timed(before)
     actions.setTruppStatus('T1', 'raus')
     expect(state.trupps[0].exitTime).toBeTruthy()
-    undoLast()
+    undoLast(timeline)
     expect(state.trupps[0]).toEqual(before)
   })
 })

@@ -1681,7 +1681,6 @@ export const de = {
     // dann unsichtbar scharf, bis niemand mehr wusste, warum kein Symbol mehr aufgeht.
     linePickHint: 'Leitung auf der Karte antippen',
     linePickCancel: 'Auswahl abbrechen',
-    lineLinkedToast: 'Leitung {n} mit {name} verknüpft',
     logLineLinked: 'Trupp {name} auf Leitung {n}',
     logLineUnlinked: 'Trupp {name}: Leitung gelöst',
     // Gesetzter Trupp ⇄ Atemschutz-Trupp – dieselbe Regel wie bei der Leitung: die beiden finden
@@ -1900,8 +1899,8 @@ export const de = {
     statusRemoved: 'Von Tafel entfernt',
     logNotDeployed: 'Trupp {name} nicht eingesetzt',
     remove: 'Entfernen',
-    // removal happens immediately with an undo toast (no confirmation dialog)
-    removedToast: 'Trupp {name} entfernt',
+    // removal happens immediately, no dialog and no toast — the way back is the global ↶
+    // pair and the «Entfernte Trupps» menu (09.09.)
     place: 'Platzieren',
     placeWhere: 'Wohin platzieren?',
     placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',

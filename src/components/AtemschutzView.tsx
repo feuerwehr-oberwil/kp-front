@@ -750,7 +750,7 @@ export function AtemschutzView({
       onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
       onEdit={(focus) => openForm('edit', t, focus)} onReenter={() => openForm('redeploy', t)}
-      onDelete={deleteTrupp} onRestore={restoreTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
+      onDelete={deleteTrupp} onPlace={handlePlace} onShowPlan={focusTruppOnPlan}
       // ⚠️ never on a work squad. The arrows move one GLOBAL order while the board renders two
       // filtered sections, so a step can swap a Trupp past the section boundary and look like it
       // did nothing — and these Trupps never had them (they lived on `PlainTruppRow`, which had
@@ -1490,7 +1490,7 @@ function TruppRow({
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, onFlashed, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onRestore, onPlace, onShowPlan, onMove, onPickLine, anyLine = false, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, onFlashed, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onPickLine, anyLine = false, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
@@ -1515,7 +1515,6 @@ function TruppCard({
   onDelete: (id: string) => void
   /** present only while the hand-set order is the one on screen (see AtemschutzView) */
   onMove?: (id: string, dir: -1 | 1) => void
-  onRestore: (t: Trupp) => void
   onPlace: (id: string) => void
   onShowPlan: (id: string) => void
   /** start «Leitung wählen» — the next tap on a hose links it to this Trupp */
@@ -1670,20 +1669,15 @@ function TruppCard({
   const lineTag = drawnLineNo != null ? String(drawnLineNo)
     : t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim()
 
-  // «Raus» happens immediately with a Rückgängig toast (house rule: confirm-with-undo, no
-  // blocking dialog). The undo lives in the action (setTruppStatus) so it restores the full
-  // pre-raus Trupp — status + clocks — not just re-open a dead-ended card.
+  // «Raus» happens immediately, no blocking dialog. The way back is the global ↶ pair (the
+  // undo lives in the action, setTruppStatus, so it restores the full pre-raus Trupp — status
+  // + clocks — not just re-open a dead-ended card).
   const askExit = () => onStatus(t.id, 'raus')
-  // delete-now + Rückgängig toast (house rule: confirm-with-undo, no blocking dialog).
-  // The captured Trupp restores with its full record; only the plan/map placement is gone.
-  const doDelete = () => {
-    const snapshot = t
-    onDelete(t.id)
-    toast(fillTemplate(az.removedToast, { name: t.name }), {
-      icon: 'trash',
-      action: { label: appConfig.copy.undo, onClick: () => onRestore(snapshot) },
-    })
-  }
+  // delete-now, no blocking dialog and — since 09.09. — no Rückgängig toast either: the board
+  // raised a pill over itself for every action, and the steady popping read as noise. The two
+  // doors back are the global ↶ pair (deleteTrupp registers there) and the non-expiring
+  // «Entfernte Trupps» menu; both restore the full record, only the plan/map placement is gone.
+  const doDelete = () => { onDelete(t.id) }
 
   /* ── the ⋯ menu ────────────────────────────────────────────────────────────────────────────
    * The same conditions the four icon buttons carried, now as sentences. Two of them are PAIRS

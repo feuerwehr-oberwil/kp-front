@@ -3,7 +3,7 @@ import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LngLat, Timelin
 import type { Doc } from './workspace'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
-import { toast, confirmDialog } from './ui'
+import { confirmDialog } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
@@ -543,8 +543,8 @@ export function useTruppActions(deps: Deps) {
    * standing by, and starting its contact clock would put a red alarm on a crew nobody sent in.
    *
    * ⚠️ The confirm runs the board's OWN action (setTruppStatus 'aktiv'), so the entry time, the
-   * entry reading and the undo toast are the same ones «Einrücken» writes — the clock logic
-   * exists once. Declining does nothing at all: the marker stays where it was put.
+   * entry reading and the ↶ timeline step are the same ones «Im Einsatz» writes — the clock
+   * logic exists once. Declining does nothing at all: the marker stays where it was put.
    */
   const askTruppEntry = async (id: string) => {
     const tr = trupps.find((t) => t.id === id)
@@ -737,7 +737,6 @@ export function useTruppActions(deps: Deps) {
   // derived state (lowestBar, the log row) is computed INSIDE the updater so it never reads stale.
   const recordPressure = (id: string, bar: number) => {
     const tr = trupps.find((t) => t.id === id)
-    const snapshot = tr // the Trupp as it was BEFORE the reading — for the undo
     const now = serverNowIso()
     // Crossing the Alarmdruck is the moment the Trupp has to turn round, and it was visible on
     // the card and nowhere else — the reconstruction afterwards could not say when it happened.
@@ -759,22 +758,15 @@ export function useTruppActions(deps: Deps) {
     )
     log(crossed ? 'warn' : 'drop', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.pressure', { id, bar })
-    // confirm-with-undo (house rule): a fat-fingered reading ("20" for "200") would otherwise
-    // permanently poison lowestBar → a false red «tiefster Druck» on the legal record with no
-    // way back. Undo restores the Trupp's pre-reading state (pressure, contact clock, lowestBar,
-    // per-Trupp readings). The Verlauf line stays (append-only doctrine — the record shows the
-    // correction happened), but the safety-critical derived state is fixed.
-    // …and on the timeline, so the way back outlives the toast's six seconds. The toast's own
-    // «Rückgängig» drops the entry again (`drop`): one act must not be undoable twice.
-    const drop = remember(id, line, tr, apply)
-    if (snapshot) {
-      // the SAME line the record got — a toast that says «Druck 100 bar» while the Verlauf says
-      // «Alarmdruck erreicht» is the app confirming something other than what it wrote down
-      toast(line, {
-        icon: crossed ? 'warn' : 'drop',
-        action: { label: appConfig.copy.undo, onClick: () => { setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))); drop() } },
-      })
-    }
+    // The way back: a fat-fingered reading ("20" for "200") would otherwise permanently poison
+    // lowestBar → a false red «tiefster Druck» on the legal record. Undo restores the Trupp's
+    // pre-reading state (pressure, contact clock, lowestBar, per-Trupp readings); the Verlauf
+    // line stays (append-only doctrine — the record shows the correction happened).
+    // ⚠️ On the GLOBAL ↶ timeline only, since 09.09.: the confirm-with-undo toast that used to
+    // double it is gone — the board raised one for every Kontakt/Druck/Statuswechsel and the
+    // steady popping read as noise over the very board being watched. The header pair (which
+    // the handed-over Tafel carries too) names the step and does not expire.
+    remember(id, line, tr, apply)
   }
   // advance a Trupp's lifecycle phase: angemeldet → aktiv (eingerückt, starts the contact clock +
   // logs the entry reading) → rueckzug → raus (sets exitTime, ends monitoring), and the reverse
@@ -861,18 +853,11 @@ export function useTruppActions(deps: Deps) {
      * that resets the clocks.
      * Append-only doctrine: the Verlauf keeps its line, because the tap did happen. The undo
      * restores the Trupp's derived state — status, entry/contact clocks, exitTime, readings —
-     * which is the same contract Kontakt, Druck and Bearbeiten already offer. The toast repeats
-     * the line the record got and names the Trupp, because meaning a different one IS the
-     * failure mode. */
-    // …and the same step goes on the global timeline, which is the door that does not expire.
-    const drop = remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
-    if (line && tr) {
-      const snapshot = tr
-      toast(line, {
-        icon,
-        action: { label: appConfig.copy.undo, onClick: () => { setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))); drop() } },
-      })
-    }
+     * which is the same contract Kontakt, Druck and Bearbeiten already offer. It lives on the
+     * GLOBAL ↶ timeline (the door that does not expire, named per step, on the handed-over
+     * Tafel too) — the confirm toast that used to double it went 09.09. with all the board's
+     * popping confirmations. */
+    remember(id, line ?? (tr ? truppLogName(tr) : ''), tr, apply)
   }
   // edit a Trupp's Auftrag / team mid-incident (job changed, moved floor, crew swapped). Never
   // touches the live CLOCK. Keeps the plan chip label in sync.
@@ -969,20 +954,14 @@ export function useTruppActions(deps: Deps) {
       : null
     if (line) log('pen', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.edit', { id })
-    // ⚠️ confirm-with-undo, like every other Atemschutz mutation (Kontakt, Druck, raus, löschen) —
-    // this one was the gap. It rewrites the Eingangsdruck that «Verbrauch» and «tiefster Druck» are
-    // measured against, and an AdF removed from the crew here is removed from the record. Only the
-    // derived state comes back; the Verlauf keeps its line, because the correction did happen.
+    // ⚠️ Undoable like every other Atemschutz mutation (Kontakt, Druck, raus, löschen) — via the
+    // GLOBAL ↶ timeline (the board's confirm toasts went 09.09.). It rewrites the Eingangsdruck
+    // that «Verbrauch» and «tiefster Druck» are measured against, and an AdF removed from the
+    // crew here is removed from the record. Only the derived state comes back; the Verlauf keeps
+    // its line, because the correction did happen.
     // Nothing changed ⇒ no row, and nothing on the timeline either: ↶ must never offer to take
     // back a save that wrote nothing (the operator would watch it do visibly nothing).
-    const drop = line ? remember(id, line, tr, (t) => ({ ...t, ...patch })) : () => {}
-    if (tr && line) {
-      const snapshot = tr
-      toast(line, {
-        icon: 'pen',
-        action: { label: appConfig.copy.undo, onClick: () => { setTrupps((ts) => ts.map((t) => (t.id === id ? snapshot : t))); drop() } },
-      })
-    }
+    if (line) remember(id, line, tr, (t) => ({ ...t, ...patch }))
   }
   // re-deploy an exited Trupp (refilled bottle, going back inside): a fresh start — new pressure +
   // reset clocks/log — while letting the EL adjust the Auftrag/team on the way back in.
@@ -1126,7 +1105,8 @@ export function useTruppActions(deps: Deps) {
 
     log('drop', fillTemplate(az.logLineLinked, { name: tr.name, n: no != null ? String(no) : '–' }), 'team', undefined, undefined, { subjectId: truppId })
     emit('atemschutz.line.link', { id: truppId, lineId, lineNo: no })
-    toast(fillTemplate(az.lineLinkedToast, { n: no != null ? String(no) : '–', name: tr.name }), { icon: 'drop' })
+    // no confirm toast (09.09.): the hose wears the Trupp tag the instant the link lands — the
+    // ink is the confirmation, and the Verlauf row above is the record
     return true
   }
 
@@ -1246,8 +1226,9 @@ export function useTruppActions(deps: Deps) {
     // card never left the record and putting it back is un-stamping it — a fresh Trupp would be a
     // second registration of a crew that only ever registered once. The placement refs stay gone
     // (see restoreTrupp): the chip on the plan cannot be resurrected faithfully.
-    // ⚠️ The delete's own «Rückgängig» toast still stands (AtemschutzView) and drops this entry,
-    // and so does the non-expiring «Entfernte Trupps» menu — three doors, one act.
+    // ⚠️ Two doors, one act: this ↶ timeline entry, and the non-expiring «Entfernte Trupps»
+    // menu. (The delete's own «Rückgängig» toast was the third and went 09.09. with all the
+    // board's confirm toasts.)
     // ⚠️ …and the placement refs are STRIPPED on the way back, exactly as `restoreTrupp` strips
     // them: `dropPlacements` above took the plan chip and the map marker with it, and they cannot
     // be resurrected faithfully. Restoring the card verbatim would point it at an annotation id
