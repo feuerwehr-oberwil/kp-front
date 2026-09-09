@@ -205,7 +205,8 @@ export interface DirectReportArgs {
      *  screen it was framed on did (an Einsatzleiter symbol prints its name) */
     captionMode?: CaptionMode
   }
-  /** plan whiteboard (with `plans` + the annotatedPlans options → server-rendered pages) */
+  /** what every sheet DRAWS: its own annos plus the Karte's objects projected onto it
+   *  (lib/useObjectStore · board). One list — the page shows what the screen shows. */
   board?: BoardDoc
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null

@@ -260,12 +260,6 @@ export function twinVisible(prefs: Record<string, boolean> | undefined, id: stri
   return prefs?.[id] ?? true
 }
 
-/** An explicit «zeigen» jump outranks a stale hidden preference for exactly its destination.
- *  Preserve object identity when nothing changes so a jump to an already visible twin does not
- *  write preferences or re-render every projection. */
-export function revealTwinLayer(prefs: Record<string, boolean>, id: string): Record<string, boolean> {
-  return twinVisible(prefs, id) ? prefs : { ...prefs, [id]: true }
-}
 
 /** The literal sheet is opt-in: symbols are useful by default, a full plan backdrop is not. */
 export function twinPlanImageVisible(prefs: Record<string, boolean> | undefined, planId: string): boolean {

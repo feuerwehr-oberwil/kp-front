@@ -279,7 +279,8 @@ export function ReportPreflight({
      *  screen it was framed on did (an Einsatzleiter symbol prints its name) */
     captionMode?: CaptionMode
   }
-  /** plan whiteboard annotations — server-rendered annotated Objektplan pages */
+  /** what every sheet DRAWS — its own annos plus the Karte's objects projected onto it
+   *  (lib/useObjectStore · board). Server-rendered as the annotated Objektplan pages. */
   board?: BoardDoc
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null

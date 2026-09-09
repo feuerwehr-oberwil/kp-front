@@ -1,0 +1,51 @@
+/* The live feed's marks on a georeferenced plan (components/PlanLiveLayer) — the last thing a
+   surface DRAWS without owning it. Everything else the Karte holds is an object now, and a sheet
+   draws an object with its own chrome (lib/planProjection).
+
+   It says ONE thing: this vehicle is really standing there. Its own glyph and caption are
+   enough; a permanent ⇄ badge repeated the relationship on every mark and turned a cluster into
+   confetti. NEVER --accent — that is the station's alarm red, and a GPS fix is not an alarm. */
+
+/* ── the mark ───────────────────────────────────────────────────────────────────────────── */
+.twin {
+  position: absolute;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  /* the glyph is the button; the ring below is drawn around it */
+  line-height: 0;
+  cursor: pointer;
+  /* the mark leaves unrelated movement gestures to the surrounding surface */
+  touch-action: manipulation;
+  /* ⚠️ UNDER everything the operator can actually touch — the plan's own annotations sit at 3
+     (.wb-anno) and the trail dots at 2, and on the map the lowest real marker is a Leitung's end
+     tag at MARKER_Z.tag. A live mark that covered a placed symbol would swallow the tap meant
+     for the object somebody actually put there. */
+  z-index: 2;
+}
+/* ⚠️ A mark goes INERT the moment the surface is doing something else — a tool is armed, or the
+   pairing mode is running — and a responder's dot is inert always. It stays visible (the picture
+   is why it exists); it simply stops answering. */
+.inert { pointer-events: none; cursor: default; }
+
+/* quieter than the objects around it — enough to recognise the vehicle at a glance, never
+   enough to compete with something somebody actually set on this sheet */
+.twin :global(.ts) { position: relative; z-index: 1; }
+
+/* A mark the operator may actually move says so — the same cursor a placed symbol gets on the
+   surface underneath, so «kann ich das anfassen» is answered before the finger lands. Set in
+   `touch-action: none` is the load-bearing half on a tablet — without it the browser claims the
+   gesture as a scroll before the first pointermove ever reaches us, and the mark never budges. */
+.grab { cursor: grab; touch-action: none; }
+.grab:active { cursor: grabbing; }
+
+/* ⚠️ Chips never share an element with the hit shell. team-dot/wb-resource-pill on the BUTTON
+   itself lost cascade fights (display:block ate the flex row → the dot collapsed to a sliver)
+   and hit Safari's anonymous button-box flex quirk (the pill's cap floated loose). The button
+   carries only contentPoint/contentTap; the chip lives in an inner span with its native class. */
+/* ⚠️ NO midpoint grip on mirrored ink (removed 01.09., D-25). It existed because the projection
+   was pointer-dead everywhere else; the ink now answers a tap over its whole length, and moving
+   a selection belongs to the one fixed selection bar — which is also all the map's OWN Linie has.
+   Its dot was the last piece of edit chrome painting in `currentColor` instead of the blue
+   handle family, and it left with it. */

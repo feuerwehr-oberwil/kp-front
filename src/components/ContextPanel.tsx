@@ -105,12 +105,12 @@ export interface ContextPanelProps {
   onClose: () => void
   /** recenter the surface on this object — absent where the surface can't (yet) recenter */
   onCenter?: () => void
-  /** «Zum Original» — this panel MIRRORS an object that lives on the OTHER surface (a
-   *  Georeferenz twin, see components/GeorefTwinPanel). Editing may write through to that one
-   *  source in place; this optional row remains the explicit way to inspect it on its own surface. */
+  /** «Zum Original» — an explicit jump to this object on the other surface. Absent on a surface
+   *  that has nowhere to send it. (It is the SAME object either way now; what the row offers is a
+   *  different view of it, not a different copy.) */
   onOriginal?: () => void
   originalLabel?: string
-  /** Move ownership of a projected object onto the surface currently being viewed. */
+  /** Show this object where the linked sheet draws it. */
   /** The inverse of «Zum Original»: show this source object on its linked surface. */
   onProjection?: () => void
   projectionLabel?: string
@@ -322,7 +322,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   const writtenRef = useRef(JSON.stringify(entity.fields ?? {}))
   // ⚠️ Follow the entity when the fields change from OUTSIDE — the same rule the title below
   // follows, for a worse failure. `rows` is this panel's own copy, taken once when it opened, and
-  // `commitRows` writes the WHOLE record back: a value another device (or the twin panel on the
+  // `commitRows` writes the WHOLE record back: a value another device (or the same object's panel on the
   // other surface) filled in while this panel stood open was invisible here, and the next commit
   // wrote the stale copy over it. That clears the field, the merge brings it back from the other
   // device — and the Verlauf ends up with the same «Stv.: Eichenberger Bastian» line twice for
@@ -624,7 +624,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
   const actions = (
     <div className="ctx-actions">
-      {/* first, and in the link tone: on a twin's panel it is the only thing that DOES anything,
+      {/* first, and in the link tone: on a read-only panel it is the only thing that DOES anything,
           and what it does is leave for the real object. */}
       {onOriginal && <button className="btn link" onClick={onOriginal}><Icon id="external" />{originalLabel ?? C.toOriginal}</button>}
       {onProjection && <button className="btn link" onClick={onProjection}><Icon id="external" />{projectionLabel ?? C.toProjection}</button>}

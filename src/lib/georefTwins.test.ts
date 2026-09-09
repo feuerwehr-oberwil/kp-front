@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   fitSignature, boardSymbolToEntity, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, planAspect,
-  planRasterRows, revealTwinLayer, twinPlanImageLayerId, twinVisible,
+  planRasterRows, twinPlanImageLayerId, twinVisible,
 } from './georefTwins'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
@@ -162,13 +162,6 @@ describe('the Ebenen rows', () => {
     expect(planRasterRows(linked, { [id]: true })[0].visible).toBe(true)
   })
 
-  it('reveals only the layer named by an explicit show jump', () => {
-    const a = twinPlanImageLayerId('modul2'), b = twinPlanImageLayerId('modul3')
-    const hidden = { [a]: false, [b]: false }
-    expect(revealTwinLayer(hidden, a)).toEqual({ [a]: true, [b]: false })
-    const visible = { [a]: true }
-    expect(revealTwinLayer(visible, a)).toBe(visible)
-  })
 
   it('claims a measured residual only once a third pair has measured one', () => {
     // a third pair that does not fit perfectly — now there IS a residual to state

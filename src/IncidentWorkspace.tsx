@@ -1021,10 +1021,10 @@ export function IncidentWorkspace({
   // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
   const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'manuell')
   const setAtemschutzOrder = (o: TruppOrder) => { setAtemschutzOrderState(o); savePrefs({ ...loadPrefs(), atemschutzOrder: o }) }
-  // Which Georeferenz twin layers this device shows. A DEVICE pref like every other «what am I
-  // looking at» switch, and persisted the same way `atemschutzOrder` above is: seeded lazily from
-  // the cookie, written on the toggle. Absent = shown (lib/georefTwins · twinVisible) — a
-  // georeference exists because somebody made one, and both pictures at once is what for.
+  // Which linked sheets this device lays under the Karte as a raster. A DEVICE pref like every
+  // other «what am I looking at» switch, persisted the way `atemschutzOrder` above is: seeded
+  // lazily from the cookie, written on the toggle. The `twin:` prefix is what the persisted keys
+  // have always said (lib/prefs) — renaming it would rewrite device preferences for a word.
   const [twinLayers, setTwinLayers] = useState<Record<string, boolean>>(() => loadPrefs().twinLayers ?? {})
   const [twinLayerOpacity, setTwinLayerOpacity] = useState<Record<string, number>>(() => loadPrefs().twinLayerOpacity ?? {})
   const [mapSuppressedCaptions, setMapSuppressedCaptions] = useState<ReadonlySet<string>>(new Set())
@@ -1421,8 +1421,6 @@ export function IncidentWorkspace({
   // …and which of them was just PLACED, so its panel opens with the caret in the text field. A
   // one-shot: reopening the same note later is an ordinary read and must not grab the keyboard.
   const [notePlacedId, setNotePlacedId] = useState<string | null>(null)
-  // which mirrored Karte entity (team chip, note, shape) has its panel open on the PLAN
-  // surface — the other half of the same rule. Stored by id, resolved live below.
   // style the NEXT note carries, chosen in the armed-tool dock before anything is placed
   const [noteDefaults, setNoteDefaults] = useState<{ size: NoteSize; plain: boolean; color: string }>(
     { size: 'm', plain: false, color: '' },
@@ -1998,9 +1996,9 @@ export function IncidentWorkspace({
     return (id: LayerId) => m.get(id) ?? true
   }, [mapLayers])
 
-  // --- Georeferenz: the twins (lib/georefTwins, components/GeorefTwinMark) -----------------------
-  // A projection, never an object: it is not stored, logged, printed, given a clock or moved.
-  // Repositioning belongs to the original surface; the twin panel provides that explicit jump.
+  // --- Georeferenz: which plans are tied to the ground, and how ---------------------------------
+  // The fits themselves. Everything derived FROM them — a sheet's view of the Karte's objects,
+  // a sheet-drawn object's map body — lives in the store (lib/useObjectStore).
   //
   // ⚠️ `useGeorefStorage()` is what makes the memo below re-run. `georefForPlan` reads a module
   // singleton synchronously, so a plan that was just linked has nothing else to tell React with.
@@ -3267,10 +3265,10 @@ export function IncidentWorkspace({
       .forEach((d) => emit('draw.edit', { id: d.id, patch: { coords: d.coords } }))
   }
   /**
-   * A projection on a Modul was dragged — move the object it mirrors.
+   * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
    *
    * Deliberately the SAME three calls the Karte's own marker drag makes, in the same order: the
-   * gesture writes the one source entity, so undo, trace-routed Leitungen, the audit event and the
+   * gesture writes the one override, so undo, trace-routed Leitungen, the audit event and the
    * Verlauf row cannot diverge depending on which picture the operator happened to have in front
    * of them. `startEntityMove`'s doc has described this as its second call site since the
    * Georeferenz landed; until 27.08. nothing actually called it that way, so a twin simply

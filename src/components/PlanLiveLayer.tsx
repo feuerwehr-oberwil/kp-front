@@ -27,7 +27,7 @@ import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { TacticalSymbol } from '../lib/symbolRender'
 import type { LiveMark } from '../lib/planProjection'
 import type { CaptionMode } from '../types'
-import s from './GeorefTwins.module.css'
+import s from './PlanLiveLayer.module.css'
 
 /**
  * Mounted INSIDE `.wb-board`, so a mark pans and zooms with the sheet exactly like an annotation
