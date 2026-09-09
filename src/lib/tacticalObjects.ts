@@ -1,6 +1,7 @@
 import type { BoardAnno, BoardDoc, BoardPoint, Drawing, Entity, LngLat } from '../types'
 import type { GeorefFit } from './georef'
 import { planGroundWidthM, boardSymbolToEntity, entityToBoardSymbol, entitySharedProps } from './georefTwins'
+import { directionalGlyph, projectOnto, turnedToGround } from './planProjection'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
@@ -250,7 +251,9 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   const widthM = planGroundWidthM(plan.fit, plan.aspect)
   const at = (x: number, y: number): LngLat => { const p = plan.fit.toMap({ x, y }); return [p.lng, p.lat] }
   if (anno.kind === 'symbol' && anno.x != null && anno.y != null) {
-    const entity = boardSymbolToEntity(anno, at(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
+    const born = boardSymbolToEntity(anno, at(anno.x, anno.y), o.entity?.layer ?? layer, widthM)
+    // ⚠️ …and back out of the paper's frame into north's — see planProjection · turnedToSheet
+    const entity = born && { ...born, rotation: turnedToGround(born.rotation, plan.fit, directionalGlyph(born)) }
     return entity ? settle({ entity }) : o
   }
   if (anno.kind === 'text' && anno.x != null && anno.y != null) {
@@ -265,7 +268,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
   if (anno.kind === 'shape' && anno.x != null && anno.y != null && anno.shape) {
     const entity: Entity = {
       id: o.id, kind: 'shape', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
-      shape: anno.shape, rotation: anno.rotation, rotation2: anno.rotation2, color: anno.color,
+      shape: anno.shape, rotation: turnedToGround(anno.rotation, plan.fit, true), rotation2: anno.rotation2, color: anno.color,
       sizeM: anno.sizeN != null ? anno.sizeN * widthM : undefined,
       aspect: anno.aspect, stop: anno.stop, carrier: anno.carrier, reverse: anno.reverse,
       strokeW: anno.strokeW, fillOpacity: anno.fillOpacity, hatch: anno.hatch,
@@ -480,27 +483,91 @@ export function applyDocToObjects(
  * the store and come back in the old order. Slots, not an append: the interleaving with the
  * map's own objects — which is the KARTE's paint order — must survive a plan edit untouched.
  */
-export function applyBoardToObjects(objects: TacticalObject[], planId: string, annos: BoardAnno[]): TacticalObject[] {
+export function applyBoardToObjects(
+  objects: TacticalObject[],
+  planId: string,
+  annos: BoardAnno[],
+  plan?: PlanFit,
+  defaultLayer: Entity['layer'] = 'taktisch',
+  /** `false` = a MACHINE produced this list, so a changed position is not a hand-placement. No
+   *  such writer exists on the plan surface today; the door is here because the map's has one. */
+  gesture = true,
+): TacticalObject[] {
+  const anchoredHere = (o: TacticalObject) => o.sheet?.planId === planId
+  /** The anno this sheet is CURRENTLY showing for each geo-anchored object — the yardstick every
+   *  incoming projection is measured against, computed once. */
+  const shown = new Map<string, BoardAnno>()
+  if (plan) for (const o of objects) { const p = projectOnto(o, plan); if (p) shown.set(o.id, p) }
+  const here = (o: TacticalObject) => anchoredHere(o) || shown.has(o.id)
+
   // ⚠️ A writer that rebuilds EVERY plan's array on principle (useTruppActions rewrites all of
   // them to adopt or release one chip) hands most of them back unchanged in value and fresh in
   // identity. Folding those would churn the store, re-bake every sheet and mark the incident
   // dirty for an edit that touched one plan — so the store checks the value, once, here.
-  const same = objects.filter((o) => o.sheet?.planId === planId)
-  if (same.length === annos.length && same.every((o, i) => sameValue(o.sheet!.anno, annos[i]))) return objects
-  const ids = new Set(annos.map((a) => a.id))
-  const kept = objects.filter((o) => o.sheet?.planId !== planId || ids.has(o.id))
-  const byId = new Map(kept.map((o) => [o.id, o]))
-  // an object handed to a plan list it was not on — a fresh anno, or the drag-onto-sheet that
-  // flips a map object's anchor — takes the sheet as its anchor either way
-  const made = annos.map((anno): TacticalObject => {
+  const before = objects.flatMap((o) => (anchoredHere(o) ? [o.sheet!.anno] : shown.get(o.id) ? [shown.get(o.id)!] : []))
+  if (before.length === annos.length && before.every((a, i) => sameValue(a, annos[i]))) return objects
+
+  const byId = new Map(objects.map((o) => [o.id, o]))
+  /**
+   * What this sheet handing an anno back MEANS — four readings, the mirror of the map seam's
+   * (applyDocToObjects). It is the same document/gesture distinction, read from the paper.
+   */
+  const fold = (anno: BoardAnno): TacticalObject => {
     const prev = byId.get(anno.id)
-    return prev ? { ...prev, sheet: { planId, anno } } : { id: anno.id, sheet: { planId, anno } }
-  })
-  const next = kept.slice()
+    // new here — a fresh anno, or an object dragged onto this sheet from another one. Either way
+    // the sheet becomes its anchor, and the bake derives the ground position from it.
+    if (!prev || prev.sheet) return prev ? { ...prev, sheet: { planId, anno } } : { id: anno.id, sheet: { planId, anno } }
+    const was = shown.get(prev.id)
+    // it was NOT on this sheet a moment ago, so this is a placement onto it
+    if (!was) return { ...prev, sheet: { planId, anno } }
+    const moved = !sameValue(was.x, anno.x) || !sameValue(was.y, anno.y) || !sameValue(was.pts, anno.pts)
+    // moved by a HAND → «last hand-placement owns the truth»: the sheet takes the anchor, and
+    // the bake derives the ground position from the paper the operator actually pointed at
+    if (moved && gesture) return { ...prev, sheet: { planId, anno } }
+    // otherwise the object stays where it is stored and only its PROPS come back — written onto
+    // the geo body through the same conversion the bake makes, so the two can never drift
+    return geoAfterSheetEdit(prev, planId, anno, plan!, defaultLayer, moved)
+  }
+
+  const folded = new Map(annos.map((a) => [a.id, fold(a)]))
+  const mine = annos.flatMap((a) => { const o = folded.get(a.id)!; return o.sheet?.planId === planId ? [o] : [] })
+
+  const next: TacticalObject[] = []
+  /** the places this sheet's OWN objects hold. Refilled in the anno list's order, so a «nach
+   *  vorne» round-trips; a projected object keeps its index in the store instead, because its
+   *  z-order here is derived and storing it would flip an anchor nobody moved. */
   const slots: number[] = []
-  next.forEach((o, i) => { if (ids.has(o.id)) slots.push(i) })
-  made.forEach((o, i) => { const at = slots[i]; if (at == null) next.push(o); else next[at] = o })
+  for (const o of objects) {
+    const nf = folded.get(o.id)
+    // absent from the list = deleted ON this sheet, and deleting an object deletes the object —
+    // whether the sheet owned it or was merely showing it (the mirror of the map seam again)
+    if (!nf) { if (!here(o)) next.push(o); continue }
+    if (nf.sheet?.planId === planId) slots.push(next.length)
+    next.push(nf)
+  }
+  for (const a of annos) if (!byId.has(a.id)) { slots.push(next.length); next.push(folded.get(a.id)!) }
+  mine.forEach((o, i) => { next[slots[i]] = o })
   return next
+}
+
+/**
+ * A sheet edit of a GEO-anchored object, written back where its truth lives: onto the map body.
+ *
+ * ⚠️ Built by the BAKE — the anno is handed to `bakeGeoBody` and the position is then put back —
+ * so the sheet→map conversion can never drift from the map→sheet one. Everything unit-bearing
+ * (`sizeN`→`sizeM`, `reachN`→`reachM`, `radiusN`→`radiusM`, a team's trail) crosses through the
+ * fit exactly as it does in the other direction, and the map-only presentation the sheet has no
+ * word for survives through BAKE_PRESERVED.
+ */
+function geoAfterSheetEdit(
+  o: TacticalObject, planId: string, anno: BoardAnno, plan: PlanFit, defaultLayer: Entity['layer'],
+  /** a MACHINE moved it: the position crosses instead of flipping the anchor */
+  movedByMachine: boolean,
+): TacticalObject {
+  const baked = bakeGeoBody({ ...o, sheet: { planId, anno } }, plan, o.entity?.layer ?? defaultLayer)
+  const entity = baked.entity && (movedByMachine || !o.entity ? baked.entity : { ...baked.entity, coord: o.entity.coord })
+  const drawing = baked.drawing && (movedByMachine || !o.drawing ? baked.drawing : { ...baked.drawing, coords: o.drawing.coords })
+  return { id: o.id, entity, drawing }
 }
 
 /** Map a bake over the store, giving the SAME array back when nothing moved — see `sameValue`.
