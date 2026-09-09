@@ -237,10 +237,18 @@ async def put_plan_scales(
     in the field, on a device the operator cannot reload mid-Einsatz. So the window stays open for
     one release: every answer carries the `version`, the current client sends it back, and the
     header can be made mandatory once no build without it is in use.
+
+    ⚠️ …and that condition is OBSERVED rather than assumed. Every headerless PUT logs one INFO
+    line, so «is any build without it still writing» is a question the deployment's own log
+    answers. An empty result over a release cycle is the go-ahead to make the header mandatory
+    here (and to drop this paragraph); a line a week says an old tablet is still in the field, and
+    closing the window would take its Georeferenz away.
     """
     row = await _row(db)
     stored_version = _version(row.plan_scales_json if row else None)
-    if if_match is not None and if_match.strip('"') != stored_version:
+    if if_match is None:
+        logger.info("plan-scales PUT without If-Match — a client older than the concurrency guard is still writing")
+    elif if_match.strip('"') != stored_version:
         raise HTTPException(
             status_code=409,
             detail="Die Plan-Kalibrierung wurde inzwischen an anderer Stelle geändert.",

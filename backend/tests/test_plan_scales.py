@@ -8,6 +8,8 @@
   without one for one release — see `put_plan_scales`.
 """
 
+import logging
+
 import pytest
 
 pytestmark = pytest.mark.asyncio
@@ -187,14 +189,28 @@ async def test_an_identical_document_is_not_a_conflict(client, editor):
     assert again.json()["version"] == first.json()["version"]
 
 
-async def test_a_client_without_the_header_still_writes(client, editor):
+async def test_a_client_without_the_header_still_writes_and_says_so(client, editor, caplog):
     """The one-release compatibility window (see `put_plan_scales`): an old build must not lose the
-    ability to save a Georeferenz in the field."""
+    ability to save a Georeferenz in the field — but the window's closing condition («no build
+    without the header is still writing») has to be OBSERVABLE, not assumed, so every headerless
+    PUT leaves one line behind."""
     await _login(client, editor)
     await client.put("/api/plan-scales", json={"georefByPlan": {"m1": {"pairs": PAIRS}}})
-    r = await client.put("/api/plan-scales", json={"default": SCALE, "byPlan": {}})
+    with caplog.at_level(logging.INFO, logger="app.api.plan_scales"):
+        r = await client.put("/api/plan-scales", json={"default": SCALE, "byPlan": {}})
     assert r.status_code == 200
     assert r.json()["version"]
+    assert any("without If-Match" in m for m in caplog.messages)
+
+
+async def test_a_client_that_sends_the_header_leaves_no_line(client, editor, caplog):
+    """…so the log answers the question rather than merely counting writes."""
+    await _login(client, editor)
+    version = (await client.get("/api/plan-scales")).json()["version"]
+    with caplog.at_level(logging.INFO, logger="app.api.plan_scales"):
+        r = await client.put("/api/plan-scales", json={"default": SCALE}, headers={"If-Match": version})
+    assert r.status_code == 200
+    assert not any("without If-Match" in m for m in caplog.messages)
 
 
 # --- the measured aspect -------------------------------------------------------------------------
