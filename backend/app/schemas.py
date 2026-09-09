@@ -1627,6 +1627,12 @@ class ConfigIntegrations(BaseModel):
     traccarConfigured: bool = False
     # STT engine reachable (env stt_base_url set) — gates the player's Transkribieren button
     sttConfigured: bool = False
+    # «Automatisch ausrichten» answerable at all: the optional `georef` extra is importable AND
+    # an Overpass mirror is configured — the two things POST /api/georef/suggest fails closed on
+    # (503). Gates the chooser on the unlinked ⌖-Karte chip (lib/georefSuggest ·
+    # georefSuggestEligible); without it the chip arms the manual point flow directly, instead
+    # of offering a button whose only possible answer is an error toast.
+    autoAlignConfigured: bool = False
     # CARTO Basemaps client key. Public by design: MapLibre sends it as `?key=` on tile URLs.
     cartoBasemapKey: str | None = None
     personnel: ProviderCapability = Field(default_factory=ProviderCapability)

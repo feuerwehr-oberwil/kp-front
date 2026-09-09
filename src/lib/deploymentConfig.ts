@@ -251,6 +251,10 @@ export interface DeploymentIntegrations {
   traccarConfigured?: boolean
   /** STT engine reachable (env stt_base_url) — gates the player's Transkribieren button */
   sttConfigured?: boolean
+  /** The server can answer POST /api/georef/suggest: the optional `georef` extra is installed
+   *  AND an Overpass mirror is configured. Gates «Automatisch ausrichten» (lib/georefSuggest ·
+   *  georefSuggestEligible) — an image without the extra must not offer the button. */
+  autoAlignConfigured?: boolean
   /** CARTO Basemaps browser key; public by design and restricted to deployment domains. */
   cartoBasemapKey?: string | null
   personnel?: ProviderCapability

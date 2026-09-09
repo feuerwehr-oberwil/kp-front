@@ -6,8 +6,31 @@ inside a response model — so it serves the process-wide snapshot; every caller
 ``credentials.load(db)`` on the way in, and the scheduler refreshes it every 30 s regardless.
 """
 
+import importlib.util
+
+from . import overpass
 from .credentials import get as credential
 from .schemas import ConfigIntegrations, ProviderCapability, ProviderRegistration
+
+#: The optional `georef` extra, by top-level module (pyproject `[project.optional-dependencies]`
+#: georef). ⚠️ Keep in step with what ``app/georef_suggest.py`` imports — this answers «can the
+#: matcher run» WITHOUT paying its ~60 MB import on a public config read, so it is a proxy, and a
+#: proxy that drifts lies to the surface it gates.
+_GEOREF_MODULES = ("cv2", "numpy", "scipy")
+
+
+def auto_align_available() -> bool:
+    """Can this server answer POST /api/georef/suggest at all?
+
+    Both preconditions the endpoint fails closed on (503): the CV matcher's optional
+    dependencies are installed, and an Overpass mirror is configured to fetch the reference
+    buildings from. The frontend reads this as ``integrations.autoAlignConfigured`` and HIDES
+    «Automatisch ausrichten» when it is false — an image without the extra used to offer the
+    button and answer every press with «…ist auf diesem Server nicht eingerichtet».
+    """
+    if not overpass.mirrors():
+        return False
+    return all(importlib.util.find_spec(name) is not None for name in _GEOREF_MODULES)
 
 
 def integrations() -> ConfigIntegrations:
@@ -19,6 +42,7 @@ def integrations() -> ConfigIntegrations:
         diveraConfigured=divera,
         traccarConfigured=traccar,
         sttConfigured=bool(credential("stt_base_url")),
+        autoAlignConfigured=auto_align_available(),
         cartoBasemapKey=credential("carto_api_key") or None,
         personnel=ProviderCapability(
             provider="divera" if divera else None,

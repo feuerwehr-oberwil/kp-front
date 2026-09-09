@@ -21,7 +21,23 @@ vi.mock('./PdfViewport', () => ({
   PdfViewport: () => <canvas />,
   prewarmPlans: () => {},
   pdfWorkerUrl: () => null,
+  // the chooser warms these the moment it opens (lib/georefSuggest reads them too)
+  planMatcherImage: () => Promise.resolve(new Blob()),
+  planPrintedMPerU: () => Promise.resolve(null),
 }))
+// Whether this SERVER can align automatically is a fact of the deployment, read synchronously
+// off the config singleton — the rest of the module stays real.
+const server = vi.hoisted(() => ({ autoAlign: true }))
+vi.mock('../lib/deploymentConfig', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/deploymentConfig')>()
+  return {
+    ...actual,
+    getDeploymentConfig: () => ({
+      ...actual.getDeploymentConfig(),
+      integrations: { autoAlignConfigured: server.autoAlign },
+    }),
+  }
+})
 
 import { Whiteboard } from './Whiteboard'
 import { PHONE_QUERY } from '../lib/useIsPhone'
@@ -41,7 +57,7 @@ beforeAll(() => {
     addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 })
-afterEach(() => { cleanup(); resetGeorefMode(); store.pairs = [] })
+afterEach(() => { cleanup(); resetGeorefMode(); store.pairs = []; server.autoAlign = true })
 
 const modul: PlanDocument = {
   id: 'modul2', code: 'Modul 2', title: 'Übersicht', subtitle: '', imageUrl: 'modul2.pdf',
@@ -61,13 +77,15 @@ const pair = (x: number, y: number, lng: number, lat: number): GeorefPair =>
 /** two references ~130 m apart — a solvable fit that is still «aus 2 Punkten» */
 const TWO = [pair(0.2, 0.2, 7.5, 47.5), pair(0.8, 0.8, 7.5015, 47.4991)]
 
-const renderBoard = (activeId = 'modul2', readOnly = false) =>
+/** `anchor` is the object/incident coordinate the CV matcher fetches its OSM buildings around;
+ *  without one «Automatisch ausrichten» is not eligible whatever the server can do. */
+const renderBoard = (activeId = 'modul2', readOnly = false, anchor: [number, number] | null = null) =>
   render(<>
     <Whiteboard
       plans={[modul, modul3, tafel]} activeId={activeId} annos={[]} onChange={() => {}}
       building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
       readOnly={readOnly} slimTools sym={sym} onRecent={() => {}} log={() => {}}
-      hist={{}} setHist={() => {}} focus={null}
+      hist={{}} setHist={() => {}} focus={null} georefAnchor={anchor}
     />
     <Overlays />
   </>)
@@ -142,6 +160,26 @@ describe('the «Karte verknüpfen» chip', () => {
     // discards nothing — the word that promised otherwise is the bug this pins (27.08.).
     expect(screen.getByRole('button', { name: 'Schliessen' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Abbrechen' })).toBeNull()
+  })
+
+  // ⚠️ The feature the server may not HAVE. Its CV dependencies are an optional extra, and the
+  // production image ships without them — the chooser then offered «Automatisch ausrichten» and
+  // answered every press with «…ist auf diesem Server nicht eingerichtet», with nothing to turn
+  // off (field report 09.09.2026). `/api/config` states the capability and the chip skips the
+  // chooser entirely, exactly as on a sheet that was never eligible.
+  it('offers the automatic path when the server can actually do it', () => {
+    renderBoard('modul2', false, [7.5, 47.5])
+    fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
+    expect(screen.getByRole('button', { name: /Automatisch ausrichten/ })).toBeTruthy()
+    expect(georefSnapshot().planId).toBeNull() // the chooser first, nothing armed yet
+  })
+
+  it('never offers it on a server without the matcher — it arms the point flow instead', () => {
+    server.autoAlign = false
+    renderBoard('modul2', false, [7.5, 47.5])
+    fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
+    expect(screen.queryByRole('button', { name: /Automatisch ausrichten/ })).toBeNull()
+    expect(georefSnapshot().planId).toBe('modul2')
   })
 
   it('a viewer sees the reading but is given no way to arm it', () => {

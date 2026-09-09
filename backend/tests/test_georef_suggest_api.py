@@ -8,6 +8,7 @@ import seam (`app.api.georef_suggest · _load_matcher`) instead of the environme
 
 import pytest
 
+from app import overpass, providers
 from app.api import georef_suggest as api
 
 
@@ -52,3 +53,40 @@ async def test_invalid_parameters_are_refused(editor_client, monkeypatch, params
         files={"image": ("plan.jpg", b"\xff\xd8\xff", "image/jpeg")},
     )
     assert response.status_code == 422
+
+
+# ── `integrations.autoAlignConfigured` — the 503 the surface must never reach ─────────────────
+# Field report 09.09.2026: the production image ships without the `georef` extra, so every press
+# of «Automatisch ausrichten» answered «…ist auf diesem Server nicht eingerichtet» — an
+# affordance that cannot work and cannot be switched off. The public config now states the
+# capability up front and the client hides the chooser (lib/georefSuggest · georefSuggestEligible).
+
+
+async def test_auto_align_flag_is_false_without_the_extra(client, monkeypatch):
+    monkeypatch.setattr(providers, "_GEOREF_MODULES", ("cv2", "kp_front_no_such_module"))
+    cfg = await client.get("/api/config")
+    assert cfg.json()["integrations"]["autoAlignConfigured"] is False
+
+
+async def test_auto_align_flag_is_true_with_the_extra_and_a_mirror(client, monkeypatch):
+    # a stand-in for the installed extra: what is under test is the find_spec gate, not cv2
+    monkeypatch.setattr(providers, "_GEOREF_MODULES", ("json",))
+    cfg = await client.get("/api/config")
+    assert cfg.json()["integrations"]["autoAlignConfigured"] is True
+
+
+async def test_auto_align_flag_is_false_without_an_overpass_mirror(client, monkeypatch):
+    """The other 503 the endpoint fails closed on — the matcher has nothing to match against."""
+    monkeypatch.setattr(providers, "_GEOREF_MODULES", ("json",))
+    monkeypatch.setattr(overpass, "mirrors", list)
+    cfg = await client.get("/api/config")
+    assert cfg.json()["integrations"]["autoAlignConfigured"] is False
+
+
+async def test_a_true_flag_means_the_matcher_really_imports(client):
+    """⚠️ The drift guard. The flag probes the extra's top-level modules instead of importing
+    the ~60 MB matcher on a public config read, so a new dependency in georef_suggest.py would
+    otherwise make the flag promise something the endpoint still 503s on."""
+    if not (await client.get("/api/config")).json()["integrations"]["autoAlignConfigured"]:
+        pytest.skip("the georef extra is not installed in this environment")
+    api._load_matcher()  # must not raise ImportError

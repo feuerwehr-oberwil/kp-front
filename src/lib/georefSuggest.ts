@@ -11,6 +11,7 @@
  *  rings around — `georefSuggestEligible` is the one place those preconditions live.
  */
 import { ApiError, apiUploadRaw } from './api'
+import { getDeploymentConfig } from './deploymentConfig'
 import { planMatcherImage, planPrintedMPerU } from '../components/PdfViewport'
 import type { GeoPt, GeorefPair } from './georef'
 
@@ -47,8 +48,16 @@ interface SuggestWire {
  *  evaluated on the Modul-2 template — on other templates it simply runs and comes back
  *  «kein Vorschlag» honestly (Modul 1 failed 4/4 in the experiment), which the operator can
  *  judge; a hidden capability they cannot. The SCALE is resolved at request time — the
- *  sheet's own printed «1:NNN» first, the calibration as fallback — so it is no precondition. */
+ *  sheet's own printed «1:NNN» first, the calibration as fallback — so it is no precondition.
+ *
+ *  ⚠️ …but a server that CANNOT answer is the one case where hiding is right: the matcher's
+ *  dependencies are an optional extra (`uv sync --extra georef`) and the endpoint then fails
+ *  closed with 503. On such an image the chooser offered a button whose every press was the
+ *  «…ist auf diesem Server nicht eingerichtet» toast, with no way to turn it off. The server
+ *  says so up front now (`integrations.autoAlignConfigured`, api/config · providers) and the
+ *  chip arms the manual point flow directly, exactly as on a sheet that was never eligible. */
 export function georefSuggestEligible(planId: string, anchor: GeoPt | null | undefined): boolean {
+  if (!getDeploymentConfig().integrations?.autoAlignConfigured) return false
   return /^modul\d/.test(planId) && !!anchor
 }
 

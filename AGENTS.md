@@ -208,7 +208,11 @@ to prod.
   rings via the Overpass proxy, and streams NDJSON progress for the step card. The heavy CV
   deps are the **optional `georef` dependency group** (`uv sync --extra georef`) — not in the
   production image yet; without them the endpoint answers 503 and the app degrades to the point
-  flow (fail-closed). The honesty rules are load-bearing: an accepted fit is stored as exactly
+  flow (fail-closed). ⚠️ A server that cannot do it **never offers it**: `/api/config` states
+  the capability (`integrations.autoAlignConfigured` — extra importable *and* an Overpass mirror
+  configured, `app/providers.py`) and the chip then arms the point flow directly instead of
+  answering every press with «…ist auf diesem Server nicht eingerichtet» (field report
+  09.09.2026). The honesty rules are load-bearing: an accepted fit is stored as exactly
   **two pairs `kind: 'auto'`** (more would fabricate zero-residual evidence); while any auto
   pair is in the fit no surface claims a ⌀ (chip/lamp/Passung read «Automatisch ausgerichtet ·
   ungemessen»); auto anchors are ghosted, badged «A», excluded from every count, and the

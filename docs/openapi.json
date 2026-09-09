@@ -10987,6 +10987,11 @@
             "title": "Sttconfigured",
             "default": false
           },
+          "autoAlignConfigured": {
+            "type": "boolean",
+            "title": "Autoalignconfigured",
+            "default": false
+          },
           "cartoBasemapKey": {
             "anyOf": [
               {
