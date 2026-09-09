@@ -1171,7 +1171,6 @@ export const en: Localizable<Copy> = {
     pressureConfirm: 'Confirm',
     pressureConfirmHint: 'Confirm new pressure – counts as contact',
     verlauf: 'Log',
-    readingsHead: 'Readings',
     cardMenu: 'More actions',
     bandPreEntry: 'Not yet deployed',
     bandRegisteredAt: 'registered at',

@@ -128,7 +128,9 @@ describe('the contact times (the head of the Verlauf)', () => {
     fireEvent.click(screen.getByRole('button', { name: new RegExp(az.verlauf) }))
     expect(screen.queryByText(az.lastContactAt)).toBeNull()
     expect(screen.queryByText(az.nextContactDue)).toBeNull()
-    expect(screen.getByText(az.readingsHead)).toBeTruthy()
+    // …and the Ablesungen ARE there — the list itself, which since 09.09. carries no title of
+    // its own (it holds one list and every row of it is a time and a bar)
+    expect(document.querySelector(`.${s.logList}`)?.children.length).toBeGreaterThan(0)
   })
 
   /* ── The Sockel folds in here too (09.09., maintainer pick — mock 02 with Bastian's variant) ─
@@ -189,7 +191,7 @@ describe('the contact times (the head of the Verlauf)', () => {
       expect(row.textContent).toMatch(/zuletzt/)
       fireEvent.click(row)
       expect(row.textContent).not.toMatch(/zuletzt/)
-      expect(screen.getByText(az.readingsHead)).toBeTruthy()
+      expect(document.querySelector(`.${s.logList}`)).toBeTruthy()
       fireEvent.click(row)
       expect(row.textContent).toMatch(/zuletzt/)
     })

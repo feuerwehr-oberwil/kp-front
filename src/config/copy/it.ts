@@ -1161,7 +1161,6 @@ export const it: Localizable<Copy> = {
     pressureConfirm: 'Conferma',
     pressureConfirmHint: 'Conferma la nuova pressione – vale come contatto',
     verlauf: 'Diario',
-    readingsHead: 'Letture',
     cardMenu: 'Altre azioni',
     bandPreEntry: 'Non ancora entrata',
     bandRegisteredAt: 'annunciata alle',

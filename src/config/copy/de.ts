@@ -1824,7 +1824,6 @@ export const de = {
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
     // the readings, under the contact times that head the same expander (03.09.)
-    readingsHead: 'Ablesungen',
     // ⚠️ No longer a tap zone on the clock (03.09.): the clock is a display again, and «Zeiten»
     // is what the Verlauf's timing head is called — plus the preview on a Trupp that has times
     // but no readings yet.

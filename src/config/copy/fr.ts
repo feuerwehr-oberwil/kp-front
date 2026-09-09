@@ -1161,7 +1161,6 @@ export const fr: Localizable<Copy> = {
     pressureConfirm: 'Confirmer',
     pressureConfirmHint: 'Confirmer la nouvelle pression – compte comme contact',
     verlauf: 'Journal',
-    readingsHead: 'Relevés',
     cardMenu: 'Autres actions',
     bandPreEntry: 'Pas encore engagée',
     bandRegisteredAt: 'annoncée à',

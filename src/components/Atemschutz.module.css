@@ -341,9 +341,9 @@
 
 /* ── 7 Verlauf: the log, with the contact times as its head ─────────────────────────────────── */
 .vopen { padding-bottom: 2px; }
-.readHead { margin-top: 4px; padding: 6px 14px 2px; border-top: 1px solid var(--glass-edge);
-  font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--ink-faint); }
+/* (`.readHead` — the «ABLESUNGEN» title — retired 09.09.: the fold holds exactly one list and
+   every row of it is a time and a bar. The RULE it carried moved to `.logList` below, which is
+   the part that was doing the work.) */
 
 /* ── A Trupp WITHOUT Atemschutz ──────────────────────────────────────────────────────────────
    Same card, same zones, same footprint — what says «nobody is monitoring this one» is what the
@@ -427,7 +427,12 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   font-weight: 600; color: var(--ink-faint); }
 .logChev { color: var(--ink-faint); }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
-.logList { list-style: none; margin: 0; padding: 0 14px 10px; max-height: 168px; overflow-y: auto; scrollbar-gutter: stable; }
+/* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
+   first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
+   keeps it off a fold that has no panel above it — the `.vopen` hairline is already there. */
+.logList { list-style: none; margin: 0; padding: 6px 14px 10px; max-height: 168px; overflow-y: auto; scrollbar-gutter: stable;
+  border-top: 1px solid var(--glass-edge); }
+.logList:first-child { border-top: none; padding-top: 0; }
 /* «Tafel pur»: the CARD is the page and the page already scrolls (.focusCard .card) — a 168px
    scrollbox inside it was a scroll within a scroll (field ask 08.09.), so there the
    Ablesungen run their full length and the thumb stays on one scrolling surface. */

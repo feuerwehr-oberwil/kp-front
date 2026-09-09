@@ -2228,7 +2228,11 @@ function TruppCard({
                   const from = currentRunStart(readings)
                   return (
                     <>
-                      {timesShown && <div className={s.readHead}>{az.readingsHead}</div>}
+                      {/* ⚠️ No «ABLESUNGEN» head since 09.09. (field review). The list is the
+                          only list this fold contains and every row of it carries a time and a
+                          bar — it names itself. What the head really did was draw the rule
+                          between the look-up panel and the readings, so `.logList` draws that
+                          rule now and the section keeps its seam without its title. */}
                       <ul className={s.logList}>
                         {[...readings].reverse().map((r, i) => {
                           const idx = readings.length - 1 - i
