@@ -1,6 +1,7 @@
 import { ApiError, apiGet, apiPut } from './api'
 import { idbGet, idbSet } from './idb'
 import { arDrifted, isStale, type PlanScale } from './planScale'
+import { onLinkPage } from './linkMode'
 import type { Georef } from './georef'
 
 /**
@@ -427,14 +428,19 @@ const notedAspects = new Set<string>()
  *   staleness uses (lib/planScale · AR_DRIFT_TOL). Below it lies the A4 seed's rounding and float
  *   noise, and a re-bake for a tenth of a percent would be a Verlauf row about nothing.
  * · Once per sheet per session, and never from a read-only session: deriving the picture is
- *   everybody's, writing into the record is an editor's.
+ *   everybody's, writing into the record is an editor's. ⚠️ …and never from a handed-over LINK
+ *   page either, which is the half the calling surface cannot see. A link is given to somebody
+ *   for one job — watch this Atemschutz board, look at this Einsatz — and none of those jobs is
+ *   «reshape the station's plans». The Atemschutz link's PUT was refused by the server anyway, so
+ *   this attempted a write it knew would fail; a VIEW link on a device that happens to be signed
+ *   in as an editor would have been allowed, which is the one that matters.
  *
  * Rejections are swallowed: this is a correction the app noticed on its own, not something the
  * operator asked for, and it must never raise a «… fehlgeschlagen» over a sheet somebody merely
  * opened. It will be offered again next session.
  */
 export function noteMeasuredAspect(georefKey: string, measured: number, effective: number): void {
-  if (!(measured > 0) || notedAspects.has(georefKey)) return
+  if (!(measured > 0) || notedAspects.has(georefKey) || onLinkPage()) return
   if (!arDrifted(effective, measured)) return
   notedAspects.add(georefKey)
   void updateStationPlanScales((cur) => ({

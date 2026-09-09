@@ -2247,6 +2247,10 @@ export const de = {
       saveThis: 'Nur dieser Plan',
       savedAll: 'Als Standard-Massstab gespeichert',
       savedThis: 'Massstab für diesen Plan gespeichert',
+      /** ⚠️ Der Massstab landet im STATIONS-Dokument, nicht im Einsatz — das kann scheitern
+       *  (kein Empfang, oder jemand anders hat das Dokument inzwischen geändert). Die beiden
+       *  Zeilen darüber wurden früher gemeldet, bevor überhaupt jemand geantwortet hatte. */
+      saveFailed: 'Massstab speichern fehlgeschlagen',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },

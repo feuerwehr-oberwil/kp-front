@@ -57,7 +57,23 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
   )
 }
 
-/** #3: persist a fresh calibration station-wide so plans measure out of the box next time. */
+/**
+ * #3: persist a fresh calibration station-wide so plans measure out of the box next time.
+ *
+ * ⚠️ This writes the STATION document, not the incident — over the network, to an endpoint that
+ * refuses a stale write (backend app/api/plan_scales.py). Both buttons used to announce success
+ * synchronously and drop the rejection on the floor: the operator was told «Als Standard-Massstab
+ * gespeichert» while nothing of the sort had happened, and offline the claim was simply false. So
+ * the save is awaited and its outcome reported, exactly as the Georeferenz's own writer does
+ * (Whiteboard · setGeorefSaveErrorHandler). The prompt still closes at once — the operator has
+ * answered its question, and a dialog that waits for the network is a dialog in the way.
+ */
+function persisting(save: Promise<void>, ok: string, onDone: () => void): void {
+  const C = appConfig.copy.whiteboard.scale
+  void save.then(() => toast(ok)).catch(() => toast(C.saveFailed, { icon: 'warn', tone: 'warn' }))
+  onDone()
+}
+
 export function PlanScalePersist({ scale, activeId, onDone }: {
   scale: PlanScale
   activeId: string
@@ -66,10 +82,10 @@ export function PlanScalePersist({ scale, activeId, onDone }: {
   return (
     <div className="wb-scale-persist" role="group" aria-label={appConfig.copy.whiteboard.scale.persistTitle}>
       <span className="wb-scale-persist-t">{appConfig.copy.whiteboard.scale.persistTitle}</span>
-      <button className="btn" onClick={() => { void saveStationDefault(scale); toast(appConfig.copy.whiteboard.scale.savedAll); onDone() }}>
+      <button className="btn" onClick={() => persisting(saveStationDefault(scale), appConfig.copy.whiteboard.scale.savedAll, onDone)}>
         {appConfig.copy.whiteboard.scale.saveAll}
       </button>
-      <button className="btn" onClick={() => { void saveStationPlanOverride(activeId, scale); toast(appConfig.copy.whiteboard.scale.savedThis); onDone() }}>
+      <button className="btn" onClick={() => persisting(saveStationPlanOverride(activeId, scale), appConfig.copy.whiteboard.scale.savedThis, onDone)}>
         {appConfig.copy.whiteboard.scale.saveThis}
       </button>
       <button className="wb-scale-persist-x" aria-label={appConfig.copy.closeDialog} onClick={onDone}><Icon id="close" /></button>

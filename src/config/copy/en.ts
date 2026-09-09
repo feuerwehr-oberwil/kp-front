@@ -1396,6 +1396,7 @@ export const en: Localizable<Copy> = {
       saveThis: 'This plan only',
       savedAll: 'Saved as the default scale',
       savedThis: 'Scale saved for this plan',
+      saveFailed: 'Saving the scale failed',
     },
     georef: {
       chipUnlinked: 'Link to map',

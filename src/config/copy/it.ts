@@ -1393,6 +1393,7 @@ export const it: Localizable<Copy> = {
       saveThis: 'Solo questo piano',
       savedAll: 'Salvata come scala predefinita',
       savedThis: 'Scala salvata per questo piano',
+      saveFailed: 'Salvataggio della scala non riuscito',
     },
     georef: {
       chipUnlinked: 'Collega alla mappa',

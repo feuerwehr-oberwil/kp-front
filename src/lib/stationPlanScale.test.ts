@@ -7,7 +7,7 @@ import type { StationPlanScales } from './stationPlanScale'
 // so the tests drive it through its actual boot path (`loadStationPlanScales`) rather than poking
 // the singleton, and both the network and the offline cache are stubbed to say exactly what a
 // given field situation would say.
-const { apiGet, apiPut, idbGet, idbSet, ApiError } = vi.hoisted(() => {
+const { apiGet, apiPut, idbGet, idbSet, onLinkPage, ApiError } = vi.hoisted(() => {
   class ApiError extends Error {
     constructor(public status: number, public detail = '') { super(detail); this.name = 'ApiError' }
   }
@@ -16,11 +16,13 @@ const { apiGet, apiPut, idbGet, idbSet, ApiError } = vi.hoisted(() => {
     apiPut: vi.fn<(path: string, body: unknown, extra?: Record<string, string>) => Promise<unknown>>(),
     idbGet: vi.fn<(key: string) => Promise<unknown>>(),
     idbSet: vi.fn<(key: string, value: unknown) => Promise<boolean>>(),
+    onLinkPage: vi.fn<() => boolean>(),
     ApiError,
   }
 })
 vi.mock('./api', () => ({ apiGet, apiPut, ApiError }))
 vi.mock('./idb', () => ({ idbGet, idbSet }))
+vi.mock('./linkMode', () => ({ onLinkPage }))
 
 const AR = 1.414
 const scale = (mPerU: number, ar = AR): PlanScale => ({ mPerU, refM: 20, ar })
@@ -52,6 +54,7 @@ const written = (): StationPlanScales => apiPut.mock.calls[0][1] as StationPlanS
 beforeEach(() => {
   apiGet.mockReset(); apiPut.mockReset(); idbGet.mockReset(); idbSet.mockReset()
   apiPut.mockResolvedValue({ version: 'v-stored' })
+  onLinkPage.mockReturnValue(false)
   idbSet.mockResolvedValue(true)
   idbGet.mockResolvedValue(null)
 })
@@ -426,6 +429,16 @@ describe('noteMeasuredAspect — the sheet says what shape it is', () => {
     m.noteMeasuredAspect(KEY, 0.76, 0.707)
     await settle()
     expect(apiPut).toHaveBeenCalledTimes(1)
+  })
+
+  it('never writes from a handed-over LINK page, whatever the device is signed in as', async () => {
+    // the Atemschutz link's PUT is refused by the server anyway — attempting it was dishonest —
+    // and a VIEW link on an editor's device would have been ALLOWED, which is the one that matters
+    const m = await booted({})
+    onLinkPage.mockReturnValue(true)
+    m.noteMeasuredAspect(KEY, 0.75, 0.707)
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
   })
 
   it('refuses a shape that is not one — a 0, or a pixel count', async () => {

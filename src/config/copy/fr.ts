@@ -1393,6 +1393,7 @@ export const fr: Localizable<Copy> = {
       saveThis: 'Ce plan seulement',
       savedAll: 'Enregistrée comme échelle par défaut',
       savedThis: 'Échelle enregistrée pour ce plan',
+      saveFailed: 'Échec de l’enregistrement de l’échelle',
     },
     georef: {
       chipUnlinked: 'Lier à la carte',
