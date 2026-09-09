@@ -35,7 +35,11 @@ export function Splash({ sub, inApp }: { sub?: string; inApp?: boolean }) {
       <div className="loading-card">
         <SnailLoader />
         <div className="loading-name">{deploymentName()}</div>
-        {sub && <div className="loading-sub">{sub}</div>}
+        {/* Always rendered, empty when there is nothing to say: the card is centred, so a sub
+            line that APPEARS (App's «Einsatz wird geöffnet …» after this bare splash) used to
+            push the snail up mid-boot. The static index.html splash reserves the same two
+            lines — one continuous sequence means one geometry across all three stages. */}
+        <div className="loading-sub">{sub || ' '}</div>
         {stuck && (
           <div className="loading-stuck" role="status">
             <div className="loading-stuck-title">{c.stuck}</div>

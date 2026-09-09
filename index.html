@@ -92,14 +92,26 @@
       .login { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
         background: var(--app-bg); color: var(--ink); font-family: system-ui, sans-serif; }
       .boot-splash { animation: fade .3s var(--ease) .4s both; }
-      .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px;
-        animation: fade .3s var(--ease); }
+      /* no fade of its own — the .boot-splash container fades the whole cover in, and the real
+         stylesheet sets `animation: none` on pre-app cards (08-toasts.css: remounts must not
+         blink pixels that are already on screen) */
+      .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+      /* the reserved (empty) text lines below the snail — same METRICS as 08-toasts.css, so
+         the line boxes are the right height before the real stylesheet arrives and nothing
+         moves when it does (the fonts differ, the geometry must not) */
+      .loading-name { font-size: 16px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+      .loading-sub { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-dim); }
       /* the snail loader needs no rules here: its animation rides in the SVG's own style block */
       .loading-stuck { display: flex; flex-direction: column; align-items: center; gap: 10px;
         max-width: 30ch; text-align: center; padding-top: 14px; border-top: 1px solid var(--border-soft); }
       .loading-stuck-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
       .loading-stuck-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
-      .loading-stuck.boot-hint { animation: fade .3s var(--ease) 12s both; }
+      /* Out of flow, like 08-toasts.css's .login .loading-stuck (keep in sync): during its
+         12 s opacity delay this block is still IN LAYOUT, and inside the centred card it
+         pushed the snail ~55 px up — which turned React's takeover (no hint block yet) into a
+         visible drop. Anchored below the card, the snail never moves. */
+      .loading-stuck.boot-hint { animation: fade .3s var(--ease) 12s both;
+        position: absolute; top: calc(50% + 96px); left: 50%; transform: translateX(-50%); width: max-content; }
       @media (prefers-reduced-motion: reduce) {
         .loading-stuck.boot-hint { animation-delay: 12s !important; }
       }
@@ -168,6 +180,15 @@
               </g>
             </g>
           </svg>
+          <!-- Reserved, EMPTY text lines — same classes and metrics as <Splash>'s wordmark and
+               status line. The card is vertically centred, so without them React's mount (which
+               adds both lines) pushed the snail up twice: once for the station name, once for
+               «Einsatz wird geöffnet …». The doctrine above still holds — no placeholder TEXT
+               that changes — but the SPACE is knowable now, so the name fades into a line that
+               was always there and the snail never moves (reported 2026-09-09). Keep in sync
+               with components/Splash.tsx, which reserves the sub line the same way. -->
+          <div class="loading-name">&nbsp;</div>
+          <div class="loading-sub">&nbsp;</div>
           <div class="loading-stuck boot-hint" role="status">
             <div class="loading-stuck-title">Start dauert länger als gewöhnlich</div>
             <p class="loading-stuck-hint">App schliessen und neu öffnen. Bleibt es dabei: die Website-Daten dieser App im Browser löschen – Einsätze liegen auf dem Server.</p>

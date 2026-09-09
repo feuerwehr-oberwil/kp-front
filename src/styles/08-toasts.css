@@ -400,6 +400,13 @@
 .loading.stuck .loading-card { padding: 26px 30px; border-radius: var(--r-surface);
   background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); }
 .loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
+/* …but NOT on the pre-app cover (.login splash): its first appearance is the static boot
+   splash, whose own .boot-splash fade covers the entrance — and every LATER pre-app Splash is
+   a React remount replacing pixels that are already on screen (static → LinkApp, provider
+   boundaries on the standing surfaces). Re-running the fade there blinked the snail out for
+   two frames per stage (reported 2026-09-09); the in-workspace overlay (.loading) keeps it,
+   because there the card genuinely appears over new ground. */
+.login .loading-card { animation: none; }
 /* Static pre-React boot splash (markup in index.html). Held back briefly: a warm launch mounts
    React well inside this delay, so the ordinary case still goes straight to the login screen
    with no flicker, and only a start slow enough to look broken ever shows a pulse. `both` keeps
@@ -418,6 +425,13 @@
    pop, and it must never widen the centred card on a phone. */
 .loading-stuck { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 30ch; text-align: center;
   padding-top: 14px; border-top: 1px solid var(--border-soft); animation: fade .3s var(--ease); }
+/* On the pre-app cover the stuck block leaves the flow: the card is vertically centred, so a
+   block that joins it — even at opacity 0, like the static splash's CSS-delayed .boot-hint,
+   which sits in layout for its whole 12 s delay — pushes the snail up and makes the React
+   handover a visible jump (the 2026-09-09 flicker). Anchored below the card instead: the card
+   is snail + two reserved lines ≈ 155 px tall, so 50% + 96px clears its bottom edge.
+   ⚠️ index.html inlines this rule for .loading-stuck.boot-hint — keep the two in sync. */
+.login .loading-stuck { position: absolute; top: calc(50% + 96px); left: 50%; transform: translateX(-50%); width: max-content; }
 .loading-stuck-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
 .loading-stuck-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-dim); }
 /* The static boot splash's one sentence (index.html), held back much longer: a boot that has not
