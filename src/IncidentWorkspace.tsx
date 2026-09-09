@@ -4752,7 +4752,10 @@ export function IncidentWorkspace({
           onNoteEdit={tacticalLocked ? undefined : (id) => { setSelectedId(id); setSelectedDrawingId(null); setEditNoteId(id) }}
           // the ⚙ stays on a locked surface — it opens the note READ-ONLY (a long note is
           // truncated on the map, and reading it is not editing it)
-          onNotePanel={(id) => { setTwinView(null); setContentTwinView(null); setNotePanelId(id) }}
+          onNotePanel={(id) => {
+            if (tool === 'measure') return // the tap already landed as a measuring point (onSelect)
+            setTwinView(null); setContentTwinView(null); setNotePanelId(id)
+          }}
           trupps={effTrupps}
           truppSeverities={azAlarm.severities}
           // …and it LANDS on the card: the board can be a wall of Trupps, so «Im Atemschutz
@@ -4783,11 +4786,16 @@ export function IncidentWorkspace({
           // anywhere (see components/GeorefTwinMark).
           twins={mapTwinList}
           georefPlanContent={mapContentTwinList}
-          onTwinOpen={openTwinView}
+          // measure intercepts mirror onSelect above: a projected symbol measures from its
+          // centre exactly like a native one (twin equivalence)
+          onTwinOpen={(t) => { if (tool === 'measure') { measure.setPath((d) => [...d, t.coord]); return } openTwinView(t) }}
           onTwinMove={moveMapTwinSource}
           onSelectionDone={finishSelection}
           twinBound={twinBound}
-          onContentTwinOpen={openContentTwinView}
+          onContentTwinOpen={(t) => {
+            if (tool === 'measure' && t.coord) { measure.setPath((d) => [...d, t.coord!]); return }
+            openContentTwinView(t)
+          }}
           onContentTwinMove={moveMapTwinSource}
           // round 8 (full 1:1): node pads / «+» / hold-delete on a selected mirrored plan
           // drawing write straight to the one source annotation, with per-plan undo history
@@ -4803,7 +4811,14 @@ export function IncidentWorkspace({
           georefPlanRasters={georefPlanRasters}
           isVisible={isVisible}
           selectedId={selectedId}
-          onSelect={(e) => { setTwinView(null); setContentTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([]) }}
+          // Messen: a tap on a symbol is a measuring point FROM ITS CENTRE, never a selection —
+          // opening the detail panel mid-measurement read as the tool cancelling itself
+          // (Feldtest 09.09.). Drawings need no branch: `placing` already routes their taps to
+          // the plain map click, which appends the tapped point.
+          onSelect={(e) => {
+            if (tool === 'measure') { measure.setPath((d) => [...d, e.coord as LngLat]); return }
+            setTwinView(null); setContentTwinView(null); setSelectedId(e.id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedTwinKeys([])
+          }}
           onMapClick={onMapClick}
           drawings={drawings}
           drawingsVisible={isVisible(appConfig.defaults.drawingLayerId)}
