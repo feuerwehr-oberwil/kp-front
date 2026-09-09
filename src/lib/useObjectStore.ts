@@ -1,4 +1,4 @@
-import { useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useUndoableDoc } from './useUndoableDoc'
 import {
   applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, sheetAnnos, viewsOf,
@@ -78,6 +78,12 @@ export interface ObjectStore {
    *  either stack, so the first cross-ownership fold after this arms is the only one that
    *  checkpoints; a discrete write outside a gesture is its own step and needs no arming. */
   beginSheetStep: () => void
+  /** …and it is over — called by the surface from its own `phase === 'end'` paths. ⚠️ The
+   *  surface has to say so: no DOM event can. A release writes its final frame from the same
+   *  pointerup a listener would hear, so anything watching the window closes the gesture one
+   *  fold too early and the last sample lands as a second undo step (↶ then half-un-turns the
+   *  object). See the net in the effect below for what the window is still good for. */
+  endSheetStep: () => void
   /** checkpoint the store, then apply a map update — one undo step (no-op if readOnly) */
   commit: (updater: (d: Doc) => Doc) => void
   beginDrag: () => void
@@ -173,24 +179,44 @@ export function useObjectStore(
    * cross-ownership write — the seven board sweeps in useTruppActions, a plan ↶ through
    * planStepAt, a Gebäude amend — found it already «done» and laid down no undo step at all.
    *
-   * A plan step is a POINTER gesture, so it ends when the finger lifts; that is the only signal
-   * the surfaces already give, and it is enough. While one is open, its first cross-ownership
-   * fold takes the step and the rest of the samples fold into it. With none open — every writer
-   * that is not a gesture — each write is its own step.
+   * While one is open, its first cross-ownership fold takes the step and the rest of the samples
+   * fold into it. With none open — every writer that is not a gesture — each write is its own
+   * step, which is what the Trupp sweeps, a plan ↶ and a Gebäude amend need.
+   *
+   * ⚠️ The SURFACE opens and closes it. A gesture's end is not something the DOM can be asked
+   * about: the release writes its final frame from the same pointerup any listener would hear,
+   * so watching the window closed the gesture one fold too early and the last sample became a
+   * second undo step — a bar turn then half-un-turned on the first ↶.
    */
   const sheetStep = useRef<symbol | null>(null)
   const stepped = useRef<symbol | undefined>(undefined)
-  const beginSheetStep = () => {
-    const token = Symbol('sheet-step')
-    sheetStep.current = token
-    const close = () => {
-      if (sheetStep.current === token) sheetStep.current = null
-      window.removeEventListener('pointerup', close, true)
-      window.removeEventListener('pointercancel', close, true)
+  const beginSheetStep = () => { sheetStep.current = Symbol('sheet-step') }
+  const endSheetStep = () => { sheetStep.current = null }
+
+  /**
+   * …and the net under it, for the gesture that never says it ended: a plan step taken from the
+   * KEYBOARD opens a token no `phase === 'end'` will ever close, and the next discrete write
+   * would fold into a gesture that is long over.
+   *
+   * ⚠️ `setTimeout(…, 0)`, so it runs AFTER the release's own final fold, and only for the
+   * PRIMARY pointer — a stray second finger lifting mid-gesture used to close the token, after
+   * which a 60 Hz stream checkpointed per sample and evicted the operator's real history past
+   * `historyCap` on both stacks. One listener pair for the life of the hook, removed with it.
+   */
+  useEffect(() => {
+    const onUp = (e: PointerEvent) => {
+      if (!e.isPrimary) return
+      const token = sheetStep.current
+      if (!token) return
+      setTimeout(() => { if (sheetStep.current === token) sheetStep.current = null }, 0)
     }
-    window.addEventListener('pointerup', close, true)
-    window.addEventListener('pointercancel', close, true)
-  }
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [])
 
   const setBoard: Dispatch<SetStateAction<BoardDoc>> = (a) => {
     setObjects((objects) => {
@@ -234,7 +260,7 @@ export function useObjectStore(
 
   return {
     objects: store.doc, doc, board,
-    setDocRaw, setBoard, beginSheetStep, commit,
+    setDocRaw, setBoard, beginSheetStep, endSheetStep, commit,
     beginDrag: store.beginDrag, endDrag: store.endDrag,
     undo: store.undo, redo: store.redo, canUndo: store.canUndo, canRedo: store.canRedo,
     replaceObjects: store.replace, rebake,

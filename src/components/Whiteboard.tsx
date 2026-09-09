@@ -251,6 +251,11 @@ interface Props {
   live?: LiveMark[]
   /** Drag a live VEHICLE on this sheet: the same held-in-place override the Karte writes. */
   onPlanLiveMove?: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
+  /** ⚠️ This gesture is OVER — called from every `phase === 'end'` path below. A gesture that
+   *  reaches an object this sheet does not own is one step on the store's stack, and only the
+   *  surface can say when it ended: the release writes its final frame from the same pointerup
+   *  a listener would hear (lib/useObjectStore · endSheetStep). */
+  onStepEnd?: () => void
   /** Show a plan-owned object at its projected position on the Lage map. */
   onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
   /** the Ebenen panel is open (it lives in the app shell; the plan only owns the button) */
@@ -276,7 +281,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   const active = plans.find((p) => p.id === activeId) ?? plans[0]
   // The live OSM outline sheet is a SELECTION surface: it exists to pick the building that becomes
   // the Gebäude view, and nothing else — it is the picking FACE of the one «Gebäude» rail tile
@@ -1978,7 +1983,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // peeks down to its grip line so the board isn't reduced to a strip — lib/sheetPeek
     if (chipDrag.current?.moved || circleDrag.current?.moved || drawDrag.current?.moved || vertDrag.current?.moved) beginSheetPeek()
   }
-  const manipUp = () => { endSheetPeek(); chipUp(); circleUp(); drawUp(); vertUp(); draftVertUp(); measUp() }
+  const manipUp = () => { endSheetPeek(); chipUp(); circleUp(); drawUp(); vertUp(); draftVertUp(); measUp(); onStepEnd?.() }
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
@@ -2201,6 +2206,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const rotUp = () => {
     const st = rotate.current; rotate.current = null
     clearRotMagnet()
+    onStepEnd?.()
     if (!st?.moved) return
     const a = annos.find((x) => x.id === st.id)
     if (!a) return
@@ -2559,7 +2565,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
     const t = { ndx: dx / rect.width, ndy: dy / rect.height, deg: 0 }
     barApply(t, barCentre)
-    if (phase === 'end') { endSheetPeek(); barCommit() }
+    if (phase === 'end') { endSheetPeek(); barCommit(); onStepEnd?.() }
   }
   const barRotate = (deg: number, phase: 'start' | 'move' | 'end') => {
     if (readOnly) return
@@ -2569,7 +2575,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     else setBarTurn((t) => (t ? { ...t, deg } : t))
     if (phase === 'start') { barRotCentre.current = barCentre; barSnapshot(); return }
     barApply({ ndx: 0, ndy: 0, deg }, barRotCentre.current)
-    if (phase === 'end') { barCommit(); barRotCentre.current = null }
+    if (phase === 'end') { barCommit(); barRotCentre.current = null; onStepEnd?.() }
   }
   /** Remove whatever the bar is pointed at — a Mehrfach group, a single Linie/Fläche/
    *  Absperrkreis, a Form, and the mirrored members of any of those (which delete through their

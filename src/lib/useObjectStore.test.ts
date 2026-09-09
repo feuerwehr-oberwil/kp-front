@@ -403,8 +403,8 @@ describe('the plan gesture token', () => {
       result.current.setBoard((b) => ({ ...b, modul2: b.modul2.map((a, i) => (i === at(b, 'e1') ? { ...a, x: 0.25 } : a)) }))
     })
     expect(result.current.objects.find((o) => o.id === 'e1')!.sheet?.planId).toBe('modul2')
-    // the finger lifts — a plan step is a pointer gesture, and that is where it ends
-    act(() => { window.dispatchEvent(new Event('pointerup')) })
+    // …and the surface says the gesture is over
+    act(() => result.current.endSheetStep())
     // …and now a write with NO gesture open — a Trupp sweep, a plan ↶, a Gebäude amend
     act(() => result.current.setBoard((b) => ({ ...b, modul2: b.modul2.map((a, i) => (i === at(b, 'e2') ? { ...a, color: '#f00' } : a)) })))
     act(() => { result.current.undo() })
@@ -443,5 +443,46 @@ describe('a write that carries objects the hand did not move', () => {
       ...d, entities: d.entities.map((e) => (e.id === 'placard' ? { ...e, coord: [e.coord[0] + 0.0005, e.coord[1]] as [number, number] } : e)),
     }), { movedIds: ['placard'] }))
     expect(h.result.current.objects.find((o) => o.id === 'placard')!.sheet).toBeUndefined()
+  })
+})
+
+/* ⚠️ A gesture's END is not something the DOM can be asked about. The release writes its final
+ * frame from the same pointerup any listener would hear, so a window watcher closed the token one
+ * fold too early and the last sample became a SECOND undo step — a bar turn of a projected object
+ * then half-un-turned on the first ↶. And without an isPrimary check, a stray second finger
+ * lifting mid-gesture closed it too, after which a 60 Hz stream checkpointed per sample and
+ * evicted the operator's real history past historyCap on both stacks. */
+describe('one gesture is one step, release sample included', () => {
+  const geoStore = (): TacticalObject[] => [{ id: 'e1', entity: ent('e1', { coord: [mEast(50).lng, ORIGIN.lat] }) }]
+  const turnTo = (result: { current: ReturnType<typeof useObjectStore> }, x: number) =>
+    result.current.setBoard((b) => ({ ...b, modul2: [{ ...b.modul2[0], x }] }))
+
+  it('a bar turn lays exactly ONE checkpoint, its release frame included', () => {
+    const { result } = store(geoStore())
+    act(() => {
+      result.current.beginSheetStep()
+      turnTo(result, 0.4)
+      turnTo(result, 0.3)
+      turnTo(result, 0.25)          // …the frame the release itself writes
+      result.current.endSheetStep() // …and only THEN is the gesture over
+    })
+    act(() => { result.current.undo() })
+    expect(result.current.objects[0].sheet).toBeUndefined() // one ↶ undid the whole gesture
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('a stray second finger lifting mid-gesture does not split it', () => {
+    const { result } = store(geoStore())
+    act(() => {
+      result.current.beginSheetStep()
+      turnTo(result, 0.4)
+      // a second finger comes off — not the primary pointer, and not the surface speaking
+      window.dispatchEvent(new PointerEvent('pointerup', { isPrimary: false }))
+      turnTo(result, 0.25)
+      result.current.endSheetStep()
+    })
+    act(() => { result.current.undo() })
+    expect(result.current.objects[0].sheet).toBeUndefined()
+    expect(result.current.canUndo).toBe(false)
   })
 })

@@ -512,7 +512,7 @@ export function IncidentWorkspace({
   // all of them would be a different change. The Tafel, Mittel and the Checklisten name their
   // action exactly, because there the timeline entry is written by hand anyway.
   const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, commit, beginDrag, endDrag, rebake,
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, rebake,
     undo: undoDoc, redo: redoDoc, replaceObjects,
   } = useObjectStore(
     init.objects,
@@ -5409,6 +5409,7 @@ export function IncidentWorkspace({
           hist={planHistory}
           setHist={setPlanHistory}
           onCheckpoint={rememberPlanStep}
+          onStepEnd={endSheetStep}
           views={planViews}
           fitRef={planFit}
           keysRef={planKeys}
