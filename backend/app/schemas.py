@@ -1549,6 +1549,101 @@ class ModuleConfig(BaseModel):
     viewer: bool = False  # render as a plain PDF viewer (no drawing); on a family applies to all sub-slots
 
 
+#: The four kinds of station data the SharePoint connector can pull. One entry per area at
+#: most — see :class:`SharePointConfig`.
+SharePointArea = Literal["plans", "geodata", "checklists", "workbook"]
+
+#: Length caps enforced HERE rather than by the database. Nothing about these strings reaches
+#: a `String(n)` column, and SQLite (the test database) would not enforce one anyway — but a
+#: site URL or path of unbounded length is a request this deployment would build and send, so
+#: it is refused where it is typed.
+_SHAREPOINT_URL_MAX = 400
+_SHAREPOINT_PATH_MAX = 400
+_SHAREPOINT_DRIVE_ID_MAX = 200
+
+
+class SharePointSource(BaseModel):
+    """One area's folder in SharePoint — where to look, for what kind of data.
+
+    Every field but ``area`` is about ADDRESSING, and the addressing is per source on purpose:
+    a station that keeps its Objektpläne on the Kommando site and its Geodaten in a different
+    library configures two entries with two ``siteUrl``s. Nothing here requires a common root,
+    and an area a station does not have is simply not listed.
+
+    Point at the site with ``siteUrl`` (the address out of a browser's URL bar,
+    ``https://contoso.sharepoint.com/sites/feuerwehr``) and this deployment resolves it to the
+    document library itself; give ``driveId`` instead when a tenant admin has handed over the
+    library id directly. ``library`` picks a non-default document library by its display name.
+    ``path`` is the folder INSIDE that library — the per-area naming convention from
+    docs/sharepoint-connector.md applies below it, never above it.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    area: SharePointArea
+    siteUrl: str | None = None
+    driveId: str | None = None
+    #: Display name of the document library, when it is not the site's default one.
+    library: str | None = None
+    #: Folder inside the library; empty = its root. Stored without leading/trailing slashes.
+    path: str = ""
+
+    @model_validator(mode="after")
+    def _addressable(self) -> "SharePointSource":
+        site = (self.siteUrl or "").strip()
+        drive = (self.driveId or "").strip()
+        if bool(site) == bool(drive):
+            raise ValueError(f"sharepoint source {self.area!r}: give exactly one of 'siteUrl' or 'driveId'")
+        if site:
+            if not site.startswith("https://"):
+                raise ValueError(f"sharepoint source {self.area!r}: 'siteUrl' must start with https://")
+            if len(site) > _SHAREPOINT_URL_MAX:
+                raise ValueError(f"sharepoint source {self.area!r}: 'siteUrl' is longer than {_SHAREPOINT_URL_MAX}")
+        if drive and len(drive) > _SHAREPOINT_DRIVE_ID_MAX:
+            raise ValueError(f"sharepoint source {self.area!r}: 'driveId' is longer than {_SHAREPOINT_DRIVE_ID_MAX}")
+        # A path is a folder inside the library, never a way out of it. `..` is refused rather
+        # than resolved: this string is pasted into a Graph URL, and «resolve it politely» is
+        # how a traversal becomes a feature.
+        path = (self.path or "").replace("\\", "/").strip().strip("/")
+        if len(path) > _SHAREPOINT_PATH_MAX:
+            raise ValueError(f"sharepoint source {self.area!r}: 'path' is longer than {_SHAREPOINT_PATH_MAX}")
+        if any(part in ("..", ".") for part in path.split("/") if part) or path.startswith(("http://", "https://")):
+            raise ValueError(f"sharepoint source {self.area!r}: 'path' must be a plain folder path inside the library")
+        self.path = path
+        self.siteUrl = site or None
+        self.driveId = drive or None
+        self.library = (self.library or "").strip() or None
+        return self
+
+
+class SharePointConfig(BaseModel):
+    """Where this deployment pulls station data from, and how often. Read-only, pull-only.
+
+    ⚠️ NO CREDENTIAL LIVES HERE. ``GET /api/config`` is public and the Sicherung round-trip
+    replaces this document wholesale; the tenant/client id and the client secret are in the
+    encrypted credential store (app/credentials · the ``sharepoint`` group). What stays in the
+    document is the part an operator wants to read back, diff and version: which folders.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    #: Poll cadence. Clamped by the worker to at least one minute; a station that wants the
+    #: pull off empties `sources` (or clears the credentials) rather than setting a huge number.
+    intervalMinutes: int = Field(default=60, ge=1, le=10080)
+    sources: list[SharePointSource] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _one_source_per_area(self) -> "SharePointConfig":
+        seen: set[str] = set()
+        for s in self.sources:
+            if s.area in seen:
+                raise ValueError(
+                    f"sharepoint: area {s.area!r} is configured twice. One folder per area — the "
+                    "refuse-to-empty guard reads a listing as the complete statement of what that "
+                    "area holds, and two half-statements cannot be told from one broken one."
+                )
+            seen.add(s.area)
+        return self
+
+
 class DeploymentConfigIn(BaseModel):
     """The full config document an admin PUTs. All sections optional → `{}` is valid.
 
@@ -1573,6 +1668,10 @@ class DeploymentConfigIn(BaseModel):
     # docs/CONFIGURATION.md says why, and says to copy the shipped file to add one keyword).
     alarmKeywords: AlarmKeywordsConfig | None = None
     report: ReportConfig = Field(default_factory=ReportConfig)
+    # ⚠️ Declared HERE or it does not survive a save: every model in this document is
+    # `extra="ignore"`, so an undeclared section is dropped on the next round-trip and the
+    # station's folders vanish the first time anybody presses save in /admin.
+    sharepoint: SharePointConfig = Field(default_factory=SharePointConfig)
     # Accepted on input but not authoritative (kept loose; not echoed from the document).
     # Future asset-upload slice: validate that identity.assets.* reference existing entries in
     # asset storage. Skipped while assets are still provisioned outside this document.

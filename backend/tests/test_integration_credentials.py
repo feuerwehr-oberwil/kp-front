@@ -18,9 +18,19 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture
 def blank_env(monkeypatch):
-    """A deployment whose `.env` names none of these — the state a fresh station is in."""
+    """A deployment whose `.env` names none of these — the state a fresh station is in.
+
+    ⚠️ Two kinds of field now. The ones that predate this table have a ``Settings`` attribute
+    and are blanked there; a credential introduced after it (the SharePoint app registration)
+    has none — `Settings` is `extra="ignore"`, so it is read straight off the environment
+    (credentials · `_env_value`) and is blanked by removing the variable. `setattr` on a
+    pydantic model for a field it does not declare raises whatever `raising=` says.
+    """
     for f in creds.FIELDS:
-        monkeypatch.setattr(settings, f.name, f.default, raising=False)
+        if f.declared:
+            monkeypatch.setattr(settings, f.name, f.default, raising=False)
+        else:
+            monkeypatch.delenv(f.env, raising=False)
     creds.reset_cache()
 
 

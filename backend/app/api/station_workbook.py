@@ -96,8 +96,13 @@ async def _upload_bytes(file: UploadFile) -> bytes:
     return data
 
 
-async def _plan(db: AsyncSession, data: bytes) -> ImportPlan:
-    """Parse + project — the shared half of preview and import. Touches no session state."""
+async def plan_workbook(db: AsyncSession, data: bytes) -> ImportPlan:
+    """Parse + project — the shared half of preview and import. Touches no session state.
+
+    Public because the SharePoint pull runs the SAME planner over a workbook it fetched: the
+    connector is a transport, and «what would this file do» must be one answer, not two
+    implementations that agree today.
+    """
     _row, raw = await _stored_config(db)
     stored = load_stored_config(raw).model_dump(mode="json")
     try:
@@ -165,7 +170,7 @@ async def preview_workbook(
     own troubleshooting guide now carries a row titled «An Excel import deleted the whole
     roster». The numbers being available is not the point — the operator seeing them is.
     """
-    return (await _plan(db, await _upload_bytes(file))).preview
+    return (await plan_workbook(db, await _upload_bytes(file))).preview
 
 
 @router.post("/import", response_model=WorkbookImportResult)
@@ -194,14 +199,24 @@ async def import_workbook(
             status_code=409,
             detail="Die Datei hat sich seit der Vorschau geändert. Bitte die Vorschau neu erstellen.",
         )
-    plan = await _plan(db, data)
+    plan = await plan_workbook(db, data)
     if not plan.preview.ok:
         raise HTTPException(
             status_code=400,
             detail="Die Arbeitsmappe wurde nicht übernommen: " + " · ".join(plan.preview.errors),
         )
+    return await apply_workbook(db, plan, actor_id=actor.id if actor else None)
 
-    actor_id = actor.id if actor else None
+
+async def apply_workbook(db: AsyncSession, plan: ImportPlan, *, actor_id: uuid.UUID | None) -> WorkbookImportResult:
+    """Write a planned workbook. The config and the roster land in ONE transaction.
+
+    Split out of the endpoint so the SharePoint pull applies a workbook through this exact
+    code — the connector fetches the bytes and decides whether it may proceed unattended, and
+    the write itself is the one that already exists. Callers are responsible for having checked
+    ``plan.preview.ok``; an unattended caller checks more than that (app/sharepoint_sync ·
+    _sync_workbook), because the preview it would have shown has nobody reading it.
+    """
     row, _raw = await _stored_config(db)
     if plan.config_changed:
         # …keep what is being replaced first, in THIS session, so the write is undoable through

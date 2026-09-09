@@ -276,6 +276,47 @@ async def _write_config(db, ref_layers: list[dict[str, Any]]) -> None:
         row.config_json = normalized
 
 
+async def store_geojson(
+    db,
+    slug: str,
+    data: bytes,
+    *,
+    label: str | None = None,
+    source_note: str | None = None,
+    feature_count: int | None = None,
+    source_type: str = "uploaded",
+) -> ReferenceDataset:
+    """Upsert one `geo:<slug>` dataset: write the blob, create or bump the row.
+
+    The ONE write path for a reference GeoJSON, shared by the manifest load below and by the
+    SharePoint pull (app/sharepoint_sync) — the same reason app/plans keeps `store_plan`: the
+    dataset id, the storage key, the version bump and the title fallback are decided in exactly
+    one place, so a second door cannot drift into its own identity scheme for the same layer.
+
+    `label`/`source_note` are only applied when given, so an automated refresh never wipes a
+    label somebody typed. `source_type` records which door the bytes came in through.
+    """
+    ds_id = f"geo:{slug}"
+    key = storage.new_key("reference", "-" + ds_id.replace(":", "_"))
+    storage.put_bytes(key, data)
+    existing = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
+    storage.replaced_in_transaction(db, new_key=key, old_key=existing.storage_key if existing is not None else None)
+    if existing is None:
+        existing = ReferenceDataset(id=ds_id, kind="geojson", current_version=1)
+        db.add(existing)
+    else:
+        existing.current_version += 1
+    existing.kind = "geojson"
+    existing.title = label or existing.title or ds_id
+    existing.source_type = source_type
+    existing.source_note = source_note if source_note is not None else existing.source_note
+    existing.storage_key = key
+    existing.content_type = "application/geo+json"
+    existing.size_bytes = len(data)
+    existing.feature_count = feature_count
+    return existing
+
+
 async def _load(
     manifest_path: Path, entries: list[GeodataManifestEntry], feature_counts: dict[str, int]
 ) -> tuple[int, int]:
@@ -289,30 +330,14 @@ async def _load(
         for e in entries:
             if e.kind != "geojson" or not e.file:
                 continue
-            ds_id = f"geo:{e.slug()}"
-            src = _resolve(manifest_path, e)
-            data = src.read_bytes()
-            key = storage.new_key("reference", "-" + ds_id.replace(":", "_"))
-            storage.put_bytes(key, data)
-            existing = (
-                await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))
-            ).scalar_one_or_none()
-            storage.replaced_in_transaction(
-                db, new_key=key, old_key=existing.storage_key if existing is not None else None
+            await store_geojson(
+                db,
+                e.slug(),
+                _resolve(manifest_path, e).read_bytes(),
+                label=e.label,
+                source_note=e.sourceNote,
+                feature_count=feature_counts.get(e.id),
             )
-            if existing is None:
-                existing = ReferenceDataset(id=ds_id, kind="geojson", current_version=1)
-                db.add(existing)
-            else:
-                existing.current_version += 1
-            existing.kind = "geojson"
-            existing.title = e.label or existing.title or ds_id
-            existing.source_type = "uploaded"
-            existing.source_note = e.sourceNote if e.sourceNote is not None else existing.source_note
-            existing.storage_key = key
-            existing.content_type = "application/geo+json"
-            existing.size_bytes = len(data)
-            existing.feature_count = feature_counts.get(e.id)
             ds_written += 1
         await _write_config(db, ref_layers)
         await db.commit()

@@ -128,6 +128,54 @@ async def _plan_pull() -> None:
             logger.exception("Objektplan-Pull failed")
 
 
+#: How often the SharePoint pull ticks. NOT the poll interval — the station's own cadence lives
+#: in the config document (`sharepoint.intervalMinutes`), which an admin can change from the
+#: browser, and a job registered at boot could not follow it. So the timer is fixed and short
+#: and the job decides on each tick whether enough time has passed. A tick with nothing to do
+#: is one cached credential lookup and one already-loaded config row.
+SHAREPOINT_TICK_SECONDS = 60
+
+#: When the last run started, per process. In memory rather than queried back for the same
+#: reason `_last_sample` is: the question is «did WE run recently», the answer is worth nothing
+#: after a restart, and the cost of getting it wrong is one extra poll of a folder.
+_sharepoint_last_run: datetime | None = None
+
+
+async def _sharepoint_pull() -> None:
+    """Pull the station's SharePoint folders, at the cadence the config asks for.
+
+    ⚠️ Registered unconditionally and idle without credentials, like the four jobs above and for
+    the same reason: the tenant id, the client id and the secret are all set FROM THE BROWSER,
+    so a job gated at boot would never run on the station that just configured it — «I entered
+    the keys and nothing happened» until the next deploy.
+    """
+    global _sharepoint_last_run
+    from .credentials import load as load_credentials
+    from .sharepoint_sync import sharepoint_credentials, sharepoint_settings, sync_sharepoint
+
+    async with async_session_maker() as db:
+        await load_credentials(db)
+        if sharepoint_credentials() is None:
+            return
+        try:
+            config = await sharepoint_settings(db)
+            if not config.sources:
+                return
+            due = timedelta(minutes=max(1, config.intervalMinutes))
+            now = datetime.now(UTC)
+            if _sharepoint_last_run is not None and now - _sharepoint_last_run < due:
+                return
+            _sharepoint_last_run = now
+            res = await sync_sharepoint(db)
+            await db.commit()
+            imported = sum(a.get("imported", 0) for a in res.get("areas", {}).values())
+            if imported:
+                logger.info("SharePoint-Pull: %d file(s) imported", imported)
+        except Exception:
+            await db.rollback()
+            logger.exception("SharePoint-Pull failed")
+
+
 PRINT_JOB_RETENTION_DAYS = 7  # the paper is the artefact — the queue is transient
 PRINT_JOB_SWEEP_SECONDS = 3600
 
@@ -452,6 +500,15 @@ def _start_scheduler_jobs() -> None:
     jobs.append(f"vehicle samples ({VEHICLE_SAMPLE_SECONDS}s, idle without Traccar)")
     _scheduler.add_job(_heartbeat, "interval", seconds=60, id="heartbeat", max_instances=1, coalesce=True)
     jobs.append("heartbeat (60s, idle without a ping URL)")
+    _scheduler.add_job(
+        _sharepoint_pull,
+        "interval",
+        seconds=SHAREPOINT_TICK_SECONDS,
+        id="sharepoint_pull",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"SharePoint-Pull ({SHAREPOINT_TICK_SECONDS}s tick, idle without an app registration)")
     # Keeps the snapshot the SYNCHRONOUS credential readers see from going stale — see
     # `_refresh_credentials`.
     _scheduler.add_job(

@@ -5256,6 +5256,10 @@ export const de = {
           title: 'Webhooks & Stationsdrucker',
           caption: 'Gemeinsame Geheimnisse für die Alarm-Schnittstelle fremder Leitstellen und für den Druck-Agenten auf der Wache. Ohne Eintrag sind beide Türen zu.',
         },
+        sharepoint: {
+          title: 'SharePoint (Stationsdaten)',
+          caption: 'Azure-App-Registrierung der eigenen Organisation, damit KP Front Objektpläne, Geodaten, Checklisten und die Arbeitsmappe aus SharePoint holen kann – nur lesend. Tenant- und Client-ID stehen im Azure-Portal unter «App-Registrierungen › Übersicht»; das Client-Secret ist nur einmal sichtbar, direkt nach dem Erzeugen. Das Ablaufdatum bitte mit eintragen – sonst steht die Anbindung in zwei Jahren still, ohne dass es jemand merkt.',
+        },
         monitoring: {
           title: 'Überwachung',
           caption: 'Ping-Adresse eines Monitors (z. B. healthchecks.io). Solange KP Front läuft, meldet es sich jede Minute – bleiben die Pings aus, alarmiert der Monitor. Ohne diese Adresse erfährt niemand, dass die Wache steht.',
@@ -6295,6 +6299,45 @@ export const de = {
       connAlarmWebhook: 'Generischer Alarmeingang',
       connPush: 'Web Push (Alarmierung)',
       connStt: 'Speech-to-Text',
+      // SharePoint-Anbindung. ⚠️ Der Text führt mit dem letzten ERFOLGREICHEN Abgleich und mit
+      // dem Ablauf des Client-Secrets, weil genau das die stille Art ist, wie diese Anbindung
+      // endet: Azure lässt das Secret nach längstens 24 Monaten verfallen, Graph antwortet mit
+      // 401, und an der App sieht man nichts – auf den Tablets stehen einfach die Pläne von
+      // vorher. «Zuletzt geprüft» wäre dann grün und gelogen.
+      sharepoint: 'SharePoint-Anbindung',
+      sharepointTip: 'Holt Objektpläne, Geodaten, Checklisten und die Arbeitsmappe aus den SharePoint-Ordnern der Wehr – nur lesend, geschrieben wird dort nie. Welche Ordner: Konfiguration; Zugang: Zugangsdaten › SharePoint.',
+      spNotSetUp: 'Nicht eingerichtet.',
+      spNotSetUpHint: 'Tenant-ID, Client-ID und Client-Secret unter Zugangsdaten eintragen, danach die Ordner in der Konfiguration. Die Anleitung steht in docs/sharepoint-connector.md.',
+      spNoSources: 'Zugang steht, es ist aber kein Ordner hinterlegt.',
+      spNoSourcesHint: 'In der Konfiguration unter «sharepoint.sources» je Bereich einen Ordner angeben – nur die Bereiche, die es bei euch gibt.',
+      spArea: 'Bereich',
+      spLastSuccess: 'Zuletzt erfolgreich',
+      spCounts: '{imported} übernommen · {skipped} übersprungen · {missing} fehlen in SharePoint',
+      spSyncNow: 'Jetzt abgleichen',
+      spSyncing: 'Wird abgeglichen …',
+      spSynced: 'Abgeglichen.',
+      spSyncFailed: 'Abgleich fehlgeschlagen',
+      spSecret: 'Client-Secret',
+      spSecretExpires: 'läuft in {days} Tagen ab',
+      spSecretExpired: 'abgelaufen – die Anbindung steht still, bis im Azure-Portal ein neues erzeugt ist',
+      spAreas: {
+        plans: 'Objektpläne',
+        geodata: 'Geodaten',
+        checklists: 'Checklisten',
+        workbook: 'Arbeitsmappe',
+      } as Record<string, string>,
+      spStates: {
+        pending: 'noch nie gelaufen',
+        ok: 'aktuell',
+        unchanged: 'unverändert',
+        // «Verweigert» ist kein Fehler, sondern die Schutzregel: ein Ordner, der plötzlich
+        // nichts mehr auflistet, ist weit häufiger ein kaputter Abgleich als ein Entscheid.
+        refused: 'abgelehnt – nichts geändert',
+        unreachable: 'nicht erreichbar',
+        auth_failed: 'Anmeldung abgelehnt',
+        error: 'Fehler',
+        needs_review: 'wartet auf Freigabe',
+      } as Record<string, string>,
       storage: 'Speicher',
       storageTip: 'Objektspeicher des Servers (Fotos, Pläne, Referenzdateien) und die Auslastung des zugrunde liegenden Datenträgers.',
       mediaUsed: 'Belegt (Medien)',

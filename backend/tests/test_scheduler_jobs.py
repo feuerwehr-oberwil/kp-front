@@ -250,6 +250,62 @@ async def _returning(value):
     return value
 
 
+# --- SharePoint pull --------------------------------------------------------------------
+
+
+async def test_the_sharepoint_pull_is_idle_until_an_app_registration_exists(run_job, monkeypatch):
+    """Registered unconditionally, like the four jobs above and for the same reason: all three
+    SharePoint credentials are set FROM THE BROWSER, so a job gated at boot would never run on
+    the station that just configured it."""
+    import app.sharepoint_sync as sp
+    from app.schemas import SharePointConfig
+
+    calls: list[bool] = []
+    monkeypatch.setattr(sp, "sync_sharepoint", lambda db, **kw: _returning(calls.append(True) or {}))
+    monkeypatch.setattr(
+        sp,
+        "sharepoint_settings",
+        lambda db: _returning(SharePointConfig(sources=[{"area": "plans", "driveId": "b!x", "path": "p"}])),
+    )
+
+    monkeypatch.setattr(sp, "sharepoint_credentials", lambda: None)
+    await run_job(scheduler._sharepoint_pull)
+    assert calls == [], "no credentials — the tick must cost nothing"
+
+    monkeypatch.setattr(sp, "sharepoint_credentials", lambda: ("t", "c", "s"))
+    monkeypatch.setattr(scheduler, "_sharepoint_last_run", None)
+    await run_job(scheduler._sharepoint_pull)
+    assert calls == [True], "…and it starts working on the tick after the keys appear"
+
+
+async def test_the_configured_cadence_decides_when_a_tick_actually_polls(run_job, monkeypatch):
+    """⚠️ The timer ticks every minute; `sharepoint.intervalMinutes` is the real cadence. It lives
+    in the config document precisely so an admin can change it without a restart — which a fixed
+    APScheduler interval could not follow."""
+    import app.sharepoint_sync as sp
+    from app.schemas import SharePointConfig
+
+    runs: list[bool] = []
+    monkeypatch.setattr(sp, "sharepoint_credentials", lambda: ("t", "c", "s"))
+    monkeypatch.setattr(sp, "sync_sharepoint", lambda db, **kw: _returning(runs.append(True) or {}))
+    monkeypatch.setattr(
+        sp,
+        "sharepoint_settings",
+        lambda db: _returning(
+            SharePointConfig(intervalMinutes=60, sources=[{"area": "plans", "driveId": "b!x", "path": "p"}])
+        ),
+    )
+    monkeypatch.setattr(scheduler, "_sharepoint_last_run", None)
+
+    await run_job(scheduler._sharepoint_pull)
+    await run_job(scheduler._sharepoint_pull)
+    assert runs == [True], "a second tick a minute later is not another poll"
+
+    monkeypatch.setattr(scheduler, "_sharepoint_last_run", datetime.now(UTC) - timedelta(hours=2))
+    await run_job(scheduler._sharepoint_pull)
+    assert runs == [True, True], "…and an hour later it is"
+
+
 # --- print-job sweep ------------------------------------------------------------------
 
 

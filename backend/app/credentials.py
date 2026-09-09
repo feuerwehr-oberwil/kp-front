@@ -102,8 +102,22 @@ class CredentialField:
         return self.name.upper()
 
     @property
+    def declared(self) -> bool:
+        """Does ``Settings`` carry this field?
+
+        ⚠️ Not every credential has an ``.env`` twin any more. The ones that predate this table
+        do — they were environment variables first — but a credential introduced AFTER it (the
+        SharePoint app registration) has no reason to add a boot-time setting nobody sets, and
+        adding one would put a value in a place with no reload path. An undeclared field is
+        therefore read straight off the environment instead (see :func:`_env_value`), so a
+        deployer who exports the variable still wins, and a station that does not still gets
+        the browser form.
+        """
+        return self.name in Settings.model_fields
+
+    @property
     def default(self) -> str:
-        raw = Settings.model_fields[self.name].default
+        raw = Settings.model_fields[self.name].default if self.declared else ""
         return str(raw or "").strip()
 
 
@@ -153,6 +167,20 @@ FIELDS: tuple[CredentialField, ...] = (
     # monitor believing a dead station is alive. That is the one attack this URL enables, and
     # putting it on a screen is how it leaks.
     CredentialField("healthcheck_ping_url", "monitoring", True, "Monitor-Ping-URL"),
+    # --- SharePoint pull connector ----------------------------------------------------
+    # An Azure app registration in the STATION's tenant, client-credentials flow, read-only.
+    # The two ids are READABLE and the secret is not, and that split is the point of the page:
+    # «is this the right app registration?» is a question an operator has to answer off the
+    # screen (they are comparing it against the Azure portal), and neither id is usable
+    # without the secret. The secret itself is write-only like every other one.
+    CredentialField("sharepoint_tenant_id", "sharepoint", False, "Azure Tenant-ID"),
+    CredentialField("sharepoint_client_id", "sharepoint", False, "Azure Client-ID"),
+    CredentialField("sharepoint_client_secret", "sharepoint", True, "Azure Client-Secret"),
+    # ⚠️ Not a credential — a DATE, and the one that decides whether this connector still works
+    # in two years. Azure caps a client secret at 24 months and says nothing when it expires;
+    # the station finds out because plans stopped arriving. Kept beside the secret so the
+    # System page can warn WEEKS ahead instead of reporting an auth failure afterwards.
+    CredentialField("sharepoint_secret_expires", "sharepoint", False, "Client-Secret läuft ab"),
 )
 
 BY_NAME: dict[str, CredentialField] = {f.name: f for f in FIELDS}
@@ -236,7 +264,14 @@ def _env_value(field: CredentialField) -> str | None:
     would lock those fields out of the admin UI on every single install. So the test is
     *differs from the declared default*: a deployer who typed something wins, a compose
     fallback does not.
+
+    A field ``Settings`` does not declare (see :attr:`CredentialField.declared`) is read
+    straight off ``os.environ``: there is no boot-time attribute to compare against and
+    nothing materialises a fallback for it, so «present and non-empty» IS a deployer decision.
     """
+    if not field.declared:
+        raw = str(os.environ.get(field.env, "") or "").strip()
+        return raw or None
     raw = str(getattr(settings, field.name, "") or "").strip()
     return raw if raw and raw != field.default else None
 
@@ -523,6 +558,25 @@ def validate(name: str, value: str) -> str:
         raise CredentialRefusedError("Der VAPID-Kontakt muss «mailto:…» oder «https://…» sein.")
     if name == "stt_language" and not (2 <= len(v) <= 8):
         raise CredentialRefusedError("Sprachcode wie «de» oder «de-CH».")
+    if name in ("sharepoint_tenant_id", "sharepoint_client_id"):
+        # Both are GUIDs in the Azure portal. Checked because the alternative failure is a
+        # 400 from a token endpoint half an hour later, in a log nobody is reading — and the
+        # commonest paste here is the app's DISPLAY NAME, which is not a GUID at all.
+        try:
+            v = str(uuid.UUID(v))
+        except ValueError as e:
+            raise CredentialRefusedError(
+                "Das ist keine GUID. Tenant- und Client-ID stehen im Azure-Portal unter "
+                "«App-Registrierungen › Übersicht» und sehen aus wie "
+                "«00000000-0000-0000-0000-000000000000»."
+            ) from e
+    if name == "sharepoint_secret_expires":
+        from datetime import date
+
+        try:
+            v = date.fromisoformat(v).isoformat()
+        except ValueError as e:
+            raise CredentialRefusedError("Datum als JJJJ-MM-TT eintragen, z. B. 2028-03-31.") from e
     return v
 
 

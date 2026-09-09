@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiGet } from '../lib/api'
+import { apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useConfig } from './ConfigContext'
 import { SetupChecklist } from './SetupChecklist'
 import { fillTemplate } from '../lib/format'
 import { providerLabel } from '../lib/deploymentConfig'
-import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip, ConfirmButton } from './ui'
+import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime } from './ui'
 import { TelemetryCard } from './TelemetryCard'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
@@ -87,6 +87,164 @@ function fmtCount(n: number | null | undefined): string {
 function pct(part: number | null | undefined, whole: number | null | undefined): number {
   if (part == null || whole == null || !Number.isFinite(part) || !Number.isFinite(whole) || whole <= 0) return 0
   return Math.max(0, Math.min(100, (part / whole) * 100))
+}
+
+// ─── SharePoint connector (GET/POST /api/sharepoint) ──────────────────────────
+
+interface SharePointArea {
+  area: string
+  path: string
+  site: string | null
+  /** pending | ok | unchanged | refused | unreachable | auth_failed | error | needs_review */
+  status: string
+  detail: string | null
+  imported: number
+  skipped: number
+  missing: number
+  lastRunAt: string | null
+  lastSuccessAt: string | null
+}
+interface SharePointStatus {
+  configured: boolean
+  credentials: boolean
+  intervalMinutes: number
+  /** negative once the Azure client secret has expired; null when no date was recorded */
+  secretExpiresInDays: number | null
+  areas: SharePointArea[]
+}
+
+/** Warn this many days before the Azure client secret lapses. Long enough that a volunteer can
+ *  find an afternoon and somebody with tenant access — the renewal is a portal visit, not a
+ *  five-minute job, and the failure it prevents is total. */
+const SECRET_WARN_DAYS = 60
+
+/** An area's state as a badge tone. `unchanged` is a success — the folder simply had nothing
+ *  new in it, which is what almost every poll finds. */
+function areaTone(status: string): 'on' | 'off' | 'warn' | 'err' {
+  if (status === 'ok' || status === 'unchanged') return 'on'
+  if (status === 'auth_failed' || status === 'error') return 'err'
+  if (status === 'pending') return 'off'
+  return 'warn'
+}
+
+/**
+ * SharePoint-Anbindung — the card that exists because this connector's likeliest end is silence.
+ *
+ * An Azure client secret expires after at most 24 months, Graph starts answering 401, and
+ * nothing about the app looks different: the plans on the tablets are just the ones from
+ * before. So the card leads with the two facts that make that visible — the countdown to the
+ * secret's expiry, and the last SUCCESSFUL sync per area, which is deliberately not the same
+ * thing as the last run.
+ *
+ * It renders even when nothing is configured. «Nicht eingerichtet» is a state an operator needs
+ * to read; a card that draws nothing looks exactly like one whose fetch failed.
+ */
+function SharePointCard() {
+  const C = appConfig.copy.admin.system
+  const [state, setState] = useState<SharePointStatus | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      setState(await apiGet<SharePointStatus>('/api/sharepoint/status'))
+      setFailed(false)
+    } catch {
+      setFailed(true)
+    }
+  }, [])
+  useEffect(() => { void load() }, [load])
+
+  const runNow = async () => {
+    setBusy(true)
+    try {
+      await apiPost('/api/sharepoint/sync', {})
+      setResult({ tone: 'ok', text: C.spSynced })
+      await load()
+    } catch {
+      setResult({ tone: 'err', text: C.spSyncFailed })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (failed) return <Card title={C.sharepoint} tip={C.sharepointTip}><EmptyState tone="err" message={C.error} /></Card>
+  if (state === null) return null
+
+  const days = state.secretExpiresInDays
+  return (
+    <Card title={C.sharepoint} tip={C.sharepointTip}>
+      {!state.configured ? (
+        <EmptyState
+          message={state.credentials ? C.spNoSources : C.spNotSetUp}
+          hint={state.credentials ? C.spNoSourcesHint : C.spNotSetUpHint}
+        />
+      ) : (
+        <>
+          {days !== null && days <= SECRET_WARN_DAYS && (
+            <StatusBadge
+              tone={days < 0 ? 'err' : 'warn'}
+              label={C.spSecret}
+              state={days < 0 ? C.spSecretExpired : fillTemplate(C.spSecretExpires, { days: String(days) })}
+            />
+          )}
+          <div className="adm-table-wrap">
+            <table className="adm-table">
+              <thead>
+                <tr>
+                  <th>{C.spArea}</th>
+                  <th>{C.status}</th>
+                  <th>{C.spLastSuccess}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.areas.map((a) => (
+                  <tr key={a.area}>
+                    <td>
+                      <span className="adm-ref-title">{C.spAreas[a.area] ?? a.area}</span>
+                      {a.path && <p className="adm-card-cap adm-mono">{a.path}</p>}
+                    </td>
+                    <td>
+                      <StatusBadge
+                        tone={areaTone(a.status)}
+                        label={C.spAreas[a.area] ?? a.area}
+                        state={C.spStates[a.status] ?? a.status}
+                      />
+                      {/* The server's own sentence — «AADSTS7000222: … expired» is the thing an
+                          operator can act on, and translating it would lose the code. */}
+                      {a.detail && <p className="adm-card-cap">{a.detail}</p>}
+                    </td>
+                    <td>
+                      {fmtDateTime(a.lastSuccessAt)}
+                      <p className="adm-card-cap">
+                        {fillTemplate(C.spCounts, {
+                          imported: String(a.imported),
+                          skipped: String(a.skipped),
+                          missing: String(a.missing),
+                        })}
+                      </p>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="adm-sys-actions">
+            <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => void runNow()}>
+              <Icon id="rotate" />
+              {busy ? C.spSyncing : C.spSyncNow}
+            </button>
+            {result && (
+              <ResultChip key={result.text} tone={result.tone} onExpire={() => setResult(null)}>
+                {result.text}
+              </ResultChip>
+            )}
+          </div>
+        </>
+      )}
+    </Card>
+  )
 }
 
 // ─── client-side offline cache (this device's PWA storage) ─────────────────────
@@ -477,6 +635,10 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                 <div className="adm-state">{C.notAvailable}</div>
               )}
             </Card>
+
+            {/* What the station pulls in from its own SharePoint — and, above all, when it
+                last managed to. */}
+            <SharePointCard />
 
             {/* Client-side offline cache (this device) — a half-row card in the grid. */}
             <OfflineCacheCard />

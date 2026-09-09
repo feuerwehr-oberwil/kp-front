@@ -617,12 +617,17 @@ plans are counted as skipped every night with nothing on screen to say why. The 
 says this at the form. Two doors, one rule: **PDFs by hand → the browser is fine; PDFs on a
 timer → the object has to have been loaded by `admin_objects`.**
 
-⚠️ **The pull covers object plans and nothing else.** There is one scheduled job, `plan_pull`, and
-it only ever writes `plan:<object>:<module>` datasets. **Geodata, checklists and the deployment
-config have no pull path at all** – for those it is the CLI or the admin UI, and a station that
-wants them refreshed on a timer has to run `admin_geodata push` / `admin_checklists push` from its
-own scheduler. That is a real limitation, not an omission from this page: plans are the data that
-actually churns, so they got the mechanism first.
+⚠️ **The bucket pull covers object plans and nothing else.** `plan_pull` only ever writes
+`plan:<object>:<module>` datasets, and the deployment config has no pull path at all. Plans-only
+is no longer the whole story, though: a station that keeps its files in **SharePoint** can point
+the SharePoint-Pull at its own folders and have Objektpläne, Geodaten, Checklisten and the
+Arbeitsmappe fetched on a schedule – read-only, pull-only, no publisher script on the station
+side. The setup afternoon (Azure app registration, consent, client secret, folder conventions)
+is walked through step by step in [`sharepoint-connector.md`](sharepoint-connector.md); the
+config fields are
+[`CONFIGURATION.md` §6c](CONFIGURATION.md#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule).
+A station on neither bucket nor SharePoint that wants geodata or checklists refreshed on a timer
+still runs `admin_geodata push` / `admin_checklists push` from its own scheduler.
 
 **You do not have to pick one and stay there.** All three write the same rows, so a station can
 upload by hand for a year and switch to a manifest or a pull later without re-identifying
@@ -873,6 +878,10 @@ are written down, whether push notifications actually arrive on a locked tablet.
       Wartung → «Verbindungen» is green**, and an alarm actually arrived on a locked tablet. That
       row is the check – not a grep of `.env`, which on a current install is empty by design
       because the pair lives in the credential store (§5).
+- [ ] If you set up the SharePoint-Pull: the **SharePoint card on `/admin` → System & Wartung**
+      shows a last *successful* sync per area, and its client-secret expiry countdown shows the
+      date you expect. Put that date in the station's calendar too – Azure caps a secret at
+      24 months and warns nobody when it lapses.
 
 ## 9. Where to go next
 

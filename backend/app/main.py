@@ -708,6 +708,7 @@ def _register_optional_routers() -> None:
         ("app.api.stats", "router"),
         ("app.api.system", "router"),
         ("app.api.credentials", "router"),
+        ("app.api.sharepoint", "router"),
         ("app.api.diag", "router"),
         ("app.api.visits", "router"),
     ]:

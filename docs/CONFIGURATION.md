@@ -36,9 +36,10 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
     [4c. `"snapshot"` – the roster-snapshot contract](#4c-snapshot--a-roster-file-somebody-else-publishes)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The seventeen integration credentials – env **or** `/admin`](#the-seventeen-integration-credentials--env-or-admin--zugangsdaten)
+  - [The twenty-one integration credentials – env **or** `/admin`](#the-twenty-one-integration-credentials--env-or-admin--zugangsdaten)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
+  - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
 - [7. What ships with the app (no config needed)](#7-what-ships-with-the-app-no-config-needed)
 - [8. Empty state (a brand-new deployment)](#8-empty-state-a-brand-new-deployment)
 - [9. Loading station data with the admin CLIs](#9-loading-station-data-with-the-admin-clis)
@@ -64,7 +65,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the seventeen integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those seventeen. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-one integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Zugangsdaten for those twenty-one. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -110,6 +111,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
+| `sharepoint.intervalMinutes`, `.sources` | ❌ | **file only** – which folders the station pulls from is set up once and then wants to be reviewable and reproducible (§6c). The three Azure **credentials** are in the browser, at `/admin` → Zugangsdaten › SharePoint; System › SharePoint-Anbindung is the read-out |
 
 Two things that are **not** part of this document and are managed on their own pages: the
 integration credentials (`/admin` → **Zugangsdaten**, §6) and the three database-stored tokens
@@ -968,10 +970,11 @@ The product role model is deliberately small:
 Set at deploy time, never in the repo. **Seventeen of them are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The seventeen integration credentials – env **or** `/admin` → Zugangsdaten
+### The twenty-one integration credentials – env **or** `/admin` → Zugangsdaten
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
-four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET` and `HEALTHCHECK_PING_URL` – no
+four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET`,
+`HEALTHCHECK_PING_URL` and the four SharePoint fields (§6c) – no
 longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Zugangsdaten**,
 where they are stored **encrypted** in the `integration_credentials` table (AES-256-GCM, key
 derived from `SECRET_KEY` via HKDF-SHA256, the credential's own name as AAD) and take effect
@@ -983,7 +986,7 @@ Four rules, and none of them is optional reading:
 1. **A value in `.env` wins and locks the field.** The browser shows it as server-set, names the
    variable, and offers no input; the API answers **409** to a `PUT` or `DELETE`. **Existing
    deployments therefore change behaviour not at all.** "Supplied" means *different from the
-   application's own default* – `docker-compose.yml` names all seventeen variables and materialises
+   application's own default* – `docker-compose.yml` names the seventeen original variables and materialises
    the application default for `STT_MODEL` and `STT_LANGUAGE`, and a compose passthrough is
    not a deployer's decision. (`VAPID_SUBJECT` is passed through **blank** for exactly this
    reason: a fallback that differed from the declared default would have read as a choice and
@@ -1044,6 +1047,7 @@ and locks the field – see the rule above).
 | 🔐 `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push for killed-app alarms + new-alarm push. Generate the pair once – on a Docker-only host `docker compose exec app uv run python -m app.gen_vapid`, or `cd backend && uv run python -m app.gen_vapid` where the toolchain is installed – then paste both halves into `/admin` → Zugangsdaten, which takes effect without a restart. `./scripts/setup.sh` does exactly that on a fresh install, into the credential store rather than into `.env`. Nothing set anywhere = push disabled, fail-closed. ⚠️ Generate **once** and keep the pair stable: rotating it invalidates every stored subscription |
 | 🔐 `PRINT_AGENT_SECRET` | station print relay: «An Stationsdrucker» queues the Einsatzrapport-PDF for an on-site agent (any always-on box with a CUPS queue). The agent serves KP Front *and* KP Rück from one install – see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md). Nothing set anywhere = agent endpoints 403 and the button never renders, fail-closed. It is deliberately not minted by the installer: this secret *is* the switch, so setting it renders «An Stationsdrucker» on the Rapport and on the capture poster for a station that owns no printer, and turns the System card's print-relay row from «nicht konfiguriert» into a permanently offline connector. Generate it on the agent's own machine with `openssl rand -hex 32` and paste the same value into `/admin` → Zugangsdaten |
 | 🔐 `HEALTHCHECK_PING_URL` | dead-man's switch: **the job GETs this URL every 60 s** (healthchecks.io or any cron monitor), so the monitor alerts when the pings *stop*. Catches the class an HTTP probe of `/ready` cannot: a container stopped with nothing replacing it, or a wedged event loop. Point it at a check with a **1 min period and ~3 min grace** – matching the 60 s cadence, so two missed pings raise it. Nothing set anywhere = the heartbeat job still runs but returns on its first line, so nothing is pinged; a failed ping is logged and swallowed, so a monitoring outage never disturbs the deployment. The «Einrichtung» card on the admin landing page links straight to this field |
+| 🔐 `SHAREPOINT_TENANT_ID`, `SHAREPOINT_CLIENT_ID`, `SHAREPOINT_CLIENT_SECRET`, `SHAREPOINT_SECRET_EXPIRES` | the Azure app registration behind the SharePoint pull ([§6c](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)), read-only, client-credentials flow. ⚠️ These four are the credentials that have **no `Settings` field**: they were introduced after the credential table existed, so the environment half is read straight off the process environment and the normal path is the browser. The two ids are readable (an operator compares them against the Azure portal); the secret is write-only. `SHAREPOINT_SECRET_EXPIRES` is not a credential but the ISO date (`JJJJ-MM-TT`) the secret lapses on – Azure caps it at 24 months and says nothing when it does, so this is what the System card counts down. Nothing set = no pull, fail-closed |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | 🔐 `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments |
 | 🔐 `CARTO_API_KEY` | browser key for the built-in CARTO Voyager and Dark Matter raster basemaps. Request it for the deployment domains at [CARTO Basemaps](https://carto.com/basemaps/apikey/). The runtime config appends it as `?key=` to every CARTO tile template the BROWSER fetches – map pickers, the admin object map, offline downloads. **⚠️ Restrict it to the deployment domains in CARTO**: it is necessarily visible in browser requests, and that restriction rather than secrecy is what stops it being spent elsewhere. Never commit a real value. Two things narrow it further: `/api/config` hands it only to callers that already hold a session (PIN user, admin, or an incident link – the login screen draws no map and does not get it), and **Rapport/Kroki tiles are fetched server-side with this same credential**, so the browser's copy never travels in a request body, a log line or a tile-cache filename. Empty = the provider's unkeyed/watermarked response is shown. |
@@ -1100,7 +1104,7 @@ is fetched, and plans stay exactly as they were loaded. Index format and the rea
 
 Each of these is a **token or key stored in the database** and managed in the admin UI, not set
 at deploy time. They are listed here because that is where people go looking for them. (Unlike
-the seventeen 🔐 credentials above, these three have **no** environment variable at all – there is
+the twenty-one 🔐 credentials above, these three have **no** environment variable at all – there is
 nothing to put in `.env` and nothing that could outrank the stored value.)
 
 | Feature | Where it is managed | What it does |
@@ -1108,6 +1112,76 @@ nothing to put in `.env` and nothing that could outrank the stored value.)
 | **Erfassungs-Poster** (station capture) | `/admin` → Personen › Erfassung: activate / rotate / disable, print the A4 poster | Scanning it opens `/e/<token>`, where attendance, Material and notes for incidents of the last `alarms.captureWindowHours` are recorded **without a login**. Fail-closed: no token → the whole `/api/capture/*` surface answers 403. Rotation invalidates every printed poster at once. |
 | **Statistik-Export** | `/admin` → Daten › Statistik-Export | `GET /api/stats/incidents?year=` returns one flat read-only JSON record per incident (metadata, Zeiten, Anwesenheit von–bis, Mittel totals, Rapport status) for external analytics – auth via the `X-Stats-Token` header or `?t=`. Fail-closed: no token → 403. Full field reference: [`STATS-EXPORT.md`](STATS-EXPORT.md). |
 | **Einsatz-Link** (read-only link into one incident) | `/admin` → Daten › Einsatz-Link: show, rotate or delete the station's `incident_link_key` | Copy the key into the alerting system, which signs a token with it and puts `/l/<token>` into the alert it sends out. A responder taps that on a personal phone and sees **one** incident the way a `viewer` does – no login, nothing that writes, prints or costs money – for as long as the Einsatz runs: closing or archiving it revokes every open link at once (12 h is the backstop for the one nobody closes). Fail-closed: no key → the link surface answers 403 and nothing exists, which is also what an existing deployment gets from the migration. Rotation or deletion invalidates every link already sent out and requires reconfiguring the alerting system. Trust model and reachable surface: [`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md) §4. |
+
+### 6c. SharePoint-Pull (the station's own folders, imported on a schedule)
+
+The second pull, and the one a station without a publishing pipeline can actually use: point the
+deployment at the SharePoint/OneDrive folders it already keeps its documents in, and Objektpläne,
+Geodaten, Checklisten and the Arbeitsmappe are imported on a schedule. **Read-only and
+pull-only** – nothing is ever written back to SharePoint.
+
+It is split the way everything else in this doc is. The **credentials** (Azure tenant id, client
+id, client secret, plus the date the secret expires) are three of the 🔐 integration credentials
+above, set at `/admin` → Zugangsdaten › SharePoint. The **folders** are config-as-code, in the
+document's `sharepoint` section:
+
+```jsonc
+"sharepoint": {
+  "intervalMinutes": 60,          // poll cadence, 1…10080; default 60
+  "sources": [
+    // One entry per area, and every one of them optional and independent. Different sites,
+    // different libraries, different folders per area — configure only what you have.
+    { "area": "plans",      "siteUrl": "https://contoso.sharepoint.com/sites/kommando",
+      "path": "Einsatzplaene" },
+    { "area": "geodata",    "siteUrl": "https://contoso.sharepoint.com/sites/gis",
+      "library": "Geodaten", "path": "export/wgs84" },
+    { "area": "checklists", "siteUrl": "https://contoso.sharepoint.com/sites/kommando",
+      "path": "Checklisten" },
+    { "area": "workbook",   "driveId": "b!Xy…", "path": "" }
+  ]
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `area` | `plans` · `geodata` · `checklists` · `workbook`. **At most one entry per area** – a listing is read as the complete statement of what that area holds, and two half-statements cannot be told from one broken one. |
+| `siteUrl` | The site's address as it appears in a browser's URL bar. Resolved to its document library by the server. |
+| `driveId` | The library id, when a tenant admin hands it over directly. Give **exactly one** of `siteUrl` / `driveId`. |
+| `library` | Display name of the document library, when it is not the site's default one. Optional. |
+| `path` | The folder inside that library; empty = its root. The per-area naming convention applies **below** this folder, never above it. |
+
+**Naming inside a source folder** – the full walkthrough, including the Azure app registration,
+is [`sharepoint-connector.md`](sharepoint-connector.md):
+
+```
+plans/       <object-key>/<module>.pdf     e.g. schulhaus-dorfmatt/modul2-3.pdf
+geodata/     <layer-id>.geojson            + optional <layer-id>.json sidecar (label, colours, symbol)
+checklists/  <template>.json               + diagrams as <template>-p<page>.jpg|png|webp|svg
+workbook/    <anything>.xlsx               exactly one .xlsx in the folder
+```
+
+**The object key is the folder name**, hashed to the same `uuid5` the `admin_objects` CLI and the
+admin UI mint (§9e). A station that has been loading plans by hand and then points at SharePoint
+therefore **updates** its Einsatzobjekte instead of growing a second copy of every one of them.
+An object the connector has never seen is created with the folder name for a name; a name or
+address somebody has since typed is never overwritten.
+
+**What it refuses to do.** A listing that carries nothing for an area that previously had
+something **aborts the run and changes nothing** – the same guard `admin_config load` applies to a
+config file that would empty a section, and for the same reason: an empty folder is far more often
+a broken sync than a decision. A file that disappears is recorded as *missing from source* and its
+record is **left in place**; nothing is ever hard-deleted by a poll. The Arbeitsmappe keeps its
+confirmation: the connector runs the same planner the admin preview runs and applies it only when
+nothing is refused, nothing is emptied and nobody would be deactivated – otherwise the area
+reports `needs_review` and waits for a person.
+
+**Health.** `/admin` → System › SharePoint-Anbindung shows, per area, the last **successful**
+sync (deliberately not the last attempt), imported/skipped/missing counts, and a red state for an
+authentication failure. It also counts down the client secret's expiry, which is the guaranteed
+failure two years in: Azure caps a secret at 24 months and says nothing when it lapses. «Jetzt
+abgleichen» runs the same mechanism the scheduler runs.
+
+Fail-closed: no credentials, or no `sources` → nothing is fetched and nothing changes.
 
 ---
 

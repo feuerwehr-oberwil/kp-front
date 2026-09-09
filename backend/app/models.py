@@ -817,6 +817,64 @@ class IntegrationCredentialAudit(Base):
     actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
 
+# --- SharePoint pull connector (one row per area) ---------------------------------------
+
+
+class SharePointSyncState(Base):
+    """What the SharePoint pull knows about ONE area — its resume point and its last report.
+
+    One row per area (``plans`` / ``geodata`` / ``checklists`` / ``workbook``) because the areas
+    are configured independently and fail independently: a station whose Geodaten folder was
+    renamed must still get its Objektpläne, and the System page has to be able to say which of
+    the four is the one that stopped.
+
+    Three things live here and nothing else does — the imported DATA is in
+    ``reference_datasets``/``objects``/``deployment_config`` like every hand-uploaded record,
+    because the connector is a transport and not a second store:
+
+    * **the resume point** — ``delta_token`` (Graph's ``@odata.deltaLink``), plus the resolved
+      drive/folder ids so a poll that changes nothing costs one request.
+    * **what we have** — ``files`` maps each file's path inside the source folder to the eTag
+      that was imported from it. It is what makes «nothing changed» free and it is what makes
+      «gone from the source» knowable at all.
+    * **what happened** — the last run's status and counts, for the admin System card. Silent
+      death is the failure this connector is most likely to have (an expired client secret,
+      two years in), so the report is part of the feature rather than a log line.
+
+    ⚠️ ``missing`` is a NOTE, never an action. A file that disappears from SharePoint is listed
+    here and its record is left exactly as it is: the far likelier cause of a vanished file is
+    somebody reorganising a folder — or a listing that failed halfway — than a decision that
+    the crew should no longer have that plan.
+    """
+
+    __tablename__ = "sharepoint_sync_state"
+
+    #: 'plans' | 'geodata' | 'checklists' | 'workbook' (schemas · SharePointArea)
+    area: Mapped[str] = mapped_column(String(16), primary_key=True)
+    #: Graph's opaque deltaLink for this folder — the change feed's resume point. NULL after a
+    #: reconfiguration or a 410 Gone, which simply means the next run walks everything.
+    delta_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Resolved once and cached: the library and the folder inside it the config points at.
+    drive_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    item_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The `siteUrl|driveId + library + path` this row was resolved FOR. A config edit that
+    #: changes the folder must not resume against the old one's delta token.
+    source_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: {path inside the source folder: eTag imported from it}
+    files: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    #: [{"path": …, "since": ISO-8601}] — present in `files`, absent from the last listing.
+    missing: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    #: 'ok' | 'unchanged' | 'refused' | 'unreachable' | 'auth_failed' | 'error' | 'needs_review'
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ok")
+    #: One operator-readable line for the failing states. Never carries a credential.
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    imported: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    skipped: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: The one the System card leads with: a green tick that is four weeks old is a red state.
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 # --- Visit statistics (public demo + landing page; OFF unless VISIT_STATS=true) ---------
 
 
