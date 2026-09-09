@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useObjectStore } from './useObjectStore'
 import { fitSimilarity, type GeorefPair } from './georef'
-import type { PlanFit, TacticalObject } from './tacticalObjects'
+import type { AnchorChange, PlanFit, TacticalObject } from './tacticalObjects'
 import type { BoardAnno, Entity } from '../types'
 
 /* ONE store, two documents (tmp/design-unified-objects.md · phase 2). These tests pin what the
@@ -25,8 +25,11 @@ const ent = (id: string, over: Partial<Entity> = {}): Entity =>
 const anno = (id: string, over: Partial<BoardAnno> = {}): BoardAnno =>
   ({ id, kind: 'symbol', x: 0.5, y: 0.5, ...over })
 
-const store = (init: TacticalObject[] = [], fits: ReadonlyMap<string, PlanFit> = FITS, readOnly = false) =>
-  renderHook(() => useObjectStore(init, readOnly, { getFits: () => fits, defaultLayer: 'taktisch', fitsVersion: 0 }))
+const store = (
+  init: TacticalObject[] = [], fits: ReadonlyMap<string, PlanFit> = FITS, readOnly = false,
+  onAnchorChange?: (c: AnchorChange[]) => void,
+) =>
+  renderHook(() => useObjectStore(init, readOnly, { getFits: () => fits, defaultLayer: 'taktisch', fitsVersion: 0, onAnchorChange }))
 
 describe('useObjectStore — one collection, two documents', () => {
   it('a map commit lands in the store and shows up in the doc view', () => {
@@ -571,5 +574,67 @@ describe('one gesture is one step, release sample included', () => {
     act(() => { result.current.undo() })
     expect(result.current.objects[0].sheet).toBeUndefined()
     expect(result.current.canUndo).toBe(false)
+  })
+})
+
+/* ⚠️ The half of a flip the SURFACE cannot report. Each one emits its own document's event and
+ * speaks no other: the Karte says `entity.move` and knows nothing of the anno that just left the
+ * sheet; the sheet says `board.move` about an anno the recorded board never held. A view-based
+ * replay (lib/replay) then showed the object twice, or in neither place — so the store says which
+ * objects changed surface and the seam emits the missing half (IncidentWorkspace · onAnchorChange). */
+describe('a flip is reported — once, with both halves', () => {
+  const sheetObj = (): TacticalObject[] => [{
+    id: 's1', sheet: { planId: 'modul2', anno: anno('s1', { x: 0.5, y: 0 }) },
+    entity: ent('s1', { coord: [mEast(50).lng, ORIGIN.lat] }),
+  }]
+
+  it('a map drag names the sheet the object LEFT, and the ground position it left for', () => {
+    const seen: AnchorChange[][] = []
+    const { result } = store(sheetObj(), FITS, false, (c) => seen.push(c))
+    act(() => result.current.setDocRaw((d) => ({
+      ...d, entities: d.entities.map((e) => ({ ...e, coord: [mEast(300).lng, ORIGIN.lat] as [number, number] })),
+    }), { movedIds: ['s1'] }))
+    expect(seen).toHaveLength(1)
+    expect(seen[0][0]).toMatchObject({ id: 's1', left: 'modul2' })
+    expect(seen[0][0].joined).toBeUndefined()
+    expect(seen[0][0].entity?.coord[0]).toBeCloseTo(mEast(300).lng, 8)
+  })
+
+  it('a plan drag names the sheet it JOINED, with the anno AND the body the bake derived', () => {
+    const seen: AnchorChange[][] = []
+    const { result } = store([{ id: 'e1', entity: ent('e1', { coord: [mEast(50).lng, ORIGIN.lat] }) }], FITS, false, (c) => seen.push(c))
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: [{ ...b.modul2[0], x: 0.75, y: 0 }] })))
+    expect(seen).toHaveLength(1)
+    expect(seen[0][0]).toMatchObject({ id: 'e1', joined: { planId: 'modul2' } })
+    expect(seen[0][0].joined?.anno.x).toBe(0.75)
+    expect(seen[0][0].entity?.coord[0]).toBeCloseTo(mEast(75).lng, 8)
+  })
+
+  it('ONCE per gesture: the samples after the first find the flip already made', () => {
+    const seen: AnchorChange[][] = []
+    const { result } = store([{ id: 'e1', entity: ent('e1', { coord: [mEast(50).lng, ORIGIN.lat] }) }], FITS, false, (c) => seen.push(c))
+    act(() => {
+      result.current.beginSheetStep()
+      for (const x of [0.6, 0.7, 0.8]) result.current.setBoard((b) => ({ ...b, modul2: [{ ...b.modul2[0], x }] }))
+      result.current.endSheetStep()
+    })
+    expect(seen).toHaveLength(1)
+  })
+
+  it('a MACHINE write flips nothing, so it reports nothing', () => {
+    const onAnchorChange = vi.fn()
+    const { result } = store(sheetObj(), FITS, false, onAnchorChange)
+    act(() => result.current.setDocRaw((d) => ({
+      ...d, entities: d.entities.map((e) => ({ ...e, coord: [mEast(300).lng, ORIGIN.lat] as [number, number] })),
+    }), { gesture: false }))
+    expect(onAnchorChange).not.toHaveBeenCalled()
+    expect(result.current.objects[0].sheet?.planId).toBe('modul2')
+  })
+
+  it('a re-bake moves map bodies without changing a single anchor — and says nothing', () => {
+    const onAnchorChange = vi.fn()
+    const { result } = store(sheetObj(), FITS, false, onAnchorChange)
+    act(() => { result.current.rebake({ checkpoint: true }) })
+    expect(onAnchorChange).not.toHaveBeenCalled()
   })
 })

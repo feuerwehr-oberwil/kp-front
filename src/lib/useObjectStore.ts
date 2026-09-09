@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useUndoableDoc } from './useUndoableDoc'
 import {
-  applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, sheetAnnos, viewsOf,
-  type PlanFit, type TacticalObject,
+  anchorChanges, applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, sheetAnnos, viewsOf,
+  type AnchorChange, type PlanFit, type TacticalObject,
 } from './tacticalObjects'
 import type { Doc } from './workspace'
 import type { BoardDoc, Entity } from '../types'
@@ -121,12 +121,22 @@ export interface ObjectStoreOptions {
   fitsVersion: number
   /** told whenever a step is laid down, so the global timeline can record it (see useUndoableDoc) */
   onCheckpoint?: () => void
+  /**
+   * …and whenever a write moved an object BETWEEN the surfaces (tacticalObjects · anchorChanges).
+   *
+   * ⚠️ It is reported here because it can be reported nowhere else. The audit stream is emitted by
+   * the surface the finger was on, and that surface speaks one document; an anchor flip changes
+   * both, and the half it cannot see is the half a view-based replay needs to stay coherent (see
+   * lib/replay). Once per gesture, not once per sample: the first fold past the deadzone performs
+   * the flip and every later one finds it already made.
+   */
+  onAnchorChange?: (changes: AnchorChange[]) => void
 }
 
 export function useObjectStore(
   init: TacticalObject[],
   readOnly: boolean,
-  { getFits, defaultLayer, fitsVersion, onCheckpoint }: ObjectStoreOptions,
+  { getFits, defaultLayer, fitsVersion, onCheckpoint, onAnchorChange }: ObjectStoreOptions,
 ): ObjectStore {
   const store = useUndoableDoc<TacticalObject[]>(init, readOnly, onCheckpoint)
   const { setDocRaw: setObjects } = store
@@ -149,18 +159,36 @@ export function useObjectStore(
     next === view ? objects : applyDocToObjects(objects, next, getFits(), opts?.gesture ?? true,
       opts?.movedIds ? new Set(opts.movedIds) : undefined)
 
+  /**
+   * Every write, wrapped so the flips it made are reported once it is done.
+   *
+   * ⚠️ The fold hands its answer out through a local and the CALLBACK runs after the write, not
+   * inside the updater — the same shape `rebake` uses for its `moved` count, and safe for the
+   * same reason: the updater runs eagerly, exactly once (useUndoableDoc). Emitting from inside it
+   * would put an audit append in a function React is entitled to re-invoke.
+   */
+  const reporting = (write: (see: (before: TacticalObject[], after: TacticalObject[]) => void) => void) => {
+    let changes: AnchorChange[] = []
+    write((before, after) => { changes = anchorChanges(before, after) })
+    if (changes.length) onAnchorChange?.(changes)
+  }
+
   const setDocRaw: ObjectStore['setDocRaw'] = (a, opts) => {
-    setObjects((objects) => {
+    reporting((see) => setObjects((objects) => {
       const view = docViewOf(objects)
-      return foldDoc(objects, typeof a === 'function' ? a(view) : a, view, opts)
-    })
+      const next = foldDoc(objects, typeof a === 'function' ? a(view) : a, view, opts)
+      see(objects, next)
+      return next
+    }))
   }
 
   const commit = (updater: (d: Doc) => Doc) => {
-    store.commit((objects) => {
+    reporting((see) => store.commit((objects) => {
       const view = docViewOf(objects)
-      return foldDoc(objects, updater(view), view)
-    })
+      const next = foldDoc(objects, updater(view), view)
+      see(objects, next)
+      return next
+    }))
   }
 
   /**
@@ -219,7 +247,7 @@ export function useObjectStore(
   }, [])
 
   const setBoard: Dispatch<SetStateAction<BoardDoc>> = (a) => {
-    setObjects((objects) => {
+    reporting((see) => setObjects((objects) => {
       const view = boardViewOf(objects, getFits())
       const next = typeof a === 'function' ? a(view) : a
       if (next === view) return objects
@@ -236,8 +264,9 @@ export function useObjectStore(
         store.checkpoint(objects)
         stepped.current = gesture ?? undefined // …the gesture's remaining samples fold into it
       }
+      see(objects, out)
       return out
-    })
+    }))
   }
 
   const rebake: ObjectStore['rebake'] = (opts) => {

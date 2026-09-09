@@ -12,7 +12,7 @@ import { useShareMyPosition } from './lib/useShareMyPosition'
 import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
-import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
+import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
 import { viewsOf, type PlanFit } from './lib/tacticalObjects'
 import { liveOverlay } from './lib/planProjection'
 import { saveLayerPrefs } from './lib/layerPrefs'
@@ -535,6 +535,33 @@ export function IncidentWorkspace({
           undo: () => histStep(undoDocRef.current(), 'undo', label, ''),
           redo: () => histStep(redoDocRef.current(), 'redo', label, ''),
         })
+      },
+      /**
+       * An object changed SURFACE, and the audit stream is told both halves of it.
+       *
+       * ⚠️ The surface that was dragged on emits its own document's event and can emit no other:
+       * the Karte says `entity.move`, the sheet says `board.move`. A flip changes both views at
+       * once, and the replay folds VIEWS (lib/replay, deliberately) — so a map flip that said only
+       * «the entity moved» left the anno standing on the recorded sheet and the scrub showed one
+       * object twice, while a plan flip said «this anno moved» about an anno the recorded board
+       * never held and the scrub showed it in neither.
+       *
+       * So the store reports the flip (lib/tacticalObjects · anchorChanges) and the missing half
+       * is emitted here — once per gesture, because the flip happens once. `board.add` carries the
+       * anno the sheet has THIS instant; the release's own `board.move` refines it, exactly as it
+       * does for an anno that was always the sheet's.
+       */
+      onAnchorChange: (changes) => {
+        for (const c of changes) {
+          if (c.left) histSide.current.emit('board.delete', { id: c.id, planId: c.left })
+          if (!c.joined) continue
+          histSide.current.emit('board.add', { id: c.id, planId: c.joined.planId, anno: c.joined.anno })
+          // …and the ground position the sheet's new anno was baked to. The Karte draws a
+          // sheet-anchored object itself (tacticalObjects · viewsOf), so without this the map view
+          // of the replay kept the pre-flip coordinate.
+          if (c.entity) histSide.current.emit('entity.move', { id: c.id, coord: c.entity.coord })
+          else if (c.drawing) histSide.current.emit('draw.edit', { id: c.id, patch: { coords: c.drawing.coords } })
+        }
       },
     },
   )
@@ -3132,7 +3159,13 @@ export function IncidentWorkspace({
     const turn = (c: LngLat): LngLat => (t.deg && centre
       ? rotateAround(c as [number, number], centre as [number, number], t.deg, { xScale, yUp: true }) as LngLat
       : c)
-    setDocRaw((d) => ({
+    /** What the write actually produced, for the release to record. ⚠️ The group bar was the one
+     *  map gesture that emitted NOTHING at all: a marquee of eleven symbols dragged across the
+     *  Lage left no trace in the audit stream, so the replay held them at their last snapshotted
+     *  place — and once a member of the group could be sheet-anchored, its flip was reported
+     *  (`onAnchorChange`) with no ground position to go with it. */
+    const written: { doc: Doc | null } = { doc: null }
+    setDocRaw((d) => (written.doc = {
       ...d,
       drawings: d.drawings.map((dr) => (ids.includes(dr.id) && draws[dr.id]
         ? { ...dr, coords: moveLineBody({ id: dr.id, points: draws[dr.id].map(turn), startAttachment: dr.startAttachment, endAttachment: dr.endAttachment }, [t.dLng, t.dLat]) }
@@ -3153,6 +3186,9 @@ export function IncidentWorkspace({
     }), { movedIds: [...ids, ...entIds] })
     if (phase === 'end') {
       endDrag()
+      // one event per member, on release only — the same grammar a single marker's drag has
+      for (const e of written.doc?.entities ?? []) if (entIds.includes(e.id)) emit('entity.move', { id: e.id, coord: e.coord })
+      for (const dr of written.doc?.drawings ?? []) if (ids.includes(dr.id)) emit('draw.edit', { id: dr.id, patch: { coords: dr.coords } })
       groupOrig.current = { draws: {}, ents: {}, centre: null }
     }
   }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   applyBoardToObjects, applyDocToObjects, bakeGeoBody, bakeSheetSymbol,
-  objectsFromLegacy, sheetAnchoredIds, viewsOf, type TacticalObject,
+  anchorChanges, bakePlan, objectsFromLegacy, sheetAnchoredIds, sheetAnnos, viewsOf, type TacticalObject,
 } from './tacticalObjects'
 import type { BoardAnno, Drawing, Entity } from '../types'
 
@@ -314,5 +314,58 @@ describe('the store refuses work it has already done', () => {
   it('…and a real change still lands', () => {
     const objects = applyBoardToObjects([], 'modul2', [anno('a1')])
     expect(applyBoardToObjects(objects, 'modul2', [anno('a1', { x: 0.9 })])).not.toBe(objects)
+  })
+})
+
+/* ⚠️ An anchor flip is the one thing about a write that NEITHER surface can report: the Karte
+ * emits `entity.move` and knows nothing of the anno that just left the sheet, the sheet emits
+ * `board.move` about an anno the recorded board never held. Folded by a view-based replay
+ * (lib/replay), the first showed the object TWICE and the second showed it in neither — so the
+ * store reports the flip and the seam emits the missing half (IncidentWorkspace · onAnchorChange). */
+describe('anchorChanges — which objects changed surface', () => {
+  const sheetObj = (id: string): TacticalObject =>
+    ({ id, sheet: { planId: 'modul2', anno: anno(id) }, entity: ent(id) })
+
+  it('a map drag of a sheet-anchored object reports the sheet it LEFT, and the body it left with', () => {
+    const before = [sheetObj('s1')]
+    const after = applyDocToObjects(before, { entities: [ent('s1', { coord: mEastCoord(80) })], drawings: [] }, new Map([['modul2', PLAN]]))
+    const [c] = anchorChanges(before, after)
+    expect(c.left).toBe('modul2')
+    expect(c.joined).toBeUndefined()
+    expect(c.entity?.coord).toEqual(mEastCoord(80))
+  })
+
+  it('a plan drag of a projected object reports the sheet it JOINED, with the anno and the baked body', () => {
+    const before: TacticalObject[] = [{ id: 'e1', entity: ent('e1') }]
+    const shown = sheetAnnos(before, 'modul2', PLAN)
+    // the store's own pipeline: fold, then re-bake the sheet's map bodies (useObjectStore · setBoard)
+    const after = bakePlan(applyBoardToObjects(before, 'modul2', [{ ...shown[0], x: 0.75, y: 0.25 }], PLAN), 'modul2', PLAN, 'taktisch')
+    const [c] = anchorChanges(before, after)
+    expect(c.left).toBeUndefined()
+    expect(c.joined?.planId).toBe('modul2')
+    expect(c.joined?.anno.x).toBe(0.75)
+    expect(c.entity?.coord[0]).toBeCloseTo(mEast(75).lng, 8) // …and where that puts it on the ground
+  })
+
+  it('a move between two sheets reports both halves', () => {
+    const before = [sheetObj('s1')]
+    const after: TacticalObject[] = [{ ...before[0], sheet: { planId: 'modul3', anno: anno('s1') } }]
+    expect(anchorChanges(before, after)[0]).toMatchObject({ left: 'modul2', joined: { planId: 'modul3' } })
+  })
+
+  it('a fresh anno is a PLACEMENT, not a flip — its own surface already says so', () => {
+    const after = applyBoardToObjects([], 'modul2', [anno('a1')], PLAN)
+    expect(anchorChanges([], after)).toEqual([])
+  })
+
+  it('…and so is a deletion: the object is gone from both views, which the delete already says', () => {
+    const before = [sheetObj('s1')]
+    expect(anchorChanges(before, [])).toEqual([])
+  })
+
+  it('an ordinary edit that keeps the anchor reports nothing', () => {
+    const before = [sheetObj('s1')]
+    const after = applyBoardToObjects(before, 'modul2', [anno('s1', { color: 'red' })], PLAN)
+    expect(anchorChanges(before, after)).toEqual([])
   })
 })

@@ -622,6 +622,54 @@ function geoAfterSheetEdit(
   return { id: o.id, entity, drawing }
 }
 
+/**
+ * ⚠️ WHICH objects changed surface in this fold — the one thing about a write that NEITHER
+ * surface can report, and the reason it is reported at all.
+ *
+ * An anchor flip changes BOTH views at once: dragging a sheet-anchored symbol on the Karte drops
+ * its anno, dragging a projected one onto a sheet creates one. But the audit stream is emitted by
+ * the surface the finger was on, and that surface only ever knew about its own document — so a map
+ * flip emitted `entity.move` and nothing about the anno that had just left the sheet, and a plan
+ * flip emitted `board.move` for an anno the recorded board never had. Folded by a VIEW-based
+ * replay (lib/replay, and it stays view-based on purpose), the first showed the object twice —
+ * once on the Karte at its new place, once on the Modul sheet at its old one — and the second
+ * showed it in neither.
+ *
+ * Only objects the fold ALREADY HELD are reported: a brand-new anno is a placement, not a flip,
+ * and its own surface says so (`board.add`). A deletion is not one either — the object is gone
+ * from both views, which is exactly what `board.delete`/`entity.delete` already say.
+ */
+export interface AnchorChange {
+  id: string
+  /** the plan whose sheet no longer draws it as its own — its anno is gone from that view */
+  left?: string
+  /** …and the plan that now does, with the anno that view holds */
+  joined?: { planId: string; anno: BoardAnno }
+  /** the map body as it stands AFTER the flip — the Karte's half of the same act */
+  entity?: Entity
+  drawing?: Drawing
+}
+
+export function anchorChanges(before: TacticalObject[], after: TacticalObject[]): AnchorChange[] {
+  const now = new Map(after.map((o) => [o.id, o]))
+  const out: AnchorChange[] = []
+  for (const o of before) {
+    const next = now.get(o.id)
+    if (!next || next === o) continue
+    const was = o.sheet?.planId
+    const is = next.sheet?.planId
+    if (was === is) continue
+    out.push({
+      id: o.id,
+      ...(was != null ? { left: was } : null),
+      ...(next.sheet ? { joined: { planId: next.sheet.planId, anno: next.sheet.anno } } : null),
+      ...(next.entity ? { entity: next.entity } : null),
+      ...(next.drawing ? { drawing: next.drawing } : null),
+    })
+  }
+  return out
+}
+
 /** Map a bake over the store, giving the SAME array back when nothing moved — see `sameValue`.
  *  Everything that re-derives bodies goes through here, so «no change» never reaches the store. */
 function bakeEach(objects: TacticalObject[], of: (o: TacticalObject) => TacticalObject): TacticalObject[] {
