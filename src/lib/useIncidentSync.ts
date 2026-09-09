@@ -58,6 +58,13 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
+  /** ⚠️ The last blob this device pushed or was handed, serialized. The save effect fires on
+   *  `buildPayload`'s IDENTITY, and a hydrate re-seeds every slice — so a merge that changed
+   *  nothing this device cares about still produced a fresh identity and a push. Two devices
+   *  with the same Einsatz open pushed each other's echoes back and forth, and since a hydrate
+   *  drops both undo stacks by design, the loop quietly ate every ↶ on both of them. Content,
+   *  not identity, is the only thing that can tell those apart. */
+  const lastPushed = useRef<string | null>(null)
   const hydrate = (ws: Saved) => { skipSave.current = true; applyWorkspace(ws) }
 
   // Attendance divergence → ONE Verlauf note per affected person: a merge kept LWW but saw
@@ -95,8 +102,13 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   const firstSave = useRef(true)
   useEffect(() => {
     const payload = buildPayload()
-    if (firstSave.current) { firstSave.current = false; return }
-    if (skipSave.current) { skipSave.current = false; return }
+    const body = JSON.stringify(payload)
+    if (firstSave.current) { firstSave.current = false; lastPushed.current = body; return }
+    if (skipSave.current) { skipSave.current = false; lastPushed.current = body; return }
+    // …and the same blob a second time is not a save. (Retrying a FAILED push is WorkspaceSync's
+    // own job — `hasUnsynced` outlives this effect — so nothing is dropped by skipping here.)
+    if (body === lastPushed.current) return
+    lastPushed.current = body
     // Demo edits DO persist now (shared, like a real station) — visitors work a live incident that
     // survives reload and is reset once nightly (backend cron at 00:00 Europe/Zurich). Creating NEW
     // incidents stays blocked (backend + UI guards). save() also writes the IDB cache.

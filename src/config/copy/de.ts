@@ -220,9 +220,9 @@ export const de = {
             'Der Knopf **Karte verknüpfen** unten am Plan legt dieses Blatt auf die Karte: der Plan gibt die halbe Fläche frei, daneben liegt die Karte. Am Telefon reicht der Platz für beides nicht – dort schaltet ein **Karte / Modul**-Umschalter zwischen ihnen. Dieselbe Stelle auf beiden Flächen antippen – Hausecke, Hydrant, Wegkreuzung. **Die Reihenfolge ist egal**: gesetzte Hälften suchen sich ihr Gegenstück selber, und man darf beliebig zwischen den Flächen wechseln. Zwei Punkte genügen fürs Auflegen.',
             'Die **Ampel** in der Leiste sagt die ganze Zeit, woran man ist: zwei Punkte lösen exakt und sind damit **ungeprüft** – erst der dritte misst die Abweichung («4 Punkte · ⌀ 1.2 m»). **Deckung prüfen** legt den Blattumriss zur Sichtprüfung auf die Karte.',
             'Ein gesetztes Kreuz **ziehen** verschiebt es, **antippen** öffnet **Verschieben · Punkt löschen · Behalten**. Ein Tipp auf **Verknüpft** öffnet die **Passung** mit Paaren und Abweichung; **Übertragen** kopiert die Referenzpunkte auf ein anderes Modul desselben Objekts, **Zurücksetzen** löscht sie (mit Rückfrage). **Schliessen** verwirft nichts – Gesetztes ist längst gespeichert.',
-            'Ab da spiegeln sich die Inhalte: Was auf dem Plan steht, erscheint auf der Karte, und umgekehrt – als **Zwilling**. Ein Zwilling ist keine blasse Kopie, sondern verhält sich wie das Original: antippen zeigt die Angaben, ziehen verschiebt, Eckpunkte und Griffe sind dieselben. Geschrieben wird dabei immer das eine Original auf der anderen Fläche.',
-            '**Hierher übertragen** im Fenster eines Zwillings macht ihn zum Original **dieser** Fläche – das Objekt ist danach wirklich hier und nicht mehr dort. Der Wechsel steht im Verlauf wie jede andere Aktion.',
-            'In den **Ebenen** bekommt jedes verknüpfte Blatt eigene Zeilen («Inhalte (Modul 2)», «Plan (Modul 2)»), auf der Karte dazu «Karte – Markierungen» und «Karte – Fahrzeuge». So lässt sich einzeln ausblenden, was von wo gespiegelt wird.',
+            'Ab da zeigen **beide Flächen dieselben Objekte** – keine Kopie, dasselbe Objekt: antippen zeigt die Angaben, ziehen verschiebt, Eckpunkte und Griffe sind auf beiden Seiten dieselben.',
+            'Wo ein Objekt **steht**, entscheidet die zuletzt setzende Hand: auf ein Blatt gezogen, steht es auf dem Blatt – und wird mitverschoben, wenn die Passung korrigiert wird. Auf die Karte gezogen, steht es am Boden. Eine korrigierte Passung verortet alles, was auf dem Blatt steht, neu – eine Zeile im Verlauf, ein ↶ nimmt sie zurück. **Blattform gemessen** ist dieselbe Neuverortung ohne Handgriff: die App hat das geöffnete Blatt vermessen und die Passung in der richtigen Form neu gelöst. Beim **Zurücksetzen** der Referenz geht nichts verloren: Blatt und Karte behalten beide, was sie zeigen.',
+            'In den **Ebenen** bekommt jedes verknüpfte Blatt eine eigene Zeile («Plan (Modul 2)»): das Blatt selbst als Bild unter der Karte. Die Objekte darauf brauchen keine eigene Zeile mehr – sie gehören zu der Ebene, auf der sie gesetzt wurden.',
           ] },
           { kind: 'note', text: '**Gebäude** ist EINE Kachel in der linken Leiste: solange keines gewählt ist (Umriss-Symbol), zeigt sie die Gebäudeumrisse live von OpenStreetMap – Gebäude antippen, übernehmen, und aus der Kachel wird der Stockwerkstapel. Unten links führt «Anderes Gebäude wählen» zurück zur Auswahl. **Modul 6** (Geschosspläne) ist standardmässig ein reiner Blätter-/Zoom-Betrachter – annotiert wird auf dem Gebäude-Stockwerkstapel, nicht auf dem Modul-6-PDF. Ob ein Modul Betrachter ist, steht in der Modul-Konfiguration dieser Wehr.' },
           { kind: 'note', text: '**Wie herum steht das Gebäude?** Der **Nordpfeil** auf dem Stockwerkstapel und der **Kompass** unten in der linken Leiste öffnen dasselbe kleine Fenster «Gebäude drehen»: ein Regler **Drehung** mit Vorschau, dazu **Norden oben** und **Auf Längsachse drehen** als je ein Tipp. Der Umriss dreht sich mit, die Markierungen bleiben, wo sie am Gebäude liegen – und die gedruckten Geschossseiten zeigen den eingestellten Winkel.' },
@@ -701,6 +701,13 @@ export const de = {
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
    *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */
   undoDomains: {
+    /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
+    reference: 'Referenz angepasst',
+    /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das
+     *  Blatt vermessen und dieselben Passpunkte in der richtigen Form neu gelöst. Der Verlauf
+     *  behauptet keine Handlung, die niemand ausgeführt hat — und ein ↶ hat zu benennen, was
+     *  es zurücknimmt. */
+    blattform: 'Blattform gemessen',
     karte: 'Änderung auf der Karte',
     plan: 'Änderung auf «{plan}»',
     anwesenheit: 'Anwesenheit',
@@ -1082,9 +1089,28 @@ export const de = {
     // Gefahrentafel-Andocken (lib/docking): the bond and its release, as Verlauf rows
     placardDocked: '{name} angedockt an «{host}»',
     placardUndocked: '{name} von «{host}» gelöst',
-    // ein Zwilling wechselt die Fläche: das Objekt ist danach wirklich dort und nicht mehr hier
-    twinTransferredToMap: '{name} auf die Karte übertragen',
-    twinTransferredToPlan: '{name} auf den Plan übertragen',
+    /** Die Passung eines Plans wurde korrigiert: alles, was auf diesem Blatt gezeichnet ist,
+     *  steht damit an einem anderen Ort auf der Karte. Eine Zeile, nicht n Zeilen. */
+    referenceRebaked: 'Referenz angepasst – {n} Objekte neu verortet',
+    /** ⚠️ Dieselbe Wirkung, andere Ursache — und darum eine andere Zeile. Hier hat die App
+     *  das Blatt vermessen und die Passung mit denselben Passpunkten in der richtigen Form
+     *  neu gelöst; «Referenz angepasst» würde dem Bediener eine Korrektur zuschreiben, die er
+     *  nie vorgenommen hat. Der Verlauf ist ein Protokoll dessen, was geschehen ist, nicht
+     *  dessen, was jemand getan haben könnte. */
+    referenceRemeasured: 'Blattform gemessen – {n} Objekte neu verortet',
+    /** ⚠️ Die dritte Ursache: der Server hat die Änderung abgelehnt, und die Passung steht wieder
+     *  so da wie vorher. Die Objekte stehen ebenfalls wieder dort, wo sie standen – niemand hat
+     *  etwas verschoben, und darum gibt es hier auch keinen ↶: Es gibt nichts zurückzunehmen.
+     *  Ohne die Zeile hätte der Verlauf «Referenz angepasst» ein zweites Mal behauptet. */
+    referenceRolledBack: 'Referenz-Änderung verworfen – Speichern fehlgeschlagen',
+    /** …und die Passung wurde ENTFERNT («Referenz zurücksetzen»). Dabei verschiebt sich nichts:
+     *  Was auf dem Blatt gezeichnet ist, bleibt dort UND behält seine zuletzt berechnete Position
+     *  auf der Karte – letzte bekannte Wahrheit, wie ein Fahrzeug, das aufgehört hat zu melden.
+     *  Genau darum braucht es die Zeile: die Rückverortung meldet 0 verschobene Objekte, und ohne
+     *  sie stünde über eine bewusste Handlung gar nichts im Verlauf. Zwei Fassungen, weil «0
+     *  Objekte behalten ihre letzte Position» keine Aussage ist. */
+    referenceDropped: 'Referenz entfernt',
+    referenceDroppedKept: 'Referenz entfernt – {n} Objekte behalten ihre letzte Position',
     objectDeleted: '{name} gelöscht',
     drawingDeleted: 'Zeichnung gelöscht',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
@@ -2234,6 +2260,10 @@ export const de = {
       saveThis: 'Nur dieser Plan',
       savedAll: 'Als Standard-Massstab gespeichert',
       savedThis: 'Massstab für diesen Plan gespeichert',
+      /** ⚠️ Der Massstab landet im STATIONS-Dokument, nicht im Einsatz — das kann scheitern
+       *  (kein Empfang, oder jemand anders hat das Dokument inzwischen geändert). Die beiden
+       *  Zeilen darüber wurden früher gemeldet, bevor überhaupt jemand geantwortet hatte. */
+      saveFailed: 'Massstab speichern fehlgeschlagen',
       needsCalibration: 'Massstab festlegen: die zwei Enden des Massstabs antippen',
       needsCalibrationViewer: 'Messen erst möglich, wenn der Massstab kalibriert ist',
     },
@@ -2413,27 +2443,19 @@ export const de = {
       clearBody: 'Die gesetzten Punkte werden gelöscht, die Verknüpfung des Plans mit der Karte fällt damit weg. Das Setzen beginnt von vorn.',
       // ein aufgenommener Punkt: entweder neu setzen (antippen) oder ganz weg
       removePoint: 'Punkt löschen',
-      // Zwillinge (lib/georefTwins): gespiegelte Symbole, die nie wie gesetzte aussehen dürfen.
-      // In den Ebenen bekommt jedes verknüpfte Blatt seine eigene Zeile – der Plan-Code steht
-      // drin, damit «welches Blatt spiegelt hier?» keine Rückfrage ist.
+      // In den Ebenen bekommt jedes verknüpfte Blatt seine eigene Zeile (lib/georefTwins ·
+      // planRasterRows): das Blatt selbst als Bild unter der Tinte der Karte. Der Plan-Code steht
+      // drin, damit «welches Blatt liegt hier?» keine Rückfrage ist. Die Objekte darauf brauchen
+      // keine Zeile mehr – sie sind gewöhnliche Objekte und gehören zu ihrer eigenen Ebene.
       layerGroupPlans: 'Pläne',
-      layerPlanSymbols: 'Inhalte ({plan})',
       layerPlanImage: 'Plan ({plan})',
-      layerGroupMap: 'Karte',
-      layerMapVehicles: 'Karte – Fahrzeuge',
-      layerMapSymbols: 'Karte – Markierungen',
-      twinFromPlan: '{name} – gespiegelt von {plan}. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
+      // ⚠️ Das EINZIGE, was einem Blatt noch geliehen statt gehört: der Live-Feed (Fahrzeuge und
+      // geteilte Standorte, lib/planProjection · liveOverlay). Kein Datensatz, darum auch kein
+      // Objekt – der Titel sagt, woher er kommt und dass Ziehen die Karte mitnimmt.
       twinFromMap: '{name} – gespiegelt von der Karte. Antippen zeigt die Angaben, Ziehen verschiebt das Original.',
-      // Untertitel im Detailfenster eines Zwillings: sagt, warum hier nichts eingebbar ist
-      twinPanelFromPlan: 'Gespiegelt von {plan}',
-      twinPanelFromMap: 'Gespiegelt von der Karte',
-      // Ein Zwilling ohne Namen: das Wort steht im Etikett, damit die Plakette nie leer bleibt.
+      // Rückfallname eines Symbols ohne Beschriftung: das Wort steht im Etikett, damit die
+      // Plakette nie leer bleibt (lib/entityGlyph, lib/georefTwins · contentTwinName).
       twinUnnamed: 'Symbol',
-      // Die Herkunft im geteilten Editor: Farbe, Breite, Löschen sind hier dieselben wie bei
-      // einem eigenen Objekt – nur EINE Sache ist anders, und die steht als Weg dahin, nicht als
-      // Warnung. (Die Zwillings-Plakette sagt es im Untertitel; die beiden Flächen-Editoren
-      // hatten dafür bis 01.09. gar keine Stelle.)
-      twinOrigin: 'Gespiegelt – zum Original',
     },
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
@@ -2598,8 +2620,6 @@ export const de = {
     toProjection: 'Auf verknüpfter Fläche zeigen',
     showOnMap: 'Auf Karte zeigen',
     showOnPlan: 'Auf {plan} zeigen',
-    transferHere: 'Hierher übertragen',
-    transferredHere: '{name} hierher übertragen',
     resetGps: 'GPS',
     resetGpsTitle: 'Auf GPS-Position und -Kurs zurücksetzen',
     // The Kroki is printed hours later. A Fahrzeug that has since driven home takes its symbol

@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
-  TWIN_MAP_SYMBOLS, TWIN_MAP_VEHICLES,
-  boardTwinAnnosForPrint, boardDrawingTwins, boardEntityTwins, boardSymbolToEntity, boardTwins, clampToSheet, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, mapContentTwins, mapTwinRows, mapTwins, movedTwinPath, onSheet, planAspect, sheetCorners, sheetEdgeEnds, sheetShift, twinPathDelta,
-  planTwinRows, revealTwinLayer, twinPlanImageLayerId, twinPlanLayerId, twinVisible,
+  fitSignature, boardSymbolToEntity, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, planAspect,
+  planRasterRows, pairsSignature, fitChangeCause, fitChangeRow, fitChangeUndoLabel, referenceDelta,
+  twinPlanImageLayerId, twinVisible,
 } from './georefTwins'
+import { appConfig } from '../config/appConfig'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
 
@@ -29,7 +30,7 @@ const plan = (id: string, over: Partial<PlanDocument> = {}): PlanDocument =>
   ({ id, code: id.toUpperCase(), title: id, subtitle: '', imageUrl: `/${id}.pdf`, orientation: 'portrait', ...over })
 
 const scales = (over: Partial<StationPlanScales> = {}): StationPlanScales =>
-  ({ default: null, byPlan: {}, georefByPlan: {}, ...over })
+  ({ default: null, byPlan: {}, georefByPlan: {}, measuredArByPlan: {}, ...over })
 
 describe('planAspect', () => {
   it('prefers the per-incident calibration, then the station override, then the station default', () => {
@@ -48,6 +49,35 @@ describe('planAspect', () => {
   it('takes a measured aspect over every stored one — that surface has seen the bitmap', () => {
     const st = scales({ byPlan: { m1: { mPerU: 1, refM: 10, ar: 0.9 } } })
     expect(planAspect(plan('m1'), st, undefined, 1.11)).toBe(1.11)
+  })
+
+  /* ⚠️ The stale-aspect hole (phase 3). A replaced Modul PDF leaves the old `ar` behind, and it
+   * cannot be caught by staleness — `isStale` measures against the very aspect being looked for,
+   * and the pairs were fitted at the same wrong one, so the residuals stay near zero. A written-
+   * down MEASUREMENT is the only thing that breaks the circle, and since the fit is now baked into
+   * every symbol on the sheet, it is a wrong POSITION rather than a tilted picture. */
+  describe('the stored measurement', () => {
+    it('beats every calibration — but not this render’s own measurement', () => {
+      const st = scales({
+        measuredArByPlan: { 'object:a:plan:modul2': 1.2 },
+        byPlan: { modul2: { mPerU: 1, refM: 10, ar: 0.9 } },
+        default: { mPerU: 1, refM: 10, ar: 0.5 },
+      })
+      const p = plan('modul2', { georefKey: 'object:a:plan:modul2' })
+      expect(planAspect(p, st, { mPerU: 1, refM: 10, ar: 1.3 })).toBe(1.2)
+      expect(planAspect(p, st, undefined, 1.11)).toBe(1.11) // the bitmap in front of you wins
+    })
+
+    it('is keyed to the concrete sheet, not the Modul slot every object shares', () => {
+      // otherwise one building's replaced PDF would reshape every other building's Modul 2
+      const st = scales({ measuredArByPlan: { 'object:a:plan:modul2': 1.2 } })
+      expect(planAspect(plan('modul2', { georefKey: 'object:b:plan:modul2' }), st)).toBeCloseTo(1 / 1.414, 6)
+    })
+
+    it('ignores a nonsense entry rather than putting the sheet at a nonsense shape', () => {
+      const st = scales({ measuredArByPlan: { modul2: 0 } })
+      expect(planAspect(plan('modul2'), st)).toBeCloseTo(1 / 1.414, 6)
+    })
   })
 })
 
@@ -92,141 +122,6 @@ describe('georefPlans', () => {
   })
 })
 
-describe('mapTwins (plan → Karte)', () => {
-  const linked = georefPlans([plan('modul2')], () => ({ pairs: PAIRS }), () => 1)
-
-  it('projects plan symbols onto the map and names the plan they came from', () => {
-    const twins = mapTwins(linked, { modul2: [anno('a1')] })
-    expect(twins).toHaveLength(1)
-    expect(twins[0]).toMatchObject({ planId: 'modul2', planCode: 'MODUL2', annoId: 'a1' })
-    // the sheet's centre is 50 m east and 50 m south of its top-left corner
-    expect(twins[0].coord[0]).toBeCloseTo(mEast(50).lng, 6)
-    expect(twins[0].coord[1]).toBeLessThan(ORIGIN.lat)
-  })
-
-  it('mirrors symbols only — a hose line, a note and a Trupp chip belong to their own surface', () => {
-    const board = { modul2: [anno('sym'), anno('line', { kind: 'draw' }), anno('note', { kind: 'text' }), anno('team', { kind: 'resource' })] }
-    expect(mapTwins(linked, board).map((t) => t.annoId)).toEqual(['sym'])
-  })
-
-  it('skips an annotation with no anchor rather than putting it at the sheet corner', () => {
-    expect(mapTwins(linked, { modul2: [anno('nowhere', { x: undefined, y: undefined })] })).toEqual([])
-  })
-
-  it('carries the sheet’s ground width on the plan record (reach conversion reads it)', () => {
-    // the 100 m FIT at aspect 1 makes the ground width exactly 100
-    expect(linked[0].widthM).toBeCloseTo(100, 3)
-  })
-})
-
-// No twin size bands to pin any more (30.08.): twins are presentation-equivalent — each
-// surface sizes them with its own native rule (mapView · symPx, Whiteboard · symBase).
-
-describe('boardTwinAnnosForPrint (mirrored Karte content on the exported Objektplan page)', () => {
-  const gp = { id: 'modul2', code: 'M2', title: 'Modul 2', fit: FIT, widthM: 100 }
-  const mid = mEast(50)
-
-  it('projects symbols, drawings, notes, shapes and Trupp chips into printable annos', () => {
-    const entities: Entity[] = [
-      ent('f', mid, { symbol: 'Feuer' }),
-      ent('n', mid, { kind: 'note', label: 'Abschnitt West' }),
-      ent('s', mid, { kind: 'shape', shape: 'square', sizeM: 20, rotation: 10 }),
-      ent('t', mid, { kind: 'team', label: 'Trupp 1', color: '#e8392b', trail: [{ coord: [mid.lng, mid.lat], t: '15:34' }] }),
-    ]
-    const drawings: Drawing[] = [{ id: 'l', kind: 'line', coords: [[ORIGIN.lng, ORIGIN.lat], [mid.lng, mid.lat]] }]
-    const out = boardTwinAnnosForPrint(gp, entities, drawings)
-    const byKind = Object.fromEntries(out.map((a) => [a.kind, a]))
-    expect(out).toHaveLength(5)
-    expect(byKind.symbol.x).toBeCloseTo(0.5, 3)
-    expect(byKind.symbol.id).toBe('twin-f')                        // never collides with a sheet anno
-    expect(byKind.text.text).toBe('Abschnitt West')
-    expect(byKind.shape.sizeN).toBeCloseTo(0.2, 3)                 // 20 m on a 100 m sheet
-    expect(byKind.resource.trail?.[0]?.x).toBeCloseTo(0.5, 3)      // the Truppverfolgung prints too
-    expect(byKind.draw.pts).toHaveLength(2)
-  })
-
-  it('drops live entities and everything standing off the sheet', () => {
-    const out = boardTwinAnnosForPrint(gp, [
-      ent('v', mid, { live: true, symbol: 'Fahrzeug' }),
-      ent('far', mEast(5000), { symbol: 'Feuer' }),
-    ], [])
-    expect(out).toEqual([])
-  })
-})
-
-describe('movedTwinPath (whole-object drag of a mirrored line/area)', () => {
-  const pts: [number, number][] = [[0.1, 0.2], [0.5, 0.2], [0.5, 0.6]]
-
-  it('translates every vertex by the same plan-space delta', () => {
-    const out = movedTwinPath(pts, { x: 0.3, y: 0.3 }, { x: 0.4, y: 0.35 })
-    const want = [[0.2, 0.25], [0.6, 0.25], [0.6, 0.65]]
-    out.forEach((p, i) => { expect(p[0]).toBeCloseTo(want[i][0], 9); expect(p[1]).toBeCloseTo(want[i][1], 9) })
-  })
-
-  it('keeps a per-point floor untouched — the drag moves paper position, never storeys', () => {
-    const out = movedTwinPath([[0.1, 0.2, 2], [0.5, 0.2, 3]], { x: 0, y: 0 }, { x: 0.1, y: 0 })
-    expect(out.map((p) => p[2])).toEqual([2, 3])
-  })
-
-  it('clamps the DELTA to the sheet, so the shape stops at the edge instead of squashing', () => {
-    const out = movedTwinPath(pts, { x: 0.3, y: 0.3 }, { x: 2, y: -2 })
-    expect(out.map((p) => p[0].toFixed(3))).toEqual(['0.600', '1.000', '1.000'])
-    expect(out.map((p) => p[1].toFixed(3))).toEqual(['0.000', '0.000', '0.400'])
-  })
-})
-
-/**
- * ⚠️ The «nur auf einer Achse» constraint, stated. A twin's source lives on a BOUNDED document,
- * so a drag that crosses the projected paper edge pins that coordinate while the free one keeps
- * following the finger — the object slides along the edge instead of stopping dead. That is the
- * right behaviour and it is invisible on a map that draws no paper, so the surface has to be able
- * to name the edge that is holding (MapView · twinBound).
- */
-describe('the sheet’s own edge', () => {
-  it('slides along the edge it met, and names it', () => {
-    expect(clampToSheet({ x: 1.4, y: 0.6 })).toEqual({ pt: { x: 1, y: 0.6 }, held: ['right'] })
-    expect(clampToSheet({ x: -0.2, y: 0.3 })).toEqual({ pt: { x: 0, y: 0.3 }, held: ['left'] })
-    expect(clampToSheet({ x: 0.5, y: -0.1 })).toEqual({ pt: { x: 0.5, y: 0 }, held: ['top'] })
-    expect(clampToSheet({ x: 0.5, y: 9 })).toEqual({ pt: { x: 0.5, y: 1 }, held: ['bottom'] })
-    // a corner holds both, and a point on the paper holds nothing
-    expect(clampToSheet({ x: 2, y: 2 }).held).toEqual(['right', 'bottom'])
-    expect(clampToSheet({ x: 0.5, y: 0.5 })).toEqual({ pt: { x: 0.5, y: 0.5 }, held: [] })
-  })
-
-  it('holds a whole PATH by its delta, so the shape stops instead of squashing', () => {
-    const pts: [number, number][] = [[0.1, 0.2], [0.5, 0.2], [0.5, 0.6]]
-    // asked for +2 across: the widest vertex sits at 0.5, so 0.5 is all the sheet has left
-    const out = twinPathDelta(pts, { x: 0.3, y: 0.3 }, { x: 2.3, y: 0.3 })
-    expect(out.dx).toBeCloseTo(0.5, 9)
-    expect(out.dy).toBeCloseTo(0, 9)
-    expect(out.held).toEqual(['right'])
-    expect(twinPathDelta(pts, { x: 0.3, y: 0.3 }, { x: 0.4, y: 0.35 }).held).toEqual([])
-  })
-
-  it('shifts a whole rigid selection back onto the sheet, never its members apart', () => {
-    // three points spanning 0.2..0.9, pushed 0.3 to the right: only 0.1 of paper is left
-    const pts = [{ x: 0.2, y: 0.5 }, { x: 0.6, y: 0.5 }, { x: 0.9, y: 0.5 }]
-    const out = sheetShift(pts, { x: 0.3, y: 0 })
-    expect(out.dx).toBeCloseTo(0.1, 9)
-    expect(out.held).toEqual(['right'])
-    // …and a selection WIDER than the sheet freezes that axis rather than teleporting half a sheet
-    const wide = sheetShift([{ x: -0.4, y: 0.5 }, { x: 1.4, y: 0.5 }], { x: 0.2, y: 0 })
-    expect(wide.dx).toBe(0)
-    expect(wide.held).toEqual(['right'])
-  })
-
-  it('puts the sheet on the ground as four corners and four edges', () => {
-    const [tl, tr, br, bl] = sheetCorners(FIT)
-    // the fit is a square 100 m sheet laid north-up: (0,0) is its top-left corner
-    expect(tl[0]).toBeCloseTo(ORIGIN.lng, 9)
-    expect(tr[0]).toBeGreaterThan(tl[0])   // x grows east
-    expect(bl[1]).toBeLessThan(tl[1])      // …and plan y runs DOWN, so south
-    expect(sheetEdgeEnds(FIT, 'right')).toEqual([tr, br])
-    expect(sheetEdgeEnds(FIT, 'top')).toEqual([tl, tr])
-    expect(sheetEdgeEnds(FIT, 'left')).toEqual([tl, bl])
-    expect(sheetEdgeEnds(FIT, 'bottom')).toEqual([bl, br])
-  })
-})
 
 describe('contentTwinName', () => {
   it('uses the object’s own words first, then the kind’s tool name', () => {
@@ -240,102 +135,6 @@ describe('contentTwinName', () => {
   })
 })
 
-describe('mapContentTwins (plan → Karte)', () => {
-  const linked = georefPlans([plan('modul2')], () => ({ pairs: PAIRS }), () => 1)
-
-  it('projects lines, areas, notes, shapes and Atemschutz markers while symbols keep their interactive path', () => {
-    const board = { modul2: [
-      anno('line', { kind: 'draw', pts: [[0.1, 0.2], [0.8, 0.2]], x: undefined, y: undefined }),
-      anno('area', { kind: 'area', pts: [[0.1, 0.1], [0.4, 0.1], [0.2, 0.4]], x: undefined, y: undefined }),
-      anno('note', { kind: 'text', text: 'Notiz' }),
-      anno('shape', { kind: 'shape', shape: 'cloud' }),
-      anno('team', { kind: 'resource', text: 'Trupp 1' }),
-      anno('symbol'),
-    ] }
-    const twins = mapContentTwins(linked, board)
-    expect(twins.map((t) => t.annoId)).toEqual(['line', 'area', 'note', 'shape', 'team'])
-    expect(twins.find((t) => t.annoId === 'line')?.coords).toHaveLength(2)
-    expect(twins.find((t) => t.annoId === 'note')?.coord).toBeDefined()
-  })
-})
-
-describe('onSheet / boardTwins (Karte → plan)', () => {
-  it('tolerates a hair past the paper edge and nothing more', () => {
-    expect(onSheet({ x: 0.5, y: 0.5 })).toBe(true)
-    expect(onSheet({ x: -0.019, y: 1.019 })).toBe(true)
-    expect(onSheet({ x: 1.05, y: 0.5 })).toBe(false)
-    expect(onSheet({ x: 0.5, y: -0.4 })).toBe(false)
-    expect(onSheet({ x: NaN, y: 0.5 })).toBe(false)
-  })
-
-  it('keeps what is on the sheet and DROPS what is two kilometres away', () => {
-    const near = ent('near', mEast(50))
-    const far = ent('far', mEast(2000))
-    const twins = boardTwins([near, far], FIT, 'vehicle')
-    expect(twins.map((t) => t.entityId)).toEqual(['near'])
-    expect(twins[0].pt.x).toBeCloseTo(0.5, 3)
-    expect(twins[0].kind).toBe('vehicle')
-  })
-
-  it('keys twins by kind, so a vehicle and a symbol with the same id never collide', () => {
-    const e = ent('x', ORIGIN)
-    expect(boardTwins([e], FIT, 'vehicle')[0].key).not.toBe(boardTwins([e], FIT, 'symbol')[0].key)
-  })
-
-  it('carries the source entity through untouched — a twin renders it, it never owns it', () => {
-    const e = ent('v1', mEast(10), { kind: 'vehicle', label: 'TLF' })
-    expect(boardTwins([e], FIT, 'vehicle')[0].entity).toBe(e)
-  })
-})
-
-describe('broader Karte content → plan', () => {
-  it('projects notes, shapes, Atemschutz markers and shared responder positions, clipping remote points', () => {
-    const near = ['note', 'shape', 'team', 'person'].map((kind, i) => ent(kind, mEast(10 + i * 10), { kind: kind as Entity['kind'] }))
-    const far = ent('far', mEast(2000), { kind: 'note' })
-    expect(boardEntityTwins([...near, far], FIT).map((t) => t.entity.kind)).toEqual(['note', 'shape', 'team', 'person'])
-  })
-
-  it('drops a shared responder whose centre is only in the clip margin, avoiding a white edge crescent', () => {
-    const justOutside = FIT.toMap({ x: -0.01, y: 0.5 })
-    const person = ent('person-edge', justOutside, { kind: 'person', label: 'Degen André', live: true })
-    const note = ent('note-edge', justOutside, { kind: 'note', label: 'Randnotiz' })
-    expect(boardEntityTwins([person, note], FIT).map((t) => t.entity.id)).toEqual(['note-edge'])
-  })
-
-  it('projects lines and areas and turns a ground-radius circle into an area ring', () => {
-    const drawings: Drawing[] = [
-      { id: 'line', kind: 'line', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(40).lng, ORIGIN.lat]] },
-      { id: 'area', kind: 'area', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat - 0.0001]] },
-      { id: 'circle', kind: 'circle', coords: [[mEast(50).lng, ORIGIN.lat]], radiusM: 10 },
-    ]
-    const twins = boardDrawingTwins(drawings, FIT)
-    expect(twins.map((t) => t.anno.kind)).toEqual(['draw', 'area', 'area'])
-    expect(twins[2].anno.pts).toHaveLength(48)
-    // the Pfeil's «Stopp» crosses the mirror with the arrow it belongs to
-    const stopped = boardDrawingTwins([{ id: 's', kind: 'line', coords: drawings[0].coords, arrow: true, arrowStop: true }], FIT)
-    expect(stopped[0].anno.arrowStop).toBe(true)
-  })
-
-  // D-07: the lock is a property of the OBJECT. Without it on the projection a Fläche locked on
-  // the Karte was still draggable through its mirror on the Plan.
-  it('carries the source’s lock across, so the mirror refuses the same gestures', () => {
-    const twins = boardDrawingTwins([
-      { id: 'sektor', kind: 'area', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat - 0.0001]], locked: true },
-      { id: 'frei', kind: 'line', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(40).lng, ORIGIN.lat]] },
-    ], FIT)
-    expect(twins.map((t) => t.anno.locked)).toEqual([true, undefined])
-  })
-
-  // D-17: Schraffur is FKS meaning («betroffene Fläche»), not decoration — dropping it changes
-  // what the mirror says about the ground, not merely how it looks.
-  it('carries the Schraffur across', () => {
-    const twins = boardDrawingTwins([
-      { id: 'betroffen', kind: 'area', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat - 0.0001]], hatch: true },
-      { id: 'gewaschen', kind: 'area', coords: [[ORIGIN.lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat], [mEast(20).lng, ORIGIN.lat - 0.0001]] },
-    ], FIT)
-    expect(twins.map((t) => t.anno.hatch)).toEqual([true, undefined])
-  })
-})
 
 describe('ownership transfer keeps one object', () => {
   it('moves a map symbol onto a plan with the same id and shared details', () => {
@@ -376,50 +175,207 @@ describe('ownership transfer keeps one object', () => {
 describe('the Ebenen rows', () => {
   const linked = georefPlans([plan('modul2'), plan('modul3')], () => ({ pairs: PAIRS }), () => 1)
 
-  it('gives every linked plan separate symbol and image rows on the Karte', () => {
-    const rows = planTwinRows(linked, undefined, undefined)
-    expect(rows.map((r) => r.id)).toEqual([
-      twinPlanLayerId('modul2'), twinPlanImageLayerId('modul2'),
-      twinPlanLayerId('modul3'), twinPlanImageLayerId('modul3'),
-    ])
-    expect(rows[0].label).toBe('Inhalte (MODUL2)')
+  it('gives every linked plan ONE row on the Karte — its sheet, opt-in under the ink', () => {
+    // the symbols that stand on the sheet need no row of their own: they are ordinary map
+    // objects now and answer to the Ebene they were placed on
+    const rows = planRasterRows(linked, undefined, undefined)
+    expect(rows.map((r) => r.id)).toEqual([twinPlanImageLayerId('modul2'), twinPlanImageLayerId('modul3')])
+    expect(rows[0].label).toBe('Plan (MODUL2)')
     // two pairs solve exactly, so the row may not claim a measured residual
     expect(rows[0].sub).toBe('aus 2 Punkten')
-    expect(rows.filter((r) => r.id.startsWith('twin:plan:')).every((r) => r.visible)).toBe(true)
-    expect(rows.filter((r) => r.id.startsWith('twin:plan-image:')).every((r) => !r.visible)).toBe(true)
+    expect(rows.every((r) => !r.visible)).toBe(true)
   })
 
-  it('offers the two Karte rows on a linked sheet, and nothing at all on an unlinked one', () => {
-    expect(mapTwinRows(linked[0].fit, undefined).map((r) => r.id)).toEqual([TWIN_MAP_VEHICLES, TWIN_MAP_SYMBOLS])
-    expect(mapTwinRows(null, undefined)).toEqual([])
+  it('a raster row defaults OFF and reflects a switched-on one', () => {
+    const id = twinPlanImageLayerId('modul2')
+    expect(twinVisible(undefined, id)).toBe(true)      // the shared default…
+    expect(planRasterRows(linked, undefined)[0].visible).toBe(false) // …but a sheet is opt-in
+    expect(planRasterRows(linked, { [id]: true })[0].visible).toBe(true)
   })
 
-  it('defaults ON and reflects a switched-off row', () => {
-    expect(twinVisible(undefined, TWIN_MAP_VEHICLES)).toBe(true)
-    expect(twinVisible({ [TWIN_MAP_VEHICLES]: false }, TWIN_MAP_VEHICLES)).toBe(false)
-    expect(mapTwinRows(linked[0].fit, { [TWIN_MAP_SYMBOLS]: false }).find((r) => r.id === TWIN_MAP_SYMBOLS)?.visible).toBe(false)
-  })
-
-  it('reveals only the projection named by an explicit show jump', () => {
-    const hidden = { [TWIN_MAP_SYMBOLS]: false, [TWIN_MAP_VEHICLES]: false }
-    expect(revealTwinLayer(hidden, TWIN_MAP_SYMBOLS)).toEqual({
-      [TWIN_MAP_SYMBOLS]: true,
-      [TWIN_MAP_VEHICLES]: false,
-    })
-    const visible = { [TWIN_MAP_SYMBOLS]: true }
-    expect(revealTwinLayer(visible, TWIN_MAP_SYMBOLS)).toBe(visible)
-  })
 
   it('claims a measured residual only once a third pair has measured one', () => {
     // a third pair that does not fit perfectly — now there IS a residual to state
     const three = [...PAIRS, { plan: { x: 0.5, y: 0.5 }, lngLat: mEast(60) }]
     const [p] = georefPlans([plan('m2')], () => ({ pairs: three }), () => 1)
-    expect(planTwinRows([p], undefined)[0].sub).toMatch(/^⌀ \d+\.\d\d m$/)
+    expect(planRasterRows([p], undefined)[0].sub).toMatch(/^⌀ \d+\.\d\d m$/)
   })
 
   it('marks its ids as twin ids, so the panel can route the toggle', () => {
-    expect(isTwinLayerId(twinPlanLayerId('modul2'))).toBe(true)
-    expect(isTwinLayerId(TWIN_MAP_VEHICLES)).toBe(true)
+    expect(isTwinLayerId(twinPlanImageLayerId('modul2'))).toBe(true)
     expect(isTwinLayerId('hydrant')).toBe(false)
+  })
+})
+
+describe('fitSignature — «was the georeference corrected, or did the memo just run again?»', () => {
+  const of = (pairs: GeorefPair[], aspect = 1) => georefPlans([plan('modul2')], () => ({ pairs }), () => aspect)[0]
+
+  it('two solves of the SAME pairs sign identically — a re-render is not a correction', () => {
+    expect(fitSignature(of(PAIRS))).toBe(fitSignature(of(PAIRS)))
+  })
+
+  it('…and a moved pair, a turned sheet or a different aspect all change it', () => {
+    const base = fitSignature(of(PAIRS))
+    expect(fitSignature(of([PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }]))).not.toBe(base)
+    expect(fitSignature(of(PAIRS, 1.5))).not.toBe(base)
+  })
+})
+
+/* ⚠️ «Referenz zurücksetzen» moves nothing — a plan without a fit is simply not baked — so the
+ * re-bake honestly reports 0 objects moved and the Verlauf would otherwise say NOTHING about an
+ * act the operator deliberately performed. This is what the row is derived from, and every trap in
+ * it is a false POSITIVE: a row claiming somebody deleted a reference they never touched. */
+describe('referenceDelta — which sheets lost their reference', () => {
+  const docs = [
+    plan('modul2', { georefKey: 'object:a:plan:modul2' }),
+    plan('modul3', { georefKey: 'object:a:plan:modul3' }),
+  ]
+  const keys = (ids: string[]) => new Set(ids.map((i) => `object:a:plan:${i}`))
+
+  it('reports a sheet that was referenced and is not any more', () => {
+    const d = referenceDelta(docs, ['modul3'], keys(['modul2', 'modul3']))
+    expect([...d.dropped]).toEqual(['modul2'])
+    expect(d.referenced).toEqual(keys(['modul3']))
+  })
+
+  it('drops nothing on the FIRST comparison — there is no «before» to have lost anything from', () => {
+    expect(referenceDelta(docs, [], null).dropped.size).toBe(0)
+  })
+
+  it('an object switch is not a deletion, however identical the plan ids look', () => {
+    // every Einsatzobjekt has a «Modul 2» — measured on ids alone, switching object would claim
+    // the operator had just reset both references
+    const other = [plan('modul2', { georefKey: 'object:b:plan:modul2' })]
+    expect(referenceDelta(other, [], keys(['modul2'])).dropped.size).toBe(0)
+  })
+
+  it('a plan the rail no longer offers has not lost anything — it is not there to lose it', () => {
+    expect(referenceDelta([docs[1]], ['modul3'], keys(['modul2', 'modul3'])).dropped.size).toBe(0)
+  })
+
+  it('a sheet that GAINS a reference is not a drop, and is remembered for next time', () => {
+    const d = referenceDelta(docs, ['modul2', 'modul3'], keys(['modul2']))
+    expect(d.dropped.size).toBe(0)
+    expect(d.referenced).toEqual(keys(['modul2', 'modul3']))
+  })
+
+  it('falls back to the plan id for a sheet that carries no georefKey', () => {
+    const bare = [plan('modul2')]
+    expect([...referenceDelta(bare, [], new Set(['modul2'])).dropped]).toEqual(['modul2'])
+  })
+})
+
+/* ⚠️ The Verlauf never claims an act nobody performed — the doctrine that renamed «Wiedereinstieg».
+ * A fit change reaches the re-bake from two directions: a hand corrected the reference, or the app
+ * measured the sheet and re-solved the SAME pairs in a truer shape. They look identical downstream
+ * (both move every symbol on the sheet, both are one journalled step), so the cause has to be read
+ * off the one thing only a hand changes. */
+describe('fitChangeCause — a correction, or a measurement', () => {
+  const docs = [
+    plan('modul2', { georefKey: 'object:a:plan:modul2' }),
+    plan('modul3', { georefKey: 'object:a:plan:modul3' }),
+  ]
+  const only2 = (pairs: GeorefPair[]) => (key: string) => (key === 'object:a:plan:modul2' ? { pairs } : null)
+
+  it('the first bake of a session is nobody’s act', () => {
+    expect(fitChangeCause(pairsSignature(docs, only2(PAIRS)), null)).toBe('seed')
+  })
+
+  it('unchanged pairs mean the app re-solved them — the operator touched nothing', () => {
+    const sig = pairsSignature(docs, only2(PAIRS))
+    expect(fitChangeCause(sig, sig)).toBe('measurement')
+  })
+
+  it('a moved cross is a correction', () => {
+    const before = pairsSignature(docs, only2(PAIRS))
+    const moved = [PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }]
+    expect(fitChangeCause(pairsSignature(docs, only2(moved)), before)).toBe('reference')
+  })
+
+  it('…and so is a reset, which removes them', () => {
+    const before = pairsSignature(docs, only2(PAIRS))
+    expect(fitChangeCause(pairsSignature(docs, () => null), before)).toBe('reference')
+  })
+
+  it('the signature names the sheet, so a reference gained ELSEWHERE is still a correction', () => {
+    const before = pairsSignature(docs, only2(PAIRS))
+    const both = (key: string) => (key.startsWith('object:a:') ? { pairs: PAIRS } : null)
+    expect(fitChangeCause(pairsSignature(docs, both), before)).toBe('reference')
+  })
+
+  /* ⚠️ The third cause, and the one the pairs CANNOT tell: a refused write puts the old document
+   * back, so the pairs change a second time and read exactly like a second hand correcting them
+   * back. That phantom «Referenz angepasst» — with a ↶ over an act the server had already
+   * undone — is what the writer's flag exists to prevent. */
+  it('a rolled-back write is neither a correction nor a measurement', () => {
+    const before = pairsSignature(docs, only2(PAIRS))
+    const restored = pairsSignature(docs, () => null)
+    expect(fitChangeCause(restored, before, true)).toBe('rollback')
+  })
+
+  it('…even when the restored document happens to leave the pairs identical', () => {
+    const sig = pairsSignature(docs, only2(PAIRS))
+    expect(fitChangeCause(sig, sig, true)).toBe('rollback')
+  })
+
+  it('but the first bake of a session outranks it — there is nothing to have taken back', () => {
+    expect(fitChangeCause(pairsSignature(docs, only2(PAIRS)), null, true)).toBe('seed')
+  })
+})
+
+/* ⚠️ THE WIRING, end to end: what changed → which cause → what the fit effect writes
+ * (IncidentWorkspace, the `linkedPlans` effect). The three rows and the one question «did somebody
+ * perform this?» are pinned together here because they drifted apart once: the rollback's second
+ * notify was read as a fresh correction, and the Verlauf carried «Referenz angepasst» twice with
+ * a ↶ over an act the server had already refused. */
+describe('the fit effect’s vocabulary — cause, row, and whether a step is owed', () => {
+  const C = appConfig.copy
+  const docs = [plan('modul2', { georefKey: 'object:a:plan:modul2' })]
+  const only2 = (pairs: GeorefPair[]) => (key: string) => (key === 'object:a:plan:modul2' ? { pairs } : null)
+  const before = pairsSignature(docs, only2(PAIRS))
+  const moved = [PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }]
+
+  /** exactly what the effect does with the three inputs it has */
+  const effect = (now: string, prev: string | null, rolledBack: boolean, movedCount: number) => {
+    const cause = fitChangeCause(now, prev, rolledBack)
+    return { cause, undoLabel: fitChangeUndoLabel(cause), row: fitChangeRow(cause, movedCount) }
+  }
+
+  it('the app measured the sheet: «Blattform gemessen», and a step named after it', () => {
+    const r = effect(before, before, false, 4)
+    expect(r.cause).toBe('measurement')
+    expect(r.undoLabel).toBe(C.undoDomains.blattform)
+    expect(r.row).toBe('Blattform gemessen – 4 Objekte neu verortet')
+  })
+
+  it('a hand corrected a pair: «Referenz angepasst», and a step named after that', () => {
+    const r = effect(pairsSignature(docs, only2(moved)), before, false, 4)
+    expect(r.cause).toBe('reference')
+    expect(r.undoLabel).toBe(C.undoDomains.reference)
+    expect(r.row).toBe('Referenz angepasst – 4 Objekte neu verortet')
+  })
+
+  it('the server REFUSED the write: the refusal row, and NO step', () => {
+    // the rollback restores the pre-correction document, so the pairs move a second time — which
+    // on their own read exactly like a second hand putting them back
+    const r = effect(before, pairsSignature(docs, only2(moved)), true, 4)
+    expect(r.cause).toBe('rollback')
+    expect(r.undoLabel).toBeNull()
+    expect(r.row).toBe(C.log.referenceRolledBack)
+  })
+
+  it('…and it says so even when the re-bake put nothing back', () => {
+    expect(effect(before, before, true, 0).row).toBe(C.log.referenceRolledBack)
+  })
+
+  it('the first bake of a session writes nothing and steps nowhere', () => {
+    const r = effect(before, null, false, 12)
+    expect(r.cause).toBe('seed')
+    expect(r.undoLabel).toBeNull()
+    expect(r.row).toBeNull()
+  })
+
+  it('a correction that moved nothing is not a row about nothing', () => {
+    expect(effect(pairsSignature(docs, only2(moved)), before, false, 0).row).toBeNull()
   })
 })

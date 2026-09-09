@@ -480,9 +480,9 @@
 .note-pill-input::placeholder { color: var(--note-ink); opacity: .45; }
 /* selected/editing note: an on-theme gold ring (NOT the blue marker halo, which we suppress
    for notes) — covers both the pill and the editable input (both carry .note-pill) */
-/* `.twin-sel` is the same state on a MIRRORED note (GeorefContent*): a projection wears the
-   selection chrome of the surface it is drawn on, so the open panel says which object it is. */
-.marker.sel .note-pill, .twin-sel.note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), 0 4px 10px rgba(30, 45, 70, .2); }
+/* (`.twin-sel` selected a MIRRORED note; nothing carries that class any more — a plan-drawn
+   note is an ordinary marker on the Karte and wears `.marker.sel` like the rest.) */
+.marker.sel .note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), 0 4px 10px rgba(30, 45, 70, .2); }
 /* map text BOX: an explicit width (px — map notes don't scale with zoom) replaces the 180px
    auto-cap and lets the pill wrap + grow downwards. Mirrors .wb-text-label.box on the plan. */
 .note-pill.box { max-width: none; white-space: pre-wrap; overflow-wrap: break-word; line-height: 1.35; }

@@ -1071,7 +1071,7 @@
           "plan-scales"
         ],
         "summary": "Get Plan Scales",
-        "description": "PUBLIC — needed to measure on plans (viewers included) and cached offline at boot.\nNever raises: whatever in the stored blob does not validate is dropped entry-wise, the rest\nis served.",
+        "description": "PUBLIC — needed to measure on plans (viewers included) and cached offline at boot.\nNever raises: whatever in the stored blob does not validate is dropped entry-wise, the rest\nis served — with the `version` the caller sends back as `If-Match` when it writes.",
         "operationId": "get_plan_scales_api_plan_scales_get",
         "responses": {
           "200": {
@@ -1079,7 +1079,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanScales"
+                  "$ref": "#/components/schemas/PlanScalesOut"
                 }
               }
             }
@@ -1091,9 +1091,25 @@
           "plan-scales"
         ],
         "summary": "Put Plan Scales",
-        "description": "Editor-only. REPLACES the whole document — scales and georeferences alike — so the client\nmust read-modify-write (src/lib/stationPlanScale.ts does; a body built from scratch drops the\nhalf it doesn't know about). Creates the singleton row if the station has no config row yet.\n\n⚠️ Whole-document replace with NO optimistic-concurrency guard: there is no If-Match/version\nhere, so the last PUT wins and a second editor who loaded the document earlier overwrites the\nfirst one's calibration or georeference without either of them noticing. Adding a guard is a\ndeliberate design change (client + endpoint + a 428 path), not a drive-by fix.",
+        "description": "Editor-only. REPLACES the whole document — scales and georeferences alike — so the client\nmust read-modify-write (src/lib/stationPlanScale.ts does; a body built from scratch drops the\nhalf it doesn't know about). Creates the singleton row if the station has no config row yet.\n\n⚠️ ``If-Match`` carries the ``version`` the caller last read, and a stale one is refused with\n409 — the same guard, the same token and the same status as ``PUT /api/config`` (api/config ·\nput_config), because it is the same hazard: a full-document replace where the last writer wins.\nIt became a REAL one with the unified tactical object. Until then a lost update cost a\ncalibration somebody could re-measure; now the georeference is BAKED into every symbol standing\non that sheet, so an overwritten reference silently moves objects on the Karte — and the\nVerlauf row that says so is written by the device that did the overwriting, not by the one\nwhose correction was lost.\n\n⚠️ A PUT WITHOUT the header is still accepted, deliberately, and this is where we differ from\n``/api/config`` — which makes it mandatory for browsers on the grounds that the tab doing the\ndamage is by definition an old one. The trade is the other way round here. There is no CLI\nwriter to protect (this endpoint has exactly one client, src/lib/stationPlanScale.ts), the\ndamage a stale write does is one sheet's calibration rather than the station's whole\nconfiguration, and refusing an old build would mean a Georeferenz that cannot be saved at all\nin the field, on a device the operator cannot reload mid-Einsatz. So the window stays open for\none release: every answer carries the `version`, the current client sends it back, and the\nheader can be made mandatory once no build without it is in use.\n\n⚠️ …and that condition is OBSERVED rather than assumed. Every headerless PUT logs one INFO\nline, so «is any build without it still writing» is a question the deployment's own log\nanswers. An empty result over a release cycle is the go-ahead to make the header mandatory\nhere (and to drop this paragraph); a line a week says an old tablet is still in the field, and\nclosing the window would take its Georeferenz away.",
         "operationId": "put_plan_scales_api_plan_scales_put",
         "parameters": [
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -1127,7 +1143,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanScales"
+                  "$ref": "#/components/schemas/PlanScalesOut"
                 }
               }
             }
@@ -14532,11 +14548,67 @@
             },
             "type": "object",
             "title": "Georefbyplan"
+          },
+          "measuredArByPlan": {
+            "additionalProperties": {
+              "type": "number",
+              "exclusiveMaximum": 100.0,
+              "exclusiveMinimum": 0.01
+            },
+            "type": "object",
+            "title": "Measuredarbyplan"
           }
         },
         "type": "object",
         "title": "PlanScales",
-        "description": "The station document: one default calibration + per-plan overrides (planId → scale), plus\nthe per-plan georeference (planId → pairs). Every field is optional, so a document stored\nbefore georeferencing existed still validates."
+        "description": "The station document: one default calibration + per-plan overrides (planId → scale), the\nper-plan georeference (planId → pairs) and the per-plan MEASURED aspect. Every field is\noptional, so a document stored before georeferencing existed still validates."
+      },
+      "PlanScalesOut": {
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanScale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "byPlan": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PlanScale"
+            },
+            "type": "object",
+            "title": "Byplan"
+          },
+          "georefByPlan": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Georef"
+            },
+            "type": "object",
+            "title": "Georefbyplan"
+          },
+          "measuredArByPlan": {
+            "additionalProperties": {
+              "type": "number",
+              "exclusiveMaximum": 100.0,
+              "exclusiveMinimum": 0.01
+            },
+            "type": "object",
+            "title": "Measuredarbyplan"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "PlanScalesOut",
+        "description": "…as served: the document plus the token of the version it was read at. The client keeps it\nand sends it back as ``If-Match``; a body never carries it, so a client that read-modify-writes\nthe served document cannot accidentally store one."
       },
       "PositionIn": {
         "properties": {

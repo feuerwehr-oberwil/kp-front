@@ -216,3 +216,28 @@ describe('buildDirectReportPayload · trupps', () => {
     expect(payload([trupp({ name: 'Meier' })], false).trupps).toEqual([])
   })
 })
+
+/* ⚠️ ONE list per sheet. The board view a sheet draws already contains the Karte's objects
+ * projected onto it, so a print path that concatenated a second «mirrored content» list beside
+ * it printed every annotation on a linked plan TWICE — the sheet's own ink included. */
+describe('buildDirectReportPayload · plan pages', () => {
+  const plan = { id: 'm2', code: 'Modul 2', title: 'Modul 2', subtitle: '', imageUrl: '/m2.pdf', orientation: 'landscape' } as PlanDocument
+  const pages = (board: Record<string, BoardAnno[]>) => (buildDirectReportPayload({
+    incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T09:50:00.000Z' } as never,
+    draft: { meta: {}, generatedAt: '2026-09-03T12:00:00.000Z', proof: {}, options: { annotatedPlans: true } } as never,
+    trupps: [], attendance: {}, events: [], plans: [plan], board,
+  }) as { planPages?: { annos: { x?: number }[] }[] }).planPages ?? []
+
+  it('prints each object on a linked sheet exactly ONCE', () => {
+    const [page] = pages({ m2: [
+      { id: 'own', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.3 },   // the sheet's own
+      { id: 'fromMap', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.6, y: 0.4 }, // …and the Karte's
+    ] })
+    expect(page.annos.map((a) => a.x)).toEqual([0.2, 0.6]) // each exactly once, in the sheet's order
+  })
+
+  it('…and a sheet whose only marks come from the Karte still gets its page', () => {
+    expect(pages({ m2: [{ id: 'fromMap', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.6, y: 0.4 }] })).toHaveLength(1)
+    expect(pages({})).toHaveLength(0)
+  })
+})

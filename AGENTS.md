@@ -168,38 +168,114 @@ to prod.
   grouped in `.de-group`, so the hairline falls where the subject changes. And **no native form
   control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
   instead of a number field, `components/Slider` instead of `<input type="range">`.
-- **A georef twin is the object itself, seen from the other side.** Once a plan carries a
-  georeference, annotations mirror between the surfaces (`src/lib/georefTwins.ts`,
-  `GeorefTwins*` / `GeorefContent*`). A twin is **interaction- AND presentation-equivalent** to
-  its original: the same capabilities through the same functions (rename, Trupp-Join, Farbe,
-  Position markieren, trail eye, the locked trash), the surface's **native** sizing (map `symPx`
-  band, board `symBase` – never a twin-only band), the original's own chrome and markup (the hit
-  button carries only hit-shell classes, the chip sits in an inner span with its native class),
-  and the source's own spread arrows, bars and labels – never re-aimed through the fit. **No
-  «projection tone»** – no reduced opacity, no dimmed grips or lines; it paints exactly like the
-  native object beside it. The ONE permitted difference is which surface persists it: a twin is a
-  projection, never stored, logged, printed or clocked, and an edit writes the ONE source object.
-  A mechanical exception must be real and documented (an anchored endpoint reshapes instead of
-  translating, on both surfaces); «not built on that surface yet» is not one. The third real one
-  is the **sheet's edge**: a twin's source lives on a BOUNDED document (plan x/y are fractions of
-  the paper), so a drag on the Karte that crosses the projected edge pins that coordinate and
-  goes on following the finger with the other — the object slides along the edge rather than
-  stopping dead. Right, and invisible on a surface that draws no paper, so for the length of any
-  twin drag the Karte draws the sheet: a dashed outline in the link tone plus the edge that is
-  actually holding, solid, and one `buzz()` the first time it is met (`MapView · twinBound`).
-  ⚠️ **The drawn rectangle and the enforced bound are ONE definition** — `georefTwins ·
-  SHEET_DOMAIN`, projected through the very fit the drag's write-through inverts. Every writer
-  (the direct drag, the whole-path drag, the bar's own twin move) measures against it through
-  `sheetShift`, and no surface may derive that rectangle from anywhere else: a footprint, a
-  preview's extent or a second-hand aspect turns the outline into a promise the drag does not
-  keep. The Plan needs no such chrome — there the bound IS the sheet under the finger. It follows that a
-  twin is also inside every SELECTION mechanism of the surface it stands on: the fixed
-  `SelectionBar` (for the kinds a native gets it for – ink and a Form), the marquee/group, the
-  fat-finger pile's fan, and the magnet. The magnet carries the second real mechanical exception:
-  an endpoint docked on a twin stores an attachment naming an object in the OTHER document, which
-  both live surfaces resolve but the print/export adapters cannot – there, and after a far-side
-  delete, it falls back to the stored coordinate the way every unresolvable attachment does
-  (`resolveLinePoints`).
+- **One object, two surfaces — there are no twins any more** (10.09.2026,
+  `tmp/design-unified-objects.md`). A tactical object is ONE record in one collection
+  (`src/lib/tacticalObjects.ts`), carrying up to two bodies of the same thing: `entity` XOR
+  `drawing` is what the Karte draws, `sheet {planId, anno}` is what one plan sheet draws. The
+  three legacy collections (`entities` / `drawings` / `board`) survive only as VIEWS of it, and
+  the blob still carries them so an older client can read a newer incident.
+  - **The sheet body's PRESENCE is the anchor.** An object hand-placed on a sheet carries
+    `sheet`: the sheet coordinates are its truth, and its map body is BAKED through the plan's
+    georeference (`bakeGeoBody`) and re-baked when that fit changes. An object hand-placed on the
+    Karte carries no `sheet` at all: geo is its truth, and a linked sheet draws it by PROJECTING
+    it through the same fit (`src/lib/planProjection.ts`). Both derivations are pure, and they
+    are **inverse in geometry AND in absence** — a projected anno handed back off a sheet becomes
+    the stored sheet body verbatim, so an asymmetry between them would rotate, resize or displace
+    the object a little on every flip, and an absent field materialising as `0` or `''` would
+    invent one. Where one converts (the sheet's own turn into and out of the paper's frame, for
+    BOTH bearings; metres into sheet fractions and back, at the same default an unsized object is
+    drawn at) the other undoes it, and the comment at each says so. ⚠️ The absence half is
+    normalised on the way BACK, not on the way out: an object with no bearing genuinely IS turned
+    by `rotationDeg` in the paper's frame, so the projection has to state that — and «points
+    north» is the same fact as «has no bearing», so the bake returns the shorter one
+    (`turnedToGround`). Without it every ordinary unturned Fahrzeug acquired `rotation: 0` on its
+    first flip. A field that cannot be said in both units — a note's width, a label's nudge —
+    does not cross at all: it is preserved through the bake instead (`BAKE_PRESERVED`), because a
+    number that means two distances is worse in the record than no number.
+  - **Last hand-placement owns the truth.** A drag flips the anchor to the surface it happened
+    on: dragging a sheet-anchored object on the Karte DROPS its sheet body, dragging a map object
+    onto a sheet CREATES one. Both seams (`applyDocToObjects`, `applyBoardToObjects`) therefore
+    read a document as a GESTURE rather than as the truth, in four readings each — unchanged is
+    nothing, a prop edit writes through to the OTHER body, a positional edit flips the anchor,
+    and absence deletes the whole object, because deleting an object deletes the object.
+  - ⚠️ **A MACHINE write never flips an anchor.** Only a hand places something. The live-GPS pass
+    re-routes attached Leitungen several times a minute, and read as a placement it tore
+    plan-drawn hoses off their sheet with nobody touching anything; such writers pass
+    `gesture: false` and their position crosses through the fit instead.
+  - ⚠️ **Ownership decides the undo stack.** A surface's own objects belong to that surface's
+    history — the Karte's `commit`, a plan's per-document `planHistory` / `useBoardDoc`. An edit
+    that touches an object the surface does NOT own is a store-level act, and checkpoints on the
+    store's stack: a per-sheet snapshot of annotations cannot express «this object was
+    geo-anchored», so it could not undo an anchor flip at all. One gesture stays one step: a plan
+    step opens a TOKEN (`useObjectStore · beginSheetStep`) whose first cross-ownership fold takes
+    the step and whose remaining samples fold into it, and the token closes when the finger lifts
+    — a plan step is a pointer gesture. With none open, every write is its own step, which is what
+    the writers that are not gestures (the Trupp sweeps, a plan ↶, a Gebäude amend) need.
+  - **Presentation stays equivalent, and nothing is lent that is owned.** Each surface draws the
+    other's objects with its OWN native chrome and sizing (map `symPx`, board `symBase`) — no
+    projection tone, no reduced opacity, no twin-only band — and every capability the surface has
+    applies: selection, the `SelectionBar`, the marquee, the magnet, the fat-finger fan, Delete.
+    A sheet is never shown its own objects back through the projection, and never a SIBLING
+    sheet's: plan A's work has never cluttered plan B. What IS lent is only what is not a record
+    — the live vehicle and responder feed (`planProjection · liveOverlay`, `PlanLiveLayer`),
+    read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
+    held-in-place override the Karte writes.
+  - **Reference change or delete loses nothing.** Correcting a fit re-bakes every sheet-anchored
+    object's map body — that correction is the whole point of correcting a fit — as ONE undo step
+    with one Verlauf row («Referenz angepasst – n Objekte neu verortet»). A DELETED reference
+    leaves both bodies standing: the sheet keeps its annos, the Karte keeps the ground positions
+    the last fit baked, and neither is marked stale — last known truth, like a vehicle that
+    stopped reporting. Nothing moves, so the re-bake honestly reports 0, and the row is therefore
+    its own («Referenz entfernt – n Objekte behalten ihre letzte Position»): without it the
+    Verlauf would say nothing whatever about an act somebody performed on purpose. ⚠️ It is
+    derived from SHEET KEYS still on the rail (`georefTwins · referenceDelta`) — every
+    Einsatzobjekt has a «Modul 2», so counting plan ids would read every object switch as a
+    deletion. Re-linking later re-links both directions and re-bakes.
+  - ⚠️ **The aspect the fit is solved in is its own stored fact** (`measuredArByPlan`), NOT
+    `PlanScale.ar`. `ar` is half of a pair — a sheet's ground width is `ar · mPerU` — so
+    correcting it in place silently rescales every measured distance on that plan. The measured
+    aspect says only «this sheet is this shape»; correcting it re-solves the fit from the SAME
+    pairs (a pair is an aspect-independent statement), so `fitSignature` changes and the ordinary
+    journalled re-bake does the rest. The surface holding the bitmap writes it, once per sheet per
+    session, past the same 2 % drift calibration staleness uses. It matters because a replaced
+    Modul PDF leaves a stale `ar` that staleness CANNOT catch (it is measured against the very
+    aspect being looked for, and the pairs were fitted at the same wrong one), and a wrong aspect
+    is now a wrong position in the record rather than a tilted picture.
+  - **The station document is version-guarded.** `PUT /api/plan-scales` is a whole-document
+    replace and now carries `If-Match` — the same content-hash token and 409 as `PUT /api/config`
+    — because a lost update no longer costs a re-measurable calibration but MOVES objects. The
+    client recovers by re-reading and re-applying its per-plan change on top, once. A PUT without
+    the header is still accepted for one release (there is no CLI writer here, and an old build
+    must not lose the ability to save a Georeferenz in the field).
+  - ⚠️ Known limitation, ACCEPTED and not to be re-opened without a decision: the flip is a FIELD
+    REMOVAL, and `mergeWorkspace` merges an object field-wise last-writer-wins — a concurrent edit
+    still carrying the dropped sheet body brings it back. Absence cannot say «deliberately
+    dropped»; a tombstone or an explicit anchor enum could, and that is a schema change nobody has
+    asked for. Replay is unaffected: it folds VIEWS, so a sheet there shows only what was recorded
+    on it.
+  - ⚠️ **An attachment may name an object in the other document, and that is now the common
+    case.** A Leitung end docked onto an object stores the object's id; both live surfaces resolve
+    it, because it is the same id on both. The server-side print/export adapters cannot — they see
+    one document at a time — and neither can a reader after the far side deleted it. Both land on
+    the SAME safe answer every unresolvable attachment gets: the stored coordinate, which is
+    exactly where the endpoint was dropped (`lineAttachments · resolveLinePoints`). Do not «fix»
+    that by resolving across documents in an adapter; the fallback is the contract.
+  - ⚠️ **Replay stays VIEW-based, deliberately** (`lib/replay`). A `Saved` blob carries the three
+    legacy collections even though they are derived, so a recorded incident replays through
+    anything that ever spoke those shapes — and a view is *what was on the screen*, whereas an
+    object would have to be projected through a fit, and the only fit a replay has is TODAY's.
+    The price is that the event stream has to be COHERENT across both views, so the seams pay it:
+    an anchor flip emits the PAIR (the store reports the flip — `tacticalObjects · anchorChanges`
+    — because neither surface can see the other's half), `board.move` is folded, and the georef
+    re-bake deliberately emits NOTHING (n `entity.move` rows would claim n placements nobody made;
+    the snapshot the ensuing save writes is what carries it). Full ledger:
+    `docs/verlauf-coverage.md`.
+  - The word «twin» survives where renaming it would cost something real: `twin:` is a persisted
+    Ebenen-preference prefix (`lib/prefs`) and would reset every device's rows, and
+    `TWIN_CLIP_MARGIN` is the one clip both derivations quote. Elsewhere it is only a name that
+    has outlived its concept — the file `lib/georefTwins.ts`, `components/TwinTeamPill`, the copy
+    keys `twinFromMap` / `twinUnnamed`, the `LayerPanel` `twins` prop — and any of those may be
+    renamed by whoever is next in that file anyway. Nothing in the app is a twin.
 - **«Automatisch ausrichten» PROPOSES a georeference; it never asserts one** (08.09.2026). An
   unlinked module sheet's «Karte verknüpfen» chip offers the CV suggestion beside the point
   flow: `POST /api/georef/suggest` (matcher in `app/georef_suggest.py`, evaluation + provenance

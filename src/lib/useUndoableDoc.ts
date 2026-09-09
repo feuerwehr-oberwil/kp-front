@@ -24,6 +24,15 @@ export interface UndoableDoc<D> {
   canRedo: boolean
   /** replace the doc wholesale and drop history (remote/merged hydrate) */
   replace: (d: D) => void
+  /** The LIVE document — advanced synchronously by every write, unlike `doc`, which is a
+   *  per-render snapshot. A caller that has to look before it writes must look here, or its dry
+   *  run answers about a state one render behind the one its updater will actually see. */
+  current: () => D
+  /** Lay a value down as an undo step WITHOUT changing the document — for a writer that has
+   *  already computed the state it wants to be able to come back to and is applying the change
+   *  itself. `commit` cannot serve it: that decides for itself whether a step is owed, and this
+   *  caller only finds out while folding (lib/useObjectStore · setBoard). */
+  checkpoint: (snapshot: D) => void
 }
 
 /**
@@ -85,6 +94,11 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: () 
   // applies — undoing into it would push a stale doc and resurrect remotely-deleted content.
   // Stable (only the ref + stable setters) so callers can keep it out of effect/callback deps.
   const replace = useCallback((d: D) => { docRef.current = d; setDoc(d); setPast([]); setFuture([]) }, [])
+  const checkpoint = (snapshot: D) => {
+    if (readOnly) return
+    setPast((p) => [...p, snapshot].slice(-cap)); setFuture([])
+    onCheckpoint?.()
+  }
 
-  return { doc, setDocRaw, commit, beginDrag, endDrag, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, replace }
+  return { doc, current: () => docRef.current, setDocRaw, commit, beginDrag, endDrag, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, replace, checkpoint }
 }

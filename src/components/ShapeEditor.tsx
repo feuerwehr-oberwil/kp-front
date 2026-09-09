@@ -1,6 +1,5 @@
 import type { Entity } from '../types'
 import { Icon } from '../lib/icons'
-import { TwinOrigin } from './TwinOrigin'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { fmtArea, fmtDistance } from '../lib/geo'
@@ -57,15 +56,12 @@ interface Props {
   onCenter?: () => void
   onDelete: () => void
   onClose: () => void
-  /** This Form is a Georeferenz twin: the editor is the surface's own, so the ONE thing that
-   *  differs — which document persists it — is stated here as the way there (components/TwinOrigin). */
-  onOriginal?: () => void
 }
 
 // Editor for a placed generic shape — colour only. Size and rotation are changed
 // directly on the map/plan by dragging the shape's corner / top handles, so
 // they're not duplicated here. Reuses the .ctx / .draw-editor look.
-export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, onCarrier, onReverse, onStrokeW, onFill, onCorners, areaM2, boxM, perimeterM, onToggleLock, locked, onCenter, onDelete, onClose, onOriginal }: Props) {
+export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, onCarrier, onReverse, onStrokeW, onFill, onCorners, areaM2, boxM, perimeterM, onToggleLock, locked, onCenter, onDelete, onClose }: Props) {
   const color = entity.color ?? DEFAULT_INK
   const name = appConfig.copy.shapes.names[entity.shape ?? 'square'] ?? appConfig.copy.shapes.kindLabel
 
@@ -81,7 +77,6 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
           <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
         </button>
       )}
-      {onOriginal && <TwinOrigin onOriginal={onOriginal} />}
       <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>
     </div>
   )

@@ -171,24 +171,6 @@ describe('the Abschluss options explain themselves', () => {
   })
 })
 
-// A mirrored Linie/Fläche opens THIS editor, the surface's own — so nothing in it said which
-// document the object actually lives in until «Gespiegelt – zum Original» (components/TwinOrigin).
-describe('the twin’s one line of provenance', () => {
-  const origin = () => screen.queryAllByRole('button', { name: appConfig.copy.whiteboard.georef.twinOrigin })
-
-  it('is absent on a native object — it has no other side to go to', () => {
-    render(<DrawEditor {...base} drawing={{ kind: 'line' }} />)
-    expect(origin()).toHaveLength(0)
-  })
-
-  it('…and jumps to the original when the object is a projection', () => {
-    const onOriginal = vi.fn()
-    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onOriginal={onOriginal} />)
-    fireEvent.click(origin()[0])
-    expect(onOriginal).toHaveBeenCalledTimes(1)
-  })
-})
-
 // The Fläche IS the Abschnitt (FKS Einsatzführung 3.5.2): Leiter + Auftrag live on the shape.
 // Offered only where the caller passes the handlers — the Lage; a Plan sketch passes none.
 describe('Abschnitt on a Fläche', () => {

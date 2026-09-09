@@ -202,6 +202,75 @@ describe('attachment and Plan replay folding', () => {
     const b = bundle(events, () => ({ workspace: { ...emptyWs(), board: {} }, occurredMs: 0 }))
     expect((await stateAt(b, 3000))?.board?.gebaeude[0]).toMatchObject({ color: 'red', pts: [[0, 0, 0], [1, 1, 1]] })
   })
+
+  /* ⚠️ `board.move` is what the plan surface emits on every native release — a chip, a cordon, a
+   * stroke, a SelectionBar group — and until phase 4 nothing folded it: a symbol advanced on a
+   * Modul sheet stood still in the replay until the next snapshot happened along. */
+  it('replays a plan drag: the sheet position folds', async () => {
+    const ws = { ...emptyWs(), board: { gebaeude: [{ id: 's1', kind: 'symbol' as const, x: 0.2, y: 0.2, floor: 0 }] } }
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'gebaeude', x: 0.8, y: 0.4, floor: 1 } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0]).toMatchObject({ x: 0.8, y: 0.4, floor: 1 })
+  })
+
+  it('…a stroke moves by its POINTS, which is what a stroke’s position is', async () => {
+    const ws = { ...emptyWs(), board: { gebaeude: [{ id: 'l1', kind: 'draw' as const, pts: [[0, 0, 0], [1, 1, 0]] as [number, number, number][] }] } }
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 'l1', planId: 'gebaeude', pts: [[0.5, 0, 0], [1.5, 1, 0]] } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0].pts).toEqual([[0.5, 0, 0], [1.5, 1, 0]])
+  })
+
+  it('…and a payload naming no position folds to nothing rather than to garbage', async () => {
+    const ws = { ...emptyWs(), board: { gebaeude: [{ id: 's1', kind: 'symbol' as const, x: 0.2, y: 0.2 }] } }
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'gebaeude' } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0]).toMatchObject({ x: 0.2, y: 0.2 })
+  })
+
+  it('…and a move that would break the shape gate leaves the anno standing', async () => {
+    const ws = { ...emptyWs(), board: { gebaeude: [{ id: 'l1', kind: 'draw' as const, pts: [[0, 0, 0], [1, 1, 0]] as [number, number, number][] }] } }
+    // one point is not a line — the same answer the live load gives a malformed anno
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 'l1', planId: 'gebaeude', pts: [[0.5, 0, 0]] } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0].pts).toEqual([[0, 0, 0], [1, 1, 0]])
+  })
+})
+
+/* ⚠️ An ANCHOR FLIP changes both views at once — the Karte's `entities` and one sheet's `board` —
+ * and the surface the finger was on can only speak its own. Each flip therefore emits the PAIR
+ * (IncidentWorkspace · onAnchorChange); without the second half the scrub showed one object twice,
+ * or in neither place. Both are the same object, with the same id, on both sides of the flip:
+ * that is what «one record» means, and the replay has to show exactly one of it. */
+describe('an anchor flip mid-timeline replays as ONE object', () => {
+  const sheetAnno = { id: 's1', kind: 'symbol' as const, x: 0.5, y: 0 }
+  const bakedEntity = { id: 's1', kind: 'symbol' as const, layer: 'taktisch', coord: [7.5, 47.5] as [number, number], symbol: 'X' }
+
+  it('dragged onto the Karte: it leaves the sheet and stands where it was dropped', async () => {
+    const ws = { ...emptyWs(), entities: [bakedEntity], board: { gebaeude: [sheetAnno] } }
+    const b = bundle([
+      ev({ seq: 1, op_type: 'entity.move', occurred_at: iso(1000), payload_json: { id: 's1', coord: [7.6, 47.6] } }),
+      ev({ seq: 2, op_type: 'board.delete', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'gebaeude' } }),
+    ], () => ({ workspace: ws, occurredMs: 0 }))
+    const out = await stateAt(b, 2000)
+    expect(out?.entities.map((e) => e.id)).toEqual(['s1'])
+    expect(out?.entities[0].coord).toEqual([7.6, 47.6])
+    expect(out?.board?.gebaeude).toEqual([]) // …and it is no longer drawn on the sheet as well
+  })
+
+  it('dragged onto a sheet: it appears there ONCE, and the Karte follows it to the baked ground point', async () => {
+    const ws = { ...emptyWs(), entities: [bakedEntity], board: { gebaeude: [] } }
+    const b = bundle([
+      ev({ seq: 1, op_type: 'board.add', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'gebaeude', anno: sheetAnno } }),
+      ev({ seq: 2, op_type: 'entity.move', occurred_at: iso(1000), payload_json: { id: 's1', coord: [7.55, 47.55] } }),
+      // …and the release refines the sheet position, exactly as it does for an anno always its own
+      ev({ seq: 3, op_type: 'board.move', occurred_at: iso(1500), payload_json: { id: 's1', planId: 'gebaeude', x: 0.75, y: 0.25 } }),
+    ], () => ({ workspace: ws, occurredMs: 0 }))
+    const out = await stateAt(b, 2000)
+    expect(out?.board?.gebaeude.map((a) => a.id)).toEqual(['s1'])
+    expect(out?.board?.gebaeude[0]).toMatchObject({ x: 0.75, y: 0.25 })
+    expect(out?.entities.map((e) => e.id)).toEqual(['s1'])
+    expect(out?.entities[0].coord).toEqual([7.55, 47.55])
+  })
 })
 
 describe('vehiclesAt — interpolated sample paths', () => {

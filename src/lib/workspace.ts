@@ -7,6 +7,7 @@ import { loadLayerPrefs } from './layerPrefs'
 import { isSafeColor } from './shapes'
 import { sanitizeSvgResult } from './sanitizeSvg'
 import type { ChecklistState } from './checklists'
+import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
 import type { VehicleOverrides } from './useVehicleLayer'
@@ -180,6 +181,13 @@ export type Doc = { entities: Entity[]; drawings: Drawing[] }
 /** The persisted workspace blob — opaque to the backend; the frontend owns its shape. */
 export interface Saved {
   entities: Entity[]; drawings: Drawing[]; recent: string[]
+  /** The unified tactical objects (schema 2, tmp/design-unified-objects.md) — ONE record per
+   *  object, whatever surface it stands on; `entities`/`drawings`/`board` above become its
+   *  derived views. Both are written on save: the views keep an un-updated device rendering
+   *  (its next save drops `objects`, and the loader re-unifies from the views — only baked
+   *  bodies are lost, and the write-through regenerates those). Absent = a legacy blob;
+   *  deriveInitial migrates it on load. */
+  objects?: TacticalObject[]
   layerState: { id: LayerId; visible: boolean; opacity?: number }[]; timeline: TimelineEvent[]
   board?: BoardDoc; activePlanId?: string; activeModule?: string
   /** the manually-picked Einsatzobjekt (PlanPicker «anderes Objekt»), synced per incident so it
@@ -264,7 +272,9 @@ export const normalizeBoard = (board?: BoardDoc): BoardDoc => {
 
 /** Version stamped into every saved blob (App's buildPayload). Bump on a breaking shape
  *  change and add a stepwise migration in `sanitizeWorkspace` for the older versions. */
-export const WORKSPACE_SCHEMA_VERSION = 1
+// v2 (09.09.): the unified `objects` collection joins the blob (tmp/design-unified-objects.md).
+// The legacy collections are still written as views, so a v1 reader renders — see Saved.objects.
+export const WORKSPACE_SCHEMA_VERSION = 2
 
 /** Result of the load gate: the sanitized blob plus an honest account of what happened. */
 export interface WorkspaceGate {
@@ -447,9 +457,36 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     dropped++
     return null // deriveInitial reads null as «no Gebäude»; a half doc would crash the Kroki
   })()
+  // The unified objects (schema 2): each body passes the same shape gate its legacy
+  // collection did — a malformed body is dropped from the object, an object with no valid
+  // body left is dropped whole. Presence of `sheet` is the anchor, so it needs planId + anno.
+  const objects = ((): TacticalObject[] | undefined => {
+    if (raw.objects == null) return undefined
+    if (!Array.isArray(raw.objects)) { dropped++; return undefined }
+    const out: TacticalObject[] = []
+    for (const v of raw.objects) {
+      if (!hasId(v)) { dropped++; continue }
+      const entity = isEntity(v.entity)
+        ? migrateRauchCloud(fixDrawProps(v.entity.trail == null ? v.entity : { ...v.entity, trail: arr<GeoTrailPoint>(v.entity.trail, isGeoTrailPt) }))
+        : (v.entity != null ? (dropped++, undefined) : undefined)
+      const drawing = entity == null && isDrawing(v.drawing)
+        ? fixDrawProps(v.drawing)
+        : (entity == null && v.drawing != null ? (dropped++, undefined) : undefined)
+      const sheet = ((): TacticalObject['sheet'] => {
+        if (v.sheet == null) return undefined
+        const s = v.sheet as Record<string, unknown>
+        if (!isObj(s) || typeof s.planId !== 'string' || !isBoardAnno(s.anno)) { dropped++; return undefined }
+        const anno = migrateRauchCloud(fixDrawProps(s.anno.trail == null ? s.anno : { ...s.anno, trail: arr<TrailPoint>(s.anno.trail, isTrailPt) }))
+        return { planId: s.planId, anno }
+      })()
+      if (!entity && !drawing && !sheet) { dropped++; continue }
+      out.push({ id: v.id, entity, drawing, sheet })
+    }
+    return out
+  })()
   const sv = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : undefined
-  // (stepwise migrations for sv < WORKSPACE_SCHEMA_VERSION go here once version 2 exists)
   const ws: Saved = {
+    objects,
     entities: (arr<Entity>(raw.entities, isEntity, (e) => fixDrawProps(e.trail == null ? e : { ...e, trail: arr<GeoTrailPoint>(e.trail, isGeoTrailPt) })) ?? []).map(migrateRauchCloud),
     drawings: arr<Drawing>(raw.drawings, isDrawing, fixDrawProps) ?? [],
     recent: arr<string>(raw.recent, (x) => typeof x === 'string') ?? [],
@@ -480,6 +517,8 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
 
 export interface InitialState {
   doc: Doc; layers: LayerDef[]; timeline: TimelineEvent[]; recent: string[]
+  /** the unified store `doc`/`board` are views of — seeded into the workspace's objects ref */
+  objects: TacticalObject[]
   board: BoardDoc; building: BuildingDoc | null; vehicleOverrides: VehicleOverrides; activePlanId: string
   checklists: ChecklistState
   trupps: Trupp[]
@@ -644,8 +683,11 @@ export function deriveInitial(
   prefs: { incidentId?: string; activePlanId?: string; pickedObject?: { incidentId: string; objectId: string } },
   incidentType?: string | null,
 ): InitialState {
-  const entities = ws?.entities ?? []
-  const drawings = ws?.drawings ?? []
+  // The unified store is authoritative from schema 2 on; a legacy blob (or a v2 blob
+  // re-saved by an un-updated device, which drops `objects`) unifies from its collections.
+  // `doc` and `board` below are its VIEWS — phase 1 renders them exactly as before.
+  const objects = ws?.objects ?? objectsFromLegacy(ws?.entities, ws?.drawings, normalizeBoard(ws?.board))
+  const { entities, drawings, board } = viewsOf(objects)
   const allLayers = builtinAndConfigLayers()
   /* Which Ebenen to open with is a DEVICE question (lib/layerPrefs): what this tablet was last
    * looking at, not what somebody else's phone was. The blob's `layerState` is only the seed, for
@@ -667,8 +709,8 @@ export function deriveInitial(
   const ids = new Set(entities.map((e) => e.id))
   const timeline = (ws?.timeline ?? []).map((e) => (e.entityId && !ids.has(e.entityId) ? { ...e, entityId: undefined } : e))
   return {
-    doc: { entities, drawings }, layers, timeline,
-    recent: ws?.recent ?? [], board: normalizeBoard(ws?.board),
+    doc: { entities, drawings }, layers, timeline, objects,
+    recent: ws?.recent ?? [], board,
     building: ws?.building ?? null, vehicleOverrides: ws?.vehicleOverrides ?? {},
     // honour the remembered plan only when reopening the SAME incident — a new emergency
     // starts on Modul 1, not on whatever plan the last incident left in the cookie

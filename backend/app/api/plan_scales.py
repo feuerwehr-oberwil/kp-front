@@ -15,12 +15,17 @@ same kind of question as the calibration — a property of the SHEET, not of an 
 that a client loads and caches both in one request.
 
 GET is public (viewers measure too, and it must be offline-cacheable at boot); PUT is editor-only.
+
+Both answers carry a ``version`` — an opaque token of the STORED document, which the client
+sends back as ``If-Match`` on its next PUT (see ``put_plan_scales``).
 """
 
+import hashlib
+import json
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +37,12 @@ from ..models import DeploymentConfig
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/plan-scales", tags=["plan-scales"])
+
+
+AspectRatio = Annotated[float, Field(gt=0.01, lt=100)]
+"""A sheet's width / height. Bounded generously — anything a printer can produce fits — but not
+unbounded: 0 and a pixel count are the two ways this field is realistically wrong, and either one
+would put every symbol on that plan somewhere else."""
 
 
 class PlanScale(BaseModel):
@@ -83,13 +94,46 @@ class Georef(BaseModel):
 
 
 class PlanScales(BaseModel):
-    """The station document: one default calibration + per-plan overrides (planId → scale), plus
-    the per-plan georeference (planId → pairs). Every field is optional, so a document stored
-    before georeferencing existed still validates."""
+    """The station document: one default calibration + per-plan overrides (planId → scale), the
+    per-plan georeference (planId → pairs) and the per-plan MEASURED aspect. Every field is
+    optional, so a document stored before georeferencing existed still validates."""
 
     default: PlanScale | None = None
     byPlan: dict[str, PlanScale] = Field(default_factory=dict)  # noqa: N815
     georefByPlan: dict[str, Georef] = Field(default_factory=dict)  # noqa: N815
+    # The sheet's measured width/height, written by a client that has actually rendered the bitmap
+    # (src/lib/stationPlanScale.ts · noteMeasuredAspect). Deliberately NOT `PlanScale.ar`: that one
+    # is half of a pair — the sheet's ground width is `ar · mPerU` — so correcting it inside a
+    # stored calibration would silently rescale every measured distance on that plan. This says
+    # only «the sheet is this shape», which is what the georeference fit has to be solved in.
+    # Bounded to the range a sheet can plausibly have: a value of 1100 is plan PIXELS, not a ratio.
+    measuredArByPlan: dict[str, AspectRatio] = Field(default_factory=dict)  # noqa: N815
+
+
+class PlanScalesOut(PlanScales):
+    """…as served: the document plus the token of the version it was read at. The client keeps it
+    and sends it back as ``If-Match``; a body never carries it, so a client that read-modify-writes
+    the served document cannot accidentally store one."""
+
+    version: str
+
+
+def _version(doc: object) -> str:
+    """The version token of the stored document: a hash of its CONTENT.
+
+    ⚠️ The same choice — and the same reasoning — as ``api/config._version``: a timestamp is
+    stored to the second by SQLite and is transaction-start time in Postgres, so two saves inside
+    one second are indistinguishable and the check passes exactly when a conflict is most likely.
+    A hash needs no column, no migration and no clock, and it gives the right answer to the other
+    case too: a second editor storing an IDENTICAL document is not a conflict, because nothing the
+    caller holds is out of date.
+
+    ⚠️ Taken over the RAW stored blob, not the tolerantly-parsed projection, so that GET and PUT
+    compare the same thing. A document with one malformed entry is served without it, the client
+    PUTs what it was served, and the write is still accepted — the token says «this is the row you
+    read», which it is.
+    """
+    return hashlib.sha256(json.dumps(doc or {}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:16]
 
 
 def _entries[M: BaseModel](raw: object, model: type[M], field: str) -> dict[str, M]:
@@ -104,6 +148,22 @@ def _entries[M: BaseModel](raw: object, model: type[M], field: str) -> dict[str,
             out[str(plan_id)] = model.model_validate(value)
         except ValidationError:
             logger.warning("plan_scales_json: dropping malformed %s entry %r", field, plan_id, exc_info=True)
+    return out
+
+
+def _ratios(raw: object) -> dict[str, float]:
+    """…the same entry-wise tolerance for the plain-number map: one plan holding a 0 (or a pixel
+    count) must not cost every other plan its measured shape."""
+    if not isinstance(raw, dict):
+        if raw is not None:
+            logger.warning("plan_scales_json: measuredArByPlan is not an object (%s); dropping it", type(raw).__name__)
+        return {}
+    out: dict[str, float] = {}
+    for plan_id, value in raw.items():
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and 0.01 < value < 100:
+            out[str(plan_id)] = float(value)
+        else:
+            logger.warning("plan_scales_json: dropping implausible measuredArByPlan entry %r=%r", plan_id, value)
     return out
 
 
@@ -130,6 +190,7 @@ def _read_tolerantly(raw: object) -> PlanScales:
         default=default,
         byPlan=_entries(raw.get("byPlan"), PlanScale, "byPlan"),
         georefByPlan=_entries(raw.get("georefByPlan"), Georef, "georefByPlan"),
+        measuredArByPlan=_ratios(raw.get("measuredArByPlan")),
     )
 
 
@@ -137,30 +198,62 @@ async def _row(db: AsyncSession) -> DeploymentConfig | None:
     return (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
 
 
-@router.get("", response_model=PlanScales)
-async def get_plan_scales(db: AsyncSession = Depends(get_db)) -> PlanScales:
+@router.get("", response_model=PlanScalesOut)
+async def get_plan_scales(db: AsyncSession = Depends(get_db)) -> PlanScalesOut:
     """PUBLIC — needed to measure on plans (viewers included) and cached offline at boot.
     Never raises: whatever in the stored blob does not validate is dropped entry-wise, the rest
-    is served."""
+    is served — with the `version` the caller sends back as `If-Match` when it writes."""
     row = await _row(db)
-    return _read_tolerantly(row.plan_scales_json if (row and row.plan_scales_json) else {})
+    raw = row.plan_scales_json if (row and row.plan_scales_json) else {}
+    return PlanScalesOut(**_read_tolerantly(raw).model_dump(), version=_version(raw))
 
 
-@router.put("", response_model=PlanScales)
+@router.put("", response_model=PlanScalesOut)
 async def put_plan_scales(
     body: PlanScales,
     _editor: CurrentEditor,
     db: AsyncSession = Depends(get_db),
-) -> PlanScales:
+    if_match: str | None = Header(default=None, alias="If-Match"),
+) -> PlanScalesOut:
     """Editor-only. REPLACES the whole document — scales and georeferences alike — so the client
     must read-modify-write (src/lib/stationPlanScale.ts does; a body built from scratch drops the
     half it doesn't know about). Creates the singleton row if the station has no config row yet.
 
-    ⚠️ Whole-document replace with NO optimistic-concurrency guard: there is no If-Match/version
-    here, so the last PUT wins and a second editor who loaded the document earlier overwrites the
-    first one's calibration or georeference without either of them noticing. Adding a guard is a
-    deliberate design change (client + endpoint + a 428 path), not a drive-by fix."""
+    ⚠️ ``If-Match`` carries the ``version`` the caller last read, and a stale one is refused with
+    409 — the same guard, the same token and the same status as ``PUT /api/config`` (api/config ·
+    put_config), because it is the same hazard: a full-document replace where the last writer wins.
+    It became a REAL one with the unified tactical object. Until then a lost update cost a
+    calibration somebody could re-measure; now the georeference is BAKED into every symbol standing
+    on that sheet, so an overwritten reference silently moves objects on the Karte — and the
+    Verlauf row that says so is written by the device that did the overwriting, not by the one
+    whose correction was lost.
+
+    ⚠️ A PUT WITHOUT the header is still accepted, deliberately, and this is where we differ from
+    ``/api/config`` — which makes it mandatory for browsers on the grounds that the tab doing the
+    damage is by definition an old one. The trade is the other way round here. There is no CLI
+    writer to protect (this endpoint has exactly one client, src/lib/stationPlanScale.ts), the
+    damage a stale write does is one sheet's calibration rather than the station's whole
+    configuration, and refusing an old build would mean a Georeferenz that cannot be saved at all
+    in the field, on a device the operator cannot reload mid-Einsatz. So the window stays open for
+    one release: every answer carries the `version`, the current client sends it back, and the
+    header can be made mandatory once no build without it is in use.
+
+    ⚠️ …and that condition is OBSERVED rather than assumed. Every headerless PUT logs one INFO
+    line, so «is any build without it still writing» is a question the deployment's own log
+    answers. An empty result over a release cycle is the go-ahead to make the header mandatory
+    here (and to drop this paragraph); a line a week says an old tablet is still in the field, and
+    closing the window would take its Georeferenz away.
+    """
     row = await _row(db)
+    stored_version = _version(row.plan_scales_json if row else None)
+    if if_match is None:
+        logger.info("plan-scales PUT without If-Match — a client older than the concurrency guard is still writing")
+    elif if_match.strip('"') != stored_version:
+        raise HTTPException(
+            status_code=409,
+            detail="Die Plan-Kalibrierung wurde inzwischen an anderer Stelle geändert.",
+            headers={"ETag": stored_version},
+        )
     doc = body.model_dump(mode="json")
     if row is None:
         row = DeploymentConfig(id=1, plan_scales_json=doc)
@@ -168,4 +261,4 @@ async def put_plan_scales(
     else:
         row.plan_scales_json = doc
     await db.commit()
-    return body
+    return PlanScalesOut(**body.model_dump(), version=_version(doc))

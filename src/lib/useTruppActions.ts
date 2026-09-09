@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LngLat, TimelineEvent, Trupp, TruppFields } from '../types'
 import type { Doc } from './workspace'
+import type { TacticalObject } from './tacticalObjects'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
 import { confirmDialog } from './ui'
@@ -230,6 +231,9 @@ interface Deps {
   drawings: Drawing[]
   /** live Lage entities — read to see which team colours are already worn (pickTeamColor) */
   entities: Entity[]
+  /** THE tactical store — read where the question is «which surface is this object anchored
+   *  on», which membership of `entities`/`board` can no longer answer (lib/placedTrupps) */
+  objects: TacticalObject[]
   setTrupps: Dispatch<SetStateAction<Trupp[]>>
   /** read-only board (to locate a Trupp's plan chip so «auf Plan zeigen» centres on it) */
   board: BoardDoc
@@ -273,7 +277,7 @@ interface Deps {
  * persistence blob + hydrate + multiple components) and are passed in.
  */
 export function useTruppActions(deps: Deps) {
-  const { trupps, drawings, entities, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps } = deps
+  const { trupps, drawings, entities, objects, setTrupps, board, setBoard, setDocRaw, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus, mapCenter, focusMapEntity, focusMapDrawing, undoTimeline, liveTrupps } = deps
 
   /** The Verlauf row + audit event a step owes the record — append-only, so a correction is a NEW
    *  row and never a rewritten one. Icon 'undo' with kind 'team' lands the row under «Atemschutz»
@@ -620,7 +624,7 @@ export function useTruppActions(deps: Deps) {
   const adoptTruppMarker = async (truppId: string, markerId: string): Promise<boolean> => {
     const tr = trupps.find((t) => t.id === truppId)
     if (!tr) return false
-    const join = resolveMarkerJoin(markerId, truppId, entities, board, trupps)
+    const join = resolveMarkerJoin(markerId, truppId, objects, trupps)
     if (!join) return false
     if (join.own) return true // already this Trupp's symbol — nothing to do, and no takeover
     if (join.holder) {

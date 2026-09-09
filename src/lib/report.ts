@@ -98,11 +98,12 @@ export function hasVisiblePlanAnnotation(board: BoardDoc, planId: string): boole
   })
 }
 
-/** `twinAnnos` (30.08.): mirrored Karte content projected onto a linked sheet counts as an
- *  annotation too — the field drew the whole Lage on the map, saw it standing on the Modul,
- *  and the printed Rapport attached nothing because the sheet itself carried no stroke. */
-export function annotatedPlans(plans: PlanDocument[], board: BoardDoc, includeAll: boolean, twinAnnos?: Record<string, BoardAnno[]>): PlanDocument[] {
-  return includeAll ? plans : plans.filter((p) => hasVisiblePlanAnnotation(board, p.id) || (twinAnnos?.[p.id]?.length ?? 0) > 0)
+/** ⚠️ `board` is the WHOLE answer: a sheet's list is its own annos plus the Karte's objects
+ *  projected onto it (lib/useObjectStore · board), so a plan whose only marks come from the map
+ *  counts as annotated by construction. It used to take a second list beside this one, and the
+ *  two then had to be concatenated everywhere — which is how every anno came to print twice. */
+export function annotatedPlans(plans: PlanDocument[], board: BoardDoc, includeAll: boolean): PlanDocument[] {
+  return includeAll ? plans : plans.filter((p) => hasVisiblePlanAnnotation(board, p.id))
 }
 
 export function planLabel(plan: PlanDocument | undefined, floor?: number): string {

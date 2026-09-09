@@ -66,6 +66,25 @@ export function linkPageOwnsSession(pathname = currentPath()): boolean {
   return kind === 'atemschutz' || kind === 'atemschutz-standing' || kind === 'terminal'
 }
 
+/**
+ * Is this page a handed-over LINK surface at all — as opposed to the ordinary app running under a
+ * device login?
+ *
+ * Broader than `linkPageOwnsSession` on purpose, and used for a different question. That one asks
+ * WHOSE session answers a request; this one asks whether the page is entitled to write STATION
+ * data — the calibrations and georeferences every incident and every device shares. A link is a
+ * surface handed to somebody for one job (watch this Atemschutz board, look at this Einsatz), and
+ * none of those jobs is «reshape the station's plans». The Atemschutz link would be refused by the
+ * server anyway; a view link on a device that happens to be signed in as an editor would NOT, and
+ * that is the one worth stopping.
+ */
+export function onLinkPage(pathname = currentPath()): boolean {
+  // …and the Stations-Terminal counts: an enrolled device on /terminal is a link surface the
+  // same way an /l/<token> page is — station-data writes (the measured-aspect note, notably)
+  // are an editor's business, whoever happens to be signed in on the box.
+  return pathname === TERMINAL_PATH || linkTokenFromPath(pathname) !== null
+}
+
 /** The header for one request, from the address bar. */
 export function linkSessionHeaders(pathname = currentPath()): Record<string, string> {
   if (linkPageOwnsSession(pathname)) return { [LINK_MODE_HEADER]: 'use' }

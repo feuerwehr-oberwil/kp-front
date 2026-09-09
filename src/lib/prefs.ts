@@ -121,7 +121,7 @@ export interface Prefs {
    *  because of something they agreed to months ago. */
   sharePosition?: SharePositionPref
   /** Georeferenz twin layers that have been switched OFF on this device, keyed by their Ebenen
-   *  row id (lib/georefTwins · twinPlanLayerId / TWIN_MAP_*). Absent or `true` = shown, which is
+   *  row id (lib/georefTwins · twinPlanImageLayerId). Absent or `true` = shown, which is
    *  the default: a georeference exists because somebody deliberately made one, and seeing both
    *  pictures at once is what they made it for.
    *

@@ -66,6 +66,48 @@ describe('mergeRecord — three-way key/value merge', () => {
   })
 })
 
+/* Schema 2: the unified `objects` collection is the authoritative tactical store; the legacy
+ * entities/drawings/board come out of the merge as DERIVED VIEWS of it. A legacy side (an
+ * un-updated device's save, which drops `objects`) is unified before merging. */
+describe('mergeWorkspace — unified objects (schema 2)', () => {
+  const ent = (id: string, x = 0) => ({ id, kind: 'symbol', layer: 'taktisch', coord: [7.55, 47.51], x })
+  const geoObj = (id: string, x = 0) => ({ id, entity: ent(id, x) })
+  const sheetObj = (id: string, planId = 'modul2') => ({ id, sheet: { planId, anno: { id, kind: 'symbol', x: 0.5, y: 0.5 } } })
+
+  it('merges objects per id and derives the views from the merged result', () => {
+    const base = { objects: [geoObj('a')] }
+    const theirs = { objects: [geoObj('a'), sheetObj('s1')] } // they drew on a sheet
+    const mine = { objects: [geoObj('a', 2)] } // I moved the map object
+    const out = mergeWorkspace(base, mine, theirs) as Record<string, unknown>
+    const objects = out.objects as { id: string }[]
+    expect(objects.map((x) => x.id).sort()).toEqual(['a', 's1'])
+    expect((out.entities as { id: string; x: number }[])).toEqual([ent('a', 2)])
+    expect((out.board as Record<string, { id: string }[]>).modul2.map((x) => x.id)).toEqual(['s1'])
+  })
+
+  it('unifies a legacy side before merging — its board anno arrives as one object', () => {
+    const base = {}
+    const theirs = { entities: [ent('a')], board: { modul2: [{ id: 's1', kind: 'symbol', x: 0.1, y: 0.1 }] } } // old client
+    const mine = { objects: [geoObj('b')] }
+    const out = mergeWorkspace(base, mine, theirs) as Record<string, unknown>
+    expect((out.objects as { id: string }[]).map((x) => x.id).sort()).toEqual(['a', 'b', 's1'])
+  })
+
+  /* ⚠️ The hazard the unification exists to close: the old transfer was delete-in-one +
+   * add-in-the-other with the SAME id, and the independently merged collections could
+   * resurrect the object on both sides. As one record it cannot split any more — and a
+   * legacy blob already carrying the duplicate heals into one sheet-anchored object. */
+  it('a legacy transfer duplicate heals into ONE object, never two surfaces', () => {
+    const theirs = { entities: [ent('x1')], board: { modul2: [{ id: 'x1', kind: 'symbol', x: 0.5, y: 0.5 }] } }
+    const out = mergeWorkspace({}, { objects: [] }, theirs) as Record<string, unknown>
+    expect((out.objects as { id: string }[]).map((x) => x.id)).toEqual(['x1'])
+    // ONE record, drawn on both surfaces — the sheet from its anno, the Karte from its map
+    // body. What the heal removes is the second RECORD, not the second picture.
+    expect((out.entities as { id: string }[]).map((x) => x.id)).toEqual(['x1'])
+    expect((out.board as Record<string, { id: string }[]>).modul2.map((x) => x.id)).toEqual(['x1'])
+  })
+})
+
 describe('mergeWorkspace — whole blob', () => {
   it('merges collections by id and keeps the local view/config (activePlanId)', () => {
     const base = { entities: [o('e1')], drawings: [], activePlanId: 'p1' }
@@ -91,7 +133,9 @@ describe('mergeWorkspace — whole blob', () => {
     const theirs = { board: { p1: [o('a1'), o('a2')] } } // unchanged
     const mine = { board: { p1: [] } } // I cleared the board
     const merged = mergeWorkspace(base, mine, theirs) as { board: Record<string, { id: string }[]> }
-    expect(merged.board.p1).toEqual([])
+    // since schema 2 the board is a VIEW of the merged objects: an emptied plan simply has
+    // no key any more — «no annos on p1» either way, which is the semantic this test pins
+    expect(merged.board.p1 ?? []).toEqual([])
   })
 })
 
@@ -451,7 +495,7 @@ describe('mergeWorkspace — a server blob this app did not write', () => {
     const out = mergeWorkspace(base, mine, theirs) as Record<string, unknown>
     expect(out.drawings).toEqual([])
     expect(out.attendance).toEqual({ p1: { present: true } })
-    expect(out.board).toEqual({ modul1: [] })
+    expect(out.board).toEqual({}) // the corrupt plan list reads as empty → no key in the derived view
     expect(out.reportMeta).toEqual({})
     const tr = (out.trupps as { readings: unknown[] }[])[0]
     expect(tr.readings).toEqual([{ t: '10:00', bar: 280, kind: 'entry' }]) // my row survives, their `{}` reads as empty

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TERMINAL_PATH, linkKindFromToken, linkPageOwnsSession, linkSessionHeaders, linkTokenFromPath } from './linkMode'
+import { TERMINAL_PATH, linkKindFromToken, linkPageOwnsSession, linkSessionHeaders, linkTokenFromPath, onLinkPage } from './linkMode'
 
 const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJpbmMiOiJhYmMifQ.sig-part_1' // an alarm link (a JWT)
 const ATEMSCHUTZ = 'aSECRET-secret-secret'
@@ -58,5 +58,28 @@ describe('which session a page asks with', () => {
       expect(linkSessionHeaders(path)).toEqual({ 'X-Incident-Link': 'use' })
       expect(linkPageOwnsSession(path)).toBe(true)
     }
+  })
+})
+
+/* ⚠️ A different question from `linkPageOwnsSession`, which asks whose session answers a request.
+ * This one asks whether the page may write STATION data — the calibrations and georeferences every
+ * incident and device shares. A link is handed to somebody for one job, and none of those jobs is
+ * «reshape the station's plans». */
+describe('onLinkPage', () => {
+  it('is true for EVERY handed-over link, not only the one that owns the session', () => {
+    expect(onLinkPage(`/l/${ATEMSCHUTZ}`)).toBe(true)
+    // …the one that matters: a view link on a device signed in as an editor would be ALLOWED to
+    // write by the server, so only the client can decline it
+    expect(onLinkPage(`/l/${VIEW}`)).toBe(true)
+    expect(onLinkPage(`/l/${TOKEN}`)).toBe(true)
+    // the Stations-Terminal is a link surface too — an enrolled device is not an editor,
+    // whoever is signed in on the box (main gained the page mid-rework; guard follows)
+    expect(onLinkPage(TERMINAL_PATH)).toBe(true)
+  })
+
+  it('is false for the ordinary app', () => {
+    expect(onLinkPage('/')).toBe(false)
+    expect(onLinkPage('/einsatz/abc')).toBe(false)
+    expect(onLinkPage(`/e/${TOKEN}`)).toBe(false) // the capture poster is not a link session
   })
 })

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { boomFor, glyphFor, overlayFor, twinName } from './twinGlyph'
-import { GROSSLUEFTER, GROSSLUEFTER_BODY, GROSSLUEFTER_FAN, HUBRETTER, LUEFTER, LUEFTER_EXTRACT } from './symbolRender'
+import { glyphFor, twinName } from './entityGlyph'
+import { GROSSLUEFTER, GROSSLUEFTER_BODY, HUBRETTER, LUEFTER, LUEFTER_EXTRACT } from './symbolRender'
 import { appConfig } from '../config/appConfig'
 import type { BoardAnno, Entity } from '../types'
 
@@ -64,12 +64,6 @@ describe('glyphFor', () => {
   })
 })
 
-describe('boomFor', () => {
-  it('gives a Hubretter its boom, aimed by rotation2 plus the frame change — and nothing else one', () => {
-    expect(boomFor(anno({ symbol: HUBRETTER, rotation2: 20 }), 80, -5)).toEqual({ lengthPx: 80, deg: 15 })
-    expect(boomFor(anno({ symbol: 'Hydrant' }), 80)).toBeUndefined()
-  })
-})
 
 describe('twinName', () => {
   it('prefers the label, then the symbol, then the text — a plaque never says nothing', () => {
@@ -80,16 +74,3 @@ describe('twinName', () => {
   })
 })
 
-describe('overlayFor', () => {
-  it('stacks the composite part, aimed by rotation2 plus the caller\'s frame change', () => {
-    const o = overlayFor(entity({ symbol: GROSSLUEFTER, rotation2: 30 }), byName, 15)
-    expect(o?.svg).toBe(byName[GROSSLUEFTER_FAN])
-    expect(o?.rotation).toBe(45)
-  })
-
-  it('honours the Lüfter airflow variant, and stays empty for plain symbols', () => {
-    const saugend = overlayFor(entity({ symbol: GROSSLUEFTER, extract: true }), byName)
-    expect(saugend?.svg).toBe(byName[LUEFTER_EXTRACT])
-    expect(overlayFor(entity({ symbol: 'Hydrant' }), byName)).toBeUndefined()
-  })
-})

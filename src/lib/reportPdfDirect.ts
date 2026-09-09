@@ -205,12 +205,9 @@ export interface DirectReportArgs {
      *  screen it was framed on did (an Einsatzleiter symbol prints its name) */
     captionMode?: CaptionMode
   }
-  /** plan whiteboard (with `plans` + the annotatedPlans options → server-rendered pages) */
+  /** what every sheet DRAWS: its own annos plus the Karte's objects projected onto it
+   *  (lib/useObjectStore · board). One list — the page shows what the screen shows. */
   board?: BoardDoc
-  /** mirrored Karte content per linked plan (georefTwins · boardTwinAnnosForPrint) — the
-   *  printed sheet shows what the screen's sheet shows, and a plan whose only marks are
-   *  mirrored still counts as annotated */
-  twinAnnos?: Record<string, BoardAnno[]>
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null
   /** alternate endpoint/auth (capture view: poster token instead of the kiosk cookie) */
@@ -251,7 +248,7 @@ export function einsatzleiterForPdf(
 /** The ONE payload builder — shared by the PDF download and the station-printer enqueue
  *  (src/lib/printRelay.ts), so both always produce the identical document. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
-  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building, twinAnnos } = args
+  const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
@@ -291,14 +288,16 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // annotated Objektpläne as references + board annos; the Gebäude floor-stack has no PDF
   // behind it and exports as client-composed blank-base pages instead (floorStackPages)
   const selectedPlans = board && (draft.options.annotatedPlans || draft.options.allPlans)
-    ? annotatedPlans(plans, board, draft.options.allPlans, twinAnnos)
+    ? annotatedPlans(plans, board, draft.options.allPlans)
     : []
   const printPlans = selectedPlans.filter((p) => p.imageUrl && !p.floorStack)
   const planPages: Record<string, unknown>[] = printPlans.map((p) => ({
     label: `${p.code} · ${p.title}`,
     url: p.imageUrl,
-    // sheet-native annos + the mirrored Karte content standing on this sheet (30.08.)
-    annos: planAnnosForPdf([...(board?.[p.id] ?? []), ...(twinAnnos?.[p.id] ?? [])], scene?.byName ?? {}, scene?.captionMode ?? 'auto'),
+    // ⚠️ ONE list. The board view a sheet draws already carries the Karte's objects projected
+    // onto it (lib/useObjectStore · board), so concatenating a second «mirrored» list here
+    // printed every annotation on a linked plan twice — the sheet's own ink included.
+    annos: planAnnosForPdf(board?.[p.id] ?? [], scene?.byName ?? {}, scene?.captionMode ?? 'auto'),
   }))
   if (building) {
     for (const p of selectedPlans.filter((x) => x.floorStack)) {

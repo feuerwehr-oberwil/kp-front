@@ -3,7 +3,7 @@ import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import type { BoardAnno, CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
+import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
@@ -17,7 +17,7 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, GEOREF_CONTENT_PICK_LAYERS, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
@@ -43,9 +43,6 @@ import { reportClientError } from '../lib/reportError'
 import { isTypingTarget } from '../lib/hotkeys'
 import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
-import { GeorefTwinsMap } from './GeorefTwinsMap'
-import { GeorefContentMap } from './GeorefContentMap'
-import type { MapContentTwin, MapTwin } from '../lib/georefTwins'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
@@ -59,11 +56,6 @@ import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, D
 // endpoint could not be grabbed to extend it (28.08. field feedback). One stacking table for all
 // of it (lib/labelPass), like the end tags directly below.
 const handleZ: React.CSSProperties = { zIndex: MARKER_Z.selected }
-/** The mirrored kinds the selection bar appears for — exactly the kinds a NATIVE gets it for on
- *  this surface: ink and a Form. A mirrored symbol / Notiz / Truppmarker keeps its original's
- *  grammar instead (its own drag, its panel's rotation stepper), so the bar never shows up on an
- *  object whose native counterpart has no bar. */
-const BAR_TWIN_KINDS = ['draw', 'area', 'circle', 'shape']
 // The pass measures a label before it exists in the DOM, so the chrome around its text has to
 // be mirrored here. When a label's CSS changes, these change with it — each is named for the
 // rule it comes from.
@@ -366,7 +358,7 @@ interface Props {
   marqueeEnabled?: boolean
   selectedDrawIds?: string[]
   /** the boxed drawings + entities from a lasso gesture */
-  onMarquee?: (drawIds: string[], entityIds: string[], twinKeys: string[]) => void
+  onMarquee?: (drawIds: string[], entityIds: string[]) => void
   /** Absperrkreis (circle) tool active — drag centre→edge to set the radius */
   circleEnabled?: boolean
   /** commit a finished circle (centre + radius in metres) */
@@ -376,47 +368,9 @@ interface Props {
   /** Move AND/OR turn a marquee group in one writer: the bar streams a lng/lat delta, a turn in
    *  degrees about the group's centre, or (in principle) both, folded into one undo step. */
   onGroupTransform?: (ids: string[], entIds: string[], t: { dLng: number; dLat: number; deg: number }, phase: 'start' | 'move' | 'end') => void
-  /** Georeferenz twins: tactical symbols use the interactive point-twin path below; broader
-   *  Modul content travels separately through `georefPlanContent`. Both are derived and empty
-   *  during replay or whenever their Ebenen row is off. */
-  twins?: MapTwin[]
-  /** Non-symbol content from linked plans: lines, areas, notes, shapes and Atemschutz markers. */
-  georefPlanContent?: MapContentTwin[]
-  /** tap on a twin → open its source-backed editor (components/GeorefTwinPanel) */
-  onTwinOpen?: (twin: MapTwin) => void
-  /** drag a projection of a plan annotation — writes the SOURCE anno through the twin's own
-   *  fit, so every other projection of it follows from that one write (see MapTwin · fit) */
-  onTwinMove?: (twin: MapTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** «Fertig» on the selection bar: end the editing state — clear every selection and close the
    *  sheets that were open for it. Exactly what a tap on the empty map already does. */
   onSelectionDone?: () => void
-  /** The sheet a mirrored object is being dragged on, for the length of that drag: its projected
-   *  outline, and whichever of its four edges are HOLDING the drag back right now. Absent when no
-   *  twin is in the hand. See IncidentWorkspace · twinBound for why it exists. */
-  twinBound?: { ring: LngLat[]; held: LngLat[][] } | null
-  /** tap on any mirrored content object (line, area, note, shape, Trupp chip): open its
-   *  in-place source-backed panel on this surface (GeorefContentMap) */
-  onContentTwinOpen?: (twin: MapContentTwin) => void
-  /** drag a mirrored content object: move its one source annotation through the fit (a point
-   *  writes x/y, a line/area translates every vertex — see IncidentWorkspace · moveMapTwinSource) */
-  onContentTwinMove?: (twin: MapContentTwin, coord: LngLat, phase: 'start' | 'move' | 'end') => void
-  /** vertex-level edits (pts + attachment clears) of a selected mirrored plan drawing */
-  onContentTwinEdit?: (twin: MapContentTwin, patch: Partial<BoardAnno>, phase: 'live' | 'commit') => void
-  /** unlock a mirrored plan line/area/shape through its LockChip — the twin of onUnlockDrawing */
-  onContentTwinUnlock?: (twin: MapContentTwin) => void
-  /** the mirrored objects the marquee boxed — group members like any other (D-09) */
-  selectedContentTwinKeys?: string[]
-  /** Move / turn a mirrored selection from the selection bar. The delta and the turn are in the
-   *  MAP's frame, about `centre`; the caller folds each twin's SOURCE through its own fit and
-   *  writes it in plan space, so the ONE source object moves and every projection follows. */
-  onContentTwinTransform?: (keys: string[], t: { dLng: number; dLat: number; deg: number }, centre: LngLat, phase: 'start' | 'move' | 'end') => void
-  /** …and the bar's Löschen for the same selection. */
-  /** the mirrored Truppmarker's context bar — the same one a native Trupp wears here, writing
-   *  the ONE plan annotation (components/TwinTeamPill) */
-  contentTwinTeam?: React.ComponentProps<typeof GeorefContentMap>['teamActions']
-  selectedTwinKey?: string | null
-  /** the content twin whose in-place panel is open — its hit target wears the halo */
-  selectedContentTwinKey?: string | null
   /** Opt-in literal plan sheets from Ebenen, already rasterized and projected by their fit. */
   georefPlanRasters?: {
     id: string
@@ -439,7 +393,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
-    twins = [], georefPlanContent = [], onTwinOpen, onTwinMove, onSelectionDone, twinBound = null, onContentTwinOpen, onContentTwinMove, onContentTwinEdit, onContentTwinUnlock, contentTwinTeam, selectedContentTwinKeys = [], onContentTwinTransform, selectedTwinKey = null, selectedContentTwinKey = null, georefPlanRasters = [] } = props
+    onSelectionDone, georefPlanRasters = [] } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -450,9 +404,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
    *  steps aside and the tool's number stands fixed at the top edge instead (mockup 03-B: a
    *  rapidly changing value is read where it stands still, never under the fingertip) */
   const [measureDragNode, setMeasureDragNode] = useState<number | null>(null)
-  /** the open fat-finger fan's screen offsets (MapMarkers owns the gesture and hands them over),
-   *  so a MIRRORED member of the pile steps out with the natives instead of staying buried */
-  const [pileFan, setPileFan] = useState<Record<string, { dx: number; dy: number }> | null>(null)
   const toggleTrail = (id: string) => setHiddenTrails((prev) => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
@@ -656,47 +607,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         endAttachment: drag.endpoint === 'end' ? undefined : d.endAttachment,
       }
     })
-  /**
-   * Every MIRRORED object a Leitung end, a placement or a Rotation end may dock onto — the same
-   * kinds a native offers (lib/lineAttachments · MAGNET_ENTITY_KINDS), because a hose that
-   * reaches a mirrored Hydrant has reached the Hydrant, and nothing on the surface said why it
-   * could not (D-08, 01.09.).
-   *
-   * ⚠️ The stored attachment names an object in ANOTHER document — that is the mechanical
-   * exception, and it is a real one: both live surfaces resolve it (objectPoint falls back to
-   * this list, its plan twin does the same), but the server-side/print adapters cannot, and a
-   * delete on the far side leaves it dangling. Both cases land on the SAME safe answer
-   * `resolveLinePoints` already gives every unresolvable attachment: the stored coordinate,
-   * which is exactly where the endpoint was dropped.
-   */
-  const twinMagnets = georefOn ? [] : [
-    ...twins.map((t) => ({ id: t.annoId, coord: t.coord, kind: t.anno.symbol === appConfig.symbols.vehicleName ? 'vehicle' : 'symbol', rotation: (t.anno.rotation ?? 0) - t.fit.rotationDeg })),
-    ...georefPlanContent.flatMap((t) => (t.anno.kind === 'resource' && t.coord
-      ? [{ id: t.annoId, coord: t.coord, kind: 'team', rotation: 0 }] : [])),
-  ]
-  const twinMagnetPx = (m: { kind: string; coord: LngLat }) =>
-    (m.kind === 'team' ? 56 : symPx(m.kind, m.coord[1], zoom, symMul))
-  /** Where a mirrored object stands on this surface: its ink vertices, or its one anchor. What
-   *  the lasso boxes it by, and what the selection bar takes its centre from. */
-  const twinPointsOf = (t: { coord?: LngLat; coords?: LngLat[] }): LngLat[] =>
-    (t.coords?.length ? t.coords : t.coord ? [t.coord] : [])
-  /** Every mirrored object a marquee may box — the same rule a native follows (any point inside
-   *  the box), across BOTH twin layers. Locked sources stay out, exactly as locked natives do. */
-  const twinLassoPoints = [...twins, ...georefPlanContent].flatMap((t) => {
-    const points = twinPointsOf(t)
-    return points.length && !t.anno.locked ? [{ key: t.key, points }] : []
-  })
+  /* ⚠️ No mirrored-magnet list any more. A plan-drawn Hydrant IS an entity on this map now
+     (lib/tacticalObjects), so it offers itself to a Leitung end through the ordinary object
+     targets below — and the attachment names an object in the SAME document, which is what the
+     stored id always claimed and, until the store was unified, could not keep. */
   const resolvedCoords = new globalThis.Map<string, LngLat[]>()
   const objectPoint = (id: string, toward: LngLat, attachment: import('../types').LineAttachment, source: AttachableLine<LngLat>): LngLat | null => {
     const map = mapInst.current
-    const twin = entities.some((x) => x.id === id) ? null : twinMagnets.find((m) => m.id === id)
-    if (twin && map) {
-      const c = map.project(twin.coord), t = map.project(toward)
-      const size = twinMagnetPx(twin)
-      const p = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: twin.kind === 'vehicle' ? size * 0.7 : size, rotation: twin.rotation - bearing }, [t.x, t.y], -attachInsetPx(source.width))
-      const ll = map.unproject(p)
-      return [ll.lng, ll.lat]
-    }
     const e = entities.find((x) => x.id === id)
     if (!e || !map || !Array.isArray(e.coord)) return attachment.gps?.lastSafe ?? null
     let center = e.coord
@@ -746,12 +663,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [pointer.x, pointer.y])
         return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: e.kind === 'team' ? 'trace' : 'direct' }
       })
-    // …and the mirrored ones, offered exactly like a native standing in the same spot
-    const twinTargets: MagneticTarget[] = twinMagnets.map((m) => {
-      const c = map.project(m.coord), size = twinMagnetPx(m)
-      const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: m.kind === 'vehicle' ? size * 0.7 : size, rotation: m.rotation - bearing }, [pointer.x, pointer.y])
-      return { key: `object:${m.id}`, target: { kind: 'object', id: m.id }, point: edge, defaultRouting: m.kind === 'team' ? 'trace' : 'direct' }
-    })
     const lineTargets: MagneticTarget[] = drawings
       .filter((d) => d.kind === 'line' && d.id !== sourceId && d.coords.length >= 2)
       .flatMap((d) => (['start', 'end'] as const).flatMap((endpoint) => {
@@ -767,7 +678,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           return { key: `line:${d.id}:${endpoint}:${port}`, target: { kind: 'line', id: d.id, endpoint }, point, capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, d.id), defaultRouting: 'direct' as const }
         })
       }))
-    return [...objectTargets, ...twinTargets, ...lineTargets]
+    return [...objectTargets, ...lineTargets]
   }
   const beginEndpointDrag = (id: string, endpoint: LineEndpoint, coord: LngLat) => {
     const stored = storedDrawings.find((d) => d.id === id)
@@ -934,12 +845,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (!map) return
     const p = map.project(at)
     let best: { key: string; coord: LngLat; d: number } | null = null
-    // natives AND mirrored objects: a symbol you can see on this surface is a place you can aim
-    // the next one at, whichever document happens to persist it
+    // a symbol you can see on this surface is a place you can aim the next one at
     const anchors: { key: string; coord: LngLat }[] = [
       ...entities.flatMap((e) => (isMagnetEntity(e) && Array.isArray(e.coord) && isVisible(effectiveLayer(e))
         ? [{ key: e.id, coord: e.coord as LngLat }] : [])),
-      ...twinMagnets.map((m) => ({ key: m.id, coord: m.coord })),
     ]
     for (const a of anchors) {
       const q = map.project(a.coord)
@@ -1170,7 +1079,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // ring filling over a Hydrant while a Fläche is dragged across it was promising a link that was
   // then discarded. The Plan says the same thing in its own words (Whiteboard · inkMove: «no
   // magnet and no attachments — those belong to a Leitung's ends»).
-  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand: !!freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, twinPoints: twinLassoPoints, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
+  const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand: !!freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
 
   // a circle drawing as a closed polygon ring (LngLat[]) for rendering / selection outline.
   const circleRing = (d: Drawing): LngLat[] => circlePolygon(d.coords[0], d.radiusM ?? 0)[0] as LngLat[]
@@ -1398,28 +1307,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // A projection is presentation-equivalent to the object beside it, and that includes being
     // arbitrated by this pass: twin labels used to be neither suppressed NOR visible to it, so
     // they printed over native names and native names dodged nothing (01.09.).
-    for (const t of twins) {
-      const p = px(t.coord)
-      const g = symPx(t.anno.symbol === appConfig.symbols.vehicleName ? 'vehicle' : 'symbol', t.coord[1], zoom, symMul)
-      occupied.push({ x: p.x - g / 2, y: p.y - g / 2, w: g, h: g })
-      const cap = symbolCaptionText(t.anno, captionMode)
-      if (!cap) continue
-      const size = cachedLabelSize(softHyphenateText(cap), LABEL_STYLE.caption)
-      cands.push({ key: `tcap:${t.key}`, rank: t.key === selectedTwinKey ? LABEL_RANK.selected : LABEL_RANK.caption, dist: near(p),
-        box: { x: p.x - size.w / 2, y: p.y + g / 2 + CAPTION_GAP, w: size.w, h: size.h } })
-    }
-    for (const t of georefPlanContent) {
-      const a = t.anno
-      if (a.kind === 'resource' && t.coord) {
-        const p = px(t.coord)
-        occupied.push({ x: p.x - TEAM_DOT_PX / 2, y: p.y - TEAM_DOT_PX / 2, w: TEAM_DOT_PX, h: TEAM_DOT_PX })
-        if (a.text && t.key !== selectedContentTwinKey) {
-          const size = cachedLabelSize(a.text, LABEL_STYLE.team)
-          cands.push({ key: `tteam:${t.key}`, rank: LABEL_RANK.team, dist: near(p),
-            box: { x: p.x + TEAM_DOT_PX / 2 + TEAM_DOT_GAP, y: p.y - size.h / 2, w: size.w, h: size.h } })
-        }
-      }
-    }
     // The live Messen readouts deliberately stay OUT of the pass: they belong to a tool the
     // operator is holding right now, they change on every vertex drag, and a measurement that
     // blinks out because a caption got there first would be unusable.
@@ -1494,16 +1381,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // a marquee group (≥2 across drawings + entities): which objects light up as "selected" = the
   // group, else the single edit target. Both boxed drawings AND boxed symbols/entities join it.
   // It is moved, turned and deleted from the same bar every other selection uses (SelectionBar).
-  const groupActive = (selectedDrawIds.length + selectedEntityIds.length + selectedContentTwinKeys.length) > 1 && !picking && !freehand && !draftKind && !measureKind
+  const groupActive = (selectedDrawIds.length + selectedEntityIds.length) > 1 && !picking && !freehand && !draftKind && !measureKind
   const groupDraws = groupActive ? drawings.filter((d) => selectedDrawIds.includes(d.id) && Array.isArray(d.coords) && d.coords.length > 0) : []
   const groupEnts = groupActive ? entities.filter((e) => selectedEntityIds.includes(e.id) && Array.isArray(e.coord) && !e.live) : []
-  // …and the mirrored members of the same box (D-09): a projection joins the group like anything
-  // else, and the group's writers fold it back through its own fit.
-  const groupTwins = groupActive ? [...twins, ...georefPlanContent].filter((t) => selectedContentTwinKeys.includes(t.key) && !t.anno.locked) : []
   const groupCentroid: LngLat | null = centroid([
     ...groupDraws.flatMap((d) => d.coords as [number, number][]),
     ...groupEnts.map((e) => e.coord as [number, number]),
-    ...groupTwins.flatMap((t) => twinPointsOf(t) as [number, number][]),
   ])
   // dragging a line's distance/text label: the label is anchored at a GEOREFERENCED point
   // (the polyline midpoint, or a dragged `labelAt`). We keep the grab offset between the
@@ -1581,21 +1464,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const selShape = !groupActive && !editDraw && draggable && !georefOn && !readOnly
     ? entities.find((e) => e.id === selectedId && e.kind === 'shape' && !e.locked && !e.live)
     : undefined
-  /** The ONE mirrored object the bar transforms. Same kinds a NATIVE gets the bar for — ink and
-   *  a Form. A mirrored symbol / Notiz / Truppmarker keeps its original's grammar instead: it is
-   *  moved by its own drag and turned from its panel's stepper, exactly like the native beside
-   *  it, so the bar does not appear where the surface has never had one. */
-  const selTwin = !groupActive && draggable && !georefOn && !readOnly && onContentTwinTransform
-    ? georefPlanContent.find((t) => t.key === selectedContentTwinKey && BAR_TWIN_KINDS.includes(t.anno.kind ?? '') && !t.anno.locked)
-    : undefined
   /** the selection's centre, snapshotted at gesture start — the live one travels with the drag */
   const barFrom = useRef<{ at: LngLat; coords: LngLat[]; rotation: number } | null>(null)
-  const barCentre: LngLat | null = groupCentroid ?? (editDraw ? editCentroid : selShape ? selShape.coord
-    : selTwin ? centroid(twinPointsOf(selTwin) as [number, number][]) : null)
-  /** the twin keys this gesture writes through — one mirrored object, or the twins inside a
-   *  mixed marquee group. ⚠️ A mixed group folds into TWO undo steps, one per document: the two
-   *  surfaces keep separate histories by design (Lage document vs per-plan board). */
-  const barTwinKeys = selTwin ? [selTwin.key] : groupTwins.map((t) => t.key)
+  const barCentre: LngLat | null = groupCentroid ?? (editDraw ? editCentroid : selShape ? selShape.coord : null)
   /** client px → a lng/lat delta measured at `at`, so the selection travels with the finger at
    *  any zoom and bearing */
   const barDelta = (dx: number, dy: number, at: LngLat): [number, number] | null => {
@@ -1610,7 +1481,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       if (!barCentre) return
       beginSheetPeek()
       barFrom.current = { at: barCentre, coords: editDraw?.coords ?? [], rotation: selShape?.rotation ?? 0 }
-      if (barTwinKeys.length) onContentTwinTransform?.(barTwinKeys, { dLng: 0, dLat: 0, deg: 0 }, barCentre, 'start')
       if (editDraw) { moveRef.current = { start: barCentre, coords: editDraw.coords }; onDrawingEdit?.(editDraw.id, editDraw.coords, 'start') }
       else if (selShape) onMarkerDragStart(selShape.id)
       else if (groupActive) onGroupTransform?.(selectedDrawIds, selectedEntityIds, { dLng: 0, dLat: 0, deg: 0 }, 'start')
@@ -1622,7 +1492,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // ⚠️ The writers run BEFORE the refs are cleared: bodyMovedCoords translates from the
     // snapshot in moveRef, and dropping it first would leave the final frame translating the
     // already-moved live geometry — the line would jump the whole delta a second time.
-    if (barTwinKeys.length) onContentTwinTransform?.(barTwinKeys, { dLng: d[0], dLat: d[1], deg: 0 }, st.at, phase)
     if (editDraw) onDrawingEdit?.(editDraw.id, bodyMovedCoords(editDraw.id, d[0], d[1]), phase)
     else if (selShape) {
       const to: LngLat = [st.at[0] + d[0], st.at[1] + d[1]]
@@ -1641,7 +1510,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (phase === 'start') {
       if (!barCentre) return
       barFrom.current = { at: barCentre, coords: editDraw?.coords ?? [], rotation: selShape?.rotation ?? 0 }
-      if (barTwinKeys.length) onContentTwinTransform?.(barTwinKeys, { dLng: 0, dLat: 0, deg: 0 }, barCentre, 'start')
       if (editDraw) onDrawingEdit?.(editDraw.id, editDraw.coords, 'start')
       else if (selShape) onShapeTransform?.(selShape.id, {}, 'start')
       else if (groupActive) onGroupTransform?.(selectedDrawIds, selectedEntityIds, { dLng: 0, dLat: 0, deg: 0 }, 'start')
@@ -1649,10 +1517,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     }
     const st = barFrom.current
     if (!st) return
-    // ⚠️ A twin turn rotates the SOURCE's own points about the projected centre and folds them
-    // back through the fit — never the projection, which is derived and would be overwritten on
-    // the next render. `rotateAround`'s xScale keeps the turn rigid at this latitude.
-    if (barTwinKeys.length) onContentTwinTransform?.(barTwinKeys, { dLng: 0, dLat: 0, deg }, st.at, phase)
     if (editDraw) {
       const xScale = Math.cos((st.at[1] * Math.PI) / 180) || 1e-6
       onDrawingEdit?.(editDraw.id, st.coords.map((c) => rotateAround(c as [number, number], st.at as [number, number], deg, { xScale, yUp: true }) as LngLat), phase)
@@ -1666,17 +1530,14 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     if (phase === 'end') barFrom.current = null
   }
   /** «Fertig» — the editing state ends. The bar carries no Löschen any more: an object is
-   *  deleted from its own editor sheet and with the Delete key (which since 02.09. reaches a
-   *  mirrored selection too), so the one destructive action is not sitting on chrome two taps
-   *  from every grip. */
+   *  deleted from its own editor sheet and with the Delete key, so the one destructive action
+   *  is not sitting on chrome two taps from every grip. */
   const barDone = () => { onSelectionDone?.() }
   // ⟳ is absent, not inert, where the model carries no angle: an Absperrkreis is a centre and a
   // radius, and a dead button at 3am is a button you keep pressing.
-  const barCanRotate = !!(groupActive ? (onGroupTransform || onContentTwinTransform)
+  const barCanRotate = !!(groupActive ? onGroupTransform
     : editDraw ? !editCircle && onDrawingEdit
     : selShape ? onShapeTransform
-    // an Absperrkreis is a centre and a radius on either surface — no angle to turn
-    : selTwin ? selTwin.anno.kind !== 'circle'
     : false)
   const barShown = !!barCentre && !readOnly && !georefOn && !picking && !freehand && !draftKind && !measureKind
   /** the live turn, drawn on the surface beside its pivot instead of in the bar's far corner
@@ -1704,7 +1565,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // a different selection is a different thing to move, and an armed tool is a different
     // answer to the same press: neither carries the mode over. (The tools `barShown` already
     // rules out disarm through `enabled`; Mehrfach/Absperrkreis leave the bar standing.)
-    resetKey: `${marqueeEnabled ? 'lasso' : ''}${circleEnabled ? 'circle' : ''}|${editDraw?.id ?? ''}|${selShape?.id ?? ''}|${selTwin?.key ?? ''}|${selectedDrawIds.join(',')}|${selectedEntityIds.join(',')}|${selectedContentTwinKeys.join(',')}`,
+    resetKey: `${marqueeEnabled ? 'lasso' : ''}${circleEnabled ? 'circle' : ''}|${editDraw?.id ?? ''}|${selShape?.id ?? ''}|${selectedDrawIds.join(',')}|${selectedEntityIds.join(',')}`,
   })
 
   /**
@@ -1829,12 +1690,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           const a = featArea(cands[i])
           if (a < bestA) { bestA = a; best = cands[i] }
         }
-        const twinKey = best.properties!.twinKey as string | undefined
-        if (twinKey != null) {
-          const twin = georefPlanContent.find((t) => t.key === twinKey)
-          if (twin) onContentTwinOpen?.(twin)
-          return
-        }
         onSelectDrawing(best.properties!.id as string, { x: e.point.x, y: e.point.y }); return
       }
     }
@@ -1883,11 +1738,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Schraffur selectable only by its outline, which is a 4px target around a shape whose
       // whole inside looks tappable. (A `fill` layer hit-tests by geometry, not by painted
       // pixels, so the gaps between the hatch lines are live too.)
-      // ⚠️ …and the mirrored plan ink alongside them (`l-georef-content-*`): a twin is
-      // interaction-equivalent to a native, so its line answers over its whole 18 px band and its
-      // Fläche answers through its fill — not only at a midpoint dot (01.09.).
-      interactiveLayerIds={['l-draw-edit-hit', 'l-measure-hit', 'l-draft-hit', 'l-draw-hit', 'l-draw-line', 'l-draw-line-dash', 'l-draw-fill', 'l-draw-hatch',
-        ...GEOREF_CONTENT_PICK_LAYERS]}
+      interactiveLayerIds={['l-draw-edit-hit', 'l-measure-hit', 'l-draft-hit', 'l-draw-hit', 'l-draw-line', 'l-draw-line-dash', 'l-draw-fill', 'l-draw-hatch']}
       onLoad={(e) => {
         const m = e.target as MlMap
         mapInst.current = m
@@ -2001,44 +1852,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Source>
       ))}
 
-      {!georefOn && georefPlanContent.length > 0 && (
-        <GeorefContentMap twins={georefPlanContent} zoom={zoom} bearing={bearing}
-          trupps={trupps} truppSeverities={truppSeverities}
-          hiddenTrails={hiddenTrails} suppressedLabels={suppressedLabels}
-          interactive={!placing} selectedKey={selectedContentTwinKey} selectedKeys={selectedContentTwinKeys}
-          teamActions={readOnly ? undefined : contentTwinTeam} onToggleTrail={toggleTrail}
-          onOpenTwin={onContentTwinOpen}
-          onMoveTwin={readOnly ? undefined : onContentTwinMove}
-          onEditTwinAnno={readOnly ? undefined : onContentTwinEdit}
-          onUnlockTwin={readOnly ? undefined : onContentTwinUnlock}
-          project={projectLngLat} unproject={unprojectPoint} setDragPan={setDragPanEnabled} />
-      )}
-
-      {/* ── the sheet a mirrored object is being dragged on ────────────────────────────────
-          A twin's source lives on a BOUNDED document, so a drag that crosses the projected paper
-          edge pins that coordinate and keeps following the finger on the other — which reads as
-          a broken drag right up until you can see the paper. So for the length of the drag the
-          Karte draws it: a quiet dashed rectangle in the link tone (the same one «Deckung
-          prüfen» uses), and the edge that is actually holding, solid and on top. Never --accent;
-          this is a constraint, not an alarm. */}
-      {twinBound && (
-        <>
-          <Source id="s-twin-bound" type="geojson" data={{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [...twinBound.ring, twinBound.ring[0]] } }}>
-            {/* the white halo every thin line on this map wears over aerials */}
-            <Layer id="l-twin-bound-halo" type="line" layout={{ 'line-join': 'round' }}
-              paint={{ 'line-color': '#fff', 'line-width': 4, 'line-opacity': 0.5 }} />
-            <Layer id="l-twin-bound" type="line" layout={{ 'line-join': 'round' }}
-              paint={{ 'line-color': blue, 'line-width': 1.8, 'line-opacity': 0.6, 'line-dasharray': [3, 2.4] }} />
-          </Source>
-          {twinBound.held.length > 0 && (
-            <Source id="s-twin-bound-held" type="geojson" data={{ type: 'Feature' as const, properties: {}, geometry: { type: 'MultiLineString' as const, coordinates: twinBound.held } }}>
-              <Layer id="l-twin-bound-held" type="line" layout={{ 'line-cap': 'round' }}
-                paint={{ 'line-color': blue, 'line-width': 3.6, 'line-opacity': 0.95 }} />
-            </Source>
-          )}
-        </>
-      )}
-
       {/* «Karte verknüpfen»: the numbered reference crosses, drag-to-fine-tune, tap-to-re-place */}
       {!georef.check && <GeorefMapMarks mode={georef} map={mapInst.current} />}
       {/* …and the one-shot «Deckung prüfen»: the sheet's outline, where the fit puts it */}
@@ -2046,18 +1859,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       {/* …and the automatic suggestion's transform surface: while ✥/⟳ is armed on a proposal
           review, drags on the Karte move/turn the whole sheet instead of panning */}
       <GeorefAdjustLayer mode={georef} map={mapInst.current} />
-
-      {/* …and what the finished reference produces: the plans' own symbols, mirrored onto the
-          map as quieter twins. Drawn UNDER everything the operator can actually edit (the
-          drawings, the markers below) — a projection must never sit on top of the real thing
-          and swallow the tap meant for it. */}
-      {twins.length > 0 && onTwinOpen && !georefOn && (
-        <GeorefTwinsMap twins={twins} byName={byName} zoom={zoom} bearing={bearing} symMul={symMul} captionMode={captionMode}
-          suppressedLabels={suppressedLabels} fanOffsets={pileFan} networkIds={relationship.objectIds}
-          interactive={!placing} selectedKey={selectedTwinKey} selectedKeys={selectedContentTwinKeys} onOpen={onTwinOpen}
-          onMove={readOnly ? undefined : onTwinMove}
-          project={projectLngLat} unproject={unprojectPoint} setDragPan={setDragPanEnabled} />
-      )}
 
       {/* committed drawings (per-feature colour/width) — gated by the markup layer toggle */}
       <Source id="s-draw" type="geojson" data={drawFC}>
@@ -2704,9 +2505,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onDelete={onDelete}
         onRotate={onRotate}
         onShapeTransform={onShapeTransform}
-        twinMagnets={twinMagnets}
-        twinPiles={twins.map((t) => ({ id: t.key, coord: t.coord }))}
-        onFan={setPileFan}
         onUnlockShape={readOnly ? undefined : onUnlockShape}
         editNoteId={editNoteId}
         onNoteText={onNoteText}
