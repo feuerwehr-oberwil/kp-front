@@ -55,7 +55,8 @@ import { GeorefBoardLayer, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam,
 import { GeorefQuality } from './GeorefQuality'
 import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
 import { fitSimilarity, hasAutoPairs, realPairCount } from '../lib/georef'
-import { georefForPlan, refreshStationPlanScales } from '../lib/stationPlanScale'
+import { georefForPlan, getStationPlanScales, noteMeasuredAspect, refreshStationPlanScales } from '../lib/stationPlanScale'
+import { planAspect } from '../lib/georefTwins'
 import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
 import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
 import { PlanLiveLayer } from './PlanLiveLayer'
@@ -388,6 +389,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // last node-tap (time + point) to detect a double-tap that finishes the shape
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null)
   const [aspect, setAspect] = useState(1.414) // h/w, A4 default until image loads
+  /**
+   * …and WHICH document that number was actually measured from. `aspect` always holds something —
+   * it is seeded from the plan's orientation on every switch — so «is this a measurement or the
+   * A4 guess» cannot be read off the value. Only the surface that rendered the bitmap knows, and
+   * `noteMeasuredAspect` may only ever be told a real measurement.
+   */
+  const [measuredFor, setMeasuredFor] = useState<string | null>(null)
+  const takeAspect = useCallback((a: number) => { setAspect(a); setMeasuredFor(activeId) }, [activeId])
   const [vp, setVp] = useState({ w: 0, h: 0 })
   // per-team trail visibility (anno ids hidden this session) — the eye on a selected team
   // hides only THAT team's trail; there is no global Spuren toggle anymore
@@ -655,6 +664,23 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     : stackMPerU
       ? { mPerU: stackMPerU, refM: 0, ar: measureARForGeoref }
       : undefined
+  /**
+   * ⚠️ …and this surface tells the station document what SHAPE the sheet is.
+   *
+   * It is the only one that can. The app shell solves every plan's fit through an aspect recovered
+   * from the plan's stored calibration (georefTwins · planAspect), and that number goes stale the
+   * moment a Modul PDF is replaced by a differently-shaped sheet — undetectably, because
+   * staleness is measured against the very aspect being looked for and the pairs were fitted at
+   * the same wrong one. Here the bitmap is on screen and measured. Once per sheet per session,
+   * only for a sheet that HAS a reference (the fit is what the number is for), only when it
+   * really disagrees, and never from a read-only session: `noteMeasuredAspect` holds all four
+   * conditions, so this is just the offer.
+   */
+  useEffect(() => {
+    if (readOnlyProp || !canGeoref || !active || measuredFor !== activeId) return
+    if (!georefForPlan(activeGeorefKey)?.pairs.length) return
+    noteMeasuredAspect(activeGeorefKey, measureARForGeoref, planAspect(active, getStationPlanScales(), planScale[activeId]))
+  }, [readOnlyProp, canGeoref, active, measuredFor, activeId, activeGeorefKey, measureARForGeoref, planScale])
   const {
     calNodes, setCalNodes, calPrompt, setCalPrompt, lastRefM, refMInput, setRefMInput, savePrompt, setSavePrompt,
     measMode, setMeasMode, setMeasLine, setMeasArea,
@@ -2970,7 +2996,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               // live footprints and start it SELECTED — «Anderes Gebäude wählen» is almost always
               // «ergänzen». A building saved without a georeference has nothing to match on and
               // still starts empty, which `replacing` then says out loud.
-              <OsmOutline key={active.id} center={osm.center} radiusM={osm.radiusM} onAspect={setAspect}
+              <OsmOutline key={active.id} center={osm.center} radiusM={osm.radiusM} onAspect={takeAspect}
                 sW={sW} sH={sH}
                 interactive={!readOnlyProp} replacing={!!building}
                 preselectSrc={building?.geo ? building.src : undefined} preselectGeo={building?.geo}
@@ -2987,7 +3013,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 pos={pos}
                 vw={vp.w}
                 vh={vp.h}
-                onAspect={setAspect}
+                onAspect={takeAspect}
               />
             )}
 

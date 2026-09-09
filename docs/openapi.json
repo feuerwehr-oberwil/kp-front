@@ -14543,11 +14543,20 @@
             },
             "type": "object",
             "title": "Georefbyplan"
+          },
+          "measuredArByPlan": {
+            "additionalProperties": {
+              "type": "number",
+              "exclusiveMaximum": 100.0,
+              "exclusiveMinimum": 0.01
+            },
+            "type": "object",
+            "title": "Measuredarbyplan"
           }
         },
         "type": "object",
         "title": "PlanScales",
-        "description": "The station document: one default calibration + per-plan overrides (planId → scale), plus\nthe per-plan georeference (planId → pairs). Every field is optional, so a document stored\nbefore georeferencing existed still validates."
+        "description": "The station document: one default calibration + per-plan overrides (planId → scale), the\nper-plan georeference (planId → pairs) and the per-plan MEASURED aspect. Every field is\noptional, so a document stored before georeferencing existed still validates."
       },
       "PlanScalesOut": {
         "properties": {
@@ -14574,6 +14583,15 @@
             },
             "type": "object",
             "title": "Georefbyplan"
+          },
+          "measuredArByPlan": {
+            "additionalProperties": {
+              "type": "number",
+              "exclusiveMaximum": 100.0,
+              "exclusiveMinimum": 0.01
+            },
+            "type": "object",
+            "title": "Measuredarbyplan"
           },
           "version": {
             "type": "string",

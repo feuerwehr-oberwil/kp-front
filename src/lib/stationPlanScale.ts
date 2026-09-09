@@ -1,6 +1,6 @@
 import { ApiError, apiGet, apiPut } from './api'
 import { idbGet, idbSet } from './idb'
-import { isStale, type PlanScale } from './planScale'
+import { arDrifted, isStale, type PlanScale } from './planScale'
 import type { Georef } from './georef'
 
 /**
@@ -23,6 +23,32 @@ export interface StationPlanScales {
   /** georefKey → georeference (`PlanDocument.georefKey`, i.e. one concrete Einsatzobjekt's sheet
    *  — NOT the reusable Modul `planId`). A sheet absent here is simply not georeferenced. */
   georefByPlan: Record<string, Georef>
+  /**
+   * georefKey → the sheet's MEASURED aspect ratio (width / height), written by a surface that has
+   * actually rendered the bitmap. Who writes it, and when, is `noteMeasuredAspect` below.
+   *
+   * ⚠️ WHY THIS IS NOT `PlanScale.ar`, which is the same quantity by name.
+   *
+   * `ar` is not a free-standing statement about the paper: it is one half of a PAIR. A calibration
+   * says «`mPerU` metres per aspect-corrected unit, derived at aspect `ar`», and the sheet's ground
+   * width is the PRODUCT `ar · mPerU` (georefTwins · planGroundWidthM). Correcting `ar` inside a
+   * stored calibration would therefore silently rescale that plan: every `sizeN`, `reachN`,
+   * `radiusN` and measured distance on it changes by the same ratio, and the operator's «20 m» — a
+   * number somebody read off a printed scale bar — quietly becomes 21 m. `ar` may only ever change
+   * together with the `mPerU` it was measured against, which is what re-calibrating does and what
+   * `isStale` exists to demand.
+   *
+   * The measured aspect is the OTHER kind of statement: «this sheet is this shape», full stop, with
+   * no factor attached. It is what the georeference fit has to be SOLVED in (georefTwins ·
+   * planAspect), and correcting it re-solves the fit from the SAME landmark pairs — a pair is an
+   * aspect-independent claim that a point on the paper is a point on the ground, so a truer aspect
+   * can only make the fit truer. Nothing is rescaled behind anybody's back: the calibration is left
+   * exactly as it was, the fit moves, and the re-bake says so in the Verlauf.
+   *
+   * Hence its own field. A stored `ar` that disagrees with it is not corrected here — it is stale,
+   * and `isStale` already says so where staleness matters.
+   */
+  measuredArByPlan: Record<string, number>
 }
 
 /** What the endpoint answers with: the document, plus the token of the version it was read at
@@ -30,14 +56,20 @@ export interface StationPlanScales {
  *  `StationPlanScales` — `normalize` drops it — so a read-modify-write can never store one. */
 interface StationPlanScalesWire extends Partial<StationPlanScales> { version?: string }
 
-const EMPTY: StationPlanScales = { default: null, byPlan: {}, georefByPlan: {} }
+const EMPTY: StationPlanScales = { default: null, byPlan: {}, georefByPlan: {}, measuredArByPlan: {} }
 const CACHE_KEY = 'kp-front-plan-scales'
 
 /** Fill in every field, whatever the source left out — the server document, and just as much a
- *  cache entry written before `georefByPlan` existed, must both come out fully shaped. */
+ *  cache entry written before `georefByPlan` (or `measuredArByPlan`) existed, must both come out
+ *  fully shaped. */
 function normalize(v: Partial<StationPlanScales> | null | undefined): StationPlanScales {
   if (!v || typeof v !== 'object') return EMPTY
-  return { default: v.default ?? null, byPlan: v.byPlan ?? {}, georefByPlan: v.georefByPlan ?? {} }
+  return {
+    default: v.default ?? null,
+    byPlan: v.byPlan ?? {},
+    georefByPlan: v.georefByPlan ?? {},
+    measuredArByPlan: v.measuredArByPlan ?? {},
+  }
 }
 
 let resolved: StationPlanScales = EMPTY
@@ -331,4 +363,62 @@ export async function saveGeoref(georefKey: string, georef: Georef): Promise<voi
     else delete georefByPlan[georefKey]
     return { ...cur, georefByPlan }
   })
+}
+
+// --- the sheet's measured shape --------------------------------------------------------------
+
+/** The measured aspect (width / height) stored for one concrete sheet, or undefined. ⚠️
+ *  `georefKey`, not a `planId` — see `georefForPlan`; the bitmap belongs to one Einsatzobjekt's
+ *  sheet, not to the Modul slot every object shares. */
+export function measuredArForPlan(georefKey: string): number | undefined {
+  const ar = getStationPlanScales().measuredArByPlan[georefKey]
+  return ar && ar > 0 ? ar : undefined
+}
+
+/** The plans whose measured aspect this session has already settled — so a surface may ask on
+ *  every render and a sheet is written at most once per session. Module-level, like the document
+ *  itself: opening the same plan twice is the same answer. */
+const notedAspects = new Set<string>()
+
+/**
+ * «This sheet is this shape» — offered by whichever surface has actually RENDERED the bitmap, and
+ * stored only when it disagrees with what the app is currently fitting through.
+ *
+ * ⚠️ The hole this closes. A georeference is solved in the isotropic space `(x·ar, y)`, and the
+ * `ar` the app shell can reach is recovered from the plan's stored CALIBRATION (georefTwins ·
+ * planAspect) — which is exactly the number that goes stale when a Modul PDF is replaced by a
+ * differently-shaped sheet. Worse, it cannot be caught by staleness: `isStale` asks whether a
+ * calibration still matches the current aspect, and the current aspect is the very thing being
+ * looked for. The pairs cannot disagree with it either — they were fitted at the same wrong
+ * aspect, so the residuals stay near zero. While the fit only drew twins that was a tilted
+ * picture; now that fit is BAKED into every symbol standing on the sheet, so it is a wrong
+ * position in the record.
+ *
+ * The measuring surface is the only cure, so it says so once and the station document remembers.
+ *
+ * · `effective` is what `planAspect` currently answers for this sheet. Nothing is written while
+ *   the two agree — and since a stored measurement wins that resolution, the write settles the
+ *   question rather than repeating it.
+ * · The threshold is `arDrifted` — the SAME 2 % «this is a different sheet» the calibration's own
+ *   staleness uses (lib/planScale · AR_DRIFT_TOL). Below it lies the A4 seed's rounding and float
+ *   noise, and a re-bake for a tenth of a percent would be a Verlauf row about nothing.
+ * · Once per sheet per session, and never from a read-only session: deriving the picture is
+ *   everybody's, writing into the record is an editor's.
+ *
+ * Rejections are swallowed: this is a correction the app noticed on its own, not something the
+ * operator asked for, and it must never raise a «… fehlgeschlagen» over a sheet somebody merely
+ * opened. It will be offered again next session.
+ */
+export function noteMeasuredAspect(georefKey: string, measured: number, effective: number): void {
+  if (!(measured > 0) || notedAspects.has(georefKey)) return
+  if (!arDrifted(effective, measured)) return
+  notedAspects.add(georefKey)
+  void updateStationPlanScales((cur) => ({
+    ...cur, measuredArByPlan: { ...cur.measuredArByPlan, [georefKey]: measured },
+  })).catch(() => { notedAspects.delete(georefKey) })
+}
+
+/** Test seam — forgets which sheets this session has already settled. */
+export function resetMeasuredAspectSession(): void {
+  notedAspects.clear()
 }

@@ -67,10 +67,29 @@ export function polyAreaM2(pts: NPoint[], mPerU: number, ar: number): number {
   return (Math.abs(cross) / 2) * ar * mPerU * mPerU
 }
 
+/**
+ * How far a plan's aspect ratio may drift before it is a DIFFERENT SHEET: 2 %.
+ *
+ * ⚠️ One number, one meaning, two callers. It answers «is this stored calibration still about the
+ * paper in front of me» (`isStale`) and «is the aspect this app is fitting through worth
+ * correcting» (lib/stationPlanScale · noteMeasuredAspect). Below it lies float noise and the A4
+ * seed's own rounding (1/1.414 vs the true 1/√2 is 0.02 %); above it lies a replaced module PDF,
+ * which is exactly the case both callers exist for. Two thresholds would eventually disagree about
+ * the same sheet.
+ */
+export const AR_DRIFT_TOL = 0.02
+
+/** Has the sheet changed shape under a number derived at `from`? Relative to `from`, because that
+ *  is the claim being questioned. False when either side is unknown — «we cannot tell» is not
+ *  «it drifted». */
+export function arDrifted(from: number, to: number): boolean {
+  if (!(from > 0) || !(to > 0)) return false
+  return Math.abs(from - to) / from > AR_DRIFT_TOL
+}
+
 /** Is a stored calibration stale for the plan's current aspect ratio? (image replaced / resized) */
 export function isStale(scale: PlanScale, ar: number): boolean {
-  if (!(scale.ar > 0) || !(ar > 0)) return false
-  return Math.abs(scale.ar - ar) / scale.ar > 0.02 // >2% aspect drift = the sheet changed under it
+  return arDrifted(scale.ar, ar)
 }
 
 /** Real-world radius (m) of a plan Absperrkreis under a calibration factor. `radiusN` is a

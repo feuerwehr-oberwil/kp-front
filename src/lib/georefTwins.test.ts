@@ -28,7 +28,7 @@ const plan = (id: string, over: Partial<PlanDocument> = {}): PlanDocument =>
   ({ id, code: id.toUpperCase(), title: id, subtitle: '', imageUrl: `/${id}.pdf`, orientation: 'portrait', ...over })
 
 const scales = (over: Partial<StationPlanScales> = {}): StationPlanScales =>
-  ({ default: null, byPlan: {}, georefByPlan: {}, ...over })
+  ({ default: null, byPlan: {}, georefByPlan: {}, measuredArByPlan: {}, ...over })
 
 describe('planAspect', () => {
   it('prefers the per-incident calibration, then the station override, then the station default', () => {
@@ -47,6 +47,35 @@ describe('planAspect', () => {
   it('takes a measured aspect over every stored one — that surface has seen the bitmap', () => {
     const st = scales({ byPlan: { m1: { mPerU: 1, refM: 10, ar: 0.9 } } })
     expect(planAspect(plan('m1'), st, undefined, 1.11)).toBe(1.11)
+  })
+
+  /* ⚠️ The stale-aspect hole (phase 3). A replaced Modul PDF leaves the old `ar` behind, and it
+   * cannot be caught by staleness — `isStale` measures against the very aspect being looked for,
+   * and the pairs were fitted at the same wrong one, so the residuals stay near zero. A written-
+   * down MEASUREMENT is the only thing that breaks the circle, and since the fit is now baked into
+   * every symbol on the sheet, it is a wrong POSITION rather than a tilted picture. */
+  describe('the stored measurement', () => {
+    it('beats every calibration — but not this render’s own measurement', () => {
+      const st = scales({
+        measuredArByPlan: { 'object:a:plan:modul2': 1.2 },
+        byPlan: { modul2: { mPerU: 1, refM: 10, ar: 0.9 } },
+        default: { mPerU: 1, refM: 10, ar: 0.5 },
+      })
+      const p = plan('modul2', { georefKey: 'object:a:plan:modul2' })
+      expect(planAspect(p, st, { mPerU: 1, refM: 10, ar: 1.3 })).toBe(1.2)
+      expect(planAspect(p, st, undefined, 1.11)).toBe(1.11) // the bitmap in front of you wins
+    })
+
+    it('is keyed to the concrete sheet, not the Modul slot every object shares', () => {
+      // otherwise one building's replaced PDF would reshape every other building's Modul 2
+      const st = scales({ measuredArByPlan: { 'object:a:plan:modul2': 1.2 } })
+      expect(planAspect(plan('modul2', { georefKey: 'object:b:plan:modul2' }), st)).toBeCloseTo(1 / 1.414, 6)
+    })
+
+    it('ignores a nonsense entry rather than putting the sheet at a nonsense shape', () => {
+      const st = scales({ measuredArByPlan: { modul2: 0 } })
+      expect(planAspect(plan('modul2'), st)).toBeCloseTo(1 / 1.414, 6)
+    })
   })
 })
 

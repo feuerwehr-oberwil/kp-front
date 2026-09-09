@@ -23,7 +23,7 @@ sends back as ``If-Match`` on its next PUT (see ``put_plan_scales``).
 import hashlib
 import json
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, ValidationError
@@ -37,6 +37,12 @@ from ..models import DeploymentConfig
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/plan-scales", tags=["plan-scales"])
+
+
+AspectRatio = Annotated[float, Field(gt=0.01, lt=100)]
+"""A sheet's width / height. Bounded generously — anything a printer can produce fits — but not
+unbounded: 0 and a pixel count are the two ways this field is realistically wrong, and either one
+would put every symbol on that plan somewhere else."""
 
 
 class PlanScale(BaseModel):
@@ -88,13 +94,20 @@ class Georef(BaseModel):
 
 
 class PlanScales(BaseModel):
-    """The station document: one default calibration + per-plan overrides (planId → scale), plus
-    the per-plan georeference (planId → pairs). Every field is optional, so a document stored
-    before georeferencing existed still validates."""
+    """The station document: one default calibration + per-plan overrides (planId → scale), the
+    per-plan georeference (planId → pairs) and the per-plan MEASURED aspect. Every field is
+    optional, so a document stored before georeferencing existed still validates."""
 
     default: PlanScale | None = None
     byPlan: dict[str, PlanScale] = Field(default_factory=dict)  # noqa: N815
     georefByPlan: dict[str, Georef] = Field(default_factory=dict)  # noqa: N815
+    # The sheet's measured width/height, written by a client that has actually rendered the bitmap
+    # (src/lib/stationPlanScale.ts · noteMeasuredAspect). Deliberately NOT `PlanScale.ar`: that one
+    # is half of a pair — the sheet's ground width is `ar · mPerU` — so correcting it inside a
+    # stored calibration would silently rescale every measured distance on that plan. This says
+    # only «the sheet is this shape», which is what the georeference fit has to be solved in.
+    # Bounded to the range a sheet can plausibly have: a value of 1100 is plan PIXELS, not a ratio.
+    measuredArByPlan: dict[str, AspectRatio] = Field(default_factory=dict)  # noqa: N815
 
 
 class PlanScalesOut(PlanScales):
@@ -138,6 +151,22 @@ def _entries[M: BaseModel](raw: object, model: type[M], field: str) -> dict[str,
     return out
 
 
+def _ratios(raw: object) -> dict[str, float]:
+    """…the same entry-wise tolerance for the plain-number map: one plan holding a 0 (or a pixel
+    count) must not cost every other plan its measured shape."""
+    if not isinstance(raw, dict):
+        if raw is not None:
+            logger.warning("plan_scales_json: measuredArByPlan is not an object (%s); dropping it", type(raw).__name__)
+        return {}
+    out: dict[str, float] = {}
+    for plan_id, value in raw.items():
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and 0.01 < value < 100:
+            out[str(plan_id)] = float(value)
+        else:
+            logger.warning("plan_scales_json: dropping implausible measuredArByPlan entry %r=%r", plan_id, value)
+    return out
+
+
 def _read_tolerantly(raw: object) -> PlanScales:
     """Parse the stored document entry by entry and drop ONLY what fails.
 
@@ -161,6 +190,7 @@ def _read_tolerantly(raw: object) -> PlanScales:
         default=default,
         byPlan=_entries(raw.get("byPlan"), PlanScale, "byPlan"),
         georefByPlan=_entries(raw.get("georefByPlan"), Georef, "georefByPlan"),
+        measuredArByPlan=_ratios(raw.get("measuredArByPlan")),
     )
 
 

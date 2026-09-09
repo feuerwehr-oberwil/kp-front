@@ -31,37 +31,47 @@ const A4_PORTRAIT_AR = 1 / 1.414
 /**
  * The `planAspect` a plan's georef fit has to be taken at (width / height).
  *
- * ⚠️ Nothing stores this number under its own name, and it MATTERS: the fit is solved in the
- * isotropic space `(x·ar, y)`, so a wrong aspect tilts and stretches every twin. It is recovered
- * in the same priority order `resolvePlanScale` uses, because `PlanScale.ar` IS this number —
- * it is recorded on every calibration precisely so a factor can be called stale when the sheet
- * changes shape:
+ * ⚠️ It MATTERS: the fit is solved in the isotropic space `(x·ar, y)`, so a wrong aspect tilts and
+ * stretches the sheet against the ground — and since the fit is BAKED into every symbol standing
+ * on that sheet, a wrong aspect is a wrong position in the record, not merely a tilted picture.
  *
- *   per-incident calibration → station per-plan override → station default → A4 by orientation.
+ * Resolved in five steps:
  *
- * The last step is a fallback, not a measurement: an uncalibrated plan on a device that has not
- * opened it yet is assumed to be the A4 its orientation says it is. For the Modul 2/3 sheets
- * this app is built around that is exactly right; for a plan of some other proportion the twins
- * are approximate until it is calibrated once. The surface that HAS measured the sheet (the
- * Whiteboard, via usePlanMeasure · measureAR) passes its own value instead — see `measured`.
+ *   this render's own measurement → the sheet's STORED measurement → per-incident calibration →
+ *   station per-plan override → station default → A4 by orientation.
  *
- * ⚠️ Unlike `resolvePlanScale` this canNOT skip a STALE candidate, and the reason is circular:
- * `isStale` asks whether a calibration's `ar` still matches the CURRENT aspect, and the current
- * aspect is the very thing being looked for here. So when a Modul PDF is replaced by a
- * differently-shaped sheet, the old `ar` — the one value staleness exists to reject — is exactly
- * what survives, and every twin of that plan comes out tilted and stretched while the residuals
- * stay near zero (the pairs were fitted at the same wrong aspect, so they cannot disagree with
- * it; see georef · collinear for the same blind spot). `measured` is the only real cure, which is
- * why the Whiteboard passes its own number. The Karte has no bitmap to measure, so its twins ride
- * the stored `ar` until that plan is calibrated once on this device.
+ * The first is the surface that has the bitmap in front of it right now (the Whiteboard, via
+ * usePlanMeasure · measureAR). The second is that same surface's answer, written down once and
+ * shared with every other device (lib/stationPlanScale · noteMeasuredAspect) — the Karte has no
+ * bitmap to measure, and this is how it stops having to guess. The three calibration layers are
+ * the same order `resolvePlanScale` uses, because `PlanScale.ar` IS this number: it is recorded on
+ * every calibration precisely so a factor can be called stale when the sheet changes shape.
+ *
+ * The last step is a fallback, not a measurement: an unmeasured, uncalibrated plan is assumed to
+ * be the A4 its orientation says it is. For the Modul 2/3 sheets this app is built around that is
+ * exactly right; for a plan of some other proportion it is approximate until somebody opens it.
+ *
+ * ⚠️ Unlike `resolvePlanScale` the calibration layers canNOT skip a STALE candidate, and the
+ * reason is circular: `isStale` asks whether a calibration's `ar` still matches the CURRENT
+ * aspect, and the current aspect is the very thing being looked for here. So when a Modul PDF is
+ * replaced by a differently-shaped sheet, the old `ar` — the one value staleness exists to reject
+ * — is exactly what survives, and the pairs cannot disagree with it either: they were fitted at
+ * the same wrong aspect, so the residuals stay near zero (see georef · collinear for the same
+ * blind spot). A MEASUREMENT is the only thing that breaks that circle, which is why the two
+ * measured steps sit above the calibrations rather than among them.
  */
 export function planAspect(
-  plan: Pick<PlanDocument, 'id' | 'orientation'>,
+  plan: Pick<PlanDocument, 'id' | 'orientation' | 'georefKey'>,
   scales: StationPlanScales,
   workspaceScale?: PlanScale,
   measured?: number,
 ): number {
   if (measured && measured > 0) return measured
+  // ⚠️ `georefKey`, not `id`: the bitmap belongs to ONE Einsatzobjekt's sheet, while `id` is the
+  // Modul slot every object shares — keyed on that, one building's replaced PDF would reshape
+  // every other building's sheet in the same slot.
+  const stored = scales.measuredArByPlan[plan.georefKey ?? plan.id]
+  if (stored && stored > 0) return stored
   for (const cand of [workspaceScale, scales.byPlan[plan.id], scales.default ?? undefined]) {
     if (cand && cand.ar > 0) return cand.ar
   }

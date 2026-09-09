@@ -24,7 +24,7 @@ vi.mock('./idb', () => ({ idbGet, idbSet }))
 
 const AR = 1.414
 const scale = (mPerU: number, ar = AR): PlanScale => ({ mPerU, refM: 20, ar })
-const doc = (d: Partial<StationPlanScales>): StationPlanScales => ({ default: null, byPlan: {}, georefByPlan: {}, ...d })
+const doc = (d: Partial<StationPlanScales>): StationPlanScales => ({ default: null, byPlan: {}, georefByPlan: {}, measuredArByPlan: {}, ...d })
 /** …as the endpoint answers it: the document plus the token of the version it was read at. */
 const served = (d: Partial<StationPlanScales>, version = 'v1') => ({ ...doc(d), version })
 /** the `If-Match` a given PUT went out with (undefined = none) */
@@ -332,5 +332,69 @@ describe('stationPlanScalesLoaded', () => {
     apiGet.mockRejectedValue(new Error('offline'))
     await m.loadStationPlanScales()
     expect(m.stationPlanScalesLoaded()).toBe(false)
+  })
+})
+
+/* The MEASURED aspect (phase 3). The app shell fits every plan through an aspect recovered from
+ * its stored calibration, and that number goes stale undetectably when a Modul PDF is replaced —
+ * staleness is measured against the very aspect being looked for, and the pairs were fitted at the
+ * same wrong one. Since the fit is baked into every symbol on the sheet, that is a wrong POSITION
+ * in the record. Only the surface holding the bitmap can break the circle. */
+describe('noteMeasuredAspect — the sheet says what shape it is', () => {
+  const settle = () => new Promise((r) => setTimeout(r, 0))
+
+  it('stores the measurement when it really disagrees, and leaves the calibration alone', async () => {
+    const m = await booted({ default: scale(100, 0.707), byPlan: { p1: scale(50, 0.707) } })
+    m.noteMeasuredAspect(KEY, 0.75, 0.707)
+    await settle()
+    expect(written().measuredArByPlan[KEY]).toBe(0.75)
+    // ⚠️ the calibration is UNTOUCHED — `ar · mPerU` is the sheet's ground width, so correcting
+    // `ar` in place would silently rescale every measured distance on the plan
+    expect(written().default).toEqual(scale(100, 0.707))
+    expect(written().byPlan.p1).toEqual(scale(50, 0.707))
+  })
+
+  it('says nothing when the app is already fitting through that shape', async () => {
+    const m = await booted({})
+    m.noteMeasuredAspect(KEY, 0.7072, 0.70721) // the A4 seed's own rounding
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+  })
+
+  it('…and nothing below the 2 % the calibration’s own staleness uses', async () => {
+    const m = await booted({})
+    m.noteMeasuredAspect(KEY, 0.707 * 1.015, 0.707)
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+  })
+
+  it('writes once per sheet per session, however often the surface offers it', async () => {
+    const m = await booted({})
+    m.resetMeasuredAspectSession()
+    m.noteMeasuredAspect(KEY, 0.75, 0.707)
+    m.noteMeasuredAspect(KEY, 0.75, 0.707)
+    m.noteMeasuredAspect(KEY, 0.76, 0.707)
+    await settle()
+    expect(apiPut).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses a shape that is not one — a 0, or a pixel count', async () => {
+    const m = await booted({})
+    m.noteMeasuredAspect(KEY, 0, 0.707)
+    m.noteMeasuredAspect(KEY, Number.NaN, 0.707)
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+  })
+
+  it('a failed write is swallowed and offered again — nobody asked for this correction', async () => {
+    const m = await booted({})
+    apiPut.mockRejectedValueOnce(new Error('offline'))
+    m.noteMeasuredAspect(KEY, 0.75, 0.707)
+    await settle()
+    expect(apiPut).toHaveBeenCalledTimes(1)
+    apiPut.mockResolvedValue({ version: 'v2' })
+    m.noteMeasuredAspect(KEY, 0.75, 0.707)
+    await settle()
+    expect(apiPut).toHaveBeenCalledTimes(2)
   })
 })
