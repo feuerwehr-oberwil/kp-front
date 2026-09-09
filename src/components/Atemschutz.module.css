@@ -220,7 +220,9 @@
    `align-content: flex-start` keeps a ONE-line Kennzeile at the top of that
    reserve instead of centring it in the empty space and pushing the text out of line with its
    neighbours. A Kennzeile that genuinely runs to three lines still pushes its own band down —
-   deliberate: clipping a Trupp's Auftrag or Ziel to keep a row tidy is the wrong trade. */
+   deliberate: clipping a Trupp's Auftrag or Ziel to keep a row tidy is the wrong trade.
+   ⚠️ …and the reserve is dropped on the focus board (`.focusCard .kenn`, 09.09.): one card on
+   screen has no neighbour to line its band up with, so there the 53px is simply blank card. */
 .kenn { display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start;
   gap: 4px 7px; padding: 0 14px 12px; min-height: 53px; line-height: 1.4;
   font-size: 12.5px; color: var(--ink-dim); }
@@ -994,49 +996,22 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .chipX :global(.i) { width: 15px; height: 15px; }
 @media (hover: hover) { .chipX:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
 .chipX:active { background-image: linear-gradient(var(--press), var(--press)); }
-/* the empty Trupp: ONE dashed chip that names the role and points down at the field. Not a
-   control — the search is the very next thing on screen, so there is nothing to reveal. */
-.chipEmpty { flex: 1 1 auto; gap: 8px; padding: 0 12px; border-style: dashed; background: none;
-  color: var(--ink-faint); font: 600 13.5px var(--body); }
-/* the «noch niemand» chip is a real control now (08.09.): the button is bare text — the
-   dashed chip itself carries the look, the tap points at the search (TruppTeam) */
-.chipEmptyBtn { border: none; background: transparent; font: inherit; color: inherit; cursor: pointer; padding: 0; }
 
 /* The matches under the field, and ONLY while something is typed. Shrink-wrapped, never a
-   scroller: it is as tall as its ≤4 rows and pushes the two closed sections down by exactly that
-   much (see TruppTeam · PHONE_HITS). What gets those four rows ONTO the screen with a keyboard up
-   is not a height here but where the field stands — see the `is-kb` block at the end of this
-   file, and TruppTeam · liftSearch.
+   scroller: it is as tall as its ≤4 rows and pushes what stands below it down by exactly that
+   much (see TruppTeam · PHONE_HITS). What gets those four rows ONTO the screen with a keyboard
+   up is not a height here but the fact that with the keyboard up nothing else is left standing
+   under them — see the `is-kb` block further down this file (09.09.).
    ⚠️ Its own class, not `.teamList` — the phone's Mannschaft is a different control (chips + a
    query), and the tablet's roster rules must not follow it around. */
 .teamHits { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--glass-edge);
   border-radius: var(--r-ctl); background: var(--surface); }
-/* …and what the standing roster used to say for free: how many people are here at all. Without
-   it, «no list» reads as «no idea who is on scene». */
+/* The one line under the chips (phone, at rest) — just the crowning rule, since 09.09.: a count
+   plus a second sentence read as «blabla» in the field. */
 .teamHint { margin: 0; font: 600 11.5px var(--body); color: var(--ink-faint); }
-.teamHint b { color: var(--ink-dim); font-weight: 700; }
 
 .teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
-/* «hier, nicht dort» — a tap on an empty slot lands the caret in here and blinks the field once,
-   because the slot above looks like something you can type into and is not. Two beats and gone:
-   the same gesture as the card flash (ui-flash-ring), and INK rather than a status colour or
-   --accent — the brand red means «Alarm» everywhere else on this surface.
-   ⚠️ The LIST blinks with it. The search field alone answered «where do I type», which is not
-   the question somebody tapping an empty slot is asking — they are looking for a name, and the
-   answer is «pick one from down here», where typing is only the way to narrow it. Blinking the
-   two together points at the whole answer instead of at half of it.
-   (The Gast link used to blink with them. It is gone — since 04.09. the answer for somebody who
-   is not on the Mannschaft is the last ROW of this list, so the list is already the thing being
-   pointed at, and the caret still stays in the search field.) */
-@keyframes teamSearchFlash {
-  0%, 30%, 70% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
-  15%, 50%, 100% { box-shadow: 0 0 0 3px transparent; }
-}
-.teamSearchHint, .teamListHint { animation: teamSearchFlash 1.1s ease-out 1; }
-@media (prefers-reduced-motion: reduce) {
-  .teamSearchHint, .teamListHint { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 55%, transparent); }
-}
 .teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
 .teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
   font-family: var(--body); font-size: 15px; color: var(--ink); padding: 0; }
@@ -1118,33 +1093,50 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      The wizard used to undo this block and re-grant the grow chain, so that step 1's roster
      filled the step; a stack has three sections in one scroll instead of one step per screen,
      and «fill the rest» there would push the two closed section headers a whole screen down.
-     What keeps the section that is OPEN readable is not a cap on the list — the phone's hits box
-     is at most four rows anyway — but where the search field stands; see the block below. */
+     What keeps the hits readable is not a cap on the list — the phone's hits box is at most four
+     rows anyway — but what is allowed to stand below them while the keyboard is up; see the
+     block below. */
   .modalStack .modalBody { display: flex; flex-direction: column; gap: 10px; }
   .modalStack .stack { flex: none; }
 
-  /* ── THE KEYBOARD IS THE FORM'S SECOND SCREEN (05.09. evening, field feedback) ─────────────
-     «Trupp erstellen» with the keyboard up had one and a half roster rows between the search
-     field and the footer, so the answer to what was being typed had to be scrolled to. The
-     answer is what that screen is FOR, and it gets its room from two places:
-       · the SEARCH FIELD rides to the top of the sheet's scroller when it is focused, so the
-         band from the caret down to «Trupp anmelden» belongs to the hits (TruppTeam · liftSearch
-         — the chrome above is not collapsed, it is simply not in the way while typing);
-       · and the frame's own padding gives back what a keyboard makes expensive. The head keeps
-         its title and the footer keeps its two buttons; only the air around them goes, plus the
-         bottom safe-area reserve, which is dead space while the home indicator sits behind the
-         keyboard anyway.
+  /* ── WITH THE KEYBOARD UP, THE SEARCH IS THE SCREEN (09.09., maintainer decision) ──────────
+     This REVERSES the 05.09. rule that stood here — «nothing is hidden and nothing is
+     collapsed», the search field merely riding to the top of the scroller (TruppTeam ·
+     liftSearch, now gone) while the rest of the form stayed standing one flick away. The field
+     shot that reversed it: iPhone, «Wieder in den Einsatz», keyboard up — the sheet's title
+     clipped off the top, «Art des Trupps», the Auftrag tiles and the Abbrechen/Bereitstellen/
+     Im-Einsatz footer all still holding rows, and the four hits that ANSWER the typed query
+     squeezed into what was left. Every part of a form fighting for one band gives the band to
+     none of them.
+     So while the person SEARCH is focused, everything BELOW the Mannschaft goes: the remaining
+     `.stack` sections and the footer. The Trupp chips, the field and the hits get the whole band
+     above the keyboard, and everything is back the moment the field blurs or the keyboard does.
+     ⚠️ CSS, not React state, and that is the load-bearing part. A tap on a hits row blurs the
+     input BEFORE the click lands, so a blur handler re-lays the form out mid-gesture. Here the
+     ONLY boxes that come and go are below the hits — the sections after the first, and the
+     footer — so re-inserting them grows the column downwards and the row under the thumb never
+     moves. There is no timer whose un-hide can be mistimed.
+     ⚠️ `:has(.teamSearch input:focus)` names THE SEARCH, not «an input»: focusing the Ziel field
+     (`.field input`) leaves the form exactly as it is, which is what the operator means by
+     tapping it.
+     ⚠️ The head keeps its full `padding-top` (`max(18px, env(safe-area-inset-top))` above) —
+     only the air UNDER the title is bought back here. What actually kept the title on screen is
+     this hiding: with the sections gone the caret sits ~200px from the frame's top instead of
+     down near the keyboard line, so iOS has no reason to scroll the visual viewport to aim it —
+     and that pan, not the frame's own `top: 0`, is what used to push the head under the status
+     bar (fixed boxes are painted in LAYOUT coordinates, which the pan slides out from under).
      ⚠️ `:global(.is-kb)` — this is a CSS module and `is-kb` is a literal class lib/overlays
      appends, so a bare `.is-kb` compiles to a selector nothing wears (see `.modal:global(.is-kb)`
-     above, where exactly that shipped dead once).
-     (The rules that used to stand here handed the open section the sheet's spare height and let
-     `.teamList` flex into it. They were dead from the moment the phone got its own Mannschaft
-     skin the same day: on the stack `TruppTeam` renders `.teamHits`, never `.teamList`. And the
-     shape does not transfer — the hits box holds at most four rows, so it has no use for spare
-     height; what it needs is not to be pushed off the bottom.) */
+     above, where exactly that shipped dead once). */
   .modalStack:global(.is-kb) .modalHead { padding-bottom: 2px; }
   .modalStack:global(.is-kb) .modalBody { padding: 2px 14px 8px; }
   .modalStack:global(.is-kb) .modalFoot { padding: 8px 14px; }
+  /* `.stack`'s first child is ALWAYS the Mannschaft block (AtemschutzView · TruppForm renders
+     `teamFields` first, on every mode) — everything after it is «Art des Trupps», Auftrag/Ziel/
+     Leitung and the folded Standard row. The `assignedConflict` warning and the `blocked` line
+     deliberately stay: both are about the very list on screen, and both already sit below it. */
+  .modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > *:not(:first-child),
+  .modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot { display: none; }
 }
 
 /* ===========================================================================================
@@ -1362,9 +1354,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .bodyFocus { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 /* ⚠️ A top padding, not 0 (05.09.): the card's own coloured status edge landed flush against the
    header's hairline, so the green/red band read as a rule belonging to the bar above it rather
-   than as the top of a card. Same 12px as the sides — the card sits IN the body, not against it.
+   than as the top of a card. Same number on all four sides — the card sits IN the body, not
+   against it. (12 → 10 on 09.09. with the fit pass below; the gap still reads as a gap.)
    The strip that used to buy this gap moved to the bottom rail on 03.09. and took it along. */
-.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 12px 12px; }
+.focusCard { flex: 1 1 auto; min-height: 0; display: flex; align-items: flex-start; padding: 10px 10px; }
 /* ── Bottom rail (mock 03, maintainer correction 03.09.) ─────────────────────────────────────
    The strip and «+ Trupp» move DOWN, out of `.body`, into a rail that sits in the thumb zone —
    the same idea the app's own phone bottom bars use (`--rail-h`, src/styles/15-mobile.css):
@@ -1383,9 +1376,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    Trupp stays in view, three to a row, and a fifth one starts a second row instead of hiding
    off the right edge. `flex: 1 1 auto` — and since 05.09. the rail's ONLY occupant: «+ Trupp»
    is a cell of this grid rather than a fixed column beside it (see `.tabAdd`). */
-.strip { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
-.tab { min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  padding: 6px 10px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+/* ⚠️ 92px → 78px, 56px → 48px (09.09., fit pass — see the arithmetic below `.focusCard .card`).
+   At 390px the rail has 366px between its own paddings, and 92px cells fit THREE across: a board
+   with three Trupps pushed «+ Trupp» onto a second row, and the rail took 143px off the card
+   above it. 78px fits four — three Trupps and the «+» — in one row. Wrapping stays exactly as it
+   was for the fifth Trupp onwards; a narrower cell just wraps a long name onto its second line
+   sooner, which `.tabNameWrap` has allowed since round 2. */
+.strip { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
+.tab { min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 5px 6px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .tab:active { background-image: linear-gradient(var(--press), var(--press)); }
 .tabName { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .tabName :global(.i) { width: 14px; height: 14px; }
@@ -1393,7 +1392,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    «Binggeli Michae» against this chip's min-width before this (round 2 review). `.tab`'s
    min-height is a minimum, not a cap, so the chip grows with it. */
 .tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
-.tabClock { font-family: var(--mono); font-size: 15px; font-weight: 800; color: var(--green); }
+.tabClock { font-family: var(--mono); font-size: 14px; font-weight: 800; color: var(--green); }
 /* ⚠️ ONE quiet format for every clock that is NOT running (05.09.): a Trupp that is angemeldet,
    one that is back out, and a work squad with no contact clock at all are all «nothing is
    ticking here», and the placeholder was carrying the same 800-weight mono presence as a live
@@ -1417,6 +1416,77 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    (sections overlapped when they did). */
 .focusCard .card { flex: none; width: 100%; max-height: 100%; display: flex; flex-direction: column; overflow-y: auto; }
 .focusCard .card > * { flex: 0 0 auto; }
+
+/* ── ONE CARD FITS ONE PHONE (09.09., field shot: iPhone, 390×844) ───────────────────────────
+   The rule above says the card only scrolls «when it truly cannot» fit. On a normal Trupp it
+   truly could not: an in-field Atemschutz card plus a three-Trupp rail measured ~736px against
+   the ~744px Safari leaves of an 844pt screen, so a Kennzeile that ran to three lines, a
+   `.airNote`, or a Trupp name that wrapped in the rail was enough to put the card's foot and the
+   rail in competition — you scrolled to see one or the other.
+   Nothing is removed here. Every element the card had it still has; what goes is air, one type
+   step on two numbers, and the reserve `.kenn` keeps for a card GRID that this board does not
+   have. Stacked, at 390×844 (safe areas 0 in a Safari tab, ~100px of browser chrome ⇒ 744px):
+
+     .head.headCompact          8 + 44 + 8 + 1px hairline           61      (was  61)
+     .focusCard padding-top                                         10      (was  12)
+     .card border-top                                                5
+     .cardHead                  4 + 44 + 4                          52      (was  60)
+     .kenn                      two lines 2×17.5 + 10               45      (was  53, a fixed
+                                                                             reserve — see below)
+     .block borders             2 × 1.5                              3
+       .band                    9 + 34 + 9                          52      (was  62)
+       .kontaktBtn              1.5 + 48                            49.5    (was  51.5)
+       .pressureBlock           1 + 8 + 44 + 8                      61      (was  65)
+     .actZone                   8 + 48 + 8                          64      (was  82 — «Rückzug
+                                                                             melden» wrapped)
+     .plinth                    1 + 8 + 17 + 5 + 33 + 8             72      (was  82)
+     .vfoot                     1 + 44 (tap floor, untouched)       45
+     .focusCard padding-bottom                                      10      (was  12)
+     .bottomRail                1 + 8 + 48 + 16                     73      (was 143 — «+» on a
+                                                                             second row)
+     ────────────────────────────────────────────────────────────────────────────────────────
+                                                                   602.5    (was 736.5)
+
+   ~141px of margin, which is what pays for the cases that used to break the fit: an `.airNote`
+   (~51), a three-line Kennzeile (+17.5), a rail whose names wrap to two lines (+10).
+   ⚠️ SCOPED to `.focusCard`. `.cardHead`, `.kenn`, `.band`, `.kontaktBtn`, `.actZone` and
+   `.plinth` are the SAME classes the tablet's card grid and the phone's opened row wear — an
+   opened row on a non-lite phone renders its card inside `.rowList`, not inside `.focusCard`, so
+   neither of them sees any of this. (`.strip` / `.tab` above need no such scoping: the bottom
+   rail is rendered in focus mode and nowhere else.)
+   ⚠️ Touch floors are NOT part of the saving: the ± buttons, the Verlauf row and the ⋯/⌃ stay at
+   44px, «Kontakt» keeps the 48px a card's main action is owed, and so does each lifecycle
+   button. What shrinks around them is padding. */
+.focusCard .cardHead { min-height: 48px; padding: 4px 8px 4px 12px; }
+/* ⚠️ The two-line reserve goes, and only here. It exists so the band — the clock the board is
+   compared BY — starts at the same height on every card in a GRID ROW (see `.kenn`). Focus mode
+   shows exactly one card, so there is nothing to align it with and the reserve is 27px of blank
+   card between the Kennzeile and the clock. */
+.focusCard .kenn { min-height: 0; padding-bottom: 10px; }
+.focusCard .band { padding: 9px 12px; }
+/* 40 → 34px. Still the loudest thing on the screen by a wide margin (the next number up is the
+   14px rail clock), and still the mono tabular face the whole board reads its times in.
+   ⚠️ `:not(.bandQuiet)` — an out Trupp's band is deliberately 19px (`.bandQuiet .bandVal`), and
+   this selector is both later in the file and one class heavier, so without the guard it would
+   put the break clock back at the top of the eye's list. */
+.focusCard .band:not(.bandQuiet) .bandVal { font-size: 34px; }
+.focusCard .block .kontaktBtn { min-height: 48px; padding: 11px 10px; }
+.focusCard .block .pressureBlock { padding: 8px 10px; }
+/* ⚠️ `:not(:empty)` on the two zones that collapse. `.actZone:empty` / `.plinth:empty` zero their
+   own padding, and a pseudo-class weighs the same as a class — so a plain `.focusCard .actZone`
+   ties with them and, being later in the file, would win: a viewer's card (no action row) or a
+   Trupp ohne Atemschutz (nothing to look up) would grow back the padding and the hairline the
+   empty-zone rules exist to take away. */
+.focusCard .actZone:not(:empty) { padding: 8px 12px; }
+/* «Rückzug melden» on ONE line. The row gives its left column whatever the right one does not
+   need (`minmax(0, auto)` against `minmax(50%, 1fr)`), which at 390px is ~165px — and at 14px/800
+   plus a 16px icon, a 7px gap and 12px of padding either side the label needed ~168 and wrapped,
+   taking the whole row to two lines. At the house's COMPACT type step (12.5px/700 — the same one
+   the docks and dense rows use; not a third size) with tighter padding it needs ~145. The
+   HEIGHT is untouched: these buttons commit a status on a safety board. */
+.focusCard .actBtn { padding: 8px 6px; gap: 5px; font-size: 12.5px; }
+.focusCard .actBtn :global(.i) { width: 15px; height: 15px; }
+.focusCard .plinth:not(:empty) { padding: 8px 14px; gap: 5px; }
 
 
 /* «Art des Trupps» as its own compact pair (08.09., field ask — the two labelled tiles with

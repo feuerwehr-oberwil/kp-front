@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
 import type { Person } from '../types'
 import { TruppTeam } from './TruppTeam'
 import type { Slot } from './PersonField'
+import s from './Atemschutz.module.css'
 
 afterEach(cleanup)
 
@@ -201,23 +201,13 @@ describe('TruppTeam', () => {
     expect(onChange).toHaveBeenCalledWith([{ name: 'Keller Urs', personId: 'guest-7' }])
   })
 
-  // an empty slot looks like the field it is not — the tap has to hand the caret on, or the
-  // first-time user sits there waiting for a keyboard that never opens. The LIST blinks with the
-  // field: «where do I type» is not the question, «where are the names» is — and since 04.09. the
-  // Gast door is a row of that same list, so the blink already covers it.
-  it('points the «noch niemand» chip at the search field and the list', async () => {
+  // an empty Trupp renders no chip and no control at all (09.09.) — the search sits right below
+  // it already, so there is nothing left to point at. (The tablet's own roster list is a
+  // separate `<ul>` and stays visible — this only checks the Trupp's own chosen-list.)
+  it('renders no chip when the Trupp is empty — just the search field', () => {
     setup()
-    // one dashed chip instead of reserved role slots (08.09.) — and it is a real control
-    const slot = screen.getByRole('button', { name: 'Noch niemand – unten suchen' })
-    expect(slot.querySelector('input')).toBe(null)
-    fireEvent.click(slot)
-    expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))
-    // the flash is armed a frame later (pointAtSearch restarts it even mid-blink)
-    await waitFor(() => {
-      expect(screen.getByRole('listbox').className).toContain('teamListHint')
-    })
-    expect(screen.getByLabelText('Person suchen …').closest('label')!.className).toContain('teamSearchHint')
-    expect(document.activeElement).toBe(screen.getByLabelText('Person suchen …'))
+    expect(document.querySelector(`.${s.teamChosen}`)?.children.length).toBe(0)
+    expect(screen.getByLabelText('Person suchen …')).toBeTruthy()
   })
 
   /* ── The phone skin (05.09.) ────────────────────────────────────────────────────────────────
@@ -230,22 +220,29 @@ describe('TruppTeam', () => {
     const az = appConfig.copy.atemschutz
     const phone = { phone: true }
 
-    it('shows no roster at rest — one dashed chip and the count the list used to carry', () => {
+    it('shows no roster, no chip and no hint at rest with an empty Trupp', () => {
       setup([], phone)
       expect(screen.queryByRole('listbox')).toBeNull()
       expect(screen.queryByRole('option')).toBeNull()
-      // three people are present in `setup`
-      expect(screen.getByText(fillTemplate(az.teamPresentCount, { n: 3 }))).toBeTruthy()
-      expect(screen.getByText(az.teamHintFirst)).toBeTruthy()
-      expect(screen.getByText(az.teamChipsEmpty)).toBeTruthy()
+      expect(screen.queryByRole('listitem')).toBeNull()
+      expect(screen.queryByText(az.teamHintChips)).toBeNull()
     })
 
-    // …and once somebody is in it, the line says what the two halves of a chip do instead
-    it('reads the chip out once the Trupp has somebody in it', () => {
+    // one person promotes nobody — the hint saying so would be true of nothing yet
+    it('reads no crowning hint with only one person in the Trupp', () => {
       setup([{ name: 'Meier Anna', personId: 'p1' }], phone)
-      expect(screen.getByText(az.teamHintChips)).toBeTruthy()
-      expect(screen.queryByText(az.teamChipsEmpty)).toBeNull()
+      expect(screen.queryByText(az.teamHintChips)).toBeNull()
       expect(screen.getByPlaceholderText(az.teamSearchMore)).toBeTruthy()
+    })
+
+    // …and once two are in it, tapping a name can actually promote somebody else
+    it('reads the crowning hint once the Trupp has two or more people', () => {
+      const value: Slot[] = [
+        { name: 'Meier Anna', personId: 'p1' },
+        { name: 'Huber Sarah', personId: 'p2' },
+      ]
+      setup(value, phone)
+      expect(screen.getByText(az.teamHintChips)).toBeTruthy()
     })
 
     /* ⚠️ The list is the ANSWER to a query, not a surface to browse: four matches, and the Gast

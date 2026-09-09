@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -74,61 +74,26 @@ export function TruppTeam({
    * row of the list offers to take that name as a Gast. Nothing is typed twice and there is no
    * permanent Gast row standing over a roster that usually has the person on it. */
   const [q, setQ] = useState('')
-  // An empty slot LOOKS like the field it is not: people tap it and wait for a keyboard. It
-  // stays a slot — names are picked from the Mannschaft below — so the tap points at the search
-  // AND at the list: caret in the field, and both blink once so the eye follows the finger. Same
-  // pointing gesture the card flash makes (.cardFlash), never a state that stays.
-  // ⚠️ Not just the field. The search is only how you NARROW the list; the list is where the
-  // names actually are, and blinking the field alone sent people looking for a keyboard again.
-  // (The Gast link used to blink with them. It is gone — the answer for somebody who is not on
-  // the Mannschaft now appears IN the list, so the list is already the thing being pointed at.)
-  const searchRef = useRef<HTMLInputElement>(null)
-  const rowRef = useRef<HTMLLabelElement>(null)
-  const [hint, setHint] = useState(false)
-  const pointAtSearch = () => {
-    searchRef.current?.focus()
-    // restart the blink even if one is still running — a second tap has to be answered too
-    setHint(false)
-    requestAnimationFrame(() => setHint(true))
-  }
-  // cleared on a timer, not on animationend: under prefers-reduced-motion there is no animation
-  // to end, and the ring would sit there for good
-  useEffect(() => {
-    if (!hint) return
-    const t = window.setTimeout(() => setHint(false), 1200)
-    return () => window.clearTimeout(t)
-  }, [hint])
 
-  /* ── The keyboard is the phone's second screen (05.09., field feedback) ─────────────────────
-   * With the keyboard up, the Trupp form had ~1½ answer rows left between the search field and
-   * the footer: the section header, the crew chips and the field label were all still standing
-   * above the caret, holding the room the ANSWER needs. So the field rides to the top of the
-   * form's scroller the moment it is focused, and the hits get the whole band from there down to
-   * «Trupp anmelden» — three to four rows instead of one and a half. Nothing is hidden and
-   * nothing is collapsed: what scrolled up is one flick away, and it is back as soon as the
-   * keyboard goes.
-   * ⚠️ Phone only. On a tablet the whole Mannschaft is on screen with room to spare, and moving
-   * the form under a hand that only tapped a field would be motion for nothing.
-   * ⚠️ …and after a beat, not on the focus event itself: iOS scrolls the focused field into view
-   * on its own and the sheet re-measures the keyboard a frame or two later (lib/useKeyboardInset),
-   * so a scroll issued now is a scroll issued against both. */
-  const liftMs = 260
-  const liftTimer = useRef(0)
-  useEffect(() => () => window.clearTimeout(liftTimer.current), [])
-  const liftSearch = () => {
-    if (!phone) return
-    window.clearTimeout(liftTimer.current)
-    liftTimer.current = window.setTimeout(() => {
-      const row = rowRef.current
-      if (!row) return
-      // the box that actually scrolls this form — the sheet's body (Atemschutz.module.css)
-      let port = row.parentElement
-      while (port && port.scrollHeight <= port.clientHeight + 1) port = port.parentElement
-      if (!port) return
-      const top = port.scrollTop + row.getBoundingClientRect().top - port.getBoundingClientRect().top
-      port.scrollTo({ top: Math.max(0, top - 4), behavior: 'smooth' })
-    }, liftMs)
-  }
+  /* ── With the keyboard up, the SEARCH IS THE SCREEN (09.09., maintainer decision) ───────────
+   * This reverses the 05.09. answer to the same complaint, whose rule was «nothing is hidden and
+   * nothing is collapsed»: the field rode to the top of the sheet's scroller (`liftSearch`) and
+   * everything else stayed standing, one flick away. In the field that read as every part of the
+   * form fighting the hits for the same band — the sheet's title clipped off the top, «Art des
+   * Trupps», the Auftrag tiles and the Abbrechen/Bereitstellen footer all still holding rows,
+   * and the four rows that ANSWER the typed query squeezed between them.
+   * So on the phone stack, while THIS field is focused, everything below the Mannschaft is
+   * hidden — the remaining sections and the footer — and the chips, the field and the hits get
+   * the whole band above the keyboard. Everything is back the moment the keyboard goes.
+   * ⚠️ It is CSS, not React state (Atemschutz.module.css · `.modalStack:global(.is-kb)` +
+   * `:has(.teamSearch input:focus)`), and that is the load-bearing part: a tap on a hits row
+   * blurs this field BEFORE the click lands, so anything driven by a blur handler would re-lay
+   * the form out mid-gesture. Only things BELOW the hits come and go, so the row under the thumb
+   * never moves — and there is no timer whose un-hide can be mistimed.
+   * ⚠️ The selector names this field, not «an input»: focusing the Ziel leaves the form as it is.
+   * (`liftSearch` went with the layout it was built for. With the sections gone the field is
+   * already near the top of the sheet, and a 260ms smooth scroll still running when a tap lands
+   * is the one remaining way to move the hits out from under a finger.) */
 
   const chosenIds = new Set(value.map((v) => v.personId).filter(Boolean) as string[])
   const chosenNames = new Set(value.map((v) => v.name.trim()).filter(Boolean))
@@ -172,9 +137,6 @@ export function TruppTeam({
    * have mistyped it. Enter reads this same array, so the key and the finger can never take two
    * different people. */
   const visible = phone ? (needle ? filtered.slice(0, PHONE_HITS) : []) : filtered
-  /** …and what replaces the list when nothing is typed: how many people are here at all. The
-   *  count is the one thing the standing roster said without being asked. */
-  const presentCount = presentIds.size
 
   // Adding the FIRST person makes them Gruppenführer, because the overwhelmingly common case is
   // that the Trupp is entered leader-first. Nothing is locked by it — the crown moves with a tap.
@@ -247,9 +209,10 @@ export function TruppTeam({
   return (
     <div className={s.team}>
       {/* THE TRUPP — first, because it is the answer; the Mannschaft below it is the way to it.
-          No reserved slots since 08.09.: the crew POPULATES as people are picked (one dashed
-          hint chip while empty, on both skins), and a fourth, fifth, tenth person simply adds
-          a row — a big Trupp is never refused. */}
+          No reserved slots since 08.09.: the crew POPULATES as people are picked, and a fourth,
+          fifth, tenth person simply adds a row — a big Trupp is never refused. An empty Trupp
+          renders no chip at all (09.09.): the search sits right below it already, so a dashed
+          placeholder chip only repeated what the very next control on screen already says. */}
       <ul className={skin.list}>
         {value.map((m, i) => {
           const lead = i === 0
@@ -288,17 +251,6 @@ export function TruppTeam({
             </li>
           )
         })}
-        {/* NO reserved role slots since 08.09. (field ask): the crew simply populates as
-            people are picked — the first is the Gruppenführer, said by the amber outline and
-            the summary rather than a badge column. The whole empty state on BOTH skins is one
-            dashed «noch niemand» chip — and it IS a control: the search sits right below, but
-            the hand that taps the empty Trupp anyway gets pointed there (caret + blink)
-            instead of a dead press. */}
-        {!value.length && (
-          <li className={cx(s.chip, s.chipEmpty)}>
-            <button type="button" className={s.chipEmptyBtn} onClick={pointAtSearch}>{az.teamChipsEmpty}</button>
-          </li>
-        )}
       </ul>
 
       {/* THE MANNSCHAFT. A search box rather than a scroll list: on a 66-person roster the old
@@ -307,12 +259,11 @@ export function TruppTeam({
           not the search's: whatever stands here can end up on the Personalblatt.
           ⚠️ `stripUnprintable` on the way IN, for the same reason — the query is a search until
           the moment it is committed as a name, and there is no second field left to clean it. */}
-      <label ref={rowRef} className={cx(s.teamSearch, hint && s.teamSearchHint)}>
+      <label className={s.teamSearch}>
         <Icon id="search" />
         <input
-          ref={searchRef}
           value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} inputMode="search"
-          maxLength={40} onFocus={(e) => { caretToEnd(e); liftSearch() }} onKeyDown={onSearchKeyDown}
+          maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
           // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person
           // suchen …» — because on the phone this field is the only way in and «Person suchen»
           // over three chips reads as if it were asking again for whoever is already standing
@@ -331,10 +282,9 @@ export function TruppTeam({
           ANSWER to it rather than a surface to browse: `.teamHits` shrink-wraps its ≤4 rows
           instead of reserving 38dvh of standing roster, and it deliberately carries a class of
           its own — the `:has(.teamList)` rules that hand the open section the sheet's spare room
-          (Atemschutz.module.css) must not fire on a box that comes and goes with the keyboard.
-          What the standing list used to say for free is the one line under it («N anwesend»). */}
+          (Atemschutz.module.css) must not fire on a box that comes and goes with the keyboard. */}
       {(!phone || !!needle) && (
-      <ul className={cx(phone ? s.teamHits : s.teamList, hint && s.teamListHint)}
+      <ul className={phone ? s.teamHits : s.teamList}
         role="listbox" aria-label={az.sectionTeam}>
         {visible.map((o) => (
           <li key={o.key}>
@@ -387,17 +337,11 @@ export function TruppTeam({
       </ul>
       )}
 
-      {/* THE LINE THAT REPLACES THE LIST (phone, at rest). Dropping the standing roster also drops
-          the one thing it said without being asked — how many people are here at all — and «no
-          list» must not read as «no idea who is on scene». So: the count, plus the one sentence
-          that says what the surface expects next. It is a HINT, never a control: everything it
-          describes is a chip or the field right above it. */}
-      {phone && !needle && (
-        <p className={s.teamHint}>
-          <b>{fillTemplate(az.teamPresentCount, { n: presentCount })}</b>
-          {' '}
-          <span>{value.length ? az.teamHintChips : az.teamHintFirst}</span>
-        </p>
+      {/* THE ONE LINE UNDER THE CHIPS (phone, at rest) — and only that one (09.09., field ask:
+          the count + a second sentence read as «blabla»). With 0 or 1 people, tapping a name
+          would promote nobody or nobody-else, so the hint saying it means nothing yet either. */}
+      {phone && !needle && value.length >= 2 && (
+        <p className={s.teamHint}>{az.teamHintChips}</p>
       )}
     </div>
   )

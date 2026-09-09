@@ -1083,15 +1083,11 @@ export const fr: Localizable<Copy> = {
     zielPlaceholder: 'Décrire la mission',
     zielClear: 'Vider mission / but',
     leaderLabel: 'Chef de groupe',
-    teamEmpty: 'Personne dans l’équipe. Touchez un nom ci-dessous.',
     teamSearchPlaceholder: 'Rechercher une personne …',
     teamNoMatches: 'Aucun résultat',
     // the phone chip row (05.09.) — see de.ts for why the roster list is gone there
     teamSearchMore: 'Rechercher une autre personne …',
-    teamChipsEmpty: 'Personne pour l\'instant – chercher ci-dessous',
-    teamPresentCount: '{n} présents',
-    teamHintFirst: 'Taper un nom – le premier devient CG.',
-    teamHintChips: 'Toucher un nom = CG · ✕ = retirer de l\'équipe',
+    teamHintChips: 'Toucher un nom = chef de groupe',
     leaderBadge: 'CG',
     makeLeader: 'Désigner {name} chef de groupe',
     teamRemove: 'Retirer {name} de l’équipe',
@@ -1147,6 +1143,7 @@ export const fr: Localizable<Copy> = {
     sinceContact: 'Depuis le dernier contact',
     elapsed: 'Temps d’intervention',
     outFor: 'Sorti depuis',
+    outForPlain: 'Sans mission depuis', // ⚠️ app only — see de.ts · outForPlain
     currentPressure: 'Pression',
     lowestPressure: 'Le plus bas',
     lineField: 'Conduite',
@@ -1189,6 +1186,7 @@ export const fr: Localizable<Copy> = {
     actRueckzug: 'Annoncer le repli',
     actContinue: 'Poursuivre',
     actExit: 'Annoncer sorti',
+    actExitPlain: 'Mission terminée', // ⚠️ app only — see de.ts · actExitPlain
     actReenter: 'Réengager',
     actNotDeployed: 'Non engagée',
     actNotDeployedHint: 'Clore l’équipe sans qu’elle soit passée sous ARI – reste prête pour un engagement ultérieur',
@@ -1212,6 +1210,7 @@ export const fr: Localizable<Copy> = {
     alarmNotifyTitle: 'ARI en retard',
     alarmNotifyBody: 'Binôme {name} en retard – établir le contact.',
     status: { angemeldet: 'Annoncé', aktiv: 'En intervention', rueckzug: 'Repli', ueberfaellig: 'En retard', raus: 'Sorti' },
+    statusPlainOut: 'Sans mission', // ⚠️ app only — see de.ts · statusPlainOut
     // comment un binôme est NOMMÉ dans le texte courant — voir la base allemande
     truppTerm: 'Binôme {name}',
     logRegister: 'Binôme {name} annoncé – pression d’entrée {bar} bar',

@@ -1615,29 +1615,20 @@ export const de = {
     // Trupp selection (TruppTeam) — a list to tap instead of three fixed fields. The three
     // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
     // forever. The star is the correction, and it costs one tap.
-    teamEmpty: 'Noch niemand im Trupp. Unten antippen.',
-    // Three slots are always there — that is what a Trupp looks like (GF + 2), and an empty slot
-    // says «hier kommt der nächste hin» more clearly than a sentence. The row itself picks the GF.
-    // ⚠️ The slot wears its ROLE in the badge column (leaderBadge / memberLabel); this is only the
-    // quiet placeholder in the name column, and it is the same en dash every other empty value in
-    // the app uses — not an em dash, which read as a heavier statement than «noch niemand».
     teamSearchPlaceholder: 'Person suchen …',
     teamNoMatches: 'Kein Treffer',
     /* ── Die Chip-Zeile (nur Telefon, 05.09.) ───────────────────────────────────────────────
      * Auf 375px kosteten drei aufklappende Slot-Zeilen plus eine dauernd sichtbare
      * Mannschaftsliste die halbe Form. Der Trupp ist dort EINE umbrechende Chip-Zeile, und die
-     * Liste erscheint erst beim Tippen. Was die Liste sonst nebenbei sagte – wie viele überhaupt
-     * anwesend sind – steht als eine Zeile darunter, damit «keine Liste» nicht «keine Ahnung
-     * wie viele hier sind» heisst. Auf Tablet/Desktop bleibt alles, wie es war. */
+     * Liste erscheint erst beim Tippen. Auf Tablet/Desktop bleibt alles, wie es war. Eine leere
+     * Chip-Zeile zeigt nichts (09.09.) – die Suche direkt darunter ist bereits die Antwort. */
     teamSearchMore: 'Weitere Person suchen …',
-    // Der leere Trupp: EIN gestrichelter Chip, der die Rolle nennt und sagt, wohin man greift.
-    teamChipsEmpty: 'Noch niemand – unten suchen',
-    // Fragment, kein Satz – deshalb ohne Punkt (siehe AGENTS.md · Interpunktion).
-    teamPresentCount: '{n} anwesend',
-    teamHintFirst: 'Name tippen – der Erste wird GF.',
+    // Das EINE, was unter der Chip-Zeile noch steht (09.09., Feldtest: die alte Zeile war
+    // «blabla») – dass ein Tipp auf den Namen ihn zum Gruppenführer macht. Erst ab zwei Personen
+    // gezeigt (TruppTeam): bei 0 oder 1 sagt «wer führt» nichts.
     // «Name antippen», nicht «Chip antippen» – Feldtest 08.09.: «Chip» ist UI-Jargon,
     // der Name ist das, was die Person auf dem Bildschirm tatsächlich sieht.
-    teamHintChips: 'Name antippen = GF · ✕ = aus dem Trupp nehmen',
+    teamHintChips: 'Name antippen = Gruppenführer',
     // a placed marker whose name was never typed – it still has to be findable, and «Trupp»
     // is what it is. Only ever shown in a list, never written onto the record.
     truppFallbackName: 'Trupp',
@@ -1763,6 +1754,9 @@ export const de = {
     // breakClock) and it belongs to Atemschutz alone: a work squad has no recovery rule, so its
     // out card says «Draussen» and nothing else.
     outFor: 'Draussen seit',
+    // ⚠️ APP ONLY, same split as `actExitPlain` below – der ausgehändigte Link behält «Draussen
+    // seit» für jeden Trupp, AS oder nicht.
+    outForPlain: 'Ohne Auftrag seit',
     estimated: 'Geschätzter Druck',
     estimatedHint: 'Planungshilfe – bis genügend Druckverlauf vorliegt, geschätzt mit {liters} L Flasche und {rate} L/min Verbrauch. Ersetzt keine Druckmeldung.',
     estimatedHintHistory: 'Planungshilfe – aus dem bestätigten Druckverbrauch dieses Trupps hochgerechnet. Ersetzt keine Druckmeldung.',
@@ -1888,6 +1882,11 @@ export const de = {
     actRueckzug: 'Rückzug melden',
     actContinue: 'Fortsetzen',
     actExit: 'Raus melden',
+    // ⚠️ APP ONLY (09.09., Feldtest) – ein Trupp ohne Atemschutz meldet einen erledigten Auftrag,
+    // keinen Funkkontakt. Die ausgehändigte Link-Tafel bleibt bei «Raus melden», für JEDEN
+    // Trupp: das ist der eine Bildschirm, den eine externe Person bekommt, und er darf nicht
+    // plötzlich anders sprechen (AtemschutzView · plainWords).
+    actExitPlain: 'Auftrag erledigt',
     actReenter: 'Wieder in den Einsatz',
     // A Sicherungstrupp mostly does NOT go in. Until 08.08. you could only delete it – i.e. throw
     // away the one thing proving it stood ready. It is now closed out like any other: under
@@ -1932,6 +1931,10 @@ export const de = {
     alarmNotifyBody: 'Trupp {name} überfällig – Kontakt herstellen.',
     // status labels
     status: { angemeldet: 'Angemeldet', aktiv: 'Im Einsatz', rueckzug: 'Rückzug', ueberfaellig: 'Überfällig', raus: 'Draussen' } as Record<string, string>,
+    // ⚠️ APP ONLY, same split as `actExitPlain` – überschreibt nur das «Draussen» aus
+    // `truppStatusLabel` für einen Trupp ohne Atemschutz; «Nicht eingesetzt» / «Von Tafel
+    // entfernt» bleiben unverändert, die gelten für jeden Trupp gleich.
+    statusPlainOut: 'Ohne Auftrag',
     /**
      * Wie ein Trupp im Fliesstext heisst – «Trupp Meier Anna».
      *

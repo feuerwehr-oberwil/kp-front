@@ -62,6 +62,24 @@ function snapBar(v: number): number {
   return Math.max(0, Math.min(dz.pressureMax, Math.round(v / dz.pressureStep) * dz.pressureStep))
 }
 
+/** Non-AS Trupp wording — APP ONLY (09.09., field ask). A work squad reports a task done, not a
+ *  radio check, so the app says «Auftrag erledigt» / «Ohne Auftrag» / «Ohne Auftrag seit» for
+ *  one, instead of borrowing Atemschutz vocabulary. The handed-over link board (`lite`) keeps
+ *  today's words for EVERY Trupp on it, plain ones included — it is the one screen an outside
+ *  operator was handed, and it must keep meaning what it always meant.
+ *  `truppStatusLabel` (lib/report.ts) stays AS vocabulary — it also prints the Rapport — so this
+ *  only swaps its plain «Draussen» result at the view layer, never «Nicht eingesetzt» / «Von
+ *  Tafel entfernt», which read true for a work squad exactly as they are. */
+function plainWords(t: Trupp, lite: boolean) {
+  const az = appConfig.copy.atemschutz
+  const plain = !lite && !isAtemschutzTrupp(t)
+  return {
+    exit: plain ? az.actExitPlain : az.actExit,
+    outFor: plain ? az.outForPlain : az.outFor,
+    status: (label: string) => (plain && label === az.status.raus ? az.statusPlainOut : label),
+  }
+}
+
 // The Atemschutzüberwachung surface: the digital Atemschutz-Überwachungstafel. Swiss FKS model
 // — one big glanceable card per Trupp whose dominant element is TIME SINCE LAST FUNKKONTAKT, a
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
@@ -614,8 +632,9 @@ export function AtemschutzView({
       unlinkTruppLine(clash.id) // the previous Trupp lets go — its Leitung is now this one's
     }
     if (form.mode === 'create') {
+      const id = `tr${Date.now()}`
       createTrupp({
-        id: `tr${Date.now()}`,
+        id,
         // ⚠️ WRITTEN ONLY for the new kind. Absent means «unter Atemschutz» (types · TruppKind),
         // and stamping the default onto every new Trupp would make the blob claim a decision
         // nobody made — and make every pre-03.09. record look different from a fresh one.
@@ -625,6 +644,12 @@ export function AtemschutzView({
         entryPressureBar: f.pressure, entryTime: '', lastContactTime: '', lowestBar: f.pressure,
         status: 'angemeldet', readings: [],
       })
+      // The phone focus board («ein Trupp, ein Bildschirm») otherwise left the PREVIOUS Trupp
+      // selected — a new Trupp existed, but the operator was still looking at somebody else's
+      // card. `picked` is declared further down; this is a closure reference, resolved by the
+      // time submitForm actually runs (it is only ever called from an event handler, never
+      // during this render). Harmless on the tablet grid too — nothing reads `picked` there.
+      setPicked(id)
     } else if (form.mode === 'edit' && form.trupp) {
       /* Turning the Überwachung OFF on a crew that is inside is the one change in this form that
        * takes a safety watch away, so it is said out loud first. Only while the Trupp is actually
@@ -733,6 +758,7 @@ export function AtemschutzView({
         focusNonce={nonce} focusScroll={activeFocus?.id === t.id} onFlashed={flashed}
         onContact={(id) => { freezeOrder(); recordContact(id) }}
         onOpen={() => setOpenRow(t.id)}
+        lite={!!lite}
       />
     ) : (
     // Every mutation that can move a card between slots freezes the arrangement first (FREEZE_MS).
@@ -1341,7 +1367,7 @@ function collapsedClock(t: Trupp, live: TruppLive): { val: string; sub: string }
 }
 
 function TruppRow({
-  t, live, alarm, now, color, canEdit, onContact, onOpen, focusNonce, focusScroll = true, onFlashed,
+  t, live, alarm, now, color, canEdit, onContact, onOpen, focusNonce, focusScroll = true, onFlashed, lite,
 }: {
   t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the card use */
@@ -1355,9 +1381,13 @@ function TruppRow({
   /** the ring has run its full 1.9s — the board writes the nonce down so a later expand/collapse
    *  REMOUNT of this Trupp does not replay a gesture that already landed (see `focusNonceOf`) */
   onFlashed?: () => void
+  /** the handed-over «Tafel pur» (see TruppCard) — only gates plain-Trupp WORDING here
+   *  (AtemschutzView · plainWords); the row itself carries no lite-only controls. */
+  lite: boolean
 }) {
   const az = appConfig.copy.atemschutz
   const status = live.status
+  const words = plainWords(t, lite)
   // the same derivations the card makes, so a row and its card never disagree about state
   const inField = t.status === 'aktiv' || t.status === 'rueckzug'
   // forced to 0 off the Atemschutz section — see TruppCard for why no work squad may ever wear
@@ -1403,9 +1433,15 @@ function TruppRow({
   }, [focusNonce, focusScroll])
   const team = (t.members ?? []).filter(Boolean).join(' · ')
   const clock = collapsedClock(t, live)
+  // ⚠️ Defence in depth: `collapsedClock`'s own `!isAtemschutzTrupp` branch already returns an
+  // empty sub for a plain Trupp that is out (it has no break clock to show — see the function's
+  // doc comment), so this swap is a no-op today. It stays here so a future edit to that branch
+  // cannot silently leak «Draussen seit» onto a work squad's row without also failing the app-only
+  // wording test below.
+  const clockSub = clock.sub === az.outFor ? words.outFor : clock.sub
   return (
     <button ref={rowRef} type="button" className={cx(s.trow, tone)} onClick={onOpen}
-      aria-label={`${t.name} — ${az.status[status] ?? status}`}>
+      aria-label={`${t.name} — ${words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))}`}>
       <span className={s.trowId}>
         <span className={s.trowName}>
           <span className={s.trowDot} style={color ? { background: color } : undefined} />
@@ -1426,12 +1462,12 @@ function TruppRow({
           </span>
         )}
       </span>
-      <span className={s.trowState}>{status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)}</span>
+      <span className={s.trowState}>{words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))}</span>
       {/* one derivation with the card's band (collapsedClock) — the row used to freeze a work
           squad's Einsatzzeit after the exit and show «–:––» for an out crew's break clock */}
       <span className={s.trowClock}>
         <span className={s.trowClockVal}>{clock.val}</span>
-        <span className={s.trowSub}>{clock.sub}</span>
+        <span className={s.trowSub}>{clockSub}</span>
       </span>
       <span className={s.trowPress}>
         {monitored && <>{live.currentBar}<span className={s.trowPressUnit}> bar</span></>}
@@ -1544,9 +1580,12 @@ function TruppCard({
    * monitored. What it does have — who, what, where, how long — sits exactly where the monitored
    * card carries the same facts, so the two read as one board rather than two. */
   const monitored = isAtemschutzTrupp(t)
+  const words = plainWords(t, lite)
   // «Draussen» on a Trupp that never went under PA claims it came out of something. Only that
   // one word differs — the state, the section and the actions are the same (truppNeverDeployed).
-  const statusLabel = status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status)
+  // ⚠️ `words.status` swaps ONLY the plain «Draussen» result, app-side, into «Ohne Auftrag» —
+  // see `plainWords`.
+  const statusLabel = words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))
   const [logOpen, setLogOpen] = useState(false)
   // ⚠️ The jump has to LAND. Switching to the Überwachung and leaving a wall of cards was the
   // complaint: on a long list the Trupp somebody was sent to was off-screen, so the answer to
@@ -1914,7 +1953,7 @@ function TruppCard({
               </button>
             ))}
             <button className={cx(s.actBtn, s.actExit)} onClick={askExit}>
-              <Icon id="logout" /><span>{az.actExit}</span>
+              <Icon id="logout" /><span>{words.exit}</span>
             </button>
           </div>
         )}
@@ -1946,7 +1985,7 @@ function TruppCard({
             status is not `raus` (legacy data), which the band does not cover. */}
         {live.outSec != null && !out && (
           <div className={s.metaRow}>
-            <span>{az.outFor}</span>
+            <span>{words.outFor}</span>
             <b>{fmtElapsedFull(live.outSec)}</b>
           </div>
         )}

@@ -4,6 +4,7 @@
 // OPEN-ONLY (showing never logs, never counts as Kontakt). The Druck stepper is back inline
 // (a Druckmeldung must never cost an opening tap); its ± only stages a pending value and the
 // explicit «Bestätigen» commits.
+import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
@@ -161,7 +162,9 @@ describe('the state a tier cannot say', () => {
    * nobody has to act on — «Draussen» is the whole statement. */
   it('gives a work squad that is out its word alone — no clock, no time', () => {
     mount({ trupps: [{ ...aktivTrupp(), kind: 'einfach', status: 'raus', exitTime: iso(5 * 60_000) }] })
-    expect(screen.getByText(az.status.raus)).toBeTruthy()
+    // app-only wording (09.09.): a work squad reports a task done, not a radio check — see the
+    // «Ohne Auftrag» / «Auftrag erledigt» describe block below
+    expect(screen.getByText(az.statusPlainOut)).toBeTruthy()
     expect(screen.queryByText(az.outFor)).toBeNull()
     expect(screen.queryByText(az.elapsed)).toBeNull()
     const band = document.querySelector(`.${s.bandVal}`)!
@@ -310,6 +313,11 @@ describe('a collapsed row tells the same time as the open card', () => {
     const row = document.querySelector(`.${s.trow}`)!
     expect(row.querySelector(`.${s.trowClockVal}`)!.textContent).toBe('')
     expect(row.querySelector(`.${s.trowSub}`)!.textContent).toBe('')
+    // ⚠️ …and never the AS break-clock word either, app-side or link-board-side (`plainWords`'
+    // defensive swap in TruppRow guards this even though `collapsedClock` itself already never
+    // reaches `az.outFor` for a plain Trupp — see its own `!isAtemschutzTrupp` early return).
+    expect(row.querySelector(`.${s.trowSub}`)!.textContent).not.toBe(az.outFor)
+    expect(row.querySelector(`.${s.trowSub}`)!.textContent).not.toBe(az.outForPlain)
   })
 })
 
@@ -413,6 +421,30 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
   })
 
+  // A new Trupp used to leave the PREVIOUS one selected on this board — the operator registered
+  // the crew that needed it and was still looking at somebody else's card (09.09., field ask).
+  it('selects a newly created Trupp — the operator lands on the crew they just made', async () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    function Board() {
+      const [trupps, setTrupps] = useState<Trupp[]>([aktivTrupp()])
+      return (
+        <AtemschutzView {...propsFor({
+          lite: { subtitle: 'Brand' }, trupps,
+          createTrupp: (t: Trupp) => setTrupps((prev) => [...prev, t]),
+        })} />
+      )
+    }
+    render(<Board />)
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    typeGuest('Meier Anna')
+    pickAuftrag()
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: /Meier Anna/ }).getAttribute('aria-selected')).toBe('true')
+    })
+    expect(document.querySelector(`.${s.card}`)?.textContent).toContain('Meier Anna')
+  })
+
   it('opens the Trupp form as ONE flat column — everything visible, Druck+Kanal folded', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
@@ -420,7 +452,7 @@ describe('the handed-over board on a phone (focus mode)', () => {
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     // no sections since 08.09.: the Mannschaft, the Auftrag and the folded Standard line all
     // stand in one scroll — nothing is behind a chevron
-    expect(screen.getByText(az.teamChipsEmpty)).toBeTruthy()
+    expect(screen.getByLabelText(az.teamSearchPlaceholder)).toBeTruthy()
     expect(screen.getByText(az.auftragLabel)).toBeTruthy()
     expect(screen.queryByText(az.pressureLabel)).toBeNull()
     expect(screen.getByText(fillTemplate(az.luftDefaults, {
@@ -581,8 +613,23 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     expect(screen.queryByRole('button', { name: az.actEnter })).toBeNull() // it is already in
     // Rückzug lowers the turn-back pressure (alarmBarFor) and there is no cylinder to lower it on
     expect(screen.queryByRole('button', { name: az.actRueckzug })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: az.actExit }))
+    // app-only wording (09.09.): a work squad's exit button reads «Auftrag erledigt»
+    fireEvent.click(screen.getByRole('button', { name: az.actExitPlain }))
     expect(setTruppStatus).toHaveBeenCalledWith('tr9', 'raus')
+  })
+
+  // ⚠️ APP ONLY (09.09., field ask): a work squad reports a task done, not a radio check — the
+  // handed-over link board keeps «Raus melden» / «Draussen» for every Trupp (see the lite
+  // describe block below).
+  it('speaks work-squad words in the app: «Auftrag erledigt» to exit, «Ohne Auftrag» once out', () => {
+    mount({ trupps: [plainTrupp()], truppColors: { tr9: '#e2920a' } })
+    expect(screen.getByRole('button', { name: az.actExitPlain })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: az.actExit })).toBeNull()
+
+    cleanup()
+    mount({ trupps: [{ ...plainTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }], truppColors: { tr9: '#e2920a' } })
+    expect(screen.getByText(az.statusPlainOut)).toBeTruthy()
+    expect(screen.queryByText(az.status.raus)).toBeNull()
   })
 
   /* ⚠️ Same ⋯ as every other card, and every entry a WORD. These used to be glyphs on the row
@@ -845,10 +892,10 @@ describe('the Trupp form on the main board’s phone layout', () => {
 
   /* ⚠️ The Mannschaft is a CHIP ROW on the phone (05.09.). Three reserved slot rows plus a
    * standing roster filled the form before anybody had been picked, and the crew that was
-   * actually chosen was the smallest thing on it. Here the empty Trupp is one dashed chip and the
-   * roster appears only under a typed query — the Gast door included, so the one way in is
-   * unchanged. The behaviour itself is pinned in TruppTeam.test.tsx; this checks the form the
-   * operator opens really gets the phone skin. */
+   * actually chosen was the smallest thing on it. Here the empty Trupp renders no chip at all
+   * (09.09.) and the roster appears only under a typed query — the Gast door included, so the
+   * one way in is unchanged. The behaviour itself is pinned in TruppTeam.test.tsx; this checks
+   * the form the operator opens really gets the phone skin. */
   it('makes the Mannschaft a chip row — no standing roster, and the Gast door still opens', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [aktivTrupp()], personnel: [
@@ -856,7 +903,7 @@ describe('the Trupp form on the main board’s phone layout', () => {
     ] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     expect(screen.queryByRole('listbox', { name: az.sectionTeam })).toBeNull()
-    expect(screen.getByText(az.teamChipsEmpty)).toBeTruthy()
+    expect(document.querySelector(`.${s.teamChips}`)?.children.length).toBe(0)
     typeGuest('Frei Nadja')
     expect(screen.getByText('Frei Nadja')).toBeTruthy()
     // …and with the query cleared the roster is gone again rather than left standing

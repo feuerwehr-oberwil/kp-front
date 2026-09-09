@@ -1083,15 +1083,11 @@ export const it: Localizable<Copy> = {
     zielPlaceholder: 'Descrivi il compito',
     zielClear: 'Svuota compito / obiettivo',
     leaderLabel: 'Capogruppo',
-    teamEmpty: 'Nessuno nella squadra. Tocca un nome qui sotto.',
     teamSearchPlaceholder: 'Cerca persona …',
     teamNoMatches: 'Nessun risultato',
     // the phone chip row (05.09.) — see de.ts for why the roster list is gone there
     teamSearchMore: 'Cerca un\'altra persona …',
-    teamChipsEmpty: 'Ancora nessuno – cerca qui sotto',
-    teamPresentCount: '{n} presenti',
-    teamHintFirst: 'Digita un nome – il primo diventa CS.',
-    teamHintChips: 'Tocca un nome = CS · ✕ = togli dalla squadra',
+    teamHintChips: 'Tocca un nome = capogruppo',
     leaderBadge: 'CS',
     makeLeader: 'Designa {name} capogruppo',
     teamRemove: 'Togli {name} dalla squadra',
@@ -1147,6 +1143,7 @@ export const it: Localizable<Copy> = {
     sinceContact: 'Dall’ultimo contatto',
     elapsed: 'Tempo d’intervento',
     outFor: 'Fuori da',
+    outForPlain: 'Senza compito da', // ⚠️ app only — see de.ts · outForPlain
     currentPressure: 'Pressione',
     lowestPressure: 'Più bassa',
     lineField: 'Linea',
@@ -1189,6 +1186,7 @@ export const it: Localizable<Copy> = {
     actRueckzug: 'Annuncia il ritiro',
     actContinue: 'Continua',
     actExit: 'Annuncia uscita',
+    actExitPlain: 'Compito svolto', // ⚠️ app only — see de.ts · actExitPlain
     actReenter: 'Rientrare',
     actNotDeployed: 'Non impiegata',
     actNotDeployedHint: 'Chiudi la squadra senza che sia entrata con l’autorespiratore – resta pronta per un impiego successivo',
@@ -1212,6 +1210,7 @@ export const it: Localizable<Copy> = {
     alarmNotifyTitle: 'Autoprotezione in ritardo',
     alarmNotifyBody: 'Squadra {name} in ritardo – stabilire il contatto.',
     status: { angemeldet: 'Annunciata', aktiv: 'In intervento', rueckzug: 'Ritiro', ueberfaellig: 'In ritardo', raus: 'Fuori' },
+    statusPlainOut: 'Senza compito', // ⚠️ app only — see de.ts · statusPlainOut
     // come si CHIAMA una squadra nel testo corrente — vedi la base tedesca
     truppTerm: 'Squadra {name}',
     logRegister: 'Squadra {name} annunciata – pressione d’ingresso {bar} bar',

@@ -1084,15 +1084,11 @@ export const en: Localizable<Copy> = {
     zielPlaceholder: 'Describe the assignment',
     zielClear: 'Clear assignment / target',
     leaderLabel: 'Team leader',
-    teamEmpty: 'Nobody on this team yet. Tap a name below.',
     teamSearchPlaceholder: 'Search person …',
     teamNoMatches: 'No match',
     // the phone chip row (05.09.) — see de.ts for why the roster list is gone there
     teamSearchMore: 'Search another person …',
-    teamChipsEmpty: 'Nobody yet – search below',
-    teamPresentCount: '{n} present',
-    teamHintFirst: 'Type a name – the first one leads.',
-    teamHintChips: 'Tap a name = leader · ✕ = take off the team',
+    teamHintChips: 'Tap a name = leader',
     leaderBadge: 'Leader',
     makeLeader: 'Make {name} team leader',
     teamRemove: 'Take {name} off the team',
@@ -1148,6 +1144,7 @@ export const en: Localizable<Copy> = {
     sinceContact: 'Since last contact',
     elapsed: 'Deployment time',
     outFor: 'Out for',
+    outForPlain: 'No task for', // ⚠️ app only — see de.ts · outForPlain
     estimated: 'Estimated pressure',
     estimatedHint: 'Planning aid – estimated using a {liters} L cylinder and {rate} L/min consumption until enough pressure history exists. Does not replace a pressure report.',
     estimatedHintHistory: 'Planning aid – projected from this team’s confirmed pressure consumption. Does not replace a pressure report.',
@@ -1198,6 +1195,7 @@ export const en: Localizable<Copy> = {
     actRueckzug: 'Report withdrawal',
     actContinue: 'Continue',
     actExit: 'Report out',
+    actExitPlain: 'Task done', // ⚠️ app only — see de.ts · actExitPlain
     actReenter: 'Re-deploy',
     actNotDeployed: 'Not deployed',
     actNotDeployedHint: 'Close the team without it ever going on air — stays ready for a later deployment',
@@ -1221,6 +1219,7 @@ export const en: Localizable<Copy> = {
     alarmNotifyTitle: 'SCBA overdue',
     alarmNotifyBody: 'Team {name} overdue – establish contact.',
     status: { angemeldet: 'Registered', aktiv: 'Deployed', rueckzug: 'Withdrawing', ueberfaellig: 'Overdue', raus: 'Out' },
+    statusPlainOut: 'No task', // ⚠️ app only — see de.ts · statusPlainOut
     // how a team is NAMED in running text — see the German base for why the word is part of it
     truppTerm: 'Team {name}',
     logRegister: 'Team {name} registered – entry pressure {bar} bar',
