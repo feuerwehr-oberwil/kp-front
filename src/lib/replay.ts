@@ -10,8 +10,21 @@
 // Reality check on granularity: the captured event payloads are intentionally minimal
 // (mostly an id + a kind hint — see App.tsx `emit(...)`). So the SNAPSHOTS carry the
 // authoritative full state; the fold refines between them only where the payload is rich
-// enough (App now enriches entity.add/move/edit, draw.add, layer.toggle, workspace.save).
-// Anything the fold can't apply is harmlessly skipped — the next snapshot corrects it.
+// enough (the seams enrich entity.add/move/edit, draw.add/edit, board.add/move/edit,
+// layer.toggle, workspace.save). Anything the fold can't apply is harmlessly skipped — the
+// next snapshot corrects it.
+//
+// ⚠️ The reconstruction is VIEW-BASED and stays that way. A `Saved` blob carries the three legacy
+// collections (`entities`/`drawings`/`board`) even now that they are derived views of one unified
+// object collection (lib/tacticalObjects), precisely so a recorded incident can be replayed by
+// anything that ever spoke those shapes. Rebuilding this fold on objects would buy nothing a
+// snapshot does not already carry and would cost the one property that makes replay honest: a
+// view is what was on the screen, whereas an object would have to be projected through a fit —
+// and the only fit available here is TODAY's, applied to YESTERDAY's record. Do not.
+//
+// What that costs, deliberately: the event stream has to be COHERENT across the two views, which
+// is what an anchor flip and a georef re-bake are about (IncidentWorkspace · onAnchorChange, and
+// the note on the re-bake in the fit effect).
 
 import { apiGet } from './api'
 import { isBoardAnno, isDrawing, isEntity, sanitizeWorkspace, type Saved } from './workspace'
@@ -465,6 +478,27 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
       if (planId && anno) ws.board = { ...(ws.board ?? {}), [planId]: [...(ws.board?.[planId] ?? []).filter((a) => a.id !== anno.id), anno] }
       break
     }
+    case 'board.move': {
+      // ⚠️ The plan surface's own release event — a chip, a cordon, a stroke body, a SelectionBar
+      // group — and until phase 4 the ONE op the seams emitted that nothing here folded. A symbol
+      // advanced on a Modul sheet therefore had no history at all between snapshots: the scrubber
+      // showed it at its last snapshotted place and jumped.
+      //
+      // Its payload is a POSITION rather than a patch (that is what «move» means on both surfaces:
+      // entity.move carries `coord`, this carries the sheet's own x/y/floor, or `pts` for a stroke,
+      // whose position IS its points). Anything else in it is ignored, and a payload with no
+      // position at all folds to nothing — the same answer every too-thin payload gets.
+      const planId = typeof p.planId === 'string' ? p.planId : null
+      const patch: Partial<BoardAnno> = {}
+      if (typeof p.x === 'number') patch.x = p.x
+      if (typeof p.y === 'number') patch.y = p.y
+      if (typeof p.floor === 'number') patch.floor = p.floor
+      if (Array.isArray(p.pts)) patch.pts = p.pts as BoardAnno['pts']
+      if (planId && id && Object.keys(patch).length) {
+        ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? gated(isBoardAnno, a, patch) : a) }
+      }
+      break
+    }
     case 'board.edit': {
       const planId = typeof p.planId === 'string' ? p.planId : null
       const patch = p.patch as Partial<BoardAnno> | undefined
@@ -500,8 +534,11 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
 
 /** The reconstructed-state slices the UI reads when scrubbing. It IS the `Saved` blob:
  *  the map reads `entities`/`drawings`/`layerState`, and the Plan reads `board`/`building`
- *  from the very same shape — so one `stateAt(T)` drives BOTH surfaces in lockstep. The
- *  board/building come straight from the nearest snapshot ≤ T (no fine fold needed — v1). */
+ *  from the very same shape — so one `stateAt(T)` drives BOTH surfaces in lockstep. `building`
+ *  (the floor stack) comes straight from the nearest snapshot ≤ T; the other three are folded
+ *  forward from it. A sheet in replay therefore shows exactly what was RECORDED on it — no
+ *  projection of the Karte's objects, because that would need a fit and the only fit here is
+ *  today's. */
 export type ReplayState = Saved & { board?: BoardDoc; building?: BuildingDoc | null }
 
 /**

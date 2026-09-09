@@ -202,6 +202,38 @@ describe('attachment and Plan replay folding', () => {
     const b = bundle(events, () => ({ workspace: { ...emptyWs(), board: {} }, occurredMs: 0 }))
     expect((await stateAt(b, 3000))?.board?.gebaeude[0]).toMatchObject({ color: 'red', pts: [[0, 0, 0], [1, 1, 1]] })
   })
+
+  /* ⚠️ `board.move` is what the plan surface emits on every native release — a chip, a cordon, a
+   * stroke, a SelectionBar group — and until phase 4 nothing folded it: a symbol advanced on a
+   * Modul sheet stood still in the replay until the next snapshot happened along. */
+  it('replays a plan drag: the sheet position folds', async () => {
+    const ws = { ...emptyWs(), board: { gebaeude: [{ id: 's1', kind: 'symbol' as const, x: 0.2, y: 0.2, floor: 0 }] } }
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'gebaeude', x: 0.8, y: 0.4, floor: 1 } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0]).toMatchObject({ x: 0.8, y: 0.4, floor: 1 })
+  })
+
+  it('…a stroke moves by its POINTS, which is what a stroke’s position is', async () => {
+    const ws = { ...emptyWs(), board: { gebaeude: [{ id: 'l1', kind: 'draw' as const, pts: [[0, 0, 0], [1, 1, 0]] as [number, number, number][] }] } }
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 'l1', planId: 'gebaeude', pts: [[0.5, 0, 0], [1.5, 1, 0]] } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0].pts).toEqual([[0.5, 0, 0], [1.5, 1, 0]])
+  })
+
+  it('…and a payload naming no position folds to nothing rather than to garbage', async () => {
+    const ws = { ...emptyWs(), board: { gebaeude: [{ id: 's1', kind: 'symbol' as const, x: 0.2, y: 0.2 }] } }
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'gebaeude' } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0]).toMatchObject({ x: 0.2, y: 0.2 })
+  })
+
+  it('…and a move that would break the shape gate leaves the anno standing', async () => {
+    const ws = { ...emptyWs(), board: { gebaeude: [{ id: 'l1', kind: 'draw' as const, pts: [[0, 0, 0], [1, 1, 0]] as [number, number, number][] }] } }
+    // one point is not a line — the same answer the live load gives a malformed anno
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 'l1', planId: 'gebaeude', pts: [[0.5, 0, 0]] } })],
+      () => ({ workspace: ws, occurredMs: 0 }))
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0].pts).toEqual([[0, 0, 0], [1, 1, 0]])
+  })
 })
 
 describe('vehiclesAt — interpolated sample paths', () => {

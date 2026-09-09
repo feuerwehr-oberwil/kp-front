@@ -1659,7 +1659,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
   const drawUp = () => {
     const st = drawDrag.current; drawDrag.current = null
-    if (st?.moved) emit('board.move', { id: st.id, planId: activeId })
+    if (!st?.moved) return
+    // ⚠️ …WITH the points. A stroke's position IS its points, and this was the one board.move that
+    // named none — an unfoldable payload, so the replay left the line where the last snapshot had
+    // it while every other plan drag now moves (lib/replay · board.move).
+    emit('board.move', { id: st.id, pts: annos.find((x) => x.id === st.id)?.pts, planId: activeId })
   }
 
   // --- single Absperrkreis select + move (tap its ring/fill in WbCircleLayer, pan mode) ---
@@ -1731,7 +1735,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!labelDrag.current) return
     e.stopPropagation()
     const st = labelDrag.current; labelDrag.current = null
-    if (st?.moved) emit('board.edit', { id: st.id, planId: activeId })
+    if (!st?.moved) return
+    // …with the offsets it dragged: a `board.edit` naming no patch folds to nothing (lib/replay),
+    // so the nudged label snapped back on every scrub between snapshots.
+    const a = annos.find((x) => x.id === st.id)
+    emit('board.edit', { id: st.id, planId: activeId,
+      patch: st.which === 'end' ? { endDx: a?.endDx, endDy: a?.endDy } : { labelDx: a?.labelDx, labelDy: a?.labelDy } })
   }
 
   // --- vertex editing of a selected line/area (drag a node, insert on a segment, delete a node).
@@ -1818,7 +1827,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     setPlanEndpointDrag(null)
-    if (st?.moved) emit('board.edit', { id: st.id, planId: activeId })
+    // …and the ordinary, unmagnetic reshape: the points ARE what moved, so they travel with it
+    // (an empty `board.edit` folds to nothing — see the magnetic branch above, which always said so)
+    if (st?.moved) emit('board.edit', { id: st.id, planId: activeId, patch: { pts: annos.find((a) => a.id === st.id)?.pts } })
   }
   /**
    * Grow the line past one of its open ends: append a point where the finger is, then hand the
