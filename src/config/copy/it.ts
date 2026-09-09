@@ -485,7 +485,7 @@ export const it: Localizable<Copy> = {
   dockHints: {
     symbol: 'Tocca la carta per posizionare il segno. Attiva il lucchetto per metterne più di seguito.',
     lasso: 'Trascina con un dito un riquadro attorno a più oggetti. Con due dita la carta continua a spostarsi. Toccando di nuovo «Multiplo» si torna alla Selezione.',
-    line: 'Trascina sulla carta o tocca i punti per disegnare una linea. Lo stile (Mano libera · Freccia · Asse di salvataggio) si sceglie poi nell’editor.',
+    line: 'Trascina sulla carta o tocca i punti per disegnare una linea. Colore, spessore e stile si scelgono poi nell’editor.',
     area: 'Tocca almeno tre vertici sulla carta, poi concludi con il segno di spunta.',
     circle: 'Trascina dal centro verso il bordo per impostare il raggio in metri. Raggio e riempimento si regolano poi nell’editor.',
     note: 'Tocca la carta per inserire una nota.',
@@ -1351,8 +1351,8 @@ export const it: Localizable<Copy> = {
     line: 'Linea',
     area: 'Superficie',
     dockHints: {
-      draw: 'Trascina sul piano per disegnare liberamente. Colore, spessore e tipo di linea si scelgono sotto.',
-      line: 'Tocca i vertici. Doppio tocco o «Fatto» chiude la linea. Lo stile si sceglie sotto.',
+      draw: 'Trascina sul piano per disegnare liberamente. Colore, spessore e stile si scelgono poi nell’editor.',
+      line: 'Tocca i vertici. Doppio tocco o «Fatto» chiude la linea. Colore, spessore e stile si scelgono poi nell’editor.',
       area: 'Tocca i vertici (almeno 3). Doppio tocco o «Fatto» chiude la superficie.',
       circle: 'Trascina dal centro verso il bordo per impostare il raggio. Raggio, colore e riempimento si regolano poi nell’editor – in metri reali una volta calibrata la scala.',
       text: 'Tocca il piano per inserire una nota.',
@@ -1729,7 +1729,6 @@ export const it: Localizable<Copy> = {
     rotateArmed: 'Rotazione attiva – trascinare ovunque',
     selectionBar: 'Selezione',
     points: 'Punti',
-    preset: 'Stile',
     color: 'Colore',
     width: 'Spessore',
     lineStyle: 'Linea',

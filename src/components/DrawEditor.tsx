@@ -55,15 +55,6 @@ function EndingGlyph({ kind }: { kind: 'none' | 'arrow' | 'arrowStop' | 'teilstu
 
 const COLORS = appConfig.drawing.colors
 const WIDTHS = appConfig.drawing.widths
-const LINE_PRESETS = appConfig.drawing.linePresets
-
-/** Which preset a line currently wears. The bundles differ only in the arrowhead and the
- *  repeated marker letter (Freihand: neither · Pfeil: arrow · Rettungsachse: arrow + «R»), so
- *  those two fields identify one unambiguously. A hand-tuned line matches none — then no chip
- *  lights, which is honest: the line is not «a Rettungsachse», it is its own thing. */
-function matchLinePreset(arrow?: boolean, marker?: string) {
-  return LINE_PRESETS.find((p) => !!p.defaults.arrow === !!arrow && (p.defaults.marker ?? '') === (marker ?? ''))?.id
-}
 
 /** The style fields a line/area/circle exposes — model-agnostic so a Lage `Drawing` and a Plan
  *  `BoardAnno` can both drive the SAME editor (callers map their object → these primitives). */
@@ -119,7 +110,6 @@ interface Props {
   /** WGS84 path of the line, enabling the swisstopo Höhenprofil inside the Messung section.
    *  Omitted on the Plan — a building plan has no height data. */
   profileCoords?: LngLat[] | null
-  onPreset: (presetId: string) => void
   onColor: (c: string) => void
   onWidth: (w: number) => void
   onDashed: (dashed: boolean) => void
@@ -188,7 +178,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onPreset, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, onOriginal, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, onOriginal, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   // free-typed Abschnitt-Leiter draft (see the Combo below): null = not typing
   const [leiterDraft, setLeiterDraft] = useState<string | null>(null)
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
@@ -209,7 +199,6 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   const isArea = drawing.kind === 'area'
   // a freehand stroke (kind 'draw') and a node line (kind 'line') style identically
   const isLine = drawing.kind === 'line' || drawing.kind === 'draw'
-  const activePreset = matchLinePreset(drawing.arrow, drawing.marker)
   const fillOpacity = drawing.fillOpacity ?? (isCircle ? appConfig.drawing.circleFillOpacity : 0.14)
   const headIcon = isCircle ? 'circle' : isArea ? 'area' : 'pen'
   const headTitle = isCircle ? appConfig.copy.drawingEditor.circle : isArea ? appConfig.copy.drawingEditor.area : appConfig.copy.drawingEditor.drawing
@@ -296,20 +285,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               </span>
             </div>
           )}
-          {/* ⚠️ The line presets live HERE and nowhere else — both docks deleted their own picker
-              on the promise that the style is chosen in the post-draw editor (WbControls · the
-              Plan's Zeichnen dock). `onPreset` was declared, passed by both surfaces, and then
-              never destructured, so for a while «Rettungsachse» was three manual fields nobody
-              would find at 3am. The chips are the ONE way in, on both surfaces. */}
-          {isLine && (
-            <div className="de-row"><span>{appConfig.copy.drawingEditor.preset}</span>
-              <span className="de-presets">
-                {LINE_PRESETS.map((p) => (
-                  <button key={p.id} className={`de-preset ${activePreset === p.id ? 'on' : ''}`} title={p.label} onClick={() => onPreset(p.id)}>{p.label}</button>
-                ))}
-              </span>
-            </div>
-          )}
+          {/* No preset row (09.09., «das ganze Stil-Ding»): a line's decoration is assembled
+              from the raw controls below — Abschluss (Pfeil/Teilstück), Stil (solid/dash/
+              Ketten), the letter field — and lib/lineStyle · lineStyleName still NAMES the
+              known combinations for the Verlauf («Rettungsachse gezeichnet»). */}
           <div className="de-row"><span>{appConfig.copy.drawingEditor.color}</span>
             <span className="dh-swatches">
               {/* named like the Form editor's identical rows (ShapeEditor · the Farbe/Strichstärke

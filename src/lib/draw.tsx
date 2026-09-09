@@ -169,10 +169,10 @@ interface LineStylePickerProps {
  * whiteboard dock), so the choice is identical wherever it is made.
  *
  * ⚠️ The chains live HERE, next to solid and dashed, rather than as line PRESETS (decision
- * 01.09.). A Haltelinie is not a different kind of object with its own bundle of arrow/marker/
- * dash settings — it is a line drawn a different way, which is the question this control already
- * answers. Presets stay for what they are good at: «Rettungsachse» means arrow AND letter AND
- * dash together.
+ * 01.09., reconfirmed 09.09.). A Haltelinie is not a different kind of object with its own
+ * bundle of arrow/marker/dash settings — it is a line drawn a different way, which is the
+ * question this control already answers. Presets stay for what they are good at:
+ * «Rettungsachse» means arrow AND letter AND dash together.
  *
  * Chain and dash are one choice because they are one stroke: picking a chain clears the dash so
  * the teeth sit on a solid line the way the sheet draws them, and picking solid or dashed clears

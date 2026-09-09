@@ -2,7 +2,6 @@ import { Fragment, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { LineStylePicker } from '../lib/draw'
 import { DockInfo } from './DockInfo'
 
 /** What a colour swatch is CALLED. The dock item's own title names the group («Truppfarbe»); the
@@ -33,9 +32,8 @@ export type DockItem =
   | { type: 'colors'; value: string; onChange: (c: string) => void; colors?: readonly string[] }
   | { type: 'colorGrid'; value: string; onChange: (c: string) => void; colors: readonly string[]; title?: string }
   | { type: 'widths'; value: number; onChange: (w: number) => void; widths?: readonly number[] }
-  // `onMarker` present = this dock draws LINES and offers the FKS chain styles too; a Fläche
-  // dock leaves it off and keeps the plain solid/dashed pair (lib/draw · LineStylePicker).
-  | { type: 'lineStyle'; dashed: boolean; onChange: (d: boolean) => void; marker?: string; onMarker?: (m: string) => void }
+  // (no `lineStyle` item any more — since the «D pur» dock rework (09.09.) stroke styling
+  // happens AFTER the draw, in the DrawEditor the finished line lands in)
   | { type: 'info'; text: string }
 
 function renderItem(item: DockItem, key: string): ReactNode {
@@ -64,8 +62,6 @@ function renderItem(item: DockItem, key: string): ReactNode {
       return <Fragment key={key}>{(item.widths ?? WIDTHS).map((w) => <button key={w} className={`wb-ww ${item.value === w ? 'on' : ''}`} onClick={() => item.onChange(w)}
         title={fillTemplate(appConfig.copy.toolDock.widthName, { n: String(w) })}
         aria-label={fillTemplate(appConfig.copy.toolDock.widthName, { n: String(w) })}><span style={{ height: w }} /></button>)}</Fragment>
-    case 'lineStyle':
-      return <LineStylePicker key={key} dashed={item.dashed} onChange={item.onChange} marker={item.marker} onMarker={item.onMarker} />
     case 'info':
       return <DockInfo key={key} text={item.text} />
   }

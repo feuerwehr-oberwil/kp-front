@@ -11,7 +11,7 @@ afterEach(cleanup)
 const noop = () => {}
 const base = {
   pointCount: 2,
-  onPreset: noop, onColor: noop, onWidth: noop, onDashed: noop, onLabel: noop,
+  onColor: noop, onWidth: noop, onDashed: noop, onLabel: noop,
   onMarker: noop, onArrow: noop, onShowDistance: noop, onRadius: noop,
   onFillOpacity: noop, onDelete: noop, onClose: noop,
 }
@@ -72,38 +72,21 @@ describe('Messung on an already drawn line', () => {
   })
 })
 
-// The Einsatzleiter must be able to ask how long the Leitung is without being able to move it:
-// read-only keeps every number and drops every control.
-// The presets are the ONE way to reach Rettungsachse/Pfeil on either surface: both tool docks
-// deleted their own picker on the stated promise that the style is chosen in this editor, and
-// `onPreset` was then declared, passed by both callers — and never rendered.
-describe('line presets', () => {
-  const P = appConfig.drawing.linePresets
-  const rettung = P.find((p) => p.id === 'rettungsachse')!
-
-  it('offers every preset on a line and applies the tapped one', () => {
-    const onPreset = vi.fn()
-    render(<DrawEditor {...base} drawing={{ kind: 'line' }} onPreset={onPreset} />)
-    expect(screen.getByText(appConfig.copy.drawingEditor.preset)).toBeTruthy()
-    for (const p of P) expect(screen.getByRole('button', { name: p.label })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: rettung.label }))
-    expect(onPreset).toHaveBeenCalledWith(rettung.id)
-  })
-
-  it('lights the preset the line already wears — and none once it was hand-tuned', () => {
-    const { container } = render(<DrawEditor {...base} drawing={{ kind: 'line', arrow: true, marker: 'R' }} />)
-    expect(container.querySelector('.de-preset.on')?.textContent).toBe(rettung.label)
-    cleanup()
-    const tuned = render(<DrawEditor {...base} drawing={{ kind: 'line', arrow: false, marker: 'X' }} />)
-    expect(tuned.container.querySelector('.de-preset.on')).toBeNull()
-  })
-
-  it('is a LINE control — an Absperrkreis has no preset row', () => {
-    render(<DrawEditor {...base} drawing={{ kind: 'circle', radiusM: 100 }} />)
-    expect(screen.queryByText(appConfig.copy.drawingEditor.preset)).toBeNull()
+/* No preset row since 09.09. («das ganze Stil-Ding»): a line's decoration is assembled from the
+ * raw controls — Abschluss, Stil (solid/dash/Ketten), the letter field. The Verlauf still names
+ * the known combinations (lib/lineStyle · lineStyleName), which drawingEdit.test pins. */
+describe('no preset row', () => {
+  it('renders no preset chips on a line — the raw controls are the way in', () => {
+    render(<DrawEditor {...base} drawing={{ kind: 'line' }} />)
+    // (.de-preset itself lives on — the content letters and routing chips wear it)
+    for (const p of appConfig.drawing.linePresets) {
+      expect(screen.queryByRole('button', { name: p.label })).toBeNull()
+    }
   })
 })
 
+// The Einsatzleiter must be able to ask how long the Leitung is without being able to move it:
+// read-only keeps every number and drops every control.
 describe('read-only (viewer / Führungsansicht)', () => {
   const D = appConfig.copy.drawingEditor
 

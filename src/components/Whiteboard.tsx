@@ -10,7 +10,7 @@ import { PdfViewport, planMatcherImage, planPrintedMPerU, prewarmPlans } from '.
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
-import { resolveLinePreset, markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, transformThroughFit, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
@@ -398,11 +398,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const [twinDrawingId, setTwinDrawingId] = useState<string | null>(null)
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
+  // The NEXT ink's style — «the last line is the template» (the Lage map's drawColor/…).
+  // Since «D pur» (09.09.) the docks carry no style controls and there is no preset row
+  // either: the DrawEditor's edits write these back, decoration included.
   const [color, setColor] = useState<string>(appConfig.drawing.defaultColor)
   const [width, setWidth] = useState(5)
   const [dashed, setDashed] = useState(false)
-  // the armed line's chain style, chosen next to solid/dashed — the Lage map's `drawMarker`
   const [marker, setMarker] = useState('')
+  const [lineArrow, setLineArrow] = useState(false)
   // Fläche: tapped nodes, or a dragged outline — the Lage map's `areaMode`, same default and
   // same reason (a fire's edge has no corners to tap).
   const [areaMode, setAreaMode] = useState<'nodes' | 'freehand'>('nodes')
@@ -417,9 +420,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   /** Where the selected anno was TAPPED (client px), paired with its id so a selection that
    *  arrived some other way can't borrow a stale point. Read only by the panel nudge. */
   const [annoTap, setAnnoTap] = useState<{ id: string; x: number; y: number } | null>(null)
-  // sticky line preset (Freihand / Messpfeil / Rettungsachse) baked into a new line + editable after,
-  // mirroring the Lage map. Chosen in the post-draw editor now, not the dock.
-  const [linePreset, setLinePreset] = useState<string>(appConfig.drawing.linePresets[0].id)
   /** the FIRST of a Rotation's two points, while the second is still being looked for (lib/shapes
    *  · SHAPE_TWO_POINT). Lives and dies with one placement gesture. */
   const [rotStart, setRotStart] = useState<BoardPoint | null>(null)
@@ -1582,8 +1582,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const id = `l${Date.now()}`
     const floor = pts[0]?.[2] ?? draftFloor.current
     const anno: BoardAnno = { id, kind: 'draw', pts, floor, color, width, ...draftAttachments.current,
-      ...resolveLinePreset(linePreset, dashed),
-      ...(marker ? { marker } : {}) } // SAME preset bundle the Lage map bakes (lib/lineStyle)
+      dashed: dashed || undefined, ...(marker ? { marker } : {}), ...(lineArrow ? { arrow: true } : {}) }
     add(anno)
     // the jump-back aims at the line's FIRST node: a Leitung can run across two floors, and the
     // end it was started from is the end the operator was standing at when the row was written
@@ -3960,20 +3959,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         {(!readOnly || tool === 'measure') && <WbToolDocks
           tool={tool}
           lineMode={lineMode}
-          color={color}
-          width={width}
-          dashed={dashed}
-          marker={marker}
-          setMarker={setMarker}
           areaMode={areaMode}
           setAreaMode={setAreaMode}
           draftActive={draftActive}
           selResource={selResource}
           setTool={setTool}
           setLineMode={setLineMode}
-          setColor={setColor}
-          setWidth={setWidth}
-          setDashed={setDashed}
           onFinish={finishShape}
           onCancelDraft={cancelShape}
           resourceBound={!!selResource?.truppId && trupps.some((t) => t.id === selResource.truppId && !t.removedAt)}
@@ -4193,11 +4184,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onFields={(fields) => patchCommit(selNote.id, { fields })}
           onNotes={(v) => patchCommit(selNote.id, { notes: v || undefined })}
           // a width set by hand ends the auto-fit; the size-slider step keeps it and re-measures
-          onNoteSize={(s) => patchCommit(selNote.id, selNote.noteAutoW
-            ? { noteSize: s, wN: autoNoteWN(selNote.text ?? '', txtBase * scale * noteScale(s), sW) }
-            : { noteSize: s })}
-          onNotePlain={(p) => patchCommit(selNote.id, { notePlain: p || undefined })}
-          onColor={(c) => patchCommit(selNote.id, { color: c || undefined })}
+          // …each style edit is remembered as the NEXT note's default too («D pur», 09.09.:
+          // the Notiz dock carries no style controls any more — this is the stickiness)
+          onNoteSize={(s) => {
+            patchCommit(selNote.id, selNote.noteAutoW
+              ? { noteSize: s, wN: autoNoteWN(selNote.text ?? '', txtBase * scale * noteScale(s), sW) }
+              : { noteSize: s })
+            setNoteDefaults((d) => ({ ...d, size: s ?? 'm' }))
+          }}
+          onNotePlain={(p) => { patchCommit(selNote.id, { notePlain: p || undefined }); setNoteDefaults((d) => ({ ...d, plain: p })) }}
+          onColor={(c) => { patchCommit(selNote.id, { color: c || undefined }); setNoteDefaults((d) => ({ ...d, color: c })) }}
           onDelete={() => { setNotePanelId(null); void removeWithConnections(selNote) }}
         />
       )}
@@ -4260,7 +4256,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             : viewedTwinDrawing.kind === 'area' && viewedTwinDrawing.coords.length >= 3
               ? pathLengthM([...viewedTwinDrawing.coords, viewedTwinDrawing.coords[0]]) : null}
           profileCoords={viewedTwinDrawing.coords}
-          onPreset={(presetId) => onTwinDrawingEdit?.(viewedTwinDrawing.id, resolveLinePreset(presetId, viewedTwinDrawing.dashed))}
           onColor={(color) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { color })}
           onWidth={(width) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { width })}
           onDashed={(dashed) => onTwinDrawingEdit?.(viewedTwinDrawing.id, { dashed })}
@@ -4351,13 +4346,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 return widthM == null || heightM == null ? null : { widthM, heightM }
               })()
             : null}
-          onPreset={(presetId) => {
-            setLinePreset(presetId)
-            patchCommit(selDraw.id, resolveLinePreset(presetId, selDraw.dashed)) // ONE bundle, shared with the Lage map (lib/lineStyle)
-          }}
-          onColor={(c) => patchCommit(selDraw.id, { color: c })}
-          onWidth={(w) => patchCommit(selDraw.id, { width: w })}
-          onDashed={(d) => patchCommit(selDraw.id, { dashed: d })}
+          // …each style edit is also remembered as the NEXT ink's default («D pur», 09.09.:
+          // the docks carry no style controls and the preset row is gone — the last line is
+          // the template, decoration included)
+          onColor={(c) => { patchCommit(selDraw.id, { color: c }); setColor(c) }}
+          onWidth={(w) => { patchCommit(selDraw.id, { width: w }); setWidth(w) }}
+          onDashed={(d) => { patchCommit(selDraw.id, { dashed: d }); setDashed(d) }}
           // ⚠️ Live while typing, one step on blur — the same split the Lage got (useMapDrawing ·
           // patchDrawingLabelLive). Through `patchCommit` every keystroke was its own undo step and
           // its own audit event: eleven of each for the word «Sicherung».
@@ -4371,8 +4365,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             if (live) emit('board.edit', { id: selDraw.id, patch: { label: label || undefined }, planId: activeId })
             else patchCommit(selDraw.id, { label: label || undefined })
           }}
-          onMarker={(marker) => patchCommit(selDraw.id, { marker: marker || undefined })}
-          onArrow={(arrow) => patchCommit(selDraw.id, { arrow: arrow || undefined })}
+          onMarker={(m) => { patchCommit(selDraw.id, { marker: m || undefined }); setMarker(m) }}
+          onArrow={(a) => { patchCommit(selDraw.id, { arrow: a || undefined }); setLineArrow(a) }}
           onEnding={(ending) => void changePlanEnding(ending)}
           onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
           onContent={(content) => patchCommit(selDraw.id, { content })}

@@ -801,10 +801,10 @@ export const de = {
   dockHints: {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
-    line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Stil (Freihand · Pfeil · Rettungsachse) danach im Editor wählen.',
+    line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
-    note: 'Auf die Karte tippen, um eine Notiz zu setzen. «Textfeld» macht daraus einen mehrzeiligen Block, dessen Breite sich am rechten Rand ziehen lässt.',
+    note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
     team: 'Auf die Karte tippen und den Trupp aus der Liste wählen. Zum Verschieben ziehen.',
     shape: 'Auf die Karte tippen, um die Form zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     // Eine Rotation ist eine Strecke zwischen zwei Orten, also wird sie auch so gelegt:
@@ -2171,11 +2171,11 @@ export const de = {
     line: 'Linie',
     area: 'Fläche',
     dockHints: {
-      draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Stärke und Linienart unten wählen.',
-      line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Stil unten wählen.',
+      draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+      line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Farbe, Breite und Stil danach im Editor.',
       area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
-      text: 'Auf den Plan tippen, um eine Notiz zu setzen. «Textfeld» macht daraus einen mehrzeiligen Block, dessen Breite sich am rechten Rand ziehen lässt.',
+      text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
       resource: 'Auf den Plan tippen, um einen Trupp zu setzen. Zum Verschieben ziehen.',
       scale: 'Die zwei Endpunkte des gedruckten Massstabs antippen, dann die reale Länge eingeben. Danach zeigen Linien mit «Länge» echte Meter.',
       measure: 'Punkte auf den Plan tippen. «Strecke» zeigt die Distanz, «Fläche» den Inhalt + Umfang – in echten Metern, sobald der Massstab kalibriert ist. Punkte ziehen zum Verschieben, doppeltippen entfernt einen Punkt.',
@@ -2728,7 +2728,6 @@ export const de = {
     // Screenreader; ihre drei Knöpfe tragen move / shapes.rotate / delete
     selectionBar: 'Auswahl',
     points: 'Punkte',
-    preset: 'Stil',
     color: 'Farbe',
     width: 'Stärke',
     lineStyle: 'Linie',

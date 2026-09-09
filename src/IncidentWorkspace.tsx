@@ -2152,10 +2152,11 @@ export function IncidentWorkspace({
   // threaded in so the handlers behave identically to their former inline selves.
   const {
     draft, setDraft,
-    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed, drawMarker, setDrawMarker,
+    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
+    drawMarker, setDrawMarker, drawArrow, setDrawArrow,
     lineMode, setLineMode, areaMode, setAreaMode,
     draftActive, lineNodes, freehandKind, selectedDrawing,
-    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   } = useMapDrawing({
@@ -5501,7 +5502,6 @@ export function IncidentWorkspace({
               perimeterM={area && coords.length >= 3 ? pathLengthM([...coords, coords[0]]) : null}
               boxM={area && coords.length >= 3 ? bboxSizeM(coords) : null}
               profileCoords={coords}
-              onPreset={(presetId) => patchTwin(resolveLinePreset(presetId, a.dashed))}
               onColor={(color) => patchTwin({ color })}
               onWidth={(width) => patchTwin({ width })}
               onDashed={(dashed) => patchTwin({ dashed })}
@@ -5662,11 +5662,16 @@ export function IncidentWorkspace({
           onFields={(fields) => patchEntity(noteEntity.id, { fields })}
           // setting a width in the panel is a hand-made decision too — it ends the auto-fit
           // the S/M/L step keeps following the text, so it re-measures at the new font size
-          onNoteSize={(s) => patchEntity(noteEntity.id, noteEntity.noteAutoW
-            ? { noteSize: s, noteW: autoNoteWPx(noteEntity.label ?? '', s) }
-            : { noteSize: s })}
-          onNotePlain={(p) => patchEntity(noteEntity.id, { notePlain: p || undefined })}
-          onColor={(c) => patchEntity(noteEntity.id, { color: c || undefined })}
+          // …each style edit is remembered as the NEXT note's default too («D pur», 09.09.:
+          // the Notiz dock carries no style controls any more — this is the stickiness)
+          onNoteSize={(s) => {
+            patchEntity(noteEntity.id, noteEntity.noteAutoW
+              ? { noteSize: s, noteW: autoNoteWPx(noteEntity.label ?? '', s) }
+              : { noteSize: s })
+            setNoteDefaults((d) => ({ ...d, size: s ?? 'm' }))
+          }}
+          onNotePlain={(p) => { patchEntity(noteEntity.id, { notePlain: p || undefined }); setNoteDefaults((d) => ({ ...d, plain: p })) }}
+          onColor={(c) => { patchEntity(noteEntity.id, { color: c || undefined }); setNoteDefaults((d) => ({ ...d, color: c })) }}
           onDelete={() => { setNotePanelId(null); deleteEntity(noteEntity.id) }}
         />
       )}
@@ -5692,14 +5697,16 @@ export function IncidentWorkspace({
              the collapsible swisstopo Höhenprofil (fetched only once it is opened) */
           lengthM={selectedDrawing.coords.length >= 2 ? pathLengthM(selectedDrawing.coords) : null}
           profileCoords={selectedDrawing.coords}
-          onPreset={applyLinePreset}
-          onColor={(c) => patchDrawing({ color: c })}
-          onWidth={(w) => patchDrawing({ width: w })}
-          onDashed={(dashed) => patchDrawing({ dashed })}
+          // …each style edit is remembered as the NEXT drawing's default («D pur», 09.09.: the
+          // docks carry no style controls and the preset row is gone — the last line is the
+          // template, decoration included)
+          onColor={(c) => { patchDrawing({ color: c }); setDrawColor(c) }}
+          onWidth={(w) => { patchDrawing({ width: w }); setDrawWidth(w) }}
+          onDashed={(dashed) => { patchDrawing({ dashed }); setDrawDashed(dashed) }}
           onLabel={(label) => { if (selectedDrawingId) patchDrawingLabelLive(selectedDrawingId, label) }}
           onLabelCommit={(label) => { if (selectedDrawingId) commitDrawingLabel(selectedDrawingId, label) }}
-          onMarker={(marker) => patchDrawing({ marker })}
-          onArrow={(arrow) => patchDrawing({ arrow })}
+          onMarker={(marker) => { patchDrawing({ marker }); setDrawMarker(marker) }}
+          onArrow={(arrow) => { patchDrawing({ arrow }); setDrawArrow(arrow) }}
           onEnding={(ending) => void changeMapEnding(ending)}
           onReverse={tacticalLocked ? undefined : () => reverseDrawing(selectedDrawing.id)}
           onContent={(content) => patchDrawing({ content })}
@@ -5789,9 +5796,9 @@ export function IncidentWorkspace({
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: lineMode === 'nodes', onClick: () => setLineMode('nodes') },
             ...(lineMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
           ],
-          [{ type: 'colors', value: drawColor, onChange: setDrawColor }],
-          [{ type: 'widths', value: drawWidth, onChange: setDrawWidth }],
-          [{ type: 'lineStyle', dashed: drawDashed, onChange: setDrawDashed, marker: drawMarker, onMarker: setDrawMarker }],
+          // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
+          // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
+          // lives; new lines inherit the last-used style (the editor writes the defaults back)
           [{ type: 'info', text: appConfig.copy.dockHints.line }],
         ]} />
       )}
@@ -5803,26 +5810,16 @@ export function IncidentWorkspace({
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => setAreaMode('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: commitDraft }] : []),
           ],
-          [{ type: 'colors', value: drawColor, onChange: setDrawColor }],
-          [{ type: 'widths', value: drawWidth, onChange: setDrawWidth }],
-          [{ type: 'lineStyle', dashed: drawDashed, onChange: setDrawDashed }],
+          // «D pur» like the line dock above: styling happens in the editor afterwards
           [{ type: 'info', text: appConfig.copy.dockHints.area }],
         ]} />
       )}
-      {/* Notiz armed — the quick actions for the note about to be placed. Safe here (nothing has
-          focus yet); after placement they live in the note's detail panel instead. */}
+      {/* Notiz armed — «D pur» (09.09.) here too: a fresh note opens its detail panel with the
+          caret already in the text (notePlacedId), and Zettel/Klartext, S/M/L and the colour
+          live THERE — where they also write the next note's defaults. */}
       {mapUI && tool === 'note' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
-          // glyph, not a word: «Klartext» stretched the whole dock column wide. A bare T reads
-          // as text without its paper; the word stays as the tooltip.
-          [{ type: 'toggle', icon: 'type', label: appConfig.copy.notes.lookPlain, on: noteDefaults.plain, onClick: () => setNoteDefaults((d) => ({ ...d, plain: !d.plain })) }],
-          [
-            { type: 'toggle', text: 'S', label: appConfig.copy.notes.sizeS, on: noteDefaults.size === 's', onClick: () => setNoteDefaults((d) => ({ ...d, size: 's' })) },
-            { type: 'toggle', text: 'M', label: appConfig.copy.notes.sizeM, on: noteDefaults.size === 'm', onClick: () => setNoteDefaults((d) => ({ ...d, size: 'm' })) },
-            { type: 'toggle', text: 'L', label: appConfig.copy.notes.sizeL, on: noteDefaults.size === 'l', onClick: () => setNoteDefaults((d) => ({ ...d, size: 'l' })) },
-          ],
-          [{ type: 'colors', value: noteDefaults.color, onChange: (c) => setNoteDefaults((d) => ({ ...d, color: c })) }],
           [{ type: 'info', text: appConfig.copy.dockHints.note }],
         ]} />
       )}

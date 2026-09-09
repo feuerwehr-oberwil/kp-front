@@ -1,6 +1,5 @@
 import { type SetStateAction, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { resolveLinePreset } from './lineStyle'
 import { flipLine } from './lineAttachments'
 import { drawingEditChanges, drawingLogName } from './drawingEdit'
 import type { Doc } from './workspace'
@@ -34,8 +33,8 @@ interface MapDrawingDeps {
 
 /**
  * The Lage-map drawing surface, lifted out of App's god-component. It owns the in-progress draft
- * (the line/area node taps), the line tool's freehand/nodes mode + sticky preset, the freehand
- * draw-style controls, and every Drawing CRUD + on-canvas edit (commit a draft, create a
+ * (the line/area node taps), the line tool's freehand/nodes mode, the sticky next-line style,
+ * and every Drawing CRUD + on-canvas edit (commit a draft, create a
  * line/circle, reshape/move/insert/delete vertices, drag a line's label, patch style, delete).
  *
  * It deliberately does NOT own the undoable doc (Drawings live there) nor the shared selection
@@ -57,18 +56,20 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (!next.length) setDraftAttachments({})
     return next
   })
+  // The NEXT drawing's style — «the last line is the template». Since «D pur» (09.09.) the
+  // docks carry no style controls and there is no preset row either (same day): these are
+  // written back by the DrawEditor's edits, so a new line simply inherits how the last one
+  // ended up — colour, width, dash, chain/letter marker and arrowhead alike.
   const [drawColor, setDrawColor] = useState<string>(appConfig.drawing.defaultColor)
   const [drawWidth, setDrawWidth] = useState(4)
   const [drawDashed, setDrawDashed] = useState(false)
-  // the armed line's repeated marker — today only the FKS chains, chosen in the style picker
-  // next to solid/dashed (lib/draw · LineStylePicker). Sticky like the colour and the dash.
   const [drawMarker, setDrawMarker] = useState('')
+  const [drawArrow, setDrawArrow] = useState(false)
   // Fläche: tapped nodes, or a dragged outline. Nodes stay the default — most Flächen are a
   // Sektor or an Absperrung, and those want corners. Freehand exists for the one that does
   // not: a fire's edge, which has no corners and which nobody tapping points can follow
   // (FKS Vegetationsbrand · «vorsehbare Brandentwicklung»).
   const [areaMode, setAreaMode] = useState<'nodes' | 'freehand'>('nodes')
-  const [linePreset, setLinePreset] = useState<string>('freihand')
   const [lineMode, setLineMode] = useState<'freehand' | 'nodes'>('freehand')
 
   const commitDraft = () => {
@@ -99,20 +100,16 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
     return drawing
   }
-  // annotated-polyline presets: tools that draw like a freehand line but seed the new
-  // arrow/marker/distance fields. The fields stay fully editable in the DrawEditor.
-  // create a line from a finished path (freehand stroke OR node-tapped draft), applying the
-  // sticky line preset. EVERY finished line one-shots to Select with the new line active, so
+  // create a line from a finished path (freehand stroke OR node-tapped draft), seeded from the
+  // sticky style above. EVERY finished line one-shots to Select with the new line active, so
   // its detail editor opens right away for post-draw tweaks — no extra click needed.
   const createLine = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }, opts?: { select?: boolean }): Drawing | null => {
     if (tacticalLocked) return null // the funnel every finished line goes through — same guard as the edit handlers
     const id = newId('d')
-    // styled presets (Messpfeil/Rettungsachse) carry their own arrow/marker/dash; Freihand falls
-    // back to the dock's dash. A new line inherits the last-used preset (post-pick + sticky) — the
-    // SAME resolved bundle the Plan whiteboard bakes (lib/lineStyle), so the surfaces can't drift.
-    // the dock's own style wins over the sticky preset's marker: the operator picked the chain
-    // a moment ago, the preset is whatever the last line happened to be
-    const drawing: Drawing = { id, kind: 'line', coords, color: drawColor, width: drawWidth, ...resolveLinePreset(linePreset, drawDashed), ...(drawMarker ? { marker: drawMarker } : {}), ...attachments }
+    const drawing: Drawing = {
+      id, kind: 'line', coords, color: drawColor, width: drawWidth, dashed: drawDashed || undefined,
+      ...(drawMarker ? { marker: drawMarker } : {}), ...(drawArrow ? { arrow: true } : {}), ...attachments,
+    }
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
     // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
@@ -142,11 +139,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     log('circle', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'circle', drawing })
     setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
   }
-  // apply a line preset to the selected drawing + remember it for the next new line
-  const applyLinePreset = (presetId: string) => {
-    setLinePreset(presetId)
-    patchDrawing(resolveLinePreset(presetId, selectedDrawing?.dashed)) // SAME bundle the Plan editor applies (lib/lineStyle)
-  }
+  // (the preset row is gone — 09.09., «das ganze Stil-Ding»: a line's decorations are assembled
+  // from the raw controls in the editor, and lib/lineStyle · lineStyleName still NAMES the
+  // combinations for the Verlauf, so «Rettungsachse gezeichnet» keeps reading as before)
 
   /**
    * Tap-away landed mid-draft — a selection, a mode/surface switch, the tactical lock. The draft
@@ -448,10 +443,11 @@ export function useMapDrawing(deps: MapDrawingDeps) {
 
   return {
     draft, setDraft,
-    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed, drawMarker, setDrawMarker,
-    linePreset, setLinePreset, lineMode, setLineMode, areaMode, setAreaMode,
+    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
+    drawMarker, setDrawMarker, drawArrow, setDrawArrow,
+    lineMode, setLineMode, areaMode, setAreaMode,
     draftActive, lineNodes, freehandKind, selectedDrawing,
-    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, applyLinePreset, patchDrawing, patchDrawingById,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
   }

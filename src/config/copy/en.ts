@@ -483,7 +483,7 @@ export const en: Localizable<Copy> = {
   dockHints: {
     symbol: 'Tap the map to place the symbol. Enable the lock to place several in a row.',
     lasso: 'Drag a frame around several objects with one finger. Two fingers still pan the map. Tapping «Multi» again switches back to Select.',
-    line: 'Drag on the map or tap points to draw a line. Choose the style (Freehand · Arrow · Rescue axis) afterwards in the editor.',
+    line: 'Drag on the map or tap points to draw a line. Pick colour, width and style afterwards in the editor.',
     area: 'Tap at least three corners on the map, then finish with the checkmark.',
     circle: 'Drag from the center outward to set the radius in metres. Adjust radius and fill afterwards in the editor.',
     note: 'Tap the map to drop a note.',
@@ -1354,8 +1354,8 @@ export const en: Localizable<Copy> = {
     line: 'Line',
     area: 'Area',
     dockHints: {
-      draw: 'Drag on the plan to draw freely. Choose color, width and line style below.',
-      line: 'Tap corner points. Double-tap or "Done" closes the line. Choose the style below.',
+      draw: 'Drag on the plan to draw freely. Pick colour, width and style afterwards in the editor.',
+      line: 'Tap corner points. Double-tap or "Done" closes the line. Pick colour, width and style afterwards in the editor.',
       area: 'Tap corner points (at least 3). Double-tap or "Done" closes the area.',
       circle: 'Drag from the centre outward to set the radius. Adjust radius, colour and fill afterwards in the editor – in real metres once the scale is calibrated.',
       text: 'Tap the plan to drop a note.',
@@ -1735,7 +1735,6 @@ export const en: Localizable<Copy> = {
     rotateArmed: 'Turn armed – drag anywhere',
     selectionBar: 'Selection',
     points: 'Points',
-    preset: 'Style',
     color: 'Color',
     width: 'Width',
     lineStyle: 'Line',

@@ -375,19 +375,11 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
 interface DocksProps {
   tool: BoardTool
   lineMode: 'freehand' | 'nodes'
-  color: string
-  width: number
-  dashed: boolean
-  marker: string
-  setMarker: (m: string) => void
   /** the in-progress node draft is committable (line ≥2 pts / area ≥3 pts) — gates the ✓ button */
   draftActive: boolean
   selResource: BoardAnno | undefined
   setTool: (t: BoardTool) => void
   setLineMode: (m: 'freehand' | 'nodes') => void
-  setColor: (c: string) => void
-  setWidth: (w: number) => void
-  setDashed: (d: boolean) => void
   areaMode: 'nodes' | 'freehand'
   setAreaMode: (m: 'nodes' | 'freehand') => void
   onFinish: () => void
@@ -418,13 +410,14 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, width, dashed, marker, setMarker, draftActive, selResource, resourceBound = false, setTool, setLineMode, setColor, setWidth, setDashed, onFinish, onCancelDraft, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, selResource, resourceBound = false, setTool, setLineMode, onFinish, onCancelDraft, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
-  const NOTES = appConfig.copy.notes
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (
     <>
-      {/* Linie — Freihand (drag) ↔ Punkte (tap, ✓ to finish) + colour/width/style; identical to map */}
+      {/* Linie — Freihand (drag) ↔ Punkte (tap, ✓ to finish); identical to map. «D pur»
+          (09.09.): no colour/width/style here — the finished line lands selected in the
+          DrawEditor, which is where the styling lives (and writes the next-ink defaults). */}
       {tool === 'line' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
@@ -433,15 +426,13 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, widt
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: lineMode === 'nodes', onClick: () => setLineMode('nodes') },
             ...(lineMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'colors', value: color, onChange: setColor }],
-          [{ type: 'widths', value: width, onChange: setWidth }],
-          [{ type: 'lineStyle', dashed, onChange: setDashed, marker, onMarker: setMarker }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.line }],
         ]} />
       )}
 
-      {/* Fläche — Freihand ODER Knoten, then colour/width/style + info. Same two-mode group as
-          the Linie dock above it, because it is the same question: tap the corners, or draw it. */}
+      {/* Fläche — Freihand ODER Knoten + info. Same two-mode group as the Linie dock above it,
+          because it is the same question: tap the corners, or draw it. Styling: in the editor
+          afterwards, like the Linie. */}
       {tool === 'area' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
@@ -450,9 +441,6 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, widt
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => setAreaMode('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'colors', value: color, onChange: setColor }],
-          [{ type: 'widths', value: width, onChange: setWidth }],
-          [{ type: 'lineStyle', dashed, onChange: setDashed }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.area }],
         ]} />
       )}
@@ -481,20 +469,12 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, color, widt
         ]} />
       )}
 
-      {/* Notiz armed — the quick actions for the note about to be placed. Safe here (nothing has
-          focus yet); after placement they live in the note's detail panel instead. */}
+      {/* Notiz armed — «D pur» (09.09.) here too: a fresh note opens its detail panel with the
+          caret already in the text, and Zettel/Klartext, S/M/L and the colour live THERE —
+          where they also write the next note's defaults. */}
       {tool === 'text' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
-          // glyph, not a word: «Klartext» stretched the whole dock column wide. A bare T reads
-          // as text without its paper; the word stays as the tooltip.
-          [{ type: 'toggle', icon: 'type', label: NOTES.lookPlain, on: noteDefaults.plain, onClick: () => setNoteDefaults({ plain: !noteDefaults.plain }) }],
-          [
-            { type: 'toggle', text: 'S', label: NOTES.sizeS, on: noteDefaults.size === 's', onClick: () => setNoteDefaults({ size: 's' }) },
-            { type: 'toggle', text: 'M', label: NOTES.sizeM, on: noteDefaults.size === 'm', onClick: () => setNoteDefaults({ size: 'm' }) },
-            { type: 'toggle', text: 'L', label: NOTES.sizeL, on: noteDefaults.size === 'l', onClick: () => setNoteDefaults({ size: 'l' }) },
-          ],
-          [{ type: 'colors', value: noteDefaults.color, onChange: (c) => setNoteDefaults({ color: c }) }],
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.text }],
         ]} />
       )}

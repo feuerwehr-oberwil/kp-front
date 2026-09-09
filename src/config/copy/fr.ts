@@ -485,7 +485,7 @@ export const fr: Localizable<Copy> = {
   dockHints: {
     symbol: 'Touchez la carte pour placer le symbole. Activez le verrou pour en poser plusieurs à la suite.',
     lasso: 'Tirez un cadre autour de plusieurs objets avec un doigt. Deux doigts déplacent toujours la carte. Toucher «Multiple» une nouvelle fois ramène à Sélection.',
-    line: 'Glissez sur la carte ou touchez des points pour tracer une ligne. Choisissez le style (Main levée · Flèche · Axe de sauvetage) ensuite dans l’éditeur.',
+    line: 'Glissez sur la carte ou touchez des points pour tracer une ligne. Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
     area: 'Touchez au moins trois sommets sur la carte, puis terminez avec la coche.',
     circle: 'Glissez du centre vers l’extérieur pour fixer le rayon en mètres. Ajustez ensuite le rayon et le remplissage dans l’éditeur.',
     note: 'Touchez la carte pour poser une note.',
@@ -1351,8 +1351,8 @@ export const fr: Localizable<Copy> = {
     line: 'Ligne',
     area: 'Surface',
     dockHints: {
-      draw: 'Glissez sur le plan pour dessiner à main levée. Choisissez la couleur, l’épaisseur et le type de ligne ci-dessous.',
-      line: 'Touchez les sommets. Un double appui ou « Terminé » ferme la ligne. Choisissez le style ci-dessous.',
+      draw: 'Glissez sur le plan pour dessiner à main levée. Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
+      line: 'Touchez les sommets. Un double appui ou « Terminé » ferme la ligne. Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
       area: 'Touchez les sommets (au moins 3). Un double appui ou « Terminé » ferme la surface.',
       circle: 'Glissez du centre vers l’extérieur pour fixer le rayon. Ajustez ensuite le rayon, la couleur et le remplissage dans l’éditeur – en mètres réels une fois l’échelle calibrée.',
       text: 'Touchez le plan pour poser une note.',
@@ -1729,7 +1729,6 @@ export const fr: Localizable<Copy> = {
     rotateArmed: 'Rotation active – glisser n’importe où',
     selectionBar: 'Sélection',
     points: 'Points',
-    preset: 'Style',
     color: 'Couleur',
     width: 'Épaisseur',
     lineStyle: 'Ligne',
