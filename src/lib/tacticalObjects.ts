@@ -473,6 +473,12 @@ export function applyDocToObjects(
  * map's own objects — which is the KARTE's paint order — must survive a plan edit untouched.
  */
 export function applyBoardToObjects(objects: TacticalObject[], planId: string, annos: BoardAnno[]): TacticalObject[] {
+  // ⚠️ A writer that rebuilds EVERY plan's array on principle (useTruppActions rewrites all of
+  // them to adopt or release one chip) hands most of them back unchanged in value and fresh in
+  // identity. Folding those would churn the store, re-bake every sheet and mark the incident
+  // dirty for an edit that touched one plan — so the store checks the value, once, here.
+  const same = objects.filter((o) => o.sheet?.planId === planId)
+  if (same.length === annos.length && same.every((o, i) => sameValue(o.sheet!.anno, annos[i]))) return objects
   const ids = new Set(annos.map((a) => a.id))
   const kept = objects.filter((o) => o.sheet?.planId !== planId || ids.has(o.id))
   const byId = new Map(kept.map((o) => [o.id, o]))

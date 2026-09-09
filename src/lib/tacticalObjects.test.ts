@@ -301,3 +301,18 @@ describe('sheetAnchoredIds — a sheet is never lent its own objects', () => {
     expect(lent.map((e) => e.id)).toEqual(['m1']) // the map's own object crosses; the sheet's does not
   })
 })
+
+describe('the store refuses work it has already done', () => {
+  it('an anno list that is equal in VALUE leaves the store untouched, references and all', () => {
+    // ⚠️ useTruppActions rebuilds every plan's array to adopt or release ONE chip; without this
+    // the other sheets would fold, re-bake and mark the incident dirty for nothing.
+    const objects = applyBoardToObjects([], 'modul2', [anno('a1'), anno('a2')])
+    const again = applyBoardToObjects(objects, 'modul2', [anno('a1'), anno('a2')])
+    expect(again).toBe(objects)
+  })
+
+  it('…and a real change still lands', () => {
+    const objects = applyBoardToObjects([], 'modul2', [anno('a1')])
+    expect(applyBoardToObjects(objects, 'modul2', [anno('a1', { x: 0.9 })])).not.toBe(objects)
+  })
+})
