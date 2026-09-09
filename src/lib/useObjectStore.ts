@@ -63,9 +63,17 @@ export interface ObjectStore {
   /** hydrate wholesale from merged/remote state — drops the history with it, because the local
    *  stacks no longer describe anything that exists */
   replaceObjects: (objects: TacticalObject[]) => void
-  /** re-derive every baked map body: the georeference of some plan has changed, so every symbol
-   *  standing on that sheet now stands somewhere else on the ground */
-  rebake: () => void
+  /**
+   * Re-derive every baked map body: the georeference of some plan has changed, so every symbol
+   * standing on that sheet now stands somewhere else on the ground. Returns HOW MANY objects
+   * actually moved, so the caller can say so — and say nothing when nothing did.
+   *
+   * `checkpoint` lays the re-verting down as one undo step. The SEED bake (a legacy blob
+   * getting its map bodies for the first time) deliberately takes no checkpoint: nothing moved
+   * from anywhere, there is nothing to step back to, and a stack entry for it would be a step
+   * the operator never took.
+   */
+  rebake: (opts?: { checkpoint?: boolean }) => number
 }
 
 export interface ObjectStoreOptions {
@@ -136,7 +144,22 @@ export function useObjectStore(
     })
   }
 
-  const rebake = () => setObjects((objects) => bakeAll(objects, getFits(), defaultLayer))
+  const rebake: ObjectStore['rebake'] = (opts) => {
+    // a dry pass first: `commit` lays down a checkpoint whether or not its updater changes
+    // anything, and an undo step for a fit change on a sheet nobody has drawn on is a step
+    // the operator never took
+    if (bakeAll(store.doc, getFits(), defaultLayer) === store.doc) return 0
+    let moved = 0
+    const of = (objects: TacticalObject[]) => {
+      const next = bakeAll(objects, getFits(), defaultLayer)
+      moved = next === objects ? 0 : next.reduce((n, o, i) => n + (o === objects[i] ? 0 : 1), 0)
+      return next
+    }
+    // ⚠️ The updater runs eagerly, exactly once (useUndoableDoc), so `moved` is set by the time
+    // this returns — and it is measured against the LIVE store, not this render's snapshot.
+    if (opts?.checkpoint) store.commit(of); else setObjects(of)
+    return moved
+  }
 
   return {
     objects: store.doc, doc, board: views.board,

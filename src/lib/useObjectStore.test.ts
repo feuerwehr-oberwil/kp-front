@@ -179,6 +179,25 @@ describe('useObjectStore — one collection, two documents', () => {
     expect(result.current.objects[0].entity!.coord[0]).toBeCloseTo(mEast(100).lng, 8)
     expect(result.current.objects[0].sheet?.anno.x).toBe(0.5) // the sheet coords are the truth
   })
+
+  it('a corrected reference is ONE undo step, and says how many objects it moved', () => {
+    const fits = new Map([['modul2', PLAN]])
+    const { result } = store([], fits)
+    act(() => result.current.setBoard(() => ({ modul2: [anno('s1'), anno('s2', { x: 0.25 })] })))
+    expect(result.current.canUndo).toBe(false) // a plan write keeps its own history, not the map's
+    fits.set('modul2', { fit: fitSimilarity([PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }], 1)!, aspect: 1 })
+    let moved = 0
+    act(() => { moved = result.current.rebake({ checkpoint: true }) })
+    expect(moved).toBe(2)
+    act(() => { result.current.undo() })
+    expect(result.current.objects[0].entity!.coord[0]).toBeCloseTo(mEast(50).lng, 8) // back where it stood
+  })
+
+  it('…and a fit change no object stands on is not a step at all', () => {
+    const { result } = store()
+    expect(result.current.rebake({ checkpoint: true })).toBe(0)
+    expect(result.current.canUndo).toBe(false)
+  })
 })
 
 /* The unit-bearing seam (10.09.): a metre width means nothing on paper, so these fields cross

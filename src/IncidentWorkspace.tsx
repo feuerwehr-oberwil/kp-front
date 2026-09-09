@@ -2032,8 +2032,15 @@ export function IncidentWorkspace({
     // A viewer derives nothing into the record. The signature stays unrecorded with it, so a
     // session that later becomes editable (replay left) still gets its bake.
     if (readOnly || tacticalLocked) return
+    // ⚠️ The SEED bake is not a correction. A blob written before the store existed simply gains
+    // its map bodies; nothing moved from anywhere, so there is no step to take back and nothing
+    // to tell the Verlauf. A LATER change of the same signature is the operator correcting the
+    // reference, and that MOVES every symbol on that sheet — one undo step and one row for the
+    // lot, because it was one gesture (tmp/design-unified-objects.md · «Reference change»).
+    const seeding = bakedFits.current === null
     bakedFits.current = sig
-    rebake()
+    const moved = rebake({ checkpoint: !seeding })
+    if (!seeding && moved) log('map', fillTemplate(appConfig.copy.log.referenceRebaked, { n: moved }), 'layer')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedPlans, readOnly, tacticalLocked])
   /**

@@ -1084,6 +1084,9 @@ export const de = {
     placardUndocked: '{name} von «{host}» gelöst',
     // ein Zwilling wechselt die Fläche: das Objekt ist danach wirklich dort und nicht mehr hier
     twinTransferredToPlan: '{name} auf den Plan übertragen',
+    /** Die Passung eines Plans wurde korrigiert: alles, was auf diesem Blatt gezeichnet ist,
+     *  steht damit an einem anderen Ort auf der Karte. Eine Zeile, nicht n Zeilen. */
+    referenceRebaked: 'Referenz angepasst – {n} Objekte neu verortet',
     objectDeleted: '{name} gelöscht',
     drawingDeleted: 'Zeichnung gelöscht',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
