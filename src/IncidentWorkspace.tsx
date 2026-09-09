@@ -3213,9 +3213,13 @@ export function IncidentWorkspace({
     }), { movedIds: [...ids, ...entIds] })
     if (phase === 'end') {
       endDrag()
-      // one event per member, on release only — the same grammar a single marker's drag has
-      for (const e of written.doc?.entities ?? []) if (entIds.includes(e.id)) emit('entity.move', { id: e.id, coord: e.coord })
-      for (const dr of written.doc?.drawings ?? []) if (ids.includes(dr.id)) emit('draw.edit', { id: dr.id, patch: { coords: dr.coords } })
+      // one event per member, on release only — the same grammar a single marker's drag has.
+      // A release that moved NOTHING (tap on the handle, no drag) emits nothing: every plan-side
+      // sibling guards this way, and n no-op rows are audit noise proportional to the selection.
+      if (t.dLng || t.dLat || t.deg) {
+        for (const e of written.doc?.entities ?? []) if (entIds.includes(e.id)) emit('entity.move', { id: e.id, coord: e.coord })
+        for (const dr of written.doc?.drawings ?? []) if (ids.includes(dr.id)) emit('draw.edit', { id: dr.id, patch: { coords: dr.coords } })
+      }
       groupOrig.current = { draws: {}, ents: {}, centre: null }
     }
   }
