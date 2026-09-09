@@ -247,49 +247,45 @@ export function applyDocToObjects(objects: TacticalObject[], doc: { entities: En
 }
 
 /**
- * Reconcile the unified store against the CURRENT runtime state — the one function the
- * workspace calls at the persistence boundary. `prev` carries what the runtime views do
- * not (anchors, baked bodies, healed duplicates); `doc`/`board` carry what the operator
- * just did. Baking runs unconditionally over every sheet-anchored object: it is pure
- * per-object arithmetic, and an always-fresh map body is the entire point of the
- * write-through (Kroki and map replay read it, never a fit).
- */
-export function reconcileObjects(
-  prev: TacticalObject[],
-  doc: { entities: Entity[]; drawings: Drawing[] },
-  board: BoardDoc,
-  fits: ReadonlyMap<string, PlanFit>,
-  defaultLayer: Entity['layer'],
-): TacticalObject[] {
-  let next = applyDocToObjects(prev, doc)
-  // the union of plan keys, so a plan whose LAST anno was deleted still deletes its objects
-  const planIds = new Set([...Object.keys(board), ...prev.flatMap((o) => (o.sheet ? [o.sheet.planId] : []))])
-  for (const planId of planIds) next = applyBoardToObjects(next, planId, board[planId] ?? [])
-  return next.map((o) => (o.sheet ? bakeGeoBody(o, fits.get(o.sheet.planId), defaultLayer) : o))
-}
-
-/**
  * The setBoard seam: apply one plan's full anno list — the shape every existing plan
  * mutator produces — onto the unified store. An anno id new to the store becomes a
  * sheet-anchored object; a known one is updated in place (its baked map body is left
- * for the write-through pass to refresh); an id missing from the list is a deletion —
- * again of the whole object.
+ * for the caller's bake to refresh); an id missing from the list is a deletion — again
+ * of the whole object.
+ *
+ * ⚠️ The anno list's ORDER is the sheet's paint order, and the store is what the board view
+ * is derived from, so this plan's objects are re-seated into their own slots in exactly the
+ * order the list gives. Without that, a «nach vorne» on the sheet would round-trip through
+ * the store and come back in the old order. Slots, not an append: the interleaving with the
+ * map's own objects — which is the KARTE's paint order — must survive a plan edit untouched.
  */
 export function applyBoardToObjects(objects: TacticalObject[], planId: string, annos: BoardAnno[]): TacticalObject[] {
   const ids = new Set(annos.map((a) => a.id))
   const kept = objects.filter((o) => o.sheet?.planId !== planId || ids.has(o.id))
   const byId = new Map(kept.map((o) => [o.id, o]))
-  const next = kept.slice()
-  for (const anno of annos) {
+  // an object handed to a plan list it was not on — a fresh anno, or the drag-onto-sheet that
+  // flips a map object's anchor — takes the sheet as its anchor either way
+  const made = annos.map((anno): TacticalObject => {
     const prev = byId.get(anno.id)
-    if (prev?.sheet?.planId === planId) {
-      next[next.indexOf(prev)] = { ...prev, sheet: { planId, anno } }
-    } else if (prev) {
-      // a map object handed to a plan list: the sheet becomes its anchor (drag-onto-sheet)
-      next[next.indexOf(prev)] = { ...prev, sheet: { planId, anno } }
-    } else {
-      next.push({ id: anno.id, sheet: { planId, anno } })
-    }
-  }
+    return prev ? { ...prev, sheet: { planId, anno } } : { id: anno.id, sheet: { planId, anno } }
+  })
+  const next = kept.slice()
+  const slots: number[] = []
+  next.forEach((o, i) => { if (ids.has(o.id)) slots.push(i) })
+  made.forEach((o, i) => { const at = slots[i]; if (at == null) next.push(o); else next[at] = o })
   return next
+}
+
+/** Re-derive the map bodies of ONE plan's objects — what a plan mutation owes the Karte. */
+export function bakePlan(objects: TacticalObject[], planId: string, plan: PlanFit | undefined, defaultLayer: Entity['layer']): TacticalObject[] {
+  return objects.map((o) => (o.sheet?.planId === planId ? bakeGeoBody(o, plan, defaultLayer) : o))
+}
+
+/**
+ * …and every plan's, for the two moments that owe it wholesale: a store just hydrated from a
+ * blob, and a georeference that has just changed (a fit correction MOVES every symbol standing
+ * on that sheet — see tmp/design-unified-objects.md · «Reference change»).
+ */
+export function bakeAll(objects: TacticalObject[], fits: ReadonlyMap<string, PlanFit>, defaultLayer: Entity['layer']): TacticalObject[] {
+  return objects.map((o) => (o.sheet ? bakeGeoBody(o, fits.get(o.sheet.planId), defaultLayer) : o))
 }

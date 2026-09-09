@@ -91,6 +91,21 @@ describe('the setDoc / setBoard seams', () => {
     expect(next.map((o) => o.id).sort()).toEqual(['d1', 'e1'])
   })
 
+  it('the anno list ORDER is the store order — a «nach vorne» on the sheet round-trips', () => {
+    const objs = applyBoardToObjects([], 'modul2', [anno('a'), anno('b'), anno('c')])
+    const reordered = applyBoardToObjects(objs, 'modul2', [anno('b'), anno('c'), anno('a')])
+    expect(viewsOf(reordered).board.modul2.map((a) => a.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('one plan is re-seated in its own slots — the map objects around it do not move', () => {
+    const start = objectsFromLegacy([ent('e1')], [], { modul2: [anno('a1')] }).concat(
+      objectsFromLegacy([ent('e2')], [], {}),
+    )
+    const next = applyBoardToObjects(start, 'modul2', [anno('a1', { x: 0.9 }), anno('a2')])
+    // e1 … a1 … e2 … a2 — the Karte's own paint order is untouched by a plan edit
+    expect(next.map((o) => o.id)).toEqual(['e1', 'a1', 'e2', 'a2'])
+  })
+
   it('handing a map object to a plan list flips its anchor to the sheet', () => {
     const next = applyBoardToObjects(store(), 'modul2', [anno('a1'), anno('e1')])
     const flipped = next.find((o) => o.id === 'e1')!
