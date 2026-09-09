@@ -79,7 +79,10 @@ export function linkPageOwnsSession(pathname = currentPath()): boolean {
  * that is the one worth stopping.
  */
 export function onLinkPage(pathname = currentPath()): boolean {
-  return linkTokenFromPath(pathname) !== null
+  // …and the Stations-Terminal counts: an enrolled device on /terminal is a link surface the
+  // same way an /l/<token> page is — station-data writes (the measured-aspect note, notably)
+  // are an editor's business, whoever happens to be signed in on the box.
+  return pathname === TERMINAL_PATH || linkTokenFromPath(pathname) !== null
 }
 
 /** The header for one request, from the address bar. */

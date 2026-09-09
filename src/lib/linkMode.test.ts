@@ -72,6 +72,9 @@ describe('onLinkPage', () => {
     // write by the server, so only the client can decline it
     expect(onLinkPage(`/l/${VIEW}`)).toBe(true)
     expect(onLinkPage(`/l/${TOKEN}`)).toBe(true)
+    // the Stations-Terminal is a link surface too — an enrolled device is not an editor,
+    // whoever is signed in on the box (main gained the page mid-rework; guard follows)
+    expect(onLinkPage(TERMINAL_PATH)).toBe(true)
   })
 
   it('is false for the ordinary app', () => {
