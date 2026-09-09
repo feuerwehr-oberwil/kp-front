@@ -868,6 +868,44 @@ describe('the Auftrag a Trupp is registered for', () => {
   })
 })
 
+/* ── The record stays correctable after the Trupp is out (09.09., Feldentscheid) ───────────────
+ * «Bearbeiten» used to disappear the moment a Trupp reported out — and that is exactly when the
+ * mistakes are found: the wrong crew, an AdF who joined and was never entered, a typo in the
+ * Auftrag. All of it prints on the Rapport, and the Rapport is read long after the Austritt. The
+ * two entries that act on a LIVE deployment («Platzieren», «Leitung wählen») keep their gate. */
+describe('editing a Trupp that has come out', () => {
+  const outTrupp = (over: Partial<Trupp> = {}): Trupp => ({
+    ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000), leaderPersonId: 'p1', ...over,
+  })
+
+  it('offers «Bearbeiten» on a raus card — and still withholds the two live-deployment entries', async () => {
+    mount({ trupps: [outTrupp()], anyLeitung: true })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    expect(await screen.findByRole('menuitem', { name: az.edit })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: az.place })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: az.linePick })).toBeNull()
+  })
+
+  /* ⚠️ «Einer, ein Trupp» is about who is deployed NOW. The Gruppenführer whose Trupp came out at
+   * 15:40 stands in the next one at 15:50 — measured against the live board, correcting the old
+   * card hit the assignment conflict and Speichern went dead, with the correction lost. */
+  it('saves the correction even while its crew is already in a LIVE Trupp', async () => {
+    const editTrupp = vi.fn()
+    mount({
+      editTrupp,
+      trupps: [outTrupp(), { ...aktivTrupp(), id: 'tr2', name: 'Amstad', members: [], leaderPersonId: 'p1' }],
+      truppColors: { tr1: '#e8392b', tr2: '#e2920a' },
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: az.cardMenu })[0])
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: 'Dach via Schiebeleiter' } })
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledTimes(1)
+    expect(editTrupp.mock.calls[0][0]).toBe('tr1')
+    expect((editTrupp.mock.calls[0][1] as TruppFields).ziel).toBe('Dach via Schiebeleiter')
+  })
+})
+
 /* ── The three-section stack on ANY phone (04.09.) ────────────────────────────────────────────
  * Replaces the two-step wizard of 02.–04.09. Three sections, all on screen, one open, the closed
  * ones reading their own answers out. What differs outside the link: the «Art des Trupps» tiles

@@ -53,6 +53,10 @@ let lastShownFocusNonce: number | null = null
 
 type FormMode = 'create' | 'edit' | 'redeploy'
 
+/** «niemand ist gebunden» — one frozen instance, because it feeds a `useMemo` dependency in the
+ *  form and a fresh Set on every render would re-run that memo for nothing (see `assignedIds`). */
+const NO_ASSIGNED: Set<string> = new Set()
+
 /** How the board is arranged — mirrors Prefs.atemschutzOrder. */
 export type TruppOrder = 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
 
@@ -1161,7 +1165,16 @@ export function AtemschutzView({
         <TruppForm
           mode={form.mode} initial={form.trupp} focusSection={form.focus} roster={roster} defaultFunkkanal={defaultFunkkanal}
           personnel={personnel} presentIds={presentIds} stationIds={stationIds} rolesById={rolesById}
-          assignedIds={assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
+          /* ⚠️ NOBODY is bound while a Trupp that has come OUT is being corrected (09.09.).
+             «Einer, ein Trupp» is a rule about who is deployed NOW: a finished record shares its
+             people with the live board by definition — the AdF whose Trupp came out at 15:40
+             stands in the next one at 15:50. Measured against the live board, correcting the
+             Auftrag on the old card hit `assignedConflict`, Speichern went dead, and the
+             correction was lost. `redeploy` is not this case and keeps the check: that Trupp is
+             going back IN. (`assignedPersonIds` already ignores every OTHER raus Trupp, so a
+             finished crew never blocks a live form either.) */
+          assignedIds={form.mode === 'edit' && form.trupp?.status === 'raus' ? NO_ASSIGNED
+            : assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
           leitungOptions={leitungOptions(form.trupp?.id)}
           lite={!!lite}
           // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
@@ -1727,7 +1740,16 @@ function TruppCard({
    * «Entfernen» is last, behind a rule, and red. It is the reason the back control could move to
    * the other end of the header (see below). */
   const menuItems = [
-    ...(canEdit && status !== 'raus' ? [{ label: az.edit, onClick: () => onEdit() }] : []),
+    /* ⚠️ «Bearbeiten» in EVERY status, `raus` included (09.09., Feldentscheid). The other two
+     * gates below act on a LIVE deployment — placing a symbol for a crew that has come out, or
+     * handing it a hose — and keep theirs. This one edits the RECORD, and the record is exactly
+     * what stays wrong otherwise: a crew member never entered, a typo in the Auftrag, the wrong
+     * Gruppenführer — all of it prints on the Rapport, and the Trupp is `raus` by the time
+     * anybody reads it back. Correcting an Eingangsdruck here rewrites the finished run's entry
+     * reading, which is the point (useTruppActions · editTrupp · pressurePatch, and the form
+     * says so under the field). Everything it writes reaches the Verlauf exactly as a live edit
+     * does — one `logEditFields` row naming what changed. */
+    ...(canEdit ? [{ label: az.edit, onClick: () => onEdit() }] : []),
     ...(lite ? [] : (t.annoId || t.entityId)
       ? [{ label: t.entityId ? az.showOnMap : az.showOnPlan, onClick: () => onShowPlan(t.id) }]
       : canEdit && status !== 'raus' ? [{ label: az.place, onClick: () => onPlace(t.id) }] : []),

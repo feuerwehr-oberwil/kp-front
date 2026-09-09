@@ -189,6 +189,40 @@ export function truppEditChanges(
   return out
 }
 
+/**
+ * The deployment a row ESTABLISHES, as one clause: «Löschen – Dach via Schiebeleiter · Ltg. 1 ·
+ * Kanal 11» (09.09., Feldentscheid).
+ *
+ * It rides on the three rows that OPEN a deployment — Anmeldung, Bereitstellung, erneuter
+ * Eintritt — which until now named only the crew and the Eingangsdruck, so the Verlauf could not
+ * be read back into an Einsatz without the Tafel beside it. The lean lifecycle rows (Eintritt,
+ * Austritt, Rückzug, Kontakt) stay lean: the same clause on every one of them is wallpaper, and
+ * what CHANGES has its own sentence already (truppEditChanges).
+ *
+ * Nothing is invented — an absent field simply does not print, and there is no «Ltg. –».
+ *
+ * `noAs` is the caller's answer to «does my template already say it»: `logReenterNoAs` and
+ * `logEntryNoAs` carry «ohne Atemschutz» themselves, `logRegisterPlain` and `logStandby` do not.
+ * It LEADS the clause, for the reason truppEditChanges puts the Art first — it is the only part
+ * that says whether anybody is being watched.
+ */
+export function truppDeploymentDetails(
+  f: Pick<TruppFields, 'auftrag' | 'ziel' | 'lineNo' | 'funkkanal'>,
+  opts?: { noAs?: boolean },
+): string {
+  const az = appConfig.copy.atemschutz
+  return [
+    opts?.noAs ? az.logDetailNoAs : '',
+    auftragText(f.auftrag, f.ziel),
+    f.lineNo != null ? fillTemplate(az.logDetailLine, { n: String(f.lineNo) }) : '',
+    f.funkkanal != null ? fillTemplate(az.logDetailFunk, { n: String(f.funkkanal) }) : '',
+  ].filter(Boolean).join(' · ')
+}
+
+/** …hung onto the row it belongs to, or the row unchanged when there was nothing to say. The ONE
+ *  place the separator is chosen, so the journal line and the undo label can never drift apart. */
+const withDetails = (line: string, details: string): string => (details ? `${line} – ${details}` : line)
+
 interface Deps {
   trupps: Trupp[]
   /** live Lage drawings — read to find the hose a Trupp was linked to (and which numbers are
@@ -360,10 +394,16 @@ export function useTruppActions(deps: Deps) {
     // (see `hasEntryPressure`). Who LEADS the crew is not written into this sentence: it is the
     // Gruppenführer's Anwesenheits-Funktion, and the Verlauf prints that behind his name on its
     // own (lib/roleAssignment · truppRoleNote, lib/journalLinks · linkRanges).
+    // …and WHAT this Trupp was registered FOR (09.09.): Auftrag/Ziel, Leitung, Kanal, and — since
+    // neither register template says it — «ohne Atemschutz» where there is no cylinder. The
+    // Anmeldung is one of the three rows that establish a deployment (truppDeploymentDetails).
     const az = appConfig.copy.atemschutz
-    const line = fillTemplate(
-      hasEntryPressure(t, t.entryPressureBar) ? az.logRegister : az.logRegisterPlain,
-      { name: truppLogName(t), bar: String(t.entryPressureBar) },
+    const line = withDetails(
+      fillTemplate(
+        hasEntryPressure(t, t.entryPressureBar) ? az.logRegister : az.logRegisterPlain,
+        { name: truppLogName(t), bar: String(t.entryPressureBar) },
+      ),
+      truppDeploymentDetails(t, { noAs: !isAtemschutzTrupp(t) }),
     )
     log('flag', line, 'team', undefined, undefined, { subjectId: t.id })
     emit('atemschutz.register', { id: t.id })
@@ -1035,7 +1075,16 @@ export function useTruppActions(deps: Deps) {
     // and claims nothing about masks.
     const reenterTpl = !nowPa ? az.logReenterNoAs
       : hasEntryPressure({ kind: 'atemschutz' }, f.pressure) ? az.logReenter : az.logReenterPlain
-    const reenterLine = fillTemplate(standby ? az.logStandby : reenterTpl, { name: truppLogName(f), bar: String(f.pressure ?? '') })
+    // …with the deployment it opens (09.09.): the re-entry/Bereitstellung row is a new Einsatz for
+    // this crew, so it names Auftrag, Leitung and Kanal the way the Anmeldung does. ⚠️ «ohne
+    // Atemschutz» ONLY where the template did not already say it — `logReenterNoAs` does, so it is
+    // the standby row of a Trupp without Atemschutz that needs it (`logStandby` says nothing about
+    // masks). The «was hat sich geändert» row below stays separate: this clause is the state, that
+    // one is the diff.
+    const reenterLine = withDetails(
+      fillTemplate(standby ? az.logStandby : reenterTpl, { name: truppLogName(f), bar: String(f.pressure ?? '') }),
+      truppDeploymentDetails(f, { noAs: !nowPa && standby }),
+    )
     log('flag', reenterLine, 'team', undefined, undefined, { subjectId: id })
     // ⚠️ «Wieder einrücken» never had a way back at all — it is the one Trupp action that resets
     // the safety clock, the Eingangsdruck AND lowestBar in one go, and a mis-tap on the card above

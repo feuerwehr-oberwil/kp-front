@@ -1241,6 +1241,11 @@ export const en: Localizable<Copy> = {
     logReenterPlain: 'Team {name} re-deployed',
     logReenterNoAs: 'Team {name} re-deployed – without SCBA',
     logStandby: 'Team {name} on standby – not yet deployed',
+    // the deployment clause appended to the three rows that OPEN a deployment (see de.ts):
+    // short forms, because they are appended to a sentence that already stands
+    logDetailLine: 'Line {n}',
+    logDetailFunk: 'Channel {n}',
+    logDetailNoAs: 'without SCBA',
     logAlarm: 'SCBA alarm: team {name} – {status}',
     logAlarmCleared: 'SCBA alarm ended: team {name} – {reason}',
     alarmClearedBy: {

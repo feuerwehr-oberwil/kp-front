@@ -1232,6 +1232,11 @@ export const fr: Localizable<Copy> = {
     logReenterPlain: 'Binôme {name} réengagé',
     logReenterNoAs: 'Binôme {name} réengagé – sans ARI',
     logStandby: 'Binôme {name} en réserve – pas encore engagé',
+    // le complément d’engagement ajouté aux trois lignes qui OUVRENT un engagement (voir de.ts) :
+    // formes courtes, elles se greffent sur une phrase déjà complète
+    logDetailLine: 'Ligne {n}',
+    logDetailFunk: 'Canal {n}',
+    logDetailNoAs: 'sans ARI',
     logAlarm: 'Alarme ARI : binôme {name} – {status}',
     logAlarmCleared: 'Alarme ARI terminée : binôme {name} – {reason}',
     alarmClearedBy: {

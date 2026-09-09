@@ -194,6 +194,59 @@ describe('useTruppActions placement (one place per Trupp)', () => {
   })
 })
 
+/* ── A Trupp that is OUT stays correctable (09.09., Feldentscheid) ─────────────────────────────
+ * «Bearbeiten» left the ⋯ menu the moment a Trupp reported out — and that is when the mistakes
+ * are found: the crew was wrong, an AdF joined and was never entered, the Auftrag has a typo. All
+ * of it prints on the Rapport, which is read long after the Austritt. `editTrupp` never carried a
+ * status guard; what these pin is that the record and the Verlauf move together on an out Trupp,
+ * the way they do on a live one. */
+describe('editTrupp on a Trupp that has come out', () => {
+  const out = (over: Partial<Trupp> = {}): Trupp => baseTrupp({
+    status: 'raus', exitTime: '2026-07-06T10:30:00Z', auftrag: 'loeschen', funkkanal: 5,
+    // the Anmeldung was typed 200 for 300 — the mistake this edit exists to fix
+    entryPressureBar: 200, lowestBar: 200,
+    readings: [
+      { t: '2026-07-06T10:00:00Z', bar: 200, kind: 'entry' },
+      { t: '2026-07-06T10:20:00Z', bar: 240, kind: 'pressure' },
+      { t: '2026-07-06T10:30:00Z', bar: 240, kind: 'exit' },
+    ],
+    ...over,
+  })
+
+  it('writes the correction into the record and names it in the Verlauf', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(out(), undefined, (_i, text) => lines.push(text))
+    actions.editTrupp('T1', {
+      name: 'Keller Anna', members: ['Meier Hans'], pressure: 200,
+      auftrag: 'retten', ziel: '2OG links', funkkanal: 7,
+    })
+    const t = state.trupps[0]
+    expect(t.members).toEqual(['Meier Hans'])
+    expect(t.auftrag).toBe('retten')
+    expect(t.funkkanal).toBe(7)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toContain('Meier Hans dazugekommen')
+    expect(lines[0]).toContain('Auftrag Retten – 2OG links')
+    expect(lines[0]).toContain('Funkkanal 5 → 7')
+  })
+
+  /* ⚠️ …the Eingangsdruck included. On an out Trupp this rewrites the entry reading of a run that
+   * is over — which is the point: everything the Rapport derives from it (Verbrauch, «tiefster
+   * Druck») was computed against a number somebody typed wrong, and the form says so under the
+   * field («Korrigiert den erfassten Eingangsdruck»). */
+  it('corrects the finished run’s Eingangsdruck, and re-derives what hangs off it', () => {
+    const { actions, state } = harness(out())
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'loeschen', funkkanal: 5 })
+    const t = state.trupps[0]
+    expect(t.entryPressureBar).toBe(300)
+    expect(t.readings?.[0].bar).toBe(300)
+    expect(t.readings?.[1].bar).toBe(240) // a reading actually taken is never rewritten
+    expect(t.lowestBar).toBe(240)
+    expect(t.status).toBe('raus') // …and correcting a record does not put the crew back inside
+    expect(t.exitTime).toBe('2026-07-06T10:30:00Z')
+  })
+})
+
 /* The Art of a Trupp, changed after the fact (04.09.). Until then a Verkehrstrupp that ended up
  * going in under PA had to be deleted and registered again — throwing away the record of a crew
  * that was already working. What matters is not the flag but what it drags along: a safety watch
@@ -429,7 +482,8 @@ describe('the Anmeldung/Eintritt rows — the crew, and no invented Druck', () =
   it('leaves the Eingangsdruck out for a Trupp OHNE Atemschutz — there is no cylinder to read', () => {
     const { actions, lines } = lined(fresh({ kind: 'einfach', entryPressureBar: 0 }))
     actions.createTrupp(fresh({ kind: 'einfach', entryPressureBar: 0 }))
-    expect(lines[0]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter angemeldet')
+    // …and SAYS it went without one, because `logRegisterPlain` does not (09.09.)
+    expect(lines[0]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter angemeldet – ohne Atemschutz')
     expect(lines[0]).not.toContain('bar')
   })
 
@@ -461,6 +515,33 @@ describe('the Anmeldung/Eintritt rows — the crew, and no invented Druck', () =
     const { actions, lines } = lined(solo)
     actions.createTrupp(solo)
     expect(lines[0]).toBe('Trupp Brunner Thomas angemeldet – Eingangsdruck 300 bar')
+  })
+
+  /* ── …and WHAT the Trupp was registered for (09.09., Feldentscheid) ──────────────────────────
+   * The Anmeldung is one of the three rows that ESTABLISH a deployment, and it named only the
+   * crew and the cylinder — so the Verlauf could not be read back into an Einsatz without the
+   * Tafel beside it. Auftrag, Ziel, Leitung and Kanal ride along; the lean lifecycle rows do not
+   * (see the Eintritt/Kontakt test above, which is unchanged). */
+  it('names the deployment the Anmeldung opens — Auftrag, Ziel, Ltg. and Kanal', () => {
+    const full = fresh({
+      name: 'Amstad Manuel', members: ['Meier Alessandro'], entryPressureBar: 300,
+      auftrag: 'loeschen', ziel: 'Dach via Schiebeleiter', lineNo: 1, funkkanal: 11,
+    })
+    const { actions, lines } = lined(full)
+    actions.createTrupp(full)
+    expect(lines[0]).toBe(
+      'Trupp Amstad Manuel / Meier Alessandro angemeldet – Eingangsdruck 300 bar'
+      + ' – Löschen – Dach via Schiebeleiter · Ltg. 1 · Kanal 11',
+    )
+  })
+
+  it('…and stays the short row when there is nothing extra to say — nothing is invented', () => {
+    const bare = fresh({ name: 'Brunner Thomas', members: undefined, entryPressureBar: 300 })
+    const { actions, lines } = lined(bare)
+    actions.createTrupp(bare)
+    expect(lines[0]).toBe('Trupp Brunner Thomas angemeldet – Eingangsdruck 300 bar')
+    expect(lines[0]).not.toContain('Ltg.')
+    expect(lines[0]).not.toContain('Kanal')
   })
 })
 
@@ -584,7 +665,9 @@ describe('useTruppActions — what changed on the way back in', () => {
     const { actions, lines } = lined(out())
     actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'retten', ziel: '2OG links', funkkanal: 7 })
     expect(lines).toEqual([
-      'Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar',
+      // the row that OPENS the deployment carries it: Auftrag, Ziel, Kanal (09.09.) …
+      'Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar – Retten – 2OG links · Kanal 7',
+      // … and the changes row still says what MOVED, which the state clause cannot
       'Trupp Keller Anna: Auftrag Retten – 2OG links, Funkkanal 5 → 7',
     ])
   })
@@ -605,7 +688,7 @@ describe('useTruppActions — what changed on the way back in', () => {
       pressure: 300, auftrag: 'loeschen', funkkanal: 5,
     }, true)
     expect(lines).toEqual([
-      'Trupp Bachmann Reto / Pfister Markus / Einstein Albert bereitgestellt – noch kein Eintritt',
+      'Trupp Bachmann Reto / Pfister Markus / Einstein Albert bereitgestellt – noch kein Eintritt – Löschen · Kanal 5',
     ])
     expect(lines.join(' ')).not.toContain('Amrein Patrick')
     expect(lines.join(' ')).not.toContain('genommen')
@@ -619,7 +702,7 @@ describe('useTruppActions — what changed on the way back in', () => {
       name: 'Bachmann Reto', members: ['Pfister Markus'], pressure: 300, auftrag: 'retten', funkkanal: 7,
     })
     expect(lines).toEqual([
-      'Trupp Bachmann Reto / Pfister Markus: erneuter Eintritt – Eingangsdruck 300 bar',
+      'Trupp Bachmann Reto / Pfister Markus: erneuter Eintritt – Eingangsdruck 300 bar – Retten · Kanal 7',
       'Trupp Bachmann Reto: Auftrag Retten, Funkkanal 5 → 7',
     ])
   })
@@ -627,13 +710,14 @@ describe('useTruppActions — what changed on the way back in', () => {
   it('says nothing extra when the Trupp goes back in unchanged — the fresh bottle is not a correction', () => {
     const { actions, lines } = lined(out({ entryPressureBar: 60 }))
     actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'loeschen', funkkanal: 5 })
-    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar'])
+    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar – Löschen · Kanal 5'])
   })
 
   it('leaves the Eingangsdruck out of the re-entry row for a Trupp ohne Atemschutz', () => {
     const { actions, lines } = lined(out({ kind: 'einfach', entryPressureBar: 0 }))
     actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 0, auftrag: 'loeschen', funkkanal: 5, kind: 'einfach' })
-    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – ohne Atemschutz'])
+    // ⚠️ «ohne Atemschutz» exactly ONCE: `logReenterNoAs` says it, so the clause does not
+    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – ohne Atemschutz – Löschen · Kanal 5'])
   })
 
   /* ── The ART is answered afresh for each deployment (04.09., Feldtest: «Bei Wieder einrücken
@@ -655,7 +739,7 @@ describe('useTruppActions — what changed on the way back in', () => {
     expect(t.readings?.some((r) => r.kind === 'paOff')).toBe(false)
     expect(lines).toEqual([
       // ⚠️ the Eintritt SAYS it went in without masks (04.09., Manuel) …
-      'Trupp Keller Anna: erneuter Eintritt – ohne Atemschutz',
+      'Trupp Keller Anna: erneuter Eintritt – ohne Atemschutz – Löschen · Kanal 5',
       // … and the Art CHANGING rides in the changes row — same wording as the ⋯ «Bearbeiten»
       // path, and first in the list, because it is the entry that turns a safety watch off
       'Trupp Keller Anna: nicht mehr unter Atemschutz',
@@ -672,7 +756,7 @@ describe('useTruppActions — what changed on the way back in', () => {
     expect(anyTruppInField([t])).toBe(true) // the contact clock runs again
     expect(t.readings?.some((r) => r.kind === 'paOn')).toBe(false)
     expect(lines).toEqual([
-      'Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar',
+      'Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar – Löschen · Kanal 5',
       'Trupp Keller Anna: jetzt unter Atemschutz',
     ])
   })
@@ -680,7 +764,7 @@ describe('useTruppActions — what changed on the way back in', () => {
   it('says nothing about the Art when the Trupp goes back in as what it was', () => {
     const { actions, lines } = lined(out({ entryPressureBar: 300 }))
     actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300, auftrag: 'loeschen', funkkanal: 5, kind: 'atemschutz' })
-    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar'])
+    expect(lines).toEqual(['Trupp Keller Anna: erneuter Eintritt – Eingangsdruck 300 bar – Löschen · Kanal 5'])
     // …and the card is not stamped with a decision nobody made (types · TruppKind: absent = PA)
     expect('kind' in (lined(out({ entryPressureBar: 300 })).state.trupps[0] as object)).toBe(false)
   })

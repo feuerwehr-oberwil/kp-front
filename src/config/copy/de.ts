@@ -2084,6 +2084,21 @@ export const de = {
     /** …und der Trupp, der ohne Atemschutz zurückgeht – siehe `logEntryNoAs`. */
     logReenterNoAs: 'Trupp {name}: erneuter Eintritt – ohne Atemschutz',
     logStandby: 'Trupp {name} bereitgestellt – noch kein Eintritt',
+    /* ── Was die Zeile über den Einsatz sagt, den sie ERÖFFNET (09.09., Feldentscheid) ─────────
+     * Anmeldung, Bereitstellung und erneuter Eintritt sind die drei Zeilen, die einen Einsatz
+     * eröffnen – und sie nannten bisher nur Mannschaft und Eingangsdruck. Wer den Verlauf später
+     * liest, soll den Einsatz daraus rekonstruieren können, ohne die Tafel daneben zu haben:
+     * Auftrag, Ziel, Leitung, Kanal. Die schlanken Lebenslaufzeilen (Eintritt, Austritt, Rückzug,
+     * Kontakt) bleiben schlank – dort wäre derselbe Zusatz auf jeder Zeile Tapete, und was sich
+     * ÄNDERT, sagt ohnehin die Bearbeitungszeile (useTruppActions · truppEditChanges).
+     * Kurzformen, weil der Zusatz an eine Zeile gehängt wird, die schon steht («Ltg. 1 · Kanal
+     * 11»); die Langformen bleiben den Änderungszeilen (changeLine, changeFunkkanalSet). Fehlt
+     * ein Feld, steht es nicht da – erfunden wird nichts. */
+    logDetailLine: 'Ltg. {n}',
+    logDetailFunk: 'Kanal {n}',
+    /** ⚠️ Nur dort, wo die Zeile es nicht schon selber sagt (logReenterNoAs, logEntryNoAs) –
+     *  sonst stünde «ohne Atemschutz» zweimal in einem Satz. */
+    logDetailNoAs: 'ohne Atemschutz',
     logAlarm: 'Atemschutz-Alarm: Trupp {name} – {status}',
     /**
      * …und wann er vorbei war, und wodurch (04.09., Rapport-Review).

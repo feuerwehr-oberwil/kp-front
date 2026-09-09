@@ -1232,6 +1232,11 @@ export const it: Localizable<Copy> = {
     logReenterPlain: 'Squadra {name} rientrata',
     logReenterNoAs: 'Squadra {name} rientrata – senza ARA',
     logStandby: 'Squadra {name} di riserva – non ancora entrata',
+    // la clausola d’impiego aggiunta alle tre righe che APRONO un impiego (vedi de.ts):
+    // forme brevi, perché si agganciano a una frase già completa
+    logDetailLine: 'Linea {n}',
+    logDetailFunk: 'Canale {n}',
+    logDetailNoAs: 'senza ARA',
     logAlarm: 'Allarme autoprotezione: squadra {name} – {status}',
     logAlarmCleared: 'Allarme autoprotezione terminato: squadra {name} – {reason}',
     alarmClearedBy: {
