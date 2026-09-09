@@ -6,6 +6,7 @@ import { appConfig } from '../config/appConfig'
 import { anyTruppInField, isAtemschutzTrupp, truppNeverDeployed } from './atemschutz'
 import { fillTemplate } from './format'
 import type { Doc } from './workspace'
+import { objectsFromLegacy } from './tacticalObjects'
 import { createUndoTimeline } from './undoTimeline'
 
 // Capture the confirm-with-undo toasts, so the undo the operator would tap can be tapped here.
@@ -60,6 +61,7 @@ function harness(
     drawings: state.doc.drawings,
     // the live Lage entities the colour picker reads (see teamColors.ts)
     entities: state.doc.entities,
+    objects: objectsFromLegacy(state.doc.entities, state.doc.drawings, state.board),
     setTrupps: ((a) => { state.trupps = apply(state.trupps, a) }) as Dispatch<SetStateAction<Trupp[]>>,
     board: state.board,
     setBoard: ((a) => { state.board = apply(state.board, a) }) as Dispatch<SetStateAction<BoardDoc>>,
@@ -1061,6 +1063,7 @@ describe('useTruppActions — one Leitung, one Trupp', () => {
     // called outside a component on purpose: a plain closure factory, no hooks inside
     const actions = useTruppActions({
       trupps: state.trupps, drawings: state.doc.drawings, entities: state.doc.entities,
+      objects: objectsFromLegacy(state.doc.entities, state.doc.drawings, state.board),
       setTrupps: ((a) => { state.trupps = apply(state.trupps, a) }) as Dispatch<SetStateAction<Trupp[]>>,
       board: state.board,
       setBoard: ((a) => { state.board = apply(state.board, a) }) as Dispatch<SetStateAction<BoardDoc>>,
@@ -1558,6 +1561,7 @@ describe('useTruppActions — placed symbol ⇄ Trupp', () => {
     // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
     const actions = useTruppActions({
       trupps: state.trupps, drawings: state.doc.drawings, entities: state.doc.entities,
+      objects: objectsFromLegacy(state.doc.entities, state.doc.drawings, state.board),
       setTrupps: ((x) => { state.trupps = apply(state.trupps, x) }) as Dispatch<SetStateAction<Trupp[]>>,
       board: state.board,
       setBoard: ((x) => { state.board = apply(state.board, x) }) as Dispatch<SetStateAction<BoardDoc>>,

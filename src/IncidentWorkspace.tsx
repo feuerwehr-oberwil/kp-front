@@ -169,7 +169,7 @@ import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
 import { ReportPreflight } from './components/ReportPreflight'
 import { TruppFinder } from './components/TruppFinder'
-import { markerOptions, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
+import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
@@ -969,37 +969,38 @@ export function IncidentWorkspace({
   useEffect(() => {
     if (consumeJustUpdated()) toast(fillTemplate(appConfig.copy.update.updated, { v: buildLabel() }), { icon: 'check', tone: 'success' })
   }, [])
-  // If a Trupp's placed plan chip gets deleted on the board, free the Trupp (clear annoId/planId)
-  // so it can be placed again — otherwise the "Platzieren" button (gated on !annoId) stayed hidden.
+  /**
+   * Keep every Trupp's placement join pointing at where its marker actually STANDS — and free it
+   * when the marker is gone, so «Platzieren» comes back instead of pointing at nothing (the
+   * button is gated on the join being empty).
+   *
+   * ⚠️ ONE effect over the store, because which surface a marker stands on is its ANCHOR
+   * (lib/placedTrupps · markerSite) and no longer «which collection holds its id»: the Karte
+   * draws plan-anchored objects too. As two membership tests this went wrong in both directions
+   * — a chip dragged off its sheet onto the Karte lost its Trupp entirely (the anno left `board`,
+   * so the plan half freed itself), and one dragged the other way kept an `entityId` naming a
+   * surface it had left. The join follows the anchor instead.
+   */
   useEffect(() => {
     setTrupps((ts) => {
       let changed = false
       const next = ts.map((t) => {
-        if (t.annoId && t.planId && !(board[t.planId] ?? []).some((a) => a.id === t.annoId)) {
+        const markerId = t.entityId ?? t.annoId
+        if (!markerId) return t
+        const site = markerSite(markerId, objects)
+        if (!site) { changed = true; return { ...t, entityId: undefined, annoId: undefined, planId: undefined } }
+        if (site.kind === 'map') {
+          if (t.entityId === markerId && !t.annoId && !t.planId) return t
           changed = true
-          return { ...t, annoId: undefined, planId: undefined }
+          return { ...t, entityId: markerId, annoId: undefined, planId: undefined }
         }
-        return t
+        if (t.annoId === markerId && t.planId === site.planId && !t.entityId) return t
+        changed = true
+        return { ...t, annoId: markerId, planId: site.planId, entityId: undefined }
       })
       return changed ? next : ts
     })
-  }, [board])
-  // …and the same for a Lage-map team marker (deleted via undo / sync / group ops): free the
-  // Trupp so «Platzieren» comes back instead of pointing at a marker that no longer exists.
-  useEffect(() => {
-    setTrupps((ts) => {
-      let changed = false
-      const next = ts.map((t) => {
-        if (t.entityId && !doc.entities.some((e) => e.id === t.entityId)) {
-          changed = true
-          return { ...t, entityId: undefined }
-        }
-        return t
-      })
-      return changed ? next : ts
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.entities])
+  }, [objects, setTrupps])
   // What the bell actually controls: per-device, but scoped to THIS Einsatz — a tablet muted at a
   // drill in February is armed again for the next one (see useAtemschutzMute). `audioBlocked` is
   // the third honest state: the browser has not released audio, so only the OS notification can
@@ -3354,7 +3355,7 @@ export function IncidentWorkspace({
   }
   /** Every Trupp standing somewhere on this Einsatz — Lage markers AND plan chips, Atemschutz
    *  or not (lib/placedTrupps). Feeds the rail's count and the finder's list. */
-  const placed = useMemo(() => placedTrupps(entities, board, planDocs, trupps), [entities, board, planDocs, trupps])
+  const placed = useMemo(() => placedTrupps(objects, planDocs, trupps), [objects, planDocs, trupps])
   /**
    * Go to the picked Trupp. ⚠️ The SAME two jumps «auf Plan zeigen» makes from the Atemschutz
    * card (useTruppActions · focusTruppOnPlan) — a second way to arrive at a marker would be a
@@ -3453,7 +3454,7 @@ export function IncidentWorkspace({
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
   const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
     useTruppActions({
-      trupps, drawings, entities, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
+      trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
       // Statuswechsel, Bearbeitung, Wieder-Einrücken, Anmeldung and Löschen records itself there,
       // so ↶ in the header reaches the board — including from the handed-over Link-Tafel, which

@@ -98,6 +98,10 @@ export function objectsFromLegacy(
 ): TacticalObject[] {
   const byId = new Map<string, TacticalObject>()
   for (const e of entities ?? []) {
+    // ⚠️ A live overlay is derived, never a record — the same invariant `applyDocToObjects`
+    // enforces at the other seam, so «is it in the store» is a question with one answer
+    // wherever it is asked (lib/placedTrupps reads the anchor and relies on exactly this).
+    if (e.live) continue
     byId.set(e.id, { id: e.id, entity: e })
   }
   for (const d of drawings ?? []) {

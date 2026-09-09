@@ -1,7 +1,8 @@
 import { appConfig } from '../config/appConfig'
 import { floorLabel } from './whiteboard'
 import { matchesQuery, type SearchQuery } from './search'
-import type { BoardAnno, BoardDoc, Entity, LngLat, PlanDocument, Trupp, TruppKind } from '../types'
+import type { TacticalObject } from './tacticalObjects'
+import type { LngLat, PlanDocument, Trupp, TruppKind } from '../types'
 
 /**
  * Every Trupp that is standing somewhere on this Einsatz — the Lage map AND the plan boards,
@@ -17,6 +18,13 @@ import type { BoardAnno, BoardDoc, Entity, LngLat, PlanDocument, Trupp, TruppKin
  * that something is drawn somewhere. A marker that happens to carry `truppId` additionally
  * borrows that Trupp's members and status, which is what makes searching for an AdF's name find
  * the Trupp they are in.
+ *
+ * ⚠️ And WHICH surface it stands on is the object's ANCHOR, never which collection holds its id.
+ * Those were the same question while an object lived in exactly one of them; they stopped being
+ * the same the day the Karte started drawing plan-drawn objects itself (lib/tacticalObjects). A
+ * plan chip then read as a map placement — it was listed as «Lage», its join wrote `entityId`
+ * instead of `annoId`+`planId`, the Verlauf said «auf der Karte platziert», and the picker
+ * offered the same chip twice under one React key.
  */
 export interface PlacedTrupp {
   /** stable per marker — the entity / anno id, so two chips of the same name stay two rows */
@@ -68,18 +76,40 @@ function membersOf(t: Trupp | undefined): string[] {
 }
 
 export function placedTrupps(
-  entities: Entity[],
-  board: BoardDoc,
+  objects: TacticalObject[],
   planDocs: PlanDocument[],
   trupps: Trupp[],
 ): PlacedTrupp[] {
   const out: PlacedTrupp[] = []
   const A = appConfig.copy.atemschutz
 
-  for (const e of entities) {
-    // ⚠️ Live entities are excluded: a Fahrzeug arriving from the GPS feed is not a Trupp
-    // somebody placed, and it is already findable as the vehicle it is.
-    if (e.kind !== 'team' || e.live) continue
+  for (const o of objects) {
+    if (o.sheet) {
+      const a = o.sheet.anno
+      if (a.kind !== 'resource') continue
+      const doc = planDocs.find((p) => p.id === o.sheet!.planId)
+      const t = truppOf(trupps, a.truppId)
+      // a floor-stack chip says which storey; a flat plan has none to say
+      const floor = a.floor ?? 0
+      const stack = !!doc?.floorStack
+      out.push({
+        key: a.id,
+        name: (a.text ?? '').trim() || A.truppFallbackName,
+        color: a.color,
+        where: [doc?.code ?? o.sheet.planId, stack ? floorLabel(floor) : ''].filter(Boolean).join(' · '),
+        truppId: t?.id,
+        status: t?.status,
+        kind: t?.kind,
+        members: membersOf(t),
+        target: { kind: 'plan', planId: o.sheet.planId, annoId: a.id, x: a.x ?? 0.5, y: a.y ?? 0.5, floor },
+      })
+      continue
+    }
+    // ⚠️ Live entities are never records, so they are never in the store: a Fahrzeug arriving
+    // from the GPS feed is not a Trupp somebody placed, and it is already findable as the
+    // vehicle it is.
+    const e = o.entity
+    if (e?.kind !== 'team') continue
     const t = truppOf(trupps, e.truppId)
     out.push({
       key: e.id,
@@ -92,28 +122,6 @@ export function placedTrupps(
       members: membersOf(t),
       target: { kind: 'map', entityId: e.id, coord: e.coord },
     })
-  }
-
-  for (const [planId, annos] of Object.entries(board)) {
-    const doc = planDocs.find((p) => p.id === planId)
-    for (const a of annos as BoardAnno[]) {
-      if (a.kind !== 'resource') continue
-      const t = truppOf(trupps, a.truppId)
-      // a floor-stack chip says which storey; a flat plan has none to say
-      const floor = a.floor ?? 0
-      const stack = !!doc?.floorStack
-      out.push({
-        key: a.id,
-        name: (a.text ?? '').trim() || A.truppFallbackName,
-        color: a.color,
-        where: [doc?.code ?? planId, stack ? floorLabel(floor) : ''].filter(Boolean).join(' · '),
-        truppId: t?.id,
-        status: t?.status,
-        kind: t?.kind,
-        members: membersOf(t),
-        target: { kind: 'plan', planId, annoId: a.id, x: a.x ?? 0.5, y: a.y ?? 0.5, floor },
-      })
-    }
   }
 
   // Placed order is arrival order and means nothing to somebody looking for a name. Sorted the
@@ -170,24 +178,25 @@ export interface MarkerJoin {
  * the marker away from it silently would leave that button pointing at somebody else's Trupp.
  */
 export function resolveMarkerJoin(
-  markerId: string, truppId: string, entities: Entity[], board: BoardDoc, trupps: Trupp[],
+  markerId: string, truppId: string, objects: TacticalObject[], trupps: Trupp[],
 ): MarkerJoin | undefined {
-  const site = markerSite(markerId, entities, board)
+  const site = markerSite(markerId, objects)
   if (!site) return undefined
   const holder = trupps.find((t) => !t.removedAt && t.id !== truppId
     && (t.entityId === markerId || t.annoId === markerId))
   return { site, holder, own: trupps.some((t) => t.id === truppId && (t.entityId === markerId || t.annoId === markerId)) }
 }
 
-/** Where a placed marker stands, or undefined when the id names nothing joinable. */
-export function markerSite(markerId: string, entities: Entity[], board: BoardDoc): MarkerSite | undefined {
-  const e = entities.find((x) => x.id === markerId)
-  if (e) return e.kind === 'team' && !e.live ? { kind: 'map', entityId: markerId } : undefined
-  for (const [planId, annos] of Object.entries(board)) {
-    const a = (annos as BoardAnno[]).find((x) => x.id === markerId)
-    if (a) return a.kind === 'resource' ? { kind: 'plan', planId, annoId: markerId } : undefined
-  }
-  return undefined
+/** Where a placed marker stands, or undefined when the id names nothing joinable.
+ *
+ *  ⚠️ The ANCHOR decides, not which collection holds the id — see the note on `placedTrupps`.
+ *  A plan chip is on a plan even though the Karte draws it too, and writing `entityId` for one
+ *  would take its plan coordinates out of the Trupp's record. */
+export function markerSite(markerId: string, objects: TacticalObject[]): MarkerSite | undefined {
+  const o = objects.find((x) => x.id === markerId)
+  if (!o) return undefined
+  if (o.sheet) return o.sheet.anno.kind === 'resource' ? { kind: 'plan', planId: o.sheet.planId, annoId: markerId } : undefined
+  return o.entity?.kind === 'team' ? { kind: 'map', entityId: markerId } : undefined
 }
 
 /** One placed marker offered on a Trupp card, the twin of truppLines · LeitungOption. */
