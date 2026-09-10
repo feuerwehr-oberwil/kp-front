@@ -34,9 +34,12 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 - **Incident role** – `editor` (can mutate incident state), `el` (Einsatzleiter function,
   since 2026-09-07: reads everything, writes ONLY the record domains – attendance/shifts/bands,
   mittel, checklists, reportMeta/attachments – through `PUT …/workspace/record`, plus journal
-  rows, record-vocabulary events and media uploads), and `viewer` (read-only). Mutating
-  incident endpoints require `editor`; the record slice, journal/event appends and media
-  uploads admit `el` too.
+  rows, record-vocabulary events, media uploads and, since 2026-09-10, the Einsatzdaten
+  correction: `PATCH /incidents/{id}` restricted to `EL_META_FIELDS` (title, type, priority,
+  text, address, lat, lng, started_at, is_exercise) – the lifecycle fields `status`,
+  `is_archived` and `report_done_at` stay editor-only), and `viewer` (read-only). Mutating
+  incident endpoints require `editor`; the record slice, journal/event appends, media
+  uploads and the Einsatzdaten fields of the incident PATCH admit `el` too.
 - **Deployment admin** – the `/admin` surface and admin-write endpoints (config, branding,
   system, user CRUD, geodata/objects) require an **admin session**, unlocked by the deployment
   `ADMIN_SECRET` via `POST /api/admin/login` `{secret}` – separate from the editor PIN, and

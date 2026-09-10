@@ -326,11 +326,14 @@ to prod.
   state), `el` (Einsatzleiter function, 07.09.2026 – reads everything, writes ONLY the record
   domains: Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen, via the
   server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`), journal/event
-  appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), and media uploads; the full
-  workspace PUT, the trupps slice and everything tactical stay 403 for it), and `viewer`
+  appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), media uploads, and — since
+  10.09.2026 — the EINSATZDATEN at the head of that record: `PATCH /incidents/{id}` limited to
+  the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
+  trupps slice, the incident lifecycle (`status`, `is_archived`, `report_done_at`) and
+  everything tactical stay 403 for it), and `viewer`
   (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
-  on, `readOnly` off) with `canEditRecord` unlocking the four surfaces and the sync pushing
-  `slice: 'record'`. The legacy `commander` value has been migrated away: the stored role,
+  on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
+  Einsatzdaten panel, and the sync pushing `slice: 'record'`. The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:

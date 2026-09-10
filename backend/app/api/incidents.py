@@ -396,12 +396,29 @@ async def put_workspace_record(
     return WorkspaceOut(workspace=None, workspace_rev=saved.workspace_rev)
 
 
+# The IncidentPatch fields the ``el`` role may correct — exactly the ones the «Einsatzdaten
+# bearbeiten» panel sends (components/panels/EinsatzWizard · submit): the dispatch facts on the
+# head of the record. Keeping the record and being unable to fix a wrong Stichwort or a wrong
+# Einsatzort in it was the same half-role as a Rapport nobody may sign.
+#
+# What stays editor-only is the LIFECYCLE — `status`, `is_archived`, `report_done_at`: closing,
+# archiving and declaring the Rapport done are the FU's calls, not the record-keeper's, and none
+# of them is reachable from this panel. ⚠️ Keep in step with what that panel PATCHes: a field it
+# sends and this set omits is a 403 on the whole save, not a partly-applied correction.
+EL_META_FIELDS = frozenset({"title", "type", "priority", "text", "address", "lat", "lng", "started_at", "is_exercise"})
+
+
 @router.patch("/{incident_id}", response_model=IncidentFull)
 async def patch_incident(
-    incident_id: uuid.UUID, body: IncidentPatch, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+    incident_id: uuid.UUID, body: IncidentPatch, user: CurrentRecordWriter, db: AsyncSession = Depends(get_db)
 ) -> Incident:
     inc = await get_incident_or_404(db, incident_id)
     data = body.model_dump(exclude_unset=True)
+    # An ``el`` session corrects the Einsatzdaten and nothing else (EL_META_FIELDS above); every
+    # other field answers with the plain editor refusal, so probing this route tells an el
+    # session no more than it tells a viewer.
+    if user.role != "editor" and not set(data) <= EL_META_FIELDS:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bearbeiter-Berechtigung erforderlich")
     # The public demo has exactly one prepared running incident and one prepared archive.
     # Visitors may edit their contents, but changing either lifecycle leaves the next magazine
     # reader with no promised entry point (or two running incidents) until the reset. The client

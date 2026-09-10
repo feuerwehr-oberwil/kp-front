@@ -1,8 +1,9 @@
 """The ``el`` role (Einsatzleiter function, 07.09.2026): may write the RECORD domains through
 the scoped ``workspace/record`` slice — Anwesenheit (+ Zeitplan), Mittel, Checklisten,
-Rapport (+ Beilagen) — and append journal rows / record-vocabulary events. The tactical
-picture stays editor-only: the full workspace PUT, the trupps slice and the tactical event
-vocabulary all refuse an ``el`` session, and a plain viewer stays read-only everywhere."""
+Rapport (+ Beilagen) — and append journal rows / record-vocabulary events, plus (10.09.2026)
+correct the EINSATZDATEN at the head of that record. The tactical picture stays editor-only:
+the full workspace PUT, the trupps slice and the tactical event vocabulary all refuse an ``el``
+session, the incident LIFECYCLE refuses it too, and a plain viewer stays read-only everywhere."""
 
 import pytest
 import pytest_asyncio
@@ -125,3 +126,71 @@ async def test_el_appends_journal_rows_and_record_events_but_no_tactical_ops(cli
         json={"events": [{"op_type": "entity.edit", "payload": {}, "occurred_at": "2026-09-07T22:10:00Z"}]},
     )
     assert denied.status_code == 403
+
+
+# --- the Einsatzdaten (10.09.2026) ------------------------------------------------------
+#
+# Exactly what «Einsatzdaten bearbeiten» PATCHes (api/incidents · EL_META_FIELDS). One field the
+# panel sends and the allowlist misses is a 403 on the whole correction, so each is asserted on
+# its own rather than as one wide body.
+EINSATZDATEN = {
+    "title": "Brand Werkhof",
+    "type": "Brandbekämpfung",
+    "priority": "HIGH",
+    "text": "Rauch aus dem Dach, Person vermisst",
+    "address": "Hauptstrasse 3, Oberwil",
+    "lat": 47.51234,
+    "lng": 7.51234,
+    "started_at": "2026-09-10T20:15:00Z",
+    "is_exercise": True,
+}
+
+
+@pytest.mark.parametrize(("field", "value"), sorted(EINSATZDATEN.items()))
+async def test_el_corrects_every_einsatzdaten_field(client, editor, el, field, value):
+    inc_id = await _as_el_on_editor_incident(client, editor, el)
+    r = await client.patch(f"/api/incidents/{inc_id}", json={field: value})
+    assert r.status_code == 200, r.text
+    got = r.json()[field]
+    assert got == value or str(got).startswith(str(value)[:10])  # datetimes come back normalised
+
+
+async def test_el_corrects_the_whole_panel_in_one_save(client, editor, el):
+    inc_id = await _as_el_on_editor_incident(client, editor, el)
+    r = await client.patch(f"/api/incidents/{inc_id}", json=EINSATZDATEN)
+    assert r.status_code == 200, r.text
+    assert r.json()["title"] == "Brand Werkhof"
+    assert r.json()["address"] == "Hauptstrasse 3, Oberwil"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"status": "abgeschlossen"},
+        {"is_archived": True},
+        {"report_done_at": "2026-09-10T21:00:00Z"},
+    ],
+)
+async def test_el_cannot_touch_the_incident_lifecycle(client, editor, el, body):
+    inc_id = await _as_el_on_editor_incident(client, editor, el)
+    r = await client.patch(f"/api/incidents/{inc_id}", json=body)
+    assert r.status_code == 403
+
+
+async def test_a_lifecycle_field_refuses_the_whole_correction(client, editor, el):
+    """Not «apply what you may» — a partly-written save is the one outcome nobody can read back."""
+    inc_id = await _as_el_on_editor_incident(client, editor, el)
+    r = await client.patch(f"/api/incidents/{inc_id}", json={"title": "Brand Werkhof", "is_archived": True})
+    assert r.status_code == 403
+    inc = (await client.get(f"/api/incidents/{inc_id}")).json()
+    assert inc["title"] == "Test Einsatz"
+    assert inc["is_archived"] is False
+
+
+async def test_viewer_cannot_correct_the_einsatzdaten(client, editor, viewer):
+    await _login(client, editor)
+    inc_id = await _create_incident(client)
+    await client.post("/api/auth/logout")
+    await _login(client, viewer)
+    r = await client.patch(f"/api/incidents/{inc_id}", json={"title": "Brand Werkhof"})
+    assert r.status_code == 403

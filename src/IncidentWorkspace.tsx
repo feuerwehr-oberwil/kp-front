@@ -355,6 +355,13 @@ export function IncidentWorkspace({
    *  backend enforces the same boundary (`workspace/record` · RECORD_WORKSPACE_KEYS), so this
    *  flag is presentation, not the protection. */
   const canEditRecord = (isEditor || isEl) && !readOnly
+  /** «may correct the EINSATZDATEN» — the dispatch facts at the head of the record: Stichwort,
+   *  Kategorie, Priorität, Ort, Alarmierungszeit, Alarmmeldung, Übung. The `el` role keeps the
+   *  record, so it owns the head of it too (10.09.) — the asLink pattern again: not an editor,
+   *  but the one surface outside its slice it may write. The LIFECYCLE stays with the editors
+   *  (Abschluss, Archivieren, Rapport fertig) and gates on `canEditIncident` as before; the
+   *  backend draws the identical line (PATCH /incidents/{id} · EL_META_FIELDS). */
+  const canEditMeta = canEditIncident || (isEl && !readOnly)
   /**
    * «may write the incident RECORD at large» — the flag every writer that used to gate on bare
    * `readOnly` now uses.
@@ -4581,7 +4588,7 @@ export function IncidentWorkspace({
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
-            onEditMeta={canEditIncident && !readOnly ? onEditMeta : undefined}
+            onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
             // Einsatzrapport (PDF + Drucken) and «Alle Einsätze» are both refused for a link
@@ -5721,7 +5728,7 @@ export function IncidentWorkspace({
           onSaveMeta={saveReportMeta}
           // dispatch data + Abschluss stay incident-level: PATCH /incidents is editor-only,
           // and archiving an Einsatz is not record-keeping (the el role reads both).
-          onEditDispatch={canEditIncident && !readOnly ? onEditMeta : undefined}
+          onEditDispatch={canEditMeta ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setMode('anwesenheit'); setRapportReturn(true) }}
           onOpenMittel={() => { setMode('mittel'); setRapportReturn(true) }}
           onResolveConflict={canWriteRecord ? resolveAttendanceConflict : undefined}
