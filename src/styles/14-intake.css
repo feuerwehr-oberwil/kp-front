@@ -19,7 +19,9 @@
    away from it — a destructive button next to the primary one is a mis-tap waiting to happen */
 .mv-note-dialog .ip-actions > .mv-del { margin-right: auto; color: var(--red-strong); }
 .mv-note-dialog .ip-actions > .mv-del svg { width: 15px; height: 15px; }
-.mp-sheet { display: flex; flex-direction: column; width: min(720px, 100%); height: min(560px, 90vh);
+/* ⚠️ `dvh`, like every other sheet: `vh` is iOS's LARGE viewport, so with the Safari bars out
+   the picker was taller than the screen and its «Übernehmen» sat under them. */
+.mp-sheet { display: flex; flex-direction: column; width: min(720px, 100%); height: min(560px, 90dvh);
   background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-hero); overflow: hidden;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .4); animation: pop .16s var(--ease); }
 .mp-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px;

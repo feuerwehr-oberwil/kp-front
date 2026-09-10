@@ -1,4 +1,5 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { isTypingTarget } from './hotkeys'
 
 /**
  * Inline style for a modal frame while the keyboard is up — `undefined` at 0, so a surface
@@ -22,6 +23,9 @@ export function keyboardLift(inset: number): CSSProperties | undefined {
  * moved, iOS re-scrolled to keep the caret visible, which moved the sheet again. On a phone
  * with a photo attached — where the composer is already at its max height — that loop is the
  * «typing in the Verlauf glitches out» report from the 09.08. Einsatz.
+ *
+ * …and it only believes that arithmetic while a text field holds the caret — see
+ * `keyboardInsetNow` for the two iOS readings that otherwise pass for a keyboard.
  *
  * Two more guards against the same class of jitter:
  *   · updates are coalesced into one animation frame, so a burst of scroll events costs one
@@ -49,12 +53,30 @@ function virtualKeyboard(): VirtualKeyboardLike | undefined {
 }
 
 /** The keyboard height RIGHT NOW — one reading, no subscription. VirtualKeyboard API first
- *  (the only truthful source under `overlays-content`), visual viewport otherwise. */
+ *  (the only truthful source under `overlays-content`), visual viewport otherwise.
+ *
+ *  ⚠️ The visual-viewport branch is a PROXY, not a measurement — `innerHeight - vv.height` is
+ *  «something is covering or scaling the viewport», and on iOS (the only platform that takes this
+ *  branch) two things that are not a keyboard read exactly like one:
+ *
+ *   · a PINCH-ZOOMED page. `vv.height` is in visual pixels, so at scale 2 it is half the layout
+ *     height and the arithmetic claims half the screen is keyboard — for as long as the zoom
+ *     lasts. Safari grants pinch-zoom whatever the viewport meta says, and a map app gets
+ *     zoomed by accident, so `× scale` is what turns that reading back into 0.
+ *   · a keyboard that is CLOSING while a dialog mounts (tap «Bearbeiten» in a surface whose
+ *     field had focus). The subscription starts mid-animation, its one-off first reading commits
+ *     the outgoing keyboard's height, and the `focusout` that would have corrected it fired
+ *     before the listener existed — so «Einsatzdaten bearbeiten» opened capped to
+ *     `100dvh - kb` and stayed in the upper half of the iPad (Feldtest 10.09.).
+ *
+ *  Hence the focus test: no caret in a text field, no keyboard — whatever the geometry says.
+ *  It is deliberately NOT applied to the VirtualKeyboard branch, which reports the real thing. */
 export function keyboardInsetNow(): number {
   const vk = virtualKeyboard()
   if (vk) return Math.max(0, Math.round(vk.boundingRect?.height ?? 0))
   const vv = window.visualViewport
-  return vv ? Math.max(0, Math.round(window.innerHeight - vv.height)) : 0
+  if (!vv || !isTypingTarget(document.activeElement)) return 0
+  return Math.max(0, Math.round(window.innerHeight - vv.height * (vv.scale || 1)))
 }
 
 /** Where the USABLE screen ends right now, in fixed-position coordinates — the number placement
@@ -107,6 +129,10 @@ export function useKeyboardInset(enabled = true): number {
     vv?.addEventListener('scroll', update)
     vk?.addEventListener('geometrychange', update)
     window.addEventListener('focusout', onFocusOut)
+    // …and the mirror image: a field taking focus while the keyboard is ALREADY up (a sheet
+    // opened out of another one, a field focused on mount) resizes no viewport, so the reading
+    // that now passes the focus test above has to be asked for.
+    window.addEventListener('focusin', update)
     update()
     return () => {
       if (frame) cancelAnimationFrame(frame)
@@ -115,6 +141,7 @@ export function useKeyboardInset(enabled = true): number {
       vv?.removeEventListener('scroll', update)
       vk?.removeEventListener('geometrychange', update)
       window.removeEventListener('focusout', onFocusOut)
+      window.removeEventListener('focusin', update)
       // a sheet that closes with the keyboard up must not reopen lifted by a stale value
       committed.current = 0
       setInset(0)

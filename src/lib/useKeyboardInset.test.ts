@@ -9,9 +9,10 @@ import { useKeyboardInset } from './useKeyboardInset'
  * when iOS fires no visualViewport event at all for a dismissal, the focusout fallback must
  * re-measure on its own. */
 
-/** The visual viewport, the way iOS reports it: the keyboard shrinks THIS, never `innerHeight`. */
+/** The visual viewport, the way iOS reports it: the keyboard shrinks THIS, never `innerHeight`.
+ *  `scale` is 1 unless the page has been pinch-zoomed, and then `height` is in VISUAL pixels. */
 class FakeViewport extends EventTarget {
-  constructor(public height: number, public offsetTop = 0) { super() }
+  constructor(public height: number, public offsetTop = 0, public scale = 1) { super() }
   resizeTo(height: number) { this.height = height; this.dispatchEvent(new Event('resize')) }
 }
 
@@ -24,6 +25,16 @@ function stubViewport(): FakeViewport {
   return vv
 }
 
+/** The caret in a text field — without one there is no keyboard, whatever the geometry says. */
+function focusField(): HTMLInputElement {
+  const el = document.createElement('input')
+  document.body.append(el)
+  el.focus()
+  return el
+}
+
+afterEach(() => { document.body.replaceChildren() })
+
 /** run the rAF-coalesced measure (jsdom backs rAF with timers, which are faked here) */
 const settle = () => act(() => { vi.advanceTimersByTime(50) })
 
@@ -33,6 +44,7 @@ describe('useKeyboardInset — the way back to 0', () => {
   it('commits a final step to 0 even when it is smaller than MIN_STEP', () => {
     vi.useFakeTimers()
     const vv = stubViewport()
+    focusField()
     const { result } = renderHook(() => useKeyboardInset(true))
     act(() => vv.resizeTo(SCREEN - 300)); settle()
     expect(result.current).toBe(300)
@@ -75,6 +87,7 @@ describe('useKeyboardInset — the way back to 0', () => {
   it('re-measures after focusout when the dismissal fired no viewport event', () => {
     vi.useFakeTimers()
     const vv = stubViewport()
+    focusField()
     const { result } = renderHook(() => useKeyboardInset(true))
     act(() => vv.resizeTo(SCREEN - 300)); settle()
     expect(result.current).toBe(300)
@@ -83,5 +96,49 @@ describe('useKeyboardInset — the way back to 0', () => {
     act(() => { window.dispatchEvent(new Event('focusout')) })
     act(() => { vi.advanceTimersByTime(800) })
     expect(result.current).toBe(0)
+  })
+})
+
+/* «Einsatzdaten bearbeiten» opened in the upper half of the iPad and stayed there (10.09.), while
+ * the same narrow window on a desktop was fine: only iOS takes the visual-viewport branch, and
+ * there `innerHeight - vv.height` reads like a keyboard for two things that are not one. */
+describe('useKeyboardInset — what only LOOKS like a keyboard on iOS', () => {
+  afterEach(() => { vi.useRealTimers() })
+
+  it('does not commit a keyboard that is closing while the dialog mounts', () => {
+    vi.useFakeTimers()
+    const vv = stubViewport()
+    // the sheet opens out of a surface whose field had focus: the keyboard is on its way out, the
+    // viewport is still short, and the `focusout` that would correct it fired before this mount
+    vv.height = SCREEN - 340
+    const { result } = renderHook(() => useKeyboardInset(true))
+    settle()
+    expect(result.current).toBe(0)
+  })
+
+  it('reads a pinch-zoomed page as no keyboard at all', () => {
+    vi.useFakeTimers()
+    const vv = stubViewport()
+    focusField()
+    const { result } = renderHook(() => useKeyboardInset(true))
+    // scale 2 halves `vv.height` — in VISUAL pixels the viewport still covers the whole screen
+    vv.scale = 2
+    act(() => vv.resizeTo(SCREEN / 2)); settle()
+    expect(result.current).toBe(0)
+    // …and a real keyboard is still seen while zoomed: 170 visual px = 340 layout px of screen
+    act(() => vv.resizeTo((SCREEN - 340) / 2)); settle()
+    expect(result.current).toBe(340)
+  })
+
+  it('measures a keyboard that was already up when the field took focus', () => {
+    vi.useFakeTimers()
+    const vv = stubViewport()
+    const { result } = renderHook(() => useKeyboardInset(true))
+    settle()
+    // a second sheet opens over the first one: nothing resizes, the caret simply moves
+    vv.height = SCREEN - 340
+    act(() => { focusField(); window.dispatchEvent(new Event('focusin')) })
+    settle()
+    expect(result.current).toBe(340)
   })
 })
