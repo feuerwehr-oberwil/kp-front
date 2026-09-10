@@ -7,6 +7,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { DEFAULT_MODULES, getDeploymentConfig, type DeploymentModule } from '../lib/deploymentConfig'
 import type { ObjectWithPlans, ReferenceDataset } from '../lib/incidents'
+import { planSourceLabel, usePlanSources } from './ModulesViewer'
 import { Field, fmtDate } from './ui'
 import {
   InsecureContextError,
@@ -25,6 +26,13 @@ import './stationData.css'
 // The id is never typed. It is the uuid5 of a short, retypable `key` (see stationDataApi ·
 // objectIdForKey), which is the same derivation `admin_objects` uses — so a station that later
 // maintains a manifest addresses THIS object with the same key instead of creating a twin.
+//
+// ⚠️ The two scheduled pulls do NOT find an object the same way, and the sheet says which one
+// finds this one. The Planspeicher matches on the stored `source_key`, which this form cannot
+// write — an object created here is one it skips on every run, for good. SharePoint matches on
+// the uuid5 of its folder name, i.e. exactly the derivation above — so an object created here
+// IS reachable, the moment a folder carries its key. Two different sentences, and the sheet
+// prints only the ones the deployment's configured pulls make true (`usePlanSources`).
 
 /** Human size for a stored plan; null → "—". */
 function fmtBytes(n: number | null | undefined): string {
@@ -99,6 +107,7 @@ export function ObjectSheet({ object, onClose, onChanged }: {
 }) {
   const C = appConfig.copy.admin.objects
   const Cc = appConfig.copy.admin.common2
+  const sources = usePlanSources()
   // `saved` is the object as the server has it: the prop when editing, and what the first
   // save returned when creating. Plans hang off it, so it also gates the second half.
   const [saved, setSaved] = useState<ObjectWithPlans | null>(object)
@@ -196,6 +205,16 @@ export function ObjectSheet({ object, onClose, onChanged }: {
       {saved ? (
         <p className="adm-hint adm-obj-idline">
           {C.derivedId}: <code>{saved.id}</code>
+          {/* The object's own provenance, in the same badge language the plan rows use below:
+              a key means a pipeline loaded it, no key means somebody typed it here. */}
+          {saved.source_key ? (
+            <>
+              <span className="adm-fleet-badge adm-view-badge-muted" title={C.objKeyTip}>{C.objKeyBadge}</span>
+              <code>{saved.source_key}</code>
+            </>
+          ) : (
+            <span className="adm-fleet-badge adm-view-badge-muted" title={C.objHandTip}>{C.objHandBadge}</span>
+          )}
         </p>
       ) : (
         <Field label={C.keyLabel} hint={C.keyHint} tip={C.keyTip}>
@@ -215,6 +234,20 @@ export function ObjectSheet({ object, onClose, onChanged }: {
         </p>
       )}
       {keyError && <p className="adm-state adm-state-err">{keyError}</p>}
+
+      {/* Where the rule bites. An object without `source_key` — which is every object this form
+          creates — is one the Planspeicher-Abgleich skips on every run, silently and for good;
+          SharePoint, matching on the folder name, finds the very same object. Each sentence is
+          printed only for a pull this deployment actually runs, so a station with none reads
+          nothing here. */}
+      {!saved?.source_key && sources?.bucket && <p className="adm-view-note">{C.objHandBucket}</p>}
+      {!saved?.source_key && sources?.sharepoint && (
+        <p className="adm-view-note">
+          {saved || !normalisedKey
+            ? C.objHandSharepoint
+            : fillTemplate(C.objHandSharepointKey, { key: normalisedKey })}
+        </p>
+      )}
 
       <Field label={C.nameLabel}>
         <input className="adm-input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -290,16 +323,21 @@ function PlanSlots({ object, onStored }: { object: ObjectWithPlans; onStored: (d
             </div>
             <div className="adm-slot-state">
               {s.plan ? (
-                <a
-                  className="adm-link adm-slot-plan"
-                  href={`/api/reference/${encodeURIComponent(s.plan.id)}?v=${s.plan.current_version}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Icon id="doc" />
-                  {fillTemplate(C.planVersion, { n: s.plan.current_version, date: fmtDate(s.plan.updated_at) })}
-                  <span className="adm-ref-note">{fmtBytes(s.plan.size_bytes)}</span>
-                </a>
+                <>
+                  <a
+                    className="adm-link adm-slot-plan"
+                    href={`/api/reference/${encodeURIComponent(s.plan.id)}?v=${s.plan.current_version}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Icon id="doc" />
+                    {fillTemplate(C.planVersion, { n: s.plan.current_version, date: fmtDate(s.plan.updated_at) })}
+                    <span className="adm-ref-note">{fmtBytes(s.plan.size_bytes)}</span>
+                  </a>{' '}
+                  {/* Which door THIS sheet came through — and, in the tip, that replacing a
+                      pulled plan by hand only holds until the next run. */}
+                  <PlanSourceBadge sourceType={s.plan.source_type} />
+                </>
               ) : (
                 <span className="adm-fleet-freeval">{C.noPlanYet}</span>
               )}
@@ -324,6 +362,12 @@ function PlanSlots({ object, onStored }: { object: ObjectWithPlans; onStored: (d
       </ul>
     </>
   )
+}
+
+/** A stored plan's provenance badge: hand upload, Planspeicher or SharePoint. */
+function PlanSourceBadge({ sourceType }: { sourceType: string }) {
+  const s = planSourceLabel(sourceType)
+  return <span className="adm-fleet-badge adm-view-badge-muted" title={s.tip}>{s.label}</span>
 }
 
 /** A family module's «add a sub-slot» row (Modul 5 – Wasser). The suffix is typed once and the

@@ -21,6 +21,14 @@ vi.mock('./stationDataApi', async () => {
   }
 })
 
+// `GET /api/objects/plan-sources` — the sheet asks which scheduled pulls exist before it warns
+// about the one that will skip this object. Unstubbed it never answers, and the sheet is silent.
+const apiGet = vi.fn()
+vi.mock('../lib/api', async () => {
+  const actual = await vi.importActual<typeof import('../lib/api')>('../lib/api')
+  return { ...actual, apiGet: (path: string) => apiGet(path) }
+})
+
 import { ObjectSheet, planSlots, parseCoords } from './ObjectSheet'
 
 const OBJ_ID = '0f1a3d64-1111-5222-8333-444455556666'
@@ -55,7 +63,10 @@ const existing = (over: Partial<ObjectWithPlans> = {}): ObjectWithPlans => ({
 })
 
 afterEach(cleanup)
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  apiGet.mockRejectedValue(new Error('not stubbed'))
+})
 
 const pdfInputs = () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]'))
 
@@ -125,6 +136,49 @@ describe('ObjectSheet — a corrected PDF replaces the module plan', () => {
     // exactly one modul3 row survives — the dataset id is the module, so the server replaced it
     const lastChange = onChanged.mock.calls[onChanged.mock.calls.length - 1]
     expect(lastChange[0].plans).toHaveLength(1)
+  })
+})
+
+describe('ObjectSheet — provenance, and the pull that will never touch this object', () => {
+  it('badges each stored plan with the door it came through', () => {
+    render(
+      <ObjectSheet
+        object={existing({ plans: [plan({ module: 'modul3', source_type: 'sharepoint' })] })}
+        onClose={() => {}}
+        onChanged={() => {}}
+      />,
+    )
+    expect(screen.getByText('SharePoint')).toBeTruthy()
+  })
+
+  it('shows the folder key of a pipeline-loaded object instead of «von Hand erstellt»', () => {
+    render(<ObjectSheet object={existing({ source_key: 'schulhaus-dorfmatt' })} onClose={() => {}} onChanged={() => {}} />)
+    expect(screen.getByText('Ordner-Schlüssel')).toBeTruthy()
+    expect(screen.getByText('schulhaus-dorfmatt')).toBeTruthy()
+    expect(screen.queryByText('Von Hand erstellt')).toBeNull()
+  })
+
+  it('warns that the Planspeicher-Abgleich skips a hand-made object — but only where one runs', async () => {
+    apiGet.mockResolvedValue({ bucket: true, sharepoint: false })
+    render(<ObjectSheet object={existing()} onClose={() => {}} onChanged={() => {}} />)
+    expect(screen.getByText('Von Hand erstellt')).toBeTruthy()
+    expect(await screen.findByText(/lässt dieses Objekt aus/)).toBeTruthy()
+  })
+
+  it('says nothing about a pull on a station that has none', async () => {
+    apiGet.mockResolvedValue({ bucket: false, sharepoint: false })
+    render(<ObjectSheet object={existing()} onClose={() => {}} onChanged={() => {}} />)
+    await waitFor(() => expect(apiGet).toHaveBeenCalled())
+    expect(screen.queryByText(/lässt dieses Objekt aus/)).toBeNull()
+    expect(screen.queryByText(/SharePoint-Abgleich/)).toBeNull()
+  })
+
+  it('names the folder that would make a new object reachable over SharePoint', async () => {
+    apiGet.mockResolvedValue({ bucket: false, sharepoint: true })
+    render(<ObjectSheet object={null} onClose={() => {}} onChanged={() => {}} />)
+    fireEvent.change(keyInput(), { target: { value: 'Schulhaus-Dorfmatt' } })
+    // the sentence carries the NORMALISED key — the folder name that actually matches
+    expect(await screen.findByText(/sobald der Plan-Ordner «schulhaus-dorfmatt» heisst/)).toBeTruthy()
   })
 })
 

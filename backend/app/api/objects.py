@@ -14,8 +14,9 @@ from ..config import settings
 from ..database import get_db
 from ..geo_util import haversine_m
 from ..models import ObjectSite, ReferenceDataset
-from ..plans import store_plan
-from ..schemas import ObjectIn, ObjectOut, ObjectWithPlans, ReferenceDatasetOut
+from ..plans import plans_pull_enabled, store_plan
+from ..schemas import ObjectIn, ObjectOut, ObjectWithPlans, PlanSourcesOut, ReferenceDatasetOut
+from ..sharepoint_sync import sharepoint_status
 from .incidents import get_incident_or_404
 
 router = APIRouter(prefix="/objects", tags=["objects"])
@@ -90,6 +91,27 @@ async def list_objects(
     if ref_lat is not None:
         out.sort(key=lambda i: (i.distance_m is None, i.distance_m or 0))
     return out
+
+
+@router.get("/plan-sources", response_model=PlanSourcesOut)
+async def plan_sources(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> PlanSourcesOut:
+    """Which doors, besides the browser upload, plans can arrive through.
+
+    Admin-only and deliberately two booleans: the Objektpläne page needs a POINTER («ein
+    Abgleich läuft, sein Zustand steht unter System»), not a second copy of the status card.
+    Both pulls are silent when they skip something, so the page has to be able to say which of
+    them is even running before it can warn that one of them will never touch this object.
+
+    ⚠️ Declared BEFORE `/{object_id}`: FastAPI matches routes in declaration order, and the
+    parametrised one would swallow this path and 422 on it.
+    """
+    state = await sharepoint_status(db)
+    return PlanSourcesOut(
+        bucket=plans_pull_enabled(),
+        # A connector without a `plans` folder pulls Geodaten or Checklisten — it puts no
+        # Modul-PDF anywhere, so for this page it is not a source.
+        sharepoint=bool(state["configured"]) and any(a["area"] == "plans" for a in state["areas"]),
+    )
 
 
 @router.get("/{object_id}", response_model=ObjectWithPlans)

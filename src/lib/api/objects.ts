@@ -11,6 +11,12 @@ export interface ObjectWithPlans {
   lat: number | null
   lng: number | null
   source_note: string | null
+  /** The station's key for this object, read-only: set by `admin_objects` and by the plan
+   *  pipelines, never by this app. Its absence is the object's provenance — «in der Maske
+   *  getippt» — and the scheduled Planspeicher-Abgleich matches on nothing else, so an object
+   *  without one is one that pull never touches (Verwaltung › Objektpläne says so).
+   *  Optional because a payload cached before 09.2026 has no such field. */
+  source_key?: string | null
   updated_at: string
   plans: ReferenceDataset[]
   distance_m: number | null

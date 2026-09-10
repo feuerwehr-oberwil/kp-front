@@ -3812,6 +3812,25 @@ export const it: Localizable<Copy> = {
         + 'saltato e conteggiato.',
       pullKeyNote: 'L’abbinamento avviene tramite la chiave di cartella del deposito piani. Solo '
         + 'admin_objects può scriverla; gli oggetti creati qui ricevono i loro piani dal caricamento in questa maschera.',
+      srcHand: 'Caricamento a mano',
+      srcHandTip: 'Caricato in questa maschera.',
+      srcBucket: 'Deposito piani',
+      srcBucketTip: 'Prelevato dalla sincronizzazione pianificata dal deposito piani. Un caricamento '
+        + 'a mano sopra di esso resiste solo fino alla prossima esecuzione.',
+      srcSharepoint: 'SharePoint',
+      srcSharepointTip: 'Prelevato dalla sincronizzazione pianificata da SharePoint. Un caricamento '
+        + 'a mano sopra di esso resiste solo fino alla prossima esecuzione.',
+      objKeyBadge: 'Chiave di cartella',
+      objKeyTip: 'Questo oggetto proviene da un manifesto o da una sincronizzazione. Solo gli oggetti '
+        + 'con una chiave vengono raggiunti dalla sincronizzazione dal deposito piani.',
+      objHandBadge: 'Creato a mano',
+      objHandTip: 'Creato in questa maschera, senza chiave di cartella – può scriverla solo admin_objects.',
+      objHandBucket: 'Senza chiave di cartella: la sincronizzazione dal deposito piani salta questo '
+        + 'oggetto. I suoi piani di modulo arrivano soltanto dal caricamento fatto qui.',
+      objHandSharepoint: 'La sincronizzazione SharePoint raggiunge questo oggetto solo se la cartella '
+        + 'dei piani porta esattamente la chiave da cui è stato ricavato l’ID dell’oggetto.',
+      objHandSharepointKey: 'La sincronizzazione SharePoint raggiungerà questo oggetto non appena la '
+        + 'cartella dei piani si chiamerà «{key}».',
     },
     checklists: {
       intro: 'Le checklist di questo corpo: elenchi di compiti (FU), rapporto di situazione e il '
@@ -3882,6 +3901,16 @@ export const it: Localizable<Copy> = {
         + 'moduli stesso e le importazioni di piani in blocco passano dalla riga di comando, nella cartella backend/:',
       cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
       cliCmdConfig: 'uv run python -m app.admin_config push station.json',
+      sourceTally: '{n} × {label}',
+      pullAnd: '{a} e {b}',
+      pullOn: 'Sincronizzazione pianificata – una parte dei piani arriva automaticamente per questa '
+        + 'via. Che cosa ha fatto l’ultima esecuzione sta sotto «Sistema», l’accesso sotto «Credenziali '
+        + '› SharePoint» e le cartelle nella configurazione.',
+      pullOff: 'Nessuna sincronizzazione pianificata: tutti i piani arrivano a mano in questa maschera. '
+        + 'È il caso normale, non un errore. Per attivarne una – prima l’accesso sotto «Credenziali › '
+        + 'SharePoint», poi le cartelle nella configurazione.',
+      pullSkips: '{n} oggetti su {total} non hanno una chiave di cartella – la sincronizzazione dal '
+        + 'deposito piani li salta.',
       empty: 'Nessun modulo configurato – si applicano i moduli standard forniti.',
       summary: '{modules} moduli · {objects} oggetti · {plans} piani',
       coverage: '{covered}/{total} oggetti',

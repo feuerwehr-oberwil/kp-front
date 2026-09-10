@@ -7351,6 +7351,56 @@
         }
       }
     },
+    "/api/objects/plan-sources": {
+      "get": {
+        "tags": [
+          "objects"
+        ],
+        "summary": "Plan Sources",
+        "description": "Which doors, besides the browser upload, plans can arrive through.\n\nAdmin-only and deliberately two booleans: the Objektpläne page needs a POINTER («ein\nAbgleich läuft, sein Zustand steht unter System»), not a second copy of the status card.\nBoth pulls are silent when they skip something, so the page has to be able to say which of\nthem is even running before it can warn that one of them will never touch this object.\n\n⚠️ Declared BEFORE `/{object_id}`: FastAPI matches routes in declaration order, and the\nparametrised one would swallow this path and 422 on it.",
+        "operationId": "plan_sources_api_objects_plan_sources_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanSourcesOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/objects/{object_id}": {
       "get": {
         "tags": [
@@ -14169,6 +14219,17 @@
             "format": "uuid",
             "title": "Id"
           },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Key"
+          },
           "updated_at": {
             "type": "string",
             "format": "date-time",
@@ -14237,6 +14298,17 @@
             "type": "string",
             "format": "uuid",
             "title": "Id"
+          },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Key"
           },
           "updated_at": {
             "type": "string",
@@ -14719,6 +14791,25 @@
         ],
         "title": "PlanScalesOut",
         "description": "…as served: the document plus the token of the version it was read at. The client keeps it\nand sends it back as ``If-Match``; a body never carries it, so a client that read-modify-writes\nthe served document cannot accidentally store one."
+      },
+      "PlanSourcesOut": {
+        "properties": {
+          "bucket": {
+            "type": "boolean",
+            "title": "Bucket"
+          },
+          "sharepoint": {
+            "type": "boolean",
+            "title": "Sharepoint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bucket",
+          "sharepoint"
+        ],
+        "title": "PlanSourcesOut",
+        "description": "Which scheduled pulls can put a Modul-PDF into this deployment – not what they DID.\n\nThe last run's outcome lives on Verwaltung › System (the SharePoint card); this answers the\none question the Objektpläne page cannot answer from its own data: does an automatic pull\nexist at all. That is what turns «von Hand erstellt» from a label into a warning, and it is\nwhy both flags are false-when-unknown rather than optional."
       },
       "PositionIn": {
         "properties": {

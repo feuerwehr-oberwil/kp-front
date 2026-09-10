@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { fillTemplate } from '../lib/format'
 import { appConfig } from '../config/appConfig'
+import { apiGet } from '../lib/api'
 import { Table } from './ui'
 import type { DeploymentModule } from '../lib/deploymentConfig'
 import type { ObjectWithPlans } from '../lib/incidents'
@@ -12,6 +13,62 @@ import type { ObjectWithPlans } from '../lib/incidents'
 // deployment doesn't override `modules`, the caller passes the national defaults with
 // `usingDefaults`, so the in-force standard catalogue is shown (not an empty state). Editing happens
 // in the station configuration via the `admin_config` CLI, NOT here — so this surface only renders.
+//
+// It also carries the page's first line: through which DOOR plans arrive here. Three exist —
+// the upload in the Objekt-Maske, the Planspeicher (PLANS_S3_*) and, since 09.2026, SharePoint —
+// and none of them announces itself, so a station could not tell an automatic plan from a
+// hand-uploaded one, nor whether an automatic one is coming at all. The counted strip is what
+// the plans SAY (`source_type`); the note under it is what the deployment is CONFIGURED for
+// (`usePlanSources`), pointing at the pages that own that configuration instead of restating
+// their status.
+
+// ─── how plans arrive: the doors, and which of them are open ───────────────────
+
+/** The scheduled pulls this deployment has (`GET /api/objects/plan-sources`). Not a status —
+ *  what the last run DID is the System page's SharePoint card; this is only «läuft überhaupt
+ *  einer». */
+export interface PlanSources {
+  /** the PLANS_S3_* Planspeicher, which matches objects on `source_key` and nothing else */
+  bucket: boolean
+  /** the SharePoint connector, and only when it has a `plans` folder */
+  sharepoint: boolean
+}
+
+/**
+ * The connector state behind this page's first line, or null while it is unknown.
+ *
+ * ⚠️ Null covers BOTH «not answered yet» and «could not ask», and every caller stays silent on
+ * it rather than guessing. Both guesses are ones an operator acts on: «kein Abgleich» invites a
+ * hand upload that the next run overwrites, «Abgleich läuft» invites waiting for a plan that
+ * will never arrive.
+ */
+export function usePlanSources(): PlanSources | null {
+  const [sources, setSources] = useState<PlanSources | null>(null)
+  useEffect(() => {
+    let alive = true
+    void apiGet<PlanSources>('/api/objects/plan-sources')
+      .then((s) => { if (alive) setSources(s) })
+      .catch(() => { /* the page is complete without the line — see above */ })
+    return () => { alive = false }
+  }, [])
+  return sources
+}
+
+/**
+ * How a stored plan got here, as a badge label plus the sentence behind it.
+ *
+ * `source_type` is the door the bytes came through (backend/app/plans.py · store_plan):
+ * 'uploaded' by hand in the Objekt-Maske, 'snapshot' from the Planspeicher, 'sharepoint' from
+ * the connector. Anything else is shown VERBATIM instead of being folded into «unbekannt» — an
+ * unnamed door is still a fact, and the raw word is what the backend can be grepped for.
+ */
+export function planSourceLabel(sourceType: string): { label: string; tip?: string } {
+  const C = appConfig.copy.admin.objects
+  if (sourceType === 'uploaded') return { label: C.srcHand, tip: C.srcHandTip }
+  if (sourceType === 'snapshot') return { label: C.srcBucket, tip: C.srcBucketTip }
+  if (sourceType === 'sharepoint') return { label: C.srcSharepoint, tip: C.srcSharepointTip }
+  return { label: sourceType }
+}
 
 // A plan resolves to a module by exact id, by membership in a combined module, or — for a generative
 // `family` module — by the slot prefix (modul5 → modul5-wasser).
@@ -28,6 +85,8 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
   usingDefaults?: boolean
 }) {
   const C = appConfig.copy.admin.modules
+  const CO = appConfig.copy.admin.objects
+  const sources = usePlanSources()
 
   // a copy sorted by (order ?? 999) then id — never mutate the prop.
   const sorted = useMemo(
@@ -36,6 +95,23 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
   )
 
   const plans = useMemo(() => objects.reduce((n, o) => n + o.plans.length, 0), [objects])
+
+  // How many plans came through each door. Counted from the plans themselves, so this strip is
+  // an observation — the connector line below it is the configuration claim, and the two can
+  // legitimately disagree (a pull switched on today has imported nothing yet).
+  const bySource = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const o of objects) for (const p of o.plans) counts.set(p.source_type, (counts.get(p.source_type) ?? 0) + 1)
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  }, [objects])
+
+  // Objects the Planspeicher-Abgleich cannot reach: it matches index rows on `source_key`, and
+  // one typed into the Objekt-Maske has none — so it is skipped on every run, silently.
+  const keyless = useMemo(() => objects.filter((o) => !o.source_key).length, [objects])
+  const pulling = sources != null && (sources.bucket || sources.sharepoint)
+  const pullNames = !sources ? '' : sources.bucket && sources.sharepoint
+    ? fillTemplate(C.pullAnd, { a: CO.srcBucket, b: CO.srcSharepoint })
+    : sources.bucket ? CO.srcBucket : CO.srcSharepoint
 
   const columns = [
     { key: 'module', label: C.colModule },
@@ -50,6 +126,30 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
       <p className="adm-view-summary">
         {fillTemplate(C.summary, { modules: modules.length, objects: objects.length, plans })}
       </p>
+
+      {bySource.length > 0 && (
+        <div className="adm-fleet-props">
+          {bySource.map(([type, n]) => {
+            const s = planSourceLabel(type)
+            return (
+              <span key={type} className="adm-fleet-badge adm-view-badge-muted" title={s.tip}>
+                {fillTemplate(C.sourceTally, { n, label: s.label })}
+              </span>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Renders only once the answer is in: an unanswered `/plan-sources` must not become
+          «kein Abgleich», which is the sentence that invites a hand upload the next run eats. */}
+      {sources && (
+        <p className="adm-view-note">
+          {pulling && <><span className="adm-view-badge adm-view-badge-ok">{pullNames}</span>{' '}</>}
+          {pulling ? C.pullOn : C.pullOff}
+          {sources.bucket && keyless > 0 && ` ${fillTemplate(C.pullSkips, { n: keyless, total: objects.length })}`}
+        </p>
+      )}
+
       {usingDefaults && <p className="adm-view-note">{C.usingDefaults}</p>}
 
       {modules.length === 0

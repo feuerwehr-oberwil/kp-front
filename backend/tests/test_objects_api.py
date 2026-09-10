@@ -107,6 +107,100 @@ async def test_get_object_includes_its_plans(client, editor, db_session):
     assert [p["module"] for p in plans] == ["modul1"]
 
 
+# --- provenance: source_key + plan_sources -------------------------------------------------
+
+
+async def test_listed_objects_carry_the_source_key_that_decides_whether_a_pull_sees_them(client, editor, db_session):
+    """The one field that separates «vom Pipeline geladen» from «in der Maske getippt».
+
+    `pull_plans` matches index rows on `source_key` and on nothing else, so an object without
+    one is invisible to the Planspeicher-Abgleich forever. Verwaltung › Objektpläne says so —
+    which it can only do if the listing hands the key over.
+    """
+    db_session.add_all([_obj(name="Aus der Pipeline", source_key="schulhaus-dorfmatt"), _obj(name="Von Hand")])
+    await db_session.commit()
+    await _login(client, editor)
+
+    r = await client.get("/api/objects")
+    assert r.status_code == 200, r.text
+    keys = {o["name"]: o["source_key"] for o in r.json()}
+    assert keys == {"Aus der Pipeline": "schulhaus-dorfmatt", "Von Hand": None}
+
+
+async def test_an_object_created_through_the_browser_gets_no_source_key(client, admin_login):
+    """`source_key` is read-only on purpose: it stays out of `ObjectIn`, so a browser cannot
+    claim to be the pipeline — which is exactly why the sheet has to warn about the gap."""
+    await admin_login(client)
+    r = await client.post("/api/objects", json={"name": "Werkhof", "source_key": "werkhof"})
+    assert r.status_code == 201, r.text
+    assert r.json()["source_key"] is None
+
+
+async def test_plan_sources_is_admin_only(client, editor):
+    """Which stores a station pulls from is deployment business, like Zugangsdaten."""
+    assert (await client.get("/api/objects/plan-sources")).status_code in (401, 403)
+    await _login(client, editor)
+    assert (await client.get("/api/objects/plan-sources")).status_code in (401, 403)
+
+
+async def test_plan_sources_says_no_when_nothing_is_configured(client, admin_login):
+    """«Kein Abgleich» is a state, not an error — and the page words it that way."""
+    await admin_login(client)
+    r = await client.get("/api/objects/plan-sources")
+    assert r.status_code == 200, r.text
+    assert r.json() == {"bucket": False, "sharepoint": False}
+
+
+async def test_plan_sources_reports_a_configured_bucket_store(client, admin_login, monkeypatch):
+    """Fail-closed, all four or nothing — same predicate the scheduler gates the job on."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "plans_s3_endpoint", "https://s3.example.org")
+    monkeypatch.setattr(settings, "plans_s3_bucket", "plaene")
+    monkeypatch.setattr(settings, "plans_s3_access_key_id", "id")
+    await admin_login(client)
+    assert (await client.get("/api/objects/plan-sources")).json()["bucket"] is False
+
+    monkeypatch.setattr(settings, "plans_s3_secret_access_key", "secret")
+    assert (await client.get("/api/objects/plan-sources")).json()["bucket"] is True
+
+
+async def test_a_sharepoint_connector_counts_only_with_a_plans_folder(client, admin_login, db_session):
+    """A connector that pulls only the Arbeitsmappe puts no Modul-PDF anywhere – for THIS page
+    it is not a source, and saying otherwise would promise a sync that cannot happen."""
+    from app.models import DeploymentConfig
+
+    site = "https://feuerwehr.sharepoint.com/sites/kp"
+    db_session.add(
+        DeploymentConfig(
+            id=1,
+            config_json={"sharepoint": {"sources": [{"area": "workbook", "siteUrl": site, "path": "kp-data"}]}},
+        )
+    )
+    await db_session.commit()
+    await admin_login(client)
+    for name, value in (
+        ("sharepoint_tenant_id", "11111111-1111-4111-8111-111111111111"),
+        ("sharepoint_client_id", "22222222-2222-4222-8222-222222222222"),
+        ("sharepoint_client_secret", "a-client-secret"),
+    ):
+        assert (await client.put(f"/api/integrations/credentials/{name}", json={"value": value})).status_code == 200
+
+    assert (await client.get("/api/objects/plan-sources")).json()["sharepoint"] is False
+
+    row = await db_session.get(DeploymentConfig, 1)
+    row.config_json = {
+        "sharepoint": {
+            "sources": [
+                {"area": "workbook", "siteUrl": site, "path": "kp-data"},
+                {"area": "plans", "siteUrl": site, "path": "kp-data/plans"},
+            ]
+        }
+    }
+    await db_session.commit()
+    assert (await client.get("/api/objects/plan-sources")).json()["sharepoint"] is True
+
+
 # --- create_object ------------------------------------------------------------------------
 
 

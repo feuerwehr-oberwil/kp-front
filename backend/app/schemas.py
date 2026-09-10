@@ -736,6 +736,12 @@ class ObjectIn(BaseModel):
 class ObjectOut(ObjectIn):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
+    #: The station's own key for this object, read-only here – deliberately absent from
+    #: ``ObjectIn``, so only ``admin_objects`` (and the plan pipelines) can write it. It is
+    #: the object's provenance: a key means «loaded by the pipeline», no key means «typed in
+    #: the browser», and the scheduled Planspeicher-Abgleich matches on nothing else
+    #: (plans.py · pull_plans), so an object without one is one it never touches.
+    source_key: str | None = None
     updated_at: datetime
 
 
@@ -759,6 +765,23 @@ class ReferenceDatasetOut(BaseModel):
 class ObjectWithPlans(ObjectOut):
     plans: list[ReferenceDatasetOut] = []
     distance_m: float | None = None
+
+
+class PlanSourcesOut(BaseModel):
+    """Which scheduled pulls can put a Modul-PDF into this deployment – not what they DID.
+
+    The last run's outcome lives on Verwaltung › System (the SharePoint card); this answers the
+    one question the Objektpläne page cannot answer from its own data: does an automatic pull
+    exist at all. That is what turns «von Hand erstellt» from a label into a warning, and it is
+    why both flags are false-when-unknown rather than optional.
+    """
+
+    #: The PLANS_S3_* snapshot store. Env-only and boot-gated (scheduler.py), and it matches
+    #: objects on ``source_key`` – so it never sees an object created in the browser.
+    bucket: bool
+    #: The SharePoint connector, and only when it has a ``plans`` folder. It matches on the
+    #: uuid5 of the folder name, i.e. the same derivation the Objekt-Maske uses for its key.
+    sharepoint: bool
 
 
 # --- Personnel (Mannschaft) ---------------------------------------------------------

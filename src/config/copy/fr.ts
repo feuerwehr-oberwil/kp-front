@@ -3813,6 +3813,25 @@ export const fr: Localizable<Copy> = {
         + 'à des objets existants – elle n’en crée aucun. Un plan sans objet correspondant est ignoré et compté.',
       pullKeyNote: 'La correspondance se fait par la clé de dossier du dépôt de plans. Seul '
         + 'admin_objects peut l’écrire ; les objets créés ici reçoivent leurs plans par l’envoi dans ce formulaire.',
+      srcHand: 'Envoi manuel',
+      srcHandTip: 'Envoyé dans ce formulaire.',
+      srcBucket: 'Dépôt de plans',
+      srcBucketTip: 'Récupéré par la synchronisation planifiée depuis le dépôt de plans. Un envoi '
+        + 'manuel par-dessus ne tient que jusqu’à la prochaine exécution.',
+      srcSharepoint: 'SharePoint',
+      srcSharepointTip: 'Récupéré par la synchronisation planifiée depuis SharePoint. Un envoi manuel '
+        + 'par-dessus ne tient que jusqu’à la prochaine exécution.',
+      objKeyBadge: 'Clé de dossier',
+      objKeyTip: 'Cet objet provient d’un manifeste ou d’une synchronisation. Seuls les objets munis '
+        + 'd’une clé sont atteints par la synchronisation depuis le dépôt de plans.',
+      objHandBadge: 'Créé à la main',
+      objHandTip: 'Créé dans ce formulaire, sans clé de dossier – seul admin_objects peut en écrire une.',
+      objHandBucket: 'Sans clé de dossier : la synchronisation depuis le dépôt de plans laisse cet '
+        + 'objet de côté. Ses plans de module ne viennent que de l’envoi effectué ici.',
+      objHandSharepoint: 'La synchronisation SharePoint n’atteint cet objet que si le dossier de plans '
+        + 'porte exactement la clé dont l’identifiant de l’objet a été dérivé.',
+      objHandSharepointKey: 'La synchronisation SharePoint atteindra cet objet dès que le dossier de '
+        + 'plans s’appellera « {key} ».',
     },
     checklists: {
       intro: 'Les checklists de ce corps : listes de tâches (FU), rapport de situation et aide-mémoire '
@@ -3883,6 +3902,16 @@ export const fr: Localizable<Copy> = {
         + 'de modules lui-même et les imports de plans en masse passent par la ligne de commande, dans le dossier backend/ :',
       cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
       cliCmdConfig: 'uv run python -m app.admin_config push station.json',
+      sourceTally: '{n} × {label}',
+      pullAnd: '{a} et {b}',
+      pullOn: 'Synchronisation planifiée – une partie des plans arrive automatiquement par ce biais. '
+        + 'Ce qu’a fait la dernière exécution figure sous « Système », l’accès sous « Identifiants › '
+        + 'SharePoint » et les dossiers dans la configuration.',
+      pullOff: 'Aucune synchronisation planifiée : tous les plans sont envoyés à la main dans ce '
+        + 'formulaire. C’est le cas normal, pas une erreur. Pour en mettre une en place – d’abord '
+        + 'l’accès sous « Identifiants › SharePoint », puis les dossiers dans la configuration.',
+      pullSkips: '{n} objets sur {total} n’ont pas de clé de dossier – la synchronisation depuis le '
+        + 'dépôt de plans les laisse de côté.',
       empty: 'Aucun module configuré – les modules standard fournis s’appliquent.',
       summary: '{modules} modules · {objects} objets · {plans} plans',
       coverage: '{covered}/{total} objets',

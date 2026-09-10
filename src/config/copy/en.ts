@@ -4097,6 +4097,16 @@ export const en: Localizable<Copy> = {
         + 'itself and bulk plan imports run on the command line, in the backend/ directory:',
       cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
       cliCmdConfig: 'uv run python -m app.admin_config push station.json',
+      sourceTally: '{n} × {label}',
+      pullAnd: '{a} and {b}',
+      pullOn: 'Scheduled sync – some of the plans arrive through it automatically. What the last run '
+        + 'did is under “System”, the access under “Credentials › SharePoint” and the folders in the '
+        + 'configuration.',
+      pullOff: 'No scheduled sync: every plan is uploaded by hand in this form. That is the normal '
+        + 'case, not a fault. To set one up – the access under “Credentials › SharePoint” first, then '
+        + 'the folders in the configuration.',
+      pullSkips: '{n} of {total} objects have no folder key – the sync from the plan store leaves '
+        + 'them out.',
       empty: 'No modules configured – the bundled standard modules apply.',
       summary: '{modules} modules · {objects} objects · {plans} plans',
       coverage: '{covered}/{total} objects',
