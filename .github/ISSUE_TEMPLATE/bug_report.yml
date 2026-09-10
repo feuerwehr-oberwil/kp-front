@@ -1,0 +1,90 @@
+name: Bug report
+description: Report something that doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Deutsch ist willkommen** — schreib in der Sprache, die dir leichter fällt.
+
+        The fastest way to fill this in is from inside the app: open **Rückmeldung**
+        (Einstellungen › Rückmeldung, or the prompt after a crash). Newer versions
+        save a **Diagnose-Datei** you can attach below; older ones show a technical
+        block you can copy. Either is already sanitised — no incident data, no
+        addresses, no names.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+      placeholder: |
+        Trupp auf Rückweg gesetzt, danach war der Bildschirm weiss und die App
+        liess sich nur mit Neuladen wiederbeleben.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Even a rough sequence helps. "It just happened" is a valid answer if that's the truth.
+      placeholder: |
+        1. Einsatz öffnen
+        2. Trupp antippen › «Rückweg»
+        3. Bildschirm weiss
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: >-
+        Drag the Diagnose-Datei in here if your version offers one, otherwise paste the
+        technical block from Rückmeldung. Without this a report usually cannot be acted
+        on — it is the part that carries the actual error.
+      render: text
+      placeholder: |
+        Version   v0.4.1 · a1b2c3d · 09.09.2026
+        Sprache   de-CH
+        Gerät     iPad Safari
+        Fenster   1024×768
+        Netz      online
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in Einstellungen, and in the first line of the Diagnose-Datei.
+      placeholder: v0.4.1 · a1b2c3d
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where in the app?
+      options:
+        - Lage (map)
+        - Plan (whiteboard)
+        - Verlauf / journal
+        - Atemschutz
+        - Rapport / export
+        - Admin
+        - Login / start-up
+        - Somewhere else / not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before you send
+      options:
+        - label: >-
+            This report contains no station data — no incident details, addresses, roster
+            names, or credentials.
+          required: true

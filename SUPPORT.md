@@ -29,14 +29,14 @@ a nuisance.
   [`docs/SETUP.md`](docs/SETUP.md); if it did not answer your question, that is a documentation
   bug and we want to know.
 - **Something is broken** →
-  [open an issue](https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.md).
+  [open an issue](https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.yml).
 - **Something is missing** →
   [open a feature request](https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=feature_request.md).
   Describe the situation at the Einsatz, not the solution you have in mind – the useful part is
   the case we haven't thought of.
 - **A vulnerability** → [`SECURITY.md`](SECURITY.md). Never a public issue.
 - **No GitHub account, or it's easier in German** → email
-  [bastian@eichenbergers.ch](mailto:bastian@eichenbergers.ch). We would rather hear it in a
+  [bastian.eichenberger@feuerwehr-oberwil.ch](mailto:bastian.eichenberger@feuerwehr-oberwil.ch). We would rather hear it in a
   three-line mail than not at all.
 
 ## What makes a report land faster
