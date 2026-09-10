@@ -3,6 +3,7 @@ import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { useAuth } from '../lib/auth'
 import { adminLogout } from './adminAuth'
 import { IconSprite, Icon } from '../lib/icons'
+import { InfoTip } from './InfoTip'
 import { ConfigProvider, ConfigGate, ConfigAutosaveStatus } from './ConfigContext'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { appConfig } from '../config/appConfig'
@@ -295,6 +296,11 @@ export function AdminShell() {
                 <div>
                   <h1 className="adm-h1">
                     {activeCopy.title}
+                    {/* The page's own ⓘ. `tip` had been in the copy catalogue for months and was
+                        rendered nowhere, so every page that had more to say than one sentence
+                        said it in the lede — which is how a caption becomes a paragraph. The
+                        lede is now what the page IS; the tip is how it works. */}
+                    {activeCopy.tip && <InfoTip label={activeCopy.title} text={activeCopy.tip} />}
                   </h1>
                   <p className="adm-lede">{activeCopy.lede}</p>
                 </div>

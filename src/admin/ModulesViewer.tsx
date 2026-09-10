@@ -4,6 +4,7 @@ import { fillTemplate } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import { apiGet } from '../lib/api'
 import { Table } from './ui'
+import { InfoTip } from './InfoTip'
 import type { DeploymentModule } from '../lib/deploymentConfig'
 import type { ObjectWithPlans } from '../lib/incidents'
 
@@ -141,11 +142,14 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
       )}
 
       {/* Renders only once the answer is in: an unanswered `/plan-sources` must not become
-          «kein Abgleich», which is the sentence that invites a hand upload the next run eats. */}
+          «kein Abgleich», which is the sentence that invites a hand upload the next run eats.
+          Inline is the STATE and where it is configured — one sentence. Why «kein Abgleich» is
+          the normal case, and what the last run did, is the ⓘ. */}
       {sources && (
         <p className="adm-view-note">
           {pulling && <><span className="adm-view-badge adm-view-badge-ok">{pullNames}</span>{' '}</>}
           {pulling ? C.pullOn : C.pullOff}
+          <InfoTip label={pulling ? C.pullOn : C.pullOff} text={pulling ? C.pullOnTip : C.pullOffTip} />
           {sources.bucket && keyless > 0 && ` ${fillTemplate(C.pullSkips, { n: keyless, total: objects.length })}`}
         </p>
       )}

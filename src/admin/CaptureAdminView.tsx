@@ -6,13 +6,14 @@
 // Two jobs, now two groups of ONE settings sheet (admin/ui · «the settings table»):
 // «Erfassungs-Poster» = the digital QR path (status → link → actions in consequence order,
 // destructive last), «Erfassungsblatt» = the paper fallback. The prose that stood as captions
-// and hints under the fields is the two dividers' ⓘ and the status row's ⓘ; the link, its
-// warning, the rehearsal and the buttons are full-width notes, because none of them is a
-// setting. Copy buttons on the link; rotate/disable use the inline two-step confirm.
+// and hints under the fields is the two dividers' ⓘ and the status row's ⓘ; the state and the
+// link are rows, and only what is genuinely not a setting stays a full-width note — the copy
+// warning, the rehearsal and the button row. Rotate/disable use the inline two-step confirm.
 
 import { apiGet } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
+import { InfoTip } from './InfoTip'
 import {
   ConfirmButton, CopyChip, ResultChip, SettingRow, SettingsGroup, SettingsNote, SettingsSheet,
   StatusBadge, useSecret,
@@ -75,9 +76,9 @@ export function CaptureAdminView() {
           state={state.configured ? C.stateOn : C.stateOff} />
       </SettingRow>
       {state.token && (
-        <SettingsNote>
+        <SettingRow label={C.linkLabel} span>
           <CopyChip value={captureUrl(state.token)} />
-        </SettingsNote>
+        </SettingRow>
       )}
       {/* The copy button hands out the poster's whole secret. That is fine for a test or a
           Schulung — but it has to be said next to the button, not behind an ⓘ nobody opens. */}
@@ -96,12 +97,16 @@ export function CaptureAdminView() {
           {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
         </div>
       </SettingsNote>
-      {/* the rehearsal, spelled out where the poster is made — an Übung is the one incident
-          kind that is stats-excluded and may be deleted afterwards, which is what makes it
-          the safe thing to hand a colleague before the poster goes on the wall. A named
-          procedure, not an explanation of a field, so it stays readable in the sheet. */}
+      {/* the rehearsal, named where the poster is made — an Übung is the one incident kind that
+          is stats-excluded and may be deleted afterwards, which is what makes it the safe thing
+          to hand a colleague before the poster goes on the wall. The four steps are a
+          walkthrough, so they sit in the ⓘ; what stands inline is the one sentence saying
+          there is one. */}
       {state.configured && (
-        <SettingsNote><strong>{C.testTitle}:</strong> {C.testBody}</SettingsNote>
+        <SettingsNote>
+          <strong>{C.testTitle}:</strong> {C.testLead}
+          <InfoTip label={C.testTitle} text={C.testBody} />
+        </SettingsNote>
       )}
 
       <SettingsGroup title={C.sheetCardTitle} tip={C.sheetCardBody} />

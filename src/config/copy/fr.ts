@@ -2868,6 +2868,7 @@ export const fr: Localizable<Copy> = {
       standardOn: 'Oui',
       standardOff: 'Non',
       newEntry: 'Nouvelle entrée',
+      newSecret: 'Nouvellement généré',
     },
     numbers: {
       integer: 'Valeur pas encore enregistrée – un nombre entier est attendu.',
@@ -2894,28 +2895,39 @@ export const fr: Localizable<Copy> = {
       groupSystem: 'Système',
       identitaet: { label: 'Caserne et carte', title: 'Caserne et carte', lede: 'Nom, langue, couleur de marque, logos et vue initiale de la carte pour cette installation.' },
       karte: { label: 'Carte', title: 'Carte', lede: 'Vue initiale de la carte de situation (centre + zoom), avant qu’une intervention soit choisie.' },
+      journal: { label: 'Journal', title: 'Journal', lede: 'Formules types pour le journal : des suggestions qui se complètent par recherche floue pendant la saisie.' },
       doktrin: { label: 'Doctrine', title: 'Doctrine', lede: 'Paramètres FKS de ce corps : canal radio par défaut, intervalle de contact ARI et pré-alerte.' },
       fahrzeuge: {
         label: 'Véhicules & symboles',
         title: 'Véhicules & symboles',
-        lede: 'Les véhicules du corps – modifiables ici ; ils constituent la grille des heures de départ du rapport. En dessous, les champs de symboles et leurs listes de choix (en lecture seule).',
-        tip: 'Chaque liste rattache des suggestions de choix à un champ de symbole – p. ex. les types de véhicule à « VKF véhicule · titre ». Suggestions uniquement ; la saisie libre reste toujours possible en Situation.',
+        lede: 'Les véhicules du corps et les listes de choix derrière les champs de symboles.',
+        tip: 'Les véhicules sont modifiables ici ; ils constituent la grille des heures de départ du rapport. Les listes de choix en dessous ne font qu’afficher : chacune rattache des suggestions à un champ de symbole – p. ex. les types de véhicule à « VKF véhicule · titre ». Suggestions uniquement ; la saisie libre reste toujours possible en Situation.',
       },
-      ebenen: { label: 'Couches de carte', title: 'Couches de carte', lede: 'Couches de référence / de réseaux de ce corps (hydrantes, cadastre des conduites, WMS cantonal …). Les fichiers GeoJSON et les couches raster (WMS/WMTS) se configurent ici ; les manifestes entiers passent par la CLI admin_geodata. Les fonds de carte sont nationaux / livrés.' },
+      ebenen: {
+        label: 'Couches de carte',
+        title: 'Couches de carte',
+        lede: 'Couches de référence / de réseaux de ce corps – hydrantes, cadastre des conduites, WMS cantonal – et les jeux de données chargés.',
+        tip: 'Les fichiers GeoJSON et les couches raster (WMS/WMTS) se configurent sur cette page ; les fonds de carte sont nationaux et livrés.',
+      },
       objektplaene: {
         label: 'Plans d’objet',
         title: 'Plans d’objet (modules)',
-        lede: 'Catalogue de modules de ce corps (libellés M1, 2/3 …, règles de détection) ainsi que les objets d’intervention et leurs plans. Les objets et les PDF de module se créent et se remplacent ici ; le catalogue lui-même via la CLI admin_config, vide = modules standard livrés.',
-        tip: 'Une seule configuration pour deux usages : les tuiles de plan dans l’app et l’analyse de fichiers de import_einsatzplaene (l’importeur récupère cette liste via /api/config). « Famille » génère des sous-modules à partir du nom de fichier (Modul 5 - Wasser → modul5-wasser) ; « Combiné avec » remplit plusieurs emplacements depuis une feuille combinée (Modul 2-3 → modul2, modul3).',
+        lede: 'Les objets d’intervention de ce corps, leurs plans de module et le catalogue de modules derrière eux.',
+        tip: 'Le catalogue de modules configure les deux : les tuiles de plan dans l’app et l’analyse de fichiers de l’importeur. « Famille » génère des sous-modules à partir du nom de fichier (Modul 5 - Wasser → modul5-wasser) ; « Combiné avec » remplit plusieurs emplacements depuis une feuille combinée (Modul 2-3 → modul2, modul3). Aucun catalogue propre configuré = les modules standard livrés s’appliquent.',
       },
       checklisten: {
         label: 'Checklists',
         title: 'Checklists',
-        lede: 'Les modèles derrière la vue Checkliste : listes de tâches, rapport de situation et aide-mémoire du chef d’intervention. Envoyer, remplacer et supprimer.',
+        lede: 'Les modèles derrière la vue Checkliste : listes de tâches, rapport de situation et aide-mémoire du chef d’intervention.',
         tip: 'Un modèle est un fichier JSON portant son propre « id » – c’est lui qui décide quel modèle est remplacé. Envoyé sous un nouveau nom, l’ancien reste en place et continue d’être distribué à tous les appareils jusqu’à sa suppression ici.',
       },
       mitglieder: { label: 'Membres et accès', title: 'Membres et accès', lede: 'Qui peut se connecter, avec quel rôle et quel NIP.' },
-      mannschaft: { label: 'Effectif', title: 'Effectif', lede: 'Effectif local canonique : saisie manuelle et CSV toujours disponibles ; une source de personnel peut synchroniser les données.' },
+      mannschaft: {
+        label: 'Effectif',
+        title: 'Effectif',
+        lede: 'L’effectif local de ce corps.',
+        tip: 'Saisie manuelle et CSV toujours disponibles ; une source de personnel configurée peut en plus synchroniser les données.',
+      },
       erfassung: { label: 'Saisie', title: 'Saisie (affiche)', lede: 'L’affiche de saisie pour le local : un code QR permettant d’enregistrer présences, matériel et notes d’une intervention récente sans connexion.' },
       einsaetze: { label: 'Historique', title: 'Historique des interventions', lede: 'Toutes les interventions actuelles et historiques avec heure de début, statut, source, état du rapport et dernière modification.' },
       divera: {
@@ -2961,11 +2973,6 @@ export const fr: Localizable<Copy> = {
       system: { label: 'Système et maintenance', title: 'Système et maintenance', lede: 'État et maintenance : version, base de données, inventaire, stockage et le cache hors ligne de cet appareil.' },
       sicherung: { label: 'Sauvegarde', title: 'Sauvegarde', lede: 'Sauvegarder la configuration dans un fichier ou restaurer un fichier sauvegardé.' },
 
-      journal: {
-        label: 'Journal',
-        title: 'Journal',
-        lede: 'Formules types pour le journal : des suggestions qui se complètent par recherche floue pendant la saisie.',
-      },
       rapport: {
         label: 'Rapport',
         title: 'Rapport',
@@ -2974,7 +2981,8 @@ export const fr: Localizable<Copy> = {
       alarme: {
         label: 'Alarmes & interventions',
         title: 'Alarmes & interventions',
-        lede: 'Les groupes que ce corps peut alarmer, combien de temps les interventions restent ouvertes avant de s’archiver d’elles-mêmes, combien de temps l’affiche de saisie atteint encore une intervention terminée – et où une nouvelle intervention est annoncée.',
+        lede: 'Les groupes que ce corps peut alarmer et les délais autour d’une intervention.',
+        tip: 'C’est ici que se règlent la durée pendant laquelle les interventions restent ouvertes avant de s’archiver d’elles-mêmes, combien de temps l’affiche de saisie atteint encore une intervention terminée – et où une nouvelle intervention est annoncée.',
       },
     },
     workbook: {
@@ -3087,8 +3095,10 @@ export const fr: Localizable<Copy> = {
 
       posterHint: 'Pas de connexion, pas d\'application. Tout est enregistré immédiatement.',
       posterFoot: 'Le matériel, les heures et le bref rapport sont complétés ensuite par la direction de l\'intervention.',
+      linkLabel: 'Lien de saisie',
       linkWarn: 'Ce lien EST la clé de l\'affiche : quiconque l\'a peut saisir. Après l\'avoir envoyé (test, exercice), fais tourner le jeton et réimprime l\'affiche.',
       testTitle: 'Tester d\'abord',
+      testLead: 'avec une intervention ouverte comme « exercice ».',
       testBody: 'Ouvre une intervention avec la case «Exercice», envoie le lien, fais saisir – l\'exercice est signalé comme tel sur la page de saisie et ne compte pas dans les statistiques. Archive ensuite l\'exercice et fais tourner le jeton.',
     },
     statistik: {
@@ -3106,7 +3116,7 @@ export const fr: Localizable<Copy> = {
       failed: 'Échec de l’action',
       exampleLabel: 'Exemple de requête',
       docsLink: 'Doc API',
-      tokenLabel: 'Jeton',
+      keyLabel: 'Jeton',
       hint: 'Garder le jeton secret – il donne un accès en lecture à toutes les données d’intervention, noms compris. À transmettre à l’outil d’analyse via l’en-tête X-Stats-Token (ou ?t=).',
     },
     einsatzlink: {
@@ -3123,7 +3133,8 @@ export const fr: Localizable<Copy> = {
       disabled: 'Liens d’intervention désactivés.',
       failed: 'Échec de l’action',
       keyLabel: 'Clé',
-      exampleLabel: 'Modèle de lien (le système d’alarme y insère son jeton signé)',
+      exampleLabel: 'Modèle de lien',
+      exampleTip: 'Le système d’alarme insère son propre jeton signé à la place de « <token> ».',
       docsLink: 'Documentation d’intégration',
       hint: 'La clé est générée ici puis copiée dans le système d’alarme – KP Front n’accepte aucune clé venue d’ailleurs et n’est jamais appelé lors de l’alarme : le système d’alarme signe les liens lui-même. Garder la clé secrète, elle ouvre l’accès en lecture à toute intervention en cours. Sans clé, pas de liens d’intervention – « Désactiver » coupe entièrement la fonction.',
     },
@@ -3133,7 +3144,8 @@ export const fr: Localizable<Copy> = {
       stateOn: 'actif',
       stateOff: 'désactivé',
       keyLabel: 'Clé',
-      exampleLabel: 'Lien de configuration – à ouvrir une fois sur le terminal ; ensuite l’adresse /terminal suffit',
+      exampleLabel: 'Lien de configuration',
+      exampleTip: 'À ouvrir une fois sur le terminal ; ensuite l’adresse /terminal y suffit.',
       docsLink: 'Documentation',
       enableBtn: 'Activer et générer le lien de configuration',
       rotateBtn: 'Renouveler la clé',
@@ -3196,7 +3208,7 @@ export const fr: Localizable<Copy> = {
         },
         push: {
           title: 'Notifications push',
-          caption: 'Paire de clés VAPID pour les alertes vers des applications fermées (porteurs ARI en retard, rappels, nouvelle intervention). Générer : docker compose exec app uv run python -m app.gen_vapid.',
+          caption: 'Paire de clés VAPID pour les alertes vers des applications fermées (porteurs ARI en retard, rappels, nouvelle intervention) – à générer selon docs/SETUP.md.',
         },
         stt: {
           title: 'Mémos vocaux → texte',
@@ -3499,8 +3511,10 @@ export const fr: Localizable<Copy> = {
       vehicleIncomplete: 'Incomplet – la ligne n’est enregistrée qu’avec une désignation et un identifiant.',
       vehicleDuplicate: 'Cet identifiant existe déjà – cette ligne n’est pas enregistrée.',
       attributesTitle: 'Listes de choix des symboles',
-      cliHint: 'Ce tableau ne fait qu’afficher. Les listes se modifient sous « Daten » → « Arbeitsmappe », sur la feuille « Symbolfelder » – une ligne par option (symbole, champ, option). Sans tableur : « Sicherung » → exporter la configuration, compléter fleet.attributeLists dans le fichier, puis réimporter. Avec la ligne de commande, dans le dossier backend/ :',
-      cliCmd: 'uv run python -m app.admin_config push station.json',
+      cliHint: 'En lecture seule – les listes se modifient sous « Daten » → « Arbeitsmappe ».',
+      cliTip: 'Sur la feuille « Symbolfelder », une ligne par option (symbole, champ, option). Sans '
+        + 'tableur : « Sicherung » → exporter la configuration, compléter fleet.attributeLists dans '
+        + 'le fichier, puis réimporter.',
       filterPlaceholder: 'Rechercher un symbole …',
       loading: 'Chargement de la bibliothèque de symboles …',
       noMatches: 'Aucun symbole ne correspond à la recherche.',
@@ -3898,18 +3912,16 @@ export const fr: Localizable<Copy> = {
       badId: 'L’« id » du modèle ne doit contenir ni deux-points ni espace.',
     },
     modules: {
-      cliHint: 'Les objets individuels et leurs plans de module se modifient ci-dessous. Le catalogue '
-        + 'de modules lui-même et les imports de plans en masse passent par la ligne de commande, dans le dossier backend/ :',
-      cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
-      cliCmdConfig: 'uv run python -m app.admin_config push station.json',
       sourceTally: '{n} × {label}',
       pullAnd: '{a} et {b}',
-      pullOn: 'Synchronisation planifiée – une partie des plans arrive automatiquement par ce biais. '
-        + 'Ce qu’a fait la dernière exécution figure sous « Système », l’accès sous « Identifiants › '
-        + 'SharePoint » et les dossiers dans la configuration.',
-      pullOff: 'Aucune synchronisation planifiée : tous les plans sont envoyés à la main dans ce '
-        + 'formulaire. C’est le cas normal, pas une erreur. Pour en mettre une en place – d’abord '
-        + 'l’accès sous « Identifiants › SharePoint », puis les dossiers dans la configuration.',
+      pullOn: 'Une synchronisation planifiée est active.',
+      pullOnTip: 'Une partie des plans arrive automatiquement par ce biais. Ce qu’a fait la dernière '
+        + 'exécution figure sous « Système », l’accès sous « Identifiants › SharePoint » et les '
+        + 'dossiers dans la configuration.',
+      pullOff: 'Aucune synchronisation planifiée – à mettre en place sous « Identifiants › SharePoint ».',
+      pullOffTip: 'C’est le cas normal, pas une erreur : tous les plans sont envoyés à la main dans ce '
+        + 'formulaire. Pour en mettre une en place, d’abord l’accès sous « Identifiants › SharePoint », '
+        + 'puis les dossiers dans la configuration.',
       pullSkips: '{n} objets sur {total} n’ont pas de clé de dossier – la synchronisation depuis le '
         + 'dépôt de plans les laisse de côté.',
       empty: 'Aucun module configuré – les modules standard fournis s’appliquent.',
@@ -3936,8 +3948,10 @@ export const fr: Localizable<Copy> = {
       colCoverage: 'Couverture',
     },
     layers: {
-      cliHint: 'Seule cette vue d’ensemble est en lecture seule. Les couches raster (WMS/WMTS) et les couches GeoJSON se configurent plus bas sur cette page. Les manifestes entiers – de nombreuses couches et géodonnées d’un coup – passent par la ligne de commande, dans le dossier backend/ :',
-      cliCmd: 'uv run python -m app.admin_geodata push manifest.json',
+      cliHint: 'Seule cette vue d’ensemble est en lecture seule – la configuration se fait plus bas sur cette page.',
+      cliTip: 'Les couches raster (WMS/WMTS) et les couches GeoJSON ont chacune leur section sous ce '
+        + 'tableau. Un téléversement GeoJSON crée le fichier et la couche ensemble – l’un sans l’autre '
+        + 'ne sert à rien.',
       rasterTitle: 'Couches raster (WMS/WMTS)',
       rasterTip: 'Cartes qui arrivent en tuiles d’images depuis un serveur tiers – typiquement celui du canton : cadastre des conduites, protection des eaux, plan de zones. Le canton publie un modèle d’URL ; c’est ici qu’il va. Les géodonnées propres sous forme de fichier vont plus haut, sous « Couches GeoJSON ».',
       geojsonTitle: 'Couches GeoJSON (vecteur)',
@@ -3988,7 +4002,6 @@ export const fr: Localizable<Copy> = {
       rasterRemoveConfirm: 'Supprimer la couche ? L’adresse, le nom de couche et les paramètres de cette source devront sinon être ressaisis.',
       rasterIncomplete: 'Pas encore enregistré – libellé, identifiant et au moins un modèle d’URL vont ensemble.',
       rasterDuplicate: 'Cet identifiant est déjà pris – chaque couche a besoin du sien.',
-      panelHint: 'Un téléversement GeoJSON crée le fichier et la couche ensemble – l’un sans l’autre ne sert à rien.',
       filterPlaceholder: 'Rechercher une couche …',
       loading: 'Chargement …',
       empty: 'Aucune couche de référence configurée.',

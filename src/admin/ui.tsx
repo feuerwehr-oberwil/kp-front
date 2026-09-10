@@ -728,16 +728,21 @@ export function useSecret(basePath: string, said: { rotated: string; disabled: s
   }
 }
 
-/** Everything the card says. Passed in from the caller's own copy namespace
- *  (admin.statistik / admin.einsatzlink), so this component owns no strings. */
+/** Everything a secret surface says. Passed in from the caller's own copy namespace
+ *  (admin.statistik / admin.einsatzlink / admin.terminal …), so this component owns no strings.
+ *
+ *  ⚠️ `body` and `hint` are the two ⓘ — the group divider's and the status row's. They used to
+ *  be paragraphs above and below the card; nothing reads them as prose any more. */
 export interface SecretCardCopy {
   body: string
   stateLabel: string
   stateOn: string
   stateOff: string
-  /** what the value IS, in front of it on the chip: «Token» / «Schlüssel» */
-  tokenLabel: string
+  /** what the value IS, and the status row's own label: «Token» / «Schlüssel» */
+  keyLabel: string
   exampleLabel: string
+  /** the qualifier the example label used to carry in brackets */
+  exampleTip?: string
   docsLink: string
   enableBtn: string
   rotateBtn: string
@@ -748,48 +753,99 @@ export interface SecretCardCopy {
 }
 
 /**
- * The card a secret-token surface is: status, the value while it is being handed out, a
- * copyable example of using it, and the actions in consequence order — enable, rotate,
- * disable last.
+ * One secret surface as rows of the settings sheet: what the key's state is, the value while it
+ * is being handed out, the one line the other system needs, and the actions in consequence
+ * order — enable, rotate, disable last.
  *
- * `example` builds the one line that is genuinely per-surface (a curl command, a link shape)
- * from the freshly minted token; it is only asked for while there is one to show.
+ * `example` builds the line that is genuinely per-surface (a curl command, a link shape) from
+ * the freshly minted token; it is only asked for while there is one to show.
+ *
+ * ⚠️ Returns a Fragment, never a wrapper element: `.adm-settings` is a CSS grid whose rows are
+ * `display: contents`, so a <div> around them would take every cell out of the table's columns.
+ *
+ * ⚠️ The value and the example are ROWS (`span`), not full-width notes. They were notes — label
+ * over chip, buttons under that — which is the one stacked shape this table exists to remove,
+ * and a long URL with its token chips is exactly what `span` is for (see `SettingRow`).
  */
+export function SecretRows({ secret, copy, docsUrl, example, showKey, print }: {
+  secret: SecretApi
+  copy: SecretCardCopy
+  docsUrl: string
+  example: (token: string) => string
+  /** the Einsatz-Link and the Statistik-Export hand out the KEY itself (the other system signs
+   *  or authenticates with it); the two standing links only ever hand out the URL carrying theirs */
+  showKey?: boolean
+  /** the fixe Atemschutz-URL hangs its printable QR card in the action row */
+  print?: { label: string; run: () => void }
+}) {
+  const C = appConfig.copy.admin.common
+  const { state, busy, result, clearResult, rotate, disable } = secret
+  if (state === null) return null
+  return (
+    <>
+      <SettingsGroup title={copy.stateLabel} tip={copy.body} />
+      {/* The badge carries no label of its own here — the row's Einstellung column already
+          names it, and the divider above names the surface. */}
+      <SettingRow label={copy.keyLabel} tip={copy.hint}>
+        <StatusBadge
+          tone={state.configured ? 'on' : 'off'}
+          label=""
+          state={state.configured ? copy.stateOn : copy.stateOff}
+        />
+      </SettingRow>
+      {state.token && showKey && (
+        <SettingRow label={C.newSecret} span>
+          <CopyChip value={state.token} />
+        </SettingRow>
+      )}
+      {state.token && (
+        <SettingRow label={copy.exampleLabel} tip={copy.exampleTip} span>
+          <span className="adm-set-col">
+            <CopyChip value={example(state.token)} />
+            <a className="adm-link" href={docsUrl} target="_blank" rel="noreferrer">{copy.docsLink}</a>
+          </span>
+        </SettingRow>
+      )}
+      <SettingsNote>
+        <div className="adm-actions">
+          {state.configured ? (
+            <>
+              {print && (
+                <button type="button" className="btn adm-save-btn" disabled={busy} onClick={print.run}>
+                  {print.label}
+                </button>
+              )}
+              {/* the primary slot belongs to whatever is the useful action here: printing the
+                  card where there is one to print, rotating where there is not */}
+              <ConfirmButton label={copy.rotateBtn} question={copy.rotateMsg} primary={!print}
+                disabled={busy} onConfirm={() => void rotate()} />
+              <ConfirmButton label={copy.disableBtn} question={copy.disableMsg} danger
+                disabled={busy} onConfirm={() => void disable()} />
+            </>
+          ) : (
+            <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => void rotate()}>
+              {copy.enableBtn}
+            </button>
+          )}
+          {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
+        </div>
+      </SettingsNote>
+    </>
+  )
+}
+
+/** A single-surface secret page (Statistik-Export): the rows above, in a sheet of their own.
+ *  The Einsatz-Link page composes three `SecretRows` into ONE sheet instead. */
 export function SecretCard({ secret, copy, docsUrl, example }: {
   secret: SecretApi
   copy: SecretCardCopy
   docsUrl: string
   example: (token: string) => string
 }) {
-  const { state, busy, result, clearResult, rotate, disable } = secret
-  if (state === null) return null
+  if (secret.state === null) return null
   return (
-    <Card>
-      <p className="adm-card-cap">{copy.body}</p>
-      <div className="adm-cap-rows">
-        <div className="adm-cap-status">
-          <StatusBadge tone={state.configured ? 'on' : 'off'} label={copy.stateLabel} state={state.configured ? copy.stateOn : copy.stateOff} />
-        </div>
-        {state.token && <CopyChip value={state.token} display={`${copy.tokenLabel}: ${state.token}`} />}
-        {state.token && (
-          <div className="adm-cap-example">
-            <p className="adm-card-cap">{copy.exampleLabel} — <a href={docsUrl} target="_blank" rel="noreferrer">{copy.docsLink}</a></p>
-            <CopyChip value={example(state.token)} />
-          </div>
-        )}
-      </div>
-      <div className="adm-actions">
-        {state.configured ? (
-          <>
-            <ConfirmButton label={copy.rotateBtn} question={copy.rotateMsg} primary disabled={busy} onConfirm={() => void rotate()} />
-            <ConfirmButton label={copy.disableBtn} question={copy.disableMsg} danger disabled={busy} onConfirm={() => void disable()} />
-          </>
-        ) : (
-          <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => void rotate()}>{copy.enableBtn}</button>
-        )}
-        {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
-      </div>
-      <p className="adm-card-cap">{copy.hint}</p>
-    </Card>
+    <SettingsSheet>
+      <SecretRows secret={secret} copy={copy} docsUrl={docsUrl} example={example} showKey />
+    </SettingsSheet>
   )
 }

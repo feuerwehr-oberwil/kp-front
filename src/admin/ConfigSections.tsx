@@ -11,6 +11,7 @@ import {
   Card, ConfirmButton, NameCombo, Offer, Select, SettingRow, SettingsGroup, SettingsNote,
   SettingsSheet, fmtDate, standardNote,
 } from './ui'
+import { InfoTip } from './InfoTip'
 import { AVAILABLE_LOCALES } from '../config/copy'
 import { ReferenceLayersViewer } from './ReferenceLayersViewer'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
@@ -1022,7 +1023,10 @@ export function FleetSection() {
       </SettingsSheet>
       <h3 className="adm-view-subhead">{C.attributesTitle}</h3>
       <Card>
-        <p className="adm-hint">{C.cliHint} <code>{C.cliCmd}</code></p>
+        <p className="adm-hint">
+          {C.cliHint}
+          <InfoTip label={C.attributesTitle} text={C.cliTip} />
+        </p>
         <FleetAttributesViewer lists={lists} />
       </Card>
     </>
@@ -1191,11 +1195,14 @@ export function LayersSection() {
 
   return (
     <>
-      {/* A viewer, not a settings list — it keeps the plain Card; its two CLI lines are the
-          instruction, not commentary, so they stay on the page. */}
+      {/* A viewer, not a settings list — it keeps the plain Card. What it says is one sentence:
+          this overview is read-only, the editors are further down. Where whole manifests go and
+          which command pushes them is docs/CONFIGURATION.md's job. */}
       <Card>
-        <p className="adm-hint">{C.cliHint} <code>{C.cliCmd}</code></p>
-        <p className="adm-hint">{C.panelHint}</p>
+        <p className="adm-hint">
+          {C.cliHint}
+          <InfoTip label={C.datasetsTitle} text={C.cliTip} />
+        </p>
         <ReferenceLayersViewer layers={draft?.referenceLayers ?? []} datasets={datasets} />
       </Card>
       <h3 className="adm-view-subhead">{C.geojsonTitle}</h3>
@@ -1757,9 +1764,9 @@ export function ModulesSection() {
   const { draft } = useConfig()
   const C = appConfig.copy.admin.modules
   // Read-only. The imported objects drive both the per-module coverage stats (in ModulesViewer)
-  // and the object map below. Editing happens in two different places — the module catalogue via
-  // `admin_config`, the objects and their plans via `admin_objects` — and the card names both,
-  // because «bearbeiten via CLI» without the command is a shrug, not an instruction.
+  // and the object map below. Objects and their plans are edited in the Objekt-Maske underneath;
+  // the module catalogue itself is a config document, and which command writes it belongs in
+  // docs/CONFIGURATION.md, not on this page.
   const [objects, setObjects] = useState<ObjectWithPlans[]>([])
   useEffect(() => {
     let alive = true
@@ -1774,11 +1781,9 @@ export function ModulesSection() {
   return (
     <>
       <Card>
-        {/* two commands, two lines — run together on one line with a separator, neither of
-            them is readable as the thing you are meant to type */}
-        <p className="adm-hint">{C.cliHint}</p>
-        <p className="adm-hint"><code>{C.cliCmdObjects}</code></p>
-        <p className="adm-hint"><code>{C.cliCmdConfig}</code></p>
+        {/* The two `uv run python -m app.admin_…` lines that stood here are gone. A command to
+            type is documentation, and docs/CONFIGURATION.md is where it is maintained — printed
+            on a settings page it went stale silently and pushed the catalogue off the screen. */}
         <ModulesViewer modules={modules} objects={objects} usingDefaults={usingDefaults} />
       </Card>
       <h3 className="adm-view-subhead">{C.objectsTitle}</h3>

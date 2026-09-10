@@ -63,15 +63,19 @@ describe('secret-token card — the contract three admin surfaces share', () => 
     await waitFor(() => expect(screen.getByText(L.enableBtn)).toBeTruthy())
 
     fireEvent.click(screen.getByRole('button', { name: L.enableBtn }))
-    // the value, and the line the other system needs built around it
-    await waitFor(() => expect(screen.getByText(`${L.keyLabel}: k-1`)).toBeTruthy())
+    // the value, and the line the other system needs built around it. Both are ROWS of the
+    // settings table now (admin/ui · SecretRows), so the value stands alone in the Wert column
+    // and its Einstellung column carries the label — «Schlüssel: k-1» on one chip is gone.
+    await waitFor(() => expect(screen.getByText('k-1')).toBeTruthy())
+    expect(screen.getByText(`${window.location.origin}/l/<token>`)).toBeTruthy()
     expect(screen.getByText(L.exampleLabel, { exact: false })).toBeTruthy()
 
     confirm(L.disableBtn)
     // the view carries THREE cards since the standing links (terminal, fixe AS-URL) moved in;
     // all say «deaktiviert» once the minting key is off — before, the first said «aktiv».
     await waitFor(() => expect(screen.getAllByText(L.stateOff)).toHaveLength(3))
-    expect(screen.queryByText(`${L.keyLabel}: k-1`)).toBeNull()
+    expect(screen.queryByText('k-1')).toBeNull()
+    expect(screen.queryByText(`${window.location.origin}/l/<token>`)).toBeNull()
     expect(screen.queryByText(L.exampleLabel, { exact: false })).toBeNull()
   })
 

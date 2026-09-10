@@ -2866,6 +2866,7 @@ export const it: Localizable<Copy> = {
       standardOn: 'Sì',
       standardOff: 'No',
       newEntry: 'Nuova voce',
+      newSecret: 'Appena generato',
     },
     numbers: {
       integer: 'Valore non ancora salvato – è atteso un numero intero.',
@@ -2892,28 +2893,39 @@ export const it: Localizable<Copy> = {
       groupSystem: 'Sistema',
       identitaet: { label: 'Stazione e mappa', title: 'Stazione e mappa', lede: 'Nome, lingua, colore del marchio, loghi e vista iniziale della mappa per questa installazione.' },
       karte: { label: 'Carta', title: 'Carta', lede: 'Vista iniziale della carta della situazione (centro + zoom), prima che sia scelto un intervento.' },
+      journal: { label: 'Diario', title: 'Diario', lede: 'Frasi tipo per il diario: suggerimenti che si completano con ricerca fuzzy mentre scrivi.' },
       doktrin: { label: 'Dottrina', title: 'Dottrina', lede: 'Prescrizioni FKS di questo corpo: canale radio predefinito, intervallo di contatto ARA e preavviso.' },
       fahrzeuge: {
         label: 'Veicoli e simboli',
         title: 'Veicoli e simboli',
-        lede: 'I veicoli del corpo – modificabili qui; formano la griglia degli orari di uscita sul rapporto. Sotto, i campi dei simboli e i loro elenchi di scelta (in sola lettura).',
-        tip: 'Ogni elenco collega suggerimenti di scelta a un campo di simbolo – es. tipi di veicolo a «VKF veicolo · titolo». Solo suggerimenti; nella situazione l’inserimento libero resta sempre possibile.',
+        lede: 'I veicoli del corpo e gli elenchi di scelta dietro i campi dei simboli.',
+        tip: 'I veicoli sono modificabili qui; formano la griglia degli orari di uscita sul rapporto. Gli elenchi di scelta sotto si limitano a mostrare: ognuno collega suggerimenti a un campo di simbolo – es. tipi di veicolo a «VKF veicolo · titolo». Solo suggerimenti; nella situazione l’inserimento libero resta sempre possibile.',
       },
-      ebenen: { label: 'Livelli della carta', title: 'Livelli della carta', lede: 'Livelli di riferimento/condotte di questo corpo (idranti, catasto delle condotte, WMS cantonale …). I file GeoJSON e i livelli raster (WMS/WMTS) si configurano qui; i manifest interi passano dalla CLI admin_geodata. Le carte di base sono nazionali/incluse.' },
+      ebenen: {
+        label: 'Livelli della carta',
+        title: 'Livelli della carta',
+        lede: 'Livelli di riferimento e condotte di questo corpo – idranti, catasto delle condotte, WMS cantonale – e i set di dati caricati.',
+        tip: 'I file GeoJSON e i livelli raster (WMS/WMTS) si configurano in questa pagina; le carte di base sono nazionali e incluse.',
+      },
       objektplaene: {
         label: 'Piani degli oggetti',
         title: 'Piani degli oggetti (moduli)',
-        lede: 'Catalogo dei moduli di questo corpo (etichette M1, 2/3 …, regole di riconoscimento) e gli oggetti d’intervento con i loro piani. Oggetti e PDF di modulo si creano e si sostituiscono qui; il catalogo stesso via CLI admin_config, vuoto = moduli standard inclusi.',
-        tip: 'Una configurazione per entrambi: le tessere dei piani nell’app e l’analisi dei file di import_einsatzplaene (l’importatore recupera questo elenco via /api/config). «Famiglia» genera sottomoduli dal nome del file (Modul 5 - Wasser → modul5-wasser); «Combinato con» riempie più slot da un foglio cumulativo (Modul 2-3 → modul2, modul3).',
+        lede: 'Gli oggetti d’intervento di questo corpo, i loro piani di modulo e il catalogo dei moduli dietro di essi.',
+        tip: 'Il catalogo dei moduli configura entrambi: le tessere dei piani nell’app e l’analisi dei file dell’importatore. «Famiglia» genera sottomoduli dal nome del file (Modul 5 - Wasser → modul5-wasser); «Combinato con» riempie più slot da un foglio cumulativo (Modul 2-3 → modul2, modul3). Nessun catalogo proprio configurato = valgono i moduli standard inclusi.',
       },
       checklisten: {
         label: 'Checklist',
         title: 'Checklist',
-        lede: 'I modelli dietro la vista Checkliste: elenchi di compiti, rapporto di situazione e prontuario del capo intervento. Caricare, sostituire ed eliminare.',
+        lede: 'I modelli dietro la vista Checkliste: elenchi di compiti, rapporto di situazione e prontuario del capo intervento.',
         tip: 'Un modello è un file JSON con un proprio «id» – è questo a decidere quale modello viene sostituito. Caricato con un nuovo nome, il vecchio resta e continua a essere distribuito a tutti i dispositivi finché non viene eliminato qui.',
       },
       mitglieder: { label: 'Membri e accesso', title: 'Membri e accesso', lede: 'Chi può accedere, con quale ruolo e quale PIN.' },
-      mannschaft: { label: 'Effettivo', title: 'Effettivo', lede: 'Anagrafica locale canonica: inserimento manuale e CSV sempre disponibili; una fonte personale può sincronizzare i dati.' },
+      mannschaft: {
+        label: 'Effettivo',
+        title: 'Effettivo',
+        lede: 'L’anagrafica locale di questo corpo.',
+        tip: 'Inserimento manuale e CSV sempre disponibili; una fonte personale configurata può inoltre sincronizzare i dati.',
+      },
       erfassung: { label: 'Rilevamento', title: 'Rilevamento (poster)', lede: 'Il poster di rilevamento per il magazzino: un codice QR con cui registrare presenze, materiale e note di un intervento recente senza login.' },
       einsaetze: { label: 'Storico interventi', title: 'Storico interventi', lede: 'Tutti gli interventi attuali e storici con ora di inizio, stato, origine, stato del rapporto e ultima modifica.' },
       divera: {
@@ -2959,11 +2971,6 @@ export const it: Localizable<Copy> = {
       system: { label: 'Sistema e manutenzione', title: 'Sistema e manutenzione', lede: 'Stato e manutenzione: versione, database, inventario, archiviazione e la cache offline di questo dispositivo.' },
       sicherung: { label: 'Backup', title: 'Backup', lede: 'Salva la configurazione su file o ripristina un file salvato.' },
 
-      journal: {
-        label: 'Diario',
-        title: 'Diario',
-        lede: 'Frasi tipo per il diario: suggerimenti che si completano con ricerca fuzzy mentre scrivi.',
-      },
       rapport: {
         label: 'Rapporto',
         title: 'Rapporto',
@@ -2972,7 +2979,8 @@ export const it: Localizable<Copy> = {
       alarme: {
         label: 'Allarmi e interventi',
         title: 'Allarmi e interventi',
-        lede: 'I gruppi che questo corpo può allarmare, quanto a lungo gli interventi restano aperti prima di archiviarsi da soli, per quanto il poster di rilevamento raggiunge ancora un intervento concluso – e dove viene annunciato un nuovo intervento.',
+        lede: 'I gruppi che questo corpo può allarmare e i termini attorno a un intervento.',
+        tip: 'Qui si stabilisce quanto a lungo gli interventi restano aperti prima di archiviarsi da soli, per quanto il poster di rilevamento raggiunge ancora un intervento concluso – e dove viene annunciato un nuovo intervento.',
       },
     },
     workbook: {
@@ -3085,8 +3093,10 @@ export const it: Localizable<Copy> = {
 
       posterHint: 'Nessun login, nessuna app. Tutto viene salvato subito.',
       posterFoot: 'Materiale, orari e breve rapporto vengono completati in seguito dalla direzione dell\'intervento.',
+      linkLabel: 'Link di rilevamento',
       linkWarn: 'Questo link È la chiave del poster: chi ce l\'ha può registrare. Dopo averlo inviato (test, esercitazione), ruota il token e ristampa il poster.',
       testTitle: 'Prima una prova',
+      testLead: 'con un intervento aperto come «esercitazione».',
       testBody: 'Apri un intervento con la spunta «Esercitazione», invia il link, fai registrare – l\'esercitazione è contrassegnata come tale nella pagina di registrazione e non conta nelle statistiche. Poi archivia l\'esercitazione e ruota il token.',
     },
     statistik: {
@@ -3104,7 +3114,7 @@ export const it: Localizable<Copy> = {
       failed: 'Azione non riuscita',
       exampleLabel: 'Esempio di richiesta',
       docsLink: 'Doc API',
-      tokenLabel: 'Token',
+      keyLabel: 'Token',
       hint: 'Mantenere segreto il token – concede accesso in lettura a tutti i dati degli interventi, nomi inclusi. Da passare allo strumento di analisi come header X-Stats-Token (oppure ?t=).',
     },
     einsatzlink: {
@@ -3121,7 +3131,8 @@ export const it: Localizable<Copy> = {
       disabled: 'Link intervento disattivati.',
       failed: 'Azione non riuscita',
       keyLabel: 'Chiave',
-      exampleLabel: 'Schema del link (il sistema di allarme inserisce il proprio token firmato)',
+      exampleLabel: 'Schema del link',
+      exampleTip: 'Il sistema di allarme inserisce il proprio token firmato al posto di «<token>».',
       docsLink: 'Documentazione di integrazione',
       hint: 'La chiave viene generata qui e copiata nel sistema di allarme – KP Front non accetta chiavi esterne e non viene mai chiamato durante l’allarme: è il sistema di allarme a firmare i link. Mantenere segreta la chiave, apre l’accesso in lettura a ogni intervento in corso. Senza chiave non esistono link intervento – «Disattivare» spegne completamente la funzione.',
     },
@@ -3131,7 +3142,8 @@ export const it: Localizable<Copy> = {
       stateOn: 'attivo',
       stateOff: 'disattivato',
       keyLabel: 'Chiave',
-      exampleLabel: 'Link di configurazione – da aprire una volta sul terminale; poi basta l’indirizzo /terminal',
+      exampleLabel: 'Link di configurazione',
+      exampleTip: 'Da aprire una volta sul terminale; poi lì basta l’indirizzo /terminal.',
       docsLink: 'Documentazione',
       enableBtn: 'Attivare e generare il link di configurazione',
       rotateBtn: 'Ruotare la chiave',
@@ -3194,7 +3206,7 @@ export const it: Localizable<Copy> = {
         },
         push: {
           title: 'Notifiche push',
-          caption: 'Coppia di chiavi VAPID per gli avvisi ad app chiuse (autorespiratori in ritardo, promemoria, nuovo intervento). Generare: docker compose exec app uv run python -m app.gen_vapid.',
+          caption: 'Coppia di chiavi VAPID per gli avvisi ad app chiuse (autorespiratori in ritardo, promemoria, nuovo intervento) – generarla secondo docs/SETUP.md.',
         },
         stt: {
           title: 'Memo vocali → testo',
@@ -3497,8 +3509,10 @@ export const it: Localizable<Copy> = {
       vehicleIncomplete: 'Incompleto – la riga viene salvata solo con denominazione e sigla.',
       vehicleDuplicate: 'Questa sigla esiste già – la riga non viene salvata.',
       attributesTitle: 'Elenchi di scelta dei simboli',
-      cliHint: 'Questa tabella si limita a mostrarli. Gli elenchi si modificano in «Daten» → «Arbeitsmappe», sul foglio «Symbolfelder» – una riga per opzione (simbolo, campo, opzione). Senza foglio di calcolo: «Sicherung» → esportare la configurazione, completare fleet.attributeLists nel file e reimportarlo. Con la riga di comando, nella cartella backend/:',
-      cliCmd: 'uv run python -m app.admin_config push station.json',
+      cliHint: 'In sola lettura – gli elenchi si modificano in «Daten» → «Arbeitsmappe».',
+      cliTip: 'Sul foglio «Symbolfelder», una riga per opzione (simbolo, campo, opzione). Senza '
+        + 'foglio di calcolo: «Sicherung» → esportare la configurazione, completare '
+        + 'fleet.attributeLists nel file e reimportarlo.',
       filterPlaceholder: 'Cerca simbolo …',
       loading: 'Caricamento della libreria dei simboli …',
       noMatches: 'Nessun simbolo corrisponde alla ricerca.',
@@ -3897,18 +3911,16 @@ export const it: Localizable<Copy> = {
       badId: 'L’«id» del modello non può contenere due punti né spazi.',
     },
     modules: {
-      cliHint: 'I singoli oggetti e i loro piani di modulo si modificano qui sotto. Il catalogo dei '
-        + 'moduli stesso e le importazioni di piani in blocco passano dalla riga di comando, nella cartella backend/:',
-      cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
-      cliCmdConfig: 'uv run python -m app.admin_config push station.json',
       sourceTally: '{n} × {label}',
       pullAnd: '{a} e {b}',
-      pullOn: 'Sincronizzazione pianificata – una parte dei piani arriva automaticamente per questa '
-        + 'via. Che cosa ha fatto l’ultima esecuzione sta sotto «Sistema», l’accesso sotto «Credenziali '
-        + '› SharePoint» e le cartelle nella configurazione.',
-      pullOff: 'Nessuna sincronizzazione pianificata: tutti i piani arrivano a mano in questa maschera. '
-        + 'È il caso normale, non un errore. Per attivarne una – prima l’accesso sotto «Credenziali › '
-        + 'SharePoint», poi le cartelle nella configurazione.',
+      pullOn: 'È attiva una sincronizzazione pianificata.',
+      pullOnTip: 'Una parte dei piani arriva automaticamente per questa via. Che cosa ha fatto '
+        + 'l’ultima esecuzione sta sotto «Sistema», l’accesso sotto «Credenziali › SharePoint» e le '
+        + 'cartelle nella configurazione.',
+      pullOff: 'Nessuna sincronizzazione pianificata – da attivare sotto «Credenziali › SharePoint».',
+      pullOffTip: 'È il caso normale, non un errore: tutti i piani arrivano a mano in questa '
+        + 'maschera. Per attivarne una, prima l’accesso sotto «Credenziali › SharePoint», poi le '
+        + 'cartelle nella configurazione.',
       pullSkips: '{n} oggetti su {total} non hanno una chiave di cartella – la sincronizzazione dal '
         + 'deposito piani li salta.',
       empty: 'Nessun modulo configurato – si applicano i moduli standard forniti.',
@@ -3935,8 +3947,10 @@ export const it: Localizable<Copy> = {
       colCoverage: 'Copertura',
     },
     layers: {
-      cliHint: 'Solo questa panoramica è in sola lettura. I livelli raster (WMS/WMTS) e i livelli GeoJSON si configurano più in basso in questa pagina. I manifest interi – molti livelli e geodati in una volta – passano dalla riga di comando, nella cartella backend/:',
-      cliCmd: 'uv run python -m app.admin_geodata push manifest.json',
+      cliHint: 'Solo questa panoramica è in sola lettura – la configurazione avviene più in basso in questa pagina.',
+      cliTip: 'I livelli raster (WMS/WMTS) e i livelli GeoJSON hanno ciascuno la propria sezione '
+        + 'sotto questa tabella. Un caricamento GeoJSON crea file e livello insieme – l’uno senza '
+        + 'l’altro non serve a nulla.',
       rasterTitle: 'Livelli raster (WMS/WMTS)',
       rasterTip: 'Carte che arrivano come tasselli d’immagine da un server altrui – tipicamente del cantone: catasto delle condotte, protezione delle acque, piano delle zone. Il cantone pubblica un modello di URL; è qui che va. I geodati propri sotto forma di file vanno più sopra, sotto «Livelli GeoJSON».',
       geojsonTitle: 'Livelli GeoJSON (vettoriali)',
@@ -3987,7 +4001,6 @@ export const it: Localizable<Copy> = {
       rasterRemoveConfirm: 'Eliminare il livello? Indirizzo, nome del livello e parametri di questa fonte andranno altrimenti reinseriti.',
       rasterIncomplete: 'Non ancora salvato – dicitura, identificatore e almeno un modello di URL vanno insieme.',
       rasterDuplicate: 'Questo identificatore è già in uso – ogni livello ha bisogno del proprio.',
-      panelHint: 'Un caricamento GeoJSON crea file e livello insieme – l’uno senza l’altro non serve a nulla.',
       filterPlaceholder: 'Cerca livello …',
       loading: 'Caricamento …',
       empty: 'Nessun livello di riferimento configurato.',

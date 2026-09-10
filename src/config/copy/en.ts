@@ -3066,6 +3066,7 @@ export const en: Localizable<Copy> = {
       standardOn: 'Yes',
       standardOff: 'No',
       newEntry: 'New entry',
+      newSecret: 'Just generated',
     },
     numbers: {
       integer: 'Value not saved yet – a whole number is expected.',
@@ -3092,28 +3093,39 @@ export const en: Localizable<Copy> = {
       groupSystem: 'System',
       identitaet: { label: 'Station & map', title: 'Station & map', lede: 'Name, language, brand colour, logos and the situation map’s default view for this installation.' },
       karte: { label: 'Map', title: 'Map', lede: 'Initial situation-map view (centre + zoom) before an incident is selected.' },
+      journal: { label: 'Log', title: 'Log', lede: 'Phrase snippets for the log: suggestions that complete by fuzzy search as you type.' },
       doktrin: { label: 'Doctrine', title: 'Doctrine', lede: 'FKS settings for this brigade: default radio channel, SCBA contact interval and warning lead.' },
       fahrzeuge: {
         label: 'Vehicles & symbols',
         title: 'Vehicles & symbols',
-        lede: 'The brigade\'s vehicles – editable here; they make the turnout-times grid on the report. Below them the symbol fields and their pick lists (read-only).',
-        tip: 'Each list attaches pick suggestions to a symbol field – e.g. vehicle types to «VKF vehicle · title». Suggestions only; free typing always stays possible in the situation map.',
+        lede: 'The brigade\'s vehicles and the pick lists behind the symbol fields.',
+        tip: 'The vehicles are editable here; they make the turnout-times grid on the report. The pick lists below only show: each attaches suggestions to a symbol field – e.g. vehicle types to «VKF vehicle · title». Suggestions only; free typing always stays possible in the situation map.',
       },
-      ebenen: { label: 'Map layers', title: 'Map layers', lede: 'Reference / utility layers for this brigade (hydrants, utility cadastre, canton WMS …). GeoJSON files and raster layers (WMS/WMTS) can both be set up here; whole manifests go through the admin_geodata CLI. Base maps are national / shipped.' },
+      ebenen: {
+        label: 'Map layers',
+        title: 'Map layers',
+        lede: 'Reference / utility layers for this brigade – hydrants, utility cadastre, canton WMS – and the loaded datasets.',
+        tip: 'GeoJSON files and raster layers (WMS/WMTS) are set up on this page; base maps are national and shipped.',
+      },
       objektplaene: {
         label: 'Object plans',
         title: 'Object plans (modules)',
-        lede: 'Module catalogue for this brigade (labels M1, 2/3 …, detection rules) plus the Einsatzobjekte and their plans. Objects and module PDFs are created and replaced here; the catalogue itself via the admin_config CLI, empty = shipped default modules.',
-        tip: 'One configuration for both: the plan tiles in the app and the file parsing of import_einsatzplaene (the importer fetches this list via /api/config). «Family» derives sub-modules from the file name (Modul 5 - Wasser → modul5-wasser); «Combined with» fills several slots from one combined sheet (Modul 2-3 → modul2, modul3).',
+        lede: 'This brigade’s Einsatzobjekte, their module plans and the module catalogue behind them.',
+        tip: 'The module catalogue configures both: the plan tiles in the app and the importer’s file parsing. «Family» derives sub-modules from the file name (Modul 5 - Wasser → modul5-wasser); «Combined with» fills several slots from one combined sheet (Modul 2-3 → modul2, modul3). No catalogue of your own configured = the shipped default modules apply.',
       },
       checklisten: {
         label: 'Checklists',
         title: 'Checklists',
-        lede: 'The templates behind the Checkliste view: task lists, the situation report and the incident commander’s reference. Upload, replace and delete.',
+        lede: 'The templates behind the Checkliste view: task lists, the situation report and the incident commander’s reference.',
         tip: 'A template is a JSON file carrying its own “id” – that decides which template it replaces. Upload one under a new name and the old one stays, still served to every device, until it is deleted here.',
       },
       mitglieder: { label: 'Members & access', title: 'Members & access', lede: 'Who may sign in, with which role and PIN.' },
-      mannschaft: { label: 'Roster', title: 'Roster', lede: 'Canonical local personnel roster: manual entry and CSV always work; an optional personnel provider can synchronize records.' },
+      mannschaft: {
+        label: 'Roster',
+        title: 'Roster',
+        lede: 'This brigade’s canonical local personnel roster.',
+        tip: 'Manual entry and CSV always work; an optional personnel provider can synchronize records.',
+      },
       erfassung: { label: 'Capture', title: 'Capture (poster)', lede: 'The station capture poster: a QR code through which attendance, materials and notes for a recent incident are recorded without a login.' },
       einsaetze: { label: 'Incident history', title: 'Incident history', lede: 'All current and historical incidents with start time, status, source, report state and last update.' },
       divera: {
@@ -3159,11 +3171,6 @@ export const en: Localizable<Copy> = {
       system: { label: 'System & maintenance', title: 'System & maintenance', lede: 'Status & maintenance: version, database, inventory, storage and this device’s offline cache.' },
       sicherung: { label: 'Backup', title: 'Backup', lede: 'Back up the configuration to a file or restore a saved file.' },
 
-      journal: {
-        label: 'Log',
-        title: 'Log',
-        lede: 'Phrase snippets for the log: suggestions that complete by fuzzy search as you type.',
-      },
       rapport: {
         label: 'Report',
         title: 'Report',
@@ -3172,7 +3179,8 @@ export const en: Localizable<Copy> = {
       alarme: {
         label: 'Alarms & incidents',
         title: 'Alarms & incidents',
-        lede: 'The groups this brigade can alert, how long incidents stay open before they archive themselves, how long the capture poster still reaches a finished incident – and where a new incident is reported to.',
+        lede: 'The groups this brigade can alert, and the deadlines around an incident.',
+        tip: 'This is where it says how long incidents stay open before they archive themselves, how long the capture poster still reaches a finished incident – and where a new incident is reported to.',
       },
     },
     workbook: {
@@ -3284,8 +3292,10 @@ export const en: Localizable<Copy> = {
       sheetMaterial: 'Material',
       sheetNotizen: 'Brief report / work carried out',
       hint: 'The link covers ongoing and not-yet-reported incidents; reported ones disappear after a few hours (default 12 h, alarms.captureWindowHours). No access to the map, administration, or archived incidents.',
+      linkLabel: 'Capture link',
       linkWarn: 'This link is the poster key: whoever holds it can record. After sending it out (test, training) rotate the token and print a fresh poster.',
       testTitle: 'Test it first',
+      testLead: 'with an incident opened as an «exercise».',
       testBody: 'Open an incident with the «exercise» box ticked, send the link, have someone record on it – the exercise is labelled as such in the capture view and stays out of the statistics. Afterwards archive the exercise and rotate the token.',
     },
     statistik: {
@@ -3303,7 +3313,7 @@ export const en: Localizable<Copy> = {
       failed: 'Action failed',
       exampleLabel: 'Example request',
       docsLink: 'API docs',
-      tokenLabel: 'Token',
+      keyLabel: 'Token',
       hint: 'Keep the token secret – it grants read access to all incident data incl. names. Pass it to the analytics tool as the X-Stats-Token header (or ?t=).',
     },
     einsatzlink: {
@@ -3320,7 +3330,8 @@ export const en: Localizable<Copy> = {
       disabled: 'Incident links disabled.',
       failed: 'Action failed',
       keyLabel: 'Key',
-      exampleLabel: 'Link pattern (the alerting system fills in its signed token)',
+      exampleLabel: 'Link pattern',
+      exampleTip: 'The alerting system fills in its own signed token where «<token>» stands.',
       docsLink: 'Integration docs',
       hint: 'The key is generated here and copied into the alerting system – KP Front never accepts a key from elsewhere and is never called when an alert goes out: the alerting system signs the links itself. Keep the key secret, it opens read access to every running incident. No key, no incident links – «Disable» switches the feature off entirely.',
     },
@@ -3330,7 +3341,8 @@ export const en: Localizable<Copy> = {
       stateOn: 'active',
       stateOff: 'disabled',
       keyLabel: 'Key',
-      exampleLabel: 'Setup link – open once on the terminal, from then on the address /terminal is enough',
+      exampleLabel: 'Setup link',
+      exampleTip: 'Open it once on the terminal; from then on the address /terminal is enough there.',
       docsLink: 'Docs',
       enableBtn: 'Enable & generate setup link',
       rotateBtn: 'Rotate key',
@@ -3393,7 +3405,7 @@ export const en: Localizable<Copy> = {
         },
         push: {
           title: 'Push alerts',
-          caption: 'VAPID key pair for alerts to closed apps (breathing apparatus overdue, reminders, new incident). Generate: docker compose exec app uv run python -m app.gen_vapid.',
+          caption: 'VAPID key pair for alerts to closed apps (breathing apparatus overdue, reminders, new incident) – generate it as described in docs/SETUP.md.',
         },
         stt: {
           title: 'Voice memos → text',
@@ -3696,8 +3708,10 @@ export const en: Localizable<Copy> = {
       vehicleIncomplete: 'Incomplete – the row is only stored once it has a label and a key.',
       vehicleDuplicate: 'That key already exists – this row is not stored.',
       attributesTitle: 'Symbol pick lists',
-      cliHint: 'This table only shows them. The lists are edited under «Daten» → «Arbeitsmappe», on the «Symbolfelder» sheet – one row per option (symbol, field, option). Without a spreadsheet: «Sicherung» → export the configuration, add to fleet.attributeLists in the file, import it back. With a command line, in the backend/ directory:',
-      cliCmd: 'uv run python -m app.admin_config push station.json',
+      cliHint: 'Read-only – the lists are edited under «Daten» → «Arbeitsmappe».',
+      cliTip: 'On the «Symbolfelder» sheet, one row per option (symbol, field, option). Without a '
+        + 'spreadsheet: «Sicherung» → export the configuration, add to fleet.attributeLists in the '
+        + 'file, import it back.',
       filterPlaceholder: 'Search symbol …',
       loading: 'Loading symbol library …',
       noMatches: 'No symbol matches the search.',
@@ -4093,18 +4107,15 @@ export const en: Localizable<Copy> = {
       badId: 'The template “id” must not contain a colon or whitespace.',
     },
     modules: {
-      cliHint: 'Individual objects and their module plans are edited below. The module catalogue '
-        + 'itself and bulk plan imports run on the command line, in the backend/ directory:',
-      cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
-      cliCmdConfig: 'uv run python -m app.admin_config push station.json',
       sourceTally: '{n} × {label}',
       pullAnd: '{a} and {b}',
-      pullOn: 'Scheduled sync – some of the plans arrive through it automatically. What the last run '
-        + 'did is under “System”, the access under “Credentials › SharePoint” and the folders in the '
-        + 'configuration.',
-      pullOff: 'No scheduled sync: every plan is uploaded by hand in this form. That is the normal '
-        + 'case, not a fault. To set one up – the access under “Credentials › SharePoint” first, then '
-        + 'the folders in the configuration.',
+      pullOn: 'A scheduled sync is running.',
+      pullOnTip: 'Some of the plans arrive through it automatically. What the last run did is under '
+        + '“System”, the access under “Credentials › SharePoint” and the folders in the configuration.',
+      pullOff: 'No scheduled sync – set one up under “Credentials › SharePoint”.',
+      pullOffTip: 'That is the normal case, not a fault: every plan is uploaded by hand in this form. '
+        + 'To set one up, the access under “Credentials › SharePoint” comes first, then the folders in '
+        + 'the configuration.',
       pullSkips: '{n} of {total} objects have no folder key – the sync from the plan store leaves '
         + 'them out.',
       empty: 'No modules configured – the bundled standard modules apply.',
@@ -4131,9 +4142,10 @@ export const en: Localizable<Copy> = {
       colCoverage: 'Coverage',
     },
     layers: {
-      cliHint: 'Only this overview is read-only. Raster layers (WMS/WMTS) and GeoJSON layers are set up further down this page. Whole manifests – many layers and geodata at once – go through the command line, in the backend/ directory:',
-      cliCmd: 'uv run python -m app.admin_geodata push manifest.json',
-      panelHint: 'A GeoJSON upload sets up the file and the layer together – one without the other is no use.',
+      cliHint: 'Only this overview is read-only – layers are set up further down this page.',
+      cliTip: 'Raster layers (WMS/WMTS) and GeoJSON layers each have their own section below this '
+        + 'table. A GeoJSON upload sets up the file and the layer together – one without the other '
+        + 'is no use.',
       geojsonTitle: 'GeoJSON layers (vector)',
       geojsonTip: 'Your own geodata as a file: hydrants, a utility-cadastre export, the municipality’s zoning plan. Pick the file, name it, upload – the layer then appears during an incident under «Ebenen». One condition: GeoJSON in WGS84 [lng, lat], i.e. EPSG:4326. Swiss exports usually arrive in LV95 and have to be reprojected first.',
       geojsonEmpty: 'No GeoJSON layer loaded yet.',

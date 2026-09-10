@@ -4863,6 +4863,10 @@ export const de = {
       // Überschrift einer Listen-Zeile, solange sie noch keinen eigenen Namen trägt
       // (Alarmgruppe, Fahrzeug, Formular, Kartenportal).
       newEntry: 'Neuer Eintrag',
+      // Zeilentitel des frisch erzeugten Werts auf jeder Schlüssel-Seite. Er steht genau
+      // einmal – nach dem Erzeugen –, darum sagt der Titel, dass er neu ist, und nicht bloss
+      // noch einmal «Schlüssel».
+      newSecret: 'Neu erzeugt',
     },
     // ⚠️ Adressen, keine Übersetzung: die Links ins Handbuch dieser Verwaltung. Ein Fork zeigt
     // sie mit EINER Zeile – `repo` – auf sein eigenes Repository um; die Pfade bleiben gleich.
@@ -4917,36 +4921,49 @@ export const de = {
       groupDaten: 'Daten',
       groupSystem: 'System',
       identitaet: { label: 'Station & Karte', title: 'Station & Karte', lede: 'Name, Sprache, Markenfarbe, Logos und Startansicht der Karte für diese Installation.' },
+      // ⚠️ Kein eigener Menüpunkt mehr – aber `title` benennt weiterhin die Karten- bzw.
+      // Journal-Gruppe auf «Station & Karte» und «Rapport» (ConfigSections, ConfigContext).
       karte: { label: 'Karte', title: 'Karte', lede: 'Startansicht der Karte (Zentrum + Zoom), bevor ein Einsatz gewählt ist.' },
-      doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       journal: { label: 'Journal', title: 'Journal', lede: 'Textbausteine für den Verlauf: Vorschläge, die beim Tippen per Fuzzy-Suche vervollständigen.' },
+      doktrin: { label: 'Doktrin', title: 'Doktrin', lede: 'FKS-Vorgaben dieser Wehr: Standard-Funkkanal, AGT-Kontaktintervall und Warn-Vorlauf.' },
       rapport: { label: 'Rapport', title: 'Rapport', lede: 'Wie die Einsatzstunden auf dem gedruckten Rapport gerundet werden – und welche eigenen Formulare am Schluss noch auszufüllen sind.' },
       alarme: {
         label: 'Alarme & Einsätze',
         title: 'Alarme & Einsätze',
-        lede: 'Die alarmierbaren Gruppen dieser Wehr, wie lange Einsätze offen bleiben, bis sie von selbst ins Archiv wandern, wie lange das Erfassungs-Poster einen fertigen Einsatz noch erreicht – und wohin ein neuer Einsatz gemeldet wird.',
+        lede: 'Die alarmierbaren Gruppen dieser Wehr und die Fristen rund um einen Einsatz.',
+        tip: 'Hier steht, wie lange Einsätze offen bleiben, bis sie von selbst ins Archiv wandern, wie lange das Erfassungs-Poster einen fertigen Einsatz noch erreicht – und wohin ein neuer Einsatz gemeldet wird.',
       },
       fahrzeuge: {
         label: 'Fahrzeuge & Symbole',
         title: 'Fahrzeuge & Symbole',
-        lede: 'Die Fahrzeuge der Wehr – hier bearbeitbar; sie ergeben das Raster für Ausrückzeiten auf dem Rapport. Darunter die Symbol-Felder und ihre Auswahllisten (schreibgeschützt).',
-        tip: 'Jede Liste hängt Auswahl-Vorschläge an ein Symbol-Feld – z. B. Fahrzeugtypen an «VKF Fahrzeug · Titel». Vorschläge nur; freies Tippen bleibt auf der Karte immer möglich.',
+        lede: 'Die Fahrzeuge der Wehr und die Auswahllisten hinter den Symbol-Feldern.',
+        tip: 'Die Fahrzeuge sind hier bearbeitbar; sie ergeben das Raster für Ausrückzeiten auf dem Rapport. Die Auswahllisten darunter zeigen nur an: Jede hängt Vorschläge an ein Symbol-Feld – z. B. Fahrzeugtypen an «VKF Fahrzeug · Titel». Vorschläge nur; freies Tippen bleibt auf der Karte immer möglich.',
       },
-      ebenen: { label: 'Kartenebenen', title: 'Kartenebenen & Geodaten', lede: 'Referenzebenen dieser Wehr (Hydranten, Leitungskataster, Kanton-WMS …) mit Lade-Status sowie die geladenen Datensätze. GeoJSON-Dateien und Raster-Ebenen (WMS/WMTS) sind hier einrichtbar, ganze Manifeste via admin_geodata-CLI; Grundkarten sind national/mitgeliefert.' },
+      ebenen: {
+        label: 'Kartenebenen',
+        title: 'Kartenebenen & Geodaten',
+        lede: 'Referenzebenen dieser Wehr – Hydranten, Leitungskataster, Kanton-WMS – und die geladenen Datensätze.',
+        tip: 'GeoJSON-Dateien und Raster-Ebenen (WMS/WMTS) werden auf dieser Seite eingerichtet; Grundkarten sind national und mitgeliefert.',
+      },
       objektplaene: {
         label: 'Objektpläne',
         title: 'Objektpläne',
-        lede: 'Modul-Katalog dieser Wehr (Kacheln M1/2-3 …, Erkennungsregeln) mit Abdeckung sowie die Einsatzobjekte & ihre Pläne. Objekte und Modul-PDFs werden hier angelegt und ersetzt; der Katalog selbst via admin_config-CLI, leer = mitgelieferte Standard-Module.',
-        tip: 'Der Modul-Katalog konfiguriert beides: die Plan-Kacheln in der App und das Datei-Parsing von import_einsatzplaene (der Importer holt die Liste via /api/config). «Familie» erzeugt Untermodule aus dem Dateinamen (Modul 5 - Wasser → modul5-wasser); «Kombiniert mit» füllt mehrere Slots aus einem Sammelblatt (Modul 2-3 → modul2, modul3).',
+        lede: 'Die Einsatzobjekte dieser Wehr, ihre Modulpläne und der Modul-Katalog dahinter.',
+        tip: 'Der Modul-Katalog konfiguriert beides: die Plan-Kacheln in der App und das Datei-Parsing des Importers. «Familie» erzeugt Untermodule aus dem Dateinamen (Modul 5 - Wasser → modul5-wasser); «Kombiniert mit» füllt mehrere Slots aus einem Sammelblatt (Modul 2-3 → modul2, modul3). Kein eigener Katalog konfiguriert = die mitgelieferten Standard-Module gelten.',
       },
       checklisten: {
         label: 'Checklisten',
         title: 'Checklisten',
-        lede: 'Die Vorlagen hinter der Checkliste-Ansicht: Aufgabenlisten, Lagerapport und das Einsatzleiter-Nachschlagewerk. Hochladen, ersetzen und löschen.',
+        lede: 'Die Vorlagen hinter der Checkliste-Ansicht: Aufgabenlisten, Lagerapport und das Einsatzleiter-Nachschlagewerk.',
         tip: 'Eine Vorlage ist eine JSON-Datei mit einer eigenen «id» – die entscheidet, welche Vorlage ersetzt wird. Wird eine Vorlage unter neuem Namen hochgeladen, bleibt die alte bestehen und wird weiter an alle Geräte ausgeliefert, bis sie hier gelöscht wird.',
       },
       mitglieder: { label: 'Mitglieder & Zugriff', title: 'Mitglieder & Zugriff', lede: 'Wer sich anmelden darf, mit welcher Rolle und welcher PIN.' },
-      mannschaft: { label: 'Personal', title: 'Personal', lede: 'Lokaler Personenstamm der Wehr: Handeingabe und CSV funktionieren immer; eine konfigurierte Personalquelle kann zusätzlich synchronisieren.' },
+      mannschaft: {
+        label: 'Personal',
+        title: 'Personal',
+        lede: 'Der lokale Personenstamm dieser Wehr.',
+        tip: 'Handeingabe und CSV funktionieren immer; eine konfigurierte Personalquelle kann zusätzlich synchronisieren.',
+      },
       erfassung: { label: 'Erfassung', title: 'Erfassung (Poster)', lede: 'Das Erfassungs-Poster fürs Magazin: QR-Code, über den ohne Anmeldung Anwesenheit, Material und Notizen zu einem aktuellen Einsatz erfasst werden.' },
       einsaetze: { label: 'Einsatzhistorie', title: 'Einsatzhistorie', lede: 'Alle aktuellen und historischen Einsätze mit Startzeit, Status, Herkunft, Rapportstand und letzter Änderung.' },
       divera: {
@@ -5124,8 +5141,10 @@ export const de = {
       hint: 'Der Link gilt für laufende und noch nicht rapportierte Einsätze; rapportierte verschwinden nach wenigen Stunden (Standard 12 h, alarms.captureWindowHours). Kein Zugriff auf Karte, Verwaltung oder archivierte Einsätze.',
       // The link IS the poster's secret — whoever sends it around hands out the whole Wache's
       // access. It says so here, because this is exactly where the link is offered for copying.
+      linkLabel: 'Erfassungs-Link',
       linkWarn: 'Dieser Link ist der Poster-Schlüssel: Wer ihn hat, kann erfassen. Nach dem Verschicken (Test, Schulung) Token rotieren und Poster neu drucken.',
       testTitle: 'Vorher testen',
+      testLead: 'mit einem Einsatz, der als «Übung» eröffnet ist.',
       testBody: 'Einsatz mit Haken «Übung» eröffnen, den Link verschicken, erfassen lassen – die Übung ist in der Erfassung als solche angeschrieben und zählt nicht in die Statistik. Danach die Übung archivieren und den Token rotieren.',
     },
     statistik: {
@@ -5143,7 +5162,7 @@ export const de = {
       failed: 'Aktion fehlgeschlagen',
       exampleLabel: 'Abfrage-Beispiel',
       docsLink: 'API-Doku',
-      tokenLabel: 'Token',
+      keyLabel: 'Token',
       hint: 'Token geheim halten – er gewährt Lesezugriff auf alle Einsatzdaten inkl. Namen. Übergabe an das Auswertungs-Tool als Header X-Stats-Token (oder ?t=).',
     },
     einsatzlink: {
@@ -5160,7 +5179,8 @@ export const de = {
       disabled: 'Einsatz-Links deaktiviert.',
       failed: 'Aktion fehlgeschlagen',
       keyLabel: 'Schlüssel',
-      exampleLabel: 'Link-Muster (die Alarmierung setzt ihren signierten Token ein)',
+      exampleLabel: 'Link-Muster',
+      exampleTip: 'Die Alarmierung setzt an der Stelle von «<token>» ihren eigenen, signierten Token ein.',
       docsLink: 'Integrations-Doku',
       hint: 'Der Schlüssel wird hier erzeugt und in die Alarmierung kopiert – KP Front nimmt keinen fremden Schlüssel entgegen und wird beim Alarmieren nie aufgerufen: Die Alarmierung signiert die Links selbst. Schlüssel geheim halten, er öffnet Lesezugriff auf jeden laufenden Einsatz. Ohne Schlüssel gibt es keine Einsatz-Links – «Deaktivieren» schaltet die Funktion ganz ab.',
     },
@@ -5171,7 +5191,8 @@ export const de = {
       stateOn: 'aktiv',
       stateOff: 'deaktiviert',
       keyLabel: 'Schlüssel',
-      exampleLabel: 'Einrichtungs-Link – auf dem Terminal einmal öffnen, danach genügt die Adresse /terminal',
+      exampleLabel: 'Einrichtungs-Link',
+      exampleTip: 'Auf dem Terminal einmal öffnen, danach genügt dort die Adresse /terminal.',
       docsLink: 'Doku',
       enableBtn: 'Aktivieren & Einrichtungs-Link erzeugen',
       rotateBtn: 'Schlüssel rotieren',
@@ -5239,7 +5260,7 @@ export const de = {
         },
         push: {
           title: 'Push-Meldungen',
-          caption: 'VAPID-Schlüsselpaar für Alarme an geschlossene Apps (Atemschutz überfällig, Wiedervorlagen, neuer Einsatz). Erzeugen: docker compose exec app uv run python -m app.gen_vapid.',
+          caption: 'VAPID-Schlüsselpaar für Alarme an geschlossene Apps (Atemschutz überfällig, Wiedervorlagen, neuer Einsatz) – erzeugen nach docs/SETUP.md.',
         },
         stt: {
           title: 'Sprachnotizen → Text',
@@ -5695,8 +5716,10 @@ export const de = {
       vehicleDuplicate: 'Diese Kennung gibt es schon – die Zeile wird nicht gespeichert.',
       // ── Symbol-Auswahllisten: hier nur Ansicht, geschrieben wird auf dem Blatt «Symbolfelder» ──
       attributesTitle: 'Auswahllisten der Symbole',
-      cliHint: 'Diese Tabelle zeigt nur an. Bearbeitet werden die Listen unter «Daten» → «Arbeitsmappe», auf dem Blatt «Symbolfelder» – eine Zeile je Option (Symbol, Feld, Option). Ohne Tabellenprogramm: «Sicherung» → Konfiguration exportieren, in der Datei fleet.attributeLists ergänzen und wieder importieren. Mit Kommandozeile, im Verzeichnis backend/:',
-      cliCmd: 'uv run python -m app.admin_config push station.json',
+      cliHint: 'Schreibgeschützt – bearbeitet werden die Listen unter «Daten» → «Arbeitsmappe».',
+      cliTip: 'Auf dem Blatt «Symbolfelder», eine Zeile je Option (Symbol, Feld, Option). Ohne '
+        + 'Tabellenprogramm: «Sicherung» → Konfiguration exportieren, in der Datei '
+        + 'fleet.attributeLists ergänzen und wieder importieren.',
       filterPlaceholder: 'Symbol suchen …',
       loading: 'Symbolbibliothek wird geladen …',
       noMatches: 'Kein Symbol passt zur Suche.',
@@ -6147,19 +6170,19 @@ export const de = {
       viewerBadge: 'Nur Ansicht',
       viewerHint: 'PDF ohne Zeichnen',
       objectsTitle: 'Objekte & Pläne',
-      cliHint: 'Einzelne Objekte und ihre Modulpläne werden unten bearbeitet. Der Modul-Katalog '
-        + 'selbst und ganze Plan-Importe laufen über die Kommandozeile, im Verzeichnis backend/:',
-      cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
-      cliCmdConfig: 'uv run python -m app.admin_config push station.json',
       // ── Woher die Pläne kommen: gezählte Herkunft + Zustand des Abgleichs ──
+      // ⚠️ Inline steht der Zustand und wo er eingerichtet wird – ein Satz. Warum «kein
+      // Abgleich» der Normalfall ist und was der letzte Lauf getan hat, steht im ⓘ.
       sourceTally: '{n} × {label}',
       pullAnd: '{a} und {b}',
-      pullOn: 'Zeitgesteuerter Abgleich – ein Teil der Pläne kommt darüber automatisch herein. Was '
-        + 'der letzte Lauf getan hat, steht unter «System», der Zugang unter «Zugangsdaten › '
-        + 'SharePoint» und die Ordner in der Konfiguration.',
-      pullOff: 'Kein zeitgesteuerter Abgleich: Alle Pläne kommen von Hand in die Maske. Das ist der '
-        + 'Normalfall, kein Fehler. Einrichten – zuerst der Zugang unter «Zugangsdaten › SharePoint», '
-        + 'danach die Ordner in der Konfiguration.',
+      pullOn: 'Zeitgesteuerter Abgleich läuft.',
+      pullOnTip: 'Ein Teil der Pläne kommt darüber automatisch herein. Was der letzte Lauf getan '
+        + 'hat, steht unter «System», der Zugang unter «Zugangsdaten › SharePoint» und die Ordner '
+        + 'in der Konfiguration.',
+      pullOff: 'Kein zeitgesteuerter Abgleich – einrichten unter «Zugangsdaten › SharePoint».',
+      pullOffTip: 'Das ist der Normalfall, kein Fehler: Alle Pläne kommen von Hand in die Maske. '
+        + 'Zum Einrichten zuerst der Zugang unter «Zugangsdaten › SharePoint», danach die Ordner '
+        + 'in der Konfiguration.',
       pullSkips: '{n} von {total} Objekten haben keinen Ordner-Schlüssel – der Abgleich aus dem '
         + 'Planspeicher lässt sie aus.',
     },
@@ -6191,9 +6214,10 @@ export const de = {
       attribution: 'Quelle',
       source: 'Quelle',
       datasetsTitle: 'Geladene Datensätze',
-      cliHint: 'Nur diese Übersicht ist schreibgeschützt. Raster-Ebenen (WMS/WMTS) und GeoJSON-Ebenen werden weiter unten auf dieser Seite eingerichtet. Ganze Manifeste – viele Ebenen und Geodaten auf einmal – gehen über die Kommandozeile, im Verzeichnis backend/:',
-      cliCmd: 'uv run python -m app.admin_geodata push manifest.json',
-      panelHint: 'Beim GeoJSON-Upload werden Datei und Ebene zusammen eingerichtet – eines ohne das andere nützt nichts.',
+      cliHint: 'Nur diese Übersicht ist schreibgeschützt – eingerichtet wird weiter unten auf dieser Seite.',
+      cliTip: 'Raster-Ebenen (WMS/WMTS) und GeoJSON-Ebenen haben ihre eigenen Abschnitte unter '
+        + 'dieser Tabelle. Beim GeoJSON-Upload werden Datei und Ebene zusammen eingerichtet – '
+        + 'eines ohne das andere nützt nichts.',
       // GeoJSON-Ebenen: eigene Geodaten als Datei. Der Upload macht beide Hälften – Datei in
       // den Datensatz-Speicher UND Ebene in die Konfiguration –, denn eine ohne die andere
       // nützt nichts.
