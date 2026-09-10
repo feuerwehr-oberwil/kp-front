@@ -232,7 +232,8 @@ class _Denied(HTTPException):
 #   report/print, zeitplan/print    — make the station printer print, from a forwarded URL
 #   print-jobs DELETE               — cancels another person's job
 #   push/subscriptions              — writes rows tied to a user
-#   diag/report                     — enqueues outbound telemetry
+#   diag/export                     — the station's own crash traces. Sanitised, but a link
+#                                     is handed to outsiders and this is internal diagnostics
 #   geocode/*, overpass/*           — billable third-party calls, and an open proxy
 #   media/*/peaks, */transcription  — GETs that mutate state or write files
 #

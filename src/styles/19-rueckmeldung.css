@@ -31,65 +31,48 @@ p.fb-prompt-q { margin: 0; font: 600 14px var(--body); color: var(--ink); }
    jitter while typing. */
 .fb-count { margin: -6px 0 0; text-align: right; font: 400 12px var(--body);
   color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-/* «Das wird mitgeschickt» is OPEN by default — the promise that nothing else leaves the device
-   is only credible if the operator can read the whole block while deciding, not after. */
+/* «Das wird mitgeschickt» is COLLAPSED since the sheet stopped transmitting: the operator is
+   about to read the whole report in their own mail client or in a GitHub form, so the block is
+   a detail on request rather than the last thing standing between them and a send. */
 .fb-tech > summary { cursor: pointer; font: 600 12.5px var(--body); color: var(--ink-dim);
   min-height: 44px; display: flex; align-items: center; }
 .fb-tech-block { margin: 4px 0 0; padding: 10px 12px; overflow-x: auto;
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim);
   font: 400 12px/1.6 var(--mono, ui-monospace, monospace); white-space: pre; }
 .fb-tech-note { margin: 6px 0 0; font: 400 12px var(--body); color: var(--ink-faint); }
-/* Foto anhängen — the one binary a Rückmeldung may carry, and the only part of the payload no
-   scrubber can read. It sits directly under «Das wird mitgeschickt» because that is what it is:
-   a thumbnail the operator can recognise before deciding, not a filename they have to trust. */
-.fb-photos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 0; }
-.fb-photo { position: relative; margin: 0; width: 96px; height: 96px; overflow: hidden;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--fill-soft); }
-.fb-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
-/* 44px target as everywhere else, but only the 24px chip inside it paints — a remove button
-   that covered a quarter of the thumbnail would hide the thing it is asking about. */
-.fb-photo-x { position: absolute; top: 0; right: 0; width: 44px; height: 44px; display: grid;
-  place-items: center; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink); }
-.fb-photo-x svg { width: 14px; height: 14px; padding: 5px; border-radius: 50%;
-  background: color-mix(in srgb, var(--surface) 85%, transparent);
-  box-shadow: 0 1px 3px color-mix(in srgb, #000 28%, transparent); }
-.fb-photo-x:focus-visible { outline: 2px solid var(--blue); outline-offset: -6px; border-radius: var(--r-sm); }
-/* The label IS the button (same trick as .report-att-add) — the input only has to be reachable. */
-.fb-photo-add { position: relative; display: inline-flex; align-items: center; gap: 6px;
-  min-height: 44px; padding: 0 12px; cursor: pointer; border: 1px dashed var(--glass-edge);
-  border-radius: var(--r-sm); color: var(--ink-dim); font: 700 12.5px var(--body); }
+/* The two routes. Full-width cells rather than a button row: each one carries a sentence about
+   what it costs (a GitHub account) and what it buys (a status you can follow), and that is the
+   whole decision — a pair of bare labels would make the operator guess it. */
+.fb-routes { display: flex; flex-direction: column; gap: 8px; }
+.fb-route { display: flex; gap: 12px; align-items: flex-start; width: 100%; text-align: left;
+  padding: 12px 14px; cursor: pointer; border: 1px solid var(--glass-edge);
+  border-radius: var(--r-sm); background: var(--surface); color: inherit; font: inherit; }
 @media (hover: hover) {
-  .fb-photo-add:hover { background: var(--fill-soft); color: var(--ink); }
+  .fb-route:hover { background: var(--fill-soft); }
 }
-.fb-photo-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.fb-photo-add:focus-within { outline: 2px solid var(--blue); outline-offset: 1px; }
-.fb-photo-add svg { width: 14px; height: 14px; flex: none; }
-/* Off-screen rather than display:none, so the control keeps its place in the tab order. */
-.fb-photo-add input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.fb-photo-hint { font: 400 12px var(--body); color: var(--ink-faint); }
-/* Why Kopieren/E-Mail suddenly carry less than the send button does. A note, never a disabled
-   button: the text is still worth copying, and on a deployment with outbound off it is the
-   only exit there is. */
-.fb-photo-note { margin: -6px 0 0; font: 400 12px var(--body); color: var(--ink-faint); }
+.fb-route:active { background-image: linear-gradient(var(--press), var(--press)); }
+.fb-route:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+/* The chosen one carries a 2px ink border and compensates in padding, so picking a route does
+   not shift the two cells by a pixel — a layout that twitches under the finger reads as a
+   misfire and invites a second tap. */
+.fb-route.pick { border: 2px solid var(--ink-fill); padding: 11px 13px; }
+.fb-route-ico { flex: none; display: grid; place-items: center; width: 32px; height: 32px;
+  border-radius: var(--r-xs); background: var(--fill-soft); color: var(--ink); }
+.fb-route.pick .fb-route-ico { background: var(--ink-fill); color: var(--on-accent-ink); }
+.fb-route-ico svg { width: 15px; height: 15px; }
+.fb-route-body { display: flex; flex-direction: column; gap: 3px; }
+.fb-route-t { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font: 700 13.5px var(--body); color: var(--ink); }
+.fb-route-s { font: 400 12px/1.5 var(--body); color: var(--ink-dim); }
+.fb-route-badge { padding: 1px 8px; border-radius: var(--r-pill); background: var(--green);
+  color: var(--on-fill); font: 700 10.5px var(--body); }
+.fb-route-badge.grey { background: var(--fill-soft); color: var(--ink-faint); }
+/* What the file is and why it matters, directly under the routes it applies to both of. */
+.fb-diag-note { margin: -2px 0 0; padding-left: 10px; border-left: 2px solid var(--glass-edge);
+  font: 400 12px/1.5 var(--body); color: var(--ink-faint); }
 .fb-privacy { display: flex; align-items: center; gap: 6px; margin: 0;
   font: 400 12.5px var(--body); color: var(--ink-faint); }
 .fb-privacy svg { width: 14px; height: 14px; flex: none; }
-/* Send failed / disabled: warn tone, but still a note rather than an alarm — the fallbacks
-   are one button away and nothing the operator typed is lost. */
-.fb-warn { color: var(--amber-strong); align-items: flex-start; }
-/* Kopieren / E-Mail: the server-free routes. Quiet and left-aligned so the row below reads as
-   one decision (senden oder nicht) instead of a menu of transports — but still a 44px target,
-   because on a deployment with outbound switched off they are the ONLY way out. */
-.fb-alt { display: flex; gap: 4px; flex-wrap: wrap; margin: -4px 0 -4px -10px; }
-.fb-alt-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 44px;
-  padding: 0 10px; border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
-  color: var(--ink-dim); font: 700 12.5px var(--body); }
-@media (hover: hover) {
-  .fb-alt-btn:hover { background: var(--fill-soft); color: var(--ink); }
-}
-.fb-alt-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.fb-alt-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.fb-alt-btn svg { width: 14px; height: 14px; flex: none; }
 .fb-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
 /* install steps rendered INSIDE the Offline-Bereitschaft sheet (not behind a second modal):

@@ -32,7 +32,13 @@ const base = {
   // own address and upstream never hears from it, which is the correct default for a project
   // whose promise is that the station owns its data.
   feedback: {
-    mailto: 'bastian@eichenbergers.ch',
+    mailto: 'bastian.eichenberger@feuerwehr-oberwil.ch',
+    // The other exit. Since the maintainer's ingest was retired (PRIVACY.md § «Where it
+    // goes») these two links ARE the reporting channel — nothing travels on its own any
+    // more — so the issue form is the one that gets the structure: it can demand a version
+    // and the Diagnose-Datei, which a free-text mail cannot. A station that triages
+    // internally overrides `mailto` and can blank `github` to hide the route entirely.
+    github: 'https://github.com/feuerwehr-oberwil/kp-front',
   },
   defaults: {
     operationalLayerId: 'taktisch' as LayerId,   // placed symbols

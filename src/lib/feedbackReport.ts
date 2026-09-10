@@ -88,6 +88,29 @@ export function mailtoUrl(address: string, subject: string, body: string): strin
   return `mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
+/** How much of the technical block travels in a URL. GitHub redirects a prefilled issue link
+ *  through its login flow, and a URL that survives the browser can still be refused there —
+ *  so the query carries the short block and the Diagnose-Datei carries the rest, which is the
+ *  division of labour the sheet explains to the operator anyway. */
+const MAX_PREFILL = 1200
+
+/** Prefilled `new issue` URL against the bug-report FORM (`.github/ISSUE_TEMPLATE/
+ *  bug_report.yml`). The query keys are the form's field ids — `what`, `version`,
+ *  `diagnostics` — and GitHub silently ignores a key that matches no field, so a renamed
+ *  field degrades to an empty box rather than an error.
+ *
+ *  `repo` is the base repository URL; a deployment that blanks it has no GitHub route and the
+ *  sheet does not offer one. */
+export function githubIssueUrl(repo: string, input: ReportInput): string {
+  const q = new URLSearchParams({
+    template: 'bug_report.yml',
+    what: input.message.trim().slice(0, MAX_PREFILL),
+    version: input.env.build,
+    diagnostics: buildTechBlock(input).slice(0, MAX_PREFILL),
+  })
+  return `${repo.replace(/\/+$/, '')}/issues/new?${q}`
+}
+
 /** Snapshot the environment. The only impure function in this module; kept separate so
  *  everything above can be tested without a DOM. */
 export function readEnv(build: string, locale: string): ReportEnv {

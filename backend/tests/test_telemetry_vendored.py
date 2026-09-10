@@ -15,7 +15,9 @@ across, run both suites, then update the hash in both repositories in the same c
 
 The list is deliberately short. ``consent.py`` is NOT here — it has to talk to whatever table
 a given app keeps deployment state in, and those legitimately differ. ``dsn.py`` is not here
-either: it holds the app's own ingest project. Everything that decides what a payload
+either: it used to hold the app's own ingest project, and although both copies are now the
+same empty default, pinning it would only mean a self-hoster's fork fails a drift test for
+changing the one line it is supposed to change. Everything that decides what a payload
 *contains* is here, and that is the part that must never diverge.
 """
 
@@ -27,12 +29,17 @@ import pytest
 TELEMETRY = Path(__file__).resolve().parent.parent / "app" / "telemetry"
 
 # sha256 of each vendored file, as it exists in feuerwehr-oberwil/kp-front.
-# Regenerate with:  shasum -a 256 backend/app/telemetry/{scrub,envelope,outbox,forwarder}.py
+# Regenerate with:
+#   shasum -a 256 backend/app/telemetry/{scrub,envelope,outbox,forwarder,recent}.py
 VENDORED = {
-    "scrub.py": "9fdf5f93c6f1cba9dee68f336bd0d76681b65d9b67026fd8108017b9d2d57039",
+    "scrub.py": "fd650be000b92ad14087378e047391ca945b5401dcf6f32edaf29d78c1261121",
     "envelope.py": "fa581ba2ec4224426ce67750c4e575c6d44a12a5cc63a81498da2e245430995f",
     "outbox.py": "e59113482ba07ff52fcbe4f8cc318d1b3143993e88367298fbccc503facc428a",
     "forwarder.py": "7256d10b5c25c4b9056836b6c53862ece0b2836e41e1684738fa91daf0cfee13",
+    # Joined the list when the maintainer's ingest was retired. It shapes the diagnostics
+    # bundle an operator mails us, which is now the route a bug report actually travels —
+    # the two apps producing differently-shaped bundles is exactly the drift worth catching.
+    "recent.py": "5b9c639f41964c26462090265fede37f806f3d80795d47200ec178d44f7beab4",
 }
 
 

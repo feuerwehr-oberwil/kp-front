@@ -5,26 +5,41 @@ import { FeedbackPrompt } from './FeedbackPrompt'
 import { FeedbackSheet } from './FeedbackSheet'
 import { appConfig } from '../../config/appConfig'
 import { readTrouble, type TroubleEvent } from '../../lib/trouble'
-import { submitReport } from '../../lib/feedbackSubmit'
+import { fetchDiagnostics, saveDiagnostics } from '../../lib/feedbackDiagnostics'
 import { MAX_MESSAGE, readDraft, writeDraft } from '../../lib/feedbackDraft'
 
 // The guarantees worth pinning, because breaking any of them turns a helpful prompt into the
 // thing the 3am tenet forbids:
 //   1. Dismissing starts the cooldown — so this can never become a nag.
-//   2. Nothing is transmitted without a deliberate tap on a button that says so.
-//   3. When sending fails, the operator is not stranded: copy/mail still work and what they
-//      typed is still on screen.
+//   2. Nothing leaves without a deliberate tap. The app has had no upstream since the ingest
+//      was retired, so «leaves» now means «a mail client or a GitHub form opened».
+//   3. The Diagnose-Datei is saved on the way out. It is the only reason a bug report is
+//      actionable, and a route that forgets it produces «pls fix» with extra steps.
 
-vi.mock('../../lib/feedbackSubmit', () => ({ submitReport: vi.fn(), PHOTO_LIMIT: 2 }))
-const mockSubmit = vi.mocked(submitReport)
-
-// The real downscaler needs a canvas jsdom does not have. What these tests are about is where
-// the result goes; whether the arithmetic that produced it is right is lib/imagePrep.test.ts.
-const prepared = new Blob([new Uint8Array(1234)], { type: 'image/jpeg' })
-vi.mock('../../lib/imagePrep', () => ({ prepareFeedbackPhoto: vi.fn(async () => prepared) }))
+vi.mock('../../lib/feedbackDiagnostics', async (orig) => ({
+  ...(await orig<typeof import('../../lib/feedbackDiagnostics')>()),
+  fetchDiagnostics: vi.fn(),
+  saveDiagnostics: vi.fn(() => 'kp-front-diagnose-2026-09-09.json'),
+}))
+const mockFetch = vi.mocked(fetchDiagnostics)
+const mockSave = vi.mocked(saveDiagnostics)
 
 const cp = appConfig.copy.feedback
 const trouble: TroubleEvent = { kind: 'crashLoop', at: 1_800_000_000_000 }
+
+const aBundle = (errors: number) => ({
+  generatedAt: '2026-09-09T20:00:00Z',
+  app: 'kp-front',
+  release: '0.4.1',
+  install: 'abc-123',
+  device: 'iPad Safari',
+  errors: Array.from({ length: errors }, (_, i) => ({ message: `boom ${i}` })),
+  errorsKept: 50,
+  note: 'nichts Persönliches',
+})
+
+/** Wait for the on-open fetch to land, so assertions don't race the error count. */
+const settled = () => waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
 // jsdom's Window defines `localStorage` as a getter-only accessor (spec-accurate, same as a
 // real browser), so a plain assignment throws — must replace the property descriptor instead.
@@ -45,24 +60,18 @@ function installLocalStorage() {
 
 beforeEach(() => {
   installLocalStorage()
-  mockSubmit.mockReset()
-  mockSubmit.mockResolvedValue({ ok: true, sent: { tags: { channel: 'report' } } })
-  Object.defineProperty(URL, 'createObjectURL', { value: () => 'blob:photo', configurable: true })
-  Object.defineProperty(URL, 'revokeObjectURL', { value: () => {}, configurable: true })
+  mockFetch.mockReset()
+  mockFetch.mockResolvedValue(aBundle(3))
+  mockSave.mockClear()
+  // jsdom implements neither, and both are how the sheet's two routes leave.
+  vi.stubGlobal('open', vi.fn())
+  Object.defineProperty(window, 'location', { value: { href: '' }, configurable: true, writable: true })
 })
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
-/** Attach one photo the way the operator does: pick a file. */
-async function attachPhoto() {
-  const input = document.querySelector('.fb-photo-add input') as HTMLInputElement
-  const before = document.querySelectorAll('.fb-photo').length
-  Object.defineProperty(input, 'files', {
-    value: [new File([new Uint8Array(9)], 'lage.jpg', { type: 'image/jpeg' })],
-    configurable: true,
-  })
-  fireEvent.change(input)
-  await waitFor(() => expect(document.querySelectorAll('.fb-photo').length).toBe(before + 1))
-}
+/** The «Weiter» button — the one exit that actually does something. */
+const next = () => screen.getByText(cp.next).closest('button') as HTMLButtonElement
+const pick = (label: string) => fireEvent.click(screen.getByText(label))
 
 describe('FeedbackPrompt', () => {
   it('asks about the specific thing that happened, not a generic "any feedback?"', () => {
@@ -80,14 +89,27 @@ describe('FeedbackPrompt', () => {
 })
 
 describe('FeedbackSheet', () => {
-  it('shows the operator exactly what would be sent', () => {
+  it('shows the operator exactly what would be sent', async () => {
     render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
-    // the technical block is on screen, verbatim — the privacy promise is only credible if
-    // it can be read
+    await settled()
     const block = document.querySelector('.fb-tech-block')?.textContent ?? ''
-    expect(block).toContain(appConfig.copy.feedback.tech.version)
-    expect(block).toContain(appConfig.copy.feedback.tech.device)
+    expect(block).toContain(cp.tech.version)
+    expect(block).toContain(cp.tech.device)
     expect(screen.getByText(cp.techNote)).toBeTruthy()
+  })
+
+  it('names how many crash logs the file will carry, before anything is decided', async () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    await waitFor(() => {
+      expect(document.querySelector('.fb-tech-block')?.textContent).toContain(cp.diagLine)
+    })
+    expect(document.querySelector('.fb-diag-note')?.textContent).toContain('3')
+  })
+
+  it('says so plainly when there is nothing to attach, rather than promising a file', async () => {
+    mockFetch.mockResolvedValue(aBundle(0))
+    render(<FeedbackSheet onClose={() => {}} />)
+    await waitFor(() => expect(screen.getByText(cp.diagNoteEmpty)).toBeTruthy())
   })
 
   it('carries the trouble question through from the prompt', () => {
@@ -95,50 +117,29 @@ describe('FeedbackSheet', () => {
     expect(screen.getByText(cp.promptFor.crashLoop)).toBeTruthy()
   })
 
-  it('sends nothing on its own — every exit needs a deliberate tap', () => {
+  it('opens neither route on its own — every exit needs a deliberate tap', async () => {
     render(<FeedbackSheet onClose={() => {}} />)
-    // The invariant is NOT "there is no send button" any more; it is that opening, typing
-    // and reading never transmit. Four exits (close / copy / mail / send), all of them a tap —
-    // split across two rows now, so count both.
-    const labels = [...document.querySelectorAll('.fb-alt button, .fb-actions button')]
-      .map((b) => b.textContent?.trim())
-    expect(labels).toHaveLength(4)
-    expect(labels.join(' ')).toContain(cp.copy)
-    expect(labels.join(' ')).toContain(cp.mail)
-    expect(labels.join(' ')).toContain(cp.send)
-    expect(submitReport).not.toHaveBeenCalled()
+    await settled()
+    expect(window.open).not.toHaveBeenCalled()
+    expect(window.location.href).toBe('')
+    expect(mockSave).not.toHaveBeenCalled()
   })
 
-  it('shows what would be sent without needing a tap to reveal it', () => {
-    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
-    // Open by default: behind a summary the claim is unread at the moment it matters.
-    expect(document.querySelector('details.fb-tech')?.hasAttribute('open')).toBe(true)
-  })
-
-  it('stops typing at the server cap rather than letting the POST 422', () => {
+  it('stops typing at the cap rather than letting the issue form truncate it', () => {
     render(<FeedbackSheet onClose={() => {}} />)
-    const input = document.querySelector('.fb-input') as HTMLTextAreaElement
-    // Without this the report is rejected and the operator is told they are offline.
-    expect(input.maxLength).toBe(MAX_MESSAGE)
+    expect((document.querySelector('.fb-input') as HTMLTextAreaElement).maxLength).toBe(MAX_MESSAGE)
   })
 
   it('will not send an empty report that carries no trouble either', () => {
     render(<FeedbackSheet onClose={() => {}} />)
-    const send = screen.getByText(cp.send).closest('button') as HTMLButtonElement
-    expect(send.disabled).toBe(true)
-    // ...but a trouble makes even a wordless "yes, this happened to me" worth a row.
+    expect(next().disabled).toBe(true)
+    // ...but a trouble makes even a wordless "yes, this happened to me" worth a report.
     cleanup()
     render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
-    expect((screen.getByText(cp.send).closest('button') as HTMLButtonElement).disabled).toBe(false)
+    expect(next().disabled).toBe(false)
   })
 
-  it('does not send while the operator is typing', () => {
-    render(<FeedbackSheet onClose={() => {}} />)
-    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'Bildschirm weg' } })
-    expect(submitReport).not.toHaveBeenCalled()
-  })
-
-  it('starts the cooldown when closed without sending', () => {
+  it('starts the cooldown when closed without reporting', () => {
     const onClose = vi.fn()
     render(<FeedbackSheet trouble={trouble} onClose={onClose} />)
     fireEvent.click(screen.getByText(cp.close))
@@ -153,62 +154,78 @@ describe('FeedbackSheet', () => {
   })
 })
 
-describe('FeedbackSheet — direct send', () => {
-  it('sends what the operator typed, with the trouble that prompted it', async () => {
+describe('FeedbackSheet — choosing a route', () => {
+  it('defaults to the GitHub issue, the route that can demand structure', async () => {
     render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    await settled()
+    fireEvent.click(next())
+    expect(window.open).toHaveBeenCalled()
+    const url = vi.mocked(window.open).mock.calls[0][0] as string
+    expect(url).toContain('/issues/new')
+    // The form's fields are prefilled by id — a report that arrives empty is one nobody fills in.
+    expect(url).toContain('template=bug_report.yml')
+    expect(url).toContain('version=')
+  })
+
+  it('opens the mail client instead once mail is chosen', async () => {
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    await settled()
+    pick(cp.routeMail)
+    fireEvent.click(next())
+    expect(window.open).not.toHaveBeenCalled()
+    expect(window.location.href).toContain(`mailto:${appConfig.feedback.mailto}`)
+  })
+
+  it('carries what the operator typed into the issue', async () => {
+    render(<FeedbackSheet onClose={() => {}} />)
+    await settled()
     fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'Trupp gesetzt, dann weg' } })
-    fireEvent.click(screen.getByText(cp.send))
-
-    await waitFor(() => expect(mockSubmit).toHaveBeenCalledOnce())
-    expect(mockSubmit.mock.calls[0][0]).toMatchObject({
-      message: 'Trupp gesetzt, dann weg',
-      trouble: { kind: 'crashLoop' },
-    })
+    fireEvent.click(next())
+    // Read the parameter rather than the raw string: URLSearchParams writes a space as `+`,
+    // which decodeURIComponent does not undo — a substring match here passes or fails on that
+    // detail instead of on whether the operator's words arrived.
+    const url = new URL(vi.mocked(window.open).mock.calls[0][0] as string)
+    expect(url.searchParams.get('what')).toBe('Trupp gesetzt, dann weg')
   })
 
-  it('shows what the SERVER says it queued, not what the client hoped it sent', async () => {
-    mockSubmit.mockResolvedValue({ ok: true, sent: { tags: { install: 'abc-123' } } })
-    render(<FeedbackSheet onClose={() => {}} />)
-    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'kurz gefragt' } })
-    fireEvent.click(screen.getByText(cp.send))
-
-    // The echo is the check: a preview written by the sender proves nothing, one returned by
-    // the receiver proves what was actually stored.
-    await waitFor(() => expect(screen.getByText(cp.sentTitle)).toBeTruthy())
-    expect(document.querySelector('.fb-tech-block')?.textContent).toContain('abc-123')
-  })
-
-  it('counts as asked once sent, so the same crash is not asked about again', async () => {
+  it('saves the Diagnose-Datei on the way out, whichever route was picked', async () => {
     render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
-    fireEvent.click(screen.getByText(cp.send))
-    await waitFor(() => expect(screen.getByText(cp.sentTitle)).toBeTruthy())
+    await settled()
+    fireEvent.click(next())
+    expect(mockSave).toHaveBeenCalledOnce()
+
+    cleanup()
+    mockSave.mockClear()
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    await settled()
+    pick(cp.routeMail)
+    fireEvent.click(next())
+    expect(mockSave).toHaveBeenCalledOnce()
+  })
+
+  it('does not offer a file when the server had none to give', async () => {
+    mockFetch.mockResolvedValue(aBundle(0))
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    await waitFor(() => expect(screen.getByText(cp.diagNoteEmpty)).toBeTruthy())
+    fireEvent.click(next())
+    // Still reports — a description without traces beats no report at all.
+    expect(mockSave).not.toHaveBeenCalled()
+    expect(window.open).toHaveBeenCalled()
+  })
+
+  it('still reports when the diagnostics fetch failed entirely', async () => {
+    mockFetch.mockRejectedValue(new Error('offline'))
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    await settled()
+    fireEvent.click(next())
+    expect(window.open).toHaveBeenCalled()
+  })
+
+  it('counts as asked once reported, so the same crash is not asked about again', async () => {
+    render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    await settled()
+    fireEvent.click(next())
     expect(readTrouble().askedAt).toBeTypeOf('number')
-  })
-
-  it('falls back to mail when sending fails, keeping what was typed', async () => {
-    mockSubmit.mockResolvedValue({ ok: false, reason: 'failed' })
-    render(<FeedbackSheet onClose={() => {}} />)
-    const input = document.querySelector('.fb-input') as HTMLTextAreaElement
-    fireEvent.change(input, { target: { value: 'wichtiger Text' } })
-    fireEvent.click(screen.getByText(cp.send))
-
-    await waitFor(() => expect(screen.getByText(cp.sendFailed)).toBeTruthy())
-    // The sheet stays open with the text intact — losing it would be the real failure here.
-    expect((document.querySelector('.fb-input') as HTMLTextAreaElement).value).toBe('wichtiger Text')
-    // ...and the send button steps aside so the operator isn't invited to retry the route
-    // that just failed; mail becomes the primary one instead.
-    expect(screen.queryByText(cp.send)).toBeNull()
-    expect(document.querySelector('.fb-actions .ip-btn.primary')?.textContent).toContain(cp.mail)
-  })
-
-  it('explains a deployment that has outbound switched off, rather than calling it an error', async () => {
-    mockSubmit.mockResolvedValue({ ok: false, reason: 'disabled' })
-    render(<FeedbackSheet onClose={() => {}} />)
-    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'geht nicht' } })
-    fireEvent.click(screen.getByText(cp.send))
-
-    await waitFor(() => expect(screen.getByText(cp.sendDisabled)).toBeTruthy())
-    expect(screen.queryByText(cp.sendFailed)).toBeNull()
   })
 })
 
@@ -216,7 +233,7 @@ describe('FeedbackSheet — direct send', () => {
 // — that is the cooldown's job and it is right — but the two behaviours are separable and only
 // one of them should be destructive.
 describe('FeedbackSheet — the draft', () => {
-  it('keeps what was typed when the sheet is closed without sending', () => {
+  it('keeps what was typed when the sheet is closed without reporting', () => {
     render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
     fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'halber Satz' } })
     fireEvent.click(screen.getByText(cp.close))
@@ -229,99 +246,15 @@ describe('FeedbackSheet — the draft', () => {
     expect((document.querySelector('.fb-input') as HTMLTextAreaElement).value).toBe('halber Satz')
   })
 
-  it('drops it once the text has actually gone somewhere', async () => {
+  it('keeps it even after a route was opened, because opening is not delivering', async () => {
+    // The regression this pins actually shipped: the sheet cleared the draft the moment it
+    // opened a route. GitHub silently drops a prefill whose template is missing from the
+    // default branch, so the operator got an empty form AND their words were already gone.
+    // Nothing here can confirm delivery, so nothing here may destroy the only copy.
     render(<FeedbackSheet trouble={trouble} onClose={() => {}} />)
+    await settled()
     fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'ist raus' } })
-    fireEvent.click(screen.getByText(cp.send))
-    await waitFor(() => expect(screen.getByText(cp.sentTitle)).toBeTruthy())
-    expect(readDraft()).toBe('')
-  })
-
-  it('keeps it when sending failed — that is exactly when it matters most', async () => {
-    mockSubmit.mockResolvedValue({ ok: false, reason: 'failed' })
-    render(<FeedbackSheet onClose={() => {}} />)
-    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'wichtiger Text' } })
-    fireEvent.click(screen.getByText(cp.send))
-    await waitFor(() => expect(screen.getByText(cp.sendFailed)).toBeTruthy())
-    expect(readDraft()).toBe('wichtiger Text')
-  })
-})
-
-// The photo is the one thing that leaves this app which no scrubber can read, so the rules
-// around it are the feature. The failure being guarded against is not a crash but a silent one:
-// the sheet's three exits look interchangeable to the operator, two of them physically cannot
-// carry a file, and an attached photo that goes out by Kopieren is a picture nobody ever sees.
-describe('FeedbackSheet — the attached photo', () => {
-  it('shows it, at a size you can recognise, before anything is decided', async () => {
-    render(<FeedbackSheet onClose={() => {}} />)
-    await attachPhoto()
-    // «Das wird mitgeschickt» has to stay literally true once there is a picture in it.
-    expect(screen.getByAltText(cp.photoAlt)).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: cp.photoRemove }))
-    await waitFor(() => expect(screen.queryByAltText(cp.photoAlt)).toBeNull())
-  })
-
-  it('stops offering a third one', async () => {
-    render(<FeedbackSheet onClose={() => {}} />)
-    await attachPhoto()
-    await attachPhoto()
-    expect(screen.getAllByAltText(cp.photoAlt)).toHaveLength(2)
-    expect(document.querySelector('.fb-photo-add')).toBeNull()
-  })
-
-  it('travels on the direct route', async () => {
-    render(<FeedbackSheet onClose={() => {}} />)
-    await attachPhoto()
-    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'so sah es aus' } })
-    fireEvent.click(screen.getByText(cp.send))
-
-    await waitFor(() => expect(mockSubmit).toHaveBeenCalledOnce())
-    expect(mockSubmit.mock.calls[0][0]).toMatchObject({ photos: [prepared] })
-  })
-
-  it('leaves the payload of an ordinary Rückmeldung alone', async () => {
-    // Nearly every report carries no photo, and those must put exactly the body on the wire
-    // they did before this existed — a feature almost nobody uses has no business showing up
-    // in everybody's queue row.
-    render(<FeedbackSheet onClose={() => {}} />)
-    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'nur Text' } })
-    fireEvent.click(screen.getByText(cp.send))
-
-    await waitFor(() => expect(mockSubmit).toHaveBeenCalledOnce())
-    expect(mockSubmit.mock.calls[0][0]).not.toHaveProperty('photos')
-  })
-
-  it('says so next to the two routes that cannot take it', async () => {
-    render(<FeedbackSheet onClose={() => {}} />)
-    expect(screen.queryByText(cp.photoOnlyDirect)).toBeNull()
-    await attachPhoto()
-    // A note, never a disabled button: the TEXT is still worth copying, and on a deployment
-    // with outbound switched off Kopieren/E-Mail are the only exits there are.
-    expect(screen.getByText(cp.photoOnlyDirect)).toBeTruthy()
-    expect(screen.getByText(cp.copy)).toBeTruthy()
-  })
-
-  it('is not offered at all once the server has said the direct route is off', async () => {
-    mockSubmit.mockResolvedValue({ ok: false, reason: 'disabled' })
-    render(<FeedbackSheet onClose={() => {}} />)
-    expect(document.querySelector('.fb-photo-add')).toBeTruthy()
-
-    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'geht nicht' } })
-    fireEvent.click(screen.getByText(cp.send))
-
-    await waitFor(() => expect(screen.getByText(cp.sendDisabled)).toBeTruthy())
-    // There is no route left that could carry a file, so the sheet stops implying there is.
-    expect(document.querySelector('.fb-photo-add')).toBeNull()
-  })
-
-  it('is still offered after a plain failure — that is offline, and offline is normal', async () => {
-    mockSubmit.mockResolvedValue({ ok: false, reason: 'failed' })
-    render(<FeedbackSheet onClose={() => {}} />)
-    fireEvent.change(document.querySelector('.fb-input')!, { target: { value: 'kaputt' } })
-    fireEvent.click(screen.getByText(cp.send))
-
-    await waitFor(() => expect(screen.getByText(cp.sendFailed)).toBeTruthy())
-    expect(document.querySelector('.fb-photo-add')).toBeTruthy()
+    fireEvent.click(next())
+    expect(readDraft()).toBe('ist raus')
   })
 })

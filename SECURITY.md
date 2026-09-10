@@ -10,8 +10,9 @@ data and a personnel roster, so we take security seriously and welcome responsib
 Report privately via one of:
 
 - A **GitHub private security advisory** (Security → Report a vulnerability).
-- **Email:** bastian@eichenbergers.ch – the maintainer's stable address, also for reporters
-  without a GitHub account.
+- **Email:** bastian.eichenberger@feuerwehr-oberwil.ch – reaches the maintainer directly,
+  and stays reachable if someone else takes the project on. Also for reporters without a
+  GitHub account.
 
 Please include a description, reproduction steps, affected version/commit, and any impact
 assessment. We aim to acknowledge reports promptly and will keep you informed as we

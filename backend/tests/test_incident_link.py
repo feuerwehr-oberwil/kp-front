@@ -418,7 +418,9 @@ async def test_explicitly_excluded_routes_are_refused(client, link_key, incident
         ("POST", "/api/overpass/buildings"),
         ("GET", f"/api/media/{media}/peaks"),
         ("GET", f"/api/media/{media}/transcription"),
-        ("POST", "/api/diag/report"),
+        # A link is handed to people outside the Wehr; the station's own crash traces are
+        # internal diagnostics even after the scrubber has been over them.
+        ("GET", "/api/diag/export"),
     ]
     for method, url in excluded:
         r = await client.request(method, url)

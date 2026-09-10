@@ -1,36 +1,31 @@
-"""The upstream ingest credential — deliberately public, and worth almost nothing.
+"""Where sanitised diagnostics may be sent — and by default, nowhere.
 
-WHY A SECRET IS SITTING IN A PUBLIC REPOSITORY
-==============================================
+THERE IS NO UPSTREAM ANY MORE
+=============================
 
-The string below is a Sentry/GlitchTip DSN. Its middle section is a *public key*, and in
-Sentry's design that is a write-only credential by construction: the ingest endpoint it
-authenticates (``POST /api/<project>/envelope/``) accepts events and returns 200. There is
-no read verb behind it. It cannot list events, cannot read a stored event, cannot reach any
-other project, cannot log in to the GlitchTip UI, and cannot be escalated into anything
-that can. Reading requires a session on the ingest server, which this key has no path to.
+This module used to carry a checked-in public DSN pointing at an ingest host we ran
+(``ingest.kp-front.ch``, one GlitchTip, a project per app). That host was retired: it cost
+more to keep alive than the handful of crash reports it received were worth, and every
+install that opted in was one of ours anyway. Nothing in this app now has a destination it
+did not get from its own deployer.
 
-So it is checked in, in the clear, on purpose — the same call every client-side error
-reporter makes (Basic Memory's OpenPanel client key, Home Assistant's analytics endpoint,
-every browser Sentry SDK ever shipped). A self-hoster who greps this repo for secrets
-SHOULD find this one and SHOULD be able to satisfy themselves in thirty seconds that it
-does not read their data. That is the point of putting it here rather than behind an env
-var that looks like it is hiding something.
+What replaced it is the LOCAL diagnostics buffer. Errors and manual reports are still built
+and sanitised exactly as before, and they are still written to the station's own log and
+its own ``telemetry_outbox`` table — they simply stop there, where the operator can read
+them, export them, and decide for themselves whether to mail them to the maintainer. See
+``recent.py`` for that buffer and ``app/api/diag.py`` for the export.
 
-What someone who copies it CAN do is post junk events into the project. That is the entire
-threat model, it is a nuisance rather than a breach, and it is handled on the ingest side
-(per-install and per-IP rate limits, GlitchTip spike protection, a project quota, and an
-ingest host that is network-isolated from anything of ours) rather than by pretending the
-key is a secret. See deploy/ingest/README.md.
+SO WHY IS THIS FILE STILL HERE
+==============================
 
-WHAT A SELF-HOSTER CAN DO WITH IT
-=================================
+Because a self-hoster running their own GlitchTip is a real and supported case, and it costs
+one string to keep supporting it. Set ``KP_TELEMETRY_DSN`` to your own ingest and the
+forwarder starts delivering there. Leave it unset — the default, and what every deployment
+now does — and :func:`parse_dsn` returns ``None``, which is the single "telemetry is off"
+signal the forwarder reads. Off is not a special case here; it is the empty string.
 
-Override ``KP_TELEMETRY_DSN`` to point at your own GlitchTip and upstream never hears from
-you — the feature keeps working, aimed at your own server. Set it to the empty string (or
-``KP_TELEMETRY_ENABLED=0``) and the forwarder is compiled out of the running process
-regardless of what any admin later clicks in the UI: env beats consent, so a station that
-forbids outbound traffic can enforce that centrally and not worry about the setting.
+The deployer veto is unchanged: ``KP_TELEMETRY_ENABLED=0`` compiles the forwarder out of the
+running process regardless of what any admin later clicks. Env beats consent.
 """
 
 from __future__ import annotations
@@ -38,12 +33,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# The upstream ingest. Public by design — read the module docstring before "fixing" this.
-#
-# One ingest host serves both apps, one project each: kp-front is /1, kp-rueck is /2. Keeping
-# them apart at the project level rather than the host level means one project's quota or
-# spike protection can never silence the other.
-UPSTREAM_DSN = "https://f8ac2e518d46448d80037de2b4499141@ingest.kp-front.ch/1"
+# No upstream. A deployment sends nowhere unless its own deployer sets KP_TELEMETRY_DSN to a
+# GlitchTip/Sentry ingest they run. Empty is a valid, fully supported configuration — it is
+# the one every station now has — and parse_dsn turns it into "off" rather than an error.
+UPSTREAM_DSN = ""
 
 _PLACEHOLDER = "PLACEHOLDER_PUBLIC_KEY"
 
@@ -67,8 +60,8 @@ class Dsn:
 def parse_dsn(raw: str | None) -> Dsn | None:
     """Parse a DSN, or return None for "telemetry is off".
 
-    Returning None rather than raising is the whole contract: a malformed DSN, an empty
-    override, or the placeholder above must all degrade to "we don't send", never to a
+    Returning None rather than raising is the whole contract: an unset DSN (the default), a
+    malformed one, or the placeholder above must all degrade to "we don't send", never to a
     crash. This is a diagnostics path — it is not allowed to become the thing that breaks
     an instance at 3am.
     """

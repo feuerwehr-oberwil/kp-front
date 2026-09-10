@@ -90,7 +90,7 @@ repository from the synthetic example without access to Feuerwehr Oberwil's priv
 
 Interested in using or contributing to KP Front? Start a
 [GitHub discussion](https://github.com/feuerwehr-oberwil/kp-front/discussions) or email
-[bastian@eichenbergers.ch](mailto:bastian@eichenbergers.ch).
+[bastian.eichenberger@feuerwehr-oberwil.ch](mailto:bastian.eichenberger@feuerwehr-oberwil.ch).
 
 ## Quick start
 

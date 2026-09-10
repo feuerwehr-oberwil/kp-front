@@ -172,7 +172,7 @@ def _version_only(build: str | None) -> str:
     return re.sub(r"[^\w.+\-]", "", str(build))[:60] or "unknown"
 
 
-def _device_class(user_agent: str | None) -> str:
+def device_class(user_agent: str | None) -> str:
     """Raw UA → a coarse bucket.
 
     The full UA string is a fingerprint (patch versions, device model, sometimes the
@@ -245,7 +245,7 @@ def build_context(
         "install": install_id,
         "app": app,
         "release": _version_only(release),
-        "device": _device_class(user_agent),
+        "device": device_class(user_agent),
     }
     if vp := _viewport_bucket(viewport):
         ctx["viewport"] = vp

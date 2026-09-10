@@ -3224,35 +3224,30 @@ export const de = {
     placeholder: 'z. B. «Trupp auf Rückweg gesetzt, dann war der Bildschirm weiss.»',
     techTitle: 'Das wird mitgeschickt',
     techNote: 'Sonst nichts – keine Einsatzdaten, keine Adressen, keine Namen. Die App macht '
-      + 'von sich aus keinen Screenshot; ein Bild geht nur mit, wenn du es unten von Hand '
-      + 'anhängst. Beim Direktversand wird davon noch weniger übertragen: statt der vollen '
-      + 'Browser-Kennung nur die Geräteart, z. B. «iPad Safari».',
-    // Attach a photo – direct send only, because copy and e-mail cannot carry a file.
-    photoAdd: 'Foto anhängen',
-    photoHint: 'Höchstens zwei, werden vorher verkleinert.',
-    photoRemove: 'Foto verwerfen',
-    photoAlt: 'Angehängtes Foto',
-    photoTooBig: 'Dieses Bild lässt sich nicht klein genug rechnen – bitte ein anderes.',
-    photoOnlyDirect: 'Angehängte Fotos gehen nur beim Direktversand mit – nicht per Kopie oder '
-      + 'E-Mail.',
+      + 'von sich aus keinen Screenshot.',
+    // The two routes. Nothing is transmitted by the app itself any more, so these are not
+    // «alternatives to sending» – they are the sending, and the operator picks which one.
+    routeGithub: 'Als GitHub-Issue melden',
+    routeGithubBadge: 'empfohlen',
+    routeGithubNote: 'Öffnet ein vorausgefülltes Formular. Du siehst den Stand der Meldung '
+      + 'später und wirst benachrichtigt, wenn sie erledigt ist. Braucht ein GitHub-Konto.',
+    routeMail: 'Per E-Mail schicken',
+    routeMailBadge: 'ohne Konto',
+    routeMailNote: 'Geht immer, auch ohne GitHub. Antwort kommt direkt per Mail zurück.',
+    next: 'Weiter',
+    // The Diagnose-Datei. `{n}` is the number of recorded errors, `{name}` the filename that
+    // landed in Downloads – naming it is the difference between «hänge die Datei an» and a
+    // person hunting through a folder.
+    diagNote: 'Beide Wege: die Diagnose-Datei ({n}) wird beim Weiterklicken gesichert – im '
+      + 'Issue bzw. in der Mail anhängen. Ohne sie fehlt die eigentliche Fehlermeldung.',
+    diagNoteEmpty: 'Beide Wege: es sind zurzeit keine Fehlerprotokolle aufgezeichnet. '
+      + 'Beschreib einfach, was passiert ist.',
+    diagCount: '{n} Fehlerprotokolle',
+    diagCountOne: '1 Fehlerprotokoll',
+    diagLine: 'Fehler: ',
+    diagSaved: 'Diagnose-Datei «{name}» gesichert – bitte anhängen.',
+    diagFailed: 'Diagnose-Datei liess sich nicht erstellen – die Meldung geht trotzdem.',
     privacy: 'Nichts wird automatisch gesendet. Du entscheidest, ob, wie und an wen.',
-    copy: 'Text kopieren',
-    copied: 'Kopiert – jetzt einfügen und senden.',
-    copyFailed: 'Kopieren nicht möglich – Text markieren und von Hand kopieren',
-    mail: 'E-Mail schreiben',
-    send: 'Senden',
-    sending: 'Wird gesendet …',
-    // After sending: the server answers with what it actually filed.
-    sentTitle: 'Danke – ist angekommen.',
-    sentBody: 'Die Rückmeldung liegt auf eurem eigenen Server und geht von dort weiter, sobald '
-      + 'eine Verbindung besteht. Bis dahin bleibt sie hier liegen.',
-    sentWhat: 'Das wurde gesendet',
-    sentEcho: 'Das ist die Antwort eures Servers – also wörtlich das, was er abgelegt hat, nicht '
-      + 'bloss eine Vorschau.',
-    sendDisabled: 'Direktversand ist auf dieser Anlage abgeschaltet. Per E-Mail oder Kopie geht es '
-      + 'weiterhin.',
-    sendFailed: 'Senden hat nicht geklappt – vermutlich offline. Per E-Mail oder Kopie geht es '
-      + 'trotzdem.',
     close: 'Schliessen',
     tech: {
       version: 'Version:',
@@ -4860,7 +4855,9 @@ export const de = {
       // ⚠️ Steht NUR, wenn der Wert vom mitgelieferten Standard abweicht. Ein leeres Feld läuft
       // auf dem Standard und ist keine Abweichung – sonst stünde die Spalte auf jeder Zeile und
       // wäre wieder das, was sie ersetzen soll.
-      standardChanged: 'Standard {value} · geändert',
+      // ⚠️ Ohne das Wort «Standard»: die Spaltenüberschrift sagt es bereits, und in jeder Zelle
+      // noch einmal war es die Wiederholung, die diese Tabelle abschaffen sollte.
+      standardChanged: '{value} · geändert',
       standardOn: 'Ja',
       standardOff: 'Nein',
       // Überschrift einer Listen-Zeile, solange sie noch keinen eigenen Namen trägt
@@ -6036,6 +6033,27 @@ export const de = {
         + 'Objekte an – er legt keine an. Ein Plan ohne passendes Objekt wird übersprungen und gezählt.',
       pullKeyNote: 'Zugeordnet wird über den Ordner-Schlüssel des Planspeichers. Den setzt nur '
         + 'admin_objects; hier angelegte Objekte nehmen ihre Pläne über den Upload in der Maske entgegen.',
+      // ── Herkunft: durch welche Tür ein Plan hereingekommen ist (source_type) ──
+      srcHand: 'Hand-Upload',
+      srcHandTip: 'In dieser Maske hochgeladen.',
+      srcBucket: 'Planspeicher',
+      srcBucketTip: 'Vom zeitgesteuerten Abgleich aus dem Planspeicher geholt. Ein Upload von Hand '
+        + 'darüber hält nur bis zum nächsten Lauf.',
+      srcSharepoint: 'SharePoint',
+      srcSharepointTip: 'Vom zeitgesteuerten Abgleich aus SharePoint geholt. Ein Upload von Hand '
+        + 'darüber hält nur bis zum nächsten Lauf.',
+      // ── Herkunft des Objekts selbst, und was sie für den Abgleich bedeutet ──
+      objKeyBadge: 'Ordner-Schlüssel',
+      objKeyTip: 'Dieses Objekt stammt aus einem Manifest oder einem Abgleich. Nur Objekte mit '
+        + 'Schlüssel erreicht der Abgleich aus dem Planspeicher.',
+      objHandBadge: 'Von Hand erstellt',
+      objHandTip: 'In dieser Maske erstellt, ohne Ordner-Schlüssel – den setzt allein admin_objects.',
+      objHandBucket: 'Ohne Ordner-Schlüssel: Der Abgleich aus dem Planspeicher lässt dieses Objekt '
+        + 'aus. Seine Modulpläne kommen ausschliesslich über den Upload hier.',
+      objHandSharepoint: 'Der SharePoint-Abgleich erreicht dieses Objekt nur, wenn der Plan-Ordner '
+        + 'genau den Schlüssel trägt, aus dem die Objekt-ID gebildet wurde.',
+      objHandSharepointKey: 'Der SharePoint-Abgleich erreicht dieses Objekt, sobald der Plan-Ordner '
+        + '«{key}» heisst.',
     },
     // ── Checklisten ──
     // ⚠️ Löschen ist der Grund, warum diese Seite mehr als einen Upload-Knopf hat: der Server
@@ -6133,6 +6151,17 @@ export const de = {
         + 'selbst und ganze Plan-Importe laufen über die Kommandozeile, im Verzeichnis backend/:',
       cliCmdObjects: 'uv run python -m app.admin_objects push manifest.json',
       cliCmdConfig: 'uv run python -m app.admin_config push station.json',
+      // ── Woher die Pläne kommen: gezählte Herkunft + Zustand des Abgleichs ──
+      sourceTally: '{n} × {label}',
+      pullAnd: '{a} und {b}',
+      pullOn: 'Zeitgesteuerter Abgleich – ein Teil der Pläne kommt darüber automatisch herein. Was '
+        + 'der letzte Lauf getan hat, steht unter «System», der Zugang unter «Zugangsdaten › '
+        + 'SharePoint» und die Ordner in der Konfiguration.',
+      pullOff: 'Kein zeitgesteuerter Abgleich: Alle Pläne kommen von Hand in die Maske. Das ist der '
+        + 'Normalfall, kein Fehler. Einrichten – zuerst der Zugang unter «Zugangsdaten › SharePoint», '
+        + 'danach die Ordner in der Konfiguration.',
+      pullSkips: '{n} von {total} Objekten haben keinen Ordner-Schlüssel – der Abgleich aus dem '
+        + 'Planspeicher lässt sie aus.',
     },
     layers: {
       filterPlaceholder: 'Ebene suchen …',

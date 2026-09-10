@@ -97,22 +97,16 @@ services:
       # compose's .env is interpolation-only, so a KP_TELEMETRY_ENABLED=0 sitting in .env
       # never reaches the process unless it is passed through like this.
       #
-      # The fallbacks deliberately repeat the application defaults rather than being blank.
-      # Blank is not "unset" to this app — a blank flag AND a blank DSN each mean "off", so
+      # The flag's fallback deliberately repeats the application default rather than being
+      # blank. Blank is not "unset" to this app — a blank flag means "off" — so
       # `${KP_TELEMETRY_ENABLED:-}` would quietly disable telemetry for every compose
       # deployment instead of merely forwarding the operator's choice.
       KP_TELEMETRY_ENABLED: ${KP_TELEMETRY_ENABLED:-1}
-      # Aim the same machinery at your own GlitchTip instead of ours; set it blank to switch
-      # the forwarder off entirely. The fallback MUST match UPSTREAM_DSN in app/telemetry/dsn.py.
-      #
-      # ⚠️ The fallback fires only when the variable is genuinely ABSENT (`-`, not `:-`), and on
-      # most stations it is not: `.env.example` and `./scripts/init-env.sh` both write the line
-      # `KP_TELEMETRY_DSN=` – set, and empty. Empty means OFF, so an installer-created station
-      # has no telemetry destination even after an admin ticks the consent box in System &
-      # Wartung. That is deliberate (opt-in twice, and the deployer's half defaults to «no»);
-      # it is written down here because the fallback below reads as though it were the norm.
-      # To send reports upstream, put the DSN in `.env` explicitly, or delete the line.
-      KP_TELEMETRY_DSN: ${KP_TELEMETRY_DSN-https://f8ac2e518d46448d80037de2b4499141@ingest.kp-front.ch/1}
+      # The DSN is the opposite case, and deliberately so: empty means OFF, and empty is now
+      # the only default there is. The maintainer's ingest was retired, so there is no upstream
+      # to fall back to (PRIVACY.md § «Where it goes») and this line has nothing to repeat.
+      # Set it to a GlitchTip/Sentry you run and the forwarder starts delivering there.
+      KP_TELEMETRY_DSN: ${KP_TELEMETRY_DSN-}
       # Aggregate, cookie-free visit counters are for the public demo only. Keep the
       # self-host default off, but pass an explicit opt-in through: compose's .env is
       # interpolation-only, so a documented VISIT_STATS=true otherwise does nothing.

@@ -7,11 +7,17 @@ decision onto whoever happens to be on duty. So the switch is in the admin surfa
 ADMIN_SECRET, the same gate as the config and the capture secret) and it applies to the
 whole instance.
 
-The background channel needs that switch. The manual "Problem melden" channel does not: the
-operator reads the full payload and presses send, and pressing send IS the consent. What the
-admin switch can do to the manual channel is turn it OFF entirely, for a station whose policy
-forbids outbound traffic — and even then the mailto:/copy path still works, so an operator is
-never left without a way to reach us.
+The background channel needs that switch, and since the maintainer's ingest was retired it is
+the only channel this module gates: with ``KP_TELEMETRY_DSN`` empty there is nowhere to send
+to, so consent decides whether crashes are queued for an ingest the deployer configured
+themselves, and nothing more.
+
+The "Problem melden" route never needed it and still doesn't, because it is no longer a
+channel this code owns. The operator saves the diagnostics bundle (``recent.py``,
+``GET /api/diag/export``) and attaches it to their own mail or a GitHub issue. Consent gates
+transmission; a person deciding to send a file is not something a switch in here can or
+should govern — which is also why no setting in this module can leave an operator with no way
+to reach us.
 """
 
 from __future__ import annotations

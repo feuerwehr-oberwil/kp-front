@@ -433,9 +433,9 @@ class Settings(BaseSettings):
         default=True,
         validation_alias=AliasChoices("KP_TELEMETRY_ENABLED", "TELEMETRY_ENABLED"),
     )
-    # Points at our ingest by default (a public, write-only key — read app/telemetry/dsn.py
-    # before assuming that's a mistake). Override to aim the same machinery at your own
-    # GlitchTip and upstream never hears from you.
+    # Empty by default: there is no upstream ingest any more, and diagnostics stop in this
+    # deployment's own log and outbox (app/telemetry/dsn.py). Set it to your own GlitchTip
+    # and the same machinery starts delivering there.
     telemetry_dsn: str = Field(
         default=UPSTREAM_DSN,
         validation_alias=AliasChoices("KP_TELEMETRY_DSN", "TELEMETRY_DSN"),

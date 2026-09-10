@@ -9687,6 +9687,120 @@
         }
       }
     },
+    "/api/sharepoint/status": {
+      "get": {
+        "tags": [
+          "sharepoint"
+        ],
+        "summary": "Get Status",
+        "description": "Per area: last run, last SUCCESSFUL run, imported/skipped/missing counts and the state.\n\nAlso answers when the connector is off (`configured: false`) — «nicht eingerichtet» is a\nstate the System page has to be able to render, and a card that draws nothing looks exactly\nlike a card whose fetch failed.",
+        "operationId": "get_status_api_sharepoint_status_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Status Api Sharepoint Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sharepoint/sync": {
+      "post": {
+        "tags": [
+          "sharepoint"
+        ],
+        "summary": "Run Sync",
+        "description": "Run the pull now. `full=true` forgets the delta tokens and the eTag memo first.\n\nThe same mechanism the scheduler runs, not a shortcut around it — an operator pressing the\nbutton gets the mechanism (app/plans · pull_one_plan takes the same line). A full run is the\nanswer to «the file is in SharePoint and the app still has the old one»: it re-imports\neverything rather than trusting what we recorded.",
+        "operationId": "run_sync_api_sharepoint_sync_post",
+        "parameters": [
+          {
+            "name": "full",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Full"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Run Sync Api Sharepoint Sync Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/diag/client-error": {
       "post": {
         "tags": [
@@ -9722,14 +9836,14 @@
         }
       }
     },
-    "/api/diag/report": {
-      "post": {
+    "/api/diag/export": {
+      "get": {
         "tags": [
           "diag"
         ],
-        "summary": "Submit Problem Report",
-        "description": "Queue a manual problem report. Pressing send IS the consent — see telemetry/consent.py.\n\nReturns the sanitised payload so the UI can show, after the fact, exactly what was\nqueued. That round trip is deliberate: the sheet shows a preview built client-side, and\nthis is the server confirming that the preview was honest. A photo is summarised rather\nthan repeated in that response — the only exception, argued in telemetry/photos.py.",
-        "operationId": "submit_problem_report_api_diag_report_post",
+        "summary": "Export Diagnostics",
+        "description": "The diagnostics bundle an operator attaches to a Rückmeldung.\n\nThis is the answer to \"pls fix\". A mailed report carries a sentence and a build number;\nwhat makes a bug findable is the stack trace, and until this endpoint existed there was\nno way for the person who hit it to get one out of the app — the traces were in the\nserver log, which needs a shell and is not something you attach to an e-mail.\n\nLogged-in user, not admin, deliberately: the person who hit the bug is whoever was\nholding the tablet, and a report they cannot complete is a report that does not arrive.\nNothing here is new exposure — every field is the same sanitised text the app already\nshows that user verbatim in the Rückmeldung sheet before they send anything.\n\nReturns JSON rather than a file download so the caller keeps its session headers; the\nfrontend turns it into the ``.json`` the operator attaches.",
+        "operationId": "export_diagnostics_api_diag_export_get",
         "parameters": [
           {
             "name": "access_token",
@@ -9748,25 +9862,15 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProblemReport"
-              }
-            }
-          }
-        },
         "responses": {
-          "202": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Submit Problem Report Api Diag Report Post"
+                  "title": "Response Export Diagnostics Api Diag Export Get"
                 }
               }
             }
@@ -11255,6 +11359,9 @@
           },
           "report": {
             "$ref": "#/components/schemas/ReportConfig"
+          },
+          "sharepoint": {
+            "$ref": "#/components/schemas/SharePointConfig"
           }
         },
         "type": "object",
@@ -11313,6 +11420,9 @@
           },
           "report": {
             "$ref": "#/components/schemas/ReportConfig"
+          },
+          "sharepoint": {
+            "$ref": "#/components/schemas/SharePointConfig"
           },
           "integrations": {
             "$ref": "#/components/schemas/ConfigIntegrations"
@@ -14717,99 +14827,6 @@
         ],
         "title": "PositionOut"
       },
-      "ProblemReport": {
-        "properties": {
-          "message": {
-            "type": "string",
-            "maxLength": 4000,
-            "title": "Message",
-            "default": ""
-          },
-          "build": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 120
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Build"
-          },
-          "locale": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Locale"
-          },
-          "viewport": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 40
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Viewport"
-          },
-          "online": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Online"
-          },
-          "troubleKind": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 40
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Troublekind"
-          },
-          "troubleAt": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 40
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Troubleat"
-          },
-          "photos": {
-            "items": {
-              "type": "string",
-              "maxLength": 480000
-            },
-            "type": "array",
-            "maxItems": 2,
-            "title": "Photos"
-          }
-        },
-        "type": "object",
-        "title": "ProblemReport",
-        "description": "The manual channel. ``message`` is the whole point; the rest is context the sheet\nalready showed the operator verbatim before they pressed send."
-      },
       "ProviderCapability": {
         "properties": {
           "provider": {
@@ -15587,6 +15604,85 @@
           "status"
         ],
         "title": "SegmentPatch"
+      },
+      "SharePointConfig": {
+        "properties": {
+          "intervalMinutes": {
+            "type": "integer",
+            "maximum": 10080.0,
+            "minimum": 1.0,
+            "title": "Intervalminutes",
+            "default": 60
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SharePointSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "title": "SharePointConfig",
+        "description": "Where this deployment pulls station data from, and how often. Read-only, pull-only.\n\n⚠️ NO CREDENTIAL LIVES HERE. ``GET /api/config`` is public and the Sicherung round-trip\nreplaces this document wholesale; the tenant/client id and the client secret are in the\nencrypted credential store (app/credentials · the ``sharepoint`` group). What stays in the\ndocument is the part an operator wants to read back, diff and version: which folders."
+      },
+      "SharePointSource": {
+        "properties": {
+          "area": {
+            "type": "string",
+            "enum": [
+              "plans",
+              "geodata",
+              "checklists",
+              "workbook"
+            ],
+            "title": "Area"
+          },
+          "siteUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Siteurl"
+          },
+          "driveId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driveid"
+          },
+          "library": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Library"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "area"
+        ],
+        "title": "SharePointSource",
+        "description": "One area's folder in SharePoint — where to look, for what kind of data.\n\nEvery field but ``area`` is about ADDRESSING, and the addressing is per source on purpose:\na station that keeps its Objektpläne on the Kommando site and its Geodaten in a different\nlibrary configures two entries with two ``siteUrl``s. Nothing here requires a common root,\nand an area a station does not have is simply not listed.\n\nPoint at the site with ``siteUrl`` (the address out of a browser's URL bar,\n``https://contoso.sharepoint.com/sites/feuerwehr``) and this deployment resolves it to the\ndocument library itself; give ``driveId`` instead when a tenant admin has handed over the\nlibrary id directly. ``library`` picks a non-default document library by its display name.\n``path`` is the folder INSIDE that library — the per-area naming convention from\ndocs/sharepoint-connector.md applies below it, never above it."
       },
       "SheetImpact": {
         "properties": {

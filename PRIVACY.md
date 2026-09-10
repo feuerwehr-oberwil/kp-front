@@ -5,10 +5,12 @@ the app does not send operational records to the maintainer. There is no cloud a
 check, usage beacon or "phone home" on start-up. Map/location lookups and integrations that a
 station explicitly configures can contact their named providers, as documented below.
 
-This document covers the one exception: the two channels through which a station can *choose* to
-send something to the maintainer. Both are off or manual by default. If you never touch them,
-nothing about your installation ever reaches us — you can verify that with `tcpdump`, and
-several of the tests in this repository exist to prove it stays true.
+This document covers the one exception: the channels through which a station can *choose* to
+send something to the maintainer. Since **the maintainer's ingest server was retired, the app
+has no upstream destination at all** — the DSN that used to point at it is now empty, and a
+fresh install has nowhere to send anything even if every switch were on. The only way something
+reaches us today is that a person exports it and attaches it to an e-mail. You can verify all of
+that with `tcpdump`, and several of the tests in this repository exist to prove it stays true.
 
 Separately, and unrelated to any installation, the project's public website has a contact form.
 That is a website, not the app — see [The project website](#the-project-website) at the end.
@@ -88,13 +90,19 @@ Everything below is about the maintainer channels.
 
 ## The short version
 
-| | Manual report | Background error reports |
+| | Diagnostics export | Background error reports |
 | --- | --- | --- |
-| Who starts it | An operator, by pressing **Senden** | The app, after a crash |
+| Who starts it | An operator, in the **Rückmeldung** sheet | The app, after a crash |
 | Default | Always available | **Off** |
-| Consent | Pressing the button | An admin switches it on in **System & Wartung** |
-| Can be disabled entirely | Yes, `KP_TELEMETRY_ENABLED=0` | Yes, same switch |
-| Content | The text they typed, plus the technical block they read first — and a photo, if they attached one by hand | A sanitised crash |
+| Consent | Saving the file and attaching it | An admin switches it on in **System & Wartung** |
+| Can be disabled entirely | It never leaves on its own | Yes, `KP_TELEMETRY_ENABLED=0` |
+| Content | The technical block, plus this server's sanitised crash traces since its last restart | A sanitised crash |
+| Where it goes | Wherever the operator sends it — an e-mail, a GitHub issue — and nowhere else | **Nowhere**, unless a deployer set `KP_TELEMETRY_DSN` to an ingest of their own |
+
+The app used to have a **Senden** button that posted a report to the maintainer's ingest. It
+went when the ingest did: a report queued for a destination that does not exist would sit in
+your outbox forever while the sheet said «gesendet». The sheet now opens your mail client or a
+GitHub issue form instead, and saves the diagnostics file for you to attach.
 
 ## What is sent
 
@@ -110,31 +118,10 @@ Both channels send the same **context block** and nothing else besides it:
 | `locale` | `de-CH` | Which copy catalogue was active |
 | `online` | `true` | Whether the tablet had a connection |
 
-A manual report adds the operator's own text and which trouble prompted it. A background error
-report adds the exception type, a scrubbed message, a stack reduced to function names and module
-basenames, and the route shape.
-
-### The one exception: a photo you attach yourself
-
-A manual report — and only a manual report — can carry **up to two photos, and only ones you
-picked yourself** in the Rückmeldung sheet. This is the single place where something leaves that
-the sanitiser cannot read: there is no allow-list for pixels and no way to scrub a picture, so
-that job falls to you instead, which is why it works the way it does:
-
-- **The app never captures a screen.** There is no code path that takes a screenshot, and there
-  is no automatic capture anywhere in either channel. You open a file picker or the camera.
-- **You see it before you decide.** The photo is shown as a thumbnail directly under *«Das wird
-  mitgeschickt»*, above the send button, next to the technical block it belongs to.
-- **It travels on the direct-send route only.** *Kopieren* and *E-Mail* cannot carry a file and
-  say so; on a deployment with `KP_TELEMETRY_ENABLED=0` the option is not offered at all.
-- **It is shrunk in your browser first**, to at most 1600 px on the long edge and 360 kB, and
-  re-encoded — which also strips the EXIF block, so the GPS position a phone stamps into its
-  photos does not travel with it. A picture that cannot be made to fit is refused there and then,
-  not silently dropped later.
-- **It is in your log and your database like everything else** (see below): the photo rides
-  inside the payload, so the two copies you can inspect are complete.
-
-Removing a photo before sending removes it. Nothing about it is kept on the device.
+A background error report adds the exception type, a scrubbed message, a stack reduced to
+function names and module basenames, and the route shape. The diagnostics export carries those
+same crash entries, and whatever the operator types goes in the mail or the issue, in their own
+words, where they can read it before sending.
 
 ## What is never sent
 
@@ -142,15 +129,15 @@ Not "we try not to send" — these are constructed out of the payload and assert
 (`backend/tests/test_telemetry_scrub.py`):
 
 - **Incident data of any kind**: addresses, coordinates (WGS84 *and* LV95), incident IDs, object
-  names, journal text, drawings, audio, plan files. No incident medium is ever read by this
-  code — the only picture that can travel is one you attached by hand, above.
+  names, journal text, drawings, audio, plan files. No incident medium is ever read by this code.
 - **People**: roster names, functions, phone numbers, e-mail addresses, Divera identities, PINs.
 - **Your instance**: hostname, station name, deployment config, database contents, file paths,
   usernames, environment variables, tokens, secrets.
 - **Network identity**: no IP address is placed in the payload, and no `user` object exists for
   one to appear in later. See "The IP question" below for the part we cannot solve in code.
-- **Screenshots.** There is no code path that captures one. A photo *you* pick in the
-  Rückmeldung sheet is a different thing, and it is the only thing of its kind — see above.
+- **Screenshots and photos.** There is no code path that captures a screen, and since the manual
+  send route was retired the app carries no picture at all. If a photo helps, you attach it to
+  your own mail or issue, where you can see exactly what you are attaching.
 
 The payload is built by an **allow-list**: every field is named in
 `backend/app/telemetry/scrub.py` and the caller's object is never forwarded, merged or spread.
@@ -167,58 +154,57 @@ You do not have to take any of the above on faith:
    `SELECT payload_json FROM telemetry_outbox;` is the whole story, before and after delivery.
 3. **The admin screen.** *System & Wartung → Fehlerberichte* shows the same rows, newest first,
    as formatted JSON.
-4. **The manual report** shows you the technical block before you send, and — after sending —
-   what the server says it actually queued. An attached photo appears there as its type and
-   size rather than as a page of base64: you have already seen the picture itself, in the
-   thumbnail, and the full bytes are in the two copies above.
+4. **The diagnostics file itself.** It is plain JSON, it is on your device, and it is the exact
+   thing that would be attached — open it before you send it. The Rückmeldung sheet also shows
+   the technical block and the number of crash entries the file holds, before you decide.
 
 ## Where it goes
 
-To `ingest.kp-front.ch`, a GlitchTip instance run by the maintainer. GlitchTip is an
-open-source, Sentry-compatible error tracker.
+**Nowhere.** There is no maintainer-run ingest any more.
 
-It runs in its own Railway project, with its own database, sharing nothing with the KP Front
-or KP Rück deployments. The honest limit of that: it is the same provider and the same
-account, so this is project-level isolation, not host-level — a compromise of the maintainer's
-Railway account would reach it. Its full configuration is checked in at
-[`deploy/ingest/`](deploy/ingest/), including what it does *not* do.
+Until 2026 this app shipped with a public Sentry DSN pointing at `ingest.kp-front.ch`, a
+GlitchTip instance run by the maintainer. That instance was retired — it cost more to run than
+the handful of reports it received were worth, and every install that had opted in belonged to
+the maintainer anyway. `KP_TELEMETRY_DSN` now defaults to the **empty string**, which the
+forwarder reads as "off": an instance with a crash queued and consent switched on still opens no
+connection, because it has no address to open one to.
 
-The credential embedded in this repository (`backend/app/telemetry/dsn.py`) is a Sentry **public
-key**. It is write-only by construction: it can submit an event and nothing else — it cannot
-read stored events, cannot reach another project, and cannot log in. It is checked in in the
-clear deliberately, so that anyone auditing this repository finds it and can satisfy themselves
-in thirty seconds that it does not read their data.
+What that leaves is a purely local arrangement. A crash is written to your log, held in a small
+in-memory buffer on your server (`backend/app/telemetry/recent.py`, the last 50, cleared on
+restart) and — if the background switch is on — kept verbatim in your `telemetry_outbox` table.
+All three copies are yours. None of them moves on its own.
 
-**Retention:** reports are kept for 90 days and then deleted. Delivered rows in your own outbox
-are swept after 14 days (yours to change).
+**If you want the machinery back, aim it at yourself.** Set `KP_TELEMETRY_DSN` to a GlitchTip or
+Sentry you run and every part of this document applies again, with your server as the
+destination. This is now the only supported configuration in which anything is transmitted
+automatically at all.
 
-## Your choices
+**Retention:** the in-memory buffer holds the last 50 errors and is emptied by any restart.
+Delivered rows in your own outbox are swept after 14 days (yours to change).
 
-- **Never send anything.** Do nothing. This is the default state of a fresh install and of every
-  instance that upgrades into this version.
-- **Enforce it centrally.** Set `KP_TELEMETRY_ENABLED=0` in your compose file. This outranks the
-  admin switch, so no later click can turn it on.
-- **Point it at yourself.** Set `KP_TELEMETRY_DSN` to your own GlitchTip and the same machinery
-  reports to *your* server. We never hear from you.
-- **Unlink your history.** *System & Wartung → Neue Kennung* mints a fresh install UUID. Reports
-  we already hold keep the old one and can no longer be connected to anything you send after.
-- **Ask for deletion.** Mail the install UUID to bastian@eichenbergers.ch and everything under
-  it is deleted. You do not have to explain why.
+## Getting a bug report to the maintainer
+
+Since nothing travels on its own, the route is deliberate and manual:
+
+1. In the app, open **Rückmeldung** (Einstellungen, or the prompt after a crash).
+2. Read the technical block. It is shown in full, before you decide anything.
+3. Save the **Diagnose-Datei** — the sanitised crash traces from your server's buffer. This is
+   the part that makes a report actionable; without it a bug report is a sentence.
+4. Attach it to an e-mail (`bastian.eichenberger@feuerwehr-oberwil.ch`) or to a
+   [GitHub issue](https://github.com/feuerwehr-oberwil/kp-front/issues/new?template=bug_report.yml).
+
+You can open the file first — it is JSON, and it is the same content the app showed you.
 
 ## The IP question
 
-Your server's IP address is visible to our ingest host, the same way it is visible to any server
-you make a request to. We do not put it in the payload; the reverse proxy in front of GlitchTip
-strips `X-Forwarded-For` and friends before the request reaches the app, and its access log is
-configured to drop the remote address. That configuration is checked in — read
-[`deploy/ingest/railway/Caddyfile`](deploy/ingest/railway/Caddyfile) rather than believing this
-paragraph.
+It no longer arises for telemetry: with no ingest to contact, this app makes no request to the
+maintainer from which an address could be read. If you point `KP_TELEMETRY_DSN` at a server of
+your own, your instance's address is visible to *your* server, the same way it is to any host
+you make a request of.
 
-What you *cannot* verify from here is that the running instance matches the checked-in config,
-or what the hosting platform logs at its own edge. That is exactly why
-`KP_TELEMETRY_ENABLED=0` exists and why the default is off. If your threat model includes the
-maintainer's own infrastructure, do not switch this on — that is a legitimate position and the
-app is fully functional without it.
+The manual routes are ordinary ones with the ordinary consequences: an e-mail carries your mail
+provider's headers, and a GitHub issue is public and tied to your GitHub account. Both are
+visible to you before you press send, which is the point of doing it this way.
 
 ## The project website
 
@@ -235,7 +221,7 @@ terms and retention apply, and we have no agreement with it beyond an ordinary a
 
 Three things follow, and they are the point of this section:
 
-- **Using the form is entirely optional.** `bastian@eichenbergers.ch` reaches the same person
+- **Using the form is entirely optional.** `bastian.eichenberger@feuerwehr-oberwil.ch` reaches the same person
   without a third party in between. The form exists because a `mailto:` link does nothing on a
   duty phone with no mail client configured — not because we prefer it.
 - **It is a website visitor's data, never a station's.** No incident data, roster, or anything
@@ -289,4 +275,4 @@ above. That decision belongs to the organisation, which is why the switch lives 
 `ADMIN_SECRET` and not in the operator's settings sheet — and why nothing is enabled by an
 upgrade.
 
-Questions, or a deletion request: **bastian@eichenbergers.ch**.
+Questions, or a deletion request: **bastian.eichenberger@feuerwehr-oberwil.ch**.
