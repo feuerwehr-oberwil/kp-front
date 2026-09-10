@@ -108,8 +108,15 @@
 .adm-side-scrim { display: none; }
 
 /* ── content column: own scroll, wider so tables/forms use the horizontal space ── */
-.adm-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 28px 28px 64px; }
-.adm-col { max-width: 1180px; margin: 0 auto; }
+/* ⚠️ NO padding-top on the scroller — the breathing space above the page head lives on
+   `.adm-col` instead. A scroll container's sticky children measure `top: 0` from its CONTENT
+   box, but its overflow is clipped at the PADDING box: a `padding-top: 28px` here therefore
+   pinned the settings table's column header 28px down while rows kept scrolling visibly
+   through the band above it — a whole setting riding over the header that was meant to hide
+   it (admin.css · .adm-set-h). With the padding on the inner column the two edges coincide
+   and `top: 0` means what it says. */
+.adm-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 0 28px 64px; }
+.adm-col { max-width: 1180px; margin: 0 auto; padding-top: 28px; }
 
 /* page heading + autosave status share a row */
 .adm-pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -179,7 +186,9 @@
     display: block; position: fixed; inset: 0; z-index: var(--z-side-scrim);
     border: none; background: color-mix(in srgb, var(--ink) 28%, transparent);
   }
-  .adm-main { padding: 22px 16px 56px; }
+  /* …still no padding-top on the scroller, for the same reason as above */
+  .adm-main { padding: 0 16px 56px; }
+  .adm-col { padding-top: 22px; }
 }
 
 /* ── section cards ────────────────────────────────────────────────────────── */
@@ -253,9 +262,16 @@
    so a centred cell that is shorter than the track draws its border across the middle of the row
    and leaves the hover tint in a band. One wrapping label, or a swatch row, was enough to break
    the line. Each cell centres its own content instead (`.adm-set-row > *` below). */
+/* ⚠️ The Wert column is the one somebody TYPES in, so it gets a real share of the row, not the
+   240px leftover it started with — at 240px a URL, a Textbaustein or a prefill template had to
+   leave the table altogether to be readable, which is how half the settings ended up on their
+   own full-width line under their label instead of in a column. `min(400px, 42%)` is both
+   halves of that: it stops growing at 400px on a wide page (a Zahl in a 600px box is comic),
+   and it yields proportionally on a narrow one rather than squeezing the Einstellung column
+   down to two words. */
 .adm-settings {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) minmax(0, auto) 34px;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, min(400px, 42%)) minmax(0, auto) 34px;
   align-items: stretch;
 }
 
@@ -332,14 +348,25 @@
    inputs above it rather than floating in the middle of an empty cell. */
 .adm-set-check { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); cursor: pointer; }
 
-/* ⚠️ A control that cannot be 240px wide and must not scroll sideways to hide the rest of
-   itself — the Truppfarben swatches, a chip list, a long URL. It takes the Wert AND Standard
-   columns and WRAPS; the ⓘ stays in its own column, so the row still reads as a row.
+/* ⚠️ A control that cannot live in the Wert column alone and must not scroll sideways to hide
+   the rest of itself — the Truppfarben swatches, a chip list, a long URL, a textarea. It takes
+   the Wert AND Standard columns and WRAPS; the ⓘ stays in its own column, so the row still
+   reads as a row.
    `2 / -2` = «everything but the ⓘ», in BOTH layouts: the narrow grid below drops the Standard
    column, and a hard `2 / 4` there would have pushed the ⓘ into a fourth column of its own. */
 .adm-set-row.span > .adm-set-ctl { grid-column: 2 / -2; }
 .adm-set-row.span > .adm-set-std { display: none; }
 .adm-set-row.span > .adm-set-ctl > * { min-width: 0; }
+/* ⚠️ …and a textarea row is TALL, so its label must not float in the middle of 360px of empty
+   column. Everything else on the row lines up with the first line of the box instead — which is
+   where the reader's eye already is. `:has(textarea)` rather than a prop: «tall» is a fact about
+   the control, and a caller should not have to declare it a second time. */
+.adm-set-row.span:has(textarea) > .adm-set-lbl,
+.adm-set-row.span:has(textarea) > .adm-set-info { align-items: flex-start; padding-top: 11px; }
+/* a control that is more than one box — a textarea and the chips that write into it, a URL and
+   the preview under it. They stack, full width of the span, instead of racing each other for
+   the same line. */
+.adm-set-col { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; }
 
 /* two controls sharing one cell — a field and the bin that deletes its row */
 .adm-set-inline { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
@@ -348,30 +375,11 @@
 
 /* a list editor's «+ hinzufügen», sitting in the table rather than under it */
 .adm-settings .adm-formlink-add { margin-top: 0; }
-/* the URL field and the placeholder chips under it are one stacked control */
-.adm-set-row.stack .adm-formlink-tokens { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.adm-set-row.stack .adm-formlink-preview { margin-top: 2px; }
 /* ⚠️ …and a record's fields are ROWS of the same grid now, so the old card chrome around them
    would be a box inside a table. The class stays (its children still use it); what goes is
    everything that made it float. */
 .adm-settings .adm-formlink {
   display: contents;
-}
-
-/* the full-width control (textarea, chip list) sits under its own label */
-.adm-set-row.stack > .adm-set-lbl { border-bottom: 0; }
-.adm-set-row.stack > .adm-set-std,
-.adm-set-row.stack > .adm-set-info { border-bottom: 0; }
-/* ⚠️ …and both keep their OWN columns. A stack row emits its cells in the order
-   [Einstellung, Standard, ⓘ, control] so that the control lands on the second line — but the
-   grid places by SOURCE order, so unpinned the Standard cell would auto-place into Wert and
-   the ⓘ one column left of its own header, on these rows alone. `-2 / -1` is the last column
-   in both layouts (the narrow grid below has three). */
-.adm-set-row.stack > .adm-set-std { grid-column: 3; }
-.adm-set-row.stack > .adm-set-info { grid-column: -2 / -1; }
-.adm-set-row.stack > .adm-set-ctl {
-  grid-column: 1 / -1; display: block;
-  padding: 0 18px 12px; min-height: 0;
 }
 
 /* full-width row that is not a setting: a validation line, a worked example, a list editor */
@@ -392,7 +400,7 @@
    one column that is commentary. Below the phone breakpoint the control moves under its label,
    so a 13-character label never squeezes the value box into two characters. */
 @media (max-width: 900px) {
-  .adm-settings { grid-template-columns: minmax(0, 1fr) minmax(150px, 200px) 34px; }
+  .adm-settings { grid-template-columns: minmax(0, 1fr) minmax(170px, min(360px, 46%)) 34px; }
   .adm-set-h-std, .adm-set-row > .adm-set-std { display: none; }
 }
 /* ⚠️ …and below the phone breakpoint it stops being a table at all: the row becomes a flex
@@ -407,6 +415,10 @@
     padding: 6px 0 8px; border-bottom: 1px solid var(--border-soft);
   }
   .adm-set-row > * { border-bottom: 0; min-height: 0; padding: 3px 18px; }
+  /* the tall-row rule above is a COLUMN rule — here the label already stands on its own line
+     over its control, so nothing needs lining up with a textarea's first line */
+  .adm-set-row.span:has(textarea) > .adm-set-lbl,
+  .adm-set-row.span:has(textarea) > .adm-set-info { align-items: center; padding-top: 3px; }
   .adm-set-lbl { flex: 1 1 auto; }
   .adm-set-info { flex: 0 0 auto; }
   .adm-set-ctl { order: 3; flex: 1 0 100%; }

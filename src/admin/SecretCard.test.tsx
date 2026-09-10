@@ -90,3 +90,55 @@ describe('secret-token card — the contract three admin surfaces share', () => 
     await waitFor(() => expect(screen.getByRole('status').textContent).toBe(E.failed))
   })
 })
+
+/**
+ * ⚠️ Rotating is destructive and does not look it — «Token rotieren» sits in the same action row
+ * as «Poster als PDF», one button along, and the thing it destroys is already hanging on a wall:
+ * every printed poster and every link already sent out dies the moment the POST lands, with no
+ * undo and no way to tell who is now looking at a dead QR code. So a single click must never
+ * reach the endpoint. Both surfaces are pinned, because the two rotate buttons are written out
+ * separately (IncidentLinkAdminView · SecretRows, CaptureAdminView) and only one of them being
+ * armed is exactly the kind of asymmetry nothing else would catch.
+ */
+describe('«rotieren» takes two clicks, on every surface that has one', () => {
+  it('Einsatz-Link: the first click only asks the question', async () => {
+    apiGet.mockResolvedValue({ configured: true })
+    apiPost.mockResolvedValue({ configured: true, token: 'k-2' })
+    render(<IncidentLinkAdminView />)
+    // the Einsatz-Link's own rotate is the first of the three the page carries — the Stations-
+    // Terminal below it wears the very same label
+    await waitFor(() => expect(screen.getAllByRole('button', { name: L.rotateBtn }).length).toBe(2))
+
+    fireEvent.click(screen.getAllByRole('button', { name: L.rotateBtn })[0])
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: L.rotateMsg })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: COMMON.confirmYes }))
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/incident-link/secret/rotate', {}))
+  })
+
+  it('Erfassungs-Poster: the first click only asks the question', async () => {
+    apiGet.mockResolvedValue({ configured: true })
+    apiPost.mockResolvedValue({ configured: true, token: 'p-2' })
+    render(<CaptureAdminView />)
+    await waitFor(() => expect(screen.getByRole('button', { name: E.rotateBtn })).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: E.rotateBtn }))
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog', { name: E.rotateMsg })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: COMMON.confirmYes }))
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/capture/secret/rotate', {}))
+  })
+
+  it('…and «Nein» leaves the poster on the wall', async () => {
+    apiGet.mockResolvedValue({ configured: true })
+    render(<CaptureAdminView />)
+    await waitFor(() => expect(screen.getByRole('button', { name: E.rotateBtn })).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: E.rotateBtn }))
+    fireEvent.click(screen.getByRole('button', { name: COMMON.confirmNo }))
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: E.rotateBtn })).toBeTruthy()
+  })
+})

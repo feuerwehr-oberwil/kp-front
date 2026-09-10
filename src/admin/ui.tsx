@@ -187,20 +187,20 @@ export function standardNote(
 /**
  * One setting: label | control | Standard | ⓘ.
  *
- * ⚠️ The rule, so that two controls that look alike are not laid out differently: `span` is for
- * a control that must WRAP wider than the 240px Wert column (a swatch row, a chip list, a long
- * URL and its buttons), `stack` for a genuinely full-width control that belongs UNDER its label
- * (a textarea, a token editor) — and everything else stays in the Wert column, un-widened.
- *   · `span` keeps the row a row and lets the control take the Wert AND Standard columns,
- *     wrapping inside them. For swatch rows and chip lists, which used to scroll sideways —
- *     and a control that scrolls to hide half of itself is a control nobody knows the rest of.
- *   · `stack` puts the control on its own full-width line under the label. For a textarea.
- * `stack` therefore emits the cells in a different ORDER — the control has to come last, because
- * the grid places by source order. Its Standard and ⓘ cells are pinned back to their own columns
- * in admin.css (`.adm-set-row.stack > .adm-set-std / .adm-set-info`); moving one here without
- * the other would slide the ⓘ out from under its header.
+ * ⚠️ The rule, so that two controls that look alike are not laid out differently: EVERY setting
+ * reads label-left / value-right. A control that does not fit the Wert column on its own takes
+ * `span` — the Wert AND Standard columns, wrapping inside them, with the ⓘ still in its own
+ * column — and that is the only exception there is. For swatch rows and chip lists, which used
+ * to scroll sideways; for a long URL and its token chips; for a textarea.
+ *
+ * ⚠️ There used to be a third shape, `stack`, that put the control on its own full-width line
+ * UNDER its label — the Textbausteine, «Einleitung in der Hilfe», the prefill-URL editors. With
+ * a Wert column wide enough to type a URL in (admin.css · .adm-settings) it bought nothing and
+ * cost the one thing the table exists for: a page where the eye finds every value in the same
+ * place. It is gone; a multi-line control belongs in `span`, and several boxes in one cell stack
+ * inside a `.adm-set-col` wrapper rather than by leaving the columns.
  */
-export function SettingRow({ label, hint, tip, standard, stack, span, children }: {
+export function SettingRow({ label, hint, tip, standard, span, children }: {
   label: string
   /** the rare qualifier that belongs ON the label rather than in the ⓘ */
   hint?: string
@@ -208,26 +208,22 @@ export function SettingRow({ label, hint, tip, standard, stack, span, children }
   tip?: string
   /** `standardNote(…)`, or null while the value is the shipped default */
   standard?: string | null
-  stack?: boolean
   span?: boolean
   children: ReactNode
 }) {
-  const lbl = (
-    <span className="adm-set-lbl" key="lbl">
-      <span className="adm-set-name">{label}</span>
-      {hint && <span className="adm-field-hint">{hint}</span>}
-    </span>
-  )
-  const ctl = <span className="adm-set-ctl" key="ctl">{children}</span>
-  const std = <span className="adm-set-std" key="std">{standard}</span>
-  const info = (
-    <span className="adm-set-info" key="info">
-      {tip && <InfoTip label={label} text={tip} />}
-    </span>
-  )
+  // ⚠️ Source order IS column order: the cells are the grid's own items (the row is
+  // `display: contents`), so they are placed in the order they are written here.
   return (
-    <label className={`adm-set-row${stack ? ' stack' : ''}${span ? ' span' : ''}`}>
-      {stack ? [lbl, std, info, ctl] : [lbl, ctl, std, info]}
+    <label className={`adm-set-row${span ? ' span' : ''}`}>
+      <span className="adm-set-lbl">
+        <span className="adm-set-name">{label}</span>
+        {hint && <span className="adm-field-hint">{hint}</span>}
+      </span>
+      <span className="adm-set-ctl">{children}</span>
+      <span className="adm-set-std">{standard}</span>
+      <span className="adm-set-info">
+        {tip && <InfoTip label={label} text={tip} />}
+      </span>
     </label>
   )
 }

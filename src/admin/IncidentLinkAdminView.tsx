@@ -150,6 +150,11 @@ export function IncidentLinkAdminView() {
         showKey
         // The URL shape the alerting system composes around its own signed token — the one thing
         // besides the key an operator has to type into the other system.
+        // ⚠️ `<token>` STAYS a placeholder here, and this is the one surface where it must. The
+        // two standing links below hand out a real address because their key IS the token in it
+        // (terminalEnrollUrl / standingAsUrl); this key only SIGNS the tokens the alerting system
+        // mints per Einsatz, so there is no link for KP Front to show — and pasting the key into
+        // the URL would publish the signing secret in a link that opens nothing.
         example={() => `${window.location.origin}/l/<token>`}
       />
       <SecretRows secret={terminal} copy={T} docsUrl={docsUrl} showKey example={terminalEnrollUrl} />

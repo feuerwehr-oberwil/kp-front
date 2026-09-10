@@ -346,8 +346,9 @@ export function IdentitySection() {
           takes any string (schemas.py · IdentityConfig.helpIntro), so there is nothing to hold
           back and nothing that can 422 the rest of the document. The placeholder is the
           SHIPPED text, not an invented example, so «leer heisst das hier» is readable.
-          `stack`: four rows of prose do not belong in a 240px column. */}
-      <SettingRow label={C.helpIntro} tip={C.helpIntroTip} stack>
+          `span`: four rows of prose need the Wert AND Standard columns, but they are still this
+          setting's value and belong beside its label like every other one. */}
+      <SettingRow label={C.helpIntro} tip={C.helpIntroTip} span>
         <textarea
           className="adm-input adm-textarea"
           rows={4}
@@ -729,8 +730,10 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
                 onChange={(e) => patch(i, { label: e.target.value })}
               />
             </SettingRow>
-            <SettingRow label={C.extUrl} tip={C.extUrlTip} stack>
-              <>
+            <SettingRow label={C.extUrl} tip={C.extUrlTip} span>
+              {/* two boxes, one value: the template and the chips that write into it. They stack
+                  INSIDE the cell (`.adm-set-col`) rather than leaving the columns. */}
+              <div className="adm-set-col">
                 <textarea
                   className="adm-input adm-input-mono adm-formlink-url" rows={3}
                   value={row.urlTemplate ?? ''} placeholder={C.extUrlPlaceholder} data-row={i}
@@ -744,9 +747,9 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
                     </button>
                   ))}
                 </span>
-              </>
+              </div>
             </SettingRow>
-            <SettingRow label={C.extPreview} stack>
+            <SettingRow label={C.extPreview} span>
               {isOpenableUrl(preview) && !!row.label?.trim()
                 ? <p className="adm-formlink-preview">{preview}</p>
                 : (
@@ -802,10 +805,11 @@ function JournalGroup() {
   }, [raw])
   return (
     <>
-      {/* The group carries the explanation; the row below it is a page of text, so it stacks
-          its control rather than pretending a 240px column could hold sixty Textbausteine. */}
+      {/* The group carries the explanation; the row below it is a page of text, so its control
+          spans Wert AND Standard — sixty Textbausteine are short lines, and what they needed was
+          height, which `span` gives them without taking the setting out of its own row. */}
       <SettingsGroup title={C.quickPhrases} tip={C.quickPhrasesTip} />
-      <SettingRow label={C.quickPhrases} stack>
+      <SettingRow label={C.quickPhrases} span>
         <textarea
           ref={textareaRef}
           className="adm-input adm-textarea adm-textarea-tall"
@@ -1348,7 +1352,7 @@ function ReferenceRasterEditor({ all, write }: {
             </SettingRow>
             {/* One template per line: a canton that publishes several tile hosts hands over
                 several URLs, and `tiles` is a list on both sides (schemas.py). */}
-            <SettingRow label={C.rasterTiles} tip={C.rasterTilesTip} stack>
+            <SettingRow label={C.rasterTiles} tip={C.rasterTilesTip} span>
               <textarea
                 className="adm-input adm-input-mono adm-formlink-url" rows={2}
                 value={(row.tiles ?? []).join('\n')} placeholder={C.rasterTilesPlaceholder}
@@ -2228,10 +2232,10 @@ function ReportLinksEditor() {
                 onChange={(e) => patch(i, { note: e.target.value || null })}
               />
             </SettingRow>
-            {/* `stack`: a prefill URL is 400 characters whose interesting end is the {…} pairs,
-                and the chips that insert them belong directly under it. */}
-            <SettingRow label={C.linkUrl} tip={C.linkUrlTip} stack>
-              <>
+            {/* `span`: a prefill URL is 400 characters whose interesting end is the {…} pairs,
+                and the chips that insert them belong directly under it — inside the cell. */}
+            <SettingRow label={C.linkUrl} tip={C.linkUrlTip} span>
+              <div className="adm-set-col">
                 <textarea
                   className="adm-input adm-input-mono adm-formlink-url" rows={3} value={row.url ?? ''}
                   placeholder={C.linkUrlPlaceholder} data-id={row.id}
@@ -2245,14 +2249,14 @@ function ReportLinksEditor() {
                     </button>
                   ))}
                 </span>
-              </>
+              </div>
             </SettingRow>
             {/* What the Rapport will actually open — and, where it would not, WHY.
                 ⚠️ This warns on exactly the conditions `reportLinks()` drops a row on, title
                 included. Checking only the URL let an admin paste a link, see a correct green
                 preview, save without a title, and get a row that never appears on any Rapport
                 while Verwaltung said it was fine. */}
-            <SettingRow label={C.linkPreview} stack>
+            <SettingRow label={C.linkPreview} span>
               {isOpenableUrl(preview) && !!row.title?.trim()
                 ? <p className="adm-formlink-preview">{preview}</p>
                 : (
