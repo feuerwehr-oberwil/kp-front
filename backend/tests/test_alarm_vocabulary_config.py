@@ -217,9 +217,9 @@ async def test_get_config_says_which_vocabulary_is_running(client):
 
 
 @pytest.mark.asyncio
-async def test_get_config_says_when_the_station_brought_its_own(client, admin_login):
+async def test_get_config_says_when_the_station_brought_its_own(client, admin_login, put_config):
     await admin_login(client)
-    r = await client.put("/api/config", json={"alarmKeywords": a_valid_vocabulary()})
+    r = await put_config(client, {"alarmKeywords": a_valid_vocabulary()})
     assert r.status_code == 200, r.text
     assert r.json()["alarmVocabulary"] == {
         "source": "deployment",
@@ -234,8 +234,8 @@ async def test_get_config_says_when_the_station_brought_its_own(client, admin_lo
 
 
 @pytest.mark.asyncio
-async def test_put_config_rejects_an_invalid_vocabulary(client, admin_login):
+async def test_put_config_rejects_an_invalid_vocabulary(client, admin_login, put_config):
     await admin_login(client)
     broken = a_valid_vocabulary(keyword_to_category={"pairs": [["feuer", "brandbekaempfung"]]})
-    r = await client.put("/api/config", json={"alarmKeywords": broken})
+    r = await put_config(client, {"alarmKeywords": broken})
     assert r.status_code == 422

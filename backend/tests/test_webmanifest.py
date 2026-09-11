@@ -111,13 +111,10 @@ async def test_manifest_is_public_and_valid_without_any_config(client):
     assert not [i for i in doc["icons"] if str(i["src"]).startswith("/api/branding/")]
 
 
-async def test_manifest_reflects_the_stations_identity(client, editor, admin_login):
+async def test_manifest_reflects_the_stations_identity(client, editor, admin_login, put_config):
     await _login(client, editor)
     await admin_login(client)
-    put = await client.put(
-        "/api/config",
-        json={"identity": {"appName": "Feuerwehr Talheim", "accentColor": "#c81e1e"}},
-    )
+    put = await put_config(client, {"identity": {"appName": "Feuerwehr Talheim", "accentColor": "#c81e1e"}})
     assert put.status_code == 200, put.text
 
     up = await client.post(

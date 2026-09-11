@@ -212,10 +212,19 @@ check:
 build:
     pnpm build
 
+# (Runs `config-schema` too, so the two committed contracts can never drift apart — a pytest
+# fails on either of them being stale.)
 # Dump the OpenAPI schema to docs/openapi.json (committed API contract).
 [group('Release')]
-openapi:
+openapi: config-schema
     cd backend && uv run python -m app.dump_openapi ../docs/openapi.json
+
+# (The same JSON Schema `admin_config schema` prints. Committed because an agent or a station
+# writing a config file should not need a Python toolchain to read the contract first.)
+# Dump the deployment-config JSON Schema to docs/config.schema.json.
+[group('Release')]
+config-schema:
+    cd backend && uv run python -m app.admin_config schema > ../docs/config.schema.json
 
 # Regenerate the committed roster-snapshot contract (schemas + example). Run it in the same
 # change that touches app/roster_snapshot.py, then update the checksums recorded in

@@ -119,26 +119,56 @@ in §6b. Einsatzobjekte + Modul-PDFs and checklist templates are not config path
 both now have browser pages – §9e and §9f.
 
 > ⚠️ **Every write replaces the WHOLE document.** There are no partial writes – the admin UI, the
-> CLIs and the backup importer all upsert the complete row. Two consequences you have to know:
+> CLIs and the backup importer all upsert the complete row. Four consequences you have to know,
+> and each of them is a guard `PUT /api/config` applies to **every** caller – a browser, a CLI
+> push, a script, an agent (`backend/app/config_guard.py`):
 >
 > 1. **`identity.assets` is not editable through this document.** The branding slots are written
 >    by the upload endpoints (`POST` / `DELETE /api/branding/{slot}`) and by `admin_branding push`,
 >    because the URLs behind them only exist once a blob has been stored. A `PUT` or a `load` that
 >    omits or nulls them **carries the stored values over** instead of clearing them. Removing a
->    logo means `DELETE /api/branding/{slot}`.
-> 2. **`PUT /api/config` requires optimistic concurrency from a browser.** `GET` returns an
+>    logo means `DELETE /api/branding/{slot}`. `referenceLayers` is carried the same way whenever
+>    the submitted document **does not mention the key at all** – the layers are written by
+>    `admin_geodata` and the SharePoint pull, and a caller that never names the section is not
+>    asking for anything to happen to it. Sending `"referenceLayers": []` **is** naming it, and
+>    goes to point 3.
+> 2. **`PUT /api/config` requires optimistic concurrency from everybody.** `GET` returns an
 >    opaque `version` (a hash of the stored document); send it back as `If-Match` and a write
 >    against a document somebody else has changed since is refused with **409** instead of
 >    silently winning. The Verwaltung does this on every autosave – without it, a browser tab left
->    open reverted a whole station's config on the next nudge of one unrelated field.
+>    open reverted a whole station's config on the next nudge of one unrelated field. A write
+>    with **no** `If-Match` is refused with **428 Precondition Required** (the response's `ETag`
+>    is the token to come back with).
 >
->    A request that looks like a browser (it carries `Sec-Fetch-Site` or `Origin`) and sends **no**
->    `If-Match` is refused with **428 Precondition Required** – reload the page and repeat the
->    edit. ⚠️ Merely making the header optional was not enough, and the demo was clobbered a
->    second time because of it: the guard then protects only tabs new enough to send the header,
->    and the tab that does the damage is by definition an old one. **A non-browser caller may
->    still omit it** – `admin_config load`, `admin_geodata` and `admin_branding` are deliberate
->    one-shot pushes by somebody at a terminal, and they send neither header.
+>    ⚠️ Two earlier versions of this guard each left a hole. Merely making the header optional
+>    protects only tabs new enough to send it, and the tab that does the damage is by definition
+>    an old one – the demo was clobbered a second time that way. Requiring it of *browsers only*
+>    (detected by `Sec-Fetch-Site` / `Origin`, which `curl` and `httpx` do not send) then left the
+>    exemption to every script and every agent. All the in-repo writers send it; a raw `curl`
+>    script of your own needs one extra `GET`.
+> 3. **A write that would EMPTY a populated section is refused** with **409** and a body naming
+>    the sections (`{"error": "would_empty_sections", "emptiedSections": [...], "override":
+>    "?force=true"}`). Publishing an old document over a newer one is the shape of every one of
+>    these incidents, and it reports success while a station quietly loses its Dienstgrade, its
+>    Doktrin or its Partnerorganisationen. A write that means it repeats the request with
+>    **`?force=true`** – the same decision `load`/`push --force` is (§9b).
+> 4. **Keys the schema dropped come back as `warnings`**, not as an error: `["ignored: identitiy
+>    — did you mean identity?"]`. Every model is `extra="ignore"` (which is what lets an older
+>    deployment read a newer document), so a typo configures nothing and used to be answered with
+>    a plain **200**. The write still happened – a warning is a report, not a refusal.
+>
+> **`POST /api/config/validate` is the dry run in front of all of that** (admin-only, writes
+> nothing). Body = the candidate document; the answer says `valid`, `errors` (as
+> `field.path: message` lines), `warnings`, `emptiedSections`, `changedSections` and the current
+> `version` – so the follow-up `PUT` carries a correct `If-Match` instead of a guess. ⚠️ A
+> document that fails the schema is **200 with `valid: false`**, never 422: the endpoint reports a
+> verdict on a document, and a 422 would make «this document is wrong» and «this request is wrong»
+> the same answer.
+>
+> The schema itself is committed at [`config.schema.json`](config.schema.json) – the same JSON
+> Schema `admin_config schema` prints, regenerated with `just config-schema` (which `just openapi`
+> runs) and guarded by a pytest, so reading the contract needs neither a Python toolchain nor a
+> running server.
 
 ```jsonc
 {
@@ -1343,14 +1373,17 @@ uv run python -m app.admin_config restore <id>      # put one of them back
 ```
 
 `push --dry-run` authenticates and reports without writing. Both `load` and `push` take
-`--force` (see the refusal below).
+`--force` (see the refusal below). Without a Python toolchain the same loop is three HTTP calls:
+`GET /api/config` → `POST /api/config/validate` → `PUT /api/config` with `If-Match` (§1).
 
 > ⚠️ **`load`/`push` refuse to empty a section that currently has content** (exit 2), listing
 > exactly what would go – `roster.ranks`, `doctrine.alarmBar`, `report.partnerOrgs`. That is what
 > publishing an OLD config file looks like, and it is how the public demo lost its Dienstgrade,
 > its Atemschutz-Doktrin and its Partnerorganisationen while every step reported success. Check
 > the file is the one you meant (`admin_config diff`), and pass `--force` if the emptying is
-> genuinely intended – a station dropping its Partnerliste is a real edit.
+> genuinely intended – a station dropping its Partnerliste is a real edit. `push --force` sends
+> `?force=true` with it, because **the server refuses the same write** (§1, point 3): the guard is
+> no longer a courtesy of the command you happened to use.
 >
 > **Every write keeps the document it replaced** (`deployment_config_history`), whichever path
 > made it – the Verwaltung, a CLI push, a branding upload. `history` lists them with when and by

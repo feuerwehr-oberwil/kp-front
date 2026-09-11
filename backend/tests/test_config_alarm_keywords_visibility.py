@@ -26,7 +26,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_anonymous_get_does_not_expose_the_vocabulary(client, admin_login):
+async def test_anonymous_get_does_not_expose_the_vocabulary(client, admin_login, put_config):
     """The words themselves never reach an unauthenticated caller."""
     await admin_login(client)
     vocab = {
@@ -35,7 +35,7 @@ async def test_anonymous_get_does_not_expose_the_vocabulary(client, admin_login)
         "fallback_category": "diverse_einsaetze",
         "high_priority_keywords": {"groups": [{"group": "Brand", "keywords": ["FEUER"]}]},
     }
-    r = await client.put("/api/config", json={"alarmKeywords": vocab})
+    r = await put_config(client, {"alarmKeywords": vocab})
     assert r.status_code == 200, r.text
 
     # Drop the admin session: this is now the login screen's view of the world.
@@ -50,12 +50,12 @@ async def test_anonymous_get_does_not_expose_the_vocabulary(client, admin_login)
 
 
 @pytest.mark.asyncio
-async def test_anonymous_still_learns_which_vocabulary_is_active(client, admin_login):
+async def test_anonymous_still_learns_which_vocabulary_is_active(client, admin_login, put_config):
     """The summary is deliberately public: counts and source, never the words."""
     await admin_login(client)
-    await client.put(
-        "/api/config",
-        json={
+    await put_config(
+        client,
+        {
             "alarmKeywords": {
                 "schema_version": 1,
                 "keyword_to_category": {"pairs": [["FEUER", "brandbekaempfung"]]},
@@ -73,7 +73,7 @@ async def test_anonymous_still_learns_which_vocabulary_is_active(client, admin_l
 
 
 @pytest.mark.asyncio
-async def test_admin_get_round_trips_the_vocabulary(client, admin_login):
+async def test_admin_get_round_trips_the_vocabulary(client, admin_login, put_config):
     """🔴 The data-loss guard.
 
     The admin UI GETs the config, holds it as its draft, and PUTs the whole draft back. If the
@@ -88,7 +88,7 @@ async def test_admin_get_round_trips_the_vocabulary(client, admin_login):
         "fallback_category": "diverse_einsaetze",
         "high_priority_keywords": {"groups": [{"group": "Brand", "keywords": ["FEUER"]}]},
     }
-    await client.put("/api/config", json={"alarmKeywords": vocab})
+    await put_config(client, {"alarmKeywords": vocab})
 
     # 1. The UI reads.
     draft = (await client.get("/api/config")).json()
@@ -102,7 +102,7 @@ async def test_admin_get_round_trips_the_vocabulary(client, admin_login):
     # 3. The UI writes the whole draft back, minus the read-only sections it always strips.
     draft.pop("integrations", None)
     draft.pop("alarmVocabulary", None)
-    r = await client.put("/api/config", json=draft)
+    r = await put_config(client, draft)
     assert r.status_code == 200, r.text
 
     # 4. The vocabulary is still there.

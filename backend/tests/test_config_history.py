@@ -109,12 +109,12 @@ async def _login(client, user) -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_put_keeps_the_document_it_replaced(client, editor, admin_login, session_factory):
+async def test_a_put_keeps_the_document_it_replaced(client, editor, admin_login, session_factory, put_config):
     """THE undo. Whatever clobbers the config next time, what it replaced is still there."""
     await _login(client, editor)
     await admin_login(client)
 
-    first = await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+    first = await put_config(client, {"identity": {"appName": "Erste"}})
     v = first.json()["version"]
     await client.put("/api/config", json={"identity": {"appName": "Zweite"}}, headers={"If-Match": v})
 
@@ -130,10 +130,10 @@ async def test_a_put_keeps_the_document_it_replaced(client, editor, admin_login,
 
 
 @pytest.mark.asyncio
-async def test_nothing_is_kept_when_there_is_nothing_to_keep(client, editor, admin_login, session_factory):
+async def test_nothing_is_kept_when_there_is_nothing_to_keep(client, editor, admin_login, session_factory, put_config):
     """A fresh install has no earlier state; a row of nulls would only be noise in `history`."""
     await _login(client, editor)
     await admin_login(client)
-    await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+    await put_config(client, {"identity": {"appName": "Erste"}})
     async with session_factory() as db:
         assert (await db.execute(select(DeploymentConfigHistory))).scalars().all() == []

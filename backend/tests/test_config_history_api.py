@@ -13,7 +13,7 @@ async def _login(client, editor):
 
 
 @pytest.fixture
-async def three_writes(client, editor, admin_login):
+async def three_writes(client, editor, admin_login, put_config):
     """A populated config, then a write that guts it — the incident, in miniature."""
     await _login(client, editor)
     await admin_login(client)
@@ -22,13 +22,17 @@ async def three_writes(client, editor, admin_login):
         "report": {"partnerOrgs": ["Polizei", "Sanität"]},
         "roster": {"ranks": [{"key": "of", "label": "Offizier"}]},
     }
-    r1 = await client.put("/api/config", json=full)
+    r1 = await put_config(client, full)
     assert r1.status_code == 200, r1.text
-    # …and now the clobber: the same document minus everything that made it a station
+    # …and now the clobber: the same document minus everything that made it a station.
+    # ⚠️ `?force=true`, because the server now REFUSES this write — which is the point of the
+    # guard and does not make the history list any less necessary: a forced write, a restore of
+    # the wrong entry and a write from a build older than the guard all still land here.
     r2 = await client.put(
         "/api/config",
         json={"identity": {"appName": "Feuerwehr Musterdorf"}},
         headers={"If-Match": r1.json()["version"]},
+        params={"force": "true"},
     )
     assert r2.status_code == 200, r2.text
 

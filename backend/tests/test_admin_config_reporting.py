@@ -7,7 +7,10 @@ Every config model is `extra="ignore"`, which is what lets an older deployment r
 with its defaults filled in. Both halves of that «OK» were untrue.
 """
 
-from app.admin_config import _ignored_keys, _layer_warnings, _summary
+import httpx
+
+from app.admin_config import _push, _summary
+from app.config_guard import ignored_keys, layer_warnings
 from app.schemas import DeploymentConfigIn
 
 
@@ -36,7 +39,7 @@ def test_dry_run_names_defaults_that_would_overwrite_a_stored_non_default():
 
 
 def test_dropped_keys_are_named_with_a_did_you_mean():
-    lines = _ignored_keys(
+    lines = ignored_keys(
         {"identitiy": {"appName": "X"}, "map": {"defaultview": {}}, "doctrin": {}, "wetterstation": True}
     )
     assert lines == [
@@ -49,14 +52,14 @@ def test_dropped_keys_are_named_with_a_did_you_mean():
 
 
 def test_a_correct_file_is_reported_clean():
-    assert _ignored_keys({"identity": {"appName": "X", "accentColor": "#fff"}, "modules": []}) == []
+    assert ignored_keys({"identity": {"appName": "X", "accentColor": "#fff"}, "modules": []}) == []
 
 
 def test_a_geojson_layer_the_app_cannot_fetch_is_flagged():
     """The string goes straight to MapLibre as a URL (src/lib/deploymentConfig · mapReferenceLayers).
     A bare filename resolves against the app's own routes and 404s — the layer is listed in the
     Ebenen panel and draws nothing, which is exactly what nobody notices until an Einsatz."""
-    [warning] = _layer_warnings(
+    [warning] = layer_warnings(
         {"referenceLayers": [{"id": "hydrant", "kind": "geojson", "geojson": "hydranten.geojson"}]}
     )
     assert "'hydrant'" in warning
@@ -65,7 +68,7 @@ def test_a_geojson_layer_the_app_cannot_fetch_is_flagged():
 
 def test_the_two_shapes_that_do_resolve_are_quiet():
     assert (
-        _layer_warnings(
+        layer_warnings(
             {
                 "referenceLayers": [
                     {"id": "a", "kind": "geojson", "geojson": "/api/reference/geo:hydrant"},
@@ -76,3 +79,74 @@ def test_the_two_shapes_that_do_resolve_are_quiet():
         )
         == []
     )
+
+
+# --- push: the local refusal and the server's now have to agree -------------------------
+
+
+class _FakeClient:
+    """Just enough of `httpx.Client` for `_push`: an admin login, a config GET, a config PUT."""
+
+    def __init__(self, remote: dict) -> None:
+        self.remote = remote
+        self.put_params: dict | None = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return None
+
+    def post(self, url: str, **_kw):
+        assert url == "/api/admin/login"
+        return httpx.Response(200, json={"ok": True})
+
+    def get(self, url: str, **_kw):
+        assert url == "/api/config"
+        return httpx.Response(200, json=self.remote)
+
+    def put(self, url: str, **kw):
+        assert url == "/api/config"
+        self.put_params = kw.get("params")
+        return httpx.Response(200, json={})
+
+
+#: A deployment with a section somebody filled in — what an old file would empty.
+REMOTE = {"identity": {"appName": "Feuerwehr Musterdorf"}, "report": {"partnerOrgs": ["Polizei"]}, "version": "v1"}
+TALHEIM = {"identity": {"appName": "Feuerwehr Talheim"}}
+
+
+def test_a_push_that_would_empty_a_section_is_refused_locally(monkeypatch, capsys):
+    """The refusal a person reads at a terminal: it names the section and the flag. The server
+    refuses this too, but a 409 is not a sentence anybody can act on."""
+    fake = _FakeClient(REMOTE)
+    monkeypatch.setattr(httpx, "Client", lambda **_kw: fake)
+
+    code = _push({}, _normalized(TALHEIM), "https://s.example", "s", False, False)
+
+    assert code == 2
+    assert fake.put_params is None, "a refused push must not reach the deployment at all"
+    assert "report.partnerOrgs" in capsys.readouterr().err
+
+
+def test_force_is_sent_to_the_server_as_well_as_honoured_here(monkeypatch):
+    """⚠️ `--force` is now two things: the local refusal it always overrode, and `?force=true` on
+    the wire. The server refuses the same write (api/config · put_config), so without the query
+    parameter a forced push would be rejected by the deployment it was told to change."""
+    fake = _FakeClient(REMOTE)
+    monkeypatch.setattr(httpx, "Client", lambda **_kw: fake)
+
+    code = _push({}, _normalized(TALHEIM), "https://s.example", "s", False, True)
+
+    assert code == 0
+    assert fake.put_params == {"force": "true"}
+
+
+def test_an_ordinary_push_sends_no_force(monkeypatch):
+    fake = _FakeClient(REMOTE)
+    monkeypatch.setattr(httpx, "Client", lambda **_kw: fake)
+
+    code = _push({}, _normalized(REMOTE), "https://s.example", "s", False, False)
+
+    assert code == 0
+    assert fake.put_params == {}

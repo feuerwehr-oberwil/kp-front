@@ -23,7 +23,7 @@ async def _login(client, user) -> None:
 # --- A1: config meta ----------------------------------------------------------------
 
 
-async def test_config_meta_after_put(client, editor, admin_login):
+async def test_config_meta_after_put(client, editor, admin_login, put_config):
     await _login(client, editor)
     await admin_login(client)
     # a fresh DB has no row → nulls
@@ -32,7 +32,7 @@ async def test_config_meta_after_put(client, editor, admin_login):
     assert r0.json() == {"updated_at": None, "updated_by_name": None}
 
     # stamp the row via a PUT — updated_by is the logged-in user driving the admin UI
-    put = await client.put("/api/config", json={"identity": {"appName": "Testwehr"}})
+    put = await put_config(client, {"identity": {"appName": "Testwehr"}})
     assert put.status_code == 200, put.text
 
     r1 = await client.get("/api/config/meta")
@@ -87,7 +87,7 @@ async def test_branding_upload_sets_asset_and_serves(client, editor, admin_login
     assert meta.json()["updated_by_name"] == editor.display_name
 
 
-async def test_a_branding_upload_keeps_the_config_it_replaced(client, editor, admin_login, session_factory):
+async def test_a_branding_upload_keeps_the_config_it_replaced(client, editor, admin_login, session_factory, put_config):
     """A logo upload rewrites the WHOLE document (`_set_asset` normalizes and reassigns it), so it
     is a config write like any other — and it was one of two paths with no undo, while
     docs/CONFIGURATION.md promised history on every one of them."""
@@ -97,7 +97,7 @@ async def test_a_branding_upload_keeps_the_config_it_replaced(client, editor, ad
 
     await _login(client, editor)
     await admin_login(client)
-    await client.put("/api/config", json={"identity": {"appName": "Testwehr"}})  # nothing to keep yet
+    await put_config(client, {"identity": {"appName": "Testwehr"}})  # nothing to keep yet
     up = await client.post("/api/branding/logo", files={"file": ("logo.png", _PNG, "image/png")})
     assert up.status_code == 200, up.text
 
@@ -109,7 +109,7 @@ async def test_a_branding_upload_keeps_the_config_it_replaced(client, editor, ad
 
 
 async def test_db_direct_branding_load_keeps_the_config_it_replaced(
-    client, editor, admin_login, session_factory, monkeypatch, tmp_path
+    client, editor, admin_login, session_factory, monkeypatch, tmp_path, put_config
 ):
     from sqlalchemy import select
 
@@ -118,7 +118,7 @@ async def test_db_direct_branding_load_keeps_the_config_it_replaced(
 
     await _login(client, editor)
     await admin_login(client)
-    await client.put("/api/config", json={"identity": {"appName": "Testwehr"}})
+    await put_config(client, {"identity": {"appName": "Testwehr"}})
 
     logo = tmp_path / "logo.png"
     logo.write_bytes(_PNG)
@@ -164,7 +164,7 @@ async def test_branding_serve_rejects_traversal(client):
     assert r2.status_code == 404
 
 
-async def test_config_put_cannot_strip_an_uploaded_asset(client, editor, admin_login):
+async def test_config_put_cannot_strip_an_uploaded_asset(client, editor, admin_login, put_config):
     """A full-document PUT must not be able to null a branding slot.
 
     The Verwaltung holds the config in a client-side draft and replaces the whole document on
@@ -179,10 +179,7 @@ async def test_config_put_cannot_strip_an_uploaded_asset(client, editor, admin_l
     assert url
 
     # a stale draft: the whole document, with assets as the client last saw them (empty)
-    stale = await client.put(
-        "/api/config",
-        json={"identity": {"appName": "Testwehr", "assets": {"logo": None, "favicon": None}}},
-    )
+    stale = await put_config(client, {"identity": {"appName": "Testwehr", "assets": {"logo": None, "favicon": None}}})
     assert stale.status_code == 200, stale.text
     # the echo the admin UI re-seeds from carries the real URL, not the null it sent…
     assert stale.json()["identity"]["assets"]["logo"] == url
@@ -192,16 +189,16 @@ async def test_config_put_cannot_strip_an_uploaded_asset(client, editor, admin_l
     assert got.json()["identity"]["assets"]["logo"] == url
 
 
-async def test_branding_delete_still_clears_after_a_put(client, editor, admin_login):
+async def test_branding_delete_still_clears_after_a_put(client, editor, admin_login, put_config):
     """Removing a logo goes through DELETE /api/branding/{slot} — which must still work.
-    `_keep_assets` carries over only slots that are SET, so the delete is not undone by the
-    next config save."""
+    `carry_runtime_sections` carries over only slots that are SET, so the delete is not undone
+    by the next config save."""
     await _login(client, editor)
     await admin_login(client)
     await client.post("/api/branding/logo", files={"file": ("logo.png", _PNG, "image/png")})
     rm = await client.delete("/api/branding/logo")
     assert rm.json()["identity"]["assets"]["logo"] is None
-    after = await client.put("/api/config", json={"identity": {"appName": "Testwehr"}})
+    after = await put_config(client, {"identity": {"appName": "Testwehr"}})
     assert after.json()["identity"]["assets"]["logo"] is None
 
 
@@ -221,7 +218,7 @@ async def test_branding_delete_clears_asset(client, editor, admin_login):
 # --- optimistic concurrency: a stale tab cannot silently revert the station ----------
 
 
-async def test_a_put_with_a_stale_version_is_refused(client, editor, admin_login):
+async def test_a_put_with_a_stale_version_is_refused(client, editor, admin_login, put_config):
     """⚠️ THE bug this guards: the Verwaltung holds the config in a client-side draft and
     replaces the whole document on every autosave. A tab open since breakfast therefore reverted
     everything anybody had changed since — Dienstgrade, Partnerorganisationen, the Atemschutz
@@ -230,12 +227,12 @@ async def test_a_put_with_a_stale_version_is_refused(client, editor, admin_login
     """
     await _login(client, editor)
     await admin_login(client)
-    first = await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+    first = await put_config(client, {"identity": {"appName": "Erste"}})
     stale = first.json()["version"]
     assert stale
 
     # somebody else (or the CLI) writes in the meantime
-    await client.put("/api/config", json={"identity": {"appName": "Zweite"}})
+    await put_config(client, {"identity": {"appName": "Zweite"}})
 
     conflict = await client.put("/api/config", json={"identity": {"appName": "Erste"}}, headers={"If-Match": stale})
     assert conflict.status_code == 409, conflict.text
@@ -243,12 +240,12 @@ async def test_a_put_with_a_stale_version_is_refused(client, editor, admin_login
     assert (await client.get("/api/config")).json()["identity"]["appName"] == "Zweite"
 
 
-async def test_the_version_advances_so_the_next_save_goes_through(client, editor, admin_login):
+async def test_the_version_advances_so_the_next_save_goes_through(client, editor, admin_login, put_config):
     """The token handed back must be the NEW one — otherwise a client that saves twice in a row
     conflicts with a document only it has ever touched."""
     await _login(client, editor)
     await admin_login(client)
-    v1 = (await client.put("/api/config", json={"identity": {"appName": "A"}})).json()["version"]
+    v1 = (await put_config(client, {"identity": {"appName": "A"}})).json()["version"]
     r2 = await client.put("/api/config", json={"identity": {"appName": "B"}}, headers={"If-Match": v1})
     assert r2.status_code == 200, r2.text
     v2 = r2.json()["version"]
@@ -256,64 +253,37 @@ async def test_the_version_advances_so_the_next_save_goes_through(client, editor
     assert r3.status_code == 200, r3.text
 
 
-async def test_a_put_without_the_header_still_writes(client, editor, admin_login):
-    """`admin_config load`, the geodata push and the backup importer are deliberate one-shot
-    pushes by somebody at a terminal — not a tab that has been open for an hour. Omitting the
-    token keeps them working exactly as before."""
-    await _login(client, editor)
-    await admin_login(client)
-    await client.put("/api/config", json={"identity": {"appName": "Erste"}})
-    later = await client.put("/api/config", json={"identity": {"appName": "CLI"}})
-    assert later.status_code == 200
-    assert (await client.get("/api/config")).json()["identity"]["appName"] == "CLI"
+async def test_a_put_without_the_header_is_refused_whoever_sent_it(client, editor, admin_login, put_config):
+    """⚠️ EVERY caller proves freshness now — a browser, a CLI push, a script, an agent.
 
+    Two earlier versions of this guard each left a hole. Optional-for-everybody protects only
+    tabs new enough to send the header, and the tab that does the damage is by definition an OLD
+    one: the public demo was clobbered a second time that way, hours after the guard went live.
+    Required-of-browsers-only (detected by `Sec-Fetch-Site` / `Origin`, which httpx and curl do
+    not send) then left the exemption to anything that is not a browser — which is every script
+    and every agent holding a full document it read at some point.
 
-async def test_a_browser_put_without_the_version_is_refused(client, editor, admin_login):
-    """⚠️ The hole the first version of this guard left open.
-
-    Making `If-Match` merely optional protects only tabs new enough to send it — and the tab that
-    does the damage is by definition an OLD one, open since before the guard shipped. It sends no
-    header, is indistinguishable from a CLI push, and overwrites. The public demo was clobbered a
-    second time exactly that way, hours after the guard went live.
-
-    A browser always sends `Sec-Fetch-Site`; httpx and curl do not. So a request that looks like a
-    browser must carry the version, and gets 428 (this page is stale) when it does not.
+    A GET is one line away, so the cost of the header is one request; the cost of the exemption
+    was the whole document.
     """
     await _login(client, editor)
     await admin_login(client)
-    await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+    await put_config(client, {"identity": {"appName": "Erste"}})
 
-    stale_tab = await client.put(
-        "/api/config",
-        json={"identity": {"appName": "Von einem alten Tab"}},
-        headers={"Sec-Fetch-Site": "same-origin"},
-    )
-    assert stale_tab.status_code == 428, stale_tab.text
-    # …and it changed nothing
+    for headers in ({}, {"Sec-Fetch-Site": "same-origin"}, {"Origin": "http://test"}):
+        blind = await client.put("/api/config", json={"identity": {"appName": "Blind"}}, headers=headers)
+        assert blind.status_code == 428, f"{headers} was allowed a blind write: {blind.text}"
+        # …and the ETag it answers with is the one to come back with
+        assert blind.headers["ETag"] == (await client.get("/api/config")).json()["version"]
+    # nothing was written by any of them
     assert (await client.get("/api/config")).json()["identity"]["appName"] == "Erste"
 
 
-async def test_an_origin_header_counts_as_a_browser_too(client, editor, admin_login):
-    """A same-origin write carries `Origin` even where `Sec-Fetch-*` is absent (older Safari).
-
-    Own origin on purpose: a FOREIGN origin is now refused earlier (403) by the
-    SEC-12 origin gate — this test is about browser detection, not CSRF.
-    """
-    await _login(client, editor)
-    await admin_login(client)
-    r = await client.put(
-        "/api/config",
-        json={"identity": {"appName": "X"}},
-        headers={"Origin": "http://test"},
-    )
-    assert r.status_code == 428
-
-
-async def test_a_browser_put_with_a_current_version_still_writes(client, editor, admin_login):
+async def test_a_browser_put_with_a_current_version_still_writes(client, editor, admin_login, put_config):
     """The guard must not break the Verwaltung itself — a current tab saves normally."""
     await _login(client, editor)
     await admin_login(client)
-    first = await client.put("/api/config", json={"identity": {"appName": "Erste"}})
+    first = await put_config(client, {"identity": {"appName": "Erste"}})
     v = first.json()["version"]
     ok = await client.put(
         "/api/config",

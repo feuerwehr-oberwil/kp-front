@@ -1,0 +1,1691 @@
+{
+  "$defs": {
+    "AlarmGroup": {
+      "description": "One station alarm group for the Alarmierungs-/Ausrückzeiten grid. `id` must match\nwhat the milestone sender uses; `tagespikett` marks the day-duty group.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "winfapAlias": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Winfapalias"
+        },
+        "tagespikett": {
+          "default": false,
+          "title": "Tagespikett",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "AlarmGroup",
+      "type": "object"
+    },
+    "AlarmHighPriorityKeywords": {
+      "properties": {
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/AlarmKeywordGroup"
+          },
+          "title": "Groups",
+          "type": "array"
+        }
+      },
+      "title": "AlarmHighPriorityKeywords",
+      "type": "object"
+    },
+    "AlarmKeywordCategories": {
+      "description": "`pairs` is ordered: the first keyword found in an uppercased title wins.",
+      "properties": {
+        "pairs": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Pairs",
+          "type": "array"
+        }
+      },
+      "title": "AlarmKeywordCategories",
+      "type": "object"
+    },
+    "AlarmKeywordGroup": {
+      "description": "One reader-facing grouping of high-priority keywords. `group`/`note` are documentation\n— priority inference is an any-match, so the grouping carries no meaning at runtime.",
+      "properties": {
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "keywords": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        }
+      },
+      "title": "AlarmKeywordGroup",
+      "type": "object"
+    },
+    "AlarmKeywordsConfig": {
+      "description": "A station's own alarm vocabulary — it REPLACES the shipped one wholesale.\n\nThe shape is `backend/app/data/alarm_keywords.json` verbatim, so a station starts by\ncopying that file (the documented way to add a single keyword) and pastes it under\n`alarmKeywords`. Hence the snake_case field names in here, unlike the rest of this\ndocument: they are the file's key names, not new ones. `_readme` and `schema` are accepted\nand dropped — they document the shipped file, not this deployment's row.\n\nValidity is decided ONCE, by `alarm_keywords.parse()`, the same rule the shipped file\npasses at import. There is no second schema to keep in step. On top of it, one kp-front\nrule the shared file cannot state: every category must be one this app has a German label\nfor, because a vocabulary routing to an unknown category would file those alarms under\n«Diverse Einsätze» and never say why.",
+      "properties": {
+        "schema_version": {
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "keyword_to_category": {
+          "$ref": "#/$defs/AlarmKeywordCategories"
+        },
+        "fallback_category": {
+          "title": "Fallback Category",
+          "type": "string"
+        },
+        "high_priority_keywords": {
+          "$ref": "#/$defs/AlarmHighPriorityKeywords"
+        },
+        "known_matcher_divergence": {
+          "$ref": "#/$defs/AlarmMatcherDivergence"
+        }
+      },
+      "required": [
+        "schema_version",
+        "keyword_to_category",
+        "fallback_category"
+      ],
+      "title": "AlarmKeywordsConfig",
+      "type": "object"
+    },
+    "AlarmMatcherDivergence": {
+      "description": "Documentation of the kp-front/kp-rueck matcher difference; carried so a station can copy\nthe shipped file verbatim. kp-front's matcher does not read it.",
+      "properties": {
+        "kp_rueck_word_bounded": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kp Rueck Word Bounded",
+          "type": "array"
+        }
+      },
+      "title": "AlarmMatcherDivergence",
+      "type": "object"
+    },
+    "AlarmsConfig": {
+      "description": "Alarm handling: auto-open incidents from incoming alarms + auto-archive of untouched\nauto-opened ones.",
+      "properties": {
+        "autoOpen": {
+          "default": false,
+          "title": "Autoopen",
+          "type": "boolean"
+        },
+        "autoOpenPriorities": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "HIGH",
+                  "LOW"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Autoopenpriorities"
+        },
+        "autoOpenKeywords": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Autoopenkeywords"
+        },
+        "autoArchiveDays": {
+          "default": 7,
+          "minimum": 0,
+          "title": "Autoarchivedays",
+          "type": "integer"
+        },
+        "staleIncidentDays": {
+          "default": 30,
+          "minimum": 0,
+          "title": "Staleincidentdays",
+          "type": "integer"
+        },
+        "captureWindowHours": {
+          "default": 12,
+          "maximum": 168,
+          "minimum": 1,
+          "title": "Capturewindowhours",
+          "type": "integer"
+        },
+        "webhooks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Webhooks",
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/AlarmGroup"
+          },
+          "title": "Groups",
+          "type": "array"
+        }
+      },
+      "title": "AlarmsConfig",
+      "type": "object"
+    },
+    "DoctrineConfig": {
+      "properties": {
+        "defaultFunkkanal": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Defaultfunkkanal"
+        },
+        "defaultFunkkanalEinfach": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Defaultfunkkanaleinfach"
+        },
+        "funkkanalMin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Funkkanalmin"
+        },
+        "funkkanalMax": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Funkkanalmax"
+        },
+        "alarmBar": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alarmbar"
+        },
+        "alarmBarRueckzug": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alarmbarrueckzug"
+        },
+        "contactIntervalMin": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contactintervalmin"
+        },
+        "contactGraceSec": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contactgracesec"
+        },
+        "defaultPressureBar": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Defaultpressurebar"
+        },
+        "pressureStep": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pressurestep"
+        },
+        "pressureMax": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pressuremax"
+        },
+        "cylinderLiters": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 30,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cylinderliters"
+        },
+        "estConsumptionLPerMin": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 200,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estconsumptionlpermin"
+        },
+        "auftragColors": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Auftragcolors"
+        }
+      },
+      "title": "DoctrineConfig",
+      "type": "object"
+    },
+    "FleetAttributeList": {
+      "description": "A data-driven suggestion list for one symbol field (``field == 'title'`` targets the\ntitle input; any other key targets that detail row). Replaces the fixed vehicle/Lüfter/…\nlists below so a deployment can attach a list to any symbol field.",
+      "properties": {
+        "symbol": {
+          "title": "Symbol",
+          "type": "string"
+        },
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        }
+      },
+      "required": [
+        "symbol",
+        "field"
+      ],
+      "title": "FleetAttributeList",
+      "type": "object"
+    },
+    "FleetConfig": {
+      "properties": {
+        "vehicles": {
+          "items": {
+            "$ref": "#/$defs/FleetVehicle"
+          },
+          "title": "Vehicles",
+          "type": "array"
+        },
+        "attributeLists": {
+          "items": {
+            "$ref": "#/$defs/FleetAttributeList"
+          },
+          "title": "Attributelists",
+          "type": "array"
+        },
+        "vehicleTypes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Vehicletypes",
+          "type": "array"
+        },
+        "luefterTypes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Lueftertypes",
+          "type": "array"
+        },
+        "kleinloeschTypes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Kleinloeschtypes",
+          "type": "array"
+        },
+        "partner": {
+          "$ref": "#/$defs/FleetPartner"
+        }
+      },
+      "title": "FleetConfig",
+      "type": "object"
+    },
+    "FleetPartner": {
+      "properties": {
+        "feuerwehr": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Feuerwehr",
+          "type": "array"
+        },
+        "sanitaet": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sanitaet",
+          "type": "array"
+        },
+        "polizei": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Polizei",
+          "type": "array"
+        },
+        "chemiewehr": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chemiewehr",
+          "type": "array"
+        },
+        "zivilschutz": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Zivilschutz",
+          "type": "array"
+        }
+      },
+      "title": "FleetPartner",
+      "type": "object"
+    },
+    "FleetVehicle": {
+      "description": "One station vehicle for the Alarmierungs-/Ausrückzeiten grid (rapport form, paper\nErfassungsblatt, milestone webhook matching, stats export). `id` should equal the\nsender's device name (Traccar convention, e.g. 'tlf') — matching is a plain string\ncompare. Empty `fleet.vehicles` (default) hides every vehicle-times surface.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "winfapAlias": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Winfapalias"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "FleetVehicle",
+      "type": "object"
+    },
+    "HoursRoundingConfig": {
+      "description": "The Sold convention this station counts Einsatzstunden by — see ``ReportConfig``.",
+      "properties": {
+        "stepMin": {
+          "default": 30,
+          "maximum": 480,
+          "minimum": 1,
+          "title": "Stepmin",
+          "type": "integer"
+        },
+        "graceMin": {
+          "default": 5,
+          "maximum": 479,
+          "minimum": 0,
+          "title": "Gracemin",
+          "type": "integer"
+        }
+      },
+      "title": "HoursRoundingConfig",
+      "type": "object"
+    },
+    "IdentityAssets": {
+      "properties": {
+        "logo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logo"
+        },
+        "reportLogo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reportlogo"
+        },
+        "iconPng192": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Iconpng192"
+        },
+        "iconPng512": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Iconpng512"
+        },
+        "favicon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Favicon"
+        }
+      },
+      "title": "IdentityAssets",
+      "type": "object"
+    },
+    "IdentityConfig": {
+      "properties": {
+        "appName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Appname"
+        },
+        "locale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Locale"
+        },
+        "accentColor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accentcolor"
+        },
+        "assets": {
+          "$ref": "#/$defs/IdentityAssets"
+        },
+        "helpIntro": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Helpintro"
+        },
+        "kommandant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kommandant"
+        },
+        "demoMode": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Demomode"
+        },
+        "demoNote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Demonote"
+        }
+      },
+      "title": "IdentityConfig",
+      "type": "object"
+    },
+    "JournalConfig": {
+      "description": "Journal composer configuration: the station's Textbausteine (quick phrases) —\ntappable chips that pre-fill the entry text. Empty = the app's national defaults.",
+      "properties": {
+        "quickPhrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Quickphrases",
+          "type": "array"
+        }
+      },
+      "title": "JournalConfig",
+      "type": "object"
+    },
+    "MapConfig": {
+      "properties": {
+        "defaultView": {
+          "$ref": "#/$defs/MapDefaultView"
+        },
+        "geocoder": {
+          "$ref": "#/$defs/MapGeocoder"
+        },
+        "externalLinks": {
+          "items": {
+            "$ref": "#/$defs/MapExternalLink"
+          },
+          "title": "Externallinks",
+          "type": "array"
+        }
+      },
+      "title": "MapConfig",
+      "type": "object"
+    },
+    "MapDefaultView": {
+      "properties": {
+        "center": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Center"
+        },
+        "centerLv95": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Centerlv95"
+        },
+        "zoom": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zoom"
+        }
+      },
+      "title": "MapDefaultView",
+      "type": "object"
+    },
+    "MapExternalLink": {
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "urlTemplate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Urltemplate"
+        }
+      },
+      "title": "MapExternalLink",
+      "type": "object"
+    },
+    "MapGeocoder": {
+      "properties": {
+        "defaultLocality": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Defaultlocality"
+        },
+        "bboxLv95": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bboxlv95"
+        }
+      },
+      "title": "MapGeocoder",
+      "type": "object"
+    },
+    "MittelConfig": {
+      "description": "Station-wide material-use config: the Mittel catalogue, the optional source list, and\ncommon unit suggestions for custom («Anderes Mittel») entries. All optional → the app falls\nback to its national defaults (empty catalogue, free-typed materials).",
+      "properties": {
+        "catalogue": {
+          "items": {
+            "$ref": "#/$defs/MittelItem"
+          },
+          "title": "Catalogue",
+          "type": "array"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/MittelSource"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "units": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Units",
+          "type": "array"
+        }
+      },
+      "title": "MittelConfig",
+      "type": "object"
+    },
+    "MittelItem": {
+      "description": "One station-catalogue material: id + label + default unit (Stk/l/Sack/m/Flasche …),\nan optional grouping `category`, and an optional per-source `stock` (nominal load-out +\nwhere it lives → drives the used/available readout and the Bestand overview).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "stock": {
+          "items": {
+            "$ref": "#/$defs/MittelStockEntry"
+          },
+          "title": "Stock",
+          "type": "array"
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "items": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        },
+        "verbrauchbar": {
+          "default": false,
+          "title": "Verbrauchbar",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "MittelItem",
+      "type": "object"
+    },
+    "MittelSource": {
+      "description": "One source a material can be drawn from (vehicle / depot / …).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "MittelSource",
+      "type": "object"
+    },
+    "MittelStockEntry": {
+      "description": "How many of a material are normally carried at one source (the standard load-out).",
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "qty": {
+          "title": "Qty",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source",
+        "qty"
+      ],
+      "title": "MittelStockEntry",
+      "type": "object"
+    },
+    "ModuleConfig": {
+      "description": "One Objektplan module — drives BOTH the app's plan tile and the import parsing, so a\nstation configures its module set / labels / parsing in one place.\n\nDisplay: ``code`` is the short tile label ('M1', '2/3', 'Wasser'), plus title/subtitle/\norientation/order/icon. Parsing: ``match`` is a regex tested (case-insensitive) against a\nsource PDF's filename stem — the first module whose ``match`` hits claims the file.\n``combinedWith`` marks a combined sheet that also fills other slots (modul2-3 → modul2 +\nmodul3). ``family`` marks a generative module whose ``match`` has a capture group for a\nsub-slot — \"Modul 5 - Wasser\" → ``modul5-wasser`` labelled \"Wasser\".",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitle"
+        },
+        "orientation": {
+          "default": "landscape",
+          "enum": [
+            "portrait",
+            "landscape"
+          ],
+          "title": "Orientation",
+          "type": "string"
+        },
+        "order": {
+          "default": 0,
+          "title": "Order",
+          "type": "integer"
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Icon"
+        },
+        "match": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match"
+        },
+        "combinedWith": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Combinedwith"
+        },
+        "family": {
+          "default": false,
+          "title": "Family",
+          "type": "boolean"
+        },
+        "viewer": {
+          "default": false,
+          "title": "Viewer",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "ModuleConfig",
+      "type": "object"
+    },
+    "RankConfig": {
+      "description": "One Dienstgrad in the station's ordered rank list. Position in ``roster.ranks`` is\nthe seniority order (most senior first). ``tier`` drives the \"nur Offiziere\" picker\nfilter and the Anwesenheit grouping; ``abbr`` is the short badge shown in lists.",
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "abbr": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Abbr"
+        },
+        "tier": {
+          "default": "crew",
+          "enum": [
+            "officer",
+            "nco",
+            "crew"
+          ],
+          "title": "Tier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "title": "RankConfig",
+      "type": "object"
+    },
+    "ReferenceLayerConfig": {
+      "description": "A station-supplied reference layer (raster WMS/WMTS or vector GeoJSON).\n\nPermissive (extra=ignore) but enforces the kind→payload invariant: raster layers\nmust carry `tiles`, geojson layers must carry `geojson`. Malformed entries reject.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Icon"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "wms",
+                "wmts",
+                "geojson"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "tiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tiles"
+        },
+        "geojson": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Geojson"
+        },
+        "vectorKind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vectorkind"
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "nightColor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nightcolor"
+        },
+        "opacity": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Opacity"
+        },
+        "maxzoom": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxzoom"
+        },
+        "attribution": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attribution"
+        },
+        "autoActivate": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Autoactivate"
+        }
+      },
+      "title": "ReferenceLayerConfig",
+      "type": "object"
+    },
+    "ReportConfig": {
+      "description": "Einsatzrapport form presets. `partnerOrgs` feeds the Partnerorganisationen\ncheckbox row (paper Erfassungsblatt + rapport form quick-pick); free-text entries\nremain possible everywhere. Empty = no preset row.",
+      "properties": {
+        "partnerOrgs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Partnerorgs",
+          "type": "array"
+        },
+        "reversePrintOrder": {
+          "default": true,
+          "title": "Reverseprintorder",
+          "type": "boolean"
+        },
+        "hoursRounding": {
+          "$ref": "#/$defs/HoursRoundingConfig"
+        },
+        "attendanceMergeGapMin": {
+          "default": 15,
+          "maximum": 240,
+          "minimum": 0,
+          "title": "Attendancemergegapmin",
+          "type": "integer"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/ReportLinkConfig"
+          },
+          "maxItems": 30,
+          "title": "Links",
+          "type": "array"
+        }
+      },
+      "title": "ReportConfig",
+      "type": "object"
+    },
+    "ReportLinkConfig": {
+      "description": "One row of ``ReportConfig.links``.\n\n``url`` may carry ``{platzhalter}`` tokens (``{stichwort}``, ``{ort}``, ``{datum}``,\n``{alarmzeit}``, ``{einsatzende}``, ``{einsatzleiter}``, ``{kontaktperson}``,\n``{kurzbericht}``, ``{wehr}``), which the app substitutes URL-encoded when the link is\nopened. That is how a Google Form arrives with Anlass and Datum already in it — see\n\"Link zum Vorausfüllen abrufen\" in Google Forms, which yields ``?usp=pp_url&entry.<id>=…``.\n\nThe backend does not resolve or fetch these; it stores them.\n\n⚠️ ``url`` is constrained to http(s) HERE as well, not only in the app. The frontend gate\n(``deploymentConfig · reportLinks``) protects the one consumer that exists today; a\n``javascript:`` URL accepted into the stored document would be waiting for the next one.",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "url"
+      ],
+      "title": "ReportLinkConfig",
+      "type": "object"
+    },
+    "RosterConfig": {
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "enum": [
+                "manual",
+                "divera",
+                "snapshot"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "ranks": {
+          "items": {
+            "$ref": "#/$defs/RankConfig"
+          },
+          "title": "Ranks",
+          "type": "array"
+        },
+        "nameOrder": {
+          "default": "last-first",
+          "enum": [
+            "last-first",
+            "first-last"
+          ],
+          "title": "Nameorder",
+          "type": "string"
+        }
+      },
+      "title": "RosterConfig",
+      "type": "object"
+    },
+    "SetupConfig": {
+      "description": "Which rows of the «Einrichtung» card this station ticked off by hand.\n\nThe card derives every row from the document itself, but some rows can never become true\nthat way — a station happy with the built-in vehicles never writes ``fleet.vehicles``, so\nthat row would nag forever. A hand tick is the escape hatch, and it belongs in the document\nrather than on the device: «erledigt» is a statement about the Wehr, and the next admin on\nthe next tablet has to see it.",
+      "properties": {
+        "acknowledged": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Acknowledged",
+          "type": "array"
+        }
+      },
+      "title": "SetupConfig",
+      "type": "object"
+    },
+    "SharePointConfig": {
+      "description": "Where this deployment pulls station data from, and how often. Read-only, pull-only.\n\n⚠️ NO CREDENTIAL LIVES HERE. ``GET /api/config`` is public and the Sicherung round-trip\nreplaces this document wholesale; the tenant/client id and the client secret are in the\nencrypted credential store (app/credentials · the ``sharepoint`` group). What stays in the\ndocument is the part an operator wants to read back, diff and version: which folders.",
+      "properties": {
+        "intervalMinutes": {
+          "default": 60,
+          "maximum": 10080,
+          "minimum": 1,
+          "title": "Intervalminutes",
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SharePointSource"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "title": "SharePointConfig",
+      "type": "object"
+    },
+    "SharePointSource": {
+      "description": "One area's folder in SharePoint — where to look, for what kind of data.\n\nEvery field but ``area`` is about ADDRESSING, and the addressing is per source on purpose:\na station that keeps its Objektpläne on the Kommando site and its Geodaten in a different\nlibrary configures two entries with two ``siteUrl``s. Nothing here requires a common root,\nand an area a station does not have is simply not listed.\n\nPoint at the site with ``siteUrl`` (the address out of a browser's URL bar,\n``https://contoso.sharepoint.com/sites/feuerwehr``) and this deployment resolves it to the\ndocument library itself; give ``driveId`` instead when a tenant admin has handed over the\nlibrary id directly. ``library`` picks a non-default document library by its display name.\n``path`` is the folder INSIDE that library — the per-area naming convention from\ndocs/sharepoint-connector.md applies below it, never above it.\n\n``ignore`` names the sub-folders the pull walks past — the category folders every grown\ndocument library has («Grosspläne», «Archiv»), which are not Einsatzobjekte and must never\nbecome one.",
+      "properties": {
+        "area": {
+          "enum": [
+            "plans",
+            "geodata",
+            "checklists",
+            "workbook"
+          ],
+          "title": "Area",
+          "type": "string"
+        },
+        "siteUrl": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Siteurl"
+        },
+        "driveId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Driveid"
+        },
+        "library": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Library"
+        },
+        "path": {
+          "default": "",
+          "title": "Path",
+          "type": "string"
+        },
+        "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ignore",
+          "type": "array"
+        }
+      },
+      "required": [
+        "area"
+      ],
+      "title": "SharePointSource",
+      "type": "object"
+    }
+  },
+  "description": "The full config document an admin PUTs. All sections optional → `{}` is valid.\n\nThe input `integrations` block (ON/OFF intent) is accepted but IGNORED for the GET\nprojection: integration availability is derived from env-configured secrets, not the\ndocument (see ConfigIntegrations / config_projection in the router).",
+  "properties": {
+    "identity": {
+      "$ref": "#/$defs/IdentityConfig"
+    },
+    "map": {
+      "$ref": "#/$defs/MapConfig"
+    },
+    "referenceLayers": {
+      "items": {
+        "$ref": "#/$defs/ReferenceLayerConfig"
+      },
+      "title": "Referencelayers",
+      "type": "array"
+    },
+    "modules": {
+      "items": {
+        "$ref": "#/$defs/ModuleConfig"
+      },
+      "title": "Modules",
+      "type": "array"
+    },
+    "fleet": {
+      "$ref": "#/$defs/FleetConfig"
+    },
+    "doctrine": {
+      "$ref": "#/$defs/DoctrineConfig"
+    },
+    "roster": {
+      "$ref": "#/$defs/RosterConfig"
+    },
+    "mittel": {
+      "$ref": "#/$defs/MittelConfig"
+    },
+    "journal": {
+      "$ref": "#/$defs/JournalConfig"
+    },
+    "alarms": {
+      "$ref": "#/$defs/AlarmsConfig"
+    },
+    "alarmKeywords": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AlarmKeywordsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "report": {
+      "$ref": "#/$defs/ReportConfig"
+    },
+    "sharepoint": {
+      "$ref": "#/$defs/SharePointConfig"
+    },
+    "setup": {
+      "$ref": "#/$defs/SetupConfig"
+    }
+  },
+  "title": "DeploymentConfigIn",
+  "type": "object"
+}

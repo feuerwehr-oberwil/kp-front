@@ -130,8 +130,9 @@ class _Response:
 
 
 class _PushClient:
-    def __init__(self, config_status: int = 200):
+    def __init__(self, config_status: int = 200, config_detail: object = "stale"):
         self.config_status = config_status
+        self.config_detail = config_detail
         self.uploads: list[str] = []
         self.config_headers: dict[str, str] = {}
 
@@ -155,7 +156,7 @@ class _PushClient:
             return _Response(200, {})
         assert url == "/api/config"
         self.config_headers = kw.get("headers", {})
-        return _Response(self.config_status, {"detail": "stale"} if self.config_status != 200 else {})
+        return _Response(self.config_status, {"detail": self.config_detail} if self.config_status != 200 else {})
 
 
 def _geojson_push_fixture(tmp_path: Path):
@@ -185,3 +186,22 @@ def test_push_conflict_reports_the_files_that_already_landed(monkeypatch, tmp_pa
     assert "1 GeoJSON file(s) were uploaded" in err
     assert "may already serve the new bytes" in err
     assert "referenceLayers was not changed" in err
+
+
+def test_push_says_so_when_the_server_refuses_to_empty_the_layers(monkeypatch, tmp_path, capsys):
+    """⚠️ Two different 409s. The server also refuses a write that would EMPTY a populated
+    section (api/config · put_config) — which is what a manifest that has lost its layers looks
+    like — and telling somebody they collided with another writer when they did not sends them
+    looking for a second admin who does not exist."""
+    fake = _PushClient(
+        config_status=409,
+        config_detail={"error": "would_empty_sections", "emptiedSections": ["referenceLayers"]},
+    )
+    monkeypatch.setattr(httpx, "Client", lambda **_kw: fake)
+    manifest, entries = _geojson_push_fixture(tmp_path)
+
+    with pytest.raises(SystemExit):
+        _push(manifest, entries, "https://station.example", "secret", False)
+    err = capsys.readouterr().err
+    assert "REFUSED" in err and "referenceLayers" in err
+    assert "the manifest names every layer" in err

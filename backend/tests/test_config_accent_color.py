@@ -43,15 +43,15 @@ def test_a_non_colour_is_refused(value):
     assert "Hex-Farbwert" in str(e.value)
 
 
-async def test_the_api_refuses_a_non_colour_and_names_the_field(client, admin_login):
+async def test_the_api_refuses_a_non_colour_and_names_the_field(client, admin_login, put_config):
     await admin_login(client)
-    r = await client.put("/api/config", json={"identity": {"accentColor": "nicht-eine-farbe"}})
+    r = await put_config(client, {"identity": {"accentColor": "nicht-eine-farbe"}})
     assert r.status_code == 422, r.text
     # the path the Verwaltung turns into «Akzentfarbe (Station & Karte)» (ConfigContext ·
     # rejectedFieldLabel) — without it the browser can only say «invalid»
     assert ["body", "identity", "accentColor"] in [d["loc"] for d in r.json()["detail"]]
 
-    ok = await client.put("/api/config", json={"identity": {"accentColor": "#1D6F5C"}})
+    ok = await put_config(client, {"identity": {"accentColor": "#1D6F5C"}})
     assert ok.status_code == 200, ok.text
     assert ok.json()["identity"]["accentColor"] == "#1d6f5c"
 
@@ -75,7 +75,7 @@ def test_a_colour_already_in_the_row_never_takes_the_document_with_it():
         DeploymentConfigIn.model_validate(raw)
 
 
-async def test_a_stored_non_colour_still_serves_the_whole_config(client, admin_login, db_session):
+async def test_a_stored_non_colour_still_serves_the_whole_config(client, admin_login, db_session, put_config):
     """End to end: a row that predates the rule is written straight into the DB (as the CLI or
     an older build would have), and GET still answers with the station — not the empty
     last-good fallback."""
@@ -84,7 +84,7 @@ async def test_a_stored_non_colour_still_serves_the_whole_config(client, admin_l
     from app.models import DeploymentConfig
 
     await admin_login(client)
-    seed = await client.put("/api/config", json={"identity": {"appName": "Feuerwehr Steintal"}})
+    seed = await put_config(client, {"identity": {"appName": "Feuerwehr Steintal"}})
     assert seed.status_code == 200, seed.text
     row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
     row.config_json = {**row.config_json, "identity": {"appName": "Feuerwehr Steintal", "accentColor": "grün"}}
