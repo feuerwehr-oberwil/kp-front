@@ -14,6 +14,7 @@ import {
 import { AVAILABLE_LOCALES } from '../config/copy'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
 import { ModulesViewer } from './ModulesViewer'
+import { PlanAlignmentReview } from './PlanAlignmentReview'
 import { ObjectsView, GeodataView } from './DataView'
 import { BrandingFields } from './BrandingFields'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
@@ -1805,6 +1806,9 @@ export function ModulesSection() {
             on a settings page it went stale silently and pushed the catalogue off the screen. */}
         <ModulesViewer modules={modules} objects={objects} usingDefaults={usingDefaults} />
       </Card>
+      {/* The server-prepared plan alignments, reviewed and approved HERE — beside the PDF
+          stock they belong to. Compact: the queue as a table, unsupported rows folded away. */}
+      <PlanAlignmentReview compact />
       <ObjectsView title={C.objectsTitle} />
     </>
   )

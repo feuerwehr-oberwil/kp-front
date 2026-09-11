@@ -288,9 +288,9 @@ to prod.
   in the gitignored `docs/planning/auto-alignment/`) segments the client-rendered sheet
   (`PdfViewport · planMatcherImage` reuses the resident bake), matches it against OSM building
   rings via the Overpass proxy, and streams NDJSON progress for the step card. The heavy CV
-  deps are the **optional `georef` dependency group** (`uv sync --extra georef`) — not in the
-  production image yet; without them the endpoint answers 503 and the app degrades to the point
-  flow (fail-closed). ⚠️ A server that cannot do it **never offers it**: `/api/config` states
+  deps are the **optional `georef` dependency group** (`uv sync --extra georef`) — installed in
+  the production image since 11.09.2026 (`Dockerfile`, both `uv sync` lines; without the extra
+  the endpoint answers 503 and the app degrades to the point flow, fail-closed). ⚠️ A server that cannot do it **never offers it**: `/api/config` states
   the capability (`integrations.autoAlignConfigured` — extra importable *and* an Overpass mirror
   configured, `app/providers.py`) and the chip then arms the point flow directly instead of
   answering every press with «…ist auf diesem Server nicht eingerichtet» (field report
@@ -302,6 +302,20 @@ to prod.
   under the template ceiling (12 · m1 16) = amber «Deckung nachprüfen», above = «kein
   Vorschlag» — and an **m1 result is never confident**. The proposal review lives on «Deckung
   prüfen» (nothing persists before «Übernehmen», which is confirm-with-undo).
+- **Plan alignments are pre-computed server-side and published only by explicit approval**
+  (11.09.2026). Every distinct byte version of a Modul-PDF is pinned as an immutable
+  `plan_revisions` row (`plans.py · store_plan` — identical bytes are a metadata refresh, old
+  blobs are never deleted) and queues one durable `plan_alignments` job the scheduler worker
+  prepares (`plan_alignment_worker`, claim/lease/CAS; the CV match from the same `georef`
+  extra). An admin reviews and approves on the Objektpläne page (`admin/PlanAlignmentReview`,
+  `/api/admin/plan-alignments`); nothing is published by computing, fetching or selecting.
+  Approved fits surface at `GET /api/reference/{id}/alignments?v=N`, and an incident FREEZES
+  what it opened as an `IncidentPlanBinding` in the workspace blob (`lib/incidentPlanBindings`:
+  exact dataset revision + fit; first binding wins, corrections are an `override`, an override
+  with empty pairs is a deliberate disconnect — a later replacement or approval never moves a
+  running Einsatz's backdrop). Bound sheets carry `incident:` georef keys, routed by
+  `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
+  silently replaced.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live

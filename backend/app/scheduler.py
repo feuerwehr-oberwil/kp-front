@@ -139,6 +139,25 @@ async def _plan_pull() -> None:
             logger.exception("Objektplan-Pull failed")
 
 
+#: How often the alignment worker looks for pending plan-preparation jobs. The tick is cheap
+#: (one indexed claim query) when the queue is empty; when plans arrive it drains up to
+#: PLAN_ALIGNMENT_BATCH per tick so a bulk import prepares steadily without monopolising the
+#: process — each job renders one PDF and runs one CV match.
+PLAN_ALIGNMENT_TICK_SECONDS = 10
+PLAN_ALIGNMENT_BATCH = 20
+
+
+async def _plan_alignment_tick() -> None:
+    from .plan_alignment_worker import run_once
+
+    try:
+        for _ in range(PLAN_ALIGNMENT_BATCH):
+            if not await run_once():
+                break
+    except Exception:
+        logger.exception("Plan alignment worker tick failed")
+
+
 #: How often the SharePoint pull ticks. NOT the poll interval — the station's own cadence lives
 #: in the config document (`sharepoint.intervalMinutes`), which an admin can change from the
 #: browser, and a job registered at boot could not follow it. So the timer is fixed and short
@@ -642,6 +661,17 @@ def _start_scheduler_jobs() -> None:
         jobs.append(f"Objektplan-Pull ({settings.plans_pull_interval_minutes}min)")
     else:
         logger.info("Objektplan-Pull disabled (no PLANS_S3_* store configured)")
+    # Always on: every stored plan revision carries a durable alignment job, and a station
+    # without the georef extra simply completes each as an honest 'unavailable' for review.
+    _scheduler.add_job(
+        _plan_alignment_tick,
+        "interval",
+        seconds=PLAN_ALIGNMENT_TICK_SECONDS,
+        id="plan_alignments",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"plan alignments ({PLAN_ALIGNMENT_TICK_SECONDS}s tick, idle without pending plans)")
     # Always on: a cheap no-op unless there is something for one of its two clocks to sweep
     # (alarms.autoArchiveDays for untouched auto-opened ones, alarms.staleIncidentDays for the
     # worked-on-but-never-closed ones); both at 0 makes it two indexed queries and done.

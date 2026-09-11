@@ -28,6 +28,7 @@ export function useWorkspaceDoc(init: InitialState) {
   const [reportMeta, setReportMeta] = useState(init.reportMeta)
   const [attachments, setAttachments] = useState(init.attachments)
   const [building, setBuilding] = useState(init.building)
+  const [planBindings, setPlanBindings] = useState(init.planBindings)
   const [activePlanId, setActivePlanId] = useState(init.activePlanId)
   const [pickedObjectId, setPickedObjectId] = useState(init.pickedObjectId)
   const [intakeReviewedAt, setIntakeReviewedAt] = useState(init.intakeReviewedAt)
@@ -44,6 +45,7 @@ export function useWorkspaceDoc(init: InitialState) {
     reportMeta, setReportMeta,
     attachments, setAttachments,
     building, setBuilding,
+    planBindings, setPlanBindings,
     activePlanId, setActivePlanId,
     pickedObjectId, setPickedObjectId,
     intakeReviewedAt, setIntakeReviewedAt,

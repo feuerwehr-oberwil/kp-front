@@ -154,7 +154,9 @@ async def test_manual_upload_still_writes_the_dataset_it_always_did(
     assert r2.json()["current_version"] == 2
     assert r2.json()["title"] == "Schulhaus – modul1"
     assert r2.json()["source_note"] == "Revision 2026"
-    assert not storage_mod.exists(first_key)  # unreachable version removed only after DB commit
+    # The replaced original is NOT deleted any more: plan_revisions pins it, and version 1
+    # stays downloadable for any incident that bound to it (`?v=1`, tests/test_plan_alignments).
+    assert storage_mod.exists(first_key)
     r3 = await client.put(
         f"/api/objects/{OBJ_ID}/plans/modul1",
         files={"file": ("modul1.pdf", PDF, "application/pdf")},

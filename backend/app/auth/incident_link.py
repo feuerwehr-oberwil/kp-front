@@ -292,6 +292,8 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/objects/{object_id}"),
         ("GET", "/api/reference"),
         ("GET", "/api/reference/{dataset_id}"),
+        # the station-approved plan fits — how a link session's plan tab anchors its sheets
+        ("GET", "/api/reference/{dataset_id}/alignments"),
         ("GET", "/api/personnel"),
         ("GET", "/api/media/{media_id}"),
         # ⚠️ The thumbnail DOES write a file on first request, which is what keeps
@@ -396,6 +398,9 @@ VIEW_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         # station reference material, narrowed per request below
         ("GET", "/api/reference"),
         ("GET", "/api/reference/{dataset_id}"),
+        # the published fits of the same datasets — narrowed by the identical rule below,
+        # because knowing where a building's sheet sits IS knowing the building
+        ("GET", "/api/reference/{dataset_id}/alignments"),
         ("GET", "/api/objects/{object_id}"),
         ("GET", "/api/personnel"),
     }
@@ -642,7 +647,7 @@ async def _view_link_param_allowed(request: Request, db: AsyncSession, path: str
             return False
         return wanted in await _surfaced_object_ids(db, incident_id)
 
-    if path == "/api/reference/{dataset_id}":
+    if path in ("/api/reference/{dataset_id}", "/api/reference/{dataset_id}/alignments"):
         dataset_id = str(request.path_params.get("dataset_id"))
         ds = (
             await db.execute(

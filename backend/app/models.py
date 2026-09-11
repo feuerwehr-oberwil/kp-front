@@ -14,7 +14,9 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     LargeBinary,
@@ -458,6 +460,81 @@ class ReferenceDataset(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     updated_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+
+class PlanRevision(Base):
+    """One immutable version of a plan PDF: exact bytes an incident may pin and re-download.
+
+    ``ReferenceDataset.current_version`` names the newest one; older rows keep their storage
+    key so a replacement never takes a bound sheet away from a running Einsatz.
+    """
+
+    __tablename__ = "plan_revisions"
+
+    dataset_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("reference_datasets.id", ondelete="RESTRICT"), primary_key=True
+    )
+    version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    storage_key: Mapped[str] = mapped_column(Text, nullable=False)
+    #: sha256 of the stored bytes — written at store time; the alignment worker backfills a
+    #: legacy row's digest the first time it renders the original.
+    content_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    content_type: Mapped[str] = mapped_column(Text, nullable=False, default="application/pdf")
+    size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class PlanAlignment(Base):
+    """One durable alignment job/proposal per (plan revision, page) — never auto-published.
+
+    ``status`` walks pending → processing → ready/needs_review/no_match/failed/unavailable/
+    unsupported, and only an admin's explicit approval sets ``approved``. ``edit_version`` is
+    the CAS token every mutation (worker completion included) must present.
+    """
+
+    __tablename__ = "plan_alignments"
+    __table_args__ = (
+        ForeignKeyConstraint(["dataset_id", "plan_version"], ["plan_revisions.dataset_id", "plan_revisions.version"]),
+        UniqueConstraint("dataset_id", "plan_version", "page"),
+        Index("ix_plan_alignments_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[str] = mapped_column(Text, nullable=False)
+    plan_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    page: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
+    edit_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    pairs: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    aspect: Mapped[float | None] = mapped_column(Float, nullable=True)
+    scale_m_per_u: Mapped[float | None] = mapped_column(Float, nullable=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    coverage: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: the exact reference geometry (WGS84 rings) the proposal was fitted against — what the
+    #: review map draws, so the admin judges the fit against what the fit actually saw.
+    reference_rings: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    reference_source: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reference_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PlanAlignmentEvent(Base):
+    """Append-only history of admin decisions on one alignment (approve/withdraw/retry)."""
+
+    __tablename__ = "plan_alignment_events"
+    __table_args__ = (Index("ix_plan_alignment_events_alignment_id", "alignment_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    alignment_id: Mapped[int] = mapped_column(Integer, ForeignKey("plan_alignments.id"), nullable=False)
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    edit_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 # --- Multi-station deployment config (Phase 1.A) ------------------------------------

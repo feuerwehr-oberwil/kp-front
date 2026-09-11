@@ -608,6 +608,11 @@ export interface PlanDocument {
   /** viewer-only: render the PDF as a plain viewer (pan/zoom) with NO drawing tools or
    *  annotation surface — e.g. PV / documentation sheets that are read, not marked up */
   viewer?: boolean
+  /** the sheet's aspect (width / height) as MEASURED on the exact pinned PDF revision this
+   *  document shows — carried by an incident's plan binding (server-approved alignment). It
+   *  outranks any station calibration aspect: the binding may pin an older revision than the
+   *  one the station later calibrated (lib/georefTwins · planAspect). */
+  georefAspect?: number
 }
 
 /** A selected building (or group of connected buildings) promoted into the

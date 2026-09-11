@@ -47,6 +47,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { BASELINE_WARN_M, fitSimilarity, hasAutoPairs, nudgePairsOnMap, realPairCount, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt, type SheetNudge } from './georef'
 import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
+import { isIncidentGeorefKey, saveIncidentGeoref } from './incidentPlanBindings'
 import { useIsPhone } from './useIsPhone'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
@@ -843,7 +844,15 @@ export function georefDispatch(a: GeorefAction) {
   const next = georefReduce(prev, a)
   if (next === prev) return
   state = next
-  if (prev.storageKey && EDITS_PAIRS.has(a.type) && next.pairs !== prev.pairs) { rev++; queueSave(prev.storageKey, next.pairs) }
+  if (prev.storageKey && EDITS_PAIRS.has(a.type) && next.pairs !== prev.pairs) {
+    rev++
+    if (isIncidentGeorefKey(prev.storageKey)) {
+      // An incident binding lives in the workspace slice (undo/redo + sync), not behind the
+      // station PUT — written through immediately; the debounce exists for a network write
+      // this path never makes. Drag frames coalesce into the binding's single undo step.
+      try { saveIncidentGeoref(prev.storageKey, { pairs: next.pairs }, a.type === 'dragPlan' || a.type === 'dragMap') } catch { onSaveError?.() }
+    } else queueSave(prev.storageKey, next.pairs)
+  }
   if (a.type === 'end' || a.type === 'dismiss') void flushSave() // never leave a debounced write in the air
   listeners.forEach((l) => l())
 }
@@ -925,6 +934,15 @@ export function useGeorefStorage(): void {
  *  writes to an endpoint that serializes nothing. When the pair write landed second the server
  *  kept the pairs while the app showed none, and the reset came back at the next boot. */
 export function resetGeorefPlan(georefKey: string) {
+  if (isIncidentGeorefKey(georefKey)) {
+    // A bound sheet's reset is an OVERRIDE with empty pairs on the binding — a deliberate
+    // disconnect that must not fall back to the approval (incidentPlanBindings · override).
+    georefDispatch({ type: 'dismiss' })
+    rev++
+    try { saveIncidentGeoref(georefKey, { pairs: [] }) } catch { onSaveError?.() }
+    listeners.forEach((l) => l())
+    return
+  }
   const settled = settleSave(georefKey)
   georefDispatch({ type: 'dismiss' }) // its own flush now finds nothing left in the air
   rev++
@@ -950,7 +968,11 @@ export async function transferGeorefPlan(sourceKey: string, targetKey: string): 
     plan: { ...p.plan },
     lngLat: { ...p.lngLat },
   }))
-  await saveGeoref(targetKey, { pairs })
+  if (isIncidentGeorefKey(targetKey)) {
+    try { saveIncidentGeoref(targetKey, { pairs }) } catch { onSaveError?.(); return false }
+  } else {
+    await saveGeoref(targetKey, { pairs })
+  }
   rev++
   listeners.forEach((l) => l())
   return true
@@ -996,7 +1018,8 @@ export async function acceptGeorefProposal(): Promise<boolean> {
   const s = state
   if (!s.proposal || !s.storageKey || s.pairs.length < 2) return false
   try {
-    await saveGeoref(s.storageKey, { pairs: s.pairs })
+    if (isIncidentGeorefKey(s.storageKey)) saveIncidentGeoref(s.storageKey, { pairs: s.pairs })
+    else await saveGeoref(s.storageKey, { pairs: s.pairs })
   } catch {
     onSaveError?.()
     return false

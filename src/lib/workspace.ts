@@ -9,6 +9,7 @@ import { isSafeColor } from './shapes'
 import { sanitizeSvgResult } from './sanitizeSvg'
 import type { ChecklistState } from './checklists'
 import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
+import { isIncidentPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
 import type { VehicleOverrides } from './useVehicleLayer'
@@ -221,6 +222,10 @@ export interface Saved {
   reportMeta?: ReportMeta
   /** Beilagen: photos that belong to the Rapport (documents, damage) rather than to the Verlauf */
   attachments?: ReportAttachment[]
+  /** the exact plan sheets this incident opened — dataset revision + approved fit, frozen at
+   *  first open so a later station replacement/approval never moves an operational backdrop
+   *  (lib/incidentPlanBindings). First binding per sheet wins; corrections ride `override`. */
+  planBindings?: IncidentPlanBinding[]
   /** per-incident synced operational settings (see IncidentSettings) */
   settings?: IncidentSettings
   /** When the dispatch's guesses (Stichwort, Kategorie, Ort) were confirmed or corrected — the
@@ -509,6 +514,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     cameraViews: arr<CameraView>(raw.cameraViews, hasId),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     attachments: arr<ReportAttachment>(raw.attachments, hasId),
+    planBindings: arr<IncidentPlanBinding>(raw.planBindings, isIncidentPlanBinding),
     settings,
     intakeReviewedAt: str(raw.intakeReviewedAt),
     schemaVersion: sv,
@@ -532,6 +538,8 @@ export interface InitialState {
   planScale: PlanScales
   reportMeta: ReportMeta
   settings: IncidentSettings
+  /** frozen sheet bindings (see Saved.planBindings) */
+  planBindings: IncidentPlanBinding[]
   pickedObjectId?: string
   /** shared «Einsatzdaten geprüft» stamp (see Saved.intakeReviewedAt) */
   intakeReviewedAt?: string
@@ -750,6 +758,7 @@ export function deriveInitial(
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},
     settings: ws?.settings ?? {},
+    planBindings: ws?.planBindings ?? [],
     intakeReviewedAt: ws?.intakeReviewedAt,
     // synced per incident; one-time import of the legacy device-cookie pick for THIS incident so
     // an in-flight manual pick isn't dropped on upgrade (the blob value wins thereafter).

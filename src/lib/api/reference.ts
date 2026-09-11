@@ -1,7 +1,9 @@
 // Reference datasets (hydrants/Leitungskataster/canton-WMS/object plans/checklists) + the
 // per-station reference-layer render config. Station data — never bundled; loaded via admin.
 import { apiGet, apiPut, apiUpload, ApiError } from '../api'
+import { idbGet, idbSet } from '../idb'
 import { appConfig } from '../../config/appConfig'
+import type { GeorefPair } from '../georef'
 
 export interface ReferenceDataset {
   id: string
@@ -32,6 +34,52 @@ export const listReference = () => apiGet<ReferenceDataset[]>('/api/reference')
  */
 export const referenceUrl = (id: string, version?: number) =>
   `/api/reference/${encodeURIComponent(id)}${version == null ? '' : `?v=${version}`}`
+
+/** One server-APPROVED alignment of a plan revision (api/reference · dataset_alignments). */
+export interface ApprovedPlanAlignment {
+  id: number
+  /** the exact approval event — stable across a withdraw + re-approve of the same row */
+  approval_id?: number | null
+  page: number
+  pairs: GeorefPair[]
+  aspect: number
+  scale_m_per_u?: number | null
+  approved_at: string
+}
+
+/** What the station has published for one exact plan revision — what an incident binds to. */
+export interface PlanAlignmentMetadata {
+  dataset_id: string
+  plan_version: number
+  revision_url: string
+  alignments: ApprovedPlanAlignment[]
+}
+
+const alignmentCacheKey = (datasetId: string, version: number) => `plan-alignments:${datasetId}:${version}`
+
+/**
+ * The approved alignments for one EXACT plan revision, offline-capable.
+ *
+ * Keyed by (dataset, version) because the revision is immutable: a cached answer for v3 stays
+ * true about v3 forever — except for the approval itself, which an admin may withdraw. So a
+ * fresh answer always replaces the cache, and only a failed FETCH falls back to it. An absent
+ * cache entry re-throws the network error rather than fabricating «no approval»: «unknown» and
+ * «none» must stay different answers, or an offline open would silently unbind a sheet.
+ */
+export async function getApprovedPlanAlignments(datasetId: string, version: number): Promise<PlanAlignmentMetadata> {
+  const key = alignmentCacheKey(datasetId, version)
+  let metadata: PlanAlignmentMetadata
+  try {
+    metadata = await apiGet<PlanAlignmentMetadata>(`${referenceUrl(datasetId)}/alignments?v=${version}`)
+  } catch (e) {
+    const cached = await idbGet<PlanAlignmentMetadata>(key).catch(() => null)
+    if (cached) return cached
+    throw e
+  }
+  // Best-effort persistence: a full or unavailable IndexedDB must not cost the fresh answer.
+  try { await idbSet(key, metadata) } catch { /* cache miss next time — nothing else to do */ }
+  return metadata
+}
 export async function uploadReference(id: string, file: Blob, filename: string, sourceNote?: string) {
   const form = new FormData()
   form.append('file', file, filename)

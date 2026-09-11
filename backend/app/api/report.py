@@ -24,7 +24,7 @@ from .. import storage
 from ..auth.dependencies import CurrentUser
 from ..database import get_db
 from ..models import DeploymentConfig as DeploymentConfigRow
-from ..models import DiveraEmergency, Media, ReferenceDataset
+from ..models import DiveraEmergency, Media, PlanRevision, ReferenceDataset
 from ..report_pdf import ReportPayload, compose_report_pdf
 from ..schichtplan_pdf import compose_schichtplan_pdf
 from ..zeitplan_pdf import ZeitplanPayload, compose_zeitplan_pdf
@@ -48,6 +48,9 @@ _MEDIA_URL = re.compile(r"^/api/media/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 #: sheet somebody replaced. Anchored without it, this pattern matched none of those urls and
 #: the plan page dropped out of the printed rapport in silence, exactly like the logo below.
 _REFERENCE_URL = re.compile(r"^/api/reference/([^/?#]+)(?:\?[^#]*)?$")
+#: The pinned revision a plan-page URL names (`?v=3`): the printed rapport must show the exact
+#: original the incident worked on, not whatever replaced it since (plan_revisions).
+_REFERENCE_VERSION = re.compile(r"[?&]v=(\d+)(?:&|$)")
 #: ⚠️ `.+`, not `[^/]+`: the storage key IS a path («branding/<uuid>.png»), which is why the
 #: route itself declares `{key:path}`. A slash-free pattern here matched nothing, so the logo
 #: was skipped in silence — stored, served, configured, and absent from the sheet.
@@ -283,8 +286,15 @@ async def resolve_report_assets(
         ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
         if ds is None or not ds.storage_key or ds.kind != "pdf":
             continue
+        key = ds.storage_key
+        vm = _REFERENCE_VERSION.search(pp.url)
+        if vm and int(vm.group(1)) != ds.current_version:
+            revision = await db.get(PlanRevision, (ds_id, int(vm.group(1))))
+            if revision is None:
+                continue  # a revisioned URL that names nothing prints nothing, not the wrong sheet
+            key = revision.storage_key
         try:
-            plan_pdfs[pp.url] = await storage.aget_bytes(ds.storage_key)
+            plan_pdfs[pp.url] = await storage.aget_bytes(key)
         except OSError:
             continue
     return plan_pdfs

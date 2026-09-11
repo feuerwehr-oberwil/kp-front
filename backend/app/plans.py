@@ -52,7 +52,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import storage
 from .config import settings
-from .models import ObjectSite, ReferenceDataset
+from .models import ObjectSite, PlanAlignment, PlanRevision, ReferenceDataset
 
 logger = logging.getLogger(__name__)
 
@@ -81,29 +81,82 @@ async def store_plan(
     `title`/`source_note` are only applied when given, so an automated refresh never wipes a
     label an admin typed. `source_type` records which door the bytes came in through
     ('uploaded' by hand, 'snapshot' from the store) and shows up in the admin data view.
+
+    Every distinct byte version is pinned as an immutable `PlanRevision` (an incident may bind
+    to it and re-download it long after a replacement) and queues one pending `PlanAlignment`
+    job for the server-side preparation. Identical bytes update metadata only — no new
+    revision, no version bump, and no reset of an alignment somebody already reviewed.
     """
     ds_id = f"plan:{obj.id}:{module}"
     ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == ds_id))).scalar_one_or_none()
-    old_key = ds.storage_key if ds is not None else None
+    digest = hashlib.sha256(data).hexdigest()
+
+    def apply_metadata(ds: ReferenceDataset) -> None:
+        ds.title = title or ds.title or f"{obj.name} – {module}"
+        ds.source_note = source_note if source_note is not None else ds.source_note
+        ds.source_type = source_type
+        ds.source_digest = source_digest
+        if fetch_url is not None:
+            ds.fetch_url = fetch_url
+        ds.updated_by = actor_id
+
+    if ds is not None:
+        current = await db.get(PlanRevision, (ds_id, ds.current_version))
+        if current is not None and current.content_digest == digest and storage.exists(current.storage_key):
+            # Same bytes, already pinned: a metadata refresh, not a new version. Nothing about
+            # the sheet changed, so a reviewed/approved alignment must not be re-queued either.
+            apply_metadata(ds)
+            await db.flush()
+            await db.refresh(ds)
+            return ds
+
     key = storage.new_key(f"plans/{obj.id}", f"-{module}.pdf")
     storage.put_bytes(key, data)
-    storage.replaced_in_transaction(db, new_key=key, old_key=old_key)
+    # Rollback removes the unpublished blob. Old blobs are NOT deleted on commit any more:
+    # the plan_revisions rows pin them, and an incident's bound sheet keeps re-downloading its
+    # exact original after any number of replacements.
+    storage.created_in_transaction(db, key)
 
     if ds is None:
-        ds = ReferenceDataset(id=ds_id, object_id=obj.id, module=module, kind="pdf")
+        ds = ReferenceDataset(id=ds_id, object_id=obj.id, module=module, kind="pdf", current_version=1)
         db.add(ds)
     else:
+        # A dataset from before the revision era: pin the outgoing original under its current
+        # version FIRST, so «version N» stays downloadable across its first replacement.
+        if ds.storage_key and await db.get(PlanRevision, (ds_id, ds.current_version)) is None:
+            db.add(
+                PlanRevision(
+                    dataset_id=ds_id,
+                    version=ds.current_version,
+                    storage_key=ds.storage_key,
+                    content_digest=ds.source_digest,
+                    content_type=ds.content_type or "application/pdf",
+                    size_bytes=ds.size_bytes,
+                )
+            )
         ds.current_version += 1
-    ds.title = title or ds.title or f"{obj.name} – {module}"
-    ds.source_note = source_note if source_note is not None else ds.source_note
-    ds.source_type = source_type
+    apply_metadata(ds)
     ds.storage_key = key
     ds.content_type = content_type
     ds.size_bytes = len(data)
-    ds.source_digest = source_digest
-    if fetch_url is not None:
-        ds.fetch_url = fetch_url
-    ds.updated_by = actor_id
+    # ⚠️ STAGED flushes, dataset → revision → job. No relationship() ties these mappers, so a
+    # single flush may emit the rows in any inter-mapper order — on Postgres the alignment
+    # arrived before its revision and the whole write died on the FK (SQLite's tests never
+    # noticed; it doesn't enforce it there). All three still commit or roll back together.
+    await db.flush()
+    db.add(
+        PlanRevision(
+            dataset_id=ds_id,
+            version=ds.current_version,
+            storage_key=key,
+            content_digest=digest,
+            content_type=content_type,
+            size_bytes=len(data),
+        )
+    )
+    await db.flush()
+    # One pending job per new revision; the worker prepares it, an admin publishes it.
+    db.add(PlanAlignment(dataset_id=ds_id, plan_version=ds.current_version))
     await db.flush()
     await db.refresh(ds)
     return ds

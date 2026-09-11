@@ -3,6 +3,7 @@ import { idbGet, idbSet } from './idb'
 import { arDrifted, isStale, type PlanScale } from './planScale'
 import { onLinkPage } from './linkMode'
 import type { Georef } from './georef'
+import { incidentGeorefForPlan, isIncidentGeorefKey } from './incidentPlanBindings'
 
 /**
  * STATION-level plan calibration, persisted across incidents/devices (editor-authored via
@@ -49,7 +50,7 @@ export interface StationPlanScales {
    * Hence its own field. A stored `ar` that disagrees with it is not corrected here — it is stale,
    * and `isStale` already says so where staleness matters.
    */
-  measuredArByPlan: Record<string, number>
+  measuredArByPlan?: Record<string, number>
 }
 
 /** What the endpoint answers with: the document, plus the token of the version it was read at
@@ -401,6 +402,9 @@ export function resolvePlanScale(
  *  callers already fall back to «not georeferenced». Pairs are raw — feed them to
  *  `fitSimilarity` with the plan's aspect ratio. */
 export function georefForPlan(georefKey: string): Georef | null {
+  // An `incident:` key belongs to that incident's plan binding (the frozen sheet + fit an
+  // Einsatz opened), not to the station document — one lookup function, two homes.
+  if (isIncidentGeorefKey(georefKey)) return incidentGeorefForPlan(georefKey)
   return getStationPlanScales().georefByPlan[georefKey] ?? null
 }
 
@@ -425,7 +429,7 @@ export async function saveGeoref(georefKey: string, georef: Georef): Promise<voi
  *  `georefKey`, not a `planId` — see `georefForPlan`; the bitmap belongs to one Einsatzobjekt's
  *  sheet, not to the Modul slot every object shares. */
 export function measuredArForPlan(georefKey: string): number | undefined {
-  const ar = getStationPlanScales().measuredArByPlan[georefKey]
+  const ar = getStationPlanScales().measuredArByPlan?.[georefKey]
   return ar && ar > 0 ? ar : undefined
 }
 
@@ -470,6 +474,9 @@ const notedAspects = new Set<string>()
  */
 export function noteMeasuredAspect(georefKey: string, measured: number, effective: number): void {
   if (!(measured > 0) || notedAspects.has(georefKey) || onLinkPage()) return
+  // An incident-bound sheet's shape belongs to its binding (`PlanDocument.georefAspect`), not
+  // to the station document — writing `incident:…` keys there would grow it without bound.
+  if (isIncidentGeorefKey(georefKey)) return
   if (!arDrifted(effective, measured)) return
   notedAspects.add(georefKey)
   void updateStationPlanScales((cur) => ({

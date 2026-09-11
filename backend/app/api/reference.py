@@ -1,6 +1,7 @@
 """Reference data (global): list, download, replace, fetch-trigger (deferred)."""
 
 import json
+from urllib.parse import quote
 
 import anyio
 import httpx
@@ -10,10 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import storage
-from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin
+from ..auth.dependencies import CurrentAdmin, OptionalUser, UserOrAdmin
 from ..database import get_db
-from ..models import ReferenceDataset
-from ..plans import TooLargeError, plans_pull_enabled, pull_one_plan
+from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
+from ..plan_revision_info import revision_page_count
+from ..plans import TooLargeError, plans_pull_enabled, pull_one_plan, store_plan
 from ..schemas import ReferenceDatasetOut
 
 router = APIRouter(prefix="/reference", tags=["reference"])
@@ -122,13 +124,26 @@ _SANDBOXED_SVG_HEADERS = {
 @router.get("/{dataset_id}")
 async def download_reference(
     dataset_id: str,
-    _user: CurrentUser,
+    _user: UserOrAdmin,
     bbox: str | None = Query(default=None, description="Crop geo: GeoJSON to west,south,east,north"),
+    v: int | None = Query(default=None, ge=1, description="Exact pinned revision (plans)"),
     db: AsyncSession = Depends(get_db),
 ):
     ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == dataset_id))).scalar_one_or_none()
     if ds is None or not ds.storage_key or not storage.exists(ds.storage_key):
         raise HTTPException(status_code=404, detail="Datensatz nicht gefunden")
+    # `v` names an exact pinned revision — an incident's bound sheet survives replacement. On a
+    # dataset that HAS revisions, an unknown v is a real 404; on one that has none (geo layers,
+    # symbol packs) the same parameter is only ever a cache key and falls through to the file.
+    if v is not None and v != ds.current_version:
+        revision = await db.get(PlanRevision, (dataset_id, v))
+        if revision is not None and storage.exists(revision.storage_key):
+            return FileResponse(storage.local_path(revision.storage_key), media_type=revision.content_type or None)
+        has_revisions = (
+            await db.execute(select(PlanRevision.version).where(PlanRevision.dataset_id == dataset_id).limit(1))
+        ).first() is not None
+        if has_revisions:
+            raise HTTPException(status_code=404, detail="Planversion nicht gefunden")
     # Optional spatial crop: the Leitungskataster layers are region-wide (tens of MB); a client
     # caching/rendering only the incident area passes a bbox so we return just the intersecting
     # features. Cheap AABB test on each feature's coordinate bounds (errs toward inclusion).
@@ -149,6 +164,67 @@ async def download_reference(
     media_type = ds.content_type or None
     headers = _SANDBOXED_SVG_HEADERS if (media_type or "").startswith("image/svg+xml") else None
     return FileResponse(storage.local_path(ds.storage_key), media_type=media_type, headers=headers)
+
+
+@router.get("/{dataset_id}/alignments")
+async def dataset_alignments(
+    dataset_id: str,
+    _user: UserOrAdmin,
+    v: int | None = Query(default=None, ge=1),
+    db: AsyncSession = Depends(get_db),
+):
+    """The station's APPROVED alignments for one plan revision — what an incident binds to.
+
+    Only explicitly approved rows are published, and only for a single-page original: the gate
+    is re-checked here against the PDF itself, so a historical or hand-seeded approval on a
+    multi-page pack can never leak a fit the field viewer would apply to stitched coordinates.
+    """
+    ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == dataset_id))).scalar_one_or_none()
+    if ds is None:
+        raise HTTPException(status_code=404, detail="Datensatz nicht gefunden")
+    version = v if v is not None else ds.current_version
+    alignments: list[dict] = []
+    rows = (
+        await db.execute(
+            select(PlanAlignment)
+            .where(
+                PlanAlignment.dataset_id == dataset_id,
+                PlanAlignment.plan_version == version,
+                PlanAlignment.status == "approved",
+            )
+            .order_by(PlanAlignment.page, PlanAlignment.id)
+        )
+    ).scalars()
+    revision = await db.get(PlanRevision, (dataset_id, version))
+    page_count = await revision_page_count(revision.storage_key) if revision else None
+    for row in rows:
+        if page_count != 1 or row.page != 0:
+            continue
+        approval_id = (
+            await db.execute(
+                select(PlanAlignmentEvent.id)
+                .where(PlanAlignmentEvent.alignment_id == row.id, PlanAlignmentEvent.action == "approve")
+                .order_by(PlanAlignmentEvent.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        alignments.append(
+            {
+                "id": row.id,
+                "approval_id": approval_id,
+                "page": row.page,
+                "pairs": row.pairs,
+                "aspect": row.aspect,
+                "scale_m_per_u": row.scale_m_per_u,
+                "approved_at": row.approved_at.isoformat() if row.approved_at else None,
+            }
+        )
+    return {
+        "dataset_id": dataset_id,
+        "plan_version": version,
+        "revision_url": f"/api/reference/{quote(dataset_id, safe='')}?v={version}",
+        "alignments": alignments,
+    }
 
 
 @router.put("/{dataset_id}", response_model=ReferenceDatasetOut)
@@ -183,6 +259,25 @@ async def replace_reference(
     data = await file.read()
     if cl_role == "template":
         _validate_checklist_template(data)  # reject a malformed template with 422 before storing
+    # An Objektplan replacement goes through the ONE plan write path (app/plans.py · store_plan):
+    # revision pinning, identical-bytes dedupe and the alignment job all live there, and this
+    # route must not fork a second, revision-less way of writing the same dataset.
+    if dataset_id.startswith("plan:") and ds is not None and ds.object_id is not None:
+        obj = await db.get(ObjectSite, ds.object_id)
+        if obj is not None:
+            if content_type not in ("application/pdf", "application/octet-stream"):
+                raise HTTPException(
+                    status_code=415, detail=f"Dateityp {content_type!r} nicht erlaubt (Objektplan erwartet ein PDF)"
+                )
+            return await store_plan(
+                db,
+                obj,
+                ds.module or dataset_id.split(":")[-1],
+                data,
+                title=title,
+                source_note=source_note,
+                actor_id=actor.id if actor else None,
+            )
     kind = (
         "checklists"
         if cl_role

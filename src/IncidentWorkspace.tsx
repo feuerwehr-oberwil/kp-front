@@ -68,6 +68,8 @@ import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
 import { useTacticalSelection } from './lib/useTacticalSelection'
 import { useWorkspaceDoc } from './lib/useWorkspaceDoc'
+import { addPlanBindings, hasLegacyAlignmentContext } from './lib/incidentPlanBindings'
+import { useIncidentPlanBindings } from './lib/useIncidentPlanBindings'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useIsPhone } from './lib/useIsPhone'
@@ -673,9 +675,13 @@ export function IncidentWorkspace({
     incidentSettings, setIncidentSettings, checklists, setChecklists,
     trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, attachments, setAttachments,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
+    planBindings, setPlanBindings,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
     intakeReviewedAt, setIntakeReviewedAt,
   } = useWorkspaceDoc(init)
+  // The bindings register as the georef home for `incident:` keys (pairing mode, Passung,
+  // reset all route through it) and their corrections join the shared undo timeline.
+  useIncidentPlanBindings(incidentMeta.id, planBindings, setPlanBindings, readOnly, undoHist)
   // ⚠️ The board list, filtered ONCE at the source. A deleted Trupp is stamped rather than
   // removed (types · Trupp.removedAt) so the Rapport can still print it — and everything else in
   // this component, from the alarm host to the map markers to the roster lock, must never see it
@@ -1098,8 +1104,21 @@ export function IncidentWorkspace({
   // leaving those surfaces for anything else ends the round trip (no stale chip later)
   useEffect(() => { if (mode !== 'anwesenheit' && mode !== 'mittel') setRapportReturn(false) }, [mode])
   // per-object backend module plans (auto-surfaced near object, or a manual PlanPicker override),
-  // plus the resolved plan-doc list with module PDFs swapped in — see useObjectPlans
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId)
+  // plus the resolved plan-doc list with module PDFs swapped in — see useObjectPlans.
+  // The binding options freeze each surfaced sheet on first contact: which dataset revision,
+  // which fit. Sheets that already carry ink under a legacy station fit keep that fit; a whole
+  // workspace from before bindings existed (content, no bindings) preserves ALL its fits.
+  const legacyPlanIds = useMemo(() => new Set(Object.keys(board).filter((id) => board[id]?.length)), [board])
+  const preserveLegacy = useMemo(
+    () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
+    [],  // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+    bindings: planBindings,
+    onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => addPlanBindings(prev, proposed)) },
+    legacyPlanIds,
+    preserveLegacy,
+  })
 
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).
@@ -1532,7 +1551,7 @@ export function IncidentWorkspace({
     // undoing into it would resurrect remotely-deleted content).
     replaceObjects(next.objects); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
+    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
     // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
     // list that no longer exists, and stepping into one would write this device's rows back over
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's
@@ -1566,7 +1585,7 @@ export function IncidentWorkspace({
     return {
     objects: persisted,
     entities: views.entities,
-    drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings, intakeReviewedAt,
+    drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings, planBindings, intakeReviewedAt,
     // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
     // syncedLayerState above and lib/layerPrefs). The record's own value goes back unchanged.
     layerState: syncedLayerState.current,
@@ -1575,7 +1594,7 @@ export function IncidentWorkspace({
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
   }
-  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, intakeReviewedAt])
+  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, planBindings, intakeReviewedAt])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every
   // change (not just on a deliberate toggle) so the set derived at boot — including the

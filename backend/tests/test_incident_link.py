@@ -486,6 +486,8 @@ _PARAM_VALUES = {
     "entry_id": "1",
     "divera_id": "12345",
     "index": "0",
+    # an admin plan-alignment row (app/api/plan_alignments) — a link session must be refused it
+    "item_id": "1",
     "job_id": "00000000-0000-0000-0000-00000000000b",
     "key": "logo.png",
     "media_id": "00000000-0000-0000-0000-00000000000a",

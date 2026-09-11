@@ -15,7 +15,9 @@
 import { fitSimilarity, hasAutoPairs, residualClaim, type Georef, type GeorefFit, type PlanPt } from './georef'
 import type { PlanScale } from './planScale'
 import type { StationPlanScales } from './stationPlanScale'
-import type { BoardAnno, Entity, LngLat, PlanDocument } from '../types'
+import { projectedAnnos } from './planProjection'
+import type { TacticalObject } from './tacticalObjects'
+import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 
@@ -61,16 +63,21 @@ const A4_PORTRAIT_AR = 1 / 1.414
  * measured steps sit above the calibrations rather than among them.
  */
 export function planAspect(
-  plan: Pick<PlanDocument, 'id' | 'orientation' | 'georefKey'>,
+  plan: Pick<PlanDocument, 'id' | 'orientation' | 'georefKey' | 'georefAspect'>,
   scales: StationPlanScales,
   workspaceScale?: PlanScale,
   measured?: number,
 ): number {
   if (measured && measured > 0) return measured
+  // A bound sheet carries the aspect MEASURED on its exact pinned PDF revision
+  // (`PlanDocument.georefAspect`, from the server-approved alignment). It outranks every
+  // calibration below: those describe whatever revision the station later worked on, while
+  // the binding may pin an older sheet of a different shape.
+  if (plan.georefAspect && plan.georefAspect > 0) return plan.georefAspect
   // ⚠️ `georefKey`, not `id`: the bitmap belongs to ONE Einsatzobjekt's sheet, while `id` is the
   // Modul slot every object shares — keyed on that, one building's replaced PDF would reshape
   // every other building's sheet in the same slot.
-  const stored = scales.measuredArByPlan[plan.georefKey ?? plan.id]
+  const stored = scales.measuredArByPlan?.[plan.georefKey ?? plan.id]
   if (stored && stored > 0) return stored
   for (const cand of [workspaceScale, scales.byPlan[plan.id], scales.default ?? undefined]) {
     if (cand && cand.ar > 0) return cand.ar
@@ -247,6 +254,24 @@ export function referenceDelta(
   const dropped = new Set<string>()
   if (before) for (const p of plans) { const k = sheetKeyOf(p); if (before.has(k) && !referenced.has(k)) dropped.add(p.id) }
   return { dropped, referenced }
+}
+
+/**
+ * The Karte's objects, projected onto one linked sheet for PRINT — the direct-payload builder
+ * (lib/reportPdfDirect · twinAnnos) has no object store whose `board` view would already carry
+ * the projections, so the page's annos are derived here from the raw collections instead.
+ *
+ * Same projection as the live sheet (lib/planProjection · projectedAnnos), so paper shows what
+ * the screen shows: geo-anchored objects only, clipped to the sheet, turned into the paper's
+ * frame. (The import is a deliberate, benign cycle: planProjection imports this module's
+ * vocabulary-boundary helpers; both sides only touch each other inside function bodies.)
+ */
+export function boardTwinAnnosForPrint(plan: GeorefPlan, entities: Entity[], drawings: Drawing[]): BoardAnno[] {
+  const objects: TacticalObject[] = [
+    ...entities.map((entity) => ({ id: entity.id, entity })),
+    ...drawings.map((drawing) => ({ id: drawing.id, drawing })),
+  ]
+  return projectedAnnos(objects, { fit: plan.fit, aspect: plan.widthM / plan.fit.scaleMPerU })
 }
 
 /* ⚠️ No twin-specific size bands. Until 30.08. twins wore their own «quieter» px bands — in the

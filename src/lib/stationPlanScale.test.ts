@@ -421,7 +421,7 @@ describe('noteMeasuredAspect — the sheet says what shape it is', () => {
     const m = await booted({ default: scale(100, 0.707), byPlan: { p1: scale(50, 0.707) } })
     m.noteMeasuredAspect(KEY, 0.75, 0.707)
     await settle()
-    expect(written().measuredArByPlan[KEY]).toBe(0.75)
+    expect(written().measuredArByPlan?.[KEY]).toBe(0.75)
     // ⚠️ the calibration is UNTOUCHED — `ar · mPerU` is the sheet's ground width, so correcting
     // `ar` in place would silently rescale every measured distance on the plan
     expect(written().default).toEqual(scale(100, 0.707))

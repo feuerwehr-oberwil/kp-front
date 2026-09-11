@@ -13,6 +13,7 @@
 // can't honor deletes and would resurrect everything the other device removed.
 
 import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
+import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { BoardAnno, BoardDoc, Drawing, Entity } from '../types'
 
 type Id = string
@@ -51,6 +52,7 @@ interface WsShape {
   planScale?: Record<string, unknown> // per-plan calibration (planId → scale)
   settings?: Record<string, unknown> // per-incident operational settings (Atemschutz doctrine …)
   reportMeta?: Record<string, unknown> // Einsatzrapport bookkeeping text
+  planBindings?: HasId[] // frozen sheet bindings — first server binding wins, overrides merge
   building?: unknown // the Gebäude floor-stack doc (merged whole — same-object stays LWW)
   pickedObjectId?: unknown // the shared picked Einsatzobjekt (one picture across devices)
   // «Einsatzdaten geprüft» stamp — MUST be merged, not defaulted to mine: a device that still
@@ -436,6 +438,13 @@ export function mergeWorkspace(
     planScale: mergeRecord(...record('planScale')),
     settings: mergeRecord(...record('settings')),
     reportMeta: mergeReportMeta(...record('reportMeta')),
+    // NOT mergeById: the first server binding fixes the backdrop, and only an override of that
+    // same snapshot merges — the rule lives with the binding type (lib/incidentPlanBindings).
+    planBindings: mergeIncidentPlanBindings(
+      asList(b.planBindings) as unknown as IncidentPlanBinding[],
+      asList(m.planBindings) as unknown as IncidentPlanBinding[],
+      asList(t.planBindings) as unknown as IncidentPlanBinding[],
+    ),
     building: pick3(b.building, m.building, t.building),
     pickedObjectId: pick3(b.pickedObjectId, m.pickedObjectId, t.pickedObjectId),
     intakeReviewedAt: pick3(b.intakeReviewedAt, m.intakeReviewedAt, t.intakeReviewedAt),

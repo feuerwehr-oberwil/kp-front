@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { planDocuments } from '../data/demoIncident'
 import { objectsNearIncidentResilient, getObjectResilient, referenceUrl, type ObjectWithPlans, type ReferenceDataset } from './incidents'
+import { getApprovedPlanAlignments } from './api/reference'
+import { addPlanBindings, incidentGeorefKey, inheritPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
+import { georefForPlan } from './stationPlanScale'
 import { toast } from './ui'
 import { fillTemplate } from './format'
 import { appConfig } from '../config/appConfig'
@@ -143,14 +146,27 @@ function planKey(pl: ReferenceDataset): string | null {
   return raw ? normModule(raw) : null
 }
 
+/** The dataset identity behind one module key — what an incident's plan binding pins. */
+export interface PlanDatasetRef {
+  id: string
+  version: number
+}
+
 // Build the module→reference-URL map for an object's plans, collapsing a combined "Modul 2-3.pdf".
 // The corps' Einsatzpläne ingest a combined sheet as TWO datasets (modul2 + modul3) with DIFFERENT
 // storage keys but IDENTICAL content — so they share `size_bytes` (verified in the live DB: 112
 // objects match, the 6 genuinely-separate ones differ). Equal size ⇒ synthesize a `modul2-3` key so
 // the rail shows ONE 2/3 tile; unequal size ⇒ leave Modul 2 and Modul 3 as separate tiles.
-export function buildPlanInfo(plans: ReferenceDataset[]): { plans: Record<string, string>; titles: Record<string, string> } {
+// `datasets` carries the (dataset id, current version) behind each key — the identity a plan
+// binding freezes, which the URL string alone cannot provide.
+export function buildPlanInfo(plans: ReferenceDataset[]): {
+  plans: Record<string, string>
+  titles: Record<string, string>
+  datasets: Record<string, PlanDatasetRef>
+} {
   const map: Record<string, string> = {}
   const titles: Record<string, string> = {} // module → label from the source filename (data-driven tiles)
+  const datasets: Record<string, PlanDatasetRef> = {}
   for (const pl of plans) {
     const k = planKey(pl)
     if (!k) continue
@@ -161,6 +177,7 @@ export function buildPlanInfo(plans: ReferenceDataset[]): { plans: Record<string
     let key = k
     for (let n = 2; map[key]; n += 1) key = `${k}${n}`
     map[key] = referenceUrl(pl.id, pl.current_version)
+    datasets[key] = { id: pl.id, version: pl.current_version }
     if (pl.title) titles[key] = pl.title
   }
   if (!map['modul2-3']) {
@@ -168,9 +185,23 @@ export function buildPlanInfo(plans: ReferenceDataset[]): { plans: Record<string
     const m3 = plans.find((p) => planKey(p) === 'modul3')
     if (m2 && m3 && m2.size_bytes != null && m2.size_bytes === m3.size_bytes) {
       map['modul2-3'] = referenceUrl(m2.id, m2.current_version) // identical content → the combined sheet
+      datasets['modul2-3'] = { id: m2.id, version: m2.current_version }
     }
   }
-  return { plans: map, titles }
+  return { plans: map, titles, datasets }
+}
+
+/** How the hook takes part in the incident's frozen sheet bindings (lib/incidentPlanBindings). */
+export interface PlanBindingOptions {
+  /** the synced bindings slice of the workspace blob */
+  bindings: IncidentPlanBinding[]
+  /** persist newly proposed bindings (parent merges via addPlanBindings — first binding wins) */
+  onBind: (proposed: IncidentPlanBinding[]) => void
+  /** plan ids whose sheets already carry operator ink — a legacy station fit under annotations
+   *  is preserved rather than replaced by a server approval */
+  legacyPlanIds: Set<string>
+  /** the workspace predates bindings and has content: treat EVERY sheet as annotated */
+  preserveLegacy?: boolean
 }
 
 export function useObjectPlans(
@@ -181,12 +212,26 @@ export function useObjectPlans(
   pickedObjectId: string | undefined,
   /** persist a new pick (or undefined to reset) into the synced workspace blob. */
   onPick: (objectId: string | undefined) => void,
+  /** when given, module sheets bind to their exact dataset revision + approved fit */
+  bindingOpts?: PlanBindingOptions,
 ) {
-  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; name?: string; address?: string | null; pos?: LngLat | null }>({ plans: {}, titles: {} })
-  const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; pos?: LngLat | null; plans: Record<string, string>; titles: Record<string, string> } | null>(null)
+  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef>; name?: string; address?: string | null; pos?: LngLat | null }>({ plans: {}, titles: {}, datasets: {} })
+  const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; pos?: LngLat | null; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef> } | null>(null)
   const backendPlans = manualObject?.plans ?? autoInfo.plans
   const backendTitles = manualObject?.titles ?? autoInfo.titles
+  const backendDatasets = manualObject?.datasets ?? autoInfo.datasets
   const activeObjectId = manualObject?.id ?? autoInfo.id
+
+  // Bindings proposed by THIS hook instance, effective immediately: the parent's synced slice
+  // follows through onBind, but a slow round-trip must not leave the sheet unpinned meanwhile.
+  const [proposed, setProposed] = useState<IncidentPlanBinding[]>([])
+  const effectiveBindings = useMemo(
+    () => addPlanBindings(bindingOpts?.bindings ?? [], proposed),
+    [bindingOpts?.bindings, proposed],
+  )
+  // Stable refs for the callback/set options, so the binding effect keys on data, not identity.
+  const bindingRef = useRef(bindingOpts)
+  bindingRef.current = bindingOpts
 
   // Plan docs for THIS incident:
   //  - module PDFs (modul1/2/3/6) only appear when a near Einsatzobjekt actually provides them — so a
@@ -203,21 +248,37 @@ export function useObjectPlans(
           .filter((p) => /^modul(\d+)[-_/]\d+/.test(p.id) && !!backendPlans[p.id])
           .flatMap((p) => Array.from(p.id.matchAll(/\d+/g), (n) => `modul${n[0]}`)),
       )
+      // A bound sheet is pinned: the incident keeps ITS revision's bytes, fit and shape, whatever
+      // the station has published since. `georefKey` then routes to the binding rather than the
+      // station document (stationPlanScale · georefForPlan branches on the `incident:` prefix).
+      const bound = new Map(effectiveBindings.map((b) => [b.id, b]))
+      const pin = (p: PlanDocument): PlanDocument => {
+        if (!activeObjectId) return { ...p, georefKey: p.id }
+        const sheetKey = objectPlanGeorefKey(activeObjectId, p.id)
+        const binding = bound.get(sheetKey)
+        if (!binding) return { ...p, georefKey: sheetKey }
+        return {
+          ...p,
+          imageUrl: referenceUrl(binding.datasetId, binding.planVersion),
+          georefKey: incidentGeorefKey(incidentId, binding.id),
+          ...(binding.aspect ? { georefAspect: binding.aspect } : {}),
+        }
+      }
       // module tiles: only those the near Einsatzobjekt actually provides
       const moduleDocs = catalogModules
         .filter((p) => !!backendPlans[p.id] && !combined.has(p.id))
-        .map((p) => ({ ...p, imageUrl: backendPlans[p.id], viewer: moduleViewer(p.id), georefKey: activeObjectId ? objectPlanGeorefKey(activeObjectId, p.id) : p.id }))
+        .map((p) => pin({ ...p, imageUrl: backendPlans[p.id], viewer: moduleViewer(p.id) }))
       // Modul 4 / Modul-5 sub-slots the backend provides but the catalog has no tile for
       const known = new Set(catalogModules.map((p) => p.id))
       const extras = Object.keys(backendPlans)
         .filter((id) => !known.has(id) && /^modul\d/.test(id) && !combined.has(id))
         .sort()
-        .map((id) => ({ ...extraModuleDoc(id, backendPlans[id], backendTitles[id]), viewer: moduleViewer(id), georefKey: activeObjectId ? objectPlanGeorefKey(activeObjectId, id) : id }))
+        .map((id) => pin({ ...extraModuleDoc(id, backendPlans[id], backendTitles[id]), viewer: moduleViewer(id) }))
       // non-module surfaces (OSM «Umrisse», «Tafel») ALWAYS after the modules, in catalog order
       const surfaceDocs = surfaces.map((p) => (p.osm ? { ...p, osm: { ...p.osm, center } } : p))
       return [...moduleDocs, ...extras, ...surfaceDocs]
     },
-    [backendPlans, backendTitles, center, activeObjectId],
+    [backendPlans, backendTitles, center, activeObjectId, effectiveBindings, incidentId],
   )
 
   // surface the nearest Einsatzobjekt's module plans (served from the backend) onto the
@@ -236,11 +297,57 @@ export function useObjectPlans(
             address: nearest.address,
             pos: nearest.lat != null && nearest.lng != null ? [nearest.lng, nearest.lat] : null,
           }
-          : { plans: {}, titles: {} })
+          : { plans: {}, titles: {}, datasets: {} })
       })
       .catch(() => { /* no object reachable → Umrisse + Tafel only */ })
     return () => { alive = false }
   }, [incidentId])
+
+  // Bind the active object's module sheets, once each: the FIRST answer freezes which dataset
+  // revision and which fit this incident works on (addPlanBindings never replaces a binding).
+  // A sheet whose legacy station fit sits under existing ink keeps that fit without asking the
+  // server; everything else asks for the station-approved alignment of its exact revision.
+  // «Unknown» is not «none»: when the answer is unreachable and uncached, the sheet stays
+  // unbound this round and is asked again rather than frozen without its approval.
+  const boundIdsKey = effectiveBindings.map((b) => b.id).join('|')
+  useEffect(() => {
+    const opts = bindingRef.current
+    if (!opts || !activeObjectId) return
+    const bound = new Set(boundIdsKey ? boundIdsKey.split('|') : [])
+    const targets = Object.entries(backendDatasets)
+      .filter(([planId]) => !bound.has(objectPlanGeorefKey(activeObjectId, planId)))
+    if (!targets.length) return
+    let alive = true
+    void (async () => {
+      const out: IncidentPlanBinding[] = []
+      for (const [planId, ds] of targets) {
+        const sheet = {
+          id: objectPlanGeorefKey(activeObjectId, planId),
+          objectId: activeObjectId,
+          planId,
+          datasetId: ds.id,
+          planVersion: ds.version,
+          title: backendTitles[planId] ?? planId,
+        }
+        const legacy = georefForPlan(sheet.id)
+        const annotated = opts.legacyPlanIds.has(planId) || !!opts.preserveLegacy
+        if (legacy?.pairs.length && annotated) {
+          out.push(inheritPlanBinding(sheet, undefined, legacy, true))
+          continue
+        }
+        try {
+          const metadata = await getApprovedPlanAlignments(ds.id, ds.version)
+          const approved = metadata.alignments.find((a) => a.page === 0 && a.aspect > 0)
+          out.push(inheritPlanBinding(sheet, approved ?? undefined, legacy, annotated))
+        } catch { /* offline and uncached — retry on the next resolve instead of freezing 'none' */ }
+      }
+      if (alive && out.length) {
+        setProposed((prev) => addPlanBindings(prev, out))
+        bindingRef.current?.onBind(out)
+      }
+    })()
+    return () => { alive = false }
+  }, [activeObjectId, backendDatasets, backendTitles, boundIdsKey])
 
   // reflect the synced picked-object id (workspace blob): when set — this device's pick, a reload,
   // or ANOTHER device's pick arriving via the live-follow poll — fetch the object's plans; when
@@ -287,5 +394,5 @@ export function useObjectPlans(
   // the active object's own coordinate — the anchor «Automatisch ausrichten» fetches its OSM
   // reference box around. Null when the object carries none (callers fall back to the incident).
   const activeObjectPos = manualObject ? manualObject.pos ?? null : autoInfo.pos ?? null
-  return { backendPlans, resolvedPlanDocs, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, pickObject, resetObject }
+  return { backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, pickObject, resetObject }
 }

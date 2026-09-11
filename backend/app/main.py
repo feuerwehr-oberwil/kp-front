@@ -698,6 +698,7 @@ def _register_optional_routers() -> None:
         ("app.api.georef_suggest", "router"),
         ("app.api.overpass", "router"),
         ("app.api.reference", "router"),
+        ("app.api.plan_alignments", "router"),
         ("app.api.objects", "router"),
         ("app.api.objects", "incidents_objects_router"),
         ("app.api.events", "router"),
