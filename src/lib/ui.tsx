@@ -30,7 +30,7 @@ interface Toast { id: number; text: string; icon?: string; tone: Tone; toneStyle
  *  only the pending state needs: which request it is, and the promise to settle. */
 interface ConfirmReq extends ConfirmSpec {
   id: number
-  resolve: (v: boolean) => void
+  resolve: (v: boolean | 'alt') => void
 }
 
 /** The picture currently being looked at full-size (see openPhoto). */
@@ -113,9 +113,13 @@ export function updateToast(id: number, text: string, opts?: { icon?: string; to
 }
 
 /** The two labels are the only optional part of the ask: unset, they come from the copy. */
-export function confirmDialog(
-  opts: Omit<ConfirmSpec, 'confirmLabel' | 'cancelLabel'> & { confirmLabel?: string; cancelLabel?: string },
-): Promise<boolean> {
+// `'alt'` only ever comes back when the ask carried an `altLabel`, and the overloads say so:
+// a plain two-button confirm keeps its `Promise<boolean>`, so no existing caller has to
+// consider an answer its dialog cannot give.
+type ConfirmOpts = Omit<ConfirmSpec, 'confirmLabel' | 'cancelLabel'> & { confirmLabel?: string; cancelLabel?: string }
+export function confirmDialog(opts: ConfirmOpts & { altLabel: string }): Promise<boolean | 'alt'>
+export function confirmDialog(opts: ConfirmOpts & { altLabel?: undefined }): Promise<boolean>
+export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
   return new Promise((resolve) => {
     // a fresh request supersedes any pending one (resolve the old as cancelled)
     confirmReq?.resolve(false)
@@ -128,6 +132,8 @@ export function confirmDialog(
       confirmLabel: opts.confirmLabel ?? appConfig.copy.confirm.ok,
       cancelLabel: opts.cancelLabel ?? appConfig.copy.confirm.cancel,
       danger: opts.danger,
+      altLabel: opts.altLabel,
+      altDanger: opts.altDanger,
       resolve,
     }
     emit()
@@ -358,7 +364,7 @@ export function Overlays() {
   const photo = photoReq
   const closePhoto = () => { photoReq = null; emit() }
 
-  const close = (v: boolean) => {
+  const close = (v: boolean | 'alt') => {
     const r = confirmReq
     confirmReq = null
     emit()
@@ -386,6 +392,8 @@ export function Overlays() {
         confirmLabel={req?.confirmLabel ?? ''}
         cancelLabel={req?.cancelLabel ?? ''}
         danger={req?.danger}
+        altLabel={req?.altLabel}
+        altDanger={req?.altDanger}
         onResolve={close}
       />
 

@@ -1180,10 +1180,6 @@ export function AtemschutzView({
               <span className={s.sectTitle}><Icon id="people" />{az.sectionPlain}</span>
               <span className={s.sectCount}>{plainBoard.length}</span>
             </div>
-            {/* said once, under the rule, rather than on every row: what these Trupps do NOT have
-                is the same fact for all of them, and repeating it per row would make the section
-                shout louder than the one above it */}
-            <p className={s.sectHint}>{az.sectionPlainHint}</p>
             {/* ⚠️ The SAME rows and the same cards as above (03.09.). They used to be their own
                 half-height `PlainTruppRow` with its controls on the row, on the argument that a
                 Trupp without a contact clock has nothing further to open. It does: its Verlauf.
@@ -1788,10 +1784,13 @@ function TruppCard({
     : pressureCrit ? fillTemplate(az.clockAlarmLimit, { bar: line })
     : az.sinceContact
   const bandValue = neverDeployed ? (registeredAt != null ? fmtTime(new Date(registeredAt).toISOString()) : '')
-    : breakClock ? fmtClock(live.outSec)
+    // break clock and work-squad elapsed are LONG durations read as one, so they roll into
+    // hours (a long Draussen read «343:17» beside the plinth's «5:43:17», field shot 11.09.);
+    // the contact clock below stays raw minutes on purpose — see fmtElapsedFull's doc.
+    : breakClock ? fmtElapsedFull(live.outSec)
     : out ? ''
     : preEntry ? fmtClock(null)
-    : !monitored ? fmtClock(t.entryTime ? live.elapsedSec : null)
+    : !monitored ? fmtElapsedFull(t.entryTime ? live.elapsedSec : null)
     : pressureCrit ? `${live.currentBar} bar`
     : fmtClock(live.sinceContactSec)
   /* ⚠️ A Trupp that is OUT does not get the card's loudest element (04.09.). The 40px bold number
@@ -1818,7 +1817,25 @@ function TruppCard({
   // raised a pill over itself for every action, and the steady popping read as noise. The two
   // doors back are the global ↶ pair (deleteTrupp registers there) and the non-expiring
   // «Entfernte Trupps» menu; both restore the full record, only the plan/map placement is gone.
-  const doDelete = () => { onDelete(t.id) }
+  // ONE ask since 11.09. (field wish): an angemeldeter Atemschutz-Trupp that never went in is
+  // offered «nicht eingesetzt» first — the honest close-out for a Sicherungstrupp that stood
+  // ready (the same stand-down the card's «Nicht eingesetzt» action performs, same gate:
+  // preEntry && monitored, so it logs and prints as one). «Entfernen» stays a button away for
+  // the erroneous Anmeldung; dismissing does nothing.
+  const doDelete = async () => {
+    if (preEntry && monitored) {
+      const a = await confirmDialog({
+        title: az.removeUnusedTitle,
+        message: fillTemplate(az.removeUnusedMsg, { name: t.name }),
+        confirmLabel: az.actNotDeployed,
+        altLabel: az.remove,
+        altDanger: true,
+      })
+      if (a === true) { onStatus(t.id, 'raus'); return }
+      if (a !== 'alt') return
+    }
+    onDelete(t.id)
+  }
 
   /* ── the ⋯ menu ────────────────────────────────────────────────────────────────────────────
    * The same conditions the four icon buttons carried, now as sentences. Two of them are PAIRS
