@@ -702,6 +702,181 @@ async def test_two_workbooks_in_one_folder_are_a_question_not_a_guess(db_session
     assert "leave exactly one" in (result["areas"]["workbook"]["detail"] or "")
 
 
+# --- a run that fails half way -----------------------------------------------------------
+#
+# The class of defect this section exists for: a run that went wrong and left the card green.
+# Every one of these was reachable in the shipped connector — a stranded cursor, a memoised file
+# nobody fetched, an exception that took the whole run's report with it.
+
+
+async def test_a_failed_walk_does_not_strand_the_changed_files_behind_a_fresh_cursor(
+    db_session, blank_env, storage_root
+):
+    """⚠️ The delta cursor says «everything up to here has been seen». Taking the new one before
+    the walk and then failing the walk moved it past files nobody read: the next poll asked
+    «anything since?», heard «no», and reported «unverändert» in green over a plan that would
+    never arrive. The cursor advances only after the walk returns."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({"dorfmatt/modul1.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    resume_point = (await state_of(db_session, "plans")).delta_token
+
+    tenant.put("dorfmatt/modul2.pdf", PDF)
+    tenant.fail_listing()  # the walk dies; the change is now inside the stranded window
+    failed = await sync_sharepoint(db_session, transport=tenant.transport)
+    assert failed["areas"]["plans"]["status"] == "unreachable"
+    assert (await state_of(db_session, "plans")).delta_token == resume_point, "a failed walk is no resume point"
+
+    tenant.heal()
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["imported"] == 1, "the file changed while the walk was broken"
+    oid = object_id_for_key("dorfmatt")
+    assert await datasets(db_session, "plan:") == [f"plan:{oid}:modul1", f"plan:{oid}:modul2"]
+
+
+async def test_a_throttled_delta_call_is_not_a_resume_point_either(db_session, blank_env, storage_root):
+    """The same stranding, one request earlier: the change feed itself 429s. Nothing is walked,
+    nothing is recorded, and the change is still there to find when the throttle lifts."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({"dorfmatt/modul1.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    tenant.put("dorfmatt/modul2.pdf", PDF)
+    tenant.fail_delta(429)
+    tenant.seen.clear()
+    failed = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert failed["areas"]["plans"]["status"] == "unreachable"
+    assert not any("/children" in url for url in tenant.seen), "a failed delta must not be walked past"
+
+    tenant.heal()
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+    assert result["areas"]["plans"]["imported"] == 1
+
+
+async def test_a_collision_stays_on_the_card_until_somebody_fixes_the_config(db_session, blank_env, storage_root):
+    """⚠️ `needs_review` arises only after a walk, which advances the cursor — so the next poll
+    took the «nothing changed» shortcut and wrote `detail = None` over the reason. The area went
+    green within one interval while both Wasser sheets stayed unimported. A state that is not
+    ok/unchanged is never resumed from: it walks, re-checks, and keeps saying so."""
+    narrow = [{**m, "match": OBERWIL_MODUL5_MATCH} if m["id"] == "modul5" else m for m in MODULES]
+    await configure(db_session, [source("plans")], modules=narrow)
+    tenant = FakeTenant(
+        {
+            f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF,
+            f"{OBERWIL_FOLDER}/Modul 5 - Wasser 1.pdf": PDF,
+            f"{OBERWIL_FOLDER}/Modul 5 - Wasser 2.pdf": PDF,
+        }
+    )
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    # A poll where SharePoint genuinely has nothing new to report.
+    again = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert again["areas"]["plans"]["status"] == "needs_review"
+    assert "claimed by two files at once" in (again["areas"]["plans"]["detail"] or "")
+    assert (await state_of(db_session, "plans")).detail is not None
+
+    # …and it clears the moment the collision does.
+    tenant.remove(f"{OBERWIL_FOLDER}/Modul 5 - Wasser 2.pdf")
+    fixed = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert (fixed["areas"]["plans"]["status"], fixed["areas"]["plans"]["detail"]) == ("ok", None)
+    assert f"plan:{object_id_for_key(OBERWIL_FOLDER)}:modul5-wasser" in await datasets(db_session, "plan:")
+
+
+async def test_a_plan_whose_download_failed_is_fetched_again_next_run(db_session, blank_env, storage_root):
+    """⚠️ One 429 on one PDF used to lose that plan for good: the file was skipped, its NEW eTag
+    was memoised anyway, and every later run compared equal and skipped it again — area `ok`.
+    The memo records what was imported, never what was merely listed."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({"dorfmatt/modul1.pdf": PDF, "dorfmatt/modul2.pdf": PDF})
+    tenant.fail_download("dorfmatt/modul2.pdf")
+
+    first = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert (first["areas"]["plans"]["imported"], first["areas"]["plans"]["skipped"]) == (1, 1)
+    assert first["areas"]["plans"]["status"] == "needs_review", "a file that did not arrive is not a green run"
+    assert "could not be fetched" in (first["areas"]["plans"]["detail"] or "")
+    assert first["areas"]["plans"]["missing"] == 0, "listed and unfetched is not «gone from the source»"
+
+    tenant.heal()
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["imported"] == 1
+    oid = object_id_for_key("dorfmatt")
+    assert await datasets(db_session, "plan:") == [f"plan:{oid}:modul1", f"plan:{oid}:modul2"]
+
+
+async def test_a_layer_whose_download_failed_is_fetched_again_next_run(db_session, blank_env, storage_root):
+    await configure(db_session, [source("geodata")])
+    tenant = FakeTenant({"hydranten.geojson": geojson(3), "gefahren.geojson": geojson(1)})
+    tenant.fail_download("gefahren.geojson")
+
+    first = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert first["areas"]["geodata"]["status"] == "needs_review"
+    assert await datasets(db_session, "geo:") == ["geo:hydranten"]
+
+    tenant.heal()
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert await datasets(db_session, "geo:") == ["geo:gefahren", "geo:hydranten"]
+
+
+async def test_a_checklist_diagram_whose_download_failed_is_fetched_again_next_run(db_session, blank_env, storage_root):
+    await configure(db_session, [source("checklists")])
+    template = b'{"id": "fu-aktion", "kind": "action", "title": "Aufgaben FU", "phases": [{"id": "a"}]}'
+    tenant = FakeTenant({"fu-aktion.json": template, "fu-aktion-p12.jpg": b"\xff\xd8jpeg"})
+    tenant.fail_download("fu-aktion-p12.jpg")
+
+    first = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert first["areas"]["checklists"]["status"] == "needs_review"
+    assert await datasets(db_session, "checklists:") == ["checklists:fu-aktion"]
+
+    tenant.heal()
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert await datasets(db_session, "checklists:") == ["checklists:fu-aktion", "checklists:fu-aktion:p12"]
+
+
+async def test_an_area_that_raises_reports_error_and_the_others_keep_their_run(db_session, blank_env, storage_root):
+    """⚠️ `error` was enumerated everywhere and assigned nowhere: an importer raising propagated
+    out of the run to the scheduler, which rolled back the data AND every state row, so the card
+    kept showing the previous run for ever. A file named .xlsx that is not a workbook is the
+    cheapest way to make the importer raise — and the Objektpläne beside it must not care."""
+    await configure(db_session, [source("plans"), source("workbook")])
+    tenant = FakeTenant({"dorfmatt/modul1.pdf": PDF, "arbeitsmappe.xlsx": b"this is not a workbook at all"})
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["workbook"]["status"] == "error"
+    assert result["areas"]["workbook"]["detail"], "the row has to say something an operator can act on"
+    workbook = await state_of(db_session, "workbook")
+    assert (workbook.status, workbook.last_run_at is not None, workbook.last_success_at) == ("error", True, None)
+
+    assert result["areas"]["plans"]["imported"] == 1
+    assert await datasets(db_session, "plan:") == [f"plan:{object_id_for_key('dorfmatt')}:modul1"]
+    assert (await state_of(db_session, "plans")).status == "ok"
+
+
+async def test_a_path_one_level_too_high_says_what_it_skipped(db_session, blank_env, storage_root):
+    """⚠️ Refuse-to-empty deliberately spares a FIRST run, so a `path` pointing one folder above
+    the objects listed 336 files, matched none of them and reported `imported: 0, skipped: 336,
+    status: ok`. Every skip was a log line nobody reads. The dominant reason is now the detail."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"Einsatzpläne/{OBERWIL_FOLDER}/Modul {n}.pdf": PDF for n in (1, 2, 6)})
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert (result["areas"]["plans"]["imported"], result["areas"]["plans"]["skipped"]) == (0, 3)
+    assert result["areas"]["plans"]["status"] == "needs_review"
+    assert "not a <Objektordner>/<Modul>.pdf" in (result["areas"]["plans"]["detail"] or "")
+    assert (await db_session.execute(select(ObjectSite))).scalars().all() == []
+
+
 # --- several areas at once ---------------------------------------------------------------
 
 

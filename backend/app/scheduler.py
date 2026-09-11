@@ -167,10 +167,24 @@ async def _sharepoint_pull() -> None:
                 return
             _sharepoint_last_run = now
             res = await sync_sharepoint(db)
+            # ⚠️ ONE commit, and it persists the state rows as much as the imported data. An
+            # area that failed does NOT reach here as an exception any more — it rolled back its
+            # own writes inside a savepoint (sharepoint_sync · _sync_one) and reports `error`,
+            # so the rollback below can no longer take three healthy areas and every area's
+            # report down with the fourth.
             await db.commit()
-            imported = sum(a.get("imported", 0) for a in res.get("areas", {}).values())
+            areas: dict[str, dict] = res.get("areas", {})
+            imported = sum(a.get("imported", 0) for a in areas.values())
             if imported:
                 logger.info("SharePoint-Pull: %d file(s) imported", imported)
+            for area, report in areas.items():
+                if report.get("status") not in ("ok", "unchanged"):
+                    logger.warning(
+                        "SharePoint-Pull: %s is %s — %s",
+                        area,
+                        report.get("status"),
+                        report.get("detail") or "no detail",
+                    )
         except Exception:
             await db.rollback()
             logger.exception("SharePoint-Pull failed")

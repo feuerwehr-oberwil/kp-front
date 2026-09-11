@@ -32,6 +32,9 @@ that live among the station data.
   area reports `needs_review` until one looks.
 * **Nothing is written anywhere else.** No write ever goes back to SharePoint — see
   app/sharepoint_graph.
+* **An area fails alone and says so.** Each one runs inside its own savepoint: an importer that
+  raises undoes that area's writes, reports `error` with the reason, and leaves the three that
+  worked — and every area's report — committed (`_sync_one`).
 
 **Change detection.** Graph's delta query is the gate: with a stored deltaLink an unchanged
 folder costs one request and stops there. Anything else falls through to a full walk, whose
@@ -39,6 +42,12 @@ per-file eTags decide what is downloaded. Delta is deliberately not used to iden
 file changed — Graph documents `parentReference.path` as absent from a delta response and says
 to track items by id, while every convention here is read off a path. So delta answers «is
 there anything to do» and the walk answers «what is there».
+
+⚠️ Two rules keep that gate from hiding a failure. The cursor is stored only once the walk has
+RETURNED — a cursor moved past files nobody listed makes the next poll report «unverändert» over
+a change that will never be imported — and an area whose last run was anything but ok/unchanged
+is never resumed from, so a refusal, a collision or a file that would not download is re-checked
+rather than papered over one interval later by an empty change set.
 
 ⚠️ A blob deleted out from under us is not noticed by an eTag comparison (the eTag still
 matches what we imported). The escape hatch is `POST /api/sharepoint/sync?full=true`, which
@@ -51,6 +60,7 @@ import json
 import logging
 import re
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -211,6 +221,20 @@ class AreaOutcome:
     imported: int = 0
     skipped: int = 0
     missing: list[str] = field(default_factory=list)
+    #: How many files were skipped for each reason. Counted rather than only logged because the
+    #: silent failure this connector is capable of («path one level too high»: 336 skips, status
+    #: ok) is invisible until one of these reaches the card — see `_grade`.
+    reasons: Counter[str] = field(default_factory=Counter)
+
+    def skip(self, reason: str, count: int = 1) -> None:
+        """Count files this run did not import, and WHY.
+
+        ⚠️ Only for a skip that means something went wrong. A file whose eTag says it is already
+        imported is skipped too, and counting a reason for it would make every quiet poll read
+        like a problem.
+        """
+        self.skipped += count
+        self.reasons[reason] += count
 
     @property
     def succeeded(self) -> bool:
@@ -286,7 +310,7 @@ async def sync_sharepoint(
             if full:
                 state.delta_token = None
                 state.files = {}
-            outcome = await _sync_area(db, graph, source, state)
+            outcome = await _sync_one(db, graph, source, state)
             _record(state, outcome)
             results[source.area] = {
                 "status": outcome.status,
@@ -296,6 +320,31 @@ async def sync_sharepoint(
                 "detail": outcome.detail,
             }
     return {"status": "ok", "areas": results}
+
+
+async def _sync_one(
+    db: AsyncSession, graph: GraphClient, source: SharePointSource, state: SharePointSyncState
+) -> AreaOutcome:
+    """One area, inside its own SAVEPOINT, and never raising.
+
+    ⚠️ The savepoint is what keeps the areas independent under a failure that is not a remote
+    one — an importer raising, a column refusing a value, a storage write dying. Without it the
+    exception reached the scheduler, which rolls back the whole session: the three areas that
+    worked lost their writes AND every state row lost its report, so the card kept showing the
+    previous run's green tick with nobody able to tell why. Now the failing area's writes are
+    undone, the others keep theirs, and `error` — enumerated everywhere and until now never
+    assigned — is what the operator reads.
+
+    The state row is stamped by the CALLER, outside the savepoint, so the report survives the
+    rollback of the data the run was trying to write.
+    """
+    await db.flush()  # everything the previous areas wrote belongs OUTSIDE this savepoint
+    try:
+        async with db.begin_nested():
+            return await _sync_area(db, graph, source, state)
+    except Exception as e:  # an area's failure is a status on its card, not the end of the run
+        logger.exception("SharePoint %s: the run failed", source.area)
+        return AreaOutcome(area=source.area, status="error", detail=f"{type(e).__name__}: {e}"[:400])
 
 
 async def _state_row(db: AsyncSession, area: str) -> SharePointSyncState:
@@ -387,7 +436,7 @@ async def _sync_area(
             state.delta_token = None
 
         known: dict[str, str] = dict(state.files or {})
-        if state.delta_token and known:
+        if state.delta_token and known and state.status in _RESUMABLE:
             try:
                 changed, token = await graph.delta(state.drive_id, state.item_id, state.delta_token)
             except GraphDeltaExpiredError:
@@ -397,13 +446,18 @@ async def _sync_area(
                 out.status = "unchanged"
                 out.skipped = len(known)
                 return out
-            state.delta_token = token
         else:
-            # No resume point: take one BEFORE the walk, so anything changed while we are
-            # walking is caught by the next run rather than falling between the two.
-            _, state.delta_token = await graph.delta(state.drive_id, state.item_id, "latest")
+            # No resume point (or one we may not trust): take one BEFORE the walk, so anything
+            # changed while we are walking is caught by the next run rather than falling between
+            # the two.
+            _, token = await graph.delta(state.drive_id, state.item_id, "latest")
 
         files = _without_ignored(await graph.walk(state.drive_id, state.item_id), source)
+        # ⚠️ Only now. The cursor says «everything up to here has been seen», and a walk that
+        # raised below saw nothing — storing the new token first left the changed files behind a
+        # cursor that had already moved past them, and the next poll reported «unverändert» in
+        # green over a folder whose new plans would never arrive.
+        state.delta_token = token
     except GraphAuthError as e:
         out.status, out.detail = "auth_failed", str(e)[:400]
         logger.warning("SharePoint %s: authentication refused — %s", source.area, e)
@@ -414,7 +468,52 @@ async def _sync_area(
         return out
 
     handler = _HANDLERS[source.area]
-    return await handler(db, graph, state, files, out)
+    out = await handler(db, graph, state, files, out)
+    _grade(out, source)
+    return out
+
+
+#: The states a stored delta cursor may be resumed from. Everything else means the LAST run left
+#: something undone — a refusal, a collision, a file that would not download — and the delta
+#: shortcut would report «unverändert» in green over exactly that, one interval later, while the
+#: reason it was flagged stays unread. So anything else walks, which is also what re-checks
+#: whether the reason is still there.
+_RESUMABLE = ("ok", "unchanged")
+
+#: The skip reason that means «we wanted these bytes and did not get them» — a throttle, a
+#: timeout, a storage host having a bad minute. Its own constant because `_grade` treats it
+#: differently from the reasons that are about the FILE.
+_UNFETCHED = "could not be fetched from SharePoint"
+
+
+def _grade(out: AreaOutcome, source: SharePointSource) -> None:
+    """Turn the two ways a run can be wrong and still look green into a status somebody reads.
+
+    Both are silences rather than errors, and both have happened to this deployment:
+
+    * **Nothing arrived and it was not for lack of files.** A `path` one level too high lists 336
+      files, none of them at the depth the convention expects, and reports `ok, imported 0`. The
+      dominant skip reason is the sentence that names it.
+    * **Bytes did not arrive.** One 429 on one PDF skipped that plan with a green tick over it.
+
+    Either sets `needs_review`, which is also what makes the NEXT run walk instead of trusting
+    its cursor (`_RESUMABLE`) — so the retry and the report are the same mechanism.
+    """
+    if out.status != "ok":
+        return
+    unfetched = out.reasons.get(_UNFETCHED, 0)
+    if unfetched:
+        out.status = "needs_review"
+        out.detail = f"{unfetched} file(s) {_UNFETCHED} — the next run tries them again"
+        return
+    if out.imported or not out.reasons:
+        return
+    reason, count = out.reasons.most_common(1)[0]
+    out.status = "needs_review"
+    out.detail = (
+        f"nothing was imported and {count} of {out.skipped} listed file(s) were skipped: {reason}. "
+        f"Check that «{source.path or '/'}» is the folder the {source.area} convention describes."
+    )
 
 
 # --- the empty guard --------------------------------------------------------------------
@@ -445,15 +544,29 @@ def _changed(state: SharePointSyncState, file: RemoteFile) -> bool:
     return (state.files or {}).get(file.path) != file.etag
 
 
-def _remember(state: SharePointSyncState, files: list[RemoteFile]) -> list[str]:
-    """Replace the eTag memo with what the source now holds; return the paths that went away.
+def _remember(
+    state: SharePointSyncState, stored: list[RemoteFile], *, listed: list[RemoteFile] | None = None
+) -> list[str]:
+    """Record the eTags of what this run actually HAS; return the paths that went away.
+
+    ⚠️ `stored` is what was imported (plus what was already imported and had not changed), NOT
+    the listing — `listed` is the listing, and the difference is the whole point. Writing the
+    memo from the listing recorded the new eTag of a file whose download had just failed, which
+    made `_changed` answer «unchanged» for it from then on: one 429 on one PDF, and that plan
+    was gone until somebody ran a full re-import. A file that was listed and not stored keeps
+    the eTag we DID import, so the next run fetches it again and it is not reported missing.
 
     Assigned as a NEW dict rather than mutated: `files` is a JSON column, and SQLAlchemy does
     not see an in-place mutation of one.
     """
     previous = dict(state.files or {})
-    state.files = {f.path: f.etag for f in files}
-    return sorted(set(previous) - set(state.files))
+    memo = {f.path: f.etag for f in stored}
+    seen = {f.path for f in (stored if listed is None else listed)}
+    for path in seen - set(memo):
+        if path in previous:
+            memo[path] = previous[path]
+    state.files = memo
+    return sorted(set(previous) - seen)
 
 
 # --- area: Objektpläne ------------------------------------------------------------------
@@ -500,7 +613,7 @@ async def _sync_plans(
         if file.suffix == ".pdf" and len(file.path.split("/")) == 2:
             shaped.setdefault(file.path.split("/")[0], []).append(file)
         else:
-            out.skipped += 1
+            out.skip("not a <Objektordner>/<Modul>.pdf")
             logger.info("SharePoint plans: %s is not a <Objektordner>/<Modul>.pdf — skipped", file.path)
 
     usable: list[tuple[RemoteFile, str, str]] = []  # (file, object key, module id)
@@ -508,7 +621,7 @@ async def _sync_plans(
     for folder, entries in shaped.items():
         key = _object_key(folder)
         if len(key) > _MAX_OBJECT_KEY:
-            out.skipped += len(entries)
+            out.skip("the folder name is too long to be an object key", len(entries))
             logger.warning(
                 "SharePoint plans: «%.60s…» is longer than %d characters and cannot be an object key — skipped",
                 folder,
@@ -519,13 +632,13 @@ async def _sync_plans(
         for file in entries:
             module = _module_for(file.name[: -len(".pdf")], rules)
             if module is None:
-                out.skipped += 1
+                out.skip("no module's 'match' rule claims the file name")
                 continue
             if not _MODULE_RE.match(module):
                 # ⚠️ `ReferenceDataset.module` is a String(16) and SQLite does not enforce one,
                 # so an over-long generated id passes every local test and 500s on the station's
                 # Postgres. A family whose capture is too long is the realistic way to get here.
-                out.skipped += 1
+                out.skip("the Modul-Slot it resolves to is longer than 16 characters")
                 logger.warning(
                     "SharePoint plans: %s resolves to Modul-Slot %r, which does not fit the 16 characters the "
                     "column holds — skipped. Shorten the file name's sub-slot or the module id.",
@@ -547,7 +660,7 @@ async def _sync_plans(
                 # ⚠️ Two files, one slot: importing either would silently overwrite the other, and
                 # a plan the crew cannot open is worse than a plan that visibly did not arrive.
                 # Neither is written and the area asks for a person — see `collisions` below.
-                out.skipped += len(claimants)
+                out.skip("two files claim the same Modul-Slot", len(claimants))
                 names = ", ".join(sorted(f.name for f in claimants))
                 collisions.append(f"«{folder}»: {names} → {module}")
                 logger.warning(
@@ -565,12 +678,16 @@ async def _sync_plans(
         out.status, out.detail = "refused", refusal
         return out
 
+    # What the memo may record: a file this run imported, or one it already had. Anything that
+    # fell out below keeps its OLD eTag instead, so the next run tries it again (`_remember`).
+    stored: list[RemoteFile] = []
     for file, key, module in usable:
         if not _changed(state, file):
             out.skipped += 1
+            stored.append(file)
             continue
         if file.size > plan_max_bytes():
-            out.skipped += 1
+            out.skip(f"larger than the {settings.max_upload_mb} MB upload cap")
             logger.warning(
                 "SharePoint plans: %s is %.1f MB, over the %d MB upload cap — skipped",
                 file.path,
@@ -581,11 +698,11 @@ async def _sync_plans(
         try:
             data = await graph.download(state.drive_id or "", file, max_bytes=plan_max_bytes())
         except GraphError as e:
-            out.skipped += 1
+            out.skip(_UNFETCHED)
             logger.warning("SharePoint plans: %s could not be fetched (%s) — keeping what we have", file.path, e)
             continue
         if not data.startswith(b"%PDF-"):
-            out.skipped += 1
+            out.skip("not a PDF")
             logger.warning("SharePoint plans: %s is not a PDF — skipped", file.path)
             continue
         obj = await _object_for(db, key)
@@ -599,6 +716,7 @@ async def _sync_plans(
             fetch_url=f"sharepoint:{file.path}",
         )
         out.imported += 1
+        stored.append(file)
 
     if collisions:
         # Loud rather than quiet: everything else imported, but the card says a person has to
@@ -611,7 +729,7 @@ async def _sync_plans(
             + ". Widen that module's 'match' capture so the two names produce two slots."
         )
 
-    out.missing = _remember(state, [f for f, _, _ in usable])
+    out.missing = _remember(state, stored, listed=[f for f, _, _ in usable])
     return out
 
 
@@ -668,16 +786,21 @@ async def _sync_geodata(
         return out
 
     entries: list[GeodataManifestEntry] = []
+    stored: list[RemoteFile] = []  # only what this run holds the bytes of — see `_remember`
+    unread: set[str] = set()  # sidecars whose bytes did not arrive, or did not parse
     for file in layers:
         slug = file.name[: -len(".geojson")]
         if not _SLUG_RE.match(slug):
-            out.skipped += 1
+            out.skip("not a usable layer id")
             logger.warning("SharePoint geodata: %s is not a usable layer id — skipped", file.path)
             continue
         meta: dict[str, Any] = {}
         sidecar = sidecars.get(slug)
         if sidecar is not None:
-            meta = await _read_json(graph, state, sidecar) or {}
+            read = await _read_json(graph, state, sidecar)
+            if read is None:
+                unread.add(sidecar.path)
+            meta = read or {}
         try:
             entry = GeodataManifestEntry(
                 id=str(meta.get("id") or slug),
@@ -687,7 +810,7 @@ async def _sync_geodata(
                 **{k: v for k, v in meta.items() if k in _SIDECAR_FIELDS},
             )
         except ValueError as e:
-            out.skipped += 1
+            out.skip("its sidecar is not a usable layer description")
             logger.warning("SharePoint geodata: sidecar for %s is unusable (%s) — layer skipped", slug, e)
             continue
 
@@ -695,12 +818,12 @@ async def _sync_geodata(
             try:
                 data = await graph.download(state.drive_id or "", file, max_bytes=_upload_max_bytes())
             except GraphError as e:
-                out.skipped += 1
+                out.skip(_UNFETCHED)
                 logger.warning("SharePoint geodata: %s could not be fetched (%s)", file.path, e)
                 continue
             count = _feature_count(data)
             if count is None:
-                out.skipped += 1
+                out.skip("not a WGS84 FeatureCollection")
                 logger.warning("SharePoint geodata: %s is not a WGS84 FeatureCollection — skipped", file.path)
                 continue
             await store_geojson(
@@ -715,11 +838,16 @@ async def _sync_geodata(
             out.imported += 1
         else:
             out.skipped += 1
+        stored.append(file)
         entries.append(entry)
 
     if entries:
         await _merge_reference_layers(db, _to_reference_layers(entries))
-    out.missing = _remember(state, [*layers, *sidecars.values()])
+    out.missing = _remember(
+        state,
+        [*stored, *(f for f in sidecars.values() if f.path not in unread)],
+        listed=[*layers, *sidecars.values()],
+    )
     return out
 
 
@@ -819,18 +947,20 @@ async def _sync_checklists(
         return out
 
     known = {f.name[: -len(".json")] for f in templates}
+    stored: list[RemoteFile] = []  # only what this run holds the bytes of — see `_remember`
     for file in templates:
         template_id = file.name[: -len(".json")]
         if not _SLUG_RE.match(template_id):
-            out.skipped += 1
+            out.skip("not a usable template id")
             logger.warning("SharePoint checklists: %s is not a usable template id — skipped", file.path)
             continue
         if not _changed(state, file):
             out.skipped += 1
+            stored.append(file)
             continue
         doc = await _read_json(graph, state, file)
         if doc is None or doc.get("id") != template_id or not (doc.get("phases") or doc.get("entries")):
-            out.skipped += 1
+            out.skip("not a ChecklistTemplate whose id matches its file name")
             logger.warning(
                 "SharePoint checklists: %s is not a ChecklistTemplate with id %r and phases/entries — skipped",
                 file.path,
@@ -849,22 +979,24 @@ async def _sync_checklists(
             f"-checklists_{template_id}.json",
         )
         out.imported += 1
+        stored.append(file)
 
     for file in assets:
         stem = file.name[: -len(file.suffix)]
         match = _ASSET_RE.match(stem)
         if match is None or match.group("template") not in known:
-            out.skipped += 1
+            out.skip("not a «<Vorlage>-p<Seite>» diagram")
             logger.info("SharePoint checklists: %s is not a «<Vorlage>-p<Seite>» diagram — skipped", file.path)
             continue
         if not _changed(state, file):
             out.skipped += 1
+            stored.append(file)
             continue
         template_id, page = match.group("template"), int(match.group("page"))
         try:
             data = await graph.download(state.drive_id or "", file, max_bytes=_upload_max_bytes())
         except GraphError as e:
-            out.skipped += 1
+            out.skip(_UNFETCHED)
             logger.warning("SharePoint checklists: %s could not be fetched (%s)", file.path, e)
             continue
         await store_checklist_dataset(
@@ -879,8 +1011,9 @@ async def _sync_checklists(
             f"-checklists_{template_id}_p{page}{file.suffix}",
         )
         out.imported += 1
+        stored.append(file)
 
-    out.missing = _remember(state, [*templates, *assets])
+    out.missing = _remember(state, stored, listed=[*templates, *assets])
     return out
 
 

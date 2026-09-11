@@ -375,11 +375,17 @@ The status on the System card, and what it means:
 |--------|---------------|------------|
 | **noch nie gelaufen** | configured, but no sync has completed yet | press «Jetzt abgleichen» |
 | **aktuell** / **unverändert** | working. «unverändert» is what almost every poll finds | nothing |
-| **wartet auf Freigabe** | the Arbeitsmappe would do something that needs a person – or two Objektplan PDFs claim the same Modul slot, or no module carries a `match` rule | Arbeitsmappe: `/admin` → Stationsdaten, preview and confirm. Objektpläne: the row names the clashing files; fix the module's `match` in the config |
+| **wartet auf Freigabe** | the Arbeitsmappe would do something that needs a person – or two Objektplan PDFs claim the same Modul slot, or no module carries a `match` rule, or a file would not download, or the run imported **nothing** and skipped everything it listed | Arbeitsmappe: `/admin` → Stationsdaten, preview and confirm. Objektpläne: the row names the clashing files; fix the module's `match` in the config. «nothing was imported …» names the dominant skip reason – nearly always a `path` one level too high. A download that failed is retried by the next run on its own |
 | **abgelehnt – nichts geändert** | the folder listed nothing for an area that had something | check the folder still exists, is not renamed, and the app still has access to the site |
 | **nicht erreichbar** | the folder or the site could not be read | check `siteUrl`, `library` and `path` in the config; a renamed folder shows up here |
 | **Anmeldung abgelehnt** | Azure refused the app registration | the row prints Microsoft's own message. `AADSTS7000222` = the client secret has **expired** (step 3 again). `AADSTS7000215` = wrong secret. A 403 from Graph = the permission was never consented to, or `Sites.Selected` was never pointed at this site (step 2) |
-| **Fehler** | something else | the row carries the detail; the server log carries more |
+| **Fehler** | the import itself raised – a file that is not what its extension says, a value a column refuses | the row carries the exception, the server log the traceback. That area's writes were undone and **only** that area's: the others keep what they imported, and the next run tries again |
+
+A row that is anything but *aktuell* / *unverändert* also stops the connector trusting its change
+cursor for that area: the next run walks the folder again and re-checks, rather than hearing
+«nothing changed» and reporting green over an unread reason. That is why a state like «wartet auf
+Freigabe» clears by itself once the cause is gone – and why it does **not** clear on its own while
+the cause is still there.
 
 **"The file is in SharePoint and the app still shows the old one."** Press «Jetzt abgleichen»
 first. If it persists, a full re-import is available over the API and forgets everything the
@@ -394,7 +400,8 @@ rm /tmp/kp.jar
 ```
 
 **"It says «aktuell», but plans are missing."** Read the *übersprungen* count on the row: every
-skip is one line in the server log saying which file and why. The common ones are a PDF no
+skip is one line in the server log saying which file and why. (If *nothing* was imported, the row
+no longer says «aktuell» at all – it says «wartet auf Freigabe» and names the reason itself.) The common ones are a PDF no
 `match` rule recognises, a folder that holds no Modul plan at all – which is deliberately **not**
 turned into an Einsatzobjekt – and a Modul-5 sub-slot whose name is so long that the generated
 slot would not fit (shorten what follows the dash). If the folder is a category folder, put its
