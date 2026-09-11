@@ -17,11 +17,12 @@ from sharepoint_fake import CLIENT_ID, CLIENT_SECRET, TENANT_ID, FakeTenant, geo
 from sqlalchemy import select
 
 from app import credentials as creds
+from app import sharepoint_sync
 from app.admin_objects import object_id_for_key
 from app.config import settings
 from app.models import DeploymentConfig, ObjectSite, ReferenceDataset, SharePointSyncState
 from app.services.station_workbook import build_workbook
-from app.sharepoint_sync import _module_for, _ModuleRule, sync_sharepoint
+from app.sharepoint_sync import _module_for, _ModuleRule, sharepoint_status, sync_sharepoint
 
 pytestmark = pytest.mark.asyncio
 
@@ -37,6 +38,32 @@ def storage_root(tmp_path, monkeypatch):
     root.mkdir()
     monkeypatch.setattr(storage, "_ROOT", str(root))
     return root
+
+
+@pytest.fixture(autouse=True)
+def no_geocoder(monkeypatch):
+    """No test reaches swisstopo. A folder «Adresse - Name» now geocodes its address half when it
+    mints an object, so without this every plans test would make a real HTTP request (and the
+    fake tenant's MockTransport does not cover the geocoder's own client). The tests that care
+    about geocoding patch it themselves with `geocoder(...)`."""
+    monkeypatch.setattr(sharepoint_sync, "geocode", _none_geocode)
+
+
+async def _none_geocode(_address):
+    return None
+
+
+def geocoder(monkeypatch, coords, calls=None):
+    """Point the connector's geocoder at a fixed answer, recording what it was asked."""
+
+    async def fake(address):
+        if calls is not None:
+            calls.append(address)
+        if isinstance(coords, Exception):
+            raise coords
+        return coords
+
+    monkeypatch.setattr(sharepoint_sync, "geocode", fake)
 
 
 @pytest.fixture
@@ -163,6 +190,101 @@ async def test_an_existing_object_keeps_its_name_and_address(db_session, blank_e
     assert (obj.name, obj.address) == ("Schulhaus Dorfmatt", "Schulstrasse 7")
 
 
+async def test_a_folder_named_adresse_name_updates_the_object_the_importer_created(db_session, blank_env, storage_root):
+    """⚠️ The 11.09.2026 production defect, in one test. A plans folder is «Adresse - Name», and
+    the importer has always keyed the Einsatzobjekt on the NAME half with the address in its own
+    column. This connector hashed the WHOLE folder string, so every folder minted a SECOND,
+    address-less object beside the station's real one — the pull kept updating the copy, and
+    because an object with no coordinates surfaces at no incident (`useObjectPlans` sorts by
+    distance), the crew went on opening the old sheet. One object, and it is the station's."""
+    oid = object_id_for_key(OBERWIL_KEY)
+    db_session.add(ObjectSite(id=oid, name=OBERWIL_KEY, address=OBERWIL_ADDRESS, lat=47.5, lng=7.57))
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF})
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["imported"] == 1
+    objects = list((await db_session.execute(select(ObjectSite))).scalars())
+    assert [o.id for o in objects] == [oid], "the folder minted a second object beside the station's"
+    assert (float(objects[0].lat), float(objects[0].lng)) == (47.5, 7.57)
+    assert await datasets(db_session, "plan:") == [f"plan:{oid}:modul1"]
+
+
+async def test_a_new_object_carries_the_split_fields_and_geocoded_coordinates(
+    db_session, blank_env, storage_root, monkeypatch
+):
+    """A folder the station never loaded by hand. It is created with the address split out AND
+    geocoded from it — coordinates are what make the plans reachable at an Einsatz at all."""
+    asked: list[str] = []
+    geocoder(monkeypatch, (47.49811, 7.55402), asked)
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF})
+
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    obj = (await db_session.execute(select(ObjectSite))).scalar_one()
+    assert (obj.id, obj.name, obj.address) == (object_id_for_key(OBERWIL_KEY), OBERWIL_KEY, OBERWIL_ADDRESS)
+    assert (float(obj.lat), float(obj.lng)) == (47.49811, 7.55402)
+    assert asked == [OBERWIL_ADDRESS], "the geocoder was asked something other than the address half"
+    assert obj.source_key is None, "source_key belongs to the snapshot pull's index, not to a folder name"
+
+
+async def test_a_geocoder_that_fails_never_costs_the_run_a_plan(db_session, blank_env, storage_root, monkeypatch):
+    """Best-effort by contract: swisstopo being down is not a reason for a Modul-PDF not to
+    arrive. The object is created without coordinates, exactly as before geocoding existed."""
+    geocoder(monkeypatch, RuntimeError("swisstopo timed out"))
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF})
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["status"] == "ok"
+    assert result["areas"]["plans"]["imported"] == 1
+    obj = (await db_session.execute(select(ObjectSite))).scalar_one()
+    assert (obj.address, obj.lat, obj.lng) == (OBERWIL_ADDRESS, None, None)
+    assert await datasets(db_session, "plan:") == [f"plan:{object_id_for_key(OBERWIL_KEY)}:modul1"]
+
+
+async def test_a_folder_without_the_separator_keeps_its_whole_name_as_its_key(
+    db_session, blank_env, storage_root, monkeypatch
+):
+    """«Grosspläne», «dorfmatt»: no « - », so there is no address to split and nothing changes —
+    the key is the whole name, which is what it always was. The geocoder is not even asked."""
+    calls: list[str] = []
+    geocoder(monkeypatch, (0.0, 0.0), calls)
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({"dorfmatt/modul1.pdf": PDF})
+
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    obj = (await db_session.execute(select(ObjectSite))).scalar_one()
+    assert (obj.id, obj.name, obj.address) == (object_id_for_key("dorfmatt"), "dorfmatt", None)
+    assert calls == []
+
+
+async def test_an_object_with_plans_and_no_coordinates_is_said_out_loud(db_session, blank_env, storage_root):
+    """An object nobody can reach must not be a silence. Every plan arrived, so the run is `ok`
+    — the sentence belongs on the card beside it, read LIVE, because it stays true until somebody
+    geocodes the thing (and would otherwise drop the delta cursor on every poll for ever)."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)  # the autouse geocoder answers nothing
+
+    status = await sharepoint_status(db_session)
+    plans = next(a for a in status["areas"] if a["area"] == "plans")
+    assert plans["status"] == "ok"
+    assert plans["objectsWithoutCoordinates"] == 1
+    assert "carry plans but no coordinates" in (plans["detail"] or "")
+    assert "repair-sharepoint-keys" in (plans["detail"] or "")
+
+    obj = (await db_session.execute(select(ObjectSite))).scalar_one()
+    obj.lat, obj.lng = 47.5, 7.57
+    await db_session.flush()
+    plans = next(a for a in (await sharepoint_status(db_session))["areas"] if a["area"] == "plans")
+    assert (plans["objectsWithoutCoordinates"], plans["detail"]) == (0, None), "the warning outlived the defect"
+
+
 async def test_an_unchanged_folder_costs_one_request_and_imports_nothing(db_session, blank_env, storage_root):
     await configure(db_session, [source("plans")])
     tenant = FakeTenant({"dorfmatt/modul1.pdf": PDF})
@@ -222,6 +344,11 @@ async def test_a_file_that_is_not_a_pdf_is_skipped(db_session, blank_env, storag
 # at that library would have imported exactly nothing.
 
 OBERWIL_FOLDER = "Am Mühlebach 1a - Am Mühlebach 1-11"
+#: What that folder is KEYED on: the name half of «Adresse - Name», spelled out rather than
+#: derived, because it is the convention under test. The address half is «Am Mühlebach 1a», and
+#: the hyphen inside «1-11» is not a separator — only « - » is.
+OBERWIL_KEY = "Am Mühlebach 1-11"
+OBERWIL_ADDRESS = "Am Mühlebach 1a"
 
 
 def rules(modules=MODULES):
@@ -275,7 +402,7 @@ async def test_the_station_s_real_module_files_land_in_their_slots(db_session, b
     result = await sync_sharepoint(db_session, transport=tenant.transport)
 
     assert result["areas"]["plans"]["imported"] == 8
-    oid = object_id_for_key(OBERWIL_FOLDER)
+    oid = object_id_for_key(OBERWIL_KEY)
     assert await datasets(db_session, "plan:") == sorted(
         f"plan:{oid}:{m}"
         for m in ("modul1", "modul2", "modul3", "modul2-3", "modul5", "modul6", "modul5-pv", "modul5-wasser")
@@ -299,7 +426,7 @@ async def test_a_family_sub_slot_needs_no_catalogue_entry(db_session, blank_env,
     result = await sync_sharepoint(db_session, transport=tenant.transport)
 
     assert result["areas"]["plans"]["imported"] == 3
-    oid = object_id_for_key(OBERWIL_FOLDER)
+    oid = object_id_for_key(OBERWIL_KEY)
     assert await datasets(db_session, "plan:") == [
         f"plan:{oid}:modul1",
         f"plan:{oid}:modul5-adressen",
@@ -329,7 +456,7 @@ async def test_two_files_claiming_one_slot_are_refused_loudly_not_silently_merge
     assert "modul5-wasser" in (result["areas"]["plans"]["detail"] or "")
     # Modul 1 still arrives; the two Wasser sheets do not, and no half of the pair is stored.
     assert (result["areas"]["plans"]["imported"], result["areas"]["plans"]["skipped"]) == (1, 2)
-    assert await datasets(db_session, "plan:") == [f"plan:{object_id_for_key(OBERWIL_FOLDER)}:modul1"]
+    assert await datasets(db_session, "plan:") == [f"plan:{object_id_for_key(OBERWIL_KEY)}:modul1"]
 
 
 async def test_a_generated_slot_the_column_could_not_hold_is_skipped(db_session, blank_env, storage_root):
@@ -347,7 +474,7 @@ async def test_a_generated_slot_the_column_could_not_hold_is_skipped(db_session,
     result = await sync_sharepoint(db_session, transport=tenant.transport)
 
     assert (result["areas"]["plans"]["imported"], result["areas"]["plans"]["skipped"]) == (1, 1)
-    assert await datasets(db_session, "plan:") == [f"plan:{object_id_for_key(OBERWIL_FOLDER)}:modul1"]
+    assert await datasets(db_session, "plan:") == [f"plan:{object_id_for_key(OBERWIL_KEY)}:modul1"]
 
 
 async def test_the_same_name_decomposed_and_composed_is_one_einsatzobjekt(db_session, blank_env, storage_root):
@@ -365,8 +492,9 @@ async def test_the_same_name_decomposed_and_composed_is_one_einsatzobjekt(db_ses
     await sync_sharepoint(db_session, transport=tenant.transport)
 
     objects = (await db_session.execute(select(ObjectSite))).scalars().all()
-    assert [o.name for o in objects] == [composed]
-    oid = object_id_for_key(composed)
+    # Composed, and split: the address is «Föhrenstrasse 15», the key the name behind it.
+    assert [(o.name, o.address) for o in objects] == [("Behindertenheim Im Rebgarten", "Föhrenstrasse 15")]
+    oid = object_id_for_key("Behindertenheim Im Rebgarten")
     assert await datasets(db_session, "plan:") == [f"plan:{oid}:modul1", f"plan:{oid}:modul2-3"]
 
 
@@ -385,7 +513,7 @@ async def test_a_category_folder_is_skipped_when_the_source_names_it(db_session,
     result = await sync_sharepoint(db_session, transport=tenant.transport)
 
     assert result["areas"]["plans"]["imported"] == 1
-    assert [o.name for o in (await db_session.execute(select(ObjectSite))).scalars()] == [OBERWIL_FOLDER]
+    assert [o.name for o in (await db_session.execute(select(ObjectSite))).scalars()] == [OBERWIL_KEY]
     assert not any("Grossplaene" in u or "Gemeindebibliothek" in u for u in tenant.seen), "not downloaded either"
 
 
@@ -786,7 +914,7 @@ async def test_a_collision_stays_on_the_card_until_somebody_fixes_the_config(db_
     fixed = await sync_sharepoint(db_session, transport=tenant.transport)
 
     assert (fixed["areas"]["plans"]["status"], fixed["areas"]["plans"]["detail"]) == ("ok", None)
-    assert f"plan:{object_id_for_key(OBERWIL_FOLDER)}:modul5-wasser" in await datasets(db_session, "plan:")
+    assert f"plan:{object_id_for_key(OBERWIL_KEY)}:modul5-wasser" in await datasets(db_session, "plan:")
 
 
 async def test_a_plan_whose_download_failed_is_fetched_again_next_run(db_session, blank_env, storage_root):

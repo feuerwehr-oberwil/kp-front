@@ -3,10 +3,11 @@
 **A transport, not a second importer.** Every byte this module fetches is handed to the write
 path that already owns that kind of record — `plans.store_plan` for a Modul-PDF,
 `admin_geodata.store_geojson` + `referenceLayers` for a layer, `admin_checklists._upsert` for a
-template, and the workbook's own preview/apply planner for the Arbeitsmappe. Object ids go
-through `admin_objects.object_id_for_key`, the same uuid5 the CLI and the admin UI use, so a
-station that loads its plans by hand today and points at SharePoint tomorrow UPDATES its
-Einsatzobjekte rather than growing a second copy of every one of them.
+template, and the workbook's own preview/apply planner for the Arbeitsmappe. Object identity goes
+through `admin_objects.folder_identity` + `object_id_for_key` — a plans folder «Adresse - Name»
+is split and keyed on the NAME exactly as the importer's manifests are — so a station that loads
+its plans by hand today and points at SharePoint tomorrow UPDATES its Einsatzobjekte rather than
+growing a second copy of every one of them.
 
 **Loosely configured.** `sharepoint.sources` is a list of per-AREA entries, each with its own
 site/library/folder (schemas · SharePointSource). A station whose Objektpläne live on the
@@ -74,12 +75,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # copy of it.
 from .admin_checklists import _upsert as store_checklist_dataset
 from .admin_geodata import GeodataManifestEntry, _first_coord, _to_reference_layers, store_geojson
-from .admin_objects import object_id_for_key
+from .admin_objects import FolderIdentity, folder_identity, objects_without_coordinates
 from .config import settings
 from .config_history import keep_previous
 from .credentials import get as credential
 from .credentials import load as load_credentials
 from .deployment_config import config_row
+from .geocode import geocode
 from .models import DeploymentConfig, ObjectSite, SharePointSyncState
 from .plans import plan_max_bytes, store_plan
 from .schemas import SharePointArea, SharePointConfig, SharePointSource, load_stored_config
@@ -192,19 +194,6 @@ def _module_for(stem: str, rules: list[_ModuleRule]) -> str | None:
         suffix = _slugify(captured) if captured else ""
         return f"{rule.id}-{suffix}" if suffix else rule.id
     return None
-
-
-def _object_key(folder: str) -> str:
-    """A plans folder name as an object key — NFC, because the id is a hash of these bytes.
-
-    ⚠️ macOS hands out file names decomposed (`u` + U+0308) while Graph and a keyboard hand out
-    the composed `ü`. Both spell «Bürgerheim», both look identical in every list, and
-    `object_id_for_key` hashes the string — so an import that read names off a Mac filesystem
-    and one that read them off SharePoint minted two uuid5 for one building. That is 25 of the
-    38 duplicate Einsatzobjekte this deployment carries. Composing here makes the two spellings
-    one key; see `_object_for` for why it is here and not inside `object_id_for_key`.
-    """
-    return unicodedata.normalize("NFC", folder)
 
 
 def _upload_max_bytes() -> int:
@@ -595,12 +584,14 @@ async def _sync_plans(
     folder in the source's `ignore` list to state the intent; this is the net under the folder
     nobody listed.
 
-    The folder name IS the object key: NFC-composed (`_object_key`) and hashed with
-    `object_id_for_key` (uuid5), which is the same id `admin_objects` mints for the same key,
-    so the CLI, the admin UI and this connector all address one Einsatzobjekt. An object that
-    does not exist yet is created with the folder name for a name and nothing else — an admin
-    who renames it or geocodes it keeps that, because nothing here overwrites a name after
-    creation.
+    The folder name carries the object's IDENTITY: «<Adresse> - <Name>» is split by
+    `admin_objects.folder_identity` and keyed on the NAME alone (NFC-composed, hashed with
+    `object_id_for_key`), which is exactly what the private importer and every manifest loaded
+    from it have always done — so the CLI, the admin UI and this connector all address one
+    Einsatzobjekt. A folder without the separator is all name, and is keyed on the whole string
+    as before. An object that does not exist yet is created with that name and address and
+    nothing else — an admin who renames it or geocodes it keeps that, because nothing here
+    overwrites a field after creation.
     """
     rules = await _module_rules(db)
     if not rules:
@@ -621,11 +612,11 @@ async def _sync_plans(
             out.skip("not a <Objektordner>/<Modul>.pdf")
             logger.info("SharePoint plans: %s is not a <Objektordner>/<Modul>.pdf — skipped", file.path)
 
-    usable: list[tuple[RemoteFile, str, str]] = []  # (file, object key, module id)
+    usable: list[tuple[RemoteFile, FolderIdentity, str]] = []  # (file, object identity, module id)
     collisions: list[str] = []
     for folder, entries in shaped.items():
-        key = _object_key(folder)
-        if len(key) > _MAX_OBJECT_KEY:
+        identity = folder_identity(folder)
+        if len(identity.key) > _MAX_OBJECT_KEY:
             out.skip("the folder name is too long to be an object key", len(entries))
             logger.warning(
                 "SharePoint plans: «%.60s…» is longer than %d characters and cannot be an object key — skipped",
@@ -676,7 +667,7 @@ async def _sync_plans(
                     module,
                 )
                 continue
-            usable.append((claimants[0], key, module))
+            usable.append((claimants[0], identity, module))
 
     refusal = await _refuses_to_empty(db, state, [f for f, _, _ in usable])
     if refusal:
@@ -686,7 +677,7 @@ async def _sync_plans(
     # What the memo may record: a file this run imported, or one it already had. Anything that
     # fell out below keeps its OLD eTag instead, so the next run tries it again (`_remember`).
     stored: list[RemoteFile] = []
-    for file, key, module in usable:
+    for file, identity, module in usable:
         if not _changed(state, file):
             out.skipped += 1
             stored.append(file)
@@ -710,7 +701,7 @@ async def _sync_plans(
             out.skip("not a PDF")
             logger.warning("SharePoint plans: %s is not a PDF — skipped", file.path)
             continue
-        obj = await _object_for(db, key)
+        obj = await _object_for(db, identity)
         await store_plan(
             db,
             obj,
@@ -738,29 +729,58 @@ async def _sync_plans(
     return out
 
 
-async def _object_for(db: AsyncSession, key: str) -> ObjectSite:
+async def _object_for(db: AsyncSession, folder: FolderIdentity) -> ObjectSite:
     """The Einsatzobjekt a plans folder addresses — created on first sight, never renamed.
 
-    ⚠️ The id is `uuid5(OBJECT_KEY_NAMESPACE, key)`, not a fresh UUID. That is what makes this
+    ⚠️ The id is `uuid5(OBJECT_KEY_NAMESPACE, folder.key)`, not a fresh UUID, and the key is the
+    NAME half of «Adresse - Name» (`admin_objects.folder_identity`). That is what makes this
     connector and `admin_objects` two doors onto ONE object rather than two objects: the S3 plan
     pull could not create objects at all (its index carries an address, not a key), and the
     result was a station whose scheduled pull skipped every plan until somebody loaded the
-    objects by hand.
+    objects by hand. Hashing the WHOLE folder string instead — what this did until 11.09.2026 —
+    was the same failure one layer down: 150 objects the importer had already created grew a
+    second, address-less copy each, and the Einsatz surfaced the old one
+    (`admin_objects repair-sharepoint-keys` folds those back together).
 
-    ⚠️ The caller composes the key (`_object_key`) rather than `object_id_for_key` doing it,
-    which is a decision and not an oversight: that function is also the CLI's and the admin
-    UI's, and composing INSIDE it would silently re-key every object whose stored id was
-    derived from a decomposed name — the fix and the damage in one commit. Composing here fixes
-    what this connector mints from today on and leaves the existing rows to a migration
-    somebody chooses to run.
+    A created object gets the folder's two fields and, best-effort, coordinates for the address:
+    `useObjectPlans` surfaces an object at an incident by DISTANCE, so an object without them is
+    a set of plans no crew can reach. The geocode never fails or delays the run — a lookup that
+    times out or finds nothing leaves the object exactly as it would have been, and the repair
+    CLI (and the status card) count what is still without coordinates.
+
+    ⚠️ `source_key` is deliberately NOT set: it is what the S3 snapshot pull matches on
+    (`plans.pull_plans`), it is UNIQUE, and only `admin_objects` writes it. A folder name
+    invented into that column here would claim a key some other pipeline's index means to use.
     """
-    oid = object_id_for_key(key)
+    oid = folder.object_id
     obj = (await db.execute(select(ObjectSite).where(ObjectSite.id == oid))).scalar_one_or_none()
-    if obj is None:
-        obj = ObjectSite(id=oid, name=key, source_note="SharePoint")
-        db.add(obj)
-        await db.flush()
+    if obj is not None:
+        return obj  # named, geocoded or renamed by somebody — the connector creates, it does not curate
+    obj = ObjectSite(id=oid, name=folder.name, address=folder.address, source_note="SharePoint")
+    if folder.address:
+        coords = await _coordinates_for(folder.address)
+        if coords:
+            obj.lat, obj.lng = coords
+    db.add(obj)
+    await db.flush()
     return obj
+
+
+async def _coordinates_for(address: str) -> tuple[float, float] | None:
+    """Geocode an address, and never let that be why a sync run failed.
+
+    `geocode` already degrades to None on a no-match or an upstream failure; the blanket catch
+    is for everything below it (a DNS stall raising something httpx does not wrap, a malformed
+    answer). A plan that arrived without coordinates is worth more than a run that died looking
+    for them.
+    """
+    try:
+        return await geocode(address)
+    except Exception as e:  # noqa: BLE001 — best-effort by contract
+        logger.warning(
+            "SharePoint plans: geocoding %r failed (%s) — the object is created without coordinates", address, e
+        )
+        return None
 
 
 # --- area: Geodaten ---------------------------------------------------------------------
@@ -1117,16 +1137,35 @@ async def sharepoint_status(db: AsyncSession) -> dict[str, Any]:
     creds = sharepoint_credentials()
     config = await sharepoint_settings(db)
     rows = {r.area: r for r in (await db.execute(select(SharePointSyncState))).scalars()}
+    # Read LIVE, not off the last run's report: an object stays unreachable until somebody gives
+    # it coordinates, and that can happen (or fail to) long after the run that created it.
+    blind = len(await objects_without_coordinates(db)) if any(s.area == "plans" for s in config.sources) else 0
     areas = []
     for source in config.sources:
         row = rows.get(source.area)
+        detail = row.detail if row else None
+        if source.area == "plans" and blind:
+            # ⚠️ Said on the card rather than in the run's status, because it is not the RUN that
+            # is wrong: every plan arrived. `useObjectPlans` surfaces an Einsatzobjekt by
+            # distance, so an object without coordinates never appears at an incident and its
+            # sheets are reachable by nobody — invisible until it is said out loud. Grading the
+            # area `needs_review` for it would also drop the delta cursor on every poll for as
+            # long as one object stays ungeocoded.
+            note = (
+                f"{blind} Einsatzobjekt(e) carry plans but no coordinates — those plans surface at no "
+                "incident. `python -m app.admin_objects repair-sharepoint-keys` lists and geocodes them."
+            )
+            detail = f"{detail} · {note}" if detail else note
         areas.append(
             {
                 "area": source.area,
                 "path": source.path,
                 "site": source.siteUrl or (f"drive {source.driveId}" if source.driveId else None),
                 "status": row.status if row else "pending",
-                "detail": row.detail if row else None,
+                "detail": detail,
+                #: Objects with plans and no coordinates (plans area only) — the machine-readable
+                #: half of the sentence above, so this is checkable without parsing prose.
+                "objectsWithoutCoordinates": blind if source.area == "plans" else 0,
                 "imported": row.imported if row else 0,
                 "skipped": row.skipped if row else 0,
                 "missing": len(row.missing or []) if row else 0,

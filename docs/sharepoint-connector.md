@@ -159,7 +159,7 @@ are** – the names a brigade already gives its scans are the names KP Front rea
 
 ```
 <the folder you configure>/
-  Hauptstrasse 24 - Gemeindeverwaltung/    ← the folder name IS the object's key
+  Hauptstrasse 24 - Gemeindeverwaltung/    ← «Adresse - Name»: the NAME is the object's key
     Modul 1.pdf
     Modul 2-3.pdf
     Modul 5 - Wasser.pdf
@@ -189,17 +189,32 @@ are** – the names a brigade already gives its scans are the names KP Front rea
   in the config, not in the folder: the shipped default rule already takes the trailing number.
   A captured trailing number fuses onto its word – `Modul 5 - Wasser 1.pdf` is stored as
   `modul5-wasser1`, the numbered-sibling spelling the app's plan tiles read.
-- The folder name is the object's **stable key** – use it as it reads on the door
-  (`Hauptstrasse 24 - Gemeindeverwaltung`); spaces, case and umlauts are all fine. Rename the
-  folder and KP Front will treat it as a different object, so pick it once.
+- The folder name is the object's **identity**, and it is read as **«Adresse - Name»** (spaces
+  around the dash): `Hauptstrasse 24 - Gemeindeverwaltung` becomes the object *Gemeindeverwaltung*
+  at the address *Hauptstrasse 24*, and the **name** is what the stable key is derived from – the
+  same split and the same key the `admin_objects` manifests use, so both doors address one
+  object. A folder with no ` - ` in it (`Föhrenstrasse 17/`) is all name and carries no address.
+  Use the name as it reads on the door; spaces, case and umlauts are all fine. Rename the folder
+  and KP Front will treat it as a different object, so pick it once.
+  ⚠️ Until 11.09.2026 the whole folder string was keyed instead, which minted a second,
+  address-less object beside every one a station had loaded by hand. A deployment that synced
+  before that repairs itself with
+  `cd backend && uv run python -m app.admin_objects repair-sharepoint-keys` (dry-run; `--apply`
+  to perform it).
 - **A folder whose files are not Modul plans never becomes an Einsatzobjekt.** A category folder
   full of overview sheets (`Grosspläne/`) or an empty one is skipped whole, and nothing is
   created for it. Say so up front with `ignore` (below) – this is only the safety net.
 - Loose files at the top level (`Alle Modul 6.pdf`) and anything nested deeper than one folder
   (`.../Vertrag/Mietvertrag.pdf`) are left alone.
-- On the first sync an object KP Front has never seen is created, named after the folder. Rename
-  it and give it an address in `/admin` → Objektpläne afterwards; the connector never overwrites
-  a name or an address anybody has typed.
+- On the first sync an object KP Front has never seen is created from the folder's two halves –
+  name, address, and coordinates looked up for that address (best-effort: a geocoder that finds
+  nothing or is unreachable never holds up the sync). **Coordinates matter more than they look**:
+  the app offers an Einsatzobjekt at an incident by distance, so an object without them appears
+  at no Einsatz however many plans hang off it. The SharePoint card on `/admin` → System counts
+  the ones that carry plans and no coordinates, and
+  `python -m app.admin_objects repair-sharepoint-keys` lists them by name and address. Give those
+  a position in `/admin` → Objektpläne; the connector never overwrites a name, an address or a
+  coordinate anybody has typed.
 - The same key produces the same object as the `admin_objects` CLI would, so a station that has
   been loading plans by hand and now switches to SharePoint **updates** its objects rather than
   duplicating them.
@@ -409,9 +424,18 @@ turned into an Einsatzobjekt – and a Modul-5 sub-slot whose name is so long th
 slot would not fit (shorten what follows the dash). If the folder is a category folder, put its
 name in the source's `ignore` list so the log stops mentioning it.
 
-**"A building shows up twice in Objektpläne."** Two folder names that differ in any way – a
-trailing word, a different spelling – are two objects, because the folder name is the key. Merge
-them in SharePoint, then fix up the leftover object in `/admin` → Objektpläne.
+**"A building shows up twice in Objektpläne."** Two folder names whose NAME halves differ in any
+way – a trailing word, a different spelling – are two objects, because that name is the key. Merge
+them in SharePoint, then fix up the leftover object in `/admin` → Objektpläne. Two rows that are
+the same building under two spellings fold together with `python -m app.admin_objects
+merge-duplicates`; a pair minted by the pre-11.09.2026 whole-folder key (one row rich and one
+bare, the bare one holding the newer sheets) folds with `repair-sharepoint-keys`. Both report by
+default and write only with `--apply`.
+
+**"A plan synced but no Einsatz shows it."** Look for coordinates. An Einsatzobjekt is offered at
+an incident by distance, so an object without a position never appears – and the plans under it
+are reachable by nobody. `python -m app.admin_objects repair-sharepoint-keys` names every such
+object (with its address) without writing anything, and the System card carries the same count.
 
 **Nothing appears on the System card at all.** Either no credentials or no folders – the card
 says which half is missing, and the two are configured in different places (step 4 vs step 6).
