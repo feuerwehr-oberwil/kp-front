@@ -395,6 +395,14 @@
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--glass); backdrop-filter: blur(16px); border-radius: var(--r-hero); box-shadow: var(--shadow);
 }
+/* …with ONE documented exception. `.ip-wide` is the modifier the frame always named (Sheet ·
+   `wide`) but had no desktop rule for, so it silently resolved to the standard 720px. The sheets
+   that ask for it put two columns side by side — the Objekt-Picker's list BESIDE its mini-map,
+   the admin Objektblatt's form beside its plan slots — and at 720px both halves are too narrow to
+   read a Strassenname or place a pin in. Phones flatten it back to a full-width bottom sheet
+   (15-mobile.css). Everything that does NOT ask stays 720px, so the promise above still holds for
+   every sheet the Einsatzleitung switches between during an Einsatz. */
+.ip-sheet.ip-wide { width: min(980px, 94vw); }
 .ip-sheet > .ip-head { flex: none; }
 /* same x-axis trap as .ctx-body — see 06-contextpanel.css */
 .ip-sheet > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }

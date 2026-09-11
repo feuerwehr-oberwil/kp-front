@@ -137,7 +137,9 @@
 }
 
 /* PlanPicker modal — searchable object list (primary) + supporting mini-map.
-   Frame (size/flex) comes from the standard .ip-sheet — no special width anymore. */
+   Frame (size/flex) comes from .ip-sheet, on its `.ip-wide` setting (13-incident.css): two columns
+   side by side need the room, and at the standard 720px the list ellipsised the Strassennamen it
+   is searched by while the map was too small to pick a pin out of a village. */
 /* Same header rule as the symbol palette (07-toolrail.css · .sym-search): the pill states its
    own height — var(--tap) — instead of inheriting whatever the input's line-box comes to, and the
    ✕ inside it carries no box of its own (fill-soft on fill-soft was an invisible square). */

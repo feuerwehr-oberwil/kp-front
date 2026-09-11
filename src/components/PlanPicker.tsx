@@ -101,7 +101,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   }
 
   return (
-    <Overlay open onClose={onClose} className={`ip-sheet pp-sheet ui-dialog ${mapOpen ? '' : 'pp-nomap'}`} ariaLabel={appConfig.copy.whiteboard.otherObject} initialFocus={searchRef}>
+    <Overlay open onClose={onClose} className={`ip-sheet ip-wide pp-sheet ui-dialog ${mapOpen ? '' : 'pp-nomap'}`} ariaLabel={appConfig.copy.whiteboard.otherObject} initialFocus={searchRef}>
         <div className="ip-head">
           <h2>{appConfig.copy.whiteboard.otherObject}</h2>
           <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
