@@ -52,8 +52,10 @@ DEMO_PLAN_SCALES = {
     "byPlan": {
         # Modul 1 (Übersicht), calibrated against a 100 m reference on the sheet.
         "modul1": {"mPerU": 743.9113870340418, "refM": 100, "ar": 0.7070980398566116},
-        # The generated Gebäude floor-stack — its own space (1/TILE_AR), so it needs its own factor.
-        "gebaeude": {"mPerU": 14.970878656783539, "refM": 10, "ar": 1.3888888888888888},
+        # No entry for the Gebäude floor-stack: its scale derives from the building's `geo`
+        # in the workspace fixture (same 14.97 m/u this entry used to pin by hand). A seeded
+        # calibration here would sit as a decoy under the derived one — that decoy is exactly
+        # how the demo once showed «Ref. 10 m» instead of «Ref. auto».
     },
 }
 
