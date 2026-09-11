@@ -1,0 +1,70 @@
+/* Links & Zugänge — the one-table page (admin/LinksView).
+   Its own stylesheet on purpose: nothing here is a shared admin primitive, and the shared
+   ones it leans on (.adm-table, .adm-copychip, .adm-badge, .adm-confirm) keep their own
+   rules. What is adjusted below is only ever scoped under .lnk-table, so no other table
+   inherits a fixed layout or a shrunk chip. */
+
+/* Fixed columns: the Adresse column has to be the one that gives, because a long URL is the
+   only cell whose content has no natural width — left to `auto` it pushes Status and Aktionen
+   off the page and wraps the address over three lines. */
+.adm-table.lnk-table { table-layout: fixed; }
+.adm-table.lnk-table th, .adm-table.lnk-table td { padding-right: 14px; vertical-align: top; }
+.adm-table.lnk-table th:last-child, .adm-table.lnk-table td:last-child { padding-right: 0; }
+.adm-table.lnk-table th:nth-child(1), .adm-table.lnk-table td:nth-child(1) { width: 24%; }
+.adm-table.lnk-table th:nth-child(2), .adm-table.lnk-table td:nth-child(2) { width: 40%; }
+.adm-table.lnk-table th:nth-child(3), .adm-table.lnk-table td:nth-child(3) { width: 16%; }
+.adm-table.lnk-table th:nth-child(4), .adm-table.lnk-table td:nth-child(4) { width: 20%; }
+
+/* Zweck: the surface's name with its ⓘ beside it, and under both the one line saying what the
+   link is for.
+
+   ⚠️ The ⓘ is an atomic inline box (.adm-tip is inline-flex), so in inline flow it wraps like a
+   word — and in a 24%-wide column the name usually fills the line, which dropped the ⓘ onto a
+   line of its own under the name. `display: flex` takes it out of the text's wrapping: the name
+   keeps wrapping inside its own box, the ⓘ stays on the first line, aligned to that line's
+   baseline. `nowrap` + `min-width: 0` are what keep it there when the name is long. */
+.lnk-what b {
+  display: flex; flex-wrap: nowrap; align-items: baseline; gap: 3px;
+  font-size: 13px; font-weight: 700; color: var(--ink);
+}
+.lnk-what b > span { min-width: 0; }
+.lnk-what b > .adm-tip { flex: 0 0 auto; }
+/* the purpose line — a direct child of the cell, so the name's own span is not caught by this */
+.lnk-what > span { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-dim); }
+
+/* Adresse: normally ONE copy chip, unlabelled — only the Statistik row carries two (feed
+   address + header token), and only then does either get a caption. `min-width: 0` all the way
+   down is what lets the chip ellipsise inside a fixed cell instead of widening it. */
+.lnk-addr { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lnk-addr-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lnk-addr-line .adm-copychip { min-width: 0; flex: 1 1 auto; }
+.lnk-addr-label {
+  flex: 0 0 auto; font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  color: var(--ink-faint); text-transform: uppercase; white-space: nowrap;
+}
+.lnk-none { font-size: 12.5px; color: var(--ink-faint); }
+
+/* The one sentence under an address that is deliberately incomplete: the Alarm-Eingänge, whose
+   secret is write-only in the credential table and can therefore never be built into the chip.
+   It stands in the cell rather than behind an ⓘ — what is missing from a copied address has to
+   be readable without a second tap, or the address gets pasted as-is. */
+.lnk-note { font-size: 11.5px; line-height: 1.35; color: var(--ink-dim); }
+
+/* Status: the dot + state pill, plus the ⓘ that used to be the status row's. */
+.lnk-state { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Aktionen: the open print button, the ⋮ menu, and — while a rotation is armed — the
+   two-step question in their place (same shape as ui/ConfirmButton). */
+.lnk-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+
+/* Phone: the columns become stacked labelled blocks. A four-column table at 400px is either a
+   horizontal scroller nobody finds or four unreadable slivers. */
+@media (max-width: 720px) {
+  .adm-table.lnk-table { table-layout: auto; }
+  .adm-table.lnk-table thead { display: none; }
+  .adm-table.lnk-table tbody, .adm-table.lnk-table tr, .adm-table.lnk-table td { display: block; width: auto; }
+  .adm-table.lnk-table tr { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .adm-table.lnk-table tr:last-child { border-bottom: none; }
+  .adm-table.lnk-table td { border-bottom: none; padding: 5px 0; width: auto; }
+  .lnk-acts { justify-content: flex-start; }
+}

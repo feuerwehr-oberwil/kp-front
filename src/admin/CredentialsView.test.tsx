@@ -9,12 +9,19 @@
 //   2. «unlesbar» must read as «set it again», not as «not configured»;
 //   3. a saved value must be sent to the right endpoint and the box must clear, so nobody
 //      is left looking at a secret they just typed.
+//
+// …and since 2026-09-11 a fourth, which is the one thing the page could now mislead about: the
+// Einsatz-Link minting key sits here too and IS readable, because KP Front mints it rather than
+// receiving it. The sheet of write-only credentials and the sheet holding that key must stay
+// tellable apart — otherwise somebody looks for a «show» on a Divera key, or retypes a minting
+// key they could simply have copied.
 
-import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiGet = vi.fn()
 const apiPut = vi.fn()
+const apiPost = vi.fn()
 const apiDelete = vi.fn()
 
 vi.mock('../lib/api', async () => {
@@ -23,6 +30,7 @@ vi.mock('../lib/api', async () => {
     ...actual,
     apiGet: (p: string) => apiGet(p),
     apiPut: (p: string, b: unknown) => apiPut(p, b),
+    apiPost: (p: string, b: unknown) => apiPost(p, b),
     apiDelete: (p: string) => apiDelete(p),
   }
 })
@@ -44,12 +52,16 @@ const cred = (over: Partial<Cred>): Cred => ({
   value: null, updatedAt: null, updatedByName: null, ...over,
 })
 
-function serve(creds: Cred[], audit: unknown[] = []) {
-  apiGet.mockImplementation((p: string) =>
-    Promise.resolve(p.startsWith('/api/integrations/credentials-audit') ? audit : creds))
+/** The credential list, the audit list and — the third endpoint on this page — the minting key,
+ *  which answers with its value on every GET (backend · api/incident_link.py). */
+function serve(creds: Cred[], audit: unknown[] = [], key: { configured: boolean; token?: string } = { configured: false }) {
+  apiGet.mockImplementation((p: string) => {
+    if (p === '/api/incident-link/secret') return Promise.resolve(key)
+    return Promise.resolve(p.startsWith('/api/integrations/credentials-audit') ? audit : creds)
+  })
 }
 
-beforeEach(() => { apiGet.mockReset(); apiPut.mockReset(); apiDelete.mockReset() })
+beforeEach(() => { apiGet.mockReset(); apiPut.mockReset(); apiPost.mockReset(); apiDelete.mockReset() })
 afterEach(cleanup)
 
 describe('a credential the server supplies', () => {
@@ -114,9 +126,80 @@ describe('the settings table', () => {
     render(<CredentialsView />)
 
     await screen.findByLabelText('STT-API-Key')
-    expect(document.querySelectorAll('.adm-settings > .adm-set-row')).toHaveLength(2)
+    // ⚠️ The FIRST grid: the minting key has a sheet of its own further down, and counting both
+    // would say nothing about either.
+    const sheet = document.querySelector('.adm-settings') as HTMLElement
+    expect(sheet.querySelectorAll(':scope > .adm-set-row')).toHaveLength(2)
     // …and the integration is a group divider, not a card of its own.
-    expect(document.querySelectorAll('.adm-settings > .adm-set-grp')).toHaveLength(2)
+    expect(sheet.querySelectorAll(':scope > .adm-set-grp')).toHaveLength(2)
+  })
+
+  // ⚠️ The state is the row's VALUE, drawn by the shared `StatusBadge` (a hand-rolled `StatePill`
+  // lived here until the house-style pass) — and LABEL-LESS: the Einstellung column already names
+  // the credential, so a labelled badge would read «Divera Accesskey — Divera Accesskey gesetzt».
+  it('draws the state as a label-less StatusBadge, not a badge repeating the row name', async () => {
+    serve([cred({ name: 'divera_access_key', group: 'divera', label: 'Divera Accesskey', source: 'stored', configured: true })])
+    render(<CredentialsView />)
+
+    const badge = await waitFor(() => {
+      const el = document.querySelector('.adm-set-ctl .adm-badge')
+      if (!el) throw new Error('no badge')
+      return el
+    })
+    expect(badge.querySelector('.adm-badge-state')?.textContent).toBe(C.stateStored)
+    expect(badge.querySelector('.adm-badge-label')?.textContent).toBe('')
+  })
+})
+
+describe('the Einsatz-Link minting key', () => {
+  const I = appConfig.copy.admin.einsatzlink
+
+  // ⚠️ THE POINT OF THIS BLOCK: two kinds of secret share the page, and the reader has to be
+  // able to tell which is which without trying. The readable one is the one on a copy chip,
+  // in its own sheet with its own head; the write-only ones are boxes and badges, and no chip
+  // anywhere in their sheet.
+  it('stands in its own sheet, readable, where the write-only credentials never are', async () => {
+    serve([cred({ name: 'divera_access_key', group: 'divera', label: 'Divera Accesskey', source: 'stored', configured: true })],
+      [], { configured: true, token: 'mint-1' })
+    render(<CredentialsView />)
+
+    const chip = await waitFor(() => {
+      const el = document.querySelector('.adm-copychip') as HTMLElement | null
+      if (!el) throw new Error('no copy chip')
+      return el
+    })
+    expect(chip.textContent).toContain('mint-1')
+
+    // It is NOT in the credentials sheet — that sheet's contract is «never again», and one
+    // readable row inside it would read as an exception to it.
+    const sheets = [...document.querySelectorAll('.adm-settings')] as HTMLElement[]
+    expect(sheets).toHaveLength(2)
+    expect(sheets[0].querySelector('.adm-copychip')).toBeNull()
+    expect(sheets[0].contains(chip)).toBe(false)
+    expect(sheets[1].contains(chip)).toBe(true)
+    // …and its head says so in words, so the difference does not rest on noticing a chip.
+    expect(screen.getByText(C.minted.title)).toBeTruthy()
+    expect(screen.getByText(C.minted.caption)).toBeTruthy()
+    // The write-only side keeps its own shape: a box to replace, no value to read.
+    expect(within(sheets[0]).getByLabelText('Divera Accesskey')).toBeTruthy()
+  })
+
+  it('offers «Aktivieren» while it is off, and rotates and disables in two clicks', async () => {
+    serve([cred({})])
+    render(<CredentialsView />)
+
+    // off: no key to copy, one way to get one
+    const enable = await screen.findByRole('button', { name: I.enableBtn })
+    expect(document.querySelector('.adm-copychip')).toBeNull()
+    apiPost.mockResolvedValue({ configured: true, token: 'mint-2' })
+    fireEvent.click(enable)
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/incident-link/secret/rotate', {}))
+
+    // on: rotating destroys every link already sent out, so it asks first
+    await screen.findByText('mint-2')
+    fireEvent.click(screen.getByRole('button', { name: I.rotateBtn }))
+    expect(await screen.findByText(I.rotateMsg)).toBeTruthy()
+    expect(apiPost).toHaveBeenCalledTimes(1)
   })
 })
 

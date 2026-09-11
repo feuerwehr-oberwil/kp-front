@@ -292,7 +292,7 @@ and never readable back over the API except CARTO's browser tile key.
 | **Push notifications** | out | Web Push (VAPID) for Atemschutz and reminder alerts when the app is killed | Unset keys disable the sweep entirely |
 | **Printing** | out | Station printer via a pull-based relay agent | Point a custom agent at the relay endpoints |
 | **Station data** | in | Reference geodata, object plans, and checklists loaded from a private data repo via `admin_geodata` / `admin_objects` / `admin_checklists` | GeoJSON must be WGS84. See [docs/STATION-DATA.md](docs/STATION-DATA.md) |
-| **Rückmeldung (Telemetrie)** | out | Crash reports and, separately, an optional feature ping to the maintainer's GlitchTip. **Off by default** – consent is stored in the database and the deployer can veto it outright with `KP_TELEMETRY_ENABLED=0` | Point `KP_TELEMETRY_DSN` at your own GlitchTip, or blank it to disable. Full detail in [PRIVACY.md](PRIVACY.md) |
+| **Rückmeldung (Telemetrie)** | out | Crash reports and, separately, an optional feature ping to the maintainer's GlitchTip. **Off by default, and there is no longer a switch in the admin UI** – the consent card was removed on 2026-09-10, so consent stays off unless it is set through the API; the deployer can also veto it outright with `KP_TELEMETRY_ENABLED=0` | Point `KP_TELEMETRY_DSN` at your own GlitchTip, or blank it to disable. Full detail in [PRIVACY.md](PRIVACY.md) |
 
 New connectors are welcome contributions – the alarm seam is the model to copy.
 

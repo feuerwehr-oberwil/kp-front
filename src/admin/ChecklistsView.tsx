@@ -3,9 +3,14 @@ import { ApiError } from '../lib/api'
 import { Sheet } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { downloadBlob } from '../lib/download'
+import genericAction from '../data/checklists/generic-action.json'
+import genericReference from '../data/checklists/generic-reference.json'
 import type { ReferenceDataset } from '../lib/incidents'
 import { Card, EmptyState, Field, Table, fmtDate } from './ui'
+import { PlanSourceBadge } from './ObjectSheet'
 import {
+  checklistSlug,
   checklistUploadBlob,
   deleteChecklistDatasets,
   groupChecklists,
@@ -32,11 +37,56 @@ import './stationData.css'
 
 type Async<T> = { kind: 'loading' } | { kind: 'ok'; data: T } | { kind: 'error' }
 
+/**
+ * Hand the operator something to start from — one file per SHAPE a template can have.
+ *
+ * ⚠️ Both are bundled app data, not examples written for this page: `generic-action.json` is the
+ * very template the Checkliste tab falls back to when a station has none (lib/checklists ·
+ * FALLBACK), and `generic-reference.json` is the same thing for the other kind — a Merkblatt,
+ * read and never ticked. What you download is therefore literally what you are replacing, and no
+ * second shape can drift away from the one the field app reads. Same rule as the symbol pack.
+ *
+ * ⚠️ Two files, because `kind` is not a detail an operator can guess: an action template carries
+ * `phases[].items[]` and a reference one `entries[].content[]`, and somebody who downloads the
+ * tick-list to write a Merkblatt learns that only from the upload's refusal.
+ */
+function downloadExample(kind: 'action' | 'reference'): void {
+  const doc = kind === 'action' ? genericAction : genericReference
+  downloadBlob(
+    new Blob([`${JSON.stringify(doc, null, 2)}\n`], { type: 'application/json' }),
+    `checklisten-vorlage-${kind === 'action' ? 'aufgaben' : 'nachschlagen'}.json`,
+  )
+}
+
+/**
+ * What kind of FILE a checklist dataset holds.
+ *
+ * ⚠️ Not `dataset.kind`: every `checklists:*` row carries the constant 'checklists' (backend/
+ * app/api/reference.py · replace_reference), so the content type is the only thing that tells a
+ * JSON template from a PNG diagram — which is exactly the «some PDFs, some other random things»
+ * question the table has to answer.
+ */
+const fileTypeLabel = (ds: ReferenceDataset): string => {
+  const type = (ds.content_type ?? '').split(';')[0].trim().toLowerCase()
+  if (!type) return ds.kind.toUpperCase()
+  if (type.includes('json')) return 'JSON'
+  return (type.split('/')[1] ?? type).split('+')[0].toUpperCase()
+}
+
+/** `checklists:el-playbook:p12` → «12»; anything that is not a p-number is shown verbatim. */
+const assetPage = (datasetId: string): string => {
+  const seg = datasetId.slice(datasetId.lastIndexOf(':') + 1)
+  return /^p\d+$/.test(seg) ? seg.slice(1) : seg
+}
+
 /** The Checklisten page: the stored templates, an upload, and the delete the prune door makes
  *  possible. The table sorts by slug (stable without fetching every template); the field app
  *  sorts by the `order` stamped into each document. */
 export function ChecklistsView() {
   const C = appConfig.copy.admin.checklists
+  // «Typ» / «Quelle» are the Geodaten table's own headers — the same two columns over the same
+  // registry, so they share the wording instead of getting a second pair of keys.
+  const Cd = appConfig.copy.admin.data
   const [state, setState] = useState<Async<ReferenceDataset[]>>({ kind: 'loading' })
   const [uploading, setUploading] = useState(false)
   const [assetFor, setAssetFor] = useState<ChecklistRow | null>(null)
@@ -79,30 +129,43 @@ export function ChecklistsView() {
 
   return (
     <>
-      <Card>
+      {/* ONE card, so the page has one head and the ⓘ of the page title carries the prune rule.
+          The two examples come FIRST and the upload last: «Vorlage hochladen» on an empty page
+          asks for a file format nobody has ever seen, and the two downloads are the two shapes
+          that format has — a tick-list and a Merkblatt. The prune semantics live in the delete
+          dialog, which is where they are a decision, and the manifest walkthrough in the docs. */}
+      <Card
+        action={(
+          <>
+            <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('action')}>
+              {fillTemplate(C.exampleDownloadKind, { kind: C.kindAction })}
+            </button>
+            <button type="button" className="btn adm-int-btn" onClick={() => downloadExample('reference')}>
+              {fillTemplate(C.exampleDownloadKind, { kind: C.kindReference })}
+            </button>
+            <button type="button" className="btn adm-save-btn" onClick={() => setUploading(true)}>
+              {C.upload}
+            </button>
+          </>
+        )}
+      >
         <p className="adm-hint">{C.intro}</p>
-        <p className="adm-hint">{C.pruneNote}</p>
-        <p className="adm-hint">{C.cliHint} <code>{C.cliCmd}</code></p>
-        <div className="adm-brand-row">
-          <button type="button" className="btn primary adm-int-btn" onClick={() => setUploading(true)}>
-            {C.upload}
-          </button>
-          {flash && <span className="adm-save-ok">{flash}</span>}
-        </div>
-      </Card>
-
-      <Card>
+        {flash && <p className="adm-save-ok">{flash}</p>}
         {state.kind === 'loading' && <EmptyState message={C.loading} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.loadError} />}
         {state.kind === 'ok' && rows.length === 0 && <EmptyState message={C.none} hint={C.noneHint} />}
+        {/* Typ und Quelle mirror the Geodaten table (DataView · GeodataView), down to the
+            column names — the same two facts, asked of the same registry. */}
         {state.kind === 'ok' && rows.length > 0 && (
           <Table
             columns={[
               { key: 'title', label: C.colTitle },
               { key: 'kind', label: C.colSlug },
+              { key: 'type', label: Cd.colType },
               { key: 'ver', label: C.colVersion },
               { key: 'date', label: C.colUpdated },
               { key: 'assets', label: C.colAssets, num: true },
+              { key: 'src', label: Cd.colSource },
               { key: 'act', label: C.colActions },
             ]}
           >
@@ -110,34 +173,43 @@ export function ChecklistsView() {
               <tr key={row.dataset.id}>
                 <td>
                   <span className="adm-ref-title">{row.dataset.title ?? row.slug}</span>
-                  {row.dataset.source_note && <span className="adm-ref-note">{row.dataset.source_note}</span>}
                 </td>
                 <td><code className="adm-view-key">{row.slug}</code></td>
+                <td><span className="adm-ref-kind">{fileTypeLabel(row.dataset)}</span></td>
                 <td className="adm-mono">v{row.dataset.current_version}</td>
                 <td>{fmtDate(row.dataset.updated_at)}</td>
                 <td className="adm-num adm-mono">
                   {row.assets.length || <span className="adm-fleet-freeval">—</span>}
                 </td>
+                <td>
+                  <PlanSourceBadge sourceType={row.dataset.source_type} />
+                  {row.dataset.source_note && <span className="adm-ref-note">{row.dataset.source_note}</span>}
+                </td>
                 {/* Deliberately NOT the shared `ActionMenu`: two actions do not need a menu.
                     (The stacking bug that ALSO argued against it — the popup painting behind
                     `.adm` on v0.6.0 — is fixed; see `.ui-menu-pos` in lib/overlays/Menu.) */}
                 <td className="adm-ck-actions">
-                  <button
-                    type="button"
-                    className="btn adm-int-btn"
-                    onClick={() => setAssetFor(row)}
-                    aria-label={fillTemplate(C.assetTitle, { title: row.dataset.title ?? row.slug })}
-                  >
-                    {C.addAsset}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn adm-int-btn adm-ck-del"
-                    onClick={() => setDeleting(row)}
-                    aria-label={fillTemplate(C.deleteAria, { title: row.dataset.title ?? row.slug })}
-                  >
-                    {C.delete}
-                  </button>
+                  {/* The flex row is this inner box, never the `<td>` itself: `display: flex`
+                      on a table-cell takes it out of the table box tree and the row wraps it
+                      in an anonymous cell, which drifts out of the column alignment. */}
+                  <div className="adm-ck-actbar">
+                    <button
+                      type="button"
+                      className="btn adm-int-btn"
+                      onClick={() => setAssetFor(row)}
+                      aria-label={fillTemplate(C.assetTitle, { title: row.dataset.title ?? row.slug })}
+                    >
+                      {C.addAsset}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn adm-int-btn adm-ck-del"
+                      onClick={() => setDeleting(row)}
+                      aria-label={fillTemplate(C.deleteAria, { title: row.dataset.title ?? row.slug })}
+                    >
+                      {C.delete}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -148,7 +220,19 @@ export function ChecklistsView() {
             <p className="adm-state adm-state-err">
               {fillTemplate(C.orphans, { n: orphanAssets.length })}
             </p>
-            <p className="adm-hint">{orphanAssets.map((a) => a.id).join(' · ')}</p>
+            {/* Labelled, not a bare id dump: which template each ghost was filed under, which
+                page it is and what kind of file — the three facts that make «Reste löschen» a
+                decision rather than a leap. */}
+            <ul className="adm-ck-facts">
+              {orphanAssets.map((a) => (
+                <li key={a.id}>
+                  <span>{checklistSlug(a.id) ?? a.id}</span>
+                  <strong>{C.assetPage} {assetPage(a.id)}</strong>
+                  <span className="adm-ref-kind">{fileTypeLabel(a)}</span>
+                  <code>{a.id}</code>
+                </li>
+              ))}
+            </ul>
             <button type="button" className="btn adm-int-btn" disabled={cleaning} onClick={() => void cleanOrphans()}>
               {cleaning ? C.deleting : C.cleanOrphans}
             </button>
@@ -248,6 +332,7 @@ function UploadSheet({ existing, onClose, onDone }: {
     <Sheet
       open
       onClose={onClose}
+      fit
       title={C.uploadTitle}
       sheetClassName="adm-ck-sheet"
       footer={
@@ -364,6 +449,7 @@ function AssetSheet({ row, onClose, onDone }: {
     <Sheet
       open
       onClose={onClose}
+      fit
       title={fillTemplate(C.assetTitle, { title: row.dataset.title ?? row.slug })}
       sheetClassName="adm-ck-sheet"
       footer={

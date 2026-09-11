@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { apiUpload, apiDelete, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import type { DeploymentConfig, DeploymentAssets } from '../lib/deploymentConfig'
-import { ConfirmButton } from './ui'
+import { ConfirmButton, Field } from './ui'
 
 // Logo + favicon uploads (Batch A · A2). Each slot shows a live preview of the current
 // asset, an upload control, and a remove action. On any change the parent is handed the
@@ -67,12 +67,12 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
     }
   }
 
+  // ⚠️ A real `<label>` (via `Field`), where this was a bare `<div>` wearing the field classes —
+  // so the visually hidden file input finally has an accessible name. The two buttons beside it
+  // are interactive content, and a label does nothing for clicks that land on those (HTML §label
+  // activation), so «Entfernen» stays «Entfernen» and only the label text opens the picker.
   return (
-    <div className="adm-field">
-      <span className="adm-field-label">
-        {label}
-        <span className="adm-field-hint">{hint}</span>
-      </span>
+    <Field label={label} hint={hint}>
       <div className="adm-brand-row">
         <span className="adm-brand-preview" aria-hidden>
           <img src={url || DEFAULT_ASSET} alt="" className="adm-brand-img" />
@@ -95,7 +95,7 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
         )}
       </div>
       {error && <span className="adm-save-err">{error}</span>}
-    </div>
+    </Field>
   )
 }
 

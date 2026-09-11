@@ -39,22 +39,34 @@ export function InfoTip({
   // the same one-flag bug in a second costume. Keyboard focus still pins; a pointer's does not,
   // because its click is one event away and says so itself.
   const pointerFocus = useRef(false)
+  // Which side of the trigger the pop opens on. 'up' is the default — a hint reads better above
+  // the thing it explains — and the measurement below flips it when there is no room up there.
+  const [place, setPlace] = useState<'up' | 'down'>('up')
   const id = useId()
 
-  // The pop is hard-centered on the trigger; near a viewport edge that centers it
-  // off-screen. Measure once per open and shift it back in via --tip-shift (the
-  // caret compensates in CSS so it keeps pointing at the trigger).
+  // Placement, measured once per open, in two axes:
+  //   · horizontal — the pop is hard-centered on the trigger, which near an edge centers it
+  //     off-screen. --tip-shift pulls it back in (the caret compensates in CSS so it keeps
+  //     pointing at the trigger).
+  //   · vertical — `data-place`. Opening upward unconditionally meant the FIRST card of a page
+  //     drew its pop straight over the h1 and the lede (Alarmgruppen's tip is three lines). The
+  //     ceiling is the top of the scrolling content column, not just the viewport: above it sits
+  //     the admin header, which the pop must not disappear under either.
   useLayoutEffect(() => {
     const el = popRef.current
-    if (!open || !el) return
+    const wrap = wrapRef.current
+    if (!open || !el || !wrap) return
+    const pad = 8
     el.style.setProperty('--tip-shift', '0px')
     const r = el.getBoundingClientRect()
-    const mainLeft = wrapRef.current?.closest('.adm-main')?.getBoundingClientRect().left ?? 0
-    const leftEdge = mainLeft + 8
-    const pad = 8
+    const main = wrap.closest('.adm-main')?.getBoundingClientRect()
+    const leftEdge = (main?.left ?? 0) + pad
     const shift = r.left < leftEdge ? leftEdge - r.left
       : r.right > window.innerWidth - pad ? window.innerWidth - pad - r.right : 0
     if (shift) el.style.setProperty('--tip-shift', `${shift}px`)
+    // r.height is the same whichever side it is on, so this reading holds for both.
+    const ceiling = Math.max(main?.top ?? 0, 0) + pad
+    setPlace(wrap.getBoundingClientRect().top - r.height - pad < ceiling ? 'down' : 'up')
   }, [open])
 
   // Esc closes (and returns focus to the trigger via natural focus retention).
@@ -113,6 +125,7 @@ export function InfoTip({
         role="tooltip"
         id={id}
         className="adm-tip-pop"
+        data-place={place}
         data-open={open || undefined}
       >
         {text}

@@ -60,9 +60,12 @@
   background: var(--surface-2); border: 1px solid var(--border-soft);
 }
 
-/* two visible row actions instead of a ⋮ menu — see the note in ChecklistsView */
-.adm-ck-actions { white-space: nowrap; text-align: right; }
-.adm-ck-actions .btn + .btn { margin-left: 8px; }
+/* two visible row actions instead of a ⋮ menu — see the note in ChecklistsView.
+   ⚠️ The flex ROW is the inner `.adm-ck-actbar`, never the `<td>`: `.btn` is `display: flex`, so
+   the two buttons were block-level and each took its own line (cell ~88px, clipping) — but
+   `display: flex` on the cell itself drops it out of the table box tree and it loses the column. */
+.adm-ck-actions { text-align: right; }
+.adm-ck-actbar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 .adm-ck-del { color: var(--red); }
 
 .adm-ck-assets { list-style: none; margin: 8px 0 14px; padding: 0; display: flex; flex-direction: column; gap: 4px; }

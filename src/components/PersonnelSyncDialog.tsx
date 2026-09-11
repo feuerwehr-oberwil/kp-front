@@ -48,8 +48,10 @@ export function PersonnelSyncDialog({ provider, onClose, onSynced }: { provider:
     { n: preview.stale.length, label: fillTemplate(ps.countStale, { provider }) },
   ]
 
+  // `fit`: the body is four count tiles, a checkbox and two buttons — the fixed 800px frame
+  // would be mostly empty space.
   return (
-    <Sheet open onClose={onClose} title={fillTemplate(ps.title, { provider })}>
+    <Sheet open onClose={onClose} fit title={fillTemplate(ps.title, { provider })}>
       {loading ? (
         <p className="ip-note"><Icon id="rotate" /> {fillTemplate(ps.querying, { provider })}</p>
       ) : error && !result ? (

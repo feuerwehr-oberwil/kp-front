@@ -1,0 +1,47 @@
+{
+  "id": "generic-reference",
+  "kind": "reference",
+  "title": "Merkblätter",
+  "subtitle": "Neutrales Beispiel-Nachschlagewerk — durch Stationsdaten ersetzt",
+  "version": 1,
+  "source": "KP Front — generische Vorlage",
+  "entries": [
+    {
+      "id": "verkehrsunfall",
+      "title": "Verkehrsunfall",
+      "keywords": ["verkehr", "unfall", "vu", "strasse"],
+      "diveraKeywords": ["verkehrsunfall", "vu", "pkw"],
+      "hazardColor": "green",
+      "content": [
+        { "type": "heading", "text": "Absicherung" },
+        { "type": "bullet", "text": "Einsatzstelle gegen den fliessenden Verkehr absichern" },
+        { "type": "bullet", "text": "Brandschutz stellen, bevor gearbeitet wird" },
+        { "type": "note", "text": "Eintrag ohne Häkchen: ein Merkblatt wird gelesen, nicht abgearbeitet." },
+        { "type": "heading", "text": "Rettung" },
+        { "type": "bullet", "text": "Patientenrettung mit der Sanität absprechen", "emphasis": true },
+        { "type": "bullet", "text": "Zugang schaffen, Rettungsöffnung festlegen", "level": 1 },
+        { "type": "heading", "text": "Kontakte" },
+        { "type": "bullet", "text": "Kantonspolizei 117 — Telefonnummern werden automatisch wählbar" }
+      ]
+    },
+    {
+      "id": "beispiel-tabelle",
+      "title": "Beispiel mit Tabelle",
+      "keywords": ["beispiel", "tabelle"],
+      "content": [
+        { "type": "heading", "text": "Wozu dieser Eintrag" },
+        { "type": "bullet", "text": "Zeigt die Blocktypen, die ein Merkblatt kennt: heading, bullet, note, table, image." },
+        {
+          "type": "table",
+          "caption": "Ein Eintrag je Zeile",
+          "head": ["Stichwort", "Sofortmassnahme"],
+          "rows": [
+            ["Beispiel A", "Was zuerst zu tun ist"],
+            ["Beispiel B", "Was danach kommt"]
+          ]
+        },
+        { "type": "note", "text": "«image» verweist auf eine hochgeladene Seite (Diagramm) dieses Nachschlagewerks." }
+      ]
+    }
+  ]
+}

@@ -20,13 +20,23 @@
 // group's ⓘ, where a credential comes from and when it was last touched is the row's — the
 // prose that used to stand between the boxes, so «welcher Schlüssel fehlt hier» is one glance
 // down a column instead of a scroll past eight paragraphs.
+//
+// ⚠️ SINCE 2026-09-11 THERE ARE TWO KINDS OF SECRET ON THIS PAGE, and the second one breaks
+// rule 1 — so it is kept out of the sheet entirely, in a second one of its own (IncidentLinkKey
+// below). The Einsatz-Link minting key is the one secret here that KP Front MINTS instead of
+// receiving: it lives on `deployment_config`, the API hands it back on every GET
+// (backend · api/incident_link.py · GET /api/incident-link/secret), and it has to, because an
+// admin must be able to re-read it months later when the alerting system is reconfigured. Two
+// mistakes were available and both are ruled out by giving it its own sheet with its own head:
+// a reader must not think this key is as unreadable as the ones above it, and must not think
+// the ones above it could be shown.
 
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { apiDelete, apiGet, apiPut } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import {
-  Card, ConfirmButton, EmptyState, ResultChip, SettingRow, SettingsGroup, SettingsNote,
-  SettingsSheet, fmtDateTime,
+  Card, ConfirmButton, CopyChip, EmptyState, ResultChip, SettingRow, SettingsGroup, SettingsNote,
+  SettingsSheet, StatusBadge, fmtDateTime, useSecret,
 } from './ui'
 import './credentials.css'
 
@@ -58,26 +68,16 @@ interface AuditEntry {
 /** Card order = the order a station connects things in, not alphabetical. */
 const GROUPS = ['divera', 'traccar', 'push', 'stt', 'maps', 'webhooks', 'sharepoint', 'monitoring'] as const
 
+/** The credential's state as the row's VALUE — a write-only secret has no other one to show.
+ *  Rendered LABEL-LESS (`StatusBadge label=""`): the Einstellung column already names the
+ *  credential, and a badge repeating that name would say «Divera Accesskey — Divera Accesskey
+ *  gesetzt». Same rule as the connector table on the System page. */
 function badgeFor(c: CredentialState): { tone: 'on' | 'off' | 'warn' | 'err'; state: string } {
   const C = appConfig.copy.admin.zugaenge
   if (c.source === 'env') return { tone: 'on', state: C.stateEnv }
   if (c.source === 'stored') return { tone: 'on', state: C.stateStored }
   if (c.source === 'unreadable') return { tone: 'err', state: C.stateUnreadable }
   return { tone: 'off', state: C.stateUnset }
-}
-
-/** The credential's state as the row's VALUE — a write-only secret has no other one to show.
- *  Label-less on purpose: the Einstellung column already names it, and a badge repeating that
- *  name would say «Divera Accesskey — Divera Accesskey gesetzt» (same idiom as MembersView
- *  and DataView, which render the dot + state pill directly). */
-function StatePill({ cred }: { cred: CredentialState }) {
-  const badge = badgeFor(cred)
-  return (
-    <span className={`adm-badge ${badge.tone}`}>
-      <span className="adm-badge-dot" aria-hidden />
-      <span className="adm-badge-state">{badge.state}</span>
-    </span>
-  )
 }
 
 /** What the row's ⓘ says about THIS credential: where a server-supplied value comes from, or
@@ -94,6 +94,7 @@ function tipFor(cred: CredentialState): string | undefined {
 
 function CredentialRow({ cred, onChanged }: { cred: CredentialState; onChanged: () => void }) {
   const C = appConfig.copy.admin.zugaenge
+  const badge = badgeFor(cred)
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
@@ -137,7 +138,7 @@ function CredentialRow({ cred, onChanged }: { cred: CredentialState; onChanged: 
           nobody can check. The control takes the Wert AND Standard columns — there is no
           shipped default for a credential, so that column has nothing to say here anyway. */}
       <SettingRow label={cred.label} tip={tipFor(cred)} span>
-        <StatePill cred={cred} />
+        <StatusBadge tone={badge.tone} label="" state={badge.state} />
         {cred.source === 'env' ? (
           // No input at all — an editable box that cannot take effect is a lie, and the
           // variable name is what an operator needs to go and change it where it lives.
@@ -197,6 +198,83 @@ function CredentialRow({ cred, onChanged }: { cred: CredentialState; onChanged: 
   )
 }
 
+/**
+ * The Einsatz-Link minting key — a credential like every other key on this page (it is pasted
+ * into the alerting system once), and the only one that can be read back.
+ *
+ * ⚠️ It is NOT a credential-store entry, so none of the machinery above applies to it. It runs
+ * on the shared secret trio instead (ui · useSecret — GET `/api/incident-link/secret`, POST
+ * `…/rotate`, DELETE), which is why it is a component of its own rather than a row in the loop.
+ *
+ * ⚠️ And it does not belong on «Links & Zugänge», where it stood until 2026-09-11: that page is
+ * addresses, and this key has none. The alerting system SIGNS a per-incident token with it and
+ * puts the result in the alarm (`/l/<token>`) — one token per Einsatz, minted by whoever has the
+ * key, exactly as the app itself does from a running Einsatz. So there is no station-level URL
+ * to show, only the key, and the key is what gets copied out of here.
+ *
+ * The actions are the page's own two-step `ConfirmButton`s rather than the ⋮ menu the links
+ * table uses: a settings row puts its buttons out in the open (Speichern · Löschen), and there
+ * are three of them, not a list worth folding away.
+ *
+ * ⚠️ They sit in a `SettingsNote` UNDER the row, not in its Wert cell — the house pattern for a
+ * row whose actions are buttons (ConfigSections · the GeoJSON upload). `SettingRow` binds its
+ * label to the Wert cell's first focusable element, and a `<label for>` pointing at a button
+ * both renames it («Einsatz-Links, Schaltfläche») and ACTIVATES it on a click of the label. Here
+ * that would have minted a key from a click on the word beside it. The Wert cell keeps the state
+ * and the key, so the label binds to the copy chip, where a label click copies and nothing else.
+ */
+function IncidentLinkKey() {
+  const C = appConfig.copy.admin.zugaenge
+  const I = appConfig.copy.admin.einsatzlink
+  const D = appConfig.copy.admin.docs
+  const { state, busy, result, clearResult, rotate, disable } = useSecret(
+    '/api/incident-link/secret', { rotated: I.rotated, disabled: I.disabled, failed: I.failed })
+  if (state === null) return null
+  const token = state.configured ? state.token ?? null : null
+
+  return (
+    // The head is the whole distinction: what this sheet holds, and — in one sentence — that
+    // the sheet above it can never show a value. Said once, where both halves are in view.
+    // Its ⓘ says what an Einsatz-Link IS (einsatzlink.body); the row's ⓘ says what the alerting
+    // system does with the key (…hint), which is the sentence that belongs beside the key.
+    <SettingsSheet title={C.minted.title} caption={C.minted.caption} tip={I.body}>
+      {/* `span`: the key is 43 characters of base64url, and a chip that scrolls to hide half of
+          them is a chip nobody can check against what the alerting system holds. */}
+      <SettingRow label={I.stateLabel} hint={C.minted.purpose} tip={I.hint} span>
+        <StatusBadge tone={state.configured ? 'on' : 'off'} label=""
+          state={state.configured ? I.stateOn : I.stateOff} />
+        {token && <CopyChip value={token} />}
+      </SettingRow>
+      <SettingsNote>
+        <span className="adm-brand-row">
+          {state.configured ? (
+            <>
+              <ConfirmButton label={I.rotateBtn} question={I.rotateMsg} disabled={busy}
+                onConfirm={() => void rotate()} />
+              <ConfirmButton label={I.disableBtn} question={I.disableMsg} danger disabled={busy}
+                onConfirm={() => void disable()} />
+              <button type="button" className="btn adm-int-btn"
+                onClick={() => window.open(`${D.repo}${D.incidentLink}`, '_blank', 'noopener,noreferrer')}>
+                {I.docsLink}
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn adm-save-btn" disabled={busy}
+              onClick={() => void rotate()}>{I.enableBtn}</button>
+          )}
+        </span>
+      </SettingsNote>
+      {result && (
+        <SettingsNote>
+          <ResultChip key={result.text} tone={result.tone} onExpire={clearResult}>
+            {result.text}
+          </ResultChip>
+        </SettingsNote>
+      )}
+    </SettingsSheet>
+  )
+}
+
 export function CredentialsView() {
   const C = appConfig.copy.admin.zugaenge
   const [creds, setCreds] = useState<CredentialState[] | null>(null)
@@ -237,6 +315,10 @@ export function CredentialsView() {
           )
         })}
       </SettingsSheet>
+
+      {/* The one key this page hands OUT instead of taking in — its own sheet, because it is
+          the one that can be read back and the sheet above must keep meaning «never again». */}
+      <IncidentLinkKey />
 
       {/* The other half of the answer: what a browser deliberately CANNOT set, and why.
           Without this the page reads as an incomplete list of environment variables, and

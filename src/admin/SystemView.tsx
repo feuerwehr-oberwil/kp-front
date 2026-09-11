@@ -7,7 +7,6 @@ import { SetupChecklist } from './SetupChecklist'
 import { fillTemplate } from '../lib/format'
 import { providerLabel } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime } from './ui'
-import { TelemetryCard } from './TelemetryCard'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
 
@@ -206,9 +205,11 @@ function SharePointCard() {
                       {a.path && <p className="adm-card-cap adm-mono">{a.path}</p>}
                     </td>
                     <td>
+                      {/* Label-less: the first cell already names the area, so the badge is
+                          dot + state only (same idiom as CredentialsView/MembersView). */}
                       <StatusBadge
                         tone={areaTone(a.status)}
-                        label={C.spAreas[a.area] ?? a.area}
+                        label=""
                         state={C.spStates[a.status] ?? a.status}
                       />
                       {/* The server's own sentence — «AADSTS7000222: … expired» is the thing an
@@ -336,10 +337,8 @@ function OfflineCacheCard() {
       title={C.offlineCache}
       tip={`${C.offlineCacheTip} ${C.offlineCacheCaption}`}
     >
-      {state.kind === 'loading' && <div className="adm-state">{C.cacheReading}</div>}
-      {state.kind === 'unavailable' && (
-        <div className="adm-state">{C.cacheUnavailable}</div>
-      )}
+      {state.kind === 'loading' && <EmptyState message={C.cacheReading} />}
+      {state.kind === 'unavailable' && <EmptyState message={C.cacheUnavailable} />}
       {state.kind === 'ok' && (
         <>
           {state.usage != null && state.quota != null && state.quota > 0 ? (
@@ -348,7 +347,7 @@ function OfflineCacheCard() {
               <UsageBar pctFilled={pct(state.usage, state.quota)} />
             </div>
           ) : (
-            <div className="adm-state">{C.storageEstimateUnavailable}</div>
+            <EmptyState message={C.storageEstimateUnavailable} />
           )}
 
           <div className="adm-sys-caches">
@@ -402,7 +401,7 @@ type ServerState =
 /**
  * System & Wartung — a READ-OUT, not a settings page, and it deliberately stays cards.
  *
- * ⚠️ Nothing here is a setting: Version, Verbindungen, Datenbank, Bestand and Speicher are
+ * ⚠️ Nothing here is a setting: Systemzustand, Verbindungen, Bestand and Speicher are
  * measurements the server took, and the only two controls on the page are actions
  * («Aktualisieren», «Caches leeren»). Pouring them into the settings table (ui.tsx ·
  * SettingsSheet) would put an Einstellung | Wert | Standard header over numbers that have no
@@ -448,8 +447,12 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
 
       {state.kind === 'ok' && (() => {
         const { version, database, counts, storage, monitoring } = state.data
-        const commitShort = version ? version.commit.slice(0, 7) : '—'
         const isProd = version?.env === 'production'
+        /** A version cell's text. One fallback for all three: a server that answered without a
+         *  version block says «nicht verfügbar» rather than three dashes that read as empty
+         *  fields, and a present-but-blank field is the dash. */
+        const vFact = (value: string | null | undefined): string =>
+          version ? (value?.trim() ? value : '—') : C.notAvailable
         return (
           <>
             {/* First on the page, above the health read-out: a fresh instance's most useful
@@ -464,45 +467,48 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
               }}
               onGo={(id) => onNavigate?.(id)}
             />
-            <div className="adm-sys-summary" aria-label={C.healthSummary}>
-              <div>
-                <span className="adm-sys-summary-label">{C.server}</span>
-                <StatusBadge tone="on" label={C.server} state={C.reachable} />
+            {/* «Systemzustand» — the page's ONE primary status surface, and the only place for
+                any of these six facts. Server/Datenbank/Umgebung used to sit in a strip and
+                Release/Commit/Branch in a card of their own further down: two surfaces saying
+                related things about the same running server, and «welcher Stand läuft hier
+                gerade» meant reading both.
+                ⚠️ Every cell is already labelled, so a badge here is dot + state only — a
+                badge that repeats its own row label reads «Umgebung Umgebung Produktion».
+                ⚠️ The raw env string («production») never reaches the UI; only the human label
+                does. */}
+            <Card title={C.healthSummary} tip={C.versionTip}>
+              <div className="adm-sys-summary">
+                <div>
+                  <span className="adm-sys-summary-label">{C.server}</span>
+                  <StatusBadge tone="on" label="" state={C.reachable} />
+                </div>
+                <div>
+                  <span className="adm-sys-summary-label">{C.database}</span>
+                  <StatusBadge tone={database?.ok ? 'on' : 'err'} label="" state={database?.ok ? C.ok : C.error2} />
+                </div>
+                <div>
+                  <span className="adm-sys-summary-label">{C.environment}</span>
+                  <StatusBadge tone={isProd ? 'on' : 'warn'} label="" state={isProd ? C.production : C.development} />
+                </div>
+                <div>
+                  <span className="adm-sys-summary-label">{C.release}</span>
+                  <span className="adm-sys-summary-value">{vFact(version?.release ? `v${version.release}` : null)}</span>
+                </div>
+                <div>
+                  <span className="adm-sys-summary-label">{C.commit}</span>
+                  {/* Short hash in the cell, full one on hover: seven characters are what a git
+                      command wants, and the full forty would push the label off a third of a row. */}
+                  <span className="adm-sys-summary-value" title={version?.commit || undefined}>
+                    {vFact(version?.commit.slice(0, 7))}
+                  </span>
+                </div>
+                <div>
+                  <span className="adm-sys-summary-label">{C.branch}</span>
+                  <span className="adm-sys-summary-value">{vFact(version?.branch)}</span>
+                </div>
               </div>
-              <div>
-                <span className="adm-sys-summary-label">{C.database}</span>
-                <StatusBadge tone={database?.ok ? 'on' : 'err'} label={C.database} state={database?.ok ? C.ok : C.error2} />
-              </div>
-              <div>
-                <span className="adm-sys-summary-label">{C.environment}</span>
-                <StatusBadge tone={isProd ? 'on' : 'warn'} label={C.environment} state={isProd ? C.production : C.development} />
-              </div>
-            </div>
-            <div className="adm-sys-grid">
-            {/* Version */}
-            <Card
-              title={C.version}
-              tip={C.versionTip}
-            >
-              {version ? (
-                <>
-                  <Metric label={C.release} value={version.release ? `v${version.release}` : '—'} />
-                  <Metric label={C.commit} value={version.commit || commitShort} />
-                  <Metric label={C.branch} value={version.branch ?? '—'} />
-                  <div className="adm-sys-metric">
-                    <span className="adm-sys-metric-label">{C.environment}</span>
-                    <StatusBadge
-                      tone={isProd ? 'on' : 'warn'}
-                      label={isProd ? C.production : C.development}
-                      state={version.env}
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="adm-state">{C.notAvailable}</div>
-              )}
             </Card>
-
+            <div className="adm-sys-grid">
             {/* Verbindungen — ONE table for everything this deployment talks to:
                 provider integrations (Divera/Traccar) and every consumer/producer
                 (print-relay agent with live heartbeat, capture poster, stats export,
@@ -524,9 +530,10 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                           <td><span className="adm-ref-title">{providerLabel(provider.provider)}</span></td>
                           <td>{provider.domain === 'personnel' ? C.personnelProvider : provider.domain === 'alarms' ? C.alarmProvider : C.vehicleProvider}</td>
                           <td>
+                            {/* Label-less: the Verbindung cell already names the provider. */}
                             <StatusBadge
                               tone={provider.active ? 'on' : provider.configured ? 'warn' : 'off'}
-                              label={providerLabel(provider.provider)}
+                              label=""
                               state={provider.active ? C.active : provider.configured ? C.configured : C.notConfigured}
                             />
                           </td>
@@ -552,7 +559,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                             <td><span className="adm-ref-title">{label}</span></td>
                             <td>{conn.direction === 'in' ? C.directionIn : C.directionOut}</td>
                             <td>
-                              <StatusBadge tone={tone} label={label} state={stateLabel} />
+                              <StatusBadge tone={tone} label="" state={stateLabel} />
                               {conn.id === 'print_relay' && conn.detail && (
                                 <p className="adm-card-cap">
                                   {fillTemplate(C.connLastSeen, { time: new Date(conn.detail).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}
@@ -565,24 +572,11 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                     </tbody>
                   </table>
                 </div>
-              ) : <div className="adm-state">{C.notAvailable}</div>}
+              ) : <EmptyState message={C.notAvailable} />}
             </Card>
 
-            {/* Datenbank */}
-            <Card
-              title={C.database}
-              tip={C.databaseTip}
-            >
-              {database ? (
-                <StatusBadge
-                  tone={database.ok ? 'on' : 'err'}
-                  label={C.database}
-                  state={database.ok ? C.ok : C.error2}
-                />
-              ) : (
-                <div className="adm-state">{C.notAvailable}</div>
-              )}
-            </Card>
+            {/* Datenbank has no card of its own: the health strip above carries the same
+                `database.ok`, and a card holding one badge added nothing. */}
 
             {/* Bestand */}
             <Card
@@ -598,7 +592,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                   <Metric label={C.referenceData} value={fmtCount(counts.reference_datasets)} />
                 </div>
               ) : (
-                <div className="adm-state">{C.notAvailable}</div>
+                <EmptyState message={C.notAvailable} />
               )}
             </Card>
 
@@ -628,11 +622,11 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                       <p className="adm-card-cap">{fillTemplate(C.free, { size: fmtBytes(storage.disk_free_bytes) })}</p>
                     </div>
                   ) : (
-                    <div className="adm-state">{C.diskUnavailable}</div>
+                    <EmptyState message={C.diskUnavailable} />
                   )}
                 </>
               ) : (
-                <div className="adm-state">{C.notAvailable}</div>
+                <EmptyState message={C.notAvailable} />
               )}
             </Card>
 
@@ -642,9 +636,6 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
 
             {/* Client-side offline cache (this device) — a half-row card in the grid. */}
             <OfflineCacheCard />
-
-            {/* What this installation sends outwards – opt-in, off by default. */}
-            <TelemetryCard />
             </div>
           </>
         )

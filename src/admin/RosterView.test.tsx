@@ -15,19 +15,31 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // rank was unknown — so a station that re-picked an already-imported file got its whole Wehr a
 // second time, silently, because by then every rank was known.
 
-const { previewRosterCsv, importRosterCsv, listRoster } = vi.hoisted(() => ({
+const { previewRosterCsv, importRosterCsv, listRoster, createPerson, updatePerson } = vi.hoisted(() => ({
   previewRosterCsv: vi.fn(),
   importRosterCsv: vi.fn(),
   listRoster: vi.fn(),
+  createPerson: vi.fn(),
+  updatePerson: vi.fn(),
 }))
 vi.mock('./rosterApi', () => ({
   listRoster,
   previewRosterCsv,
   importRosterCsv,
-  createPerson: vi.fn(),
-  updatePerson: vi.fn(),
-  deactivatePerson: vi.fn(),
+  createPerson,
+  updatePerson,
 }))
+
+/** The Dienstgrade of THIS station — deliberately none of them from the shipped Swiss list, so
+ *  a picker that offered a hard-coded vocabulary would be visible as such. */
+const STATION_RANKS = [
+  { key: 'zgf', label: 'Zugführer', abbr: 'Zgf', tier: 'officer' as const },
+  { key: 'sdt', label: 'Soldat', abbr: 'Sdt', tier: 'crew' as const },
+]
+vi.mock('../lib/deploymentConfig', async () => {
+  const actual = await vi.importActual<typeof import('../lib/deploymentConfig')>('../lib/deploymentConfig')
+  return { ...actual, getDeploymentConfig: () => ({ roster: { ranks: STATION_RANKS } }) }
+})
 
 const apiGet = vi.fn()
 vi.mock('../lib/api', async () => {
@@ -181,5 +193,148 @@ describe('CSV-Import · Grade zuordnen', () => {
     await pickFile({ ...PREVIEW, total: 0, creates: 0, updates: 0, skipped: 3, unknown_ranks: [] })
     await screen.findByText(C.confirmNothing)
     expect(primary().disabled).toBe(true)
+  })
+})
+
+// Namensformat — die eine Einstellung dieser Seite. Sie war als einzige im ganzen /admin keine
+// Zeile der Einstellungstabelle, sondern eine Karte mit gestapeltem Feld; hier steht, dass sie
+// jetzt eine SettingRow ist UND weiterhin über denselben Config-Pfad schreibt.
+describe('Namensformat', () => {
+  it('ist eine Zeile der Einstellungstabelle und schreibt in den Config-Entwurf', async () => {
+    await act(async () => render(<ConfigProvider><RosterView /></ConfigProvider>))
+
+    const trigger = screen.getByLabelText(C.nameOrderLabel)
+    expect(trigger.closest('.adm-set-row')).toBeTruthy()
+    // solange die ausgelieferte Reihenfolge gilt, schweigt die Standard-Spalte
+    expect(document.querySelector('.adm-set-std')?.textContent).toBe('')
+
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('option', { name: C.nameOrderFirstLast }))
+
+    expect(screen.getByLabelText(C.nameOrderLabel).textContent).toContain(C.nameOrderFirstLast)
+    expect(document.querySelector('.adm-set-std')?.textContent).toBe(
+      // the SHORT label: the option's own text carries an example, which would put three
+      // ·-separated parts in the narrowest column on the page
+      fillTemplate(appConfig.copy.admin.common.standardChanged, { value: C.nameOrderShortLastFirst }),
+    )
+  })
+})
+
+// «Person hinzufügen» nahm nur den Namen entgegen, obwohl die Tabelle daneben Grad und Status
+// führt — eine im Browser erfasste Person landete ohne Dienstgrad, und geändert werden konnte er
+// nirgends. Hier steht, dass beides angelegt UND bearbeitet wird, und dass die Gradliste die der
+// Station ist.
+describe('Grad und Status — erfassen und bearbeiten', () => {
+  const PERSON = {
+    id: 'p1',
+    divera_id: null,
+    external_identities: [],
+    display_name: 'Berger Luca',
+    first_name: null,
+    last_name: null,
+    rank: 'sdt',
+    is_active: true,
+    updated_at: '2026-09-10T08:00:00Z',
+  }
+
+  /** Pick an option in one of the two form pickers (they carry the column's name). */
+  const pick = (field: string, option: string) => {
+    fireEvent.click(screen.getByRole('button', { name: field }))
+    fireEvent.click(screen.getByRole('option', { name: option }))
+  }
+
+  const mount = () => act(async () => { render(<ConfigProvider><RosterView /></ConfigProvider>) })
+
+  it('öffnet das Formular im selben Card wie der Knopf, nicht oben auf der Seite', async () => {
+    await mount()
+    expect(document.querySelector('.adm-members-addbox')).toBeNull()
+
+    const trigger = screen.getByRole('button', { name: C.addPerson })
+    fireEvent.click(trigger)
+
+    // Der Knopf steht im Kopf einer Card; das Formular muss im Body GENAU dieser Card stehen.
+    // Vorher rendete es als eigene Card zuoberst auf der Seite – der Klick schob die Antwort
+    // aus dem Bild, und die Seite sah aus, als sei man woanders gelandet.
+    const card = trigger.closest('.adm-card')
+    expect(card).toBeTruthy()
+    const box = document.querySelector('.adm-members-addbox')
+    expect(box).toBeTruthy()
+    expect(card!.contains(box!)).toBe(true)
+    expect(box!.closest('.adm-card')).toBe(card)
+  })
+
+  it('legt eine Person mit Grad und Status an – beides erreicht die API', async () => {
+    createPerson.mockResolvedValue({ ...PERSON, rank: 'zgf', is_active: true })
+    updatePerson.mockResolvedValue({ ...PERSON, rank: 'zgf', is_active: false })
+    await mount()
+
+    fireEvent.click(screen.getByRole('button', { name: C.addPerson }))
+    fireEvent.change(document.querySelector('.adm-members-addbox .adm-input')!, {
+      target: { value: 'Berger Luca' },
+    })
+
+    // die Liste der Station, nicht die mitgelieferte Schweizer
+    fireEvent.click(screen.getByRole('button', { name: C.colRank }))
+    expect(screen.queryByRole('option', { name: /Feuerwehrmann/ })).toBeNull()
+    fireEvent.click(screen.getByRole('option', { name: 'Zugführer · Zgf' }))
+
+    pick(C.colStatus, C.inactive)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.admin.common2.create }))
+
+    await waitFor(() => expect(createPerson).toHaveBeenCalled())
+    expect(createPerson.mock.calls[0][0]).toEqual({ display_name: 'Berger Luca', rank: 'zgf' })
+    // ⚠️ Der Status braucht den zweiten Schreibvorgang: PersonnelCreate kennt kein is_active,
+    // der Server legt IMMER aktiv an (backend/app/api/personnel.py · create_person).
+    await waitFor(() => expect(updatePerson).toHaveBeenCalledWith('p1', { is_active: false }))
+  })
+
+  it('ändert Grad und Status einer erfassten Person in einem PATCH', async () => {
+    listRoster.mockResolvedValue([PERSON])
+    updatePerson.mockResolvedValue({ ...PERSON, rank: 'zgf', is_active: false })
+    await mount()
+
+    fireEvent.click(screen.getByRole('button', { name: `${C.colActions} — Berger Luca` }))
+    fireEvent.click(await screen.findByText(appConfig.copy.admin.common2.edit))
+
+    // der bestehende Grad steht drin, statt dass die Maske mit einem leeren Feld öffnet
+    expect(screen.getByRole('button', { name: C.colRank }).textContent).toContain('Soldat')
+    pick(C.colRank, 'Zugführer · Zgf')
+    pick(C.colStatus, C.inactive)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.admin.common2.save }))
+
+    await waitFor(() => expect(updatePerson).toHaveBeenCalled())
+    expect(updatePerson.mock.calls[0]).toEqual([
+      'p1',
+      { display_name: 'Berger Luca', rank: 'zgf', is_active: false },
+    ])
+  })
+
+  // ⚠️ Select zeigt für einen Wert, den es nicht findet, seine ERSTE Option. Ein Grad, den die
+  // Konfiguration der Station (noch) nicht kennt – der Normalfall nach einer Synchronisation in
+  // eine unkonfigurierte Station – sähe damit leer aus und würde beim Speichern umgehängt.
+  it('hält einen Grad, den die Gradliste nicht kennt, wählbar', async () => {
+    listRoster.mockResolvedValue([{ ...PERSON, rank: 'wachtm' }])
+    updatePerson.mockResolvedValue({ ...PERSON, rank: 'wachtm' })
+    await mount()
+
+    fireEvent.click(screen.getByRole('button', { name: `${C.colActions} — Berger Luca` }))
+    fireEvent.click(await screen.findByText(appConfig.copy.admin.common2.edit))
+    expect(screen.getByRole('button', { name: C.colRank }).textContent).toContain('wachtm')
+
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.admin.common2.save }))
+    await waitFor(() => expect(updatePerson).toHaveBeenCalled())
+    expect(updatePerson.mock.calls[0][1]).toMatchObject({ rank: 'wachtm' })
+  })
+
+  // Eine Tatsache, ein Schreibweg: die Zeilenaktion schreibt denselben PATCH wie der
+  // Status-Wähler der Bearbeitungszeile (vorher DELETE /api/personnel/{id}).
+  it('deaktiviert über die Zeilenaktion mit demselben PATCH', async () => {
+    listRoster.mockResolvedValue([PERSON])
+    updatePerson.mockResolvedValue({ ...PERSON, is_active: false })
+    await mount()
+
+    fireEvent.click(screen.getByRole('button', { name: `${C.colActions} — Berger Luca` }))
+    fireEvent.click(await screen.findByText(C.deactivate))
+    await waitFor(() => expect(updatePerson).toHaveBeenCalledWith('p1', { is_active: false }))
   })
 })

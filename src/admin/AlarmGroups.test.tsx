@@ -36,8 +36,10 @@ const sentGroups = () => {
 const sentBody = () => apiPut.mock.calls[apiPut.mock.calls.length - 1]?.[1] as
   { alarms?: { groups?: unknown[]; captureWindowHours?: number } }
 
+// one group = one `.adm-rec` (ui · RecordRows). Its head cell holds no input, so the record's
+// inputs are still Bezeichnung, Kennung, Zusatz — in that order.
 const rowInputs = (i: number) =>
-  document.querySelectorAll('.adm-formlink')[i].querySelectorAll('input')
+  document.querySelectorAll('.adm-rec')[i].querySelectorAll('input')
 
 /** Let the 700 ms autosave debounce elapse. */
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(1200) })
@@ -53,7 +55,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function setup() {
   await act(async () => { render(<ConfigProvider><AlarmsSection /></ConfigProvider>) })
-  await waitFor(() => expect(document.querySelectorAll('.adm-formlink').length).toBe(1))
+  await waitFor(() => expect(document.querySelectorAll('.adm-rec').length).toBe(1))
 }
 
 describe('Alarmgruppen — what reaches the config document', () => {

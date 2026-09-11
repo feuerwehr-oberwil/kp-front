@@ -18,9 +18,7 @@ import {
 } from './ConfigSections'
 import { MembersView } from './MembersView'
 import { RosterView } from './RosterView'
-import { CaptureAdminView } from './CaptureAdminView'
-import { StatsAdminView } from './StatsAdminView'
-import { IncidentLinkAdminView } from './IncidentLinkAdminView'
+import { LinksView } from './LinksView'
 import { AlarmProviderView, VehicleProviderView } from './DataView'
 import { StationWorkbookView } from './StationWorkbookView'
 import { MaterialView } from './MaterialView'
@@ -37,9 +35,9 @@ import { CredentialsView } from './CredentialsView'
 type SectionId =
   | 'identitaet' | 'doktrin' | 'rapport' | 'alarme' | 'fahrzeuge' | 'material' | 'ebenen' | 'objektplaene'
   | 'checklisten'
-  | 'mitglieder' | 'mannschaft' | 'erfassung'
-  | 'einsaetze' | 'divera' | 'traccar' | 'statistik' | 'einsatzlink' | 'arbeitsmappe'
-  | 'zugaenge'
+  | 'mitglieder' | 'mannschaft'
+  | 'einsaetze' | 'divera' | 'traccar' | 'arbeitsmappe'
+  | 'zugaenge' | 'links'
   | 'system' | 'sicherung'
 
 // Nav copy (label/title/lede/[tip]) lives in appConfig.copy.admin.nav.<id>; entries carry
@@ -56,6 +54,26 @@ interface NavGroup {
 }
 
 const NAV: NavGroup[] = [
+  {
+    // FIRST, above Station: «System & Wartung» is the landing page (see `initialSection`), and a
+    // sidebar that opens with the active entry two groups down reads as if it had opened
+    // somewhere else.
+    heading: 'groupSystem',
+    // «Zugangsdaten» sits under System rather than under Daten: it is not one integration's
+    // page, it is the one place every integration's key is entered — and the question that
+    // brings somebody here («warum kommt kein Alarm an?») is a system question.
+    entries: [
+      // FIRST of the first group: this is where /admin lands, so it is also the entry the eye
+      // starts on. Anything above it makes the landing page look like a detour.
+      { id: 'system', icon: 'gauge' },
+      { id: 'zugaenge', icon: 'lock' },
+      // Directly under Zugangsdaten, and for the same reason: «Links & Zugänge» is the one
+      // place every address this Wehr gives out is listed, so it belongs beside the one place
+      // every key it receives is entered — not on the integration page that happens to use it.
+      { id: 'links', icon: 'external' },
+      { id: 'sicherung', icon: 'swap' },
+    ],
+  },
   {
     heading: 'groupStation',
     entries: [
@@ -77,7 +95,6 @@ const NAV: NavGroup[] = [
     entries: [
       { id: 'mitglieder', icon: 'lock' },
       { id: 'mannschaft', icon: 'people' },
-      { id: 'erfassung', icon: 'pen' },
     ],
   },
   {
@@ -86,20 +103,7 @@ const NAV: NavGroup[] = [
       { id: 'einsaetze', icon: 'history' },
       { id: 'divera', icon: 'radio' },
       { id: 'traccar', icon: 'truck' },
-      { id: 'statistik', icon: 'gauge' },
-      { id: 'einsatzlink', icon: 'eye' },
       { id: 'arbeitsmappe', icon: 'download' },
-    ],
-  },
-  {
-    heading: 'groupSystem',
-    // «Zugangsdaten» sits under System rather than under Daten: it is not one integration's
-    // page, it is the one place every integration's key is entered — and the question that
-    // brings somebody here («warum kommt kein Alarm an?») is a system question.
-    entries: [
-      { id: 'zugaenge', icon: 'lock' },
-      { id: 'system', icon: 'gauge' },
-      { id: 'sicherung', icon: 'swap' },
     ],
   },
 ]
@@ -113,7 +117,7 @@ function navCopy(id: SectionId): { label: string; title: string; lede: string; t
 }
 
 /** Last-visited section from the device cookie, validated against the current nav (a stale
- *  or renamed id falls back to the first page). */
+ *  or renamed id falls back to the landing page, «System & Wartung»). */
 function initialSection(): SectionId {
   const saved = loadPrefs().adminSection
   if (saved === 'karte') return 'identitaet'
@@ -123,6 +127,17 @@ function initialSection(): SectionId {
   // System & Wartung replaced the former Übersicht as the landing page (2026-07-18) —
   // it answers "is everything healthy/connected?" at a glance, which IS the landing question.
   if (saved === 'uebersicht') return 'system'
+  // «Statistik-Export» was a page of its own until 2026-09-10 and is a row of «Links & Zugänge»
+  // now (LinksView). «Erfassungsblatt» lost its admin page the same day: the blank sheet is
+  // printed where it is actually needed — in the app, out of the Einstellungen sheet
+  // (components/panels · SettingsSheet) — and what is left of that page in /admin is the
+  // poster's link, also a row there. A device that remembers either lands on that table rather
+  // than silently on the landing page.
+  if (saved === 'statistik' || saved === 'erfassung') return 'links'
+  // «Einsatz-Link» went further on 2026-09-11: it is a signing key, not an address — the
+  // alerting system signs a per-incident token with it — so it lives with the other integration
+  // keys under «Zugangsdaten» (CredentialsView · IncidentLinkKey), not on the page of addresses.
+  if (saved === 'einsatzlink') return 'zugaenge'
   return ALL_ENTRIES.some((e) => e.id === saved) ? (saved as SectionId) : 'system'
 }
 
@@ -167,14 +182,11 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     case 'checklisten': return <ChecklistsView />
     case 'mitglieder': return <MembersView />
     case 'mannschaft': return <RosterView />
-    case 'erfassung': return <CaptureAdminView />
     case 'einsaetze': return <IncidentHistoryView />
     // Both report «nicht konfiguriert» on a fresh instance and can do nothing about it
     // themselves — the key is entered one page further on, so they link there.
     case 'divera': return <AlarmProviderView onNavigate={go} />
     case 'traccar': return <VehicleProviderView onNavigate={go} />
-    case 'statistik': return <StatsAdminView />
-    case 'einsatzlink': return <IncidentLinkAdminView />
     // Not a CONFIG_SECTION: the workbook is parsed and applied SERVER-side, so this page holds
     // no config draft — one that did would be the client-side full-document write the whole
     // design exists to avoid.
@@ -183,6 +195,8 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     // their own table, NOT in the config document — GET /api/config is public and the Sicherung
     // round-trip replaces that document wholesale.
     case 'zugaenge': return <CredentialsView />
+    // the Alarm-Webhook row has no key of its own — it is set one page back, so this one navigates.
+    case 'links': return <LinksView onNavigate={go} />
     // the Einrichtung card links into the pages that fix each row, so this one navigates.
     case 'system': return <SystemView onNavigate={go} />
     case 'sicherung': return <BackupView />

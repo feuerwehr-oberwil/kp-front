@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Children, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { apiDelete, apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
@@ -35,29 +35,37 @@ export function fmtDateTime(iso: string | null | undefined): string {
 /** Section card — the single container used by every admin view. `title` is optional:
  *  a single-card page leans on the page head (h1 + lede + tip) and renders the card as a
  *  plain panel, so the title/caption aren't duplicated. Multi-card pages title each card. */
-export function Card({ id, title, caption, tip, children }: {
+export function Card({ id, title, caption, tip, action, className, onSubmit, children }: {
   id?: string
   title?: string
   caption?: string
   tip?: string
+  /** a control that belongs to the card as a whole, right-aligned in its header — a filter
+   *  toggle, a single «Hinzufügen». Not for per-row actions, which live in their row. */
+  action?: ReactNode
+  className?: string
+  /** Given, the card IS the form and Enter submits. Without it the root stays a `<section>`:
+   *  a page full of stray `<form>`s makes Enter mean different things in neighbouring cards. */
+  onSubmit?: (e: FormEvent<HTMLFormElement>) => void
   children: ReactNode
 }) {
-  return (
-    <section className="adm-card" id={id}>
-      {(title || caption) && (
-        <header className="adm-card-head">
-          {title && (
-            <h2 className="adm-card-title">
-              {title}
-              {tip && <InfoTip label={title} text={tip} />}
-            </h2>
-          )}
-          {caption && <p className="adm-card-cap">{caption}</p>}
-        </header>
+  const head = (title || caption || action) && (
+    <header className="adm-card-head">
+      {title && (
+        <h2 className="adm-card-title">
+          {title}
+          {tip && <InfoTip label={title} text={tip} />}
+        </h2>
       )}
-      <div className="adm-card-body">{children}</div>
-    </section>
+      {caption && <p className="adm-card-cap">{caption}</p>}
+      {action && <div className="adm-card-act">{action}</div>}
+    </header>
   )
+  const cls = className ? `adm-card ${className}` : 'adm-card'
+  const body = <div className="adm-card-body">{children}</div>
+  return onSubmit
+    ? <form className={cls} id={id} onSubmit={onSubmit}>{head}{body}</form>
+    : <section className={cls} id={id}>{head}{body}</section>
 }
 
 /** Labelled form field (label + optional hint/tip over the control). */
@@ -88,13 +96,18 @@ export function Field({ label, hint, tip, children }: {
    ⓘ, one row per setting, uppercase group dividers, and the prose moved verbatim into the row's
    ⓘ (InfoTip — hover on a desktop, tap on an iPad, no layout shift either way).
 
-   ⚠️ A GRID, NOT A <table>. A setting's label has to wrap its control to stay associated with
-   it — that is what keeps every call site free of an id and `getByLabelText` working — and a
-   <label> cannot span two <td>s. So each row is a `display: contents` <label> whose cells become
-   the grid's own items. Same columns, same hairlines, association intact. Its cells therefore
-   carry the row's borders and hover themselves (a `display: contents` box paints nothing), and
-   the grid STRETCHES them to the row's height — otherwise one wrapping label leaves its
-   neighbours' hairlines halfway up the row (admin.css · .adm-settings).                      */
+   ⚠️ A GRID, NOT A <table>. Each row is a `display: contents` box whose four cells become the
+   grid's own items, so the columns line up across every row without a <td> in sight. Its cells
+   therefore carry the row's borders and hover themselves (a `display: contents` box paints
+   nothing), and the grid STRETCHES them to the row's height — otherwise one wrapping label
+   leaves its neighbours' hairlines halfway up the row (admin.css · .adm-settings).
+
+   ⚠️ The row is a <div>, and only the label TEXT is the <label>. It used to be the row itself,
+   which made the whole hover band a hit area: a click on the empty label column, on the Standard
+   cell or on the slack beside the ⓘ focused the control — and on a checkbox row it toggled the
+   setting. Association survives without the wrapping because `SettingRow` hands the Wert cell's
+   first focusable element an id and points its label at it, so call sites still pass no id and
+   `getByLabelText` still finds the control.                                                  */
 
 /** One page's settings, as the strict table. `title`/`caption`/`tip` are the card head; a
  *  single-sheet page leans on the page head instead and passes none of them. */
@@ -184,6 +197,10 @@ export function standardNote(
   return fillTemplate(appConfig.copy.admin.common.standardChanged, { value: readable(standard) })
 }
 
+/** What counts as «the control» of a row: the first thing in the Wert cell a click could land on.
+ *  A row whose Wert cell holds none (a StatusBadge, a plain sentence) simply gets an inert label. */
+const FOCUSABLE = 'input:not([type="hidden"]), textarea, select, button, [tabindex]'
+
 /**
  * One setting: label | control | Standard | ⓘ.
  *
@@ -211,20 +228,139 @@ export function SettingRow({ label, hint, tip, standard, span, children }: {
   span?: boolean
   children: ReactNode
 }) {
+  const fallbackId = useId()
+  const ctl = useRef<HTMLSpanElement>(null)
+  const name = useRef<HTMLLabelElement>(null)
+  // Bind the label to the control the only way a caller-free row can: find the Wert cell's first
+  // focusable element and point at it. Both sides are written imperatively — the control's id
+  // because it is somebody else's element (and one that brought its own id keeps it), the `for`
+  // because it is not a prop React would fight us over. Runs after EVERY render, since a row may
+  // swap its control (the CRS switch does) and a stale `for` is a label that does nothing.
+  useLayoutEffect(() => {
+    const el = name.current
+    if (!el) return
+    const target = ctl.current?.querySelector<HTMLElement>(FOCUSABLE)
+    if (!target) { el.removeAttribute('for'); return }
+    if (!target.id) target.id = fallbackId
+    el.htmlFor = target.id
+  })
   // ⚠️ Source order IS column order: the cells are the grid's own items (the row is
   // `display: contents`), so they are placed in the order they are written here.
   return (
-    <label className={`adm-set-row${span ? ' span' : ''}`}>
+    <div className={`adm-set-row${span ? ' span' : ''}`}>
       <span className="adm-set-lbl">
-        <span className="adm-set-name">{label}</span>
+        <label className="adm-set-name" ref={name}>{label}</label>
         {hint && <span className="adm-field-hint">{hint}</span>}
       </span>
-      <span className="adm-set-ctl">{children}</span>
+      <span className="adm-set-ctl" ref={ctl}>{children}</span>
       <span className="adm-set-std">{standard}</span>
       <span className="adm-set-info">
         {tip && <InfoTip label={label} text={tip} />}
       </span>
-    </label>
+    </div>
+  )
+}
+
+/* ── the record table ────────────────────────────────────────────────────────────────────────
+   A list editor is not a list of settings: its rows belong to RECORDS (a Kartenebene, ein Modul,
+   eine Alarmgruppe, ein Fahrzeug), and the settings table could only say so with a full-width
+   uppercase divider per record — the name on its own band, the fields under it, and the eye
+   losing which record it is in as soon as one scrolled past its divider.
+
+   Same grid, one column more: Ebene | Bezeichnung | Wert | ⓘ. The record's name is written ONCE,
+   in a left cell that SPANS its own rows and carries the swatch, the meta line and the bin. Every
+   row beside it is then just a label and a value.
+
+   ⚠️ Why the record column is a grid cell with `grid-row: span N` and not a nested grid, a
+   subgrid or a <table>. A nested grid per record sizes its columns per record, so record two's
+   Bezeichnung column would not line up with record one's — which is the whole point. Subgrid
+   would, but it was tried and reverted here on 04.09. (Truppkarte). And every row must stay
+   `display: contents` so `SettingRow` keeps working unchanged. That leaves one flat grid with a
+   spanning cell, and CSS cannot count a record's rows — so React does, below.
+
+   ⚠️ The record table is its OWN grid (`.adm-records`), not `.adm-settings` with a fifth track.
+   Sharing would have meant every plain setting row spanning the record column, and every span
+   row of every sheet re-deriving its `2 / -2`. It also keeps the repaired `.adm-settings` tracks
+   untouched (admin.css · the Standard-column starvation note).                                */
+
+/** One page's records, as the table. `recordLabel` names the left column in the surface's own
+ *  words («Ebene», «Modul», «Alarmgruppe»); `fieldLabel` names the attribute column
+ *  («Bezeichnung»). Both come from the caller's copy namespace — this component owns no strings
+ *  beyond the two it shares with the settings table. */
+export function RecordTable({ id, title, caption, tip, recordLabel, fieldLabel, children }: {
+  id?: string
+  title?: string
+  caption?: string
+  tip?: string
+  recordLabel: string
+  fieldLabel: string
+  children: ReactNode
+}) {
+  const C = appConfig.copy.admin.common
+  return (
+    <section className="adm-card adm-sheet" id={id}>
+      {(title || caption) && (
+        <header className="adm-card-head">
+          {title && (
+            <h2 className="adm-card-title">
+              {title}
+              {tip && <InfoTip label={title} text={tip} />}
+            </h2>
+          )}
+          {caption && <p className="adm-card-cap">{caption}</p>}
+        </header>
+      )}
+      <div className="adm-records">
+        <div className="adm-set-head">
+          <span className="adm-set-h">{recordLabel}</span>
+          <span className="adm-set-h">{fieldLabel}</span>
+          <span className="adm-set-h">{C.colValue}</span>
+          <span className="adm-set-h adm-set-h-info" aria-label={C.colInfo}>ⓘ</span>
+        </div>
+        {children}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * ONE record: its head cell, spanning the rows that follow it.
+ *
+ * `children` are the record's rows — `SettingRow`s, plus whatever `SettingsNote`s the record
+ * itself has to say (a validation line, its own action row). They stay the grid's items, so the
+ * columns line up across every record on the page.
+ *
+ * ⚠️ EVERY child must be exactly one grid row. The head's span is the number of ELEMENT children
+ * — conditionals (`{warn && <SettingsNote …>}`, `{id && <SettingRow …>}`) are counted correctly
+ * because `toArray` drops null/false and `isValidElement` drops the stray '' a `&&` over an empty
+ * string leaves behind. What it cannot see through is a child that renders two rows (a Fragment
+ * of rows, a component returning several): the head would come out one row short and every record
+ * below it would shift by one. Hand such a case two children instead.
+ */
+export function RecordRows({ name, swatch, meta, action, children }: {
+  name: string
+  /** the record's colour, where it has one — a CSS colour string, drawn as the head's swatch */
+  swatch?: string | null
+  /** the one line that says what this record IS, not what it is set to: «Version 2 · 1264
+   *  Features · Aktualisiert 18.7.2026» */
+  meta?: ReactNode
+  /** the record's own control — the bin that deletes it */
+  action?: ReactNode
+  children: ReactNode
+}) {
+  const rows = Math.max(1, Children.toArray(children).filter(isValidElement).length)
+  return (
+    <div className="adm-rec">
+      <div className="adm-rec-head" style={{ gridRow: `span ${rows}` }}>
+        <span className="adm-rec-name">
+          {swatch && <span className="adm-rec-swatch" style={{ background: swatch }} aria-hidden />}
+          {name}
+        </span>
+        {meta && <span className="adm-rec-meta">{meta}</span>}
+        {action && <span className="adm-rec-act">{action}</span>}
+      </div>
+      {children}
+    </div>
   )
 }
 
@@ -726,126 +862,4 @@ export function useSecret(basePath: string, said: { rotated: string; disabled: s
     rotate,
     disable,
   }
-}
-
-/** Everything a secret surface says. Passed in from the caller's own copy namespace
- *  (admin.statistik / admin.einsatzlink / admin.terminal …), so this component owns no strings.
- *
- *  ⚠️ `body` and `hint` are the two ⓘ — the group divider's and the status row's. They used to
- *  be paragraphs above and below the card; nothing reads them as prose any more. */
-export interface SecretCardCopy {
-  body: string
-  stateLabel: string
-  stateOn: string
-  stateOff: string
-  /** what the value IS, and the status row's own label: «Token» / «Schlüssel» */
-  keyLabel: string
-  exampleLabel: string
-  /** the qualifier the example label used to carry in brackets */
-  exampleTip?: string
-  docsLink: string
-  enableBtn: string
-  rotateBtn: string
-  rotateMsg: string
-  disableBtn: string
-  disableMsg: string
-  hint: string
-}
-
-/**
- * One secret surface as rows of the settings sheet: what the key's state is, the value while it
- * is being handed out, the one line the other system needs, and the actions in consequence
- * order — enable, rotate, disable last.
- *
- * `example` builds the line that is genuinely per-surface (a curl command, a link shape) from
- * the freshly minted token; it is only asked for while there is one to show.
- *
- * ⚠️ Returns a Fragment, never a wrapper element: `.adm-settings` is a CSS grid whose rows are
- * `display: contents`, so a <div> around them would take every cell out of the table's columns.
- *
- * ⚠️ The value and the example are ROWS (`span`), not full-width notes. They were notes — label
- * over chip, buttons under that — which is the one stacked shape this table exists to remove,
- * and a long URL with its token chips is exactly what `span` is for (see `SettingRow`).
- */
-export function SecretRows({ secret, copy, docsUrl, example, showKey, print }: {
-  secret: SecretApi
-  copy: SecretCardCopy
-  docsUrl: string
-  example: (token: string) => string
-  /** the Einsatz-Link and the Statistik-Export hand out the KEY itself (the other system signs
-   *  or authenticates with it); the two standing links only ever hand out the URL carrying theirs */
-  showKey?: boolean
-  /** the fixe Atemschutz-URL hangs its printable QR card in the action row */
-  print?: { label: string; run: () => void }
-}) {
-  const C = appConfig.copy.admin.common
-  const { state, busy, result, clearResult, rotate, disable } = secret
-  if (state === null) return null
-  return (
-    <>
-      <SettingsGroup title={copy.stateLabel} tip={copy.body} />
-      {/* The badge carries no label of its own here — the row's Einstellung column already
-          names it, and the divider above names the surface. */}
-      <SettingRow label={copy.keyLabel} tip={copy.hint}>
-        <StatusBadge
-          tone={state.configured ? 'on' : 'off'}
-          label=""
-          state={state.configured ? copy.stateOn : copy.stateOff}
-        />
-      </SettingRow>
-      {state.token && showKey && (
-        <SettingRow label={C.newSecret} span>
-          <CopyChip value={state.token} />
-        </SettingRow>
-      )}
-      {state.token && (
-        <SettingRow label={copy.exampleLabel} tip={copy.exampleTip} span>
-          <span className="adm-set-col">
-            <CopyChip value={example(state.token)} />
-            <a className="adm-link" href={docsUrl} target="_blank" rel="noreferrer">{copy.docsLink}</a>
-          </span>
-        </SettingRow>
-      )}
-      <SettingsNote>
-        <div className="adm-actions">
-          {state.configured ? (
-            <>
-              {print && (
-                <button type="button" className="btn adm-save-btn" disabled={busy} onClick={print.run}>
-                  {print.label}
-                </button>
-              )}
-              {/* the primary slot belongs to whatever is the useful action here: printing the
-                  card where there is one to print, rotating where there is not */}
-              <ConfirmButton label={copy.rotateBtn} question={copy.rotateMsg} primary={!print}
-                disabled={busy} onConfirm={() => void rotate()} />
-              <ConfirmButton label={copy.disableBtn} question={copy.disableMsg} danger
-                disabled={busy} onConfirm={() => void disable()} />
-            </>
-          ) : (
-            <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => void rotate()}>
-              {copy.enableBtn}
-            </button>
-          )}
-          {result && <ResultChip tone={result.tone} onExpire={clearResult}>{result.text}</ResultChip>}
-        </div>
-      </SettingsNote>
-    </>
-  )
-}
-
-/** A single-surface secret page (Statistik-Export): the rows above, in a sheet of their own.
- *  The Einsatz-Link page composes three `SecretRows` into ONE sheet instead. */
-export function SecretCard({ secret, copy, docsUrl, example }: {
-  secret: SecretApi
-  copy: SecretCardCopy
-  docsUrl: string
-  example: (token: string) => string
-}) {
-  if (secret.state === null) return null
-  return (
-    <SettingsSheet>
-      <SecretRows secret={secret} copy={copy} docsUrl={docsUrl} example={example} showKey />
-    </SettingsSheet>
-  )
 }

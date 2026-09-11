@@ -154,9 +154,16 @@ body {
 /* in-flow panes reserve the scrollbar lane up front so content doesn't shift the moment
    a list grows past the fold (module-CSS lists set this in their own files). NOT the
    narrow icon docks (.wb-dock) — a permanently reserved lane reads as lopsided padding
-   on a column that's only as wide as its buttons. */
+   on a column that's only as wide as its buttons.
+   ⚠️ The rule is «the bar comes and goes», not «the box scrolls». So a sheet body IS here
+   (.ip-sheet > .ip-body grows a validation line, an upload slot, a preview) while the
+   popups and menus that scroll are NOT (.combo-menu, .ip-ac-menu, .ip-menu, .tb-weather-pop,
+   .wb-trupp-pick, .adm-select-list): each is laid out once, at its own width, when it opens —
+   there is nothing beside it for a late bar to push. Nor .wheel, which hides its bar on
+   purpose, nor the phone-only sheets, where the lane costs real width. */
 .ctx-body, .history-list, .sym-scroll, .pp-list, .roster, .rp-people, .cv-people,
-.report-preflight > .ip-body, .ip-objlist, .ip-launch-list, .help-toc, .help-content { scrollbar-gutter: stable; }
+.report-preflight > .ip-body, .ip-sheet > .ip-body, .ip-objlist, .ip-launch-list,
+.ip-emptyapp, .help-toc, .help-content { scrollbar-gutter: stable; }
 
 /* Breathing room for every scroll that REVEALS a field — Safari's own «keep the caret visible»
    pass and lib/useScrollFocusIntoView both honour it. Without it a `block: 'nearest'` scroll stops

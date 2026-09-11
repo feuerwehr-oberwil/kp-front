@@ -33,6 +33,7 @@ import { fillTemplate } from '../lib/format'
 
 const C = appConfig.copy.admin.common
 const D = appConfig.copy.admin.doctrine
+const R = appConfig.copy.admin.report
 const SHIPPED_ALARM_BAR = appConfig.atemschutz.alarmBar
 
 /** The note as the column prints it for a given shipped default. */
@@ -196,12 +197,65 @@ describe('Textbausteine after the Journal page was folded into Rapport', () => {
 })
 
 /**
+ * ⚠️ The row's HIT AREA, which is not the same thing as its layout.
+ *
+ * All four cells used to sit inside one <label>, so a click anywhere in the hover band activated
+ * the control: reading what the Standard column said about the print order flipped the print
+ * order. Only the label TEXT is a target now, and it reaches the control through `for`/id — which
+ * is the part that could rot silently, because a label pointing at nothing still LOOKS like a
+ * label.
+ */
+describe('a settings row is clickable on its label and nowhere else', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    apiPut.mockReset().mockImplementation(async (_p: string, body: unknown) => body)
+    // reversePrintOrder OFF, so this row is the one with something in its Standard cell
+    apiGet.mockReset().mockResolvedValue({
+      version: 'v1',
+      report: { hoursRounding: { stepMin: 30, graceMin: 5 }, reversePrintOrder: false, links: [], partnerOrgs: [] },
+    })
+  })
+  afterEach(() => { cleanup(); vi.useRealTimers() })
+
+  const box = () => document.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+  const row = () => screen.getByText(R.reverseOrder).closest('.adm-set-row')!
+  const open = async () => {
+    render(<ConfigProvider><ConfigGate><ReportSection /></ConfigGate></ConfigProvider>)
+    await waitFor(() => expect(document.querySelector('input[type="checkbox"]')).toBeTruthy())
+  }
+
+  it('binds the label to the control by id — no call site passes one', async () => {
+    await open()
+    expect(screen.getByLabelText(R.reverseOrder)).toBe(box())
+    // the row itself is no longer a <label>: it may not wrap the control again
+    expect(row().tagName).toBe('DIV')
+  })
+
+  it('toggles the checkbox from the label text', async () => {
+    await open()
+    expect(box().checked).toBe(false)
+    await act(async () => { fireEvent.click(screen.getByText(R.reverseOrder)) })
+    expect(box().checked).toBe(true)
+  })
+
+  it('⚠️ leaves the control alone when the Standard cell is clicked', async () => {
+    await open()
+    const std = row().querySelector('.adm-set-std')!
+    expect(std.textContent).toBe(note(C.standardOn)) // …i.e. this cell has something to read
+    await act(async () => { fireEvent.click(std) })
+    expect(box().checked).toBe(false)
+    expect(document.activeElement).not.toBe(box())
+  })
+})
+
+/**
  * ⚠️ The one invariant the whole layout stands on, and the one nothing else would catch.
  *
- * A settings row is a `display: contents` <label>, so its four cells are items of the
- * `.adm-settings` GRID rather than of the row. Wrap a row — or a group heading, or a note — in
- * a plain <div> and that div becomes the grid item instead: the row collapses into a single
- * column, and every column below it stops lining up. Nothing throws, no test fails, and it
+ * A settings row is a `display: contents` box, so its four cells are items of the
+ * `.adm-settings` GRID rather than of the row. Put a row — or a group heading, or a note — inside
+ * a box of its own (anything that is not itself `display: contents`) and that box becomes the
+ * grid item instead: the row collapses into a single column, and every column below it stops
+ * lining up. Nothing throws, no test fails, and it
  * looks fine in a diff. So the structure is asserted, on every Station page at once.
  */
 describe('the settings grid', () => {
@@ -224,16 +278,21 @@ describe('the settings grid', () => {
     ['Fahrzeuge & Symbole', FleetSection],
   ] as const
 
-  /** Wrappers allowed to stand between the grid and a row, because they are `display: contents`
+  /** The two grids a Station row may sit in: the settings table and the record table. A page
+   *  may have both (Alarme & Einsätze) or only one (Fahrzeuge & Symbole). */
+  const GRIDS = ['adm-settings', 'adm-records']
+
+  /** Wrappers allowed to stand between a grid and a row, because they are `display: contents`
    *  and so are not layout boxes at all. `.adm-formlink` groups ONE record of a list editor
-   *  (an Alarmgruppe, a Fahrzeug, ein Formular) for React and for the tests that count records.
+   *  inside a settings sheet; `.adm-rec` does the same in a record table, where the record's
+   *  head cell spans its rows (ui · RecordRows).
    *  ⚠️ Anything NOT on this list is a real box and breaks every column below it. */
-  const TRANSPARENT = ['adm-formlink']
+  const TRANSPARENT = ['adm-formlink', 'adm-rec']
 
   it.each(SECTIONS)('puts every row of %s directly in the grid', async (_name, Section) => {
     const { container } = render(<ConfigProvider><Section /></ConfigProvider>)
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
-    await waitFor(() => expect(container.querySelectorAll('.adm-settings').length).toBeGreaterThan(0))
+    await waitFor(() => expect(container.querySelectorAll(GRIDS.map((g) => `.${g}`).join(', ')).length).toBeGreaterThan(0))
     const cells = Array.from(container.querySelectorAll('.adm-set-row, .adm-set-grp, .adm-set-note'))
     // …otherwise «no strays» would be true of a page that rendered nothing at all
     expect(cells.length).toBeGreaterThan(0)
@@ -241,7 +300,7 @@ describe('the settings grid', () => {
       .filter((el) => {
         const p = el.parentElement
         if (!p) return true
-        return !p.classList.contains('adm-settings')
+        return !GRIDS.some((g) => p.classList.contains(g))
           && !TRANSPARENT.some((c) => p.classList.contains(c))
       })
       .map((el) => `${el.className} sits in <${el.parentElement?.tagName.toLowerCase()} class="${el.parentElement?.className}">`)

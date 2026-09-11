@@ -93,9 +93,14 @@ describe('ModulesViewer', () => {
     expect(screen.getByText(/Keine Module konfiguriert/)).toBeTruthy()
   })
 
+  // ⚠️ The claim is «this surface mutates nothing», not «it has no <button> element»: since the
+  // house-style pass the badges explain themselves through `InfoTip`, whose trigger is a real
+  // button on purpose (keyboard-focusable, and tappable on the iPad a native `title=` is
+  // invisible on). So the count that must stay at zero is buttons that are NOT a hint trigger.
   it('has no action buttons (read-only)', () => {
     const { container } = render(<ModulesViewer modules={modules} objects={objects} />)
-    expect(container.querySelectorAll('button').length).toBe(0)
+    const actions = [...container.querySelectorAll('button')].filter((b) => !b.classList.contains('adm-tip-trigger'))
+    expect(actions.length).toBe(0)
   })
 })
 

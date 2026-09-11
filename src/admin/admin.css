@@ -114,8 +114,11 @@
    pinned the settings table's column header 28px down while rows kept scrolling visibly
    through the band above it — a whole setting riding over the header that was meant to hide
    it (admin.css · .adm-set-h). With the padding on the inner column the two edges coincide
-   and `top: 0` means what it says. */
-.adm-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 0 28px 64px; }
+   and `top: 0` means what it says.
+   ⚠️ `scrollbar-gutter: stable` — the content column is the one box on /admin whose height
+   changes under the reader (a page swap, a table that loads, a card that unfolds), and without
+   the reserved lane every one of those slid the whole column sideways by the width of the bar. */
+.adm-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: 0 28px 64px; }
 .adm-col { max-width: 1180px; margin: 0 auto; padding-top: 28px; }
 
 /* page heading + autosave status share a row */
@@ -124,7 +127,10 @@
 .adm-h1 { font-size: 22px; font-weight: 700; letter-spacing: -.01em; margin: 4px 0 4px; }
 .adm-h1 .adm-tip { margin-left: 7px; }
 .adm-h1 .adm-tip-trigger { width: 20px; height: 20px; font-size: 15px; }
-.adm-lede { font-size: 13.5px; color: var(--ink-dim); margin: 0 0 24px; max-width: none; }
+/* the sentence under the page title. Held to a readable measure: across the full 1180px
+   content column it ran to ~140 characters a line, which is twice what an eye tracks — the
+   same reason `.adm-hint` inside a card stops at 62ch. */
+.adm-lede { font-size: 13.5px; color: var(--ink-dim); margin: 0 0 24px; max-width: 72ch; }
 
 /* ── autosave status pill (replaces the manual save bar) ──────────────────── */
 .adm-autosave {
@@ -202,9 +208,30 @@
 }
 .adm-card + .adm-card { margin-top: 20px; }
 .adm-card-head { margin-bottom: 16px; }
+/* A card-level control (a filter toggle, one «Hinzufügen») sits at the end of the title line, with
+   the caption dropping to a full-width line beneath both — so the control keeps the same place
+   whether or not the card has a caption. Only cards that ask for one pay the layout. */
+.adm-card-head:has(.adm-card-act) {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  justify-content: space-between; gap: 8px 12px;
+}
+/* `order: 1` is what makes that true: in source order the caption stands between the title and
+   the action, so a full-width caption pushed the action onto a THIRD line — title, sentence,
+   lone button. Visual order only; the head still reads title → caption → control. */
+.adm-card-head:has(.adm-card-act) > .adm-card-cap { flex-basis: 100%; margin-top: 0; order: 1; }
+/* `margin-left: auto`, not the head's `space-between` alone: a card with an action but NO title
+   (a single-card page leans on the page head — ui · Card) has the action as the head's only item,
+   and space-between would park it on the left. The rule is «the control is right-aligned», in
+   every one of the three head shapes. */
+.adm-card-act { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; }
 .adm-card-title { font-size: 15px; font-weight: 700; letter-spacing: .01em; margin: 0; }
 .adm-card-cap { font-size: 12px; color: var(--ink-faint); margin: 5px 0 0; line-height: 1.45; }
+/* A card whose whole content is its header controls (the Arbeitsmappe's two actions, with the
+   body reserved for what the file turns out to say) must not print 38px of empty padding under
+   them — the body collapses, and the head drops its bottom margin with it. */
 .adm-card-body { display: flex; flex-direction: column; gap: 16px; }
+.adm-card-body:empty { display: none; }
+.adm-card-head:has(+ .adm-card-body:empty) { margin-bottom: 0; }
 
 /* ── fields ───────────────────────────────────────────────────────────────── */
 .adm-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -269,9 +296,17 @@
    halves of that: it stops growing at 400px on a wide page (a Zahl in a 600px box is comic),
    and it yields proportionally on a narrow one rather than squeezing the Einstellung column
    down to two words. */
+/* ⚠️ Einstellung has a FLOOR and Standard has a CEILING, and neither is decoration. Standard
+   was the only intrinsic track (`minmax(0, auto)`), so a `span` row — whose control takes
+   `2 / -2`, i.e. Wert AND Standard — handed its whole max-content surplus to Standard. Standard
+   ballooned, the free space the `1fr` lives on went to zero, and Einstellung collapsed to 0px
+   for EVERY row of that sheet, the labels spilling visibly over the value cells (Rapport's
+   chip lists, Zugangsdaten's key rows). `fit-content` caps what a span row can push into
+   Standard — 180px is well past the widest «#e8392b · geändert» — and the `160px` floor means
+   the label column keeps its width even if something one day exceeds that cap. */
 .adm-settings {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(200px, min(400px, 42%)) minmax(0, auto) 34px;
+  grid-template-columns: minmax(160px, 1fr) minmax(200px, min(400px, 42%)) fit-content(180px) 34px;
   align-items: stretch;
 }
 
@@ -316,7 +351,10 @@
   display: flex; align-items: center; gap: 7px;
   border-bottom: 1px solid var(--border-soft);
 }
-.adm-set-lbl { padding-left: 18px; flex-wrap: wrap; }
+/* wraps to a second line («Schrittweite (min)») rather than widening the column — and
+   `min-width: 0` so the flex cell yields instead of forcing the track open. NO `overflow:
+   hidden` here: the label has to be readable in full, on two lines if that is what it takes. */
+.adm-set-lbl { padding-left: 18px; flex-wrap: wrap; min-width: 0; }
 .adm-set-info { padding-right: 14px; justify-content: flex-end; }
 @media (hover: hover) {
   .adm-set-row:hover > * { background: color-mix(in srgb, var(--ink) 3.5%, transparent); }
@@ -326,6 +364,12 @@
 /* the Standard column is empty on every row that still runs on the shipped value — it speaks
    only for a deviation, which is the whole reason it can sit there without adding noise */
 .adm-set-std { font: 500 11.5px var(--mono); color: var(--amber-strong); white-space: nowrap; }
+/* ⚠️ The Wert cell WRAPS. It is a flex row (`.adm-set-row > *` above), and a non-wrapping flex
+   row's max-content width is every child laid out on ONE line — which on a `span` row is exactly
+   the surplus the grid then pushes into the Standard column. Wrapping (plus `min-width: 0`)
+   makes that contribution shrinkable, so a chip list or a Speichern/Löschen pair can never
+   starve the Einstellung column. */
+.adm-set-ctl { flex-wrap: wrap; min-width: 0; }
 .adm-set-ctl > .adm-input,
 .adm-set-ctl > .adm-color-row,
 .adm-set-ctl > .adm-combo,
@@ -424,6 +468,103 @@
   .adm-set-ctl { order: 3; flex: 1 0 100%; }
   .adm-set-ctl .adm-input { width: 100%; }
 }
+/* ── the record table (ui.tsx · RecordTable / RecordRows) ─────────────────────────────────────
+   A list editor's records — Kartenebenen, Module, Alarmgruppen, Fahrzeuge — as one strict table:
+   Ebene | Bezeichnung | Wert | ⓘ. The record's name stands ONCE, in a left cell that spans its
+   own rows and carries its swatch, its meta line and its bin; every row beside it is a label and
+   a value. It replaces the full-width uppercase divider per record, which put the name on a band
+   of its own and left the eye no way of telling, three rows down, whose fields it was reading.
+
+   ⚠️ It is its OWN grid, deliberately not `.adm-settings` with a fifth track: every plain
+   setting row on every other page would then have to span the record column, and `.adm-settings`
+   was just repaired (see the Standard-column starvation note above) — one grid, one set of
+   invariants.
+
+   ⚠️ EVERY cell here is placed in an explicit column, because the record head is the only item
+   that spans rows and auto-placement around a spanning item is a cursor, not a layout: with all
+   four columns definite, the placement cursor walks 1→4 per row and starts a new row whenever it
+   would go backwards, which is exactly the shape this table wants. `.adm-set-std` has no column
+   because a record has no Standard — a `display: none` item is not placed at all.
+
+   ⚠️ No track can be starved by a wide cell, which is the failure `.adm-settings` had: three of
+   the four tracks have a bounded maximum (`min()`, `fit-content()`, a fixed 34px), so a long
+   layer name or a chip list can only overflow its own cell. The Wert column is the single `1fr`
+   and absorbs the rest of the width; its controls are capped, because a 640px box for a hex
+   colour is comic. Verified in a real browser — tmp/gridcheck.cjs, `records` scenario. */
+.adm-records {
+  display: grid;
+  grid-template-columns: minmax(160px, min(300px, 26%)) fit-content(190px) minmax(200px, 1fr) 34px;
+  align-items: stretch;
+}
+.adm-records > .adm-set-head > .adm-set-h:nth-child(1) { grid-column: 1; }
+.adm-records > .adm-set-head > .adm-set-h:nth-child(2) { grid-column: 2; }
+.adm-records > .adm-set-head > .adm-set-h:nth-child(3) { grid-column: 3; }
+.adm-records > .adm-set-head > .adm-set-h:nth-child(4) { grid-column: 4; }
+.adm-records:first-child .adm-set-h:first-child { border-top-left-radius: calc(var(--r-surface) - 1px); }
+.adm-records:first-child .adm-set-h-info { border-top-right-radius: calc(var(--r-surface) - 1px); }
+
+/* one record. `display: contents` for the same reason a row is: its head and its rows are the
+   GRID's items, or nothing would line up across records. */
+.adm-rec { display: contents; }
+/* the head cell — its `grid-row: span N` is written by RecordRows, since CSS cannot count rows */
+.adm-rec-head {
+  grid-column: 1;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  min-width: 0; padding: 11px 12px 11px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  border-right: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--ink) 1.8%, transparent);
+}
+.adm-rec-name {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  font-size: 13.5px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere;
+}
+.adm-rec-swatch { flex: none; width: 13px; height: 13px; border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }
+.adm-rec-meta { font-size: 11.5px; line-height: 1.35; color: var(--ink-faint); overflow-wrap: anywhere; }
+.adm-rec-act { margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+.adm-rec-act .adm-formlink-x { width: 32px; height: 32px; }
+.adm-rec-act .adm-confirm { text-transform: none; letter-spacing: normal; }
+
+/* the three columns beside the head */
+.adm-records .adm-set-lbl { grid-column: 2; padding-left: 14px; }
+.adm-records .adm-set-ctl { grid-column: 3; }
+.adm-records .adm-set-info { grid-column: 4; }
+/* a record has no Standard column — the cell SettingRow always writes simply does not take part */
+.adm-records .adm-set-std { display: none; }
+/* ⚠️ …and `span` therefore has nothing extra to take. Without this the global `2 / -2` would lay
+   the control over its own label. A span row still means «this control is tall or wide»: it keeps
+   the full column instead of the cap below. */
+.adm-records .adm-set-row.span > .adm-set-ctl { grid-column: 3; }
+.adm-records .adm-set-row:not(.span) > .adm-set-ctl > .adm-input,
+.adm-records .adm-set-row:not(.span) > .adm-set-ctl > .adm-color-row,
+.adm-records .adm-set-row:not(.span) > .adm-set-ctl > .adm-combo,
+.adm-records .adm-set-row:not(.span) > .adm-set-ctl > .adm-select { max-width: 440px; }
+
+/* a note the RECORD makes (a validation line, its own action row) starts beside the head cell —
+   at `1 / -1` it would collide with the very cell that spans it and be pushed out of the record */
+.adm-rec > .adm-set-note { grid-column: 2 / -1; }
+.adm-records > *:last-child,
+.adm-records > *:last-child > * { border-bottom: 0; }
+/* the «hinzufügen» button rides in a note of the table, not under a card — same as in a sheet */
+.adm-records .adm-formlink-add { margin-top: 0; }
+
+@media (max-width: 900px) {
+  .adm-records { grid-template-columns: minmax(120px, min(230px, 24%)) fit-content(160px) minmax(170px, 1fr) 34px; }
+  .adm-rec-head { padding-left: 14px; }
+}
+/* ⚠️ Below the phone breakpoint it stops being a table, exactly as the settings sheet does: the
+   record head becomes the block that introduces its rows, and the rows stack under it (the
+   `.adm-set-row` flex rule in the settings block above is not scoped to `.adm-settings`, so it
+   already applies here). The inline `grid-row` RecordRows writes is inert in block layout. */
+@media (max-width: 560px) {
+  .adm-records { display: block; }
+  .adm-records .adm-set-h { display: none; }
+  .adm-rec { display: block; }
+  .adm-rec-head { border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 18px; }
+  .adm-rec > .adm-set-note { padding-left: 18px; }
+}
+
 /* Truppfarbe row (Atemschutz doctrine): «Automatisch» + the ten team colours in ONE scrolling
    row per Auftrag — six wrapped rows of eleven swatches was a wall, not a setting. Its own class,
    NOT .adm-swatches: that one is the read-only colour list in the Darstellung views. */
@@ -442,7 +583,7 @@
 .adm-swatch-auto.on { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); border-color: var(--blue); color: var(--blue); }
 
 /* a comfortably tall textarea (Journal Bausteine) — big enough to see the whole list */
-.adm-textarea-tall { min-height: 360px; max-height: 72vh; overflow-y: auto; }
+.adm-textarea-tall { min-height: 360px; max-height: 72vh; overflow-y: auto; scrollbar-gutter: stable; }
 .adm-textarea-tall { background: var(--surface); border-color: color-mix(in srgb, var(--blue) 22%, var(--border)); }
 
 /* «Formulare & Links» (Verwaltung › Rapport): one card per link, because a link is four things
@@ -523,11 +664,6 @@
 .adm-view { display: flex; flex-direction: column; gap: 14px; }
 .adm-view-filter { width: 100%; box-sizing: border-box; }
 .adm-view-summary { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
-.adm-view-empty {
-  margin: 0; padding: 18px 16px; font-size: 13px; line-height: 1.5;
-  color: var(--ink-faint); text-align: center;
-  border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--fill-soft);
-}
 .adm-view-note {
   margin: 0; padding: 9px 12px; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--blue) 6%, transparent);
@@ -552,8 +688,6 @@
   margin: 6px 0 0; font-size: 11px; font-weight: 700; letter-spacing: .04em;
   text-transform: uppercase; color: var(--ink-faint);
 }
-/* subsection heading between a catalogue table and its data list (Kartenebenen, Objektpläne) */
-.adm-view-subhead { margin: 22px 0 2px; font-size: 13px; font-weight: 700; color: var(--ink); }
 
 /* ── viewer table: built on .adm-table, denser, full-width group separators ───── */
 .adm-vtable { width: 100%; }
@@ -561,18 +695,26 @@
    regardless of source order */
 .adm-table.adm-vtable td { vertical-align: middle; padding: 11px 22px 11px 0; border-bottom: none; }
 .adm-table.adm-vtable th { padding-right: 22px; }
-/* columns hug their content (nowrap); the LAST column absorbs the slack so the others
-   don't drift apart with big gaps */
-.adm-table.adm-vtable th, .adm-table.adm-vtable td { white-space: nowrap; }
-.adm-table.adm-vtable th:last-child, .adm-table.adm-vtable td:last-child { padding-right: 0; white-space: normal; width: 100%; }
+/* columns hug their content; the LAST column absorbs the slack so the others don't drift
+   apart with big gaps.
+   ⚠️ Only the HEADINGS are nowrap now. Six nowrap data columns plus a `width: 100%` tail is
+   wider than the card at any window size — Fahrzeuge & Symbole hung out over its own border.
+   The cells that genuinely must not break say so themselves (`.adm-vfield`, `.adm-view-name`,
+   `.adm-view-key`, the badges), so short codes still hug while a long name, URL or chip list
+   wraps instead of pushing the table out of the card. */
+.adm-table.adm-vtable th { white-space: nowrap; }
+.adm-table.adm-vtable td { white-space: normal; }
+.adm-table.adm-vtable th:last-child, .adm-table.adm-vtable td:last-child { padding-right: 0; width: 100%; }
 /* a row flagged .adm-vsep opens a new group (next symbol / next layer): one full-width
    hairline above it — no per-cell borders, no vertical dividers */
 .adm-table.adm-vtable tr.adm-vsep > td { border-top: 1px solid var(--border-soft); }
 .adm-vfield { font-weight: 600; color: var(--ink); white-space: nowrap; }
 
 /* a badge/text + faint secondary facts on ONE line (status, darstellung) */
-.adm-vline { display: inline-flex; align-items: center; gap: 9px; }
-.adm-vfacts { font-size: 11.5px; color: var(--ink-faint); }
+/* ⚠️ …and it wraps. In Kartenebenen the table is `table-layout: fixed`, so a badge + its facts
+   on one unbreakable line simply painted out of its 10%/16% column. */
+.adm-vline { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 9px; max-width: 100%; min-width: 0; }
+.adm-vfacts { min-width: 0; font-size: 11.5px; color: var(--ink-faint); }
 .adm-swatches { display: inline-flex; align-items: center; gap: 5px; }
 .adm-swatch2 { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-soft); flex: none; }
 
@@ -585,7 +727,9 @@
 .adm-view-glyph > .i { width: 16px; height: 16px; color: var(--ink-faint); }
 
 /* glyph + (title / raw key) name cell */
-.adm-vname { display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 260px; }
+/* ⚠️ `min(…, 100%)` on all three of these: a bare 260/320/300px cap is WIDER than the fixed
+   27%/24% columns of Kartenebenen, so the cap did nothing there and the cell overflowed. */
+.adm-vname { display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: min(260px, 100%); }
 .adm-view-id { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .adm-view-name {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -598,7 +742,7 @@
 .adm-view-code { font-size: 11px; font-weight: 700; color: var(--ink-faint); margin-right: 5px; }
 
 /* source cell: mono url over its faint attribution */
-.adm-vsource { max-width: 320px; }
+.adm-vsource { max-width: min(320px, 100%); }
 /* full source URL wraps in place — hover-only title= is unreachable on touch */
 .adm-vsource .adm-view-mono { display: block; overflow-wrap: anywhere; }
 .adm-view-attr { display: block; margin-top: 3px; font-size: 11px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -611,7 +755,7 @@
 }
 .adm-view-mono { font-family: var(--mono); font-size: 11.5px; }
 /* long detection regex wraps instead of truncating — hover-only title= is unreachable on touch */
-.adm-vregex { display: inline-block; max-width: 300px; white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
+.adm-vregex { display: inline-block; max-width: min(300px, 100%); white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
 
 /* status / type badge base + tone modifiers */
 .adm-fleet-badge,
@@ -659,6 +803,10 @@
 }
 .adm-badge-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .adm-badge-label { color: var(--ink); }
+/* ⚠️ A badge inside an already-labelled row or a named column renders dot + state only, and says
+   so by passing `label=""` (ui · StatusBadge). The span is still in the DOM, so without this it
+   keeps eating one 9px flex gap and the pill reads with a hole in it. */
+.adm-badge-label:empty { display: none; }
 .adm-badge-state { font-family: var(--mono); font-size: 11px; font-weight: 500; }
 .adm-badge.on .adm-badge-dot { background: var(--green); }
 .adm-badge.on .adm-badge-state { color: var(--green-strong); }
@@ -749,18 +897,6 @@
   background: var(--surface-2); border: 1px solid var(--border-soft); color: var(--ink-dim);
 }
 .adm-empty-action { margin-top: 4px; }
-
-/* ── seeded first account still active (MembersView) ──────────────────────────
-   Amber, not red: nothing is broken and nothing failed — the installation's own account is
-   simply still a working login. Both ways out sit in the box, so the notice is also the fix. */
-.adm-seedwarn {
-  margin: 0 0 14px; padding: 12px 14px; border-radius: var(--r-ctl);
-  background: color-mix(in srgb, var(--amber) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent);
-}
-.adm-seedwarn-title { margin: 0; font: 600 13px/1.45 var(--body); color: var(--amber-strong); }
-.adm-seedwarn-body { margin: 4px 0 0; font: 400 12.5px/1.5 var(--body); color: var(--ink-dim); }
-.adm-seedwarn-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 
 /* ── access denied ────────────────────────────────────────────────────────── */
 .adm-denied {
@@ -892,7 +1028,7 @@
   background: var(--surface-2);
 }
 .adm-obj-map .adm-state { position: absolute; inset: 0; display: grid; place-items: center; }
-.adm-obj-split .adm-obj-list { max-height: 480px; overflow-y: auto; padding-right: 4px; }
+.adm-obj-split .adm-obj-list { max-height: 480px; overflow-y: auto; scrollbar-gutter: stable; padding-right: 4px; }
 
 @media (max-width: 860px) {
   .adm-obj-split { grid-template-columns: 1fr; }
@@ -1005,7 +1141,12 @@
 .adm-plan-date { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 
 /* ── reference table ──────────────────────────────────────────────────────── */
-.adm-table-wrap { overflow-x: auto; }
+/* ⚠️ NOT a scroll container by default. An `overflow-x: auto` box computes `overflow-y: auto`
+   as well, so this wrapper quietly clipped everything that opens out of a row — an ⓘ popover,
+   and the ⋮ row menu in Mitglieder. Only a table that declares itself wider than the content
+   column needs the scroller; a new one belongs on this list beside `.adm-history-table`. */
+.adm-table-wrap { overflow: visible; }
+.adm-table-wrap:has(.adm-history-table) { overflow-x: auto; }
 .adm-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .adm-table th {
   text-align: left; padding: 0 12px 9px 0;
@@ -1035,8 +1176,6 @@
    Mitglieder & Zugriff (MembersView)
    ════════════════════════════════════════════════════════════════════════════ */
 
-.adm-members-addbar { display: flex; justify-content: flex-end; }
-.adm-members-form .adm-card-body { gap: 16px; }
 .adm-members-formbtns { display: flex; justify-content: flex-end; gap: 10px; }
 
 .adm-members-table td { vertical-align: middle; }
@@ -1057,7 +1196,10 @@
   background: color-mix(in srgb, var(--blue) 10%, var(--surface-2));
 }
 
-.adm-members-status { padding: 5px 10px; }
+/* The status pill in the two people tables is tighter than a standalone badge, or the rows grow.
+   ⚠️ Targeted at the badge INSIDE the cell, not at a class on it: these are `StatusBadge` now
+   (ui.tsx), and that component takes no className. */
+.adm-members-table .adm-badge { padding: 5px 10px; }
 
 .adm-members-actions-col { width: 1%; white-space: nowrap; }
 .adm-members-actions { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -1070,6 +1212,18 @@
   display: flex; flex-direction: column; gap: 14px;
   padding: 14px 4px;
 }
+/* «Hinzufügen» opens INSIDE the card whose header holds the button, directly under it — the form
+   used to render as its own card at the top of the page, so the click scrolled the answer out of
+   sight. Set off from the list below it, and the same shape as the inline edit box, because
+   adding and editing are the same gesture. */
+.adm-members-addbox {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 14px; margin-bottom: 4px;
+  border: 1px solid var(--border); border-radius: var(--r-ctl);
+  background: var(--fill-soft);
+}
+.adm-members-addbox > .adm-card-cap { margin: 0; }
+.adm-members-addbox .adm-field { max-width: 360px; }
 .adm-members-editbox .adm-field { max-width: 360px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -1141,9 +1295,23 @@
   border-bottom: 1px solid var(--border);
   transform: rotate(45deg);
 }
-.adm-h1 .adm-tip-pop { top: calc(100% + 8px); bottom: auto; }
-.adm-h1 .adm-tip-pop::after {
-  top: auto; bottom: 100%; border: 0; border-left: 1px solid var(--border); border-top: 1px solid var(--border);
+/* ⚠️ …and it opens DOWNWARD when there is no room above it. InfoTip.tsx measures the gap
+   between the trigger and the top of the scrolling content column and sets `data-place`; before
+   that, the first card of a page (Alarmgruppen's three-line tip) opened straight over the h1 and
+   its lede. This replaces the static `.adm-h1 .adm-tip-pop` override — the page title's ⓘ is
+   simply the extreme case of «no room above», and the measurement covers it.
+   The `[data-open]` pair below has to repeat the selector: the base open state further up has
+   the same specificity and would otherwise win on source order. */
+.adm-tip-pop[data-place='down'] {
+  top: calc(100% + 8px); bottom: auto;
+  transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(-4px);
+}
+.adm-tip-pop[data-place='down'][data-open] {
+  transform: translateX(calc(-50% + var(--tip-shift, 0px))) translateY(0);
+}
+.adm-tip-pop[data-place='down']::after {
+  top: auto; bottom: 100%; margin: 0 0 -4px -4px;
+  border: 0; border-left: 1px solid var(--border); border-top: 1px solid var(--border);
 }
 @media (max-width: 560px) {
   .adm-tip-pop { max-width: min(248px, 70vw); }
@@ -1158,9 +1326,14 @@
 
 /* ── action button hover / active (calm desktop affordances) ──────────────── */
 @media (hover: hover) {
+  /* ⚠️ The ink comes WITH the fill. This rule used to repaint only the background, so a caller
+     that also carried `.btn.primary` (white text on a solid fill) hovered into white-on-pale and
+     read as blank. Naming the colour here keeps the hover state self-consistent whatever the
+     base state was. */
   .adm-int-btn:not(:disabled):hover {
     border-color: color-mix(in srgb, var(--blue) 40%, var(--border));
     background: color-mix(in srgb, var(--blue) 7%, var(--surface));
+    color: var(--ink);
   }
 }
 .adm-int-btn:not(:disabled):active { background-image: linear-gradient(var(--press), var(--press)); }
@@ -1180,8 +1353,6 @@
 .adm-members-role.viewer {
   color: var(--ink-dim);
 }
-/* the active/inactive status pill reads clearly in both themes */
-.adm-members-status.off .adm-badge-state { color: var(--ink-faint); }
 
 /* tidy empty/neutral state spacing */
 .adm-state { line-height: 1.5; }
@@ -1261,9 +1432,12 @@
 .adm-traccar-devices .adm-table td { font-size: 12.5px; }
 
 
+/* ⚠️ No `margin-top`: the toggle rides in `.adm-card-act` beside «Person hinzufügen», and the
+   8px it used to carry (from when it stood on its own line) knocked it out of line with the
+   button next to it. */
 .adm-roster-inactive-toggle {
   display: inline-flex; align-items: center; gap: 7px;
-  margin-top: 8px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
+  font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
 }
 /* generic labelled checkbox row in a form card (e.g. members «Startet in EL-Ansicht») */
 .adm-check {
@@ -1356,6 +1530,9 @@
 .adm-sys-toolbar .btn { display: inline-flex; align-items: center; gap: 7px; }
 .adm-sys-toolbar .i { width: 16px; height: 16px; }
 .adm-sys-updated { font: 11.5px var(--mono); color: var(--ink-faint); }
+/* «Systemzustand» — SIX cells in three columns, so the two rows read as one surface: Server /
+   Datenbank / Umgebung over Release / Commit / Branch. The 1px gap over a --border background
+   is what draws the hairlines between them; the cells paint --surface over it. */
 .adm-sys-summary {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px;
   overflow: hidden; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--border);
@@ -1365,11 +1542,32 @@
   min-width: 0; padding: 13px 14px; background: var(--surface);
 }
 .adm-sys-summary-label { font-size: 12px; font-weight: 700; color: var(--ink-dim); }
-.adm-sys-grid { display: block; columns: 2 360px; column-gap: 18px; }
-.adm-sys-grid .adm-card { break-inside: avoid; margin: 0 0 18px; }
-.adm-sys-grid .adm-card + .adm-card { margin-top: 0; }
+/* The version facts share the badge's slot on the right of a cell. Mono because a commit hash
+   and a branch name are strings to compare character by character, and ellipsised because a
+   long branch name must shorten itself rather than push its label out of the cell. */
+.adm-sys-summary-value {
+  font: 12px var(--mono); color: var(--ink); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* ⚠️ A real grid, NOT `columns: 2 360px`. A CSS multi-column box is a fragmentation context:
+   it cut the «Speicher» card's ⓘ popover in half at the column break.
+   ⚠️ And exactly TWO tracks, never `auto-fill`: auto-fill lays as many 360px tracks as fit, which
+   is three on a wide screen, and the third squeezes «Verbindungen» — a three-column table — until
+   every status badge wraps to two lines. The multi-column rule it replaced capped at two; this
+   keeps that cap, which is the width that table needs.
+   `align-items: start` keeps each card at its own height instead of stretching it to its
+   neighbour's, which is what the column flow did. */
+.adm-sys-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.adm-sys-grid .adm-card { margin: 0; }
+/* A card holding a TABLE takes the full width instead of a track. «Verbindungen» is three
+   columns of its own; in a half-width track its status badges wrap to two lines and the table
+   starts scrolling sideways — at any window width, so no breakpoint fixes it. The metric cards
+   (Version, Bestand, Speicher) are short lists and pair up beside each other as before.
+   `:has()` rather than a modifier class, the same instrument this file already uses for
+   `.adm-table-wrap`, so a new table card needs no bookkeeping to behave. */
+.adm-sys-grid > .adm-card:has(.adm-table) { grid-column: 1 / -1; }
 @media (max-width: 780px) {
-  .adm-sys-grid { columns: 1; }
+  .adm-sys-grid { grid-template-columns: 1fr; }
   .adm-sys-summary { grid-template-columns: 1fr; }
 }
 
@@ -1460,27 +1658,6 @@
 /* ── shared toolbar row (right-aligned compact actions above a list) ──────────── */
 .adm-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 
-/* ════════════════════════════════════════════════════════════════════════════
-   Fehlerberichte (telemetry): the switch, and beneath it the evidence
-   ════════════════════════════════════════════════════════════════════════════ */
-.adm-tel-state { margin-bottom: 8px; }
-.adm-tel-ask { margin: 0 0 4px; font: 600 14px var(--body); color: var(--ink); }
-.adm-tel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
-.adm-tel-id { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-.adm-tel-log { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
-.adm-tel-log-t { margin: 0 0 8px; font: 600 12.5px var(--body); color: var(--ink-dim); }
-.adm-tel-row { border-bottom: 1px solid var(--border); }
-.adm-tel-row > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer;
-  padding: 7px 2px; font-size: 12.5px; }
-.adm-tel-ch { font-weight: 600; color: var(--ink); }
-.adm-tel-when { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
-.adm-tel-st { margin-left: auto; color: var(--ink-faint); }
-.adm-tel-st.sent { color: var(--ok, #2e7d32); }
-/* The payload is the point of the whole card — give it room and let it scroll rather than
-   wrap, so the JSON stays readable as JSON. */
-.adm-tel-payload { margin: 0 0 10px; padding: 10px 12px; max-height: 340px; overflow: auto;
-  background: var(--surface-2, rgba(127, 127, 127, .08)); border-radius: 6px;
-  font: 400 11.5px var(--mono); white-space: pre; }
 
 /* «Letzte Änderungen» (System › Sicherung) — the kept configurations, and the way back.
    One row per write, leading with WHAT IT EMPTIED or CHANGED rather than with a diff: a diff of
@@ -1508,14 +1685,6 @@
 /* amber, not red: a write that emptied something is «schau hier hin», not an error the app is
    refusing over — it may well have been intended (a station dropping its Partnerliste) */
 .adm-hist-warn { font: 600 11.5px/1.45 var(--body); color: var(--amber-strong); }
-.adm-hist-btn { flex: none; min-height: var(--tap); padding: 7px 13px; cursor: pointer;
-  border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--ink); font: 700 12.5px var(--body); }
-@media (hover: hover) {
-  .adm-hist-btn:hover:not(:disabled) { border-color: var(--ink-faint); }
-}
-.adm-hist-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.adm-hist-btn:disabled { opacity: .5; cursor: default; }
 /* a collapsed burst: the summary row plus, once opened, its individual writes indented under it */
 .adm-hist-burst { display: flex; flex-direction: column; gap: 2px; }
 .adm-hist-when-to { display: block; font: 500 11px var(--mono); color: var(--ink-faint); }
@@ -1537,6 +1706,11 @@
    the fix is on another page; the one that is env-only is a static row with no chevron, because
    a chevron promises a screen that does not exist (see SetupChecklist). */
 .adm-setup { display: flex; flex-direction: column; gap: 2px; }
+/* «dorthin» und «abhaken» stehen nebeneinander: ein Button in einem Button ist ungültiges
+   HTML, also sind es zwei Geschwister – die Navigationszeile nimmt den Rest der Breite. */
+.adm-setup-item { display: flex; align-items: center; gap: 6px; }
+.adm-setup-item > .adm-setup-row { flex: 1 1 auto; min-width: 0; }
+.adm-setup-ack { flex: none; padding: 6px 10px; min-height: 34px; font-size: 12px; }
 .adm-setup-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--tap);
   padding: 6px 10px; border: none; border-radius: var(--r-ctl); background: none;
   color: inherit; text-align: left; font: inherit; cursor: pointer; }
@@ -1572,7 +1746,10 @@
 .adm-slist-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the input is a chip-shaped gap in the row, not a form field under it — it is where the next
    one goes, and it should look like it */
-.adm-slist-add { min-height: 40px; min-width: 200px; flex: 0 1 auto; padding: 0 13px;
+/* ⚠️ `flex: 0 1 200px`, never `min-width: 200px`. Inside a spanned settings row a hard 200px
+   floor is a max-content the grid has to find room for, and it found it by starving the
+   Einstellung column. A basis is the same 200px when there is room and yields when there isn't. */
+.adm-slist-add { min-height: 40px; flex: 0 1 200px; min-width: 0; padding: 0 13px;
   border: 1px dashed var(--border); border-radius: var(--r-pill); background: transparent;
   color: var(--ink); font: 500 13.5px var(--body); outline: none; }
 .adm-slist-add:focus { border-style: solid; border-color: var(--blue); background: var(--surface); }

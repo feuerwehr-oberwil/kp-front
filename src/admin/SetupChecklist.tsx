@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { useConfig } from './ConfigContext'
 
 /** What the System page has already fetched — this card adds no request of its own. */
 export interface SetupFacts {
@@ -13,11 +14,30 @@ export interface SetupFacts {
 /** A row somebody can actually tick: it counts towards «x von n» and keeps the card up. */
 interface Row {
   key: string
+  /** what the config/facts SAY — before any manual acknowledgement is folded in */
   done: boolean
   label: string
   sub: string
   /** the section this row opens */
   go: string
+}
+
+/**
+ * Where a hand-ticked row is remembered: in the deployment config, beside everything else the
+ * station decides — «erledigt» is a statement about the Wehr, not a preference of the tablet it
+ * was tapped on, so the next admin on the next device has to see it.
+ *
+ * ⚠️ It only survives a save because `setup` is DECLARED on both sides — `SetupConfig` in
+ * backend/app/schemas.py and `DeploymentConfig.setup` in src/lib/deploymentConfig.ts. Every
+ * model in that document is `extra="ignore"`, so an undeclared section is dropped on the next
+ * round-trip, exactly as the SharePoint block warns.
+ */
+const ACK_PATH = ['setup', 'acknowledged']
+
+/** The rows this station has ticked by hand. Tolerates anything the stored document holds. */
+function acknowledgedKeys(cfg: DeploymentConfig): string[] {
+  const raw = cfg.setup?.acknowledged
+  return Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string') : []
 }
 
 /**
@@ -42,6 +62,14 @@ interface Row {
  * every other row and counts like every other row. The exception, and the `Note` type that
  * existed for it, are gone — if a future line genuinely cannot be finished from a browser, it
  * does not belong on this card at all.
+ *
+ * ⚠️ The rule holds; what it could not cover is a row whose FACT this UI cannot observe.
+ * «Fahrzeuge» is that row: a station happy with the built-in catalogue never writes
+ * `fleet.vehicles`, so the derived tick could never fire and the card parked at «7 von 8»
+ * forever — the same failure, from the other direction. Hence the second control on every row:
+ * «Abhaken» acknowledges a row by hand, an acknowledged row counts as done, and the
+ * acknowledgement is stored in the config (`ACK_PATH`), not on the device. Derived ticks are
+ * unchanged — the hand tick is an escape hatch, never the normal way to finish a row.
  */
 export function SetupChecklist({ cfg, facts, onGo }: {
   cfg: DeploymentConfig | null
@@ -49,6 +77,9 @@ export function SetupChecklist({ cfg, facts, onGo }: {
   onGo: (section: string) => void
 }) {
   const C = appConfig.copy.admin.setup
+  // The same writer «Verwaltung» uses everywhere: `set` edits the draft, the provider autosaves
+  // the WHOLE document under its If-Match token (ConfigContext · persist).
+  const { set } = useConfig()
   if (!cfg) return null
 
   const assets = cfg.identity?.assets
@@ -95,6 +126,10 @@ export function SetupChecklist({ cfg, facts, onGo }: {
         : C.personnelOpen,
     },
     {
+      // ⚠️ Reads the DEPLOYMENT config only, and the built-in vehicle catalogue never writes
+      // there: a station happy with the shipped Fahrzeuge keeps `fleet.vehicles = []` forever
+      // and this row could never tick on its own. That is what «Abhaken» is for — see the
+      // escape hatch in the card's doc comment.
       key: 'fleet', done: vehicles > 0, go: 'fahrzeuge',
       label: C.fleet, sub: vehicles > 0 ? fillTemplate(C.fleetSet, { n: vehicles }) : C.fleetOpen,
     },
@@ -118,8 +153,22 @@ export function SetupChecklist({ cfg, facts, onGo }: {
     },
   ]
 
-  const open = rows.filter((r) => !r.done)
+  // Fold the hand ticks in: an acknowledged row counts as done and says so, unless the derived
+  // state already had something better to say.
+  const acked = acknowledgedKeys(cfg)
+  const shown = rows.map((r) => ({
+    ...r,
+    acked: acked.includes(r.key),
+    done: r.done || acked.includes(r.key),
+    sub: !r.done && acked.includes(r.key) ? C.ackSub : r.sub,
+  }))
+
+  const open = shown.filter((r) => !r.done)
   if (open.length === 0) return null
+
+  const toggleAck = (key: string) => {
+    set(ACK_PATH, acked.includes(key) ? acked.filter((k) => k !== key) : [...acked, key])
+  }
 
   const body = (r: Row): ReactNode => (
     <>
@@ -142,10 +191,26 @@ export function SetupChecklist({ cfg, facts, onGo }: {
       </header>
       <div className="adm-card-body">
         <div className="adm-setup">
-          {rows.map((r) => (
-            <button type="button" className="adm-setup-row" key={r.key} onClick={() => onGo(r.go)}>
-              {body(r)}
-            </button>
+          {/* Two SIBLING controls per row: «dorthin» and «abhaken». One button inside another is
+              invalid HTML and, on iOS, a tap target that answers the wrong question. */}
+          {shown.map((r) => (
+            <div className="adm-setup-item" key={r.key}>
+              <button type="button" className="adm-setup-row" onClick={() => onGo(r.go)}>
+                {body(r)}
+              </button>
+              {/* A row that is done on its own facts has nothing to acknowledge — only an open
+                  row, and one already ticked by hand, carry the control. */}
+              {(!r.done || r.acked) && (
+                <button
+                  type="button"
+                  className="btn adm-int-btn adm-setup-ack"
+                  aria-pressed={r.acked}
+                  onClick={() => toggleAck(r.key)}
+                >
+                  {r.acked ? C.ackUndo : C.ackDo}
+                </button>
+              )}
+            </div>
           ))}
         </div>
       </div>

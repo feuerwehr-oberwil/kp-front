@@ -1,7 +1,7 @@
 // Admin-local roster (Mannschaft) API helpers. Deliberately NOT routed through
 // src/lib/incidents.ts — the admin surface owns its own thin client over src/lib/api.ts
 // so the field app and admin can evolve independently.
-import { apiGet, apiPost, apiPatch, apiDelete, apiUpload } from '../lib/api'
+import { apiGet, apiPost, apiPatch, apiUpload } from '../lib/api'
 
 /** A crew member as returned by the backend (PersonnelOut). */
 export interface RosterPerson {
@@ -17,17 +17,27 @@ export interface RosterPerson {
   updated_at: string
 }
 
-/** Body for manually adding a person (PersonnelCreate). */
+/** Body for manually adding a person (PersonnelCreate).
+ *
+ *  ⚠️ There is no `is_active` here and the server does not take one: `create_person`
+ *  (backend/app/api/personnel.py) always writes `is_active=True`. A person who is to start out
+ *  inactive needs the PATCH below afterwards. */
 export interface RosterCreate {
   display_name: string
   divera_id?: number | null
+  /** Dienstgrad key (roster.ranks config); null/absent means no Dienstgrad. */
+  rank?: string | null
 }
 
-/** Partial edit (PersonnelUpdate) — every field optional. */
+/** Partial edit (PersonnelUpdate) — every field optional. THE write path for Status: both
+ *  «Deaktivieren» in the row menu and the Status picker in the edit row go through `is_active`
+ *  here, so one fact has one behaviour. */
 export interface RosterUpdate {
   display_name?: string
   first_name?: string | null
   last_name?: string | null
+  /** Dienstgrad key; null clears it. */
+  rank?: string | null
   is_active?: boolean
 }
 
@@ -91,10 +101,6 @@ export function createPerson(body: RosterCreate): Promise<RosterPerson> {
 
 export function updatePerson(id: string, body: RosterUpdate): Promise<RosterPerson> {
   return apiPatch<RosterPerson>(`/api/personnel/${id}`, body)
-}
-
-export function deactivatePerson(id: string): Promise<{ ok: boolean }> {
-  return apiDelete<{ ok: boolean }>(`/api/personnel/${id}`)
 }
 
 /** Read-only: what this file would import, and which rank values need a decision first. */

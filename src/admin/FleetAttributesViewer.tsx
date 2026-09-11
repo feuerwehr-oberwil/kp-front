@@ -5,7 +5,7 @@ import { symbolConfigurableFields, symbolControls } from '../lib/symbols'
 import { formatSymbolName } from '../lib/format'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { appConfig } from '../config/appConfig'
-import { Table } from './ui'
+import { EmptyState, Table } from './ui'
 import type { FleetAttributeList } from '../lib/deploymentConfig'
 
 // Read-only config viewer for the fleet/symbol attribute lists, as a TABLE: one row per symbol
@@ -27,6 +27,13 @@ function Chips({ options }: { options: string[] }) {
 }
 
 // One field's (source badge, options) cells — shared by preset fields and custom rows.
+//
+// ⚠️ The two source badges carry NO tooltip of their own. They used to explain themselves in a
+// native `title=`, which is hover-only — invisible on the iPad this admin is used from — and an
+// `InfoTip` here would be the wrong fix: `fieldCells` runs once per symbol FIELD, so the page
+// would grow one ⓘ per row over the whole symbol library. Both sentences live where they are
+// reachable by tap and written once: the «Was bedeutet was» guide at the top of the page
+// (`C.configuredBadgeHint` / `C.freitextBadgeHint`, rendered in its glossary).
 function fieldCells(C: typeof appConfig.copy.admin.fleet, opts: { roster: boolean; configured: boolean; options: string[] }): {
   source: ReactNode
   values: ReactNode
@@ -39,12 +46,12 @@ function fieldCells(C: typeof appConfig.copy.admin.fleet, opts: { roster: boolea
   }
   if (opts.configured) {
     return {
-      source: <span className="adm-fleet-badge adm-fleet-badge-cfg" title={C.configuredBadgeHint}>{C.configuredBadge}</span>,
+      source: <span className="adm-fleet-badge adm-fleet-badge-cfg">{C.configuredBadge}</span>,
       values: opts.options.length > 0 ? <Chips options={opts.options} /> : <span className="adm-fleet-freeval">{C.freitextValue}</span>,
     }
   }
   return {
-    source: <span className="adm-fleet-badge adm-fleet-badge-free" title={C.freitextBadgeHint}>{C.freitextBadge}</span>,
+    source: <span className="adm-fleet-badge adm-fleet-badge-free">{C.freitextBadge}</span>,
     values: <span className="adm-fleet-freeval">{C.freitextValue}</span>,
   }
 }
@@ -141,7 +148,7 @@ export function FleetAttributesViewer({ lists }: { lists: FleetAttributeList[] }
         aria-label={C.filterPlaceholder}
       />
 
-      {groups.length === 0 && <p className="adm-view-empty">{sym.ready ? C.noMatches : C.loading}</p>}
+      {groups.length === 0 && <EmptyState message={sym.ready ? C.noMatches : C.loading} />}
 
       {/* ONE table across every category; the category is a spanning first column (not a
           per-category section heading), so all groups share identical columns. */}

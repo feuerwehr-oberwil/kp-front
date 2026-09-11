@@ -49,8 +49,10 @@ export default function AdminApp() {
           <h1 className="adm-denied-title">{c.disabledTitle}</h1>
           <p className="adm-denied-tx">{c.disabledBody}</p>
           <div className="adm-denied-actions">
-            <a className="btn primary" href="/">{appConfig.copy.admin.shell.toLageMap}</a>
-            <button type="button" className="btn" onClick={() => void fullLogout()}>{appConfig.copy.admin.shell.logout}</button>
+            {/* the admin pair, not the field app's: `.adm-save-btn` is the one accent-filled
+                primary in /admin, `.adm-int-btn` the neutral secondary (admin.css) */}
+            <a className="btn adm-save-btn" href="/">{appConfig.copy.admin.shell.toLageMap}</a>
+            <button type="button" className="btn adm-int-btn" onClick={() => void fullLogout()}>{appConfig.copy.admin.shell.logout}</button>
           </div>
         </div>
       </div>

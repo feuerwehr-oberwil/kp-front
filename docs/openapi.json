@@ -11412,6 +11412,9 @@
           },
           "sharepoint": {
             "$ref": "#/components/schemas/SharePointConfig"
+          },
+          "setup": {
+            "$ref": "#/components/schemas/SetupConfig"
           }
         },
         "type": "object",
@@ -11473,6 +11476,9 @@
           },
           "sharepoint": {
             "$ref": "#/components/schemas/SharePointConfig"
+          },
+          "setup": {
+            "$ref": "#/components/schemas/SetupConfig"
           },
           "integrations": {
             "$ref": "#/components/schemas/ConfigIntegrations"
@@ -15695,6 +15701,20 @@
           "status"
         ],
         "title": "SegmentPatch"
+      },
+      "SetupConfig": {
+        "properties": {
+          "acknowledged": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Acknowledged"
+          }
+        },
+        "type": "object",
+        "title": "SetupConfig",
+        "description": "Which rows of the «Einrichtung» card this station ticked off by hand.\n\nThe card derives every row from the document itself, but some rows can never become true\nthat way — a station happy with the built-in vehicles never writes ``fleet.vehicles``, so\nthat row would nag forever. A hand tick is the escape hatch, and it belongs in the document\nrather than on the device: «erledigt» is a statement about the Wehr, and the next admin on\nthe next tablet has to see it."
       },
       "SharePointConfig": {
         "properties": {

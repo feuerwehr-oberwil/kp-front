@@ -7,7 +7,6 @@ import {
   listRoster,
   createPerson,
   updatePerson,
-  deactivatePerson,
   importRosterCsv,
   previewRosterCsv,
   type RosterPerson,
@@ -18,11 +17,13 @@ import {
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { loadDeploymentConfig, providerLabel } from '../lib/deploymentConfig'
-import { rankAbbr, rankDisplay, rankLabel } from '../lib/rank'
+import { activeRanks, rankAbbr, rankDisplay, rankLabel } from '../lib/rank'
 import { Icon } from '../lib/icons'
 import { Sheet } from '../lib/overlays'
-import { InfoTip } from './InfoTip'
-import { ActionMenu, EmptyState, Field, Select } from './ui'
+import {
+  ActionMenu, Card, EmptyState, Field, Select, SettingRow, SettingsSheet, standardNote, StatusBadge,
+  type SelectOption,
+} from './ui'
 import { useConfig, getPath } from './ConfigContext'
 
 // ─── helpers ───────────────────────────────────────────────────────────────────
@@ -32,14 +33,48 @@ function errText(e: unknown): string {
   return appConfig.copy.admin.common2.unknownError
 }
 
+/** The STATION's Dienstgrade as picker options, «kein Grad» first (`activeRanks` falls back to
+ *  the shipped Swiss list, so a station that has configured none still gets a usable picker).
+ *
+ *  ⚠️ `current` is appended when the station's list does not cover it: `Select` shows its FIRST
+ *  option for a value it cannot find, so a person carrying a rank the config never got (the
+ *  normal case after a Divera sync into an unconfigured station) would look rankless here and
+ *  be saved as the first entry on the list. */
+function rankOptions(current: string): SelectOption[] {
+  const ranks = activeRanks()
+  const opts: SelectOption[] = [
+    { value: '', label: appConfig.copy.admin.roster.rankNoneOption },
+    ...ranks.map((r) => ({ value: r.key, label: r.abbr ? `${r.label} · ${r.abbr}` : r.label })),
+  ]
+  if (current && !ranks.some((r) => r.key === current)) {
+    opts.push({ value: current, label: rankDisplay(current) })
+  }
+  return opts
+}
+
+/** Status as the two options of a picker. The value is the `is_active` flag, spelled. */
+const ACTIVE = 'active'
+function statusOptions(): SelectOption[] {
+  const C = appConfig.copy.admin.roster
+  return [{ value: ACTIVE, label: C.active }, { value: 'inactive', label: C.inactive }]
+}
+
 // ─── add-person form ─────────────────────────────────────────────────────────
 
-// Controlled by RosterView (open state + the trigger live in the shared toolbar), so it
-// renders just the form card.
+// Controlled by RosterView: the open state and the trigger live in the roster card's HEADER, and
+// this renders as the first thing inside that same card's body — never as a card of its own further
+// up the page, which is where it used to appear. A control in one place that opens a form in
+// another leaves you hunting for what just happened (and above the fold, off screen entirely).
+// Inline also makes adding and editing the same gesture: `EditRow` opens the same shape in the row.
 function AddPersonForm({ onCreated, onClose }: { onCreated: () => void; onClose: () => void }) {
   const [displayName, setDisplayName] = useState('')
+  const [rank, setRank] = useState('')
+  const [status, setStatus] = useState(ACTIVE)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // ⚠️ The person exists on the server as soon as the POST returns, even when the Status step
+  // after it fails — pressing «Erstellen» again has to finish that person, not add a second one.
+  const createdId = useRef<string | null>(null)
 
   const C = appConfig.copy.admin.roster
   const Cc = appConfig.copy.admin.common2
@@ -51,7 +86,13 @@ function AddPersonForm({ onCreated, onClose }: { onCreated: () => void; onClose:
     setBusy(true)
     setErr(null)
     try {
-      await createPerson({ display_name: displayName.trim() })
+      if (!createdId.current) {
+        const person = await createPerson({ display_name: displayName.trim(), rank: rank || null })
+        createdId.current = person.id
+      }
+      // A second write, because the create body carries no Status: the server always creates an
+      // ACTIVE person (backend/app/api/personnel.py · create_person, schemas · PersonnelCreate).
+      if (status !== ACTIVE) await updatePerson(createdId.current, { is_active: false })
       onCreated()
     } catch (e2) {
       setErr(errText(e2))
@@ -61,15 +102,11 @@ function AddPersonForm({ onCreated, onClose }: { onCreated: () => void; onClose:
   }
 
   return (
-    <form className="adm-card adm-members-form" onSubmit={submit}>
-      <header className="adm-card-head">
-        <h2 className="adm-card-title">{C.addPerson}</h2>
-        <p className="adm-card-cap">{C.addPersonCaption}</p>
-      </header>
-      <div className="adm-card-body">
-        <div className="adm-row-2">
-          <label className="adm-field">
-            <span className="adm-field-label">{C.name}</span>
+    <form className="adm-members-addbox" onSubmit={submit}>
+      <p className="adm-card-cap">{C.addPersonCaption}</p>
+      <>
+        <div className="adm-row-3">
+          <Field label={C.name}>
             <input
               className="adm-input"
               value={displayName}
@@ -77,7 +114,13 @@ function AddPersonForm({ onCreated, onClose }: { onCreated: () => void; onClose:
               autoComplete="off"
               placeholder={C.namePlaceholder}
             />
-          </label>
+          </Field>
+          <Field label={C.colRank}>
+            <Select value={rank} ariaLabel={C.colRank} onChange={setRank} options={rankOptions(rank)} />
+          </Field>
+          <Field label={C.colStatus}>
+            <Select value={status} ariaLabel={C.colStatus} onChange={setStatus} options={statusOptions()} />
+          </Field>
         </div>
 
         {err && <div className="adm-state adm-state-err">{err}</div>}
@@ -90,7 +133,7 @@ function AddPersonForm({ onCreated, onClose }: { onCreated: () => void; onClose:
             {busy ? Cc.saving : Cc.create}
           </button>
         </div>
-      </div>
+      </>
     </form>
   )
 }
@@ -103,17 +146,26 @@ function EditRow({ person, onSaved, onCancel }: {
   onCancel: () => void
 }) {
   const [displayName, setDisplayName] = useState(person.display_name)
+  const [rank, setRank] = useState(person.rank ?? '')
+  const [status, setStatus] = useState(person.is_active ? ACTIVE : 'inactive')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const C = appConfig.copy.admin.roster
   const Cc = appConfig.copy.admin.common2
+  // A provider owns this person's record — the next synchronisation writes over what is set
+  // here (see the note at the Quelle line below).
+  const provider = person.external_identities?.[0]?.provider
 
   const save = async () => {
     if (busy || displayName.trim().length === 0) return
     setBusy(true)
     setErr(null)
     try {
-      await updatePerson(person.id, { display_name: displayName.trim() })
+      await updatePerson(person.id, {
+        display_name: displayName.trim(),
+        rank: rank || null,
+        is_active: status === ACTIVE,
+      })
       onSaved()
     } catch (e) {
       setErr(errText(e))
@@ -125,9 +177,8 @@ function EditRow({ person, onSaved, onCancel }: {
     <tr className="adm-members-editrow">
       <td colSpan={5}>
         <div className="adm-members-editbox">
-          <div className="adm-row-2">
-            <label className="adm-field">
-              <span className="adm-field-label">{C.name}</span>
+          <div className="adm-row-3">
+            <Field label={C.name}>
               <input
                 className="adm-input"
                 value={displayName}
@@ -135,8 +186,29 @@ function EditRow({ person, onSaved, onCancel }: {
                 autoFocus
                 onFocus={caretToEnd}
               />
-            </label>
+            </Field>
+            {/* The provider hints are on the two fields the sync actually overwrites, not on the
+                card: an operator setting a Dienstgrad has to read it while setting it. */}
+            <Field
+              label={C.colRank}
+              hint={provider ? fillTemplate(C.providerRankHint, { provider: providerLabel(provider) }) : undefined}
+            >
+              <Select value={rank} ariaLabel={C.colRank} onChange={setRank} options={rankOptions(rank)} />
+            </Field>
+            <Field
+              label={C.colStatus}
+              hint={provider ? fillTemplate(C.providerStatusHint, { provider: providerLabel(provider) }) : undefined}
+            >
+              <Select value={status} ariaLabel={C.colStatus} onChange={setStatus} options={statusOptions()} />
+            </Field>
           </div>
+          {/* ⚠️ The row the Quelle column names is a PROVIDER-OWNED record: the next sync
+              rewrites the Dienstgrad from the member's qualifications whenever the feed carries
+              any (backend/app/personnel.py · execute_sync), and reactivates anybody still listed
+              there. The two fields above say so where it is decided; this line says whose. */}
+          {provider && (
+            <span className="adm-int-stat adm-int-muted">{`${C.colSource}: ${providerLabel(provider)}`}</span>
+          )}
           {err && <div className="adm-state adm-state-err">{err}</div>}
           <div className="adm-members-formbtns">
             <button type="button" className="btn adm-int-btn" onClick={onCancel} disabled={busy}>
@@ -246,6 +318,7 @@ function ImportConfirmSheet({ file, preview, onCancel, onDone }: {
     <Sheet
       open
       onClose={onCancel}
+      fit
       title={mapping ? C.mapTitle : C.confirmTitle}
       footer={
         <>
@@ -406,84 +479,68 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
     }
   }
 
+  // ⚠️ `sourceHint` is the caption and NOTHING else: it used to be the card title's ⓘ and the
+  // caption underneath it, word for word, so the tip only ever repeated the line above it.
   return (
-    <section className="adm-card">
-      <header className="adm-card-head">
-        <h2 className="adm-card-title">
+    <Card title={C.csvImport} caption={C.sourceHint}>
+      <div className="adm-roster-import">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="adm-file-hidden"
+          onChange={(e) => void onFile(e)}
+          disabled={busy}
+        />
+        {/* Download first, upload second: the file you start FROM, then the one you send back.
+            The import is this card's committing action, so it is the single primary. */}
+        <button type="button" className="btn adm-int-btn" onClick={downloadTemplate}>
+          {C.csvTemplate}
+        </button>
+        <button type="button" className="btn adm-save-btn" onClick={() => fileRef.current?.click()} disabled={busy}>
           {C.csvImport}
-          <InfoTip label={C.csvImport} text={C.sourceHint} />
-        </h2>
-        <p className="adm-card-cap">{C.sourceHint}</p>
-      </header>
-      <div className="adm-card-body">
-        <div className="adm-roster-import">
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="adm-file-hidden"
-            onChange={(e) => void onFile(e)}
-            disabled={busy}
-          />
-          <button type="button" className="btn adm-int-btn" onClick={() => fileRef.current?.click()} disabled={busy}>
-            {C.csvImport}
-          </button>
-          {busy && <span className="adm-int-stat">{C.importing}</span>}
-          <button type="button" className="btn adm-int-btn adm-roster-template" onClick={downloadTemplate}>
-            {C.csvTemplate}
-          </button>
-        </div>
-        {err && <div className="adm-state adm-state-err">{err}</div>}
-        {result && (
-          <div className="adm-roster-result">
-            {/* New and updated stay apart afterwards too — «14 importiert» is exactly what a
-                station read while its Wehr was being written a second time. */}
-            {result.created > 0 && (
-              <span className="adm-badge on">
-                <span className="adm-badge-dot" aria-hidden />
-                <span className="adm-badge-state">{fillTemplate(C.createdBadge, { n: result.created })}</span>
-              </span>
-            )}
-            {result.updated > 0 && (
-              <span className="adm-badge on">
-                <span className="adm-badge-dot" aria-hidden />
-                <span className="adm-badge-state">{fillTemplate(C.updatedBadge, { n: result.updated })}</span>
-              </span>
-            )}
-            {result.imported === 0 && (
-              <span className="adm-badge">
-                <span className="adm-badge-dot" aria-hidden />
-                <span className="adm-badge-state">{fillTemplate(C.imported, { n: 0 })}</span>
-              </span>
-            )}
-            {result.skipped > 0 && (
-              <span className="adm-badge warn">
-                <span className="adm-badge-dot" aria-hidden />
-                <span className="adm-badge-state">{fillTemplate(C.skipped, { n: result.skipped })}</span>
-              </span>
-            )}
-            {result.adopted_ranks.length > 0 && (
-              <span className="adm-badge on">
-                <span className="adm-badge-dot" aria-hidden />
-                <span className="adm-badge-state">
-                  {result.adopted_ranks.length === 1
-                    ? C.ranksAdoptedOne
-                    : fillTemplate(C.ranksAdopted, { n: result.adopted_ranks.length })}
-                </span>
-              </span>
-            )}
-            {result.errors.length > 0 && (
-              <ul className="adm-roster-errors">
-                {result.errors.map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+        </button>
+        {busy && <span className="adm-int-stat">{C.importing}</span>}
       </div>
+      {err && <div className="adm-state adm-state-err">{err}</div>}
+      {result && (
+        <div className="adm-roster-result">
+          {/* Five pills, not one ResultChip: new and updated stay apart afterwards too — «14
+              importiert» is exactly what a station read while its Wehr was being written a
+              second time — and each count carries its own tone, which one chip cannot. */}
+          {result.created > 0 && (
+            <StatusBadge tone="on" label="" state={fillTemplate(C.createdBadge, { n: result.created })} />
+          )}
+          {result.updated > 0 && (
+            <StatusBadge tone="on" label="" state={fillTemplate(C.updatedBadge, { n: result.updated })} />
+          )}
+          {result.imported === 0 && (
+            <StatusBadge tone="off" label="" state={fillTemplate(C.imported, { n: 0 })} />
+          )}
+          {result.skipped > 0 && (
+            <StatusBadge tone="warn" label="" state={fillTemplate(C.skipped, { n: result.skipped })} />
+          )}
+          {result.adopted_ranks.length > 0 && (
+            <StatusBadge
+              tone="on"
+              label=""
+              state={result.adopted_ranks.length === 1
+                ? C.ranksAdoptedOne
+                : fillTemplate(C.ranksAdopted, { n: result.adopted_ranks.length })}
+            />
+          )}
+          {result.errors.length > 0 && (
+            <ul className="adm-roster-errors">
+              {result.errors.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {/* ⚠️ Cancelling here leaves the station exactly as it was: the preview wrote nothing, and
-          the import that would have is never sent. */}
+          the import that would have is never sent. The Sheet portals, so it sits in the card's
+          body without being laid out by it. */}
       {pending && (
         <ImportConfirmSheet
           file={pending.file}
@@ -492,7 +549,7 @@ function CsvImportCard({ onImported }: { onImported: () => void }) {
           onDone={(res) => void finish(res)}
         />
       )}
-    </section>
+    </Card>
   )
 }
 
@@ -513,29 +570,30 @@ function NameOrderCard() {
   // 'last-first' is the shipped default AND what the Divera sync writes — an unset config and a
   // config set to last-first have to look the same in the picker.
   const value = getPath<string>(draft, ['roster', 'nameOrder']) === 'first-last' ? 'first-last' : 'last-first'
+  // The Standard column speaks in the picker's own words, not in the stored key — «last-first»
+  // is not a word anybody chose. It stays silent while the shipped order is in force.
+  // ⚠️ The SHORT labels, not the picker's: the option carries an example («Nachname Vorname ·
+  // Meier Hans») and `standardNote` appends «geändert», so the full label would put three
+  // ·-separated parts in the narrowest column on the page.
+  const chosen = value === 'first-last' ? C.nameOrderShortFirstLast : C.nameOrderShortLastFirst
   return (
-    <section className="adm-card">
-      <header className="adm-card-head">
-        <h2 className="adm-card-title">
-          {C.nameOrderTitle}
-          <InfoTip label={C.nameOrderTitle} text={C.nameOrderTip} />
-        </h2>
-        <p className="adm-card-cap">{C.nameOrderCaption}</p>
-      </header>
-      <div className="adm-card-body">
-        <Field label={C.nameOrderLabel}>
-          <Select
-            value={value}
-            ariaLabel={C.nameOrderLabel}
-            onChange={(v) => set(['roster', 'nameOrder'], v)}
-            options={[
-              { value: 'last-first', label: C.nameOrderLastFirst },
-              { value: 'first-last', label: C.nameOrderFirstLast },
-            ]}
-          />
-        </Field>
-      </div>
-    </section>
+    <SettingsSheet title={C.nameOrderTitle} caption={C.nameOrderCaption}>
+      <SettingRow
+        label={C.nameOrderLabel}
+        tip={C.nameOrderTip}
+        standard={standardNote(chosen, C.nameOrderShortLastFirst)}
+      >
+        <Select
+          value={value}
+          ariaLabel={C.nameOrderLabel}
+          onChange={(v) => set(['roster', 'nameOrder'], v)}
+          options={[
+            { value: 'last-first', label: C.nameOrderLastFirst },
+            { value: 'first-last', label: C.nameOrderFirstLast },
+          ]}
+        />
+      </SettingRow>
+    </SettingsSheet>
   )
 }
 
@@ -590,68 +648,73 @@ export function RosterView() {
     }
   }
 
+  // ONE write path for Status: this row action and the Status picker in EditRow both PATCH
+  // `is_active`. DELETE /api/personnel/{id} does the same thing on the server, but a second
+  // route for one fact is how two «Deaktivieren» come to behave differently.
   const toggleActive = (p: RosterPerson) =>
-    p.is_active
-      ? mutate(p.id, () => deactivatePerson(p.id))
-      : mutate(p.id, () => updatePerson(p.id, { is_active: true }))
+    mutate(p.id, () => updatePerson(p.id, { is_active: !p.is_active }))
 
   const C = appConfig.copy.admin.roster
 
   return (
     <div className="adm-editor">
-      <div className="adm-toolbar">
-        {personnelProvider === null && (
-          <span className="adm-int-stat adm-int-muted">{C.providerNotConfigured}</span>
-        )}
-        {personnelProvider && (
-          <button type="button" className="btn adm-int-btn" onClick={() => setSyncOpen(true)}>
-            {fillTemplate(C.syncProvider, { provider: providerLabel(personnelProvider) })}
-          </button>
-        )}
-        <button type="button" className="btn adm-int-btn" onClick={() => setAddOpen(true)}>
-          {C.addPerson}
-        </button>
-      </div>
-
-      {addOpen && (
-        <AddPersonForm
-          onCreated={() => { setAddOpen(false); void load() }}
-          onClose={() => setAddOpen(false)}
-        />
+      {/* What the SOURCE of this roster is — the one thing here that is not a card: either the
+          provider's sync, or the sentence saying there is no provider (and the CSV card below is
+          then the way in). Nothing renders while capability discovery is still out. */}
+      {personnelProvider !== undefined && (
+        <div className="adm-toolbar">
+          {personnelProvider === null
+            ? <span className="adm-int-stat adm-int-muted">{C.providerNotConfigured}</span>
+            : (
+              <button type="button" className="btn adm-int-btn" onClick={() => setSyncOpen(true)}>
+                {fillTemplate(C.syncProvider, { provider: providerLabel(personnelProvider) })}
+              </button>
+            )}
+        </div>
       )}
+
       <NameOrderCard />
       {personnelProvider === null && <CsvImportCard onImported={() => void load()} />}
 
-      <section className="adm-card">
-        <header className="adm-card-head">
-          <h2 className="adm-card-title">{C.title}</h2>
-          <p className="adm-card-cap">
-            {C.caption}
-          </p>
-          <label className="adm-roster-inactive-toggle">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
+      {/* Both belong to the card as a whole rather than to any row: «Inaktive anzeigen» filters
+          the list, «Person hinzufügen» adds to it — that is what `action` is (ui · Card). The
+          add control used to float in the toolbar above the page, where it read as belonging to
+          the Namensformat card underneath it. */}
+      <Card
+        title={C.title}
+        caption={C.caption}
+        action={
+          <>
+            <label className="adm-roster-inactive-toggle">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+              />
+              <span>{C.showInactive}</span>
+            </label>
+            <button type="button" className="btn adm-int-btn" onClick={() => setAddOpen(true)}>
+              {C.addPerson}
+            </button>
+          </>
+        }
+      >
+        <>
+          {/* Directly under the header whose button opened it — see AddPersonForm. */}
+          {addOpen && (
+            <AddPersonForm
+              onCreated={() => { setAddOpen(false); void load() }}
+              onClose={() => setAddOpen(false)}
             />
-            <span>{C.showInactive}</span>
-          </label>
-        </header>
-        <div className="adm-card-body">
-          {state.kind === 'loading' && <div className="adm-state">{C.loading}</div>}
-          {state.kind === 'error' && <div className="adm-state adm-state-err">{state.detail}</div>}
+          )}
+          {state.kind === 'loading' && <EmptyState message={C.loading} />}
+          {state.kind === 'error' && <EmptyState tone="err" message={state.detail} />}
           {/* «Einrichtung» sends a fresh station straight here for «Personal erfassen», and the
-              answer for a whole Wehr is the Arbeitsmappe — which is named nowhere on this page. */}
+              answer for a whole Wehr is the Arbeitsmappe — which is named nowhere on this page.
+              No button of its own: «Person hinzufügen» is in the card header two lines above,
+              and the same action twice in one card is what makes the page look improvised. */}
           {state.kind === 'ok' && state.data.length === 0 && (
-            <EmptyState
-              message={C.none}
-              hint={C.noneHint}
-              action={
-                <button type="button" className="btn adm-save-btn" onClick={() => setAddOpen(true)}>
-                  {C.addPerson}
-                </button>
-              }
-            />
+            <EmptyState message={C.none} hint={C.noneHint} />
           )}
           {state.kind === 'ok' && state.data.length > 0 && (
             <div className="adm-table-wrap">
@@ -693,10 +756,8 @@ export function RosterView() {
                           <span className="adm-ref-kind">{p.external_identities?.[0] ? providerLabel(p.external_identities[0].provider) : C.sourceManual}</span>
                         </td>
                         <td>
-                          <span className={`adm-badge ${p.is_active ? 'on' : 'off'} adm-members-status`}>
-                            <span className="adm-badge-dot" aria-hidden />
-                            <span className="adm-badge-state">{p.is_active ? C.active : C.inactive}</span>
-                          </span>
+                          {/* the Status column names it — the pill only has to say which one */}
+                          <StatusBadge tone={p.is_active ? 'on' : 'off'} label="" state={p.is_active ? C.active : C.inactive} />
                         </td>
                         <td className="adm-members-actions-col">
                           <ActionMenu
@@ -722,8 +783,8 @@ export function RosterView() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+        </>
+      </Card>
 
       {syncOpen && (
         <PersonnelSyncDialog

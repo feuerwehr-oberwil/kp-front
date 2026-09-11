@@ -8,12 +8,10 @@ import { useConfig, getPath } from './ConfigContext'
 // No `Field` any more: every setting on these pages is a row of the settings table now, and
 // the list editors' records are a divider plus their fields as rows of the same grid.
 import {
-  Card, ConfirmButton, NameCombo, Offer, Select, SettingRow, SettingsGroup, SettingsNote,
-  SettingsSheet, fmtDate, standardNote,
+  Card, ConfirmButton, NameCombo, Offer, RecordRows, RecordTable, Select, SettingRow,
+  SettingsGroup, SettingsNote, SettingsSheet, fmtDate, standardNote,
 } from './ui'
-import { InfoTip } from './InfoTip'
 import { AVAILABLE_LOCALES } from '../config/copy'
-import { ReferenceLayersViewer } from './ReferenceLayersViewer'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
 import { ModulesViewer } from './ModulesViewer'
 import { ObjectsView, GeodataView } from './DataView'
@@ -308,7 +306,10 @@ export function IdentitySection() {
   ]
   return (
     <>
-    <SettingsSheet>
+    {/* Titled, because this page is four surfaces: this sheet plus the three MapSection renders
+        below. «Station» and «Karte» are the two halves of the page's own title, one on each
+        group — a page with more than one card titles every card (ui · Card). */}
+    <SettingsSheet title={C.groupStation}>
       <SettingRow label={C.appName} tip={C.appNameTip}>
         <input
           className="adm-input"
@@ -703,27 +704,29 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
   }
 
   return (
-    /* A list editor, not a list of settings: every row is a whole record with its own token
-       chips and preview, so it keeps its `.adm-formlink` shape and rides in one full-width
-       note. The card's own explanation moved into the head's ⓘ like everywhere else. */
-    <SettingsSheet title={C.groupExternal} tip={C.externalTip}>
+    /* A list editor, not a list of settings: every row is a whole RECORD with its own token
+       chips and preview, so it is a RecordTable (ui · RecordTable) rather than a sheet with a
+       divider per portal. It was already a card of its own on this page, so lifting it took
+       nothing with it. The card's explanation stays in the head's ⓘ like everywhere else. */
+    <RecordTable title={C.groupExternal} tip={C.externalTip} recordLabel={C.colExternal} fieldLabel={C.extLabel}>
       {rows.map((row, i) => {
         const preview = resolve(row.urlTemplate ?? '')
         return (
           // index key: an external link has no id of its own, and every value in the row is
-          // controlled from `rows` anyway
-          <div className="adm-formlink" key={i}>
-            <SettingsGroup
-              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
-              action={(
-                <button
-                  type="button" className="adm-formlink-x" title={C.extRemove} aria-label={C.extRemove}
-                  onClick={() => write(rows.filter((_, j) => j !== i))}
-                >
-                  <Icon id="trash" />
-                </button>
-              )}
-            />
+          // controlled from `rows` anyway. No meta: a portal has no fact about itself beyond
+          // the two fields under it, and the preview row is already the second of them.
+          <RecordRows
+            key={i}
+            name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+            action={(
+              <button
+                type="button" className="adm-formlink-x" title={C.extRemove} aria-label={C.extRemove}
+                onClick={() => write(rows.filter((_, j) => j !== i))}
+              >
+                <Icon id="trash" />
+              </button>
+            )}
+          >
             <SettingRow label={C.extLabel}>
               <input
                 className="adm-input" type="text" value={row.label ?? ''}
@@ -759,7 +762,7 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
                   </p>
                 )}
             </SettingRow>
-          </div>
+          </RecordRows>
         )
       })}
       <SettingsNote>
@@ -770,7 +773,7 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
           <Icon id="plus" />{C.extAdd}
         </button>
       </SettingsNote>
-    </SettingsSheet>
+    </RecordTable>
   )
 }
 
@@ -1015,18 +1018,20 @@ export function FleetSection() {
   const lists = fleet?.attributeLists ?? legacyFleetToAttributeLists(fleet)
   return (
     <>
-      <SettingsSheet title={C.groupVehicles} tip={C.vehiclesTip}>
-        {/* once per sheet, not per row: the page autosaves 700 ms after a deleted row and
+      {/* ⚠️ A RecordTable, not a SettingsSheet: a vehicle is a RECORD and its fields belong to it
+          (ui · RecordTable). The record column carries this surface's own word for what a record
+          is — «Fahrzeug» — and the attribute column the «Bezeichnung» its first row already has. */}
+      <RecordTable title={C.groupVehicles} tip={C.vehiclesTip} recordLabel={C.colVehicle} fieldLabel={C.vehicleLabel}>
+        {/* once per table, not per row: the page autosaves 700 ms after a deleted row and
             nothing else on it says where the previous state went. */}
         <SettingsNote>{appConfig.copy.admin.common.deleteRecovery}</SettingsNote>
         <FleetVehiclesEditor />
-      </SettingsSheet>
-      <h3 className="adm-view-subhead">{C.attributesTitle}</h3>
-      <Card>
-        <p className="adm-hint">
-          {C.cliHint}
-          <InfoTip label={C.attributesTitle} text={C.cliTip} />
-        </p>
+      </RecordTable>
+      {/* The heading is the CARD's, not an h3 standing over it: this page shows two surfaces, and
+          a page with more than one card titles every card (ui · Card). The ⓘ that explained the
+          lists rides on that title now, where every other card's does. */}
+      <Card title={C.attributesTitle} tip={C.cliTip}>
+        <p className="adm-hint">{C.cliHint}</p>
         <FleetAttributesViewer lists={lists} />
       </Card>
     </>
@@ -1039,8 +1044,9 @@ export function FleetSection() {
  * matches an incoming vehicle time against. Empty = every vehicle-times surface is hidden, which
  * is a legitimate state, not a broken one.
  *
- * Shaped like ReportLinksEditor above, and for the same reason: a half-typed row must NOT reach
- * the config document. `id`/`label` are `min_length=1` on the backend (schemas.py · FleetVehicle)
+ * A RecordTable of one record per vehicle (ui · RecordRows), like the Kartenebenen editors. The
+ * rule it shares with every other list editor here: a half-typed row must NOT reach the config
+ * document. `id`/`label` are `min_length=1` on the backend (schemas.py · FleetVehicle)
  * and Verwaltung PUTs the WHOLE document, so one blank row would 422 every other Station page
  * too, in a 700 ms autosave retry loop. Incomplete rows stay on screen with a warning until they
  * are worth saving.
@@ -1095,17 +1101,21 @@ function FleetVehiclesEditor() {
         return (
           // index key: a vehicle has no identity beyond the `id` the operator is still typing,
           // and every value in the row is controlled from `rows` anyway.
-          <div className="adm-formlink" key={i}>
-            <SettingsGroup
-              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
-              action={(
-                <ConfirmButton
-                  className="adm-formlink-x" ariaLabel={C.vehicleRemove} label={<Icon id="trash" />}
-                  question={C.vehicleRemoveConfirm} danger
-                  onConfirm={() => write(rows.filter((_, j) => j !== i))}
-                />
-              )}
-            />
+          // ⚠️ The Kennung stands in the head's meta line as well as in its own row, and that is
+          // not a duplication: it is the key GPS positions and Alarmzeiten join on, i.e. what
+          // says WHICH vehicle this record is — no swatch, a vehicle has no colour here.
+          <RecordRows
+            key={i}
+            name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+            meta={row.id?.trim() || undefined}
+            action={(
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.vehicleRemove} label={<Icon id="trash" />}
+                question={C.vehicleRemoveConfirm} danger
+                onConfirm={() => write(rows.filter((_, j) => j !== i))}
+              />
+            )}
+          >
             <SettingRow label={C.vehicleLabel} tip={C.vehicleLabelTip}>
               <input
                 className="adm-input" type="text" value={row.label ?? ''}
@@ -1121,7 +1131,7 @@ function FleetVehiclesEditor() {
               />
             </SettingRow>
             {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
-          </div>
+          </RecordRows>
         )
       })}
       <SettingsNote>
@@ -1195,28 +1205,28 @@ export function LayersSection() {
 
   return (
     <>
-      {/* A viewer, not a settings list — it keeps the plain Card. What it says is one sentence:
-          this overview is read-only, the editors are further down. Where whole manifests go and
-          which command pushes them is docs/CONFIGURATION.md's job. */}
-      <Card>
-        <p className="adm-hint">
-          {C.cliHint}
-          <InfoTip label={C.datasetsTitle} text={C.cliTip} />
-        </p>
-        <ReferenceLayersViewer layers={draft?.referenceLayers ?? []} datasets={datasets} />
-      </Card>
-      <h3 className="adm-view-subhead">{C.geojsonTitle}</h3>
-      <SettingsSheet tip={C.geojsonTip} title={C.geojsonTitle}>
+      {/* ⚠️ Nothing stands above the two editors, and both omissions are deliberate.
+          · The read-only overview that used to open this page listed every layer once and the
+            editors below then listed all of them a second time. Since each editor names its own
+            records in the head column (ui · RecordTable), it had nothing left to add. Where whole
+            manifests go and which command pushes them is docs/CONFIGURATION.md's job.
+          · No heading either: the table TITLES itself, and the h3 that used to stand here printed
+            the same words again. The Datensätze view below carries its own title now too — a page
+            with more than one card titles every card, in the card head (ui · Card), which is what
+            retired the `adm-view-subhead` h3s this file used to hang over untitled surfaces. */}
+      {/* ⚠️ A RecordTable, not a SettingsSheet: these two are LIST EDITORS, and their rows belong
+          to a record (ui · RecordTable). The record column's header is the surface's own word for
+          what a record is — «Ebene» — and the attribute column's is the same «Bezeichnung» the
+          first row of every record carries. */}
+      <RecordTable tip={C.geojsonTip} title={C.geojsonTitle} recordLabel={C.colLayer} fieldLabel={C.geojsonLabel}>
         {/* stands once for BOTH editors on this page — the raster sheet follows directly below */}
         <SettingsNote>{appConfig.copy.admin.common.deleteRecovery}</SettingsNote>
         <ReferenceGeojsonEditor all={all} write={write} datasets={datasets} onUploaded={reloadDatasets} />
-      </SettingsSheet>
-      <h3 className="adm-view-subhead">{C.rasterTitle}</h3>
-      <SettingsSheet tip={C.rasterTip} title={C.rasterTitle}>
+      </RecordTable>
+      <RecordTable tip={C.rasterTip} title={C.rasterTitle} recordLabel={C.colLayer} fieldLabel={C.rasterLabel}>
         <ReferenceRasterEditor all={all} write={write} />
-      </SettingsSheet>
-      <h3 className="adm-view-subhead">{C.datasetsTitle}</h3>
-      <GeodataView key={nonce} />
+      </RecordTable>
+      <GeodataView key={nonce} title={C.datasetsTitle} />
     </>
   )
 }
@@ -1316,17 +1326,19 @@ function ReferenceRasterEditor({ all, write }: {
       {rasterIdx.map(([row, i]) => {
         const warn = problem(row, i)
         return (
-          <div className="adm-formlink" key={i}>
-            <SettingsGroup
-              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
-              action={(
-                <ConfirmButton
-                  className="adm-formlink-x" ariaLabel={C.rasterRemove} label={<Icon id="trash" />}
-                  question={C.rasterRemoveConfirm} danger
-                  onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
-                />
-              )}
-            />
+          // no swatch and no meta: a raster layer has no colour of its own, and everything a
+          // reader would put on a meta line here (Typ, Quelle) is already a row of the record
+          <RecordRows
+            key={i}
+            name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+            action={(
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.rasterRemove} label={<Icon id="trash" />}
+                question={C.rasterRemoveConfirm} danger
+                onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
+              />
+            )}
+          >
             <SettingRow label={C.rasterLabel}>
               <input
                 className="adm-input" type="text" value={row.label ?? ''}
@@ -1374,7 +1386,7 @@ function ReferenceRasterEditor({ all, write }: {
               />
             </SettingRow>
             {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
-          </div>
+          </RecordRows>
         )
       })}
       <SettingsNote>
@@ -1566,17 +1578,23 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
           : datasetId ? C.geojsonDatasetMissing : String(row.geojson ?? '')
         const msg = rowMsg?.i === i ? rowMsg : null
         return (
-          <div className="adm-formlink" key={row.id ?? i}>
-            <SettingsGroup
-              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
-              action={(
-                <ConfirmButton
-                  className="adm-formlink-x" ariaLabel={C.geojsonRemove} label={<Icon id="trash" />}
-                  question={C.geojsonRemoveConfirm} danger
-                  onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
-                />
-              )}
-            />
+          // ⚠️ The facts (Version · Features · Aktualisiert) live in the HEAD, not in the Datei
+          // row: they say what this layer IS, which is what a record head is for, and the Datei
+          // row is then just the act. Where there is no dataset behind the layer — a hand-written
+          // URL — that URL is the fact, and there is nothing to replace, so no Datei row at all.
+          <RecordRows
+            key={row.id ?? i}
+            name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+            swatch={HEX_COLOR.test(row.color ?? '') ? row.color : undefined}
+            meta={facts}
+            action={(
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.geojsonRemove} label={<Icon id="trash" />}
+                question={C.geojsonRemoveConfirm} danger
+                onConfirm={() => write((prev) => prev.filter((_, j) => j !== i))}
+              />
+            )}
+          >
             <SettingRow label={C.geojsonLabel}>
               <input
                 className="adm-input" type="text" value={row.label ?? ''}
@@ -1607,57 +1625,58 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
               />
             </SettingRow>
             <SettingRow label={C.colorDay}>
-                <div className="adm-color-row">
-                  <input
-                    className="adm-color-swatch" type="color"
-                    value={HEX_COLOR.test(row.color ?? '') ? pickerHex(row.color!) : DEFAULT_LAYER_COLOR}
-                    onChange={(e) => patch(i, { color: e.target.value })}
-                    aria-label={C.colorDay}
-                  />
-                  <input
-                    className="adm-input adm-input-mono" type="text" value={row.color ?? ''}
-                    placeholder={DEFAULT_LAYER_COLOR}
-                    onChange={(e) => patch(i, { color: e.target.value || null })}
-                  />
-                </div>
+              <div className="adm-color-row">
+                <input
+                  className="adm-color-swatch" type="color"
+                  value={HEX_COLOR.test(row.color ?? '') ? pickerHex(row.color!) : DEFAULT_LAYER_COLOR}
+                  onChange={(e) => patch(i, { color: e.target.value })}
+                  aria-label={C.colorDay}
+                />
+                <input
+                  className="adm-input adm-input-mono" type="text" value={row.color ?? ''}
+                  placeholder={DEFAULT_LAYER_COLOR}
+                  onChange={(e) => patch(i, { color: e.target.value || null })}
+                />
+              </div>
             </SettingRow>
-            <SettingRow label={C.geojsonFile} span>
+            {datasetId && (
+              <SettingRow label={C.geojsonFile}>
                 <div className="adm-brand-row">
-                  <span className="adm-vfacts">{facts}</span>
-                  {datasetId && (
-                    <>
-                      <input
-                        ref={(el) => { rowInputs.current[i] = el }}
-                        type="file" accept={GEOJSON_ACCEPT} className="adm-file-hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0]
-                          e.target.value = '' // so the same file can be picked again after a refusal
-                          if (f) void replaceFile(i, row.id, datasetId, f)
-                        }}
-                      />
-                      <button
-                        type="button" className="btn adm-int-btn" disabled={rowBusy === i}
-                        onClick={() => rowInputs.current[i]?.click()}
-                      >
-                        {rowBusy === i ? C.geojsonUploading : C.geojsonReplace}
-                      </button>
-                    </>
-                  )}
+                  <input
+                    ref={(el) => { rowInputs.current[i] = el }}
+                    type="file" accept={GEOJSON_ACCEPT} className="adm-file-hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = '' // so the same file can be picked again after a refusal
+                      if (f) void replaceFile(i, row.id, datasetId, f)
+                    }}
+                  />
+                  <button
+                    type="button" className="btn adm-int-btn" disabled={rowBusy === i}
+                    onClick={() => rowInputs.current[i]?.click()}
+                  >
+                    {rowBusy === i ? C.geojsonUploading : C.geojsonReplace}
+                  </button>
                 </div>
-            </SettingRow>
+              </SettingRow>
+            )}
             {msg && (
               <SettingsNote tone={msg.ok ? undefined : 'warn'}>
                 {msg.msg}{msg.hint ? ` ${msg.hint}` : ''}
               </SettingsNote>
             )}
             {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
-          </div>
+          </RecordRows>
         )
       })}
 
       {open ? (
-        <div className="adm-formlink">
-          <SettingsGroup title={label.trim() || appConfig.copy.admin.common.newEntry} />
+        // the record being prepared — same shape as the stored ones, so the eye does not have to
+        // relearn the page between adding a layer and correcting one
+        <RecordRows
+          name={label.trim() || appConfig.copy.admin.common.newEntry}
+          swatch={HEX_COLOR.test(color) ? color : undefined}
+        >
           <SettingRow label={C.geojsonFile} tip={C.geojsonFileTip} span>
             <div className="adm-brand-row">
               <input
@@ -1747,7 +1766,7 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
               </button>
             </span>
           </SettingsNote>
-        </div>
+        </RecordRows>
       ) : (
         <SettingsNote>
           <button type="button" className="adm-formlink-add" onClick={() => { setDone(null); setOpen(true) }}>
@@ -1780,14 +1799,13 @@ export function ModulesSection() {
   const modules = usingDefaults ? DEFAULT_MODULES : configured
   return (
     <>
-      <Card>
+      <Card title={C.catalogueTitle}>
         {/* The two `uv run python -m app.admin_…` lines that stood here are gone. A command to
             type is documentation, and docs/CONFIGURATION.md is where it is maintained — printed
             on a settings page it went stale silently and pushed the catalogue off the screen. */}
         <ModulesViewer modules={modules} objects={objects} usingDefaults={usingDefaults} />
       </Card>
-      <h3 className="adm-view-subhead">{C.objectsTitle}</h3>
-      <ObjectsView />
+      <ObjectsView title={C.objectsTitle} />
     </>
   )
 }
@@ -1913,16 +1931,21 @@ export function AlarmsSection() {
 
   return (
     <>
-      <SettingsSheet title={C.groupGroups} tip={C.groupsTip}>
+      {/* ⚠️ A RecordTable, not a SettingsSheet — same reason as the Fahrzeuge above it: an
+          Alarmgruppe is a RECORD, and it is named once in its own column instead of on a
+          full-width divider the eye loses as soon as it scrolls past. */}
+      <RecordTable title={C.groupGroups} tip={C.groupsTip} recordLabel={C.colGroup} fieldLabel={C.groupLabel}>
         <SettingsNote>{appConfig.copy.admin.common.deleteRecovery}</SettingsNote>
         <AlarmGroupsEditor />
-      </SettingsSheet>
-      <SettingsSheet>
-        <SettingsGroup title={C.groupArchive} tip={C.archiveTip} />
+      </RecordTable>
+      {/* Two sheets, each titled by its group — not one untitled sheet with two dividers in it.
+          The page's other three surfaces carry their heading in the card head, and a group divider
+          standing in for a card title is the same words one line lower and two sizes smaller. */}
+      <SettingsSheet title={C.groupArchive} tip={C.archiveTip}>
         {intField('autoArchiveDays', C.autoArchiveDays, C.autoArchiveDaysTip, 0, 3650)}
         {intField('staleIncidentDays', C.staleIncidentDays, C.staleIncidentDaysTip, 0, 3650)}
-
-        <SettingsGroup title={C.groupCapture} tip={C.captureTip} />
+      </SettingsSheet>
+      <SettingsSheet title={C.groupCapture} tip={C.captureTip}>
         {intField('captureWindowHours', C.captureWindowHours, C.captureWindowHoursTip, 1, 168)}
       </SettingsSheet>
       <SettingsSheet title={C.groupWebhooks} tip={C.webhooksTip}>
@@ -1940,7 +1963,7 @@ export function AlarmsSection() {
  * anywhere but the `admin_config` CLI. `id` is what a milestone webhook reports an Alarmzeit
  * against (backend/app/api/alarms.py · group_labels).
  *
- * Shaped exactly like FleetVehiclesEditor, and for the same reason: `id`/`label` are
+ * A RecordTable exactly like FleetVehiclesEditor, and it obeys the same rule: `id`/`label` are
  * `min_length=1` on the backend (schemas.py · AlarmGroup) and Verwaltung PUTs the WHOLE document,
  * so one blank row would 422 every other Station page too, in a 700 ms autosave retry loop.
  * Incomplete rows stay on screen with a warning until they are worth saving.
@@ -1997,23 +2020,23 @@ function AlarmGroupsEditor() {
         const warn = problem(row, i, rows)
         const note = row.color?.trim()
         return (
-          // ⚠️ `.adm-formlink` is `display: contents` inside the settings table: it groups ONE
-          // record for React (and for the tests) without becoming a box of its own. The record
-          // reads as a divider plus its fields as rows of the same grid — not a card floating
-          // inside a table, which is what every list editor used to be.
           // index key: a group has no identity beyond the `id` the operator is still typing,
           // and every value in the row is controlled from `rows` anyway.
-          <div className="adm-formlink" key={i}>
-            <SettingsGroup
-              title={row.label?.trim() || appConfig.copy.admin.common.newEntry}
-              action={(
-                <ConfirmButton
-                  className="adm-formlink-x" ariaLabel={C.groupRemove} label={<Icon id="trash" />}
-                  question={C.groupRemoveConfirm} danger
-                  onConfirm={() => write(rows.filter((_, j) => j !== i))}
-                />
-              )}
-            />
+          // ⚠️ NO swatch, despite the field being called `color`: it holds the parenthetical the
+          // Rapport prints («Rot», «Tag. Pikett»), not a colour — see the note above. The meta
+          // line carries the Kennung instead, which is what a reported Alarmzeit joins on.
+          <RecordRows
+            key={i}
+            name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
+            meta={row.id?.trim() || undefined}
+            action={(
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.groupRemove} label={<Icon id="trash" />}
+                question={C.groupRemoveConfirm} danger
+                onConfirm={() => write(rows.filter((_, j) => j !== i))}
+              />
+            )}
+          >
             <SettingRow label={C.groupLabel} tip={C.groupLabelTip}>
               <input
                 className="adm-input" type="text" value={row.label ?? ''}
@@ -2040,7 +2063,7 @@ function AlarmGroupsEditor() {
               // «Zusatz» is the one field whose effect is not obvious from its own value, so the
               // row says what it will print rather than describing it.
               : note && <SettingsNote>{fillTemplate(C.groupPreview, { zeile: `${row.label?.trim()} (${note})` })}</SettingsNote>}
-          </div>
+          </RecordRows>
         )
       })}
       <SettingsNote>

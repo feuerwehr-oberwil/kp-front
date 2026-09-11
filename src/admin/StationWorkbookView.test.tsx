@@ -288,12 +288,33 @@ describe('nothing is written until the operator says so', () => {
 })
 
 describe('the page says what the workbook is not', () => {
-  it('names the backup that this file is not, before anything else', async () => {
+  it('keeps the «keine Sicherung» warning on the download, in its ⓘ', async () => {
     // ⚠️ A file that looks like the whole station is the file somebody reaches for after a bad
-    // day. It carries six of a dozen config sections; the restore path is elsewhere.
+    // day. It carries six of a dozen config sections; the restore path is elsewhere. The
+    // sentence moved out of body prose — but it stays attached to the tap it has to reach.
     await mount()
-    expect(screen.getByText(C.notBackup)).toBeTruthy()
-    expect(screen.getByText(new RegExp(C.carriesNot.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeTruthy()
+    const tips = screen.getAllByRole('tooltip').map((t) => t.textContent ?? '')
+    const download = tips.find((t) => t.includes(C.notBackup))
+    expect(download).toBeDefined()
+    expect(download).toContain(C.carriesNot)
+    expect(download).toContain(C.covers)
+    // …and so do the person-matching rules, in the same ⓘ now that both actions share one card.
+    expect(tips.some((t) => t.includes(C.nameNote))).toBe(true)
+  })
+
+  it('leads with both actions in one card head, the file to start from first', async () => {
+    // ~1400 characters over three cards used to sit above the first button, and the file you
+    // START FROM was a whole card away from the file you SEND BACK. What is left is ONE card
+    // whose head carries both in that order, and no body prose — the long rules are in the ⓘ.
+    await mount()
+    expect(document.querySelectorAll('.adm-card')).toHaveLength(1)
+    expect(document.querySelectorAll('.adm-card-head .adm-card-cap')).toHaveLength(1)
+    expect(document.querySelectorAll('.adm-card-body .adm-hint')).toHaveLength(0)
+    const acts = [...document.querySelectorAll<HTMLButtonElement>('.adm-card-act button')]
+    expect(acts.map((b) => b.textContent)).toEqual([C.download, C.choose])
+    // …and exactly one of them is the primary: the one that sends the file back
+    expect(acts[0].className).toContain('adm-int-btn')
+    expect(acts[1].className).toContain('adm-save-btn')
   })
 
   it('downloads the station’s own file as the template and the undo', async () => {

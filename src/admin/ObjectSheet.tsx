@@ -180,6 +180,10 @@ export function ObjectSheet({ object, onClose, onChanged }: {
     onChanged(next)
   }
 
+  // Deliberately NOT `fit`: the body is a form that GROWS — the plan half only appears once the
+  // object exists, and every module adds a slot row. Hugging the content would make the frame
+  // jump from short to full the moment «Speichern» lands, which is exactly what the fixed
+  // 800px frame is there to prevent.
   return (
     <Sheet
       open
@@ -364,8 +368,9 @@ function PlanSlots({ object, onStored }: { object: ObjectWithPlans; onStored: (d
   )
 }
 
-/** A stored plan's provenance badge: hand upload, Planspeicher or SharePoint. */
-function PlanSourceBadge({ sourceType }: { sourceType: string }) {
+/** A stored plan's provenance badge: hand upload, Planspeicher or SharePoint. Also worn by the
+ *  Checklisten rows, which answer the same «woher kommt das» over the same registry. */
+export function PlanSourceBadge({ sourceType }: { sourceType: string }) {
   const s = planSourceLabel(sourceType)
   return <span className="adm-fleet-badge adm-view-badge-muted" title={s.tip}>{s.label}</span>
 }

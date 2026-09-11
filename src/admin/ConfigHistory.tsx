@@ -3,7 +3,7 @@ import { apiGet, apiPost } from '../lib/api'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { fmtDateTime } from './ui'
+import { EmptyState, fmtDateTime } from './ui'
 import { Sheet } from '../lib/overlays'
 
 /** One kept configuration, as the API projects it (backend api/config · ConfigHistoryEntry). */
@@ -115,7 +115,7 @@ function EntryRow({ e, nested, busy, onRestore }: {
         )}
         <span className="adm-hist-sub">{changedText(e.sections)}</span>
       </span>
-      <button type="button" className="adm-hist-btn" disabled={busy} onClick={() => onRestore(e)}>
+      <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => onRestore(e)}>
         {C.histRestore}
       </button>
     </div>
@@ -200,12 +200,13 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
     }
   }
 
-  if (error) return <div className="adm-state">{error}</div>
+  if (error) return <EmptyState tone="err" message={error} />
   if (!rows) return null
 
   return (
     <>
-      <p className="adm-card-cap">{C.histCaption}</p>
+      {/* ⚠️ The card's caption is the CARD's — BackupView passes `C.histCaption` to the `Card`
+          that wraps this component, so it renders in the header with every other one. */}
       {note && <p className="adm-hint">{note}</p>}
       <div className="adm-hist">
         {/* The live document gets a row of its own. Without it the newest entry reads as «the
@@ -216,7 +217,7 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
           <span className="adm-hist-what"><span className="adm-hist-src">{C.histNow}</span></span>
           <span className="adm-hist-badge">{C.histActive}</span>
         </div>
-        {rows.length === 0 && <div className="adm-state">{C.histEmpty}</div>}
+        {rows.length === 0 && <EmptyState message={C.histEmpty} />}
         {groups.map((group) => {
           const newest = group[0]
           const oldest = group[group.length - 1]
@@ -250,7 +251,7 @@ export function ConfigHistory({ onRestored }: { onRestored: (cfg: DeploymentConf
                   </button>
                 </span>
                 <button
-                  type="button" className="adm-hist-btn" disabled={busy !== null}
+                  type="button" className="btn adm-int-btn" disabled={busy !== null}
                   onClick={() => setPending(oldest)}
                 >
                   {C.histRestore}

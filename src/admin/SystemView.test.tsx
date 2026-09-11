@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 //
-// The SharePoint card on System & Wartung. What it pins is the one thing this connector's UI
-// exists for: an operator can SEE that it stopped. Everything else on the page is a number;
-// this card is a promise that silence has a colour.
+// System & Wartung. Two things are pinned here.
+//
+// «Systemzustand» — the page's single primary status surface. Server, Datenbank, Umgebung,
+// Release, Commit and Branch answer one question («läuft der Server, und welcher Stand?») and
+// therefore live in one place, with two rules that were real bugs: a badge inside an already
+// labelled cell is dot + state only, and the raw env string never reaches the UI.
+//
+// The SharePoint card. What it pins is the one thing this connector's UI exists for: an
+// operator can SEE that it stopped. Everything else on the page is a number; this card is a
+// promise that silence has a colour.
 //
 //   1. an unconfigured station reads «nicht eingerichtet» — a card that renders nothing looks
 //      exactly like a card whose fetch failed, and the difference matters here;
@@ -10,7 +17,7 @@
 //      week of 401s is the failure the whole card is against;
 //   3. an expiring Azure client secret is a warning weeks ahead, and an expired one is red.
 
-import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const apiGet = vi.fn()
@@ -22,7 +29,6 @@ vi.mock('../lib/api', async () => {
 })
 
 vi.mock('./ConfigContext', () => ({ useConfig: () => ({ draft: {} }) }))
-vi.mock('./TelemetryCard', () => ({ TelemetryCard: () => null }))
 vi.mock('./SetupChecklist', () => ({ SetupChecklist: () => null }))
 
 import { SystemView } from './SystemView'
@@ -78,6 +84,62 @@ describe('a station that has not set the connector up', () => {
   })
 })
 
+describe('«Systemzustand» — the one primary status surface', () => {
+  const noSharePoint = { configured: false, credentials: false, intervalMinutes: 60, secretExpiresInDays: null, areas: [] }
+
+  it('states Server, Datenbank and Umgebung exactly once each', async () => {
+    serve(noSharePoint)
+    render(<SystemView />)
+
+    await screen.findByText(C.reachable)
+    // Each label is a cell label; no badge repeats it, and no second card restates the fact.
+    expect(screen.getAllByText(C.server)).toHaveLength(1)
+    expect(screen.getAllByText(C.database)).toHaveLength(1)
+    expect(screen.getAllByText(C.environment)).toHaveLength(1)
+    expect(screen.getAllByText(C.ok)).toHaveLength(1)
+    expect(screen.getAllByText(C.production)).toHaveLength(1)
+  })
+
+  it('never shows the raw env string', async () => {
+    serve(noSharePoint)
+    render(<SystemView />)
+
+    await screen.findByText(C.production)
+    expect(screen.queryByText('production')).toBeNull()
+  })
+
+  it('carries the version facts in the SAME surface as the server state', async () => {
+    // The point of the merge: «läuft der Server, und welcher Stand läuft da» is one question,
+    // and it used to be answered by a strip plus a separate Version card further down.
+    serve(noSharePoint)
+    render(<SystemView />)
+
+    const cell = (await screen.findByText(C.release)).closest('div')!
+    const surface = cell.parentElement!
+    for (const label of [C.server, C.database, C.environment, C.release, C.commit, C.branch]) {
+      expect(within(surface).getByText(label)).toBeTruthy()
+    }
+    expect(within(surface).getByText('v0.10.0')).toBeTruthy()
+    // Short hash in the cell, the full one on hover — forty characters would push the label out.
+    expect(within(surface).getByText('abcdef1')).toBeTruthy()
+    expect(screen.queryByText('abcdef1234')).toBeNull()
+    // No branch reported → a dash, not an empty cell.
+    expect(within(surface).getAllByText('—')).toHaveLength(1)
+  })
+
+  it('says «nicht verfügbar» in every version cell when the server reports no version', async () => {
+    apiGet.mockImplementation((p: string) =>
+      Promise.resolve(p.startsWith('/api/sharepoint/status') ? noSharePoint : { ...SYSTEM, version: null }))
+    render(<SystemView />)
+
+    const surface = (await screen.findByText(C.release)).closest('div')!.parentElement!
+    // Release, Commit and Branch each say it — three dashes would read as three empty fields.
+    expect(within(surface).getAllByText(C.notAvailable)).toHaveLength(3)
+    // …and an unknown env is «Entwicklung», never a green «Produktion» by default.
+    expect(within(surface).getByText(C.development)).toBeTruthy()
+  })
+})
+
 describe('the per-area read-out', () => {
   it('leads with the last SUCCESSFUL sync, not the last attempt', async () => {
     serve({
@@ -93,7 +155,8 @@ describe('the per-area read-out', () => {
     })
     render(<SystemView />)
 
-    // The name is both the row's title and its badge label, so the folder path is the anchor.
+    // The name is the row's title only — the badge beside it is dot + state — so the folder
+    // path is the anchor.
     expect(await screen.findByText('kp-data/plans')).toBeTruthy()
     // The failing area shows the tenant's own sentence — «AADSTS…» is the searchable half.
     expect(screen.getByText(/AADSTS7000222/)).toBeTruthy()

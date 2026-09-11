@@ -13,11 +13,11 @@ import type {
   DiveraAlarm,
 } from '../lib/incidents'
 import type { VehiclePosition } from '../types'
+import { providerLabel } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { providerLabel } from '../lib/deploymentConfig'
 import { Icon } from '../lib/icons'
-import { Card, CopyChip, Offer, StatusBadge, Table, EmptyState, ResultChip, fmtDate } from './ui'
+import { Card, Offer, StatusBadge, Table, EmptyState, ResultChip, fmtDate } from './ui'
 
 // The three read-only "Daten" pages — Integrationen, Objekte & Pläne, Geodaten. Each is
 // its own nav destination (they used to be stacked cards in one DataView). Every fetch is
@@ -66,6 +66,29 @@ function classify(e: unknown): 'unconfigured' | 'error' {
   // 503 = integration not configured server-side; treat as a neutral "off" state.
   if (e instanceof ApiError && e.status === 503) return 'unconfigured'
   return 'error'
+}
+
+// What a provider page KNOWS about its integration — three answers, not two, and the badge and
+// every live action read this one value:
+//   'unconfigured' — the status answered and says no key / no host. Every probe from here can
+//                    only fail, and the failure teaches nothing, so no live action is offered.
+//   'unknown'      — the status endpoint itself failed. Nothing may be claimed about the
+//                    credentials; the integration may well be configured and merely unreachable,
+//                    which is precisely when «Verbindung testen» is the right offer — it is the retry.
+//   'configured'   — set up (reachable or not).
+type Setup = 'loading' | 'configured' | 'unconfigured' | 'unknown'
+
+/** Fold a status fetch plus its `configured` flag into the page's single setup fact. */
+function setupOf<T>(status: Async<T>, configured: boolean): Setup {
+  if (status.kind === 'loading') return 'loading'
+  if (status.kind === 'ok') return configured ? 'configured' : 'unconfigured'
+  return status.kind === 'unconfigured' ? 'unconfigured' : 'unknown'
+}
+
+/** Whether a provider probe may be offered at all: only when it can tell the operator something
+ *  they do not already know from the badge. */
+function offersProbe(setup: Setup): boolean {
+  return setup === 'configured' || setup === 'unknown'
 }
 
 // ─── connection-test helpers ──────────────────────────────────────────────────
@@ -151,13 +174,13 @@ function IntStatus({ badge, children }: { badge: ReactNode; children: ReactNode 
   )
 }
 
-/** Where an unconfigured integration is actually fixed. Both provider pages otherwise offer
- *  only «Verbindung testen», which on a fresh instance fails by construction and says nothing
- *  about where the key goes. */
+/** Where an unconfigured integration is actually fixed. Both provider pages used to offer
+ *  «Verbindung testen» instead, which on a fresh instance fails by construction and says nothing
+ *  about where the key goes. Lives inside an `Offer`, hence the primary button styling. */
 function OpenCredentials({ onNavigate }: { onNavigate?: (id: string) => void }) {
   if (!onNavigate) return null
   return (
-    <button type="button" className="btn adm-int-btn" onClick={() => onNavigate('zugaenge')}>
+    <button type="button" className="btn adm-save-btn" onClick={() => onNavigate('zugaenge')}>
       {appConfig.copy.admin.data.openCredentials}
     </button>
   )
@@ -180,20 +203,15 @@ type AlarmPath = 'divera' | 'webhook'
  * ⚠️ Only rendered while NO alarm source is configured. After the first alarm this card is in
  * the way of a working page, and the status view below is the whole answer.
  *
- * ⚠️ The secret itself is never shown here, and this component never fetches it — the URLs
- * carry a PLACEHOLDER, and the button leads to «Zugangsdaten», which is the only surface that
- * can set it (backend/app/credentials.py · alarm_webhook_secret). FireHub cannot send its own
- * headers, so its secret has to ride in the query string; the generic intake accepts either
- * (`?secret=` or `X-Webhook-Secret`) and the copyable form is the one that works for both.
+ * ⚠️ The two webhook ADDRESSES are no longer here. They were the third place the same URL was
+ * printed, and since 2026-09-10 every address this Wehr hands out is one row of «Links &
+ * Zugänge» (admin/LinksView). What stays is what is genuinely this page's: which of the two
+ * paths a station is on, and where the key that opens the intake is entered.
  */
 function AlarmSetupCard({ onNavigate }: { onNavigate?: (id: string) => void }) {
   const C = appConfig.copy.admin.data
   const D = appConfig.copy.admin.docs
   const [path, setPath] = useState<AlarmPath>('webhook')
-  // Built from the origin the browser is on, like IncidentLinkAdminView — a station behind its
-  // own domain must be able to copy the address it will actually be called on.
-  const origin = window.location.origin
-  const secret = C.secretPlaceholder
   const paths: { id: AlarmPath; title: string; means: string }[] = [
     { id: 'divera', title: C.pathDivera, means: C.pathDiveraMeans },
     { id: 'webhook', title: C.pathWebhook, means: C.pathWebhookMeans },
@@ -225,16 +243,6 @@ function AlarmSetupCard({ onNavigate }: { onNavigate?: (id: string) => void }) {
 
       {path === 'webhook' ? (
         <>
-          <div className="adm-cap-rows">
-            <div className="adm-cap-example">
-              <p className="adm-card-cap"><strong>{C.genericLabel}</strong><br />{C.genericHint}</p>
-              <CopyChip value={`${origin}/api/alarms?secret=${secret}`} />
-            </div>
-            <div className="adm-cap-example">
-              <p className="adm-card-cap"><strong>{C.firehubLabel}</strong><br />{C.firehubHint}</p>
-              <CopyChip value={`${origin}/api/firehub/webhook?secret=${secret}`} />
-            </div>
-          </div>
           <Offer icon="warn" title={C.secretTitle} body={C.secretBody}>
             {onNavigate && (
               <button type="button" className="btn adm-save-btn" onClick={() => onNavigate('zugaenge')}>
@@ -253,8 +261,15 @@ function AlarmSetupCard({ onNavigate }: { onNavigate?: (id: string) => void }) {
         </Offer>
       )}
 
+      {/* The sentence is caption text, the DOCUMENT is the link — same two-word chip shape as
+          «Doku» / «Integrations-Doku» everywhere else in /admin (LinksView, AdminShell). It used
+          to be one class-less anchor carrying the whole sentence, which inherited the global
+          anchor styling instead of `.adm-link`. */}
       <p className="adm-card-cap">
-        <a href={`${D.repo}${D.alarmIntegrations}`} target="_blank" rel="noreferrer">{C.setupDocs}</a>
+        {C.setupDocsNote}{' '}
+        <a className="adm-link" href={`${D.repo}${D.alarmIntegrations}`} target="_blank" rel="noreferrer">
+          {C.setupDocs}
+        </a>
       </p>
     </Card>
   )
@@ -311,16 +326,21 @@ export function AlarmProviderView({ onNavigate }: { onNavigate?: (id: string) =>
 
   const C = appConfig.copy.admin.data
   const capability = cfg.kind === 'ok' ? cfg.data.integrations?.alarms : undefined
-  const providerName = providerLabel(capability?.provider ?? 'divera')
   const configured = cfg.kind === 'ok' && (capability?.configured ?? !!cfg.data.integrations?.diveraConfigured)
   const hasPool = cfg.kind === 'ok' && (capability
     ? capability.capabilities?.includes('pool') ?? false
     : !!cfg.data.integrations?.diveraConfigured)
-  const badge = cfg.kind === 'loading'
-    ? <StatusBadge tone="off" label={providerName} state="…" />
-    : configured
-      ? <StatusBadge tone="on" label={providerName} state={C.stateConnected} />
-      : <StatusBadge tone="off" label={providerName} state={cfg.kind === 'error' ? C.stateUnavailable : C.stateNotConfigured} />
+  // One fact behind the badge AND every live action on this page — the badge cannot say
+  // «nicht konfiguriert» while a probe is still on offer, because both read this.
+  const setup = setupOf(cfg, configured)
+  // ⚠️ `label=""` — dot + state only. The page head («Alarmierung») and its lede already name
+  // what this badge is the status OF, and a badge that repeats its own page is the shape the
+  // house style calls out. Same rule on the Fahrzeugortung page and in every table cell.
+  const badge = setup === 'loading'
+    ? <StatusBadge tone="off" label="" state="…" />
+    : setup === 'configured'
+      ? <StatusBadge tone="on" label="" state={C.stateConnected} />
+      : <StatusBadge tone="off" label="" state={setup === 'unknown' ? C.stateUnavailable : C.stateNotConfigured} />
 
   // The pool is ordered received_at desc, so the first row is the most recent alarm.
   const newest = pool.kind === 'ok' ? pool.data[0] : undefined
@@ -328,11 +348,15 @@ export function AlarmProviderView({ onNavigate }: { onNavigate?: (id: string) =>
   return (
     <div className="adm-editor">
       {/* Not while the status is still loading — «nicht konfiguriert» is not yet the answer, and
-          a setup card that flashes onto a working station is worse than none. */}
-      {cfg.kind !== 'loading' && !configured && <AlarmSetupCard onNavigate={onNavigate} />}
-      <Card>
+          a setup card that flashes onto a working station is worse than none. Nor when /api/config
+          itself failed: an unreachable server has not told us this Wehr skipped the setup. */}
+      {setup === 'unconfigured' && <AlarmSetupCard onNavigate={onNavigate} />}
+      {/* Titled only while the setup card stands above it: a page showing two cards titles both,
+          a page showing this one alone leans on its own head (ui · Card). The word is «Verbindung»
+          rather than «Status», because the badge beside it is the status. */}
+      <Card title={setup === 'unconfigured' ? C.statusTitle : undefined}>
         <IntStatus badge={badge}>
-          {configured && hasPool ? (
+          {setup === 'configured' && hasPool ? (
             <>
               <span className="adm-int-stat">
                 {pool.kind === 'loading' && C.poolLoading}
@@ -349,17 +373,28 @@ export function AlarmProviderView({ onNavigate }: { onNavigate?: (id: string) =>
               </button>
               <TestButton run={() => apiPost('/api/divera/pool/refresh')} />
             </>
-          ) : configured ? (
+          ) : setup === 'configured' ? (
             <span className="adm-int-stat">{C.webhookActive}</span>
-          ) : (
-            // No «Zugangsdaten öffnen» here any more: the setup card above IS the way out of
-            // «nicht konfiguriert», and two buttons to the same page on one screen is one too many.
+          ) : offersProbe(setup) ? (
+            // Status unreachable — the probe is the retry, and the only thing this page can still
+            // do. No «Zugangsdaten öffnen» beside it: nothing says the credentials are the problem.
             <TestButton run={() => apiPost('/api/divera/pool/refresh')} />
-          )}
+          ) : null}
+          {/* «nicht konfiguriert»: no probe at all, rather than a greyed one. The setup card above
+              IS the way out, so a dead button here would only compete with it. */}
         </IntStatus>
 
-        {configured && hasPool && pool.kind === 'ok' && (
+        {setup === 'configured' && (
           <dl className="adm-int-facts">
+            {/* The provider's name used to ride on the status badge as its label. That badge is
+                label-less now (it sat under a «Status» heading), so the name says itself here —
+                «welche Quelle hängt dran» is a fact about the page, not a status. */}
+            <div className="adm-int-fact">
+              <dt>{C.provider}</dt>
+              <dd>{providerLabel(capability?.provider ?? 'divera')}</dd>
+            </div>
+            {hasPool && pool.kind === 'ok' && (
+            <>
             <div className="adm-int-fact">
               <dt>{C.lastAlarm}</dt>
               <dd>
@@ -375,6 +410,8 @@ export function AlarmProviderView({ onNavigate }: { onNavigate?: (id: string) =>
                 <dt>{C.address}</dt>
                 <dd>{newest.address}</dd>
               </div>
+            )}
+            </>
             )}
           </dl>
         )}
@@ -424,13 +461,18 @@ export function VehicleProviderView({ onNavigate }: { onNavigate?: (id: string) 
     ? positions.data.filter((p) => p.status === 'online').length
     : 0
   const C = appConfig.copy.admin.data
-  const badge = traccar.kind === 'loading'
-    ? <StatusBadge tone="off" label="Traccar (GPS)" state="…" />
-    : configured
-      ? <StatusBadge tone="on" label="Traccar (GPS)" state={C.stateConnected} />
-      : <StatusBadge tone="off" label="Traccar (GPS)" state={traccar.kind === 'error' ? C.stateUnavailable : C.stateNotConfigured} />
+  // Same single fact as the alarm page: badge and probe can never contradict each other.
+  const setup = setupOf(traccar, configured)
+  // ⚠️ `label=""`, and no literal: «Traccar (GPS)» was the only user-visible string in /admin
+  // written into a component instead of `appConfig.copy`. The page head («Fahrzeugortung») names
+  // the surface, so the badge owes the reader only the state.
+  const badge = setup === 'loading'
+    ? <StatusBadge tone="off" label="" state="…" />
+    : setup === 'configured'
+      ? <StatusBadge tone="on" label="" state={C.stateConnected} />
+      : <StatusBadge tone="off" label="" state={setup === 'unknown' ? C.stateUnavailable : C.stateNotConfigured} />
 
-  const hasDevices = configured && positions.kind === 'ok' && positions.data.length > 0
+  const hasDevices = setup === 'configured' && positions.kind === 'ok' && positions.data.length > 0
   const sortedPositions = positions.kind === 'ok'
     ? [...positions.data].sort((a, b) => a.device_name.localeCompare(b.device_name, undefined, { numeric: true, sensitivity: 'base' }))
     : []
@@ -446,7 +488,7 @@ export function VehicleProviderView({ onNavigate }: { onNavigate?: (id: string) 
     <div className="adm-editor">
       <Card>
         <IntStatus badge={badge}>
-          {configured ? (
+          {setup === 'configured' && (
             <span className="adm-int-stat">
               {positions.kind === 'loading' && C.vehiclesLoading}
               {positions.kind === 'ok' && (
@@ -458,13 +500,21 @@ export function VehicleProviderView({ onNavigate }: { onNavigate?: (id: string) 
               )}
               {(positions.kind === 'unconfigured' || positions.kind === 'error') && C.positionsUnavailable}
             </span>
-          ) : traccar.kind === 'loading' ? null : (
-            <OpenCredentials onNavigate={onNavigate} />
           )}
-          <TestButton run={() => apiGet('/api/traccar/positions')} />
+          {/* Configured — reachable or not — keeps the probe; «nicht konfiguriert» loses it to the
+              Offer below, which says why and where instead of failing on demand. */}
+          {offersProbe(setup) && <TestButton run={() => apiGet('/api/traccar/positions')} />}
         </IntStatus>
 
-        {configured && (host || freshest) && (
+        {/* The "you have not set this up yet" moment, same primitive as AlarmSetupCard: what is
+            missing, what it costs, and the one page that can fix it. */}
+        {setup === 'unconfigured' && (
+          <Offer icon="warn" title={C.trackingSetupTitle} body={C.trackingSetupBody}>
+            <OpenCredentials onNavigate={onNavigate} />
+          </Offer>
+        )}
+
+        {setup === 'configured' && (host || freshest) && (
           <dl className="adm-int-facts">
             {host && (
               <div className="adm-int-fact">
@@ -497,12 +547,8 @@ export function VehicleProviderView({ onNavigate }: { onNavigate?: (id: string) 
                 return (
                   <tr key={p.device_id}>
                     <td><span className="adm-members-name">{p.device_name}</span></td>
-                    <td>
-                      <span className={`adm-badge ${tone} adm-members-status`}>
-                        <span className="adm-badge-dot" aria-hidden />
-                        <span className="adm-badge-state">{label}</span>
-                      </span>
-                    </td>
+                    {/* label="": the «Status» column header already names it */}
+                    <td><StatusBadge tone={tone} label="" state={label} /></td>
                     <td>{fmtRelTime(p.last_update)}</td>
                     <td className="adm-num adm-mono">{fmtSpeed(p.speed)}</td>
                   </tr>
@@ -547,7 +593,12 @@ function PlanChips({ obj }: { obj: ObjectWithPlans }) {
  * skipped and counted. Both halves of that are on the page, because the failure it produces is
  * silent: a plan that was published and simply never appeared.
  */
-export function ObjectsView() {
+export function ObjectsView({ title }: {
+  /** the card's own heading. Both surfaces that carry list cards on the «Objektpläne» page pass
+   *  one — a page with more than one card titles every card (ui · Card) — and it comes from the
+   *  CALLER's copy namespace because it is the caller's page, not this component's. */
+  title?: string
+} = {}) {
   const [state, setState] = useState<Async<ObjectWithPlans[]>>({ kind: 'loading' })
   const [selected, setSelected] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
@@ -601,18 +652,19 @@ export function ObjectsView() {
 
   return (
     <div className="adm-editor">
-      <Card>
-        <div className="adm-brand-row">
-          <button type="button" className="btn primary adm-int-btn" onClick={() => setEditing('new')}>
+      {/* The pull's shape is the card's CAPTION, not its first body child: its failure is silent
+          (a plan that was published and never appeared), so it has to be read before the form is
+          touched — and every other captioned card in /admin puts that line in the header. Both
+          sentences matter: the pull only ATTACHES, and it matches on a key this form cannot write. */}
+      <Card
+        title={title}
+        caption={`${CO.pullNote} ${CO.pullKeyNote}`}
+        action={(
+          <button type="button" className="btn adm-save-btn" onClick={() => setEditing('new')}>
             {CO.add}
           </button>
-        </div>
-        {/* The pull's shape, on the page, because its failure is silent: a plan that was
-            published and never appeared. Both sentences matter — it only ATTACHES, and it
-            matches on a key this form cannot write. */}
-        <p className="adm-hint">{CO.pullNote}</p>
-        <p className="adm-hint">{CO.pullKeyNote}</p>
-
+        )}
+      >
         {state.kind === 'loading' && <EmptyState message={C.objectsLoading} />}
         {state.kind === 'unconfigured' && <EmptyState message={C.objectsUnavailable} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.objectsError} />}
@@ -694,7 +746,10 @@ export function ObjectsView() {
 
 // ─── Geodaten & Symbole ────────────────────────────────────────────────────────
 
-export function GeodataView() {
+export function GeodataView({ title }: {
+  /** see `ObjectsView` — the Kartenebenen page's own word for this card, passed by the page */
+  title?: string
+} = {}) {
   const [state, setState] = useState<Async<ReferenceDataset[]>>({ kind: 'loading' })
   const C = appConfig.copy.admin.data
 
@@ -713,7 +768,7 @@ export function GeodataView() {
 
   return (
     <div className="adm-editor">
-      <Card>
+      <Card title={title}>
         {state.kind === 'loading' && <EmptyState message={C.geodataLoading} />}
         {state.kind === 'unconfigured' && <EmptyState message={C.geodataUnavailable} />}
         {state.kind === 'error' && <EmptyState tone="err" message={C.geodataError} />}

@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { deleteIncident, listIncidents, type IncidentMeta } from '../lib/incidents'
 import { appConfig } from '../config/appConfig'
-import { Card, ConfirmButton, EmptyState, StatusBadge, Table } from './ui'
+import { Card, ConfirmButton, EmptyState, StatusBadge, Table, fmtDateTime } from './ui'
 import { fillTemplate } from '../lib/format'
 
 type State = { kind: 'loading' } | { kind: 'error' } | { kind: 'ok'; data: IncidentMeta[] }
-
-const dateTime = (value: string | null) => value
-  ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-  : '—'
 
 export function IncidentHistoryView() {
   const [state, setState] = useState<State>({ kind: 'loading' })
@@ -60,12 +56,13 @@ export function IncidentHistoryView() {
               {rows.map((incident) => {
                 const closed = incident.is_archived || !!incident.closed_at
                 return <tr key={incident.id}>
-                  <td className="adm-mono">{dateTime(incident.started_at)}</td>
+                  <td className="adm-mono">{fmtDateTime(incident.started_at)}</td>
                   <td><span className="adm-ref-title">{incident.title}</span>{incident.address && <span className="adm-ref-note">{incident.address}</span>}</td>
-                  <td><StatusBadge tone={closed ? 'off' : 'on'} label={C.status} state={closed ? C.closed : C.open} /></td>
+                  {/* The badge carries no label of its own — the STATUS column already names it. */}
+                  <td><StatusBadge tone={closed ? 'off' : 'on'} label="" state={closed ? C.closed : C.open} /></td>
                   <td><span className="adm-view-badge adm-view-badge-muted">{incident.source}</span></td>
                   <td>{incident.report_done_at ? C.complete : C.incomplete}</td>
-                  <td className="adm-mono">{dateTime(incident.updated_at)}</td>
+                  <td className="adm-mono">{fmtDateTime(incident.updated_at)}</td>
                   {/* The backend's two doors, mirrored: an Übung is disposable and goes in any
                       state, a real Einsatz only once it is CLOSED — archiving is the operator
                       saying it is over, and the only moment «löschen» is a decision rather than

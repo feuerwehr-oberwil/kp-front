@@ -44,8 +44,9 @@ export function MaterialView({ onNavigate }: { onNavigate?: (id: string) => void
 
   return (
     <>
-      <Card title={C.catalogueTitle}>
-        <p className="adm-hint">{C.editNote}</p>
+      {/* «bearbeitet wird in der Arbeitsmappe» is the card's CAPTION, not its first body child —
+          same offset as every other captioned card in /admin. */}
+      <Card title={C.catalogueTitle} caption={C.editNote}>
         {items.length === 0 ? (
           <EmptyState message={C.empty} hint={C.emptyHint} action={goWorkbook} />
         ) : (
@@ -82,7 +83,7 @@ export function MaterialView({ onNavigate }: { onNavigate?: (id: string) => void
 
       <Card title={C.sourcesTitle}>
         {sources.length === 0
-          ? <p className="adm-hint">{C.sourcesEmpty}</p>
+          ? <EmptyState message={C.sourcesEmpty} />
           : (
             <div className="adm-view-chips">
               {sources.map((s) => <span className="adm-view-chip" key={s.id}>{s.label || s.id}</span>)}
@@ -92,7 +93,7 @@ export function MaterialView({ onNavigate }: { onNavigate?: (id: string) => void
 
       <Card title={C.unitsTitle}>
         {units.length === 0
-          ? <p className="adm-hint">{C.unitsEmpty}</p>
+          ? <EmptyState message={C.unitsEmpty} />
           : (
             <div className="adm-view-chips">
               {units.map((u) => <span className="adm-view-chip" key={u}>{u}</span>)}

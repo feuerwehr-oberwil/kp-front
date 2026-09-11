@@ -158,37 +158,37 @@ export function StationWorkbookView() {
 
   return (
     <div className="adm-editor">
-      {/* What this is, and — the part that keeps it honest — what it is NOT. A file that looks
-          like the whole station is the file somebody will reach for after a bad day. */}
-      <Card>
-        <p className="adm-card-cap">{C.caption}</p>
-        <p className="adm-hint">{C.covers}</p>
-        <p className="adm-hint"><strong>{C.notBackup}</strong> {C.notBackupBody}</p>
-        <p className="adm-hint">{C.carriesNot}</p>
-        <p className="adm-hint">{C.nameNote}</p>
-      </Card>
-
-      <Card title={C.step1Title} caption={C.step1Body}>
-        <div className="adm-brand-row">
-          <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => void onDownload()}>
-            {C.download}
-          </button>
-        </div>
-      </Card>
-
-      <Card title={C.step2Title} caption={C.step2Body}>
-        <div className="adm-brand-row">
-          <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => fileRef.current?.click()}>
-            {state.kind === 'preview' ? C.chooseOther : C.choose}
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            style={{ display: 'none' }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) void onPick(f) }}
-          />
-        </div>
+      {/* ONE card, both files, in the order the job is done: the one you START FROM on the left,
+          the one you SEND BACK on the right — the same left-to-right rule the Checklisten page
+          follows. It used to be «1. herunterladen» and «2. prüfen» as two stacked step cards,
+          which put a whole card's chrome between a button and the button that answers it.
+          The page opens on those two, not on an essay. What the file covers, what it is NOT and
+          how a row is matched rode as ~1400 characters of body prose above the first action;
+          all of it is still here, in the ⓘ, because a warning nobody reads past is not a warning.
+          ⚠️ «Das ist keine Sicherung» stays in that ⓘ: a file that looks like the whole station
+          is the file somebody reaches for after a bad day. */}
+      <Card
+        title={C.step1Title}
+        caption={`${C.step1Body} ${C.step2Body}`}
+        tip={`${C.covers} ${C.notBackup} ${C.notBackupBody} ${C.carriesNot} ${C.nameNote}`}
+        action={(
+          <>
+            <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => void onDownload()}>
+              {C.download}
+            </button>
+            <button type="button" className="btn adm-save-btn" disabled={busy} onClick={() => fileRef.current?.click()}>
+              {state.kind === 'preview' ? C.chooseOther : C.choose}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void onPick(f) }}
+            />
+          </>
+        )}
+      >
         {busy && <p className="adm-card-cap">{C.busy}</p>}
         {state.kind === 'error' && <div className="adm-save-err">{state.message}</div>}
       </Card>

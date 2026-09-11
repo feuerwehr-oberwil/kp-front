@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import { fillTemplate } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import { apiGet } from '../lib/api'
-import { Table } from './ui'
+import { EmptyState, Table } from './ui'
 import { InfoTip } from './InfoTip'
 import type { DeploymentModule } from '../lib/deploymentConfig'
 import type { ObjectWithPlans } from '../lib/incidents'
@@ -133,8 +133,9 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
           {bySource.map(([type, n]) => {
             const s = planSourceLabel(type)
             return (
-              <span key={type} className="adm-fleet-badge adm-view-badge-muted" title={s.tip}>
+              <span key={type} className="adm-fleet-badge adm-view-badge-muted">
                 {fillTemplate(C.sourceTally, { n, label: s.label })}
+                {s.tip && <InfoTip label={s.label} text={s.tip} />}
               </span>
             )
           })}
@@ -157,7 +158,7 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
       {usingDefaults && <p className="adm-view-note">{C.usingDefaults}</p>}
 
       {modules.length === 0
-        ? <p className="adm-view-empty">{C.empty}</p>
+        ? <EmptyState message={C.empty} />
         : (
           <Table columns={columns} className="adm-vtable">
             {sorted.map((m, mi) => {
@@ -185,8 +186,8 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
                   <td>{m.match ? <span className="adm-view-chip adm-view-mono adm-vregex" title={m.match}>{m.match}</span> : <span className="adm-fleet-freeval">{C.detectionNone}</span>}</td>
                   <td>
                     <span className="adm-fleet-props">
-                      {m.family && <span className="adm-view-badge adm-view-badge-muted" title={C.familyHint}>{C.familyBadge}</span>}
-                      {m.viewer && <span className="adm-view-badge adm-view-badge-muted" title={C.viewerHint}>{C.viewerBadge}</span>}
+                      {m.family && <span className="adm-view-badge adm-view-badge-muted">{C.familyBadge}<InfoTip label={C.familyBadge} text={C.familyHint} /></span>}
+                      {m.viewer && <span className="adm-view-badge adm-view-badge-muted">{C.viewerBadge}<InfoTip label={C.viewerBadge} text={C.viewerHint} /></span>}
                       {m.combinedWith && m.combinedWith.length > 0 && m.combinedWith.map((c) => (
                         <span className="adm-view-chip" key={c}>{c}</span>
                       ))}

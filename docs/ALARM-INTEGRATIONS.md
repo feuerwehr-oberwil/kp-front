@@ -303,7 +303,7 @@ async def incident_created(req: Request):
 
 ## 3. The Erfassungs-Poster (station capture)
 
-Independent of any printing: the admin UI (Personen › Erfassung) prints a **static A4
+Independent of any printing: the admin UI (Personen › Erfassungsblatt) prints a **static A4
 poster** for the Magazin wall. Scanning it opens `/e/<token>` – attendance, material,
 Einsatzende and notes for incidents of the last `alarms.captureWindowHours` (default 12),
 no login. Trust model: access to the station = permission, like the clipboard it replaces.
@@ -336,7 +336,7 @@ difference is inside the token: an app-minted one names the incident by its own 
 than by `src`/`ref`, because that pair exists so an *alerting system* never has to learn our
 UUIDs – and a manually created Einsatz or an Übung carries no `source_ref` at all. With no
 `incident_link_key` configured the endpoint answers 403, exactly like the exchange, and the app
-points at Verwaltung › Einsatz-Link.
+points at Verwaltung › System › Zugangsdaten.
 
 ```
 alert text …  https://front.example.org/l/<token>
@@ -514,7 +514,7 @@ same allowlist, same double scope check, same per-request liveness.
   record says which credential wrote. It complements the per-incident Atemschutz-Link; it does
   not replace it.
 
-Both are managed at `/admin` → Daten › Einsatz-Link, each on its own key
+Both are managed at `/admin` → System › Links & Zugänge, each on its own key
 (`terminal_link_key`, `atemschutz_standing_key`), so rotating one never touches the other –
 or the alerting system's minting key. Rotation is the revocation and it is total: the printed
 QR, every enrolled device and every session already open die on their next request. Unset =
@@ -531,8 +531,9 @@ person could reach the paper board on the same wall.
   poster token (capture), `incident_link_key` (Einsatz-Link), `ADMIN_SECRET` (administration).
   Three of the four are managed in the browser and stored in the database – the alarm webhook
   secret at `/admin` → **Zugangsdaten** (encrypted; `ALARM_WEBHOOK_SECRET` in `.env` outranks and
-  locks it), the poster token under Personen › Erfassung, `incident_link_key` under Daten ›
-  Einsatz-Link. **Only `ADMIN_SECRET` is env-only**, and deliberately so: it gates writing the
+  locks it), the poster token under System › **Links & Zugänge** and `incident_link_key` under
+  System › **Zugangsdaten** (it is a signing key, not an address).
+  **Only `ADMIN_SECRET` is env-only**, and deliberately so: it gates writing the
   very document it would otherwise live in.
 - Outbound webhook URLs are admin-set config, pinned to `http(s)`; the payload contains the
   capture URL (a capability) – point webhooks only at receivers you trust.

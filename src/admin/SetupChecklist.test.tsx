@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// The card writes through the same config draft «Verwaltung» edits — the provider itself is not
+// what is under test here, so only its writer is stubbed.
+const { set } = vi.hoisted(() => ({ set: vi.fn() }))
+vi.mock('./ConfigContext', () => ({ useConfig: () => ({ set }) }))
 
 // «Einrichtung» makes exactly one promise: it is a nudge on the way in, and it goes away once
 // there is nothing left on it to do (SETUP.md §3). What this file pins is the rule that keeps
@@ -33,6 +38,7 @@ const DONE_FACTS: SetupFacts = { users: 4, personnelActive: 9, heartbeatConfigur
 
 const card = () => document.querySelector('.adm-setup')
 
+beforeEach(() => set.mockClear())
 afterEach(cleanup)
 
 describe('«Einrichtung» disappears once every row is done', () => {
@@ -145,5 +151,50 @@ describe('the «Name der Wehr» row points at a field with the same name', () =>
     expect(onGo).toHaveBeenCalledWith('identitaet')
     // the open row says what is missing rather than only that something is
     expect(screen.getByText(C.nameOpen)).toBeTruthy()
+  })
+})
+
+// «Fahrzeuge» is the row this card could never finish: the built-in catalogue writes no
+// `fleet.vehicles`, so a station happy with the shipped Fahrzeuge sat at «7 von 8» forever — the
+// same never-tickable row the card's own rule exists to prevent, only from the other direction.
+// The hand tick is the escape hatch, and it belongs to the STATION (config), not to the tablet.
+describe('«Abhaken» — die Zeile von Hand erledigen', () => {
+  const OPEN_FLEET = { ...DONE_CFG, fleet: { vehicles: [] } } as unknown as DeploymentConfig
+  const acknowledged = (keys: string[]) =>
+    ({ ...OPEN_FLEET, setup: { acknowledged: keys } }) as unknown as DeploymentConfig
+
+  const item = (label: string) => screen.getByText(label).closest('.adm-setup-item') as HTMLElement
+  const ack = (label: string) => item(label).querySelector('.adm-setup-ack') as HTMLButtonElement
+  const isDone = (label: string) => !!item(label).querySelector('.adm-setup-dot.done')
+
+  it('schreibt das Häkchen in die Konfiguration — und die Zeile bleibt bei jedem weiteren Render erledigt', () => {
+    const { rerender } = render(<SetupChecklist cfg={OPEN_FLEET} facts={DONE_FACTS} onGo={vi.fn()} />)
+    expect(isDone(C.fleet)).toBe(false)
+    // «dorthin» und «abhaken» sind Geschwister — ein Button im Button wäre ungültiges HTML
+    expect(ack(C.fleet).closest('button.adm-setup-row')).toBeNull()
+
+    fireEvent.click(ack(C.fleet))
+    expect(set).toHaveBeenCalledWith(['setup', 'acknowledged'], ['fleet'])
+
+    // …und mit dem Dokument, das dieser Schreibvorgang erzeugt, zählt die Zeile als erledigt
+    rerender(<SetupChecklist cfg={acknowledged(['fleet'])} facts={DONE_FACTS} onGo={vi.fn()} />)
+    expect(isDone(C.fleet)).toBe(true)
+    expect(screen.getByText(C.title.replace('{done}', '7').replace('{n}', '8'))).toBeTruthy()
+
+    rerender(<SetupChecklist cfg={acknowledged(['fleet'])} facts={DONE_FACTS} onGo={vi.fn()} />)
+    expect(isDone(C.fleet)).toBe(true)
+  })
+
+  it('nimmt das Häkchen wieder zurück, ohne die übrigen anzufassen', () => {
+    // «Suchbereich» bleibt offen, sonst wäre die Karte weg und es gäbe nichts mehr zu klicken
+    const cfg = {
+      ...acknowledged(['fleet', 'monitoring']),
+      map: { ...DONE_CFG.map, geocoder: null },
+    } as unknown as DeploymentConfig
+    render(<SetupChecklist cfg={cfg} facts={DONE_FACTS} onGo={vi.fn()} />)
+
+    expect(ack(C.monitoring).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(ack(C.monitoring))
+    expect(set).toHaveBeenCalledWith(['setup', 'acknowledged'], ['fleet'])
   })
 })

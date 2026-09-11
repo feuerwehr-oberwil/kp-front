@@ -379,6 +379,11 @@ export interface DeploymentConfig {
      *  absent = the section does not exist on this deployment's Rapport at all. */
     links?: ReportLink[] | null
   }
+  /** Rows of the «Einrichtung» card this station ticked off by hand. Some rows can never
+   *  become true on derived facts alone — a station happy with the built-in vehicles never
+   *  writes `fleet.vehicles` — so a tick is the escape hatch, and it lives in the synced
+   *  document rather than on the device (backend · schemas.SetupConfig). */
+  setup?: { acknowledged?: string[] | null }
   integrations?: DeploymentIntegrations
   /** Opaque version token of the document the SERVER holds, off GET/PUT. Sent back as
    *  `If-Match` on the next save, so a tab holding an hour-old draft is refused instead of

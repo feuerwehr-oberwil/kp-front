@@ -1667,6 +1667,23 @@ class SharePointConfig(BaseModel):
         return self
 
 
+class SetupConfig(BaseModel):
+    """Which rows of the «Einrichtung» card this station ticked off by hand.
+
+    The card derives every row from the document itself, but some rows can never become true
+    that way — a station happy with the built-in vehicles never writes ``fleet.vehicles``, so
+    that row would nag forever. A hand tick is the escape hatch, and it belongs in the document
+    rather than on the device: «erledigt» is a statement about the Wehr, and the next admin on
+    the next tablet has to see it.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+    #: Row keys (``fleet``, ``users``, …). Unknown keys are kept, not rejected: the card's row
+    #: set changes with the product, and a tick for a row this version no longer shows must
+    #: survive a downgrade rather than be silently dropped.
+    acknowledged: list[str] = Field(default_factory=list)
+
+
 class DeploymentConfigIn(BaseModel):
     """The full config document an admin PUTs. All sections optional → `{}` is valid.
 
@@ -1695,6 +1712,9 @@ class DeploymentConfigIn(BaseModel):
     # `extra="ignore"`, so an undeclared section is dropped on the next round-trip and the
     # station's folders vanish the first time anybody presses save in /admin.
     sharepoint: SharePointConfig = Field(default_factory=SharePointConfig)
+    # Same reason as sharepoint above: declared here or the hand ticks on the «Einrichtung»
+    # card are dropped on the next save (see SetupConfig).
+    setup: SetupConfig = Field(default_factory=SetupConfig)
     # Accepted on input but not authoritative (kept loose; not echoed from the document).
     # Future asset-upload slice: validate that identity.assets.* reference existing entries in
     # asset storage. Skipped while assets are still provisioned outside this document.

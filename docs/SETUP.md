@@ -371,12 +371,13 @@ forget.
 | **Checklisten** | The FU/EL checklist templates: upload, replace, delete, and their per-page diagram assets |
 | **Mitglieder & Zugriff** | Who may log in, with which role and which PIN; deactivate an account |
 | **Personal** | The crew – hand entry, a CSV import with a downloadable template, or the workbook below |
-| **Erfassung** | The capture poster for the Magazin and its secret |
+| **Erfassungsblatt** | The A4 paper form for the fallback case – the capture poster itself now lives under Links & Zugänge |
 | **Zugangsdaten** | The keys of every integration – Divera, Traccar, Web Push, speech-to-text, the two webhook intakes, the print relay and the monitor ping. Stored encrypted, live without a restart (§5) |
 | **Arbeitsmappe** | The station's list-shaped data as one `.xlsx`: download, edit, upload back – see below |
-| **Alarmierung · Fahrzeugortung · Statistik-Export · Einsatz-Link** | Connection status, test calls, secret rotation |
+| **Alarmierung · Fahrzeugortung** | Connection status, test calls, the alarm pool and the vehicle positions |
+| **Links & Zugänge** | Every address the station hands out – capture poster, Einsatz-Link, Stations-Terminal, the fixed Atemschutz code and the Statistik-Export token: address, state, rotation and the printouts |
 | **Einsatzhistorie** | Every incident with status, origin, rapport state |
-| **System & Wartung** | Health, counts, storage, telemetry consent |
+| **System & Wartung** | Health, counts, storage |
 | **Sicherung** | Export the whole config to a file, import one back, and **restore any previous version** |
 
 **Sicherung is the safety net worth knowing about before you need it.** Every config write ever

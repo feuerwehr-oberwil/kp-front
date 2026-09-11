@@ -48,7 +48,7 @@ const fillFormWithoutRole = async () => {
   render(<MembersView />)
   await waitFor(() => expect(screen.getByText('fu')).toBeTruthy())
   fireEvent.click(screen.getByRole('button', { name: C.add }))
-  const inputs = document.querySelectorAll<HTMLInputElement>('.adm-members-form .adm-input')
+  const inputs = document.querySelectorAll<HTMLInputElement>('.adm-members-addbox .adm-input')
   fireEvent.change(inputs[0], { target: { value: 'kunz' } })
   fireEvent.change(inputs[1], { target: { value: 'Kunz Bea' } })
   // the PIN field is the mono input in the second row
@@ -93,27 +93,47 @@ describe('Mitglied anlegen — die Rolle ist eine Frage, keine Voreinstellung', 
   })
 })
 
-// «Einrichtung» ticks «Eigene Zugänge» on `users > 1` — it counts accounts and cannot see a PIN.
-// The seeded `fu` account therefore stays a working editor login behind a finished checklist, and
-// this page is the only one that can say so and fix it in the same breath.
-describe('das eingerichtete Erstkonto', () => {
-  it('is called out while it is still active, with both ways out on the notice', async () => {
-    apiGet.mockResolvedValue([EXISTING, { ...EXISTING, id: 'u2', username: 'kunz', display_name: 'Kunz Bea' }])
+// Die Rolle in der Tabelle stand jahrelang auf einem binären Ternär ohne `el`-Zweig: JEDER
+// Einsatzleiter las sich als «Betrachter» — auf genau der Seite, auf der man nachschaut, warum
+// jemand nichts schreiben darf.
+describe('die Rolle in der Tabelle', () => {
+  it('nennt einen Einsatzleiter «Einsatzleiter»', async () => {
+    apiGet.mockResolvedValue([{ ...EXISTING, id: 'u3', username: 'el1', display_name: 'Meier El', role: 'el' }])
     render(<MembersView />)
 
-    expect(await screen.findByText(C.seedAccountTitle.replace('{name}', 'fu'))).toBeTruthy()
-    const notice = document.querySelector('.adm-seedwarn-actions') as HTMLElement
-    expect(notice.querySelector('button')).toBeTruthy()
-    expect(Array.from(notice.querySelectorAll('button')).map((b) => b.textContent))
-      .toEqual([C.resetPin, C.deactivate])
+    await waitFor(() => expect(screen.getByText('el1')).toBeTruthy())
+    expect(document.querySelector('.adm-members-role')?.textContent).toBe(C.roleEl)
+    expect(screen.queryByText(C.roleViewer)).toBeNull()
   })
 
-  it('says nothing once the account is deactivated', async () => {
-    apiGet.mockResolvedValue([{ ...EXISTING, is_active: false }, { ...EXISTING, id: 'u2', username: 'kunz' }])
+  it('unterscheidet Bearbeiter und Betrachter weiterhin', async () => {
+    apiGet.mockResolvedValue([
+      EXISTING,
+      { ...EXISTING, id: 'u2', username: 'kunz', display_name: 'Kunz Bea', role: 'viewer' },
+    ])
     render(<MembersView />)
 
     await waitFor(() => expect(screen.getByText('kunz')).toBeTruthy())
-    expect(document.querySelector('.adm-seedwarn')).toBeNull()
+    expect(Array.from(document.querySelectorAll('.adm-members-role')).map((e) => e.textContent))
+      .toEqual([C.roleEditor, C.roleViewer])
+  })
+})
+
+// Die Status-Pille ist jetzt der gemeinsame StatusBadge statt handgezeichneter Spans. Die Spalte
+// heisst «Status», also trägt die Pille kein eigenes Label mehr — Text und Ton müssen bleiben.
+describe('der Status in der Tabelle', () => {
+  it('sagt weiterhin Aktiv bzw. Inaktiv, mit dem passenden Ton', async () => {
+    apiGet.mockResolvedValue([
+      EXISTING,
+      { ...EXISTING, id: 'u2', username: 'kunz', display_name: 'Kunz Bea', is_active: false },
+    ])
+    render(<MembersView />)
+
+    await waitFor(() => expect(screen.getByText('kunz')).toBeTruthy())
+    expect(Array.from(document.querySelectorAll('.adm-badge-state')).map((e) => e.textContent))
+      .toEqual([C.active, C.inactive])
+    expect(document.querySelectorAll('.adm-badge.on')).toHaveLength(1)
+    expect(document.querySelectorAll('.adm-badge.off')).toHaveLength(1)
   })
 })
 

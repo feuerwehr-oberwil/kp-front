@@ -51,10 +51,12 @@ export function AdminUnlock({ onUnlocked, onLogout }: { onUnlocked: () => void; 
           {error && <span className="adm-field-hint err" role="alert">{error}</span>}
         </div>
         <div className="adm-denied-actions">
-          <button type="submit" className="btn primary" disabled={busy || !secret}>
+          {/* same admin pair as the «Verwaltung deaktiviert» card — never `.btn primary`,
+              which is the field app's fill and reads as a different product here */}
+          <button type="submit" className="btn adm-save-btn" disabled={busy || !secret}>
             {busy ? c.submitting : c.submit}
           </button>
-          <button type="button" className="btn" onClick={onLogout} disabled={busy}>{c.logout}</button>
+          <button type="button" className="btn adm-int-btn" onClick={onLogout} disabled={busy}>{c.logout}</button>
         </div>
       </form>
     </div>

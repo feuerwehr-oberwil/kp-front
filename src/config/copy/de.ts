@@ -3529,11 +3529,11 @@ export const de = {
     chooseHint: 'Wähle, welchen Einsatz diese Anzeige zeigen soll.',
     exerciseTag: 'Übung',
     notEnrolledTitle: 'Dieses Gerät ist nicht als Stations-Terminal eingerichtet.',
-    notEnrolledHint: 'In der Verwaltung unter «Einsatz-Links» den Einrichtungs-Link erzeugen und auf diesem Gerät öffnen.',
+    notEnrolledHint: 'In der Verwaltung unter «Links & Zugänge» den Einrichtungs-Link erzeugen und auf diesem Gerät öffnen.',
     asInvalidTitle: 'Dieser Atemschutz-Code gilt nicht mehr.',
     asInvalidHint: 'Der Code wurde erneuert. In der Verwaltung den aktuellen QR-Code drucken und aufhängen.',
     disabledTitle: 'Diese Funktion ist nicht freigeschaltet.',
-    disabledHint: 'Die Verwaltung kann sie unter «Einsatz-Links» aktivieren.',
+    disabledHint: 'Die Verwaltung kann sie unter «Links & Zugänge» aktivieren.',
   },
   // Standort teilen — the question put to your own phone and what the pill says afterwards.
   // Deliberately without marketing text: who sees what and when is spelled out in full, because
@@ -4866,7 +4866,6 @@ export const de = {
       // Zeilentitel des frisch erzeugten Werts auf jeder Schlüssel-Seite. Er steht genau
       // einmal – nach dem Erzeugen –, darum sagt der Titel, dass er neu ist, und nicht bloss
       // noch einmal «Schlüssel».
-      newSecret: 'Neu erzeugt',
     },
     // ⚠️ Adressen, keine Übersetzung: die Links ins Handbuch dieser Verwaltung. Ein Fork zeigt
     // sie mit EINER Zeile – `repo` – auf sein eigenes Repository um; die Pfade bleiben gleich.
@@ -4954,7 +4953,7 @@ export const de = {
       checklisten: {
         label: 'Checklisten',
         title: 'Checklisten',
-        lede: 'Die Vorlagen hinter der Checkliste-Ansicht: Aufgabenlisten, Lagerapport und das Einsatzleiter-Nachschlagewerk.',
+        lede: 'Die Vorlagen hinter der Checkliste-Ansicht: Aufgabenlisten, Lagerapport und Merkblätter zum Nachschlagen – Letztere ohne Häkchen, nur zum Lesen.',
         tip: 'Eine Vorlage ist eine JSON-Datei mit einer eigenen «id» – die entscheidet, welche Vorlage ersetzt wird. Wird eine Vorlage unter neuem Namen hochgeladen, bleibt die alte bestehen und wird weiter an alle Geräte ausgeliefert, bis sie hier gelöscht wird.',
       },
       mitglieder: { label: 'Mitglieder & Zugriff', title: 'Mitglieder & Zugriff', lede: 'Wer sich anmelden darf, mit welcher Rolle und welcher PIN.' },
@@ -4964,7 +4963,6 @@ export const de = {
         lede: 'Der lokale Personenstamm dieser Wehr.',
         tip: 'Handeingabe und CSV funktionieren immer; eine konfigurierte Personalquelle kann zusätzlich synchronisieren.',
       },
-      erfassung: { label: 'Erfassung', title: 'Erfassung (Poster)', lede: 'Das Erfassungs-Poster fürs Magazin: QR-Code, über den ohne Anmeldung Anwesenheit, Material und Notizen zu einem aktuellen Einsatz erfasst werden.' },
       einsaetze: { label: 'Einsatzhistorie', title: 'Einsatzhistorie', lede: 'Alle aktuellen und historischen Einsätze mit Startzeit, Status, Herkunft, Rapportstand und letzter Änderung.' },
       divera: {
         label: 'Alarmierung',
@@ -4978,21 +4976,17 @@ export const de = {
         lede: 'Status der konfigurierten Ortungsquelle, sendende Fahrzeuge, aktuellstes Signal und Verbindungstest.',
         tip: 'Live-GPS der Fahrzeuge über Traccar. «verbunden» = Anbindung aktiv; «online» = Fahrzeuge, die gerade senden.',
       },
-      statistik: {
-        label: 'Statistik-Export',
-        title: 'Statistik-Export',
-        lede: 'Read-only-Datenfeed aller Einsätze für externe Auswertungen (z. B. Jahresstatistik).',
-      },
-      einsatzlink: {
-        label: 'Einsatz-Link',
-        title: 'Einsatz-Link',
-        lede: 'Der Schlüssel, mit dem die Alarmierung Links erzeugt, die genau einen Einsatz schreibgeschützt öffnen – ohne Anmeldung.',
+      links: {
+        label: 'Links & Zugänge',
+        title: 'Links & Zugänge',
+        lede: 'Alle Adressen, die diese Wehr nach aussen gibt – je ein Schlüssel, eine Adresse, ein Ausdruck.',
+        tip: 'Jede Zeile ist ein eigener Schlüssel: Erfassungs-Poster, Stations-Terminal, fixer Atemschutz-Code und der Statistik-Export. Rotieren macht die alte Adresse sofort ungültig.',
       },
       zugaenge: {
         label: 'Zugangsdaten',
         title: 'Zugangsdaten der Anbindungen',
         lede: 'Divera, Fahrzeugortung, Push-Meldungen, Spracherkennung, Webhooks und Überwachung – hier eintragen statt in .env, ohne Neustart.',
-        tip: 'Eingetragene Schlüssel werden verschlüsselt gespeichert und nie wieder angezeigt – auch hier nicht. Ersetzen ist möglich, Auslesen nicht.',
+        tip: 'Eingetragene Schlüssel werden verschlüsselt gespeichert und nie wieder angezeigt – auch hier nicht. Ersetzen ist möglich, Auslesen nicht. Ausnahme ist der Einsatz-Link-Schlüssel weiter unten: den erzeugt KP Front selbst und zeigt ihn deshalb wieder an.',
       },
       arbeitsmappe: {
         label: 'Arbeitsmappe',
@@ -5015,23 +5009,21 @@ export const de = {
     // Verwaltung › Daten › Arbeitsmappe (admin/StationWorkbookView). Die Vorschau IST das
     // Feature: was neu ist, was sich ändert, was wegfällt – benannt, vor dem Schreiben.
     workbook: {
-      caption: 'Eine Excel-Datei mit den Listen dieser Wehr: herunterladen, in Excel, Numbers oder LibreOffice bearbeiten, wieder hochladen.',
       covers: 'Enthalten sind acht Blätter: Mannschaft, Dienstgrade, Fahrzeuge, Mittel, Mittel-Bestände, Quellen, Partnerorganisationen und Symbolfelder – so, wie sie in der Datei heissen.',
       notBackup: 'Das ist keine Sicherung.',
       notBackupBody: 'Die Arbeitsmappe deckt nur die Listen ab. Name, Sprache, Markenfarbe, Karte, Doktrin, Alarmierung und Journal stehen nicht darin – wer sie zurückspielt, stellt davon nichts wieder her. Die Sicherung ist die JSON-Datei unter «Sicherung», zusammen mit «Letzte Änderungen».',
       carriesNot: 'Nicht enthalten – und absichtlich nicht: Schlüssel und Passwörter, Logos, Objektpläne, Kartenebenen, eigene Formulare und die Alarm-Stichwörter.',
-      nameNote: 'Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt «Mannschaft» fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
-      step1Title: '1. Arbeitsmappe herunterladen',
-      step1Body: 'Der aktuelle Stand der Station – gleichzeitig die Vorlage und das Rückgängig: dieselbe Datei nochmals eingespielt ändert nichts. Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich.',
+      nameNote: 'Ein Blatt ganz aus der Datei zu löschen lässt diese Liste unverändert; nur die Zeilen zu löschen und die Titelzeile stehen zu lassen leert sie – so leert man eine Liste absichtlich. Personen werden über Quelle + Externe ID erkannt, sonst über den Namen. Zwei Personen mit exakt gleicher Schreibweise gelten deshalb als eine – in dem Fall eine der beiden im Namen unterscheiden (z. B. zweiter Vorname) oder beiden eine Externe ID geben. Wer im Blatt «Mannschaft» fehlt, wird deaktiviert und nie gelöscht – abgeschlossene Einsätze lösen den Namen über diese Zeile auf. Eine Kennung, die in einer der anderen Listen fehlt, wird dagegen entfernt.',
+      step1Title: 'Herunterladen und einspielen',
+      step1Body: 'Der aktuelle Stand der Station – gleichzeitig Vorlage und Rückgängig: dieselbe Datei nochmals eingespielt ändert nichts.',
       download: 'Arbeitsmappe herunterladen',
       downloadFailed: 'Die Arbeitsmappe konnte nicht heruntergeladen werden.',
-      step2Title: '2. Bearbeitete Datei prüfen',
       step2Body: 'Zuerst wird nur gelesen und gerechnet. Geschrieben wird erst nach der Bestätigung.',
       choose: 'Datei auswählen',
       chooseOther: 'Andere Datei',
       busy: 'Wird gelesen …',
       previewFailed: 'Die Datei konnte nicht gelesen werden.',
-      previewTitle: '3. Das würde passieren',
+      previewTitle: 'Das würde passieren',
       previewLead: 'Aus «{file}». Bis hierhin ist nichts geschrieben worden.',
       colSheet: 'Blatt',
       colRows: 'Zeilen',
@@ -5085,7 +5077,6 @@ export const de = {
       unitsEmpty: 'Keine Einheiten hinterlegt – die Einheit wird im Einsatz frei getippt.',
     },
     erfassung: {
-      cardTitle: 'Erfassungs-Poster',
       body: 'Wer das Poster im Magazin scannt, kann für einen Einsatz der letzten Stunden Anwesenheit, Material und Notizen erfassen – ohne Anmeldung, ohne Schulung. Vertrauensmodell: Zugang zum Magazin = Berechtigung (wie das Klemmbrett vorher).',
       stateLabel: 'Erfassung',
       stateOn: 'aktiv',
@@ -5108,9 +5099,6 @@ export const de = {
       posterHint: 'Kein Login, keine App. Alles wird sofort gespeichert.',
       posterFoot: 'Material, Zeiten und Kurzbericht trägt die Einsatzleitung nach.',
       failed: 'Aktion fehlgeschlagen',
-      sheetBtn: 'Erfassungsblatt als PDF (A4)',
-      sheetCardTitle: 'Erfassungsblatt (Papier)',
-      sheetCardBody: 'Der Papier-Zwilling des digitalen Rapports: gleiche Felder, gleiche Reihenfolge – für den voll analogen Einsatz. Erzeugt aus aktuellem Mannschafts-, Material- und Konfigurationsstand; ausgefüllte Blätter fotografieren (Verlauf/Rapport-Foto) und in der App nachtragen.',
       sheetHead: 'Erfassungsblatt Einsatz',
       sheetIncident: 'Einsatz',
       sheetAdresse: 'Adresse / Objekt',
@@ -5141,11 +5129,7 @@ export const de = {
       hint: 'Der Link gilt für laufende und noch nicht rapportierte Einsätze; rapportierte verschwinden nach wenigen Stunden (Standard 12 h, alarms.captureWindowHours). Kein Zugriff auf Karte, Verwaltung oder archivierte Einsätze.',
       // The link IS the poster's secret — whoever sends it around hands out the whole Wache's
       // access. It says so here, because this is exactly where the link is offered for copying.
-      linkLabel: 'Erfassungs-Link',
       linkWarn: 'Dieser Link ist der Poster-Schlüssel: Wer ihn hat, kann erfassen. Nach dem Verschicken (Test, Schulung) Token rotieren und Poster neu drucken.',
-      testTitle: 'Vorher testen',
-      testLead: 'mit einem Einsatz, der als «Übung» eröffnet ist.',
-      testBody: 'Einsatz mit Haken «Übung» eröffnen, den Link verschicken, erfassen lassen – die Übung ist in der Erfassung als solche angeschrieben und zählt nicht in die Statistik. Danach die Übung archivieren und den Token rotieren.',
     },
     statistik: {
       body: 'Read-only-Export aller Einsätze als flache JSON-Datensätze (Metadaten, Zeiten, Anwesenheit von–bis, Material, Rapportstatus) – für externe Auswertungen wie die Jahresstatistik. Keine Schreibrechte, kein Zugriff auf Karte oder Verwaltung.',
@@ -5160,9 +5144,7 @@ export const de = {
       disableMsg: 'Statistik-Export deaktivieren? Angebundene Auswertungen erhalten keine Daten mehr.',
       disabled: 'Export deaktiviert.',
       failed: 'Aktion fehlgeschlagen',
-      exampleLabel: 'Abfrage-Beispiel',
       docsLink: 'API-Doku',
-      keyLabel: 'Token',
       hint: 'Token geheim halten – er gewährt Lesezugriff auf alle Einsatzdaten inkl. Namen. Übergabe an das Auswertungs-Tool als Header X-Stats-Token (oder ?t=).',
     },
     einsatzlink: {
@@ -5178,9 +5160,6 @@ export const de = {
       disableMsg: 'Einsatz-Links deaktivieren? Alle verschickten Links funktionieren danach nicht mehr.',
       disabled: 'Einsatz-Links deaktiviert.',
       failed: 'Aktion fehlgeschlagen',
-      keyLabel: 'Schlüssel',
-      exampleLabel: 'Link-Muster',
-      exampleTip: 'Die Alarmierung setzt an der Stelle von «<token>» ihren eigenen, signierten Token ein.',
       docsLink: 'Integrations-Doku',
       hint: 'Der Schlüssel wird hier erzeugt und in die Alarmierung kopiert – KP Front nimmt keinen fremden Schlüssel entgegen und wird beim Alarmieren nie aufgerufen: Die Alarmierung signiert die Links selbst. Schlüssel geheim halten, er öffnet Lesezugriff auf jeden laufenden Einsatz. Ohne Schlüssel gibt es keine Einsatz-Links – «Deaktivieren» schaltet die Funktion ganz ab.',
     },
@@ -5190,8 +5169,6 @@ export const de = {
       stateLabel: 'Stations-Terminal',
       stateOn: 'aktiv',
       stateOff: 'deaktiviert',
-      keyLabel: 'Schlüssel',
-      exampleLabel: 'Einrichtungs-Link',
       exampleTip: 'Auf dem Terminal einmal öffnen, danach genügt dort die Adresse /terminal.',
       docsLink: 'Doku',
       enableBtn: 'Aktivieren & Einrichtungs-Link erzeugen',
@@ -5210,8 +5187,6 @@ export const de = {
       stateLabel: 'Fixer Atemschutz-Code',
       stateOn: 'aktiv',
       stateOff: 'deaktiviert',
-      keyLabel: 'Schlüssel',
-      exampleLabel: 'Feste Adresse hinter dem QR-Code',
       docsLink: 'Doku',
       enableBtn: 'Aktivieren & Code erzeugen',
       rotateBtn: 'Code erneuern',
@@ -5231,7 +5206,32 @@ export const de = {
     // ⚠️ Der Text sagt an jeder Stelle dasselbe wie die API: gesetzt ja/nein, nie der Wert.
     // «Ersetzen» statt «Ändern», weil man einen Schlüssel hier nicht sieht und deshalb auch
     // nicht bearbeitet – man legt einen neuen hin.
+    links: {
+      secretAppend: 'Das Secret kommt noch dazu – als ?secret=… angehängt oder als Header X-Webhook-Secret. Es wird unter Zugangsdaten gesetzt und ist nie wieder lesbar.',
+      addressLabel: 'Adresse',
+      keyLabel: 'Schlüssel',
+      purposeFirehub: 'FireHub (Tercero) meldet Alarme an diese Adresse',
+      nameStats: 'Statistik-Export',
+      colPurpose: 'Zweck',
+      colAddress: 'Adresse',
+      colState: 'Status',
+      colActions: 'Aktionen',
+      rotateNote: 'Ein rotierter Schlüssel macht die alte Adresse sofort ungültig – ausgedruckte Poster und QR-Karten danach ersetzen.',
+      purposeCapture: 'Mannschaft meldet sich am Poster an',
+      purposeTerminal: 'Fixe Adresse für das Gerät im Depot',
+      purposeAtemschutz: 'Fixe Adresse hinter dem laminierten QR-Code',
+      purposeStats: 'Lesetoken für externe Auswertungen',
+      purposeAlarm: 'Die Alarmierung meldet Alarme an diese Adresse',
+      keyMissing: 'Schlüssel fehlt',
+      toCredentials: 'Zugangsdaten',
+      notConfigured: 'nicht eingerichtet',
+    },
     zugaenge: {
+      minted: {
+        title: 'Von KP Front erzeugt',
+        caption: 'Diesen Schlüssel erzeugt KP Front selbst – er bleibt hier lesbar und lässt sich jederzeit wieder kopieren. Die Zugangsdaten darüber sind nach dem Speichern nie wieder lesbar; sie lassen sich nur ersetzen.',
+        purpose: 'Signierschlüssel – je Einsatz eine eigene Adresse',
+      },
       loadFailed: 'Zugangsdaten konnten nicht geladen werden.',
       stateEnv: 'vom Server vorgegeben',
       stateStored: 'gesetzt',
@@ -5347,6 +5347,7 @@ export const de = {
     },
     usageBar: { aria: '{pct}% belegt' },
     identity: {
+      groupStation: 'Station',
       // Muss «admin.setup.name» wortgleich bleiben: die Einrichtungs-Zeile führt genau hierher,
       // und eine Zeile, die auf ein anders benanntes Feld zeigt, lässt einen suchen.
       appName: 'Name der Wehr',
@@ -5375,6 +5376,7 @@ export const de = {
       helpIntroTip: 'Steht zuoberst unter «Was kann KP Front?». Ein bis zwei Sätze in den Worten der Wehr – wofür diese App bei euch da ist. Leer = der mitgelieferte Text.',
     },
     map: {
+      colExternal: 'Kartenportal',
       centerLon: 'Zentrum – Länge (lon)',
       centerLonTip: 'Längengrad (WGS84) des Kartenstarts, bevor ein Einsatz gewählt ist.',
       centerLat: 'Zentrum – Breite (lat)',
@@ -5485,6 +5487,7 @@ export const de = {
     // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
     // von einem neuen Einsatz erfährt.
     alarms: {
+      colGroup: 'Alarmgruppe',
       // Alarmgruppen: die Gruppen-Hälfte des Zeiten-Rasters auf Rapport und Erfassungsblatt –
       // die Fahrzeug-Hälfte steht auf «Fahrzeuge & Symbole».
       groupGroups: 'Alarmgruppen',
@@ -5569,6 +5572,9 @@ export const de = {
       funkkanalMaxTip: 'Obere Grenze des Funkkanal-Reglers.',
     },
     setup: {
+      ackDo: 'Abhaken',
+      ackUndo: 'Häkchen entfernen',
+      ackSub: 'Von Hand als erledigt markiert',
       title: 'Einrichtung · {done} von {n} erledigt',
       caption: 'Was diese Instanz noch braucht, damit sie eure Wehr zeigt und nicht die Vorlage. Nichts davon blockiert den Betrieb.',
       name: 'Name der Wehr',
@@ -5699,6 +5705,7 @@ export const de = {
       removeItem: '{item} löschen',
     },
     fleet: {
+      colVehicle: 'Fahrzeug',
       // ── Fahrzeuge: die einzige bearbeitbare Liste auf dieser Seite ──
       groupVehicles: 'Fahrzeuge',
       vehiclesTip: 'Diese Liste ergibt das Raster «Alarmierungs-/Ausrückzeiten» auf dem Rapport und auf dem gedruckten Erfassungsblatt. Ohne Eintrag fehlt das Raster ganz.',
@@ -5791,8 +5798,6 @@ export const de = {
       // Das ausgelieferte Erstkonto bleibt ein gültiger Login, bis jemand es anfasst – und die
       // Einrichtungs-Karte kann das nicht prüfen (sie zählt nur Konten). Deshalb steht der
       // Hinweis dort, wo beides in zwei Tippern erledigt ist.
-      seedAccountTitle: 'Das eingebaute Erstkonto «{name}» ist aktiv.',
-      seedAccountBody: 'Bewusst entscheiden: als Notfallzugang mit eigener PIN behalten oder deaktivieren. Dieser Hinweis bleibt sichtbar, solange das Konto aktiv ist.',
       colName: 'Name',
       colUsername: 'Benutzername',
       colRole: 'Rolle',
@@ -5834,17 +5839,22 @@ export const de = {
       pinSave: 'PIN speichern',
     },
     roster: {
+      rankNoneOption: 'Kein Grad',
+      providerRankHint: '{provider} kann den Grad bei der nächsten Synchronisation überschreiben',
+      providerStatusHint: '{provider} aktiviert die Person bei der nächsten Synchronisation wieder',
       // Name format — one order for the whole Wehr. It sits here because the effect is visible
       // directly below it in the list.
       nameOrderTitle: 'Namensformat',
       nameOrderCaption: 'Gilt überall: Personalliste, Anwesenheit, Karte, Rapport und Druck.',
       nameOrderLabel: 'Reihenfolge',
       nameOrderTip: 'Divera liefert «Nachname Vorname» – so sind auch Personallisten und Soldblätter sortiert. Die Umstellung wirkt sofort auf alle Geräte; bereits gedruckte Rapporte und abgeschlossene Einsätze behalten ihre Schreibweise.',
+      nameOrderShortLastFirst: 'Nachname Vorname',
+      nameOrderShortFirstLast: 'Vorname Nachname',
       nameOrderLastFirst: 'Nachname Vorname · Meier Hans',
       nameOrderFirstLast: 'Vorname Nachname · Hans Meier',
       sourceHint: 'Spalten: name (Pflicht), rank (optional). UTF-8, kommagetrennt, mit Kopfzeile. Provider-Identitäten werden durch die Synchronisation verwaltet.',
       addPerson: 'Person hinzufügen',
-      addPersonCaption: 'Name der Person eingeben.',
+      addPersonCaption: 'Name eingeben; Grad und Status lassen sich gleich mitgeben.',
       name: 'Name',
       namePlaceholder: 'z. B. Meier Hans',
       csvImport: 'CSV importieren',
@@ -5909,6 +5919,7 @@ export const de = {
       updatedBadge: '{n} aktualisiert',
     },
     data: {
+      statusTitle: 'Verbindung',
       testConnection: 'Verbindung testen',
       testing: 'Wird geprüft …',
       testOk: 'OK',
@@ -5920,6 +5931,8 @@ export const de = {
       stateNotConfigured: 'nicht konfiguriert',
       // «nicht konfiguriert» plus ein Verbindungstest, der zwangsläufig scheitert, war bisher
       // eine Sackgasse: Der Schlüssel wird eine Seite weiter eingetragen.
+      trackingSetupTitle: 'Fahrzeugortung ist nicht eingerichtet.',
+      trackingSetupBody: 'Ohne Traccar-Adresse und Anmeldung holt diese Installation keine Positionen ab – ein Verbindungstest kann bis dahin nur scheitern. Beides wird unter Zugangsdaten eingetragen.',
       openCredentials: 'Zugangsdaten öffnen',
       // ─── «Anbindung einrichten» ──────────────────────────────────────────────────────
       // Die Seite, die «nicht konfiguriert» meldet, sagt jetzt auch WIE – denn genau hier
@@ -5936,16 +5949,13 @@ export const de = {
       diveraNote: 'Der Accesskey der Wehr wird unter Zugangsdaten eingetragen. Sobald er steht, holt diese Installation die Alarme von selbst ab – hier ist nichts weiter einzurichten.',
       diveraGo: 'Accesskey in Zugangsdaten hinterlegen',
       genericLabel: 'Allgemeine Schnittstelle · POST',
-      genericHint: 'Für Leitstellen, Pager-Gateways und eigene Skripte. Jeder angenommene Alarm eröffnet einen Einsatz.',
       firehubLabel: 'FireHub (Tercero) · Webhook-Ziel',
-      firehubHint: 'In FireHub für «Einsatzstart» und «Einsatzende» hinterlegen. FireHub kann keine eigenen Kopfzeilen senden – das Secret gehört deshalb in die Adresse.',
-      // ⚠️ Platzhalter in einer Adresse, kein Satz: Er wird mitkopiert und in der Leitstelle
-      // durch den echten Wert ersetzt. Das Secret selbst steht hier nie.
-      secretPlaceholder: '<Alarm-Webhook-Secret>',
       secretTitle: 'Ohne Alarm-Webhook-Secret bleibt dieser Eingang zu.',
       secretBody: 'Solange es fehlt, weist der Server jeden eingehenden Alarm ab (403) – auch den der richtigen Leitstelle. Gesetzt wird es unter Zugangsdaten; hier steht es nie.',
       secretGo: 'Secret in Zugangsdaten hinterlegen',
-      setupDocs: 'Feldliste, Beispielaufruf und Wiederholverhalten: ALARM-INTEGRATIONS.md',
+      setupDocsNote: 'Feldliste, Beispielaufruf und Wiederholverhalten:',
+      setupDocs: 'Integrations-Doku',
+      provider: 'Quelle',
       poolLoading: 'Pool wird geladen …',
       poolCount: '{n} Alarm im Pool',
       poolCountPlural: '{n} Alarme im Pool',
@@ -6083,13 +6093,9 @@ export const de = {
     // kennt nur «behalte genau diese» (prune), nicht «lösche jene». Eine umbenannte Vorlage
     // bliebe sonst als Geist liegen und würde weiter an jedes Tablet ausgeliefert.
     checklists: {
-      intro: 'Die Checklisten dieser Wehr: Aufgabenlisten (FU), Lagerapport und das '
-        + 'Einsatzleiter-Nachschlagewerk. Eine Vorlage ist eine JSON-Datei; sie gilt für alle Geräte.',
-      pruneNote: 'Löschen läuft über denselben Weg wie admin_checklists: Der Server behält genau '
-        + 'die Vorlagen, die diese Seite ihm nennt. Wird eine Vorlage unter neuem Namen hochgeladen, '
-        + 'bleibt die alte bestehen, bis sie hier gelöscht wird.',
-      cliHint: 'Viele Vorlagen auf einmal – aus einem Manifest, im Verzeichnis backend/:',
-      cliCmd: 'uv run python -m app.admin_checklists push checklists.manifest.json',
+      exampleDownloadKind: 'Beispiel-Vorlage: {kind}',
+      intro: 'Die Checklisten dieser Wehr – Aufgabenlisten (FU), Lagerapport und Merkblätter '
+        + 'zum Nachschlagen (z. B. «Verkehrsunfall»), die nur gelesen und nicht abgehakt werden.',
       upload: 'Vorlage hochladen',
       loading: 'Checklisten werden geladen …',
       loadError: 'Checklisten konnten nicht geladen werden.',
@@ -6149,6 +6155,7 @@ export const de = {
       badId: 'Die «id» der Vorlage darf keinen Doppelpunkt und keine Leerzeichen enthalten.',
     },
     modules: {
+      catalogueTitle: 'Modul-Katalog',
       empty: 'Keine Module konfiguriert.',
       usingDefaults: 'Keine eigenen Module konfiguriert – es gelten die mitgelieferten Standard-Module.',
       summary: '{modules} Module · {objects} Objekte · {plans} Pläne',
@@ -6195,17 +6202,11 @@ export const de = {
       colLayer: 'Ebene',
       colType: 'Typ',
       colStatus: 'Status',
-      colRender: 'Darstellung',
-      maxZoomVal: 'Max. Zoom {n}',
-      statusLoaded: 'Geladen',
-      statusMissing: 'Nicht geladen',
-      statusExternal: 'Externe Quelle',
       features: '{n} Features',
       updated: 'Aktualisiert {date}',
       group: 'Gruppe',
       opacity: 'Deckkraft',
       colorDay: 'Farbe Tag',
-      colorNight: 'Farbe Nacht',
       symbol: 'Symbol',
       geometry: 'Geometrie',
       geometryPoint: 'Punkte',
@@ -6214,13 +6215,6 @@ export const de = {
       attribution: 'Quelle',
       source: 'Quelle',
       datasetsTitle: 'Geladene Datensätze',
-      cliHint: 'Nur diese Übersicht ist schreibgeschützt – eingerichtet wird weiter unten auf dieser Seite.',
-      cliTip: 'Raster-Ebenen (WMS/WMTS) und GeoJSON-Ebenen haben ihre eigenen Abschnitte unter '
-        + 'dieser Tabelle. Beim GeoJSON-Upload werden Datei und Ebene zusammen eingerichtet – '
-        + 'eines ohne das andere nützt nichts.',
-      // GeoJSON-Ebenen: eigene Geodaten als Datei. Der Upload macht beide Hälften – Datei in
-      // den Datensatz-Speicher UND Ebene in die Konfiguration –, denn eine ohne die andere
-      // nützt nichts.
       geojsonTitle: 'GeoJSON-Ebenen (Vektor)',
       geojsonTip: 'Eigene Geodaten als Datei: Hydranten, ein Leitungskataster-Export, der Zonenplan der Gemeinde. Datei auswählen, benennen, hochladen – die Ebene erscheint danach im Einsatz unter «Ebenen». Bedingung: GeoJSON in WGS84 [lng, lat], also EPSG:4326. Schweizer Exporte kommen meist in LV95 und müssen vorher umprojiziert werden.',
       geojsonEmpty: 'Noch keine GeoJSON-Ebene geladen.',
@@ -6309,8 +6303,7 @@ export const de = {
       reachable: 'erreichbar',
       error: 'Systemdaten konnten nicht geladen werden.',
       notAvailable: 'nicht verfügbar',
-      version: 'Version',
-      versionTip: 'Stand dieser Installation. «Release» = veröffentlichte Version (steht in den Release Notes), «Commit» = Git-Stand des Servers, «Umgebung» = Produktiv- oder Entwicklungsbetrieb.',
+      versionTip: 'Stand dieser Installation. «Release» = veröffentlichte Version (steht in den Release Notes), «Commit» = Git-Stand des Servers.',
       release: 'Release',
       commit: 'Commit',
       branch: 'Branch',
@@ -6318,7 +6311,6 @@ export const de = {
       production: 'Produktion',
       development: 'Entwicklung',
       database: 'Datenbank',
-      databaseTip: 'Lebenszeichen der Datenbank: eine einfache Test-Abfrage. «OK» = Server erreicht die Datenbank.',
       ok: 'OK',
       error2: 'Fehler',
       inventory: 'Bestand',
@@ -6417,50 +6409,6 @@ export const de = {
     },
     // Error reports going outside. Default: off. The tone here is deliberately sober – the
     // installation belongs to the Feuerwehr, we ask, we don't merely inform.
-    telemetry: {
-      title: 'Fehlerberichte an die Entwicklung',
-      caption: 'Standardmässig aus. Nichts verlässt diese Anlage, solange das hier nicht '
-        + 'eingeschaltet ist.',
-      tip: 'Betrifft nur automatische Absturzberichte im Hintergrund. Die Rückmeldung, die eine '
-        + 'Bedienerin selbst abschickt, läuft unabhängig davon – dort ist der Knopf die '
-        + 'Zustimmung. Was in beiden Fällen übertragen wird, steht unten wörtlich.',
-      loading: 'Wird geladen …',
-      loadError: 'Status konnte nicht geladen werden.',
-      // First-time question: no answer is pre-selected, none is emphasised.
-      askCaption: 'Einmal entscheiden – bis dahin wird nichts gesendet.',
-      askQuestion: 'Sollen Abstürze dieser Anlage automatisch an die Entwicklung gemeldet '
-        + 'werden?',
-      askYes: 'Ja, Abstürze melden',
-      askNo: 'Nein, nichts senden',
-      askLater: 'Beides lässt sich hier jederzeit wieder ändern.',
-      onBadge: 'Fehlerberichte',
-      onState: 'eingeschaltet',
-      offBadge: 'Fehlerberichte',
-      offState: 'aus',
-      lockedBadge: 'Fehlerberichte',
-      lockedState: 'vom Betreiber gesperrt',
-      explain: 'Eingeschaltet werden bereinigte Absturzmeldungen an die Entwicklung gesendet: '
-        + 'App-Version, Geräteart, Fehlertyp. Keine Adressen, keine Namen, keine Einsatzdaten, '
-        + 'keine IP. Jede einzelne Übertragung steht unten und zusätzlich im Server-Log.',
-      lockedNote: 'Auf dieser Anlage ist der Versand per Umgebungsvariable abgeschaltet '
-        + '(KP_TELEMETRY_ENABLED=0). Dieser Schalter kann daran nichts ändern – so gedacht: '
-        + 'wer die Anlage betreibt, entscheidet vor allen anderen.',
-      turnOn: 'Einschalten',
-      turnOff: 'Ausschalten',
-      installId: 'Kennung dieser Anlage',
-      noInstallId: 'Diese Anlage hat noch keine Kennung – es wurde noch nie etwas gesendet.',
-      rotate: 'Neue Kennung',
-      rotateConfirm: 'Neue Kennung erzeugen? Bereits gesendete Berichte lassen sich danach '
-        + 'nicht mehr mit dieser Anlage in Verbindung bringen.',
-      sentTitle: 'Was diese Anlage gesendet hat',
-      nothingSent: 'Noch nichts – weder gesendet noch in der Warteschlange.',
-      pendingNote: 'Noch nicht übertragen: wird beim nächsten Versuch nachgeholt, sobald eine '
-        + 'Verbindung besteht.',
-      chError: 'Absturz',
-      chReport: 'Rückmeldung',
-      stSent: 'gesendet',
-      stPending: 'wartet',
-    },
   },
 } as const
 

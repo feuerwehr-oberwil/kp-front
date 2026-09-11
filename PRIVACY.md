@@ -152,8 +152,9 @@ You do not have to take any of the above on faith:
    it is sent. Look for `telemetry: queuing … exact content follows`.
 2. **Your own database.** The same payload stays verbatim in the `telemetry_outbox` table.
    `SELECT payload_json FROM telemetry_outbox;` is the whole story, before and after delivery.
-3. **The admin screen.** *System & Wartung → Fehlerberichte* shows the same rows, newest first,
-   as formatted JSON.
+3. ~~**The admin screen.**~~ *System & Wartung → Fehlerberichte* was removed on 2026-09-10. The
+   rows it showed are still in the database and the log, which is what points 1 and 2 are for;
+   there is now no way to switch consent on from the browser at all.
 4. **The diagnostics file itself.** It is plain JSON, it is on your device, and it is the exact
    thing that would be attached — open it before you send it. The Rückmeldung sheet also shows
    the technical block and the number of crash entries the file holds, before you decide.

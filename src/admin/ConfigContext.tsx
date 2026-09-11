@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { apiGet, apiPut, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { EmptyState } from './ui'
 import {
   loadDeploymentConfig,
   applyDeploymentBranding,
@@ -464,8 +465,8 @@ export function useConfig(): ConfigCtx {
 /** Gate that shows a load/error state until the config draft is ready. */
 export function ConfigGate({ children }: { children: ReactNode }) {
   const { draft, loadError } = useConfig()
-  if (loadError) return <div className="adm-state adm-state-err">{loadError}</div>
-  if (!draft) return <div className="adm-state">{appConfig.copy.admin.common.configLoading}</div>
+  if (loadError) return <EmptyState tone="err" message={loadError} />
+  if (!draft) return <EmptyState message={appConfig.copy.admin.common.configLoading} />
   return <>{children}</>
 }
 
