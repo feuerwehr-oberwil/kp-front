@@ -187,6 +187,8 @@ are** – the names a brigade already gives its scans are the names KP Front rea
   other. The usual cause is a Modul-5 rule whose capture stops too early, so that
   `Modul 5 - Wasser 1.pdf` and `Modul 5 - Wasser 2.pdf` both read as `modul5-wasser`. The fix is
   in the config, not in the folder: the shipped default rule already takes the trailing number.
+  A captured trailing number fuses onto its word – `Modul 5 - Wasser 1.pdf` is stored as
+  `modul5-wasser1`, the numbered-sibling spelling the app's plan tiles read.
 - The folder name is the object's **stable key** – use it as it reads on the door
   (`Hauptstrasse 24 - Gemeindeverwaltung`); spaces, case and umlauts are all fine. Rename the
   folder and KP Front will treat it as a different object, so pick it once.

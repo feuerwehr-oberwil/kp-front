@@ -113,8 +113,12 @@ _FOLD = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "ae", "Ö": "oe
 def _slugify(text: str) -> str:
     """A family module's captured sub-slot as the suffix its id is built from.
 
-    Lower-cased, umlauts folded, every run of anything else collapsed to a single `-` — so
-    «Modul 5 - Wasser 1.pdf» captures `Wasser 1` and the plan is stored under `modul5-wasser-1`.
+    Lower-cased, umlauts folded, every run of anything else collapsed to a single `-` — and a
+    trailing number FUSES onto its word: «Modul 5 - Wasser 1.pdf» captures `Wasser 1` and the
+    plan is stored under `modul5-wasser1`, not `modul5-wasser-1`. The fused spelling is the
+    numbered-sibling convention everything downstream reads (navRail · moduleTileLabel and
+    planGlyph split «wasser2» back into «Wasser 2» / WAS2; a hyphen there makes the two
+    waterplans of a large object render as two identical tiles).
 
     ⚠️ ONLY for a capture. The filename itself is never slugified and compared: which module a
     PDF belongs to is decided by the station's own `modules[].match` regex (`_module_for`), and
@@ -123,7 +127,8 @@ def _slugify(text: str) -> str:
     """
     folded = unicodedata.normalize("NFC", text).lower().translate(_FOLD)
     bare = "".join(c for c in unicodedata.normalize("NFD", folded) if not unicodedata.combining(c))
-    return re.sub(r"[^a-z0-9]+", "-", bare).strip("-")
+    slug = re.sub(r"[^a-z0-9]+", "-", bare).strip("-")
+    return re.sub(r"([a-z])-(\d+)$", r"\1\2", slug)
 
 
 @dataclass(frozen=True)

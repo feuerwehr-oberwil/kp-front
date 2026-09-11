@@ -243,11 +243,14 @@ def rules(modules=MODULES):
         ("Modul 5", "modul5"),
         ("Modul 6", "modul6"),
         # A family's capture is the sub-slot, and it needs no catalogue entry of its own —
-        # every one of these is a real file and none is a configured module.
+        # every one of these is a real file and none is a configured module. A trailing number
+        # fuses onto its word (modul5-wasserN, the numbered-sibling convention navRail reads);
+        # `modul5-wasser-1` would render as a second identical «Wasser» tile.
         ("Modul 5 - PV", "modul5-pv"),
+        ("Modul 5 - PV 15", "modul5-pv15"),
         ("Modul 5 - Wasser", "modul5-wasser"),
-        ("Modul 5 - Wasser 1", "modul5-wasser-1"),
-        ("Modul 5 - Wasser 2", "modul5-wasser-2"),
+        ("Modul 5 - Wasser 1", "modul5-wasser1"),
+        ("Modul 5 - Wasser 2", "modul5-wasser2"),
         ("Modul 5 - Evak", "modul5-evak"),
         ("Modul 5 - Adressen", "modul5-adressen"),
         # A Grossplan's name, which no rule may claim.
