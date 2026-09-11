@@ -75,6 +75,14 @@ services:
       # Leave blank when serving over HTTPS (Secure cookies follow ENVIRONMENT=production).
       # Set to false only for plain-HTTP access on a trusted LAN, so login cookies still stick.
       COOKIE_SECURE: ${COOKIE_SECURE:-}
+      # How many reverse proxies in front of this app may be trusted to have written
+      # `X-Forwarded-For` – the only thing that makes the per-source rate limits (login PIN,
+      # capture) key on the real client instead of the proxy. `--profile tls` below is exactly
+      # one such hop, and so is your own nginx/Caddy; the plain-LAN shape has none.
+      # ⚠️ It has to be listed here like everything else, or a 1 in .env never reaches the
+      # process and every request keeps sharing one bucket, silently.
+      # (Numeric default here on purpose: an empty value would break int parsing.)
+      TRUSTED_FORWARDED_HOPS: ${TRUSTED_FORWARDED_HOPS:-0}
       MEDIA_STORAGE_DIR: /data/storage
       SEED_DATABASE: ${SEED_DATABASE:-true}
       # Required whenever SEED_DATABASE is on in production — the seed file's PIN is public.
@@ -153,6 +161,10 @@ services:
       # single compose install. Blank means «unset», and unset resolves to the app's own
       # default — mailto:kp-front@localhost.
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      # Extra push-service hosts a subscription may name, beyond the four major browser ones
+      # built in. Blank = only those four (fail-closed). Env only: the endpoint arrives in a
+      # caller's request body, so the destination list is the deployer's to widen.
+      PUSH_EXTRA_HOSTS: ${PUSH_EXTRA_HOSTS:-}
       # Speech-to-text for the audio player (OpenAI-compatible server; see .env.example for
       # Groq/OpenAI/self-hosted examples). Blank = feature off (fail-closed); the app —
       # upload, player, waveform — works fully without it, only Transkribieren is absent.
@@ -161,6 +173,11 @@ services:
       # CARTO raster basemap browser key. Visible in browser tile requests — restrict it to the
       # deployment domains in CARTO — served only to callers with a session, and never committed.
       CARTO_API_KEY: ${CARTO_API_KEY:-}
+      # Extra tile hosts the SERVER may fetch a basemap from while rendering the Kroki into the
+      # Einsatzrapport, beyond the three providers the app itself offers. Blank = only those
+      # three; a station running its own tile server names it here. Env only, same reason as
+      # PUSH_EXTRA_HOSTS above – the tile template travels in a caller's request body.
+      REPORT_TILE_HOSTS: ${REPORT_TILE_HOSTS:-}
       # ⚠️ These two fallbacks must stay LITERALLY the app defaults (app/config.py) — see the
       # VAPID_SUBJECT note below. Change one to a value you prefer and you do not change a
       # default, you take the field away from every station's browser.
@@ -192,6 +209,10 @@ services:
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-110}
       # swisstopo SearchServer for address autocomplete; override only with a compatible endpoint.
       GEOCODER_URL: ${GEOCODER_URL:-https://api3.geo.admin.ch/rest/services/api/SearchServer}
+      # Locality appended to a bare street address typed without a postal code, so it resolves
+      # in this brigade's own village. The FALLBACK only: a station normally sets
+      # map.geocoder.defaultLocality in its deployment config, and that wins.
+      GEOCODER_DEFAULT_LOCALITY: ${GEOCODER_DEFAULT_LOCALITY:-}
     volumes:
       - storage:/data/storage
     ports:

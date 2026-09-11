@@ -969,14 +969,18 @@ if [[ "$MODE" == "tls" ]]; then
   valid_domain "$DOMAIN" || die "$(sayf "$T_ERR_BAD_DOMAIN_FMT" "$DOMAIN")"
 fi
 
-# One answer, three settings. The operator never has to learn that COOKIE_SECURE exists.
+# One answer, four settings. The operator never has to learn that COOKIE_SECURE exists.
 #   tls   → own Caddy on 80/443, HTTPS, Secure cookies (COOKIE_SECURE left blank = follow
-#           ENVIRONMENT=production), app bound to loopback so nothing is served past Caddy.
-#   proxy → same, minus the Caddy: 80/443 already belong to someone else on this host.
-#   lan   → plain HTTP on the LAN, and COOKIE_SECURE=false or the login silently fails.
+#           ENVIRONMENT=production), app bound to loopback so nothing is served past Caddy,
+#           and exactly one trusted forwarded hop – that Caddy.
+#   proxy → same, minus the Caddy: 80/443 already belong to someone else on this host, and
+#           that someone is then the one trusted hop.
+#   lan   → plain HTTP on the LAN, and COOKIE_SECURE=false or the login silently fails. No
+#           proxy, so 0 hops: the direct peer is the rate-limit key.
 COOKIE_SECURE=""
 APP_BIND="0.0.0.0"
 PUBLIC_URL=""
+TRUSTED_FORWARDED_HOPS=0
 USE_TLS_PROFILE=0
 
 case "$MODE" in
@@ -989,6 +993,7 @@ case "$MODE" in
       USE_TLS_PROFILE=1
       APP_BIND="127.0.0.1"
       PUBLIC_URL="https://${DOMAIN}"
+      TRUSTED_FORWARDED_HOPS=1
       ok "$(sayf "$T_CHOSE_TLS_FMT" "$DOMAIN")"
     fi
     ;;
@@ -1034,6 +1039,7 @@ if [[ "$MODE" == "proxy" ]]; then
   fi
   APP_BIND="127.0.0.1"
   PUBLIC_URL="https://${DOMAIN}"
+  TRUSTED_FORWARDED_HOPS=1
   ok "$(sayf "$T_CHOSE_BEHIND_PROXY_FMT" "$DOMAIN" "$PORT")"
 elif [[ "$MODE" == "lan" ]]; then
   DOMAIN=""
@@ -1079,6 +1085,7 @@ kp_env_set APP_BIND "$APP_BIND" "$ENV_FILE"
 kp_env_set COOKIE_SECURE "$COOKIE_SECURE" "$ENV_FILE"
 kp_env_set DOMAIN "$DOMAIN" "$ENV_FILE"
 kp_env_set PUBLIC_URL "$PUBLIC_URL" "$ENV_FILE"
+kp_env_set TRUSTED_FORWARDED_HOPS "$TRUSTED_FORWARDED_HOPS" "$ENV_FILE"
 
 # Integration credentials are NOT written here. The Web Push pair is minted in §6 into the
 # encrypted credential store once the app answers; the rest are set deliberately in /admin.
