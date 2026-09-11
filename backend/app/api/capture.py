@@ -293,7 +293,7 @@ async def capture_put_workspace(
         workspace=_merge_capture_keys(inc.map_workspace_json, body.workspace),
         base_rev=body.base_rev,
     )
-    saved = await apply_workspace_put(db, incident_id, scoped, user_id=None, source="capture")
+    saved = await apply_workspace_put(db, incident_id, scoped, user_id=None, source="capture", inc=inc)
     await _bump_capture_usage(db, incident_id)  # only after an ACCEPTED save (409 raises above)
     # Hand back the projection, not the merged blob the editor endpoint would return.
     return WorkspaceOut(workspace=_capture_view(saved.workspace), workspace_rev=saved.workspace_rev)

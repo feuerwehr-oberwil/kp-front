@@ -52,7 +52,7 @@ describe('WorkspaceSync.flush — happy path', () => {
 
     expect(apiPut).toHaveBeenCalledTimes(1)
     expect(apiPut).toHaveBeenCalledWith(
-      `/api/incidents/${ID}/workspace`,
+      `/api/incidents/${ID}/workspace?slim=1`,
       expect.objectContaining({ workspace: { a: 1 }, base_rev: 0 }),
     )
     expect(sync.rev).toBe(5)
@@ -69,7 +69,7 @@ describe('WorkspaceSync.flushKeepalive — teardown beacon', () => {
 
     expect(apiBeacon).toHaveBeenCalledTimes(1)
     expect(apiBeacon).toHaveBeenCalledWith(
-      `/api/incidents/${ID}/workspace`,
+      `/api/incidents/${ID}/workspace?slim=1`,
       { workspace: { a: 1 }, base_rev: 0 },
       'PUT',
     )

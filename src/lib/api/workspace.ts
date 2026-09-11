@@ -8,14 +8,19 @@ export type Workspace = Record<string, unknown>
 
 export const getWorkspace = (id: string) =>
   apiGet<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace`)
+// `slim=1`: only the revision comes back (workspace null). The engine reads nothing but the
+// rev off a push (workspaceSync · pushCurrent), and the full echo doubled the wire cost of
+// every save at field blob sizes. An older backend ignores the flag and keeps echoing — the
+// type already allows both answers.
 export const putWorkspace = (id: string, workspace: Workspace, base_rev: number) =>
-  apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace`, {
+  apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace?slim=1`, {
     workspace,
     base_rev,
   })
-/** Fire-and-forget workspace PUT for page teardown — survives the document unloading. */
+/** Fire-and-forget workspace PUT for page teardown — survives the document unloading.
+ *  `slim=1` here saves only server-side serialisation: the response is never read. */
 export const putWorkspaceBeacon = (id: string, workspace: Workspace, base_rev: number) =>
-  apiBeacon(`/api/incidents/${id}/workspace`, { workspace, base_rev }, 'PUT')
+  apiBeacon(`/api/incidents/${id}/workspace?slim=1`, { workspace, base_rev }, 'PUT')
 
 // --- the trupp slice on its own ------------------------------------------------------------
 // An Atemschutz-Link session (auth · AuthUser.link_kind) may write the Überwachungstafel and
