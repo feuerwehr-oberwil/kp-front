@@ -44,11 +44,12 @@ MAX_BANDS = 8
 _INK = colors.HexColor("#1b2330")
 _DIM = colors.HexColor("#8a94a3")
 _RULE = colors.HexColor("#c9cfd8")
-_ACCENT = colors.HexColor("#1f6feb")
 
 #: eingeteilt · verfügbar. Two MARKS rather than two colours: the station printer is monochrome
 #: (a colour cartridge is a consumable) and a photocopy of a colour-only distinction says nothing.
-#: The heavier mark is the stronger commitment, which is the whole reading of a column.
+#: The heavier mark is the stronger commitment, which is the whole reading of a column. Printed in
+#: plain ink (_INK), not an accent — there was never a second colour to tell apart, only the two
+#: marks, so the ink stayed the only ink this sheet needed.
 #:
 #: Both are plain ASCII, deliberately. These PDFs use the base-14 Helvetica, whose encoding is
 #: WinAnsi — the ✚/○ of the drawing have no glyph there and would print as blank boxes on the one
@@ -79,6 +80,19 @@ def _band_title(b: ZeitplanBand) -> str:
     """What a column is called. The label is optional on the surface, so a band nobody named
     prints as its own hours rather than as a blank heading."""
     return b.label.strip() or _range(b.start, b.end)
+
+
+def _band_chunks(bands: list[ZeitplanBand]) -> list[list[ZeitplanBand]]:
+    """The bands split into the column groups one sheet can hold, in order.
+
+    The exact counterpart of the row pagination: a sheet too wide gets continued on the next
+    page rather than cut off. It used to be cut off — ``bands[:MAX_BANDS]`` — and because the
+    same truncated list also decided WHO is printed, somebody whose only watch was a ninth band
+    fell off the roster entirely, not just off the right-hand edge.
+
+    Never empty when there are bands; an empty list stays empty (the caller says so in words).
+    """
+    return [bands[i : i + MAX_BANDS] for i in range(0, len(bands), MAX_BANDS)]
 
 
 def _cover_fraction(block_start: datetime, block_end: datetime | None, band: ZeitplanBand) -> float:
@@ -180,7 +194,20 @@ def _deckung(rows: list[ZeitplanRow], band: ZeitplanBand) -> str:
     return f"{n}·" if partial else str(n)
 
 
-def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with_deckung: bool) -> Table:
+def _page(
+    rows: list[ZeitplanRow],
+    bands: list[ZeitplanBand],
+    width: float,
+    with_deckung: bool,
+    deckung_rows: list[ZeitplanRow] | None = None,
+) -> Table:
+    """One sheet: the ``bands`` columns against the ``rows`` names, padded rows and all.
+
+    ``deckung_rows`` is who the EINGETEILT line counts — the whole crew, not the names that
+    happen to be on this page, because a per-page total says something true about the page and
+    false about the Einsatz. Defaults to the printed rows, which is the same thing on a sheet
+    that fits on one page.
+    """
     # the hours go on a second line only when the first one is a real NAME — a band nobody named
     # already prints as its own hours, and «12–17 / 12–17» is a column head arguing with itself
     head = ["WER"] + [
@@ -191,7 +218,8 @@ def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with
         label = f"{row.rank} {row.name}".strip() if row.rank else row.name
         data.append([label[:34]] + [_cell(row, b) for b in bands])
     if with_deckung:
-        data.append(["EINGETEILT"] + [_deckung(rows, b) for b in bands])
+        counted = rows if deckung_rows is None else deckung_rows
+        data.append(["EINGETEILT"] + [_deckung(counted, b) for b in bands])
 
     name_w = 62 * mm
     cell_w = (width - name_w) / max(1, len(bands))
@@ -209,7 +237,7 @@ def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with
         ("LEFTPADDING", (0, 0), (0, -1), 3 * mm),
         # the ticks: bigger than the names, because they are what the sheet is scanned for
         ("FONT", (1, 1), (-1, -1), "Helvetica", 10),
-        ("TEXTCOLOR", (1, 1), (-1, -1), _ACCENT),
+        ("TEXTCOLOR", (1, 1), (-1, -1), _INK),
     ]
     if with_deckung:
         style += [
@@ -222,7 +250,10 @@ def _page(rows: list[ZeitplanRow], bands: list[ZeitplanBand], width: float, with
 
 
 def compose_schichtplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None) -> bytes:
-    """One portrait A4 per ~34 names, ready to hang up.
+    """One portrait A4 per 28 names × 8 Schichten, ready to hang up.
+
+    Both axes paginate, and neither truncates: more names continue on the next page, more watches
+    continue on the next set of pages — with the same roster on each, so the sheets read together.
 
     ``logo`` is the station's already-resolved letterhead mark (see
     ``api/report.py::_resolve_logo``) — this module never reaches into the deployment config
@@ -257,7 +288,11 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None)
         if x
     )
 
-    bands = payload.bands[:MAX_BANDS]
+    # ALL of them — who is printed is decided against every watch there is, and the columns are
+    # then dealt out over as many sheets as they need (see _band_chunks). Deciding it against a
+    # truncated list once meant a ninth-band person was dropped from the roster, not just from
+    # the columns that did not fit.
+    bands = list(payload.bands or [])
     # ONLY the people who were actually assigned. This is the sheet that goes on the wall to say who
     # is on which watch; somebody merely available is not an answer to that question, and sixty
     # names with two ticks between them is a sheet nobody reads. Everyone's times — assigned or not
@@ -309,20 +344,39 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None)
     # a page per ~28 names, every one padded out to full height: the sheet is meant to be written
     # on, and an empty row is where the pen goes
     pages = [rows[i : i + MAX_ROWS] for i in range(0, max(len(rows), 1), MAX_ROWS)] or [[]]
-    for i, page_rows in enumerate(pages):
-        if i:
-            story.append(PageBreak())
-        padded = list(page_rows) + [ZeitplanRow(name="") for _ in range(MAX_ROWS - len(page_rows))]
-        # the Deckung line counts the WHOLE crew, not the names on this sheet — a per-page total
-        # would say something true about the page and false about the Einsatz
-        story.append(_page(padded, bands, inner_w, with_deckung=(i == len(pages) - 1)))
-        if i == len(pages) - 1:
+    # …and a sheet per 8 watches, the same way round: too many columns continue on the next sheet
+    # instead of falling off the edge. EVERY chunk carries the SAME names — the roster was chosen
+    # against all the bands — so a person's row is on each sheet even where their columns are
+    # empty, which is what makes the sheets cross-readable side by side on the wall.
+    chunks = _band_chunks(bands)
+    started = False
+    for c, chunk in enumerate(chunks):
+        for i, page_rows in enumerate(pages):
+            if started:
+                story.append(PageBreak())
+            started = True
+            padded = list(page_rows) + [ZeitplanRow(name="") for _ in range(MAX_ROWS - len(page_rows))]
+            last = i == len(pages) - 1
+            # the Deckung line counts the WHOLE crew, not the names on this sheet — a per-page
+            # total would say something true about the page and false about the Einsatz. It sits
+            # under the last names of EVERY chunk, because it is a figure per column.
+            story.append(_page(padded, chunk, inner_w, with_deckung=last, deckung_rows=rows))
+            if not last:
+                continue
+            first_no = c * MAX_BANDS + 1
+            # which watches these columns are, once there is more than one sheet of them
+            chunk_scope = (
+                f"Schichten {first_no}–{first_no + len(chunk) - 1} von {len(bands)}; "
+                "die übrigen stehen auf den weiteren Blättern. "
+                if len(chunks) > 1
+                else ""
+            )
             story.append(Spacer(1, 3 * mm))
             story.append(
                 Paragraph(
                     f"{_MARK_CONFIRMED} eingeteilt · {_MARK_AVAILABLE} verfügbar · eine Uhrzeit = "
                     "deckt die Schicht nur teilweise · leere Zellen zum Nachtragen von Hand. "
-                    f"{footnote_scope} Planungshilfe – massgebend bleibt der Einsatzrapport.",
+                    f"{chunk_scope}{footnote_scope} Planungshilfe – massgebend bleibt der Einsatzrapport.",
                     ParagraphStyle("schichtfoot", parent=st["muted"], leading=9),
                 )
             )

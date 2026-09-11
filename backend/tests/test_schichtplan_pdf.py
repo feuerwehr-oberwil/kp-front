@@ -16,10 +16,13 @@ from PIL import Image as PILImage
 from app.schichtplan_pdf import (
     _MARK_AVAILABLE,
     _MARK_CONFIRMED,
+    MAX_BANDS,
     MAX_ROWS,
+    _band_chunks,
     _band_title,
     _cell,
     _deckung,
+    _is_assigned,
     compose_schichtplan_pdf,
 )
 from app.zeitplan_pdf import ZeitplanPayload
@@ -167,6 +170,34 @@ def test_a_sheet_with_nobody_assigned_yet_still_carries_the_crew_to_write_on():
     p = _payload([_row("Frei", [{"from": _h(0), "to": _h(5), "confirmed": False, "bandId": "bd1"}])])
     assert not any(_is_assigned(r, p.bands) for r in p.rows)
     assert compose_schichtplan_pdf(p).startswith(b"%PDF")
+
+
+def test_a_person_assigned_only_to_a_ninth_band_still_appears_on_the_sheet():
+    # reported as a defect: the 9th+ columns were cut off AND the roster was chosen against that
+    # same cut-off list, so somebody whose only watch was the ninth band vanished from the sheet
+    # altogether — not merely from the columns that did not fit.
+    bands = [{"id": f"bd{i}", "label": f"B{i}", "from": _h(i), "to": _h(i + 1)} for i in range(9)]
+    on_band_one = _row("Auf Band Eins", [{"from": _h(0), "to": _h(1), "confirmed": True, "bandId": "bd0"}])
+    on_band_nine = _row("Nur Band Neun", [{"from": _h(8), "to": _h(9), "confirmed": True, "bandId": "bd8"}])
+    p = _payload([on_band_one, on_band_nine], bands=bands)
+    assert len(p.bands) > MAX_BANDS
+    # the selection compose_schichtplan_pdf makes internally: against ALL the bands
+    assigned_names = [r.name for r in p.rows if _is_assigned(r, p.bands)]
+    assert assigned_names == ["Auf Band Eins", "Nur Band Neun"]
+    assert compose_schichtplan_pdf(p).startswith(b"%PDF")
+
+
+def test_nine_bands_are_dealt_over_two_sheets_and_the_ninth_lands_on_the_second():
+    bands = [{"id": f"bd{i}", "label": f"B{i}", "from": _h(i), "to": _h(i + 1)} for i in range(9)]
+    p = _payload([], bands=bands)
+    chunks = _band_chunks(list(p.bands))
+    assert [len(c) for c in chunks] == [MAX_BANDS, 1]
+    # the ninth watch is a column on the SECOND sheet, not a column nobody printed
+    assert [b.id for b in chunks[1]] == ["bd8"]
+    # …and the person filed under it has their cell there — the chunk is where their mark shows
+    on_band_nine = _row("Nur Band Neun", [{"from": _h(8), "to": _h(9), "confirmed": True, "bandId": "bd8"}])
+    q = _payload([on_band_nine], bands=bands)
+    assert _cell(q.rows[0], _band_chunks(list(q.bands))[1][0]) == _MARK_CONFIRMED
 
 
 def test_an_unnamed_band_is_titled_by_its_own_hours():
