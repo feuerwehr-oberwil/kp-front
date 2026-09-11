@@ -62,6 +62,13 @@ async def _refresh_credentials() -> None:
 
 
 async def _poll_divera() -> None:
+    """Poll Divera for new alarms, and record whether the connector is still alive.
+
+    ⚠️ The connector state is written on BOTH outcomes, and the webhook writes the same row on a
+    successful delivery (api/divera · webhook) — the webhook is the primary intake and the poll
+    is the fallback, so a station whose webhook is healthy must not read as stale here.
+    """
+    from . import connector_state
     from .credentials import get as credential
     from .credentials import load as load_credentials
     from .divera import fetch_and_upsert
@@ -74,12 +81,16 @@ async def _poll_divera() -> None:
             return
         try:
             new = await fetch_and_upsert(db)
+            await connector_state.record(
+                db, connector_state.DIVERA_ALARMS, ok=True, detail={"trigger": "poll", "new": new}
+            )
             await db.commit()
             if new:
                 logger.info("Divera poll: %d new alarm(s)", new)
-        except Exception:  # never let diagnostics wedge the scheduler
+        except Exception as e:  # never let diagnostics wedge the scheduler
             await db.rollback()
             logger.exception("Divera poll failed")
+            await connector_state.record_failure(db, connector_state.DIVERA_ALARMS, e)
 
 
 async def _push_sweep() -> None:
@@ -251,9 +262,15 @@ async def _vehicle_samples_sweep() -> None:
     (PLAN-audit-trail §4, Phase 6). Vehicles are station assets, not people — unlike the
     self-reported crew positions this one IS a history, kept with the incident and cascading
     with it.
+
+    It is also where the Traccar connector reports its health — the feed is polled here and
+    nowhere else on a timer. ⚠️ Those writes are THROTTLED (``TRACCAR_THROTTLE_SECONDS``): this
+    job ticks every 30 s, and «still working» is not a fact that changes twice a minute. A
+    transition is never throttled, so the first failure after a run of successes lands at once.
     """
     from sqlalchemy import select
 
+    from . import connector_state
     from .credentials import load as load_credentials
     from .geo_util import haversine_m
     from .models import Incident, VehicleSample
@@ -278,9 +295,20 @@ async def _vehicle_samples_sweep() -> None:
                 ).scalars()
             )
             if not open_ids:
-                return
+                return  # nothing was asked of Traccar, so there is nothing to report about it
             positions = await traccar_client.get_vehicle_positions()
+            # The feed answered — that is the health question, whether or not any tracker had
+            # something to say. The count goes on the card so «connected but nobody reporting»
+            # is legible as itself rather than as a green tick with an empty map.
+            await connector_state.record(
+                db,
+                connector_state.TRACCAR,
+                ok=True,
+                detail={"vehicles": len(positions)},
+                throttle_seconds=connector_state.TRACCAR_THROTTLE_SECONDS,
+            )
             if not positions:
+                await db.commit()
                 return
 
             live = {str(i) for i in open_ids}
@@ -342,9 +370,12 @@ async def _vehicle_samples_sweep() -> None:
             await db.commit()
             if written:
                 logger.info("Vehicle samples: %d row(s) recorded", written)
-        except Exception:
+        except Exception as e:
             await db.rollback()
             logger.exception("Vehicle sample sweep failed")
+            await connector_state.record_failure(
+                db, connector_state.TRACCAR, e, throttle_seconds=connector_state.TRACCAR_THROTTLE_SECONDS
+            )
 
 
 POSITION_SWEEP_SECONDS = 3600
@@ -469,13 +500,13 @@ def _start_scheduler_jobs() -> None:
         return
     jobs: list[str] = []
     _scheduler = AsyncIOScheduler()
-    # ⚠️ THE FOUR JOBS BELOW ARE REGISTERED UNCONDITIONALLY, and each no-ops on a tick where
-    # its credential is missing. They used to be gated here, at boot, off `settings` — which
-    # is exactly why none of these integrations could be connected from a browser: the value
-    # is only half the problem, the other half is that the job which would have used it was
-    # never scheduled. The telemetry flush has worked this way since it shipped and is the
-    # precedent. The cost is four timers ticking on a station that uses none of them, each
-    # one a dictionary lookup against a cached snapshot.
+    # ⚠️ EVERY CREDENTIAL-DRIVEN JOB BELOW IS REGISTERED UNCONDITIONALLY, and each no-ops on a
+    # tick where its credential is missing. They used to be gated here, at boot, off `settings`
+    # — which is exactly why none of these integrations could be connected from a browser: the
+    # value is only half the problem, the other half is that the job which would have used it
+    # was never scheduled. The telemetry flush has worked this way since it shipped and is the
+    # precedent. The cost is a handful of timers ticking on a station that uses none of them,
+    # each one a dictionary lookup against a cached snapshot.
     _scheduler.add_job(
         _poll_divera,
         "interval",

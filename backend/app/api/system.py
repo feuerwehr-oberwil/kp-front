@@ -127,27 +127,77 @@ def _storage() -> dict:
     }
 
 
+#: The keys every connector row carries, whether or not that connector records health.
+#:
+#: ⚠️ A row without them would not read as «nothing to report», it would read as «this build
+#: does not know» — and a reader cannot tell those two apart. So they are always present and
+#: null where unknown, the same rule `monitoring.heartbeatConfigured` is on.
+_NO_HEALTH = {"lastAttempt": None, "lastSuccess": None, "lastError": None, "counts": None}
+
+
+def _polling_connector(cid: str, *, configured: bool, health: dict) -> dict:
+    """One row for a connector that POLLS — the three that record into `connector_states`.
+
+    ⚠️ `state` is derived from the last outcome and nothing else: 'offline' the moment an
+    attempt failed, 'online' while the last one worked, null for a connector that has never
+    run. Deliberately NO staleness window here — «the last success was in June» is a judgement
+    about how often this station expects the connector to fire, and the two timestamps are
+    served precisely so the surface can make it. A window invented in the backend would either
+    call a quiet Traccar dead or call a dead Divera fine.
+    """
+    state = None
+    if configured:
+        state = "offline" if health["lastError"] else ("online" if health["lastSuccess"] else None)
+    return {"id": cid, "direction": "in", "configured": configured, "state": state, "detail": None} | health
+
+
 async def _connectors(db: AsyncSession) -> list[dict]:
     """Every consumer/producer this deployment talks to, read-only — one row each for the
     admin System card. Direction is from the backend's point of view: 'in' = something
-    sends/fetches data into us (webhooks, QR capture, stats pull, print agent), 'out' =
-    we push/call an external service (web push, STT). Divera/Traccar polling lives in the
-    provider registry above and is not repeated here."""
+    sends/fetches data into us (webhooks, QR capture, stats pull, print agent, the Divera and
+    Traccar polls), 'out' = we push/call an external service (web push, STT).
+
+    The three POLLING connectors carry health as well as configuration: when they last tried,
+    when they last actually worked, and why they did not. That pair is the point — «Divera ist
+    konfiguriert» is the same sentence on a station whose key was rotated two years ago, and
+    the silent death is the failure this card exists for. The provider registry above still
+    answers the other question (which provider serves which domain) and is not repeated here.
+    """
+    from .. import connector_state
     from ..models import DeploymentConfig
     from ..push import push_enabled
+    from ..traccar import traccar_client
     from .print_relay import relay_status
 
     await load_credentials(db)
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    health = await connector_state.states(db)
 
     relay = relay_status()
     return [
+        _polling_connector(
+            connector_state.DIVERA_ALARMS,
+            # The poll key OR the webhook secret: either one on its own is a working intake.
+            configured=bool(credential("divera_access_key") or credential("divera_webhook_secret")),
+            health=health[connector_state.DIVERA_ALARMS],
+        ),
+        _polling_connector(
+            connector_state.TRACCAR,
+            configured=traccar_client.is_configured,
+            health=health[connector_state.TRACCAR],
+        ),
+        _polling_connector(
+            connector_state.DIVERA_PERSONNEL,
+            configured=bool(credential("divera_personnel_access_key") or credential("divera_access_key")),
+            health=health[connector_state.DIVERA_PERSONNEL],
+        ),
         {
             "id": "print_relay",
             "direction": "in",
             "configured": relay["configured"],
             "state": ("online" if relay["online"] else "offline") if relay["configured"] else None,
             "detail": relay["last_seen"],
+            **_NO_HEALTH,
         },
         {
             "id": "capture",
@@ -155,6 +205,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
             "configured": bool(row and row.capture_secret),
             "state": None,
             "detail": None,
+            **_NO_HEALTH,
         },
         {
             "id": "stats",
@@ -162,6 +213,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
             "configured": bool(row and row.stats_secret),
             "state": None,
             "detail": None,
+            **_NO_HEALTH,
         },
         {
             "id": "divera_webhook",
@@ -169,6 +221,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
             "configured": bool(credential("divera_webhook_secret")),
             "state": None,
             "detail": None,
+            **_NO_HEALTH,
         },
         {
             "id": "alarm_webhook",
@@ -176,6 +229,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
             "configured": bool(credential("alarm_webhook_secret")),
             "state": None,
             "detail": None,
+            **_NO_HEALTH,
         },
         {
             "id": "push",
@@ -183,6 +237,7 @@ async def _connectors(db: AsyncSession) -> list[dict]:
             "configured": push_enabled(),
             "state": None,
             "detail": None,
+            **_NO_HEALTH,
         },
         {
             "id": "stt",
@@ -190,8 +245,86 @@ async def _connectors(db: AsyncSession) -> list[dict]:
             "configured": bool(credential("stt_base_url")),
             "state": None,
             "detail": credential("stt_base_url") or None,
+            **_NO_HEALTH,
         },
     ]
+
+
+#: The «Einrichtung» rows, in the order the card shows them. Ids are a CONTRACT with
+#: src/admin/SetupChecklist.tsx — an id changed on one side is a row that silently stops
+#: ticking on the other.
+SETUP_ROWS = ("name", "map", "logo", "users", "personnel", "fleet", "geocoder", "sharepoint", "monitoring")
+
+
+def _pair(value: object) -> bool:
+    """A map centre as either CRS stores it: exactly two numbers, and not a bool."""
+    return (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(isinstance(n, int | float) and not isinstance(n, bool) for n in value)
+    )
+
+
+async def _setup(db: AsyncSession, counts: dict | None) -> dict:
+    """What a fresh instance still needs — derived HERE rather than in the browser.
+
+    The «Einrichtung» card has always computed these nine predicates client-side out of
+    `/api/config` + `/api/system` + `/api/sharepoint/status`. Deriving them server-side makes the
+    same answer available to anything that is not that card — a deployment check, the CLI, an
+    operator asking «is this station set up» without opening a browser — and it puts the rule in
+    one place, where the two copies cannot drift.
+
+    Three things are deliberately separate in the output, because folding them loses information:
+
+    * ``done`` is what the station's own data SAYS. Derived, never hand-set.
+    * ``acknowledged`` is the hand ticks (``setup.acknowledged`` in the config document). The
+      escape hatch for a row whose fact this product cannot observe — a Wehr happy with the
+      built-in vehicle catalogue never writes ``fleet.vehicles``, so «Fahrzeuge» could otherwise
+      never tick.
+    * ``complete`` folds the two, and is the question «does this card still have anything to
+      say»: false while any row is neither done nor acknowledged.
+
+    ⚠️ Each predicate mirrors SetupChecklist.tsx exactly, including the parts that look wrong
+    until you read why: ``users`` wants MORE than one (a fresh deployment always has the one
+    seeded account, so «> 0» would tick on day zero), ``map`` accepts a centre in EITHER CRS
+    (they are mutually exclusive, and LV95 is the Swiss default this product is built for), and
+    ``geocoder`` is done on EITHER field (the locality alone already keeps the search at home).
+    """
+    from ..models import DeploymentConfig
+    from ..sharepoint_sync import sharepoint_status
+
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    cfg = (row.config_json if row else None) or {}
+    identity = cfg.get("identity") or {}
+    map_cfg = cfg.get("map") or {}
+    view = map_cfg.get("defaultView") or {}
+    geocoder = map_cfg.get("geocoder") or {}
+    users = (counts or {}).get("users") or 0
+    personnel_active = (counts or {}).get("personnel_active") or 0
+    try:
+        sharepoint_configured = bool((await sharepoint_status(db)).get("configured"))
+    except Exception:  # noqa: BLE001 — one unreadable connector must not sink the whole card
+        logger.warning("system: SharePoint setup row failed", exc_info=True)
+        sharepoint_configured = False
+
+    done = {
+        "name": bool((identity.get("appName") or "").strip()),
+        "map": _pair(view.get("center")) or _pair(view.get("centerLv95")),
+        "logo": bool((identity.get("assets") or {}).get("logo")),
+        "users": users > 1,
+        "personnel": personnel_active > 0,
+        "fleet": len((cfg.get("fleet") or {}).get("vehicles") or []) > 0,
+        "geocoder": bool((geocoder.get("defaultLocality") or "").strip())
+        or bool((geocoder.get("bboxLv95") or "").strip()),
+        "sharepoint": sharepoint_configured,
+        "monitoring": bool(credential("healthcheck_ping_url").strip()),
+    }
+    acknowledged = [k for k in ((cfg.get("setup") or {}).get("acknowledged") or []) if isinstance(k, str)]
+    return {
+        "rows": [{"id": key, "done": done[key]} for key in SETUP_ROWS],
+        "acknowledged": acknowledged,
+        "complete": all(done[key] or key in acknowledged for key in SETUP_ROWS),
+    }
 
 
 @router.get("")
@@ -235,6 +368,12 @@ async def get_system(
         logger.warning("system: connectors section failed", exc_info=True)
         connectors = None
 
+    try:
+        setup = await _setup(db, counts)
+    except Exception:  # noqa: BLE001
+        logger.warning("system: setup section failed", exc_info=True)
+        setup = None
+
     return {
         "version": version,
         "database": database,
@@ -242,6 +381,11 @@ async def get_system(
         "storage": storage,
         "integrations": integrations,
         "connectors": connectors,
+        # The «Einrichtung» predicates, derived server-side — see `_setup`. On this endpoint
+        # rather than on a route of its own because every fact it needs is already fetched here
+        # and the card that reads it is already on this page: a second admin endpoint would be a
+        # second round-trip for a copy of the same snapshot.
+        "setup": setup,
         # Whether this deployment can tell anybody it has died. A BOOLEAN, never the URL: the
         # ping address is a write endpoint for the monitor, and anyone holding it can keep the
         # monitor believing a dead station is alive — so it stays write-only even though the

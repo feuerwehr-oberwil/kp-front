@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import audit
+from .. import audit, connector_state
 from .. import divera as divera_svc
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import CurrentEditor, EditorOrAdmin
@@ -48,10 +48,22 @@ async def webhook(
     x_webhook_secret: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Receive an alarm. Secret via ?secret= or X-Webhook-Secret. 200 even on duplicate."""
+    """Receive an alarm. Secret via ?secret= or X-Webhook-Secret. 200 even on duplicate.
+
+    ⚠️ A delivery that got past the secret is recorded as the alarm connector's last SUCCESS,
+    duplicate or not. The webhook is the primary intake and the 120 s poll is the fallback, so
+    the health of the link is «Divera reached us», not «our key still works» — a station running
+    on the webhook alone would otherwise read as a dead connector on the System card. The
+    recording sits AFTER the upsert on purpose: that call takes the per-alarm lock
+    (`alarms.lock_alarm_identity`), so two simultaneous deliveries of the same alarm reach the
+    status row one after the other rather than both trying to create it.
+    """
     await load_credentials(db)
     _check_secret(request, x_webhook_secret)
     em = await divera_svc.upsert_emergency(db, payload)
+    await connector_state.record(
+        db, connector_state.DIVERA_ALARMS, ok=True, detail={"trigger": "webhook", "alarm": payload.id}
+    )
     inc = None
     if em is not None:
         inc = await divera_svc.maybe_auto_open(db, em)

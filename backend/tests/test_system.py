@@ -92,12 +92,56 @@ async def test_system_shape_as_admin(client, editor, admin_login):
 
     # Connectors — every consumer/producer listed read-only, one row each.
     connectors = {c["id"]: c for c in body["connectors"]}
-    assert set(connectors) == {"print_relay", "capture", "stats", "divera_webhook", "alarm_webhook", "push", "stt"}
+    assert set(connectors) == {
+        # The three POLLING connectors, which carry health as well as configuration.
+        "divera_alarms",
+        "traccar",
+        "divera_personnel",
+        "print_relay",
+        "capture",
+        "stats",
+        "divera_webhook",
+        "alarm_webhook",
+        "push",
+        "stt",
+    }
     for c in connectors.values():
         assert c["direction"] in {"in", "out"}
         assert isinstance(c["configured"], bool)
+        # ⚠️ The health keys are on EVERY row, null where a connector does not record them. A
+        # reader that has to tell «nothing to report» from «this build does not know» gets it
+        # wrong, and the whole point of this pair is that a reader can be trusted with it.
+        assert set(c) >= {"lastAttempt", "lastSuccess", "lastError", "counts"}
     # nothing configured in the bare test env → no state, fail-closed everywhere
     assert connectors["print_relay"]["state"] is None
+    assert connectors["divera_alarms"] == {
+        "id": "divera_alarms",
+        "direction": "in",
+        "configured": False,
+        "state": None,
+        "detail": None,
+        "lastAttempt": None,
+        "lastSuccess": None,
+        "lastError": None,
+        "counts": None,
+    }
+
+    # Einrichtung — the nine rows, derived server-side, ids matching src/admin/SetupChecklist.tsx.
+    setup = body["setup"]
+    assert [r["id"] for r in setup["rows"]] == [
+        "name",
+        "map",
+        "logo",
+        "users",
+        "personnel",
+        "fleet",
+        "geocoder",
+        "sharepoint",
+        "monitoring",
+    ]
+    assert all(r["done"] is False for r in setup["rows"])  # a bare deployment has finished nothing
+    assert setup["acknowledged"] == []
+    assert setup["complete"] is False
 
     # Monitoring – a BOOLEAN and nothing else: the ping URL is a write endpoint for the monitor,
     # and anyone holding it can keep the monitor believing a dead station is alive.
@@ -143,6 +187,57 @@ async def test_system_connector_print_relay_online(client, editor, admin_login, 
     assert relay["configured"] is True
     assert relay["state"] == "online"
     assert relay["detail"]  # last_seen iso timestamp
+
+
+async def test_setup_rows_tick_on_the_station_s_own_data(client, editor, admin_login, db_session, monkeypatch):
+    """The nine «Einrichtung» predicates, derived server-side, mirroring SetupChecklist.tsx.
+
+    ⚠️ `map` is asserted on `centerLv95` on purpose: the two centres are mutually exclusive and
+    LV95 is the Swiss default this product is built for, so a predicate that only read `center`
+    would leave every real station with a row it could never finish."""
+    from app.config import settings
+    from app.models import DeploymentConfig, Personnel, User
+
+    monkeypatch.setattr(settings, "healthcheck_ping_url", "https://hc-ping.example/abc")
+    db_session.add(
+        DeploymentConfig(
+            id=1,
+            config_json={
+                "identity": {"appName": "FW Musterdorf", "assets": {"logo": "/media/logo.png"}},
+                "map": {
+                    "defaultView": {"centerLv95": [2611000, 1265000]},
+                    "geocoder": {"defaultLocality": "Musterdorf"},
+                },
+                "fleet": {"vehicles": [{"id": "tlf", "label": "TLF"}]},
+                # A row nobody can finish from a browser is the escape hatch's whole reason to exist.
+                "setup": {"acknowledged": ["sharepoint"]},
+            },
+        )
+    )
+    db_session.add(Personnel(display_name="Müller Hans", is_active=True))
+    db_session.add(User(username="zweite", display_name="Zweite Person", pin_hash="x", role="viewer"))
+    await db_session.commit()
+
+    await _login(client, editor)
+    await admin_login(client)
+    setup = (await client.get("/api/system")).json()["setup"]
+
+    done = {r["id"]: r["done"] for r in setup["rows"]}
+    assert done == {
+        "name": True,
+        "map": True,
+        "logo": True,
+        "users": True,  # more than the ONE seeded account — «has the Wehr put its own people in»
+        "personnel": True,
+        "fleet": True,
+        "geocoder": True,
+        "sharepoint": False,  # no credentials in the test env — hand-ticked below instead
+        "monitoring": True,
+    }
+    assert setup["acknowledged"] == ["sharepoint"]
+    # `done` stays the DERIVED fact and `complete` folds the hand tick in — a reader that could
+    # not tell the two apart could not tell a configured station from an acknowledged one.
+    assert setup["complete"] is True
 
 
 async def test_system_requires_admin(client, editor):

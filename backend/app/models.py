@@ -875,6 +875,55 @@ class SharePointSyncState(Base):
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+# --- Connector health (one row per polling connector) -----------------------------------
+
+
+class ConnectorState(Base):
+    """When a connector last TRIED, when it last actually WORKED, and why it did not.
+
+    SharePoint has carried its own state since it shipped (``SharePointSyncState`` above); the
+    other three connectors carried nothing at all, so ``GET /api/system`` could say «Divera ist
+    konfiguriert» and nothing else — which is the same sentence on a station whose key was
+    rotated two years ago. This table is the missing half, and it keeps the honesty rule that
+    one already states: ``last_attempt_at`` and ``last_success_at`` are SEPARATE facts, because
+    a green tick left standing through a week of auth failures is the silent death this surface
+    exists to prevent. A reader that shows only «zuletzt geprüft» shows a lie.
+
+    One row per connector, created on the first tick that has something to report:
+
+    * ``divera_alarms`` — the alarm intake. BOTH paths write it: the 120 s poll and an
+      authenticated webhook delivery, because the webhook is the primary intake and a station
+      whose webhook is healthy must not be told the connector is stale just because its poll
+      key is not the one being used.
+    * ``traccar`` — the vehicle feed, written by the 30 s sample sweep. Its writes are
+      THROTTLED (see ``app/connector_state.py``): a row rewritten twice a minute forever is
+      churn, and the question this row answers («is it still working») does not change that
+      fast. A transition — the first failure after successes, or the first success after a
+      failure — is never throttled.
+    * ``divera_personnel`` — the Mannschaft sync, written by the nightly autosync AND by a hand
+      -triggered ``POST /api/personnel/sync/execute``, so «zuletzt synchronisiert» is truthful
+      whoever pressed it.
+
+    ``detail`` carries the connector-specific numbers the UI shows beside the timestamps (the
+    personnel sync's added/updated/deactivated, and the stale members a 'safe' level leaves
+    outstanding). It is a report, never a resume point: nothing reads it back to decide what to
+    do next, so a lost row costs a line on a status card and nothing else.
+    """
+
+    __tablename__ = "connector_states"
+
+    #: 'divera_alarms' | 'traccar' | 'divera_personnel' (app/connector_state.py)
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: NEVER touched by a failed run, and never by a run that fetched nothing.
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: One operator-readable line, cleared by the next success. Never carries a credential —
+    #: see ``connector_state.safe_error``, which is why this is not ``str(exc)``.
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Connector-specific counts for the status card. No schema — a report, not a contract.
+    detail: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
 # --- Visit statistics (public demo + landing page; OFF unless VISIT_STATS=true) ---------
 
 
