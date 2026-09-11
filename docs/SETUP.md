@@ -164,8 +164,11 @@ otherwise. It says so at the end rather than leaving you to find out.
 | `-y`, `--yes` | never prompt. Needs `--domain` or `--lan` |
 
 `--help` prints the same list. Everything else stays derived: you never script `COOKIE_SECURE`,
-`APP_BIND`, `PUBLIC_URL` or the `tls` profile, because each of them follows from an answer above
-and setting one by hand is how the two drift apart.
+`APP_BIND`, `PUBLIC_URL`, `TRUSTED_FORWARDED_HOPS` or the `tls` profile, because each of them
+follows from an answer above and setting one by hand is how the two drift apart. (The last of
+those is the one to know about if you write `.env` yourself instead: a domain means a proxy in
+front, and a proxy means `TRUSTED_FORWARDED_HOPS=1` or every request in the world shares one
+rate-limit bucket – [`DEPLOYMENT.md` §3](DEPLOYMENT.md#app_port-and-app_bind).)
 
 ### ⚠️ Green is not the same as "somebody can log in"
 
@@ -321,7 +324,7 @@ and tells you why, rather than presenting a login you could fail your way past
 ### Work down «Einrichtung»
 
 The admin lands on **System & Wartung**, and on a fresh deployment the first card there is
-**«Einrichtung»** – eight rows, each naming *what stays broken while it is undone* rather than
+**«Einrichtung»** – nine rows, each naming *what stays broken while it is undone* rather than
 demanding you finish, and each a link straight to the page that fixes it.
 
 | Row | Takes you to | Undone, that means |
@@ -333,6 +336,7 @@ demanding you finish, and each a link straight to the page that fixes it.
 | «Personal erfassen» | Personal | Anwesenheit and Rapport stay empty lists |
 | «Fahrzeuge hinterlegen» | Fahrzeuge & Symbole | The Rapport has no grid for Ausrückzeiten |
 | «Adresssuche eingrenzen» | Station & Karte | Address suggestions are not biased to the station's own area |
+| «SharePoint-Anbindung» | Zugangsdaten | Nothing is pulled from the Wehr's own folders – object plans, geodata, checklists and the Arbeitsmappe stay whatever was last loaded by hand ([`sharepoint-connector.md`](sharepoint-connector.md)) |
 | «Überwachung» | Zugangsdaten | `HEALTHCHECK_PING_URL` is unset, so an outage is nobody's news (§5, and [`DEPLOYMENT.md` §5.5](DEPLOYMENT.md#55-knowing-when-it-is-down)) |
 
 The card follows one rule, and it is worth knowing because it explains what is *not* on it: **it
@@ -345,6 +349,11 @@ credentials «Zugangsdaten» sets, so it is an ordinary counted row like every o
 Opening incidents manually is a complete, supported setup, so «Alarmquelle» is deliberately not
 one of these rows. Divera and generic webhook intake remain optional upgrades under
 **Daten › Alarme & Einsätze** and **Zugangsdaten**.
+
+Not every row is for every station – a Wehr that keeps no files in SharePoint will never tick
+«SharePoint-Anbindung» by doing the work. Any open row therefore also carries **«Abhaken»**,
+which records the decision in the deployment config (`setup.acknowledged`) rather than on the
+tablet it was tapped on, so the next admin on the next device sees the same card.
 
 ⚠️ **A card with nothing left on it is not a finished setup.** «Eigene Zugänge» ticks as soon as
 the deployment holds more than one account – it cannot see whether the setup PIN from §2 was ever
@@ -850,7 +859,7 @@ The rest of this section is ordered by how often it catches people.
 Not a formality – this is the list that separates "it's installed" from "we can run an incident
 on it".
 
-**This is not the «Einrichtung» card from §3.** That card has seven rows and asks *"does this
+**This is not the «Einrichtung» card from §3.** That card has nine rows and asks *"does this
 deployment look like your station yet?"* – it goes away as soon as it does. This list asks *"can
 you rely on it?"*, and half of it is invisible to any browser: backups, HTTPS, where the secrets
 are written down, whether push notifications actually arrive on a locked tablet. An empty
