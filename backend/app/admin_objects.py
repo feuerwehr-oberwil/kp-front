@@ -26,6 +26,11 @@ no database file anywhere. SQLite exists solely as a pytest fallback.)
     load <manifest> --dry-run        same as validate (no write)
     push <manifest>        upload objects + PDFs to a RUNNING deployment via its API (remote-safe)
     show                   print the objects + plan counts currently stored
+    merge-duplicates       fold objects whose names differ only in Unicode form into one (report only)
+    remove-empty           delete objects that carry no plans and nothing points at (report only)
+
+`merge-duplicates` and `remove-empty` REPORT by default and write only with ``--apply`` — see
+:func:`_merge_duplicates`.
 
 `load` writes PDFs to the LOCAL storage dir, so run it server-side for a remote DB. `push` instead
 goes through a running server's HTTP API (ADMIN_SECRET), so the server writes its OWN volume — the
@@ -44,19 +49,21 @@ import asyncio
 import hashlib
 import json
 import sys
+import unicodedata
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import Text, cast, delete, func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import storage
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
 from .database import async_session_maker
-from .models import ObjectSite, ReferenceDataset
+from .models import DeploymentConfig, Incident, IncidentEvent, JournalEntry, ObjectSite, ReferenceDataset
 
 
 class PlanEntry(BaseModel):
@@ -475,22 +482,27 @@ def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secr
     return res
 
 
+async def _plan_counts(db: AsyncSession) -> dict[uuid.UUID | None, int]:
+    """Plan PDFs per object id, in one query."""
+    # .tuples() so the rows are typed as (object_id, count) pairs rather than opaque Rows —
+    # dict() over them then needs no annotation and no cast.
+    return dict(
+        (
+            await db.execute(
+                select(ReferenceDataset.object_id, func.count())
+                .where(ReferenceDataset.kind == "pdf")
+                .group_by(ReferenceDataset.object_id)
+            )
+        )
+        .tuples()
+        .all()
+    )
+
+
 async def _show() -> list[dict[str, Any]]:
     async with async_session_maker() as db:
         objs = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
-        # .tuples() so the rows are typed as (object_id, count) pairs rather than opaque Rows —
-        # dict() over them then needs no annotation and no cast.
-        counts: dict[uuid.UUID | None, int] = dict(
-            (
-                await db.execute(
-                    select(ReferenceDataset.object_id, func.count())
-                    .where(ReferenceDataset.kind == "pdf")
-                    .group_by(ReferenceDataset.object_id)
-                )
-            )
-            .tuples()
-            .all()
-        )
+        counts = await _plan_counts(db)
         return [
             {
                 "id": str(o.id),
@@ -502,6 +514,500 @@ async def _show() -> list[dict[str, Any]]:
             }
             for o in objs
         ]
+
+
+# --- maintenance: duplicate merge + junk removal -----------------------------------------
+#
+# Every place a deployment writes an Einsatzobjekt's id down — what a merge has to re-point,
+# and what it deliberately does not:
+#
+#   reference_datasets.object_id   the plans (FK). Their PRIMARY KEY encodes the object too
+#                                  (``plan:<object>:<module>``), so a moved plan is re-keyed,
+#                                  not just re-pointed: leaving the old key would make the next
+#                                  `load`/pull mint a second row for the same sheet.
+#   objects.source_key             UNIQUE — the key the scheduled pull matches on. Inherited by
+#                                  the survivor when it has none and the loser goes away.
+#   deployment_config
+#     .plan_scales_json            the STATION calibration + georeference, keyed per sheet as
+#                                  ``object:<object>:plan:<module>`` (api/plan_scales). Losing
+#                                  this is losing every landmark pair an FU ever tapped.
+#   incidents.map_workspace_json   ``pickedObjectId`` — the Einsatzobjekt an editor picked by
+#                                  hand, which also decides what a forwarded Rapport link may
+#                                  read (auth/incident_link._surfaced_object_ids).
+#   incident_events.payload_json   hash-chained AUDIT records; journal_entries.row_json is the
+#   journal_entries.row_json       append-only Verlauf. Both are HISTORY: they are counted and
+#                                  named, never rewritten — a merge that edits the audit trail
+#                                  breaks the chain it exists to protect, and «this plan hung
+#                                  off the other spelling that night» is a true statement.
+#   object storage                 plan blobs are addressed by ``storage_key``, which carries no
+#                                  object id, so a re-pointed plan keeps its bytes. Nothing here
+#                                  ever deletes a blob: an orphan costs disk, a deleted PDF costs
+#                                  a crew its plan.
+
+
+def _name_key(name: str) -> str:
+    """The string :func:`object_id_for_key` would hash for this name — NFC-composed first.
+
+    Two folder names that look identical on screen hash to two different ids when one spells «ü»
+    as ``u`` + U+0308 and the other as U+00FC: that is the 195-objects-for-157 split on the FWO
+    deployment, minted by an import that read the names off a Mac filesystem. Composing before
+    normalising is what puts both spellings in one group here.
+    """
+    return " ".join(unicodedata.normalize("NFC", name).split()).casefold()
+
+
+def _spelling(name: str) -> str:
+    """A name as the diff prints it: with its Unicode form and non-ASCII codepoints when it has
+    any — the whole difficulty of this merge is that the two spellings look the same."""
+    marks = " ".join(f"U+{ord(c):04X}" for c in name if ord(c) > 127)
+    if not marks:
+        return repr(name)
+    # `ascii()`, not `repr()`: printed as themselves the two spellings are the same picture, and
+    # the operator is being asked to delete one of them.
+    if name == unicodedata.normalize("NFC", name):
+        form = "NFC"
+    elif name == unicodedata.normalize("NFD", name):
+        form = "NFD"
+    else:
+        form = "mixed"
+    return f"{name!a} {form} [{marks}]"
+
+
+def _retarget_json(value: object, loser: uuid.UUID, survivor: uuid.UUID) -> tuple[object, int]:
+    """Rewrite every string in a JSON document that ADDRESSES the loser, keys included.
+
+    One rule, because every id-shaped string a deployment stores is the object's uuid verbatim or
+    a key built around it (``plan:<id>:<module>``, ``object:<id>:plan:<module>``,
+    ``/api/objects/<id>``): a string containing the loser's uuid means the loser. Where a rewrite
+    would collide with a key the document already has, the EXISTING entry wins — the survivor's
+    own calibration is never overwritten by the twin's.
+    """
+    if isinstance(value, str):
+        new = value.replace(str(loser), str(survivor))
+        return new, int(new != value)
+    if isinstance(value, list):
+        hits = 0
+        out_list: list[object] = []
+        for item in value:
+            new_item, n = _retarget_json(item, loser, survivor)
+            out_list.append(new_item)
+            hits += n
+        return out_list, hits
+    if isinstance(value, dict):
+        hits = 0
+        out_dict: dict[str, object] = {}
+        for key, item in value.items():
+            new_key = str(key).replace(str(loser), str(survivor))
+            new_item, n = _retarget_json(item, loser, survivor)
+            hits += n + int(new_key != key)
+            if new_key != key and new_key in value:
+                continue  # the survivor already has this key; its entry stays
+            out_dict[new_key] = new_item
+        return out_dict, hits
+    return value, 0
+
+
+def _same_bytes(a: ReferenceDataset, b: ReferenceDataset) -> Literal["same", "differs", "unknown"]:
+    """Whether two plan rows hold the same PDF — the question that decides «drop the duplicate»
+    from «two sheets, ask a human». Unknown (an unreadable blob) counts as a conflict upstream."""
+    if a.storage_key and a.storage_key == b.storage_key:
+        return "same"
+    if a.source_digest and b.source_digest:
+        return "same" if a.source_digest == b.source_digest else "differs"
+    if not a.storage_key or not b.storage_key:
+        return "unknown"
+    try:
+        digests = [hashlib.sha256(storage.get_bytes(k)).hexdigest() for k in (a.storage_key, b.storage_key)]
+    except OSError:
+        return "unknown"
+    return "same" if digests[0] == digests[1] else "differs"
+
+
+@dataclass
+class SlotDecision:
+    """What happens to one of the loser's plan rows."""
+
+    module: str
+    dataset_id: str
+    target_id: str  # the key it moves to — decided here, so the apply invents nothing
+    action: Literal["move", "drop", "conflict"]
+    why: str
+
+
+@dataclass
+class MergePair:
+    """One survivor ← loser merge, fully decided before anything is written."""
+
+    survivor: ObjectSite
+    loser: ObjectSite
+    survivor_plans: int
+    loser_plans: int
+    slots: list[SlotDecision] = field(default_factory=list)
+    scales_moved: list[str] = field(default_factory=list)
+    scales_kept: list[str] = field(default_factory=list)  # the survivor already had that sheet
+    incidents: list[uuid.UUID] = field(default_factory=list)
+    events: int = 0  # audit rows naming the loser — reported, never rewritten
+    journal: int = 0
+    source_key: str | None = None  # the loser's, inherited when the row goes away
+
+    @property
+    def conflicts(self) -> list[SlotDecision]:
+        return [s for s in self.slots if s.action == "conflict"]
+
+    @property
+    def deletable(self) -> bool:
+        """The loser row goes only once nothing of its own is left on it."""
+        return not self.conflicts
+
+
+async def _incidents_naming(db: AsyncSession, oid: uuid.UUID) -> list[uuid.UUID]:
+    """Incidents whose stored workspace names this object (``pickedObjectId``, and whatever else a
+    later workspace shape keys by object). Matched as text: the document is the client's shape and
+    the id can sit at any depth in it."""
+    stmt = select(Incident.id).where(cast(Incident.map_workspace_json, Text).contains(str(oid)))
+    return list((await db.execute(stmt)).scalars())
+
+
+async def _history_naming(db: AsyncSession, oid: uuid.UUID) -> tuple[int, int]:
+    """(audit events, journal rows) that name this object — counted so the report can say so, and
+    never rewritten: both are records of what was true at the time, one of them hash-chained."""
+    events = (
+        select(func.count()).select_from(IncidentEvent).where(cast(IncidentEvent.payload_json, Text).contains(str(oid)))
+    )
+    journal = select(func.count()).select_from(JournalEntry).where(cast(JournalEntry.row_json, Text).contains(str(oid)))
+    return int((await db.execute(events)).scalar_one()), int((await db.execute(journal)).scalar_one())
+
+
+async def _plan_merge(
+    db: AsyncSession,
+    survivor: ObjectSite,
+    loser: ObjectSite,
+    *,
+    counts: dict[uuid.UUID | None, int],
+    slots: dict[str, ReferenceDataset],
+    scales: dict[str, object],
+) -> MergePair:
+    """Decide (and only decide) how the loser folds into the survivor.
+
+    ``slots`` is the survivor's module → plan map, carried across the whole group and updated as
+    moves are decided, so a third twin sees what the second one already handed over — in a dry
+    run exactly as in a real one.
+    """
+    pair = MergePair(
+        survivor=survivor,
+        loser=loser,
+        survivor_plans=counts.get(survivor.id, 0),
+        loser_plans=counts.get(loser.id, 0),
+        source_key=loser.source_key if survivor.source_key is None else None,
+    )
+    taken_ids = set(
+        (await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == survivor.id))).scalars()
+    )
+    mine = list(
+        (
+            await db.execute(
+                select(ReferenceDataset).where(ReferenceDataset.object_id == loser.id).order_by(ReferenceDataset.id)
+            )
+        ).scalars()
+    )
+    for ds in mine:
+        module = ds.module or ""
+        shown = module or "(no module)"
+        # The dataset key is re-derived by swapping the id inside it, never rebuilt from parts:
+        # a row whose key is not the usual `plan:<object>:<module>` still ends up addressed to
+        # the survivor instead of to a string this function invented.
+        target_id = ds.id.replace(str(loser.id), str(survivor.id))
+        held = slots.get(module) if module else None
+        if held is None and target_id not in taken_ids:
+            pair.slots.append(SlotDecision(shown, ds.id, target_id, "move", target_id))
+            if module:
+                slots[module] = ds
+            taken_ids.add(target_id)
+            continue
+        if held is None:
+            pair.slots.append(
+                SlotDecision(shown, ds.id, target_id, "conflict", f"{target_id} already exists on the survivor")
+            )
+            continue
+        verdict = _same_bytes(held, ds)
+        if verdict == "same":
+            pair.slots.append(SlotDecision(shown, ds.id, target_id, "drop", "identical bytes on the survivor"))
+        else:
+            why = (
+                "the survivor's sheet holds different bytes"
+                if verdict == "differs"
+                else "the two sheets could not be compared (blob unreadable)"
+            )
+            pair.slots.append(SlotDecision(shown, ds.id, target_id, "conflict", why))
+
+    _, pair.scales_moved, pair.scales_kept = _retarget_scales(scales, loser.id, survivor.id)
+    pair.incidents = await _incidents_naming(db, loser.id)
+    pair.events, pair.journal = await _history_naming(db, loser.id)
+    return pair
+
+
+#: The sections of ``plan_scales_json`` that are keyed per SHEET (``object:<id>:plan:<module>``).
+#: Mirrors api/plan_scales.PlanScales — a section added there and forgotten here is a station
+#: calibration that survives the merge pointing at a deleted object.
+SHEET_SECTIONS = ("byPlan", "georefByPlan", "measuredArByPlan")
+
+
+def _scale_keys_for(doc: dict[str, object], oid: uuid.UUID) -> list[str]:
+    """The station calibration/georeference keys that belong to one object."""
+    prefix = f"object:{oid}:plan:"
+    found: list[str] = []
+    for section_name in SHEET_SECTIONS:
+        section = doc.get(section_name)
+        if isinstance(section, dict):
+            found += [f"{section_name}/{k}" for k in section if str(k).startswith(prefix)]
+    return found
+
+
+def _retarget_scales(
+    doc: dict[str, object], loser: uuid.UUID, survivor: uuid.UUID
+) -> tuple[dict[str, object], list[str], list[str]]:
+    """Move the station's per-sheet calibration and georeference onto the survivor's ids.
+
+    Returns the new document plus the keys moved and the keys kept (the survivor already had that
+    sheet — its own pairs stay, the twin's are reported and dropped rather than guessed at).
+    """
+    old_prefix, new_prefix = f"object:{loser}:plan:", f"object:{survivor}:plan:"
+    moved: list[str] = []
+    kept: list[str] = []
+    out = dict(doc)
+    for section_name in SHEET_SECTIONS:
+        section = doc.get(section_name)
+        if not isinstance(section, dict):
+            continue  # a malformed document is served entry-wise too (api/plan_scales)
+        rebuilt: dict[str, object] = {}
+        for key, value in section.items():
+            if not str(key).startswith(old_prefix):
+                rebuilt[str(key)] = value
+                continue
+            target = new_prefix + str(key)[len(old_prefix) :]
+            if target in section:
+                kept.append(f"{section_name}/{target}")
+                continue
+            rebuilt[target] = value
+            moved.append(f"{section_name}/{target}")
+        out[section_name] = rebuilt
+    return out, moved, kept
+
+
+def _print_pair(pair: MergePair) -> None:
+    """The diff for one survivor ← loser. Everything that moves, everything that does not."""
+    print(f"  keep   {pair.survivor.id}  {_spelling(pair.survivor.name)}  ({pair.survivor_plans} plan(s))")
+    print(f"  merge  {pair.loser.id}  {_spelling(pair.loser.name)}  ({pair.loser_plans} plan(s))")
+    for slot in pair.slots:
+        mark = {"move": "→", "drop": "·", "conflict": "!"}[slot.action]
+        label = {"move": "moves", "drop": "dropped", "conflict": "CONFLICT"}[slot.action]
+        print(f"       {mark} plan {slot.module}: {label} — {slot.why}")
+    if pair.scales_moved or pair.scales_kept:
+        print(
+            f"       → plan-scales: {len(pair.scales_moved)} sheet calibration/georeference key(s) move"
+            + (f", {len(pair.scales_kept)} kept (the survivor already has that sheet)" if pair.scales_kept else "")
+        )
+    if pair.incidents:
+        print(f"       → incidents: {len(pair.incidents)} workspace(s) re-pointed (pickedObjectId)")
+    if pair.events or pair.journal:
+        print(
+            f"       · history: {pair.events} audit event(s), {pair.journal} journal row(s) name the old id "
+            "— left untouched (the audit chain is the record of what was true then)"
+        )
+    if pair.deletable:
+        if pair.source_key:
+            print(f"       → source_key {pair.source_key!r} passes to the survivor")
+        print(f"       → object row {pair.loser.id} deleted")
+    else:
+        print(f"       ! object row {pair.loser.id} KEPT — {len(pair.conflicts)} conflict(s) still hang off it")
+
+
+def _pick_survivor(group: list[ObjectSite], counts: dict[uuid.UUID | None, int]) -> tuple[ObjectSite, str]:
+    """The row the others fold into: the one whose id is the uuid5 of the NFC-composed name.
+
+    That is the id every future import mints, so it is the only choice that ends the split. When
+    no row carries it — both spellings were keyed by something other than the bare name — the
+    richest row wins (most plans, then most recently updated, then lowest id, so two runs agree)
+    and the report says so: a later import under the NFC name would then mint a THIRD object.
+    """
+    try:
+        canonical = object_id_for_key(_name_key(group[0].name))
+    except ValueError:  # a blank name hashes to nothing; the richest row still wins
+        canonical = None
+    for o in group:
+        if o.id == canonical:
+            return o, "carries the NFC-key id"
+    richest = sorted(
+        group,
+        key=lambda o: (-counts.get(o.id, 0), -(o.updated_at.timestamp() if o.updated_at else 0.0), str(o.id)),
+    )[0]
+    return richest, f"⚠ no row carries the NFC-key id ({canonical}) — kept the richest of {len(group)}"
+
+
+async def _apply_pair(db: AsyncSession, pair: MergePair) -> None:
+    """Carry out one decided merge. Called only under ``--apply``, inside the one transaction."""
+    for slot in pair.slots:
+        if slot.action == "move":
+            # Re-KEYED, not just re-pointed: the primary key encodes the object, and a row left
+            # under the old key is a row the next `load` or pull would mint a second time.
+            await db.execute(
+                update(ReferenceDataset)
+                .where(ReferenceDataset.id == slot.dataset_id)
+                .values(id=slot.target_id, object_id=pair.survivor.id)
+                .execution_options(synchronize_session=False)
+            )
+        elif slot.action == "drop":
+            # The bytes stay in the store: the row is redundant, the blob may not be.
+            await db.execute(
+                delete(ReferenceDataset)
+                .where(ReferenceDataset.id == slot.dataset_id)
+                .execution_options(synchronize_session=False)
+            )
+    for incident_id in pair.incidents:
+        row = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+        if row is None or not isinstance(row.map_workspace_json, dict):
+            continue
+        new_doc, hits = _retarget_json(row.map_workspace_json, pair.loser.id, pair.survivor.id)
+        if hits and isinstance(new_doc, dict):
+            row.map_workspace_json = new_doc  # reassigned, not mutated: JSONB change detection
+    if pair.deletable:
+        if pair.source_key:
+            pair.loser.source_key = None  # source_key is UNIQUE — free it before the survivor takes it
+            await db.flush()
+            pair.survivor.source_key = pair.source_key
+        await db.execute(
+            delete(ObjectSite).where(ObjectSite.id == pair.loser.id).execution_options(synchronize_session=False)
+        )
+
+
+async def _merge_duplicates(*, apply: bool) -> int:
+    """Fold objects whose names are the same name into one row — REPORT ONLY unless ``apply``.
+
+    Duplicates are grouped by the string :func:`object_id_for_key` hashes (NFC-composed, whitespace
+    collapsed, case folded), so an NFD/NFC twin pair and a byte-identical pair are the same case
+    here. A plan slot the survivor already holds is never overwritten: identical bytes let the
+    duplicate row go, anything else is reported as a conflict and the loser row stays whole.
+
+    Under ``--apply`` the whole run is ONE transaction: either every group folds or none does.
+
+    ⚠️ Writes ``plan_scales_json`` directly, outside the If-Match guard a human write gets
+    (api/plan_scales). Run it in a maintenance window, not while an Einsatz is being drawn on.
+    """
+    async with async_session_maker() as db:
+        rows = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
+        counts = await _plan_counts(db)
+        groups: dict[str, list[ObjectSite]] = {}
+        for row in rows:
+            groups.setdefault(_name_key(row.name), []).append(row)
+        duplicates = {k: v for k, v in sorted(groups.items()) if len(v) > 1}
+        if not duplicates:
+            print(f"No duplicate object names among {len(rows)} object(s). Nothing to merge.")
+            return 0
+
+        station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
+        pairs: list[MergePair] = []
+        for group in duplicates.values():
+            survivor, why = _pick_survivor(group, counts)
+            print(f"\n«{unicodedata.normalize('NFC', survivor.name)}» — {len(group)} rows ({why})")
+            slots: dict[str, ReferenceDataset] = {
+                ds.module: ds
+                for ds in (
+                    await db.execute(select(ReferenceDataset).where(ReferenceDataset.object_id == survivor.id))
+                ).scalars()
+                if ds.module
+            }
+            for loser in [o for o in group if o.id != survivor.id]:
+                pair = await _plan_merge(db, survivor, loser, counts=counts, slots=slots, scales=scales)
+                _print_pair(pair)
+                scales, _, _ = _retarget_scales(scales, loser.id, survivor.id)
+                pairs.append(pair)
+                if apply:
+                    await _apply_pair(db, pair)
+
+        moved = sum(1 for p in pairs for s in p.slots if s.action == "move")
+        dropped = sum(1 for p in pairs for s in p.slots if s.action == "drop")
+        conflicts = sum(len(p.conflicts) for p in pairs)
+        deletions = sum(1 for p in pairs if p.deletable)
+        summary = (
+            f"{len(pairs)} merge(s) in {len(duplicates)} name group(s): {deletions} object row(s) deleted, "
+            f"{len(pairs) - deletions} kept for conflicts, {moved} plan(s) re-pointed, "
+            f"{dropped} duplicate plan row(s) dropped, {conflicts} conflict(s)"
+        )
+        if not apply:
+            print(f"\nOK (dry-run): would be {summary}. Nothing written. Repeat with --apply to perform it.")
+            return 0
+        if station is not None and scales != (station.plan_scales_json or {}):
+            station.plan_scales_json = scales
+        await db.commit()
+        print(f"\n{'INCOMPLETE' if conflicts else 'OK'}: {summary}.")
+        if conflicts:
+            print("       The conflicting sheets are still on their old object — decide those by hand.")
+        return 1 if conflicts else 0
+
+
+async def _remove_empty(*, apply: bool, names: list[str]) -> int:
+    """Delete objects that carry no plans and that nothing points at — REPORT ONLY unless ``apply``.
+
+    The «Grosspläne» case: a category folder that an import read as an Einsatzobjekt. With no plans
+    under it, it falls out here on its own; if it did pick up plans, name it with ``--name`` and it
+    goes with them. Either way an object that an incident, a calibration or the audit trail names
+    is REFUSED — a station that used the thing is not a station that can lose it silently.
+    """
+    wanted = {_name_key(n) for n in names}
+    async with async_session_maker() as db:
+        rows = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
+        counts = await _plan_counts(db)
+        station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
+        named = {_name_key(r.name) for r in rows}
+        for missing in sorted(wanted - named):
+            print(f"  ? --name {missing!r}: no object stored under that name")
+
+        removed: list[ObjectSite] = []
+        refused: list[tuple[ObjectSite, str]] = []
+        for row in rows:
+            explicit = _name_key(row.name) in wanted
+            plans = counts.get(row.id, 0)
+            if plans and not explicit:
+                continue
+            holds = len(_scale_keys_for(scales, row.id))
+            incidents = len(await _incidents_naming(db, row.id))
+            events, journal = await _history_naming(db, row.id)
+            if holds or incidents or events or journal:
+                refused.append(
+                    (
+                        row,
+                        f"{holds} calibration key(s), {incidents} incident(s), "
+                        f"{events + journal} history row(s) name it",
+                    )
+                )
+                continue
+            removed.append(row)
+            print(f"  - {row.id}  {_spelling(row.name)}  ({plans} plan(s){', named explicitly' if explicit else ''})")
+            if apply:
+                await db.execute(
+                    delete(ReferenceDataset)
+                    .where(ReferenceDataset.object_id == row.id)
+                    .execution_options(synchronize_session=False)
+                )
+                await db.execute(
+                    delete(ObjectSite).where(ObjectSite.id == row.id).execution_options(synchronize_session=False)
+                )
+        for row, why in refused:
+            print(f"  ! {row.id}  {_spelling(row.name)} — NOT removed: {why}", file=sys.stderr)
+
+        if not removed and not refused:
+            print(f"No empty objects among {len(rows)} object(s). Nothing to remove.")
+            return 0
+        plans_gone = sum(counts.get(r.id, 0) for r in removed)
+        summary = f"{len(removed)} object(s) with {plans_gone} plan(s) deleted, {len(refused)} refused"
+        if not apply:
+            print(f"\nOK (dry-run): would be {summary}. Nothing written. Repeat with --apply to perform it.")
+            return 0
+        await db.commit()
+        print(f"\nOK: {summary}.")
+        return 0
 
 
 # --- CLI --------------------------------------------------------------------------------
@@ -524,6 +1030,21 @@ async def _amain(argv: list[str]) -> int:
     p_push.add_argument("manifest")
     add_push_args(p_push, dry_run_help="authenticate + report only, do not upload/write")
     sub.add_parser("show", help="print the stored objects + plan counts")
+    p_merge = sub.add_parser(
+        "merge-duplicates",
+        help="fold objects whose names are the same name (NFD/NFC twins, exact duplicates) into one",
+    )
+    p_merge.add_argument("--apply", action="store_true", help="perform the merge (default: report only, no writes)")
+    p_empty = sub.add_parser("remove-empty", help="delete objects with no plans and no references")
+    p_empty.add_argument("--apply", action="store_true", help="perform the deletion (default: report only, no writes)")
+    p_empty.add_argument(
+        "--name",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="also remove the object stored under this name, plans and all (repeatable) — for a "
+        "category folder an import read as an Einsatzobjekt, e.g. 'Grosspläne'",
+    )
 
     args = parser.parse_args(argv)
 
@@ -550,6 +1071,10 @@ async def _amain(argv: list[str]) -> int:
             _validate_files(path, objects)  # reject missing/non-PDF files before uploading anything
         res = _push(path, objects, args.base, args.admin_secret, args.dry_run)
         return res.report(where=f"at {args.base}", dry_run=args.dry_run)
+    if args.cmd == "merge-duplicates":
+        return await _merge_duplicates(apply=args.apply)
+    if args.cmd == "remove-empty":
+        return await _remove_empty(apply=args.apply, names=args.name)
     # show
     rows = await _show()
     print(json.dumps(rows, indent=2, ensure_ascii=False) if rows else "No objects stored.")
