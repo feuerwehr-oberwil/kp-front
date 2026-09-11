@@ -1,9 +1,9 @@
 {
   "meta": {
     "title": "KP Front – Digital incident command for fire brigades",
-    "description": "KP Front is the digital command post at the scene: situation, plans, SCBA, log and report – offline-capable and open source.",
+    "description": "KP Front is the digital command post at the scene: map, plans, teams, log and report – offline-capable and open source.",
     "ogTitle": "KP Front – Digital incident command for fire brigades",
-    "ogDescription": "The digital command post at the scene: situation, plans, SCBA, log and report – offline-capable and open source."
+    "ogDescription": "The digital command post at the scene: map, plans, teams, log and report – offline-capable and open source."
   },
   "nav": {
     "aria": "Main navigation",
@@ -24,11 +24,11 @@
   "hero": {
     "eyebrow": "Open source&nbsp;· Switzerland",
     "h1": "Digital incident command for the fire brigade.",
-    "lede": "KP Front is the digital command post at the scene:\n      <strong>situation, plans, SCBA, log and report</strong> in one app.",
+    "lede": "KP Front is the digital command post at the scene:\n      <strong>map, plans, teams, log and report</strong> in one app.",
     "cta": "Open the demo",
     "ctaNote": "No login – in the demo, Musterdorf is on fire right now (interface in German)",
-    "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
-    "frameAlt": "Situation view: tactical map with Swiss FKS symbols, sectors and hose lines"
+    "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Map view: tactical symbols to Swiss FKS conventions, sectors and hose lines"
   },
   "fit": {
     "whoLabel": "For whom",
@@ -66,7 +66,7 @@
   "incident": {
     "eyebrow": "From the call to the report",
     "h2": "One incident, one app.",
-    "lede": "This is what a night with KP Front looks like – the situation, SCBA and\n        documentation stay consistent and traceable for everyone involved.",
+    "lede": "This is what a night with KP Front looks like – the map, the teams and the\n        documentation stay consistent and traceable for everyone involved.",
     "entries": [
       {
         "time": "03:01",
@@ -82,7 +82,7 @@
       },
       {
         "time": "03:12",
-        "tag": "SCBA",
+        "tag": "Teams",
         "h3": "Team 1 goes in.",
         "p": "Cylinder pressure, turnaround time and contact clock run per team. The app speaks up\n            before it gets tight – even when nobody happens to be watching the clock."
       },
@@ -108,7 +108,7 @@
         "time": "05:55",
         "tag": "Report",
         "h3": "By the time you head back, the report is nearly done.",
-        "p": "Situation, crew, resources and log flow straight into the incident report.\n            Nobody has to reconstruct the night from memory afterwards."
+        "p": "Situation, crew, material and log flow straight into the incident report.\n            Nobody has to reconstruct the night from memory afterwards."
       },
       {
         "time": "Afterwards",
@@ -130,9 +130,9 @@
         "sub": "Building and pre-incident plans with tactical symbols, markings and measuring to scale"
       },
       {
-        "alt": "SCBA view: teams with cylinder pressure and a running contact clock",
-        "title": "SCBA",
-        "sub": "Monitoring of teams, times, pressures and check-ins"
+        "alt": "Teams view: SCBA teams with cylinder pressure and a running contact clock",
+        "title": "Teams",
+        "sub": "Monitoring of the teams in action – times, pressures and check-ins, with or without breathing apparatus"
       },
       {
         "alt": "Building view: stack of floors with team assignment",
@@ -160,12 +160,12 @@
         "sub": "Your own command checklists, with direct jumps to plan, log and tools"
       },
       {
-        "alt": "Resources view: material used, by source",
-        "title": "Resources",
-        "sub": "Record equipment and consumption during the incident instead of estimating afterwards"
+        "alt": "Material view: what was used, by source",
+        "title": "Material",
+        "sub": "Record what was used and what was consumed during the incident, instead of estimating afterwards"
       },
       {
-        "alt": "Incident report before printing: attendance and resources already carried over, with the sections of the PDF to tick below",
+        "alt": "Incident report before printing: attendance and material already carried over, with the sections of the PDF to tick below",
         "title": "Report",
         "sub": "Nearly done when you head back – check it, add to it, export as PDF, send it straight to the printer"
       }
@@ -210,7 +210,7 @@
     "lede": "Grown at real incidents and exercises, not from a feature list. Everything that comes\n        from outside – paging, GPS, printers – is <strong>optional</strong>: KP Front runs\n        perfectly well without any of those connections.",
     "groups": [
       {
-        "h3": "Situation &amp; plan",
+        "h3": "Map &amp; plan",
         "items": [
           "<strong>Tactical symbols</strong> to FKS conventions, with attributes and labelling",
           "Sectors, cordons, areas and freehand drawing",
@@ -233,7 +233,7 @@
           "<strong>Shift plan</strong>: plan availability and shifts per person, see coverage\n            across the incident and print command forms",
           "<strong>Share location</strong>: whoever opens the link appears as a dot on the\n            situation map – voluntary, and only for this incident",
           "Share the incident by link; access is clearly indicated and can be revoked at any time",
-          "Resources and equipment with stock and consumption",
+          "Material with stock and consumption",
           "Checklists for command support and incident command",
           "Incident commander view: read along without moving anything"
         ]
@@ -244,7 +244,7 @@
           "A <strong>log</strong> that is only added to and never rewritten",
           "Voice memos with transcription, photos, reminders",
           "<strong>Replay</strong>: play the incident back minute by minute, waits skipped –\n            for the debrief",
-          "Ready-made incident report as a PDF, including crew, resources, times, log, sketch,\n            photos and SCBA monitoring",
+          "Ready-made incident report as a PDF, including crew, material, times, log, sketch,\n            photos and SCBA monitoring",
           "Photos as attachments to the report",
           "<strong>Completion check</strong>: before closing, KP Front shows which information or clarifications are still missing from the report",
           "Partner organisations with their remarks in the report",
@@ -323,7 +323,7 @@
       },
       {
         "q": "Does KP Front work without an internet connection?",
-        "a": "Yes. As an installed app, KP Front runs on the device: situation, plans, SCBA and log\n          stay usable even when the network drops. The app loads the maps and plans around an\n          incident by itself, shortly after it is opened – and the <strong>readiness check</strong>\n          shows before an incident whether the required data is on the device. After an\n          interruption, changes are synchronised again as soon as a connection is available;\n          whatever was recorded in the meantime is kept."
+        "a": "Yes. As an installed app, KP Front runs on the device: map, plans, teams and log\n          stay usable even when the network drops. The app loads the maps and plans around an\n          incident by itself, shortly after it is opened – and the <strong>readiness check</strong>\n          shows before an incident whether the required data is on the device. After an\n          interruption, changes are synchronised again as soon as a connection is available;\n          whatever was recorded in the meantime is kept."
       },
       {
         "q": "Can we adapt it to how we work?",

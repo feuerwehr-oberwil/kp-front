@@ -2,9 +2,9 @@
   "notice": "Cette traduction n’a pas encore été vérifiée par une personne francophone des sapeurs-pompiers – les <a href=\"#kontakt\">suggestions et corrections</a> sont bienvenues. La démo est en allemand.",
   "meta": {
     "title": "KP Front – Conduite d’intervention numérique pour les sapeurs-pompiers",
-    "description": "KP Front est le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport – hors ligne et open source.",
+    "description": "KP Front est le poste de commandement numérique sur les lieux : carte, plans, binômes, journal et rapport – hors ligne et open source.",
     "ogTitle": "KP Front – Conduite d’intervention numérique pour les sapeurs-pompiers",
-    "ogDescription": "Le poste de commandement numérique sur les lieux : situation, plans, protection respiratoire, journal et rapport – hors ligne et open source."
+    "ogDescription": "Le poste de commandement numérique sur les lieux : carte, plans, binômes, journal et rapport – hors ligne et open source."
   },
   "nav": {
     "aria": "Navigation principale",
@@ -25,11 +25,11 @@
   "hero": {
     "eyebrow": "Open source&nbsp;· Suisse",
     "h1": "La conduite d’intervention numérique pour les sapeurs-pompiers.",
-    "lede": "KP Front est le poste de commandement numérique sur les lieux :\n      <strong>situation, plans, protection respiratoire, journal et rapport</strong> dans une seule application.",
+    "lede": "KP Front est le poste de commandement numérique sur les lieux :\n      <strong>carte, plans, binômes, journal et rapport</strong> dans une seule application.",
     "cta": "Ouvrir la démo",
     "ctaNote": "Sans inscription – dans la démo, il y a le feu à Musterdorf (interface en allemand)",
-    "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
-    "frameAlt": "Vue Situation : carte tactique avec signes conventionnels CSSP, secteurs et conduites"
+    "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Vue Carte : signes conventionnels CSSP, secteurs et conduites sur la carte tactique"
   },
   "fit": {
     "whoLabel": "Pour qui",
@@ -67,7 +67,7 @@
   "incident": {
     "eyebrow": "De l’alarme au rapport",
     "h2": "Une intervention, une application.",
-    "lede": "Voilà à quoi ressemble une nuit avec KP Front – la situation, la protection respiratoire et la documentation\n        restent cohérentes et compréhensibles pour tous.",
+    "lede": "Voilà à quoi ressemble une nuit avec KP Front – la carte, les binômes et la documentation\n        restent cohérents et compréhensibles pour tous.",
     "entries": [
       {
         "time": "03:01",
@@ -83,7 +83,7 @@
       },
       {
         "time": "03:12",
-        "tag": "Protection respiratoire",
+        "tag": "Binômes",
         "h3": "L’équipe 1 entre.",
         "p": "Pression, moment du repli et temps depuis le dernier contact sont décomptés pour chaque équipe.\n            L’application alerte avant que la marge ne devienne trop courte – même si personne\n            ne regarde l’heure à ce moment-là."
       },
@@ -109,7 +109,7 @@
         "time": "05:55",
         "tag": "Rapport",
         "h3": "Au retour à la caserne, le rapport est presque terminé.",
-        "p": "Situation, effectif, moyens et journal alimentent directement le rapport.\n            Personne n’a à reconstituer la nuit de mémoire."
+        "p": "Situation, effectif, matériel et journal alimentent directement le rapport.\n            Personne n’a à reconstituer la nuit de mémoire."
       },
       {
         "time": "Après",
@@ -131,9 +131,9 @@
         "sub": "Plans d’objet et d’intervention avec signes conventionnels, marquages et mesure à l’échelle"
       },
       {
-        "alt": "Vue Protection respiratoire : équipes avec pression et temps depuis le dernier contact",
-        "title": "Protection respiratoire",
-        "sub": "Surveillance des équipes, des temps, des pressions et des annonces"
+        "alt": "Vue Binômes : binômes sous ARI avec pression et temps depuis le dernier contact",
+        "title": "Binômes",
+        "sub": "Surveillance des binômes engagés – temps, pressions et annonces, avec ou sans protection respiratoire"
       },
       {
         "alt": "Vue Bâtiment : étages superposés avec l’affectation des équipes",
@@ -161,12 +161,12 @@
         "sub": "Les checklists de conduite de votre corps, avec accès direct au plan, au journal et aux outils"
       },
       {
-        "alt": "Vue Moyens : matériel engagé, par provenance",
-        "title": "Moyens",
-        "sub": "Saisir le matériel et la consommation pendant l’intervention, au lieu de les estimer après"
+        "alt": "Vue Matériel : ce qui a été engagé, par provenance",
+        "title": "Matériel",
+        "sub": "Saisir ce qui a été engagé et consommé pendant l’intervention, au lieu de l’estimer après"
       },
       {
-        "alt": "Rapport d’intervention avant impression : présences et moyens déjà repris, en dessous les sections du PDF à cocher",
+        "alt": "Rapport d’intervention avant impression : présences et matériel déjà repris, en dessous les sections du PDF à cocher",
         "title": "Rapport",
         "sub": "Presque terminé au retour à la caserne – contrôler, compléter, exporter en PDF, lancer l’impression"
       }
@@ -211,7 +211,7 @@
     "lede": "Né d’interventions et d’exercices réels, pas d’une liste de fonctions. Tout ce qui vient\n      de l’extérieur – alarme, GPS, imprimante – est <strong>facultatif</strong> : KP Front\n      fonctionne aussi entièrement sans ces raccordements.",
     "groups": [
       {
-        "h3": "Situation &amp; plan",
+        "h3": "Carte &amp; plan",
         "items": [
           "<strong>Signes conventionnels</strong> selon la CSSP, avec attributs et libellés",
           "Secteurs, zones de barrage, surfaces et dessin à main levée",
@@ -234,7 +234,7 @@
           "<strong>Plan de relève</strong> : planifier les disponibilités et les tours par\n            personne, visualiser la couverture sur toute l’intervention et imprimer les\n            formulaires de conduite",
           "<strong>Partager sa position</strong> : qui ouvre le lien apparaît comme un point sur la\n            carte de situation – volontairement, et pour cette intervention seulement",
           "Partager l’intervention par lien ; l’accès est clairement signalé et peut être révoqué\n            à tout moment",
-          "Moyens et matériel avec stock et consommation",
+          "Matériel avec stock et consommation",
           "Checklists pour l’aide à la conduite et le chef d’intervention",
           "Vue chef d’intervention : suivre sans rien déplacer"
         ]
@@ -324,7 +324,7 @@
       },
       {
         "q": "KP Front fonctionne-t-il sans connexion Internet ?",
-        "a": "Oui. Installée comme application, KP Front fonctionne sur l’appareil : situation,\n          plans, protection respiratoire et journal restent utilisables même si le réseau tombe.\n          L’application charge d’elle-même les cartes et les plans autour d’une intervention, peu\n          après son ouverture – et le <strong>contrôle de disponibilité</strong> indique avant\n          l’intervention si les données nécessaires sont sur l’appareil. Après une coupure, les\n          modifications sont synchronisées dès qu’une connexion est de nouveau disponible ; ce qui\n          a été saisi entre-temps est conservé."
+        "a": "Oui. Installée comme application, KP Front fonctionne sur l’appareil : carte,\n          plans, binômes et journal restent utilisables même si le réseau tombe.\n          L’application charge d’elle-même les cartes et les plans autour d’une intervention, peu\n          après son ouverture – et le <strong>contrôle de disponibilité</strong> indique avant\n          l’intervention si les données nécessaires sont sur l’appareil. Après une coupure, les\n          modifications sont synchronisées dès qu’une connexion est de nouveau disponible ; ce qui\n          a été saisi entre-temps est conservé."
       },
       {
         "q": "Peut-on l’adapter à nos procédures ?",

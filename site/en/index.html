@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>KP Front – Digital incident command for fire brigades</title>
-<meta name="description" content="KP Front is the digital command post at the scene: situation, plans, SCBA, log and report – offline-capable and open source.">
+<meta name="description" content="KP Front is the digital command post at the scene: map, plans, teams, log and report – offline-capable and open source.">
 <link rel="canonical" href="https://kp-front.ch/en/">
 <link rel="alternate" hreflang="de-CH" href="https://kp-front.ch/">
 <link rel="alternate" hreflang="fr-CH" href="https://kp-front.ch/fr/">
@@ -16,7 +16,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b2330'/%3E%3Cg transform='translate(16 16.5) scale(0.085) translate(-257 -274)'%3E%3Cellipse cx='256' cy='398' rx='150' ry='19' fill='%23000' opacity='0.22'/%3E%3Cg stroke='%23c4cedb' stroke-width='3' stroke-linejoin='round'%3E%3Cpolygon points='100,216 198,190 198,380 100,406' fill='%23e7edf4'/%3E%3Cpolygon points='208,190 306,216 306,406 208,380' fill='%23ffffff'/%3E%3Cpolygon points='316,216 414,190 414,380 316,406' fill='%23d8e1ec'/%3E%3C/g%3E%3Cpath fill='%23e8392b' d='M256 350 C221 297 186 260 186 206 A70 70 0 1 1 326 206 C326 260 291 297 256 350 Z'/%3E%3Ccircle cx='256' cy='200' r='30' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
 <meta property="og:type" content="website">
 <meta property="og:title" content="KP Front – Digital incident command for fire brigades">
-<meta property="og:description" content="The digital command post at the scene: situation, plans, SCBA, log and report – offline-capable and open source.">
+<meta property="og:description" content="The digital command post at the scene: map, plans, teams, log and report – offline-capable and open source.">
 <meta property="og:url" content="https://kp-front.ch/en/">
 <meta property="og:image" content="https://kp-front.ch/shots/lage.jpg">
 <meta property="og:image:width" content="1500">
@@ -32,7 +32,7 @@
       "@id": "https://kp-front.ch/#app",
       "name": "KP Front",
       "url": "https://kp-front.ch/en/",
-      "description": "KP Front is the digital command post at the scene: situation, plans, SCBA, log and report – offline-capable and open source.",
+      "description": "KP Front is the digital command post at the scene: map, plans, teams, log and report – offline-capable and open source.",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web browser",
       "inLanguage": [
@@ -123,7 +123,7 @@
     <p class="eyebrow">Open source&nbsp;· Switzerland</p>
     <h1>Digital incident command for the fire brigade.</h1>
     <p class="lede">KP Front is the digital command post at the scene:
-      <strong>situation, plans, SCBA, log and report</strong> in one app.</p>
+      <strong>map, plans, teams, log and report</strong> in one app.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://demo.kp-front.ch" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Open the demo</a>
       <span class="cta-note">No login – in the demo, Musterdorf is on fire right now (interface in German)</span>
@@ -131,12 +131,12 @@
     <figure class="frame">
       <div class="frame-bar" aria-hidden="true">
         <span class="dot live"></span><span class="dot"></span><span class="dot"></span>
-        <span class="addr">LAGE · ZIMMERBRAND · 2611624 / 1263070</span>
+        <span class="addr">KARTE · ZIMMERBRAND · 2611624 / 1263070</span>
       </div>
       <img src="../shots/lage.webp"
            srcset="../shots/lage-992.webp 992w, ../shots/lage.webp 1500w"
            sizes="(min-width: 1040px) 992px, calc(100vw - 48px)"
-           alt="Situation view: tactical map with Swiss FKS symbols, sectors and hose lines" width="1500" height="937" fetchpriority="high">
+           alt="Map view: tactical symbols to Swiss FKS conventions, sectors and hose lines" width="1500" height="937" fetchpriority="high">
     </figure>
   </section>
 
@@ -194,7 +194,7 @@
     <div class="sec-head">
       <p class="eyebrow">From the call to the report</p>
       <h2>One incident, one app.</h2>
-      <p>This is what a night with KP Front looks like – the situation, SCBA and
+      <p>This is what a night with KP Front looks like – the map, the teams and the
         documentation stay consistent and traceable for everyone involved.</p>
     </div>
     <div class="verlauf-list">
@@ -220,7 +220,7 @@
       <article class="entry">
         <div class="time">03:12</div><div class="rail" aria-hidden="true"></div>
         <div class="body">
-          <p class="tag">SCBA</p>
+          <p class="tag">Teams</p>
           <h3>Team 1 goes in.</h3>
           <p>Cylinder pressure, turnaround time and contact clock run per team. The app speaks up
             before it gets tight – even when nobody happens to be watching the clock.</p>
@@ -261,7 +261,7 @@
         <div class="body">
           <p class="tag">Report</p>
           <h3>By the time you head back, the report is nearly done.</h3>
-          <p>Situation, crew, resources and log flow straight into the incident report.
+          <p>Situation, crew, material and log flow straight into the incident report.
             Nobody has to reconstruct the night from memory afterwards.</p>
         </div>
       </article>
@@ -297,12 +297,12 @@
         </figcaption>
       </figure>
       <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Zoom in: SCBA">
-          <img src="../shots/atemschutz.webp" alt="SCBA view: teams with cylinder pressure and a running contact clock" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Teams">
+          <img src="../shots/atemschutz.webp" alt="Teams view: SCBA teams with cylinder pressure and a running contact clock" width="1500" height="937" loading="lazy" decoding="async">
         </button>
         <figcaption>
-          <div class="cap-t">SCBA</div>
-          <div class="cap-s">Monitoring of teams, times, pressures and check-ins</div>
+          <div class="cap-t">Teams</div>
+          <div class="cap-s">Monitoring of the teams in action – times, pressures and check-ins, with or without breathing apparatus</div>
         </figcaption>
       </figure>
       <figure class="shot">
@@ -351,17 +351,17 @@
         </figcaption>
       </figure>
       <figure class="shot">
-        <button class="shot-zoom" type="button" aria-label="Zoom in: Resources">
-          <img src="../shots/mittel.webp" alt="Resources view: material used, by source" width="1500" height="937" loading="lazy" decoding="async">
+        <button class="shot-zoom" type="button" aria-label="Zoom in: Material">
+          <img src="../shots/mittel.webp" alt="Material view: what was used, by source" width="1500" height="937" loading="lazy" decoding="async">
         </button>
         <figcaption>
-          <div class="cap-t">Resources</div>
-          <div class="cap-s">Record equipment and consumption during the incident instead of estimating afterwards</div>
+          <div class="cap-t">Material</div>
+          <div class="cap-s">Record what was used and what was consumed during the incident, instead of estimating afterwards</div>
         </figcaption>
       </figure>
       <figure class="shot">
         <button class="shot-zoom" type="button" aria-label="Zoom in: Report">
-          <img src="../shots/rapport.webp" alt="Incident report before printing: attendance and resources already carried over, with the sections of the PDF to tick below" width="1500" height="937" loading="lazy" decoding="async">
+          <img src="../shots/rapport.webp" alt="Incident report before printing: attendance and material already carried over, with the sections of the PDF to tick below" width="1500" height="937" loading="lazy" decoding="async">
         </button>
         <figcaption>
           <div class="cap-t">Report</div>
@@ -405,7 +405,7 @@
     </div>
     <div class="feature-cols">
       <div class="fgroup">
-        <h3>Situation &amp; plan</h3>
+        <h3>Map &amp; plan</h3>
         <ul class="flist">
           <li><strong>Tactical symbols</strong> to FKS conventions, with attributes and labelling</li>
           <li>Sectors, cordons, areas and freehand drawing</li>
@@ -430,7 +430,7 @@
           <li><strong>Share location</strong>: whoever opens the link appears as a dot on the
             situation map – voluntary, and only for this incident</li>
           <li>Share the incident by link; access is clearly indicated and can be revoked at any time</li>
-          <li>Resources and equipment with stock and consumption</li>
+          <li>Material with stock and consumption</li>
           <li>Checklists for command support and incident command</li>
           <li>Incident commander view: read along without moving anything</li>
         </ul>
@@ -442,7 +442,7 @@
           <li>Voice memos with transcription, photos, reminders</li>
           <li><strong>Replay</strong>: play the incident back minute by minute, waits skipped –
             for the debrief</li>
-          <li>Ready-made incident report as a PDF, including crew, resources, times, log, sketch,
+          <li>Ready-made incident report as a PDF, including crew, material, times, log, sketch,
             photos and SCBA monitoring</li>
           <li>Photos as attachments to the report</li>
           <li><strong>Completion check</strong>: before closing, KP Front shows which information or clarifications are still missing from the report</li>
@@ -549,7 +549,7 @@
       </div>
       <div class="faq-item">
         <h3>Does KP Front work without an internet connection?</h3>
-        <p>Yes. As an installed app, KP Front runs on the device: situation, plans, SCBA and log
+        <p>Yes. As an installed app, KP Front runs on the device: map, plans, teams and log
           stay usable even when the network drops. The app loads the maps and plans around an
           incident by itself, shortly after it is opened – and the <strong>readiness check</strong>
           shows before an incident whether the required data is on the device. After an

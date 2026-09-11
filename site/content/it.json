@@ -2,9 +2,9 @@
   "notice": "Questa traduzione non è ancora stata verificata da una persona italofona dei pompieri – <a href=\"#kontakt\">suggerimenti e correzioni</a> sono benvenuti. La demo è in tedesco.",
   "meta": {
     "title": "KP Front – Condotta d’intervento digitale per i pompieri",
-    "description": "KP Front è il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto – offline e open source.",
+    "description": "KP Front è il posto di comando digitale sul posto: mappa, piani, squadre, diario e rapporto – offline e open source.",
     "ogTitle": "KP Front – Condotta d’intervento digitale per i pompieri",
-    "ogDescription": "Il posto di comando digitale sul posto: situazione, piani, protezione respiratoria, diario e rapporto – offline e open source."
+    "ogDescription": "Il posto di comando digitale sul posto: mappa, piani, squadre, diario e rapporto – offline e open source."
   },
   "nav": {
     "aria": "Navigazione principale",
@@ -25,11 +25,11 @@
   "hero": {
     "eyebrow": "Open source&nbsp;· Svizzera",
     "h1": "La condotta d’intervento digitale per i pompieri.",
-    "lede": "KP Front è il posto di comando digitale sul posto:\n      <strong>situazione, piani, protezione respiratoria, diario e rapporto</strong> in un’unica app.",
+    "lede": "KP Front è il posto di comando digitale sul posto:\n      <strong>mappa, piani, squadre, diario e rapporto</strong> in un’unica app.",
     "cta": "Apri la demo",
     "ctaNote": "Senza registrazione – nella demo Musterdorf sta bruciando adesso (interfaccia in tedesco)",
-    "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
-    "frameAlt": "Vista Situazione: carta tattica con simboli CSP, settori e condotte"
+    "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Vista Mappa: simboli tattici CSP, settori e condotte sulla carta tattica"
   },
   "fit": {
     "whoLabel": "Per chi",
@@ -67,7 +67,7 @@
   "incident": {
     "eyebrow": "Dall’allarme al rapporto",
     "h2": "Un intervento, un’app.",
-    "lede": "Ecco com’è una notte con KP Front – situazione, protezione respiratoria e documentazione\n        restano coerenti e ricostruibili per tutti quelli che ci sono.",
+    "lede": "Ecco com’è una notte con KP Front – mappa, squadre e documentazione\n        restano coerenti e ricostruibili per tutti quelli che ci sono.",
     "entries": [
       {
         "time": "03:01",
@@ -83,7 +83,7 @@
       },
       {
         "time": "03:12",
-        "tag": "Protezione respiratoria",
+        "tag": "Squadre",
         "h3": "La squadra 1 entra.",
         "p": "Pressione, tempo di rientro e orologio di contatto scorrono per ogni squadra. L’app\n            avvisa prima che il margine diventi critico – anche quando nessuno sta guardando l’ora."
       },
@@ -109,7 +109,7 @@
         "time": "05:55",
         "tag": "Rapporto",
         "h3": "Al rientro il rapporto è quasi pronto.",
-        "p": "Situazione, uomini, mezzi e diario confluiscono direttamente nel rapporto\n            d’intervento. Nessuno deve ricostruire la notte a memoria."
+        "p": "Situazione, uomini, materiale e diario confluiscono direttamente nel rapporto\n            d’intervento. Nessuno deve ricostruire la notte a memoria."
       },
       {
         "time": "Dopo",
@@ -131,9 +131,9 @@
         "sub": "Piani d’oggetto e d’intervento con segni tattici, marcature e misurazione in scala"
       },
       {
-        "alt": "Vista Protezione respiratoria: squadre con pressione e orologio di contatto in corso",
-        "title": "Protezione respiratoria",
-        "sub": "Sorveglianza di squadre, tempi, pressioni e riscontri"
+        "alt": "Vista Squadre: squadre sotto ARA con pressione e orologio di contatto in corso",
+        "title": "Squadre",
+        "sub": "Sorveglianza delle squadre impiegate – tempi, pressioni e riscontri, con o senza protezione respiratoria"
       },
       {
         "alt": "Vista Edificio: piani sovrapposti con l’assegnazione delle squadre",
@@ -161,12 +161,12 @@
         "sub": "Le liste di controllo della condotta dei vostri pompieri, con accesso diretto a piano, cronologia e strumenti"
       },
       {
-        "alt": "Vista Mezzi: materiale impiegato per provenienza",
-        "title": "Mezzi",
-        "sub": "Rilevare materiale e consumo durante l’intervento, invece di stimarli dopo"
+        "alt": "Vista Materiale: ciò che è stato impiegato, per provenienza",
+        "title": "Materiale",
+        "sub": "Rilevare ciò che è stato impiegato e consumato durante l’intervento, invece di stimarlo dopo"
       },
       {
-        "alt": "Rapporto d’intervento prima della stampa: presenze e mezzi già ripresi, sotto le sezioni del PDF da spuntare",
+        "alt": "Rapporto d’intervento prima della stampa: presenze e materiale già ripresi, sotto le sezioni del PDF da spuntare",
         "title": "Rapporto",
         "sub": "Quasi pronto al rientro – controllare, completare, esportare in PDF, mandare direttamente in stampa"
       }
@@ -211,7 +211,7 @@
     "lede": "Cresciuta su interventi ed esercitazioni veri, non su un elenco di funzioni. Tutto ciò\n        che arriva da fuori – allertamento, GPS, stampanti – è <strong>opzionale</strong>: KP Front\n        funziona anche del tutto senza questi collegamenti.",
     "groups": [
       {
-        "h3": "Situazione &amp; piano",
+        "h3": "Mappa &amp; piano",
         "items": [
           "<strong>Segni tattici</strong> secondo le convenzioni CSP, con attributi e diciture",
           "Settori, cerchi di sbarramento, superfici e disegno a mano libera",
@@ -234,7 +234,7 @@
           "<strong>Piano turni</strong>: pianificare disponibilità e turni per persona,\n            visualizzare la copertura dell’intero intervento e stampare i formulari di condotta",
           "<strong>Condividere la posizione</strong>: chi apre il link appare come punto sulla\n            carta della situazione – volontario, e solo per questo intervento",
           "Condividere l’intervento tramite link; l’accesso è indicato chiaramente e può essere\n            revocato in qualsiasi momento",
-          "Mezzi e materiale con scorte e consumo",
+          "Materiale con scorte e consumo",
           "Liste di controllo per il supporto alla condotta e la direzione dell’intervento",
           "Vista capo intervento: leggere senza spostare nulla"
         ]
@@ -324,7 +324,7 @@
       },
       {
         "q": "KP Front funziona senza connessione a Internet?",
-        "a": "Sì. Installata come app, KP Front funziona sul dispositivo: situazione, piani,\n          protezione respiratoria e diario restano utilizzabili anche se la rete viene a mancare.\n          L’app carica da sé le mappe e i piani attorno a un intervento, poco dopo che è stato\n          aperto – e la <strong>verifica di prontezza</strong> indica prima dell’intervento se i\n          dati necessari sono sul dispositivo. Dopo un’interruzione le modifiche vengono\n          sincronizzate appena la connessione è di nuovo disponibile; quanto è stato registrato\n          nel frattempo viene conservato."
+        "a": "Sì. Installata come app, KP Front funziona sul dispositivo: mappa, piani,\n          squadre e diario restano utilizzabili anche se la rete viene a mancare.\n          L’app carica da sé le mappe e i piani attorno a un intervento, poco dopo che è stato\n          aperto – e la <strong>verifica di prontezza</strong> indica prima dell’intervento se i\n          dati necessari sono sul dispositivo. Dopo un’interruzione le modifiche vengono\n          sincronizzate appena la connessione è di nuovo disponibile; quanto è stato registrato\n          nel frattempo viene conservato."
       },
       {
         "q": "Possiamo adattarlo ai nostri processi?",

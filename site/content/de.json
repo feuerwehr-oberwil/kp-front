@@ -1,9 +1,9 @@
 {
   "meta": {
     "title": "KP Front – Digitale Einsatzführung für Feuerwehren",
-    "description": "KP Front ist der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport – offline-fähig und quelloffen.",
+    "description": "KP Front ist der digitale Kommandoposten am Einsatzort: Karte, Pläne, Trupps, Verlauf und Rapport – offline-fähig und quelloffen.",
     "ogTitle": "KP Front – Digitale Einsatzführung für Feuerwehren",
-    "ogDescription": "Der digitale Kommandoposten am Einsatzort: Lage, Pläne, Atemschutz, Verlauf und Rapport – offline-fähig und quelloffen."
+    "ogDescription": "Der digitale Kommandoposten am Einsatzort: Karte, Pläne, Trupps, Verlauf und Rapport – offline-fähig und quelloffen."
   },
   "nav": {
     "aria": "Hauptnavigation",
@@ -24,11 +24,11 @@
   "hero": {
     "eyebrow": "Open Source&nbsp;· Schweiz",
     "h1": "Digitale Einsatzführung für die Feuerwehr.",
-    "lede": "KP Front ist der digitale Kommandoposten am Einsatzort:\n      <strong>Lage, Pläne, Atemschutz, Verlauf und Rapport</strong> in einer App.",
+    "lede": "KP Front ist der digitale Kommandoposten am Einsatzort:\n      <strong>Karte, Pläne, Trupps, Verlauf und Rapport</strong> in einer App.",
     "cta": "Demo öffnen",
     "ctaNote": "Ohne Login – in der Demo brennt es gerade in Musterdorf",
-    "frameAddr": "LAGE · ZIMMERBRAND · 2611624 / 1263070",
-    "frameAlt": "Lage-Ansicht: taktische Karte mit FKS-Symbolen, Sektoren und Schlauchleitungen",
+    "frameAddr": "KARTE · ZIMMERBRAND · 2611624 / 1263070",
+    "frameAlt": "Karten-Ansicht: taktische Zeichen nach FKS, Sektoren und Schlauchleitungen",
     "frameFile": "lage.webp",
     "frameFileSmall": "lage-992.webp",
     "frameW": 1500,
@@ -70,7 +70,7 @@
   "incident": {
     "eyebrow": "Vom Alarm bis zum Rapport",
     "h2": "Ein Einsatz, eine App.",
-    "lede": "So sieht eine Nacht mit KP Front aus – Lage, Atemschutz und Dokumentation bleiben für\n        alle Beteiligten konsistent und nachvollziehbar.",
+    "lede": "So sieht eine Nacht mit KP Front aus – Karte, Trupps und Dokumentation bleiben für\n        alle Beteiligten konsistent und nachvollziehbar.",
     "entries": [
       {
         "time": "03:01",
@@ -86,7 +86,7 @@
       },
       {
         "time": "03:12",
-        "tag": "Atemschutz",
+        "tag": "Trupps",
         "h3": "Trupp 1 geht rein.",
         "p": "Druck, Rückzugszeit und Kontaktuhr laufen pro Trupp mit. Die App meldet sich,\n            bevor es knapp wird – auch wenn gerade niemand auf die Uhr schaut."
       },
@@ -112,7 +112,7 @@
         "time": "05:55",
         "tag": "Rapport",
         "h3": "Beim Einrücken ist der Rapport fast fertig.",
-        "p": "Lage, Mannschaft, Mittel und Verlauf fliessen direkt in den Rapport.\n            Niemand muss die Nacht nachher aus dem Kopf rekonstruieren."
+        "p": "Lage, Mannschaft, Material und Verlauf fliessen direkt in den Rapport.\n            Niemand muss die Nacht nachher aus dem Kopf rekonstruieren."
       },
       {
         "time": "Danach",
@@ -139,9 +139,9 @@
         "file": "atemschutz.webp",
         "w": 1500,
         "h": 937,
-        "alt": "Atemschutz-Ansicht: Trupps mit Druck und laufender Kontaktuhr",
-        "title": "Atemschutz",
-        "sub": "Überwachung von Trupps, Zeiten, Drücken und Rückmeldungen"
+        "alt": "Trupps-Ansicht: Atemschutztrupps mit Druck und laufender Kontaktuhr",
+        "title": "Trupps",
+        "sub": "Überwachung der eingesetzten Trupps – Zeiten, Drücke und Rückmeldungen, mit und ohne Atemschutz"
       },
       {
         "file": "gebaeude.webp",
@@ -187,15 +187,15 @@
         "file": "mittel.webp",
         "w": 1500,
         "h": 937,
-        "alt": "Mittel-Ansicht: Materialeinsatz nach Quelle",
-        "title": "Mittel",
-        "sub": "Material und Verbrauch im Einsatz erfassen, statt nachher zu schätzen"
+        "alt": "Material-Ansicht: was eingesetzt wurde, nach Quelle",
+        "title": "Material",
+        "sub": "Was eingesetzt und was verbraucht wurde, im Einsatz erfassen statt nachher zu schätzen"
       },
       {
         "file": "rapport.webp",
         "w": 1500,
         "h": 937,
-        "alt": "Einsatzrapport vor dem Druck: Anwesenheit und Mittel bereits übernommen, darunter die Abschnitte des PDF zum Ankreuzen",
+        "alt": "Einsatzrapport vor dem Druck: Anwesenheit und Material bereits übernommen, darunter die Abschnitte des PDF zum Ankreuzen",
         "title": "Rapport",
         "sub": "Beim Einrücken fast fertig – kontrollieren, ergänzen, als PDF exportieren, direkt drucken lassen"
       }
@@ -240,7 +240,7 @@
     "lede": "Gewachsen an echten Einsätzen und Übungen, nicht an einer Featureliste. Alles, was von\n        aussen dazukommt – Alarmierung, GPS, Drucker – ist <strong>optional</strong>: KP Front\n        läuft auch vollständig ohne diese Anbindungen.",
     "groups": [
       {
-        "h3": "Lage &amp; Plan",
+        "h3": "Karte &amp; Plan",
         "items": [
           "<strong>Taktische Zeichen</strong> nach FKS-Konventionen, mit Attributen und Beschriftung",
           "Sektoren, Absperrkreise, Flächen und Freihandzeichnung",
@@ -251,7 +251,7 @@
           "Wetter- und Windinformationen als Unterstützung für die Lagebeurteilung",
           "Objektpläne als Whiteboard, Geschossstapel, leere Tafel",
           "<strong>Georeferenz</strong>: Plan und Karte über gemeinsame Landmarken verknüpfen – Symbole erscheinen als Zwillinge auf beiden Flächen, mit ehrlicher Angabe der Genauigkeit",
-          "Rückgängig/Wiederholen auf jeder Fläche – dokumentierte Vorgänge bleiben nachvollziehbar"
+          "Rückgängig/Wiederherstellen auf jeder Fläche – dokumentierte Vorgänge bleiben nachvollziehbar"
         ]
       },
       {
@@ -263,7 +263,7 @@
           "<strong>Zeitplan</strong>: Verfügbarkeiten und Schichten pro Person planen, Deckung\n            über den ganzen Einsatz erkennen und als Führungsformular ausgeben",
           "<strong>Standort teilen</strong>: wer den Link öffnet, erscheint als Punkt auf der\n            Lagekarte – freiwillig, und nur für diesen Einsatz",
           "Einsatz per Link weitergeben; Zugriff ist transparent ausgewiesen und kann jederzeit\n            wieder aufgehoben werden",
-          "Mittel und Material mit Bestand und Verbrauch",
+          "Material mit Bestand und Verbrauch",
           "Checklisten für Führungsunterstützung und Einsatzleitung",
           "Einsatzleiter-Ansicht: mitlesen, ohne etwas zu verschieben"
         ]
@@ -353,7 +353,7 @@
       },
       {
         "q": "Funktioniert KP Front ohne Internetverbindung?",
-        "a": "Ja. Als installierte App läuft KP Front auf dem Gerät: Lage, Pläne, Atemschutz und\n          Verlauf bleiben bedienbar, auch wenn das Netz wegbricht. Karten und Pläne rund um den\n          Einsatz lädt die App selbst, kurz nachdem er geöffnet wurde – und die\n          <strong>Bereitschaftsprüfung</strong> zeigt vor dem Einsatz, ob die benötigten Daten\n          auf dem Gerät sind. Nach einem Unterbruch wird abgeglichen, sobald wieder eine\n          Verbindung besteht; was in der Zwischenzeit erfasst wurde, bleibt erhalten."
+        "a": "Ja. Als installierte App läuft KP Front auf dem Gerät: Karte, Pläne, Trupps und\n          Verlauf bleiben bedienbar, auch wenn das Netz wegbricht. Karten und Pläne rund um den\n          Einsatz lädt die App selbst, kurz nachdem er geöffnet wurde – und die\n          <strong>Bereitschaftsprüfung</strong> zeigt vor dem Einsatz, ob die benötigten Daten\n          auf dem Gerät sind. Nach einem Unterbruch wird abgeglichen, sobald wieder eine\n          Verbindung besteht; was in der Zwischenzeit erfasst wurde, bleibt erhalten."
       },
       {
         "q": "Können wir es an unsere Abläufe anpassen?",
