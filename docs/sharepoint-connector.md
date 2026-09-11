@@ -436,6 +436,11 @@ default and write only with `--apply`.
 an incident by distance, so an object without a position never appears – and the plans under it
 are reachable by nobody. `python -m app.admin_objects repair-sharepoint-keys` names every such
 object (with its address) without writing anything, and the System card carries the same count.
+To place them in one go, `python -m app.admin_objects geocode-missing` looks each one up – by its
+address, or by its **name** where the row has none, which is what an object imported years ago as
+a bare street («Benkenstrasse 66a») carries. It reports by default, prints the coordinates it
+would write, and writes them with `--apply`; anything the geocoder cannot place is left untouched
+and stays on the list for a person to position in `/admin` → Objektpläne.
 
 **Nothing appears on the System card at all.** Either no credentials or no folders – the card
 says which half is missing, and the two are configured in different places (step 4 vs step 6).

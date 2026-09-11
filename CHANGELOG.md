@@ -29,6 +29,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **`admin_objects geocode-missing` places the Einsatzobjekte nobody could reach.** An object
+  without coordinates is offered at no incident, so its plans are reachable by nobody – and after
+  the object-key repair below, one station still carried 52 of them, written that way by an
+  import years earlier: the street stands in the object's *name* («Benkenstrasse 66a») and the
+  address column is empty. The new command looks each one up – by its address, or by its name
+  where there is none, which is exactly what those rows are – and prints the coordinates it would
+  write; `--apply` writes them. Whatever the geocoder cannot place is left untouched and stays on
+  the same census the repair prints, for a person to position in `/admin` → Objektpläne.
+
 ### Fixed
 
 - **A SharePoint-synced plan landed on a second, invisible Einsatzobjekt.** A plans folder is

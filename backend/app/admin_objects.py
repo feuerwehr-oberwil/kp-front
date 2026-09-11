@@ -31,12 +31,15 @@ no database file anywhere. SQLite exists solely as a pytest fallback.)
     repair-sharepoint-keys fold what the SharePoint pull minted under the WHOLE folder name onto
                            the «Adresse - Name» convention, geocoding what it splits out, and list
                            every object that still has no coordinates (report only)
+    geocode-missing        look up a position for every object that carries plans and has none —
+                           by its address, or by its name when the row has no address (report only)
     remove-empty           delete objects that carry no plans and nothing points at (report only)
 
-`merge-duplicates`, `repair-sharepoint-keys` and `remove-empty` REPORT by default and write only
-with ``--apply`` — see :func:`_merge_duplicates` and :func:`_repair_sharepoint_keys`. The repair's
-dry run is also the read-only way to CHECK a deployment: it prints the object census and every
-Einsatzobjekt that carries plans but no coordinates (and so surfaces at no incident).
+`merge-duplicates`, `repair-sharepoint-keys`, `geocode-missing` and `remove-empty` REPORT by
+default and write only with ``--apply`` — see :func:`_merge_duplicates`,
+:func:`_repair_sharepoint_keys` and :func:`_geocode_missing`. The last two end with the same
+census, which is the read-only way to CHECK a deployment: every Einsatzobjekt that carries plans
+but no coordinates, and so surfaces at no incident whatever its plans say.
 
 `load` writes PDFs to the LOCAL storage dir, so run it server-side for a remote DB. `push` instead
 goes through a running server's HTTP API (ADMIN_SECRET), so the server writes its OWN volume — the
@@ -1370,6 +1373,61 @@ async def _coordinate_census(db: AsyncSession, resolved: set[uuid.UUID]) -> int:
     return len(blind)
 
 
+async def _geocode_missing(*, apply: bool) -> int:
+    """Give every plan-carrying Einsatzobjekt without a position one — REPORT ONLY unless ``apply``.
+
+    The other half of the same defect, and the older half: after the two conventions were folded
+    back together (:func:`_repair_sharepoint_keys`), the FWO deployment still carried 52 objects
+    the ORIGINAL importer had written without coordinates, and an object without coordinates is
+    offered at no incident (:func:`objects_without_coordinates`) — its plans are reachable by
+    nobody, however correct its key is.
+
+    What is geocoded is the ``address`` where the row has one, and otherwise the ``name``. That
+    is not a fallback for its own sake: those 52 rows ARE addresses — «Benkenstrasse 66a» stands
+    in the name column because the import that wrote them never split the folder — and the
+    geocoder is region-biased (`app/geocode`), so a bare street number resolves in the brigade's
+    own villages. An object whose name is not an address simply finds nothing and stays on the
+    list; nothing is invented for it.
+
+    Never overwrites a position the station already has: the query only ever returns rows that
+    have none.
+    """
+    async with async_session_maker() as db:
+        blind = await objects_without_coordinates(db)
+        if not blind:
+            print("Every Einsatzobjekt that carries plans already has coordinates. Nothing to geocode.")
+            await _coordinate_census(db, set())
+            return 0
+
+        print(f"{len(blind)} Einsatzobjekt(e) carry plans and no coordinates:")
+        found: dict[uuid.UUID, tuple[float, float]] = {}
+        for obj in blind:
+            name = unicodedata.normalize("NFC", obj.name)
+            query = (obj.address or "").strip() or name.strip()
+            # Said out loud, because it is the one judgement call in here: a row with no address
+            # is being looked up under its NAME, and the operator has to be able to see that.
+            source = "address" if (obj.address or "").strip() else "name"
+            coords = await _lookup_coordinates(query)
+            if coords is None:
+                print(f"  ? {obj.id}  «{name}» — nothing found for {query!r} (its {source})")
+                continue
+            print(f"  → {obj.id}  «{name}» — {query!r} (its {source}) → {coords[0]:.5f}, {coords[1]:.5f}")
+            found[obj.id] = coords
+            if apply:
+                obj.lat, obj.lng = coords
+
+        summary = f"{len(found)} of {len(blind)} object(s) geocoded, {len(blind) - len(found)} still without a position"
+        if not apply:
+            print(f"\nOK (dry-run): would be {summary}. Nothing written. Repeat with --apply to perform it.")
+            await _coordinate_census(db, set(found))
+            return 0
+        await db.commit()
+        print(f"\nOK: {summary}.")
+        # Read back from what was WRITTEN, so a second (read-only) run is the verification.
+        await _coordinate_census(db, set())
+        return 0
+
+
 async def _repair_sharepoint_keys(*, apply: bool, do_geocode: bool) -> int:
     """Fold the SharePoint pull's whole-folder-name objects onto the address-split convention.
 
@@ -1635,6 +1693,12 @@ async def _amain(argv: list[str]) -> int:
         help="do not look addresses up at swisstopo (the dry run geocodes too, so its report says "
         "which coordinates the objects would get)",
     )
+    p_geo = sub.add_parser(
+        "geocode-missing",
+        help="geocode every object that carries plans and has no coordinates (by its address, or "
+        "by its name when it has none) — without them an object surfaces at no incident",
+    )
+    p_geo.add_argument("--apply", action="store_true", help="write the coordinates (default: report only, no writes)")
     p_empty = sub.add_parser("remove-empty", help="delete objects with no plans and no references")
     p_empty.add_argument("--apply", action="store_true", help="perform the deletion (default: report only, no writes)")
     p_empty.add_argument(
@@ -1675,6 +1739,8 @@ async def _amain(argv: list[str]) -> int:
         return await _merge_duplicates(apply=args.apply)
     if args.cmd == "repair-sharepoint-keys":
         return await _repair_sharepoint_keys(apply=args.apply, do_geocode=not args.no_geocode)
+    if args.cmd == "geocode-missing":
+        return await _geocode_missing(apply=args.apply)
     if args.cmd == "remove-empty":
         return await _remove_empty(apply=args.apply, names=args.name)
     # show
