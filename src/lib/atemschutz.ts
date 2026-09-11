@@ -167,6 +167,56 @@ export function truppStillDeployed(t: Trupp): boolean {
 }
 
 /**
+ * The crew of `t` MINUS one person — the record the other Trupp is left with when somebody is
+ * moved out of it (useTruppActions · transferOutOfTrupp).
+ *
+ * Leader first, as everywhere: `Trupp.name` IS the Gruppenführer (types · Trupp.name), so taking
+ * the leader out promotes the next member into that slot — the same thing the Trupp form does
+ * when somebody drags a name up. `memberPersonIds` is index-aligned with `members`
+ * (lib/personnel · truppSlots), so both halves are rebuilt from the same filtered list rather
+ * than spliced apart.
+ *
+ * ⚠️ `null` when nothing would be left. A Trupp with no name is not a Trupp — emptying one is
+ * DELETING it, which is a different act with its own button, its own row and its own undo.
+ */
+export function truppCrewWithout(t: Trupp, personId: string): {
+  name: string; members: string[]; leaderPersonId?: string; memberPersonIds: string[]
+} | null {
+  const slots = [
+    { name: (t.name ?? '').trim(), personId: t.leaderPersonId },
+    ...(t.members ?? []).map((m, i) => ({ name: (m ?? '').trim(), personId: (t.memberPersonIds ?? [])[i] })),
+  ].filter((sl) => !!sl.name)
+  const kept = slots.filter((sl) => sl.personId !== personId)
+  if (kept.length === slots.length || !kept.length) return null
+  return {
+    name: kept[0].name,
+    members: kept.slice(1).map((sl) => sl.name),
+    leaderPersonId: kept[0].personId,
+    memberPersonIds: kept.slice(1).map((sl) => sl.personId).filter(Boolean) as string[],
+  }
+}
+
+/**
+ * Can this person be taken out of the Trupp they are still recorded in, with one tap?
+ *
+ * · `ready` — yes: that Trupp is angemeldet / bereitgestellt / already out, so moving somebody
+ *   out of it changes a registration, not a running deployment.
+ * · `deployed` — NO, and this is the safety answer. The crew is out there (truppStillDeployed):
+ *   its Eintritt is stamped, its Kontaktuhr is running and the Atemschutzüberwachung is watching
+ *   exactly these people. Quietly rewriting who is in it would leave that watch — and the
+ *   Austritt that ends it — standing for a crew that no longer matches the record, which is the
+ *   one thing this board must never do. Such a correction belongs in that Trupp's own
+ *   «Bearbeiten», where it is deliberate and says what it changed.
+ * · `blocked` — nothing to move (they are not in it, or they are all that is left of it).
+ */
+export type TruppTransferState = 'ready' | 'deployed' | 'blocked'
+
+export function truppTransferState(from: Trupp | undefined, personId: string): TruppTransferState {
+  if (!from || !truppCrewWithout(from, personId)) return 'blocked'
+  return truppStillDeployed(from) ? 'deployed' : 'ready'
+}
+
+/**
  * Registered at the Tafel and still standing there — angemeldet, never eingerückt.
  *
  * The one state where putting the Trupp's symbol somewhere and its record disagree: the picture

@@ -708,9 +708,24 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
    a real target under a glove. */
 .formWarn { margin: 0; display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--red-strong);
   background: color-mix(in srgb, var(--red) 9%, transparent); border-radius: var(--r-ctl); padding: 10px 12px;
-  border: 0; width: 100%; min-height: var(--tap); text-align: left; font-family: var(--body); cursor: pointer; }
-.formWarn:active { background-image: linear-gradient(var(--press), var(--press)); }
+  border: 0; width: 100%; min-height: var(--tap); text-align: left; font-family: var(--body); }
 .formWarn :global(.i) { width: 16px; height: 16px; flex: none; }
+/* ⚠️ The warn field is a FIELD again (11.09.), not one big button: it now holds two actions —
+   the sentence, which still jumps to the Mannschaft (05.09.), and «In diesen Trupp verschieben»,
+   which is the fix itself. A button inside a button is not markup a browser will render, so the
+   two live side by side inside it and the wrapper keeps only the look. The sentence takes the
+   room that is left so the action button never drifts away from the right edge. */
+.formWarnText { flex: 1 1 auto; min-width: 0; align-self: stretch; margin: 0; padding: 0; border: 0;
+  background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.formWarnText:active { opacity: .65; }
+/* …and the action, in the warning's own red rather than the form's ink: it is the one thing on
+   this row that CHANGES something, and it has to read as belonging to the sentence beside it. */
+.formWarnAct { flex: none; min-height: 36px; padding: 6px 12px; border-radius: var(--r-ctl);
+  border: 1.5px solid color-mix(in srgb, var(--red) 42%, transparent);
+  background: color-mix(in srgb, var(--red) 14%, var(--surface));
+  font: 800 12.5px var(--body); color: var(--red-strong); cursor: pointer; }
+.formWarnAct:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .formWarnAct:hover { background: color-mix(in srgb, var(--red) 22%, var(--surface)); } }
 /* «Auftrag fehlt.» and friends — the reason the save did not happen, snug above the actions it
    is about (05.09.). It used to be a toast, i.e. a pill floating in the sheet's own empty space
    AND eating the taps of whatever field it happened to cover (see TruppForm · `blocked`). Full
@@ -1526,6 +1541,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    number — a full-brightness «–:––» reads as a value. Dimmed AND unbolded, so the eye runs
    straight past it to the chips that are actually counting. */
 .tabIdle .tabClock { color: color-mix(in srgb, var(--ink-faint) 72%, transparent); font-weight: 600; }
+/* ⚠️ The WHOLE chip, not just its clock (11.09., field ask on the Atemschutz-Link). The amber
+   «Kontakt fällig» tier used to tint four mono digits and nothing else, so on the one screen
+   where the rail IS the board's overview — the handed-over Tafel on a phone (`focusMode`), where
+   every other Trupp is off-screen behind its chip — the pre-warning was invisible from arm's
+   length while the red one lit up the whole cell. Same mechanism as `.tabCrit` below, one tier
+   quieter: the wash and the border that the card's own warn tier already wears (`.trowWarn`).
+   Red still wins — the two classes are mutually exclusive at the call site (sev === 1 vs >= 2),
+   and crit is declared after this so it would take the cell even if they ever met. */
+.tabWarn { background: color-mix(in srgb, var(--amber) 12%, var(--surface)); border-color: var(--amber); }
 .tabWarn .tabClock { color: var(--amber-strong); }
 .tabCrit { background: color-mix(in srgb, var(--red) 12%, var(--surface)); border-color: var(--red); }
 .tabCrit .tabClock { color: var(--red); }

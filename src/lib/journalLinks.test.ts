@@ -443,6 +443,23 @@ describe('journalVocabulary · the Trupps', () => {
       .toBe('<b>Trupp Meier Anna</b> (GF) / <b>Müller Hans</b>: Eintritt')
   })
 
+  /* ── The reported bug (11.09.): «(GF)» only on SOME Trupp rows ──────────────────────────────
+   * One Rapport carried «Trupp Müller Hans (GF) / Meier Anna: Eintritt» and, further down,
+   * «Trupp Keller Laura / Frei Nina: Druck 280 bar» — the same kind of row, one badged and one
+   * not. The badge was read off the Anwesenheits-Bemerkung alone, so a Gruppenführer whose
+   * Funktion nobody ever typed (a Gast, a Nachbarwehr) lost it, on every row about his crew.
+   *
+   * The position is the record: a crew is written leader-first (lib/atemschutz · truppLogName),
+   * so the FIRST name marked on a crew row is who led that Trupp at that moment — which is also
+   * why the fix is here, at display time, and reaches every row already stored. */
+  it('badges the Gruppenführer on EVERY crew row, Funktion or not — the first name is who led it', () => {
+    // nobody's Funktion was ever recorded: the old rule had nothing to read
+    const nameless: AttendanceState = { p1: present('Meier Anna'), p2: present('Müller Hans') }
+    const vocab = journalVocabulary(personnel, nameless, undefined, [trupp({})])
+    expect(linkMarkup('Trupp Meier Anna / Müller Hans: Druck 280 bar', vocab, (x) => x, { crewRow: true }))
+      .toBe('<b>Trupp Meier Anna</b> (GF) / <b>Müller Hans</b>: Druck 280 bar')
+  })
+
   it('leaves the same row alone off the crew path — the screen keeps every Funktion', () => {
     const crew: AttendanceState = { p1: present('Meier Anna', 'AS-GF'), p2: present('Müller Hans', 'AS') }
     const vocab = journalVocabulary(personnel, crew, undefined, [trupp({})])

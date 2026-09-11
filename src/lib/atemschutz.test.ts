@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed } from './atemschutz'
+import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -450,6 +450,55 @@ describe('truppLogName — who a Verlauf row about this Trupp is about', () => {
   it('writes plain names — the Gruppenführer is marked by his Funktion, not in here', () => {
     expect(truppLogName({ name: 'Brunner Thomas', members: ['Müller Hans'] }))
       .toBe('Brunner Thomas / Müller Hans')
+  })
+})
+
+/* ── «In diesen Trupp verschieben» (11.09., user report) ────────────────────────────────────
+ * The double-assignment warning used to be a dead end. What it now offers is one tap out of the
+ * OTHER Trupp — and the whole safety question is which other Trupps that may be done to. */
+describe('truppCrewWithout / truppTransferState — moving somebody out of the Trupp that holds them', () => {
+  const pair: Trupp = { ...base, status: 'angemeldet', entryTime: '', lastContactTime: '',
+    name: 'Müller', members: ['Frei', 'Amrein'], leaderPersonId: 'p1', memberPersonIds: ['p2', 'p3'] }
+
+  it('takes an AdF out and leaves the rest of the crew as it was', () => {
+    expect(truppCrewWithout(pair, 'p2')).toEqual({
+      name: 'Müller', members: ['Amrein'], leaderPersonId: 'p1', memberPersonIds: ['p3'],
+    })
+  })
+
+  // the Trupp's name IS its Gruppenführer (types · Trupp.name), so handing the leader over
+  // promotes the next member — the same thing dragging a name up the form does
+  it('promotes the next member when the Gruppenführer is the one being moved', () => {
+    expect(truppCrewWithout(pair, 'p1')).toEqual({
+      name: 'Frei', members: ['Amrein'], leaderPersonId: 'p2', memberPersonIds: ['p3'],
+    })
+  })
+
+  it('refuses to empty a Trupp — that is a deletion, not a transfer', () => {
+    const solo: Trupp = { ...pair, members: [], memberPersonIds: [] }
+    expect(truppCrewWithout(solo, 'p1')).toBeNull()
+    expect(truppTransferState(solo, 'p1')).toBe('blocked')
+  })
+
+  it('says nothing to move for somebody who is not in it at all', () => {
+    expect(truppCrewWithout(pair, 'pX')).toBeNull()
+    expect(truppTransferState(pair, 'pX')).toBe('blocked')
+    expect(truppTransferState(undefined, 'p1')).toBe('blocked')
+  })
+
+  it('allows the move out of a Trupp that is only registered, or already out', () => {
+    expect(truppTransferState(pair, 'p2')).toBe('ready')
+    expect(truppTransferState({ ...pair, status: 'raus', entryTime: '2026-06-21T10:00:00Z',
+      exitTime: '2026-06-21T10:40:00Z' }, 'p2')).toBe('ready')
+  })
+
+  /* ⚠️ …and NEVER out of a crew that is still out there. Its Eintritt is stamped, its Kontaktuhr
+   * is running, and the Atemschutzüberwachung is watching exactly these people — rewriting who is
+   * in it from another Trupp's form would leave that watch standing for a crew that never went in
+   * that way. The warning keeps its sentence there and says so instead. */
+  it('refuses the move while that Trupp is deployed', () => {
+    expect(truppTransferState({ ...pair, status: 'aktiv', entryTime: '2026-06-21T10:00:00Z' }, 'p2'))
+      .toBe('deployed')
   })
 })
 

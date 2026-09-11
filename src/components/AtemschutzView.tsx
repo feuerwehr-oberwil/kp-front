@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay, Popover } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, type TruppAlarm, type TruppLive } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
@@ -89,7 +89,7 @@ function plainWords(t: Trupp, lite: boolean) {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, anyLeitung = false, unlinkTruppLine,
+  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, anyLeitung = false, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, onShareLink, shareLinkActive = false, lite, frozenAt,
@@ -140,6 +140,11 @@ export function AtemschutzView({
   recordPressure: (id: string, bar: number) => void
   setTruppStatus: (id: string, status: Trupp['status']) => void
   editTrupp: (id: string, f: TruppFields) => void
+  /** Take one person out of the Trupp that still holds them — the «bereits in einem anderen
+   *  Trupp» warning's own fix (useTruppActions · transferOutOfTrupp). `toName` is the
+   *  Gruppenführer of the Trupp being formed here, so the row it writes can say where they went.
+   *  Absent ⇒ the warning keeps the plain sentence it has always had. */
+  transferOutOfTrupp?: (fromId: string, personId: string, toName?: string) => boolean
   /** `standby` re-registers the Trupp as Reserve (angemeldet) instead of sending it straight in */
   reactivateTrupp: (id: string, f: TruppFields, standby?: boolean) => void
   deleteTrupp: (id: string) => void
@@ -246,6 +251,23 @@ export function AtemschutzView({
   )
   // the shared create / edit / re-deploy form — null when closed
   const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp; focus?: 'auftrag' } | null>(null)
+  /**
+   * personId → the OTHER Trupp that still holds them, for the form's double-assignment warning
+   * and the «In diesen Trupp verschieben» behind it.
+   *
+   * Same rule as `assignedPersonIds`, which is what decides that the warning appears at all: a
+   * `raus` Trupp holds nobody, and the Trupp being edited is never its own conflict — so the
+   * card this answers with is always the one the sentence is complaining about.
+   */
+  const truppOfPerson = useMemo(() => {
+    const by = new Map<string, Trupp>()
+    for (const t of trupps) {
+      if (t.status === 'raus' || t.id === form?.trupp?.id) continue
+      if (t.leaderPersonId) by.set(t.leaderPersonId, t)
+      for (const id of t.memberPersonIds ?? []) by.set(id, t)
+    }
+    return by
+  }, [trupps, form?.trupp?.id])
   /**
    * «zeig mir den» from THIS surface — the header's überfällig badge. The `focus` prop covers
    * the jump in from somewhere else (a locked Anwesenheit row); this is the same mark set from
@@ -1263,6 +1285,14 @@ export function AtemschutzView({
              finished crew never blocks a live form either.) */
           assignedIds={form.mode === 'edit' && form.trupp?.status === 'raus' ? NO_ASSIGNED
             : assignedPersonIds(trupps.filter((t) => t.id !== form.trupp?.id))}
+          /* …and the way OUT of that conflict, in one tap (11.09.). Both halves read the same
+             `truppOfPerson` index, so the state the warning shows and the Trupp the move writes
+             to can never be two different cards. */
+          transferState={(personId) => truppTransferState(truppOfPerson.get(personId), personId)}
+          onTransfer={transferOutOfTrupp && ((personId, toName) => {
+            const from = truppOfPerson.get(personId)
+            if (from) transferOutOfTrupp(from.id, personId, toName)
+          })}
           leitungOptions={leitungOptions(form.trupp?.id)}
           lite={!!lite}
           // ⚠️ EVERY phone, not only the handed-over one (03.09.). `compact` is `useIsPhone`, so a
@@ -2319,7 +2349,7 @@ function inScrollPort(el: HTMLElement): boolean {
 }
 
 function TruppForm({
-  mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, rolesById, leitungOptions, lite = false, stack = false, onAddGuest, onCancel, onSubmit,
+  mode, initial, focusSection, roster, defaultFunkkanal, personnel, presentIds, stationIds, assignedIds, transferState, onTransfer, rolesById, leitungOptions, lite = false, stack = false, onAddGuest, onCancel, onSubmit,
 }: {
   mode: FormMode
   initial?: Trupp
@@ -2331,6 +2361,13 @@ function TruppForm({
   presentIds: Set<string>
   stationIds: Set<string>
   assignedIds: Set<string>
+  /** …and whether the double assignment can be UNDONE from here: `ready` earns the warning its
+   *  «In diesen Trupp verschieben», `deployed` says instead that the other crew is out there,
+   *  `blocked` leaves the plain sentence (lib/atemschutz · truppTransferState). */
+  transferState?: (personId: string) => TruppTransferState
+  /** move that person out of the Trupp they are still in — `toName` is the Gruppenführer this
+   *  form is forming, so the other Trupp's Verlauf row can say where they went */
+  onTransfer?: (personId: string, toName: string) => void
   /** who already holds a job on this Einsatz (Anwesenheits-Bemerkung), so the picker can say
    *  «schon: Einsatzleiter» beside a name — a hint, never a block */
   rolesById: Map<string, string>
@@ -2470,7 +2507,7 @@ function TruppForm({
   const teamRef = useRef<HTMLDivElement>(null)
   const zielRef = useRef<HTMLLabelElement>(null)
   const pressureRef = useRef<HTMLDivElement>(null)
-  const conflictRef = useRef<HTMLButtonElement>(null)
+  const conflictRef = useRef<HTMLDivElement>(null)
 
   // ⚠️ Shown in EVERY mode, including 'edit'. Hiding it there meant a mistyped Eingangsdruck could
   // never be corrected — and it is the number the Verbrauch and the tiefster Druck on the Rapport
@@ -2502,12 +2539,21 @@ function TruppForm({
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
+  /* ⚠️ The person, not just their name (11.09.): the warning now carries an ACTION — take them
+     out of the other Trupp — and that needs the id it is about and whether that Trupp is one a
+     person may be quietly moved out of at all (lib/atemschutz · truppTransferState). */
   const assignedConflict = useMemo(() => {
     for (const sl of team) {
-      if (sl.personId && assignedIds.has(sl.personId)) return sl.name.trim() || az.assignedFallbackName
+      if (sl.personId && assignedIds.has(sl.personId)) {
+        return {
+          personId: sl.personId,
+          name: sl.name.trim() || az.assignedFallbackName,
+          state: transferState?.(sl.personId) ?? 'blocked',
+        }
+      }
     }
     return null
-  }, [team, assignedIds])
+  }, [team, assignedIds, transferState])
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
   const canSubmit = auftragOk && auftragFilled && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
   /* No sections on the phone any more (08.09., field ask): with the Mannschaft reduced to the
@@ -2851,15 +2897,29 @@ function TruppForm({
           </div>
         </>)}
 
-        {/* ⚠️ A BUTTON since 05.09. The sentence names a person who is in another Trupp, and the
+        {/* ⚠️ TAPPABLE since 05.09. The sentence names a person who is in another Trupp, and the
             only place that can be fixed is the Mannschaft — so pressing the sentence opens it,
             the same jump a blocked «Trupp anmelden» now makes. It used to be an inert <p>: the
-            loudest thing on the form, naming the one thing in the way, and doing nothing. */}
+            loudest thing on the form, naming the one thing in the way, and doing nothing.
+            ⚠️ …and since 11.09. it carries the FIX rather than only the way to it: «In diesen
+            Trupp verschieben» takes the person out of the other Trupp, which is the whole errand
+            the jump was sending the operator on. The sentence keeps its own tap — with the action
+            withheld (the other crew is out there) it is the only door left. Two buttons inside
+            one warn field, never a button inside a button. */}
         {assignedConflict && (
-          <button ref={conflictRef} type="button" className={cx(s.formColWide, s.formWarn)}
-            onClick={() => pointAt(() => teamRef.current)}>
-            <Icon id="warn" /><span>{fillTemplate(az.assignedConflict, { name: assignedConflict })}</span>
-          </button>
+          <div ref={conflictRef} className={cx(s.formColWide, s.formWarn)}>
+            <Icon id="warn" />
+            <button type="button" className={s.formWarnText} onClick={() => pointAt(() => teamRef.current)}>
+              {fillTemplate(assignedConflict.state === 'deployed' ? az.assignedConflictDeployed : az.assignedConflict,
+                { name: assignedConflict.name })}
+            </button>
+            {assignedConflict.state === 'ready' && onTransfer && (
+              <button type="button" className={s.formWarnAct}
+                onClick={() => onTransfer(assignedConflict.personId, team[0]?.name.trim() ?? '')}>
+                {az.assignedTransfer}
+              </button>
+            )}
+          </div>
         )}
       </div>
 

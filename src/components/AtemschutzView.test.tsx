@@ -1257,7 +1257,9 @@ describe('the Reihenfolge menu', () => {
   /* ⚠️ «X ist bereits in einem anderen Trupp» is fixed in the MANNSCHAFT and nowhere else
    * (05.09.): the sentence names a person, and taking them out of this Trupp is section 1's job.
    * It used to be an inert <p> that only rang itself, leaving whichever section happened to be
-   * open standing. */
+   * open standing.
+   * ⚠️ …and since 11.09. the warning carries the fix itself. Here the OTHER Trupp is aktiv, so
+   * the action is withheld and the sentence says why — the jump is then the only door left. */
   it('sends the double-assignment warning to the Mannschaft — from the sentence and from the save', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const editTrupp = vi.fn()
@@ -1269,15 +1271,40 @@ describe('the Reihenfolge menu', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /Steiner/ })[0]) // the row → its card
     fireEvent.click(screen.getAllByRole('button', { name: az.cardMenu })[0])
     fireEvent.click(screen.getByRole('menuitem', { name: az.edit }))
-    const warn = document.querySelector<HTMLButtonElement>(`.${s.formWarn}`)!
-    expect(warn.textContent).toContain(fillTemplate(az.assignedConflict, { name: 'Steiner' }))
+    const warn = document.querySelector<HTMLElement>(`.${s.formWarn}`)!
+    expect(warn.textContent).toContain(fillTemplate(az.assignedConflictDeployed, { name: 'Steiner' }))
+    expect(screen.queryByRole('button', { name: az.assignedTransfer })).toBeNull()
     // flat form: the sentence RINGS the Mannschaft it is about
-    fireEvent.click(warn)
+    fireEvent.click(warn.querySelector(`.${s.formWarnText}`)!)
     expect(document.querySelector(`.${s.formFlash}`)?.textContent).toContain(az.sectionTeam)
     // …and so does a blocked save, instead of only ringing the sentence
     fireEvent.click(screen.getByRole('button', { name: az.save }))
     expect(editTrupp).not.toHaveBeenCalled()
     expect(document.querySelector(`.${s.formFlash}`)?.textContent).toContain(az.sectionTeam)
+  })
+
+  /* ── The warning's own way out (11.09., user report) ────────────────────────────────────────
+   * It named the obstacle and left the operator to throw this form away, find the other card,
+   * edit it and start over. One tap now takes the person out of the Trupp that still holds them
+   * — but ONLY out of one that is not out there: a crew whose Kontaktuhr is running is watched by
+   * the Atemschutzüberwachung as exactly those people (lib/atemschutz · truppTransferState). */
+  it('moves the person out of a Trupp that has not gone in yet — one tap, from the warning', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const transferOutOfTrupp = vi.fn(() => true)
+    mount({ transferOutOfTrupp, trupps: [
+      { ...aktivTrupp(), leaderPersonId: 'p1' },
+      // the other card: registered at the Tafel, never eingerückt — nothing is being watched yet
+      { ...aktivTrupp(), id: 'tr2', name: 'Meier', members: ['Frei'], status: 'angemeldet',
+        entryTime: '', lastContactTime: '', readings: [], leaderPersonId: 'p9', memberPersonIds: ['p1'] },
+    ] })
+    fireEvent.click(screen.getAllByRole('button', { name: /Steiner/ })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: az.cardMenu })[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: az.edit }))
+    const warn = document.querySelector<HTMLElement>(`.${s.formWarn}`)!
+    expect(warn.textContent).toContain(fillTemplate(az.assignedConflict, { name: 'Steiner' }))
+    fireEvent.click(screen.getByRole('button', { name: az.assignedTransfer }))
+    // …out of THAT Trupp, naming the one being formed here so its Verlauf row can say where to
+    expect(transferOutOfTrupp).toHaveBeenCalledWith('tr2', 'p1', 'Steiner')
   })
 
   /* ONE placeholder for every Auftrag (03.09.): «z. B. 2OG links» proposed a storey to a

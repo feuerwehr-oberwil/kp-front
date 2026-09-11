@@ -3492,7 +3492,7 @@ export function IncidentWorkspace({
     mirroredTeamNames: () => linkedPlans.flatMap((p) => (board[p.id] ?? []).filter((a) => a.kind === 'resource').map((a) => a.text ?? '')),
   })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
     useTruppActions({
       trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
@@ -4259,6 +4259,10 @@ export function IncidentWorkspace({
       recordPressure={recordPressure}
       setTruppStatus={setTruppStatus}
       editTrupp={editTruppA}
+      // «In diesen Trupp verschieben» — the one tap behind the form's double-assignment warning.
+      // It only ever touches the crew fields of the OTHER Trupp, so it is the same slice an
+      // Atemschutz-Link session already writes (useTruppActions · transferOutOfTrupp).
+      transferOutOfTrupp={transferOutOfTrupp}
       reactivateTrupp={reactivateTruppA}
       deleteTrupp={deleteTrupp}
       restoreTrupp={restoreTrupp}

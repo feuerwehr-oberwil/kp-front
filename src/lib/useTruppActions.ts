@@ -10,7 +10,7 @@ import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
-import { alarmBarFor, currentRunStart, isAtemschutzTrupp, truppAwaitsEntry, truppLogName } from './atemschutz'
+import { alarmBarFor, currentRunStart, isAtemschutzTrupp, truppAwaitsEntry, truppCrewWithout, truppLogName, truppTransferState } from './atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
 // tablet six seconds ahead put contact times into the Rapport that no other device agreed with,
@@ -1007,6 +1007,57 @@ export function useTruppActions(deps: Deps) {
     // back a save that wrote nothing (the operator would watch it do visibly nothing).
     if (line) remember(id, line, tr, (t) => ({ ...t, ...patch }))
   }
+  /**
+   * Take one person OUT of the Trupp they are still recorded in, because they are being written
+   * into another one — the tap behind «bereits in einem anderen Trupp» (AtemschutzView · TruppForm).
+   *
+   * The warning used to be a dead end: it named the obstacle, and clearing it meant throwing this
+   * form away, finding the other card, editing it and starting over. This is that round trip, as
+   * one tap on the sentence that complains.
+   *
+   * ⚠️ ONE Verlauf row, on the Trupp GIVING the person up, and it says where they went. The
+   * receiving Trupp writes its own row anyway — its Anmeldung or its Bearbeitungszeile names the
+   * whole new crew — so a second «dazugekommen» here would be the same fact twice, with a gap in
+   * between in which the person was in no Trupp at all.
+   *
+   * ⚠️ NEVER out of a crew that is still deployed (lib/atemschutz · truppTransferState): its
+   * Kontaktuhr is running and the Atemschutzüberwachung is watching exactly these people. The
+   * caller hides the action in that state; this refuses it as well, because a guard that lives
+   * only in the view is a guard a second call site can walk past.
+   *
+   * ⚠️ Crew fields ONLY. Nothing here touches `status`, `entryTime`, `lastContactTime`, `exitTime`
+   * or `readings` — the safety clocks of the other Trupp keep running exactly as they were, which
+   * is the invariant that lets this be a one-tap action at all.
+   */
+  const transferOutOfTrupp = (fromId: string, personId: string, toName?: string): boolean => {
+    const tr = trupps.find((t) => t.id === fromId)
+    if (!tr || truppTransferState(tr, personId) !== 'ready') return false
+    const crew = truppCrewWithout(tr, personId)!
+    // whose NAME is being moved — the slots are index-aligned, leader first (lib/personnel · truppSlots)
+    const slotAt = [tr.leaderPersonId, ...(tr.memberPersonIds ?? [])].indexOf(personId)
+    const who = ([tr.name, ...(tr.members ?? [])][slotAt] ?? '').trim()
+    const patch: Partial<Trupp> = {
+      name: crew.name, members: crew.members,
+      leaderPersonId: crew.leaderPersonId, memberPersonIds: crew.memberPersonIds,
+    }
+    const apply = (t: Trupp): Trupp => ({ ...t, ...patch })
+    setTrupps((ts) => ts.map((t) => (t.id === fromId ? apply(t) : t)))
+    // the Trupp's NAME is its Gruppenführer's (types · Trupp.name), so handing the leader over
+    // renames it — and the chip/marker that carries that name has to follow, exactly as in editTrupp
+    if (crew.name !== tr.name) syncPlacementLabel(tr, crew.name)
+    const az = appConfig.copy.atemschutz
+    const to = (toName ?? '').trim()
+    // …and «in Trupp Frei Nina gewechselt» on the row about Frei Nina is not an answer: that is
+    // the case where the transferred person IS the new Trupp's Gruppenführer (copy · logMovedOutPlain)
+    const line = fillTemplate(to && to !== who ? az.logMovedOut : az.logMovedOutPlain,
+      { name: tr.name, person: who, to })
+    log('pen', line, 'team', undefined, undefined, { subjectId: fromId })
+    // the same op_type the form's own save emits: this IS a crew edit of that Trupp, and a link
+    // session may send `atemschutz.*` and nothing else (backend · auth/incident_link.py)
+    emit('atemschutz.edit', { id: fromId })
+    remember(fromId, line, tr, apply)
+    return true
+  }
   // re-deploy an exited Trupp (refilled bottle, going back inside): a fresh start — new pressure +
   // reset clocks/log — while letting the EL adjust the Auftrag/team on the way back in.
   //
@@ -1354,5 +1405,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
 }

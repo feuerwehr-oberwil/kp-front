@@ -196,6 +196,88 @@ describe('useTruppActions placement (one place per Trupp)', () => {
   })
 })
 
+/* ── «In diesen Trupp verschieben» (11.09., user report) ────────────────────────────────────
+ * The double-assignment warning named the obstacle and left the operator to throw the form away,
+ * find the other card, edit it and start over. This is that round trip as one tap — and the
+ * safety rule around it: never out of a crew that is still out there. */
+describe('transferOutOfTrupp — the warning’s own way out', () => {
+  const standby = (over: Partial<Trupp> = {}): Trupp => baseTrupp({
+    status: 'angemeldet', entryTime: '', lastContactTime: '',
+    name: 'Keller Anna', members: ['Frei Nina', 'Amrein Patrick'],
+    leaderPersonId: 'p1', memberPersonIds: ['p2', 'p3'], ...over,
+  })
+
+  it('takes the AdF out and writes ONE row that says where they went', () => {
+    const rows: { text: string; subjectId?: string }[] = []
+    const { actions, state } = harness(standby(), undefined, undefined, rows)
+    expect(actions.transferOutOfTrupp('T1', 'p2', 'Müller Hans')).toBe(true)
+    expect(state.trupps[0]).toMatchObject({
+      name: 'Keller Anna', members: ['Amrein Patrick'], leaderPersonId: 'p1', memberPersonIds: ['p3'],
+    })
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text).toBe(fillTemplate(appConfig.copy.atemschutz.logMovedOut,
+      { name: 'Keller Anna', person: 'Frei Nina', to: 'Müller Hans' }))
+    // the row is ABOUT that Trupp, which is what files it under «Atemschutz» and lets the crew
+    // enumeration in it print its Gruppenführer (lib/report · journalRows · truppIds)
+    expect(rows[0].subjectId).toBe('T1')
+  })
+
+  // the Trupp's name IS its Gruppenführer, so handing the leader over renames it — and the marker
+  // that carries that name has to follow, exactly as an ordinary edit does
+  it('promotes the next member when the Gruppenführer leaves, marker label included', () => {
+    const marker: Entity = { id: 'e1', kind: 'team', layer: 'einheiten', coord: [7.5, 47.4], truppId: 'T1', label: 'Keller A.' }
+    const { actions, state } = harness(standby({ entityId: 'e1' }), { entities: [marker] })
+    expect(actions.transferOutOfTrupp('T1', 'p1', 'Müller Hans')).toBe(true)
+    expect(state.trupps[0]).toMatchObject({ name: 'Frei Nina', members: ['Amrein Patrick'], leaderPersonId: 'p2' })
+    expect(state.doc.entities[0].label).toBe('Frei Nina')
+  })
+
+  /* ⚠️ Its Kontaktuhr is running and the Atemschutzüberwachung is watching exactly these people.
+   * The form hides the action in that state; this pins that the ACTION refuses it too — a guard
+   * that lives only in the view is one a second call site walks past. */
+  it('refuses to move anybody out of a Trupp that is deployed — nothing written, no row', () => {
+    const rows: { text: string }[] = []
+    const { actions, state } = harness(standby({ status: 'aktiv', entryTime: '2026-07-06T10:00:00Z' }), undefined, undefined, rows)
+    expect(actions.transferOutOfTrupp('T1', 'p2', 'Müller Hans')).toBe(false)
+    expect(state.trupps[0].members).toEqual(['Frei Nina', 'Amrein Patrick'])
+    expect(rows).toHaveLength(0)
+  })
+
+  it('refuses to empty a Trupp — that is a deletion, and it has its own button', () => {
+    const { actions, state } = harness(standby({ members: [], memberPersonIds: [] }))
+    expect(actions.transferOutOfTrupp('T1', 'p1', 'Müller Hans')).toBe(false)
+    expect(state.trupps[0].name).toBe('Keller Anna')
+  })
+
+  // …and the crew fields ONLY: the other Trupp's clocks and its Druckprotokoll are untouched,
+  // which is the invariant that lets this be a one-tap action at all
+  it('never touches the other Trupp’s clocks or readings', () => {
+    const t = standby({ status: 'raus', entryTime: '2026-07-06T10:00:00Z', exitTime: '2026-07-06T10:40:00Z',
+      lastContactTime: '2026-07-06T10:30:00Z', lowestBar: 120,
+      readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' }] })
+    const { actions, state } = harness(t)
+    expect(actions.transferOutOfTrupp('T1', 'p2')).toBe(true)
+    expect(state.trupps[0]).toMatchObject({
+      status: 'raus', entryTime: t.entryTime, exitTime: t.exitTime,
+      lastContactTime: t.lastContactTime, lowestBar: 120, readings: t.readings,
+    })
+  })
+
+  /* …and «in Trupp Frei Nina gewechselt» on the row about Frei Nina is not an answer: that is the
+   * case where the transferred person IS the new Trupp's Gruppenführer, so the destination half
+   * of the sentence would repeat the name it already carries. */
+  it('drops the destination when it is nameless — or is the person being moved', () => {
+    const rows: { text: string }[] = []
+    const plain = fillTemplate(appConfig.copy.atemschutz.logMovedOutPlain,
+      { name: 'Keller Anna', person: 'Frei Nina' })
+    const a = harness(standby(), undefined, undefined, rows)
+    a.actions.transferOutOfTrupp('T1', 'p2')
+    const b = harness(standby(), undefined, undefined, rows)
+    b.actions.transferOutOfTrupp('T1', 'p2', 'Frei Nina')
+    expect(rows.map((r) => r.text)).toEqual([plain, plain])
+  })
+})
+
 /* ── A Trupp that is OUT stays correctable (09.09., Feldentscheid) ─────────────────────────────
  * «Bearbeiten» left the ⋯ menu the moment a Trupp reported out — and that is when the mistakes
  * are found: the crew was wrong, an AdF joined and was never entered, the Auftrag has a typo. All

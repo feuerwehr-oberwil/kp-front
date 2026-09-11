@@ -533,18 +533,37 @@ export function linkMarkup(
    * already says about all of them, three or four times in one sentence, on the one surface with
    * no room to spare. The SCREEN keeps them all: there the names are tappable people, and the
    * suffix is what tells you which one you are about to open.
+   *
+   * ⚠️ On such a row the FIRST name marked is the Gruppenführer, and it is badged whether or not
+   * anybody ever wrote a Funktion on the Anwesenheit (the reported bug, 11.09.). The badge used
+   * to be read off the Anwesenheits-Bemerkung alone, so «Trupp Müller Hans (GF) / Meier Anna:
+   * Eintritt» and «Trupp Keller Laura / Frei Nina: Druck 280 bar» printed side by side on one
+   * Rapport — the second crew's leader simply had no «AS-GF» on the roster (a Gast, or a job
+   * nobody typed), and the row lost the one fact it is read for.
+   *
+   * The position IS the record: every crew-enumerating row is written leader-first
+   * (lib/atemschutz · truppLogName), so the first name in THAT TEXT is who led the Trupp at THAT
+   * moment — which is also why this must stay a display-time read of the row rather than today's
+   * `Trupp.name` stamped onto an hour-old line.
    */
   opts?: { crewRow?: boolean },
 ): string | undefined {
   const parts = linkParts(text, vocab, { phone: true })
   if (!parts.some((p) => p.kind)) return undefined
+  let leadSaid = false
   return parts
     .map((p) => {
       if (!p.kind) return esc(p.text)
       if (p.kind === 'url' || p.kind === 'phone') {
         return `<a href="${esc(p.href ?? p.text)}"><u>${esc(p.text)}</u></a>`
       }
-      const role = p.role && opts?.crewRow ? crewLeaderBadge(p.role) : p.role
+      let role = p.role
+      if (opts?.crewRow) {
+        const lead = !leadSaid
+        leadSaid = true
+        role = (p.role ? crewLeaderBadge(p.role) : undefined)
+          ?? (lead ? appConfig.copy.atemschutz.leaderBadge : undefined)
+      }
       // the job in plain weight after the bold name: it is context for the name, not a second name
       return role ? `<b>${esc(p.text)}</b> (${esc(role)})` : `<b>${esc(p.text)}</b>`
     })
