@@ -29,6 +29,26 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A SharePoint-synced plan landed on a second, invisible Einsatzobjekt.** A plans folder is
+  named «Adresse - Name», and every other importer keys the object on the **name** with the
+  address in its own field; the SharePoint pull hashed the whole folder string, so each folder
+  minted a second, address-less copy of the building beside the one the station already had. The
+  pull then kept updating the copy nobody could reach – an Einsatzobjekt is offered at an
+  incident by **distance**, and the new rows had no coordinates at all, so the crew went on
+  opening yesterday's sheet while the current one sat on an object that appears at no Einsatz.
+  The connector now splits the folder name the same way the importer does, so a sync updates the
+  station's own object, and a newly created one carries its address plus coordinates geocoded
+  from it (best-effort – a geocoder that finds nothing never holds up a sync). Objects that carry
+  plans and still have no position are counted on `/admin` → System, because a plan nobody can
+  reach is worse than no plan. An already-synced deployment repairs itself with
+  `python -m app.admin_objects repair-sharepoint-keys`: it folds each bare copy into the older,
+  richer object – keeping the newest sheet per Modul-Slot, the real address, the coordinates and
+  the station's georeference – re-keys the ones that have no twin, geocodes what it splits out,
+  and lists whatever is left without a position. It reports by default and writes only with
+  `--apply`, so its dry run is also the way to check a deployment afterwards.
+
 ## [0.10.0] – 2026-09-06
 
 ### Added

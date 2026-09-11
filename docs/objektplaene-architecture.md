@@ -67,8 +67,20 @@ flowchart LR
 ```
 
 `import_einsatzplaene.py` (private) is the source-of-truth pull: it walks OneDrive, geocodes
-(swisstopo, biased by the configured `", <Ort> <Kanton>"` locality), assigns each object a **deterministic `uuid5`** from its
-folder name, copies the matched Modul-PDFs into `plans/`, and writes `objects.manifest.json`.
+(swisstopo, biased by the configured `", <Ort> <Kanton>"` locality), assigns each object a
+**deterministic `uuid5`** from its folder name, copies the matched Modul-PDFs into `plans/`, and
+writes `objects.manifest.json`.
+
+⚠️ **The folder name is read as «Adresse - Name», and the key is the NAME half**, with the
+address in its own field (`app/admin_objects · folder_identity`, verified against production on
+11.09.2026: folder «Im Buech 10 - Hof Thürkauf, Im Buech 15, Im Buech 20» is stored as
+`object_id_for_key('Hof Thürkauf, Im Buech 15, Im Buech 20')`, address «Im Buech 10»). A folder
+with no ` - ` is all name. Everything that reads a plans folder – the private importer, the
+SharePoint connector, the repair CLI – has to derive the id exactly this way: the connector
+hashed the whole folder string until 11.09.2026, which minted a second, address-less,
+coordinate-less object beside every one the station already had (and since an Einsatzobjekt is
+surfaced by distance, its plans were reachable by nobody). `admin_objects
+repair-sharepoint-keys` folds those back and re-keys the rest.
 `fix_object_coords.py` is an optional accuracy pass that overwrites the swisstopo coordinates in
 the manifest with authoritative ones from the FireGIS amtliche Vermessung register. `admin_objects`
 (OSS) then ingests that manifest into a deployment.
