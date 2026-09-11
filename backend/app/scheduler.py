@@ -424,6 +424,55 @@ async def _positions_sweep() -> None:
             logger.exception("Position sweep failed")
 
 
+#: When the unattended Mannschaft sync runs, Europe/Zurich. Nightly and deliberately odd: the
+#: quietest hour of a fire station's day, and a minute nobody else's cron is on. `jitter` spreads
+#: it further, so a fleet of self-hosted stations does not hit Divera in the same second.
+PERSONNEL_SYNC_CRON = {"hour": 4, "minute": 17, "jitter": 600}
+
+
+async def _personnel_autosync() -> None:
+    """Bring the roster in line with Divera overnight, at the level the station configured.
+
+    ⚠️ Registered unconditionally like every other credential-driven job, and a no-op on the two
+    states that are not failures — ``roster.autoSync: "off"``, and no Divera key at all. The
+    level is re-read on every run, so switching it in Verwaltung takes effect tonight.
+
+    The connector state is what makes this SAFE to run unattended. A sync that quietly stopped
+    working leaves the roster looking plausible and steadily wrong, so «zuletzt synchronisiert»
+    and «zuletzt versucht» are recorded separately, and at level ``"safe"`` the departures the
+    run declined to apply are counted into the detail rather than forgotten.
+    """
+    from . import connector_state
+    from .credentials import load as load_credentials
+    from .personnel import auto_sync, sync_detail
+
+    async with async_session_maker() as db:
+        await load_credentials(db)
+        try:
+            result = await auto_sync(db)
+            if result is None:
+                return  # level 'off', or no key — nothing was attempted, so nothing is reported
+            await connector_state.record(
+                db,
+                connector_state.DIVERA_PERSONNEL,
+                ok=True,
+                detail=sync_detail(result, trigger="scheduled", level=result["level"]),
+            )
+            await db.commit()
+            logger.info(
+                "Mannschaft autosync (%s): +%d new, %d updated, %d deactivated, %d stale",
+                result["level"],
+                result["created"],
+                result["updated"],
+                result["deactivated"],
+                result["stale"] - result["deactivated"],
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.exception("Mannschaft autosync failed")
+            await connector_state.record_failure(db, connector_state.DIVERA_PERSONNEL, e)
+
+
 async def _demo_reset() -> None:
     """DEMO ONLY: wipe + reseed the synthetic Musterdorf incident/roster (see demo_reset.reset).
     Runs in-process so the public demo self-cleans on an exact cadence, instead of relying on the
@@ -554,6 +603,19 @@ def _start_scheduler_jobs() -> None:
         coalesce=True,
     )
     jobs.append(f"SharePoint-Pull ({SHAREPOINT_TICK_SECONDS}s tick, idle without an app registration)")
+    # Nightly, and idle on a station that has not asked for it (`roster.autoSync: "off"`) or has
+    # no Divera key — the same unconditional registration as the jobs above, for the same reason.
+    _scheduler.add_job(
+        _personnel_autosync,
+        CronTrigger(timezone=ZoneInfo("Europe/Zurich"), **PERSONNEL_SYNC_CRON),
+        id="personnel_autosync",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(
+        f"Mannschaft-Autosync ({PERSONNEL_SYNC_CRON['hour']:02d}:{PERSONNEL_SYNC_CRON['minute']:02d} "
+        "Europe/Zurich, idle at autoSync 'off')"
+    )
     # Keeps the snapshot the SYNCHRONOUS credential readers see from going stale — see
     # `_refresh_credentials`.
     _scheduler.add_job(

@@ -3244,7 +3244,7 @@
           "divera"
         ],
         "summary": "Webhook",
-        "description": "Receive an alarm. Secret via ?secret= or X-Webhook-Secret. 200 even on duplicate.",
+        "description": "Receive an alarm. Secret via ?secret= or X-Webhook-Secret. 200 even on duplicate.\n\n⚠️ A delivery that got past the secret is recorded as the alarm connector's last SUCCESS,\nduplicate or not. The webhook is the primary intake and the 120 s poll is the fallback, so\nthe health of the link is «Divera reached us», not «our key still works» — a station running\non the webhook alone would otherwise read as a dead connector on the System card. The\nrecording sits AFTER the upsert on purpose: that call takes the per-alarm lock\n(`alarms.lock_alarm_identity`), so two simultaneous deliveries of the same alarm reach the\nstatus row one after the other rather than both trying to create it.",
         "operationId": "webhook_api_divera_webhook_post",
         "parameters": [
           {
@@ -5912,6 +5912,7 @@
           "personnel"
         ],
         "summary": "Sync Execute",
+        "description": "Sync now, by hand. Records the SAME connector state the nightly job writes, so «zuletzt\nsynchronisiert» on the System card is true whoever triggered the run — a card that only\ncounted the unattended runs would report a station as stale on the day somebody sat down and\nsynced it themselves.",
         "operationId": "sync_execute_api_personnel_sync_execute_post",
         "parameters": [
           {
@@ -15609,6 +15610,16 @@
             ],
             "title": "Nameorder",
             "default": "last-first"
+          },
+          "autoSync": {
+            "type": "string",
+            "enum": [
+              "off",
+              "safe",
+              "full"
+            ],
+            "title": "Autosync",
+            "default": "safe"
           }
         },
         "type": "object",

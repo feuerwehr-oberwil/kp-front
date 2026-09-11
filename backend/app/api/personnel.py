@@ -10,6 +10,7 @@ from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import connector_state
 from .. import personnel as personnel_svc
 from ..auth.dependencies import EditorOrAdmin, OptionalUser, UserOrAdmin, _admin_session_valid
 from ..config import settings
@@ -431,10 +432,25 @@ async def sync_execute(
     body: PersonnelSyncExecuteBody | None = None,
     db: AsyncSession = Depends(get_db),
 ):
+    """Sync now, by hand. Records the SAME connector state the nightly job writes, so «zuletzt
+    synchronisiert» on the System card is true whoever triggered the run — a card that only
+    counted the unattended runs would report a station as stale on the day somebody sat down and
+    synced it themselves."""
     await _require_divera(db)
     try:
-        return await personnel_svc.execute_sync(
+        result = await personnel_svc.execute_sync(
             db, deactivate_stale=(body or PersonnelSyncExecuteBody()).deactivate_stale
         )
     except (DiveraApiError, httpx.HTTPError, ValueError) as e:
+        # ⚠️ Roll back FIRST. Recording the failure commits, and a half-applied sync must not
+        # ride out on the back of its own error report.
+        await db.rollback()
+        await connector_state.record_failure(db, connector_state.DIVERA_PERSONNEL, e)
         raise HTTPException(status_code=502, detail=_divera_unreachable(e)) from None
+    await connector_state.record(
+        db,
+        connector_state.DIVERA_PERSONNEL,
+        ok=True,
+        detail=personnel_svc.sync_detail(result, trigger="manual"),
+    )
+    return result

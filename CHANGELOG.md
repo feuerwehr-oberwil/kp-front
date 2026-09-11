@@ -31,6 +31,29 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Every polling connector now says when it last actually worked.** Divera, Traccar and the
+  Mannschaft sync reported one thing about themselves – whether a key was entered – which is the
+  same sentence on a station whose key was rotated two years ago. They now keep the record
+  SharePoint has kept since it shipped: last attempt, last success, last error, and the counts
+  from the last run, served on `GET /api/system`. The two timestamps stay **separate** on
+  purpose, because a green tick standing through a fortnight of refused keys is precisely the
+  silent death this surface exists to prevent. The alarm connector counts an authenticated
+  webhook delivery as a success, not only a poll – the webhook is the primary intake – and the
+  Traccar writes are throttled so a 30-second sweep does not rewrite its status row twice a
+  minute, while the first failure after a run of successes is never delayed.
+- **The Mannschaft can keep itself in step with Divera overnight** (`roster.autoSync`, default
+  `"safe"`). The sync existed but was manual-only, so a roster was as current as the last time
+  somebody remembered to press the button. It now also runs nightly, at one of three levels:
+  `"safe"` applies joins, renames and Dienstgrade and **never deactivates anybody** – a member
+  who vanished from the feed is counted and reported, because a disappearance is as often a
+  broken feed as a resignation; `"full"` also deactivates them (`is_active = false`, never a
+  deletion – every past Einsatz keeps its names); `"off"` is the old manual-only behaviour. A run
+  that fetched **no members at all** now applies nothing and is recorded as a failure, at every
+  level and including the manual button: against an empty consumer list every member of the
+  station is stale, so one API hiccup could have emptied the whole Wehr.
+- **The «Einrichtung» checklist is answerable without a browser.** `GET /api/system` carries a
+  `setup` block – the nine predicates, the rows a station ticked off by hand, and whether
+  anything is left – derived server-side instead of only inside the admin card.
 - **The config API refuses what the CLI refuses.** Every safety check around the station's
   configuration document used to live in `admin_config`, which meant it protected the one path
   that already had somebody reading its output at a terminal: `PUT /api/config` answered **200**

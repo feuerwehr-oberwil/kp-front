@@ -40,6 +40,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
   - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
+  - [6d. Connector health (what `GET /api/system` reports)](#6d-connector-health-what-get-apisystem-reports)
 - [7. What ships with the app (no config needed)](#7-what-ships-with-the-app-no-config-needed)
 - [8. Empty state (a brand-new deployment)](#8-empty-state-a-brand-new-deployment)
 - [9. Loading station data with the admin CLIs](#9-loading-station-data-with-the-admin-clis)
@@ -108,6 +109,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `mittel.catalogue[].when`, `fleet.vehicles[].winfapAlias` | ❌ | **preserved but not editable** through the Arbeitsmappe (§9h); a file is the only way to set them |
 | `roster.nameOrder` | ✅ | Personen › **Personal** (§4) |
 | `roster.source` | ❌ | **file only** – «Personal» edits the crew and the name order, never where the crew comes from ([`SETUP.md` §4](SETUP.md)) |
+| `roster.autoSync` | ❌ | **file only** – how much the nightly Divera sync may do on its own (§4a) |
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
@@ -264,6 +266,10 @@ both now have browser pages – §9e and §9f.
     "nameOrder": "last-first",                    // "last-first" (Meier Hans, default) |
                                                   // "first-last" (Hans Meier) – applies to every
                                                   // surface: lists, map tags, Rapport, print
+    "autoSync": "safe",                           // how much the NIGHTLY Divera sync may do:
+                                                  // "safe" (default – joins/renames/Grade, never
+                                                  // deactivates), "full" (also deactivates the
+                                                  // members who left), "off" – see §4a
     // The station's Dienstgrade, MOST SENIOR FIRST – the order here IS the seniority order.
     // `key` is what a CSV import and a roster snapshot match on (§4b, §4c); `abbr` is the short
     // badge in lists; `tier` drives the «nur Offiziere» picker filter and the Anwesenheit
@@ -831,6 +837,24 @@ given name.
   admin set. Synced people carry a `divera` external identity, which is what the sync reconciles
   on; people you added by hand have none and are left alone.
 
+**`roster.autoSync` – how much the nightly run may do on its own** (since 2026-09-11). The sync
+used to be manual-only, so a roster was as current as the last time somebody remembered to press
+the button. It now also runs once a night (04:17 Europe/Zurich, jittered), at one of three
+levels:
+
+| value | what the nightly run does |
+|-------|---------------------------|
+| `"safe"` | **the default.** Applies joins, renames and Dienstgrad changes. A member who has left Divera is **counted and left active** – a disappearance is as often a broken feed or a scope change as a resignation. The outstanding number is reported on System › Verbindungen, so the departures are visible rather than silently applied |
+| `"full"` | the same, and the stale members are **deactivated** (`is_active = false`). Never a deletion: every past Einsatz and Rapport keeps its names |
+| `"off"` | nothing unattended. «Mannschaft synchronisieren» in the admin UI still works exactly as before |
+
+Two guarantees hold at every level. A run that fetched **no members at all** applies nothing and
+is recorded as a failure – against an empty consumer list every member of the station is stale,
+so one API hiccup would otherwise empty the Wehr overnight. And a run that fails never moves
+«zuletzt synchronisiert»: the System card shows the last attempt and the last success separately,
+because a green tick standing through a fortnight of refused keys is the failure this connector
+is most likely to have.
+
 ### 4b. `"manual"` – CSV import + hand entry
 - Admin imports a CSV and/or adds people in the UI. **CSV columns:**
   | column | required | meaning |
@@ -1246,6 +1270,30 @@ failure two years in: Azure caps a secret at 24 months and says nothing when it 
 abgleichen» runs the same mechanism the scheduler runs.
 
 Fail-closed: no credentials, or no `sources` → nothing is fetched and nothing changes.
+
+### 6d. Connector health (what `GET /api/system` reports)
+
+Since 2026-09-11 the three polling connectors keep the same kind of record SharePoint has kept
+since it shipped, and `GET /api/system` (admin) serves it in the `connectors` list:
+
+| id | written by |
+|----|-----------|
+| `divera_alarms` | the 120 s alarm poll **and** every authenticated webhook delivery – the webhook is the primary intake, so a station running on it alone is not stale |
+| `traccar` | the 30 s vehicle-sample sweep. Its writes are throttled to roughly five minutes, because «still working» does not change twice a minute; a transition – the first failure after successes – is never throttled |
+| `divera_personnel` | the nightly Mannschaft sync **and** a hand-triggered `POST /api/personnel/sync/execute`, so «zuletzt synchronisiert» is true whoever pressed it |
+
+Each row carries `lastAttempt`, `lastSuccess`, `lastError` (ISO-8601 / null) and a small `counts`
+object beside the existing `configured` boolean; the rows that record nothing carry the same keys
+as `null`. **The two timestamps are separate on purpose** – a failed run never moves
+`lastSuccess`, so a green tick left standing through a fortnight of refused keys cannot happen.
+`state` is derived from the last outcome only (`offline` after a failure, `online` after a
+success, `null` before the first run): what counts as *stale* depends on how often a station
+expects the connector to fire, so that judgement stays with the surface rather than being
+guessed here. `lastError` never carries a credential.
+
+The same response carries a `setup` block – the nine «Einrichtung» predicates (`rows[].id` /
+`.done`), the rows hand-ticked in `setup.acknowledged`, and `complete` folding the two – derived
+server-side so anything that is not the admin card can ask whether a station is set up.
 
 ---
 

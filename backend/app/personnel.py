@@ -50,6 +50,13 @@ NameOrder = Literal["last-first", "first-last"]
 #: Fallback for every caller that cannot reach the config (pure helpers, seeds, CSV import).
 DEFAULT_NAME_ORDER: NameOrder = "last-first"
 
+#: How much the unattended sync may do (config ``roster.autoSync``) — see
+#: :class:`schemas.RosterConfig` for what each level means.
+AutoSyncLevel = Literal["off", "safe", "full"]
+
+#: The level a station that has never chosen one runs at: apply what arrives, deactivate nobody.
+DEFAULT_AUTO_SYNC: AutoSyncLevel = "safe"
+
 
 class _SplitNamePerson(Protocol):
     """A roster row as :func:`person_display_name` reads it — the stored string plus the split
@@ -265,6 +272,17 @@ async def load_roster_name_order(db: AsyncSession) -> NameOrder:
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     value = ((row.config_json or {}).get("roster", {}) or {}).get("nameOrder") if row else None
     return "first-last" if value == "first-last" else DEFAULT_NAME_ORDER
+
+
+async def load_roster_auto_sync(db: AsyncSession) -> AutoSyncLevel:
+    """The station's ``roster.autoSync`` (stored config → the shipped ``"safe"``).
+
+    Read on every run of the nightly job rather than at boot, so switching the level in
+    Verwaltung takes effect tonight and not at the next deploy — the same reason the scheduler
+    re-reads its credentials on every tick."""
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    value = ((row.config_json or {}).get("roster", {}) or {}).get("autoSync") if row else None
+    return value if value in ("off", "safe", "full") else DEFAULT_AUTO_SYNC
 
 
 # ─── CSV roster import ─────────────────────────────────────────────────────────────────
@@ -772,9 +790,17 @@ async def execute_sync(db: AsyncSession, *, deactivate_stale: bool) -> dict:
 
     Rank is derived from Divera qualifications when the personnel key can see them (authoritative
     then); if it can't, existing ranks are preserved untouched.
+
+    ⚠️ A fetch that returns NOBODY applies nothing and raises. Every member of the station is
+    stale against an empty feed, so with ``deactivate_stale`` this one API hiccup would
+    deactivate the whole Wehr — and since 2026-09-11 the sync also runs unattended at night,
+    where nobody would see it happen. An empty consumer list is a broken feed, not an empty
+    Feuerwehr; the honest answer is the error, not a silent zero.
     """
     order = await load_roster_name_order(db)
     members = await fetch_divera_members(order)
+    if not members:
+        raise ValueError("Divera returned no members")
     await _resolve_ranks(members, db)
     by_member = {m["divera_id"]: m for m in members}
     existing = await provider_people(db, "divera")
@@ -833,3 +859,42 @@ async def execute_sync(db: AsyncSession, *, deactivate_stale: bool) -> dict:
         "deactivated": deactivated,
         "stale": len(diff["stale"]),
     }
+
+
+def sync_detail(result: dict, *, trigger: str, level: AutoSyncLevel | None = None) -> dict:
+    """What a run of the sync says on the System card — the ``connector_states.detail`` payload.
+
+    ``staleOutstanding`` is the number this card exists for: at level ``"safe"`` the members who
+    have left Divera are counted and left active, so the surface can nudge («N Abgänge warten»)
+    instead of the departures sitting in the roster unremarked. At ``"full"`` the same run
+    already deactivated them, so it is zero — the outstanding ones, not the found ones.
+    """
+    return {
+        "trigger": trigger,  # 'scheduled' | 'manual'
+        "level": level,  # the autoSync level a scheduled run applied; null for a manual one
+        "added": result["created"],
+        "updated": result["updated"],
+        "reactivated": result["reactivated"],
+        "deactivated": result["deactivated"],
+        "staleOutstanding": result["stale"] - result["deactivated"],
+    }
+
+
+async def auto_sync(db: AsyncSession) -> dict | None:
+    """The unattended Mannschaft sync, at whatever level the station asked for.
+
+    Returns the applied counts plus the ``level`` they were applied at, or ``None`` when there
+    was nothing to do — level ``"off"``, or no Divera key. Both are ordinary states rather than
+    failures: the job is registered unconditionally (see ``scheduler``) precisely so that a key
+    pasted into Verwaltung this afternoon is synced tonight, without a restart.
+
+    Deliberately the SAME apply path as «Mannschaft synchronisieren» — a second implementation
+    of «which members does this station now have» is how the two would eventually disagree.
+    """
+    level = await load_roster_auto_sync(db)
+    if level == "off":
+        return None
+    if not (credential("divera_personnel_access_key") or credential("divera_access_key")):
+        return None
+    result = await execute_sync(db, deactivate_stale=level == "full")
+    return {"level": level, **result}

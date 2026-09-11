@@ -1490,6 +1490,16 @@ class RosterConfig(BaseModel):
     # deployment, applied when a name is SERVED, not when it is stored: a station can flip
     # this and every list, Trupp card and Rapport changes with the next request.
     nameOrder: Literal["last-first", "first-last"] = "last-first"
+    # How much the nightly Mannschaft sync is allowed to do on its own (Divera only; every
+    # other source ignores it). Until this existed the sync was manual-only, so a station's
+    # roster was as current as the last time somebody remembered to press the button:
+    #   "safe" (default) — joins, renames and Dienstgrad changes are applied; a member who
+    #     LEFT is counted and reported («N Abgänge warten») but never deactivated, because
+    #     a disappearance is as often a broken feed as a resignation.
+    #   "full"           — also deactivates the stale ones. Never a deletion: `is_active`
+    #     goes false, and every past Einsatz keeps its names.
+    #   "off"            — nothing unattended; «Mannschaft synchronisieren» still works.
+    autoSync: Literal["off", "safe", "full"] = "safe"
 
 
 class MittelStockEntry(BaseModel):
