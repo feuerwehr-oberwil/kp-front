@@ -341,7 +341,7 @@
       },
       {
         "q": "Wem gehören die Daten?",
-        "a": "Euch. Karten, Pläne und Einsatzdaten liegen auf eurer eigenen Installation.\n          Karten- und Adressdienste erhalten nur die jeweils abgefragte Position; weitere externe\n          Dienste laufen nur, wenn ihr sie selbst einrichtet. Nichts geht automatisch an den\n          Hersteller oder den Maintainer."
+        "a": "Euch. Karten, Pläne und Einsatzdaten liegen auf eurer eigenen Installation.\n          Karten- und Adressdienste erhalten nur die jeweils abgefragte Position; weitere externe\n          Dienste laufen nur, wenn ihr sie selbst einrichtet. Nichts geht automatisch an einen\n          Anbieter oder an uns."
       },
       {
         "q": "Was kostet das?",
@@ -350,6 +350,10 @@
       {
         "q": "Was braucht es für den Betrieb?",
         "a": "Ein kleiner Mini-PC oder Server im Magazin reicht. Für Einrichtung, Updates und\n          Backups braucht es jemanden mit Docker- und Kommandozeilen-Erfahrung, sei es in der\n          Feuerwehr, in der Gemeinde oder bei einer unterstützenden IT. Die Anleitung und der\n          Verwaltungsbereich führen durch den Aufbau. Allgemeine Fragen beantworten wir gerne;\n          Daten und Betrieb bleiben in der Verantwortung der jeweiligen Feuerwehr."
+      },
+      {
+        "q": "Funktioniert KP Front ohne Internetverbindung?",
+        "a": "Ja. Als installierte App läuft KP Front auf dem Gerät: Lage, Pläne, Atemschutz und\n          Verlauf bleiben bedienbar, auch wenn das Netz wegbricht. Karten und Pläne rund um den\n          Einsatz lädt die App selbst, kurz nachdem er geöffnet wurde – und die\n          <strong>Bereitschaftsprüfung</strong> zeigt vor dem Einsatz, ob die benötigten Daten\n          auf dem Gerät sind. Nach einem Unterbruch wird abgeglichen, sobald wieder eine\n          Verbindung besteht; was in der Zwischenzeit erfasst wurde, bleibt erhalten."
       },
       {
         "q": "Können wir es an unsere Abläufe anpassen?",

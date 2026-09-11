@@ -322,6 +322,10 @@
         "a": "A small mini-PC or server at the station is enough. Setup, updates and backups\n          require someone with Docker and command-line experience, whether in the brigade, the\n          municipality or an IT support provider. The guide and administration area lead through\n          the setup. We are happy to answer general questions; data and operation remain the\n          responsibility of each fire brigade."
       },
       {
+        "q": "Does KP Front work without an internet connection?",
+        "a": "Yes. As an installed app, KP Front runs on the device: situation, plans, SCBA and log\n          stay usable even when the network drops. The app loads the maps and plans around an\n          incident by itself, shortly after it is opened – and the <strong>readiness check</strong>\n          shows before an incident whether the required data is on the device. After an\n          interruption, changes are synchronised again as soon as a connection is available;\n          whatever was recorded in the meantime is kept."
+      },
+      {
         "q": "Can we adapt it to how we work?",
         "a": "Yes. Every fire brigade has its own administration area: crew, vehicles, doctrine and\n          templates are all set there. Checklists, building plans and map layers come from your\n          own station data and are loaded with the command-line tools that ship with it. And\n          because the whole code is on <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          anything else can be built – by you or to your order."
       },

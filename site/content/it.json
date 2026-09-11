@@ -323,6 +323,10 @@
         "a": "Basta un piccolo mini-PC o server in rimessa. Per l’installazione, gli aggiornamenti\n          e i backup serve qualcuno con esperienza nell’uso di Docker e della riga di comando, che\n          si trovi nel corpo, in Comune o presso un supporto informatico esterno. La guida e\n          l’area amministrativa accompagnano la configurazione. Rispondiamo volentieri alle\n          domande generali; i dati e l’esercizio restano sotto la responsabilità di ciascun corpo."
       },
       {
+        "q": "KP Front funziona senza connessione a Internet?",
+        "a": "Sì. Installata come app, KP Front funziona sul dispositivo: situazione, piani,\n          protezione respiratoria e diario restano utilizzabili anche se la rete viene a mancare.\n          L’app carica da sé le mappe e i piani attorno a un intervento, poco dopo che è stato\n          aperto – e la <strong>verifica di prontezza</strong> indica prima dell’intervento se i\n          dati necessari sono sul dispositivo. Dopo un’interruzione le modifiche vengono\n          sincronizzate appena la connessione è di nuovo disponibile; quanto è stato registrato\n          nel frattempo viene conservato."
+      },
+      {
         "q": "Possiamo adattarlo ai nostri processi?",
         "a": "Sì. Ogni corpo ha la propria area amministrativa: uomini, veicoli, dottrina e modelli\n          si impostano liberamente lì. Liste di controllo, piani d’oggetto e livelli cartografici\n          arrivano dai dati della vostra sede e si caricano con gli strumenti da riga di comando\n          forniti. E poiché tutto il codice sta su <a href=\"https://github.com/feuerwehr-oberwil/kp-front\" target=\"_blank\" rel=\"noopener\">GitHub <svg class=\"ico\" style=\"width:13px;height:13px;vertical-align:-2px\"><use href=\"#i-gh\"/></svg></a>,\n          tutto il resto si può costruire – da soli o su mandato."
       },
