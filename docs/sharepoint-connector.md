@@ -271,7 +271,8 @@ A `.json` whose `id` does not match its file name is ignored – that is what ke
   stationsdaten.xlsx           ← exactly one .xlsx in the folder
 ```
 
-Download the current one from `/admin` → Stationsdaten, edit it, put it back in this folder.
+Download the current one from `/admin` → **Daten › Arbeitsmappe**, edit it, put it back in this
+folder.
 Two `.xlsx` files in one folder is a question, not a guess: the connector stops and says so.
 
 ---
@@ -378,7 +379,8 @@ These are guarantees, not current behaviour that might change:
 - **The workbook keeps its confirmation.** The import that runs unattended is the same one the
   admin page runs, with one extra rule: if the file would refuse a row, empty a config section or
   deactivate anybody, it is **not applied**. The area reports «wartet auf Freigabe» and a person
-  opens `/admin` → Stationsdaten and decides. Upsert-only, all-or-nothing, exactly as before.
+  opens `/admin` → **Daten › Arbeitsmappe** and decides. Upsert-only, all-or-nothing, exactly as
+  before.
 - **It does not import branding, alarm keywords, the module catalogue or personnel.** Those are
   set once and stay where they are ([`CONFIGURATION.md`](CONFIGURATION.md)).
 
@@ -392,7 +394,7 @@ The status on the System card, and what it means:
 |--------|---------------|------------|
 | **noch nie gelaufen** | configured, but no sync has completed yet | press «Jetzt abgleichen» |
 | **aktuell** / **unverändert** | working. «unverändert» is what almost every poll finds | nothing |
-| **wartet auf Freigabe** | the Arbeitsmappe would do something that needs a person – or two Objektplan PDFs claim the same Modul slot, or no module carries a `match` rule, or a file would not download, or the run imported **nothing** and skipped everything it listed | Arbeitsmappe: `/admin` → Stationsdaten, preview and confirm. Objektpläne: the row names the clashing files; fix the module's `match` in the config. «nothing was imported …» names the dominant skip reason – nearly always a `path` one level too high. A download that failed is retried by the next run on its own |
+| **wartet auf Freigabe** | the Arbeitsmappe would do something that needs a person – or two Objektplan PDFs claim the same Modul slot, or no module carries a `match` rule, or a file would not download, or the run imported **nothing** and skipped everything it listed | Arbeitsmappe: `/admin` → **Daten › Arbeitsmappe**, preview and confirm. Objektpläne: the row names the clashing files; fix the module's `match` in the config. «nothing was imported …» names the dominant skip reason – nearly always a `path` one level too high. A download that failed is retried by the next run on its own |
 | **abgelehnt – nichts geändert** | the folder listed nothing for an area that had something | check the folder still exists, is not renamed, and the app still has access to the site |
 | **nicht erreichbar** | the folder or the site could not be read | check `siteUrl`, `library` and `path` in the config; a renamed folder shows up here |
 | **Anmeldung abgelehnt** | Azure refused the app registration | the row prints Microsoft's own message. `AADSTS7000222` = the client secret has **expired** (step 3 again). `AADSTS7000215` = wrong secret. A 403 from Graph = the permission was never consented to, or `Sites.Selected` was never pointed at this site (step 2) |

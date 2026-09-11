@@ -219,8 +219,18 @@ describe('Links & Zugänge — one row per address', () => {
     render(<LinksView />)
 
     await waitFor(() => expect(screen.getByText(`${window.location.origin}/e/cap-1`)).toBeTruthy())
-    fireEvent.click(screen.getByRole('button', { name: `${E.stateLabel} – ${L.colActions}` }))
-    fireEvent.click(await screen.findByText(E.rotateBtn))
+    // ⚠️ `expanded: false` is the WAIT, not a nicety. The ⋮ is a Base UI trigger, and Base UI
+    // hands it the handler that opens the menu one commit AFTER the button itself is in the DOM –
+    // the row's address chip and its ⋮ land in the same render, but the trigger only becomes a
+    // trigger when the effect that publishes the menu's floating context has run. That effect is
+    // also what writes `aria-expanded="false"`, so the attribute is the readiness marker: waiting
+    // for it waits for a button the click can actually reach. Clicking on the plain `getByRole`
+    // right after the row appears is a lost click on an inert button roughly 1 run in 50 under
+    // CI load – the menu never opens and the test dies on «Token rotieren» not existing.
+    fireEvent.click(await screen.findByRole('button', {
+      name: `${E.stateLabel} – ${L.colActions}`, expanded: false,
+    }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: E.rotateBtn }))
 
     // the menu closed; the question is asked on the row and nothing has been sent yet
     const ask = await screen.findByRole('alertdialog', { name: E.rotateMsg })
