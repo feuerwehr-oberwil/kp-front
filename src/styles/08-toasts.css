@@ -417,6 +417,11 @@
    sync; same selectors there on purpose, so this rule simply overrides the inline one once it
    loads (equal specificity, later in the cascade). */
 .boot-splash { animation: fade .3s var(--ease) .4s both; }
+/* Installed app (standalone): a cold PWA start is never inside the warm-launch window the hold
+   above protects, so there the delay only lengthened the black screen before the snail
+   (reported 2026-09-11 — 1–2 s of nothing on launch). Near-immediate instead; browser-tab
+   loads keep the anti-flash hold. */
+@media (display-mode: standalone) { .boot-splash { animation: fade .15s var(--ease) both; } }
 /* the «Heavy haul» snail (components/SnailLoader) replaced the .ping pulse 07.09. — its sizing
    and animation live in the SVG's own <style>, so the static boot splash needs no rules here */
 .loading-name { font-size: 16px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }

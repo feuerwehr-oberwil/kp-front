@@ -92,6 +92,11 @@
       .login { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
         background: var(--app-bg); color: var(--ink); font-family: system-ui, sans-serif; }
       .boot-splash { animation: fade .3s var(--ease) .4s both; }
+      /* installed app (standalone): a cold PWA start is never inside the warm-launch window the
+         hold above protects, so there the delay only lengthened the black screen before the
+         snail — near-immediate instead; browser-tab loads keep the anti-flash hold (same rule
+         in 08-toasts.css, keep in sync) */
+      @media (display-mode: standalone) { .boot-splash { animation: fade .15s var(--ease) both; } }
       /* no fade of its own — the .boot-splash container fades the whole cover in, and the real
          stylesheet sets `animation: none` on pre-app cards (08-toasts.css: remounts must not
          blink pixels that are already on screen) */
