@@ -215,23 +215,32 @@ An Arbeitsmappe import that would refuse a row, empty a config section or deacti
 Run from `backend/`. **Both report only by default; `--apply` is what writes.**
 
 ```bash
-uv run python -m app.admin_objects show              # what is stored, with plan counts
-uv run python -m app.admin_objects merge-duplicates  # fold NFD/NFC twins + exact duplicates
-uv run python -m app.admin_objects remove-empty      # objects with no plans and no references
+uv run python -m app.admin_objects show                    # what is stored, with plan counts
+uv run python -m app.admin_objects merge-duplicates        # fold NFD/NFC twins + exact duplicates
+uv run python -m app.admin_objects remove-empty            # objects with no plans and no references
+uv run python -m app.admin_objects repair-sharepoint-keys  # fold pre-2026-09-11 whole-folder-key twins
+uv run python -m app.admin_objects geocode-missing         # place plan-carrying objects without coordinates
 ```
 
 - `merge-duplicates` is the fix for the twins a Mac-run import mints: macOS writes decomposed
   (NFD) filenames, so «Bürgerhaus» arrives a second time under a byte-different name. The
   survivor also moves onto the NFC id, so the next SharePoint sync finds it instead of minting a
   third.
+- `repair-sharepoint-keys` folds the other twin class: objects a pre-2026-09-11 SharePoint sync
+  keyed on the whole «Adresse - Name» folder string. Each bare copy merges into the older, richer
+  object (newest sheet per slot wins), survivors are re-keyed onto the corrected convention, and
+  what it splits out is geocoded.
+- `geocode-missing` places every object that carries plans but no coordinates – by its address,
+  or by its name where there is none. An object without a position is offered at **no** incident,
+  so its plans are reachable by nobody; both commands end with that census.
 - `remove-empty --name '<name>'` additionally deletes a named object, plans and all – for a
   category folder («Grosspläne») an import read as an Einsatzobjekt.
 - **The verification is a second dry run.** Re-run without `--apply` after applying; a clean
   report is the confirmation. There is no undo.
-- ⚠️ **Eyeball the dry run, do not just count it.** Object addresses are geocoded outside this
-  repo, and a range address («Hauptstrasse 1-14») resolves to one end of the range or misses the
-  street entirely – an object sitting in the wrong place looks exactly like a correct one in a
-  summary line.
+- ⚠️ **Eyeball a geocoding dry run, do not just count it.** A range address («Hauptstrasse
+  1-14») can resolve to a same-named street in the next town – an object sitting in the wrong
+  place looks exactly like a correct one in a summary line. The report names the field it
+  queried (`(its address)` / `(its name)`) for exactly this check.
 
 ### Where health is visible
 
