@@ -12,6 +12,9 @@ const { apiGet, apiPut, ApiError } = vi.hoisted(() => {
     hint?: string
     /** the structured half of a 422 — what the German message is built from (lib/api) */
     fields?: { path: string; msg: string }[]
+    /** the NAMED refusal and its payload — what tells the two 409s apart (lib/api · ApiError) */
+    code?: string
+    data?: Record<string, unknown>
     constructor(status: number, detail: string, hint?: string, fields?: { path: string; msg: string }[]) {
       super(detail)
       this.status = status
@@ -29,6 +32,7 @@ vi.mock('../lib/deploymentConfig', () => ({
 }))
 
 import { ConfigProvider, ConfigAutosaveStatus, useConfig } from './ConfigContext'
+import { appConfig } from '../config/appConfig'
 
 /** A control that edits one field, so the autosave has something to fire on. Plus the seams the
  *  «one bad field took the whole page down» tests need: an arbitrary path write, the branding
@@ -220,5 +224,84 @@ describe('Verwaltung autosave — the conflict says what «Übernehmen» costs, 
     // …and it is really rendered, not sitting in an attribute of an ancestor
     expect(document.querySelector('.adm-autosave.warn')?.getAttribute('title')).toBeNull()
     expect(screen.getByRole('button', { name: 'Übernehmen' })).toBeTruthy()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The OTHER 409 (api/config · would_empty_sections). Both refusals carry the same status, and
+// reading this one as «das Dokument hat sich bewegt» sent an operator to reload a page that was
+// never stale — over a refusal no reload can clear, after an edit they had deliberately made
+// (the last Formular row, the last Partnerorganisation, the cleared Hilfe-Einleitung). It is a
+// question, and the answer re-sends the SAME document saying so.
+describe('Verwaltung autosave — «würde Abschnitte leeren» asks instead of halting', () => {
+  const A = appConfig.copy.admin.autosave
+
+  /** The refusal, with the sections it names. */
+  const wouldEmpty = (sections: string[]) => {
+    const e = new ApiError(409, 'Diese Konfiguration würde 1 Abschnitt(e) leeren, die aktuell Inhalt haben: report.links.')
+    e.code = 'would_empty_sections'
+    e.data = { error: 'would_empty_sections', emptiedSections: sections, override: '?force=true' }
+    return e
+  }
+
+  const ask = async (sections = ['report.links']) => {
+    apiPut.mockRejectedValueOnce(wouldEmpty(sections))
+    setup()
+    await waitFor(() => expect(apiGet).toHaveBeenCalled())
+    await edit()
+    await waitFor(() => expect(screen.getByText(A.emptyTitle)).toBeTruthy())
+  }
+
+  it('names the sections in the operator’s own words, and does not claim a conflict', async () => {
+    await ask(['report.links'])
+    // «Formulare (Rapport)», not «report.links» — the page's name for the thing, so it can be
+    // found. And emphatically NOT the version-conflict banner: nothing moved on here.
+    expect(screen.getByText(/Formulare/)).toBeTruthy()
+    expect(screen.queryByText('Konfiguration wurde anderswo geändert')).toBeNull()
+  })
+
+  it('re-sends the SAME document with ?force=true on «Trotzdem leeren»', async () => {
+    await ask()
+    apiPut.mockImplementation(async (_p: string, body: unknown) => body)
+    const refused = apiPut.mock.calls[0][1]
+
+    await act(async () => { screen.getByRole('button', { name: A.emptyGo }).click() })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1200) })
+
+    expect(apiPut).toHaveBeenCalledTimes(2)
+    expect(apiPut.mock.calls[1][0]).toBe('/api/config?force=true')
+    // the document that was refused, not a later draft — the answer is about THIS write
+    expect(apiPut.mock.calls[1][1]).toEqual(refused)
+    expect(screen.getByText('Gespeichert')).toBeTruthy()
+  })
+
+  it('⚠️ rolls the draft back on «Abbrechen», so the autosave does not walk into the same refusal', async () => {
+    await ask()
+    const before = document.querySelector('output')?.textContent
+
+    await act(async () => { screen.getByRole('button', { name: appConfig.copy.admin.common2.cancel }).click() })
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+
+    // the edit is taken back — same document as the server holds, so nothing is sent again
+    expect(document.querySelector('output')?.textContent).not.toBe(before)
+    expect(document.querySelector('output')?.textContent).toContain('Wehr')
+    expect(apiPut).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Gespeichert')).toBeTruthy()
+  })
+
+  it('asks ONCE — it does not re-send while the question is on screen', async () => {
+    await ask()
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+    expect(apiPut).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves a genuine version conflict exactly as it was', async () => {
+    apiPut.mockRejectedValue(new ApiError(409, 'Die Konfiguration wurde inzwischen an anderer Stelle geändert.'))
+    setup()
+    await waitFor(() => expect(apiGet).toHaveBeenCalled())
+    await edit()
+
+    await waitFor(() => expect(screen.getByText('Konfiguration wurde anderswo geändert')).toBeTruthy())
+    expect(screen.queryByText(A.emptyTitle)).toBeNull()
   })
 })

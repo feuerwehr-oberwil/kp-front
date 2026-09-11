@@ -116,6 +116,12 @@ export class ApiError extends Error {
    *  the wrong one of those half the time. `detail` still carries the German sentence, so a
    *  caller that does not know the code loses nothing. */
   code?: string
+  /** The structured `detail` OBJECT verbatim, for the few refusals that carry payload beyond
+   *  their name. `PUT /api/config` answers «this write would empty a populated section» with the
+   *  sections it means (`emptiedSections`), and the admin has to name them in the confirm it
+   *  then asks — a refusal an operator can only answer once they can see WHAT they are about to
+   *  empty. Everything else reads `detail`/`code` and ignores this. */
+  data?: Record<string, unknown>
   constructor(status: number, detail: string, retryAfter?: number) {
     super(detail)
     this.name = 'ApiError'
@@ -287,6 +293,7 @@ async function throwApiError(res: Response): Promise<never> {
     let hint = mapped?.hint
     let fields: { path: string; msg: string; kind?: string; input?: unknown }[] | undefined
     let code: string | undefined
+    let data: Record<string, unknown> | undefined
     try {
       const body = await res.json()
       if (body && typeof body.detail === 'string') { detail = body.detail; hint = undefined }
@@ -295,7 +302,11 @@ async function throwApiError(res: Response): Promise<never> {
       // German sentence a string detail would have carried, so nothing is lost by ignoring code.
       else if (body?.detail && typeof body.detail === 'object' && typeof body.detail.message === 'string') {
         detail = body.detail.message
-        code = typeof body.detail.code === 'string' ? body.detail.code : undefined
+        // `code` or `error` — the same field under the two names the backend has used for it
+        // (`api/config` · would_empty_sections says `error`). One reader, both spellings.
+        code = typeof body.detail.code === 'string' ? body.detail.code
+          : typeof body.detail.error === 'string' ? body.detail.error : undefined
+        data = body.detail as Record<string, unknown>
         hint = undefined
       }
       else if (Array.isArray(body?.detail)) {
@@ -322,6 +333,7 @@ async function throwApiError(res: Response): Promise<never> {
     err.hint = hint
     err.fields = fields
     err.code = code
+    err.data = data
     throw err
 }
 
