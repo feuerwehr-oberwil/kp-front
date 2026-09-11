@@ -61,12 +61,15 @@ RUN echo "deb [signed-by=/etc/apt/keyrings/pgdg.asc] https://apt.postgresql.org/
 
 # Install Python deps first from the lockfile alone, so editing backend code doesn't
 # re-resolve/re-download every dependency (this layer is cached unless deps change).
+# `--extra georef` ships the CV alignment stack (cv2/numpy/scipy, ~60 MB): without it the
+# server reports autoAlignConfigured=false and «Automatisch ausrichten» plus the alignment
+# worker are silently absent from the deployment (observed on FWO prod 11.09.2026).
 COPY backend/pyproject.toml backend/uv.lock /app/backend/
-RUN uv sync --no-dev --no-install-project
+RUN uv sync --no-dev --no-install-project --extra georef
 
 # Then the app code (+ install the project itself into the existing venv).
 COPY backend/ /app/backend/
-RUN uv sync --no-dev
+RUN uv sync --no-dev --extra georef
 
 # SPA build + public assets (plans, leitungskataster, symbols seed source).
 COPY --from=frontend /app/dist /app/dist
