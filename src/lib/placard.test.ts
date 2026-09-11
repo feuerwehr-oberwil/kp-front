@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { placardSvgForSymbol } from './placard'
+// The ADR dataset is a fetched static asset now (lib/staticData) — inject it the way the
+// boot prefetch would, so the derived values (Kemler on the plate, ERG rows) are real.
+import unData from '../../public/un-hazard.json'
+import { __setUnHazardData, type UnHazardEntry } from './unHazard'
+__setUnHazardData(unData as UnHazardEntry[])
+
 
 // The Gefahrentafel's UN field key gained its abbreviation dot ('UN-Nr' → 'UN-Nr.',
 // 07.09.2026). Symbols saved before the rename still carry the old key — the plate

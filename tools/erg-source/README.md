@@ -15,5 +15,5 @@ SHA-256 at vendor time:
 - erg_yellow.json  `60c1d757e2ccb902f46a3c1d946deb1aa876d3e95c897e3ce6eef170d22ea7f7`
 - erg_table1.json  `883d19de1d78ecb9a7059848b6df4e33d88098922c828a349a82a0678b3d87d8`
 
-`tools/gen_erg.py` compiles these into the bundled `src/data/erg.json` (metric-only, compact).
+`tools/gen_erg.py` compiles these into the shipped `public/erg.json` (metric-only, compact — a static asset fetched by `src/lib/erg.ts`, precached for offline).
 Re-run after replacing the sources with a newer ERG edition.

@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { ERG_VERSION, lookupErg } from './erg'
+import raw from '../../public/erg.json'
+import { ergVersionLabel, lookupErg, __setErgData, type ErgData } from './erg'
+
+// The dataset is a fetched static asset now (lib/staticData): pin that lookups miss (not
+// throw) before it lands, then inject the real data the way the boot prefetch would.
+const beforeLoad = { hit: lookupErg('1005'), version: ergVersionLabel() }
+__setErgData(raw as unknown as ErgData)
+
+describe('before the dataset lands', () => {
+  it('lookups miss and the version label is empty, nothing throws', () => {
+    expect(beforeLoad.hit).toBeNull()
+    expect(beforeLoad.version).toBe('')
+  })
+})
 
 // The values asserted here were verified against the official NOAA CAMEO pages
 // (cameochemicals.noaa.gov/unna/<UN>) on 2026-07-02 — see tools/erg-source/README.md.
 describe('lookupErg', () => {
   it('carries the dataset version for the visible source label', () => {
-    expect(ERG_VERSION).toBe('ERG2024')
+    expect(ergVersionLabel()).toBe('ERG2024')
   })
 
   it('UN 1005 (ammonia): guide 125, TIH with Table-1 small-spill distances, large → Table 3', () => {

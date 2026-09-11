@@ -10,65 +10,65 @@ import { applyLocale, getCopy, getLocaleId, AVAILABLE_LOCALES } from './index'
 afterEach(() => applyLocale('de-CH')) // restore the default so other suites see German
 
 describe('locale resolution', () => {
-  it('defaults to German (de-CH) and its strings', () => {
-    applyLocale('de-CH')
+  it('defaults to German (de-CH) and its strings', async () => {
+    await applyLocale('de-CH')
     expect(getLocaleId()).toBe('de-CH')
     expect(getCopy().atemschutz.title).toBe('Atemschutzüberwachung')
     expect(getCopy().modes.map).toBe('Karte')
   })
 
-  it('an unknown locale falls back to the German base', () => {
-    applyLocale('xx-YY')
+  it('an unknown locale falls back to the German base', async () => {
+    await applyLocale('xx-YY')
     expect(getCopy().modes.map).toBe('Karte')
   })
 
-  it('normalizes a regional tag to its base language (fr-CH → fr)', () => {
-    applyLocale('fr-CH')
+  it('normalizes a regional tag to its base language (fr-CH → fr)', async () => {
+    await applyLocale('fr-CH')
     expect(getCopy().nav.dayMode).toBe('Jour')
   })
 })
 
 describe('English (full overlay)', () => {
-  it('translates the general UI and the SCBA section', () => {
-    applyLocale('en')
+  it('translates the general UI and the SCBA section', async () => {
+    await applyLocale('en')
     expect(getCopy().modes.map).toBe('Map')
     expect(getCopy().atemschutz.title).toBe('SCBA monitoring')
   })
 
-  it('preserves functions across the overlay', () => {
-    applyLocale('en')
+  it('preserves functions across the overlay', async () => {
+    await applyLocale('en')
     expect(getCopy().intake.objectPlans(1)).toBe('1 plan')
     expect(getCopy().intake.objectPlans(3)).toBe('3 plans')
   })
 
-  it('falls back to German for keys it deliberately omits (intake categories)', () => {
-    applyLocale('en')
+  it('falls back to German for keys it deliberately omits (intake categories)', async () => {
+    await applyLocale('en')
     // kategorien mirrors the backend German labels — untranslated by design
     expect(getCopy().intake.kategorien).toContain('Brandbekämpfung')
   })
 
-  it('keeps the UN/Stoff DATA keys German (they match preset field names)', () => {
-    applyLocale('en')
+  it('keeps the UN/Stoff DATA keys German (they match preset field names)', async () => {
+    await applyLocale('en')
     expect(getCopy().contextPanel.unField).toBe('UN-Nr.')
     expect(getCopy().contextPanel.stoffField).toBe('Stoff')
   })
 })
 
 describe('French / Italian (full translations)', () => {
-  it('translate the chrome AND the SCBA section (Swiss fire-service terms)', () => {
-    applyLocale('fr')
+  it('translate the chrome AND the SCBA section (Swiss fire-service terms)', async () => {
+    await applyLocale('fr')
     expect(getCopy().nav.dayMode).toBe('Jour')
     expect(getCopy().atemschutz.title).toBe('Surveillance ARI') // now translated, not a fallback
-    applyLocale('it')
+    await applyLocale('it')
     expect(getCopy().nav.dayMode).toBe('Giorno')
     expect(getCopy().atemschutz.title).toBe('Sorveglianza autoprotezione')
   })
 
-  it('still fall back to German for the 4 structural data keys (not translated by design)', () => {
+  it('still fall back to German for the 4 structural data keys (not translated by design)', async () => {
     // unField/stoffField are data keys (match preset fields); kategorien/kategorieGuess
     // mirror the backend German keyword map — fr/it omit them, so German shows through.
     for (const loc of ['fr', 'it']) {
-      applyLocale(loc)
+      await applyLocale(loc)
       expect(getCopy().contextPanel.unField).toBe('UN-Nr.')
       expect(getCopy().contextPanel.stoffField).toBe('Stoff')
       expect(getCopy().intake.kategorien).toContain('Brandbekämpfung')
@@ -77,7 +77,7 @@ describe('French / Italian (full translations)', () => {
 })
 
 describe('admin picker registry', () => {
-  it('offers exactly the four supported languages', () => {
+  it('offers exactly the four supported languages', async () => {
     expect(AVAILABLE_LOCALES.map((l) => l.id)).toEqual(['de-CH', 'en', 'fr', 'it'])
   })
 })
@@ -102,15 +102,15 @@ describe('intake.kategorieGuess mirrors the shared alarm keyword file', () => {
     ),
   ) as { keyword_to_category: { pairs: [string, string][] } }
 
-  it('carries the same keywords, in the same order (first hit wins on both sides)', () => {
-    applyLocale('de-CH')
+  it('carries the same keywords, in the same order (first hit wins on both sides)', async () => {
+    await applyLocale('de-CH')
     const frontend = getCopy().intake.kategorieGuess.map(([keyword]) => keyword)
     const backend = shared.keyword_to_category.pairs.map(([keyword]) => keyword)
     expect(frontend).toEqual(backend)
   })
 
-  it('only guesses categories the picker actually offers', () => {
-    applyLocale('de-CH')
+  it('only guesses categories the picker actually offers', async () => {
+    await applyLocale('de-CH')
     const kategorien = new Set(getCopy().intake.kategorien)
     for (const [keyword, label] of getCopy().intake.kategorieGuess) {
       expect(kategorien, `«${keyword}» guesses «${label}», which is not a selectable category`).toContain(label)

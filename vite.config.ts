@@ -192,9 +192,13 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              // Bundled symbols fallback. (Plan PDFs and reference geodata are no longer
-              // bundled — both are served from /api/reference, cached by the rule above.)
-              urlPattern: /\/tactical-symbols\.json$/,
+              // Bundled symbols fallback plus the fetched hazard datasets (lib/staticData:
+              // un-hazard.json = ADR Table A, erg.json = ERG distances). All three are
+              // precached (the json glob above), which answers first — this rule is the
+              // belt for an evicted/partial precache. (Plan PDFs and reference geodata are
+              // no longer bundled — both are served from /api/reference, cached by the
+              // rule above.)
+              urlPattern: /\/(tactical-symbols|un-hazard|erg)\.json$/,
               handler: 'CacheFirst',
               options: {
                 cacheName: 'static-data',
@@ -231,14 +235,16 @@ export default defineConfig(({ mode }) => {
       target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
       rolldownOptions: {
         output: {
-          // Split the two heavyweight libs into their own chunks so they no longer bloat the
-          // initial app chunk. maplibre (~800 KB) loads with the map; pdfjs (~1.2 MB incl. the
-          // worker) is dynamically imported by PdfViewport, so this chunk only ships when the
-          // Plan tab is opened. Result: a smaller initial JS payload → faster tablet first paint.
+          // Split maplibre (~800 KB) into its own chunk so it no longer bloats the initial
+          // app chunk. pdfjs deliberately has NO group here: PdfViewport's dynamic import
+          // already splits it into a lazy chunk on its own, and a manual group made it
+          // EAGER — rolldown placed the shared module-preload helper inside the pdfjs
+          // chunk, so the entry statically imported the whole 470 KB of pdf.js to reach it
+          // and index.html modulepreloaded it on every boot (profiling 11.09.2026). After
+          // editing this block check `dist/index.html`: it must not preload a pdfjs chunk.
           codeSplitting: {
             groups: [
               { name: 'maplibre', test: /\/node_modules\/maplibre-gl\// },
-              { name: 'pdfjs', test: /\/node_modules\/pdfjs-dist\// },
             ],
           },
         },

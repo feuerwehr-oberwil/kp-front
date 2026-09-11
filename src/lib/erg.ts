@@ -1,10 +1,15 @@
-import raw from '../data/erg.json'
+import { createStaticDataset } from './staticData'
 
 /**
- * ERG 2024 response data (bundled, offline-first — no live API at 3am). Compiled by
- * tools/gen_erg.py from the public-domain PHMSA guidebook (see tools/erg-source/README.md
- * for provenance + verification). Everything here is a Planungshilfe with a visible source
- * label in the UI — the official guide pages stay one deep-link away.
+ * ERG 2024 response data (shipped with the app, offline-first — no live API at 3am).
+ * Compiled by tools/gen_erg.py from the public-domain PHMSA guidebook (see
+ * tools/erg-source/README.md for provenance + verification). Everything here is a
+ * Planungshilfe with a visible source label in the UI — the official guide pages stay one
+ * deep-link away.
+ *
+ * The data rides as a static asset (public/erg.json, service-worker-precached) loaded via
+ * lib/staticData like the ADR table (lib/unHazard): lookups miss until the boot prefetch
+ * lands, and surfaces re-render on arrival through lib/useHazardData.
  */
 
 export interface ErgLargeSpill { li?: string; ld?: string; ln?: string }
@@ -29,15 +34,27 @@ export interface ErgEntry {
   tih?: ErgTihRow[]
 }
 
-interface ErgData { version: string; un: Record<string, ErgEntry> }
+export interface ErgData { version: string; un: Record<string, ErgEntry> }
 
-const data = raw as unknown as ErgData
+const ds = createStaticDataset<ErgData>('erg.json')
 
-export const ERG_VERSION = data.version
+/** Kick (or await) the dataset load — boot prefetch and the print path call this. */
+export async function ensureErg(): Promise<void> { await ds.ensure() }
+/** For lib/useHazardData (useSyncExternalStore). */
+export const subscribeErg = ds.subscribe
+export const ergVersion = ds.version
+/** Tests only: inject the dataset synchronously instead of fetching. */
+export function __setErgData(data: ErgData): void { ds.set(data) }
 
-/** normalises '1017', 'UN 1017', '1017.0' → the dataset key */
+/** The guidebook edition for the source label (e.g. "2024"); '' until the data lands. */
+export function ergVersionLabel(): string {
+  return ds.get()?.version ?? ''
+}
+
+/** normalises '1017', 'UN 1017', '1017.0' → the dataset key.
+ *  Null for unknown numbers — and while the dataset is still loading. */
 export function lookupErg(un: string): ErgEntry | null {
   const key = un.replace(/\D/g, '')
   if (!key) return null
-  return data.un[key] ?? null
+  return ds.get()?.un[key] ?? null
 }

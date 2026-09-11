@@ -21,6 +21,7 @@ import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
 import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
+import { useHazardData } from './lib/useHazardData'
 import { carryDocked, isPlacard, nearestDockHost } from './lib/docking'
 import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
 import { appConfig } from './config/appConfig'
@@ -707,6 +708,9 @@ export function IncidentWorkspace({
   )
   const drawings = replayActive ? (replayWs?.drawings ?? []) : doc.drawings
 
+  // re-render when the fetched ADR/ERG datasets land (lib/useHazardData) — the rings and
+  // baked placards below read them synchronously.
+  const hazVersion = useHazardData()
   // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
   // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
   // The day/night split is read at compute time; a board left open across 07/19 h picks the
@@ -714,7 +718,9 @@ export function IncidentWorkspace({
   // warrant its own clock.
   const mapOverlays = useMemo(
     () => [...preparedOverlays, ...ergRingOverlays(entities, new Date())],
-    [entities],
+    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
+    // rings drawn from an already-typed UN appear with it.
+    [entities, hazVersion],
   )
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
   /**

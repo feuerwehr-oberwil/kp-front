@@ -8,7 +8,8 @@ import { formatSymbolName, stripUnprintable } from '../lib/format'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { allStoffNames, decodeKemler, lookupUN, lookupUNByName, type UnHazardEntry } from '../lib/unHazard'
-import { ERG_VERSION, lookupErg, type ErgEntry } from '../lib/erg'
+import { ergVersionLabel, lookupErg, type ErgEntry } from '../lib/erg'
+import { useHazardData } from '../lib/useHazardData'
 import { DEFAULT_ERG_RING_MODE, parseErgDistance } from '../lib/ergRings'
 import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { Combo } from './Combo'
@@ -251,6 +252,8 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, origi
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
+  // repaint the ADR/ERG readout when the fetched hazard datasets land (lib/useHazardData)
+  const hazVersion = useHazardData()
   // leadership glyph → its roster picker offers the officer-first sort + "nur Offiziere" filter
   const officerSym = !!entity.symbol && OFFICER_ROSTER_SYMBOLS.has(entity.symbol)
   const rankOf = officerSym && rosterRank ? (n: string) => rosterRank[n] : undefined
@@ -441,7 +444,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
     const covered = new Set(commons.map((c) => c.label.toLowerCase()))
     return [...commons.map((c) => c.label), ...allStoffNames().filter((n) => !covered.has(n.toLowerCase()))]
     // eslint-disable-next-line react-hooks/exhaustive-deps -- commons is derived from the symbol
-  }, [unCapable, entity.symbol])
+  }, [unCapable, entity.symbol, hazVersion])
 
   const fillFromUN = (rs: Row[]): Row[] => {
     const un = findVal(rs, UN_KEY).trim()
@@ -1085,7 +1088,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                       />
                     </div>
                   )}
-                  <p className="un-erg-src">{C.ergSource.replace('{v}', ERG_VERSION)}</p>
+                  <p className="un-erg-src">{C.ergSource.replace('{v}', ergVersionLabel())}</p>
                 </div>
               )}
               <a className="un-haz-link" href={unLookupHref} target="_blank" rel="noopener noreferrer">

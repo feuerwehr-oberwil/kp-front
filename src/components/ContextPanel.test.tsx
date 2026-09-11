@@ -4,6 +4,14 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { ContextPanel, type SymbolView } from './ContextPanel'
 import type { SymbolControl } from '../types'
 import { appConfig } from '../config/appConfig'
+// The ADR/ERG datasets are fetched static assets now (lib/staticData) — inject them the
+// way the boot prefetch would, so the autofill/readout under test sees the real tables.
+import unData from '../../public/un-hazard.json'
+import ergData from '../../public/erg.json'
+import { __setUnHazardData, type UnHazardEntry } from '../lib/unHazard'
+import { __setErgData, type ErgData } from '../lib/erg'
+__setUnHazardData(unData as UnHazardEntry[])
+__setErgData(ergData as unknown as ErgData)
 
 afterEach(cleanup)
 

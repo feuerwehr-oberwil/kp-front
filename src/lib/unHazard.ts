@@ -19,8 +19,8 @@
 // any operational use. The Kemler/Gefahrnummer is taken verbatim from the source
 // and is empty for many entries (e.g. class 1 explosives) — that is expected.
 
-import raw from '../data/unHazard.json'
 import { appConfig } from '../config/appConfig'
+import { createStaticDataset } from './staticData'
 
 export interface UnHazardEntry {
   /** 4-digit UN number as a string, e.g. "1203" (leading zeros preserved). */
@@ -43,11 +43,36 @@ export interface UnHazardEntry {
   transportProhibited?: boolean
 }
 
-const entries = raw as UnHazardEntry[]
+// The dataset is a static asset (public/un-hazard.json — 0.5 MB it no longer costs the
+// entry chunk to parse), loaded once via lib/staticData: sync lookups miss (null/empty)
+// until it lands, main.tsx kicks the load at boot, and surfaces re-render on arrival
+// through lib/useHazardData. See staticData.ts for the contract.
+const ds = createStaticDataset<UnHazardEntry[]>('un-hazard.json')
 
-// Index by normalised UN key for O(1) lookup.
-const byUn = new Map<string, UnHazardEntry>()
-for (const e of entries) byUn.set(normalizeUN(e.un), e)
+/** Kick (or await) the dataset load — boot prefetch and the print path call this. */
+export async function ensureUnHazard(): Promise<void> { await ds.ensure() }
+/** For lib/useHazardData (useSyncExternalStore). */
+export const subscribeUnHazard = ds.subscribe
+export const unHazardVersion = ds.version
+/** Tests only: inject the dataset synchronously instead of fetching. */
+export function __setUnHazardData(data: UnHazardEntry[]): void { ds.set(data) }
+
+const EMPTY: UnHazardEntry[] = []
+const entriesNow = () => ds.get() ?? EMPTY
+
+// Index by normalised UN key for O(1) lookup — (re)built when the dataset (re)arrives.
+let indexedVersion = -1
+let byUn = new Map<string, UnHazardEntry>()
+function unIndex(): Map<string, UnHazardEntry> {
+  if (indexedVersion !== ds.version()) {
+    byUn = new Map()
+    for (const e of entriesNow()) byUn.set(normalizeUN(e.un), e)
+    byName = null
+    stoffNames = null
+    indexedVersion = ds.version()
+  }
+  return byUn
+}
 
 /** Strip a leading "UN"/"UN-"/spaces and drop leading zeros for matching. */
 export function normalizeUN(un: string): string {
@@ -61,16 +86,16 @@ export function normalizeUN(un: string): string {
 
 /**
  * Look up a UN number. Accepts "1203", "UN 1203", "un-1203", "0004", etc.
- * Returns the matching entry, or null if unknown.
+ * Returns the matching entry, or null if unknown (or while the dataset is still loading).
  */
 export function lookupUN(un: string): UnHazardEntry | null {
   if (!un) return null
-  return byUn.get(normalizeUN(un)) ?? null
+  return unIndex().get(normalizeUN(un)) ?? null
 }
 
-/** The full normalised dataset (read-only). */
+/** The full normalised dataset (read-only; empty until the load lands). */
 export function allEntries(): readonly UnHazardEntry[] {
-  return entries
+  return entriesNow()
 }
 
 // ── Substance NAME lookup (Feldtest Manuel, 07.09.) ─────────────────────────────
@@ -89,9 +114,10 @@ let stoffNames: string[] | null = null
 export function lookupUNByName(name: string): UnHazardEntry | null {
   const key = normName(name)
   if (!key) return null
+  unIndex() // invalidates byName when the dataset (re)arrives
   if (!byName) {
     byName = new Map()
-    for (const e of entries) {
+    for (const e of entriesNow()) {
       const k = normName(e.name_de ?? '')
       if (k && !byName.has(k)) byName.set(k, e)
     }
@@ -101,10 +127,11 @@ export function lookupUNByName(name: string): UnHazardEntry | null {
 
 /** Every distinct German substance name, sorted — the Stoff combobox's search corpus. */
 export function allStoffNames(): readonly string[] {
+  unIndex() // invalidates stoffNames when the dataset (re)arrives
   if (!stoffNames) {
     const seen = new Set<string>()
     const names: string[] = []
-    for (const e of entries) {
+    for (const e of entriesNow()) {
       const n = (e.name_de ?? '').trim()
       const k = normName(n)
       if (!k || seen.has(k)) continue

@@ -111,8 +111,8 @@ describe('the Zeitplan print sheet inflects its two counts correctly', () => {
     expect(fillTemplate(Z.sheetContent, { people: Z.peopleCount(1), t: '13:13' })).toBe('1 Person · Stand 13:13')
   })
 
-  it('inflects in English too, once the locale overlay applies', () => {
-    applyLocale('en')
+  it('inflects in English too, once the locale overlay applies', async () => {
+    await applyLocale('en')
     const Z = appConfig.copy.zeitplan
     expect(Z.peopleCount(1)).toBe('1 person')
     expect(Z.bandsCount(1)).toBe('1 shift')

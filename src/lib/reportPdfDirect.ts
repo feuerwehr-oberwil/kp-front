@@ -24,6 +24,8 @@ import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPaylo
 import { symbolCaptionText } from './symbols'
 import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
+import { ensureErg } from './erg'
+import { ensureUnHazard } from './unHazard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
@@ -455,6 +457,9 @@ export function forPaper(v: unknown): unknown {
 }
 
 export async function downloadDirectReportPdf(args: DirectReportArgs): Promise<void> {
+  // The payload bakes placard glyphs (Kemler via lookupUN) — make sure the fetched hazard
+  // datasets are in before composing, so a print seconds after boot is not missing them.
+  await Promise.all([ensureUnHazard(), ensureErg()])
   const payload = buildDirectReportPayload(args)
   await downloadReportPdf(args.incident.id, payload, reportFilenameHint(args.incident.title), args.transport)
 }
