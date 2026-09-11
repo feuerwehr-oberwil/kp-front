@@ -19,7 +19,7 @@ import { rankOrder } from './rank'
  * Alarmgruppen. Typing three letters of any of them offers the full form; whatever is in the text
  * afterwards is marked, in the composer, in the Verlauf and on the printed Rapport.
  */
-export type LinkKind = 'person' | 'material' | 'partner' | 'vehicle' | 'group' | 'trupp'
+export type LinkKind = 'person' | 'material' | 'partner' | 'vehicle' | 'group' | 'trupp' | 'term'
 
 /**
  * What a marked stretch of text can be: one of the Einsatz's own words — or an address.
@@ -81,6 +81,18 @@ export interface JournalLink {
    *  «Kantons**polizei**» with the Partnerorganisation bolded inside the word. Every kind is
    *  word-bounded now; see `linkRanges`. */
   word?: boolean
+  /**
+   * Spelling help, not one of the Einsatz's own words: it COMPLETES while typing and is never
+   * MARKED — not in the composer's backdrop, not in the Verlauf, not on the printed Rapport.
+   *
+   * ⚠️ The distinction is the whole reason the abbreviations and the Geschosse could be added at
+   * all (10.09.). Marking is the app saying «this is a thing this Einsatz has a record of» — a
+   * person, a Trupp, a Fahrzeug, a Mittel. «AS», «RWA» and «1. OG» are none of those; they are
+   * how the sentence is spelled. Marked like the rest, a single ordinary line («Trupp Hager
+   * Hannes prüft CO2 in UG Aggregatorraum») came out with four coloured terms in it, on screen
+   * and on paper, and the marks stopped meaning anything.
+   */
+  plain?: boolean
 }
 
 /**
@@ -170,8 +182,29 @@ export function journalVocabulary(
   const groups: JournalLink[] = (cfg.alarms?.groups ?? [])
     .map((g) => ({ name: g.color ? `${g.label} (${g.color})` : g.label, kind: 'group' as const }))
   const heldAt = new Map(Object.entries(attendance).flatMap(([id, a]) => (a.noteAt ? [[id, a.noteAt] as const] : [])))
-  return [...commandRoles(people, heldAt), ...people, ...teams, ...materials, ...partners, ...vehicles, ...groups]
+  return [...commandRoles(people, heldAt), ...people, ...teams, ...materials, ...partners, ...vehicles, ...groups,
+    ...plainTerms()]
     .filter((l) => !!l.name?.trim())
+}
+
+/**
+ * The shipped national spelling help: the Funk abbreviations and the Geschosse
+ * (appConfig.journal · abbreviations / locations).
+ *
+ * ⚠️ LAST in the vocabulary, and that is deliberate. `suggestLinks` breaks a tie between equal
+ * matches by presence and then by the list's own order, so an abbreviation can never push a
+ * person who is standing on the Schadenplatz off the chip row: «GF» reaches the Gruppenführer
+ * abbreviation only once no name is a better answer for those letters.
+ * ⚠️ `plain` — see JournalLink.plain. Nothing here is ever marked.
+ */
+function plainTerms(): JournalLink[] {
+  const J = appConfig.journal
+  return [
+    // the long form is the CHIP's hint (JournalLink.hint): shown while choosing, never inserted
+    // and never printed — which is what lets the record keep the spoken «Hösi».
+    ...J.abbreviations.map((a) => ({ name: a.term, kind: 'term' as const, hint: a.long, plain: true })),
+    ...J.locations.map((l) => ({ name: l, kind: 'term' as const, plain: true })),
+  ]
 }
 
 /**
@@ -284,6 +317,8 @@ export function linkRanges(text: string, vocab: JournalLink[], opts?: MarkOption
   if (opts?.phone) for (const r of phoneRanges(text)) if (!overlaps(r.start, r.end)) out.push(r)
   const hay = text.toLowerCase()
   for (const l of [...vocab].sort((a, b) => b.name.length - a.name.length)) {
+    // spelling help completes but never marks — see JournalLink.plain
+    if (l.plain) continue
     const needle = l.name.trim().toLowerCase()
     if (needle.length < 2) continue
     let from = 0

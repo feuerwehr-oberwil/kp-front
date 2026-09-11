@@ -17,6 +17,16 @@ describe('journalSuggestions', () => {
     expect(suggest('Pol')[0].kind).toBe('partner')
   })
 
+  it('⚠️ the record keeps the SPOKEN word — the long form rides on the chip only', () => {
+    // «Hösi Gruppe bereitstellen» is what was said on the radio, and that is what the Verlauf and
+    // the Rapport have to read. The chip says «Hösi · Höhensicherung» so the letters can be
+    // recognised at 3am; only the two syllables are ever written. See appConfig.journal.abbreviations.
+    const withAbbrev = { ...opts, vocab: [{ name: 'Hösi', kind: 'term' as const, hint: 'Höhensicherung', plain: true }] }
+    const hit = journalSuggestions('hös', { start: 3, end: 3 }, withAbbrev)[0]
+    expect(hit).toMatchObject({ label: 'Hösi', hint: 'Höhensicherung' })
+    expect(acceptJournalSuggestion('hös', hit).text).toBe('Hösi ')
+  })
+
   it('ranks an exact phrase prefix above a loose name match', () => {
     const hits = journalSuggestions('Brand un', { start: 8, end: 8 }, {
       ...opts, vocab: [{ name: 'Unterstützung', kind: 'group' }],

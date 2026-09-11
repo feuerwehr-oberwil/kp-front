@@ -45,15 +45,20 @@ describe('typing a term', () => {
     expect(suggestLinks('3 Sack Ölbind', vocab).map((l) => l.kind)).toEqual(['material'])
   })
 
-  it('offers from two letters on, but only where they START a word', () => {
+  it('offers from the FIRST letter on, but only where it STARTS a word', () => {
     expect(suggestLinks('Ba', vocab).map((l) => l.name)).toEqual(['Baumann Michael'])
     // …a word inside the name counts too — «Mi» is how you reach for the Vorname
     expect(suggestLinks('Mi', vocab).map((l) => l.name)).toEqual(['Baumann Michael'])
+    // 10.09.: the two-letter gate is gone. A single letter is a perfectly good word prefix, and
+    // waiting for a second one is waiting behind the thumb — the word-start rule below is what
+    // keeps it quiet, not the length.
+    expect(suggestLinks('B', vocab).map((l) => l.name)).toEqual(['Baumann Michael'])
   })
 
   it('⚠️ two letters of fuzzy subsequence would put half the Mannschaft under every «im»', () => {
     // 'i','m' are both in «Baumann Michael» in order — a prefix rule is what keeps it quiet
     expect(suggestLinks('Kellerbrand im', vocab)).toEqual([])
+    // «L» is in TLF and in Ölbinder, but starts neither word
     expect(suggestLinks('L', vocab)).toEqual([])
   })
 
@@ -67,6 +72,40 @@ describe('typing a term', () => {
     ]
     expect(suggestLinks('sani', crew)).toEqual([])
     expect(suggestLinks('schnei', crew).map((l) => l.name)).toEqual(['Schneider Melanie'])
+  })
+
+  it('⚠️ …and the near-miss tier must not re-open that door either', () => {
+    // «sani» is ONE substitution from «Dani»el, so a tolerance that ignored the first letter
+    // brought Wyss Daniel straight back (10.09.). See quickPhrases · nearMiss.
+    const crew: JournalLink[] = [
+      { name: 'Schneider Melanie', kind: 'person', present: true },
+      { name: 'Wyss Daniel', kind: 'person', present: true },
+    ]
+    expect(suggestLinks('sani', crew)).toEqual([])
+  })
+
+  it('catches what the phone keyboard did to a term — one typo still finds it', () => {
+    // all four are real prod Verlauf rows (10.09.): autocorrect turned «MaWa» into «Mama» in a
+    // live Einsatz, and the strict subsequence match went silent on every one of them.
+    const v: JournalLink[] = [
+      { name: 'MaWa', kind: 'vehicle' },
+      { name: 'Brandwohnung', kind: 'term', plain: true },
+      { name: 'Schiely Silvan', kind: 'person' },
+    ]
+    expect(suggestLinks('Mama', v).map((l) => l.name)).toEqual(['MaWa'])
+    expect(suggestLinks('Braund', v).map((l) => l.name)).toEqual(['Brandwohnung'])
+    // a swap counts as one edit as well — «Shciely» for «Schiely»
+    expect(suggestLinks('Shciely', v).map((l) => l.name)).toEqual(['Schiely Silvan'])
+  })
+
+  it('⚠️ the near-miss tier only runs when nothing matched properly', () => {
+    // otherwise a misspelling of a long term outranks the term somebody is actually spelling
+    const v: JournalLink[] = [
+      { name: 'Brandwohnung', kind: 'term', plain: true },
+      { name: 'Brandwache', kind: 'term', plain: true },
+    ]
+    // both are exact prefixes, so both stand — ranked by fuzzyScore's own rule, shorter first
+    expect(suggestLinks('Brandw', v).map((l) => l.name)).toEqual(['Brandwache', 'Brandwohnung'])
   })
 
   it('⚠️ folds umlauts the same way the score does — «olbind» still reaches «Ölbinder»', () => {

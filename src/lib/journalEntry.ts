@@ -1,7 +1,7 @@
 import { appConfig } from '../config/appConfig'
 import type { JournalEntryType } from '../types'
 import type { JournalLink } from './journalLinks'
-import { fuzzyScore, norm } from './quickPhrases'
+import { fuzzyScore, nearMiss, norm } from './quickPhrases'
 
 /**
  * «Wer hat es gesagt» and «was für eine Aussage ist das» — on one line.
@@ -54,16 +54,29 @@ export function suggestLinks(text: string, vocab: JournalLink[], limit = 4): Jou
   const word = currentWord(text)
   if (word.length < MIN_NAME_FRAGMENT) return []
   const written = text.toLowerCase()
-  return vocab
-    .filter((l) => startsAWord(word, l.name))
+  const matched = vocab.filter((l) => startsAWord(word, l.name))
+  // ⚠️ Only when nothing matched at all — see `nearMiss`. A tier that ran alongside the exact
+  // one would let a near-miss of a long term outrank the term somebody is actually spelling.
+  const candidates = matched.length ? matched : vocab.filter((l) => nearMiss(word, l.name))
+  return candidates
     .map((l) => ({ l, score: fuzzyScore(word, l.name) }))
     // ⚠️ Compared against the whole TEXT, not the word. A full name is two words, so after
     // accepting «Baumann Michael» the word under the cursor is «Michael» — which still matches,
     // so the chip kept offering the same name and a second tap wrote it twice.
-    .filter((m) => m.score > 0 && !alreadyWritten(written, m.l.name))
-    // score first — a better spelling match beats being on scene. Presence breaks the tie:
+    // ⚠️ `score` may be 0 on the near-miss tier (a misspelling is by definition not a
+    // subsequence), so the score no longer decides membership — `startsAWord`/`nearMiss` above
+    // already did that. It only orders.
+    .filter((m) => !alreadyWritten(written, m.l.name))
+    // ⚠️ Spelling help sinks below everything else FIRST, before the score is even looked at.
+    // `fuzzyScore` ranks a prefix as «1000 − length», so the shortest term wins — and once the
+    // abbreviations joined the vocabulary (10.09.) a single typed «s» answered with «SA», «Stv.
+    // EL», «Sammelplatz», «Schadenplatz» and not one member of the Mannschaft. A name is who the
+    // sentence is about; an abbreviation is how it is spelled. From the second letter on the
+    // abbreviation has the field to itself anyway, because no name starts a word with «as».
+    // …then score — a better spelling match beats being on scene. Presence breaks the tie:
     // two people whose names start the same way, and the one who is here is the likelier one.
-    .sort((a, b) => b.score - a.score || Number(b.l.present) - Number(a.l.present)
+    .sort((a, b) => Number(!!a.l.plain) - Number(!!b.l.plain)
+      || b.score - a.score || Number(b.l.present) - Number(a.l.present)
       || a.l.name.localeCompare(b.l.name, 'de'))
     .slice(0, limit)
     .map((m) => m.l)
@@ -94,8 +107,17 @@ export function currentWord(text: string): string {
   return text.split(/[\s]/).pop() ?? ''
 }
 
-/** A term is worth offering from this many letters on. */
-const MIN_NAME_FRAGMENT = 2
+/**
+ * A term is worth offering from this many letters on.
+ *
+ * ⚠️ ONE since 10.09. The gate existed because `fuzzyScore` alone matched coincidences, but
+ * `startsAWord` has decided membership since 14.08. and a single letter is a perfectly good word
+ * prefix — «s» reaching Schiely Silvan is exactly the completion that stops «Schielt» and
+ * «Schielen» getting into the record. Ranking (presence, then Grad, then the list's own order)
+ * is what makes the first letter useful rather than noisy, and the vocabulary is small enough
+ * that scanning it per keystroke costs nothing.
+ */
+const MIN_NAME_FRAGMENT = 1
 
 /** What is typed has to be the beginning of one of the term's words — «Ba» and «Mi» both reach
  *  «Baumann Michael», «Kellerbrand im» reaches nobody.

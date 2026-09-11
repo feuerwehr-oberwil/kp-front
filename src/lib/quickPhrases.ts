@@ -50,13 +50,72 @@ export function fuzzyScore(query: string, target: string): number {
   return score
 }
 
+/**
+ * Is what was typed ONE typo away from the beginning of one of this term's words?
+ *
+ * The fallback tier under `startsAWord` (lib/journalEntry · suggestLinks), and the answer to what
+ * the real prod Verlauf shows the phone keyboard doing to Feuerwehr words: «MaWa» was autocorrected
+ * to «Mama» in a live Einsatz, «Absperrung» came out «Abspereung», «Brandwohnung» «Braundwohnung».
+ * `fuzzyScore` cannot see any of those — it is a strict subsequence match, so a single inserted or
+ * swapped letter takes the term from «best match» to «no match», silencing the suggestion at
+ * exactly the keystroke where it would have saved the record.
+ *
+ * ⚠️ Compared against the term's word cut to the TYPED length (±1), not against the whole word:
+ * somebody four letters into «Brandwohnung» has typed a prefix, and a distance to the full word
+ * would be twelve. ⚠️ From four letters on. Below that, one edit is most of the word, and «Ma»
+ * would be a near miss of half the roster.
+ * ⚠️ And the FIRST letter has to survive. Without that rule this tier walked straight back into
+ * the coincidence `suggestLinks` was built to stop: «sani» is one substitution from «Dani»el and
+ * offered Wyss Daniel. Every real case keeps its first letter — the phone mangles «MaWa» into
+ * «Mama» and «Wasser» into «Waser», it does not change what the word starts with — so the rule
+ * costs nothing and buys back the whole class of false offers.
+ */
+export function nearMiss(word: string, name: string): boolean {
+  const q = norm(word)
+  if (q.length < MIN_NEAR_MISS) return false
+  return norm(name).split(/[\s(/-]+/).some((w) => {
+    if (!w || w[0] !== q[0]) return false
+    for (const len of [q.length - 1, q.length, q.length + 1]) {
+      if (len > 0 && len <= w.length && within1(q, w.slice(0, len))) return true
+    }
+    return false
+  })
+}
+
+/** Short of this, a one-letter edit is not a typo but a different word. */
+const MIN_NEAR_MISS = 4
+
+/** Damerau-Levenshtein «distance ≤ 1», decided in one pass instead of building a matrix: equal,
+ *  one substitution, one insertion/deletion, or one transposition («Farhzeug» → «Fahrzeug»). */
+function within1(a: string, b: string): boolean {
+  if (a === b) return true
+  if (Math.abs(a.length - b.length) > 1) return false
+  let i = 0
+  while (i < a.length && i < b.length && a[i] === b[i]) i++
+  if (i === a.length || i === b.length) return true // the rest is one trailing character
+  if (a.length === b.length) {
+    if (a.slice(i + 1) === b.slice(i + 1)) return true // substitution
+    return a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2) // swap
+  }
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1)
+}
+
 /** The fragment being typed: everything after the last sentence boundary (newline, '. ', '; '). */
 export function currentFragment(text: string): string {
   const tail = text.split(/\n|(?<=[.;!?])\s+/).pop() ?? ''
   return tail.trimStart()
 }
 
-const MIN_FRAGMENT = 2
+/**
+ * ⚠️ ONE since 10.09. — a completion that waits for a second letter is a completion the thumb has
+ * already outrun. At a single letter only a real PREFIX qualifies (see `MIN_LOOSE` below): the
+ * loose subsequence match is what needs a couple of letters to mean anything, not the lookup.
+ */
+const MIN_FRAGMENT = 1
+/** From this many letters on, a phrase may also be reached by the loose subsequence match. Below
+ *  it, «a» is a subsequence of very nearly every phrase in the list and three junk offers are
+ *  worse than none. */
+const MIN_LOOSE = 2
 /** …but a TAIL has to be a little more than that. Matched loosely, a trailing «im» or «am» is a
  *  subsequence of half the phrase list, and three wrong suggestions are worse than none. */
 const MIN_TAIL = 3
@@ -106,6 +165,8 @@ export function suggestPhrases(text: string, phrases: readonly string[]): Phrase
       // the phrase contains — so the completion the operator had just finished typing offered
       // itself back to them.
       .filter((m) => m.score > 0 && !norm(frag).endsWith(norm(m.phrase)))
+      // one letter reaches only what it actually begins — see MIN_LOOSE
+      .filter((m) => cand.length >= MIN_LOOSE || norm(m.phrase).startsWith(norm(cand)))
       .sort((a, b) => b.score - a.score)
       .slice(0, MAX_SUGGESTIONS)
     // the longest stretch that completes to something wins; only fall back to a shorter tail

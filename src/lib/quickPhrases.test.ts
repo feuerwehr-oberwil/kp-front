@@ -32,9 +32,12 @@ describe('currentFragment', () => {
 })
 
 describe('suggestPhrases', () => {
-  it('suggests nothing until the fragment is meaningful', () => {
+  it('suggests nothing on an empty field, and a single letter reaches only what it BEGINS', () => {
     expect(suggestPhrases('', PHRASES)).toEqual([])
-    expect(suggestPhrases('v', PHRASES)).toEqual([])
+    // 10.09.: one letter is enough — but as a prefix only. Loosely matched, «a» is a subsequence
+    // of very nearly every phrase in the list, and three junk offers are worse than none.
+    expect(suggestPhrases('v', PHRASES).map((m) => m.phrase)).toEqual(['Verstärkung angefordert'])
+    expect(suggestPhrases('g', PHRASES)).toEqual([])
   })
 
   it('surfaces the best fuzzy matches for the fragment, best first', () => {

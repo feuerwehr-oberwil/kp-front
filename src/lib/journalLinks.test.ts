@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { JournalLink } from './journalLinks'
 import { journalVocabulary, linkMarkup, linkParts, linkRanges, suggestNext } from './journalLinks'
+import { suggestLinks } from './journalEntry'
 import type { AttendanceState, Person, TimelineEvent, Trupp } from '../types'
 
 const vocab: JournalLink[] = [
@@ -294,6 +295,57 @@ describe('journalVocabulary · the command posts', () => {
     expect(el).toBeTruthy()
     expect(el?.role).toBeUndefined()
     expect(linkParts('EL → Sanität', vocab).find((p) => p.kind)?.text).toBe('EL')
+  })
+})
+
+/* ── Spelling help: the Funk abbreviations and the Geschosse (10.09.) ────────────────────────
+ * Read off ten weeks of real prod Verlauf-Einträge, where every one of them was typed by hand and
+ * completed by nothing — and where «1. OG» appears in six different spellings. */
+describe('journalVocabulary · the shipped spelling help', () => {
+  const vocab = journalVocabulary([], {})
+
+  it('knows the abbreviations, and carries the long form as the chip\'s hint only', () => {
+    const as = vocab.find((l) => l.name === 'AS')
+    expect(as).toMatchObject({ kind: 'term', hint: 'Atemschutz', plain: true })
+  })
+
+  it('⚠️ names both readings of DL on ONE chip — the band dedupes by label', () => {
+    // two entries would have meant the second reading was silently dropped and never read
+    expect(vocab.filter((l) => l.name === 'DL').map((l) => l.hint))
+      .toEqual(['Druckleitung / Drehleiter'])
+  })
+
+  it('knows where on the Schadenplatz something is', () => {
+    expect(vocab.find((l) => l.name === '1. OG')).toMatchObject({ kind: 'term', plain: true })
+  })
+
+  it('⚠️ sorts LAST, so an abbreviation can never outrank somebody who is standing there', () => {
+    const person: Person = { id: 'p1', displayName: 'Gfeller Sandra', active: true, updatedAt: '2026-09-10T06:00:00.000Z' }
+    const withCrew = journalVocabulary([person], { p1: { status: 'present', displayNameSnapshot: 'Gfeller Sandra', intervals: [{ from: '2026-09-10T06:00:00.000Z' }] } })
+    expect(withCrew.findIndex((l) => l.name === 'Gfeller Sandra'))
+      .toBeLessThan(withCrew.findIndex((l) => l.name === 'GF'))
+    // ⚠️ …and the list order alone does NOT achieve that, which is the trap this pair guards:
+    // a prefix scores «1000 − length», so the two-letter «GF» beat every name until suggestLinks
+    // was taught to sink `plain` first (10.09.). One typed «g» answered with abbreviations only.
+    expect(suggestLinks('g', withCrew).map((l) => l.name)).toEqual(['Gfeller Sandra', 'GF'])
+  })
+})
+
+describe('⚠️ spelling help COMPLETES but never MARKS', () => {
+  // Marking is the app saying «this is a thing the Einsatz has a record of». «AS», «RWA» and
+  // «1. OG» are none of those, and marked like the rest, one ordinary line came out with four
+  // coloured terms in it — on screen and on paper. See JournalLink.plain.
+  const vocab = journalVocabulary([], {})
+
+  it('leaves an abbreviation and a Geschoss as plain text', () => {
+    expect(linkRanges('Trupp prüft CO2 in UG, AS ausgerüstet, RWA zu', vocab)).toEqual([])
+  })
+
+  it('still marks the real vocabulary in the same sentence', () => {
+    const withPerson: JournalLink[] = [...vocab, { name: 'Hager Hannes', kind: 'person' }]
+    const text = 'Hager Hannes misst im 1. OG mit AS'
+    const r = linkRanges(text, withPerson)
+    expect(r.map((x) => text.slice(x.start, x.end))).toEqual(['Hager Hannes'])
   })
 })
 

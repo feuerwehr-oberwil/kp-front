@@ -198,6 +198,10 @@
 .jc-link-partner { background: color-mix(in srgb, var(--amber) 17%, transparent); color: var(--amber-strong); }
 .jc-link-vehicle { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
 .jc-link-group { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+/* Spelling help — «AS», «RWA», «1. OG» (journalLinks · plain). The QUIETEST chip in the row on
+   purpose: it is the only one that does not name a thing the Einsatz has a record of, and it
+   leaves no mark behind in the Verlauf either, so it must not look like a name. */
+.jc-link-term { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink-dim); }
 /* ⚠️ HOVER ONLY WHERE A POINTER CAN LEAVE AGAIN — the same instrument the Ebenen list uses
    (05-navrail.css · .lrow). On a touchscreen :hover sticks to whatever was tapped last, so a
    Textbaustein stayed lit long after the finger was gone; in a row whose last chip DOES change

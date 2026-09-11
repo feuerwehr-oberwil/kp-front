@@ -96,6 +96,45 @@ const base = {
       'Pumpen eingesetzt',
       'Ölspur gebunden',
     ],
+    // The abbreviations the Funkverkehr actually speaks — read off ten weeks of real prod
+    // Verlauf-Einträge (10.09.2026), where every one of them was typed out by hand and none was
+    // completed by anything. They are SPELLING HELP, not vocabulary: they complete in the
+    // composer and are never marked in the Verlauf or on the Rapport (journalLinks · plain), and
+    // the chip inserts the SPOKEN form — the record has to read the way it was said on the radio,
+    // so «Hösi Gruppe bereitstellen» stays that and does not become «Höhensicherung Gruppe …».
+    // The long form rides along on the chip only, for the 3am moment when the letters alone are
+    // not enough.
+    // ⚠️ Ordered by how often the corpus used them: at one typed letter the likeliest wins, and
+    // that order is the only thing deciding it.
+    // ⚠️ «DL» has two readings that are both right depending on the Einsatz, so the chip names
+    // both and inserts the same two letters either way rather than guessing. ONE entry, not two:
+    // the suggestion band dedupes by label, so a second «DL» would have been silently dropped
+    // and only the first reading would ever have been read.
+    abbreviations: [
+      { term: 'AS', long: 'Atemschutz' },
+      { term: 'Hösi', long: 'Höhensicherung' },
+      { term: 'MS', long: 'Motorspritze' },
+      { term: 'OF Front', long: 'Offizier Front' },
+      { term: 'BF', long: 'Berufsfeuerwehr' },
+      { term: 'Frz', long: 'Fahrzeug' },
+      { term: 'RWA', long: 'Rauch-/Wärmeabzug' },
+      { term: 'SA', long: 'Schnellangriff' },
+      { term: 'TS', long: 'Teilstück' },
+      { term: 'DL', long: 'Druckleitung / Drehleiter' },
+      { term: 'WBK', long: 'Wärmebildkamera' },
+      { term: 'GF', long: 'Gruppenführer' },
+      { term: 'ADF', long: 'Angehöriger der Feuerwehr' },
+      { term: 'pax', long: 'Personen' },
+    ],
+    // Where on the Schadenplatz something is. The same corpus wrote «1. OG» in six spellings
+    // («1og», «1, og», «1 og», «2. OG», «2OG», «2.Og») — which is not only slower to type but
+    // makes the Rapport unsearchable, so this list exists as much for the record as for the
+    // thumb. Plain like the abbreviations above: a Geschoss is not one of the Einsatz's own
+    // words, and marking every one of them would leave a busy line coloured end to end.
+    locations: [
+      'Keller', '2. OG', '1. OG', 'UG', 'EG', 'Dach', '3. OG', '4. OG',
+      'Estrich', 'Treppenhaus', 'Nebengebäude', 'Brandwohnung', 'Schadenplatz', 'Sammelplatz',
+    ],
   },
   // Live vehicle GPS, pulled from our own backend's Traccar integration. With
   // baseUrl empty (the default) the path is same-origin — served by the backend
