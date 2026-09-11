@@ -23,7 +23,7 @@ import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGrupp
 import type { ZeitKind } from '../lib/alarmzeiten'
 import type { AssignableRole } from '../lib/roleAssignment'
 import { deploymentName, getDeploymentConfig, reportLinks } from '../lib/deploymentConfig'
-import { addPartnerOrg, unlistedPartnerOrgs } from '../lib/partnerOrgs'
+import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage, unlistedPartnerOrgs } from '../lib/partnerOrgs'
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -524,13 +524,26 @@ export function ReportPreflight({
   // read and where, one tap fills both fields, and nothing is ever written on its own. The
   // Rettungs-Symbol carries «Anzahl Personen» in its count and «Anzahl Tiere» in its own field,
   // so the number the Rapport asks for has been on the Kroki the whole time (lib/gerettete).
-  const geretteteLage = useMemo(
-    () => geretteteFromLage([...(scene?.entities ?? []), ...Object.values(board ?? {}).flat()]),
+  /** every symbol standing on the Lage AND on the plans — the one input both map-read offers
+   *  share. ⚠️ The two are VIEWS of the same records since the unified-objects rework, so ids
+   *  collide by design and a symbol near a georeferenced plan arrives more than once: each
+   *  reader says how it handles that (lib/gerettete dedups by id, lib/partnerOrgs collects a set). */
+  const placedOnLage = useMemo(
+    () => [...(scene?.entities ?? []), ...Object.values(board ?? {}).flat()],
     [scene?.entities, board],
   )
+  const geretteteLage = useMemo(() => geretteteFromLage(placedOnLage), [placedOnLage])
   const geretteteHint = canEdit
     ? geretteteOffer(geretteteLage, { personen: numOrU(geretteteP), tiere: numOrU(geretteteT) })
     : null
+  // ── «Auf der Karte» — the Partnerorganisationen the Kroki already shows ──
+  // A «Bereich Polizei» standing on the map IS the answer to «war die da?», and the checklist
+  // further down asks it a second time, an hour later, from memory. Same strip, same promise as
+  // the Gerettete one above: it states what it read, and the rows tick on a tap — never on their
+  // own (lib/partnerOrgs · partnerOrgsFromLage, symbol→Organisation in appConfig.symbols).
+  // (not memoised: one pass over the already-memoised symbols, and `presetOrgs` is a fresh array
+  // on every render anyway — a useMemo here would recompute each time AND lie about it)
+  const partnerHint = canEdit ? partnerOrgOffer(partnerOrgsFromLage(placedOnLage, presetOrgs), partners) : null
   const [rueckName, setRueckName, rueckNameDirty] = useSyncedField('rueckName', remoteRueckName, normText, blurTick)
   // ⚠️ The full ISO, not an HH:MM. The Rückmeldung an die ELZ is regularly given after
   // midnight, or the morning after on a long Einsatz, and a bare clock had to guess which
@@ -2313,6 +2326,23 @@ export function ReportPreflight({
                       )
                     })}
                   </div>
+                  {/* What the Kroki already says about this question. No ✕, like the Gerettete
+                      strip: an organisation that is ticked is not offered again, so the strip
+                      disappears on the tap that applies it — «weg damit» and «stimmt» are the
+                      same tap. Ticking here is exactly what tapping the rows above does. */}
+                  {partnerHint && (
+                    <div className="rz-lage-strip" role="status">
+                      <span className="rz-lage-text">
+                        {fillTemplate(P.partnerLageStrip, { list: partnerHint.join(' · ') })}
+                      </span>
+                      <button
+                        type="button" className="rz-lage-take"
+                        onClick={() => savePartners([...partners, ...partnerHint.map((org) => ({ org }))])}
+                      >
+                        {P.partnerLageTake}
+                      </button>
+                    </div>
+                  )}
                   {/* the list covers the usual partners; the one that turns up anyway still has
                       to be recordable — so this picker carries the station's remaining
                       organisations AND takes whatever is typed as the row's name (see

@@ -1138,6 +1138,10 @@ export const en: Localizable<Copy> = {
     notPresent: 'not present',
     noRoster: 'No crew available',
     assignedConflict: '{name} is already in another team.',
+    // the one grip that resolves it — take them out of the other team and carry on here
+    assignedTransfer: 'Move into this team',
+    // …and when that grip is withheld: the other team is deployed, its contact clock running
+    assignedConflictDeployed: '{name} is in a team that is deployed.',
     saveBlockedTeam: 'Add a team leader first.',
     saveBlockedAuftragMissing: 'Task is missing.',
     saveBlockedAuftrag: '«Other» needs a task/target text.',
@@ -1296,6 +1300,10 @@ export const en: Localizable<Copy> = {
     changeMemberIn: '{names} joined',
     // …and WHO IS IN IT NOW, with the « / » this app writes a crew with everywhere else
     changeCrewNow: 'Now: {crew}',
+    // the transfer, as ONE row on the team giving the person up — {name} is that team, {to} the
+    // one taking them on (the receiving team's own row already names its full crew)
+    logMovedOut: 'Team {name}: {person} moved to team {to}',
+    logMovedOutPlain: 'Team {name}: {person} moved to another team',
     changeAuftragTo: 'task {auftrag}',
     changeAuftragCleared: 'task removed',
     changeLine: 'Line {n}',
@@ -2583,6 +2591,8 @@ export const en: Localizable<Copy> = {
     partnerNoteShort: 'Remark',
     partnersNone: 'none recorded',
     partnerAdd: 'Add organisation',
+    partnerLageStrip: 'On the map: {list}',
+    partnerLageTake: 'Apply',
     attachmentsHead: 'Photos',
     attachmentsAdd: 'Add photo',
     attachmentsOpen: 'View the photo',

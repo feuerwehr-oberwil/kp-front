@@ -76,7 +76,7 @@ export const it: Localizable<Copy> = {
           { kind: 'sub', text: 'Barra dell’intervento in alto' },
           { kind: 'list', items: [
             'A sinistra il nome dell’intervento con il **Menu** (cambia intervento, giorno/notte, questo aiuto …) e l’orologio.',
-            'A destra **Annulla/Ripeti**, **Diario** e **+ Voce**.',
+            'A destra **Annulla/Ripristina**, **Diario** e **+ Voce**.',
           ] },
           { kind: 'sub', text: 'Barra dei messaggi' },
           { kind: 'list', items: [
@@ -289,7 +289,7 @@ export const it: Localizable<Copy> = {
             'Appena la frase termina con un nome, accanto compaiono **→** e **←** — un tocco scrive la freccia, e «EL → ambulanza: paziente stabile» si legge come il protocollo radio che il diario è. Sulla carta diventa «->».',
             'Finché il campo è **vuoto**, sono pronti i chip iniziali: prima **EL →**, poi le formulazioni già usate in questo intervento (altrimenti la lista del corpo). Restano finché non si digita davvero — un secondo chip si aggiunge al primo.',
             'Le azioni rilevanti (simbolo posizionato, disegno creato/rimosso …) finiscono automaticamente nel diario.',
-            '**Annulla/Ripeti** vale per Situazione, Piano – e per la **Presenza**, dove riprende l’ultimo tocco (sul telefono la coppia sta nell’intestazione della presenza).',
+            '**Annulla/Ripristina** vale per Situazione, Piano – e per la **Presenza**, dove riprende l’ultimo tocco (sul telefono la coppia sta nell’intestazione della presenza).',
             'Una voce del diario con un luogo, se toccata, riporta al punto sulla carta o sul piano; foto e note vocali si aprono/riproducono direttamente nel diario.',
             '**Avvia riproduzione** riproduce Situazione e Piano a un momento precedente (cursore temporale; durante la riproduzione la modifica è bloccata).',
           ] },
@@ -422,9 +422,9 @@ export const it: Localizable<Copy> = {
   keepPlacing: 'Posiziona più',
   delete: 'Elimina',
   undo: 'Annulla',
-  redo: 'Ripeti',
+  redo: 'Ripristina',
   undoNamed: 'Annulla: {action}',
-  redoNamed: 'Ripeti: {action}',
+  redoNamed: 'Ripristina: {action}',
   undoLost: 'Non più annullabile',
   undoDomains: {
     reference: 'Riferimento adattato',
@@ -768,9 +768,9 @@ export const it: Localizable<Copy> = {
     objectDeleted: '{name} eliminato',
     drawingDeleted: 'Disegno eliminato',
     undo: 'Azione annullata',
-    redo: 'Azione ripetuta',
+    redo: 'Azione ripristinata',
     undoNamed: '{action} annullato',
-    redoNamed: '{action} ripetuto',
+    redoNamed: '{action} ripristinato',
     journalNote: 'Nota',
 
     teamPlaced: '{name} posata sulla mappa',
@@ -1137,6 +1137,10 @@ export const it: Localizable<Copy> = {
     notPresent: 'non presente',
     noRoster: 'Nessun effettivo disponibile',
     assignedConflict: '{name} è già in un’altra squadra.',
+    // l’unica mossa che scioglie il nodo — toglierla dall’altra squadra e proseguire qui
+    assignedTransfer: 'Sposta in questa squadra',
+    // …e quando non viene offerta: l’altra squadra è in intervento, il suo orologio di contatto corre
+    assignedConflictDeployed: '{name} è in una squadra che è in intervento.',
     saveBlockedTeam: 'Indicare prima un caposquadra.',
     saveBlockedAuftragMissing: 'Manca il compito.',
     saveBlockedAuftrag: '«Altro» richiede un testo di missione/obiettivo.',
@@ -1294,6 +1298,10 @@ export const it: Localizable<Copy> = {
     changeMemberIn: '{names} si sono aggiunti',
     // …e CHI C’È ADESSO, con il « / » con cui quest’app scrive una squadra ovunque
     changeCrewNow: 'Ora: {crew}',
+    // il passaggio, in UNA riga presso la squadra che cede la persona — {name} è quella squadra,
+    // {to} quella che la accoglie (la cui riga nomina già il suo effettivo completo)
+    logMovedOut: 'Squadra {name}: {person} passato alla squadra {to}',
+    logMovedOutPlain: 'Squadra {name}: {person} passato a un’altra squadra',
     changeAuftragTo: 'compito {auftrag}',
     changeAuftragCleared: 'compito rimosso',
     changeLine: 'Linea {n}',
@@ -2579,6 +2587,8 @@ export const it: Localizable<Copy> = {
     partnerNoteShort: 'Osservazione',
     partnersNone: 'nessuna registrata',
     partnerAdd: 'Aggiungi organizzazione',
+    partnerLageStrip: 'Sulla carta: {list}',
+    partnerLageTake: 'Applica',
     attachmentsHead: 'Foto',
     attachmentsAdd: 'Aggiungi foto',
     attachmentsOpen: 'Vedi la foto',

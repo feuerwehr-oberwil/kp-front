@@ -1137,6 +1137,10 @@ export const fr: Localizable<Copy> = {
     notPresent: 'absent',
     noRoster: 'Aucun effectif disponible',
     assignedConflict: '{name} est déjà dans un autre binôme.',
+    // la seule manœuvre qui dénoue la situation — la retirer de l’autre binôme et continuer ici
+    assignedTransfer: 'Déplacer dans ce binôme',
+    // …et quand elle n’est pas offerte : l’autre binôme est engagé, sa montre de contact tourne
+    assignedConflictDeployed: '{name} est dans un binôme qui est engagé.',
     saveBlockedTeam: 'Indiquer d’abord un chef de binôme.',
     saveBlockedAuftragMissing: 'Mission manquante.',
     saveBlockedAuftrag: '«Autre» a besoin d’un texte de mission/objectif.',
@@ -1294,6 +1298,10 @@ export const fr: Localizable<Copy> = {
     changeMemberIn: '{names} ont rejoint',
     // …et QUI EN FAIT PARTIE MAINTENANT, avec le « / » que cette app utilise pour un binôme
     changeCrewNow: 'Nouveau : {crew}',
+    // le changement, en UNE ligne chez le binôme qui cède la personne — {name} ce binôme-là,
+    // {to} celui qui la reprend (dont la propre ligne nomme déjà tout son effectif)
+    logMovedOut: 'Binôme {name} : {person} passé au binôme {to}',
+    logMovedOutPlain: 'Binôme {name} : {person} passé à un autre binôme',
     changeAuftragTo: 'mission {auftrag}',
     changeAuftragCleared: 'mission retirée',
     changeLine: 'Ligne {n}',
@@ -2579,6 +2587,8 @@ export const fr: Localizable<Copy> = {
     partnerNoteShort: 'Remarque',
     partnersNone: 'aucune saisie',
     partnerAdd: 'Ajouter une organisation',
+    partnerLageStrip: 'Sur la carte : {list}',
+    partnerLageTake: 'Reprendre',
     attachmentsHead: 'Photos',
     attachmentsAdd: 'Ajouter une photo',
     attachmentsOpen: 'Voir la photo',

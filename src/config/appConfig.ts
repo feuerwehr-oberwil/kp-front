@@ -257,6 +257,25 @@ const base = {
     // is what lib/gerettete offers back into the form instead of making somebody re-count the
     // Kroki by eye at the end of an Einsatz.
     rescueName: 'VKF Rettungen',
+    /** Partner-Bereiche → the Partnerorganisation each one means, so a Kroki that already shows
+     *  where the Polizei stands can OFFER «Polizei» into the Rapport's checklist instead of
+     *  making somebody remember it an hour later (lib/partnerOrgs · partnerOrgsFromLage).
+     *
+     *  Each entry lists the spellings a station's own `report.partnerOrgs` list may use — the
+     *  match is case-insensitive and the STATION's spelling is what ends up on the rapport, so
+     *  an organisation the list does not carry is never invented here.
+     *
+     *  ⚠️ Only the unambiguous ones. «VKF Bereich Feuerwehr» is left out on purpose: on most
+     *  Krokis it marks the OWN Wehr, not a partner, and a nachbarliche Wehr uses the same glyph —
+     *  an offer that is wrong half the time is worse than no offer. The Sanitäts-Einrichtungen
+     *  (Patientensammelstelle, Sanitätshilfsstelle, Verwundetennest) are out for the same reason:
+     *  the Feuerwehr sets them up itself, before anybody from the Sanität is on site. */
+    partnerOrgSymbols: {
+      'VKF Bereich Polizei': ['Polizei', 'Police', 'Kantonspolizei', 'Kapo', 'Stadtpolizei'],
+      'VKF Bereich Sanitaet': ['Sanität', 'Sanitaet', 'Sanitätsdienst', 'Rettungsdienst', 'Ambulanz'],
+      'VKF Bereich Chemiewehr': ['Chemiewehr'],
+      'VKF Bereich Zivilschutz': ['Zivilschutz', 'ZSO'],
+    } as Record<string, string[]>,
     // the Einsatzleiter glyph. Its 'Name' field is the person in charge, so a Kroki that carries
     // one pre-fills the Rapport's Einsatzleiter (lib/report · einsatzleiterFromScene).
     einsatzleiterName: 'VKF Einsatzleiter',

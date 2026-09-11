@@ -111,7 +111,7 @@ export const de = {
           { kind: 'sub', text: 'Obere Einsatzleiste' },
           { kind: 'list', items: [
             'Links der Einsatz-Name mit dem **Menü** (Einsatz abschliessen, Einsatz wechseln, Einstellungen, Offline-Bereitschaft, diese Hilfe …) und der **Einsatzuhr**.',
-            'Rechts **Rückgängig/Wiederholen**, **Verlauf** und **+ Eintrag**.',
+            'Rechts **Rückgängig/Wiederherstellen**, **Verlauf** und **+ Eintrag**.',
           ] },
           { kind: 'sub', text: 'Meldeleiste' },
           { kind: 'list', items: [
@@ -141,7 +141,7 @@ export const de = {
           ] },
           { kind: 'sub', text: 'Bearbeiten' },
           { kind: 'list', items: [
-            '[[⌘]] [[Z]] Rückgängig · [[⌘]] [[⇧]] [[Z]] Wiederholen · [[⌘]] [[D]] Duplizieren.',
+            '[[⌘]] [[Z]] Rückgängig · [[⌘]] [[⇧]] [[Z]] Wiederherstellen · [[⌘]] [[D]] Duplizieren.',
             '[[Esc]] schliesst der Reihe nach: Werkzeug → offenes Panel → Auswahl. [[⌫]] löscht die Auswahl.',
           ] },
           { kind: 'sub', text: 'Ansicht & Panels' },
@@ -328,7 +328,7 @@ export const de = {
             'Sobald der Satz auf einem Namen endet, stehen **→** und **←** als Vorschlag daneben: ein Tipp schreibt den Pfeil, und «EL → Sanität: Patient stabil» liest sich wie das Funkprotokoll, das der Verlauf ist. Auf dem Papier wird daraus «->».',
             'Solange das Feld **leer** ist, stehen Startchips bereit: zuerst **EL →**, danach die Textbausteine, die auf diesem Einsatz schon geschrieben wurden (sonst die Liste der Wehr). Sie bleiben stehen, bis wirklich getippt wird – ein zweiter Chip hängt sich an den ersten an.',
             'Wesentliche Aktionen (Symbol gesetzt, Zeichnung erstellt/entfernt …) landen automatisch im Verlauf.',
-            '**Rückgängig/Wiederholen** gilt für Karte, Plan – und für die **Anwesenheit**: dort nimmt es den letzten Tipp zurück (am Telefon stehen die beiden Pfeile in der Kopfzeile der Anwesenheit).',
+            '**Rückgängig/Wiederherstellen** gilt für Karte, Plan – und für die **Anwesenheit**: dort nimmt es den letzten Tipp zurück (am Telefon stehen die beiden Pfeile in der Kopfzeile der Anwesenheit).',
             'Ein Verlaufseintrag mit Ort springt beim Antippen zurück auf die Stelle in Karte oder Plan; Fotos und Sprachnotizen lassen sich direkt im Verlauf öffnen/abspielen.',
             'Ein **Vertipper** lässt sich korrigieren: der **Stift** in der Zeile steht auf allem, was jemand selber getippt hat – nicht auf dem, was die App über eine Aktion geschrieben hat («Trupp 2 eingerückt»). Die Zeile trägt danach **korrigiert HH:MM**; der ursprüngliche Wortlaut bleibt im Protokoll und in der Prüfkette.',
             '**Wiedergabe starten** spielt Karte und Plan zu einem früheren Zeitpunkt ab (Zeitschieber; Bearbeiten ist dabei gesperrt).',
@@ -687,13 +687,17 @@ export const de = {
   keepPlacing: 'Mehrere platzieren',
   delete: 'Löschen',
   undo: 'Rückgängig',
-  redo: 'Wiederholen',
+  // ⚠️ «Wiederherstellen», nicht «Wiederholen» (11.09.): «wiederholen» heisst, die Aktion NOCH
+  // EINMAL auszuführen – im Verlauf stand hintereinander «Druck 280 bar rückgängig gemacht» und
+  // «Druck 280 bar wiederholt», was wie zwei Meldungen desselben Trupps aussieht statt wie eine
+  // zurückgenommene und wieder hergestellte. Redo stellt den Stand von vorher wieder her.
+  redo: 'Wiederherstellen',
   // ⚠️ Das ↶ im Kopf greift seit 08.09.2026 über ALLE Flächen (lib/undoTimeline), also muss es
   // sagen, was es zurücknimmt – sonst nimmt es auf der Karte etwas zurück, das zwei Tipps vorher
   // auf der Atemschutz-Tafel passiert ist, und niemand sieht es. Der Text steht in der
   // Halte-Blase (Versprechen) und blitzt beim Tippen an derselben Stelle auf (Bestätigung).
   undoNamed: 'Rückgängig: {action}',
-  redoNamed: 'Wiederholen: {action}',
+  redoNamed: 'Wiederherstellen: {action}',
   // Der Schritt zeigte auf etwas, das es nicht mehr gibt (Fremdgerät hat es gelöscht, Merge hat
   // die Fläche ersetzt). Kein Fehler des Bedieners – darum ohne Knopf und ohne «fehlgeschlagen».
   undoLost: 'Nicht mehr rückgängig machbar',
@@ -711,7 +715,7 @@ export const de = {
     karte: 'Änderung auf der Karte',
     plan: 'Änderung auf «{plan}»',
     anwesenheit: 'Anwesenheit',
-    mittel: 'Mittel',
+    mittel: 'Material',
     checkliste: 'Checkliste',
     gebaeude: 'Gebäude',
   },
@@ -1118,13 +1122,13 @@ export const de = {
     selectionDeleted: '{n} Objekte gelöscht',
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
-    redo: 'Aktion wiederholt',
+    redo: 'Aktion wiederhergestellt',
     // ⚠️ Der Verlauf ist append-only: eine Rücknahme LÖSCHT die Zeile von vorhin nicht, sie
     // schreibt eine neue dazu. Und sie benennt, was zurückgenommen wurde – seit ein ↶ auf der
     // Karte eine Atemschutz-Aktion treffen kann, wäre «Aktion rückgängig gemacht» eine Zeile,
     // die auf Papier niemand mehr zuordnen kann.
     undoNamed: '{action} rückgängig gemacht',
-    redoNamed: '{action} wiederholt',
+    redoNamed: '{action} wiederhergestellt',
     journalNote: 'Notiz',
     // ⚠️ EDITING the Kroki, not just placing and removing on it (10.08.). A symbol got one row
     // when it appeared and one when it went, and everything in between — the Stockwerk, the name
@@ -1748,6 +1752,27 @@ export const de = {
     noRoster: 'Kein Personal verfügbar',
     officersOnly: 'nur Offiziere',
     assignedConflict: '{name} ist bereits in einem anderen Trupp.',
+    /**
+     * …und der eine Griff, der das auflöst (11.09.): die Person aus dem anderen Trupp nehmen und
+     * hier weitermachen. Vorher war die Warnung eine Sackgasse – sie nannte das Hindernis, und
+     * beseitigen liess es sich nur, indem man dieses Formular verwarf, den anderen Trupp suchte,
+     * ihn bearbeitete und von vorne begann.
+     *
+     * ⚠️ «verschieben», nicht «entfernen»: die Person verlässt den einen Trupp NICHT, sie wechselt
+     * in diesen. Was im anderen Trupp passiert, ist die Folge – und steht als eine Verlaufszeile
+     * dort (`logMovedOut`), nicht als Abgang und Zugang in zweien.
+     */
+    assignedTransfer: 'In diesen Trupp verschieben',
+    /**
+     * …und wann es diesen Griff NICHT gibt (11.09.): der andere Trupp ist im Einsatz.
+     *
+     * Seine Kontaktuhr läuft, sein Eintritt ist gestempelt, und die Atemschutzüberwachung wacht
+     * über genau diese Mannschaft. Sie hier still umzuschreiben hiesse, eine laufende Überwachung
+     * auf eine Mannschaft zu stellen, die so nie eingerückt ist. Der Satz sagt deshalb, warum
+     * kein Knopf danebensteht – die Korrektur gehört in die «Bearbeiten» jenes Trupps, wo sie
+     * bewusst geschieht und protokolliert wird (lib/atemschutz · truppTransferState).
+     */
+    assignedConflictDeployed: '{name} ist in einem Trupp, der im Einsatz ist.',
     // when the slot is linked but nameless — used to be a German literal in the code
     assignedFallbackName: 'Diese Person',
     // «Speichern» blocked (AtemschutzView · TruppForm attemptSubmit, field feedback 02.09.): a
@@ -2068,6 +2093,22 @@ export const de = {
      * ist dieselbe Mannschaft und braucht sie nicht.
      */
     changeCrewNow: 'Neu: {crew}',
+    /**
+     * Der Wechsel, als EINE Zeile beim abgebenden Trupp (11.09.) – ausgelöst vom Knopf in der
+     * Warnung «bereits in einem anderen Trupp» (`assignedTransfer`).
+     *
+     * ⚠️ Eine Zeile, nicht zwei. Als Abgang hier und Zugang dort gelesen, sähe der Verlauf nach
+     * zwei Ereignissen aus, zwischen denen jemand nirgends war – und die Zeile im aufnehmenden
+     * Trupp steht ohnehin: seine Anmeldung bzw. seine Bearbeitungszeile nennt die neue Mannschaft
+     * vollständig. Was hier fehlte, ist WOHIN, und genau das sagt diese.
+     * ⚠️ {name} ist der abgebende Trupp, {person} die Person, {to} der aufnehmende Trupp.
+     */
+    logMovedOut: 'Trupp {name}: {person} in Trupp {to} gewechselt',
+    /** …und wenn der aufnehmende Trupp noch keinen Namen trägt (er wird gerade erst angemeldet,
+     *  oder die Person IST sein Gruppenführer): dann ist «Trupp {to}» entweder leer oder wörtlich
+     *  derselbe Name, der im selben Satz schon steht. Beides ist keine Auskunft – die Anmeldung
+     *  direkt darunter nennt den neuen Trupp. */
+    logMovedOutPlain: 'Trupp {name}: {person} in einen anderen Trupp gewechselt',
     // ⚠️ Says WHAT the Auftrag now is, not that a field was touched. «Auftrag angepasst» was the
     // one line on this row that named nothing: read back an hour later it could mean a new order,
     // a corrected floor or a typo fixed in the Ziel, and the Verlauf is read precisely to find out
@@ -4124,6 +4165,12 @@ export const de = {
     partnerNoteShort: 'Bemerkung',
     partnersNone: 'keine erfasst',
     partnerAdd: 'Organisation hinzufügen',
+    // Ein «Bereich Polizei» auf dem Kroki ist bereits die Antwort auf «war die da?» – der
+    // Streifen sagt, was auf der Karte steht, und kreuzt die Zeilen erst auf Tipp an. Gleiche
+    // Form und gleiches Versprechen wie bei den Geretteten (geretteteLageStrip): der Rapport
+    // hält fest, was jemand geschrieben hat, nicht was die App ausgerechnet hat.
+    partnerLageStrip: 'Auf der Karte: {list}',
+    partnerLageTake: 'Übernehmen',
     attachmentsHead: 'Fotos',
     attachmentsAdd: 'Foto hinzufügen',
     attachmentsOpen: 'Foto gross ansehen',
