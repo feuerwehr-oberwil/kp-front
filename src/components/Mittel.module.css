@@ -58,6 +58,24 @@
 }
 .groupHead.muted { color: var(--ink-faint); }
 
+/* SUCHEN HEISST ERFASSEN — the query-carrying row under the matches (MittelView · createRow),
+   the same door the Trupp picker and every Combo offer. Dashed, like every «hier ist Platz für
+   eines mehr» in the app, and spanning BOTH columns of the wide layout: it belongs to the
+   search, not to whichever category happened to end above it. */
+.createRow {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+  grid-column: 1 / -1; margin-top: 14px; min-height: var(--tap); padding: 8px 12px;
+  border: 1px dashed var(--glass-edge); border-radius: var(--r-ctl); background: none;
+  color: var(--ink); font: 700 13.5px var(--body); text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .createRow:hover { border-color: var(--ink-faint); } }
+.createRow:active { background-image: linear-gradient(var(--press), var(--press)); }
+.createRow :global(.i) { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
+/* …and on the «Keine Treffer» screen it is the only thing on offer, so the note and the row
+   stack in the space the list would have had */
+.noHits { flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; padding: 8px 22px 18px; }
+.noHits > .createRow { align-self: flex-start; width: auto; margin-top: 0; }
+
 .row {
   display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 12px;
   border: 1px solid var(--glass-edge); background: var(--surface); border-radius: var(--r-ctl);

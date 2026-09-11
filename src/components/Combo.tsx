@@ -23,7 +23,7 @@ const CLASSES: ComboMenuClasses = {
  * `value=""` + a non-empty placeholder makes it a pure prefill picker (it shows the placeholder
  * and never retains a selection, since the parent keeps value empty).
  */
-export function Combo({ value, options, groups, placeholder, searchPlaceholder, allowCustom, customLabel = appConfig.copy.combo.customDefault, clearable = true, officerFilter, rankOf, statusOf, openTick, limit, onInput, onChange }: {
+export function Combo({ value, options, groups, placeholder, searchPlaceholder, allowCustom, clearable = true, officerFilter, rankOf, statusOf, openTick, limit, onInput, onChange }: {
   value: string
   options: string[]
   /** optional grouped rendering: section headers with their own options. When set, the menu
@@ -34,8 +34,9 @@ export function Combo({ value, options, groups, placeholder, searchPlaceholder, 
    *  («Person suchen …») — right for the roster pickers this control was built for, wrong for a
    *  picker over anything else (material, unit, Quelle …), so a non-roster caller passes its own. */
   searchPlaceholder?: string
+  /** offer the free-type door: the menu's search row doubles as the entry field and the
+   *  «‹X› verwenden» row under the matches commits what is typed (ComboMenu · custom) */
   allowCustom?: boolean
-  customLabel?: string
   clearable?: boolean
   /** rank-aware roster picker: sort officers first and offer a "nur Offiziere" filter toggle.
    *  Needs `rankOf` to resolve an option (person name) to its rank key. Ignored with `groups`. */
@@ -117,7 +118,7 @@ export function Combo({ value, options, groups, placeholder, searchPlaceholder, 
         toggle={hasOfficers ? { label: appConfig.copy.combo.officersOnly } : undefined}
         // Gast door (Feldtest Manuel, 07.09.): type into the search row, commit via the
         // query-carrying «‹X› verwenden» row — no mode switch into a bare input any more.
-        custom={allowCustom ? { label: customLabel, use: { template: appConfig.copy.combo.useTyped, commit: onChange } } : undefined}
+        custom={allowCustom ? { template: appConfig.copy.combo.useTyped, commit: onChange } : undefined}
         onPick={onChange}
       />
     </div>

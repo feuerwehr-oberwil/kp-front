@@ -1645,8 +1645,9 @@ export const de = {
     moveBack: 'Karte nach vorne schieben',
     moveForward: 'Karte nach hinten schieben',
     leaderLabel: 'Gruppenführer',
-    // (`guestNamePlaceholder` / `teamAdd` are gone with the second field they belonged to — see
-    //  `teamGuestAdd` below. `typeName` stays: PersonField still opens a name field of its own.)
+    // (`guestNamePlaceholder` / `teamAdd` / `typeName` sind mit dem zweiten Feld weg, zu dem sie
+    //  gehörten – siehe `teamGuestAdd` unten. Seit 11.09. gilt das auch für PersonField: dort
+    //  trägt die Suchzeile den Namen ein und `combo.useTyped` beschriftet die Übernahme.)
     // Trupp selection (TruppTeam) — a list to tap instead of three fixed fields. The three
     // fields could name a Trupp but not rearrange it: whoever was typed first was Gruppenführer
     // forever. The star is the correction, and it costs one tap.
@@ -1746,7 +1747,6 @@ export const de = {
     notPresent: 'nicht anwesend',
     noRoster: 'Kein Personal verfügbar',
     officersOnly: 'nur Offiziere',
-    typeName: 'Name eingeben …',
     assignedConflict: '{name} ist bereits in einem anderen Trupp.',
     // when the slot is linked but nameless — used to be a German literal in the code
     assignedFallbackName: 'Diese Person',
@@ -2581,7 +2581,6 @@ export const de = {
     // header. Every other symbol's header says which symbol it is and is read-only; was etwas
     // Besonderes über eines zu sagen ist, gehört in die Notizen.
     labelField: 'Bezeichnung',
-    labelCustom: 'Andere Bezeichnung …',
     floor: 'Geschoss',
     floorFrom: 'Von Geschoss',
     floorTo: 'Bis Geschoss',
@@ -2890,7 +2889,8 @@ export const de = {
   },
   // custom dropdown (Combo.tsx)
   combo: {
-    customDefault: 'Eingeben …',
+    // (`customDefault` ist weg, 11.09.: die statische «Eingeben …»-Zeile, die ein zweites Feld
+    //  aufmachte, gibt es nicht mehr – getippt wird in der Suchzeile, übernommen mit `useTyped`.)
     empty: 'Keine Auswahl',
     officersOnly: 'nur Offiziere',
     // Deliberately NOT auto-focused: this stays a tap picker, and a keyboard that opens by
@@ -4349,11 +4349,16 @@ export const de = {
     // …und wenn der Name gleich in ein Rollenfeld getippt wurde (Fahrer, Stv., Einsatzleiter):
     // eine Zeile, nicht zwei. Erfasst und wofür, in derselben Bewegung.
     logGuestAddedAs: '{name} als weitere Person erfasst – {role}',
-    addGuest: 'Weitere Person',
-    addGuestTitle: 'Weitere Person erfassen',
-    addGuestHint: 'Für jemanden, der nicht auf der Personalliste steht – Gast, Nachbarwehr, noch nicht synchronisiert. Wird nur für diesen Einsatz erfasst.',
-    addGuestName: 'Name',
-    addGuestPlaceholder: 'z. B. Muster Felix (Nachbarwehr)',
+    // Die Gast-Tür, seit 11.09. die LETZTE Zeile der Mannschaftsliste statt eines «+» mit Dialog
+    // dahinter: das Suchfeld ist auch die Namenseingabe, und diese Zeile erscheint nur, solange
+    // etwas getippt ist. Sie trägt den getippten Namen selbst, damit die Zeile sagt, was der Tipp
+    // tut, statt ein zweites Feld zu öffnen, das dieselbe Frage nochmals stellt. (Mit ihr sind
+    // `addGuestTitle`/`addGuestHint`/`addGuestName`/`addGuestPlaceholder` weggefallen – der
+    // Dialog, den sie beschrifteten, existiert nicht mehr.)
+    // ⚠️ «Gast», dasselbe Wort wie auf dem Badge, das die neue Zeile gleich trägt (guestBadge)
+    // und wie im Trupp-Picker (atemschutz.teamGuestAdd): eine Sache, ein Wort dafür, auf jedem
+    // Bildschirm. ⚠️ «hinzufügen», nicht «erfassen»: die Person kommt zu einer Liste dazu.
+    addGuest: '«{name}» als Gast hinzufügen',
     guestBadge: 'Gast',
     removeGuest: 'Person löschen',
     // Whoever takes on a role is present too – the remark is set automatically along with it, but
@@ -4447,7 +4452,10 @@ export const de = {
     summaryLeft: '{left} gegangen',
     reload: 'Personal neu laden',
     loading: 'Wird geladen …',
-    searchPlaceholder: 'Suchen',
+    // ⚠️ Das Feld sucht UND erfasst (11.09., wie im Trupp-Picker seit 04.09.): wen die
+    // Mannschaftsliste nicht kennt, den nimmt die letzte Zeile der Liste als Gast auf. Der
+    // Platzhalter sagt das, sonst findet niemand die Tür – das war der Sinn des «+» daneben.
+    searchPlaceholder: 'Suchen oder Name eingeben …',
     clearSearch: 'Suche löschen',
     statusFrei: 'nicht anwesend',
     statusPresent: 'anwesend',
@@ -4749,6 +4757,12 @@ export const de = {
     // roster fields), which is the wrong noun for a material/unit/Quelle picker
     materialSearchPlaceholder: 'Material suchen …',
     customMaterial: 'Anderes Material',
+    // Suchen heisst erfassen (11.09.): Was die Suchzeile nicht findet, wird aus der Suchzeile
+    // heraus erfasst – die Zeile trägt die Eingabe selbst, also sagt sie, was der Tipp tut,
+    // statt den Composer mit leerem Feld zu öffnen und denselben Namen ein zweites Mal zu
+    // verlangen. ⚠️ Mit «», weil hier ein GETIPPTER Name steht; `addOne` («{label} erfassen»)
+    // bucht dagegen eine Katalogposition, die sich selbst benennt.
+    composerFromQuery: '«{name}» erfassen',
     unitLabel: 'Einheit',
     unitPlaceholder: 'Einheit',
     unitSearchPlaceholder: 'Einheit suchen …',
@@ -4758,8 +4772,9 @@ export const de = {
     // ⚠️ The configured Fahrzeuge are the usual answer, never the whole one. Material comes off a
     // Nachbarwehr's TLF, out of the Depot, from the Werkhof, off a lorry that happened to be
     // there — and the picker offered no way to say so, so those lines were recorded with no
-    // Quelle at all and the Rapport could not say where anything came from.
-    sourceCustom: 'Andere Quelle eingeben …',
+    // Quelle at all and the Rapport could not say where anything came from. Getippt wird seit
+    // 11.09. in der Suchzeile des Pickers selbst (`combo.useTyped`) – die eigene Zeile
+    // «Andere Quelle eingeben …» dafür ist damit weg.
     qtyLabel: 'Menge',
     save: 'Speichern',
     cancel: 'Abbrechen',

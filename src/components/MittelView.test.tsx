@@ -83,6 +83,55 @@ describe('«In Verwendung» — the tick filter stays put while active', () => {
   })
 })
 
+describe('suchen heisst erfassen — die Suche trägt den Namen in den Composer', () => {
+  const fromQuery = (name: string) => fillTemplate(M.composerFromQuery, { name })
+  const type = (q: string) => fireEvent.change(
+    screen.getByPlaceholderText(M.searchPlaceholder), { target: { value: q } },
+  )
+
+  it('offers the typed name even while the catalogue still has partial matches', () => {
+    cfg.current = { mittel: { catalogue: [tauchpumpe, oelbinder], sources } }
+    mount()
+    // nothing typed → no door here: the bare «+» on the search line is the empty-query entry
+    expect(screen.queryByRole('button', { name: fromQuery('') })).toBeNull()
+    type('Tauch')
+    // «Tauchpumpe» still matches, and the door stands beside it — a Tauchpumpe-Adapter is not
+    // found by deleting characters until the list gives up
+    expect(screen.getByRole('button', { name: fillTemplate(M.addOne, { label: 'Tauchpumpe' }) })).toBeTruthy()
+    expect(screen.getByRole('button', { name: fromQuery('Tauch') })).toBeTruthy()
+  })
+
+  it('opens the composer with the query as the Bezeichnung — and saves it without retyping', () => {
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    const onSave = mount()
+    type('Kanister')
+
+    // no matches: the note and the door, nothing else
+    expect(screen.getByText(M.noMatches)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: fromQuery('Kanister') }))
+
+    // the composer stands open with the name already in its Material field
+    expect(screen.getByText(M.composerTitle)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Kanister/ })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: M.save }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(onSave.mock.calls[0][0]).toMatchObject({ label: 'Kanister', menge: 1, materialId: undefined })
+    // recorded → the sheet is gone
+    expect(screen.queryByText(M.composerTitle)).toBeNull()
+  })
+
+  it('resolves a query that IS a catalogue material to that material, not to a free line', () => {
+    cfg.current = { mittel: { catalogue: [tauchpumpe], sources } }
+    const onSave = mount()
+    type('Tauchpumpe')
+    fireEvent.click(screen.getByRole('button', { name: fromQuery('Tauchpumpe') }))
+    fireEvent.click(screen.getByRole('button', { name: M.save }))
+
+    expect(onSave.mock.calls[0][0]).toMatchObject({ materialId: 'tp', label: 'Tauchpumpe', unit: 'Stk.' })
+  })
+})
+
 describe('kompakte Ruhezeile — eine Position bei 0 trägt nur ein «+»', () => {
   const addOne = (label: string) => fillTemplate(M.addOne, { label })
   const pickSource = (label: string) => fillTemplate(M.addPickSource, { label })

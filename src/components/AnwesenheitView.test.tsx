@@ -82,6 +82,45 @@ describe('a guest can be opened and removed like anybody else', () => {
   })
 })
 
+/* The search field is also the entry for somebody who is not on the Mannschaftsliste (11.09.):
+ * the «+» and its dialog are gone, so a typed name that the roster cannot answer is offered as the
+ * last row of the list. What has to hold is that the name lands ONCE, exactly as typed — the
+ * dialog it replaced committed on a button, this commits on a row that carries the query itself. */
+describe('the search field records somebody who is not on the Mannschaftsliste', () => {
+  const A = appConfig.copy.anwesenheit
+  const offer = (name: string) => new RegExp(A.addGuest.replace('{name}', name))
+  const search = () => screen.getByPlaceholderText(A.searchPlaceholder)
+
+  it('offers nothing until a name is typed', () => {
+    mount({ onAddGuest: vi.fn() })
+    expect(screen.queryByRole('button', { name: /als Gast|as a guest/ })).toBeNull()
+  })
+
+  it('takes the typed name as a guest exactly once, and clears the search', () => {
+    const onAddGuest = vi.fn()
+    mount({ onAddGuest })
+    fireEvent.change(search(), { target: { value: 'Muster Felix' } })
+    fireEvent.click(screen.getByRole('button', { name: offer('Muster Felix') }))
+    expect(onAddGuest).toHaveBeenCalledTimes(1)
+    expect(onAddGuest).toHaveBeenCalledWith('Muster Felix')
+    expect((search() as HTMLInputElement).value).toBe('')
+  })
+
+  it('does not offer a name that is already standing in the list', () => {
+    mount({ onAddGuest: vi.fn() })
+    fireEvent.change(search(), { target: { value: 'Meier Anna' } })
+    expect(screen.getByRole('button', { name: /Meier Anna/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: offer('Meier Anna') })).toBeNull()
+  })
+
+  it('stays a plain search for a session that may not write', () => {
+    mount({ canEdit: false })
+    fireEvent.change(search(), { target: { value: 'Muster Felix' } })
+    expect(screen.queryByRole('button', { name: offer('Muster Felix') })).toBeNull()
+    expect(screen.getByText(A.noMatches)).toBeTruthy()
+  })
+})
+
 // The print-dialog line («24 Personen · 1 Schicht · Stand 13:13», PaperSheet's `sheetContent(Bands)`)
 // used to interpolate a bare count, so «1 Schichten»/«1 Personen» printed on paper. Both counts now
 // inflect on their own (`zeitplan.peopleCount`/`bandsCount`, same function-per-count idiom as

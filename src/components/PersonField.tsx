@@ -19,8 +19,9 @@ const CLASSES: ComboMenuClasses = {
 }
 
 // A combobox for a leader/AdF slot: pick from the Mannschaft dropdown (present crew first,
-// already-assigned flagged) OR just type a name (guests, mutual aid, Divera outage). Selecting
-// a person links the id; typing leaves it a manual snapshot. Replaces the old chip list.
+// already-assigned flagged) OR just type a name (guests, mutual aid, Divera outage) into the
+// menu's own search row. Selecting a person links the id; typing leaves it a manual snapshot.
+// Replaces the old chip list.
 //
 // The menu, where it is put and how it is dismissed all come from `ComboMenu`; what is left here
 // is the person policy — who is offered, in what order, what is said about them, and what a
@@ -65,7 +66,7 @@ export function PersonField({
   trailing?: ReactNode
 }) {
   const az = appConfig.copy.atemschutz
-  const [combo, { rootRef, pickRef, menuRef, inputRef }] = useComboMenu()
+  const [combo, { rootRef, pickRef, menuRef }] = useComboMenu()
   const { officersOnly } = combo
 
   const entries: ComboEntry<Slot>[] = useMemo(() => {
@@ -109,18 +110,20 @@ export function PersonField({
     return legacyRoster.filter((n) => !usedNames.has(n)).map((n) => ({ key: n, label: n, value: { name: n } }))
   }, [personnel, legacyRoster, presentIds, assignedIds, usedIds, usedNames, rolesById, rankFirst, officerFilter, officersOnly, az.notPresent])
 
-  const clear = () => { onChange({ name: '' }); combo.stopTyping() }
-  /** Leaving the free-text field is what FINISHES a hand-typed name: it is filed under an id —
-   *  the roster's if it names one of ours, a fresh Gast's otherwise (lib/guests) — so whoever is
-   *  named here reaches the Anwesenheit like anybody picked from the list. A name that only ever
-   *  sat on the Rapport reached neither the Personalblatt nor the statistics export. */
-  const commitTyped = () => {
-    combo.stopTyping()
-    combo.close()
-    const name = value.name.trim()
-    if (!onAddGuest || !name || value.personId) return
-    const id = onAddGuest(name)
-    if (id) onChange({ name, personId: id })
+  const clear = () => onChange({ name: '' })
+  /** A name the Mannschaft cannot answer, taken from the menu's search row (ComboMenu · custom).
+   *  It is filed under an id — the roster's if it names one of ours, a fresh Gast's otherwise
+   *  (lib/guests) — so whoever is named here reaches the Anwesenheit like anybody picked from the
+   *  list. A name that only ever sat on the Rapport reached neither the Personalblatt nor the
+   *  statistics export.
+   *  ⚠️ Capped at 40 characters, the way the bare input it replaced was: a hand-typed name goes
+   *  on the Trupp card's one-line name row, and every real roster name is far inside this.
+   *  ⚠️ EXPLICIT, never on blur (11.09.): a half-typed query is a search in progress, and the old
+   *  commit-on-blur needed a 120 ms timer to let a tap on a menu row win the race against it. */
+  const commitTyped = (typed: string) => {
+    const name = stripUnprintable(typed).trim().slice(0, 40)
+    if (!name) return
+    onChange({ name, personId: onAddGuest?.(name) })
   }
 
   return (
@@ -137,28 +140,15 @@ export function PersonField({
       )}
       <MaybeRow trailing={trailing}>
       <div className={s.combo} ref={rootRef}>
-        {combo.typing ? (
-          <input
-            ref={inputRef}
-            value={value.name} placeholder={placeholder}
-            // a hand-typed name (guest crew, someone not in Divera) is capped so it can't blow out
-            // the Trupp card's one-line name row; every real roster name is far inside this
-            maxLength={40}
-            onChange={(e) => onChange({ name: stripUnprintable(e.target.value) })}
-            // the delay lets a tap on a menu entry win over the blur (that path sets a personId)
-            onBlur={() => window.setTimeout(commitTyped, 120)}
-          />
-        ) : (
-          <button
-            ref={pickRef}
-            type="button" className={cx(s.comboPick, !value.name && s.comboPickEmpty)}
-            aria-haspopup="listbox" aria-expanded={combo.open}
-            onClick={combo.toggle}
-          >
-            <span className={s.comboPickName}>{value.name || placeholder}</span>
-          </button>
-        )}
-        {!combo.typing && !value.name && <span className={s.comboChev} aria-hidden><Icon id="chevron-down" className="chev" /></span>}
+        <button
+          ref={pickRef}
+          type="button" className={cx(s.comboPick, !value.name && s.comboPickEmpty)}
+          aria-haspopup="listbox" aria-expanded={combo.open}
+          onClick={combo.toggle}
+        >
+          <span className={s.comboPickName}>{value.name || placeholder}</span>
+        </button>
+        {!value.name && <span className={s.comboChev} aria-hidden><Icon id="chevron-down" className="chev" /></span>}
         {value.name && (
           <button
             type="button" className={s.comboClear} title={appConfig.copy.clear} aria-label={az.clearName}
@@ -170,15 +160,21 @@ export function PersonField({
           state={combo}
           menuRef={menuRef}
           classes={CLASSES}
-          copy={{ search: az.teamSearchPlaceholder, empty: az.noRoster, noMatches: az.teamNoMatches }}
+          // the search row doubles as the name field (see `custom` below), so its placeholder
+          // has to invite typing a NEW name and not only searching the roster
+          copy={{ search: appConfig.copy.combo.searchOrType, empty: az.noRoster, noMatches: az.teamNoMatches }}
           entries={entries}
           // below this the whole roster is on screen anyway and a search box is one more control
-          // between the finger and the name it came for
+          // between the finger and the name it came for — but `custom` below shows the row
+          // regardless (ComboMenu · searchShown): it is also the only place a Gast can be typed
           showSearch={entries.length > 8}
           limit={60}
           toggle={officerFilter ? { label: az.officersOnly } : undefined}
-          // type-a-name fallback for guests / mutual aid — only here does the keyboard appear
-          custom={{ label: az.typeName }}
+          // Guests / mutual aid: the search row IS the name field, and the «‹X› verwenden» row
+          // under the matches takes what is typed — the same one motion the Trupp picker's
+          // «‹Name› als Gast hinzufügen» makes. It replaced a «Name eingeben …» row that swapped
+          // the whole field for a bare input (two taps, a retype, and a commit-on-blur race).
+          custom={{ template: appConfig.copy.combo.useTyped, commit: commitTyped }}
           onPick={onChange}
         />
       </div>

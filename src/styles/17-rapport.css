@@ -373,9 +373,16 @@
 .report-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
 /* the same read-only gate inside a checklist row, where the indent comes from .rp-check-extra */
 .rp-check-gate { align-self: stretch; gap: 6px; }
-.report-fieldset:disabled .report-att-x, .report-fieldset:disabled .report-row-add { display: none; }
+.report-fieldset:disabled .report-att-x, .report-fieldset:disabled .report-row-add,
+.report-fieldset:disabled .report-partner-add { display: none; }
 
-/* «+ Zeile» under a repeating block (Beilage, Partnerorganisation) */
+/* Search-to-create under the Partner checklist: a picker, not a «+ Zeile» — what is typed into
+   its search row becomes the organisation (ReportPreflight · addPartner). Left-aligned and
+   capped, so it reads as one more control under the rows rather than a field spanning the
+   column; `.combo` itself is `flex: 1` and fills whatever it is given. */
+.report-partner-add { display: flex; align-self: flex-start; width: 100%; max-width: 280px; }
+
+/* «+ Zeile» under a repeating block (Beilage) */
 .report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; cursor: pointer;
   border: 1px dashed var(--border); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink);
   font: 700 13px var(--body); }

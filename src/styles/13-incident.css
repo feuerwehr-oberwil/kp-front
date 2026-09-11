@@ -941,6 +941,9 @@
 .cv-partner.on .cv-partner-box { border-color: color-mix(in srgb, var(--blue) 55%, var(--glass-line)); }
 .cv-partner-org { font: 600 15px var(--body); }
 .cv-partner-tick.bare { flex: none; min-width: 0; padding-right: 0; }
+/* the add picker (search-to-create): a <fieldset> only so `busy` can disable the Combo inside
+   it — strip the UA chrome, it is a gate and not a box (same trick as .report-fieldset) */
+.cv-partner-add { display: flex; border: 0; margin: 0; padding: 0; min-width: 0; }
 .cv-partner .cv-input { flex: 1 1 140px; min-width: 0; }
 .cv-partner-name { flex: 1 1 140px; }
 @media (max-width: 640px) {
@@ -996,6 +999,10 @@
 .cv-person.station .cv-person-state { color: var(--blue-strong);
   background: color-mix(in srgb, var(--blue) 18%, transparent); }
 .cv-person.left { opacity: .65; }
+/* «Gast» — a row that no Mannschaftsliste is behind. Neutral, quiet, and BEFORE the state chip:
+   it says where the name came from, not how the person is doing. */
+.cv-person-guest { flex: none; margin-left: auto; padding: 2px 7px; border-radius: var(--r-pill);
+  background: var(--fill-soft); color: var(--ink-faint); font: 700 11px var(--body); }
 /* state chip: ✓ (anwesend, GREEN like the main app's Anwesenheit grid) / exit-arrow
    (gegangen, muted) — shape + tint together, never colour alone; word = aria-label */
 .cv-person-state { display: grid; place-items: center; width: 26px; height: 26px; flex: none;

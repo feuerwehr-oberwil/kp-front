@@ -868,9 +868,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 /* leader/AdF combobox — type freely or pick from the dropdown (present crew first) */
 .combo { position: relative; display: flex; flex-direction: column; }
-.combo input { width: 100%; box-sizing: border-box; }
 /* clear / change the chosen name (item: no way to clear once entered) */
-.combo input { padding-right: 40px; }
 .comboClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
   width: 30px; height: 30px; border: none; background: transparent; color: var(--ink-faint); cursor: pointer;
   border-radius: var(--r-sm); }
@@ -878,8 +876,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .comboClear::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) { .comboClear:hover { background: var(--fill-soft); color: var(--ink); } }
 .comboClear :global(.i) { width: 15px; height: 15px; }
-/* roster-first picker: a tap-to-open control styled like the input, no keyboard until the
-   user picks "Name eingeben" */
+/* roster-first picker: a tap-to-open control styled like the input; typing a new name happens
+   in the menu's own search field, so no keyboard until the menu is open */
 .comboPick { width: 100%; box-sizing: border-box; display: flex; align-items: center; text-align: left;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 11px 40px 11px 12px;
   background: var(--surface); font-family: var(--body); font-size: 15px; color: var(--ink); cursor: pointer;
@@ -892,9 +890,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   color: var(--ink-faint); pointer-events: none; }
 .comboChev :global(.i) { width: 16px; height: 16px; }
 /* the ▾ flip: the shared `.chev` (02-base.css) reads the state off an ANCESTOR, and this chevron
-   is a SIBLING of the button that carries it (the trigger is swapped for an input while typing),
-   so the state is handed down from the wrapper here. The rotation + transition stay the shared
-   ones — this rule only says when. */
+   is a SIBLING of the button that carries it, so the state is handed down from the wrapper here.
+   The rotation + transition stay the shared ones — this rule only says when. */
 .combo:has([aria-expanded='true']) :global(.chev) { transform: rotate(180deg); }
 .comboType { color: var(--blue-strong); font-weight: 700; border-top: 1px solid var(--glass-edge); margin-top: 2px; }
 .comboType :global(.i) { width: 15px; height: 15px; }

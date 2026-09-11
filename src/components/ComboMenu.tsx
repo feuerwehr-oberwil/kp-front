@@ -20,7 +20,7 @@ import c from './ComboMenu.module.css'
  * active-descendant navigation and is not portalled, so adopting this machinery would cost it
  * that. It is not a forgotten third call site.
  *
- * What lives here: open/typing/search state, the portalled menu and where it is put, dismissal,
+ * What lives here: open/search state, the portalled menu and where it is put, dismissal,
  * the search row, the «nur Offiziere» row, the free-type escape and the empty row.
  * What does NOT: the trigger, and what an entry means. `Combo` (plain strings) and
  * `PersonField` (a person + their id) are thin policy layers on top — they own their own field
@@ -73,7 +73,6 @@ function clipBounds(el: HTMLElement): { top: number; bottom: number } {
 
 export interface ComboMenuState {
   open: boolean
-  typing: boolean
   search: string
   setSearch: (v: string) => void
   officersOnly: boolean
@@ -84,13 +83,10 @@ export interface ComboMenuState {
   /** close AND forget the search — a menu that reopens still holding last time's search would
    *  look like a roster with people missing from it, which is the one way this control can lie */
   close: () => void
-  /** leave the picker for the free-text field (guests, mutual aid, a Divera outage) */
-  startTyping: () => void
-  stopTyping: () => void
 }
 
 /**
- * The four elements the machinery has to reach, as CALLBACK refs: a policy layer ATTACHES them
+ * The three elements the machinery has to reach, as CALLBACK refs: a policy layer ATTACHES them
  * (`ref={pickRef}`) and never reads them, so the hook hands back no `.current` at all.
  *
  * ⚠️ They come back beside the state rather than inside it, and the call site destructures them
@@ -105,23 +101,20 @@ export interface ComboMenuRefs {
   /** the portalled <ul>; it counts as "inside" for the outside-tap close although it is not a
    *  DOM descendant of the field */
   menuRef: RefCallback<HTMLUListElement>
-  /** the free-text input, focused the moment the user asks for it */
-  inputRef: RefCallback<HTMLInputElement>
 }
 
 /**
  * All of the picker's state and every effect that keeps the portalled menu where it belongs.
  *
  * @param openTick imperative open: bump the number and the menu opens as if the trigger had
- *   been tapped, leaving free-type mode if that is where the field happened to be. The Fahrzeug
- *   header title falls through to its «Bezeichnung» field this way (ContextPanel).
+ *   been tapped. The Fahrzeug header title falls through to its «Bezeichnung» field this way
+ *   (ContextPanel).
  */
 export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs] {
   const [open, setOpen] = useState(false)
-  // Roster-first: the field is a tap-to-open picker (no keyboard). The OS keyboard only appears
-  // once the user explicitly chooses the free-type escape for a guest / mutual-aid name.
-  const [typing, setTyping] = useState(false)
-  // Narrowing by typing. A 66-person Mannschaft in a short menu is a handful of visible rows, so
+  // Narrowing by typing — and, wherever `custom` is set, the free-text entry itself: the search
+  // row IS the name field, and its query commits through the «‹X› verwenden» row. A 66-person
+  // Mannschaft in a short menu is a handful of visible rows, so
   // finding somebody meant scrolling past sixty names with a gloved finger — the one complaint
   // about this picker after the 08.08. Einsatz. NOT auto-focused: this stays a tap-to-pick
   // control, and a keyboard that opens by itself covers the very list it is filtering.
@@ -131,18 +124,13 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
   const root = useRef<HTMLDivElement | null>(null)
   const pick = useRef<HTMLButtonElement | null>(null)
   const menu = useRef<HTMLUListElement | null>(null)
-  const input = useRef<HTMLInputElement | null>(null)
   // stable identities, or React would detach and re-attach every element on every render
   const rootRef = useCallback((el: HTMLDivElement | null) => { root.current = el }, [])
   const pickRef = useCallback((el: HTMLButtonElement | null) => { pick.current = el }, [])
   const menuRef = useCallback((el: HTMLUListElement | null) => { menu.current = el }, [])
-  const inputRef = useCallback((el: HTMLInputElement | null) => { input.current = el }, [])
-
-  // entering type-mode is a deliberate user tap, so focusing here is allowed to open the keyboard
-  useEffect(() => { if (typing) input.current?.focus() }, [typing])
 
   // opened from OUTSIDE (openTick): same entry as a tap on the trigger
-  useEffect(() => { if (openTick) { setTyping(false); setSearch(''); setOpen(true) } }, [openTick])
+  useEffect(() => { if (openTick) { setSearch(''); setOpen(true) } }, [openTick])
 
   // Place the portalled menu under (or above, near the viewport bottom) the trigger. The menu is
   // portalled to <body> precisely so the scrolling sheet / overflow-hidden panel the field sits
@@ -212,12 +200,10 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
 
   const close = () => { setOpen(false); setSearch('') }
   return [{
-    open, typing, search, setSearch, officersOnly, setOfficersOnly, pos,
+    open, search, setSearch, officersOnly, setOfficersOnly, pos,
     toggle: () => { if (open) close(); else { setSearch(''); setOpen(true) } },
     close,
-    startTyping: () => { close(); setTyping(true) },
-    stopTyping: () => setTyping(false),
-  }, { rootRef, pickRef, menuRef, inputRef }]
+  }, { rootRef, pickRef, menuRef }]
 }
 
 /** The skin. Two exist: global `.combo-*` (styles/06-contextpanel.css) and the Atemschutz
@@ -281,13 +267,14 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
   /** the «nur Offiziere» row. Present only where it can select something: without Dienstgrade a
    *  filter whose single outcome is «keine Einträge» is worse than no filter. */
   toggle?: { label: string }
-  /** The free-type escape. Without `use`: a static bottom row whose tap swaps the control for a
-   *  bare input (`startTyping`) — the only way the keyboard opens on this control. With `use`:
-   *  the Gast door instead (Feldtest Manuel, 07.09.) — the search row IS the type field, and a
-   *  query-carrying «‹X› verwenden» row commits it directly. Two taps and a retype become one
-   *  motion, exactly like «‹Name› als Gast hinzufügen» on the Trupp picker. Only works where
-   *  the picked value is the string itself, which is why `commit` is the caller's. */
-  custom?: { label: string; use?: { template: string; commit: (typed: string) => void } }
+  /** The free-type escape — the Gast door (Feldtest Manuel, 07.09.): the search row IS the type
+   *  field, and a query-carrying «‹X› verwenden» row commits it directly. Exactly the motion
+   *  «‹Name› als Gast hinzufügen» makes on the Trupp picker.
+   *  ⚠️ There is no second shape of this any more (11.09.). It used to be optional — a static
+   *  «Name eingeben …» row that swapped the whole control for a bare input, which meant two taps,
+   *  a retype, a mode the operator could get stuck in, and a commit-on-blur race. The typed value
+   *  is the caller's to take, which is why `commit` is theirs. */
+  custom?: { template: string; commit: (typed: string) => void }
   onPick: (value: V) => void
 }) {
   // one shared idea of what a query finds (lib/search): umlauts either way, one typo forgiven
@@ -298,11 +285,11 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
 
   // Gast mode: the typed query, and the search row it needs even on a three-option list —
   // hidden behind the >8 threshold there would be nowhere to type the custom value at all.
-  const typed = custom?.use ? state.search.trim() : ''
-  const searchShown = showSearch || !!custom?.use
+  const typed = custom ? state.search.trim() : ''
+  const searchShown = showSearch || !!custom
   const commitTyped = () => {
-    if (!custom?.use || !typed) return
-    custom.use.commit(typed)
+    if (!custom || !typed) return
+    custom.commit(typed)
     state.close()
   }
 
@@ -317,7 +304,7 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
     </li>
   )
 
-  if (!state.open || state.typing || !state.pos) return null
+  if (!state.open || !state.pos) return null
   const { pos } = state
   return createPortal(
     <ul ref={menuRef} className={cx(classes.menu, classes.menuPortal)} role="listbox"
@@ -361,24 +348,16 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
         ))
         : (limit ? listed.slice(0, limit) : listed).map(row)}
       {!anyHit && <li className={classes.empty}>{needle ? copy.noMatches : copy.empty}</li>}
-      {/* The free-type door, LAST under the matches like the Gast row: with `use` it exists
-          only while something is typed and carries the query in its own label; without `use`
-          it is the static row that opens the bare input. */}
-      {custom?.use
-        ? typed && (
-          <li>
-            <button type="button" className={cx(classes.opt, classes.type)} onClick={commitTyped}>
-              <Icon id="type" /><span>{fillTemplate(custom.use.template, { name: typed })}</span>
-            </button>
-          </li>
-        )
-        : custom && (
-          <li>
-            <button type="button" className={cx(classes.opt, classes.type)} onClick={state.startTyping}>
-              <Icon id="type" /><span>{custom.label}</span>
-            </button>
-          </li>
-        )}
+      {/* The free-type door, LAST under the matches like the Gast row on the Trupp picker: it
+          exists only while something is typed and carries the query in its own label, so the row
+          states what pressing it will do instead of opening a second field to say it again. */}
+      {custom && typed && (
+        <li>
+          <button type="button" className={cx(classes.opt, classes.type)} onClick={commitTyped}>
+            <Icon id="type" /><span>{fillTemplate(custom.template, { name: typed })}</span>
+          </button>
+        </li>
+      )}
     </ul>,
     document.body,
   )

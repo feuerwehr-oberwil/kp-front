@@ -24,6 +24,7 @@ import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd, missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
+import { addPartnerOrg, unlistedPartnerOrgs } from '../lib/partnerOrgs'
 import { Overlays, toast } from '../lib/ui'
 import { Overlay } from '../lib/overlays'
 import { prepareUploadImage } from '../lib/imagePrep'
@@ -38,8 +39,8 @@ import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromCloc
 import { incidentDays } from '../lib/zeitplanFormat'
 import type { IncidentMeta, Workspace } from '../lib/incidents'
 import {
-  CAPTURE_FRESH_MS, CaptureError, attendanceForPickedName, autoOpenTarget, captureApi,
-  isNetworkFailure, onServerTime, saveAction, withTimeout, type CaptureAction, type CapturePerson,
+  CAPTURE_FRESH_MS, CaptureError, attendanceForPickedName, attendanceForTypedName, autoOpenTarget, captureApi,
+  isNetworkFailure, nextGuestId, onServerTime, saveAction, withTimeout, type CaptureAction, type CapturePerson,
 } from '../lib/captureClient'
 import {
   clearDraft, makeDebouncedFlush, restoreDraft, saveDraft, serverSkewMinutes, type DebouncedFlush,
@@ -479,6 +480,17 @@ export default function CaptureApp() {
     })
     return rows
   }, [partnerOrgs, partners])
+  /** the station's organisations that are NOT on the sheet yet — what the add picker offers
+   *  without typing; anything already listed has its row above (lib/partnerOrgs) */
+  const partnerChoices = unlistedPartnerOrgs(partnerOrgs, partners)
+  /** Search-to-create, the same motion and the same rule as on the Rapport sheet: the typed name
+   *  IS the row, and one the station's list carries ticks THAT row instead of standing a second
+   *  one beside it (lib/partnerOrgs · addPartnerOrg). */
+  const addPartner = (typed: string) => {
+    const next = addPartnerOrg(partners, stripUnprintable(typed))
+    if (!next) return
+    void run({ kind: 'setMeta', patch: { partnerContacts: next } }).then((ok) => { if (ok) savedToast() })
+  }
   const savePartner = (i: number, over: Partial<PartnerContact>) => {
     const next = partners.map((p, j) => (j === i ? { ...p, ...over } : p))
     if (JSON.stringify(next) === JSON.stringify(partners)) return
@@ -605,14 +617,48 @@ export default function CaptureApp() {
       .map(([cat, items]) => [cat, items.filter((i) => i.label.toLowerCase().includes(q))] as const)
       .filter(([, items]) => items.length > 0)
   }, [catalogueGroups, matSearch])
+  /** The Mannschaft PLUS whoever is on this Einsatz without a roster row — a Gast typed into the
+   *  search below, a Nachbarwehr, an AdF whose row never synced. Derived exactly like the app's
+   *  (lib/guests): an attendance key no Person carries IS the guest. Without this a Gast recorded
+   *  here would vanish from the very list they were just added to — and the tablet's guests would
+   *  stay invisible on the poster. Guests come LAST; the roster keeps the server's order. */
+  const rosterIds = useMemo(() => new Set(roster.map((p) => p.id)), [roster])
+  const people = useMemo<CapturePerson[]>(() => {
+    const guests = Object.entries(attendance)
+      .filter(([id]) => !rosterIds.has(id))
+      .map(([id, a]) => ({ id, display_name: a.displayNameSnapshot || id }))
+    return guests.length ? [...roster, ...guests] : roster
+  }, [roster, rosterIds, attendance])
   /** everybody with an attendance entry — anwesend AND gegangen: what the toggle answers is
    *  «wen habe ich schon abgehakt», and somebody who has left is abgehakt. */
-  const recordedCount = roster.filter((p) => attendance[p.id]).length
+  const recordedCount = people.filter((p) => attendance[p.id]).length
   const filteredRoster = useMemo(
-    () => roster.filter((p) => p.display_name.toLowerCase().includes(search.toLowerCase()))
+    () => people.filter((p) => p.display_name.toLowerCase().includes(search.toLowerCase()))
       .filter((p) => !onlyRecorded || !!attendance[p.id]),
-    [roster, search, onlyRecorded, attendance],
+    [people, search, onlyRecorded, attendance],
   )
+
+  /* THE GAST DOOR (11.09.) — the poster's half of «suchen heisst erfassen». The search row is
+   * also the entry field: a name the Mannschaft cannot answer is offered as a Gast under the
+   * typed name, the same motion (and the same words) the Trupp form uses. Before this, somebody
+   * not on the Mannschaftsliste could not be recorded on the poster AT ALL — the one surface
+   * standing in the Magazin, where a Nachbarwehr walks in.
+   * ⚠️ The row is gone the moment the typed name IS somebody already on the list or already
+   * recorded: that person is one tap away above, and a second row under their own name is the
+   * one outcome nobody means. What happens on a tap is decided in lib/captureClient
+   * (attendanceForTypedName), so the key and the finger can never take two different people. */
+  const typedName = search.trim()
+  const guestOffer = typedName
+    && !people.some((p) => p.display_name.trim().toLowerCase() === typedName.toLowerCase())
+    ? typedName : ''
+  const addGuest = async (name: string) => {
+    if (!incident) return
+    const actions = attendanceForTypedName(name, roster, attendance, { id: nextGuestId(), vonIso: incident.started_at })
+    if (!actions.length) return
+    setSearch('') // the hits that answered «Kel» are not the way to the next person
+    for (const action of actions) if (!(await run(action))) return
+    savedToast()
+  }
 
   // --- material: the WHOLE catalogue as a stepper list (no picker — recognition over
   // recall; a 0 next to every item is faster and safer than a dropdown for the untrained
@@ -996,6 +1042,10 @@ export default function CaptureApp() {
                       <button className={`cv-person ${state}`} disabled={busy}
                         onClick={() => void tapPerson(p)}>
                         <span className="cv-person-name">{p.display_name}</span>
+                        {/* a row with no Mannschaftsliste behind it SAYS so — the same word the
+                            tablet's pickers put on the same person (anwesenheit.guestBadge), so
+                            nobody wonders later why this name is in no export */}
+                        {!rosterIds.has(p.id) && <span className="cv-person-guest">{A.guestBadge}</span>}
                         {/* state as a glyph chip — the pin and the Magazin are the same two
                             glyphs the tablet's Anwesenheit uses, so the poster and the KP say
                             the same thing the same way. The word rides as the aria-label. */}
@@ -1046,6 +1096,17 @@ export default function CaptureApp() {
                     </div>
                   )
                 })}
+                {/* THE GAST DOOR, last under the hits and only while something is typed — the
+                    same row, in the same place, with the same words as on the Trupp form. It
+                    carries the typed name itself, so it says what the tap will do instead of
+                    opening a second field to ask for the name again. */}
+                {guestOffer && (
+                  <button type="button" className="cv-btn cv-btn-add" disabled={busy}
+                    onClick={() => { void addGuest(guestOffer) }}>
+                    <Icon id="type" />
+                    <span>{fillTemplate(A.addGuest, { name: guestOffer })}</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1301,11 +1362,18 @@ export default function CaptureApp() {
                     </div>
                   )
                 })}
-                {/* the list covers the usual partners; the unexpected one still has to fit */}
-                <button type="button" className="cv-btn cv-btn-add" disabled={busy}
-                  onClick={() => { void run({ kind: 'setMeta', patch: { partnerContacts: [...partners, { org: '' }] } }) }}>
-                  <Icon id="plus" /><span>{C.partnerAdd}</span>
-                </button>
+                {/* the list covers the usual partners; the unexpected one still has to fit — and
+                    it fits by being TYPED, not by opening a blank row first (see addPartner).
+                    A <fieldset> because `Combo` has no disabled of its own and `run()` drops a
+                    save that lands while another is in flight: a pick nobody can see fail is
+                    worse than a control that is briefly not tappable. */}
+                <fieldset className="cv-partner-add" disabled={busy}>
+                  <Combo
+                    value="" options={partnerChoices} placeholder={C.partnerAdd}
+                    searchPlaceholder={appConfig.copy.combo.searchOrType}
+                    allowCustom clearable={false} onChange={addPartner}
+                  />
+                </fieldset>
               </div>
             </div>
           )}

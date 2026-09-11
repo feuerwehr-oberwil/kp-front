@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  applyAction, attendanceForPickedName, autoOpenTarget, captureJournalRow, cycleAttendance,
-  type CapturePerson,
+  applyAction, attendanceForPickedName, attendanceForTypedName, autoOpenTarget, captureJournalRow,
+  cycleAttendance, type CapturePerson,
 } from './captureClient'
+import { appConfig } from '../config/appConfig'
+import { fillTemplate } from './format'
 import type { AttendanceEntry } from '../types'
 import type { Workspace } from './incidents'
 
@@ -195,7 +197,8 @@ describe('attendanceForPickedName', () => {
   })
 
   it('does nothing for a name nobody on the roster carries', () => {
-    // the guest case: Nachbarwehr, Polizei, Zivilist — no match is the CORRECT outcome
+    // the guest case: Nachbarwehr, Polizei, Zivilist — no match is the CORRECT outcome here.
+    // What the Anwesenheit's search row makes of it (a Gast) is attendanceForTypedName's call.
     expect(attendanceForPickedName('Wachtmeister Keller', roster, {})).toEqual([])
     expect(attendanceForPickedName('Meier', roster, {})).toEqual([]) // partial ≠ a person
     expect(attendanceForPickedName('', roster, {})).toEqual([])
@@ -248,6 +251,79 @@ describe('attendanceForPickedName', () => {
   it('ticks presence without a remark where none was asked for (Rückmeldung ELZ)', () => {
     const actions = attendanceForPickedName('Meier Anna', roster, {}, { vonIso: ALARM })
     expect(actions.map((a) => a.kind)).toEqual(['cycleAttendance'])
+  })
+})
+
+describe('attendanceForTypedName — die Suchzeile ist die Gast-Tür', () => {
+  const ALARM = '2026-08-07T09:00:00.000Z'
+  const roster: CapturePerson[] = [
+    { id: 'p1', display_name: 'Meier Anna' },
+    { id: 'p2', display_name: 'Studer Beat' },
+  ]
+  const typed = (name: string, att: Record<string, AttendanceEntry> = {}) =>
+    attendanceForTypedName(name, roster, att, { id: 'g1', vonIso: ALARM })
+
+  it('records a name the Mannschaft cannot answer as a Gast — once', () => {
+    expect(typed('Wm. Keller')).toEqual([{ kind: 'addGuest', id: 'g1', name: 'Wm. Keller', vonIso: ALARM }])
+  })
+
+  it('⚠️ resolves a roster name instead of minting a twin under the same name', () => {
+    expect(typed('  meier anna ')).toEqual([
+      { kind: 'cycleAttendance', personId: 'p1', name: 'Meier Anna', vonIso: ALARM },
+    ])
+  })
+
+  it('…and stays silent for somebody already recorded, rather than filing them twice', () => {
+    const att: Record<string, AttendanceEntry> = {
+      p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: ALARM }] },
+      g0: { status: 'present', displayNameSnapshot: 'Wm. Keller', intervals: [{ from: ALARM }] },
+    }
+    expect(typed('Meier Anna', att)).toEqual([])
+    expect(typed('wm. keller', att)).toEqual([]) // the Gast is already standing on the list
+  })
+
+  it('does nothing on an ambiguous name — a third person under it is nobody\'s intent', () => {
+    const twins: CapturePerson[] = [{ id: 'p1', display_name: 'Meier Anna' }, { id: 'p9', display_name: 'Meier Anna' }]
+    expect(attendanceForTypedName('Meier Anna', twins, {}, { id: 'g1' })).toEqual([])
+  })
+
+  it('does nothing on an empty query', () => {
+    expect(typed('   ')).toEqual([])
+  })
+})
+
+describe('applyAction · Gast', () => {
+  const NOW = '2026-08-07T09:41:00.000Z'
+  const ALARM = '2026-08-07T09:00:00.000Z'
+  const guest = { kind: 'addGuest' as const, id: 'g1', name: 'Wm. Keller', vonIso: ALARM }
+
+  it('files a Gast as an attendance entry with no roster row, «von» = Alarmzeit', () => {
+    const out = applyAction({ attendance: {} }, guest, NOW)
+    const att = out.attendance as Record<string, AttendanceEntry>
+    expect(att.g1).toMatchObject({
+      status: 'present', displayNameSnapshot: 'Wm. Keller', checkedInAt: ALARM,
+      // the poster hangs in the Magazin, exactly as the tick assumes; the next tap says «vor Ort»
+      ort: 'station', source: 'capture',
+    })
+  })
+
+  it('is idempotent — a retried save (409 → re-read → re-apply) adds the Gast once', () => {
+    const once = applyAction({ attendance: {} }, guest, NOW)
+    const twice = applyAction(once, guest, NOW)
+    expect(Object.keys(twice.attendance as Record<string, AttendanceEntry>)).toEqual(['g1'])
+  })
+
+  it('leaves the rest of the Anwesenheit alone', () => {
+    const ws = { attendance: { p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: ALARM }] } } } as unknown as Workspace
+    const att = applyAction(ws, guest, NOW).attendance as Record<string, AttendanceEntry>
+    expect(att.p1.intervals).toEqual([{ from: ALARM }])
+    expect(att.g1).toBeTruthy()
+  })
+
+  it('writes the same Verlaufszeile the tablet writes for a Gast', () => {
+    const row = captureJournalRow(guest, NOW)
+    expect(row?.text).toBe(fillTemplate(appConfig.copy.anwesenheit.logGuestAdded, { name: 'Wm. Keller' }))
+    expect(row?.icon).toBe('user')
   })
 })
 

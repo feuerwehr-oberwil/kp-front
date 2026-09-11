@@ -63,10 +63,11 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
         onChange={(v) => onCommit(v === value ? '' : v)} ariaLabel={fieldKey} />
     )
   }
-  // long list or roster → custom dropdown (roster adds a "Name eingeben …" free-type escape)
+  // long list or roster → custom dropdown (a roster field's search row doubles as the name entry,
+  // and the «‹X› verwenden» row under the matches takes what is typed)
   return (
     <Combo value={value} options={options} placeholder={placeholder}
-      allowCustom={isRoster} customLabel="Name eingeben …"
+      allowCustom={isRoster}
       officerFilter={isRoster && officerFilter} rankOf={rankOf}
       // …and a hand-typed name commits when the field is LEFT, like the plain text field above:
       // a roster field records whoever is named on it as present (a Gast, if the roster has
@@ -902,7 +903,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               <span>{C.labelField}</span>
               <Combo
                 value={title} options={titleOptions ?? []} placeholder={C.titlePlaceholder}
-                allowCustom customLabel={C.labelCustom}
+                allowCustom
                 openTick={bezTick}
                 onChange={(v) => { changeTitle(v); onTitle(v) }}
               />

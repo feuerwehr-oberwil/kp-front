@@ -23,6 +23,7 @@ import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGrupp
 import type { ZeitKind } from '../lib/alarmzeiten'
 import type { AssignableRole } from '../lib/roleAssignment'
 import { deploymentName, getDeploymentConfig, reportLinks } from '../lib/deploymentConfig'
+import { addPartnerOrg, unlistedPartnerOrgs } from '../lib/partnerOrgs'
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -37,6 +38,7 @@ import { incidentDays } from '../lib/zeitplanFormat'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
+import { Combo } from './Combo'
 import { PersonField } from './PersonField'
 import { Segmented } from './Segmented'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -477,6 +479,18 @@ export function ReportPreflight({
     })
     return rows
   }, [presetOrgs, partners])
+  /** what the manual add offers WITHOUT typing (lib/partnerOrgs) */
+  const partnerChoices = unlistedPartnerOrgs(presetOrgs, partners)
+  /* SEARCH-TO-CREATE (11.09.) — the typed name IS the new row. «+ Organisation hinzufügen» used
+   * to append a BLANK row with an empty input: two steps, and the empty row stood there as a
+   * half-finished record until somebody typed into it (and `partnerFilled` silently dropped it
+   * if nobody did). Now one control asks the one question it has — «welche?» — and answers it
+   * either from the station's list or from what was typed. The rule (trim, one row per
+   * organisation, a listed name ticks its own row) is shared with the poster: lib/partnerOrgs. */
+  const addPartner = (typed: string) => {
+    const next = addPartnerOrg(partners, stripUnprintable(typed))
+    if (next) savePartners(next)
+  }
   const [proof, setProof] = useState<AuditProof>({ intact: null, checkedAt: new Date().toISOString(), offline: true })
   const [checking, setChecking] = useState(true)
   // the alarm text auto-fills from the incident's dispatch text when none was typed in the
@@ -2300,10 +2314,17 @@ export function ReportPreflight({
                     })}
                   </div>
                   {/* the list covers the usual partners; the one that turns up anyway still has
-                      to be recordable, so a free row stays available underneath it */}
-                  <button type="button" className="report-row-add" onClick={() => savePartners([...partners, { org: '' }])}>
-                    <Icon id="plus" /><span>{P.partnerAdd}</span>
-                  </button>
+                      to be recordable — so this picker carries the station's remaining
+                      organisations AND takes whatever is typed as the row's name (see
+                      addPartner). The row appears already named; its Bemerkung and its bin are
+                      the same as on any other free row. */}
+                  <div className="report-partner-add">
+                    <Combo
+                      value="" options={partnerChoices} placeholder={P.partnerAdd}
+                      searchPlaceholder={appConfig.copy.combo.searchOrType}
+                      allowCustom clearable={false} onChange={addPartner}
+                    />
+                  </div>
                 </fieldset>
               </div>
             </CheckRow>

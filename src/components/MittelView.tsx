@@ -114,7 +114,11 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const categorised = catalogue.some((c) => c.category)
 
   const [view, setView] = useState<'list' | 'source'>('list')
-  const [adding, setAdding] = useState(false)
+  /* The composer, and what it opens WITH. `{}` is the bare «+» (nothing typed yet); a `seed`
+   * carries the search query straight into the Bezeichnung — see `createRow` below. Null is
+   * closed. It was a boolean until 11.09., when «suchen heisst erfassen» made the query the
+   * first field's value rather than something to type a second time. */
+  const [composer, setComposer] = useState<{ seed?: string } | null>(null)
   // multi-source rows expanded to their per-source stepper sub-rows
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   // Row keys whose full ±form is standing. A row at 0 renders COMPACT (see the `compact` flags
@@ -285,6 +289,23 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   const recAmbiguous = recommended.some((r) => r.ambiguous)
   const [picking, setPicking] = useState(false)
 
+  /* SUCHEN HEISST ERFASSEN (11.09.) — the app-wide search-to-create door, in the shape the
+   * Trupp picker and every Combo already use: the search row IS the entry field, and one row
+   * under the matches carries the typed text and says what pressing it will do.
+   * ⚠️ It stands beside PARTIAL matches too, not only on «Keine Treffer» (same gate as
+   * TruppTeam's Gast row): «Schlauch» finds four catalogue Schläuche and still is not the one
+   * that was used, and a door that only opens once the list is empty is a door found by
+   * deleting characters. LAST, under the matches, so it is under the thumb exactly when the
+   * list could not answer.
+   * The composer still asks for Menge/Einheit/Quelle — what is saved here is the retyping of
+   * the name, which is the part the operator had already done. */
+  const typedMaterial = q.trim()
+  const createRow = canEdit && typedMaterial && !composer ? (
+    <button type="button" className={s.createRow} onClick={() => setComposer({ seed: typedMaterial })}>
+      <Icon id="type" /><span>{fillTemplate(M.composerFromQuery, { name: typedMaterial })}</span>
+    </button>
+  ) : null
+
   return (
     <>
       {/* opaque backdrop so the Mittel surface reads as its own screen, not a card over the map */}
@@ -359,10 +380,11 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
               ]}
             />
           )}
-          {canEdit && !adding && (
+          {canEdit && !composer && (
             // a bare +, like the Anwesenheit's «Weitere Person» — the words cost a search row
-            // that has a field and a filter to fit as well
-            <button type="button" className={c.addBtn} onClick={() => setAdding(true)}
+            // that has a field and a filter to fit as well. It stays the EMPTY-query door:
+            // with something typed, the row under the list is the one that carries the name.
+            <button type="button" className={c.addBtn} onClick={() => setComposer({})}
               title={M.customMaterial} aria-label={M.customMaterial}>
               <Icon id="plus" />
             </button>
@@ -387,11 +409,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
         </div>
       )}
 
-      {adding && canEdit && (
+      {composer && canEdit && (
         <MittelComposer
           M={M} catalogue={catalogue} sources={sources} units={units} entries={entries} categorised={categorised}
-          onCancel={() => setAdding(false)}
-          onSubmit={(d) => { onSave(d); setAdding(false) }}
+          seed={composer.seed}
+          onCancel={() => setComposer(null)}
+          onSubmit={(d) => { onSave(d); setComposer(null) }}
         />
       )}
 
@@ -399,8 +422,8 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
         canEdit ? (
           // the taught action right where the teaching text is (recognition over recall)
           <EmptyState className="empty-fill" icon="box" title={M.emptyTitle} sub={M.emptyHint}
-            action={!adding && (
-              <button type="button" className="ip-btn primary" onClick={() => setAdding(true)}>
+            action={!composer && (
+              <button type="button" className="ip-btn primary" onClick={() => setComposer({})}>
                 <Icon id="plus" /><span>{M.add}</span>
               </button>
             )} />
@@ -408,7 +431,10 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
           <EmptyState className="empty-fill" icon="box" title={M.emptyReadonly} />
         )
       ) : !(sourceView ? bySourceShown : groups).length ? (
-        <div className="ip-ac-note ip-ac-note-center">{M.noMatches}</div>
+        <div className={s.noHits}>
+          <div className="ip-ac-note ip-ac-note-center">{M.noMatches}</div>
+          {createRow}
+        </div>
       ) : sourceView ? (
         <div className={s.list}>
           {bySourceShown.map((g) => (
@@ -448,6 +474,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
               })}
             </section>
           ))}
+          {createRow}
         </div>
       ) : (
         // the unified stepper list — catalogue by category, then the free-typed «Weitere»
@@ -585,6 +612,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
               })}
             </section>
           ))}
+          {createRow}
         </div>
       )}
       </div>
@@ -779,7 +807,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
               <Combo
                 value={sourceLabel} options={sources.map((x) => x.label)} placeholder={M.sourcePlaceholder}
                 searchPlaceholder={M.sourceSearchPlaceholder}
-                allowCustom customLabel={M.sourceCustom} onChange={setSourceLabel}
+                allowCustom onChange={setSourceLabel}
               />
             </div>
           </>
@@ -820,13 +848,17 @@ const EMPTY_DRAFT = {
   sourceId: undefined as string | undefined, sourceLabel: undefined as string | undefined, menge: 1,
 }
 
-function MittelComposer({ M, catalogue, sources, units, entries, categorised, onCancel, onSubmit }: {
+function MittelComposer({ M, catalogue, sources, units, entries, categorised, seed, onCancel, onSubmit }: {
   M: typeof appConfig.copy.mittel
   catalogue: DeploymentMittelItem[]
   sources: DeploymentMittelSource[]
   units: string[]
   entries: MittelEntry[]
   categorised: boolean
+  /** the search query this was opened FROM (MittelView · createRow) — it becomes the
+   *  Bezeichnung, resolved against the catalogue exactly as picking it would have been.
+   *  It outranks a kept draft: the operator has just said what they are recording. */
+  seed?: string
   onCancel: () => void
   onSubmit: (d: MittelDraft) => void
 }) {
@@ -834,9 +866,13 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
   // moment somebody hops to the Verlauf mid-typing (see lib/draftKeep). Seeded from the keeper,
   // written back on every change; dropped once the Mittel is actually recorded.
   const kept = readDraft(DRAFT_KEY, EMPTY_DRAFT)
-  const [label, setLabel] = useState(kept.label)
-  const [materialId, setMaterialId] = useState<string | undefined>(kept.materialId)
-  const [unit, setUnit] = useState(kept.unit)
+  const seeded = seed?.trim()
+  const seedItem = seeded ? catalogue.find((x) => x.label === seeded) : undefined
+  const [label, setLabel] = useState(seeded || kept.label)
+  const [materialId, setMaterialId] = useState<string | undefined>(seeded ? seedItem?.id : kept.materialId)
+  // same fallback chain as `pickMaterial` below, so a seeded name and a picked one land on the
+  // same Einheit — the catalogue's, else whatever the draft carried, else the first configured
+  const [unit, setUnit] = useState(seeded ? (seedItem?.unit || kept.unit || units[0] || appConfig.mittel.defaultUnit) : kept.unit)
   const [sourceId, setSourceId] = useState<string | undefined>(kept.sourceId)
   const [sourceLabel, setSourceLabel] = useState<string | undefined>(kept.sourceLabel)
   const [menge, setMenge] = useState(kept.menge)
@@ -898,7 +934,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
               reopening the picker and hunting for the free-type row again. */}
           <Combo value={label} options={catalogue.map((c) => c.label)} groups={matGroups} placeholder={M.materialPlaceholder}
             searchPlaceholder={M.materialSearchPlaceholder}
-            allowCustom customLabel={M.customMaterial} onChange={pickMaterial} />
+            allowCustom onChange={pickMaterial} />
         </div>
         <div className={cx(s.field, s.fieldNarrow)}>
           <label>{M.unitLabel}</label>
@@ -915,7 +951,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, on
           <Combo
             value={sourceLabel ?? ''} options={sources.map((x) => x.label)} placeholder={M.sourcePlaceholder}
             searchPlaceholder={M.sourceSearchPlaceholder}
-            allowCustom customLabel={M.sourceCustom} onChange={pickSource}
+            allowCustom onChange={pickSource}
           />
         </div>
         <div className={cx(s.field, s.fieldNarrow)}>

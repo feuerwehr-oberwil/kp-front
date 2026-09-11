@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { caretToEnd } from '../lib/ui'
 import { Icon } from '../lib/icons'
 import type { AttendanceState, LngLat, Person, PresenceInterval, Shift, ShiftBand } from '../types'
 import { ageMinutes, type LivePerson } from '../lib/usePersonPositions'
@@ -7,9 +6,7 @@ import { fmtDistance, haversineM } from '../lib/geo'
 import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
-import { useKeptState } from '../lib/draftKeep'
 import { useIsPhone } from '../lib/useIsPhone'
-import { useKeyboardInset } from '../lib/useKeyboardInset'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { personnelProviderName } from '../lib/deploymentConfig'
 import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
@@ -22,7 +19,7 @@ import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zei
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { Segmented } from './Segmented'
-import { Menu, Overlay, Sheet } from '../lib/overlays'
+import { Menu, Sheet } from '../lib/overlays'
 import { TimeBlockSheet } from './TimeBlockSheet'
 import { timeBlockLabels } from '../lib/timeBlockLabels'
 import { EmptyState } from './EmptyState'
@@ -254,52 +251,6 @@ function PaperSheet({ sheet, people, bands, printOnline, onPrint, onDownload, on
   )
 }
 
-/** Record somebody who is not on the Mannschaftsliste. One field: a name is all this needs, and
- *  everything else about them (times, Bemerkung, blocks) is edited on the row afterwards exactly
- *  like anybody else's — which is the point of shaping a guest like a Person. */
-function GuestDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit: (name: string) => void }) {
-  const A = appConfig.copy.anwesenheit
-  // the typed name survives a jump to another surface and back — see lib/draftKeep. Cleared on
-  // submit; NOT cleared on cancel, because «weg» and «ich mache gleich weiter» look identical
-  // from here and losing the name is the more expensive of the two mistakes.
-  const [name, setName, clearName] = useKeptState('anwesenheit:guest', '')
-  const submit = () => { if (name.trim()) { onSubmit(name); clearName() } }
-  // ⚠️ `initialFocus`, not `autoFocus` — the Overlay's Dialog already picks its own initial focus
-  // on its own schedule (see JournalComposer's caretToEnd note for the same race), so the native
-  // `autoFocus` attribute and Base UI's focus management fought over the same input and whichever
-  // ran last won: flaky on repeated opens. Handing Base UI the ref settles it deterministically —
-  // the same fix TruppFinder/PlanPickers/JournalComposer already use.
-  const nameRef = useRef<HTMLInputElement>(null)
-  // lifts the sheet clear of the keyboard on phones (see JournalComposer's `kbInset` for the same
-  // pattern) — the sheet is bottom-anchored there (15-mobile.css · .ip-sheet), so without this the
-  // keyboard covered the one field the dialog exists for.
-  const kbInset = useKeyboardInset()
-  return (
-    <Overlay open onClose={onCancel} className="ip-sheet ip-fit ui-dialog" ariaLabel={A.addGuestTitle}
-      initialFocus={nameRef} style={{ marginBottom: kbInset }}>
-      <div className="ip-head"><h2>{A.addGuestTitle}</h2>
-        <button className="ip-x" onClick={onCancel} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
-      </div>
-      <div className="ip-body">
-        <p className="ip-hint">{A.addGuestHint}</p>
-        <label className="ip-field">
-          <span>{A.addGuestName}</span>
-          <input
-            ref={nameRef}
-            className="ip-input" onFocus={caretToEnd} value={name} maxLength={80} placeholder={A.addGuestPlaceholder}
-            onChange={(e) => setName(stripUnprintable(e.target.value))}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-          />
-        </label>
-      </div>
-      <div className="ip-actions">
-        <button type="button" className="ip-btn" onClick={onCancel}>{appConfig.copy.mittel.cancel}</button>
-        <button type="button" className="ip-btn primary" disabled={!name.trim()} onClick={submit}>{appConfig.copy.mittel.save}</button>
-      </div>
-    </Overlay>
-  )
-}
-
 // The Anwesenheit surface: one unified, compact grid of the whole Mannschaft. Each name is a
 // button whose tap cycles its state — frei → anwesend → gegangen → frei — so a single view
 // both shows and edits attendance with no mode switching (3am tenet: recognition over recall).
@@ -472,7 +423,6 @@ export function AnwesenheitView({
   const [blocksFor, setBlocksFor] = useState<string | null>(null)
   // which paper sheet was picked from the printer menu, and is now naming itself before it goes
   const [paper, setPaper] = useState<ZeitplanSheet | null>(null)
-  const [addingGuest, setAddingGuest] = useState(false)
   useEffect(() => {
     if (view !== 'plan') return
     const t = setInterval(() => setNowMs(Date.now()), 30_000)
@@ -622,6 +572,11 @@ export function AnwesenheitView({
   // rank/anwesend filters, and typing while the sheet is open would otherwise close it.
   const blocksPerson = people.find((p) => p.id === blocksFor) ?? guests.find((p) => p.id === blocksFor)
   const empty = !people.length
+  /** Every name already on this surface — the roster and everybody recorded for this Einsatz. */
+  const knownNames = useMemo(
+    () => new Set([...people, ...guests].map((p) => p.displayName.trim())),
+    [people, guests],
+  )
   const planAvailable = !!shifts && !!onAddShift && !!onAddShiftSpan && !!onReplaceShift && !!onSetShiftTime && !!onRemoveShift
   const showPlan = planAvailable && view === 'plan'
   // the Schichten grid is a reading of the same shift slice, so it rides the same availability
@@ -629,6 +584,21 @@ export function AnwesenheitView({
   // whose cells do not answer a tap is worse than no third tab
   const bandsAvailable = planAvailable && !!bands && !!onCreateBand && !!onSaveBand && !!onRemoveBand && !!onCycleCell && !!onSetCellState
   const showBands = bandsAvailable && view === 'bands'
+
+  /* THE GAST DOOR — the same one the Trupp picker has had since 04.09.: the search field IS the
+   * name entry. You look for somebody, the Mannschaftsliste cannot answer, and the last row of
+   * the list offers to record them under exactly the name you typed. It replaced a «+» that
+   * opened a dialog with a second name field (11.09.): the one case where the list has no answer
+   * was the case that asked the same question («wer») twice, in two places.
+   * It exists only while something is typed, only on the crew list (the two planning tabs are
+   * about time), and never for a name that is already standing here — that offer could only
+   * produce a second row reading exactly like the first. */
+  const typedName = q.trim()
+  const guestOffer = !showPlan && !showBands && canEdit && onAddGuest && typedName && !knownNames.has(typedName)
+    ? typedName : ''
+  /* …and the query goes with it: the rows that answered «mus» are not the way to the next person,
+   * and the freshly recorded one appears in the unfiltered list right where they belong. */
+  const addGuest = () => { if (guestOffer && onAddGuest) { onAddGuest(guestOffer); setQ('') } }
 
   return (
     <div className={s.surface}>
@@ -771,7 +741,16 @@ export function AnwesenheitView({
         <div className={c.controls}>
           <label className={c.search}>
             <Icon id="search" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={A.searchPlaceholder} inputMode="search" />
+            {/* ⚠️ This field is a search AND the entry for somebody who is not on the
+                Mannschaftsliste (see `guestOffer`), so what is typed here can end up on the
+                Personalblatt: `stripUnprintable` on the way in, and the NAME's length cap — there
+                is no second field left to clean it. Enter takes the offer when the roster has no
+                answer at all, which is the one case where the query can only have been a name. */}
+            <input
+              value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} placeholder={A.searchPlaceholder}
+              inputMode="search" maxLength={80}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!rows.length) addGuest() } }}
+            />
             {q && <button className={c.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
           </label>
           {/* Only on the planning tabs — see the `presentOnly` note above. */}
@@ -884,18 +863,8 @@ export function AnwesenheitView({
               ]}
             />
           )}
-          {/* «Weitere Person» sits at the END of the search line, not under the list: you look
-              for somebody, they are not on the Mannschaftsliste, so you add them — one motion,
-              which used to end with a scroll past sixty names to reach the button. */}
-          {canEdit && onAddGuest && (
-            // a bare +, like every other control on this line — the words «Weitere Person» cost
-            // ~160px of a search row that has a field and two filters to fit as well. What it
-            // adds is named in the dialog it opens, and in its own tooltip/aria-label.
-            <button type="button" className={c.addBtn} onClick={() => setAddingGuest(true)}
-              title={A.addGuest} aria-label={A.addGuest}>
-              <Icon id="plus" />
-            </button>
-          )}
+          {/* (no «+» beside the search any more: the search field itself takes a name that is not
+              on the Mannschaftsliste — see `guestOffer` and the last row of the list.) */}
           {/* (the inline legend strip and its phone ⓘ popover are gone — both facets live in
               the two filter buttons above, which is also where the marks are looked up now.) */}
           {/* how far the axis reaches — it belongs on the search line beside the thing it filters,
@@ -932,7 +901,7 @@ export function AnwesenheitView({
           sub={error ? A.loadFailedHint
             : rosterProvider ? fillTemplate(A.emptyHintSync, { provider: rosterProvider }) : A.emptyHint}
           action={<button type="button" className="ip-btn" onClick={onReload} disabled={loading}><Icon id="rotate" /> {A.retry}</button>} />
-      ) : !rows.length ? (
+      ) : !rows.length && !guestOffer ? (
         <div className="ip-ac-note ip-ac-note-center">{A.noMatches}</div>
       ) : showBands ? (
         <BandGrid
@@ -1058,14 +1027,19 @@ export function AnwesenheitView({
               </div>
             )
           })}
+          {/* THE GAST DOOR, LAST under the matches — the same place and the same shape the Trupp
+              picker gives it. It carries the typed name itself, so the row says what the tap will
+              do instead of opening a field to ask again; and it wears the «Gast» badge the row it
+              is about to create will wear, in the slot a Grad would take. */}
+          {guestOffer && (
+            <div className={s.person}>
+              <button type="button" className={s.personMain} onClick={addGuest}>
+                <span className={cx(s.rank, s.guestBadge)}>{A.guestBadge}</span>
+                <span className={s.name}>{fillTemplate(A.addGuest, { name: guestOffer })}</span>
+              </button>
+            </div>
+          )}
         </div>
-      )}
-
-      {addingGuest && onAddGuest && (
-        <GuestDialog
-          onCancel={() => setAddingGuest(false)}
-          onSubmit={(name) => { onAddGuest(name); setAddingGuest(false) }}
-        />
       )}
 
       {paper && (

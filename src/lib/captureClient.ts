@@ -24,6 +24,12 @@ export type CaptureAction =
   // to the person who caused it. One tap on a surface where a tap is cheap.
   | { kind: 'setAttendanceOrt'; personId: string; name: string; ort: AttendanceOrt }
   | { kind: 'restoreAttendance'; personId: string; entry: AttendanceEntry }
+  /** Somebody at the Einsatz who is not on the Mannschaftsliste — a Gast, a Nachbarwehr, an AdF
+   *  whose roster row never synced. Exactly the app's own guest (lib/useAttendanceActions ·
+   *  addGuest, lib/guests): an attendance entry under an id no Person row carries, nothing else.
+   *  ⚠️ The `id` is minted by the CALLER, not in here: `saveAction` re-applies the same action
+   *  after a 409, and an id invented per apply would file the same Gast twice. */
+  | { kind: 'addGuest'; id: string; name: string; vonIso?: string }
   /** correct ONE presence block's von/bis (`index`, default the current one) — not the derived
    *  checkedInAt/leftAt summary, which is recomputed from the blocks */
   | { kind: 'setTimes'; personId: string; index?: number; from?: string; to?: string }
@@ -108,6 +114,10 @@ export function captureJournalRow(
       return row('user', fillTemplate(C.logAttendanceRestored, {
         name: ctx.name ?? action.entry.displayNameSnapshot ?? '',
       }))
+    // the same line the tablet writes for the same act, so a Gast reads identically in the
+    // Verlauf whoever recorded them (lib/useAttendanceActions · addGuest)
+    case 'addGuest':
+      return row('user', fillTemplate(appConfig.copy.anwesenheit.logGuestAdded, { name: action.name }))
     case 'setTimes':
       return row('clock', fillTemplate(C.logTimes, { name: ctx.name ?? action.personId }))
     case 'setAttendanceNote':
@@ -215,6 +225,51 @@ export function attendanceForPickedName(
   return actions
 }
 
+/** monotonic within a session, so two Gäste typed in the same millisecond get distinct ids */
+let guestSeq = 0
+/** The id a new Gast is filed under — the app's own shape (lib/useAttendanceActions · addGuest):
+ *  an attendance key that matches no Person row IS the guest. Minted once per commit, by the
+ *  caller, because `saveAction` re-applies its action after a 409. */
+export const nextGuestId = (): string => `g${Date.now().toString(36)}-${++guestSeq}`
+
+/**
+ * What a NAME typed into the poster's Anwesenheit means — resolve first, invent second.
+ *
+ * The roster search could only ever find somebody the Mannschaftsliste carries, so a Gast, a
+ * Nachbarwehr or an AdF whose row never synced could not be recorded on the poster at all. Now
+ * the search IS the entry field, exactly as it is on the Trupp form (TruppTeam · the Gast door):
+ * whatever the list cannot answer is offered as a Gast under the typed name.
+ *
+ * The order matters and is the whole point:
+ *   · a name the roster (or an already recorded Gast) carries resolves to THAT person —
+ *     `attendanceForPickedName` decides what ticking them implies, so a typed name and a tapped
+ *     row do the same thing, and nobody gets a twin row with the same name on the Personalblatt;
+ *   · a name that resolves to somebody already anwesend (or gegangen) yields NO action at all,
+ *     which is the same deliberate silence the pickers keep — not a reason to invent a Gast;
+ *   · only a name nothing on this Einsatz answers becomes one.
+ *
+ * Pure, so the rule is testable without a server. `id` is the caller's (see the action).
+ */
+export function attendanceForTypedName(
+  name: string,
+  roster: CapturePerson[],
+  attendance: Record<string, AttendanceEntry>,
+  opts: { id: string; vonIso?: string },
+): CaptureAction[] {
+  const display = name.trim()
+  if (!display) return []
+  const resolved = attendanceForPickedName(display, roster, attendance, { vonIso: opts.vonIso })
+  if (resolved.length) return resolved
+  // …and `attendanceForPickedName` is silent BOTH for a name it could not resolve and for one it
+  // resolved to somebody there is nothing left to do about, so the known names are asked here.
+  // A name two members share lands here too: doing nothing beats filing a third person under it.
+  const key = display.toLowerCase()
+  const known = roster.some((p) => p.display_name.trim().toLowerCase() === key)
+    || Object.values(attendance).some((a) => (a.displayNameSnapshot ?? '').trim().toLowerCase() === key)
+  if (known) return []
+  return [{ kind: 'addGuest', id: opts.id, name: display, vonIso: opts.vonIso }]
+}
+
 /**
  * Apply one capture action onto a server workspace blob, touching ONLY the capture
  * domains (attendance / mittel / reportMeta.endedAt) — every other key is passed through
@@ -278,6 +333,19 @@ function _applyAction(ws: Workspace | null, action: CaptureAction, nowIso: strin
     // one, but a retried save may land after somebody cycled that person back to «frei»
     const cur = attendance[action.personId]
     if (cur) attendance[action.personId] = { ...cur, ort: action.ort }
+    base.attendance = attendance
+    return base
+  }
+  if (action.kind === 'addGuest') {
+    const attendance = { ...((base.attendance as Record<string, AttendanceEntry> | undefined) ?? {}) }
+    // idempotent by id — a 409 retry re-applies this very action, and the Gast must not appear
+    // twice (nor lose an `ort` the operator has since tapped)
+    if (!attendance[action.id]) {
+      // «von» = Alarmzeit, and the Magazin as the Ort, for the same reason the tick does
+      // (cycleAttendance): this poster hangs in the Magazin, and the next tap moves them
+      // «vor Ort». Nothing else — a Gast IS an attendance entry with no roster row.
+      attendance[action.id] = { ...openPresence(undefined, action.vonIso ?? nowIso, action.name), ort: 'station' }
+    }
     base.attendance = attendance
     return base
   }
