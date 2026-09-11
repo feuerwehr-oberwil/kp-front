@@ -154,6 +154,13 @@ Two host-level settings that a fresh install runs into immediately:
 | Your own reverse proxy on the same host | `127.0.0.1` | same reason |
 | Reverse proxy on a *different* host | `0.0.0.0` | plus a firewall rule at the cloud provider, not `ufw` |
 
+**Every row of that table except the first also needs `TRUSTED_FORWARDED_HOPS=1`** – one per
+trusted proxy in front of the app. It is what makes `X-Forwarded-For` believable, and every
+per-source rate limit (the login PIN, the Erfassungs-Poster capture) is keyed off the address it
+yields: left at `0`, the whole world shares the proxy's one bucket and the throttle is gone.
+`./scripts/setup.sh` writes the `1` whenever you pick a domain; set it by hand if you wrote
+`.env` yourself.
+
 ### Published images vs. building from source
 The compose file **pulls a published image** –
 `ghcr.io/feuerwehr-oberwil/kp-front:${KP_FRONT_TAG:-latest}` (`linux/amd64` and `linux/arm64`,

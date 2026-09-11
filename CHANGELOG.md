@@ -76,6 +76,12 @@ so this file – not the log – is the record of what shipped up to that point.
   where there is none, which is exactly what those rows are – and prints the coordinates it would
   write; `--apply` writes them. Whatever the geocoder cannot place is left untouched and stays on
   the same census the repair prints, for a person to position in `/admin` → Objektpläne.
+- **`./scripts/setup.sh` sets `TRUSTED_FORWARDED_HOPS` for you.** It already derived
+  `COOKIE_SECURE`, `APP_BIND`, `PUBLIC_URL` and the `tls` profile from the one question it asks
+  about domains; the trusted-hop count is the same answer. Pick a domain – whether the installer
+  runs its own Caddy or sits behind one that already owns 443 – and it writes `1`; the plain-LAN
+  shape keeps `0`. Nobody has to learn that the variable exists in order for the per-source rate
+  limits to key on the real client.
 
 ### Fixed
 
@@ -96,6 +102,14 @@ so this file – not the log – is the record of what shipped up to that point.
   the station's georeference – re-keys the ones that have no twin, geocodes what it splits out,
   and lists whatever is left without a position. It reports by default and writes only with
   `--apply`, so its dry run is also the way to check a deployment afterwards.
+- **Four documented environment variables reached nothing on a compose deployment.** Compose's
+  `.env` is read for interpolation only, so a variable the `environment:` block does not name is
+  silently dropped – and `TRUSTED_FORWARDED_HOPS`, `REPORT_TILE_HOSTS`, `PUSH_EXTRA_HOSTS` and
+  `GEOCODER_DEFAULT_LOCALITY` were not named. The first one is the one that cost something: a
+  station that read the deployment guide, set it to `1` behind its proxy and restarted still had
+  every request in the world sharing one rate-limit bucket, with nothing anywhere saying so. All
+  four are passed through now, and `.env.example` documents them where the neighbouring settings
+  already are.
 - **The SharePoint pull can no longer drop a config section nobody told it about.** The geodata
   poll writes the whole document, and it did so through the running schema – so any section a
   newer build had written was quietly removed by a background job on a run that reported success.
