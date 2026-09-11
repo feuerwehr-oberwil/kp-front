@@ -390,13 +390,26 @@ def _push(
             uploaded += 1
             print(f"  ↑ geo:{e.slug()} ({src.name})")
         # ⚠️ The version just read, sent back as If-Match. This PUT replaces the WHOLE document
-        # (only `referenceLayers` is ours), and httpx sends no `Sec-Fetch-Site`, so the 428 guard
-        # that forces browsers to prove freshness never fires here — without the header this was
-        # last-writer-wins against whatever an admin saved in the Verwaltung while the GeoJSON
-        # was uploading. Stale → 409 and nothing is written.
+        # (only `referenceLayers` is ours), and the endpoint now REQUIRES the header of every
+        # caller — without it this was last-writer-wins against whatever an admin saved in the
+        # Verwaltung while the GeoJSON was uploading. Stale → 409 and nothing is written.
         cfg["referenceLayers"] = _to_reference_layers(entries)
         pc = c.put("/api/config", json=cfg, headers={"If-Match": version} if version else {})
         if pc.status_code in (409, 412):
+            # Two different 409s now, and telling a person they collided when they did not is
+            # worse than saying nothing: the server also refuses a write that would EMPTY a
+            # populated section (api/config · put_config), which is what a manifest that has lost
+            # its layers looks like.
+            try:
+                detail = pc.json().get("detail")
+            except ValueError:  # a proxy's HTML error page is a collision as far as we can tell
+                detail = None
+            if isinstance(detail, dict) and detail.get("error") == "would_empty_sections":
+                fail(
+                    f"REFUSED: this push would EMPTY {', '.join(detail.get('emptiedSections') or [])} "
+                    f"on {base}. {uploaded} GeoJSON file(s) were uploaded; referenceLayers was not "
+                    "changed. Check the manifest names every layer the station should keep."
+                )
             fail(
                 f"ERROR: the config on {base} changed while this push was being prepared. "
                 f"{uploaded} GeoJSON file(s) were uploaded, so an existing layer with the same "

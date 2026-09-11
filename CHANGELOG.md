@@ -31,6 +31,20 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The config API refuses what the CLI refuses.** Every safety check around the station's
+  configuration document used to live in `admin_config`, which meant it protected the one path
+  that already had somebody reading its output at a terminal: `PUT /api/config` answered **200**
+  to a document that emptied a station's Dienstgrade, and deleted its hydrant layers for any
+  caller that simply did not mention `referenceLayers`. All of it is now server-side, for a
+  browser, a CLI push, a script and an agent alike – a write that would leave a populated section
+  empty is refused with **409** and the sections named (repeat with `?force=true` to mean it), the
+  sections nobody types are carried over when the submitted document is silent about them, and
+  keys the schema dropped come back as `warnings` («ignored: identitiy — did you mean identity?»)
+  instead of a silent success. New `POST /api/config/validate` is the dry run in front of it:
+  `valid`, `errors`, `warnings`, `emptiedSections`, `changedSections` and the `version` to write
+  against, without touching the row. And the document's JSON Schema is now committed at
+  `docs/config.schema.json` (`just config-schema`), so reading the contract needs neither a
+  Python toolchain nor a running server.
 - **`admin_objects geocode-missing` places the Einsatzobjekte nobody could reach.** An object
   without coordinates is offered at no incident, so its plans are reachable by nobody – and after
   the object-key repair below, one station still carried 52 of them, written that way by an
@@ -59,6 +73,25 @@ so this file – not the log – is the record of what shipped up to that point.
   the station's georeference – re-keys the ones that have no twin, geocodes what it splits out,
   and lists whatever is left without a position. It reports by default and writes only with
   `--apply`, so its dry run is also the way to check a deployment afterwards.
+- **The SharePoint pull can no longer drop a config section nobody told it about.** The geodata
+  poll writes the whole document, and it did so through the running schema – so any section a
+  newer build had written was quietly removed by a background job on a run that reported success.
+  It now edits the stored JSON in place and takes the config row `FOR UPDATE`, which also closes
+  the last lost-update hole: it is the one full-document writer with no `If-Match` to fall back
+  on, and an admin saving in the Verwaltung during a walk used to be overwritten.
+
+### Changed
+
+- **`PUT /api/config` requires `If-Match` from every caller**, not only from browsers. The
+  exemption existed so the terminal CLIs kept working without a version token – and it also
+  exempted every script and every agent holding a document read hours ago, which is exactly the
+  write the guard exists to stop.
+
+  > **Action required only if you write the config with a script of your own.** The shipped
+  > writers – the Verwaltung, `admin_config push`, `admin_geodata`, `admin_branding` – already
+  > send the header and need no change. A raw `curl` must read the document first and send its
+  > `version` back: `GET /api/config` → `PUT /api/config` with `If-Match: <version>`. Without it
+  > the write is refused with **428**, and the response's `ETag` is the token to repeat with.
 
 ## [0.10.0] – 2026-09-06
 

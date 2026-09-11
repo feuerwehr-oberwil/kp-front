@@ -30,8 +30,10 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
       "alarmVocabulary": { "source": "shipped"|"deployment", "schemaVersion": int,
                            "titleKeywords": int, "highPriorityKeywords": int,
                            "fallbackCategory": str },                           # derived
-      "version": str                     # opaque token of the STORED document — send it back as
+      "version": str,                    # opaque token of the STORED document — send it back as
                                          # If-Match on the next PUT (see put_config)
+      "warnings": [str]                  # PUT only: keys the schema dropped, layers that cannot
+                                         # resolve. Always [] on GET.
     }
 
 Never exposes ``updated_by`` or server secrets. The one deliberate client credential is
@@ -45,6 +47,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,6 +55,12 @@ from ..alarm_keywords import SHIPPED
 from ..auth.dependencies import CurrentAdmin, OptionalUser, _admin_session_valid
 from ..auth.incident_link import read_link_session
 from ..config import settings
+from ..config_guard import (
+    carry_runtime_sections,
+    document_warnings,
+    emptied_declared_sections,
+    format_validation_errors,
+)
 from ..config_history import changed_sections, emptied_sections, keep_previous
 from ..credentials import load as load_credentials
 from ..database import get_db
@@ -61,6 +70,7 @@ from ..providers import integrations
 from ..schemas import (
     AlarmVocabularyStatus,
     ConfigHistoryEntry,
+    ConfigValidationResult,
     DeploymentConfigIn,
     DeploymentConfigOut,
     load_stored_config,
@@ -118,6 +128,7 @@ def _projection(
     include_links: bool = True,
     include_carto: bool = True,
     version: str | None = None,
+    warnings: list[str] | None = None,
 ) -> DeploymentConfigOut:
     """Validated document + env-derived integration flags → the response projection.
 
@@ -185,35 +196,27 @@ def _projection(
         integrations=ints,
         alarmVocabulary=_alarm_vocabulary(doc),
         version=version,
+        warnings=warnings or [],
     )
 
 
-def _keep_assets(stored: dict | None, incoming: dict) -> dict:
-    """Carry ``identity.assets`` from the stored document into an incoming full-document write.
+def _final_document(stored: dict | None, stated: set[str], doc: DeploymentConfigIn) -> dict:
+    """The document a write would actually STORE: the validated body plus the sections nobody
+    types, carried from ``stored`` wherever the caller was silent about them.
 
-    ⚠️ The branding slots are the one part of this document nobody TYPES. They are written by
-    the upload endpoints (app/api/branding.py) and by ``admin_branding push``, because the URLs
-    inside them only exist once a blob has been stored — and yet they live inside the document
-    that the admin UI replaces wholesale on every autosave.
+    ⚠️ ``stated`` is the set of top-level keys the RAW request body carried, and it has to come
+    from there: ``DeploymentConfigIn`` fills missing sections with defaults, so by the time the
+    body is validated «referenceLayers were not mentioned» and «referenceLayers were cleared»
+    are the same empty list. The first is a caller that does not know the section exists — an
+    agent writing three identity fields over the API, which used to delete a station's hydrants
+    — and the second is a deliberate act that belongs in front of the refuse-to-empty guard.
+    Only the raw keys tell them apart.
 
-    So any full-document write could strip them, and repeatedly did: the Verwaltung holds the
-    config in a client-side draft, and a draft loaded BEFORE a logo was installed (from the CLI,
-    from another device, by the nightly demo reset) puts the logo back to null the next time
-    anybody nudges an unrelated field. No error, no diff to look at, just a login screen with no
-    brandmark and a Rapport with no letterhead. That is how the public demo lost its logo three
-    times, and it is the same trap for a station.
-
-    Not solvable in the model: ``DeploymentConfigIn`` fills missing sections with defaults, so by
-    the time the body is validated «assets were not mentioned» and «assets were cleared» are the
-    same null. Hence the rule is positional instead — the document body is not where assets are
-    edited, the branding endpoints are, and DELETE ``/api/branding/{slot}`` is how one is removed.
+    The branding slots are carried whatever the caller stated; config_guard says why.
     """
-    kept = {k: v for k, v in (((stored or {}).get("identity") or {}).get("assets") or {}).items() if v}
-    if not kept:
-        return incoming
-    identity = dict(incoming.get("identity") or {})
-    identity["assets"] = {**(identity.get("assets") or {}), **kept}
-    return {**incoming, "identity": identity}
+    doc_json = doc.model_dump(mode="json")
+    carry_runtime_sections(stored, doc_json, submitted=stated)
+    return doc_json
 
 
 @router.get("", response_model=DeploymentConfigOut)
@@ -291,42 +294,50 @@ async def get_config_meta(
 
 @router.put("", response_model=DeploymentConfigOut)
 async def put_config(
+    request: Request,
     body: DeploymentConfigIn,
     _admin: CurrentAdmin,
     actor: OptionalUser,
     db: AsyncSession = Depends(get_db),
+    force: bool = False,
     if_match: str | None = Header(default=None, alias="If-Match"),
-    sec_fetch_site: str | None = Header(default=None, alias="Sec-Fetch-Site"),
-    origin: str | None = Header(default=None, alias="Origin"),
 ) -> DeploymentConfigOut:
     """Admin-only. Validates the body (422 on invalid), persists the document to the
     singleton row, stamps ``updated_by`` (the admin's user when driving the UI, NULL for
-    a CLI push), and returns the same projection as GET.
+    a CLI push), and returns the same projection as GET plus any ``warnings``.
 
-    ⚠️ ``identity.assets`` is NOT taken from the body — see ``_keep_assets``.
+    Three guards stand in front of the write, and every caller passes the same three — a
+    browser, a CLI push, a script, an agent. They used to live in ``admin_config``, which meant
+    they protected the one path that already had a person reading its output while this endpoint
+    answered 200 to the identical mistake (see app/config_guard).
 
-    ⚠️ ``If-Match`` carries the ``version`` the caller last read. This is a FULL-DOCUMENT
-    replace and the Verwaltung autosaves, so a browser tab holding a draft from an hour ago
-    reverted everything anybody had changed since — the whole document, silently, on the next
-    nudge of one unrelated field. That is how the public demo lost its Dienstgrade, its
-    Partnerorganisationen, its Atemschutz-Doktrin (including the Alarmdruck) and the point on
-    its «Stk.» in one write, and it is the same trap for a station with two admins.
+    **1. ``If-Match`` is required.** It carries the ``version`` the caller last read. This is a
+    FULL-DOCUMENT replace and the Verwaltung autosaves, so a browser tab holding a draft from an
+    hour ago reverted everything anybody had changed since — the whole document, silently, on the
+    next nudge of one unrelated field. That is how the public demo lost its Dienstgrade, its
+    Partnerorganisationen, its Atemschutz-Doktrin (including the Alarmdruck) and the point on its
+    «Stk.» in one write, and it is the same trap for a station with two admins. Missing → 428
+    (Precondition Required): the request is not wrong, it is missing the one thing that makes it
+    safe. Sent and stale → 409, and the caller re-reads before deciding.
 
-    Sent and stale → 409, and the client re-reads before deciding.
+    ⚠️ It was once required of BROWSERS only, detected by ``Sec-Fetch-Site`` / ``Origin``, so
+    that the terminal CLIs kept working untouched. That exemption is what an agent inherits: a
+    GET is one line away, and «I am not a browser» is not a reason to be allowed a blind
+    full-document overwrite. Every in-repo writer already sends the header (``admin_config
+    push``, ``admin_geodata``), so the cost is one extra GET for anything else — and the
+    operator note in the CHANGELOG is for whoever has a raw ``curl`` script.
 
-    ⚠️ A BROWSER MUST SEND IT. Making the header merely optional left the hole it was meant to
-    close: the guard only protects tabs new enough to know about it, and the tab that does the
-    damage is by definition an OLD one — it was open before the fix shipped, so it sends no
-    header and is then indistinguishable from a CLI push. The demo was clobbered a second time
-    that way, hours after the guard went live. A browser always sends `Sec-Fetch-Site` (and, on
-    a cross-origin write, `Origin`); httpx and curl send neither unless told to, so
-    ``admin_config load``, ``admin_geodata`` and ``admin_branding`` keep working untouched —
-    those are one-shot pushes by somebody at a terminal, not a tab open since breakfast. The
-    backup IMPORT is a browser and therefore sends the header too: it re-reads the version
-    immediately before writing (admin/ConfigBackup), which is what keeps «replace everything
-    with this file» deliberate without letting an hour-old page do it by accident.
-    A browser that omits it gets 428 (Precondition Required): the request is not wrong, it is
-    missing the one thing that makes it safe, and the fix is to reload the page.
+    **2. A write that would EMPTY a populated section is refused** with 409 and a structured
+    ``detail`` naming the sections, unless it carries ``?force=true``. Publishing an OLD document
+    over a newer one is the shape of every one of these incidents, and it reports success while a
+    station quietly loses a section. A caller that means it says so.
+
+    **3. The sections nobody types are carried over** — ``referenceLayers`` and
+    ``identity.assets`` — see ``_final_document``.
+
+    Keys the schema DROPPED come back in ``warnings`` rather than changing the status: every
+    model is ``extra="ignore"``, so ``identitiy`` configures nothing and used to be answered with
+    a plain 200.
     """
     # ⚠️ 422, NOT 409. `admin/ConfigContext.persist` reads every 409 as «the stored document
     # moved on» and renders «Die Änderungen sind gespeichert, aber diese Seite zeigt noch den
@@ -339,22 +350,44 @@ async def put_config(
             detail="Die öffentliche Demo muss demoMode=true und Alarmdruck=0 behalten.",
         )
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    stored_version = _version(row.config_json if row else None)
-    from_browser = sec_fetch_site is not None or origin is not None
-    if if_match is None and from_browser:
+    stored = row.config_json if row else None
+    stored_version = _version(stored)
+    if if_match is None:
         raise HTTPException(
             status_code=428,
             detail="Diese Seite ist veraltet. Bitte neu laden und die Änderung wiederholen.",
             headers={"ETag": stored_version},
         )
-    if if_match is not None and if_match.strip('"') != stored_version:
+    if if_match.strip('"') != stored_version:
         raise HTTPException(
             status_code=409,
             detail="Die Konfiguration wurde inzwischen an anderer Stelle geändert.",
             headers={"ETag": stored_version},
         )
+    # The raw body, for the two questions the validated model can no longer answer: which
+    # sections the caller actually NAMED, and which keys the schema threw away. Starlette caches
+    # the body, so this is the same bytes FastAPI already parsed — not a second read of the stream.
+    submitted = await request.json()
+    if not isinstance(submitted, dict):  # a non-object body never reaches DeploymentConfigIn
+        submitted = {}
     # Persist the normalized document (defaults filled in) so GET round-trips consistently.
-    doc_json = _keep_assets(row.config_json if row else None, body.model_dump(mode="json"))
+    doc_json = _final_document(stored, set(submitted), body)
+    dropped = emptied_declared_sections(stored, doc_json)
+    if dropped and not force:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "would_empty_sections",
+                "message": (
+                    "Diese Konfiguration würde "
+                    f"{len(dropped)} Abschnitt(e) leeren, die aktuell Inhalt haben: "
+                    f"{', '.join(dropped)}."
+                ),
+                "emptiedSections": dropped,
+                "override": "?force=true",
+            },
+            headers={"ETag": stored_version},
+        )
     actor_id = actor.id if actor else None
     # …and keep what is being replaced, so this write is undoable whatever it turns out to have
     # been (app/config_history). Best-effort by design: the net must never drop the write.
@@ -376,7 +409,58 @@ async def put_config(
     # …the PERSISTED document, not the body: they differ by the carried-over branding slots, and
     # the admin UI re-seeds its draft from this response — echoing the body would hand it back
     # the very nulls that were just refused, ready to be written again on the next edit.
-    return _projection(DeploymentConfigIn.model_validate(doc_json), version=_version(doc_json))
+    return _projection(
+        DeploymentConfigIn.model_validate(doc_json),
+        version=_version(doc_json),
+        warnings=document_warnings(submitted, doc_json),
+    )
+
+
+@router.post("/validate", response_model=ConfigValidationResult)
+async def validate_config(
+    body: dict,
+    _admin: CurrentAdmin,
+    db: AsyncSession = Depends(get_db),
+) -> ConfigValidationResult:
+    """Admin-only DRY RUN of a config document. Writes nothing, ever.
+
+    ``admin_config validate`` / ``diff`` answer these questions on a workstation, against
+    ``DATABASE_URL``. That is the wrong place for the two callers that now matter most — an agent
+    and a station that has no Python toolchain — so the same four answers are here: does the
+    schema accept it, what did it silently drop, what would it EMPTY (the 409 a PUT would give),
+    and what would it CHANGE.
+
+    ``version`` is the stored document's token, so the follow-up is a PUT with a correct
+    ``If-Match`` rather than a GET, a guess and a retry.
+
+    ⚠️ Validated LOOSELY on purpose — a body that fails the schema is answered 200 with
+    ``valid: false`` and the reasons, not 422. This endpoint's job is to report a verdict on a
+    document; a 422 would make «this document is wrong» and «this request is wrong» the same
+    answer, and the caller would have to parse FastAPI's error envelope to tell them apart.
+    """
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    stored = row.config_json if row else None
+    version = _version(stored)
+    try:
+        doc = DeploymentConfigIn.model_validate(body)
+    except ValidationError as e:
+        # No document to compare, so no emptied/changed answer can be honest about it — but the
+        # ignored KEYS are still readable off the raw body, and a typo is exactly the kind of
+        # thing that hides behind an unrelated validation error.
+        return ConfigValidationResult(
+            valid=False,
+            errors=format_validation_errors(e),
+            warnings=document_warnings(body, {}),
+            version=version,
+        )
+    doc_json = _final_document(stored, set(body), doc)
+    return ConfigValidationResult(
+        valid=True,
+        warnings=document_warnings(body, doc_json),
+        emptiedSections=emptied_declared_sections(stored, doc_json),
+        changedSections=changed_sections(stored, doc_json),
+        version=version,
+    )
 
 
 @router.get("/history", response_model=list[ConfigHistoryEntry])
@@ -487,7 +571,10 @@ async def restore_config(
     # ⚠️ The brandmark is carried from the LIVE document, not taken from the restored one — the
     # same rule a PUT follows. Restoring a config from before a logo upload must not delete the
     # logo: the asset URLs are written by the upload endpoints and point at blobs that exist now.
-    doc_json = _keep_assets(row.config_json if row else None, doc.model_dump(mode="json"))
+    # A restore STATES every section — it is a whole document somebody chose off the list — so
+    # nothing else is carried: the layers it puts back are the ones stored with it, which is the
+    # point of restoring it.
+    doc_json = _final_document(row.config_json if row else None, set(DeploymentConfigIn.model_fields), doc)
     if row is None:
         row = DeploymentConfig(id=1, config_json=doc_json, updated_by=actor.id if actor else None)
         db.add(row)

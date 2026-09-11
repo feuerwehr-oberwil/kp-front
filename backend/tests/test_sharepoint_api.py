@@ -140,14 +140,14 @@ async def test_running_the_sync_by_hand_answers_disabled_when_it_is_not_set_up(c
     assert r.json() == {"status": "disabled", "areas": {}}
 
 
-async def test_the_config_section_survives_a_save_through_the_api(client, admin_login, db_session):
+async def test_the_config_section_survives_a_save_through_the_api(client, admin_login, db_session, put_config):
     """⚠️ The trap this section is most likely to fall into: an undeclared block is dropped on
     the next round-trip, so a station would configure its folders, press save in /admin once,
     and find the connector quietly switched off."""
     await admin_login(client)
     document = {"sharepoint": {"intervalMinutes": 15, "sources": [{"area": "geodata", "siteUrl": SITE, "path": "gis"}]}}
 
-    put = await client.put("/api/config", json=document)
+    put = await put_config(client, document)
     assert put.status_code == 200, put.text
     assert put.json()["sharepoint"]["sources"][0]["path"] == "gis"
 

@@ -218,6 +218,29 @@ async def viewer(db_session: AsyncSession):
 
 
 @pytest.fixture
+def put_config():
+    """PUT a config document with the ``If-Match`` the endpoint now requires of EVERY caller.
+
+    Reads the current version and sends it back, which is what a correct client does — and what
+    the tests whose subject is something ELSE (branding, the alarm vocabulary, the demo guard)
+    need in one line. Tests about the guard itself call ``client.put`` directly, because the
+    missing or stale header IS their subject. ``force=True`` adds ``?force=true``, the override
+    for a write that deliberately empties a populated section.
+    """
+
+    async def _put(client, document: dict, *, force: bool = False, headers: dict | None = None):
+        version = (await client.get("/api/config")).json()["version"]
+        return await client.put(
+            "/api/config",
+            json=document,
+            headers={"If-Match": version, **(headers or {})},
+            params={"force": "true"} if force else None,
+        )
+
+    return _put
+
+
+@pytest.fixture
 def admin_login():
     """Unlock the deployment-admin surface on a client (sets the admin-session cookie).
     Independent of the kiosk login — admin authority is the shared ADMIN_SECRET."""

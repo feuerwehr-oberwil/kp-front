@@ -756,9 +756,19 @@
           "config"
         ],
         "summary": "Put Config",
-        "description": "Admin-only. Validates the body (422 on invalid), persists the document to the\nsingleton row, stamps ``updated_by`` (the admin's user when driving the UI, NULL for\na CLI push), and returns the same projection as GET.\n\n⚠️ ``identity.assets`` is NOT taken from the body — see ``_keep_assets``.\n\n⚠️ ``If-Match`` carries the ``version`` the caller last read. This is a FULL-DOCUMENT\nreplace and the Verwaltung autosaves, so a browser tab holding a draft from an hour ago\nreverted everything anybody had changed since — the whole document, silently, on the next\nnudge of one unrelated field. That is how the public demo lost its Dienstgrade, its\nPartnerorganisationen, its Atemschutz-Doktrin (including the Alarmdruck) and the point on\nits «Stk.» in one write, and it is the same trap for a station with two admins.\n\nSent and stale → 409, and the client re-reads before deciding.\n\n⚠️ A BROWSER MUST SEND IT. Making the header merely optional left the hole it was meant to\nclose: the guard only protects tabs new enough to know about it, and the tab that does the\ndamage is by definition an OLD one — it was open before the fix shipped, so it sends no\nheader and is then indistinguishable from a CLI push. The demo was clobbered a second time\nthat way, hours after the guard went live. A browser always sends `Sec-Fetch-Site` (and, on\na cross-origin write, `Origin`); httpx and curl send neither unless told to, so\n``admin_config load``, ``admin_geodata`` and ``admin_branding`` keep working untouched —\nthose are one-shot pushes by somebody at a terminal, not a tab open since breakfast. The\nbackup IMPORT is a browser and therefore sends the header too: it re-reads the version\nimmediately before writing (admin/ConfigBackup), which is what keeps «replace everything\nwith this file» deliberate without letting an hour-old page do it by accident.\nA browser that omits it gets 428 (Precondition Required): the request is not wrong, it is\nmissing the one thing that makes it safe, and the fix is to reload the page.",
+        "description": "Admin-only. Validates the body (422 on invalid), persists the document to the\nsingleton row, stamps ``updated_by`` (the admin's user when driving the UI, NULL for\na CLI push), and returns the same projection as GET plus any ``warnings``.\n\nThree guards stand in front of the write, and every caller passes the same three — a\nbrowser, a CLI push, a script, an agent. They used to live in ``admin_config``, which meant\nthey protected the one path that already had a person reading its output while this endpoint\nanswered 200 to the identical mistake (see app/config_guard).\n\n**1. ``If-Match`` is required.** It carries the ``version`` the caller last read. This is a\nFULL-DOCUMENT replace and the Verwaltung autosaves, so a browser tab holding a draft from an\nhour ago reverted everything anybody had changed since — the whole document, silently, on the\nnext nudge of one unrelated field. That is how the public demo lost its Dienstgrade, its\nPartnerorganisationen, its Atemschutz-Doktrin (including the Alarmdruck) and the point on its\n«Stk.» in one write, and it is the same trap for a station with two admins. Missing → 428\n(Precondition Required): the request is not wrong, it is missing the one thing that makes it\nsafe. Sent and stale → 409, and the caller re-reads before deciding.\n\n⚠️ It was once required of BROWSERS only, detected by ``Sec-Fetch-Site`` / ``Origin``, so\nthat the terminal CLIs kept working untouched. That exemption is what an agent inherits: a\nGET is one line away, and «I am not a browser» is not a reason to be allowed a blind\nfull-document overwrite. Every in-repo writer already sends the header (``admin_config\npush``, ``admin_geodata``), so the cost is one extra GET for anything else — and the\noperator note in the CHANGELOG is for whoever has a raw ``curl`` script.\n\n**2. A write that would EMPTY a populated section is refused** with 409 and a structured\n``detail`` naming the sections, unless it carries ``?force=true``. Publishing an OLD document\nover a newer one is the shape of every one of these incidents, and it reports success while a\nstation quietly loses a section. A caller that means it says so.\n\n**3. The sections nobody types are carried over** — ``referenceLayers`` and\n``identity.assets`` — see ``_final_document``.\n\nKeys the schema DROPPED come back in ``warnings`` rather than changing the status: every\nmodel is ``extra=\"ignore\"``, so ``identitiy`` configures nothing and used to be answered with\na plain 200.",
         "operationId": "put_config_api_config_put",
         "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Force"
+            }
+          },
           {
             "name": "If-Match",
             "in": "header",
@@ -773,38 +783,6 @@
                 }
               ],
               "title": "If-Match"
-            }
-          },
-          {
-            "name": "Sec-Fetch-Site",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Sec-Fetch-Site"
-            }
-          },
-          {
-            "name": "Origin",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Origin"
             }
           },
           {
@@ -909,6 +887,68 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Config Meta Api Config Meta Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/validate": {
+      "post": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Validate Config",
+        "description": "Admin-only DRY RUN of a config document. Writes nothing, ever.\n\n``admin_config validate`` / ``diff`` answer these questions on a workstation, against\n``DATABASE_URL``. That is the wrong place for the two callers that now matter most — an agent\nand a station that has no Python toolchain — so the same four answers are here: does the\nschema accept it, what did it silently drop, what would it EMPTY (the 409 a PUT would give),\nand what would it CHANGE.\n\n``version`` is the stored document's token, so the follow-up is a PUT with a correct\n``If-Match`` rather than a GET, a guess and a retry.\n\n⚠️ Validated LOOSELY on purpose — a body that fails the schema is answered 200 with\n``valid: false`` and the reasons, not 422. This endpoint's job is to report a verdict on a\ndocument; a 422 would make «this document is wrong» and «this request is wrong» the same\nanswer, and the caller would have to parse FastAPI's error envelope to tell them apart.",
+        "operationId": "validate_config_api_config_validate_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigValidationResult"
                 }
               }
             }
@@ -11246,6 +11286,59 @@
         "title": "ConfigIntegrations",
         "description": "Env-derived integration availability (the GET projection's `integrations`).\n\nThese are FACTS about the deployment's secrets, NOT the document's on/off intent —\nhence the `*Configured` naming. The frontend should read these to decide whether to\nsurface Divera/Traccar features. (docs/CONFIGURATION.md §1 names the document's intent\nfields `diveraEnabled`/`traccarEnabled`; the GET output deliberately uses\n`diveraConfigured`/`traccarConfigured` to signal env-derived truth.)"
       },
+      "ConfigValidationResult": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "emptiedSections": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Emptiedsections"
+          },
+          "changedSections": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changedsections"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid"
+        ],
+        "title": "ConfigValidationResult",
+        "description": "What ``POST /api/config/validate`` answers: everything a PUT would say, without writing.\n\nThe dry-run an agent needs and only a workstation had (``admin_config validate`` / ``diff``).\n``valid`` is about the SCHEMA; the other fields are about the consequences — the sections a\nwrite would empty (which `?force=true` is the answer to), the sections it would change, and\nthe ``version`` to send back as ``If-Match`` so the follow-up PUT is not a blind one."
+      },
       "ConsentUpdate": {
         "properties": {
           "consent": {
@@ -11548,6 +11641,13 @@
               }
             ],
             "title": "Version"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
           }
         },
         "type": "object",

@@ -1858,6 +1858,31 @@ class DeploymentConfigOut(DeploymentConfigIn):
     # winning. See app/api/config · put_config. NOT part of the document; `DeploymentConfigIn`
     # ignores extras, so echoing this response straight back as a body is harmless.
     version: str | None = None
+    # Advisory notes about the document that was just written: keys the schema DROPPED
+    # («identitiy — did you mean identity?») and reference layers whose source cannot resolve.
+    # A warning is not a refusal — the write happened — but until now the only feedback a
+    # misspelled section got over the API was a 200. Empty on GET, which never submits anything.
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ConfigValidationResult(BaseModel):
+    """What ``POST /api/config/validate`` answers: everything a PUT would say, without writing.
+
+    The dry-run an agent needs and only a workstation had (``admin_config validate`` / ``diff``).
+    ``valid`` is about the SCHEMA; the other fields are about the consequences — the sections a
+    write would empty (which `?force=true` is the answer to), the sections it would change, and
+    the ``version`` to send back as ``If-Match`` so the follow-up PUT is not a blind one.
+    """
+
+    valid: bool
+    #: `field.path: message [type]` lines — empty when `valid`.
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    #: Populated sections this document would leave empty — a PUT refuses these with 409.
+    emptiedSections: list[str] = Field(default_factory=list)
+    #: Sections that would differ from the stored document. Empty = this write is a no-op.
+    changedSections: list[str] = Field(default_factory=list)
+    version: str | None = None
 
 
 def load_stored_config(raw: Any) -> DeploymentConfigIn:

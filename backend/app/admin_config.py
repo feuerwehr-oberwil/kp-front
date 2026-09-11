@@ -46,17 +46,24 @@ Behaviour:
 
 import argparse
 import asyncio
-import difflib
 import json
 import sys
 from pathlib import Path
-from typing import Any, get_args, get_origin
+from typing import Any
 
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
-from .config_history import emptied_sections, keep_previous
+from .config_guard import (
+    RESPONSE_ONLY_FIELDS,
+    carry_runtime_sections,
+    emptied_sections,
+    format_validation_errors,
+    ignored_keys,
+    layer_warnings,
+)
+from .config_history import keep_previous
 from .database import async_session_maker
 from .models import DeploymentConfig, DeploymentConfigHistory
 from .ranks import SWISS_DEFAULT_RANKS
@@ -79,11 +86,12 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         },
     },
     # ⚠️ NO `referenceLayers` here, deliberately. It is the one section a config FILE must never
-    # carry: the layers are written at RUNTIME by `admin_geodata` (see `_RUNTIME_SECTIONS`), and
-    # they are only carried over when the incoming file is SILENT about them. An example block
-    # left in the file therefore REPLACES a station's real hydrants on every push — and because
-    # the section then has content, neither `emptied_sections` nor `_carry_runtime_sections`
-    # says a word. Reference layers are authored in a geodata manifest, not here.
+    # carry: the layers are written at RUNTIME by `admin_geodata` (see config_guard ·
+    # RUNTIME_SECTIONS), and they are only carried over when the incoming file is SILENT about
+    # them. An example block left in the file therefore REPLACES a station's real hydrants on
+    # every push — and because the section then has content, neither `emptied_sections` nor
+    # `carry_runtime_sections` says a word. Reference layers are authored in a geodata manifest,
+    # not here.
     #
     # Objektplan modules: tile label/order (M1, 2/3, …) + the importer's filename parsing rule
     # (`match` regex). `combinedWith` = a combined sheet that fills several slots; `family` =
@@ -254,6 +262,13 @@ def _push(
     * a push that would EMPTY a populated section is refused without ``--force``;
     * ``If-Match`` carries the version just read, so a deployment that changed underneath this
       push is a 409 rather than a silent overwrite.
+
+    ⚠️ Those three are now the SERVER's rules too (app/api/config · put_config), which is what
+    makes them true for an agent holding curl as well. This function keeps checking them anyway:
+    the refusal a person reads at a terminal names every section that would go and says which
+    flag overrides it, and that is worth more than an HTTP status. ``--force`` is therefore both
+    a local override and ``?force=true`` on the wire — without the query parameter the server
+    would refuse the very push this command was told to make.
     """
     base = base.rstrip("/")
     with admin_client(base, admin_secret, timeout=120.0) as c:
@@ -267,10 +282,10 @@ def _push(
         # none of them exist in a config FILE, so leaving them in made `emptied_sections` report
         # "this push would empty alarmVocabulary and version" on a push of the deployment's own
         # config. A refusal that fires on a no-op is a refusal nobody will read twice.
-        for response_only in ("integrations", "alarmVocabulary", "version"):
+        for response_only in RESPONSE_ONLY_FIELDS:
             remote.pop(response_only, None)
 
-        carried = _carry_runtime_sections(remote, doc_json)
+        carried = carry_runtime_sections(remote, doc_json)
         dropped = emptied_sections(remote, doc_json)
         if dropped and not force:
             print(f"REFUSED: this would EMPTY {len(dropped)} section(s) on {base}:", file=sys.stderr)
@@ -289,7 +304,8 @@ def _push(
             return 0
 
         headers = {"If-Match": version} if version else {}
-        put = c.put("/api/config", json=doc_json, headers=headers)
+        params = {"force": "true"} if force else {}
+        put = c.put("/api/config", json=doc_json, headers=headers, params=params)
         if put.status_code == 409:
             fail(
                 "ERROR: the deployment's config changed while this push was being prepared. "
@@ -307,11 +323,11 @@ def _push(
 
 
 def _format_validation_error(path: Path, err: ValidationError) -> str:
-    """Turn a pydantic ValidationError into precise ``field.path: message`` lines."""
+    """Turn a pydantic ValidationError into precise ``field.path: message`` lines, headed by the
+    file that failed. The lines themselves are the same ones ``POST /api/config/validate``
+    answers with (config_guard · format_validation_errors)."""
     lines = [f"ERROR: {path} failed DeploymentConfigIn validation ({err.error_count()} issue(s)):"]
-    for e in err.errors():
-        loc = ".".join(str(p) for p in e["loc"]) or "(root)"
-        lines.append(f"  {loc}: {e['msg']} [{e['type']}]")
+    lines.extend(f"  {line}" for line in format_validation_errors(err))
     return "\n".join(lines)
 
 
@@ -320,7 +336,7 @@ def _read_and_validate(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
 
     Returns ``(raw, normalized)`` — the document as WRITTEN and the document as the schema
     understood it. The raw half is what makes «this key was ignored» reportable at all: by the
-    time pydantic is done, a misspelled key is simply gone (see :func:`_ignored_keys`).
+    time pydantic is done, a misspelled key is simply gone (config_guard · ignored_keys).
     """
     try:
         raw = path.read_text(encoding="utf-8")
@@ -370,96 +386,15 @@ def _summary(doc_json: dict[str, Any], baseline: dict[str, Any] | None = None) -
     return ", ".join(set_keys) if set_keys else "(none — empty config)"
 
 
-def _object_fields(annotation: Any) -> set[str] | None:
-    """Field names of a section that is itself an OBJECT, else None (lists and scalars).
-
-    Used to check a file's second level. Lists return None on purpose: their entries are
-    ``extra="ignore"`` too, but a typo inside one of fifty layer entries is a different (and much
-    noisier) report than a misspelled section.
-    """
-    if get_origin(annotation) is list:
-        return None
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return set(annotation.model_fields)
-    for arg in get_args(annotation):  # `X | None`
-        if isinstance(arg, type) and issubclass(arg, BaseModel):
-            return set(arg.model_fields)
-    return None
-
-
-def _did_you_mean(name: str, candidates: set[str]) -> str | None:
-    """The one obviously-intended key, or None. Deliberately strict: a wrong suggestion is worse
-    than none, because it reads as confirmation that the file is nearly right."""
-    match = difflib.get_close_matches(name, sorted(candidates), n=1, cutoff=0.7)
-    return match[0] if match else None
-
-
-def _ignored_keys(raw: dict[str, Any]) -> list[str]:
-    """Keys in the FILE that the schema silently drops — ``ignored: identitiy → identity?``.
-
-    Every config model is ``extra="ignore"``, which is what keeps an older deployment able to read
-    a newer file. The price is that a typo is indistinguishable from an intent: ``identitiy`` /
-    ``map.defaultview`` / ``doctrin`` all validate clean and configure NOTHING, and the operator's
-    only feedback was an «OK» . Checked two levels deep — top-level sections and their fields —
-    which is where the config's meaning lives.
-    """
-    known = {name: _object_fields(f.annotation) for name, f in DeploymentConfigIn.model_fields.items()}
-    out: list[str] = []
-    for key, val in raw.items():
-        if key not in known:
-            suggestion = _did_you_mean(key, set(known))
-            out.append(f"{key}{f' — did you mean {suggestion}?' if suggestion else ''}")
-            continue
-        subs = known[key]
-        if subs is None or not isinstance(val, dict):
-            continue
-        for sub in val:
-            if sub in subs:
-                continue
-            suggestion = _did_you_mean(sub, subs)
-            out.append(f"{key}.{sub}{f' — did you mean {key}.{suggestion}?' if suggestion else ''}")
-    return out
-
-
-def _layer_warnings(doc_json: dict[str, Any]) -> list[str]:
-    """Reference layers whose ``geojson`` source cannot resolve on the deployment.
-
-    The frontend hands the string straight to MapLibre as a URL (src/lib/deploymentConfig ·
-    mapReferenceLayers), so only two shapes work: the reference store this deployment serves
-    itself, ``/api/reference/geo:<slug>``, or an absolute ``https://`` source. A bare
-    ``hydranten.geojson`` resolves against the app's own routes and 404s — the layer appears in
-    the Ebenen panel and simply draws nothing.
-
-    Advisory, never fatal, and deliberately NOT a schema rule: ``referenceLayers`` is written by
-    the geodata push and the stored documents of running stations are never re-validated, so a
-    hard constraint here would turn a station's existing config into an unloadable one.
-    """
-    out: list[str] = []
-    for layer in doc_json.get("referenceLayers") or []:
-        if not isinstance(layer, dict):
-            continue
-        url = layer.get("geojson")
-        if not isinstance(url, str) or not url:
-            continue
-        if url.startswith(("/api/reference/geo:", "https://")):
-            continue
-        out.append(
-            f"referenceLayer {layer.get('id')!r}: geojson {url!r} is neither "
-            "«/api/reference/geo:<slug>» (loaded by admin_geodata) nor an absolute https:// URL — "
-            "the layer will draw nothing"
-        )
-    return out
-
-
 def _report_notes(raw: dict[str, Any], doc_json: dict[str, Any]) -> None:
     """Print the advisory lines every write path owes the operator: keys the schema dropped, and
     reference layers that cannot resolve. Indented under the command's own OK/REFUSED line."""
-    ignored = _ignored_keys(raw)
+    ignored = ignored_keys(raw)
     if ignored:
         print(f"    ⚠️ {len(ignored)} key(s) IGNORED — the schema keeps only what it knows:")
         for line in ignored:
             print(f"       ignored: {line}")
-    for warning in _layer_warnings(doc_json):
+    for warning in layer_warnings(doc_json):
         print(f"    ⚠️ {warning}")
 
 
@@ -493,43 +428,6 @@ async def _show() -> dict[str, Any] | None:
         return row.config_json if (row and row.config_json) else None
 
 
-#: Sections of the config document that are NOT config-as-code: they are written at RUNTIME by
-#: the other admin paths — `identity.assets` by a branding upload (admin UI or admin_branding),
-#: `referenceLayers` by a geodata push — and no config file names them, because the URLs inside
-#: them only exist once the blob has been stored.
-#:
-#: ⚠️ A plain `load` therefore used to DELETE them. That is how the public demo lost its logo:
-#: the reset script loads the config first and re-pushes logo + geodata afterwards, so a run
-#: that fails in between leaves a demo with no brandmark and no hydrants — which is exactly what
-#: happened on 08.08. And it is the same trap for a station: upload a logo in the admin UI, load
-#: a config change from the repo an hour later, logo gone, nothing said. Carried over unless the
-#: incoming file names the section itself, and said out loud when it happens.
-_RUNTIME_SECTIONS = ("referenceLayers",)
-
-
-def _carry_runtime_sections(stored: dict[str, Any] | None, incoming: dict[str, Any]) -> list[str]:
-    """Copy the runtime-written sections from `stored` into `incoming` where the file is silent.
-    Returns the names carried over, for the caller to report."""
-    if not stored:
-        return []
-    carried: list[str] = []
-    for key in _RUNTIME_SECTIONS:
-        if stored.get(key) and not incoming.get(key):
-            incoming[key] = stored[key]
-            carried.append(key)
-    # identity.assets sits one level down and is the one that gets noticed, because a missing
-    # logo is visible on the login screen of every device in the Magazin
-    assets = ((stored.get("identity") or {}).get("assets")) or {}
-    assets = {k: v for k, v in assets.items() if v}
-    if assets:
-        identity = dict(incoming.get("identity") or {})
-        if not identity.get("assets"):
-            identity["assets"] = assets
-            incoming["identity"] = identity
-            carried.append("identity.assets")
-    return carried
-
-
 async def _load(doc_json: dict[str, Any]) -> None:
     """Write a document that is ALREADY final — the runtime sections have been carried into it by
     the caller (see `_prepare`), so what lands is exactly what the caller was shown and checked."""
@@ -557,7 +455,7 @@ async def _prepare(doc_json: dict[str, Any]) -> tuple[dict[str, Any] | None, lis
     async with async_session_maker() as db:
         row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         stored = row.config_json if (row and row.config_json) else None
-    carried = _carry_runtime_sections(stored, doc_json)
+    carried = carry_runtime_sections(stored, doc_json)
     return stored, carried
 
 
@@ -655,7 +553,7 @@ async def _amain(argv: list[str]) -> int:
     if args.cmd == "diff":
         _, doc_json = _read_and_validate(Path(args.file))
         stored = await _show()
-        carried = _carry_runtime_sections(stored, doc_json)
+        carried = carry_runtime_sections(stored, doc_json)
         changes = _diff(stored, doc_json)
         if not changes:
             print("No changes — the file matches the stored config.")
