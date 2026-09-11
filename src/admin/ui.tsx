@@ -32,6 +32,29 @@ export function fmtDateTime(iso: string | null | undefined): string {
   })
 }
 
+/**
+ * How long ago, in one short phrase («gerade eben», «vor 3 min», «vor 5 h»), falling back to the
+ * de-CH date+time once it is older than a day; null/invalid → "—".
+ *
+ * ⚠️ Relative is the right unit for a HEALTH fact and the wrong one for a record: «vor 3 min»
+ * answers «läuft das noch» without any arithmetic at 3am, which is what «Daten» reports for a
+ * dataset's Stand and «System & Wartung» for a connector's last successful run. A timestamp that
+ * has to be diffed against the wall clock is the reason a dead poll goes unnoticed.
+ */
+export function fmtRelTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const C = appConfig.copy.admin.common
+  const diffSec = Math.round((Date.now() - d.getTime()) / 1000)
+  // A future timestamp is a clock skew, not an age — print it rather than «in -2 min».
+  if (diffSec < 0) return d.toLocaleString('de-CH')
+  if (diffSec < 60) return C.justNow
+  if (diffSec < 3600) return fillTemplate(C.relMin, { n: Math.floor(diffSec / 60) })
+  if (diffSec < 86400) return fillTemplate(C.relHour, { n: Math.floor(diffSec / 3600) })
+  return d.toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
 /** Section card — the single container used by every admin view. `title` is optional:
  *  a single-card page leans on the page head (h1 + lede + tip) and renders the card as a
  *  plain panel, so the title/caption aren't duplicated. Multi-card pages title each card. */

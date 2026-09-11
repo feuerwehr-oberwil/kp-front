@@ -18,27 +18,13 @@ import { providerLabel } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { Card, Offer, StatusBadge, Table, EmptyState, ResultChip, fmtDate } from './ui'
+import { Card, Offer, StatusBadge, Table, EmptyState, ResultChip, fmtDate, fmtRelTime } from './ui'
 
 // The three read-only "Daten" pages — Integrationen, Objekte & Pläne, Geodaten. Each is
 // its own nav destination (they used to be stacked cards in one DataView). Every fetch is
 // wrapped so one failing endpoint can never crash a page.
 
 // ─── helpers ───────────────────────────────────────────────────────────────
-
-/** Short relative time ("vor 3 Min."), falling back to de-CH date+time; invalid → "—". */
-function fmtRelTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  const C = appConfig.copy.admin.data
-  const diffSec = Math.round((Date.now() - d.getTime()) / 1000)
-  if (diffSec < 0) return d.toLocaleString('de-CH')
-  if (diffSec < 60) return C.justNow
-  if (diffSec < 3600) return fillTemplate(C.relMin, { n: Math.floor(diffSec / 60) })
-  if (diffSec < 86400) return fillTemplate(C.relHour, { n: Math.floor(diffSec / 3600) })
-  return d.toLocaleString('de-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-}
 
 /** Speed in km/h or "—" when missing. */
 function fmtSpeed(kmh: number | null | undefined): string {

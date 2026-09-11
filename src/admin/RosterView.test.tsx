@@ -338,3 +338,42 @@ describe('Grad und Status — erfassen und bearbeiten', () => {
     await waitFor(() => expect(updatePerson).toHaveBeenCalledWith('p1', { is_active: false }))
   })
 })
+
+// Wie viel der nächtliche Abgleich von selbst darf. Bis es diese Einstellung gab, war die
+// Mannschaft so aktuell wie der letzte Knopfdruck von Hand.
+describe('«Automatischer Divera-Abgleich»', () => {
+  const mount = () => act(async () => { render(<ConfigProvider><RosterView /></ConfigProvider>) })
+  const trigger = () => screen.getByRole('button', { name: C.autoSyncLabel })
+
+  it('läuft auf «Zugänge & Grade», solange nichts gesetzt ist – Standard und leeres Feld sehen gleich aus', async () => {
+    apiGet.mockResolvedValue({ integrations: { personnel: { provider: 'divera', configured: true } } })
+    await mount()
+
+    expect(trigger().textContent).toContain(C.autoSyncShortSafe)
+    // ⚠️ Der Unterschied steht in der Option selbst, nicht bloss im ⓘ: «Vollständig» ist die
+    // einzige Stufe, die von selbst jemanden deaktiviert.
+    fireEvent.click(trigger())
+    expect(screen.getByRole('option', { name: C.autoSyncFull }).textContent).toMatch(/deaktiviert/)
+  })
+
+  it('schreibt die gewählte Stufe in die Konfiguration', async () => {
+    apiGet.mockResolvedValue({ integrations: { personnel: { provider: 'divera', configured: true } } })
+    await mount()
+
+    fireEvent.click(trigger())
+    fireEvent.click(screen.getByRole('option', { name: C.autoSyncFull }))
+    // der Wähler liest den Entwurf zurück – die Beschriftung ist der Beweis, dass geschrieben wurde
+    expect(trigger().textContent).toContain(C.autoSyncShortFull)
+    // …und die Standard-Spalte meldet die Abweichung
+    expect(screen.getByText(fillTemplate(appConfig.copy.admin.common.standardChanged, { value: C.autoSyncShortSafe }))).toBeTruthy()
+  })
+
+  it('bleibt weg, wo sie nichts bewirken kann – ohne Divera läuft der Auftrag ohnehin leer', async () => {
+    apiGet.mockResolvedValue({ integrations: {} })
+    await mount()
+
+    expect(screen.queryByRole('button', { name: C.autoSyncLabel })).toBeNull()
+    // die Namensreihenfolge steht weiterhin da, die Seite ist also wirklich gerendert
+    expect(screen.getByRole('button', { name: C.nameOrderLabel })).toBeTruthy()
+  })
+})

@@ -3,10 +3,10 @@ import { apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useConfig } from './ConfigContext'
-import { SetupChecklist } from './SetupChecklist'
+import { SetupChecklist, type SetupState } from './SetupChecklist'
 import { fillTemplate } from '../lib/format'
-import { providerLabel } from '../lib/deploymentConfig'
-import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime } from './ui'
+import { providerLabel, type DeploymentSharePointSource } from '../lib/deploymentConfig'
+import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
 
@@ -48,12 +48,27 @@ interface SystemIntegrations {
     capabilities: string[]
   }>
 }
+/** Counts one polling connector records about its last run. Shapes differ per connector
+ *  (backend · connector_state); only `staleOutstanding` is read here — the rest is recorded for
+ *  the log and for whatever asks next. */
+interface SystemConnectorCounts {
+  /** personnel: leavers the «safe» level counted but deliberately did NOT deactivate */
+  staleOutstanding?: number | null
+  [key: string]: unknown
+}
 interface SystemConnector {
   id: string
   direction: 'in' | 'out'
   configured: boolean
   state: 'online' | 'offline' | null
   detail: string | null
+  /** when it last TRIED, when it last actually WORKED, and why it did not. Null on the rows that
+   *  record no health (webhooks, push, …) — never absent, so «nothing to report» and «this build
+   *  does not know» stay distinguishable (backend · `_NO_HEALTH`). */
+  lastAttempt?: string | null
+  lastSuccess?: string | null
+  lastError?: string | null
+  counts?: SystemConnectorCounts | null
 }
 interface SystemResponse {
   version: SystemVersion | null
@@ -64,6 +79,8 @@ interface SystemResponse {
   connectors: SystemConnector[] | null
   /** whether this deployment can tell anybody it has died (api/system) — a boolean, never the URL */
   monitoring: SystemMonitoring | null
+  /** «Einrichtung», derived server-side — see SetupChecklist. */
+  setup: SetupState | null
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -80,6 +97,43 @@ function fmtBytes(n: number | null | undefined): string {
 /** Count or "—" when the COUNT query failed server-side. */
 function fmtCount(n: number | null | undefined): string {
   return n == null ? '—' : String(n)
+}
+
+// ─── connector health ─────────────────────────────────────────────────────────
+//
+// ⚠️ The server serves the two timestamps RAW and derives no staleness at all, on purpose
+// (backend · `_polling_connector`): «der letzte Erfolg war im Juni» is a judgement about how
+// often THIS station expects that connector to fire, and a window invented in the backend would
+// either call a quiet Traccar dead or call a dead Divera fine. So the windows live here, one per
+// connector, each a generous multiple of its own cadence — long enough that a single missed tick
+// or a redeploy is not an alarm, short enough that a rotated key is visible the same shift.
+
+/** How long a connector may go without a successful run before the card calls it stale.
+ *  Alarms poll every 2 min, Traccar samples every 30 s, the Mannschaft runs nightly. */
+const STALE_AFTER_MS: Record<string, number> = {
+  divera_alarms: 15 * 60_000,
+  traccar: 10 * 60_000,
+  divera_personnel: 2 * 24 * 60 * 60_000,
+}
+
+/** Does this connector record health at all? The polling rows do; the webhook/push rows carry
+ *  nulls, and a «zuletzt erfolgreich: —» under those would be a fact they never claimed. */
+const pollsFor = (id: string): boolean => id in STALE_AFTER_MS
+
+/** What one polling connector's health READS as. Red = broken (the last attempt failed), amber =
+ *  warning (it worked, but too long ago), grey = configured and not yet heard from. */
+function connectorHealth(conn: SystemConnector, now: number): {
+  tone: 'on' | 'off' | 'warn' | 'err'
+  state: string
+} {
+  const C = appConfig.copy.admin.system
+  if (!conn.configured) return { tone: 'off', state: C.notConfigured }
+  if (conn.lastError) return { tone: 'err', state: C.connOffline }
+  if (!conn.lastSuccess) return { tone: 'off', state: C.connNeverRan }
+  const age = now - new Date(conn.lastSuccess).getTime()
+  const window = STALE_AFTER_MS[conn.id]
+  if (Number.isFinite(age) && window != null && age > window) return { tone: 'warn', state: C.connStale }
+  return { tone: 'on', state: C.connOnline }
 }
 
 /** Clamp a fraction to [0, 100] for bar widths. */
@@ -144,10 +198,74 @@ function areaTone(status: string): 'on' | 'off' | 'warn' | 'err' {
  *  konfiguriert». `err` carries the server's own sentence when it has one. */
 type ProbeState = { kind: 'idle' } | { kind: 'testing' } | { kind: 'ok' } | { kind: 'err'; text: string }
 
+/**
+ * Which folders this deployment pulls — READ-ONLY, the same «Schreibgeschützt – …» shape the
+ * Symbol-Auswahllisten and the Modul-Katalog wear (ConfigSections · FleetAttributesViewer /
+ * ModulesViewer).
+ *
+ * ⚠️ The hint names where the folders are edited and does NOT print a command. A command typed
+ * onto a settings page goes stale silently and pushes the thing it explains off the screen; the
+ * documentation is where it is maintained (same call as the two `uv run python -m app.admin_…`
+ * lines that used to stand over ModulesViewer).
+ *
+ * It renders even where the per-area table above already shows a path: that table is the LAST
+ * RUN's view — an area the station configured but the connector has never reached does not
+ * appear in it at all, which is precisely the case somebody comes to this card to understand.
+ */
+function SharePointSources({ sources, intervalMinutes }: {
+  sources: DeploymentSharePointSource[]
+  intervalMinutes: number | null
+}) {
+  const C = appConfig.copy.admin.system
+  if (sources.length === 0) return null
+  return (
+    <div className="adm-sys-sources">
+      <Metric
+        label={C.spSources}
+        value={intervalMinutes != null ? fillTemplate(C.spInterval, { n: intervalMinutes }) : '—'}
+      />
+      <div className="adm-table-wrap">
+        <table className="adm-table">
+          <thead>
+            <tr>
+              <th>{C.spArea}</th>
+              <th>{C.spSourceLocation}</th>
+              <th>{C.spSourceFolder}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((s) => (
+              <tr key={s.area}>
+                <td><span className="adm-ref-title">{C.spAreas[s.area] ?? s.area}</span></td>
+                {/* Whichever way this station addresses the library: the site's own URL, or the
+                    drive id a tenant admin handed over. The library name qualifies either. */}
+                <td>
+                  <span className="adm-mono">{s.siteUrl || s.driveId || '—'}</span>
+                  {s.library && <p className="adm-card-cap">{s.library}</p>}
+                </td>
+                <td>
+                  <span className="adm-mono">{s.path?.trim() || C.spSourceRoot}</span>
+                  {!!s.ignore?.length && (
+                    <p className="adm-card-cap">{fillTemplate(C.spSourceIgnored, { folders: s.ignore.join(', ') })}</p>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="adm-hint">{C.spSourcesHint}</p>
+    </div>
+  )
+}
+
 function SharePointCard({
-  status, failed, onReload, onNavigate,
+  status, sources, intervalMinutes, failed, onReload, onNavigate,
 }: {
   status: SharePointStatus | null
+  /** `sharepoint.sources` out of the admin's own copy of the config document — shown, never edited */
+  sources: DeploymentSharePointSource[]
+  intervalMinutes: number | null
   failed: boolean
   onReload: () => Promise<void>
   onNavigate?: (id: string) => void
@@ -304,6 +422,9 @@ function SharePointCard({
           </div>
         </>
       )}
+      {/* Under every branch, including «nicht eingerichtet»: what the config already names is
+          worth reading precisely while the connector is not running yet. */}
+      <SharePointSources sources={sources} intervalMinutes={intervalMinutes} />
     </Card>
   )
 }
@@ -521,7 +642,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
       )}
 
       {state.kind === 'ok' && (() => {
-        const { version, database, counts, storage, monitoring } = state.data
+        const { version, database, counts, storage } = state.data
         const isProd = version?.env === 'production'
         /** A version cell's text. One fallback for all three: a server that answered without a
          *  version block says «nicht verfügbar» rather than three dashes that read as empty
@@ -535,11 +656,10 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                 answer is «nothing». */}
             <SetupChecklist
               cfg={draft}
+              setup={state.data.setup}
               facts={{
                 users: counts?.users ?? null,
                 personnelActive: counts?.personnel_active ?? null,
-                heartbeatConfigured: !!monitoring?.heartbeatConfigured,
-                sharepointConfigured: !!spStatus?.credentials && !!spStatus?.configured,
               }}
               onGo={(id) => onNavigate?.(id)}
             />
@@ -617,6 +737,9 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                       ))}
                       {(state.data.connectors ?? []).map((conn) => {
                         const label = ({
+                          divera_alarms: C.connDiveraAlarms,
+                          traccar: C.connTraccar,
+                          divera_personnel: C.connDiveraPersonnel,
                           print_relay: C.connPrintRelay,
                           capture: C.connCapture,
                           stats: C.connStats,
@@ -625,21 +748,52 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                           push: C.connPush,
                           stt: C.connStt,
                         } as Record<string, string>)[conn.id] ?? conn.id
-                        const tone = !conn.configured ? 'off' as const
-                          : conn.state === 'offline' ? 'warn' as const : 'on' as const
-                        const stateLabel = !conn.configured ? C.notConfigured
-                          : conn.state === 'online' ? C.connOnline
-                          : conn.state === 'offline' ? C.connOffline : C.configured
+                        // The polling rows are judged on their own health (last success + the
+                        // per-connector staleness window); everything else still reads off the
+                        // configured/state pair the server sends.
+                        const health = pollsFor(conn.id)
+                          ? connectorHealth(conn, Date.now())
+                          : {
+                            tone: !conn.configured ? 'off' as const
+                              : conn.state === 'offline' ? 'warn' as const : 'on' as const,
+                            state: !conn.configured ? C.notConfigured
+                              : conn.state === 'online' ? C.connOnline
+                              : conn.state === 'offline' ? C.connOffline : C.configured,
+                          }
+                        // «N Abgänge warten» — what the «safe» level counts but deliberately
+                        // does not act on. It is the one connector fact somebody has to GO
+                        // somewhere to finish, so it is a link, not a sentence.
+                        const leavers = conn.counts?.staleOutstanding ?? 0
                         return (
                           <tr key={conn.id}>
                             <td><span className="adm-ref-title">{label}</span></td>
                             <td>{conn.direction === 'in' ? C.directionIn : C.directionOut}</td>
                             <td>
-                              <StatusBadge tone={tone} label="" state={stateLabel} />
+                              <StatusBadge tone={health.tone} label="" state={health.state} />
                               {conn.id === 'print_relay' && conn.detail && (
                                 <p className="adm-card-cap">
                                   {fillTemplate(C.connLastSeen, { time: new Date(conn.detail).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}
                                 </p>
+                              )}
+                              {pollsFor(conn.id) && conn.configured && conn.lastSuccess && (
+                                <p className="adm-card-cap">
+                                  {fillTemplate(C.connLastSuccess, { time: fmtRelTime(conn.lastSuccess) })}
+                                </p>
+                              )}
+                              {/* The server's own sentence — «401 Unauthorized», «name or
+                                  service not known» — is the searchable half, so it is printed
+                                  rather than translated into «Fehler». */}
+                              {conn.configured && conn.lastError && (
+                                <p className="adm-card-cap">{conn.lastError}</p>
+                              )}
+                              {leavers > 0 && onNavigate && (
+                                <button
+                                  type="button"
+                                  className="btn adm-int-btn adm-sys-nudge"
+                                  onClick={() => onNavigate('mannschaft')}
+                                >
+                                  {fillTemplate(C.connLeavers, { n: leavers })}
+                                </button>
                               )}
                             </td>
                           </tr>
@@ -708,7 +862,14 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
 
             {/* What the station pulls in from its own SharePoint — and, above all, when it
                 last managed to. */}
-            <SharePointCard status={spStatus} failed={spFailed} onReload={loadSp} onNavigate={onNavigate} />
+            <SharePointCard
+              status={spStatus}
+              sources={draft?.sharepoint?.sources ?? []}
+              intervalMinutes={draft?.sharepoint?.intervalMinutes ?? spStatus?.intervalMinutes ?? null}
+              failed={spFailed}
+              onReload={loadSp}
+              onNavigate={onNavigate}
+            />
 
             {/* Client-side offline cache (this device) — a half-row card in the grid. */}
             <OfflineCacheCard />

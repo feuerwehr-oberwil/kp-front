@@ -4838,6 +4838,13 @@ export const de = {
   admin: {
     common: {
       configLoading: 'Konfiguration wird geladen …',
+      // Relative Zeitangaben für die ganze Verwaltung (ui · fmtRelTime): «Daten» schreibt damit
+      // den Stand eines Datensatzes, «System & Wartung» den letzten geglückten Abruf einer
+      // Verbindung. Einheiten überall gleich abgekürzt: min · h – «Min.» und «Std.» daneben
+      // lesen sich wie eine andere Einheit.
+      justNow: 'gerade eben',
+      relMin: 'vor {n} min',
+      relHour: 'vor {n} h',
       copy: 'Kopieren',
       copied: 'Kopiert',
       confirmYes: 'Ja, ausführen',
@@ -5344,6 +5351,16 @@ export const de = {
       // stattdessen das Feld, wie es auf der Seite heisst (ConfigContext · rejectedFieldLabel).
       rejected: 'Vom Server nicht angenommen: {fields}',
       rejectedHint: 'Bitte den genannten Wert korrigieren – die übrigen Änderungen dieser Seite sind noch nicht gespeichert.',
+      // ⚠️ Der ANDERE 409: nicht «jemand war schneller», sondern «dieser Schreibvorgang würde
+      // einen Abschnitt leeren, der heute Inhalt hat» (api/config · would_empty_sections). Das
+      // ist meistens genau das, was jemand eben getan hat – die letzte Formular-Zeile gelöscht,
+      // die letzte Partnerorganisation entfernt – und darum wird gefragt statt abgebrochen.
+      // «Abbrechen» nimmt die Änderung zurück, sonst liefe die Speicherung in dieselbe Absage.
+      emptyTitle: 'Abschnitte leeren?',
+      emptyLead: 'Diese Änderung leert Abschnitte, die heute Inhalt haben:',
+      emptyNote: 'Zurückholen lässt sich das über «Sicherung › Letzte Änderungen». «Abbrechen» nimmt die Änderung auf dieser Seite zurück.',
+      emptyGo: 'Trotzdem leeren',
+      emptyPending: 'Wartet auf Bestätigung',
     },
     usageBar: { aria: '{pct}% belegt' },
     identity: {
@@ -5854,6 +5871,21 @@ export const de = {
       nameOrderShortFirstLast: 'Vorname Nachname',
       nameOrderLastFirst: 'Nachname Vorname · Meier Hans',
       nameOrderFirstLast: 'Vorname Nachname · Hans Meier',
+      // ── Nächtlicher Abgleich ──
+      // ⚠️ Die Option «Vollständig» ist die einzige, die von selbst jemanden deaktiviert. Das
+      // steht im Wahltext, nicht bloss im ⓘ: wer die Liste öffnet, soll den Unterschied sehen,
+      // ohne ihn erst aufzuklappen. Deaktiviert heisst nie gelöscht – vergangene Einsätze
+      // behalten ihre Namen.
+      autoSyncTitle: 'Automatischer Abgleich',
+      autoSyncCaption: 'Läuft nachts von selbst. «Mit Divera synchronisieren» oben bleibt jederzeit von Hand möglich.',
+      autoSyncLabel: 'Automatischer Divera-Abgleich',
+      autoSyncTip: 'Ohne ihn ist die Mannschaft so aktuell wie der letzte Abgleich von Hand. «Zugänge & Grade» übernimmt Eintritte, Namen und Dienstgrade und meldet Abgänge nur – ein Verschwinden ist ebenso oft ein kaputter Abruf wie ein Austritt. «Vollständig» deaktiviert diese Personen zusätzlich; gelöscht wird nie, vergangene Einsätze behalten ihre Namen.',
+      autoSyncOff: 'Aus · nichts läuft von selbst',
+      autoSyncSafe: 'Zugänge & Grade · Abgänge werden nur gemeldet',
+      autoSyncFull: 'Vollständig · Abgänge werden deaktiviert',
+      autoSyncShortOff: 'Aus',
+      autoSyncShortSafe: 'Zugänge & Grade',
+      autoSyncShortFull: 'Vollständig',
       sourceHint: 'Spalten: name (Pflicht), rank (optional). UTF-8, kommagetrennt, mit Kopfzeile. Provider-Identitäten werden durch die Synchronisation verwaltet.',
       addPerson: 'Person hinzufügen',
       addPersonCaption: 'Name eingeben; Grad und Status lassen sich gleich mitgeben.',
@@ -6004,11 +6036,6 @@ export const de = {
       colUpdated: 'Stand',
       colFeatures: 'Features',
       colSource: 'Quelle',
-      justNow: 'gerade eben',
-      // Units abbreviated the same way everywhere: min · s · h (that is how the steppers and the
-      // Verlauf rows write them too) – «Min.» and «Std.» next to them read like a different unit.
-      relMin: 'vor {n} min',
-      relHour: 'vor {n} h',
     },
     objectsMap: {
       showAll: 'Alle zeigen',
@@ -6346,6 +6373,30 @@ export const de = {
       connAlarmWebhook: 'Generischer Alarmeingang',
       connPush: 'Web Push (Alarmierung)',
       connStt: 'Speech-to-Text',
+      // ── Die drei abfragenden Verbindungen ──
+      // ⚠️ Sie stehen zusätzlich zu den Provider-Zeilen darüber und beantworten eine andere
+      // Frage: nicht «welche Quelle ist zuständig», sondern «hat der Abruf zuletzt tatsächlich
+      // funktioniert». Genau das ist die stille Art, wie eine Anbindung endet – der Schlüssel
+      // ist seit einem Jahr rotiert, «konfiguriert» steht weiterhin grün da.
+      connDiveraAlarms: 'Divera-Alarmabruf',
+      connTraccar: 'Positionsabruf (Ortung)',
+      connDiveraPersonnel: 'Mannschaftsabgleich (Divera)',
+      connLastSuccess: 'Zuletzt erfolgreich: {time}',
+      connNeverRan: 'noch nie gelaufen',
+      // «veraltet», nicht «offline»: der letzte Abruf hat geklappt, er ist bloss zu lange her.
+      // Wie lange zu lange ist, weiss nur diese Seite – der Server liefert die Zeitstempel roh.
+      connStale: 'veraltet',
+      // Die Zeile, die «safe» erzeugt: Abgänge werden gezählt und gemeldet, aber nie von selbst
+      // deaktiviert. Führt auf die Mannschaft, wo sie erledigt werden.
+      connLeavers: '{n} Abgänge warten',
+      // ── SharePoint: welche Ordner konfiguriert sind (nur Ansicht) ──
+      spSources: 'Ordner laut Konfiguration',
+      spSourcesHint: 'Schreibgeschützt – die Ordner stehen in der Konfiguration der Wehr. Wie sie aufgebaut sind, steht in der Dokumentation zur SharePoint-Anbindung.',
+      spInterval: 'Abgleich alle {n} min',
+      spSourceLocation: 'Ort',
+      spSourceFolder: 'Ordner',
+      spSourceRoot: 'Stammordner der Bibliothek',
+      spSourceIgnored: 'Übersprungen: {folders}',
       // SharePoint-Anbindung. ⚠️ Der Text führt mit dem letzten ERFOLGREICHEN Abgleich und mit
       // dem Ablauf des Client-Secrets, weil genau das die stille Art ist, wie diese Anbindung
       // endet: Azure lässt das Secret nach längstens 24 Monaten verfallen, Graph antwortet mit
