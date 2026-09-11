@@ -11,8 +11,9 @@ hollow and assigned time filled — the same language the on-screen Zeitplan use
 reads like the tablet. Under each lane runs a thin ink rule for the attendance actually recorded:
 the sheet is read by somebody deciding who to send home and who to call in, and «what was planned»
 without «what happened» leaves out the half that says whether the plan held. It stays visually
-subordinate — plan in accent above, record in ink below — so the page is still a planning form
-first. (The Rapport remains the RECORD; this is the working copy of it.) Rows without a plan still
+subordinate — the plan's own hollow/filled ink block above, a thin ink rule for the record below —
+so the page is still a planning form first. (The Rapport remains the RECORD; this is the working
+copy of it.) Rows without a plan still
 print — a Führungsformular is meant to be written on, and an empty row is where the pen goes.
 """
 
@@ -79,7 +80,6 @@ LABEL_MM = 13
 _INK = colors.HexColor("#1b2330")
 _DIM = colors.HexColor("#8a94a3")
 _RULE = colors.HexColor("#c9cfd8")
-_ACCENT = colors.HexColor("#1f6feb")
 
 
 class ZeitplanBlock(BaseModel):
@@ -296,13 +296,15 @@ class _Grid(Flowable):
                 if x1 - x0 < 0.6:
                     x1 = x0 + 0.6
                 if b.confirmed:
-                    c.setFillColor(_ACCENT)
+                    c.setFillColor(_INK)
                     c.rect(x0, y + 2.0 * mm, x1 - x0, self.ROW_H - 4.0 * mm, stroke=0, fill=1)
                 else:
-                    # hollow: offered, not yet assigned
-                    c.setStrokeColor(_ACCENT)
+                    # hollow: offered, not yet assigned. 1.4pt, not a hairline — the grid rules
+                    # it sits over run 0.3–0.7pt, and a stroke in the same weight class as the
+                    # background it was meant to stand out against was the whole complaint.
+                    c.setStrokeColor(_INK)
                     c.setFillColor(colors.white)
-                    c.setLineWidth(0.8)
+                    c.setLineWidth(1.4)
                     c.rect(x0, y + 1.6 * mm, x1 - x0, self.ROW_H - 3.2 * mm, stroke=1, fill=0)
 
             # ---- what actually happened, as a heavy rule along the foot of the lane.

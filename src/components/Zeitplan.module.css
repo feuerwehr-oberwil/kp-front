@@ -24,14 +24,16 @@
   --board: var(--canvas-bg);
   /* THE three state colours, declared once. Every place a state is drawn — the bar on a lane, the
      step line in the Deckung strip, its key swatch, its numbers — reads them from here, so the
-     grey/blue/green mapping cannot drift between two surfaces that mean the same thing. They are
+     grey/ink/green mapping cannot drift between two surfaces that mean the same thing. They are
      the ONLY colours on this grid that carry meaning: everything else is surface, edge or ink.
        verfügbar — grey: somebody offered this time, nothing is committed yet
-       geplant   — blue: we assigned it (deliberately not --accent; a station's accent is its
-                   brand colour, in Oberwil alarm red, and a plan must not read as an alarm)
+       geplant   — black/ink: we assigned it (deliberately not --accent; a station's accent is
+                   its brand colour, in Oberwil alarm red, and a plan must not read as an alarm.
+                   Not --blue either any more — shape already carries the state (dashed band vs
+                   solid inset bar), so plain ink loses no information and stays calmer.)
        anwesend  — green: it actually happened, and it comes from the attendance record */
   --st-available: color-mix(in srgb, var(--ink) 45%, transparent);
-  --st-planned: var(--blue);
+  --st-planned: var(--ink);
   --st-actual: var(--green);
   /* one hairline for the whole grid — row edge, clock rule and Deckung rule were three different
      tokens for the same job, which is what made the surface read as several tables stacked up */
@@ -191,7 +193,7 @@
 /* the two rows that still pan the axis by finger — see the note on .lane. They are chrome, not
    somebody's row, so a sideways drag on them cannot be mistaken for planning. */
 .headRow .track, .coverageRow .track { touch-action: auto; }
-/* neutral, and identical to the name half's hover: blue is «geplant» here, and a hover that
+/* neutral, and identical to the name half's hover: ink is «geplant» here, and a hover that
    borrowed a state colour said the lane was already planned. */
 @media (hover: hover) { .laneEditable:hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
 .rowPlanned .lane { border-color: color-mix(in srgb, var(--st-planned) 45%, var(--edge)); }
@@ -269,9 +271,10 @@
 /* Three states, three LAYERS, in the order a shift lives through them — nested, not stacked, so
    the everyday pair «verfügbar 17:30–21:00, eingeteilt 18:30–20:00» reads as one sentence:
      verfügbar — dashed GREY band over the whole lane: offered, nothing committed
-     eingeteilt — solid BLUE bar inset WITHIN that band: assigned (deliberately not var(--accent);
+     eingeteilt — solid INK bar inset WITHIN that band: assigned (deliberately not var(--accent);
                  a station's accent is its brand colour, in Oberwil alarm red, and a plan must not
-                 read as an alarm at 3am. Red stays reserved for a genuine double booking.)
+                 read as an alarm at 3am. Not --blue either any more — shape already says which
+                 state a bar is in. Red stays reserved for a genuine double booking.)
      anwesend  — solid GREEN strip along the bottom, from the attendance record
    They must stay in THIS order in the file: all single-class selectors, so the later rule wins. */
 /* eingeteilt — a SOLID bar, inset so it sits inside the availability band it was cut from and
@@ -497,8 +500,8 @@
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .editBtn svg { width: 14px; height: 14px; }
-/* neutral: blue means «geplant» on this grid, and a pencil that turned blue on hover read as a
-   state change rather than as a way in */
+/* neutral: ink means «geplant» on this grid, and a pencil that turned ink-coloured on hover read
+   as a state change rather than as a way in */
 @media (hover: hover) { .editBtn:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); } }
 .editBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 

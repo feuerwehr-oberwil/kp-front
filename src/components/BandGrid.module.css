@@ -16,13 +16,15 @@
   /* the ＋ column, and the spacer under it that keeps every row the same width */
   --add-w: 38px;
   --board: var(--canvas-bg);
-  /* THE state colours, read from the same mapping the Zeitplan declares — grey «verfügbar», blue
+  /* THE state colours, read from the same mapping the Zeitplan declares — grey «verfügbar», black
      «eingeteilt». Green is deliberately absent: on the Zeitplan green means ANWESEND, which comes
      from the attendance record, and this surface never shows the record. A hatched cell is drawn
      in its own state's colour for that reason — hatching says «not keeping to the band», it does
-     not introduce a fourth meaning. */
+     not introduce a fourth meaning. Deliberately not --accent either: a station's accent is its
+     brand colour (in Oberwil alarm red) and a plan must not read as an alarm — shape already
+     carries every state (dashed vs solid, hollow vs filled), so plain ink loses no information. */
   --st-available: color-mix(in srgb, var(--ink) 45%, transparent);
-  --st-planned: var(--blue);
+  --st-planned: var(--ink);
   --edge: var(--glass-edge);
   flex: 1 1 auto; min-height: 0; min-width: 0; max-width: 100%;
   display: flex; flex-direction: column; gap: 6px; padding: 2px 22px 16px;
@@ -165,13 +167,13 @@
 }
 .addBand::before {
   content: ''; position: absolute; width: 30px; height: 30px; border-radius: 50%;
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
   transition: background .12s var(--ease);
 }
-.addBand svg { width: 17px; height: 17px; color: var(--blue); position: relative; }
-@media (hover: hover) { .addBand:hover::before { background: color-mix(in srgb, var(--blue) 24%, transparent); } }
+.addBand svg { width: 17px; height: 17px; color: var(--ink); position: relative; }
+@media (hover: hover) { .addBand:hover::before { background: color-mix(in srgb, var(--ink) 24%, transparent); } }
 .addBand:active:not(:disabled)::before { background-image: linear-gradient(var(--press), var(--press)); }
-.addBand:focus-visible::before { box-shadow: 0 0 0 2px var(--blue); }
+.addBand:focus-visible::before { box-shadow: 0 0 0 2px var(--ink); }
 /* under the ＋, in every person's row: the rows must all end at the same x or the right edge of
    the grid becomes a staircase */
 .pad { flex: none; width: var(--add-w); }
@@ -193,7 +195,7 @@
 }
 .cell:disabled { cursor: default; }
 /* Hover DARKENS whatever the cell already is; it never repaints it. A single flat hover colour sat
-   above every state rule here (`.cell:hover` outranks `.cellConfirmed`), so hovering a filled blue
+   above every state rule here (`.cell:hover` outranks `.cellConfirmed`), so hovering a filled ink
    cell turned it pale grey while its text stayed white — the one word on it became unreadable at
    exactly the moment you were pointing at it. Each state now dims its own fill. */
 @media (hover: hover) { .cell:not(:disabled):hover { background: color-mix(in srgb, var(--ink) 5%, var(--surface)); } }
@@ -206,8 +208,9 @@
   background: color-mix(in srgb, var(--ink) 6%, var(--surface));
   border: 1.5px dashed var(--st-available); color: var(--ink-dim);
 }
-/* eingeteilt — solid blue, like the assigned bar. Deliberately not var(--accent): a station's
-   accent is its brand colour (in Oberwil alarm red) and a plan must not read as an alarm. */
+/* eingeteilt — solid ink/black, like the assigned bar. Deliberately not var(--accent): a
+   station's accent is its brand colour (in Oberwil alarm red) and a plan must not read as an
+   alarm. */
 .cellConfirmed {
   background: var(--st-planned); border: 1px solid var(--st-planned); color: var(--on-fill);
 }
@@ -314,9 +317,9 @@
    true of a window holding ONE state end to end; this draws the rest — where nothing is offered,
    where somebody is merely available, and where they are actually assigned. Same two colours as
    the Zeitplan lane, so the two surfaces keep teaching one vocabulary. */
-/* Three levels have to be told apart in 4px, and the cell they sit on is sometimes blue and
+/* Three levels have to be told apart in 4px, and the cell they sit on is sometimes filled ink and
    sometimes grey — so they are steps of the cell's OWN ink rather than the two state colours,
-   which would make the blue segment vanish on a blue cell. Far enough apart to read at arm's
+   which would make the segment vanish on an ink-filled cell. Far enough apart to read at arm's
    length: the gap is the hole, the pale bar is offered, the solid bar is assigned. */
 .strip {
   position: absolute; left: 5px; right: 5px; bottom: 3.5px; height: 4px;
@@ -343,7 +346,7 @@
 /* ⚠ the sheet is PORTALLED out of .bandgrid (Base UI Dialog.Portal), so the grid's own
    --st-planned never reaches it — «geplant» came out in plain ink and the bar's middle piece was
    invisible. Everything below this line names the global token as a fallback. */
-.segWordConfirmed { font: 700 13px var(--body); color: var(--st-planned, var(--blue)); }
+.segWordConfirmed { font: 700 13px var(--body); color: var(--st-planned, var(--ink)); }
 .resolveGap { font: 500 12.5px var(--body); color: var(--ink-faint); }
 
 /* a range that differs at BOTH ends takes two lines rather than running out of a 56px cell */
@@ -365,7 +368,7 @@
   font: 600 11px var(--mono); font-style: normal; color: var(--ink-dim); white-space: nowrap;
 }
 /* the stretch that changes, and the stretches that do not — the same two weights the cells use */
-.pieceInside { background: var(--st-planned, var(--blue)); }
+.pieceInside { background: var(--st-planned, var(--ink)); }
 .pieceKeeps { background: color-mix(in srgb, var(--ink) 22%, transparent); }
 /* the far end carries only its label; it is a tick, not a piece */
 .pieceEnd { flex: none; min-width: 0 !important; width: 0; }

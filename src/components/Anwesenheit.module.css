@@ -72,10 +72,10 @@
 .markRow i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 /* the two Ort glyphs, in the colours they carry on the row — read once, then the row is enough */
 .markOrt svg { width: 14px; height: 14px; color: var(--ink-dim); }
-.markOrtStation svg { color: var(--blue-strong); }
-/* the blue dot that rides on the clock button when somebody has a Bemerkung — same size, same
+.markOrtStation svg { color: var(--ink); }
+/* the ink dot that rides on the clock button when somebody has a Bemerkung — same size, same
    colour, so the filter row IS the mark rather than a description of it */
-.markNote i { width: 6px; height: 6px; background: var(--blue); }
+.markNote i { width: 6px; height: 6px; background: var(--ink); }
 
 /* the dense grid — auto-fill so a wide screen packs many columns, narrow ones fewer */
 .grid {
@@ -95,12 +95,10 @@
   display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 8px; align-content: start;
 }
 
-/* Somebody recorded for THIS Einsatz only. Blue rather than the rank chip's accent: it is not a
-   Grad, and the two sit in the same slot. */
-.guestBadge { background: color-mix(in srgb, var(--blue) 14%, var(--surface)); color: var(--blue); }
-
-/* «Weitere Person» closes the crew list, the way «Anderes Mittel» closes the Mittel list — same
-   shape, same place, so the gesture is already known. */
+/* Somebody recorded for THIS Einsatz only. Neutral ink rather than the rank chip's accent: it is
+   not a Grad, and the two sit in the same slot — the flat grey keeps it a note about provenance,
+   not a second identity colour competing with the accent-tinted rank chip. */
+.guestBadge { background: color-mix(in srgb, var(--ink) 12%, var(--surface)); color: var(--ink-dim); }
 
 /* a row is the cycle button (personMain) plus, once anwesend/gegangen, a trailing time chip
    that opens an inline time input — correcting a wrong auto-stamped time in place */
@@ -136,7 +134,7 @@
    itself stays in the sheet: in the row it ate the name, which is what the row is for. */
 .hasNote { position: relative; }
 .hasNote::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px;
-  border-radius: 50%; background: var(--blue); }
+  border-radius: 50%; background: var(--ink); }
 
 /* THE one trailing segment: the clock that opens the person's sheet. The time itself used to sit
    here as a full editor — and once a start on the alarm time read «ab Beginn», that word took most
@@ -179,7 +177,7 @@
    A full-height edge button, the same shape as the clock beside it — the row already has that
    language and a pill floating inside it was a third one. ALWAYS icon-only: the word cost ~60px
    of every row, which is what pushed the columns wide enough that «Baumann Michael» truncated.
-   The glyph plus the blue says it — Haus + blau = Magazin, Pin + ink = am Einsatzort — and the
+   The glyph plus a stronger ink fill says it — Haus = Magazin, Pin = am Einsatzort — and the
    accessible name still carries the full sentence for anyone who needs it read out. */
 
 .ort {
@@ -198,8 +196,8 @@
 button.ortScene:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …the Magazin is the one worth SEEING, because it is the answer to the question. It keeps its
    tint when the word is gone — icon-only is exactly when the colour has to carry it. */
-.ortStation { color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 13%, transparent); }
-@media (hover: hover) { button.ortStation:hover { background: color-mix(in srgb, var(--blue) 22%, transparent); } }
+.ortStation { color: var(--ink); background: color-mix(in srgb, var(--ink) 13%, transparent); }
+@media (hover: hover) { button.ortStation:hover { background: color-mix(in srgb, var(--ink) 22%, transparent); } }
 button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 
