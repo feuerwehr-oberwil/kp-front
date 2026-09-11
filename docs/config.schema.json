@@ -1516,6 +1516,16 @@
           ],
           "title": "Nameorder",
           "type": "string"
+        },
+        "autoSync": {
+          "default": "safe",
+          "enum": [
+            "off",
+            "safe",
+            "full"
+          ],
+          "title": "Autosync",
+          "type": "string"
         }
       },
       "title": "RosterConfig",
