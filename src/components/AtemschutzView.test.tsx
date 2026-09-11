@@ -11,6 +11,7 @@ import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
 import { appConfig } from '../config/appConfig'
+import { Overlays } from '../lib/ui'
 import { atemschutzDoctrine } from '../lib/deploymentConfig'
 import { fillTemplate } from '../lib/format'
 import { clearAllDrafts } from '../lib/draftKeep'
@@ -249,6 +250,15 @@ describe('the state a tier cannot say', () => {
     expect(screen.queryByText(az.sinceContact)).toBeNull()
     const band = document.querySelector(`.${s.bandVal}`)!
     expect(band.textContent).toMatch(/^0?5:00$/)
+  })
+
+  /* The break clock is a LONG duration read as one, so past the hour it rolls the way the
+   * plinth's Einsatzzeit already does — a Trupp long out read «343:17» on its card while the
+   * focus strip below said «5:43:17» (field shot 11.09.). */
+  it('rolls a long break clock into hours — 5:43:17, never 343:17', () => {
+    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(343 * 60_000 + 17_000) }] })
+    const band = document.querySelector(`.${s.bandVal}`)!
+    expect(band.textContent).toMatch(/^5:43:1\d$/)
   })
 
   /* …and a WORK SQUAD that is out gets the word alone. Nothing about it was ever monitored, so
@@ -694,7 +704,6 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     mount({ trupps: [aktivTrupp(), plainTrupp()], truppColors: { tr1: '#e8392b', tr9: '#e2920a' } })
     expect(screen.getByText(az.sectionAtemschutz)).toBeTruthy()
     expect(screen.getByText(az.sectionPlain)).toBeTruthy()
-    expect(screen.getByText(az.sectionPlainHint)).toBeTruthy()
     const cards = [...document.querySelectorAll(`.${s.card}`)]
     expect(cards).toHaveLength(2)
     const plain = cards.find((c) => c.textContent?.includes('Gerber'))!
@@ -1368,5 +1377,50 @@ describe('the überfällig badge in the header', () => {
     expect(flashedNames()).toEqual(['Steiner'])
     fireEvent.click(badge)
     expect(flashedNames()).toEqual(['Steiner', 'Meier'])
+  })
+})
+
+/* Field wish, 11.09.: the bin on a Trupp that never went in is usually the wrong door — the
+ * Sicherungstrupp that stood ready should close as «nicht eingesetzt» (the record the Rapport
+ * keeps), not as «gelöscht». «Entfernen» in the ⋯ menu therefore ASKS on exactly the cards the
+ * stand-down button is offered on (angemeldet + Atemschutz); everything else removes as before. */
+describe('«Entfernen» on a never-deployed Trupp offers «nicht eingesetzt» first', () => {
+  const angemeldet = (): Trupp => ({ ...aktivTrupp(), status: 'angemeldet', entryTime: '' })
+  const openRemove = () => {
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(screen.getByRole('menuitem', { name: az.remove }))
+  }
+
+  it('stands the Trupp down instead when «Nicht eingesetzt» is chosen', async () => {
+    render(<Overlays />)
+    const setTruppStatus = vi.fn()
+    const deleteTrupp = vi.fn()
+    mount({ trupps: [angemeldet()], setTruppStatus, deleteTrupp })
+    openRemove()
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: az.actNotDeployed }))
+    await waitFor(() => expect(setTruppStatus).toHaveBeenCalledWith('tr1', 'raus'))
+    expect(deleteTrupp).not.toHaveBeenCalled()
+  })
+
+  it('still removes when «Entfernen» is chosen in the ask', async () => {
+    render(<Overlays />)
+    const setTruppStatus = vi.fn()
+    const deleteTrupp = vi.fn()
+    mount({ trupps: [angemeldet()], setTruppStatus, deleteTrupp })
+    openRemove()
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: az.remove }))
+    await waitFor(() => expect(deleteTrupp).toHaveBeenCalledWith('tr1'))
+    expect(setTruppStatus).not.toHaveBeenCalled()
+  })
+
+  it('removes a Trupp that went in straight away — no dialog', () => {
+    render(<Overlays />)
+    const deleteTrupp = vi.fn()
+    mount({ trupps: [aktivTrupp()], deleteTrupp })
+    openRemove()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(deleteTrupp).toHaveBeenCalledWith('tr1')
   })
 })

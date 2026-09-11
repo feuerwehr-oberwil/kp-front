@@ -38,6 +38,22 @@ describe('confirmDialog (Base UI AlertDialog)', () => {
     fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' })
     await expect(p).resolves.toBe(false)
   })
+
+  /* the ask with two answers («nicht eingesetzt» abmelden vs. entfernen): the third button
+   * resolves 'alt', and dismissal still means neither — never the alternative by default */
+  it('offers an alternative third button and resolves it as \'alt\'', async () => {
+    render(<Overlays />)
+    let p!: Promise<boolean | 'alt'>
+    act(() => {
+      p = confirmDialog({
+        message: 'Abmelden statt entfernen?',
+        confirmLabel: 'Nicht eingesetzt', cancelLabel: 'Abbrechen',
+        altLabel: 'Entfernen', altDanger: true,
+      })
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Entfernen' }))
+    await expect(p).resolves.toBe('alt')
+  })
 })
 
 describe('toast with an action (confirm-with-undo)', () => {

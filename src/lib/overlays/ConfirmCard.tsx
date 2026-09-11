@@ -24,6 +24,11 @@ export interface ConfirmSpec {
   confirmLabel: string
   cancelLabel: string
   danger?: boolean
+  /** an optional SECOND way through — a third button between Abbrechen and the primary, for the
+   *  ask that genuinely has two answers («nicht eingesetzt» abmelden vs. entfernen). Dismissal
+   *  still resolves `false`: an alternative is chosen, never defaulted into. */
+  altLabel?: string
+  altDanger?: boolean
 }
 
 /**
@@ -39,9 +44,9 @@ export interface ConfirmSpec {
  * app answers to. A modal that does not respond to a tap beside it reads as a frozen app, and
  * that is the wrong thing to be wondering about with an Einsatz open.
  */
-export function ConfirmCard({ open, title, message, items, note, confirmLabel, cancelLabel, danger, onResolve }: ConfirmSpec & {
+export function ConfirmCard({ open, title, message, items, note, confirmLabel, cancelLabel, danger, altLabel, altDanger, onResolve }: ConfirmSpec & {
   open: boolean
-  onResolve: (confirmed: boolean) => void
+  onResolve: (confirmed: boolean | 'alt') => void
 }) {
   const confirmRef = useRef<HTMLButtonElement>(null)
   return (
@@ -68,6 +73,9 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
           {note && <p className="confirm-note">{note}</p>}
           <div className="confirm-actions">
             <button className="ip-btn" onClick={() => onResolve(false)}>{cancelLabel}</button>
+            {altLabel && (
+              <button className={`ip-btn${altDanger ? ' ip-btn-danger' : ''}`} onClick={() => onResolve('alt')}>{altLabel}</button>
+            )}
             {/* the OUTLINE danger, not a solid red fill: the same treatment every other destructive
                 action in the app wears (Anwesenheit, Verlauf, BandGrid), and this confirm is also
                 what «Einsatz abschliessen» goes through — which is not destructive at all. */}

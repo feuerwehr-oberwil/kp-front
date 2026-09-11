@@ -1550,7 +1550,6 @@ export const de = {
     sectionAtemschutz: 'Atemschutz',
     sectionAtemschutzEmpty: 'Zurzeit ist kein Trupp unter Atemschutz.',
     sectionPlain: 'Weitere Trupps',
-    sectionPlainHint: 'Ohne Atemschutz – keine Druck- und keine Kontaktüberwachung.',
     // «Art des Trupps» – die EINE Entscheidung beim Anlegen, danach nicht mehr änderbar
     // (types · Trupp.kind). Beide Optionen sagen, was sie mitbringen, nicht was sie sind.
     kindLabel: 'Art des Trupps',
@@ -1964,7 +1963,12 @@ export const de = {
     logNotDeployed: 'Trupp {name} nicht eingesetzt',
     remove: 'Entfernen',
     // removal happens immediately, no dialog and no toast — the way back is the global ↶
-    // pair and the «Entfernte Trupps» menu (09.09.)
+    // pair and the «Entfernte Trupps» menu (09.09.). ONE exception (11.09., field wish): a
+    // Trupp that never went in gets asked whether it should be stood down as «nicht
+    // eingesetzt» instead — that is the honest record for a Sicherungstrupp that stood
+    // ready, while Entfernen is for the erroneous Anmeldung.
+    removeUnusedTitle: 'Trupp war nicht im Einsatz',
+    removeUnusedMsg: '{name} als «nicht eingesetzt» abmelden statt entfernen? Der Trupp bleibt auf der Tafel bereit – «Entfernen» ist für irrtümliche Anmeldungen.',
     place: 'Platzieren',
     placeWhere: 'Wohin platzieren?',
     placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',
