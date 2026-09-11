@@ -712,15 +712,28 @@ export function modulesFromConfig(): PlanDocument[] {
     }))
 }
 
+/** A numbered sub-slot sibling → the slot it is a copy of: `modul5-wasser2` → `modul5-wasser`.
+ *  `\D+` after the module number keeps a combined sheet out (`modul2-3` has no word part), and
+ *  the bare `modul5` never matches, so neither can lose its own entry. */
+const SUB_SLOT_SIBLING = /^(modul\d+-\D+)\d+$/
+
 /** Whether a resolved plan slot is viewer-only (plain PDF, no drawing). Checks the exact module
- *  config, else a `family` module whose id is the slot's prefix (modul5 → modul5-pv). False when
- *  unconfigured. */
+ *  config, then the slot a numbered sibling belongs to, else a `family` module whose id is the
+ *  slot's prefix (modul5 → modul5-pv). False when unconfigured. */
 export function moduleViewer(id: string): boolean {
   // fall back to the national defaults when the deployment didn't configure modules, so the
   // built-in viewer flags (e.g. Modul 6 = scroll-only) still apply.
   const mods = Array.isArray(resolved.modules) && resolved.modules.length ? resolved.modules : DEFAULT_MODULES
   const exact = mods.find((m) => m.id === id && !m.family)
   if (exact) return !!exact.viewer
+  // ⚠️ An object with «Wasser 1» AND «Wasser 2» holds them as `modul5-wasser1`/`modul5-wasser2`
+  // (useObjectPlans · normModule keeps the trailing number, or the second waterplan overwrites
+  // the first). The catalogue configures the SLOT — `modul5-wasser` — so without this step the
+  // numbered siblings fall past their own entry onto the family default and open viewer-only:
+  // no annotation surface, and no «Karte verknüpfen» at all (Whiteboard · canGeoref).
+  const base = SUB_SLOT_SIBLING.exec(id)?.[1]
+  const sibling = base ? mods.find((m) => m.id === base && !m.family) : undefined
+  if (sibling) return !!sibling.viewer
   const family = mods.find((m) => m.family && (id === m.id || id.startsWith(`${m.id}-`)))
   return !!family?.viewer
 }

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, carrySessionOnly, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { alarmProviderName, atemschutzDoctrine, carrySessionOnly, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -319,5 +319,46 @@ describe('carrySessionOnly — an anonymous answer never downgrades a keyed conf
   it('is the identity when nothing was known before', () => {
     const next: Cfg = { integrations: {} }
     expect(carrySessionOnly({}, next)).toBe(next)
+  })
+})
+
+// Oberwil's Wasser 1/2/3 arrive as `modul5-wasser1…3` (the sub-slot capture keeps its trailing
+// number, or the second waterplan overwrites the first). They opened viewer-only — no drawing,
+// no «Karte verknüpfen» — because only the unnumbered `modul5-wasser` was in the catalogue and
+// the siblings fell through to the `modul5` family default.
+describe('moduleViewer — a numbered sub-slot is still its own slot', () => {
+  const CATALOGUE = [
+    { id: 'modul3', code: 'M3', viewer: false },
+    { id: 'modul2-3', code: '2/3', viewer: false, combinedWith: ['modul2', 'modul3'] },
+    { id: 'modul5', code: 'M5', family: true, viewer: true },
+    { id: 'modul5-pv', code: 'PV', viewer: true },
+    { id: 'modul5-wasser', code: 'W', viewer: false },
+  ]
+  beforeEach(async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ modules: CATALOGUE }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })))
+    await loadDeploymentConfig()
+  })
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('reads the numbered waterplans off `modul5-wasser`, not off the family', () => {
+    expect(moduleViewer('modul5-wasser')).toBe(false)
+    expect(moduleViewer('modul5-wasser1')).toBe(false)
+    expect(moduleViewer('modul5-wasser3')).toBe(false)
+  })
+
+  it('keeps a numbered sibling of a viewer slot viewer-only', () => {
+    expect(moduleViewer('modul5-pv15')).toBe(true)
+  })
+
+  it('leaves an unconfigured sub-slot on the family default', () => {
+    expect(moduleViewer('modul5-rwa')).toBe(true)
+    expect(moduleViewer('modul5-evak2')).toBe(true)
+  })
+
+  it('never mistakes a module number or a combined sheet for a sibling', () => {
+    expect(moduleViewer('modul5')).toBe(true)   // the family's own id
+    expect(moduleViewer('modul2-3')).toBe(false) // a combined sheet, not «modul2» + a number
   })
 })
