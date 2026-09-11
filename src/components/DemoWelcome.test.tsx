@@ -10,8 +10,8 @@ afterEach(() => {
 })
 
 describe('DemoWelcome', () => {
-  it('keeps the first visit to one compact set of essential facts', () => {
-    applyLocale('de-CH')
+  it('keeps the first visit to one compact set of essential facts', async () => {
+    await applyLocale('de-CH')
     render(<DemoWelcome onClose={vi.fn()} />)
 
     expect(screen.getByRole('dialog', { name: 'Willkommen bei KP Front' })).toBeTruthy()

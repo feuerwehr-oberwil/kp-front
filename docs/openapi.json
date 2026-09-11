@@ -1856,6 +1856,16 @@
             }
           },
           {
+            "name": "slim",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Slim"
+            }
+          },
+          {
             "name": "access_token",
             "in": "cookie",
             "required": false,

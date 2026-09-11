@@ -6,6 +6,7 @@ all overlays, never an exception. Plan-page rendering runs against a tiny genera
 import io
 import itertools
 import math
+import shutil
 from pathlib import Path
 
 import pytest
@@ -790,3 +791,23 @@ def test_hatch_ignores_a_degenerate_polygon():
     img = Image.new("RGBA", (40, 40), (255, 255, 255, 255))
     _hatch_polygon(img, [(1, 1), (2, 2)], "#e8392b", 1.0)
     assert img.load()[20, 20] == (255, 255, 255, 255)
+
+
+# --- TileCache resilience -------------------------------------------------------------------
+
+
+def test_tile_cache_put_survives_a_deleted_cache_dir(tmp_path):
+    """`_prune` already treats a broken cache dir as non-fatal (`OSError` → log, keep going);
+    `put` used to write straight through, so a tilecache directory removed at runtime (volume
+    hiccup, a stray cleanup) 500'd every Kroki-bearing Rapport until restart. `put` degrades the
+    same way `_prune` does: a write it cannot make is dropped, never raised."""
+    cache = kk.TileCache(tmp_path / "tiles")
+    shutil.rmtree(cache.dir)
+
+    cache.put("https://tiles.example/1.png", b"tile-bytes")  # must not raise
+    assert cache.get("https://tiles.example/1.png") is None  # dir is still gone; write was dropped
+
+    # the cache recovers once its directory exists again (e.g. a remounted volume)
+    cache.dir.mkdir(parents=True)
+    cache.put("https://tiles.example/1.png", b"tile-bytes")
+    assert cache.get("https://tiles.example/1.png") == b"tile-bytes"

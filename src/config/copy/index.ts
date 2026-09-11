@@ -20,9 +20,6 @@
 // and add it to AVAILABLE_LOCALES below. Nothing else changes.
 
 import { de, type Copy } from './de'
-import { en } from './en'
-import { fr } from './fr'
-import { it } from './it'
 
 export type { Copy } from './de'
 
@@ -45,8 +42,21 @@ export type Localizable<T> =
 const DEFAULT_LOCALE = 'de-CH'
 
 /** Registry of translation overlays, keyed by their normalized base tag (see normalizeKey).
- *  `de` is intentionally absent — it IS the base everything merges over. */
-const LOCALES: Record<string, Localizable<Copy>> = { en, fr, it }
+ *  `de` is intentionally absent — it IS the base everything merges over. Overlays are
+ *  DYNAMIC imports: locale is a per-deployment setting resolved once at boot, so a German
+ *  deployment (the overwhelming majority) never downloads or parses the other three
+ *  catalogues (~230 KB gzip / ~670 KB of parse they used to cost every single boot). The
+ *  chunks are service-worker-precached like the rest of the shell, so a French station's
+ *  overlay loads offline too. */
+const LOCALE_LOADERS: Record<string, () => Promise<Localizable<Copy>>> = {
+  en: () => import('./en').then((m) => m.en),
+  fr: () => import('./fr').then((m) => m.fr),
+  it: () => import('./it').then((m) => m.it),
+}
+
+/** Overlays that already arrived — applyLocale resolves synchronously from here after the
+ *  first load, and the boot race guard reads it. */
+const loadedOverlays: Record<string, Localizable<Copy>> = {}
 
 /** Languages offered in the admin config editor's Sprache picker (label shown in its own
  *  language). The `id` is stored verbatim in `identity.locale` and resolved via normalizeKey. */
@@ -80,13 +90,6 @@ function deepMerge<T>(base: T, over: unknown): T {
   return out as T
 }
 
-/** Build the full catalogue for a registry key by merging its overlay over German. The
- *  German base (or an unknown key) returns `de` untouched — zero merge cost. */
-function buildCopy(key: string): Copy {
-  const overlay = LOCALES[key]
-  return overlay ? deepMerge(de, overlay) : de
-}
-
 /** Resolve the active locale id: the deployment's configured language, else the national
  *  default. */
 function resolveLocaleId(deploymentLocale?: string | null): string {
@@ -94,16 +97,33 @@ function resolveLocaleId(deploymentLocale?: string | null): string {
 }
 
 // Module-load default is German; the deployment config loads async (after the module graph),
-// so main.tsx runs applyLocale() with the resolved locale before first render — the getter is
-// therefore always correct by the time anything renders.
+// so main.tsx AWAITS applyLocale() with the resolved locale before first render (budgeted —
+// see the boot sequence) — the getter is therefore correct by the time anything renders.
 let activeId = resolveLocaleId()
-let active: Copy = buildCopy(normalizeKey(activeId))
+let active: Copy = de
 
-/** Re-resolve and rebuild the active catalogue from the deployment locale. Called once at
- *  boot (main.tsx) after the deployment config loads. */
-export function applyLocale(deploymentLocale?: string | null): void {
+/** Re-resolve and rebuild the active catalogue from the deployment locale. Awaited once at
+ *  boot (main.tsx) after the deployment config loads; German (and any already-loaded
+ *  overlay) resolves synchronously. If the overlay chunk cannot be loaded (a network race
+ *  the precache didn't cover), the app silently stays German — a complete catalogue in the
+ *  wrong language, never a half-rendered one or a blocked boot. */
+export async function applyLocale(deploymentLocale?: string | null): Promise<void> {
   activeId = resolveLocaleId(deploymentLocale)
-  active = buildCopy(normalizeKey(activeId))
+  const key = normalizeKey(activeId)
+  const load = LOCALE_LOADERS[key]
+  if (!load) { active = de; return } // German or unknown tag — the base, zero cost
+  let overlay = loadedOverlays[key]
+  if (!overlay) {
+    try {
+      overlay = loadedOverlays[key] = await load()
+    } catch {
+      active = de
+      return
+    }
+    // a slower load must not clobber a locale applied while it was in flight
+    if (normalizeKey(activeId) !== key) return
+  }
+  active = deepMerge(de, overlay)
 }
 
 /** The active locale's full string catalogue. `appConfig.copy` delegates here, so every

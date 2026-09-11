@@ -250,7 +250,11 @@ class TileCache:
     def put(self, url: str, data: bytes) -> None:
         if len(data) > MAX_TILE_BYTES:
             return
-        (self.dir / hashlib.sha256(url.encode()).hexdigest()).write_bytes(data)
+        try:
+            (self.dir / hashlib.sha256(url.encode()).hexdigest()).write_bytes(data)
+        except OSError:  # a cache that cannot be written to must not fail a Rapport (see _prune)
+            logger.warning("Tile konnte nicht zwischengespeichert werden", exc_info=True)
+            return
         self._prune()
 
     def _prune(self) -> None:

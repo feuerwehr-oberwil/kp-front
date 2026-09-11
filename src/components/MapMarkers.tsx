@@ -15,6 +15,7 @@ import { DEFAULT_INK } from '../lib/lineStyle'
 import { ConnectRing } from './NodeDeleteChip'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
+import { useHazardData } from '../lib/useHazardData'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
@@ -195,6 +196,9 @@ interface Props {
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
 export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+  // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
+  // ADR dataset lands — see lib/useHazardData.
+  useHazardData()
   // when the note input mounted — onBlur uses this to tell a real "done editing" click-away
   // (commit) apart from the placement focus-steal (bounce focus back). See onBlur below.
   const noteEditStart = useRef(0)

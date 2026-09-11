@@ -3,6 +3,12 @@ import { glyphFor, twinName } from './entityGlyph'
 import { GROSSLUEFTER, GROSSLUEFTER_BODY, HUBRETTER, LUEFTER, LUEFTER_EXTRACT } from './symbolRender'
 import { appConfig } from '../config/appConfig'
 import type { BoardAnno, Entity } from '../types'
+// The ADR dataset is a fetched static asset now (lib/staticData) — inject it the way the
+// boot prefetch would, so the derived values (Kemler on the plate, ERG rows) are real.
+import unData from '../../public/un-hazard.json'
+import { __setUnHazardData, type UnHazardEntry } from './unHazard'
+__setUnHazardData(unData as UnHazardEntry[])
+
 
 // A Zwilling is drawn from the SAME object as its original, but with less of the machinery around
 // it — so `glyphFor` is a chain of deliberate fallbacks, each there for its own reason: a

@@ -255,6 +255,7 @@ async def apply_workspace_put(
     *,
     user_id: uuid.UUID | None,
     source: str = "client",
+    inc: Incident | None = None,
 ) -> WorkspaceOut:
     """Shared save path for the editor endpoint and the station capture endpoint.
 
@@ -262,10 +263,15 @@ async def apply_workspace_put(
     client's base_rev. A conditional UPDATE is atomic, so two editors who both read
     rev=N can't both win — the loser matches 0 rows and gets the 409 (the app-level
     check alone raced because autoflush is off and the row isn't locked).
+
+    `inc` is the incident row a caller ALREADY loaded in this same request/transaction —
+    the slice routes (trupps/record/capture) read the full blob to merge into anyway, and
+    at field blob sizes a second full-row SELECT is ~25–35 ms of pure JSONB re-decode.
     """
     # Validate against this incident's persisted state, including internal slice/capture
     # merges. Never use an observed revision mismatch as permission to skip validation.
-    inc = await get_incident_or_404(db, incident_id)
+    if inc is None:
+        inc = await get_incident_or_404(db, incident_id)
     if inc.workspace_rev != body.base_rev:
         raise _workspace_revision_conflict(inc.workspace_rev, body.base_rev)
     _scrub_drawing_props(body.workspace)
@@ -286,8 +292,10 @@ async def apply_workspace_put(
         ),
     )
     if result.rowcount == 0:
-        inc = await get_incident_or_404(db, incident_id)
-        raise _workspace_revision_conflict(inc.workspace_rev, body.base_rev)
+        # Read the rev COLUMN, not the row: a full re-SELECT lands on the identity-map copy
+        # whose rev still says base_rev (the bump was another transaction's), so the 409 would
+        # report server_rev == your_base_rev — and it re-decodes megabytes of JSONB to do it.
+        raise _workspace_revision_conflict(await _rev(db, incident_id), body.base_rev)
     new_rev = body.base_rev + 1
     # Wake the devices long-polling this incident's workspace — once this transaction commits,
     # so they re-read the blob they are being woken for (see app/live_wait).
@@ -307,11 +315,27 @@ async def apply_workspace_put(
 
 @router.put("/{incident_id}/workspace", response_model=WorkspaceOut)
 async def put_workspace(
-    incident_id: uuid.UUID, body: WorkspacePut, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+    incident_id: uuid.UUID,
+    body: WorkspacePut,
+    user: CurrentEditor,
+    slim: bool = False,
+    db: AsyncSession = Depends(get_db),
 ) -> WorkspaceOut:
-    await get_incident_or_404(db, incident_id)  # 404 if the incident doesn't exist
+    # Rev-only precheck: the 404 answer this route used to open with, off the cheap int column
+    # instead of the full JSONB row — and the doomed save (several tablets saving at once) is
+    # refused HERE, before the full-blob SELECT and validation it would throw away. Purely an
+    # optimization: the authoritative check stays the conditional UPDATE in apply_workspace_put,
+    # and the success path skips no validation (AGENTS.md · alarm validation).
+    server_rev = await _rev(db, incident_id)
     await _latch_editor_opened(db, incident_id)
-    return await apply_workspace_put(db, incident_id, body, user_id=user.id)
+    if server_rev != body.base_rev:
+        raise _workspace_revision_conflict(server_rev, body.base_rev)
+    saved = await apply_workspace_put(db, incident_id, body, user_id=user.id)
+    # `slim=1`: only the revision goes back — the caller sent the blob and reads nothing but
+    # the rev (workspaceSync · pushCurrent), and echoing it doubled the wire cost of every
+    # save. Opt-in per request so an older cached PWA build keeps the full echo it was built
+    # against; drop the flag once no fielded client predates 11.09.2026.
+    return WorkspaceOut(workspace=None, workspace_rev=saved.workspace_rev) if slim else saved
 
 
 @router.put("/{incident_id}/workspace/trupps", response_model=WorkspaceOut)
@@ -347,6 +371,7 @@ async def put_workspace_trupps(
         scoped,
         user_id=None if link else user.id,
         source=atemschutz_link_source(user) if link else "client",
+        inc=inc,
     )
     # Only the revision goes back: the caller sent a slice and reads nothing but the rev
     # (workspaceSync · push), and a phone on one bar has no use for the whole blob per tap.
@@ -390,7 +415,7 @@ async def put_workspace_record(
     # not re-reject unchanged legacy fields (same reasoning as the trupps slice above).
     scoped = WorkspacePut.model_construct(workspace=new_ws, base_rev=body.base_rev)
     saved = await apply_workspace_put(
-        db, incident_id, scoped, user_id=user.id, source="el" if user.role == "el" else "client"
+        db, incident_id, scoped, user_id=user.id, source="el" if user.role == "el" else "client", inc=inc
     )
     # Only the revision goes back — the caller sent a slice and reads nothing but the rev.
     return WorkspaceOut(workspace=None, workspace_rev=saved.workspace_rev)

@@ -35,8 +35,8 @@ it.each([
   ['en', '1 entry not uploaded'],
   ['fr', '1 entrée non transmise'],
   ['it', '1 voce non trasmessa'],
-])('uses the singular delivery title in %s', (locale, title) => {
-  applyLocale(locale)
+])('uses the singular delivery title in %s', async (locale, title) => {
+  await applyLocale(locale)
   render(<JournalDeliveryNotice status="error" count={1} onRetry={vi.fn()} onExport={vi.fn()} />)
   expect(screen.getByRole('alert').querySelector('strong')?.textContent).toBe(title)
 })

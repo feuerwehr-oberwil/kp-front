@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { allEntries, lookupUN, normalizeUN, decodeKemler, lookupUNByName, allStoffNames } from './unHazard'
+import raw from '../../public/un-hazard.json'
+import { allEntries, lookupUN, normalizeUN, decodeKemler, lookupUNByName, allStoffNames, __setUnHazardData, type UnHazardEntry } from './unHazard'
+
+// The dataset is a fetched static asset now (lib/staticData): capture the pre-load
+// behaviour first — lookups MISS, they never throw — then inject the real data the way
+// the boot prefetch would.
+const beforeLoad = { hit: lookupUN('1203'), names: allStoffNames().length, all: allEntries().length }
+__setUnHazardData(raw as UnHazardEntry[])
+
+describe('before the dataset lands', () => {
+  it('every lookup misses instead of throwing', () => {
+    expect(beforeLoad.hit).toBeNull()
+    expect(beforeLoad.names).toBe(0)
+    expect(beforeLoad.all).toBe(0)
+  })
+})
 
 describe('decodeKemler', () => {
   it('flags the water-reactive "X" prefix', () => {

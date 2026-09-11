@@ -6,6 +6,12 @@ import { describe, expect, it } from 'vitest'
 import type { Entity } from '../types'
 import { appConfig } from '../config/appConfig'
 import { ergRingOverlays, ergRingsFor, isErgDay, parseErgDistance } from './ergRings'
+// The ERG dataset is a fetched static asset now (lib/staticData) — inject it the way
+// the boot prefetch would, so the distance rows under the rings are real.
+import ergData from '../../public/erg.json'
+import { __setErgData, type ErgData } from './erg'
+__setErgData(ergData as unknown as ErgData)
+
 
 const DAY = new Date('2026-09-07T12:00:00')
 const NIGHT = new Date('2026-09-07T23:00:00')

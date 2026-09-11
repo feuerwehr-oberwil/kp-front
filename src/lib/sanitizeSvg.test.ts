@@ -5,6 +5,12 @@ import { sanitizeSvg, sanitizeSvgResult } from './sanitizeSvg'
 // The committed source of the bundled pack (Vite copies public/ verbatim into dist/ at build);
 // import it from public/ so type-check and CI don't depend on a build artifact being present.
 import symbols from '../../public/tactical-symbols.json'
+// The ADR dataset is a fetched static asset now (lib/staticData) — inject it the way the
+// boot prefetch would, so the derived values (Kemler on the plate, ERG rows) are real.
+import unData from '../../public/un-hazard.json'
+import { __setUnHazardData, type UnHazardEntry } from './unHazard'
+__setUnHazardData(unData as UnHazardEntry[])
+
 
 // SEC-01 · `Entity.symbolSvg` is editor-supplied free text rendered through
 // `dangerouslySetInnerHTML` (lib/symbolRender). This is the authoritative XSS gate: it parses the

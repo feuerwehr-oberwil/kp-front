@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile the bundled ERG dataset (src/data/erg.json) from tools/erg-source/*.json.
+"""Compile the shipped ERG dataset (public/erg.json, a service-worker-precached static asset) from tools/erg-source/*.json.
 
 Sources transcribe the public-domain ERG 2024 (PHMSA) — see tools/erg-source/README.md for
 provenance + verification. Output is compact and metric-only (Swiss deployment):
@@ -23,7 +23,7 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "tools/erg-source"
-OUT = ROOT / "src/data/erg.json"
+OUT = ROOT / "public/erg.json"
 
 METRIC = re.compile(r"^\s*([\d.]+\s*(?:m|km))\s*(?:\(.*\))?\s*$")
 

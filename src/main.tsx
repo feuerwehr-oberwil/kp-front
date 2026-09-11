@@ -18,6 +18,8 @@ import { loadStationPlanScales, refreshStationPlanScales } from './lib/stationPl
 import { migrateLocalStorageToIdb } from './lib/storageMigration'
 import { requestPersistentStorage } from './lib/idb'
 import { applyLocale } from './config/copy'
+import { ensureErg } from './lib/erg'
+import { ensureUnHazard } from './lib/unHazard'
 
 // zoom applies only to the map/plan, not the UI chrome (app feel, not a web page)
 lockChromeZoom()
@@ -121,10 +123,19 @@ void (async () => {
       if (document.visibilityState === 'visible') void refreshStationPlanScales()
     })
     window.addEventListener('focus', () => { void refreshStationPlanScales() })
-    // Resolve the UI language now that the deployment config is in: device pref →
-    // deployment locale → de-CH. Runs before first render, so appConfig.copy.* (a getter
-    // delegating to config/copy · getCopy) is already in the right language from the first paint.
-    applyLocale(cfg.identity?.locale)
+    // Resolve the UI language now that the deployment config is in: deployment locale →
+    // de-CH. Awaited before first render, so appConfig.copy.* (a getter delegating to
+    // config/copy · getCopy) is already in the right language from the first paint. A
+    // non-German locale loads its overlay as its own chunk (precached, so offline too) —
+    // budgeted like everything on the boot path: past the budget the app renders German
+    // and the overlay applies when it lands (a reload picks it up fully).
+    await withBudget(applyLocale(cfg.identity?.locale), BOOT_BUDGET_MS, undefined)
+    // Prefetch the hazard reference datasets (ADR table + ERG — static assets since they
+    // left the entry bundle, see lib/staticData). Deliberately NOT awaited: nothing on the
+    // boot path may block first paint, and the surfaces re-render when they land
+    // (lib/useHazardData).
+    void ensureUnHazard()
+    void ensureErg()
   } catch (e) {
     // Boot init must never white-screen the kiosk: fall through to defaults and render.
     console.error('Boot init failed (continuing with defaults):', e)

@@ -60,6 +60,48 @@ async def test_workspace_put_conflict_on_stale_base_rev(client, editor):
     assert r3.json()["workspace_rev"] == 2
 
 
+async def test_workspace_put_slim_returns_only_the_rev(client, editor):
+    """`slim=1` (clients since 11.09.2026) drops the full-blob echo; without it the answer is
+    unchanged, so an older cached PWA build keeps the response it was built against."""
+    await _login(client, editor)
+    inc_id = await _create_incident(client)
+
+    r = await client.put(
+        f"/api/incidents/{inc_id}/workspace?slim=1", json={"base_rev": 0, "workspace": {"objects": [1]}}
+    )
+    assert r.status_code == 200
+    assert r.json() == {"workspace": None, "workspace_rev": 1}
+    # …and the save really landed: the next read serves what the slim answer didn't repeat.
+    ws = await client.get(f"/api/incidents/{inc_id}/workspace")
+    assert ws.json() == {"workspace": {"objects": [1]}, "workspace_rev": 1}
+
+    # The old-client shape: no flag → the full echo, exactly as before.
+    r = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 1, "workspace": {"objects": [2]}})
+    assert r.status_code == 200
+    assert r.json() == {"workspace": {"objects": [2]}, "workspace_rev": 2}
+
+
+async def test_stale_base_rev_answers_409_even_for_a_body_validation_would_refuse(client, editor):
+    """The doomed save is refused off the rev alone (the cheap precheck), and the answer must be
+    the SAME 409 the slow path gave — never a 422 for a body that was never going to land, and
+    never a validation skip on the success path (the same body at the current rev still 422s)."""
+    await _login(client, editor)
+    inc_id = await _create_incident(client)
+    r = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": {"objects": [1]}})
+    assert r.status_code == 200
+
+    invalid = {"timeline": [{"id": "new", "reminder": "broken"}]}  # a NEW malformed alarm row
+    stale = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": invalid})
+    assert stale.status_code == 409, stale.text
+    assert stale.json()["detail"] == {
+        "message": "Workspace wurde zwischenzeitlich geändert",
+        "server_rev": 1,
+        "your_base_rev": 0,
+    }
+    current = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 1, "workspace": invalid})
+    assert current.status_code == 422, current.text
+
+
 # --- Permission enforcement ---------------------------------------------------------
 
 
