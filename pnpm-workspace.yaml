@@ -2,3 +2,18 @@ overrides:
   # jsPDF pulls DOMPurify transitively. Keep the patched floor here rather than in
   # package.json: pnpm 10 ignores the legacy package.json `pnpm.overrides` field.
   dompurify: ">=3.4.13"
+
+# ── Audit exceptions ────────────────────────────────────────────────────────────
+# One advisory, one reason, one expiry — the rule ci.yml states for any exception.
+auditConfig:
+  ignoreGhsas:
+    # GHSA-jrc7-96c5-q579 — maplibre-gl «XSS Sanitizer Bypass in DOM.sanitize()», patched >=6.4.1.
+    # We are on 4.x, i.e. inside the advisory's version range but OUTSIDE its defect: 4.7.1 has no
+    # DOM.sanitize() at all (verified in node_modules), so there is no sanitizer to bypass. Nothing
+    # attacker-controlled reaches a maplibre HTML sink either — the app creates no Popup anywhere,
+    # never calls setHTML, and GeoJSON properties never reach a label (no `text-field`, and the
+    # reference layers are not even interactive). The only sink is the attribution control, fed
+    # solely by the station's own config document.
+    # ⚠️ EXPIRES 2026-12-31. The fix is the 4→6 upgrade (issue linked below), not a renewal:
+    # maplibre 6 also gives us an ESCAPING attribution path, which 4.7.1 does not have.
+    - GHSA-jrc7-96c5-q579
