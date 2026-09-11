@@ -77,7 +77,22 @@ export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, flo
   // calibration for this incident still wins; a stale candidate falls through.
   const workspaceScale: PlanScale | undefined = planScale[activeId]
   const validWorkspaceScale = workspaceScale && !isStale(workspaceScale, measureAR) ? workspaceScale : undefined
-  const activeScale: PlanScale | undefined = validWorkspaceScale ?? autoScale ?? resolvePlanScale(activeId, undefined, measureAR)
+  /**
+   * ⚠️ …with ONE surface where that order is inverted: the Gebäude floor-stack.
+   *
+   * A hand calibration is somebody drawing a reference line across a drawing and typing what they
+   * believe it spans. The stack needs nobody to do that — it was traced off a footprint whose
+   * ground size came with it from the Geoportal (`geo.spanM`), so its metres are measured, not
+   * believed, and the derived number can only be the better of the two. Letting an old stored
+   * calibration outrank it made the Gebäude read as hand-calibrated — offering «Neu kalibrieren»
+   * on the one document that never needs it.
+   *
+   * The stored scale is kept, not dropped: a legacy building carries no `geo` (types · BuildingDoc),
+   * `autoScale` is then undefined, and the manual path is still the only thing that can answer.
+   */
+  const activeScale: PlanScale | undefined = stack && autoScale
+    ? autoScale
+    : validWorkspaceScale ?? autoScale ?? resolvePlanScale(activeId, undefined, measureAR)
   const scaleAuto = !!autoScale && activeScale === autoScale
   const scaleStale = !!workspaceScale && isStale(workspaceScale, measureAR) && !activeScale
   const calibrated = !!activeScale

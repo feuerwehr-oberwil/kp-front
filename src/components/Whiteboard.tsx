@@ -4231,7 +4231,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onCalibrate={readOnly || scaleAuto ? undefined : () => setTool('scale')}
           calibrateLabel={appConfig.copy.whiteboard.scale.calibrate}
           recalibrateLabel={appConfig.copy.whiteboard.scale.recalibrate}
-          scaleNote={scaleAuto ? appConfig.copy.whiteboard.scale.chipAutoHint : undefined}
+          /* …and it names the RIGHT source. Same discriminator as the Massstab chip below: only a
+             georef fit comes «aus der Kartenverknüpfung» — the Gebäude's scale comes from its
+             Grundriss, and the panel used to tell the operator about a link the stack has not got. */
+          scaleNote={scaleAuto
+            ? georefFit ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint
+            : undefined}
         />
       )}
 

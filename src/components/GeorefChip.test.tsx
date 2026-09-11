@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import type { PlanDocument } from '../types'
+import type { BuildingDoc, PlanDocument } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { GeorefPair } from '../lib/georef'
 
@@ -44,6 +44,7 @@ import { PHONE_QUERY } from '../lib/useIsPhone'
 import { georefDispatch, georefSnapshot, registerGeorefPhoneTarget, resetGeorefMode } from '../lib/georefMode'
 import { GeorefModeBars } from './GeorefMode'
 import { Overlays } from '../lib/ui'
+import { TILE_AR } from '../lib/whiteboard'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 
@@ -70,6 +71,20 @@ const modul3: PlanDocument = {
 const tafel: PlanDocument = {
   id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape',
 }
+const gebaeude: PlanDocument = {
+  id: 'gebaeude', code: 'Gebäude', title: 'Stockwerke', subtitle: '', imageUrl: '', orientation: 'portrait',
+  floorStack: true,
+}
+/** a square footprint traced off the Geoportal: one src unit spans 40 m, so the stack's scale is
+ *  derivable from geometry alone — no pairs, no residual, nothing anybody had to type in. */
+const HAUS: BuildingDoc = {
+  ring: [[0, 0], [1, 0], [1, 1], [0, 1]],
+  rings: [[[0, 0], [1, 0], [1, 1], [0, 1]]],
+  src: [[[0, 0], [1, 0], [1, 1], [0, 1]]],
+  ringAspect: 1,
+  floors: [0, 1],
+  geo: { origin: [7.5, 47.5], spanM: 40 },
+}
 const sym: SymbolsApi = { ready: false, error: false, reload: () => {}, order: [], symbols: [], byName: {} }
 
 const pair = (x: number, y: number, lng: number, lat: number): GeorefPair =>
@@ -86,6 +101,18 @@ const renderBoard = (activeId = 'modul2', readOnly = false, anchor: [number, num
       building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
       readOnly={readOnly} slimTools sym={sym} onRecent={() => {}} log={() => {}}
       hist={{}} setHist={() => {}} focus={null} georefAnchor={anchor}
+    />
+    <Overlays />
+  </>)
+
+/** the Gebäude floor-stack, optionally carrying a calibration somebody typed in by hand */
+const renderStack = (planScale: Record<string, { mPerU: number; refM: number; ar: number }> = {}) =>
+  render(<>
+    <Whiteboard
+      plans={[modul, gebaeude]} activeId="gebaeude" annos={[]} onChange={() => {}}
+      building={HAUS} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
+      slimTools sym={sym} onRecent={() => {}} log={() => {}}
+      hist={{}} setHist={() => {}} focus={null} georefAnchor={null} planScale={planScale}
     />
     <Overlays />
   </>)
@@ -460,5 +487,34 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
     fireEvent.pointerDown(capture, at(900, 300))
     fireEvent.pointerUp(capture, at(900, 300))
     expect(georefSnapshot().slots).toEqual([])
+  })
+})
+
+// The Gebäude was traced off a footprint that arrived WITH its ground size (geo.spanM, from the
+// Geoportal), so its metres are measured rather than believed. A stored hand calibration used to
+// outrank that — and the one document that never needs calibrating was the one offering
+// «Neu kalibrieren». (11.09.)
+describe('the Gebäude measures off its Grundriss, not off a hand calibration', () => {
+  it('reads «Ref. auto» even with a stored calibration on the stack', () => {
+    // ⚠️ `ar` must be the stack's own measure space (1 / TILE_AR) or isStale drops the
+    // calibration before the precedence question is even asked — and the test proves nothing.
+    renderStack({ gebaeude: { mPerU: 999, refM: 12, ar: 1 / TILE_AR } })
+    expect(screen.getByRole('button', { name: /Ref\. auto/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /kalibrieren/i })).toBeNull()
+  })
+
+  it('names the Grundriss as the source — never the Kartenverknüpfung it has not got', () => {
+    renderStack()
+    const chip = screen.getByRole('button', { name: /Ref\. auto/ })
+    expect(chip.getAttribute('title')).toBe('Ref. automatisch – Massstab aus dem Gebäudegrundriss')
+  })
+
+  // ⚠️ Deliberately still a button (29.08.): the hover title never fires on the field iPad, so the
+  // tap is the only way to learn where the metres come from. What it must never do is arm a
+  // manual calibration on top of the derived one.
+  it('explains itself on tap without arming a calibration', () => {
+    renderStack()
+    fireEvent.click(screen.getByRole('button', { name: /Ref\. auto/ }))
+    expect(screen.queryByText('Zwei Punkte des Massstabs antippen')).toBeNull()
   })
 })
