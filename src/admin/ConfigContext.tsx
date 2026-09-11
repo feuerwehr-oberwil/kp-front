@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { apiGet, apiPut, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { Sheet } from '../lib/overlays'
 import { EmptyState } from './ui'
 import {
   loadDeploymentConfig,
@@ -194,6 +195,15 @@ type SaveState =
    *  STOP the autosave, because the whole point is that a full-document write no longer wins by
    *  default. «Übernehmen» re-sends on top of the newer document; reloading the page takes it. */
   | { kind: 'conflict' }
+  /** ⚠️ The OTHER 409 (api/config · would_empty_sections): nothing moved on, and this tab's
+   *  document is the current one — the write would simply leave a populated section empty. That
+   *  is usually exactly what somebody just did (deleted the last Formular row, the last
+   *  Partnerorganisation, cleared the Hilfe-Einleitung), so it is a QUESTION, not a failure: the
+   *  same document goes back with `?force=true` on «Trotzdem leeren», and «Abbrechen» rolls the
+   *  draft back to the stored one — otherwise the autosave would walk into the same refusal
+   *  700 ms later, forever. `doc` is the exact body that was refused, so the confirmed re-send
+   *  is the same write and not a later draft. */
+  | { kind: 'empty-guard'; sections: string[]; doc: DeploymentConfig }
   /** `halted` = the autosave has GIVEN UP on THIS document and will not re-fire on its own.
    *  Without it the effect below re-ran on every `error → saving → error` cycle: one PUT every
    *  700 ms, for as long as the draft stayed invalid, with the chip flickering so fast the
@@ -272,7 +282,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   // Persist a specific draft snapshot. Dirty/baseline is tracked against `sent` itself
   // (not the server echo), so the indicator settles even if the projection normalises.
-  const persist = useCallback(async (sent: DeploymentConfig) => {
+  const persist = useCallback(async (sent: DeploymentConfig, { force = false } = {}) => {
     savingRef.current = true
     // An edited document earns a fresh pair of attempts: the previous failures were a verdict
     // on the old one, and the field the server refused may be exactly the one just corrected.
@@ -287,7 +297,9 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     let echo: DeploymentConfig | undefined
     try {
       echo = await apiPut<DeploymentConfig>(
-        '/api/config', payload,
+        // `?force=true` is the documented override for the refuse-to-empty guard, and it is set
+        // ONLY by a hand that answered its question (see SaveState · empty-guard).
+        force ? '/api/config?force=true' : '/api/config', payload,
         // omitted only on a document this tab has never read a version for — a fresh, unwritten
         // station, where there is nothing to conflict with
         versionRef.current ? { 'If-Match': versionRef.current } : undefined,
@@ -295,6 +307,19 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     } catch (e: unknown) {
       savingRef.current = false
       if (e instanceof ApiError) {
+        // ⚠️ FIRST, because the two 409s look alike and are opposites: this one says the stored
+        // document is exactly the one this tab has, and the write would leave a populated
+        // section empty. Read as «das Dokument hat sich bewegt» it told an operator to reload a
+        // page that was never stale, over a refusal no reload can clear — while the autosave
+        // stayed halted on an edit they had deliberately made. The section names come WITH the
+        // refusal, because a confirm that cannot say what it is about to empty is not a decision
+        // anybody can take.
+        if (e.status === 409 && e.code === 'would_empty_sections') {
+          const named = e.data?.emptiedSections
+          const sections = (Array.isArray(named) ? named : []).filter((s): s is string => typeof s === 'string')
+          setSave({ kind: 'empty-guard', sections: sections.map(rejectedFieldLabel), doc: sent })
+          return
+        }
         // ⚠️ 409 = the stored document moved on. Stop autosaving and SAY so — the old behaviour
         // (a full-document PUT that always won) is exactly how a tab left open all morning
         // reverted a station's Dienstgrade, Partnerorganisationen and Atemschutz-Doktrin in one
@@ -371,6 +396,9 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     // a refused save must not re-fire on its own — that would be the silent overwrite again,
     // one debounce later. It waits for «Übernehmen» (retry).
     if (save.kind === 'conflict') return
+    // …and one waiting on an answer must not re-send either: the question is on screen, and a
+    // second PUT would only collect the same refusal behind it.
+    if (save.kind === 'empty-guard') return
     const json = JSON.stringify(draft)
     if (json === JSON.stringify(saved)) return
     // ⚠️ A refused document must not be re-sent UNCHANGED — that is the 700 ms hammering the
@@ -392,6 +420,21 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     if (!draft || savingRef.current) return
     failuresRef.current = 0 // a deliberate press earns the same two attempts again
     void persist(draft)
+  }
+
+  /** «Trotzdem leeren» — the SAME document again, this time saying so. */
+  const confirmEmptyGuard = (doc: DeploymentConfig) => {
+    if (savingRef.current) return
+    failuresRef.current = 0
+    void persist(doc, { force: true })
+  }
+
+  /** «Abbrechen» — take the edit back. ⚠️ Without the rollback the draft still holds the
+   *  emptying change, so the next keystroke anywhere on the page re-arms the autosave and walks
+   *  straight back into the same refusal, with the answer already given. */
+  const cancelEmptyGuard = () => {
+    setDraft(saved)
+    setSave({ kind: 'idle' })
   }
 
   const applyServerConfig = (cfg: DeploymentConfig) => {
@@ -453,7 +496,44 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const value: ConfigCtx = {
     draft, loadError, dirty, save, set, retry, applyServerConfig, applyServerAssets, applyServerRanks,
   }
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  const C = appConfig.copy.admin.autosave
+  return (
+    <Ctx.Provider value={value}>
+      {children}
+      {/* ⚠️ Rendered by the PROVIDER, not by the status chip: the chip is only mounted on the
+          pages that autosave (AdminShell · AUTOSAVE_SECTIONS), and «Einrichtung › Abhaken»
+          writes this document from System & Wartung, which is not one of them. A question
+          attached to a chip that is not on screen is a halted autosave nobody can unhalt.
+          The Sheet is the same overlay «Sicherung › Konfiguration ersetzen» asks with — the
+          other full-document write in Verwaltung. */}
+      {save.kind === 'empty-guard' && (
+        <Sheet
+          open
+          onClose={cancelEmptyGuard}
+          title={C.emptyTitle}
+          fit
+          modal
+          footer={
+            <>
+              <button type="button" className="ip-btn ghost" onClick={cancelEmptyGuard}>
+                {appConfig.copy.admin.common2.cancel}
+              </button>
+              <button type="button" className="ip-btn ip-btn-danger" onClick={() => confirmEmptyGuard(save.doc)}>
+                {C.emptyGo}
+              </button>
+            </>
+          }
+        >
+          <p className="adm-card-cap">{C.emptyLead}</p>
+          {/* One line per section, not a run-on sentence: each is its own thing to miss. */}
+          <ul className="adm-import-errs">
+            {save.sections.map((s) => <li key={s}>{s}</li>)}
+          </ul>
+          <p className="adm-hint">{C.emptyNote}</p>
+        </Sheet>
+      )}
+    </Ctx.Provider>
+  )
 }
 
 export function useConfig(): ConfigCtx {
@@ -492,6 +572,17 @@ export function ConfigAutosaveStatus() {
           <em className="adm-autosave-hint">{C.conflictHint}</em>
         </span>
         <button type="button" className="adm-autosave-retry" onClick={retry}>{C.conflictApply}</button>
+      </span>
+    )
+  }
+  // The question itself is the Sheet the provider renders; the chip only stops claiming this
+  // page is saving, so a glance at it does not read «Änderungen werden gespeichert …» over a
+  // write that is waiting for an answer.
+  if (save.kind === 'empty-guard') {
+    return (
+      <span className="adm-autosave warn">
+        <span className="adm-autosave-dot" aria-hidden />
+        <span className="adm-autosave-msg">{C.emptyPending}</span>
       </span>
     )
   }
