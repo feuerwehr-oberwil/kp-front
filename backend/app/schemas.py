@@ -1583,6 +1583,8 @@ SharePointArea = Literal["plans", "geodata", "checklists", "workbook"]
 _SHAREPOINT_URL_MAX = 400
 _SHAREPOINT_PATH_MAX = 400
 _SHAREPOINT_DRIVE_ID_MAX = 200
+_SHAREPOINT_IGNORE_MAX = 50
+_SHAREPOINT_IGNORE_NAME_MAX = 120
 
 
 class SharePointSource(BaseModel):
@@ -1599,6 +1601,10 @@ class SharePointSource(BaseModel):
     library id directly. ``library`` picks a non-default document library by its display name.
     ``path`` is the folder INSIDE that library — the per-area naming convention from
     docs/sharepoint-connector.md applies below it, never above it.
+
+    ``ignore`` names the sub-folders the pull walks past — the category folders every grown
+    document library has («Grosspläne», «Archiv»), which are not Einsatzobjekte and must never
+    become one.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -1609,6 +1615,11 @@ class SharePointSource(BaseModel):
     library: str | None = None
     #: Folder inside the library; empty = its root. Stored without leading/trailing slashes.
     path: str = ""
+    #: Folder NAMES directly under ``path`` that the pull skips outright, compared without
+    #: regard to case or Unicode spelling. Plain names, deliberately NOT globs: an operator
+    #: copies what SharePoint shows them, while a pattern that quietly matches one folder more
+    #: than it was meant to is the accident this list exists to prevent.
+    ignore: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _addressable(self) -> "SharePointSource":
@@ -1635,6 +1646,26 @@ class SharePointSource(BaseModel):
         self.siteUrl = site or None
         self.driveId = drive or None
         self.library = (self.library or "").strip() or None
+        # Stored as the operator typed them (minus surrounding whitespace), so the list they
+        # read back is the list they see in SharePoint. The tolerant comparison — case, NFC —
+        # happens where the comparison happens, in sharepoint_sync.
+        ignore = [name.strip() for name in self.ignore if name and name.strip()]
+        if len(ignore) > _SHAREPOINT_IGNORE_MAX:
+            raise ValueError(
+                f"sharepoint source {self.area!r}: 'ignore' lists more than {_SHAREPOINT_IGNORE_MAX} names"
+            )
+        for name in ignore:
+            if len(name) > _SHAREPOINT_IGNORE_NAME_MAX:
+                raise ValueError(
+                    f"sharepoint source {self.area!r}: ignored name {name!r} is longer than "
+                    f"{_SHAREPOINT_IGNORE_NAME_MAX} characters"
+                )
+            if "/" in name or "\\" in name:
+                raise ValueError(
+                    f"sharepoint source {self.area!r}: 'ignore' takes folder NAMES, not paths — "
+                    f"{name!r} contains a slash. Name the folder as it appears directly under 'path'."
+                )
+        self.ignore = ignore
         return self
 
 

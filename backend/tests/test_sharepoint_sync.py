@@ -9,6 +9,9 @@ own tables, and what a listing is allowed to take away. Those are the properties
 still matter if the module were rewritten.
 """
 
+import re
+import unicodedata
+
 import pytest
 from sharepoint_fake import CLIENT_ID, CLIENT_SECRET, TENANT_ID, FakeTenant, geojson, source
 from sqlalchemy import select
@@ -18,7 +21,7 @@ from app.admin_objects import object_id_for_key
 from app.config import settings
 from app.models import DeploymentConfig, ObjectSite, ReferenceDataset, SharePointSyncState
 from app.services.station_workbook import build_workbook
-from app.sharepoint_sync import sync_sharepoint
+from app.sharepoint_sync import _module_for, _ModuleRule, sync_sharepoint
 
 pytestmark = pytest.mark.asyncio
 
@@ -47,8 +50,53 @@ def blank_env(monkeypatch):
     creds.reset_cache()
 
 
-async def configure(db, sources: list[dict], *, intervalMinutes: int = 60) -> None:  # noqa: N803 — config key
-    """Credentials + a `sharepoint` config section, the way an admin would set both."""
+#: The shipped default Modul catalogue, `match` regexes and all — the national defaults a
+#: station starts from (app/admin_config · EXAMPLE_CONFIG, mirrored in
+#: src/lib/deploymentConfig · DEFAULT_MODULES). The pull reads THESE to decide which slot a PDF
+#: belongs to, so they are half of every plans test.
+#:
+#: ⚠️ `modul5` is a family: its capture becomes the sub-slot, and it takes a trailing number so
+#: «Modul 5 - Wasser 1» and «Modul 5 - Wasser 2» are two plans rather than one overwriting the
+#: other. Feuerwehr Oberwil's STORED regex does not — see the collision test below.
+MODULES = [
+    {"id": "modul1", "code": "M1", "order": 1, "match": r"modul\s*1(?!\s*[-–/]\s*\d)"},
+    {"id": "modul2", "code": "M2", "order": 2, "match": r"modul\s*2(?!\s*[-–/]\s*\d)"},
+    {"id": "modul3", "code": "M3", "order": 3, "match": r"modul\s*3(?!\s*[-–/]\s*\d)"},
+    {
+        "id": "modul2-3",
+        "code": "2/3",
+        "order": 4,
+        "match": r"modul\s*2\s*[-–/]\s*3",
+        "combinedWith": ["modul2", "modul3"],
+    },
+    {"id": "modul6", "code": "M6", "order": 6, "match": r"modul\s*6"},
+    {
+        "id": "modul5",
+        "code": "M5",
+        "order": 5,
+        "family": True,
+        "match": r"modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+(?:\s+\d+)?))?",
+    },
+    {"id": "modul4", "code": "M4", "order": 7, "match": r"modul\s*4"},
+]
+
+#: Feuerwehr Oberwil's own `modul5` rule, copied out of its stored config. The capture stops at
+#: the first space, so every «Wasser N» sheet collapses onto one slot.
+OBERWIL_MODUL5_MATCH = r"modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+))?"
+
+
+async def configure(
+    db,
+    sources: list[dict],
+    *,
+    intervalMinutes: int = 60,  # noqa: N803 — config key
+    modules: list[dict] | None = MODULES,
+) -> None:
+    """Credentials + a `sharepoint` config section, the way an admin would set both.
+
+    `modules` is the deployment's Objektplan catalogue — pass `None` for the station that never
+    configured one, which the plans pull refuses to guess around.
+    """
     for name, value in (
         ("sharepoint_tenant_id", TENANT_ID),
         ("sharepoint_client_id", CLIENT_ID),
@@ -57,10 +105,11 @@ async def configure(db, sources: list[dict], *, intervalMinutes: int = 60) -> No
         await creds.set_value(db, name, value, actor_id=None)
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
     section = {"intervalMinutes": intervalMinutes, "sources": sources}
+    document: dict = {"sharepoint": section, "modules": modules or []}
     if row is None:
-        db.add(DeploymentConfig(id=1, config_json={"sharepoint": section}))
+        db.add(DeploymentConfig(id=1, config_json=document))
     else:
-        row.config_json = {**(row.config_json or {}), "sharepoint": section}
+        row.config_json = {**(row.config_json or {}), **document}
     await db.flush()
 
 
@@ -142,11 +191,12 @@ async def test_only_the_changed_plan_is_fetched_again(db_session, blank_env, sto
     assert downloads == ["https://storage.example/download/dorfmatt/modul2.pdf"]
 
 
-async def test_a_module_slug_the_column_could_not_hold_is_skipped(db_session, blank_env, storage_root):
-    """⚠️ SQLite does not enforce `String(16)`, so a 40-character module name would pass every
-    local test and 500 on the station's Postgres. The length rule lives in the connector."""
+async def test_a_file_no_module_rule_claims_is_skipped(db_session, blank_env, storage_root):
+    """A PDF beside the plans that no `modules[].match` recognises. Skipped and logged — the
+    object still exists, because one of its files did resolve. (The 16-character column limit
+    on a GENERATED sub-slot has its own test further down.)"""
     await configure(db_session, [source("plans")])
-    tenant = FakeTenant({"dorfmatt/modul-mit-einem-viel-zu-langen-namen.pdf": PDF, "dorfmatt/modul1.pdf": PDF})
+    tenant = FakeTenant({"dorfmatt/Begehungsprotokoll 2024.pdf": PDF, "dorfmatt/modul1.pdf": PDF})
 
     result = await sync_sharepoint(db_session, transport=tenant.transport)
 
@@ -162,6 +212,225 @@ async def test_a_file_that_is_not_a_pdf_is_skipped(db_session, blank_env, storag
 
     assert result["areas"]["plans"]["imported"] == 0
     assert await datasets(db_session, "plan:") == []
+
+
+# --- the names a station actually gives its files ----------------------------------------
+#
+# Every string below is copied out of Feuerwehr Oberwil's «Einsatzpläne» library. They are the
+# regression: the connector's first cut compared the module against the raw filename stem, and
+# because every one of the station's 336 plan PDFs has a space in it, pointing the plans area
+# at that library would have imported exactly nothing.
+
+OBERWIL_FOLDER = "Am Mühlebach 1a - Am Mühlebach 1-11"
+
+
+def rules(modules=MODULES):
+    """The config's `modules` as the pull compiles them — the parser under test."""
+    return [
+        _ModuleRule(id=m["id"], match=re.compile(m["match"], re.IGNORECASE), family=bool(m.get("family")))
+        for m in modules
+        if m.get("match")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("filename", "module"),
+    [
+        ("Modul 1", "modul1"),
+        ("Modul 2", "modul2"),
+        ("Modul 3", "modul3"),
+        ("Modul 2-3", "modul2-3"),
+        ("Modul 5", "modul5"),
+        ("Modul 6", "modul6"),
+        # A family's capture is the sub-slot, and it needs no catalogue entry of its own —
+        # every one of these is a real file and none is a configured module.
+        ("Modul 5 - PV", "modul5-pv"),
+        ("Modul 5 - Wasser", "modul5-wasser"),
+        ("Modul 5 - Wasser 1", "modul5-wasser-1"),
+        ("Modul 5 - Wasser 2", "modul5-wasser-2"),
+        ("Modul 5 - Evak", "modul5-evak"),
+        ("Modul 5 - Adressen", "modul5-adressen"),
+        # A Grossplan's name, which no rule may claim.
+        ("Grenzweg 3 - BLT Park&Ride, BLT Busdepot", None),
+        ("Bahnhofstrasse 6 - Gemeindebibliothek", None),
+    ],
+)
+async def test_the_station_s_file_names_resolve_through_its_own_match_rules(filename, module):
+    # `async` only because this module runs every test on the asyncio mark; nothing here awaits.
+    assert _module_for(filename, rules()) == module
+
+
+async def test_the_station_s_real_module_files_land_in_their_slots(db_session, blank_env, storage_root):
+    """The file names this library repeats 300-odd times, resolved by the station's own `match`
+    rules. Note `Modul 2-3.pdf`: one sheet, ONE stored plan — `combinedWith` is a display rule
+    the app applies, and writing the same PDF under three ids here would make a combined sheet
+    indistinguishable from two separately scanned ones."""
+    await configure(db_session, [source("plans")])
+    names = ["Modul 1", "Modul 2", "Modul 3", "Modul 2-3", "Modul 5", "Modul 6", "Modul 5 - PV", "Modul 5 - Wasser"]
+    tenant = FakeTenant({f"{OBERWIL_FOLDER}/{n}.pdf": PDF for n in names})
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["imported"] == 8
+    oid = object_id_for_key(OBERWIL_FOLDER)
+    assert await datasets(db_session, "plan:") == sorted(
+        f"plan:{oid}:{m}"
+        for m in ("modul1", "modul2", "modul3", "modul2-3", "modul5", "modul6", "modul5-pv", "modul5-wasser")
+    )
+
+
+async def test_a_family_sub_slot_needs_no_catalogue_entry(db_session, blank_env, storage_root):
+    """«Modul 5 - Evak.pdf» and «Modul 5 - Adressen.pdf» are real files and neither `modul5-evak`
+    nor `modul5-adressen` is a configured module. They are imported anyway, because that is what
+    a `family` is for and because the admin sheet derives a family's slots from the STORED plans
+    (src/admin/ObjectSheet · planSlots) — refusing them would drop 25 of this station's files."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant(
+        {
+            f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF,
+            f"{OBERWIL_FOLDER}/Modul 5 - Evak.pdf": PDF,
+            f"{OBERWIL_FOLDER}/Modul 5 - Adressen.pdf": PDF,
+        }
+    )
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["imported"] == 3
+    oid = object_id_for_key(OBERWIL_FOLDER)
+    assert await datasets(db_session, "plan:") == [
+        f"plan:{oid}:modul1",
+        f"plan:{oid}:modul5-adressen",
+        f"plan:{oid}:modul5-evak",
+    ]
+
+
+async def test_two_files_claiming_one_slot_are_refused_loudly_not_silently_merged(db_session, blank_env, storage_root):
+    """⚠️ Feuerwehr Oberwil's STORED `modul5` capture stops at a space, so «Modul 5 - Wasser 1»
+    and «Modul 5 - Wasser 2» both read as `modul5-wasser` — one file would overwrite the other
+    with nothing said. Neither is imported, the area asks for a person, and the fix is one
+    character in the station's config (the shipped default takes a trailing number)."""
+    narrow = [{**m, "match": OBERWIL_MODUL5_MATCH} if m["id"] == "modul5" else m for m in MODULES]
+    await configure(db_session, [source("plans")], modules=narrow)
+    tenant = FakeTenant(
+        {
+            f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF,
+            f"{OBERWIL_FOLDER}/Modul 5 - Wasser 1.pdf": PDF,
+            f"{OBERWIL_FOLDER}/Modul 5 - Wasser 2.pdf": PDF,
+        }
+    )
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["status"] == "needs_review"
+    assert "claimed by two files at once" in (result["areas"]["plans"]["detail"] or "")
+    assert "modul5-wasser" in (result["areas"]["plans"]["detail"] or "")
+    # Modul 1 still arrives; the two Wasser sheets do not, and no half of the pair is stored.
+    assert (result["areas"]["plans"]["imported"], result["areas"]["plans"]["skipped"]) == (1, 2)
+    assert await datasets(db_session, "plan:") == [f"plan:{object_id_for_key(OBERWIL_FOLDER)}:modul1"]
+
+
+async def test_a_generated_slot_the_column_could_not_hold_is_skipped(db_session, blank_env, storage_root):
+    """⚠️ SQLite does not enforce `String(16)`, so an over-long family sub-slot would pass every
+    local test and 500 on the station's Postgres. A family capture is the realistic way to get
+    a long one, and the file is skipped rather than carried into the write."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant(
+        {
+            f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF,
+            f"{OBERWIL_FOLDER}/Modul 5 - Loeschwasserversorgung.pdf": PDF,
+        }
+    )
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert (result["areas"]["plans"]["imported"], result["areas"]["plans"]["skipped"]) == (1, 1)
+    assert await datasets(db_session, "plan:") == [f"plan:{object_id_for_key(OBERWIL_FOLDER)}:modul1"]
+
+
+async def test_the_same_name_decomposed_and_composed_is_one_einsatzobjekt(db_session, blank_env, storage_root):
+    """⚠️ The defect that silently tripled this deployment's object list: 25 of its 38 duplicate
+    pairs are one name spelled twice, `u`+U+0308 against U+00FC. macOS hands out decomposed file
+    names and Graph hands out composed ones, `object_id_for_key` hashes the string, and the two
+    identical-looking names minted two uuid5. One object, whichever spelling arrives first."""
+    name = "Föhrenstrasse 15 - Behindertenheim Im Rebgarten"
+    decomposed, composed = unicodedata.normalize("NFD", name), unicodedata.normalize("NFC", name)
+    assert decomposed != composed, "the fixture only means anything if the two spellings differ"
+
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{decomposed}/Modul 1.pdf": PDF, f"{composed}/Modul 2-3.pdf": PDF})
+
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    objects = (await db_session.execute(select(ObjectSite))).scalars().all()
+    assert [o.name for o in objects] == [composed]
+    oid = object_id_for_key(composed)
+    assert await datasets(db_session, "plan:") == [f"plan:{oid}:modul1", f"plan:{oid}:modul2-3"]
+
+
+async def test_a_category_folder_is_skipped_when_the_source_names_it(db_session, blank_env, storage_root):
+    """Bastian's ask: «Grosspläne» is a real folder of 24 overview PDFs sitting among 150 real
+    Einsatzobjekte. Naming it in `ignore` states the intent, and the pull walks past it."""
+    await configure(db_session, [source("plans", ignore=["Grosspläne"])])
+    tenant = FakeTenant(
+        {
+            "Grosspläne/Bahnhofstrasse 6 - Gemeindebibliothek.pdf": PDF,
+            "Grosspläne/Grenzweg 1 - BLT Tramdepot_split.pdf": PDF,
+            f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF,
+        }
+    )
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["imported"] == 1
+    assert [o.name for o in (await db_session.execute(select(ObjectSite))).scalars()] == [OBERWIL_FOLDER]
+    assert not any("Grossplaene" in u or "Gemeindebibliothek" in u for u in tenant.seen), "not downloaded either"
+
+
+async def test_a_folder_nobody_ignored_still_never_becomes_an_object(db_session, blank_env, storage_root):
+    """The net under the ignore list. Production carries an Einsatzobjekt called «Grosspläne»,
+    address «Grosspläne», zero plans, because an earlier import created the object first and
+    matched the file names afterwards. A folder whose files yield no Modul slot yields no
+    object — and «Alle Modul 6.pdf», which sits loose at the top of this library, is not one
+    either: a plan lives one folder deep or not at all."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant(
+        {
+            "Grosspläne/Bahnhofstrasse 6 - Gemeindebibliothek.pdf": PDF,
+            "Grosspläne/Grenzweg 3 - BLT Park&Ride, BLT Busdepot.pdf": PDF,
+            "Alle Modul 6.pdf": PDF,
+        }
+    )
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert (result["areas"]["plans"]["imported"], result["areas"]["plans"]["skipped"]) == (0, 3)
+    assert (await db_session.execute(select(ObjectSite))).scalars().all() == []
+    assert await datasets(db_session, "plan:") == []
+
+
+async def test_a_sub_folder_of_an_object_is_not_a_plan(db_session, blank_env, storage_root):
+    """Real objects here keep their «Vertrag» and «Zusatz» folders beside the Modul-PDFs. A
+    plan is one folder deep; anything deeper is somebody's paperwork."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF, f"{OBERWIL_FOLDER}/Vertrag/Mietvertrag.pdf": PDF})
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert (result["areas"]["plans"]["imported"], result["areas"]["plans"]["skipped"]) == (1, 1)
+
+
+async def test_a_deployment_with_no_match_rule_imports_nothing_and_says_so(db_session, blank_env, storage_root):
+    """Fail-closed rather than guess: `modules[].match` is the only thing that can tell a
+    Modul-PDF from any other file, and guessing is how a deployment grows objects nobody
+    created. A display-only catalogue (no `match` anywhere) counts as none."""
+    await configure(db_session, [source("plans")], modules=[{"id": "modul1", "code": "M1"}])
+    tenant = FakeTenant({f"{OBERWIL_FOLDER}/Modul 1.pdf": PDF})
+
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert result["areas"]["plans"]["status"] == "needs_review"
+    assert "carries a 'match' rule" in (result["areas"]["plans"]["detail"] or "")
+    assert (await db_session.execute(select(ObjectSite))).scalars().all() == []
 
 
 # --- the two safety rules ---------------------------------------------------------------

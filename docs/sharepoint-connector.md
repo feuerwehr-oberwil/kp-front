@@ -152,25 +152,49 @@ Everything here takes effect **without a restart**.
 
 Inside whatever folder you nominate for an area, the naming is the convention. It is deliberately
 plain: the folder and the file names carry everything, and there is no manifest to maintain and
-no script to run on your side.
+no script to run on your side. **In most cases that means leaving the folders exactly as they
+are** – the names a brigade already gives its scans are the names KP Front reads.
 
 ### Objektpläne
 
 ```
 <the folder you configure>/
-  schulhaus-dorfmatt/          ← the folder name IS the object's key
-    modul1.pdf
-    modul2-3.pdf
-    modul5-wasser.pdf
-  alterszentrum-sonnenhalde/
-    modul1.pdf
+  Hauptstrasse 24 - Gemeindeverwaltung/    ← the folder name IS the object's key
+    Modul 1.pdf
+    Modul 2-3.pdf
+    Modul 5 - Wasser.pdf
+    Vertrag/                               ← ignored: a plan lives one folder deep
+  Föhrenstrasse 17/
+    Modul 1.pdf
 ```
 
-- **One folder per Einsatzobjekt**, one PDF per Modul slot, named after the slot (`modul1` …
-  `modul6`, plus the Modul-5 sub-slots like `modul5-wasser`). The module names your station uses
-  are the ones in the deployment config's `modules` catalogue.
-- The folder name is the object's **stable key**. Keep it short, lower case, no spaces. Rename it
-  and KP Front will treat it as a different object, so pick it once.
+- **One folder per Einsatzobjekt**, one PDF per Modul slot. **You do not have to rename
+  anything:** which slot a PDF belongs to is decided by your own station's `match` rules in the
+  `modules` catalogue (deployment config, `/admin` → Station shows it), tested against the file
+  name without regard to case – the first module that matches claims the file. The defaults
+  every station starts from already recognise `Modul 1.pdf`, `modul1.pdf`, `Modul 2-3.pdf` and
+  the rest.
+- **Modul 5 is generative.** Its rule captures whatever follows the dash, so `Modul 5 - PV.pdf`
+  becomes `modul5-pv` and `Modul 5 - Evak.pdf` becomes `modul5-evak` – **without** either
+  needing its own entry in the catalogue. The Objektpläne page shows a slot for every such plan
+  it finds.
+- A PDF **no rule claims** – a `Begehungsprotokoll 2024.pdf` filed beside the plans – is skipped
+  and logged. Nothing is invented for it.
+- A deployment whose catalogue carries **no `match` rule at all** imports no plans and says so
+  on the System card: without it nothing can tell a Modul-PDF from any other document.
+- ⚠️ **Two files, one slot.** If two PDFs in the same folder resolve to the same slot, **neither**
+  is imported and the System card asks for a person – importing one would silently overwrite the
+  other. The usual cause is a Modul-5 rule whose capture stops too early, so that
+  `Modul 5 - Wasser 1.pdf` and `Modul 5 - Wasser 2.pdf` both read as `modul5-wasser`. The fix is
+  in the config, not in the folder: the shipped default rule already takes the trailing number.
+- The folder name is the object's **stable key** – use it as it reads on the door
+  (`Hauptstrasse 24 - Gemeindeverwaltung`); spaces, case and umlauts are all fine. Rename the
+  folder and KP Front will treat it as a different object, so pick it once.
+- **A folder whose files are not Modul plans never becomes an Einsatzobjekt.** A category folder
+  full of overview sheets (`Grosspläne/`) or an empty one is skipped whole, and nothing is
+  created for it. Say so up front with `ignore` (below) – this is only the safety net.
+- Loose files at the top level (`Alle Modul 6.pdf`) and anything nested deeper than one folder
+  (`.../Vertrag/Mietvertrag.pdf`) are left alone.
 - On the first sync an object KP Front has never seen is created, named after the folder. Rename
   it and give it an address in `/admin` → Objektpläne afterwards; the connector never overwrites
   a name or an address anybody has typed.
@@ -246,7 +270,7 @@ listed. There is no required root folder.
   "intervalMinutes": 60,
   "sources": [
     { "area": "plans",      "siteUrl": "https://contoso.sharepoint.com/sites/kommando",
-      "path": "Einsatzplaene" },
+      "path": "Einsatzpläne", "ignore": ["Grosspläne", "Archiv"] },
     { "area": "geodata",    "siteUrl": "https://contoso.sharepoint.com/sites/gis",
       "library": "Geodaten", "path": "export/wgs84" },
     { "area": "workbook",   "siteUrl": "https://contoso.sharepoint.com/sites/kommando",
@@ -260,6 +284,12 @@ listed. There is no required root folder.
 - `library` is only needed when the documents are **not** in the site's default library
   ("Dokumente" / "Documents"). It is the library's display name.
 - `path` is the folder inside that library; leave it out for the library root.
+- `ignore` lists the **sub-folders KP Front should walk past**, for the folders that live in
+  the same place but are not station data – a `Grosspläne` category folder among the
+  Einsatzobjekte, an `Archiv`, a `Vorlagen`. Write the names exactly as SharePoint shows them
+  (upper/lower case does not matter); they are folder **names** directly under `path`, not
+  paths, and not patterns – `Archiv*` matches a folder literally called `Archiv*` and nothing
+  else. Leave it out entirely if there is nothing to skip.
 - **At most one entry per area.** A folder listing is read as the complete statement of what that
   area holds – see [What the connector will not do](#what-the-connector-will-not-do) – and two
   half-statements cannot be told apart from one broken one.
@@ -345,7 +375,7 @@ The status on the System card, and what it means:
 |--------|---------------|------------|
 | **noch nie gelaufen** | configured, but no sync has completed yet | press «Jetzt abgleichen» |
 | **aktuell** / **unverändert** | working. «unverändert» is what almost every poll finds | nothing |
-| **wartet auf Freigabe** | the Arbeitsmappe would do something that needs a person | `/admin` → Stationsdaten, preview and confirm |
+| **wartet auf Freigabe** | the Arbeitsmappe would do something that needs a person – or two Objektplan PDFs claim the same Modul slot, or no module carries a `match` rule | Arbeitsmappe: `/admin` → Stationsdaten, preview and confirm. Objektpläne: the row names the clashing files; fix the module's `match` in the config |
 | **abgelehnt – nichts geändert** | the folder listed nothing for an area that had something | check the folder still exists, is not renamed, and the app still has access to the site |
 | **nicht erreichbar** | the folder or the site could not be read | check `siteUrl`, `library` and `path` in the config; a renamed folder shows up here |
 | **Anmeldung abgelehnt** | Azure refused the app registration | the row prints Microsoft's own message. `AADSTS7000222` = the client secret has **expired** (step 3 again). `AADSTS7000215` = wrong secret. A 403 from Graph = the permission was never consented to, or `Sites.Selected` was never pointed at this site (step 2) |
@@ -362,6 +392,17 @@ curl -sc /tmp/kp.jar -X POST -H 'Content-Type: application/json' \
 curl -sb /tmp/kp.jar -X POST "$BASE/api/sharepoint/sync?full=true"
 rm /tmp/kp.jar
 ```
+
+**"It says «aktuell», but plans are missing."** Read the *übersprungen* count on the row: every
+skip is one line in the server log saying which file and why. The common ones are a PDF no
+`match` rule recognises, a folder that holds no Modul plan at all – which is deliberately **not**
+turned into an Einsatzobjekt – and a Modul-5 sub-slot whose name is so long that the generated
+slot would not fit (shorten what follows the dash). If the folder is a category folder, put its
+name in the source's `ignore` list so the log stops mentioning it.
+
+**"A building shows up twice in Objektpläne."** Two folder names that differ in any way – a
+trailing word, a different spelling – are two objects, because the folder name is the key. Merge
+them in SharePoint, then fix up the leftover object in `/admin` → Objektpläne.
 
 **Nothing appears on the System card at all.** Either no credentials or no folders – the card
 says which half is missing, and the two are configured in different places (step 4 vs step 6).

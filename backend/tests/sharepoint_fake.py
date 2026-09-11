@@ -176,9 +176,12 @@ def _folder_of(path: str) -> str:
     return item[len("folder::") :] if item.startswith("folder::") else ""
 
 
-def source(area: str, path: str = "kp-data") -> dict[str, str]:
+def source(area: str, path: str = "kp-data", *, ignore: list[str] | None = None) -> dict[str, Any]:
     """One `sharepoint.sources` entry against this fake tenant."""
-    return {"area": area, "siteUrl": SITE_URL, "path": path}
+    entry: dict[str, Any] = {"area": area, "siteUrl": SITE_URL, "path": path}
+    if ignore is not None:
+        entry["ignore"] = ignore
+    return entry
 
 
 def geojson(features: int = 1) -> bytes:

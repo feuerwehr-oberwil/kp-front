@@ -1132,7 +1132,7 @@ document's `sharepoint` section:
     // One entry per area, and every one of them optional and independent. Different sites,
     // different libraries, different folders per area — configure only what you have.
     { "area": "plans",      "siteUrl": "https://contoso.sharepoint.com/sites/kommando",
-      "path": "Einsatzplaene" },
+      "path": "Einsatzpläne", "ignore": ["Grosspläne", "Archiv"] },
     { "area": "geodata",    "siteUrl": "https://contoso.sharepoint.com/sites/gis",
       "library": "Geodaten", "path": "export/wgs84" },
     { "area": "checklists", "siteUrl": "https://contoso.sharepoint.com/sites/kommando",
@@ -1149,22 +1149,56 @@ document's `sharepoint` section:
 | `driveId` | The library id, when a tenant admin hands it over directly. Give **exactly one** of `siteUrl` / `driveId`. |
 | `library` | Display name of the document library, when it is not the site's default one. Optional. |
 | `path` | The folder inside that library; empty = its root. The per-area naming convention applies **below** this folder, never above it. |
+| `ignore` | Folder **names** directly under `path` that the pull walks past – the category folders that live among the station data («Grosspläne», «Archiv»). Names, not paths and not globs: an operator copies what SharePoint shows them, and a pattern that quietly matches one folder more than it was meant to is the accident this list exists to prevent. Compared without regard to case or Unicode spelling. |
 
 **Naming inside a source folder** – the full walkthrough, including the Azure app registration,
 is [`sharepoint-connector.md`](sharepoint-connector.md):
 
 ```
-plans/       <object-key>/<module>.pdf     e.g. schulhaus-dorfmatt/modul2-3.pdf
+plans/       <Objektordner>/<Modul>.pdf    e.g. «Hauptstrasse 24 - Gemeindeverwaltung/Modul 2-3.pdf»
 geodata/     <layer-id>.geojson            + optional <layer-id>.json sidecar (label, colours, symbol)
 checklists/  <template>.json               + diagrams as <template>-p<page>.jpg|png|webp|svg
 workbook/    <anything>.xlsx               exactly one .xlsx in the folder
 ```
 
-**The object key is the folder name**, hashed to the same `uuid5` the `admin_objects` CLI and the
-admin UI mint (§9e). A station that has been loading plans by hand and then points at SharePoint
-therefore **updates** its Einsatzobjekte instead of growing a second copy of every one of them.
-An object the connector has never seen is created with the folder name for a name; a name or
-address somebody has since typed is never overwritten.
+**Which Modul-Slot a PDF belongs to is decided by `modules[].match`** – the station's own
+filename regex, tested case-insensitively against the file name, first hit in config order
+claims the file. That contract is the `modules` catalogue's own (§1, file-only) and predates the
+pull; the connector is a reader of it, not a second parser beside it. So `Modul 1.pdf`,
+`modul1.pdf` and `Modul 2-3.pdf` all land where the station already expects, and nothing is
+renamed. A `family` module's capture group becomes a sub-slot – `Modul 5 - Wasser 1.pdf` →
+`modul5-wasser-1` – and a sub-slot needs **no catalogue entry of its own**, because the admin
+sheet derives a family's slots from the stored plans for the same reason
+(`src/admin/ObjectSheet` · `planSlots`). `combinedWith` is a **display** rule and is deliberately
+not expanded here: one sheet is stored once. A file no rule claims is skipped and logged; a
+deployment whose catalogue carries no `match` at all imports nothing and reports `needs_review`.
+
+⚠️ **Two files claiming one slot is refused, loudly.** If two PDFs in a folder resolve to the
+same module id, **neither** is imported and the area reports `needs_review` naming both – one
+would otherwise overwrite the other with nothing said anywhere. The realistic cause is a family
+`match` whose capture stops too early: Feuerwehr Oberwil's stored `modul5` rule captures
+`([0-9A-Za-zÄÖÜäöü]+)`, so `Modul 5 - Wasser 1.pdf` and `Modul 5 - Wasser 2.pdf` both read as
+`modul5-wasser`. The shipped default takes a trailing number – `([0-9A-Za-zÄÖÜäöü]+(?:\s+\d+)?)`
+– and is the fix. A generated id that would not fit `ReferenceDataset.module` (`String(16)`) is
+skipped with the id named, rather than carried into a write that 500s on Postgres.
+
+**A folder that yields no Modul slot yields no Einsatzobjekt.** `ignore` states that intent for
+the folders a station knows about; this is the net under the one nobody listed. A production
+deployment carries an object named «Grosspläne», addressed «Grosspläne», with zero plans,
+because an earlier importer created the object first and matched file names afterwards.
+
+**The object key is the folder name**, NFC-composed and hashed to the same `uuid5` the
+`admin_objects` CLI and the admin UI mint (§9e). A station that has been loading plans by hand
+and then points at SharePoint therefore **updates** its Einsatzobjekte instead of growing a
+second copy of every one of them. An object the connector has never seen is created with the
+folder name for a name; a name or address somebody has since typed is never overwritten.
+
+> ⚠️ **Composition matters and only the connector composes today.** macOS hands out file names
+> decomposed (`u`+U+0308) where Graph and a keyboard hand out the composed `ü`; the two look
+> identical everywhere and hash to two different uuid5. `object_id_for_key` itself is left
+> alone on purpose – composing inside it would re-key every object whose stored id came from a
+> decomposed name, which is the fix and the damage in one commit. Existing duplicates are a
+> merge somebody chooses to run, not a side effect of a deploy.
 
 **What it refuses to do.** A listing that carries nothing for an area that previously had
 something **aborts the run and changes nothing** – the same guard `admin_config load` applies to a

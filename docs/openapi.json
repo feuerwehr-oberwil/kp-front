@@ -15786,6 +15786,13 @@
             "type": "string",
             "title": "Path",
             "default": ""
+          },
+          "ignore": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ignore"
           }
         },
         "type": "object",
@@ -15793,7 +15800,7 @@
           "area"
         ],
         "title": "SharePointSource",
-        "description": "One area's folder in SharePoint — where to look, for what kind of data.\n\nEvery field but ``area`` is about ADDRESSING, and the addressing is per source on purpose:\na station that keeps its Objektpläne on the Kommando site and its Geodaten in a different\nlibrary configures two entries with two ``siteUrl``s. Nothing here requires a common root,\nand an area a station does not have is simply not listed.\n\nPoint at the site with ``siteUrl`` (the address out of a browser's URL bar,\n``https://contoso.sharepoint.com/sites/feuerwehr``) and this deployment resolves it to the\ndocument library itself; give ``driveId`` instead when a tenant admin has handed over the\nlibrary id directly. ``library`` picks a non-default document library by its display name.\n``path`` is the folder INSIDE that library — the per-area naming convention from\ndocs/sharepoint-connector.md applies below it, never above it."
+        "description": "One area's folder in SharePoint — where to look, for what kind of data.\n\nEvery field but ``area`` is about ADDRESSING, and the addressing is per source on purpose:\na station that keeps its Objektpläne on the Kommando site and its Geodaten in a different\nlibrary configures two entries with two ``siteUrl``s. Nothing here requires a common root,\nand an area a station does not have is simply not listed.\n\nPoint at the site with ``siteUrl`` (the address out of a browser's URL bar,\n``https://contoso.sharepoint.com/sites/feuerwehr``) and this deployment resolves it to the\ndocument library itself; give ``driveId`` instead when a tenant admin has handed over the\nlibrary id directly. ``library`` picks a non-default document library by its display name.\n``path`` is the folder INSIDE that library — the per-area naming convention from\ndocs/sharepoint-connector.md applies below it, never above it.\n\n``ignore`` names the sub-folders the pull walks past — the category folders every grown\ndocument library has («Grosspläne», «Archiv»), which are not Einsatzobjekte and must never\nbecome one."
       },
       "SheetImpact": {
         "properties": {

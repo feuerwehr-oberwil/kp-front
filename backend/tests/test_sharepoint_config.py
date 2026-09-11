@@ -9,7 +9,7 @@ connector switched off with nothing said. That trap has bitten this document bef
 import pytest
 from pydantic import ValidationError
 
-from app.schemas import DeploymentConfigIn, SharePointConfig, load_stored_config
+from app.schemas import DeploymentConfigIn, SharePointConfig, SharePointSource, load_stored_config
 
 SITE = "https://feuerwehr.sharepoint.com/sites/kp"
 
@@ -18,7 +18,12 @@ def test_the_section_survives_the_round_trip_every_writer_performs():
     """Validate → dump → validate, which is what a PUT, an `admin_config load` and the workbook
     import all do to the whole document on every write."""
     document = {
-        "sharepoint": {"intervalMinutes": 30, "sources": [{"area": "plans", "siteUrl": SITE, "path": "kp-data/plans"}]}
+        "sharepoint": {
+            "intervalMinutes": 30,
+            "sources": [
+                {"area": "plans", "siteUrl": SITE, "path": "kp-data/plans", "ignore": ["Grosspläne", "Archiv"]}
+            ],
+        }
     }
 
     once = DeploymentConfigIn(**document).model_dump(mode="json")
@@ -26,7 +31,14 @@ def test_the_section_survives_the_round_trip_every_writer_performs():
 
     assert twice["sharepoint"]["intervalMinutes"] == 30
     assert twice["sharepoint"]["sources"] == [
-        {"area": "plans", "siteUrl": SITE, "driveId": None, "library": None, "path": "kp-data/plans"}
+        {
+            "area": "plans",
+            "siteUrl": SITE,
+            "driveId": None,
+            "library": None,
+            "path": "kp-data/plans",
+            "ignore": ["Grosspläne", "Archiv"],
+        }
     ]
 
 
@@ -78,6 +90,32 @@ def test_one_folder_per_area():
                 {"area": "plans", "siteUrl": SITE, "path": "b"},
             ]
         )
+
+
+def test_an_ignore_list_keeps_the_names_the_operator_typed():
+    """Stored as SharePoint shows them — the list a station reads back has to be the list it
+    can see in the browser, so only surrounding whitespace and empty rows go."""
+    config = SharePointConfig(
+        sources=[{"area": "plans", "siteUrl": SITE, "ignore": ["  Grosspläne ", "", "Archiv 2019"]}]
+    )
+    assert config.sources[0].ignore == ["Grosspläne", "Archiv 2019"]
+
+
+def test_a_source_without_an_ignore_list_has_an_empty_one():
+    assert SharePointSource(area="plans", siteUrl=SITE).ignore == []
+
+
+@pytest.mark.parametrize(
+    ("ignore", "because"),
+    [
+        (["Grosspläne/2019"], "a path, not a folder name — nested matching is not what this does"),
+        (["x" * 200], "longer than the name cap"),
+        ([f"ordner-{i}" for i in range(60)], "more names than the list cap"),
+    ],
+)
+def test_an_ignore_entry_that_is_not_a_folder_name_is_refused(ignore, because):
+    with pytest.raises(ValidationError):
+        SharePointConfig(sources=[{"area": "plans", "siteUrl": SITE, "ignore": ignore}])
 
 
 def test_the_section_is_in_the_schema_the_cli_prints():

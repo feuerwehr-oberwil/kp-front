@@ -12,7 +12,10 @@ Einsatzobjekte rather than growing a second copy of every one of them.
 site/library/folder (schemas · SharePointSource). A station whose Objektpläne live on the
 Kommando site and whose Geodaten live in a different library configures two entries; a station
 that only has the Arbeitsmappe configures one. Nothing requires a common root, and the per-area
-naming conventions apply INSIDE whatever folder each entry names.
+naming conventions apply INSIDE whatever folder each entry names. Which Modul-Slot a plan PDF
+belongs to is decided by the station's OWN `modules[].match` regexes, so a station renames
+nothing; a source's `ignore` list names the sub-folders the walk skips, for the category folders
+that live among the station data.
 
 **What makes it safe.** Four rules, and each is a place this could have gone wrong:
 
@@ -47,6 +50,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -90,6 +94,102 @@ _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".svg")
 #: An object key out of a plans folder name. Long enough for «alterszentrum-sonnenhalde», short
 #: enough that a stray file at the wrong level cannot mint an object with a paragraph for a name.
 _MAX_OBJECT_KEY = 120
+
+#: German folding, applied before the accents are stripped, so «Löschwasser» becomes
+#: `loeschwasser` and not `loschwasser`. Everything else decomposes and loses its marks.
+_FOLD = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "ae", "Ö": "oe", "Ü": "ue", "ß": "ss"})
+
+
+def _slugify(text: str) -> str:
+    """A family module's captured sub-slot as the suffix its id is built from.
+
+    Lower-cased, umlauts folded, every run of anything else collapsed to a single `-` — so
+    «Modul 5 - Wasser 1.pdf» captures `Wasser 1` and the plan is stored under `modul5-wasser-1`.
+
+    ⚠️ ONLY for a capture. The filename itself is never slugified and compared: which module a
+    PDF belongs to is decided by the station's own `modules[].match` regex (`_module_for`), and
+    a second, differently-spelled parser beside that one is how the same sheet ends up under
+    two ids with nothing reporting an error.
+    """
+    folded = unicodedata.normalize("NFC", text).lower().translate(_FOLD)
+    bare = "".join(c for c in unicodedata.normalize("NFD", folded) if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]+", "-", bare).strip("-")
+
+
+@dataclass(frozen=True)
+class _ModuleRule:
+    """One `modules[]` entry as the filename parser uses it — see schemas · ModuleConfig."""
+
+    id: str
+    match: re.Pattern[str]
+    #: Generative: the `match`'s capture group becomes a sub-slot suffix, so one entry covers
+    #: «Modul 5 - Wasser», «Modul 5 - PV» and every other Spezialplan the station scans.
+    family: bool
+
+
+async def _module_rules(db: AsyncSession) -> list[_ModuleRule]:
+    """The station's own filename parsing rules, in config order.
+
+    ⚠️ This is a READER of a contract that already exists, not a new one. `modules[].match` is
+    documented as «a regex tested case-insensitively against a source PDF's filename stem — the
+    first module whose match hits claims the file», it is what the private importer
+    (`scripts/import_einsatzplaene.py`) has always used, and the shipped default set carries one
+    per module. The pull evaluating anything else would be a second parser disagreeing with the
+    first, which puts one sheet under two ids and reports nothing.
+
+    Entries without a `match` are display-only and claim nothing. A regex a station has broken
+    is dropped and named rather than taking the whole run down with it.
+    """
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    stored = load_stored_config((row.config_json if row else None) or {})
+    rules: list[_ModuleRule] = []
+    for module in stored.modules:
+        if not module.match:
+            continue
+        try:
+            pattern = re.compile(module.match, re.IGNORECASE)
+        except re.error as e:
+            logger.warning("SharePoint plans: module %r has an unusable 'match' regex (%s) — ignored", module.id, e)
+            continue
+        rules.append(_ModuleRule(id=module.id, match=pattern, family=module.family))
+    return rules
+
+
+def _module_for(stem: str, rules: list[_ModuleRule]) -> str | None:
+    """The Modul-Slot a PDF's filename stem belongs to, or None if no rule claims it.
+
+    First hit wins, in config order. A `family` rule's capture group becomes the sub-slot —
+    `modul5` + `Wasser 1` → `modul5-wasser-1` — and a family that matched without capturing
+    anything («Modul 5.pdf») is its own bare slot.
+
+    ⚠️ The generated id is NOT checked against the catalogue, deliberately. A family exists
+    precisely so a station can scan a Spezialplan the config never enumerated, and the admin
+    sheet derives a family's slots from the STORED plans for the same reason
+    (src/admin/ObjectSheet · planSlots) — «a plan the page cannot show is a plan the crew opens
+    and nobody can replace». Refusing `modul5-evak` here because no entry names it would drop
+    25 of this station's real files on the floor.
+    """
+    for rule in rules:
+        hit = rule.match.search(stem)
+        if hit is None:
+            continue
+        captured = hit.group(1) if rule.family and hit.re.groups else None
+        suffix = _slugify(captured) if captured else ""
+        return f"{rule.id}-{suffix}" if suffix else rule.id
+    return None
+
+
+def _object_key(folder: str) -> str:
+    """A plans folder name as an object key — NFC, because the id is a hash of these bytes.
+
+    ⚠️ macOS hands out file names decomposed (`u` + U+0308) while Graph and a keyboard hand out
+    the composed `ü`. Both spell «Bürgerheim», both look identical in every list, and
+    `object_id_for_key` hashes the string — so an import that read names off a Mac filesystem
+    and one that read them off SharePoint minted two uuid5 for one building. That is 25 of the
+    38 duplicate Einsatzobjekte this deployment carries. Composing here makes the two spellings
+    one key; see `_object_for` for why it is here and not inside `object_id_for_key`.
+    """
+    return unicodedata.normalize("NFC", folder)
 
 
 def _upload_max_bytes() -> int:
@@ -224,8 +324,42 @@ def _record(state: SharePointSyncState, outcome: AreaOutcome) -> None:
 
 def _fingerprint(source: SharePointSource) -> str:
     """The folder this state row belongs to. A config edit that repoints an area must not
-    resume against the previous folder's delta token or its eTag memo."""
-    return f"{source.siteUrl or ''}|{source.driveId or ''}|{source.library or ''}|{source.path}"
+    resume against the previous folder's delta token or its eTag memo.
+
+    `ignore` is part of it: adding a name changes WHAT the run is allowed to see, and a delta
+    token saying «nothing changed» would otherwise hold the old answer for as long as the
+    folder stands still.
+    """
+    ignored = ",".join(sorted(_ignore_keys(source)))
+    return f"{source.siteUrl or ''}|{source.driveId or ''}|{source.library or ''}|{source.path}|{ignored}"
+
+
+def _ignore_keys(source: SharePointSource) -> set[str]:
+    """The source's ignore list, folded for comparison — case and Unicode spelling ignored, so
+    a name typed by hand matches the folder however SharePoint happens to spell it."""
+    return {unicodedata.normalize("NFC", name).casefold() for name in source.ignore}
+
+
+def _without_ignored(files: list[RemoteFile], source: SharePointSource) -> list[RemoteFile]:
+    """Everything outside the folders the source names in `ignore`.
+
+    Applied to the whole walk rather than inside one area's handler: «walk past this folder» is
+    a statement about the source, and an area that grows a sub-folder convention later gets it
+    for free. Only the FIRST path segment is compared — the list names folders directly under
+    `path`, which is what an operator can see and copy.
+    """
+    ignored = _ignore_keys(source)
+    if not ignored:
+        return files
+    kept = [f for f in files if unicodedata.normalize("NFC", f.path.split("/")[0]).casefold() not in ignored]
+    if len(kept) != len(files):
+        logger.info(
+            "SharePoint %s: %d file(s) skipped by the ignore list (%s)",
+            source.area,
+            len(files) - len(kept),
+            ", ".join(sorted(source.ignore)),
+        )
+    return kept
 
 
 async def _sync_area(
@@ -269,7 +403,7 @@ async def _sync_area(
             # walking is caught by the next run rather than falling between the two.
             _, state.delta_token = await graph.delta(state.drive_id, state.item_id, "latest")
 
-        files = await graph.walk(state.drive_id, state.item_id)
+        files = _without_ignored(await graph.walk(state.drive_id, state.item_id), source)
     except GraphAuthError as e:
         out.status, out.detail = "auth_failed", str(e)[:400]
         logger.warning("SharePoint %s: authentication refused — %s", source.area, e)
@@ -328,33 +462,110 @@ def _remember(state: SharePointSyncState, files: list[RemoteFile]) -> list[str]:
 async def _sync_plans(
     db: AsyncSession, graph: GraphClient, state: SharePointSyncState, files: list[RemoteFile], out: AreaOutcome
 ) -> AreaOutcome:
-    """`<object-key>/<module>.pdf` — one folder per Einsatzobjekt, one PDF per Modul-Slot.
+    """`<Objektordner>/<Modul>.pdf` — one folder per Einsatzobjekt, one PDF per Modul-Slot.
 
-    The folder name IS the object key: it is hashed with `object_id_for_key` (uuid5), which is
-    the same id `admin_objects` mints for the same key, so the CLI, the admin UI and this
-    connector all address one Einsatzobjekt. An object that does not exist yet is created with
-    the folder name for a name and nothing else — an admin who renames it or geocodes it keeps
-    that, because nothing here overwrites a name after creation.
+    Which Modul-Slot a PDF belongs to is decided by the station's OWN `modules[].match` regex,
+    first hit in config order (`_module_for`) — the rule the config document has always
+    documented and the private importer has always used. So «Modul 1.pdf», «Modul 2-3.pdf» and
+    «Modul 5 - Wasser 1.pdf» are read where they lie and a station renames nothing. A family
+    module's capture becomes a sub-slot that needs no catalogue entry of its own.
+
+    A folder whose files claim NO module produces no Einsatzobjekt at all. `Grosspläne/` — 24
+    overview PDFs named «<Adresse> - <Name>.pdf» — is an Einsatzobjekt on this deployment's
+    production database today, with an address of «Grosspläne» and zero plans, because an
+    earlier import created the object first and matched the files afterwards. Name such a
+    folder in the source's `ignore` list to state the intent; this is the net under the folder
+    nobody listed.
+
+    The folder name IS the object key: NFC-composed (`_object_key`) and hashed with
+    `object_id_for_key` (uuid5), which is the same id `admin_objects` mints for the same key,
+    so the CLI, the admin UI and this connector all address one Einsatzobjekt. An object that
+    does not exist yet is created with the folder name for a name and nothing else — an admin
+    who renames it or geocodes it keeps that, because nothing here overwrites a name after
+    creation.
     """
-    usable = [f for f in files if f.suffix == ".pdf" and len(f.path.split("/")) == 2]
-    refusal = await _refuses_to_empty(db, state, usable)
+    rules = await _module_rules(db)
+    if not rules:
+        out.status = "needs_review"
+        out.detail = (
+            "no Objektplan module in this deployment's config carries a 'match' rule, so nothing "
+            "can tell a Modul-PDF from any other file. Configure the 'modules' catalogue and run "
+            "again — importing on a guess is how a deployment grows Einsatzobjekte nobody created."
+        )
+        out.skipped = len(files)
+        return out
+
+    shaped: dict[str, list[RemoteFile]] = {}  # folder name → its PDFs
+    for file in files:
+        if file.suffix == ".pdf" and len(file.path.split("/")) == 2:
+            shaped.setdefault(file.path.split("/")[0], []).append(file)
+        else:
+            out.skipped += 1
+            logger.info("SharePoint plans: %s is not a <Objektordner>/<Modul>.pdf — skipped", file.path)
+
+    usable: list[tuple[RemoteFile, str, str]] = []  # (file, object key, module id)
+    collisions: list[str] = []
+    for folder, entries in shaped.items():
+        key = _object_key(folder)
+        if len(key) > _MAX_OBJECT_KEY:
+            out.skipped += len(entries)
+            logger.warning(
+                "SharePoint plans: «%.60s…» is longer than %d characters and cannot be an object key — skipped",
+                folder,
+                _MAX_OBJECT_KEY,
+            )
+            continue
+        claimed: dict[str, list[RemoteFile]] = {}
+        for file in entries:
+            module = _module_for(file.name[: -len(".pdf")], rules)
+            if module is None:
+                out.skipped += 1
+                continue
+            if not _MODULE_RE.match(module):
+                # ⚠️ `ReferenceDataset.module` is a String(16) and SQLite does not enforce one,
+                # so an over-long generated id passes every local test and 500s on the station's
+                # Postgres. A family whose capture is too long is the realistic way to get here.
+                out.skipped += 1
+                logger.warning(
+                    "SharePoint plans: %s resolves to Modul-Slot %r, which does not fit the 16 characters the "
+                    "column holds — skipped. Shorten the file name's sub-slot or the module id.",
+                    file.path,
+                    module,
+                )
+                continue
+            claimed.setdefault(module, []).append(file)
+        if not claimed:
+            logger.warning(
+                "SharePoint plans: no module's 'match' claims anything in «%s» (%s) — skipped, and NO "
+                "Einsatzobjekt created for it. Name it in the source's 'ignore' list if it is not an object.",
+                folder,
+                ", ".join(sorted(f.name for f in entries))[:200],
+            )
+            continue
+        for module, claimants in claimed.items():
+            if len(claimants) > 1:
+                # ⚠️ Two files, one slot: importing either would silently overwrite the other, and
+                # a plan the crew cannot open is worse than a plan that visibly did not arrive.
+                # Neither is written and the area asks for a person — see `collisions` below.
+                out.skipped += len(claimants)
+                names = ", ".join(sorted(f.name for f in claimants))
+                collisions.append(f"«{folder}»: {names} → {module}")
+                logger.warning(
+                    "SharePoint plans: %s in «%s» all resolve to Modul-Slot %r — NONE imported, because one "
+                    "would overwrite the other. Widen the module's 'match' capture so the names differ.",
+                    names,
+                    folder,
+                    module,
+                )
+                continue
+            usable.append((claimants[0], key, module))
+
+    refusal = await _refuses_to_empty(db, state, [f for f, _, _ in usable])
     if refusal:
         out.status, out.detail = "refused", refusal
         return out
 
-    wanted = {f.path for f in usable}
-    for file in files:
-        if file.path not in wanted:
-            out.skipped += 1
-            logger.info("SharePoint plans: %s is not a <Objektschlüssel>/<Modul>.pdf — skipped", file.path)
-
-    for file in usable:
-        key, _, filename = file.path.partition("/")
-        module = filename[: -len(".pdf")]
-        if len(key) > _MAX_OBJECT_KEY or not _MODULE_RE.match(module):
-            out.skipped += 1
-            logger.warning("SharePoint plans: %s has no usable object key / module slug — skipped", file.path)
-            continue
+    for file, key, module in usable:
         if not _changed(state, file):
             out.skipped += 1
             continue
@@ -389,7 +600,18 @@ async def _sync_plans(
         )
         out.imported += 1
 
-    out.missing = _remember(state, usable)
+    if collisions:
+        # Loud rather than quiet: everything else imported, but the card says a person has to
+        # widen a `match` before those sheets can arrive. `needs_review` still counts as a
+        # completed run, so the green tick keeps moving — the listing worked, the config did not.
+        out.status = "needs_review"
+        out.detail = (
+            f"{len(collisions)} Modul-Slot(s) are claimed by two files at once, so neither was imported: "
+            + " · ".join(collisions[:3])
+            + ". Widen that module's 'match' capture so the two names produce two slots."
+        )
+
+    out.missing = _remember(state, [f for f, _, _ in usable])
     return out
 
 
@@ -401,6 +623,13 @@ async def _object_for(db: AsyncSession, key: str) -> ObjectSite:
     pull could not create objects at all (its index carries an address, not a key), and the
     result was a station whose scheduled pull skipped every plan until somebody loaded the
     objects by hand.
+
+    ⚠️ The caller composes the key (`_object_key`) rather than `object_id_for_key` doing it,
+    which is a decision and not an oversight: that function is also the CLI's and the admin
+    UI's, and composing INSIDE it would silently re-key every object whose stored id was
+    derived from a decomposed name — the fix and the damage in one commit. Composing here fixes
+    what this connector mints from today on and leaves the existing rows to a migration
+    somebody chooses to run.
     """
     oid = object_id_for_key(key)
     obj = (await db.execute(select(ObjectSite).where(ObjectSite.id == oid))).scalar_one_or_none()
