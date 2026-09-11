@@ -9,6 +9,10 @@ export interface SetupFacts {
   users: number | null
   personnelActive: number | null
   heartbeatConfigured: boolean
+  /** `credentials && configured` from `GET /api/sharepoint/status` — the one fact that decides
+   *  whether the connector can do anything at all (SystemView · SharePointCard reads the same
+   *  status for its own card, one fetch shared by both). */
+  sharepointConfigured: boolean
 }
 
 /** A row somebody can actually tick: it counts towards «x von n» and keeps the card up. */
@@ -141,6 +145,15 @@ export function SetupChecklist({ cfg, facts, onGo }: {
       // that demands both would stay open on a station that is in fact biased correctly.
       key: 'geocoder', done: geocoderBiased, go: 'identitaet',
       label: C.geocoder, sub: geocoderBiased ? C.geocoderSet : C.geocoderOpen,
+    },
+    {
+      // Credentials alone are a silent no-op (scheduler.py never has a folder to poll), and a
+      // folder alone cannot exist without credentials to read it with — so the row only ticks
+      // once BOTH halves are true, same rule `sharepoint_status` (backend) already applies to
+      // `configured`. It leads to «Zugangsdaten», not the config file: that is the half of the
+      // setup this UI can actually offer a button for.
+      key: 'sharepoint', done: facts.sharepointConfigured, go: 'zugaenge',
+      label: C.sharepoint, sub: facts.sharepointConfigured ? C.sharepointSet : C.sharepointOpen,
     },
     {
       // A station that never learns its instance is down is the failure the whole ops story is

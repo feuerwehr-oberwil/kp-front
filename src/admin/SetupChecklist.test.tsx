@@ -34,7 +34,7 @@ const DONE_CFG = {
   },
   fleet: { vehicles: [{ id: 'tlf' }] },
 } as unknown as DeploymentConfig
-const DONE_FACTS: SetupFacts = { users: 4, personnelActive: 9, heartbeatConfigured: false }
+const DONE_FACTS: SetupFacts = { users: 4, personnelActive: 9, heartbeatConfigured: false, sharepointConfigured: true }
 
 const card = () => document.querySelector('.adm-setup')
 
@@ -45,7 +45,7 @@ describe('«Einrichtung» disappears once every row is done', () => {
   it('is gone when the browser-finishable setup is done — manual incidents are a valid steady state', () => {
     render(<SetupChecklist cfg={DONE_CFG} facts={DONE_FACTS} onGo={vi.fn()} />)
     expect(card()).not.toBeNull()
-    expect(screen.getByText(C.title.replace('{done}', '7').replace('{n}', '8'))).toBeTruthy()
+    expect(screen.getByText(C.title.replace('{done}', '8').replace('{n}', '9'))).toBeTruthy()
 
     cleanup()
     render(<SetupChecklist cfg={DONE_CFG} facts={{ ...DONE_FACTS, heartbeatConfigured: true }}
@@ -58,7 +58,7 @@ describe('«Einrichtung» disappears once every row is done', () => {
   it('counts Überwachung in the total while other rows are open', () => {
     render(<SetupChecklist cfg={{ ...DONE_CFG, fleet: { vehicles: [] } } as unknown as DeploymentConfig}
       facts={DONE_FACTS} onGo={vi.fn()} />)
-    expect(screen.getByText(C.title.replace('{done}', '6').replace('{n}', '8'))).toBeTruthy()
+    expect(screen.getByText(C.title.replace('{done}', '7').replace('{n}', '9'))).toBeTruthy()
     expect(screen.getByText(C.monitoringOpen)).toBeTruthy()
   })
 
@@ -95,7 +95,7 @@ describe('every row leads somewhere that can finish it', () => {
     render(<SetupChecklist cfg={{ ...DONE_CFG, fleet: { vehicles: [] } } as unknown as DeploymentConfig}
       facts={DONE_FACTS} onGo={vi.fn()} />)
     const rows = document.querySelectorAll('.adm-setup-row')
-    expect(rows.length).toBe(8)
+    expect(rows.length).toBe(9)
     rows.forEach((r) => {
       expect(r.tagName).toBe('BUTTON')
       expect(r.querySelector('.adm-setup-go')).not.toBeNull()
@@ -131,6 +131,26 @@ describe('the «Suchbereich» row', () => {
     render(<SetupChecklist cfg={withGeocoder({ defaultLocality: '  ', bboxLv95: '' })}
       facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
     expect(screen.getByText(C.geocoderOpen)).toBeTruthy()
+  })
+})
+
+// Credentials alone are a silent no-op (no folder to poll) and a folder alone cannot exist
+// without credentials to read it — so the row is a single fact, not two, and it points at the
+// half of the setup a browser can actually finish: Zugangsdaten, not the config file.
+describe('the «SharePoint-Anbindung» row', () => {
+  it('stays open until the status reports both credentials and a folder, and leads to «Zugangsdaten»', () => {
+    const onGo = vi.fn()
+    render(<SetupChecklist cfg={DONE_CFG}
+      facts={{ ...DONE_FACTS, heartbeatConfigured: true, sharepointConfigured: false }} onGo={onGo} />)
+    expect(screen.getByText(C.sharepointOpen)).toBeTruthy()
+    fireEvent.click(screen.getByText(C.sharepoint).closest('.adm-setup-row') as Element)
+    expect(onGo).toHaveBeenCalledWith('zugaenge')
+  })
+
+  it('ticks once both halves are in place', () => {
+    render(<SetupChecklist cfg={DONE_CFG}
+      facts={{ ...DONE_FACTS, heartbeatConfigured: true, sharepointConfigured: true }} onGo={vi.fn()} />)
+    expect(card()).toBeNull()
   })
 })
 
@@ -179,7 +199,7 @@ describe('«Abhaken» — die Zeile von Hand erledigen', () => {
     // …und mit dem Dokument, das dieser Schreibvorgang erzeugt, zählt die Zeile als erledigt
     rerender(<SetupChecklist cfg={acknowledged(['fleet'])} facts={DONE_FACTS} onGo={vi.fn()} />)
     expect(isDone(C.fleet)).toBe(true)
-    expect(screen.getByText(C.title.replace('{done}', '7').replace('{n}', '8'))).toBeTruthy()
+    expect(screen.getByText(C.title.replace('{done}', '8').replace('{n}', '9'))).toBeTruthy()
 
     rerender(<SetupChecklist cfg={acknowledged(['fleet'])} facts={DONE_FACTS} onGo={vi.fn()} />)
     expect(isDone(C.fleet)).toBe(true)

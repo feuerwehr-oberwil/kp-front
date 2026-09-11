@@ -240,3 +240,66 @@ describe('running it by hand', () => {
     expect(await screen.findByText(C.spSyncFailed)).toBeTruthy()
   })
 })
+
+describe('«Verbindung testen» — the setupOf()-gated probe (POST /api/sharepoint/probe)', () => {
+  it('offers Zugangsdaten instead of a probe while nothing is set up at all', async () => {
+    serve({ configured: false, credentials: false, intervalMinutes: 60, secretExpiresInDays: null, areas: [] })
+    const onNavigate = vi.fn()
+    render(<SystemView onNavigate={onNavigate} />)
+
+    await screen.findByText(C.spNotSetUp)
+    // A probe here can only fail, and the failure would teach nothing beyond «nicht eingerichtet».
+    expect(screen.queryByRole('button', { name: C.spTestConnection })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: C.spOpenCredentials }))
+    expect(onNavigate).toHaveBeenCalledWith('zugaenge')
+  })
+
+  it('warns rather than staying neutral once credentials exist but no folder does — and keeps the probe', async () => {
+    serve({ configured: false, credentials: true, intervalMinutes: 60, secretExpiresInDays: 400, areas: [] })
+    render(<SystemView />)
+
+    const badge = (await screen.findByText(C.spNoSources)).closest('.adm-badge')
+    expect(badge?.classList.contains('warn')).toBe(true)
+    // The probe only needs a token, so it is offered even with zero folders configured.
+    expect(screen.getByRole('button', { name: C.spTestConnection })).toBeTruthy()
+  })
+
+  it('flags a client secret with no recorded expiry, even once folders are configured', async () => {
+    serve({
+      configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: null,
+      areas: [area({})],
+    })
+    render(<SystemView />)
+
+    const badge = (await screen.findByText(C.spSecretMissing)).closest('.adm-badge')
+    expect(badge?.classList.contains('warn')).toBe(true)
+  })
+
+  it('reports success against the server’s own answer', async () => {
+    serve({
+      configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: 400,
+      areas: [area({})],
+    })
+    apiPost.mockResolvedValue({ ok: true, detail: null })
+    render(<SystemView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: C.spTestConnection }))
+
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/sharepoint/probe', {}))
+    expect(await screen.findByText(C.spTestOk)).toBeTruthy()
+  })
+
+  it('shows the tenant’s own sentence when the probe fails, not a generic message', async () => {
+    serve({
+      configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: 400,
+      areas: [area({})],
+    })
+    apiPost.mockResolvedValue({ ok: false, detail: 'AADSTS7000222: client secret keys are expired.' })
+    render(<SystemView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: C.spTestConnection }))
+
+    expect(await screen.findByText(/AADSTS7000222/)).toBeTruthy()
+  })
+})

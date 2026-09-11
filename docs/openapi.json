@@ -9851,6 +9851,58 @@
         }
       }
     },
+    "/api/sharepoint/probe": {
+      "post": {
+        "tags": [
+          "sharepoint"
+        ],
+        "summary": "Probe",
+        "description": "A cheap «are these credentials any good» check, answered while an operator is watching —\nnot the same question as `POST /sync`, which imports files and can take a while. See\n:func:`sharepoint_probe`.",
+        "operationId": "probe_api_sharepoint_probe_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Probe Api Sharepoint Probe Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/diag/client-error": {
       "post": {
         "tags": [

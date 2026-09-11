@@ -111,7 +111,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `roster.ranks` | ✅ | the CSV import's «Grade zuordnen» → `adopt` (§4b) – **and** the Arbeitsmappe (§9h). There is no rank *form* |
 | `mittel.units` | ❌ | **file only** – the Arbeitsmappe does not carry it |
 | `alarmKeywords` | ❌ | **file only** – it is a paste-a-document, not a fill-a-form (§1a) |
-| `sharepoint.intervalMinutes`, `.sources` | ❌ | **file only** – which folders the station pulls from is set up once and then wants to be reviewable and reproducible (§6c). The three Azure **credentials** are in the browser, at `/admin` → Zugangsdaten › SharePoint; System › SharePoint-Anbindung is the read-out |
+| `sharepoint.intervalMinutes`, `.sources` | ❌ | **file only** – which folders the station pulls from is set up once and then wants to be reviewable and reproducible (§6c). The four Azure **credentials** are in the browser, at `/admin` → Zugangsdaten › SharePoint; System › SharePoint-Anbindung is the read-out |
 
 Two things that are **not** part of this document and are managed on their own pages: the
 integration credentials (`/admin` → **Zugangsdaten**, §6) and the three database-stored tokens
@@ -1121,7 +1121,7 @@ Geodaten, Checklisten and the Arbeitsmappe are imported on a schedule. **Read-on
 pull-only** – nothing is ever written back to SharePoint.
 
 It is split the way everything else in this doc is. The **credentials** (Azure tenant id, client
-id, client secret, plus the date the secret expires) are three of the 🔐 integration credentials
+id, client secret, plus the date the secret expires) are four of the 🔐 integration credentials
 above, set at `/admin` → Zugangsdaten › SharePoint. The **folders** are config-as-code, in the
 document's `sharepoint` section:
 

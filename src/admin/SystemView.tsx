@@ -138,29 +138,31 @@ function areaTone(status: string): 'on' | 'off' | 'warn' | 'err' {
  * It renders even when nothing is configured. «Nicht eingerichtet» is a state an operator needs
  * to read; a card that draws nothing looks exactly like one whose fetch failed.
  */
-function SharePointCard() {
+/** Transient result of the «Verbindung testen» probe — same three-way shape DataView's
+ *  provider pages use for their own connection tests (ok / off / err), minus the 'off' case:
+ *  a probe is only ever offered once credentials exist, so it cannot come back «nicht
+ *  konfiguriert». `err` carries the server's own sentence when it has one. */
+type ProbeState = { kind: 'idle' } | { kind: 'testing' } | { kind: 'ok' } | { kind: 'err'; text: string }
+
+function SharePointCard({
+  status, failed, onReload, onNavigate,
+}: {
+  status: SharePointStatus | null
+  failed: boolean
+  onReload: () => Promise<void>
+  onNavigate?: (id: string) => void
+}) {
   const C = appConfig.copy.admin.system
-  const [state, setState] = useState<SharePointStatus | null>(null)
-  const [failed, setFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      setState(await apiGet<SharePointStatus>('/api/sharepoint/status'))
-      setFailed(false)
-    } catch {
-      setFailed(true)
-    }
-  }, [])
-  useEffect(() => { void load() }, [load])
+  const [probe, setProbe] = useState<ProbeState>({ kind: 'idle' })
 
   const runNow = async () => {
     setBusy(true)
     try {
       await apiPost('/api/sharepoint/sync', {})
       setResult({ tone: 'ok', text: C.spSynced })
-      await load()
+      await onReload()
     } catch {
       setResult({ tone: 'err', text: C.spSyncFailed })
     } finally {
@@ -168,26 +170,83 @@ function SharePointCard() {
     }
   }
 
-  if (failed) return <Card title={C.sharepoint} tip={C.sharepointTip}><EmptyState tone="err" message={C.error} /></Card>
-  if (state === null) return null
+  // «Verbindung testen» — the setupOf()-gated pattern DataView's provider pages use (unconfigured
+  // hides the probe and offers Zugangsdaten, configured-but-unreachable keeps it), applied to a
+  // connector whose OWN status already tells credentials and folders apart: here that fact is
+  // simply `status.credentials`, since the probe (api/sharepoint · POST /probe) only needs a
+  // token — it works with zero folders configured, exactly like this button does.
+  const runProbe = async () => {
+    setProbe({ kind: 'testing' })
+    try {
+      const res = await apiPost<{ ok: boolean; detail: string | null }>('/api/sharepoint/probe', {})
+      setProbe(res.ok ? { kind: 'ok' } : { kind: 'err', text: res.detail || C.spTestFailed })
+    } catch {
+      setProbe({ kind: 'err', text: C.spTestFailed })
+    }
+  }
 
-  const days = state.secretExpiresInDays
+  if (failed) return <Card title={C.sharepoint} tip={C.sharepointTip}><EmptyState tone="err" message={C.error} /></Card>
+  if (status === null) return null
+
+  const days = status.secretExpiresInDays
+  // The countdown is a fact about the SECRET, independent of whether a folder is configured yet
+  // — a station that set its credentials and stopped there still deserves to know its secret
+  // carries no recorded expiry (dossier risk #10), or is close to one.
+  const secretBadge = !status.credentials ? null
+    : days === null
+      ? <StatusBadge tone="warn" label={C.spSecret} state={C.spSecretMissing} />
+      : days <= SECRET_WARN_DAYS
+        ? (
+          <StatusBadge
+            tone={days < 0 ? 'err' : 'warn'}
+            label={C.spSecret}
+            state={days < 0 ? C.spSecretExpired : fillTemplate(C.spSecretExpires, { days: String(days) })}
+          />
+        )
+        : null
+
+  const probeButton = (
+    <span className="adm-test">
+      <button type="button" className="btn adm-int-btn" disabled={probe.kind === 'testing'} onClick={() => void runProbe()}>
+        {probe.kind === 'testing' ? C.spTesting : C.spTestConnection}
+      </button>
+      {probe.kind === 'ok' && (
+        <ResultChip key="ok" tone="ok" onExpire={() => setProbe({ kind: 'idle' })}>{C.spTestOk}</ResultChip>
+      )}
+      {probe.kind === 'err' && (
+        <ResultChip key="err" tone="err" onExpire={() => setProbe({ kind: 'idle' })}>{probe.text}</ResultChip>
+      )}
+    </span>
+  )
+
   return (
     <Card title={C.sharepoint} tip={C.sharepointTip}>
-      {!state.configured ? (
+      {!status.credentials ? (
+        // Unconfigured: no probe offered — it can only fail, and the failure would teach an
+        // operator nothing they cannot already read off «nicht eingerichtet». Zugangsdaten is
+        // where this is actually fixed (same move as DataView's OpenCredentials).
         <EmptyState
-          message={state.credentials ? C.spNoSources : C.spNotSetUp}
-          hint={state.credentials ? C.spNoSourcesHint : C.spNotSetUpHint}
+          message={C.spNotSetUp}
+          hint={C.spNotSetUpHint}
+          action={onNavigate && (
+            <button type="button" className="btn adm-save-btn" onClick={() => onNavigate('zugaenge')}>
+              {C.spOpenCredentials}
+            </button>
+          )}
         />
+      ) : !status.configured ? (
+        // Credentials exist but no folder does yet — a warn-tone badge, not the neutral
+        // «nicht eingerichtet» look, because this is a station one step further along that a
+        // silent scheduler.py no-op would otherwise leave looking identical to «off».
+        <>
+          <StatusBadge tone="warn" label="" state={C.spNoSources} />
+          <p className="adm-card-cap">{C.spNoSourcesHint}</p>
+          {secretBadge}
+          <div className="adm-sys-actions">{probeButton}</div>
+        </>
       ) : (
         <>
-          {days !== null && days <= SECRET_WARN_DAYS && (
-            <StatusBadge
-              tone={days < 0 ? 'err' : 'warn'}
-              label={C.spSecret}
-              state={days < 0 ? C.spSecretExpired : fillTemplate(C.spSecretExpires, { days: String(days) })}
-            />
-          )}
+          {secretBadge}
           <div className="adm-table-wrap">
             <table className="adm-table">
               <thead>
@@ -198,7 +257,7 @@ function SharePointCard() {
                 </tr>
               </thead>
               <tbody>
-                {state.areas.map((a) => (
+                {status.areas.map((a) => (
                   <tr key={a.area}>
                     <td>
                       <span className="adm-ref-title">{C.spAreas[a.area] ?? a.area}</span>
@@ -236,6 +295,7 @@ function SharePointCard() {
               <Icon id="rotate" />
               {busy ? C.spSyncing : C.spSyncNow}
             </button>
+            {probeButton}
             {result && (
               <ResultChip key={result.text} tone={result.tone} onExpire={() => setResult(null)}>
                 {result.text}
@@ -425,7 +485,22 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
     }
   }, [])
 
+  // Fetched here rather than inside SharePointCard: the Einrichtung checklist needs the same
+  // `credentials`/`configured` facts the card renders, and a status this cheap is one fetch
+  // shared by both rather than two independent ones racing each other on every page load.
+  const [spStatus, setSpStatus] = useState<SharePointStatus | null>(null)
+  const [spFailed, setSpFailed] = useState(false)
+  const loadSp = useCallback(async () => {
+    try {
+      setSpStatus(await apiGet<SharePointStatus>('/api/sharepoint/status'))
+      setSpFailed(false)
+    } catch {
+      setSpFailed(true)
+    }
+  }, [])
+
   useEffect(() => { void load() }, [load])
+  useEffect(() => { void loadSp() }, [loadSp])
 
   return (
     <div className="adm-editor">
@@ -464,6 +539,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                 users: counts?.users ?? null,
                 personnelActive: counts?.personnel_active ?? null,
                 heartbeatConfigured: !!monitoring?.heartbeatConfigured,
+                sharepointConfigured: !!spStatus?.credentials && !!spStatus?.configured,
               }}
               onGo={(id) => onNavigate?.(id)}
             />
@@ -632,7 +708,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
 
             {/* What the station pulls in from its own SharePoint — and, above all, when it
                 last managed to. */}
-            <SharePointCard />
+            <SharePointCard status={spStatus} failed={spFailed} onReload={loadSp} onNavigate={onNavigate} />
 
             {/* Client-side offline cache (this device) — a half-row card in the grid. */}
             <OfflineCacheCard />
