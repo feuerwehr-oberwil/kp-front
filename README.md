@@ -15,15 +15,16 @@ exports; integrations add data but are not required to operate it.
 ## Try the demo
 
 The [public demo](https://demo.kp-front.ch) contains a running Zimmerbrand at the
-Schloss in fictional Musterdorf. Credentials are shown on the login screen, and the demo resets
-every twelve hours (00:00 and 12:00 Europe/Zurich) – edits persist until the next reset.
+Schloss in fictional Musterdorf. Credentials are shown on the login screen. The demo keeps
+your edits during the day and resets nightly (00:00 Europe/Zurich); a daily workflow reloads
+the station data – config, geodata and object plans – on top of that.
 
 The repository includes the same synthetic station dataset in
 [`examples/demo-data/`](examples/demo-data/). No real station data is bundled.
 
-| Lage – live command picture | Trupps – SCBA teams on the clock |
+| Karte – live command picture | Trupps – SCBA teams on the clock |
 | --- | --- |
-| ![Lage map](docs/screenshots/lage.png) | ![Trupps](docs/screenshots/atemschutz.png) |
+| ![Karte – the tactical map](docs/screenshots/lage.png) | ![Trupps board](docs/screenshots/atemschutz.png) |
 | **Gebäude – floor stack and AGT tracking** | **Material – material use by source** |
 | ![Gebäude](docs/screenshots/gebaeude.png) | ![Material](docs/screenshots/mittel.png) |
 
@@ -37,7 +38,7 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
   Divera, Traccar, hydrant, and cadastre data.
 - **Offline-first.** Field data is cached, readiness is verified, and edits sync when the
   connection returns.
-- **One command surface.** Lage, Plan, Checkliste, Trupps, Anwesenheit, Material, Verlauf,
+- **One command surface.** Karte, Plan, Checkliste, Trupps, Anwesenheit, Material, Verlauf,
   and reporting share consistent controls.
 - **Made for 3am.** Recognition over recall, safe defaults, large touch targets, and undo for
   mutable actions.
@@ -47,7 +48,7 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 
 ## Highlights
 
-- **Lage:** MapLibre map, tactical symbols, drawing, sectors, radii, notes, photos, and audio.
+- **Karte:** MapLibre map, tactical symbols, drawing, sectors, radii, notes, photos, and audio.
 - **Plan:** Image-backed whiteboards with symbols, resources, scale calibration, measurement,
   and georeferencing – pairing a plan to the map with reference points, then transferring
   objects between plan and map as linked twins.
@@ -118,8 +119,13 @@ just dev         # PostgreSQL + API (:8001) + frontend (:5188), Ctrl+C stops all
 migrates, and runs both servers in one terminal. For the frontend alone (no database, no
 backend, built-in demo data): `pnpm dev`.
 
-Log in with the seeded default editor – user `fu` (Führungsunterstützung), PIN `000000`
-(from `backend/app/seed_users.json`; change it after first login).
+**Development and demo only:** log in as user `fu` (Führungsunterstützung) with PIN `000000`,
+the PIN carried by the bundled `backend/app/seed_users.json`. A self-hosted installation never
+gets that PIN: with `ENVIRONMENT=production` the seeder demands its own `SEED_PIN` and refuses
+to boot without one, and `000000` – like `123456` and the other well-known PINs – is rejected
+outright, whether it arrives as `SEED_PIN` at boot or through the admin UI's PIN sheet
+(`backend/app/auth/security.py` · `TRIVIAL_PINS`). Pick a non-obvious `SEED_PIN`, and change it
+after the first login.
 
 ### Common recipes
 
@@ -209,7 +215,7 @@ per station. Full diagrams (data provenance, backend modules, config layers, syn
 ```mermaid
 flowchart TB
   subgraph CLIENT["Browser – installable PWA"]
-    UI["Lage (map) · Plan (whiteboard)<br/>React + MapLibre GL"]
+    UI["Karte (map) · Plan (whiteboard)<br/>React + MapLibre GL"]
     SW["Service worker<br/>precache · offline"]
     UI --- SW
   end
