@@ -142,14 +142,19 @@ function CredentialRow({ cred, onChanged }: { cred: CredentialState; onChanged: 
         {cred.source === 'env' ? (
           // No input at all — an editable box that cannot take effect is a lie, and the
           // variable name is what an operator needs to go and change it where it lives.
+          // ⚠️ `adm-cred-val` on every shown value, never a bare `adm-mono`: the one credential
+          // here that is not a secret is the VAPID public key, 87 characters of base64url with
+          // no break opportunity in them (credentials.css · «a value that is READ»).
           <>
-            <code className="adm-mono">{cred.env}</code>
-            {!cred.secret && cred.value ? <code className="adm-mono">{cred.value}</code> : null}
+            <code className="adm-mono adm-cred-val">{cred.env}</code>
+            {!cred.secret && cred.value
+              ? <code className="adm-mono adm-cred-val">{cred.value}</code>
+              : null}
           </>
         ) : (
           <>
             {!cred.secret && cred.source === 'stored' && cred.value && (
-              <code className="adm-mono">{cred.value}</code>
+              <code className="adm-mono adm-cred-val">{cred.value}</code>
             )}
             <span className="adm-cred-edit">
               <input

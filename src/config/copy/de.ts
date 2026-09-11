@@ -5730,7 +5730,6 @@ export const de = {
       filterPlaceholder: 'Symbol suchen …',
       loading: 'Symbolbibliothek wird geladen …',
       noMatches: 'Kein Symbol passt zur Suche.',
-      noAttributes: 'Keine Felder.',
       fieldTitle: 'Titel',
       fieldMeaningTitle: 'Spezielle Felder',
       guideTitle: 'Felder und Eigenschaften erklärt',

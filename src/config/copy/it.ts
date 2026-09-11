@@ -3522,7 +3522,6 @@ export const it: Localizable<Copy> = {
       filterPlaceholder: 'Cerca simbolo …',
       loading: 'Caricamento della libreria dei simboli …',
       noMatches: 'Nessun simbolo corrisponde alla ricerca.',
-      noAttributes: 'Nessun campo.',
       fieldTitle: 'Titolo',
       fieldMeaningTitle: 'Campi speciali',
       guideTitle: 'Spiegazione di campi e proprietà',

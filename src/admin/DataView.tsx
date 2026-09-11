@@ -13,6 +13,7 @@ import type {
   DiveraAlarm,
 } from '../lib/incidents'
 import type { VehiclePosition } from '../types'
+import { isGeoDataset } from '../lib/api/reference'
 import { providerLabel } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -757,7 +758,10 @@ export function GeodataView({ title }: {
     let alive = true
     void (async () => {
       try {
-        const refs = await listReference()
+        // Geodata ONLY. `/api/reference` is one registry for every global dataset — the
+        // Checklisten templates and their diagram assets come back too, and on a Kartenebenen
+        // page they are somebody else's data (lib/api/reference · isGeoDataset carries the rule).
+        const refs = (await listReference()).filter((r) => isGeoDataset(r.id))
         if (alive) setState({ kind: 'ok', data: refs })
       } catch (e) {
         if (alive) setState({ kind: classify(e) })

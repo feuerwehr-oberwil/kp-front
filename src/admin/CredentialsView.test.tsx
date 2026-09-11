@@ -76,6 +76,30 @@ describe('a credential the server supplies', () => {
   })
 })
 
+/** The one credential here that is NOT a secret is the VAPID public key: 87 characters of
+ *  base64url, no space, no hyphen, no slash. jsdom cannot tell us whether it wraps (that is
+ *  tmp/overflowcheck.cjs), but it can pin the hook the stylesheet needs — a shown value must
+ *  carry `adm-cred-val`, never a bare `adm-mono`, or the key leaves its column and runs off the
+ *  card at every width. */
+describe('a credential whose value IS shown', () => {
+  const VAPID = 'BBN1R0i0yxSE9bpDidzVR5zdniqzLQNxwBPp6BydTD_SC6jX3FcR2jujvFsKTxUHhq'
+    .padEnd(87, 'Kx7vQ2mN9pRs4tUw1yZb3cDe5fGh8jL0')
+
+  it.each([
+    ['from .env', 'env' as const],
+    ['from the store', 'stored' as const],
+  ])('marks the long token breakable (%s)', async (_case, source) => {
+    serve([cred({
+      name: 'vapid_public_key', group: 'push', label: 'VAPID Public Key', secret: false,
+      source, configured: true, env: 'VAPID_PUBLIC_KEY', value: VAPID,
+    })])
+    render(<CredentialsView />)
+
+    const shown = await screen.findByText(VAPID)
+    expect(shown.className).toContain('adm-cred-val')
+  })
+})
+
 describe('a credential that will not decrypt', () => {
   it('says «unlesbar» and asks for it again, never «nicht gesetzt»', async () => {
     serve([cred({ source: 'unreadable', configured: false, updatedAt: '2026-08-01T10:00:00Z' })])

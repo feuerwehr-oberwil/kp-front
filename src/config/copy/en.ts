@@ -3721,7 +3721,6 @@ export const en: Localizable<Copy> = {
       filterPlaceholder: 'Search symbol …',
       loading: 'Loading symbol library …',
       noMatches: 'No symbol matches the search.',
-      noAttributes: 'No fields.',
       fieldTitle: 'Title',
       fieldMeaningTitle: 'Special fields',
       guideTitle: 'Fields and properties explained',

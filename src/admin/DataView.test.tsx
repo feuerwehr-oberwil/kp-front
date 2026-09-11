@@ -73,7 +73,7 @@ describe('DataView — all wired up', () => {
       },
     ])
     listReference.mockResolvedValue([
-      { id: 'hydranten', object_id: null, module: null, kind: 'geojson', title: 'Hydranten', source_type: 'export', source_note: 'BL', content_type: 'application/json', size_bytes: 2048, feature_count: 42, current_version: 1, updated_at: '2026-01-02T00:00:00Z' },
+      { id: 'geo:hydranten', object_id: null, module: null, kind: 'geojson', title: 'Hydranten', source_type: 'export', source_note: 'BL', content_type: 'application/json', size_bytes: 2048, feature_count: 42, current_version: 1, updated_at: '2026-01-02T00:00:00Z' },
     ])
 
     render(<DataView />)
@@ -85,6 +85,25 @@ describe('DataView — all wired up', () => {
     expect(screen.getByText('modul1')).toBeTruthy()
     expect(await screen.findByText('Hydranten')).toBeTruthy()
     expect(screen.getByText('42')).toBeTruthy()
+  })
+
+  // ⚠️ `/api/reference` is ONE registry for every global dataset: the Checklisten templates and
+  // their diagram assets sit in it beside the map layers, and Kartenebenen used to list them all.
+  it('Kartenebenen lists the geodata only — no Checklisten, no symbol pack', async () => {
+    apiGet.mockRejectedValue(new ApiError(503, 'off'))
+    listReference.mockResolvedValue([
+      { id: 'geo:hydrant', object_id: null, module: null, kind: 'geojson', title: 'Hydranten', source_type: 'uploaded', source_note: null, content_type: 'application/geo+json', size_bytes: 10, feature_count: 42, current_version: 2, updated_at: '2026-01-02T00:00:00Z' },
+      { id: 'checklists:el-taktik', object_id: null, module: null, kind: 'checklists', title: 'EL Taktik', source_type: 'uploaded', source_note: null, content_type: 'application/json', size_bytes: 10, feature_count: null, current_version: 1, updated_at: '2026-01-02T00:00:00Z' },
+      { id: 'checklists:el-taktik:p12', object_id: null, module: null, kind: 'checklists', title: 'EL Taktik S. 12', source_type: 'uploaded', source_note: null, content_type: 'image/jpeg', size_bytes: 10, feature_count: null, current_version: 1, updated_at: '2026-01-02T00:00:00Z' },
+      { id: 'symbols:tactical', object_id: null, module: null, kind: 'symbols', title: 'Taktische Zeichen', source_type: 'uploaded', source_note: null, content_type: 'application/json', size_bytes: 10, feature_count: null, current_version: 1, updated_at: '2026-01-02T00:00:00Z' },
+    ])
+
+    render(<GeodataView />)
+
+    expect(await screen.findByText('Hydranten')).toBeTruthy()
+    expect(screen.queryByText('EL Taktik')).toBeNull()
+    expect(screen.queryByText('EL Taktik S. 12')).toBeNull()
+    expect(screen.queryByText('Taktische Zeichen')).toBeNull()
   })
 
   it('Aktualisieren re-reads the Divera pool', async () => {

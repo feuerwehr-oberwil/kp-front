@@ -41,7 +41,7 @@ function fieldCells(C: typeof appConfig.copy.admin.fleet, opts: { roster: boolea
   if (opts.roster) {
     return {
       source: <span className="adm-fleet-rosterpill"><Icon id="people" />{C.rosterField}</span>,
-      values: <span className="adm-fleet-freeval">—</span>,
+      values: <span className="adm-fleet-freeval">–</span>,
     }
   }
   if (opts.configured) {
@@ -107,7 +107,11 @@ export function FleetAttributesViewer({ lists }: { lists: FleetAttributeList[] }
       rows.push({ key: `c:${r.field}`, label: r.field, cells: fieldCells(C, { roster: isRoster, configured: true, options: r.options }) })
     }
     if (rows.length === 0) {
-      rows.push({ key: '∅', label: C.noAttributes, muted: true, cells: { source: null, values: null } })
+      // A symbol with no fields gets the house dash, not a sentence: in a dense table a cell
+      // that reads «Keine Felder.» scans as a value. Same «nothing here» mark the roster table
+      // sets for a person without Dienstgrad (copy.admin.roster · rankNone) and the two empty
+      // cells beside it here. Empty STATES (a whole table with nothing in it) stay prose.
+      rows.push({ key: '∅', label: '–', muted: true, cells: { source: null, values: null } })
     }
     return rows
   }
@@ -194,7 +198,7 @@ export function FleetAttributesViewer({ lists }: { lists: FleetAttributeList[] }
                       <td rowSpan={span}>
                         {controls.length > 0
                           ? <span className="adm-fleet-props">{controls.map((c) => <span className="adm-fleet-prop" key={c}>{C.controls[c]}</span>)}</span>
-                          : <span className="adm-fleet-freeval">—</span>}
+                          : <span className="adm-fleet-freeval">–</span>}
                       </td>
                     )}
                     <td className={row.muted ? undefined : 'adm-vfield'}>

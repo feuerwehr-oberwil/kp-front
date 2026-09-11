@@ -64,6 +64,25 @@ export function geoDatasetId(url: unknown): string | null {
 }
 
 /**
+ * Is this registry row a map layer?
+ *
+ * `GET /api/reference` is ONE registry for every GLOBAL dataset a station holds: the `geo:`
+ * layers, the `checklists:<slug>` templates plus their `checklists:<slug>:p<N>` diagram assets,
+ * and the legacy `symbols:*` packs. Only per-object `plan:*` rows are already kept out — they
+ * carry an `object_id` and the endpoint filters on it. So a page that renders the listing raw
+ * shows another page's data; the Kartenebenen card listed every Checkliste.
+ *
+ * The rule is the `geo:` ID PREFIX, not `kind`. The prefix is what makes a dataset addressable
+ * AS a layer — a reference-layer config points at `/api/reference/geo:<slug>` and `geoDatasetId`
+ * above reads that id back out — while `kind` is merely derived from the upload's content type
+ * (api/reference · replace_reference), so any JSON PUT to any id is stored as 'geojson'.
+ *
+ * The other half of the same partition is `admin/stationDataApi · checklistSlug`, which the
+ * Checklisten page uses to keep to its own rows.
+ */
+export const isGeoDataset = (id: string): boolean => id.startsWith('geo:')
+
+/**
  * One layer merged into a stored `referenceLayers` list — the merge rule, without the write.
  *
  * ⚠️ MERGED over the previous row, never replacing it, and IN PLACE. `referenceLayers` has three

@@ -57,12 +57,36 @@
    two-step question in their place (same shape as ui/ConfirmButton). */
 .lnk-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 
+/* ⚠️ The buttons in that cell WRAP their label. `.btn` is `white-space: nowrap`, which is right
+   for a floating control on the map and wrong in a 20 %-wide table column: the one row whose key
+   is off carries the page's longest label («Aktivieren & Einrichtungs-Link erzeugen»), and nowrap
+   kept it at its one-line width — the flex item shrank, the text did not, and it painted straight
+   over the Status column's ⓘ and off the right edge of the card.
+
+   The button stays OPEN rather than joining the ⋮ menu: an off row has exactly one thing you can
+   do to it, and a row that looks dead is the last one anybody opens a menu on. So it is held to
+   the cell instead — `max-width` against the print buttons' `flex: 1`, and a wrapped, centred
+   label. */
+.lnk-acts > .btn { max-width: 100%; white-space: normal; text-align: center; }
+
 /* Phone: the columns become stacked labelled blocks. A four-column table at 400px is either a
    horizontal scroller nobody finds or four unreadable slivers. */
 @media (max-width: 720px) {
-  .adm-table.lnk-table { table-layout: auto; }
+  /* ⚠️ `display: block`, not just `table-layout: auto`. A `display: table` box is never narrower
+     than its own min-content, and the Adresse chip's min-content is the whole un-ellipsised URL
+     (`.adm-copychip code` is `white-space: nowrap`) — so at 400px the table sat 32px wider than
+     the card it lives in and the page scrolled sideways, which is the one thing this breakpoint
+     exists to prevent. Below 720 nothing here is a table any more anyway: every cell is a block. */
+  .adm-table.lnk-table { display: block; table-layout: auto; }
   .adm-table.lnk-table thead { display: none; }
   .adm-table.lnk-table tbody, .adm-table.lnk-table tr, .adm-table.lnk-table td { display: block; width: auto; }
+  /* ⚠️ …and the four column widths have to be revoked BY THE SAME SELECTOR SHAPE. The rules at
+     the top of this file are `…lnk-table td:nth-child(3)`, which outspecifies the bare
+     `…lnk-table td` above: without this line every stacked block kept its desktop share of the
+     row, so «Aktionen» was a 62px sliver at 400px — four unreadable slivers stacked, which is
+     exactly what the comment above says this breakpoint exists to prevent. `:nth-child(n)`
+     matches every cell at the same specificity and wins on source order. */
+  .adm-table.lnk-table th:nth-child(n), .adm-table.lnk-table td:nth-child(n) { width: auto; }
   .adm-table.lnk-table tr { padding: 12px 0; border-bottom: 1px solid var(--border); }
   .adm-table.lnk-table tr:last-child { border-bottom: none; }
   .adm-table.lnk-table td { border-bottom: none; padding: 5px 0; width: auto; }
