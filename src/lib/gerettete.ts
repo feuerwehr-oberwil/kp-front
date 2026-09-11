@@ -13,6 +13,8 @@ import { appConfig } from '../config/appConfig'
 
 /** The bits of a placed symbol this reads — Lage entities and plan-board annotations alike. */
 export interface RescueCandidate {
+  /** the object's own id — the SAME id on both views of one record (see geretteteFromLage) */
+  id?: string
   symbol?: string
   count?: number
   fields?: Record<string, string>
@@ -40,20 +42,32 @@ function num(v: string | undefined): number {
  * real rescues; over-offering is visible and one tap away from being corrected, which is the
  * safer way round for a number that goes on a Rapport.
  *
- * ⚠️ An untouched count on a symbol that DOES state animals contributes no person. The count
- * stepper is empty until somebody sets it, and a Stall with twelve cows is «12 Tiere», not
- * «1 Person und 12 Tiere» — reading the default as a person would invent people out of every
- * animal rescue. Everywhere else an unset count means the one thing the symbol marks.
+ * ⚠️ An unset count is ONE person, animals or not. The editors store the stepper's 1 as
+ * `undefined` (IncidentWorkspace / Whiteboard normalise it away) and the stepper's floor is 1 —
+ * the panel literally reads «Anzahl Personen: 1» on such a symbol, so counting it as 0 would
+ * silently lose the person on «1 Person und 3 Tiere». An animals-only rescue is unrepresentable
+ * in the editor; until it is, the symbol counts the person its panel shows (decided 11.09.).
+ *
+ * ⚠️ IDS COLLIDE BY DESIGN, so one record is counted ONCE. Since the unified-objects rework
+ * `entities` and `board` are two VIEWS of the same records (lib/tacticalObjects · viewsOf,
+ * lib/planProjection · projectOnto), and the caller hands us their union: a rescue near one
+ * georeferenced plan arrives twice, near two plans three times, `count` carried verbatim. A
+ * candidate without an id is its own record — the dedup only ever skips a repeated id.
  */
 export function geretteteFromLage(placed: readonly RescueCandidate[]): GeretteteCount {
   const rescue = appConfig.symbols.rescueName
+  const seen = new Set<string>()
   let personen = 0
   let tiere = 0
   for (const p of placed) {
     if (p.symbol !== rescue) continue
+    if (p.id != null) {
+      if (seen.has(p.id)) continue
+      seen.add(p.id)
+    }
     const animals = num(p.fields?.[TIERE_FIELD])
     tiere += animals
-    personen += p.count ?? (animals ? 0 : 1)
+    personen += p.count ?? 1
   }
   return { personen, tiere }
 }

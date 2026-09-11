@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, test } from 'vitest'
 import { geretteteFromLage, geretteteOffer, type RescueCandidate } from './gerettete'
 
 const r = (extra: Partial<RescueCandidate> = {}): RescueCandidate => ({ symbol: 'VKF Rettungen', ...extra })
@@ -17,9 +17,11 @@ describe('geretteteFromLage', () => {
       .toEqual({ personen: 1, tiere: 3 })
   })
 
-  // a Stall with twelve cows is «12 Tiere», not «1 Person und 12 Tiere»
-  it('invents no person for an animal-only rescue', () => {
-    expect(geretteteFromLage([r({ fields: { 'Anzahl Tiere': '12' } })])).toEqual({ personen: 0, tiere: 12 })
+  // Decided 11.09.: an unset count is the ONE person the panel shows («Anzahl Personen: 1»,
+  // stepper floor 1) — even with animals set. An animals-only rescue is unrepresentable in the
+  // editor; a Stall with twelve cows reads «1 Person und 12 Tiere» until the stepper can say 0.
+  it('counts the panel’s one person even when animals are set', () => {
+    expect(geretteteFromLage([r({ fields: { 'Anzahl Tiere': '12' } })])).toEqual({ personen: 1, tiere: 12 })
   })
 
   // «vermisst» / «eingesperrt» are states a rescue passes through; the ones still reading
@@ -41,6 +43,27 @@ describe('geretteteFromLage', () => {
   it('ignores an unparseable or negative animal count', () => {
     expect(geretteteFromLage([r({ count: 1, fields: { 'Anzahl Tiere': 'viele' } })]))
       .toEqual({ personen: 1, tiere: 0 })
+  })
+
+  // Since unified objects the caller's union is entities + board, and ONE record shows up in
+  // both — the same id, `count` carried verbatim. Three rescued people were offered as six.
+  it('counts one record once, however many views of it arrive', () => {
+    const onLage = r({ id: 'obj-1', count: 3 })
+    const onPlan = r({ id: 'obj-1', count: 3 })
+    expect(geretteteFromLage([onLage, onPlan])).toEqual({ personen: 3, tiere: 0 })
+    // two georeferenced plans project the same record onto both
+    expect(geretteteFromLage([onLage, onPlan, r({ id: 'obj-1', count: 3 })])).toEqual({ personen: 3, tiere: 0 })
+  })
+
+  it('still sums two genuinely different symbols', () => {
+    expect(geretteteFromLage([r({ id: 'obj-1', count: 3 }), r({ id: 'obj-2', count: 2 })]))
+      .toEqual({ personen: 5, tiere: 0 })
+  })
+
+  // The editors normalise a count of 1 to `undefined` (IncidentWorkspace · Whiteboard) — this
+  // used to read as 0 Personen once animals were set, losing the person the panel showed.
+  test('a symbol stating 1 Person and 3 Tiere offers that one person', () => {
+    expect(geretteteFromLage([r({ fields: { 'Anzahl Tiere': '3' } })])).toEqual({ personen: 1, tiere: 3 })
   })
 })
 

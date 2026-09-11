@@ -3818,10 +3818,15 @@ export function IncidentWorkspace({
   // Symbol→Mittel moved OUT of the symbol's card (28.08.): the Material surface itself now shows
   // the «Gesetzt, aber nicht erfasst» strip, fed with every symbol standing on Lage + all plans.
   // The «has this station mapped anything» gate lives inside mittelRecommendations.
+  // ⚠️ Deduped by id: since unified objects `entities` and `board` are two VIEWS of the same
+  // records (lib/tacticalObjects · viewsOf), so this union repeats one object once per fitting
+  // plan — and a repeated view is not a second symbol standing in the Einsatz.
   const placedSymbols = useMemo(
-    () => [...doc.entities, ...Object.values(board).flat()]
-      .filter((x) => !!x.symbol && !(x as { live?: boolean }).live)
-      .map((x) => ({ symbol: x.symbol as string, fields: x.fields, extract: x.extract })),
+    () => [...new Map(
+      [...doc.entities, ...Object.values(board).flat()]
+        .filter((x) => !!x.symbol && !(x as { live?: boolean }).live)
+        .map((x) => [x.id, { symbol: x.symbol as string, fields: x.fields, extract: x.extract }] as const),
+    ).values()],
     [doc.entities, board],
   )
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
