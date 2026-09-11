@@ -82,8 +82,12 @@ describe('a credential the server supplies', () => {
  *  carry `adm-cred-val`, never a bare `adm-mono`, or the key leaves its column and runs off the
  *  card at every width. */
 describe('a credential whose value IS shown', () => {
-  const VAPID = 'BBN1R0i0yxSE9bpDidzVR5zdniqzLQNxwBPp6BydTD_SC6jX3FcR2jujvFsKTxUHhq'
-    .padEnd(87, 'Kx7vQ2mN9pRs4tUw1yZb3cDe5fGh8jL0')
+  // ⚠️ SYNTHETIC, and it has to stay synthetic. A real VAPID public key was pasted in here from
+  // a screenshot of the running admin; gitleaks blocked the push, rightly — a public key is not
+  // a credential, but it is still this station's production material in a public repository, and
+  // a fixture only has to have the SHAPE: 87 chars of base64url with no break opportunity.
+  const VAPID = 'B'.concat('QWxsZXNGYWtlS2VpblNjaGx1ZXNzZWxOdXJGdWVyRGVuVGVzdA')
+    .padEnd(87, '_Beispiel0123456789abcdefghijklmnop')
 
   it.each([
     ['from .env', 'env' as const],
