@@ -597,6 +597,46 @@ function NameOrderCard() {
   )
 }
 
+/**
+ * How much the NIGHTLY Divera sync may do on its own. Same page and same pattern as the name
+ * order: one config field, the list it changes right underneath.
+ *
+ * ⚠️ Only shown where it can do anything — a station with no Divera personnel key runs the job
+ * idle whatever this says, and a setting that changes nothing is worse than an absent one. The
+ * three options are written so the difference is legible without opening the ⓘ: «Vollständig» is
+ * the only one that deactivates anybody, and that word is in the option, not only in the tip.
+ */
+function AutoSyncCard({ provider }: { provider: string | null | undefined }) {
+  const { draft, set } = useConfig()
+  const C = appConfig.copy.admin.roster
+  // «safe» is both the shipped default and what an unset field means (backend · personnel ·
+  // DEFAULT_AUTO_SYNC), so the two have to look identical in the picker.
+  const stored = getPath<string>(draft, ['roster', 'autoSync'])
+  const value = stored === 'off' || stored === 'full' ? stored : 'safe'
+  if (provider !== 'divera') return null
+  const chosen = value === 'off' ? C.autoSyncShortOff : value === 'full' ? C.autoSyncShortFull : C.autoSyncShortSafe
+  return (
+    <SettingsSheet title={C.autoSyncTitle} caption={C.autoSyncCaption}>
+      <SettingRow
+        label={C.autoSyncLabel}
+        tip={C.autoSyncTip}
+        standard={standardNote(chosen, C.autoSyncShortSafe)}
+      >
+        <Select
+          value={value}
+          ariaLabel={C.autoSyncLabel}
+          onChange={(v) => set(['roster', 'autoSync'], v)}
+          options={[
+            { value: 'off', label: C.autoSyncOff },
+            { value: 'safe', label: C.autoSyncSafe },
+            { value: 'full', label: C.autoSyncFull },
+          ]}
+        />
+      </SettingRow>
+    </SettingsSheet>
+  )
+}
+
 export function RosterView() {
   const [state, setState] = useState<Async>({ kind: 'loading' })
   const [showInactive, setShowInactive] = useState(false)
@@ -674,6 +714,7 @@ export function RosterView() {
       )}
 
       <NameOrderCard />
+      <AutoSyncCard provider={personnelProvider} />
       {personnelProvider === null && <CsvImportCard onImported={() => void load()} />}
 
       {/* Both belong to the card as a whole rather than to any row: «Inaktive anzeigen» filters

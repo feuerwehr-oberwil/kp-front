@@ -28,7 +28,10 @@ vi.mock('../lib/api', async () => {
   return { ...actual, apiGet: (p: string) => apiGet(p), apiPost: (p: string, b: unknown) => apiPost(p, b) }
 })
 
-vi.mock('./ConfigContext', () => ({ useConfig: () => ({ draft: {} }) }))
+// The page reads the config draft for the one thing it shows out of the document itself: the
+// configured SharePoint folders. A box, so a test can put a document in it.
+const { draft } = vi.hoisted(() => ({ draft: { value: {} as Record<string, unknown> } }))
+vi.mock('./ConfigContext', () => ({ useConfig: () => ({ draft: draft.value }) }))
 vi.mock('./SetupChecklist', () => ({ SetupChecklist: () => null }))
 
 import { SystemView } from './SystemView'
@@ -59,12 +62,14 @@ const SYSTEM = {
   monitoring: { heartbeatConfigured: true },
 }
 
-function serve(sharepoint: unknown) {
+function serve(sharepoint: unknown, system: unknown = SYSTEM) {
   apiGet.mockImplementation((p: string) =>
-    Promise.resolve(p.startsWith('/api/sharepoint/status') ? sharepoint : SYSTEM))
+    Promise.resolve(p.startsWith('/api/sharepoint/status') ? sharepoint : system))
 }
 
-beforeEach(() => { apiGet.mockReset(); apiPost.mockReset() })
+const NO_SHAREPOINT = { configured: false, credentials: false, intervalMinutes: 60, secretExpiresInDays: null, areas: [] }
+
+beforeEach(() => { apiGet.mockReset(); apiPost.mockReset(); draft.value = {} })
 afterEach(cleanup)
 
 describe('a station that has not set the connector up', () => {
@@ -301,5 +306,158 @@ describe('«Verbindung testen» — the setupOf()-gated probe (POST /api/sharepo
     fireEvent.click(await screen.findByRole('button', { name: C.spTestConnection }))
 
     expect(await screen.findByText(/AADSTS7000222/)).toBeTruthy()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The three POLLING connectors. «Konfiguriert» is the same green sentence on a station whose
+// Divera key was rotated two years ago — that silence is what these rows exist to break, and the
+// staleness windows live HERE because the server serves the timestamps raw on purpose: how long
+// is too long is a judgement about how often this deployment expects the connector to fire.
+
+describe('Verbindungen — a poll says when it last actually worked', () => {
+  const ago = (ms: number) => new Date(Date.now() - ms).toISOString()
+  const poll = (over: Record<string, unknown>) => ({
+    id: 'divera_alarms', direction: 'in', configured: true, state: 'online', detail: null,
+    lastAttempt: null, lastSuccess: null, lastError: null, counts: null, ...over,
+  })
+  const withConnectors = (connectors: unknown[]) => ({ ...SYSTEM, connectors })
+  const row = (label: string) => screen.getByText(label).closest('tr') as HTMLElement
+  const tone = (label: string) => row(label).querySelector('.adm-badge')?.className
+
+  it('names the three polls in German rather than printing their ids', async () => {
+    serve(NO_SHAREPOINT, withConnectors([
+      poll({}), poll({ id: 'traccar' }), poll({ id: 'divera_personnel' }),
+    ]))
+    render(<SystemView />)
+
+    expect(await screen.findByText(C.connDiveraAlarms)).toBeTruthy()
+    expect(screen.getByText(C.connTraccar)).toBeTruthy()
+    expect(screen.getByText(C.connDiveraPersonnel)).toBeTruthy()
+    expect(screen.queryByText('divera_alarms')).toBeNull()
+  })
+
+  it('reads green plus «zuletzt erfolgreich» while the poll is fresh', async () => {
+    serve(NO_SHAREPOINT, withConnectors([poll({ lastSuccess: ago(4 * 60_000), lastAttempt: ago(60_000) })]))
+    render(<SystemView />)
+
+    await screen.findByText(C.connDiveraAlarms)
+    expect(tone(C.connDiveraAlarms)).toContain('on')
+    expect(within(row(C.connDiveraAlarms)).getByText(/4 min/)).toBeTruthy()
+  })
+
+  it('⚠️ turns amber once the last SUCCESS is older than this connector’s own window', async () => {
+    // Nothing failed — the alarm poll simply has not come back for half an hour, and every fact
+    // on the row would otherwise still read «online».
+    serve(NO_SHAREPOINT, withConnectors([
+      poll({ lastSuccess: ago(30 * 60_000) }),
+      // …while the nightly Mannschaft is perfectly healthy at the same age.
+      poll({ id: 'divera_personnel', lastSuccess: ago(30 * 60_000) }),
+    ]))
+    render(<SystemView />)
+
+    await screen.findByText(C.connDiveraAlarms)
+    expect(tone(C.connDiveraAlarms)).toContain('warn')
+    expect(within(row(C.connDiveraAlarms)).getByText(C.connStale)).toBeTruthy()
+    expect(tone(C.connDiveraPersonnel)).toContain('on')
+  })
+
+  it('is red with the server’s own sentence when the last attempt failed', async () => {
+    serve(NO_SHAREPOINT, withConnectors([
+      poll({ state: 'offline', lastSuccess: ago(60_000), lastError: '401 Unauthorized' }),
+    ]))
+    render(<SystemView />)
+
+    await screen.findByText(C.connDiveraAlarms)
+    expect(tone(C.connDiveraAlarms)).toContain('err')
+    // translated it would lose the status code, which is the searchable half
+    expect(within(row(C.connDiveraAlarms)).getByText('401 Unauthorized')).toBeTruthy()
+  })
+
+  it('says «noch nie gelaufen» rather than claiming a configured poll is online', async () => {
+    serve(NO_SHAREPOINT, withConnectors([poll({ state: null })]))
+    render(<SystemView />)
+
+    expect(await screen.findByText(C.connNeverRan)).toBeTruthy()
+  })
+
+  it('offers the «safe» level’s outstanding leavers as a way to the Mannschaft', async () => {
+    // The whole point of `staleOutstanding`: «safe» counts a disappearance and deliberately does
+    // NOT deactivate anybody, so the number has to reach a person — together with the page it is
+    // settled on.
+    serve(NO_SHAREPOINT, withConnectors([
+      poll({
+        id: 'divera_personnel',
+        lastSuccess: ago(3600_000),
+        counts: { trigger: 'scheduled', level: 'safe', staleOutstanding: 3 },
+      }),
+    ]))
+    const onNavigate = vi.fn()
+    render(<SystemView onNavigate={onNavigate} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: C.connLeavers.replace('{n}', '3') }))
+    expect(onNavigate).toHaveBeenCalledWith('mannschaft')
+  })
+
+  it('leaves the rows that record no health alone', async () => {
+    // A webhook has no «zuletzt erfolgreich» and never claimed one — a dash there would be this
+    // card inventing a fact.
+    serve(NO_SHAREPOINT, withConnectors([{
+      id: 'divera_webhook', direction: 'in', configured: true, state: null, detail: null,
+      lastAttempt: null, lastSuccess: null, lastError: null, counts: null,
+    }]))
+    render(<SystemView />)
+
+    await screen.findByText(C.connDiveraWebhook)
+    expect(within(row(C.connDiveraWebhook)).getByText(C.configured)).toBeTruthy()
+    expect(within(row(C.connDiveraWebhook)).queryByText(C.connNeverRan)).toBeNull()
+  })
+})
+
+// The folder list is READ-ONLY and comes out of the config document, not out of the last run: an
+// area a station configured but the connector has never reached appears in no status table at
+// all, which is exactly the case somebody opens this card to understand.
+describe('the configured SharePoint folders', () => {
+  beforeEach(() => {
+    draft.value = {
+      sharepoint: {
+        intervalMinutes: 30,
+        sources: [
+          { area: 'plans', siteUrl: 'https://x.sharepoint.com/sites/kp', path: 'Objektplaene', ignore: ['Archiv'] },
+          { area: 'geodata', driveId: 'b!abc', library: 'Dokumente', path: '' },
+        ],
+      },
+    }
+  })
+
+  it('lists every configured folder, even while nothing is set up yet', async () => {
+    serve(NO_SHAREPOINT)
+    render(<SystemView />)
+
+    expect(await screen.findByText('Objektplaene')).toBeTruthy()
+    expect(screen.getByText('https://x.sharepoint.com/sites/kp')).toBeTruthy()
+    // a source addressed by drive id, with no folder inside the library
+    expect(screen.getByText('b!abc')).toBeTruthy()
+    expect(screen.getByText(C.spSourceRoot)).toBeTruthy()
+    expect(screen.getByText(C.spInterval.replace('{n}', '30'))).toBeTruthy()
+    expect(screen.getByText(C.spSourceIgnored.replace('{folders}', 'Archiv'))).toBeTruthy()
+  })
+
+  it('says it is read-only and points at the documentation, without printing a command', async () => {
+    serve(NO_SHAREPOINT)
+    render(<SystemView />)
+
+    expect(await screen.findByText(C.spSourcesHint)).toBeTruthy()
+    // ⚠️ A command typed onto a settings page goes stale silently (ConfigSections · ModulesSection).
+    expect(screen.queryByText(/uv run/)).toBeNull()
+  })
+
+  it('renders nothing when the document names no folder at all', async () => {
+    draft.value = {}
+    serve(NO_SHAREPOINT)
+    render(<SystemView />)
+
+    await screen.findByText(C.spNotSetUp)
+    expect(screen.queryByText(C.spSourcesHint)).toBeNull()
   })
 })

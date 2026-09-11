@@ -179,6 +179,30 @@ export interface DeploymentRoster {
    *  device printed it. The backend serves display names already in this order — the frontend
    *  only needs it to know which token is the SURNAME (see abbreviateName). */
   nameOrder?: 'last-first' | 'first-last' | null
+  /** How much the NIGHTLY Mannschaftsabgleich may do on its own (Divera only; every other
+   *  source ignores it). `'safe'` is the shipped level: joins, renames and Dienstgrade are
+   *  applied, a member who left is counted and reported («N Abgänge warten») but never
+   *  deactivated — a disappearance is as often a broken feed as a resignation. `'full'` also
+   *  deactivates those (never a deletion: past Einsätze keep their names), `'off'` runs
+   *  nothing unattended. Mirrors backend `schemas.RosterConfig.autoSync`. */
+  autoSync?: 'off' | 'safe' | 'full' | null
+}
+
+/** One SharePoint folder this deployment pulls one area's station data from. Addressing only —
+ *  ⚠️ no credential lives in the config document (they are in the encrypted credential store).
+ *  Mirrors backend `schemas.SharePointSource`; read-only in this app. */
+export interface DeploymentSharePointSource {
+  area: string
+  /** the site's address out of the browser's URL bar */
+  siteUrl?: string | null
+  /** …or the document library's id, when a tenant admin handed it over directly */
+  driveId?: string | null
+  /** display name of a non-default document library */
+  library?: string | null
+  /** folder INSIDE that library; empty = its root */
+  path?: string | null
+  /** sub-folder names the pull walks past («Grosspläne», «Archiv») */
+  ignore?: string[] | null
 }
 
 /** One entry of the station-wide Mittel (material) catalogue: a material that crews routinely
@@ -384,6 +408,12 @@ export interface DeploymentConfig {
    *  writes `fleet.vehicles` — so a tick is the escape hatch, and it lives in the synced
    *  document rather than on the device (backend · schemas.SetupConfig). */
   setup?: { acknowledged?: string[] | null }
+  /** Which SharePoint folders this deployment pulls, and how often. Written as config-as-code,
+   *  read here — /admin shows it and never edits it. */
+  sharepoint?: {
+    intervalMinutes?: number | null
+    sources?: DeploymentSharePointSource[] | null
+  }
   integrations?: DeploymentIntegrations
   /** Opaque version token of the document the SERVER holds, off GET/PUT. Sent back as
    *  `If-Match` on the next save, so a tab holding an hour-old draft is refused instead of

@@ -4,21 +4,27 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { useConfig } from './ConfigContext'
 
-/** What the System page has already fetched — this card adds no request of its own. */
+/** The `setup` block of `GET /api/system` — the station's own answer to «what is still open»,
+ *  derived server-side (backend · api/system · `_setup`). Row ids are a CONTRACT with
+ *  `SETUP_ROWS` there; an id this build does not know is simply not rendered. */
+export interface SetupState {
+  rows: { id: string; done: boolean }[]
+  acknowledged: string[]
+  complete: boolean
+}
+
+/** The numbers the SUB lines quote — «4 Zugänge», «9 aktive Personen». The predicate itself is
+ *  the server's (see `SetupState`); these only fill in what the row says about it, and the System
+ *  page already holds them, so the card still adds no request of its own. */
 export interface SetupFacts {
   users: number | null
   personnelActive: number | null
-  heartbeatConfigured: boolean
-  /** `credentials && configured` from `GET /api/sharepoint/status` — the one fact that decides
-   *  whether the connector can do anything at all (SystemView · SharePointCard reads the same
-   *  status for its own card, one fetch shared by both). */
-  sharepointConfigured: boolean
 }
 
 /** A row somebody can actually tick: it counts towards «x von n» and keeps the card up. */
 interface Row {
   key: string
-  /** what the config/facts SAY — before any manual acknowledgement is folded in */
+  /** what the STATION's data says — before any manual acknowledgement is folded in */
   done: boolean
   label: string
   sub: string
@@ -67,6 +73,14 @@ function acknowledgedKeys(cfg: DeploymentConfig): string[] {
  * existed for it, are gone — if a future line genuinely cannot be finished from a browser, it
  * does not belong on this card at all.
  *
+ * ⚠️ The PREDICATES are not computed here any more (10.09.2026). `GET /api/system` carries a
+ * `setup` block — one `{id, done}` per row, in card order — and this card renders it. The nine
+ * rules used to live in this file AND in the backend's own deployment check, which is two copies
+ * of «is this station set up» that could only drift; the answer is now available to anything that
+ * is not a browser, and there is one place to change a rule. What stays local is what the server
+ * has no business writing: the row's WORDS, the consequence it names, and the numbers its sub
+ * line quotes (`SetupFacts`).
+ *
  * ⚠️ The rule holds; what it could not cover is a row whose FACT this UI cannot observe.
  * «Fahrzeuge» is that row: a station happy with the built-in catalogue never writes
  * `fleet.vehicles`, so the derived tick could never fire and the card parked at «7 von 8»
@@ -75,8 +89,11 @@ function acknowledgedKeys(cfg: DeploymentConfig): string[] {
  * acknowledgement is stored in the config (`ACK_PATH`), not on the device. Derived ticks are
  * unchanged — the hand tick is an escape hatch, never the normal way to finish a row.
  */
-export function SetupChecklist({ cfg, facts, onGo }: {
+export function SetupChecklist({ cfg, setup, facts, onGo }: {
   cfg: DeploymentConfig | null
+  /** the server's `setup` block; null while /api/system is still out — or when that one section
+   *  failed, and a card that cannot say what is open says nothing at all */
+  setup: SetupState | null
   facts: SetupFacts
   onGo: (section: string) => void
 }) {
@@ -84,90 +101,71 @@ export function SetupChecklist({ cfg, facts, onGo }: {
   // The same writer «Verwaltung» uses everywhere: `set` edits the draft, the provider autosaves
   // the WHOLE document under its If-Match token (ConfigContext · persist).
   const { set } = useConfig()
-  if (!cfg) return null
+  if (!cfg || !setup) return null
 
-  const assets = cfg.identity?.assets
-  const vehicles = cfg.fleet?.vehicles?.length ?? 0
-  // ⚠️ A centre can be stored in EITHER CRS, and they are mutually exclusive
-  // (schemas.py · MapDefaultView._one_crs): picking LV95 in the Station form writes
-  // `centerLv95` and NULLs `center`. Ticking on `center` alone therefore left every LV95
-  // station — i.e. the Swiss default this product is built for — with a row it could never
-  // finish, parking the card on the admin's landing page forever. That is the exact failure
-  // this card's own «only ever lists things this UI can finish» rule exists to prevent.
+  // What each row SAYS, by the id the server sends. `sub` reads the local draft for the values
+  // it quotes back — the tick itself is never derived here.
   const pair = (v: unknown): [number, number] | null =>
     Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number') ? (v as [number, number]) : null
   const centre = pair(cfg.map?.defaultView?.center) ?? pair(cfg.map?.defaultView?.centerLv95)
-  // Either field biases the address search; neither is required for the other to work.
-  const geo = cfg.map?.geocoder
-  const geocoderBiased = !!geo?.defaultLocality?.trim() || !!geo?.bboxLv95?.trim()
-
-  const rows: Row[] = [
-    {
-      key: 'name', done: !!cfg.identity?.appName?.trim(), go: 'identitaet',
-      label: C.name, sub: cfg.identity?.appName?.trim() || C.nameOpen,
-    },
-    {
-      key: 'map', done: !!centre, go: 'identitaet',
+  const spec: Record<string, { label: string; go: string; sub: (done: boolean) => string }> = {
+    // These two quote the value itself, so they read it rather than the tick: a done row shows
+    // what is set, an open one what leaving it costs.
+    name: { label: C.name, go: 'identitaet', sub: () => cfg.identity?.appName?.trim() || C.nameOpen },
+    map: {
       label: C.map,
-      sub: centre ? fillTemplate(C.mapSet, { lon: String(centre[0]), lat: String(centre[1]) }) : C.mapOpen,
+      go: 'identitaet',
+      sub: () => (centre ? fillTemplate(C.mapSet, { lon: String(centre[0]), lat: String(centre[1]) }) : C.mapOpen),
     },
-    {
-      key: 'logo', done: !!assets?.logo, go: 'identitaet',
-      label: C.logo, sub: assets?.logo ? C.logoSet : C.logoOpen,
-    },
-    {
-      // A fresh deployment always has the ONE seeded account, so «>0» would tick on day zero.
-      // The question this row asks is «has the Wehr put its own people in».
-      key: 'users', done: (facts.users ?? 0) > 1, go: 'mitglieder',
+    logo: { label: C.logo, go: 'identitaet', sub: (d) => (d ? C.logoSet : C.logoOpen) },
+    // A fresh deployment always has the ONE seeded account, so the server's predicate is «> 1»:
+    // the question this row asks is «has the Wehr put its own people in».
+    users: {
       label: C.users,
-      sub: (facts.users ?? 0) > 1 ? fillTemplate(C.usersSet, { n: facts.users ?? 0 }) : C.usersOpen,
+      go: 'mitglieder',
+      sub: (d) => (d ? fillTemplate(C.usersSet, { n: facts.users ?? 0 }) : C.usersOpen),
     },
-    {
-      key: 'personnel', done: (facts.personnelActive ?? 0) > 0, go: 'mannschaft',
+    personnel: {
       label: C.personnel,
-      sub: (facts.personnelActive ?? 0) > 0
-        ? fillTemplate(C.personnelSet, { n: facts.personnelActive ?? 0 })
-        : C.personnelOpen,
+      go: 'mannschaft',
+      sub: (d) => (d ? fillTemplate(C.personnelSet, { n: facts.personnelActive ?? 0 }) : C.personnelOpen),
     },
-    {
-      // ⚠️ Reads the DEPLOYMENT config only, and the built-in vehicle catalogue never writes
-      // there: a station happy with the shipped Fahrzeuge keeps `fleet.vehicles = []` forever
-      // and this row could never tick on its own. That is what «Abhaken» is for — see the
-      // escape hatch in the card's doc comment.
-      key: 'fleet', done: vehicles > 0, go: 'fahrzeuge',
-      label: C.fleet, sub: vehicles > 0 ? fillTemplate(C.fleetSet, { n: vehicles }) : C.fleetOpen,
+    // ⚠️ Reads the DEPLOYMENT config only, and the built-in vehicle catalogue never writes
+    // there: a station happy with the shipped Fahrzeuge keeps `fleet.vehicles = []` forever and
+    // this row could never tick on its own. That is what «Abhaken» is for — see the escape hatch
+    // in the card's doc comment.
+    fleet: {
+      label: C.fleet,
+      go: 'fahrzeuge',
+      sub: (d) => (d ? fillTemplate(C.fleetSet, { n: cfg.fleet?.vehicles?.length ?? 0 }) : C.fleetOpen),
     },
-    {
-      // A Wehr can tick every other row and still be offered «Hauptstrasse 3» from a village
-      // three cantons away when it opens an incident — the two geocoder fields were CLI-only
-      // until recently and appear on no landing page at all. Done on EITHER of them: the
-      // locality alone already keeps the search at home (geocode.py · _resolve_bias), and a row
-      // that demands both would stay open on a station that is in fact biased correctly.
-      key: 'geocoder', done: geocoderBiased, go: 'identitaet',
-      label: C.geocoder, sub: geocoderBiased ? C.geocoderSet : C.geocoderOpen,
-    },
-    {
-      // Credentials alone are a silent no-op (scheduler.py never has a folder to poll), and a
-      // folder alone cannot exist without credentials to read it with — so the row only ticks
-      // once BOTH halves are true, same rule `sharepoint_status` (backend) already applies to
-      // `configured`. It leads to «Zugangsdaten», not the config file: that is the half of the
-      // setup this UI can actually offer a button for.
-      key: 'sharepoint', done: facts.sharepointConfigured, go: 'zugaenge',
-      label: C.sharepoint, sub: facts.sharepointConfigured ? C.sharepointSet : C.sharepointOpen,
-    },
-    {
-      // A station that never learns its instance is down is the failure the whole ops story is
-      // about — and «Zugangsdaten» is now a screen that fixes it, so this row leads there
-      // rather than naming an environment variable nobody at a tablet can reach.
-      // `heartbeatConfigured` is /api/system's boolean and already reads through the credential
-      // layer, so a value set in .env ticks this row exactly like one set in the browser.
-      key: 'monitoring', done: facts.heartbeatConfigured, go: 'zugaenge',
-      label: C.monitoring, sub: facts.heartbeatConfigured ? C.monitoringSet : C.monitoringOpen,
-    },
-  ]
+    // A Wehr can tick every other row and still be offered «Hauptstrasse 3» from a village three
+    // cantons away when it opens an incident — the two geocoder fields appear on no landing page
+    // at all. Done on EITHER of them (geocode.py · _resolve_bias).
+    geocoder: { label: C.geocoder, go: 'identitaet', sub: (d) => (d ? C.geocoderSet : C.geocoderOpen) },
+    // Credentials alone are a silent no-op (scheduler.py never has a folder to poll), and a
+    // folder alone cannot exist without credentials to read it with — so the row is ONE fact.
+    // It leads to «Zugangsdaten», not the config file: that is the half of the setup this UI can
+    // actually offer a button for.
+    sharepoint: { label: C.sharepoint, go: 'zugaenge', sub: (d) => (d ? C.sharepointSet : C.sharepointOpen) },
+    // A station that never learns its instance is down is the failure the whole ops story is
+    // about — and «Zugangsdaten» is now a screen that fixes it, so this row leads there rather
+    // than naming an environment variable nobody at a tablet can reach.
+    monitoring: { label: C.monitoring, go: 'zugaenge', sub: (d) => (d ? C.monitoringSet : C.monitoringOpen) },
+  }
+
+  // Order and membership are the SERVER's (backend · SETUP_ROWS); a row this build has no words
+  // for is skipped rather than rendered as its raw id.
+  const rows: Row[] = setup.rows.flatMap(({ id, done }) => {
+    const s = spec[id]
+    return s ? [{ key: id, done, label: s.label, sub: s.sub(done), go: s.go }] : []
+  })
 
   // Fold the hand ticks in: an acknowledged row counts as done and says so, unless the derived
   // state already had something better to say.
+  // ⚠️ Read from the DRAFT, not from `setup.acknowledged` — they are the same list, but the
+  // draft is the one that has just been written to. Waiting for /api/system to be re-fetched
+  // would leave «Abhaken» looking like it did nothing for as long as the autosave takes.
   const acked = acknowledgedKeys(cfg)
   const shown = rows.map((r) => ({
     ...r,

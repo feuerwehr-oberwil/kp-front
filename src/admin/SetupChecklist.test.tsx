@@ -12,21 +12,31 @@ vi.mock('./ConfigContext', () => ({ useConfig: () => ({ set }) }))
 // that promise honest — every line on this card must be finishable FROM THIS UI, because a row
 // nobody can tick would park the card on the admin's landing page forever.
 //
-// «Überwachung» is the row that rule was written for. It used to be the exception: env-only
-// (HEALTHCHECK_PING_URL), so it was listed without a chevron and left out of the «x von n»
-// count. It is now one of the credentials «Zugangsdaten» sets, so it is a row like any other —
-// counted, with a working target. The tests below pin BOTH halves of that: it holds the card
-// open while it is unset (which is only acceptable because it can be finished), and its chevron
-// lands on the page that finishes it.
+// ⚠️ The PREDICATES are no longer here. `GET /api/system` derives them (backend · api/system ·
+// `_setup`, tested there, including the parts that look wrong until you read why: «users» wants
+// more than one, «map» accepts either CRS, «geocoder» is done on either field). What this file
+// pins is what the card does with that answer: it renders the server's rows, in the server's
+// order, in this station's own words — and it folds the HAND ticks in on top, which is the one
+// half of the state the browser owns.
 
-import { SetupChecklist, type SetupFacts } from './SetupChecklist'
+import { SetupChecklist, type SetupFacts, type SetupState } from './SetupChecklist'
 import { appConfig } from '../config/appConfig'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 
 const C = appConfig.copy.admin.setup
 
-/** A station that has finished everything but the monitor. */
-const DONE_CFG = {
+/** The ids the backend sends, in card order (backend · SETUP_ROWS). */
+const IDS = ['name', 'map', 'logo', 'users', 'personnel', 'fleet', 'geocoder', 'sharepoint', 'monitoring']
+
+/** The server's answer: every row done except the ones named. */
+const setupWith = (open: string[], acknowledged: string[] = []): SetupState => ({
+  rows: IDS.map((id) => ({ id, done: !open.includes(id) })),
+  acknowledged,
+  complete: open.every((id) => acknowledged.includes(id)),
+})
+
+/** A station that has filled everything in — the values the SUB lines quote back. */
+const CFG = {
   identity: { appName: 'Feuerwehr Bergmatt', assets: { logo: '/api/branding/file/x.png' } },
   map: {
     defaultView: { center: [8.1148, 47.1723] },
@@ -34,57 +44,60 @@ const DONE_CFG = {
   },
   fleet: { vehicles: [{ id: 'tlf' }] },
 } as unknown as DeploymentConfig
-const DONE_FACTS: SetupFacts = { users: 4, personnelActive: 9, heartbeatConfigured: false, sharepointConfigured: true }
+const FACTS: SetupFacts = { users: 4, personnelActive: 9 }
 
 const card = () => document.querySelector('.adm-setup')
+const show = (setup: SetupState | null, cfg: DeploymentConfig = CFG, onGo = vi.fn()) =>
+  render(<SetupChecklist cfg={cfg} setup={setup} facts={FACTS} onGo={onGo} />)
 
 beforeEach(() => set.mockClear())
 afterEach(cleanup)
 
-describe('«Einrichtung» disappears once every row is done', () => {
-  it('is gone when the browser-finishable setup is done — manual incidents are a valid steady state', () => {
-    render(<SetupChecklist cfg={DONE_CFG} facts={DONE_FACTS} onGo={vi.fn()} />)
+describe('the card renders the server\'s answer, not one of its own', () => {
+  it('is gone once the server reports nothing open — manual incidents are a valid steady state', () => {
+    show(setupWith(['monitoring']))
     expect(card()).not.toBeNull()
     expect(screen.getByText(C.title.replace('{done}', '8').replace('{n}', '9'))).toBeTruthy()
 
     cleanup()
-    render(<SetupChecklist cfg={DONE_CFG} facts={{ ...DONE_FACTS, heartbeatConfigured: true }}
-      onGo={vi.fn()} />)
+    show(setupWith([]))
     // No automatic alarm provider is configured. The card still clears because creating
     // incidents manually is a supported setup, not an unfinished integration.
     expect(card()).toBeNull()
   })
 
   it('counts Überwachung in the total while other rows are open', () => {
-    render(<SetupChecklist cfg={{ ...DONE_CFG, fleet: { vehicles: [] } } as unknown as DeploymentConfig}
-      facts={DONE_FACTS} onGo={vi.fn()} />)
+    show(setupWith(['fleet', 'monitoring']))
     expect(screen.getByText(C.title.replace('{done}', '7').replace('{n}', '9'))).toBeTruthy()
     expect(screen.getByText(C.monitoringOpen)).toBeTruthy()
   })
 
-  // ⚠️ The fixture above stores a WGS84 centre, so it could never catch this: the Station form
-  // writes `centerLv95` and NULLs `center` when the operator picks LV95 — the Swiss default —
-  // and the row used to tick on `center` alone. The card then never cleared, on the landing
-  // page, forever. The test that documented the behaviour was the test that missed the bug.
-  it('accepts an LV95 centre, so a Swiss station can actually finish the card', () => {
-    const lv95 = { ...DONE_CFG, map: { ...DONE_CFG.map, defaultView: { center: null, centerLv95: [2600000, 1200000] } } }
-    render(<SetupChecklist cfg={lv95 as unknown as DeploymentConfig}
-      facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
+  it('says nothing at all when that section of /api/system failed', () => {
+    // ⚠️ A card that cannot say WHAT is open must not guess — «alles erledigt» and «keine
+    // Ahnung» are the two answers it would be choosing between, and one of them is a lie.
+    show(null)
     expect(card()).toBeNull()
   })
 
-  it('still asks for a centre when neither CRS is set', () => {
-    const none = { ...DONE_CFG, map: { ...DONE_CFG.map, defaultView: { center: null, centerLv95: null } } }
-    render(<SetupChecklist cfg={none as unknown as DeploymentConfig}
-      facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
-    expect(screen.getByText(C.mapOpen)).toBeTruthy()
+  it('skips a row id this build has no words for, rather than printing the raw id', () => {
+    show({ rows: [{ id: 'quantum_entanglement', done: false }, { id: 'fleet', done: false }], acknowledged: [], complete: false })
+    expect(screen.queryByText('quantum_entanglement')).toBeNull()
+    expect(document.querySelectorAll('.adm-setup-row').length).toBe(1)
+    expect(screen.getByText(C.fleet)).toBeTruthy()
+  })
+
+  it('quotes the station\'s own values in the sub line of a done row', () => {
+    show(setupWith(['monitoring']))
+    expect(screen.getByText('Feuerwehr Bergmatt')).toBeTruthy()
+    expect(screen.getByText(C.usersSet.replace('{n}', '4'))).toBeTruthy()
+    expect(screen.getByText(C.personnelSet.replace('{n}', '9'))).toBeTruthy()
   })
 })
 
 describe('every row leads somewhere that can finish it', () => {
   it('sends Überwachung to «Zugangsdaten», where the ping URL is set', () => {
     const onGo = vi.fn()
-    render(<SetupChecklist cfg={DONE_CFG} facts={DONE_FACTS} onGo={onGo} />)
+    show(setupWith(['monitoring']), CFG, onGo)
     const row = screen.getByText(C.monitoring).closest('.adm-setup-row')
     expect(row?.tagName).toBe('BUTTON')
     fireEvent.click(row as Element)
@@ -92,8 +105,7 @@ describe('every row leads somewhere that can finish it', () => {
   })
 
   it('leaves no row without a chevron — the card lists nothing it cannot offer', () => {
-    render(<SetupChecklist cfg={{ ...DONE_CFG, fleet: { vehicles: [] } } as unknown as DeploymentConfig}
-      facts={DONE_FACTS} onGo={vi.fn()} />)
+    show(setupWith(['fleet', 'monitoring']))
     const rows = document.querySelectorAll('.adm-setup-row')
     expect(rows.length).toBe(9)
     rows.forEach((r) => {
@@ -101,94 +113,40 @@ describe('every row leads somewhere that can finish it', () => {
       expect(r.querySelector('.adm-setup-go')).not.toBeNull()
     })
   })
-})
 
-// The address search is biased by two fields that were CLI-only until recently and appear on no
-// landing page. A Wehr can finish every other row and still be offered a «Hauptstrasse 3» from
-// three cantons away the first time it opens an incident.
-describe('the «Suchbereich» row', () => {
-  const withGeocoder = (geocoder: unknown) =>
-    ({ ...DONE_CFG, map: { ...DONE_CFG.map, geocoder } }) as unknown as DeploymentConfig
-
-  it('stays open while neither Heimatort nor Suchbereich is set, and leads to «Station & Karte»', () => {
+  // The SharePoint row leads to «Zugangsdaten», not to the config file: that is the half of the
+  // setup a browser can actually finish.
+  it('sends SharePoint to «Zugangsdaten» and the Wehr\'s name to «Station & Karte»', () => {
     const onGo = vi.fn()
-    render(<SetupChecklist cfg={withGeocoder(null)}
-      facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={onGo} />)
-    expect(screen.getByText(C.geocoderOpen)).toBeTruthy()
-    fireEvent.click(screen.getByText(C.geocoder).closest('.adm-setup-row') as Element)
-    expect(onGo).toHaveBeenCalledWith('identitaet')
-  })
-
-  // Either field biases the search on its own (geocode.py · _resolve_bias), so demanding both
-  // would keep the card open on a station that is in fact searching in the right place.
-  it('ticks on the bbox alone, exactly as it does on the locality alone', () => {
-    render(<SetupChecklist cfg={withGeocoder({ bboxLv95: '2603745,1256834,2613745,1266834' })}
-      facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
-    expect(card()).toBeNull()
-  })
-
-  it('does not tick on whitespace', () => {
-    render(<SetupChecklist cfg={withGeocoder({ defaultLocality: '  ', bboxLv95: '' })}
-      facts={{ ...DONE_FACTS, heartbeatConfigured: true }} onGo={vi.fn()} />)
-    expect(screen.getByText(C.geocoderOpen)).toBeTruthy()
-  })
-})
-
-// Credentials alone are a silent no-op (no folder to poll) and a folder alone cannot exist
-// without credentials to read it — so the row is a single fact, not two, and it points at the
-// half of the setup a browser can actually finish: Zugangsdaten, not the config file.
-describe('the «SharePoint-Anbindung» row', () => {
-  it('stays open until the status reports both credentials and a folder, and leads to «Zugangsdaten»', () => {
-    const onGo = vi.fn()
-    render(<SetupChecklist cfg={DONE_CFG}
-      facts={{ ...DONE_FACTS, heartbeatConfigured: true, sharepointConfigured: false }} onGo={onGo} />)
+    show(setupWith(['sharepoint', 'name']), CFG, onGo)
     expect(screen.getByText(C.sharepointOpen)).toBeTruthy()
     fireEvent.click(screen.getByText(C.sharepoint).closest('.adm-setup-row') as Element)
     expect(onGo).toHaveBeenCalledWith('zugaenge')
-  })
 
-  it('ticks once both halves are in place', () => {
-    render(<SetupChecklist cfg={DONE_CFG}
-      facts={{ ...DONE_FACTS, heartbeatConfigured: true, sharepointConfigured: true }} onGo={vi.fn()} />)
-    expect(card()).toBeNull()
-  })
-})
-
-describe('the «Name der Wehr» row points at a field with the same name', () => {
-  // ⚠️ This used to assert `C.name === appConfig.copy.admin.identity.appName` and nothing else —
-  // two entries of the copy catalogue compared with each other. It passed with the component
-  // deleted, with the row removed, and with the chevron pointing at the wrong page. A test that
-  // cannot fail on the thing it is named after is not coverage; it is a comment with a runtime.
-  it('renders the row under the exact label of the field it navigates to', () => {
-    const onGo = vi.fn()
-    const nameless = { ...DONE_CFG, identity: { ...DONE_CFG.identity, appName: '' } }
-    render(<SetupChecklist cfg={nameless as unknown as DeploymentConfig} facts={DONE_FACTS} onGo={onGo} />)
-
-    const row = screen.getByText(appConfig.copy.admin.identity.appName).closest('.adm-setup-row')
-    expect(row).not.toBeNull()
-    // …and it leads to the page that carries that field, so the two cannot drift apart silently
-    fireEvent.click(row as Element)
+    // …and the «Name der Wehr» row carries the exact label of the field it navigates to, so the
+    // two cannot drift apart silently.
+    fireEvent.click(screen.getByText(appConfig.copy.admin.identity.appName).closest('.adm-setup-row') as Element)
     expect(onGo).toHaveBeenCalledWith('identitaet')
-    // the open row says what is missing rather than only that something is
-    expect(screen.getByText(C.nameOpen)).toBeTruthy()
   })
 })
 
-// «Fahrzeuge» is the row this card could never finish: the built-in catalogue writes no
-// `fleet.vehicles`, so a station happy with the shipped Fahrzeuge sat at «7 von 8» forever — the
-// same never-tickable row the card's own rule exists to prevent, only from the other direction.
-// The hand tick is the escape hatch, and it belongs to the STATION (config), not to the tablet.
+// «Fahrzeuge» is the row nothing can finish: the built-in catalogue writes no `fleet.vehicles`,
+// so a station happy with the shipped Fahrzeuge sat at «7 von 8» forever — the same never-tickable
+// row the card's own rule exists to prevent, only from the other direction. The hand tick is the
+// escape hatch, and it belongs to the STATION (config), not to the tablet.
 describe('«Abhaken» — die Zeile von Hand erledigen', () => {
-  const OPEN_FLEET = { ...DONE_CFG, fleet: { vehicles: [] } } as unknown as DeploymentConfig
   const acknowledged = (keys: string[]) =>
-    ({ ...OPEN_FLEET, setup: { acknowledged: keys } }) as unknown as DeploymentConfig
+    ({ ...CFG, setup: { acknowledged: keys } }) as unknown as DeploymentConfig
 
   const item = (label: string) => screen.getByText(label).closest('.adm-setup-item') as HTMLElement
   const ack = (label: string) => item(label).querySelector('.adm-setup-ack') as HTMLButtonElement
   const isDone = (label: string) => !!item(label).querySelector('.adm-setup-dot.done')
 
   it('schreibt das Häkchen in die Konfiguration — und die Zeile bleibt bei jedem weiteren Render erledigt', () => {
-    const { rerender } = render(<SetupChecklist cfg={OPEN_FLEET} facts={DONE_FACTS} onGo={vi.fn()} />)
+    // «Überwachung» bleibt offen, sonst verschwindet die Karte nach dem Häkchen und es gibt
+    // nichts mehr zu prüfen.
+    const open = setupWith(['fleet', 'monitoring'])
+    const { rerender } = show(open)
     expect(isDone(C.fleet)).toBe(false)
     // «dorthin» und «abhaken» sind Geschwister — ein Button im Button wäre ungültiges HTML
     expect(ack(C.fleet).closest('button.adm-setup-row')).toBeNull()
@@ -196,22 +154,18 @@ describe('«Abhaken» — die Zeile von Hand erledigen', () => {
     fireEvent.click(ack(C.fleet))
     expect(set).toHaveBeenCalledWith(['setup', 'acknowledged'], ['fleet'])
 
-    // …und mit dem Dokument, das dieser Schreibvorgang erzeugt, zählt die Zeile als erledigt
-    rerender(<SetupChecklist cfg={acknowledged(['fleet'])} facts={DONE_FACTS} onGo={vi.fn()} />)
+    // ⚠️ Der Server weiss noch nichts davon (die Konfiguration speichert erst nach 700 ms), und
+    // genau darum liest die Karte den Entwurf: sonst sähe «Abhaken» wie ein toter Knopf aus.
+    rerender(<SetupChecklist cfg={acknowledged(['fleet'])} setup={open} facts={FACTS} onGo={vi.fn()} />)
     expect(isDone(C.fleet)).toBe(true)
+    expect(screen.getByText(C.ackSub)).toBeTruthy()
     expect(screen.getByText(C.title.replace('{done}', '8').replace('{n}', '9'))).toBeTruthy()
-
-    rerender(<SetupChecklist cfg={acknowledged(['fleet'])} facts={DONE_FACTS} onGo={vi.fn()} />)
-    expect(isDone(C.fleet)).toBe(true)
   })
 
   it('nimmt das Häkchen wieder zurück, ohne die übrigen anzufassen', () => {
     // «Suchbereich» bleibt offen, sonst wäre die Karte weg und es gäbe nichts mehr zu klicken
-    const cfg = {
-      ...acknowledged(['fleet', 'monitoring']),
-      map: { ...DONE_CFG.map, geocoder: null },
-    } as unknown as DeploymentConfig
-    render(<SetupChecklist cfg={cfg} facts={DONE_FACTS} onGo={vi.fn()} />)
+    show(setupWith(['fleet', 'monitoring', 'geocoder'], ['fleet', 'monitoring']),
+      acknowledged(['fleet', 'monitoring']))
 
     expect(ack(C.monitoring).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(ack(C.monitoring))
