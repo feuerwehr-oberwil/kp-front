@@ -305,7 +305,8 @@ def compose_schichtplan_pdf(payload: ZeitplanPayload, logo: bytes | None = None)
     footnote_scope = (
         "Aufgeführt sind nur eingeteilte Personen; alle Zeiten stehen auf dem Blatt «Verfügbarkeiten»."
         if assigned
-        else "Noch niemand eingeteilt – das ganze Personal steht zum Ausfüllen von Hand."
+        else "Noch niemand eingeteilt. Verfügbarkeiten sind als Zeiten dargestellt; "
+        "die Einteilung kann von Hand ergänzt werden."
     )
     title_block = [
         Paragraph("SCHICHTPLAN", st["title"]),
