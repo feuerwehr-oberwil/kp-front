@@ -941,14 +941,28 @@ async def _merge_reference_layers(db: AsyncSession, incoming: list[dict[str, Any
     The history row is stamped `geodata`, which is what this write IS. A new source value would
     render as «Unbekannt» in Verwaltung › Letzte Änderungen, and an unattributed row on the one
     list read to find out who did what is worse than a slightly broad label.
+
+    ⚠️ It operates on the RAW stored document and replaces exactly one list in it. It used to
+    round-trip the whole thing through `load_stored_config(...).model_dump()`, which quietly made
+    this poll the one writer that could not be guarded: a pydantic dump keeps only what the
+    RUNNING schema declares, so any section a newer build writes and this one does not know about
+    was dropped from a station's config by a background job nobody triggered — the trap
+    `DeploymentConfigIn.sharepoint` itself carries a warning about. A layer list needs no
+    validation here either: it was built by `_to_reference_layers` out of this module's own
+    entries two lines ago.
+
+    ⚠️ And it takes the row FOR UPDATE (`config_row(lock=True)`), because it is the ONE
+    full-document writer with no `If-Match` to fall back on — nobody is holding a version for a
+    scheduled poll. Without the lock an admin saving in the Verwaltung during the walk was simply
+    overwritten by whatever this session had read before the download started.
     """
-    row = await config_row(db)
+    row = await config_row(db, lock=True)
     await keep_previous(db, "geodata")
     current = dict(row.config_json or {})
     pulled = {layer["id"]: layer for layer in incoming if layer.get("id")}
     kept = [layer for layer in (current.get("referenceLayers") or []) if layer.get("id") not in pulled]
     current["referenceLayers"] = [*kept, *pulled.values()]
-    row.config_json = load_stored_config(current).model_dump(mode="json")
+    row.config_json = current
 
 
 # --- area: Checklisten ------------------------------------------------------------------
