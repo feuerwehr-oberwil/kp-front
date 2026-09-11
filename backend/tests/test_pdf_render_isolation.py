@@ -10,6 +10,7 @@ Rapport really needs still out.
 
 import io
 
+import pypdfium2 as pdfium
 import pytest
 from PIL import Image
 
@@ -108,6 +109,22 @@ def test_broken_markup_never_takes_the_rapport_down():
 def test_a_bold_journal_row_still_prints():
     pdf = _pdf("<b>Müller Hans</b> meldet Wasser am Verteiler")
     assert pdf[:5] == b"%PDF-" and len(pdf) > 3_000
+
+
+# --- stream encoding -------------------------------------------------------------------------
+
+
+def test_the_compose_path_never_ascii85_encodes_its_streams():
+    """`rl_config.useA85 = 0` (report_pdf.py, module load): the only C accelerator wheel for
+    ReportLab's base85 encoder is missing on this Python (5.0.0 / 3.13), so the pure-Python
+    fallback burned ~70% of a full Rapport's render time and inflated the output by a third.
+    Assert the encoding is actually off end-to-end — not just that the flag got set — and that
+    the PDF that produces is still one a real viewer can open."""
+    pdf = _pdf("<b>Müller Hans</b> meldet Wasser am Verteiler")
+    assert b"ASCII85Decode" not in pdf
+    assert b"ASCII85" not in pdf
+    doc = pdfium.PdfDocument(pdf)
+    assert len(doc) >= 1
 
 
 # --- client SVG ----------------------------------------------------------------------------
