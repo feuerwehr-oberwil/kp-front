@@ -17,13 +17,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .models import DeploymentConfig
 
 
-async def config_row(db: AsyncSession) -> DeploymentConfig:
+async def config_row(db: AsyncSession, *, lock: bool = False) -> DeploymentConfig:
     """The singleton row, created empty if this deployment has none yet.
 
     Flushed before it is handed back, so the caller can set a column on a row that is already
     in the session's identity map. Not committed: it belongs to the caller's transaction.
+
+    ``lock`` takes the row FOR UPDATE and re-reads it from the database, for a writer that does
+    read-modify-write on ``config_json``. That is every writer of this document — there are no
+    partial writes — but the HTTP ones have ``If-Match`` to refuse a lost update, and a
+    BACKGROUND one has nothing: the SharePoint poll reads the layers, merges its own by id and
+    writes the whole document back, so an admin saving in the Verwaltung inside that window was
+    simply overwritten. ``populate_existing`` matters as much as the lock: without it the
+    identity map would hand back the copy this session loaded BEFORE waiting for the lock, which
+    is the stale document the lock was taken to avoid reading.
+
+    ⚠️ The FOR UPDATE half degrades to nothing on SQLite, which has no row locking and where the
+    tests run. That is sound — SQLite serialises writers at the file — but it means a test cannot
+    prove the Postgres half. The re-read is dialect-agnostic and stays on either way, so what a
+    test CAN prove is that a merge reads the row as it stands and preserves what it did not touch.
     """
-    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    stmt = select(DeploymentConfig).where(DeploymentConfig.id == 1)
+    if lock:
+        stmt = stmt.execution_options(populate_existing=True)
+        if (db.bind.dialect.name if db.bind is not None else "postgresql") != "sqlite":
+            stmt = stmt.with_for_update()
+    row = (await db.execute(stmt)).scalar_one_or_none()
     if row is None:
         row = DeploymentConfig(id=1, config_json=None)
         db.add(row)

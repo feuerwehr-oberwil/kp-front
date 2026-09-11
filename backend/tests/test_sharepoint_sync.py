@@ -708,6 +708,62 @@ async def test_a_layer_lands_in_the_store_beside_the_layers_it_did_not_pull(db_s
     assert layers["hydranten"]["geojson"] == "/api/reference/geo:hydranten"
 
 
+async def test_the_layer_write_keeps_a_section_this_build_does_not_know(db_session, blank_env, storage_root):
+    """⚠️ The poll writes the WHOLE document, so it must write the stored JSON back as it stands.
+
+    It used to round-trip through `load_stored_config(...).model_dump()`, and a pydantic dump
+    keeps only what the RUNNING schema declares: any section a newer build wrote — the trap
+    `DeploymentConfigIn.sharepoint` carries a warning about in so many words — was dropped from
+    a station's config by a background job nobody triggered, on a poll that reported success.
+    """
+    db_session.add(DeploymentConfig(id=1, config_json={"futureSection": {"keep": "me"}}))
+    await db_session.flush()
+    await configure(db_session, [source("geodata")])
+    tenant = FakeTenant({"hydranten.geojson": geojson(2)})
+
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    assert row.config_json["futureSection"] == {"keep": "me"}
+    assert [layer["id"] for layer in row.config_json["referenceLayers"]] == ["hydranten"]
+
+
+async def test_the_layer_write_reads_the_row_as_it_stands_rather_than_as_it_read_it(
+    db_session, blank_env, storage_root
+):
+    """⚠️ This is the one full-document writer with no `If-Match` to fall back on — nobody holds
+    a version for a scheduled poll — so it takes the row FOR UPDATE and re-reads it inside the
+    transaction. Without the re-read (`populate_existing`) the session hands back the copy it
+    loaded before the download started, and an admin saving in the Verwaltung during the walk is
+    overwritten by a document that predates their save.
+
+    SQLite cannot show the lock half at all, so what is pinned here is the re-read: the row is
+    changed underneath the session after it has already been loaded.
+    """
+    import json as _json
+
+    from sqlalchemy import text
+
+    await configure(db_session, [source("geodata")])
+    loaded = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    # The session is now holding that document; an admin saves in the Verwaltung meanwhile.
+    # ⚠️ Written as TEXTUAL SQL on purpose: an ORM `update()` tells this session to expire what
+    # it changed, which is the one thing a write from another process cannot do — and a test the
+    # ORM repairs behind the scenes would pass with or without the re-read.
+    saved = {**loaded.config_json, "identity": {"appName": "Von der Verwaltung"}}
+    await db_session.execute(
+        text("UPDATE deployment_config SET config_json = :doc WHERE id = 1"),
+        {"doc": _json.dumps(saved)},
+    )
+    tenant = FakeTenant({"hydranten.geojson": geojson(2)})
+
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    assert row.config_json["identity"]["appName"] == "Von der Verwaltung"
+    assert [layer["id"] for layer in row.config_json["referenceLayers"]] == ["hydranten"]
+
+
 async def test_a_projected_export_is_refused_rather_than_drawn_off_the_coast_of_africa(
     db_session, blank_env, storage_root
 ):
