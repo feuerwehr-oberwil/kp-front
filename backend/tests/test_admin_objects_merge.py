@@ -162,31 +162,121 @@ async def test_the_dry_run_is_the_default_and_writes_nothing(db_session, capsys)
 
 async def test_a_byte_identical_pair_keeps_the_richer_twin(db_session, capsys):
     """Two rows under the exact same name and neither carrying the NFC-key id — the one holding
-    more data survives, and the report says the split is not fully healed."""
+    more data is the one the other folds into (and is then re-keyed onto the NFC id)."""
     poor = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "a" * 64})
     rich = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul2": "b" * 64, "modul3": "c" * 64})
 
     assert await admin_objects._merge_duplicates(apply=True) == 0
 
-    assert [o.id for o in (await db_session.execute(select(ObjectSite))).scalars()] == [rich]
+    canonical = object_id_for_key(NFC_NAME)
+    assert [o.id for o in (await db_session.execute(select(ObjectSite))).scalars()] == [canonical]
     assert {d.id for d in (await db_session.execute(select(ReferenceDataset))).scalars()} == {
-        f"plan:{rich}:modul{n}" for n in (1, 2, 3)
+        f"plan:{canonical}:modul{n}" for n in (1, 2, 3)
     }
     out = capsys.readouterr().out
-    assert str(poor) in out and "no row carries the NFC-key id" in out
+    assert f"keep   {rich}" in out and f"merge  {poor}" in out, "the emptier row was the one kept"
+    assert "no row carries the NFC-key id" in out
 
 
-async def test_an_equal_pair_is_broken_the_same_way_every_run(db_session):
+async def test_the_survivor_is_re_keyed_onto_the_nfc_id_and_takes_everything_with_it(db_session, capsys):
+    """A merge that leaves the survivor on a non-NFC id is a merge the next sync undoes: the
+    SharePoint pull creates objects under ``object_id_for_key(NFC name)``, so it would mint a
+    third row under the same name. 27 of 79 prod groups look like this."""
+    poor = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "a" * 64})
+    rich = await _object(
+        db_session,
+        NFC_NAME,
+        oid=uuid.uuid4(),
+        plans={"modul2": "b" * 64},
+        source_key="Kindergarten Hüsli",
+    )
+    await _scales(db_session, {"georefByPlan": {f"object:{rich}:plan:modul2": {"pairs": []}}})
+    picked_the_loser = await _incident(db_session, picked=poor)
+    picked_the_survivor = await _incident(db_session, picked=rich)
+    canonical = object_id_for_key(NFC_NAME)
+    assert canonical not in {poor, rich}
+
+    assert await admin_objects._merge_duplicates(apply=False) == 0
+    assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {poor, rich}, (
+        "the dry run minted the canonical row"
+    )
+
+    assert await admin_objects._merge_duplicates(apply=True) == 0
+
+    row = (await db_session.execute(select(ObjectSite))).scalar_one()
+    assert row.id == canonical, "the survivor kept an id the next sync does not resolve to"
+    assert row.source_key == "Kindergarten Hüsli", "the pull key did not survive the re-key"
+    assert {d.id for d in (await db_session.execute(select(ReferenceDataset))).scalars()} == {
+        f"plan:{canonical}:modul1",
+        f"plan:{canonical}:modul2",
+    }
+    scales = (await db_session.execute(select(DeploymentConfig))).scalar_one().plan_scales_json or {}
+    assert list(scales["georefByPlan"]) == [f"object:{canonical}:plan:modul2"]
+    for incident in (picked_the_loser, picked_the_survivor):
+        workspace = (await db_session.execute(select(Incident).where(Incident.id == incident))).scalar_one()
+        assert (workspace.map_workspace_json or {})["pickedObjectId"] == str(canonical)
+
+    out = capsys.readouterr().out
+    assert f"rekey  {rich} → {canonical}" in out
+    assert "1 survivor(s) re-keyed to the NFC id" in out
+
+
+async def test_a_survivor_that_already_carries_the_nfc_id_is_left_alone(db_session, capsys):
+    """Nothing to do is nothing done — no new row, no re-key line, no id churn."""
+    survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})
+    await _object(db_session, NFD_NAME, oid=object_id_for_key(NFD_NAME), plans={"modul2": "b" * 64})
+
+    assert await admin_objects._merge_duplicates(apply=True) == 0
+
+    assert [o.id for o in (await db_session.execute(select(ObjectSite))).scalars()] == [survivor]
+    out = capsys.readouterr().out
+    assert "rekey" not in out
+    assert "0 survivor(s) re-keyed" in out
+    assert "the survivor carries the NFC-key id" in out
+
+
+async def test_a_group_kept_back_by_a_conflict_is_not_re_keyed(db_session, capsys):
+    """Half a merge on a fresh id is worse than none: the conflicting twin would be left under a
+    spelling the pull no longer resolves to anything."""
+    poor = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "a" * 64})
+    rich = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "b" * 64, "modul2": "c" * 64})
+
+    assert await admin_objects._merge_duplicates(apply=True) == 1
+
+    assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {poor, rich}
+    out = capsys.readouterr().out
+    assert f"rekey {rich} → {object_id_for_key(NFC_NAME)} NOT done" in out
+    assert "would mint a THIRD row" in out
+    assert "1 re-key(s) left undone by conflicts" in out
+
+
+async def test_a_stray_row_already_on_the_nfc_id_is_refused_not_guessed_at(db_session, capsys):
+    """The NFC id belonging to a row under ANOTHER name is not this command's call to make."""
+    stray = object_id_for_key(NFC_NAME)
+    await _object(db_session, "Ganz anderes Objekt", oid=stray)
+    poor = await _object(db_session, NFC_NAME, oid=uuid.uuid4())
+    rich = await _object(db_session, NFC_NAME, oid=uuid.uuid4(), plans={"modul1": "b" * 64})
+
+    assert await admin_objects._merge_duplicates(apply=True) == 1, "a refused re-key is not a clean run"
+
+    assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {stray, rich}
+    assert poor not in {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()}
+    out = capsys.readouterr().out
+    assert f"REFUSED: an object already carries {stray}" in out
+
+
+async def test_an_equal_pair_is_broken_the_same_way_every_run(db_session, capsys):
     """Same plan count, same timestamp: the lowest id wins, so two operators comparing two dry
-    runs see the same answer."""
+    runs see the same answer about which row's address and coordinates are kept."""
     same_moment = datetime(2026, 9, 11, 8, 0, tzinfo=UTC)
     low = uuid.UUID("00000000-0000-4000-8000-000000000001")
     high = uuid.UUID("ffffffff-0000-4000-8000-000000000001")
     await _object(db_session, NFC_NAME, oid=high, updated_at=same_moment)
     await _object(db_session, NFC_NAME, oid=low, updated_at=same_moment)
 
-    assert await admin_objects._merge_duplicates(apply=True) == 0
-    assert [o.id for o in (await db_session.execute(select(ObjectSite))).scalars()] == [low]
+    assert await admin_objects._merge_duplicates(apply=False) == 0
+    out = capsys.readouterr().out
+    assert f"keep   {low}" in out and f"merge  {high}" in out
 
 
 async def test_a_slot_the_survivor_already_holds_is_reported_not_overwritten(db_session, capsys):

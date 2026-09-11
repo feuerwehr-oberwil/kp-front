@@ -26,7 +26,8 @@ no database file anywhere. SQLite exists solely as a pytest fallback.)
     load <manifest> --dry-run        same as validate (no write)
     push <manifest>        upload objects + PDFs to a RUNNING deployment via its API (remote-safe)
     show                   print the objects + plan counts currently stored
-    merge-duplicates       fold objects whose names differ only in Unicode form into one (report only)
+    merge-duplicates       fold objects whose names differ only in Unicode form into one, onto the
+                           id every future import mints for that name (report only)
     remove-empty           delete objects that carry no plans and nothing points at (report only)
 
 `merge-duplicates` and `remove-empty` REPORT by default and write only with ``--apply`` — see
@@ -822,26 +823,146 @@ def _print_pair(pair: MergePair) -> None:
         print(f"       ! object row {pair.loser.id} KEPT — {len(pair.conflicts)} conflict(s) still hang off it")
 
 
-def _pick_survivor(group: list[ObjectSite], counts: dict[uuid.UUID | None, int]) -> tuple[ObjectSite, str]:
-    """The row the others fold into: the one whose id is the uuid5 of the NFC-composed name.
+def _pick_survivor(group: list[ObjectSite], counts: dict[uuid.UUID | None, int]) -> tuple[ObjectSite, uuid.UUID | None]:
+    """The row the others fold into, and the NFC-key id it still has to be re-keyed to (or None).
 
-    That is the id every future import mints, so it is the only choice that ends the split. When
-    no row carries it — both spellings were keyed by something other than the bare name — the
-    richest row wins (most plans, then most recently updated, then lowest id, so two runs agree)
-    and the report says so: a later import under the NFC name would then mint a THIRD object.
+    The uuid5 of the NFC-composed name is the id every future import mints — the SharePoint pull
+    matches and creates objects with exactly it (``sharepoint_sync._object_for``). A row carrying
+    it is the obvious survivor. When NO row carries it (both spellings were keyed by something
+    other than the bare name — 27 of 79 groups on the FWO deployment) the richest row wins (most
+    plans, then most recently updated, then lowest id, so two runs agree) and the caller re-keys
+    it afterwards: leaving it under its own id would let the next sync mint a THIRD row.
     """
     try:
         canonical = object_id_for_key(_name_key(group[0].name))
-    except ValueError:  # a blank name hashes to nothing; the richest row still wins
+    except ValueError:  # a blank name hashes to nothing; the richest row still wins, un-re-keyed
         canonical = None
     for o in group:
         if o.id == canonical:
-            return o, "carries the NFC-key id"
+            return o, None
     richest = sorted(
         group,
         key=lambda o: (-counts.get(o.id, 0), -(o.updated_at.timestamp() if o.updated_at else 0.0), str(o.id)),
     )[0]
-    return richest, f"⚠ no row carries the NFC-key id ({canonical}) — kept the richest of {len(group)}"
+    return richest, canonical
+
+
+@dataclass
+class Rekey:
+    """The survivor's own move onto the NFC-key id, decided before anything is written."""
+
+    row: ObjectSite
+    target: uuid.UUID
+    name: str  # the NFC-composed spelling the re-keyed row carries
+    datasets: list[tuple[str, str]] = field(default_factory=list)  # (old key, new key)
+    scales_moved: list[str] = field(default_factory=list)
+    incidents: list[uuid.UUID] = field(default_factory=list)
+    events: int = 0
+    journal: int = 0
+    blocked: str | None = None  # set when something already sits on the target id
+
+
+async def _plan_rekey(
+    db: AsyncSession,
+    row: ObjectSite,
+    target: uuid.UUID,
+    *,
+    also: list[uuid.UUID],
+    moved_datasets: list[str],
+    scales: dict[str, object],
+) -> Rekey:
+    """Decide the survivor's re-key onto ``target`` — the same move a loser makes, one row over.
+
+    ``also`` are the ids folded into this survivor a moment ago: in a dry run their workspaces
+    still name the loser, so the incidents that need rewriting are the union. ``moved_datasets``
+    are the plan keys that same fold hands over, which a dry run cannot yet read back from the DB.
+
+    Anything already sitting on the target id blocks the re-key rather than being merged into
+    blind: the group scan is one transaction, so this can only be a row keyed by a different name.
+    """
+    plan = Rekey(row=row, target=target, name=unicodedata.normalize("NFC", row.name))
+    if (await db.execute(select(ObjectSite.id).where(ObjectSite.id == target))).scalar_one_or_none() is not None:
+        plan.blocked = f"an object already carries {target} — merge that one first"
+        return plan
+    own = set(
+        (await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == row.id))).scalars()
+    ) | set(moved_datasets)
+    plan.datasets = sorted((did, did.replace(str(row.id), str(target))) for did in own)
+    taken = (
+        set(
+            (
+                await db.execute(
+                    select(ReferenceDataset.id).where(ReferenceDataset.id.in_([n for _, n in plan.datasets]))
+                )
+            ).scalars()
+        )
+        - own
+    )
+    if taken:
+        plan.blocked = f"{len(taken)} plan key(s) already exist under {target}, e.g. {sorted(taken)[0]}"
+        return plan
+    _, plan.scales_moved, kept = _retarget_scales(scales, row.id, target)
+    if kept:
+        plan.blocked = f"{len(kept)} calibration key(s) already exist under {target}"
+        return plan
+    for oid in [row.id, *also]:
+        plan.incidents += [i for i in await _incidents_naming(db, oid) if i not in plan.incidents]
+    plan.events, plan.journal = await _history_naming(db, row.id)
+    return plan
+
+
+def _print_rekey(plan: Rekey) -> None:
+    if plan.blocked:
+        print(f"  ! rekey {plan.row.id} → {plan.target} REFUSED: {plan.blocked}")
+        return
+    bits = [f"{len(plan.datasets)} plan(s)"]
+    if plan.scales_moved:
+        bits.append(f"{len(plan.scales_moved)} calibration key(s)")
+    if plan.incidents:
+        bits.append(f"{len(plan.incidents)} workspace(s)")
+    if plan.events or plan.journal:
+        bits.append(f"{plan.events + plan.journal} history row(s) named, left untouched")
+    print(f"  rekey  {plan.row.id} → {plan.target}  ({', '.join(bits)})")
+
+
+async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
+    """Move the survivor itself onto the NFC-key id. Only under ``--apply``, same transaction.
+
+    The row is re-created rather than updated in place: the plans reference ``objects.id`` and the
+    FK has no ON UPDATE CASCADE, so a parent key cannot change while children point at it. Same
+    order as a loser fold — new row, everything moved onto it, old row last.
+    """
+    old = plan.row
+    source_key = old.source_key
+    fresh = ObjectSite(
+        id=plan.target,
+        name=plan.name,
+        address=old.address,
+        lat=old.lat,
+        lng=old.lng,
+        source_note=old.source_note,
+    )
+    db.add(fresh)
+    await db.flush()
+    for old_id, new_id in plan.datasets:
+        await db.execute(
+            update(ReferenceDataset)
+            .where(ReferenceDataset.id == old_id)
+            .values(id=new_id, object_id=plan.target)
+            .execution_options(synchronize_session=False)
+        )
+    for incident_id in plan.incidents:
+        row = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
+        if row is None or not isinstance(row.map_workspace_json, dict):
+            continue
+        new_doc, hits = _retarget_json(row.map_workspace_json, old.id, plan.target)
+        if hits and isinstance(new_doc, dict):
+            row.map_workspace_json = new_doc
+    if source_key is not None:
+        old.source_key = None  # UNIQUE — free it before the re-keyed row takes it
+        await db.flush()
+        fresh.source_key = source_key
+    await db.execute(delete(ObjectSite).where(ObjectSite.id == old.id).execution_options(synchronize_session=False))
 
 
 async def _apply_pair(db: AsyncSession, pair: MergePair) -> None:
@@ -888,6 +1009,12 @@ async def _merge_duplicates(*, apply: bool) -> int:
     here. A plan slot the survivor already holds is never overwritten: identical bytes let the
     duplicate row go, anything else is reported as a conflict and the loser row stays whole.
 
+    A group that folds completely also ends up ON the NFC-key id: where no row carried it, the
+    survivor is re-keyed onto it once the losers are in (:func:`_apply_rekey`). That id is what
+    the SharePoint pull and every future import mint for this name, so a merge that skipped it
+    would be undone by the next sync — a third row under the same name. A group kept back by a
+    conflict is NOT re-keyed: half a merge on a new id is worse than none.
+
     Under ``--apply`` the whole run is ONE transaction: either every group folds or none does.
 
     ⚠️ Writes ``plan_scales_json`` directly, outside the If-Match guard a human write gets
@@ -907,9 +1034,16 @@ async def _merge_duplicates(*, apply: bool) -> int:
         station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
         pairs: list[MergePair] = []
+        rekeys: list[Rekey] = []
+        unfinished = 0  # groups whose conflicts keep the survivor on its old, non-NFC id
         for group in duplicates.values():
-            survivor, why = _pick_survivor(group, counts)
-            print(f"\n«{unicodedata.normalize('NFC', survivor.name)}» — {len(group)} rows ({why})")
+            survivor, rekey_to = _pick_survivor(group, counts)
+            note = (
+                "the survivor carries the NFC-key id"
+                if rekey_to is None
+                else f"no row carries the NFC-key id — the richest is re-keyed to {rekey_to}"
+            )
+            print(f"\n«{unicodedata.normalize('NFC', survivor.name)}» — {len(group)} rows ({note})")
             slots: dict[str, ReferenceDataset] = {
                 ds.module: ds
                 for ds in (
@@ -917,22 +1051,56 @@ async def _merge_duplicates(*, apply: bool) -> int:
                 ).scalars()
                 if ds.module
             }
+            folded: list[MergePair] = []
             for loser in [o for o in group if o.id != survivor.id]:
                 pair = await _plan_merge(db, survivor, loser, counts=counts, slots=slots, scales=scales)
                 _print_pair(pair)
                 scales, _, _ = _retarget_scales(scales, loser.id, survivor.id)
+                folded.append(pair)
                 pairs.append(pair)
                 if apply:
                     await _apply_pair(db, pair)
+            if rekey_to is None:
+                continue
+            if not all(p.deletable for p in folded):
+                # Half a merge re-keyed is worse than none: the conflicting twin would stay behind
+                # under a spelling the pull no longer resolves to anything.
+                print(
+                    f"       ! rekey {survivor.id} → {rekey_to} NOT done — this group did not fold; "
+                    "a later import under the NFC spelling would mint a THIRD row"
+                )
+                unfinished += 1
+                continue
+            if apply:
+                await db.flush()  # the folds above must be readable by the scan below
+            rekey = await _plan_rekey(
+                db,
+                survivor,
+                rekey_to,
+                also=[p.loser.id for p in folded],
+                moved_datasets=[s.target_id for p in folded for s in p.slots if s.action == "move"],
+                scales=scales,
+            )
+            _print_rekey(rekey)
+            rekeys.append(rekey)
+            if rekey.blocked is None:
+                scales, _, _ = _retarget_scales(scales, survivor.id, rekey_to)
+                if apply:
+                    await _apply_rekey(db, rekey)
 
         moved = sum(1 for p in pairs for s in p.slots if s.action == "move")
         dropped = sum(1 for p in pairs for s in p.slots if s.action == "drop")
         conflicts = sum(len(p.conflicts) for p in pairs)
         deletions = sum(1 for p in pairs if p.deletable)
+        rekeyed = sum(1 for r in rekeys if r.blocked is None)
+        refused = len(rekeys) - rekeyed
         summary = (
             f"{len(pairs)} merge(s) in {len(duplicates)} name group(s): {deletions} object row(s) deleted, "
             f"{len(pairs) - deletions} kept for conflicts, {moved} plan(s) re-pointed, "
-            f"{dropped} duplicate plan row(s) dropped, {conflicts} conflict(s)"
+            f"{dropped} duplicate plan row(s) dropped, {conflicts} conflict(s), "
+            f"{rekeyed} survivor(s) re-keyed to the NFC id"
+            + (f", {refused} re-key(s) refused" if refused else "")
+            + (f", {unfinished} re-key(s) left undone by conflicts" if unfinished else "")
         )
         if not apply:
             print(f"\nOK (dry-run): would be {summary}. Nothing written. Repeat with --apply to perform it.")
@@ -940,10 +1108,13 @@ async def _merge_duplicates(*, apply: bool) -> int:
         if station is not None and scales != (station.plan_scales_json or {}):
             station.plan_scales_json = scales
         await db.commit()
-        print(f"\n{'INCOMPLETE' if conflicts else 'OK'}: {summary}.")
+        incomplete = bool(conflicts or refused)
+        print(f"\n{'INCOMPLETE' if incomplete else 'OK'}: {summary}.")
         if conflicts:
             print("       The conflicting sheets are still on their old object — decide those by hand.")
-        return 1 if conflicts else 0
+        if refused:
+            print("       A refused re-key leaves that survivor on its old id — the next sync would mint a third.")
+        return 1 if incomplete else 0
 
 
 async def _remove_empty(*, apply: bool, names: list[str]) -> int:
