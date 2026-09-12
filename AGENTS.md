@@ -93,6 +93,12 @@ to prod.
   order). Same-object conflicts can stay simple for now. To add a synced collection: extend
   `HasId` and register it in `WsShape`. (`Person`/roster is the exception – it carries
   `updatedAt` because it's pulled from Divera, not merged.)
+- **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
+  [`docs/trupp-naming.md`](docs/trupp-naming.md)). The number comes from ONE counter per Einsatz
+  that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's
+  name – never the primary label. Every Verlauf row about a Trupp is `Trupp N (crew …)` through
+  `truppLogName`, and the crew's history is `crew` rows in the Trupp's own log, which is what the
+  Rapport prints per cycle. Add a crew-changing action ⇒ it writes a `crew` row.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
   (`<prefix><ms>-<seq><rand>`) for records the app mints and syncs; plain
   `'p'+Date.now()` survives in older call sites. Offline-friendly, no DB roundtrip;

@@ -1,3 +1,4 @@
+import { nextTruppNo } from './placedTrupps'
 import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
@@ -663,6 +664,24 @@ function builtinAndConfigLayers(): LayerDef[] {
 
 /** The layer list an Einsatz of this category opens with when no device/blob state exists —
  *  what the Ebenen panel's «Zurücksetzen» returns to (same derivation deriveInitial seeds). */
+/**
+ * Give every unnumbered Trupp its number — the migration for records written before `Trupp.no`
+ * existed (docs/trupp-naming.md §6). Numbered ones keep theirs; the rest are numbered in
+ * registration order (first reading's timestamp, else list position) from the first number no
+ * Trupp AND no placed chip («Trupp N», the same counter) already carries. Pure and idempotent:
+ * closed incidents render with the same rule on every load and are never rewritten; an open one
+ * persists the numbers with its next write.
+ */
+export function numberTrupps(trupps: Trupp[], chipNames: Iterable<string | undefined> = []): Trupp[] {
+  const unnumbered = trupps.filter((t) => typeof t.no !== 'number')
+  if (!unnumbered.length) return trupps
+  const at = (t: Trupp) => Date.parse(t.readings?.[0]?.t ?? '') || 0
+  const order = [...unnumbered].sort((a, b) => at(a) - at(b) || trupps.indexOf(a) - trupps.indexOf(b))
+  let next = nextTruppNo(trupps, chipNames)
+  const assigned = new Map(order.map((t) => [t.id, next++]))
+  return trupps.map((t) => (assigned.has(t.id) ? { ...t, no: assigned.get(t.id) } : t))
+}
+
 export function defaultLayers(incidentType?: string | null): LayerDef[] {
   return autoActivateLayers(builtinAndConfigLayers(), incidentType)
 }
@@ -717,7 +736,11 @@ export function deriveInitial(
     activePlanId: (prefs.incidentId === incidentId ? prefs.activePlanId : undefined)
       ?? ws?.activePlanId ?? ws?.activeModule ?? defaultPlanId,
     checklists: ws?.checklists ?? {},
-    trupps: ws?.trupps ?? [],
+    // numbered on the way in (see numberTrupps): a chip standing on any surface counts too
+    trupps: numberTrupps(ws?.trupps ?? [], [
+      ...entities.filter((e) => e.kind === 'team').map((e) => e.label),
+      ...Object.values(board).flat().filter((a) => a.kind === 'resource').map((a) => a.text),
+    ]),
     attendance: ws?.attendance ?? {},
     mittel: ws?.mittel ?? [],
     shifts: ws?.shifts ?? [],

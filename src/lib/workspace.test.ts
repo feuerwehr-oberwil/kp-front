@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, latestTruppStamp, normalizeBoard, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved, changedSafetySettings} from './workspace'
-import type { LayerDef } from '../types'
+import { autoActivateLayers, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved, changedSafetySettings} from './workspace'
+import type { LayerDef, Trupp } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
 // exercisable (the bundled demo layers carry no autoActivate).
@@ -132,6 +132,36 @@ describe('deriveInitial — fresh / empty incident', () => {
     expect(s.attendance).toEqual({})
     // a brand-new incident opens on Modul 1 (the Übersicht)
     expect(s.activePlanId).toBe('modul1')
+  })
+})
+
+/* ── Trupp N for records written before the number existed (12.09., docs/trupp-naming.md §6) ── */
+describe('numberTrupps — the load normaliser', () => {
+  const t = (id: string, over: Partial<Trupp> = {}): Trupp => ({
+    id, name: id, entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', ...over,
+  })
+
+  it('numbers unnumbered Trupps in registration order, after every number already taken', () => {
+    const out = numberTrupps([
+      t('late', { readings: [{ t: '2026-09-01T10:30:00Z', bar: 300, kind: 'registered' }] }),
+      t('kept', { no: 3 }),
+      t('early', { readings: [{ t: '2026-09-01T10:00:00Z', bar: 300, kind: 'registered' }] }),
+    ], ['Trupp 5'])
+    expect(out.map((x) => [x.id, x.no])).toEqual([['late', 7], ['kept', 3], ['early', 6]])
+  })
+
+  it('falls back to list position for a record with no log, and is a no-op when nothing is missing', () => {
+    expect(numberTrupps([t('a'), t('b')]).map((x) => x.no)).toEqual([1, 2])
+    const done = [t('a', { no: 1 })]
+    expect(numberTrupps(done)).toBe(done) // same array — nothing to persist
+  })
+
+  it('runs inside deriveInitial, counting the chips standing on the plans and the Karte', () => {
+    const blob = ws({
+      trupps: [t('x')],
+      entities: [{ id: 'e1', kind: 'team', layer: 'ops', coord: [7.5, 47.5], label: 'Trupp 2', trail: [] }],
+    })
+    expect(deriveInitial(blob, 'inc1', {}).trupps[0].no).toBe(3)
   })
 })
 

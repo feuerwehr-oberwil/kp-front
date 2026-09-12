@@ -259,8 +259,14 @@ describe('transferOutOfTrupp — the warning’s own way out', () => {
     expect(actions.transferOutOfTrupp('T1', 'p2')).toBe(true)
     expect(state.trupps[0]).toMatchObject({
       status: 'raus', entryTime: t.entryTime, exitTime: t.exitTime,
-      lastContactTime: t.lastContactTime, lowestBar: 120, readings: t.readings,
+      lastContactTime: t.lastContactTime, lowestBar: 120,
     })
+    // the measured log is untouched; the ONE row added is the crew as it now stands (12.09.),
+    // which is what the Rapport reads «14:40 Frei Nina → Trupp 2» off
+    expect(state.trupps[0].readings).toEqual([
+      ...t.readings!,
+      { t: expect.any(String), bar: 300, kind: 'crew', crew: { name: 'Keller Anna', members: ['Amrein Patrick'] } },
+    ])
   })
 
   /* …and «in Trupp Frei Nina gewechselt» on the row about Frei Nina is not an answer: that is the
@@ -474,7 +480,7 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     expect(t.exitTime).toBeUndefined()
     // the fresh cylinder was READ — that reading opens the log, so a Reserve that is never
     // sent in still prints a Druckverlauf instead of «Kein Druckverlauf erfasst»
-    expect(t.readings).toEqual([{ t: expect.any(String), bar: 300, kind: 'registered' }])
+    expect(t.readings).toEqual([{ t: expect.any(String), bar: 300, kind: 'registered' }, { t: expect.any(String), bar: 300, kind: 'crew', crew: { name: 'Keller Anna', members: [] } }])
     expect(t.entryPressureBar).toBe(300)
     expect(t.lowestBar).toBe(300) // the old 40 bar must not follow the new bottle
     // and the standby Trupp is genuinely off the contact clock
@@ -489,7 +495,7 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     expect(t.status).toBe('aktiv')
     expect(t.entryTime).toBeTruthy()
     expect(t.lastContactTime).toBe(t.entryTime)
-    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }])
+    expect(t.readings).toEqual([{ t: t.entryTime, bar: 300, kind: 'entry' }, { t: expect.any(String), bar: 300, kind: 'crew', crew: { name: 'Keller Anna', members: [] } }])
   })
 
   it('a Trupp put on standby starts its clock only on the later «Eingerückt»', () => {
@@ -504,6 +510,7 @@ describe('useTruppActions — Rückzug / Fortsetzen count as a Funkkontakt', () 
     // moments — the cylinder read at the Tafel, then the crew going under PA
     expect(t.readings).toEqual([
       { t: expect.any(String), bar: 300, kind: 'registered' },
+      { t: expect.any(String), bar: 300, kind: 'crew', crew: { name: 'Keller Anna', members: [] } },
       { t: t.entryTime, bar: 300, kind: 'entry' },
     ])
   })
@@ -567,7 +574,7 @@ describe('the Anmeldung/Eintritt rows — the crew, and no invented Druck', () =
     const { actions, lines } = lined(fresh({ kind: 'einfach', entryPressureBar: 0 }))
     actions.createTrupp(fresh({ kind: 'einfach', entryPressureBar: 0 }))
     // …and SAYS it went without one, because `logRegisterPlain` does not (09.09.)
-    expect(lines[0]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter angemeldet – ohne Atemschutz')
+    expect(lines[0]).toBe('Trupp 1 (Brunner Thomas / Müller Hans / Schmid Peter) angemeldet – ohne Atemschutz')
     expect(lines[0]).not.toContain('bar')
   })
 
@@ -580,7 +587,7 @@ describe('the Anmeldung/Eintritt rows — the crew, and no invented Druck', () =
   it('keeps the Eingangsdruck where one was actually measured', () => {
     const { actions, lines } = lined(fresh({ entryPressureBar: 300 }))
     actions.createTrupp(fresh({ entryPressureBar: 300 }))
-    expect(lines[0]).toBe('Trupp Brunner Thomas / Müller Hans / Schmid Peter angemeldet – Eingangsdruck 300 bar')
+    expect(lines[0]).toBe('Trupp 1 (Brunner Thomas / Müller Hans / Schmid Peter) angemeldet – Eingangsdruck 300 bar')
   })
 
   // ⚠️ No role word anywhere in these strings (reverted 04.09., same day): every one of them
@@ -598,7 +605,7 @@ describe('the Anmeldung/Eintritt rows — the crew, and no invented Druck', () =
     const solo = fresh({ name: 'Brunner Thomas', members: undefined, entryPressureBar: 300 })
     const { actions, lines } = lined(solo)
     actions.createTrupp(solo)
-    expect(lines[0]).toBe('Trupp Brunner Thomas angemeldet – Eingangsdruck 300 bar')
+    expect(lines[0]).toBe('Trupp 1 (Brunner Thomas) angemeldet – Eingangsdruck 300 bar')
   })
 
   /* ── …and WHAT the Trupp was registered for (09.09., Feldentscheid) ──────────────────────────
@@ -614,7 +621,7 @@ describe('the Anmeldung/Eintritt rows — the crew, and no invented Druck', () =
     const { actions, lines } = lined(full)
     actions.createTrupp(full)
     expect(lines[0]).toBe(
-      'Trupp Amstad Manuel / Meier Alessandro angemeldet – Eingangsdruck 300 bar'
+      'Trupp 1 (Amstad Manuel / Meier Alessandro) angemeldet – Eingangsdruck 300 bar'
       + ' – Löschen – Dach via Schiebeleiter · Ltg. 1 · Kanal 11',
     )
   })
@@ -623,7 +630,7 @@ describe('the Anmeldung/Eintritt rows — the crew, and no invented Druck', () =
     const bare = fresh({ name: 'Brunner Thomas', members: undefined, entryPressureBar: 300 })
     const { actions, lines } = lined(bare)
     actions.createTrupp(bare)
-    expect(lines[0]).toBe('Trupp Brunner Thomas angemeldet – Eingangsdruck 300 bar')
+    expect(lines[0]).toBe('Trupp 1 (Brunner Thomas) angemeldet – Eingangsdruck 300 bar')
     expect(lines[0]).not.toContain('Ltg.')
     expect(lines[0]).not.toContain('Kanal')
   })
@@ -818,7 +825,8 @@ describe('useTruppActions — what changed on the way back in', () => {
     expect(anyTruppInField([t])).toBe(false)
     // the Eintritt of THIS deployment still lands in the log: the printed Detailprotokoll reads
     // its spans off these rows, so a plain re-deployment must not go missing from the sheet
-    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'entry', bar: 0 })
+    expect(t.readings?.[t.readings.length - 2]).toMatchObject({ kind: 'entry', bar: 0 })
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'crew' })
     // …and no paOff: the Atemschutz-Einsatz ended at its Austritt, not now
     expect(t.readings?.some((r) => r.kind === 'paOff')).toBe(false)
     expect(lines).toEqual([
@@ -1519,23 +1527,97 @@ describe('useTruppActions — the Eingangsdruck opens the Druckverlauf', () => {
       lowestBar: 300, status: 'angemeldet', readings: [],
     })
     const t = state.trupps.find((x) => x.id === 'T9')!
-    expect(t.readings).toEqual([{ t: expect.any(String), bar: 300, kind: 'registered' }])
+    expect(t.readings).toEqual([
+      { t: expect.any(String), bar: 300, kind: 'registered' },
+      // …and who was registered, as the first crew row (12.09.)
+      { t: expect.any(String), bar: 300, kind: 'crew', crew: { name: 'Sicherungstrupp', members: [] } },
+    ])
   })
 
   // …and a Trupp without Atemschutz opens no Druckverlauf at all: there is no cylinder, and a
   // «0 bar» row would be a measurement the app invented on a legal record.
-  it('a Trupp ohne Atemschutz starts with an empty log', () => {
+  it('a Trupp ohne Atemschutz starts with no MEASURED row — only the crew', () => {
     const { actions, state } = harness(baseTrupp({}))
     actions.createTrupp({
       id: 'T8', kind: 'einfach', name: 'Verkehr', entryPressureBar: 0, entryTime: '',
       lastContactTime: '', lowestBar: 0, status: 'angemeldet', readings: [],
     })
-    expect(state.trupps.find((x) => x.id === 'T8')!.readings).toEqual([])
+    expect(state.trupps.find((x) => x.id === 'T8')!.readings).toEqual([
+      { t: expect.any(String), bar: 0, kind: 'crew', crew: { name: 'Verkehr', members: [] } },
+    ])
   })
 })
 
 // The two rows the printed Atemschutz-Journal is actually read for: when the Trupp hit its
 // Alarmdruck and when it was ordered back. Both used to be indistinguishable on it.
+/* ── Trupp N: one counter per Einsatz (12.09., docs/trupp-naming.md §1) ───────────────────── */
+describe('useTruppActions — the Trupp number', () => {
+  const fresh = (id: string): Trupp => ({
+    id, name: 'Neu Nina', entryPressureBar: 300, entryTime: '', lastContactTime: '', lowestBar: 300,
+    status: 'angemeldet', readings: [],
+  })
+
+  it('numbers a new Trupp past every registered one — removed ones included, a number is never reused', () => {
+    const { actions, state } = harness(baseTrupp({ no: 2, removedAt: '2026-07-06T09:00:00Z' }))
+    actions.createTrupp(fresh('T9'))
+    expect(state.trupps.find((t) => t.id === 'T9')!.no).toBe(3)
+  })
+
+  it('…and past every unlinked «Trupp N» chip on the Karte or a plan', () => {
+    const { actions, state } = harness(baseTrupp({ no: 1 }), {
+      entities: [{ id: 'e1', kind: 'team', layer: 'ops', coord: [7.5, 47.5], label: 'Trupp 4', trail: [] }],
+      board: { modul6: [{ id: 'r1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: 'Trupp 2', t: '', trail: [] }] },
+    })
+    actions.createTrupp(fresh('T9'))
+    expect(state.trupps.find((t) => t.id === 'T9')!.no).toBe(5)
+  })
+
+  it('keeps a number the caller already chose', () => {
+    const { actions, state } = harness(baseTrupp({ no: 1 }))
+    actions.createTrupp({ ...fresh('T9'), no: 7 })
+    expect(state.trupps.find((t) => t.id === 'T9')!.no).toBe(7)
+  })
+
+  it('writes the number and the leader on housekeeping rows, the whole crew on safety rows', () => {
+    const lines: string[] = []
+    const { actions } = harness(baseTrupp({ no: 3, members: ['Frei Nina'], status: 'angemeldet', entryTime: '', lastContactTime: '' }),
+      undefined, (_i, text) => lines.push(text))
+    actions.setTruppColor('T1', '#ff0000')
+    actions.setTruppStatus('T1', 'aktiv')
+    expect(lines).toEqual([
+      'Trupp 3 (Keller Anna): Farbe geändert',
+      'Trupp 3 (Keller Anna / Frei Nina): Eintritt',
+    ])
+  })
+})
+
+/* ── The crew is a row of the log (12.09., docs/trupp-naming.md §3) ─────────────────────────── */
+describe('useTruppActions — crew rows', () => {
+  it('an edit that changes the crew appends one; an edit that does not, does not', () => {
+    const t = baseTrupp({ members: ['Frei Nina'], readings: [{ t: '2026-07-06T10:00:00Z', bar: 300, kind: 'entry' }] })
+    const first = harness(t)
+    first.actions.editTrupp('T1', { name: 'Keller Anna', members: ['Frei Nina'], pressure: 300, funkkanal: 7 })
+    expect(first.state.trupps[0].readings).toHaveLength(1)
+    const second = harness(first.state.trupps[0])
+    second.actions.editTrupp('T1', { name: 'Frei Nina', members: ['Keller Anna'], pressure: 300 })
+    expect(second.state.trupps[0].readings?.slice(-1)[0]).toMatchObject({ kind: 'crew', crew: { name: 'Frei Nina', members: ['Keller Anna'] } })
+  })
+
+  it('the timeline’s ↷ re-applies the SAME crew row — stamped once, not per redo', () => {
+    const timeline = createUndoTimeline()
+    const h = harness(baseTrupp({ members: [], readings: [] }))
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+    const actions = useTruppActions({ ...h.deps, undoTimeline: timeline, liveTrupps: () => h.state.trupps })
+    actions.editTrupp('T1', { name: 'Keller Anna', members: ['Frei Nina'], pressure: 300 })
+    const stamped = h.state.trupps[0].readings?.slice(-1)[0]
+    expect(stamped).toMatchObject({ kind: 'crew' })
+    timeline.undo()
+    expect(h.state.trupps[0].readings).toEqual([])
+    timeline.redo()
+    expect(h.state.trupps[0].readings?.slice(-1)[0]).toEqual(stamped)
+  })
+})
+
 describe('useTruppActions — the Alarmdruck is a reading of its own kind', () => {
   const alarmBar = appConfig.atemschutz.alarmBar
 
@@ -1596,9 +1678,10 @@ describe('re-deploying a Trupp keeps the pressure log', () => {
     const { actions, state } = harness(deployed())
     actions.reactivateTrupp('T1', { name: 'Keller Anna', pressure: 300 })
     const r = state.trupps[0].readings!
-    expect(r).toHaveLength(4)
+    expect(r).toHaveLength(5)
     expect(r.slice(0, 3).map((x) => x.bar)).toEqual([300, 180, 120])
     expect(r[3]).toMatchObject({ bar: 300, kind: 'entry' })
+    expect(r[4]).toMatchObject({ kind: 'crew', crew: { name: 'Keller Anna', members: [] } })
     // …while the CARD is about the running deployment again
     expect(state.trupps[0].lowestBar).toBe(300)
     expect(state.trupps[0].exitTime).toBeUndefined()
@@ -1617,7 +1700,8 @@ describe('re-deploying a Trupp keeps the pressure log', () => {
     expect(r[0].bar).toBe(300)   // the old deployment's entry, untouched (it happened to be 300)
     expect(r[1].bar).toBe(180)   // …and its readings
     expect(r[3].bar).toBe(300)   // the corrected entry of the current run
-    // the lowest is measured over the RUNNING deployment only — 120 bar was another bottle
+    // the lowest is measured over the RUNNING deployment only — 120 bar was another bottle, and
+    // the crew row's carried 200 is not a measurement either
     expect(second.state.trupps[0].lowestBar).toBe(300)
   })
 })

@@ -29,6 +29,7 @@ import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { truppOrderKey } from '../lib/useTruppActions'
 import { useTapToType } from '../lib/useTapToType'
 import s from './Atemschutz.module.css'
+import { TruppNo } from './TruppNo'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -1243,7 +1244,7 @@ export function AtemschutzView({
                       nothing on a screen that never shows the Lage or the plan. The full name
                       is what identifies the Trupp here, so it wraps rather than clips (a name
                       like «Binggeli Michael» was cut mid-word against this chip's width). */}
-                  <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
+                  <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}<TruppNo no={t.no} /></span>
                   {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
                   <span className={s.tabClock}>{collapsedClock(t, lv).val}</span>
                 </button>
@@ -1558,7 +1559,7 @@ function TruppRow({
     // animation to end, so that stuck class is a permanent one.
     return () => { window.clearTimeout(timer); el.classList.remove(s.cardFlash) }
   }, [focusNonce, focusScroll])
-  const team = (t.members ?? []).filter(Boolean).join(' · ')
+  const team = (t.members ?? []).filter(Boolean).join(' / ')
   const clock = collapsedClock(t, live)
   // ⚠️ Defence in depth: `collapsedClock`'s own `!isAtemschutzTrupp` branch already returns an
   // empty sub for a plain Trupp that is out (it has no break clock to show — see the function's
@@ -1573,6 +1574,7 @@ function TruppRow({
         <span className={s.trowName}>
           <span className={s.trowDot} style={color ? { background: color } : undefined} />
           <span className={s.trowNameTxt}>{t.name}</span>
+          <TruppNo no={t.no} />
         </span>
         {team && <span className={s.trowTeam}>{team}</span>}
         {/* Phone-only second line: the crew line is hidden there, so this costs no width at all —
@@ -1910,7 +1912,9 @@ function TruppCard({
   const crewNames = t.members?.filter(Boolean) ?? []
   const crew = crewNames.join(' · ')
 
-  const lastReading = readings.length > 0 ? readings[readings.length - 1] : null
+  // the closed row's «zuletzt: …» preview — the last MEASURED or lifecycle row; a crew row is
+  // in the list, but «und dann?» asks about the clock and the cylinder
+  const lastReading = readings.filter((r) => r.kind !== 'crew').slice(-1)[0] ?? null
 
   /* ── The one line the Sockel leaves standing (09.09.) ──────────────────────────────────────
    * See the markup at «6 + 7» below for what folded and why. This is the part that may not:
@@ -1965,7 +1969,9 @@ function TruppCard({
    * Trupp whose Art was changed mid-run carries `paOn`/`paOff` rows right there in this list,
    * which say it more precisely than a re-labelled Eintritt could.
    */
-  const readingLabel = (r: Pick<TruppReading, 'kind'>) => {
+  const readingLabel = (r: Pick<TruppReading, 'kind' | 'crew'>) => {
+    // a crew row IS its names — «Meier Anna / Frei Nina» says who the Trupp was from then on
+    if (r.kind === 'crew' && r.crew) return [r.crew.name, ...r.crew.members].map((n) => n.trim()).filter(Boolean).join(' / ')
     const what = az.readingKind[r.kind] ?? r.kind
     return !monitored && r.kind === 'entry' ? fillTemplate(az.readingNoAs, { what }) : what
   }
@@ -1998,7 +2004,7 @@ function TruppCard({
             ⚠️ NOT on the lite board: a link session never sees the Lage or the plan, so the
             colour carries no identity there — it read as an arbitrary dot on somebody's phone. */}
         {color && !lite && <span className={s.nameDot} style={{ background: color }} aria-hidden />}
-        <span className={s.nameStatic}>{t.name}</span>
+        <span className={s.nameStatic}>{t.name}<TruppNo no={t.no} /></span>
         {menuItems.length > 0 && (
           <Menu
             trigger={

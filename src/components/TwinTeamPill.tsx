@@ -23,6 +23,7 @@ import { Menu, Popover, PopoverClose } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
 import { appConfig } from '../config/appConfig'
 import type { Trupp } from '../types'
+import { TruppNo } from './TruppNo'
 
 /** Every write the bar makes, each landing on the ONE source object the twin mirrors.
  *  An OPTIONAL writer is a door this surface does not offer — its button is not drawn. */
@@ -106,6 +107,8 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
                   if (ev.key === 'Escape') { ev.stopPropagation(); setRenaming(false) }
                 }} />
             : <b>{name}</b>}
+          {/* the bound Trupp's number, beside the leader's name (docs/trupp-naming.md §2) */}
+          {truppId && <TruppNo no={trupps.find((t) => t.id === truppId)?.no} />}
           {raus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
         </span>
         {time && <i className="wb-resource-time">{time}</i>}

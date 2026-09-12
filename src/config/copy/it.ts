@@ -1180,6 +1180,8 @@ export const it: Localizable<Copy> = {
       // ⚠️ il ripiegamento è stato annullato — nessuno è rientrato (vedi la base tedesca)
       exit: 'Uscita', resume: 'Ripiegamento annullato',
       paOn: 'Sotto ARA', paOff: 'Sorveglianza ARA conclusa',
+      // a `crew` row prints its names (AtemschutzView · readingLabel); this is the fallback word
+      crew: 'Squadra',
     },
     readingNoAs: '{what} – senza ARA',
     clockOk: 'Contatto ok',
@@ -1299,6 +1301,13 @@ export const it: Localizable<Copy> = {
     changeMemberIn: '{names} si sono aggiunti',
     // …e CHI C’È ADESSO, con il « / » con cui quest’app scrive una squadra ovunque
     changeCrewNow: 'Ora: {crew}',
+    crewChange: {
+      leader: 'Caposquadra {from} → {to}',
+      movedTo: '{name} → squadra {to}',
+      movedFrom: '{name} dalla squadra {from}',
+      left: '{name} tolto dalla squadra',
+      joined: '{name} aggiunto',
+    },
     // il passaggio, in UNA riga presso la squadra che cede la persona — {name} è quella squadra,
     // {to} quella che la accoglie (la cui riga nomina già il suo effettivo completo)
     logMovedOut: 'Squadra {name}: {person} passato alla squadra {to}',

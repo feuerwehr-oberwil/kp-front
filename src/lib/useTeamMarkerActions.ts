@@ -15,10 +15,11 @@ interface TeamMarkerActionsDeps {
   emit: (op_type: string, payload?: Record<string, unknown>) => void
   setSelectedId: (id: string | null) => void
   setSelectedDrawingId: (id: string | null) => void
-  /** Chip names already standing on MIRRORED surfaces (linked Modul resource chips), so a new
-   *  generic team is numbered across both pictures instead of duplicating a mirrored «Team 1».
-   *  Absent/empty where nothing is linked — an unlinked surface keeps its own count. */
-  mirroredTeamNames?: () => string[]
+  /** Chip names standing on every PLAN, so a new generic team draws from the one counter of
+   *  the Einsatz instead of duplicating a plan's «Trupp 1» (lib/placedTrupps · nextTruppNo). */
+  placedTeamNames?: () => (string | undefined)[]
+  /** the registered Trupps — their numbers count into the same counter */
+  trupps?: () => { no?: number }[]
 }
 
 /**
@@ -27,7 +28,7 @@ interface TeamMarkerActionsDeps {
  * Marking is the ONLY way a position is recorded (moving a marker never breadcrumbs), so the
  * recorded dots ARE the Truppverfolgung; clearing them is confirm-gated.
  */
-export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId, mirroredTeamNames }: TeamMarkerActionsDeps) {
+export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedId, setSelectedDrawingId, placedTeamNames, trupps }: TeamMarkerActionsDeps) {
   const placeGenericTeam = (c: LngLat) => {
     const teams = entities.filter((e) => e.kind === 'team')
     const id = newId('trupp')
@@ -35,7 +36,7 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     // The old `colors[teams.length]` collided with an Atemschutz Trupp of the same index and
     // repeated itself after a deletion (see teamColors.ts).
     const color = pickTeamColor(undefined, teams.map((e) => e.color))
-    const label = nextTeamName([...teams.map((e) => e.label), ...(mirroredTeamNames?.() ?? [])])
+    const label = nextTeamName([...teams.map((e) => e.label), ...(placedTeamNames?.() ?? [])], trupps?.() ?? [])
     const marker: Entity = { id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: c, label, t: formatTime(new Date()), color, trail: [] }
     commit((d) => ({ ...d, entities: [...d.entities, marker] }))
     log('flag', fillTemplate(appConfig.copy.log.teamPlaced, { name: marker.label! }), 'team', undefined, id)

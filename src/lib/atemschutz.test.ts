@@ -422,6 +422,18 @@ describe('truppStillDeployed (the Abschluss question)', () => {
 // record said «Trupp Fabich Mischa überfällig» while two people were inside — and a genuine
 // one-man Trupp (Eichenberger) was indistinguishable from a pair whose second member had never
 // been entered. Both printed one name.
+describe('truppLogName — the number in front of the crew (12.09.)', () => {
+  const t = { no: 2, name: 'Fabich Mischa', members: ['Dürring Jan'] }
+  it('names the crew behind the number on a safety row, the leader alone on a housekeeping one', () => {
+    expect(truppLogName(t)).toBe('2 (Fabich Mischa / Dürring Jan)')
+    expect(truppLogName(t, 'leader')).toBe('2 (Fabich Mischa)')
+  })
+  it('prints the bare number when no name was ever entered, and the old form without a number', () => {
+    expect(truppLogName({ no: 4, name: '' })).toBe('4')
+    expect(truppLogName({ name: 'Fabich Mischa', members: ['Dürring Jan'] }, 'leader')).toBe('Fabich Mischa')
+  })
+})
+
 describe('truppLogName — who a Verlauf row about this Trupp is about', () => {
   it('names the whole crew, leader first', () => {
     expect(truppLogName({ name: 'Fabich Mischa', members: ['Dürring Jan'] })).toBe('Fabich Mischa / Dürring Jan')

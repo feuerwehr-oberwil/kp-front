@@ -21,6 +21,7 @@ import { buzz } from '../lib/haptics'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
 import { nextTeamName } from '../lib/placedTrupps'
+import { TruppNo } from './TruppNo'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
@@ -208,6 +209,10 @@ interface Props {
   onView?: (c: { x: number; y: number; floor: number }) => void
   /** currently monitored Atemschutz Trupps — offered when placing a team chip on the plan. */
   trupps?: Trupp[]
+  /** every chip and marker name standing on ANY surface of this Einsatz — the Karte and every
+   *  plan — so a new generic «Trupp N» draws from the one counter the Atemschutz board numbers
+   *  from too (lib/placedTrupps · nextTruppNo). Absent: this board's own chips count alone. */
+  placedTeamNames?: () => (string | undefined)[]
   /** link a placed chip to a tracked Trupp (chip ↔ Trupp; sets the Trupp's annoId/planId). */
   onLinkTrupp?: (annoId: string, truppId: string) => void
   /** jump to the Atemschutz board for a linked Trupp ("show the trupp"). */
@@ -284,7 +289,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -1225,11 +1230,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const placeTeamChip = (x: number, y: number, floor: number, trupp?: Trupp) => {
     const teams = annos.filter((a) => a.kind === 'resource').length
     const id = `r${Date.now()}`
-    // generic chips are numbered across BOTH pictures once the sheet is linked — the map's
-    // «Team 1» is mirrored right here, and a second «Team 1» read as one duplicated Trupp
+    // generic chips are numbered from the ONE counter of the Einsatz — every surface's chips
+    // and every registered Trupp — so a second «Trupp 1» cannot appear anywhere (placedTeamNames)
     const name = trupp ? trupp.name : nextTeamName([
       ...annos.filter((a) => a.kind === 'resource').map((a) => a.text),
-    ])
+      ...(placedTeamNames?.() ?? []),
+    ], trupps)
     const color = TEAM_COLORS[teams % TEAM_COLORS.length]
     add({ id, kind: 'resource', x, y, floor, text: name, t: formatTime(new Date()), color, trail: [], truppId: trupp?.id })
     if (trupp) onLinkTrupp?.(id, trupp.id)
@@ -3483,6 +3489,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     return (
                       <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                         <i /><b>{a.text}</b>
+                        {a.truppId && <TruppNo no={trupps.find((t) => t.id === a.truppId)?.no} />}
                       </span>
                     )
                   }

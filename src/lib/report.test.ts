@@ -38,6 +38,7 @@ import {
   readingKindLabel,
   spanAwareClock,
   truppAuftragLabel,
+  truppCrewHistory,
   truppRunTimes,
   truppStatusLabel,
 } from './report'
@@ -827,6 +828,69 @@ describe('readingBarIsMeasured (which pressures the Rapport may print)', () => {
 // ⚠️ Field report 02.09.: a Trupp went in at 13:44, came out at 15:03, was re-registered and went
 // in again at 15:16. The Detailprotokoll's header printed the LAST pair alone, over a table whose
 // first row said 13:44 — the two halves of one block contradicting each other on a safety document.
+/* ── The crew per cycle, and what changed about it (12.09., docs/trupp-naming.md §5) ──────── */
+describe('truppCrewHistory (the crew the Atemschutz page prints)', () => {
+  const T = (m: number) => `2026-09-12T14:${String(m).padStart(2, '0')}:00.000Z`
+  const crew = (t: string, name: string, members: string[] = []): TruppReading => ({ t, bar: 300, kind: 'crew', crew: { name, members } })
+  const r = (t: string, kind: TruppReading['kind']): TruppReading => ({ t, bar: 300, kind })
+  const trupp = (id: string, no: number, readings: TruppReading[], over: Partial<Trupp> = {}): Trupp => ({
+    id, no, name: 'X', entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'aktiv', readings, ...over,
+  })
+
+  it('names the leader at registration and the crew that went in on each cycle', () => {
+    const t = trupp('t1', 1, [
+      r(T(0), 'registered'), crew(T(0), 'Meier Anna', ['Dürring Jan']),
+      r(T(5), 'entry'), r(T(30), 'exit'),
+      crew(T(31), 'Keller Andreas', ['Dürring Jan']), // handover between the cycles
+      r(T(35), 'entry'), r(T(50), 'exit'),
+    ], { name: 'Keller Andreas', members: ['Dürring Jan'] })
+    expect(truppCrewHistory(t)).toEqual({
+      leader: 'Meier Anna',
+      cycles: [
+        { entry: T(5), exit: T(30), crew: ['Meier Anna', 'Dürring Jan'], changes: [] },
+        { entry: T(35), exit: T(50), crew: ['Keller Andreas', 'Dürring Jan'],
+          changes: [{ t: T(31), text: 'Gruppenführer Meier Anna → Keller Andreas' }] },
+      ],
+    })
+  })
+
+  it('follows a transfer to the Trupp that took the person, and traces an arrival back', () => {
+    const giving = trupp('t1', 1, [
+      crew(T(0), 'Meier Anna', ['Dürring Jan']), r(T(5), 'entry'), r(T(20), 'exit'),
+      crew(T(40), 'Meier Anna'), // Dürring Jan taken out at 14:40
+    ])
+    const taking = trupp('t2', 2, [
+      crew(T(41), 'Frei Nina', ['Dürring Jan']), r(T(42), 'entry'),
+    ])
+    expect(truppCrewHistory(giving, [giving, taking]).cycles[0].changes)
+      .toEqual([{ t: T(40), text: 'Dürring Jan → Trupp 2' }])
+    expect(truppCrewHistory(taking, [giving, taking]).cycles[0].changes)
+      .toEqual([{ t: T(41), text: 'Dürring Jan von Trupp 1' }])
+  })
+
+  it('says only «left» / «joined» when no other log explains the move', () => {
+    const t = trupp('t1', 1, [
+      crew(T(0), 'Meier Anna', ['Dürring Jan']), r(T(5), 'entry'),
+      crew(T(10), 'Meier Anna', ['Frei Nina']),
+    ])
+    expect(truppCrewHistory(t).cycles[0].changes.map((c) => c.text))
+      .toEqual(['Dürring Jan aus dem Trupp genommen', 'Frei Nina dazugekommen'])
+  })
+
+  it('falls back to the card for a record with no crew rows — all an older Trupp ever knew', () => {
+    const t = trupp('t1', 1, [r(T(5), 'entry')], { name: 'Meier Anna', members: ['Dürring Jan'] })
+    expect(truppCrewHistory(t)).toEqual({
+      leader: 'Meier Anna',
+      cycles: [{ entry: T(5), exit: undefined, crew: ['Meier Anna', 'Dürring Jan'], changes: [] }],
+    })
+  })
+
+  it('has no cycle for a Trupp that never went in, and so nowhere for a change to print', () => {
+    const t = trupp('t1', 1, [r(T(0), 'registered'), crew(T(0), 'Meier Anna'), crew(T(3), 'Frei Nina')])
+    expect(truppCrewHistory(t)).toEqual({ leader: 'Meier Anna', cycles: [] })
+  })
+})
+
 describe('truppRunTimes (the Eintritt/Austritt the header prints)', () => {
   const r = (t: string, kind: TruppReading['kind']): TruppReading => ({ t, bar: 300, kind })
 
