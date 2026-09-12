@@ -6353,7 +6353,7 @@ export const de = {
         reference_unreachable: 'Die Gebäudedaten waren nicht erreichbar – später neu berechnen.',
         no_matching_geometry: 'Keine passende Gebäudegeometrie in den Kartendaten gefunden.',
         invalid_match: 'Die Berechnung lieferte kein brauchbares Ergebnis.',
-        score_above_ceiling: 'Kein Vorschlag mit ausreichender Sicherheit – von Hand ausrichten.',
+        low_coverage: 'Kein Vorschlag mit ausreichender Sicherheit – von Hand ausrichten.',
         worker_retry_limit: 'Mehrere Versuche fehlgeschlagen – «Neu berechnen» startet frisch.',
         revision_missing: 'Die Plandatei fehlt auf dem Server.',
         preparation_failed: 'Vorbereitung fehlgeschlagen – «Neu berechnen» versucht es erneut.',

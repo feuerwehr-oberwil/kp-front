@@ -4028,7 +4028,7 @@ export const it: Localizable<Copy> = {
         reference_unreachable: 'I dati degli edifici non erano raggiungibili – ricalcolare più tardi.',
         no_matching_geometry: 'Nessuna geometria di edificio corrispondente trovata nei dati cartografici.',
         invalid_match: 'Il calcolo non ha prodotto un risultato utilizzabile.',
-        score_above_ceiling: 'Nessuna proposta con confidenza sufficiente – allineare a mano.',
+        low_coverage: 'Nessuna proposta con confidenza sufficiente – allineare a mano.',
         worker_retry_limit: 'Diversi tentativi non riusciti – «Ricalcola» riparte da capo.',
         revision_missing: 'Il file del piano manca sul server.',
         preparation_failed: 'Preparazione non riuscita – «Ricalcola» riprova.',

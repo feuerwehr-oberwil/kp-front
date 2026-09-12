@@ -4223,7 +4223,7 @@ export const en: Localizable<Copy> = {
         reference_unreachable: 'The building data was unreachable – recompute later.',
         no_matching_geometry: 'No matching building geometry found in the map data.',
         invalid_match: 'The computation produced no usable result.',
-        score_above_ceiling: 'No proposal with sufficient confidence – align by hand.',
+        low_coverage: 'No proposal with sufficient confidence – align by hand.',
         worker_retry_limit: 'Several attempts failed – “Recompute” starts fresh.',
         revision_missing: 'The plan file is missing on the server.',
         preparation_failed: 'Preparation failed – “Recompute” tries again.',

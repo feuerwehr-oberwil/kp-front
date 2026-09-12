@@ -4029,7 +4029,7 @@ export const fr: Localizable<Copy> = {
         reference_unreachable: 'Les données de bâtiments étaient inaccessibles – recalculer plus tard.',
         no_matching_geometry: 'Aucune géométrie de bâtiment correspondante trouvée dans les données cartographiques.',
         invalid_match: 'Le calcul n’a donné aucun résultat utilisable.',
-        score_above_ceiling: 'Aucune proposition avec une confiance suffisante – aligner à la main.',
+        low_coverage: 'Aucune proposition avec une confiance suffisante – aligner à la main.',
         worker_retry_limit: 'Plusieurs tentatives ont échoué – «Recalculer» repart de zéro.',
         revision_missing: 'Le fichier du plan manque sur le serveur.',
         preparation_failed: 'Préparation échouée – «Recalculer» réessaie.',

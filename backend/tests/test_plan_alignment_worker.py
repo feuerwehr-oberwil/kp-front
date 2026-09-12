@@ -83,9 +83,8 @@ def matcher(monkeypatch):
                 "reference_radius_m",
                 "rings_from_overpass",
                 "local_to_wgs84",
-                "SCORE_CEILING_M1",
-                "SCORE_CEILING",
-                "SCORE_CUTOFF",
+                "COVERAGE_CONFIDENT",
+                "COVERAGE_FLOOR",
                 "suggestion_pairs",
             )
         }
@@ -120,6 +119,7 @@ def matcher(monkeypatch):
 
 
 async def test_match_records_actual_pairs_and_wgs84_reference_without_publishing(single_page_store, matcher):
+    suggest = matcher.suggest
     page = compute.render_page("plans/exact.pdf", 0)
     result = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None)
     assert result.status == "ready"
@@ -129,19 +129,22 @@ async def test_match_records_actual_pairs_and_wgs84_reference_without_publishing
     assert result.reference_at is not None
     assert result.scale_m_per_u == page.printed_scale
     m1 = await compute.compute_alignment(page, "modul1", 7.0, 47.0, None)
-    assert m1.status == "needs_review"  # a low score cannot promote M1
+    assert m1.status == "ready"  # the same coverage bar for every template
+    matcher.suggest = lambda *args: replace(suggest(*args), coverage=0.6)
+    mid = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None)
+    assert mid.status == "needs_review"
 
 
 async def test_no_match_keeps_reference_for_manual_review(single_page_store, matcher):
     suggest = matcher.suggest
-    matcher.suggest = lambda *args: replace(suggest(*args), score=30, coverage=0.1)
+    matcher.suggest = lambda *args: replace(suggest(*args), score=2.0, coverage=0.4)  # a good score does not rescue it
     page = compute.render_page("plans/exact.pdf", 0)
     result = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None)
     assert result.status == "no_match"
     assert result.pairs == []
     assert result.reference_rings and result.aspect == page.aspect
     assert result.reference_rings[0][0] == pytest.approx({"lng": 7.0, "lat": 47.0})
-    assert result.reason == "score_above_ceiling"
+    assert result.reason == "low_coverage"
 
 
 async def test_missing_dependencies_and_unsupported_modules_are_honest(single_page_store, monkeypatch):

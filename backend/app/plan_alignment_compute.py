@@ -19,7 +19,7 @@ from .pdfium_lock import pdfium_lock
 
 RENDER_SIDE = 1755
 MAX_PAGES = 100
-MATCHER_VERSION = "fixed-scale-icp-2026-09-09"
+MATCHER_VERSION = "global-coverage-search-2026-09-12"
 
 
 class Capability(TypedDict):
@@ -221,14 +221,15 @@ async def compute_alignment(
             return replace(common, reason="no_matching_geometry")
         if not all(math.isfinite(x) for x in (suggestion.score, suggestion.coverage, suggestion.rotation_deg)):
             return replace(common, reason="invalid_match")
-        if suggestion.score > (matcher.SCORE_CEILING_M1 if template == "m1" else matcher.SCORE_CEILING):
-            return replace(common, reason="score_above_ceiling", score=suggestion.score, coverage=suggestion.coverage)
+        if suggestion.coverage < matcher.COVERAGE_FLOOR:
+            return replace(common, reason="low_coverage", score=suggestion.score, coverage=suggestion.coverage)
         pairs = matcher.suggestion_pairs(suggestion, image.shape[1], image.shape[0], lng, lat)
         if len(pairs) != 2 or any(p.get("kind") != "auto" for p in pairs):
             raise ValueError("invalid_matcher_pairs")
-        # M1 always requires extra checking, regardless of its numeric score. Neither state
-        # is publication: both still need an administrator's explicit review and approval.
-        status = "ready" if template != "m1" and suggestion.score <= matcher.SCORE_CUTOFF else "needs_review"
+        # Context coverage is the one measured acceptance signal (georef_suggest.COVERAGE_CONFIDENT);
+        # both templates share it. Neither state is publication: both still need an
+        # administrator's explicit review and approval.
+        status = "ready" if suggestion.coverage >= matcher.COVERAGE_CONFIDENT else "needs_review"
         return replace(
             common,
             status=status,
