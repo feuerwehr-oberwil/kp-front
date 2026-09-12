@@ -113,7 +113,7 @@ def test_compound_alignment_does_not_snap_to_a_neighbouring_row(angle: float) ->
     assert np.max(error) < 1
 
 
-async def test_module_one_proposal_remains_uncertain_with_a_low_union_score(client, editor, monkeypatch):
+async def test_mid_coverage_is_offered_but_not_confident_on_every_template(client, editor, monkeypatch):
     import json
 
     import cv2
@@ -131,8 +131,8 @@ async def test_module_one_proposal_remains_uncertain_with_a_low_union_score(clie
         lambda *_args: matcher.Suggestion(
             a=np.eye(2) * 0.15,
             t=np.zeros(2),
-            score=0.6,
-            coverage=0.8,
+            score=0.6,  # a «confident» score by the retired bands — irrelevant now
+            coverage=0.6,
             rotation_deg=0,
         ),
     )
@@ -151,7 +151,7 @@ async def test_module_one_proposal_remains_uncertain_with_a_low_union_score(clie
     assert len(result["pairs"]) == 2
 
 
-async def test_scores_past_the_ceiling_return_no_proposal(client, editor, monkeypatch):
+async def test_coverage_below_the_floor_returns_no_proposal(client, editor, monkeypatch):
     import json
 
     import cv2
@@ -169,8 +169,8 @@ async def test_scores_past_the_ceiling_return_no_proposal(client, editor, monkey
         lambda *_args: matcher.Suggestion(
             a=np.eye(2) * 0.15,
             t=np.zeros(2),
-            score=99.0,
-            coverage=0.1,
+            score=2.0,  # a good score does not rescue a pose that covers nothing
+            coverage=0.4,
             rotation_deg=0,
         ),
     )
@@ -213,3 +213,13 @@ async def test_oversized_decoded_images_are_refused_in_band(client, editor, monk
     assert response.status_code == 200
     last = json.loads(response.text.splitlines()[-1])
     assert last == {"error": "Bild zu gross"}
+
+
+def test_a_lone_grey_rectangle_is_not_enough_context():
+    """An interior page with one grey block covered 100 % of «nothing» and was offered as a
+    confident fit (Schulhaus Wehrlin / BLT Tramdepot Modul 3, 12.09.2026)."""
+    img = np.full((1241, 1755, 3), 255, np.uint8)
+    img[600:640, 800:855] = 160
+    rings = [np.array([[0.0, 0.0], [30.0, 0.0], [30.0, 20.0], [0.0, 20.0]])]
+    with pytest.raises(ValueError, match="too little building context"):
+        matcher.suggest(img, 0.127, rings)

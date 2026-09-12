@@ -3,10 +3,12 @@
 Based on the feasibility prototype (docs/planning/auto-alignment/prototype.py,
 2026-09-08: 12/16 Modul-2 sheets produced plausible starting alignments): segment the filled
 building footprints out of the rendered sheet, fetch OSM building rings around the object,
-and register the printed context onto them with seeded, fixed-scale trimmed ICP. A sparse
-search followed by full-boundary refinement avoids both premature convergence and doing
-the expensive refinement for every seed. Modul 1 scores its red compound against the full
-building set, since an operational compound need not be a single OSM footprint. The result
+and register the printed context onto them at the fixed printed scale: an exhaustive
+rotation × translation search (FFT cross-correlation of the context edges against the
+dilated OSM edges = context coverage at every pose), then trimmed ICP refinement of the best
+peaks. The pose with the highest context coverage wins. Modul 1 scores its red compound
+against the full building set, since an operational compound need not be a single OSM
+footprint (the score is diagnostic only, see COVERAGE_CONFIDENT). The result
 is a similarity transform — a STARTING PROPOSAL the operator reviews in «Deckung prüfen»,
 never a silently accepted georeference, and not a claim of survey accuracy.
 
@@ -45,21 +47,23 @@ RADIUS_MAX_M = 650
 # resampled toward this before segmenting.
 TUNED_M_PER_PX = 0.15
 
-# Combined ICP score below which a fit counts as CONFIDENT: in the evaluation every visually
-# plausible fit stayed under it. Inherited from the experiment — a cutoff, not a probability.
-SCORE_CUTOFF = 6.0
+# Context coverage — the fraction of segmented building edges within COVERAGE_TOL_M of an OSM
+# edge — is THE acceptance signal. Measured 12.09.2026 on every FWO sheet (120 Modul 2, 123
+# Modul 1, all visually checked): every pose at or above 0.7 was right, every pose below 0.5
+# was wrong, and the ten sheets in between were a mix. The earlier ICP score bands
+# (6.0 / 12.0 / 16.0, tuned on 16 sheets) separated nothing on the full set — 24 wrong poses
+# sat in its «confident» band and right Modul-1 poses scored past its ceiling. Both templates
+# share these thresholds; Modul 1 no longer carries a blanket «uncertain» rule.
+COVERAGE_CONFIDENT = 0.7
+# …and below this the pose is not offered at all («kein Vorschlag», manual flow).
+COVERAGE_FLOOR = 0.5
 
-# …and the ceiling above which a fit is not offered at all. Between the two the pose is shown
-# as an UNCERTAIN proposal («Deckung nachprüfen»): measured 08.09.2026 on Im Wasen 3a, a dense
-# row-house sheet whose nearly-right pose scored 8.86 purely from OSM/cadastral footprint
-# disagreement — withholding it left the operator with nothing, while the review surface shows
-# exactly how right it is. The unambiguous garbage poses scored 17–55.
-SCORE_CEILING = 12.0
-# The Modul-1 template scores structurally higher even when the pose is near (photo inset and
-# side panels contaminate the grey context; the wide extent multiplies footprint differences):
-# The API keeps every M1 fit in the uncertain band, including low scores after compound
-# matching: this template has no independently validated confidence threshold.
-SCORE_CEILING_M1 = 16.0
+# Coverage is meaningless without enough context to cover: a lone grey rectangle fits
+# anywhere at 100 %. Measured 12.09.2026: every real Modul-1/-2 sheet segments ≥ 6 footprints
+# over ≥ 1.1 % of the page; the interior/photo pages that fooled the search had one blob at
+# 0.05 %. Below either bound the answer is «kein Vorschlag».
+MIN_CONTEXT_COMPONENTS = 3
+MIN_CONTEXT_AREA_FRACTION = 0.005
 
 
 def reference_radius_m(m_per_px: float, long_side_px: int) -> float:
@@ -282,6 +286,54 @@ def _fixed_scale_similarity(src: np.ndarray, dst: np.ndarray, scale: float) -> t
     return a, sy - sx @ a.T
 
 
+# Global search raster: metres per cell, and the coverage tolerance the raster is dilated to.
+# 2.4 m is the same tolerance `coverage` reports; one cell per metre keeps a ±650 m box at 2048².
+SEARCH_RES_M = 1.0
+COVERAGE_TOL_M = 2.4
+SEARCH_STEP_DEG = 2
+SEARCH_PEAKS_PER_ROTATION = 3
+SEARCH_REFINE_TOP = 12
+
+
+def _global_peaks(context_m: np.ndarray, dst: np.ndarray) -> list[tuple[float, float, np.ndarray]]:
+    """Every rotation × every translation at once: the rotated context edges cross-correlated
+    (FFT) against the dilated OSM edge raster is exactly «context coverage» for each
+    translation. Returns (coverage, degrees, centroid position) peaks, best first.
+
+    Measured 12.09.2026 on all 120 FWO Modul-2 sheets: the seeded ICP (20 nearest footprints ×
+    36 rotations) never reached the right pose on 43 of them; this exhaustive pass found it on
+    38, in ~6 s. Nothing about the sheet is assumed except its printed scale.
+    """
+    lo = dst.min(0) - 40.0
+    hi = dst.max(0) + 40.0
+    res = SEARCH_RES_M
+    span = float((hi - lo).max())
+    size = 1 << int(np.ceil(np.log2(span / res + 2 * 300 / res)))  # + room for the sheet to overhang
+    if size > 2048:  # a wide Modul-1 box: coarser cells rather than a 4096² FFT
+        res *= size / 2048
+        size = 2048
+    edges = np.zeros((size, size), np.float32)
+    ij = np.floor((dst - lo) / res).astype(int)
+    edges[ij[:, 1], ij[:, 0]] = 1
+    k = int(2 * COVERAGE_TOL_M / res) + 1
+    ref_f = np.fft.rfft2(cv2.dilate(edges, np.ones((k, k), np.uint8)))
+    centred = context_m - context_m.mean(0)
+    peaks: list[tuple[float, float, np.ndarray]] = []
+    for deg in range(0, 360, SEARCH_STEP_DEG):
+        rad = math.radians(deg)
+        rot = np.array([[math.cos(rad), -math.sin(rad)], [math.sin(rad), math.cos(rad)]])
+        pts = centred @ rot.T
+        img = np.zeros((size, size), np.float32)
+        ij = np.floor(pts / res).astype(int) % size  # centroid at the origin, wrapped
+        img[ij[:, 1], ij[:, 0]] = 1
+        corr = np.fft.irfft2(ref_f * np.conj(np.fft.rfft2(img)), s=(size, size)).ravel()
+        for flat in np.argpartition(corr, -SEARCH_PEAKS_PER_ROTATION)[-SEARCH_PEAKS_PER_ROTATION:]:
+            iy, ix = divmod(int(flat), size)
+            peaks.append((float(corr[flat]) / len(centred), float(deg), lo + np.array([ix, iy]) * res))
+    peaks.sort(key=lambda p: -p[0])
+    return peaks
+
+
 def context_icp(
     focus: np.ndarray,
     context: np.ndarray,
@@ -290,21 +342,19 @@ def context_icp(
     *,
     compound: bool = False,
 ) -> Suggestion:
-    """Register building context at fixed printed scale, with a coarse-to-fine search.
-
-    Explore every seed/rotation on a deterministic sparse boundary, then spend the full
-    refinement budget on 24 distinct poses. A red operational compound can span several
-    OSM buildings: its focus is scored against their union, never a single seed footprint.
-    The score is a ranking heuristic, neither metres nor a confidence percentage.
+    """Register building context at fixed printed scale: a global coverage search over every
+    rotation and translation, then trimmed ICP refinement of the best peaks, keeping the pose
+    with the highest context coverage. The score is kept as a secondary diagnostic (it ranks
+    the focus fit, anchor distance and edge residual) — it is neither metres nor a confidence
+    percentage, and on the full station set it did NOT separate right from wrong poses; the
+    coverage did (see COVERAGE_CONFIDENT).
     """
     if not rings:
         raise ValueError("no OSM building rings around the object")
     dst = np.concatenate([_sampled_ring(r, 1.3) for r in rings])
     tree = cKDTree(dst)
     centers = np.array([r.mean(0) for r in rings])
-    seeds = np.argsort(np.linalg.norm(centers, axis=1))[:20]
-    focus_center = focus.mean(0)
-    focus_trees = {int(seed): tree if compound else cKDTree(_sampled_ring(rings[seed], 1.0)) for seed in seeds}
+    focus_tree = tree if compound else None
 
     def refine(src: np.ndarray, a: np.ndarray, t: np.ndarray, iterations: int) -> tuple[np.ndarray, np.ndarray]:
         for _ in range(iterations):
@@ -320,49 +370,35 @@ def context_icp(
                 break
         return a, t
 
-    def quality(src: np.ndarray, a: np.ndarray, t: np.ndarray, seed: int) -> tuple[float, float]:
+    def quality(src: np.ndarray, a: np.ndarray, t: np.ndarray) -> tuple[float, float]:
         distances = tree.query(src @ a.T + t)[0]
         trimmed = np.sort(distances)[: max(1, int(len(distances) * 0.72))]
-        coverage = float(np.mean(distances < 2.4))
+        coverage = float(np.mean(distances < COVERAGE_TOL_M))
         focus_moved = focus @ a.T + t
-        focus_distances = focus_trees[seed].query(focus_moved)[0]
+        # the focus is scored against whichever footprint it landed on (the compound against all)
+        ftree = focus_tree
+        if ftree is None:
+            landed = int(np.argmin(np.linalg.norm(centers - focus_moved.mean(0), axis=1)))
+            ftree = cKDTree(_sampled_ring(rings[landed], 1.0))
+        focus_distances = ftree.query(focus_moved)[0]
         focus_error = float(np.mean(np.sort(focus_distances)[: max(1, int(len(focus_moved) * 0.75))]))
         anchor_distance = float(np.linalg.norm(focus_moved.mean(0)))
         score = float(np.mean(trimmed)) + 0.45 * focus_error + 0.012 * min(anchor_distance, 100) - 2.2 * coverage
         return score, coverage
 
-    coarse = context[np.linspace(0, len(context) - 1, min(360, len(context))).astype(int)]
-    candidates = []
-    for seed in seeds:
-        for deg in range(0, 360, 10):
-            rad = math.radians(deg)
-            a = expected_scale * np.array([[math.cos(rad), -math.sin(rad)], [math.sin(rad), math.cos(rad)]])
-            t = centers[seed] - focus_center @ a.T
-            a, t = refine(coarse, a, t, 16)
-            score, _ = quality(coarse, a, t, int(seed))
-            candidates.append((score, a, t, int(seed)))
-
-    # Many seeds converge on the same pose. Keep spatial/rotational diversity so repeated
-    # rows cannot consume the whole fine-search budget with copies of one local minimum.
-    distinct: list[tuple[np.ndarray, np.ndarray]] = []
-    best: tuple[float, np.ndarray, np.ndarray, float] | None = None
-    for _, a, t, seed in sorted(candidates, key=lambda c: c[0]):
-        center = focus_center @ a.T + t
-        if any(
-            np.linalg.norm(center - previous_center) < 3 and np.max(np.abs(a - previous_a)) < expected_scale * 0.035
-            for previous_a, previous_center in distinct
-        ):
-            continue
-        distinct.append((a, center))
+    context_centroid = context.mean(0)
+    best: tuple[float, float, np.ndarray, np.ndarray] | None = None
+    for _, deg, at in _global_peaks(context * expected_scale, dst)[:SEARCH_REFINE_TOP]:
+        rad = math.radians(deg)
+        a = expected_scale * np.array([[math.cos(rad), -math.sin(rad)], [math.sin(rad), math.cos(rad)]])
+        t = at - context_centroid @ a.T
         a, t = refine(context, a, t, 70)
-        score, coverage = quality(context, a, t, seed)
-        if best is None or score < best[0]:
-            best = (score, a, t, coverage)
-        if len(distinct) >= 24:
-            break
+        score, coverage = quality(context, a, t)
+        if best is None or coverage > best[0]:
+            best = (coverage, score, a, t)
     if best is None:
         raise ValueError("registration produced no candidate")
-    score, a, t, coverage = best
+    coverage, score, a, t = best
     return Suggestion(
         a=a,
         t=t,
@@ -379,7 +415,14 @@ def suggest(img_bgr: np.ndarray, m_per_px: float, rings: list[np.ndarray], templ
     «kein Vorschlag», not a 500."""
     focus_mask = plan_focus_mask_red(img_bgr) if template == "m1" else plan_focus_mask(img_bgr)
     focus = boundary_from_mask(focus_mask, 700)
-    context = boundary_from_mask(plan_context_mask(img_bgr), 1800)
+    context_mask = plan_context_mask(img_bgr)
+    h, w = context_mask.shape
+    if (
+        len(_components(context_mask, 500)) < MIN_CONTEXT_COMPONENTS
+        or np.count_nonzero(context_mask) < MIN_CONTEXT_AREA_FRACTION * h * w
+    ):
+        raise ValueError("too little building context to match")
+    context = boundary_from_mask(context_mask, 1800)
     return context_icp(focus, context, rings, m_per_px, compound=template == "m1")
 
 

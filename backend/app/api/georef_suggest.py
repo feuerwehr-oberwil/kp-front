@@ -111,10 +111,11 @@ class SuggestPair(BaseModel):
 
 
 class SuggestResponse(BaseModel):
-    """`found: false` is a normal answer (segmentation found nothing, or the best fit scored
-    past the ceiling) — the surface then offers the manual point flow, not an error toast.
-    `confident: false` marks the band between cutoff and ceiling: a pose worth reviewing,
-    surfaced with the «Deckung nachprüfen» warning instead of the plain proposal head."""
+    """`found: false` is a normal answer (segmentation found nothing, or the best fit covers
+    too little of the printed context) — the surface then offers the manual point flow, not an
+    error toast. `confident: false` marks the coverage band between floor and confident: a
+    pose worth reviewing, surfaced with the «Deckung nachprüfen» warning instead of the plain
+    proposal head. `score` is a diagnostic left in the wire format; nothing gates on it."""
 
     found: bool
     confident: bool | None = None
@@ -190,16 +191,15 @@ async def suggest_alignment(
         except ValueError as exc:
             logger.info("georef suggest: no fit (%s)", exc)
             return SuggestResponse(found=False, seconds=seconds())
-        ceiling = matcher.SCORE_CEILING_M1 if template == "m1" else matcher.SCORE_CEILING
-        if s.score > ceiling:
-            logger.info("georef suggest: rejected by score %.2f (template %s)", s.score, template)
-            return SuggestResponse(found=False, score=round(s.score, 2), seconds=seconds())
+        if s.coverage < matcher.COVERAGE_FLOOR:
+            logger.info("georef suggest: rejected by coverage %.3f (template %s)", s.coverage, template)
+            return SuggestResponse(
+                found=False, score=round(s.score, 2), coverage=round(s.coverage, 3), seconds=seconds()
+            )
         pairs = matcher.suggestion_pairs(s, img.shape[1], img.shape[0], lng, lat)
         return SuggestResponse(
             found=True,
-            # M1 has no independently validated confidence threshold. A lower union score
-            # fixes compound ranking; it must not silently promote this template's claim.
-            confident=template != "m1" and s.score <= matcher.SCORE_CUTOFF,
+            confident=s.coverage >= matcher.COVERAGE_CONFIDENT,
             pairs=[SuggestPair(**p) for p in pairs],
             rotationDeg=round(s.rotation_deg, 2),
             score=round(s.score, 2),
