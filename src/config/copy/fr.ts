@@ -1501,6 +1501,7 @@ export const fr: Localizable<Copy> = {
       lampGoodBody: 'Assez précis pour refléter les symboles entre le plan et la carte.',
       addThird: 'Poser un troisième point',
       lampAutoHead: 'Aligné automatiquement',
+      lampApprovedHead: 'Validé par la station',
       chipAuto: 'non mesuré',
       warnAuto: 'Placer des points de référence pour mesurer l’ajustement – seule la vérification visuelle a eu lieu.',
       autoAddPoints: 'Placer des points de référence',

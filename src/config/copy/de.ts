@@ -2477,6 +2477,8 @@ export const de = {
       // Die zwei Blattecken-Paare sind synthetisch: die Flächen sprechen die HERKUNFT aus,
       // statt Punkte zu zählen, die niemand gesetzt hat («2 Paare» wirkte wie erfunden).
       lampAutoHead: 'Automatisch ausgerichtet',
+      // die Station hat den automatischen Vorschlag geprüft und freigegeben (Admin › Objektpläne)
+      lampApprovedHead: 'Von der Station freigegeben',
       chipAuto: 'ungemessen',
       warnAuto: 'Referenzpunkte setzen, um die Passung zu messen – bisher gilt die Sichtprüfung der Deckung.',
       autoAddPoints: 'Referenzpunkte setzen',

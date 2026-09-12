@@ -1504,6 +1504,7 @@ export const en: Localizable<Copy> = {
       lampGoodBody: 'Accurate enough to mirror symbols between plan and map.',
       addThird: 'Set a third point',
       lampAutoHead: 'Aligned automatically',
+      lampApprovedHead: 'Approved by the station',
       chipAuto: 'unmeasured',
       warnAuto: 'Set reference points to measure the fit – so far only the visual overlay check stands.',
       autoAddPoints: 'Set reference points',

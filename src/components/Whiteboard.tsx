@@ -58,6 +58,7 @@ import { GeorefBoardLayer, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam,
 import { GeorefQuality } from './GeorefQuality'
 import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
 import { fitSimilarity, hasAutoPairs, realPairCount } from '../lib/georef'
+import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import { georefForPlan, getStationPlanScales, noteMeasuredAspect, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { planAspect } from '../lib/georefTwins'
 import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
@@ -4369,6 +4370,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           <GeorefQuality
             fit={georefFit}
             auto={hasAutoPairs(georefPairs)}
+            approved={incidentBindingApproved(activeGeorefKey)}
             realPoints={realPairCount(georefPairs)}
             onClose={() => setQualityFor(null)}
             onAddPoint={() => beginGeoref({ returnToQuality: true })}

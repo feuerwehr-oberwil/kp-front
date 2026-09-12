@@ -36,12 +36,15 @@ function warningText(w: GeorefWarning, fit: GeorefFit): string {
  * The popover body. The chip owns the trigger; this owns nothing but the reading and the two
  * actions that follow from it — set another point, or throw the reference away.
  */
-export function GeorefQuality({ fit, auto = false, realPoints = 0, onClose, onAddPoint, onCheck, onTransfer, onReset }: {
+export function GeorefQuality({ fit, auto = false, approved = false, realPoints = 0, onClose, onAddPoint, onCheck, onTransfer, onReset }: {
   fit: GeorefFit
   /** the reference still leans on the automatic scaffolding (georef · hasAutoPairs) — the
    *  summary then names the provenance instead of counting pairs nobody set, and no ⌀ is
    *  claimed off the contaminated fit */
   auto?: boolean
+  /** …and that scaffolding is the station's reviewed approval, not a live guess
+   *  (incidentPlanBindings · incidentBindingApproved) — the head says so */
+  approved?: boolean
   /** operator-set pairs beside the scaffolding — 0 or 1 (two drop the autos, settleSlots) */
   realPoints?: number
   /** «Dritten Punkt setzen» / «Punkte hinzufügen» — re-arms the pairing mode */
@@ -87,7 +90,7 @@ export function GeorefQuality({ fit, auto = false, realPoints = 0, onClose, onAd
         {/* the value column stays SHORT — «· 1 Punkt» in the head plus «ungemessen» beside it
             overflowed the row; the warning line below carries the rest of the sentence */}
         {auto
-          ? <span><b>{C.lampAutoHead}</b></span>
+          ? <span><b>{approved && realPoints === 0 ? C.lampApprovedHead : C.lampAutoHead}</b></span>
           : <span><b>{fit.n}</b> {C.pairs}</span>}
         <strong>{auto ? (realPoints > 0 ? C.autoOnePoint : C.chipAuto) : claim == null ? C.chipTwoPoints : fillTemplate(C.qualityDeviation, { m: m(claim) })}</strong>
       </div>

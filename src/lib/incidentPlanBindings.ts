@@ -134,6 +134,12 @@ export function incidentGeorefForPlan(key: string): Georef | null {
   const found = findBinding(key)
   return found ? effectiveBindingGeoref(found.binding) : null
 }
+/** The sheet lies on the map because the station reviewed and approved its alignment — and
+ *  nobody on this incident has overridden it since. The Passung then names that provenance. */
+export function incidentBindingApproved(key: string): boolean {
+  const found = findBinding(key)
+  return !!found && found.binding.source === 'approved' && !found.binding.override
+}
 export function saveIncidentGeoref(key: string, georef: Georef, coalesce?: boolean): void {
   const found = findBinding(key)
   if (!found) throw new Error('Incident plan binding is no longer available')

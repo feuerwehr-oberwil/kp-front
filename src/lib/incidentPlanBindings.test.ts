@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { addPlanBindings, effectiveBindingGeoref, inheritPlanBinding, incidentGeorefForPlan, incidentGeorefKey, overridePlanBinding, registerIncidentPlanBindings, saveIncidentGeoref } from './incidentPlanBindings'
+import { addPlanBindings, effectiveBindingGeoref, incidentBindingApproved, inheritPlanBinding, incidentGeorefForPlan, incidentGeorefKey, overridePlanBinding, registerIncidentPlanBindings, saveIncidentGeoref } from './incidentPlanBindings'
 import { mergeWorkspace } from './mergeWorkspace'
 import { deriveInitial, sanitizeWorkspace } from './workspace'
 import { boardTwinAnnosForPrint, georefPlans, planAspect } from './georefTwins'
@@ -95,6 +95,17 @@ describe('incident plan snapshots', () => {
     expect(() => saveIncidentGeoref(key, { pairs })).toThrow('no longer available')
     expect(incidentGeorefForPlan(key)).toBeNull()
     unregisterTwo()
+  })
+
+  it('names a station approval only while it still carries the sheet', () => {
+    const approved = { ...binding(), source: 'approved' as const }
+    const unregister = registerIncidentPlanBindings('one', { bindings: [approved, { ...binding(), id: 'other', source: 'none' as const }], save: vi.fn() })
+    expect(incidentBindingApproved(incidentGeorefKey('one', sheet.id))).toBe(true)
+    expect(incidentBindingApproved(incidentGeorefKey('one', 'other'))).toBe(false)
+    expect(incidentBindingApproved(incidentGeorefKey('two', sheet.id))).toBe(false)
+    approved.override = { pairs: [] } // the operator overrode it – no longer the station's fit
+    expect(incidentBindingApproved(incidentGeorefKey('one', sheet.id))).toBe(false)
+    unregister()
   })
 
   it('uses the approved PDF aspect rather than a later station calibration aspect', () => {

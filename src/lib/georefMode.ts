@@ -47,7 +47,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { BASELINE_WARN_M, fitSimilarity, hasAutoPairs, nudgePairsOnMap, realPairCount, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt, type SheetNudge } from './georef'
 import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
-import { isIncidentGeorefKey, saveIncidentGeoref } from './incidentPlanBindings'
+import { incidentBindingApproved, isIncidentGeorefKey, saveIncidentGeoref } from './incidentPlanBindings'
 import { useIsPhone } from './useIsPhone'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
@@ -747,7 +747,7 @@ export function georefLamp(fit: GeorefFit | null, mode: GeorefModeState): Georef
   if (hasAutoPairs(mode.pairs)) {
     return realPairCount(mode.pairs) > 0
       ? { tone: 'amber', head: withOpen(C.autoOneHead), body: C.autoOneBody }
-      : { tone: 'amber', head: withOpen(C.lampAutoHead), body: C.warnAuto }
+      : { tone: 'amber', head: withOpen(mode.storageKey && incidentBindingApproved(mode.storageKey) ? C.lampApprovedHead : C.lampAutoHead), body: C.warnAuto }
   }
   if (claim == null) return { tone: 'amber', head: withOpen(C.lampTwoHead), body: C.warnTwoPoints }
   const head = withOpen(fillTemplate(C.lampGoodHead, { n: String(n), m: claim.toFixed(1) }))
