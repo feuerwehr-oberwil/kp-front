@@ -28,6 +28,13 @@ Nachalarm, automatic archival.
 
 ## Atemschutz: the full cycle is on the record
 
+Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.
+([`trupp-naming.md`](trupp-naming.md) §4): safety rows (angemeldet, Eintritt, Kontakt, Druck,
+Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names; housekeeping rows
+(platziert, Farbe, Leitung, bearbeitet, gelöscht, wiederhergestellt, nicht mehr gesetzt) name the
+leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
+that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
+
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
 (`useTruppActions.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
 at the Verlauf while registering: Atemschutz is its own view.

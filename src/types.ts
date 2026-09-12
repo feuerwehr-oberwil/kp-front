@@ -904,7 +904,18 @@ export interface TruppReading {
    *
    * Rows written before these kinds existed keep theirs — the log is append-only.
    */
-  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume' | 'paOn' | 'paOff'
+  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume' | 'paOn' | 'paOff' | 'crew'
+  /**
+   * WHO the Trupp was at this moment — written by a `crew` row only (12.09., docs/trupp-naming.md).
+   *
+   * The card's `name`/`members` are the CURRENT crew, and until this row existed that was the
+   * only crew the record knew: a leader change or a transfer mid-Einsatz survived as free text in
+   * the Verlauf and nowhere the Rapport could read. Registration writes the first one, and every
+   * crew edit, leader change, transfer (both Trupps) and re-entry writes another — so the
+   * Atemschutz page can say who went in on EACH cycle (lib/report · truppCrewHistory). `bar`
+   * rides along as the last value known, like a `contact` row, and is never printed as measured.
+   */
+  crew?: { name: string; members: string[] }
 }
 
 export interface Trupp {
@@ -936,6 +947,16 @@ export interface Trupp {
    * alarms, markers, roster locks — can keep seeing it); the Rapport reads the unfiltered slice.
    * Cleared again by the delete's own «Rückgängig». */
   removedAt?: string
+  /**
+   * The Trupp's own number — «Trupp 3» — handed out at registration from ONE counter per Einsatz
+   * that unlinked plan chips and map markers («Trupp N», lib/placedTrupps · nextTeamName) draw
+   * from too, so two things on the same incident are never both called Trupp 1. Never reused,
+   * never renumbered. Absent only on a record written before 12.09.; the load normaliser numbers
+   * those by registration time (lib/workspace · numberTrupps) and the next write persists it.
+   * Documentation, not identity: people call a Trupp by its Gruppenführer, so the leader stays
+   * the face of the card and the marker, and this is the small badge beside it.
+   */
+  no?: number
   /** group leader's name = the Trupp title (also the linked plan chip's label) */
   name: string
   /** other team members (for the board card; the chip shows only the leader) */

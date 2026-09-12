@@ -1891,6 +1891,8 @@ export const de = {
       // (types · TruppReading). «Unter Atemschutz» trägt den Eingangsdruck der Flasche, die
       // in diesem Moment aufgedreht wurde – der Eintritt des Trupps bleibt, wo er war.
       paOn: 'Unter Atemschutz', paOff: 'Atemschutz beendet',
+      // a `crew` row prints its names (AtemschutzView · readingLabel); this is the fallback word
+      crew: 'Mannschaft',
     } as Record<string, string>,
     /**
      * Die Eintritts-Ablesung eines Trupps OHNE Atemschutz, auf der Karte selbst – «Eingerückt –
@@ -2097,6 +2099,19 @@ export const de = {
      * ist dieselbe Mannschaft und braucht sie nicht.
      */
     changeCrewNow: 'Neu: {crew}',
+    /**
+     * Die Mannschaftsänderungen auf der Atemschutz-Seite des Rapports (12.09., docs/trupp-naming.md
+     * §5): datierte Zeilen im Einsatz-Zyklus, in dem sie geschahen, gelesen aus den `crew`-Zeilen
+     * des Protokolls (lib/report · truppCrewHistory). {to}/{from} ist der andere Trupp – seine
+     * Nummer, oder sein Gruppenführer, wo er noch keine trägt.
+     */
+    crewChange: {
+      leader: 'Gruppenführer {from} → {to}',
+      movedTo: '{name} → Trupp {to}',
+      movedFrom: '{name} von Trupp {from}',
+      left: '{name} aus dem Trupp genommen',
+      joined: '{name} dazugekommen',
+    },
     /**
      * Der Wechsel, als EINE Zeile beim abgebenden Trupp (11.09.) – ausgelöst vom Knopf in der
      * Warnung «bereits in einem anderen Trupp» (`assignedTransfer`).

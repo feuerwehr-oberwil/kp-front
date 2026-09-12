@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
+import { TruppNo } from './TruppNo'
 import { Overlay } from '../lib/overlays'
 import { searchQuery } from '../lib/search'
 import { truppMatches, type PlacedTrupp } from '../lib/placedTrupps'
@@ -81,11 +82,11 @@ export function TruppFinder({ trupps, onPick, onClose }: {
                     map dot carry, so the row and the marker read as one thing */}
                 <span className={s.cap} style={{ background: t.color || appConfig.drawing.teamColors[0] }} />
                 <span className={s.main}>
-                  <span className={s.name}>{t.name}</span>
+                  <span className={s.name}>{t.name}<TruppNo no={t.no} /></span>
                   {/* WHERE first, then who is in it: the question this list answers is where */}
                   <span className={s.where}>
                     {t.where}
-                    {t.members.length > 0 && <span className={s.members}> · {t.members.join(', ')}</span>}
+                    {t.members.length > 0 && <span className={s.members}> · {t.members.join(' / ')}</span>}
                   </span>
                 </span>
                 {/* «AS» — this crew is under Presslufatmer. The list mixes Atemschutz-Trupps and

@@ -559,7 +559,8 @@ export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
   // forward exactly like a Kontakt does (useTruppActions · setTruppStatus). `paOff` is the same
   // shape — the Überwachung ended, nobody read a gauge for it — while `paOn` carries the
   // Eingangsdruck of the cylinder that was just opened, which IS a reading.
-  return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume' && kind !== 'paOff'
+  // …and a `crew` row names people, not a pressure — its bar is carried like a Kontakt's
+  return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume' && kind !== 'paOff' && kind !== 'crew'
 }
 
 /**
@@ -611,6 +612,117 @@ export function truppRunTimes(
     // falls back to what it always printed (backend · _meta_bits).
     registered: of('registered'),
   }
+}
+
+/** One crew change on the Atemschutz page — dated, in the words of copy · atemschutz.crewChange. */
+export interface TruppCrewChange { t: string; text: string }
+/** One deployment cycle of a Trupp: its Eintritt/Austritt, the crew that went in, and what
+ *  changed about that crew while it ran. */
+export interface TruppCycle { entry: string; exit?: string; crew: string[]; changes: TruppCrewChange[] }
+
+/** everybody a `crew` row names, leader first, blanks dropped */
+const crewNames = (c: { name: string; members: string[] }): string[] =>
+  [c.name, ...c.members].map((n) => (n ?? '').trim()).filter(Boolean)
+const crewRowsOf = (t: Trupp) => (t.readings ?? [])
+  .filter((r): r is TruppReading & { crew: NonNullable<TruppReading['crew']> } => r.kind === 'crew' && !!r.crew)
+  .sort((a, b) => (Date.parse(a.t) || 0) - (Date.parse(b.t) || 0))
+/** how the OTHER Trupp is named in a change line: its number, else its leader (a record from before 12.09.) */
+const truppRef = (u: Trupp): string => (typeof u.no === 'number' ? String(u.no) : u.name.trim())
+
+/**
+ * The crew history the Atemschutz page prints (docs/trupp-naming.md §5), read off the `crew`
+ * rows of the log (types · TruppReading) — never off the card's current `name`/`members`, which
+ * are only who the Trupp is NOW.
+ *
+ * `leader` is the Gruppenführer AT REGISTRATION — the heading's name, which stays put when the
+ * lead is handed over mid-Einsatz. Each cycle (every Eintritt the log records, paired with its
+ * Austritt — lib/report · truppRunTimes) names the crew that went in: the latest `crew` row at or
+ * before that Eintritt. A record with no crew rows at all (written before 12.09.) falls back to
+ * the current crew, which is all it ever knew.
+ *
+ * Every later `crew` row is diffed against the one before it, and the differences become dated
+ * lines in the cycle they fell into: the cycle that was running, or — between an Austritt and
+ * the next Eintritt, and before the first one — the cycle about to start, because that is who
+ * went in. A person who left is followed to the Trupp that next lists them — «Dürring Jan →
+ * Trupp 2» — and one who arrived is traced back to the Trupp whose log dropped them just before
+ * — «Frei Nina von Trupp 1». Where neither side has such a row, the line says only that they
+ * left or joined; the registration row itself names only arrivals from another Trupp. A
+ * handover prints as ONE line, «Gruppenführer Meier Anna → Keller Andreas»:
+ * the two leaders are not repeated as left/joined unless another Trupp's log says where they
+ * went or came from, which is news the leader line cannot carry.
+ *
+ * A Trupp with no cycle at all has nowhere to print a change; the Verlauf still carries it.
+ */
+export function truppCrewHistory(t: Trupp, all: readonly Trupp[] = []): { leader: string; cycles: TruppCycle[] } {
+  const ms = (s: string) => Date.parse(s) || 0
+  const rows = crewRowsOf(t)
+  const leader = rows[0]?.crew.name.trim() || t.name.trim()
+  const { entries, exits } = truppRunTimes(t.readings, { entryTime: t.entryTime, exitTime: t.exitTime })
+  const crewAt = (at: string): string[] => {
+    let best: (typeof rows)[number] | undefined
+    for (const r of rows) if (ms(r.t) <= ms(at)) best = r
+    return best ? crewNames(best.crew) : crewNames({ name: t.name, members: t.members ?? [] })
+  }
+  const cycles: TruppCycle[] = entries.map((entry, i) => ({ entry, exit: exits[i], crew: crewAt(entry), changes: [] }))
+  if (!cycles.length) return { leader, cycles }
+
+  const C = appConfig.copy.atemschutz.crewChange
+  const others = all.filter((u) => u.id !== t.id)
+  const SLACK = 1000 // two devices' clocks, or the same tap writing two rows in one frame
+  /** the Trupp whose log next lists `who` at or after `at` — where they went */
+  const destinationOf = (who: string, at: string): string | undefined => {
+    let hit: { t: number; ref: string } | undefined
+    for (const u of others) for (const r of crewRowsOf(u)) {
+      if (ms(r.t) < ms(at) - SLACK || !crewNames(r.crew).includes(who)) continue
+      if (!hit || ms(r.t) < hit.t) hit = { t: ms(r.t), ref: truppRef(u) }
+    }
+    return hit?.ref
+  }
+  /** the Trupp whose log dropped `who` at or before `at` — where they came from */
+  const sourceOf = (who: string, at: string): string | undefined => {
+    let hit: { t: number; ref: string } | undefined
+    for (const u of others) {
+      const rs = crewRowsOf(u)
+      for (let i = 0; i + 1 < rs.length; i++) {
+        const dropped = crewNames(rs[i].crew).includes(who) && !crewNames(rs[i + 1].crew).includes(who)
+        if (!dropped || ms(rs[i + 1].t) > ms(at) + SLACK) continue
+        if (!hit || ms(rs[i + 1].t) > hit.t) hit = { t: ms(rs[i + 1].t), ref: truppRef(u) }
+      }
+    }
+    return hit?.ref
+  }
+  const cycleFor = (at: string): TruppCycle => {
+    let i = 0
+    for (let k = 0; k < cycles.length; k++) if (ms(cycles[k].entry) <= ms(at)) i = k
+    // after that cycle's Austritt and before the next Eintritt → the next cycle, if there is one
+    const c = cycles[i]
+    if (c.exit && ms(c.exit) <= ms(at) && i + 1 < cycles.length) return cycles[i + 1]
+    return c
+  }
+  for (let i = 0; i < rows.length; i++) {
+    // the registration row diffs against nobody: it names no handover and no «joined», only
+    // who arrived FROM another Trupp — «Frei Nina von Trupp 1» on the Trupp she was moved into
+    const first = i === 0
+    const prev = first ? { name: '', members: [] } : rows[i - 1].crew, cur = rows[i].crew
+    const at = rows[i].t
+    const texts: string[] = []
+    const handover = !first && prev.name.trim() !== cur.name.trim() && !!cur.name.trim()
+    if (handover) texts.push(fillTemplate(C.leader, { from: prev.name.trim(), to: cur.name.trim() }))
+    const before = crewNames(prev), after = crewNames(cur)
+    for (const who of before.filter((n) => !after.includes(n))) {
+      const to = destinationOf(who, at)
+      if (to) texts.push(fillTemplate(C.movedTo, { name: who, to }))
+      else if (!(handover && who === prev.name.trim())) texts.push(fillTemplate(C.left, { name: who }))
+    }
+    for (const who of after.filter((n) => !before.includes(n))) {
+      const from = sourceOf(who, at)
+      if (from) texts.push(fillTemplate(C.movedFrom, { name: who, from }))
+      else if (!first && !(handover && who === cur.name.trim())) texts.push(fillTemplate(C.joined, { name: who }))
+    }
+    const cycle = cycleFor(at)
+    for (const text of texts) cycle.changes.push({ t: at, text })
+  }
+  return { leader, cycles }
 }
 
 export function readingKindLabel(kind: TruppReading['kind']): string {

@@ -1,9 +1,10 @@
 # Trupp naming and history – decisions of 2026-09-12
 
 Design record for the Trupp identity, its display on every surface, and the crew history the
-Rapport reconstructs from. Decided in review of the audit below; **not yet implemented** – this
-page is the spec the implementation is judged against. Update it in the same change when a
-decision moves.
+Rapport reconstructs from. Decided in review of the audit below; **implemented 2026-09-12** on
+`claude/group-surveillance-display-audit-86w9ch` – this page is the spec the implementation is
+judged against, and the «Where it lives» section at the end says where each decision landed.
+Update it in the same change when a decision moves.
 
 ## Why
 
@@ -58,8 +59,12 @@ lite-board tab, the map/plan marker and the selected pill the **leader name stay
   nicht mehr gesetzt) name the leader only: `Trupp 1 (Meier Anna): Farbe geändert`.
 - The crew separator is **« / » everywhere** – journal, card crew line, alarm row, finder.
   Comma stays reserved for role lists («Unter AS: …»). `truppLogName` is the one formatter.
-- The journal vocabulary term becomes `Trupp 1 (Meier Anna)` so auto-linking and the
-  role suffix `(AS-GF)` keep working; old rows written as `Trupp Meier Anna` stay as written.
+- The journal vocabulary term is **`Trupp 1`** (deviation from the first draft's
+  `Trupp 1 (Meier Anna)`: terms match whole substrings, and that form would never match a
+  safety row's `Trupp 1 (Meier Anna / Dürring Jan)`). The crew behind it is marked as the people
+  they are, each with their own Funktion; on a crew row the first person marked is badged `GF`.
+  The composer's chip says `Trupp 1 · Meier Anna`. Old rows written as `Trupp Meier Anna` stay
+  as written – the legacy term stays in the vocabulary beside the numbered one.
 
 ### 5. Rapport, Atemschutz page
 
@@ -84,6 +89,30 @@ written; the printed journal is a record, not a view.
 ## Out of scope
 
 An explicit «Zusammenlegen» action; a Rapport section for `einfach` Trupps; renumbering.
+
+Two devices registering a Trupp concurrently while offline can both hand out the same number –
+the merge keeps both records (`mergeWorkspace` is per object) and the duplicate is visible on
+the board. Same class as the other same-object races in
+[`sync-limitations.md`](sync-limitations.md); not repaired automatically, because a number that
+changes after the Verlauf wrote it is worse than a duplicate somebody can see.
+
+«Registering from an unlinked chip inherits the chip's number» has no flow to live in: a Trupp is
+registered on the Atemschutz board and *then* joined to a chip (`adoptTruppMarker`), which
+relabels the chip to the Trupp. Nothing to build until a register-from-chip path exists.
+
+## Where it lives
+
+| Decision | Code |
+|---|---|
+| `Trupp.no`, the `crew` reading | `src/types.ts` |
+| One counter, chip names included | `src/lib/placedTrupps.ts` · `nextTruppNo` / `nextTeamName`; fed from `IncidentWorkspace` (`placedTeamNames`) to `Whiteboard` and `useTeamMarkerActions` |
+| Numbering on registration, crew rows on register / edit / transfer / re-entry, leader-only rows | `src/lib/useTruppActions.ts` · `createTrupp`, `crewRow` |
+| Migration of unnumbered records | `src/lib/workspace.ts` · `numberTrupps`, applied in `deriveInitial` |
+| Backend accepts `no` | `backend/app/alarm_validation.py` |
+| The one crew formatter, both forms | `src/lib/atemschutz.ts` · `truppLogName(t, 'crew' \| 'leader')` |
+| Vocabulary term `Trupp N` + legacy term, GF badge on the first person | `src/lib/journalLinks.ts` |
+| The badge | `src/components/TruppNo.tsx` (`.trupp-no` in `02-base.css`), used on the card, phone row, lite tab, `TwinTeamPill`, the resting chip/marker, `TruppFinder` |
+| Crew per cycle and the change lines | `src/lib/report.ts` · `truppCrewHistory`; payload in `reportPdfDirect.ts` (`no`, `leader`, `cycles`); rendered by `backend/app/report_pdf.py` (`TruppIn.cycles`, heading `Trupp N – Leader`) |
 
 ## Implementation order
 

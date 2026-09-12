@@ -35,6 +35,8 @@ export interface PlacedTrupp {
   where: string
   /** the Atemschutz Trupp behind this chip, when there is one */
   truppId?: string
+  /** …and its number (types · Trupp.no), for the badge beside the name */
+  no?: number
   status?: Trupp['status']
   /** the Trupp's Art, when this chip is bound to one (types · TruppKind). Read through
    *  `isAtemschutzTrupp` — absent on a chip that carries no Trupp at all, and absent ON a Trupp
@@ -49,24 +51,45 @@ export interface PlacedTrupp {
 
 const truppOf = (trupps: Trupp[], id: string | undefined) => (id ? trupps.find((t) => t.id === id) : undefined)
 
+/** The regex that reads a generic chip name — «Trupp 3» in the app's own wording. */
+const teamNameRe = () => {
+  const word = appConfig.copy.whiteboard.team
+  return new RegExp(`^${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\d+)$`, 'i')
+}
+
+/** The number a generic chip name carries — «Trupp 3» → 3; a renamed chip → undefined. */
+export function teamNameNo(name: string | undefined): number | undefined {
+  const m = name?.trim().match(teamNameRe())
+  return m ? parseInt(m[1], 10) : undefined
+}
+
 /**
- * The next free generic chip name — «Team N» counted across every name handed in.
+ * The next free Trupp number on this Einsatz — ONE counter across the Atemschutz board and every
+ * unlinked chip on the Karte and the plans (docs/trupp-naming.md §1).
+ *
+ * A registered Trupp carries its number (`Trupp.no`, removed ones included — a number is never
+ * reused); an unlinked chip IS its number, «Trupp N» in its label. Both count, so a «Trupp 2»
+ * dropped on the Lage at 03:12 and the Atemschutz-Trupp registered at 03:14 cannot both be
+ * called Trupp 2 — and when they turn out to be the same crew, linking relabels the chip.
+ */
+export function nextTruppNo(trupps: Iterable<{ no?: number }>, chipNames: Iterable<string | undefined>): number {
+  let max = 0
+  for (const t of trupps) if (typeof t.no === 'number' && Number.isFinite(t.no)) max = Math.max(max, t.no)
+  for (const name of chipNames) max = Math.max(max, teamNameNo(name) ?? 0)
+  return max + 1
+}
+
+/**
+ * The next free generic chip name — «Trupp N» from the same counter the Atemschutz board numbers
+ * from (`nextTruppNo`), so a chip and a registered Trupp never share a number.
  *
  * Each surface used to count only its own chips, so a linked Karte and Modul both started at
- * «Team 1» — and the mirror then showed the two same-named chips side by side as what read as
- * one duplicated Trupp. The caller passes the names of BOTH surfaces' chips when the sheet is
- * georeferenced; an unlinked surface keeps its own count (two separate pictures naming the same
- * crew identically was the pre-mirror convention, and still is where nothing is mirrored).
+ * «Trupp 1» — and the mirror then showed the two same-named chips side by side as what read as
+ * one duplicated Trupp. The caller passes the names of EVERY placed chip it can see (all plans
+ * and the Karte) plus the registered Trupps.
  */
-export function nextTeamName(taken: Iterable<string | undefined>): string {
-  const word = appConfig.copy.whiteboard.team
-  const re = new RegExp(`^${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\d+)$`, 'i')
-  let max = 0
-  for (const name of taken) {
-    const m = name?.trim().match(re)
-    if (m) max = Math.max(max, parseInt(m[1], 10))
-  }
-  return `${word} ${max + 1}`
+export function nextTeamName(taken: Iterable<string | undefined>, trupps: Iterable<{ no?: number }> = []): string {
+  return `${appConfig.copy.whiteboard.team} ${nextTruppNo(trupps, taken)}`
 }
 
 /** Everyone in a Trupp, leader first — the order the card and the Kroki print. */
@@ -98,6 +121,7 @@ export function placedTrupps(
         color: a.color,
         where: [doc?.code ?? o.sheet.planId, stack ? floorLabel(floor) : ''].filter(Boolean).join(' · '),
         truppId: t?.id,
+        no: t?.no,
         status: t?.status,
         kind: t?.kind,
         members: membersOf(t),
@@ -117,6 +141,7 @@ export function placedTrupps(
       color: e.color,
       where: appConfig.copy.modes.map,
       truppId: t?.id,
+      no: t?.no,
       status: t?.status,
       kind: t?.kind,
       members: membersOf(t),

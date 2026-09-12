@@ -3494,8 +3494,10 @@ export function IncidentWorkspace({
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({
     entities, commit, log, emit, setSelectedId, setSelectedDrawingId,
-    // linked Modul chips count into the numbering — their mirror stands on this map
-    mirroredTeamNames: () => linkedPlans.flatMap((p) => (board[p.id] ?? []).filter((a) => a.kind === 'resource').map((a) => a.text ?? '')),
+    // every plan's chips and every registered Trupp count into the numbering: ONE counter per
+    // Einsatz (docs/trupp-naming.md §1)
+    placedTeamNames: () => Object.values(board).flat().filter((a) => a.kind === 'resource').map((a) => a.text),
+    trupps: () => truppsRef.current,
   })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
   const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
@@ -3880,7 +3882,9 @@ export function IncidentWorkspace({
   // while you type. Names only, never inserted: it answers «which of them do I mean» at that moment
   // (see journalLinks · JournalLink.hint).
   const truppNameOfPerson = useMemo(() => {
-    const byId = new Map(linkedTrupps.map((t) => [t.id, t.name]))
+    // the NUMBER where there is one («Meier Anna · Trupp 2»), the leader's name on a record that
+    // predates numbers — journalVocabulary puts the word in front either way
+    const byId = new Map(linkedTrupps.map((t) => [t.id, typeof t.no === 'number' ? String(t.no) : t.name]))
     return new Map([...truppOfPerson].map(([personId, truppId]) => [personId, byId.get(truppId) ?? '']))
   }, [truppOfPerson, linkedTrupps])
   // ⚠️ …and the TRUPPS themselves, as «Trupp Meier Anna» (journalLinks · journalVocabulary). Off
@@ -5553,6 +5557,11 @@ export function IncidentWorkspace({
           keysRef={planKeys}
           focus={planFocus}
           trupps={effTrupps}
+          // the Karte's markers and the other plans' chips, for the one Trupp counter
+          placedTeamNames={() => [
+            ...entities.filter((e) => e.kind === 'team').map((e) => e.label),
+            ...Object.values(board).flat().filter((a) => a.kind === 'resource').map((a) => a.text),
+          ]}
           truppSeverities={azAlarm.severities}
           // the plan's Trupp tool placed a chip FOR a Trupp — same ask as every other placement:
           // the picture now says the crew is there, so «einrücken?» belongs here (askTruppEntry)

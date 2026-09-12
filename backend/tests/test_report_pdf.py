@@ -712,3 +712,67 @@ async def test_the_kontaktperson_telefon_is_underlined_like_every_other_link():
     _, (link_x0, _, link_x1, _) = c.links[0]
     assert (x0, x1) == (link_x0, link_x1)
     assert x0 > 100.0
+
+
+# ── Trupp N and the crew per cycle (12.09., docs/trupp-naming.md §5) ─────────────────────────
+# The heading names the number and the Gruppenführer at registration; each Einsatz names the crew
+# that went in, and the crew changes are dated lines under the cycle they happened in.
+
+
+async def test_a_numbered_trupp_prints_its_heading_and_the_crew_per_cycle():
+    from app.report_pdf import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["options"] = {"atemschutz": True}
+    payload["trupps"] = [
+        {
+            "name": "Keller Andreas",
+            "no": 1,
+            "leader": "Meier Anna",
+            "members": ["Dürring Jan"],
+            "auftrag": "Löschen",
+            "entryTimes": ["12.09.2026 14:05", "12.09.2026 14:35"],
+            "exitTimes": ["12.09.2026 14:30", "12.09.2026 14:50"],
+            "cycles": [
+                {
+                    "entry": "12.09.2026 14:05",
+                    "exit": "12.09.2026 14:30",
+                    "crew": "Meier Anna / Dürring Jan",
+                    "changes": [],
+                },
+                {
+                    "entry": "12.09.2026 14:35",
+                    "exit": "12.09.2026 14:50",
+                    "crew": "Keller Andreas / Dürring Jan",
+                    "changes": [{"t": "12.09.2026 14:31", "text": "Gruppenführer Meier Anna -> Keller Andreas"}],
+                },
+            ],
+            "readings": [{"t": "12.09.2026 14:05", "kindLabel": "Eintritt", "bar": "300"}],
+        }
+    ]
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), {})
+    doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Trupp 1 – Meier Anna" in text
+    assert "Einsatz 1: 12.09.2026 14:05 – 12.09.2026 14:30 · Meier Anna / Dürring Jan" in text
+    assert "Einsatz 2: 12.09.2026 14:35 – 12.09.2026 14:50 · Keller Andreas / Dürring Jan" in text
+    assert "12.09.2026 14:31 Gruppenführer Meier Anna -> Keller Andreas" in text
+    # the cycle rows replace the static crew list and the Eintritt/Austritt rows
+    assert "AdF 1" not in text
+    assert "Eintritt: " not in text
+
+
+async def test_an_older_payload_without_cycles_prints_exactly_as_before():
+    from app.report_pdf import ReportPayload
+
+    payload = _minimal_payload("x")
+    payload["options"] = {"atemschutz": True}
+    payload["trupps"] = [
+        {"name": "Meier Anna", "members": ["Dürring Jan"], "entryTimes": ["12.09.2026 14:05"], "readings": []}
+    ]
+    pdf_bytes = compose_report_pdf(ReportPayload.model_validate(payload), {})
+    doc = pdfium.PdfDocument(io.BytesIO(pdf_bytes))
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    assert "Meier Anna" in text and "Trupp 1" not in text
+    assert "AdF 1: Dürring Jan" in text
+    assert "Eintritt: 12.09.2026 14:05" in text

@@ -158,8 +158,9 @@ function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo, onAck }: {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const az = appConfig.copy.atemschutz
   const pressure = row.reason === 'pressure'
-  // the whole crew, leader first — the title ellipsizes, so what does not fit falls away
-  const name = [row.name || az.truppFallbackName, ...(row.members ?? [])].filter(Boolean).join(' · ')
+  // the whole crew, leader first, « / » between them like every crew line (docs/trupp-naming.md
+  // §4) — the title ellipsizes, so what does not fit falls away
+  const name = [row.name || az.truppFallbackName, ...(row.members ?? [])].filter(Boolean).join(' / ')
   const go = () => { onAcknowledge?.(); onGo(row.id) }
   const sub = pressure
     ? fillTemplate(az.alarmRowPressureSub, { bar: row.bar ?? '', line: row.line ?? '' })

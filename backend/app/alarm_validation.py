@@ -44,6 +44,11 @@ def validate_trupp(trupp: object) -> None:
         value = trupp.get(key)
         if value is not None and not isinstance(value, str):
             raise ValueError(f"{key}: Text erforderlich")
+    # the Trupp's number («Trupp 3», docs/trupp-naming.md) — a counter, so a whole non-negative
+    # number or nothing; absent on records written before 12.09.
+    no = trupp.get("no")
+    if no is not None and (isinstance(no, bool) or not isinstance(no, int) or no < 0):
+        raise ValueError("no: nichtnegative ganze Zahl erforderlich")
 
 
 def validate_reminder_row(row: object) -> None:

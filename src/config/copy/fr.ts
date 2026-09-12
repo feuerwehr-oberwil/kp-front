@@ -1180,6 +1180,8 @@ export const fr: Localizable<Copy> = {
       // ⚠️ le repli a été annulé — personne n’est rentré (voir la base allemande)
       exit: 'Sortie', resume: 'Repli annulé',
       paOn: 'Sous ARI', paOff: 'Surveillance ARI terminée',
+      // a `crew` row prints its names (AtemschutzView · readingLabel); this is the fallback word
+      crew: 'Équipe',
     },
     readingNoAs: '{what} – sans ARI',
     clockOk: 'Contact ok',
@@ -1299,6 +1301,13 @@ export const fr: Localizable<Copy> = {
     changeMemberIn: '{names} ont rejoint',
     // …et QUI EN FAIT PARTIE MAINTENANT, avec le « / » que cette app utilise pour un binôme
     changeCrewNow: 'Nouveau : {crew}',
+    crewChange: {
+      leader: 'Chef de binôme {from} → {to}',
+      movedTo: '{name} → binôme {to}',
+      movedFrom: '{name} du binôme {from}',
+      left: '{name} retiré du binôme',
+      joined: '{name} ajouté',
+    },
     // le changement, en UNE ligne chez le binôme qui cède la personne — {name} ce binôme-là,
     // {to} celui qui la reprend (dont la propre ligne nomme déjà tout son effectif)
     logMovedOut: 'Binôme {name} : {person} passé au binôme {to}',

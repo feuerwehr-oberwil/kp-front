@@ -474,6 +474,33 @@ describe('journalVocabulary · the Trupps', () => {
       .toBe('<b>Meier Anna</b> (GF) und <b>Müller Hans</b> (GF)')
   })
 
+  /* ── Trupp N (12.09., docs/trupp-naming.md §4) ──────────────────────────────────────────────
+   * The number is the term; the crew behind it is marked as the people they are. The legacy
+   * «Trupp Meier Anna» stays in the vocabulary for the rows written before the number existed. */
+  it('offers a numbered Trupp as «Trupp 1» with the Gruppenführer as the chip’s hint — and keeps the old term', () => {
+    const vocab = vocabOf([trupp({ no: 1 })]).filter((l) => l.kind === 'trupp')
+    expect(vocab).toMatchObject([
+      { name: 'Trupp 1', present: true, hint: 'Meier Anna' },
+      { name: 'Trupp Meier Anna', present: true, role: 'AS-GF' },
+    ])
+    expect(vocab[0].role).toBeUndefined()
+  })
+
+  it('marks «Trupp 1» whole-word — not inside «Trupp 10» — and the crew as people', () => {
+    const vocab = vocabOf([trupp({ no: 1 }), trupp({ id: 't10', no: 10, name: 'Müller Hans' })])
+    expect(linkParts('Trupp 1 (Meier Anna / Müller Hans): Eintritt', vocab).filter((p) => p.kind))
+      .toMatchObject([{ text: 'Trupp 1', kind: 'trupp' }, { text: 'Meier Anna', kind: 'person' }, { text: 'Müller Hans', kind: 'person' }])
+    expect(linkParts('Trupp 10 (Müller Hans): Farbe geändert', vocab).filter((p) => p.kind))
+      .toMatchObject([{ text: 'Trupp 10', kind: 'trupp' }, { text: 'Müller Hans', kind: 'person' }])
+  })
+
+  it('badges the first PERSON as Gruppenführer on a numbered crew row — the term is not a name', () => {
+    const nameless: AttendanceState = { p1: present('Meier Anna'), p2: present('Müller Hans') }
+    const vocab = journalVocabulary(personnel, nameless, undefined, [trupp({ no: 1 })])
+    expect(linkMarkup('Trupp 1 (Meier Anna / Müller Hans): Eintritt', vocab, (x) => x, { crewRow: true }))
+      .toBe('<b>Trupp 1</b> (<b>Meier Anna</b> (GF) / <b>Müller Hans</b>): Eintritt')
+  })
+
   it('says nothing when the Einsatz has no Trupps — and nothing about a nameless one', () => {
     expect(journalVocabulary(personnel, attendance).some((l) => l.kind === 'trupp')).toBe(false)
     expect(vocabOf([trupp({ name: '  ' })]).some((l) => l.kind === 'trupp')).toBe(false)

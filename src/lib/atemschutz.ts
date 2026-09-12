@@ -123,8 +123,9 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
 }
 
 /**
- * WHO a Verlauf row about this Trupp is about: the Gruppenführer and everyone with them,
- * «Fabich Mischa / Dürring Jan».
+ * WHO a Verlauf row about this Trupp is about — «1 (Fabich Mischa / Dürring Jan)», the number and
+ * the crew, which the templates put behind the word: «Trupp 1 (Fabich Mischa / Dürring Jan):
+ * Eintritt» (docs/trupp-naming.md §4).
  *
  * ⚠️ The whole crew, not the leader alone (04.09., Rapport-Review). `Trupp.name` is the
  * Truppführer's name and is what every lifecycle and safety row used to print, so the record
@@ -132,25 +133,37 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
  * überfällig» is the one question that row is read for. It is also what made a one-man Trupp
  * indistinguishable from a pair whose second member was never entered: both printed one name.
  *
+ * `who: 'leader'` is the housekeeping form — «1 (Fabich Mischa)» — for the rows that are about
+ * the card and not about the people in the building (platziert, Farbe, Leitung, bearbeitet,
+ * gelöscht): listing the crew there says nothing the safety rows have not said, and doubles the
+ * length of a row that is read for what changed.
+ *
  * The separator is « / », the way the Atemschutztafel and the Meldeleiste row already read a
  * crew, and NOT the comma the Anwesenheit's «Unter AS: …» uses — that row lists people who took
- * on a role, this one names one team.
+ * on a role, this one names one team. This is the ONE formatter for a crew, everywhere.
  *
  * Nothing is invented: a Trupp with no members recorded prints exactly its name, which for a
  * genuine one-man Trupp is the truth and for a half-entered one is the same gap it always was.
+ * A Trupp with no number yet (a record merged in from an older device before the load
+ * normaliser ran over it) prints the crew alone, exactly as every row before 12.09. did.
  *
  * ⚠️ PLAIN NAMES, and the Gruppenführer is not marked in here (reverted 04.09., same day). A
  * «GF » in front of the leader was one wording of the fact; the record now carries the other,
  * and the better one: the Anwesenheits-Funktion says «AS-GF», and the Verlauf appends each
  * person's Funktion to their first mention in a row (lib/journalLinks · linkRanges). So the row
- * reads «Brunner Thomas (AS-GF) / Müller Hans (AS)» without this module writing anything about
- * roles — and the same tag then also stands on the Anwesenheitsliste and on the Personalblatt,
- * which a word in one log line never would (lib/roleAssignment · truppRoleNote).
+ * reads «Trupp 1 (Brunner Thomas (AS-GF) / Müller Hans (AS))» without this module writing
+ * anything about roles — and the same tag then also stands on the Anwesenheitsliste and on the
+ * Personalblatt, which a word in one log line never would (lib/roleAssignment · truppRoleNote).
  */
-export function truppLogName(t: { name?: string; members?: readonly string[] }): string {
+export function truppLogName(
+  t: { no?: number; name?: string; members?: readonly string[] },
+  who: 'crew' | 'leader' = 'crew',
+): string {
   const lead = (t.name ?? '').trim()
-  const rest = (t.members ?? []).map((m) => m.trim()).filter((m) => m && m !== lead)
-  return [lead, ...rest].filter(Boolean).join(' / ')
+  const rest = who === 'crew' ? (t.members ?? []).map((m) => m.trim()).filter((m) => m && m !== lead) : []
+  const crew = [lead, ...rest].filter(Boolean).join(' / ')
+  if (typeof t.no !== 'number') return crew
+  return crew ? `${t.no} (${crew})` : String(t.no)
 }
 
 /**

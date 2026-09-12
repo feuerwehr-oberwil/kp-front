@@ -375,8 +375,33 @@ class ReadingIn(BaseModel):
     bar: str | None = None
 
 
+class CrewChangeIn(BaseModel):
+    t: str
+    text: str
+
+
+class TruppCycleIn(BaseModel):
+    """One deployment of a Trupp: its Eintritt/Austritt, the crew that went in («Meier Anna /
+    Dürring Jan», already joined by the client), and what changed about that crew while it ran,
+    as dated lines — see lib/report · truppCrewHistory."""
+
+    entry: str
+    exit: str | None = None
+    crew: str = ""
+    changes: list[CrewChangeIn] = []
+
+
 class TruppIn(BaseModel):
     name: str
+    #: The Trupp's number and its Gruppenführer AT REGISTRATION (docs/trupp-naming.md §5) — the
+    #: heading prints «Trupp 1 – Meier Anna». Absent on a payload from an older client, whose
+    #: heading is the bare name as before.
+    no: int | None = None
+    leader: str | None = None
+    #: The crew per deployment cycle, replacing the «AdF n» rows and the Eintritt/Austritt rows
+    #: when present: each cycle names who went in, and the changes fall into the cycle they
+    #: happened in. Empty on an older client's payload — the old rows print then.
+    cycles: list[TruppCycleIn] = []
     #: Sent by the client, deliberately NOT printed: a rapport is written after the fact, and
     #: «Im Einsatz» on a finished Einsatz asserts something that stopped being true before the
     #: sheet came out of the printer. Optional so a client may stop sending it.
@@ -656,6 +681,9 @@ L = {
     # «Eintritt» and its stamp is not an «Austritt». Printed as its own row — the sheet is the
     # legal account, and a crew that was under PA and one that was not are different facts.
     "notDeployed": "Nicht eingesetzt",
+    # the heading of a numbered Trupp, and the per-cycle rows under it (docs/trupp-naming.md §5)
+    "truppHeading": "Trupp {no} – {leader}",
+    "cycle": "Einsatz {n}",
     "colTime": "Zeit",
     "colKind": "Art",
     "colPressure": "Druck bar",
@@ -2172,13 +2200,28 @@ def compose_report_pdf(
             # differently from the screen the operator filled in, and a comma list gives no
             # position to point at when somebody asks who the second man was. The Gruppenführer
             # gets no row of his own: the heading above IS his name.
-            for i, member in enumerate(tr.members, start=1):
-                if member.strip():
-                    bits.append((L["memberN"].format(n=i), member))
+            # ⚠️ …unless the payload carries the crew PER CYCLE (12.09.): then the cycle rows below
+            # name who went in each time, and a static «AdF n» list would contradict the second
+            # cycle of a crew that changed.
+            if not tr.cycles:
+                for i, member in enumerate(tr.members, start=1):
+                    if member.strip():
+                        bits.append((L["memberN"].format(n=i), member))
             if tr.auftrag or tr.ziel:
                 bits.append((L["auftrag"], " · ".join([x for x in (tr.auftrag, tr.ziel) if x])))
             if tr.lineNumber:
                 bits.append((L["line"], str(tr.lineNumber)))
+            # One row per deployment — «Einsatz 1: 13:44 – 14:10 · Meier Anna / Dürring Jan» — and
+            # under it, unlabelled, the dated crew changes that fell into that cycle. Replaces the
+            # Eintritt/Austritt rows: the span IS those two stamps, per cycle rather than as two
+            # comma lists the reader has to zip up by position.
+            if tr.cycles:
+                for i, c in enumerate(tr.cycles, start=1):
+                    span = f"{c.entry} – {c.exit}" if c.exit else c.entry
+                    bits.append((L["cycle"].format(n=i), f"{span} · {c.crew}" if c.crew else span))
+                    for ch in c.changes:
+                        bits.append(("", f"{ch.t} {ch.text}"))
+                return bits
             # ⚠️ ONE row each, listing EVERY cycle — «Eintritt: 13:44, 15:16». A Trupp that came
             # out, got a fresh cylinder and went back in has two of each, and the header used to
             # carry the card's last pair alone: it printed «Eintritt 15:16 · Austritt 15:22» over
@@ -2217,7 +2260,7 @@ def compose_report_pdf(
         # and the pressure logs stepped in and out with them. Widest label anywhere wins.
         _all_bits = [_meta_bits(tr) for tr in payload.trupps]
         label_w = 0.0
-        _labels = [k for bits in _all_bits for k, _ in bits]
+        _labels = [k for bits in _all_bits for k, _ in bits if k]
         if _labels:
             label_w = max(_str_w(f"{k}:", "Helvetica-Bold", 9) for k in _labels) + 3 * mm
 
@@ -2233,7 +2276,8 @@ def compose_report_pdf(
             # a column of clocks with no crew name above it is unusable. A block taller than a
             # full frame still splits normally (KeepTogether hands its content back when it fits
             # nowhere), so a very long log is never made unprintable by this.
-            block: list = [Paragraph(_esc(tr.name), st["h3"])]
+            heading = L["truppHeading"].format(no=tr.no, leader=tr.leader or tr.name) if tr.no is not None else tr.name
+            block: list = [Paragraph(_esc(heading), st["h3"])]
             # A TABLE, not one Paragraph per line: as free lines each value started right after
             # its own label, so «AdF 1», «Auftrag / Ziel» and «Eintritt» put their values at three
             # different indents and nothing under the Trupp name lined up. One label column,
@@ -2241,7 +2285,7 @@ def compose_report_pdf(
             if meta_bits:
                 meta_tbl = Table(
                     [
-                        [Paragraph(f"<b>{_esc(k)}:</b>", st["cell"]), Paragraph(_esc(v), st["cell"])]
+                        [Paragraph(f"<b>{_esc(k)}:</b>" if k else "", st["cell"]), Paragraph(_esc(v), st["cell"])]
                         for k, v in meta_bits
                     ],
                     colWidths=[label_w, inner_w - label_w],

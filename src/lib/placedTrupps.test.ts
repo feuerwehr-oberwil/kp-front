@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { markerOptions, markerSite, nextTeamName, placedTrupps, resolveMarkerJoin, truppMatches } from './placedTrupps'
+import { markerOptions, markerSite, nextTeamName, nextTruppNo, placedTrupps, resolveMarkerJoin, teamNameNo, truppMatches } from './placedTrupps'
 import { searchQuery } from './search'
 import { objectsFromLegacy } from './tacticalObjects'
 import type { BoardAnno, BoardDoc, Entity, PlanDocument, Trupp } from '../types'
@@ -171,6 +171,27 @@ describe('nextTeamName', () => {
 
   it('ignores renamed chips and real Trupp names — only the generic pattern counts', () => {
     expect(nextTeamName(['Verkehrsgruppe', 'Trupp Nord', 'Trupp 2', undefined])).toBe('Trupp 3')
+  })
+
+  // ONE counter per Einsatz (docs/trupp-naming.md §1): a registered Trupp's number counts too
+  it('counts past the registered Trupps as well — removed ones included', () => {
+    expect(nextTeamName(['Trupp 1'], [{ no: 4 }, { no: 2 }])).toBe('Trupp 5')
+    expect(nextTeamName([], [{}])).toBe('Trupp 1')
+  })
+})
+
+describe('nextTruppNo / teamNameNo', () => {
+  it('reads the number off a generic chip and nothing else', () => {
+    expect(teamNameNo('Trupp 7')).toBe(7)
+    expect(teamNameNo(' trupp 12 ')).toBe(12)
+    expect(teamNameNo('Trupp Nord')).toBeUndefined()
+    expect(teamNameNo(undefined)).toBeUndefined()
+  })
+
+  it('is the max over Trupps and chips plus one, and starts at 1', () => {
+    expect(nextTruppNo([{ no: 3 }], ['Trupp 5', 'Verkehr'])).toBe(6)
+    expect(nextTruppNo([{ no: 3 }, { no: undefined }], [])).toBe(4)
+    expect(nextTruppNo([], [])).toBe(1)
   })
 })
 

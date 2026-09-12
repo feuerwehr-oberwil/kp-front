@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LngLat, TimelineEvent, Trupp, TruppFields } from '../types'
+import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LngLat, TimelineEvent, Trupp, TruppFields, TruppReading } from '../types'
 import type { Doc } from './workspace'
 import type { TacticalObject } from './tacticalObjects'
 import { appConfig } from '../config/appConfig'
@@ -18,7 +18,7 @@ import { alarmBarFor, currentRunStart, isAtemschutzTrupp, truppAwaitsEntry, trup
 // `serverNowIso()` is the device clock, so a station that has never reached the server is
 // unaffected.
 import { serverNowIso } from './serverClock'
-import { resolveMarkerJoin } from './placedTrupps'
+import { nextTruppNo, resolveMarkerJoin } from './placedTrupps'
 import type { UndoTimeline } from './undoTimeline'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
@@ -375,7 +375,24 @@ export function useTruppActions(deps: Deps) {
   // Registering a Trupp does NOT place a marker — Atemschutz teams belong on the building
   // plan, not the Lage map. The EL places one manually later via "Platzieren" (placeTruppOnPlan),
   // which drops a resource chip on the Gebäude floor-stack (or Modul 6) keyed by Trupp.annoId.
-  const createTrupp = (t: Trupp) => {
+  /**
+   * The Trupp's crew, written into its own log (types · TruppReading `crew`) — the row the
+   * Rapport reconstructs «who went in on which cycle» from. Appended by registration and by
+   * everything that changes the crew afterwards; `bar` is the last value known, never printed.
+   */
+  const crewRow = (t: Pick<Trupp, 'name' | 'members' | 'lastPressureBar' | 'entryPressureBar'>, at: string): TruppReading => (
+    { t: at, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'crew', crew: { name: t.name, members: t.members ?? [] } })
+  /** every name a placed chip or marker carries — the unlinked «Trupp N» ones feed the counter */
+  const placedNames = (): (string | undefined)[] => [
+    ...entities.filter((e) => e.kind === 'team').map((e) => e.label),
+    ...Object.values(board).flat().filter((a) => a.kind === 'resource').map((a) => a.text),
+  ]
+
+  const createTrupp = (t0: Trupp) => {
+    // Its number — from the one counter per Einsatz (docs/trupp-naming.md §1): every Trupp ever
+    // registered, removed ones included (a number is never reused), and every unlinked chip.
+    const at = serverNowIso()
+    const t: Trupp = { ...t0, no: t0.no ?? nextTruppNo(liveTrupps?.() ?? trupps, placedNames()) }
     // The Eingangsdruck IS a measurement, taken at the Tafel before anybody goes anywhere — so it
     // opens the Druckverlauf rather than sitting outside it. It used to be recorded only in
     // `entryPressureBar`, and the log started at «Eingerückt»: a Sicherungstrupp that was never
@@ -384,11 +401,12 @@ export function useTruppActions(deps: Deps) {
     // ⚠️ …and ONLY for a Trupp under PA. A plain work squad has no cylinder, so the row would open
     // its Druckverlauf with a «0 bar» reading nobody took — a measurement invented by the app on a
     // legal record. Its lifecycle rows (Eingerückt / Draussen) still append as usual.
-    const registered: Trupp['readings'] = t.readings?.length
-      ? t.readings
-      : isAtemschutzTrupp(t)
-        ? [{ t: serverNowIso(), bar: t.entryPressureBar, kind: 'registered' }]
-        : []
+    // …and the crew that was registered, as the first `crew` row (see crewRow).
+    const registered: Trupp['readings'] = [
+      ...(t.readings?.length ? t.readings
+        : isAtemschutzTrupp(t) ? [{ t: at, bar: t.entryPressureBar, kind: 'registered' as const }] : []),
+      crewRow(t, at),
+    ]
     // a new card joins at the END of the hand-set order, never in the middle of a board somebody
     // arranged — `order` is synced, so it lands the same way on every device. The key comes from
     // nextTruppOrder, which reads the board in the SAME space the comparator sorts in (see there).
@@ -509,7 +527,7 @@ export function useTruppActions(deps: Deps) {
     recolorPlacement({ ...tr, color: color ?? undefined })
     // repainting from the symbol used to be the one edit with no line at all, so a Lage that
     // suddenly had two red Trupps could not be explained from the log
-    log('pen', fillTemplate(appConfig.copy.atemschutz.logColor, { name: tr.name }), 'team', undefined, undefined, { subjectId: id })
+    log('pen', fillTemplate(appConfig.copy.atemschutz.logColor, { name: truppLogName(tr, 'leader') }), 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.edit', { id, color })
   }
   /** The form's colour as a Trupp patch. `null` = «zurück auf automatisch» (drop the field),
@@ -550,7 +568,7 @@ export function useTruppActions(deps: Deps) {
     updateTrupp(id, { annoId, planId, entityId: undefined })
     setMode('plans'); setActivePlanId(planId); setPanel(null)
     setPlanFocus({ x: 0.5, y: 0.5, floor: 0, annoId, nonce: Date.now() })
-    logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: tr.name }), { kind: 'team', annoId, x: 0.5, y: 0.5, floor: 0 })
+    logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: truppLogName(tr, 'leader') }), { kind: 'team', annoId, x: 0.5, y: 0.5, floor: 0 })
     emit('atemschutz.place', { id, annoId, planId })
     void askTruppEntry(id)
   }
@@ -573,7 +591,7 @@ export function useTruppActions(deps: Deps) {
     setPanel(null)
     // tapped placement is already in view — select without the camera jump
     focusMapEntity(entityId, atCoord ? undefined : marker.coord, !atCoord)
-    log('flag', fillTemplate(appConfig.copy.atemschutz.logPlacedMap, { name: tr.name }), 'team', undefined, entityId)
+    log('flag', fillTemplate(appConfig.copy.atemschutz.logPlacedMap, { name: truppLogName(tr, 'leader') }), 'team', undefined, entityId)
     emit('atemschutz.place', { id, entityId })
     void askTruppEntry(id)
   }
@@ -661,8 +679,8 @@ export function useTruppActions(deps: Deps) {
 
     // the same line placing a Trupp writes: what happened IS that this Trupp now stands there,
     // and a second vocabulary for it would only make the Verlauf harder to read
-    if (join.site.kind === 'map') log('flag', fillTemplate(appConfig.copy.atemschutz.logPlacedMap, { name: tr.name }), 'team', undefined, join.site.entityId)
-    else logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: tr.name }), { kind: 'team', annoId: join.site.annoId })
+    if (join.site.kind === 'map') log('flag', fillTemplate(appConfig.copy.atemschutz.logPlacedMap, { name: truppLogName(tr, 'leader') }), 'team', undefined, join.site.entityId)
+    else logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: truppLogName(tr, 'leader') }), { kind: 'team', annoId: join.site.annoId })
     emit('atemschutz.place', { id: truppId, ...(join.site.kind === 'map' ? { entityId: join.site.entityId } : { annoId: join.site.annoId, planId: join.site.planId }) })
     void askTruppEntry(truppId)
     return true
@@ -681,7 +699,7 @@ export function useTruppActions(deps: Deps) {
       [pid, annos.map((a) => (a.id === markerId && a.kind === 'resource' ? { ...a, truppId: undefined } : a))])))
     if (!tr) return
     updateTrupp(tr.id, { entityId: undefined, annoId: undefined, planId: undefined })
-    log('flag', fillTemplate(appConfig.copy.atemschutz.logMarkerUnlinked, { name: tr.name }), 'team', undefined, undefined, { subjectId: tr.id })
+    log('flag', fillTemplate(appConfig.copy.atemschutz.logMarkerUnlinked, { name: truppLogName(tr, 'leader') }), 'team', undefined, undefined, { subjectId: tr.id })
     emit('atemschutz.place.unlink', { id: tr.id, markerId })
   }
 
@@ -932,7 +950,8 @@ export function useTruppActions(deps: Deps) {
       // the lowest pressure of the running deployment: the corrected entry, plus every reading
       // actually taken since. Recomputed rather than min()'d against the old lowestBar, which
       // may itself be the wrong entry value.
-      const lowestBar = Math.min(bar, ...readings.slice(from).map((r) => r.bar))
+      // …a `crew` row's bar is CARRIED (crewRow), so it may still hold the value being corrected
+      const lowestBar = Math.min(bar, ...readings.slice(from).filter((r) => r.kind !== 'crew').map((r) => r.bar))
       return { entryPressureBar: bar, readings, lowestBar }
     }
     /**
@@ -972,7 +991,15 @@ export function useTruppActions(deps: Deps) {
     // ⚠️ Built once and kept: the timeline's ↷ re-applies THIS patch rather than re-running the
     // edit, so `kindPatch`'s Hochstuf-Zeitstempel is the one the record already carries.
     const patch = { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}), ...(tr ? kindPatch(tr) : {}) }
-    updateTrupp(id, patch)
+    // a changed crew is a `crew` row too, on top of whatever readings the two patches above
+    // settled on — the Rapport reads the crew off the log, not off the card (see crewRow)
+    const crewChanged = !!tr && (f.name !== tr.name || (f.members ?? []).join('\u0000') !== (tr.members ?? []).join('\u0000'))
+    const crewAt = new Date().toISOString() // stamped ONCE, so the timeline's ↷ re-applies the same row
+    const withCrew = (t: Trupp): Trupp => {
+      const next = { ...t, ...patch }
+      return crewChanged ? { ...next, readings: [...(next.readings ?? []), crewRow(next, crewAt)] } : next
+    }
+    setTrupps((ts) => ts.map((t) => (t.id === id ? withCrew(t) : t)))
     // Clearing (or changing) the Leitung number in the form IS how a Trupp lets go of a hose —
     // that is where the operator already is when they change their mind, so the card needs no
     // «lösen» icon. The anchor goes with it, or the tag would survive its own number.
@@ -994,7 +1021,7 @@ export function useTruppActions(deps: Deps) {
      * event still fires: that stream records the action, not the sentence. */
     const changes = truppEditChanges(tr, f)
     const line = changes.length
-      ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: f.name, changes: changes.join(', ') })
+      ? fillTemplate(appConfig.copy.atemschutz.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name }, 'leader'), changes: changes.join(', ') })
       : null
     if (line) log('pen', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.edit', { id })
@@ -1005,7 +1032,7 @@ export function useTruppActions(deps: Deps) {
     // its line, because the correction did happen.
     // Nothing changed ⇒ no row, and nothing on the timeline either: ↶ must never offer to take
     // back a save that wrote nothing (the operator would watch it do visibly nothing).
-    if (line) remember(id, line, tr, (t) => ({ ...t, ...patch }))
+    if (line) remember(id, line, tr, withCrew)
   }
   /**
    * Take one person OUT of the Trupp they are still recorded in, because they are being written
@@ -1025,9 +1052,10 @@ export function useTruppActions(deps: Deps) {
    * caller hides the action in that state; this refuses it as well, because a guard that lives
    * only in the view is a guard a second call site can walk past.
    *
-   * ⚠️ Crew fields ONLY. Nothing here touches `status`, `entryTime`, `lastContactTime`, `exitTime`
-   * or `readings` — the safety clocks of the other Trupp keep running exactly as they were, which
-   * is the invariant that lets this be a one-tap action at all.
+   * ⚠️ Crew fields ONLY — plus the `crew` row that records them (docs/trupp-naming.md §3).
+   * Nothing here touches `status`, `entryTime`, `lastContactTime`, `exitTime` or any measured
+   * reading — the safety clocks of the other Trupp keep running exactly as they were, which is
+   * the invariant that lets this be a one-tap action at all.
    */
   const transferOutOfTrupp = (fromId: string, personId: string, toName?: string): boolean => {
     const tr = trupps.find((t) => t.id === fromId)
@@ -1040,7 +1068,10 @@ export function useTruppActions(deps: Deps) {
       name: crew.name, members: crew.members,
       leaderPersonId: crew.leaderPersonId, memberPersonIds: crew.memberPersonIds,
     }
-    const apply = (t: Trupp): Trupp => ({ ...t, ...patch })
+    // ⚠️ …plus a `crew` row, which is the one thing here that touches `readings`: it records
+    // WHO the Trupp is from now on, so the Rapport can say when this person left (see crewRow).
+    const at = new Date().toISOString()
+    const apply = (t: Trupp): Trupp => { const n = { ...t, ...patch }; return { ...n, readings: [...(n.readings ?? []), crewRow(n, at)] } }
     setTrupps((ts) => ts.map((t) => (t.id === fromId ? apply(t) : t)))
     // the Trupp's NAME is its Gruppenführer's (types · Trupp.name), so handing the leader over
     // renames it — and the chip/marker that carries that name has to follow, exactly as in editTrupp
@@ -1050,7 +1081,7 @@ export function useTruppActions(deps: Deps) {
     // …and «in Trupp Frei Nina gewechselt» on the row about Frei Nina is not an answer: that is
     // the case where the transferred person IS the new Trupp's Gruppenführer (copy · logMovedOutPlain)
     const line = fillTemplate(to && to !== who ? az.logMovedOut : az.logMovedOutPlain,
-      { name: tr.name, person: who, to })
+      { name: truppLogName(tr, 'leader'), person: who, to })
     log('pen', line, 'team', undefined, undefined, { subjectId: fromId })
     // the same op_type the form's own save emits: this IS a crew edit of that Trupp, and a link
     // session may send `atemschutz.*` and nothing else (backend · auth/incident_link.py)
@@ -1116,7 +1147,10 @@ export function useTruppActions(deps: Deps) {
           // truppRunTimes), so a plain re-deployment would otherwise leave the sheet showing the
           // first cycle and not the second. The Druck column stays empty on its own: only a
           // measured, positive value prints (report · readingBarShown).
-          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' }] })
+          // …and the crew going back in, as its own row (crewRow): the re-entry is a new cycle,
+          // and the Rapport reads each cycle's crew off the log
+          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' },
+            crewRow({ name: f.name, members: f.members, entryPressureBar: f.pressure }, now)] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
     if (tr && f.name !== tr.name) syncPlacementLabel(tr, f.name)
@@ -1137,7 +1171,7 @@ export function useTruppActions(deps: Deps) {
     // masks). The «was hat sich geändert» row below stays separate: this clause is the state, that
     // one is the diff.
     const reenterLine = withDetails(
-      fillTemplate(standby ? az.logStandby : reenterTpl, { name: truppLogName(f), bar: String(f.pressure ?? '') }),
+      fillTemplate(standby ? az.logStandby : reenterTpl, { name: truppLogName({ ...f, no: tr?.no }), bar: String(f.pressure ?? '') }),
       truppDeploymentDetails(f, { noAs: !nowPa && standby }),
     )
     log('flag', reenterLine, 'team', undefined, undefined, { subjectId: id })
@@ -1163,7 +1197,7 @@ export function useTruppActions(deps: Deps) {
      * in the list, for the reason documented there: it is the only entry that turns a safety
      * watch on or off. */
     const changes = truppEditChanges(tr, f, { pressure: false, crew: false })
-    if (changes.length) log('pen', fillTemplate(az.logEditFields, { name: f.name, changes: changes.join(', ') }), 'team', undefined, undefined, { subjectId: id })
+    if (changes.length) log('pen', fillTemplate(az.logEditFields, { name: truppLogName({ no: tr?.no, name: f.name }, 'leader'), changes: changes.join(', ') }), 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.status', { id, status: standby ? 'angemeldet' : 'aktiv' })
   }
   /**
@@ -1207,7 +1241,7 @@ export function useTruppActions(deps: Deps) {
       return claims && !isOutTrupp(t) ? { ...t, lineId: undefined, lineNo: undefined } : t
     }))
 
-    log('drop', fillTemplate(az.logLineLinked, { name: tr.name, n: no != null ? String(no) : '–' }), 'team', undefined, undefined, { subjectId: truppId })
+    log('drop', fillTemplate(az.logLineLinked, { name: truppLogName(tr, 'leader'), n: no != null ? String(no) : '–' }), 'team', undefined, undefined, { subjectId: truppId })
     emit('atemschutz.line.link', { id: truppId, lineId, lineNo: no })
     // no confirm toast (09.09.): the hose wears the Trupp tag the instant the link lands — the
     // ink is the confirmation, and the Verlauf row above is the record
@@ -1264,7 +1298,7 @@ export function useTruppActions(deps: Deps) {
     setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
       [pid, annos.map((a) => (a.kind === 'draw' ? drop(a) : a))])))
     updateTrupp(truppId, { lineId: undefined, lineNo: undefined })
-    log('drop', fillTemplate(appConfig.copy.atemschutz.logLineUnlinked, { name: tr.name }), 'team', undefined, undefined, { subjectId: truppId })
+    log('drop', fillTemplate(appConfig.copy.atemschutz.logLineUnlinked, { name: truppLogName(tr, 'leader') }), 'team', undefined, undefined, { subjectId: truppId })
     emit('atemschutz.line.unlink', { id: truppId })
   }
 
@@ -1303,7 +1337,8 @@ export function useTruppActions(deps: Deps) {
   const logTruppAlarmCleared = (id: string, turnus: string) => {
     const tr = trupps.find((t) => t.id === id)
     const az = appConfig.copy.atemschutz
-    const last = tr?.readings?.[tr.readings.length - 1]?.kind
+    // the last MEASURED or lifecycle row — a crew row says nothing about how the alarm ended
+    const last = tr?.readings?.filter((r) => r.kind !== 'crew').slice(-1)[0]?.kind
     const reason = (last && az.alarmClearedBy[last]) || az.alarmClearedOther
     log('radio', fillTemplate(az.logAlarmCleared, { name: tr ? truppLogName(tr) : '', reason }), 'team',
       undefined, undefined, { rowId: `azcl-${id}-${turnus}`, subjectId: id })
@@ -1323,7 +1358,7 @@ export function useTruppActions(deps: Deps) {
     // A Trupp leaving the Tafel is the one Atemschutz action the Verlauf never recorded: the
     // toast said so and vanished, and the reconstruction afterwards showed a crew that had been
     // under PA simply not existing. Every other lifecycle step has its line; so does this one.
-    const line = fillTemplate(appConfig.copy.atemschutz.logRemoved, { name: tr?.name ?? '' })
+    const line = fillTemplate(appConfig.copy.atemschutz.logRemoved, { name: tr ? truppLogName(tr, 'leader') : '' })
     log('trash', line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.delete', { id })
     // ⚠️ The undo CLEARS `removedAt`; it does not re-create the Trupp. Löschen is a stamp, so the
@@ -1361,7 +1396,7 @@ export function useTruppActions(deps: Deps) {
     })
     // the undo gets its own line rather than erasing the delete: the log is a record of what was
     // done, and «gelöscht, dann doch nicht» is what happened
-    if (restored) log('undo', fillTemplate(appConfig.copy.atemschutz.logRestored, { name: t.name }), 'team', undefined, undefined, { subjectId: t.id })
+    if (restored) log('undo', fillTemplate(appConfig.copy.atemschutz.logRestored, { name: truppLogName(t, 'leader') }), 'team', undefined, undefined, { subjectId: t.id })
     emit('atemschutz.restore', { id: t.id })
   }
 

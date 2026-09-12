@@ -14,7 +14,7 @@ import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppRunTimes, truppStatusLabel,
+  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppRunTimes, truppStatusLabel,
 } from './report'
 import { isAtemschutzTrupp } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
@@ -397,6 +397,24 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     // every other action. (A place of its own in the Rapport is a separate, open question.)
     trupps: (draft.options.atemschutz ? trupps.filter(isAtemschutzTrupp) : []).map((t) => ({
       name: t.name, statusLabel: truppStatusLabel(t), members: t.members ?? [], auftrag: truppAuftragLabel(t.auftrag), ziel: t.ziel,
+      // ⚠️ The heading and the crew PER CYCLE (12.09., docs/trupp-naming.md §5): «Trupp 1 – Meier
+      // Anna» names the number and the Gruppenführer at registration, and each Eintritt names
+      // the crew that went in, with the changes that happened during it as dated lines — all read
+      // off the `crew` rows of the log, so a leader change or a transfer mid-Einsatz is on the
+      // sheet and not only in the Verlauf's prose. The other Trupps are passed so a transfer can
+      // be followed to where the person went. `members` above stays for an older backend.
+      no: t.no,
+      ...(() => {
+        const { leader, cycles } = truppCrewHistory(t, trupps)
+        return {
+          leader,
+          cycles: cycles.map((c) => ({
+            entry: formatDateTime(c.entry), exit: c.exit ? formatDateTime(c.exit) : undefined,
+            crew: c.crew.join(' / '),
+            changes: c.changes.map((ch) => ({ t: formatDateTime(ch.t), text: ch.text })),
+          })),
+        }
+      })(),
       // the numeric Leitung, else the free text an older record still carries verbatim
       lineNumber: t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim() || undefined,
       // ⚠️ ALL cycles, read off the log — a Trupp that went in twice has two Eintritte and two
@@ -418,7 +436,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       // Druckverlauf erfasst» over a number the Überwacher wrote down is the sheet contradicting
       // the record. Undated, because that is all the older shape knows — a made-up clock on a
       // legal document is worse than a missing one.
-      readings: ((t.readings?.length ? t.readings : [{ t: '', bar: t.entryPressureBar, kind: 'registered' as const }])
+      // …and `crew` rows are not readings: they print as the change lines above, never in the
+      // Druckverlauf
+      readings: ((() => { const measured = (t.readings ?? []).filter((r) => r.kind !== 'crew'); return measured.length ? measured : [{ t: '', bar: t.entryPressureBar, kind: 'registered' as const }] })()
         // ⚠️ no bar on a Kontakt/Rückzug row — that number was carried over, not read off a gauge
         // — and none on a row of 0, which is a Trupp that had no cylinder when it was written
         // (lib/report · readingBarShown)

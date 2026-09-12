@@ -139,14 +139,23 @@ export function journalVocabulary(
       || rankOrder(personnel.find((p) => p.id === a.id)?.rank) - rankOrder(personnel.find((p) => p.id === b.id)?.rank)
       || a.name.localeCompare(b.name, 'de'))
   /**
-   * The Trupps of this Einsatz, as «Trupp Meier Anna» (copy · atemschutz.truppTerm).
+   * The Trupps of this Einsatz, as «Trupp 1» (copy · atemschutz.truppTerm over the number) — and,
+   * for the rows written before a Trupp had a number, as «Trupp Meier Anna».
    *
-   * ⚠️ WITH the word in front, which is what makes them a term at all: a Trupp carries no number,
-   * its name IS its Gruppenführer's (types · Trupp.name), and that name is already in the
-   * vocabulary as a person. Bare, the two entries would fight over the same letters and the
-   * Trupp would never win a single range. With the word it is longer than the person's name, so
-   * «Trupp Meier Anna» marks as the Trupp and a bare «Meier Anna» still marks as her — and it is
-   * the same spelling the app's own rows use, so the Verlauf marks what it wrote itself.
+   * ⚠️ The NUMBER is the term since 12.09. (docs/trupp-naming.md §4). The app's own rows read
+   * «Trupp 1 (Meier Anna / Dürring Jan): Eintritt», so the term is the part before the crew and
+   * the crew is marked as the people they are — each with their own Funktion, and on a crew row
+   * the first of them badged as the Gruppenführer (linkMarkup · crewRow). Whole-word matching
+   * keeps «Trupp 1» out of «Trupp 10». The Gruppenführer's name rides along as the chip's hint,
+   * so the composer's suggestion reads «Trupp 1 · Meier Anna» and nobody has to know the number.
+   *
+   * ⚠️ The LEGACY term stays beside it, WITH the word in front, which is what made it a term at
+   * all: a Trupp carried no number, its name IS its Gruppenführer's (types · Trupp.name), and
+   * that name is already in the vocabulary as a person. Bare, the two entries would fight over
+   * the same letters and the Trupp would never win a single range. With the word it is longer
+   * than the person's name, so «Trupp Meier Anna» marks as the Trupp and a bare «Meier Anna»
+   * still marks as her — and it is the spelling every row before 12.09. used, and those rows
+   * stay as written.
    *
    * ⚠️ EVERY Trupp, `raus` and taken off the board included. The Verlauf is a record: a row from
    * two hours ago names a Trupp that has since come out, and a term that stopped being marked
@@ -162,15 +171,22 @@ export function journalVocabulary(
   const seenTeam = new Set<string>()
   const teams: JournalLink[] = (trupps ?? []).flatMap((t) => {
     const lead = (t.name ?? '').trim()
-    const name = lead ? fillTemplate(appConfig.copy.atemschutz.truppTerm, { name: lead }) : ''
-    // two Trupps under the same Gruppenführer (a re-registration) are one term, not two chips
-    if (!name || seenTeam.has(name)) return []
-    seenTeam.add(name)
-    return [{
-      name, kind: 'trupp' as const,
-      present: !t.removedAt && t.status !== 'raus',
-      role: roleOfName.get(lead.toLowerCase()),
-    }]
+    const present = !t.removedAt && t.status !== 'raus'
+    const out: JournalLink[] = []
+    // the numbered term — no `role`: the leader follows in the row as a person of their own,
+    // and prints their Funktion there
+    if (typeof t.no === 'number') {
+      const name = fillTemplate(appConfig.copy.atemschutz.truppTerm, { name: String(t.no) })
+      if (!seenTeam.has(name)) { seenTeam.add(name); out.push({ name, kind: 'trupp', present, hint: lead || undefined }) }
+    }
+    // the legacy term, for every row written before 12.09. — two Trupps under the same
+    // Gruppenführer (a re-registration) are one term, not two chips
+    const legacy = lead ? fillTemplate(appConfig.copy.atemschutz.truppTerm, { name: lead }) : ''
+    if (legacy && !seenTeam.has(legacy)) {
+      seenTeam.add(legacy)
+      out.push({ name: legacy, kind: 'trupp', present, role: roleOfName.get(lead.toLowerCase()) })
+    }
+    return out
   })
   const materials: JournalLink[] = (cfg.mittel?.catalogue ?? [])
     .map((m) => ({ name: m.label, kind: 'material' as const }))
@@ -535,7 +551,9 @@ export function linkMarkup(
    * suffix is what tells you which one you are about to open.
    *
    * ⚠️ On such a row the FIRST name marked is the Gruppenführer, and it is badged whether or not
-   * anybody ever wrote a Funktion on the Anwesenheit (the reported bug, 11.09.). The badge used
+   * anybody ever wrote a Funktion on the Anwesenheit (the reported bug, 11.09.). «First name»
+   * counts the legacy «Trupp Meier Anna» term (it IS the leader's name) and every person; the
+   * numbered «Trupp 1» term is not a name and is skipped over. The badge used
    * to be read off the Anwesenheits-Bemerkung alone, so «Trupp Müller Hans (GF) / Meier Anna:
    * Eintritt» and «Trupp Keller Laura / Frei Nina: Druck 280 bar» printed side by side on one
    * Rapport — the second crew's leader simply had no «AS-GF» on the roster (a Gast, or a job
@@ -558,7 +576,8 @@ export function linkMarkup(
         return `<a href="${esc(p.href ?? p.text)}"><u>${esc(p.text)}</u></a>`
       }
       let role = p.role
-      if (opts?.crewRow) {
+      // a numbered Trupp term («Trupp 1») is not a name — the leader is the next person marked
+      if (opts?.crewRow && !(p.kind === 'trupp' && /\d$/.test(p.text))) {
         const lead = !leadSaid
         leadSaid = true
         role = (p.role ? crewLeaderBadge(p.role) : undefined)

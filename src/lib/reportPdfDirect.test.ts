@@ -215,6 +215,27 @@ describe('buildDirectReportPayload · trupps', () => {
   it('still prints nothing at all when the Atemschutz page is switched off', () => {
     expect(payload([trupp({ name: 'Meier' })], false).trupps).toEqual([])
   })
+
+  // the number, the leader at registration and the crew per cycle travel; the crew rows
+  // themselves stay OUT of the Druckverlauf (12.09., docs/trupp-naming.md §5)
+  it('carries Trupp N, its leader and the crew per cycle, and keeps crew rows out of the readings', () => {
+    const t = trupp({
+      id: 'a', no: 2, name: 'Keller Andreas', members: [],
+      readings: [
+        { t: '2026-09-03T10:00:00.000Z', bar: 300, kind: 'registered' },
+        { t: '2026-09-03T10:00:00.000Z', bar: 300, kind: 'crew', crew: { name: 'Meier Anna', members: ['Dürring Jan'] } },
+        { t: '2026-09-03T10:05:00.000Z', bar: 300, kind: 'entry' },
+        { t: '2026-09-03T10:32:00.000Z', bar: 250, kind: 'crew', crew: { name: 'Keller Andreas', members: ['Dürring Jan'] } },
+      ],
+    })
+    const out = payload([t]) as unknown as { trupps: { no?: number; leader: string; cycles: unknown[]; readings: { kindLabel: string }[] }[] }
+    expect(out.trupps[0]).toMatchObject({
+      no: 2, leader: 'Meier Anna',
+      cycles: [{ entry: '03.09.2026 12:05', crew: 'Meier Anna / Dürring Jan',
+        changes: [{ t: '03.09.2026 12:32', text: 'Gruppenführer Meier Anna -> Keller Andreas' }] }],
+    })
+    expect(out.trupps[0].readings.map((r) => r.kindLabel)).toEqual(['Angemeldet', 'Eintritt'])
+  })
 })
 
 /* ⚠️ ONE list per sheet. The board view a sheet draws already contains the Karte's objects

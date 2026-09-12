@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
+import { TruppNo } from './TruppNo'
 import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
 import { thumbUrl } from '../lib/mediaUrl'
@@ -734,6 +735,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   <>
                     <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                       <i />{!nameHidden && <b>{e.label}</b>}
+                      {!nameHidden && e.truppId && <TruppNo no={trupps?.find((t) => t.id === e.truppId)?.no} />}
                     </span>
                   </>
                 )

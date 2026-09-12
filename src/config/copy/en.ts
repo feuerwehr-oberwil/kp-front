@@ -1191,6 +1191,8 @@ export const en: Localizable<Copy> = {
       // ⚠️ the WITHDRAWAL was called off — nobody re-entered anything (see the German base)
       exit: 'Exit', resume: 'Withdrawal called off',
       paOn: 'Under SCBA', paOff: 'SCBA monitoring ended',
+      // a `crew` row prints its names (AtemschutzView · readingLabel); this is the fallback word
+      crew: 'Crew',
     },
     readingNoAs: '{what} – without SCBA',
     clockOk: 'Contact ok',
@@ -1301,6 +1303,13 @@ export const en: Localizable<Copy> = {
     changeMemberIn: '{names} joined',
     // …and WHO IS IN IT NOW, with the « / » this app writes a crew with everywhere else
     changeCrewNow: 'Now: {crew}',
+    crewChange: {
+      leader: 'Team leader {from} → {to}',
+      movedTo: '{name} → team {to}',
+      movedFrom: '{name} from team {from}',
+      left: '{name} taken out of the team',
+      joined: '{name} joined',
+    },
     // the transfer, as ONE row on the team giving the person up — {name} is that team, {to} the
     // one taking them on (the receiving team's own row already names its full crew)
     logMovedOut: 'Team {name}: {person} moved to team {to}',
