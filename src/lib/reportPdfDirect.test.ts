@@ -1,3 +1,4 @@
+import { formatDateTime } from './report'
 import { describe, it, expect } from 'vitest'
 import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
@@ -229,10 +230,11 @@ describe('buildDirectReportPayload · trupps', () => {
       ],
     })
     const out = payload([t]) as unknown as { trupps: { no?: number; leader: string; cycles: unknown[]; readings: { kindLabel: string }[] }[] }
+    // clocks through the sheet's own formatter — the test must not assume the runner's timezone
     expect(out.trupps[0]).toMatchObject({
       no: 2, leader: 'Meier Anna',
-      cycles: [{ entry: '03.09.2026 12:05', crew: 'Meier Anna / Dürring Jan',
-        changes: [{ t: '03.09.2026 12:32', text: 'Gruppenführer Meier Anna -> Keller Andreas' }] }],
+      cycles: [{ entry: formatDateTime('2026-09-03T10:05:00.000Z'), crew: 'Meier Anna / Dürring Jan',
+        changes: [{ t: formatDateTime('2026-09-03T10:32:00.000Z'), text: 'Gruppenführer Meier Anna -> Keller Andreas' }] }],
     })
     expect(out.trupps[0].readings.map((r) => r.kindLabel)).toEqual(['Angemeldet', 'Eintritt'])
   })
