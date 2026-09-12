@@ -32,7 +32,8 @@ visible only as free text in the printed journal, and that text carries no Trupp
 
 People call a Trupp by its Gruppenführer, so on the Atemschutz card, the phone row, the
 lite-board tab, the map/plan marker and the selected pill the **leader name stays primary**
-(bold, colour dot, as today). The number is a **small badge** next to it, for documentation.
+(bold, colour dot, as today). The number is a **small badge** next to it, for documentation –
+spelled `#1`, because a bare digit beside a name read as a count (12.09., after the first build).
 
 - Hose-line end tag stays the abbreviated leader («Meier A.»); no number.
 - Alarm row, finder and card crew line list the crew with the same separator as the journal
