@@ -58,7 +58,9 @@ export default function AlignmentPairing({ item, pairs, onPairs, onDone, preview
   const onPairsRef = useRef(onPairs)
   onPairsRef.current = onPairs
   useEffect(() => {
-    const unregister = registerAdminGeoref(storageKey, { pairs: () => pairsRef.current.filter(p => p.kind !== 'auto'), save: p => onPairsRef.current(p) })
+    // seeded with EVERYTHING that stands, the proposal's automatic anchors included: they show
+    // as the field's ghosted «A» crosses and step aside once two real points are set (settleSlots)
+    const unregister = registerAdminGeoref(storageKey, { pairs: () => pairsRef.current, save: p => onPairsRef.current(p) })
     startGeorefMode(item.module ?? 'modul2', aspect, { storageKey, previewUrl })
     return () => { georefDispatch({ type: 'dismiss' }); unregister() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
