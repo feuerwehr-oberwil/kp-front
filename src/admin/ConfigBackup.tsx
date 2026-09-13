@@ -5,6 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { downloadBlob } from '../lib/download'
 import { Sheet } from '../lib/overlays'
+import { SettingRow, SettingsNote } from './ui'
 import { describeRejectedFields, rejectedFieldLabel } from './ConfigContext'
 
 // Config backup (Batch A · A1): export the current config to a JSON file, import one back,
@@ -179,10 +180,16 @@ export function ConfigBackup({ config, onImported }: {
       : fillTemplate(C.lastChanged, { date })
   })()
 
+  // ⚠️ Two SETTINGS ROWS, not a paragraph over a pair of buttons. The card used to open with the
+  // «Zuletzt geändert …» sentence as a caption and the two buttons floating under it — the one
+  // block in Verwaltung that was neither a row nor a card. It says the same two things: when the
+  // config last moved, and what can be done with it.
   return (
-    <div className="adm-card-body">
-      {lastChanged && <p className="adm-card-cap">{lastChanged}</p>}
-      <div className="adm-brand-row">
+    <>
+      <SettingRow label={C.rowLastChanged}>
+        <span className="adm-set-example">{lastChanged ?? C.lastChangedUnknown}</span>
+      </SettingRow>
+      <SettingRow label={C.rowConfig}>
         <button type="button" className="btn adm-int-btn" onClick={onExport}>
           {C.export}
         </button>
@@ -201,19 +208,23 @@ export function ConfigBackup({ config, onImported }: {
           style={{ display: 'none' }}
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void onImportFile(f) }}
         />
-      </div>
-      {state.kind === 'ok' && <span className="adm-save-ok">{state.message}</span>}
+      </SettingRow>
+      {state.kind === 'ok' && (
+        <SettingsNote><span className="adm-save-ok">{state.message}</span></SettingsNote>
+      )}
       {state.kind === 'error' && (
-        <div className="adm-save-err">
-          {state.message}
-          {/* one line per refused field — each is its own edit in the file, and a run-on
-              sentence is read to the end by nobody */}
-          {state.fields && (
-            <ul className="adm-import-errs">
-              {state.fields.map((line) => <li key={line}>{line}</li>)}
-            </ul>
-          )}
-        </div>
+        <SettingsNote tone="warn">
+          <div className="adm-save-err">
+            {state.message}
+            {/* one line per refused field — each is its own edit in the file, and a run-on
+                sentence is read to the end by nobody */}
+            {state.fields && (
+              <ul className="adm-import-errs">
+                {state.fields.map((line) => <li key={line}>{line}</li>)}
+              </ul>
+            )}
+          </div>
+        </SettingsNote>
       )}
       {/* ⚠️ The product's own overlay, not `window.confirm()`. This is the most destructive
           action in Verwaltung — a FULL-DOCUMENT replace — and it was the one still confirming
@@ -252,6 +263,6 @@ export function ConfigBackup({ config, onImported }: {
           <p className="adm-hint">{C.replaceRollback}</p>
         </Sheet>
       )}
-    </div>
+    </>
   )
 }

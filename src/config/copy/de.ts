@@ -5302,9 +5302,6 @@ export const de = {
       keyLabel: 'Schlüssel',
       purposeFirehub: 'FireHub (Tercero) meldet Alarme an diese Adresse',
       nameStats: 'Statistik-Export',
-      colPurpose: 'Zweck',
-      colAddress: 'Adresse',
-      colState: 'Status',
       colActions: 'Aktionen',
       rotateNote: 'Ein rotierter Schlüssel macht die alte Adresse sofort ungültig – ausgedruckte Poster und QR-Karten danach ersetzen.',
       purposeCapture: 'Mannschaft meldet sich am Poster an',
@@ -5713,10 +5710,15 @@ export const de = {
     backup: {
       title: 'Sicherung',
       caption: 'Konfiguration als Datei sichern oder eine gesicherte Datei einspielen. Import ersetzt sie vollständig (ohne env-Integrationen).',
-      export: 'Konfiguration exportieren',
-      import: 'Konfiguration importieren',
-      lastChangedBy: 'Zuletzt geändert von {name} am {date}',
-      lastChanged: 'Zuletzt geändert am {date}',
+      // Zwei Zeilen statt Fliesstext: die Zeile sagt, wovon die Rede ist, der Wert nur noch
+      // von wem und wann – «Letzte Änderung | von Führungsunterstützung am 11.09.2026, 07:56».
+      rowLastChanged: 'Letzte Änderung',
+      rowConfig: 'Konfiguration',
+      export: 'Exportieren',
+      import: 'Importieren',
+      lastChangedBy: 'von {name} am {date}',
+      lastChanged: 'am {date}',
+      lastChangedUnknown: 'unbekannt',
       notJson: 'Datei ist kein gültiges JSON.',
       notConfig: 'Datei enthält keine gültige Konfiguration.',
       // Der Import ist ein VOLLSTÄNDIGES Ersetzen – kein Zusammenführen. Das stand vorher in
