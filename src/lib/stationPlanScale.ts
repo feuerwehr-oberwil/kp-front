@@ -4,6 +4,7 @@ import { arDrifted, isStale, type PlanScale } from './planScale'
 import { onLinkPage } from './linkMode'
 import type { Georef } from './georef'
 import { incidentGeorefForPlan, isIncidentGeorefKey } from './incidentPlanBindings'
+import { adminGeorefForPlan, isAdminGeorefKey } from './adminGeorefSink'
 
 /**
  * STATION-level plan calibration, persisted across incidents/devices (editor-authored via
@@ -405,6 +406,8 @@ export function georefForPlan(georefKey: string): Georef | null {
   // An `incident:` key belongs to that incident's plan binding (the frozen sheet + fit an
   // Einsatz opened), not to the station document — one lookup function, two homes.
   if (isIncidentGeorefKey(georefKey)) return incidentGeorefForPlan(georefKey)
+  // …and an `admin:` key is the review modal's draft (adminGeorefSink) — three homes, one lookup
+  if (isAdminGeorefKey(georefKey)) return adminGeorefForPlan(georefKey)
   return getStationPlanScales().georefByPlan[georefKey] ?? null
 }
 

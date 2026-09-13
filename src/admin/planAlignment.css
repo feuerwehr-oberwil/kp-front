@@ -110,16 +110,16 @@
 .adm-modal-box .adm-align-review { border: 0; border-radius: 0; }
 @media (max-width: 700px) { .adm-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); } .adm-modal { padding: 0; } .adm-modal-box { border-radius: 0; } }
 
-/* By hand: whose turn it is. The pane that wants the next tap gets the ring; the other waits. */
-.adm-align-steps { display: flex; gap: 10px; margin: 0; padding: 12px 20px; list-style: none; border-top: 1px solid var(--border); background: var(--surface-2); font-size: 13px; flex-wrap: wrap; }
-.adm-align-steps li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border: 1px solid var(--border); border-radius: 999px; color: var(--ink-dim); }
-.adm-align-steps li b { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--fill-soft); color: var(--ink); font-size: 12.5px; }
-.adm-align-steps li.on { color: var(--ink); border-color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, var(--surface)); }
-.adm-align-steps li.on b { background: var(--blue); color: #fff; }
-.adm-align-steps li.done { color: var(--ink-dim); }
-.adm-align-steps li.done b { background: color-mix(in srgb, var(--blue) 18%, var(--surface)); color: var(--blue-strong); }
-/* an overlay, not an outline: the map canvas would paint over an inset outline */
-.adm-align-paper, .adm-align-map { position: relative; }
+
+/* By hand = the field's pairing mode inside the modal: instrument above, sheet left, map right */
+.adm-pairing { border-top: 1px solid var(--border); }
+.adm-pairing > [role=status] { border-radius: 0; }
+.adm-pairing-panes { display: grid; grid-template-columns: 1fr 1fr; }
+.adm-pairing-panes.checking { grid-template-columns: 1fr; }
+.adm-pairing-panes.checking .adm-pairing-plan { display: none; }
+.adm-pairing-plan { position: relative; height: 420px; overflow: hidden; background: var(--fill-soft); }
+.adm-pairing-plan .wb-canvas { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+.adm-pairing-plan .wb-board { position: absolute; left: 50%; top: 50%; background: #fff; }
+.adm-pairing-map { position: relative; min-width: 0; height: 420px; background: var(--fill-soft); }
 .adm-align-turn::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; box-shadow: inset 0 0 0 3px var(--blue); }
-.adm-align-preview:has(.adm-align-turn) .adm-align-paper:not(.adm-align-turn)::after, .adm-align-preview:has(.adm-align-turn) .adm-align-map:not(.adm-align-turn)::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: color-mix(in srgb, var(--surface) 35%, transparent); }
-.adm-align-point { width: 28px; height: 28px; font-size: 13px; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+@media (max-width: 900px) { .adm-pairing-panes { grid-template-columns: 1fr; } .adm-pairing-plan, .adm-pairing-map { height: 320px; } }

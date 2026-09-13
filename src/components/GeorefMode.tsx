@@ -756,12 +756,15 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
  * which shows nothing else while the mode runs — and positioned out of it. The phone does the
  * mirror image in GeorefModeBars: same content, in the tool bar's lane.
  */
-export function GeorefInstrument({ mode }: { mode: GeorefModeState }) {
+export function GeorefInstrument({ mode, inline = false }: { mode: GeorefModeState
+  /** in the flow of its container instead of pinned to the viewport — the admin's review modal
+   *  mounts the same instrument above its two panes */
+  inline?: boolean }) {
   const C = appConfig.copy.whiteboard.georef
   const [detail, setDetail] = useState(false)
   const st = georefStatus(mode)
   return (
-    <div className={s.pill} role="status" aria-label={C.title}>
+    <div className={`${s.pill}${inline ? ` ${s.pillInline}` : ''}`} role="status" aria-label={C.title}>
       <span className={`${s.dot} ${s[`dot_${st.lamp.tone}`]}`} />
       <span className={s.pillText}>
         {/* the one instruction. No per-point prompt: the free order means the app no longer

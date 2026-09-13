@@ -6367,8 +6367,8 @@ export const de = {
         pdf_unavailable: 'Das PDF konnte nicht gelesen werden.',
       },
       // Von Hand: die drei Kacheln über den beiden Flächen sagen, wer dran ist (AlignmentPreview)
-      steps: { label: 'Referenzpunkte setzen', plan: 'Punkt auf dem Plan antippen', map: 'Denselben Punkt auf der Karte antippen', count: 'von 2 Paaren', enough: 'Paare – Deckung prüfen, dann freigeben' },
       noOutlines: 'Keine Gebäudeumrisse für dieses Blatt – nach dem Kartenbild ausrichten.',
+      byHandHint: 'Referenzpunkte wie im Einsatz: Punkt auf dem Blatt, denselben Punkt auf der Karte – zwei Paare ersetzen den Vorschlag.',
       previewLoading: 'Planvorschau wird geladen …',
       previewFailed: 'Planvorschau konnte nicht geladen werden',
       planPreview: 'Planvorschau',

@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNod
 import { appConfig } from '../config/appConfig'
 import { ApiError } from '../lib/api'
 import { fillTemplate } from '../lib/format'
-import { hasAutoPairs, type GeorefPair, type PlanPt } from '../lib/georef'
+import { hasAutoPairs, type GeorefPair } from '../lib/georef'
 import { reviewableAlignment } from '../lib/planAlignmentReview'
 import { Slider } from '../components/Slider'
 import { Segmented } from '../components/Segmented'
@@ -12,6 +12,7 @@ import { AlignmentGrid, type CardDecision, type CardMark } from './AlignmentGrid
 import './planAlignment.css'
 
 const Preview = lazy(() => import('./AlignmentPreview'))
+const Pairing = lazy(() => import('./AlignmentPairing'))
 type Filter = 'open' | 'approved' | 'all'
 const terminal = new Set(['approved', 'rejected'])
 const waiting = new Set(['pending', 'processing'])
@@ -232,11 +233,10 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
   const [imageFailed, setImageFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // By hand = the same reference-point pairing the field uses (plan point, then the same spot
-  // on the map); two real pairs replace whatever the worker proposed. There is no other way to
-  // change a fit here: a proposal is approved as it is, or aligned by hand.
+  // By hand = the FIELD's «Karte verknüpfen» (AlignmentPairing mounts its layers and store);
+  // two real pairs replace whatever the worker proposed. A proposal is approved as it is, or
+  // aligned by hand – there is no third way to change a fit here.
   const [manual, setManual] = useState(byHand)
-  const [point, setPoint] = useState<PlanPt | null>(null)
   const [opacity, setOpacity] = useState(60)
   const mounted = useRef(true)
   const pairs = draft?.pairs ?? item.pairs
@@ -256,7 +256,7 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
   }, [item.id])
 
   const setPairs = (next: GeorefPair[]) => setDraft(previous => ({ pairs: next, editVersion: previous?.editVersion ?? item.edit_version }))
-  const reset = () => { setDraft(null); setPoint(null); setManual(byHand); setError(null) }
+  const reset = () => { setDraft(null); setManual(byHand); setError(null) }
   const save = async (operation: 'approve' | 'retry' | 'undo') => {
     setBusy(true); setError(null)
     try {
@@ -274,31 +274,19 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
     <header><div><h3>{item.object_name} · {item.title || item.module}</h3><p>{fillTemplate(C.revisionPage, { version: item.plan_version, page: item.page + 1 })}</p></div><span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span></header>
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
     {reason && <p className="adm-align-notice">{reason}</p>}
-    {manual && editable && (() => {
-      const real = pairs.filter(p => p.kind !== 'auto').length
-      const done = real >= 2
-      return <ol className="adm-align-steps" aria-label={C.steps.label}>
-        <li className={!point && !done ? 'on' : real > 0 || point ? 'done' : ''}><b>1</b>{C.steps.plan}</li>
-        <li className={point ? 'on' : real > 0 ? 'done' : ''}><b>2</b>{C.steps.map}</li>
-        <li className={done ? 'on' : ''}><b>{real}</b>{done ? C.steps.enough : fillTemplate(C.steps.count, { n: real })}</li>
-      </ol>
-    })()}
-    {imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : image ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={opacity} manual={manual} pendingPoint={point} onPlanPoint={setPoint} onMapPoint={lngLat => {
-      if (!point) return
-      const real = pairs.filter(p => p.kind !== 'auto')
-      setPairs([...real, { plan: point, lngLat, kind: 'gesetzt' }]); setPoint(null)
-    }} /></Suspense> : <p className="adm-state" role="status">{C.previewLoading}</p>}
+    {imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : !image ? <p className="adm-state" role="status">{C.previewLoading}</p>
+      : manual && editable ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Pairing item={item} pairs={pairs} onPairs={setPairs} previewUrl={image} /></Suspense>
+      : <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={opacity} /></Suspense>}
     <div className="adm-align-settings"><span>{C.opacity}</span><Slider value={opacity} onChange={setOpacity} ariaLabel={C.opacity} valueText={`${opacity} %`} /><span className="adm-align-number">{opacity} %</span></div>
     <div className="adm-align-facts"><div><p className="adm-align-provenance">{!pairs.length ? C.unaligned : hasAutoPairs(pairs) ? C.automatic : C.manual}</p><p className="adm-hint">{C.reviewHint}</p></div><dl><div><dt>{C.planDate}</dt><dd>{fmtDate(item.created_at)}</dd></div><div><dt>{C.reference}</dt><dd>{item.reference_source ?? C.referenceUnknown}{item.reference_at ? ` · ${fmtDate(item.reference_at)}` : ''}</dd></div><div><dt>{C.approvalDate}</dt><dd>{item.approved_at ? fmtDate(item.approved_at) : C.notApproved}</dd></div></dl></div>
-    {manual && editable && <div className="adm-align-adjust"><p className="adm-hint">{point ? C.pickOnMap : C.pickOnPlan} {C.keyboardPoints}</p>
-      <div className="adm-align-actions"><button type="button" className="btn" disabled={busy || !pairs.some(p => p.kind !== 'auto')} onClick={() => { setPairs(pairs.filter(p => p.kind !== 'auto').slice(0, -1)); setPoint(null) }}>{C.undoPoint}</button>
-        <button type="button" className="btn" disabled={busy || !draft} onClick={reset}>{C.discardAdjustment}</button></div></div>}
+    {manual && editable && <div className="adm-align-adjust"><p className="adm-hint">{C.byHandHint}</p>
+      <div className="adm-align-actions"><button type="button" className="btn" disabled={busy || !draft} onClick={reset}>{C.discardAdjustment}</button></div></div>}
     {stale && <p className="adm-align-notice" role="alert">{C.conflict} <button type="button" className="btn" onClick={reset}>{C.discardAdjustment}</button></p>}
     {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
     <footer><p>{C.scope}</p><div className="adm-align-actions">
       {item.status === 'approved' && <button type="button" className="btn" disabled={busy} onClick={() => void save('undo')}>{C.withdrawApproval}</button>}
       {editable && ['no_match', 'failed', 'unavailable'].includes(item.status) && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
-      {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !!point || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy ? C.saving : C.approve}</button>}
+      {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy ? C.saving : C.approve}</button>}
     </div></footer>
   </section>
 }

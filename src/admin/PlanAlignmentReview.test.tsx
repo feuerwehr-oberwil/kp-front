@@ -5,9 +5,11 @@ import { PlanAlignmentReview } from './PlanAlignmentReview'
 import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, rejectAlignment, undoAlignmentApproval, type AlignmentItem } from './planAlignmentApi'
 
 vi.mock('./planAlignmentApi', () => ({ loadAlignmentQueue: vi.fn(), loadAlignmentDetail: vi.fn(), alignmentPreview: vi.fn(), alignmentThumbnail: vi.fn(), approveAlignment: vi.fn(), rejectAlignment: vi.fn(), undoAlignmentApproval: vi.fn(), retryAlignment: vi.fn() }))
-// the preview is a map; the mock offers the two taps a point pair needs
-vi.mock('./AlignmentPreview', () => ({ default: (props: { onPlanPoint: (p: { x: number; y: number }) => void; onMapPoint: (p: { lng: number; lat: number }) => void }) =>
-  <div data-testid="preview"><button type="button" onClick={() => props.onPlanPoint({ x: .5, y: .5 })}>plan</button><button type="button" onClick={() => props.onMapPoint({ lng: 7.551, lat: 47.51 })}>map</button></div> }))
+vi.mock('./AlignmentPreview', () => ({ default: () => <div data-testid="preview" /> }))
+// the by-hand half is the field's pairing mode (AlignmentPairing); the stub stands in for its
+// board + map and hands two pairs to the draft the way the mode's admin sink would
+vi.mock('./AlignmentPairing', () => ({ default: (props: { onPairs: (p: unknown[]) => void }) =>
+  <div data-testid="pairing"><button type="button" onClick={() => props.onPairs([{ plan: { x: .2, y: .2 }, lngLat: { lng: 7.55, lat: 47.51 }, kind: 'gesetzt' }, { plan: { x: .8, y: .8 }, lngLat: { lng: 7.552, lat: 47.509 }, kind: 'gesetzt' }])}>pairs</button></div> }))
 
 const item: AlignmentItem = {
   id: 1, dataset_id: 'plan:object:modul2', plan_version: 3, page: 0, page_count: null, can_approve: false, object_name: 'Testobjekt', module: 'modul2', title: 'Modul 2', is_current: true,
@@ -109,22 +111,25 @@ describe('alignment review wall', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
-  it('aligns a sheet without a proposal by hand: the modal opens in point pairing, a stale revision blocks approval', async () => {
+  it('aligns a sheet without a proposal by hand: the modal opens in the field pairing, a stale revision blocks approval', async () => {
     vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item, status: 'no_match', pairs: [], reason: 'low_coverage' }]))
     vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...detail, status: 'no_match', pairs: [], reason: 'low_coverage' })
     render(<PlanAlignmentReview compact />)
     fireEvent.click(await within(await screen.findByRole('listitem', { name: /^Testobjekt/ })).findByRole('button', { name: 'Von Hand ausrichten' }))
     const dialog = await screen.findByRole('dialog')
-    await within(dialog).findByText('Punkt auf dem Plan wählen. Pfeiltasten bewegen das Fadenkreuz, Enter setzt den Punkt.')
+    await within(dialog).findByTestId('pairing')
+    expect(within(dialog).queryByTestId('preview')).toBeNull()
     expect(within(dialog).queryByRole('button', { name: 'Ausrichtung anpassen' })).toBeNull()
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'plan' }))
-    fireEvent.click(within(dialog).getByRole('button', { name: 'map' }))
-    expect(within(dialog).getByRole('button', { name: 'Letzten Punkt entfernen' }).hasAttribute('disabled')).toBe(false)
+    const approve = within(dialog).getByRole('button', { name: 'Ausrichtung freigeben' })
+    expect(approve.hasAttribute('disabled')).toBe(true) // no pairs yet
+    fireEvent.click(within(dialog).getByRole('button', { name: 'pairs' }))
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Ausrichtung freigeben' }).hasAttribute('disabled')).toBe(false))
+    expect(within(dialog).getByRole('button', { name: 'Anpassung verwerfen' }).hasAttribute('disabled')).toBe(false)
     vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item, status: 'no_match', pairs: [], edit_version: 6 }]))
     vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...detail, status: 'no_match', pairs: [], edit_version: 6 })
     fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))
     await within(dialog).findByText('Plan oder Ausrichtung wurde zwischenzeitlich geändert. Aktuellen Stand laden und erneut prüfen.')
-    const approve = await within(dialog).findByRole('button', { name: 'Ausrichtung freigeben' })
-    expect(approve.hasAttribute('disabled')).toBe(true)
+    const blocked = await within(dialog).findByRole('button', { name: 'Ausrichtung freigeben' })
+    expect(blocked.hasAttribute('disabled')).toBe(true)
   })
 })

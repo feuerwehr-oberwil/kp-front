@@ -48,6 +48,7 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { BASELINE_WARN_M, fitSimilarity, hasAutoPairs, nudgePairsOnMap, realPairCount, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt, type SheetNudge } from './georef'
 import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
 import { incidentBindingApproved, isIncidentGeorefKey, saveIncidentGeoref } from './incidentPlanBindings'
+import { isAdminGeorefKey, saveAdminGeoref } from './adminGeorefSink'
 import { useIsPhone } from './useIsPhone'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
@@ -851,6 +852,9 @@ export function georefDispatch(a: GeorefAction) {
       // station PUT — written through immediately; the debounce exists for a network write
       // this path never makes. Drag frames coalesce into the binding's single undo step.
       try { saveIncidentGeoref(prev.storageKey, { pairs: next.pairs }, a.type === 'dragPlan' || a.type === 'dragMap') } catch { onSaveError?.() }
+    } else if (isAdminGeorefKey(prev.storageKey)) {
+      // the admin's review draft (adminGeorefSink): in memory until «Ausrichtung freigeben»
+      try { saveAdminGeoref(prev.storageKey, { pairs: next.pairs }) } catch { onSaveError?.() }
     } else queueSave(prev.storageKey, next.pairs)
   }
   if (a.type === 'end' || a.type === 'dismiss') void flushSave() // never leave a debounced write in the air
@@ -934,6 +938,13 @@ export function useGeorefStorage(): void {
  *  writes to an endpoint that serializes nothing. When the pair write landed second the server
  *  kept the pairs while the app showed none, and the reset came back at the next boot. */
 export function resetGeorefPlan(georefKey: string) {
+  if (isAdminGeorefKey(georefKey)) {
+    georefDispatch({ type: 'dismiss' })
+    rev++
+    try { saveAdminGeoref(georefKey, { pairs: [] }) } catch { onSaveError?.() }
+    listeners.forEach((l) => l())
+    return
+  }
   if (isIncidentGeorefKey(georefKey)) {
     // A bound sheet's reset is an OVERRIDE with empty pairs on the binding — a deliberate
     // disconnect that must not fall back to the approval (incidentPlanBindings · override).

@@ -121,6 +121,8 @@
 /* The mode hides the NavRail on every form factor (09-whiteboard.css), so its own full-width
    instrument reclaims that inset instead of preserving an empty rail-sized gutter. */
 :global(.app.georef-mode) .pill { left: 16px; }
+/* the admin modal's copy of the instrument sits in the flow, above its panes */
+.pillInline, :global(.app.georef-mode) .pillInline { position: static; z-index: auto; margin: 0; }
 .pillText { min-width: 0; flex: 1 1 auto; }
 /* the actions, as one block — so the phone can put them on a line of their own (see the
    `max-width: 600px` block at the foot of this file) */
@@ -347,6 +349,14 @@
    inset: it never covers the reticle, and without any magnifier the sheet is placed blind. At
    the zoom where a whole Modul fits a phone screen a house corner is about three pixels wide.
    ⚠️ TOP-LEFT, not right: the Windfahne and the speed badge live in the right corner. */
+/* Inside the admin's review modal the field's top-centre spot is the modal's own header: the
+   magnifier becomes the phone-style corner inset instead, tucked into the map pane's top-left. */
+:global(.adm-modal) .loupe {
+  width: 132px; height: 132px;
+  top: calc(50vh - 200px);
+  left: calc(50vw + 14px);
+  transform: none;
+}
 .loupeCorner {
   width: 124px; height: 124px;
   top: calc(76px + env(safe-area-inset-top));
