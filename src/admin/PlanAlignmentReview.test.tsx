@@ -111,6 +111,8 @@ describe('alignment review wall', () => {
     vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...detail, edit_version: 6 })
     fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))
     await within(dialog).findByText('Plan oder Ausrichtung wurde zwischenzeitlich geändert. Aktuellen Stand laden und erneut prüfen.')
-    expect(within(dialog).getByRole('button', { name: 'Ausrichtung freigeben' }).hasAttribute('disabled')).toBe(true)
+    // the exact revision is re-read after the refresh; the button returns with it, still blocked
+    const approve = await within(dialog).findByRole('button', { name: 'Ausrichtung freigeben' })
+    expect(approve.hasAttribute('disabled')).toBe(true)
   })
 })
