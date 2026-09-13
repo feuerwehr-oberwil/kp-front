@@ -20,7 +20,8 @@ export function AlignmentGrid({ items, busy, markOf, onMark, onDecide, onOpen }:
   markOf: (item: AlignmentItem) => CardMark | null
   onMark: (item: AlignmentItem, mark: CardMark | null) => void
   onDecide: (item: AlignmentItem, decision: CardDecision) => void
-  onOpen: (item: AlignmentItem) => void
+  /** open the full instrument; `byHand` = straight into reference-point pairing */
+  onOpen: (item: AlignmentItem, byHand?: boolean) => void
 }) {
   return <div className="adm-grid" role="list">
     {items.map(item => <AlignmentCard key={item.id} item={item} busy={busy.has(item.id)} mark={markOf(item)} onMark={onMark} onDecide={onDecide} onOpen={onOpen} />)}
@@ -39,7 +40,7 @@ function AlignmentCard({ item, busy, mark, onMark, onDecide, onOpen }: {
   item: AlignmentItem; busy: boolean; mark: CardMark | null
   onMark: (item: AlignmentItem, mark: CardMark | null) => void
   onDecide: (item: AlignmentItem, decision: CardDecision) => void
-  onOpen: (item: AlignmentItem) => void
+  onOpen: (item: AlignmentItem, byHand?: boolean) => void
 }) {
   const C = appConfig.copy.admin.alignment
   const G = C.grid
@@ -71,13 +72,10 @@ function AlignmentCard({ item, busy, mark, onMark, onDecide, onOpen }: {
     {reason && !proposal && <p className="adm-card-reason">{reason}</p>}
     <div className="adm-card-foot">
       {(item.status === 'ready' || item.status === 'needs_review') && <>
-        <button type="button" className="btn adm-card-yes" disabled={busy} aria-pressed={mark === 'yes'} onClick={() => onMark(item, mark === 'yes' ? null : 'yes')}>{G.approve}</button>
-        <button type="button" className="btn adm-card-no" disabled={busy} aria-pressed={mark === 'no'} onClick={() => onMark(item, mark === 'no' ? null : 'no')}>{G.reject}</button>
+        <button type="button" className="btn adm-card-yes" disabled={busy} aria-pressed={mark === 'yes'} aria-label={G.approve} title={G.approve} onClick={() => onMark(item, mark === 'yes' ? null : 'yes')}>✓</button>
+        <button type="button" className="btn adm-card-no" disabled={busy} aria-pressed={mark === 'no'} aria-label={G.reject} title={G.reject} onClick={() => onMark(item, mark === 'no' ? null : 'no')}>✕</button>
       </>}
-      {noProposal.has(item.status) && <>
-        <button type="button" className="btn" disabled={busy} onClick={() => onOpen(item)}>{G.byHand}</button>
-        {item.status !== 'unsupported' && <button type="button" className="btn" disabled={busy} onClick={() => onDecide(item, 'retry')}>{C.retry}</button>}
-      </>}
+      {noProposal.has(item.status) && <button type="button" className="btn" disabled={busy} onClick={() => onOpen(item, true)}>{G.byHand}</button>}
       {(item.status === 'approved' || item.status === 'rejected') && <button type="button" className="btn" disabled={busy} onClick={() => onDecide(item, 'undo')}>{G.undo}</button>}
       {waiting.has(item.status) && <span className="adm-hint">{C.status[item.status]}</span>}
     </div>

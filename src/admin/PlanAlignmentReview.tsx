@@ -30,7 +30,7 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
   const M = C.columns
   const [queue, setQueue] = useState<AlignmentQueue | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [open, setOpen] = useState<number | null>(null)
+  const [open, setOpen] = useState<{ id: number; byHand: boolean } | null>(null)
   const [busy, setBusy] = useState<Set<number>>(() => new Set())
   const [notice, setNotice] = useState<string | null>(null)
   // Staged marks: a ready proposal counts as «yes» until the reviewer says otherwise, a doubtful
@@ -57,7 +57,7 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
         // wall under the reviewer's eyes.
         next.items.sort((a, b) => priority(a) - priority(b) || a.object_name.localeCompare(b.object_name) || (a.module ?? '').localeCompare(b.module ?? ''))
         setQueue(next); setError(null)
-        setOpen(id => id != null && next.items.some(item => item.id === id) ? id : null)
+        setOpen(o => o && next.items.some(item => item.id === o.id) ? o : null)
       } catch (e) {
         if (alive.current && seq === loadSeq.current) setError(e instanceof ApiError ? e.detail : appConfig.copy.admin.alignment.loadFailed)
       }
@@ -86,7 +86,7 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
   const visible = items.filter(item => (filter === 'all' || (filter === 'approved' ? terminal.has(item.status) : isOpen(item)))
     && `${item.object_name} ${item.module} ${item.title ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()))
   // A filtered wall must never open or decide a hidden card.
-  const current = open != null ? visible.find(item => item.id === open) ?? null : null
+  const current = open ? visible.find(item => item.id === open.id) ?? null : null
   const count = items.filter(isOpen).length
   const sections = SECTIONS.map(section => ({ section, items: visible.filter(item => sectionOf(item) === section) })).filter(s => s.items.length)
 
@@ -141,7 +141,12 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
 
   return <section className={`adm-align${compact ? ' am-module-review' : ''}`} aria-label={C.title}>
     <div className="adm-align-heading"><div><h2>{C.title}</h2>{!compact && <p className="adm-hint">{C.intro}</p>}</div>
-      <button type="button" className="btn" disabled={refreshing} onClick={async () => { setRefreshing(true); await refresh(); if (alive.current) setRefreshing(false) }}>{refreshing ? C.loading : C.refresh}</button>
+      <div className="adm-align-actions">
+        {staged.length > 0 && <span className="adm-hint adm-apply-summary">{batch ? fillTemplate(C.grid.applying, batch) : fillTemplate(C.grid.applySummary, { yes: yesCount, no: staged.length - yesCount })}</span>}
+        {overrides.size > 0 && <button type="button" className="btn" disabled={!!batch} onClick={() => setOverrides(new Map())}>{C.grid.resetMarks}</button>}
+        <button type="button" className="btn" disabled={refreshing || !!batch} onClick={async () => { setRefreshing(true); await refresh(); if (alive.current) setRefreshing(false) }}>{refreshing ? C.loading : C.refresh}</button>
+        {staged.length > 0 && <button type="button" className="btn primary" disabled={!!batch || busy.size > 0} onClick={() => void apply()}>{fillTemplate(C.grid.apply, { n: staged.length })}</button>}
+      </div>
     </div>
     {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
     {queue && !queue.capability.available && <p className="adm-align-notice" role="status">{C.unavailableHint}</p>}
@@ -159,17 +164,10 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
     {queue && visible.length === 0 && <p className="adm-hint adm-align-empty">{items.length === 0 ? C.empty : C.noResults}</p>}
     {sections.map(({ section, items: list }) => <div key={section} className="adm-grid-section">
       <div className="adm-grid-head"><h3>{C.grid.sections[section]}</h3><span className="adm-hint">{fillTemplate(C.queueCount, { n: list.length })}</span></div>
-      <AlignmentGrid items={list} busy={busy} markOf={markOf} onMark={setMark} onDecide={(item, decision) => void decide(item, decision)} onOpen={item => setOpen(item.id)} />
+      <AlignmentGrid items={list} busy={busy} markOf={markOf} onMark={setMark} onDecide={(item, decision) => void decide(item, decision)} onOpen={(item, byHand) => setOpen({ id: item.id, byHand: !!byHand })} />
     </div>)}
-    {staged.length > 0 && <div className="adm-apply-bar" role="region" aria-label={C.grid.apply}>
-      <span>{batch ? fillTemplate(C.grid.applying, batch) : fillTemplate(C.grid.applySummary, { yes: yesCount, no: staged.length - yesCount })}</span>
-      <span className="adm-align-actions">
-        <button type="button" className="btn" disabled={!!batch || overrides.size === 0} onClick={() => setOverrides(new Map())}>{C.grid.resetMarks}</button>
-        <button type="button" className="btn primary" disabled={!!batch || busy.size > 0} onClick={() => void apply()}>{fillTemplate(C.grid.apply, { n: staged.length })}</button>
-      </span>
-    </div>}
     {current && <AlignmentModal item={current} onClose={() => setOpen(null)}>
-      <ResolvedAlignmentDetail key={current.id} item={current} onChange={update} onApproved={next => { setApproved(next); if (next) setNotice(null) }} onConflict={refresh} />
+      <ResolvedAlignmentDetail key={current.id} item={current} byHand={open?.byHand} onChange={update} onApproved={next => { setApproved(next); if (next) setNotice(null) }} onConflict={refresh} />
     </AlignmentModal>}
   </section>
 }
@@ -198,6 +196,8 @@ function AlignmentModal({ item, onClose, children }: { item: AlignmentItem; onCl
 
 interface DetailProps {
   item: AlignmentItem
+  /** open straight in reference-point pairing – the sheet is being aligned by hand */
+  byHand?: boolean
   onChange: (next: AlignmentItem) => void
   onApproved: (next: AlignmentItem | null) => void
   onConflict: () => Promise<void>
@@ -225,16 +225,17 @@ function ResolvedAlignmentDetail(props: DetailProps) {
   </>
 }
 
-function AlignmentDetail({ item, onChange, onApproved, onConflict }: DetailProps) {
+function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflict }: DetailProps) {
   const C = appConfig.copy.admin.alignment
   const [draft, setDraft] = useState<{ pairs: GeorefPair[]; editVersion: number } | null>(null)
   const [image, setImage] = useState<string | null>(null)
   const [imageFailed, setImageFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // «Ausrichtung anpassen» = the same reference-point pairing the field uses (plan point, then
-  // the same spot on the map); two real pairs replace the automatic fit. No axis steppers.
-  const [manual, setManual] = useState(false)
+  // By hand = the same reference-point pairing the field uses (plan point, then the same spot
+  // on the map); two real pairs replace whatever the worker proposed. There is no other way to
+  // change a fit here: a proposal is approved as it is, or aligned by hand.
+  const [manual, setManual] = useState(byHand)
   const [point, setPoint] = useState<PlanPt | null>(null)
   const [opacity, setOpacity] = useState(60)
   const mounted = useRef(true)
@@ -255,7 +256,7 @@ function AlignmentDetail({ item, onChange, onApproved, onConflict }: DetailProps
   }, [item.id])
 
   const setPairs = (next: GeorefPair[]) => setDraft(previous => ({ pairs: next, editVersion: previous?.editVersion ?? item.edit_version }))
-  const reset = () => { setDraft(null); setPoint(null); setManual(false); setError(null) }
+  const reset = () => { setDraft(null); setPoint(null); setManual(byHand); setError(null) }
   const save = async (operation: 'approve' | 'retry' | 'undo') => {
     setBusy(true); setError(null)
     try {
@@ -287,7 +288,6 @@ function AlignmentDetail({ item, onChange, onApproved, onConflict }: DetailProps
     {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
     <footer><p>{C.scope}</p><div className="adm-align-actions">
       {item.status === 'approved' && <button type="button" className="btn" disabled={busy} onClick={() => void save('undo')}>{C.withdrawApproval}</button>}
-      {editable && <button type="button" className="btn" disabled={busy} aria-pressed={manual} onClick={() => { setManual(v => !v); setPoint(null) }}>{C.adjust}</button>}
       {editable && ['no_match', 'failed', 'unavailable'].includes(item.status) && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
       {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !!point || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy ? C.saving : C.approve}</button>}
     </div></footer>

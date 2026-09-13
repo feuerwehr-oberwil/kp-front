@@ -97,10 +97,11 @@
 .adm-card.no { outline: 2px solid var(--red); outline-offset: -2px; }
 .adm-card-foot .btn[aria-pressed="true"].adm-card-yes { background: color-mix(in srgb, var(--blue) 14%, var(--surface)); border-color: var(--blue); }
 .adm-card-foot .btn[aria-pressed="true"].adm-card-no { background: color-mix(in srgb, var(--red) 10%, var(--surface)); border-color: var(--red); color: var(--red-strong); }
-.adm-apply-bar { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-top: 16px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--r-ctl); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(8px); font-size: 13px; }
 .adm-card-reason { margin: 0; padding: 0 10px 6px; font-size: 11.5px; color: var(--ink-dim); }
 .adm-card-foot { display: flex; gap: 6px; padding: 6px 10px 10px; margin-top: auto; }
 .adm-card-foot .btn { flex: 1 1 0; padding: 6px 4px; font-size: 12.5px; }
+.adm-card-foot .adm-card-yes, .adm-card-foot .adm-card-no { font-size: 16px; line-height: 1; padding: 5px 0; }
+.adm-apply-summary { align-self: center; }
 .adm-card-yes { color: var(--blue-strong); }
 .adm-card-no { color: var(--ink-dim); }
 .adm-modal { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; padding: 20px; }

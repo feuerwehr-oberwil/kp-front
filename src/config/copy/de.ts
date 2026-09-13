@@ -6388,7 +6388,6 @@ export const de = {
       saveFailed: 'Speichern fehlgeschlagen',
       scope: 'Die Freigabe gilt für neue Einsätze – laufende behalten die Passung, mit der sie geöffnet wurden.',
       withdrawApproval: 'Freigabe zurücknehmen',
-      adjust: 'Ausrichtung anpassen',
       retry: 'Neu berechnen',
       saving: 'Wird gespeichert …',
       approve: 'Ausrichtung freigeben',
@@ -6396,8 +6395,8 @@ export const de = {
       grid: {
         sections: { ready: 'Vorschlag bereit', needs_review: 'Bitte prüfen', none: 'Kein Vorschlag', waiting: 'Wird berechnet', approved: 'Freigegeben', rejected: 'Von Hand' },
         coverage: 'Deckung {n} %',
-        approve: '✓ Freigeben',
-        reject: '✕ Von Hand',
+        approve: 'Freigeben',
+        reject: 'Von Hand',
         byHand: 'Von Hand ausrichten',
         undo: 'Rückgängig',
         open: 'Gross anzeigen: {name}',

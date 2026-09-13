@@ -636,6 +636,12 @@ export function ObjectsView({ title }: {
       .filter((o): o is ObjectWithPlans & { lat: number; lng: number } => o.lat != null && o.lng != null)
       .map((o) => ({ id: o.id, name: o.name, lat: o.lat, lng: o.lng }))
   }, [state])
+  // A pin tapped on the map selects its row; the list is long, so bring that row into view
+  // (a no-op when the row was the thing that was clicked).
+  useEffect(() => {
+    if (!selected) return
+    document.querySelector(`[data-object-row="${selected}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selected])
 
   return (
     <div className="adm-editor">
@@ -682,6 +688,7 @@ export function ObjectsView({ title }: {
                 return (
                   <li
                     key={obj.id}
+                    data-object-row={obj.id}
                     className={`adm-obj${selected === obj.id ? ' sel' : ''}${hovered === obj.id ? ' hot' : ''}${onMap ? ' clickable' : ''}`}
                     role={onMap ? 'button' : undefined}
                     tabIndex={onMap ? 0 : undefined}
