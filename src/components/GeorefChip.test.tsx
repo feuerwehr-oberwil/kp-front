@@ -189,24 +189,19 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.queryByRole('button', { name: 'Abbrechen' })).toBeNull()
   })
 
-  // ⚠️ The feature the server may not HAVE. Its CV dependencies are an optional extra, and the
-  // production image ships without them — the chooser then offered «Automatisch ausrichten» and
-  // answered every press with «…ist auf diesem Server nicht eingerichtet», with nothing to turn
-  // off (field report 09.09.2026). `/api/config` states the capability and the chip skips the
-  // chooser entirely, exactly as on a sheet that was never eligible.
-  it('offers the automatic path when the server can actually do it', () => {
-    renderBoard('modul2', false, [7.5, 47.5])
-    fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
-    expect(screen.getByRole('button', { name: /Automatisch ausrichten/ })).toBeTruthy()
-    expect(georefSnapshot().planId).toBeNull() // the chooser first, nothing armed yet
-  })
-
-  it('never offers it on a server without the matcher — it arms the point flow instead', () => {
-    server.autoAlign = false
+  // ⚠️ The field never asks for a proposal (13.09.2026): a sheet is linked by hand with reference
+  // points, or it is already «Verknüpft» because the station approved the server's proposal in
+  // the admin. Whatever the server can do, the chip arms the point flow directly.
+  it('never offers the automatic path in the field – the chip arms the point flow, server or no server', () => {
     renderBoard('modul2', false, [7.5, 47.5])
     fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
     expect(screen.queryByRole('button', { name: /Automatisch ausrichten/ })).toBeNull()
     expect(georefSnapshot().planId).toBe('modul2')
+    resetGeorefMode()
+    server.autoAlign = false
+    renderBoard('modul2', false, [7.5, 47.5])
+    fireEvent.click(screen.getAllByRole('button', { name: /Karte verknüpfen/ })[0])
+    expect(screen.queryByRole('button', { name: /Automatisch ausrichten/ })).toBeNull()
   })
 
   it('a viewer sees the reading but is given no way to arm it', () => {

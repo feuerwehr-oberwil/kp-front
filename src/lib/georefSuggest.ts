@@ -1,17 +1,21 @@
 /** «Automatisch ausrichten» — the client half of the CV alignment suggestion.
  *
+ *  ⚠️ The FIELD no longer asks for proposals (decision 13.09.2026): a sheet's link to the map has
+ *  exactly two states out there — set by hand with reference points, or already «Verknüpft»
+ *  because the station approved the server's proposal in Admin › Objektpläne › Plan-Ausrichtung.
+ *  The worker computes those proposals on its own (modules[].alignment = auto) and nothing
+ *  reaches an incident before an explicit approval. `georefSuggestEligible` therefore answers
+ *  false, and the chip arms the point flow directly; the request path below stays for the
+ *  admin-side «Neu berechnen» of the future and for the API contract tests, and can go when
+ *  nothing else calls it.
+ *
  *  The heavy lifting happens in the backend (POST /api/georef/suggest, app/georef_suggest.py):
  *  this module renders the plan into the same ≤1800 px bake «Deckung prüfen» uses, sends it with
  *  the object coordinate and the calibration-derived metres-per-pixel, and hands back the fit as
  *  two `kind: 'auto'` reference pairs. Those seed the mode's PROPOSAL review (lib/georefMode ·
  *  startGeorefProposal) — nothing is stored until the operator presses «Übernehmen».
- *
- *  The matcher is template-specific (the Modul-2 sheet family it was evaluated on), needs the
- *  printed scale via the station calibration, and an anchor coordinate to fetch OSM building
- *  rings around — `georefSuggestEligible` is the one place those preconditions live.
  */
 import { ApiError, apiUploadRaw } from './api'
-import { getDeploymentConfig, moduleAlignment } from './deploymentConfig'
 import { planMatcherImage, planPrintedMPerU } from '../components/PdfViewport'
 import type { GeoPt, GeorefPair } from './georef'
 
@@ -56,11 +60,9 @@ interface SuggestWire {
  *  «…ist auf diesem Server nicht eingerichtet» toast, with no way to turn it off. The server
  *  says so up front now (`integrations.autoAlignConfigured`, api/config · providers) and the
  *  chip arms the manual point flow directly, exactly as on a sheet that was never eligible. */
-export function georefSuggestEligible(planId: string, anchor: GeoPt | null | undefined): boolean {
-  const config = getDeploymentConfig()
-  if (!config.integrations?.autoAlignConfigured) return false
-  // the station's catalogue says which modules the server may propose for (modules[].alignment)
-  return /^modul\d/.test(planId) && !!anchor && moduleAlignment(config.modules, planId) === 'auto'
+export function georefSuggestEligible(_planId: string, _anchor: GeoPt | null | undefined): boolean {
+  // See the header: the field never asks. Proposals are the station's, reviewed in the admin.
+  return false
 }
 
 /** What asking the matcher can come back with, short of a transport/server failure. */
