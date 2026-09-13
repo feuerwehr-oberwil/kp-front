@@ -5,7 +5,9 @@ import { PlanAlignmentReview } from './PlanAlignmentReview'
 import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, rejectAlignment, undoAlignmentApproval, type AlignmentItem } from './planAlignmentApi'
 
 vi.mock('./planAlignmentApi', () => ({ loadAlignmentQueue: vi.fn(), loadAlignmentDetail: vi.fn(), alignmentPreview: vi.fn(), alignmentThumbnail: vi.fn(), approveAlignment: vi.fn(), rejectAlignment: vi.fn(), undoAlignmentApproval: vi.fn(), retryAlignment: vi.fn() }))
-vi.mock('./AlignmentPreview', () => ({ default: () => <div data-testid="preview" /> }))
+// the preview is a map; the mock offers the two taps a point pair needs
+vi.mock('./AlignmentPreview', () => ({ default: (props: { onPlanPoint: (p: { x: number; y: number }) => void; onMapPoint: (p: { lng: number; lat: number }) => void }) =>
+  <div data-testid="preview"><button type="button" onClick={() => props.onPlanPoint({ x: .5, y: .5 })}>plan</button><button type="button" onClick={() => props.onMapPoint({ lng: 7.551, lat: 47.51 })}>map</button></div> }))
 
 const item: AlignmentItem = {
   id: 1, dataset_id: 'plan:object:modul2', plan_version: 3, page: 0, page_count: null, can_approve: false, object_name: 'Testobjekt', module: 'modul2', title: 'Modul 2', is_current: true,
@@ -28,17 +30,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 describe('alignment review wall', () => {
-  it('approves from the card only through the exact revision – a summary row never publishes by itself', async () => {
+  it('applies the wall through the exact revision – a summary row never publishes by itself', async () => {
     vi.mocked(loadAlignmentDetail).mockResolvedValueOnce({ ...detail, can_approve: false })
     render(<PlanAlignmentReview compact />)
+    // a ready sheet is pre-marked yes; nothing is sent until «Übernehmen»
     const yes = await within(await screen.findByRole('listitem', { name: /^Testobjekt/ })).findByRole('button', { name: '✓ Freigeben' })
+    expect(yes.getAttribute('aria-pressed')).toBe('true')
     expect(loadAlignmentQueue).toHaveBeenCalledWith(true)
-    fireEvent.click(yes)
+    expect(approveAlignment).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
     await screen.findByRole('alert')
     expect(approveAlignment).not.toHaveBeenCalled()
     vi.mocked(approveAlignment).mockResolvedValue({ ...detail, status: 'approved', edit_version: 6, approved_at: '2026-09-09T10:00:00Z' })
-    fireEvent.click(within(card('Testobjekt')).getByRole('button', { name: '✓ Freigeben' }))
-    await screen.findByRole('button', { name: 'Freigabe rückgängig' })
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
+    await screen.findByText('1 freigegeben, 0 von Hand – 1 Blätter übernommen.')
     expect(approveAlignment).toHaveBeenCalledWith(detail, detail.pairs)
   })
   it('lets a slow queue read finish instead of starting overlapping polls', async () => {
@@ -58,40 +63,45 @@ describe('alignment review wall', () => {
     expect(screen.queryByRole('listitem', { name: /^Dokumentation/ })).toBeNull()
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'kein Treffer' } })
     expect(screen.queryByRole('button', { name: '✓ Freigeben' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Übernehmen/ })).toBeNull()
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: 'Alle' }))
     expect(screen.getByRole('listitem', { name: /^Dokumentation/ })).toBeTruthy()
     expect(approveAlignment).not.toHaveBeenCalled()
   })
-  it('rejects from the card, says so, and undoes with the latest revision token', async () => {
+  it('flips a card to «von Hand», applies it as a rejection, and undoes with the latest revision token', async () => {
     const rejected = { ...item, status: 'rejected' as const, edit_version: 6 }
     vi.mocked(rejectAlignment).mockResolvedValue(rejected)
     vi.mocked(undoAlignmentApproval).mockResolvedValue({ ...item, status: 'needs_review', edit_version: 7 })
     render(<PlanAlignmentReview compact />)
     fireEvent.click(await within(await screen.findByRole('listitem', { name: /^Testobjekt/ })).findByRole('button', { name: '✕ Von Hand' }))
-    await screen.findByText('Vorschlag für «Testobjekt» abgelehnt – das Blatt wird von Hand ausgerichtet.')
+    expect(within(card('Testobjekt')).getByRole('button', { name: '✓ Freigeben' }).getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
+    await screen.findByText('0 freigegeben, 1 von Hand – 1 Blätter übernommen.')
     expect(rejectAlignment).toHaveBeenCalledWith(item)
+    expect(approveAlignment).not.toHaveBeenCalled()
     // decided sheets leave the open wall and wait under their own filter
     expect(screen.queryByRole('listitem', { name: /^Testobjekt/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Entschieden' }))
     fireEvent.click(within(card('Testobjekt')).getByRole('button', { name: 'Rückgängig' }))
     await waitFor(() => expect(undoAlignmentApproval).toHaveBeenCalledWith(rejected))
   })
-  it('approves a whole section one sheet after the other and stops at the first refusal', async () => {
+  it('applies the marked wall one sheet after the other and stops at the first refusal', async () => {
     const second = { ...item, id: 2, object_name: 'Zweites Objekt' }
     vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([item, second]))
     vi.mocked(loadAlignmentDetail).mockImplementation(async id => id === 1 ? detail : { ...second, page_count: 1, can_approve: false })
     vi.mocked(approveAlignment).mockImplementation(async it => ({ ...it, status: 'approved', edit_version: it.edit_version + 1 }))
     render(<PlanAlignmentReview compact />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Alle 2 freigeben' }))
-    await screen.findByText('1 von 2 Ausrichtungen freigegeben.')
+    fireEvent.click(await screen.findByRole('button', { name: 'Übernehmen (2)' }))
+    await screen.findByRole('alert')
     expect(approveAlignment).toHaveBeenCalledTimes(1)
     expect(approveAlignment).toHaveBeenCalledWith(detail, detail.pairs)
+    await screen.findByText('1 freigegeben, 0 von Hand – 2 Blätter übernommen.')
   })
   it('opens the full instrument in a modal from the thumbnail and blocks approval there without the exact preview', async () => {
     vi.mocked(alignmentPreview).mockRejectedValue(new Error('offline'))
     render(<PlanAlignmentReview compact />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Gross anzeigen: Testobjekt · Modul 2' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Gross anzeigen: Testobjekt · 2' }))
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByText('Planvorschau konnte nicht geladen werden')
     expect(within(dialog).getByRole('button', { name: 'Ausrichtung freigeben' }).hasAttribute('disabled')).toBe(true)
@@ -101,12 +111,13 @@ describe('alignment review wall', () => {
   })
   it('keeps an adjusted draft in the modal but prevents approval after another admin changes its revision', async () => {
     render(<PlanAlignmentReview compact />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Gross anzeigen: Testobjekt · Modul 2' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Gross anzeigen: Testobjekt · 2' }))
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByTestId('preview')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Ausrichtung anpassen' }))
-    fireEvent.pointerDown(within(dialog).getAllByRole('button', { name: 'mehr' })[0], { button: 0, pointerId: 1 })
-    fireEvent.pointerUp(within(dialog).getAllByRole('button', { name: 'mehr' })[0], { button: 0, pointerId: 1 })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'plan' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'map' }))
+    expect(within(dialog).getByRole('button', { name: 'Letzten Punkt entfernen' }).hasAttribute('disabled')).toBe(false)
     vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item, edit_version: 6 }]))
     vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...detail, edit_version: 6 })
     fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))

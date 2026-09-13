@@ -4,30 +4,42 @@ import { fillTemplate } from '../lib/format'
 import { fitSimilarity } from '../lib/georef'
 import { alignmentThumbnail, type AlignmentItem } from './planAlignmentApi'
 
-/** A card's own decision, straight from its footer (the modal carries the slow path). */
-export type CardDecision = 'approve' | 'reject' | 'undo' | 'retry'
+/** An immediate action from a card footer (the modal carries the slow path). */
+export type CardDecision = 'undo' | 'retry'
+/** A staged decision: nothing happens until «Übernehmen». */
+export type CardMark = 'yes' | 'no'
 
 /** The review wall: every sheet as a thumbnail with the building outlines drawn through the
  *  proposed fit, judged at a glance, decided from the card's footer. Cards come grouped by
  *  what the worker said; the parent owns the decisions and the modal. */
-export function AlignmentGrid({ items, busy, onDecide, onOpen }: {
+export function AlignmentGrid({ items, busy, markOf, onMark, onDecide, onOpen }: {
   items: AlignmentItem[]
   /** ids with a decision in flight */
   busy: Set<number>
+  /** the staged mark of a proposal card (ready sheets default to yes) */
+  markOf: (item: AlignmentItem) => CardMark | null
+  onMark: (item: AlignmentItem, mark: CardMark | null) => void
   onDecide: (item: AlignmentItem, decision: CardDecision) => void
   onOpen: (item: AlignmentItem) => void
 }) {
-  const C = appConfig.copy.admin.alignment
   return <div className="adm-grid" role="list">
-    {items.map(item => <AlignmentCard key={item.id} item={item} busy={busy.has(item.id)} onDecide={onDecide} onOpen={onOpen} />)}
+    {items.map(item => <AlignmentCard key={item.id} item={item} busy={busy.has(item.id)} mark={markOf(item)} onMark={onMark} onDecide={onDecide} onOpen={onOpen} />)}
   </div>
 }
+
+/** «1», «2/3», «6» — the module as the nav rail spells it; a name alone cannot tell the
+ *  Übersicht from the Grundriss of the same object. */
+const moduleCode = (module: string | null) => (module ?? '').replace(/^modul/, '').replace(/[-_]/g, '/') || '?'
+
 
 const noProposal = new Set(['no_match', 'failed', 'unavailable', 'unsupported'])
 const waiting = new Set(['pending', 'processing'])
 
-function AlignmentCard({ item, busy, onDecide, onOpen }: {
-  item: AlignmentItem; busy: boolean; onDecide: (item: AlignmentItem, decision: CardDecision) => void; onOpen: (item: AlignmentItem) => void
+function AlignmentCard({ item, busy, mark, onMark, onDecide, onOpen }: {
+  item: AlignmentItem; busy: boolean; mark: CardMark | null
+  onMark: (item: AlignmentItem, mark: CardMark | null) => void
+  onDecide: (item: AlignmentItem, decision: CardDecision) => void
+  onOpen: (item: AlignmentItem) => void
 }) {
   const C = appConfig.copy.admin.alignment
   const G = C.grid
@@ -46,21 +58,21 @@ function AlignmentCard({ item, busy, onDecide, onOpen }: {
   const proposal = !noProposal.has(item.status) && !waiting.has(item.status)
   const coverage = item.coverage != null ? fillTemplate(G.coverage, { n: Math.round(item.coverage * 100) }) : null
   const reason = item.reason ? (Object.entries(C.reasons).find(([key]) => key === item.reason)?.[1] ?? item.reason) : null
-  const label = `${item.object_name} · ${item.title || item.module}`
-  return <article ref={card} className={`adm-card${busy ? ' busy' : ''}`} role="listitem" aria-label={label} aria-busy={busy}>
+  const label = `${item.object_name} · ${moduleCode(item.module)}`
+  return <article ref={card} className={`adm-card${busy ? ' busy' : ''}${mark ? ` ${mark}` : ''}`} role="listitem" aria-label={label} aria-busy={busy}>
     <button type="button" className="adm-card-pic" onClick={() => onOpen(item)} aria-label={fillTemplate(G.open, { name: label })} disabled={busy}>
       {image.url ? <img src={image.url} alt="" /> : <span className="adm-card-wait">{image.failed ? C.previewFailed : C.previewLoading}</span>}
       {image.url && outlines.length > 0 && <svg viewBox={`0 0 ${aspect} 1`} aria-hidden>
         <g fill="none" stroke="#d012d6" strokeWidth=".004" vectorEffect="non-scaling-stroke">{outlines.map((points, i) => <polygon key={i} points={points} />)}</g>
       </svg>}
     </button>
-    <div className="adm-card-cap"><div className="adm-card-name"><b>{item.object_name}</b><small>{item.title || item.module}</small></div>
-      <span className={`adm-align-status ${item.status}`}>{coverage && proposal ? coverage : C.status[item.status]}</span></div>
+    <div className="adm-card-cap"><b className="adm-card-name">{item.object_name}</b>
+      <span className="adm-card-meta"><span className="adm-card-code">{moduleCode(item.module)}</span>{coverage && proposal ? coverage : <span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span>}</span></div>
     {reason && !proposal && <p className="adm-card-reason">{reason}</p>}
     <div className="adm-card-foot">
       {(item.status === 'ready' || item.status === 'needs_review') && <>
-        <button type="button" className="btn adm-card-yes" disabled={busy} onClick={() => onDecide(item, 'approve')}>{G.approve}</button>
-        <button type="button" className="btn adm-card-no" disabled={busy} onClick={() => onDecide(item, 'reject')}>{G.reject}</button>
+        <button type="button" className="btn adm-card-yes" disabled={busy} aria-pressed={mark === 'yes'} onClick={() => onMark(item, mark === 'yes' ? null : 'yes')}>{G.approve}</button>
+        <button type="button" className="btn adm-card-no" disabled={busy} aria-pressed={mark === 'no'} onClick={() => onMark(item, mark === 'no' ? null : 'no')}>{G.reject}</button>
       </>}
       {noProposal.has(item.status) && <>
         <button type="button" className="btn" disabled={busy} onClick={() => onOpen(item)}>{G.byHand}</button>

@@ -2,14 +2,13 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNod
 import { appConfig } from '../config/appConfig'
 import { ApiError } from '../lib/api'
 import { fillTemplate } from '../lib/format'
-import { hasAutoPairs, nudgePairsOnMap, type GeorefPair, type PlanPt } from '../lib/georef'
+import { hasAutoPairs, type GeorefPair, type PlanPt } from '../lib/georef'
 import { reviewableAlignment } from '../lib/planAlignmentReview'
 import { Slider } from '../components/Slider'
-import { Stepper } from '../components/Stepper'
 import { Segmented } from '../components/Segmented'
 import { fmtDate } from './ui'
 import { alignmentPreview, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, rejectAlignment, retryAlignment, undoAlignmentApproval, type AlignmentItem, type AlignmentQueue } from './planAlignmentApi'
-import { AlignmentGrid, type CardDecision } from './AlignmentGrid'
+import { AlignmentGrid, type CardDecision, type CardMark } from './AlignmentGrid'
 import './planAlignment.css'
 
 const Preview = lazy(() => import('./AlignmentPreview'))
@@ -34,6 +33,9 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
   const [open, setOpen] = useState<number | null>(null)
   const [busy, setBusy] = useState<Set<number>>(() => new Set())
   const [notice, setNotice] = useState<string | null>(null)
+  // Staged marks: a ready proposal counts as «yes» until the reviewer says otherwise, a doubtful
+  // one as undecided. Nothing is sent before «Übernehmen» — the wall is looked at, then applied.
+  const [overrides, setOverrides] = useState<Map<number, CardMark | 'none'>>(() => new Map())
   const [filter, setFilter] = useState<Filter>('open')
   const [search, setSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
@@ -89,9 +91,15 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
   const sections = SECTIONS.map(section => ({ section, items: visible.filter(item => sectionOf(item) === section) })).filter(s => s.items.length)
 
   const mark = (id: number, on: boolean) => setBusy(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
-  /** One card's decision. Approval re-reads the exact revision first: the summary row can never
+  const markOf = (item: AlignmentItem): CardMark | null => {
+    if (item.status !== 'ready' && item.status !== 'needs_review') return null
+    const override = overrides.get(item.id)
+    return override === 'none' ? null : override ?? (item.status === 'ready' ? 'yes' : null)
+  }
+  const setMark = (item: AlignmentItem, next: CardMark | null) => setOverrides(prev => { const m = new Map(prev); m.set(item.id, next ?? 'none'); return m })
+  /** One sheet's decision. Approval re-reads the exact revision first: the summary row can never
    *  approve by itself (its page count is unknown), and the server gets the freshest token. */
-  const decide = async (item: AlignmentItem, decision: CardDecision): Promise<boolean> => {
+  const decide = async (item: AlignmentItem, decision: CardDecision | 'approve' | 'reject', quiet = false): Promise<boolean> => {
     mark(item.id, true); setError(null)
     try {
       let next: AlignmentItem
@@ -102,9 +110,7 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
       } else next = decision === 'reject' ? await rejectAlignment(item) : decision === 'undo' ? await undoAlignmentApproval(item) : await retryAlignment(item)
       if (!alive.current) return false
       update(next)
-      if (decision === 'approve') { setApproved(next); setNotice(null) }
-      else if (decision === 'reject') { setApproved(null); setNotice(fillTemplate(C.grid.rejectedMessage, { name: item.object_name })) }
-      else { setApproved(null); setNotice(null) }
+      if (!quiet) { setApproved(null); setNotice(null) }
       return true
     } catch (e) {
       if (!alive.current) return false
@@ -113,18 +119,24 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
       return false
     } finally { if (alive.current) mark(item.id, false) }
   }
-  /** «Alle N freigeben»: one after the other, stopping at the first refusal so nothing is
-   *  skipped silently; the banner then says how far it got. */
+  /** «Übernehmen»: every marked card of the visible wall, one after the other, stopping at the
+   *  first refusal so nothing is skipped silently; the banner then says how far it got. */
+  const staged = visible.filter(item => markOf(item) != null)
+  const yesCount = staged.filter(item => markOf(item) === 'yes').length
   const [batch, setBatch] = useState<{ done: number; total: number } | null>(null)
-  const approveAll = async (list: AlignmentItem[]) => {
+  const apply = async () => {
+    const list = staged.map(item => ({ item, mark: markOf(item) }))
     setBatch({ done: 0, total: list.length }); setApproved(null); setNotice(null)
-    let done = 0
-    for (const item of list) {
+    let yes = 0, no = 0
+    for (const { item, mark: m } of list) {
       if (!alive.current) return
-      if (!await decide(item, 'approve')) break
-      done += 1; setBatch({ done, total: list.length })
+      if (!await decide(item, m === 'yes' ? 'approve' : 'reject', true)) break
+      if (m === 'yes') yes += 1; else no += 1
+      setBatch({ done: yes + no, total: list.length })
     }
-    if (alive.current) { setBatch(null); setApproved(null); setNotice(fillTemplate(C.grid.approvedAll, { n: done, total: list.length })) }
+    if (!alive.current) return
+    setBatch(null); setOverrides(new Map())
+    setNotice(fillTemplate(C.grid.applied, { yes, no, total: list.length }))
   }
 
   return <section className={`adm-align${compact ? ' am-module-review' : ''}`} aria-label={C.title}>
@@ -146,12 +158,16 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
     {!queue && !error && <p className="adm-state" role="status">{C.loading}</p>}
     {queue && visible.length === 0 && <p className="adm-hint adm-align-empty">{items.length === 0 ? C.empty : C.noResults}</p>}
     {sections.map(({ section, items: list }) => <div key={section} className="adm-grid-section">
-      <div className="adm-grid-head"><h3>{C.grid.sections[section]}</h3><span className="adm-hint">{fillTemplate(C.queueCount, { n: list.length })}</span>
-        {section === 'ready' && list.length > 1 && <button type="button" className="btn" disabled={!!batch || busy.size > 0} onClick={() => void approveAll(list)}>
-          {batch ? fillTemplate(C.grid.approving, batch) : fillTemplate(C.grid.approveAll, { n: list.length })}</button>}
-      </div>
-      <AlignmentGrid items={list} busy={busy} onDecide={(item, decision) => void decide(item, decision)} onOpen={item => setOpen(item.id)} />
+      <div className="adm-grid-head"><h3>{C.grid.sections[section]}</h3><span className="adm-hint">{fillTemplate(C.queueCount, { n: list.length })}</span></div>
+      <AlignmentGrid items={list} busy={busy} markOf={markOf} onMark={setMark} onDecide={(item, decision) => void decide(item, decision)} onOpen={item => setOpen(item.id)} />
     </div>)}
+    {staged.length > 0 && <div className="adm-apply-bar" role="region" aria-label={C.grid.apply}>
+      <span>{batch ? fillTemplate(C.grid.applying, batch) : fillTemplate(C.grid.applySummary, { yes: yesCount, no: staged.length - yesCount })}</span>
+      <span className="adm-align-actions">
+        <button type="button" className="btn" disabled={!!batch || overrides.size === 0} onClick={() => setOverrides(new Map())}>{C.grid.resetMarks}</button>
+        <button type="button" className="btn primary" disabled={!!batch || busy.size > 0} onClick={() => void apply()}>{fillTemplate(C.grid.apply, { n: staged.length })}</button>
+      </span>
+    </div>}
     {current && <AlignmentModal item={current} onClose={() => setOpen(null)}>
       <ResolvedAlignmentDetail key={current.id} item={current} onChange={update} onApproved={next => { setApproved(next); if (next) setNotice(null) }} onConflict={refresh} />
     </AlignmentModal>}
@@ -216,11 +232,11 @@ function AlignmentDetail({ item, onChange, onApproved, onConflict }: DetailProps
   const [imageFailed, setImageFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [adjust, setAdjust] = useState(false)
+  // «Ausrichtung anpassen» = the same reference-point pairing the field uses (plan point, then
+  // the same spot on the map); two real pairs replace the automatic fit. No axis steppers.
   const [manual, setManual] = useState(false)
   const [point, setPoint] = useState<PlanPt | null>(null)
   const [opacity, setOpacity] = useState(60)
-  const [offset, setOffset] = useState({ east: 0, north: 0, turn: 0 })
   const mounted = useRef(true)
   const pairs = draft?.pairs ?? item.pairs
   const stale = draft != null && draft.editVersion !== item.edit_version
@@ -239,12 +255,7 @@ function AlignmentDetail({ item, onChange, onApproved, onConflict }: DetailProps
   }, [item.id])
 
   const setPairs = (next: GeorefPair[]) => setDraft(previous => ({ pairs: next, editVersion: previous?.editVersion ?? item.edit_version }))
-  const reset = () => { setDraft(null); setOffset({ east: 0, north: 0, turn: 0 }); setPoint(null); setManual(false); setError(null) }
-  const nudge = (kind: keyof typeof offset, value: number) => {
-    const delta = value - offset[kind]
-    setPairs(nudgePairsOnMap(pairs, kind === 'east' ? { dxM: delta } : kind === 'north' ? { dyM: delta } : { rotDeg: delta }))
-    setOffset(old => ({ ...old, [kind]: value }))
-  }
+  const reset = () => { setDraft(null); setPoint(null); setManual(false); setError(null) }
   const save = async (operation: 'approve' | 'retry' | 'undo') => {
     setBusy(true); setError(null)
     try {
@@ -269,18 +280,14 @@ function AlignmentDetail({ item, onChange, onApproved, onConflict }: DetailProps
     }} /></Suspense> : <p className="adm-state" role="status">{C.previewLoading}</p>}
     <div className="adm-align-settings"><span>{C.opacity}</span><Slider value={opacity} onChange={setOpacity} ariaLabel={C.opacity} valueText={`${opacity} %`} /><span className="adm-align-number">{opacity} %</span></div>
     <div className="adm-align-facts"><div><p className="adm-align-provenance">{!pairs.length ? C.unaligned : hasAutoPairs(pairs) ? C.automatic : C.manual}</p><p className="adm-hint">{C.reviewHint}</p></div><dl><div><dt>{C.planDate}</dt><dd>{fmtDate(item.created_at)}</dd></div><div><dt>{C.reference}</dt><dd>{item.reference_source ?? C.referenceUnknown}{item.reference_at ? ` · ${fmtDate(item.reference_at)}` : ''}</dd></div><div><dt>{C.approvalDate}</dt><dd>{item.approved_at ? fmtDate(item.approved_at) : C.notApproved}</dd></div></dl></div>
-    {adjust && editable && <div className="adm-align-adjust"><div className="adm-align-nudges">
-      <label>{C.east}<Stepper value={offset.east} min={-500} max={500} onChange={v => nudge('east', v)} ariaLabel={C.east} format={n => `${n} m`} readOnly={!pairs.length || busy || manual} /></label>
-      <label>{C.north}<Stepper value={offset.north} min={-500} max={500} onChange={v => nudge('north', v)} ariaLabel={C.north} format={n => `${n} m`} readOnly={!pairs.length || busy || manual} /></label>
-      <label>{C.turn}<Stepper value={offset.turn} min={-180} max={180} onChange={v => nudge('turn', v)} ariaLabel={C.turn} format={n => `${n}°`} readOnly={!pairs.length || busy || manual} /></label>
-    </div><div className="adm-align-actions"><button type="button" className="btn" disabled={busy} aria-pressed={manual} onClick={() => { setManual(v => !v); setPoint(null) }}>{manual ? C.showOverlay : C.setPoints}</button><button type="button" className="btn" disabled={busy || !draft} onClick={reset}>{C.discardAdjustment}</button>
-      {manual && <button type="button" className="btn" disabled={busy || !pairs.some(p => p.kind !== 'auto')} onClick={() => { setPairs(pairs.filter(p => p.kind !== 'auto').slice(0, -1)); setPoint(null) }}>{C.undoPoint}</button>}
-    </div>{manual && <p className="adm-hint">{point ? C.pickOnMap : C.pickOnPlan} {C.keyboardPoints}</p>}</div>}
+    {manual && editable && <div className="adm-align-adjust"><p className="adm-hint">{point ? C.pickOnMap : C.pickOnPlan} {C.keyboardPoints}</p>
+      <div className="adm-align-actions"><button type="button" className="btn" disabled={busy || !pairs.some(p => p.kind !== 'auto')} onClick={() => { setPairs(pairs.filter(p => p.kind !== 'auto').slice(0, -1)); setPoint(null) }}>{C.undoPoint}</button>
+        <button type="button" className="btn" disabled={busy || !draft} onClick={reset}>{C.discardAdjustment}</button></div></div>}
     {stale && <p className="adm-align-notice" role="alert">{C.conflict} <button type="button" className="btn" onClick={reset}>{C.discardAdjustment}</button></p>}
     {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
     <footer><p>{C.scope}</p><div className="adm-align-actions">
       {item.status === 'approved' && <button type="button" className="btn" disabled={busy} onClick={() => void save('undo')}>{C.withdrawApproval}</button>}
-      {editable && <button type="button" className="btn" disabled={busy} aria-expanded={adjust} onClick={() => setAdjust(v => !v)}>{C.adjust}</button>}
+      {editable && <button type="button" className="btn" disabled={busy} aria-pressed={manual} onClick={() => { setManual(v => !v); setPoint(null) }}>{C.adjust}</button>}
       {editable && ['no_match', 'failed', 'unavailable'].includes(item.status) && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
       {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !!point || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy ? C.saving : C.approve}</button>}
     </div></footer>
