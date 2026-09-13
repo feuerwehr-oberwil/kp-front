@@ -112,10 +112,15 @@ THUMBNAIL_SIDE = 560
 
 def render_preview(storage_key: str, page: int = 0, *, thumbnail: bool = False) -> tuple[bytes, str]:
     """(bytes, media type) preview helper; API callers must run it off the request event loop.
-    The full preview is the exact worker raster (PNG); the thumbnail is a JPEG downscale."""
-    rendered = render_page(storage_key, page)
+    The full preview is the exact worker raster (PNG); the thumbnail is a JPEG downscale, kept
+    beside the PDF in storage – a revision's bytes never change, so the cache never goes stale
+    (a deleted revision leaves a ~40 KB orphan behind; the wall re-renders 250 PDFs otherwise)."""
     if not thumbnail:
-        return rendered.png, "image/png"
+        return render_page(storage_key, page).png, "image/png"
+    cache_key = f"{storage_key}.thumb-{page}.jpg"
+    if storage.exists(cache_key):
+        return storage.get_bytes(cache_key), "image/jpeg"
+    rendered = render_page(storage_key, page)
     from PIL import Image
 
     with Image.open(io.BytesIO(rendered.png)) as image:
@@ -126,6 +131,7 @@ def render_preview(storage_key: str, page: int = 0, *, thumbnail: bool = False) 
             small.save(buf, format="JPEG", quality=78)
         finally:
             small.close()
+    storage.put_bytes(cache_key, buf.getvalue())
     return buf.getvalue(), "image/jpeg"
 
 

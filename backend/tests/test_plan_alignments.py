@@ -306,7 +306,7 @@ async def test_a_rejection_leaves_the_queue_without_publishing_and_can_be_undone
     assert [e.action for e in events] == ["reject", "withdraw"]
 
 
-async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, admin_login, db_session):
+async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, admin_login, db_session, monkeypatch):
     from PIL import Image
 
     obj, ds, row = await _seed(db_session)
@@ -320,3 +320,11 @@ async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, ad
         assert max(image.size) == 560
         assert abs(image.width / image.height - 700 / 500) < 0.01
     assert len(small.content) < len(full.content)
+    # the second thumbnail comes from storage, not from PDFium
+    from app import plan_alignment_compute
+
+    monkeypatch.setattr(
+        plan_alignment_compute, "render_page", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("rendered again"))
+    )
+    again = await client.get(url + "?thumbnail=true")
+    assert again.content == small.content
