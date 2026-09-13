@@ -2,23 +2,23 @@
 import { render, screen, cleanup, act, fireEvent, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// The record table (ui.tsx · RecordTable / RecordRows) — a list editor's records as rows of one
-// grid: Ebene | Bezeichnung | Wert | ⓘ, the record's name written ONCE in a cell that spans its
-// own rows.
+// The record table (ui.tsx · RecordTable / RecordRows) — a list editor's records as CARDS:
+// «Karten für Datensätze, Zeilen für Werte». Each record is one box with a head line (name,
+// swatch, meta, its own action) and its values as rows under it; the list has no column headers.
 //
 // Three things decide whether it holds, and none of them is how it looks:
 //
-//   · the head spans exactly its record's rows. CSS cannot count them, so React writes the span —
-//     which means a miscount is not a wobble but every record below shifted by one row. The
-//     count has to follow a record that grows a validation line, and one that loses it again.
+//   · a record's rows belong to THAT record's card — including a validation line that appears and
+//     disappears. This is what the old spanning head cell got wrong when React miscounted its
+//     rows, and the reason the count is gone: a card cannot lose a row to its neighbour.
 //   · every attribute row still binds its label to its control. `SettingRow` finds the Wert
-//     cell's first focusable element and points the label at it; the record column must not have
-//     become that element, and a record head is not a label.
-//   · a record's bin deletes ITS record. The name and the delete sit in the same spanning cell
-//     now, three rows away from the row the eye is on when it decides to click.
+//     cell's first focusable element and points the label at it; the head must not have become
+//     that element, and a record head is not a label.
+//   · a record's bin deletes ITS record. The name and the delete sit in the head line, rows away
+//     from the row the eye is on when it decides to click.
 //
-// What is NOT here: column widths and the spanning geometry, which jsdom has no layout engine
-// for. They are measured in a real browser — tmp/gridcheck.cjs, `.adm-records` scenario.
+// What is NOT here: column widths, which jsdom has no layout engine for. They are measured in a
+// real browser — tmp/gridcheck.cjs, `.adm-records` scenario.
 
 import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 import { appConfig } from '../config/appConfig'
@@ -61,25 +61,27 @@ const sheet = (children: React.ReactNode) => (
   <RecordTable title="Kartenebenen" recordLabel="Ebene" fieldLabel="Bezeichnung">{children}</RecordTable>
 )
 
-describe('the record head is written once, and spans exactly its own rows', () => {
-  it('gives each record one head, and the columns their names', () => {
+describe('a record is a card of its own', () => {
+  it('gives each record one head, and writes no column headers over the list', () => {
     render(sheet(<><Layer name="Hydranten" /><Layer name="Reserven" /></>))
     expect(document.querySelectorAll('.adm-rec-head')).toHaveLength(2)
     // …and the name is not repeated as a row label of its own
     expect(screen.getAllByText('Hydranten')).toHaveLength(1)
-    const headers = [...document.querySelectorAll('.adm-set-h')].map((h) => h.textContent)
-    expect(headers).toEqual(['Ebene', 'Bezeichnung', C.colValue, 'ⓘ'])
+    // a card says what a record is by standing on its own — the old Ebene | Bezeichnung | Wert
+    // header row is gone, and the word «Ebene» labels the list for a screen reader instead
+    expect(document.querySelectorAll('.adm-set-h')).toHaveLength(0)
+    expect(screen.getByRole('group', { name: 'Ebene' })).toBeTruthy()
   })
 
-  it('spans the rows the record actually has — a validation line included', () => {
-    const { rerender } = render(sheet(<Layer name="Hydranten" />))
-    expect(head('Hydranten').style.gridRow).toBe('span 2')
-    // the file was refused: the record grows a line, and the head has to grow with it
-    rerender(sheet(<Layer name="Hydranten" warn="LV95 statt WGS84." />))
-    expect(head('Hydranten').style.gridRow).toBe('span 3')
-    // …and shrinks back when the next attempt succeeds
-    rerender(sheet(<Layer name="Hydranten" />))
-    expect(head('Hydranten').style.gridRow).toBe('span 2')
+  it('keeps every row of a record inside that record, a validation line included', () => {
+    const { rerender } = render(sheet(<><Layer name="Hydranten" /><Layer name="Reserven" /></>))
+    const cards = () => [...document.querySelectorAll('.adm-rec')]
+    expect(cards().map((c) => c.querySelectorAll('.adm-set-row').length)).toEqual([2, 2])
+    // the file was refused: the line appears in the record it belongs to, not in the next one
+    rerender(sheet(<><Layer name="Hydranten" warn="LV95 statt WGS84." /><Layer name="Reserven" /></>))
+    const warn = screen.getByText('LV95 statt WGS84.')
+    expect(warn.closest('.adm-rec')).toBe(cards()[0])
+    expect(cards()[1]?.textContent).not.toContain('LV95')
   })
 
   it('carries the record\'s swatch and meta line, not the rows', () => {

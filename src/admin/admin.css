@@ -468,101 +468,103 @@
   .adm-set-ctl { order: 3; flex: 1 0 100%; }
   .adm-set-ctl .adm-input { width: 100%; }
 }
-/* ── the record table (ui.tsx · RecordTable / RecordRows) ─────────────────────────────────────
-   A list editor's records — Kartenebenen, Module, Alarmgruppen, Fahrzeuge — as one strict table:
-   Ebene | Bezeichnung | Wert | ⓘ. The record's name stands ONCE, in a left cell that spans its
-   own rows and carries its swatch, its meta line and its bin; every row beside it is a label and
-   a value. It replaces the full-width uppercase divider per record, which put the name on a band
-   of its own and left the eye no way of telling, three rows down, whose fields it was reading.
+/* ── record cards (ui.tsx · RecordTable / RecordRows) ─────────────────────────────────────────
+   «Karten für Datensätze, Zeilen für Werte» — the grammar of /admin. A list editor's records
+   (Kartenebenen, Module, Alarmgruppen, Fahrzeuge) are compact cards INSIDE the page card: a head
+   line saying WHICH record this is — swatch, name, its key or meta, its own action at the right
+   edge — and under it its values as rows of three columns: Bezeichnung | Wert | ⓘ.
 
-   ⚠️ It is its OWN grid, deliberately not `.adm-settings` with a fifth track: every plain
-   setting row on every other page would then have to span the record column, and `.adm-settings`
-   was just repaired (see the Standard-column starvation note above) — one grid, one set of
-   invariants.
+   It replaces the one flat table whose left cell spanned each record's rows. A spanning cell had
+   to be counted in React (CSS cannot count rows), and one child that rendered two rows shifted
+   every record below it; a card needs no count, and it survives a record that grows a warning
+   line, a note or a second action.
 
-   ⚠️ EVERY cell here is placed in an explicit column, because the record head is the only item
-   that spans rows and auto-placement around a spanning item is a cursor, not a layout: with all
-   four columns definite, the placement cursor walks 1→4 per row and starts a new row whenever it
-   would go backwards, which is exactly the shape this table wants. `.adm-set-std` has no column
-   because a record has no Standard — a `display: none` item is not placed at all.
+   ⚠️ `.adm-rec` IS the grid, not `.adm-records`. `SettingRow` is `display: contents`, so a row's
+   cells are items of whatever element declares the columns — each record card declares them, and
+   its head is a `1 / -1` item of it. The tracks are identical on every card, so the columns line
+   up down the whole page anyway.
 
-   ⚠️ No track can be starved by a wide cell, which is the failure `.adm-settings` had: three of
-   the four tracks have a bounded maximum (`min()`, `fit-content()`, a fixed 34px), so a long
-   layer name or a chip list can only overflow its own cell. The Wert column is the single `1fr`
-   and absorbs the rest of the width; its controls are capped, because a 640px box for a hex
-   colour is comic. Verified in a real browser — tmp/gridcheck.cjs, `records` scenario. */
-.adm-records {
+   ⚠️ Nothing here reaches into `.adm-settings` (see the Standard-column starvation note above).
+   A record has no Standard column at all — the cell `SettingRow` always writes is hidden.
+
+   ⚠️ No track can be starved by a wide cell: the label column and the ⓘ are bounded, and the
+   Wert column is the single `1fr` that absorbs the rest. A long layer name or a chip list can
+   only overflow its own cell. */
+.adm-records { display: flex; flex-direction: column; gap: 12px; padding: 14px 18px 18px; }
+/* a note of the LIST rather than of a record — a result line, the dashed «hinzufügen» row.
+   It is no longer a table row: the flex gap above spaces it, and it has no hairline to carry. */
+.adm-records > .adm-set-note { padding: 0; border-bottom: 0; }
+.adm-records > .adm-set-note.warn { padding: 10px 12px; border-radius: 10px; }
+
+/* one record */
+.adm-rec {
   display: grid;
-  grid-template-columns: minmax(160px, min(300px, 26%)) fit-content(190px) minmax(200px, 1fr) 34px;
+  grid-template-columns: minmax(0, 180px) minmax(0, 1fr) 28px;
   align-items: stretch;
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  background: var(--surface);
 }
-.adm-records > .adm-set-head > .adm-set-h:nth-child(1) { grid-column: 1; }
-.adm-records > .adm-set-head > .adm-set-h:nth-child(2) { grid-column: 2; }
-.adm-records > .adm-set-head > .adm-set-h:nth-child(3) { grid-column: 3; }
-.adm-records > .adm-set-head > .adm-set-h:nth-child(4) { grid-column: 4; }
-.adm-records:first-child .adm-set-h:first-child { border-top-left-radius: calc(var(--r-surface) - 1px); }
-.adm-records:first-child .adm-set-h-info { border-top-right-radius: calc(var(--r-surface) - 1px); }
-
-/* one record. `display: contents` for the same reason a row is: its head and its rows are the
-   GRID's items, or nothing would line up across records. */
-.adm-rec { display: contents; }
-/* the head cell — its `grid-row: span N` is written by RecordRows, since CSS cannot count rows */
+/* the head line: the record's identity and its own action, never one of its values */
 .adm-rec-head {
-  grid-column: 1;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
-  min-width: 0; padding: 11px 12px 11px 18px;
+  grid-column: 1 / -1;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px 10px;
+  min-width: 0; padding: 8px 12px;
+  background: var(--fill-soft);
   border-bottom: 1px solid var(--border-soft);
-  border-right: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--ink) 1.8%, transparent);
 }
 .adm-rec-name {
   display: flex; align-items: center; gap: 8px; min-width: 0;
-  font-size: 13.5px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere;
+  font-size: 13.5px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere;
 }
 .adm-rec-swatch { flex: none; width: 13px; height: 13px; border-radius: 4px;
   border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }
-.adm-rec-meta { font-size: 11.5px; line-height: 1.35; color: var(--ink-faint); overflow-wrap: anywhere; }
-.adm-rec-act { margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+.adm-rec-meta { font: 500 11.5px/1.35 var(--mono); color: var(--ink-faint); overflow-wrap: anywhere; }
+/* the record's own control sits at the RIGHT edge of the head line, whatever the name's length */
+.adm-rec-act { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .adm-rec-act .adm-formlink-x { width: 32px; height: 32px; }
 .adm-rec-act .adm-confirm { text-transform: none; letter-spacing: normal; }
 
-/* the three columns beside the head */
-.adm-records .adm-set-lbl { grid-column: 2; padding-left: 14px; }
-.adm-records .adm-set-ctl { grid-column: 3; }
-.adm-records .adm-set-info { grid-column: 4; }
-/* a record has no Standard column — the cell SettingRow always writes simply does not take part */
-.adm-records .adm-set-std { display: none; }
-/* ⚠️ …and `span` therefore has nothing extra to take. Without this the global `2 / -2` would lay
-   the control over its own label. A span row still means «this control is tall or wide»: it keeps
-   the full column instead of the cap below. */
-.adm-records .adm-set-row.span > .adm-set-ctl { grid-column: 3; }
-.adm-records .adm-set-row:not(.span) > .adm-set-ctl > .adm-input,
-.adm-records .adm-set-row:not(.span) > .adm-set-ctl > .adm-color-row,
-.adm-records .adm-set-row:not(.span) > .adm-set-ctl > .adm-combo,
-.adm-records .adm-set-row:not(.span) > .adm-set-ctl > .adm-select { max-width: 440px; }
+/* the three columns of a record's rows */
+.adm-rec > .adm-set-row > .adm-set-lbl { grid-column: 1; padding-left: 12px; }
+.adm-rec > .adm-set-row > .adm-set-ctl { grid-column: 2; }
+.adm-rec > .adm-set-row > .adm-set-info { grid-column: 3; padding-right: 8px; }
+/* a record has no Standard — the cell SettingRow always writes simply does not take part */
+.adm-rec .adm-set-std { display: none; }
+/* ⚠️ …and `span` therefore has nothing extra to take: without this the global `2 / -2` would
+   reach into the ⓘ. A span row still means «this control is tall or wide» — it keeps the whole
+   Wert column instead of the cap below. */
+.adm-rec > .adm-set-row.span > .adm-set-ctl { grid-column: 2; }
+.adm-rec > .adm-set-row:not(.span) > .adm-set-ctl > .adm-input,
+.adm-rec > .adm-set-row:not(.span) > .adm-set-ctl > .adm-color-row,
+.adm-rec > .adm-set-row:not(.span) > .adm-set-ctl > .adm-combo,
+.adm-rec > .adm-set-row:not(.span) > .adm-set-ctl > .adm-select { max-width: 440px; }
 
-/* a note the RECORD makes (a validation line, its own action row) starts beside the head cell —
-   at `1 / -1` it would collide with the very cell that spans it and be pushed out of the record */
-.adm-rec > .adm-set-note { grid-column: 2 / -1; }
-.adm-records > *:last-child,
-.adm-records > *:last-child > * { border-bottom: 0; }
-/* the «hinzufügen» button rides in a note of the table, not under a card — same as in a sheet */
-.adm-records .adm-formlink-add { margin-top: 0; }
+/* a note the RECORD makes (a validation line, its own action row) takes the card's full width */
+.adm-rec > .adm-set-note { grid-column: 1 / -1; padding: 10px 12px; }
+/* the last line in a card carries no hairline — the card's own border closes it */
+.adm-rec > *:last-child,
+.adm-rec > *:last-child > * { border-bottom: 0; }
+/* the dashed «hinzufügen» row closes the list, or one record's own rows — the flex gap of
+   `.adm-records` and the card's hairlines already space it */
+.adm-records .adm-formlink-add,
+.adm-records .adm-addrow { margin-top: 0; }
+.adm-rec > .adm-set-note > .adm-formlink-add { margin-top: 0; }
 
 @media (max-width: 900px) {
-  .adm-records { grid-template-columns: minmax(120px, min(230px, 24%)) fit-content(160px) minmax(170px, 1fr) 34px; }
-  .adm-rec-head { padding-left: 14px; }
+  .adm-rec { grid-template-columns: minmax(0, 150px) minmax(0, 1fr) 28px; }
+  .adm-records { padding: 12px 14px 14px; }
 }
-/* ⚠️ Below the phone breakpoint it stops being a table, exactly as the settings sheet does: the
-   record head becomes the block that introduces its rows, and the rows stack under it (the
-   `.adm-set-row` flex rule in the settings block above is not scoped to `.adm-settings`, so it
-   already applies here). The inline `grid-row` RecordRows writes is inert in block layout. */
+/* ⚠️ Below the phone breakpoint a row stops being a row at all — the `.adm-set-row` flex rule in
+   the settings block above is not scoped to `.adm-settings`, so it already applies here and the
+   row becomes ONE box (label + ⓘ on a line, the control under them). A grid would then put that
+   box in the 150px label column, so the card stops being a grid too. */
 @media (max-width: 560px) {
-  .adm-records { display: block; }
-  .adm-records .adm-set-h { display: none; }
   .adm-rec { display: block; }
-  .adm-rec-head { border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 18px; }
-  .adm-rec > .adm-set-note { padding-left: 18px; }
+  /* ⚠️ …and the phone rule's 18px side padding is the SHEET's, measured from the page card's
+     edge. Inside a record card it lands past the card's own border — every row then overflowed
+     its card by 36px. A card's rows are padded from the card. */
+  .adm-rec > .adm-set-row > * { padding-left: 12px; padding-right: 12px; }
+  .adm-records { padding: 12px 12px 14px; }
 }
 
 /* Truppfarbe row (Atemschutz doctrine): «Automatisch» + the ten team colours in ONE scrolling
@@ -627,15 +629,34 @@
   background: var(--surface); color: var(--ink-dim); font: 500 12px/1.7 var(--mono);
   white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
 .adm-formlink-warn { color: var(--amber-strong); }
-.adm-formlink-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px;
-  min-height: var(--tap); margin-top: 12px; padding: 0 15px; cursor: pointer;
-  border: 1px dashed var(--border); border-radius: var(--r-ctl);
-  background: transparent; color: var(--ink); font: 700 13px var(--body); }
+/* ── «hier kommt der nächste dazu» (ui.tsx · AddRow, and every bare .adm-formlink-add) ────────
+   ONE shape for adding, wherever a list ends: a dashed row the full width of the list, inside the
+   card's padding. Dashed because nothing is there yet — the same reason `EmptyState` below is
+   dashed, and the two sit in the same place saying the same kind of thing.
+
+   ⚠️ The button alone IS the row when it stands alone (no caller had to change). Inside an
+   `AddRow` — which adds the dim half-sentence on the left — it goes back to being a button and
+   rides at the right edge, or the row would be a dashed box inside a dashed box. */
+.adm-formlink-add { display: flex; width: 100%; align-items: center; gap: 8px;
+  min-height: var(--tap); margin-top: 12px; padding: 13px 14px; cursor: pointer;
+  border: 1px dashed var(--border); border-radius: 10px;
+  background: transparent; color: var(--ink); font: 700 13px var(--body); text-align: left; }
 @media (hover: hover) {
   .adm-formlink-add:hover { border-color: var(--ink-faint); }
 }
 .adm-formlink-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.adm-formlink-add:disabled { color: var(--ink-faint); cursor: not-allowed; }
 .adm-formlink-add .i { width: 16px; height: 16px; }
+
+.adm-addrow { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;
+  margin-top: 12px; padding: 13px 14px;
+  border: 1px dashed var(--border); border-radius: 10px;
+  color: var(--ink-dim); font-size: 12.5px; line-height: 1.45; }
+.adm-addrow-label { min-width: 0; overflow-wrap: anywhere; }
+.adm-addrow-act { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+/* the button in an AddRow is a button again */
+.adm-addrow .adm-formlink-add { width: auto; margin: 0; padding: 0 15px; border-style: solid;
+  border-radius: var(--r-ctl); }
 
 /* color field */
 .adm-color-row { display: flex; align-items: center; gap: 10px; }
@@ -879,15 +900,22 @@
 
 /* ── teaching empty / load / error state (EmptyState primitive) ───────────────
    Richer than .adm-state: a headline + an optional "next step" hint + an optional
-   action button. Centred, calm, day/night via tokens. */
+   action button. Calm, day/night via tokens. */
+/* ⚠️ The same dashed row as `.adm-addrow` above, not a centred 36px block: «hier steht noch
+   nichts» and «hier kommt etwas dazu» are the same sentence in the same place, and two voices
+   for it made every second page look like a different product. The action sits at the right edge
+   while it fits and wraps under the text when it does not. */
 .adm-empty {
-  padding: 36px 20px; text-align: center;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 13px 14px;
+  border: 1px dashed var(--border); border-radius: 10px;
 }
-.adm-empty-msg { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--ink-dim); }
+.adm-empty.err { border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+.adm-empty-txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.adm-empty-msg { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
 .adm-empty.err .adm-empty-msg { color: var(--red); }
 .adm-empty-hint {
-  margin: 0; max-width: 52ch; line-height: 1.5;
+  margin: 0; max-width: 64ch; line-height: 1.5;
   font-size: 12.5px; color: var(--ink-faint);
 }
 /* inline code (CLI command / env var names) inside a hint */
@@ -896,7 +924,7 @@
   padding: 1px 5px; border-radius: var(--r-xs);
   background: var(--surface-2); border: 1px solid var(--border-soft); color: var(--ink-dim);
 }
-.adm-empty-action { margin-top: 4px; }
+.adm-empty-action { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 
 /* ── access denied ────────────────────────────────────────────────────────── */
 .adm-denied {

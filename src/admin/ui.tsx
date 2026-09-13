@@ -1,4 +1,4 @@
-import { Children, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { apiDelete, apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
@@ -285,41 +285,42 @@ export function SettingRow({ label, hint, tip, standard, span, children }: {
 }
 
 /* ── the record table ────────────────────────────────────────────────────────────────────────
-   A list editor is not a list of settings: its rows belong to RECORDS (a Kartenebene, ein Modul,
-   eine Alarmgruppe, ein Fahrzeug), and the settings table could only say so with a full-width
-   uppercase divider per record — the name on its own band, the fields under it, and the eye
-   losing which record it is in as soon as one scrolled past its divider.
+   A list editor is not a list of settings: its rows belong to RECORDS (eine Kartenebene, ein
+   Modul, eine Alarmgruppe, ein Fahrzeug). So the admin's grammar splits them: «Karten für
+   Datensätze, Zeilen für Werte». A record is a COMPACT CARD inside the page card — a head line
+   that says WHICH record this is (swatch, name, its key or meta, its own action at the right
+   edge), and under it the record's values as rows of a three-column grid:
+   Bezeichnung | Wert | ⓘ.
 
-   Same grid, one column more: Ebene | Bezeichnung | Wert | ⓘ. The record's name is written ONCE,
-   in a left cell that SPANS its own rows and carries the swatch, the meta line and the bin. Every
-   row beside it is then just a label and a value.
+   ⚠️ There is no column header above the list any more, and no cell spanning a record's rows.
+   The head used to be a left cell with `grid-row: span N`, counted in React because CSS cannot
+   count rows — one child that rendered two rows shifted every record below it. A card needs no
+   count: the head is simply the first line in its own box.
 
-   ⚠️ Why the record column is a grid cell with `grid-row: span N` and not a nested grid, a
-   subgrid or a <table>. A nested grid per record sizes its columns per record, so record two's
-   Bezeichnung column would not line up with record one's — which is the whole point. Subgrid
-   would, but it was tried and reverted here on 04.09. (Truppkarte). And every row must stay
-   `display: contents` so `SettingRow` keeps working unchanged. That leaves one flat grid with a
-   spanning cell, and CSS cannot count a record's rows — so React does, below.
+   ⚠️ The record card IS the grid. `SettingRow` is `display: contents`, so its cells have to be
+   items of the element that declares the columns — hence `.adm-rec` declares them and the head
+   is a `1 / -1` item of it rather than a wrapper around the rows.
 
-   ⚠️ The record table is its OWN grid (`.adm-records`), not `.adm-settings` with a fifth track.
-   Sharing would have meant every plain setting row spanning the record column, and every span
-   row of every sheet re-deriving its `2 / -2`. It also keeps the repaired `.adm-settings` tracks
-   untouched (admin.css · the Standard-column starvation note).                                */
+   ⚠️ It is still its OWN grid (`.adm-records` / `.adm-rec`), not `.adm-settings` with other
+   tracks: the settings sheet's tracks were repaired once (admin.css · the Standard-column
+   starvation note) and nothing here may reach into them.                                    */
 
-/** One page's records, as the table. `recordLabel` names the left column in the surface's own
- *  words («Ebene», «Modul», «Alarmgruppe»); `fieldLabel` names the attribute column
- *  («Bezeichnung»). Both come from the caller's copy namespace — this component owns no strings
- *  beyond the two it shares with the settings table. */
-export function RecordTable({ id, title, caption, tip, recordLabel, fieldLabel, children }: {
+/** One page's records, as a list of cards.
+ *
+ *  `recordLabel` is the surface's own word for what a record is («Ebene», «Modul»,
+ *  «Alarmgruppe»). It named the left column while records were rows of one table; now it names
+ *  the list itself, for a screen reader. `fieldLabel` named the attribute column and a card has
+ *  no column headers — it is still accepted so callers compile, and renders nothing. */
+export function RecordTable({ id, title, caption, tip, recordLabel, children }: {
   id?: string
   title?: string
   caption?: string
   tip?: string
   recordLabel: string
-  fieldLabel: string
+  /** @deprecated a record card writes no column headers — accepted, never rendered */
+  fieldLabel?: string
   children: ReactNode
 }) {
-  const C = appConfig.copy.admin.common
   return (
     <section className="adm-card adm-sheet" id={id}>
       {(title || caption) && (
@@ -333,13 +334,7 @@ export function RecordTable({ id, title, caption, tip, recordLabel, fieldLabel, 
           {caption && <p className="adm-card-cap">{caption}</p>}
         </header>
       )}
-      <div className="adm-records">
-        <div className="adm-set-head">
-          <span className="adm-set-h">{recordLabel}</span>
-          <span className="adm-set-h">{fieldLabel}</span>
-          <span className="adm-set-h">{C.colValue}</span>
-          <span className="adm-set-h adm-set-h-info" aria-label={C.colInfo}>ⓘ</span>
-        </div>
+      <div className="adm-records" role="group" aria-label={recordLabel}>
         {children}
       </div>
     </section>
@@ -347,18 +342,12 @@ export function RecordTable({ id, title, caption, tip, recordLabel, fieldLabel, 
 }
 
 /**
- * ONE record: its head cell, spanning the rows that follow it.
+ * ONE record: its own card — the head line, then the rows it owns.
  *
  * `children` are the record's rows — `SettingRow`s, plus whatever `SettingsNote`s the record
- * itself has to say (a validation line, its own action row). They stay the grid's items, so the
- * columns line up across every record on the page.
- *
- * ⚠️ EVERY child must be exactly one grid row. The head's span is the number of ELEMENT children
- * — conditionals (`{warn && <SettingsNote …>}`, `{id && <SettingRow …>}`) are counted correctly
- * because `toArray` drops null/false and `isValidElement` drops the stray '' a `&&` over an empty
- * string leaves behind. What it cannot see through is a child that renders two rows (a Fragment
- * of rows, a component returning several): the head would come out one row short and every record
- * below it would shift by one. Hand such a case two children instead.
+ * itself has to say (a validation line, its own action row). They are the card's grid items, so
+ * every value inside one record lines up; across records the columns are fixed tracks, so they
+ * line up there too.
  */
 export function RecordRows({ name, swatch, meta, action, children }: {
   name: string
@@ -371,10 +360,9 @@ export function RecordRows({ name, swatch, meta, action, children }: {
   action?: ReactNode
   children: ReactNode
 }) {
-  const rows = Math.max(1, Children.toArray(children).filter(isValidElement).length)
   return (
     <div className="adm-rec">
-      <div className="adm-rec-head" style={{ gridRow: `span ${rows}` }}>
+      <div className="adm-rec-head">
         <span className="adm-rec-name">
           {swatch && <span className="adm-rec-swatch" style={{ background: swatch }} aria-hidden />}
           {name}
@@ -383,6 +371,27 @@ export function RecordRows({ name, swatch, meta, action, children }: {
         {action && <span className="adm-rec-act">{action}</span>}
       </div>
       {children}
+    </div>
+  )
+}
+
+/**
+ * The dashed row that closes a list: «und hier kommt der nächste dazu».
+ *
+ * Every «+ … hinzufügen» in /admin already looks like this — `.adm-formlink-add` IS the dashed
+ * row when it stands alone. `AddRow` is for the case where the row has something to say first:
+ * a dim line on the left (what would be added, or why nothing has been yet) and the action on
+ * the right.
+ */
+export function AddRow({ label, children }: {
+  /** the dim half-sentence on the left; omitted, the action simply sits alone in the row */
+  label?: string
+  children: ReactNode
+}) {
+  return (
+    <div className="adm-addrow">
+      {label && <span className="adm-addrow-label">{label}</span>}
+      <span className="adm-addrow-act">{children}</span>
     </div>
   )
 }
@@ -433,7 +442,12 @@ export function UsageBar({ pctFilled, tone = 'blue' }: { pctFilled: number; tone
 /** Teaching empty / load / error state. `message` is the headline; `hint` teaches the
  *  next action (e.g. which CLI command populates this surface); `action` is an optional
  *  button/link. `tone='err'` colours it as a failure. Replaces the bare inline
- *  `<div className="adm-state">…` blocks that were copy-pasted across every view. */
+ *  `<div className="adm-state">…` blocks that were copy-pasted across every view.
+ *
+ *  ⚠️ Same dashed row as `AddRow`, deliberately: «hier steht noch nichts» and «hier kommt
+ *  etwas dazu» are the same sentence, and a centred 36px block said it in a different voice on
+ *  every second page. The action sits at the right edge of the row while it fits and drops
+ *  under the text when it does not. */
 export function EmptyState({ message, hint, action, tone }: {
   message: string
   hint?: ReactNode
@@ -442,8 +456,10 @@ export function EmptyState({ message, hint, action, tone }: {
 }) {
   return (
     <div className={`adm-empty${tone === 'err' ? ' err' : ''}`}>
-      <p className="adm-empty-msg">{message}</p>
-      {hint && <p className="adm-empty-hint">{hint}</p>}
+      <div className="adm-empty-txt">
+        <p className="adm-empty-msg">{message}</p>
+        {hint && <p className="adm-empty-hint">{hint}</p>}
+      </div>
       {action && <div className="adm-empty-action">{action}</div>}
     </div>
   )
