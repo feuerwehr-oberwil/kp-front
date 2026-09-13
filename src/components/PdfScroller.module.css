@@ -25,6 +25,10 @@
    in the free area and STILL scrolls under the chrome once anybody drags it there. */
 .pages {
   transform-origin: 0 0; /* the pinch preview scales the column in place */
+  /* ⚠️ As wide as its widest page, never narrower than the scroller: a zoomed page is wider than
+     the viewport, and a flex column that stays viewport-wide centres it with half the overflow
+     BEFORE the scroll origin – reachable to the right, never to the left (phone, 13.09.2026). */
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -50,6 +54,8 @@
    the annotation board already makes (.wb-pdf-base declares no background either; only a BLANK
    board goes dark via --board-bg). What follows the theme is the SURROUND: this scroller sits on
    `.whiteboard`, which is `var(--app-bg)`. */
+/* …only while zoomed, so the fitted page keeps sliding under the rails as before */
+.zoomed { width: max-content; min-width: 100%; }
 .page {
   display: block;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);

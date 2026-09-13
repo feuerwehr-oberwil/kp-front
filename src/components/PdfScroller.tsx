@@ -136,18 +136,27 @@ export function PdfScroller({ url }: { url: string }) {
     host.style.transform = `scale(${g.live / g.zoom})`
   }
   const onPointerEnd = (e: React.PointerEvent) => {
+    const start = pointers.current.get(e.pointerId)
     pointers.current.delete(e.pointerId)
     const g = pinch.current
     if (g && pointers.current.size < 2) {
       pinch.current = null
       if (Math.abs(g.live - g.zoom) < 0.02) { if (pagesRef.current) pagesRef.current.style.transform = '' }
       else zoomTo(Math.round(g.live * 100) / 100, g.mid)
+      lastTap.current = 0
+      return
     }
+    // double tap, detected here rather than via dblclick: a phone does not reliably synthesise
+    // one from two touches, and a tap that moved was a scroll
+    if (e.pointerType === 'mouse' || !start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 12) return
+    const now = performance.now()
+    if (now - lastTap.current < 320) { lastTap.current = 0; doubleTapAt(e.clientX, e.clientY) } else lastTap.current = now
   }
-  const onDoubleTap = (e: React.MouseEvent) => {
+  const doubleTapAt = (clientX: number, clientY: number) => {
     const r = wrapRef.current?.getBoundingClientRect()
-    zoomTo(toggleZoom(zoomRef.current), r ? { x: e.clientX - r.left, y: e.clientY - r.top } : undefined)
+    zoomTo(toggleZoom(zoomRef.current), r ? { x: clientX - r.left, y: clientY - r.top } : undefined)
   }
+  const onDoubleTap = (e: React.MouseEvent) => { if (e.detail !== 0) doubleTapAt(e.clientX, e.clientY) }
 
   return (
     <div ref={wrapRef} className={s.scroller} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onDoubleClick={onDoubleTap}>
@@ -165,7 +174,7 @@ export function PdfScroller({ url }: { url: string }) {
           )}
         </div>
       )}
-      <div ref={pagesRef} className={s.pages} />
+      <div ref={pagesRef} className={`${s.pages}${zoom > 1 ? ` ${s.zoomed}` : ''}`} />
     </div>
   )
 }
