@@ -81,7 +81,8 @@
 
 /* By hand = the field's pairing mode inside the modal: instrument above, sheet left, map right */
 .adm-pairing { border-top: 1px solid var(--border); }
-.adm-pairing > [role=status] { border-radius: 0; }
+/* the instrument keeps its own pill shape; it sits inset above the panes like a card */
+.adm-pairing > [role=status] { margin: 12px 16px; }
 .adm-pairing-panes { display: grid; grid-template-columns: 1fr 1fr; }
 .adm-pairing-panes.checking { grid-template-columns: 1fr; }
 .adm-pairing-panes.checking .adm-pairing-plan { display: none; }
