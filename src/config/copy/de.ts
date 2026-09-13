@@ -6368,7 +6368,10 @@ export const de = {
       },
       // Von Hand: die drei Kacheln über den beiden Flächen sagen, wer dran ist (AlignmentPreview)
       noOutlines: 'Keine Gebäudeumrisse für dieses Blatt – nach dem Kartenbild ausrichten.',
-      byHandHint: 'Referenzpunkte wie im Einsatz: Punkt auf dem Blatt, denselben Punkt auf der Karte – zwei Paare ersetzen den Vorschlag.',
+      editPoints: 'Punkte bearbeiten',
+      factsLine: 'Plan-Stand {plan} · Referenz {reference} · Freigabe: {approval}',
+      refSnapshot: 'OSM-Gebäude, Stations-Schnappschuss',
+      refPerObject: 'OSM-Gebäude',
       previewLoading: 'Planvorschau wird geladen …',
       previewFailed: 'Planvorschau konnte nicht geladen werden',
       planPreview: 'Planvorschau',

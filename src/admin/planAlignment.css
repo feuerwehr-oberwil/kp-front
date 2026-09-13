@@ -37,18 +37,14 @@
 .adm-align-settings { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-top: 1px solid var(--border); font-size: 12.5px; }
 .adm-align-settings .uslider { flex: 1; max-width: 250px; color: var(--blue); }
 .adm-align-number { font-variant-numeric: tabular-nums; min-width: 44px; }
-.adm-align-facts { padding: 16px 20px; display: grid; gap: 16px; }
-.adm-align-provenance { margin: 0 0 9px; font-size: 12.5px; font-weight: 600; }
-.adm-align-facts .adm-hint { margin: 0; }
-.adm-align-facts dl { display: flex; gap: 24px; flex-wrap: wrap; margin: 0; }
-.adm-align-facts dt { font-size: 11.5px; color: var(--ink-dim); }
-.adm-align-facts dd { font-size: 12.5px; margin: 4px 0 0; }
+.adm-align-facts { margin: 0; padding: 12px 20px; font-size: 12.5px; border-top: 1px solid var(--border); }
+.adm-align-facts b { font-weight: 600; }
+.adm-align-facts .adm-hint { margin: 0; font-size: 12.5px; }
 .adm-align-review > footer { border-top: 1px solid var(--border); padding: 15px 20px; }
 .adm-align-review > footer p { font-size: 12px; color: var(--ink-dim); margin: 0 0 14px; }
 .adm-align-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .adm-align-actions .primary { font-size: 14px; font-weight: 800; }
-.adm-align-adjust { border-top: 1px solid var(--border); padding: 14px 20px; background: var(--surface-2); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.adm-align-adjust .adm-hint { margin: 0; }
+
 .adm-align-notice { padding: 12px 16px; font-size: 12.5px; color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
 .adm-align-review > .adm-state { margin: 15px 20px; }
 .adm-align-empty { padding: 20px; margin: 0; color: var(--ink-dim); font-size: 13px; }

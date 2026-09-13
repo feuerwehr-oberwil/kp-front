@@ -25,11 +25,14 @@ import type { AlignmentItem } from './planAlignmentApi'
  *  mode's writes into this modal's draft (adminGeorefSink), and nothing is stored until
  *  «Ausrichtung freigeben». The plan half needs a small board of its own — the field's board is
  *  the Whiteboard — so this file carries just enough of one: fit, pan, wheel zoom. */
-export default function AlignmentPairing({ item, pairs, onPairs, previewUrl }: {
+export default function AlignmentPairing({ item, pairs, onPairs, onDone, previewUrl }: {
   item: AlignmentItem
   /** the draft's real pairs — what the mode is seeded with and writes back to */
   pairs: GeorefPair[]
   onPairs: (pairs: GeorefPair[]) => void
+  /** the instrument's «Fertig» / «Schliessen» (or Esc) ended the mode – the modal then shows
+   *  the result as the field would: the sheet laid on the map */
+  onDone: () => void
   /** the exact page raster, for «Deckung prüfen» on the map — the modal mounts this only once
    *  it has one, so the mode starts with it */
   previewUrl: string
@@ -40,6 +43,13 @@ export default function AlignmentPairing({ item, pairs, onPairs, previewUrl }: {
   const mode = useGeorefMode()
   useGeorefStorage()
   const armed = mode.planId != null && mode.storageKey === storageKey
+  const wasArmed = useRef(false)
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
+  useEffect(() => {
+    if (armed) wasArmed.current = true
+    else if (wasArmed.current) { wasArmed.current = false; onDoneRef.current() }
+  }, [armed])
 
   // The draft is the mode's home for this key. Registered before the mode starts (the start
   // reads the pairs through the same lookup), forgotten when the modal goes.

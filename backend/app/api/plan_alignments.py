@@ -181,7 +181,8 @@ async def approve_alignment(
     manual = body.pairs is not None and all(pair.kind in {"gesetzt", "korrigiert"} for pair in body.pairs)
     allowed = {"ready", "needs_review"}
     if manual:
-        allowed |= {"no_match", "failed", "unavailable", "unsupported", "rejected"}
+        # by hand, anything can be (re)aligned – including an approval whose pairs get corrected
+        allowed |= {"no_match", "failed", "unavailable", "unsupported", "rejected", "approved"}
     if row.status not in allowed:
         raise HTTPException(status_code=409, detail="Kein Vorschlag zur Freigabe vorhanden")
     ds = await db.get(ReferenceDataset, row.dataset_id)

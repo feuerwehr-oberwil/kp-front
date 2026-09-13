@@ -8,8 +8,8 @@ vi.mock('./planAlignmentApi', () => ({ loadAlignmentQueue: vi.fn(), loadAlignmen
 vi.mock('./AlignmentPreview', () => ({ default: () => <div data-testid="preview" /> }))
 // the by-hand half is the field's pairing mode (AlignmentPairing); the stub stands in for its
 // board + map and hands two pairs to the draft the way the mode's admin sink would
-vi.mock('./AlignmentPairing', () => ({ default: (props: { onPairs: (p: unknown[]) => void }) =>
-  <div data-testid="pairing"><button type="button" onClick={() => props.onPairs([{ plan: { x: .2, y: .2 }, lngLat: { lng: 7.55, lat: 47.51 }, kind: 'gesetzt' }, { plan: { x: .8, y: .8 }, lngLat: { lng: 7.552, lat: 47.509 }, kind: 'gesetzt' }])}>pairs</button></div> }))
+vi.mock('./AlignmentPairing', () => ({ default: (props: { onPairs: (p: unknown[]) => void; onDone: () => void }) =>
+  <div data-testid="pairing"><button type="button" onClick={() => props.onPairs([{ plan: { x: .2, y: .2 }, lngLat: { lng: 7.55, lat: 47.51 }, kind: 'gesetzt' }, { plan: { x: .8, y: .8 }, lngLat: { lng: 7.552, lat: 47.509 }, kind: 'gesetzt' }])}>pairs</button><button type="button" onClick={props.onDone}>fertig</button></div> }))
 
 const item: AlignmentItem = {
   id: 1, dataset_id: 'plan:object:modul2', plan_version: 3, page: 0, page_count: null, can_approve: false, object_name: 'Testobjekt', module: 'modul2', title: 'Modul 2', is_current: true,
@@ -100,6 +100,18 @@ describe('alignment review wall', () => {
     expect(approveAlignment).toHaveBeenCalledWith(detail, detail.pairs)
     await screen.findByText('1 freigegeben, 0 von Hand – 2 Blätter übernommen.')
   })
+  it('an approved sheet can be taken back into the points from its modal', async () => {
+    const approved = { ...item, status: 'approved' as const, can_approve: false, approved_at: '2026-09-09T10:00:00Z' }
+    vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([approved]))
+    vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...approved, page_count: 1 })
+    render(<PlanAlignmentReview compact />)
+    fireEvent.click(screen.getByRole('button', { name: 'Entschieden' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Gross anzeigen: Testobjekt · 2' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByTestId('preview')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Punkte bearbeiten' }))
+    await within(dialog).findByTestId('pairing')
+  })
   it('opens the full instrument in a modal from the thumbnail and blocks approval there without the exact preview', async () => {
     vi.mocked(alignmentPreview).mockRejectedValue(new Error('offline'))
     render(<PlanAlignmentReview compact />)
@@ -125,6 +137,12 @@ describe('alignment review wall', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'pairs' }))
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Ausrichtung freigeben' }).hasAttribute('disabled')).toBe(false))
     expect(within(dialog).getByRole('button', { name: 'Anpassung verwerfen' }).hasAttribute('disabled')).toBe(false)
+    // «Fertig» in the field instrument: the modal shows the fit as the field would, and the way
+    // back into the points stays one button away
+    fireEvent.click(within(dialog).getByRole('button', { name: 'fertig' }))
+    await within(dialog).findByTestId('preview')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Punkte bearbeiten' }))
+    await within(dialog).findByTestId('pairing')
     vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item, status: 'no_match', pairs: [], edit_version: 6 }]))
     vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...detail, status: 'no_match', pairs: [], edit_version: 6 })
     fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))

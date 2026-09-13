@@ -195,6 +195,13 @@ function AlignmentModal({ item, onClose, children }: { item: AlignmentItem; onCl
   </div>
 }
 
+/** The worker's provenance string, as a sentence: which reference, and when it was observed. */
+function referenceLabel(item: AlignmentItem, C: typeof appConfig.copy.admin.alignment): string {
+  const src = item.reference_source ?? ''
+  const what = src.includes('station snapshot') ? C.refSnapshot : src.startsWith('OSM') ? C.refPerObject : src || C.referenceUnknown
+  return item.reference_at ? `${what} · ${fmtDate(item.reference_at)}` : what
+}
+
 interface DetailProps {
   item: AlignmentItem
   /** open straight in reference-point pairing – the sheet is being aligned by hand */
@@ -241,7 +248,7 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
   const mounted = useRef(true)
   const pairs = draft?.pairs ?? item.pairs
   const stale = draft != null && draft.editVersion !== item.edit_version
-  const editable = item.can_approve && !waiting.has(item.status)
+  const editable = (item.can_approve || item.status === 'approved') && !waiting.has(item.status)
   const reason = Object.entries(C.reasons).find(([key]) => key === item.reason)?.[1] ?? item.reason
 
   useEffect(() => {
@@ -275,16 +282,20 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
     {reason && <p className="adm-align-notice">{reason}</p>}
     {imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : !image ? <p className="adm-state" role="status">{C.previewLoading}</p>
-      : manual && editable ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Pairing item={item} pairs={pairs} onPairs={setPairs} previewUrl={image} /></Suspense>
+      : manual && editable ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Pairing item={item} pairs={pairs} onPairs={setPairs} onDone={() => setManual(false)} previewUrl={image} /></Suspense>
       : <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={opacity} /></Suspense>}
-    <div className="adm-align-settings"><span>{C.opacity}</span><Slider value={opacity} onChange={setOpacity} ariaLabel={C.opacity} valueText={`${opacity} %`} /><span className="adm-align-number">{opacity} %</span></div>
-    <div className="adm-align-facts"><div><p className="adm-align-provenance">{!pairs.length ? C.unaligned : hasAutoPairs(pairs) ? C.automatic : C.manual}</p><p className="adm-hint">{C.reviewHint}</p></div><dl><div><dt>{C.planDate}</dt><dd>{fmtDate(item.created_at)}</dd></div><div><dt>{C.reference}</dt><dd>{item.reference_source ?? C.referenceUnknown}{item.reference_at ? ` · ${fmtDate(item.reference_at)}` : ''}</dd></div><div><dt>{C.approvalDate}</dt><dd>{item.approved_at ? fmtDate(item.approved_at) : C.notApproved}</dd></div></dl></div>
-    {manual && editable && <div className="adm-align-adjust"><p className="adm-hint">{C.byHandHint}</p>
-      <div className="adm-align-actions"><button type="button" className="btn" disabled={busy || !draft} onClick={reset}>{C.discardAdjustment}</button></div></div>}
+    {!manual && <div className="adm-align-settings"><span>{C.opacity}</span><Slider value={opacity} onChange={setOpacity} ariaLabel={C.opacity} valueText={`${opacity} %`} /><span className="adm-align-number">{opacity} %</span></div>}
+    <p className="adm-align-facts"><b>{!pairs.length ? C.unaligned : hasAutoPairs(pairs) ? C.automatic : C.manual}</b>{' '}
+      <span className="adm-hint">{fillTemplate(C.factsLine, { plan: fmtDate(item.created_at), reference: referenceLabel(item, C), approval: item.approved_at ? fmtDate(item.approved_at) : C.notApproved })}</span></p>
     {stale && <p className="adm-align-notice" role="alert">{C.conflict} <button type="button" className="btn" onClick={reset}>{C.discardAdjustment}</button></p>}
     {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
     <footer><p>{C.scope}</p><div className="adm-align-actions">
       {item.status === 'approved' && <button type="button" className="btn" disabled={busy} onClick={() => void save('undo')}>{C.withdrawApproval}</button>}
+      {/* the way back in, whatever the sheet's state: the field's pairing seeded with what stands
+          – a proposal's automatic anchors step aside after two real points, an approval is
+          re-published with the corrected pairs */}
+      {editable && !manual && <button type="button" className="btn" disabled={busy} onClick={() => setManual(true)}>{C.editPoints}</button>}
+      {manual && <button type="button" className="btn" disabled={busy || !draft} onClick={reset}>{C.discardAdjustment}</button>}
       {editable && ['no_match', 'failed', 'unavailable'].includes(item.status) && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
       {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy ? C.saving : C.approve}</button>}
     </div></footer>

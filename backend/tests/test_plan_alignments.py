@@ -328,3 +328,18 @@ async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, ad
     )
     again = await client.get(url + "?thumbnail=true")
     assert again.content == small.content
+
+
+async def test_an_approval_can_be_corrected_by_hand_and_stays_published(client, admin_login, db_session):
+    obj, ds, row = await _seed(db_session)
+    await admin_login(client)
+    url = f"/api/admin/plan-alignments/{row.id}"
+    assert (await client.post(url + "/approve", json={"edit_version": 1})).status_code == 200
+    # the automatic pairs cannot be re-approved over an approval; corrected manual ones can
+    assert (await client.post(url + "/approve", json={"edit_version": 2})).status_code == 409
+    manual = [{**p, "kind": "gesetzt"} for p in PAIRS]
+    response = await client.post(url + "/approve", json={"edit_version": 2, "pairs": manual})
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "approved"
+    published = (await client.get(f"/api/reference/{quote(ds.id, safe='')}/alignments?v=1")).json()["alignments"]
+    assert [p["kind"] for p in published[0]["pairs"]] == ["gesetzt", "gesetzt"]
