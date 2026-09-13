@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // The card writes through the same config draft «Verwaltung» edits — the provider itself is not
@@ -47,6 +47,9 @@ const CFG = {
 const FACTS: SetupFacts = { users: 4, personnelActive: 9 }
 
 const card = () => document.querySelector('.adm-setup')
+/** The row a label stands in, and the button that opens the page which finishes it. */
+const rowOf = (label: string) => screen.getByText(label).closest('.adm-setup-row') as HTMLElement
+const openBtn = (label: string) => within(rowOf(label)).getByRole('button', { name: `${C.go} ›` })
 const show = (setup: SetupState | null, cfg: DeploymentConfig = CFG, onGo = vi.fn()) =>
   render(<SetupChecklist cfg={cfg} setup={setup} facts={FACTS} onGo={onGo} />)
 
@@ -98,19 +101,19 @@ describe('every row leads somewhere that can finish it', () => {
   it('sends Überwachung to «Zugangsdaten», where the ping URL is set', () => {
     const onGo = vi.fn()
     show(setupWith(['monitoring']), CFG, onGo)
-    const row = screen.getByText(C.monitoring).closest('.adm-setup-row')
-    expect(row?.tagName).toBe('BUTTON')
-    fireEvent.click(row as Element)
+    fireEvent.click(openBtn(C.monitoring))
     expect(onGo).toHaveBeenCalledWith('zugaenge')
   })
 
-  it('leaves no row without a chevron — the card lists nothing it cannot offer', () => {
+  // ⚠️ «Öffnen ›» in the row, not the row itself: the whole row used to be the button, with a
+  // chevron at its edge as the only sign of it — a card-wide target beside a word-wide
+  // «Abhaken», and nothing naming the screen it promised.
+  it('leaves no row without a way in — the card lists nothing it cannot offer', () => {
     show(setupWith(['fleet', 'monitoring']))
     const rows = document.querySelectorAll('.adm-setup-row')
     expect(rows.length).toBe(9)
     rows.forEach((r) => {
-      expect(r.tagName).toBe('BUTTON')
-      expect(r.querySelector('.adm-setup-go')).not.toBeNull()
+      expect(within(r as HTMLElement).getByRole('button', { name: `${C.go} ›` })).toBeTruthy()
     })
   })
 
@@ -120,12 +123,12 @@ describe('every row leads somewhere that can finish it', () => {
     const onGo = vi.fn()
     show(setupWith(['sharepoint', 'name']), CFG, onGo)
     expect(screen.getByText(C.sharepointOpen)).toBeTruthy()
-    fireEvent.click(screen.getByText(C.sharepoint).closest('.adm-setup-row') as Element)
+    fireEvent.click(openBtn(C.sharepoint))
     expect(onGo).toHaveBeenCalledWith('zugaenge')
 
     // …and the «Name der Wehr» row carries the exact label of the field it navigates to, so the
     // two cannot drift apart silently.
-    fireEvent.click(screen.getByText(appConfig.copy.admin.identity.appName).closest('.adm-setup-row') as Element)
+    fireEvent.click(openBtn(appConfig.copy.admin.identity.appName))
     expect(onGo).toHaveBeenCalledWith('identitaet')
   })
 })
@@ -138,9 +141,9 @@ describe('«Abhaken» — die Zeile von Hand erledigen', () => {
   const acknowledged = (keys: string[]) =>
     ({ ...CFG, setup: { acknowledged: keys } }) as unknown as DeploymentConfig
 
-  const item = (label: string) => screen.getByText(label).closest('.adm-setup-item') as HTMLElement
-  const ack = (label: string) => item(label).querySelector('.adm-setup-ack') as HTMLButtonElement
-  const isDone = (label: string) => !!item(label).querySelector('.adm-setup-dot.done')
+  const ack = (label: string) => rowOf(label).querySelector('.adm-setup-ack') as HTMLButtonElement
+  // the row states its own status as a chip; «erledigt» is the whole point of the hand tick
+  const isDone = (label: string) => within(rowOf(label)).queryByText(C.stateDone) !== null
 
   it('schreibt das Häkchen in die Konfiguration — und die Zeile bleibt bei jedem weiteren Render erledigt', () => {
     // «Überwachung» bleibt offen, sonst verschwindet die Karte nach dem Häkchen und es gibt
@@ -149,7 +152,7 @@ describe('«Abhaken» — die Zeile von Hand erledigen', () => {
     const { rerender } = show(open)
     expect(isDone(C.fleet)).toBe(false)
     // «dorthin» und «abhaken» sind Geschwister — ein Button im Button wäre ungültiges HTML
-    expect(ack(C.fleet).closest('button.adm-setup-row')).toBeNull()
+    expect(rowOf(C.fleet).querySelector('button button')).toBeNull()
 
     fireEvent.click(ack(C.fleet))
     expect(set).toHaveBeenCalledWith(['setup', 'acknowledged'], ['fleet'])

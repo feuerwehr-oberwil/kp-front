@@ -1,0 +1,101 @@
+/* ── System & Wartung + the Station image slots ────────────────────────────────
+   One grammar for this page, loaded by SystemView and BrandingFields: a card holds ROWS,
+   and a row is label left / value right. The shared shapes themselves (card, settings
+   table, badge, empty state) stay in admin.css — what lives here is only what these two
+   surfaces need to stop being tiles, blocks and free-floating buttons.
+
+   ⚠️ Where a rule REPLACES one of admin.css's, it carries one extra ancestor on purpose. Both
+   files are plain global CSS and the bundler's order between them follows the import graph, so
+   an override written at the same specificity would be a coin toss.                          */
+
+/* ── Station · the five image slots are settings rows ────────────────────────── */
+
+/* ⚠️ `display: contents` on the note the slots are handed to, and on the wrapper inside it.
+   A slot is a ROW of the sheet's own grid — Einstellung | Wert | Standard | ⓘ, the same four
+   columns «Name der Wehr» stands in — and any box between the row and that grid would lay the
+   five uploads out as a block of their own again. The `:has()` keeps every OTHER note a note. */
+.adm-settings > .adm-set-note:has(> .adm-brand-slots),
+.adm-settings .adm-brand-slots { display: contents; }
+
+/* preview + «Bild auswählen» + «Löschen», on one line in the Wert column; wraps rather than
+   widening the column, like every other multi-control cell in the table */
+.adm-brand-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+/* 40px, not the block layout's 48: a row is as tall as its buttons, and a thumbnail that
+   outgrows them makes the five slots stand out of the table they now live in */
+.adm-brand-ctl > .adm-brand-preview { width: 40px; height: 40px; }
+/* «Löschen» is the quieter of the two: it removes something, and only one button per row may
+   look like the thing to press. Ghost until it is hovered or armed. */
+.adm-brand-ctl > .adm-brand-remove { border-color: transparent; background: none; color: var(--ink-dim); }
+@media (hover: hover) {
+  .adm-brand-ctl > .adm-brand-remove:not(:disabled):hover { border-color: var(--border); color: var(--ink); }
+}
+/* the upload's own error, under the controls rather than beside them */
+.adm-brand-ctl > .adm-save-err { flex: 1 0 100%; }
+/* ⚠️ Neutral, not the Standard column's amber: amber means «weicht vom Standard ab», and this
+   cell says the opposite — the slot is still running on the shipped brandmark. */
+.adm-set-row:has(.adm-brand-ctl) > .adm-set-std {
+  font: 600 11.5px var(--body); color: var(--ink-faint);
+}
+
+/* ── «Einrichtung» · one row per open point ──────────────────────────────────── */
+
+/* Status | Punkt | Stand | Aktionen, hairlines between them — the same reading order as every
+   other row on the page, instead of a stacked label/hint block with a chevron at the far edge.
+   ⚠️ The chevron alone is gone: it promised a screen without naming it, and the row carried two
+   targets of very different sizes. «Öffnen ›» is a button like «Abhaken» beside it. */
+.adm-card-body > .adm-setup { display: flex; flex-direction: column; gap: 0; }
+.adm-setup > .adm-setup-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.3fr) auto;
+  align-items: center; gap: 8px 14px;
+  padding: 7px 0; border-bottom: 1px solid var(--border-soft);
+}
+.adm-setup > .adm-setup-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.adm-setup > .adm-setup-row:first-child { padding-top: 0; }
+.adm-setup-acts { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.adm-setup-acts > .btn { flex: none; padding: 6px 10px; min-height: 34px; font-size: 12px; }
+/* the row's own «dorthin», quiet: the page it opens is the answer, the button is only the door */
+.adm-setup-open { border-color: transparent; background: none; color: var(--ink-dim); }
+@media (hover: hover) {
+  .adm-setup-open:not(:disabled):hover { border-color: var(--border); color: var(--ink); }
+}
+/* A done row states its value and steps back; an open one is the reason the card is still here. */
+.adm-setup-row.done .adm-setup-lbl { color: var(--ink-dim); }
+
+/* ⚠️ Phone: the four columns become two lines — chip + Punkt, then Stand, then the buttons —
+   rather than four tracks of eleven characters each. */
+@media (max-width: 620px) {
+  .adm-setup > .adm-setup-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 10px 0;
+  }
+  .adm-setup-row > .adm-setup-sub { grid-column: 2; }
+  .adm-setup-acts { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* ── «Systemzustand» reads like «Bestand» and «Speicher» ─────────────────────── */
+
+/* ⚠️ Six tiles in a bordered 3×2 grid were a second shape for the same thing the two cards
+   beside them do with a list: label left, value right. They are key/value rows now — two
+   columns of them, because six rows in one column would make a card of short facts tall. */
+.adm-card-body > .adm-sys-summary {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px; row-gap: 0;
+  border: 0; border-radius: 0; background: none; overflow: visible;
+}
+.adm-sys-summary > .adm-sys-metric {
+  align-items: center; min-height: 34px; padding: 5px 0; background: none;
+  border-bottom: 1px solid var(--border-soft);
+}
+/* the last row of BOTH columns carries no hairline — the card's edge is under it */
+.adm-sys-summary > .adm-sys-metric:nth-last-child(-n + 2) { border-bottom: 0; }
+/* the badge is a value like any other: dense, right-aligned, never a headline */
+.adm-card-body > .adm-sys-summary .adm-badge { padding: 4px 9px; }
+
+/* ⚠️ The single-column switch has to be repeated here, not left to admin.css: the rule above
+   outranks it, so the page would keep two 11-character tracks on a phone. */
+@media (max-width: 780px) {
+  .adm-card-body > .adm-sys-summary { grid-template-columns: 1fr; }
+  /* one column, so only the LAST row loses its hairline */
+  .adm-sys-summary > .adm-sys-metric:nth-last-child(2) { border-bottom: 1px solid var(--border-soft); }
+  .adm-sys-summary > .adm-sys-metric:last-child { border-bottom: 0; }
+}

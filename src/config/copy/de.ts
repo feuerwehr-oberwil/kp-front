@@ -5672,6 +5672,13 @@ export const de = {
       ackDo: 'Abhaken',
       ackUndo: 'Häkchen entfernen',
       ackSub: 'Von Hand als erledigt markiert',
+      // Der Zustand einer Zeile als Chip – dieselben zwei Wörter, die der Kartentitel zählt
+      // («8 von 9 erledigt»), damit Zeile und Titel dasselbe sagen.
+      stateDone: 'erledigt',
+      stateOpen: 'offen',
+      // Der Weg dorthin, als Knopf in der Zeile: ein Chevron allein versprach einen Bildschirm,
+      // ohne ihn zu benennen, und war zugleich so breit wie die ganze Zeile.
+      go: 'Öffnen',
       title: 'Einrichtung · {done} von {n} erledigt',
       caption: 'Was diese Instanz noch braucht, damit sie eure Wehr zeigt und nicht die Vorlage. Nichts davon blockiert den Betrieb.',
       name: 'Name der Wehr',
@@ -6634,14 +6641,12 @@ export const de = {
       files: 'Dateien',
       directory: 'Verzeichnis',
       diskUsed: 'Datenträger belegt',
-      diskUnavailable: 'Datenträger-Auslastung nicht verfügbar.',
       free: 'Frei: {size}',
       offlineCache: 'Offline-Cache (dieses Gerät)',
       offlineCacheTip: 'Der Offline-Cache (Service-Worker) dieses Geräts: gespeicherte Karten, Pläne und App-Dateien für den Einsatz offline. Zahlen gelten nur für DIESES Gerät, nicht für den Server.',
       cacheReading: 'Cache wird gelesen …',
       cacheUnavailable: 'In diesem Browser nicht verfügbar.',
       usedQuota: 'Belegt / Kontingent',
-      storageEstimateUnavailable: 'Speicher-Schätzung nicht verfügbar.',
       cacheStorage: 'Cache-Speicher',
       cacheSummary: '{caches} · {entries} Einträge',
       cache: 'Cache',

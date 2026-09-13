@@ -145,6 +145,19 @@ describe('«Systemzustand» — the one primary status surface', () => {
   })
 })
 
+// ⚠️ «Stand 05:49:20 PM» stood over a German page on every tablet left on en-US, because the
+// toolbar formatted its clock with the BROWSER's locale while every other time in the Verwaltung
+// is de-CH (ui · fmtDate / fmtDateTime / fmtRelTime).
+describe('the toolbar', () => {
+  it('states the Stand in the Verwaltung’s own 24-hour locale', async () => {
+    serve(NO_SHAREPOINT)
+    render(<SystemView />)
+
+    const stand = await screen.findByText(/^Stand \d/)
+    expect(stand.textContent).toMatch(/^Stand \d{2}:\d{2}:\d{2}$/)
+  })
+})
+
 describe('the per-area read-out', () => {
   it('leads with the last SUCCESSFUL sync, not the last attempt', async () => {
     serve({

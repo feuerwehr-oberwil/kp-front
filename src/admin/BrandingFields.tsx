@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { apiUpload, apiDelete, ApiError } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import type { DeploymentConfig, DeploymentAssets } from '../lib/deploymentConfig'
-import { ConfirmButton, Field } from './ui'
+import { ConfirmButton, SettingRow, SettingsNote } from './ui'
+import './system.css'
 
 // Logo + favicon uploads (Batch A · A2). Each slot shows a live preview of the current
 // asset, an upload control, and a remove action. On any change the parent is handed the
@@ -67,17 +68,20 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
     }
   }
 
-  // ⚠️ A real `<label>` (via `Field`), where this was a bare `<div>` wearing the field classes —
-  // so the visually hidden file input finally has an accessible name. The two buttons beside it
-  // are interactive content, and a label does nothing for clicks that land on those (HTML §label
-  // activation), so «Entfernen» stays «Entfernen» and only the label text opens the picker.
+  // ⚠️ A ROW of the settings table, not a block of its own: an image is a value of this station
+  // like its name and its accent colour, and it belongs in the column those are read in
+  // (Verwaltungs-Grammatik, 13.09.: Karten für Datensätze, Zeilen für Werte).
+  //
+  // ⚠️ The visually hidden file input stays the FIRST focusable thing in the Wert cell, because
+  // that is what `SettingRow` points the row's `<label>` at — which is the only accessible name
+  // this input has. The two buttons beside it are interactive content and a label does nothing
+  // for clicks that land on those (HTML §label activation), so «Löschen» stays «Löschen».
   return (
-    <Field label={label} hint={hint}>
-      <div className="adm-brand-row">
+    <SettingRow label={label} hint={hint} standard={url ? null : C.usingDefault}>
+      <span className="adm-brand-ctl">
         <span className="adm-brand-preview" aria-hidden>
           <img src={url || DEFAULT_ASSET} alt="" className="adm-brand-img" />
         </span>
-        {!url && <span className="adm-brand-default">{C.usingDefault}</span>}
         <input
           ref={inputRef}
           type="file"
@@ -91,11 +95,12 @@ function BrandingSlot({ slot, label, hint, url, accept = ACCEPT, onApplied }: {
         </button>
         {url && (
           <ConfirmButton label={C.remove} question={C.removeConfirm} disabled={busy}
+            className="btn adm-int-btn adm-brand-remove"
             onConfirm={() => void onRemove()} />
         )}
-      </div>
-      {error && <span className="adm-save-err">{error}</span>}
-    </Field>
+        {error && <span className="adm-save-err">{error}</span>}
+      </span>
+    </SettingRow>
   )
 }
 
@@ -105,9 +110,9 @@ export function BrandingFields({ assets, onApplied }: {
 }) {
   const C = appConfig.copy.admin.branding
   return (
-    // ⚠️ A wrapper, not a fragment: these five slots sit in a `SettingsNote`, which is a plain
-    // block – so every label line landed flush against the preview of the field above it and the
-    // four uploads read as one paragraph. The rhythm is the wrapper's (admin.css).
+    // ⚠️ A wrapper that is `display: contents` (system.css), not a fragment: the caller hands
+    // these five rows to a `SettingsNote`, and both that note and this wrapper step out of the
+    // way so every slot is a row of the sheet's own grid.
     <div className="adm-brand-slots">
       <BrandingSlot
         slot="logo"
@@ -153,9 +158,9 @@ export function BrandingFields({ assets, onApplied }: {
         accept={ACCEPT_PNG}
         onApplied={onApplied}
       />
-      <p className="adm-card-cap">
-        {C.iconsNote}
-      </p>
+      {/* The iOS warning closes the sheet, under the rows it is about — a full-width note, the
+          same shape every other sheet ends a group with. */}
+      <SettingsNote>{C.iconsNote}</SettingsNote>
     </div>
   )
 }

@@ -285,9 +285,10 @@ describe('the settings grid', () => {
   /** Wrappers allowed to stand between a grid and a row, because they are `display: contents`
    *  and so are not layout boxes at all. `.adm-formlink` groups ONE record of a list editor
    *  inside a settings sheet; `.adm-rec` does the same in a record table, where the record's
-   *  head cell spans its rows (ui · RecordRows).
+   *  head cell spans its rows (ui · RecordRows); `.adm-brand-slots` groups the five image slots
+   *  of «Station & Karte», which are rows of this very grid (BrandingFields · system.css).
    *  ⚠️ Anything NOT on this list is a real box and breaks every column below it. */
-  const TRANSPARENT = ['adm-formlink', 'adm-rec']
+  const TRANSPARENT = ['adm-formlink', 'adm-rec', 'adm-brand-slots']
 
   it.each(SECTIONS)('puts every row of %s directly in the grid', async (_name, Section) => {
     const { container } = render(<ConfigProvider><Section /></ConfigProvider>)

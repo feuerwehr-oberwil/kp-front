@@ -7,6 +7,7 @@ import { SetupChecklist, type SetupState } from './SetupChecklist'
 import { fillTemplate } from '../lib/format'
 import { providerLabel, type DeploymentSharePointSource } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
+import './system.css'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
 
@@ -97,6 +98,14 @@ function fmtBytes(n: number | null | undefined): string {
 /** Count or "—" when the COUNT query failed server-side. */
 function fmtCount(n: number | null | undefined): string {
   return n == null ? '—' : String(n)
+}
+
+/** Wall clock to the second — «Stand 17:49:20», the last heartbeat of the print agent.
+ *  ⚠️ de-CH, like every other time in the Verwaltung (ui · fmtDate / fmtDateTime / fmtRelTime).
+ *  With the browser's own locale this printed «05:49:20 PM» into a German page on any device
+ *  set to en-US, which is most tablets out of the box. */
+function fmtClock(d: Date): string {
+  return d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 // ─── connector health ─────────────────────────────────────────────────────────
@@ -352,7 +361,7 @@ function SharePointCard({
           message={C.spNotSetUp}
           hint={C.spNotSetUpHint}
           action={onNavigate && (
-            <button type="button" className="btn adm-save-btn" onClick={() => onNavigate('zugaenge')}>
+            <button type="button" className="btn adm-int-btn" onClick={() => onNavigate('zugaenge')}>
               {C.spOpenCredentials}
             </button>
           )}
@@ -527,13 +536,16 @@ function OfflineCacheCard() {
       {state.kind === 'unavailable' && <EmptyState message={C.cacheUnavailable} />}
       {state.kind === 'ok' && (
         <>
+          {/* ⚠️ A browser that reports no estimate says so IN THE ROW. It used to be a centred
+              «nicht verfügbar»-block between two lists — the empty-state shape, in the middle of
+              a card that is not empty, for one value that is simply unknown. */}
           {state.usage != null && state.quota != null && state.quota > 0 ? (
             <div className="adm-sys-storage">
               <Metric label={C.usedQuota} value={`${fmtBytes(state.usage)} / ${fmtBytes(state.quota)}`} />
               <UsageBar pctFilled={pct(state.usage, state.quota)} />
             </div>
           ) : (
-            <EmptyState message={C.storageEstimateUnavailable} />
+            <Metric label={C.usedQuota} value={C.notAvailable} />
           )}
 
           <div className="adm-sys-caches">
@@ -632,7 +644,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
     <div className="adm-editor">
       <div className="adm-sys-toolbar">
         <span className="adm-sys-updated">
-          {updatedAt ? fillTemplate(C.updatedAt, { time: updatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }) : C.liveSnapshot}
+          {updatedAt ? fillTemplate(C.updatedAt, { time: fmtClock(updatedAt) }) : C.liveSnapshot}
         </span>
         <button type="button" className="btn adm-int-btn" onClick={() => void load()} disabled={state.kind === 'loading'}>
           <Icon id="rotate" />
@@ -678,34 +690,39 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                 ⚠️ The raw env string («production») never reaches the UI; only the human label
                 does. */}
             <Card title={C.healthSummary} tip={C.versionTip}>
+              {/* ⚠️ The same key/value row «Bestand» and «Speicher» are built from, not six
+                  bordered tiles: three cards standing side by side said the same kind of thing —
+                  a label and one value — in two different shapes, and the tiles were the shape
+                  that could not line up with anything. Two columns, because six rows of short
+                  facts in one column make a tall card out of a glance. */}
               <div className="adm-sys-summary">
-                <div>
-                  <span className="adm-sys-summary-label">{C.server}</span>
+                <div className="adm-sys-metric">
+                  <span className="adm-sys-metric-label">{C.server}</span>
                   <StatusBadge tone="on" label="" state={C.reachable} />
                 </div>
-                <div>
-                  <span className="adm-sys-summary-label">{C.database}</span>
+                <div className="adm-sys-metric">
+                  <span className="adm-sys-metric-label">{C.database}</span>
                   <StatusBadge tone={database?.ok ? 'on' : 'err'} label="" state={database?.ok ? C.ok : C.error2} />
                 </div>
-                <div>
-                  <span className="adm-sys-summary-label">{C.environment}</span>
+                <div className="adm-sys-metric">
+                  <span className="adm-sys-metric-label">{C.environment}</span>
                   <StatusBadge tone={isProd ? 'on' : 'warn'} label="" state={isProd ? C.production : C.development} />
                 </div>
-                <div>
-                  <span className="adm-sys-summary-label">{C.release}</span>
-                  <span className="adm-sys-summary-value">{vFact(version?.release ? `v${version.release}` : null)}</span>
+                <div className="adm-sys-metric">
+                  <span className="adm-sys-metric-label">{C.release}</span>
+                  <span className="adm-sys-metric-value adm-mono">{vFact(version?.release ? `v${version.release}` : null)}</span>
                 </div>
-                <div>
-                  <span className="adm-sys-summary-label">{C.commit}</span>
+                <div className="adm-sys-metric">
+                  <span className="adm-sys-metric-label">{C.commit}</span>
                   {/* Short hash in the cell, full one on hover: seven characters are what a git
                       command wants, and the full forty would push the label off a third of a row. */}
-                  <span className="adm-sys-summary-value" title={version?.commit || undefined}>
+                  <span className="adm-sys-metric-value adm-mono" title={version?.commit || undefined}>
                     {vFact(version?.commit.slice(0, 7))}
                   </span>
                 </div>
-                <div>
-                  <span className="adm-sys-summary-label">{C.branch}</span>
-                  <span className="adm-sys-summary-value">{vFact(version?.branch)}</span>
+                <div className="adm-sys-metric">
+                  <span className="adm-sys-metric-label">{C.branch}</span>
+                  <span className="adm-sys-metric-value adm-mono">{vFact(version?.branch)}</span>
                 </div>
               </div>
             </Card>
@@ -777,7 +794,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                               <StatusBadge tone={health.tone} label="" state={health.state} />
                               {conn.id === 'print_relay' && conn.detail && (
                                 <p className="adm-card-cap">
-                                  {fillTemplate(C.connLastSeen, { time: new Date(conn.detail).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}
+                                  {fillTemplate(C.connLastSeen, { time: fmtClock(new Date(conn.detail)) })}
                                 </p>
                               )}
                               {pollsFor(conn.id) && conn.configured && conn.lastSuccess && (
@@ -857,7 +874,8 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                       <p className="adm-card-cap">{fillTemplate(C.free, { size: fmtBytes(storage.disk_free_bytes) })}</p>
                     </div>
                   ) : (
-                    <EmptyState message={C.diskUnavailable} />
+                    // same rule as the cache card: an unknown value is still this row's value
+                    <Metric label={C.diskUsed} value={C.notAvailable} />
                   )}
                 </>
               ) : (

@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react'
 import type { DeploymentConfig } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { useConfig } from './ConfigContext'
+import { StatusBadge } from './ui'
 
 /** The `setup` block of `GET /api/system` — the station's own answer to «what is still open»,
  *  derived server-side (backend · api/system · `_setup`). Row ids are a CONTRACT with
@@ -65,7 +65,7 @@ function acknowledgedKeys(cfg: DeploymentConfig): string[] {
  *
  * ⚠️ Every line here is a ROW, and the rule behind that is: this card only ever lists things
  * this UI can finish. «Überwachung» used to be the exception — HEALTHCHECK_PING_URL was
- * env-only, so it was reported without a chevron and kept out of the «x von n» count, because
+ * env-only, so it was reported without a way in and kept out of the «x von n» count, because
  * a row nobody could tick would have parked the card at «6 von 7» on the admin's landing page
  * forever. That is no longer true: the ping URL is one of the sixteen credentials
  * «Zugangsdaten» sets (backend/app/credentials.py), so it is now finishable in two taps like
@@ -181,17 +181,6 @@ export function SetupChecklist({ cfg, setup, facts, onGo }: {
     set(ACK_PATH, acked.includes(key) ? acked.filter((k) => k !== key) : [...acked, key])
   }
 
-  const body = (r: Row): ReactNode => (
-    <>
-      <span className={`adm-setup-dot${r.done ? ' done' : ''}`} aria-hidden>{r.done ? '✓' : '–'}</span>
-      <span className="adm-setup-txt">
-        <span className="adm-setup-lbl">{r.label}</span>
-        <span className="adm-setup-sub">{r.sub}</span>
-      </span>
-      <span className="adm-setup-go" aria-hidden>›</span>
-    </>
-  )
-
   return (
     <section className="adm-card">
       <header className="adm-card-head">
@@ -202,25 +191,42 @@ export function SetupChecklist({ cfg, setup, facts, onGo }: {
       </header>
       <div className="adm-card-body">
         <div className="adm-setup">
-          {/* Two SIBLING controls per row: «dorthin» and «abhaken». One button inside another is
-              invalid HTML and, on iOS, a tap target that answers the wrong question. */}
+          {/* ⚠️ One grammar per row, the page’s own: Status | Punkt | Stand | Aktionen. The row
+              used to BE the button, with a chevron at the far edge as its only sign – a target the
+              width of the card next to an «Abhaken» the width of a word, and nothing naming where
+              the tap would land. «Öffnen ›» names it and stands beside «Abhaken»; two SIBLINGS,
+              because one button inside another is invalid HTML and, on iOS, a tap target that
+              answers the wrong question. */}
           {shown.map((r) => (
-            <div className="adm-setup-item" key={r.key}>
-              <button type="button" className="adm-setup-row" onClick={() => onGo(r.go)}>
-                {body(r)}
-              </button>
-              {/* A row that is done on its own facts has nothing to acknowledge — only an open
-                  row, and one already ticked by hand, carry the control. */}
-              {(!r.done || r.acked) && (
+            <div className={`adm-setup-row${r.done ? ' done' : ''}`} key={r.key}>
+              <StatusBadge
+                tone={r.done ? 'on' : 'warn'}
+                label=""
+                state={r.done ? C.stateDone : C.stateOpen}
+              />
+              <span className="adm-setup-lbl">{r.label}</span>
+              <span className="adm-setup-sub">{r.sub}</span>
+              <span className="adm-setup-acts">
+                {/* A row that is done on its own facts has nothing to acknowledge – only an open
+                    row, and one already ticked by hand, carry the control. */}
+                {(!r.done || r.acked) && (
+                  <button
+                    type="button"
+                    className="btn adm-int-btn adm-setup-ack"
+                    aria-pressed={r.acked}
+                    onClick={() => toggleAck(r.key)}
+                  >
+                    {r.acked ? C.ackUndo : C.ackDo}
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="btn adm-int-btn adm-setup-ack"
-                  aria-pressed={r.acked}
-                  onClick={() => toggleAck(r.key)}
+                  className="btn adm-int-btn adm-setup-open"
+                  onClick={() => onGo(r.go)}
                 >
-                  {r.acked ? C.ackUndo : C.ackDo}
+                  {C.go} ›
                 </button>
-              )}
+              </span>
             </div>
           ))}
         </div>
