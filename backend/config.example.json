@@ -26,14 +26,16 @@
       "title": "Übersicht",
       "order": 1,
       "orientation": "portrait",
-      "match": "modul\\s*1(?!\\s*[-–/]\\s*\\d)"
+      "match": "modul\\s*1(?!\\s*[-–/]\\s*\\d)",
+      "alignment": "auto"
     },
     {
       "id": "modul2",
       "code": "M2",
       "title": "Umgebung",
       "order": 2,
-      "match": "modul\\s*2(?!\\s*[-–/]\\s*\\d)"
+      "match": "modul\\s*2(?!\\s*[-–/]\\s*\\d)",
+      "alignment": "auto"
     },
     {
       "id": "modul3",
@@ -51,7 +53,8 @@
       "combinedWith": [
         "modul2",
         "modul3"
-      ]
+      ],
+      "alignment": "auto"
     },
     {
       "id": "modul6",
