@@ -1004,6 +1004,11 @@
 .adm-int-fact dd { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; }
 
 /* ── branding + backup controls ───────────────────────────────────────────── */
+/* The five image slots, each one «label + Hinweis» over «Vorschau + Knöpfe». They live in a
+   `.adm-set-note`, a plain block that spaces nothing, so every label sat flush on the preview
+   above it and four uploads read as one paragraph. One gap, the same between every field. */
+.adm-brand-slots { display: flex; flex-direction: column; gap: 16px; }
+.adm-brand-slots > .adm-card-cap { margin: 0; }
 .adm-brand-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .adm-brand-preview {
   flex: 0 0 auto; width: 48px; height: 48px; display: grid; place-items: center;
@@ -1017,7 +1022,8 @@
   font-size: 10.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
   color: var(--ink-faint); background: var(--fill-soft); border: 1px solid var(--border-soft);
 }
-.adm-brand-file { font-size: 12px; color: var(--ink); min-width: 0; flex: 1 1 160px; }
+/* (the file input itself is visually hidden – `.adm-file-hidden, .adm-brand-file` above; the
+   sizing it used to carry as a visible control went with it.) */
 
 /* ── objects: map + list split ────────────────────────────────────────────── */
 .adm-obj-split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -1161,6 +1167,10 @@
 .adm-table tr:last-child td { border-bottom: none; }
 .adm-table .adm-num { text-align: right; }
 .adm-mono { font-family: var(--mono); font-weight: 500; }
+/* A date or a time is read as ONE token: it never breaks over two lines («11.09.2026,» over
+   «14:07» is two facts to a reader scanning a column), and tabular numerals line the digits up
+   down the column without the code face a hash or a path needs. */
+.adm-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .adm-ref-title { display: block; font-weight: 700; color: var(--ink); }
 .adm-ref-id { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 2px; }
@@ -1525,14 +1535,38 @@
 @media (prefers-reduced-motion: reduce) {
   .adm-sys-bar-fill { transition: none; }
 }
-.adm-sys-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* Two buttons that belong together read as a pair at the gap a toolbar uses, not at the gap
+   between two unrelated blocks. */
+.adm-sys-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* «N Abgänge warten» — the one connector fact somebody has to GO somewhere to finish, so it sits
    in its own cell as a button rather than as another caption line. Compact: it lives inside a
    dense table cell, and the row is the target, not the page's main action. */
 .adm-sys-nudge { margin-top: 6px; font-size: 12.5px; min-height: 32px; }
-/* The read-only folder list under the SharePoint card — the same spacing a card's own block
-   gets, with the hairline above saying it is a separate statement from the run above it. */
-.adm-sys-sources { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+/* The read-only folder list under the SharePoint card – the hairline above says it is a separate
+   statement from the run above it.
+   ⚠️ NO margin of its own. It is a direct child of `.adm-card-body`, which is a flex column with
+   a 16px gap, so a 14px margin on top of the 12px padding put 42px of air under the run table
+   while every other block in the card was 16px apart. The padding alone carries the hairline. */
+.adm-sys-sources { padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.adm-sys-sources .adm-hint { margin: 10px 0 0; }
+/* A block inside a card that is not a card: its small heading and the ONE fact that qualifies the
+   list under it («Abgleich alle 60 min»), on one line, left-aligned – a value floated to the
+   right edge over a table reads as a measurement the table is about to explain. */
+.adm-sys-subhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
+.adm-sys-subtitle {
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.adm-sys-subnote { font-size: 11.5px; font-weight: 600; color: var(--ink-dim); }
+/* A path, a URL or a drive id – mono, because it is compared character by character, and a notch
+   under the row's own text, because it is what the row POINTS AT, not what the row says. */
+.adm-sys-path { font: 500 11.5px/1.5 var(--mono); color: var(--ink-dim); overflow-wrap: anywhere; }
+p.adm-sys-path { margin: 3px 0 0; }
+/* A qualifier under a cell's value in this page's tables – the library a URL belongs to, the
+   folders a sync skips, the sentence the server itself returned. Tighter than the card caption
+   it shares a class with: in a 12.5px row the caption's 12px made a footnote read as a second
+   value. */
+.adm-sys-grid .adm-table .adm-card-cap { margin: 3px 0 0; font-size: 11px; }
 .adm-sys-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .adm-sys-toolbar .btn { display: inline-flex; align-items: center; gap: 7px; }
 .adm-sys-toolbar .i { width: 16px; height: 16px; }
@@ -1544,16 +1578,22 @@
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px;
   overflow: hidden; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--border);
 }
+/* ⚠️ The six tiles are one height, whatever they hold. Three carry a chip and three a string, so
+   without the floor a badge row stood taller than a version row and the grid's hairlines came out
+   uneven: 12px of padding around the tallest content (the 27px pill) is the 52px. */
 .adm-sys-summary > div {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-width: 0; padding: 13px 14px; background: var(--surface);
+  min-width: 0; min-height: 52px; padding: 12px 14px; background: var(--surface);
 }
-.adm-sys-summary-label { font-size: 12px; font-weight: 700; color: var(--ink-dim); }
+/* the label names the fact, the value IS the fact – so the label is the quieter of the two */
+.adm-sys-summary-label { font-size: 11.5px; font-weight: 600; color: var(--ink-dim); }
+/* the same dense pill the tables use; at full size it is a headline in a read-out of six */
+.adm-sys-summary .adm-badge { padding: 5px 10px; }
 /* The version facts share the badge's slot on the right of a cell. Mono because a commit hash
    and a branch name are strings to compare character by character, and ellipsised because a
    long branch name must shorten itself rather than push its label out of the cell. */
 .adm-sys-summary-value {
-  font: 12px var(--mono); color: var(--ink); min-width: 0;
+  font: 500 11.5px var(--mono); color: var(--ink); min-width: 0; text-align: right;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* ⚠️ A real grid, NOT `columns: 2 360px`. A CSS multi-column box is a fragmentation context:
@@ -1580,6 +1620,13 @@
 
 .adm-history-table { min-width: 920px; }
 .adm-history-table .adm-ref-note { display: block; margin-top: 3px; }
+/* A row's own action is row-sized – the same compact pair the people tables use. A full-height
+   button in a 12.5px table row reads as the page's main action, which deleting one line of
+   history is not. */
+.adm-history-table .btn { min-height: 36px; padding: 7px 12px; }
+/* …and its status pill is the dense one, or a 9.5px QUELLE chip stands beside a full-size badge
+   in the next column and the two read as different kinds of thing. */
+.adm-history-table .adm-badge { padding: 5px 10px; }
 
 
 

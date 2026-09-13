@@ -105,7 +105,10 @@ export function BrandingFields({ assets, onApplied }: {
 }) {
   const C = appConfig.copy.admin.branding
   return (
-    <>
+    // ⚠️ A wrapper, not a fragment: these five slots sit in a `SettingsNote`, which is a plain
+    // block – so every label line landed flush against the preview of the field above it and the
+    // four uploads read as one paragraph. The rhythm is the wrapper's (admin.css).
+    <div className="adm-brand-slots">
       <BrandingSlot
         slot="logo"
         label={C.logo}
@@ -153,6 +156,6 @@ export function BrandingFields({ assets, onApplied }: {
       <p className="adm-card-cap">
         {C.iconsNote}
       </p>
-    </>
+    </div>
   )
 }

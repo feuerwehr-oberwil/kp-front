@@ -56,13 +56,15 @@ export function IncidentHistoryView() {
               {rows.map((incident) => {
                 const closed = incident.is_archived || !!incident.closed_at
                 return <tr key={incident.id}>
-                  <td className="adm-mono">{fmtDateTime(incident.started_at)}</td>
+                  {/* `adm-time`, not `adm-mono`: a date is read as one token, so it stays on one
+                      line, and tabular numerals line the columns up without the code face. */}
+                  <td className="adm-time">{fmtDateTime(incident.started_at)}</td>
                   <td><span className="adm-ref-title">{incident.title}</span>{incident.address && <span className="adm-ref-note">{incident.address}</span>}</td>
                   {/* The badge carries no label of its own — the STATUS column already names it. */}
                   <td><StatusBadge tone={closed ? 'off' : 'on'} label="" state={closed ? C.closed : C.open} /></td>
                   <td><span className="adm-view-badge adm-view-badge-muted">{incident.source}</span></td>
                   <td>{incident.report_done_at ? C.complete : C.incomplete}</td>
-                  <td className="adm-mono">{fmtDateTime(incident.updated_at)}</td>
+                  <td className="adm-time">{fmtDateTime(incident.updated_at)}</td>
                   {/* The backend's two doors, mirrored: an Übung is disposable and goes in any
                       state, a real Einsatz only once it is CLOSED — archiving is the operator
                       saying it is over, and the only moment «löschen» is a decision rather than

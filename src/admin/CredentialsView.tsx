@@ -138,19 +138,22 @@ function CredentialRow({ cred, onChanged }: { cred: CredentialState; onChanged: 
           nobody can check. The control takes the Wert AND Standard columns — there is no
           shipped default for a credential, so that column has nothing to say here anyway. */}
       <SettingRow label={cred.label} tip={tipFor(cred)} span>
-        <StatusBadge tone={badge.tone} label="" state={badge.state} />
+        {/* State and – where the value is the server's – the variable it comes from, on ONE
+            line: «vom Server vorgegeben» and «VAPID_SUBJECT» are one statement about this row,
+            and as two stacked blocks of large mono they made it three lines tall. */}
+        <span className="adm-cred-state">
+          <StatusBadge tone={badge.tone} label="" state={badge.state} />
+          {cred.source === 'env' && <code className="adm-mono adm-cred-env">{cred.env}</code>}
+        </span>
         {cred.source === 'env' ? (
           // No input at all — an editable box that cannot take effect is a lie, and the
-          // variable name is what an operator needs to go and change it where it lives.
-          // ⚠️ `adm-cred-val` on every shown value, never a bare `adm-mono`: the one credential
+          // variable name above is what an operator needs to go and change it where it lives.
+          // ⚠️ `adm-cred-val` on every shown VALUE, never a bare `adm-mono`: the one credential
           // here that is not a secret is the VAPID public key, 87 characters of base64url with
           // no break opportunity in them (credentials.css · «a value that is READ»).
-          <>
-            <code className="adm-mono adm-cred-val">{cred.env}</code>
-            {!cred.secret && cred.value
-              ? <code className="adm-mono adm-cred-val">{cred.value}</code>
-              : null}
-          </>
+          !cred.secret && cred.value
+            ? <code className="adm-mono adm-cred-val">{cred.value}</code>
+            : null
         ) : (
           <>
             {!cred.secret && cred.source === 'stored' && cred.value && (
@@ -246,8 +249,10 @@ function IncidentLinkKey() {
       {/* `span`: the key is 43 characters of base64url, and a chip that scrolls to hide half of
           them is a chip nobody can check against what the alerting system holds. */}
       <SettingRow label={I.stateLabel} hint={C.minted.purpose} tip={I.hint} span>
-        <StatusBadge tone={state.configured ? 'on' : 'off'} label=""
-          state={state.configured ? I.stateOn : I.stateOff} />
+        <span className="adm-cred-state">
+          <StatusBadge tone={state.configured ? 'on' : 'off'} label=""
+            state={state.configured ? I.stateOn : I.stateOff} />
+        </span>
         {token && <CopyChip value={token} />}
       </SettingRow>
       <SettingsNote>

@@ -220,10 +220,15 @@ function SharePointSources({ sources, intervalMinutes }: {
   if (sources.length === 0) return null
   return (
     <div className="adm-sys-sources">
-      <Metric
-        label={C.spSources}
-        value={intervalMinutes != null ? fillTemplate(C.spInterval, { n: intervalMinutes }) : '—'}
-      />
+      {/* A sub-heading with its one qualifier beside it, not a metric row: «Abgleich alle 60 min»
+          is a fact ABOUT this list, and as a right-floating mono value it read as a measurement
+          of its own, one line above a table it had nothing to do with. */}
+      <div className="adm-sys-subhead">
+        <span className="adm-sys-subtitle">{C.spSources}</span>
+        <span className="adm-sys-subnote">
+          {intervalMinutes != null ? fillTemplate(C.spInterval, { n: intervalMinutes }) : '—'}
+        </span>
+      </div>
       <div className="adm-table-wrap">
         <table className="adm-table">
           <thead>
@@ -240,11 +245,11 @@ function SharePointSources({ sources, intervalMinutes }: {
                 {/* Whichever way this station addresses the library: the site's own URL, or the
                     drive id a tenant admin handed over. The library name qualifies either. */}
                 <td>
-                  <span className="adm-mono">{s.siteUrl || s.driveId || '—'}</span>
+                  <span className="adm-sys-path">{s.siteUrl || s.driveId || '—'}</span>
                   {s.library && <p className="adm-card-cap">{s.library}</p>}
                 </td>
                 <td>
-                  <span className="adm-mono">{s.path?.trim() || C.spSourceRoot}</span>
+                  <span className="adm-sys-path">{s.path?.trim() || C.spSourceRoot}</span>
                   {!!s.ignore?.length && (
                     <p className="adm-card-cap">{fillTemplate(C.spSourceIgnored, { folders: s.ignore.join(', ') })}</p>
                   )}
@@ -379,7 +384,7 @@ function SharePointCard({
                   <tr key={a.area}>
                     <td>
                       <span className="adm-ref-title">{C.spAreas[a.area] ?? a.area}</span>
-                      {a.path && <p className="adm-card-cap adm-mono">{a.path}</p>}
+                      {a.path && <p className="adm-sys-path">{a.path}</p>}
                     </td>
                     <td>
                       {/* Label-less: the first cell already names the area, so the badge is
@@ -394,7 +399,7 @@ function SharePointCard({
                       {a.detail && <p className="adm-card-cap">{a.detail}</p>}
                     </td>
                     <td>
-                      {fmtDateTime(a.lastSuccessAt)}
+                      <span className="adm-time">{fmtDateTime(a.lastSuccessAt)}</span>
                       <p className="adm-card-cap">
                         {fillTemplate(C.spCounts, {
                           imported: String(a.imported),
