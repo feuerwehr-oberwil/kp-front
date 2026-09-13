@@ -289,3 +289,72 @@ async def test_the_catalogue_can_keep_a_module_by_hand_or_off_the_map(single_pag
     # `auto` on a module the matcher has no template for stays honest
     floor_plans = await compute.compute_alignment(page, "modul6", 7.0, 47.0, None, "auto")
     assert (floor_plans.status, floor_plans.reason) == ("unsupported", "unsupported_module")
+
+
+def test_a_sheet_clips_its_box_out_of_the_station_snapshot_like_overpass_would():
+    from app import reference_buildings as ref
+
+    inside = {"type": "way", "id": 1, "geometry": [{"lat": 47.5001, "lon": 7.5001}, {"lat": 47.6, "lon": 7.6}]}
+    outside = {"type": "way", "id": 2, "geometry": [{"lat": 47.9, "lon": 7.9}]}
+    relation = {
+        "type": "relation",
+        "id": 3,
+        "members": [{"type": "way", "role": "outer", "geometry": [{"lat": 47.5002, "lon": 7.5}]}],
+    }
+    snapshot = {"elements": [inside, outside, relation]}
+    kept = ref.clip(snapshot, 7.5, 47.5, 190)["elements"]
+    assert [e["id"] for e in kept] == [1, 3]  # one vertex inside is enough; the far way is gone
+    box = ref.bbox_of([(7.5, 47.5), (7.52, 47.51)], pad_m=700)
+    assert box is not None and ref.covers(box, (47.5, 7.5, 47.51, 7.52))
+    assert not ref.covers(box, (47.4, 7.5, 47.51, 7.52))
+
+
+async def test_the_snapshot_is_fetched_once_and_a_refusing_mirror_keeps_the_stale_one(
+    db_session, monkeypatch, tmp_path
+):
+    from app import reference_buildings as ref
+
+    monkeypatch.setattr(storage, "_ROOT", str(tmp_path))
+    monkeypatch.setattr(ref, "_cache", None)
+    db_session.add(ObjectSite(name="A", lat=47.5, lng=7.5))
+    await db_session.commit()
+    calls: list[str] = []
+
+    async def fetch(query, timeout_s=20.0):
+        calls.append(query)
+        return {"elements": [{"type": "way", "id": 1, "geometry": [{"lat": 47.5, "lon": 7.5}]}]}
+
+    monkeypatch.setattr(ref.overpass, "fetch_buildings", fetch)
+    first = await ref.ensure_snapshot(db_session)
+    assert first and len(first["elements"]) == 1 and len(calls) == 1
+    monkeypatch.setattr(ref, "_cache", None)
+    assert (await ref.ensure_snapshot(db_session)) == first and len(calls) == 1  # stored, still fresh
+
+    async def refuse(query, timeout_s=20.0):
+        raise RuntimeError("429")
+
+    monkeypatch.setattr(ref.overpass, "fetch_buildings", refuse)
+    monkeypatch.setattr(ref, "_cache", None)
+    monkeypatch.setattr(ref, "SNAPSHOT_TTL", ref.timedelta(seconds=0))  # force a refresh attempt
+    assert (await ref.ensure_snapshot(db_session)) == first  # stale beats nothing
+
+
+async def test_compute_with_a_snapshot_never_asks_overpass(single_page_store, matcher, monkeypatch):
+    async def boom(*_a):
+        raise RuntimeError("no network")
+
+    monkeypatch.setattr(compute, "_osm_around", boom)
+    page = compute.render_page("plans/exact.pdf", 0)
+    ring = [
+        {"lon": 7.0, "lat": 47.0},
+        {"lon": 7.001, "lat": 47.0},
+        {"lon": 7.001, "lat": 47.001},
+        {"lon": 7.0, "lat": 47.0},
+    ]
+    snapshot = {"fetched_at": "2026-09-13T10:00:00+00:00", "elements": [{"type": "way", "geometry": ring}]}
+    result = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None, "auto", snapshot)
+    assert result.status == "ready"
+    assert "station snapshot" in (result.reference_source or "")
+    assert result.reference_at is not None and result.reference_at.isoformat().startswith("2026-09-13T10:00")
+    without = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None, "auto", None)
+    assert without.reason == "reference_unreachable"

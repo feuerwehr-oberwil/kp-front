@@ -56,7 +56,7 @@ def mirrors() -> list[str]:
     return out
 
 
-async def fetch_buildings(query: str) -> dict:
+async def fetch_buildings(query: str, timeout_s: float = FETCH_TIMEOUT_S) -> dict:
     """Race the configured mirrors; first success wins. Raises on total failure.
 
     The slower requests are left to finish and discarded — cancelling them buys nothing and
@@ -67,17 +67,25 @@ async def fetch_buildings(query: str) -> dict:
         raise RuntimeError("no Overpass mirrors configured")
 
     async def one(url: str) -> dict:
-        async with httpx.AsyncClient(timeout=FETCH_TIMEOUT_S) as client:
-            response = await client.post(
-                url,
-                content=f"data={query}".encode(),
-                headers={
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "User-Agent": _USER_AGENT,
-                },
-            )
-            response.raise_for_status()
-            return response.json()
+        try:
+            async with httpx.AsyncClient(timeout=timeout_s) as client:
+                response = await client.post(
+                    url,
+                    content=f"data={query}".encode(),
+                    headers={
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "User-Agent": _USER_AGENT,
+                    },
+                )
+                response.raise_for_status()
+                return response.json()
+        except Exception as exc:
+            # A silent mirror failure is how «reference_unreachable» stayed a mystery for a day:
+            # say WHICH mirror answered WHAT (a 429 from a public mirror reads very differently
+            # from a stalled connection).
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            logger.warning("Overpass mirror %s failed: %s%s", url, type(exc).__name__, f" {status}" if status else "")
+            raise
 
     tasks = [asyncio.create_task(one(url)) for url in urls]
     try:

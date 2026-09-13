@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from .database import async_session_maker
 from .models import DeploymentConfig, ObjectSite, PlanAlignment, PlanRevision, ReferenceDataset
 from .plan_alignment_compute import AlignmentResult, calibrated_scale, compute_alignment, module_alignment, render_page
+from .reference_buildings import ensure_snapshot
 from .schemas import load_stored_config
 
 logger = logging.getLogger(__name__)
@@ -148,6 +149,8 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         alignment = module_alignment(
             load_stored_config((station.config_json if station else None) or {}).modules, module
         )
+        # the station-wide building snapshot – fetched once, clipped per sheet (reference_buildings)
+        reference = await ensure_snapshot(db)
 
     digest = None
     rendered = None
@@ -162,7 +165,7 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             )
             digest = rendered.digest
             scale = calibrated_scale(calibration, object_id, module, claim.page, rendered.aspect)
-            result = await compute_alignment(rendered, module, lng, lat, scale, alignment)
+            result = await compute_alignment(rendered, module, lng, lat, scale, alignment, reference)
     except (ImportError, OSError):
         logger.exception("Plan alignment preparation unavailable for job %s", claim.id)
         result = AlignmentResult(

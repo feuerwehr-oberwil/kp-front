@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import math
@@ -17,6 +18,7 @@ import anyio
 from . import overpass, storage
 from .api.georef_suggest import _load_matcher, _match_limiter, _osm_around
 from .pdfium_lock import pdfium_lock
+from .reference_buildings import clip as clip_reference
 
 RENDER_SIDE = 1755
 MAX_PAGES = 100
@@ -205,10 +207,13 @@ async def compute_alignment(
     lat: float | None,
     fallback_scale: float | None,
     alignment: ModuleAlignment | None = None,
+    reference: dict | None = None,
 ) -> AlignmentResult:
     """Return honest review data, including the exact reference geometry used by the fit.
     ``alignment`` is the station's catalogue choice for this module (``module_alignment``);
-    None resolves the default."""
+    None resolves the default. ``reference`` is the station-wide building snapshot
+    (reference_buildings.ensure_snapshot) the sheet's box is clipped from; without one the
+    per-object Overpass request is made."""
     if rendered.page_count != 1:
         # The field viewer stitches a floor pack into ONE tall canvas. A fit measured on an
         # individual page would therefore be applied to different coordinates in the field.
@@ -236,10 +241,17 @@ async def compute_alignment(
     # This is the observation time. The shared helper may serve cached OSM data; its timestamp
     # is deliberately not presented as the time OSM itself was edited or measured.
     reference_at = datetime.now(UTC)
-    try:
-        osm = await _osm_around(lng, lat, radius)
-    except Exception:  # noqa: BLE001 – transport failures are reviewable job results
-        return AlignmentResult("failed", "reference_unreachable", aspect=rendered.aspect, scale_m_per_u=scale)
+    if reference is not None:
+        osm = clip_reference(reference, lng, lat, radius)
+        snapshot_at = reference.get("fetched_at")
+        if isinstance(snapshot_at, str):
+            with contextlib.suppress(ValueError):
+                reference_at = datetime.fromisoformat(snapshot_at)
+    else:
+        try:
+            osm = await _osm_around(lng, lat, radius)
+        except Exception:  # noqa: BLE001 – transport failures are reviewable job results
+            return AlignmentResult("failed", "reference_unreachable", aspect=rendered.aspect, scale_m_per_u=scale)
 
     def match() -> AlignmentResult:
         import cv2
@@ -271,7 +283,7 @@ async def compute_alignment(
             aspect=rendered.aspect,
             scale_m_per_u=scale,
             reference_rings=reference_rings,
-            reference_source=f"OSM / Overpass (cached allowed); {scale_source}; {MATCHER_VERSION}",
+            reference_source=f"OSM / Overpass ({'station snapshot' if reference is not None else 'per object'}); {scale_source}; {MATCHER_VERSION}",
             reference_at=reference_at,
         )
         template = "m1" if module == "modul1" else "m2"
