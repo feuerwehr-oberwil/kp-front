@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { ApiError } from '../lib/api'
 import { fillTemplate } from '../lib/format'
@@ -8,7 +8,8 @@ import { Slider } from '../components/Slider'
 import { Stepper } from '../components/Stepper'
 import { Segmented } from '../components/Segmented'
 import { fmtDate } from './ui'
-import { alignmentPreview, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, retryAlignment, undoAlignmentApproval, type AlignmentItem, type AlignmentQueue } from './planAlignmentApi'
+import { alignmentPreview, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, rejectAlignment, retryAlignment, undoAlignmentApproval, type AlignmentItem, type AlignmentQueue } from './planAlignmentApi'
+import { AlignmentGrid, type CardDecision } from './AlignmentGrid'
 import './planAlignment.css'
 
 const Preview = lazy(() => import('./AlignmentPreview'))
@@ -16,6 +17,13 @@ type Filter = 'open' | 'approved' | 'all'
 const terminal = new Set(['approved', 'rejected'])
 const waiting = new Set(['pending', 'processing'])
 const priority = (item: AlignmentItem) => item.status === 'ready' ? 0 : item.status === 'needs_review' ? 1 : 2
+/** The wall's sections, in the order the eye should meet them: sure things first, then the
+ *  doubtful, then what the worker gave up on; decided sheets only under their own filter. */
+type Section = 'ready' | 'needs_review' | 'none' | 'waiting' | 'approved' | 'rejected'
+const sectionOf = (item: AlignmentItem): Section =>
+  item.status === 'ready' || item.status === 'needs_review' || item.status === 'approved' || item.status === 'rejected' ? item.status
+    : waiting.has(item.status) ? 'waiting' : 'none'
+const SECTIONS: Section[] = ['ready', 'needs_review', 'none', 'waiting', 'approved', 'rejected']
 
 /** Station preparation is explicit approval; fetching or selecting a proposal never publishes it. */
 export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) {
@@ -23,7 +31,9 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
   const M = C.columns
   const [queue, setQueue] = useState<AlignmentQueue | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [selected, setSelected] = useState<number | null>(null)
+  const [open, setOpen] = useState<number | null>(null)
+  const [busy, setBusy] = useState<Set<number>>(() => new Set())
+  const [notice, setNotice] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('open')
   const [search, setSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
@@ -41,9 +51,11 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
       try {
         const next = await loadAlignmentQueue(compact)
         if (!alive.current || seq !== loadSeq.current) return
-        next.items.sort((a, b) => priority(a) - priority(b))
+        // A stable order: by object, then module. The worker updating rows must not shuffle the
+        // wall under the reviewer's eyes.
+        next.items.sort((a, b) => priority(a) - priority(b) || a.object_name.localeCompare(b.object_name) || (a.module ?? '').localeCompare(b.module ?? ''))
         setQueue(next); setError(null)
-        setSelected(id => id != null && next.items.some(item => item.id === id) ? id : next.items.find(item => item.is_current && !terminal.has(item.status))?.id ?? next.items[0]?.id ?? null)
+        setOpen(id => id != null && next.items.some(item => item.id === id) ? id : null)
       } catch (e) {
         if (alive.current && seq === loadSeq.current) setError(e instanceof ApiError ? e.detail : appConfig.copy.admin.alignment.loadFailed)
       }
@@ -69,11 +81,51 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
   }
   const items = queue?.items ?? []
   const isOpen = (item: AlignmentItem) => item.is_current && !terminal.has(item.status) && (!compact || item.status !== 'unsupported')
-  const visible = items.filter(item => (filter === 'all' || (filter === 'approved' ? item.status === 'approved' : isOpen(item)))
+  const visible = items.filter(item => (filter === 'all' || (filter === 'approved' ? terminal.has(item.status) : isOpen(item)))
     && `${item.object_name} ${item.module} ${item.title ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()))
-  // A filtered table must never display or approve a different, hidden selection.
-  const current = compact ? visible.find(item => item.id === selected) ?? visible[0] : items.find(item => item.id === selected)
+  // A filtered wall must never open or decide a hidden card.
+  const current = open != null ? visible.find(item => item.id === open) ?? null : null
   const count = items.filter(isOpen).length
+  const sections = SECTIONS.map(section => ({ section, items: visible.filter(item => sectionOf(item) === section) })).filter(s => s.items.length)
+
+  const mark = (id: number, on: boolean) => setBusy(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
+  /** One card's decision. Approval re-reads the exact revision first: the summary row can never
+   *  approve by itself (its page count is unknown), and the server gets the freshest token. */
+  const decide = async (item: AlignmentItem, decision: CardDecision): Promise<boolean> => {
+    mark(item.id, true); setError(null)
+    try {
+      let next: AlignmentItem
+      if (decision === 'approve') {
+        const detail = await loadAlignmentDetail(item.id)
+        if (!detail.can_approve || !reviewableAlignment(detail.pairs, detail.aspect)) throw new ApiError(422, C.saveFailed)
+        next = await approveAlignment(detail, detail.pairs)
+      } else next = decision === 'reject' ? await rejectAlignment(item) : decision === 'undo' ? await undoAlignmentApproval(item) : await retryAlignment(item)
+      if (!alive.current) return false
+      update(next)
+      if (decision === 'approve') { setApproved(next); setNotice(null) }
+      else if (decision === 'reject') { setApproved(null); setNotice(fillTemplate(C.grid.rejectedMessage, { name: item.object_name })) }
+      else { setApproved(null); setNotice(null) }
+      return true
+    } catch (e) {
+      if (!alive.current) return false
+      setError(e instanceof ApiError && e.status === 409 ? C.conflict : e instanceof ApiError ? e.detail : C.saveFailed)
+      if (e instanceof ApiError && e.status === 409) await refresh()
+      return false
+    } finally { if (alive.current) mark(item.id, false) }
+  }
+  /** «Alle N freigeben»: one after the other, stopping at the first refusal so nothing is
+   *  skipped silently; the banner then says how far it got. */
+  const [batch, setBatch] = useState<{ done: number; total: number } | null>(null)
+  const approveAll = async (list: AlignmentItem[]) => {
+    setBatch({ done: 0, total: list.length }); setApproved(null); setNotice(null)
+    let done = 0
+    for (const item of list) {
+      if (!alive.current) return
+      if (!await decide(item, 'approve')) break
+      done += 1; setBatch({ done, total: list.length })
+    }
+    if (alive.current) { setBatch(null); setApproved(null); setNotice(fillTemplate(C.grid.approvedAll, { n: done, total: list.length })) }
+  }
 
   return <section className={`adm-align${compact ? ' am-module-review' : ''}`} aria-label={C.title}>
     <div className="adm-align-heading"><div><h2>{C.title}</h2>{!compact && <p className="adm-hint">{C.intro}</p>}</div>
@@ -87,27 +139,45 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
       catch (e) { if (alive.current) setError(e instanceof ApiError ? e.detail : C.saveFailed) }
       finally { if (alive.current) setUndoing(false) }
     }}>{C.undoApproval}</button></div>}
+    {notice && !approved && <p className="adm-align-confirmed" role="status">{notice}</p>}
     <div className="adm-align-filters"><Segmented<Filter> value={filter} onChange={setFilter} ariaLabel={C.filterLabel} options={[
-      { value: 'open', label: fillTemplate(C.openCount, { n: count }) }, { value: 'approved', label: C.approved }, { value: 'all', label: C.all },
+      { value: 'open', label: fillTemplate(C.openCount, { n: count }) }, { value: 'approved', label: C.grid.decided }, { value: 'all', label: C.all },
     ]} /><input className="adm-input" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={C.search} aria-label={C.search} /></div>
     {!queue && !error && <p className="adm-state" role="status">{C.loading}</p>}
-    {queue && <div className="adm-align-split"><div className="adm-align-queue" aria-label={C.queueLabel}>
-      <h3>{fillTemplate(C.queueCount, { n: visible.length })}</h3>
-      {visible.length === 0 && <p className="adm-hint adm-align-empty">{items.length === 0 ? C.empty : C.noResults}</p>}
-      {compact ? <table className="am-table am-review-table"><thead><tr><th scope="col">{M.object}</th><th scope="col">{M.module}</th><th scope="col">{M.revision}</th><th scope="col">{M.status}</th></tr></thead>
-        <tbody>{visible.map(item => <tr key={item.id} className={current?.id === item.id ? 'am-selected' : undefined}>
-          <th scope="row"><button type="button" className="am-row-pick" aria-pressed={current?.id === item.id} onClick={() => setSelected(item.id)}>{item.object_name}</button></th>
-          <td>{item.title || item.module}</td><td>{fillTemplate(C.revisionPage, { version: item.plan_version, page: item.page + 1 })}</td>
-          <td><span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span></td>
-        </tr>)}</tbody></table> : visible.map(item => <button type="button" key={item.id} className={`adm-align-item${selected === item.id ? ' on' : ''}`} aria-pressed={selected === item.id} onClick={() => setSelected(item.id)}>
-        <strong>{item.object_name}</strong><span>{item.title || item.module}</span><small>{fillTemplate(C.revisionPage, { version: item.plan_version, page: item.page + 1 })}</small>
-        <span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span>
-      </button>)}
-    </div><div className="adm-align-detail">{current ? compact
-      ? <ResolvedAlignmentDetail key={current.id} item={current} onChange={update} onApproved={setApproved} onConflict={refresh} />
-      : <AlignmentDetail key={current.id} item={current} onChange={update} onApproved={setApproved} onConflict={refresh} />
-      : <p className="adm-align-empty">{C.selectPlan}</p>}</div></div>}
+    {queue && visible.length === 0 && <p className="adm-hint adm-align-empty">{items.length === 0 ? C.empty : C.noResults}</p>}
+    {sections.map(({ section, items: list }) => <div key={section} className="adm-grid-section">
+      <div className="adm-grid-head"><h3>{C.grid.sections[section]}</h3><span className="adm-hint">{fillTemplate(C.queueCount, { n: list.length })}</span>
+        {section === 'ready' && list.length > 1 && <button type="button" className="btn" disabled={!!batch || busy.size > 0} onClick={() => void approveAll(list)}>
+          {batch ? fillTemplate(C.grid.approving, batch) : fillTemplate(C.grid.approveAll, { n: list.length })}</button>}
+      </div>
+      <AlignmentGrid items={list} busy={busy} onDecide={(item, decision) => void decide(item, decision)} onOpen={item => setOpen(item.id)} />
+    </div>)}
+    {current && <AlignmentModal item={current} onClose={() => setOpen(null)}>
+      <ResolvedAlignmentDetail key={current.id} item={current} onChange={update} onApproved={next => { setApproved(next); if (next) setNotice(null) }} onConflict={refresh} />
+    </AlignmentModal>}
   </section>
+}
+
+/** The full instrument (map, nudges, points) over the wall — a plain fixed layer, not the
+ *  shared Popover, because the wall underneath must not react to the presses that close it. */
+function AlignmentModal({ item, onClose, children }: { item: AlignmentItem; onClose: () => void; children: ReactNode }) {
+  const C = appConfig.copy.admin.alignment
+  const closeRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+    closeRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
+    document.addEventListener('keydown', onKey)
+    const { overflow } = document.body.style
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; previous?.focus() }
+  }, [onClose])
+  return <div className="adm-modal" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="adm-modal-box" role="dialog" aria-modal="true" aria-label={`${item.object_name} · ${item.title || item.module}`}>
+      <div className="adm-modal-bar"><button ref={closeRef} type="button" className="btn" onClick={onClose}>{C.grid.close}</button></div>
+      {children}
+    </div>
+  </div>
 }
 
 interface DetailProps {

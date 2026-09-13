@@ -62,7 +62,7 @@ def _serialize_item(
         "can_approve": current
         and page_count == 1
         and row.page == 0
-        and row.status in {"ready", "needs_review", "no_match", "failed", "unavailable", "unsupported"},
+        and row.status in {"ready", "needs_review", "no_match", "failed", "unavailable", "unsupported", "rejected"},
         "id": row.id,
         "dataset_id": row.dataset_id,
         "plan_version": row.plan_version,
@@ -125,16 +125,21 @@ async def get_alignment(item_id: int, _admin: CurrentAdmin, db: AsyncSession = D
 
 
 @router.get("/{item_id}/preview")
-async def alignment_preview(item_id: int, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)):
+async def alignment_preview(
+    item_id: int, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db), thumbnail: bool = False
+):
+    """`thumbnail=true` answers the review grid's small JPEG; without it, the exact PNG raster."""
     row = await _get(db, item_id)
     revision = await db.get(PlanRevision, (row.dataset_id, row.plan_version))
     if revision is None:
         raise HTTPException(status_code=404, detail="Planversion nicht gefunden")
     try:
-        png = await anyio.to_thread.run_sync(render_preview, revision.storage_key, row.page)
+        data, media_type = await anyio.to_thread.run_sync(
+            lambda: render_preview(revision.storage_key, row.page, thumbnail=thumbnail)
+        )
     except (OSError, ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=422, detail="Planvorschau konnte nicht erstellt werden") from exc
-    return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
+    return Response(data, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
 
 
 async def _change(db: AsyncSession, row: PlanAlignment, edit_version: int, action: str, values: dict) -> dict:
@@ -176,7 +181,7 @@ async def approve_alignment(
     manual = body.pairs is not None and all(pair.kind in {"gesetzt", "korrigiert"} for pair in body.pairs)
     allowed = {"ready", "needs_review"}
     if manual:
-        allowed |= {"no_match", "failed", "unavailable", "unsupported"}
+        allowed |= {"no_match", "failed", "unavailable", "unsupported", "rejected"}
     if row.status not in allowed:
         raise HTTPException(status_code=409, detail="Kein Vorschlag zur Freigabe vorhanden")
     ds = await db.get(ReferenceDataset, row.dataset_id)
@@ -215,13 +220,26 @@ async def approve_alignment(
     )
 
 
-@router.post("/{item_id}/undo")
-async def undo_approval(
+@router.post("/{item_id}/reject")
+async def reject_alignment(
     item_id: int, body: AlignmentMutation, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ):
+    """The admin looked and said no: the proposal leaves the open queue without publishing
+    anything. The sheet can still be aligned by hand (manual approve) or the decision undone."""
     row = await _get(db, item_id)
-    if row.status != "approved":
-        raise HTTPException(status_code=409, detail="Keine Freigabe zum Zurücknehmen vorhanden")
+    if row.status not in {"ready", "needs_review", "no_match", "failed", "unavailable"}:
+        raise HTTPException(status_code=409, detail="Kein offener Vorschlag zum Ablehnen vorhanden")
+    return await _change(db, row, body.edit_version, "reject", {"status": "rejected", "approved_at": None})
+
+
+@router.post("/{item_id}/undo")
+async def undo_decision(
+    item_id: int, body: AlignmentMutation, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
+):
+    """Takes back an approval or a rejection; either way the sheet is back to «Bitte prüfen»."""
+    row = await _get(db, item_id)
+    if row.status not in {"approved", "rejected"}:
+        raise HTTPException(status_code=409, detail="Keine Entscheidung zum Zurücknehmen vorhanden")
     return await _change(db, row, body.edit_version, "withdraw", {"status": "needs_review", "approved_at": None})
 
 

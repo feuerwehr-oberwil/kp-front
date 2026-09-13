@@ -7488,6 +7488,7 @@
           "admin-plan-alignments"
         ],
         "summary": "Alignment Preview",
+        "description": "`thumbnail=true` answers the review grid's small JPEG; without it, the exact PNG raster.",
         "operationId": "alignment_preview_api_admin_plan_alignments__item_id__preview_get",
         "parameters": [
           {
@@ -7497,6 +7498,16 @@
             "schema": {
               "type": "integer",
               "title": "Item Id"
+            }
+          },
+          {
+            "name": "thumbnail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Thumbnail"
             }
           },
           {
@@ -7604,13 +7615,81 @@
         }
       }
     },
+    "/api/admin/plan-alignments/{item_id}/reject": {
+      "post": {
+        "tags": [
+          "admin-plan-alignments"
+        ],
+        "summary": "Reject Alignment",
+        "description": "The admin looked and said no: the proposal leaves the open queue without publishing\nanything. The sheet can still be aligned by hand (manual approve) or the decision undone.",
+        "operationId": "reject_alignment_api_admin_plan_alignments__item_id__reject_post",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Item Id"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlignmentMutation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/plan-alignments/{item_id}/undo": {
       "post": {
         "tags": [
           "admin-plan-alignments"
         ],
-        "summary": "Undo Approval",
-        "operationId": "undo_approval_api_admin_plan_alignments__item_id__undo_post",
+        "summary": "Undo Decision",
+        "description": "Takes back an approval or a rejection; either way the sheet is back to «Bitte prüfen».",
+        "operationId": "undo_decision_api_admin_plan_alignments__item_id__undo_post",
         "parameters": [
           {
             "name": "item_id",

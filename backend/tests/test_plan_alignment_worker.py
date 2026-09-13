@@ -54,7 +54,7 @@ def test_render_reads_exact_page_scale_and_closes_pdfium(pdf_store):
     assert second.printed_scale == pytest.approx(first.printed_scale / 2)
     assert first.png.startswith(b"\x89PNG")
     assert max(first.width, first.height) == compute.RENDER_SIDE
-    assert compute.render_preview("plans/exact.pdf", 1) == second.png
+    assert compute.render_preview("plans/exact.pdf", 1) == (second.png, "image/png")
     with pytest.raises(ValueError, match="revision_digest_mismatch"):
         compute.render_page("plans/exact.pdf", 0, "0" * 64)
     with pytest.raises(ValueError, match="page_out_of_range"):

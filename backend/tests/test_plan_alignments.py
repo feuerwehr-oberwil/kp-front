@@ -285,3 +285,38 @@ async def test_queue_summary_skips_pdf_reads_and_detail_still_checks_approval(
 
     response = await client.get("/api/admin/plan-alignments")
     assert response.status_code == 200 and response.json()["items"] == [detail]
+
+
+async def test_a_rejection_leaves_the_queue_without_publishing_and_can_be_undone(client, admin_login, db_session):
+    obj, ds, row = await _seed(db_session)
+    await admin_login(client)
+    url = f"/api/admin/plan-alignments/{row.id}"
+    response = await client.post(url + "/reject", json={"edit_version": 1})
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "rejected"
+    assert response.json()["can_approve"] is True  # by hand is still possible
+    assert (await client.get(f"/api/reference/{quote(ds.id, safe='')}/alignments?v=1")).json()["alignments"] == []
+    assert (await client.post(url + "/reject", json={"edit_version": 2})).status_code == 409
+    # the automatic pairs are exactly what was refused; only a manual fit may approve now
+    assert (await client.post(url + "/approve", json={"edit_version": 2})).status_code == 409
+    response = await client.post(url + "/undo", json={"edit_version": 2})
+    assert response.status_code == 200
+    assert response.json()["status"] == "needs_review"
+    events = (await db_session.execute(select(PlanAlignmentEvent).order_by(PlanAlignmentEvent.id))).scalars().all()
+    assert [e.action for e in events] == ["reject", "withdraw"]
+
+
+async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, admin_login, db_session):
+    from PIL import Image
+
+    obj, ds, row = await _seed(db_session)
+    await admin_login(client)
+    url = f"/api/admin/plan-alignments/{row.id}/preview"
+    full = await client.get(url)
+    small = await client.get(url + "?thumbnail=true")
+    assert full.headers["content-type"] == "image/png"
+    assert small.headers["content-type"] == "image/jpeg"
+    with Image.open(BytesIO(small.content)) as image:
+        assert max(image.size) == 560
+        assert abs(image.width / image.height - 700 / 500) < 0.01
+    assert len(small.content) < len(full.content)

@@ -104,9 +104,29 @@ def render_page(storage_key: str, page: int, expected_digest: str | None = None)
             document.close()
 
 
-def render_preview(storage_key: str, page: int = 0) -> bytes:
-    """PNG preview helper; API callers must run it off the request event loop."""
-    return render_page(storage_key, page).png
+# Grid thumbnails: long side in px, JPEG. Big enough to judge whether the building outlines
+# sit on the printed footprints, small enough that a wall of 250 sheets stays cheap to render
+# and to ship (~40 KB each instead of a ~400 KB PNG at RENDER_SIDE).
+THUMBNAIL_SIDE = 560
+
+
+def render_preview(storage_key: str, page: int = 0, *, thumbnail: bool = False) -> tuple[bytes, str]:
+    """(bytes, media type) preview helper; API callers must run it off the request event loop.
+    The full preview is the exact worker raster (PNG); the thumbnail is a JPEG downscale."""
+    rendered = render_page(storage_key, page)
+    if not thumbnail:
+        return rendered.png, "image/png"
+    from PIL import Image
+
+    with Image.open(io.BytesIO(rendered.png)) as image:
+        factor = THUMBNAIL_SIDE / max(image.size)
+        small = image.convert("RGB").resize((max(1, round(image.width * factor)), max(1, round(image.height * factor))))
+        try:
+            buf = io.BytesIO()
+            small.save(buf, format="JPEG", quality=78)
+        finally:
+            small.close()
+    return buf.getvalue(), "image/jpeg"
 
 
 def calibrated_scale(raw: object, object_id: str, module: str, page: int, aspect: float) -> float | None:

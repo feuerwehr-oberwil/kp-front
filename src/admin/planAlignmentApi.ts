@@ -39,6 +39,9 @@ const BASE = '/api/admin/plan-alignments'
 export const loadAlignmentQueue = (summary = false) => apiGet<AlignmentQueue>(`${BASE}${summary ? '?summary=true' : ''}`)
 export const loadAlignmentDetail = (id: number) => apiGet<AlignmentItem>(`${BASE}/${id}`)
 export const alignmentPreview = (id: number, signal: AbortSignal) => apiGetRaw(`${BASE}/${id}/preview`, { signal }).then(r => r.blob())
+/** the review grid's small JPEG of the same page (the exact raster stays behind `alignmentPreview`) */
+export const alignmentThumbnail = (id: number, signal: AbortSignal) => apiGetRaw(`${BASE}/${id}/preview?thumbnail=true`, { signal }).then(r => r.blob())
 export const approveAlignment = (item: AlignmentItem, pairs: GeorefPair[]) => apiPost<AlignmentItem>(`${BASE}/${item.id}/approve`, { edit_version: item.edit_version, pairs })
+export const rejectAlignment = (item: AlignmentItem) => apiPost<AlignmentItem>(`${BASE}/${item.id}/reject`, { edit_version: item.edit_version })
 export const undoAlignmentApproval = (item: AlignmentItem) => apiPost<AlignmentItem>(`${BASE}/${item.id}/undo`, { edit_version: item.edit_version })
 export const retryAlignment = (item: AlignmentItem) => apiPost<AlignmentItem>(`${BASE}/${item.id}/retry`, { edit_version: item.edit_version })

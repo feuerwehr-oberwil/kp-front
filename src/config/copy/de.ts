@@ -6397,6 +6397,22 @@ export const de = {
       retry: 'Neu berechnen',
       saving: 'Wird gespeichert …',
       approve: 'Ausrichtung freigeben',
+      // ── Die Prüfwand: alle Blätter als Kacheln, Ja/Nein in jeder Kachel (AlignmentGrid) ──
+      grid: {
+        sections: { ready: 'Vorschlag bereit', needs_review: 'Bitte prüfen', none: 'Kein Vorschlag', waiting: 'Wird berechnet', approved: 'Freigegeben', rejected: 'Von Hand' },
+        coverage: 'Deckung {n} %',
+        approve: '✓ Freigeben',
+        reject: '✕ Von Hand',
+        byHand: 'Von Hand ausrichten',
+        undo: 'Rückgängig',
+        open: 'Gross anzeigen: {name}',
+        close: 'Schliessen',
+        decided: 'Entschieden',
+        approveAll: 'Alle {n} freigeben',
+        approving: '{done} von {total} freigegeben …',
+        approvedAll: '{n} von {total} Ausrichtungen freigegeben.',
+        rejectedMessage: 'Vorschlag für «{name}» abgelehnt – das Blatt wird von Hand ausgerichtet.',
+      },
     },
     layers: {
       filterPlaceholder: 'Ebene suchen …',
