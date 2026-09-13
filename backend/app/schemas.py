@@ -1566,6 +1566,12 @@ class ModuleConfig(BaseModel):
     ``combinedWith`` marks a combined sheet that also fills other slots (modul2-3 → modul2 +
     modul3). ``family`` marks a generative module whose ``match`` has a capture group for a
     sub-slot — "Modul 5 - Wasser" → ``modul5-wasser`` labelled "Wasser".
+
+    ``alignment`` says how this module's sheets get onto the Karte: ``auto`` — the server
+    proposes a fit for the admin to approve and the field offers «Automatisch ausrichten»;
+    ``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is
+    never laid on the map. Unset = ``auto`` for modul1/modul2/modul2-3, ``none`` otherwise
+    (``module_alignment`` in plan_alignment_compute is the one resolver).
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -1580,6 +1586,7 @@ class ModuleConfig(BaseModel):
     combinedWith: list[str] | None = None
     family: bool = False
     viewer: bool = False  # render as a plain PDF viewer (no drawing); on a family applies to all sub-slots
+    alignment: Literal["auto", "manual", "none"] | None = None
 
 
 #: The four kinds of station data the SharePoint connector can pull. One entry per area at

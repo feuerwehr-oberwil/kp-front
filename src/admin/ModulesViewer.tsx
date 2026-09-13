@@ -5,7 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { apiGet } from '../lib/api'
 import { EmptyState, Table } from './ui'
 import { InfoTip } from './InfoTip'
-import type { DeploymentModule } from '../lib/deploymentConfig'
+import { moduleAlignment, type DeploymentModule } from '../lib/deploymentConfig'
 import type { ObjectWithPlans } from '../lib/incidents'
 
 // Read-only viewer for the Objektplan module catalogue, as a TABLE: one row per configured module
@@ -118,6 +118,7 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
     { key: 'module', label: C.colModule },
     { key: 'orientation', label: C.orientation },
     { key: 'detection', label: C.detection },
+    { key: 'alignment', label: C.alignmentCol },
     { key: 'props', label: C.colProps },
     { key: 'coverage', label: C.colCoverage, num: true },
   ]
@@ -184,6 +185,8 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
                   </td>
                   <td>{orientation || <span className="adm-fleet-freeval">—</span>}</td>
                   <td>{m.match ? <span className="adm-view-chip adm-view-mono adm-vregex" title={m.match}>{m.match}</span> : <span className="adm-fleet-freeval">{C.detectionNone}</span>}</td>
+                  <td>{moduleAlignment(modules, m.id) === 'none' ? <span className="adm-fleet-freeval">—</span>
+                    : <span className="adm-view-badge adm-view-badge-muted">{moduleAlignment(modules, m.id) === 'auto' ? C.alignmentAuto : C.alignmentManual}<InfoTip label={C.alignmentCol} text={C.alignmentHint} /></span>}</td>
                   <td>
                     <span className="adm-fleet-props">
                       {m.family && <span className="adm-view-badge adm-view-badge-muted">{C.familyBadge}<InfoTip label={C.familyBadge} text={C.familyHint} /></span>}

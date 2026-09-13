@@ -1051,7 +1051,7 @@
       "type": "object"
     },
     "ModuleConfig": {
-      "description": "One Objektplan module — drives BOTH the app's plan tile and the import parsing, so a\nstation configures its module set / labels / parsing in one place.\n\nDisplay: ``code`` is the short tile label ('M1', '2/3', 'Wasser'), plus title/subtitle/\norientation/order/icon. Parsing: ``match`` is a regex tested (case-insensitive) against a\nsource PDF's filename stem — the first module whose ``match`` hits claims the file.\n``combinedWith`` marks a combined sheet that also fills other slots (modul2-3 → modul2 +\nmodul3). ``family`` marks a generative module whose ``match`` has a capture group for a\nsub-slot — \"Modul 5 - Wasser\" → ``modul5-wasser`` labelled \"Wasser\".",
+      "description": "One Objektplan module — drives BOTH the app's plan tile and the import parsing, so a\nstation configures its module set / labels / parsing in one place.\n\nDisplay: ``code`` is the short tile label ('M1', '2/3', 'Wasser'), plus title/subtitle/\norientation/order/icon. Parsing: ``match`` is a regex tested (case-insensitive) against a\nsource PDF's filename stem — the first module whose ``match`` hits claims the file.\n``combinedWith`` marks a combined sheet that also fills other slots (modul2-3 → modul2 +\nmodul3). ``family`` marks a generative module whose ``match`` has a capture group for a\nsub-slot — \"Modul 5 - Wasser\" → ``modul5-wasser`` labelled \"Wasser\".\n\n``alignment`` says how this module's sheets get onto the Karte: ``auto`` — the server\nproposes a fit for the admin to approve and the field offers «Automatisch ausrichten»;\n``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is\nnever laid on the map. Unset = ``auto`` for modul1/modul2/modul2-3, ``none`` otherwise\n(``module_alignment`` in plan_alignment_compute is the one resolver).",
       "properties": {
         "id": {
           "title": "Id",
@@ -1155,6 +1155,23 @@
           "default": false,
           "title": "Viewer",
           "type": "boolean"
+        },
+        "alignment": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "manual",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alignment"
         }
       },
       "required": [

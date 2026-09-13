@@ -102,6 +102,12 @@ EXAMPLE_CONFIG: dict[str, Any] = {
     # the regex is consumed by the private `scripts/import_einsatzplaene.py` when it decides which
     # module a scanned PDF's FILENAME belongs to. A station that imports its Objektpläne by hand
     # can leave every `match` exactly as it stands here.
+    #
+    # `alignment` = how a module's sheets get onto the Karte: "auto" (the server proposes, the
+    # admin approves on Objektpläne › Plan-Ausrichtung, the field can ask for a proposal),
+    # "manual" (reference points by hand only) or "none" (never on the map). Unset means auto
+    # for modul1/modul2/modul2-3 and none for everything else – spelled out below so a station
+    # sees what it opted into.
     "modules": [
         {
             "id": "modul1",
@@ -110,8 +116,16 @@ EXAMPLE_CONFIG: dict[str, Any] = {
             "order": 1,
             "orientation": "portrait",
             "match": r"modul\s*1(?!\s*[-–/]\s*\d)",
+            "alignment": "auto",
         },
-        {"id": "modul2", "code": "M2", "title": "Umgebung", "order": 2, "match": r"modul\s*2(?!\s*[-–/]\s*\d)"},
+        {
+            "id": "modul2",
+            "code": "M2",
+            "title": "Umgebung",
+            "order": 2,
+            "match": r"modul\s*2(?!\s*[-–/]\s*\d)",
+            "alignment": "auto",
+        },
         {"id": "modul3", "code": "M3", "title": "Objektplan", "order": 3, "match": r"modul\s*3(?!\s*[-–/]\s*\d)"},
         {
             "id": "modul2-3",
@@ -120,6 +134,7 @@ EXAMPLE_CONFIG: dict[str, Any] = {
             "order": 4,
             "match": r"modul\s*2\s*[-–/]\s*3",
             "combinedWith": ["modul2", "modul3"],
+            "alignment": "auto",
         },
         {
             "id": "modul6",

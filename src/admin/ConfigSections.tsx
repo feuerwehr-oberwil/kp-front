@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from '../lib/deploymentConfig'
-import { legacyFleetToAttributeLists, DEFAULT_MODULES } from '../lib/deploymentConfig'
+import { legacyFleetToAttributeLists, DEFAULT_MODULES, moduleAlignment } from '../lib/deploymentConfig'
 import { listReference, listObjects, type ReferenceDataset, type ObjectWithPlans } from '../lib/incidents'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, uploadReference } from '../lib/api/reference'
 import { ApiError, apiGet } from '../lib/api'
@@ -1810,7 +1810,10 @@ export function ModulesSection() {
       {/* The server-prepared plan alignments, reviewed and approved HERE — beside the PDF
           stock they belong to, and BELOW it: the wall is long, the stock is what one comes
           here for most days. Compact: unsupported rows folded away. */}
-      <PlanAlignmentReview compact />
+      {/* Only a station that lets sheets onto the Karte at all has anything to review here –
+          the catalogue says so (modules[].alignment); a station with `none` everywhere never
+          meets this section. */}
+      {modules.some((m) => moduleAlignment(modules, m.id) !== 'none') && <PlanAlignmentReview compact />}
     </>
   )
 }

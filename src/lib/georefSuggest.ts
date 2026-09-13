@@ -11,7 +11,7 @@
  *  rings around — `georefSuggestEligible` is the one place those preconditions live.
  */
 import { ApiError, apiUploadRaw } from './api'
-import { getDeploymentConfig } from './deploymentConfig'
+import { getDeploymentConfig, moduleAlignment } from './deploymentConfig'
 import { planMatcherImage, planPrintedMPerU } from '../components/PdfViewport'
 import type { GeoPt, GeorefPair } from './georef'
 
@@ -57,8 +57,10 @@ interface SuggestWire {
  *  says so up front now (`integrations.autoAlignConfigured`, api/config · providers) and the
  *  chip arms the manual point flow directly, exactly as on a sheet that was never eligible. */
 export function georefSuggestEligible(planId: string, anchor: GeoPt | null | undefined): boolean {
-  if (!getDeploymentConfig().integrations?.autoAlignConfigured) return false
-  return /^modul\d/.test(planId) && !!anchor
+  const config = getDeploymentConfig()
+  if (!config.integrations?.autoAlignConfigured) return false
+  // the station's catalogue says which modules the server may propose for (modules[].alignment)
+  return /^modul\d/.test(planId) && !!anchor && moduleAlignment(config.modules, planId) === 'auto'
 }
 
 /** What asking the matcher can come back with, short of a transport/server failure. */

@@ -7,9 +7,10 @@ import io
 import math
 import re
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 import anyio
 
@@ -159,6 +160,30 @@ def calibrated_scale(raw: object, object_id: str, module: str, page: int, aspect
     return float(scale)
 
 
+#: What a module's sheets may do on the Karte — the station's choice, see ModuleConfig.alignment.
+ModuleAlignment = Literal["auto", "manual", "none"]
+_AUTO_BY_DEFAULT = ("modul1", "modul2", "modul2-3")
+
+
+def module_alignment(modules: Sequence[object] | None, module: str) -> ModuleAlignment:
+    """The one resolver for ``modules[].alignment``: an explicit entry wins, a family sub-slot
+    (``modul5-wasser1``) inherits its family's, and an unset value means auto for Modul 1/2/2-3
+    and none for everything else. Mirrors ``moduleAlignment`` in src/lib/deploymentConfig.ts —
+    the worker and the field chip must agree."""
+
+    def field(entry: object, name: str) -> object:
+        return entry.get(name) if isinstance(entry, dict) else getattr(entry, name, None)
+
+    entries = list(modules or [])
+    match = next((e for e in entries if field(e, "id") == module), None)
+    if match is None:
+        match = next((e for e in entries if field(e, "family") and module.startswith(f"{field(e, 'id')}-")), None)
+    chosen = field(match, "alignment") if match is not None else None
+    if chosen in ("auto", "manual", "none"):
+        return chosen
+    return "auto" if module in _AUTO_BY_DEFAULT else "none"
+
+
 @dataclass(frozen=True)
 class AlignmentResult:
     status: str
@@ -179,13 +204,23 @@ async def compute_alignment(
     lng: float | None,
     lat: float | None,
     fallback_scale: float | None,
+    alignment: ModuleAlignment | None = None,
 ) -> AlignmentResult:
-    """Return honest review data, including the exact reference geometry used by the fit."""
+    """Return honest review data, including the exact reference geometry used by the fit.
+    ``alignment`` is the station's catalogue choice for this module (``module_alignment``);
+    None resolves the default."""
     if rendered.page_count != 1:
         # The field viewer stitches a floor pack into ONE tall canvas. A fit measured on an
         # individual page would therefore be applied to different coordinates in the field.
         return AlignmentResult("unsupported", "multi_page_document", aspect=rendered.aspect)
-    if module not in ("modul1", "modul2", "modul2-3"):
+    chosen = alignment or module_alignment(None, module)
+    if chosen == "none":
+        return AlignmentResult("unsupported", "unsupported_module", aspect=rendered.aspect)
+    if chosen == "manual":
+        # the station wants these by hand: the sheet waits on the wall as «kein Vorschlag»
+        return AlignmentResult("no_match", "manual_module", aspect=rendered.aspect)
+    if module not in _AUTO_BY_DEFAULT:
+        # `auto` on a module the matcher has no template for (Modul 6 floor plans, Modul 5 …)
         return AlignmentResult("unsupported", "unsupported_module", aspect=rendered.aspect)
     if lng is None or lat is None or not (-180 <= lng <= 180 and -85 <= lat <= 85):
         return AlignmentResult("unavailable", "object_coordinates_missing", aspect=rendered.aspect)

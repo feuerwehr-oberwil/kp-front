@@ -354,6 +354,22 @@ export interface DeploymentModule {
   /** render this module's PDF as a plain viewer (no drawing) — on a family it applies to all
    *  its sub-slots (e.g. all Modul 5 - PV documentation sheets) */
   viewer?: boolean
+  /** how this module's sheets get onto the Karte — see `moduleAlignment` for the default */
+  alignment?: ModuleAlignment
+}
+
+export type ModuleAlignment = 'auto' | 'manual' | 'none'
+
+/** The station's choice for a sheet: `auto` = the server proposes a fit (admin approves it,
+ *  the field may ask for one), `manual` = reference points by hand only, `none` = never on the
+ *  map. Unset means auto for Modul 1/2/2-3 and none otherwise; a family sub-slot
+ *  (`modul5-wasser1`) inherits its family's entry. Mirrors `module_alignment` in the backend —
+ *  keep the two in step, the worker and the field chip must agree. */
+export function moduleAlignment(modules: DeploymentModule[] | null | undefined, planId: string): ModuleAlignment {
+  const list = modules && modules.length ? modules : DEFAULT_MODULES
+  const entry = list.find((m) => m.id === planId) ?? list.find((m) => m.family && planId.startsWith(`${m.id}-`))
+  if (entry?.alignment) return entry.alignment
+  return planId === 'modul1' || planId === 'modul2' || planId === 'modul2-3' ? 'auto' : 'none'
 }
 
 /** The national default Objektplan module catalogue — mirrors the backend's
@@ -362,10 +378,10 @@ export interface DeploymentModule {
  *  ("die mitgelieferten Standard-Module") rather than an empty "nothing configured" state.
  *  Keep in sync with the backend list. */
 export const DEFAULT_MODULES: DeploymentModule[] = [
-  { id: 'modul1', code: 'M1', title: 'Übersicht', order: 1, orientation: 'portrait', match: String.raw`modul\s*1(?!\s*[-–/]\s*\d)` },
-  { id: 'modul2', code: 'M2', title: 'Umgebung', order: 2, match: String.raw`modul\s*2(?!\s*[-–/]\s*\d)` },
+  { id: 'modul1', code: 'M1', title: 'Übersicht', order: 1, orientation: 'portrait', match: String.raw`modul\s*1(?!\s*[-–/]\s*\d)`, alignment: 'auto' },
+  { id: 'modul2', code: 'M2', title: 'Umgebung', order: 2, match: String.raw`modul\s*2(?!\s*[-–/]\s*\d)`, alignment: 'auto' },
   { id: 'modul3', code: 'M3', title: 'Objektplan', order: 3, match: String.raw`modul\s*3(?!\s*[-–/]\s*\d)` },
-  { id: 'modul2-3', code: '2/3', title: 'Umgebung & Objekt', order: 4, match: String.raw`modul\s*2\s*[-–/]\s*3`, combinedWith: ['modul2', 'modul3'] },
+  { id: 'modul2-3', code: '2/3', title: 'Umgebung & Objekt', order: 4, match: String.raw`modul\s*2\s*[-–/]\s*3`, combinedWith: ['modul2', 'modul3'], alignment: 'auto' },
   // Modul 6 = Geschosspläne: a reference PDF you SCROLL, not annotate (building annotation lives on
   // the interactive Gebäude floor-stack) — so it opens in the plain multi-page viewer by default.
   { id: 'modul6', code: 'M6', title: 'Gebäudepläne', order: 6, orientation: 'portrait', viewer: true, match: String.raw`modul\s*6` },

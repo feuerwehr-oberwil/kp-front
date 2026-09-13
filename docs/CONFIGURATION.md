@@ -830,6 +830,17 @@ under **Personal**; everything downstream (lists, map tags, the Rapport, the pri
 including the abbreviated Trupp tag («Meier H.»), which uses the order to tell surname from
 given name.
 
+**How a module's sheets get onto the Karte** is the catalogue's choice too: `modules[].alignment`
+is `auto` (the server computes a proposal for every sheet of the module, the admin approves it on
+Objektpläne › Plan-Ausrichtung, and the field's «Karte verknüpfen» chip offers «Automatisch
+ausrichten»), `manual` (reference points by hand only – the sheet waits on the review wall as
+«Kein Vorschlag»), or `none` (never on the map, no review row). Unset means `auto` for `modul1`,
+`modul2` and `modul2-3` and `none` for everything else; a family sub-slot inherits its family's
+entry. The Modul-Katalog on the Objektpläne page shows the resolved value per module («Karte»
+column), so what a station opted into is visible where the modules are listed. Proposals need
+the server's `georef` extra and an Overpass mirror (§6); without them `auto` degrades to the
+manual flow and the admin page says so.
+
 ### 4a. `"divera"` – auto-sync
 - Requires a Divera access key in env (§6). The backend syncs Divera personnel → `Person`.
 - No file needed. The admin UI shows the synced roster and offers preview-then-execute sync; it

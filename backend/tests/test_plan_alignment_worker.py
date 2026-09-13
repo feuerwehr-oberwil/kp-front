@@ -263,3 +263,29 @@ async def test_multipage_pack_is_not_published_or_expanded_into_misleading_jobs(
         assert jobs[0].status == "unsupported" and jobs[0].reason == "multi_page_document"
         assert jobs[0].aspect == pytest.approx(1.4)
         assert jobs[0].pairs == []
+
+
+def test_module_alignment_is_the_catalogue_choice_with_the_shipped_defaults():
+    assert compute.module_alignment(None, "modul2") == "auto"
+    assert compute.module_alignment([], "modul2-3") == "auto"
+    assert compute.module_alignment(None, "modul6") == "none"
+    catalogue = [
+        {"id": "modul2", "alignment": "manual"},
+        {"id": "modul5", "family": True, "alignment": "auto"},
+        {"id": "modul6", "viewer": True},
+    ]
+    assert compute.module_alignment(catalogue, "modul2") == "manual"
+    assert compute.module_alignment(catalogue, "modul5-wasser1") == "auto"  # inherits its family
+    assert compute.module_alignment(catalogue, "modul6") == "none"
+    assert compute.module_alignment(catalogue, "modul1") == "auto"  # unset entry → default
+
+
+async def test_the_catalogue_can_keep_a_module_by_hand_or_off_the_map(single_page_store, matcher):
+    page = compute.render_page("plans/exact.pdf", 0)
+    by_hand = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None, "manual")
+    assert (by_hand.status, by_hand.reason, by_hand.pairs) == ("no_match", "manual_module", [])
+    off = await compute.compute_alignment(page, "modul2", 7.0, 47.0, None, "none")
+    assert (off.status, off.reason) == ("unsupported", "unsupported_module")
+    # `auto` on a module the matcher has no template for stays honest
+    floor_plans = await compute.compute_alignment(page, "modul6", 7.0, 47.0, None, "auto")
+    assert (floor_plans.status, floor_plans.reason) == ("unsupported", "unsupported_module")

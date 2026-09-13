@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, carrySessionOnly, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { alarmProviderName, atemschutzDoctrine, carrySessionOnly, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleAlignment, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -360,5 +360,20 @@ describe('moduleViewer — a numbered sub-slot is still its own slot', () => {
   it('never mistakes a module number or a combined sheet for a sibling', () => {
     expect(moduleViewer('modul5')).toBe(true)   // the family's own id
     expect(moduleViewer('modul2-3')).toBe(false) // a combined sheet, not «modul2» + a number
+  })
+})
+
+describe('moduleAlignment — the catalogue decides which sheets the server may propose for', () => {
+  it('defaults to auto for Modul 1/2/2-3 and none elsewhere, with the shipped catalogue or none at all', () => {
+    expect(moduleAlignment(undefined, 'modul1')).toBe('auto')
+    expect(moduleAlignment([], 'modul2-3')).toBe('auto')
+    expect(moduleAlignment(undefined, 'modul6')).toBe('none')
+  })
+  it('honours an explicit choice and lets a family sub-slot inherit its family', () => {
+    const catalogue = [{ id: 'modul2', alignment: 'manual' as const }, { id: 'modul5', family: true, alignment: 'auto' as const }, { id: 'modul6' }]
+    expect(moduleAlignment(catalogue, 'modul2')).toBe('manual')
+    expect(moduleAlignment(catalogue, 'modul5-wasser1')).toBe('auto')
+    expect(moduleAlignment(catalogue, 'modul6')).toBe('none')
+    expect(moduleAlignment(catalogue, 'modul1')).toBe('auto')
   })
 })

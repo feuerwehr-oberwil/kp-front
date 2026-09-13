@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .database import async_session_maker
 from .models import DeploymentConfig, ObjectSite, PlanAlignment, PlanRevision, ReferenceDataset
-from .plan_alignment_compute import AlignmentResult, calibrated_scale, compute_alignment, render_page
+from .plan_alignment_compute import AlignmentResult, calibrated_scale, compute_alignment, module_alignment, render_page
+from .schemas import load_stored_config
 
 logger = logging.getLogger(__name__)
 LEASE_SECONDS = 600
@@ -142,6 +143,11 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         lng = float(obj.lng) if obj and obj.lng is not None else None
         lat = float(obj.lat) if obj and obj.lat is not None else None
         calibration = station.plan_scales_json if station else None
+        # the catalogue's say on this module (auto / manual / none) – resolved here, in the
+        # session, so compute never touches the database
+        alignment = module_alignment(
+            load_stored_config((station.config_json if station else None) or {}).modules, module
+        )
 
     digest = None
     rendered = None
@@ -156,7 +162,7 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             )
             digest = rendered.digest
             scale = calibrated_scale(calibration, object_id, module, claim.page, rendered.aspect)
-            result = await compute_alignment(rendered, module, lng, lat, scale)
+            result = await compute_alignment(rendered, module, lng, lat, scale, alignment)
     except (ImportError, OSError):
         logger.exception("Plan alignment preparation unavailable for job %s", claim.id)
         result = AlignmentResult(
