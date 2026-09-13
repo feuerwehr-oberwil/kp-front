@@ -221,7 +221,7 @@
           "Weather and wind information to support the situation assessment",
           "Building plans as a whiteboard, stack of floors, blank board",
           "Undo/redo on every surface – documented events remain traceable",
-          "<strong>Georeferencing</strong>: link a plan to the map through shared landmarks – symbols appear as twins on both surfaces, with an honest read-out of the accuracy"
+          "<strong>Georeferencing</strong>: link a plan to the map through shared landmarks – one object, visible on both surfaces, with an honest read-out of the accuracy. The station has its plans aligned ahead of time and approves them"
         ]
       },
       {
@@ -235,7 +235,7 @@
           "Share the incident by link; access is clearly indicated and can be revoked at any time",
           "Material with stock and consumption",
           "Checklists for command support and incident command",
-          "Incident commander view: read along without moving anything"
+          "Incident commander role: keep attendance, resources, checklists and the report – read the map and the teams without moving anything"
         ]
       },
       {

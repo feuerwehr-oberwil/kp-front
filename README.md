@@ -50,8 +50,8 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 
 - **Karte:** MapLibre map, tactical symbols, drawing, sectors, radii, notes, photos, and audio.
 - **Plan:** Image-backed whiteboards with symbols, resources, scale calibration, measurement,
-  and georeferencing – pairing a plan to the map with reference points, then transferring
-  objects between plan and map as linked twins.
+  and georeferencing – pairing a plan to the map with reference points, or approving the
+  alignment the station computed ahead of time; one object, drawn on both surfaces.
 - **Einsatz-Intake:** Guided incident creation from Divera, an address, an object, or the map.
 - **Checklisten:** The brigade's own command checklists, phase by phase, with direct jumps to
   the plan, the Verlauf, and the tools – loaded from station data like everything else.

@@ -221,7 +221,7 @@
           "<strong>Répertoire des matières dangereuses</strong>&nbsp;: numéros ONU, informations sur les substances et indications concernant les distances d’isolation et de protection, disponibles directement pendant l’intervention",
           "Informations météorologiques et données sur le vent pour soutenir l’appréciation de la situation",
           "Plans d’objet comme tableau blanc, étages superposés, tableau vierge",
-          "<strong>Géoréférencement</strong>&nbsp;: relier un plan à la carte par des points de repère communs – les symboles apparaissent en double sur les deux surfaces, avec une indication honnête de la précision",
+          "<strong>Géoréférencement</strong>&nbsp;: relier un plan à la carte par des points de repère communs – un seul objet, visible sur les deux surfaces, avec une indication honnête de la précision. La caserne fait aligner ses plans à l’avance et les valide",
           "Annuler/rétablir sur chaque surface – les événements documentés restent traçables"
         ]
       },
@@ -236,7 +236,7 @@
           "Partager l’intervention par lien ; l’accès est clairement signalé et peut être révoqué\n            à tout moment",
           "Matériel avec stock et consommation",
           "Checklists pour l’aide à la conduite et le chef d’intervention",
-          "Vue chef d’intervention : suivre sans rien déplacer"
+          "Rôle chef d’intervention : tenir la présence, les moyens, les check-lists et le rapport – lire la carte et les équipes sans rien déplacer"
         ]
       },
       {

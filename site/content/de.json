@@ -250,7 +250,7 @@
           "<strong>Gefahrgut-Nachschlagewerk</strong>: UN-Nummern, Stoffinformationen sowie Hinweise zu Absperr- und Schutzdistanzen, direkt im Einsatz verfügbar",
           "Wetter- und Windinformationen als Unterstützung für die Lagebeurteilung",
           "Objektpläne als Whiteboard, Geschossstapel, leere Tafel",
-          "<strong>Georeferenz</strong>: Plan und Karte über gemeinsame Landmarken verknüpfen – Symbole erscheinen als Zwillinge auf beiden Flächen, mit ehrlicher Angabe der Genauigkeit",
+          "<strong>Georeferenz</strong>: Plan und Karte über gemeinsame Landmarken verknüpfen – ein Objekt, auf beiden Flächen sichtbar, mit ehrlicher Angabe der Genauigkeit. Die Station lässt ihre Objektpläne vorab ausrichten und gibt sie frei",
           "Rückgängig/Wiederherstellen auf jeder Fläche – dokumentierte Vorgänge bleiben nachvollziehbar"
         ]
       },
@@ -265,7 +265,7 @@
           "Einsatz per Link weitergeben; Zugriff ist transparent ausgewiesen und kann jederzeit\n            wieder aufgehoben werden",
           "Material mit Bestand und Verbrauch",
           "Checklisten für Führungsunterstützung und Einsatzleitung",
-          "Einsatzleiter-Ansicht: mitlesen, ohne etwas zu verschieben"
+          "Einsatzleiter-Rolle: Anwesenheit, Mittel, Checklisten und Rapport führen – Karte und Trupps nur mitlesen"
         ]
       },
       {

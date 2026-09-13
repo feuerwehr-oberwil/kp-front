@@ -339,6 +339,50 @@ belong in the plan library, not in the deployment.
 immediately – same index, same validation, same write path, so the button is the mechanism
 rather than a shortcut around it.
 
+## Alignment ahead of time – revisions, the worker, the approval
+
+A Modul sheet is useful on the Karte only once it is georeferenced, and pairing reference points
+by hand during an emergency is the step nobody has time for. So the server does the matching
+**before** the incident, and a person approves it.
+
+```mermaid
+flowchart LR
+  STORE["store_plan()<br/>every distinct byte version"] --> REV[("plan_revisions<br/>immutable, never deleted")]
+  REV --> JOB[("plan_alignments<br/>one durable job per revision")]
+  JOB --> W["worker (10 s tick, claim/lease)<br/>render original · segment ·<br/>match against the station's building snapshot"]
+  W --> ST{"coverage"}
+  ST -->|"≥ 0.7 ready"| WALL
+  ST -->|"0.5–0.7 needs_review"| WALL
+  ST -->|"< 0.5 · no context"| WALL["/admin → Objektpläne<br/>the wall: thumbnail + outlines through the fit"]
+  WALL -->|"approve · reject · align by hand"| APPR[("approved fit<br/>GET /api/reference/{id}/alignments?v=N")]
+  APPR --> INC["incident opens the sheet →<br/>IncidentPlanBinding freezes revision + fit"]
+```
+
+- **A revision is a byte version.** `store_plan` pins every distinct PDF as a `plan_revisions`
+  row (identical bytes are a metadata refresh) and queues one job. Replaced originals are kept:
+  a running Einsatz may still be bound to them.
+- **The worker matches against one station snapshot.** One box of building footprints around
+  every object the station has, kept in storage beside the PDFs, refreshed after a week or when
+  objects appear outside it – not one Overpass request per sheet. A refusing mirror keeps the
+  stale snapshot; a station without one falls back to the per-object request.
+- **Coverage decides the band, a person decides the fit.** Ready sheets are pre-marked on the
+  wall, doubtful ones undecided; approving, rejecting and aligning by hand (the field's own
+  reference-point pairing, inside the review modal) are the three exits. Computing, fetching
+  or selecting never publishes.
+- **Which sheets the worker touches is the catalogue's call:** `modules[].alignment` is
+  `auto` (default for Modul 1/2/2-3), `manual` (parked on the wall as «Kein Vorschlag») or
+  `none` (off the map and off the wall). One resolver on each side keeps the worker and the
+  field chip in step.
+- **An incident freezes what it opened.** The workspace blob carries an `IncidentPlanBinding`
+  per sheet – exact revision and fit, first binding wins, a field correction rides an override,
+  an empty-pairs override is a deliberate disconnect. A later replacement or approval never
+  moves a running Einsatz's backdrop, and the printed Rapport fetches the pinned revision
+  (`?v=`) and projects with the incident's own fit.
+- **The field never asks for a proposal.** Two states exist out there: reference points set on
+  the spot, or «Von der Station freigegeben». The CV stack is the optional `georef` dependency
+  group; the published image ships it, and a build without it answers 503 on the worker's
+  behalf and keeps the manual flow.
+
 ## How you know it ran — and today, mostly you don't
 
 ⚠️ **Known limitation, stated because a scheduled job that fails quietly is worse than one that

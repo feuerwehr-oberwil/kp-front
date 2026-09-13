@@ -31,6 +31,106 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The station aligns its Objektpläne ahead of time – nobody waits for a computation during
+  an emergency.** Every distinct byte version of a Modul-PDF is pinned as an immutable plan
+  revision and queues one durable alignment job; a background worker renders the exact
+  original, segments it, and matches it against the buildings around the object (one
+  building snapshot per station, refreshed weekly – not one Overpass request per sheet). The
+  matcher searches every pose by FFT cross-correlation and is gated on **coverage**, not a
+  score: measured on all 243 real Modul-1/-2 sheets of one station, 219 align, every proposal
+  above 0.7 was right and every one below 0.5 wrong. Nothing reaches an incident before a
+  person has looked: `/admin` → Objektpläne shows the proposals as a **wall** – every sheet a
+  thumbnail with the building outlines drawn through its fit, ready ones pre-marked, one
+  «Übernehmen (N)» applies the marked cards, ✕ rejects. Aligning by hand in the review modal
+  IS the field's «Karte verknüpfen» – same crosses, loupe and instrument – and a sheet nobody
+  aligned simply stays unlinked. An incident **freezes** the revision and fit it opened, so a
+  later replacement or approval never moves a running Einsatz's backdrop, and the printed
+  Rapport projects onto the pinned revision. In the field a station-approved sheet reads «Von
+  der Station freigegeben»; the field itself never asks the server for a proposal any more.
+  The module catalogue says which sheets may be proposed for (`modules[].alignment: auto |
+  manual | none`, default auto for Modul 1/2/2-3), and the Modul-Katalog shows the resolved
+  value. The CV stack is the optional `georef` dependency group – the published image ships
+  it (~60 MB); a build without it answers 503 and keeps the manual flow.
+- **One tactical object, two surfaces – the twin concept is gone.** A symbol drawn on a
+  Modul sheet used to reach the Karte as a projection with its own layer, selection, drag,
+  panels and Ebenen rows, and the other way round; every edit through a twin was routed back
+  by hand. It is one record now: the sheet body's presence is the anchor, the map body is
+  baked through the georeference, and each surface draws the other's objects as ordinary
+  markers with the chrome it already has. The last hand-placement decides where an object
+  stands; machine writes (the live-GPS re-route of a hose) never flip an anchor; a corrected
+  reference journals «Referenz angepasst – n Objekte neu verortet» as one undoable step, an
+  automatic aspect measurement journals «Blattform gemessen», and «Referenz zurücksetzen»
+  loses nothing («Referenz entfernt – n Objekte behalten ihre letzte Position»). Print reads
+  the same board view the screen does, so the exported Objektplan shows what the sheet shows
+  by construction. «Hierher übertragen» is gone in both directions – there is nothing to
+  transfer. Workspace schema 2: the blob carries `objects`, and the three legacy collections
+  stay written as derived views so an un-updated device keeps rendering.
+- **The `el` role – the Einsatzleiter keeps the record, never the picture.** A third incident
+  role between editor and viewer: an `el` session reads everything and edits the operational
+  record – Anwesenheit incl. Zeitplan, Mittel, Checklisten, the Rapport with its Beilagen, the
+  Einsatzdaten – while Karte, Pläne, Trupps and Einstellungen stay view-only. Server-enforced
+  on its own slice (`PUT …/workspace/record`, the full workspace PUT keeps refusing), append-
+  only journal rows attributed to it, and a third card in the Mitglieder form.
+- **Standing links – the Stations-Terminal and the laminated Atemschutz QR.** Two station-
+  level credentials that bind to «whichever Einsatz is open», resolved at exchange time: a depot
+  PC enrolled once (`/l/t<secret>` → `/terminal`, a year-long device cookie, «Kein laufender
+  Einsatz» until the alarm opens the Einsatz by itself, read-only), and a QR laminated onto the
+  Überwachungstafel that opens the Atemschutz board of the running Einsatz with the AS link's
+  write slice. Both keys rotate independently under Einsatz-Links; rotation ends every printed
+  QR, enrolled device and open session at once. Plus a printable A5 QR card.
+- **A Trupp is «Trupp N».** One counter per Einsatz (removed Trupps and unlinked chips
+  included, never reused), a crew history in its log – registration, every crew edit,
+  transfer and re-entry write who the Trupp is from that moment on – and every Verlauf row
+  reads «Trupp 1 (Meier Anna / Dürring Jan): Eintritt». The Rapport's Atemschutz page prints
+  one «Einsatz n» row per cycle naming the crew that went in. The leader stays the face of a
+  Trupp; the number is a «#1» badge beside it. Design record in `docs/trupp-naming.md`.
+- **Gefahrgut speaks UN.** The Gas/Chemie symbols carry Stoff and UN-Nr. with a
+  common-substances list one pick away and the full ADR name corpus behind the search
+  (exact-only name→UN – a wrong UN would put wrong distances on the map). ERG Schutzabstand
+  rings – isolation solid red, protective dashed amber, day/night by the clock – and
+  «Übernehmen» turns a distance into a real Absperrkreis. The ADR readout explains its codes,
+  the UN deep link opens the localized ERI-Card, and a Gefahrentafel dropped beside an object
+  docks to it and travels with it («Lösen» frees it).
+- **The station's SharePoint becomes a source.** Objektpläne, Geodaten, Checklisten and the
+  Arbeitsmappe pull themselves on a schedule from the station's own folders – read-only, each
+  area from its own folder, matched by the module rules the station already configured. The
+  System card counts down the client-secret expiry Azure will not warn about, «Verbindung
+  testen» hands back Azure's own error text, and the Objektpläne page says per slot where a
+  plan comes from – Hand-Upload, Bucket or SharePoint. A failed run can no longer disguise
+  itself as a green one, and two files claiming one slot import neither and say so. Setup
+  guide: `docs/sharepoint-connector.md`.
+- **One global undo timeline behind the header pair.** The Karte, each Plan and the
+  Anwesenheit kept their own history and the Trupp board had nothing but expiring toasts, so
+  the operator had to remember which surface the last tap landed on. One chronological
+  timeline now records every step across surfaces and names what ↶ will take back – in the
+  hold-tooltip and as a flash at the button – so the Trupp board could drop every
+  confirm-with-undo toast. Redo says «Wiederherstellen».
+- **The Verlauf completes the words the Funk actually speaks.** Read off ten weeks of one
+  station's real Verlauf: the shipped Textbausteine were used once in 131 rows, the vocabulary
+  every time. The 14 radio abbreviations (AS, Hösi, TS, DL, RWA, …) and the Geschosse now
+  complete from the first letter, one typo still finds a term, and spelling help never marks
+  a row the way a person or a Trupp does.
+- **The search field IS the name entry.** The «Name eingeben» detour is retired everywhere:
+  type in the search, commit with «‹Name› verwenden» – Anwesenheit guests, Mittel, Partner-
+  organisationen, the capture poster (which finally records guests) alike.
+- **Rapport and Trupps, from the September field tests.** The Kroki predicts the
+  Partnerorganisationen (an offer strip, never auto-ticked); «Gerettete» dedupes what stands on
+  the Lage; the Beilagen-ZIP downloads in place instead of walking the PWA onto iOS quick-look.
+  A Trupp assignment warning offers the move it warns about; «Bearbeiten» is offered in every
+  status because the record is what prints; the Trupp form is one flat phone column with the
+  Standard line folded («300 bar · Kanal 11 – Ändern»); Trupps ohne Atemschutz get their own
+  default Funkkanal (`doctrine.defaultFunkkanalEinfach`); removing an unused AS-Trupp offers
+  «nicht eingesetzt»; the break clock rolls into hours. A device offline past 60 s shows a
+  standing «Jetzt synchronisieren», Ebenen gain Alle ein / Alle aus / Standard, and the Objekt-
+  Picker gets the width its two columns need.
+- **«D pur» – the dock draws, the editor styles.** The drawing dock keeps only what the stroke
+  needs (✕, Freihand/Punkte, ✓); every styling decision moves to the editor that opens the
+  moment a line lands, and the last line is the template for the next.
+- **The Verwaltung becomes one idiom.** Every setting a table row with the prose behind a
+  hover-and-pin ⓘ and «Standard» spoken only on deviation; every record list a hierarchy;
+  «Links & Zugänge» replaces the scatter across Erfassung, Einsatz-Link and Statistik-Export;
+  the Einrichtung checklist is tickable by hand; the connector table shows «vor 12 min», the
+  server's error sentence verbatim, and amber once a poll is older than its own window.
 - **Every polling connector now says when it last actually worked.** Divera, Traccar and the
   Mannschaft sync reported one thing about themselves – whether a key was entered – which is the
   same sentence on a station whose key was rotated two years ago. They now keep the record
@@ -60,62 +160,92 @@ so this file – not the log – is the record of what shipped up to that point.
   to a document that emptied a station's Dienstgrade, and deleted its hydrant layers for any
   caller that simply did not mention `referenceLayers`. All of it is now server-side, for a
   browser, a CLI push, a script and an agent alike – a write that would leave a populated section
-  empty is refused with **409** and the sections named (repeat with `?force=true` to mean it), the
-  sections nobody types are carried over when the submitted document is silent about them, and
-  keys the schema dropped come back as `warnings` («ignored: identitiy — did you mean identity?»)
-  instead of a silent success. New `POST /api/config/validate` is the dry run in front of it:
-  `valid`, `errors`, `warnings`, `emptiedSections`, `changedSections` and the `version` to write
-  against, without touching the row. And the document's JSON Schema is now committed at
-  `docs/config.schema.json` (`just config-schema`), so reading the contract needs neither a
-  Python toolchain nor a running server.
-- **`admin_objects geocode-missing` places the Einsatzobjekte nobody could reach.** An object
-  without coordinates is offered at no incident, so its plans are reachable by nobody – and after
-  the object-key repair below, one station still carried 52 of them, written that way by an
-  import years earlier: the street stands in the object's *name* («Benkenstrasse 66a») and the
-  address column is empty. The new command looks each one up – by its address, or by its name
-  where there is none, which is exactly what those rows are – and prints the coordinates it would
-  write; `--apply` writes them. Whatever the geocoder cannot place is left untouched and stays on
-  the same census the repair prints, for a person to position in `/admin` → Objektpläne.
+  empty is refused with **409** and the sections named (repeat with `?force=true` to mean it),
+  the sections nobody types are carried over when the submitted document is silent about them,
+  and keys the schema dropped come back as `warnings` («ignored: identitiy — did you mean
+  identity?») instead of a silent success. New `POST /api/config/validate` is the dry run in
+  front of it: `valid`, `errors`, `warnings`, `emptiedSections`, `changedSections` and the
+  `version` to write against, without touching the row. And the document's JSON Schema is now
+  committed at `docs/config.schema.json` (`just config-schema`), so reading the contract needs
+  neither a Python toolchain nor a running server. In the Verwaltung the named refusal is its
+  own ask («Trotzdem leeren» / «Abbrechen») instead of a false «the page is stale».
+- **The station document refuses a stale write.** `PUT /api/plan-scales` carries a `version`
+  and refuses a stale `If-Match` with 409, because the georeference is baked into every symbol
+  on the sheet now and a lost update moves objects. The client re-reads and re-applies once; a
+  refused write rolls back instead of staying the local truth. A headerless PUT is still
+  accepted for one release (logged at INFO) so a field device nobody can reload mid-Einsatz
+  keeps saving. The sheet's measured aspect gets its own field, keyed on the Einsatzobjekt's
+  sheet, so a replaced PDF of a different shape cannot silently mis-place every symbol.
+- **`admin_objects` repairs a station's object table.** `merge-duplicates` folds the NFD/NFC
+  twins a Mac-run import minted (one station carried 195 objects for 157 real ones) and
+  re-keys the survivor so the first SharePoint sync finds it; `remove-empty` takes the junk
+  folders; `repair-sharepoint-keys` folds the address-less copies an earlier connector build
+  created; `geocode-missing` places the Einsatzobjekte nobody could reach – by their address,
+  or by the name that IS one. All report-only unless `--apply`.
 - **`./scripts/setup.sh` sets `TRUSTED_FORWARDED_HOPS` for you.** It already derived
   `COOKIE_SECURE`, `APP_BIND`, `PUBLIC_URL` and the `tls` profile from the one question it asks
   about domains; the trusted-hop count is the same answer. Pick a domain – whether the installer
   runs its own Caddy or sits behind one that already owns 443 – and it writes `1`; the plain-LAN
-  shape keeps `0`. Nobody has to learn that the variable exists in order for the per-source rate
-  limits to key on the real client.
+  shape keeps `0`.
+- **Two walkthroughs that were missing.** `docs/AGENT-RUNBOOK.md` is `SETUP.md` stripped to
+  commands – for an automation agent, or a human who wants no prose; `docs/divera-connector.md`
+  is the Divera walkthrough the integration never had. `docs/DEPLOYMENT.md` writes the update
+  doctrine down: pin a `vX.Y.Z`, update between incidents, roll back by re-pinning.
 
 ### Fixed
 
+- **Every PDF was broken on mainstream Android.** pdf.js v6.2 hard-depends on
+  `Map.prototype.getOrInsertComputed` and `Uint8Array.fromBase64`, which Samsung Internet
+  trails Chrome on by months. Spec-shaped polyfills on both sides of the worker boundary.
+- **iOS 26 flooded a sheet solid blue on the first Leitung.** The ink layer relied on
+  `vector-effect: non-scaling-stroke`; the moment the engine dropped it a width-5 stroke was
+  five sheets wide. The ink layer, the Umrisse picker and the Gebäude floor tiles now draw in
+  board pixels, so no renderer feature is load-bearing.
+- **The on-screen keyboard, three more times.** Android under `overlays-content` reported a
+  0 px inset with the keyboard fully up (the Journal composer sat behind it); a closing iOS
+  keyboard left the inset parked at keyboard height (the Trupp dialog squeezed into the top
+  half); the Einsatzdaten sheet lost its lower half under pinch-zoom. All three read the
+  right viewport now.
 - **A SharePoint-synced plan landed on a second, invisible Einsatzobjekt.** A plans folder is
   named «Adresse - Name», and every other importer keys the object on the **name** with the
   address in its own field; the SharePoint pull hashed the whole folder string, so each folder
-  minted a second, address-less copy of the building beside the one the station already had. The
-  pull then kept updating the copy nobody could reach – an Einsatzobjekt is offered at an
-  incident by **distance**, and the new rows had no coordinates at all, so the crew went on
-  opening yesterday's sheet while the current one sat on an object that appears at no Einsatz.
-  The connector now splits the folder name the same way the importer does, so a sync updates the
-  station's own object, and a newly created one carries its address plus coordinates geocoded
-  from it (best-effort – a geocoder that finds nothing never holds up a sync). Objects that carry
-  plans and still have no position are counted on `/admin` → System, because a plan nobody can
-  reach is worse than no plan. An already-synced deployment repairs itself with
-  `python -m app.admin_objects repair-sharepoint-keys`: it folds each bare copy into the older,
-  richer object – keeping the newest sheet per Modul-Slot, the real address, the coordinates and
-  the station's georeference – re-keys the ones that have no twin, geocodes what it splits out,
-  and lists whatever is left without a position. It reports by default and writes only with
-  `--apply`, so its dry run is also the way to check a deployment afterwards.
+  minted a second, address-less copy of the building beside the one the station already had.
+  An Einsatzobjekt is offered at an incident by **distance**, and the new rows had no
+  coordinates at all, so the crew went on opening yesterday's sheet while the current one sat
+  on an object that appears at no Einsatz. The connector now splits the folder name the same
+  way the importer does, a newly created object carries its address plus geocoded coordinates,
+  and a numbered sub-sheet («Wasser 1») fuses onto its word the way the plan tiles read it.
+  Objects that carry plans and still have no position are counted on `/admin` → System.
 - **Four documented environment variables reached nothing on a compose deployment.** Compose's
   `.env` is read for interpolation only, so a variable the `environment:` block does not name is
   silently dropped – and `TRUSTED_FORWARDED_HOPS`, `REPORT_TILE_HOSTS`, `PUSH_EXTRA_HOSTS` and
   `GEOCODER_DEFAULT_LOCALITY` were not named. The first one is the one that cost something: a
-  station that read the deployment guide, set it to `1` behind its proxy and restarted still had
-  every request in the world sharing one rate-limit bucket, with nothing anywhere saying so. All
-  four are passed through now, and `.env.example` documents them where the neighbouring settings
-  already are.
+  station that set it to `1` behind its proxy still had every request in the world sharing one
+  rate-limit bucket. All four are passed through now.
 - **The SharePoint pull can no longer drop a config section nobody told it about.** The geodata
   poll writes the whole document, and it did so through the running schema – so any section a
   newer build had written was quietly removed by a background job on a run that reported success.
-  It now edits the stored JSON in place and takes the config row `FOR UPDATE`, which also closes
-  the last lost-update hole: it is the one full-document writer with no `If-Match` to fall back
-  on, and an admin saving in the Verwaltung during a walk used to be overwritten.
+  It now edits the stored JSON in place and takes the config row `FOR UPDATE`.
+- **The migration chain ships whole.** A migration whose parent existed only in one dev checkout
+  killed every deploy at `alembic upgrade head`; a test now walks the chain from every head to
+  base, so a WIP parent goes red in CI instead of at boot.
+- **Two devices with the same Einsatz open pushed each other in a loop** – and every round
+  quietly ate every ↶ on both. A bake that changes nothing now changes nothing, and the sync
+  compares the serialized payload before pushing.
+- **Every Einsatzleiter was displayed as «Betrachter»** in the Mitglieder list; the Einsatz-
+  historie printed «Sep 10, 2026 at 8:34 AM»; the Einrichtung checklist could never be finished.
+- **Field feedback, 07.–12.09.** The pre-entry row runs in the order the Einsatz runs; the
+  Trupp ring points once instead of on every collapse; UN-Nr. and Stoff stay one substance and
+  the Stoff search survives typing; Messen measures from the symbol's centre and a tap no
+  longer opens a detail; the Gebäude measures off its Grundriss and never offers «Neu
+  kalibrieren»; the boot splash shows at once in the installed app and the snail stops
+  jumping; reload on an abgeschlossener Einsatz returns to it read-only; a ninth Schichtplan
+  band gets its own sheet instead of taking its people down with it; «Einrücken» became
+  «Im Einsatz» (German only – einrücken means back to the Magazin).
+- **Rapport render, 2× faster.** Images embed without the pure-Python ASCII85 encoder that was
+  70 % of a render; a tile-cache write failure degrades the cache, never the Rapport; a stale
+  workspace save is refused before the heavy work; and the boot path sheds pdf.js, the unused
+  locale overlays and the hazard datasets (critical path 1303 → ~890 KB gzip).
 
 ### Changed
 
@@ -129,6 +259,38 @@ so this file – not the log – is the record of what shipped up to that point.
   > send the header and need no change. A raw `curl` must read the document first and send its
   > `version` back: `GET /api/config` → `PUT /api/config` with `If-Match: <version>`. Without it
   > the write is refused with **428**, and the response's `ETag` is the token to repeat with.
+
+- **The bug report leaves with the operator, not through an ingest.** The maintainer's
+  GlitchTip is shut down; `UPSTREAM_DSN` is empty by default, so a fresh install sends nothing
+  anywhere even with every switch on (`KP_TELEMETRY_DSN` still aims the forwarder at a server
+  you run). The Rückmeldung sheet asks which way the report should leave – a prefilled GitHub
+  issue form or a mail – and saves the **Diagnose-Datei** (`GET /api/diag/export`, the last 50
+  sanitised crashes, any logged-in user, never a link session) to attach. `POST
+  /api/diag/report` and the in-app photo picker are gone with the ingest they fed; the telemetry
+  consent card left `/admin`.
+- The login pad submits by itself once the typed PIN reaches the length this device has
+  already signed the account in with – no ✓ after the first login.
+- The site and the README name the surfaces what the app names them (Karte, Trupps, Material)
+  and answer the offline question in the FAQ.
+
+  > **Upgrade notes for 0.11.0.** Migrations run on boot as usual (`el` role, plan revisions and
+  > alignments, connector states, standing-link keys). Deploy the backend **before** minting `el`
+  > users. The published image is ~60 MB larger (the `georef` CV stack). The plan-alignment
+  > worker starts computing proposals for every Modul 1/2 sheet after the first boot – nothing
+  > reaches an incident until somebody approves on `/admin` → Objektpläne; set
+  > `modules[].alignment` to `none` on a station that does not want the worker at all. A station
+  > that ran the SharePoint connector before this release should dry-run
+  > `admin_objects repair-sharepoint-keys` and `merge-duplicates` once.
+
+### Security
+
+- **maplibre-gl advisory GHSA-jrc7-96c5-q579 waived with reasoning and an expiry** (2026-12-31,
+  #155). The app runs 4.7.1, which ships no `DOM.sanitize()` at all and constructs no Popup;
+  the only HTML sink is the attribution control, fed solely from the station's own config
+  document. The 4 → 6 upgrade is scoped separately because it is what gives that sink an
+  escaping path.
+- An incident link session is denied the Diagnose-Datei: crash traces are internal even after
+  the scrubber.
 
 ## [0.10.0] – 2026-09-06
 

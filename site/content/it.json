@@ -222,7 +222,7 @@
           "Informazioni meteorologiche e sul vento a supporto della valutazione della situazione",
           "Piani d’oggetto come lavagna, piani sovrapposti, lavagna vuota",
           "Annulla/ripristina su ogni superficie – le attività documentate restano tracciabili",
-          "<strong>Georeferenziazione</strong>: collegare una planimetria alla mappa tramite punti di riferimento comuni – i simboli compaiono come gemelli su entrambe le superfici, con un'indicazione onesta della precisione"
+          "<strong>Georeferenziazione</strong>: collegare una planimetria alla mappa tramite punti di riferimento comuni – un solo oggetto, visibile su entrambe le superfici, con un’indicazione onesta della precisione. La stazione fa allineare le planimetrie in anticipo e le approva"
         ]
       },
       {
@@ -236,7 +236,7 @@
           "Condividere l’intervento tramite link; l’accesso è indicato chiaramente e può essere\n            revocato in qualsiasi momento",
           "Materiale con scorte e consumo",
           "Liste di controllo per il supporto alla condotta e la direzione dell’intervento",
-          "Vista capo intervento: leggere senza spostare nulla"
+          "Ruolo capo intervento: tenere presenze, mezzi, check-list e rapporto – leggere carta e squadre senza spostare nulla"
         ]
       },
       {

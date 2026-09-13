@@ -51,17 +51,21 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 | --- | --- | --- |
 | `/api/auth/*` | login / refresh / logout / me; user CRUD (`/users`) | public · admin (user CRUD) |
 | `/api/admin/*` | admin-session login / logout / state | secret |
-| `/api/config`, `/api/branding`, `/api/system` | deployment config, branding assets, maintenance status | read public (config) · admin (writes) |
+| `/api/config`, `/api/branding`, `/api/system` | deployment config (`PUT` needs `If-Match`; `POST /validate` is the dry run; a write that would empty a populated section is 409 unless `?force=true`), branding assets, maintenance status incl. connector states and the `setup` block | read public (config) · admin (writes) |
 | `/api/integrations/*` | integration credentials + their audit trail (see below) | admin |
 | `/api/station-workbook/*` | the station-data `.xlsx` – export, preview, import (see below) | admin |
-| `/api/incidents/*`, `/api/events/*` | incident CRUD, workspace sync, notes, append-only events; whole-incident hard delete is the narrow exception | editor (mutations, incl. deleting an **Übung**) · admin (hard delete of a real, archived Einsatz) |
-| `/api/objects/*`, `/api/reference/*` | object library + plans, reference geodata layers | read auth · admin (writes) |
+| `/api/incidents/*`, `/api/events/*` | incident CRUD, workspace sync, notes, append-only events; `PUT …/workspace/record` is the record slice an `el` session may write; whole-incident hard delete is the narrow exception | editor (mutations, incl. deleting an **Übung**) · `el` (record slice, journal, Einsatzdaten) · admin (hard delete of a real, archived Einsatz) |
+| `/api/objects/*`, `/api/reference/*` | object library + plans, reference geodata layers; `GET /api/reference/{id}/alignments?v=N` serves the station-approved fit of one plan revision | read auth · admin (writes) |
+| `/api/admin/plan-alignments/*` | the pre-computed plan alignments: list, preview (`?thumbnail=true`), approve (with optional corrected pairs), reject, retry, undo – nothing reaches an incident before an approval | admin |
+| `/api/plan-scales` | the station document (Massstäbe, Georeferenzen, measured sheet aspects); `PUT` carries `If-Match`, a stale token is 409 – a headerless PUT is still accepted for one release | auth |
+| `/api/sharepoint/*` | the SharePoint pull: status per area, run now, probe the tenant | admin |
 | `/api/media/*` | photo / audio upload + serve | editor |
 | `/api/personnel/*`, `/api/divera/*`, `/api/traccar/*` | roster, alarm/roster pull, vehicle GPS | editor |
 | `/api/weather`, `/api/geocode` | wind badge, address search (backend-proxied) | auth |
 | `/api/report/*` | report data (read-only output) | auth |
-| `/api/incident-link/*` | exchange an alerting system's link token for a read-only session on one incident (`/l/<token>`); key management | station `incident_link_key` (session) · admin (key) · fail-closed |
+| `/api/incident-link/*` | exchange an alerting system's link token for a read-only session on one incident (`/l/<token>`); the two **standing** links – the Stations-Terminal (`/l/t<secret>`, enrolls a device cookie) and the fixed Atemschutz URL (`/l/s<secret>`) – bind to whichever Einsatz is open; key management and rotation for all three | station keys (session) · admin (keys) · fail-closed |
 | `/api/diag/client-error` | client error sink (bounded, logged at WARNING) | none |
+| `/api/diag/export` | the Diagnose-Datei: the last 50 sanitised crashes, to attach to a bug report | auth (never a link session) |
 
 The exact request/response shapes are in [`openapi.json`](openapi.json) / the live `/docs`.
 
