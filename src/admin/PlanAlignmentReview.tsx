@@ -8,7 +8,7 @@ import { Slider } from '../components/Slider'
 import { Segmented } from '../components/Segmented'
 import { fmtDate } from './ui'
 import { alignmentPreview, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, rejectAlignment, retryAlignment, undoAlignmentApproval, type AlignmentItem, type AlignmentQueue } from './planAlignmentApi'
-import { AlignmentGrid, type CardDecision, type CardMark } from './AlignmentGrid'
+import { AlignmentGrid, reasonText, type CardDecision, type CardMark } from './AlignmentGrid'
 import './planAlignment.css'
 
 const Preview = lazy(() => import('./AlignmentPreview'))
@@ -24,14 +24,20 @@ const sectionOf = (item: AlignmentItem): Section =>
   item.status === 'ready' || item.status === 'needs_review' || item.status === 'approved' || item.status === 'rejected' ? item.status
     : waiting.has(item.status) ? 'waiting' : 'none'
 const SECTIONS: Section[] = ['ready', 'needs_review', 'none', 'waiting', 'approved', 'rejected']
+/** Reasons worth repeating inside the modal: the ones aligning by hand cannot answer, because
+ *  they want an admin, a config or the server. `low_coverage`, `no_matching_geometry`,
+ *  `invalid_match` and `manual_module` are exactly what this modal is for – the card already
+ *  said «Kein Treffer», and saying it twice only shouts at someone already setting points. */
+const BEYOND_PAIRING = new Set(['reference_unreachable', 'printed_scale_missing', 'object_coordinates_missing', 'pdf_unavailable', 'revision_missing', 'preparation_failed', 'georef_dependencies_missing', 'overpass_unconfigured', 'worker_retry_limit', 'multi_page_document', 'unsupported_module'])
+/** …and of those, the ones a fresh run can still fix, which is when «Neu berechnen» is offered. */
+const RETRYABLE = new Set(['reference_unreachable', 'worker_retry_limit', 'preparation_failed', 'invalid_match'])
 
 /** Station preparation is explicit approval; fetching or selecting a proposal never publishes it. */
 export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) {
   const C = appConfig.copy.admin.alignment
-  const M = C.columns
   const [queue, setQueue] = useState<AlignmentQueue | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [open, setOpen] = useState<{ id: number; byHand: boolean } | null>(null)
+  const [open, setOpen] = useState<number | null>(null)
   const [busy, setBusy] = useState<Set<number>>(() => new Set())
   const [notice, setNotice] = useState<string | null>(null)
   // Staged marks: a ready proposal counts as «yes» until the reviewer says otherwise, a doubtful
@@ -40,8 +46,6 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
   const [filter, setFilter] = useState<Filter>('open')
   const [search, setSearch] = useState('')
   const [refreshing, setRefreshing] = useState(false)
-  const [approved, setApproved] = useState<AlignmentItem | null>(null)
-  const [undoing, setUndoing] = useState(false)
   const alive = useRef(true)
   const loadSeq = useRef(0)
   const inFlight = useRef<Promise<void> | null>(null)
@@ -58,7 +62,7 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
         // wall under the reviewer's eyes.
         next.items.sort((a, b) => priority(a) - priority(b) || a.object_name.localeCompare(b.object_name) || (a.module ?? '').localeCompare(b.module ?? ''))
         setQueue(next); setError(null)
-        setOpen(o => o && next.items.some(item => item.id === o.id) ? o : null)
+        setOpen(o => o != null && next.items.some(item => item.id === o) ? o : null)
       } catch (e) {
         if (alive.current && seq === loadSeq.current) setError(e instanceof ApiError ? e.detail : appConfig.copy.admin.alignment.loadFailed)
       }
@@ -87,7 +91,7 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
   const visible = items.filter(item => (filter === 'all' || (filter === 'approved' ? terminal.has(item.status) : isOpen(item)))
     && `${item.object_name} ${item.module} ${item.title ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()))
   // A filtered wall must never open or decide a hidden card.
-  const current = open ? visible.find(item => item.id === open.id) ?? null : null
+  const current = open != null ? visible.find(item => item.id === open) ?? null : null
   const count = items.filter(isOpen).length
   const sections = SECTIONS.map(section => ({ section, items: visible.filter(item => sectionOf(item) === section) })).filter(s => s.items.length)
 
@@ -108,10 +112,10 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
         const detail = await loadAlignmentDetail(item.id)
         if (!detail.can_approve || !reviewableAlignment(detail.pairs, detail.aspect)) throw new ApiError(422, C.saveFailed)
         next = await approveAlignment(detail, detail.pairs)
-      } else next = decision === 'reject' ? await rejectAlignment(item) : decision === 'undo' ? await undoAlignmentApproval(item) : await retryAlignment(item)
+      } else next = decision === 'reject' ? await rejectAlignment(item) : await undoAlignmentApproval(item)
       if (!alive.current) return false
       update(next)
-      if (!quiet) { setApproved(null); setNotice(null) }
+      if (!quiet) setNotice(null)
       return true
     } catch (e) {
       if (!alive.current) return false
@@ -121,13 +125,14 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
     } finally { if (alive.current) mark(item.id, false) }
   }
   /** «Übernehmen»: every marked card of the visible wall, one after the other, stopping at the
-   *  first refusal so nothing is skipped silently; the banner then says how far it got. */
+   *  first refusal so nothing is skipped silently; the line by the filters says how far it got.
+   *  Single decisions need no such line – the card itself moves and carries «Rückgängig». */
   const staged = visible.filter(item => markOf(item) != null)
   const yesCount = staged.filter(item => markOf(item) === 'yes').length
   const [batch, setBatch] = useState<{ done: number; total: number } | null>(null)
   const apply = async () => {
     const list = staged.map(item => ({ item, mark: markOf(item) }))
-    setBatch({ done: 0, total: list.length }); setApproved(null); setNotice(null)
+    setBatch({ done: 0, total: list.length }); setNotice(null)
     let yes = 0, no = 0
     for (const { item, mark: m } of list) {
       if (!alive.current) return
@@ -140,7 +145,7 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
     setNotice(fillTemplate(C.grid.applied, { yes, no, total: list.length }))
   }
 
-  return <section className={`adm-align${compact ? ' am-module-review' : ''}`} aria-label={C.title}>
+  return <section className="adm-align" aria-label={C.title}>
     <div className="adm-align-heading"><div><h2>{C.title}</h2>{!compact && <p className="adm-hint">{C.intro}</p>}</div>
       <div className="adm-align-actions">
         {staged.length > 0 && <span className="adm-hint adm-apply-summary">{batch ? fillTemplate(C.grid.applying, batch) : fillTemplate(C.grid.applySummary, { yes: yesCount, no: staged.length - yesCount })}</span>}
@@ -151,24 +156,17 @@ export function PlanAlignmentReview({ compact = false }: { compact?: boolean }) 
     </div>
     {error && <p className="adm-state adm-state-err" role="alert">{error}</p>}
     {queue && !queue.capability.available && <p className="adm-align-notice" role="status">{C.unavailableHint}</p>}
-    {approved && <div className="adm-align-confirmed" role="status"><span>{fillTemplate(C.approvedMessage, { name: approved.object_name })}</span><button className="btn" type="button" disabled={undoing} onClick={async () => {
-      setUndoing(true)
-      try { const next = await undoAlignmentApproval(approved); if (alive.current) { update(next); setApproved(null) } }
-      catch (e) { if (alive.current) setError(e instanceof ApiError ? e.detail : C.saveFailed) }
-      finally { if (alive.current) setUndoing(false) }
-    }}>{C.undoApproval}</button></div>}
-    {notice && !approved && <p className="adm-align-confirmed" role="status">{notice}</p>}
     <div className="adm-align-filters"><Segmented<Filter> value={filter} onChange={setFilter} ariaLabel={C.filterLabel} options={[
       { value: 'open', label: fillTemplate(C.openCount, { n: count }) }, { value: 'approved', label: C.grid.decided }, { value: 'all', label: C.all },
-    ]} /><input className="adm-input" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={C.search} aria-label={C.search} /></div>
+    ]} />{notice && <span className="adm-hint adm-align-applied" role="status">{notice}</span>}<input className="adm-input" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={C.search} aria-label={C.search} /></div>
     {!queue && !error && <p className="adm-state" role="status">{C.loading}</p>}
     {queue && visible.length === 0 && <p className="adm-hint adm-align-empty">{items.length === 0 ? C.empty : C.noResults}</p>}
     {sections.map(({ section, items: list }) => <div key={section} className="adm-grid-section">
       <div className="adm-grid-head"><h3>{C.grid.sections[section]}</h3><span className="adm-hint">{fillTemplate(C.queueCount, { n: list.length })}</span></div>
-      <AlignmentGrid items={list} busy={busy} markOf={markOf} onMark={setMark} onDecide={(item, decision) => void decide(item, decision)} onOpen={(item, byHand) => setOpen({ id: item.id, byHand: !!byHand })} />
+      <AlignmentGrid items={list} busy={busy} markOf={markOf} onMark={setMark} onDecide={(item, decision) => void decide(item, decision)} onOpen={item => setOpen(item.id)} />
     </div>)}
     {current && <AlignmentModal item={current} onClose={() => setOpen(null)}>
-      <ResolvedAlignmentDetail key={current.id} item={current} byHand={open?.byHand} onChange={update} onApproved={next => { setApproved(next); if (next) setNotice(null) }} onConflict={refresh} />
+      <ResolvedAlignmentDetail key={current.id} item={current} onChange={update} onConflict={refresh} />
     </AlignmentModal>}
   </section>
 }
@@ -204,10 +202,7 @@ function referenceLabel(item: AlignmentItem, C: typeof appConfig.copy.admin.alig
 
 interface DetailProps {
   item: AlignmentItem
-  /** open straight in reference-point pairing – the sheet is being aligned by hand */
-  byHand?: boolean
   onChange: (next: AlignmentItem) => void
-  onApproved: (next: AlignmentItem | null) => void
   onConflict: () => Promise<void>
 }
 
@@ -233,7 +228,7 @@ function ResolvedAlignmentDetail(props: DetailProps) {
   </>
 }
 
-function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflict }: DetailProps) {
+function AlignmentDetail({ item, onChange, onConflict }: DetailProps) {
   const C = appConfig.copy.admin.alignment
   const [draft, setDraft] = useState<{ pairs: GeorefPair[]; editVersion: number } | null>(null)
   const [image, setImage] = useState<string | null>(null)
@@ -242,14 +237,19 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
   const [error, setError] = useState<string | null>(null)
   // By hand = the FIELD's «Karte verknüpfen» (AlignmentPairing mounts its layers and store);
   // two real pairs replace whatever the worker proposed. A proposal is approved as it is, or
-  // aligned by hand – there is no third way to change a fit here.
-  const [manual, setManual] = useState(byHand)
+  // aligned by hand – there is no third way to change a fit here. Zooming in on a sheet means
+  // checking or correcting its points, so the modal always opens in the pairing; «Fertig» hands
+  // over to the overlay view, «Punkte bearbeiten» comes back.
+  const [manual, setManual] = useState(true)
   const [opacity, setOpacity] = useState(60)
   const mounted = useRef(true)
   const pairs = draft?.pairs ?? item.pairs
   const stale = draft != null && draft.editVersion !== item.edit_version
   const editable = (item.can_approve || item.status === 'approved') && !waiting.has(item.status)
-  const reason = Object.entries(C.reasons).find(([key]) => key === item.reason)?.[1] ?? item.reason
+  // A sheet nobody may touch (still computing, or not this station's to approve) can only be
+  // looked at, so it lands in the overlay view however the modal was opened.
+  const pairing = manual && editable
+  const reason = BEYOND_PAIRING.has(item.reason ?? '') ? reasonText(item.reason) : null
 
   useEffect(() => {
     mounted.current = true
@@ -263,13 +263,13 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
   }, [item.id])
 
   const setPairs = (next: GeorefPair[]) => setDraft(previous => ({ pairs: next, editVersion: previous?.editVersion ?? item.edit_version }))
-  const reset = () => { setDraft(null); setManual(byHand); setError(null) }
+  const reset = () => { setDraft(null); setError(null) }
   const save = async (operation: 'approve' | 'retry' | 'undo') => {
     setBusy(true); setError(null)
     try {
       const next = operation === 'approve' ? await approveAlignment(item, pairs) : operation === 'undo' ? await undoAlignmentApproval(item) : await retryAlignment(item)
       if (!mounted.current) return
-      onChange(next); reset(); if (operation === 'approve') onApproved(next); else if (operation === 'undo') onApproved(null)
+      onChange(next); reset()
     } catch (e) {
       if (!mounted.current) return
       setError(e instanceof ApiError && e.status === 409 ? C.conflict : e instanceof ApiError ? e.detail : C.saveFailed)
@@ -278,13 +278,18 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
   }
 
   return <section className="adm-align-review" aria-label={item.object_name}>
-    <header><div><h3>{item.object_name} · {item.title || item.module}</h3><p>{fillTemplate(C.revisionPage, { version: item.plan_version, page: item.page + 1 })}</p></div><span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span></header>
+    {/* «Stand 1 · Seite 1» is the normal single-page sheet saying nothing – it appears once
+        there is a second revision or a second page to tell apart. */}
+    <header><div><h3>{item.object_name} · {item.title || item.module}</h3>
+      {(item.plan_version > 1 || item.page > 0) && <p>{fillTemplate(C.revisionPage, { version: item.plan_version, page: item.page + 1 })}</p>}
+    </div><span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span></header>
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
-    {reason && <p className="adm-align-notice">{reason}</p>}
+    {reason && <p className="adm-hint adm-align-reason">{reason}</p>}
     {imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : !image ? <p className="adm-state" role="status">{C.previewLoading}</p>
-      : manual && editable ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Pairing item={item} pairs={pairs} onPairs={setPairs} onDone={() => setManual(false)} previewUrl={image} /></Suspense>
+      : pairing ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Pairing item={item} pairs={pairs} onPairs={setPairs} onDone={() => setManual(false)} previewUrl={image} /></Suspense>
       : <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={opacity} /></Suspense>}
-    {!manual && <div className="adm-align-settings"><span>{C.opacity}</span><Slider value={opacity} onChange={setOpacity} ariaLabel={C.opacity} valueText={`${opacity} %`} /><span className="adm-align-number">{opacity} %</span></div>}
+    {/* the slider moves the overlay, so it only exists while there IS one */}
+    {image && !imageFailed && !pairing && <div className="adm-align-settings"><span>{C.opacity}</span><Slider value={opacity} onChange={setOpacity} ariaLabel={C.opacity} valueText={`${opacity} %`} /><span className="adm-align-number">{opacity} %</span></div>}
     <p className="adm-align-facts"><b>{!pairs.length ? C.unaligned : hasAutoPairs(pairs) ? C.automatic : C.manual}</b>{' '}
       <span className="adm-hint">{fillTemplate(C.factsLine, { plan: fmtDate(item.created_at), reference: referenceLabel(item, C), approval: item.approved_at ? fmtDate(item.approved_at) : C.notApproved })}</span></p>
     {stale && <p className="adm-align-notice" role="alert">{C.conflict} <button type="button" className="btn" onClick={reset}>{C.discardAdjustment}</button></p>}
@@ -294,9 +299,9 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
       {/* the way back in, whatever the sheet's state: the field's pairing seeded with what stands
           – a proposal's automatic anchors step aside after two real points, an approval is
           re-published with the corrected pairs */}
-      {editable && !manual && <button type="button" className="btn" disabled={busy} onClick={() => setManual(true)}>{C.editPoints}</button>}
-      {manual && <button type="button" className="btn" disabled={busy || !draft} onClick={reset}>{C.discardAdjustment}</button>}
-      {editable && ['no_match', 'failed', 'unavailable'].includes(item.status) && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
+      {editable && !pairing && <button type="button" className="btn" disabled={busy} onClick={() => setManual(true)}>{C.editPoints}</button>}
+      {pairing && <button type="button" className="btn" disabled={busy || !draft} onClick={reset}>{C.discardAdjustment}</button>}
+      {editable && ['no_match', 'failed', 'unavailable'].includes(item.status) && RETRYABLE.has(item.reason ?? '') && <button type="button" className="btn" disabled={busy || !!draft} onClick={() => void save('retry')}>{C.retry}</button>}
       {editable && <button type="button" className="btn primary" disabled={busy || stale || !image || imageFailed || !reviewableAlignment(pairs, item.aspect)} onClick={() => void save('approve')}>{busy ? C.saving : C.approve}</button>}
     </div></footer>
   </section>

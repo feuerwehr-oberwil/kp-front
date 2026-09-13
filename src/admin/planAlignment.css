@@ -5,15 +5,7 @@
 .adm-align-heading p { margin: 0; }
 .adm-align-filters { display: flex; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .adm-align-filters input { max-width: 290px; }
-.adm-align-split { display: grid; grid-template-columns: minmax(215px, 28%) minmax(0, 1fr); gap: 20px; align-items: start; }
-.adm-align-queue, .adm-align-review { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-ctl); overflow: hidden; }
-.adm-align-queue { max-height: 740px; overflow-y: auto; }
-.adm-align-queue h3 { font-size: 14px; margin: 0; padding: 18px; border-bottom: 1px solid var(--border); }
-.adm-align-item { display: flex; flex-direction: column; align-items: start; gap: 6px; text-align: left; width: 100%; padding: 17px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; color: var(--ink); cursor: pointer; font: 12.5px var(--body); }
-.adm-align-item strong { font-size: 13px; }
-.adm-align-item small { font-size: 12px; color: var(--ink-dim); }
-.adm-align-item.on { background: color-mix(in srgb, var(--blue) 10%, var(--surface)); outline: 1px solid var(--blue); outline-offset: -1px; }
-.adm-align-item:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
+.adm-align-review { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-ctl); overflow: hidden; }
 .adm-align-status { display: inline-flex; width: fit-content; font-size: 12px; line-height: 1.5; font-weight: 600; padding: 3px 7px; border-radius: var(--r-xs); color: var(--ink-dim); background: var(--fill-soft); }
 .adm-align-status.ready, .adm-align-status.approved { color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 9%, var(--surface)); }
 .adm-align-status.needs_review, .adm-align-status.no_match, .adm-align-status.unavailable { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 11%, var(--surface)); }
@@ -21,19 +13,12 @@
 .adm-align-review > header { padding: 19px 20px; display: flex; align-items: start; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); }
 .adm-align-review h3 { font-size: 15px; margin: 0; }
 .adm-align-review header p { margin: 5px 0 0; font-size: 12px; color: var(--ink-dim); }
-.adm-align-detail { min-width: 0; }
 .adm-align-preview { display: grid; grid-template-columns: minmax(0, 1fr); }
-.adm-align-preview:has(.adm-align-paper) { grid-template-columns: 1fr 1fr; }
 .adm-align-map { position: relative; min-width: 0; height: 390px; background: var(--fill-soft); }
 .adm-align-map-tools { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100% - 62px); }
 .adm-align-map-tools .btn { background: var(--surface); font-size: 12.5px; }
 .adm-align-map-error { position: absolute; top: 66px; left: 12px; right: 12px; padding: 8px; font-size: 12px; background: var(--surface); color: var(--amber-strong); border-radius: var(--r-xs); }
 .adm-align-legend { position: absolute; bottom: 32px; left: 12px; padding: 6px 9px; font-size: 11.5px; background: var(--surface); color: var(--ink); border-radius: var(--r-xs); }
-.adm-align-paper { background: #fff; display: flex; min-width: 0; align-items: center; justify-content: center; }
-.adm-align-paper svg { display: block; width: 100%; height: 390px; }
-.adm-align-paper svg[role=button] { cursor: crosshair; }
-.adm-align-center { position: absolute; top: 50%; left: 50%; color: var(--blue); font-size: 30px; line-height: 1; transform: translate(-50%, -50%); pointer-events: none; }
-.adm-align-point { background: white; color: #164d9b; border: 2px solid #1f6feb; border-radius: 50%; width: 24px; height: 24px; display: grid; place-items: center; font: 700 12px var(--body); }
 .adm-align-settings { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-top: 1px solid var(--border); font-size: 12.5px; }
 .adm-align-settings .uslider { flex: 1; max-width: 250px; color: var(--blue); }
 .adm-align-number { font-variant-numeric: tabular-nums; min-width: 44px; }
@@ -46,34 +31,21 @@
 .adm-align-actions .primary { font-size: 14px; font-weight: 800; }
 
 .adm-align-notice { padding: 12px 16px; font-size: 12.5px; color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
+/* A reason the modal still has to say is a line, not a band – the person is already aligning. */
+.adm-align-reason { margin: 0; padding: 12px 20px 0; max-width: none; }
 .adm-align-review > .adm-state { margin: 15px 20px; }
 .adm-align-empty { padding: 20px; margin: 0; color: var(--ink-dim); font-size: 13px; }
-.adm-align-confirmed { padding: 12px 16px; background: color-mix(in srgb, var(--blue) 8%, var(--surface)); display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 16px; font-size: 13px; }
-.adm-align-catalogue { margin-top: 22px; }
-.adm-align-catalogue > summary { min-height: var(--tap); cursor: pointer; padding: 12px 0; font-size: 14px; font-weight: 700; }
-@media (hover: hover) { .adm-align-item:hover { background: color-mix(in srgb, var(--blue) 6%, var(--surface)); } }
-.adm-align-item:active { background-image: linear-gradient(var(--press), var(--press)); }
-@media (max-width: 1050px) { .adm-align-split { grid-template-columns: 220px minmax(0, 1fr); gap: 12px; } .adm-align-preview:has(.adm-align-paper) { grid-template-columns: 1fr; } .adm-align-paper svg { height: 300px; } }
-@media (max-width: 700px) { .adm-align-split { grid-template-columns: 1fr; } .adm-align-queue { max-height: 270px; } .adm-align-filters { align-items: stretch; flex-direction: column; } .adm-align-filters input { max-width: none; } .adm-align-heading { flex-wrap: wrap; } .adm-align-map { height: 330px; } .adm-align-actions .primary { width: 100%; } .adm-align-review > header { flex-wrap: wrap; } }
+/* What «Übernehmen» did, beside the filters – it is a receipt, not an alert. */
+.adm-align-applied { margin: 0; flex: 1 1 auto; }
+@media (max-width: 700px) { .adm-align-filters { align-items: stretch; flex-direction: column; } .adm-align-filters input { max-width: none; } .adm-align-heading { flex-wrap: wrap; } .adm-align-map { height: 330px; } .adm-align-actions .primary { width: 100%; } .adm-align-review > header { flex-wrap: wrap; } }
 
-/* Compact embed (Objektpläne page): the queue as a table row-picker instead of card buttons.
-   The am-* names come from the module-workspace design the embed was built for; styled here
-   so the embed carries its own chrome wherever it is mounted. */
-.am-module-review .am-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.am-module-review .am-table th, .am-module-review .am-table td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
-.am-module-review .am-table thead th { font-size: 11.5px; color: var(--ink-dim); font-weight: 600; }
-.am-module-review .am-table tbody th { font-weight: 600; }
-.am-module-review tr.am-selected { background: color-mix(in srgb, var(--blue) 10%, var(--surface)); }
-.am-row-pick { border: 0; background: transparent; color: var(--ink); font: 600 12.5px var(--body); padding: 0; cursor: pointer; text-align: left; }
-.am-row-pick:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+/* The detail's own load error, wherever the review is mounted. */
 .am-error { margin: 12px 0; padding: 10px 14px; font-size: 12.5px; color: var(--red-strong); background: color-mix(in srgb, var(--red) 8%, var(--surface)); border-radius: var(--r-xs); display: flex; align-items: center; gap: 10px; }
-@media (hover: hover) { .am-row-pick:hover { color: var(--blue-strong); } }
 
 /* The review wall (AlignmentGrid): thumbnails with the outlines drawn through the fit. */
 .adm-grid-section { margin: 22px 0 6px; }
 .adm-grid-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 10px; }
 .adm-grid-head h3 { margin: 0; font-size: 14.5px; }
-.adm-grid-head .btn { margin-left: auto; }
 .adm-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); }
 .adm-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-ctl); overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
 .adm-card.busy { opacity: .6; }

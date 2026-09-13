@@ -6320,20 +6320,14 @@ export const de = {
       refresh: 'Aktualisieren',
       loadFailed: 'Laden fehlgeschlagen. Nochmals versuchen.',
       unavailableHint: 'Automatische Vorschläge sind auf diesem Server nicht eingerichtet – Ausrichtungen können nur von Hand gesetzt werden.',
-      approvedMessage: 'Ausrichtung für «{name}» freigegeben.',
-      undoApproval: 'Freigabe rückgängig',
       filterLabel: 'Filter',
       openCount: 'Offen ({n})',
-      approved: 'Freigegeben',
       all: 'Alle',
       search: 'Objekt oder Modul suchen',
-      queueLabel: 'Prüfliste',
       queueCount: '{n} Pläne',
       empty: 'Keine Pläne im Bestand.',
       noResults: 'Keine passenden Pläne.',
-      selectPlan: 'Plan in der Liste wählen.',
       revisionPage: 'Stand {version} · Seite {page}',
-      columns: { object: 'Objekt', module: 'Modul', revision: 'Stand', status: 'Ausrichtung' },
       status: {
         pending: 'Wartet',
         processing: 'Wird berechnet',
@@ -6348,7 +6342,8 @@ export const de = {
       },
       superseded: 'Dieser Stand wurde ersetzt – freigegeben werden kann nur die aktuelle Version.',
       // Die `reason`-Schlüssel des Workers (plan_alignment_compute/-worker), als Sätze, die
-      // sagen, was zu TUN ist – nicht, was intern schiefging.
+      // sagen, was zu TUN ist – nicht, was intern schiefging. Die Kachel zeigt den Grund bei
+      // jedem Blatt ohne Vorschlag; im Modal steht nur noch, was Ausrichten von Hand nicht löst.
       reasons: {
         multi_page_document: 'Mehrseitige PDFs können nicht zentral ausgerichtet werden – im Einsatz zeigt das Blatt alle Seiten als eine Fläche.',
         unsupported_module: 'Für diesen Modultyp gibt es keine automatische Ausrichtung – von Hand setzen.',
@@ -6366,7 +6361,7 @@ export const de = {
         preparation_failed: 'Vorbereitung fehlgeschlagen – «Neu berechnen» versucht es erneut.',
         pdf_unavailable: 'Das PDF konnte nicht gelesen werden.',
       },
-      // Von Hand: die drei Kacheln über den beiden Flächen sagen, wer dran ist (AlignmentPreview)
+      // Von Hand: der Paarungs-Modus im Modal (AlignmentPairing) und die Kartenansicht danach
       noOutlines: 'Keine Gebäudeumrisse für dieses Blatt – nach dem Kartenbild ausrichten.',
       editPoints: 'Punkte bearbeiten',
       factsLine: 'Plan-Stand {plan} · Referenz {reference} · Freigabe: {approval}',
@@ -6380,19 +6375,10 @@ export const de = {
       unaligned: 'Keine Ausrichtung vorhanden – Punkte von Hand setzen.',
       automatic: 'Automatisch berechneter Vorschlag.',
       manual: 'Von Hand gesetzte Ausrichtung.',
-      reviewHint: 'Blatt und Gebäudeumrisse müssen sich decken – erst dann freigeben.',
-      planDate: 'Plan-Stand',
-      reference: 'Referenz',
       referenceUnknown: 'Referenz unbekannt',
-      approvalDate: 'Freigabe',
       notApproved: 'nicht freigegeben',
       discardAdjustment: 'Anpassung verwerfen',
-      undoPoint: 'Letzten Punkt entfernen',
-      pickOnPlan: 'Punkt auf dem Plan wählen.',
-      pickOnMap: 'Denselben Punkt auf der Karte wählen.',
-      keyboardPoints: 'Pfeiltasten bewegen das Fadenkreuz, Enter setzt den Punkt.',
       frame: 'Ausschnitt zeigen',
-      useMapCenter: 'Kartenmitte verwenden',
       mapLoadFailed: 'Karte konnte nicht geladen werden.',
       legend: 'Gebäudeumrisse: {source}',
       conflict: 'Plan oder Ausrichtung wurde zwischenzeitlich geändert. Aktuellen Stand laden und erneut prüfen.',
@@ -6418,7 +6404,6 @@ export const de = {
         applying: '{done} von {total} übernommen …',
         applied: '{yes} freigegeben, {no} von Hand – {total} Blätter übernommen.',
         resetMarks: 'Markierungen zurücksetzen',
-        rejectedMessage: 'Vorschlag für «{name}» abgelehnt – das Blatt wird von Hand ausgerichtet.',
       },
     },
     layers: {

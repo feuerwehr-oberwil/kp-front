@@ -100,7 +100,7 @@ describe('alignment review wall', () => {
     expect(approveAlignment).toHaveBeenCalledWith(detail, detail.pairs)
     await screen.findByText('1 freigegeben, 0 von Hand – 2 Blätter übernommen.')
   })
-  it('an approved sheet can be taken back into the points from its modal', async () => {
+  it('an approved sheet opens in its points too, and «Fertig» hands over to the overlay', async () => {
     const approved = { ...item, status: 'approved' as const, can_approve: false, approved_at: '2026-09-09T10:00:00Z' }
     vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([approved]))
     vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...approved, page_count: 1 })
@@ -108,9 +108,35 @@ describe('alignment review wall', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Entschieden' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Gross anzeigen: Testobjekt · 2' }))
     const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByTestId('pairing')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'fertig' }))
     await within(dialog).findByTestId('preview')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Punkte bearbeiten' }))
     await within(dialog).findByTestId('pairing')
+  })
+  it('a proposal opens in its points, says nothing the card already said, and offers no «Neu berechnen»', async () => {
+    const single = { status: 'no_match' as const, pairs: [], reason: 'low_coverage', plan_version: 1, page: 0 }
+    vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item, ...single }]))
+    vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...detail, ...single })
+    render(<PlanAlignmentReview compact />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Gross anzeigen: Testobjekt · 2' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByTestId('pairing')
+    // the reason is the card's job; by hand is what this modal IS, and a fresh run cannot help
+    expect(within(dialog).queryByText(/ausreichender Sicherheit/)).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Neu berechnen' })).toBeNull()
+    // a single-page first revision has no «Stand 1 · Seite 1» to read
+    expect(within(dialog).queryByText(/^Stand /)).toBeNull()
+  })
+  it('keeps the reason and «Neu berechnen» where hand-aligning cannot help', async () => {
+    const unreachable = { status: 'failed' as const, pairs: [], reason: 'reference_unreachable' }
+    vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item, ...unreachable }]))
+    vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...detail, ...unreachable })
+    render(<PlanAlignmentReview compact />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Gross anzeigen: Testobjekt · 2' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(/Gebäudedaten waren nicht erreichbar/)
+    expect(within(dialog).getByRole('button', { name: 'Neu berechnen' })).toBeTruthy()
   })
   it('opens the full instrument in a modal from the thumbnail and blocks approval there without the exact preview', async () => {
     vi.mocked(alignmentPreview).mockRejectedValue(new Error('offline'))
@@ -131,7 +157,6 @@ describe('alignment review wall', () => {
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByTestId('pairing')
     expect(within(dialog).queryByTestId('preview')).toBeNull()
-    expect(within(dialog).queryByRole('button', { name: 'Ausrichtung anpassen' })).toBeNull()
     const approve = within(dialog).getByRole('button', { name: 'Ausrichtung freigeben' })
     expect(approve.hasAttribute('disabled')).toBe(true) // no pairs yet
     fireEvent.click(within(dialog).getByRole('button', { name: 'pairs' }))

@@ -5,7 +5,7 @@ import { fitSimilarity } from '../lib/georef'
 import { alignmentThumbnail, type AlignmentItem } from './planAlignmentApi'
 
 /** An immediate action from a card footer (the modal carries the slow path). */
-export type CardDecision = 'undo' | 'retry'
+export type CardDecision = 'undo'
 /** A staged decision: nothing happens until «Übernehmen». */
 export type CardMark = 'yes' | 'no'
 
@@ -20,8 +20,8 @@ export function AlignmentGrid({ items, busy, markOf, onMark, onDecide, onOpen }:
   markOf: (item: AlignmentItem) => CardMark | null
   onMark: (item: AlignmentItem, mark: CardMark | null) => void
   onDecide: (item: AlignmentItem, decision: CardDecision) => void
-  /** open the full instrument; `byHand` = straight into reference-point pairing */
-  onOpen: (item: AlignmentItem, byHand?: boolean) => void
+  /** open the full instrument – it starts in the reference-point pairing, whatever the status */
+  onOpen: (item: AlignmentItem) => void
 }) {
   return <div className="adm-grid" role="list">
     {items.map(item => <AlignmentCard key={item.id} item={item} busy={busy.has(item.id)} mark={markOf(item)} onMark={onMark} onDecide={onDecide} onOpen={onOpen} />)}
@@ -36,11 +36,15 @@ const moduleCode = (module: string | null) => (module ?? '').replace(/^modul/, '
 const noProposal = new Set(['no_match', 'failed', 'unavailable', 'unsupported'])
 const waiting = new Set(['pending', 'processing'])
 
+/** The worker's `reason` key as the admin copy spells it – the raw key if a locale has none. */
+export const reasonText = (reason: string | null): string | null =>
+  reason ? (appConfig.copy.admin.alignment.reasons as Record<string, string>)[reason] ?? reason : null
+
 function AlignmentCard({ item, busy, mark, onMark, onDecide, onOpen }: {
   item: AlignmentItem; busy: boolean; mark: CardMark | null
   onMark: (item: AlignmentItem, mark: CardMark | null) => void
   onDecide: (item: AlignmentItem, decision: CardDecision) => void
-  onOpen: (item: AlignmentItem, byHand?: boolean) => void
+  onOpen: (item: AlignmentItem) => void
 }) {
   const C = appConfig.copy.admin.alignment
   const G = C.grid
@@ -58,7 +62,7 @@ function AlignmentCard({ item, busy, mark, onMark, onDecide, onOpen }: {
   const image = useThumbnail(item.id, card)
   const proposal = !noProposal.has(item.status) && !waiting.has(item.status)
   const coverage = item.coverage != null ? fillTemplate(G.coverage, { n: Math.round(item.coverage * 100) }) : null
-  const reason = item.reason ? (Object.entries(C.reasons).find(([key]) => key === item.reason)?.[1] ?? item.reason) : null
+  const reason = reasonText(item.reason)
   const label = `${item.object_name} · ${moduleCode(item.module)}`
   return <article ref={card} className={`adm-card${busy ? ' busy' : ''}${mark ? ` ${mark}` : ''}`} role="listitem" aria-label={label} aria-busy={busy}>
     <button type="button" className="adm-card-pic" onClick={() => onOpen(item)} aria-label={fillTemplate(G.open, { name: label })} disabled={busy}>
@@ -75,7 +79,7 @@ function AlignmentCard({ item, busy, mark, onMark, onDecide, onOpen }: {
         <button type="button" className="btn adm-card-yes" disabled={busy} aria-pressed={mark === 'yes'} aria-label={G.approve} title={G.approve} onClick={() => onMark(item, mark === 'yes' ? null : 'yes')}>✓</button>
         <button type="button" className="btn adm-card-no" disabled={busy} aria-pressed={mark === 'no'} aria-label={G.reject} title={G.reject} onClick={() => onMark(item, mark === 'no' ? null : 'no')}>✕</button>
       </>}
-      {noProposal.has(item.status) && <button type="button" className="btn" disabled={busy} onClick={() => onOpen(item, true)}>{G.byHand}</button>}
+      {noProposal.has(item.status) && <button type="button" className="btn" disabled={busy} onClick={() => onOpen(item)}>{G.byHand}</button>}
       {(item.status === 'approved' || item.status === 'rejected') && <button type="button" className="btn" disabled={busy} onClick={() => onDecide(item, 'undo')}>{G.undo}</button>}
       {waiting.has(item.status) && <span className="adm-hint">{C.status[item.status]}</span>}
     </div>
