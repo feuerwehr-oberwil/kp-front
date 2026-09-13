@@ -56,7 +56,7 @@ export default function AlignmentPreview({ item, pairs, imageUrl, opacity, manua
   useEffect(() => { if (loaded && bounds) mapRef.current?.fitBounds(bounds, { padding: 45, maxZoom: 19, duration: 0 }) }, [loaded, bounds])
 
   const planView = (
-    <div className="adm-align-paper">
+    <div className={`adm-align-paper${manual && !pendingPoint ? ' adm-align-turn' : ''}`}>
       <svg viewBox={`0 0 ${item.aspect ?? 1} 1`} role={manual ? 'button' : 'img'} tabIndex={manual ? 0 : undefined}
         aria-label={manual ? C.pickOnPlan : C.planPreview}
         onClick={manual ? e => {
@@ -75,15 +75,17 @@ export default function AlignmentPreview({ item, pairs, imageUrl, opacity, manua
           setCursor(p => ({ x: Math.max(0, Math.min(1, p.x + (e.key === 'ArrowRight' ? delta : e.key === 'ArrowLeft' ? -delta : 0))), y: Math.max(0, Math.min(1, p.y + (e.key === 'ArrowDown' ? delta : e.key === 'ArrowUp' ? -delta : 0))) }))
         } : undefined}>
         <image href={imageUrl} width={item.aspect ?? 1} height="1" preserveAspectRatio="none" />
-        {manual && pairs.filter(p => p.kind !== 'auto').map((p, i) => <g key={i}><circle cx={p.plan.x * (item.aspect ?? 1)} cy={p.plan.y} r=".016" fill="white" stroke="#1f6feb" strokeWidth=".005" /><text x={p.plan.x * (item.aspect ?? 1)} y={p.plan.y + .006} textAnchor="middle" fontSize=".019" fill="#164d9b">{i + 1}</text></g>)}
-        {manual && <circle cx={(pendingPoint ?? cursor).x * (item.aspect ?? 1)} cy={(pendingPoint ?? cursor).y} r=".012" fill="none" stroke="#1f6feb" strokeWidth=".004" />}
+        {manual && pairs.filter(p => p.kind !== 'auto').map((p, i) => <g key={i}><circle cx={p.plan.x * (item.aspect ?? 1)} cy={p.plan.y} r=".026" fill="white" stroke="#1f6feb" strokeWidth=".007" /><text x={p.plan.x * (item.aspect ?? 1)} y={p.plan.y + .011} textAnchor="middle" fontSize=".03" fontWeight="700" fill="#164d9b">{i + 1}</text></g>)}
+        {/* the half-set point: a filled pin on the plan that waits for its partner on the map */}
+        {manual && pendingPoint && <g><circle cx={pendingPoint.x * (item.aspect ?? 1)} cy={pendingPoint.y} r=".026" fill="#1f6feb" stroke="white" strokeWidth=".007" /><text x={pendingPoint.x * (item.aspect ?? 1)} y={pendingPoint.y + .011} textAnchor="middle" fontSize=".03" fontWeight="700" fill="white">{pairs.filter(p => p.kind !== 'auto').length + 1}</text></g>}
+        {manual && !pendingPoint && <g className="adm-align-crosshair"><circle cx={cursor.x * (item.aspect ?? 1)} cy={cursor.y} r=".02" fill="none" stroke="#1f6feb" strokeWidth=".005" /><line x1={cursor.x * (item.aspect ?? 1) - .03} x2={cursor.x * (item.aspect ?? 1) + .03} y1={cursor.y} y2={cursor.y} stroke="#1f6feb" strokeWidth=".004" /><line x1={cursor.x * (item.aspect ?? 1)} x2={cursor.x * (item.aspect ?? 1)} y1={cursor.y - .03} y2={cursor.y + .03} stroke="#1f6feb" strokeWidth=".004" /></g>}
       </svg>
     </div>
   )
 
   return <div className={`adm-align-preview${manual ? ' manual' : ''}`}>
     {(manual || !corners) && planView}
-    <div className="adm-align-map" aria-label={C.mapPreview}>
+    <div className={`adm-align-map${manual && pendingPoint ? ' adm-align-turn' : ''}`} aria-label={C.mapPreview}>
       <Map ref={mapRef} mapStyle={style} initialViewState={{ longitude: bounds ? (bounds[0][0] + bounds[1][0]) / 2 : 8.2275, latitude: bounds ? (bounds[0][1] + bounds[1][1]) / 2 : 46.8182, zoom: bounds ? 16 : 7 }}
         attributionControl={false} onLoad={() => setLoaded(true)} onError={() => setMapError(true)}
         onClick={e => { if (manual && pendingPoint) onMapPoint({ lng: e.lngLat.lng, lat: e.lngLat.lat }) }}
@@ -97,6 +99,7 @@ export default function AlignmentPreview({ item, pairs, imageUrl, opacity, manua
         {manual && pendingPoint && <button type="button" className="btn" onClick={() => { const c = mapRef.current?.getCenter(); if (c) onMapPoint({ lng: c.lng, lat: c.lat }) }}>{C.useMapCenter}</button>}
       </div>
       {manual && pendingPoint && <span className="adm-align-center" aria-hidden>+</span>}
+      {manual && !item.reference_rings.some(r => r.length >= 3) && <p className="adm-align-map-error" role="status">{C.noOutlines}</p>}
       {mapError && <p className="adm-align-map-error" role="status">{C.mapLoadFailed}</p>}
       <span className="adm-align-legend">{fillTemplate(C.legend, { source: sourceLabel })}</span>
     </div>

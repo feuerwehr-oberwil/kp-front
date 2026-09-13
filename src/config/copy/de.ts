@@ -6366,6 +6366,9 @@ export const de = {
         preparation_failed: 'Vorbereitung fehlgeschlagen – «Neu berechnen» versucht es erneut.',
         pdf_unavailable: 'Das PDF konnte nicht gelesen werden.',
       },
+      // Von Hand: die drei Kacheln über den beiden Flächen sagen, wer dran ist (AlignmentPreview)
+      steps: { label: 'Referenzpunkte setzen', plan: 'Punkt auf dem Plan antippen', map: 'Denselben Punkt auf der Karte antippen', count: 'von 2 Paaren', enough: 'Paare – Deckung prüfen, dann freigeben' },
+      noOutlines: 'Keine Gebäudeumrisse für dieses Blatt – nach dem Kartenbild ausrichten.',
       previewLoading: 'Planvorschau wird geladen …',
       previewFailed: 'Planvorschau konnte nicht geladen werden',
       planPreview: 'Planvorschau',

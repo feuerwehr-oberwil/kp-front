@@ -4041,6 +4041,8 @@ export const fr: Localizable<Copy> = {
         preparation_failed: 'Préparation échouée – «Recalculer» réessaie.',
         pdf_unavailable: 'Le PDF n’a pas pu être lu.',
       },
+      steps: { label: 'Placer des points de référence', plan: 'Toucher un point sur le plan', map: 'Toucher le même point sur la carte', count: 'sur 2 paires', enough: 'paires – vérifier la superposition, puis approuver' },
+      noOutlines: 'Pas de contours de bâtiments pour cette feuille – aligner sur l’image de la carte.',
       previewLoading: 'Chargement de l’aperçu du plan …',
       previewFailed: 'L’aperçu du plan n’a pas pu être chargé',
       planPreview: 'Aperçu du plan',

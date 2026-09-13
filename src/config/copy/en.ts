@@ -4235,6 +4235,8 @@ export const en: Localizable<Copy> = {
         preparation_failed: 'Preparation failed – “Recompute” tries again.',
         pdf_unavailable: 'The PDF could not be read.',
       },
+      steps: { label: 'Set reference points', plan: 'Tap a point on the plan', map: 'Tap the same point on the map', count: 'of 2 pairs', enough: 'pairs – check the fit, then approve' },
+      noOutlines: 'No building outlines for this sheet – align against the map image.',
       previewLoading: 'Loading plan preview …',
       previewFailed: 'Plan preview could not be loaded',
       planPreview: 'Plan preview',

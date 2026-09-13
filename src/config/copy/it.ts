@@ -4040,6 +4040,8 @@ export const it: Localizable<Copy> = {
         preparation_failed: 'Preparazione non riuscita – «Ricalcola» riprova.',
         pdf_unavailable: 'Il PDF non è stato leggibile.',
       },
+      steps: { label: 'Imposta punti di riferimento', plan: 'Tocca un punto sul piano', map: 'Tocca lo stesso punto sulla mappa', count: 'di 2 coppie', enough: 'coppie – verifica la sovrapposizione, poi approva' },
+      noOutlines: 'Nessun contorno di edifici per questo foglio – allinea sull’immagine della mappa.',
       previewLoading: 'Caricamento anteprima del piano …',
       previewFailed: 'Anteprima del piano non caricabile',
       planPreview: 'Anteprima del piano',

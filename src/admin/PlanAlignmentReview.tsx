@@ -274,6 +274,15 @@ function AlignmentDetail({ item, byHand = false, onChange, onApproved, onConflic
     <header><div><h3>{item.object_name} · {item.title || item.module}</h3><p>{fillTemplate(C.revisionPage, { version: item.plan_version, page: item.page + 1 })}</p></div><span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span></header>
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
     {reason && <p className="adm-align-notice">{reason}</p>}
+    {manual && editable && (() => {
+      const real = pairs.filter(p => p.kind !== 'auto').length
+      const done = real >= 2
+      return <ol className="adm-align-steps" aria-label={C.steps.label}>
+        <li className={!point && !done ? 'on' : real > 0 || point ? 'done' : ''}><b>1</b>{C.steps.plan}</li>
+        <li className={point ? 'on' : real > 0 ? 'done' : ''}><b>2</b>{C.steps.map}</li>
+        <li className={done ? 'on' : ''}><b>{real}</b>{done ? C.steps.enough : fillTemplate(C.steps.count, { n: real })}</li>
+      </ol>
+    })()}
     {imageFailed ? <p className="adm-state adm-state-err" role="alert">{C.previewFailed}</p> : image ? <Suspense fallback={<p className="adm-state">{C.loading}</p>}><Preview item={item} pairs={pairs} imageUrl={image} opacity={opacity} manual={manual} pendingPoint={point} onPlanPoint={setPoint} onMapPoint={lngLat => {
       if (!point) return
       const real = pairs.filter(p => p.kind !== 'auto')
