@@ -1062,7 +1062,10 @@ export function ReportPreflight({
       const ok = await confirmDialog({
         title: P.exportIncompleteTitle,
         message: P.exportIncompleteLead,
-        items: missing.map((st2) => A.steps[st2]),
+        // each open point is a ROW that goes there — the same jump the «noch offen» chip makes.
+        // Tapping one resolves the ask false: nothing prints while the operator is off filling
+        // the field in, and the «trotzdem» button below stays the one way to print regardless.
+        items: missing.map((st2) => ({ label: A.steps[st2], onClick: () => jumpToStep(st2) })),
         note: P.exportIncompleteMsg,
         confirmLabel: action === 'print' ? R.send : P.pdfFull,
         cancelLabel: appConfig.copy.cancel,

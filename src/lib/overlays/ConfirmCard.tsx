@@ -12,13 +12,20 @@ import { Dialog } from '@base-ui/react/dialog'
  * three hand-kept copies of the same fields, and adding `items` to the middle one only is how
  * an open-points list reaches the state and never the screen.
  */
+/**
+ * An open point that can be TAPPED. «Noch offen: Zeiten» named the gap and the operator closed the
+ * dialog and hunted for the Zeiten — the same failure the «noch offen» chips fixed on the sheet.
+ * Tapping resolves the ask `false` (going there is not going ahead) and then runs the action.
+ */
+export interface ConfirmItem { label: string; onClick: () => void }
+
 export interface ConfirmSpec {
   title?: string
   message: string
   /** the open points, as a LIST. «Noch offen: Zeiten, Mittel, Einsatzleiter, Kurzbericht,
    *  Rückmeldung ELZ. Trotzdem abschliessen? …» is a paragraph nobody reads to the end — and
    *  it is the one part of the sentence somebody has to act on, item by item. */
-  items?: string[]
+  items?: (string | ConfirmItem)[]
   /** the sentence AFTER the list — what happens if you go ahead anyway */
   note?: string
   confirmLabel: string
@@ -67,7 +74,18 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
               nobody at 3am */}
           {!!items?.length && (
             <ul className="confirm-list">
-              {items.map((it) => <li key={it}>{it}</li>)}
+              {items.map((it) => typeof it === 'string'
+                ? <li key={it}>{it}</li>
+                : (
+                  <li key={it.label} className="confirm-list-go">
+                    {/* a full-width row, not a link in a bullet: ≥44px so a thumb lands on it at
+                        3am, and the whole line is the target rather than the word alone */}
+                    <button type="button" className="confirm-list-btn" onClick={() => { onResolve(false); it.onClick() }}>
+                      <span>{it.label}</span>
+                      <span className="confirm-list-chev" aria-hidden="true">›</span>
+                    </button>
+                  </li>
+                ))}
             </ul>
           )}
           {note && <p className="confirm-note">{note}</p>}
