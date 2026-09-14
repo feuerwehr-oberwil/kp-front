@@ -211,12 +211,15 @@ const base = {
     // the generic vehicle glyph — placed copies render their (typed) name baked in,
     // exactly like the live GPS vehicles (see lib/useVehiclePositions · vehicleSymbolSvg)
     vehicleName: 'VKF Fahrzeug',
-    // detail fields that offer the Mannschaft roster as a combobox (person pickers)
-    rosterFields: ['Name', 'Fahrer', 'Stv.'],
+    // detail fields that offer the Mannschaft roster as a combobox (person pickers).
+    // «Bedienung» (14.09.) = the person operating a placed device – Lüfter, Pumpe, Absperrung …
+    // It is the LAST field of every manned preset below, so the existing caption/field order is
+    // untouched, and it marks the person present as «Bedienung Lüfter» (lib/roleAssignment).
+    rosterFields: ['Name', 'Fahrer', 'Stv.', 'Bedienung'],
     // symbols whose roster picker offers a "nur Offiziere" filter + officer-first order
     // (leadership glyphs where you pick the FU/EL/officer by name) — same toggle as the
     // Einsatzleiter picker in the Rapport preflight.
-    officerRosterSymbols: ['FW Offizier', 'VKF Einsatzleiter'],
+    officerRosterSymbols: ['FW Offizier', 'VKF Einsatzleiter', 'VKF KP Front'],
     // the orange ADR Warntafel symbol — when it carries a UN-Nr field, the icon renders
     // as a real plate with the Gefahrnummer (Kemler) over the UN number baked in (see
     // lib/placard · placardSvgForSymbol), the same way the vehicle bakes its name.
@@ -279,6 +282,11 @@ const base = {
     // the Einsatzleiter glyph. Its 'Name' field is the person in charge, so a Kroki that carries
     // one pre-fills the Rapport's Einsatzleiter (lib/report · einsatzleiterFromScene).
     einsatzleiterName: 'VKF Einsatzleiter',
+    // …and the glyphs whose Name/Stv. pair IS the Einsatzleiter and deputy (14.09.: the KP Front
+    // carries the same pair). Drives the EL/Stv. row labels + the ⇄ handover (ContextPanel) and
+    // the el role on the Anwesenheit (lib/roleAssignment). The EL glyph stays first: it wins the
+    // Rapport pre-fill.
+    einsatzleiterSymbols: ['VKF Einsatzleiter', 'VKF KP Front'],
     // NOTE: the old `rotatable` list is gone — a symbol is rotatable iff its preset
     // (below) lists 'rotation' in `controls`, so the drag-to-rotate handle and the
     // editor's Drehung stepper stay in sync from one source (see lib/symbols ·
@@ -415,6 +423,9 @@ const base = {
         'VKF Gefaehrliche Stoffe': { controls: ['floorRange', 'spread'], fields: ['Stoff'] },
         'VKF Wasser': { controls: ['floorRange', 'spread'] },
         'FW Gefahr Ex': { controls: ['floor'] },
+        // FKS Schlüsselstelle (library, previously category fallback): a tactically decisive spot
+        // somebody is posted at — keeps the Schadenlage storey, gains the Bedienung picker.
+        'FKS Schluesselstelle': { controls: ['floor'], fields: ['Bedienung'] },
         // ── Gefahren ── floor badge; hazmat seeds just the substance. The generic hazard
         // seeds a 'Gefahr' row (caption via fields[0]): the glyph alone says only «something
         // dangerous here» — WHAT it is («Einsturz», «Dachlawine») is the map's actual message.
@@ -435,32 +446,44 @@ const base = {
         'FW Gefahr Radioaktiv': { controls: ['floor'] },
         'FW Elektroanlage': { controls: ['floor'] },
         'FW Gefahr W': { controls: ['floor'] },
-        // ── Personen / Sanität ── the label/name says it; no fields, no count.
-        'VKF Patientensammelstelle': { controls: ['count', 'floor'] },
-        'VKF Sanitaetshilfsstelle': { controls: ['count', 'floor'] },
-        'VKF Totensammelstelle': { controls: ['count', 'floor'] },
-        'VKF Sammelstelle': { controls: ['count', 'floor'] },   // FKS: Unverletzte (see displayNames)
-        'FW Sammelplatz': {},
-        'FW Warteraum': {},
-        'FW Verwundetennest': { controls: ['count', 'floor'] },
+        // ── Personen / Sanität ── the label/name says it; no count on the plain places. A
+        // Sammelstelle is RUN by somebody (14.09.: «Bedienung» roster picker, last field).
+        'VKF Patientensammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },
+        'VKF Sanitaetshilfsstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },
+        'VKF Totensammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },
+        'VKF Sammelstelle': { controls: ['count', 'floor'], fields: ['Bedienung'] },   // FKS: Unverletzte (see displayNames)
+        'FW Sammelplatz': { fields: ['Bedienung'] },
+        'FW Warteraum': { fields: ['Bedienung'] },
+        'FW Verwundetennest': { controls: ['count', 'floor'], fields: ['Bedienung'] },
+        // ZS-Stellen (FireGIS library, previously no preset) – manned like the ones above.
+        'ZS Angehoerigensammelstelle': { fields: ['Bedienung'] },
+        'ZS Verpflegungsabgabestelle': { fields: ['Bedienung'] },
+        'ZS Betriebsstoffabgabestelle': { fields: ['Bedienung'] },
+        'ZS Dekontaminationsstelle': { fields: ['Bedienung'] },
         'VKF Bereich Sanitaet': { fields: ['Einheit'] },
-        // AED placard — floor only, like the other Wand-Piktogramme added 02.09.
+        // AED placard — floor only, like the other Wand-Piktogramme added 02.09. No Bedienung:
+        // the placard marks where the device hangs, nobody mans a wall sign.
         'FW AED': { controls: ['floor'] },
-        // ── Führung ── name is the info; only the two person symbols seed 'Name'.
-        'VKF KP Front': {},
+        // ── Führung ── name is the info; the person symbols seed 'Name', the posts a 'Bedienung'.
+        // KP Front carries the SAME pair as the Einsatzleiter glyph (14.09.): Name = the EL,
+        // Stv. = deputy, officer-first pickers, EL/Stv. row labels and the ⇄ handover — a Kroki
+        // that places the KP Front instead of the EL figure names the same two people.
+        'VKF KP Front': { fields: ['Name', 'Stv.'] },
         // Name = the Einsatzleiter (caption source, fields[0]); Stv. = deputy — both roster pickers
         // (officer-first, since VKF Einsatzleiter is in officerRosterSymbols).
         'VKF Einsatzleiter': { fields: ['Name', 'Stv.'] },
         // 'Funktion' = separate Führungsaufgabe picker (Front/SiBe/…); 'Name' stays the person
         // (roster-fed). Suggestion lists for 'Funktion' come from the deployment config, not code.
         'FW Offizier': { fields: ['Funktion', 'Name'] },
-        'VKF Kontrollposten': {},
-        'VKF Informationszentrum': {},
+        'VKF Kontrollposten': { fields: ['Bedienung'] },
+        'FKS Beobachtungsposten': { fields: ['Bedienung'] },
+        'VKF Informationszentrum': { fields: ['Bedienung'] },
         'VKF Bereich Materialdepot': {},
-        'FW Absperrung': { controls: ['rotation'] },
-        'VKF Verkehrssperre ueberwacht': { controls: ['rotation'] },
+        'FW Absperrung': { controls: ['rotation'], fields: ['Bedienung'] },
+        'VKF Verkehrssperre ueberwacht': { controls: ['rotation'], fields: ['Bedienung'] },
         // ── Fahrzeuge / Mittel ── operator-named; directional ones rotate. The driven vehicles
-        // (generic Fahrzeug, Drehleiter, Hubretter, Grosslüfter, Boot) also carry a Fahrer roster picker.
+        // (generic Fahrzeug, Drehleiter, Hubretter, Grosslüfter, Boot) also carry a Fahrer roster picker
+        // and NO Bedienung; every other device here carries «Bedienung» (14.09.) as its last field.
         // Drehleiter: composite body + independently-slewing ladder — `rotation` aims the truck,
         // `rotation2` aims the ladder (own rotor + Drehung stepper). Synthesised like the Grosslüfter
         // (see lib/symbolRender COMPOSITES).
@@ -472,29 +495,29 @@ const base = {
         // lib/symbolRender HubretterBoom.
         'VKF Hubretter': { controls: ['rotation'], fields: ['Fahrer'] },
         // Drohne: a hovering-asset marker — stays upright (no rotation), no fields.
-        'VKF Drohne': {},
+        'VKF Drohne': { fields: ['Bedienung'] },
         // generic vehicle: user-named (see lib/symbols) — title + a Fahrer picker; type lists via config
         'VKF Fahrzeug': { controls: ['rotation'], fields: ['Fahrer'] },
-        'VKF Pumpe Typ2': {},
+        'VKF Pumpe Typ2': { fields: ['Bedienung'] },
         // ⚠️ The kit below carries a STOREY (11.08.). A Lüfter, ein Exhauster, eine Tauchpumpe,
         // ein Handlöscher and ein Innenhydrant are placed INSIDE a building as often as outside
         // one — cellar work and stairwell ventilation are the normal case — and the storey was
         // the one thing the symbol could not say. The VEHICLES above deliberately keep none: a
         // Drehleiter stands in the street, and a control that is always empty is worse than none.
-        'FW Tauchpumpe': { controls: ['floor'] },
-        'FW Wassersauger': { controls: ['floor'] },
+        'FW Tauchpumpe': { controls: ['floor'], fields: ['Bedienung'] },
+        'FW Wassersauger': { controls: ['floor'], fields: ['Bedienung'] },
         'VKF Helilandeplatz': {},
-        'VKF Luefter mobil': { controls: ['rotation', 'airflow', 'floor'], fields: ['Typ'] },
+        'VKF Luefter mobil': { controls: ['rotation', 'airflow', 'floor'], fields: ['Typ', 'Bedienung'] },
         // composite vehicle-mounted Grosslüfter: body heading (rotation) + fan aim (rotation2),
         // each with its own on-canvas rotor + Drehung stepper, PLUS the Lüfter airflow direction
         // (Einblasen / Absaugen — reverses the fan glyph, same as the mobile Lüfter). Synthesised
         // in lib/useSymbols.
         'Grosslüfter': { controls: ['rotation', 'rotation2', 'airflow', 'floor'], fields: ['Fahrer'] },
-        'FW Entrauchung': { controls: ['rotation', 'floor'] },
-        'FW Kleinloeschgeraet': { controls: ['floor'], fields: ['Typ'] },
+        'FW Entrauchung': { controls: ['rotation', 'floor'], fields: ['Bedienung'] },
+        'FW Kleinloeschgeraet': { controls: ['floor'], fields: ['Typ', 'Bedienung'] },
         'FW Boot': { controls: ['rotation'], fields: ['Fahrer'] },
-        'FW Sprungretter': {},
-        'FW Leiter': { controls: ['rotation'] },
+        'FW Sprungretter': { fields: ['Bedienung'] },
+        'FW Leiter': { controls: ['rotation'], fields: ['Bedienung'] },
         // ── Wasser ── fixed supply points; the symbol is the info.
         'SI Ueberflurhydrant': {},
         'SI Unterflurhydrant': {},
@@ -690,6 +713,15 @@ const base = {
       { id: 'bereitstellung', label: 'Bereitstellung' },
       { id: 'anderes', label: 'Anderes' },
     ] as { id: EinfachAuftrag; label: string }[],
+    /** Ausrüstung a Trupp can take in (types · Trupp.equipment), as short labels — they print on
+     *  the card and the Rapport. National default; a station lists its own as `doctrine.equipment`
+     *  and reads it through `atemschutzEquipment()` in lib/deploymentConfig, never from here. The
+     *  three defaults localise through copy · atemschutz.equipmentLabels. */
+    equipment: [
+      { id: 'retthaube', label: 'Retthaube' },
+      { id: 'wbk', label: 'WBK' },
+      { id: 'multiwarn', label: 'Multiwarn' },
+    ] as { id: string; label: string }[],
   },
   // Mittel (material-use) catalogue defaults. A deployment overrides `catalogue`/`sources` via
   // its station config (DeploymentMittel); these national defaults give a usable picker out of

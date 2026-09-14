@@ -21,7 +21,6 @@ import { buzz } from '../lib/haptics'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
 import { nextTeamName } from '../lib/placedTrupps'
-import { TruppNo } from './TruppNo'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
@@ -42,8 +41,9 @@ import { ShapeGlyph, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
+import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
@@ -225,6 +225,9 @@ interface Props {
    *  registered finds its Trupp afterwards, instead of having to be deleted and re-placed — which
    *  on a plan chip would throw away its recorded trail. Absent ⇒ no picker (read-only / locked). */
   onTeamTrupp?: (annoId: string, truppId: string | undefined) => void
+  /** «Neuer Trupp» on that same menu: open the Anmeldung for a Trupp that adopts this chip on
+   *  save (IncidentWorkspace · newTruppFromMarker). Absent ⇒ no row. */
+  onTeamNewTrupp?: (annoId: string) => void
   /** «Leitung wählen» is armed: the next tap on a drawn line reports it here (and links it to the
    *  waiting Trupp) instead of selecting it. Undefined = normal selection. */
   onPickLine?: (annoId: string) => void
@@ -243,6 +246,12 @@ interface Props {
   objectName?: string | null
   /** the object's street address — what the chip over the plans reads (see objectChip) */
   objectAddress?: string | null
+  /** set when the AUTO-surfaced object is only the nearest one with plans, not the incident's
+   *  own address – the chip turns amber and reads the distance (lib/useObjectPlans) */
+  objectNearby?: { distanceM: number; objectId: string } | null
+  /** the Einsatz the banner's dismissal is remembered for, and the address it contrasts with */
+  incidentId?: string
+  incidentAddress?: string | null
   /** anchor for «Automatisch ausrichten» — the active object's coordinate (else the Einsatzort);
    *  the backend fetches its OSM building reference box around it (lib/georefSuggest) */
   georefAnchor?: LngLat | null
@@ -290,7 +299,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, onTeamTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -1119,8 +1128,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   /** Same «Ring lädt, dann schnappt es» machine as the Lage map's `updateDraftMagnet`, in board px.
    *  `phase` is the whole difference between the two behaviours: a pointerDOWN that lands on a
    *  target is deliberate aim and arms at once (the line-START exception — you put your finger on
-   *  the Teilstück's prong because that is where the branch begins); everything acquired later in
-   *  the same stroke has to hold still for `MAGNET_DWELL_MS` first.
+   *  the Teilstück's prong because that is where the branch begins); a SYMBOL acquired later in
+   *  the same stroke has to hold still for `MAGNET_DWELL_MS` first, a LINE target acquired later
+   *  arms at once (lib/lineAttachments · dwellFor).
    *
    *  `atStart` is the caller's claim on pointerDOWN only. A MOVE re-derives it from the stroke's
    *  own first point — the map's rule — so it is not passed there. */
@@ -1150,15 +1160,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const nowAtStart = cur.atStart && distance(firstPx, pointer) < STROKE_START_RADIUS_PX && !draftAttachments.current.startAttachment
     const candidate = stickyMagneticTarget(pointer, targets, cur.candidate?.key ?? null)
     const base = nowAtStart === cur.atStart ? cur.dwell : EMPTY_DWELL
-    const next: PlanDraftMagnet = { first, point, atStart: nowAtStart, candidate, dwell: advanceDwell(base, candidate?.key ?? null, Date.now()) }
+    const next: PlanDraftMagnet = { first, point, atStart: nowAtStart, candidate, dwell: advanceDwell(base, candidate, Date.now()) }
     setPlanDraftMagnet(next)
+    // a line target arms on acquisition (dwellFor = 0) — one buzz, as the closed ring gives
+    if (next.dwell.armed && !base.armed) buzz()
     // arm on a motionless finger (no pointermove ⇒ no advanceDwell); the attachment itself is
     // only written on release, so moving on after arming still lets the end go free.
     if (candidate && !next.dwell.armed) planDraftTimer.current = setTimeout(() => {
       const now = planDraftMagnet.current
       if (!now || now.candidate?.key !== candidate.key) return
       setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); buzz()
-    }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - next.dwell.since)))
+    }, Math.max(0, dwellFor(candidate) - (Date.now() - next.dwell.since)))
   }
   const finishPlanDraftMagnet = () => {
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
@@ -1791,15 +1803,17 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       }
       const targets = planCandidatesAt(st.id, pointer)
       const candidate = stickyMagneticTarget(pointer, targets, magnetic.candidate?.key ?? null)
-      const dwell = advanceDwell(magnetic.dwell, candidate?.key ?? null, Date.now())
+      const dwell = advanceDwell(magnetic.dwell, candidate, Date.now())
       setPlanEndpointDrag({ ...magnetic, point, candidate, dwell })
+      // a line target arms on acquisition (dwellFor = 0): the haptic says so, as the timer does
+      if (dwell.armed && !magnetic.dwell.armed) buzz()
       // a finger that has found its target stops moving — and then nothing but this timer can
       // close the ring (the visible fill is its CSS twin)
       if (candidate && !dwell.armed) planDwellTimer.current = setTimeout(() => {
         const cur = planEndpointDrag.current
         if (!cur || cur.candidate?.key !== candidate.key) return
         setPlanEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } }); buzz()
-      }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - dwell.since)))
+      }, Math.max(0, dwellFor(candidate) - (Date.now() - dwell.since)))
       return
     }
     if (!st.moved) { pushPast(); st.moved = true; st.pushed = true }
@@ -2883,26 +2897,62 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Everywhere else it stays: on a plan page nothing else names the object the sheet belongs to.
   // Field feedback 25.08.
   const objectChipHidden = osm || !!active.floorStack || active.id === 'tafel'
+  // A nearby-only object (the nearest one with plans, not the Einsatzadresse) is a warning the
+  // chip carries itself: amber, the warn glyph, and the distance after the address. Short on
+  // the pill, the full sentence in the label – the chip only hints, the reader gets the meaning.
+  const nearbyDist = objectNearby ? fmtDistance(objectNearby.distanceM) : null
+  const objectChipText = nearbyDist
+    ? fillTemplate(appConfig.copy.whiteboard.objectNearby, { name: objectChipName, distance: nearbyDist })
+    : objectChipName
+  const objectChipLabel = nearbyDist
+    ? fillTemplate(appConfig.copy.whiteboard.objectNearbyLabel, { distance: nearbyDist })
+    : onObjectSwitch
+      ? fillTemplate(appConfig.copy.whiteboard.objectSwitch, { name: objectChipName })
+      : fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName })
   const objectChip = objectChipHidden ? null : (
     <button
       type="button"
-      className="wb-scale-chip wb-object"
+      className={`wb-scale-chip wb-object${nearbyDist ? ' wb-object-nearby' : ''}`}
       // «Objekt» named the field, which is the one thing the value already says — a plan set
       // belongs to an Einsatzobjekt and nothing else in this corner is a place name. The chevron
       // went with it: everywhere else in this app it opens a popover under the control, and here
       // it opened a full modal with a search field and a map. What is left is the fact itself.
       // The verb lives in the label a screen reader reads, where it was missing entirely.
-      aria-label={onObjectSwitch
-        ? fillTemplate(appConfig.copy.whiteboard.objectSwitch, { name: objectChipName })
-        : fillTemplate(appConfig.copy.whiteboard.objectIs, { name: objectChipName })}
-      title={onObjectSwitch ? appConfig.copy.whiteboard.objectSwitchShort : undefined}
+      aria-label={objectChipLabel}
+      title={nearbyDist ? objectChipLabel : onObjectSwitch ? appConfig.copy.whiteboard.objectSwitchShort : undefined}
       disabled={!onObjectSwitch}
       onClick={onObjectSwitch}
     >
-      <Icon id="footprint" />
-      <span>{objectChipName}</span>
+      <Icon id={nearbyDist ? 'warn' : 'footprint'} />
+      <span>{objectChipText}</span>
     </button>
   )
+
+
+  // The banner half of the same warning (owner, 14.09.): the chip is permanent but small, and at
+  // 3am a small amber pill is not a sentence. So the first time a plan of a merely-nearby object
+  // is opened in this Einsatz, a banner over the sheet says both addresses side by side and
+  // offers the picker. ✕ is remembered per Einsatz and object (lib/nearbyBanner) – after that
+  // only the chip keeps saying it. Hidden where the chip is hidden: nothing there is that
+  // object's plan.
+  const bannerKey = objectNearby && incidentId ? nearbyBannerKey(incidentId, objectNearby.objectId) : null
+  const [bannerGone, setBannerGone] = useState<string | null>(null)
+  const nearbyBanner = bannerKey && nearbyDist && !objectChipHidden && bannerGone !== bannerKey && !nearbyBannerDismissed(bannerKey) ? (
+    <div className="wb-nearby-banner" role="status">
+      <Icon id="warn" />
+      <span className="wb-nearby-text">
+        <b>{appConfig.copy.whiteboard.nearbyBannerTitle}</b>{' '}
+        {fillTemplate(appConfig.copy.whiteboard.nearbyBannerBody, { incident: incidentAddress || appConfig.copy.whiteboard.nearbyBannerNoAddress, object: objectChipName, distance: nearbyDist })}
+      </span>
+      {onObjectSwitch && (
+        <button type="button" className="wb-nearby-switch" onClick={onObjectSwitch}>{appConfig.copy.whiteboard.objectSwitchShort}</button>
+      )}
+      <button
+        type="button" className="wb-nearby-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog}
+        onClick={() => { dismissNearbyBanner(bannerKey); setBannerGone(bannerKey) }}
+      ><Icon id="close" /></button>
+    </div>
+  ) : null
 
   // ── The way between the two faces of the ONE «Gebäude» tile ────────────────────────────────
   // The rail lists one entry for the outline picker and the floor stack (lib/useObjectPlans ·
@@ -2937,6 +2987,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         {/* a viewer-only document is still one of THIS object's plans — the chip belongs on it
             too, or the read-out would blink out on exactly the plans nobody can annotate. No
             Maßstab beside it here: there is nothing to calibrate on a document. */}
+        {nearbyBanner}
         <div className="wb-botleft">{objectChip}</div>
         <PdfScroller key={active.id} url={planUrl(active.imageUrl)} />
       </div>
@@ -3054,8 +3105,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 its red twin at the socket an attached endpoint is being pulled out of (only a full
                 one releases). The key carries `since`, so re-entering the same target restarts the
                 CSS fill. Cycle-forming targets never make the candidate list, so no blocked state.
-                The explicit «Verbindung lösen» chip on a selected endpoint stays as it was. */}
-            {planEndpointDragState?.candidate && (
+                The explicit «Verbindung lösen» chip on a selected endpoint stays as it was.
+                ⚠️ No ring for a LINE target (dwellFor = 0): it attaches the instant it is
+                acquired, so there is no fill to picture — Karte parity. */}
+            {planEndpointDragState?.candidate && dwellFor(planEndpointDragState.candidate) > 0 && (
               <span key={`${planEndpointDragState.candidate.key}:${planEndpointDragState.dwell.since}`} className="magnet-anchor wb-magnet"
                 style={{ left: planEndpointDragState.candidate.point[0], top: planEndpointDragState.candidate.point[1] }}>
                 <ConnectRing since={planEndpointDragState.dwell.since} armed={planEndpointDragState.dwell.armed} />
@@ -3067,7 +3120,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 <NodeDeleteChip tone="release" progress={planEndpointDragState.detach} />
               </span>
             )}
-            {planDraftMagnetState?.candidate && (
+            {planDraftMagnetState?.candidate && dwellFor(planDraftMagnetState.candidate) > 0 && (
               <span key={`${planDraftMagnetState.candidate.key}:${planDraftMagnetState.dwell.since}`} className="magnet-anchor wb-magnet"
                 style={{ left: planDraftMagnetState.candidate.point[0], top: planDraftMagnetState.candidate.point[1] }}>
                 <ConnectRing since={planDraftMagnetState.dwell.since} armed={planDraftMagnetState.dwell.armed} />
@@ -3490,7 +3543,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     return (
                       <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                         <i /><b>{a.text}</b>
-                        {a.truppId && <TruppNo no={trupps.find((t) => t.id === a.truppId)?.no} />}
                       </span>
                     )
                   }
@@ -3518,6 +3570,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         // an empty name keeps the old one — a blank chip is nobody
                         rename: (name) => patchCommit(a.id, { text: name || a.text }),
                         pick: onTeamTrupp && ((truppId) => onTeamTrupp(a.id, truppId)),
+                        newTrupp: onTeamNewTrupp && (() => onTeamNewTrupp(a.id)),
                         mark: markPosition,
                         clearTrail: () => void clearTrail(),
                         remove: () => void removeWithConnections(a),
@@ -4264,6 +4317,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           job, with the louder of the two sitting on the corner of the plan that is actually looked
           at. One family now, one corner — and the building switch joined it rather than earning a
           rail tile of its own. */}
+      {!georefArmed && nearbyBanner}
       <div className="wb-botleft">
       {/* ⚠️ While «Karte verknüpfen» is armed, this row carries the INSTRUMENT and nothing else.
           One mode, one indicator: the chip that armed the mode is the thing that now says what

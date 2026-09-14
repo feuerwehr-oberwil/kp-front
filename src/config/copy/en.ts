@@ -975,6 +975,12 @@ export const en: Localizable<Copy> = {
     legendPendenzOpen: 'Open item',
     legendPendenzUrgent: 'Open item — urgent',
     legendPendenzDone: 'Open item — done',
+    search: 'Search the log',
+    searchPlaceholder: 'Search …',
+    searchClose: 'Close search',
+    searchCount: '{n} of {m}',
+    searchEmpty: 'Nothing for «{q}»',
+    searchEmptyHint: 'Searches the text as well as the names of people and teams. One typo is forgiven.',
 
     stripLabel: 'Timeline — tap to jump to the matching place',
     photoOpen: 'View the photo large',
@@ -1085,6 +1091,17 @@ export const en: Localizable<Copy> = {
       bereitstellung: 'Standby',
       anderes: 'Other',
     },
+    equipmentLabels: {
+      retthaube: 'Rescue hood',
+      wbk: 'WBK',
+      multiwarn: 'Multiwarn',
+    },
+    equipmentLabel: 'Equipment',
+    equipmentShort: {
+      retthaube: 'RH',
+      wbk: 'WBK',
+      multiwarn: 'MW',
+    },
     zielLabel: 'Assignment / target',
     // ONE placeholder for every kind of team and every Auftrag (see de.ts): a storey reference
     // was SCBA vocabulary and read as nonsense under «Traffic».
@@ -1142,7 +1159,6 @@ export const en: Localizable<Copy> = {
     // …and when that grip is withheld: the other team is deployed, its contact clock running
     assignedConflictDeployed: '{name} is in a team that is deployed.',
     saveBlockedTeam: 'Add a team leader first.',
-    saveBlockedAuftragMissing: 'Task is missing.',
     saveBlockedAuftrag: '«Other» needs a task/target text.',
     saveBlockedPressure: 'Entry pressure is missing.',
     cancel: 'Cancel',
@@ -1324,6 +1340,8 @@ export const en: Localizable<Copy> = {
     changeFunkkanalSet: 'Radio channel {n} set',
     changeFunkkanalCleared: 'Radio channel removed',
     changeColor: 'Colour changed',
+    changeEquipment: 'Equipment: {list}',
+    changeEquipmentNone: 'Equipment: none',
     changePressure: 'Entry pressure {from} → {to} bar',
     // a cylinder opened just now has no «from» — and going the other way the fragment is dropped
     // entirely (see the German base)
@@ -1598,6 +1616,11 @@ export const en: Localizable<Copy> = {
     objectIs: 'Object: {name}',
     objectSwitch: 'Object: {name} – choose another object',
     objectSwitchShort: 'Choose another object',
+    objectNearby: '{name} · {distance} away',
+    objectNearbyLabel: 'Nearest object, {distance} away – not the incident address',
+    nearbyBannerTitle: 'Nearest object, not the incident address.',
+    nearbyBannerBody: 'Incident: {incident} · plan: {object} ({distance}).',
+    nearbyBannerNoAddress: 'no address',
     objectActive: 'Plans of "{name}"',
     objectReset: 'Reset to the next object',
     objectSwitchConfirmTitle: 'Load another object',
@@ -2767,6 +2790,7 @@ export const en: Localizable<Copy> = {
     roleEinsatzleiterStv: 'Deputy incident commander',
     roleEinsatzleiterStvShort: 'Dep. IC',
     roleFahrer: 'Driver {vehicle}',
+    roleBedienung: 'Operator {symbol}',
     roleOffizier: 'Officer {funktion}',
     roleAtemschutz: 'SCBA',
     roleTrupp: 'Team',

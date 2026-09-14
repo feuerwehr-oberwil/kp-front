@@ -1113,7 +1113,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => addPlanBindings(prev, proposed)) },
     legacyPlanIds,
@@ -1406,6 +1406,9 @@ export function IncidentWorkspace({
    *  twice points again. Pointing is a gesture, not durable state; AtemschutzView clears its
    *  highlight on its own timer. */
   const [truppFocus, setTruppFocus] = useState<{ id: string; nonce: number } | null>(null)
+  /** «Neuer Trupp» from a loose marker/chip (14.09.): open the Anmeldung, and on save the new
+   *  Trupp adopts that marker. Same nonce grammar as `truppFocus` — a repeat tap opens again. */
+  const [truppCreate, setTruppCreate] = useState<{ nonce: number; adoptMarkerId: string } | null>(null)
 
   // a tapped system notification (handled in public/sw-notify.js) posts here to open the
   // relevant tab — an Atemschutz alarm jumps to the Atemschutz view, a due Wiedervorlage
@@ -3562,6 +3565,26 @@ export function IncidentWorkspace({
         else focusEntity(entityId)
       },
     })
+  /** The card's / the form's half of a marker join. A Trupp that was JUST registered is not in
+   *  the hook's `trupps` until the next render, so its adopt waits one render (pendingAdopt);
+   *  an existing Trupp joins straight away. */
+  const [pendingAdopt, setPendingAdopt] = useState<{ truppId: string; markerId: string } | null>(null)
+  const adoptMarkerA = (truppId: string, markerId: string) => {
+    if (trupps.some((t) => t.id === truppId)) void adoptTruppMarker(truppId, markerId)
+    else setPendingAdopt({ truppId, markerId })
+  }
+  useEffect(() => {
+    if (!pendingAdopt || !trupps.some((t) => t.id === pendingAdopt.truppId)) return
+    setPendingAdopt(null)
+    void adoptTruppMarker(pendingAdopt.truppId, pendingAdopt.markerId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAdopt, trupps])
+  /** «Neuer Trupp» on a loose marker's join sheet (both surfaces): to the board, form open,
+   *  and the marker waits for the save. */
+  const newTruppFromMarker = (markerId: string) => {
+    setMode('atemschutz'); setPanel(null)
+    setTruppCreate({ nonce: Date.now(), adoptMarkerId: markerId })
+  }
   // where a Trupp can actually go: always the Lage map (outdoor teams), plus the Gebäude
   // floor-stack ONLY once it's been created from the Umrisse (building != null), plus Modul 6
   // ONLY if this object has that plan. ≥1 target always — the picker adapts (1 → place
@@ -4282,7 +4305,7 @@ export function IncidentWorkspace({
       placeTargets={placeTargets}
       // the Trupp symbols already standing on Lage/plan, offered under the placement targets
       markerOptions={truppMarkerOptions}
-      adoptMarker={(truppId, markerId) => void adoptTruppMarker(truppId, markerId)}
+      adoptMarker={adoptMarkerA}
       focusTruppOnPlan={focusTruppOnPlan}
       recordContact={recordContact}
       recordPressure={recordPressure}
@@ -4307,6 +4330,7 @@ export function IncidentWorkspace({
       graceSec={azGraceSec}
       defaultFunkkanal={azFunkkanal}
       focus={truppFocus}
+      createRequest={truppCreate}
       // «Überwachung abgeben» — the QR beside the bell, on the page the FU is standing on when
       // they decide to hand the Tafel over. Same sheet as the Einsatz-Karte's «Teilen», opened
       // on its «Nur Atemschutz» half.
@@ -4426,6 +4450,7 @@ export function IncidentWorkspace({
             if (truppId) void adoptTruppMarker(truppId, entityId)
             else releaseTruppMarker(entityId)
           }}
+          onTeamNewTrupp={tacticalLocked ? undefined : newTruppFromMarker}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
           // ⚠️ The LAST colour picker in the app (04.09.): the marker on the Karte, and only it.
           // The Trupp form stopped asking, the plan chip and both mirrors never offer it — this
@@ -5409,6 +5434,10 @@ export function IncidentWorkspace({
           // the rail lists). A link session is bound to one object, so it gets no switch.
           objectName={activeObjectName}
           objectAddress={activeObjectAddress}
+          // only the AUTO-surfaced object can be «merely nearby»; a manual pick is the operator's
+          objectNearby={activeObjectNearby}
+          incidentId={incidentMeta.id}
+          incidentAddress={incidentMeta.address}
           // the anchor «Automatisch ausrichten» fetches its OSM reference box around: the active
           // object's own coordinate, else the Einsatzort (they coincide for a near object)
           georefAnchor={activeObjectPos ?? incidentView.center}
@@ -5592,6 +5621,7 @@ export function IncidentWorkspace({
             if (truppId) void adoptTruppMarker(truppId, annoId)
             else releaseTruppMarker(annoId)
           }}
+          onTeamNewTrupp={tacticalLocked ? undefined : newTruppFromMarker}
           onPickLine={linePickTrupp ? onLinePicked : undefined}
           onLinkLineTrupp={(annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
           onLineRenumber={syncLineNoToTrupp}
@@ -5695,6 +5725,7 @@ export function IncidentWorkspace({
           onSave={saveMittel}
           captureUsage={captureUsage}
           placedSymbols={placedSymbols}
+          trupps={effTrupps}
         />
       ))}
 

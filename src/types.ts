@@ -850,7 +850,7 @@ export type TruppAuftrag = AtemschutzAuftrag | EinfachAuftrag
  *  while it is being edited, and asked again for each re-deployment — a crew that fought the fire
  *  under PA goes back in to clear up without it. `editTrupp` and `reactivateTrupp` each own what
  *  that change writes, because it starts or stops a safety watch (see Trupp.kind). */
-export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind }
+export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[] }
 
 /**
  * One Beilage to the Einsatzrapport — a photo that belongs to the REPORT rather than to the
@@ -986,6 +986,11 @@ export interface Trupp {
   lineNumber?: string
   /** Funkkanal the Trupp is on; seeded from the synced default (FKS-Standard: 11) */
   funkkanal?: number
+  /** Ausrüstung the Trupp carries in — ids from the station's list (config · atemschutz.equipment,
+   *  overridable as `doctrine.equipment`; labels resolve through lib/report · truppEquipmentLabels).
+   *  Absent = nothing recorded. Written by useTruppActions · setTruppEquipment; synced like every
+   *  other Trupp field (mergeWorkspace is field-wise per object). */
+  equipment?: string[]
   /** Where this card sits when the board is ordered by hand (Reihenfolge · «Wie gesetzt»).
    *  SYNCED, not a device pref: two operators looking at the same board have to see the same
    *  board. Absent on older Trupps — they fall back to their position in the list, which is the

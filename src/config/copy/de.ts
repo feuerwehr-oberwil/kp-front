@@ -1459,6 +1459,17 @@ export const de = {
     legendPendenzOpen: 'Pendenz offen',
     legendPendenzUrgent: 'Pendenz dringend',
     legendPendenzDone: 'Pendenz erledigt',
+    // ── Suche ─────────────────────────────────────────────────────────────────────────────
+    // The lens beside the legend. Tapped, the search field REPLACES the head row until its ✕
+    // closes it (mock verlauf-02, 14.09.). Filters live, with the person search's tolerance
+    // (lib/journalSearch): umlauts either way, one typo from four letters, every word must match.
+    search: 'Im Verlauf suchen',
+    searchPlaceholder: 'Suchen …',
+    searchClose: 'Suche schliessen',
+    // «2 von 42» – matching rows of all rows, live while typing
+    searchCount: '{n} von {m}',
+    searchEmpty: 'Nichts zu «{q}»',
+    searchEmptyHint: 'Gesucht wird im Text sowie in Namen von Personen und Trupps. Ein Tippfehler ist erlaubt.',
     // ── Pendenzen ─────────────────────────────────────────────────────────────────────────
     // The ○ switch beside the Art chips. THREE states on one control; the accessible name says
     // what a tap will leave behind, because the ring alone cannot.
@@ -1631,6 +1642,24 @@ export const de = {
       bereitstellung: 'Bereitstellung',
       anderes: 'Anderes',
     } as Record<string, string>,
+    // DISPLAY labels for the shipped Ausrüstung ids (config · atemschutz.equipment), same
+    // arrangement as auftragLabels: the stored value is the id, a station's own list (doctrine ·
+    // equipment) carries its labels itself and falls back to the config label when a key is missing
+    // (lib/report · truppEquipmentLabels).
+    equipmentLabels: {
+      retthaube: 'Retthaube',
+      wbk: 'WBK',
+      multiwarn: 'Multiwarn',
+    } as Record<string, string>,
+    // Das Feld im Trupp-Formular (nur unter Atemschutz) – Mehrfach-Chips aus atemschutzEquipment()
+    equipmentLabel: 'Ausrüstung',
+    // KURZ-Tags für die Kennzeile der Karte, pro geliefertem Id; eine Station-eigene Id ohne
+    // Eintrag hier zeigt ihr volles Label (AtemschutzView · TruppCard)
+    equipmentShort: {
+      retthaube: 'RH',
+      wbk: 'WBK',
+      multiwarn: 'MW',
+    } as Record<string, string>,
     zielLabel: 'Auftrag / Ziel',
     // EIN Platzhalter für jede Art – bis 03.09. stand hier «z. B. 2OG links» und nur bei Art
     // «Anderes» der allgemeine Satz. Ein Stockwerk ist Atemschutz-Vokabular: unter Art «Verkehr»
@@ -1778,11 +1807,10 @@ export const de = {
     // short toast alongside the flash on the field itself, so a blocked tap explains itself
     // instead of just sitting there. One per reason, in the same order canSubmit checks them.
     saveBlockedTeam: 'Zuerst einen Gruppenführer eintragen.',
-    // ⚠️ Beim ANMELDEN ist der Auftrag Pflicht (04.09., Feldtest): ein Trupp ohne Auftrag ist eine
-    // Karte, die nicht sagt, wofür die Mannschaft drin ist – und im Rapport eine Zeile, die
-    // niemand mehr rekonstruieren kann. Nur beim Anlegen: an einem laufenden Trupp darf das
-    // Bearbeiten nie blockieren (dort führt die Karte die Lücke als «Auftrag offen»).
-    saveBlockedAuftragMissing: 'Auftrag fehlt.',
+    // Der Auftrag blockiert das Anmelden NICHT (14.09., Feldentscheid – hebt die Pflicht vom
+    // 04.09. wieder auf): ein Trupp wird bereitgestellt und bekommt seinen Auftrag oft erst
+    // später über «Bearbeiten»; die Karte führt die Lücke als «Auftrag offen». Nur «Anderes»
+    // braucht sein Wort, weil die Kachel allein nichts sagt.
     saveBlockedAuftrag: '«Anderes» braucht einen Auftrag/Ziel-Text.',
     saveBlockedPressure: 'Eingangsdruck fehlt.',
     cancel: 'Abbrechen',
@@ -2147,6 +2175,11 @@ export const de = {
     changeFunkkanalSet: 'Funkkanal {n} gesetzt',
     changeFunkkanalCleared: 'Funkkanal entfernt',
     changeColor: 'Farbe geändert',
+    // Die Ausrüstung, als Liste der Kurzlabels – oder «keine», wenn alles abgewählt wurde: eine
+    // Zeile «Ausrüstung:» ohne Wort dahinter liest sich wie ein abgebrochener Satz
+    // (useTruppActions · setTruppEquipment).
+    changeEquipment: 'Ausrüstung: {list}',
+    changeEquipmentNone: 'Ausrüstung: keine',
     // A corrected Eingangsdruck names BOTH numbers: the record has to show what it used to say,
     // because everything derived from it (Verbrauch, tiefster Druck) was computed from the old one.
     changePressure: 'Eingangsdruck {from} → {to} bar',
@@ -2619,6 +2652,15 @@ export const de = {
     objectIs: 'Einsatzobjekt: {name}',
     objectSwitch: 'Einsatzobjekt: {name} – anderes Objekt wählen',
     objectSwitchShort: 'Anderes Objekt wählen',
+    // The auto-surfaced object is only the NEAREST one with plans, not the Einsatzadresse: the
+    // chip turns amber and carries the distance; the full sentence is what a screen reader gets.
+    objectNearby: '{name} · {distance} entfernt',
+    objectNearbyLabel: 'Nächstes Objekt in {distance} – nicht die Einsatzadresse',
+    // …and a banner over the sheet, once per Einsatz and object (Whiteboard · nearbyBanner): both
+    // addresses side by side, a door to the picker. After ✕ only the chip keeps saying it.
+    nearbyBannerTitle: 'Nächstes Objekt, nicht die Einsatzadresse.',
+    nearbyBannerBody: 'Einsatz: {incident} · Plan: {object} ({distance}).',
+    nearbyBannerNoAddress: 'ohne Adresse',
     objectActive: 'Pläne von «{name}»',
     objectReset: 'Auf nächstes Objekt zurücksetzen',
     // tapping an object in the picker swaps the plans of EVERY module at once, so it
@@ -4458,6 +4500,9 @@ export const de = {
     roleEinsatzleiterStv: 'Stv. Einsatzleiter',
     roleEinsatzleiterStvShort: 'Stv. EL',
     roleFahrer: 'Fahrer {vehicle}',
+    // «Bedienung» on a placed device (Lüfter, Pumpe, Absperrung …) – the person operating it,
+    // built like «Fahrer TLF»: the word plus the symbol's own label.
+    roleBedienung: 'Bedienung {symbol}',
     // the Funktion written on an Offizier-Symbol, forwarded to that person's Anwesenheits-
     // Bemerkung — «Offizier SiBe», «Offizier Lüften». Without one: just «Offizier».
     roleOffizier: 'Offizier {funktion}',

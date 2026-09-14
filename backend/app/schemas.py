@@ -765,6 +765,10 @@ class ReferenceDatasetOut(BaseModel):
 class ObjectWithPlans(ObjectOut):
     plans: list[ReferenceDatasetOut] = []
     distance_m: float | None = None
+    # True when the incident's address matched this object's address (objects_near_incident);
+    # False when it was surfaced by proximity alone – the plan rail warns then, because a plan of
+    # the neighbour looks exactly like a plan of the building on fire. None outside that endpoint.
+    address_match: bool | None = None
 
 
 class PlanSourcesOut(BaseModel):
@@ -1096,6 +1100,14 @@ class FleetConfig(BaseModel):
     partner: FleetPartner = Field(default_factory=FleetPartner)
 
 
+class EquipmentItem(BaseModel):
+    """One entry of ``doctrine.equipment`` — the id a Trupp stores, the label people read."""
+
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(min_length=1, max_length=40)
+    label: str = Field(min_length=1, max_length=40)
+
+
 class DoctrineConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultFunkkanal: int | None = None
@@ -1138,6 +1150,10 @@ class DoctrineConfig(BaseModel):
     # The colour a Trupp with that order STARTS in; it stays overridable per Trupp. Absent/empty
     # keeps the automatic behaviour (every Trupp a different colour from the palette).
     auftragColors: dict[str, str] | None = None
+    # The station's Ausrüstung list for a Trupp — short labels, as they print on the card and the
+    # Rapport («Retthaube», «WBK»). Absent/empty keeps the shipped default (src/config/appConfig.ts ·
+    # atemschutz.equipment). Declared here because ``extra="ignore"`` would otherwise drop it on save.
+    equipment: list[EquipmentItem] | None = None
 
     @model_validator(mode="after")
     def _pressure_lines_stay_in_range(self, info: ValidationInfo) -> "DoctrineConfig":
@@ -1533,6 +1549,13 @@ class MittelItem(BaseModel):
     # has to exist here or the whole mapping vanishes between the file and the app — the same way
     # the demo's doctrine block did.
     when: dict[str, str] | list[dict[str, str]] | None = None
+    # Counted off the Atemschutz-Tafel instead of a symbol: "person" = one per crew member of
+    # every live AS-Trupp (Atemschutzgerät), "trupp" = one per live AS-Trupp.
+    perAtemschutz: Literal["person", "trupp"] | None = None
+    # An Ausrüstung id (doctrine.equipment / Trupp.equipment · retthaube/wbk/multiwarn …): one per
+    # live Trupp of any kind that carries it in. Both file/CLI only, like `when` — and declared
+    # here for the same reason: `extra="ignore"` would drop them on the next save.
+    equipment: str | None = None
     # consumable (Nachschub list) vs. equipment (Retablierung status zurück/vor Ort/defekt)
     verbrauchbar: bool = False
 

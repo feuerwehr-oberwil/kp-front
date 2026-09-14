@@ -106,7 +106,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `fleet.attributeLists` | ✅ | the Arbeitsmappe's «Symbolfelder» sheet (§9h) – ⚠️ **not** the «Fahrzeuge & Symbole» page: the table there is a viewer with no editor |
 | `fleet.partner.*` | ✅ | the Arbeitsmappe only (§9h) – ⚠️ it is the **legacy** shape, see the caveat in §9h |
 | `mittel.catalogue`, `mittel.sources` (incl. `catalogue[].stock`) | ✅ | the Arbeitsmappe only (§9h) |
-| `mittel.catalogue[].when`, `fleet.vehicles[].winfapAlias` | ❌ | **preserved but not editable** through the Arbeitsmappe (§9h); a file is the only way to set them |
+| `mittel.catalogue[].when`, `.perAtemschutz`, `.equipment`, `fleet.vehicles[].winfapAlias` | ❌ | **preserved but not editable** through the Arbeitsmappe (§9h); a file is the only way to set them |
 | `roster.nameOrder` | ✅ | Personen › **Personal** (§4) |
 | `roster.source` | ❌ | **file only** – «Personal» edits the crew and the name order, never where the crew comes from ([`SETUP.md` §4](SETUP.md)) |
 | `roster.autoSync` | ❌ | **file only** – how much the nightly Divera sync may do on its own (§4a) |
@@ -210,6 +210,9 @@ both now have browser pages – §9e and §9f.
                                                  //  themselves – a PLZ, or anything after a
                                                  //  comma – and its town ranks hits first)
       "bboxLv95": "2598000,1252000,2625000,1270000"  // "minE,minN,maxE,maxN" to rank local hits; "" = national
+                                                 // (also the region whose official street names
+                                                 //  the backend caches to retry a typo –
+                                                 //  «haupstrasse 12» → «Hauptstrasse 12»)
     }
   },
 
@@ -257,7 +260,12 @@ both now have browser pages – §9e and §9f.
     "contactGraceSec": 60,                        // Nachfrist after the interval before the überfällig alarm
     "defaultPressureBar": 300, "pressureStep": 10, "pressureMax": 320,
     "cylinderLiters": 7,                          // the two numbers behind the air estimate
-    "estConsumptionLPerMin": 50                   // («noch ≈ N bar») on the Trupp card
+    "estConsumptionLPerMin": 50,                  // («noch ≈ N bar») on the Trupp card
+    "equipment": [                                // Ausrüstung a Trupp can take in – short labels,
+      { "id": "retthaube", "label": "Retthaube" }, // printed on the card and the Rapport. Absent /
+      { "id": "wbk", "label": "WBK" },             // empty = these three shipped defaults. Ids are
+      { "id": "multiwarn", "label": "Multiwarn" }  // what a Trupp stores – renaming one orphans
+    ]                                             // the Trupps that carry it (they print the id)
   },
 
   "roster": {
@@ -293,7 +301,12 @@ both now have browser pages – §9e and §9f.
       { "id": "oelbinder",        "label": "Ölbinder (Granulat)", "unit": "Sack", "category": "Ölwehr" },
       { "id": "luefter",          "label": "Lüfter",              "unit": "Stk",  "category": "Geräte",
         "stock": [ { "source": "tlf", "qty": 1 }, { "source": "pio", "qty": 1 } ] },   // → MoWa: none
-      { "id": "atemschutzgeraet", "label": "Atemschutzgerät",     "unit": "Stk",  "category": "Atemschutz" }
+      { "id": "atemschutzgeraet", "label": "Atemschutzgerät",     "unit": "Stk",  "category": "Atemschutz",
+        "perAtemschutz": "person" },                // ← counted off the Atemschutz-Tafel: one per crew member of
+                                                    //   every live AS-Trupp ("trupp" = one per AS-Trupp instead)
+      { "id": "wbk",              "label": "Wärmebildkamera",     "unit": "Stk",  "category": "Atemschutz",
+        "equipment": "wbk" }                        // ← one per live Trupp (any kind) carrying that Ausrüstung id
+                                                    //   (doctrine.equipment / the shipped retthaube·wbk·multiwarn)
     ],
     "sources": [                                  // where a Mittel was drawn from – optional per entry,
       { "id": "tlf",     "label": "TLF" },        // typically the vehicles + the depot. The picker
@@ -305,7 +318,10 @@ both now have browser pages – §9e and §9f.
     // and «Quellen» sheets of the Arbeitsmappe (§9h) – there is no form for them. `units` is NOT
     // in the workbook and is carried over untouched by it: a config file is the only way to set it.
     // `catalogue[].when` (the symbol-variant rule – `{"Typ": "Exhauster"}`, a list of clauses
-    // being an OR) is likewise preserved by the workbook on an id match, never written by it.
+    // being an OR), `perAtemschutz` and `equipment` are likewise preserved by the workbook on an
+    // id match, never written by it: a file or the CLI is the only way to set them. All three feed
+    // the «Gesetzt, aber nicht erfasst» strip of the Mittel sheet – `symbol`/`when` from what
+    // stands on Lage/Plan, the other two from the Trupps on the Atemschutz-Tafel.
   },
 
   "alarms": {                                    // alarm auto-archive + intake extras
@@ -1154,6 +1170,12 @@ autocomplete simply returns nothing (map-pick still works). `GEOCODER_URL` exist
 a *compatible* endpoint (e.g. a proxy) – it is **not** a generic-geocoder swap point for
 Nominatim/Google/etc.
 
+With a `map.geocoder.bboxLv95` set, the autocomplete also tolerates a typo in the street name:
+the backend keeps the region's official street names (swisstopo Strassenverzeichnis, fetched
+in the background on first use and refreshed weekly) and retries an empty search once with the
+one street that is a single letter away – «haupstrasse 12» finds Hauptstrasse 12. Without a
+bbox there is no dictionary and nothing changes (`app/street_dictionary.py`).
+
 ### 6a. Objektplan-Pull (fetch Modul-PDFs instead of having them pushed in)
 
 A station whose plan library is maintained elsewhere can publish it to an **S3-compatible
@@ -1732,9 +1754,10 @@ happen.
 - **`mittel.units` is not in the workbook** and is carried over untouched, as are `identity`,
   `map`, `doctrine`, `referenceLayers`, `modules`, `alarms`, `alarmKeywords`, `report.links` and
   `journal`. A config file is the only way to set `mittel.units`.
-- **`mittel.catalogue[].when` and `fleet.vehicles[].winfapAlias` are preserved but not editable.**
-  They have no column; they are re-attached on an **id** match. Change a `Kennung` in the sheet and
-  the row is a delete plus a create, so those two – and that entry's `stock` – are lost with it.
+- **`mittel.catalogue[].when`, `.perAtemschutz`, `.equipment` and `fleet.vehicles[].winfapAlias`
+  are preserved but not editable.** They have no column; they are re-attached on an **id** match.
+  Change a `Kennung` in the sheet and the row is a delete plus a create, so those – and that
+  entry's `stock` – are lost with it.
 - **Renaming a person can cost their name order.** Someone who carries a provider identity (a
   Divera id) *and* a stored first/last split loses that split when the sheet renames them, and then
   stops following `roster.nameOrder` – they stand exactly as the cell spells them. The preview

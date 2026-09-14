@@ -96,6 +96,33 @@
 /* the object's ADDRESS may take the room the Maßstab does not — it is the longer of the two,
    and the Maßstab is a handful of characters */
 .wb-object { min-width: 0; max-width: 100%; }
+/* the auto-surfaced object is only the NEAREST one with plans, not the Einsatzadresse – the
+   read-out is the warning itself (Whiteboard · objectChip), so it wears amber, tappable or not */
+.wb-object.wb-object-nearby, .wb-object.wb-object-nearby:disabled {
+  color: var(--amber-strong);
+  border-color: color-mix(in srgb, var(--amber) 55%, transparent);
+  background: color-mix(in srgb, var(--amber) 14%, var(--surface)); }
+/* …and the banner half of that warning (Whiteboard · nearbyBanner): once per Einsatz and object,
+   over the sheet's top edge, right of the rail. Amber like the chip, never red – nothing is on
+   fire on the Plan; something may merely be the neighbour's. */
+.wb-nearby-banner { position: absolute; left: calc(var(--rail-w) + 16px); right: 16px; top: 12px; z-index: var(--z-dock);
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--amber) 16%, var(--glass)); backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent); box-shadow: var(--shadow-sm);
+  font-size: 12.5px; line-height: 1.4; color: var(--ink); }
+.wb-nearby-banner > .i { flex: none; width: 18px; height: 18px; color: var(--amber-strong); }
+.wb-nearby-text { flex: 1 1 auto; min-width: 0; }
+.wb-nearby-text b { color: var(--amber-strong); }
+.wb-nearby-switch { flex: none; min-height: 44px; padding: 0 12px; border: none; border-radius: var(--r-sm);
+  background: transparent; font: 700 12.5px var(--body); color: var(--blue); cursor: pointer; white-space: nowrap; }
+.wb-nearby-x { flex: none; width: 44px; height: 44px; border: none; border-radius: var(--r-sm); cursor: pointer;
+  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); display: grid; place-items: center; }
+.wb-nearby-x .i { width: 16px; height: 16px; }
+@media (max-width: 600px) {
+  /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions */
+  .wb-nearby-banner { left: 12px; right: 12px; flex-wrap: wrap; }
+  .wb-nearby-text { flex-basis: calc(100% - 28px); }
+}
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). It never
    truncates: it is a verb, and half a verb is not an instruction — the object read-out beside it
    is the one that gives way when the row runs out of room. */
@@ -105,6 +132,9 @@
 .wb-object:disabled { cursor: default; opacity: 1; }
 @media (hover: hover) {
   .wb-object:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
+  /* the warning keeps its tone under the pointer, tappable or not – hover must not read as «fine» */
+  .wb-object.wb-object-nearby:hover, .wb-object.wb-object-nearby:disabled:hover {
+    color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
 }
 /* ⚠️ 600px, not 720px. The old chip switched to its phone position at ≤720px while the NavRail
    only becomes a bottom BAR at ≤600px — so through the whole 601–720px band (iPad Split View,
@@ -223,6 +253,12 @@
 .wb-canvas.tool-draw, .wb-canvas.tool-text, .wb-canvas.tool-resource,
 .wb-canvas.tool-line, .wb-canvas.tool-area, .wb-canvas.tool-lasso,
 .wb-canvas.tool-scale, .wb-canvas.tool-measure, .wb-canvas.placing { cursor: crosshair; }
+/* Clean canvas while placing (field, 14.09., Karte parity — 03-map.css · .placing): a symbol,
+   Form or Trupp chip being put down lands where the finger says, even on top of a chip already
+   there. The .wb-ink capture layer (z 5) already sits over a RESTING anno (z 3), but a SELECTED
+   one is raised above it (z 6) and ate the placing tap. Every anno is pointer-transparent while
+   a placement is armed, and live again the moment the tool changes. */
+.wb-canvas.placing .wb-anno, .wb-canvas.tool-resource .wb-anno { pointer-events: none; }
 /* Zoom is done by LAYOUT (the board's box is sized fit × scale in Whiteboard),
    so content re-rasterizes crisply at each zoom level. The transform here is
    translate-only — will-change is safe and keeps panning a cheap GPU shift of a

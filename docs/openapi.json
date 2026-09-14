@@ -12725,10 +12725,47 @@
               }
             ],
             "title": "Auftragcolors"
+          },
+          "equipment": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EquipmentItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment"
           }
         },
         "type": "object",
         "title": "DoctrineConfig"
+      },
+      "EquipmentItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "EquipmentItem",
+        "description": "One entry of ``doctrine.equipment`` — the id a Trupp stores, the label people read."
       },
       "EventBatchIn": {
         "properties": {
@@ -14734,6 +14771,32 @@
             ],
             "title": "When"
           },
+          "perAtemschutz": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "person",
+                  "trupp"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peratemschutz"
+          },
+          "equipment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment"
+          },
           "verbrauchbar": {
             "type": "boolean",
             "title": "Verbrauchbar",
@@ -15135,6 +15198,17 @@
               }
             ],
             "title": "Distance M"
+          },
+          "address_match": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Match"
           }
         },
         "type": "object",

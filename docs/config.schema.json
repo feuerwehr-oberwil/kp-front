@@ -423,9 +423,47 @@
           ],
           "default": null,
           "title": "Auftragcolors"
+        },
+        "equipment": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/EquipmentItem"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Equipment"
         }
       },
       "title": "DoctrineConfig",
+      "type": "object"
+    },
+    "EquipmentItem": {
+      "description": "One entry of ``doctrine.equipment`` — the id a Trupp stores, the label people read.",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "EquipmentItem",
       "type": "object"
     },
     "FleetAttributeList": {
@@ -998,6 +1036,34 @@
           ],
           "default": null,
           "title": "When"
+        },
+        "perAtemschutz": {
+          "anyOf": [
+            {
+              "enum": [
+                "person",
+                "trupp"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Peratemschutz"
+        },
+        "equipment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Equipment"
         },
         "verbrauchbar": {
           "default": false,
