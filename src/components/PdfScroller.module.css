@@ -21,8 +21,11 @@
    deliberately full-bleed (inset: 0) so a document can be panned up behind the top bar — but on
    first load that meant the first page opened centred in the whole viewport, i.e. with its left
    edge under the NavRail and its head under the top bar, which is exactly the part of a plan you
-   read first. Padding shifts the flex centring instead of clipping anything, so the page starts
-   in the free area and STILL scrolls under the chrome once anybody drags it there. */
+   read first. The fit is this element's CONTENT box (PdfScroller measures it), so the page starts
+   in the free area – and STILL scrolls under the chrome once anybody drags it there. ⚠️ The left
+   lane is --rail-w + 28px, which is the NavRail's `left` (16px) + its width + a gap: a fitted page
+   as wide as the SCROLLER instead was centred with half its overflow before the scroll origin,
+   ~50px of it under the rail and unreachable (iPad, 14.09.2026). */
 .pages {
   transform-origin: 0 0; /* the pinch preview scales the column in place */
   /* ⚠️ As wide as its widest page, never narrower than the scroller: a zoomed page is wider than
@@ -54,7 +57,8 @@
    the annotation board already makes (.wb-pdf-base declares no background either; only a BLANK
    board goes dark via --board-bg). What follows the theme is the SURROUND: this scroller sits on
    `.whiteboard`, which is `var(--app-bg)`. */
-/* …only while zoomed, so the fitted page keeps sliding under the rails as before */
+/* …only while zoomed: at the fit the column is the scroller's width, and its content box IS the
+   page's width (see above), so nothing scrolls sideways */
 .zoomed { width: max-content; min-width: 100%; }
 .page {
   display: block;

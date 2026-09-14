@@ -5,6 +5,28 @@ export const ZOOM_MIN = 1
 export const ZOOM_MAX = 4
 export const ZOOM_STEP = 1.3
 
+/** ⚠️ iOS Safari draws NOTHING into a canvas above 2^24 device px (pdf.js's own
+ *  `maxCanvasPixels` default, for the same reason): the page is simply blank, which on a
+ *  tablet read as «the zoom was not registered» (14.09.2026, Modul 6 / Hohestrasse 134). An A4
+ *  page at 4096 px wide is already 23.7M px, so the old width-only cap never saved it. */
+export const MAX_CANVAS_PX = 16_777_216
+export const MAX_CANVAS_SIDE = 8192
+/** …and every page canvas stays resident (the reader renders the whole document), so a long
+ *  document splits one budget between its pages – 4 bytes a pixel, ~384 MB – or a 30-page PV
+ *  documentation at 2× DPR jetsams the tab at the fit already. */
+export const DOC_CANVAS_PX = 96_000_000
+
+/** The pixel budget one page of an `n`-page document may spend. */
+export const pageCanvasBudget = (pages: number) => Math.min(MAX_CANVAS_PX, DOC_CANVAS_PX / Math.max(1, pages))
+
+/** Backing-store scale (device px per CSS px) for a page shown at cssW × cssH: the device pixel
+ *  ratio, lowered until the canvas fits `maxPx` and the side limit. Below the ratio the page is
+ *  drawn softer – never blank – and the CSS size stays what the zoom asked for. */
+export function canvasScale(cssW: number, cssH: number, dpr: number, maxPx = MAX_CANVAS_PX): number {
+  if (!(cssW > 0) || !(cssH > 0)) return dpr
+  return Math.min(dpr, MAX_CANVAS_SIDE / cssW, MAX_CANVAS_SIDE / cssH, Math.sqrt(maxPx / (cssW * cssH)))
+}
+
 export const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z))
 
 /** One button press or wheel notch: multiply, snap back to exactly 1 near the floor so «fit» is
