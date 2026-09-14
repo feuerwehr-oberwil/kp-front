@@ -12,7 +12,8 @@ unbiased (national) — a fresh/public deployment behaves neutrally.
 
 `geocode()` returns the single best match (used on manual create and Divera take when
 coords are missing); `search()` returns a ranked list for the intake autocomplete. Both
-return empty/None on no match or upstream failure (caller falls back to map-click).
+return empty/None on no match or upstream failure (caller falls back to map-click). A miss is
+retried once with a typo-corrected street name (see street_dictionary) when a bbox is set.
 """
 
 import logging
@@ -25,6 +26,7 @@ import httpx
 from sqlalchemy import select
 
 from .config import settings
+from .street_dictionary import StreetDictionary, correct_query
 
 logger = logging.getLogger(__name__)
 
@@ -140,54 +142,73 @@ def _parse(results: list[dict]) -> list[GeoHit]:
     return hits
 
 
+async def _upstream(text: str, bbox: str, limit: int) -> list[dict]:
+    """The two-pass SearchServer query for one search text: region first, then national fill.
+
+    Raises httpx/ValueError – `search` turns that into an empty answer.
+    """
+    base = {
+        "type": "locations",
+        "searchText": text,
+        "sr": "2056",  # LV95 — so the regional bbox is in metres
+        "limit": str(max(1, min(limit, 20))),
+        "origins": "address,parcel,gg25",
+    }
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Pass 1: bias to the region when a bbox is configured. ⚠️ swisstopo's `bbox` is a
+        # hard geographic filter on the SearchServer, not merely a ranking hint (docs/
+        # CONFIGURATION.md's own "to rank local hits" comment notwithstanding) — nothing
+        # outside it comes back from this pass, `sortbbox` only orders what's inside.
+        params1 = {**base}
+        if bbox:
+            params1 = {**base, "bbox": bbox, "sortbbox": "true"}
+        r = await client.get(settings.geocoder_url, params=params1)
+        r.raise_for_status()
+        results = r.json().get("results", [])
+        # Pass 2: fill the rest nationally. ⚠️ 05.09. fix — this used to fire only when
+        # pass 1 came back COMPLETELY empty, on the assumption that any local hit meant the
+        # region had answered. It hadn't: a query for a genuinely out-of-region address
+        # (Muttenz, searched from the Oberwil deployment) can still turn up a loose local
+        # match — a same-named street, a parcel — that fills `results` without being what
+        # was typed, and the real answer never got a second pass. Mutual-aid addresses are
+        # real, so this now runs whenever the region hasn't already filled the request,
+        # merging in whatever the region pass missed (deduped by coordinate, region first)
+        # rather than replacing it — a partial local match still belongs at the top.
+        if bbox and len(results) < limit:
+            r = await client.get(settings.geocoder_url, params=base)
+            r.raise_for_status()
+            extra = r.json().get("results", [])
+            # .get for BOTH keys: a result carrying lat without lon would otherwise KeyError
+            # past the httpx/ValueError net below and 500 the whole create.
+            seen = {(a.get("lat"), a.get("lon")) for res in results if (a := res.get("attrs", {})) and "lat" in a}
+            results = results + [
+                res
+                for res in extra
+                if (a := res.get("attrs", {})) and "lat" in a and (a.get("lat"), a.get("lon")) not in seen
+            ]
+    return results
+
+
 async def search(address: str, limit: int = 6) -> list[GeoHit]:
-    """Region-biased address search → ranked hits (best first). Empty on failure."""
+    """Region-biased address search → ranked hits (best first). Empty on failure.
+
+    A query that finds nothing is retried once with its street token corrected against the
+    region's street dictionary («haupstrasse 12» → «Hauptstrasse 12»), when exactly one known
+    street is a single edit away – see street_dictionary. The hits carry swisstopo's label,
+    i.e. the corrected spelling.
+    """
     if not address or not address.strip():
         return []
     if not _GEOCODER_OK:
         logger.warning("Geocoder URL is not a valid https endpoint; skipping geocode")
         return []
     default_locality, bbox = await _resolve_bias()
-    base = {
-        "type": "locations",
-        "searchText": _bias(address.strip(), default_locality),
-        "sr": "2056",  # LV95 — so the regional bbox is in metres
-        "limit": str(max(1, min(limit, 20))),
-        "origins": "address,parcel,gg25",
-    }
+    query = address.strip()
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # Pass 1: bias to the region when a bbox is configured. ⚠️ swisstopo's `bbox` is a
-            # hard geographic filter on the SearchServer, not merely a ranking hint (docs/
-            # CONFIGURATION.md's own "to rank local hits" comment notwithstanding) — nothing
-            # outside it comes back from this pass, `sortbbox` only orders what's inside.
-            params1 = {**base}
-            if bbox:
-                params1 = {**base, "bbox": bbox, "sortbbox": "true"}
-            r = await client.get(settings.geocoder_url, params=params1)
-            r.raise_for_status()
-            results = r.json().get("results", [])
-            # Pass 2: fill the rest nationally. ⚠️ 05.09. fix — this used to fire only when
-            # pass 1 came back COMPLETELY empty, on the assumption that any local hit meant the
-            # region had answered. It hadn't: a query for a genuinely out-of-region address
-            # (Muttenz, searched from the Oberwil deployment) can still turn up a loose local
-            # match — a same-named street, a parcel — that fills `results` without being what
-            # was typed, and the real answer never got a second pass. Mutual-aid addresses are
-            # real, so this now runs whenever the region hasn't already filled the request,
-            # merging in whatever the region pass missed (deduped by coordinate, region first)
-            # rather than replacing it — a partial local match still belongs at the top.
-            if bbox and len(results) < limit:
-                r = await client.get(settings.geocoder_url, params=base)
-                r.raise_for_status()
-                extra = r.json().get("results", [])
-                # .get for BOTH keys: a result carrying lat without lon would otherwise KeyError
-                # past the httpx/ValueError net below and 500 the whole create.
-                seen = {(a.get("lat"), a.get("lon")) for res in results if (a := res.get("attrs", {})) and "lat" in a}
-                results = results + [
-                    res
-                    for res in extra
-                    if (a := res.get("attrs", {})) and "lat" in a and (a.get("lat"), a.get("lon")) not in seen
-                ]
+        results = await _upstream(_bias(query, default_locality), bbox, limit)
+        if not results and (streets := _streets.get(bbox)) and (fixed := correct_query(query, streets)):
+            logger.info("Geocode retry with corrected street: %r → %r", query, fixed)
+            results = await _upstream(_bias(fixed, default_locality), bbox, limit)
     except (httpx.HTTPError, ValueError) as e:
         logger.warning("Geocode failed for %r: %s", address, e)
         return []
@@ -207,6 +228,10 @@ async def geocode(address: str) -> tuple[float, float] | None:
 # (GWR). Lets a map-click on the intake wizard auto-fill the nearest address.
 _IDENTIFY_URL = f"{_GEOCODER_SPLIT.scheme}://{_GEOCODER_SPLIT.hostname}/rest/services/api/MapServer/identify"
 _ADDR_LAYER = "ch.bfs.gebaeude_wohnungs_register"
+
+# The street dictionary behind `search`'s typo retry reads the Strassenverzeichnis through the
+# same identify service, for the bbox the search is biased to.
+_streets = StreetDictionary(_IDENTIFY_URL)
 
 
 def _label_from_gwr(attrs: dict) -> str | None:
