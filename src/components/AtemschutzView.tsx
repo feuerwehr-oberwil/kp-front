@@ -1576,8 +1576,9 @@ function TruppRow({
       <span className={s.trowId}>
         <span className={s.trowName}>
           <span className={s.trowDot} style={color ? { background: color } : undefined} />
+          {/* no «#N» badge on the row either (Bastian, 14.09.) – it sat between the name and
+              the clock as a third thing to read; the open card head still carries it */}
           <span className={s.trowNameTxt}>{t.name}</span>
-          <TruppNo no={t.no} />
         </span>
         {team && <span className={s.trowTeam}>{team}</span>}
         {/* Phone-only second line: the crew line is hidden there, so this costs no width at all —
