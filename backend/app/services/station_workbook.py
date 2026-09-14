@@ -1026,7 +1026,8 @@ def plan_import(
     if parsed.mittel.present and parsed.mittel.usable:
         # ⚠️ `when` is a RULE, not a value — `{"Typ": "Exhauster"}`, or a list of clauses meaning
         # OR. It has no spreadsheet shape at all, so it is carried over on an id match and never
-        # constructed here (rule 5). `stock` is carried over too unless the Bestände sheet is
+        # constructed here (rule 5); `perAtemschutz` and `equipment` (the Trupp-counted entries)
+        # ride along the same way. `stock` is carried over too unless the Bestände sheet is
         # present and therefore says otherwise.
         new_mittel = [
             {
@@ -1037,6 +1038,8 @@ def plan_import(
                 "symbol": m.symbol,
                 "verbrauchbar": m.verbrauchbar,
                 "when": (stored_by_id.get(m.id) or {}).get("when"),
+                "perAtemschutz": (stored_by_id.get(m.id) or {}).get("perAtemschutz"),
+                "equipment": (stored_by_id.get(m.id) or {}).get("equipment"),
                 "stock": list((stored_by_id.get(m.id) or {}).get("stock") or []),
             }
             for m in parsed.mittel.rows

@@ -66,6 +66,8 @@ STATION_CONFIG = {
                 "verbrauchbar": False,
             },
             {"id": "oelbinder", "label": "Ölbinder", "unit": "kg", "verbrauchbar": True},
+            {"id": "psa", "label": "Atemschutzgerät", "unit": "Stk", "perAtemschutz": "person"},
+            {"id": "wbk", "label": "Wärmebildkamera", "unit": "Stk", "equipment": "wbk"},
         ],
         "sources": [{"id": "tlf-31", "label": "TLF 31"}, {"id": "magazin", "label": "Magazin"}],
         "units": ["Stk", "kg"],
@@ -162,6 +164,9 @@ async def test_untouched_export_reimports_as_a_no_op(client, station):
     assert r.status_code == 200, r.text
     after = await stored(station)
     assert after["mittel"]["catalogue"][0]["when"] == {"Typ": "Druckleitung"}
+    # the Trupp-counted keys have no column either and ride along the same id match
+    assert after["mittel"]["catalogue"][2]["perAtemschutz"] == "person"
+    assert after["mittel"]["catalogue"][3]["equipment"] == "wbk"
     assert after["fleet"]["vehicles"][0]["winfapAlias"] == "TLF Steintal"
     assert after["mittel"]["catalogue"][0]["stock"] == [{"source": "tlf-31", "qty": 6}]
     # …and nothing the workbook has no sheet for moved either.
@@ -193,7 +198,7 @@ async def test_edited_workbook_changes_exactly_what_was_edited(client, station):
 
     assert impact(body, SHEET_FAHRZEUGE)["created"] == 1
     assert impact(body, SHEET_MITTEL)["updated"] == 1
-    assert impact(body, SHEET_MITTEL)["unchanged"] == 1
+    assert impact(body, SHEET_MITTEL)["unchanged"] == 3
     assert body["ok"] is True
 
     r = await client.post("/api/station-workbook/import", files=upload(make_xlsx(data)))

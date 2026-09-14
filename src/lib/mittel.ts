@@ -7,7 +7,8 @@
 // `menge > 0` means "this much was used"; `menge === 0` is a tombstone that hides the row from the
 // views/report but preserves the history (so a mistaken entry can be zeroed without losing the
 // trail). No code here removes events.
-import type { MittelEntry, MittelStatus } from '../types'
+import type { MittelEntry, MittelStatus, Trupp } from '../types'
+import { isAtemschutzTrupp } from './atemschutz'
 
 /**
  * A unit reduced to what it MEANS, for comparing two spellings of it.
@@ -409,7 +410,30 @@ function tokenMatches(catalogue: DeploymentMittelItem[], symbolName: string): De
  * convenience rather than a source of guesses nobody asked for.
  */
 export function symbolCaptureConfigured(catalogue: DeploymentMittelItem[]): boolean {
-  return catalogue.some((c) => !!c.symbol)
+  return catalogue.some((c) => !!c.symbol || !!c.perAtemschutz || !!c.equipment)
+}
+
+/** The slice of a Trupp the Mittel sheet reads — enough to count crews and their Ausrüstung. */
+export type TruppForMittel = Pick<Trupp, 'kind' | 'members' | 'equipment' | 'removedAt'>
+
+/**
+ * How many of a catalogue entry the Atemschutz-Tafel says are in use: `perAtemschutz` counts
+ * live AS-Trupps ('trupp') or their crews, leader + members ('person'); `equipment` counts the
+ * live Trupps of ANY kind that carry that Ausrüstung id (one device per Trupp). A Trupp taken
+ * off the Tafel (removedAt) deploys nothing. 0 when the entry carries neither key.
+ */
+export function truppPlacedCount(item: DeploymentMittelItem, trupps: readonly TruppForMittel[]): number {
+  const live = trupps.filter((t) => !t.removedAt)
+  let n = 0
+  if (item.perAtemschutz) {
+    const as = live.filter(isAtemschutzTrupp)
+    n += item.perAtemschutz === 'person' ? as.reduce((sum, t) => sum + 1 + (t.members?.length ?? 0), 0) : as.length
+  }
+  if (item.equipment) {
+    const id = item.equipment
+    n += live.filter((t) => t.equipment?.includes(id)).length
+  }
+  return n
 }
 
 /** Where a material should be booked from by default: the source its Bestand says it lives on.
@@ -443,7 +467,8 @@ export interface MittelCandidate {
 
 export interface MittelRecommendation {
   item: DeploymentMittelItem
-  /** matching symbols placed across Lage + all plans */
+  /** matching symbols placed across Lage + all plans, plus what the Trupps account for
+   *  (truppPlacedCount) */
   placed: number
   /** current total on the sheet, summed over every source AND over hand-typed lines whose
    *  label spells the same material — a manual entry satisfies the recommendation too */
@@ -459,7 +484,8 @@ export interface MittelRecommendation {
 }
 
 /**
- * What the Mittel surface should recommend, given every placed symbol (Lage + all plans).
+ * What the Mittel surface should recommend, given every placed symbol (Lage + all plans) and
+ * the Trupps on the Atemschutz-Tafel.
  *
  * Replaces the per-symbol «Als Material erfassen» row (28.08.): the offer lived in the symbol's
  * card, so whoever never re-opened the symbol never saw it. Here the SHEET knows what stands on
@@ -474,9 +500,17 @@ export function mittelRecommendations(
   placed: readonly (string | SymbolMatch)[],
   entries: MittelEntry[],
   catalogue: DeploymentMittelItem[],
+  trupps: readonly TruppForMittel[] = [],
 ): MittelRecommendation[] {
   if (!symbolCaptureConfigured(catalogue)) return []
   const counts = new Map<string, { item: DeploymentMittelItem; placed: number; alternatives: DeploymentMittelItem[] }>()
+  // Trupps are not symbols: what the Atemschutz-Tafel accounts for (Geräte per crew, Ausrüstung
+  // per Trupp) is seeded first, so the symbol loop, the captured/missing arithmetic, ✕ and the
+  // pick sheet below never learn where a count came from.
+  for (const item of catalogue) {
+    const n = truppPlacedCount(item, trupps)
+    if (n > 0) counts.set(item.id, { item, placed: n, alternatives: [] })
+  }
   for (const p of placed) {
     // the full fan-out, not just the winner: the strip groups by the most specific match, but
     // what the OTHER readings were is exactly the ambiguity the recommendation has to carry

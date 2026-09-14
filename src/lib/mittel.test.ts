@@ -5,7 +5,7 @@ import {
   groupBySource, groupByMaterial, mittelReportRows, mittelLineCount,
   availableFor, mittelListGroups, groupCatalogue,
   materialForSymbol, materialsForSymbol, currentLineFor, defaultSourceFor, stockedSourcesFor,
-  symbolCaptureConfigured, mittelRecommendations,
+  symbolCaptureConfigured, mittelRecommendations, type TruppForMittel,
 } from './mittel'
 import type { DeploymentMittelItem, DeploymentMittelSource } from './deploymentConfig'
 
@@ -253,6 +253,45 @@ describe('mittelRecommendations (the «Gesetzt, aber nicht erfasst» strip)', ()
 // A symbol can mean SEVERAL catalogue materials (variants behind `when`, shared tokens) and be
 // carried on several sources — the single-answer helpers guessed, the plural forms let a
 // surface ask.
+describe('mittelRecommendations · counted off the Atemschutz-Tafel', () => {
+  const CAT: DeploymentMittelItem[] = [
+    { id: 'psa', label: 'Atemschutzgerät', unit: 'Stk', perAtemschutz: 'person' },
+    { id: 'trupp', label: 'Trupp-Set', unit: 'Stk', perAtemschutz: 'trupp' },
+    { id: 'wbk', label: 'Wärmebildkamera', unit: 'Stk', equipment: 'wbk' },
+  ]
+  const as = (members: string[], equipment?: string[], removedAt?: string): TruppForMittel =>
+    ({ kind: 'atemschutz', members, equipment, removedAt })
+  const byId = (recs: ReturnType<typeof mittelRecommendations>, id: string) => recs.find((r) => r.item.id === id)
+
+  it('person = Σ crew (leader + members), trupp = number of AS-Trupps', () => {
+    const recs = mittelRecommendations([], [], CAT, [as(['B', 'C']), as(['E', 'F'])])
+    expect(byId(recs, 'psa')?.placed).toBe(6)
+    expect(byId(recs, 'trupp')?.placed).toBe(2)
+  })
+  it('equipment counts the Trupps that carry the id, one device each', () => {
+    const recs = mittelRecommendations([], [], CAT, [as([], ['wbk']), as([], ['wbk', 'retthaube']), as([])])
+    expect(byId(recs, 'wbk')?.placed).toBe(2)
+  })
+  it('an einfach Trupp is no Atemschutz — but its Ausrüstung still counts', () => {
+    const einfach: TruppForMittel = { kind: 'einfach', members: ['B'], equipment: ['wbk'] }
+    const recs = mittelRecommendations([], [], CAT, [einfach])
+    expect(byId(recs, 'psa')).toBeUndefined()
+    expect(byId(recs, 'trupp')).toBeUndefined()
+    expect(byId(recs, 'wbk')?.placed).toBe(1)
+  })
+  it('a Trupp taken off the Tafel deploys nothing', () => {
+    const recs = mittelRecommendations([], [], CAT, [as(['B'], ['wbk'], '2026-09-14T10:00:00Z'), as([])])
+    expect(byId(recs, 'psa')?.placed).toBe(1)
+    expect(byId(recs, 'wbk')).toBeUndefined()
+  })
+  it('the Trupp keys open the gate on their own, and a recording still satisfies the count', () => {
+    expect(symbolCaptureConfigured(CAT)).toBe(true)
+    const log = [ev(1, { materialId: 'psa', label: 'Atemschutzgerät', menge: 2 })]
+    const recs = mittelRecommendations([], log, CAT, [as(['B', 'C'])])
+    expect(byId(recs, 'psa')).toMatchObject({ placed: 3, captured: 2, missing: 1, ambiguous: false })
+  })
+})
+
 describe('materialsForSymbol / candidate + source fan-out', () => {
   const cat: DeploymentMittelItem[] = [
     { id: 'exhauster', label: 'Exhauster', unit: 'Stk', symbol: 'VKF Luefter mobil', when: { Typ: 'Exhauster' } },

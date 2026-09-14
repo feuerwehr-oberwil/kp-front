@@ -16,6 +16,7 @@ import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
   mittelRecommendations, defaultSourceFor,
   type CurrentMittel, type MittelListCell, type MittelListRow, type MittelRecommendation, type SymbolMatch,
+  type TruppForMittel,
 } from '../lib/mittel'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import s from './Mittel.module.css'
@@ -96,7 +97,7 @@ function StockDots({ remaining, total, label }: { remaining: number; total: numb
 // no ±stepper — a full catalogue is otherwise a screen of zeroes, and on a phone every one of
 // those zeroes costs a second, wrapped line. The «+» books 1 AND opens the full row in the same
 // tap; the row folds back to the «+» the moment its count is 0 again (`touched`).
-export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbols }: {
+export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbols, trupps }: {
   entries: MittelEntry[]
   canEdit: boolean
   onSave: (d: MittelDraft) => void
@@ -105,6 +106,9 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   /** every symbol standing on Lage + all plans — feeds the «Gesetzt, aber nicht erfasst»
    *  reconciliation strip (lib/mittel · mittelRecommendations) */
   placedSymbols?: readonly SymbolMatch[]
+  /** the Trupps on the Atemschutz-Tafel — what a `perAtemschutz` / `equipment` catalogue entry
+   *  counts (lib/mittel · truppPlacedCount) */
+  trupps?: readonly TruppForMittel[]
 }) {
   const M = appConfig.copy.mittel
   const cfg = getDeploymentConfig().mittel
@@ -262,8 +266,10 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
   // Lage/Plan and is missing here; recording the material ANY way makes its line disappear
   // (mittelRecommendations counts every source and label-equal hand-typed lines).
   const recommended = useMemo(
-    () => (canEdit && placedSymbols?.length ? mittelRecommendations(placedSymbols, entries, catalogue) : []),
-    [canEdit, placedSymbols, entries, catalogue],
+    () => (canEdit && (placedSymbols?.length || trupps?.length)
+      ? mittelRecommendations(placedSymbols ?? [], entries, catalogue, trupps)
+      : []),
+    [canEdit, placedSymbols, trupps, entries, catalogue],
   )
   // ✕ hides the CURRENT suggestion set («something isn't right» — a symbol that only plans).
   // Keyed by content, not a boolean: a new placement changes the signature and the strip is
