@@ -356,3 +356,19 @@ async def test_objects_near_incident_includes_plans(client, editor, db_session):
     r = await client.get(f"/api/incidents/{inc.id}/objects")
     (item,) = r.json()
     assert [p["module"] for p in item["plans"]] == ["modul1"]
+    assert item["address_match"] is True
+
+
+async def test_objects_near_incident_says_when_the_object_is_only_nearby(client, editor, db_session):
+    # The neighbour's plan surfaces by proximity (≤ OBJECT_SURFACE_RADIUS_M) – the client must be
+    # able to tell that apart from an address match, because the plan rail warns on the former.
+    inc = _incident(address="Bahnhofstrasse 12", lat=47.5, lng=7.5)
+    neighbour = _obj(address="Bahnhofstrasse 14", lat=47.5005, lng=7.5)  # ~56 m away
+    db_session.add_all([inc, neighbour])
+    await db_session.commit()
+    await _login(client, editor)
+
+    r = await client.get(f"/api/incidents/{inc.id}/objects")
+    (item,) = r.json()
+    assert item["address_match"] is False
+    assert 40 < item["distance_m"] < 70

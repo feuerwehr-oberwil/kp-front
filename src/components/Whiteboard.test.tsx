@@ -961,3 +961,54 @@ describe('the plan’s selection bar', () => {
     expect(ro.onChange).not.toHaveBeenCalled()
   })
 })
+
+// The surfaced Einsatzplan can belong to the NEAREST object, not to the Einsatzadresse (14.09.):
+// the chip turns amber and a banner says both addresses once per Einsatz and object.
+describe('the nearby-object warning', () => {
+  const modul: PlanDocument = { id: 'modul2', code: 'M2', title: 'Modul 2', subtitle: '', imageUrl: '', orientation: 'landscape' }
+  const renderNearby = (onObjectSwitch?: () => void) => render(<Whiteboard
+    plans={[modul, tafel]} activeId="modul2" annos={[]} onChange={() => {}}
+    building={null} onSelectBuilding={() => {}} onBuildingFace={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
+    slimTools sym={sym} onRecent={() => {}} log={() => {}} hist={{}} setHist={() => {}} focus={null}
+    objectAddress="Hohestrasse 134" objectNearby={{ distanceM: 80, objectId: 'obj1' }}
+    incidentId="inc1" incidentAddress="Hohestrasse 136" onObjectSwitch={onObjectSwitch}
+  />)
+
+  // jsdom exposes localStorage as a getter-only accessor here – the ErrorBoundary test's stub
+  beforeEach(() => {
+    const store = new Map<string, string>()
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+        setItem: (k: string, v: string) => void store.set(k, String(v)),
+        removeItem: (k: string) => void store.delete(k),
+        clear: () => store.clear(),
+        key: (i: number) => [...store.keys()][i] ?? null,
+        get length() { return store.size },
+      } as Storage,
+    })
+  })
+
+  it('shows the amber chip with the distance and the banner with both addresses', () => {
+    const onObjectSwitch = vi.fn()
+    renderNearby(onObjectSwitch)
+    const chip = screen.getByRole('button', { name: 'Nächstes Objekt in 80 m – nicht die Einsatzadresse' })
+    expect(chip.className).toContain('wb-object-nearby')
+    expect(chip.textContent).toContain('Hohestrasse 134 · 80 m entfernt')
+    const banner = screen.getByRole('status')
+    expect(banner.textContent).toContain('Einsatz: Hohestrasse 136 · Plan: Hohestrasse 134 (80 m)')
+    fireEvent.click(within(banner).getByRole('button', { name: 'Anderes Objekt wählen' }))
+    expect(onObjectSwitch).toHaveBeenCalled()
+  })
+
+  it('✕ dismisses the banner for this Einsatz and object – the chip stays', () => {
+    const { unmount } = renderNearby()
+    fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: 'Schliessen' }))
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByRole('button', { name: /Nächstes Objekt in 80 m/ })).toBeTruthy()
+    unmount()
+    renderNearby()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+})

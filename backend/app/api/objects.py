@@ -285,9 +285,10 @@ async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: 
     candidates.sort(key=lambda c: (not c[2], c[1] is None, c[1] or 0))
     plans_by_obj = await _plans_by_object(db, [o.id for o, _, _ in candidates])
     out: list[ObjectWithPlans] = []
-    for o, dist, _matched in candidates:
+    for o, dist, matched in candidates:
         item = ObjectWithPlans.model_validate(o)
         item.plans = [ReferenceDatasetOut.model_validate(p) for p in plans_by_obj.get(o.id, [])]
         item.distance_m = dist
+        item.address_match = matched
         out.append(item)
     return out

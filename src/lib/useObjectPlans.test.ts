@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { railPlanTiles, buildPlanInfo, extraModuleDoc, objectPlanGeorefKey, BUILDING_PICK_ID } from './useObjectPlans'
+import { railPlanTiles, buildPlanInfo, extraModuleDoc, objectPlanGeorefKey, objectNearbyOnly, BUILDING_PICK_ID } from './useObjectPlans'
 import { planGlyph } from './navRail'
 import { appConfig } from '../config/appConfig'
 import type { PlanDocument } from '../types'
@@ -151,5 +151,23 @@ describe('a numbered sub-slot from the backend reaches the rail as its own tile'
     // `planId` is a foreign key (Verlauf rows, planScale, the board keys) — the tile id IS the
     // module key the backend serves, so an old row still resolves to the sheet it named.
     expect(tiles.map((t) => t.imageUrl)).toEqual([plans['modul5-wasser1'], plans['modul5-wasser2']])
+  })
+})
+
+// The chip warns only when the backend SAID the address did not match – an older cached listing
+// carries no verdict and must not paint every object amber.
+describe('objectNearbyOnly', () => {
+  it('is silent when the incident address matched the object', () => {
+    expect(objectNearbyOnly({ address_match: true, distance_m: 0 })).toBeNull()
+  })
+
+  it('carries the distance when the object was surfaced by proximity alone', () => {
+    expect(objectNearbyOnly({ address_match: false, distance_m: 80 })).toEqual({ distanceM: 80 })
+  })
+
+  it('is silent on a payload without the field (cached before it existed) or without a distance', () => {
+    expect(objectNearbyOnly({ distance_m: 80 })).toBeNull()
+    expect(objectNearbyOnly({ address_match: null, distance_m: 80 })).toBeNull()
+    expect(objectNearbyOnly({ address_match: false, distance_m: null })).toBeNull()
   })
 })

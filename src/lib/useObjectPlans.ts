@@ -196,6 +196,15 @@ export function buildPlanInfo(plans: ReferenceDataset[]): {
 }
 
 /** How the hook takes part in the incident's frozen sheet bindings (lib/incidentPlanBindings). */
+/** What the Plan surface must warn about: the auto-surfaced object is NOT the incident's own
+ *  address, only the nearest one with plans (`address_match === false`). Null when the address
+ *  matched, when the distance is unknown, or on a payload cached before the field existed –
+ *  an old listing must not turn every object amber. */
+export function objectNearbyOnly(o: Pick<ObjectWithPlans, 'address_match' | 'distance_m'>): { distanceM: number } | null {
+  if (o.address_match !== false || o.distance_m == null) return null
+  return { distanceM: o.distance_m }
+}
+
 export interface PlanBindingOptions {
   /** the synced bindings slice of the workspace blob */
   bindings: IncidentPlanBinding[]
@@ -219,7 +228,7 @@ export function useObjectPlans(
   /** when given, module sheets bind to their exact dataset revision + approved fit */
   bindingOpts?: PlanBindingOptions,
 ) {
-  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef>; name?: string; address?: string | null; pos?: LngLat | null }>({ plans: {}, titles: {}, datasets: {} })
+  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef>; name?: string; address?: string | null; pos?: LngLat | null; nearby?: { distanceM: number } | null }>({ plans: {}, titles: {}, datasets: {} })
   const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; pos?: LngLat | null; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef> } | null>(null)
   const backendPlans = manualObject?.plans ?? autoInfo.plans
   const backendTitles = manualObject?.titles ?? autoInfo.titles
@@ -300,6 +309,7 @@ export function useObjectPlans(
             name: nearest.name,
             address: nearest.address,
             pos: nearest.lat != null && nearest.lng != null ? [nearest.lng, nearest.lat] : null,
+            nearby: objectNearbyOnly(nearest),
           }
           : { plans: {}, titles: {}, datasets: {} })
       })
@@ -398,5 +408,9 @@ export function useObjectPlans(
   // the active object's own coordinate — the anchor «Automatisch ausrichten» fetches its OSM
   // reference box around. Null when the object carries none (callers fall back to the incident).
   const activeObjectPos = manualObject ? manualObject.pos ?? null : autoInfo.pos ?? null
-  return { backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, pickObject, resetObject }
+  // the warning the object chip carries when the AUTO-surfaced object is merely the nearest one
+  // and not the Einsatzadresse. A manual pick is the operator's own choice – no warning.
+  // …with the object's id, so the plan surface can remember its banner per Einsatz and object
+  const activeObjectNearby = manualObject || !autoInfo.nearby ? null : { ...autoInfo.nearby, objectId: autoInfo.id ?? '' }
+  return { backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject }
 }

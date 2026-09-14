@@ -20,6 +20,9 @@ export interface ObjectWithPlans {
   updated_at: string
   plans: ReferenceDataset[]
   distance_m: number | null
+  /** objects-near-incident only: true = the incident's address matched this object, false =
+   *  surfaced by proximity alone (the plan rail warns then). Absent on older cached payloads. */
+  address_match?: boolean | null
 }
 
 export const listObjects = (q?: string, near?: string) => {
