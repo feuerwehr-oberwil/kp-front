@@ -112,7 +112,7 @@ relabels the chip to the Trupp. Nothing to build until a register-from-chip path
 | Backend accepts `no` | `backend/app/alarm_validation.py` |
 | The one crew formatter, both forms | `src/lib/atemschutz.ts` · `truppLogName(t, 'crew' \| 'leader')` |
 | Vocabulary term `Trupp N` + legacy term, GF badge on the first person | `src/lib/journalLinks.ts` |
-| The badge | `src/components/TruppNo.tsx` (`.trupp-no` in `02-base.css`), used on the card, phone row, lite tab, `TwinTeamPill`, the resting chip/marker, `TruppFinder` |
+| The badge | `src/components/TruppNo.tsx` (`.trupp-no` in `02-base.css`), used on the card, phone row (not the lite tab strip – dropped 14.09.), `TwinTeamPill`, the resting chip/marker, `TruppFinder` |
 | Crew per cycle and the change lines | `src/lib/report.ts` · `truppCrewHistory`; payload in `reportPdfDirect.ts` (`no`, `leader`, `cycles`); rendered by `backend/app/report_pdf.py` (`TruppIn.cycles`, heading `Trupp N – Leader`) |
 
 ## Implementation order

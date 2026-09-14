@@ -1243,8 +1243,11 @@ export function AtemschutzView({
                       colour accent — the Lage/plan identity a colour normally carries means
                       nothing on a screen that never shows the Lage or the plan. The full name
                       is what identifies the Trupp here, so it wraps rather than clips (a name
-                      like «Binggeli Michael» was cut mid-word against this chip's width). */}
-                  <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}<TruppNo no={t.no} /></span>
+                      like «Binggeli Michael» was cut mid-word against this chip's width).
+                      No «#N» badge either (Bastian, 14.09.): on a chip this narrow the number
+                      fought the wrapped name for space and added nothing the card below does
+                      not say – the badge stays on the card head, the phone row and the map. */}
+                  <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
                   {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
                   <span className={s.tabClock}>{collapsedClock(t, lv).val}</span>
                 </button>
