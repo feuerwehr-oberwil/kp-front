@@ -23,13 +23,60 @@ import { Menu, Popover, PopoverClose } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
 import { appConfig } from '../config/appConfig'
 import type { Trupp } from '../types'
-import { TruppNo } from './TruppNo'
+
+/**
+ * The join sheet — «welcher Trupp ist dieser Marker?» — of a selected Trupp marker (Karte) or
+ * chip (Plan): the marker's half of the join, in the exact shape the line editor's «Gehört zu
+ * Trupp …» has (the app's own menu, never a native <select>). ONE list for both surfaces:
+ * «Kein Trupp», then every registered Trupp that is not out — an out one only when it is the one
+ * standing here (it is the record of who WAS, not somebody to send). A Trupp registered AFTER
+ * the marker was put down is in the list, so a «Trupp 2» dropped at 03:12 still finds its crew
+ * at 03:14. Takeover of somebody else's chip asks first, in the ONE place that ask lives
+ * (useTruppActions · adoptTruppMarker).
+ *
+ * ⚠️ Always drawn wherever the surface offers `pick` (14.09.). It used to be withheld while no
+ * Trupp was joinable yet, which in the field read as «the join option is sometimes missing» —
+ * the button is the door, whether or not anyone is behind it right now.
+ *
+ * «Neuer Trupp» (14.09.) is the LAST row, wherever the surface offers `create`: it opens the
+ * normal Anmeldung, and saving it joins the new Trupp to THIS marker in the same go — the picture
+ * was there first, the record comes second, and nobody has to find the chip again from the card.
+ * Cancel leaves the loose chip as it was. Both surfaces render this one function, so the row
+ * exists here and nowhere else.
+ */
+export function TruppJoinMenu({ truppId, trupps, pick, create }: { truppId?: string; trupps: Trupp[]; pick: (truppId?: string) => void; create?: () => void }) {
+  return (
+    <Menu
+      popupClassName="de-menu-pop"
+      itemClassName={() => 'de-menu-item'}
+      trigger={
+        <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
+          <Icon id="people" />
+        </button>
+      }
+      items={[
+        { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!truppId} />, onClick: () => pick(undefined) },
+        ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === truppId)).map((t) => ({
+          label: <MenuPick label={t.name} on={t.id === truppId} />,
+          onClick: () => pick(t.id),
+        })),
+        // the plus sits in the tick's slot, so the row lines up with the picks above it
+        ...(create ? [{
+          label: <><span className="de-menu-tick on" aria-hidden><Icon id="plus" /></span><span>{appConfig.copy.whiteboard.newTeam}</span></>,
+          onClick: create,
+        }] : []),
+      ]}
+    />
+  )
+}
 
 /** Every write the bar makes, each landing on the ONE source object the twin mirrors.
  *  An OPTIONAL writer is a door this surface does not offer — its button is not drawn. */
 export interface TwinTeamActions {
   rename?: (name: string) => void
   pick?: (truppId?: string) => void
+  /** «Neuer Trupp» on the join sheet — register a Trupp that adopts this marker on save */
+  newTrupp?: () => void
   /** ⚠️ THE one place a Trupp's colour is chosen (04.09.): the marker on the KARTE. The form
    *  stopped asking, the plan chip and both mirrors do not offer it — a colour is automatic
    *  unless somebody deliberately changes it where the picture is actually being read. Optional,
@@ -86,6 +133,7 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
   const setColor = acts?.color
   const rename = acts?.rename
   const pick = acts?.pick
+  const newTrupp = acts?.newTrupp
   const showTrupp = acts?.showTrupp
   const mark = acts?.mark
   const toOriginal = acts?.toOriginal
@@ -107,8 +155,8 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
                   if (ev.key === 'Escape') { ev.stopPropagation(); setRenaming(false) }
                 }} />
             : <b>{name}</b>}
-          {/* the bound Trupp's number, beside the leader's name (docs/trupp-naming.md §2) */}
-          {truppId && <TruppNo no={trupps.find((t) => t.id === truppId)?.no} />}
+          {/* no «#N» badge here either (14.09.) — on the picture the name alone is the label, the
+              number lives on the Atemschutz card (docs/trupp-naming.md §2) */}
           {raus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
         </span>
         {time && <i className="wb-resource-time">{time}</i>}
@@ -131,31 +179,9 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
             <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp}
               onClick={() => showTrupp(truppId)}><Icon id="warn" /></button>
           )}
-          {/* «Atemschutz-Trupp» — the marker's half of the join, and the exact shape the line
-              editor's «Gehört zu Trupp …» has: the app's own menu, never a native <select>. A
-              Trupp registered AFTER this marker was put down is in the list, so a «Trupp 2»
-              dropped at 03:12 still finds its crew at 03:14. Takeover of somebody else's chip
-              asks first, in the ONE place that ask lives (useTruppActions · adoptTruppMarker).
-              ⚠️ A Trupp that is already out is offered only when it is the one standing here —
-              it is the record of who was, not somebody to send. */}
-          {pick && (!!truppId || trupps.some((t) => !t.removedAt && t.status !== 'raus')) && (
-            <Menu
-              popupClassName="de-menu-pop"
-              itemClassName={() => 'de-menu-item'}
-              trigger={
-                <button className="wb-pa" title={appConfig.copy.atemschutz.markerLabel} aria-label={appConfig.copy.atemschutz.markerLabel}>
-                  <Icon id="people" />
-                </button>
-              }
-              items={[
-                { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!truppId} />, onClick: () => pick(undefined) },
-                ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === truppId)).map((t) => ({
-                  label: <MenuPick label={t.name} on={t.id === truppId} />,
-                  onClick: () => pick(t.id),
-                })),
-              ]}
-            />
-          )}
+          {/* «Atemschutz-Trupp» — the join sheet (TruppJoinMenu above), whenever this surface
+              offers the door at all */}
+          {pick && <TruppJoinMenu truppId={truppId} trupps={trupps} pick={pick} create={newTrupp} />}
           {/* Farbe — and since 04.09. this is the ONLY palette left for a Trupp, on any surface.
               ⚠️ It is no longer gated on `!boundAlive`. While the form still asked for a colour,
               a marker bound to a registered Trupp had another place to be recoloured and a second

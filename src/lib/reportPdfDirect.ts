@@ -14,7 +14,7 @@ import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppRunTimes, truppStatusLabel,
+  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
 import { isAtemschutzTrupp } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
@@ -430,6 +430,8 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       })(),
       // the numeric Leitung, else the free text an older record still carries verbatim
       lineNumber: t.lineNo != null ? String(t.lineNo) : t.lineNumber?.trim() || undefined,
+      // what the crew took in, as the short labels the card shows — printed only where set
+      equipment: truppEquipmentLabels(t.equipment).join(', ') || undefined,
       // ⚠️ ALL cycles, read off the log — a Trupp that went in twice has two Eintritte and two
       // Austritte, and the header used to print the LAST pair over the FIRST cycle's rows (see
       // lib/report · truppRunTimes for why the card's own entryTime/exitTime are not the source).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppTransferState } from './atemschutz'
+import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -198,6 +198,41 @@ describe('estimatePressure (Planungshilfe — expected pressure)', () => {
     expect(estimatePressure(base, REF - 60_000, 7, 50)?.bar).toBe(300)
     expect(estimatePressure({ ...base, entryTime: '' }, REF, 7, 50)).toBeNull()
     expect(estimatePressure(base, REF, 0, 0)).toBeNull()
+  })
+})
+
+/* A Druck recorded in the first minutes after the Eintritt, before any other reading, is the
+ * Eingangsdruck asked for late — see EARLY_PRESSURE_CORRECTION_MS for the field reason. */
+describe('earlyEntryCorrection', () => {
+  const entryRow = { t: base.entryTime, bar: 300, kind: 'entry' as const }
+
+  it('is a correction inside the window with no reading yet, and a measurement past it', () => {
+    const t = { ...base, readings: [entryRow] }
+    expect(earlyEntryCorrection(t, REF + 60_000)).toBe(true)
+    expect(earlyEntryCorrection(t, REF + EARLY_PRESSURE_CORRECTION_MS)).toBe(true)
+    expect(earlyEntryCorrection(t, REF + 5 * 60_000)).toBe(false)
+  })
+
+  it('is a measurement once any confirmed reading exists in this deployment', () => {
+    const t = { ...base, lastPressureBar: 290, lastPressureTime: new Date(REF + 30_000).toISOString(),
+      readings: [entryRow, { t: new Date(REF + 30_000).toISOString(), bar: 290, kind: 'pressure' as const }] }
+    expect(earlyEntryCorrection(t, REF + 60_000)).toBe(false)
+  })
+
+  it('judges a re-deployed Trupp against its CURRENT run, not the first one', () => {
+    const entry2 = new Date(REF + 60 * 60_000).toISOString()
+    const t: Trupp = { ...base, entryTime: entry2, lastContactTime: entry2, readings: [
+      entryRow, { t: new Date(REF + 10 * 60_000).toISOString(), bar: 250, kind: 'pressure' },
+      { t: new Date(REF + 20 * 60_000).toISOString(), bar: 240, kind: 'exit' },
+      { t: entry2, bar: 300, kind: 'entry' },
+    ] }
+    expect(earlyEntryCorrection(t, REF + 61 * 60_000)).toBe(true)
+  })
+
+  it('never applies to a Trupp without a cylinder, one not yet in, or one already out', () => {
+    expect(earlyEntryCorrection({ ...base, kind: 'einfach', readings: [entryRow] }, REF + 60_000)).toBe(false)
+    expect(earlyEntryCorrection({ ...base, entryTime: '', status: 'angemeldet' }, REF + 60_000)).toBe(false)
+    expect(earlyEntryCorrection({ ...base, exitTime: new Date(REF + 30_000).toISOString(), status: 'raus' }, REF + 60_000)).toBe(false)
   })
 })
 

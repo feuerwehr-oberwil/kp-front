@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
-import { TruppNo } from './TruppNo'
 import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
 import { thumbUrl } from '../lib/mediaUrl'
@@ -171,6 +170,9 @@ interface Props {
    *  finds its Trupp afterwards, and joining never touches a contact clock (useTruppActions ·
    *  adoptTruppMarker). Absent ⇒ no picker (read-only / tactically locked). */
   onTeamTrupp?: (entityId: string, truppId: string | undefined) => void
+  /** «Neuer Trupp» on that same menu: open the Anmeldung for a Trupp that adopts this marker on
+   *  save (IncidentWorkspace · newTruppFromMarker). Absent ⇒ no row. */
+  onTeamNewTrupp?: (entityId: string) => void
   /** stamp the marker's current spot + time into its trail (the ONLY way positions are recorded) */
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker — the map twin of the plan chip's rename pen */
@@ -196,7 +198,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -735,7 +737,6 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   <>
                     <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                       <i />{!nameHidden && <b>{e.label}</b>}
-                      {!nameHidden && e.truppId && <TruppNo no={trupps?.find((t) => t.id === e.truppId)?.no} />}
                     </span>
                   </>
                 )
@@ -755,6 +756,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
                     color: onTeamColor && ((c) => onTeamColor(e, c)),
                     pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),
+                    newTrupp: onTeamNewTrupp && (() => onTeamNewTrupp(e.id)),
                     mark: onTeamMark && (() => onTeamMark(e.id)),
                     clearTrail: () => onTeamClearTrail?.(e.id),
                     remove: () => onDelete(e.id),

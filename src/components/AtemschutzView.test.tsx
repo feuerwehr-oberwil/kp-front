@@ -19,7 +19,7 @@ import type { AttendanceState, Trupp, TruppFields, TruppReading } from '../types
 
 afterEach(cleanup)
 // ⚠️ …and the kept DRAFTS with it (lib/draftKeep is a module-level store): a form that was
-// deliberately left blocked here — «Trupp anmelden» without an Auftrag — would otherwise hand its
+// deliberately left blocked here — «Anderes» without its word — would otherwise hand its
 // half-typed crew to the next test in this file.
 afterEach(clearAllDrafts)
 beforeAll(() => {
@@ -77,8 +77,8 @@ const typeGuest = (name: string) => {
   fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: name } })
   fireEvent.click(screen.getByRole('option', { name: fillTemplate(az.teamGuestAdd, { name }) }))
 }
-/** Answering the Auftrag — required to REGISTER a Trupp since 04.09. (see «the Auftrag is what a
- *  Trupp is registered FOR» below), so every test that means to CREATE one has to say it. */
+/** Answering the Auftrag in the open form. Not required to register since 14.09. (see «a Trupp
+ *  may be registered without an Auftrag» below) — the tests that pick one are about its value. */
 const pickAuftrag = (label = 'Retten') =>
   fireEvent.click(within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: label }))
 
@@ -959,35 +959,45 @@ describe('the board with Trupps that are not under Atemschutz', () => {
   })
 })
 
-/* ── The Auftrag is what a Trupp is registered FOR (04.09., Feldtest) ──────────────────────────
- * Reverses the 30.08. «the Auftrag no longer blocks» for the CREATE path only: left open at der
- * Anmeldung it stayed open, so the board filled with «Auftrag offen» cards and the Rapport
- * printed crews whose job nobody could reconstruct. Blocking is not a disabled button — the tap
- * opens the section the answer lives in and rings the field, the way every other blocked save on
- * this form already behaves. */
-describe('the Auftrag a Trupp is registered for', () => {
+/* ── A Trupp may be registered WITHOUT an Auftrag (14.09., Feldentscheid) ──────────────────────
+ * Reverses the 04.09. gate for the create path: a crew is often put on the board to stand ready
+ * and gets its order a minute later, from somebody else. The gap is not lost — the card carries
+ * it as «Auftrag offen», the same pill on a Trupp created without one as on one edited to none.
+ * The one thing that still holds a save, in every mode, is «Anderes» without its word. */
+describe('a Trupp may be registered without an Auftrag', () => {
   // the phone case below flips the shared useIsPhone mock — put it back, or every later test in
   // this file gets the compact board
   afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
 
-  it('refuses to register a Trupp with no Auftrag, and registers it once one is given', () => {
+  it('registers a Trupp with no Auftrag, and its card then shows «Auftrag offen»', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     typeGuest('Meier Thomas')
     fireEvent.click(screen.getByRole('button', { name: az.start }))
-    expect(createTrupp).not.toHaveBeenCalled()
-    // the form stays open with everything typed still in it
-    expect(screen.getByRole('button', { name: az.start })).toBeTruthy()
+    expect(createTrupp).toHaveBeenCalledTimes(1)
+    const created = createTrupp.mock.calls[0][0] as Trupp
+    expect(created.auftrag).toBeUndefined()
+    expect(created.ziel ?? '').toBe('')
+    // …and the board, given exactly what the create path handed over, shows the gap as the pill
+    cleanup()
+    const onEdit = vi.fn()
+    mount({ trupps: [created], editTrupp: onEdit })
+    expect(screen.getByRole('button', { name: az.auftragOpen })).toBeTruthy()
+  })
+
+  it('still records the Auftrag when one is picked', () => {
+    const createTrupp = vi.fn()
+    mount({ createTrupp, trupps: [] })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    typeGuest('Meier Thomas')
     pickAuftrag()
     fireEvent.click(screen.getByRole('button', { name: az.start }))
-    expect(createTrupp).toHaveBeenCalledTimes(1)
     expect((createTrupp.mock.calls[0][0] as Trupp).auftrag).toBe('retten')
   })
 
-  // the free text alone answers it too — that is what «Anderes» is for, and a Ziel without a tile
-  // («2OG links») is a complete order
-  it('takes the Ziel text on its own as the answer', () => {
+  // the free text alone is a complete order too — a Ziel without a tile («2OG links»)
+  it('takes the Ziel text on its own', () => {
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
@@ -995,16 +1005,20 @@ describe('the Auftrag a Trupp is registered for', () => {
     fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: '2OG links' } })
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect(createTrupp).toHaveBeenCalledTimes(1)
+    expect((createTrupp.mock.calls[0][0] as Trupp).ziel).toBe('2OG links')
   })
 
-  it('points a blocked save at the Auftrag tiles and hands them the focus', async () => {
+  // «Anderes» is a label that says nothing on its own — the one Auftrag state that still blocks
+  it('points a save blocked by a wordless «Anderes» at the Auftrag tiles and hands them the focus', async () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     const createTrupp = vi.fn()
     mount({ createTrupp, trupps: [] })
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     typeGuest('Meier Thomas')
+    pickAuftrag(az.auftragLabels.anderes)
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect(createTrupp).not.toHaveBeenCalled()
+    expect(screen.getByText(az.saveBlockedAuftrag)).toBeTruthy()
     // flat form (08.09.): the tiles are already on screen, the block rings them and moves focus
     await waitFor(() => {
       const tiles = within(screen.getByRole('group', { name: az.auftragLabel })).getAllByRole('button')
@@ -1422,5 +1436,60 @@ describe('«Entfernen» on a never-deployed Trupp offers «nicht eingesetzt» fi
     openRemove()
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(deleteTrupp).toHaveBeenCalledWith('tr1')
+  })
+})
+
+/* ── Ausrüstung (14.09., mock «chips + Kennzeile») ───────────────────────────────────────────
+ * Multi-select chips under the Auftrag for a Trupp under Atemschutz; the ticked ids travel with
+ * the other fields (create: on the Trupp; edit: in `TruppFields.equipment`, ONE Verlauf row per
+ * save), and the card prints them as Kürzel at the end of its Kennzeile. */
+describe('the Ausrüstung of an Atemschutz-Trupp', () => {
+  const chip = (label: string) => screen.getByRole('checkbox', { name: label })
+
+  it('registers a new Trupp with the two ticked items, in the station’s list order', () => {
+    const createTrupp = vi.fn()
+    mount({ createTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
+    typeGuest('Meier Anna')
+    fireEvent.click(chip(az.equipmentLabels.wbk))
+    fireEvent.click(chip(az.equipmentLabels.retthaube))
+    expect(chip(az.equipmentLabels.wbk).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    expect(createTrupp).toHaveBeenCalledTimes(1)
+    expect((createTrupp.mock.calls[0][0] as Trupp).equipment).toEqual(['retthaube', 'wbk'])
+  })
+
+  it('saves the remaining ids when one chip is ticked off in Bearbeiten', async () => {
+    const editTrupp = vi.fn()
+    mount({ editTrupp, trupps: [{ ...aktivTrupp(), equipment: ['retthaube', 'wbk'] }] })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    expect(chip(az.equipmentLabels.retthaube).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(chip(az.equipmentLabels.wbk))
+    fireEvent.click(screen.getByRole('button', { name: az.save }))
+    expect(editTrupp).toHaveBeenCalledTimes(1)
+    expect((editTrupp.mock.calls[0][1] as TruppFields).equipment).toEqual(['retthaube'])
+  })
+
+  it('prints the Kürzel at the end of the Kennzeile — and nothing when nothing was ticked', () => {
+    mount({ trupps: [{ ...aktivTrupp(), equipment: ['retthaube', 'wbk'] }] })
+    const tags = [...document.querySelectorAll(`.${s.kennTag}`)].map((el) => el.textContent)
+    expect(tags).toEqual([az.equipmentShort.retthaube, az.equipmentShort.wbk])
+    cleanup()
+    mount()
+    expect(document.querySelector(`.${s.kennTag}`)).toBeNull()
+  })
+
+  it('asks a work squad nothing — the field only exists under Atemschutz', async () => {
+    mount({
+      trupps: [{ id: 'tr9', kind: 'einfach', name: 'Gerber', entryPressureBar: 0, entryTime: iso(20 * 60_000), lastContactTime: '', status: 'aktiv' }],
+      truppColors: { tr9: '#e2920a' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: az.edit }))
+    expect(screen.queryByRole('group', { name: az.equipmentLabel })).toBeNull()
+    // …and appears the moment the Art is turned to Atemschutz
+    fireEvent.click(screen.getByRole('radio', { name: az.kindAtemschutz }))
+    expect(screen.getByRole('group', { name: az.equipmentLabel })).toBeTruthy()
   })
 })

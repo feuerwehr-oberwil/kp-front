@@ -424,7 +424,16 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     return (out ?? o) as T
   }
   const fixTrupp = (t: Trupp): Trupp => {
-    const o = fixDrawProps(strFields(t, ['name'])) as Trupp & { readings?: unknown }
+    let o = fixDrawProps(strFields(t, ['name'])) as Trupp & { readings?: unknown; equipment?: unknown }
+    // the Ausrüstung ids (types · Trupp.equipment): a list of non-empty strings, each once, or
+    // nothing at all — a stray object or number in there would reach the card and the Rapport
+    if (o.equipment != null) {
+      const ids = Array.isArray(o.equipment)
+        ? [...new Set(o.equipment.filter((x): x is string => typeof x === 'string' && x.trim() !== ''))] : []
+      if (!Array.isArray(o.equipment) || ids.length !== o.equipment.length) dropped++
+      const { equipment: _drop, ...rest } = o
+      o = ids.length ? { ...rest, equipment: ids } : rest
+    }
     if (o.readings == null) return o
     const readings = arr<TruppReading>(o.readings, isReading)
     return { ...o, readings }

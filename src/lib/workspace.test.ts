@@ -136,6 +136,30 @@ describe('deriveInitial — fresh / empty incident', () => {
 })
 
 /* ── Trupp N for records written before the number existed (12.09., docs/trupp-naming.md §6) ── */
+/* types · Trupp.equipment: a list of ids, kept as recorded — and only that shape reaches the card
+ * and the Rapport. Anything else is dropped and counted at the gate, like every other field. */
+describe('sanitizeWorkspace — the Trupp’s Ausrüstung', () => {
+  const t = (equipment: unknown) => ({
+    id: 'T1', name: 'Meier', entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', equipment,
+  })
+
+  it('keeps a clean list untouched, each id once', () => {
+    const g = sanitizeWorkspace(ws({ trupps: [t(['retthaube', 'wbk', 'retthaube']) as unknown as Trupp] }))
+    expect(g.ws?.trupps?.[0].equipment).toEqual(['retthaube', 'wbk'])
+    expect(g.dropped).toBe(1) // the duplicate
+    const clean = sanitizeWorkspace(ws({ trupps: [t(['wbk']) as unknown as Trupp] }))
+    expect(clean.ws?.trupps?.[0].equipment).toEqual(['wbk'])
+    expect(clean.dropped).toBe(0)
+  })
+
+  it('drops what is not a list of ids, and leaves no empty list behind', () => {
+    const g = sanitizeWorkspace(ws({ trupps: [t('wbk') as unknown as Trupp, t([3, '', { id: 'x' }]) as unknown as Trupp] }))
+    expect(g.ws?.trupps?.[0].equipment).toBeUndefined()
+    expect(g.ws?.trupps?.[1].equipment).toBeUndefined()
+    expect(g.dropped).toBe(2)
+  })
+})
+
 describe('numberTrupps — the load normaliser', () => {
   const t = (id: string, over: Partial<Trupp> = {}): Trupp => ({
     id, name: id, entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', ...over,

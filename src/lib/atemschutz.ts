@@ -305,6 +305,37 @@ export function currentRunStart(readings: readonly TruppReading[] | undefined): 
   return 0
 }
 
+/**
+ * How long after the Eintritt a Druckmeldung still CORRECTS the Eingangsdruck instead of being
+ * measured against it (ms).
+ *
+ * Field reason (14.09.): the Trupp is registered on the default 300 bar because nobody asked the
+ * crew before they went, and within a minute the Überwacher records the real gauge — 280 — through
+ * the card's Druck. Read as a measurement, that is a 20-bar drop in one minute, and the Schätzung
+ * extrapolates the cylinder empty in a quarter of an hour. Read as what it is — the Eingangsdruck,
+ * finally asked for — it replaces the baseline and the trend starts from there. Three minutes is
+ * long enough for the first radio check and short enough that no real consumption fits in it.
+ */
+export const EARLY_PRESSURE_CORRECTION_MS = 3 * 60_000
+
+/**
+ * Is a Druckmeldung recorded at `atMs` the Eingangsdruck being corrected (see
+ * EARLY_PRESSURE_CORRECTION_MS) rather than a measurement? Only while the Trupp is under PA, is
+ * in its window after the current deployment's Eintritt, and has NO confirmed reading in that
+ * deployment yet — the first real reading closes the window whatever the clock says, and a
+ * re-deployed Trupp is judged against its current run (currentRunStart), not its first.
+ * The caller (useTruppActions · recordPressure) routes a true answer through the same correction
+ * `editTrupp` writes; a reading at or below the Alarmdruck is never a correction.
+ */
+export function earlyEntryCorrection(t: Trupp, atMs: number): boolean {
+  if (!isAtemschutzTrupp(t)) return false
+  const entry = ms(t.entryTime)
+  if (!entry || t.exitTime || atMs < entry || atMs - entry > EARLY_PRESSURE_CORRECTION_MS) return false
+  const readings = t.readings ?? []
+  const measuredSince = readings.slice(currentRunStart(readings)).some((r) => r.kind === 'pressure' || r.kind === 'alarm')
+  return !measuredSince && t.lastPressureBar == null
+}
+
 export function contactSeverity(sinceContactSec: number | null, contactIntervalMin: number, contactGraceSec: number): 0 | 1 | 2 {
   if (sinceContactSec == null) return 0
   const interval = contactIntervalMin * 60
@@ -520,7 +551,8 @@ export function estimatePressure(
   // everything before it was thrown away. That is not what a rise means here: a Trupp does not
   // change cylinders inside a burning building, so a value going up is a correction of what was
   // typed, and the Eingangsdruck itself is now the field that gets corrected (useTruppActions ·
-  // editTrupp). Meanwhile the reset had a real cost: one fat-fingered high reading left the
+  // editTrupp — and, for a Druck recorded in the first minutes after the Eintritt before any
+  // other reading, recordPressure itself: see EARLY_PRESSURE_CORRECTION_MS). Meanwhile the reset had a real cost: one fat-fingered high reading left the
   // Schätzung computing consumption from two minutes of history for the rest of the Einsatz,
   // which is the least reliable window there is.
   //

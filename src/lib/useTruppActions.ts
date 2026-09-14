@@ -9,8 +9,9 @@ import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
+import { truppEquipmentLabels } from './report'
 import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
-import { alarmBarFor, currentRunStart, isAtemschutzTrupp, truppAwaitsEntry, truppCrewWithout, truppLogName, truppTransferState } from './atemschutz'
+import { alarmBarFor, currentRunStart, earlyEntryCorrection, isAtemschutzTrupp, truppAwaitsEntry, truppCrewWithout, truppLogName, truppTransferState } from './atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
 // tablet six seconds ahead put contact times into the Rapport that no other device agreed with,
@@ -165,6 +166,12 @@ export function truppEditChanges(
         : fillTemplate(az.changeFunkkanal, { from: String(prev.funkkanal), to: String(f.funkkanal) }))
   }
   if (f.color !== undefined && (prev.color ?? null) !== (f.color ?? null)) out.push(az.changeColor)
+  // the Ausrüstung as the list it is now — or «keine» once the last item is taken off — in the
+  // same words setTruppEquipment writes, so the form and the card tell one story
+  if ((prev.equipment ?? []).join('\u0000') !== (f.equipment ?? []).join('\u0000')) {
+    const labels = truppEquipmentLabels(f.equipment)
+    out.push(labels.length ? fillTemplate(az.changeEquipment, { list: labels.join(', ') }) : az.changeEquipmentNone)
+  }
   // ⚠️ FIRST among the changes, not somewhere in the middle of the sentence: it is the only one
   // here that turns a safety watch on or off, and the Verlauf is where somebody reads back what
   // was being monitored when. The form answers this field from the Trupp's own record wherever
@@ -779,6 +786,37 @@ export function useTruppActions(deps: Deps) {
   // DIFFERENT Trupp ~250ms later. A Kontakt booked on the wrong Trupp is a false statement in the
   // legal record — «this crew was reached» — and it silences that Trupp's alarm. The sort freeze
   // in AtemschutzView stops it happening; this is the way back when it does.
+  /**
+   * The Eingangsdruck of the RUNNING deployment, corrected to `bar` — the one patch both paths
+   * that correct it share: the form's Druck field (editTrupp) and a Druckmeldung recorded in the
+   * first minutes after the Eintritt (recordPressure · lib/atemschutz · earlyEntryCorrection).
+   * What it does and deliberately does NOT do (2026-08-10):
+   *   · it rewrites entryPressureBar and the FIRST reading of the current run (the entry /
+   *     registered one), because that row is the same statement written twice — leaving it would
+   *     print a Verlauf that contradicts the card,
+   *   · it re-derives lowestBar from the corrected value and the readings that followed, so a
+   *     corrected entry cannot leave a «tiefster Druck» that was never measured,
+   *   · it does NOT set lastContactTime. This is a correction of what was written down, not a
+   *     Druckmeldung — a measured Druck is what resets the safety clock.
+   * Empty when nothing changes, so a caller can spread it unconditionally.
+   */
+  const correctEntryPressure = (t: Trupp, bar: number): Partial<Trupp> => {
+    if (bar === t.entryPressureBar) return {}
+    // ⚠️ The CURRENT deployment's entry row, not the log's first one. A re-deployed Trupp carries
+    // every earlier reading with it now (see reactivateTrupp), and index 0 is then the entry of
+    // an Einsatz that is over — correcting the Eingangsdruck would have rewritten the wrong row
+    // and measured «tiefster Druck» across both.
+    const from = currentRunStart(t.readings)
+    const readings = (t.readings ?? []).map((r, i) =>
+      (i === from && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar } : r))
+    // the lowest pressure of the running deployment: the corrected entry, plus every reading
+    // actually taken since. Recomputed rather than min()'d against the old lowestBar, which
+    // may itself be the wrong entry value.
+    // …a `crew` row's bar is CARRIED (crewRow), so it may still hold the value being corrected
+    const lowestBar = Math.min(bar, ...readings.slice(from).filter((r) => r.kind !== 'crew').map((r) => r.bar))
+    return { entryPressureBar: bar, readings, lowestBar }
+  }
+
   const recordContact = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
     const now = serverNowIso()
@@ -809,6 +847,27 @@ export function useTruppActions(deps: Deps) {
     const alarmBar = tr ? alarmBarFor(tr, doctrine) : doctrine.alarmBar
     const wasAbove = (tr?.lastPressureBar ?? tr?.entryPressureBar ?? Infinity) > alarmBar
     const crossed = !!tr && alarmBar > 0 && wasAbove && bar <= alarmBar
+    /* ⚠️ A Druck in the first minutes after the Eintritt, before any other reading, is the
+     * Eingangsdruck being asked for late — not a measurement (14.09., field observation: the
+     * Trupp goes in on the default 300, the real gauge is recorded a minute later, and the
+     * Schätzung read a 20-bar drop per minute). It takes the same correction the form's Druck
+     * field writes (correctEntryPressure): baseline replaced, no `pressure` row, no contact
+     * stamp — the trend starts from the corrected number. Never for a value at or below the
+     * Alarmdruck: that IS the emergency, and the crossing row above has to name it. */
+    if (tr && !crossed && earlyEntryCorrection(tr, Date.parse(now))) {
+      const apply = (t: Trupp): Trupp => ({ ...t, ...correctEntryPressure(t, bar) })
+      if (bar === tr.entryPressureBar) return // the same number again — nothing to correct
+      setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+      const az = appConfig.copy.atemschutz
+      const line = fillTemplate(az.logEditFields, {
+        name: truppLogName(tr, 'leader'),
+        changes: fillTemplate(az.changePressure, { from: String(tr.entryPressureBar), to: String(bar) }),
+      })
+      log('pen', line, 'team', undefined, undefined, { subjectId: id })
+      emit('atemschutz.edit', { id })
+      remember(id, line, tr, apply)
+      return
+    }
     // …and the LOG ROW says so too, so the printed Atemschutz-Journal can name the moment
     // instead of leaving a reader to compare a column of numbers against the station's doctrine
     const apply = (t: Trupp): Trupp => ({ ...t, lastPressureBar: bar, lastPressureTime: now, lastContactTime: now, lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, bar),
@@ -926,34 +985,13 @@ export function useTruppActions(deps: Deps) {
   //
   // The Eingangsdruck IS editable here (2026-08-10) — it is the number the Verbrauch and the
   // «tiefster Druck» on the Rapport are measured against, and a 200 typed for 300 at der Anmeldung
-  // previously had no correction path at all short of deleting the Trupp. What a correction does
-  // and deliberately does NOT do:
-  //   · it rewrites entryPressureBar and the FIRST reading (the entry/registered one), because
-  //     that row is the same statement written twice — leaving it would print a Verlauf that
-  //     contradicts the card,
-  //   · it re-derives lowestBar from the corrected value and the readings that followed, so a
-  //     corrected entry cannot leave a «tiefster Druck» that was never measured,
-  //   · it does NOT set lastContactTime. This is a correction of what was written down, not a
-  //     Druckmeldung — the card's ± is the Druckmeldung, and it resets the safety clock.
+  // previously had no correction path at all short of deleting the Trupp. What the correction
+  // does and deliberately does not do is written at `correctEntryPressure`, which the card's own
+  // Druck shares in the first minutes after the Eintritt (recordPressure).
   const editTrupp = (id: string, f: TruppFields) => {
     const tr = trupps.find((t) => t.id === id)
     const bar = f.pressure
-    const pressurePatch = (t: Trupp): Partial<Trupp> => {
-      if (bar === t.entryPressureBar) return {}
-      // ⚠️ The CURRENT deployment's entry row, not the log's first one. A re-deployed Trupp carries
-      // every earlier reading with it now (see reactivateTrupp), and index 0 is then the entry of
-      // an Einsatz that is over — correcting the Eingangsdruck would have rewritten the wrong row
-      // and measured «tiefster Druck» across both.
-      const from = currentRunStart(t.readings)
-      const readings = (t.readings ?? []).map((r, i) =>
-        (i === from && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar } : r))
-      // the lowest pressure of the running deployment: the corrected entry, plus every reading
-      // actually taken since. Recomputed rather than min()'d against the old lowestBar, which
-      // may itself be the wrong entry value.
-      // …a `crew` row's bar is CARRIED (crewRow), so it may still hold the value being corrected
-      const lowestBar = Math.min(bar, ...readings.slice(from).filter((r) => r.kind !== 'crew').map((r) => r.bar))
-      return { entryPressureBar: bar, readings, lowestBar }
-    }
+    const pressurePatch = (t: Trupp): Partial<Trupp> => correctEntryPressure(t, bar)
     /**
      * The Art of a Trupp, changed after the fact — a work squad that ends up going in under PA,
      * or one registered under Atemschutz by mistake (04.09.). It is the one field here that
@@ -990,7 +1028,7 @@ export function useTruppActions(deps: Deps) {
     // row to the new Eingangsdruck — claiming the Trupp went in under PA all along.
     // ⚠️ Built once and kept: the timeline's ↷ re-applies THIS patch rather than re-running the
     // edit, so `kindPatch`'s Hochstuf-Zeitstempel is the one the record already carries.
-    const patch = { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}), ...(tr ? kindPatch(tr) : {}) }
+    const patch = { name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal, leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, equipment: f.equipment, ...colorPatch(f), ...(tr ? pressurePatch(tr) : {}), ...(tr ? kindPatch(tr) : {}) }
     // a changed crew is a `crew` row too, on top of whatever readings the two patches above
     // settled on — the Rapport reads the crew off the log, not off the card (see crewRow)
     const crewChanged = !!tr && (f.name !== tr.name || (f.members ?? []).join('\u0000') !== (tr.members ?? []).join('\u0000'))
@@ -1033,6 +1071,39 @@ export function useTruppActions(deps: Deps) {
     // Nothing changed ⇒ no row, and nothing on the timeline either: ↶ must never offer to take
     // back a save that wrote nothing (the operator would watch it do visibly nothing).
     if (line) remember(id, line, tr, withCrew)
+  }
+  /**
+   * What the Trupp takes in (types · Trupp.equipment) — the ids from the station's list
+   * (deploymentConfig · atemschutzEquipment), in whatever order the list has them.
+   *
+   * The form's «Ausrüstung» chips (AtemschutzView · TruppForm) travel as `TruppFields.equipment`
+   * through `editTrupp`, so a save that touches the Auftrag AND the Ausrüstung is ONE Verlauf row.
+   * This action is for a change made OUTSIDE the form (a card control, once there is one); its
+   * row is the same housekeeping shape — «Trupp 1 (Meier Anna): Ausrüstung: Retthaube, WBK» —
+   * with «keine» when the last item is taken off, so a reader never meets a bare «Ausrüstung:».
+   * Nothing changed ⇒ nothing written, same rule as editTrupp; undoable on the global timeline
+   * like every other Trupp edit. Ids are de-duplicated and unknown ones are kept: an id from an
+   * older station list is still what was recorded.
+   */
+  const setTruppEquipment = (id: string, ids: readonly string[]) => {
+    const tr = trupps.find((t) => t.id === id)
+    if (!tr) return
+    const next = [...new Set(ids.map((x) => x.trim()).filter(Boolean))]
+    if (next.join('\u0000') === (tr.equipment ?? []).join('\u0000')) return
+    const apply = (t: Trupp): Trupp => {
+      const { equipment: _drop, ...rest } = t
+      return next.length ? { ...rest, equipment: next } : rest
+    }
+    setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+    const az = appConfig.copy.atemschutz
+    const labels = truppEquipmentLabels(next)
+    const line = fillTemplate(az.logEditFields, {
+      name: truppLogName(tr, 'leader'),
+      changes: labels.length ? fillTemplate(az.changeEquipment, { list: labels.join(', ') }) : az.changeEquipmentNone,
+    })
+    log('pen', line, 'team', undefined, undefined, { subjectId: id })
+    emit('atemschutz.edit', { id })
+    remember(id, line, tr, apply)
   }
   /**
    * Take one person OUT of the Trupp they are still recorded in, because they are being written
@@ -1129,7 +1200,7 @@ export function useTruppActions(deps: Deps) {
       : { kind: nowPa ? 'atemschutz' : 'einfach' }
     const apply = (t: Trupp): Trupp => (
       { ...t, name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
-          leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, ...colorPatch(f), ...kindPatch,
+          leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, equipment: f.equipment, ...colorPatch(f), ...kindPatch,
           status: standby ? 'angemeldet' : 'aktiv',
           entryTime: standby ? '' : now, lastContactTime: standby ? '' : now, exitTime: undefined,
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
@@ -1440,5 +1511,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, setTruppEquipment, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
 }

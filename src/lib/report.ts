@@ -6,7 +6,7 @@ import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
 import { truppNeverDeployed } from './atemschutz'
-import { attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
+import { atemschutzEquipment, attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
 import { mittelReportRows } from './mittel'
 import { repeatRuns, rowPhotos, rowText } from './verlauf'
 import { linkMarkup, type JournalLink } from './journalLinks'
@@ -545,6 +545,23 @@ export function truppAuftragLabel(auftrag?: string): string | undefined {
 }
 
 /**
+ * The Ausrüstung ids a Trupp carries (types · Trupp.equipment) as the words the card and the
+ * Rapport print, in the station's list order. Same resolution as `truppAuftragLabel`: the copy's
+ * localised label for a shipped id, else the label the station's own list carries
+ * (deploymentConfig · atemschutzEquipment), else the id as stored — an id from an older list is
+ * still on the record and must still print. Unknown ids keep the order they were recorded in.
+ */
+export function truppEquipmentLabels(ids: readonly string[] | undefined): string[] {
+  if (!ids?.length) return []
+  const list = atemschutzEquipment()
+  const labels = appConfig.copy.atemschutz.equipmentLabels
+  const rank = (id: string) => { const i = list.findIndex((e) => e.id === id); return i < 0 ? list.length : i }
+  return [...new Set(ids)]
+    .sort((a, b) => rank(a) - rank(b))
+    .map((id) => labels[id] ?? list.find((e) => e.id === id)?.label ?? id)
+}
+
+/**
  * Was this row's pressure MEASURED, or carried over?
  *
  * ⚠️ `contact` and `rueckzug` rows store `lastPressureBar ?? entryPressureBar` — the last value
@@ -783,15 +800,21 @@ export function describeDrawing(d: Drawing): string {
 /** The Einsatzleiter as drawn on the Lage, for pre-filling the Rapport field that would
  *  otherwise be typed a second time. Read in doctrine order:
  *    1. the Einsatzleiter glyph — its 'Name' (roster picker), else its own label,
- *    2. an Offizier whose Funktion says Einsatzleiter (a rank-led picture without the EL glyph),
- *    3. any symbol carrying a filled field literally named «Einsatzleiter» (KP Front, typically).
+ *    2. the KP Front's 'Name' — it carries the same EL/Stv. pair since 14.09. (no label
+ *       fallback: its label is «KP Front», not a person),
+ *    3. an Offizier whose Funktion says Einsatzleiter (a rank-led picture without the EL glyph),
+ *    4. any symbol carrying a filled field literally named «Einsatzleiter» (a KP Front placed
+ *       before 14.09. carried the EL that way — old data keeps working).
  *  Returns undefined when nothing names a person — the field then stays empty rather than
  *  guessing. Only a PRE-fill: whatever the operator types in the Rapport wins. */
 export function einsatzleiterFromScene(entities: Entity[] = []): string | undefined {
   const syms = entities.filter((e) => e.kind === 'symbol')
   const val = (e: Entity, key: string) => e.fields?.[key]?.trim() || undefined
-  const el = syms.find((e) => e.symbol === appConfig.symbols.einsatzleiterName && (val(e, 'Name') || e.label?.trim()))
-  if (el) return val(el, 'Name') ?? el.label?.trim()
+  for (const name of appConfig.symbols.einsatzleiterSymbols) {
+    const labelOk = name === appConfig.symbols.einsatzleiterName
+    const hit = syms.find((e) => e.symbol === name && (val(e, 'Name') || (labelOk && e.label?.trim())))
+    if (hit) return val(hit, 'Name') ?? hit.label?.trim()
+  }
   const officer = syms.find((e) => /einsatzleit|^el$/i.test(e.fields?.Funktion?.trim() ?? '') && val(e, 'Name'))
   if (officer) return val(officer, 'Name')
   return syms.map((e) => val(e, 'Einsatzleiter')).find(Boolean)

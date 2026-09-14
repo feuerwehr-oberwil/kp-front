@@ -154,6 +154,9 @@ export interface DeploymentDoctrine {
   /** station colour per Auftrag (auftrag id → CSS colour) — what a Trupp with that order starts
    *  in, still overridable per Trupp. Absent/empty = the automatic one-colour-per-Trupp palette. */
   auftragColors?: Record<string, string> | null
+  /** the station's Ausrüstung list for a Trupp (types · Trupp.equipment), short labels as they
+   *  print on a card. Absent/empty = the shipped national default (appConfig.atemschutz.equipment). */
+  equipment?: { id: string; label: string }[] | null
 }
 
 /** One Dienstgrad in the station's ordered rank list. Mirrors backend `RankConfig`. Position
@@ -248,6 +251,13 @@ export interface DeploymentMittelItem {
    * names no variant.
    */
   when?: Record<string, string> | Record<string, string>[]
+  /** Counted off the Atemschutz-Tafel instead of a symbol (lib/mittel · truppPlacedCount):
+   *  'person' = one per crew member of every live AS-Trupp (Atemschutzgerät), 'trupp' = one per
+   *  live AS-Trupp. File/CLI only, like `when` – the Arbeitsmappe preserves it on an id match. */
+  perAtemschutz?: 'person' | 'trupp'
+  /** An Ausrüstung id (Trupp.equipment · retthaube/wbk/multiwarn …): one per live Trupp of any
+   *  kind that carries it in. File/CLI only, like `when`. */
+  equipment?: string
   /** true = consumable (used up → Nachschub list); false/absent = equipment that must come
    *  back (gets the per-line Retablierung status: zurück / vor Ort / defekt). */
   verbrauchbar?: boolean
@@ -609,6 +619,19 @@ export function atemschutzDoctrine() {
 export function atemschutzAuftragColors(): Record<string, string> {
   const c = resolved.doctrine?.auftragColors
   return c && typeof c === 'object' ? c : {}
+}
+
+/**
+ * The Ausrüstung a Trupp can be sent in with (types · Trupp.equipment) — the station's own list
+ * (`doctrine.equipment`) where one is configured, else the shipped default. THE read path, like
+ * `atemschutzDoctrine()`: nothing reads `appConfig.atemschutz.equipment` directly. Entries
+ * without an id or a label are dropped at the boundary, and a list that is empty after that
+ * falls back to the default rather than offering nothing.
+ */
+export function atemschutzEquipment(): { id: string; label: string }[] {
+  const own = (resolved.doctrine?.equipment ?? []).filter((e) =>
+    !!e && typeof e === 'object' && typeof e.id === 'string' && e.id.trim() !== '' && typeof e.label === 'string' && e.label.trim() !== '')
+  return own.length ? own : appConfig.atemschutz.equipment
 }
 
 /**

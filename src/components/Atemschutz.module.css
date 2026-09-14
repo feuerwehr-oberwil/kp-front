@@ -223,9 +223,13 @@
    Mockup B). The head is a fixed 56px, so reserving two Kennzeilen-Zeilen here makes the band —
    the clock the board is compared BY — start at the same height on every card in a row, without
    coupling a single zone below it. `line-height` is set explicitly so the reserve is arithmetic
-   and not whatever the font happens to resolve `normal` to: 12px padding + 2 × 17.5px + the 4px
-   row gap = 51px, plus 2px so that the dashed «Auftrag offen» pill — the one item here that is
+   and not whatever the font happens to resolve `normal` to: 8px padding + 2 × 17.5px + the 4px
+   row gap = 47px, plus 2px so that the dashed «Auftrag offen» pill — the one item here that is
    taller than a text line — does not push a two-line Kennzeile out of its own reserve.
+   ⚠️ The padding under it is 8px, the same air the head keeps under the name (14.09., screenshot:
+   at 12px the Kennzeile stood visibly further from the block than from the name above it, and
+   the buttons' zone below the block answers with 8px too — see `.actZone`). One rhythm down the
+   card: name · 8 · Kennzeile · 8 · block · 8 · buttons.
    `align-content: flex-start` keeps a ONE-line Kennzeile at the top of that
    reserve instead of centring it in the empty space and pushing the text out of line with its
    neighbours. A Kennzeile that genuinely runs to three lines still pushes its own band down —
@@ -233,8 +237,17 @@
    ⚠️ …and the reserve is dropped on the focus board (`.focusCard .kenn`, 09.09.): one card on
    screen has no neighbour to line its band up with, so there the 53px is simply blank card. */
 .kenn { display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start;
-  gap: 4px 7px; padding: 0 14px 12px; min-height: 53px; line-height: 1.4;
+  gap: 4px 0; padding: 0 14px 8px; min-height: 49px; line-height: 1.4;
   font-size: 12.5px; color: var(--ink-dim); }
+/* One entry with ITS separator in front of it (14.09.): the «·» used to be its own flex child,
+   so a wrap could fall between the dot and the entry and the next line opened with a stray dot.
+   Bound into the entry it can only wrap WITH it; the 7px column gap the line used to carry is
+   now the gap on either side of the dot, so nothing moved for an entry that does not wrap. The
+   entry's text still wraps inside itself (`min-width: 0`) — a long Ziel is not forced onto one
+   line, only the dot is forced to stay with its first word. */
+.kennItem { display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 100%; }
+.kennItem > .kennSep { flex: none; }
+.kennItem:first-child > .kennSep { display: none; }
 .kennCrew { font-weight: 700; }
 /* «Rückzug» — a fact the band does not name (see the Kennzeile in TruppCard). Amber and in the
    card's own voice, never a second alarm colour: the tier lives in the band and only there. */
@@ -318,7 +331,8 @@
    the Sockel's `margin-top`, which is right until the Sockel is empty — a Trupp without
    Atemschutz has nothing to look up — and then the Verlauf sat straight against the button with
    no gap at all. The zone that owns the buttons owns the air around them. */
-.actZone { padding: 12px; }
+/* 8px above (the card's one vertical rhythm — see `.kenn`), the 12px gutter on the other sides */
+.actZone { padding: 8px 12px 12px; }
 .actZone:empty { padding: 0; }
 
 /* ── 6 Sockel: everything one LOOKS UP ──────────────────────────────────────────────────────
@@ -1577,7 +1591,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      .focusCard padding-top                                          6      (was  12, then 10)
      .card border-top                                                5
      .cardHead                  2 + 44 + 2                          48      (was  60, then 52)
-     .kenn                      two lines 2×17.5 + 10               45      (was  53, a fixed
+     .kenn                      two lines 2×17.5 + 8                43      (was  53, a fixed
                                                                              reserve — see below)
      .block borders             2 × 1.5                              3
        .band                    9 + 34 + 9                          52      (was  62)
@@ -1592,12 +1606,12 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      .bottomRail                1 + 8 + 48 + 16                     73      (was 143 — «+» on a
                                                                              second row)
      ────────────────────────────────────────────────────────────────────────────────────────
-                                                                   539.5    (was 736.5 → 602.5)
+                                                                   537.5    (was 736.5 → 602.5)
 
    ⚠️ MEASURED, not only counted (Chromium, the real built CSS, the test fixture's one-line
    Kennzeile): 582.1px before pass 2, 527.0px after it, 521.0px after the padding review that
    followed — −61.1px in all. At 375×667 the usable band is ~567px, so the same card went from
-   15px OVER to 46px of reserve. The 539.5 above is the same card with the table's two-line
+   15px OVER to 46px of reserve. The 537.5 above is the same card with the table's two-line
    Kennzeile, which is the honest worst case.
    ~204px of margin at 390×844, which is what pays for the cases that used to break the fit: an
    `.airNote` (~51), a three-line Kennzeile (+17.5), a rail whose names wrap to two lines (+10).
@@ -1627,7 +1641,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    compared BY — starts at the same height on every card in a GRID ROW (see `.kenn`). Focus mode
    shows exactly one card, so there is nothing to align it with and the reserve is 27px of blank
    card between the Kennzeile and the clock. */
-.focusCard .kenn { min-height: 0; padding-bottom: 10px; }
+.focusCard .kenn { min-height: 0; padding-bottom: 8px; }
 .focusCard .band { padding: 9px 12px; }
 /* 40 → 34px. Still the loudest thing on the screen by a wide margin (the next number up is the
    14px rail clock), and still the mono tabular face the whole board reads its times in.
@@ -1689,3 +1703,20 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    inside it — header, cards, rows, form — is unchanged, which is the point. */
 .surfaceLite { position: static; inset: auto; flex: 1 1 auto; min-height: 0;
   border-radius: 0; box-shadow: none; }
+
+/* ── Ausrüstung (14.09., mock «chips + Kennzeile») ───────────────────────────────────────────
+   Multi-select chips in the form: the same row shape as the Art tiles, but pills with a tick
+   box, so «several go» is visible before the first tap. On = ink fill, the box inverts. */
+.eqChips { display: flex; flex-wrap: wrap; gap: 8px; }
+.eqChip { display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap); padding: 0 14px;
+  border: 1.5px solid var(--glass-edge); border-radius: 999px; background: var(--surface);
+  font: 700 13.5px var(--body); color: var(--ink); cursor: pointer; }
+.eqChip:active { background-image: linear-gradient(var(--press), var(--press)); }
+.eqChipOn { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.eqBox { display: grid; place-items: center; width: 16px; height: 16px; flex: none;
+  border: 1.5px solid currentColor; border-radius: 4px; }
+.eqChipOn > .eqBox { background: var(--surface); border-color: var(--surface); color: var(--ink); }
+.eqBox :global(.i) { width: 11px; height: 11px; stroke-width: 3; }
+/* the Kürzel on the card's Kennzeile — small, rounded, a soft ink fill: a fact, not a state */
+.kennTag { padding: 1px 6px; border-radius: 6px; font: 800 11px var(--body); letter-spacing: .04em;
+  color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }

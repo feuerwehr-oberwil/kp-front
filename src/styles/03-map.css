@@ -16,6 +16,15 @@
 .maptool-team #map, .maptool-team .maplibregl-canvas,
 .maptool-lasso #map, .maptool-lasso .maplibregl-canvas,
 .maptool-scale #map, .maptool-scale .maplibregl-canvas { cursor: crosshair !important; }
+/* Clean canvas while placing (field, 14.09.): a symbol, Form or Trupp being put down lands where
+   the finger says — even on top of a marker already there. The markers step out of the pointer's
+   way, so the tap reaches the map and PLACES instead of selecting (and opening the panel of)
+   whatever sat under it. The WRAPPER, not `.marker`: `.maplibregl-marker` is what swallows the
+   click for the map (MapMarkers · onClick stopPropagation). The class leaves with the tool, so
+   the markers are live again the moment the placement is done. Same rule on the plan
+   (09-whiteboard.css · .wb-canvas.placing .wb-anno). ⚠️ The LINE tools are deliberately not in
+   this list: a stroke begun on a symbol is AIMED at it (the line-START magnet). */
+.placing .maplibregl-marker, .maptool-team .maplibregl-marker { pointer-events: none; }
 
 /* markers — bare tactical symbol, real-world scaled. White fill only for outline-with-text.
    --gpx = the glyph's on-screen size; --badge-out = how far the corner badges (.sym-floor,

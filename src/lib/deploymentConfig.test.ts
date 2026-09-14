@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, carrySessionOnly, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleAlignment, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { alarmProviderName, atemschutzDoctrine, atemschutzEquipment, carrySessionOnly, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleAlignment, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -203,6 +203,33 @@ describe('naming the Alarm-/Personalquelle only where there is one', () => {
     await load({ integrations: { personnel: { provider: 'divera', configured: true, capabilities: [] } } })
     expect(personnelProviderName()).toBe('Divera')
     expect(alarmProviderName()).toBeNull()
+  })
+})
+
+/* The Ausrüstung list a Trupp picks from (types · Trupp.equipment): the station's own where it
+ * has one, the shipped three otherwise — never a mix, and never nothing. */
+describe('Atemschutz equipment list', () => {
+  const load = async (doctrine: unknown) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ doctrine }), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    })))
+    await loadDeploymentConfig()
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('ships Retthaube · WBK · Multiwarn when the station lists nothing', async () => {
+    await load({})
+    expect(atemschutzEquipment().map((e) => e.id)).toEqual(['retthaube', 'wbk', 'multiwarn'])
+  })
+
+  it('lets the station’s own list win outright, dropping entries without id or label', async () => {
+    await load({ equipment: [{ id: 'wbk', label: 'Wärmebildkamera' }, { id: '', label: 'x' }, { label: 'no id' }] })
+    expect(atemschutzEquipment()).toEqual([{ id: 'wbk', label: 'Wärmebildkamera' }])
+  })
+
+  it('falls back to the default when the station’s list is empty after cleaning', async () => {
+    await load({ equipment: [{ id: ' ', label: '' }] })
+    expect(atemschutzEquipment().map((e) => e.id)).toEqual(['retthaube', 'wbk', 'multiwarn'])
   })
 })
 

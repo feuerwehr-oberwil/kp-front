@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { useTruppActions, truppEditChanges, handOrder, nextTruppOrder, LAGE_TARGET } from './useTruppActions'
 import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
 import { appConfig } from '../config/appConfig'
-import { anyTruppInField, isAtemschutzTrupp, truppNeverDeployed } from './atemschutz'
+import { anyTruppInField, estimatePressure, isAtemschutzTrupp, truppNeverDeployed } from './atemschutz'
 import { fillTemplate } from './format'
 import type { Doc } from './workspace'
 import { objectsFromLegacy } from './tacticalObjects'
@@ -33,6 +33,15 @@ vi.mock('./ui', async (importOriginal) => ({
 
 // useTruppActions has no React hooks inside — it's a closure factory over injected setters,
 // so the one-place invariant (map XOR plan) is testable without renderHook.
+
+/** `harness`, plus the global ↶ timeline the undoable actions push to (see `remember`). */
+const timed = (t: Trupp, log?: (icon: string, text: string) => void) => {
+  const timeline = createUndoTimeline()
+  const h = harness(t, undefined, log)
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+  const actions = useTruppActions({ ...h.deps, undoTimeline: timeline, liveTrupps: () => h.state.trupps })
+  return { actions, state: h.state, timeline }
+}
 
 const baseTrupp = (over: Partial<Trupp>): Trupp => ({
   id: 'T1', name: 'Keller Anna', entryPressureBar: 300, entryTime: '2026-07-06T10:00:00Z',
@@ -193,6 +202,107 @@ describe('useTruppActions placement (one place per Trupp)', () => {
 
   it('exports the Lage placement-target id the picker dispatches on', () => {
     expect(LAGE_TARGET).toBe('lage')
+  })
+})
+
+/* ── A Druck in the first minutes IS the Eingangsdruck (14.09., field observation) ────────────
+ * The Trupp goes in on the default 300 because nobody asked the crew; a minute later the real
+ * gauge is recorded through the card's Druck. Measured against 300 that is a 20-bar drop per
+ * minute and the Schätzung runs the cylinder empty in a quarter of an hour. Inside the window
+ * (lib/atemschutz · EARLY_PRESSURE_CORRECTION_MS) and before any other reading, the Druck takes
+ * the same correction path the form's Druck field does. */
+describe('recordPressure in the first minutes after the Eintritt', () => {
+  const ago = (ms: number) => new Date(Date.now() - ms).toISOString()
+  const fresh = (over: Partial<Trupp> = {}): Trupp => {
+    const entry = ago(60_000)
+    return baseTrupp({ entryTime: entry, lastContactTime: entry, entryPressureBar: 300, lowestBar: 300,
+      readings: [{ t: entry, bar: 300, kind: 'entry' }], ...over })
+  }
+
+  it('replaces the Eingangsdruck at +1 min with no prior reading — no measurement, rate stays the assumption', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(fresh(), undefined, (_i, text) => lines.push(text))
+    actions.recordPressure('T1', 280)
+    const t = state.trupps[0]
+    expect(t.entryPressureBar).toBe(280)
+    expect(t.readings?.map((r) => r.kind)).toEqual(['entry']) // no `pressure` row was written
+    expect(t.readings?.[0].bar).toBe(280)
+    expect(t.lastPressureBar).toBeUndefined()
+    expect(t.lowestBar).toBe(280)
+    // …a correction, not a Funkkontakt: the safety clock stays where the Eintritt put it
+    expect(t.lastContactTime).toBe(t.entryTime)
+    // the Schätzung then has ONE sample and falls back to the assumption — never a 'history' rate
+    expect(estimatePressure(t, Date.now(), 7, 50)).toMatchObject({ source: 'assumption', sampleCount: 1 })
+    expect(lines).toEqual([fillTemplate(appConfig.copy.atemschutz.logEditFields, {
+      name: 'Keller Anna', changes: fillTemplate(appConfig.copy.atemschutz.changePressure, { from: '300', to: '280' }),
+    })])
+  })
+
+  it('records an ordinary Druckmeldung at +5 min', () => {
+    const entry = ago(5 * 60_000)
+    const { actions, state } = harness(fresh({ entryTime: entry, lastContactTime: entry, readings: [{ t: entry, bar: 300, kind: 'entry' }] }))
+    actions.recordPressure('T1', 280)
+    const t = state.trupps[0]
+    expect(t.entryPressureBar).toBe(300)
+    expect(t.lastPressureBar).toBe(280)
+    expect(t.readings?.map((r) => r.kind)).toEqual(['entry', 'pressure'])
+    expect(t.lastContactTime).not.toBe(entry)
+  })
+
+  it('records an ordinary Druckmeldung at +1 min once another reading exists', () => {
+    const t0 = fresh()
+    const first = { t: ago(30_000), bar: 290, kind: 'pressure' as const }
+    const { actions, state } = harness({ ...t0, lastPressureBar: 290, lastPressureTime: first.t, readings: [...(t0.readings ?? []), first] })
+    actions.recordPressure('T1', 280)
+    const t = state.trupps[0]
+    expect(t.entryPressureBar).toBe(300)
+    expect(t.readings?.map((r) => r.kind)).toEqual(['entry', 'pressure', 'pressure'])
+    expect(t.lastPressureBar).toBe(280)
+  })
+
+  it('never turns a reading at the Alarmdruck into a correction — the crossing is the emergency', () => {
+    const { actions, state } = harness(fresh())
+    actions.recordPressure('T1', 90)
+    const t = state.trupps[0]
+    expect(t.entryPressureBar).toBe(300)
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'alarm', bar: 90 })
+  })
+
+  it('is undone as one step, like the form’s correction', () => {
+    const { actions, state, timeline } = timed(fresh())
+    actions.recordPressure('T1', 280)
+    expect(state.trupps[0].entryPressureBar).toBe(280)
+    timeline.undo()
+    expect(state.trupps[0].entryPressureBar).toBe(300)
+    expect(state.trupps[0].readings?.[0].bar).toBe(300)
+  })
+})
+
+/* ── Ausrüstung (14.09., data model) ─────────────────────────────────────────────────────────── */
+describe('setTruppEquipment', () => {
+  it('writes the ids, logs the labels in the housekeeping row, and is undoable', () => {
+    const lines: string[] = []
+    const { actions, state, timeline } = timed(baseTrupp({ no: 2 }), (_i, text) => lines.push(text))
+    actions.setTruppEquipment('T1', ['wbk', 'retthaube', 'wbk'])
+    // de-duplicated, and printed in the station list's order (Retthaube before WBK)
+    expect(state.trupps[0].equipment).toEqual(['wbk', 'retthaube'])
+    expect(lines).toEqual([fillTemplate(appConfig.copy.atemschutz.logEditFields, {
+      name: '2 (Keller Anna)', changes: fillTemplate(appConfig.copy.atemschutz.changeEquipment, { list: 'Retthaube, WBK' }),
+    })])
+    timeline.undo()
+    expect(state.trupps[0].equipment).toBeUndefined()
+  })
+
+  it('says «keine» when the last item is taken off, and writes nothing when nothing changed', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(baseTrupp({ equipment: ['wbk'] }), undefined, (_i, text) => lines.push(text))
+    actions.setTruppEquipment('T1', ['wbk'])
+    expect(lines).toEqual([])
+    actions.setTruppEquipment('T1', [])
+    expect(state.trupps[0].equipment).toBeUndefined()
+    expect(lines).toEqual([fillTemplate(appConfig.copy.atemschutz.logEditFields, {
+      name: 'Keller Anna', changes: appConfig.copy.atemschutz.changeEquipmentNone,
+    })])
   })
 })
 
@@ -1367,6 +1477,15 @@ describe('truppEditChanges (what the Verlauf line says)', () => {
   it('names both numbers when the Eingangsdruck was corrected', () => {
     expect(truppEditChanges(prev, fields({ pressure: 280 })))
       .toEqual([fillTemplate(appConfig.copy.atemschutz.changePressure, { from: '300', to: '280' })])
+  })
+
+  // the form's chips ride with the other fields — one row, in setTruppEquipment's words
+  it('lists the Ausrüstung as it is now, and says «keine» once the last item is off', () => {
+    const az = appConfig.copy.atemschutz
+    expect(truppEditChanges({ ...prev, equipment: ['wbk'] }, fields({ equipment: ['retthaube', 'wbk'] })))
+      .toEqual([fillTemplate(az.changeEquipment, { list: `${az.equipmentLabels.retthaube}, ${az.equipmentLabels.wbk}` })])
+    expect(truppEditChanges({ ...prev, equipment: ['wbk'] }, fields({ equipment: [] }))).toEqual([az.changeEquipmentNone])
+    expect(truppEditChanges({ ...prev, equipment: ['wbk'] }, fields({ equipment: ['wbk'] }))).toEqual([])
   })
 
   /* ⚠️ …and every crew change ends with WHO IS IN IT NOW (04.09., Feldtest Manuel). The row used

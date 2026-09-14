@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
@@ -11,7 +11,7 @@ import { alarmBarFor, currentRunStart, deriveTruppLive, estimatePressure, fmtClo
 import { serverNow } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
-import { readingBarShown, truppAuftragLabel, truppStatusLabel } from '../lib/report'
+import { readingBarShown, truppAuftragLabel, truppEquipmentLabels, truppStatusLabel } from '../lib/report'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind, TruppReading } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
@@ -21,7 +21,7 @@ import { ClearableInput } from './ClearableInput'
 import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
 import { ensureNotifyPermission, notificationsSupported, unlockAlarm } from '../lib/alarm'
-import { atemschutzDoctrine, isDemoMode } from '../lib/deploymentConfig'
+import { atemschutzDoctrine, atemschutzEquipment, isDemoMode } from '../lib/deploymentConfig'
 import type { SyncStatus } from '../lib/api/workspaceSync'
 import { CLOCK_SKEW_WARN_MIN } from '../lib/syncAlert'
 import { useKeptState } from '../lib/draftKeep'
@@ -51,6 +51,8 @@ const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auf
  * deliberately does not — this is the one thing here that must NOT reset with the page.
  */
 let lastShownFocusNonce: number | null = null
+/** …and the last `createRequest` nonce already opened — same remount replay, same cure. */
+let lastOpenedCreateNonce: number | null = null
 
 type FormMode = 'create' | 'edit' | 'redeploy'
 
@@ -93,7 +95,7 @@ export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, anyLeitung = false, unlinkTruppLine,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
-  focus, onShareLink, shareLinkActive = false, lite, frozenAt,
+  focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt,
   onUndo, onRedo, canUndo = false, canRedo = false, undoLabel, redoLabel,
   syncStatus, lastSyncedAt, clockSkewMs,
 }: {
@@ -177,6 +179,10 @@ export function AtemschutzView({
   /** «point at THAT Trupp» — set by a locked Anwesenheit row. The nonce makes a repeat tap point
    *  again; the card scrolls itself into view and flashes, then the mark clears on its own. */
   focus?: { id: string; nonce: number } | null
+  /** «Neuer Trupp» from a loose marker/chip on the Karte or a Plan (TwinTeamPill · TruppJoinMenu):
+   *  open the create form; on save the new Trupp adopts `adoptMarkerId` (through `adoptMarker`).
+   *  Cancel leaves the marker as it is. Nonce grammar as `focus`. */
+  createRequest?: { nonce: number; adoptMarkerId: string } | null
   /** «Überwachung abgeben» — open the Weitergeben sheet on its «Nur Atemschutz» half, so the
    *  Tafel of this Einsatz can be handed to somebody's phone (components/panels · ShareIncident).
    *  Editors only, and never on the handed-over board itself: a link may not mint links. */
@@ -251,7 +257,8 @@ export function AtemschutzView({
     [allRemovedTrupps, lite],
   )
   // the shared create / edit / re-deploy form — null when closed
-  const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp; focus?: 'auftrag' } | null>(null)
+  // `adoptMarkerId`: the loose marker a create form was opened FROM — joined to the Trupp on save
+  const [form, setForm] = useState<{ mode: FormMode; trupp?: Trupp; focus?: 'auftrag'; adoptMarkerId?: string } | null>(null)
   /**
    * personId → the OTHER Trupp that still holds them, for the form's double-assignment warning
    * and the «In diesen Trupp verschieben» behind it.
@@ -622,9 +629,16 @@ export function AtemschutzView({
   // permission dialog thrown at their first taps — it reads as data grabbing on a demo site.
   // The audio unlock stays (idempotent, no permission involved) — moot on the demo itself,
   // where useAtemschutzAlarm suppresses the audible alarm anyway.
-  const openForm = (mode: FormMode, trupp?: Trupp, focus?: 'auftrag') => {
-    unlockAlarm(); if (!isDemoMode()) void ensureNotifyPermission(); setForm({ mode, trupp, focus })
+  const openForm = (mode: FormMode, trupp?: Trupp, focus?: 'auftrag', adoptMarkerId?: string) => {
+    unlockAlarm(); if (!isDemoMode()) void ensureNotifyPermission(); setForm({ mode, trupp, focus, adoptMarkerId })
   }
+  // «Neuer Trupp» from a loose marker/chip — opened once per request nonce (see lastOpenedCreateNonce)
+  useEffect(() => {
+    if (!createRequest || !canEdit || createRequest.nonce === lastOpenedCreateNonce) return
+    lastOpenedCreateNonce = createRequest.nonce
+    openForm('create', undefined, undefined, createRequest.adoptMarkerId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createRequest?.nonce])
 
   /**
    * The FIRST tap ANYWHERE on this board also counts as the audio unlock (field feedback,
@@ -673,7 +687,7 @@ export function AtemschutzView({
         // nobody made — and make every pre-03.09. record look different from a fresh one.
         ...(f.kind === 'einfach' ? { kind: f.kind } : {}),
         name: f.name, members: f.members, auftrag: f.auftrag, ziel: f.ziel, lineNo: f.lineNo, funkkanal: f.funkkanal,
-        leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds,
+        leaderPersonId: f.leaderPersonId, memberPersonIds: f.memberPersonIds, equipment: f.equipment,
         entryPressureBar: f.pressure, entryTime: '', lastContactTime: '', lowestBar: f.pressure,
         status: 'angemeldet', readings: [],
       })
@@ -683,6 +697,8 @@ export function AtemschutzView({
       // time submitForm actually runs (it is only ever called from an event handler, never
       // during this render). Harmless on the tablet grid too — nothing reads `picked` there.
       setPicked(id)
+      // opened from a loose marker/chip: the record joins the picture in the same go
+      if (form.adoptMarkerId) adoptMarker(id, form.adoptMarkerId)
     } else if (form.mode === 'edit' && form.trupp) {
       /* Turning the Überwachung OFF on a crew that is inside is the one change in this form that
        * takes a safety watch away, so it is said out loud first. Only while the Trupp is actually
@@ -1915,6 +1931,17 @@ function TruppCard({
 
   const crewNames = t.members?.filter(Boolean) ?? []
   const crew = crewNames.join(' · ')
+  /* One Kennzeile entry. The «·» is INSIDE the entry, in front of it (14.09., screenshot: a line
+   * wrapped between the dot and «1 Ug…», so the second line opened with a stray separator). With
+   * the dot bound to the entry it precedes, a wrap can only fall between entries, and the first
+   * entry's dot is hidden in CSS (`.kennItem:first-child`). The entry's own text still wraps
+   * inside itself — a long Ziel is not forced onto one line. */
+  const kennItem = (key: string, node: ReactNode) => (
+    <span key={key} className={s.kennItem}><span className={s.kennSep} aria-hidden>·</span>{node}</span>
+  )
+  /** the Ausrüstung as Kürzel (copy · equipmentShort), in the order it was recorded; an id
+   *  without a Kürzel prints the word the Rapport prints (lib/report · truppEquipmentLabels) */
+  const equipmentTags = (t.equipment ?? []).map((id) => ({ id, tag: az.equipmentShort[id] ?? truppEquipmentLabels([id])[0] ?? id }))
 
   // the closed row's «zuletzt: …» preview — the last MEASURED or lifecycle row; a crew row is
   // in the list, but «und dann?» asks about the clock and the cylinder
@@ -2050,27 +2077,26 @@ function TruppCard({
             amber top border would otherwise be the only thing saying so. It also changes the
             turn-back pressure (alarmBarFor), so it must never be carried by colour alone. Only
             for the states the band does not already name. */}
-        {monitored && status === 'rueckzug' && (
-          <><span className={s.kennState}>{statusLabel}</span><span className={s.kennSep} aria-hidden>·</span></>
-        )}
-        {!!crewNames.length && <><span className={s.kennCrew}>{crew}</span><span className={s.kennSep} aria-hidden>·</span></>}
+        {monitored && status === 'rueckzug' && kennItem('state', <span className={s.kennState}>{statusLabel}</span>)}
+        {!!crewNames.length && kennItem('crew', <span className={s.kennCrew}>{crew}</span>)}
         {/* ⚠️ The Auftrag is optional in the form (it must never hold a Trupp at the door), so its
             ABSENCE has to be visible — a Trupp with no job is a question the Überwacher has to be
             able to see, not one nobody thinks to ask. */}
-        {auftrag
+        {kennItem('auftrag', auftrag
           ? <span className={s.kennAuftrag}>{auftrag}</span>
-          : <button type="button" className={s.kennOpen} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>}
-        {t.ziel && <><span className={s.kennSep} aria-hidden>·</span><span>{t.ziel}</span></>}
+          : <button type="button" className={s.kennOpen} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>)}
+        {t.ziel && kennItem('ziel', <span>{t.ziel}</span>)}
         {/* ⚠️ On the lite board the number still SHOWS (a Trupp's Leitung is a fact the Überwacher
             needs) but stops being a jump: there is no Karte to land on. */}
-        {lineTag && <><span className={s.kennSep} aria-hidden>·</span>
-          {hasLine && !lite
-            ? <button type="button" className={s.kennGo} title={az.lineShow} onClick={() => onShowLine(t.id)}>
-                {az.lineField} {lineTag}<Icon id="chevron" />
-              </button>
-            : <span>{az.lineField} {lineTag}</span>}
-        </>}
-        {t.funkkanal != null && <><span className={s.kennSep} aria-hidden>·</span><span>Kanal {t.funkkanal}</span></>}
+        {lineTag && kennItem('line', hasLine && !lite
+          ? <button type="button" className={s.kennGo} title={az.lineShow} onClick={() => onShowLine(t.id)}>
+              {az.lineField} {lineTag}<Icon id="chevron" />
+            </button>
+          : <span>{az.lineField} {lineTag}</span>)}
+        {t.funkkanal != null && kennItem('kanal', <span>Kanal {t.funkkanal}</span>)}
+        {/* the Ausrüstung as short tags at the end — RH · WBK — nothing when nothing was ticked;
+            a station-defined id without a Kürzel shows its full label */}
+        {equipmentTags.map(({ id, tag }) => kennItem(`eq-${id}`, <span className={s.kennTag}>{tag}</span>))}
       </div>
 
       {/* ── 3 Block: everything one ENTERS ─────────────────────────────────────────────────────
@@ -2430,6 +2456,11 @@ function TruppForm({
 
   const [auftrag, setAuftrag, clearAuftrag] = useKeptState<Trupp['auftrag'] | null>(`${draftKey}:auftrag`, initial?.auftrag ?? null)
   const [ziel, setZiel, clearZiel] = useKeptState(`${draftKey}:ziel`, initial?.ziel ?? '')
+  // Ausrüstung (types · Trupp.equipment): the ids ticked, kept as a draft like the Auftrag. Only
+  // a Trupp under Atemschutz is asked (see `equipmentField`); the list is the station's.
+  const [equipment, setEquipment, clearEquipment] = useKeptState<string[]>(`${draftKey}:equipment`, initial?.equipment ?? [])
+  const toggleEquipment = (id: string) =>
+    setEquipment(equipment.includes(id) ? equipment.filter((x) => x !== id) : [...equipment, id])
   // Leitung: numeric since 2026-08-05. A Trupp carrying only the old free text starts empty and
   // keeps that text visible underneath — the record stays as its Überwacher typed it, and a
   // legacy «1» still auto-matches the drawn Leitung 1 (lib/truppLines · truppLineNo).
@@ -2547,22 +2578,18 @@ function TruppForm({
   // «Anderes» needs its word: it is a label that says nothing on its own.
   const auftragOk = !isAnderes || ziel.trim().length > 0
   /**
-   * …and ANMELDEN needs an Auftrag at all (04.09., Feldtest — reversing the 30.08. «the Auftrag no
+   * …and that is the ONLY thing the Auftrag holds back (14.09., Feldentscheid — reversing the
+   * 04.09. «Anmelden needs an Auftrag», which had itself reversed the 30.08. «the Auftrag no
    * longer blocks»).
    *
-   * A Trupp is registered in order to be sent somewhere, and the tap that registers it is the one
-   * moment somebody knows what for. Left open it stayed open: the board filled up with cards
-   * reading «Auftrag offen», and the Rapport printed a crew whose job nobody could reconstruct
-   * afterwards. Either half answers it — a tile («Retten»), or the free text alone («2OG links»),
-   * which is what «Anderes» is for.
-   *
-   * ⚠️ CREATING only. Editing a Trupp that is already in the field must never be blocked: the
-   * clock is running, the operator is correcting something else, and a form that refuses to close
-   * over an empty field is a form that loses the correction. The card carries the gap as «Auftrag
-   * offen» and points back here.
+   * A Trupp is often registered to STAND READY: the crew is at the door with masks on and the
+   * order comes a minute later, from somebody else. Blocking the Anmeldung on it meant the card
+   * — and its contact clock — did not exist until the Überwacher had invented a job, and «Retten»
+   * typed to get past the form is a worse record than an open field. The gap stays visible: the
+   * card shows «Auftrag offen» (the same pill on a Trupp created without one as on one edited to
+   * none) and opens the form on the Auftrag; the Trupp may go «drin» meanwhile. In no mode does an
+   * empty Auftrag hold the form — creating, editing, or sending back in.
    */
-  const auftragGiven = (auftrag != null && !isAnderes) || ziel.trim().length > 0
-  const auftragFilled = mode !== 'create' || auftragGiven
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
@@ -2582,13 +2609,13 @@ function TruppForm({
     return null
   }, [team, assignedIds, transferState])
   const leaderOk = (team[0]?.name.trim().length ?? 0) > 0
-  const canSubmit = auftragOk && auftragFilled && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
+  const canSubmit = auftragOk && leaderOk && (!showPressure || pressure > 0) && !assignedConflict
   /* No sections on the phone any more (08.09., field ask): with the Mannschaft reduced to the
    search + populate-on-pick list and Druck/Kanal folded into the Standard line, the flat form
    fits — the three collapsible sections and their summary lines went with the space problem
    they were built for. */
 
-  const dropDraft = () => { clearAuftrag(); clearZiel(); clearTeam() }
+  const dropDraft = () => { clearAuftrag(); clearZiel(); clearEquipment(); clearTeam() }
   const submit = (standby = false) => {
     if (!canSubmit) return
     dropDraft()
@@ -2605,6 +2632,9 @@ function TruppForm({
       // ⚠️ On an UPGRADE this is the Eingangsdruck of a cylinder opened just now, and editTrupp
       // logs it as such (`paOn`) rather than correcting the Eintritt the Trupp already has.
       pressure: isPa ? pressure : 0,
+      // in the station's list order, so two operators ticking the same items record the same
+      // array — and nothing at all for a work squad, whose form never showed the chips
+      equipment: isPa && equipment.length ? atemschutzEquipment().map((e) => e.id).filter((id) => equipment.includes(id)) : undefined,
       leaderPersonId: team[0].personId,
       memberPersonIds: memberPersonIds.length ? memberPersonIds : undefined,
       // ⚠️ PASSED THROUGH, never chosen (04.09.). The colour picker is gone from every layout;
@@ -2638,7 +2668,7 @@ function TruppForm({
   const [blockedShown, setBlockedShown] = useState(false)
   const blocked = !blockedShown || canSubmit || assignedConflict ? null
     : !leaderOk ? az.saveBlockedTeam
-    : !auftragOk || !auftragFilled ? (auftragOk ? az.saveBlockedAuftragMissing : az.saveBlockedAuftrag)
+    : !auftragOk ? az.saveBlockedAuftrag
     : showPressure && pressure <= 0 ? az.saveBlockedPressure
     : null
 
@@ -2686,12 +2716,12 @@ function TruppForm({
       flashSection(conflictRef.current)
       return
     }
-    // ⚠️ NO dead disabled button: a blocked «Trupp anmelden» points at the Auftrag, rings
-    // both halves of the answer and puts the focus on the first Auftrag tile — the same place the
+    // ⚠️ NO dead disabled button: «Anderes» without its word points at the Auftrag, rings both
+    // halves of the answer and puts the focus on the first Auftrag tile — the same place the
     // card's «Auftrag offen» pill sends the operator. The tiles, not the Ziel field: focusing a
     // text input here throws the on-screen keyboard over the rest of the form (see the note at
     // «No autofocus» above).
-    if (!auftragOk || !auftragFilled) {
+    if (!auftragOk) {
       setBlockedShown(true)
       pointAt(() => auftragRef.current)
       flashSection(zielRef.current)
@@ -2838,6 +2868,28 @@ function TruppForm({
           onChange={(v) => setZiel(stripUnprintable(v))}
         />
       </label>
+      {/* Ausrüstung — multi-select chips with a tick box, so it reads as «several go» next to the
+          single-choice Art tiles above (mock 14.09.). Only under Atemschutz: a work squad takes no
+          Retthaube in. The list comes from the station (deploymentConfig · atemschutzEquipment). */}
+      {isPa && (
+        <div className={s.field}>
+          <span>{az.equipmentLabel}</span>
+          <div className={s.eqChips} role="group" aria-label={az.equipmentLabel}>
+            {atemschutzEquipment().map((e) => {
+              const on = equipment.includes(e.id)
+              return (
+                <button
+                  key={e.id} type="button" role="checkbox" aria-checked={on}
+                  className={cx(s.eqChip, on && s.eqChipOn)} onClick={() => toggleEquipment(e.id)}
+                >
+                  <span className={s.eqBox} aria-hidden>{on && <Icon id="check" />}</span>
+                  {az.equipmentLabels[e.id] ?? e.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
       {/* The SAME 1–99 number the DrawEditor stamps on a hose — one type on both sides is what
           lets a Trupp and a drawn Leitung find each other without anyone re-typing anything
           (lib/truppLines). A Trupp recorded before this was free text keeps its text below; it

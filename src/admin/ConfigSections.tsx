@@ -838,7 +838,10 @@ export function DoctrineSection() {
   const isDemo = getPath<boolean>(draft, ['identity', 'demoMode']) === true
   // ⚠️ `NonNullable`: `doctrine` is optional on the document, and `keyof (T | undefined)` is
   // `never` — which silently made every key below assignable and the type check decorative.
-  type DoctrineKey = keyof NonNullable<DeploymentConfig['doctrine']> & keyof typeof appConfig.atemschutz
+  // …and NUMBERS only: `doctrine.equipment` is a list both sides carry (14.09.), and a number
+  // field must not be offerable for it.
+  type NumericAtemschutzKey = { [K in keyof typeof appConfig.atemschutz]: typeof appConfig.atemschutz[K] extends number ? K : never }[keyof typeof appConfig.atemschutz]
+  type DoctrineKey = keyof NonNullable<DeploymentConfig['doctrine']> & NumericAtemschutzKey
   // A doctrine number field, wired to its config path. Grouped by type below so related knobs
   // (Funk / Druck / Kontakt) sit together.
   //

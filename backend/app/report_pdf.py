@@ -410,6 +410,9 @@ class TruppIn(BaseModel):
     auftrag: str | None = None
     ziel: str | None = None
     lineNumber: str | None = None
+    #: The Ausrüstung the crew took in, already resolved to labels client-side («Retthaube, WBK»,
+    #: lib/report · truppEquipmentLabels). Absent on an older client or where nothing was recorded.
+    equipment: str | None = None
     #: EVERY Eintritt / Austritt this Trupp's log records, oldest first — a crew that went in,
     #: came out and was sent in again has two of each. Read off the appended rows client-side
     #: (lib/report · truppRunTimes), never off the card's live `entryTime`/`exitTime`: those hold
@@ -675,6 +678,7 @@ L = {
     "memberN": "AdF {n}",
     "auftrag": "Auftrag / Ziel",
     "line": "Leitung",
+    "equipment": "Ausrüstung",
     "entry": "Eintritt",
     "exit": "Austritt",
     # A Sicherungstrupp that stood ready and was stood down never entered anything, so it has no
@@ -2211,6 +2215,8 @@ def compose_report_pdf(
                 bits.append((L["auftrag"], " · ".join([x for x in (tr.auftrag, tr.ziel) if x])))
             if tr.lineNumber:
                 bits.append((L["line"], str(tr.lineNumber)))
+            if tr.equipment:
+                bits.append((L["equipment"], tr.equipment))
             # One row per deployment — «Einsatz 1: 13:44 – 14:10 · Meier Anna / Dürring Jan» — and
             # under it, unlabelled, the dated crew changes that fell into that cycle. Replaces the
             # Eintritt/Austritt rows: the span IS those two stamps, per cycle rather than as two

@@ -45,7 +45,7 @@ import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
-import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
 
@@ -257,6 +257,7 @@ interface Props {
   onShowTrupp?: (truppId: string) => void
   /** join a team marker to an Atemschutz-Trupp (undefined = let go) — see MapMarkers */
   onTeamTrupp?: (entityId: string, truppId: string | undefined) => void
+  onTeamNewTrupp?: (entityId: string) => void
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker (absent = locked, or a Trupp-bound marker) */
   onTeamRename?: (id: string, name: string) => void
@@ -388,7 +389,7 @@ interface Props {
 export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView && !isDemoMode()
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
@@ -704,8 +705,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     }
     const targets = candidatesAt(st.id, coord)
     const candidate = stickyMagneticTarget([pointer.x, pointer.y], targets, st.candidate?.key ?? null)
-    const dwell = advanceDwell(st.dwell, candidate?.key ?? null, Date.now())
+    const dwell = advanceDwell(st.dwell, candidate, Date.now())
     setEndpointDrag({ ...st, coord, candidate, dwell })
+    // a line target arms on acquisition (dwellFor = 0): the haptic says so, the way the timer
+    // below does for a symbol whose ring has closed
+    if (dwell.armed && !st.dwell.armed) buzz()
     // A finger that has found its target STOPS MOVING — and then no pointermove fires, so
     // `advanceDwell` alone would never reach `armed`. This timer is what actually closes the
     // ring (the visible fill is the CSS twin of it) and ticks the haptics.
@@ -715,7 +719,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         if (!cur || cur.candidate?.key !== candidate.key) return
         setEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } })
         buzz()
-      }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - dwell.since)))
+      }, Math.max(0, dwellFor(candidate) - (Date.now() - dwell.since)))
     }
   }
   const finishEndpointDrag = () => {
@@ -757,7 +761,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // A pointerDOWN that already lands inside a target's radius is deliberate aim: the finger
       // was PUT on the Teilstück's prong because that is where the branch begins. There is
       // nothing to hesitate about, so this one arms instantly and its ring is drawn full — the
-      // dwell exists to catch targets a moving line PASSES OVER, not the one it was aimed at.
+      // dwell exists to catch SYMBOLS a moving line PASSES OVER, not the one it was aimed at
+      // (a line target never dwells at all — lib/lineAttachments · dwellFor).
       // (Node-mode taps come through here too, and for the same reason: every tap is aimed.)
       if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
       const targets = candidatesAt('__draft__', coord), pp = map.project(coord)
@@ -779,9 +784,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // ring, even over the very target the stroke began on. Without this reset the instantly
       // armed start would hand its `armed` straight to the end.
       const base = atStart === cur.atStart ? cur.dwell : EMPTY_DWELL
-      const next = { ...cur, coord, atStart, candidate, dwell: advanceDwell(base, candidate?.key ?? null, Date.now()) }
+      const next = { ...cur, coord, atStart, candidate, dwell: advanceDwell(base, candidate, Date.now()) }
       setDraftMagnet(next)
       if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
+      // a line target arms on acquisition (dwellFor = 0) — one buzz, as the closed ring gives
+      if (next.dwell.armed && !base.armed) buzz()
       // arm on a motionless finger (no pointermove ⇒ no advanceDwell); the attachment itself is
       // only materialised on release, so moving on after arming still lets the end go free.
       if (candidate && !next.dwell.armed) draftDwellTimer.current = setTimeout(() => {
@@ -789,7 +796,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         if (!now || now.candidate?.key !== candidate.key) return
         setDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } })
         buzz()
-      }, Math.max(0, MAGNET_DWELL_MS - (Date.now() - next.dwell.since)))
+      }, Math.max(0, dwellFor(candidate) - (Date.now() - next.dwell.since)))
     } else {
       const cur = draftMagnet.current
       if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
@@ -823,7 +830,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const placeMagRef = useRef<{ key: string; coord: LngLat; since: number; armed: boolean } | null>(null)
   const placeDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const placeDown = useRef(false)
-  /** dragPan paused while a claim is live: a finger holding still for the 350 ms dwell wobbles
+  /** dragPan paused while a claim is live: a finger holding still for the MAGNET_DWELL_MS dwell wobbles
    *  past MapLibre's 3 px slop, and the pan that started killed the claim AND ate the click —
    *  on a real device the ring could never be ridden to the end. Paused, the full 32 px magnet
    *  radius is the wobble budget; leaving it clears the claim and gives the pan back. */
@@ -1832,7 +1839,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       cursor={picking || georefTurn ? 'crosshair' : 'default'}
       attributionControl={false}
       maxPitch={0}
-      maxZoom={20}
+      // 21 (14.09., one more step than the tiles have): the raster SOURCES keep their own native
+      // `maxzoom` (MapLayers · the layer's `maxzoom` from the deployment config), so past it
+      // MapLibre stretches the last tile level instead of asking for tiles that do not exist.
+      // Symbols are pinned by symPx's band and a Form by shapePx's ceiling, so nothing outgrows
+      // the screen on the extra step.
+      maxZoom={21}
       // Only the print/report instance needs its GL back-buffer preserved (it captures the canvas
       // via getCanvas().toDataURL() — see ReportPrintView / reportPdf). On the always-live field
       // map keeping the buffer around just raises the per-repaint GPU/memory cost for the whole
@@ -2245,8 +2257,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           (lib/lineAttachments · DwellState). The key carries `since`, so re-entering the same
           target restarts the CSS fill instead of silently continuing an old one.
           Cycle-forming targets are filtered out of the candidate list, so there is no blocked
-          state to draw. The red twin below is the release ring. */}
-      {endpointDrag?.candidate && mapInst.current && (() => {
+          state to draw. The red twin below is the release ring.
+          ⚠️ No ring for a LINE target (dwellFor = 0): it attaches the instant it is acquired,
+          so there is no fill to picture — the endpoint simply lands on the prong. */}
+      {endpointDrag?.candidate && dwellFor(endpointDrag.candidate) > 0 && mapInst.current && (() => {
         const ll = mapInst.current.unproject(endpointDrag.candidate.point)
         return (
           <Marker key={`${endpointDrag.candidate.key}:${endpointDrag.dwell.since}`} longitude={ll.lng} latitude={ll.lat} anchor="center">
@@ -2262,7 +2276,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           <span className="magnet-anchor"><NodeDeleteChip tone="release" progress={endpointDrag.detach} /></span>
         </Marker>
       )}
-      {draftMagnetState?.candidate && mapInst.current && (() => {
+      {draftMagnetState?.candidate && dwellFor(draftMagnetState.candidate) > 0 && mapInst.current && (() => {
         const ll = mapInst.current.unproject(draftMagnetState.candidate.point)
         return (
           <Marker key={`${draftMagnetState.candidate.key}:${draftMagnetState.dwell.since}`} longitude={ll.lng} latitude={ll.lat} anchor="center">
@@ -2514,6 +2528,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         trupps={trupps}
         onShowTrupp={onShowTrupp}
         onTeamTrupp={onTeamTrupp}
+        onTeamNewTrupp={onTeamNewTrupp}
         onTeamMark={onTeamMark}
         onTeamRename={onTeamRename}
         onTeamColor={onTeamColor}

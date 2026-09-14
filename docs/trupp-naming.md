@@ -34,6 +34,9 @@ People call a Trupp by its Gruppenführer, so on the Atemschutz card, the phone 
 lite-board tab, the map/plan marker and the selected pill the **leader name stays primary**
 (bold, colour dot, as today). The number is a **small badge** next to it, for documentation –
 spelled `#1`, because a bare digit beside a name read as a count (12.09., after the first build).
+Since 14.09. the badge sits on the **Atemschutz card only**: it left the phone row and the lite
+tab strip first, then the resting Trupp marker on the Karte and the chip on the Plan, and the
+selected pill with them – on the picture the name alone is the label.
 
 - Hose-line end tag stays the abbreviated leader («Meier A.»); no number.
 - Alarm row, finder and card crew line list the crew with the same separator as the journal
@@ -97,9 +100,11 @@ the board. Same class as the other same-object races in
 [`sync-limitations.md`](sync-limitations.md); not repaired automatically, because a number that
 changes after the Verlauf wrote it is worse than a duplicate somebody can see.
 
-«Registering from an unlinked chip inherits the chip's number» has no flow to live in: a Trupp is
-registered on the Atemschutz board and *then* joined to a chip (`adoptTruppMarker`), which
-relabels the chip to the Trupp. Nothing to build until a register-from-chip path exists.
+«Registering from an unlinked chip inherits the chip's number» is not built. Since 14.09. a
+register-from-chip path exists («Neuer Trupp» on the loose marker's join sheet), but it runs the
+normal registration and then the normal join (`adoptTruppMarker`), so the Trupp takes the next
+number from the counter and the chip is relabelled to it – one rule for every join, no second one
+for this door. Revisit only if the field asks for the chip's number to stick.
 
 ## Where it lives
 
@@ -112,7 +117,8 @@ relabels the chip to the Trupp. Nothing to build until a register-from-chip path
 | Backend accepts `no` | `backend/app/alarm_validation.py` |
 | The one crew formatter, both forms | `src/lib/atemschutz.ts` · `truppLogName(t, 'crew' \| 'leader')` |
 | Vocabulary term `Trupp N` + legacy term, GF badge on the first person | `src/lib/journalLinks.ts` |
-| The badge | `src/components/TruppNo.tsx` (`.trupp-no` in `02-base.css`), used on the card (not the phone row or lite tab strip – dropped 14.09.), `TwinTeamPill`, the resting chip/marker, `TruppFinder` |
+| The badge | `src/components/TruppNo.tsx` (`.trupp-no` in `02-base.css`), used on the card and `TruppFinder` (not the phone row, the lite tab strip, the resting map marker / plan chip, or the selected `TwinTeamPill` – all dropped 14.09.) |
+| The join sheet of a loose chip | `src/components/TwinTeamPill.tsx` · `TruppJoinMenu` – the ONE list of Trupps a selected marker/chip can be joined to, on both surfaces; its last row «Neuer Trupp» opens the Anmeldung (`AtemschutzView · createRequest`) and the saved Trupp adopts the marker (`IncidentWorkspace · newTruppFromMarker / adoptMarkerA`) |
 | Crew per cycle and the change lines | `src/lib/report.ts` · `truppCrewHistory`; payload in `reportPdfDirect.ts` (`no`, `leader`, `cycles`); rendered by `backend/app/report_pdf.py` (`TruppIn.cycles`, heading `Trupp N – Leader`) |
 
 ## Implementation order
