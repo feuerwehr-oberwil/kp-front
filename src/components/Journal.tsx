@@ -10,6 +10,7 @@ import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
 import { safeHref, thumbUrl } from '../lib/mediaUrl'
 import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
+import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
 import type { OpenReminder } from '../lib/reminders'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -229,6 +230,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   const [showAge, setShowAge] = useState(false)
   // the icon legend. Per-opening like `showAge`, and closed to begin with — see the button.
   const [showLegend, setShowLegend] = useState(false)
+  // ── the search (mock verlauf-02, 14.09.) ──
+  // `null` = closed; a string (even '') = the field has REPLACED the head row. Per-opening like
+  // the legend: the drawer remounts on each open, so closing it is what resets the search.
+  // ⚠️ The Overlay keeps `dismissEscape={false}`: Escape in the field closes the SEARCH, not the
+  // drawer – the same «own the key» rule the transcript editors below follow.
+  const [search, setSearch] = useState<string | null>(null)
+  const query = useMemo(() => (search == null ? null : journalQuery(search)), [search])
+  const searching = search != null
   const [editTx, setEditTx] = useState<{ id: string; value: string } | null>(null)
   const saveTranscript = () => {
     if (!editTx) return
@@ -272,9 +281,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // and mounting all of them made opening the drawer a several-hundred-ms stall on an iPad. A
   // sentinel at the tail reveals the next page as it scrolls into view; a jump to an older row
   // reveals up to it first (`revealRow`), so the strip and a Meldung's reference still land.
+  // …and, while a query is typed, only the rows it keeps (lib/journalSearch): a day whose rows
+  // all fell out loses its separator too, so the list reads as hits and not as empty headings.
   const groups = useMemo(
-    () => groupByDay(events).map((g) => ({ ...g, events: g.events.filter((e) => !repeats.hidden.has(e.id)) })),
-    [events, repeats],
+    () => groupByDay(events)
+      .map((g) => ({ ...g, events: g.events.filter((e) => !repeats.hidden.has(e.id) && matchesJournalQuery(e, query)) }))
+      .filter((g) => g.events.length > 0),
+    [events, repeats, query],
   )
   const [pageCount, setVisibleCount] = useState(PAGE_ROWS)
   // no observer (jsdom, an old WebView): everything, as before
@@ -514,6 +527,31 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
 
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false}>
+        {/* ── the head, OR the search field in its place ──
+            One row, two states. Tapping the lens swaps the title · ⓘ · Replay for the field (focus
+            at once, keyboard up) and the drawer's ✕ for the search's ✕; that ✕ – or Escape in the
+            field – puts the head back and shows the full list again. Nothing is added below the
+            head, so the list keeps its height whether or not somebody is searching. */}
+        {searching ? (
+          <div className="journal-head">
+            <label className="journal-search">
+              <Icon id="search" />
+              <input
+                value={search} autoFocus inputMode="search" maxLength={80}
+                placeholder={C.searchPlaceholder} aria-label={C.search}
+                onChange={(ev) => setSearch(ev.target.value)}
+                onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setSearch(null) } }}
+              />
+              {/* the live count, only once there is a query to count against */}
+              {query && (
+                <span className="journal-search-count" aria-live="polite">
+                  {fillTemplate(C.searchCount, { n: totalRows, m: events.length })}
+                </span>
+              )}
+            </label>
+            <button type="button" className="journal-x on" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
+          </div>
+        ) : (
         <div className="journal-head">
           <span className="journal-title"><Icon id="history" />{C.title} · {events.length}</span>
           {/* ⚠️ ON A TAP, never by itself. The disc carries the Bereich now, and a glyph has to be
@@ -525,6 +563,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             title={C.legend} aria-label={C.legend} aria-expanded={showLegend}
             onClick={() => setShowLegend((v) => !v)}
           ><Icon id="info" /></button>
+          {/* the lens: same chip as the ⓘ, and it closes the legend on its way in – the legend
+              explains discs the search is about to hide most of */}
+          <button
+            type="button" className="journal-legend-btn"
+            title={C.search} aria-label={C.search}
+            onClick={() => { setShowLegend(false); setSearch('') }}
+          ><Icon id="search" /></button>
           {/* ⚠️ `aria-label`, because the word inside it is hidden on a phone (10-journal.css) —
               the head is one item wider since the legend button joined it, and this is the label
               that can most afford to go. */}
@@ -535,8 +580,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           )}
           <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
         </div>
+        )}
         {deliveryNotice}
-        {showLegend && (
+        {showLegend && !searching && (
           <div className="jr-legend">
             {legendEntries().map((l) => (
               <span className="jr-legend-item" key={l.label}>
@@ -548,8 +594,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
         {/* WHEN the Einsatz has substance, as one strip. A long Verlauf is a wall of rows in
             which «was war um halb zehn» means scrolling and reading — the strip answers it by
             position instead, and a tap on it lands on the nearest row. Ticks are not targets
-            (the strip takes the tap as a whole), so nothing here needs a gloved-finger hit box. */}
-        {stripSpan && (
+            (the strip takes the tap as a whole), so nothing here needs a gloved-finger hit box.
+            ⚠️ NOT while searching: its ticks and its jump are positioned over the FULL list, and
+            above a filtered one they would point at rows that are not there. */}
+        {stripSpan && !searching && (
           <div
             className="jr-strip" role="slider" tabIndex={0}
             aria-label={C.stripLabel}
@@ -664,6 +712,11 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
         )}
         <div className="history-list" ref={listRef}>
           {events.length === 0 && <EmptyState icon="history" title={C.empty} />}
+          {/* a query that kept nothing says so – and what it looked in, because «Nichts» beside a
+              name that IS in the Verlauf otherwise reads as the search being broken */}
+          {query && totalRows === 0 && events.length > 0 && (
+            <EmptyState icon="search" title={fillTemplate(C.searchEmpty, { q: (search ?? '').trim() })} sub={C.searchEmptyHint} />
+          )}
           {shown.map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>
               {g.label && <div className="jr-day-sep" role="separator">{g.label}</div>}

@@ -481,3 +481,53 @@ describe('Journal · Beilagen chips (files on a row)', () => {
     expect(dead?.getAttribute('download')).toBeNull()
   })
 })
+
+// ── the search (mock verlauf-02, 14.09.) ────────────────────────────────────────────────────
+// The lens swaps the head row for the field; the field filters the list live and its ✕ (or
+// Escape in it) puts the head and the full list back. The matching itself is lib/journalSearch's.
+describe('Journal · the search in the head', () => {
+  const lens = () => screen.getByRole('button', { name: 'Im Verlauf suchen' })
+  const rows = () => [...document.querySelectorAll<HTMLElement>('[data-ev]')].map((el) => el.dataset.ev)
+
+  it('the lens REPLACES the head with the field, focused; ✕ restores the head and the list', () => {
+    setup()
+    fireEvent.click(lens())
+    const field = screen.getByRole('textbox', { name: 'Im Verlauf suchen' })
+    expect(document.activeElement).toBe(field)
+    expect(screen.queryByText(/Verlauf · 3/)).toBeNull()
+    fireEvent.change(field, { target: { value: 'feuer' } })
+    expect(rows()).toEqual(['r3'])
+    expect(screen.getByText('1 von 3')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Suche schliessen' }))
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(screen.getByText(/Verlauf · 3/)).toBeTruthy()
+    expect(rows()).toEqual(['r3', 'r2', 'r1'])
+  })
+
+  it('Escape in the field closes the SEARCH, not the drawer', () => {
+    const { onClose } = setup()
+    fireEvent.click(lens())
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('a query that keeps nothing says so, and what it looked in', () => {
+    setup()
+    fireEvent.click(lens())
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Pumpe' } })
+    expect(rows()).toEqual([])
+    expect(screen.getByText('Nichts zu «Pumpe»')).toBeTruthy()
+    expect(screen.getByText(/Tippfehler ist erlaubt/)).toBeTruthy()
+  })
+
+  it('hides the legend and the strip while searching – both speak for the full list', () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Legende' }))
+    expect(document.querySelector('.jr-legend')).not.toBeNull()
+    expect(document.querySelector('.jr-strip')).not.toBeNull()
+    fireEvent.click(lens())
+    expect(document.querySelector('.jr-legend')).toBeNull()
+    expect(document.querySelector('.jr-strip')).toBeNull()
+  })
+})

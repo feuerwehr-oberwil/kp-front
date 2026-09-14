@@ -347,6 +347,22 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-legend-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .journal-legend-btn .i { width: 15px; height: 15px; }
+
+/* ── the search ──
+   The lens is a second .journal-legend-btn beside the ⓘ (same chip, same 44px pad). Tapped, the
+   field REPLACES the head row (mock verlauf-02, 14.09.): the title, ⓘ and Replay go, the field
+   takes their width, and the ✕ that closes the search stands where the drawer's ✕ stood — one
+   place for «back out of this», whichever «this» is. No space is lost while nothing is searched. */
+.journal-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 44px;
+  padding: 0 12px; border-radius: var(--r-ctl); background: var(--fill-soft); color: var(--ink-dim); }
+.journal-search .i { flex: none; width: 16px; height: 16px; }
+.journal-search input { flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+  font: 600 14px var(--body); color: var(--ink); }
+.journal-search input::placeholder { color: var(--ink-faint); }
+/* the live «2 von 42» — read at a glance, never wrapped */
+.journal-search-count { flex: none; font: 700 12px var(--body); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* the ✕ that closes the search is «on» the way the open legend button is on: it undoes a mode */
+.journal-x.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .jr-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px;
   margin: 0 2px 8px; padding: 10px; border-radius: var(--r-ctl); background: var(--fill-soft); }
 .jr-legend-item { display: flex; align-items: center; gap: 8px; min-width: 0;
