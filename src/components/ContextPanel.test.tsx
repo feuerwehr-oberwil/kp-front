@@ -244,6 +244,19 @@ describe('ContextPanel — preset fields always surface', () => {
     expect(keys).toEqual(['EL', 'Stv. EL'])
   })
 
+  // The KP Front carries the same EL/Stv. pair as the Einsatzleiter glyph (14.09.): same row
+  // labels, same ⇄ handover, and the swap re-files both fields in ONE commit.
+  it('the KP Front is labelled EL / Stv. EL and hands over with ⇄', () => {
+    const { onFields } = setup({
+      entity: { id: 'kp1', symbol: 'VKF KP Front', fields: { Name: 'Müller', 'Stv.': 'Weber' } },
+      protectedKeys: new Set(['Name', 'Stv.']),
+    })
+    const keys = screen.getAllByText((_t, el) => el?.className === 'kv-key-ro').map((el) => el.textContent)
+    expect(keys).toEqual(['EL', 'Stv. EL'])
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.contextPanel.swapEl }))
+    expect(onFields).toHaveBeenCalledWith({ Name: 'Weber', 'Stv.': 'Müller' })
+  })
+
   it('keeps blank preset rows in the read-only version of the same sidebar', () => {
     setup({
       entity: { id: 'o3', symbol: 'FW Offizier', fields: { Name: 'Hans' } },

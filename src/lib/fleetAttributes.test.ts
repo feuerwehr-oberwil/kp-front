@@ -63,7 +63,7 @@ describe('symbolConfigurableFields — the viewer attribute model', () => {
   })
 
   it('returns no attributes for a label-only symbol', () => {
-    expect(symbolConfigurableFields('VKF KP Front')).toEqual([])
+    expect(symbolConfigurableFields('VKF Bereich Chemiewehr')).toEqual([])
   })
 })
 

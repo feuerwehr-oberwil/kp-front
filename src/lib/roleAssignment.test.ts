@@ -87,6 +87,24 @@ describe('rosterFieldRole', () => {
   it('a «Name» on any other symbol marks the person present without inventing a job', () => {
     expect(rosterFieldRole('VKF Drehleiter', 'Name', 'ADL')).toEqual({ role: 'fahrer' })
   })
+
+  // The KP Front carries the same Name/Stv. pair as the Einsatzleiter glyph (14.09.).
+  it('the KP Front names the Einsatzleiter and deputy exactly like the EL glyph', () => {
+    expect(rosterFieldRole('VKF KP Front', 'Name', 'KP Front')).toEqual({ role: 'el', note: 'Einsatzleiter' })
+    expect(rosterFieldRole('VKF KP Front', 'Stv.', 'KP Front')).toEqual({ role: 'el', note: 'Stv. Einsatzleiter' })
+  })
+
+  // «Bedienung» = the person operating a placed device, built like «Fahrer TLF» (14.09.).
+  it('«Bedienung» names the device off the label, else the symbol — presence only', () => {
+    expect(rosterFieldRole('VKF Luefter mobil', 'Bedienung', 'Lüfter')).toEqual({ role: 'presence', note: 'Bedienung Lüfter' })
+    // a renamed device keeps its own name in the note
+    expect(rosterFieldRole('VKF Pumpe Typ2', 'Bedienung', 'Pumpe Nord').note).toBe('Bedienung Pumpe Nord')
+    // no label at all → the symbol's display name, never a dangling «Bedienung »
+    expect(rosterFieldRole('VKF Luefter mobil', 'Bedienung', undefined).note).toBe('Bedienung Lüfter')
+    expect(rosterFieldRole(undefined, 'Bedienung', undefined).note).toBe('Bedienung')
+    // operating a Lüfter contradicts nothing about also being in a Trupp
+    expect(roleConflictHint('p1', 'presence', 'Schmid Peter', present, [trupp({ memberPersonIds: ['p1'] })])).toBeUndefined()
+  })
 })
 
 // «Rückmeldung ELZ» was filed as `el`, so naming the Trupp member who made the call announced

@@ -9,7 +9,7 @@
 // (opening a presence block, filling the Bemerkung) needs the workspace's setters and stays in
 // IncidentWorkspace.
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
+import { fillTemplate, formatSymbolName } from './format'
 import { intervalsOf, isPresent } from './attendanceIntervals'
 import { ortOf } from './attendanceOrt'
 import { isAtemschutzTrupp } from './atemschutz'
@@ -32,9 +32,12 @@ export type AssignableRole = 'el' | 'fahrer' | 'presence'
  * What a name typed into a symbol's roster field MEANS — the job, and the Bemerkung it writes
  * onto that person's Anwesenheit row. Pure, so the mapping is testable without the workspace.
  *
- * Three fields carry a person (`appConfig.symbols.rosterFields`) and they are not the same job:
+ * Four fields carry a person (`appConfig.symbols.rosterFields`) and they are not the same job:
  *   · «Fahrer» on any vehicle → «Fahrer TLF» (the vehicle is the symbol's own label)
- *   · «Name» on the Einsatzleiter glyph → «Einsatzleiter»
+ *   · «Bedienung» on a placed device → «Bedienung Lüfter», built the same way (14.09.): the
+ *     label, else the symbol's display name — presence only, operating a Lüfter contradicts
+ *     nothing about also being in a Trupp
+ *   · «Name» on the Einsatzleiter glyph — or the KP Front, which carries the same pair → «Einsatzleiter»
  *   · «Stv.» on the same glyph → «Stv. Einsatzleiter» — the deputy used to be put on the list
  *     with no Bemerkung at all, so the one row that says WHY they are on it stayed empty.
  * Anything else (a «Name» on some other symbol) still marks the person present — being named
@@ -52,7 +55,11 @@ export function rosterFieldRole(
   if (key === 'Fahrer') {
     return { role: 'fahrer', note: fillTemplate(A.roleFahrer, { vehicle: label ?? '' }).trim() }
   }
-  if (symbol === appConfig.symbols.einsatzleiterName) {
+  if (key === 'Bedienung') {
+    const what = label?.trim() || (symbol ? formatSymbolName(symbol) : '')
+    return { role: 'presence', note: fillTemplate(A.roleBedienung, { symbol: what }).trim() }
+  }
+  if (symbol && (appConfig.symbols.einsatzleiterSymbols as readonly string[]).includes(symbol)) {
     if (key === 'Name') return { role: 'el', note: A.roleEinsatzleiter }
     if (key === 'Stv.') return { role: 'el', note: A.roleEinsatzleiterStv }
   }

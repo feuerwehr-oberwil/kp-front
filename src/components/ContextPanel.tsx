@@ -30,7 +30,9 @@ const ROSTER_FIELDS = new Set<string>(appConfig.symbols.rosterFields)
 // leadership glyphs whose roster picker gets the officer-first sort + "nur Offiziere" toggle
 const OFFICER_ROSTER_SYMBOLS = new Set<string>(appConfig.symbols.officerRosterSymbols)
 // The Einsatzleiter glyph's two roster rows, in the order the preset lists them. They are a PAIR
-// — the two halves of one job — which is what the labels and the ⇄ below are about.
+// — the two halves of one job — which is what the labels and the ⇄ below are about. The KP Front
+// carries the same pair (14.09.), so both glyphs get the labels and the handover.
+const EL_SYMBOLS = new Set<string>(appConfig.symbols.einsatzleiterSymbols)
 const EL_NAME = 'Name'
 const EL_STV = 'Stv.'
 
@@ -258,7 +260,7 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, origi
   // leadership glyph → its roster picker offers the officer-first sort + "nur Offiziere" filter
   const officerSym = !!entity.symbol && OFFICER_ROSTER_SYMBOLS.has(entity.symbol)
   const rankOf = officerSym && rosterRank ? (n: string) => rosterRank[n] : undefined
-  // ⚠️ The Einsatzleiter glyph's rows are labelled «EL» / «Stv.», not «Name» / «Stv.». The
+  // ⚠️ The Einsatzleiter glyph's (and the KP Front's) rows are labelled «EL» / «Stv.», not «Name» / «Stv.». The
   // STORED keys are unchanged (Name/Stv. — the Kroki, the caption and the Anwesenheits-Bemerkung
   // all key off them); this is what the row SAYS. «Name» beside «Stv.» named the value on one row
   // and the job on the other, so the two never read as the two halves of one job — which is what
@@ -268,7 +270,7 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, origi
   // hangs off the symbol alone. Only the ⇄ swap below is an edit and keeps the readOnly guard.
   // (They were one flag, so a read-only panel said «Stv.» while every other surface and the paper
   // said «Stv. EL».)
-  const isElSym = entity.symbol === appConfig.symbols.einsatzleiterName
+  const isElSym = !!entity.symbol && EL_SYMBOLS.has(entity.symbol)
   const elSym = !readOnly && isElSym
   const rowLabel = (k: string) => {
     if (!isElSym) return k

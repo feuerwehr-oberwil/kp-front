@@ -13,6 +13,8 @@ const deployment = {
 vi.mock('./deploymentConfig', () => ({
   getDeploymentConfig: () => deployment,
   attendanceMergeGapMin: () => 15,
+  // the shipped Ausrüstung list — what a station without its own list gets
+  atemschutzEquipment: () => [{ id: 'retthaube', label: 'Retthaube' }, { id: 'wbk', label: 'WBK' }, { id: 'multiwarn', label: 'Multiwarn' }],
 }))
 import {
   annotatedPlans,
@@ -39,6 +41,7 @@ import {
   spanAwareClock,
   truppAuftragLabel,
   truppCrewHistory,
+  truppEquipmentLabels,
   truppRunTimes,
   truppStatusLabel,
 } from './report'
@@ -435,6 +438,13 @@ describe('journalDisc · what the Verlauf’s disc says a row is', () => {
   })
 })
 
+describe('truppEquipmentLabels', () => {
+  it('prints the localised label, in the station list’s order, and an unknown id as itself', () => {
+    expect(truppEquipmentLabels(['wbk', 'retthaube', 'retthaube', 'kettensaege'])).toEqual(['Retthaube', 'WBK', 'kettensaege'])
+    expect(truppEquipmentLabels(undefined)).toEqual([])
+  })
+})
+
 describe('report proof and Atemschutz labels', () => {
   it('formats proof state', () => {
     expect(proofLabel({ intact: true, count: 2, checkedAt: 'now' })).toBe('Hash-Kette intakt')
@@ -581,7 +591,19 @@ describe('einsatzleiterFromScene (Rapport pre-fill)', () => {
 
   it('falls back to an Offizier with EL-Funktion, then to an «Einsatzleiter» field', () => {
     expect(einsatzleiterFromScene([sym('o', 'FW Offizier', { fields: { Funktion: 'Einsatzleiter', Name: 'Peter Schmid' } })])).toBe('Peter Schmid')
+    // a KP Front placed before 14.09. carried the EL as a hand-typed «Einsatzleiter» field
     expect(einsatzleiterFromScene([sym('k', 'VKF KP Front', { fields: { Einsatzleiter: 'Hptm Meier' } })])).toBe('Hptm Meier')
+  })
+
+  // The KP Front carries the EL/Stv. pair since 14.09. — its Name is the Einsatzleiter, read
+  // right after the EL glyph and before the Offizier. Its label is «KP Front», never a person.
+  it('reads the KP Front Name after the EL glyph, never its label', () => {
+    expect(einsatzleiterFromScene([sym('k', 'VKF KP Front', { fields: { Name: 'Céline Widmer', 'Stv.': 'X' } })])).toBe('Céline Widmer')
+    expect(einsatzleiterFromScene([sym('k', 'VKF KP Front', { label: 'KP Front' })])).toBeUndefined()
+    expect(einsatzleiterFromScene([
+      sym('o', 'FW Offizier', { fields: { Funktion: 'Einsatzleiter', Name: 'Peter Schmid' } }),
+      sym('k', 'VKF KP Front', { fields: { Name: 'Céline Widmer' } }),
+    ])).toBe('Céline Widmer')
   })
 
   it('prefers the EL glyph over the other two, and stays undefined without a person', () => {

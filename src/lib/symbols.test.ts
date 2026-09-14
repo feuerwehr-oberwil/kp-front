@@ -243,6 +243,29 @@ describe('presets that were silently absent', () => {
     expect(symbolCaptionText({ symbol: 'FW Gefahr allgemein', fields: { Gefahr: 'Einsturz' } }, 'auto')).toBe('Einsturz')
   })
 
+  // «Bedienung» (14.09.): the person operating a placed device. Hazards, building-fixed
+  // elements, water sources, zones, orientation glyphs and the person symbols are not manned;
+  // vehicles keep «Fahrer» instead. Always the LAST field, so captions keep their key.
+  it('manned devices carry «Bedienung» as their last field; the excluded groups do not', () => {
+    for (const n of ['VKF Luefter mobil', 'FW Absperrung', 'FW Kleinloeschgeraet', 'VKF Pumpe Typ2',
+                     'FW Tauchpumpe', 'VKF Drohne', 'VKF Kontrollposten', 'FKS Beobachtungsposten',
+                     'ZS Dekontaminationsstelle']) {
+      expect(symbolPresetFieldKeys(n).slice(-1)[0], n).toBe('Bedienung')
+    }
+    for (const n of ['VKF Feuer', 'VKF Rettungen', 'FW Gefahr Tafel', 'FW Gefahr allgemein', 'FW Elektroanlage',
+                     'GB Lift', 'GB Brandmeldezentrale', 'SI Ueberflurhydrant', 'WV Loeschweier', 'SI Schieber',
+                     'VKF Bereich Polizei', 'VKF Helilandeplatz', 'SI Nordpfeil', 'SI Windrichtung',
+                     'VKF Einsatzleiter', 'FW Offizier', 'VKF KP Front',
+                     'VKF Fahrzeug', 'VKF Drehleiter', 'Grosslüfter', 'FW Boot']) {
+      expect(symbolPresetFieldKeys(n), n).not.toContain('Bedienung')
+    }
+    // a preset that already names its caption keeps it — the Typ, not the person
+    expect(symbolCaptionText({ symbol: 'VKF Luefter mobil', fields: { Typ: 'Elektro', Bedienung: 'Meier Anna' } }, 'auto'))
+      .toBe('Elektro')
+    // …and the picker is a roster picker like Fahrer
+    expect(symbolFieldOptions('FW Absperrung', 'Führung', ['Hans Muster']).Bedienung).toEqual(['Hans Muster'])
+  })
+
   it('a water source can state its capacity', () => {
     expect(symbolPresetFieldKeys('WV Loeschweier')).toContain('Kapazität')
     expect(symbolPresetFieldKeys('SI Wasserbezugsort')).toContain('Kapazität')
