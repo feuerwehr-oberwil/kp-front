@@ -126,6 +126,15 @@ describe('buildPlanInfo — several sheets of one kind are several plans', () =>
     ])
     expect(plans['modul2-3']).toBeTruthy()
   })
+
+  // «Im Wasen 1-8» (Im Wasen 3a) on prod, 14.09.: the SharePoint sheet is titled with the object
+  // name, whose «1-8» is an address range, not a module range – it keyed the sheet as modul1-8.
+  it('reads the module range from the title, never a range in the object name', () => {
+    const { plans } = buildPlanInfo([
+      pdf({ id: 'a', module: 'modul2-3', title: 'Im Wasen 3a - Im Wasen 1-8 – modul2-3' }),
+    ])
+    expect(Object.keys(plans)).toEqual(['modul2-3'])
+  })
 })
 
 // The whole chain a backend-tagged sheet travels: module key → plan map → synthesized tile.

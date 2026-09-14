@@ -109,8 +109,12 @@ function planCatalog(): { modules: PlanDocument[]; surfaces: PlanDocument[] } {
 // The trailing number of a sub-slot is part of the key, never noise: an object with «Wasser 1»
 // AND «Wasser 2» has TWO waterplans (modul5-wasser1 / modul5-wasser2), and folding them onto one
 // key made the second one disappear from the rail.
+// ⚠️ Parsed from the «modul» word onward when there is one. The SharePoint pull titles a sheet
+// «<object name> – modul2-3», and an object name like «Im Wasen 1-8» carries a range of its own
+// that used to win – the sheet keyed as `modul1-8` and the rail grew a «1/8» tile labelled «8».
 function normModule(m: string): string {
-  const s = m.toLowerCase().replace(/\s+/g, '')
+  const s0 = m.toLowerCase().replace(/\s+/g, '')
+  const s = s0.slice(Math.max(0, s0.indexOf('modul')))
   const range = /(?:modul)?(\d+)[-_/](\d+)/.exec(s)
   if (range) return `modul${range[1]}-${range[2]}`
   const named = /(?:modul)?(\d+)-([a-z]{2,}\d*)/.exec(s) // modul5-wasser2 → keep the numbered sub-slot
