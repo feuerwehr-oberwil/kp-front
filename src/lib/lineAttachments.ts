@@ -34,7 +34,20 @@ export const MAGNET_ANNO_KINDS: readonly NonNullable<BoardAnno['kind']>[] = ['sy
 export const isMagnetAnno = (a: Partial<Pick<BoardAnno, 'kind'>>): boolean => !!a.kind && MAGNET_ANNO_KINDS.includes(a.kind)
 
 export const MAGNET_RADIUS_PX = 32
-export const MAGNET_DWELL_MS = 350
+/** How long a line endpoint has to hold still on a SYMBOL / vehicle / Trupp before it attaches
+ *  (the «Ring lädt, dann schnappt es» fill below). 350 ms until 14.09.: in the field a hose
+ *  passing OVER a symbol on its way somewhere else kept snapping to it, so the ring is slower.
+ *  A LINE target has no dwell at all — see `dwellFor`. */
+export const MAGNET_DWELL_MS = 500
+/** The dwell a magnetic target asks for, by what it is (14.09.) — the ONE place the two
+ *  behaviours are told apart, read by every snap site on both surfaces and by their rings:
+ *  - a LINE target (another line's end, a Teilstück prong) attaches INSTANTLY. Putting a stroke
+ *    on a line end almost always means «continue from here», so a ring there was only a wait;
+ *  - a SYMBOL / vehicle / Trupp target keeps the `MAGNET_DWELL_MS` fill, because those are what
+ *    a moving line passes over by accident.
+ *  A dwell of 0 draws no ring: there is nothing filling up to show. */
+export const dwellFor = (target: Pick<MagneticTarget, 'target'> | null | undefined): number =>
+  target?.target.kind === 'line' ? 0 : MAGNET_DWELL_MS
 export const DETACH_RADIUS_PX = 44
 export const GPS_GUARD_METRES = 20
 /** How far a fresh stroke may travel from its pointerDOWN point and still count as being «at the
@@ -120,11 +133,14 @@ export function stickyMagneticTarget(pointer: Point, targets: MagneticTarget[], 
 export interface DwellState { key: string | null; since: number; armed: boolean }
 export const EMPTY_DWELL: DwellState = { key: null, since: 0, armed: false }
 
-/** Pure hover/dwell reducer; switching candidate always restarts the 350 ms fill. */
-export function advanceDwell(prev: DwellState, candidateKey: string | null, now: number, dwellMs = MAGNET_DWELL_MS): DwellState {
-  if (!candidateKey) return EMPTY_DWELL
-  if (prev.key !== candidateKey) return { key: candidateKey, since: now, armed: false }
-  return { ...prev, armed: prev.armed || now - prev.since >= dwellMs }
+/** Pure hover/dwell reducer. Switching candidate restarts the fill, whose length the candidate
+ *  itself dictates (`dwellFor`): a line target's dwell is 0, so it is armed the moment it is
+ *  acquired; a symbol's is `MAGNET_DWELL_MS`. Once armed, a target stays armed. */
+export function advanceDwell(prev: DwellState, candidate: Pick<MagneticTarget, 'key' | 'target'> | null, now: number): DwellState {
+  if (!candidate) return EMPTY_DWELL
+  const since = prev.key === candidate.key ? prev.since : now
+  const armed = (prev.key === candidate.key && prev.armed) || now - since >= dwellFor(candidate)
+  return { key: candidate.key, since, armed }
 }
 
 /** The line-START exception: a NEW stroke whose pointerDOWN already lands inside a target's

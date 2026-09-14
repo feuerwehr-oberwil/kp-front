@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LineAttachment } from '../types'
 import {
   advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress,
-  DETACH_SHOW_PROGRESS, EMPTY_DWELL, endpointCapacity, flipLine,
+  DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, endpointCapacity, flipLine, MAGNET_DWELL_MS,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, isMagnetAnno, isMagnetEntity,
   materializeEndpoint, moveLineBody,
   nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
@@ -39,29 +39,48 @@ describe('magnetic candidate and dwell', () => {
     expect(stickyMagneticTarget([20, 0], [a, c], null)?.key).toBe('c')
   })
 
-  it('restarts fill on candidate changes and arms at 350 ms', () => {
-    let s = advanceDwell({ key: null, since: 0, armed: false }, 'a', 100)
-    expect(advanceDwell(s, 'a', 449).armed).toBe(false)
-    s = advanceDwell(s, 'a', 450)
+  // Candidates as the snap sites hand them in: a symbol (dwell) and a line end (instant).
+  const sym = (key: string) => ({ key, target: { kind: 'object' as const, id: key } })
+  const lineEnd = (key: string) => ({ key, target: { kind: 'line' as const, id: key, endpoint: 'end' as const } })
+
+  it('dwells 500 ms on a symbol and not at all on a line end (14.09.)', () => {
+    expect(dwellFor(sym('a'))).toBe(MAGNET_DWELL_MS)
+    expect(dwellFor(lineEnd('l'))).toBe(0)
+    expect(dwellFor(null)).toBe(MAGNET_DWELL_MS)
+  })
+
+  it('restarts fill on candidate changes and arms a symbol at the dwell', () => {
+    let s = advanceDwell({ key: null, since: 0, armed: false }, sym('a'), 100)
+    expect(advanceDwell(s, sym('a'), 599).armed).toBe(false)
+    s = advanceDwell(s, sym('a'), 600)
     expect(s.armed).toBe(true)
-    expect(advanceDwell(s, 'b', 500)).toEqual({ key: 'b', since: 500, armed: false })
+    expect(advanceDwell(s, sym('b'), 700)).toEqual({ key: 'b', since: 700, armed: false })
+  })
+
+  // A stroke put on another line's end (or a Teilstück prong) means «from here» — there is
+  // nothing to hesitate about, so the line target is armed the frame it is acquired.
+  it('arms a line target the instant it is acquired', () => {
+    expect(advanceDwell(EMPTY_DWELL, lineEnd('l'), 100)).toEqual({ key: 'l', since: 100, armed: true })
+    // …and hopping from it onto a symbol starts that symbol's own full dwell
+    const onSym = advanceDwell(advanceDwell(EMPTY_DWELL, lineEnd('l'), 100), sym('a'), 150)
+    expect(onSym).toEqual({ key: 'a', since: 150, armed: false })
   })
 
   // The whole point of the 25.08. rework: `armed` is the COMMIT gate, not a decoration. Leaving
   // the target — or never holding still long enough — must leave nothing armed, so the release
   // paths in MapView/Whiteboard place the endpoint free instead of coupling it silently.
   it('un-arms the moment the candidate is left, so a release attaches to nothing', () => {
-    const held = advanceDwell(advanceDwell(EMPTY_DWELL, 'a', 0), 'a', 400)
+    const held = advanceDwell(advanceDwell(EMPTY_DWELL, sym('a'), 0), sym('a'), 600)
     expect(held.armed).toBe(true)
-    expect(advanceDwell(held, null, 500)).toEqual(EMPTY_DWELL)
-    expect(advanceDwell(held, 'b', 500).armed).toBe(false)
+    expect(advanceDwell(held, null, 700)).toEqual(EMPTY_DWELL)
+    expect(advanceDwell(held, sym('b'), 700).armed).toBe(false)
   })
 
   it('arms a line START instantly — a pointerdown on a target is aim, not hesitation', () => {
     expect(armDwell('a', 900)).toEqual({ key: 'a', since: 900, armed: true })
     expect(armDwell(null, 900)).toEqual(EMPTY_DWELL)
-    // and a start that armed instantly still yields the ring to a LATER candidate
-    expect(advanceDwell(armDwell('a', 900), 'b', 950).armed).toBe(false)
+    // and a start that armed instantly still yields the ring to a LATER symbol candidate
+    expect(advanceDwell(armDwell('a', 900), sym('b'), 950).armed).toBe(false)
   })
 
   it('fills the release ring with distance pulled out, full exactly at the detach radius', () => {
