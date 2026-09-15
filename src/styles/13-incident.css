@@ -1647,7 +1647,12 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-emptyapp-card p { margin: 0 0 18px; max-width: 34ch; color: var(--ink-dim); font: 500 14.5px var(--body); line-height: 1.45; }
 .ip-emptyapp-none { margin: 0 0 18px; color: var(--ink-dim); font: 500 14.5px var(--body); line-height: 1.45; }
 
-/* landing launcher: open Einsätze + Divera alarms listed directly, each a tappable row */
+/* landing launcher: open Einsätze + Divera alarms listed directly, each a tappable row.
+   ⚠️ ONE edge down this card. Every block in it — the Rückmeldungs-Karte, this list, the two
+   CTAs, the brand and footer hairlines — takes the card's full content width, so nothing may
+   inset itself: no own padding, no reserved scrollbar lane (02-base.css keeps .ip-launch-list
+   out of the `scrollbar-gutter: stable` set for exactly this reason). A scrolling list here
+   lets its bar overlay the rows instead. */
 .ip-launch-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;
   max-height: 46vh; overflow-y: auto; }
 /* belt and braces for the bug above: an empty launcher takes no room at all, so a future path

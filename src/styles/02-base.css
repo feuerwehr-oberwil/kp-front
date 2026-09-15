@@ -166,9 +166,15 @@ body {
    popups and menus that scroll are NOT (.combo-menu, .ip-ac-menu, .ip-menu, .tb-weather-pop,
    .wb-trupp-pick, .adm-select-list): each is laid out once, at its own width, when it opens —
    there is nothing beside it for a late bar to push. Nor .wheel, which hides its bar on
-   purpose, nor the phone-only sheets, where the lane costs real width. */
+   purpose, nor the phone-only sheets, where the lane costs real width.
+   ⚠️ Nor .ip-launch-list — it was here until 15.09. and that is what knocked the launcher out of
+   true: the list is ONE block in a column of blocks (Rückmeldungs-Karte, «Manueller Einsatz»,
+   «Verlauf», the two hairlines), all of which take the card's full content width, so a lane
+   reserved on the list alone pulled its Einsatz-rows ~10px short of every edge beside them.
+   A reserved lane is only ever right where the box stands alone; in a shared column the column's
+   edge wins and the bar overlays. */
 .ctx-body, .history-list, .sym-scroll, .pp-list, .roster, .rp-people, .cv-people,
-.report-preflight > .ip-body, .ip-sheet > .ip-body, .ip-objlist, .ip-launch-list,
+.report-preflight > .ip-body, .ip-sheet > .ip-body, .ip-objlist,
 .ip-emptyapp, .help-toc, .help-content { scrollbar-gutter: stable; }
 
 /* Breathing room for every scroll that REVEALS a field — Safari's own «keep the caret visible»
