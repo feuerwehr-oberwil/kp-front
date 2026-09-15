@@ -251,6 +251,38 @@ describe('what a storey tile carries onto the Karte', () => {
   })
 })
 
+describe('a map-placed object keeps its heading on a Gebäude tile', () => {
+  // Rotation parity (15.09.2026, Bastian): the tile is a sheet like any other, so a bearing
+  // placed on the Karte is stated in the tile's own frame — the stack's fit turns with the
+  // building, and the glyph turns with it. The inverse gives the north-referenced bearing back
+  // untouched, which is what lets the sheet's rotor write straight through to the map object.
+  const TURNED: PlanFit = { fit: { ...PLAN.fit, rotationDeg: 30 }, aspect: 1 }
+  const STACK: PlanFit = { ...TURNED, stack: { floors: [0, 1, 2] } }
+  const at = PLAN.fit.toMap({ x: 0.5, y: 0.5 })
+  const truck = (over: Partial<Entity> = {}): TacticalObject =>
+    ({ id: 'v', entity: ent({ id: 'v', symbol: 'VKF Fahrzeug', coord: [at.lng, at.lat], ...over }) })
+
+  it('composes the map heading with the tile\'s own turn, exactly as it composes the position', () => {
+    expect(projectOnto(truck({ rotation: 80 }), PLAN)).toMatchObject({ rotation: 80 })
+    expect(projectOnto(truck({ rotation: 80 }), STACK)).toMatchObject({ rotation: 110, floor: 0 })
+    // a Hubretter's boom is a bearing too, and it must not swing while the truck stands still
+    expect(projectOnto(truck({ symbol: 'VKF Hubretter', rotation: 80, rotation2: 100 }), STACK))
+      .toMatchObject({ rotation: 110, rotation2: 130 })
+    // …and a glyph with no direction acquires none from the paper it lies on
+    expect(projectOnto(geo(ent({ id: 'f', symbol: 'VKF Feuer', coord: [at.lng, at.lat] })), STACK)!.rotation).toBeUndefined()
+  })
+
+  it('a turn taken ON the tile writes the ground bearing back to the map object, anchor unmoved', () => {
+    const objects = [truck({ rotation: 80 })]
+    const shown = sheetAnnos(objects, 'gebaeude', STACK)
+    expect(shown[0].rotation).toBe(110)
+    const turned = applyBoardToObjects(objects, 'gebaeude', [{ ...shown[0], rotation: 200 }], STACK)
+    expect(turned[0].entity).toMatchObject({ rotation: 170 }) // 200 back out of the paper's frame
+    expect(turned[0].sheet).toBeUndefined()                    // a bearing is a prop, not a placement
+    expect(projectOnto(turned[0], STACK)).toMatchObject({ rotation: 200 }) // …and it round-trips
+  })
+})
+
 describe('the Gebäude stack\'s ink shows on the other linked sheets', () => {
   const at = PLAN.fit.toMap({ x: 0.5, y: 0.5 })
   // a Brand marked on tile +2, already baked onto the Karte with its badge

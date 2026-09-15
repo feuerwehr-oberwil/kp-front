@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { packPagePlacement, pagePlacement, stackGroundFit } from './stackFit'
+import { packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from './stackFit'
+import type { BoardAnno } from '../types'
 import { fitSimilarity } from './georef'
 import { TILE_AR } from './whiteboard'
 import { fpBoxFrac } from './footprint'
@@ -88,4 +89,50 @@ it('the PDF renderer puts joined staircases at identical XY without stretching t
   expect(up[1]).toBeCloseTo(down[1], 10)
   const { clip } = packPagePlacement(ground.clip!, { url: '', clip: upper.clip!, shift: shifts.get(1)! })
   expect(clip[2]).toBeCloseTo(.3 / .8) // stays narrower than EG
+})
+
+// A turn of the Gebäudeview moves the PAPER, and a bearing stored on it is relative to that
+// paper (15.09.2026). Positions were already re-glued through the footprint's frame; the
+// bearings were not, so a tile-drawn Fahrzeug stood still while the identical one placed on the
+// Karte — projected through the stack's fit, which turns with the building — swung with it.
+describe('reorientBearings – what a turn of the view does to a bearing on it', () => {
+  const veh = (over: Partial<BoardAnno> = {}): BoardAnno =>
+    ({ id: 'v', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.5, y: 0.5, ...over })
+
+  it('turns a directional symbol with the paper, and gives an unturned one the bearing it now has', () => {
+    expect(reorientBearings(veh({ rotation: 80 }), 30).rotation).toBe(110)
+    expect(reorientBearings(veh(), 30).rotation).toBe(30)
+    expect(reorientBearings(veh({ rotation: 350 }), 30).rotation).toBe(20) // wraps
+  })
+
+  it('drops a bearing that comes back to north – absence is the shorter way to say it', () => {
+    expect(reorientBearings(veh({ rotation: 330 }), 30).rotation).toBeUndefined()
+    expect(reorientBearings(veh(), 0).rotation).toBeUndefined()
+  })
+
+  it('leaves a glyph with no direction alone – and a Notiz, whose rotation never crosses a frame', () => {
+    const fire = { id: 'f', kind: 'symbol', symbol: 'VKF Feuer', x: 0.5, y: 0.5 } as BoardAnno
+    expect(reorientBearings(fire, 30)).toBe(fire)
+    const note = { id: 'n', kind: 'text', text: 'Zugang', x: 0.2, y: 0.2, rotation: 15 } as BoardAnno
+    expect(reorientBearings(note, 30)).toBe(note)
+  })
+
+  it('turns a composite\'s second bearing with its body – the boom must not swing on its own', () => {
+    const hub = reorientBearings(veh({ symbol: 'VKF Hubretter', rotation: 10, rotation2: 100 }), -45)
+    expect(hub).toMatchObject({ rotation: 325, rotation2: 55 })
+  })
+
+  it('keeps a tile-drawn bearing on the ground where the projection puts a map-placed one', () => {
+    // the same Fahrzeug twice: one anchored on the tile, one on the Karte. Turn the view 30° and
+    // BOTH must still point the same way on the ground — that is the parity the field asked for.
+    const before = stackGroundFit(building)!
+    const after = stackGroundFit({ ...building, viewDeg: 30, northUp: false })!
+    const delta = after.rotationDeg - before.rotationDeg
+    const drawn = veh({ rotation: 80 })
+    const ground = (anno: BoardAnno, fit: { rotationDeg: number }) => (anno.rotation ?? 0) - fit.rotationDeg
+    // to within a tenth of a degree: `turnedBy` stores whole degrees, and the stack's fit is
+    // solved from sampled points, so its own rotationDeg is 30.06 for a 30° view (invisible on
+    // a tile, and the same number both bodies are read through)
+    expect(ground(reorientBearings(drawn, delta), after)).toBeCloseTo(ground(drawn, before), 0)
+  })
 })

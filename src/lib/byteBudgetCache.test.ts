@@ -86,3 +86,20 @@ describe('ByteBudgetCache', () => {
     expect(cache.size).toBe(1)
   })
 })
+
+describe('an evicted value is released, not merely forgotten', () => {
+  it('calls release once per eviction and never for a replaced or deleted key', async () => {
+    const freed: string[] = []
+    const c = new ByteBudgetCache<{ id: string; bytes: number }>(() => 100, (v) => v.bytes, (v) => freed.push(v.id))
+    c.set('a', Promise.resolve({ id: 'a', bytes: 60 }))
+    await Promise.resolve()
+    c.set('b', Promise.resolve({ id: 'b', bytes: 60 }))
+    await Promise.resolve(); await Promise.resolve()
+    expect(freed).toEqual(['a'])
+    // the MRU is still the one being drawn – it is not released even though it alone is over
+    expect(c.has('b')).toBe(true)
+    c.delete('b')
+    await Promise.resolve()
+    expect(freed).toEqual(['a'])
+  })
+})

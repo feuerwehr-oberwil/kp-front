@@ -15,6 +15,12 @@ interface Entry<T> { promise: Promise<T>; bytes: number }
  * A pending promise weighs nothing until it resolves — its bytes are counted (and the cache
  * trimmed) the moment it does. A rejected promise drops out on its own, so a failed load is
  * retried on the next `get`, never replayed from the cache.
+ *
+ * `release(value)` is called when an entry is EVICTED (never when it is merely replaced by a
+ * fresher promise for the same key). Dropping the reference is not enough where the bytes are
+ * not the JS heap's: an `ImageBitmap` holds GPU/graphics memory that a collection an iOS tab
+ * may never get to is the only thing that frees — which is how a floor stack's five storeys
+ * stayed resident long after the cache had forgotten them (15.09.2026).
  */
 export class ByteBudgetCache<T> {
   private readonly entries = new Map<string, Entry<T>>()
@@ -22,6 +28,7 @@ export class ByteBudgetCache<T> {
   constructor(
     private readonly budget: () => number,
     private readonly sizeOf: (value: T) => number,
+    private readonly release?: (value: T) => void,
   ) {}
 
   /** Bytes of every RESOLVED entry currently held. */
@@ -75,7 +82,9 @@ export class ByteBudgetCache<T> {
         if (this.entries.get(k)!.bytes > 0) { victim = k; break }
       }
       if (victim === undefined) return
+      const e = this.entries.get(victim)!
       this.entries.delete(victim)
+      if (this.release) e.promise.then(this.release, () => {})
     }
   }
 }

@@ -4947,12 +4947,11 @@ export function IncidentWorkspace({
       {/* click-away: a transparent full-screen backdrop closes the open map panel */}
       {/* phone only: a tap-catcher behind the panel sheet to close it. On desktop the panel
           floats as a side card, so NO backdrop — the map stays pannable with Ebenen open. */}
-      {/* ⚠️ The Plan half carries `activeLinkedPlan` because its LayerPanel below does. Without
-          it the backdrop outlived its own sheet: switching to an UNLINKED sheet keeps `panel`
-          on 'layers' (onSelectPlan skips clearMapUi when the mode is already 'plans'), the
-          panel then renders nothing — and a full-screen z28 catcher was left sitting over the
-          z20 whiteboard, eating the first tap on a board that looked perfectly normal. */}
-      {(mapUI || (mode === 'plans' && activeLinkedPlan)) && panel !== null && isPhone && <div className="mapctl-backdrop" onClick={() => setPanel(null)} />}
+      {/* ⚠️ The KARTE's backdrop, and only it (15.09.2026). The Plan half used to be here for a
+          LayerPanel the Plan no longer has — and with the panel gone the catcher was the whole
+          bug it was once written to avoid: a full-screen z28 sheet over the z20 whiteboard,
+          eating the first tap on a board that looked perfectly normal. */}
+      {mapUI && panel !== null && isPhone && <div className="mapctl-backdrop" onClick={() => setPanel(null)} />}
 
       {/* the Ebenen dock (.layers-card z201) sits ABOVE the +Eintrag composer / Verlauf
           scrim that covers every other map popup, so it needs an explicit guard to hide
@@ -5547,10 +5546,6 @@ export function IncidentWorkspace({
           live={planLive}
           onPlanLiveMove={tacticalLocked ? undefined : moveLiveOnSheet}
           onPlanProjection={showPlanSourceOnMap}
-          layersOn={panel === 'layers'}
-          // the Ebenen button appears only on a linked sheet: with no fit the map lends it
-          // nothing, and the panel would be an empty room
-          onToggleLayers={activeLinkedPlan ? () => togglePanel('layers') : undefined}
           /* ⚠️ REPLAY shows the recorded sheet and nothing else. `replayBoard` is the anno list as
              it was written down, so a plan-drawn object appears exactly as it was — but a Karte
              object standing beside it does NOT, because its place on this paper is derived and

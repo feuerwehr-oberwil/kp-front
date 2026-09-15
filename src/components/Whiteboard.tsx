@@ -7,6 +7,7 @@ import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
 import { Palette } from './Palette'
 import { PdfViewport, planMatcherImage, planPreviewUrl, planPrintedMPerU, prewarmPlans } from './PdfViewport'
+import { floorPageSide, pageCanvasBudget } from '../lib/pdfRenderBudget'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
@@ -44,7 +45,7 @@ import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings } from '../lib/whiteboard'
 import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint } from '../lib/lineAttachments'
-import { packPagePlacement, pagePlacement, stackGroundFit } from '../lib/stackFit'
+import { packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { normalizeStackEdit, stackInstances } from '../lib/stackFloors'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
@@ -288,11 +289,6 @@ interface Props {
   onStepEnd?: () => void
   /** Show a plan-owned object at its projected position on the Lage map. */
   onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
-  /** the Ebenen panel is open (it lives in the app shell; the plan only owns the button) */
-  layersOn?: boolean
-  /** Ebenen button in the rail footer — omitted ⇒ no button, which is the state of every sheet
-   *  that has nothing to switch (no georeference ⇒ nothing is lent to it) */
-  onToggleLayers?: () => void
 }
 
 /**
@@ -311,7 +307,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -2576,16 +2572,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }
   const selResource = annos.find((a) => a.id === selId && a.kind === 'resource')
   /**
-   * A Plan may show Ebenen BESIDE its selected object's details on tablet/desktop. That is useful
-   * here in a way it is not on the Lage: the layer list explains which Karte/Plan projection the
-   * selected object belongs to. 06-contextpanel.css gives the pair separate horizontal slots.
-   *
-   * A phone cannot fit two bottom sheets. There the old one-slot rule remains: Ebenen temporarily
-   * hides the detail panel without dropping `selId`, so closing it restores the same
-   * selected object and halo. `tool === 'pan'` remains the long-standing selection-only gate.
+   * ⚠️ The Plan has no Ebenen of its own any more (15.09.2026). It used to share the slot with
+   * the selected object's details — the layer list said which projection that object belonged to
+   * — but the unified object model took the plan's twin rows away (`planRasterRows` is the
+   * Karte's alone), and the panel has been an empty room ever since: the rail's button opened
+   * nothing at all, and on a phone it hid the detail panel to do it. Either a section lists
+   * something or it is not in the sidebar — so the button is gone, and the detail slot is the
+   * plan's whole business. `tool === 'pan'` remains the long-standing selection-only gate.
    */
-  const detailPanelVisible = !layersOn || !isPhone
-  const editorSlotFree = detailPanelVisible && tool === 'pan'
+  const editorSlotFree = tool === 'pan'
   // a selected plan symbol gets the SAME editor as the map (label / fields / notes /
   // count / rotation) — floor is omitted because on the plan it's the tile, not a badge
   const selSymbol = annos.find((a) => a.id === selId && a.kind === 'symbol')
@@ -2895,7 +2890,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return { x, y, floor }
     })()
     const remapped = annos.map((a) => {
-      const next: BoardAnno = { ...a }
+      // ⚠️ the BEARINGS turn with the paper too (lib/stackFit · reorientBearings, 15.09.2026):
+      // a stored rotation is relative to the sheet, and the sheet is what just moved. Without it
+      // a Fahrzeug DRAWN on a tile stayed pointing where it was while the identical one placed
+      // on the Karte — projected through the stack's fit — swung with the building.
+      const next: BoardAnno = { ...reorientBearings(a, toDeg - fromDeg) }
       if (a.x != null && a.y != null) { const [x, y] = mv([a.x, a.y]); next.x = x; next.y = y }
       if (a.pts) next.pts = a.pts.map((p): BoardPoint => { const [x, y] = mv([p[0], p[1]]); return p[2] == null ? [x, y] : [x, y, p[2]] })
       if (a.trail) next.trail = a.trail.map((tp) => { const [x, y] = mv([tp.x, tp.y]); return { ...tp, x, y } })
@@ -3148,11 +3147,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                           // the tile box IS the reference frame: the floor's page is laid into it shifted by its
                           // anchor difference and clipped to its own drawing (lib/floorPackBinding)
                           const placement = packPagePlacement(building.pack.frame ?? [0, 0, 1, 1], tile)
-                          return <FloorPage key={`${f}:${tile.url}`} url={tile.url} {...placement} clipId={`fp-${active.id}-${f}`} w={fpBox.w} h={fpBox.h} vw={sW} vh={sH} />
+                          return <FloorPage key={`${f}:${tile.url}`} url={tile.url} {...placement} clipId={`fp-${active.id}-${f}`} w={fpBox.w} h={fpBox.h} floors={N} />
                         }
                         // a footprint stack places the whole page through the fits
                         const corners = pagePlacement(building, shownAngle, floorPack.fit!)
-                        return corners && <FloorPage key={tile.url} url={tile.url} corners={corners} w={fpBox.w} h={fpBox.h} vw={sW} vh={sH} />
+                        return corners && <FloorPage key={tile.url} url={tile.url} corners={corners} w={fpBox.w} h={fpBox.h} floors={N} />
                       })()}
                       {building.pack && !floorPack?.tiles[f] && fpBox && (
                         <text x={fpBox.w / 2} y={fpBox.h / 2} textAnchor="middle" className="wb-floor-noplan">{appConfig.copy.whiteboard.noFloorPlan}</text>
@@ -4008,15 +4007,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           }}
           footer={
             <>
-              {/* ⚠️ THE MAP RAIL'S ORDER, top to bottom: Ebenen · the view control · zoom ±.
-                  It used to run the other way round here (zoom, Einpassen, Ebenen), so the two
-                  rails put Ebenen at opposite ends of the same footer and the hand had to look
-                  for it on whichever surface it happened to be on. Same footer, same order.
-                  Ebenen appears only once this sheet is linked to the map: before that the map
-                  lends it nothing and the panel would be an empty room. */}
-              {onToggleLayers && (
-                <button className={`vrail-nbtn vrail-layers ${layersOn ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={layersOn} onClick={onToggleLayers}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
-              )}
+              {/* ⚠️ NO Ebenen row here (15.09.2026). The map rail's footer opens a panel with
+                  the deployment's layers in it; this one opened an empty room — the Plan's twin
+                  rows went with the unified object model, and the sheet is lent nothing that can
+                  be switched. A word that answers a press with nothing is worse than no word. */}
               {/* «Einpassen» — where the map rail carries its compass / views button: the one
                   control that puts the whole surface back in front of you. */}
               <button className="vrail-nbtn vrail-fit" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
@@ -4609,20 +4603,30 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 /** One storey's Geschossplan page under its tile: the page raster (PdfViewport · planPreviewUrl,
  *  which honours the URL's `#page=N`) drawn as a unit square mapped onto the page's three corners
  *  in the footprint box – a similarity, so the page turns and scales with the building. */
-function FloorPage({ url, corners, clip, clipId, w, h, vw, vh }: {
+function FloorPage({ url, corners, clip, clipId, w, h, floors }: {
   url: string; corners: [[number, number], [number, number], [number, number]]
   /** the visible part, in the frame's 0..1 box [x, y, w, h] – a region of a multi-floor sheet */
   clip?: [number, number, number, number]; clipId?: string
-  w: number; h: number; vw: number; vh: number
+  /** how many storey tiles the stack has – they SHARE one pixel budget (lib/pdfRenderBudget) */
+  w: number; h: number; floors: number
 }) {
   const [src, setSrc] = useState<string | null>(null) // keyed by url in the parent – a new page mounts anew
+  // ⚠️ ONE raster per page, at a FIXED size, and the stack's storeys share one pixel budget
+  // (15.09.2026, after an iPhone lost the tab on a five-storey A1 pack).
+  //  · fixed, not the tile's on-screen size: `sW` grows with the zoom, so asking in it minted a
+  //    new bake, a new JPEG and a new decoded image at EVERY zoom tick, eight held at once,
+  //    on a surface that draws one per storey.
+  //  · bigger than the tile all the same — the stack zooms to 4× and a tile-sized raster was
+  //    mush at 2× (Bastian, 15.09.) — but bounded: `FLOOR_PAGE_SIDE` is the ceiling and the
+  //    device's own budget divided by the storey count is the floor under it. An A1 storey is
+  //    then ~1450 × 2048 px (12 MB) instead of 4096 × 5799 (95 MB, and past what iOS draws).
+  // Past that the CSS scales the bitmap: a slightly soft plan is readable, a killed tab is not.
+  const side = floorPageSide(floors)
   useEffect(() => {
     let alive = true
-    // the full preview side (1800 px), not the tile's on-screen size: the stack zooms to 4× and a
-    // raster baked at tile size was mush at 2× (Bastian, 15.09.)
-    void planPreviewUrl(url, Math.max(vw, 3600), Math.max(vh, 3600), 3600).then((u) => { if (alive) setSrc(u) }).catch(() => { /* the outline alone, as before */ })
+    void planPreviewUrl(url, side, side, side, pageCanvasBudget(floors)).then((u) => { if (alive) setSrc(u) }).catch(() => { /* the outline alone, as before */ })
     return () => { alive = false }
-  }, [url, vw, vh])
+  }, [url, side, floors])
   if (!src) return null
   const [o, px, py] = corners
   const m = [(px[0] - o[0]) * w, (px[1] - o[1]) * h, (py[0] - o[0]) * w, (py[1] - o[1]) * h, o[0] * w, o[1] * h]

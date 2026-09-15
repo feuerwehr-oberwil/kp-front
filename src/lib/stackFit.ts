@@ -2,7 +2,9 @@ import { TILE_AR } from './whiteboard'
 import { activeViewDeg, buildView, fpBoxFrac, type Pt, type Ring } from './footprint'
 import { M_PER_LAT, mPerLon } from './buildingTransfer'
 import { fitSimilarity, type GeorefFit, type GeorefPair } from './georef'
-import type { BuildingDoc, SrcGeoref } from '../types'
+import type { BoardAnno, BuildingDoc, SrcGeoref } from '../types'
+import { directionalGlyph, directionalGlyph2 } from './planProjection'
+import { turnedBy } from './selectionTransform'
 import type { FloorPackTile } from './floorPackBinding'
 
 /** Place a drawing in the common frame; never independently centre or fit each crop. */
@@ -87,4 +89,35 @@ export function pagePlacement(
   const view = buildView(src, angleDeg)
   const at = (x: number, y: number): Pt => view.toNorm(groundToSrc(b.geo!, pageFit.toMap({ x, y })))
   return [at(0, 0), at(1, 0), at(0, 1)]
+}
+
+/**
+ * Turning the Gebäudeview turns the PAPER, so every bearing drawn on it turns with it.
+ *
+ * `reorientTo` (components/Whiteboard) already re-glues each annotation's POSITION through the
+ * footprint's own frame, so a Brandherd keeps the spot on the earth it marks. Its bearing was
+ * left behind: a stored `rotation` is «relative to the paper it is stored on» (lib/planProjection
+ * · turnedToSheet), and after a 30° turn of the view the same number points 30° elsewhere on the
+ * ground. The symbols the Karte lends the stack DO follow — they are projected through the
+ * stack's fit, which turns with the building — so the two halves of one tile disagreed: a
+ * Fahrzeug placed on the Karte swung with the building, the identical one drawn on the tile did
+ * not (15.09.2026).
+ *
+ * Only glyphs that HAVE a direction, exactly as the projection decides it, and `rotation2` (the
+ * Grosslüfter's fan, the Hubretter's boom) with them. A note's `rotation` is paper decoration and
+ * never crosses a frame, so it stays put — the projection leaves it alone too.
+ *
+ * ⚠️ Absence is a value: an unturned Fahrzeug genuinely IS turned by the delta once the paper
+ * moves under it, so it acquires a bearing — and one that comes back to north loses it again,
+ * the same normalisation `turnedToGround` makes.
+ */
+export function reorientBearings(anno: BoardAnno, deltaDeg: number): BoardAnno {
+  const turn = (deg: number | undefined): number | undefined => {
+    const next = turnedBy(deg ?? 0, deltaDeg)
+    return next === 0 ? undefined : next
+  }
+  const rot = directionalGlyph(anno) ? turn(anno.rotation) : anno.rotation
+  const rot2 = directionalGlyph2(anno) ? turn(anno.rotation2) : anno.rotation2
+  if (rot === anno.rotation && rot2 === anno.rotation2) return anno
+  return { ...anno, rotation: rot, rotation2: rot2 }
 }

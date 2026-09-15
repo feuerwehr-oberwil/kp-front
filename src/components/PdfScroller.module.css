@@ -11,12 +11,7 @@
      one-finger scrolling stays native */
   touch-action: pan-x pan-y;
 }
-/* the ± cluster is the board's (09-whiteboard.css · .wb-zoom-float); pinned to the scroller's
-   corner, above the pages, under the top bar's lane */
-.zoom { position: sticky; float: right; top: calc(16px + env(safe-area-inset-top)); margin-right: calc(var(--vrail-w, 60px) + 16px); }
-@media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  .zoom { margin-right: 10px; }
-}
+/* (the ± cluster is gone, 15.09.2026 – the reader zooms by gesture alone; see PdfScroller) */
 /* ⚠️ The padding RESERVES THE RAIL LANES. The scroller fills the whiteboard, which is
    deliberately full-bleed (inset: 0) so a document can be panned up behind the top bar — but on
    first load that meant the first page opened centred in the whole viewport, i.e. with its left

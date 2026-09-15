@@ -257,10 +257,11 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
     expect(screen.getAllByRole('button', { name: new RegExp(D.lock) }).length).toBeGreaterThan(0)
   })
 
-  it('keeps its detail editor open beside Ebenen above the phone breakpoint', () => {
-    const { container } = renderPlan([line], { layersOn: true })
-    fireEvent.pointerDown(hitShape(container))
-    expect(screen.getAllByRole('button', { name: new RegExp(D.lock) }).length).toBeGreaterThan(0)
+  // (the «beside Ebenen» case is gone with the Plan's Ebenen button, 15.09.2026 — the detail
+  //  slot is the plan's alone now; see Whiteboard · editorSlotFree)
+  it('has no Ebenen row in its rail footer – the panel it opened listed nothing', () => {
+    renderPlan([line])
+    expect(screen.queryAllByRole('button', { name: appConfig.copy.panels.layers })).toHaveLength(0)
   })
 
   it('is tap-through once locked — no selection, no editor, no drag', () => {

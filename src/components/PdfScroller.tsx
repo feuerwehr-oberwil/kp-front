@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { Icon } from '../lib/icons'
 import { loadDocTimed, pdfWorkerUrl, PdfFailDetail, usePdfLoad } from './PdfViewport'
 import { diagnosePdfFailure } from '../lib/pdfDiagnosis'
-import { anchorScroll, canvasScale, pageAnchorAt, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, type Box, type PageAnchor } from '../lib/pdfZoom'
+import { anchorScroll, canvasScale, pageAnchorAt, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_STEP, type Box, type PageAnchor } from '../lib/pdfZoom'
 import { RetryButton } from './RetryButton'
 import s from './PdfScroller.module.css'
 
@@ -13,9 +12,13 @@ import s from './PdfScroller.module.css'
 // column, the "normal PDF viewer" experience. Reuses PdfViewport's pdf.js loader + doc cache.
 //
 // Zoom (13.09.2026): a small drawing on a big screen, or any drawing on a phone, needs more than
-// «fit the column». The ± cluster, ctrl/⌘+wheel, a pinch and a double tap zoom the column from
-// 1× (fit) to 4×; the pages re-render crisp at the new width (a pinch previews with a CSS
-// transform and commits on release) and the point under the fingers stays where it was.
+// «fit the column». ctrl/⌘+wheel, a pinch and a double tap zoom the column from 1× (fit) to 4×;
+// the pages re-render crisp at the new width (a pinch previews with a CSS transform and commits
+// on release) and the point under the fingers stays where it was.
+//
+// ⚠️ NO buttons (15.09.2026, Bastian): the ± cluster and its «Einpassen» were dropped on every
+// viewport, desktop included — «people can just scroll». The gestures ARE the control here, and
+// a double tap is the way back to the fit; a reader is not a surface with a tool rail.
 //
 // The fit (14.09.2026) is the column's CONTENT box – the scroller minus the lanes its padding
 // reserves for the rails (PdfScroller.module.css · .pages) – not the scroller's whole width: a
@@ -32,7 +35,9 @@ const pageBoxes = (host: HTMLElement | null): Box[] =>
 export function PdfScroller({ url }: { url: string }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
-  const zoomClusterRef = useRef<HTMLDivElement>(null)
+  /** how the render pass in flight hands its pixels back – set by that pass, called by its
+   *  cleanup (a zoom supersedes the whole column, so there is always exactly one) */
+  const release = useRef<(() => void) | null>(null)
   const [width, setWidth] = useState(0)
   const [zoom, setZoom] = useState(1)
   const zoomRef = useRef(1)
@@ -88,12 +93,20 @@ export function PdfScroller({ url }: { url: string }) {
     setStatus('loading')
     setFail(null)
     const cssW = Math.round(Math.max(120, Math.min(width, MAX_COL_W)) * zoom)
+    // ⚠️ Every canvas this pass allocates, so an abandoned pass can hand its pixels back at
+    // once. A zoom is a full re-render of the column, and a superseded one used to leave its
+    // finished pages (tens of MB apiece) to a garbage collection an iOS tab may never reach —
+    // three quick zoom steps on an A4 were enough to lose the tab (15.09.2026).
+    const made: HTMLCanvasElement[] = []
+    let task: { cancel: () => void } | null = null
+    const drop = () => { for (const c of made) { c.width = 0; c.height = 0 } made.length = 0 }
+    release.current = () => { task?.cancel(); drop() }
     loadDocTimed(url)
       .then(async (pdf) => {
         const frag = document.createDocumentFragment()
         const budget = pageCanvasBudget(pdf.numPages)
         for (let i = 1; i <= pdf.numPages; i++) {
-          if (cancelled) return
+          if (cancelled) { drop(); return }
           const page = await pdf.getPage(i)
           const base = page.getViewport({ scale: 1 })
           const cssH = cssW * (base.height / base.width)
@@ -101,17 +114,32 @@ export function PdfScroller({ url }: { url: string }) {
           const k = canvasScale(cssW, cssH, DPR(), budget)
           const vp = page.getViewport({ scale: (cssW / base.width) * k })
           const canvas = document.createElement('canvas')
+          made.push(canvas)
           canvas.width = Math.max(1, Math.floor(vp.width))
           canvas.height = Math.max(1, Math.floor(vp.height))
           canvas.className = s.page
           canvas.style.width = `${cssW}px`
           canvas.style.height = `${Math.round(cssH)}px`
           const ctx = canvas.getContext('2d')
-          if (ctx) await page.render({ canvas, canvasContext: ctx, viewport: vp }).promise
-          if (cancelled) return
+          if (ctx) {
+            const t = page.render({ canvas, canvasContext: ctx, viewport: vp })
+            task = t
+            await t.promise.catch(() => {})
+            task = null
+          }
+          // the page's own render internals — the pdf.js document is shared across every sheet
+          // of the same PDF (PdfViewport · docKey), so nothing else ever frees them
+          page.cleanup()
+          if (cancelled) { drop(); return }
           frag.appendChild(canvas)
         }
-        if (cancelled) return
+        if (cancelled) { drop(); return }
+        // the column this replaces is ours too – zero it before it is detached, or a zoom
+        // sequence keeps every level it passed through alive until the next collection
+        for (const old of Array.from(host.children)) {
+          if (old instanceof HTMLCanvasElement) { old.width = 0; old.height = 0 }
+        }
+        made.length = 0 // these are on screen now; the NEXT pass owns their release
         host.replaceChildren(frag) // swap in atomically (also clears a prior render)
         host.style.transform = '' // a pinch preview, if one was up, is now the real thing
         const pending = pendingScroll.current
@@ -133,7 +161,7 @@ export function PdfScroller({ url }: { url: string }) {
         setStatus('error')
         void diagnosePdfFailure(err, pdfWorkerUrl()).then((f) => { if (!cancelled) setFail(f) })
       })
-    return () => { cancelled = true }
+    return () => { cancelled = true; release.current?.(); release.current = null }
     // setStatus/setFail are `useState` setters handed through usePdfLoad, so their identity is
     // stable and they never re-run this — they are listed only because the lint rule cannot see
     // through the hook's return object to know that.
@@ -188,7 +216,6 @@ export function PdfScroller({ url }: { url: string }) {
     let tap: Pt | null = null // the single touch that may still become a tap
     let lastTap = 0
     const onStart = (e: TouchEvent) => {
-      if (zoomClusterRef.current?.contains(e.target as Node)) return // the ± buttons are theirs
       if (e.touches.length === 2) {
         e.preventDefault()
         const [a, b] = [pt(e.touches[0]), pt(e.touches[1])]
@@ -242,11 +269,6 @@ export function PdfScroller({ url }: { url: string }) {
 
   return (
     <div ref={wrapRef} className={s.scroller} onDoubleClick={onDoubleClick}>
-      <div ref={zoomClusterRef} className={`wb-zoom wb-zoom-float ${s.zoom}`} onDoubleClick={(e) => e.stopPropagation()}>
-        <button onClick={() => zoomTo(stepZoom(zoom, 1 / ZOOM_STEP))} disabled={zoom <= ZOOM_MIN} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>
-        <button onClick={() => zoomTo(stepZoom(zoom, ZOOM_STEP))} disabled={zoom >= ZOOM_MAX} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><Icon id="plus" /></button>
-        <button className="wb-fit" onClick={() => zoomTo(1)} disabled={zoom === 1} title={appConfig.copy.nav.fit}>{appConfig.copy.whiteboard.fit}</button>
-      </div>
       {status !== 'ready' && (
         <div className={s.hint}>
           <span>{status === 'error' ? appConfig.copy.pdf.failed : appConfig.copy.pdf.loading}</span>

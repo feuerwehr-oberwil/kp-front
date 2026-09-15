@@ -14,6 +14,7 @@ import pdfWorkerShimUrl from '../lib/pdfWorkerEntry?worker&url'
 import { RetryButton } from './RetryButton'
 import s from './PdfViewport.module.css'
 import { pdfPageOf } from '../lib/whiteboard'
+import { pageCanvasBudget, rasterSide, renderScale } from '../lib/pdfRenderBudget'
 
 // The worker asset's URL, remembered for the diagnosis path: when a PDF fails, whether that
 // file is still being served is the single most telling fact we can gather (lib/pdfDiagnosis).
@@ -211,7 +212,12 @@ const bitmapBytes = (b: Baked) => b.bitmap.width * b.bitmap.height * 4
 // ONLY pdf.js rasterization for normal viewing; open / switch / pan / zoom are served from this
 // bitmap (a GPU blit + CSS transform), so they're instant. Keyed by url; memory-bounded by the
 // byte budget above (LRU; a rejected bake drops out on its own so a failed load can be retried).
-const bitmapCache = new ByteBudgetCache<Baked>(bitmapBudget, bitmapBytes)
+// ⚠️ …and an evicted bitmap is CLOSED, not merely forgotten: an ImageBitmap's pixels are not
+// the JS heap's, and on iOS the collection that would free them is exactly what does not happen
+// under memory pressure. Every reader draws it inside the `.then` of the promise it holds, so
+// the two paint sites guard against the one race this opens (a bitmap evicted between resolve
+// and draw) by falling back to no paint rather than throwing.
+const bitmapCache = new ByteBudgetCache<Baked>(bitmapBudget, bitmapBytes, (b) => b.bitmap.close?.())
 
 // Compute the contain-fit of a page (h/w aspect) inside the viewport, then the
 // pixel width to bake at — display size × dpr × headroom, rounded to a step so
@@ -229,18 +235,19 @@ function targetSide(aspect: number, vw: number, vh: number) {
 // callers share the in-flight promise. Re-bakes only if a larger size is asked
 // for (e.g. the window grew, or a preview bake meets its first real viewport); shrinking
 // reuses the crisper bitmap. `maxSide` caps the bake width — the prewarm's preview size.
-function bake(url: string, vw: number, vh: number, maxSide = Infinity): Promise<Baked> {
+function bake(url: string, vw: number, vh: number, maxSide = Infinity, budgetPx = pageCanvasBudget()): Promise<Baked> {
   const existing = bitmapCache.get(url) // a read touches the entry (LRU)
   if (existing) {
-    // keep if it's already at least as crisp as we'd now ask for
-    const want = (a: number) => Math.min(targetSide(a, vw, vh), maxSide)
-    const reuse = existing.then((b) => (b.side >= want(b.aspect) ? b : Promise.reject('stale')))
+    // keep if it's already at least as crisp as we'd now ask for — measured through the SAME
+    // capped width the render uses, or a budget-capped bake reads as stale on every open
+    const want = (a: number) => bakeWidth(a, vw, vh, maxSide, budgetPx)
+    const reuse = existing.then((b) => (b.side >= want(b.aspect) - 0.5 ? b : Promise.reject('stale')))
     // fall through to re-bake only on the stale rejection
-    const p = reuse.catch(() => render(url, vw, vh, maxSide))
+    const p = reuse.catch(() => render(url, vw, vh, maxSide, budgetPx))
     bitmapCache.set(url, p)
     return p
   }
-  const p = render(url, vw, vh, maxSide)
+  const p = render(url, vw, vh, maxSide, budgetPx)
   bitmapCache.set(url, p)
   return p
 }
@@ -275,11 +282,27 @@ export async function planMatcherImage(url: string): Promise<Blob> {
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(baked.bitmap, 0, 0, canvas.width, canvas.height)
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86))
+  canvas.width = canvas.height = 0
   if (!blob) throw new Error('jpeg encode failed')
   return blob
 }
 
-function render(url: string, vw: number, vh: number, maxSide: number): Promise<Baked> {
+/**
+ * The stitched bitmap's WIDTH in px: what the display asks for, capped by the many-page ceiling
+ * and then by the app's one pixel budget (lib/pdfRenderBudget). ⚠️ The budget applies to the
+ * WHOLE stitched canvas — it is one canvas holding every page — and the caller says how much of
+ * it this document may have: a Gebäude floor-stack hands each storey the stack's Nth share,
+ * because five storeys are five bitmaps held at once.
+ *
+ * Shared by `render` and by `bake`'s reuse check, or a budget-capped bake would look «too small»
+ * to the next caller and be re-rendered on every open.
+ */
+function bakeWidth(aspect: number, vw: number, vh: number, maxSide: number, budgetPx: number): number {
+  const want = Math.min(targetSide(aspect, vw, vh), maxSide, MAX_COMPOSITE_PX / Math.max(0.001, aspect))
+  return renderScale(1, aspect, want, 1, budgetPx) // a 1 × aspect page: the scale IS the width
+}
+
+function render(url: string, vw: number, vh: number, maxSide: number, budgetPx: number): Promise<Baked> {
   return loadDocTimed(url).then(async (pdf) => {
     // a floor sheet (`#page=N`) is ONE page of the pack; anything else is the whole document
     const only = pdfPageOf(url)
@@ -296,30 +319,47 @@ function render(url: string, vw: number, vh: number, maxSide: number): Promise<B
       totalH += vp.height
     }
     const aspect = totalH / W
-    let side = Math.min(targetSide(aspect, vw, vh), maxSide) // stitched bitmap WIDTH in px
-    if (side * aspect > MAX_COMPOSITE_PX) side = MAX_COMPOSITE_PX / aspect // keep within canvas limits
-    const renderScale = side / W
+    // ⚠️ `targetSide` asks for display × DPR × headroom, which on an A1 Geschossplan
+    // (1684 × 2384 pt) is a 4096 × 5799 canvas: 23.7 M px — past what iOS Safari will draw into
+    // at all AND 95 MB of RGBA, per storey of a floor stack. Past the budget the bitmap is
+    // simply softer than the screen; that is a trade a crash does not offer.
+    const side = bakeWidth(aspect, vw, vh, maxSide, budgetPx) // stitched bitmap WIDTH in px
+    const k = side / W
     const canvas = document.createElement('canvas')
     canvas.width = Math.round(side)
-    canvas.height = Math.round(totalH * renderScale)
+    canvas.height = Math.round(totalH * k)
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('no 2d ctx')
     // top-down, as the PDF reads: page 1 at the top, each later page below it (14.09.2026 – it
     // used to stack bottom-up, which showed a multi-page Zusatz sheet in reverse)
     let yTop = 0
     for (const m of metas) {
-      const vp = m.page.getViewport({ scale: renderScale })
+      const vp = m.page.getViewport({ scale: k })
       const pw = Math.round(vp.width), ph = Math.round(vp.height)
+      // ⚠️ A single-page sheet renders STRAIGHT into the stitched canvas. The scratch canvas
+      // doubles the peak (two full-size RGBA buffers plus the ImageBitmap that follows), and a
+      // document of one page — every Modul sheet and every floor of a pack — never needed it.
+      if (n === 1) {
+        await m.page.render({ canvas, canvasContext: ctx, viewport: vp }).promise
+        m.page.cleanup() // the page's own render internals; the doc is SHARED across storey sheets
+        yTop += ph
+        continue
+      }
       const tmp = document.createElement('canvas')
       tmp.width = pw; tmp.height = ph
       const tctx = tmp.getContext('2d')
       if (tctx) {
         await m.page.render({ canvas: tmp, canvasContext: tctx, viewport: vp }).promise
+        m.page.cleanup()
         ctx.drawImage(tmp, Math.round((side - pw) / 2), yTop)
         yTop += ph
       }
+      tmp.width = tmp.height = 0 // release the scratch buffer now, not at the next GC
     }
     const bitmap = await createImageBitmap(canvas)
+    // the bitmap owns the pixels from here; zeroing the canvas hands its backing store back
+    // immediately instead of waiting for a collection that an iOS tab may not get to
+    canvas.width = canvas.height = 0
     return { bitmap, aspect, side, pages: n }
   })
 }
@@ -353,23 +393,32 @@ export function prewarmPlans(urls: string[], vw: number, vh: number, near: strin
 // each) and the only caller keeps at most a couple alive: one per plan whose Ebenen backdrop row
 // is on, and a rotation adds a second key per plan. 4 covers two visible sheets in both
 // orientations; anything older is cheaper to re-bake than to hold.
-const PREVIEW_CAP = 8 // …and a floor stack asks for one per storey (15.09.2026)
+// ⚠️ 8, not 4, and it has to stay ≥ the storeys of a floor stack: five keys in a four-slot map
+// evict one on every render and re-bake it forever. What was dangerous about the stack was never
+// the COUNT but the SIZE — 3600 px a storey; each entry is now bounded by `floorPageSide`.
+const PREVIEW_CAP = 8
 const previewCache = new Map<string, Promise<string>>()
-export function planPreviewUrl(url: string, vw: number, vh: number, maxSide = 1800): Promise<string> {
+export function planPreviewUrl(url: string, vw: number, vh: number, maxSide = 1800, budgetPx = pageCanvasBudget()): Promise<string> {
   const bw = Math.max(vw, 900), bh = Math.max(vh, 900)
   const key = `${url}@${bw}x${bh}@${maxSide}`
   const cached = previewCache.get(key)
   // touch for LRU — an entry still being asked for is the last one that should be dropped
   if (cached) { previewCache.delete(key); previewCache.set(key, cached); return cached }
-  const p = bake(url, bw, bh).then((b) => {
-    const k = Math.min(1, maxSide / Math.max(b.bitmap.width, b.bitmap.height))
+  const p = bake(url, bw, bh, maxSide, budgetPx).then((b) => {
+    // ⚠️ The DECODED image is what this costs, not the base64 string: every <img>/<image> that
+    // points at the data URL holds one, and the Gebäude stack points one per storey at it. So
+    // the same budget that bounds the bake bounds this raster too (lib/pdfRenderBudget).
+    const k = Math.min(1, Math.min(maxSide, rasterSide(b.aspect, budgetPx)) / Math.max(b.bitmap.width, b.bitmap.height))
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, Math.round(b.bitmap.width * k))
     canvas.height = Math.max(1, Math.round(b.bitmap.height * k))
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('no 2d ctx')
-    ctx.drawImage(b.bitmap, 0, 0, canvas.width, canvas.height)
-    return canvas.toDataURL('image/jpeg', 0.86)
+    ctx.drawImage(b.bitmap, 0, 0, canvas.width, canvas.height) // throws if evicted+closed: the
+    // promise then rejects, this key self-evicts, and the next ask re-bakes — see previewCache
+    const out = canvas.toDataURL('image/jpeg', 0.86)
+    canvas.width = canvas.height = 0 // the JPEG holds the pixels now
+    return out
   })
   p.catch(() => { if (previewCache.get(key) === p) previewCache.delete(key) })
   previewCache.set(key, p)
@@ -417,7 +466,7 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
       if (!canvas) return
       canvas.width = bitmap.width
       canvas.height = bitmap.height
-      canvas.getContext('2d')?.drawImage(bitmap, 0, 0)
+      try { canvas.getContext('2d')?.drawImage(bitmap, 0, 0) } catch { return } // evicted + closed under us
       setStatus('ready')
     }
     const stale = cachedBake(url)
