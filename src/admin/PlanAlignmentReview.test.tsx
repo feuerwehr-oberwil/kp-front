@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { PlanAlignmentReview } from './PlanAlignmentReview'
-import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, rejectAlignment, undoAlignmentApproval, type AlignmentItem } from './planAlignmentApi'
+import { ApiError } from '../lib/api'
+import { PlanAlignmentEditor, PlanAlignmentReview } from './PlanAlignmentReview'
+import { alignmentPreview, alignmentThumbnail, approveAlignment, loadAlignmentDetail, loadAlignmentOutline, loadAlignmentQueue, rejectAlignment, undoAlignmentApproval, savePlanFloors, alignmentPagePreview, type AlignmentItem, type AlignmentListItem } from './planAlignmentApi'
 
-vi.mock('./planAlignmentApi', () => ({ loadAlignmentQueue: vi.fn(), loadAlignmentDetail: vi.fn(), alignmentPreview: vi.fn(), alignmentThumbnail: vi.fn(), approveAlignment: vi.fn(), rejectAlignment: vi.fn(), undoAlignmentApproval: vi.fn(), retryAlignment: vi.fn() }))
+vi.mock('./planAlignmentApi', () => ({ savePlanFloors: vi.fn(), alignmentPagePreview: vi.fn(), loadAlignmentQueue: vi.fn(), loadAlignmentDetail: vi.fn(), loadAlignmentOutline: vi.fn(), alignmentPreview: vi.fn(), alignmentThumbnail: vi.fn(), approveAlignment: vi.fn(), rejectAlignment: vi.fn(), undoAlignmentApproval: vi.fn(), retryAlignment: vi.fn() }))
 vi.mock('./AlignmentPreview', () => ({ default: () => <div data-testid="preview" /> }))
 // the by-hand half is the field's pairing mode (AlignmentPairing); the stub stands in for its
 // board + map and hands two pairs to the draft the way the mode's admin sink would
@@ -12,13 +13,15 @@ vi.mock('./AlignmentPairing', () => ({ default: (props: { onPairs: (p: unknown[]
   <div data-testid="pairing"><button type="button" onClick={() => props.onPairs([{ plan: { x: .2, y: .2 }, lngLat: { lng: 7.55, lat: 47.51 }, kind: 'gesetzt' }, { plan: { x: .8, y: .8 }, lngLat: { lng: 7.552, lat: 47.509 }, kind: 'gesetzt' }])}>pairs</button><button type="button" onClick={props.onDone}>fertig</button></div> }))
 
 const item: AlignmentItem = {
-  id: 1, dataset_id: 'plan:object:modul2', plan_version: 3, page: 0, page_count: null, can_approve: false, object_name: 'Testobjekt', module: 'modul2', title: 'Modul 2', is_current: true,
+  id: 1, dataset_id: 'plan:object:modul2', plan_version: 3, page: 0, page_count: null, floors: [], can_approve: false, object_name: 'Testobjekt', object_lng: 7.55, object_lat: 47.51, module: 'modul2', title: 'Modul 2', is_current: true,
   status: 'ready', edit_version: 5, pairs: [{ plan: { x: .1, y: .2 }, lngLat: { lng: 7.55, lat: 47.51 }, kind: 'auto' }, { plan: { x: .8, y: .9 }, lngLat: { lng: 7.552, lat: 47.509 }, kind: 'auto' }],
   aspect: .7, scale_m_per_u: 150, score: 4, coverage: .8, reason: null, created_at: '2026-09-09T09:00:00Z', updated_at: '2026-09-09T09:00:00Z', approved_at: null, reference_rings: [], reference_source: 'OSM', reference_at: '2026-09-09T08:00:00Z',
 }
+/** what the outline endpoint answers – the list never carries these */
+const RINGS = [[{ lng: 7.55, lat: 47.51 }, { lng: 7.551, lat: 47.51 }, { lng: 7.551, lat: 47.509 }]]
 // the exact revision, as the detail endpoint answers it
 const detail: AlignmentItem = { ...item, page_count: 1, can_approve: true }
-const queue = (items: AlignmentItem[]) => ({ items, capability: { available: true, reason: null } })
+const queue = (items: AlignmentListItem[]) => ({ items, capability: { available: true, reason: null } })
 const card = (name: string) => screen.getByRole('listitem', { name: new RegExp(`^${name}`) })
 
 beforeEach(() => {
@@ -27,7 +30,9 @@ beforeEach(() => {
   vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item }]))
   vi.mocked(loadAlignmentDetail).mockResolvedValue(detail)
   vi.mocked(alignmentPreview).mockResolvedValue(new Blob(['png']))
+  vi.mocked(alignmentPagePreview).mockResolvedValue(new Blob(['png']))
   vi.mocked(alignmentThumbnail).mockResolvedValue(new Blob(['jpg']))
+  vi.mocked(loadAlignmentOutline).mockResolvedValue({ reference_rings: RINGS, reference_source: 'OSM', reference_at: null, pairs: item.pairs })
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
@@ -38,7 +43,7 @@ describe('alignment review wall', () => {
     // a ready sheet is pre-marked yes; nothing is sent until «Übernehmen»
     const yes = await within(await screen.findByRole('listitem', { name: /^Testobjekt/ })).findByRole('button', { name: 'Freigeben' })
     expect(yes.getAttribute('aria-pressed')).toBe('true')
-    expect(loadAlignmentQueue).toHaveBeenCalledWith(true)
+    expect(loadAlignmentQueue).toHaveBeenCalledWith()
     expect(approveAlignment).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
     await screen.findByRole('alert')
@@ -47,6 +52,30 @@ describe('alignment review wall', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
     await screen.findByText('1 freigegeben, 0 von Hand – 1 Blätter übernommen.')
     expect(approveAlignment).toHaveBeenCalledWith(detail, detail.pairs)
+  })
+  it('draws its outlines per tile: the queue carries no reference rings', async () => {
+    render(<PlanAlignmentReview compact />)
+    await screen.findByRole('listitem', { name: /^Testobjekt/ })
+    await waitFor(() => expect(loadAlignmentOutline).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(loadAlignmentOutline).mock.calls[0][0]).toBe(item.id)
+    await waitFor(() => expect(document.querySelector('.adm-card-pic polygon')).toBeTruthy())
+  })
+  it('asks for no outline where there is no fit to draw one through', async () => {
+    vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item, status: 'no_match', pairs: [], reason: 'low_coverage' }]))
+    render(<PlanAlignmentReview compact />)
+    await screen.findByRole('listitem', { name: /^Testobjekt/ })
+    await waitFor(() => expect(alignmentThumbnail).toHaveBeenCalled())
+    expect(loadAlignmentOutline).not.toHaveBeenCalled()
+  })
+  it('reads the page\'s queue when it is handed one – no second list request, decisions go back up', async () => {
+    const update = vi.fn()
+    vi.mocked(approveAlignment).mockResolvedValue({ ...detail, status: 'approved', edit_version: 6 })
+    render(<PlanAlignmentReview compact embedded source={{ queue: queue([item]), update, reload: vi.fn(async () => {}) }} />)
+    await screen.findByRole('listitem', { name: /^Testobjekt/ })
+    expect(loadAlignmentQueue).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Übernehmen (1)' }))
+    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ id: item.id, status: 'approved' })))
+    expect(loadAlignmentQueue).not.toHaveBeenCalled()
   })
   it('lets a slow queue read finish instead of starting overlapping polls', async () => {
     let finish: ((next: ReturnType<typeof queue>) => void) | undefined
@@ -91,8 +120,8 @@ describe('alignment review wall', () => {
   it('applies the marked wall one sheet after the other and stops at the first refusal', async () => {
     const second = { ...item, id: 2, object_name: 'Zweites Objekt' }
     vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([item, second]))
-    vi.mocked(loadAlignmentDetail).mockImplementation(async id => id === 1 ? detail : { ...second, page_count: 1, can_approve: false })
-    vi.mocked(approveAlignment).mockImplementation(async it => ({ ...it, status: 'approved', edit_version: it.edit_version + 1 }))
+    vi.mocked(loadAlignmentDetail).mockImplementation(async id => id === 1 ? detail : { ...second, page_count: 1, can_approve: false, reference_rings: RINGS })
+    vi.mocked(approveAlignment).mockImplementation(async it => ({ ...it, reference_rings: RINGS, status: 'approved', edit_version: it.edit_version + 1 }))
     render(<PlanAlignmentReview compact />)
     fireEvent.click(await screen.findByRole('button', { name: 'Übernehmen (2)' }))
     await screen.findByRole('alert')
@@ -111,7 +140,8 @@ describe('alignment review wall', () => {
     await within(dialog).findByTestId('pairing')
     fireEvent.click(within(dialog).getByRole('button', { name: 'fertig' }))
     await within(dialog).findByTestId('preview')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Punkte bearbeiten' }))
+    // the way back into the points is the tab, which is why the footer's «Punkte bearbeiten» went
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Karte ausrichten' }))
     await within(dialog).findByTestId('pairing')
   })
   it('a proposal opens in its points, says nothing the card already said, and offers no «Neu berechnen»', async () => {
@@ -161,18 +191,105 @@ describe('alignment review wall', () => {
     expect(approve.hasAttribute('disabled')).toBe(true) // no pairs yet
     fireEvent.click(within(dialog).getByRole('button', { name: 'pairs' }))
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Ausrichtung freigeben' }).hasAttribute('disabled')).toBe(false))
-    expect(within(dialog).getByRole('button', { name: 'Anpassung verwerfen' }).hasAttribute('disabled')).toBe(false)
     // «Fertig» in the field instrument: the modal shows the fit as the field would, and the way
-    // back into the points stays one button away
+    // back into the points is the tab – the footer that used to hold both buttons is gone
     fireEvent.click(within(dialog).getByRole('button', { name: 'fertig' }))
     await within(dialog).findByTestId('preview')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Punkte bearbeiten' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Karte ausrichten' }))
     await within(dialog).findByTestId('pairing')
     vi.mocked(loadAlignmentQueue).mockResolvedValue(queue([{ ...item, status: 'no_match', pairs: [], edit_version: 6 }]))
     vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...detail, status: 'no_match', pairs: [], edit_version: 6 })
-    fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))
+    // Emulate the queue's background refresh; the underlying button is now correctly hidden from keyboard/AT.
+    fireEvent.click(screen.getByText('Aktualisieren'))
     await within(dialog).findByText('Plan oder Ausrichtung wurde zwischenzeitlich geändert. Aktuellen Stand laden und erneut prüfen.')
     const blocked = await within(dialog).findByRole('button', { name: 'Ausrichtung freigeben' })
     expect(blocked.hasAttribute('disabled')).toBe(true)
   })
+})
+
+
+describe('full-screen plan editor', () => {
+  it('keeps a floor draft across all tabs and protects it when leaving', async () => {
+    const floorItem: AlignmentItem = { ...detail, module: 'modul6', status: 'unsupported', pairs: [], floors: [{ page: 0, index: 0, name: null }] }
+    vi.mocked(loadAlignmentDetail).mockResolvedValue(floorItem)
+    const onClose = vi.fn()
+    const onChange = vi.fn()
+    vi.mocked(savePlanFloors).mockResolvedValue({ ...floorItem, edit_version: 6, floors: [{ page: 0, index: 0, name: 'Halle' }] })
+    render(<PlanAlignmentEditor item={floorItem} onClose={onClose} onChange={onChange} onConflict={vi.fn()} />)
+    const name = await screen.findByRole('textbox', { name: 'Standardname: EG' })
+    fireEvent.change(name, { target: { value: 'Halle' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Karte ausrichten' }))
+    await screen.findByTestId('pairing')
+    fireEvent.click(screen.getByRole('button', { name: 'Vorschau' }))
+    expect(approveAlignment).not.toHaveBeenCalled()
+    expect(savePlanFloors).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Geschosse' }))
+    expect((screen.getByRole('textbox', { name: 'Standardname: EG' }) as HTMLInputElement).value).toBe('Halle')
+    fireEvent.click(screen.getByRole('button', { name: 'Zum Objekt' }))
+    const warning = await screen.findByRole('alertdialog')
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.click(within(warning).getByRole('button', { name: 'Abbrechen' }))
+    expect((screen.getByRole('textbox', { name: 'Standardname: EG' }) as HTMLInputElement).value).toBe('Halle')
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(onChange).toHaveBeenCalled())
+    expect(savePlanFloors).toHaveBeenCalledWith(floorItem, [{ page: 0, index: 0, name: 'Halle', clip: null, join: null }], undefined)
+  })
+
+  // The Vorschau is a picture, not a page of prose: the map relationship first and full-width,
+  // then one tile per floor in BUILDING order – top storey first, the way the list reads.
+  it('shows the Vorschau as the map tile and then the floors top-down, with nothing said in words', async () => {
+    const floorItem: AlignmentItem = { ...detail, module: 'modul6', status: 'ready', page_count: 2,
+      floors: [{ page: 0, index: 0, name: 'Erdgeschoss' }, { page: 1, index: 1, name: 'Dachstock' }] }
+    vi.mocked(loadAlignmentDetail).mockResolvedValue(floorItem)
+    render(<PlanAlignmentEditor item={floorItem} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Vorschau' }))
+    // the editor is an overlay, so the grid lives in the portal rather than the render container
+    const grid = await waitFor(() => {
+      const el = document.body.querySelector<HTMLElement>('.adm-floor-preview')
+      if (!el) throw new Error('no grid yet')
+      return el
+    })
+    // the fit stands (two pairs), so its tile heads the grid
+    await within(grid).findByTestId('preview')
+    expect((grid.firstElementChild as HTMLElement).className).toBe('adm-floor-preview-map')
+    expect(within(grid).getAllByRole('img').map(el => el.getAttribute('aria-label'))).toEqual(['+1 · Dachstock', '0 · Erdgeschoss'])
+    // no sentences: neither the old preview hint nor the «noch keine Ausrichtung» line
+    expect(within(grid).queryByText(/Rahmen und Massstab/)).toBeNull()
+    expect(screen.queryByText(/Noch keine Geschosse zugeordnet/)).toBeNull()
+  })
+})
+
+
+it('reloads a conflicting revision only after the admin agrees to discard the floor draft', async () => {
+  const floorItem: AlignmentItem = { ...detail, module: 'modul6', status: 'unsupported', pairs: [], floors: [{ page: 0, index: 0, name: null }] }
+  vi.mocked(loadAlignmentDetail).mockResolvedValue(floorItem)
+  vi.mocked(savePlanFloors).mockRejectedValue(new ApiError(409, 'conflict'))
+  render(<PlanAlignmentEditor item={floorItem} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+  fireEvent.change(await screen.findByRole('textbox', { name: 'Standardname: EG' }), { target: { value: 'Local' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Aktualisieren' }))
+  const warning = await screen.findByRole('alertdialog')
+  expect(loadAlignmentDetail).toHaveBeenCalledTimes(1)
+  fireEvent.click(within(warning).getByRole('button', { name: 'Abbrechen' }))
+  expect(screen.getByDisplayValue('Local')).toBeTruthy()
+  vi.mocked(loadAlignmentDetail).mockResolvedValue({ ...floorItem, edit_version: 6, floors: [{ page: 0, index: 0, name: 'Remote' }] })
+  fireEvent.click(screen.getByRole('button', { name: 'Aktualisieren' }))
+  fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Verwerfen' }))
+  await screen.findByDisplayValue('Remote')
+  expect(loadAlignmentDetail).toHaveBeenCalledTimes(2)
+})
+
+// «Ungespeichert» used to be a trap: verwerfen or abbrechen, then walk to the header and back in.
+it('offers the editor\'s own save as the third way out and closes behind it', async () => {
+  const floorItem: AlignmentItem = { ...detail, module: 'modul6', status: 'unsupported', pairs: [], floors: [{ page: 0, index: 0, name: null }] }
+  vi.mocked(loadAlignmentDetail).mockResolvedValue(floorItem)
+  vi.mocked(savePlanFloors).mockResolvedValue({ ...floorItem, edit_version: 6, floors: [{ page: 0, index: 0, name: 'Halle' }] })
+  const onClose = vi.fn()
+  render(<PlanAlignmentEditor item={floorItem} onClose={onClose} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+  fireEvent.change(await screen.findByRole('textbox', { name: 'Standardname: EG' }), { target: { value: 'Halle' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Zum Objekt' }))
+  const warning = await screen.findByRole('alertdialog')
+  fireEvent.click(within(warning).getByRole('button', { name: 'Speichern' }))
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+  expect(savePlanFloors).toHaveBeenCalledWith(floorItem, [{ page: 0, index: 0, name: 'Halle', clip: null, join: null }], undefined)
 })

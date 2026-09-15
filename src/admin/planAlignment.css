@@ -10,9 +10,6 @@
 .adm-align-status.ready, .adm-align-status.approved { color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 9%, var(--surface)); }
 .adm-align-status.needs_review, .adm-align-status.no_match, .adm-align-status.unavailable { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 11%, var(--surface)); }
 .adm-align-status.failed { color: var(--red-strong); background: color-mix(in srgb, var(--red) 9%, var(--surface)); }
-.adm-align-review > header { padding: 19px 20px; display: flex; align-items: start; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); }
-.adm-align-review h3 { font-size: 15px; margin: 0; }
-.adm-align-review header p { margin: 5px 0 0; font-size: 12px; color: var(--ink-dim); }
 .adm-align-preview { display: grid; grid-template-columns: minmax(0, 1fr); }
 .adm-align-map { position: relative; min-width: 0; height: 390px; background: var(--fill-soft); }
 .adm-align-map-tools { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100% - 62px); }
@@ -22,12 +19,10 @@
 .adm-align-settings { display: flex; align-items: center; gap: 14px; padding: 12px 20px; border-top: 1px solid var(--border); font-size: 12.5px; }
 .adm-align-settings .uslider { flex: 1; max-width: 250px; color: var(--blue); }
 .adm-align-number { font-variant-numeric: tabular-nums; min-width: 44px; }
-.adm-align-facts { margin: 0; padding: 12px 20px; font-size: 12.5px; border-top: 1px solid var(--border); }
-.adm-align-facts b { font-weight: 600; }
-.adm-align-facts .adm-hint { margin: 0; font-size: 12.5px; }
-.adm-align-review > footer { border-top: 1px solid var(--border); padding: 15px 20px; }
-.adm-align-review > footer p { font-size: 12px; color: var(--ink-dim); margin: 0 0 14px; }
-.adm-align-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.adm-align-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+/* page actions, so they wear the page's tap size – the shared `.btn` is padded for a field
+   toolbar, where the bar itself gives the button its width */
+.adm-align-actions .btn { min-height: var(--tap); padding: 10px 16px; }
 .adm-align-actions .primary { font-size: 14px; font-weight: 800; }
 
 .adm-align-notice { padding: 12px 16px; font-size: 12.5px; color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
@@ -37,7 +32,25 @@
 .adm-align-empty { padding: 20px; margin: 0; color: var(--ink-dim); font-size: 13px; }
 /* What «Übernehmen» did, beside the filters – it is a receipt, not an alert. */
 .adm-align-applied { margin: 0; flex: 1 1 auto; }
-@media (max-width: 700px) { .adm-align-filters { align-items: stretch; flex-direction: column; } .adm-align-filters input { max-width: none; } .adm-align-heading { flex-wrap: wrap; } .adm-align-map { height: 330px; } .adm-align-actions .primary { width: 100%; } .adm-align-review > header { flex-wrap: wrap; } }
+
+/* ── the wall AS A TAB of the Objektpläne page (PlanAlignmentReview · embedded) ───────────────
+   The page owns the h1, the ⓘ and the Segmented above it, so the tab brings no heading and no
+   Offen/Entschieden/Alle filter of its own. What is left is ONE calm row — the search growing
+   from the left, the staged summary and «Übernehmen» right — and under it the sections. The
+   rhythm is the column's own gap, so tab switch → toolbar → Abschnitt → Raster all breathe the
+   same 24px and no child brings a margin of its own.
+   ⚠️ Nothing here bounds a height or clips: the grid is as tall as its tiles and the scroll
+   belongs to the page (.adm-main). A tile cut off at the bottom means a height crept in. */
+.adm-align.embedded { display: flex; flex-direction: column; gap: 24px;
+  /* the page column already contributes 18px of its own gap above us (objectPlans · .adm-object-plans) */
+  margin: 6px 0 0; }
+.adm-align.embedded > * { margin-block: 0; }
+.adm-align-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.adm-align-toolbar .adm-align-search { flex: 1 1 260px; min-width: 0; max-width: 420px; }
+.adm-align-toolbar .adm-align-applied { flex: 0 1 auto; }
+@media (max-width: 700px) { .adm-align-filters { align-items: stretch; flex-direction: column; } .adm-align-filters input { max-width: none; } .adm-align-heading { flex-wrap: wrap; } .adm-align-map { height: 330px; } .adm-align-heading .adm-align-actions .primary { width: 100%; }
+  /* the search takes the line, the decisions the next one */
+  .adm-align-toolbar .adm-align-search { flex-basis: 100%; max-width: none; } }
 
 /* The detail's own load error, wherever the review is mounted. */
 .am-error { margin: 12px 0; padding: 10px 14px; font-size: 12.5px; color: var(--red-strong); background: color-mix(in srgb, var(--red) 8%, var(--surface)); border-radius: var(--r-xs); display: flex; align-items: center; gap: 10px; }
@@ -79,10 +92,11 @@
 @media (max-width: 700px) { .adm-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); } .adm-modal { padding: 0; } .adm-modal-box { border-radius: 0; } }
 
 
-/* By hand = the field's pairing mode inside the modal: instrument above, sheet left, map right */
+/* By hand = the field's pairing mode inside the editor: sheet left, map right, the mode's own
+   instrument BELOW the split (15.09.2026) – the decisions row comes after the two pictures. */
 .adm-pairing { border-top: 1px solid var(--border); }
-/* the instrument keeps its own pill shape; it sits inset above the panes like a card */
-.adm-pairing > [role=status] { margin: 12px 16px; }
+/* the instrument keeps its own pill shape; it sits inset under the panes like a card */
+.adm-pairing > [role=status] { flex: 0 0 auto; margin: 12px 16px; }
 .adm-pairing-panes { display: grid; grid-template-columns: 1fr 1fr; }
 .adm-pairing-panes.checking { grid-template-columns: 1fr; }
 .adm-pairing-panes.checking .adm-pairing-plan { display: none; }
@@ -92,3 +106,215 @@
 .adm-pairing-map { position: relative; min-width: 0; height: 420px; background: var(--fill-soft); }
 .adm-align-turn::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; box-shadow: inset 0 0 0 3px var(--blue); }
 @media (max-width: 900px) { .adm-pairing-panes { grid-template-columns: 1fr; } .adm-pairing-plan, .adm-pairing-map { height: 320px; } }
+
+/* ── Geschosse: the floors tab of the full-screen plan preparation (FloorPackEditor, mock A
+   «Inspektor rechts», 15.09.2026) ────────────────────────────────────────────────────────
+   The section fills the editor pane: ONE row across the top (the editor's tabs, the sheet's zoom,
+   the floors column's head), then the SHEET column on the left – the paper with the mode sentence
+   ON it – and the floors column on the right, each bounded and scrolling on its own. The stack
+   reads like the Gebäude view – top floor on top – and the SELECTED row opens in place into its
+   inspector, so what is being edited stands where it was read. */
+.adm-floors { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+/* the Karte tab: the editor is the BAR and nothing else there – the pane below it is the map */
+.adm-floors.adm-floors-baronly { flex: 0 0 auto; }
+.adm-floors .btn { flex: 0 0 auto; padding: 6px 12px; }
+/* «Noch keine Geschosse zugeordnet …» – one hint line at the head of the column it is about, not
+   an amber band repeated over every tab */
+.adm-floors-none { margin: 0; color: var(--amber-strong); }
+.adm-floors-split, .adm-floors-bar { display: grid; grid-template-columns: minmax(0, 1fr) 380px; }
+.adm-floors-split { align-items: stretch; flex: 1; min-height: 0; }
+.adm-floors-sheetcol { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+/* ── the editor's ONE row (15.09.2026) ───────────────────────────────────────────────────────
+   It spans the split: the tabs and the sheet's own controls over the sheet, the floors column's
+   head over that column. On the Karte and Vorschau tabs there is no second column and nothing to
+   say about a sheet, so the row is the tabs alone. */
+.adm-floors-bar { flex: 0 0 auto; background: var(--surface); border-bottom: 1px solid var(--border); }
+.adm-floors-bar.solo { grid-template-columns: minmax(0, 1fr); }
+.adm-floors-bar-main { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; min-width: 0; min-height: 62px; padding: 8px 22px; }
+/* what belongs to the SHEET – which page is on the paper, how close it is, and the way out of a
+   drawing mode. What to DO with the sheet is decided in the floors column. */
+.adm-floors-bar-tools { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.adm-floors-bar-tools .adm-hint { margin: 0; }
+.adm-floors-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none;
+  padding: 2px; border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); }
+.adm-floors-zoom button { appearance: none; border: 0; background: transparent; border-radius: var(--r-sm);
+  width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; }
+.adm-floors-zoom button:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
+.adm-floors-zoom button:disabled { opacity: var(--disabled); cursor: default; }
+.adm-floors-zoom .i { width: 16px; height: 16px; }
+.adm-floors-zoom .adm-floors-zoom-value { width: auto; min-width: 58px; font: 600 12.5px var(--mono); font-variant-numeric: tabular-nums; }
+.adm-floors-paper { position: relative; flex: 1; min-height: 0; display: flex; }
+.adm-floors-viewport { flex: 1; min-width: 0; min-height: 0; overflow: auto; background: var(--canvas-bg); }
+/* the raster IS the paper: the drawing must sit on a sheet, not on the panel surface */
+.adm-floors-sheet { position: relative; min-width: 0; margin-inline: auto; overflow: hidden; background: var(--board-bg);
+  user-select: none; -webkit-user-select: none; touch-action: none; }
+.adm-floors-sheet img { display: block; width: 100%; height: auto; pointer-events: none; }
+.adm-floors-sheet.drawing { cursor: crosshair; }
+.adm-floors-sheet-wait { display: grid; place-items: center; aspect-ratio: 1.414; color: var(--ink-dim); font-size: 12.5px; }
+/* the sentence stands ON the paper, where the eye is while drawing – dark while a mode expects
+   something, quiet when it only says what the rectangles can do */
+.adm-floors-hint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1;
+  display: inline-flex; align-items: center; gap: 9px; max-width: min(88%, 74ch); padding: 9px 16px;
+  border-radius: var(--r-pill); background: var(--ink-fill); color: var(--on-accent-ink);
+  font: 600 12.5px/1.4 var(--body); text-align: center; box-shadow: var(--shadow-sm); }
+.adm-floors-hint.quiet { background: var(--surface); color: var(--ink-dim); border: 1px solid var(--border); font-weight: 500; }
+
+/* a floor's rectangle on the sheet, its index chip, and the join marks between two drawings */
+.adm-floors-box { position: absolute; border: 2px solid var(--blue-strong); background: color-mix(in srgb, var(--blue) 7%, transparent); border-radius: 3px; pointer-events: none; }
+.adm-floors-box.active { box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent); }
+.adm-floors-box.draft { border-style: dashed; background: transparent; }
+.adm-floors-box.moving { opacity: .8; }
+.adm-floors-sheet:not(.drawing) .adm-floors-box.active { cursor: move; }
+.adm-floors-box .adm-floors-box-chip { position: absolute; top: -11px; left: 8px; }
+.adm-floors-joins { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.adm-floors-joins line, .adm-floors-joins circle { stroke: var(--blue); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.adm-floors-joins circle { fill: var(--surface); }
+.adm-floors-joins circle.pending { fill: var(--blue); }
+/* the point under the finger: it is the reference point being moved, not the drawing */
+.adm-floors-joins circle.held { fill: var(--blue); stroke-width: 3px; }
+/* the loupe rides the pointer so the same staircase can be hit on two drawings */
+.adm-floors-loupe { position: fixed; z-index: 80; width: 160px; height: 160px; border: 2px solid var(--blue); border-radius: 50%;
+  background-color: var(--board-bg); background-repeat: no-repeat; box-shadow: var(--shadow-sm); pointer-events: none; }
+.adm-floors-loupe span { position: absolute; width: 12px; height: 12px; border: 2px solid var(--blue); border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.adm-floors-loupe::before, .adm-floors-loupe::after { content: ''; position: absolute; background: var(--blue); left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.adm-floors-loupe::before { width: 28px; height: 1px; }
+.adm-floors-loupe::after { width: 1px; height: 28px; }
+
+/* the floors column: record rows, top floor first – the list stays the list */
+.adm-floors-col { min-height: 0; overflow-y: auto; border-left: 1px solid var(--border); padding: 16px 16px 24px;
+  background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.adm-floors-col > * { flex: none; }
+/* the head names the column and holds the list's own menu, right – nothing else. It stands in the
+   editor's one row, over the column it names (.adm-floors-bar). */
+.adm-floors-colhead { display: flex; align-items: center; gap: 10px; min-height: 62px;
+  padding: 8px 16px; border-left: 1px solid var(--border); }
+.adm-floors-colhead h4 { margin: 0; font-size: 14px; }
+.adm-floors-colhead .adm-menu { margin-left: auto; }
+.adm-floors-stack { display: flex; flex-direction: column; gap: 7px; }
+.adm-floor { border: 1px solid var(--border); border-radius: 10px; background: var(--fill-soft); }
+.adm-floor.active { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); background: var(--surface); }
+.adm-floor.dragging { opacity: .5; }
+.adm-floor.over { box-shadow: 0 -2px 0 0 var(--blue-strong); }
+/* ⚠️ The row's frame is the CARD, once (15.09.2026). The head used to carry a filled, rounded
+   pill of its own inside that border – so the index chip's border read as a third box nested in
+   a second one, and the two radii never quite met. Chip · Name · Zustand, on one plain row. */
+.adm-floor-head { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 7px 9px; }
+.adm-floor.active .adm-floor-head { border-radius: 9px 9px 0 0; border-bottom: 1px solid var(--border-soft); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
+.adm-floor-grip { display: grid; place-items: center; width: 22px; flex: none; color: var(--ink-faint); cursor: grab; touch-action: none; }
+.adm-floor-grip .i { width: 16px; height: 16px; }
+.adm-floor-select { display: flex; align-items: center; min-width: 0; flex: 1 1 auto; min-height: var(--tap);
+  padding: 0; text-align: left; border: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit; }
+.adm-floor-id { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
+.adm-floor-id b { font: 600 13.5px var(--body); overflow-wrap: anywhere; }
+/* state as WORDS, not as a dot-separated code line */
+.adm-floor-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.adm-floor-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--r-pill);
+  border: 1px solid var(--border-soft); background: var(--fill-soft); font: 600 10.5px var(--body); color: var(--ink-dim); white-space: nowrap; }
+.adm-floor-tag.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 38%, var(--border-soft)); background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
+.adm-floor-tag.on { color: var(--blue-strong); border-color: color-mix(in srgb, var(--blue) 30%, var(--border-soft)); background: color-mix(in srgb, var(--blue) 9%, var(--surface)); }
+/* the index chip: the one thing that says WHICH storey – and, on the open row, the one tap that
+   says «this one is level 0» */
+.adm-floor-index { display: inline-flex; align-items: center; justify-content: center; flex: none; line-height: 1;
+  font: 700 14px var(--body); font-variant-numeric: tabular-nums; min-width: 40px; min-height: 40px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); }
+button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: pointer; }
+.adm-floor-index.zero { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
+/* «Geschoss entfernen» in the OPEN row's head: the page goes back to the Ablage, so it is the
+   quiet ✕ of a record row, not a red button under the inspector */
+.adm-floors .adm-floor-remove { width: var(--tap); min-height: var(--tap); padding: 0; margin-left: 2px; flex: none; color: var(--ink-dim); }
+.adm-floors .adm-floor-remove:hover:not(:disabled) { color: var(--red-strong); border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+.adm-floor-remove .i { width: 16px; height: 16px; }
+
+/* the inspector, inside the selected row: name · the fit page · what the floor IS on the sheet */
+.adm-floor-body { display: flex; flex-direction: column; gap: 11px; padding: 12px; }
+.adm-floor-name { width: 100%; min-width: 0; }
+/* the fit belongs to the PAGE, so it reads as a settings row – and as a sentence where a
+   one-page pack leaves nothing to choose */
+.adm-floor-fit { display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--fill-soft); }
+.adm-floor-fit.on { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); cursor: default; }
+.adm-floor-fit input { margin-top: 2px; }
+.adm-floor-fit b { display: block; font: 700 12.5px var(--body); }
+.adm-floor-fit small { display: block; margin-top: 3px; font-size: 11.5px; line-height: 1.4; color: var(--ink-dim); }
+.adm-floors .adm-floor-fit-note { margin: 0; padding: 10px 13px; border: 1px dashed var(--border); border-radius: var(--r-ctl); }
+.adm-floor-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-floors .adm-floor-acts .btn { flex: 1 1 auto; min-height: var(--tap); }
+.adm-floor-acts .i { width: 15px; height: 15px; }
+.adm-floor-mode[aria-pressed="true"] { color: var(--blue-strong); border-color: var(--blue-strong); background: color-mix(in srgb, var(--blue) 8%, var(--surface)); }
+
+/* below the list: «hier kommt das nächste Geschoss dazu», then the Ablage */
+.adm-floors .adm-floors-add { margin: 0; }
+.adm-floors-tray { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 11px 14px;
+  border: 1px dashed var(--border); border-radius: 10px; color: var(--ink-dim); font-size: 12.5px; }
+.adm-floors-tray-pages { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+
+/* the Vorschau tab: a grid of floor tiles in building order, in place of the split. Level 0 on
+   the MAP – the one thing the crops cannot show – is the first tile and spans the row. Nothing
+   is said in words here: a tile shows what it is. */
+.adm-floor-preview { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 16px 24px;
+  display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); align-content: start; }
+.adm-floor-preview > p { grid-column: 1 / -1; margin: 0; font-size: 12.5px; color: var(--amber-strong); }
+.adm-floor-preview-map { grid-column: 1 / -1; border: 1px solid var(--border); border-radius: var(--r-ctl); overflow: hidden; }
+.adm-floor-preview-map .adm-align-map { height: 320px; }
+/* one crop, captioned with the floors list's own chip so the two read as the same object */
+.adm-floor-tile { position: relative; min-width: 0; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--board-bg); overflow: hidden; }
+.adm-floor-tile svg { display: block; width: 100%; }
+.adm-floor-tile-cap { position: absolute; left: 8px; top: 8px; display: flex; align-items: center; gap: 8px;
+  max-width: calc(100% - 16px); padding: 4px 12px 4px 4px; border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--shadow-sm); }
+.adm-floor-tile-cap b { min-width: 0; font: 600 12.5px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 1050px) { .adm-floors-split, .adm-floors-bar { grid-template-columns: minmax(0, 1fr) 320px; } .adm-floors-bar-main { padding: 8px 12px; gap: 10px; } }
+@media (max-width: 700px) { .adm-floors-split, .adm-floors-bar { grid-template-columns: minmax(0, 1fr) 270px; } .adm-floors-col { padding: 10px; } .adm-floors-colhead { padding: 8px 10px; } }
+
+/* the Karte tab of the same editor – the pairing instrument carries its own instruction */
+.adm-pack-map { border-top: 1px solid var(--border); }
+
+/* Full-screen plan preparation: ONE header row, fixed decisions, independently bounded panes.
+   The back action is the row's first item – it used to float over the header on `position:
+   absolute`, which cost the title 165px of padding it could never use. */
+.adm-plan-editor { position: fixed; inset: 0; z-index: var(--z-admin-overlay); background: var(--surface); display: flex; flex-direction: column; overflow: hidden; }
+.adm-plan-editor .adm-editor-detail { display: flex; flex: 1; flex-direction: column; min-height: 0; border: 0; border-radius: 0; overflow: hidden; }
+.adm-plan-editor .adm-editor-head { flex: 0 0 auto; display: flex; align-items: center; gap: 14px; min-height: 72px;
+  padding: 11px 22px; border-bottom: 1px solid var(--border); }
+.adm-editor-back { flex: 0 0 auto; }
+.adm-editor-titles { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.adm-editor-titles h3 { margin: 0; font: 700 16px/1.25 var(--body); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adm-editor-meta { display: flex; gap: 6px; margin: 0; font: 500 11.5px var(--mono); color: var(--ink-faint); white-space: nowrap; }
+.adm-editor-meta span + span::before { content: '· '; }
+.adm-editor-header-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; flex: none; }
+.adm-editor-header-actions .adm-hint { margin: 0; }
+/* what this sheet IS: the badge, the fit's provenance in one word, and the ⓘ that holds the
+   plan revision, the reference and what a Freigabe is worth */
+.adm-editor-state { display: flex; align-items: center; gap: 8px; flex: none; }
+.adm-editor-origin { font: 700 12.5px var(--body); color: var(--ink); white-space: nowrap; }
+/* «Freigabe zurücknehmen» – it belongs to the badge, not to what is being built, so it is quiet */
+.adm-plan-editor .adm-editor-quiet { border-color: transparent; background: transparent; color: var(--ink-dim); font-weight: 500; }
+.adm-plan-editor .adm-editor-quiet:hover:not(:disabled) { border-color: var(--border); color: var(--ink); }
+.adm-editor-header-actions .btn { flex: 0 0 auto; min-height: var(--tap); padding: 8px 16px; }
+/* the hairline that separates what this sheet IS from what may be done to it */
+.adm-editor-rule { width: 1px; align-self: stretch; margin: 2px 0; background: var(--border); flex: none; }
+.adm-editor-tabs { display: flex; flex: 0 0 auto; align-items: center; gap: 14px; padding: 8px 22px; border-bottom: 1px solid var(--border); }
+.adm-editor-pane { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.adm-editor-pane[hidden], .adm-floors-split[hidden] { display: none; }
+.adm-editor-pane .adm-pairing { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.adm-editor-pane .adm-pairing-panes { flex: 1; min-height: 0; }
+.adm-editor-pane .adm-pairing-plan, .adm-editor-pane .adm-pairing-map { height: 100%; min-height: 0; }
+.adm-editor-map-pane > .adm-align-map { flex: 1; min-height: 0; height: auto; }
+@media (max-width: 1050px) {
+  .adm-editor-header-actions { gap: 6px; }
+  .adm-editor-header-actions .adm-badge { display: none; }
+}
+@media (max-width: 700px) {
+  .adm-plan-editor .adm-editor-head { padding: 10px 12px; gap: 10px; }
+  .adm-editor-header-actions .adm-hint { display: none; }
+  .adm-editor-tabs { padding: 8px 12px; }
+}
+
+.adm-editor-backdrop { position: fixed; inset: 0; z-index: var(--z-admin-overlay-scrim); background: var(--surface); }
+body:has(.adm-plan-editor) .confirm-backdrop { z-index: calc(var(--z-admin-overlay) + 2); }
+body:has(.adm-plan-editor) .confirm-card.ui-dialog { z-index: calc(var(--z-admin-overlay) + 3); }
+
+.adm-editor-reload { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 20px; border-top: 1px solid var(--border); font-size: 12.5px; }
+.adm-plan-editor .btn { min-height: 44px; font-size: 12.5px; }
