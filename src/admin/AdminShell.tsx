@@ -110,9 +110,12 @@ const NAV: NavGroup[] = [
 
 const ALL_ENTRIES = NAV.flatMap((g) => g.entries)
 
-/** A nav entry's resolved label/title/lede/tip from the active locale's copy catalogue. */
-function navCopy(id: SectionId): { label: string; title: string; lede: string; tip?: string } {
-  const c = appConfig.copy.admin.nav[id] as { label: string; title: string; lede: string; tip?: string }
+/** A nav entry's resolved label/title/lede/tip from the active locale's copy catalogue.
+ *  ⚠️ The lede is OPTIONAL: a page whose surfaces already say what they are (Objektpläne) drops
+ *  it rather than repeating its own sidebar entry in a sentence — the ⓘ on the h1 keeps the
+ *  explanation. Missing must render nothing at all, not an empty paragraph holding its margin. */
+function navCopy(id: SectionId): { label: string; title: string; lede?: string; tip?: string } {
+  const c = appConfig.copy.admin.nav[id] as { label: string; title: string; lede?: string; tip?: string }
   return c
 }
 
@@ -316,7 +319,7 @@ export function AdminShell() {
                         lede is now what the page IS; the tip is how it works. */}
                     {activeCopy.tip && <InfoTip label={activeCopy.title} text={activeCopy.tip} />}
                   </h1>
-                  <p className="adm-lede">{activeCopy.lede}</p>
+                  {activeCopy.lede && <p className="adm-lede">{activeCopy.lede}</p>}
                 </div>
                 {AUTOSAVE_SECTIONS.has(section) && <ConfigAutosaveStatus />}
               </div>

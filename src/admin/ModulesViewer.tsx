@@ -6,6 +6,7 @@ import { apiGet } from '../lib/api'
 import { EmptyState, Table } from './ui'
 import { InfoTip } from './InfoTip'
 import { moduleAlignment, type DeploymentModule } from '../lib/deploymentConfig'
+import { sortPlanModules } from '../lib/planOrder'
 import type { ObjectWithPlans } from '../lib/incidents'
 
 // Read-only viewer for the Objektplan module catalogue, as a TABLE: one row per configured module
@@ -89,11 +90,8 @@ export function ModulesViewer({ modules, objects, usingDefaults = false }: {
   const CO = appConfig.copy.admin.objects
   const sources = usePlanSources()
 
-  // a copy sorted by (order ?? 999) then id — never mutate the prop.
-  const sorted = useMemo(
-    () => modules.slice().sort((a, b) => ((a.order ?? 999) - (b.order ?? 999)) || a.id.localeCompare(b.id)),
-    [modules],
-  )
+  // the ONE order every surface lists modules in (lib/planOrder) — never mutates the prop.
+  const sorted = useMemo(() => sortPlanModules(modules), [modules])
 
   const plans = useMemo(() => objects.reduce((n, o) => n + o.plans.length, 0), [objects])
 
