@@ -82,3 +82,6 @@ site/dist/
 # Local compose customisations (build-from-source, host-specific ports). The .example is
 # tracked and copied by `scripts/setup.sh --build`; the copy is yours and never ours.
 docker-compose.override.yml
+
+# local pnpm content-addressable store (created by a store-dir override); never ours
+.pnpm-store/
