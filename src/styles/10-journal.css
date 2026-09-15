@@ -74,6 +74,10 @@
 /* the quiet lead: «Kontakt fällig» in amber, no pulse — the pulse is the alarm's voice */
 .tb-az.warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber-strong); }
 .tb-az.crit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red-strong); animation: tb-az-pulse 1.6s infinite; }
+/* ⚠️ The pulse animates the BACKGROUND, not `opacity` (15.09.2026). An opacity animation put the
+   chip on its own compositor layer over the bar's backdrop-filter, and WebKit then left the
+   previous second's digits ghosting under the new ones («6:18» over «6:08») – a background
+   keyframe repaints the whole chip every frame and the clock stays one clock. */
 @media (hover: hover) {
   .tb-az.crit:hover { background: color-mix(in srgb, var(--red) 26%, transparent); }
 }
@@ -89,7 +93,7 @@
   background: color-mix(in srgb, var(--amber, #b45309) 16%, transparent); color: var(--amber-strong, #b45309); }
 .tb-gps .i { width: 15px; height: 15px; flex: none; }
 .tb-gps-age { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-@keyframes tb-az-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .68; } }
+@keyframes tb-az-pulse { 0%, 100% { background-color: color-mix(in srgb, var(--red) 15%, transparent); } 50% { background-color: color-mix(in srgb, var(--red) 34%, transparent); } }
 
 /* Modus-Chip beside the Einsatzname: «Einsatz abgeschlossen». It moved here out of the bottom
    banner layer (23.08.) — read-only is a property of the INCIDENT, and the incident is named in
