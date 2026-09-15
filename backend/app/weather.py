@@ -25,7 +25,7 @@ import httpx
 from pydantic import BaseModel
 
 from .config import settings
-from .geo_util import haversine_m
+from .geo_util import haversine_m, lv95_to_wgs84
 
 
 class WeatherData(BaseModel):
@@ -38,23 +38,6 @@ class WeatherData(BaseModel):
     observed_at: str | None = None  # ISO-8601 UTC
     source: str = "unknown"  # "meteoswiss" | "open-meteo"
     station: str | None = None  # nearest SMN station name (MeteoSwiss only)
-
-
-def lv95_to_wgs84(east: float, north: float) -> tuple[float, float]:
-    """Approximate LV95 (EPSG:2056) → WGS84 (lat, lng), swisstopo's closed-form formula.
-
-    Accurate to a few metres — ample for a nearest-station lookup. The SMN metadata also
-    ships WGS84 coords directly, so this is only a fallback for rows that lack them.
-    """
-    y = (east - 2_600_000.0) / 1_000_000.0
-    x = (north - 1_200_000.0) / 1_000_000.0
-    lng = (2.6779094 + 4.728982 * y + 0.791484 * y * x + 0.1306 * y * x * x - 0.0436 * y * y * y) * 100.0 / 36.0
-    lat = (
-        (16.9023892 + 3.238272 * x - 0.270978 * y * y - 0.002528 * x * x - 0.0447 * y * y * x - 0.0140 * x * x * x)
-        * 100.0
-        / 36.0
-    )
-    return lat, lng
 
 
 def _f(value: str | None) -> float | None:

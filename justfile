@@ -329,6 +329,12 @@ objects-load file:
 objects-push file *args:
     cd backend && uv run python -m app.admin_objects push "{{absolute_path(file)}}" {{args}}
 
+# Read the § markers of a plan PDF: one line per tag + the floor pack and map fit they propose.
+# Writes nothing – the dry run a plan author checks an Affinity export with.
+[group('Deployment config')]
+plan-markers file:
+    cd backend && uv run python -m app.plan_markers "{{absolute_path(file)}}"
+
 # Load a checklist-templates manifest (+ diagram assets) into the deployment (DATABASE_URL).
 [group('Deployment config')]
 checklists-load file:

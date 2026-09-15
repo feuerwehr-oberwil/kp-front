@@ -14,7 +14,15 @@ from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanPageFloor, PlanRevision, ReferenceDataset
 from ..plan_alignment_compute import alignment_capability, render_preview
-from ..plan_floors import PlanFloor, default_fit_page, fit_publishable, load_floors, replace_floors
+from ..plan_floors import (
+    FloorError,
+    PlanFloor,
+    default_fit_page,
+    fit_publishable,
+    load_floors,
+    replace_floors,
+    validate_floors,
+)
 from ..plan_revision_info import revision_page_count
 from .plan_scales import GeorefPair
 
@@ -342,32 +350,26 @@ async def assign_floors(item_id: int, body: FloorPack, _admin: CurrentAdmin, db:
     page_count = await revision_page_count(revision.storage_key, fresh=True) if revision else None
     if page_count is None:
         raise HTTPException(status_code=422, detail="PDF nicht lesbar")
+    # Whatever the PDF's own §-markers proposed for a storey stays pinned to it across this
+    # save: it is the baseline that tells the admin's correction from the export's say-so, and
+    # the next re-export re-applies the first on top of the second (app/plan_markers.py).
+    proposed = {f.index: f.marker for f in await load_floors(db, row.dataset_id, row.plan_version)}
     floors = [
-        PlanFloor(f.page, f.index, (f.name or "").strip() or None, f.clip, f.join.model_dump() if f.join else None)
+        PlanFloor(
+            f.page,
+            f.index,
+            (f.name or "").strip() or None,
+            f.clip,
+            f.join.model_dump() if f.join else None,
+            proposed.get(f.index),
+        )
         for f in body.floors
     ]
     pages = [f.page for f in floors]
-    if any(p >= page_count for p in pages):
-        raise HTTPException(status_code=422, detail="Seite ausserhalb des PDFs")
-    if len({f.index for f in floors}) != len(floors):
-        raise HTTPException(status_code=422, detail="Jeder Geschoss-Index nur einmal")
-    unit = lambda v: 0.0 <= v <= 1.0  # noqa: E731
-    for f in floors:
-        if f.clip is not None and not (
-            all(unit(v) for v in f.clip) and f.clip[0] < f.clip[2] and f.clip[1] < f.clip[3]
-        ):
-            raise HTTPException(status_code=422, detail="Bereich ausserhalb der Seite")
-        if f.join is not None:
-            other = next((o for o in floors if o.index == f.join["to"]), None)
-            if other is None or other.index == f.index:
-                raise HTTPException(status_code=422, detail="Verbindung zeigt auf kein anderes Geschoss")
-            if not all(unit(v) for v in [*f.join["at"], *f.join["there"]]):
-                raise HTTPException(status_code=422, detail="Verbindungspunkt ausserhalb der Seite")
-    # several floors on one page (regions of an A0) is the point; the same page twice WITHOUT
-    # regions would be the same drawing twice
-    plain = [f.page for f in floors if f.clip is None]
-    if len(set(plain)) != len(plain):
-        raise HTTPException(status_code=422, detail="Eine ganze Seite kann nur ein Geschoss sein")
+    try:
+        validate_floors(floors, page_count)  # the same rules the marker worker is held to
+    except FloorError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     fit_page = body.fit_page if body.fit_page is not None else default_fit_page(floors)
     if fit_page is None:
         fit_page = 0

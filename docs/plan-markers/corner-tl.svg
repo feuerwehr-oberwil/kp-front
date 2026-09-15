@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="8mm" height="8mm" viewBox="0 0 8 8">
+  <title>Bereichsecke oben links §[EG</title>
+  <!-- Nur nötig, wenn mehrere Grundrisse auf derselben Seite liegen. Die Textmitte ist
+       die obere linke Ecke des Bereichs – dort, wo sich die beiden Schenkel verlängert
+       treffen würden; sie lassen dem Text den Platz frei und zeigen in den Bereich
+       hinein. Text bleibt Text. -->
+  <g stroke="#1f6feb" stroke-width="0.2" stroke-linecap="round">
+    <line x1="5.9" y1="4" x2="7.7" y2="4"/>
+    <line x1="4" y1="4.9" x2="4" y2="7.7"/>
+  </g>
+  <text x="4" y="4.44" font-family="Helvetica, Arial, sans-serif" font-size="1.234"
+        text-anchor="middle" fill="#1f6feb">§[EG</text>
+</svg>

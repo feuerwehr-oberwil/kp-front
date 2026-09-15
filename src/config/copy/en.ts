@@ -4302,6 +4302,8 @@ export const en: Localizable<Copy> = {
         pdf_unavailable: 'The PDF could not be read.',
       },
       factsLine: 'Plan revision {plan} · reference {reference} · approval: {approval}',
+      refMarkers: 'Markers in the PDF (§GEO)',
+      fromMarkers: 'From markers',
       refSnapshot: 'OSM buildings, station snapshot',
       refPerObject: 'OSM buildings',
       previewLoading: 'Loading plan preview …',

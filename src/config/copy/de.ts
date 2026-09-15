@@ -6504,6 +6504,8 @@ export const de = {
       // dahinter (Plan-Stand, Referenz, Freigabe) und der Geltungsbereich liegen im ⓘ desselben
       // Badges. Im Editor steht sonst nichts mehr davon – kein Fusszeilen-Satz, keine Faktenzeile.
       factsLine: 'Plan-Stand {plan} · Referenz {reference} · Freigabe: {approval}',
+      refMarkers: 'Marker im PDF (§GEO)',
+      fromMarkers: 'Aus Markern',
       refSnapshot: 'OSM-Gebäude, Stations-Schnappschuss',
       refPerObject: 'OSM-Gebäude',
       previewLoading: 'Planvorschau wird geladen …',

@@ -4107,6 +4107,8 @@ export const it: Localizable<Copy> = {
         pdf_unavailable: 'Il PDF non è stato leggibile.',
       },
       factsLine: 'Versione del piano {plan} · riferimento {reference} · approvazione: {approval}',
+      refMarkers: 'Marcatori nel PDF (§GEO)',
+      fromMarkers: 'Da marcatori',
       refSnapshot: 'Edifici OSM, istantanea della stazione',
       refPerObject: 'Edifici OSM',
       previewLoading: 'Caricamento anteprima del piano …',

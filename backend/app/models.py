@@ -553,6 +553,11 @@ class PlanPageFloor(Base):
     clip: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     #: {"to": <floor_index>, "at": [x, y], "there": [x, y]} – normalized page coordinates
     join: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    #: what the PDF's own ``§`` markers proposed for this floor, when they proposed it:
+    #: ``{"version", "name", "clip", "join"}`` (app/plan_markers.py). It is the baseline the row
+    #: is compared against, so a re-export can follow the markers where they moved and keep the
+    #: admin's own name/region/join where they differ. NULL = nobody's markers made this row.
+    marker: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 

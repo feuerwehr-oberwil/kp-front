@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="28mm" height="8mm" viewBox="0 0 28 8">
+  <title>Koordinaten-Marke §GEO</title>
+  <!-- Die Marke selbst ist 8 × 8 mm; die Zeichenfläche ist breiter, weil die
+       Koordinaten in 3.5 pt rund 18 mm breit sind. Der Ring ist waagrecht offen,
+       damit der Text frei durchläuft. Die Textmitte liegt auf dem Zielkreuz und ist
+       der vermasste Punkt. Ein Tag = EIN Textobjekt: «§GEO», Ostwert, Nordwert,
+       mit je einem Leerzeichen. Text bleibt Text. -->
+  <g fill="none" stroke="#1f6feb" stroke-width="0.2" stroke-linecap="round">
+    <path d="M 11.5 3.3 A 2.6 2.6 0 0 1 16.5 3.3"/>
+    <path d="M 11.5 4.7 A 2.6 2.6 0 0 0 16.5 4.7"/>
+    <line x1="14" y1="0.5" x2="14" y2="1.1"/>
+    <line x1="14" y1="6.9" x2="14" y2="7.5"/>
+  </g>
+  <text x="14" y="4.44" font-family="Helvetica, Arial, sans-serif" font-size="1.234"
+        text-anchor="middle" fill="#1f6feb">§GEO 2612345.6 1264321.2</text>
+</svg>

@@ -1,0 +1,591 @@
+"""§-Marker: the plan author prepares the floor pack and the map fit IN the PDF.
+
+Every plan arrives here the same way (`plans.store_plan`), and until now every floor pack and
+every map fit was assembled by hand afterwards in the admin UI — for 150 objects, once per
+re-export. The person who actually knows which drawing is which Geschoss, and where the
+building's corner sits in LV95, is the one drawing the sheet. So they say it *on* the sheet:
+
+    §EG                     this drawing is the Erdgeschoss; the text box centre is its join point
+    §1OG  §2UG  §DG         …one storey above / two below / the Dachgeschoss
+    §0  §+1  §-1            the same, said as a signed index
+    §0 Erdgeschoss          …with the name the admin would otherwise have typed
+    §1OG.B                  …at the point called «B», when one staircase does not run through
+    §1OG.B Nordtreppe       …the same, named
+    §[EG   §EG]             the Erdgeschoss drawing's region: top-left and bottom-right corner
+    §GEO 2612345.6 1264321.2   this point is that LV95 coordinate (WGS84 lat lon also works)
+
+Nothing else changes: the tags are ordinary text spans (white, 2pt, off in a corner — PDFium
+reads them either way), so a marked-up sheet still prints and opens exactly as before.
+
+**The grammar, exactly.** A marker is one text span starting with ``§``. Case-insensitive,
+whitespace-tolerant. The span's BOUNDING-BOX CENTRE is the point the marker states — its join
+point, its region corner, its geo landmark — so the author positions the text box, not its
+first glyph. The span ends at the line end or at a horizontal gap wider than 1.5 text heights
+(that is where the sheet's other text begins).
+
+``EG`` = 0, ``nOG`` = +n, ``nUG`` = −n, ``DG`` = the highest OG + 1 (and +1 when there is no
+OG); the level-0 drawing's page is the pack's ONE fit page, and two or more ``§GEO`` markers on
+it are the fit's landmark pairs. Everything is normalized page coordinates, y down — the same
+space as ``PlanFloor.clip``/``join`` and ``GeorefPair.plan``.
+
+A floor may state SEVERAL points, one per ``.label`` — no building owes its plan one staircase
+that runs from the Tiefgarage to the Dachstock. Two floors that share a label are joined at it,
+and the joins chain: EG–1OG at ``A``, 1OG–2OG at ``B`` still lays all three on one frame.
+
+This module is pure: it reads bytes and returns a proposal. Who writes it, and what it may
+overwrite, is `plan_alignment_worker`'s business. ``python -m app.plan_markers <pdf>`` prints
+what a given export says, which is the plan author's dry run (``just plan-markers``).
+"""
+
+from __future__ import annotations
+
+import argparse
+import math
+import re
+import sys
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Literal
+
+from . import storage
+from .geo_util import lv95_to_wgs84
+from .pdfium_lock import pdfium_lock
+from .plan_floors import FloorError, PlanFloor, default_fit_page, validate_floors
+
+#: the same page cap the renderer holds a document to (plan_alignment_compute.MAX_PAGES)
+MAX_PAGES = 100
+#: a tag longer than this is prose that happens to contain a «§», not a marker
+MAX_TAG_CHARS = 96
+#: a horizontal gap wider than this many text heights ends the span — the sheet's own text
+_BREAK_GAP = 1.5
+#: …and one wider than this is a word space PDFium did not emit as a character of its own
+_SPACE_GAP = 0.8
+#: anything shorter than this fraction of the span's text height is not a glyph but a box
+#: PDFium generated (the space it inserts between two text objects has no height at all)
+_MIN_GLYPH = 0.2
+#: the point a storey tag states when it names none – «§1OG» ≡ «§1OG.A», so a sheet drawn before
+#: labels existed says «every floor meets every other at A», which is one staircase for all
+DEFAULT_LABEL = "A"
+
+MarkerKind = Literal["floor", "corner_tl", "corner_br", "geo", "unknown"]
+
+
+@dataclass(frozen=True, slots=True)
+class Marker:
+    """One ``§`` span as it stands on the page, parsed but not yet reconciled with the others."""
+
+    page: int
+    kind: MarkerKind
+    #: the tag as written, «§» included – what the CLI echoes and a warning names
+    text: str
+    #: the span's bounding-box centre, normalized 0..1 of the page, y DOWN
+    x: float
+    y: float
+    #: storey index; None on a ``§DG`` (resolved against the plan's OG storeys) and on non-floors
+    index: int | None = None
+    dach: bool = False
+    #: which of the floor's points this is – «§1OG.B» → ``"B"``; an unlabelled tag states ``A``
+    label: str = DEFAULT_LABEL
+    #: the display name after the storey token, when the author wrote one
+    name: str | None = None
+    #: the page carries a /Rotate – the fit reads it turned, these boxes are in the flat frame
+    rotated: bool = False
+    lng: float | None = None
+    lat: float | None = None
+
+    @property
+    def point(self) -> list[float]:
+        return [self.x, self.y]
+
+
+@dataclass(frozen=True, slots=True)
+class MarkerPlan:
+    """What a marked-up PDF proposes: a floor pack, its fit page, and maybe the fit itself."""
+
+    floors: list[PlanFloor]
+    #: the page the pack's ONE map fit is measured on — the level-0 drawing's
+    fit_page: int
+    #: the document's page count, so a merge can re-validate without re-opening the PDF
+    page_count: int
+    #: ``GeorefPair`` dicts from the ``§GEO`` markers on the fit page; < 2 of them means none
+    pairs: list[dict]
+    #: what the author should fix, in plain words; a plan is still returned around them
+    warnings: list[str]
+    #: the storey index every join chain ends at – the level-0 drawing's, or the nearest to it
+    reference: int = 0
+
+
+# ---------------------------------------------------------------------------------------
+# the grammar
+# ---------------------------------------------------------------------------------------
+
+_STOREY_RE = re.compile(
+    r"""^(?:
+          (?P<eg>EG)
+        | (?P<dg>DG)
+        | (?P<n>\d+)\s*(?P<level>OG|UG)
+        | (?P<bare>OG|UG)
+        | (?P<signed>[-+]?\d+)
+    )$""",
+    re.IGNORECASE | re.VERBOSE,
+)
+_NUMBER_RE = re.compile(r"[-+]?\d+(?:\.\d+)?")
+#: The point label of a storey tag: everything after the LAST dot of the storey TOKEN, and only
+#: when it is 1–8 letters/digits — «§1OG.B», «§EG.T2». The token ends at the first space, so a
+#: display name can never be read as a label («§0 1. Stock» is the name «1. Stock»), and a
+#: storey token itself never contains a dot, so the two halves cannot collide.
+_LABEL_RE = re.compile(r"^(?P<storey>.+)\.(?P<label>[A-Za-z0-9]{1,8})$")
+#: an LV95 easting/northing is millions of metres; a WGS84 degree never is
+_LV95_FLOOR = 1000.0
+
+
+def _storey(token: str) -> tuple[int | None, bool] | None:
+    """``"1OG"`` → (1, False), ``"DG"`` → (None, True), anything else → None."""
+    m = _STOREY_RE.match(token.strip())
+    if m is None:
+        return None
+    if m["eg"]:
+        return 0, False
+    if m["dg"]:
+        return None, True
+    if m["n"]:
+        return (int(m["n"]) if m["level"].upper() == "OG" else -int(m["n"])), False
+    if m["bare"]:
+        return (1 if m["bare"].upper() == "OG" else -1), False
+    return int(m["signed"]), False
+
+
+def _point_token(token: str) -> tuple[int | None, bool, str] | None:
+    """``"1OG.B"`` → (1, False, "B"), ``"EG"`` → (0, False, "A"), anything else → None."""
+    m = _LABEL_RE.match(token.strip())
+    base, label = (m["storey"], m["label"].upper()) if m else (token, DEFAULT_LABEL)
+    storey = _storey(base)
+    return None if storey is None else (storey[0], storey[1], label)
+
+
+def _geo(rest: str) -> tuple[float, float] | None:
+    """``"2612345.6 1264321.2"`` → (lng, lat). LV95 or WGS84, decided by magnitude."""
+    nums = _NUMBER_RE.findall(rest)
+    if len(nums) < 2:
+        return None
+    a, b = float(nums[0]), float(nums[1])
+    lat, lng = lv95_to_wgs84(a, b) if abs(a) >= _LV95_FLOOR or abs(b) >= _LV95_FLOOR else (a, b)
+    if not all(math.isfinite(v) for v in (lat, lng)) or not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return None
+    return lng, lat
+
+
+def parse_tag(text: str) -> dict | None:
+    """The grammar, and only the grammar: tag text → the fields of a `Marker`, or None.
+
+    None means «starts with § but says nothing this system understands» — the caller turns that
+    into an `unknown` marker so the author hears about a typo instead of silence.
+    """
+    body = text.lstrip("§").strip()
+    if not body:
+        return None
+    if body.upper().startswith("GEO"):
+        point = _geo(body[3:])
+        return None if point is None else {"kind": "geo", "lng": point[0], "lat": point[1]}
+    if body.startswith("["):
+        storey = _storey(body[1:])
+        return None if storey is None else {"kind": "corner_tl", "index": storey[0], "dach": storey[1]}
+    if body.endswith("]"):
+        storey = _storey(body[:-1])
+        return None if storey is None else {"kind": "corner_br", "index": storey[0], "dach": storey[1]}
+    # «1 OG» is one token with a space in it, «0 Erdgeschoss» is a token and a name – so the
+    # whole body is offered to the grammar first, and only a body it rejects is split.
+    spot = _point_token(body)
+    name = ""
+    if spot is None:
+        token, _, name = body.partition(" ")
+        spot = _point_token(token)
+    if spot is None:
+        return None
+    index, dach, label = spot
+    return {
+        "kind": "floor",
+        "index": index,
+        "dach": dach,
+        "label": label,
+        "name": name.strip() or ("DG" if dach else None),
+    }
+
+
+# ---------------------------------------------------------------------------------------
+# reading them off the page
+# ---------------------------------------------------------------------------------------
+
+
+def _spans(text: str, boxes: list[tuple[float, float, float, float] | None]) -> list[tuple[str, tuple]]:
+    """Every ``§`` run on one page as (text, bbox), in reading order.
+
+    PDFium hands out characters, not spans: a run ends at a line break or where the next glyph
+    sits more than `_BREAK_GAP` text heights away — which is the sheet's own text starting, not
+    the marker continuing. A smaller gap with no space character is the word space PDFium chose
+    not to emit, and is restored, so «§0 Erdgeschoss» survives a two-object export.
+    """
+    out: list[tuple[str, tuple]] = []
+    start = -1
+    while (start := text.find("§", start + 1)) >= 0:
+        first = boxes[start]
+        if first is None or first[2] <= first[0] or first[3] <= first[1]:
+            continue  # a «§» PDFium placed nowhere cannot state a position
+        chars: list[str] = []
+        x0, y0, x1, y1 = first
+        # the span's own text height, and with it every threshold below: a marker set in 2pt
+        # white and the sheet's 20pt title must break at the same RELATIVE distance
+        ref = first[3] - first[1]
+        previous: tuple[float, float, float, float] | None = None
+        for i in range(start, min(len(text), start + MAX_TAG_CHARS)):
+            char, box = text[i], boxes[i]
+            if char in "\r\n":
+                break
+            if box is not None and box[2] > box[0] and box[3] - box[1] >= _MIN_GLYPH * ref:
+                gap = box[0] - previous[2] if previous else 0.0
+                if previous and (gap > _BREAK_GAP * ref or abs(box[1] - previous[1]) > ref):
+                    break
+                if previous and gap > _SPACE_GAP * ref and not (chars and chars[-1].isspace()):
+                    chars.append(" ")
+                x0, y0, x1, y1 = min(x0, box[0]), min(y0, box[1]), max(x1, box[2]), max(y1, box[3])
+                previous, ref = box, max(ref, box[3] - box[1])
+            chars.append(char)
+        out.append(("".join(chars).rstrip(), (x0, y0, x1, y1)))
+    return out
+
+
+def extract_markers(source: bytes | str) -> list[Marker]:
+    """Every ``§`` span of a PDF (raw bytes, or an immutable storage key), page by page.
+
+    Called from a worker thread — it holds PDFium's process-wide lock through every object's
+    closure, exactly like `plan_alignment_compute.render_page`, and reads text only: no raster,
+    no fonts, no network. A page turned by ``/Rotate`` is read but flagged (see
+    `plan_from_markers`), because its character boxes are in the unrotated frame the fit is not.
+    """
+    return _read(source)[0]
+
+
+def read_plan(source: bytes | str) -> MarkerPlan | None:
+    """Markers → proposal in ONE PDFium open; the worker's single blocking call."""
+    markers, page_count = _read(source)
+    return plan_from_markers(markers, page_count)
+
+
+def _read(source: bytes | str) -> tuple[list[Marker], int]:
+    import pypdfium2 as pdfium
+
+    data = source if isinstance(source, bytes) else storage.get_bytes(source)
+    markers: list[Marker] = []
+    with pdfium_lock:
+        document = pdfium.PdfDocument(data)
+        try:
+            for number in range(min(len(document), MAX_PAGES)):
+                page = document[number]
+                try:
+                    width, height = page.get_size()
+                    if not all(math.isfinite(v) and v > 0 for v in (width, height)):
+                        continue
+                    rotated = bool(getattr(page, "get_rotation", lambda: 0)())
+                    text_page = page.get_textpage()
+                    try:
+                        count = text_page.count_chars()
+                        text = text_page.get_text_range(0, count) if count else ""
+                        boxes: list[tuple[float, float, float, float] | None] = []
+                        for i in range(len(text)):
+                            try:
+                                boxes.append(text_page.get_charbox(i))
+                            except (RuntimeError, ValueError):  # a generated \r\n has no box
+                                boxes.append(None)
+                    finally:
+                        text_page.close()
+                finally:
+                    page.close()
+                for span, (bx0, by0, bx1, by1) in _spans(text, boxes):
+                    fields = parse_tag(span) or {"kind": "unknown"}
+                    markers.append(
+                        Marker(
+                            page=number,
+                            text=span,
+                            # PDF space is y UP from the bottom-left; every consumer of these
+                            # numbers (clip, join, GeorefPair.plan) reads y DOWN from the top.
+                            x=(bx0 + bx1) / 2 / width,
+                            y=1.0 - (by0 + by1) / 2 / height,
+                            rotated=rotated,
+                            **fields,
+                        )
+                    )
+            page_count = len(document)
+        finally:
+            document.close()
+    return markers, page_count
+
+
+# ---------------------------------------------------------------------------------------
+# …and what they add up to
+# ---------------------------------------------------------------------------------------
+
+
+def _resolve_dach(markers: list[Marker]) -> list[Marker]:
+    """``§DG`` is «one above the top storey», which only the whole sheet can say.
+
+    Idempotent: a ``§DG`` that already carries its resolved index is not one of the storeys it
+    is resolved against, so running this twice (the CLI prints resolved markers and then asks
+    for the plan) cannot walk the roof up a floor per pass.
+    """
+    above = [m.index for m in markers if m.kind == "floor" and not m.dach and m.index is not None and m.index > 0]
+    dach = (max(above) if above else 0) + 1
+    return [replace(m, index=dach) if m.dach else m for m in markers]
+
+
+def _chain(points: dict[int, dict[str, Marker]], anchor: int) -> tuple[dict[int, dict], list[int]]:
+    """Which floor joins which, and at which of its points – ONE join per floor, chained.
+
+    Two floors are joinable where they share a point LABEL: «§1OG.B» and «§2OG.B» are the same
+    staircase, «§EG.A» is a different one. Only a partner that already hangs on the ``anchor``
+    may be picked, so every chain ends there and none can close on itself. Among those the
+    anchor itself wins (one hop, no accumulated error — and the whole-building staircase every
+    unlabelled sheet describes stays the star it is today), then the floor one storey nearer the
+    anchor, then the nearest one; ties go to the lower index so a sheet reads the same twice.
+
+    Returns the joins by storey index, and the storeys that share no point with the chain.
+    """
+    joins: dict[int, dict] = {}
+    resolved = {anchor}
+    pending = sorted((i for i in points if i != anchor), key=lambda i: (abs(i - anchor), i))
+    while pending:
+        for index in pending:
+            step = index + (1 if anchor > index else -1)
+            best: tuple[tuple[int, int, int], int, str] | None = None
+            for other in sorted(resolved):
+                shared = sorted(set(points[index]) & set(points[other]))
+                if not shared:
+                    continue
+                rank = (0 if other == anchor else 1 if other == step else 2, abs(other - index), abs(other - anchor))
+                if best is None or rank < best[0]:
+                    best = (rank, other, shared[0])
+            if best is None:
+                continue
+            _, other, label = best
+            joins[index] = {"to": other, "at": points[index][label].point, "there": points[other][label].point}
+            resolved.add(index)
+            pending.remove(index)
+            break  # the chain grew – re-scan, nearest the anchor first, against the new set
+        else:
+            break  # a full pass joined nothing: what is left shares no point with the chain
+    return joins, pending
+
+
+def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | None:
+    """Reconcile the markers of one document into a floor pack + a fit proposal.
+
+    None means the sheet carries no storey marker at all — an unmarked PDF, which is most of
+    them, and nothing here should touch it. Anything short of that is a plan WITH warnings: a
+    duplicate storey, a lone region corner or a stray ``§GEO`` costs the author that one
+    statement, never the whole pack, because half a pack is still most of the work done.
+    """
+    markers = _resolve_dach([m for m in markers if m.page < page_count])
+    warnings = [
+        f"{m.text!r} on page {m.page + 1} is not a marker this system knows" for m in markers if m.kind == "unknown"
+    ]
+    if any(m.rotated for m in markers):
+        warnings.append("a marked page is turned by /Rotate – its positions are read in the unturned frame")
+
+    # a floor states one point per label; several labelled tags on one drawing are the several
+    # staircases it shares with several other floors, and the FIRST tag is the drawing itself
+    points: dict[int, dict[str, Marker]] = {}
+    for m, index in ((m, m.index) for m in markers if m.kind == "floor" and m.index is not None):
+        on = points.setdefault(index, {})
+        where = "" if m.label == DEFAULT_LABEL else f" point «{m.label}»"
+        if m.label in on:
+            warnings.append(f"storey {index:+d}{where} is marked twice (page {m.page + 1}) – the first one counts")
+            continue
+        if on and m.page != next(iter(on.values())).page:
+            warnings.append(
+                f"storey {index:+d}{where} sits on page {m.page + 1}, its drawing on "
+                f"page {next(iter(on.values())).page + 1} – ignored"
+            )
+            continue
+        on[m.label] = m
+    if not points:
+        return None
+    storeys = {index: next(iter(on.values())) for index, on in points.items()}
+    if 0 not in storeys:
+        warnings.append("no §EG / §0 marker – the fit page is guessed from the storeys that are marked")
+
+    corners: dict[int, dict[str, Marker]] = {}
+    for m, index in ((m, m.index) for m in markers if m.kind in ("corner_tl", "corner_br") and m.index is not None):
+        corners.setdefault(index, {})[m.kind] = m
+
+    reference_index = 0 if 0 in storeys else min(storeys, key=lambda i: abs(i))
+    reference = storeys[reference_index]
+    joins, unjoined = _chain(points, reference_index)
+    for index in unjoined:
+        warnings.append(f"Geschoss {index:+d} hat keinen gemeinsamen Verbindungspunkt")
+    floors: list[PlanFloor] = []
+    for index in sorted(storeys):
+        m = storeys[index]
+        pair = corners.pop(index, {})
+        clip = None
+        if len(pair) == 2:
+            tl, br = pair["corner_tl"], pair["corner_br"]
+            if tl.page != m.page or br.page != m.page:
+                warnings.append(f"the region corners of storey {index:+d} are not on its own page – region ignored")
+            else:
+                clip = [min(tl.x, br.x), min(tl.y, br.y), max(tl.x, br.x), max(tl.y, br.y)]
+        elif pair:
+            missing = "§…]" if "corner_tl" in pair else "§[…"
+            warnings.append(f"storey {index:+d} has only one region corner – add the {missing} one, or neither")
+        # A storey tag's own centre is a point of this drawing, and a point two drawings share
+        # is what lays one on the other. One point is translation only, which is exactly what an
+        # export that keeps scale and orientation across its pages needs.
+        name = next((p.name for p in points[index].values() if p.name), None)
+        floors.append(PlanFloor(m.page, index, name, clip, joins.get(index), marker=None))
+    for index in corners:
+        warnings.append(f"region corners for storey {index:+d}, which no §-marker declares – ignored")
+
+    # the level-0 drawing's page IS the fit page; without one, the same rule the admin's own
+    # «Ausrichtungsseite» falls back to (plan_floors.default_fit_page)
+    guessed = default_fit_page(floors)
+    fit_page = reference.page if 0 in storeys or guessed is None else guessed
+    geo = [m for m in markers if m.kind == "geo"]
+    off = [m for m in geo if m.page != fit_page]
+    if off:
+        warnings.append(
+            f"{len(off)} §GEO marker(s) sit on a page that is not the fit page ({fit_page + 1}) – ignored; "
+            "the pack has ONE fit, measured on the level-0 drawing"
+        )
+    pairs: list[dict] = []
+    for m in (m for m in geo if m.page == fit_page):
+        if any(p["plan"] == {"x": m.x, "y": m.y} or p["lngLat"] == {"lng": m.lng, "lat": m.lat} for p in pairs):
+            warnings.append(f"{m.text!r} repeats a point already paired – ignored")
+            continue
+        pairs.append({"plan": {"x": m.x, "y": m.y}, "lngLat": {"lng": m.lng, "lat": m.lat}, "kind": "gesetzt"})
+    if len(pairs) == 1:
+        warnings.append("only one §GEO marker on the fit page – a fit needs at least two, so none is proposed")
+        pairs = []
+
+    try:
+        validate_floors(floors, page_count)
+    except FloorError as e:
+        warnings.append(f"the marked storeys do not make a valid floor pack ({e}) – none is proposed")
+        return MarkerPlan([], fit_page, page_count, pairs, warnings, reference_index)
+    return MarkerPlan(floors, fit_page, page_count, pairs, warnings, reference_index)
+
+
+# ---------------------------------------------------------------------------------------
+# carrying the admin's own edits across a re-export
+# ---------------------------------------------------------------------------------------
+
+
+def marker_snapshot(floor: PlanFloor, version: int) -> dict:
+    """What the markers gave for this floor — stored beside it, so a later revision can tell
+    the admin's own name/region/join from the one the previous export proposed."""
+    return {"version": version, "name": floor.name, "clip": floor.clip, "join": floor.join}
+
+
+def admin_overrides(floors: list[PlanFloor]) -> dict[int, dict]:
+    """Per storey index, what a human changed away from that revision's marker proposal.
+
+    A floor with no snapshot was never proposed by markers — the admin built it — so every
+    field it carries is an override. That is the same comparison, with an empty proposal.
+    """
+    out: dict[int, dict] = {}
+    for f in floors:
+        proposed = f.marker or {}
+        delta = {k: v for k, v in (("name", f.name), ("clip", f.clip), ("join", f.join)) if v != proposed.get(k)}
+        if delta:
+            out[f.index] = delta
+    return out
+
+
+def apply_overrides(floors: list[PlanFloor], overrides: dict[int, dict]) -> list[PlanFloor]:
+    """The marker plan with the admin's edits laid back on top, keyed by storey index.
+
+    So the marker wins wherever it MOVED and the admin had not touched that field, and the
+    admin wins wherever they had. A storey the new export no longer marks takes its override
+    with it: structure is the export's to state, corrections are the admin's.
+    """
+    out = []
+    for f in floors:
+        delta = overrides.get(f.index, {})
+        out.append(
+            replace(f, name=delta.get("name", f.name), clip=delta.get("clip", f.clip), join=delta.get("join", f.join))
+        )
+    # a carried-over join may point at a storey this export dropped – then it is not a join
+    indices = {f.index for f in out}
+    return [replace(f, join=None) if f.join and f.join.get("to") not in indices - {f.index} else f for f in out]
+
+
+# ---------------------------------------------------------------------------------------
+# the plan author's dry run
+# ---------------------------------------------------------------------------------------
+
+
+def _level(m: Marker) -> str:
+    """The storey a marker names. ``§DG`` only gets an index once the whole sheet is read, and a
+    marker printed before that (or one that is no storey at all) must still print."""
+    if m.index is not None:
+        return f"{m.index:+d}"
+    return "DG" if m.dach else "?"
+
+
+def _says(m: Marker) -> str:
+    """The marker's statement in words – what the CLI prints after its coordinates."""
+    if m.kind == "geo":
+        return f"map point {m.lat:.6f} {m.lng:.6f} (WGS84 lat lon)"
+    if m.kind == "corner_tl":
+        return f"region top-left of storey {_level(m)}"
+    if m.kind == "corner_br":
+        return f"region bottom-right of storey {_level(m)}"
+    if m.kind == "floor":
+        point = "" if m.label == DEFAULT_LABEL else f" point «{m.label}»"
+        return f"storey {_level(m)}{point}" + (f" «{m.name}»" if m.name else "")
+    return "NOT UNDERSTOOD"
+
+
+def report(path: Path) -> str:
+    """One line per tag, then the warnings — what `just plan-markers <pdf>` prints."""
+    raw, page_count = _read(path.read_bytes())
+    # the same resolution the plan runs, so the author reads the storey a «§DG» ENDED UP at
+    markers = _resolve_dach(raw)
+    lines = [f"{path.name}: {page_count} page(s), {len(markers)} marker(s)"]
+    if not markers:
+        lines.append("  (no § markers – this PDF prepares nothing by itself)")
+    for m in markers:
+        lines.append(f"  p{m.page + 1:<3} {m.text:<30} x={m.x:.4f}  y={m.y:.4f}   {m.kind:<9} {_says(m)}")
+
+    plan = plan_from_markers(markers, page_count)
+    if plan is None:
+        lines.append("\nNo storey marker – no floor pack is proposed.")
+        return "\n".join(lines)
+    lines.append(
+        f"\nFloor pack: {len(plan.floors)} storey(s), fit page {plan.fit_page + 1}, {len(plan.pairs)} map pair(s)"
+    )
+    for f in plan.floors:
+        region = "whole page" if f.clip is None else "region " + " ".join(f"{v:.4f}" for v in f.clip)
+        if f.join is not None:
+            join = f"joins {f.join['to']:+d}"
+        else:
+            join = "reference" if f.index == plan.reference else "NOT JOINED"
+        lines.append(f"  {f.index:+d} {f.name or '–':<16} page {f.page + 1:<3} {region:<40} {join}")
+    for w in plan.warnings:
+        lines.append(f"  ⚠ {w}")
+    if not plan.warnings:
+        lines.append("  no warnings")
+    return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="plan-markers",
+        description="Read the § markers of a plan PDF and print the floor pack + map fit they propose.",
+    )
+    parser.add_argument("pdf", type=Path, help="the PDF to read (nothing is written)")
+    path = parser.parse_args().pdf
+    if not path.is_file():
+        sys.exit(f"{path}: no such file")
+    print(report(path))
+
+
+if __name__ == "__main__":
+    main()

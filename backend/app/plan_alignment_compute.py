@@ -167,23 +167,35 @@ ModuleAlignment = Literal["auto", "manual", "none"]
 _AUTO_BY_DEFAULT = ("modul1", "modul2", "modul2-3")
 
 
+def _field(entry: object, name: str) -> object:
+    return entry.get(name) if isinstance(entry, dict) else getattr(entry, name, None)
+
+
+def _catalogue_entry(modules: Sequence[object] | None, module: str) -> object | None:
+    """The catalogue row for a module: an exact id wins, a family sub-slot (``modul5-wasser1``)
+    falls back to its family's row."""
+    entries = list(modules or [])
+    return next((e for e in entries if _field(e, "id") == module), None) or next(
+        (e for e in entries if _field(e, "family") and module.startswith(f"{_field(e, 'id')}-")), None
+    )
+
+
 def module_alignment(modules: Sequence[object] | None, module: str) -> ModuleAlignment:
     """The one resolver for ``modules[].alignment``: an explicit entry wins, a family sub-slot
     (``modul5-wasser1``) inherits its family's, and an unset value means auto for Modul 1/2/2-3
     and none for everything else. Mirrors ``moduleAlignment`` in src/lib/deploymentConfig.ts —
     the worker and the field chip must agree."""
-
-    def field(entry: object, name: str) -> object:
-        return entry.get(name) if isinstance(entry, dict) else getattr(entry, name, None)
-
-    entries = list(modules or [])
-    match = next((e for e in entries if field(e, "id") == module), None)
-    if match is None:
-        match = next((e for e in entries if field(e, "family") and module.startswith(f"{field(e, 'id')}-")), None)
-    chosen = field(match, "alignment") if match is not None else None
+    chosen = _field(_catalogue_entry(modules, module), "alignment")
     if chosen in ("auto", "manual", "none"):
         return chosen
     return "auto" if module in _AUTO_BY_DEFAULT else "none"
+
+
+def module_is_floor_pack(modules: Sequence[object] | None, module: str) -> bool:
+    """A module whose sheets ARE a Gebäude stack: Modul 6, or one the catalogue hides behind the
+    stack (``modules[].hideWhenGebaeude``). Mirrors ``isFloorPack`` in src/lib/useObjectPlans.ts,
+    minus its «has floors already» arm — that one is a fact about a revision, not a module."""
+    return module == "modul6" or bool(_field(_catalogue_entry(modules, module), "hideWhenGebaeude"))
 
 
 @dataclass(frozen=True)

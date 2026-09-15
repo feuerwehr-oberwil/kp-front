@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime, timedelta
 from functools import partial
 
@@ -13,8 +13,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .database import async_session_maker
 from .models import DeploymentConfig, ObjectSite, PlanAlignment, PlanRevision, ReferenceDataset
-from .plan_alignment_compute import AlignmentResult, calibrated_scale, compute_alignment, module_alignment, render_page
-from .plan_floors import load_floors
+from .plan_alignment_compute import (
+    AlignmentResult,
+    calibrated_scale,
+    compute_alignment,
+    module_alignment,
+    module_is_floor_pack,
+    render_page,
+)
+from .plan_floors import FloorError, load_floors, replace_floors, validate_floors
+from .plan_markers import MarkerPlan, admin_overrides, apply_overrides, marker_snapshot, read_plan
 from .reference_buildings import ensure_snapshot
 from .schemas import load_stored_config
 
@@ -126,6 +134,99 @@ async def finish_job(
     return True
 
 
+async def apply_marker_plan(db: AsyncSession, claim: Claim, plan: MarkerPlan) -> bool:
+    """Write the floor pack a PDF's own ``§`` markers propose onto this revision.
+
+    Returns True when the pack's ONE fit belongs on a page other than the one this job holds:
+    the job is then re-queued there and the next tick renders the right drawing, exactly as
+    ``PUT /floors`` does when an admin moves the fit page by hand.
+
+    **What the markers may overwrite.** A pack the markers never made is the admin's own work
+    and is left alone entirely. Otherwise the export is followed wherever it moved, and every
+    field a human had corrected away from the previous export's proposal is laid back on top
+    (`plan_markers.admin_overrides`), keyed by storey index — so a re-export costs the station
+    nothing it had already fixed, and states nothing it had already been told.
+    """
+    if not plan.floors:
+        return False
+    current = await load_floors(db, claim.dataset_id, claim.version)
+    # nothing carried onto this revision (a re-export with a different page count)? then the
+    # previous revision's pack is what the admin's corrections live in
+    base = current or (await load_floors(db, claim.dataset_id, claim.version - 1) if claim.version > 1 else [])
+    if base and not any(f.marker for f in base):
+        return False
+    floors = apply_overrides(plan.floors, admin_overrides(base))
+    try:
+        validate_floors(floors, plan.page_count)
+    except FloorError:
+        logger.warning(
+            "Plan markers %s v%s: kept edits make no valid pack — using the markers alone",
+            claim.dataset_id,
+            claim.version,
+        )
+        floors = plan.floors
+    proposal = {f.index: marker_snapshot(f, claim.version) for f in plan.floors}
+    await replace_floors(db, claim.dataset_id, claim.version, [replace(f, marker=proposal[f.index]) for f in floors])
+    if plan.fit_page == claim.page:
+        return False
+    taken = (
+        await db.execute(
+            select(PlanAlignment.id).where(
+                PlanAlignment.dataset_id == claim.dataset_id,
+                PlanAlignment.plan_version == claim.version,
+                PlanAlignment.page == plan.fit_page,
+                PlanAlignment.id != claim.id,
+            )
+        )
+    ).first()
+    if taken is not None:  # another job already owns that page – leave both where they are
+        return False
+    moved = (
+        await db.execute(
+            update(PlanAlignment)
+            .where(
+                PlanAlignment.id == claim.id,
+                PlanAlignment.status == "processing",
+                PlanAlignment.attempts == claim.attempt,
+                PlanAlignment.edit_version == claim.edit_version,
+            )
+            .values(
+                page=plan.fit_page,
+                status="pending",
+                reason=None,
+                pairs=[],
+                aspect=None,
+                scale_m_per_u=None,
+                score=None,
+                coverage=None,
+                claimed_at=None,
+                attempts=0,
+                edit_version=PlanAlignment.edit_version + 1,
+            )
+            .returning(PlanAlignment.id)
+        )
+    ).scalar_one_or_none()
+    return moved is not None
+
+
+def marker_result(plan: MarkerPlan, rendered, scale: float | None) -> AlignmentResult:
+    """A fit the plan author stated outright: no matcher, no OSM, no coverage to judge.
+
+    It is a PROPOSAL like any other — «Vorschlag bereit» on the wall, «Handlungsbedarf» on the
+    object until an admin approves it. What is different is that its landmarks are measured
+    coordinates somebody wrote on the drawing, not geometry a matcher guessed.
+    """
+    return AlignmentResult(
+        "ready",
+        "markers",
+        pairs=plan.pairs,
+        aspect=rendered.aspect,
+        scale_m_per_u=rendered.printed_scale or scale,
+        reference_source="markers",
+        reference_at=datetime.now(UTC),
+    )
+
+
 async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_maker) -> bool:
     """One timer tick, one PDF page; no session/row lock is held during rendering or HTTP."""
     async with factory() as db:
@@ -147,12 +248,27 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
         calibration = station.plan_scales_json if station else None
         # the catalogue's say on this module (auto / manual / none) – resolved here, in the
         # session, so compute never touches the database
-        alignment = module_alignment(
-            load_stored_config((station.config_json if station else None) or {}).modules, module
-        )
+        modules = load_stored_config((station.config_json if station else None) or {}).modules
+        alignment = module_alignment(modules, module)
         # the station-wide building snapshot – fetched once, clipped per sheet (reference_buildings)
         reference = await ensure_snapshot(db)
+        # A sheet that could carry a floor pack or a fit is worth reading for §-markers; one the
+        # catalogue keeps off the Karte entirely (alignment: none, no stack) is not.
+        marked = module_is_floor_pack(modules, module) or alignment != "none"
+
+    plan: MarkerPlan | None = None
+    if key is not None and marked:
+        try:
+            plan = await anyio.to_thread.run_sync(partial(read_plan, key), limiter=_render_limiter)
+        except Exception:
+            logger.exception("Plan markers unreadable for job %s", claim.id)
+    async with factory() as db:
+        requeued = await apply_marker_plan(db, claim, plan) if plan else False
         floor_page = any(f.page == claim.page for f in await load_floors(db, claim.dataset_id, claim.version))
+        await db.commit()
+    if requeued:
+        # the pack's one fit sits on another page; the job now waits there
+        return True
 
     digest = None
     rendered = None
@@ -167,7 +283,11 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             )
             digest = rendered.digest
             scale = calibrated_scale(calibration, object_id, module, claim.page, rendered.aspect)
-            result = await compute_alignment(rendered, module, lng, lat, scale, alignment, reference, floor_page)
+            result = (
+                marker_result(plan, rendered, scale)
+                if plan and plan.pairs and plan.fit_page == claim.page
+                else await compute_alignment(rendered, module, lng, lat, scale, alignment, reference, floor_page)
+            )
     except (ImportError, OSError):
         logger.exception("Plan alignment preparation unavailable for job %s", claim.id)
         result = AlignmentResult(

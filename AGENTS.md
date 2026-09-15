@@ -105,6 +105,17 @@ to prod.
   each crop. A symbol's Von/Bis range is one object shown and selectable on every covered floor.
   Dragging it one storey moves the whole range (0–2 → 1–3), with one undo step; range controls
   change coverage, and old single-floor values remain readable without inventing assignments.
+- **A plan PDF may prepare itself (`§` markers).** The plan author writes `§EG` / `§1OG` / `§DG`
+  (`§1OG.B` for a second join point, where no one staircase runs through the whole building –
+  floors sharing a label join there, and the chain is resolved in one frame), optional region
+  corners `§[EG` / `§EG]` and `§GEO <E> <N>` as ordinary text spans on the sheet;
+  `app/plan_markers.py` is the one grammar, and the alignment worker turns them into the floor
+  pack plus – with two or more `§GEO` – a `ready` fit (`reason`/`reference_source` = `markers`).
+  It stays a PROPOSAL: markers never publish, never move an approved fit, and never overwrite a
+  pack the admin built by hand. Each row keeps the proposal it was born from
+  (`plan_page_floors.marker`), so the next re-export follows the markers where they moved and
+  re-applies, by storey index, every name/region/join a human had corrected. `just plan-markers
+  <pdf>` is the author's dry run; the tag grammar for humans is `docs/plan-markers/README.md`.
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by

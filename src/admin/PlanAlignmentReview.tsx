@@ -344,8 +344,8 @@ function EditorHeader({ item, unsaved, origin, tip, aside, actions }: {
 }
 
 /** The fit's provenance in ONE word – what a whole sentence under the map used to say. */
-const originWord = (pairs: GeorefPair[], C: typeof appConfig.copy.admin.alignment) =>
-  !pairs.length ? C.unaligned : hasAutoPairs(pairs) ? C.automatic : C.manual
+const originWord = (item: AlignmentListItem, pairs: GeorefPair[], C: typeof appConfig.copy.admin.alignment) =>
+  !pairs.length ? C.unaligned : item.reference_source === 'markers' ? C.fromMarkers : hasAutoPairs(pairs) ? C.automatic : C.manual
 
 /** Everything the editor no longer says out loud, for the status badge's ⓘ: which revision,
  *  which reference, when it was approved – and what that approval is worth. The two are joined
@@ -356,7 +356,7 @@ const statusTip = (item: AlignmentListItem, C: typeof appConfig.copy.admin.align
 /** The worker's provenance string, as a sentence: which reference, and when it was observed. */
 function referenceLabel(item: AlignmentListItem, C: typeof appConfig.copy.admin.alignment): string {
   const src = item.reference_source ?? ''
-  const what = src.includes('station snapshot') ? C.refSnapshot : src.startsWith('OSM') ? C.refPerObject : src || C.referenceUnknown
+  const what = src === 'markers' ? C.refMarkers : src.includes('station snapshot') ? C.refSnapshot : src.startsWith('OSM') ? C.refPerObject : src || C.referenceUnknown
   return item.reference_at ? `${what} · ${fmtDate(item.reference_at)}` : what
 }
 
@@ -489,7 +489,7 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
     try { onChange(await undoAlignmentApproval(item)) } catch (e) { setError(e instanceof ApiError ? e.detail : C.saveFailed) } finally { if (mounted.current) setBusy(false) }
   }
   return <section className="adm-align-review adm-editor-detail" aria-label={item.object_name}>
-    <EditorHeader item={item} unsaved={dirty} origin={originWord(pairs, C)} tip={statusTip(item, C)}
+    <EditorHeader item={item} unsaved={dirty} origin={originWord(item, pairs, C)} tip={statusTip(item, C)}
       aside={item.status === 'approved'
         ? <button type="button" className="btn adm-editor-quiet" disabled={busy} onClick={() => void withdraw()}>{C.withdrawApproval}</button>
         : undefined}
@@ -577,7 +577,7 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
   }
 
   return <section className="adm-align-review adm-editor-detail" aria-label={item.object_name}>
-    <EditorHeader item={item} unsaved={dirty} origin={originWord(pairs, C)} tip={statusTip(item, C)}
+    <EditorHeader item={item} unsaved={dirty} origin={originWord(item, pairs, C)} tip={statusTip(item, C)}
       aside={item.status === 'approved'
         ? <button type="button" className="btn adm-editor-quiet" disabled={busy} onClick={() => void save('undo')}>{C.withdrawApproval}</button>
         : undefined}
