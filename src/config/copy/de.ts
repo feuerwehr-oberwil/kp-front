@@ -1960,6 +1960,11 @@ export const de = {
     alarmRowOverdueSub: 'Kein Funkkontakt – sofort Kontakt herstellen.',
     alarmRowPressure: 'Alarmdruck erreicht – {name}',
     alarmRowPressureSub: '{bar} bar, Grenze {line} bar – Rückzug anordnen.',
+    // Mehrere Trupps aus demselben Grund teilen sich EINE Zeile (15.09.): die Gruppenführer, der
+    // dringendste zuerst; «Zum Trupp» landet auf ihm.
+    alarmRowOverdueMany: 'Atemschutz überfällig – {count} Trupps: {names}',
+    alarmRowPressureMany: 'Alarmdruck erreicht – {count} Trupps: {names}',
+    alarmRowPressureManySub: 'Rückzug anordnen.',
     // Die einzige Taste der Zeile. Keine ✕: ein überfälliger Trupp lässt sich nicht wegwischen.
     alarmRowGo: 'Zum Trupp',
     // …ausser für ein Gerät, das den Trupp gar nicht beenden KANN (Viewer, Führungsansicht): dort

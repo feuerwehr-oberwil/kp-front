@@ -30,7 +30,7 @@ describe('atemschutzAlarmRows', () => {
     ]
     const rows = atemschutzAlarmRows(t, { a: 2, b: 2 }, NOW, 5, 60, DOCTRINE)
     expect(rows).toEqual([
-      { id: 'a', name: 'Meier', reason: 'contact' },
+      { id: 'a', name: 'Meier', reason: 'contact', sinceContactSec: 600 },
       { id: 'b', name: 'Huber', reason: 'pressure', bar: 90, line: 100 },
     ])
   })
@@ -216,5 +216,78 @@ describe('the published rows', () => {
       </>,
     )
     expect(document.querySelector('.ml-open')).not.toBeNull()
+  })
+})
+
+// Several Trupps in alarm for the SAME reason share one row (15.09.2026): two überfällige Trupps
+// used to stack two full-height rows with two identical buttons over the map.
+describe('several Trupps, one reason', () => {
+  afterEach(cleanup)
+  const base = { intervalMin: 5, graceSec: 60 }
+
+  it('merges them into one row naming the leaders, most urgent first, and «Zum Trupp» lands on that one', () => {
+    const went: string[] = []
+    render(
+      <>
+        <AtemschutzAlarmMeldungen
+          trupps={[
+            trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) }),
+            trupp({ id: 'b', name: 'Huber', lastContactTime: ago(900) }),
+          ]}
+          severities={{ a: 2, b: 2 }} {...base} onGoToTrupp={(id) => went.push(id)}
+        />
+        <Meldeleiste />
+      </>,
+    )
+    const rows = document.querySelectorAll('.ml-row')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].querySelector('.ml-title')?.textContent).toContain('2 Trupps: Huber · Meier')
+    expect(document.querySelectorAll('.ml-act button')).toHaveLength(1)
+    fireEvent.click(document.querySelector('.ml-act button')!)
+    expect(went).toEqual(['b']) // the longer without contact
+  })
+
+  it('keeps the two reasons apart, and a merged pressure row carries each Trupp\'s bar', () => {
+    render(
+      <>
+        <AtemschutzAlarmMeldungen
+          trupps={[
+            trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) }),
+            trupp({ id: 'b', name: 'Huber', lastPressureBar: 90 }),
+            trupp({ id: 'c', name: 'Keller', lastPressureBar: 70 }),
+          ]}
+          severities={{ a: 2, b: 2, c: 2 }} {...base} onGoToTrupp={() => {}}
+        />
+        <Meldeleiste />
+      </>,
+    )
+    const titles = [...document.querySelectorAll('.ml-title')].map((t) => t.textContent ?? '')
+    expect(titles).toHaveLength(2)
+    expect(titles.some((t) => t.includes('überfällig') && t.includes('Meier'))).toBe(true)
+    expect(titles.some((t) => t.includes('Alarmdruck') && t.includes('Keller 70 bar · Huber 90 bar'))).toBe(true)
+  })
+
+  it('a Trupp that crosses after the jump brings the row back naming only what is new', () => {
+    const overdueA = trupp({ id: 'a', name: 'Meier', lastContactTime: ago(600) })
+    const { rerender } = render(
+      <>
+        <AtemschutzAlarmMeldungen trupps={[overdueA]} severities={{ a: 2 }} {...base} onGoToTrupp={() => {}} />
+        <Meldeleiste />
+      </>,
+    )
+    fireEvent.click(document.querySelector('.ml-act button')!)
+    expect(document.querySelector('.ml-row')).toBeNull()
+    rerender(
+      <>
+        <AtemschutzAlarmMeldungen
+          trupps={[overdueA, trupp({ id: 'b', name: 'Huber', lastContactTime: ago(700) })]}
+          severities={{ a: 2, b: 2 }} {...base} onGoToTrupp={() => {}}
+        />
+        <Meldeleiste />
+      </>,
+    )
+    const title = document.querySelector('.ml-title')?.textContent ?? ''
+    expect(title).toContain('Huber')
+    expect(title).not.toContain('Meier')
   })
 })

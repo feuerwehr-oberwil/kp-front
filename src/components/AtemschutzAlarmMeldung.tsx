@@ -18,10 +18,13 @@ import type { Trupp } from '../types'
 // is handled, and the message says which Trupp and why.
 //
 // Three decisions, all deliberate:
-//  · ONE ROW PER TRUPP, not one «2 Trupps in Alarm». Same argument the Wiedervorlagen made the
-//    same day: a collapsed row's button acts on something the row does not name, and here the
-//    two Trupps can be in alarm for DIFFERENT reasons — one out of contact, one out of air.
-//    One row can only carry one of those words, and either choice is a lie about the other.
+//  · ONE ROW PER REASON, naming every Trupp in it (15.09.2026, field feedback – until then one
+//    row per Trupp, and two überfällige Trupps stacked two full-height rows with two identical
+//    buttons over the map). The two reasons stay apart: one out of contact, one out of air, and
+//    one row can only carry one of those words. Within a reason the row lists the Trupps and its
+//    «Zum Trupp» lands on the most urgent of them (longest without contact, lowest pressure) –
+//    the board then shows the rest side by side, ranked the same way its header badge ranks.
+//    ⚠️ The row still names what its button acts on: the leaders are in the title.
 //  · NO ✕. A Trupp that is überfällig cannot be waved away with nothing done. «Zum Trupp» is
 //    the one dismissal (28.08., field feedback): it acknowledges, silences the device AND takes
 //    the row down — the operator is now standing on the very board that shows the alarm in
@@ -56,6 +59,27 @@ export interface AtemschutzAlarmRow {
   /** the pressure it dropped to, and the line it is held to — a `pressure` alarm only */
   bar?: number
   line?: number
+  /** how long without contact (s) — a `contact` alarm only; the merged row's «Zum Trupp» lands
+   *  on the longest */
+  sinceContactSec?: number
+}
+
+/** The Trupps in alarm for ONE reason — what a merged row is about, and which of them the
+ *  button opens: the longest without contact, or the lowest pressure. */
+export interface AtemschutzAlarmGroup { reason: AtemschutzAlarmRow['reason']; rows: AtemschutzAlarmRow[]; focusId: string }
+
+/** Rows → one group per reason (contact first), most urgent Trupp first inside each. */
+export function groupAlarmRows(rows: readonly AtemschutzAlarmRow[]): AtemschutzAlarmGroup[] {
+  const groups: AtemschutzAlarmGroup[] = []
+  for (const reason of ['contact', 'pressure'] as const) {
+    const mine = rows.filter((r) => r.reason === reason)
+    if (!mine.length) continue
+    const sorted = [...mine].sort((a, b) => reason === 'contact'
+      ? (b.sinceContactSec ?? 0) - (a.sinceContactSec ?? 0)
+      : (a.bar ?? Infinity) - (b.bar ?? Infinity))
+    groups.push({ reason, rows: sorted, focusId: sorted[0].id })
+  }
+  return groups
 }
 
 /**
@@ -83,14 +107,14 @@ export function atemschutzAlarmRows(
     if (reason === 'pressure') rows.push({ id: t.id, name: t.name, members: t.members, reason, bar: live.currentBar, line: line ?? undefined })
     // …anything else that is loud enough to sound is the contact clock: `truppAlarm` only ever
     // answers `pressure`, `contact` or null, and null cannot happen for a Trupp the fold rated 2.
-    else rows.push({ id: t.id, name: t.name, members: t.members, reason: 'contact' })
+    else rows.push({ id: t.id, name: t.name, members: t.members, reason: 'contact', sinceContactSec: live.sinceContactSec ?? undefined })
   }
   return rows
 }
 
 /**
- * Publish one Meldeleiste row per Trupp in alarm. Renders nothing itself (the strip paints) —
- * mount it wherever the alarm state lives, beside the other publishers.
+ * Publish one Meldeleiste row per alarm REASON, naming the Trupps in it. Renders nothing itself
+ * (the strip paints) — mount it wherever the alarm state lives, beside the other publishers.
  */
 export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, graceSec, onAcknowledge, onGoToTrupp, onBoard = false, canEdit = true }: {
   trupps: readonly Trupp[]
@@ -139,17 +163,22 @@ export function AtemschutzAlarmMeldungen({ trupps, severities, intervalMin, grac
   // and remount unchanged when the operator leaves the board (after the hooks, so the visited
   // pruning above never skips a beat)
   if (onBoard) return null
-  return <>{rows.filter((r) => visited[r.id] !== r.reason).map((r) => (
-    <AtemschutzAlarmMeldung key={r.id} row={r} onAcknowledge={onAcknowledge}
-      onGo={(id) => { setVisited((v) => ({ ...v, [r.id]: r.reason })); onGoToTrupp(id) }}
+  // the bookkeeping stays PER TRUPP: a group whose members were all jumped to is silent, and a
+  // Trupp that crosses later brings the group's row back naming only what is new
+  const groups = groupAlarmRows(rows.filter((r) => visited[r.id] !== r.reason))
+  const markVisited = (g: AtemschutzAlarmGroup) =>
+    setVisited((v) => ({ ...v, ...Object.fromEntries(g.rows.map((r) => [r.id, r.reason])) }))
+  return <>{groups.map((g) => (
+    <AtemschutzAlarmMeldung key={g.reason} group={g} onAcknowledge={onAcknowledge}
+      onGo={(id) => { markVisited(g); onGoToTrupp(id) }}
       // a device that cannot end the alarm may at least stop being shouted at by it — the SAME
-      // per-row, per-reason bookkeeping, so a new emergency on the Trupp brings the row back
-      onAck={canEdit ? undefined : () => setVisited((v) => ({ ...v, [r.id]: r.reason }))} />
+      // per-Trupp, per-reason bookkeeping, so a new emergency on a Trupp brings the row back
+      onAck={canEdit ? undefined : () => markVisited(g)} />
   ))}</>
 }
 
-function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo, onAck }: {
-  row: AtemschutzAlarmRow
+function AtemschutzAlarmMeldung({ group, onAcknowledge, onGo, onAck }: {
+  group: AtemschutzAlarmGroup
   onAcknowledge?: () => void
   onGo: (id: string) => void
   /** present only on a device that cannot edit Trupps — «Zur Kenntnis genommen» */
@@ -157,22 +186,31 @@ function AtemschutzAlarmMeldung({ row, onAcknowledge, onGo, onAck }: {
 }) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const az = appConfig.copy.atemschutz
-  const pressure = row.reason === 'pressure'
-  // the whole crew, leader first, « / » between them like every crew line (docs/trupp-naming.md
-  // §4) — the title ellipsizes, so what does not fit falls away
-  const name = [row.name || az.truppFallbackName, ...(row.members ?? [])].filter(Boolean).join(' / ')
-  const go = () => { onAcknowledge?.(); onGo(row.id) }
+  const pressure = group.reason === 'pressure'
+  const [row] = group.rows
+  const many = group.rows.length > 1
+  // ONE Trupp: the whole crew, leader first, « / » between them like every crew line
+  // (docs/trupp-naming.md §4). SEVERAL: the leaders only, « · » between them, most urgent first
+  // — the title ellipsizes, so what does not fit falls away
+  const leader = (r: AtemschutzAlarmRow) => r.name || az.truppFallbackName
+  const name = many
+    ? group.rows.map((r) => (pressure && r.bar != null ? `${leader(r)} ${r.bar} bar` : leader(r))).join(' · ')
+    : [leader(row), ...(row.members ?? [])].filter(Boolean).join(' / ')
+  const go = () => { onAcknowledge?.(); onGo(group.focusId) }
   const sub = pressure
-    ? fillTemplate(az.alarmRowPressureSub, { bar: row.bar ?? '', line: row.line ?? '' })
+    ? many ? az.alarmRowPressureManySub : fillTemplate(az.alarmRowPressureSub, { bar: row.bar ?? '', line: row.line ?? '' })
     : az.alarmRowOverdueSub
+  const title = many
+    ? fillTemplate(pressure ? az.alarmRowPressureMany : az.alarmRowOverdueMany, { count: group.rows.length, names: name })
+    : fillTemplate(pressure ? az.alarmRowPressure : az.alarmRowOverdue, { name })
   useMeldung({
-    id: `atemschutz:${row.id}`,
+    id: `atemschutz:${group.reason}`,
     kind: 'atemschutz',
     tone: 'alarm',
     // the SAME two glyphs the TopBar chip uses for the same two reasons — the operator who
     // learned them on the chip does not have to learn them twice
     icon: pressure ? 'drop' : 'gauge',
-    title: fillTemplate(pressure ? az.alarmRowPressure : az.alarmRowOverdue, { name }),
+    title,
     // a read-only device says so on the row, so its acknowledgement is not mistaken for a contact
     sub: onAck ? `${sub} · ${az.alarmRowReadOnly}` : sub,
     // ONE move, and it is forward: the board is where a Funkkontakt or a Druckmeldung is
