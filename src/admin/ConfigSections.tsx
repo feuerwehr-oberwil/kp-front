@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AlarmGroup, DeploymentConfig, DeploymentFleet, FleetVehicle } from '../lib/deploymentConfig'
-import { legacyFleetToAttributeLists, DEFAULT_MODULES, moduleAlignment } from '../lib/deploymentConfig'
-import { listReference, listObjects, type ReferenceDataset, type ObjectWithPlans } from '../lib/incidents'
+import { legacyFleetToAttributeLists, DEFAULT_MODULES } from '../lib/deploymentConfig'
+import { listReference, type ReferenceDataset } from '../lib/incidents'
 import { geoDatasetId, geoLayerUrl, inspectGeojson, uploadReference } from '../lib/api/reference'
 import { ApiError, apiGet } from '../lib/api'
 import { useConfig, getPath } from './ConfigContext'
@@ -14,8 +14,8 @@ import {
 import { AVAILABLE_LOCALES } from '../config/copy'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
 import { ModulesViewer } from './ModulesViewer'
-import { PlanAlignmentReview } from './PlanAlignmentReview'
-import { ObjectsView, GeodataView } from './DataView'
+import { ObjectPlansView } from './ObjectPlansView'
+import { GeodataView } from './DataView'
 import { BrandingFields } from './BrandingFields'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -1786,39 +1786,14 @@ function ReferenceGeojsonEditor({ all, write, datasets, onUploaded }: {
 export function ModulesSection() {
   const { draft } = useConfig()
   const C = appConfig.copy.admin.modules
-  // Read-only. The imported objects drive both the per-module coverage stats (in ModulesViewer)
-  // and the object map below. Objects and their plans are edited in the Objekt-Maske underneath;
-  // the module catalogue itself is a config document, and which command writes it belongs in
-  // docs/CONFIGURATION.md, not on this page.
-  const [objects, setObjects] = useState<ObjectWithPlans[]>([])
-  useEffect(() => {
-    let alive = true
-    void listObjects().then((rows) => { if (alive) setObjects(rows) }).catch(() => { /* coverage is a nicety */ })
-    return () => { alive = false }
-  }, [])
-  // A deployment that doesn't override `modules` runs on the national defaults — show those as the
-  // in-force catalogue (with a note), not an empty state.
   const configured = draft?.modules ?? []
   const usingDefaults = configured.length === 0
   const modules = usingDefaults ? DEFAULT_MODULES : configured
-  return (
-    <>
-      <Card title={C.catalogueTitle}>
-        {/* The two `uv run python -m app.admin_…` lines that stood here are gone. A command to
-            type is documentation, and docs/CONFIGURATION.md is where it is maintained — printed
-            on a settings page it went stale silently and pushed the catalogue off the screen. */}
-        <ModulesViewer modules={modules} objects={objects} usingDefaults={usingDefaults} />
-      </Card>
-      <ObjectsView title={C.objectsTitle} />
-      {/* The server-prepared plan alignments, reviewed and approved HERE — beside the PDF
-          stock they belong to, and BELOW it: the wall is long, the stock is what one comes
-          here for most days. Compact: unsupported rows folded away. */}
-      {/* Only a station that lets sheets onto the Karte at all has anything to review here –
-          the catalogue says so (modules[].alignment); a station with `none` everywhere never
-          meets this section. */}
-      {modules.some((m) => moduleAlignment(modules, m.id) !== 'none') && <PlanAlignmentReview compact />}
-    </>
-  )
+  return <ObjectPlansView modules={modules} overview={objects =>
+    <Card title={C.catalogueTitle}>
+      <ModulesViewer modules={modules} objects={objects} usingDefaults={usingDefaults} />
+    </Card>
+  } />
 }
 
 /**

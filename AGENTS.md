@@ -86,6 +86,25 @@ to prod.
   rule: Lage map has document-level undo (`useUndoableDoc`), Plan has per-plan-document undo
   (`useBoardDoc`), and one-shot ops (Gebäude floor add/remove, building replace) use
   confirm-with-undo toasts. Add undo for new mutations; don't skip it.
+- **Objektpläne is object-first.** Tabs Objekte · Vorschläge (the review wall's staged ✓/✕ +
+  Übernehmen, only open proposals) · Übersicht. The object table row itself opens the detail
+  (chevron, no «Öffnen» button), which IS the object editor: auto-saving settings rows (explicit
+  button only to create), one TABLE row per catalogue module prefixed with its short form («M6»,
+  «M5 PV» – never a raw modulN key), ONE primary action per row («Vorbereiten» or the upload) and a
+  kebab for the rest – no modal, no nested cards, no captions. Plan order everywhere is
+  `src/lib/planOrder.ts` (module number, family before sub-slots; catalogue `order` only breaks ties). Catalogue coverage and locations live
+  under Übersicht. Preparation opens a full-screen editor (admin header + Segmented tabs
+  Geschosse / Karte ausrichten / Vorschau, the selected floor row expands in place into its
+  inspector, one map fit per PDF shown as a per-page setting) with one persistent draft/save action.
+  Switching tabs never saves or discards changes; leaving a dirty editor asks before discarding.
+  Status belongs to the current PDF byte revision, never an older approved revision.
+- **Prepared Gebäude floors belong to their frozen plan binding.** A Modul-6 stack stores
+  `pack.bindingId`; changing the selected Einsatzobjekt must not retarget its backdrop or ink.
+  Prepared floors cannot be added or deleted in the incident. Floor drawings may connect in
+  pairs across PDF pages; resolve those joins in a common frame, never independently centre
+  each crop. A symbol's Von/Bis range is one object shown and selectable on every covered floor.
+  Dragging it one storey moves the whole range (0–2 → 1–3), with one undo step; range controls
+  change coverage, and old single-floor values remain readable without inventing assignments.
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by

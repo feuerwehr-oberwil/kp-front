@@ -1,16 +1,24 @@
-/* Station data that is now written from the browser: the Einsatzobjekt sheet (ObjectSheet.tsx)
-   and the Checklisten page (ChecklistsView.tsx). A separate file from admin.css so these two
-   surfaces stay together and the 1400-line base sheet does not keep growing; imported by the
-   components themselves. Same rules as admin.css: global tokens only, never a frozen colour,
-   and --accent (the brand red) is never used to mean "selected". */
+/* Station data that is now written from the browser: the Einsatzobjekt editor (ObjectEditor.tsx,
+   rendered inline on the Objektpläne detail page and inside ObjectSheet.tsx) and the Checklisten
+   page (ChecklistsView.tsx). A separate file from admin.css so these surfaces stay together and
+   the 1400-line base sheet does not keep growing; imported by the components themselves. Same
+   rules as admin.css: global tokens only, never a frozen colour, and --accent (the brand red) is
+   never used to mean "selected". */
 
 /* ── Einsatzobjekt sheet ──────────────────────────────────────────────────── */
 
 /* The plan half is a long list, so the sheet gets the wide frame and its own scroll. */
 .adm-objsheet .ip-body { display: flex; flex-direction: column; gap: 2px; }
+/* ⚠️ The body is the SAME component the Objektpläne page renders as a page section, so it
+   brings the page's card chrome with it. Inside a sheet that would be a card floating in a
+   modal: flatten it, and let the sheet's own frame be the only box. */
+.adm-objsheet .adm-card { border: 0; border-radius: 0; box-shadow: none; background: transparent; padding: 0; }
+.adm-objsheet .adm-card-head { padding-left: 0; padding-right: 0; }
 
 /* the derived / stored object id, under the key field */
-.adm-obj-idline { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 10px; }
+.adm-obj-idline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 2px 0 10px; }
+/* …and as the Wert cell of a settings row it is the row, so it carries no margin of its own */
+.adm-set-ctl > .adm-obj-idline { margin: 0; }
 .adm-obj-idline code {
   font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
   padding: 2px 7px; border-radius: var(--r-xs);
@@ -42,9 +50,6 @@
 .adm-slot-plan { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11.5px; }
 .adm-slot-plan .i { width: 13px; height: 13px; color: var(--ink-faint); }
 .adm-slot-plan .adm-ref-note { display: inline; }
-/* the «add a sub-slot» row of a family module (Modul 5 – Wasser) */
-.adm-slot-new { background: var(--surface-2); }
-.adm-slot-suffix { max-width: 200px; }
 
 /* ── Checklisten ──────────────────────────────────────────────────────────── */
 

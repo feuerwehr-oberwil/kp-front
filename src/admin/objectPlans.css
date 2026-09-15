@@ -1,0 +1,113 @@
+/* Verwaltung › Module › Objekte & Pläne (ObjectPlansView).
+   The page is the shared admin grammar – the `.adm-table` object list, the SAME table again for
+   one object's Modulpläne, settings rows for its fields, dashed add/empty rows, StatusBadge – so
+   what is left here is only what no primitive owns: the section's own rhythm, the tools line
+   above the object list, the two tables' own cells, and the map's height. Nothing nests. */
+.adm-object-plans { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+/* one rhythm: the section already spaces its children, so neither a card nor the back-row may
+   add a second gap of their own on top of it */
+.adm-object-plans > .adm-card + .adm-card { margin-top: 0; }
+.adm-object-plans > .adm-actions { margin-bottom: 0; }
+/* the tab switch is a control, not a banner – blockified by the column it would stretch */
+.adm-object-plans > .useg { align-self: flex-start; }
+
+/* Suche + Statusfilter, the line above the object list. It used to ride the record list's own
+   flex gap; in a plain Card nothing spaces it, so it carries the gap itself. */
+.aop-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.aop-tools .adm-input { flex: 1 1 220px; max-width: 360px; }
+
+/* A record's head is a LINE, not a toolbar: its buttons match the 32–36px controls every other
+   record head carries (admin.css · .adm-rec-act), not the 44px of a page action. Only the
+   Übersicht tab still brings record cards in – the object's own surfaces are tables. */
+.adm-object-plans .adm-rec-act .adm-int-btn { min-height: 36px; padding: 7px 12px; }
+
+/* the Objektstandorte map has no intrinsic height */
+.aop-map { position: relative; height: min(50dvh, 480px); min-height: 280px; }
+
+/* ── the object list: a plain table, one row per Einsatzobjekt ────────────────────────────────
+   Not record cards: the list answers three short questions per object (welches, welche Pläne,
+   wie weit) and a card per row turned a scannable stock list into a wall. It rides the shared
+   `.adm-table` + `.adm-vtable` chrome — the same table the Modul-Katalog above it is — and only
+   the things no table owns are here: the two-line name cell, the 44px row and the click target. */
+.adm-table.adm-vtable.aop-table th:last-child,
+.adm-table.adm-vtable.aop-table td:last-child { width: 1%; white-space: nowrap; }
+/* ⚠️ Objekt and Pläne SHARE the slack, 2 : 1 — «Pläne» used to hug its content, which meant a
+   narrow column the module codes wrapped to four lines inside while the name cell sat half
+   empty. Status and Aktion still hug (1% + nowrap), so the two that carry text get the rest. */
+.adm-table.adm-vtable.aop-table th:first-child,
+.adm-table.adm-vtable.aop-table td:first-child { width: 62%; }
+.adm-table.adm-vtable.aop-table th:nth-child(2),
+.adm-table.adm-vtable.aop-table td:nth-child(2) { width: 31%; min-width: 220px; }
+.adm-table.adm-vtable.aop-table th:nth-child(3),
+.adm-table.adm-vtable.aop-table td:nth-child(3) { width: 1%; white-space: nowrap; }
+/* ⚠️ `height` on a table row is a MINIMUM, which is exactly the 44px touch target we want —
+   a one-line row keeps it, a row whose name wraps simply grows. */
+.aop-table tr { height: 44px; }
+.aop-row { cursor: pointer; }
+/* ⚠️ The row IS the control. The finger gets the whole `<tr>`; a keyboard and a screen reader
+   get the one button spanning the name cell, which is the same destination — so hover AND the
+   button's own focus light the same row, and there is no second «Öffnen» target beside it. */
+@media (hover: hover) {
+  .aop-row:hover { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+}
+.aop-row:has(.aop-open:focus-visible) { background: color-mix(in srgb, var(--blue) 7%, transparent); }
+.aop-open {
+  display: block; width: 100%; min-height: var(--tap); padding: 0; margin: 0;
+  border: 0; border-radius: var(--r-ctl); background: none; text-align: left; cursor: pointer;
+  font: inherit; color: inherit;
+}
+.aop-open:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.aop-name { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.aop-addr { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ink-faint); }
+/* the only affordance the row still carries — it points where the press goes, it is not a
+   second button; the whole row already is one */
+.aop-go { text-align: right; color: var(--ink-faint); }
+.aop-go svg { display: inline-block; width: 18px; height: 18px; vertical-align: middle; }
+
+/* a plan row's Plan cell: version/date, the provenance badge and the stored size on one line */
+.aop-source { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+
+/* The module short forms an object has a plan for — «M1 · M5 PV · M6». Chips, so a code never
+   breaks across two lines the way the joined string did; the LIST may wrap between them. */
+.aop-plans { min-width: 0; }
+.aop-codes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.aop-code {
+  white-space: nowrap; font-size: 11px; font-weight: 700; color: var(--ink-dim);
+  padding: 2px 7px; border-radius: var(--r-xs);
+  background: var(--surface-2); border: 1px solid var(--border-soft);
+}
+
+/* ── one object's Modulpläne: the same table, one row per catalogue module ────────────────────
+   Not record cards, and nothing nested: the row answers «welches Modul, welcher Plan, wie weit»
+   and a card per module made twelve short answers into a wall.
+
+   ⚠️ The ROW is the control here too (15.09.2026) — hover + click, exactly as in the object list
+   above it. The «Aktionen» column with its primary button per row is gone: three labels of three
+   widths started at three different places down one column. What is left is affordance only. */
+.aop-plantable tr { height: 44px; }
+.aop-plan-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+/* Modul and Plan share the slack; Status hugs its content. The last column is FIXED: the kebab's
+   34px slot – held open even where there is no kebab – plus the chevron, so nothing shifts
+   between rows and the affordance sits at the same right edge as the object list's. */
+.adm-table.adm-vtable.aop-plantable th:first-child,
+.adm-table.adm-vtable.aop-plantable td:first-child { width: 50%; }
+.adm-table.adm-vtable.aop-plantable th:nth-child(2),
+.adm-table.adm-vtable.aop-plantable td:nth-child(2) { width: 42%; }
+.adm-table.adm-vtable.aop-plantable th:nth-child(3),
+.adm-table.adm-vtable.aop-plantable td:nth-child(3) { width: 1%; white-space: nowrap; }
+.adm-table.adm-vtable.aop-plantable th:last-child,
+.adm-table.adm-vtable.aop-plantable td:last-child { width: 72px; white-space: nowrap; }
+.aop-planact { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+/* a row with no kebab holds its place open, so every chevron stays in one line */
+.aop-act-gap { display: inline-block; width: 34px; flex: 0 0 34px; }
+/* the same row-is-the-control vocabulary as .aop-row: the finger gets the whole `<tr>`, a
+   keyboard and a screen reader get the button spanning the Modul cell, and both light the row. */
+.aop-planrow { cursor: pointer; }
+.aop-planrow[aria-busy='true'] { cursor: default; }
+@media (hover: hover) {
+  .aop-planrow:hover { background: color-mix(in srgb, var(--blue) 5%, transparent); }
+  .aop-planrow[aria-busy='true']:hover { background: none; }
+}
+.aop-planrow:has(.aop-open:focus-visible) { background: color-mix(in srgb, var(--blue) 7%, transparent); }
+/* a row's own upload failure, directly under it */
+.aop-planerr td { padding-top: 0; }

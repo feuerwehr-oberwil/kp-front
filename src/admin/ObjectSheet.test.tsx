@@ -87,7 +87,7 @@ describe('ObjectSheet — a new Einsatzobjekt is addressed by its key, never by 
     await screen.findByText('f4db7b86-e0fb-5ba7-856d-8e356d2ff3af')
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Schulhaus Dorfmatt' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Objekt erstellen' }))
 
     await waitFor(() => expect(saveObject).toHaveBeenCalledTimes(1))
     expect(saveObject.mock.calls[0][0]).toBe('f4db7b86-e0fb-5ba7-856d-8e356d2ff3af')
@@ -102,7 +102,7 @@ describe('ObjectSheet — a new Einsatzobjekt is addressed by its key, never by 
     fireEvent.change(lngInput(), { target: { value: '2612000' } })
 
     expect(await screen.findByText(/LV95-Metern/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Speichern' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Objekt erstellen' })).toHaveProperty('disabled', true)
     expect(saveObject).not.toHaveBeenCalled()
   })
 
@@ -110,6 +110,50 @@ describe('ObjectSheet — a new Einsatzobjekt is addressed by its key, never by 
     render(<ObjectSheet object={null} onClose={() => {}} onChanged={() => {}} />)
     expect(screen.getByText(/sobald das Objekt gespeichert ist/)).toBeTruthy()
     expect(pdfInputs()).toHaveLength(0)
+  })
+})
+
+describe('ObjectSheet — an existing object commits itself, a new one is created on purpose', () => {
+  it('writes a changed field when it is left — no «Speichern» to forget', async () => {
+    saveObject.mockResolvedValue(existing({ address: 'Schulstrasse 6' }))
+    render(<ObjectSheet object={existing()} onClose={() => {}} onChanged={() => {}} />)
+    // the button is gone, and nothing has been written by merely opening the sheet
+    expect(screen.queryByRole('button', { name: 'Speichern' })).toBeNull()
+    expect(saveObject).not.toHaveBeenCalled()
+
+    const address = screen.getByLabelText('Adresse')
+    fireEvent.change(address, { target: { value: 'Schulstrasse 6' } })
+    fireEvent.blur(address)
+
+    await waitFor(() => expect(saveObject).toHaveBeenCalledTimes(1))
+    expect(saveObject.mock.calls[0][1]).toMatchObject({ address: 'Schulstrasse 6' })
+    expect(await screen.findByText('Gespeichert.')).toBeTruthy()
+  })
+
+  it('writes nothing when a field is left untouched, and nothing invalid', async () => {
+    render(<ObjectSheet object={existing()} onClose={() => {}} onChanged={() => {}} />)
+    fireEvent.blur(screen.getByLabelText('Adresse'))
+    // an emptied name is not a correction anybody meant — it must never reach the server
+    const name = screen.getByLabelText('Name')
+    fireEvent.change(name, { target: { value: '  ' } })
+    fireEvent.blur(name)
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveProperty('value', '  '))
+    expect(saveObject).not.toHaveBeenCalled()
+  })
+
+  it('says why a field did not stick instead of flashing «Gespeichert.»', async () => {
+    saveObject.mockRejectedValue(new Error('offline'))
+    render(<ObjectSheet object={existing()} onClose={() => {}} onChanged={() => {}} />)
+    const address = screen.getByLabelText('Adresse')
+    fireEvent.change(address, { target: { value: 'Schulstrasse 6' } })
+    fireEvent.blur(address)
+    expect(await screen.findByText('Objekt konnte nicht gespeichert werden.')).toBeTruthy()
+    expect(screen.queryByText('Gespeichert.')).toBeNull()
+  })
+
+  it('still asks for one explicit «Objekt erstellen» — the id must exist before a plan can', () => {
+    render(<ObjectSheet object={null} onClose={() => {}} onChanged={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Objekt erstellen' })).toBeTruthy()
   })
 })
 
