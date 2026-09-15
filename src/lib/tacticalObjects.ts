@@ -1,7 +1,8 @@
 import type { BoardAnno, BoardDoc, BoardPoint, Drawing, Entity, LngLat } from '../types'
 import type { GeorefFit } from './georef'
 import { planGroundWidthM, boardSymbolToEntity, entityToBoardSymbol, entitySharedProps } from './georefTwins'
-import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround } from './planProjection'
+import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround, turnedToSheet } from './planProjection'
+import { normalizeStackEdit } from './stackFloors'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
@@ -140,7 +141,17 @@ export function sheetAnchoredIds(objects: TacticalObject[], planId: string): Set
 }
 
 /** What one linked plan contributes to baking: its fit and the sheet's aspect. */
-export interface PlanFit { fit: GeorefFit; aspect: number }
+export interface PlanFit {
+  fit: GeorefFit
+  aspect: number
+  /** the Gebäude floor-stack (lib/stackFit): `fit` maps ONE tile's local coordinates (x of the
+   *  board width, y of the tile; aspect 1/TILE_AR) to the ground, alike for every storey; `floors`
+   *  are the storeys the stack has. An anno's `floor` is the tile it stands on; its storeys on the
+   *  Karte are `floorFrom`/`floorTo` – set explicitly, or both = the tile (decided 15.09.2026: ONE
+   *  storey vocabulary, Von/Bis, on both surfaces; a span shows as copies on every tile in it). A
+   *  map object lands on the tile of its `floorFrom` (its `floor`, else 0). */
+  stack?: { floors: number[] }
+}
 
 /** A sheet point's x/y without its optional per-point floor. */
 const ptXY = (p: BoardPoint): { x: number; y: number } => ({ x: p[0], y: p[1] })
@@ -261,6 +272,7 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
     // ⚠️ …and back out of the paper's frame into north's — see planProjection · turnedToSheet
     const entity = born && {
       ...born,
+      ...(plan.stack ? { floor: undefined, floorFrom: anno.floorFrom ?? anno.floor ?? 0, floorTo: anno.floorTo ?? anno.floorFrom ?? anno.floor ?? 0 } : {}),
       rotation: turnedToGround(born.rotation, plan.fit, directionalGlyph(born)),
       rotation2: turnedToGround(born.rotation2, plan.fit, directionalGlyph2(born)),
     }
@@ -271,7 +283,8 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       id: o.id, kind: 'note', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
       label: anno.text ?? anno.label, rotation: anno.rotation, color: anno.color,
       noteSize: anno.noteSize, noteAutoW: anno.noteAutoW, notePlain: anno.notePlain,
-      floor: anno.storey,
+      floor: plan.stack ? undefined : anno.storey,
+      ...(plan.stack ? { floorFrom: anno.floorFrom ?? anno.floor ?? 0, floorTo: anno.floorTo ?? anno.floorFrom ?? anno.floor ?? 0 } : {}),
     }
     return settle({ entity })
   }
@@ -283,7 +296,8 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       sizeM: anno.sizeN != null ? anno.sizeN * widthM : undefined,
       aspect: anno.aspect, stop: anno.stop, carrier: anno.carrier, reverse: anno.reverse,
       strokeW: anno.strokeW, fillOpacity: anno.fillOpacity, hatch: anno.hatch,
-      sharpCorners: anno.sharpCorners, locked: anno.locked, floor: anno.storey,
+      sharpCorners: anno.sharpCorners, locked: anno.locked, floor: plan.stack ? undefined : anno.storey,
+      ...(plan.stack ? { floorFrom: anno.floorFrom ?? anno.floor ?? 0, floorTo: anno.floorTo ?? anno.floorFrom ?? anno.floor ?? 0 } : {}),
     }
     return settle({ entity })
   }
@@ -302,6 +316,10 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       ...pick(anno, SHARED_PATH_PROPS),
       id: o.id, kind: anno.kind === 'draw' ? 'line' : 'area',
       coords: anno.pts.map((p) => { const { x, y } = ptXY(p); return at(x, y) }),
+      // a Leitung drawn on the stack: the Karte's FKS end tag says the storey it ENDED on – the
+      // last vertex's own storey when the line crossed tiles, else its tile (Bastian, 14.09.2026:
+      // «the main thing is the end label – to which floor did it go in the end»)
+      ...(plan.stack && anno.floorTag == null ? { floorTag: anno.pts[anno.pts.length - 1][2] ?? anno.floor ?? 0 } : {}),
     }
     return settle({ drawing })
   }
@@ -484,7 +502,8 @@ export function applyDocToObjects(
     if (moved && byHand) next.push({ id: o.id, ...body })
     else {
       const plan = fits?.get(o.sheet.planId)
-      const anno = annoAfterMapEdit(o.sheet.anno, body, plan, moved ? 'machine' : undefined)
+      const edited = annoAfterMapEdit(o.sheet.anno, body, plan, moved ? 'machine' : undefined)
+      const anno = plan?.stack ? normalizeStackEdit(o.sheet.anno, edited) : edited
       next.push({ ...o, entity: undefined, drawing: undefined, ...body, sheet: { ...o.sheet, anno } })
     }
   }
@@ -526,8 +545,8 @@ export function sheetAnnos(objects: TacticalObject[], planId: string, plan?: Pla
   const own: BoardAnno[] = []
   for (const o of objects) {
     if (o.sheet?.planId === planId) { own.push(o.sheet.anno); continue }
-    if (!plan || o.sheet) continue
-    const p = projectOnto(o, plan)
+    if (!plan) continue
+    const p = projectOnto(o, plan) // decides itself what another sheet's object shows here
     if (p) projected.push(p)
   }
   return projected.length ? [...projected, ...own] : own
@@ -536,12 +555,13 @@ export function sheetAnnos(objects: TacticalObject[], planId: string, plan?: Pla
 export function applyBoardToObjects(
   objects: TacticalObject[],
   planId: string,
-  annos: BoardAnno[],
+  incoming: BoardAnno[],
   plan?: PlanFit,
   defaultLayer: Entity['layer'] = 'taktisch',
   /** `false` = a MACHINE produced this list, so a changed position is not a hand-placement. No
    *  such writer exists on the plan surface today; the door is here because the map's has one. */
   gesture = true,
+  fits?: ReadonlyMap<string, PlanFit>,
 ): TacticalObject[] {
   const anchoredHere = (o: TacticalObject) => o.sheet?.planId === planId
   /** The anno this sheet is CURRENTLY showing for each geo-anchored object — the yardstick every
@@ -557,6 +577,17 @@ export function applyBoardToObjects(
   // the SAME builder the surface was handed (sheetAnnos): compared in a different order, every
   // no-op write looked like a re-arrangement.
   const before = sheetAnnos(objects, planId, plan)
+  const prior = new Map(before.map((anno) => [anno.id, anno]))
+  // A raw tile change is a hand placement. Range-only edits can choose another home
+  // during normalization below, but that derived home must not flip a geo anchor.
+  const floorPlacements = new Set(plan?.stack && gesture ? incoming.filter((anno) => {
+    const was = prior.get(anno.id)
+    return was && (anno.floor ?? 0) !== (was.floor ?? 0)
+  }).map((anno) => anno.id) : [])
+  const annos = plan?.stack && gesture ? incoming.map((anno) => {
+    const was = prior.get(anno.id)
+    return was ? normalizeStackEdit(was, anno) : anno
+  }) : incoming
   if (before.length === annos.length && before.every((a, i) => sameValue(a, annos[i]))) return objects
 
   const byId = new Map(objects.map((o) => [o.id, o]))
@@ -568,11 +599,30 @@ export function applyBoardToObjects(
     const prev = byId.get(anno.id)
     // new here — a fresh anno, or an object dragged onto this sheet from another one. Either way
     // the sheet becomes its anchor, and the bake derives the ground position from it.
-    if (!prev || prev.sheet) return prev ? { ...prev, sheet: { planId, anno } } : { id: anno.id, sheet: { planId, anno } }
+    if (!prev) return { id: anno.id, sheet: { planId, anno } }
     const was = shown.get(prev.id)
+    if (prev.sheet) {
+      if (!was) return { ...prev, sheet: { planId, anno } }
+      // Moving changes ownership; a property edit writes back through the owner's frame.
+      const dragged = floorPlacements.has(anno.id) || !sameValue(was.x, anno.x) || !sameValue(was.y, anno.y) || !sameValue(was.pts, anno.pts)
+      if (dragged && gesture) return { ...prev, sheet: { planId, anno } }
+      if (sameValue(was, anno) || !plan) return prev
+      const body = geoAfterSheetEdit(prev, planId, anno, plan, defaultLayer, dragged)
+      const owner = fits?.get(prev.sheet.planId)
+      let edited = annoAfterMapEdit(prev.sheet.anno, body, owner)
+      if (edited.kind === 'symbol' && body.entity && owner) {
+        // Both sheets have their own bearing frame. Preserve untouched paper bearings
+        // verbatim, and translate a changed bearing through ground into the owner's fit.
+        edited = { ...edited,
+          rotation: sameValue(was.rotation, anno.rotation) ? prev.sheet.anno.rotation : turnedToSheet(body.entity.rotation, owner.fit, directionalGlyph(body.entity)),
+          rotation2: sameValue(was.rotation2, anno.rotation2) ? prev.sheet.anno.rotation2 : turnedToSheet(body.entity.rotation2, owner.fit, directionalGlyph2(body.entity)),
+        }
+      }
+      return { ...prev, ...body, sheet: { ...prev.sheet, anno: owner?.stack ? normalizeStackEdit(prev.sheet.anno, edited) : edited } }
+    }
     // it was NOT on this sheet a moment ago, so this is a placement onto it
     if (!was) return { ...prev, sheet: { planId, anno } }
-    const moved = !sameValue(was.x, anno.x) || !sameValue(was.y, anno.y) || !sameValue(was.pts, anno.pts)
+    const moved = floorPlacements.has(anno.id) || !sameValue(was.x, anno.x) || !sameValue(was.y, anno.y) || !sameValue(was.pts, anno.pts)
     // moved by a HAND → «last hand-placement owns the truth»: the sheet takes the anchor, and
     // the bake derives the ground position from the paper the operator actually pointed at
     if (moved && gesture) return { ...prev, sheet: { planId, anno } }

@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useObjectStore } from './useObjectStore'
+import { useObjectStore, type ForeignSheetEditEvent } from './useObjectStore'
+import { stateAt, type ReplayBundle } from './replay'
+import { bakeGeoBody } from './tacticalObjects'
 import { fitSimilarity, type GeorefPair } from './georef'
 import type { AnchorChange, PlanFit, TacticalObject } from './tacticalObjects'
 import type { BoardAnno, Entity } from '../types'
@@ -636,5 +638,93 @@ describe('a flip is reported — once, with both halves', () => {
     const { result } = store(sheetObj(), FITS, false, onAnchorChange)
     act(() => { result.current.rebake({ checkpoint: true }) })
     expect(onAnchorChange).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('Gebäude objects edited through another module', () => {
+  it('keeps owner paper bearings through a label edit and converts actual turns back to that frame', () => {
+    const owner = { ...PLAN, fit: { ...PLAN.fit, rotationDeg: 35 }, stack: { floors: [0] } }
+    const target = { ...PLAN, fit: { ...PLAN.fit, rotationDeg: -20 } }
+    const fits = new Map([['gebaeude', owner], ['modul2', target]])
+    const initial = bakeGeoBody({ id: 's', sheet: { planId: 'gebaeude', anno: anno('s', { symbol: 'VKF Hubretter', floor: 0, rotation: 80, rotation2: 100 }) } }, owner, 'taktisch')
+    const { result } = store([initial], fits)
+    act(() => result.current.setBoard(b => ({ ...b, modul2: b.modul2.map(a => ({ ...a, label: 'Only the label' })) })))
+    act(() => result.current.rebake({ checkpoint: false }))
+    expect(result.current.board.gebaeude[0]).toMatchObject({ rotation: 80, rotation2: 100 })
+    expect(result.current.doc.entities[0]).toMatchObject({ rotation: 45, rotation2: 65 })
+    act(() => result.current.setBoard(b => ({ ...b, modul2: b.modul2.map(a => ({ ...a, rotation: 65, rotation2: 85 })) })))
+    act(() => result.current.rebake({ checkpoint: false }))
+    expect(result.current.board.gebaeude[0]).toMatchObject({ rotation: 120, rotation2: 140 })
+    expect(result.current.doc.entities[0]).toMatchObject({ rotation: 85, rotation2: 105 })
+  })
+  it('a floor-only hand drag flips a geo anchor and one undo restores its full range', () => {
+    const fits = new Map([['gebaeude', { ...PLAN, stack: { floors: [0, 1, 2, 3] } }]])
+    const original = { id: 'g', entity: ent('g', { coord: [mEast(50).lng, ORIGIN.lat], floorFrom: 0, floorTo: 2 }) }
+    const { result } = store([original], fits)
+    act(() => {
+      result.current.beginSheetStep()
+      result.current.setBoard(b => ({ ...b, gebaeude: b.gebaeude.map(a => ({ ...a, floor: 1 })) }))
+      result.current.endSheetStep()
+    })
+    expect(result.current.objects[0].sheet?.planId).toBe('gebaeude')
+    expect(result.current.objects[0].entity).toMatchObject({ floorFrom: 1, floorTo: 3 })
+    act(() => { result.current.undo() })
+    expect(result.current.objects).toEqual([original])
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('range-only edits may rehome a projection without flipping its geo anchor', () => {
+    const fits = new Map([['gebaeude', { ...PLAN, stack: { floors: [0, 1, 2, 3] } }]])
+    const { result } = store([{ id: 'g', entity: ent('g', { coord: [mEast(50).lng, ORIGIN.lat], floorFrom: 0, floorTo: 2 }) }], fits)
+    act(() => result.current.setBoard(b => ({ ...b, gebaeude: b.gebaeude.map(a => ({ ...a, floorFrom: 1 })) })))
+    expect(result.current.objects[0].sheet).toBeUndefined()
+    expect(result.current.board.gebaeude[0].floor).toBe(1)
+  })
+
+  it('records one committed foreign edit and replays both owning views including removed fields', async () => {
+    const owner = { ...PLAN, stack: { floors: [0, 1, 2] } }
+    const fits = new Map([['gebaeude', owner], ['modul2', PLAN]])
+    const initial = bakeGeoBody({ id: 's', sheet: { planId: 'gebaeude', anno: anno('s', { symbol: 'VKF Feuer', floor: 0, floorFrom: 0, floorTo: 2, count: 2, label: 'Before' }) } }, owner, 'taktisch')
+    const events: ForeignSheetEditEvent[] = []
+    const { result } = renderHook(() => useObjectStore([initial], false, { getFits: () => fits, defaultLayer: 'taktisch', fitsVersion: 0, onForeignSheetEdit: next => events.push(...next) }))
+    act(() => {
+      result.current.beginSheetStep()
+      for (const label of ['First sample', 'Final']) result.current.setBoard(b => ({ ...b, modul2: b.modul2.map(a => ({ ...a, label, count: undefined })) }))
+    })
+    expect(events).toHaveLength(0)
+    act(() => result.current.endSheetStep())
+    expect(events.map(e => e.op)).toEqual(['board.edit', 'entity.edit'])
+    const replay: ReplayBundle = {
+      incidentId: 'i', startMs: 0, endMs: 1000, samples: [], snapshotCache: new Map(),
+      events: events.map((e, seq) => ({ seq, occurred_at: new Date(100).toISOString(), op_type: e.op, payload_json: JSON.parse(JSON.stringify(e.payload)) })),
+      loadSnapshotAt: async () => ({ occurredMs: 0, workspace: { entities: [initial.entity!], drawings: [], board: { gebaeude: [initial.sheet!.anno] }, recent: [], layerState: [], timeline: [] } }),
+    }
+    const state = await stateAt(replay, 200)
+    expect(state?.board?.gebaeude[0]).toMatchObject({ label: 'Final', floorFrom: 0, floorTo: 2 })
+    expect(state?.board?.gebaeude[0].count).toBeUndefined()
+    expect(state?.entities[0].label).toBe('Final')
+    expect(state?.entities[0].count).toBeUndefined()
+    act(() => result.current.rebake({ checkpoint: false }))
+    expect(events).toHaveLength(2)
+    act(() => { result.current.undo() })
+    expect(result.current.objects).toEqual([initial])
+    expect(result.current.canUndo).toBe(false)
+  })
+
+  it('writes through, survives rebake, and undoes the whole foreign edit once', () => {
+    const fits = new Map([['gebaeude', { ...PLAN, stack: { floors: [0, 1, 2] } }], ['modul2', PLAN]])
+    const { result } = store([], fits)
+    act(() => result.current.setBoard(() => ({ gebaeude: [anno('s', { symbol: 'VKF Feuer', floor: 0, floorFrom: 0, floorTo: 2, count: 1 })] })))
+    expect(result.current.board.modul2).toHaveLength(1)
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: b.modul2.map(a => ({ ...a, count: 3 })) })))
+    expect(result.current.board.gebaeude[0].count).toBe(3)
+    expect(result.current.doc.entities[0].count).toBe(3)
+    act(() => result.current.rebake({ checkpoint: false }))
+    expect(result.current.doc.entities[0].count).toBe(3)
+    act(() => result.current.undo())
+    expect(result.current.board.gebaeude[0].count).toBe(1)
+    expect(result.current.doc.entities[0].count).toBe(1)
+    expect(result.current.canUndo).toBe(false)
   })
 })

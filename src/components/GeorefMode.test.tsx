@@ -9,7 +9,7 @@
  * current view and the surviving pointer, which is exactly what these tests pin.
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { GeorefBoardLayer, type PlanViewApi } from './GeorefMode'
 import { GEOREF_OFF, georefDispatch, georefSnapshot, resetGeorefMode, type GeorefModeState } from '../lib/georefMode'
 
@@ -22,7 +22,7 @@ beforeAll(() => {
     addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 })
-afterEach(() => { cleanup(); resetGeorefMode() })
+afterEach(() => { cleanup(); resetGeorefMode(); vi.restoreAllMocks() })
 
 const ARMED: GeorefModeState = { ...GEOREF_OFF, planId: 'modul2', want: 'plan' }
 
@@ -50,6 +50,81 @@ const renderCapture = (view: PlanViewApi) => {
   // with no pairs, no queue and no aim, the capture overlay is the component's only element
   return container.querySelector('div')!
 }
+
+/**
+ * ONE magnifier at a time (15.09.2026). The admin pairing stands the sheet and the map side by
+ * side under a single pointer, and each half kept its own last aim — so both loupes were up at
+ * once, one of them over a pane nobody was pointing at. The sheet's half of the rule: it is up
+ * while the pointer is on the sheet and while the sheet has the turn, and down otherwise.
+ */
+it('takes the sheet’s magnifier down when the pointer leaves it or the map takes the turn', () => {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn(), clearRect: vi.fn() } as unknown as CanvasRenderingContext2D)
+  const { view } = makeView()
+  const board = document.createElement('div')
+  vi.spyOn(board, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1000, 500))
+  view.boardRef.current = board
+  view.toNorm = (x: number, y: number) => [x / 1000, y / 500]
+  const loupe = () => document.body.querySelector('canvas')
+  const { container, rerender } = render(<GeorefBoardLayer pairs={[]} mode={ARMED} armed sW={1000} sH={500} view={view} />)
+  const capture = container.querySelector('div')!
+  // hovering the sheet — the loupe is what says which pixel a tap would take
+  fireEvent.pointerMove(capture, { pointerId: 1, pointerType: 'mouse', clientX: 400, clientY: 250 })
+  expect(loupe()).toBeTruthy()
+  // …and the pointer moves on to the map half: this one goes down before the other comes up
+  // (⚠️ `pointerOut`, not `pointerLeave` — React synthesizes the leave from the out event)
+  fireEvent.pointerOut(capture, { pointerId: 1, pointerType: 'mouse' })
+  expect(loupe()).toBeFalsy()
+  // back on the sheet, and it is the sheet's turn again
+  fireEvent.pointerMove(capture, { pointerId: 1, pointerType: 'mouse', clientX: 300, clientY: 200 })
+  expect(loupe()).toBeTruthy()
+  // the map has the turn: no magnifier over a sheet nobody is aiming at
+  rerender(<GeorefBoardLayer pairs={[]} mode={{ ...ARMED, want: 'map' }} armed sW={1000} sH={500} view={view} />)
+  expect(loupe()).toBeFalsy()
+})
+
+/**
+ * ONE magnifier, the same on both halves (15.09.2026). In the admin's full-screen editor the
+ * sheet and the map stand side by side, so the sheet's loupe is an inset in its own PANE – the
+ * map's is the same inset in its pane, and the shared rule lives in one CSS block. Portalling it
+ * to the body instead would leave `position: absolute` measuring the document.
+ */
+it('puts the sheet’s magnifier into its own pane where both halves share one inset', () => {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn(), clearRect: vi.fn() } as unknown as CanvasRenderingContext2D)
+  const { view } = makeView()
+  const pane = document.body.appendChild(document.createElement('div'))
+  pane.append(view.canvasEl!)
+  const board = document.createElement('div')
+  vi.spyOn(board, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1000, 500))
+  view.boardRef.current = board
+  view.toNorm = (x: number, y: number) => [x / 1000, y / 500]
+  const { container } = render(<GeorefBoardLayer pairs={[]} mode={{ ...ARMED, loupe: 'inset' }} armed sW={1000} sH={500} view={view} />)
+  fireEvent.pointerMove(container.querySelector('div')!, { pointerId: 1, pointerType: 'mouse', clientX: 400, clientY: 250 })
+  expect(pane.querySelector('canvas')).toBeTruthy()
+  pane.remove()
+})
+
+it('repaints a stationary plan loupe when the cold PDF canvas arrives', async () => {
+  const drawImage = vi.fn()
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage, clearRect: vi.fn() } as unknown as CanvasRenderingContext2D)
+  const { view } = makeView()
+  const board = document.createElement('div')
+  const base = document.createElement('canvas')
+  base.width = 0; base.height = 0
+  board.append(base)
+  const bounds = new DOMRect(100, 200, 1000, 500)
+  vi.spyOn(board, 'getBoundingClientRect').mockReturnValue(bounds)
+  vi.spyOn(base, 'getBoundingClientRect').mockReturnValue(bounds)
+  view.boardRef.current = board
+  renderCapture(view)
+  const loupe = document.body.querySelector('canvas')!
+  Object.defineProperties(loupe, { clientWidth: { value: 124 }, clientHeight: { value: 124 } })
+  expect(drawImage).not.toHaveBeenCalled()
+  // PdfViewport fills these dimensions and paints asynchronously, without changing
+  // the aim or any GeorefBoardLayer prop. The inset must wake up by itself.
+  base.width = 2000; base.height = 1000
+  await waitFor(() => expect(drawImage).toHaveBeenCalled())
+  expect(drawImage.mock.calls[drawImage.mock.calls.length - 1]?.[0]).toBe(base)
+})
 
 describe('the capture layer after a pinch ends', () => {
   it('pans on from the post-pinch board position, not the pre-pinch snapshot', () => {
@@ -88,4 +163,3 @@ describe('the capture layer after a pinch ends', () => {
     expect(georefSnapshot().slots).toHaveLength(1)
   })
 })
-

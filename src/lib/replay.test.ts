@@ -208,9 +208,9 @@ describe('attachment and Plan replay folding', () => {
    * Modul sheet stood still in the replay until the next snapshot happened along. */
   it('replays a plan drag: the sheet position folds', async () => {
     const ws = { ...emptyWs(), board: { gebaeude: [{ id: 's1', kind: 'symbol' as const, x: 0.2, y: 0.2, floor: 0 }] } }
-    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'gebaeude', x: 0.8, y: 0.4, floor: 1 } })],
+    const b = bundle([ev({ seq: 1, op_type: 'board.move', occurred_at: iso(1000), payload_json: { id: 's1', planId: 'gebaeude', x: 0.8, y: 0.4, floor: 1, floorFrom: 1, floorTo: 3 } })],
       () => ({ workspace: ws, occurredMs: 0 }))
-    expect((await stateAt(b, 2000))?.board?.gebaeude[0]).toMatchObject({ x: 0.8, y: 0.4, floor: 1 })
+    expect((await stateAt(b, 2000))?.board?.gebaeude[0]).toMatchObject({ x: 0.8, y: 0.4, floor: 1, floorFrom: 1, floorTo: 3 })
   })
 
   it('…a stroke moves by its POINTS, which is what a stroke’s position is', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clamp01, floorGeometry, floorLabel, planUrl, TILE_AR, TOP_INSET } from './whiteboard'
+import { clamp01, floorGeometry, floorLabel, planUrl, TILE_AR, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings } from './whiteboard'
 
 describe('planUrl', () => {
   it('leaves absolute http(s) URLs untouched', () => {
@@ -99,5 +99,24 @@ describe('floorGeometry — stack mode', () => {
   it('mapY ∘ localY round-trips a mid-storey point', () => {
     const ny = g.mapY(1, 0.3)
     expect(g.localY(ny, 1)).toBeCloseTo(0.3)
+  })
+})
+
+describe('a floor sheet names its page in the URL', () => {
+  it('pdfPageOf ⇄ withPdfPage (1-based on the wire, 0-based in code)', () => {
+    expect(pdfPageOf('/api/reference/plan%3Ax?v=2')).toBeNull()
+    expect(pdfPageOf('/api/reference/plan%3Ax?v=2#page=3')).toBe(2)
+    expect(withPdfPage('/api/reference/plan%3Ax?v=2#page=3', 0)).toBe('/api/reference/plan%3Ax?v=2#page=1')
+    expect(signedFloor(2)).toBe('+2'); expect(signedFloor(-1)).toBe('−1'); expect(signedFloor(0)).toBe('0')
+  })
+})
+
+describe('a Leitung across storeys', () => {
+  it('splits into one run per storey and names the crossings', () => {
+    const pts: [number, number, number?][] = [[0.1, 0.9], [0.3, 0.7], [0.3, 0.7, 1], [0.5, 0.5, 1], [0.6, 0.4, 2]]
+    expect(floorSections(pts as never, 0).map((r) => r.length)).toEqual([2, 2, 1])
+    expect(floorCrossings(pts as never, 0)).toEqual([1, 3])
+    expect(floorSections([[0, 0], [1, 1]], 2)).toHaveLength(1)
+    expect(floorCrossings([[0, 0], [1, 1]], 2)).toEqual([])
   })
 })

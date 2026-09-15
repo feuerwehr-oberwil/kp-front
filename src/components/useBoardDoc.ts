@@ -48,6 +48,7 @@ interface BoardDocDeps {
    *  (`lib/undoTimeline`) can record that the plan moved, in the same chronology as the Karte and
    *  the Tafel. The per-plan stacks above stay the thing that answers the step itself. */
   onCheckpoint?: (planId: string) => void
+  onStepEnd?: () => void
 }
 
 /**
@@ -62,7 +63,7 @@ interface BoardDocDeps {
  * drag is one step. The functions stay byte-for-byte equivalent to their former inline selves; the
  * gesture handlers in Whiteboard call the returned pushPast/commit/patchCommit/… as before.
  */
-export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint }: BoardDocDeps) {
+export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint, onStepEnd }: BoardDocDeps) {
   // Per-document undo/redo, mirroring the map's history model. Every discrete
   // mutation checkpoints the previous annotation array; a continuous gesture
   // (chip drag) checkpoints once, on first movement, so a whole drag is one step.
@@ -72,7 +73,7 @@ export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSe
   const canRedo = h.future.length > 0
   const pushPast = () => { setHist((m) => pushBoardPast(m, activeId, annos)); onCheckpoint?.(activeId) }
   const set = (next: BoardAnno[]) => onChange(next)                      // raw write, no checkpoint
-  const commit = (next: BoardAnno[]) => { pushPast(); onChange(next) }   // checkpoint + write
+  const commit = (next: BoardAnno[]) => { pushPast(); onChange(next); onStepEnd?.() }   // checkpoint + write
   // plan mutations now feed the hash-chained audit trail too (board.* ops) — previously
   // the whole Plan surface was invisible to replay/audit. Replay ignores these (it
   // reconstructs the board from snapshots), so they're audit-only and safe to add.

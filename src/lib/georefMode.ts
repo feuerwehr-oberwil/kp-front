@@ -115,6 +115,10 @@ export interface GeorefModeState {
   /** Snapshot of the plan bitmap used by «Deckung prüfen». Kept in the cross-surface store so
    *  the map can paint it even on a phone, where the Whiteboard is unmounted. */
   previewUrl: string | null
+  /** where the plan loupe stands: the field's top-centre spot over the whole screen, or as an
+   *  inset in the corner of the PANE being aimed at – the admin's full-screen editor, where the
+   *  sheet and the map stand side by side and both halves wear the same magnifier */
+  loupe: 'top' | 'inset'
   /** An automatic alignment suggestion under review (georefSuggest): the ORIGINAL suggested
    *  pairs, kept for «Vorschlag wiederherstellen». Non-null means the coverage view is a
    *  PROPOSAL — the live `pairs` are the (possibly nudged) suggestion, nothing is persisted,
@@ -135,10 +139,10 @@ export interface GeorefModeState {
   undoStack: GeorefPair[][]
 }
 
-export const GEOREF_OFF: GeorefModeState = { planId: null, storageKey: null, slots: [], pairs: [], sel: null, move: null, want: 'plan', aspect: 1, check: false, checkReturn: null, returnToQuality: false, checkOpacity: 0.58, previewUrl: null, proposal: null, proposalUncertain: false, adjusting: false, adjust: null, undoStack: [] }
+export const GEOREF_OFF: GeorefModeState = { planId: null, storageKey: null, slots: [], pairs: [], sel: null, move: null, want: 'plan', aspect: 1, check: false, checkReturn: null, returnToQuality: false, checkOpacity: 0.58, previewUrl: null, loupe: 'top', proposal: null, proposalUncertain: false, adjusting: false, adjust: null, undoStack: [] }
 
 export type GeorefAction =
-  | { type: 'start'; planId: string; storageKey?: string; pairs: GeorefPair[]; aspect: number; check?: boolean; returnToQuality?: boolean; previewUrl?: string | null; proposal?: boolean; uncertain?: boolean }
+  | { type: 'start'; planId: string; storageKey?: string; pairs: GeorefPair[]; aspect: number; check?: boolean; returnToQuality?: boolean; previewUrl?: string | null; proposal?: boolean; uncertain?: boolean; loupe?: 'top' | 'inset' }
   /** «Anpassen» / «Fertig» of the proposal review — open or close the transform chrome.
    *  Opening arms ✥ straight away (the first thing a nudge needs); closing disarms both. */
   | { type: 'adjustOpen'; on: boolean }
@@ -330,6 +334,7 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
         returnToQuality: !!a.returnToQuality,
         checkOpacity: s.checkOpacity,
         previewUrl: a.previewUrl ?? null,
+        loupe: a.loupe ?? 'top',
         proposal: a.proposal ? a.pairs : null,
         proposalUncertain: !!a.proposal && !!a.uncertain,
         adjusting: false,
@@ -1011,9 +1016,9 @@ export function useGeorefMode(): GeorefModeState {
  *  hands it over, because the map half solves the same fit and cannot measure anything.
  *  `check` arms it straight into «Deckung prüfen»: the split comes up with the sheet's outline
  *  already on the map, which is what the Passung's own check button wants. */
-export function startGeorefMode(planId: string, aspect: number, opts?: { storageKey?: string; check?: boolean; returnToQuality?: boolean; previewUrl?: string | null }) {
+export function startGeorefMode(planId: string, aspect: number, opts?: { storageKey?: string; check?: boolean; returnToQuality?: boolean; previewUrl?: string | null; loupe?: 'top' | 'inset' }) {
   const storageKey = opts?.storageKey ?? planId
-  georefDispatch({ type: 'start', planId, storageKey, pairs: georefForPlan(storageKey)?.pairs ?? [], aspect, check: opts?.check, returnToQuality: opts?.returnToQuality, previewUrl: opts?.previewUrl })
+  georefDispatch({ type: 'start', planId, storageKey, pairs: georefForPlan(storageKey)?.pairs ?? [], aspect, check: opts?.check, returnToQuality: opts?.returnToQuality, previewUrl: opts?.previewUrl, loupe: opts?.loupe })
 }
 
 /** Arm the PROPOSAL review: the automatic suggestion's pairs on the coverage view, unsaved.

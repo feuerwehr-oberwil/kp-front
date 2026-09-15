@@ -218,6 +218,10 @@
   font: 600 12px var(--body); color: var(--ink); margin-bottom: 5px;
 }
 .qrow strong { font: 700 12px var(--mono); }
+/* the second sentence in the fold: what makes a good point. It moved in here on 15.09., when the
+   bar's instruction shrank to «Dieselbe Stelle auf Modul und Karte antippen» — a tip you read
+   once and never again does not belong on the line you read while tapping. */
+.qtip { margin-top: 5px; }
 /* the one line of guidance under «Punkt setzen» — where the button acts, nothing more */
 .subline {
   font: 500 11.5px/1.4 var(--body); color: var(--ink-dim); text-align: center; margin-top: -3px;
@@ -349,12 +353,20 @@
    inset: it never covers the reticle, and without any magnifier the sheet is placed blind. At
    the zoom where a whole Modul fits a phone screen a house corner is about three pixels wide.
    ⚠️ TOP-LEFT, not right: the Windfahne and the speed badge live in the right corner. */
-/* Inside the admin's review modal the field's top-centre spot is the modal's own header: the
-   magnifier becomes the phone-style corner inset instead, tucked into the map pane's top-left. */
-:global(.adm-modal) .loupe {
-  width: 132px; height: 132px;
-  top: calc(50vh - 200px);
-  left: calc(50vw + 14px);
+/* Inside the admin's full-screen plan editor BOTH halves wear the SAME magnifier (15.09.2026):
+   the sheet and the map stand side by side under one pointer, so the field's top-centre spot
+   would hang over the seam between them — and a magnifier that follows the pointer on one half
+   while the other has a fixed inset reads as two unrelated instruments. One rule for both: an
+   inset in the top-left corner of the pane being aimed at, the same size, border and crosshair.
+   ⚠️ absolute, not fixed: each pane is the positioned parent (planAlignment.css ·
+   .adm-pairing-plan / .adm-pairing-map), which is why the sheet's loupe is portalled into its
+   pane rather than to the body (GeorefMode · GeorefBoardLayer). Only ONE is ever up — each half
+   takes its magnifier down as soon as the pointer is not on it. */
+:global(.adm-plan-editor) .loupe {
+  position: absolute;
+  width: 148px; height: 148px;
+  top: 12px;
+  left: 12px;
   transform: none;
 }
 .loupeCorner {

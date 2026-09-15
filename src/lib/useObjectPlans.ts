@@ -7,7 +7,8 @@ import { georefForPlan } from './stationPlanScale'
 import { toast } from './ui'
 import { fillTemplate } from './format'
 import { appConfig } from '../config/appConfig'
-import { modulesFromConfig, moduleViewer } from './deploymentConfig'
+import { modulesFromConfig, moduleViewer, moduleHiddenWithGebaeude } from './deploymentConfig'
+import { comparePlanModules, moduleCatalogue, sortPlanModuleIds } from './planOrder'
 import { moduleTileLabel } from './navRail'
 import type { LngLat, PlanDocument } from '../types'
 
@@ -277,19 +278,30 @@ export function useObjectPlans(
           ...(binding.aspect ? { georefAspect: binding.aspect } : {}),
         }
       }
+      // …and, once the object HAS a floor pack (its binding carries floors), not the modules the
+      // catalogue hides behind the Gebäude stack (`modules[].hideWhenGebaeude`) – for FWO the
+      // Modul-6 sheet, whose pages the stack shows
+      const hasPack = !!activeObjectId && effectiveBindings.some((b) => b.objectId === activeObjectId && b.floors?.length)
+      const hidden = (id: string) => hasPack && moduleHiddenWithGebaeude(id)
       // module tiles: only those the near Einsatzobjekt actually provides
       const moduleDocs = catalogModules
-        .filter((p) => !!backendPlans[p.id] && !combined.has(p.id))
+        .filter((p) => !!backendPlans[p.id] && !combined.has(p.id) && !hidden(p.id))
         .map((p) => pin({ ...p, imageUrl: backendPlans[p.id], viewer: moduleViewer(p.id) }))
       // Modul 4 / Modul-5 sub-slots the backend provides but the catalog has no tile for
       const known = new Set(catalogModules.map((p) => p.id))
       const extras = Object.keys(backendPlans)
-        .filter((id) => !known.has(id) && /^modul\d/.test(id) && !combined.has(id))
-        .sort()
+        .filter((id) => !known.has(id) && /^modul\d/.test(id) && !combined.has(id) && !hidden(id))
         .map((id) => pin({ ...extraModuleDoc(id, backendPlans[id], backendTitles[id]), viewer: moduleViewer(id) }))
+      // ⚠️ ONE order for the module tiles, the SAME the Verwaltung lists them in (lib/planOrder):
+      // the number on the paper plan leads, so «M4» sits before «M5»/«ZUS»/«M6» whatever the
+      // station document's `order` field says. Sorting the catalogue tiles and the synthesized
+      // sub-slot tiles TOGETHER is the point — appended after the catalogue, a Modul 4 the
+      // catalogue has no tile for landed behind every other module on the rail.
+      const byModule = comparePlanModules(moduleCatalogue())
+      const moduleTiles = [...moduleDocs, ...extras].sort((a, b) => byModule(a.id, b.id))
       // non-module surfaces (OSM «Umrisse», «Tafel») ALWAYS after the modules, in catalog order
       const surfaceDocs = surfaces.map((p) => (p.osm ? { ...p, osm: { ...p.osm, center } } : p))
-      return [...moduleDocs, ...extras, ...surfaceDocs]
+      return [...moduleTiles, ...surfaceDocs]
     },
     [backendPlans, backendTitles, center, activeObjectId, effectiveBindings, incidentId],
   )
@@ -351,8 +363,11 @@ export function useObjectPlans(
         }
         try {
           const metadata = await getApprovedPlanAlignments(ds.id, ds.version)
+          // a floor pack's ONE fit may sit on any of its floor pages (the EG page by default)
+          const floors = metadata.floors?.length ? metadata.floors : undefined
           const approved = metadata.alignments.find((a) => a.page === 0 && a.aspect > 0)
-          out.push(inheritPlanBinding(sheet, approved ?? undefined, legacy, annotated))
+            ?? (floors ? metadata.alignments.find((a) => a.aspect > 0) : undefined)
+          out.push(inheritPlanBinding(sheet, approved ?? undefined, legacy, annotated, floors))
         } catch { /* offline and uncached — retry on the next resolve instead of freezing 'none' */ }
       }
       if (alive && out.length) {
@@ -385,8 +400,8 @@ export function useObjectPlans(
     const info = buildPlanInfo(obj.plans)
     setManualObject({ id: obj.id, name: obj.name, address: obj.address, pos: obj.lat != null && obj.lng != null ? [obj.lng, obj.lat] : null, ...info })
     onPick(obj.id) // sync the pick per incident (workspace blob), so it survives switching + reload
-    // jump to Modul 1 if the object has it, else its lowest-numbered module
-    const firstModule = info.plans.modul1 ? 'modul1' : Object.keys(info.plans).sort()[0]
+    // jump to the object's FIRST module in the rail's own order — Modul 1 where it has one
+    const firstModule = sortPlanModuleIds(moduleCatalogue(), Object.keys(info.plans))[0]
     if (firstModule) onActivePlan(firstModule)
     toast(fillTemplate(appConfig.copy.whiteboard.objectActive, { name: obj.name }), { icon: 'doc', tone: 'success' })
   }, [onActivePlan, onPick])

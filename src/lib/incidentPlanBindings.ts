@@ -1,3 +1,4 @@
+import type { PlanFloor } from './api/reference'
 import type { Georef, GeorefPair } from './georef'
 import type { Saved } from './workspace'
 
@@ -26,6 +27,10 @@ export interface IncidentPlanBinding {
   aspect?: number
   /** Explicitly empty pairs mean disconnected, rather than falling back to the station fit. */
   override?: Georef
+  /** the floor pack's page → Geschoss list as published for THIS revision, frozen with it: a
+   *  later station re-assignment never renames or moves a running Einsatz's floors. Absent on
+   *  ordinary sheets and on bindings from before floor packs existed. */
+  floors?: PlanFloor[]
 }
 
 export const incidentGeorefKey = (incidentId: string, sheetKey: string) => `incident:${encodeURIComponent(incidentId)}:${sheetKey}`
@@ -37,14 +42,16 @@ const cloneGeoref = (georef: Georef): Georef => ({ pairs: georef.pairs.map((pair
 /** Preserve a legacy fit beneath existing annotations; unused sheets inherit approval directly. */
 export function inheritPlanBinding(
   sheet: Pick<IncidentPlanBinding, 'id' | 'objectId' | 'planId' | 'datasetId' | 'planVersion' | 'title'>,
-  approved: { id: number; approval_id?: number | null; pairs: GeorefPair[]; aspect: number; approved_at: string } | undefined,
+  approved: { id: number; page?: number; approval_id?: number | null; pairs: GeorefPair[]; aspect: number; approved_at: string } | undefined,
   legacy: Georef | null,
   hasAnnotations: boolean,
+  floors?: PlanFloor[],
 ): IncidentPlanBinding {
   const keepLegacy = !!legacy?.pairs.length && hasAnnotations
   const inherited = !keepLegacy && approved ? { pairs: approved.pairs } : legacy ?? { pairs: [] }
   return {
-    ...sheet, page: 0, georef: cloneGeoref(inherited),
+    ...sheet, page: !keepLegacy && approved ? approved.page ?? 0 : 0, georef: cloneGeoref(inherited),
+    ...(floors?.length ? { floors: floors.map((f) => ({ ...f })) } : {}),
     source: !keepLegacy && approved ? 'approved' : legacy?.pairs.length ? 'legacy' : 'none',
     ...(!keepLegacy && approved ? { approvalId: approved.approval_id ?? approved.id, approvedAt: approved.approved_at, aspect: approved.aspect } : {}),
   }
@@ -92,12 +99,17 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const isPair = (value: unknown): value is GeorefPair => object(value) && object(value.plan) && object(value.lngLat)
   && finite(value.plan.x) && finite(value.plan.y) && finite(value.lngLat.lng) && finite(value.lngLat.lat)
 const isGeoref = (value: unknown): value is Georef => object(value) && Array.isArray(value.pairs) && value.pairs.every(isPair)
+const nums = (v: unknown, n: number) => v == null || (Array.isArray(v) && v.length === n && v.every(finite))
+const isJoin = (v: unknown) => v == null || (object(v) && Number.isInteger(v.to) && nums(v.at, 2) && v.at != null && nums(v.there, 2) && v.there != null)
+const isFloor = (value: unknown): value is PlanFloor => object(value) && Number.isInteger(value.page) && Number(value.page) >= 0
+  && Number.isInteger(value.index) && (value.name === null || typeof value.name === 'string') && nums(value.clip, 4) && isJoin(value.join)
 export function isIncidentPlanBinding(value: unknown): value is IncidentPlanBinding {
   return object(value) && ['id', 'objectId', 'planId', 'datasetId', 'title'].every((key) => typeof value[key] === 'string')
     && Number.isInteger(value.planVersion) && Number(value.planVersion) > 0 && Number.isInteger(value.page) && Number(value.page) >= 0
     && ['approved', 'legacy', 'none'].includes(String(value.source)) && isGeoref(value.georef)
     && (value.override === undefined || isGeoref(value.override))
     && (value.aspect === undefined || (finite(value.aspect) && value.aspect > 0))
+    && (value.floors === undefined || (Array.isArray(value.floors) && value.floors.every(isFloor)))
 }
 
 interface BindingSession {

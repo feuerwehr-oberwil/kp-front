@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import { liveOverlay, projectOnto, projectedAnnos } from './planProjection'
-import { applyBoardToObjects, bakeGeoBody, viewsOf, type PlanFit, type TacticalObject } from './tacticalObjects'
+import { applyBoardToObjects, bakeGeoBody, sheetAnnos, viewsOf, type PlanFit, type TacticalObject } from './tacticalObjects'
 import { SHAPE_DEFS } from './shapes'
-import type { Drawing, Entity } from '../types'
+import type { BoardAnno, Drawing, Entity } from '../types'
 
 /* The Karte in one sheet's own words. This is the mirror of `bakeGeoBody`, and the pair has to
  * stay inverse: a projected anno that comes back off the sheet becomes the object's stored sheet
@@ -205,5 +205,91 @@ describe('inverse in the details, not just in the geometry', () => {
     expect(back.label).toBeUndefined()
     const note = roundTrip(geo(ent({ id: 'n1', kind: 'note', coord: coordEast(50) }))).entity!
     expect(note.label).toBeUndefined()
+  })
+})
+
+describe('the Gebäude stack shows a map object on the tile of its badge', () => {
+  const STACK: PlanFit = { ...PLAN, stack: { floors: [-1, 0, 1] } }
+  const at = PLAN.fit.toMap({ x: 0.5, y: 0.5 })
+  const fire = (over: Partial<Entity>): TacticalObject => ({ id: 'f', entity: { id: 'f', kind: 'symbol', symbol: 'brand', layer: 'taktisch', coord: [at.lng, at.lat], ...over } })
+  it('Von picks the tile (else the badge, else 0); a span shows on every tile up to Bis; storeys the stack lacks show nothing', () => {
+    expect(projectOnto(fire({ floor: 1 }), STACK)).toMatchObject({ id: 'f', floor: 1 })
+    expect(projectOnto(fire({}), STACK)).toMatchObject({ id: 'f', floor: 0 })
+    expect(projectOnto(fire({ floor: 0 }), STACK)).toMatchObject({ id: 'f', floor: 0 })
+    expect(projectOnto(fire({ floor: 3 }), STACK)).toBeNull()
+    expect(projectOnto(fire({ floorFrom: -1, floorTo: 1 }), STACK)).toMatchObject({ id: 'f', floor: -1, floorFrom: -1, floorTo: 1 })
+    expect(projectOnto(fire({ floorFrom: 2, floorTo: 5 }), STACK)).toBeNull()
+    expect(projectOnto(fire({ floor: 1 }), STACK)).not.toHaveProperty('storey') // the tile says the floor
+    expect(projectOnto(fire({ floor: 1 }), PLAN)).toMatchObject({ storey: 1 }) // an ordinary sheet badges it
+  })
+  it('a Leitung follows its floorTag the same way', () => {
+    const hose: TacticalObject = { id: 'h', drawing: { id: 'h', kind: 'line', coords: [[at.lng, at.lat], [at.lng + 0.0001, at.lat]], floorTag: -1 } }
+    expect(projectOnto(hose, STACK)).toMatchObject({ id: 'h', floor: -1 })
+    expect(projectOnto({ ...hose, drawing: { ...hose.drawing!, floorTag: 2 } }, STACK)).toBeNull()
+  })
+})
+
+describe('what a storey tile carries onto the Karte', () => {
+  const STACK: PlanFit = { ...PLAN, stack: { floors: [0, 1, 2] } }
+  const tile = (anno: Partial<BoardAnno>): TacticalObject => ({ id: 'o', sheet: { planId: 'gebaeude', anno: { id: 'o', kind: 'symbol', symbol: 'brand', x: 0.5, y: 0.5, ...anno } } })
+  it('the tile is Von = Bis on the Karte, explicit – tile 0 included; a span set on the tile goes as it is', () => {
+    expect(bakeGeoBody(tile({ floor: 2 }), STACK, 'taktisch').entity).toMatchObject({ floorFrom: 2, floorTo: 2 })
+    expect(bakeGeoBody(tile({}), STACK, 'taktisch').entity).toMatchObject({ floorFrom: 0, floorTo: 0 })
+    expect(bakeGeoBody(tile({ floor: 0, floorFrom: 0, floorTo: 2 }), STACK, 'taktisch').entity).toMatchObject({ floorFrom: 0, floorTo: 2 })
+    expect(bakeGeoBody(tile({ floor: 2 }), STACK, 'taktisch').entity?.floor).toBeUndefined()
+    expect(bakeGeoBody(tile({ storey: 1 }), PLAN, 'taktisch').entity?.floor).toBe(1) // an ordinary sheet: the storey badge, as before
+    expect(bakeGeoBody(tile({}), PLAN, 'taktisch').entity?.floor).toBeUndefined()
+  })
+  it('a line gets the floorTag, a note the floor', () => {
+    const line: TacticalObject = { id: 'l', sheet: { planId: 'gebaeude', anno: { id: 'l', kind: 'draw', floor: 1, pts: [[0.1, 0.1], [0.4, 0.4]] } } }
+    expect(bakeGeoBody(line, STACK, 'taktisch').drawing?.floorTag).toBe(1)
+    // a Leitung laid from 0 up to +2 across the tiles: the end tag names where it ended
+    const up: TacticalObject = { id: 'u', sheet: { planId: 'gebaeude', anno: { id: 'u', kind: 'draw', floor: 0, pts: [[0.1, 0.9, 0], [0.5, 0.5, 1], [0.6, 0.4, 2]] } } }
+    expect(bakeGeoBody(up, STACK, 'taktisch').drawing?.floorTag).toBe(2)
+    const note: TacticalObject = { id: 'n', sheet: { planId: 'gebaeude', anno: { id: 'n', kind: 'text', text: 'Zugang', x: 0.2, y: 0.2, floor: 2 } } }
+    expect(bakeGeoBody(note, STACK, 'taktisch').entity).toMatchObject({ floorFrom: 2, floorTo: 2 })
+  })
+})
+
+describe('the Gebäude stack\'s ink shows on the other linked sheets', () => {
+  const at = PLAN.fit.toMap({ x: 0.5, y: 0.5 })
+  // a Brand marked on tile +2, already baked onto the Karte with its badge
+  const stackFire: TacticalObject = {
+    id: 'f', sheet: { planId: 'gebaeude', anno: { id: 'f', kind: 'symbol', symbol: 'brand', x: 0.5, y: 0.5, floor: 2 } },
+    entity: { id: 'f', kind: 'symbol', symbol: 'brand', layer: 'taktisch', coord: [at.lng, at.lat], floor: 2 },
+  }
+  const sheetFire: TacticalObject = { ...stackFire, sheet: { planId: 'modul3', anno: stackFire.sheet!.anno } }
+  it('with the storey as badge; another sheet\'s ink stays on its sheet; the stack shows only its own', () => {
+    expect(projectOnto(stackFire, PLAN)).toMatchObject({ id: 'f', storey: 2 })
+    expect(projectOnto(sheetFire, PLAN)).toBeNull()
+    expect(projectOnto(stackFire, { ...PLAN, stack: { floors: [0, 1, 2] } })).toBeNull()
+  })
+  it('handing the sheet\'s list back unchanged leaves it on its tile; a drag makes the sheet its anchor', () => {
+    const objects = [stackFire]
+    const shownList = sheetAnnos(objects, 'modul1', PLAN)
+    expect(shownList).toHaveLength(1)
+    expect(applyBoardToObjects(objects, 'modul1', shownList, PLAN)).toBe(objects)
+    const moved = applyBoardToObjects(objects, 'modul1', [{ ...shownList[0], x: 0.7 }], PLAN)
+    expect(moved[0].sheet).toMatchObject({ planId: 'modul1', anno: { x: 0.7 } })
+    // a props-only edit from the other sheet does not steal the anchor
+    const relabelled = applyBoardToObjects(objects, 'modul1', [{ ...shownList[0], count: 2 }], PLAN)
+    expect(relabelled[0].sheet?.planId).toBe('gebaeude')
+    expect(relabelled[0].sheet?.anno.count).toBe(2)
+  })
+})
+
+
+describe('Gebäude range edits use the same storeys on every surface', () => {
+  const STACK: PlanFit = { ...PLAN, stack: { floors: [-1, 0, 1, 2, 3] } }
+  const original: BoardAnno = { id: 'span', kind: 'symbol', symbol: 'brand', x: .5, y: .5, floor: 0, floorFrom: 0, floorTo: 2 }
+  const object = bakeGeoBody({ id: original.id, sheet: { planId: 'gebaeude', anno: original } }, STACK, 'taktisch')
+  it('a one-floor drag shifts the full range without changing its length', () => {
+    const moved = applyBoardToObjects([object], 'gebaeude', [{ ...original, floor: 1 }], STACK)
+    expect(moved[0].sheet?.anno).toMatchObject({ floor: 1, floorFrom: 1, floorTo: 3 })
+    expect(bakeGeoBody(moved[0], STACK, 'taktisch').entity).toMatchObject({ floorFrom: 1, floorTo: 3 })
+  })
+  it('a changed range moves the home tile inside the new range', () => {
+    const changed = applyBoardToObjects([object], 'gebaeude', [{ ...original, floorFrom: 1 }], STACK)
+    expect(changed[0].sheet?.anno).toMatchObject({ floor: 1, floorFrom: 1, floorTo: 2 })
   })
 })

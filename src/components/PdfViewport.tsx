@@ -13,6 +13,7 @@ import '../lib/pdfPolyfills'
 import pdfWorkerShimUrl from '../lib/pdfWorkerEntry?worker&url'
 import { RetryButton } from './RetryButton'
 import s from './PdfViewport.module.css'
+import { pdfPageOf } from '../lib/whiteboard'
 
 // The worker asset's URL, remembered for the diagnosis path: when a PDF fails, whether that
 // file is still being served is the single most telling fact we can gather (lib/pdfDiagnosis).
@@ -58,7 +59,11 @@ const LOAD_TIMEOUT_MS = 20_000 // stall guard on the doc open — pdf.js' own fe
 // self-evict — a transient error must be retryable, not replayed from the cache forever.
 type DocEntry = { promise: Promise<PDFDocumentProxy>; destroy: () => void }
 const docCache = new Map<string, DocEntry>()
-function docEntry(url: string): DocEntry {
+/** one pdf.js document per PDF, whichever `#page=N` sheet asked – the fragment names a page
+ *  of the same bytes (lib/whiteboard · pdfPageOf); every BITMAP cache stays keyed by the full URL */
+const docKey = (url: string) => url.replace(/#.*$/, '')
+function docEntry(rawUrl: string): DocEntry {
+  const url = docKey(rawUrl)
   let e = docCache.get(url)
   if (!e) {
     let dead = false
@@ -111,7 +116,7 @@ export function loadDocTimed(url: string): Promise<PDFDocumentProxy> {
  */
 export async function planPrintedMPerU(url: string): Promise<number | null> {
   const doc = await loadDocTimed(url)
-  const page = await doc.getPage(1)
+  const page = await doc.getPage((pdfPageOf(url) ?? 0) + 1)
   const tc = await page.getTextContent()
   const text = tc.items.map((it) => ('str' in it ? it.str : '')).join(' ')
   const found = [...text.matchAll(/1\s*:\s*(\d{3,5})\b/g)]
@@ -125,7 +130,7 @@ export async function planPrintedMPerU(url: string): Promise<number | null> {
 // Forget everything cached for one plan URL — the «Erneut laden» tap goes through here
 // so the re-bake starts from a clean fetch instead of a stuck/rejected promise.
 export function evictPlan(url: string) {
-  docCache.get(url)?.destroy()
+  docCache.get(docKey(url))?.destroy()
   bitmapCache.delete(url)
 }
 
@@ -276,11 +281,14 @@ export async function planMatcherImage(url: string): Promise<Blob> {
 
 function render(url: string, vw: number, vh: number, maxSide: number): Promise<Baked> {
   return loadDocTimed(url).then(async (pdf) => {
-    const n = pdf.numPages
+    // a floor sheet (`#page=N`) is ONE page of the pack; anything else is the whole document
+    const only = pdfPageOf(url)
+    const pageNos = only != null ? [Math.min(only, pdf.numPages - 1) + 1] : Array.from({ length: pdf.numPages }, (_, i) => i + 1)
+    const n = pageNos.length
     // measure every page; stitched width is the widest page, height is the sum
     const metas: { page: Awaited<ReturnType<PDFDocumentProxy['getPage']>>; w: number; h: number }[] = []
     let W = 0, totalH = 0
-    for (let i = 1; i <= n; i++) {
+    for (const i of pageNos) {
       const pg = await pdf.getPage(i)
       const vp = pg.getViewport({ scale: 1 })
       metas.push({ page: pg, w: vp.width, h: vp.height })
@@ -296,8 +304,9 @@ function render(url: string, vw: number, vh: number, maxSide: number): Promise<B
     canvas.height = Math.round(totalH * renderScale)
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('no 2d ctx')
-    // draw bottom-up: page 1 sits at the bottom, each later page stacked above it
-    let yBottom = canvas.height
+    // top-down, as the PDF reads: page 1 at the top, each later page below it (14.09.2026 – it
+    // used to stack bottom-up, which showed a multi-page Zusatz sheet in reverse)
+    let yTop = 0
     for (const m of metas) {
       const vp = m.page.getViewport({ scale: renderScale })
       const pw = Math.round(vp.width), ph = Math.round(vp.height)
@@ -306,8 +315,8 @@ function render(url: string, vw: number, vh: number, maxSide: number): Promise<B
       const tctx = tmp.getContext('2d')
       if (tctx) {
         await m.page.render({ canvas: tmp, canvasContext: tctx, viewport: vp }).promise
-        yBottom -= ph
-        ctx.drawImage(tmp, Math.round((side - pw) / 2), yBottom)
+        ctx.drawImage(tmp, Math.round((side - pw) / 2), yTop)
+        yTop += ph
       }
     }
     const bitmap = await createImageBitmap(canvas)
@@ -344,16 +353,15 @@ export function prewarmPlans(urls: string[], vw: number, vh: number, near: strin
 // each) and the only caller keeps at most a couple alive: one per plan whose Ebenen backdrop row
 // is on, and a rotation adds a second key per plan. 4 covers two visible sheets in both
 // orientations; anything older is cheaper to re-bake than to hold.
-const PREVIEW_CAP = 4
+const PREVIEW_CAP = 8 // …and a floor stack asks for one per storey (15.09.2026)
 const previewCache = new Map<string, Promise<string>>()
-export function planPreviewUrl(url: string, vw: number, vh: number): Promise<string> {
+export function planPreviewUrl(url: string, vw: number, vh: number, maxSide = 1800): Promise<string> {
   const bw = Math.max(vw, 900), bh = Math.max(vh, 900)
-  const key = `${url}@${bw}x${bh}`
+  const key = `${url}@${bw}x${bh}@${maxSide}`
   const cached = previewCache.get(key)
   // touch for LRU — an entry still being asked for is the last one that should be dropped
   if (cached) { previewCache.delete(key); previewCache.set(key, cached); return cached }
   const p = bake(url, bw, bh).then((b) => {
-    const maxSide = 1800
     const k = Math.min(1, maxSide / Math.max(b.bitmap.width, b.bitmap.height))
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, Math.round(b.bitmap.width * k))
@@ -442,7 +450,7 @@ export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: P
     const t = setTimeout(() => {
       loadDoc(url)
         .then(async (pdf) => {
-          const page = await pdf.getPage(1)
+          const page = await pdf.getPage((pdfPageOf(url) ?? 0) + 1)
           if (cancelled) return
           const base = page.getViewport({ scale: 1 })
           const nx0 = clamp01((-vw / 2 - pos.x) / (scale * fitW) + 0.5)

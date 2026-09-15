@@ -366,6 +366,10 @@ export interface DeploymentModule {
   viewer?: boolean
   /** how this module's sheets get onto the Karte — see `moduleAlignment` for the default */
   alignment?: ModuleAlignment
+  /** hide this module's tile in an Einsatz whose object has a floor pack – the Gebäude stack
+   *  shows its pages instead (decided 14.09.2026; FWO sets it on Modul 6). Default off: the
+   *  original sheet keeps sections, legend and title block the stack drops. */
+  hideWhenGebaeude?: boolean
 }
 
 export type ModuleAlignment = 'auto' | 'manual' | 'none'
@@ -401,6 +405,10 @@ export const DEFAULT_MODULES: DeploymentModule[] = [
   // decide what a plan is CALLED, and a divergence puts the same sheet under two ids
   // with no error anywhere.
   { id: 'modul5', code: 'M5', title: 'Spezialpläne', order: 5, family: true, match: String.raw`modul\s*5(?:\s*[-–—]\s*([0-9A-Za-zÄÖÜäöü]+(?:\s+\d+)?))?` },
+  // «Modul 5 – Zusatz» is supplementary documentation (evacuation notes, tenant lists): read,
+  // never marked up – so it opens in the plain scrolling viewer like Modul 6 (Bastian, 14.09.2026).
+  // The other sub-slots (Wasser, PV) stay the station's call through its own catalogue.
+  { id: 'modul5-zusatz', code: 'ZUS', title: 'Zusatz', order: 5, viewer: true, match: String.raw`modul\s*5\s*[-–—/]\s*zusatz` },
   { id: 'modul4', code: 'M4', title: 'Spezialplan', order: 7, match: String.raw`modul\s*4` },
 ]
 
@@ -805,6 +813,19 @@ export function moduleViewer(id: string): boolean {
   if (sibling) return !!sibling.viewer
   const family = mods.find((m) => m.family && (id === m.id || id.startsWith(`${m.id}-`)))
   return !!family?.viewer
+}
+
+/** Does the catalogue hide this module's tile once the object has a floor pack? Resolved like
+ *  `moduleViewer`: exact entry, then the numbered sibling's slot, then the family. */
+export function moduleHiddenWithGebaeude(id: string): boolean {
+  const mods = Array.isArray(resolved.modules) && resolved.modules.length ? resolved.modules : DEFAULT_MODULES
+  const exact = mods.find((m) => m.id === id && !m.family)
+  if (exact) return !!exact.hideWhenGebaeude
+  const base = SUB_SLOT_SIBLING.exec(id)?.[1]
+  const sibling = base ? mods.find((m) => m.id === base && !m.family) : undefined
+  if (sibling) return !!sibling.hideWhenGebaeude
+  const family = mods.find((m) => m.family && (id === m.id || id.startsWith(`${m.id}-`)))
+  return !!family?.hideWhenGebaeude
 }
 
 /** Pure mapper (exported for tests): `DeploymentReferenceLayer[]` → `LayerDef[]`, skipping

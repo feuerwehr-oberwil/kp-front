@@ -47,11 +47,31 @@ export interface ApprovedPlanAlignment {
   approved_at: string
 }
 
-/** What the station has published for one exact plan revision — what an incident binds to. */
+/** One page of a floor pack = one Geschoss, assigned by the station (14.09.2026). `index` is the
+ *  signed vertical ORDER (0 = reference level), never height above terrain; `name` is the
+ *  operator's label («EG / ZWG»), null = the standard name for that index. */
+export interface PlanFloor {
+  page: number
+  index: number
+  name: string | null
+  /** the drawing's rectangle on the page, normalized [x0, y0, x1, y1]; absent/null = the whole page */
+  clip?: [number, number, number, number] | null
+  /** this drawing meets floor `to`'s drawing at one point pair – `at` here is the same building
+   *  point as `there` on the other (the staircase on both): the way the drawings of one sheet are
+   *  laid on each other, chained from the reference (decided 15.09.) */
+  join?: { to: number; at: [number, number]; there: [number, number] } | null
+}
+
+/** What the station has published for one exact plan revision — what an incident binds to.
+ *  A revision with `floors` is a floor pack: ONE fit (measured on one of its floor pages) is
+ *  shared by every page, because the export convention puts the building at the same paper
+ *  position, scale and orientation on each. */
 export interface PlanAlignmentMetadata {
   dataset_id: string
   plan_version: number
   revision_url: string
+  page_count?: number | null
+  floors?: PlanFloor[]
   alignments: ApprovedPlanAlignment[]
 }
 

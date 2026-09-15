@@ -3,6 +3,7 @@
 
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
+import type { BoardPoint } from '../types'
 
 const BASE = import.meta.env.BASE_URL
 // plan PDFs may live under /public (relative) OR be served by the backend per-object
@@ -10,6 +11,10 @@ const BASE = import.meta.env.BASE_URL
 export const planUrl = (u: string) => (/^(https?:)?\/\//.test(u) || u.startsWith('/') ? u : `${BASE}${u}`)
 
 export const TILE_AR = 0.72 // each floor tile's height/width in the stack
+/** the Gebäude floor-stack's plan id – the ONE sheet whose ink also shows on the other linked
+ *  sheets (lib/planProjection · projectOnto), because the building view is where a Brand is
+ *  marked and the Übersicht is where it is read. data/demoIncident · gebaeudeDoc carries it. */
+export const GEBAEUDE_PLAN_ID = 'gebaeude'
 // the canvas is full-bleed (content can pan up behind the floating top bar), but
 // the default "fit" view is sized + vertically centred into the region BELOW the
 // bar. Must match the top-bar clearance used in CSS.
@@ -43,6 +48,40 @@ export const floorLabel = (f: number) => {
   const c = appConfig.copy.floor
   return f === 0 ? c.eg : f > 0 ? fillTemplate(c.og, { n: f }) : fillTemplate(c.ug, { n: -f })
 }
+
+/**
+ * A Leitung's vertices split into the runs that lie on ONE storey (a vertex without its own
+ * storey is on the anno's). On the Gebäude stack each run is drawn on its tile and the jump
+ * between runs is not drawn at all – a stair mark stands at both ends instead (mock C,
+ * 14.09.2026). A single-storey line is one run.
+ */
+export function floorSections(pts: BoardPoint[], floor: number | undefined): BoardPoint[][] {
+  const out: BoardPoint[][] = []
+  let cur: BoardPoint[] = []
+  let curFloor: number | undefined
+  for (const p of pts) {
+    const f = p[2] ?? floor ?? 0
+    if (cur.length && f !== curFloor) { out.push(cur); cur = [] }
+    cur.push(p); curFloor = f
+  }
+  if (cur.length) out.push(cur)
+  return out
+}
+
+/** the storey changes along a Leitung: index i where vertex i and i+1 lie on different storeys */
+export const floorCrossings = (pts: BoardPoint[], floor: number | undefined): number[] =>
+  pts.slice(0, -1).flatMap((p, i) => ((p[2] ?? floor ?? 0) !== (pts[i + 1][2] ?? floor ?? 0) ? [i] : []))
+
+/** a floor index signed the way every Stockwerk badge is signed: «+2», «0», «−1» */
+export const signedFloor = (index: number): string => index > 0 ? `+${index}` : index < 0 ? `−${-index}` : '0'
+
+/** the `#page=N` (1-based) a floor-pack sheet's URL names → 0-based page index; null = the whole
+ *  document (see types · PlanDocument.floor for why the page travels in the URL) */
+export const pdfPageOf = (url: string): number | null => {
+  const m = /#page=(\d+)/.exec(url)
+  return m ? Math.max(0, Number(m[1]) - 1) : null
+}
+export const withPdfPage = (url: string, page: number): string => `${url.replace(/#.*$/, '')}#page=${page + 1}`
 
 /**
  * Floor-stack coordinate maps for the current document. In stack mode the board is a

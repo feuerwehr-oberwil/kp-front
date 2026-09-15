@@ -412,8 +412,11 @@ const coordOf = (p: Record<string, unknown> | null | undefined): LngLat | null =
 
 /** The patched object, unless the patch would break the shape the live gate requires — then
  *  the object stays as it was (the same answer the gate gives a malformed add: absent, not a throw). */
-const gated = <T extends object>(ok: (v: unknown) => v is T, cur: T, patch: Partial<T>): T => {
-  const next = { ...cur, ...patch }
+// Foreign-sheet commits carry a complete owning view; replacement also carries absent
+// fields through JSON. Ordinary surface patches keep their existing merge semantics.
+const gated = <T extends object>(ok: (v: unknown) => v is T, cur: T, patch: Partial<T>, replace = false): T => {
+  const next = replace ? patch : { ...cur, ...patch }
+  if (replace && 'id' in cur && (!('id' in next) || next.id !== cur.id)) return cur
   return ok(next) ? next : cur
 }
 
@@ -440,7 +443,7 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     }
     case 'entity.edit': {
       const patch = p.patch as Partial<Entity> | undefined
-      if (id && patch) ws.entities = ws.entities.map((x) => (x.id === id ? gated(isEntity, x, patch) : x))
+      if (id && patch) ws.entities = ws.entities.map((x) => (x.id === id ? gated(isEntity, x, patch, p.replace === true) : x))
       break
     }
     case 'entity.delete': {
@@ -454,7 +457,7 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     }
     case 'draw.edit': {
       const patch = p.patch as Partial<Drawing> | undefined
-      if (id && patch) ws.drawings = ws.drawings.map((x) => (x.id === id ? gated(isDrawing, x, patch) : x))
+      if (id && patch) ws.drawings = ws.drawings.map((x) => (x.id === id ? gated(isDrawing, x, patch, p.replace === true) : x))
       break
     }
     case 'draw.delete': {
@@ -493,6 +496,8 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
       if (typeof p.x === 'number') patch.x = p.x
       if (typeof p.y === 'number') patch.y = p.y
       if (typeof p.floor === 'number') patch.floor = p.floor
+      if (typeof p.floorFrom === 'number') patch.floorFrom = p.floorFrom
+      if (typeof p.floorTo === 'number') patch.floorTo = p.floorTo
       if (Array.isArray(p.pts)) patch.pts = p.pts as BoardAnno['pts']
       if (planId && id && Object.keys(patch).length) {
         ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? gated(isBoardAnno, a, patch) : a) }
@@ -502,7 +507,7 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     case 'board.edit': {
       const planId = typeof p.planId === 'string' ? p.planId : null
       const patch = p.patch as Partial<BoardAnno> | undefined
-      if (planId && id && patch) ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? gated(isBoardAnno, a, patch) : a) }
+      if (planId && id && patch) ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? gated(isBoardAnno, a, patch, p.replace === true) : a) }
       break
     }
     case 'board.delete': {

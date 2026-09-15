@@ -4,6 +4,7 @@ import { ROTATABLE } from './symbols'
 import { SHAPE_DEFS } from './shapes'
 import { entityToBoardSymbol, onSheet, planGroundWidthM, TWIN_CLIP_MARGIN } from './georefTwins'
 import type { PlanFit, TacticalObject } from './tacticalObjects'
+import { GEBAEUDE_PLAN_ID } from './whiteboard'
 
 /**
  * The Karte, said in ONE sheet's own words — the second half of the unified object
@@ -88,7 +89,30 @@ const pt = (fit: GeorefFit, c: LngLat): PlanPt => fit.toPlan({ lng: c[0], lat: c
  * a projection was not allowed to be the object; it is now.)
  */
 export function projectOnto(o: TacticalObject, plan: PlanFit, margin = TWIN_CLIP_MARGIN): BoardAnno | null {
-  if (o.sheet) return null // anchored on a sheet: drawn there natively, and nowhere else
+  const anno = projectOntoSheet(o, plan, margin)
+  if (!anno || !plan.stack) return anno
+  // the Gebäude stack: a map object lands on the tile of its first storey – Von, else its badge,
+  // else level 0 (the implicit default of everything placed on the Karte, never written back as
+  // explicit 0) – and shows as a copy on every tile up to Bis. A span the stack has no tile for
+  // shows nothing. The tile says the floor; no badge on the anno.
+  const e = o.entity
+  const from = e ? e.floorFrom ?? e.floorTo ?? e.floor ?? 0 : o.drawing?.floorTag ?? 0
+  const to = e ? e.floorTo ?? from : from
+  const lo = Math.min(from, to), hi = Math.max(from, to)
+  const tiles = plan.stack.floors.filter((f) => f >= lo && f <= hi)
+  if (!tiles.length) return null
+  const home = tiles.includes(from) ? from : tiles[0]
+  const out: BoardAnno = { ...anno, floor: home, ...(e && (e.floorFrom != null || e.floorTo != null) ? { floorFrom: lo, floorTo: hi } : {}) }
+  delete out.storey
+  return out
+}
+
+function projectOntoSheet(o: TacticalObject, plan: PlanFit, margin: number): BoardAnno | null {
+  // anchored on a sheet: drawn there natively, and nowhere else – EXCEPT the Gebäude stack's ink,
+  // which the other linked sheets show through its baked map body with the storey as badge (the
+  // motivating case, 14.09.2026: a Brand marked on +2 in the Gebäude reads «+2» on Modul 1). The
+  // stack itself never shows another sheet's ink this way, and its own it draws natively.
+  if (o.sheet && (o.sheet.planId !== GEBAEUDE_PLAN_ID || plan.stack)) return null
   const { fit } = plan
   const widthM = planGroundWidthM(fit, plan.aspect)
   const asN = (m: number | undefined, fallback?: number) => {

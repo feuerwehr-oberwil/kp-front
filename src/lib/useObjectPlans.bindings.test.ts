@@ -75,3 +75,24 @@ describe('object plans bind before field use', () => {
     hook.unmount()
   })
 })
+
+describe('a module the catalogue hides behind the Gebäude', () => {
+  it('disappears from the rail once the object has a floor pack, and stays without one', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ modules: [{ id: 'modul2', code: 'M2', hideWhenGebaeude: true }] }), { status: 200, headers: { 'content-type': 'application/json' } })))
+    const { loadDeploymentConfig } = await import('./deploymentConfig')
+    await loadDeploymentConfig()
+    const sheet = { id: 'object:house:plan:modul2', objectId: 'house', planId: 'modul2', datasetId: 'plan:house:modul2', planVersion: 3, title: 'Modul 2' }
+    const approval = { id: 1, aspect: 1.6, approved_at: '2026-09-14', pairs: knownLegacy.pairs }
+    const withPack = [inheritPlanBinding(sheet, approval, null, false, [{ page: 0, index: 0, name: null }])]
+    const withoutPack = [inheritPlanBinding(sheet, approval, null, false)]
+    const a = renderHook(() => useObjectPlans('incident', center, noop, undefined, noop, { bindings: withPack, onBind, legacyPlanIds: new Set<string>() }))
+    await waitFor(() => expect(a.result.current.resolvedPlanDocs.some((p) => p.id === 'osm' || p.id === 'tafel')).toBe(true))
+    await waitFor(() => expect(a.result.current.activeObjectId).toBe('house'))
+    expect(a.result.current.resolvedPlanDocs.some((p) => p.id === 'modul2')).toBe(false)
+    a.unmount()
+    const b = renderHook(() => useObjectPlans('incident', center, noop, undefined, noop, { bindings: withoutPack, onBind, legacyPlanIds: new Set<string>() }))
+    await waitFor(() => expect(b.result.current.resolvedPlanDocs.some((p) => p.id === 'modul2')).toBe(true))
+    b.unmount()
+    vi.unstubAllGlobals()
+  })
+})

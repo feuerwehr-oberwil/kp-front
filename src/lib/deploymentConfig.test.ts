@@ -404,3 +404,36 @@ describe('moduleAlignment — the catalogue decides which sheets the server may 
     expect(moduleAlignment(catalogue, 'modul1')).toBe('auto')
   })
 })
+
+describe('Modul 5 – Zusatz is read, not marked up', () => {
+  // a station without its own catalogue: the national defaults decide
+  beforeEach(async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })))
+    await loadDeploymentConfig()
+  })
+  afterEach(() => { vi.unstubAllGlobals() })
+  it('opens viewer-only by default, while a numbered Wasser sibling stays annotatable', () => {
+    expect(moduleViewer('modul5-zusatz')).toBe(true)
+    expect(moduleViewer('modul5-wasser1')).toBe(false)
+    expect(moduleViewer('modul6')).toBe(true)
+  })
+})
+
+describe('a module can step behind the Gebäude', () => {
+  beforeEach(async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ modules: [
+      { id: 'modul6', code: 'M6', viewer: true, hideWhenGebaeude: true },
+      { id: 'modul5', code: 'M5', family: true, hideWhenGebaeude: true },
+      { id: 'modul5-wasser', code: 'W' },
+    ] }), { status: 200, headers: { 'content-type': 'application/json' } })))
+    await loadDeploymentConfig()
+  })
+  afterEach(() => { vi.unstubAllGlobals() })
+  it('resolves exact, sibling and family like the viewer flag; default off', async () => {
+    const { moduleHiddenWithGebaeude } = await import('./deploymentConfig')
+    expect(moduleHiddenWithGebaeude('modul6')).toBe(true)
+    expect(moduleHiddenWithGebaeude('modul5-pv')).toBe(true) // family
+    expect(moduleHiddenWithGebaeude('modul5-wasser2')).toBe(false) // the numbered sibling's own slot
+    expect(moduleHiddenWithGebaeude('modul1')).toBe(false)
+  })
+})

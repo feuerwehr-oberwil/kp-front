@@ -131,12 +131,19 @@ export interface ObjectStoreOptions {
    * the flip and every later one finds it already made.
    */
   onAnchorChange?: (changes: AnchorChange[]) => void
+  /** Committed edits made through another sheet, in the owning views' replay vocabulary. */
+  onForeignSheetEdit?: (events: ForeignSheetEditEvent[]) => void
+}
+
+export interface ForeignSheetEditEvent {
+  op: 'board.edit' | 'entity.edit' | 'draw.edit'
+  payload: Record<string, unknown>
 }
 
 export function useObjectStore(
   init: TacticalObject[],
   readOnly: boolean,
-  { getFits, defaultLayer, fitsVersion, onCheckpoint, onAnchorChange }: ObjectStoreOptions,
+  { getFits, defaultLayer, fitsVersion, onCheckpoint, onAnchorChange, onForeignSheetEdit }: ObjectStoreOptions,
 ): ObjectStore {
   const store = useUndoableDoc<TacticalObject[]>(init, readOnly, onCheckpoint)
   const { setDocRaw: setObjects } = store
@@ -218,8 +225,24 @@ export function useObjectStore(
    */
   const sheetStep = useRef<symbol | null>(null)
   const stepped = useRef<symbol | undefined>(undefined)
-  const beginSheetStep = () => { sheetStep.current = Symbol('sheet-step') }
-  const endSheetStep = () => { sheetStep.current = null }
+  const foreignPending = useRef(new Map<string, { before: TacticalObject; after: TacticalObject }>())
+  const foreignReporter = useRef(onForeignSheetEdit)
+  foreignReporter.current = onForeignSheetEdit
+  const flushForeign = () => {
+    const events: ForeignSheetEditEvent[] = []
+    const current = new Map(store.current().map((o) => [o.id, o]))
+    for (const { before, after } of foreignPending.current.values()) {
+      if (!after.sheet || current.get(after.id)?.sheet?.planId !== after.sheet.planId || JSON.stringify(before) === JSON.stringify(after)) continue
+      // Full replacement preserves field removals through JSON transport as well.
+      events.push({ op: 'board.edit', payload: { id: after.id, planId: after.sheet.planId, patch: after.sheet.anno, replace: true } })
+      if (after.entity) events.push({ op: 'entity.edit', payload: { id: after.id, patch: after.entity, replace: true } })
+      if (after.drawing) events.push({ op: 'draw.edit', payload: { id: after.id, patch: after.drawing, replace: true } })
+    }
+    foreignPending.current.clear()
+    if (events.length) foreignReporter.current?.(events)
+  }
+  const beginSheetStep = () => { flushForeign(); sheetStep.current = Symbol('sheet-step') }
+  const endSheetStep = () => { sheetStep.current = null; flushForeign() }
 
   /**
    * …and the net under it, for the gesture that never says it ended: a plan step taken from the
@@ -236,7 +259,7 @@ export function useObjectStore(
       if (!e.isPrimary) return
       const token = sheetStep.current
       if (!token) return
-      setTimeout(() => { if (sheetStep.current === token) sheetStep.current = null }, 0)
+      setTimeout(() => { if (sheetStep.current === token) endSheetStep() }, 0)
     }
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
@@ -247,26 +270,44 @@ export function useObjectStore(
   }, [])
 
   const setBoard: Dispatch<SetStateAction<BoardDoc>> = (a) => {
+    const changedOwners = new Map<string, { before: TacticalObject; after: TacticalObject }>()
     reporting((see) => setObjects((objects) => {
       const view = boardViewOf(objects, getFits())
       const next = typeof a === 'function' ? a(view) : a
       if (next === view) return objects
       let out = objects
+      let foreignEdit = false
       for (const planId of new Set([...Object.keys(view), ...Object.keys(next)])) {
         const annos = next[planId] ?? []
         if (annos === view[planId]) continue
         const plan = getFits().get(planId)
-        out = bakePlan(applyBoardToObjects(out, planId, annos, plan, defaultLayer), planId, plan, defaultLayer)
+        const folded = bakePlan(applyBoardToObjects(out, planId, annos, plan, defaultLayer, true, getFits()), planId, plan, defaultLayer)
+        const foldedById = new Map(folded.map((o) => [o.id, o]))
+        for (const before of out) {
+          if (!before.sheet || before.sheet.planId === planId) continue
+          const after = foldedById.get(before.id)
+          if (after && after.sheet?.planId === before.sheet.planId && JSON.stringify(before) !== JSON.stringify(after)) {
+            changedOwners.set(before.id, { before: changedOwners.get(before.id)?.before ?? before, after })
+          }
+        }
+        foreignEdit ||= touchedForeign(out, folded, planId)
+        out = folded
       }
       const gesture = sheetStep.current
       // no gesture open ⇒ a discrete write, and every one of those is its own step
-      if (out !== objects && touchedForeign(objects, out) && (gesture === null || stepped.current !== gesture)) {
+      if (out !== objects && foreignEdit && (gesture === null || stepped.current !== gesture)) {
         store.checkpoint(objects)
         stepped.current = gesture ?? undefined // …the gesture's remaining samples fold into it
       }
       see(objects, out)
       return out
     }))
+    // Outside the updater, like anchor reporting. Samples coalesce until the surface
+    // commits its gesture; passive projection/re-bake never enters this write path.
+    for (const [id, change] of changedOwners) foreignPending.current.set(id, {
+      before: foreignPending.current.get(id)?.before ?? change.before, after: change.after,
+    })
+    if (sheetStep.current === null) flushForeign()
   }
 
   const rebake: ObjectStore['rebake'] = (opts) => {
@@ -301,9 +342,9 @@ export function useObjectStore(
  * merely showing? That is what decides which undo stack is owed a step: a sheet's own
  * annotations are restored by its own history, and anything else is a store-level act.
  */
-function touchedForeign(before: TacticalObject[], after: TacticalObject[]): boolean {
+function touchedForeign(before: TacticalObject[], after: TacticalObject[], planId: string): boolean {
   const now = new Map(after.map((o) => [o.id, o]))
-  for (const o of before) if (!o.sheet && now.get(o.id) !== o) return true
+  for (const o of before) if (o.sheet?.planId !== planId && now.get(o.id) !== o) return true
   return false
 }
 

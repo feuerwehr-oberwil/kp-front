@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { addPlanBindings, effectiveBindingGeoref, incidentBindingApproved, inheritPlanBinding, incidentGeorefForPlan, incidentGeorefKey, overridePlanBinding, registerIncidentPlanBindings, saveIncidentGeoref } from './incidentPlanBindings'
+import { addPlanBindings, effectiveBindingGeoref, incidentBindingApproved, inheritPlanBinding, incidentGeorefForPlan, incidentGeorefKey, isIncidentPlanBinding, overridePlanBinding, registerIncidentPlanBindings, saveIncidentGeoref } from './incidentPlanBindings'
 import { mergeWorkspace } from './mergeWorkspace'
 import { deriveInitial, sanitizeWorkspace } from './workspace'
 import { boardTwinAnnosForPrint, georefPlans, planAspect } from './georefTwins'
@@ -149,4 +149,22 @@ describe('incident plan snapshots', () => {
       expect(payload.planPages).toMatchObject([{ url: '/api/reference/pdf%3Ahouse%3A2?v=3', annos: [{ text: 'Zugang' }] }])
     } finally { unregister() }
   })
+})
+
+describe('floor packs freeze with the revision', () => {
+  const floors = [{ page: 0, index: -1, name: null }, { page: 1, index: 0, name: 'EG / ZWG' }]
+  it('copies the published floors onto the binding and refuses malformed ones on load', () => {
+    const bound = inheritPlanBinding(sheet, approval, null, false, floors)
+    expect(bound.floors).toEqual(floors)
+    expect(bound.floors).not.toBe(floors)
+    expect(inheritPlanBinding(sheet, approval, null, false, []).floors).toBeUndefined()
+    expect(isIncidentPlanBinding(bound)).toBe(true)
+    expect(isIncidentPlanBinding({ ...bound, floors: [{ page: 1, index: 0.5, name: null }] })).toBe(false)
+    expect(isIncidentPlanBinding({ ...bound, floors: undefined })).toBe(true)
+  })
+})
+
+
+it('freezes the approved fit page instead of silently using page zero', () => {
+  expect(inheritPlanBinding(sheet, { ...approval, page: 2 }, null, false).page).toBe(2)
 })

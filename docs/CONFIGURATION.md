@@ -857,6 +857,13 @@ column), so what a station opted into is visible where the modules are listed. P
 the server's `georef` extra and an Overpass mirror (§6); without them `auto` degrades to the
 manual flow and the admin page says so.
 
+**A module can step behind the Gebäude** (14.09.2026): `modules[].hideWhenGebaeude: true` hides
+that module's tile in an Einsatz whose object carries a floor pack (Objektpläne › Plan-Ausrichtung
+› Geschosse) – the Gebäude stack then shows the pack's pages. Default off, because the original
+sheet keeps what the stack drops (sections, legend, title block); Oberwil sets it on `modul6`.
+An object without a pack shows the module as before. Resolved like `viewer` (exact entry, numbered
+sibling, family).
+
 ### 4a. `"divera"` – auto-sync
 - Requires a Divera access key in env (§6). The backend syncs Divera personnel → `Person`.
 - No file needed. The admin UI shows the synced roster and offers preview-then-execute sync; it

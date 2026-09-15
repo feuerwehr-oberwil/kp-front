@@ -112,11 +112,31 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
     const n = view.toNorm(x, y)
     if (n) setAim({ pt: { x: n[0], y: n[1] } })
   }
+  /**
+   * The pointer LEFT the sheet (or its gesture was taken away): with a hovering pointer nothing
+   * is being aimed at here any more, so this half's magnifier goes down. ⚠️ That is the
+   * single-loupe rule, and it is what the admin pairing needs: there the sheet and the map stand
+   * side by side under ONE pointer, and each half keeping its own last aim put two magnifiers on
+   * screen at once, one of them over a pane nobody was pointing at (15.09.2026).
+   * ⚠️ A TOUCH pointer is destroyed at every lift, so its `pointerleave` is not a departure —
+   * there the last aim stays up, which is the whole reason the loupe opens without a hover.
+   */
+  const leave = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return
+    // a gesture in flight owns the aim — a captured pointer reports its boundaries against the
+    // capturing element, so a drag that travels off a 26px cross must not put the loupe down
+    if (drag.current || tap.current) return
+    // the crosses lie OVER the capture layer as siblings, so stepping onto one is a `pointerleave`
+    // without having left the sheet at all — anything still inside the board keeps the loupe up
+    const to = e.relatedTarget
+    if (to instanceof Node && view.boardRef.current?.contains(to)) return
+    setAim(null)
+  }
   // ⚠️ The loupe is up for the whole armed mode, not only while something is pressed. A touch
   // screen has no hover, so a magnifier that waited for a pointer was never seen at all: you
   // placed the point and only then found out what you had been aiming at. It opens on the middle
-  // of the sheet, follows every move (hover or press), keeps the last aim after a release, and
-  // steps aside only for a pan.
+  // of the sheet, follows every move (hover or press), keeps the last aim after a release until
+  // the pointer leaves the sheet (`leave`), and steps aside for a pan.
   useEffect(() => {
     if (!armed) { setAim(null); setPanning(false); return }
     setAim((cur) => cur ?? centreAim())
@@ -258,7 +278,8 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
     <>
       {showCapture && (
         <div className={`${s.capture} ${panning ? s.capturePan : ''}`}
-          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} />
+          onPointerDown={down} onPointerMove={move} onPointerUp={up}
+          onPointerCancel={(e) => { up(e); leave(e) }} onPointerLeave={leave} />
       )}
       {/* NOT armed: the stored reference, as plain marks. ⚠️ A cross is only a CONTROL while the
           mode is armed — it is a 26px glyph with a 44px touch pad above every annotation, so a
@@ -310,6 +331,7 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
             onPointerMove={crossMove}
             onPointerUp={crossUp}
             onPointerCancel={crossUp}
+            onPointerLeave={leave}
           >
             {crossSvg}
             <span className={s.badge}>{no}</span>
@@ -322,9 +344,13 @@ export function GeorefBoardLayer({ pairs, mode, armed, sW, sH, view }: {
         <PlanMarkerPopover mode={mode} boardRef={view.boardRef} />, document.body,
       )}
       {/* …and NOT during «Deckung prüfen»: coverage is inspection, nothing is placeable, and the
-          Karte owns the whole screen — a plan magnifier portalled over it answers no question */}
+          Karte owns the whole screen — a plan magnifier portalled over it answers no question.
+          ⚠️ `inset` portals into the PANE (the sheet's stage), not to the body: there the
+          magnifier is the map half's own inset, in the same corner of the half being aimed at,
+          and `position: absolute` needs the pane as its positioned parent (15.09.2026). */}
       {armed && !mode.check && mode.want === 'plan' && aim && !panning && !isPhone && createPortal(
-        <PlanLoupe aim={aim} sW={sW} sH={sH} boardRef={view.boardRef} />, document.body,
+        <PlanLoupe aim={aim} sW={sW} sH={sH} boardRef={view.boardRef} />,
+        (mode.loupe === 'inset' && view.canvasEl?.parentElement) || document.body,
       )}
       {/* …and on a PHONE the same magnifier, aimed at the fixed reticle rather than at a pointer
           there is none of. It was dropped when the fixed-target workflow arrived, on the grounds
@@ -447,27 +473,42 @@ function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: nu
   const ref = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
-    const out = ref.current; if (!out) return
-    const ctx = out.getContext('2d'); if (!ctx) return
-    // PdfViewport paints the stitched plan into the FIRST canvas of the board (the base blit);
-    // the refine canvas that follows it only covers the visible crop.
-    const src = boardRef.current?.querySelector('canvas') as HTMLCanvasElement | null | undefined
-    const w = out.clientWidth, h = out.clientHeight
-    // ⚠️ The FULL device pixel ratio, not a cap of 2. This inset is 124px across on a phone whose
-    // screen paints 3 device px per CSS px, and half the complaint about «the magnifier is
-    // blurry» was simply a backing store a third short of the panel it sits on.
-    const dpr = Math.min(window.devicePixelRatio || 1, 3)
-    out.width = Math.round(w * dpr); out.height = Math.round(h * dpr)
-    // ⚠️ AFTER the resize — setting width/height resets the whole 2D context, this flag included
-    ctx.imageSmoothingQuality = 'high'
-    ctx.clearRect(0, 0, out.width, out.height)
-    if (!src || !src.width || !src.height || !sW || !sH) return
-    // crop side, in bitmap px, that fills the loupe at LOUPE_MUL× the on-screen plan scale
-    const cw = (w * src.width) / (LOUPE_MUL * sW)
-    const ch = (h * src.height) / (LOUPE_MUL * sH)
-    try {
-      ctx.drawImage(src, aim.pt.x * src.width - cw / 2, aim.pt.y * src.height - ch / 2, cw, ch, 0, 0, out.width, out.height)
-    } catch { /* a torn-down canvas mid-gesture — the loupe simply stays empty */ }
+    const board = boardRef.current
+    if (!board) return
+    const paint = () => {
+      const out = ref.current; if (!out) return
+      const ctx = out.getContext('2d'); if (!ctx) return
+      // PdfViewport paints the stitched plan into the FIRST canvas of the board (the base blit);
+      // the refine canvas that follows it only covers the visible crop.
+      const src = boardRef.current?.querySelector('canvas') as HTMLCanvasElement | null | undefined
+      const w = out.clientWidth, h = out.clientHeight
+      // ⚠️ The FULL device pixel ratio, not a cap of 2. This inset is 124px across on a phone whose
+      // screen paints 3 device px per CSS px, and half the complaint about «the magnifier is
+      // blurry» was simply a backing store a third short of the panel it sits on.
+      const dpr = Math.min(window.devicePixelRatio || 1, 3)
+      out.width = Math.round(w * dpr); out.height = Math.round(h * dpr)
+      // ⚠️ AFTER the resize — setting width/height resets the whole 2D context, this flag included
+      ctx.imageSmoothingQuality = 'high'
+      ctx.clearRect(0, 0, out.width, out.height)
+      if (!src || !src.width || !src.height || !sW || !sH) return
+      // crop side, in bitmap px, that fills the loupe at LOUPE_MUL× the on-screen plan scale
+      const cw = (w * src.width) / (LOUPE_MUL * sW)
+      const ch = (h * src.height) / (LOUPE_MUL * sH)
+      // the aim in BITMAP pixels through the base canvas's own on-screen rect – the board and the
+      // canvas are the same box on the field, but this holds even where they are not (15.09.2026)
+      const b = boardRef.current?.getBoundingClientRect(), c = src.getBoundingClientRect()
+      const ax = b && c && c.width ? ((b.left + aim.pt.x * b.width - c.left) / c.width) * src.width : aim.pt.x * src.width
+      const ay = b && c && c.height ? ((b.top + aim.pt.y * b.height - c.top) / c.height) * src.height : aim.pt.y * src.height
+      try {
+        ctx.drawImage(src, ax - cw / 2, ay - ch / 2, cw, ch, 0, 0, out.width, out.height)
+      } catch { /* a torn-down canvas mid-gesture — the loupe simply stays empty */ }
+    }
+    paint()
+    // PdfViewport loads independently of this layer. Its base canvas changes dimensions
+    // when the bitmap arrives; repaint after that batch without needing a pointer move.
+    const observer = new MutationObserver(paint)
+    observer.observe(board, { subtree: true, childList: true, attributes: true, attributeFilter: ['width', 'height'] })
+    return () => observer.disconnect()
   }, [aim, sW, sH, boardRef])
 
   return (
@@ -560,20 +601,24 @@ export function GeorefSplitSeam() {
   return <div className={s.seam} />
 }
 
-/** The status the panel leads with: the Ampel line, plus «Karte n · Modul m» and — because the
- *  amber cross saying so may be on the surface a phone is not even showing — WHICH half is still
- *  open, or what the armed «Verschieben» is waiting for. One derivation for both form factors. */
+/** The status the panel leads with: the Ampel line and — because the amber cross saying so may be
+ *  on the surface a phone is not even showing — WHICH half is still open, or what the armed
+ *  «Verschieben» is waiting for. One derivation for both form factors.
+ *
+ *  ⚠️ «Karte n · Modul m» only when the two DIFFER (15.09.). Equal counts are the normal case, so
+ *  the line sat under every fit saying nothing, beside the Ampel that is the actual traffic
+ *  light. Unequal counts mean a half is dangling — which is the warning the counter was for, and
+ *  the only state in which it earns its place. `sub` is then empty, and both bars drop it. */
 function georefStatus(mode: GeorefModeState) {
   const C = appConfig.copy.whiteboard.georef
   const fit = fitSimilarity(mode.pairs, mode.aspect)
   const lamp = georefLamp(fit, mode)
-  const counts = fillTemplate(C.sideProgress, {
-    map: String(georefSideCount(mode, 'map')),
-    plan: String(georefSideCount(mode, 'plan')),
-  })
+  const mapN = georefSideCount(mode, 'map')
+  const planN = georefSideCount(mode, 'plan')
+  const counts = mapN === planN ? null : fillTemplate(C.sideProgress, { map: String(mapN), plan: String(planN) })
   const sub = mode.move
     ? fillTemplate(mode.move.side === 'plan' ? C.movePlan : C.moveMap, { n: georefSlotLabel(mode.slots, mode.move.idx) })
-    : (() => { const hint = georefOpenHint(mode); return hint ? `${counts} – ${hint}` : counts })()
+    : [counts, georefOpenHint(mode)].filter(Boolean).join(' – ')
   // the folded quality detail behind the (i): the pair count, the claimable ⌀, and the one
   // instruction-shaped sentence (georefLamp body — what the next point should do)
   const claim = residualClaim(fit)
@@ -689,7 +734,7 @@ function GeorefProposalActions({ mode }: { mode: GeorefModeState }) {
   )
 }
 
-function GeorefActions({ mode }: { mode: GeorefModeState }) {
+function GeorefActions({ mode, onReset }: { mode: GeorefModeState; onReset?: () => void }) {
   const C = appConfig.copy.whiteboard.georef
   // Coverage is a full-screen visual comparison, not another point-placement step. Its bar is
   // intentionally one line: blend the two pictures, then return to the exact map/plan side the
@@ -720,8 +765,13 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
         // …offered as soon as ANYTHING stands, open halves included. Gated on `pairs` alone,
         // a mode full of unmatched points (28.08.: nine of them, courtesy of the tap-double-fire
         // bug) had NO way to start over — only «Punkt löschen», one by one.
-        : mode.slots.length > 0
-          && <button className={`btn warn ${s.resetAction}`} onClick={() => void clearGeorefPoints()}><Icon id="trash" />{C.clearPoints}</button>}
+        //
+        // ⚠️ With an `onReset` the pairs are somebody's DRAFT (the admin's plan editor), so this
+        // throws the draft away instead of deleting points, and asks nothing: what it restores is
+        // what is stored. It then stands whatever the draft holds — an emptied draft is exactly
+        // the state that needs it most.
+        : (onReset != null || mode.slots.length > 0)
+          && <button className={`btn warn ${s.resetAction}`} onClick={() => onReset ? onReset() : void clearGeorefPoints()}><Icon id="trash" />{C.clearPoints}</button>}
       {/* «Deckung prüfen» — the sheet's own outline, laid on the map. The check belongs HERE
           because this is the one screen where both pictures are up at once. */}
       {!mode.move && mode.pairs.length >= 2 && (
@@ -756,10 +806,13 @@ function GeorefActions({ mode }: { mode: GeorefModeState }) {
  * which shows nothing else while the mode runs — and positioned out of it. The phone does the
  * mirror image in GeorefModeBars: same content, in the tool bar's lane.
  */
-export function GeorefInstrument({ mode, inline = false }: { mode: GeorefModeState
-  /** in the flow of its container instead of pinned to the viewport — the admin's review modal
-   *  mounts the same instrument above its two panes */
-  inline?: boolean }) {
+export function GeorefInstrument({ mode, inline = false, onReset }: { mode: GeorefModeState
+  /** in the flow of its container instead of pinned to the viewport — the admin's plan editor
+   *  mounts the same instrument below its two panes */
+  inline?: boolean
+  /** replaces «Zurücksetzen»'s meaning where the pairs are a draft rather than the stored
+   *  georeference: the admin's editor discards its draft instead of deleting every point */
+  onReset?: () => void }) {
   const C = appConfig.copy.whiteboard.georef
   const [detail, setDetail] = useState(false)
   const st = georefStatus(mode)
@@ -778,11 +831,15 @@ export function GeorefInstrument({ mode, inline = false }: { mode: GeorefModeSta
         )}
         {!mode.check && (
           <span className={`${s.lampLine} ${s[`lampLine_${st.lamp.tone}`]}`}>
-            <b>{st.lamp.head}</b>{!mode.move && <>{' · '}<i>{st.sub}</i></>}
+            <b>{st.lamp.head}</b>{!mode.move && st.sub ? <>{' · '}<i>{st.sub}</i></> : null}
           </span>
         )}
-        {/* the quality detail + the (rewritten, instruction-shaped) warning live behind the (i) */}
-        {!mode.check && detail && <span className={s.promptHint}>{st.foldBody}</span>}
+        {/* the quality detail, the (rewritten, instruction-shaped) warning AND — since the
+            instruction itself is one short sentence — what makes a good point, live behind the (i) */}
+        {!mode.check && detail && <>
+          <span className={s.promptHint}>{st.foldBody}</span>
+          <span className={s.promptHint}>{C.freeOrderTip}</span>
+        </>}
       </span>
       {!mode.check && (
         <button
@@ -791,7 +848,7 @@ export function GeorefInstrument({ mode, inline = false }: { mode: GeorefModeSta
           onClick={() => setDetail((v) => !v)}
         ><Icon id="info" /></button>
       )}
-      <span className={s.acts}><GeorefActions mode={mode} /></span>
+      <span className={s.acts}><GeorefActions mode={mode} onReset={onReset} /></span>
     </div>
   )
 }
@@ -894,7 +951,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
       {!mode.check && (
         <div className={s.statusRow}>
           <span className={`${s.sdot} ${s[`sdot_${st.lamp.tone}`]}`} />
-          <span className={s.stext}><b>{st.lamp.head}</b><i>{st.sub}</i></span>
+          <span className={s.stext}><b>{st.lamp.head}</b>{st.sub ? <i>{st.sub}</i> : null}</span>
           <button
             type="button" className={`${s.infoBtn} ${detail ? s.infoOn : ''}`}
             aria-expanded={detail} title={C.detailsTitle} aria-label={C.detailsTitle}
@@ -902,12 +959,14 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
           ><Icon id="info" /></button>
         </div>
       )}
-      {/* ── the quality detail, folded behind the (i): pair count, claimable ⌀, and the one
-          instruction-shaped sentence about what the next point should fix */}
+      {/* ── the quality detail, folded behind the (i): pair count, claimable ⌀, the one
+          instruction-shaped sentence about what the next point should fix, and — same tip as the
+          desktop instrument's (i) — what makes a good point in the first place */}
       {!mode.check && detail && (
         <div className={s.qfold}>
           {st.foldValue && <div className={s.qrow}><span>{st.foldPairs}</span><strong>{st.foldValue}</strong></div>}
-          {st.foldBody}
+          <div>{st.foldBody}</div>
+          <div className={s.qtip}>{C.freeOrderTip}</div>
         </div>
       )}
       {/* On a phone the two surfaces are part of this one task, so their switch belongs inside

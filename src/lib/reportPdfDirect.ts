@@ -9,7 +9,7 @@
 
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
-import { TILE_AR, floorLabel } from './whiteboard'
+import { TILE_AR, floorLabel, pdfPageOf } from './whiteboard'
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
@@ -307,7 +307,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const printPlans = selectedPlans.filter((p) => p.imageUrl && !p.floorStack)
   const planPages: Record<string, unknown>[] = printPlans.map((p) => ({
     label: `${p.code} · ${p.title}`,
-    url: p.imageUrl,
+    // a floor sheet names its page in the URL fragment; the server renders THAT page
+    url: p.imageUrl.replace(/#.*$/, ''),
+    page: pdfPageOf(p.imageUrl) ?? 0,
     // ⚠️ ONE list. The board view a sheet draws already carries the Karte's objects projected
     // onto it (lib/useObjectStore · board), so concatenating a second «mirrored» list here
     // printed every annotation on a linked plan twice — the sheet's own ink included.

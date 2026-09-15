@@ -6,6 +6,8 @@ import { ToolDock } from './ToolDock'
 import { useNodeHold } from '../lib/nodeHold'
 import { vertexHandleIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
+import { floorSections, signedFloor } from '../lib/whiteboard'
+import { fillTemplate } from '../lib/format'
 
 const COLORS = appConfig.drawing.colors
 /** id namespace for the ink layer's Schraffur — kept distinct from the circle layer's defs so
@@ -74,10 +76,24 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
         </g>
         )
       })}
-      {annos.filter((a) => a.kind === 'draw' && a.pts).map((a) => {
-        const pts = pointStr(a.pts!, a.floor)
+      {annos.filter((a) => a.kind === 'draw' && a.pts).flatMap((a) => floorSections(a.pts!, a.floor).map((run, ri) => {
+        // a Leitung that climbs storeys is drawn per storey; the climb itself is a stair mark
+        // on either tile (Whiteboard · stair marks), not a stroke through the ceiling
+        const pts = pointStr(run, a.floor)
+        // a run of ONE vertex – the Leitung has just arrived on this storey (↑/↓) – is a dot, or
+        // there would be nothing to see or select on the tile until the next vertex is placed
+        if (run.length === 1) {
+          const [cx, cy] = [run[0][0] * W, mapY(run[0][2] ?? a.floor, run[0][1]) * H]
+          return (
+            <g key={`${a.id}:${ri}`}>
+              {selId === a.id && <circle cx={cx} cy={cy} r={(a.width || 5) / 2 + 5} fill="var(--blue)" fillOpacity={0.35} />}
+              <circle cx={cx} cy={cy} r={(a.width || 5) / 2 + 1.5} fill={a.color || COLORS[0]} />
+              {onPickDraw && <circle cx={cx} cy={cy} r={14} fill="transparent" style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickDraw(a.id, e)} />}
+            </g>
+          )
+        }
         return (
-        <g key={a.id}>
+        <g key={`${a.id}:${ri}`}>
           {truppTones[a.id] && (
             <polyline points={pts} fill="none" stroke={truppTones[a.id] === 'crit' ? 'var(--red)' : 'var(--amber)'}
               strokeWidth={(a.width || 5) + 8} strokeOpacity={0.45}
@@ -106,7 +122,7 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
           )}
         </g>
         )
-      })}
+      }))}
       {draft && draft.length >= 2 && (
         draftClosed && draft.length >= 3
           ? <polygon points={pointStr(draft, draftFloor)} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinejoin="round" />
@@ -282,7 +298,7 @@ export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertex
  * carry the board zoom. The "+" handles only appear while EVERY node is shown: a midpoint between
  * two thinned grips is nowhere near the drawn path.
  */
-export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex, onExtend }: {
+export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex, onExtend, onClimb, floors }: {
   anno: BoardAnno
   sW: number
   sH: number
@@ -292,6 +308,10 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   onDeleteVertex: (idx: number) => void
   /** grow the line past an open end — appends a point there and hands the drag over to it */
   onExtend?: (end: 'start' | 'end', e: React.PointerEvent) => void
+  /** Gebäude stack only: continue the Leitung at the SAME spot one storey up (+1) or down (−1) –
+   *  the staircase gesture (Bastian, 14.09.2026). `floors` says which storeys exist. */
+  onClimb?: (end: 'start' | 'end', dir: 1 | -1) => void
+  floors?: number[]
 }) {
   // still hold = delete, movement cancels into the reshape drag — the SAME gesture and the same
   // chip the map uses (lib/nodeHold · NodeDeleteChip); the two surfaces share the feel, not the
@@ -346,6 +366,30 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
             style={{ left: 0, top: 0, transform: `translate(${gx}px, ${gy}px) translate(-50%, -50%)`, ['--grow-deg' as string]: `${deg}deg` }}
             onPointerDown={(e) => onExtend(ep, e)}><Icon id="arrow" /></button>
         )
+      })}
+      {/* ── Ein Geschoss höher / tiefer ──────────────────────────────────────────────────────
+          On the stack an open end offers ↑ and ↓ beside the arrow: the line goes on at the same
+          place on the storey above / below – how a Leitung takes the stairs. Only for storeys
+          the stack has. */}
+      {!closed && onClimb && floors && (['start', 'end'] as const).flatMap((ep) => {
+        const i = ep === 'start' ? 0 : sp.length - 1
+        const here = pts[i][2] ?? anno.floor ?? 0
+        const p0 = sp[i]
+        const nb = pts[ep === 'start' ? 1 : pts.length - 2]
+        return ([1, -1] as const).filter((dir) => floors.includes(here + dir)).map((dir) => {
+          // the neighbour is this very spot one storey over → this tap goes BACK (Whiteboard · climbLine)
+          const back = !!nb && nb[0] === pts[i][0] && nb[1] === pts[i][1] && (nb[2] ?? anno.floor ?? 0) === here + dir && pts.length > 2
+          const label = back ? fillTemplate(appConfig.copy.whiteboard.climbBack, { floor: signedFloor(here + dir) }) : dir > 0 ? appConfig.copy.whiteboard.climbUp : appConfig.copy.whiteboard.climbDown
+          return (
+          <button key={`climb-${ep}-${dir}`} type="button" className={`draw-grow wb-grow wb-climb${back ? ' back' : ''}`} data-holdaction
+            title={label} aria-label={label}
+            // ↑ straight above the end vertex, ↓ straight below it – the direction IS the meaning
+            style={{ left: 0, top: 0, transform: `translate(${p0[0]}px, ${p0[1] + (dir > 0 ? -44 : 44)}px) translate(-50%, -50%)` }}
+            onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClimb(ep, dir) }}>
+            <Icon id={dir > 0 ? 'chevron-up' : 'chevron-down'} />
+          </button>
+          )
+        })
       })}
       {/* ⚠️ No double-tap delete any more (19.08.). It was the one gesture the map never had, iOS
           does not deliver `dblclick` reliably anyway, and on a dense line a stray second tap

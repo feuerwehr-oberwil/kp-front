@@ -1238,6 +1238,11 @@
           ],
           "default": null,
           "title": "Alignment"
+        },
+        "hideWhenGebaeude": {
+          "default": false,
+          "title": "Hidewhengebaeude",
+          "type": "boolean"
         }
       },
       "required": [

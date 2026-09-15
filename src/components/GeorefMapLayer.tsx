@@ -583,7 +583,10 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
       <div
         className={s.plane}
         style={{
-          transform: `translate(${size / 2}px, ${size / 2}px) rotate(${-map.getBearing()}deg) scale(${k}) translate(${crop.dx}px, ${crop.dy}px)`,
+          // Centre in the actual content box, like the reticle: admin CSS shrinks the
+          // circle, and its border also makes the inner diameter smaller than `size`.
+          left: '50%', top: '50%',
+          transform: `rotate(${-map.getBearing()}deg) scale(${k}) translate(${crop.dx}px, ${crop.dy}px)`,
           filter: look?.filter ? `${look.filter} ${LOUPE_SEPARATION}` : LOUPE_SEPARATION,
         }}
       >
