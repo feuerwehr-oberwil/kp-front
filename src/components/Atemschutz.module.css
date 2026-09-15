@@ -742,6 +742,11 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   background: color-mix(in srgb, var(--red) 10%, var(--glass));
   border-top: 1px solid color-mix(in srgb, var(--red) 28%, transparent); }
 .formBlocked :global(.i) { width: 16px; height: 16px; flex: none; }
+/* the non-blocking variant: the Auftrag is missing, the save still goes through
+   (⚠️ not .formWarn – that is the rounded conflict row inside the form) */
+.formHint { color: var(--amber-strong);
+  background: color-mix(in srgb, var(--amber) 12%, var(--glass));
+  border-top-color: color-mix(in srgb, var(--amber) 32%, transparent); }
 .field { display: flex; flex-direction: column; gap: 5px; }
 /* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
 .formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }

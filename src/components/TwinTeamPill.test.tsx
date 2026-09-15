@@ -25,7 +25,8 @@ describe('the join sheet of a loose Trupp marker', () => {
       acts={{ pick, newTrupp, clearTrail: () => {}, remove: () => {} }} />)
     fireEvent.click(screen.getByRole('button', { name: A.markerLabel }))
     const items = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    expect(items).toEqual([A.markerNone, 'Meier Anna', appConfig.copy.whiteboard.newTeam])
+    // no «Kein Trupp» on a marker that hangs on no hose (15.09.): the entry exists only on a hose
+    expect(items).toEqual(['Meier Anna', appConfig.copy.whiteboard.newTeam])
     fireEvent.click(screen.getByRole('menuitem', { name: appConfig.copy.whiteboard.newTeam }))
     expect(newTrupp).toHaveBeenCalledTimes(1)
     expect(pick).not.toHaveBeenCalled()

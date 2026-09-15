@@ -6,12 +6,18 @@
 // picture, never a Trupp's contact/pressure record.
 //
 // A Leitung is identified by its NUMBER (`lineNo`), not by a drawing id: the same «Ltg 1» on the
-// Lage and on a floor plan is one hose drawn twice, and both carry the tag. The explicit pick
-// («Leitung wählen») additionally stores an ANCHOR on both sides (Trupp.lineId ⇄ line.truppId).
-// Either one alone renders the tag, which is what makes the link survive both an undo of the
-// stamped number (drawings are undoable, trupps are not) and a merge that keeps only one side.
+// Lage and on a floor plan is one hose drawn twice, and both carry the tag. An explicit link
+// additionally stores an ANCHOR on both sides (Trupp.lineId ⇄ line.truppId). Either one alone
+// renders the tag, which is what makes the link survive both an undo of the stamped number
+// (drawings are undoable, trupps are not) and a merge that keeps only one side.
+//
+// Since 15.09.2026 the link is made THROUGH THE PICTURE rather than in a tap mode: the armed
+// «Leitung wählen» is gone, and a hose end snapped onto a Trupp's marker — or a Trupp's marker
+// dropped on a hose's free end — IS the pick (`truppIdForAttachment` below, useTruppActions ·
+// linkLineToAttachedTrupp). Letting go of the coupling again does NOT unlink: the drawing never
+// touches the Trupp record, so a hose pulled off a symbol changes the picture and nothing else.
 
-import type { Trupp } from '../types'
+import type { LineAttachment, Trupp } from '../types'
 import { abbreviateName } from './personnel'
 
 /** As much of a drawn line as the link cares about — the shape the Lage `Drawing` and the Plan
@@ -20,6 +26,29 @@ export interface LinkableLine {
   id: string
   lineNo?: number
   truppId?: string
+}
+
+/** A placed Trupp marker as the automatic join reads it — the Karte's team `Entity` and a Plan's
+ *  `resource` `BoardAnno` are the same two fields here: the object's id, and the Trupp standing
+ *  on it (absent while the marker belongs to nobody). */
+export interface TruppMarker {
+  id: string
+  truppId?: string
+}
+
+/**
+ * The Trupp a hose end just joined by being attached — the automatic half of the link.
+ *
+ * An end only ever docks onto ONE thing, so this is the whole question: did it dock onto an
+ * object, and is that object a marker somebody is standing on? Anything else — another line's
+ * end, a Fahrzeug, a symbol, a marker nobody is bound to — answers `undefined` and nothing is
+ * linked. `markers` may span both surfaces: an attachment legitimately names an object in the
+ * other document (AGENTS.md · «An attachment may name an object in the other document»).
+ */
+export function truppIdForAttachment(a: LineAttachment | undefined, markers: TruppMarker[]): string | undefined {
+  const target = a?.target
+  if (target?.kind !== 'object') return undefined
+  return markers.find((m) => m.id === target.id)?.truppId
 }
 
 /** How a linked line is drawn. `idle` = someone is on it and fine; `warn` = Kontakt fällig or
@@ -65,6 +94,66 @@ function best(cands: Trupp[]): Trupp | undefined {
     || a.id.localeCompare(b.id))[0]
 }
 
+// ── EINE Leitung, EIN Trupp (Bastian, 15.09.2026) ──────────────────────────────────────────
+//
+// «lines should only get one trupp per line (i.e not on both ends or similar)». A Leitung is
+// worked by one crew: two Trupps on one hose makes the tag, the Atemschutz chip and the printed
+// Kroki disagree about who is on it, and on the map it produced the exact picture Bastian saw —
+// a Trupp hanging off each end of the same line.
+//
+// THE rule lives in the three functions below, and every join entry point reads them:
+//   · the Karte's magnet — a taken Leitung offers no «Anschluss frei» ring at all (MapView ·
+//     freeHoseEnds / trackTeamJoin), so its free end is simply a free end,
+//   · the HOSE-END magnet, from the other side — a taken Leitung does not see another Trupp's
+//     marker/chip as a target at all (MapView · candidatesAt, Whiteboard · planCandidatesAt):
+//     no ring, no dwell, no attach, the end stays under the finger (`markerTakesLineEnd`),
+//   · the automatic link (useTruppActions · linkLineToAttachedTrupp) and the marker drop
+//     (IncidentWorkspace · finishEntityMove), which FAIL CLOSED behind all of that: the picture
+//     never silently replaces a crew.
+// The two LIST surfaces are the deliberate exception and keep their explicit replacement — the
+// Trupp form's Ltg-Nr. quick-pick and the DrawEditor's «Gehört zu Trupp» ask first, then unlink
+// the previous Trupp (AtemschutzView · the `clash` branch). A list is where a takeover is a
+// choice somebody is making; a drag across a map is not.
+//
+// ⚠️ No migration. An incident recorded before today may carry two Trupps on one hose — an
+// incident is a legal record and is never rewritten. It simply RENDERS as one: `lineTruppId`
+// answers with `truppForLine`'s own winner (still-in before out, latest entry first), and the
+// other claim is left exactly where it is.
+
+/** The ONE Trupp a Leitung has, or undefined while nobody is on it. Legacy data with two claims
+ *  answers with the first by `truppForLine`'s order — the others are left untouched. */
+export function lineTruppId(line: LinkableLine, trupps: Trupp[]): string | undefined {
+  return truppForLine(line, trupps)?.id
+}
+
+/** May this Leitung still take a Trupp? False the moment one is on it — including the Trupp
+ *  doing the asking, which is what stops a hose from being joined to the same crew at both ends. */
+export function lineTakesTrupp(line: LinkableLine, trupps: Trupp[]): boolean {
+  return !lineTruppId(line, trupps)
+}
+
+/**
+ * The same rule at the MAGNET, one target at a time: may this hose end snap onto this Trupp's
+ * marker at all?
+ *
+ * Refusing the LINK but letting the end dock anyway was the half-measure Bastian sent back — the
+ * picture then shows a hose ending at a second crew while the record says otherwise, which is
+ * exactly the «Trupp an beiden Enden» he was looking at. So a taken Leitung does not see another
+ * Trupp's marker as a target: no ring, no dwell, no attach, the end simply stays under the finger.
+ * Symbols, Hydranten and Fahrzeuge are unaffected — they say nothing about who works the hose.
+ *
+ * Its OWN Trupp's markers stay targets, or a coupling pulled off could never be put back on; so
+ * does a marker NOBODY stands on, which claims no crew and links nothing. Only a marker carrying
+ * a DIFFERENT Trupp is refused.
+ * `line` may be a DRAFT that is not committed yet — pass `{ id, truppId }` built from the claim
+ * its first end already made (`truppIdForAttachment`), so the rule holds inside one stroke too.
+ */
+export function markerTakesLineEnd(line: LinkableLine | undefined, trupps: Trupp[], marker: TruppMarker): boolean {
+  if (!line) return true
+  const held = lineTruppId(line, trupps)
+  return !held || !marker.truppId || marker.truppId === held
+}
+
 /** What the end tag says about the Trupp: the leader, ABBREVIATED («Meier A.»). The tag hangs off
  *  the end of a hose in the middle of the picture — next to a Leitung number, a device letter and
  *  a storey badge — so it is the one place the short form stays: a full name there grows sideways
@@ -72,6 +161,82 @@ function best(cands: Trupp[]): Trupp | undefined {
  *  out (see useTruppActions · placeTruppOnMap/placeTruppOnPlan). */
 export function truppTagText(t: Trupp): string {
   return abbreviateName(t.name)
+}
+
+// ── «Ein Etikett»: the Leitung is drawn INSIDE its Trupp's marker (Karte only, 15.09.2026) ──
+//
+// A joined Trupp used to stand twice in the picture: its own marker with the leader's name, and,
+// a few pixels away, the hose's end tag repeating «1 · Frei N.». Two objects, two tap targets,
+// two places to look for one fact. The Karte now merges them — the marker carries the Leitung's
+// number in the hose's own ink, and that hose draws no end tag at all.
+//
+// ⚠️ Karte only. `EndTag` is shared with the Plan and with the printed Kroki (kroki.py joins the
+// same parts with « · »), and both of those keep the tag exactly as it was: the sheet is read on
+// paper, where a marker two streets away is not «next to» anything.
+
+/** What a Trupp's marker says about the Leitung it works. */
+export interface TeamLineBadge {
+  lineId: string
+  /** the Leitung's number, when it has one — a hose is often drawn before it is numbered */
+  lineNo?: number
+  /** the hose's own ink, so the number field and the coupling read as THAT Leitung */
+  color: string
+  /** how the Leitung is doing (`truppLineTone`). It rides along because the merge TAKES the end
+   *  tag away, and a tag whose Trupp is due or overdue outranks almost every other label on the
+   *  map — so the marker that swallowed it has to inherit that rank, or a merge would quietly
+   *  drop the one label somebody's air depends on. */
+  tone: LineTone
+  /** the hose's end is actually docked ONTO this marker, so the picture really does show it
+   *  arriving here and a coupling stub can be drawn. A Trupp linked only by NUMBER (typed on the
+   *  Atemschutz board, hose drawn across the street) gets the number field and no stub: the
+   *  label states the link, the picture does not claim a join nobody made. */
+  coupled: boolean
+}
+
+/** One drawn line as the badge pass reads it. `truppId` is the Trupp already RESOLVED for it
+ *  (`truppForLine` — the surface has done that work for its own tag), and `endObjects` are the
+ *  object ids its two ends are docked onto, `undefined` where an end hangs free. */
+export interface BadgedLine {
+  id: string
+  lineNo?: number
+  color: string
+  tone: LineTone
+  truppId?: string
+  endObjects?: readonly (string | undefined)[]
+}
+
+/**
+ * Merge every Leitung into the marker of the Trupp working it.
+ *
+ * Both halves of the one decision come back together, so nothing can disagree about it:
+ * `byMarker` is what each Trupp marker draws, and `merged` names the lines whose separate end tag
+ * the Karte must not draw — neither as a marker NOR as a candidate in the label pass, since a
+ * suppressed label that still books its box pushes real labels off the map.
+ *
+ * A Trupp with several markers: each of them carries the badge, and only the one the hose
+ * actually ends at gets a coupling. A Trupp on several Leitungen (a mis-entry, or a takeover
+ * caught mid-merge): the coupled one wins, then the lowest number — one marker states one
+ * Leitung, and only THAT one loses its tag, so the other hose keeps saying who is on it.
+ */
+export function teamLineBadges(
+  lines: readonly BadgedLine[], markers: readonly TruppMarker[],
+): { byMarker: Map<string, TeamLineBadge>; merged: Set<string> } {
+  const byMarker = new globalThis.Map<string, TeamLineBadge>()
+  const merged = new Set<string>()
+  for (const m of markers) {
+    if (!m.truppId) continue
+    const mine = lines
+      .filter((l) => l.truppId === m.truppId)
+      .map((l) => ({ l, coupled: !!l.endObjects?.includes(m.id) }))
+      .sort((a, b) => Number(b.coupled) - Number(a.coupled)
+        || (a.l.lineNo ?? Number.POSITIVE_INFINITY) - (b.l.lineNo ?? Number.POSITIVE_INFINITY)
+        || a.l.id.localeCompare(b.l.id))
+    const pick = mine[0]
+    if (!pick) continue
+    byMarker.set(m.id, { lineId: pick.l.id, lineNo: pick.l.lineNo, color: pick.l.color, tone: pick.l.tone, coupled: pick.coupled })
+    merged.add(pick.l.id)
+  }
+  return { byMarker, merged }
 }
 
 /**

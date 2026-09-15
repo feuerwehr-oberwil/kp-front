@@ -29,6 +29,15 @@ interface MapDrawingDeps {
   setSelectedId: (id: string | null) => void
   setSelectedDrawIds: (ids: string[]) => void
   setSelectedEntityIds: (ids: string[]) => void
+  /** A Leitung end just docked onto something — handed back so the workspace can join the hose to
+   *  an Atemschutz-Trupp when the thing it docked onto is that Trupp's marker (useTruppActions ·
+   *  linkLineToAttachedTrupp). Fired for a freshly drawn line's ends and for an end dragged onto
+   *  a target; detaching deliberately reports nothing, because letting go never unlinks. */
+  onLineAttached?: (lineId: string, attachment: LineAttachment) => void
+  /** …and the reverse (15.09.): an end let go of what it was coupled to – editor «Lösen» or a
+   *  drag-off. Handed up with the coupling it HAD, so the workspace can drop the Trupp link that
+   *  coupling made (useTruppActions · unlinkLineFromDetachedTrupp). */
+  onLineDetached?: (lineId: string, previous: LineAttachment) => void
 }
 
 /**
@@ -46,7 +55,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const {
     drawings, resolvedDrawings = drawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
-    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
+    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached,
   } = deps
 
   const [draft, setDraftRaw] = useState<LngLat[]>([])
@@ -114,6 +123,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
     // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
     log('pen', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'line', drawing })
+    // a stroke that ENDED on a Trupp's marker is that Trupp's Leitung — reported for both ends,
+    // because either of them may be the coupling (see MapDrawingDeps · onLineAttached)
+    for (const a of [attachments?.startAttachment, attachments?.endAttachment]) if (a) onLineAttached?.(id, a)
     // `select: false` = tap-away auto-commit (settleDraft) — see the note on createArea
     if (opts?.select !== false) { setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null) }
     return drawing
@@ -416,12 +428,17 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const setDrawingAttachment = (id: string, endpoint: LineEndpoint, attachment: LineAttachment | undefined, fallback: LngLat) => {
     if (tacticalLocked) return
     const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
+    const previous = drawings.find((dr) => dr.id === id)?.[key]
     commit((d) => ({ ...d, drawings: d.drawings.map((dr) => {
       if (dr.id !== id || dr.kind !== 'line' || dr.coords.length < 2) return dr
       const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
       return { ...dr, coords, [key]: attachment }
     }) }))
     emit(attachment ? 'draw.attach' : 'draw.detach', { id, endpoint, attachment, fallback })
+    // …and an end dragged ONTO a Trupp's marker joins the two, exactly as a fresh stroke's does –
+    // and an end let go of that marker parts them again
+    if (attachment) onLineAttached?.(id, attachment)
+    else if (previous) onLineDetached?.(id, previous)
   }
 
   // ✓ enabled when the draft is committable: an area needs ≥3 points, a node-mode line ≥2

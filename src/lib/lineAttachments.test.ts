@@ -5,7 +5,8 @@ import {
   DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, endpointCapacity, flipLine, MAGNET_DWELL_MS,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, isMagnetAnno, isMagnetEntity,
   materializeEndpoint, moveLineBody,
-  nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
+  nearestFreeEndpoint, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
+  MAGNET_RADIUS_PX, TEAM_JOIN_RADIUS_PX,
   wouldCreateCycle, type AttachableLine, type MagneticTarget,
 } from './lineAttachments'
 
@@ -309,5 +310,67 @@ describe('what a magnet may dock onto', () => {
     expect(isMagnetAnno({ kind: 'resource' })).toBe(true)
     expect(['draw', 'area', 'circle', 'text', 'shape'].map((kind) => isMagnetAnno({ kind } as never))).toEqual([false, false, false, false, false])
     expect(isMagnetAnno({})).toBe(false)
+  })
+})
+
+// The magnet read backwards — «which endpoint is lying under what I just dropped here». Both
+// surfaces ask it when a Trupp marker is dropped (IncidentWorkspace · finishEntityMove,
+// Whiteboard · chipUp), so the two can never disagree about what «close enough» means.
+describe('nearestFreeEndpoint (a marker dropped on the end of a hose)', () => {
+  const same = (p: [number, number]): [number, number] => p
+
+  it('takes the nearest FREE end inside the magnet radius', () => {
+    const lines: AttachableLine[] = [
+      { id: 'far', points: [[200, 0], [300, 0]] },
+      { id: 'near', points: [[5, 0], [100, 0]] },
+    ]
+    expect(nearestFreeEndpoint([0, 0], lines, same)).toEqual({ lineId: 'near', endpoint: 'start', point: [5, 0] })
+    // …and the far end of the same hose, when that is the one under the finger
+    expect(nearestFreeEndpoint([98, 0], lines, same)?.endpoint).toBe('end')
+  })
+
+  // a Trupp joins at the hose's END only (15.09.): the caller narrows the ends that may answer
+  it('answers with the ends the caller allows – the start of a hose is not where a crew goes', () => {
+    const lines: AttachableLine[] = [{ id: 'h', points: [[5, 0], [100, 0]] }]
+    expect(nearestFreeEndpoint([0, 0], lines, same, 32, ['end'])).toBeNull()
+    expect(nearestFreeEndpoint([98, 0], lines, same, 32, ['end'])?.endpoint).toBe('end')
+  })
+
+  it('leaves an end that is already docked alone', () => {
+    const lines: AttachableLine[] = [{ id: 'h', points: [[0, 0], [100, 0]], startAttachment: { target: { kind: 'object', id: 'tlf' }, routing: 'direct' } }]
+    expect(nearestFreeEndpoint([0, 0], lines, same)).toBeNull()
+  })
+
+  it('answers nothing beside the MIDDLE of a hose, or beyond the radius', () => {
+    const lines: AttachableLine[] = [{ id: 'h', points: [[0, 0], [50, 0], [100, 0]] }]
+    expect(nearestFreeEndpoint([50, 2], lines, same)).toBeNull()   // a vertex, not an endpoint
+    expect(nearestFreeEndpoint([0, 40], lines, same)).toBeNull()   // outside MAGNET_RADIUS_PX
+  })
+
+  it('measures in the px space the caller projects into', () => {
+    // sheet fractions × a 1000×1000 board: 0.02 apart is 20 px, inside the radius
+    const lines: AttachableLine[] = [{ id: 'h', points: [[0.5, 0.5], [0.9, 0.9]] }]
+    const toPx = (p: [number, number]): [number, number] => [p[0] * 1000, p[1] * 1000]
+    expect(nearestFreeEndpoint([510, 510], lines, toPx)?.endpoint).toBe('start')
+    expect(nearestFreeEndpoint([560, 560], lines, toPx)).toBeNull()
+  })
+
+  it('ignores a degenerate line — a single point is no hose', () => {
+    expect(nearestFreeEndpoint([0, 0], [{ id: 'dot', points: [[0, 0]] }], same)).toBeNull()
+  })
+
+  /** ⚠️ The Trupp-MARKER half of this magnet reaches further than the endpoint half, and it has
+   *  to: an endpoint is dragged by the very point that lands in the socket, a marker is dragged
+   *  by its body while its LEFT EDGE is what aims (lib/lineAttachments · TEAM_JOIN_RADIUS_PX,
+   *  used by MapView · trackTeamJoin). A reach that stayed at 32 px is «nothing happened» with a
+   *  pill under the thumb — which is exactly what the field reported. */
+  it('reaches further for a Trupp marker than for a dragged endpoint', () => {
+    expect(TEAM_JOIN_RADIUS_PX).toBeGreaterThan(MAGNET_RADIUS_PX)
+    const lines: AttachableLine[] = [{ id: 'h', points: [[0, 0], [100, 0]] }]
+    const justOutside: [number, number] = [0, (MAGNET_RADIUS_PX + TEAM_JOIN_RADIUS_PX) / 2]
+    expect(nearestFreeEndpoint(justOutside, lines, same)).toBeNull()
+    expect(nearestFreeEndpoint(justOutside, lines, same, TEAM_JOIN_RADIUS_PX)?.endpoint).toBe('start')
+    // …and it is still a radius, not «anywhere»: past it nothing joins
+    expect(nearestFreeEndpoint([0, TEAM_JOIN_RADIUS_PX + 1], lines, same, TEAM_JOIN_RADIUS_PX)).toBeNull()
   })
 })

@@ -60,7 +60,7 @@ const propsFor = (over: Partial<Parameters<typeof AtemschutzView>[0]> = {}) => (
     recordContact: vi.fn(), recordPressure: vi.fn(), setTruppStatus: noop,
     editTrupp: noop, reactivateTrupp: noop, deleteTrupp: noop, restoreTrupp: noop,
     leitungOptions: () => [], showTruppLine: noop, truppsWithLine: new Set<string>(),
-    pickTruppLine: noop, unlinkTruppLine: noop,
+    unlinkTruppLine: noop,
     ...over,
 })
 vi.mock('../lib/useIsPhone', () => ({ useIsPhone: vi.fn(() => false) }))
@@ -488,7 +488,6 @@ describe('the handed-over board (lite)', () => {
       fireEvent.click(trigger)
       expect(await screen.findByRole('menuitem', { name: az.edit })).toBeTruthy()
       expect(screen.queryByRole('menuitem', { name: az.place })).toBeNull()
-      expect(screen.queryByRole('menuitem', { name: az.linePick })).toBeNull()
       fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     }
   })
@@ -1003,6 +1002,7 @@ describe('a Trupp may be registered without an Auftrag', () => {
     fireEvent.click(screen.getByRole('button', { name: az.newTrupp }))
     typeGuest('Meier Thomas')
     fireEvent.change(screen.getByLabelText(az.zielLabel), { target: { value: '2OG links' } })
+    expect(screen.queryByRole('status')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.start }))
     expect(createTrupp).toHaveBeenCalledTimes(1)
     expect((createTrupp.mock.calls[0][0] as Trupp).ziel).toBe('2OG links')
@@ -1043,18 +1043,17 @@ describe('a Trupp may be registered without an Auftrag', () => {
  * «Bearbeiten» used to disappear the moment a Trupp reported out — and that is exactly when the
  * mistakes are found: the wrong crew, an AdF who joined and was never entered, a typo in the
  * Auftrag. All of it prints on the Rapport, and the Rapport is read long after the Austritt. The
- * two entries that act on a LIVE deployment («Platzieren», «Leitung wählen») keep their gate. */
+ * entry that acts on a LIVE deployment («Platzieren») keeps its gate. */
 describe('editing a Trupp that has come out', () => {
   const outTrupp = (over: Partial<Trupp> = {}): Trupp => ({
     ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000), leaderPersonId: 'p1', ...over,
   })
 
   it('offers «Bearbeiten» on a raus card — and still withholds the two live-deployment entries', async () => {
-    mount({ trupps: [outTrupp()], anyLeitung: true })
+    mount({ trupps: [outTrupp()] })
     fireEvent.click(screen.getByRole('button', { name: az.cardMenu }))
     expect(await screen.findByRole('menuitem', { name: az.edit })).toBeTruthy()
     expect(screen.queryByRole('menuitem', { name: az.place })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: az.linePick })).toBeNull()
   })
 
   /* ⚠️ «Einer, ein Trupp» is about who is deployed NOW. The Gruppenführer whose Trupp came out at
@@ -1093,10 +1092,9 @@ describe('the Trupp form on the main board’s phone layout', () => {
     expect(screen.getByText(az.auftragLabel)).toBeTruthy()
     expect(screen.getByText(az.zielLabel)).toBeTruthy()
     expect(screen.getByText(az.lineNoLabel)).toBeTruthy()
-    // ⚠️ The colour is not a question any more (04.09.) — not here and not on the tablet. It is
-    // still per-Trupp and still automatic; it is simply never asked while registering one. The
-    // choice lives on where the picture is read (ContextPanel, TwinTeamPill), not here.
-    expect(screen.queryByText(az.colorLabel)).toBeNull()
+    // ⚠️ The colour is not a question anywhere any more (15.09.): per-Trupp and automatic,
+    // never asked – not here, not on the marker.
+    expect(screen.queryByText('Farbe')).toBeNull()
   })
 
   /* ⚠️ The Mannschaft is a CHIP ROW on the phone (05.09.). Three reserved slot rows plus a

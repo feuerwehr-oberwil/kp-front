@@ -4,6 +4,8 @@ import type { Entity, LayerId, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { ROTATABLE, VEHICLE_SYMBOLS } from '../lib/symbols'
 import { lookbackPoint } from './lineStyle'
+import { dockSlotOffset } from './docking'
+import { cachedLabelSize } from './labelPass'
 import type { LineTone } from './truppLines'
 
 export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
@@ -32,6 +34,18 @@ export const TEAM_DOT_GAP = 6
 /** The selected pill's accent cap, centre-to-left-edge: 1px border + 8px padding + half of the
  *  4px cap — so selecting a Trupp swaps the chrome without moving the point it states. */
 export const TEAM_PILL_CAP_PX = 11
+/** `.team-ltg` + its gap — the merged Leitung field on a joined marker («Ein Etikett», 15.09.).
+ *  Deliberately a FIXED width in CSS (tabular figures, room for two digits), so the label pass
+ *  can book the strip it grows without measuring text it never renders. */
+export const TEAM_LTG_PX = 25
+/** `.team-link` + its gap — the «angedockt» glyph at the right end of the same strip. */
+/** the resting strip's name chip, as the label pass measures it (`.team-dot b` – 700 11.5px
+ *  Sora, 6px padding each side, 15px line). ONE definition: MapView books the box with it and
+ *  MapMarkers centres a docked strip with it, so the two can never disagree. */
+export const TEAM_LABEL_STYLE = { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 12, chromeH: 2, lineH: 15 }
+/** the whole resting strip's width: [dot][gap][name][Ltg] */
+export const teamStripPx = (label: string, hasLtg: boolean): number =>
+  TEAM_DOT_PX + TEAM_DOT_GAP + cachedLabelSize(label, TEAM_LABEL_STYLE).w + (hasLtg ? TEAM_LTG_PX : 0)
 
 // Symbol size tied to the real world (m), scaling with zoom — but clamped into a
 // NARROW band: at normal Einsatz zooms a symbol looks almost constant (like a map
@@ -45,6 +59,26 @@ const SYM_MAX = 48
 export const pxPerM = (lat: number, z: number) => Math.pow(2, z) / (156543.03392 * Math.cos((lat * Math.PI) / 180))
 export const symPx = (kind: string, lat: number, z: number, mul = 1) =>
   Math.max(SYM_MIN, Math.min(SYM_MAX, (SIZE_M[kind] ?? 8) * pxPerM(lat, z))) * mul
+
+/**
+ * Where a DOCKED Trupp marker is actually drawn: its host, and the screen-px offset from that
+ * host's glyph centre to the marker's dot (lib/docking · dockSlotOffset — the tile's bottom-left
+ * corner, stacking downwards). Null for everything that is not a docked Trupp marker, and for a
+ * bond whose host is gone or has no coordinate — those simply keep standing on their own point.
+ *
+ * ⚠️ Both halves of the map read THIS, or they disagree about where the marker is: MapMarkers
+ * anchors the `<Marker>` on the host and offsets it, MapView's label pass books the same box
+ * without a DOM. A pass that arbitrated the marker's stored coordinate while the eye saw it on
+ * the corner would clear labels for ground nothing is drawn on.
+ */
+export function teamDockAnchor(
+  e: Entity, entities: readonly Entity[], slots: ReadonlyMap<string, number>, zoom: number, symMul = 1, stripPx?: number,
+): { host: Entity; dx: number; dy: number } | null {
+  if (e.kind !== 'team' || !e.dockedTo) return null
+  const host = entities.find((h) => h.id === e.dockedTo)
+  if (!host || !Array.isArray(host.coord)) return null
+  return { host, ...dockSlotOffset(symPx(host.kind, host.coord[1], zoom, symMul), slots.get(e.id) ?? 0, stripPx) }
+}
 // shapes are sized in real-world metres so they grow/shrink with zoom like a
 // ground footprint (a smoke cloud covering an area, an arrow spanning a street)
 // `maxPx` is the per-kind ceiling (lib/shapes · SHAPE_MAX_PX) — the general 900 stops a stray

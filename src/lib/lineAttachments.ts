@@ -48,6 +48,16 @@ export const MAGNET_DWELL_MS = 500
  *  A dwell of 0 draws no ring: there is nothing filling up to show. */
 export const dwellFor = (target: Pick<MagneticTarget, 'target'> | null | undefined): number =>
   target?.target.kind === 'line' ? 0 : MAGNET_DWELL_MS
+/** …and the same magnet aimed from the other side: a Trupp's MARKER dropped on the free end of a
+ *  hose (15.09.2026, «Ein Etikett»). Deliberately wider than the 32 px every endpoint uses,
+ *  because the two gestures aim with different things. An endpoint is dragged BY the very point
+ *  that has to land in the socket — the finger is the target, and 32 px is generous. A Trupp
+ *  marker is dragged by its body, but the thing that has to reach the coupling is its LEFT EDGE:
+ *  the dot/cap sits on the coordinate with a name and a Leitung field hanging off to
+ *  the right, so the hand is nowhere near the point being aimed. 44 px is the reach that lets the
+ *  dot find the hose end while the pill still clears it. The dwell (`MAGNET_DWELL_MS`) is
+ *  unchanged: «Ring lädt, dann schnappt es» is one gesture everywhere. */
+export const TEAM_JOIN_RADIUS_PX = 44
 export const DETACH_RADIUS_PX = 44
 export const GPS_GUARD_METRES = 20
 /** How far a fresh stroke may travel from its pointerDOWN point and still count as being «at the
@@ -201,6 +211,49 @@ export const endpointPoint = <P extends Coordinate>(line: AttachableLine<P>, end
 /** A normal endpoint accepts one branch; the -E end accepts three outgoing branches. */
 export function endpointCapacity<P extends Coordinate>(line: AttachableLine<P>, endpoint: LineEndpoint): number {
   return endpoint === 'end' && !!line.teilstueck ? 3 : 1
+}
+
+/** A line end that hangs free, with the surface's own px position of that end. */
+export interface FreeEndpoint {
+  lineId: string
+  endpoint: LineEndpoint
+  point: Point
+}
+
+/**
+ * The nearest FREE line end under a point, in the surface's px space — the magnet read backwards.
+ *
+ * `nearestMagneticTarget` answers «what may this endpoint dock onto»; this answers «which
+ * endpoint is lying under what I just dropped here», which is what a Trupp marker dropped on the
+ * end of a Leitung needs (lib/truppLines · the automatic hose ↔ Trupp join). Only the two ENDS
+ * count — a marker beside the middle of a hose says nothing about who works it — and only ends
+ * that are not already docked somewhere: an attached end keeps what it is attached to. Same
+ * `MAGNET_RADIUS_PX` as every other snap, so «close enough» means one thing on both surfaces.
+ *
+ * `toPx` projects a stored point into that px space (map projection on the Karte, sheet fractions
+ * × board size on a Plan), so the geometry lives here once and neither surface repeats it.
+ */
+export function nearestFreeEndpoint<P extends Coordinate>(
+  at: Point, lines: AttachableLine<P>[], toPx: (p: P) => Point, radius = MAGNET_RADIUS_PX,
+  /** which ends may answer – a Trupp joins a hose at its END only (15.09.): the arrow end is
+   *  where the crew works, the start is where the water comes from */
+  endpoints: readonly LineEndpoint[] = ['start', 'end'],
+): FreeEndpoint | null {
+  let best: (FreeEndpoint & { d: number }) | null = null
+  for (const line of lines) {
+    if (line.points.length < 2) continue
+    for (const endpoint of endpoints) {
+      if (attachmentAt(line, endpoint)) continue
+      const stored = endpointPoint(line, endpoint)
+      if (!stored) continue
+      const point = toPx(stored)
+      const d = distance(at, point)
+      // stable on an exact tie, the way nearestMagneticTarget is
+      if (d > radius || (best && (d > best.d || (d === best.d && line.id >= best.lineId)))) continue
+      best = { lineId: line.id, endpoint, point, d }
+    }
+  }
+  return best ? { lineId: best.lineId, endpoint: best.endpoint, point: best.point } : null
 }
 
 export function incomingAttachments<P extends Coordinate>(lines: AttachableLine<P>[], targetId: string, endpoint: LineEndpoint) {

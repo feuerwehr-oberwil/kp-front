@@ -92,7 +92,7 @@ function plainWords(t: Trupp, lite: boolean) {
 // large "Kontakt" reset, and a contact-clock alarm (amber nudge → red überfällig). Pressure is
 // set inline and logged. Purely presentational + local UI state — data + mutations via props.
 export function AtemschutzView({
-  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, pickTruppLine, anyLeitung = false, unlinkTruppLine,
+  trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
   focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt,
@@ -166,13 +166,11 @@ export function AtemschutzView({
    *  truppLineNos) — the picture is the source of truth for the number, the Trupp's stored
    *  copy only the fallback for a hose that has since been deleted. */
   lineNoOf?: ReadonlyMap<string, number>
-  /** arm «Leitung wählen»: the next tap on a hose line links it to this Trupp */
-  pickTruppLine: (id: string) => void
-  /** is a hose drawn anywhere at all? The pick sends the operator to the Karte to tap one, so
-   *  with nothing drawn the row is an instruction that cannot be followed — it is withheld. */
-  anyLeitung?: boolean
   /** release a Trupp's Leitung — used when another Trupp takes it over (confirmed Ablösung) */
   unlinkTruppLine: (id: string) => void
+  /** the symbol a Trupp's map marker is docked to (lib/docking), by Trupp id – «bei «Hydrant»»
+   *  on the card's Kennzeile. Absent ⇒ no marker, or a marker standing on its own. */
+  dockedAt?: ReadonlyMap<string, string>
   /** put a hand-typed Gast on the Anwesenheit — a Gast under PA was at the Einsatz, and a name
    *  that only ever existed on a Trupp card reaches neither the Personalblatt nor the export */
   onAddGuest?: (name: string) => string | undefined
@@ -640,6 +638,7 @@ export function AtemschutzView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createRequest?.nonce])
 
+
   /**
    * The FIRST tap ANYWHERE on this board also counts as the audio unlock (field feedback,
    * 02.09.: «Ich erhalte keinen Ton … auf dem PC oder Mobile» over a bell visibly showing «nicht
@@ -831,8 +830,7 @@ export function AtemschutzView({
       // did nothing — and these Trupps never had them (they lived on `PlainTruppRow`, which had
       // no such control at all). See the note on `.cardActs`' old ‹ › pair above.
       onMove={order === 'manuell' && !compact && isAtemschutzTrupp(t) ? onMove : undefined}
-      onPickLine={pickTruppLine} anyLine={anyLeitung}
-      onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)}
+      onShowLine={showTruppLine} hasLine={truppsWithLine.has(t.id)} drawnLineNo={lineNoOf?.get(t.id)} dockedAt={dockedAt?.get(t.id)}
       // «Tafel pur»: everything that points at the Karte or a drawn Leitung is unreachable from
       // this session, and a control that will fail is worse than no control (see `lite` above).
       lite={!!lite}
@@ -1675,7 +1673,7 @@ function TruppRow({
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, onFlashed, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onPickLine, anyLine = false, onShowLine, hasLine, drawnLineNo, onCollapse, lite = false,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, onFlashed, onContact, onPressure, onStatus, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
@@ -1702,21 +1700,19 @@ function TruppCard({
   onMove?: (id: string, dir: -1 | 1) => void
   onPlace: (id: string) => void
   onShowPlan: (id: string) => void
-  /** start «Leitung wählen» — the next tap on a hose links it to this Trupp */
-  onPickLine: (id: string) => void
-  /** is there a hose drawn anywhere to tap? Without one the row is withheld — see AtemschutzView */
-  anyLine?: boolean
   /** jump to the drawn Leitung (Lage or Plan) — the counterpart of «auf Plan zeigen» */
   onShowLine: (id: string) => void
   /** is there actually a hose drawn for this Trupp? Decides whether the chip is a jump or plain
    *  text — a button that goes nowhere is worse than no button. */
   hasLine: boolean
+  /** the symbol the Trupp's marker is docked to («bei «Hydrant»») – see AtemschutzView.dockedAt */
+  dockedAt?: string
   /** the number the Trupp's drawn hose carries right now — wins over the stored copy */
   drawnLineNo?: number
   /** set only in compact mode, where this card was opened from a row — collapses back to it */
   onCollapse?: () => void
   /** the handed-over «Tafel pur» (see AtemschutzView · lite): drop every control that points at
-   *  a surface this session cannot reach — Platzieren, auf Plan zeigen, Leitung wählen/zeigen,
+   *  a surface this session cannot reach — Platzieren, auf Plan zeigen, Leitung zeigen,
    *  and the board-order rows. Kontakt, Druck, Rückzug, Draussen, Bearbeiten and Entfernen all
    *  stay: they are what the board was handed over FOR. */
   lite?: boolean
@@ -1911,12 +1907,10 @@ function TruppCard({
     ...(lite ? [] : (t.annoId || t.entityId)
       ? [{ label: t.entityId ? az.showOnMap : az.showOnPlan, onClick: () => onShowPlan(t.id) }]
       : canEdit && status !== 'raus' ? [{ label: az.place, onClick: () => onPlace(t.id) }] : []),
-    ...(lite ? [] : hasLine
-      ? [{ label: az.lineShow, onClick: () => onShowLine(t.id) }]
-      // ⚠️ …and only while a hose is actually drawn somewhere. The row leaves this board for the
-      // Karte and asks for a tap; with nothing to tap it armed an invisible mode over an empty
-      // picture and the operator came back none the wiser.
-      : canEdit && anyLine && status !== 'raus' ? [{ label: az.linePick, onClick: () => onPickLine(t.id) }] : []),
+    // «Leitung wählen» (tap a hose on the Karte) is gone (15.09.): a Leitung is joined from the
+    // form's Ltg-Nr. quick-picks, from the line's own editor, or by snapping a hose end to the
+    // Trupp's marker – never from an armed, invisible tap mode.
+    ...(lite || !hasLine ? [] : [{ label: az.lineShow, onClick: () => onShowLine(t.id) }]),
     // Only while the hand-set order is the one on screen: moving a card under any other sort
     // would rearrange something the sort is about to rearrange back.
     ...(onMove && canEdit && !lite ? [
@@ -2086,6 +2080,13 @@ function TruppCard({
           ? <span className={s.kennAuftrag}>{auftrag}</span>
           : <button type="button" className={s.kennOpen} onClick={() => onEdit('auftrag')}>{az.auftragOpen}</button>)}
         {t.ziel && kennItem('ziel', <span>{t.ziel}</span>)}
+        {/* where the marker stands (15.09.): docked to a symbol on the Karte, the card says so –
+            the same jump the marker itself offers, so a tap lands on it */}
+        {dockedAt && kennItem('docked', lite
+          ? <span>{fillTemplate(az.dockedAt, { host: dockedAt })}</span>
+          : <button type="button" className={s.kennGo} title={az.showOnMap} onClick={() => onShowPlan(t.id)}>
+              {fillTemplate(az.dockedAt, { host: dockedAt })}<Icon id="chevron" />
+            </button>)}
         {/* ⚠️ On the lite board the number still SHOWS (a Trupp's Leitung is a fact the Überwacher
             needs) but stops being a jump: there is no Karte to land on. */}
         {lineTag && kennItem('line', hasLine && !lite
@@ -2590,6 +2591,10 @@ function TruppForm({
    * none) and opens the form on the Auftrag; the Trupp may go «drin» meanwhile. In no mode does an
    * empty Auftrag hold the form — creating, editing, or sending back in.
    */
+  // …said, not enforced (15.09., Bastian: «with the warning»): while the Auftrag is empty on a NEW
+  // Trupp an amber line above the footer names the gap; the save goes through regardless.
+  const auftragGiven = (auftrag != null && !isAnderes) || ziel.trim().length > 0
+  const auftragMissing = mode === 'create' && !auftragGiven
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
@@ -3007,6 +3012,14 @@ function TruppForm({
       {blocked && (
         <p className={s.formBlocked} role="alert">
           <Icon id="warn" /><span>{blocked}</span>
+        </p>
+      )}
+      {/* The Auftrag is missing but nothing is blocked (15.09.) — the same line, amber: the Trupp
+          registers as «Auftrag offen». `role="status"`, not alert: it is there from the first
+          render of a fresh form and must not be shouted over the field the operator is filling. */}
+      {!blocked && auftragMissing && (
+        <p className={cx(s.formBlocked, s.formHint)} role="status">
+          <Icon id="warn" /><span>{az.auftragMissingHint}</span>
         </p>
       )}
 

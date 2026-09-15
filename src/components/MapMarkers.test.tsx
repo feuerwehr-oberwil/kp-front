@@ -12,11 +12,18 @@ import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { Entity, LngLat } from '../types'
 
+// the two numbers a Marker actually places a glyph with — the coordinate it hangs on and the
+// screen-px offset off it — surfaced as data attributes, because the docked Trupp slot is
+// expressed in exactly those (lib/docking · dockSlotOffset)
 vi.mock('react-map-gl/maplibre', () => ({
-  Marker: ({ children }: { children: ReactNode }) => <div data-testid="marker">{children}</div>,
+  Marker: ({ children, longitude, latitude, offset }: { children: ReactNode; longitude?: number; latitude?: number; offset?: [number, number] }) => (
+    <div data-testid="marker" data-at={`${longitude},${latitude}`} data-offset={offset ? offset.join(',') : ''}>{children}</div>
+  ),
 }))
 
 import { MapMarkers } from './MapMarkers'
+import { DOCK_SLOT_STEP_PX } from '../lib/docking'
+import { TEAM_DOT_PX } from '../lib/mapView'
 
 afterEach(cleanup)
 
@@ -138,5 +145,145 @@ describe('what a selected Form shows on the Karte', () => {
     expect(container.querySelector('.shape-resize.shape-axis-x')).toBeTruthy()
     expect(container.querySelector('.shape-width.shape-axis-y')).toBeTruthy()
     for (const g of container.querySelectorAll('.handle')) noInlineFill(g)
+  })
+})
+
+/**
+ * «Ein Etikett» (15.09.2026): a Trupp joined to a Leitung is ONE label on the Karte — the marker
+ * carries the hose's number in the hose's ink, a coupling where the hose really ends there, and
+ * a link glyph where the marker is docked onto a symbol. The hose's own end tag is then not
+ * drawn at all (the suppression half is MapView's, pinned in lib/truppLines · teamLineBadges).
+ *
+ * ⚠️ The order is cap/dot · Leitung · Name · #N, with the coupling out of flow: everything the
+ * strip grows hangs off the RIGHT of the dot, because the dot is the coordinate.
+ */
+describe('a Trupp marker that is joined, loose, or docked', () => {
+  const az = appConfig.copy.atemschutz
+  const team = (extra: Partial<Entity> = {}): Entity =>
+    ({ id: 'e1', kind: 'team', layer: 'lage', coord: at, label: 'Frei Nina', truppId: 'T1', ...extra }) as Entity
+  const hydrant = { id: 'h1', kind: 'symbol', layer: 'lage', coord: at, label: 'Hydrant' } as Entity
+  const trupps = [{ id: 'T1', name: 'Frei Nina', no: 4, status: 'aktiv' }] as never
+  const badge = (over = {}) => new Map([['e1', { lineId: 'd1', lineNo: 2, color: '#1f6feb', tone: 'idle' as const, coupled: true, ...over }]])
+
+  const showTeam = (entities: Entity[], selectedId: string | null, teamLines?: Map<string, never>) => render(
+    <MapMarkers entities={entities} byName={{}} isVisible={() => true} selectedId={selectedId}
+      zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
+      onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+      onDelete={() => {}} onShapeTransform={() => {}} trupps={trupps}
+      teamLines={teamLines as never} onTeamUnlink={() => {}} />,
+  )
+
+  it('shows the Leitung number on the resting marker – and no coupling stub (15.09.)', () => {
+    const { container } = showTeam([team()], null, badge() as never)
+    expect(container.querySelector('.team-dot .team-ltg')?.textContent).toBe('2')
+    expect(container.querySelector('.team-dot .team-coupling')).toBeNull()
+    expect(container.querySelector('.team-dot b')?.textContent).toBe('Frei Nina')
+  })
+
+  it('…and the same marker unjoined is the marker it always was — no field, no coupling', () => {
+    const { container } = showTeam([team()], null)
+    expect(container.querySelector('.team-ltg')).toBeNull()
+    expect(container.querySelector('.team-coupling')).toBeNull()
+    expect(container.querySelector('.team-dot b')?.textContent).toBe('Frei Nina')
+  })
+
+  it('states a link by NUMBER without claiming a coupling nobody made', () => {
+    const { container } = showTeam([team()], null, badge({ coupled: false }) as never)
+    expect(container.querySelector('.team-ltg')?.textContent).toBe('2')
+    expect(container.querySelector('.team-coupling')).toBeNull()
+  })
+
+  it('wears no glyph on the strip – the bond shows on the host tile alone (15.09.)', () => {
+    const { container } = showTeam([team({ dockedTo: 'h1' }), hydrant], null)
+    expect(container.querySelector('.team-dot .team-link')).toBeNull()
+    // …and never the words on the map (they stay on the Atemschutz card)
+    expect(container.textContent).not.toContain('bei «Hydrant»')
+  })
+
+  it('the selected pill carries the same three things, in the same order', () => {
+    const { container } = showTeam([team({ dockedTo: 'h1' }), hydrant], 'e1', badge() as never)
+    const pill = container.querySelector('.wb-resource-pill')!
+    expect(pill.className).toContain('joined')
+    expect(pill.querySelector('.team-ltg')?.textContent).toBe('2')
+    expect(pill.querySelector('.wb-resource-name b')?.textContent).toBe('Frei Nina')
+    // no «#N» on the map – the number lives on the card only (14.09.)
+    expect(pill.querySelector('.trupp-no')).toBeNull()
+    // the bond wears ONE glyph, on the host tile – none on the pill (15.09.)
+    expect(pill.querySelector('.team-link')).toBeNull()
+    // the cap is the coordinate: nothing may be laid out in front of it
+    expect(pill.querySelector(':scope > *')?.className).toBe('wb-resource-cap')
+  })
+
+  it('offers one «Lösen» glyph on a joined pill – and nothing to break when loose', () => {
+    const { container } = showTeam([team()], 'e1', badge() as never)
+    const btn = container.querySelector('.wb-pa-unlink')
+    expect(btn?.getAttribute('aria-label')).toBe(appConfig.copy.contextPanel.dockedRelease)
+    expect(container.querySelector('.wb-pa-join-lbl')).toBeNull()
+    expect(showTeam([team()], 'e1').container.querySelector('.wb-pa-unlink')).toBeNull()
+  })
+})
+
+/**
+ * Andocken, von BEIDEN Seiten (Bastian, 15.09.2026): «add the same attachment ui to symbols too
+ * and always show the trupp at the same clean place».
+ *
+ * A Trupp marker docked onto a symbol is drawn at ONE place — the host tile's bottom-left corner,
+ * mirroring the storey badge top-right — whatever corner of the tile the hand let go over; and the
+ * host wears the same `link` glyph the marker does, so the bond reads from either end. The stored
+ * coordinate is untouched: only the RENDERED position snaps (lib/docking · dockSlotOffset).
+ */
+describe('a symbol carrying docked Trupps, and the Trupps on its corner', () => {
+  const host = { id: 'h1', kind: 'symbol', layer: 'lage', coord: [7.61, 47.51], symbol: 'Feuer', label: 'Hydrant' } as Entity
+  const docked = (id: string, label: string): Entity =>
+    ({ id, kind: 'team', layer: 'lage', coord: [7.9, 47.9], label, truppId: id, dockedTo: 'h1' }) as Entity
+
+  const show2 = (entities: Entity[]) => render(
+    <MapMarkers entities={entities} byName={{}} isVisible={() => true} selectedId={null}
+      zoom={18} draggable project={() => ({ x: 0, y: 0 })} unproject={() => at} setDragPan={() => {}}
+      onSelect={() => {}} onMarkerDragStart={() => {}} onMarkerMove={() => {}} onMarkerDragEnd={() => {}}
+      onDelete={() => {}} onShapeTransform={() => {}} trupps={[]} />,
+  )
+  const markerOf = (c: HTMLElement, sel: string) => c.querySelector(sel)!.closest('[data-testid="marker"]')!
+
+  it('wears the link glyph on the host tile, titled with the crews it carries', () => {
+    const { container } = show2([host, docked('e1', 'Frei Nina')])
+    const badge = container.querySelector('.sym-dock')!
+    expect(badge).toBeTruthy()
+    expect(badge.getAttribute('title')).toBe('Frei Nina')
+    // the SAME glyph the marker wears — one mark for one bond, read from either end
+    expect(badge.querySelector('use')?.getAttribute('href')).toBe('#link')
+  })
+
+  it('names every crew on the badge when several are docked, and nothing when none are', () => {
+    const { container } = show2([host, docked('e1', 'Frei Nina'), docked('e2', 'Meier Hans')])
+    expect(container.querySelector('.sym-dock')?.getAttribute('title')).toBe('Frei Nina · Meier Hans')
+    cleanup()
+    expect(show2([host]).container.querySelector('.sym-dock')).toBeNull()
+  })
+
+  it('draws the docked marker on the HOST\'s point, not on its own', () => {
+    const { container } = show2([host, docked('e1', 'Frei Nina')])
+    const team = markerOf(container, '.team-dot')
+    expect(team.getAttribute('data-at')).toBe('7.61,47.51')
+    // …and its stored coordinate is untouched: it stands back on it the moment the bond is let go
+    expect(docked('e1', 'Frei Nina').coord).toEqual([7.9, 47.9])
+  })
+
+  it('stacks several of them DOWNWARDS, each centred under the tile, a fixed pitch apart', () => {
+    const { container } = show2([host, docked('e1', 'Frei Nina'), docked('e2', 'Meier Hans')])
+    const off = [...container.querySelectorAll('.team-dot')]
+      .map((d) => d.closest('[data-testid="marker"]')!.getAttribute('data-offset')!.split(',').map(Number))
+    expect(off).toHaveLength(2)
+    expect(off[1][1] - off[0][1]).toBe(DOCK_SLOT_STEP_PX)
+    expect(off[0][0]).toBeLessThan(0)                 // the dot left of the tile's centre (the strip is centred)
+    expect(off[0][1]).toBeGreaterThan(0)              // …and under its BOTTOM
+  })
+
+  it('an undocked marker keeps its own point and takes no slot', () => {
+    const loose = { ...docked('e1', 'Frei Nina'), dockedTo: undefined } as Entity
+    const { container } = show2([host, loose])
+    const team = markerOf(container, '.team-dot')
+    expect(team.getAttribute('data-at')).toBe('7.9,47.9')
+    expect(team.getAttribute('data-offset')).toBe(`${-TEAM_DOT_PX / 2},0`)
   })
 })

@@ -1,16 +1,16 @@
 import type { Dispatch, SetStateAction } from 'react'
-import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LngLat, TimelineEvent, Trupp, TruppFields, TruppReading } from '../types'
+import type { BoardAnno, BoardDoc, BoardPoint, BuildingDoc, Drawing, Entity, LineAttachment, LngLat, TimelineEvent, Trupp, TruppFields, TruppReading } from '../types'
 import type { Doc } from './workspace'
 import type { TacticalObject } from './tacticalObjects'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
-import { confirmDialog } from './ui'
+import { confirmDialog, toast } from './ui'
 import { gebaeudeDoc } from '../data/demoIncident'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { truppEquipmentLabels } from './report'
-import { resolveLinkNumber, truppForLine, type LinkableLine } from './truppLines'
+import { lineTakesTrupp, resolveLinkNumber, truppForLine, truppIdForAttachment, type LinkableLine, type TruppMarker } from './truppLines'
 import { alarmBarFor, currentRunStart, earlyEntryCorrection, isAtemschutzTrupp, truppAwaitsEntry, truppCrewWithout, truppLogName, truppTransferState } from './atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
 // (lib/serverClock). These are the safety clocks and the legal record: written device-local, a
@@ -365,6 +365,22 @@ export function useTruppActions(deps: Deps) {
   const docLines = (): LinkableLine[] => drawings.filter((d) => d.kind === 'line')
   const planLines = (planId: string): LinkableLine[] => (board[planId] ?? []).filter((a) => a.kind === 'draw')
 
+  /** Every placed Trupp marker there is, BOTH surfaces in one list: a hose end may legitimately
+   *  be docked onto an object in the other document (AGENTS.md · unified objects), and the
+   *  automatic join must read that marker just as well as a native one. */
+  const truppMarkers = (): TruppMarker[] => [
+    ...entities.filter((e) => e.kind === 'team'),
+    ...Object.values(board).flat().filter((a) => a.kind === 'resource'),
+  ]
+  /** The hose whose start or end is docked onto this marker, on either surface — what a marker
+   *  that is only NOW being bound to a Trupp may already be carrying (see adoptTruppMarker). */
+  const lineEndingOn = (markerId: string): string | undefined => {
+    const endsHere = (l: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) =>
+      [l.startAttachment, l.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === markerId)
+    return drawings.find((d) => d.kind === 'line' && endsHere(d))?.id
+      ?? Object.values(board).flat().find((a) => a.kind === 'draw' && endsHere(a))?.id
+  }
+
   // A Trupp is tracked at exactly ONE place — drop any prior placement (plan chip AND/OR
   // map marker) before adding a new one, so re-placing or a sync re-fire can't leave an
   // orphaned duplicate that maps back to the same Trupp.
@@ -520,23 +536,6 @@ export function useTruppActions(deps: Deps) {
   ]
   const teamColor = (id: string) =>
     chosenColor(trupps.find((t) => t.id === id)) ?? pickTeamColor(preferredColor(id), colorsInUse(id))
-  /**
-   * Repaint a Trupp from wherever the operator is looking — the symbol's own colour control on the
-   * Lage / the plan. It writes the TRUPP, not just the symbol: colour is the Trupp's identity, so
-   * painting its marker blue and leaving the board card (and a later re-placement) on the old
-   * colour would just be a second, disagreeing answer to «which one is this?».
-   * `null` puts it back on automatic.
-   */
-  const setTruppColor = (id: string, color: string | null) => {
-    const tr = trupps.find((t) => t.id === id)
-    if (!tr || (tr.color ?? null) === color) return
-    updateTrupp(id, { color: color ?? undefined })
-    recolorPlacement({ ...tr, color: color ?? undefined })
-    // repainting from the symbol used to be the one edit with no line at all, so a Lage that
-    // suddenly had two red Trupps could not be explained from the log
-    log('pen', fillTemplate(appConfig.copy.atemschutz.logColor, { name: truppLogName(tr, 'leader') }), 'team', undefined, undefined, { subjectId: id })
-    emit('atemschutz.edit', { id, color })
-  }
   /** The form's colour as a Trupp patch. `null` = «zurück auf automatisch» (drop the field),
    *  `undefined` = the form didn't carry one, so leave whatever the Trupp has. */
   const colorPatch = (f: TruppFields): Partial<Trupp> =>
@@ -562,28 +561,35 @@ export function useTruppActions(deps: Deps) {
   // Place a Trupp manually on the building plan (Gebäude floor-stack if a building exists, else
   // Modul 6) as a resource chip the EL can then drag to the team's position. NOT auto-created
   // on registration.
-  const placeTruppOnPlan = (id: string, targetPlanId?: string) => {
+  /** `at`: a known spot on the sheet (the end of the hose the Trupp was just linked to) – the
+   *  chip lands there and the view stays where it is; without it the chip lands mid-sheet and
+   *  the surface jumps to it (the card's «Platzieren»). Returns the chip's id. */
+  const placeTruppOnPlan = (id: string, targetPlanId?: string, at?: { x: number; y: number; floor: number }): string | undefined => {
     const tr = trupps.find((t) => t.id === id)
     if (!tr) return
     // explicit target (from the placement picker) wins; else default to the Gebäude
     // floor-stack when a building exists, otherwise Modul 6
     const planId = targetPlanId ?? (building ? gebaeudeDoc.id : 'modul6')
     const annoId = newId('trupp')
-    const chip: BoardAnno = { id: annoId, kind: 'resource', x: 0.5, y: 0.5, floor: 0, text: truppLabel(tr.name), t: formatTime(new Date()), color: teamColor(id), trail: [], truppId: id }
+    const spot = at ?? { x: 0.5, y: 0.5, floor: 0 }
+    const chip: BoardAnno = { id: annoId, kind: 'resource', ...spot, text: truppLabel(tr.name), t: formatTime(new Date()), color: teamColor(id), trail: [], truppId: id }
     dropPlacements(tr)
     setBoard((b) => ({ ...b, [planId]: [...(b[planId] ?? []), chip] }))
     updateTrupp(id, { annoId, planId, entityId: undefined })
-    setMode('plans'); setActivePlanId(planId); setPanel(null)
-    setPlanFocus({ x: 0.5, y: 0.5, floor: 0, annoId, nonce: Date.now() })
-    logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: truppLogName(tr, 'leader') }), { kind: 'team', annoId, x: 0.5, y: 0.5, floor: 0 })
+    if (!at) {
+      setMode('plans'); setActivePlanId(planId); setPanel(null)
+      setPlanFocus({ ...spot, annoId, nonce: Date.now() })
+    }
+    logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: truppLogName(tr, 'leader') }), { kind: 'team', annoId, ...spot })
     emit('atemschutz.place', { id, annoId, planId })
     void askTruppEntry(id)
+    return annoId
   }
   // Place a Trupp on the Lage map (outdoor teams — Verkehrsgruppe, Wasserversorgung, exterior
   // search): a 'team' marker either AT a tapped coord (the map's Trupp tool) or at the current
   // map centre (the Atemschutz card's «Platzieren»), dragged to position like a plan chip.
   // Same one-place rule: placing here removes any plan chip.
-  const placeTruppOnMap = (id: string, atCoord?: LngLat) => {
+  const placeTruppOnMap = (id: string, atCoord?: LngLat): string | undefined => {
     const tr = trupps.find((t) => t.id === id)
     if (!tr) return
     const entityId = newId('trupp')
@@ -601,6 +607,7 @@ export function useTruppActions(deps: Deps) {
     log('flag', fillTemplate(appConfig.copy.atemschutz.logPlacedMap, { name: truppLogName(tr, 'leader') }), 'team', undefined, entityId)
     emit('atemschutz.place', { id, entityId })
     void askTruppEntry(id)
+    return entityId
   }
 
   /**
@@ -689,6 +696,11 @@ export function useTruppActions(deps: Deps) {
     if (join.site.kind === 'map') log('flag', fillTemplate(appConfig.copy.atemschutz.logPlacedMap, { name: truppLogName(tr, 'leader') }), 'team', undefined, join.site.entityId)
     else logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: truppLogName(tr, 'leader') }), { kind: 'team', annoId: join.site.annoId })
     emit('atemschutz.place', { id: truppId, ...(join.site.kind === 'map' ? { entityId: join.site.entityId } : { annoId: join.site.annoId, planId: join.site.planId }) })
+    // …and a Leitung that already ends on this symbol becomes this Trupp's — the third way into
+    // the same automatic join (15.09.): the hose was coupled to a marker nobody stood on yet, so
+    // there was no Trupp to name; binding the marker is the moment there is one.
+    const hose = lineEndingOn(markerId)
+    if (hose) linkTruppLine(truppId, hose)
     void askTruppEntry(truppId)
     return true
   }
@@ -705,6 +717,11 @@ export function useTruppActions(deps: Deps) {
     setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
       [pid, annos.map((a) => (a.id === markerId && a.kind === 'resource' ? { ...a, truppId: undefined } : a))])))
     if (!tr) return
+    // «Kein Trupp» on a marker a hose is coupled to (15.09.): the crew leaves the picture, so it
+    // leaves the Leitung too – the same fact from the marker's side (see settleAtHoseEnd)
+    const coupled = drawings.some((l) => l.kind === 'line' && [l.startAttachment, l.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === markerId))
+      || Object.values(board).flat().some((a) => a.kind === 'draw' && [a.startAttachment, a.endAttachment].some((r) => r?.target.kind === 'object' && r.target.id === markerId))
+    if (coupled && (tr.lineId || tr.lineNo != null)) unlinkTruppLine(tr.id)
     updateTrupp(tr.id, { entityId: undefined, annoId: undefined, planId: undefined })
     log('flag', fillTemplate(appConfig.copy.atemschutz.logMarkerUnlinked, { name: truppLogName(tr, 'leader') }), 'team', undefined, undefined, { subjectId: tr.id })
     emit('atemschutz.place.unlink', { id: tr.id, markerId })
@@ -1277,8 +1294,12 @@ export function useTruppActions(deps: Deps) {
    * the halves would drift apart under sync; every other link in here (annoId/planId, entityId)
    * follows the same rule.
    *
-   * `lineId` may name a Lage drawing or a Plan annotation — the surface is inferred, so the
-   * caller just hands over what the operator tapped. Both writes go through the RAW setters, the
+   * `lineId` may name a Lage drawing or a Plan annotation — the surface is inferred, so every
+   * caller just hands over the hose it has: the line editor's «Gehört zu Trupp …», the Trupp
+   * form's Ltg-Nr. quick-picks, and since 15.09. the automatic join through the picture
+   * (linkLineToAttachedTrupp below, and a Trupp marker dropped on a hose's free end). An id that
+   * is not a hose — an Absperrkreis, a Fläche, an entity — answers false and writes nothing.
+   * Both writes go through the RAW setters, the
    * way placements do: the link is bookkeeping, not a drawing edit, and it has no business
    * sitting on the undo stack (Cmd-Z after linking would otherwise strip the stamped number and
    * leave the Trupp pointing at a line that no longer says which Leitung it is).
@@ -1293,6 +1314,15 @@ export function useTruppActions(deps: Deps) {
     if (!onMap && !planId) return false
     const lines = onMap ? docLines() : planLines(planId!)
     const line = lines.find((l) => l.id === lineId)!
+    // ONE Trupp per Leitung (15.09., Bastian): a hose that already carries a crew still in the
+    // field takes no second one – from the line editor, the marker menu or the magnet alike.
+    // The form's own Ablösung path releases the holder FIRST (AtemschutzView · submitForm), so a
+    // confirmed takeover still lands here with the line free.
+    const holder = truppForLine(line, trupps)
+    if (holder && holder.id !== truppId && !isOutTrupp(holder)) {
+      toast(fillTemplate(az.lineHeldToast, { name: holder.name }), { tone: 'warn' })
+      return false
+    }
     const no = resolveLinkNumber(tr, line, lines, trupps)
 
     // the drawing: mirror + number. Any OTHER line that claimed this Trupp lets go, so a Trupp
@@ -1316,6 +1346,102 @@ export function useTruppActions(deps: Deps) {
     emit('atemschutz.line.link', { id: truppId, lineId, lineNo: no })
     // no confirm toast (09.09.): the hose wears the Trupp tag the instant the link lands — the
     // ink is the confirmation, and the Verlauf row above is the record
+    settleAtHoseEnd(tr, lineId, onMap ? null : planId!)
+    return true
+  }
+
+  /**
+   * Link = the marker AT the hose end (15.09., Bastian: «they're the same exact thing»). A Trupp
+   * linked to a Leitung used to stand twice in the picture – its marker somewhere, and the
+   * hose's end tag naming it again. Now every link, from whichever door (form quick-pick, line
+   * editor, marker menu, snap, drop), ends with the Trupp's marker coupled to the hose's END:
+   * an existing marker moves there (and lets go of any symbol it was docked to), a Trupp with
+   * no marker on this surface gets one there. The end tag then never has a name to print.
+   *
+   * Nothing is written when the end already hangs on this very marker (the snap/drop doors
+   * arrive that way), and nothing when it hangs on something ELSE – a crew is not put onto a
+   * hydrant because its hose starts there; that end stays the operator's geometry.
+   */
+  const settleAtHoseEnd = (tr: Trupp, lineId: string, planId: string | null) => {
+    const coupling = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: 'trace' })
+    if (!planId) {
+      const line = drawings.find((d) => d.id === lineId && d.kind === 'line')
+      if (!line || line.coords.length < 2) return
+      const end = line.coords[line.coords.length - 1]
+      const marker = entities.find((e) => e.kind === 'team' && e.truppId === tr.id)
+      const a = line.endAttachment
+      if (a && (a.target.kind !== 'object' || !marker || a.target.id !== marker.id)) return
+      if (a) return
+      let markerId = marker?.id
+      if (marker) {
+        setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === marker.id ? { ...e, coord: end, dockedTo: undefined } : e)) }))
+        emit('entity.move', { id: marker.id, coord: end })
+      } else markerId = placeTruppOnMap(tr.id, end)
+      if (!markerId) return
+      setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.id === lineId ? { ...dr, endAttachment: coupling(markerId) } : dr)) }))
+      emit('draw.attach', { id: lineId, endpoint: 'end', attachment: coupling(markerId), fallback: end })
+      return
+    }
+    const annos = board[planId] ?? []
+    const line = annos.find((x) => x.id === lineId && x.kind === 'draw')
+    if (!line?.pts || line.pts.length < 2) return
+    const end = line.pts[line.pts.length - 1]
+    const chip = annos.find((x) => x.kind === 'resource' && x.truppId === tr.id)
+    const a = line.endAttachment
+    if (a && (a.target.kind !== 'object' || !chip || a.target.id !== chip.id)) return
+    if (a) return
+    const spot = { x: end[0], y: end[1], floor: end[2] ?? line.floor ?? 0 }
+    let chipId = chip?.id
+    if (chip) {
+      setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((x) => (x.id === chip.id ? { ...x, ...spot } : x)) }))
+      emit('board.edit', { id: chip.id, patch: spot, planId })
+    } else chipId = placeTruppOnPlan(tr.id, planId, spot)
+    if (!chipId) return
+    setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((x) => (x.id === lineId ? { ...x, endAttachment: coupling(chipId) } : x)) }))
+    emit('board.edit', { id: lineId, patch: { endAttachment: coupling(chipId) }, planId })
+  }
+
+  /**
+   * A hose end just docked onto something — join the Leitung to the Trupp when that something is
+   * a Trupp's marker. THE automatic link (15.09.2026): the explicit «Leitung wählen» tap mode is
+   * gone, and coupling the hose to the crew in the picture is what says who works it. Both
+   * surfaces call it with whatever their magnet just attached — a new stroke's end and an
+   * endpoint dragged onto a marker are the same act.
+   *
+   * Everything else the magnet can dock onto (another Leitung's end, a Fahrzeug, a marker nobody
+   * is standing on) answers `false` and writes nothing. Nor is there an inverse: pulling the end
+   * off again is a picture edit, and the picture never touches the Trupp record (see the doctrine
+   * at the top of lib/truppLines).
+   *
+   * ⚠️ FAILS CLOSED on a Leitung that already has a crew (lineTakesTrupp — «one Trupp per line»,
+   * 15.09.): the hose still docks onto the marker, because that is geometry the operator drew,
+   * but nobody is re-assigned. A takeover is a decision, and it is made in a LIST that asks first
+   * (AtemschutzView · the Ltg-Nr. clash branch), never by a hose end swinging past a second crew.
+   */
+  const linkLineToAttachedTrupp = (lineId: string, attachment: LineAttachment | undefined): boolean => {
+    const truppId = truppIdForAttachment(attachment, truppMarkers())
+    if (!truppId) return false
+    const line = docLines().find((l) => l.id === lineId)
+      ?? Object.values(board).flat().find((a) => a.id === lineId && a.kind === 'draw')
+    if (line && !lineTakesTrupp(line, trupps)) return false
+    return linkTruppLine(truppId, lineId)
+  }
+
+  /**
+   * The reverse of linkLineToAttachedTrupp (15.09.): a hose end let go of a Trupp's marker –
+   * editor «Lösen» or dragged off – and the hose was that Trupp's Leitung, so the two part.
+   * Only when the coupling that ends IS the one the link stands on: a hose linked by number to
+   * a Trupp whose marker it never touched keeps its link. The Trupp record itself (clocks,
+   * readings) is untouched – only the Leitung fields (unlinkTruppLine).
+   */
+  const unlinkLineFromDetachedTrupp = (lineId: string, previous: LineAttachment | undefined): boolean => {
+    const truppId = truppIdForAttachment(previous, truppMarkers())
+    if (!truppId) return false
+    const line = docLines().find((l) => l.id === lineId)
+      ?? Object.values(board).flat().find((a) => a.id === lineId && a.kind === 'draw')
+    const tr = line ? truppForLine(line, trupps) : undefined
+    if (!tr || tr.id !== truppId) return false
+    unlinkTruppLine(tr.id)
     return true
   }
 
@@ -1369,6 +1495,42 @@ export function useTruppActions(deps: Deps) {
     setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
       [pid, annos.map((a) => (a.kind === 'draw' ? drop(a) : a))])))
     updateTrupp(truppId, { lineId: undefined, lineNo: undefined })
+    // …and the hose lets go of the Trupp's marker/chip (15.09.): link and coupling are ONE fact
+    // (settleAtHoseEnd), so «Kein Trupp» from the line editor, the marker menu or the pill's
+    // «Lösen» must part the picture too, or the hose kept following a crew it no longer had.
+    // The end stays where the marker stands.
+    const marker = entities.find((e) => e.kind === 'team' && e.truppId === truppId)
+    if (marker) {
+      setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => {
+        if (dr.kind !== 'line') return dr
+        let next = dr
+        for (const ep of ['start', 'end'] as const) {
+          const a = ep === 'start' ? next.startAttachment : next.endAttachment
+          if (a?.target.kind !== 'object' || a.target.id !== marker.id || next.coords.length < 2) continue
+          const coords = next.coords.map((c, i) => (i === (ep === 'start' ? 0 : next.coords.length - 1) ? marker.coord : c))
+          next = { ...next, coords, ...(ep === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+          emit('draw.detach', { id: dr.id, endpoint: ep, fallback: marker.coord })
+        }
+        return next
+      }) }))
+    }
+    setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) => {
+      const chip = annos.find((a) => a.kind === 'resource' && a.truppId === truppId)
+      if (!chip) return [pid, annos]
+      return [pid, annos.map((a) => {
+        if (a.kind !== 'draw' || !a.pts?.length) return a
+        let next = a
+        for (const ep of ['start', 'end'] as const) {
+          const rel = ep === 'start' ? next.startAttachment : next.endAttachment
+          if (rel?.target.kind !== 'object' || rel.target.id !== chip.id) continue
+          const at: BoardPoint = [chip.x ?? 0, chip.y ?? 0, chip.floor ?? 0]
+          const pts = next.pts!.map((q, i): BoardPoint => (i === (ep === 'start' ? 0 : next.pts!.length - 1) ? at : q))
+          next = { ...next, pts, ...(ep === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
+          emit('board.edit', { id: a.id, patch: { pts, ...(ep === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }, planId: pid })
+        }
+        return next
+      })]
+    })))
     log('drop', fillTemplate(appConfig.copy.atemschutz.logLineUnlinked, { name: truppLogName(tr, 'leader') }), 'team', undefined, undefined, { subjectId: truppId })
     emit('atemschutz.line.unlink', { id: truppId })
   }
@@ -1511,5 +1673,5 @@ export function useTruppActions(deps: Deps) {
     return out
   }
 
-  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, setTruppEquipment, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor }
+  return { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, setTruppEquipment, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors }
 }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Dispatch, SetStateAction } from 'react'
 import { useTruppActions, truppEditChanges, handOrder, nextTruppOrder, LAGE_TARGET } from './useTruppActions'
-import type { BoardDoc, Drawing, Entity, Trupp, TruppFields } from '../types'
+import type { BoardDoc, Drawing, Entity, LineAttachment, Trupp, TruppFields } from '../types'
 import { appConfig } from '../config/appConfig'
 import { anyTruppInField, estimatePressure, isAtemschutzTrupp, truppNeverDeployed } from './atemschutz'
 import { fillTemplate } from './format'
@@ -50,7 +50,7 @@ const baseTrupp = (over: Partial<Trupp>): Trupp => ({
 
 function harness(
   trupp: Trupp,
-  seed?: { board?: BoardDoc; entities?: Entity[]; drawings?: Drawing[] },
+  seed?: { board?: BoardDoc; entities?: Entity[]; drawings?: Drawing[]; trupps?: Trupp[] },
   /** capture the Verlauf lines this action writes (icon, text) */
   log: (icon: string, text: string) => void = () => {},
   /** …and, where a test is about idempotency, the ROW ID the action chose (see logTruppAlarm) —
@@ -59,7 +59,7 @@ function harness(
   rows?: { text: string; id?: string; subjectId?: string }[],
 ) {
   const state = {
-    trupps: [trupp],
+    trupps: [trupp, ...(seed?.trupps ?? [])],
     board: seed?.board ?? {},
     doc: { entities: seed?.entities ?? [], drawings: seed?.drawings ?? [] } as Doc,
   }
@@ -1253,7 +1253,9 @@ describe('useTruppActions — the Leitung number IS the link', () => {
 })
 
 describe('useTruppActions — one Leitung, one Trupp', () => {
-  it('picking a Trupp for a hose takes the number off whoever else claimed it', () => {
+  // ⚠️ reversed 15.09. (one Trupp per Leitung): a hose somebody is still on is REFUSED, not taken
+  // over – the holder keeps the number, the newcomer gets nothing and is told why
+  it('refuses a Trupp for a hose somebody else is still on – the holder keeps the number', () => {
     const state = {
       trupps: [baseTrupp({ id: 'T1', lineNo: 1 }), baseTrupp({ id: 'T2', name: 'Neu Nina' })],
       board: {} as BoardDoc,
@@ -1272,9 +1274,9 @@ describe('useTruppActions — one Leitung, one Trupp', () => {
       setMode: () => {}, setActivePlanId: () => {}, setPanel: () => {}, setPlanFocus: () => {},
       mapCenter: () => [7.53, 47.41], focusMapEntity: () => {}, focusMapDrawing: () => {},
     })
-    actions.linkTruppLine('T2', 'd1')
-    expect(state.trupps[1].lineNo).toBe(1)      // the new Trupp is on it
-    expect(state.trupps[0].lineNo).toBeUndefined() // the old one let go
+    expect(actions.linkTruppLine('T2', 'd1')).toBe(false)
+    expect(state.trupps[1].lineNo).toBeUndefined() // the newcomer is not on it
+    expect(state.trupps[0].lineNo).toBe(1)         // the holder kept it
   })
 })
 
@@ -1302,20 +1304,6 @@ describe('useTruppActions — Truppfarbe', () => {
     const marker = { id: 'e1', kind: 'team', layer: 'operational', coord: [7.5, 47.4], color: '#1f6feb', truppId: 'T1' } as unknown as Entity
     return harness(baseTrupp({ entityId: 'e1', ...over }), { entities: [marker] })
   }
-
-  it('setTruppColor writes the Trupp AND repaints its placed marker', () => {
-    const { actions, state } = placed()
-    actions.setTruppColor('T1', '#8b5cf6')
-    expect(state.trupps[0].color).toBe('#8b5cf6')
-    expect(state.doc.entities[0].color).toBe('#8b5cf6')
-  })
-
-  it('setTruppColor(null) goes back to automatic — the field is gone, the marker repainted', () => {
-    const { actions, state } = placed({ color: '#8b5cf6' })
-    actions.setTruppColor('T1', null)
-    expect(state.trupps[0].color).toBeUndefined()
-    expect(state.doc.entities[0].color).not.toBe('#8b5cf6')
-  })
 
   it('editing a Trupp repaints its marker when the colour changed', () => {
     const { actions, state } = placed()
@@ -1701,12 +1689,10 @@ describe('useTruppActions — the Trupp number', () => {
     const lines: string[] = []
     const { actions } = harness(baseTrupp({ no: 3, members: ['Frei Nina'], status: 'angemeldet', entryTime: '', lastContactTime: '' }),
       undefined, (_i, text) => lines.push(text))
-    actions.setTruppColor('T1', '#ff0000')
+    actions.editTrupp('T1', { name: 'Keller Anna', pressure: 300, funkkanal: 5 })
     actions.setTruppStatus('T1', 'aktiv')
-    expect(lines).toEqual([
-      'Trupp 3 (Keller Anna): Farbe geändert',
-      'Trupp 3 (Keller Anna / Frei Nina): Eintritt',
-    ])
+    expect(lines[0]).toMatch(/^Trupp 3 \(Keller Anna\): /)
+    expect(lines[1]).toBe('Trupp 3 (Keller Anna / Frei Nina): Eintritt')
   })
 })
 
@@ -2128,5 +2114,167 @@ describe('useTruppActions — what the global timeline can take back', () => {
     expect(timeline.canUndo()).toBe(true)
     drop?.()
     expect(timeline.canUndo()).toBe(false)
+  })
+})
+
+/**
+ * ── Die Leitung verbindet sich am Bild, nicht im Modus ──────────────────────────────────────
+ *
+ * 15.09.2026: the armed «Leitung wählen» tap mode is gone. A hose end coupled to a Trupp's
+ * marker — by whichever of the two was moved onto the other — is what says who works that
+ * Leitung, on both surfaces. The geometry of «dropped on the end» is tested in
+ * lineAttachments (nearestFreeEndpoint); this is the writing half.
+ */
+describe('useTruppActions automatic hose ↔ Trupp join', () => {
+  const hose = (over: Partial<Drawing> = {}): Drawing =>
+    ({ id: 'd1', kind: 'line', coords: [[7.5, 47.4], [7.51, 47.41]], ...over })
+  const onObject = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: 'trace' })
+  const teamMarker = (over: Partial<Entity>): Entity =>
+    ({ id: 'e1', kind: 'team', layer: 'operational', coord: [7.5, 47.4], ...over } as Entity)
+
+  beforeEach(() => { ui.confirms.length = 0; ui.answer = false })
+
+  it('joins a Karte hose whose end just snapped onto a bound Trupp marker', () => {
+    const { actions, state } = harness(baseTrupp({ lineNo: 2 }), {
+      entities: [teamMarker({ truppId: 'T1' })], drawings: [hose()],
+    })
+    expect(actions.linkLineToAttachedTrupp('d1', onObject('e1'))).toBe(true)
+    expect(state.doc.drawings[0].truppId).toBe('T1')
+    expect(state.doc.drawings[0].lineNo).toBe(2) // the ordinary link, number and all
+    expect(state.trupps[0].lineId).toBe('d1')
+  })
+
+  it('does the same on a Plan — one join, whichever surface the hose is drawn on', () => {
+    const chip = { id: 'a1', kind: 'resource' as const, x: 0.4, y: 0.6, floor: 0, text: 'Keller Anna', truppId: 'T1' }
+    const anno = { id: 'p1', kind: 'draw' as const, pts: [[0.1, 0.1, 0], [0.4, 0.6, 0]] as [number, number, number][] }
+    const { actions, state } = harness(baseTrupp({}), { board: { gebaeude: [chip, anno] } })
+    expect(actions.linkLineToAttachedTrupp('p1', onObject('a1'))).toBe(true)
+    expect(state.board.gebaeude[1].truppId).toBe('T1')
+    expect(state.trupps[0].lineId).toBe('p1')
+  })
+
+  // «Lösen» parts them again (15.09.) – but only the coupling the link actually stands on
+  it('drops the link when the hose end lets go of the Trupp marker it was joined through', () => {
+    const { actions, state } = harness(baseTrupp({ lineNo: 2, lineId: 'd1' }), {
+      entities: [teamMarker({ truppId: 'T1' })], drawings: [hose({ truppId: 'T1', lineNo: 2 })],
+    })
+    expect(actions.unlinkLineFromDetachedTrupp('d1', onObject('e1'))).toBe(true)
+    expect(state.trupps[0].lineId).toBeUndefined()
+    expect(state.doc.drawings[0].truppId).toBeUndefined()
+  })
+
+  it('keeps a link when the coupling that ends belonged to somebody else, or to nobody', () => {
+    const { actions, state } = harness(baseTrupp({ lineNo: 2, lineId: 'd1' }), {
+      entities: [teamMarker({ truppId: 'T1' }), teamMarker({ id: 'e2' })], drawings: [hose({ truppId: 'T1', lineNo: 2 })],
+    })
+    expect(actions.unlinkLineFromDetachedTrupp('d1', onObject('e2'))).toBe(false)
+    expect(actions.unlinkLineFromDetachedTrupp('d1', undefined)).toBe(false)
+    expect(state.trupps[0].lineId).toBe('d1')
+  })
+
+  // «Kein Trupp» parts the picture too (15.09.): from the line's side the hose lets go of the
+  // marker, from the marker's side the Trupp lets go of the hose
+  it('uncouples the hose end from the marker when the Trupp is unlinked', () => {
+    const { actions, state } = harness(baseTrupp({ lineId: 'd1', lineNo: 2 }), {
+      entities: [teamMarker({ truppId: 'T1', coord: [7.51, 47.41] })],
+      drawings: [hose({ truppId: 'T1', lineNo: 2, endAttachment: onObject('e1') })],
+    })
+    actions.unlinkTruppLine('T1')
+    expect(state.doc.drawings[0].endAttachment).toBeUndefined()
+    expect(state.doc.drawings[0].coords[1]).toEqual([7.51, 47.41])
+    expect(state.trupps[0].lineId).toBeUndefined()
+  })
+
+  it('«Kein Trupp» on a coupled marker unlinks the Leitung as well', () => {
+    const { actions, state } = harness(baseTrupp({ entityId: 'e1', lineId: 'd1', lineNo: 2 }), {
+      entities: [teamMarker({ truppId: 'T1', coord: [7.51, 47.41] })],
+      drawings: [hose({ truppId: 'T1', lineNo: 2, endAttachment: onObject('e1') })],
+    })
+    actions.releaseTruppMarker('e1')
+    expect(state.trupps[0].lineId).toBeUndefined()
+    expect(state.doc.drawings[0].truppId).toBeUndefined()
+    expect(state.doc.drawings[0].endAttachment).toBeUndefined()
+    expect(state.doc.entities[0].truppId).toBeUndefined()
+  })
+
+  // link = marker at the hose end (15.09.): whichever door the link comes through, the Trupp's
+  // marker ends up coupled to the hose's END – moved there, or made there
+  it('moves an existing marker onto the hose end and couples the end to it', () => {
+    const { actions, state } = harness(baseTrupp({}), {
+      entities: [teamMarker({ truppId: 'T1', coord: [7.4, 47.3], dockedTo: 'h1' }), { id: 'h1', kind: 'symbol', layer: 'lage', coord: [7.4, 47.3], symbol: 'S' } as Entity],
+      drawings: [hose()],
+    })
+    expect(actions.linkTruppLine('T1', 'd1')).toBe(true)
+    const marker = state.doc.entities.find((e) => e.id === 'e1')!
+    expect(marker.coord).toEqual([7.51, 47.41])
+    expect(marker.dockedTo).toBeUndefined()
+    expect(state.doc.drawings[0].endAttachment).toEqual({ target: { kind: 'object', id: 'e1' }, routing: 'trace' })
+  })
+
+  it('makes a marker at the hose end for a Trupp that has none on the Karte', () => {
+    const { actions, state } = harness(baseTrupp({}), { drawings: [hose()] })
+    expect(actions.linkTruppLine('T1', 'd1')).toBe(true)
+    const marker = state.doc.entities.find((e) => e.kind === 'team' && e.truppId === 'T1')!
+    expect(marker.coord).toEqual([7.51, 47.41])
+    expect(state.doc.drawings[0].endAttachment?.target).toEqual({ kind: 'object', id: marker.id })
+    expect(state.trupps[0].entityId).toBe(marker.id)
+  })
+
+  it('leaves an end that hangs on something else alone – a crew is not put onto a hydrant', () => {
+    const { actions, state } = harness(baseTrupp({}), {
+      entities: [teamMarker({ truppId: 'T1', coord: [7.4, 47.3] })],
+      drawings: [hose({ endAttachment: { target: { kind: 'object', id: 'hyd' }, routing: 'direct' } })],
+    })
+    expect(actions.linkTruppLine('T1', 'd1')).toBe(true)
+    expect(state.doc.entities.find((e) => e.id === 'e1')!.coord).toEqual([7.4, 47.3])
+    expect(state.doc.drawings[0].endAttachment?.target.id).toBe('hyd')
+  })
+
+  // one Trupp per Leitung (15.09.): a second crew is refused, told why, and nothing is written
+  it('refuses a second Trupp on a Leitung that still carries one in the field', () => {
+    const other: Trupp = { ...baseTrupp({}), id: 'T2', name: 'Meier Hans', lineId: 'd1', lineNo: 2 }
+    const { actions, state } = harness(baseTrupp({}), {
+      entities: [teamMarker({ truppId: 'T1' })], drawings: [hose({ truppId: 'T2', lineNo: 2 })], trupps: [other],
+    })
+    expect(actions.linkTruppLine('T1', 'd1')).toBe(false)
+    expect(ui.toasts[ui.toasts.length - 1]?.text).toContain('Meier Hans')
+    expect(state.trupps.find((t) => t.id === 'T1')?.lineId).toBeUndefined()
+    expect(state.doc.drawings[0].truppId).toBe('T2')
+  })
+
+  it('writes nothing when the end docked onto something that is not a Trupp', () => {
+    const { actions, state } = harness(baseTrupp({}), {
+      // a marker nobody is standing on, and a Fahrzeug
+      entities: [teamMarker({}), teamMarker({ id: 'v1', kind: 'vehicle' })], drawings: [hose()],
+    })
+    expect(actions.linkLineToAttachedTrupp('d1', onObject('e1'))).toBe(false)
+    expect(actions.linkLineToAttachedTrupp('d1', onObject('v1'))).toBe(false)
+    // …nor for a branch hooked onto another Leitung, nor for an end left free
+    expect(actions.linkLineToAttachedTrupp('d1', { target: { kind: 'line', id: 'd2', endpoint: 'end' }, routing: 'direct' })).toBe(false)
+    expect(actions.linkLineToAttachedTrupp('d1', undefined)).toBe(false)
+    expect(state.doc.drawings[0].truppId).toBeUndefined()
+    expect(state.trupps[0].lineId).toBeUndefined()
+  })
+
+  // the third door into the same join: the hose was coupled to a marker before anybody stood on
+  // it, so there was no Trupp to name — binding the marker is the moment there is one
+  it('joins a hose already ending on the marker when that marker is adopted', async () => {
+    const { actions, state } = harness(baseTrupp({}), {
+      entities: [teamMarker({ label: 'Trupp 2' })],
+      drawings: [hose({ endAttachment: onObject('e1') })],
+    })
+    expect(await actions.adoptTruppMarker('T1', 'e1')).toBe(true)
+    expect(state.doc.drawings[0].truppId).toBe('T1')
+    expect(state.trupps[0].lineId).toBe('d1')
+    expect(state.trupps[0].entityId).toBe('e1')
+  })
+
+  it('…and adopting a marker no hose ends on links nothing', async () => {
+    const { actions, state } = harness(baseTrupp({}), {
+      entities: [teamMarker({ label: 'Trupp 2' })], drawings: [hose()],
+    })
+    expect(await actions.adoptTruppMarker('T1', 'e1')).toBe(true)
+    expect(state.doc.drawings[0].truppId).toBeUndefined()
+    expect(state.trupps[0].lineId).toBeUndefined()
   })
 })

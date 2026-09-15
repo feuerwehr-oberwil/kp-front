@@ -54,9 +54,7 @@ describe('TacticalSymbol — legacy `floor` keeps rendering after a symbol moves
   // ⚠️ Several symbols (VKF Feuer, GB Kamin, …) moved from the single `floor` control to the
   // von/bis `floorRange` control (03.09.) — but an already-placed symbol still carries its old
   // plain `floor` value, not floorFrom/floorTo. TacticalSymbol must keep drawing that as a
-  // normal badge: `hasRange` only activates when `floor == null` (see the component), so a
-  // legacy value takes the plain-badge branch regardless of what the symbol's CURRENT preset
-  // declares as editable.
+  // normal badge when no explicit range exists, regardless of its current preset.
   it('renders a plain storey badge for a legacy floor value, not an empty range', () => {
     const { container } = render(createElement(TacticalSymbol, { svg: '<svg></svg>', sizePx: 32, floor: 2 }))
     const badge = container.querySelector('.sym-floor')
@@ -96,4 +94,11 @@ describe('TacticalSymbol — sanitises editor-supplied glyph markup at the sink'
     // fill="none" still triggers the white-legibility chip (needsWhite reads the raw svg)
     expect(container.querySelector('.ts-rot.white')).not.toBeNull()
   })
+})
+
+
+it('an explicit range supersedes the old single-floor badge', () => {
+  const { container } = render(createElement(TacticalSymbol, { svg: '', sizePx: 32, floor: 0, floorFrom: 1, floorTo: 2 }))
+  expect(container.querySelectorAll('.sym-floor')).toHaveLength(1)
+  expect(container.querySelector('.sym-floor')?.textContent).toBe('+1/+2')
 })

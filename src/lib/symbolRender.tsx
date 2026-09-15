@@ -3,6 +3,7 @@ import type { Spread } from '../types'
 import { SPREAD_DIRS, boundedKey, hasSpread, normalizeSpread, type SpreadDir } from './spread'
 import { DEFAULT_INK } from './lineStyle'
 import { sanitizeSvg } from './sanitizeSvg'
+import { Icon } from './icons'
 
 // Shared rendering of a placed FireGIS tactical symbol — used IDENTICALLY by the
 // Lage map (MapView) and the Plan whiteboard (Whiteboard), so the glyph, the
@@ -205,9 +206,9 @@ function SpreadArrows({ spread, color }: { spread: Spread; color: string }) {
 
 // combined span label for stairs/lift, e.g. "-1/+3" (drops a side that is unset)
 const floorRangeBadge = (from?: number, to?: number) =>
-  [from, to].filter((f): f is number => f != null).map(floorBadge).join('/')
+  from != null && to != null && from === to ? floorBadge(from) : [from, to].filter((f): f is number => f != null).map(floorBadge).join('/')
 
-export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, className }: {
+export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floor, floorFrom, floorTo, spread, caption, docked, className }: {
   svg: string
   /** rendered edge length in px (square) */
   sizePx: number
@@ -237,10 +238,17 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
    *  caller decides the text + visibility (lib/symbols · symbolCaptionText, zoom gate); this
    *  just renders it as a sibling of the glyph so it never rotates with `rotation`. */
   caption?: string | null
+  /** Angedockte Trupps (lib/docking, 15.09.2026): this symbol carries at least one Trupp marker,
+   *  drawn as the same `link` glyph the marker itself wears — the bond is then readable from both
+   *  ends. The string is the crews' names and is only ever the badge's TITLE: the map shows the
+   *  glyph, the words stay on the Atemschutz card and in the symbol's own panel.
+   *  ⚠️ KARTE ONLY, like the bond itself — the Plan and the printed Kroki pass nothing and render
+   *  exactly as they did. */
+  docked?: string
   /** extra class on the outer wrapper (e.g. 'photo' on the map, 'ts-plan' on the plan) */
   className?: string
 }) {
-  const hasRange = floor == null && (floorFrom != null || floorTo != null)
+  const hasRange = floorFrom != null || floorTo != null
   // ⚠️ The one XSS sink for a placed glyph: `svg` may be an entity's editor-supplied `symbolSvg`
   // (a free string synced through the workspace PUT), and it is written straight into the DOM
   // below. Sanitising HERE covers every caller that renders through TacticalSymbol — MapMarkers,
@@ -271,7 +279,9 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
           yellow BMA's «+1» was yellow on white. The chip's position on the glyph is what ties
           the badge to its symbol; the colour only ever repeated what the icon underneath
           already says, at the cost of the one thing the badge is for. */}
-      {floor != null && (
+      {/* …and not for the Erdgeschoss (15.09.): a «0» chip is a number that says nothing – ground
+          level is where a symbol stands unless the badge says otherwise */}
+      {!hasRange && floor != null && floor !== 0 && (
         <span className="sym-floor">{floorBadge(floor)}</span>
       )}
       {hasRange && (
@@ -279,6 +289,11 @@ export function TacticalSymbol({ svg, sizePx, rotation = 0, overlay, count, floo
       )}
       {count != null && count > 1 && (
         <span className="sym-count">{count}</span>
+      )}
+      {/* the one free corner: storey top-right, count bottom-right, the docked Trupp markers
+          themselves bottom-left (lib/docking · dockSlotOffset) */}
+      {docked && (
+        <span className="sym-dock" title={docked} aria-label={docked}><Icon id="link" /></span>
       )}
       {caption && (
         <span className="sym-caption">

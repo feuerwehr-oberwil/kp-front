@@ -68,6 +68,18 @@
    damit: Verbinden ist blau, Lösen ist rot, und beides trägt denselben Ring wie das Löschen. */
 .magnet-anchor { position: relative; display: block; width: 0; height: 0; z-index: 12; }
 .magnet-anchor.wb-magnet { position: absolute; }
+/* ── «Anschluss frei» (15.09.2026) ──────────────────────────────────────────────────────────
+   Ein offener Ring in der Farbe des Schlauchs, am Ende, an dem niemand hängt: sichtbar, sobald
+   ein Truppmarker in der Hand ist oder die Leitung ausgewählt ist. Der Ring ist die RUHIGE
+   Hälfte des Magneten – sobald man ihn anvisiert, übernimmt der blaue ConnectRing daneben und
+   dieser hier wird gar nicht erst gezeichnet (MapView). Rein dekorativ: er darf den Tipp nicht
+   fressen, den das Schlauchende selbst beantwortet. */
+.free-coupling { --line: var(--blue); position: relative; display: block; width: 26px; height: 26px;
+  border-radius: 50%; background: var(--surface); border: 3px solid var(--line);
+  box-shadow: 0 2px 6px rgba(15, 22, 34, .28); pointer-events: none; }
+/* the socket on a Trupp marker's dot while a hose end is in the hand (MapView): the same ring,
+   in the marker's own colour, centred on the point the magnet measures against */
+.free-coupling.team-socket { width: 30px; height: 30px; background: transparent; box-shadow: none; }
 /* the same lock chip on the PLAN: the map hangs it off a MapLibre Marker, the board has no
    markers, so it gets a zero-size anchor positioned in board px (Whiteboard · lock chips). */
 .wb-lock-anchor { position: absolute; display: grid; place-items: center; width: 0; height: 0; z-index: 12; }
@@ -161,6 +173,9 @@
   .draw-editor .de-prof-toggle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
 }
 .draw-editor .de-prof-toggle.on { color: var(--ink); }
+/* the Messung group's own header (15.09.): the collapsed group IS one row, its title in the
+   group-title face – the .de-conn-title inside keeps its own padding out of the button */
+.draw-editor .de-group-toggle .de-conn-title { padding: 0; color: inherit; }
 /* …and the ▾ flip is the app-wide `.chev` (02-base.css), off this button's aria-expanded */
 .draw-editor .de-prof-toggle .i { width: 16px; height: 16px; }
 .draw-editor .de-prof-msg { padding: 10px 0; font-size: 12px; color: var(--ink-faint); text-align: center; }
@@ -195,6 +210,10 @@
 .ctx-connections button:first-of-type { border-top: 0; }
 .ctx-connections button > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctx-conn-go { flex: none; color: var(--ink-faint); font-size: 16px; line-height: 1; }
+/* …and the same slot carrying a WORD rather than a chevron: the «Lösen» on an angedockter Trupp
+   (15.09.). A row that separates something says so — an ✕ beside a row that also carries a trash
+   can elsewhere in the panel is a second destructive guess (same rule as .wb-pa-text). */
+.ctx-conn-release { flex: none; color: var(--red); font-size: 12.5px; font-weight: 700; line-height: 1; }
 /* Trupp picker + the jump to it, as ONE control group: the chevron sits against the picker the
    way a "go there" affordance does everywhere else in the panel, instead of repeating the name
    in a row of its own. */

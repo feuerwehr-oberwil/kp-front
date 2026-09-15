@@ -42,19 +42,26 @@ describe('shared magnetic connection controls', () => {
 describe('Messung on an already drawn line', () => {
   const D = appConfig.copy.drawingEditor
 
-  it('states length + hose count without any operator action', () => {
+  // collapsed since 15.09.: the group is one row until opened, then length, hose count AND the
+  // Höhenprofil come at once – no second toggle inside
+  it('states length + hose count once the group is opened', () => {
     render(<DrawEditor {...base} drawing={{ kind: 'line' }} lengthM={412} />)
-    expect(screen.getByText(D.measurement)).toBeTruthy()
+    expect(screen.queryByText('412 m')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: D.measurement }))
     expect(screen.getByText('412 m')).toBeTruthy()
     expect(screen.getByText(String(hoseCount(412)))).toBeTruthy() // incl. the configured reserve
   })
 
-  it('keeps the Höhenprofil collapsed until asked (no swisstopo request on selection)', () => {
-    const fetchMock = vi.fn()
+  it('fetches the Höhenprofil only when the group is opened (no swisstopo request on selection)', () => {
+    const fetchMock = vi.fn(() => new Promise(() => {}))
     vi.stubGlobal('fetch', fetchMock)
     render(<DrawEditor {...base} drawing={{ kind: 'line' }} lengthM={412} profileCoords={[[7.5, 47.5], [7.51, 47.51]]} />)
-    expect(screen.getByRole('button', { name: appConfig.copy.measure.profile })).toHaveProperty('ariaExpanded', 'false')
+    expect(screen.getByRole('button', { name: D.measurement })).toHaveProperty('ariaExpanded', 'false')
     expect(fetchMock).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: D.measurement }))
+    // the request is debounced (useLineProfile); the profile block is already up and loading
+    expect(screen.getByText(appConfig.copy.measure.profile)).toBeTruthy()
+    expect(screen.getByText(appConfig.copy.measure.profileLoading)).toBeTruthy()
     vi.unstubAllGlobals()
   })
 
@@ -68,7 +75,8 @@ describe('Messung on an already drawn line', () => {
 
   it('offers no Höhenprofil where there is no height data (the Plan)', () => {
     render(<DrawEditor {...base} drawing={{ kind: 'line' }} lengthM={412} />)
-    expect(screen.queryByRole('button', { name: appConfig.copy.measure.profile })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: D.measurement }))
+    expect(screen.queryByText(appConfig.copy.measure.profile)).toBeNull()
   })
 })
 
@@ -92,9 +100,9 @@ describe('read-only (viewer / Führungsansicht)', () => {
 
   it('keeps the numbers a locked surface is opened FOR', () => {
     render(<DrawEditor {...base} readOnly drawing={{ kind: 'line' }} lengthM={412} profileCoords={[[7.5, 47.5], [7.51, 47.51]]} />)
-    expect(screen.getByText(D.measurement)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: D.measurement }))
     expect(screen.getByText('412 m')).toBeTruthy()
-    expect(screen.getByRole('button', { name: appConfig.copy.measure.profile })).toBeTruthy()
+    expect(screen.getByText(appConfig.copy.measure.profile)).toBeTruthy()
   })
 
   it('drops every control that would change the shape', () => {
@@ -112,6 +120,7 @@ describe('read-only (viewer / Führungsansicht)', () => {
 
   it('states what an Absperrkreis covers, not just its radius', () => {
     render(<DrawEditor {...base} readOnly drawing={{ kind: 'circle', radiusM: 100 }} areaM2={31416} perimeterM={628} />)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.drawingEditor.measurement }))
     expect(screen.getByText(appConfig.copy.measure.area)).toBeTruthy()
     expect(screen.getByText(appConfig.copy.measure.perimeter)).toBeTruthy()
     expect(screen.getByText('628 m')).toBeTruthy()

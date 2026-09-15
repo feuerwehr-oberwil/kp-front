@@ -19,9 +19,11 @@
  */
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
-import { Menu, Popover, PopoverClose } from '../lib/overlays'
+import { Menu } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
+import type { TeamLineBadge } from '../lib/truppLines'
 import type { Trupp } from '../types'
 
 /**
@@ -44,7 +46,13 @@ import type { Trupp } from '../types'
  * Cancel leaves the loose chip as it was. Both surfaces render this one function, so the row
  * exists here and nowhere else.
  */
-export function TruppJoinMenu({ truppId, trupps, pick, create }: { truppId?: string; trupps: Trupp[]; pick: (truppId?: string) => void; create?: () => void }) {
+export function TruppJoinMenu({ truppId, trupps, pick, create, onNone }: {
+  truppId?: string; trupps: Trupp[]; pick: (truppId?: string) => void; create?: () => void
+  /** «Kein Trupp» exists only on a marker that hangs on a hose (15.09., Bastian): it takes the
+   *  marker off the Leitung – hose unlinked and uncoupled, marker a step away, still this Trupp's.
+   *  A marker on nothing has no such entry; leaving the picture is the trash can. */
+  onNone?: () => void
+}) {
   return (
     <Menu
       popupClassName="de-menu-pop"
@@ -55,7 +63,7 @@ export function TruppJoinMenu({ truppId, trupps, pick, create }: { truppId?: str
         </button>
       }
       items={[
-        { label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={!truppId} />, onClick: () => pick(undefined) },
+        ...(onNone ? [{ label: <MenuPick label={appConfig.copy.atemschutz.markerNone} on={false} />, onClick: onNone }] : []),
         ...trupps.filter((t) => !t.removedAt && (t.status !== 'raus' || t.id === truppId)).map((t) => ({
           label: <MenuPick label={t.name} on={t.id === truppId} />,
           onClick: () => pick(t.id),
@@ -77,11 +85,6 @@ export interface TwinTeamActions {
   pick?: (truppId?: string) => void
   /** «Neuer Trupp» on the join sheet — register a Trupp that adopts this marker on save */
   newTrupp?: () => void
-  /** ⚠️ THE one place a Trupp's colour is chosen (04.09.): the marker on the KARTE. The form
-   *  stopped asking, the plan chip and both mirrors do not offer it — a colour is automatic
-   *  unless somebody deliberately changes it where the picture is actually being read. Optional,
-   *  so every other surface simply does not draw the button. */
-  color?: (color: string | null) => void
   mark?: () => void
   clearTrail: () => void
   remove: () => void
@@ -89,15 +92,19 @@ export interface TwinTeamActions {
   /** pan the OTHER surface to the original — the MIRROR's one extra door, absent on a native */
   toOriginal?: () => void
   toggleTrail?: () => void
+  /** «Lösen» on a joined marker (Karte, 15.09.): let go of the Leitung this Trupp is on. Offered
+   *  only where a `line` badge is also drawn — a surface that does not show the join does not
+   *  offer to break it. */
+  unlink?: () => void
+  /** let go of the symbol the marker is docked to (lib/docking) – the same «Lösen» glyph */
+  undock?: () => void
 }
 
-export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus, truppId, trailCount, trailShown, trupps, acts, hit, renameRef, renaming: renamingProp, onRenaming }: {
+export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming }: {
   name: string
   time?: string
   /** the colour actually painted (the source's own, or the palette's first) */
   color: string
-  /** …and the STORED one, so «Automatisch» can say whether it is the state in force */
-  colorSet?: string
   /** «Auf Plan zeigen» / «Auf Karte zeigen» — which surface the original lives on. Mirrors
    *  only: on a native surface the marker IS the original, so there is nowhere to send you. */
   originalLabel?: string
@@ -106,6 +113,12 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
   trailCount: number
   trailShown: boolean
   trupps: Trupp[]
+  /** The Leitung this Trupp works, merged INTO the marker — «Ein Etikett» (Karte only, 15.09.):
+   *  the number field in the hose's own ink, plus a coupling stub where the hose actually ends
+   *  here, and the hose then draws no separate end tag. ⚠️ OPTIONAL on purpose: the Plan and
+   *  both mirrors pass nothing and render exactly as they did, so the merge cannot leak onto a
+   *  sheet whose printed twin must not change (lib/truppLines · teamLineBadges). */
+  line?: TeamLineBadge
   /** absent = pill only, no bar — a surface that may look but not write (read-only Karte,
    *  a plan board in a drawing tool) still shows the selected pill exactly as before */
   acts?: TwinTeamActions
@@ -127,10 +140,6 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
   const [selfRenaming, setSelfRenaming] = useState(false)
   const renaming = renamingProp ?? selfRenaming
   const setRenaming = onRenaming ?? setSelfRenaming
-  // a marker bound to a LIVE registered Trupp is named and coloured by the Atemschutz board;
-  // offering a second name/palette here would fork the two apart
-  const boundAlive = !!truppId && trupps.some((t) => t.id === truppId && !t.removedAt)
-  const setColor = acts?.color
   const rename = acts?.rename
   const pick = acts?.pick
   const newTrupp = acts?.newTrupp
@@ -138,11 +147,26 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
   const mark = acts?.mark
   const toOriginal = acts?.toOriginal
   const toggleTrail = acts?.toggleTrail
+  const unlink = acts?.unlink
+  const undock = acts?.undock
   // ⚠️ the pill span carries the native class untouched: putting it on the hit shell made
   // the button the flex container, and Safari's anonymous button box misplaced the cap.
   const pill = (
-    <span className={`wb-resource-pill ${raus ? 'raus' : ''}`} style={{ '--team': color } as CSSProperties}>
+    <span className={`wb-resource-pill ${raus ? 'raus' : ''}${line ? ' joined' : ''}`}
+      style={{ '--team': color, ...(line ? { '--line': line.color } : null) } as CSSProperties}>
+      {/* The coupling, in the hose's ink, at the pill's LEFT edge — the same edge the marker is
+          anchored by, so the stub sits exactly where the line ends. Absolutely positioned: it
+          must not push the cap (and with it the coordinate the pill states) sideways. */}
       <span className="wb-resource-cap" />
+      {/* ⚠️ AFTER the cap, where the mock has it before the dot. The cap/dot IS the coordinate
+          (lib/mapView · TEAM_PILL_CAP_PX): anything in front of it moves the point the marker
+          states, which is the bug the left-edge anchoring exists to prevent. The order is still
+          constant — cap · Leitung · Name · #N — so nothing has to be re-found at 3am. */}
+      {line?.lineNo != null && (
+        <span className="team-ltg" title={fillTemplate(appConfig.copy.drawingEditor.lineLabelNo, { n: line.lineNo })}>
+          {line.lineNo}
+        </span>
+      )}
       <span className="wb-resource-body">
         <span className="wb-resource-name">
           {renaming && rename
@@ -168,6 +192,14 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
       {hit ? hit(pill) : pill}
       {acts && (
         <div className="wb-pill-acts" onPointerDown={(ev) => ev.stopPropagation()}>
+          {/* «Lösen» (15.09.): the one explicit way to part the marker from what it hangs on – its
+              Leitung, the symbol it is docked to, or both at once. A glyph, first in the bar: the
+              pill's own «1» chip already says which Leitung, and the words «Leitung 1 · Trupp 3»
+              said nothing the picture did not. */}
+          {((line && unlink && truppId) || undock) && (
+            <button className="wb-pa wb-pa-unlink" title={appConfig.copy.contextPanel.dockedRelease} aria-label={appConfig.copy.contextPanel.dockedRelease}
+              onClick={() => { if (line && truppId) unlink?.(); undock?.() }}><Icon id="unlink" /></button>
+          )}
           {/* rename — the touch path (double-tap→dblclick is unreliable on iOS). A Trupp-bound
               marker is named by the Atemschutz board, so it gets no pen: renaming it here would
               fork the two names apart. */}
@@ -181,35 +213,7 @@ export function TwinTeamPill({ name, time, color, colorSet, originalLabel, raus,
           )}
           {/* «Atemschutz-Trupp» — the join sheet (TruppJoinMenu above), whenever this surface
               offers the door at all */}
-          {pick && <TruppJoinMenu truppId={truppId} trupps={trupps} pick={pick} create={newTrupp} />}
-          {/* Farbe — and since 04.09. this is the ONLY palette left for a Trupp, on any surface.
-              ⚠️ It is no longer gated on `!boundAlive`. While the form still asked for a colour,
-              a marker bound to a registered Trupp had another place to be recoloured and a second
-              palette here would have said the same thing twice; now it has none, so the bound one
-              needs this button most. Bound, the pick lands on the TRUPP (board card, plan chip
-              and this marker all follow); loose, on the marker itself — the caller decides, this
-              bar just offers the door. A colour someone else already wears is allowed —
-              «alle Löschtrupps rot». */}
-          {setColor && (
-            <Popover
-              ariaLabel={appConfig.copy.atemschutz.colorLabel}
-              popupClassName="wb-pa-colors"
-              trigger={
-                <button className="wb-pa" title={appConfig.copy.atemschutz.colorLabel} aria-label={appConfig.copy.atemschutz.colorLabel}>
-                  <span className="wb-pa-swatch" style={{ background: colorSet || 'transparent' }} />
-                </button>
-              }
-            >
-              <PopoverClose className={`ctx-team-auto${colorSet ? '' : ' on'}`} onClick={() => setColor(null)}>
-                {appConfig.copy.atemschutz.colorAuto}
-              </PopoverClose>
-              {appConfig.drawing.teamColors.map((c) => (
-                <PopoverClose key={c} className={`dh-color${colorSet === c ? ' on' : ''}`} onClick={() => setColor(c)}>
-                  <span style={{ background: c }} />
-                </PopoverClose>
-              ))}
-            </Popover>
-          )}
+          {pick && <TruppJoinMenu truppId={truppId} trupps={trupps} pick={pick} create={newTrupp} onNone={line && unlink && truppId ? unlink : undefined} />}
           {mark && (
             <button className="wb-pa wb-pa-mark" title={appConfig.copy.whiteboard.markPosition} aria-label={appConfig.copy.whiteboard.markPosition}
               onClick={() => mark()}><Icon id="flag" /></button>

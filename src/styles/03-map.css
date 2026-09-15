@@ -97,6 +97,18 @@
 .sym-count { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); right: -9px; z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-sm); background: var(--ink-fill); color: var(--on-accent-ink); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+/* «angedockt», von der Seite des HOSTS aus (lib/docking, 15.09.2026): the same `link` glyph the
+   Trupp marker wears, so the bond reads from either end. Top-LEFT — the only corner left: the
+   storey badge owns top-right, the count bottom-right, and the docked Trupp markers themselves
+   stack down from bottom-left. Same chip chrome as .sym-floor, so the three read as one family. */
+/* …BOTTOM-left since 15.09. («not very smartly placed»): the docked strip hangs under the tile's
+   left edge, so the chip sits right above it and reads as the joint between the two – on a
+   round glyph the old top-left corner floated off in empty space. */
+.sym-dock { position: absolute; bottom: calc(var(--badge-out, 7px) * -1); left: -9px; z-index: 6;
+  display: grid; place-items: center; width: 16px; height: 16px; box-sizing: border-box;
+  border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim);
+  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
+.sym-dock .i { width: 12px; height: 12px; }
 /* metadata caption — a symbol's discriminating value(s) printed just under its glyph (e.g.
    "CO₂" under a Kleinlöscher), so an operator reads it without opening the dashboard. Same
    chrome as the line label (.measure-label.draw-label / .wb-line-label) for Lage↔Plan parity;

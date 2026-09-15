@@ -277,8 +277,16 @@
   border-bottom: 1px dashed rgba(30, 45, 70, .28); }
 .wb-floor-fp { flex: none; } /* width/height set inline (px), fit to the tile preserving aspect */
 .wb-floor-svg { width: 100%; height: 100%; display: block; }
+/* the storey index as a chip (mock B, 14.09.2026) – the Karte's storey badge, on the tile */
+.wb-floor-idx { display: inline-block; min-width: 22px; text-align: center; padding: 2px 5px; border-radius: 5px;
+  font: 700 12px var(--mono, ui-monospace, Menlo, monospace); font-variant-numeric: tabular-nums; color: #fff; background: var(--ink); }
+.wb-floor-idx.zero { background: var(--blue-strong); }
+.wb-floor-name { font-weight: 600; }
 .wb-floor-svg polygon { fill: color-mix(in srgb, var(--blue) 5%, transparent); stroke: var(--ink-faint); stroke-width: 1.5; stroke-linejoin: round; }
-.wb-floor-label { position: absolute; top: 8px; left: 10px; display: flex; align-items: center; gap: 2px; z-index: 1;
+/* the storey's Geschossplan page under the outline – quiet, the outline stays legible over it */
+.wb-floor-page { opacity: 1; }
+.wb-floor-noplan { font: 600 13px var(--body); fill: var(--ink-faint); }
+.wb-floor-label { position: absolute; top: 8px; left: 10px; display: flex; align-items: center; gap: 6px; z-index: 1;
   font-family: var(--body); font-weight: 700; font-size: 13px; line-height: 1; color: var(--ink-dim);
   background: var(--label-soft); border-radius: var(--r-xs); padding: 4px 4px 4px 9px; user-select: none; -webkit-user-select: none; }
 .wb-floor-x { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
@@ -381,6 +389,29 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-resource-raus { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--fill-soft); border-radius: var(--r-xs); padding: 2px 6px; }
 
+/* ── «Ein Etikett»: die Leitung im Truppmarker (Karte, 15.09.2026) ───────────────────────────
+   A joined Trupp carries its Leitung's number in the hose's own ink, plus a coupling stub where
+   the hose really does end at this marker — and that hose then draws no end tag at all
+   (lib/truppLines · teamLineBadges). `--line` is the hose's colour, set inline beside `--team`;
+   both are custom props so day/night and per-station accents keep working (never a frozen rgba).
+   Worn by BOTH forms of the marker: the resting `.team-dot` and the selected pill. */
+.team-ltg, .wb-resource-pill .team-ltg {
+  --line: var(--blue);
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  /* FIXED width, not min-width: the label pass books this strip without measuring it
+     (lib/mapView · TEAM_LTG_PX), and a field that grew past its booking would cover a label
+     the pass had already cleared. Two digits fit; a third simply tightens. */
+  width: 19px; height: 19px; padding: 0 3px; box-sizing: border-box;
+  border: 1.5px solid var(--line); border-radius: 4px; color: var(--line); background: var(--surface);
+  font-family: var(--body); font-size: 11.5px; font-weight: 800; font-style: normal; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+/* draussen: the entry stays — it is the record of who worked this Leitung — but dashed and grey,
+   the same thing the muted end tag said before the merge (11-measure.css · .tone-muted) */
+.team-dot.raus .team-ltg, .wb-resource-pill.raus .team-ltg {
+  border-style: dashed; border-color: var(--ink-dim); color: var(--ink-dim);
+}
+
 /* selected-team action bar — one compact toolbar under the pill, replacing the two
    corner orbs (mark top-left + delete top-right) that used to crowd the pill */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
@@ -393,12 +424,6 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-pa .i { width: 16px; height: 16px; }
 /* Truppfarbe on a placed team marker: the trigger wears the current colour, the popup is the same
    palette the Trupp form shows (gloved 30px targets, wrapped two rows). */
-.wb-pa-swatch { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--on-accent-ink) 80%, transparent); }
-.wb-pa-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 232px; padding: 10px;
-  border-radius: var(--r-ctl); background: var(--surface); border: 1px solid var(--glass-edge); box-shadow: var(--shadow); z-index: var(--z-popover); }
-/* the swatch colour rides on an inner span (the popup's close-button takes no inline style) */
-.wb-pa-colors .dh-color { width: 30px; height: 30px; background: transparent; }
-.wb-pa-colors .dh-color > span { display: block; width: 100%; height: 100%; border-radius: 50%; }
 .wb-pa-mark { background: var(--blue); }
 @media (hover: hover) {
   .wb-pa-mark:hover { background: var(--blue); filter: brightness(1.08); }
@@ -632,6 +657,22 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    is for a LETTER, which needs a plate to read over a printed plan; a filled triangle does not,
    and a plate around each tooth would break the saw edge into beads. Same positioning, no skin. */
 .wb-line-glyph { position: absolute; pointer-events: none; line-height: 0; }
+/* ↑ / ↓ at an open line end on the stack (WbVertexHandles): the SAME grip as the extend arrow –
+   .draw-grow / .wb-grow give it the look and the z-order – only the chevron does not turn with
+   the line, up is up */
+/* ⚠️ .draw-grow (11-measure.css, loaded later) says position: relative – right for the map's
+   marker, wrong here: two of these in a row then FLOW under each other and the translate lands
+   on top of that. The specific selector pins them to the board layer like every other grip. */
+.wb-grow.wb-climb { position: absolute; left: 0; top: 0; }
+.wb-climb .i { transform: none; }
+/* the way back down the same stairs is hollow-dashed like an insert pad: it removes, not adds */
+.wb-climb.back { border-style: dashed; }
+/* a span's copy on another storey tile: the same symbol, quieter, untouchable */
+/* the stair mark of a storey-crossing Leitung (mock C): a circled storey number in the line's
+   colour, at the vertex where the line leaves/enters the tile; tapping it jumps to the other end */
+.wb-line-stair { position: absolute; left: 0; top: 0; width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  border: 2px solid currentColor; background: var(--on-accent-ink); color: currentColor;
+  font: 800 11px var(--mono); font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; touch-action: manipulation; }
 /* the shared <LineMarker> span inside either wrapper — the wrapper owns the placement */
 .wb-line-mk { display: block; }
 

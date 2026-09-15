@@ -39,6 +39,12 @@ export function IconSprite() {
           both «Rapport» and «Manuell» is a disc that cannot be read. `journalArea` still reads
           the old #photo rows as Rapport — the record is append-only (lib/report.ts). */}
       <symbol id="attach" viewBox="0 0 24 24"><path d="M20.6 11.4 12 20a5.6 5.6 0 0 1-7.9-7.9l8.6-8.6a3.7 3.7 0 0 1 5.3 5.3l-8.6 8.6a1.9 1.9 0 0 1-2.6-2.6l7.9-7.9" /></symbol>
+      {/* «Angedockt» on a Trupp marker (15.09.): two links of a chain, and NOT the #attach
+          paperclip above, which means «Beilage am Rapport». The Atemschutz card spells the bond
+          out as «bei «Hydrant»»; the map pill has no room for a second name beside the one it
+          already carries, so on the Karte the glyph alone says «dieser Trupp hängt an etwas». */}
+      <symbol id="unlink" viewBox="0 0 24 24"><path d="M10.3 13.7a4.2 4.2 0 0 0 6 0l2.8-2.8a4.2 4.2 0 0 0-6-6l-1.6 1.6" /><path d="M13.7 10.3a4.2 4.2 0 0 0-6 0l-2.8 2.8a4.2 4.2 0 0 0 6 6l1.6-1.6" /><path d="M4 4l16 16" /></symbol>
+      <symbol id="link" viewBox="0 0 24 24"><path d="M10.3 13.7a4.2 4.2 0 0 0 6 0l2.8-2.8a4.2 4.2 0 0 0-6-6l-1.6 1.6" /><path d="M13.7 10.3a4.2 4.2 0 0 0-6 0l-2.8 2.8a4.2 4.2 0 0 0 6 6l1.6-1.6" /></symbol>
       {/* «An Stationsdrucker»: paper going in at the top, paper coming out at the bottom. The
           relay buttons carried a bare status dot and no glyph at all, so they read as a stray
           label beside every sibling action that HAS one. The dot stays — it says whether the

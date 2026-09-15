@@ -11,6 +11,8 @@ import { LockChip } from './LockChip'
 import { TwinTeamPill } from './TwinTeamPill'
 import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_M, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
+import type { TeamLineBadge } from '../lib/truppLines'
+import { fillTemplate } from '../lib/format'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { ConnectRing } from './NodeDeleteChip'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -21,7 +23,8 @@ import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { fanOffsets, markerZ, pileAt } from '../lib/labelPass'
 import { noteScale, noteWPx } from '../lib/notes'
-import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
+import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
+import { dockSlots } from '../lib/docking'
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
 // stopPropagation, so react-map-gl's marker-drag (a listener on the parent that fires on the same
@@ -177,10 +180,6 @@ interface Props {
   onTeamMark?: (id: string) => void
   /** rename an untracked team marker — the map twin of the plan chip's rename pen */
   onTeamRename?: (id: string, name: string) => void
-  /** ⚠️ The ONE surface that still offers a Trupp colour (04.09.) — the marker on the Karte.
-   *  Bound to a Trupp the pick writes the TRUPP (card, plan chip and this marker follow); loose,
-   *  it writes the marker. Neither the form nor the plan nor the mirrors ask any more. */
-  onTeamColor?: (e: Entity, color: string | null) => void
   /** recolour a team marker (null = back to automatic). Takes the ENTITY, because the two cases
    *  write different things: a marker bound to a Trupp recolours the TRUPP (board card and plan
    *  chip follow), a loose one recolours just itself. */
@@ -191,6 +190,16 @@ interface Props {
    *  selected team toggles just that team's lines + breadcrumb dots */
   hiddenTrails?: ReadonlySet<string>
   onToggleTrail?: (id: string) => void
+  /** «Ein Etikett» (15.09.): per team-marker id, the Leitung merged into that marker — the number
+   *  in the hose's ink and, where the hose really ends there, a coupling. Resolved once per frame
+   *  by the surface (MapView · teamLineBadges), because the same pass decides which end tags are
+   *  then NOT drawn; a marker with no entry looks exactly as it always did. */
+  teamLines?: ReadonlyMap<string, TeamLineBadge>
+  /** «Lösen» on the selected joined pill: let go of the Leitung (useTruppActions ·
+   *  unlinkTruppLine, with a confirm-with-undo toast at the call site). */
+  onTeamUnlink?: (entityId: string, lineId: string) => void
+  /** let a docked Trupp marker go of its symbol (lib/docking) – the pill's «Lösen» */
+  onTeamUndock?: (entityId: string) => void
 }
 
 /**
@@ -198,7 +207,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail, hiddenTrails, onToggleTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -269,6 +278,10 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // (dropped on drop). Set only once the drag clears the deadzone, so a hold that never moves
   // shows nothing.
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  /** the entity the finger actually holds when a drag was redirected to a docked marker's HOST
+   *  (see `grab` below): the host moves, but it is not the thing being handled, so it wears no
+   *  halo – the halo on the symbol under a dragged Trupp read as «that symbol is selected» */
+  const grabbedId = useRef<string | null>(null)
 
   // ── the pile ────────────────────────────────────────────────────────────────────────────
   // Screen-px offsets for the markers of a fanned pile, keyed by entity id. Computed ONCE, at
@@ -556,6 +569,19 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     if (ent.kind === 'note') onNotePanel?.(ent.id)
   }
 
+  // ── Andocken: der feste Platz (lib/docking, 15.09.2026) ────────────────────────────────────
+  // A Trupp marker docked onto a symbol is DRAWN at that symbol's bottom-left corner — one place,
+  // every time, whatever corner of the tile the hand let go over — and several of them stack
+  // downwards. Resolved once per frame for the whole layer, because both sides of the bond read
+  // it: the marker (its `<Marker>` anchors on the HOST and offsets into the slot) and the host
+  // (the `link` badge on its tile, titled with the crews it carries).
+  const dockedSlots = dockSlots(entities)
+  const dockedHosts = new Map<string, string[]>()
+  for (const e of entities) {
+    if (!dockedSlots.has(e.id) || !e.dockedTo) continue
+    dockedHosts.set(e.dockedTo, [...(dockedHosts.get(e.dockedTo) ?? []), e.label || appConfig.copy.entities.fallbackObjectName])
+  }
+
   // entity markers — guard against malformed entities (e.g. a server workspace
   // missing a coord) so one bad row can't white-screen the whole map
   return (
@@ -577,7 +603,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // Selected, multi-selected or mid-drag — the three states that mean «this one, now».
         // They share the halo AND the raised stacking: tapping a symbol that sits under another
         // one has to bring it out, or the panel opens for something the operator cannot see.
-        const raised = selectedId === e.id || groupSelectedIds.includes(e.id) || draggingId === e.id
+        const raised = selectedId === e.id || groupSelectedIds.includes(e.id) || (draggingId === e.id && grabbedId.current === e.id)
         // ⚠️ A Trupp marker is a STRIP — [dot][gap][name] — and centring the whole strip put half
         // the NAME's width between the dot and the point it states: the dot stood off its own
         // Trupp, and jumped sideways the moment the label pass dropped the name (a symbol dragged
@@ -595,13 +621,32 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // tap at all — placement and selection pass to whatever is beneath — and the centre
         // LockChip (re-enabling its own pointer events) is the only door back in.
         const lockedShape = e.kind === 'shape' && !!e.locked
+        // …and a docked Trupp marker is DRAWN on its host's bottom-left corner instead of on its
+        // own point (lib/mapView · teamDockAnchor). The stored coordinate is untouched — it is
+        // still the drop point, still carried along when the host moves, and still what the
+        // marker falls back to the moment the bond is let go.
+        // ⚠️ …but NOT while it is being dragged: a marker in the hand follows the finger, or the
+        // gesture that undocks it would draw nothing at all until the drop.
+        const dockAnchor = draggingId === e.id ? null
+          : teamDockAnchor(e, entities, dockedSlots, zoom, symMul, e.kind === 'team' ? teamStripPx(e.label ?? '', teamLines?.get(e.id)?.lineNo != null) : undefined)
+        const at = dockAnchor?.host.coord ?? e.coord
+        /** …and the drag therefore STARTS from the slot, not from the stored point under it: the
+         *  two are up to one dock radius apart, and grabbing a docked marker used to teleport it
+         *  there before it moved a pixel. Seeded as the drag's first «where it is now». */
+        const dockDragStart = (): LngLat | null => {
+          if (!dockAnchor?.host.coord) return null
+          const h = project(dockAnchor.host.coord)
+          return (h ? unproject({ x: h.x + dockAnchor.dx, y: h.y + dockAnchor.dy }) : null) ?? null
+        }
         return (
         <Marker
           key={e.id}
-          longitude={e.coord[0]}
-          latitude={e.coord[1]}
+          longitude={at[0]}
+          latitude={at[1]}
           anchor={teamStrip ? 'left' : 'center'}
-          offset={teamStrip ? [selectedId === e.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2, 0] : undefined}
+          offset={teamStrip
+            ? [(selectedId === e.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2) + (dockAnchor?.dx ?? 0), dockAnchor?.dy ?? 0]
+            : undefined}
           style={{ zIndex: z, ...(lockedShape ? { pointerEvents: 'none' as const } : null) }}
           draggable={false}
           // swallow the synthetic click so it can't reach the map (deselect / placement); selection
@@ -633,6 +678,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                   const pile = pileUnder(ev.currentTarget, cx, cy, e)
                   const near = (pile.length ? entities.find((x) => x.id === pile[0].id) : undefined) ?? e
                   const fanned = !!fan
+                  // A DOCKED Trupp marker is moved as one with its host (15.09., «dragging either
+                  // should move both»): the grip lands on the marker, the drag is the symbol's,
+                  // and the marker rides along in its slot (lib/docking · carryDocked). Parting
+                  // them is the pill's own «Lösen», never a drag.
+                  const host = e.kind === 'team' && e.dockedTo ? entities.find((h) => h.id === e.dockedTo && Array.isArray(h.coord)) : undefined
+                  const grab = host ?? e
                   // pointerId/isPrimary ride along so the gesture stays bound to THIS finger: the
                   // second finger of a pinch must go to the map, never steer a symbol (useHoldToDrag)
                   hold.begin({ clientX: cx, clientY: cy, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
@@ -647,14 +698,15 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     onHoldStart: () => {
                       // a rotor / shape-transform gesture owns the pointer — never also translate
                       if (rotateRef.current || shapeRef.current) { hold.cancel(); return }
-                      entDrag.current = { id: e.id, cx, cy, lx: cx, ly: cy, moved: false, last: null }
+                      entDrag.current = { id: grab.id, cx, cy, lx: cx, ly: cy, moved: false, last: host ? (host.coord as LngLat) : dockDragStart() }
+                      grabbedId.current = e.id
                       // don't select here: a quick hold-drag to reposition shouldn't open the
                       // ContextPanel. The move targets the symbol by id regardless of selection;
                       // selection (→ panel) is deferred to onDragEnd and only if it never moved.
                       setDragPan(false) // stop the map panning under the held symbol
                     },
                     onDragMove: (mx, my) => {
-                      const st = entDrag.current; if (!st || st.id !== e.id) return
+                      const st = entDrag.current; if (!st || st.id !== grab.id) return
                       // deadzone: don't move until the finger clears DRAG_DEADZONE_PX from the grab point
                       if (!st.moved && Math.hypot(mx - st.cx, my - st.cy) < DRAG_DEADZONE_PX) return
                       // Re-anchor on EVERY move: project where the symbol is NOW through the LIVE map
@@ -664,23 +716,23 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                       // through the new transform then teleports the symbol, which is what «bugs out
                       // when the map resizes» looked like. Incrementally, a changed transform costs
                       // nothing: the symbol simply keeps its screen offset to the finger.
-                      const base = project((st.last ?? e.coord) as LngLat)
+                      const base = project((st.last ?? grab.coord) as LngLat)
                       if (!base) return
                       const nc = unproject({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
                       if (!nc) return
                       st.lx = mx; st.ly = my
                       // snapshot for undo + show the selection halo on first real move — and on a
                       // phone let the detail sheet peek away, so the drag has the whole surface
-                      if (!st.moved) { st.moved = true; onMarkerDragStart(e.id); setDraggingId(e.id); beginSheetPeek() }
+                      if (!st.moved) { st.moved = true; onMarkerDragStart(grab.id); setDraggingId(grab.id); beginSheetPeek() }
                       st.last = nc
-                      onMarkerMove(e.id, nc)
+                      onMarkerMove(grab.id, nc)
                     },
                     onDragEnd: () => {
                       const st = entDrag.current; entDrag.current = null
                       setDragPan(true)
                       setDraggingId(null) // drop the halo once it stops moving
                       endSheetPeek() // …and the sheet comes back to the height it had
-                      if (st?.moved && st.last) onMarkerDragEnd(e.id, st.last)
+                      if (st?.moved && st.last) onMarkerDragEnd(grab.id, st.last)
                       // held but never dragged → treat as a select (open the panel). A SELECT
                       // resolves the pile like a tap does — by nearest centre, never by whichever
                       // node is on top — or a slow gloved tap would hand out the wrong marker
@@ -727,6 +779,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // timestamp. A Trupp marked «raus» on the Atemschutz board dims here too.
               const isRaus = !!e.truppId && !!trupps?.some((t) => t.id === e.truppId && t.status === 'raus')
               const teamCol = e.color || appConfig.drawing.teamColors[0]
+              // «Ein Etikett» (15.09.): the Leitung this Trupp works is drawn IN its marker — the
+              // number in the hose's ink, a coupling where the hose actually ends here — and the
+              // hose's own end tag is then not drawn at all (MapView · teamLineBadges). Absent
+              // badge = the marker it always was.
+              const badge = teamLines?.get(e.id)
               if (selectedId !== e.id) {
                 // the pass could not fit the name without covering something that outranks it:
                 // the coloured dot stays (a Trupp is always visible AS a Trupp), and the ink dot
@@ -735,8 +792,15 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                 const nameHidden = !!e.label && !!suppressedLabels?.has(`team:${e.id}`)
                 return (
                   <>
-                    <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
-                      <i />{!nameHidden && <b>{e.label}</b>}
+                    <span className={`team-dot ${isRaus ? 'raus' : ''}${badge ? ' joined' : ''}`}
+                      style={{ '--team': teamCol, ...(badge ? { '--line': badge.color } : null) } as React.CSSProperties}>
+                      <i />
+                      {/* ⚠️ tied to the NAME's visibility, not drawn on its own: the label pass
+                          books one box for [dot][gap][name] (MapView · labelDecisions), so a field
+                          that outlived the name would sit outside anything the pass arbitrated.
+                          Order = dot · Leitung · Name, the same order the selected pill has. */}
+                      {!nameHidden && badge?.lineNo != null && <em className="team-ltg">{badge.lineNo}</em>}
+                      {!nameHidden && <b>{e.label}</b>}
                     </span>
                   </>
                 )
@@ -748,13 +812,13 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // The marker container already owns the press, so no `hit` shell is passed.
               return (
                 <TwinTeamPill
-                  name={e.label ?? ''} time={e.t} color={teamCol} colorSet={e.color}
+                  name={e.label ?? ''} time={e.t} color={teamCol}
                   raus={isRaus} truppId={e.truppId} trailCount={e.trail?.length ?? 0}
                   trailShown={!hiddenTrails?.has(e.id)} trupps={trupps ?? []}
+                  line={badge}
                   renameRef={focusTeam}
                   acts={draggable ? {
                     rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
-                    color: onTeamColor && ((c) => onTeamColor(e, c)),
                     pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),
                     newTrupp: onTeamNewTrupp && (() => onTeamNewTrupp(e.id)),
                     mark: onTeamMark && (() => onTeamMark(e.id)),
@@ -762,6 +826,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     remove: () => onDelete(e.id),
                     showTrupp: onShowTrupp,
                     toggleTrail: onToggleTrail && (() => onToggleTrail(e.id)),
+                    unlink: badge && onTeamUnlink && (() => onTeamUnlink(e.id, badge.lineId)),
+                    undock: e.dockedTo && onTeamUndock ? () => onTeamUndock(e.id) : undefined,
                   } : undefined} />
               )
             })() : e.kind === 'shape' ? (
@@ -886,6 +952,11 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     floorTo={e.floorTo}
                     spread={e.spread}
                     count={e.count}
+                    // the bond seen from the HOST's side (lib/docking): the same `link` glyph the
+                    // Trupp marker wears, on the one free corner of the tile — storey top-right,
+                    // count bottom-right, the docked Trupps themselves bottom-left. The crews'
+                    // names ride as its title; the words «bei «…»» stay off the map.
+                    docked={dockedHosts.get(e.id)?.join(' · ')}
                     // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
                     // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
                     caption={capHidden || !capText ? null : softHyphenateText(capText)}

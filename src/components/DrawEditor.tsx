@@ -207,12 +207,14 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   const radiusM = drawing.radiusM ?? 0
   const radStep = appConfig.drawing.circleRadiusStepM
   const radMin = appConfig.drawing.circleMinRadiusM
-  // Messung on an ALREADY DRAWN line: the length is free (it comes from the geometry), the
-  // Höhenprofil costs a swisstopo request — so it stays collapsed and only fetches once opened,
-  // which also keeps a tap on a line offline-silent.
-  const [profileOpen, setProfileOpen] = useState(false)
+  // Messung on an ALREADY DRAWN line: the whole group is collapsed (15.09.) – a line is mostly
+  // selected to be styled or linked, and the numbers were a screen of rows in the way of that.
+  // Opening it shows everything at once, Höhenprofil included: the length is free (it comes from
+  // the geometry), the profile costs a swisstopo request – so it only fetches once the group is
+  // opened, which also keeps a plain tap on a line offline-silent. No second toggle inside.
+  const [measureOpen, setMeasureOpen] = useState(false)
   const hasProfileCoords = isLine && !!profileCoords && profileCoords.length >= 2
-  const { profile, loading: profileLoading } = useLineProfile(profileCoords ?? [], hasProfileCoords && profileOpen)
+  const { profile, loading: profileLoading } = useLineProfile(profileCoords ?? [], hasProfileCoords && measureOpen)
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
   const actions = readOnly ? null : (
@@ -530,8 +532,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             all; the old An/Aus toggle lives on here as «Auf Karte», which is what it always did. */}
         {(isLine ? lengthM != null || supportsDistance : areaM2 != null) && (
           <div className="de-group">
-            <div className="de-conn-title">{appConfig.copy.drawingEditor.measurement}</div>
-            {isLine && lengthM != null && (
+            <button type="button" className={`de-prof-toggle de-group-toggle${measureOpen ? ' on' : ''}`} aria-expanded={measureOpen} onClick={() => setMeasureOpen((o) => !o)}>
+              <span className="de-conn-title">{appConfig.copy.drawingEditor.measurement}</span><Icon id="chevron-down" className="chev" />
+            </button>
+            {measureOpen && isLine && lengthM != null && (
               <>
                 <div className="de-row"><span>{appConfig.copy.drawingEditor.distance}</span>
                   <b className="de-measure-v">{fmtDistance(lengthM)}</b>
@@ -543,7 +547,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             )}
             {/* an Absperrkreis / Fläche measures itself: what it covers, and how far around it —
                 the same two numbers the Messen tool would give for the same outline */}
-            {!isLine && areaM2 != null && (
+            {measureOpen && !isLine && areaM2 != null && (
               <>
                 <div className="de-row"><span>{appConfig.copy.measure.area}</span>
                   <b className="de-measure-v">{fmtArea(areaM2)}</b>
@@ -569,23 +573,21 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 no way to put it on the map — the number lived in this panel and vanished the
                 moment the panel closed. An Absperrkreis or Sektor whose area is the whole point
                 gets the same switch a hose line has. */}
-            {(isLine ? supportsDistance : areaM2 != null) && !readOnly && (
+            {measureOpen && (isLine ? supportsDistance : areaM2 != null) && !readOnly && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.showOnMap}</span>
                 <OnOff ariaLabel={appConfig.copy.drawingEditor.showOnMap} value={!!drawing.showDistance} onChange={onShowDistance} />
               </div>
             )}
-            {hasProfileCoords && (
+            {measureOpen && hasProfileCoords && (
               <>
-                <button type="button" className={`de-prof-toggle${profileOpen ? ' on' : ''}`} aria-expanded={profileOpen} onClick={() => setProfileOpen((o) => !o)}>
-                  <span>{appConfig.copy.measure.profile}</span><Icon id="chevron-down" className="chev" />
-                </button>
-                {profileOpen && (profileLoading ? (
+                <div className="de-conn-title">{appConfig.copy.measure.profile}</div>
+                {profileLoading ? (
                   <div className="de-prof-msg">{appConfig.copy.measure.profileLoading}</div>
                 ) : profile ? (
                   <><ProfileChart p={profile} /><ProfileStats p={profile} /></>
                 ) : (
                   <div className="de-prof-msg">{appConfig.copy.measure.profileNone}</div>
-                ))}
+                )}
               </>
             )}
           </div>
