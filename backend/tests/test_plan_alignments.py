@@ -220,7 +220,7 @@ async def test_multipage_revision_cannot_publish_or_leak_a_fit(client, admin_log
     assert response.status_code == 200 and response.json()["alignments"] == []
 
 
-async def test_queue_loads_metadata_once_and_preserves_exact_revision_counts(db_session, engine, monkeypatch):
+async def test_queue_is_a_fixed_number_of_queries_and_opens_no_pdf(db_session, engine, monkeypatch):
     from app.api import plan_alignments
 
     obj, ds, old = await _seed(db_session)
@@ -245,46 +245,71 @@ async def test_queue_loads_metadata_once_and_preserves_exact_revision_counts(db_
     finally:
         event.remove(engine.sync_engine, "before_cursor_execute", record_statement)
 
-    assert len(statements) == 1  # fixed query count, regardless of queue size
-    assert count_pages.await_count == 2  # one count per immutable PDF, not per page
+    assert len(statements) == 2  # fixed query count, regardless of queue size: rows + floor packs
+    count_pages.assert_not_awaited()  # the list opens no PDF at all – page_count is the detail's job
     items = {item["id"]: item for item in result["items"]}
     assert len(items) == 3
-    assert items[old.id]["page_count"] == 1 and items[old.id]["is_current"] is False
-    assert items[current.id]["page_count"] == 2 and items[current.id]["is_current"] is True
-    assert items[second_page.id]["page_count"] == 2
+    assert items[old.id]["page_count"] is None and items[old.id]["is_current"] is False
+    assert items[current.id]["page_count"] is None and items[current.id]["is_current"] is True
     assert all(item["can_approve"] is False for item in items.values())
     assert all(item["object_name"] == obj.name and item["module"] == "modul1" for item in items.values())
-    # Listing and detail have the same contract, including historical revisions and all provenance.
+    # Listing and detail have the same contract apart from the two fields the list refuses to grow.
     for row in (old, current, second_page):
-        assert items[row.id] == await plan_alignments._item(db_session, row)
+        detail = await plan_alignments._item(db_session, row)
+        assert "reference_rings" not in items[row.id]
+        assert {
+            **items[row.id],
+            "page_count": detail["page_count"],
+            "reference_rings": detail["reference_rings"],
+        } == detail
 
 
-async def test_queue_summary_skips_pdf_reads_and_detail_still_checks_approval(
+async def test_the_queue_leaves_the_building_outlines_to_the_per_sheet_endpoint(
     client, admin_login, db_session, monkeypatch
 ):
+    """⚠️ The size guard: 453 sheets carrying their `reference_rings` were a 21.5 MB list that the
+    Objektpläne page re-polls every 15 s. The rings belong to ONE tile at a time."""
     from app.api import plan_alignments
 
     _, _, row = await _seed(db_session)
+    rings = [[[7.5, 47.5], [7.501, 47.5], [7.501, 47.499], [7.5, 47.5]]]
+    row.reference_rings, row.reference_source = rings, "OSM 2026-09-01"
+    await db_session.commit()
     await admin_login(client)
     count_pages = AsyncMock(wraps=plan_alignments.revision_page_count)
     monkeypatch.setattr(plan_alignments, "revision_page_count", count_pages)
     monkeypatch.setattr(plan_alignments, "alignment_capability", lambda: {"available": True, "reason": None})
-    response = await client.get("/api/admin/plan-alignments", params={"summary": "true"})
-    assert response.status_code == 200, response.text
+
+    listed = (await client.get("/api/admin/plan-alignments")).json()["items"][0]
     count_pages.assert_not_awaited()
-    summary = response.json()["items"][0]
-    assert summary["id"] == row.id
-    assert summary["page_count"] is None and summary["can_approve"] is False
+    assert listed["id"] == row.id and "reference_rings" not in listed
+    # the provenance the wall's header reads is small and stays; only the geometry left
+    assert listed["reference_source"] == "OSM 2026-09-01"
+    assert listed["page_count"] is None and listed["can_approve"] is False
+
+    outline = await client.get(f"/api/admin/plan-alignments/{row.id}/outline")
+    assert outline.status_code == 200, outline.text
+    assert outline.json() == {
+        "reference_rings": rings,
+        "reference_source": "OSM 2026-09-01",
+        "reference_at": None,
+        "pairs": PAIRS,
+    }
+    count_pages.assert_not_awaited()  # an outline never opens the PDF either
 
     response = await client.get(f"/api/admin/plan-alignments/{row.id}")
     assert response.status_code == 200, response.text
     detail = response.json()
+    assert detail["reference_rings"] == rings  # the detail keeps everything
     assert detail["page_count"] == 1 and detail["can_approve"] is True
-    assert {**summary, "page_count": 1, "can_approve": True} == detail
+    assert {**listed, "page_count": 1, "can_approve": True, "reference_rings": rings} == detail
     count_pages.assert_awaited_once()
 
-    response = await client.get("/api/admin/plan-alignments")
-    assert response.status_code == 200 and response.json()["items"] == [detail]
+
+async def test_the_outline_of_a_sheet_that_is_not_there_is_a_404(client, admin_login, db_session):
+    await _seed(db_session)
+    await admin_login(client)
+    assert (await client.get("/api/admin/plan-alignments/9999/outline")).status_code == 404
 
 
 async def test_a_rejection_leaves_the_queue_without_publishing_and_can_be_undone(client, admin_login, db_session):

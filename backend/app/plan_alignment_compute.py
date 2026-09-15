@@ -208,15 +208,17 @@ async def compute_alignment(
     fallback_scale: float | None,
     alignment: ModuleAlignment | None = None,
     reference: dict | None = None,
+    floor_page: bool = False,
 ) -> AlignmentResult:
     """Return honest review data, including the exact reference geometry used by the fit.
     ``alignment`` is the station's catalogue choice for this module (``module_alignment``);
     None resolves the default. ``reference`` is the station-wide building snapshot
     (reference_buildings.ensure_snapshot) the sheet's box is clipped from; without one the
-    per-object Overpass request is made."""
-    if rendered.page_count != 1:
-        # The field viewer stitches a floor pack into ONE tall canvas. A fit measured on an
-        # individual page would therefore be applied to different coordinates in the field.
+    per-object Overpass request is made. ``floor_page`` says the rendered page is a Geschoss
+    of a floor pack (plan_floors), whose single shared fit IS measured on one page."""
+    if rendered.page_count != 1 and not floor_page:
+        # The field viewer stitches an ordinary multi-page document into ONE tall canvas. A fit
+        # measured on an individual page would therefore land on different coordinates there.
         return AlignmentResult("unsupported", "multi_page_document", aspect=rendered.aspect)
     chosen = alignment or module_alignment(None, module)
     if chosen == "none":
