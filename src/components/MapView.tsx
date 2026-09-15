@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { forwardRef, Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
@@ -17,13 +17,14 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, TEAM_DOT_PX, TEAM_DOT_GAP } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
+import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { cachedLabelSize, LABEL_RANK, MARKER_Z, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
-import { truppForLine, truppLineTone, truppTagText } from '../lib/truppLines'
+import { lineTakesTrupp, markerTakesLineEnd, teamLineBadges, truppForLine, truppIdForAttachment, truppLineTone, type LinkableLine } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM } from '../lib/geo'
 import { noteWPx } from '../lib/notes'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
@@ -45,7 +46,7 @@ import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
-import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
 
@@ -81,7 +82,7 @@ const LABEL_STYLE = {
   /** `.sym-caption` — wraps at compound seams inside 120px; 1px/6px padding, line-height 1.25 */
   caption: { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: 120, chromeW: 12, chromeH: 2, lineH: 14.4 },
   /** `.team-dot b` — never wraps */
-  team: { font: '700 11.5px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 12, chromeH: 2, lineH: 15 },
+  team: TEAM_LABEL_STYLE,
   /** `.measure-label.draw-label` — mono, never wraps, 2px/7px padding */
   readout: { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 14, chromeH: 4, lineH: 13.8 },
   /** `.line-end-tag` — 2px/6px padding plus a 1.5px border; `inline-grid` stacks the Trupp row */
@@ -90,14 +91,14 @@ const LABEL_STYLE = {
 
 /** The end tag's text laid out the way `EndTag` lays it out: the Leitung's own facts on one
  *  row, the Trupp on its own (`inline-grid` gives each text run a row of its own). */
-function endTagText(d: Drawing, trupp?: Trupp): string {
+/** the end tag's text as the label pass measures it – the Leitung's own facts only. The Trupp on
+ *  it is never printed here (15.09.): its marker stands at this very end, and that IS the name. */
+function endTagText(d: Drawing): string {
   const parts: string[] = []
   if (d.lineNo != null) parts.push(String(d.lineNo))
   if (d.content) parts.push(d.content)
   if (d.floorTag != null) parts.push(floorBadge(d.floorTag))
-  const name = trupp ? truppTagText(trupp) : ''
-  if (!parts.length && !name) return ''
-  return [parts.join(' · '), name].filter(Boolean).join('\n')
+  return parts.join(' · ')
 }
 
 /** Keep MapLibre's own KeyboardHandler off while a text field owns focus — the map must not
@@ -262,9 +263,11 @@ interface Props {
   /** rename an untracked team marker (absent = locked, or a Trupp-bound marker) */
   onTeamRename?: (id: string, name: string) => void
   /** see MapMarkers — the marker on the Karte is the only place a colour is still chosen */
-  onTeamColor?: (e: Entity, color: string | null) => void
   /** recolour a team marker (null = automatic) — see MapMarkers */
   onTeamClearTrail?: (id: string) => void
+  /** «Lösen» on a joined Trupp marker — see MapMarkers (absent = locked / read-only) */
+  onTeamUnlink?: (entityId: string, lineId: string) => void
+  onTeamUndock?: (entityId: string) => void
   /** tactical editing is locked (viewer role, Führungsansicht, replay). Everything
    *  stays readable — panning, selecting, the ephemeral Messen path — but no affordance that
    *  would mutate the document is rendered: no vertex/move handles on a selected drawing, no
@@ -287,7 +290,13 @@ interface Props {
   draggable: boolean
   onMarkerDragStart: (id: string) => void
   onMarkerMove: (id: string, c: LngLat) => void
-  onMarkerDragEnd: (id: string, c: LngLat) => void
+  /** `join` is the Trupp-marker half of the hose magnet (15.09.): the free Leitung end this drop
+   *  is joining, and it is passed ONLY when its blue ring actually closed. Null on every other
+   *  drop, so «not armed = nothing attaches» holds for this gesture too — the surface that drew
+   *  the ring is the one that says whether it filled, and the writer never re-guesses. */
+  /** `dock`: a Trupp marker's answer to «dock to a symbol?» – the host whose ring closed, null
+   *  when no ring closed, undefined when the surface has no opinion (a placard docks instantly) */
+  onMarkerDragEnd: (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => void
   /** rotate a (live vehicle) marker by dragging its on-icon handle */
   onRotate?: (id: string, deg: number) => void
   /** drag-to-transform a placed shape: rotate (top handle) / resize (corner handle).
@@ -389,7 +398,7 @@ interface Props {
 export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView && !isDemoMode()
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamColor, onTeamClearTrail,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
@@ -578,7 +587,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   })
   // `origin` + `attached` + `detach` are the RELEASE half of the ring language: where the endpoint
   // was plugged in when the drag started, whether it still is, and how full the red ring is.
-  type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; origin: LngLat; attached: boolean; detach: number; dwell: DwellState; candidate: MagneticTarget | null }
+  /** `carry`: the Trupp marker this end is coupled to – the grip then moves the MARKER, and the
+   *  hose end follows it as it always does (15.09., «the Trupp belongs to the hose»). */
+  type EndpointDrag = { id: string; endpoint: LineEndpoint; coord: LngLat; origin: LngLat; attached: boolean; detach: number; dwell: DwellState; candidate: MagneticTarget | null; carry?: string }
   const [endpointDrag, setEndpointDragState] = useState<EndpointDrag | null>(null)
   const endpointDragRef = useRef<EndpointDrag | null>(null)
   const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -641,7 +652,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return [ll.lng, ll.lat]
   }
   for (const l of attachmentLines) resolvedCoords.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
-  const relationship = relationshipNetwork(attachmentLines, selectedDrawingId ? [selectedDrawingId] : [], selectedId ? [selectedId] : [])
+  // ⚠️ not seeded from a selected TRUPP marker (15.09.): its hose's other end lit up the symbol
+  // the water comes from, which read as «that thing is selected» beside the pill. A selected
+  // Leitung still shows what it hangs on, which is what the network halo is for.
+  const relationship = relationshipNetwork(attachmentLines, selectedDrawingId ? [selectedDrawingId] : [],
+    selectedId && entities.find((e) => e.id === selectedId)?.kind !== 'team' ? [selectedId] : [])
   // resolvedCoords already carries the dragged endpoint at the finger position (attachmentLines
   // injects it above), so downstream consumers see the live drag without a second override.
   const drawings: Drawing[] = storedDrawings.map((d): Drawing =>
@@ -653,16 +668,37 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const e = entities.find((x) => x.id === a.target.id)
     return e && !isVisible(effectiveLayer(e)) ? [e] : []
   }) : []
+  /** Every placed Trupp marker on this surface, as the one-Trupp rule reads them. */
+  const truppMarkers = () => entities.flatMap((e) => (e.kind === 'team' ? [{ id: e.id, truppId: e.truppId }] : []))
   const candidatesAt = (sourceId: string, at: LngLat): MagneticTarget[] => {
     const map = mapInst.current
     if (!map) return []
     const pointer = map.project(at)
+    // ── EINE Leitung, EIN Trupp, schon am Magneten (lib/truppLines · markerTakesLineEnd) ──
+    // A hose that already has a crew does not SEE another Trupp's marker: no ring, no dwell, no
+    // attach — the end just stays under the finger. Refusing only the link left the picture
+    // claiming a second crew, which is the «Trupp an beiden Enden» this rule exists to stop.
+    // A DRAFT is judged by the claim its first end already made, so one stroke cannot do it either.
+    const draftStart = draftMagnet.current?.startAttachment
+    const srcLine: LinkableLine | undefined = drawings.find((d) => d.id === sourceId)
+      ?? (sourceId === '__draft__' ? { id: sourceId, truppId: truppIdForAttachment(draftStart, truppMarkers()) } : undefined)
     const objectTargets: MagneticTarget[] = entities
-      .filter((e) => isMagnetEntity(e) && Array.isArray(e.coord))
+      .filter((e) => isMagnetEntity(e) && Array.isArray(e.coord)
+        && (e.kind !== 'team' || markerTakesLineEnd(srcLine, trupps ?? [], { id: e.id, truppId: e.truppId })))
       .map((e) => {
         const c = map.project(e.coord), size = e.kind === 'team' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
+        // A Trupp marker is a STRIP – [dot][name] hanging right of the coordinate – and the hand
+        // aims at the name as readily as at the dot (15.09.). The target point is the nearest
+        // point of that strip's box, so an end laid over the name is «on» the marker; the
+        // coupling itself still resolves to the dot (resolveLinePoints · objectPoint).
+        if (e.kind === 'team') {
+          const w = teamStripPx(e.label ?? '', teamLines.get(e.id)?.lineNo != null)
+          const x0 = c.x - TEAM_DOT_PX / 2 - 6, x1 = x0 + w + 12, y0 = c.y - 16, y1 = c.y + 16
+          const point: [number, number] = [Math.min(Math.max(pointer.x, x0), x1), Math.min(Math.max(pointer.y, y0), y1)]
+          return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point, defaultRouting: 'trace' as const }
+        }
         const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [pointer.x, pointer.y])
-        return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: e.kind === 'team' ? 'trace' : 'direct' }
+        return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: 'direct' as const }
       })
     const lineTargets: MagneticTarget[] = drawings
       .filter((d) => d.kind === 'line' && d.id !== sourceId && d.coords.length >= 2)
@@ -683,12 +719,24 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }
   const beginEndpointDrag = (id: string, endpoint: LineEndpoint, coord: LngLat) => {
     const stored = storedDrawings.find((d) => d.id === id)
-    const attached = !!(endpoint === 'start' ? stored?.startAttachment : stored?.endAttachment)
-    setEndpointDrag({ id, endpoint, coord, origin: coord, attached, detach: 0, dwell: EMPTY_DWELL, candidate: null })
+    const a = endpoint === 'start' ? stored?.startAttachment : stored?.endAttachment
+    // An end coupled to a Trupp's marker is not pulled OFF the marker by dragging it (15.09.):
+    // the grip takes the marker along – off the symbol it was docked to, onto the next one, or
+    // just elsewhere – and the hose end rides with it. Parting the two is the editor's «Lösen».
+    const marker = a?.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : undefined
+    if (marker?.kind === 'team' && marker.truppId && stored?.truppId === marker.truppId && !marker.live) {
+      onMarkerDragStart(marker.id)
+      setTeamDragId(marker.id)
+      setEndpointDrag({ id, endpoint, coord, origin: coord, attached: true, detach: 0, dwell: EMPTY_DWELL, candidate: null, carry: marker.id })
+      return
+    }
+    setEndpointDrag({ id, endpoint, coord, origin: coord, attached: !!a, detach: 0, dwell: EMPTY_DWELL, candidate: null })
   }
   const moveEndpointDrag = (coord: LngLat) => {
     const st = endpointDragRef.current, map = mapInst.current
     if (!st || !map) return
+    // the coupled marker moves, the end follows (see beginEndpointDrag)
+    if (st.carry) { setEndpointDrag({ ...st, coord }); teamJoinMarkerMove(st.carry, coord); return }
     const pointer = map.project(coord)
     if (dwellTimer.current) clearTimeout(dwellTimer.current)
     // Still hooked up? Then the only thing on offer is letting go, and the red ring at the OLD
@@ -726,6 +774,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const st = endpointDragRef.current
     if (!st) return
     if (dwellTimer.current) clearTimeout(dwellTimer.current)
+    if (st.carry) { teamJoinMarkerDragEnd(st.carry, st.coord); setEndpointDrag(null); return }
     // Ring lädt, dann schnappt es: ONLY a completed dwell attaches. Releasing while the ring is
     // still filling drops the endpoint free, right where the finger left it — that is the whole
     // prevention story, and it needs no mode to leave.
@@ -889,6 +938,66 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const out = updateDraftMagnet('end', coord)
     onDraftPointAttachment?.(out?.startAttachment ?? out?.endAttachment)
   }
+  // ── Truppmarker auf ein freies Leitungsende: derselbe Magnet, von der anderen Seite ────────
+  //
+  // Dropping a Trupp's marker on the free end of a hose joins the two — the same link that
+  // snapping the hose onto the marker makes, from whichever side the operator happens to work.
+  // Until 15.09. that happened INVISIBLY on release: nothing said a hose end was free, nothing
+  // said the drop had found one, and a marker parked near a hose could couple to it by accident.
+  //
+  // It now wears the picture every other attachment on this surface wears — «Ring lädt, dann
+  // schnappt es» — and the whole contract comes with it: **not armed = nothing attaches, not
+  // even on release** (AGENTS.md · touch vocabulary). The aim is reported to the drop through
+  // `onMarkerDragEnd`, so the writer never re-guesses what the ring promised.
+  //
+  // ⚠️ `TEAM_JOIN_RADIUS_PX`, not `MAGNET_RADIUS_PX`: this gesture aims with the marker's LEFT
+  // EDGE (the dot on its coordinate), not with the finger — see the constant's own note.
+  type TeamJoinAim = { entityId: string; lineId: string; endpoint: LineEndpoint; coord: LngLat; since: number; armed: boolean }
+  const [teamJoin, setTeamJoinState] = useState<TeamJoinAim | null>(null)
+  const teamJoinRef = useRef<TeamJoinAim | null>(null)
+  const teamJoinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** a Trupp marker is in the hand — what turns the free couplings on (they are an answer to
+   *  this gesture, not permanent furniture: a Lage with a dozen hoses would grow a dozen rings) */
+  const [teamDragId, setTeamDragId] = useState<string | null>(null)
+  const setTeamJoin = (next: TeamJoinAim | null) => { teamJoinRef.current = next; setTeamJoinState(next) }
+  /** …and the OTHER thing a Trupp marker in the hand can land on: a symbol to dock to
+   *  (lib/docking). The same ring, the same hold («Halten zum Verbinden»): it fills on the host
+   *  while the marker hovers inside the dock radius, and only a CLOSED ring docks on release –
+   *  a marker merely carried past a symbol must not stick to it. The hose join above wins when
+   *  both are in reach; the dock ring then does not show at all. */
+  type DockAim = { entityId: string; hostId: string; coord: LngLat; since: number; armed: boolean }
+  const [dockAim, setDockAimState] = useState<DockAim | null>(null)
+  const dockAimRef = useRef<DockAim | null>(null)
+  const dockAimTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setDockAim = (next: DockAim | null) => { dockAimRef.current = next; setDockAimState(next) }
+  const clearDockAim = () => {
+    if (dockAimTimer.current) { clearTimeout(dockAimTimer.current); dockAimTimer.current = null }
+    if (dockAimRef.current) setDockAim(null)
+  }
+  useEffect(() => () => { if (dockAimTimer.current) clearTimeout(dockAimTimer.current) }, [])
+  const trackDockAim = (id: string, c: LngLat) => {
+    const map = mapInst.current
+    const me = entities.find((e) => e.id === id)
+    if (!map || me?.kind !== 'team' || teamJoinRef.current) { clearDockAim(); return }
+    const host = nearestDockHost(c, entities.filter((e) => e.id !== id), (q) => map.project(q as [number, number]), dockRadiusFor(me))
+    if (!host || !Array.isArray(host.coord)) { clearDockAim(); return }
+    // still over the same host: let the ring keep filling rather than restarting it
+    if (dockAimRef.current?.entityId === id && dockAimRef.current.hostId === host.id) return
+    clearDockAim()
+    const st: DockAim = { entityId: id, hostId: host.id, coord: host.coord as LngLat, since: Date.now(), armed: false }
+    setDockAim(st)
+    dockAimTimer.current = setTimeout(() => {
+      const now = dockAimRef.current
+      if (!now || now.since !== st.since) return
+      setDockAim({ ...now, armed: true })
+      buzz() // …on arm, and only on arm (AGENTS.md · touch vocabulary)
+    }, MAGNET_DWELL_MS)
+  }
+  const clearTeamJoin = () => {
+    if (teamJoinTimer.current) { clearTimeout(teamJoinTimer.current); teamJoinTimer.current = null }
+    if (teamJoinRef.current) setTeamJoin(null)
+  }
+  useEffect(() => () => { if (teamJoinTimer.current) clearTimeout(teamJoinTimer.current) }, [])
   // own position (GPS) — a quiet blue dot so the crew can see where they stand relative to the
   // Einsatzort. ON DEMAND, not a continuous watch: a permanent high-accuracy watchPosition keeps
   // the GPS chip powered for the whole shift, one of the biggest battery drains — and once you know
@@ -1221,6 +1330,89 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const tone = trupp ? truppLineTone(trupp, truppSeverities?.[trupp.id] ?? 0) : 'idle'
       return { d, end, anchor, angleDeg, color: d.color || DEFAULT_INK, width: d.width || 4, trupp, tone }
     })
+  // ── «Ein Etikett»: die Leitung steht im Truppmarker (Karte only, 15.09.2026) ───────────────
+  // A Trupp used to stand twice in the picture — its own marker with the leader's name, and a
+  // few pixels away the hose's end tag repeating «1 · Frei N.». One fact, two objects, two tap
+  // targets. The marker now carries the Leitung's number in the hose's ink (plus a coupling
+  // where the hose really does end there), and that hose draws NO end tag at all — not as a
+  // marker and not as a candidate in the label pass below, because a suppressed label that
+  // still books its box pushes real labels off the map.
+  // ⚠️ Karte only. `EndTag` is shared with the Plan whiteboard and with the printed Kroki
+  // (kroki.py joins the same parts with « · »), and neither of those changes here: a sheet is
+  // read on paper, where a marker two streets away is not «next to» anything.
+  const { byMarker: teamLines, merged: mergedTags } = teamLineBadges(
+    lineDecor.map((ld) => ({
+      id: ld.d.id, lineNo: ld.d.lineNo, color: ld.color, truppId: ld.trupp?.id, tone: ld.tone,
+      endObjects: [ld.d.startAttachment, ld.d.endAttachment]
+        .map((a) => (a?.target.kind === 'object' ? a.target.id : undefined)),
+    })),
+    entities.flatMap((e) => (e.kind === 'team' ? [{ id: e.id, truppId: e.truppId }] : [])),
+  )
+  /** Every hose end nobody hangs on — the drop targets of the marker join, and «Anschluss frei»
+   *  while a Trupp marker is in the hand. Only the two ENDS: a marker beside the middle of a hose
+   *  says nothing about who works it (lib/lineAttachments · nearestFreeEndpoint).
+   *
+   *  ⚠️ …and only on a Leitung that is still FREE (lib/truppLines · lineTakesTrupp, 15.09.). A
+   *  hose whose other end already carries a crew — or that is linked to one by number — offers no
+   *  ring at all: its far end is simply a free end, not an invitation to put a second Trupp on the
+   *  same line. That is the rule seen from the gesture's side; the writers fail closed behind it. */
+  const openHoseLines = drawings.filter((d) => lineTakesTrupp(d, trupps ?? []))
+  // …at the hose's END only (15.09.): a Leitung has a water side and a crew side, and offering
+  // both ends rang two couplings per hose where there is one place a Trupp goes
+  const freeHoseEnds = openHoseLines.flatMap((d) => (
+    d.kind !== 'line' || !Array.isArray(d.coords) || d.coords.length < 2 || d.endAttachment ? []
+      : [{ lineId: d.id, endpoint: 'end' as const, color: d.color || DEFAULT_INK, coord: d.coords[d.coords.length - 1] as LngLat }]
+  ))
+  /** the hose ends the marker is being aimed at, per drag move — mirrors `trackPlaceMagnet` */
+  const trackTeamJoin = (id: string, at: LngLat) => {
+    const map = mapInst.current
+    const ent = entities.find((x) => x.id === id)
+    // only a Trupp marker joins, and only where hoses are actually drawn
+    if (!map || ent?.kind !== 'team' || !ent.truppId || !nativeDrawingChrome) { clearTeamJoin(); return }
+    if (teamDragId !== id) setTeamDragId(id)
+    const p = map.project(at as [number, number])
+    const hit = nearestFreeEndpoint(
+      [p.x, p.y],
+      // …and never a Leitung that already has a crew: `openHoseLines` is the same «one Trupp per
+      // line» filter the rings above are drawn from, so the ring and the aim can never disagree
+      openHoseLines.flatMap((d) => (d.kind === 'line' && Array.isArray(d.coords) && d.coords.length >= 2
+        ? [{ id: d.id, points: d.coords, startAttachment: d.startAttachment, endAttachment: d.endAttachment }] : [])),
+      (c) => { const q = map.project(c as [number, number]); return [q.x, q.y] },
+      TEAM_JOIN_RADIUS_PX,
+      ['end'],
+    )
+    if (!hit) { clearTeamJoin(); return }
+    const cur = teamJoinRef.current
+    // still on the same end: let the ring keep filling rather than restarting it
+    if (cur && cur.entityId === id && cur.lineId === hit.lineId && cur.endpoint === hit.endpoint) return
+    clearTeamJoin()
+    const ll = map.unproject(hit.point as [number, number])
+    const st: TeamJoinAim = { entityId: id, lineId: hit.lineId, endpoint: hit.endpoint, coord: [ll.lng, ll.lat], since: Date.now(), armed: false }
+    setTeamJoin(st)
+    teamJoinTimer.current = setTimeout(() => {
+      const now = teamJoinRef.current
+      if (!now || now.since !== st.since) return
+      setTeamJoin({ ...now, armed: true })
+      buzz() // …on arm, and only on arm (AGENTS.md · touch vocabulary)
+    }, MAGNET_DWELL_MS)
+  }
+  const teamJoinMarkerMove = (id: string, c: LngLat) => { onMarkerMove(id, c); trackTeamJoin(id, c); trackDockAim(id, c) }
+  const teamJoinMarkerDragEnd = (id: string, c: LngLat) => {
+    const aim = teamJoinRef.current
+    // only a CLOSED ring joins; everything else is an ordinary drop that moved a marker
+    const join = aim?.armed && aim.entityId === id ? { lineId: aim.lineId, endpoint: aim.endpoint } : null
+    // …and the dock, the same way: a closed ring docks, an open one is an ordinary drop. Only a
+    // Trupp marker has an opinion here; a placard leaves it undefined and docks instantly, as
+    // it always did (IncidentWorkspace · finishEntityMove).
+    const da = dockAimRef.current
+    const dock = entities.find((e) => e.id === id)?.kind === 'team'
+      ? (da?.armed && da.entityId === id ? { hostId: da.hostId } : null)
+      : undefined
+    clearTeamJoin()
+    clearDockAim()
+    setTeamDragId(null)
+    onMarkerDragEnd(id, c, join, dock)
+  }
   // ── ONE label pass for the whole map ─────────────────────────────────────────────────────
   // Every family above (symbol captions, Trupp names, Leitung end tags, line readouts, radius
   // readouts) used to place its label wherever its own geometry pointed, blind to the others,
@@ -1236,11 +1428,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const near = (p: { x: number; y: number }) => Math.hypot(p.x - hub.x, p.y - hub.y)
     const occupied: LabelBox[] = []
     const cands: LabelCandidate[] = []
+    // a docked Trupp marker stands on its HOST's bottom-left corner, not on its own coordinate
+    // (lib/docking · dockSlotOffset) — the pass books the box the eye actually sees, or it would
+    // clear labels for ground nothing is drawn on and let real ones collide on the corner
+    const dockedSlots = dockSlots(entities)
 
     // Seed: every visible glyph. A label may cover empty ground, never another symbol.
     for (const e of entities) {
       if (!Array.isArray(e.coord) || !isVisible(effectiveLayer(e))) continue
-      const p = px(e.coord)
+      const dock = teamDockAnchor(e, entities, dockedSlots, zoom, symMul,
+        e.kind === 'team' ? teamStripPx(e.label ?? '', teamLines.get(e.id)?.lineNo != null) : undefined)
+      const own = px(dock?.host.coord ?? e.coord)
+      const p = dock ? { x: own.x + dock.dx, y: own.y + dock.dy } : own
       const g = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
         : e.kind === 'photo' ? 56
         : e.kind === 'note' ? noteWPx(e.noteW)
@@ -1257,11 +1456,26 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const label = e.label ?? ''
         const s = cachedLabelSize(label, LABEL_STYLE.team)
         occupied.push({ x: p.x - TEAM_DOT_PX / 2, y: p.y - TEAM_DOT_PX / 2, w: TEAM_DOT_PX, h: TEAM_DOT_PX })
+        // …and since 15.09. the strip may carry two more fixed-width things that hang off the same
+        // dot: the merged Leitung field. It is booked here, not
+        // measured — both are constant-width by CSS, and a label that lies about its own box is
+        // exactly what this pass exists to stop.
+        const badge = teamLines.get(e.id)
+        const extra = badge?.lineNo != null ? TEAM_LTG_PX : 0
         // the selected Trupp shows its full pill instead of the bare name — not a candidate,
         // but its footprint still has to push everything else away
         if (label && !isSel) {
-          cands.push({ key: `team:${e.id}`, rank: LABEL_RANK.team, dist: near(p),
-            box: { x: p.x + TEAM_DOT_PX / 2 + TEAM_DOT_GAP, y: p.y - s.h / 2, w: s.w, h: s.h } })
+          // ⚠️ A merged marker INHERITS the rank of the end tag it swallowed: a Leitung whose
+          // Trupp is due or overdue outranks everything but the selection, and that is the one
+          // label on the map somebody's air depends on. Merging it into a `team`-ranked name
+          // would have let an ordinary symbol caption push it off the screen.
+          const rank = badge && (badge.tone === 'crit' || badge.tone === 'warn')
+            ? LABEL_RANK.criticalTag : LABEL_RANK.team
+          // ⚠️ pinned (15.09., Bastian: «I always want to see the Trupp marker»): the name is
+          // never suppressed – it books its box so everything else yields, and a docked marker
+          // beside a busy symbol no longer shrinks to a bare dot.
+          cands.push({ key: `team:${e.id}`, rank, pinned: true, dist: near(p),
+            box: { x: p.x + TEAM_DOT_PX / 2 + TEAM_DOT_GAP, y: p.y - s.h / 2, w: s.w + extra, h: s.h } })
         }
         continue
       }
@@ -1283,7 +1497,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Leitung end tags. A tag whose Atemschutz-Trupp is due or overdue outranks everything
       // except the selection — that is the one label on the map somebody's air depends on.
       for (const ld of lineDecor) {
-        const text = endTagText(ld.d, ld.trupp)
+        // …unless the Karte merged this Leitung into its Trupp's marker — then there is no tag to
+        // place, and booking a box for one would push real labels off the map for nothing
+        if (mergedTags.has(ld.d.id)) continue
+        const text = endTagText(ld.d)
         if (!text) continue
         const p = px(ld.d.endLabelAt ?? ld.anchor)
         const s = cachedLabelSize(text, LABEL_STYLE.endTag)
@@ -2185,8 +2402,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               it the decorations of a line that runs under its own tag paint straight through
               the text, and the tag is the one thing on a Leitung that has to stay readable.
               Both levels come from the one stacking table (lib/labelPass · MARKER_Z). */}
-          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above) */}
-          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null || ld.trupp) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
+          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above).
+              `mergedTags` is the 15.09. half of that: this Leitung's Trupp stands on this Karte,
+              so the number, the ink and the name are already in ITS marker and a second label
+              here would be the very duplication «Ein Etikett» removed. ⚠️ `endLabelAt` — the tag
+              dragged aside by hand — is deliberately left in the record untouched: nothing on the
+              Karte reads it while the tag is merged, and the Plan still does. */}
+          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null) && !mergedTags.has(ld.d.id) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
             <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]}
               // …and ABOVE the resting tactical symbols (MARKER_Z.note…team, 4–8) once its own
               // line is selected. At rest the tag stays under the symbols, so an overlapping
@@ -2232,7 +2454,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateLineLabel(e, ld.d.id, ld.trupp?.id, ld.tone) } }}>
                 <EndTag
                   lineNo={ld.d.lineNo} content={ld.d.content} floorTag={ld.d.floorTag}
-                  trupp={ld.trupp ? truppTagText(ld.trupp) : undefined} tone={ld.tone}
+                  tone={ld.tone}
                   color={ld.color}
                 />
               </div>
@@ -2250,6 +2472,49 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           <LineMarker marker={m.marker} color={m.color} deg={m.deg} />
         </Marker>
       ))}
+
+      {/* «Anschluss frei» — an open coupling in the hose's own ink at every end nobody hangs on.
+          Shown while a Trupp marker is in the hand (it is the answer to THAT gesture) and on the
+          selected Leitung, so a free end says what it is instead of lying there silently. Never
+          permanently: a Lage with a dozen hoses would grow a dozen rings.
+          ⚠️ The aimed end is filtered out BEFORE the <Marker>, never rendered as a null child —
+          react-map-gl reads «has children?» once at mount and an empty marker keeps MapLibre's
+          stock teal pin for good (see the dl labels above). Its blue ring is drawn below. */}
+      {nativeDrawingChrome && freeHoseEnds
+        .filter((f) => (teamDragId || f.lineId === selectedDrawingId)
+          && !(teamJoin && teamJoin.lineId === f.lineId && teamJoin.endpoint === f.endpoint))
+        .map((f) => (
+          <Marker key={`fe${f.lineId}:${f.endpoint}`} longitude={f.coord[0]} latitude={f.coord[1]}
+            anchor="center" style={{ zIndex: MARKER_Z.tag }}>
+            <span className="free-coupling" style={{ '--line': f.color } as CSSProperties} />
+          </Marker>
+        ))}
+      {/* The gesture seen from the HOSE's side (15.09.): while a hose end is in the hand, every
+          Trupp marker that could take it wears the same open ring on its DOT – the point the
+          magnet actually measures against, which a 13px dot beside a name never made clear. The
+          aimed one is left out here: the endpoint magnet draws its filling ring below. */}
+      {nativeDrawingChrome && endpointDrag && !endpointDrag.carry && entities
+        .filter((e) => e.kind === 'team' && !!e.truppId && Array.isArray(e.coord) && isVisible(effectiveLayer(e))
+          && endpointDrag.candidate?.key !== `object:${e.id}`
+          && (trupps ?? []).some((t) => t.id === e.truppId && !t.removedAt && t.status !== 'raus'))
+        .map((e) => (
+          <Marker key={`ts${e.id}`} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center" style={{ zIndex: MARKER_Z.tag }}>
+            <span className="free-coupling team-socket" style={{ '--line': e.color || 'var(--blue)' } as CSSProperties} />
+          </Marker>
+        ))}
+      {/* …and the aimed one, filling: the same blue ring («Halten zum Verbinden») the endpoint
+          magnet below wears, because it is the same gesture seen from the other side. */}
+      {teamJoin && (
+        <Marker key={`tj${teamJoin.since}`} longitude={teamJoin.coord[0]} latitude={teamJoin.coord[1]} anchor="center">
+          <span className="magnet-anchor"><ConnectRing since={teamJoin.since} armed={teamJoin.armed} /></span>
+        </Marker>
+      )}
+      {/* the symbol a dragged Trupp marker would dock to – the ring fills, a closed ring docks */}
+      {dockAim && !teamJoin && (
+        <Marker key={`dk${dockAim.since}`} longitude={dockAim.coord[0]} latitude={dockAim.coord[1]} anchor="center">
+          <span className="magnet-anchor"><ConnectRing since={dockAim.since} armed={dockAim.armed} /></span>
+        </Marker>
+      )}
 
       {/* «Ring lädt, dann schnappt es» — the ONE picture of attachment on this surface (the plan
           draws the identical pair). The blue chip hangs BESIDE the target, never under the finger,
@@ -2514,8 +2779,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         setDragPan={setDragPanEnabled}
         onSelect={onSelect}
         onMarkerDragStart={onMarkerDragStart}
-        onMarkerMove={onMarkerMove}
-        onMarkerDragEnd={onMarkerDragEnd}
+        onMarkerMove={teamJoinMarkerMove}
+        onMarkerDragEnd={teamJoinMarkerDragEnd}
         onDelete={onDelete}
         onRotate={onRotate}
         onShapeTransform={onShapeTransform}
@@ -2531,8 +2796,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onTeamNewTrupp={onTeamNewTrupp}
         onTeamMark={onTeamMark}
         onTeamRename={onTeamRename}
-        onTeamColor={onTeamColor}
         onTeamClearTrail={onTeamClearTrail}
+        teamLines={teamLines}
+        onTeamUnlink={onTeamUnlink}
+        onTeamUndock={onTeamUndock}
         hiddenTrails={hiddenTrails}
         onToggleTrail={toggleTrail}
       />

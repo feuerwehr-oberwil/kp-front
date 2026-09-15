@@ -213,13 +213,13 @@ describe('the plan chip’s «Atemschutz-Trupp» menu (the map marker’s twin)'
     expect(onTeamTrupp).toHaveBeenCalledWith('c1', 't1')
   })
 
-  it('lets go of the one it has — «Kein Trupp», the same wording the marker uses', () => {
-    const onTeamTrupp = vi.fn()
-    renderPlan([{ ...chip, truppId: 't1' }], { trupps: TRUPPS, onTeamTrupp })
+  // «Kein Trupp» exists only on a marker that hangs on a hose (15.09.): a chip on nothing switches
+  // or creates its crew here, and leaves the picture through the trash can
+  it('offers no «Kein Trupp» on a chip that hangs on no hose', () => {
+    renderPlan([{ ...chip, truppId: 't1' }], { trupps: TRUPPS, onTeamTrupp: vi.fn() })
     fireEvent.pointerDown(screen.getByText('Trupp 1'))
     fireEvent.click(screen.getByRole('button', { name: A.markerLabel }))
-    fireEvent.click(screen.getByRole('menuitem', { name: A.markerNone }))
-    expect(onTeamTrupp).toHaveBeenCalledWith('c1', undefined)
+    expect(screen.queryByRole('menuitem', { name: A.markerNone })).toBeNull()
   })
 
   // …the record of who WAS, not somebody to send: an out Trupp shows only where it is the one
@@ -1010,5 +1010,24 @@ describe('the nearby-object warning', () => {
     unmount()
     renderNearby()
     expect(screen.queryByRole('status')).toBeNull()
+  })
+})
+
+describe('prepared Gebäude floors and shared symbol instances', () => {
+  it('prepared floors expose no add or delete controls', () => {
+    renderBoard('gebaeude', [], false, { ...aBuilding, floors: [-1, 0, 1], pack: { aspect: 1 } })
+    expect(document.querySelector('.wb-floor-x')).toBeNull()
+    expect(document.querySelector('.wb-floor-add')).toBeNull()
+  })
+  it('every instance is fully selectable and none is rendered outside its range', () => {
+    renderBoard('gebaeude', [{ id: 'fire', kind: 'symbol', symbol: 'VKF Feuer', x: .5, y: .5, floor: 0, floorFrom: 1, floorTo: 2 }], false, { ...aBuilding, floors: [0, 1, 2] })
+    const instances = document.querySelectorAll('.wb-anno.wb-symbol')
+    expect(instances).toHaveLength(2)
+    for (const instance of instances) {
+      expect(instance.getAttribute('aria-hidden')).not.toBe('true')
+      fireEvent.pointerDown(instance, { pointerId: 1, clientX: 100, clientY: 100 })
+      expect(instance.classList.contains('sel')).toBe(true)
+    }
+    expect(document.querySelector('.wb-span-copy')).toBeNull()
   })
 })

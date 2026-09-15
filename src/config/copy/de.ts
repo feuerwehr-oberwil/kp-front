@@ -1010,6 +1010,9 @@ export const de = {
     // Derselbe Ring in Rot, an der alten Anschlussstelle: wegziehen, bis er voll ist, dann ist
     // das Ende frei. Kurz davor loslassen und es springt zurück.
     snapRelease: 'Wegziehen zum Lösen',
+    // Der offene Ring am Ende eines Schlauchs, an dem niemand hängt – sichtbar, sobald ein
+    // Truppmarker in der Hand ist oder die Leitung ausgewählt ist. Ein freies Ende soll das
+    // sagen, statt still dazuliegen.
     distance: 'Distanz',
     perimeter: 'Umfang',
     // Wie breit und wie hoch die Fläche am Boden ist — das Rechteck, das sie belegt, in
@@ -1093,6 +1096,9 @@ export const de = {
     // Gefahrentafel-Andocken (lib/docking): the bond and its release, as Verlauf rows
     placardDocked: '{name} angedockt an «{host}»',
     placardUndocked: '{name} von «{host}» gelöst',
+    // …und derselbe Bund für einen Truppmarker (15.09.)
+    teamDocked: '{name} bei «{host}»',
+    teamUndocked: '{name} von «{host}» gelöst',
     /** Die Passung eines Plans wurde korrigiert: alles, was auf diesem Blatt gezeichnet ist,
      *  steht damit an einem anderen Ort auf der Karte. Eine Zeile, nicht n Zeilen. */
     referenceRebaked: 'Referenz angepasst – {n} Objekte neu verortet',
@@ -1731,17 +1737,19 @@ export const de = {
     lineTakeTitle: 'Leitung {n} ist vergeben',
     lineTakeMsg: 'Auf Leitung {n} ist Trupp {from}. Neu Trupp {to} darauf?',
     lineTakeConfirm: 'Übernehmen',
+    // ein Trupp pro Leitung (15.09.): die Leitung ist belegt, der Link wird verweigert
+    lineHeldToast: 'Leitung ist von Trupp {name} belegt.',
 
     lineOptTaken: 'Trupp {name} ist auf dieser Leitung',
     lineShow: 'Leitung auf der Karte zeigen',
-    linePick: 'Leitung wählen',
-    // ⚠️ Nur noch «auf der Karte» (05.09.): der Modus gehört zu der Fläche, auf der er scharf
-    // gestellt wurde, und das ist die Karte. Vorher überlebte er den Flächenwechsel – und blieb
-    // dann unsichtbar scharf, bis niemand mehr wusste, warum kein Symbol mehr aufgeht.
-    linePickHint: 'Leitung auf der Karte antippen',
-    linePickCancel: 'Auswahl abbrechen',
     logLineLinked: 'Trupp {name} auf Leitung {n}',
     logLineUnlinked: 'Trupp {name}: Leitung gelöst',
+    // Die Leiste am ausgewählten Truppmarker auf der Karte («Ein Etikett», 15.09.): sie nennt
+    // BEIDE Seiten, bevor sie sie trennt – welche Leitung, welcher Trupp –, weil der Knopf
+    // daneben «Lösen» heisst und sonst offen liesse, was gelöst wird.
+    // Quittung des Lösens auf der Karte – die Handlung selbst steht als Zeile im Verlauf
+    // (logLineUnlinked), der Toast trägt nur das «Rückgängig».
+    lineUnlinkedToast: 'Leitung gelöst',
     // Gesetzter Trupp ⇄ Atemschutz-Trupp – dieselbe Regel wie bei der Leitung: die beiden finden
     // in beliebiger Reihenfolge zueinander, und einer steht für genau einen Trupp. Das Symbol
     // bleibt beim Lösen stehen; es gehört dann einfach zu niemandem mehr.
@@ -1811,6 +1819,7 @@ export const de = {
     // 04.09. wieder auf): ein Trupp wird bereitgestellt und bekommt seinen Auftrag oft erst
     // später über «Bearbeiten»; die Karte führt die Lücke als «Auftrag offen». Nur «Anderes»
     // braucht sein Wort, weil die Kachel allein nichts sagt.
+    auftragMissingHint: 'Auftrag fehlt – der Trupp wird mit «Auftrag offen» angemeldet.',
     saveBlockedAuftrag: '«Anderes» braucht einen Auftrag/Ziel-Text.',
     saveBlockedPressure: 'Eingangsdruck fehlt.',
     cancel: 'Abbrechen',
@@ -1825,13 +1834,9 @@ export const de = {
     // nicht auf dem Tablet: sie war die einzige Angabe, die dort nie jemand gesetzt hat, und auf
     // dem Telefon kostete sie einen ganzen Abschnitt. Ein Trupp, der vorher mit gewählter Farbe
     // angelegt wurde, behält sie (TruppForm reicht `color` nur noch durch).
-    // Diese drei Schlüssel bleiben trotzdem: dieselbe Wahl gibt es weiterhin DORT, WO DAS BILD
-    // GELESEN WIRD – am gesetzten Trupp auf der Lage (ContextPanel) und an der Trupp-Pille auf
-    // dem Plan (TwinTeamPill) – plus die Vorwahl je Auftrag in der Verwaltung. «Alle Löschtrupps
-    // rot» bleibt damit möglich, es ist nur keine Frage mehr beim Anmelden.
-    colorLabel: 'Farbe',
+    // Die Truppfarbe wird nirgends mehr gewählt (15.09.): automatisch (Auftragsfarbe der Wehr,
+    // sonst die nächste freie). «Automatisch» bleibt als Wort der Auftragsfarben-Tabelle.
     colorAuto: 'Automatisch',
-    colorAutoHint: 'Farbe der Wehr für diesen Auftrag, sonst die nächste freie – jeder Trupp eine andere.',
     // board card
     sinceContact: 'Seit letztem Kontakt',
     elapsed: 'Einsatzzeit',
@@ -2009,6 +2014,15 @@ export const de = {
     placeNoTarget: 'Kein Plan vorhanden – zuerst über «Gebäude» in der Leiste ein Gebäude wählen.',
     showOnPlan: 'Auf Plan zeigen',
     showOnMap: 'Auf der Karte zeigen',
+    // der Marker ist an ein Symbol angedockt (lib/docking): wo der Trupp steht, auf der Kennzeile
+    dockedAt: 'bei «{host}»',
+    // …und dieselbe Bindung vom SYMBOL aus gelesen (ContextPanel, 15.09.): die Zeile am
+    // angedockten Symbol nennt beide Seiten, bevor «Lösen» sie trennt – dieselbe Grammatik wie
+    // joinLabel an der Leitung. {who} ist der Trupp («Trupp 4», truppTerm über die Nummer) oder,
+    // an einem Marker ohne Trupp, dessen eigener Name.
+    dockLabel: '{who} · bei «{host}»',
+    // Überschrift der Gruppe am Symbol – wortgleich mit contextPanel.dockedTo («Angedockt an …»)
+    dockedTeams: 'Angedockt',
     preEntryHint: 'Noch nicht im Einsatz – «Im Einsatz» drücken, sobald der Trupp unter Atemschutz vorgeht.',
     // Die Glocke: ein Knopf, drei ehrliche Zustände (siehe useAtemschutzMute). Jeder sagt, was
     // GERADE gilt, und nennt seine Reichweite – die Beschriftung war früher die Handlung
@@ -2212,7 +2226,6 @@ export const de = {
       + 'weiter, und es gibt keinen Alarm mehr für ihn. Alles bisher Erfasste bleibt im Verlauf '
       + 'und im Rapport.',
     kindOffConfirm: 'Überwachung beenden',
-    logColor: 'Trupp {name}: Farbe geändert',
     logExit: 'Trupp {name}: Austritt',
     logReenter: 'Trupp {name}: erneuter Eintritt – Eingangsdruck {bar} bar',
     /** …ohne Flasche, also ohne die Zahl – siehe die Notiz bei `logRegister`. ⚠️ Das ist NICHT
@@ -2389,9 +2402,13 @@ export const de = {
       // ⚠️ Die Naht trägt KEINE Beschriftung mehr – weder «KARTE VERKNÜPFEN» noch «Karte
       // geliehen». Beides war Erklärung des Layouts statt Anweisung; die Leiste am Fuss sagt,
       // welcher Modus läuft und was als Nächstes zu tippen ist. Die gestrichelte Linie genügt.
-      // Die eine Anweisung des minimalen Panels (kein Tutorial, keine Lektion hinter einem (i)):
-      // freie Reihenfolge ist das Modell, also sagt der Satz genau das – einmal, konkret.
-      freeOrderTap: 'Dieselbe Stelle auf Modul und Karte antippen – Hausecke, Hydrant, Wegkreuzung; Reihenfolge egal',
+      // Die eine Anweisung des minimalen Panels – ein Satz, sonst nichts.
+      // ⚠️ Beispiele und «Reihenfolge egal» standen bis 15.09. hier mit auf der Zeile: drei
+      // Aussagen in einer Anweisung, die man mitten im Tippen liest. Sie stehen jetzt im (i)
+      // darunter (`freeOrderTip`), wo man sie beim ersten Mal sucht und danach nie wieder.
+      freeOrderTap: 'Dieselbe Stelle auf Modul und Karte antippen',
+      // hinter dem (i), auf beiden Formfaktoren: woran man eine gute Stelle erkennt
+      freeOrderTip: 'Gut sind eindeutige Punkte – Hausecke, Hydrant, Wegkreuzung. Die Reihenfolge ist egal, gesetzte Hälften suchen sich ihr Gegenstück selber.',
       // die Kurzform unter «Punkt setzen» auf dem Telefon: wohin die Taste wirkt
       freeOrderPlace: 'Wirkt auf der sichtbaren Fläche – Karte oder Modul, Reihenfolge egal',
       // «Verschieben» ist bewaffnet: der nächste Tipp auf dieser Fläche setzt genau diese Hälfte
@@ -2400,7 +2417,10 @@ export const de = {
       title: 'Karte verknüpfen',
       // offene Hälften: gesetzt, aber noch ohne Gegenstück auf der anderen Fläche
       barOpen: '{n} offen',
-      // Zähler je Fläche – die Statuszeile «Karte 3 · Modul 2»
+      // Zähler je Fläche – die Statuszeile «Karte 3 · Modul 2».
+      // ⚠️ Steht NUR, wenn die beiden Zahlen auseinanderlaufen (15.09.): «Karte 3 · Modul 3» war
+      // eine Zeile, die nie etwas meldete. Ungleich heisst «eine Hälfte hängt» – und genau dann
+      // ist der Zähler die Warnung, als die er gedacht war (GeorefMode · georefStatus).
       sideProgress: 'Karte {map} · Modul {plan}',
       // Statuszeile, zweite Hälfte: WO die offene Hälfte fehlt. Das bernsteinfarbene Kreuz, das
       // dasselbe sagt, steht unter Umständen auf der Fläche, die das Telefon gerade nicht zeigt.
@@ -2612,6 +2632,12 @@ export const de = {
     osmTransfer: 'Übernehmen ({n})',
     osmClear: 'Auswahl löschen',
     addFloorUp: 'Obergeschoss hinzufügen',
+    noFloorPlan: 'Kein Geschossplan',
+    stairTo: 'Weiter zu {floor}',
+    stairFrom: 'Von {floor}',
+    climbUp: 'Ein Geschoss höher weiter',
+    climbDown: 'Ein Geschoss tiefer weiter',
+    climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
     removeFloor: 'Geschoss löschen',
     removeFloorConfirm: '{floor} enthält Skizzen oder Markierungen. Geschoss trotzdem löschen?',
@@ -5087,7 +5113,8 @@ export const de = {
       objektplaene: {
         label: 'Objektpläne',
         title: 'Objektpläne',
-        lede: 'Die Einsatzobjekte dieser Wehr, ihre Modulpläne und der Modul-Katalog dahinter.',
+        // ⚠️ Ohne Lede (15.09.): Die drei Reiter sagen selbst, was sie zeigen – die Zeile
+        // darüber hat nur den Seitentitel in einem Satz wiederholt. Die Erklärung steht im ⓘ.
         tip: 'Der Modul-Katalog konfiguriert beides: die Plan-Kacheln in der App und das Datei-Parsing des Importers. «Familie» erzeugt Untermodule aus dem Dateinamen (Modul 5 - Wasser → modul5-wasser); «Kombiniert mit» füllt mehrere Slots aus einem Sammelblatt (Modul 2-3 → modul2, modul3). Kein eigener Katalog konfiguriert = die mitgelieferten Standard-Module gelten.',
       },
       checklisten: {
@@ -5963,8 +5990,8 @@ export const de = {
       colUsername: 'Benutzername',
       colRole: 'Rolle',
       colStatus: 'Status',
-      colLastLogin: 'Letzter Login',
       colActions: 'Aktionen',
+      colLastLogin: 'Letzter Login',
       active: 'Aktiv',
       inactive: 'Inaktiv',
       toViewer: '→ Betrachter',
@@ -6187,6 +6214,34 @@ export const de = {
     // Der zeitgesteuerte Abgleich aus dem Planspeicher hängt nur an, er legt nichts an – und er
     // trifft über den Ordner-Schlüssel, den diese Maske nicht schreiben kann. Beides steht auf
     // der Seite, weil der Fehler sonst lautlos ist: ein veröffentlichter Plan, der nie auftaucht.
+    objectPlans: {
+      floorsMissing: "Geschosse vorbereiten",
+      objects: "Objekte",
+      overview: "Übersicht",
+      search: "Objekt oder Adresse suchen",
+      attention: "Handlungsbedarf",
+      approved: "Freigegeben",
+      all: "Alle",
+      plans: "Pläne",
+      status: "Status",
+      colObject: "Objekt",
+      colModule: "Modul",
+      colPlan: "Plan",
+      // Kein «Öffnen»-Knopf mehr: die Zeile selbst öffnet das Objekt, das Chevron sagt es.
+      // Der Reiter zeigt, wie viel zu entscheiden ist – ist nichts offen, ist er aus.
+      proposals: "Vorschläge ({n})",
+      // Beschriftung des Kebab neben der einen Hauptaktion einer Planzeile.
+      moreActions: "Weitere Aktionen · {module}",
+      back: "Objekte",
+      prepare: "Vorbereiten",
+      pdf: "PDF öffnen",
+      unknown: "Vorbereitung ausstehend",
+      document: "Dokument",
+      empty: "Keine passenden Objekte.",
+      none: "Noch keine Einsatzobjekte.",
+      map: "Objektstandorte",
+      refresh: "Aktualisieren",
+    },
     objects: {
       add: 'Objekt hinzufügen',
       edit: 'Bearbeiten',
@@ -6217,9 +6272,14 @@ export const de = {
       coordsProjected: 'Das sieht nach LV95-Metern aus, nicht nach WGS84-Grad. Zuerst umrechnen.',
       noteLabel: 'Notiz',
       noteHint: 'woher die Angaben stammen',
-      save: 'Speichern',
+      // Nur die Neuanlage hat noch einen Knopf: die Objekt-ID muss existieren, bevor ein Plan
+      // darunter liegen kann. Ein bestehendes Objekt speichert sich beim Verlassen des Feldes.
+      create: 'Objekt erstellen',
+      creating: 'Wird erstellt …',
       saving: 'Wird gespeichert …',
+      savedNote: 'Gespeichert.',
       saveFailed: 'Objekt konnte nicht gespeichert werden.',
+      close: 'Schliessen',
       plansTitle: 'Modulpläne',
       plansHint: 'Ein erneuter Upload ersetzt den Plan: gleiche Kachel, neue Version – nie ein zweiter Eintrag.',
       plansHintNew: 'Pläne lassen sich anhängen, sobald das Objekt gespeichert ist.',
@@ -6230,9 +6290,10 @@ export const de = {
       planVersion: 'v{n} · {date}',
       noPlanYet: 'kein Plan',
       offCatalogue: 'nicht im Katalog',
-      subslotLabel: 'Untermodul',
-      subslotAdd: '{module}: Untermodul erstellen',
-      subslotPlaceholder: 'wasser',
+      // ⚠️ Nur noch die Objektliste unter «Daten» sagt das (DataView · Card-Caption). Auf der
+      // Objektpläne-Seite stand derselbe Absatz ein drittes Mal – der Modul-Katalog meldet den
+      // Zustand des Abgleichs bereits («Kein zeitgesteuerter Abgleich …» + `pullSkips`), und was
+      // ein hier angelegtes Objekt vom Planspeicher zu erwarten hat, steht in `objHandBucket`.
       pullNote: 'Der zeitgesteuerte Abgleich aus dem Planspeicher hängt Pläne nur an bestehende '
         + 'Objekte an – er legt keine an. Ein Plan ohne passendes Objekt wird übersprungen und gezählt.',
       pullKeyNote: 'Zugeordnet wird über den Ordner-Schlüssel des Planspeichers. Den setzt nur '
@@ -6373,6 +6434,18 @@ export const de = {
     // Einsatz wartet dann niemand auf eine Berechnung. Erst die Freigabe hier macht einen
     // Vorschlag für Einsätze verbindlich – Auswahl und Anschauen publizieren nie.
     alignment: {
+      editor: {
+        back: "Zum Objekt",
+        map: "Karte ausrichten",
+        preview: "Vorschau",
+        // Beschriftung des Status-Badges in der Kopfzeile – der Zustand daneben kommt aus `status`.
+        status: "Ausrichtung",
+        unsaved: "Ungespeichert",
+        // Beim Verlassen mit offenen Änderungen: «Speichern» (primär) · «Verwerfen» · «Abbrechen».
+        // Speichern steht nur dort, wo der Editor gerade wirklich speichern könnte.
+        unsavedAsk: "Die Änderungen sind noch nicht gespeichert.",
+        discard: "Verwerfen",
+      },
       title: 'Plan-Ausrichtung',
       intro: 'Der Server rechnet für jedes Objektblatt voraus, wie es auf der Karte liegt. Erst deine Freigabe macht den Vorschlag für Einsätze verbindlich.',
       loading: 'Wird geladen …',
@@ -6386,7 +6459,9 @@ export const de = {
       queueCount: '{n} Pläne',
       empty: 'Keine Pläne im Bestand.',
       noResults: 'Keine passenden Pläne.',
-      revisionPage: 'Stand {version} · Seite {page}',
+      // Nur der Stand, und auch der erst ab der zweiten Fassung: welche SEITE die Passung trägt,
+      // ist Sache des Tabs «Geschosse» und stand in der Kopfzeile als Rauschen.
+      revision: 'Stand {version}',
       status: {
         pending: 'Wartet',
         processing: 'Wird berechnet',
@@ -6404,7 +6479,7 @@ export const de = {
       // sagen, was zu TUN ist – nicht, was intern schiefging. Die Kachel zeigt den Grund bei
       // jedem Blatt ohne Vorschlag; im Modal steht nur noch, was Ausrichten von Hand nicht löst.
       reasons: {
-        multi_page_document: 'Mehrseitige PDFs können nicht zentral ausgerichtet werden – im Einsatz zeigt das Blatt alle Seiten als eine Fläche.',
+        multi_page_document: 'Mehrseitige PDFs werden erst ausgerichtet, wenn ihre Seiten Geschossen zugeordnet sind – sonst zeigt das Blatt im Einsatz alle Seiten als eine Fläche.',
         unsupported_module: 'Für diesen Modultyp gibt es keine automatische Ausrichtung – von Hand setzen.',
         object_coordinates_missing: 'Das Objekt hat keine Koordinaten – zuerst das Objekt verorten, dann neu berechnen.',
         printed_scale_missing: 'Kein gedruckter Massstab («1:500») im PDF gefunden und keine Kalibrierung vorhanden.',
@@ -6420,9 +6495,14 @@ export const de = {
         preparation_failed: 'Vorbereitung fehlgeschlagen – «Neu berechnen» versucht es erneut.',
         pdf_unavailable: 'Das PDF konnte nicht gelesen werden.',
       },
-      // Von Hand: der Paarungs-Modus im Modal (AlignmentPairing) und die Kartenansicht danach
-      noOutlines: 'Keine Gebäudeumrisse für dieses Blatt – nach dem Kartenbild ausrichten.',
-      editPoints: 'Punkte bearbeiten',
+      // Von Hand: der Paarungs-Modus im Modal (AlignmentPairing) und die Kartenansicht danach.
+      // ⚠️ KEIN «Keine Gebäudeumrisse für dieses Blatt» mehr (15.09.): die Umrisse entstehen nur
+      // im Matcher-Lauf (plan_alignment_compute · match), also hat genau das Blatt, das von Hand
+      // ausgerichtet wird, nie welche. Der bernsteinfarbene Balken stand damit immer da und sagte
+      // nichts – die blauen Umrisse sind eine Zugabe, kein Zustand, den man melden muss.
+      // ⚠️ Die Herkunft der Passung steht als EIN Wort neben dem Status-Badge; die Angaben
+      // dahinter (Plan-Stand, Referenz, Freigabe) und der Geltungsbereich liegen im ⓘ desselben
+      // Badges. Im Editor steht sonst nichts mehr davon – kein Fusszeilen-Satz, keine Faktenzeile.
       factsLine: 'Plan-Stand {plan} · Referenz {reference} · Freigabe: {approval}',
       refSnapshot: 'OSM-Gebäude, Stations-Schnappschuss',
       refPerObject: 'OSM-Gebäude',
@@ -6431,17 +6511,20 @@ export const de = {
       planPreview: 'Planvorschau',
       mapPreview: 'Kartenvorschau',
       opacity: 'Deckkraft',
-      unaligned: 'Keine Ausrichtung vorhanden – Punkte von Hand setzen.',
-      automatic: 'Automatisch berechneter Vorschlag.',
-      manual: 'Von Hand gesetzte Ausrichtung.',
-      referenceUnknown: 'Referenz unbekannt',
+      unaligned: 'Nicht ausgerichtet',
+      automatic: 'Automatisch',
+      manual: 'Von Hand',
+      // ⚠️ NUR der Wert, ohne das Wort «Referenz»: `factsLine` stellt es schon voran – sonst
+      // stand da «Referenz Referenz unbekannt» (15.09.). Auch die Legende der Vorschau setzt
+      // diesen Wert hinter ihr eigenes Etikett («Gebäudeumrisse: unbekannt»).
+      referenceUnknown: 'unbekannt',
       notApproved: 'nicht freigegeben',
-      discardAdjustment: 'Anpassung verwerfen',
       frame: 'Ausschnitt zeigen',
       mapLoadFailed: 'Karte konnte nicht geladen werden.',
       legend: 'Gebäudeumrisse: {source}',
       conflict: 'Plan oder Ausrichtung wurde zwischenzeitlich geändert. Aktuellen Stand laden und erneut prüfen.',
       saveFailed: 'Speichern fehlgeschlagen',
+      // Nicht mehr sichtbar: steht im ⓘ des Status-Badges, hinter `factsLine`.
       scope: 'Die Freigabe gilt für neue Einsätze – laufende behalten die Passung, mit der sie geöffnet wurden.',
       withdrawApproval: 'Freigabe zurücknehmen',
       retry: 'Neu berechnen',
@@ -6463,6 +6546,59 @@ export const de = {
         applying: '{done} von {total} übernommen …',
         applied: '{yes} freigegeben, {no} von Hand – {total} Blätter übernommen.',
         resetMarks: 'Markierungen zurücksetzen',
+        pages: '{n} Seiten',
+        floorsSummary: '{n} Geschosse · {from} bis {to}',
+      },
+      // ── Geschosse: ein mehrseitiges PDF wird zum Geschoss-Stapel (FloorPackEditor) ──
+      floors: {
+        title: 'Geschosse',
+        page: 'Seite {n}',
+        standardName: 'Standardname: {name}',
+        namePlaceholder: 'Name (sonst {name})',
+        makeZero: 'Diese Seite ist Ebene 0',
+        isZero: 'Ebene 0',
+        fitHere: 'Ausrichtung auf dieser Seite',
+        // Die Passung gehört der SEITE, nicht dem Geschoss: der Satz unter der Ankreuzzeile sagt
+        // das, und auf einem einseitigen Pack steht `fitOnly` an ihrer Stelle – dort gibt es
+        // nichts zu wählen.
+        fitWhy: 'Die Passung gilt für alle Geschosse.',
+        fitOnly: 'Die Karte wird auf Seite {n} ausgerichtet – die Passung gilt für alle Geschosse.',
+        fitLocked: 'Die Ausrichtung ist freigegeben – zuerst zurücknehmen, dann die Seite wechseln.',
+        // Die Seite wandert in die Ablage zurück, sie wird nicht gelöscht – «entfernen».
+        remove: 'Geschoss entfernen',
+        tray: 'Ablage – Seiten, die kein Geschoss sind',
+        trayEmpty: 'leer',
+        restore: 'Als Geschoss',
+        orderPdf: 'Wie im PDF',
+        orderReverse: 'Umkehren',
+        // Das Kebab-Menü über der Liste: Reihenfolge und Zurücksetzen – alles, was die ganze
+        // Liste betrifft und nicht jedes Geschoss einzeln.
+        menu: 'Geschosse ordnen',
+        reset: 'Zurücksetzen',
+        none: 'Noch keine Geschosse zugeordnet – bis dahin zeigt der Einsatz das PDF nur als Dokument.',
+        region: 'Bereich zeichnen',
+        join: 'Verbinden',
+        wholePage: 'Ganze Seite',
+        regionHint: '{floor}: Rechteck um die Zeichnung ziehen',
+        joinHint1: '{floor}: einen Punkt in dieser Zeichnung antippen – Treppenhaus, Lift oder ein Achsenkreuz',
+        joinHint2: 'Anderes Geschoss in der Liste wählen, dann dieselbe Treppenstelle antippen – auch auf einer anderen Seite.',
+        stateRegion: 'Bereich',
+        stateWhole: 'Ganze Seite',
+        stateJoined: 'Verbunden',
+        stateUnjoined: 'Nicht verbunden',
+        stateReference: 'Referenz',
+        pageOf: 'Seite {n} von {total}',
+        sheetLoading: 'Seite wird geladen …',
+        // Die gestrichelte Zeile unter der Liste: das nächste Geschoss kommt UNTEN dazu, eine
+        // Ebene tiefer als das unterste – und der Zeichenmodus ist gleich an.
+        addFloor: 'Geschoss hinzufügen',
+        saveAll: 'Speichern',
+        savedAll: 'Geschosse und Ausrichtung gespeichert.',
+        savedFloorsOnly: 'Geschosse gespeichert – die Ausrichtung wird auf Ebene 0 neu gerechnet; gleich nochmals speichern, um sie freizugeben.',
+        noPairsYet: 'Noch keine Kartenverknüpfung – die Geschosse werden trotzdem gespeichert.',
+        joinWhat: 'Einen Punkt wählen, zum anderen Geschoss wechseln und dort denselben Gebäudepunkt antippen. Beide Zeichnungen müssen denselben Massstab und dieselbe Orientierung haben.',
+        // Ein Druck auf einen Verbindungspunkt zieht DIESEN Punkt, sonst das ganze Rechteck.
+        moveHint: 'Punkt oder Bereich verschieben: anfassen und ziehen. Neu zeichnen: «Bereich zeichnen».',
       },
     },
     layers: {

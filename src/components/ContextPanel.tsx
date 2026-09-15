@@ -130,6 +130,7 @@ export interface ContextPanelProps {
   onNotes?: (notes: string) => void
   /** set/clear the storey the symbol is on (null clears the badge). Absent for
    *  entities where a floor makes no sense (e.g. live vehicles, plan tiles). */
+  /** @deprecated the single «Geschoss» stepper is gone (15.09.2026) – Von/Bis is the storey control */
   onFloor?: (floor: number | null) => void
   /** set/clear the lower / upper storey of a vertical span (stairs, lift). Wired on
    *  both surfaces (the span renders on the glyph everywhere). */
@@ -216,6 +217,11 @@ export interface ContextPanelProps {
    *  bond is VISIBLE, since the drop gesture that makes it draws nothing. */
   dockedToLabel?: string
   onUndock?: () => void
+  /** …and the SAME bond read from the host's side (15.09.2026): the Trupp markers docked ONTO
+   *  this symbol, one row each, already worded as «Trupp 4 · bei «Hydrant»» (copy · atemschutz ·
+   *  dockLabel) so the row names both sides before its «Lösen» separates them. The map shows the
+   *  bond as a glyph on the tile; this is the one place it is in words with a door out. */
+  dockedTeams?: { id: string; label: string; onRelease?: () => void }[]
   onFocusLine?: (id: string) => void
   // --- free-text note (Lage 'note' / Plan 'text') -------------------------------------------
   // Wiring ANY of these turns the panel into a note editor: the Notiz section appears and the
@@ -251,7 +257,7 @@ function LabeledStepper({ label, ...rest }: { label: string } & React.ComponentP
   )
 }
 
-export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloor, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
+export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, originalLabel, onProjection, projectionLabel, onTitle, onTitleLive, onFields, onNotes, onFloorFrom, onFloorTo, onSpread, onCount, onRotate, onErgRings, onAdoptRadius, onRotate2, onCaption, captionDefault = 'auto', onAirflow, controls, titleOptions, fieldOptions, rosterRank, protectedKeys, onDelete, onStopSharing, readOnly, allowDelete = false, hasOverride, onPinGps, onResetGps, driver, personStatus, fieldHints, connectedLines = [], onFocusLine, dockedToLabel, onUndock, dockedTeams = [], onNoteSize, autoFocusNote = false, onNotePlain, onColor }: ContextPanelProps) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.contextPanel
   const N = appConfig.copy.notes
@@ -543,8 +549,11 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
     })
   })()
 
-  const showFloor = onFloor && allow('floor')
-  const showFloorRange = (onFloorFrom || onFloorTo) && allow('floorRange')
+  // ONE storey vocabulary on both surfaces (Bastian, 15.09.2026): «Von / Bis Geschoss» for every
+  // symbol that knows storeys at all – a single storey is Von = Bis. The old single «Geschoss»
+  // stepper is gone; on the Gebäude the tile seeds both ends (Whiteboard), on the Karte they
+  // start empty. The `floor`/`storey` fields stay readable for what older records carry.
+  const showFloorRange = (onFloorFrom || onFloorTo) && (allow('floorRange') || allow('floor'))
   const showCount = onCount && allow('count')
   const showRotate = onRotate && allow('rotation')
   const showRotate2 = onRotate2 && allow('rotation2')   // composite Grosslüfter: body + fan
@@ -604,7 +613,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   const countLabel = (entity.symbol && C.countBySymbol[entity.symbol]) || C.count
   /** the symbol's own name, for the header of everything that is NOT user-labelled */
   const symbolName = entity.symbol ? formatSymbolName(entity.symbol) : ''
-  const showDetails = !isNote && (showFloor || showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
+  const showDetails = !isNote && (showFloorRange || showCount || showRotate || showSpread || showAirflow || onNotes || rows.length > 0 || showUnHazard || !readOnly)
 
   /* on-canvas caption override for THIS symbol — small + de-emphasised down by the actions
      (the field values matter first; visibility is a rare tweak). Standard follows the device
@@ -812,24 +821,19 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
           {/* ⚠️ `showFloorRange` belongs in this gate — it was the one stepper left out, so a
               symbol whose preset lists ONLY 'floorRange' (the Lift) rendered the row of
               steppers not at all and its von/bis storeys were unreachable on both surfaces. */}
-          {(showFloor || showFloorRange || showCount || showRotate || showAirflow) && (
+          {(showFloorRange || showCount || showRotate || showAirflow) && (
             <div className="ctx-steps">
               {/* Untergeschosse are as easy as Obergeschosse: `seedOnDec` makes the FIRST tap on
                   either − or + land on EG (0), so a Kellerbrand is one further tap on − instead of
                   an unreachable stepper. Typing works the same way — the readout is an input and
                   takes «-1» directly. Both ends of the von/bis span step independently. */}
-              {showFloor && (
-                <LabeledStepper label={C.floor} value={entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
-                  onChange={(v) => onFloor!(v)} onClear={() => onFloor!(null)} canClear={entity.floor != null}
-                  min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floor} />
-              )}
               {showFloorRange && (
                 <>
-                  <LabeledStepper label={C.floorFrom} value={entity.floorFrom ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
-                    onChange={(v) => onFloorFrom!(v)} onClear={() => onFloorFrom!(null)} canClear={entity.floorFrom != null}
+                  <LabeledStepper label={C.floorFrom} value={entity.floorFrom ?? entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
+                    onChange={(v) => onFloorFrom!(v)} onClear={() => onFloorFrom!(null)} canClear={entity.floorFrom != null || entity.floor != null}
                     min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floorFrom} />
-                  <LabeledStepper label={C.floorTo} value={entity.floorTo ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
-                    onChange={(v) => onFloorTo!(v)} onClear={() => onFloorTo!(null)} canClear={entity.floorTo != null}
+                  <LabeledStepper label={C.floorTo} value={entity.floorTo ?? entity.floor ?? null} format={floorStr} placeholder={C.floorNone} seed={0} seedOnDec
+                    onChange={(v) => onFloorTo!(v)} onClear={() => onFloorTo!(null)} canClear={entity.floorTo != null || entity.floor != null}
                     min={FLOOR_MIN} max={FLOOR_MAX} readOnly={readOnly} ariaLabel={C.floorTo} />
                 </>
               )}
@@ -1142,6 +1146,16 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
         {dockedToLabel && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{C.dockedTo.replace('{name}', dockedToLabel)}</span>
           {onUndock && <button onClick={onUndock}><span>{C.dockedRelease}</span><span className="ctx-conn-go" aria-hidden>×</span></button>}
+        </div>}
+        {/* Angedockte Trupps (lib/docking): one row per crew standing on this symbol. It mirrors
+            the «Leitung 2 · Trupp 4 — Lösen» slot on the marker's own bar (components/TwinTeamPill)
+            — same grammar, other end of the same bond. A row with no writer is a statement only,
+            which is what a read-only or tactically locked surface shows. */}
+        {dockedTeams.length > 0 && <div className="ctx-section ctx-connections">
+          <span className="ctx-section-label">{appConfig.copy.atemschutz.dockedTeams}</span>
+          {dockedTeams.map((t) => (t.onRelease
+            ? <button key={t.id} onClick={t.onRelease}><span>{t.label}</span><span className="ctx-conn-release">{C.dockedRelease}</span></button>
+            : <button key={t.id} disabled><span>{t.label}</span></button>))}
         </div>}
         {connectedLines.length > 0 && <div className="ctx-section ctx-connections">
           <span className="ctx-section-label">{appConfig.copy.drawingEditor.connectedLines.replace('{n}', String(connectedLines.length))}</span>

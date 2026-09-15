@@ -642,6 +642,26 @@ export interface BuildingDoc {
   ring: [number, number][]
   ringAspect: number
   floors: number[]
+  /** operator/station names by floor index (`'0': 'EG / ZWG'`); absent = the standard name
+   *  (lib/whiteboard · floorLabel). Seeded from the object's floor pack when the stack is created
+   *  (14.09.2026); the signed index stays in every heading regardless. */
+  floorNames?: Record<string, string>
+  /** the stack IS the object's floor pack (decided 14.09.2026, Bastian: «where we have the modules
+   *  we don't need the borders»): every storey tile shows its PDF page, whole, no footprint outline,
+   *  and the tiles' ground position comes from the pack's ONE map fit (lib/stackFit) rather than a
+   *  picked footprint. `ring`/`rings` are empty, `ringAspect` is the page's h/w so the tile box is
+   *  page-shaped. Seeded automatically when the incident's binding carries floors; a footprint
+   *  stack (the older way) is what you get without a pack. */
+  pack?: {
+    /** Exact incident-frozen plan binding; changing the selected object never retargets this stack. */
+    bindingId?: string
+    /** the fitted page's width / height */
+    aspect: number
+    /** the reference drawing's rectangle on its page, normalized [x0, y0, x1, y1] – the FRAME every
+     *  tile shows and every other floor's drawing is shifted into through its anchor; absent =
+     *  the whole page (one floor per page) */
+    frame?: [number, number, number, number]
+  }
   rings?: [number, number][][]
   /** the footprint(s) in ISOTROPIC 0..1 board space (true proportions) — the source the
    *  Gebäudeview rotates. Present on buildings picked since auto-orientation shipped;

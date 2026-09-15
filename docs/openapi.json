@@ -7158,7 +7158,7 @@
           "reference"
         ],
         "summary": "Dataset Alignments",
-        "description": "The station's APPROVED alignments for one plan revision — what an incident binds to.\n\nOnly explicitly approved rows are published, and only for a single-page original: the gate\nis re-checked here against the PDF itself, so a historical or hand-seeded approval on a\nmulti-page pack can never leak a fit the field viewer would apply to stitched coordinates.",
+        "description": "The station's APPROVED alignments for one plan revision — what an incident binds to.\n\nOnly explicitly approved rows are published, and only where the fit is meaningful: a\nsingle-page original, or a FLOOR PACK whose fit was measured on one of its floor pages (the\nconvention puts the building at the same paper position on every page, so that one fit is\nshared by all of them). The gate is re-checked here against the PDF itself, so a historical\nor hand-seeded approval on an ordinary multi-page document can never leak a fit the field\nviewer would apply to stitched coordinates. ``floors`` lists the pack's page → Geschoss\nassignment; an incident pins it together with the version.",
         "operationId": "dataset_alignments_api_reference__dataset_id__alignments_get",
         "parameters": [
           {
@@ -7375,18 +7375,9 @@
           "admin-plan-alignments"
         ],
         "summary": "List Alignments",
+        "description": "The whole review queue as metadata only – never the reference geometry.\n\n⚠️ 453 sheets carrying their `reference_rings` were 21.5 MB and 1.7 s on the wire, and 23 MB\nof the serialized JSON was the rings alone. The wall draws its outlines per TILE as it\nscrolls (`GET /{id}/outline`), so this list must stay the small thing every caller polls.\n\nNor does it open a single PDF: `page_count` is the detail's answer (one selected sheet, one\n`revision_page_count`), and an unknown page count deliberately keeps `can_approve` false for\nan ordinary document – the wall re-reads the detail before it approves anything.",
         "operationId": "list_alignments_api_admin_plan_alignments_get",
         "parameters": [
-          {
-            "name": "summary",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Summary"
-            }
-          },
           {
             "name": "admin_session",
             "in": "cookie",
@@ -7482,13 +7473,70 @@
         }
       }
     },
+    "/api/admin/plan-alignments/{item_id}/outline": {
+      "get": {
+        "tags": [
+          "admin-plan-alignments"
+        ],
+        "summary": "Alignment Outline",
+        "description": "What ONE tile draws over its thumbnail: the reference geometry the fit was measured\nagainst, plus the fit itself and its provenance. One row read, no PDF – this is what the\nlist stopped carrying for all 453 sheets at once.\n\nDeliberately uncached: the rings change whenever the worker re-runs, and a stale outline\nover a fresh thumbnail is exactly the lie the review wall exists to catch.",
+        "operationId": "alignment_outline_api_admin_plan_alignments__item_id__outline_get",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Item Id"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/plan-alignments/{item_id}/preview": {
       "get": {
         "tags": [
           "admin-plan-alignments"
         ],
         "summary": "Alignment Preview",
-        "description": "`thumbnail=true` answers the review grid's small JPEG; without it, the exact PNG raster.",
+        "description": "`thumbnail=true` answers the review grid's small JPEG; without it, the exact PNG raster.\n`page` picks another page of the same revision – the floor-pack editor shows every page.",
         "operationId": "alignment_preview_api_admin_plan_alignments__item_id__preview_get",
         "parameters": [
           {
@@ -7508,6 +7556,23 @@
               "type": "boolean",
               "default": false,
               "title": "Thumbnail"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page"
             }
           },
           {
@@ -7789,6 +7854,73 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AlignmentMutation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/plan-alignments/{item_id}/floors": {
+      "put": {
+        "tags": [
+          "admin-plan-alignments"
+        ],
+        "summary": "Assign Floors",
+        "description": "Declare which page of this revision is which Geschoss (one floor per page, 14.09.2026).\n\nAn empty list turns the pack back into an ordinary document. The alignment row moves to the\npage the shared fit is measured on and – unless already approved – is re-queued there, so\nthe worker renders the right page. An approved fit is never moved silently: withdraw it\nfirst (409), then change the fit page.",
+        "operationId": "assign_floors_api_admin_plan_alignments__item_id__floors_put",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Item Id"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FloorPack"
               }
             }
           }
@@ -13291,6 +13423,139 @@
         "title": "FleetVehicle",
         "description": "One station vehicle for the Alarmierungs-/Ausrückzeiten grid (rapport form, paper\nErfassungsblatt, milestone webhook matching, stats export). `id` should equal the\nsender's device name (Traccar convention, e.g. 'tlf') — matching is a plain string\ncompare. Empty `fleet.vehicles` (default) hides every vehicle-times surface."
       },
+      "FloorAssignment": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Page"
+          },
+          "index": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": -20.0,
+            "title": "Index"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "clip": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array",
+                "maxItems": 4,
+                "minItems": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clip"
+          },
+          "join": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FloorJoin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "page",
+          "index"
+        ],
+        "title": "FloorAssignment"
+      },
+      "FloorJoin": {
+        "properties": {
+          "to": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": -20.0,
+            "title": "To"
+          },
+          "at": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "At"
+          },
+          "there": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "There"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "to",
+          "at",
+          "there"
+        ],
+        "title": "FloorJoin"
+      },
+      "FloorPack": {
+        "properties": {
+          "edit_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Edit Version"
+          },
+          "floors": {
+            "items": {
+              "$ref": "#/components/schemas/FloorAssignment"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Floors"
+          },
+          "fit_page": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fit Page"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "edit_version",
+          "floors"
+        ],
+        "title": "FloorPack",
+        "description": "The whole floor list of one revision, replaced as one document.\n\n``fit_page`` names the page the shared map fit is measured on; absent = floor 0 (see\nplan_floors.default_fit_page). Changing it re-queues the fit at that page."
+      },
       "GeoHit": {
         "properties": {
           "label": {
@@ -14963,6 +15228,11 @@
               }
             ],
             "title": "Alignment"
+          },
+          "hideWhenGebaeude": {
+            "type": "boolean",
+            "title": "Hidewhengebaeude",
+            "default": false
           }
         },
         "type": "object",

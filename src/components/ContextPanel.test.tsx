@@ -26,8 +26,10 @@ function setup(over: Partial<React.ComponentProps<typeof ContextPanel>> = {}) {
     onTitle: vi.fn(),
     onFields: vi.fn(),
     onDelete: vi.fn(),
-    // wire every glyph-stepper callback so visibility is driven purely by `controls`
-    onFloor: vi.fn(),
+    // wire every glyph-stepper callback so visibility is driven purely by `controls` – the storey
+    // control is Von/Bis (15.09.2026); a `floor` preset shows it just like `floorRange`
+    onFloorFrom: vi.fn(),
+    onFloorTo: vi.fn(),
     onCount: vi.fn(),
     onRotate: vi.fn(),
     ...over,
@@ -47,9 +49,9 @@ describe('ContextPanel — stepper gating by the `controls` prop', () => {
     expect(hasStepper(L.count)).toBe(false)
   })
 
-  it('shows floor + count when both are declared, hides rotation', () => {
+  it('shows the storeys + count when both are declared, hides rotation', () => {
     setup({ controls: new Set<SymbolControl>(['floor', 'count']) })
-    expect(hasStepper(L.floor)).toBe(true)
+    expect(hasStepper(L.floorFrom)).toBe(true)
     expect(hasStepper(L.count)).toBe(true)
     expect(hasStepper(L.rotation)).toBe(false)
   })
@@ -63,7 +65,7 @@ describe('ContextPanel — stepper gating by the `controls` prop', () => {
 
   it('with no controls prop, shows every WIRED stepper (back-compat for non-symbols)', () => {
     setup({ controls: undefined })
-    expect(hasStepper(L.floor)).toBe(true)
+    expect(hasStepper(L.floorFrom)).toBe(true)
     expect(hasStepper(L.count)).toBe(true)
     expect(hasStepper(L.rotation)).toBe(true)
   })
@@ -72,10 +74,10 @@ describe('ContextPanel — stepper gating by the `controls` prop', () => {
     // ⚠️ regression: floorRange was missing from the gate around the stepper row, so a Lift —
     // whose preset lists no other control — rendered no steppers at all and its storey span was
     // unreachable on both surfaces.
-    setup({ controls: new Set<SymbolControl>(['floorRange']), onFloorFrom: vi.fn(), onFloorTo: vi.fn() })
+    setup({ controls: new Set<SymbolControl>(['floorRange']) })
     expect(hasStepper(L.floorFrom)).toBe(true)
     expect(hasStepper(L.floorTo)).toBe(true)
-    expect(hasStepper(L.floor)).toBe(false)
+    expect(hasStepper(L.floor)).toBe(false) // the single «Geschoss» stepper is gone (15.09.): Von/Bis IS the storey control
   })
 
   it('a declared control whose callback is NOT wired stays hidden', () => {
@@ -140,60 +142,59 @@ describe('ContextPanel — basic wiring', () => {
 
 describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergeschosse)', () => {
   const floorOnly = new Set<SymbolControl>(['floor'])
-  // one stepper on screen ⇒ the ±buttons are unambiguous
-  const tapLess = () => fireEvent.pointerDown(screen.getByLabelText('weniger'))
+  // Von and Bis on screen ⇒ the FIRST − / + / clear is Von's
+  const tapLess = () => fireEvent.pointerDown(screen.getAllByLabelText('weniger')[0])
 
   it('the first tap on − sets EG (0), not nothing', () => {
     // ⚠️ − used to be dead on an unset Geschoss, so a Kellerbrand could only be reached by
     // stepping UP to 0 first and back down again.
     const p = setup({ controls: floorOnly, entity: { id: 's1' } })
     tapLess()
-    expect(p.onFloor).toHaveBeenCalledWith(0)
+    expect(p.onFloorFrom).toHaveBeenCalledWith(0)
   })
 
   it('the first tap on + sets EG (0) too', () => {
     const p = setup({ controls: floorOnly, entity: { id: 's1' } })
-    fireEvent.pointerDown(screen.getByLabelText('mehr'))
-    expect(p.onFloor).toHaveBeenCalledWith(0)
+    fireEvent.pointerDown(screen.getAllByLabelText('mehr')[0])
+    expect(p.onFloorFrom).toHaveBeenCalledWith(0)
   })
 
   it('steps on down into the Untergeschosse', () => {
-    const p = setup({ controls: floorOnly, entity: { id: 's1', floor: 0 } })
+    const p = setup({ controls: floorOnly, entity: { id: 's1', floorFrom: 0 } })
     tapLess()
-    expect(p.onFloor).toHaveBeenCalledWith(-1)
+    expect(p.onFloorFrom).toHaveBeenCalledWith(-1)
   })
 
   it('takes a typed Untergeschoss', () => {
     const p = setup({ controls: floorOnly, entity: { id: 's1' } })
-    fireEvent.click(screen.getByTitle('Tippen zum Eingeben'))
+    fireEvent.click(screen.getAllByTitle('Tippen zum Eingeben')[0])
     const input = screen.getByRole('textbox') as HTMLInputElement
     fireEvent.change(input, { target: { value: '-2' } })
     fireEvent.blur(input)
-    expect(p.onFloor).toHaveBeenCalledWith(-2)
+    expect(p.onFloorFrom).toHaveBeenCalledWith(-2)
   })
 
   it('clears back to unset', () => {
-    const p = setup({ controls: floorOnly, entity: { id: 's1', floor: -2 } })
-    fireEvent.click(screen.getByLabelText('zurücksetzen'))
-    expect(p.onFloor).toHaveBeenCalledWith(null)
+    const p = setup({ controls: floorOnly, entity: { id: 's1', floorFrom: -2 } })
+    fireEvent.click(screen.getAllByLabelText('zurücksetzen')[0])
+    expect(p.onFloorFrom).toHaveBeenCalledWith(null)
   })
 
   it('has nothing to clear while unset', () => {
     setup({ controls: floorOnly, entity: { id: 's1' } })
-    expect((screen.getByLabelText('zurücksetzen') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getAllByLabelText('zurücksetzen')[0] as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('steps both ends of a von/bis span independently', () => {
     const p = setup({
       controls: new Set<SymbolControl>(['floorRange']),
       entity: { id: 's1', floorFrom: 0, floorTo: 2 },
-      onFloorFrom: vi.fn(), onFloorTo: vi.fn(),
     })
     const less = screen.getAllByLabelText('weniger')  // [Von, Bis]
-    fireEvent.pointerDown(less[0])
+    fireEvent.pointerDown(less[less.length - 2])
     expect(p.onFloorFrom).toHaveBeenCalledWith(-1)
     expect(p.onFloorTo).not.toHaveBeenCalled()
-    fireEvent.pointerDown(less[1])
+    fireEvent.pointerDown(less[less.length - 1])
     expect(p.onFloorTo).toHaveBeenCalledWith(1)
   })
 
@@ -201,7 +202,6 @@ describe('ContextPanel — Geschoss (Untergeschosse are as reachable as Obergesc
     const p = setup({
       controls: new Set<SymbolControl>(['floorRange']),
       entity: { id: 's1' },
-      onFloorFrom: vi.fn(), onFloorTo: vi.fn(),
     })
     screen.getAllByLabelText('weniger').forEach((b) => fireEvent.pointerDown(b))
     expect(p.onFloorFrom).toHaveBeenCalledWith(0)
@@ -630,5 +630,46 @@ describe('ContextPanel — Notizen survive every way the sheet can close', () =>
     )
     unmount()
     expect(onNotes).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Angedockte Trupps am HOST (15.09.2026) — the bond read from the symbol's side. It mirrors the
+ * «Leitung 2 · Trupp 4 — Lösen» slot on the marker's own bar: a row names BOTH sides before its
+ * «Lösen» separates them, and several docked crews get a row each.
+ */
+describe('ContextPanel — the Trupps docked onto this symbol', () => {
+  const az = appConfig.copy.atemschutz
+  const row = (who: string) => az.dockLabel.replace('{who}', who).replace('{host}', 'Hydrant')
+
+  it('states each bond in words and offers «Lösen» per row', () => {
+    const release = vi.fn()
+    setup({
+      entity: { id: 'h1', symbol: 'VKF Feuer', label: 'Hydrant' },
+      dockedTeams: [
+        { id: 'e1', label: row('Trupp 4'), onRelease: release },
+        { id: 'e2', label: row('Trupp 2'), onRelease: vi.fn() },
+      ],
+    })
+    expect(screen.getByText(az.dockedTeams)).toBeTruthy()
+    expect(screen.getByText(row('Trupp 4'))).toBeTruthy()
+    expect(screen.getByText(row('Trupp 2'))).toBeTruthy()
+    expect(screen.getAllByText(appConfig.copy.contextPanel.dockedRelease)).toHaveLength(2)
+    fireEvent.click(screen.getByText(row('Trupp 4')))
+    expect(release).toHaveBeenCalledTimes(1)
+  })
+
+  it('a locked surface states the bond without a door out of it', () => {
+    setup({
+      entity: { id: 'h1', symbol: 'VKF Feuer', label: 'Hydrant' },
+      dockedTeams: [{ id: 'e1', label: row('Trupp 4') }],
+    })
+    expect(screen.getByText(row('Trupp 4'))).toBeTruthy()
+    expect(screen.queryByText(appConfig.copy.contextPanel.dockedRelease)).toBeNull()
+  })
+
+  it('draws no section at all when nothing is docked', () => {
+    setup({ entity: { id: 'h1', symbol: 'VKF Feuer', label: 'Hydrant' } })
+    expect(screen.queryByText(az.dockedTeams)).toBeNull()
   })
 })

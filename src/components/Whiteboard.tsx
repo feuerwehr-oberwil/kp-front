@@ -6,7 +6,7 @@ import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
 import { Palette } from './Palette'
-import { PdfViewport, planMatcherImage, planPrintedMPerU, prewarmPlans } from './PdfViewport'
+import { PdfViewport, planMatcherImage, planPreviewUrl, planPrintedMPerU, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
@@ -19,7 +19,7 @@ import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { buzz } from '../lib/haptics'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
-import { truppForLine, truppIsOut, truppLineTone, truppTagText } from '../lib/truppLines'
+import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, truppLineTone, type LinkableLine } from '../lib/truppLines'
 import { nextTeamName } from '../lib/placedTrupps'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
@@ -42,8 +42,11 @@ import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
-import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry } from '../lib/whiteboard'
-import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings } from '../lib/whiteboard'
+import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint } from '../lib/lineAttachments'
+import { packPagePlacement, pagePlacement, stackGroundFit } from '../lib/stackFit'
+import type { FloorPackView } from '../lib/floorPackBinding'
+import { normalizeStackEdit, stackInstances } from '../lib/stackFloors'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
@@ -122,6 +125,9 @@ interface Props {
   mapSuppressedCaptions?: ReadonlySet<string>
   onChange: (next: BoardAnno[]) => void
   building: BuildingDoc | null
+  /** the active object's floor pack – the PDF page each storey tile draws underneath, and the
+   *  pack's shared map fit that places it (lib/floorPackBinding) */
+  floorPack?: FloorPackView | null
   /** the picked footprints, their auto-orientation angle, and WHERE that footprint box sits on
    *  the ground — the third is what lets the workspace carry the floor stack across the change
    *  instead of clearing it (lib/buildingTransfer · amendBuilding). */
@@ -228,11 +234,17 @@ interface Props {
   /** «Neuer Trupp» on that same menu: open the Anmeldung for a Trupp that adopts this chip on
    *  save (IncidentWorkspace · newTruppFromMarker). Absent ⇒ no row. */
   onTeamNewTrupp?: (annoId: string) => void
-  /** «Leitung wählen» is armed: the next tap on a drawn line reports it here (and links it to the
-   *  waiting Trupp) instead of selecting it. Undefined = normal selection. */
-  onPickLine?: (annoId: string) => void
-  /** «Gehört zu Trupp …» in the line editor — undefined truppId unlinks. Omitted ⇒ row hidden. */
+  /** «Gehört zu Trupp …» in the line editor — undefined truppId unlinks. Omitted ⇒ row hidden.
+   *  Also the call a Trupp chip dropped on a hose's free end makes (see chipUp). */
   onLinkLineTrupp?: (annoId: string, truppId: string | undefined) => void
+  /** A Leitung end just docked onto something — handed up so the workspace can join the hose to
+   *  an Atemschutz-Trupp when the thing it docked onto is that Trupp's chip (useTruppActions ·
+   *  linkLineToAttachedTrupp). The Karte reports the identical fact from its own magnet
+   *  (lib/useMapDrawing · onLineAttached). */
+  onLineAttached?: (annoId: string, attachment: LineAttachment) => void
+  /** …and the reverse (15.09.): an end let go of its coupling («Lösen», or dragged off) – with
+   *  the coupling it had, so the Trupp link that coupling made is dropped too. */
+  onLineDetached?: (annoId: string, previous: LineAttachment) => void
   /** a hose line got a NEW number: the Trupp anchored to it carries a copy of the number (the
    *  AS chip prints it), so the renumber must reach the Trupp too (useTruppActions ·
    *  syncLineNoToTrupp). Fires AFTER the drawing itself was patched. */
@@ -299,7 +311,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onPickLine, onLinkLineTrupp, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, layersOn = false, onToggleLayers, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -441,7 +453,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const stageRef = useRef<HTMLDivElement>(null)
   // rail tool buttons, so a tool's option dock can be top-aligned to its button
   const toolBtn = useRef<Record<string, HTMLButtonElement | null>>({})
-  const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number } | null>(null)
+  const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number; floorOffset: number } | null>(null)
   // drag a single selected freehand stroke (its original board-space vertices + the start point)
   const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean } | null>(null)
   // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based).
@@ -674,9 +686,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // angle on purpose (not the drag preview): the derived factor must match the document the
   // measured lines are glued to. Legacy buildings without `geo` keep the manual calibration
   // path (SrcGeoref's contract: nothing may misbehave without it).
-  const stackMPerU = stack && building?.src?.length && building.geo
+  // …and a PACK stack knows it from the pack's map fit (lib/stackFit): tile → frame → page → ground
+  // is one similarity, whose metres per tile unit are the Massstab – «Ref. auto», like a linked sheet.
+  const packMPerU = stack && building?.pack && floorPack?.fit ? stackGroundFit(building, floorPack.fit)?.scaleMPerU ?? null : null
+  const stackMPerU = packMPerU ?? (stack && building?.src?.length && building.geo
     ? stackScaleMPerU(building.src, building.geo.spanM, viewAngle, N, measureARForGeoref)
-    : null
+    : null)
   const autoScale: PlanScale | undefined = georefFit
     ? { mPerU: georefFit.scaleMPerU, refM: 0, ar: measureARForGeoref }
     : stackMPerU
@@ -936,7 +951,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // «Sicherung» is nine undo steps and nine audit rows.
   const titleLive = useRef<string | null>(null)
   const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
-    annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint,
+    annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint, onStepEnd,
   })
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
@@ -1094,9 +1109,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // it above), so the anno list needs no second override.
   const renderAnnos = annos.map((a) => (resolvedPts.has(a.id) ? { ...a, pts: resolvedPts.get(a.id)! } : a))
 
+  /** Every placed Trupp chip on this sheet, as the one-Trupp rule reads them (a Plan's `resource`
+   *  is the Karte's team marker — lib/truppLines · TruppMarker). */
+  const planTruppMarkers = () => annos.flatMap((a) => (a.kind === 'resource' ? [{ id: a.id, truppId: a.truppId }] : []))
   const planCandidatesAt = (sourceId: string, pointer: [number, number]): MagneticTarget[] => {
+    // ── EINE Leitung, EIN Trupp, schon am Magneten (lib/truppLines · markerTakesLineEnd) ──
+    // The Plan's twin of the Lage rule (MapView · candidatesAt): a hose that already has a crew
+    // does not see another Trupp's chip as a target at all — only its own, so a coupling pulled
+    // off can be put back. A draft is judged by the claim its first end already made.
+    const draftStart = draftAttachments.current.startAttachment
+    const srcLine: LinkableLine | undefined = annos.find((a) => a.id === sourceId && a.kind === 'draw')
+      ?? (sourceId === '__draft__' ? { id: sourceId, truppId: truppIdForAttachment(draftStart, planTruppMarkers()) } : undefined)
     const objects: MagneticTarget[] = annos
-      .filter((a) => isMagnetAnno(a) && a.x != null && a.y != null)
+      .filter((a) => isMagnetAnno(a) && a.x != null && a.y != null
+        && (a.kind !== 'resource' || markerTakesLineEnd(srcLine, trupps, { id: a.id, truppId: a.truppId })))
       .map((a) => {
         const box = attachBox(a)
         const center: [number, number] = [a.x! * sW + box.dx, mapY(a.floor, a.y!) * sH]
@@ -1509,6 +1535,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const anno: BoardAnno = { id, kind: 'draw', pts, floor, color, width, ...draftAttachments.current,
       dashed: dashed || undefined, ...(marker ? { marker } : {}), ...(lineArrow ? { arrow: true } : {}) }
     add(anno)
+    // a stroke that ENDED on a Trupp's chip is that Trupp's Leitung — both ends are reported,
+    // because either of them may be the coupling (see Props · onLineAttached)
+    for (const a of [anno.startAttachment, anno.endAttachment]) if (a) onLineAttached?.(id, a)
     // the jump-back aims at the line's FIRST node: a Leitung can run across two floors, and the
     // end it was started from is the end the operator was standing at when the row was written
     log('pen', appConfig.copy.whiteboard.placeLine, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
@@ -1645,10 +1674,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // chip over it is the only tap target it still has.
     if (annos.find((x) => x.id === id)?.locked) return
     e.stopPropagation()
-    // «Leitung wählen» is armed on the Atemschutz board: this tap assigns the line to that Trupp
-    // instead of selecting it. Read-only surfaces never get here (the guard above), so a viewer
-    // can't link anything.
-    if (onPickLine) { onPickLine(id); return }
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for a stroke
     // too big for its bounds to mean anything (lib/panelNudge · panelNudgeSelection). Client px,
@@ -1847,6 +1872,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         // array either way, so the replay is identical.
         if (st.pushed) { patch(a.id, out); emit('board.edit', { id: a.id, patch: out, planId: activeId }) }
         else patchCommit(a.id, out)
+        // …and an end dragged ONTO a Trupp's chip joins the two, exactly as a fresh stroke's does;
+        // dragged OFF it, they part
+        const previous = magnetic.endpoint === 'start' ? a.startAttachment : a.endAttachment
+        if (attachment) onLineAttached?.(a.id, attachment)
+        else if (previous) onLineDetached?.(a.id, previous)
       }
       setPlanEndpointDrag(null)
       return
@@ -1869,6 +1899,31 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * An end that is ALREADY attached keeps the plain reshape: unplugging is the node grip's and
    * the × chip's job, and a grip that could also detach would promise two things at once.
    */
+  /** the staircase: the Leitung continues at the SAME x/y one storey up or down – one new vertex
+   *  there, its own storey, one undo step. The stair marks then stand at both ends of the climb. */
+  const climbLine = (end: 'start' | 'end', dir: 1 | -1) => {
+    if (tool !== 'pan' || readOnly || !stack) return
+    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts || a.kind !== 'draw') return
+    const i = end === 'start' ? 0 : pts.length - 1
+    const [x, y, f] = pts[i]
+    const floor = (f ?? a.floor ?? 0) + dir
+    if (!floorsTTB.includes(floor)) return
+    // the way back: if the neighbouring vertex IS this spot one storey in that direction, the
+    // tap undoes the climb (drops this end) instead of laying a second flight back down the same
+    // stairs – which left the line 0 → +1 → 0 with two marks on top of each other
+    const nb = pts[end === 'start' ? 1 : pts.length - 2]
+    const retreat = !!nb && nb[0] === x && nb[1] === y && (nb[2] ?? a.floor ?? 0) === floor && pts.length > 2
+    if (retreat) {
+      patchCommit(a.id, { pts: end === 'start' ? pts.slice(1) : pts.slice(0, -1) })
+      requestAnimationFrame(() => centerOnPoint(x, y, floor, Math.max(scaleRef.current, 2.5)))
+      return
+    }
+    const point: BoardPoint = [x, y, floor]
+    patchCommit(a.id, { pts: end === 'start' ? [point, ...pts] : [...pts, point] })
+    // …and the view follows the Leitung upstairs: the new end, close enough to place the next
+    // vertex, so the climb is one tap and not a tap plus a scroll to find where it went
+    requestAnimationFrame(() => centerOnPoint(x, y, floor, Math.max(scaleRef.current, 2.5)))
+  }
   const extendLine = (end: 'start' | 'end', e: React.PointerEvent) => {
     if (tool !== 'pan' || readOnly) return
     e.stopPropagation()
@@ -1966,7 +2021,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
 
   // --- chip dragging (resource / symbol / text in pan mode) ---
-  const chipDown = (e: React.PointerEvent, id: string) => {
+  const chipDown = (e: React.PointerEvent, id: string, shownFloor?: number) => {
     if (tool !== 'pan') return
     // (a locked shape never reaches this handler: its anno div is pointer-events:none —
     // click-through ink, the LockChip is the only door, same as a locked drawn Fläche)
@@ -1988,7 +2043,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // body only selects — so a press on a Rotation's loop cannot nudge it away from the end grip
     // somebody was aiming for.
     if (annos.find((x) => x.id === id)?.kind !== 'shape') {
-      chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY }
+      chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0) }
       ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
     }
     setSelId(id); setSelIds([])
@@ -2008,7 +2063,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const f = stack ? floorAt(n[1]) : a.floor
     const point: BoardPoint = [n[0], localY(n[1], f ?? 0), f ?? 0]
     set(annos.map((anno) => {
-      if (anno.id === chipDrag.current!.id) return { ...anno, x: point[0], y: point[1], ...(stack ? { floor: point[2] } : {}) }
+      if (anno.id === chipDrag.current!.id) {
+        const moved = { ...anno, x: point[0], y: point[1], ...(stack ? { floor: (f ?? 0) - chipDrag.current!.floorOffset } : {}) }
+        return stack ? normalizeStackEdit(anno, moved) : moved
+      }
       if (anno.kind !== 'draw' || !anno.pts?.length) return anno
       let next = anno
       for (const endpoint of ['start', 'end'] as const) {
@@ -2027,9 +2085,31 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const a = annos.find((x) => x.id === d.id)
     if (a?.kind === 'resource') patch(d.id, { t: formatTime(new Date()) })
     // record the relocation in the audit trail (the drag itself was silent patches)
-    if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, planId: activeId })
+    if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, ...(stack && a.kind === 'symbol' ? { floorFrom: a.floorFrom, floorTo: a.floorTo } : {}), planId: activeId })
     annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace'))
       .forEach((line) => emit('board.edit', { id: line.id, patch: { pts: line.pts }, planId: activeId }))
+    // Ein Trupp auf dem Leitungsende (15.09.): a Trupp's chip dropped on the FREE end of a hose
+    // joins the two, the same link snapping the hose onto the chip makes — the picture is the
+    // pick, from whichever side the operator works. The Karte does exactly this on its own marker
+    // release (IncidentWorkspace · finishEntityMove). The chip's own DOT is what is measured (its
+    // body hangs to the right of it — see attachBox), only ends that hang free count, and the
+    // middle of a hose says nothing about who works it.
+    if (a?.kind !== 'resource' || !a.truppId || a.x == null || a.y == null || !sW || !sH) return
+    const join = nearestFreeEndpoint<BoardPoint>(
+      [a.x * sW, mapY(a.floor, a.y) * sH],
+      attachmentLines,
+      (p) => [p[0] * sW, mapY(p[2] ?? 0, p[1]) * sH],
+    )
+    if (!join) return
+    // the chip's own trace-routed coupling, written exactly as the endpoint magnet writes one
+    const out: Partial<BoardAnno> = join.endpoint === 'start'
+      ? { startAttachment: { target: { kind: 'object', id: d.id }, routing: 'trace' } }
+      : { endAttachment: { target: { kind: 'object', id: d.id }, routing: 'trace' } }
+    patch(join.lineId, out) // the drag's own checkpoint already stands — one gesture, one step
+    emit('board.edit', { id: join.lineId, patch: out, planId: activeId })
+    // …and the link itself, unless this hose is already anchored to this very Trupp — nudging the
+    // chip beside its own Leitung is not a new fact, and every link writes a Verlauf row
+    if (annos.find((x) => x.id === join.lineId)?.truppId !== a.truppId) onLinkLineTrupp?.(join.lineId, a.truppId)
   }
 
   // object-manipulation hand-off for the stage dispatcher in useBoardGestures: when no
@@ -2401,8 +2481,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
 
   // pan (no zoom change) so a normalized plan point lands at the centre of the unobscured work area
-  const centerOnPoint = (x: number, y: number, floor: number) => {
-    const s = scaleRef.current, w = fit.w * s, h = fit.h * s
+  const centerOnPoint = (x: number, y: number, floor: number, atScale?: number) => {
+    const s = atScale ?? scaleRef.current, w = fit.w * s, h = fit.h * s
     const canvas = canvasRef.current?.getBoundingClientRect()
     if (!w || !h || !canvas) return
     const my = mapY(floor, y)
@@ -2554,6 +2634,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const off: BoardPoint = [here[0] + (dx / len) * 0.02, here[1] + (dy / len) * 0.02, here[2] ?? selDraw.floor ?? 0]
     const pts = selDraw.pts.map((p, i): BoardPoint => (i === idx ? off : p))
     patchCommit(selDraw.id, { pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) })
+    onLineDetached?.(selDraw.id, a)
   }
   // a selected generic shape — colour via the same ShapeEditor sheet as the Lage map
   const selShape = annos.find((a) => a.id === selId && a.kind === 'shape')
@@ -2765,7 +2846,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // removing a storey is frictionless when empty, but a floor that carries any
   // annotation (even a single team trace) must be confirmed before it's dropped
   const removeFloor = async (f: number) => {
-    if (readOnly) return
+    if (readOnly || building?.pack || floorPack?.tiles[f]) return
     const hasContent = annos.some((a) => (a.floor ?? 0) === f || a.pts?.some((p) => (p[2] ?? a.floor ?? 0) === f) || a.trail?.some((p) => (p.floor ?? a.floor ?? 0) === f))
     if (hasContent) {
       const ok = await confirmDialog({
@@ -3041,8 +3122,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               floorsTTB.map((f, idx) => (
                 <div key={f} className="wb-floor" style={{ top: (idx / N) * sH, height: sH / N, width: sW }}>
                   <div className="wb-floor-label">
-                    <span>{floorLabel(f)}</span>
-                    {f !== 0 && !readOnly && (
+                    {/* mock B (14.09.2026): the signed index as the SAME chip the Karte badges a storey
+                        with – recognition, not reading – then the name; a custom name («Hauptebene»)
+                        never hides the order, and level 0 is the blue one */}
+                    <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>
+                    <span className="wb-floor-name">{building.floorNames?.[String(f)] ?? floorLabel(f)}</span>
+                    {f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f] && (
                       <button className="wb-floor-x" title={appConfig.copy.whiteboard.removeFloor} aria-label={appConfig.copy.whiteboard.removeFloor}
                         onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="close" /></button>
                     )}
@@ -3055,6 +3140,23 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     {/* px viewBox, no vector-effect — see WbInkLayer's header for why the 1×1
                         stretch + non-scaling-stroke pattern is banned on the board */}
                     <svg viewBox={`0 0 ${fpBox?.w || 1} ${fpBox?.h || 1}`} preserveAspectRatio="none" className="wb-floor-svg">
+                      {/* the storey's Geschossplan page UNDER the outline, placed through the pack's
+                          map fit and the footprint's geo anchor (lib/stackFit · pagePlacement) */}
+                      {floorPack && floorPack.tiles[f] && fpBox && (building.pack || (floorPack.fit && building.src?.length)) && (() => {
+                        const tile = floorPack.tiles[f]
+                        if (building.pack) {
+                          // the tile box IS the reference frame: the floor's page is laid into it shifted by its
+                          // anchor difference and clipped to its own drawing (lib/floorPackBinding)
+                          const placement = packPagePlacement(building.pack.frame ?? [0, 0, 1, 1], tile)
+                          return <FloorPage key={`${f}:${tile.url}`} url={tile.url} {...placement} clipId={`fp-${active.id}-${f}`} w={fpBox.w} h={fpBox.h} vw={sW} vh={sH} />
+                        }
+                        // a footprint stack places the whole page through the fits
+                        const corners = pagePlacement(building, shownAngle, floorPack.fit!)
+                        return corners && <FloorPage key={tile.url} url={tile.url} corners={corners} w={fpBox.w} h={fpBox.h} vw={sW} vh={sH} />
+                      })()}
+                      {building.pack && !floorPack?.tiles[f] && fpBox && (
+                        <text x={fpBox.w / 2} y={fpBox.h / 2} textAnchor="middle" className="wb-floor-noplan">{appConfig.copy.whiteboard.noFloorPlan}</text>
+                      )}
                       {(fpView?.rings ?? building.rings ?? [building.ring]).map((ring, ri) => (
                         <polygon key={ri} points={ring.map((p) => `${p[0] * (fpBox?.w || 1)},${p[1] * (fpBox?.h || 1)}`).join(' ')} />
                       ))}
@@ -3145,6 +3247,26 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 board px (the ink SVG is stretched 1×1 and would distort them). Same feature set +
                 spacing math as the Lage map (markerParamsAlong / —R— rhythm); the metric distance
                 read-out now works too, once the plan is calibrated (lib/planScale). One per Linie. */}
+            {/* stair marks (mock C, 14.09.2026): where a Leitung leaves a storey, a circled number
+                says where it goes; where it arrives, where it came from – at the same spot on both
+                tiles, the staircase. Tapping one moves the view to the other end of the climb. */}
+            {stack && renderAnnos.filter((a) => a.kind === 'draw' && (a.pts?.length ?? 0) >= 2).flatMap((a) => {
+              const p = a.pts!
+              const color = a.color || COLORS[0]
+              return floorCrossings(p, a.floor).flatMap((i) => [[p[i], p[i + 1]], [p[i + 1], p[i]]].map(([at, other], side) => {
+                const atFloor = at[2] ?? a.floor ?? 0, otherFloor = other[2] ?? a.floor ?? 0
+                const label = fillTemplate(side === 0 ? appConfig.copy.whiteboard.stairTo : appConfig.copy.whiteboard.stairFrom, { floor: signedFloor(otherFloor) })
+                return (
+                  <button key={`${a.id}:stair:${i}:${side}`} type="button" className="wb-line-stair" aria-label={label} title={label}
+                    // off the vertex, like a badge: the vertex itself stays tappable (select, drag, ↑/↓)
+                    style={{ color, transform: `translate(${at[0] * sW + 18}px, ${mapY(atFloor, at[1]) * sH - 18}px) translate(-50%, -50%)` }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); centerOnPoint(other[0], other[1], otherFloor) }}>
+                    {signedFloor(otherFloor)}
+                  </button>
+                )
+              }))
+            })}
             {renderAnnos.filter((a) => a.kind === 'draw' && (a.arrow || a.marker || a.label || a.showDistance || hasLineDecor(a)) && (a.pts?.length ?? 0) >= 2).map((a) => {
               const p = a.pts!
               const bpx = p.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
@@ -3219,7 +3341,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         onPointerCancel={tool === 'pan' ? labelUp : undefined}>
                         <EndTag
                           lineNo={a.lineNo} content={a.content} floorTag={a.floorTag}
-                          trupp={lineTrupp ? truppTagText(lineTrupp) : undefined} tone={lineTone}
+                          tone={lineTone}
                           color={color}
                         />
                       </span>
@@ -3346,7 +3468,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 grips instead (mirrors the map's cap). */}
             {editDraw && editDraw.kind !== 'circle' && tool === 'pan' && (
               <WbVertexHandles anno={renderAnnos.find((a) => a.id === editDraw.id) ?? editDraw} sW={sW} sH={sH} mapY={mapY}
-                onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine} />
+                onVertexDown={vertDown} onInsert={insertVertex} onDeleteVertex={deleteVertex} onExtend={extendLine}
+                onClimb={stack ? climbLine : undefined} floors={stack ? floorsTTB : undefined} />
             )}
             {/* Absperrkreis: ONE grip on the ring (screen-right) sets the radius — the gesture
                 that placed it, available again afterwards. It is the only way to resize on an
@@ -3389,10 +3512,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               )
             })}
 
-            {/* point annotations: symbol / text / resource */}
-            {annos.filter((a) => a.kind !== 'draw').map((a) => (
+            {/* Every covered floor exposes the same object through the full native renderer. */}
+            {annos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
               <div
-                key={a.id}
+                key={`${a.id}:${a.floor ?? 0}`}
                 className={`wb-anno wb-${a.kind}${relationship.objectIds.has(a.id) ? ' network' : ''} ${selId === a.id || selIds.includes(a.id) ? 'sel' : ''}`}
                 // transform positions the anchor at the (scaled) plan point. SYMBOLS hold a
                 // constant screen size (symBase, zoom-independent — 30.08.: they are pins like
@@ -3410,7 +3533,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 // a LOCKED shape is click-through, like a locked drawn Fläche: no tap, no drag,
                 // no double-tap — the LockChip (own layer below) is the only door back in
                 style={{ left: 0, top: 0, transform: `translate(${(a.x ?? 0) * sW}px, ${mapY(a.floor, a.y ?? 0) * sH}px) translate(${a.kind === 'resource' ? `${selId === a.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2}px` : '-50%'}, -50%)`, ['--gpx' as string]: `${a.kind === 'shape' ? (a.sizeN ?? 0.1) * sW * Math.max(1, shapeAspect(a.shape ?? 'square', a.aspect)) : symBase}px`, ...(a.kind === 'shape' && a.locked ? { pointerEvents: 'none' as const } : null) }}
-                onPointerDown={(e) => chipDown(e, a.id)}
+                onPointerDown={(e) => chipDown(e, a.id, a.floor)}
                 // double-tap still opens the on-surface textarea; the panel steps aside so the
                 // two editors for one text never stream keystrokes side by side.
                 // ⚠️ `!readOnly` mirrors the editors this arms: on a read-only surface the pill
@@ -3458,9 +3581,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         overlay={overlay}
                         // the signed Stockwerk badge, same slot and same glyph as on the Lage.
                         // `storey`, never `floor` — that one is the stack's tile index.
-                        floor={a.storey}
-                        floorFrom={a.floorFrom}
-                        floorTo={a.floorTo}
+                        floor={stack ? undefined : a.storey}
+                        floorFrom={stack ? undefined : a.floorFrom}
+                        floorTo={stack ? undefined : a.floorTo}
                         spread={a.spread}
                         count={a.count}
                         // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
@@ -3764,7 +3887,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
             {/* add a storey above (OG) / below (UG) — attached to the stack itself, just above
                 the top floor and below the bottom floor, like a real building section */}
-            {stack && !readOnly && (
+            {stack && !readOnly && !building?.pack && (
               <>
                 <button className="wb-floor-add wb-floor-add-up" onPointerDown={(e) => e.stopPropagation()} onClick={() => onAddFloor(1)} title={appConfig.copy.whiteboard.addFloorUp}><Icon id="plus" />OG</button>
                 <button className="wb-floor-add wb-floor-add-down" onPointerDown={(e) => e.stopPropagation()} onClick={() => onAddFloor(-1)} title={appConfig.copy.whiteboard.addFloorDown}><Icon id="plus" />UG</button>
@@ -3961,7 +4084,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // floor-stack TILE INDEX, while the panel's `floor` is the signed Stockwerk badge
           // (see types · BoardAnno.storey). Handing the tile index to the stepper would have
           // shown «+3» for the third sheet and moved the symbol to another storey on a tap.
-          entity={{ ...selSymbol, floor: selSymbol.storey }}
+          // On the Gebäude stack the tile seeds BOTH ends of Von/Bis (anno.floor, absent = 0) – the
+          // storey vocabulary is the same as on the Karte (15.09.2026); a span set here shows the
+          // symbol as copies on every tile it covers.
+          entity={{ ...selSymbol, floor: stack ? undefined : selSymbol.storey, ...(stack ? { floorFrom: selSymbol.floorFrom ?? selSymbol.floor ?? 0, floorTo: selSymbol.floorTo ?? selSymbol.floorFrom ?? selSymbol.floor ?? 0 } : {}) }}
           readOnly={readOnly}
           svg={selSymbol.symbol ? sym.byName[selSymbol.symbol] ?? '' : ''}
           onClose={() => setSelId(null)}
@@ -3995,9 +4121,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           // Stockwerk — the Lage has always offered it, the Modul boards never did, so a Brand
           // drawn on «Modul 2» could not say which storey it was on. Absent on the Gebäude
           // floor-stack ALONE: there the sheet the symbol sits on IS the storey.
-          onFloor={stack ? undefined : (f) => patchCommit(selSymbol.id, { storey: f ?? undefined })}
-          onFloorFrom={(f) => patchCommit(selSymbol.id, { floorFrom: f ?? undefined })}
-          onFloorTo={(f) => patchCommit(selSymbol.id, { floorTo: f ?? undefined })}
+          // the span («Von/Bis») is the same optional extra on both surfaces – the panel keeps it
+          // behind «Über mehrere Geschosse» unless it is set (ContextPanel · showFloorRange)
+          onFloorFrom={(f) => patchCommit(selSymbol.id, stack
+            ? { floorFrom: f ?? undefined, floorTo: selSymbol.floorTo ?? selSymbol.floor ?? 0 }
+            : { storey: undefined, floorFrom: f ?? undefined, floorTo: selSymbol.floorTo ?? selSymbol.storey })}
+          onFloorTo={(f) => patchCommit(selSymbol.id, stack
+            ? { floorFrom: selSymbol.floorFrom ?? selSymbol.floor ?? 0, floorTo: f ?? undefined }
+            : { storey: undefined, floorFrom: selSymbol.floorFrom ?? selSymbol.storey, floorTo: f ?? undefined })}
           onSpread={(s) => patchCommit(selSymbol.id, { spread: s ?? undefined })}
           onCount={(n) => patchCommit(selSymbol.id, { count: n && n > 1 ? n : undefined })}
           onRotate={(deg) => patchCommit(selSymbol.id, { rotation: deg ?? undefined })}
@@ -4005,7 +4136,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onCaption={(m) => patchCommit(selSymbol.id, { caption: m })}
           captionDefault={captionMode}
           onAirflow={(extract) => patchCommit(selSymbol.id, { extract: extract || undefined })}
-          controls={symbolControls(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
+          // every symbol on a storey tile has storeys – whatever its preset says about the badge
+          controls={stack ? new Set([...symbolControls(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat), 'floorRange']) : symbolControls(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
           titleOptions={symbolTitleOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
           fieldOptions={symbolFieldOptions(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat, rosterNames)}
           rosterRank={rosterRank}
@@ -4076,7 +4208,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <DrawEditor
           key={selDraw.id}
           readOnly={readOnly}
-          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
+          drawing={{ kind: selDraw.kind as 'draw' | 'area' | 'circle', radiusM: selCircleM, color: selDraw.color, width: selDraw.width, dashed: selDraw.dashed, label: selDraw.label, marker: selDraw.marker, arrow: selDraw.arrow, arrowStop: selDraw.arrowStop, showDistance: selDraw.showDistance, fillOpacity: selDraw.fillOpacity, hatch: selDraw.hatch, teilstueck: selDraw.teilstueck, content: selDraw.content, lineNo: selDraw.lineNo, floorTag: stack ? selDraw.floorTag ?? selDraw.floor ?? 0 : selDraw.floorTag, startAttachment: selDraw.startAttachment, endAttachment: selDraw.endAttachment }}
           pointCount={selDraw.pts?.length ?? 0}
           /* the distance toggle appears once the plan is calibrated against its printed scale bar */
           supportsDistance={calibrated}
@@ -4135,7 +4267,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
           onContent={(content) => patchCommit(selDraw.id, { content })}
           onLineNo={(lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
-          onFloorTag={(floorTag) => patchCommit(selDraw.id, { floorTag })}
+          // on the stack the line's storey is its tile: stepping it moves the line (its base floor;
+          // vertices that name their own storey keep it) rather than writing a badge
+          onFloorTag={stack
+            ? (floorTag) => { if (floorTag != null && floorsTTB.includes(floorTag)) patchCommit(selDraw.id, { floor: floorTag }) }
+            : (floorTag) => patchCommit(selDraw.id, { floorTag })}
           onTrupp={onLinkLineTrupp ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
           trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={annos.filter((a) => a.kind === 'draw' && a.id !== selDraw.id && a.lineNo != null).map((a) => a.lineNo!)}
@@ -4300,7 +4436,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
              georef fit comes «aus der Kartenverknüpfung» — the Gebäude's scale comes from its
              Grundriss, and the panel used to tell the operator about a link the stack has not got. */
           scaleNote={scaleAuto
-            ? georefFit ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint
+            ? georefFit || packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint
             : undefined}
         />
       )}
@@ -4346,11 +4482,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
              derived from geometry alone — no pairs, no residual — so there the tap says its
              hint as a toast instead of arming a panel that would come up empty. */
           ? <button className="wb-scale-chip wb-scale-status on"
-              title={georefFit ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint}
+              title={georefFit || packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint}
               aria-expanded={georefFit ? georefQuality : undefined}
               onClick={() => georefFit
                 ? setQualityFor(georefQuality ? null : activeId)
-                : toast(appConfig.copy.whiteboard.scale.chipAutoStackHint)}>
+                : toast(packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint)}>
               <Icon id="measure" />
               <span>{appConfig.copy.whiteboard.scale.chipAuto}</span>
             </button>
@@ -4468,4 +4604,32 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {georefArmed && !isPhone && <GeorefSplitSeam />}
     </div>
   )
+}
+
+/** One storey's Geschossplan page under its tile: the page raster (PdfViewport · planPreviewUrl,
+ *  which honours the URL's `#page=N`) drawn as a unit square mapped onto the page's three corners
+ *  in the footprint box – a similarity, so the page turns and scales with the building. */
+function FloorPage({ url, corners, clip, clipId, w, h, vw, vh }: {
+  url: string; corners: [[number, number], [number, number], [number, number]]
+  /** the visible part, in the frame's 0..1 box [x, y, w, h] – a region of a multi-floor sheet */
+  clip?: [number, number, number, number]; clipId?: string
+  w: number; h: number; vw: number; vh: number
+}) {
+  const [src, setSrc] = useState<string | null>(null) // keyed by url in the parent – a new page mounts anew
+  useEffect(() => {
+    let alive = true
+    // the full preview side (1800 px), not the tile's on-screen size: the stack zooms to 4× and a
+    // raster baked at tile size was mush at 2× (Bastian, 15.09.)
+    void planPreviewUrl(url, Math.max(vw, 3600), Math.max(vh, 3600), 3600).then((u) => { if (alive) setSrc(u) }).catch(() => { /* the outline alone, as before */ })
+    return () => { alive = false }
+  }, [url, vw, vh])
+  if (!src) return null
+  const [o, px, py] = corners
+  const m = [(px[0] - o[0]) * w, (px[1] - o[1]) * h, (py[0] - o[0]) * w, (py[1] - o[1]) * h, o[0] * w, o[1] * h]
+  const image = <image href={src} width={1} height={1} preserveAspectRatio="none" className="wb-floor-page" transform={`matrix(${m.map((v) => v.toFixed(4)).join(' ')})`} />
+  if (!clip || !clipId) return image
+  return <>
+    <clipPath id={clipId}><rect x={clip[0] * w} y={clip[1] * h} width={clip[2] * w} height={clip[3] * h} /></clipPath>
+    <g clipPath={`url(#${clipId})`}>{image}</g>
+  </>
 }

@@ -22,8 +22,8 @@ import { moduleNumbers } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
-import { carryDocked, isPlacard, nearestDockHost } from './lib/docking'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields } from './types'
+import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from './lib/docking'
+import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId } from './lib/ids'
@@ -54,7 +54,7 @@ import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
-import { toast, dismissToast, confirmDialog, undoToast } from './lib/ui'
+import { toast, confirmDialog, undoToast } from './lib/ui'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
 import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
@@ -135,6 +135,10 @@ import { planPreviewUrl, prewarmPlans } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
+import { stackGroundFit } from './lib/stackFit'
+import { floorPackOf, frameAspect } from './lib/floorPackBinding'
+import { buildingPackBinding } from './lib/buildingPackBinding'
+import { TILE_AR } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia,
@@ -148,7 +152,7 @@ import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from './lib/lineAttachments'
 import { centroid, rotateAround, turnedBy } from './lib/selectionTransform'
-import { leitungOptions, truppForLine, truppIsOut } from './lib/truppLines'
+import { leitungOptions, lineTakesTrupp, truppForLine, truppIsOut } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
@@ -572,6 +576,9 @@ export function IncidentWorkspace({
           if (c.entity) histSide.current.emit('entity.move', { id: c.id, coord: c.entity.coord })
           else if (c.drawing) histSide.current.emit('draw.edit', { id: c.id, patch: { coords: c.drawing.coords } })
         }
+      },
+      onForeignSheetEdit: (events) => {
+        for (const event of events) histSide.current.emit(event.op, event.payload)
       },
     },
   )
@@ -1093,11 +1100,6 @@ export function IncidentWorkspace({
   const toggleTwinLayer = (id: string) => persistTwinLayers({ ...twinLayers, [id]: !twinVisible(twinLayers, id) })
   // a Rapport checklist row navigated to Anwesenheit/Mittel → offer the one-tap way back
   const [rapportReturn, setRapportReturn] = useState(false)
-  // «Leitung wählen»: the Trupp waiting for a hose to be tapped. Ephemeral (never saved), and
-  // bound to the surface it was armed on — see pickTruppLine for why it no longer travels.
-  const [linePickTrupp, setLinePickTrupp] = useState<string | null>(null)
-  // the sticky hint pill belonging to that mode, so clearing the mode takes it off screen too
-  const linePickToast = useRef<number | null>(null)
   // the Verlauf drawer sits BELOW the Rapport sheet (z 61 vs 80), so opening it from the
   // checklist closes the sheet and reopens it when the Verlauf closes — a real round trip
   const [journalFromRapport, setJournalFromRapport] = useState(false)
@@ -1113,7 +1115,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => addPlanBindings(prev, proposed)) },
     legacyPlanIds,
@@ -2117,11 +2119,54 @@ export function IncidentWorkspace({
    *  them. It is the whole difference between «Referenz angepasst» and «Blattform gemessen» —
    *  see georefTwins · fitChangeCause for why the Verlauf reads the cause instead of assuming it. */
   const bakedPairs = useRef<string | null>(null)
+  // The Gebäude stack on the ground (lib/stackFit): one more fit in the map, keyed by the stack's
+  // plan id, so its tile ink bakes onto the Karte and the Karte's objects land on their storey
+  // tile. It comes from the BUILDING, not from a station reference – so it stays out of the
+  // reference bookkeeping below (signature, Verlauf rows) and re-bakes silently on its own effect.
+  const packBinding = useMemo(() => building?.pack
+    ? buildingPackBinding(building, planBindings)
+    : planBindings.find((binding) => binding.objectId === activeObjectId && binding.floors?.length) ?? null,
+  [building, planBindings, activeObjectId])
+  const floorPack = useMemo(() => floorPackOf(packBinding ? [packBinding] : [], packBinding?.objectId), [packBinding])
+  useEffect(() => {
+    if (building?.pack && !building.pack.bindingId && packBinding && !readOnly) {
+      setBuilding({ ...building, pack: { ...building.pack, bindingId: packBinding.id } })
+    }
+  }, [building, packBinding, readOnly, setBuilding])
+  const stackFit = useMemo(() => (building ? stackGroundFit(building, floorPack?.fit) : null), [building, floorPack])
+  // A floor pack IS the Gebäude (decided 14.09.2026): the moment the object's binding carries
+  // floors and there is no stack yet, the stack comes up from the pack's pages – no footprint to
+  // pick, no outline. A machine seed like the binding itself, so no toast and no undo step; an
+  // operator's footprint stack (an older incident, or picked on purpose) is left alone.
+  useEffect(() => {
+    if (building || !floorPack?.floors.length || !floorPack.aspect || readOnly) return
+    const names = Object.fromEntries(floorPack.floors.filter((f) => f.name).map((f) => [String(f.index), f.name as string]))
+    setBuilding({
+      ring: [], rings: [], ringAspect: frameAspect(floorPack.frame, floorPack.aspect),
+      pack: { bindingId: packBinding?.id, aspect: floorPack.aspect, ...(floorPack.frame.some((v, i) => v !== [0, 0, 1, 1][i]) ? { frame: floorPack.frame } : {}) },
+      floors: floorPack.floors.map((f) => f.index).sort((a, b) => a - b),
+      ...(Object.keys(names).length ? { floorNames: names } : {}),
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [building, floorPack, packBinding, readOnly])
+  const fitsMap = useMemo(() => {
+    const m = new Map<string, PlanFit>(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
+    if (stackFit && building) m.set(gebaeudeDoc.id, { fit: stackFit, aspect: 1 / TILE_AR, stack: { floors: building.floors } }) // aspect = width / height, like every sheet's
+    return m
+  }, [linkedPlans, stackFit, building])
+  const stackSig = stackFit && building ? `${fitSignature({ id: gebaeudeDoc.id, fit: stackFit, widthM: 0 } as Parameters<typeof fitSignature>[0])}|${building.floors.join(',')}` : ''
+  useEffect(() => {
+    planFitsRef.current = fitsMap
+    setFitsVersion((v) => v + 1)
+    if (!stackSig || readOnly || tacticalLocked) return
+    rebake({ checkpoint: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stackSig, readOnly, tacticalLocked])
   useEffect(() => {
     // ⚠️ ABOVE the guard, both of them. The fits and the version that carries them into the
     // memos are what every surface RENDERS through (lib/useObjectStore · board); only writing
     // derived geometry back into the record is an editor's privilege.
-    planFitsRef.current = new Map(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
+    planFitsRef.current = fitsMap
     // ⚠️ Taken FIRST, above every early return, because the taking is what disarms it. A refused
     // write that changed no fit — a Massstab on some other plan — notifies this effect just the
     // same, and a flag left standing there would have made the operator's NEXT real correction
@@ -2317,6 +2362,10 @@ export function IncidentWorkspace({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
+    // a Leitung end snapped onto a Trupp's marker IS the Leitung pick (15.09.) — the same call
+    // the Plan makes from its own magnet (Whiteboard · onLineAttached)
+    onLineAttached: (lineId, attachment) => { linkLineToAttachedTrupp(lineId, attachment) },
+    onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
   })
   const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
     if (!drawing) return
@@ -3368,35 +3417,71 @@ export function IncidentWorkspace({
     // none of those were placed by the hand that dragged this (lib/tacticalObjects · movedIds).
     }), { movedIds: [id] })
   }
-  const finishEntityMove = (id: string, c: LngLat) => {
+  const finishEntityMove = (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } }))
     else {
       // Andocken (lib/docking, Feldtest Manuel 07.09.): a Gefahrentafel dropped beside a
       // dockable object becomes its placard; dropped in the open, an existing bond lets go.
       // Decided here, once, on release — never re-resolved — and the whole answer folds into
-      // the same undo step as the move itself.
+      // the same undo step as the move itself. Since 15.09. a Trupp marker docks the same way:
+      // «bei «Hydrant»» on its card, and it rides along when the symbol is moved.
       const ent = doc.entities.find((x) => x.id === id)
       const map = mapRef.current
       let dockPatch: { dockedTo: string | undefined } | null = null
       let dockHost: Entity | undefined
-      if (isPlacard(ent) && map) {
-        dockHost = nearestDockHost(c, doc.entities.filter((e) => e.id !== id), (p) => map.project(p)) ?? undefined
+      if (isDockable(ent) && map) {
+        const others = doc.entities.filter((e) => e.id !== id)
+        const near = () => nearestDockHost(c, others, (p) => map.project(p), dockRadiusFor(ent)) ?? undefined
+        // a Trupp marker docks only through a CLOSED ring (MapView · trackDockAim); with the ring
+        // still open the drop keeps an existing bond while it is in reach and lets go beyond it
+        dockHost = dock === undefined ? near()
+          : dock ? others.find((e) => e.id === dock.hostId)
+          : (ent?.dockedTo && near()?.id === ent.dockedTo ? near() : undefined)
         if ((dockHost?.id ?? undefined) !== ent?.dockedTo) dockPatch = { dockedTo: dockHost?.id }
       }
+      // Ein Trupp auf dem Leitungsende (15.09.): dropping a Trupp's marker on the FREE end of a
+      // hose joins the two, the same link snapping the hose onto the marker makes — the picture
+      // is the pick, from whichever side the operator happens to work.
+      // ⚠️ The aim is NOT re-computed here. The Karte drew the blue ring while the marker
+      // travelled and it is the one that knows whether the ring actually CLOSED — «not armed =
+      // nothing attaches, not even on release» (MapView · trackTeamJoin). Guessing a second time
+      // at the drop point is how this coupled hoses nobody had aimed at. It is still folded into
+      // the move's own undo step, as one gesture.
+      // ⚠️ …and ONE Trupp per Leitung (lib/truppLines · lineTakesTrupp, 15.09.): a hose that
+      // already has a crew takes no second one, not even the same one at its other end. The ring
+      // is not offered for such an end in the first place (MapView · freeHoseEnds), so this is
+      // the floor under a stale aim — the map never silently replaces a crew, which is the
+      // Atemschutz board's job and asks first.
+      const hoseJoin = ent?.kind === 'team' && ent.truppId
+        && (!join || lineTakesTrupp(doc.drawings.find((dr) => dr.id === join.lineId) ?? { id: join.lineId }, trupps))
+        ? (join ?? null) : null
+      const hoseKey = hoseJoin?.endpoint === 'start' ? 'startAttachment' : 'endAttachment'
+      // the marker's own trace-routed coupling, written exactly as the endpoint magnet writes one
+      const hoseAttachment: LineAttachment = { target: { kind: 'object', id }, routing: 'trace' }
       // a moved team marker re-stamps its «last moved» time; it does NOT breadcrumb
       setDocRaw((d) => ({
         ...d,
         entities: carryDocked(d.entities, id, d.entities.find((e) => e.id === id)?.coord ?? c, c)
           .map((e) => (e.id === id ? { ...e, coord: c, ...(dockPatch ?? {}), ...(e.kind === 'team' ? { t: formatTime(new Date()) } : {}) } : e)),
+        drawings: hoseJoin
+          ? d.drawings.map((dr) => (dr.id === hoseJoin.lineId ? { ...dr, [hoseKey]: hoseAttachment } : dr))
+          : d.drawings,
       }), { movedIds: [id] })
       endDrag()
+      if (hoseJoin && ent?.truppId) {
+        emit('draw.attach', { id: hoseJoin.lineId, endpoint: hoseJoin.endpoint, attachment: hoseAttachment })
+        // …and the link itself, unless this hose is already anchored to this very Trupp — nudging
+        // the marker beside its own Leitung is not a new fact, and every link writes a Verlauf row
+        if (doc.drawings.find((dr) => dr.id === hoseJoin.lineId)?.truppId !== ent.truppId) linkTruppLine(ent.truppId, hoseJoin.lineId)
+      }
       if (dockPatch) {
         const name = ent?.label || appConfig.copy.entities.fallbackObjectName
         const hostName = (dockHost ?? doc.entities.find((e) => e.id === ent?.dockedTo))?.label
           || appConfig.copy.entities.fallbackObjectName
-        log('select', fillTemplate(dockHost ? appConfig.copy.log.placardDocked : appConfig.copy.log.placardUndocked,
-          { name, host: hostName }), 'symbol', undefined, id)
+        const L = appConfig.copy.log
+        log('select', fillTemplate(isPlacard(ent) ? (dockHost ? L.placardDocked : L.placardUndocked) : (dockHost ? L.teamDocked : L.teamUndocked),
+          { name, host: hostName }), isPlacard(ent) ? 'symbol' : 'team', undefined, id)
         emit('entity.edit', { id, patch: dockPatch })
       }
       // …and the placards this host carried along re-emit like the trace-routed lines below
@@ -3410,6 +3495,29 @@ export function IncidentWorkspace({
     emit(liveIds.has(id) ? 'entity.edit' : 'entity.move', { id, coord: c })
     drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id && a.routing === 'trace'))
       .forEach((d) => emit('draw.edit', { id: d.id, patch: { coords: d.coords } }))
+  }
+  /**
+   * «Lösen» on an angedockter Trupp, from the HOST symbol's panel (15.09.2026).
+   *
+   * The exact inverse of the drop that made the bond, and it reports itself the same way that
+   * drop does — the `teamUndocked` Verlauf row — plus the confirm-with-undo toast the marker's
+   * own «Lösen» wears: the bond is a document write, but a bond broken by a tap on a list of
+   * rows deserves the same one-shot way back as one broken by a drag.
+   * The marker keeps its coordinate and simply stands on it again (lib/docking · dockSlotOffset:
+   * only the RENDERED position was ever snapped to the host's corner).
+   */
+  const undockTeam = (entityId: string) => {
+    const ent = doc.entities.find((e) => e.id === entityId)
+    const hostId = ent?.dockedTo
+    if (!ent || !hostId) return
+    const L = appConfig.copy.log
+    const line = fillTemplate(L.teamUndocked, {
+      name: ent.label || appConfig.copy.entities.fallbackObjectName,
+      host: doc.entities.find((e) => e.id === hostId)?.label || appConfig.copy.entities.fallbackObjectName,
+    })
+    patchEntity(entityId, { dockedTo: undefined })
+    log('select', line, 'team', undefined, entityId)
+    undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }))
   }
   /**
    * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
@@ -3522,7 +3630,7 @@ export function IncidentWorkspace({
     trupps: () => truppsRef.current,
   })
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors, setTruppColor } =
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } =
     useTruppActions({
       trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
@@ -3612,70 +3720,6 @@ export function IncidentWorkspace({
   // The Trupp symbols that already stand somewhere, for the placement picker. A function, like
   // the Leitung quick-picks: «gehört zu» has to ignore the Trupp being placed itself.
   const truppMarkerOptions = (exceptTruppId?: string) => markerOptions(placed, effTrupps, exceptTruppId)
-  /* Is there a hose drawn ANYWHERE? «Leitung wählen» takes the operator off the Atemschutz board
-   * and asks them to tap one — with nothing drawn, that is an instruction that cannot be followed,
-   * and the board comes back with the pick still armed. So the row is only offered once there is
-   * something to hit. Deliberately NOT `truppLeitungOptions()`: that lists NUMBERED Leitungen for
-   * the form's quick-picks, while the pick accepts any drawn hose and stamps the number itself —
-   * the same predicate linkTruppLine answers to (useTruppActions). */
-  const anyLeitung = useMemo(
-    () => drawings.some((d) => d.kind === 'line') || Object.values(board).some((as) => as.some((a) => a.kind === 'draw')),
-    [drawings, board],
-  )
-  /* «Leitung wählen»: arm the pick and leave the Atemschutz board for the Karte — there is
-   * nothing to tap on the board itself.
-   *
-   * ⚠️ The arming no longer SURVIVES a surface switch (05.09.). It used to, so a hose drawn on a
-   * plan was reachable too — but nothing then took it back down: the hint toast is gone after six
-   * seconds, the mode is invisible, and every later tap on the Karte or the Kroki was swallowed by
-   * a pick nobody remembered arming. A surface that stops opening its own symbols, at 3am, with no
-   * chrome saying why, is the worse of the two. So the pick belongs to the ONE surface it was
-   * armed on (see the effect below); a hose on a plan is linked from the line's own editor
-   * («Gehört zu Trupp …», DrawEditor), which is the other half of this pair and always was. */
-  const linePickSurface = useRef<string>('')
-  const pickTruppLine = (id: string) => {
-    const az = appConfig.copy.atemschutz
-    linePickSurface.current = 'map'
-    setLinePickTrupp(id)
-    setMode('map')
-    // land in Auswahl: with a draw tool still active from earlier, the aiming tap would start a
-    // new line instead of picking the one that is already there
-    setTool('select'); setPending(null); setPendingShape(null); setDraft([])
-    // sticky: the toast IS the way out of an otherwise invisible mode, so it stays for as long as
-    // the mode does — a six-second pill left the operator armed with nothing left saying so. It is
-    // dismissed wherever the pick is cleared (see below).
-    linePickToast.current = toast(az.linePickHint, {
-      icon: 'drop', sticky: true,
-      action: { label: az.linePickCancel, onClick: () => setLinePickTrupp(null) },
-      // the pill IS the mode's only chrome, so closing it however (✕, swipe) ends the mode too —
-      // idempotent against the teardown effect below, which dismisses this very toast
-      onDismiss: () => setLinePickTrupp(null),
-    })
-  }
-  // A tap that did NOT land on a hose (a Fläche, the Absperrkreis, a freehand stroke) leaves the
-  // pick armed: the operator aimed and missed, and disarming here would look like the feature
-  // silently failed. The toast's «Abbrechen» is the way out.
-  const onLinePicked = (lineId: string) => {
-    if (!linePickTrupp) return
-    if (linkTruppLine(linePickTrupp, lineId)) setLinePickTrupp(null)
-  }
-  // Leaving the surface the pick was armed on disarms it — switching mode, or paging to another
-  // plan. The comparison is against the surface RECORDED at arming (pickTruppLine jumps to the
-  // Karte itself, and that jump must not read as walking away from it).
-  useEffect(() => {
-    if (!linePickTrupp) return
-    const here = mode === 'plans' ? `plans:${activePlanId}` : mode
-    if (here !== linePickSurface.current) setLinePickTrupp(null)
-  }, [mode, activePlanId, linePickTrupp])
-  // …and the hint goes with the mode, however the mode ended: linked, cancelled, or left behind —
-  // including by this workspace unmounting under it (closing the Einsatz), which would otherwise
-  // leave a sticky pill on screen pointing at a Trupp that is no longer on it.
-  useEffect(() => {
-    if (linePickTrupp || linePickToast.current == null) return
-    dismissToast(linePickToast.current)
-    linePickToast.current = null
-  }, [linePickTrupp])
-  useEffect(() => () => { if (linePickToast.current != null) dismissToast(linePickToast.current) }, [])
   // --- Anwesenheit (attendance over the Divera Mannschaft) ---
   // Roster is session-loaded; attendance rides the per-incident workspace blob. Marking
   // is append-only in spirit: a no-op tap never logs, "Gegangen" keeps the earlier presence,
@@ -4287,9 +4331,13 @@ export function IncidentWorkspace({
       leitungOptions={asLink ? () => [] : truppLeitungOptions}
       truppColors={truppColors()}
       showTruppLine={showTruppLine} truppsWithLine={truppsWithLine()} lineNoOf={truppLineNos()}
-      pickTruppLine={pickTruppLine} unlinkTruppLine={unlinkTruppLine}
-      // …and «Leitung wählen» is only offered while there is a hose to tap (see anyLeitung)
-      anyLeitung={anyLeitung}
+      unlinkTruppLine={unlinkTruppLine}
+      // where each placed Trupp's marker stands, if it is docked to a symbol (lib/docking)
+      dockedAt={new Map(doc.entities.flatMap((e) => {
+        if (e.kind !== 'team' || !e.truppId || !e.dockedTo) return []
+        const host = doc.entities.find((h) => h.id === e.dockedTo)
+        return host ? [[e.truppId, host.label || appConfig.copy.entities.fallbackObjectName] as const] : []
+      }))}
       // the ONE slice an Atemschutz-Link may write — see canEditTrupps
       canEdit={canEditTrupps}
       personnel={pickablePersonnel}
@@ -4452,17 +4500,40 @@ export function IncidentWorkspace({
           }}
           onTeamNewTrupp={tacticalLocked ? undefined : newTruppFromMarker}
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
-          // ⚠️ The LAST colour picker in the app (04.09.): the marker on the Karte, and only it.
-          // The Trupp form stopped asking, the plan chip and both mirrors never offer it — this
-          // is the deliberate exception, because the Lage is where a colour is actually read.
-          // A marker bound to a Trupp paints the TRUPP (board card + plan chip follow); a loose
-          // team marker has no Trupp to write, so it just takes the colour itself.
-          onTeamColor={tacticalLocked ? undefined : (e, c) => {
-            if (e.truppId) setTruppColor(e.truppId, c)
-            else patchEntity(e.id, { color: c ?? undefined })
-          }}
           onTeamRename={tacticalLocked ? undefined : renameTeam}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
+          // «Lösen» on a joined Trupp marker: it lets go of the Leitung on BOTH sides (anchor +
+          // the Trupp's own number), which is a Trupp-record write and therefore outside the
+          // Karte's document undo — so it quits with the confirm-with-undo toast one-shot ops
+          // use here, and re-linking is the exact inverse call.
+          onTeamUnlink={tacticalLocked ? undefined : (entityId, lineId) => {
+            const marker = doc.entities.find((e) => e.id === entityId)
+            const truppId = marker?.truppId
+            if (!truppId) return
+            // …and the hose lets go of the marker with it (useTruppActions · unlinkTruppLine)
+            unlinkTruppLine(truppId)
+            // …and the marker steps away from the end it just left (15.09., «places it away»), so
+            // the two do not keep standing on one pixel looking joined. The hose end stays put.
+            const map = mapRef.current
+            if (map && marker?.coord) {
+              const p = map.project(marker.coord)
+              const c = map.unproject([p.x + 36, p.y + 36])
+              patchEntity(entityId, { coord: [c.lng, c.lat] })
+            }
+            undoToast(appConfig.copy.atemschutz.lineUnlinkedToast, () => { linkTruppLine(truppId, lineId) })
+          }}
+          // the pill's «Lösen» for the OTHER bond (15.09.): a docked marker lets go of its symbol
+          // without the detail sheet – dragging cannot part them any more, it moves both
+          onTeamUndock={tacticalLocked ? undefined : (entityId) => {
+            const marker = doc.entities.find((e) => e.id === entityId)
+            const host = doc.entities.find((e) => e.id === marker?.dockedTo)
+            if (!marker?.dockedTo) return
+            patchEntity(entityId, { dockedTo: undefined })
+            log('select', fillTemplate(appConfig.copy.log.teamUndocked, {
+              name: marker.label || appConfig.copy.entities.fallbackObjectName,
+              host: host?.label || appConfig.copy.entities.fallbackObjectName,
+            }), 'team', undefined, entityId)
+          }}
           preparedOverlays={mapOverlays}
           onSelectionDone={finishSelection}
           // the linked sheets themselves, as a raster backdrop under the ink — a picture of the
@@ -4526,8 +4597,6 @@ export function IncidentWorkspace({
           selectedDrawingId={selectedDrawingId}
           flashDrawingId={flashDrawingId}
           onSelectDrawing={(id, at) => {
-            // «Leitung wählen» armed → this tap assigns the hose to the waiting Trupp
-            if (linePickTrupp) { onLinePicked(id); return }
             // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for
             // a drawing too big for its bounds to mean anything. Any other way into the selection
             // (Verlauf jump, a just-finished stroke) leaves a stale id here and is simply ignored.
@@ -4986,8 +5055,8 @@ export function IncidentWorkspace({
           onFields={(fields) => { patchEntity(selected.id, { fields }); linkRosterFields(selected, fields) }}
           onNotes={!selected.live ? (v) => patchEntity(selected.id, { notes: v || undefined }) : undefined}
           onFloor={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: f ?? undefined }) : undefined}
-          onFloorFrom={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floorFrom: f ?? undefined }) : undefined}
-          onFloorTo={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floorTo: f ?? undefined }) : undefined}
+          onFloorFrom={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: undefined, floorFrom: f ?? undefined, floorTo: selected.floorTo ?? selected.floor }) : undefined}
+          onFloorTo={selected.kind === 'symbol' && !selected.live ? (f) => patchEntity(selected.id, { floor: undefined, floorFrom: selected.floorFrom ?? selected.floor, floorTo: f ?? undefined }) : undefined}
           onSpread={selected.kind === 'symbol' && !selected.live ? (s) => patchEntity(selected.id, { spread: s ?? undefined }) : undefined}
           onCount={selected.kind === 'symbol' && !selected.live ? (n) => patchEntity(selected.id, { count: n && n > 1 ? n : undefined }) : undefined}
           onRotate={selected.kind === 'symbol' && !selected.live ? (deg) => patchEntity(selected.id, { rotation: deg ?? undefined }) : undefined}
@@ -5007,6 +5076,23 @@ export function IncidentWorkspace({
           // gesture that made the bond draws nothing, so this row is where it becomes visible.
           dockedToLabel={selected.dockedTo ? doc.entities.find((e) => e.id === selected.dockedTo)?.label || appConfig.copy.entities.fallbackObjectName : undefined}
           onUndock={selected.dockedTo && !tacticalLocked ? () => patchEntity(selected.id, { dockedTo: undefined }) : undefined}
+          // …and the same bond from the HOST's side: the Trupps standing on THIS symbol, one row
+          // each, worded «Trupp 4 · bei «Hydrant»» so a row names both sides before «Lösen»
+          // separates them — the mirror of the marker's own join slot (components/TwinTeamPill).
+          dockedTeams={doc.entities.flatMap((e) => {
+            if (e.kind !== 'team' || e.dockedTo !== selected.id) return []
+            const no = effTrupps.find((t) => t.id === e.truppId)?.no
+            return [{
+              id: e.id,
+              label: fillTemplate(appConfig.copy.atemschutz.dockLabel, {
+                who: no != null
+                  ? fillTemplate(appConfig.copy.atemschutz.truppTerm, { name: String(no) })
+                  : e.label || appConfig.copy.entities.fallbackObjectName,
+                host: selected.label || appConfig.copy.entities.fallbackObjectName,
+              }),
+              onRelease: tacticalLocked ? undefined : () => undockTeam(e.id),
+            }]
+          })}
           onRotate2={selected.kind === 'symbol' && !selected.live ? (deg) => patchEntity(selected.id, { rotation2: deg ?? undefined }) : undefined}
           onCaption={selected.kind === 'symbol' && !selected.live ? (m) => patchEntity(selected.id, { caption: m }) : undefined}
           captionDefault={symbolCaptions ?? 'auto'}
@@ -5465,6 +5551,7 @@ export function IncidentWorkspace({
           annos={(replayActive ? replayBoard : board)?.[activePlanId] ?? []}
           onChange={(next) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next })) }}
           building={replayActive ? replayBuilding : building}
+          floorPack={floorPack}
           onSelectBuilding={async (src, orientDeg, geo) => {
             // Picking new footprint(s) changes the building under the floor-stack — usually an
             // AMENDMENT (a Nebengebäude added, a wrong footprint dropped), not a fresh start.
@@ -5505,7 +5592,13 @@ export function IncidentWorkspace({
             // auto-orient to longest-axis-horizontal by default; rings/ring/ringAspect
             // mirror the active (oriented) view for back-compat renderers + the north arrow
             const view = buildView(src, orientDeg)
-            setBuilding({ src, orientDeg, geo, northUp: false, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect, floors: amend.floors })
+            // a FRESH stack takes its storeys and names from the object's floor pack (decided
+            // 14.09.2026); an amendment keeps what the operator already has
+            const pack = prevBuilding ? null : floorPackOf(planBindings, activeObjectId)
+            const floors = pack?.floors.length ? pack.floors.map((f) => f.index).sort((a, b) => a - b) : amend.floors
+            const floorNames = pack ? Object.fromEntries(pack.floors.filter((f) => f.name).map((f) => [String(f.index), f.name as string])) : prevBuilding?.floorNames
+            const nextBuilding: BuildingDoc = { src, orientDeg, geo, northUp: false, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect, floors, ...(floorNames && Object.keys(floorNames).length ? { floorNames } : {}) }
+            setBuilding(nextBuilding)
             setBoard((b) => ({ ...b, gebaeude: amend.annos }))
             setActivePlanId('gebaeude') // auto-jump to the floor-stack
             if (hasWork) {
@@ -5516,7 +5609,6 @@ export function IncidentWorkspace({
                 : amend.dropped > 0 ? fillTemplate(wb.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
                 : markCount > 0 ? fillTemplate(wb.buildingReplacedCarried, { n: amend.carried })
                 : wb.buildingReplacedKept
-              const nextBuilding = { src, orientDeg, geo, northUp: false, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect, floors: amend.floors }
               const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) }
               const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: amend.annos })) }
               const drop = rememberGebaeudeStep(line, restore, reapply)
@@ -5529,7 +5621,7 @@ export function IncidentWorkspace({
           onBuildingFace={(face) => setActivePlanId(face === 'pick' ? BUILDING_PICK_ID : gebaeudeDoc.id)}
           onReorient={(next) => setBuilding(next)}
           onAddFloor={(dir) => {
-            if (!building) return
+            if (!building || building.pack) return
             const prevBuilding = building
             const newFloor = dir > 0 ? Math.max(...building.floors) + 1 : Math.min(...building.floors) - 1
             const nextBuilding = { ...prevBuilding, floors: dir > 0 ? [...prevBuilding.floors, newFloor] : [newFloor, ...prevBuilding.floors] }
@@ -5541,6 +5633,7 @@ export function IncidentWorkspace({
             undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
           }}
           onRemoveFloor={(floor) => {
+            if (building?.pack || floorPack?.tiles[floor]) return
             const prevBuilding = building
             const prevGebaeude = board.gebaeude ?? []
             const resolvedBeforeRemoval = new Map(resolvePlanAnnos(prevGebaeude).map((a) => [a.id, a]))
@@ -5622,8 +5715,11 @@ export function IncidentWorkspace({
             else releaseTruppMarker(annoId)
           }}
           onTeamNewTrupp={tacticalLocked ? undefined : newTruppFromMarker}
-          onPickLine={linePickTrupp ? onLinePicked : undefined}
           onLinkLineTrupp={(annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
+          // a Leitung end snapped onto a Trupp's chip IS the Leitung pick (15.09.) — the same
+          // call the Karte makes from its own magnet (lib/useMapDrawing · onLineAttached)
+          onLineAttached={(annoId, attachment) => { linkLineToAttachedTrupp(annoId, attachment) }}
+          onLineDetached={(annoId, previous) => { unlinkLineFromDetachedTrupp(annoId, previous) }}
           onLineRenumber={syncLineNoToTrupp}
           // the plan chip's twin of the map marker's jump — it points at the card too
           onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
