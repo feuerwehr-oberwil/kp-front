@@ -36,6 +36,7 @@ vi.mock('./SetupChecklist', () => ({ SetupChecklist: () => null }))
 
 import { SystemView } from './SystemView'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 
 const C = appConfig.copy.admin.system
 
@@ -202,7 +203,8 @@ describe('the Azure client secret', () => {
     })
     render(<SystemView />)
 
-    expect(await screen.findByText(/21/)).toBeTruthy()
+    // the badge's own sentence – a bare /21/ also matches the clock after 21:00
+    expect(await screen.findByText(fillTemplate(appConfig.copy.admin.system.spSecretExpires, { days: '21' }))).toBeTruthy()
   })
 
   it('says the connector has stopped once it has expired', async () => {
