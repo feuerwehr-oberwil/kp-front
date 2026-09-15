@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { loadDocTimed, pdfWorkerUrl, PdfFailDetail, usePdfLoad } from './PdfViewport'
 import { diagnosePdfFailure } from '../lib/pdfDiagnosis'
-import { canvasScale, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '../lib/pdfZoom'
+import { anchorScroll, canvasScale, pageAnchorAt, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, type Box, type PageAnchor } from '../lib/pdfZoom'
 import { RetryButton } from './RetryButton'
 import s from './PdfScroller.module.css'
 
@@ -25,6 +25,10 @@ import s from './PdfScroller.module.css'
 const DPR = () => Math.min(window.devicePixelRatio || 1, 2)
 const MAX_COL_W = 1100 // cap the page column so wide screens don't render huge canvases
 
+/** The page boxes of the column, for the anchor maths in lib/pdfZoom. */
+const pageBoxes = (host: HTMLElement | null): Box[] =>
+  host ? Array.from(host.children).map((c) => c.getBoundingClientRect()) : []
+
 export function PdfScroller({ url }: { url: string }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const pagesRef = useRef<HTMLDivElement>(null)
@@ -33,19 +37,29 @@ export function PdfScroller({ url }: { url: string }) {
   const [zoom, setZoom] = useState(1)
   const zoomRef = useRef(1)
   zoomRef.current = zoom
-  /** zoom to `next`, keeping the point at `focal` (viewport px inside the scroller) in place */
+  /** zoom to `next`, keeping the point at `focal` (viewport px inside the scroller) in place.
+   *
+   *  ⚠️ Anchored to the PAGE under the focal point, not to the scroll origin (15.09.2026). The
+   *  column's padding (the rail lanes, the top bar's lane), the 12px gaps and the fit's centring
+   *  do not scale with the pages – so «scroll × ratio» landed somewhere else on a phone, most
+   *  visibly on the tall stitched Modul 6. What the fingers hold is a spot ON A PAGE: remember
+   *  which page and where on it (as fractions), and once the pages are laid out at the new size,
+   *  put that spot back under the same viewport point (`anchorScroll`). */
   const zoomTo = (next: number, focal?: { x: number; y: number }) => {
     const el = wrapRef.current
     const from = zoomRef.current
     if (next === from) return
     if (el) {
       const f = focal ?? { x: el.clientWidth / 2, y: el.clientHeight / 2 }
-      const target = scrollAfterZoom({ left: el.scrollLeft, top: el.scrollTop }, f, next / from)
-      pendingScroll.current = target
+      const r = el.getBoundingClientRect()
+      const anchor = pageAnchorAt(pageBoxes(pagesRef.current), { x: r.left + f.x, y: r.top + f.y })
+      pendingScroll.current = anchor
+        ? { anchor, focal: f }
+        : { fallback: scrollAfterZoom({ left: el.scrollLeft, top: el.scrollTop }, f, next / from) }
     }
     setZoom(next)
   }
-  const pendingScroll = useRef<{ left: number; top: number } | null>(null)
+  const pendingScroll = useRef<{ anchor: PageAnchor; focal: { x: number; y: number } } | { fallback: { left: number; top: number } } | null>(null)
   // status / «Erneut laden» / retry — the same machine the board's PdfViewport runs on
   const { status, setStatus, fail, setFail, attempt, slow, retry } = usePdfLoad(url)
 
@@ -100,8 +114,18 @@ export function PdfScroller({ url }: { url: string }) {
         if (cancelled) return
         host.replaceChildren(frag) // swap in atomically (also clears a prior render)
         host.style.transform = '' // a pinch preview, if one was up, is now the real thing
-        const target = pendingScroll.current
-        if (target && wrapRef.current) { pendingScroll.current = null; wrapRef.current.scrollTo(target) }
+        const pending = pendingScroll.current
+        if (pending && wrapRef.current) {
+          pendingScroll.current = null
+          const el = wrapRef.current
+          let target: { left: number; top: number } | null = null
+          if ('fallback' in pending) target = pending.fallback
+          else {
+            const page = host.children[pending.anchor.index]
+            if (page) target = anchorScroll(el.getBoundingClientRect(), { left: el.scrollLeft, top: el.scrollTop }, page.getBoundingClientRect(), pending.anchor, pending.focal)
+          }
+          if (target) el.scrollTo(target)
+        }
         setStatus('ready')
       })
       .catch((err: unknown) => {

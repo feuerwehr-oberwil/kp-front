@@ -53,3 +53,36 @@ export function scrollAfterZoom(scroll: { left: number; top: number }, focal: { 
     top: Math.max(0, (scroll.top + focal.y) * ratio - focal.y),
   }
 }
+
+// ── keeping the spot under the fingers while the pages re-lay out at a new zoom ─────────────
+// The column's padding, gaps and centring do not scale with the pages, so a scroll position
+// cannot simply be multiplied (PdfScroller · zoomTo). What scales is a spot ON A PAGE.
+
+/** A spot on one page of the column: which page, and where on it as fractions of its size. */
+export interface PageAnchor { index: number; fx: number; fy: number }
+/** A box in viewport px – the shape of a DOMRect, kept minimal so tests can build one. */
+export interface Box { left: number; top: number; width: number; height: number }
+
+/** The page under `point` (viewport px) and the spot on it – the page nearest vertically when
+ *  the point is in a gap or the padding. Null with no pages. */
+export function pageAnchorAt(pages: readonly Box[], point: { x: number; y: number }): PageAnchor | null {
+  let best: { index: number; gap: number } | null = null
+  pages.forEach((p, index) => {
+    const gap = point.y < p.top ? p.top - point.y : point.y > p.top + p.height ? point.y - (p.top + p.height) : 0
+    if (!best || gap < best.gap) best = { index, gap }
+  })
+  if (!best) return null
+  const { index } = best as { index: number }
+  const p = pages[index]
+  return { index, fx: (point.x - p.left) / Math.max(1, p.width), fy: (point.y - p.top) / Math.max(1, p.height) }
+}
+
+/** The scroll position that puts `anchor` – on `page`, as laid out now – back under `focal`.
+ *  `page` and `scroller` are viewport boxes; `scroll` is the scroller's current offset. */
+export function anchorScroll(
+  scroller: Box, scroll: { left: number; top: number }, page: Box, anchor: PageAnchor, focal: { x: number; y: number },
+): { left: number; top: number } {
+  const spotX = page.left - scroller.left + scroll.left + anchor.fx * page.width
+  const spotY = page.top - scroller.top + scroll.top + anchor.fy * page.height
+  return { left: Math.max(0, spotX - focal.x), top: Math.max(0, spotY - focal.y) }
+}

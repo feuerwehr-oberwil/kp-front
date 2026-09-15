@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canvasScale, clampZoom, MAX_CANVAS_PX, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_MAX } from './pdfZoom'
+import { canvasScale, clampZoom, MAX_CANVAS_PX, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_MAX, anchorScroll, pageAnchorAt } from './pdfZoom'
 
 describe('pdfZoom – the reader zooms between fit and 4×', () => {
   it('steps multiply, clamp, and snap back to exactly 1 near the fit', () => {
@@ -48,5 +48,36 @@ describe('pdfZoom – the reader zooms between fit and 4×', () => {
     expect(pageCanvasBudget(5)).toBe(MAX_CANVAS_PX)
     expect(pageCanvasBudget(30)).toBe(3_200_000)
     expect(pageCanvasBudget(0)).toBe(MAX_CANVAS_PX)
+  })
+})
+
+// A pinch keeps the spot under the fingers (15.09.2026): the column's padding and gaps do not
+// scale with the pages, so the scroll is re-derived from a spot ON a page, not multiplied.
+describe('the page anchor under a zoom', () => {
+  const pages = [
+    { left: 20, top: 88, width: 300, height: 400 },
+    { left: 20, top: 500, width: 300, height: 400 },
+  ]
+  it('finds the page and the spot on it as fractions', () => {
+    expect(pageAnchorAt(pages, { x: 170, y: 288 })).toEqual({ index: 0, fx: 0.5, fy: 0.5 })
+    expect(pageAnchorAt(pages, { x: 20, y: 900 })).toEqual({ index: 1, fx: 0, fy: 1 })
+  })
+  it('a point in the gap or padding anchors to the nearest page', () => {
+    expect(pageAnchorAt(pages, { x: 100, y: 497 })?.index).toBe(1)
+    expect(pageAnchorAt(pages, { x: 100, y: 10 })?.index).toBe(0)
+    expect(pageAnchorAt([], { x: 0, y: 0 })).toBeNull()
+  })
+  it('puts the spot back under the focal point once the page is twice as big', () => {
+    const scroller = { left: 0, top: 0, width: 390, height: 800 }
+    // page 0 laid out at 2×, scrolled to 0: its origin is at content (20, 88), size 600×800
+    const zoomed = { left: 20, top: 88, width: 600, height: 800 }
+    const anchor = { index: 0, fx: 0.5, fy: 0.5 }
+    const focal = { x: 170, y: 288 }
+    expect(anchorScroll(scroller, { left: 0, top: 0 }, zoomed, anchor, focal)).toEqual({ left: 150, top: 200 })
+    // …and when the scroller was already scrolled, the page box moved with it – same answer
+    expect(anchorScroll(scroller, { left: 40, top: 100 }, { ...zoomed, left: -20, top: -12 }, anchor, focal)).toEqual({ left: 150, top: 200 })
+  })
+  it('never asks for a negative scroll', () => {
+    expect(anchorScroll({ left: 0, top: 0, width: 390, height: 800 }, { left: 0, top: 0 }, { left: 20, top: 88, width: 300, height: 400 }, { index: 0, fx: 0, fy: 0 }, { x: 170, y: 288 })).toEqual({ left: 0, top: 0 })
   })
 })
