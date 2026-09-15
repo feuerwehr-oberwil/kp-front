@@ -363,6 +363,8 @@ class PlanPageIn(BaseModel):
 
     label: str
     url: str | None = None
+    #: 0-based page of the PDF – a floor-pack sheet is one page of its Modul-6 PDF
+    page: int = 0
     annos: list[PlanAnnoIn] = []
     # Gebäude floor-stack pages have no PDF: a white base of this aspect (h/w) instead,
     # with outline/labels/dial travelling as regular annos (composed client-side)
@@ -2103,7 +2105,7 @@ def compose_report_pdf(
 
             rendered = (
                 kk.render_plan_page(
-                    pdf_bytes, [a.model_dump() for a in pp.annos], kk.get_pack(), legend_out=plan_legend
+                    pdf_bytes, [a.model_dump() for a in pp.annos], kk.get_pack(), legend_out=plan_legend, page=pp.page
                 )
                 if pdf_bytes
                 else kk.render_blank_page(

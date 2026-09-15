@@ -523,6 +523,39 @@ class PlanAlignment(Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class PlanPageFloor(Base):
+    """One floor of the building on a plan revision (decided 14.09.2026, regions 14.09. evening).
+
+    A revision with any row here is a *floor pack*: each row is a Geschoss with a stable signed
+    ``floor_index`` (0 = reference level, +1 above, -1 below), an optional operator name
+    («Hauptebene»), and WHERE it is drawn: a ``page``, and – on an A0/A1 sheet that carries
+    several floors – a ``clip`` rectangle on that page (normalized [x0, y0, x1, y1]) and a
+    ``join``: this floor's drawing meets ANOTHER floor's drawing at one point pair – ``at`` on this
+    one, ``there`` on floor ``to`` (the staircase on both, say) – which is what lines the drawings
+    up on each other, chained floor by floor from the reference; the pack's one map fit is
+    measured in page coordinates and applies through the joins. No clip = the whole page.
+    The index is vertical ORDER, never height above terrain. Rows are keyed by the exact
+    revision, so an incident that pinned version N keeps N's floors after the station replaces
+    the PDF; ``plans.store_plan`` copies them onto a replacement only when the page counts still
+    match.
+    """
+
+    __tablename__ = "plan_page_floors"
+    __table_args__ = (
+        ForeignKeyConstraint(["dataset_id", "plan_version"], ["plan_revisions.dataset_id", "plan_revisions.version"]),
+    )
+
+    dataset_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    plan_version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    floor_index: Mapped[int] = mapped_column(Integer, primary_key=True)
+    page: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    floor_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    clip: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    #: {"to": <floor_index>, "at": [x, y], "there": [x, y]} – normalized page coordinates
+    join: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class PlanAlignmentEvent(Base):
     """Append-only history of admin decisions on one alignment (approve/withdraw/retry)."""
 

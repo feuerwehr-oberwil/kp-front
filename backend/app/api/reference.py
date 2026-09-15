@@ -14,6 +14,7 @@ from .. import storage
 from ..auth.dependencies import CurrentAdmin, OptionalUser, UserOrAdmin
 from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
+from ..plan_floors import fit_publishable, load_floors
 from ..plan_revision_info import revision_page_count
 from ..plans import TooLargeError, plans_pull_enabled, pull_one_plan, store_plan
 from ..schemas import ReferenceDatasetOut
@@ -175,9 +176,13 @@ async def dataset_alignments(
 ):
     """The station's APPROVED alignments for one plan revision — what an incident binds to.
 
-    Only explicitly approved rows are published, and only for a single-page original: the gate
-    is re-checked here against the PDF itself, so a historical or hand-seeded approval on a
-    multi-page pack can never leak a fit the field viewer would apply to stitched coordinates.
+    Only explicitly approved rows are published, and only where the fit is meaningful: a
+    single-page original, or a FLOOR PACK whose fit was measured on one of its floor pages (the
+    convention puts the building at the same paper position on every page, so that one fit is
+    shared by all of them). The gate is re-checked here against the PDF itself, so a historical
+    or hand-seeded approval on an ordinary multi-page document can never leak a fit the field
+    viewer would apply to stitched coordinates. ``floors`` lists the pack's page → Geschoss
+    assignment; an incident pins it together with the version.
     """
     ds = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id == dataset_id))).scalar_one_or_none()
     if ds is None:
@@ -197,8 +202,9 @@ async def dataset_alignments(
     ).scalars()
     revision = await db.get(PlanRevision, (dataset_id, version))
     page_count = await revision_page_count(revision.storage_key) if revision else None
+    floors = await load_floors(db, dataset_id, version)
     for row in rows:
-        if page_count != 1 or row.page != 0:
+        if not fit_publishable(page_count, row.page, floors):
             continue
         approval_id = (
             await db.execute(
@@ -223,6 +229,8 @@ async def dataset_alignments(
         "dataset_id": dataset_id,
         "plan_version": version,
         "revision_url": f"/api/reference/{quote(dataset_id, safe='')}?v={version}",
+        "page_count": page_count,
+        "floors": [f.as_dict() for f in floors],
         "alignments": alignments,
     }
 

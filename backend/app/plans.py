@@ -53,6 +53,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import storage
 from .config import settings
 from .models import ObjectSite, PlanAlignment, PlanRevision, ReferenceDataset
+from .plan_floors import load_floors, replace_floors
+from .plan_revision_info import revision_page_count
 
 logger = logging.getLogger(__name__)
 
@@ -155,8 +157,26 @@ async def store_plan(
         )
     )
     await db.flush()
-    # One pending job per new revision; the worker prepares it, an admin publishes it.
-    db.add(PlanAlignment(dataset_id=ds_id, plan_version=ds.current_version))
+    # One pending job per new revision; the worker prepares it, an admin publishes it. A floor
+    # pack's page → Geschoss list follows onto the replacement when it still has the same
+    # number of pages (a re-export of the same building), and the fit is queued on the same
+    # floor page; a different page count means the admin assigns anew.
+    previous_floors = await load_floors(db, ds_id, ds.current_version - 1) if ds.current_version > 1 else []
+    fit_page = 0
+    if previous_floors:
+        prev = await db.get(PlanRevision, (ds_id, ds.current_version - 1))
+        prev_count = await revision_page_count(prev.storage_key) if prev else None
+        if prev_count is not None and prev_count == await revision_page_count(key, fresh=True):
+            await replace_floors(db, ds_id, ds.current_version, previous_floors)
+            prev_row = (
+                await db.execute(
+                    select(PlanAlignment).where(
+                        PlanAlignment.dataset_id == ds_id, PlanAlignment.plan_version == ds.current_version - 1
+                    )
+                )
+            ).scalar_one_or_none()
+            fit_page = prev_row.page if prev_row and any(f.page == prev_row.page for f in previous_floors) else 0
+    db.add(PlanAlignment(dataset_id=ds_id, plan_version=ds.current_version, page=fit_page))
     await db.flush()
     await db.refresh(ds)
     return ds

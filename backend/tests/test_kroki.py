@@ -811,3 +811,24 @@ def test_tile_cache_put_survives_a_deleted_cache_dir(tmp_path):
     cache.dir.mkdir(parents=True)
     cache.put("https://tiles.example/1.png", b"tile-bytes")
     assert cache.get("https://tiles.example/1.png") == b"tile-bytes"
+
+
+def test_render_plan_page_renders_the_named_page():
+    """A floor-pack sheet is one page of its PDF – the rapport must print THAT page."""
+    from io import BytesIO
+
+    from reportlab.pdfgen.canvas import Canvas
+
+    buf = BytesIO()
+    canvas = Canvas(buf, pagesize=(400, 300))
+    for shade in (0.0, 1.0):  # page 1 black, page 2 white
+        canvas.setFillGray(shade)
+        canvas.rect(0, 0, 400, 300, fill=1, stroke=0)
+        canvas.showPage()
+    canvas.save()
+    first = kk.render_plan_page(buf.getvalue(), [], PACK, width=200)
+    second = kk.render_plan_page(buf.getvalue(), [], PACK, width=200, page=1)
+    beyond = kk.render_plan_page(buf.getvalue(), [], PACK, width=200, page=9)  # clamps, never raises
+    assert first.getpixel((100, 100))[:3] == (0, 0, 0)
+    assert second.getpixel((100, 100))[:3] == (255, 255, 255)
+    assert beyond.getpixel((100, 100))[:3] == (255, 255, 255)

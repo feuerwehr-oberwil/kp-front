@@ -1610,6 +1610,10 @@ class ModuleConfig(BaseModel):
     family: bool = False
     viewer: bool = False  # render as a plain PDF viewer (no drawing); on a family applies to all sub-slots
     alignment: Literal["auto", "manual", "none"] | None = None
+    #: hide this module's tile in an Einsatz whose object HAS a floor pack (the Gebäude stack
+    #: then shows its pages): a station-wide presentation rule, decided 14.09.2026. Default off –
+    #: the original sheet keeps sections, legend and title block the stack does not show.
+    hideWhenGebaeude: bool = False
 
 
 #: The four kinds of station data the SharePoint connector can pull. One entry per area at

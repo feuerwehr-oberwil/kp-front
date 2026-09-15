@@ -1655,8 +1655,10 @@ def render_plan_page(
     supersample: int = 2,
     ref_width: int = 1050,
     legend_out: list[str] | None = None,
+    page: int = 0,
 ) -> Image.Image:
-    """Render an annotated Objektplan page: the plan PDF's first page via pdfium, then the
+    """Render an annotated Objektplan page: the plan PDF's page ``page`` (0-based, first by
+    default; a floor-pack sheet names its own) via pdfium, then the
     board annotations (relative 0..1 coords — the Whiteboard's model) drawn on top with the
     same primitives as the Kroki. Mirrors what the Whiteboard shows on screen
     (`_BOARD_SYMBOL_PX` symbols, non-scaling ~`width`px strokes).
@@ -1672,10 +1674,10 @@ def render_plan_page(
     with pdfium_lock:
         doc = pdfium.PdfDocument(pdf_bytes)
         try:
-            page = doc[0]
-            pw, _ph = page.get_size()
+            page_obj = doc[min(max(page, 0), len(doc) - 1)]
+            pw, _ph = page_obj.get_size()
             scale = (width * ss) / pw
-            bitmap = page.render(scale=scale)
+            bitmap = page_obj.render(scale=scale)
             try:
                 base = bitmap.to_pil().convert("RGBA")
             finally:
