@@ -72,7 +72,7 @@ import { addPlanBindings, hasLegacyAlignmentContext } from './lib/incidentPlanBi
 import { useIncidentPlanBindings } from './lib/useIncidentPlanBindings'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
-import { useIsPhone } from './lib/useIsPhone'
+import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { useOnline } from './lib/useOnline'
 import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
@@ -326,6 +326,14 @@ export function IncidentWorkspace({
   // + sync alive (those hang off `readOnly`, which stays false for a editor). Tablets
   // and desktop keep full editing.
   const isPhone = useIsPhone()
+  /** The ONE width at which the top bar drops its ↶ ↷ (15-mobile.css · max-width 359px), so the
+   *  surface being tapped can offer its own pair instead of leaving the operator with no way back.
+   *  ⚠️ NOT «an Atemschutz-Alarmchip is in the bar» any more (15.09.2026). That cost the pair
+   *  exactly while a Trupp was überfällig — i.e. exactly when a mis-tap is most likely and the
+   *  newest timeline step is a Funkkontakt — and a deleted Leitung became unreachable behind a
+   *  loop: ↶ takes the Kontakt back, the Trupp is überfällig again, the pair is gone again. The
+   *  Einsatzuhr yields to the chip now; the history pair never does. */
+  const topBarUndoHidden = useMediaQuery('(max-width: 359px)')
   // Time-travel replay is a read-only past view: while active it locks ALL editing
   // (folded into both readOnly and tacticalLocked) and swaps the live doc for the
   // reconstructed state. Owned by useReplay; `active` feeds the lock derivations below.
@@ -5769,15 +5777,14 @@ export function IncidentWorkspace({
             if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
           }}
           onReload={() => { void reloadPersonnel() }}
-          // the phone's way back — but ONLY while the top bar's own ↶ ↷ are off the bar. The
-          // bar drops its history pair as soon as an Atemschutz-Alarmchip claims the room
-          // (15-mobile.css · .tb-az), which is exactly when this list is tapped fastest; any
-          // other time the bar pair is the one door, so nothing is duplicated (06.09.).
+          // the phone's way back — but ONLY while the top bar's own ↶ ↷ are off the bar, which
+          // since 15.09.2026 is one width and nothing else: below 360px (see topBarUndoHidden).
+          // Any other time the bar pair is the one door, so nothing is duplicated (06.09.).
           onUndo={canEditRecord ? onHistoryPress('undo') : undefined}
           onRedo={canEditRecord ? onHistoryPress('redo') : undefined}
           canUndo={histCanUndo}
           canRedo={histCanRedo}
-          topBarUndoHidden={azAlarm.peak >= 1 && !!azAlarm.urgent}
+          topBarUndoHidden={topBarUndoHidden}
           onSetTimes={canEditRecord ? setAttendanceTimes : undefined}
           onRemoveBlock={canEditRecord ? removeAttendanceBlock : undefined}
           onSetNote={canEditRecord ? setAttendanceNote : undefined}

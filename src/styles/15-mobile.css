@@ -417,12 +417,19 @@
      the flex algorithm took every missing pixel out of the one item with room to give — squashing
      the chip to 14px and pushing its own 15px gauge out through the pill's right edge. Icon-only
      did not fix that; it just made the thing that overflowed smaller.
-     So undo/redo step aside instead, and buy back 88px. That is the honest trade at 3am on a
-     390px screen: an overdue Trupp outranks two edit-history buttons, and the Verlauf beside them
-     still holds the history anyway. */
+     So something else steps aside instead. It used to be undo/redo, and that was the wrong 88px
+     (15.09.2026, Feldmeldung): «ich hab aus Versehen meine Leitung gelöscht, Undo-Pfeil ging
+     nicht, da mein Trupp überfällig war» — the operator then confirmed the Funkkontakt to get the
+     pair back, tapped ↶, which took the KONTAKT back (one timeline, newest first), the Trupp was
+     überfällig again, the pair was gone again, and the Leitung was unreachable behind a loop with
+     no exit. An alarm is exactly when a shaking hand mis-taps, so the ↶ is the one control that
+     may not leave the bar while one is running — «nichts, was sich nicht rückgängig machen lässt».
+     The EINSATZUHR yields instead, and buys back ~80px: how long the Einsatz has been running is
+     the one readout on this bar that nobody acts on in the next minute, it is a tap away in the
+     bar's own menu the moment the alarm ends, and the chip beside it is itself a ticking clock. */
   .tb-az-name { display: none; }
   .tb-az { gap: 5px; padding: 6px 9px; }
-  .topbar:has(.tb-az) :is(.tb-act-history, .tb-vr-history) { display: none; }
+  .topbar:has(.tb-az) .tb-einsatzuhr { display: none; }
 
   /* ── Chrome stays on the SCREEN while the keyboard is up ──
      The document cannot scroll any more (02-base.css · fixed body), but iOS still PANS the
@@ -838,9 +845,13 @@
    stayed a vertical sidebar on every phone. A media query in the middle of a block is a scissor. */
 @media (max-width: 359px) {
   .tb-az-clock { display: none; }
-  /* …and the same trade the Atemschutz chip gets, for the same reason: below 360px the bar's
-     three gloved 44px actions leave the identity pill ~90px, which is less than the Einsatzname's
-     marker and its dropdown arrow need — so the ÜBUNG marker shrank to an amber «…». undo/redo
-     step aside and hand back 88px; «Verlauf» stays, and it still holds the history anyway. */
+  /* …and a trade of the same shape: below 360px the bar's three gloved 44px actions leave the
+     identity pill ~90px, which is less than the Einsatzname's marker and its dropdown arrow need
+     — so the ÜBUNG marker shrank to an amber «…». undo/redo step aside and hand back 88px;
+     «Verlauf» stays, and it still holds the history anyway.
+     ⚠️ Since 15.09.2026 this is the ONLY width at which the pair leaves the bar — an Atemschutz-
+     Alarmchip no longer costs it, the Einsatzuhr yields to that one (see the phone block above).
+     It is therefore also the one condition `topBarUndoHidden` describes (IncidentWorkspace →
+     AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
   .topbar :is(.tb-act-history, .tb-vr-history) { display: none; }
 }

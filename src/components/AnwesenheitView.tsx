@@ -333,11 +333,13 @@ export function AnwesenheitView({
   onReload: () => void
   /** Take back the last tap on THIS list — the same step the ↶ in the top bar makes.
    *
-   * ⚠️ It renders here ONLY on a phone while `topBarUndoHidden` says the top bar has dropped its
-   * history pair — which it does as soon as an Atemschutz-Alarmchip is on it (15-mobile.css: an
-   * overdue Trupp outranks two edit buttons at 390px). That is exactly the moment this list is
-   * being tapped fastest, so the way back cannot be the thing that disappears. Any other time
-   * the top bar's pair is the one door (06.09. — the always-on phone copy here duplicated it).
+   * ⚠️ It renders here ONLY while `topBarUndoHidden` says the top bar has dropped its history
+   * pair — which since 15.09.2026 happens at exactly one width, below 360px, where the bar's
+   * three gloved 44px actions leave the Einsatzname nothing (15-mobile.css). Any other time the
+   * top bar's pair is the one door (06.09. — the always-on phone copy here duplicated it).
+   * ⚠️ It used to be «while an Atemschutz-Alarmchip is in the bar», and that was the one moment
+   * it must not have been: the pair vanished exactly while a Trupp was überfällig, and a Leitung
+   * deleted by mistake was unreachable behind it. The Einsatzuhr yields to the chip now.
    * Absent for a session that may not write.
    *
    * ⚠️ Since 08.09.2026 it drives the ONE global timeline, not a stack of this list's own — so
@@ -348,8 +350,8 @@ export function AnwesenheitView({
   onRedo?: (e: MouseEvent<HTMLButtonElement>) => void
   canUndo?: boolean
   canRedo?: boolean
-  /** the top bar has dropped its ↶ ↷ (Atemschutz-Alarmchip on a phone) — only then does this
-   *  head offer its own pair, see onUndo */
+  /** the top bar has dropped its ↶ ↷ (below 360px) — only then does this head offer its own
+   *  pair, see onUndo */
   topBarUndoHidden?: boolean
   /** correct a wrong auto-stamped time via the row's time chip (e.g. "gegangen" marked
    *  after the person already left) — same handler as the Rapport Stunden editor. Patches the
@@ -633,8 +635,8 @@ export function AnwesenheitView({
             muddled «wie steht es» with «womit wurde erfasst». One line each. */}
         <p className={s.headQr}><CaptureUsageChip usage={captureUsage} /></p>
         <div className={s.headActions}>
-          {/* ⚠️ Phone only, and ONLY while the top bar has dropped its own pair (Atemschutz-
-              Alarmchip — see topBarUndoHidden): any other time the bar's ↶ ↷ are the one door,
+          {/* ⚠️ Phone only, and ONLY while the top bar has dropped its own pair (below 360px —
+              see topBarUndoHidden): any other time the bar's ↶ ↷ are the one door,
               and this head showing a second pair was pure duplication (06.09.). The pair is
               whole — a ↶ without its ↷ makes the step back the one thing that cannot itself be
               taken back, and this cluster has the room at phone width (the overflow it hit
