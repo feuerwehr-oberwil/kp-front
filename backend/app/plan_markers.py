@@ -45,7 +45,7 @@ import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 from . import storage
 from .geo_util import lv95_to_wgs84
@@ -68,6 +68,56 @@ _MIN_GLYPH = 0.2
 DEFAULT_LABEL = "A"
 
 MarkerKind = Literal["floor", "corner_tl", "corner_br", "geo", "unknown"]
+
+#: What a marked-up export can get wrong, as a CLOSED set of codes (16.09.2026). A warning used
+#: to be one free-text sentence, half English and half German, which meant the only place it
+#: could be shown was a log — and an admin looking at «Vorschlag bereit» with zero Geschosse had
+#: no way to learn that a «§4OG]» was missing. The code is the fact; `text()` renders it for the
+#: CLI and the log, `admin.alignment.markerWarnings.<code>` renders it for the admin UI.
+WarningCode = Literal[
+    "unknown_tag",  # a «§» span the grammar does not know – a typo
+    "page_rotated",  # a marked page carries /Rotate; its boxes are read in the unturned frame
+    "duplicate_storey",  # the same storey + point label marked twice
+    "storey_page_split",  # a storey's further points sit on another page than its drawing
+    "no_level_zero",  # no §EG / §0 – the fit page has to be guessed
+    "no_shared_join",  # a storey shares no point label with the chain, so it hangs free
+    "corner_missing",  # one region corner without its counterpart
+    "corner_stray",  # region corners for a storey no §-marker declares
+    "region_off_page",  # a region corner's text box sits outside the page
+    "region_page_split",  # a storey's region corners are not on its drawing's page
+    "geo_off_fit_page",  # §GEO on a page that is not the pack's one fit page
+    "geo_duplicate",  # a §GEO repeating a point already paired
+    "geo_single",  # exactly one §GEO – a fit needs two
+    "pack_invalid",  # the storeys together make no pack `validate_floors` would accept
+]
+
+
+class _WarningFields(TypedDict, total=False):
+    """Whatever the code needs to be said in a sentence; each code fills a fixed few."""
+
+    #: the signed storey index the warning is about (0 = EG, +1 = 1. OG …)
+    storey: int
+    #: the storey's point label – «A» where the author named none
+    label: str
+    #: the tag as written, «§» included – the thing the author has to go and fix
+    tag: str
+    #: the tag's counterpart that IS there (`corner_missing`)
+    have: str
+    #: which region corner is missing: top-left or bottom-right
+    side: Literal["tl", "br"]
+    #: 1-BASED, as the author counts pages in their PDF viewer
+    page: int
+    other: int
+    #: the axis and value that left the page (`region_off_page`)
+    axis: Literal["x", "y"]
+    value: float
+    count: int
+    #: `validate_floors`' own German sentence, for `pack_invalid`
+    detail: str
+
+
+class MarkerWarning(_WarningFields):
+    code: WarningCode
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,10 +159,13 @@ class MarkerPlan:
     page_count: int
     #: ``GeorefPair`` dicts from the ``§GEO`` markers on the fit page; < 2 of them means none
     pairs: list[dict]
-    #: what the author should fix, in plain words; a plan is still returned around them
-    warnings: list[str]
+    #: what the author should fix, as codes; a plan is still returned around them
+    warnings: list[MarkerWarning]
     #: the storey index every join chain ends at – the level-0 drawing's, or the nearest to it
     reference: int = 0
+    #: how many storeys the markers DECLARED – which is not ``len(floors)`` when they together
+    #: make no valid pack, and is what the admin row's summary reports against what was written
+    storeys: int = 0
 
 
 # ---------------------------------------------------------------------------------------
@@ -384,25 +437,32 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
     statement, never the whole pack, because half a pack is still most of the work done.
     """
     markers = _resolve_dach([m for m in markers if m.page < page_count])
-    warnings = [
-        f"{m.text!r} on page {m.page + 1} is not a marker this system knows" for m in markers if m.kind == "unknown"
+    warnings: list[MarkerWarning] = [
+        MarkerWarning(code="unknown_tag", tag=m.text, page=m.page + 1) for m in markers if m.kind == "unknown"
     ]
     if any(m.rotated for m in markers):
-        warnings.append("a marked page is turned by /Rotate – its positions are read in the unturned frame")
+        warnings.append(MarkerWarning(code="page_rotated"))
 
     # a floor states one point per label; several labelled tags on one drawing are the several
     # staircases it shares with several other floors, and the FIRST tag is the drawing itself
     points: dict[int, dict[str, Marker]] = {}
     for m, index in ((m, m.index) for m in markers if m.kind == "floor" and m.index is not None):
         on = points.setdefault(index, {})
-        where = "" if m.label == DEFAULT_LABEL else f" point «{m.label}»"
         if m.label in on:
-            warnings.append(f"storey {index:+d}{where} is marked twice (page {m.page + 1}) – the first one counts")
+            warnings.append(
+                MarkerWarning(code="duplicate_storey", storey=index, label=m.label, tag=m.text, page=m.page + 1)
+            )
             continue
         if on and m.page != next(iter(on.values())).page:
             warnings.append(
-                f"storey {index:+d}{where} sits on page {m.page + 1}, its drawing on "
-                f"page {next(iter(on.values())).page + 1} – ignored"
+                MarkerWarning(
+                    code="storey_page_split",
+                    storey=index,
+                    label=m.label,
+                    tag=m.text,
+                    page=m.page + 1,
+                    other=next(iter(on.values())).page + 1,
+                )
             )
             continue
         on[m.label] = m
@@ -410,17 +470,34 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
         return None
     storeys = {index: next(iter(on.values())) for index, on in points.items()}
     if 0 not in storeys:
-        warnings.append("no §EG / §0 marker – the fit page is guessed from the storeys that are marked")
+        warnings.append(MarkerWarning(code="no_level_zero"))
 
+    # A corner whose text box sits OUTSIDE the page states a rectangle that is not on the sheet —
+    # exactly what a stray marker left in a template does (Allschwilerstrasse 100, 16.09.2026).
+    # It is dropped HERE rather than at `validate_floors`, so the author is told which tag to move
+    # instead of being handed «Bereich ausserhalb der Seite» about the whole pack.
     corners: dict[int, dict[str, Marker]] = {}
     for m, index in ((m, m.index) for m in markers if m.kind in ("corner_tl", "corner_br") and m.index is not None):
+        axis: Literal["x", "y"] | None = "x" if not 0.0 <= m.x <= 1.0 else "y" if not 0.0 <= m.y <= 1.0 else None
+        if axis is not None:
+            warnings.append(
+                MarkerWarning(
+                    code="region_off_page",
+                    storey=index,
+                    tag=m.text,
+                    page=m.page + 1,
+                    axis=axis,
+                    value=round(m.x if axis == "x" else m.y, 4),
+                )
+            )
+            continue
         corners.setdefault(index, {})[m.kind] = m
 
     reference_index = 0 if 0 in storeys else min(storeys, key=lambda i: abs(i))
     reference = storeys[reference_index]
     joins, unjoined = _chain(points, reference_index)
     for index in unjoined:
-        warnings.append(f"Geschoss {index:+d} hat keinen gemeinsamen Verbindungspunkt")
+        warnings.append(MarkerWarning(code="no_shared_join", storey=index))
     floors: list[PlanFloor] = []
     for index in sorted(storeys):
         m = storeys[index]
@@ -429,47 +506,57 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
         if len(pair) == 2:
             tl, br = pair["corner_tl"], pair["corner_br"]
             if tl.page != m.page or br.page != m.page:
-                warnings.append(f"the region corners of storey {index:+d} are not on its own page – region ignored")
+                warnings.append(MarkerWarning(code="region_page_split", storey=index, page=m.page + 1))
             else:
                 clip = [min(tl.x, br.x), min(tl.y, br.y), max(tl.x, br.x), max(tl.y, br.y)]
         elif pair:
-            missing = "§…]" if "corner_tl" in pair else "§[…"
-            warnings.append(f"storey {index:+d} has only one region corner – add the {missing} one, or neither")
+            # the tag the author has to ADD, spelled the way they spelled its counterpart:
+            # «§[4OG» is there, so «§4OG]» is what is missing
+            have = next(iter(pair.values()))
+            token = have.text.lstrip("§").strip().lstrip("[").rstrip("]")
+            side: Literal["tl", "br"] = "br" if "corner_tl" in pair else "tl"
+            warnings.append(
+                MarkerWarning(
+                    code="corner_missing",
+                    storey=index,
+                    tag=f"§{token}]" if side == "br" else f"§[{token}",
+                    have=have.text,
+                    side=side,
+                    page=have.page + 1,
+                )
+            )
         # A storey tag's own centre is a point of this drawing, and a point two drawings share
         # is what lays one on the other. One point is translation only, which is exactly what an
         # export that keeps scale and orientation across its pages needs.
         name = next((p.name for p in points[index].values() if p.name), None)
         floors.append(PlanFloor(m.page, index, name, clip, joins.get(index), marker=None))
     for index in corners:
-        warnings.append(f"region corners for storey {index:+d}, which no §-marker declares – ignored")
+        warnings.append(MarkerWarning(code="corner_stray", storey=index))
 
     # the level-0 drawing's page IS the fit page; without one, the same rule the admin's own
     # «Ausrichtungsseite» falls back to (plan_floors.default_fit_page)
     guessed = default_fit_page(floors)
     fit_page = reference.page if 0 in storeys or guessed is None else guessed
     geo = [m for m in markers if m.kind == "geo"]
-    off = [m for m in geo if m.page != fit_page]
-    if off:
-        warnings.append(
-            f"{len(off)} §GEO marker(s) sit on a page that is not the fit page ({fit_page + 1}) – ignored; "
-            "the pack has ONE fit, measured on the level-0 drawing"
-        )
+    elsewhere = [m for m in geo if m.page != fit_page]
+    if elsewhere:
+        warnings.append(MarkerWarning(code="geo_off_fit_page", count=len(elsewhere), page=fit_page + 1))
     pairs: list[dict] = []
     for m in (m for m in geo if m.page == fit_page):
         if any(p["plan"] == {"x": m.x, "y": m.y} or p["lngLat"] == {"lng": m.lng, "lat": m.lat} for p in pairs):
-            warnings.append(f"{m.text!r} repeats a point already paired – ignored")
+            warnings.append(MarkerWarning(code="geo_duplicate", tag=m.text, page=m.page + 1))
             continue
         pairs.append({"plan": {"x": m.x, "y": m.y}, "lngLat": {"lng": m.lng, "lat": m.lat}, "kind": "gesetzt"})
     if len(pairs) == 1:
-        warnings.append("only one §GEO marker on the fit page – a fit needs at least two, so none is proposed")
+        warnings.append(MarkerWarning(code="geo_single", page=fit_page + 1))
         pairs = []
 
     try:
         validate_floors(floors, page_count)
     except FloorError as e:
-        warnings.append(f"the marked storeys do not make a valid floor pack ({e}) – none is proposed")
-        return MarkerPlan([], fit_page, page_count, pairs, warnings, reference_index)
-    return MarkerPlan(floors, fit_page, page_count, pairs, warnings, reference_index)
+        warnings.append(MarkerWarning(code="pack_invalid", detail=str(e)))
+        return MarkerPlan([], fit_page, page_count, pairs, warnings, reference_index, len(floors))
+    return MarkerPlan(floors, fit_page, page_count, pairs, warnings, reference_index, len(floors))
 
 
 # ---------------------------------------------------------------------------------------
@@ -514,6 +601,57 @@ def apply_overrides(floors: list[PlanFloor], overrides: dict[int, dict]) -> list
     # a carried-over join may point at a storey this export dropped – then it is not a join
     indices = {f.index for f in out}
     return [replace(f, join=None) if f.join and f.join.get("to") not in indices - {f.index} else f for f in out]
+
+
+# ---------------------------------------------------------------------------------------
+# a warning, said out loud
+# ---------------------------------------------------------------------------------------
+
+#: One German sentence per code, for the CLI (`just plan-markers`) and the worker's log. The
+#: ADMIN UI does not read these — it renders the same codes through
+#: `admin.alignment.markerWarnings.<code>`, so the page speaks the operator's own language. Keep
+#: the two in step: a new code needs a line here and a key there.
+_SAID: dict[str, str] = {
+    "unknown_tag": "«{tag}» auf Seite {page}: kein Marker, den dieses System kennt – Tippfehler?",
+    "page_rotated": "Eine markierte Seite ist im PDF gedreht – ihre Positionen werden im ungedrehten Blatt gelesen.",
+    "duplicate_storey": "Ebene {storey} · Punkt {label}: zweimal markiert (Seite {page}) – die erste zählt.",
+    "storey_page_split": "Ebene {storey} · Punkt {label}: Marker auf Seite {page}, die Zeichnung auf Seite {other} – ignoriert.",
+    "no_level_zero": "Kein §EG / §0 – die Ausrichtungsseite wird aus den markierten Ebenen geraten.",
+    "no_shared_join": "Ebene {storey}: kein gemeinsamer Verbindungspunkt mit den übrigen Geschossen.",
+    "corner_missing": "{tag}: Ecke {side} fehlt – {have} hat kein Gegenstück; ohne beide gilt die ganze Seite.",
+    "corner_stray": "Bereichsecken für Ebene {storey}, die kein §-Marker erklärt – ignoriert.",
+    "region_off_page": "{tag} (Seite {page}): eine Ecke liegt ausserhalb der Seite ({axis} {value}) – Bereich ignoriert.",
+    "region_page_split": "Ebene {storey}: die Bereichsecken liegen nicht auf der Seite der Zeichnung – Bereich ignoriert.",
+    "geo_off_fit_page": "{count} §GEO liegen nicht auf der Ausrichtungsseite (Seite {page}) – ignoriert; ein Pack hat EINE Passung.",
+    "geo_duplicate": "{tag} (Seite {page}): derselbe Punkt ist bereits gepaart – ignoriert.",
+    "geo_single": "Kartenfit: nur ein §GEO auf der Ausrichtungsseite (Seite {page}) – zwei sind nötig, also wird keine Passung vorgeschlagen.",
+    "pack_invalid": "Die markierten Geschosse ergeben kein gültiges Geschoss-Pack ({detail}) – es wird keines vorgeschlagen.",
+}
+_SIDE = {"tl": "oben links", "br": "unten rechts"}
+
+
+def text(warning: MarkerWarning) -> str:
+    """One warning as the German sentence the CLI prints and the log records.
+
+    An unknown code prints itself rather than raising: this renders diagnostics, and a diagnostic
+    that crashes the dry run is worse than one that reads a little raw.
+    """
+    said = _SAID.get(warning["code"])
+    if said is None:
+        return warning["code"]
+    fields: dict[str, object] = dict(warning)
+    if "storey" in warning:
+        fields["storey"] = f"{warning['storey']:+d}"
+    if "side" in warning:
+        fields["side"] = _SIDE[warning["side"]]
+    return said.format_map(_Blanks(fields))
+
+
+class _Blanks(dict):
+    """A field a template names but the warning does not carry prints «?», never raises."""
+
+    def __missing__(self, key: str) -> str:
+        return "?"
 
 
 # ---------------------------------------------------------------------------------------
@@ -569,7 +707,7 @@ def report(path: Path) -> str:
             join = "reference" if f.index == plan.reference else "NOT JOINED"
         lines.append(f"  {f.index:+d} {f.name or '–':<16} page {f.page + 1:<3} {region:<40} {join}")
     for w in plan.warnings:
-        lines.append(f"  ⚠ {w}")
+        lines.append(f"  ⚠ [{w['code']}] {text(w)}")
     if not plan.warnings:
         lines.append("  no warnings")
     return "\n".join(lines)

@@ -12,6 +12,7 @@ import { PlanAlignmentEditor, PlanAlignmentReview } from './PlanAlignmentReview'
 import { loadAlignmentQueue, type AlignmentListItem, type AlignmentQueue } from './planAlignmentApi'
 import { ActionMenu, Card, EmptyState, StatusBadge, Table, fmtDate, type MenuAction } from './ui'
 import { stackComplete, stackFromFloors } from './floorPack'
+import { hasMarkerWarnings } from './markerNotes'
 import './objectPlans.css'
 
 const ObjectsMap = lazy(() => import('./ObjectsMap'))
@@ -55,20 +56,27 @@ function planFacts(modules: DeploymentModule[], items: AlignmentListItem[], alig
     const stack = item && stackFromFloors(item.floors, item.page)
     return !stack || !stackComplete(stack)
   }
+  /** The plan's own `§` markers are broken – which is WHY it prepared nothing, and the one
+   *  thing no amount of clicking in here can fix. It outranks every other amber state. */
+  const markersBroken = (plan: ReferenceDataset) => eligible(plan) && hasMarkerWarnings(itemFor(plan))
   /** A plan's preparation, as the badge says it: only a fit that is actually approved is green. */
   const planStatus = (plan: ReferenceDataset): { tone: Tone; label: string } => {
     if (!eligible(plan)) return { tone: 'off', label: C.document }
     const item = itemFor(plan)
     if (alignmentError || !item) return { tone: 'warn', label: C.unknown }
+    if (hasMarkerWarnings(item)) return { tone: 'warn', label: A.markerWarnings.incomplete }
     if (floorsMissing(plan)) return { tone: 'warn', label: C.floorsMissing }
     return { tone: item.status === 'approved' ? 'on' : item.status === 'failed' ? 'err' : 'warn', label: A.status[item.status] }
   }
   const pending = (obj: ObjectWithPlans) => obj.plans.some(plan =>
-    eligible(plan) && (alignmentError || itemFor(plan)?.status !== 'approved' || floorsMissing(plan)))
+    eligible(plan) && (alignmentError || itemFor(plan)?.status !== 'approved' || floorsMissing(plan) || markersBroken(plan)))
   const approved = (obj: ObjectWithPlans) => !alignmentError && obj.plans.some(eligible) && !pending(obj)
-  const objectStatus = (obj: ObjectWithPlans): { tone: Tone; label: string } => pending(obj)
-    ? { tone: 'warn', label: C.attention }
-    : approved(obj) ? { tone: 'on', label: C.approved } : { tone: 'off', label: C.document }
+  // «Handlungsbedarf» says there is something to do here; when the something is a broken export,
+  // the badge says THAT instead – the work is in the PDF, not on this page.
+  const objectStatus = (obj: ObjectWithPlans): { tone: Tone; label: string } =>
+    obj.plans.some(markersBroken) ? { tone: 'warn', label: A.markerWarnings.incomplete }
+      : pending(obj) ? { tone: 'warn', label: C.attention }
+        : approved(obj) ? { tone: 'on', label: C.approved } : { tone: 'off', label: C.document }
   return { alignmentError, itemFor, eligible, planStatus, pending, approved, objectStatus }
 }
 

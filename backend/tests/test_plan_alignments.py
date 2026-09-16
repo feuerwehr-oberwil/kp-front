@@ -306,6 +306,29 @@ async def test_the_queue_leaves_the_building_outlines_to_the_per_sheet_endpoint(
     count_pages.assert_awaited_once()
 
 
+async def test_the_marker_diagnosis_rides_along_on_both_the_list_and_the_detail(client, admin_login, db_session):
+    """The object table's badge reads it off the LIST row, so it cannot be a detail-only field
+    (16.09.2026) – and it must never leak into the approval history, which is about decisions."""
+    _, _, row = await _seed(db_session)
+    notes = {
+        "warnings": [{"code": "corner_missing", "storey": 4, "tag": "§4OG]", "have": "§[4OG", "side": "br", "page": 1}],
+        "storeys_found": 5,
+        "storeys_written": 0,
+        "geo_pairs": 0,
+    }
+    row.marker_notes = notes
+    await db_session.commit()
+    await admin_login(client)
+
+    listed = (await client.get("/api/admin/plan-alignments")).json()["items"][0]
+    assert listed["marker_notes"] == notes
+    assert (await client.get(f"/api/admin/plan-alignments/{row.id}")).json()["marker_notes"] == notes
+    # a sheet nobody marked says nothing rather than saying «no problems»
+    row.marker_notes = None
+    await db_session.commit()
+    assert (await client.get(f"/api/admin/plan-alignments/{row.id}")).json()["marker_notes"] is None
+
+
 async def test_the_outline_of_a_sheet_that_is_not_there_is_a_404(client, admin_login, db_session):
     await _seed(db_session)
     await admin_login(client)

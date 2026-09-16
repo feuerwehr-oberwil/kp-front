@@ -40,7 +40,7 @@ const item: AlignmentItem = {
   object_name: 'Testobjekt', object_lng: 7.55, object_lat: 47.51, module: 'modul2', title: 'Modul 2', is_current: true,
   status: 'no_match', edit_version: 3, pairs: [], aspect: 1.414, scale_m_per_u: null, score: null, coverage: null,
   reason: 'low_coverage', created_at: '2026-09-15T09:00:00Z', updated_at: '2026-09-15T09:00:00Z', approved_at: null,
-  reference_rings: [], reference_source: 'OSM', reference_at: null,
+  reference_rings: [], reference_source: 'OSM', reference_at: null, marker_notes: null,
 }
 
 const mount = (onReset = vi.fn()) => {

@@ -217,6 +217,13 @@ Floor pack: 2 storey(s), fit page 1, 2 map pair(s)
   in zwei Textobjekte zerfallen.
 * **`§GEO` ohne Zahlen** → doppeltes Leerzeichen oder Zeilenumbruch im Textrahmen.
 
+Stimmt etwas nicht, steht statt `no warnings` eine Zeile pro Fehler – mit dem Code und dem
+Satz dazu, z. B. `⚠ [corner_missing] §4OG]: Ecke unten rechts fehlt – §[4OG hat kein
+Gegenstück; ohne beide gilt die ganze Seite.` **Dieselben Zeilen stehen nach dem Import auch
+im Admin**, unter der Kopfzeile des Plan-Editors: der Server schreibt sie beim Lesen der
+Marken auf die Planzeile, und in der Objektliste steht dann «Marker unvollständig» statt
+eines Status. Korrigieren muss man sie im PDF – der nächste Export liest sich selbst neu ein.
+
 Zum Ausprobieren liegt in diesem Ordner [`sample-modul6.pdf`](sample-modul6.pdf) – ein
 A3-Musterblatt mit zwei Grundrissen, allen drei Markensorten und dem Massstab 1:500.
 Erzeugt wird es von [`make-sample.py`](make-sample.py).

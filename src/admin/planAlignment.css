@@ -26,6 +26,10 @@
 .adm-align-actions .primary { font-size: 14px; font-weight: 800; }
 
 .adm-align-notice { padding: 12px 16px; font-size: 12.5px; color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 9%, var(--surface)); }
+/* The §-marker diagnosis in that same band: one line per fault, then the one sentence saying
+   where the fix belongs – the PDF, not this page. A list, because each line is its own tag. */
+.adm-marker-notes ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.adm-marker-notes p { margin: 6px 0 0; }
 /* A reason the modal still has to say is a line, not a band – the person is already aligning. */
 .adm-align-reason { margin: 0; padding: 12px 20px 0; max-width: none; }
 .adm-align-review > .adm-state { margin: 15px 20px; }

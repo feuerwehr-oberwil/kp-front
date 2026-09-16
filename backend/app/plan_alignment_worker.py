@@ -27,8 +27,9 @@ from .plan_alignment_compute import (
     render_page,
 )
 from .plan_approval import MARKERS, ApprovalError, approve_fit
-from .plan_floors import FloorError, load_floors, replace_floors, validate_floors
+from .plan_floors import FloorError, PlanFloor, load_floors, replace_floors, validate_floors
 from .plan_markers import MarkerPlan, admin_overrides, apply_overrides, marker_snapshot, read_plan
+from .plan_markers import text as marker_text
 from .reference_buildings import ensure_snapshot
 from .schemas import load_stored_config
 
@@ -215,6 +216,37 @@ async def apply_marker_plan(db: AsyncSession, claim: Claim, plan: MarkerPlan) ->
     return moved is not None
 
 
+async def write_marker_notes(db: AsyncSession, claim: Claim, plan: MarkerPlan | None, floors: list[PlanFloor]) -> None:
+    """What this run READ, onto the row: the warnings as codes, plus how much survived them.
+
+    Every marker run overwrites it whole — the note describes the export as it is NOW, and a
+    §-marker the author has since fixed must not keep accusing them. A sheet with no markers at
+    all clears it to NULL.
+
+    Deliberately NOT through ``plan_approval.record_change``: this is a report about the PDF, not
+    a decision about the fit, so it writes no history row and does not touch ``edit_version`` —
+    bumping the CAS token here would make ``finish_job`` lose the very result it is reporting on.
+    """
+    notes = (
+        {
+            "warnings": [dict(w) for w in plan.warnings],
+            "storeys_found": plan.storeys,
+            "storeys_written": sum(1 for f in floors if (f.marker or {}).get("version") == claim.version),
+            "geo_pairs": len(plan.pairs),
+        }
+        if plan
+        else None
+    )
+    await db.execute(update(PlanAlignment).where(PlanAlignment.id == claim.id).values(marker_notes=notes))
+    if plan and plan.warnings:
+        logger.info(
+            "Plan markers %s v%s: %s",
+            claim.dataset_id,
+            claim.version,
+            " | ".join(marker_text(w) for w in plan.warnings),
+        )
+
+
 def marker_result(plan: MarkerPlan, rendered, scale: float | None) -> AlignmentResult:
     """A fit the plan author stated outright: no matcher, no OSM, no coverage to judge.
 
@@ -292,6 +324,9 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
     async with factory() as db:
         requeued = await apply_marker_plan(db, claim, plan) if plan else False
         floors = await load_floors(db, claim.dataset_id, claim.version)
+        # …and WHY it is what it is: a pack the markers could not make must not leave the admin
+        # with an empty Geschoss list and no sentence about it (16.09.2026).
+        await write_marker_notes(db, claim, plan, floors)
         await db.commit()
     floor_page = any(f.page == claim.page for f in floors)
     # this page is a Geschoss THESE markers wrote – so the fit below is the marked plan's own,

@@ -6495,6 +6495,34 @@ export const de = {
         preparation_failed: 'Vorbereitung fehlgeschlagen – «Neu berechnen» versucht es erneut.',
         pdf_unavailable: 'Das PDF konnte nicht gelesen werden.',
       },
+      // Die Marker-Diagnose (16.09.2026): was die §-Marker IM PDF falsch sagen – ein
+      // geschlossener Code-Satz aus `app/plan_markers.py`, hier zu Sätzen gemacht. Jeder Satz
+      // sagt, was im PDF zu ändern ist; `fix` schliesst die Liste ab. ⚠️ Ein neuer Code braucht
+      // eine Zeile hier UND in `_SAID` (plan_markers.py), sonst liest ihn niemand.
+      markerWarnings: {
+        unknown_tag: '«{tag}» auf Seite {page}: kein Marker, den dieses System kennt – Tippfehler?',
+        page_rotated: 'Eine markierte Seite ist im PDF gedreht – ihre Positionen werden im ungedrehten Blatt gelesen.',
+        duplicate_storey: 'Ebene {storey} · Punkt {label}: zweimal markiert (Seite {page}) – die erste zählt.',
+        storey_page_split: 'Ebene {storey} · Punkt {label}: Marker auf Seite {page}, die Zeichnung auf Seite {other} – ignoriert.',
+        no_level_zero: 'Kein §EG / §0 – die Ausrichtungsseite wird aus den markierten Ebenen geraten.',
+        no_shared_join: 'Ebene {storey}: kein gemeinsamer Verbindungspunkt mit den übrigen Geschossen.',
+        corner_missing: '{tag}: Ecke {side} fehlt – {have} hat kein Gegenstück.',
+        corner_stray: 'Bereichsecken für Ebene {storey}, die kein §-Marker erklärt – ignoriert.',
+        region_off_page: '{tag} (Seite {page}): eine Ecke liegt ausserhalb der Seite ({axis} {value}).',
+        region_page_split: 'Ebene {storey}: die Bereichsecken liegen nicht auf der Seite der Zeichnung – Bereich ignoriert.',
+        geo_off_fit_page: '{count} §GEO liegen nicht auf der Ausrichtungsseite (Seite {page}) – ignoriert; ein Pack hat eine Passung.',
+        geo_duplicate: '{tag} (Seite {page}): derselbe Punkt ist bereits gepaart – ignoriert.',
+        geo_single: 'Kartenfit: nur ein §GEO auf der Ausrichtungsseite (Seite {page}) – zwei sind nötig.',
+        pack_invalid: 'Die markierten Geschosse ergeben kein gültiges Geschoss-Pack ({detail}).',
+        sideTl: 'oben links',
+        sideBr: 'unten rechts',
+        // Der Schlusssatz der Liste: das PDF ist die Quelle, nicht diese Seite.
+        fix: 'Im PDF korrigieren und neu exportieren – der nächste Import liest es automatisch.',
+        // Der Zustand im Status-Badge (Objektliste und Planzeile) und das kleine Warn-Etikett
+        // auf der Vorschläge-Kachel.
+        incomplete: 'Marker unvollständig',
+        tag: 'Marker',
+      },
       // Von Hand: der Paarungs-Modus im Modal (AlignmentPairing) und die Kartenansicht danach.
       // ⚠️ KEIN «Keine Gebäudeumrisse für dieses Blatt» mehr (15.09.): die Umrisse entstehen nur
       // im Matcher-Lauf (plan_alignment_compute · match), also hat genau das Blatt, das von Hand
@@ -6578,6 +6606,9 @@ export const de = {
         menu: 'Geschosse ordnen',
         reset: 'Zurücksetzen',
         none: 'Noch keine Geschosse zugeordnet – bis dahin zeigt der Einsatz das PDF nur als Dokument.',
+        // …und wenn der Grund dafür oben schon als Marker-Hinweis steht, sagt die Spalte nur
+        // noch, dass es daran liegt – der ganze Hinweis zweimal auf einem Schirm wäre eine Wand.
+        noneMarkers: 'Keine Geschosse – die Marker im PDF sind unvollständig (siehe Hinweis oben).',
         region: 'Bereich zeichnen',
         join: 'Verbinden',
         wholePage: 'Ganze Seite',

@@ -4,6 +4,7 @@ import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { joinShifts } from '../lib/floorPackBinding'
 import { ActionMenu } from './ui'
+import { hasMarkerWarnings } from './markerNotes'
 import { alignmentPagePreview, type AlignmentItem } from './planAlignmentApi'
 import type { PlanFloor } from '../lib/api/reference'
 import {
@@ -160,8 +161,13 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
       </div>
       <aside className="adm-floors-col">
         {/* ONE line, and only here: a pack with nothing assigned yet is a fact about this column,
-            not about the Vorschau or the Karte, where it used to repeat as an amber band */}
-        {!published && <p className="adm-hint adm-floors-none" role="status">{C.none}</p>}
+            not about the Vorschau or the Karte, where it used to repeat as an amber band.
+            When the reason is the PDF's own broken §-markers, the editor's header already lists
+            them – the column only says that THAT is why it is empty, rather than repeating the
+            whole note half a screen further down. */}
+        {!published && (hasMarkerWarnings(item)
+          ? <p className="adm-hint adm-floors-none" role="status">{C.noneMarkers}</p>
+          : <p className="adm-hint adm-floors-none" role="status">{C.none}</p>)}
         <div className="adm-floors-stack" role="list" onDragOver={(e) => { if (dragging != null) { e.preventDefault(); setOver(null) } }}
           onDrop={(e) => { e.preventDefault(); if (dragging != null) setStack((s) => reorderStack(s, dragging, undefined)); setDragging(null); setOver(null) }}>
           {stack.order.map((entry) => {

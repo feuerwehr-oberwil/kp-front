@@ -517,6 +517,13 @@ class PlanAlignment(Base):
     reference_rings: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     reference_source: Mapped[str | None] = mapped_column(Text, nullable=True)
     reference_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: What this revision's own ``§`` markers said, written by every marker run of the worker
+    #: (16.09.2026): ``{"warnings": [MarkerWarning …], "storeys_found", "storeys_written",
+    #: "geo_pairs"}``. NULL = this sheet carries no markers at all. It is a REPORT, not state:
+    #: nothing reads it back to decide anything, it is overwritten whole on the next run of this
+    #: revision, and it is deliberately outside ``plan_approval.snapshot`` — an export getting
+    #: better or worse is not an admin decision and writes no history row.
+    marker_notes: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

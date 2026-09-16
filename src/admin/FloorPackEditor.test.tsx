@@ -15,7 +15,7 @@ vi.mock('./planAlignmentApi', () => ({
 const item: AlignmentItem = {
   id: 7, dataset_id: 'plan:wyss:modul6', plan_version: 2, page: 0, page_count: 4, floors: [], can_approve: false, object_name: 'Wyss Gartencenter', object_lng: 7.5554, object_lat: 47.5112, module: 'modul6', title: null, is_current: true,
   status: 'unsupported', edit_version: 3, pairs: [], aspect: 1.4, scale_m_per_u: null, score: null, coverage: null, reason: 'multi_page_document',
-  created_at: '2026-09-14T08:00:00Z', updated_at: '2026-09-14T08:00:00Z', approved_at: null, reference_rings: [], reference_source: null, reference_at: null,
+  created_at: '2026-09-14T08:00:00Z', updated_at: '2026-09-14T08:00:00Z', approved_at: null, reference_rings: [], reference_source: null, reference_at: null, marker_notes: null,
 }
 // the sheet's raster never arrives unless a test asks for it – nothing here needs the picture
 beforeEach(() => {

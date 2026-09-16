@@ -5,6 +5,45 @@ import type { GeoPt, GeorefPair } from '../lib/georef'
 export type AlignmentStatus = 'pending' | 'processing' | 'ready' | 'needs_review' | 'no_match' | 'failed' | 'unavailable' | 'unsupported' | 'approved' | 'rejected'
 
 /**
+ * What a marked-up export got wrong, as the backend's closed code set (`app/plan_markers.py`).
+ * The code is the fact; the sentence is `admin.alignment.markerWarnings.<code>`, so a new code
+ * needs a key there in every locale – see `markerNotes.tsx`.
+ */
+export type MarkerWarningCode =
+  | 'unknown_tag' | 'page_rotated' | 'duplicate_storey' | 'storey_page_split' | 'no_level_zero'
+  | 'no_shared_join' | 'corner_missing' | 'corner_stray' | 'region_off_page' | 'region_page_split'
+  | 'geo_off_fit_page' | 'geo_duplicate' | 'geo_single' | 'pack_invalid'
+
+/** One warning: its code, plus whichever of these fields that code fills. */
+export interface MarkerWarning {
+  code: MarkerWarningCode
+  /** signed storey index – 0 = EG, +1 = 1. OG */
+  storey?: number
+  label?: string
+  /** the tag as written, «§» included – the thing the plan author has to go and fix */
+  tag?: string
+  /** the counterpart that IS on the sheet (`corner_missing`) */
+  have?: string
+  side?: 'tl' | 'br'
+  /** 1-BASED, as the author counts pages in their PDF viewer */
+  page?: number
+  other?: number
+  axis?: 'x' | 'y'
+  value?: number
+  count?: number
+  detail?: string
+}
+
+/** What this revision's own `§` markers said – written by every marker run of the worker. */
+export interface MarkerNotes {
+  warnings: MarkerWarning[]
+  /** storeys the markers DECLARED – not the same as `storeys_written` when the pack is invalid */
+  storeys_found: number
+  storeys_written: number
+  geo_pairs: number
+}
+
+/**
  * One sheet as the QUEUE knows it – everything the review wall, the object table and the tab
  * badge read, and nothing that grows with the building.
  *
@@ -42,6 +81,8 @@ export interface AlignmentListItem {
   approved_at: string | null
   reference_source: string | null
   reference_at: string | null
+  /** why a marked export produced what it produced; null = this sheet carries no `§` markers */
+  marker_notes: MarkerNotes | null
 }
 
 /** One sheet in FULL – what the detail answers, the only row that carries its reference geometry. */

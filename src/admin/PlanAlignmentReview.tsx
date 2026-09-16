@@ -14,6 +14,7 @@ import { InfoTip } from './InfoTip'
 import { alignmentPreview, approveAlignment, loadAlignmentDetail, loadAlignmentQueue, rejectAlignment, retryAlignment, undoAlignmentApproval, type AlignmentItem, type AlignmentListItem, type AlignmentQueue, type AlignmentStatus } from './planAlignmentApi'
 import { AlignmentGrid, reasonText, type CardDecision, type CardMark } from './AlignmentGrid'
 import { FloorPackEditor, type FloorDraft } from './FloorPackEditor'
+import { MarkerNotes } from './markerNotes'
 import { moduleHiddenWithGebaeude } from '../lib/deploymentConfig'
 import { savePlanFloors } from './planAlignmentApi'
 import './planAlignment.css'
@@ -498,6 +499,7 @@ function FloorPackDetail({ item, onChange, onConflict, onDirty, saveRef, onSaveS
       <button type="button" className="btn" disabled={busy || !canUndo} onClick={() => historyRef.current?.undo()}><Icon id="undo" />{appConfig.copy.undo}</button>
       <button type="button" className="btn primary" disabled={!saveable} onClick={() => void save()}>{busy ? C.saving : F.saveAll}</button>
     </>} />
+    <MarkerNotes item={item} />
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
     {/* ONE row, not two: the tabs go INTO the editor's bar, beside the sheet's zoom and over the
         floors column's head (FloorPackEditor · .adm-floors-bar). That is why the editor is mounted
@@ -594,6 +596,7 @@ function SheetDetail({ item, onChange, onConflict, onDirty }: DetailProps) {
         { value: true, label: C.editor.map }, { value: false, label: C.editor.preview },
       ]} />
     </nav>
+    <MarkerNotes item={item} />
     {!item.is_current && <p className="adm-align-notice">{C.superseded}</p>}
     {reason && <p className="adm-hint adm-align-reason">{reason}</p>}
     <div className="adm-editor-pane adm-editor-map-pane">

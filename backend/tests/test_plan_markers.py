@@ -20,6 +20,7 @@ from app.plan_markers import (
     read_plan,
     report,
 )
+from app.plan_markers import text as marker_text
 
 #: the docs agent's reference export (docs/plan-markers/) – a real Affinity-shaped PDF, not one
 #: this test drew itself. Absent in a stripped checkout; the generated fixtures cover the rest.
@@ -132,7 +133,7 @@ def test_a_marker_keeps_its_name_and_stops_where_the_sheet_s_own_text_begins():
 def test_an_unreadable_tag_is_reported_rather_than_dropped():
     plan = read_plan(_pdf([[(60, 300, "§EG"), (60, 260, "§Keller")]]))
     assert plan is not None and [f.index for f in plan.floors] == [0]
-    assert any("§Keller" in w for w in plan.warnings)
+    assert plan.warnings == [{"code": "unknown_tag", "tag": "§Keller", "page": 1}]
 
 
 # ---------------------------------------------------------------------------------------
@@ -208,18 +209,18 @@ def test_a_floor_that_shares_no_point_with_the_chain_is_named_and_left_unjoined(
     plan = read_plan(_pdf([[(200, 300, "§EG.A")], [(200, 300, "§1OG.A")], [(200, 300, "§2OG.Z")]]))
     assert plan is not None
     assert next(f for f in plan.floors if f.index == 2).join is None
-    assert "Geschoss +2 hat keinen gemeinsamen Verbindungspunkt" in plan.warnings
+    assert {"code": "no_shared_join", "storey": 2} in plan.warnings
     # a pair that closes on itself never reaches the ground either, and says so the same way
     island = read_plan(_pdf([[(200, 300, "§EG.A")], [(200, 300, "§1OG.Z")], [(200, 300, "§2OG.Z")]]))
     assert island is not None and all(f.join is None for f in island.floors)
-    assert sum("keinen gemeinsamen Verbindungspunkt" in w for w in island.warnings) == 2
+    assert [w["storey"] for w in island.warnings if w["code"] == "no_shared_join"] == [1, 2]
 
 
 def test_the_same_point_marked_twice_on_one_storey_keeps_the_first_and_names_the_label():
     pages = [[(200, 300, "§EG.A")], [(200, 300, "§1OG.A"), (400, 200, "§1OG.B"), (600, 100, "§1OG.B")]]
     plan = read_plan(_pdf(pages))
     assert plan is not None
-    assert any("point «B» is marked twice" in w for w in plan.warnings)
+    assert {"code": "duplicate_storey", "storey": 1, "label": "B", "tag": "§1OG.B", "page": 2} in plan.warnings
 
 
 def test_dach_sits_one_above_the_top_storey_it_shares_the_sheet_with():
@@ -259,7 +260,49 @@ def test_a_lone_region_corner_costs_that_region_and_nothing_else():
     plan = read_plan(_pdf([[(60, 540, "§[EG"), (200, 300, "§EG")], [(600, 300, "§1OG")]]))
     assert plan is not None
     assert [f.index for f in plan.floors] == [0, 1] and all(f.clip is None for f in plan.floors)
-    assert any("only one region corner" in w for w in plan.warnings)
+    # the warning names the tag the author has to ADD, in the spelling they used for its twin
+    assert {
+        "code": "corner_missing",
+        "storey": 0,
+        "tag": "§EG]",
+        "have": "§[EG",
+        "side": "br",
+        "page": 1,
+    } in plan.warnings
+
+
+def test_a_corner_left_outside_the_page_names_the_tag_instead_of_condemning_the_pack():
+    """Allschwilerstrasse 100, 16.09.2026: a «§[EG» left in the template sat off the sheet and a
+    «§4OG]» was never drawn, so the export produced NO floors and the admin saw «Vorschlag
+    bereit» with an empty Geschoss list. Both are now named, tag by tag."""
+    plan = read_plan(
+        _pdf([[(-30, 300, "§[EG"), (200, 300, "§EG"), (400, 40, "§EG]"), (500, 300, "§1OG"), (520, 540, "§[1OG")]])
+    )
+    assert plan is not None and plan.floors == [] and plan.storeys == 2
+    codes = [w["code"] for w in plan.warnings]
+    assert codes == ["region_off_page", "corner_missing", "corner_missing", "pack_invalid"]
+    off = plan.warnings[0]
+    assert off["tag"] == "§[EG" and off["axis"] == "x" and off["value"] < 0
+    # the corner that is LEFT alone is the one the author still has to pair up
+    assert plan.warnings[1]["tag"] == "§[EG" and plan.warnings[1]["have"] == "§EG]"
+    assert plan.warnings[2]["tag"] == "§1OG]" and plan.warnings[2]["have"] == "§[1OG"
+
+
+def test_every_warning_code_says_itself_in_german():
+    """`text()` is what the CLI prints and the worker logs – the admin UI renders the same codes
+    through its own copy, so a code without a sentence here is a code nobody can read."""
+    from app.plan_markers import _SAID, WarningCode
+
+    assert set(_SAID) == set(WarningCode.__args__)
+    said = marker_text(
+        {"code": "corner_missing", "storey": 4, "tag": "§4OG]", "have": "§[4OG", "side": "br", "page": 1}
+    )
+    assert said.startswith("§4OG]: Ecke unten rechts fehlt – §[4OG hat kein Gegenstück")
+    assert marker_text({"code": "no_shared_join", "storey": -1}) == (
+        "Ebene -1: kein gemeinsamer Verbindungspunkt mit den übrigen Geschossen."
+    )
+    # a code the renderer has never heard of prints itself rather than breaking the dry run
+    assert marker_text({"code": "nonsense"}) == "nonsense"  # type: ignore[typeddict-item]
 
 
 def test_a_one_sheet_pack_whose_region_is_incomplete_proposes_no_pack_at_all():
@@ -267,7 +310,9 @@ def test_a_one_sheet_pack_whose_region_is_incomplete_proposes_no_pack_at_all():
     twice, which `validate_floors` refuses – the same rule the admin's own PUT is held to."""
     plan = read_plan(_pdf([[(60, 540, "§[EG"), (200, 300, "§EG"), (600, 300, "§1OG")]]))
     assert plan is not None and plan.floors == []
-    assert any("do not make a valid floor pack" in w for w in plan.warnings)
+    invalid = next(w for w in plan.warnings if w["code"] == "pack_invalid")
+    assert invalid["detail"] == "Eine ganze Seite kann nur ein Geschoss sein"
+    assert plan.storeys == 2  # what the markers DECLARED, even though none of it was proposed
 
 
 def test_two_geo_markers_on_the_fit_page_are_the_fit():
@@ -285,26 +330,26 @@ def test_two_geo_markers_on_the_fit_page_are_the_fit():
     assert plan.pairs[1]["lngLat"] == {"lng": 7.55470, "lat": 47.51470}
     assert all(0 <= p["plan"]["x"] <= 1 and 0 <= p["plan"]["y"] <= 1 for p in plan.pairs)
     # the pack has ONE fit, measured on the level-0 drawing – the 1. OG's §GEO says nothing
-    assert any("not the fit page" in w for w in plan.warnings)
+    assert {"code": "geo_off_fit_page", "count": 1, "page": 1} in plan.warnings
 
 
 def test_a_single_geo_marker_proposes_no_fit_at_all():
     plan = read_plan(_pdf([[(200, 300, "§EG"), (60, 540, "§GEO 2612345.6 1264321.2")]]))
     assert plan is not None and plan.pairs == []
-    assert any("at least two" in w for w in plan.warnings)
+    assert {"code": "geo_single", "page": 1} in plan.warnings
 
 
 def test_a_storey_marked_twice_keeps_the_first_and_says_so():
     plan = read_plan(_pdf([[(200, 300, "§EG")], [(200, 300, "§EG")], [(200, 300, "§1OG")]]))
     assert plan is not None
     assert [(f.index, f.page) for f in plan.floors] == [(0, 0), (1, 2)]
-    assert any("marked twice" in w for w in plan.warnings)
+    assert {"code": "duplicate_storey", "storey": 0, "label": "A", "tag": "§EG", "page": 2} in plan.warnings
 
 
 def test_without_a_level_zero_the_fit_page_is_the_lowest_storey_above_ground():
     plan = read_plan(_pdf([[(200, 300, "§2OG")], [(200, 300, "§1OG")]]))
     assert plan is not None and plan.fit_page == 1
-    assert any("no §EG" in w for w in plan.warnings)
+    assert {"code": "no_level_zero"} in plan.warnings
     # …and page 0 is a page like any other when it is the one that qualifies
     first = read_plan(_pdf([[(200, 300, "§1OG")], [(200, 300, "§2OG")]]))
     assert first is not None and first.fit_page == 0
@@ -488,6 +533,52 @@ async def test_a_marked_modul6_is_freigegeben_on_import_and_reaches_incidents(se
         assert [a["id"] for a in published["alignments"]] == [row.id]
         assert published["alignments"][0]["approval_id"] == event.id
         assert (await db.execute(select(ObjectSite))).scalar_one() is not None
+
+
+async def test_every_marker_run_writes_what_it_read_onto_the_row(session_factory):
+    """The row carries the diagnosis (16.09.2026): a broken export leaves the admin an object
+    with no Geschosse, and `marker_notes` is the only thing that can say why."""
+    from app.models import PlanAlignment
+    from app.plan_floors import load_floors
+
+    broken = [[(-30, 300, "§[EG"), (200, 300, "§EG"), (400, 40, "§EG]"), (500, 300, "§1OG"), (520, 540, "§[1OG")]]
+    async with session_factory() as db:
+        ds = await _import(db, await _object(db), broken)
+        await db.commit()
+        dataset_id = ds.id
+    await _drain(session_factory)
+    async with session_factory() as db:
+        row = (await db.execute(select(PlanAlignment))).scalar_one()
+        assert await load_floors(db, dataset_id, 1) == []  # nothing written, and now it says so
+        notes = row.marker_notes
+        assert [w["code"] for w in notes["warnings"]] == [
+            "region_off_page",
+            "corner_missing",
+            "corner_missing",
+            "pack_invalid",
+        ]
+        assert (notes["storeys_found"], notes["storeys_written"], notes["geo_pairs"]) == (2, 0, 0)
+
+    # …and a marked export that IS right says exactly that: a summary and no warnings
+    async with session_factory() as db:
+        obj = (await db.execute(select(ObjectSite))).scalar_one()
+        await _import(db, obj, MARKED)
+        await db.commit()
+    await _drain(session_factory)
+    async with session_factory() as db:
+        row = (await db.execute(select(PlanAlignment).where(PlanAlignment.plan_version == 2))).scalar_one()
+        assert row.marker_notes == {"warnings": [], "storeys_found": 3, "storeys_written": 3, "geo_pairs": 2}
+
+
+async def test_an_unmarked_sheet_leaves_no_marker_notes_at_all(session_factory):
+    from app.models import PlanAlignment
+
+    async with session_factory() as db:
+        await _import(db, await _object(db), [[(200, 300, "Grundriss Erdgeschoss")]])
+        await db.commit()
+    await _drain(session_factory)
+    async with session_factory() as db:
+        assert (await db.execute(select(PlanAlignment))).scalar_one().marker_notes is None
 
 
 async def test_without_geo_markers_the_storeys_arrive_and_the_fit_stays_the_worker_s_business(

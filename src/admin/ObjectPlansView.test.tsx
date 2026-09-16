@@ -41,7 +41,7 @@ vi.mock('../lib/api', async () => {
 })
 const plan = { id: 'p1', object_id: 'o1', module: 'modul6', kind: 'pdf', title: 'Gebäudeplan', source_type: 'upload', source_note: null, content_type: 'application/pdf', size_bytes: 10, feature_count: null, current_version: 2, updated_at: '' }
 const object: ObjectWithPlans = { id: 'o1', name: 'Testhaus', address: 'Testweg 12', lat: null, lng: null, source_note: null, updated_at: '', plans: [plan], distance_m: null }
-const item: AlignmentItem = { id: 8, dataset_id: 'p1', plan_version: 2, page: 0, page_count: null, floors: [], can_approve: false, object_name: 'Testhaus', object_lng: null, object_lat: null, module: 'modul6', title: null, is_current: true, status: 'ready', edit_version: 1, pairs: [], aspect: null, scale_m_per_u: null, score: null, coverage: null, reason: null, created_at: '', updated_at: '', approved_at: null, reference_rings: [], reference_source: null, reference_at: null }
+const item: AlignmentItem = { id: 8, dataset_id: 'p1', plan_version: 2, page: 0, page_count: null, floors: [], can_approve: false, object_name: 'Testhaus', object_lng: null, object_lat: null, module: 'modul6', title: null, is_current: true, status: 'ready', edit_version: 1, pairs: [], aspect: null, scale_m_per_u: null, score: null, coverage: null, reason: null, created_at: '', updated_at: '', approved_at: null, reference_rings: [], reference_source: null, reference_at: null, marker_notes: null }
 const mount = () => render(<ObjectPlansView modules={[{ id: 'modul6', title: 'Modul 6', alignment: 'manual' }]} overview={() => <div>Catalogue overview</div>} />)
 /** the row's own control — one button spanning the name cell, no «Öffnen» beside it */
 const row = (name = 'Testhaus') => screen.getByRole('button', { name: new RegExp(`^${name}`) })
@@ -240,4 +240,22 @@ it('names every plan by its short form, never by its storage key, in the order t
   expect(screen.getAllByText('M6')).toHaveLength(1)
   expect(screen.getByText('Gebäudepläne')).toBeTruthy()
   expect(screen.queryByText(/modul5-pv/)).toBeNull()
+})
+
+// A plan PDF can prepare itself with §-markers; when it gets them wrong the worker writes no
+// floors and the object used to read «Handlungsbedarf» with nothing saying why (16.09.2026).
+it('says a broken §-marker export by name, in the object row and in the plan row', async () => {
+  const notes = {
+    warnings: [{ code: 'corner_missing' as const, storey: 4, tag: '§4OG]', have: '§[4OG', side: 'br' as const, page: 1 }],
+    storeys_found: 5, storeys_written: 0, geo_pairs: 0,
+  }
+  vi.mocked(loadAlignmentQueue).mockResolvedValue({ items: [{ ...item, status: 'approved', marker_notes: notes }], capability: { available: true, reason: null } })
+  mount()
+  await screen.findByText('Testhaus')
+  // an APPROVED fit would otherwise read green: a broken export outranks it, because no click
+  // on this page can fix it
+  const badge = screen.getByText('Marker unvollständig')
+  expect(badge.closest('.adm-badge')?.className).toContain('warn')
+  fireEvent.click(row())
+  expect(screen.getByText('Marker unvollständig')).toBeTruthy()
 })

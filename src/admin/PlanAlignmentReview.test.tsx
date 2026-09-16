@@ -15,7 +15,7 @@ vi.mock('./AlignmentPairing', () => ({ default: (props: { onPairs: (p: unknown[]
 const item: AlignmentItem = {
   id: 1, dataset_id: 'plan:object:modul2', plan_version: 3, page: 0, page_count: null, floors: [], can_approve: false, object_name: 'Testobjekt', object_lng: 7.55, object_lat: 47.51, module: 'modul2', title: 'Modul 2', is_current: true,
   status: 'ready', edit_version: 5, pairs: [{ plan: { x: .1, y: .2 }, lngLat: { lng: 7.55, lat: 47.51 }, kind: 'auto' }, { plan: { x: .8, y: .9 }, lngLat: { lng: 7.552, lat: 47.509 }, kind: 'auto' }],
-  aspect: .7, scale_m_per_u: 150, score: 4, coverage: .8, reason: null, created_at: '2026-09-09T09:00:00Z', updated_at: '2026-09-09T09:00:00Z', approved_at: null, reference_rings: [], reference_source: 'OSM', reference_at: '2026-09-09T08:00:00Z',
+  aspect: .7, scale_m_per_u: 150, score: 4, coverage: .8, reason: null, created_at: '2026-09-09T09:00:00Z', updated_at: '2026-09-09T09:00:00Z', approved_at: null, reference_rings: [], reference_source: 'OSM', reference_at: '2026-09-09T08:00:00Z', marker_notes: null,
 }
 /** what the outline endpoint answers – the list never carries these */
 const RINGS = [[{ lng: 7.55, lat: 47.51 }, { lng: 7.551, lat: 47.51 }, { lng: 7.551, lat: 47.509 }]]
@@ -292,4 +292,31 @@ it('offers the editor\'s own save as the third way out and closes behind it', as
   fireEvent.click(within(warning).getByRole('button', { name: 'Speichern' }))
   await waitFor(() => expect(onClose).toHaveBeenCalled())
   expect(savePlanFloors).toHaveBeenCalledWith(floorItem, [{ page: 0, index: 0, name: 'Halle', clip: null, join: null }], undefined)
+})
+
+// The §-marker diagnosis (16.09.2026): a marked export that prepared nothing must say WHY, in
+// German, from the codes the backend wrote onto the row – not in a server log nobody reads.
+it('turns the marker warning codes into German sentences under the editor header', async () => {
+  const floorItem: AlignmentItem = {
+    ...detail, module: 'modul6', status: 'ready', page_count: 2, floors: [],
+    marker_notes: {
+      warnings: [
+        { code: 'corner_missing', storey: 4, tag: '§4OG]', have: '§[4OG', side: 'br', page: 1 },
+        { code: 'region_off_page', storey: 0, tag: '§[EG', page: 1, axis: 'x', value: -0.001 },
+        { code: 'geo_single', page: 1 },
+      ],
+      storeys_found: 5, storeys_written: 0, geo_pairs: 0,
+    },
+  }
+  vi.mocked(loadAlignmentDetail).mockResolvedValue(floorItem)
+  render(<PlanAlignmentEditor item={floorItem} onClose={vi.fn()} onChange={vi.fn()} onConflict={vi.fn(async () => {})} />)
+  await screen.findByText('§4OG]: Ecke unten rechts fehlt – §[4OG hat kein Gegenstück.')
+  // the coordinate keeps a real minus sign – it is read, not computed with
+  expect(screen.getByText('§[EG (Seite 1): eine Ecke liegt ausserhalb der Seite (x −0.0010).')).toBeTruthy()
+  expect(screen.getByText('Kartenfit: nur ein §GEO auf der Ausrichtungsseite (Seite 1) – zwei sind nötig.')).toBeTruthy()
+  // …and the one line that says where the fix belongs: in the PDF, not on this page
+  expect(screen.getByText('Im PDF korrigieren und neu exportieren – der nächste Import liest es automatisch.')).toBeTruthy()
+  // the Geschosse column points at that note instead of repeating the generic empty line
+  expect(screen.getByText('Keine Geschosse – die Marker im PDF sind unvollständig (siehe Hinweis oben).')).toBeTruthy()
+  expect(screen.queryByText(/Noch keine Geschosse zugeordnet/)).toBeNull()
 })

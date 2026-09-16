@@ -99,6 +99,10 @@ def _serialize_item(
         "module": ds.module if ds else None,
         "title": ds.title if ds else None,
         "edit_version": row.edit_version,
+        # Why a marked export produced what it produced (16.09.2026) — small enough for the LIST
+        # too, and it has to be there: the object table's badge is what tells an operator that a
+        # «Vorschlag bereit» with no Geschosse is an export to fix, not a plan to approve.
+        "marker_notes": row.marker_notes,
         "created_at": row.created_at,
         "updated_at": row.updated_at,
         "is_current": bool(ds and ds.current_version == row.plan_version),

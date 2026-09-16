@@ -118,6 +118,13 @@ to prod.
   (`plan_page_floors.marker`), so the next re-export follows the markers where they moved and
   re-applies, by storey index, every name/region/join a human had corrected. `just plan-markers
   <pdf>` is the author's dry run; the tag grammar for humans is `docs/plan-markers/README.md`.
+  **A broken export says so on the row** (16.09.2026): every marker run writes
+  `plan_alignments.marker_notes` – the faults as a CLOSED code set (`plan_markers.WarningCode`,
+  German through `plan_markers.text` for the CLI/log and through
+  `admin.alignment.markerWarnings.<code>` for the admin UI) plus
+  `storeys_found`/`storeys_written`/`geo_pairs` – so an object left with zero Geschosse reads
+  «Marker unvollständig» in Objektpläne and lists what to fix under the editor's header. Add a
+  code ⇒ add its sentence in BOTH places.
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by

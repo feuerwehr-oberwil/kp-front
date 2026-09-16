@@ -4,6 +4,7 @@ import { fillTemplate } from '../lib/format'
 import { fitSimilarity, type GeoPt } from '../lib/georef'
 import { alignmentThumbnail, loadAlignmentOutline, type AlignmentListItem } from './planAlignmentApi'
 import { signedIndex } from './floorPack'
+import { hasMarkerWarnings } from './markerNotes'
 
 /** An immediate action from a card footer (the modal carries the slow path). */
 export type CardDecision = 'undo'
@@ -80,7 +81,11 @@ function AlignmentCard({ item, busy, mark, onMark, onDecide, onOpen }: {
       </svg>}
     </button>
     <div className="adm-card-cap"><b className="adm-card-name">{item.object_name}</b>
-      <span className="adm-card-meta"><span className="adm-card-code">{moduleCode(item.module)}</span>{coverage && proposal ? coverage : <span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span>}</span></div>
+      <span className="adm-card-meta"><span className="adm-card-code">{moduleCode(item.module)}</span>
+        {/* one word, no sentence: the tile is scanned, and the editor behind it lists what is
+            actually wrong with the sheet's §-markers */}
+        {hasMarkerWarnings(item) && <span className="adm-view-badge adm-view-badge-warn">{C.markerWarnings.tag}</span>}
+        {coverage && proposal ? coverage : <span className={`adm-align-status ${item.status}`}>{C.status[item.status]}</span>}</span></div>
     {pack && <p className="adm-card-reason">{pack}</p>}
     {reason && !proposal && <p className="adm-card-reason">{reason}</p>}
     <div className="adm-card-foot">
