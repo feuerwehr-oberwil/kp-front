@@ -44,8 +44,12 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings } from '../lib/whiteboard'
+import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
+
+/** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
+const FOLDED_H = 28
 import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint } from '../lib/lineAttachments'
-import { packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from '../lib/stackFit'
+import { packFrameRing, packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { normalizeStackEdit, stackInstances } from '../lib/stackFloors'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
@@ -54,7 +58,7 @@ import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
-import { activeViewDeg, buildView, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
+import { activeViewDeg, buildView, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
@@ -505,8 +509,45 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl, viewMemory, maxScale)
 
   const osm = active.osm
-  const floorsTTB = useMemo(() => (stack ? [...building!.floors].sort((a, b) => b - a) : []), [stack, building])
+  /** every storey the building HAS, top-to-bottom – what the eye toggles list, what the document
+   *  keeps ink for, and what the Rapport prints, whatever this device has folded away */
+  const allFloorsTTB = useMemo(() => (stack ? [...building!.floors].sort((a, b) => b - a) : []), [stack, building])
+  // …and which of them THIS DEVICE is looking at (lib/floorPrefs, 16.09.2026). Device-local on
+  // purpose: folding a Geschoss away is a way of reading the stack, so it never reaches the synced
+  // workspace – the Karte, the other tablets and the Rapport keep the whole building.
+  const [hiddenFloors, setHiddenFloors] = useState<number[]>(() => (incidentId ? loadHiddenFloors(incidentId) : []))
+  useEffect(() => { setHiddenFloors(incidentId ? loadHiddenFloors(incidentId) : []) }, [incidentId])
+  const floorsTTB = useMemo(() => shownFloors(allFloorsTTB, hiddenFloors), [allFloorsTTB, hiddenFloors])
   const N = floorsTTB.length || 1
+  const putHidden = (next: number[]) => {
+    setHiddenFloors(next)
+    if (incidentId) saveHiddenFloors(incidentId, next)
+  }
+  /** Fold a storey away, or bring it back. ⚠️ The LAST visible one cannot be folded: a stack with
+   *  no tile has nothing left to tap, and the way back would be gone with it. */
+  const toggleFloor = (f: number) => {
+    if (hiddenFloors.includes(f)) { putHidden(hiddenFloors.filter((x) => x !== f)); return }
+    if (floorsTTB.length <= 1) return
+    putHidden([...hiddenFloors, f])
+  }
+  /** Bring a storey back because something is SENDING us there – a stair mark tapped on the tile
+   *  below, a Leitung climbing into it. Being sent to a storey that is not on the board would
+   *  otherwise pan the view into empty space (or, for the climb, do nothing at all). */
+  const revealFloor = (f: number) => { if (hiddenFloors.includes(f)) putHidden(hiddenFloors.filter((x) => x !== f)) }
+  /** The folded-away storeys as strips: where each one belongs between the drawn tiles (`seam` =
+   *  how many drawn tiles are above it) and how many folded storeys share that seam. */
+  const folded = useMemo(() => {
+    let seam = 0, order = 0
+    const rows = allFloorsTTB.flatMap((f) => {
+      if (floorsTTB.includes(f)) { seam += 1; order = 0; return [] }
+      return [{ floor: f, seam, order: order++ }]
+    })
+    // how many share each seam – the group ABOVE the top tile grows upwards, so it needs to know
+    // its own size to keep the storeys in order (the highest one furthest from the board)
+    const sizes = new Map<number, number>()
+    for (const r of rows) sizes.set(r.seam, (sizes.get(r.seam) ?? 0) + 1)
+    return rows.map((r) => ({ ...r, count: sizes.get(r.seam)! }))
+  }, [allFloorsTTB, floorsTTB])
   /** how many PDF regions the stack bakes, which is what shares the device's pixel budget – a
    *  storey drawn as two wings is two rasters, not one (lib/pdfRenderBudget · pageCanvasBudget) */
   const drawings = Math.max(N, floorPack ? floorsTTB.reduce((n, f) => n + (floorPack.tiles[f]?.length ?? 0), 0) : 0)
@@ -515,22 +556,46 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Active footprint view: buildings picked since auto-orientation carry `src`, so the
   // rendered rings/aspect are derived for the current orientation (oriented by default,
   // or north-up when toggled). Older docs fall back to their stored rings (north-up only).
-  const orientDeg = building?.orientDeg ?? 0
+  /** What the Gebäudeview TURNS: a picked footprint, or – since 16.09.2026 – the plan pack's own
+   *  frame as a rectangle in isotropic page space (lib/stackFit · packFrameRing). One ring either
+   *  way, so the rotation, the annotation re-glue and the north dial are the same machinery for a
+   *  Geschossplan as for an outline. */
+  const orientSrc = useMemo(
+    () => (building?.pack ? packFrameRing(building.pack) : building?.src?.length ? (building.src as Ring[]) : null),
+    [building],
+  )
+  // a pack's «Längsachse» is its frame's long side; an outline's is its principal axis, computed
+  // once when it was picked
+  const orientDeg = useMemo(
+    () => (building?.pack ? principalAngleDeg(packFrameRing(building.pack)) : building?.orientDeg ?? 0),
+    [building],
+  )
   const viewAngle = building ? activeViewDeg(building) : 0
   // A8 (29.08.): a DRAG on the north dial rotates the building continuously. While the finger
   // is down this holds the live preview angle; the commit (one reorientTo, through the same
   // remap + undo path as the tap) happens on release, so annotations re-glue exactly once.
   const [dialDragDeg, setDialDragDeg] = useState<number | null>(null)
   const shownAngle = dialDragDeg ?? viewAngle
-  const fpView = useMemo(() => {
-    if (!building) return null
-    if (building.src?.length) return buildView(building.src, shownAngle)
-    return { rings: building.rings ?? [building.ring], aspect: building.ringAspect }
-  }, [building, shownAngle])
+  /** the turned view of `orientSrc` – present whenever there is something to turn */
+  const packView = useMemo(() => (orientSrc ? buildView(orientSrc, shownAngle) : null), [orientSrc, shownAngle])
+  const fpView = useMemo(
+    () => (packView ?? (building ? { rings: building.rings ?? [building.ring], aspect: building.ringAspect } : null)),
+    [packView, building],
+  )
   // the align-longest-axis compass only makes sense on the Gebäude floor-stack (whose storeys are
   // drawn from the building footprint). On a module/PDF plan the page is already aligned, so even
   // though a building may be selected at the incident level, the compass must NOT appear there.
-  const canOrient = stack && !!building?.src?.length && Math.abs(orientDeg) > 0.001
+  // ⚠️ A PACK may always be turned: its pages are drawn the way the architect's sheet happened to
+  // lie, which is exactly what the operator needs to be able to correct. A footprint is only worth
+  // offering when its auto-orientation found something to straighten.
+  const canOrient = stack && (!!building?.pack || (!!building?.src?.length && Math.abs(orientDeg) > 0.001))
+  /** where north is on the paper this stack shows: for an outline, the view angle itself (0 = north
+   *  up, by construction); for a pack, the page's own bearing from its map fit, turned by the view.
+   *  Null when a pack has no approved fit – then nothing here knows where north is, and the dial
+   *  says so instead of pointing somewhere. */
+  const northDeg = building?.pack
+    ? floorPack?.fit ? floorPack.fit.rotationDeg + shownAngle : null
+    : shownAngle
 
   const draftFloor = useRef(0)
   // two-finger pinch tracking ON the create-tool ink overlay, so the user can pinch-zoom the
@@ -1908,7 +1973,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const i = end === 'start' ? 0 : pts.length - 1
     const [x, y, f] = pts[i]
     const floor = (f ?? a.floor ?? 0) + dir
-    if (!floorsTTB.includes(floor)) return
+    if (!allFloorsTTB.includes(floor)) return
+    revealFloor(floor) // a Leitung may climb into a storey this device folded away — it comes back
     // the way back: if the neighbouring vertex IS this spot one storey in that direction, the
     // tap undoes the climb (drops this end) instead of laying a second flight back down the same
     // stairs – which left the line 0 → +1 → 0 with two marks on top of each other
@@ -2877,12 +2943,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // end). The single commit path for every door: the compass chip's popover, the rail footer's,
   // the slider and the two named-angle chips inside them.
   const reorientTo = (toDeg: number) => {
-    if (!building?.src?.length || !onReorient || readOnly || !sW || !sH) return
+    if (!building || !orientSrc || !onReorient || readOnly || !sW || !sH) return
     const fromDeg = viewAngle
     if (Math.abs(toDeg - fromDeg) < 0.01) return
-    const view = buildView(building.src, toDeg)
+    const view = buildView(orientSrc, toDeg)
     const layout = { boardW: sW, boardH: sH, floors: N }
-    const src = building.src as Ring[]
+    const src = orientSrc
     const mv = (p: [number, number]): [number, number] => remapPoint(src, fromDeg, toDeg, layout, p)
     // where the view is looking, in tile coordinates, re-glued the same way (see the pan below)
     const anchor = (() => {
@@ -2906,8 +2972,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return next
     })
     commit(remapped) // re-glued annotations go through undo/redo + sync
-    // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read
-    onReorient({ ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
+    // `northUp` stays in sync (0° IS north-up) so pre-dial clients keep their binary read — on a
+    // PACK it would be a lie (0° is the page as drawn, which is north-up only by luck), and the
+    // rings would be the frame rectangle, which a pack deliberately has none of. Only the aspect
+    // crosses over: it is what makes the tile box follow the turned frame.
+    onReorient(building.pack
+      ? { ...building, viewDeg: toDeg, ringAspect: view.aspect }
+      : { ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
     emit('building.reorient', { northUp: toDeg === 0, deg: toDeg, planId: activeId })
     // …and the VIEW is re-glued too. The board keeps its size through a rotation (a stack's
     // aspect is the floor count, not the footprint's — see effAspect), so the storey cards stay
@@ -2925,10 +2996,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // release; the two named angles are also one-tap chips.
   const DIAL_SNAP_DEG = 5
   const normDeg = (d: number) => { let x = d % 360; if (x > 180) x -= 360; if (x <= -180) x += 360; return x }
+  /** The angle that puts real north up. For an outline that is 0 by construction (`src` is stored
+   *  north-up); for a PACK it is the negative of the page's own bearing, which only its approved
+   *  map fit knows — without one there is no such angle, and no chip offering it. */
+  const northUpDeg = building?.pack ? (floorPack?.fit ? normDeg(-floorPack.fit.rotationDeg) : null) : 0
   const snapDial = (d: number) => {
     const n = normDeg(d)
-    if (Math.abs(n) <= DIAL_SNAP_DEG) return 0
-    if (Math.abs(normDeg(n - orientDeg)) <= DIAL_SNAP_DEG) return orientDeg
+    for (const target of [0, orientDeg, northUpDeg]) {
+      if (target != null && Math.abs(normDeg(n - target)) <= DIAL_SNAP_DEG) return target
+    }
     return n
   }
   const commitOrient = (deg: number) => { setDialDragDeg(null); reorientTo(snapDial(deg)) }
@@ -2948,10 +3024,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         <b className="wb-orient-val">{Math.round(normDeg(dialDragDeg ?? viewAngle))}°</b>
       </label>
       <div className="wb-orient-chips">
-        <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === 0 ? ' on' : ''}`}
-          onClick={() => commitOrient(0)}>{appConfig.copy.whiteboard.orientNorthUp}</button>
-        <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === normDeg(orientDeg) ? ' on' : ''}`}
-          onClick={() => commitOrient(orientDeg)}>{appConfig.copy.whiteboard.orientLongAxis}</button>
+        {/* «Wie gezeichnet» is the pack's own 0°: the sheet as the architect drew it, which is a
+            meaningful place to come back to and is NOT north-up (that is the chip beside it) */}
+        {building?.pack && (
+          <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === 0 ? ' on' : ''}`}
+            onClick={() => commitOrient(0)}>{appConfig.copy.whiteboard.orientAsDrawn}</button>
+        )}
+        {northUpDeg != null && (
+          <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === northUpDeg ? ' on' : ''}`}
+            onClick={() => commitOrient(northUpDeg)}>{appConfig.copy.whiteboard.orientNorthUp}</button>
+        )}
+        {Math.abs(orientDeg) > 0.001 && (
+          <button type="button" className={`wb-orient-chip${normDeg(shownAngle) === normDeg(orientDeg) ? ' on' : ''}`}
+            onClick={() => commitOrient(orientDeg)}>{appConfig.copy.whiteboard.orientLongAxis}</button>
+        )}
       </div>
     </div>
   )
@@ -3123,7 +3209,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             style={{ width: sW || undefined, height: sH || undefined, transform: `translate(-50%, -50%) translate(${pos.x + (side.l - side.r) / 2}px, ${pos.y + TOP_INSET / 2}px)` }}
           >
             {stack && building ? (
-              floorsTTB.map((f, idx) => (
+              <>
+              {/* what is folded away, as a strip where the storey belongs – «+2 · 2. OG
+                  ausgeblendet · einblenden». Chrome, not a tile: the board's geometry is the DRAWN
+                  storeys, so nothing under it moves when one is folded (mock A, 16.09.2026). */}
+              {folded.map(({ floor: f, seam, order, count }) => {
+                const top = seam === 0 ? -(count - order) * FOLDED_H       // above the stack, in order
+                  : seam >= N ? sH + order * FOLDED_H                      // below it
+                  : (seam / N) * sH - FOLDED_H / 2 + order * FOLDED_H      // straddling the seam
+                return (
+                  <button key={`folded:${f}`} type="button" className="wb-floor-folded" style={{ top, width: sW, height: FOLDED_H }}
+                    title={appConfig.copy.whiteboard.floorShow} onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}>
+                    <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>
+                    <span className="wb-floor-name">{building.floorNames?.[String(f)] ?? floorLabel(f)}</span>
+                    <span className="wb-floor-folded-state">{appConfig.copy.whiteboard.floorHidden}</span>
+                    <span className="wb-floor-folded-cta"><Icon id="eyeoff" />{appConfig.copy.whiteboard.floorShow}</span>
+                  </button>
+                )
+              })}
+              {floorsTTB.map((f, idx) => (
                 <div key={f} className="wb-floor" style={{ top: (idx / N) * sH, height: sH / N, width: sW }}>
                   <div className="wb-floor-label">
                     {/* mock B (14.09.2026): the signed index as the SAME chip the Karte badges a storey
@@ -3131,6 +3235,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         never hides the order, and level 0 is the blue one */}
                     <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>
                     <span className="wb-floor-name">{building.floorNames?.[String(f)] ?? floorLabel(f)}</span>
+                    {/* fold this storey away – a way of LOOKING, so it stands on every surface,
+                        read-only ones included, and never asks (the strip it leaves is the way back) */}
+                    {floorsTTB.length > 1 && (
+                      <button className="wb-floor-eye" title={appConfig.copy.whiteboard.floorHide} aria-label={appConfig.copy.whiteboard.floorHide}
+                        onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}><Icon id="eye" /></button>
+                    )}
                     {f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f] && (
                       <button className="wb-floor-x" title={appConfig.copy.whiteboard.removeFloor} aria-label={appConfig.copy.whiteboard.removeFloor}
                         onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="close" /></button>
@@ -3152,9 +3262,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                           // the tile box IS the reference frame: each of the storey's drawings is laid into it
                           // shifted by its OWN anchor difference, and only that drawing is rendered
                           // (lib/floorPackBinding) – two wings of one storey land side by side
-                          const frame = building.pack.frame ?? [0, 0, 1, 1]
                           return parts.map((tile) => (
-                            <FloorPage key={`${f}:${tile.part}:${tile.url}`} url={tile.url} corners={packPagePlacement(frame, tile)}
+                            <FloorPage key={`${f}:${tile.part}:${tile.url}`} url={tile.url} corners={packPagePlacement(packView!, building.pack!.aspect, tile)}
                               region={tile.clip} w={fpBox.w} h={fpBox.h} floors={drawings} />
                           ))
                         }
@@ -3165,13 +3274,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       {building.pack && !floorPack?.tiles[f]?.length && fpBox && (
                         <text x={fpBox.w / 2} y={fpBox.h / 2} textAnchor="middle" className="wb-floor-noplan">{appConfig.copy.whiteboard.noFloorPlan}</text>
                       )}
-                      {(fpView?.rings ?? building.rings ?? [building.ring]).map((ring, ri) => (
+                      {/* the footprint outline – a pack has none: its frame is a rectangle around
+                          the drawing, and drawing it would put a box on every storey */}
+                      {!building.pack && (fpView?.rings ?? building.rings ?? [building.ring]).map((ring, ri) => (
                         <polygon key={ri} points={ring.map((p) => `${p[0] * (fpBox?.w || 1)},${p[1] * (fpBox?.h || 1)}`).join(' ')} />
                       ))}
                     </svg>
                   </div>
                 </div>
-              ))
+              ))}
+              </>
             ) : osm ? (
               /* the ONE interaction this surface has. Gated on the ROLE's read-only (viewer / EL /
                  locked / replay) — NOT on `readOnly`, which is true here for everybody by design
@@ -3269,7 +3381,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     // off the vertex, like a badge: the vertex itself stays tappable (select, drag, ↑/↓)
                     style={{ color, transform: `translate(${at[0] * sW + 18}px, ${mapY(atFloor, at[1]) * sH - 18}px) translate(-50%, -50%)` }}
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => { e.stopPropagation(); centerOnPoint(other[0], other[1], otherFloor) }}>
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      // …and if the other end is folded away, unfold it: the rAF lets the new tile
+                      // layout land before the view is aimed at it
+                      revealFloor(otherFloor)
+                      requestAnimationFrame(() => centerOnPoint(other[0], other[1], otherFloor))
+                    }}>
                     {signedFloor(otherFloor)}
                   </button>
                 )
@@ -3929,7 +4047,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               turning it — the same popover the rail footer's compass opens, two doors, one room.
               Rendered AFTER the floating zoom so the chip can step below it (module CSS). */}
           {stack && fpView && (
-            <PlanCompass deg={shownAngle} controls={canOrient && !readOnly ? orientControls : undefined} />
+            <PlanCompass deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
+              controls={canOrient && !readOnly ? orientControls : undefined} />
           )}
 
           {/* ONE bar for every selection this sheet has — the same component, in the same corner

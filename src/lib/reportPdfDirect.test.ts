@@ -118,6 +118,21 @@ describe('floorStackPages', () => {
     const pts = pages[0].annos.filter((x) => x.kind === 'area').flatMap((x) => x.pts as number[][])
     for (const [x, y] of pts) { expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThanOrEqual(1); expect(y).toBeGreaterThanOrEqual(0); expect(y).toBeLessThanOrEqual(1) }
   })
+
+  // ⚠️ A Geschossplan page carries whatever bearing the architect's sheet had, and only the pack's
+  // approved map fit knows it – which this function is not given. Printing the dial at the view
+  // angle was a printed claim that the page is north-up (16.09.2026).
+  it('prints no north dial for a plan-based Gebäude, and draws no frame outline either', () => {
+    const pack: BuildingDoc = {
+      ring: [], rings: [], ringAspect: 0.4, floors: [1, 0],
+      pack: { aspect: 1, frame: [0.1, 0.1, 0.3, 0.9] }, viewDeg: 90,
+    }
+    const pages = floorStackPages(plan, pack, [], {})
+    expect(pages[0].annos.some((x) => x.kind === 'north')).toBe(false)
+    expect(pages[0].annos.some((x) => x.kind === 'area')).toBe(false)
+    // the storey labels are still there – the page is a stack, dial or no dial
+    expect(pages[0].annos.filter((x) => x.kind === 'text')).toHaveLength(2)
+  })
 })
 
 // The app writes «EL → Sanität» with a real arrow; ReportLab sets the rapport in Helvetica, which

@@ -131,12 +131,12 @@ import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
-import { planPreviewUrl, prewarmPlans } from './components/PdfViewport'
+import { planPreviewUrl, prewarmPlans, regionInkBox } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { stackGroundFit } from './lib/stackFit'
-import { floorPackOf, frameAspect, packFloorNames, packStoreys } from './lib/floorPackBinding'
+import { floorPackOf, frameAspect, packFloorNames, packStoreys, trimmedPackFrame } from './lib/floorPackBinding'
 import { buildingPackBinding } from './lib/buildingPackBinding'
 import { TILE_AR } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -216,6 +216,9 @@ function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
  *  it. Shared by the Rapportangaben logger and the Kroki symbol-edit logger — both write on
  *  every keystroke, and both would otherwise produce one row per character. */
 const META_LOG_SETTLE_MS = 4000
+/** how long the Gebäude stack waits for its frame to be measured off the pages before it comes up
+ *  with the untrimmed one (lib/floorPackBinding · trimmedPackFrame) */
+const PACK_TRIM_MS = 4000
 
 /** Is the caret in a free-text Rapportangabe right now? Read off the `[data-sync]` markers the
  *  ReportPreflight puts on every synced field (its own focus bookkeeping runs on the same
@@ -2148,13 +2151,28 @@ export function IncidentWorkspace({
   // operator's footprint stack (an older incident, or picked on purpose) is left alone.
   useEffect(() => {
     if (building || !floorPack?.floors.length || !floorPack.aspect || readOnly) return
+    let alive = true
     const names = packFloorNames(floorPack.floors)
-    setBuilding({
-      ring: [], rings: [], ringAspect: frameAspect(floorPack.frame, floorPack.aspect),
-      pack: { bindingId: packBinding?.id, aspect: floorPack.aspect, ...(floorPack.frame.some((v, i) => v !== [0, 0, 1, 1][i]) ? { frame: floorPack.frame } : {}) },
-      floors: packStoreys(floorPack.floors),
-      ...(Object.keys(names).length ? { floorNames: names } : {}),
-    })
+    const aspect = floorPack.aspect
+    // ⚠️ The frame is measured BEFORE the stack exists, not corrected afterwards: tile coordinates
+    // are relative to it, so a frame that moved under ink somebody had already drawn would take
+    // that ink with it. The measurement reads the pages (lib/floorPackBinding · trimmedPackFrame)
+    // and is bounded – offline, or a sheet that will not render, seeds the untrimmed frame after
+    // the timeout rather than leaving the Gebäude tile empty.
+    const seed = (frame: [number, number, number, number]) => {
+      if (!alive) return
+      setBuilding({
+        ring: [], rings: [], ringAspect: frameAspect(frame, aspect),
+        pack: { bindingId: packBinding?.id, aspect, ...(frame.some((v, i) => v !== [0, 0, 1, 1][i]) ? { frame } : {}) },
+        floors: packStoreys(floorPack.floors),
+        ...(Object.keys(names).length ? { floorNames: names } : {}),
+      })
+    }
+    const fallback = setTimeout(() => seed(floorPack.frame), PACK_TRIM_MS)
+    void trimmedPackFrame(floorPack, regionInkBox)
+      .then((frame) => { clearTimeout(fallback); seed(frame) })
+      .catch(() => { clearTimeout(fallback); seed(floorPack.frame) })
+    return () => { alive = false; clearTimeout(fallback) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [building, floorPack, packBinding, readOnly])
   const fitsMap = useMemo(() => {

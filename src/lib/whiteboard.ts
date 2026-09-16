@@ -83,12 +83,23 @@ export const pdfPageOf = (url: string): number | null => {
 }
 export const withPdfPage = (url: string, page: number): string => `${url.replace(/#.*$/, '')}#page=${page + 1}`
 
+/** Where the ink of a storey that is NOT on the board goes: one whole board above it, so it is
+ *  clipped away by the SVG's own viewport instead of being drawn somewhere it does not belong.
+ *  Reachable since a storey can be folded away per device (lib/floorPrefs) — before that it was
+ *  only stale ink on a deleted storey, which the old fallback drew onto the TOP tile. */
+export const OFF_BOARD_Y = -1
+
 /**
  * Floor-stack coordinate maps for the current document. In stack mode the board is a
  * vertical stack of N storey tiles (top = highest); single-sheet docs are one tile
  * [0,1] → identity. `mapY` lifts a tile-local y into whole-board normalized space,
  * `localY` does the inverse for a given storey, and `floorAt` resolves which storey a
  * board-normalized y falls into.
+ *
+ * ⚠️ `floorsTTB` is what the board DRAWS, not what the building has: a folded-away storey is
+ * absent from it, and its annotations therefore map off the board (OFF_BOARD_Y) rather than onto
+ * a tile that is not theirs. Nothing is lost — the document still carries them, and unfolding the
+ * storey puts them back.
  */
 export function floorGeometry(stack: boolean, floorsTTB: number[], N: number) {
   // tile-local y (0..1 within a storey) → whole-board normalized y. x is unchanged
@@ -96,7 +107,7 @@ export function floorGeometry(stack: boolean, floorsTTB: number[], N: number) {
   const mapY = (floor: number | undefined, ly: number) => {
     if (!stack) return ly
     const idx = floorsTTB.indexOf(floor ?? 0)
-    return idx < 0 ? ly : (idx + ly) / N
+    return idx < 0 ? OFF_BOARD_Y : (idx + ly) / N
   }
   // board-normalized y → tile-local y for a given storey
   const localY = (ny: number, floor: number) => {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from './stackFit'
+import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from './stackFit'
 import type { BoardAnno } from '../types'
 import { fitSimilarity } from './georef'
 import { TILE_AR } from './whiteboard'
-import { fpBoxFrac, type Pt } from './footprint'
+import { buildView, fpBoxFrac, type Pt } from './footprint'
 import { joinShifts } from './floorPackBinding'
 import type { PlanFloor } from './api/reference'
 
@@ -73,6 +73,42 @@ describe('a pack stack – the pages ARE the tiles', () => {
     expect((east.lng - 7.55) * 111320 * Math.cos((47.51 * Math.PI) / 180)).toBeCloseTo(80, 0)
     expect(stackGroundFit(pack, null)).toBeNull()
   })
+
+  // A Geschossplan lies on its page the way the architect drew it, and since 16.09.2026 the
+  // operator may turn it like any picked outline. The INVARIANT that has to survive the turn: a
+  // point on the PAGE is the same point on the GROUND at every angle — the paper moves, the
+  // building does not.
+  it('puts a page point on the same ground point whatever the view angle', () => {
+    const pageFit = fitSimilarity([
+      { plan: { x: 0.1, y: 0.2 }, lngLat: { lng: 7.55, lat: 47.51 }, kind: 'gesetzt' },
+      { plan: { x: 0.9, y: 0.2 }, lngLat: { lng: 7.5512, lat: 47.5104 }, kind: 'gesetzt' },
+    ], 1.6)!
+    const pack = { aspect: 1.6, frame: [0.1, 0.1, 0.7, 0.5] as [number, number, number, number] }
+    const at = (deg: number, page: Pt) => {
+      const b = { pack, ringAspect: 0.4, floors: [0, 1], src: undefined, geo: undefined, viewDeg: deg }
+      const view = buildView(packFrameRing(pack), deg)
+      const { rw, rh } = fpBoxFrac(view.aspect, 1, 2 * TILE_AR, 2)
+      const [o, px, py] = packPagePlacement(view, pack.aspect, { shift: [0, 0] })
+      // page → the tile box the placement speaks, then box → tile, then tile → ground
+      const bx = o[0] + page[0] * (px[0] - o[0]) + page[1] * (py[0] - o[0])
+      const by = o[1] + page[0] * (px[1] - o[1]) + page[1] * (py[1] - o[1])
+      return stackGroundFit(b, pageFit)!.toMap({ x: 0.5 - rw / 2 + bx * rw, y: 0.5 - rh / 2 + by * rh })
+    }
+    const truth = pageFit.toMap({ x: 0.4, y: 0.3 })
+    for (const deg of [0, 30, 90, -145]) {
+      const got = at(deg, [0.4, 0.3])
+      expect(got.lng).toBeCloseTo(truth.lng, 9)
+      expect(got.lat).toBeCloseTo(truth.lat, 9)
+    }
+  })
+
+  // …and the tile box itself follows the frame around: a portrait region turned on its side is a
+  // landscape box, which is what stops it wasting the width of every storey tile
+  it('turns the tile box with the frame', () => {
+    const pack = { aspect: 1, frame: [0.1, 0.1, 0.3, 0.9] as [number, number, number, number] } // tall
+    expect(buildView(packFrameRing(pack), 0).aspect).toBeCloseTo(4)
+    expect(buildView(packFrameRing(pack), 90).aspect).toBeCloseTo(0.25)
+  })
 })
 
 
@@ -80,7 +116,8 @@ it('the PDF renderer puts joined staircases at identical XY without stretching t
   const ground: PlanFloor = { index: 0, page: 0, name: null, clip: [.1, .3, .9, .8] }
   const upper: PlanFloor = { index: 1, page: 0, name: null, clip: [.5, .02, .8, .25], join: { to: 0, at: [.65, .15], there: [.7, .4] } }
   const shifts = joinShifts([ground, upper], ground)
-  const place = (f: PlanFloor) => packPagePlacement(ground.clip!, { shift: shifts.get(`${f.index}:${f.part ?? 0}`)! })
+  const view = buildView(packFrameRing({ aspect: 1, frame: ground.clip! }), 0)
+  const place = (f: PlanFloor) => packPagePlacement(view, 1, { shift: shifts.get(`${f.index}:${f.part ?? 0}`)! })
   const at = (f: PlanFloor, point: [number, number]) => {
     const [o, x, y] = place(f)
     return [o[0] + point[0] * (x[0] - o[0]) + point[1] * (y[0] - o[0]), o[1] + point[0] * (x[1] - o[1]) + point[1] * (y[1] - o[1])]

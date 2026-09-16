@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys } from './floorPackBinding'
+import { floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys, trimmedPackFrame } from './floorPackBinding'
 import { inheritPlanBinding } from './incidentPlanBindings'
 import type { GeorefPair } from './georef'
 
@@ -113,5 +113,41 @@ describe('a storey drawn as two wings', () => {
     // the stack gets ONE tile per Geschoss, and a wing's own name never becomes the storey's
     expect(packStoreys(floors)).toEqual([0, 1])
     expect(packFloorNames(floors)).toEqual({ '0': 'EG' })
+  })
+})
+
+// The frame is drawn by hand in the admin and carries whatever paper margin was left around the
+// drawing – on a shared frame that margin is paid once per storey (Bastian, 16.09.2026).
+describe('trimmedPackFrame', () => {
+  const tile = (clip: [number, number, number, number], shift: [number, number] = [0, 0]) =>
+    ({ url: 'p.pdf#page=1', clip, shift, part: 0, name: null })
+  const view = {
+    frame: [0.05, 0.05, 0.95, 0.45] as [number, number, number, number],
+    tiles: { 0: [tile([0.05, 0.05, 0.95, 0.45])], 1: [tile([0.05, 0.55, 0.45, 0.95], [0, -0.5])] },
+  }
+
+  it('trims the frame to where the ink actually stops', async () => {
+    // both drawings sit in the middle of their rectangle, the upper storey using less of it
+    const ink = async (_u: string, c: [number, number, number, number]) =>
+      [c[0] + 0.1, c[1] + 0.05, c[2] - 0.1, c[3] - 0.05] as const
+    expect((await trimmedPackFrame(view, ink)).map((v) => +v.toFixed(3)))
+      .toEqual([0.15, 0.1, 0.85, 0.4])
+  })
+
+  // ⚠️ a wing drawn outside the reference rectangle used to hang off its tile
+  it('widens the frame around a drawing that reaches past the reference', async () => {
+    const wide = { ...view, tiles: { ...view.tiles, 1: [tile([0.05, 0.55, 0.45, 0.95], [0.6, -0.5])] } }
+    const out = await trimmedPackFrame(wide, async (_u, c) => c)
+    expect(+out[2].toFixed(3)).toBe(1.05)
+  })
+
+  it('falls back to the drawing\'s own rectangle when the ink cannot be measured', async () => {
+    expect(await trimmedPackFrame(view, async () => null)).toEqual([0.05, 0.05, 0.95, 0.45])
+    expect(await trimmedPackFrame(view, () => Promise.reject(new Error('offline')))).toEqual([0.05, 0.05, 0.95, 0.45])
+  })
+
+  it('keeps the frame it was given rather than collapsing onto a speck of ink', async () => {
+    const speck = async (_u: string, c: [number, number, number, number]) => [c[0], c[1], c[0] + 0.001, c[1] + 0.001] as const
+    expect(await trimmedPackFrame(view, speck)).toEqual(view.frame)
   })
 })

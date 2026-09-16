@@ -1014,6 +1014,70 @@ describe('the nearby-object warning', () => {
   })
 })
 
+// A Geschossplan lies on its page the way the architect's sheet happened to lie. Since 16.09.2026
+// it turns like a picked outline does – same dial, same popover, same re-glue of the ink.
+describe('drehen · Gebäude aus Geschossplänen', () => {
+  const packBuilding: BuildingDoc = { ...aBuilding, ring: [], rings: [], ringAspect: 0.4, floors: [0, 1], pack: { aspect: 1.4 } }
+
+  // two doors to the one popover by design (the viewport's dial and the rail footer's button)
+  const turn = () => screen.getAllByRole('button', { name: 'Gebäude drehen' })[0]
+
+  it('offers the turn control on a pack, where a plain outline has nothing to straighten', () => {
+    renderBoard('gebaeude', [], false, packBuilding)
+    expect(turn()).toBeTruthy()
+  })
+
+  // ⚠️ honesty: the page's bearing is only known from an approved map fit. Without one the dial
+  // must not point anywhere — it wears the turn arrow and says why.
+  it('claims no north while the pack is not linked to the map', () => {
+    renderBoard('gebaeude', [], false, packBuilding)
+    fireEvent.click(turn())
+    expect(screen.getByRole('button', { name: 'Wie gezeichnet' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Norden oben' })).toBeNull()
+  })
+
+  it('a footprint stack keeps «Norden oben» and never offers «Wie gezeichnet»', () => {
+    renderBoard('gebaeude', [], false, { ...aBuilding, src: [[[0, 0], [1, 0], [1, 0.3], [0, 0.3]]], orientDeg: 30, viewDeg: 30 })
+    fireEvent.click(turn())
+    expect(screen.getByRole('button', { name: 'Norden oben' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Wie gezeichnet' })).toBeNull()
+  })
+})
+
+// Folding a storey away is a way of LOOKING at the stack (16.09.2026): it never touches the
+// document, so it is offered on prepared packs and on read-only surfaces too — and the strip it
+// leaves behind is the whole way back.
+describe('ein Geschoss ausblenden', () => {
+  const tiles = () => document.querySelectorAll('.wb-floor')
+  const eyeOf = (tile: Element) => within(tile as HTMLElement).getByRole('button', { name: 'Geschoss ausblenden' })
+
+  it('folds the tapped storey into a strip and brings it back from there', () => {
+    renderBoard('gebaeude', [], false, { ...aBuilding, floors: [-1, 0, 1], pack: { aspect: 1 } })
+    expect(tiles()).toHaveLength(3)
+
+    fireEvent.click(eyeOf(tiles()[0])) // top tile = the highest storey
+    expect(tiles()).toHaveLength(2)
+    const strip = document.querySelector('.wb-floor-folded')!
+    expect(strip.textContent).toContain('ausgeblendet')
+
+    fireEvent.click(strip)
+    expect(tiles()).toHaveLength(3)
+    expect(document.querySelector('.wb-floor-folded')).toBeNull()
+  })
+
+  // ⚠️ the guard: a stack with no tile has nothing left to tap, and the way back would be gone
+  it('refuses to fold the last visible storey away', () => {
+    renderBoard('gebaeude', [], false, aBuilding) // one storey
+    expect(tiles()).toHaveLength(1)
+    expect(within(tiles()[0] as HTMLElement).queryByRole('button', { name: 'Geschoss ausblenden' })).toBeNull()
+  })
+
+  it('is offered on a read-only surface as well — it changes nothing about the Einsatz', () => {
+    renderBoard('gebaeude', [], true, { ...aBuilding, floors: [0, 1], pack: { aspect: 1 } })
+    expect(eyeOf(tiles()[0])).toBeTruthy()
+  })
+})
+
 describe('prepared Gebäude floors and shared symbol instances', () => {
   it('prepared floors expose no add or delete controls', () => {
     renderBoard('gebaeude', [], false, { ...aBuilding, floors: [-1, 0, 1], pack: { aspect: 1 } })

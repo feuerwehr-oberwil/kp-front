@@ -18,10 +18,20 @@ import s from './PlanCompass.module.css'
  * contents) to make the chip the one door to rotating the building; without them — a viewer, a
  * replay, a footprint that was never turned — it is a plain read-out.
  */
-export function PlanCompass({ deg, controls }: { deg: number; controls?: ReactNode }) {
+export function PlanCompass({ deg, controls, northUnknown = false }: { deg: number; controls?: ReactNode; northUnknown?: boolean }) {
   // no ring circle: the chip's own round glass edge IS the dial's ring. Geometry otherwise as
   // printed (backend · kroki · north_dial_svg) — N inside the ring, needle a dart in ink.
-  const dial = (
+  // ⚠️ A Geschossplan that is not linked to the map has NO known north (16.09.2026): it can still
+  // be turned – that is what the popover is for – but a needle would be pointing at a direction
+  // nobody measured. The dial then wears the turn arrow instead, and says why in its title.
+  const dial = northUnknown ? (
+    <svg viewBox="-25 -25 50 50" aria-hidden>
+      <g className={s.unknown} style={{ transform: `rotate(${deg}deg)`, transformOrigin: '0px 0px' }}>
+        <path d="M-11 -3 A11 11 0 1 1 -6 8" fill="none" strokeWidth="3.4" strokeLinecap="round" />
+        <path d="M-11 -9 L-11 -2 L-4.5 -2 Z" />
+      </g>
+    </svg>
+  ) : (
     <svg viewBox="-25 -25 50 50" aria-hidden>
       <g style={{ transform: `rotate(${deg}deg)`, transformOrigin: '0px 0px' }}>
         <text y="-13" className={s.n}>{appConfig.copy.whiteboard.northLabel}</text>
@@ -29,9 +39,10 @@ export function PlanCompass({ deg, controls }: { deg: number; controls?: ReactNo
       </g>
     </svg>
   )
+  const title = northUnknown ? appConfig.copy.whiteboard.northUnknownTitle : appConfig.copy.whiteboard.northTitle
   if (!controls) {
     return (
-      <div className={s.chip} role="img" title={appConfig.copy.whiteboard.northTitle} aria-label={appConfig.copy.whiteboard.northTitle}>
+      <div className={s.chip} role="img" title={title} aria-label={title}>
         {dial}
       </div>
     )

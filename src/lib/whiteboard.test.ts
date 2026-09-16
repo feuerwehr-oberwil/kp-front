@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clamp01, floorGeometry, floorLabel, planUrl, TILE_AR, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings } from './whiteboard'
+import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, TILE_AR, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings } from './whiteboard'
 
 describe('planUrl', () => {
   it('leaves absolute http(s) URLs untouched', () => {
@@ -69,8 +69,11 @@ describe('floorGeometry — stack mode', () => {
     expect(g.mapY(0, 1)).toBeCloseTo(1)
   })
 
-  it('mapY treats an unknown floor as the tile-local y (idx < 0)', () => {
-    expect(g.mapY(99, 0.5)).toBe(0.5)
+  // ⚠️ 16.09.2026: a storey the board does not draw — folded away per device (lib/floorPrefs) or
+  // deleted under stale ink — must land OFF the board, not on the top tile, which is where the
+  // old «unknown floor → tile-local y» fallback put it.
+  it('maps a storey that is not on the board off the board', () => {
+    expect(g.mapY(99, 0.5)).toBe(OFF_BOARD_Y)
     // floor ?? 0 resolves to storey 0, which IS a known floor (idx 2, bottom tile)
     expect(g.mapY(undefined, 0.3)).toBeCloseTo((2 + 0.3) / 3)
   })

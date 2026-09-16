@@ -13,6 +13,8 @@
 /* ink, not red — the same dart the printed Kroki and the Gebäude page carry */
 .needle { fill: var(--ink); }
 .n { fill: var(--ink); font: 700 13px var(--body); text-anchor: middle; }
+/* the same dial without a claim about north: a turn arrow, quieter than the needle */
+.unknown { fill: var(--ink-dim); stroke: var(--ink-dim); }
 
 /* …and where the building can be turned, the dial IS the turn control: one visible door on the
    surface (the rail footer keeps the other), never a hidden drag. */

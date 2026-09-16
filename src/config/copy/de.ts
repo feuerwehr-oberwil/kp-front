@@ -2639,6 +2639,9 @@ export const de = {
     climbDown: 'Ein Geschoss tiefer weiter',
     climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
+    floorHide: 'Geschoss ausblenden',
+    floorShow: 'einblenden',
+    floorHidden: 'ausgeblendet',
     removeFloor: 'Geschoss löschen',
     removeFloorConfirm: '{floor} enthält Skizzen oder Markierungen. Geschoss trotzdem löschen?',
     floorRemoved: 'Geschoss gelöscht',
@@ -2703,6 +2706,8 @@ export const de = {
     // horizontal; the north arrow shows the applied rotation; the toggle is reversible.
     northLabel: 'N',
     northTitle: 'Nordrichtung – Gebäude auf Längsachse gedreht',
+    orientAsDrawn: 'Wie gezeichnet',
+    northUnknownTitle: 'Norden unbekannt – Plan nicht mit der Karte verknüpft',
     orientNorthUp: 'Norden oben',
     orientLongAxis: 'Auf Längsachse drehen',
     // the rotation popover both compass doors open (30.08. – replaces the hidden dial drag)

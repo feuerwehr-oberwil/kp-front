@@ -303,6 +303,29 @@
   .wb-floor-x:hover { background: var(--fill-soft); color: var(--red); }
 }
 .wb-floor-x .i { width: 12px; height: 12px; stroke-width: 2.4; }
+/* fold a storey away – device-local, so it is deliberately the QUIET control of the pair: the ✕
+   beside it deletes the Geschoss for everybody, this one only stops drawing it here. */
+.wb-floor-eye { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
+  display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
+.wb-floor-eye::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
+@media (hover: hover) {
+  .wb-floor-eye:hover { background: var(--fill-soft); color: var(--ink); }
+}
+.wb-floor-eye .i { width: 13px; height: 13px; stroke-width: 2; }
+/* …and what it leaves behind: a strip where the storey belongs, which says what it is and how to
+   get it back. Sits at the seam between the two drawn tiles, so the stack still reads in order. */
+.wb-floor-folded { position: absolute; left: 0; z-index: 8; display: flex; align-items: center; gap: 8px;
+  padding: 0 12px; border: none; border-top: 1px dashed color-mix(in srgb, var(--ink) 28%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--ink) 28%, transparent);
+  background: color-mix(in srgb, var(--board-bg) 82%, var(--ink) 6%);
+  font: 600 12px var(--body); color: var(--ink-dim); text-align: left; cursor: pointer; }
+.wb-floor-folded .wb-floor-idx { opacity: .55; }
+.wb-floor-folded-state { color: var(--ink-faint); font-weight: 500; }
+.wb-floor-folded-cta { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--blue); font-weight: 700; }
+.wb-floor-folded-cta .i { width: 13px; height: 13px; stroke-width: 2; }
+@media (hover: hover) {
+  .wb-floor-folded:hover { background: color-mix(in srgb, var(--board-bg) 70%, var(--ink) 10%); }
+}
 /* add-storey control (mirrors the floating zoom) */
 /* add-storey pills positioned like a real building section: OG above the stack, UG below */
 .wb-floor-add { position: absolute; left: 50%; transform: translateX(-50%); z-index: 8;

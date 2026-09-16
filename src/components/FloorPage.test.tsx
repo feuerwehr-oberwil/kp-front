@@ -4,9 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FloorPage } from './FloorPage'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget } from '../lib/pdfRenderBudget'
 import { joinShifts } from '../lib/floorPackBinding'
-import { packPagePlacement } from '../lib/stackFit'
+import { packFrameRing, packPagePlacement } from '../lib/stackFit'
 import type { PlanFloor } from '../lib/api/reference'
-import type { Pt } from '../lib/footprint'
+import { buildView, type Pt } from '../lib/footprint'
 
 /* The storey tile renders ITS OWN rectangle of the sheet (16.09.2026). Two things must hold, and
  * both were bugs once: the raster is asked for by REGION (a page raster clipped to a fifth of an
@@ -72,7 +72,7 @@ describe('FloorPage', () => {
     const { container } = sheet(<>
       {[west, east].map((f) => (
         <FloorPage key={f.part} url="/p.pdf" region={f.clip!} floors={2} w={400} h={300}
-          corners={packPagePlacement(ground.clip!, { shift: shifts.get(`${f.index}:${f.part}`)! })} />
+          corners={packPagePlacement(buildView(packFrameRing({ aspect: 1, frame: ground.clip! }), 0), 1, { shift: shifts.get(`${f.index}:${f.part}`)! })} />
       ))}
     </>)
     await waitFor(() => expect(container.querySelectorAll('image')).toHaveLength(2))

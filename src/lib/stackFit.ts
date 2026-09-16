@@ -1,5 +1,5 @@
 import { TILE_AR } from './whiteboard'
-import { activeViewDeg, buildView, fpBoxFrac, type Pt, type Ring } from './footprint'
+import { activeViewDeg, buildView, fpBoxFrac, type FootprintView, type Pt, type Ring } from './footprint'
 import { M_PER_LAT, mPerLon } from './buildingTransfer'
 import { fitSimilarity, type GeorefFit, type GeorefPair } from './georef'
 import type { BoardAnno, BuildingDoc, SrcGeoref } from '../types'
@@ -7,14 +7,28 @@ import { directionalGlyph, directionalGlyph2 } from './planProjection'
 import { turnedBy } from './selectionTransform'
 import type { FloorPackTile } from './floorPackBinding'
 
+/**
+ * The frame of a plan-based Gebäude as a footprint: the reference rectangle in ISOTROPIC page
+ * space (x in units of the page's height, so a square on the page is a square here).
+ *
+ * This is what lets a pack stack turn exactly like a picked outline does (16.09.2026): one ring,
+ * and `lib/footprint` — buildView, principalAngleDeg, remapPoint — does the rest. Before it, a
+ * Geschossplan was nailed to the page's own orientation, so a building drawn diagonally on its
+ * sheet stayed diagonal and a portrait region wasted the width of every tile.
+ */
+export function packFrameRing(pack: { aspect: number; frame?: [number, number, number, number] }): Ring[] {
+  const [x0, y0, x1, y1] = pack.frame ?? [0, 0, 1, 1]
+  const a = pack.aspect
+  return [[[x0 * a, y0], [x1 * a, y0], [x1 * a, y1], [x0 * a, y1]]]
+}
+
 /** Place a drawing in the common frame; never independently centre or fit each crop. The three
  *  corners are the whole PAGE's (0,0), (1,0), (0,1) in the tile box — `regionCorners` cuts the
- *  floor's own rectangle out of that placement. */
-export function packPagePlacement(frame: [number, number, number, number], tile: Pick<FloorPackTile, 'shift'>): [Pt, Pt, Pt] {
-  const [fx0, fy0, fx1, fy1] = frame
-  const fw = fx1 - fx0, fh = fy1 - fy0
-  const o: Pt = [(tile.shift[0] - fx0) / fw, (tile.shift[1] - fy0) / fh]
-  return [o, [o[0] + 1 / fw, o[1]], [o[0], o[1] + 1 / fh]]
+ *  floor's own rectangle out of that placement. The view carries the building's current angle
+ *  (`packFrameRing` + buildView), so every drawing turns with the paper it is laid on. */
+export function packPagePlacement(view: Pick<FootprintView, 'toNorm'>, pageAspect: number, tile: Pick<FloorPackTile, 'shift'>): [Pt, Pt, Pt] {
+  const at = (px: number, py: number): Pt => view.toNorm([(px + tile.shift[0]) * pageAspect, py + tile.shift[1]])
+  return [at(0, 0), at(1, 0), at(0, 1)]
 }
 
 /**
@@ -68,12 +82,13 @@ export function stackGroundFit(
   const N = b.floors.length || 1
   if (b.pack) {
     if (!packFit) return null
-    const { rw, rh } = fpBoxFrac(b.ringAspect, 1, N * TILE_AR, N)
-    // the tile box shows the reference drawing's FRAME on its page (whole page when unset)
-    const [fx0, fy0, fx1, fy1] = b.pack.frame ?? [0, 0, 1, 1]
+    // the tile box shows the reference drawing's FRAME on its page (whole page when unset), at the
+    // building's COMMITTED view angle — the drag preview must not move what the ink is glued to
+    const view = buildView(packFrameRing(b.pack), activeViewDeg(b))
+    const { rw, rh } = fpBoxFrac(view.aspect, 1, N * TILE_AR, N)
     const tileToGround = ([x, y]: Pt) => {
-      const u = (x - (0.5 - rw / 2)) / rw, v = (y - (0.5 - rh / 2)) / rh
-      return packFit.toMap({ x: fx0 + u * (fx1 - fx0), y: fy0 + v * (fy1 - fy0) })
+      const [ix, iy] = view.fromNorm([(x - (0.5 - rw / 2)) / rw, (y - (0.5 - rh / 2)) / rh])
+      return packFit.toMap({ x: ix / b.pack!.aspect, y: iy })
     }
     const pairs: GeorefPair[] = ([[0.2, 0.3], [0.8, 0.3], [0.5, 0.8]] as Pt[]).map((t) => ({ plan: { x: t[0], y: t[1] }, lngLat: tileToGround(t), kind: 'auto' }))
     return fitSimilarity(pairs, 1 / TILE_AR)

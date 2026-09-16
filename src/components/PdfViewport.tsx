@@ -518,6 +518,86 @@ async function renderRegion(
   }
 }
 
+/** how wide the throwaway canvas an ink scan renders into may be – enough that a 1 pt line still
+ *  lands on a pixel, small enough that four storeys cost one page raster between them */
+const INK_SCAN_SIDE = 360
+/** a pixel this dark (0..255, any channel) counts as drawing rather than paper. Deliberately
+ *  generous: a scan's grey ground sits around 245, a plotted hairline well under 200. */
+const INK_LEVEL = 232
+
+const inkCache = new Map<string, Promise<InkBox | null>>()
+export type InkBox = readonly [number, number, number, number]
+
+/**
+ * The bounding box of what is actually DRAWN inside a page region, in the page's own normalized
+ * coordinates — or null when the region is blank, could not be rendered, or the browser refuses
+ * to hand back the pixels.
+ *
+ * The Gebäude stack's tiles all show ONE frame (lib/floorPackBinding), and that frame used to be
+ * the reference drawing's rectangle as somebody drew it in the admin: every millimetre of paper
+ * margin around the drawings was then paper margin on every storey tile, multiplied by the storey
+ * count. This measures where the ink stops, so the frame can be trimmed to it once, when the stack
+ * is created (IncidentWorkspace).
+ *
+ * ⚠️ Scanned sheets: a hard border or a stamp in the corner IS ink and will hold the box open.
+ * That is the honest answer — a trim that guessed which ink is «real» would eventually cut a
+ * drawing in half, and nothing here may ever do that.
+ */
+export function regionInkBox(url: string, clip: InkBox): Promise<InkBox | null> {
+  const key = `${url}@${clip.map((v) => v.toFixed(4)).join(',')}`
+  const cached = inkCache.get(key)
+  if (cached) return cached
+  const p = regionQueue.then(() => scanRegionInk(url, clip)).catch(() => null)
+  regionQueue = p.catch(() => {}) // shares the storey tiles' queue: one page render at a time
+  inkCache.set(key, p)
+  return p
+}
+
+async function scanRegionInk(url: string, clip: InkBox): Promise<InkBox | null> {
+  const pdf = await loadDocTimed(url)
+  const page = await pdf.getPage((pdfPageOf(url) ?? 0) + 1)
+  let task: ReturnType<typeof page.render> | null = null
+  let done = false
+  try {
+    const base = page.getViewport({ scale: 1 })
+    const r = regionRaster(base.width, base.height, clip, INK_SCAN_SIDE * INK_SCAN_SIDE, INK_SCAN_SIDE)
+    const canvas = document.createElement('canvas')
+    canvas.width = r.width
+    canvas.height = r.height
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return null
+    // paper first: a PDF page is transparent where nothing is drawn, and a transparent pixel
+    // reads as (0,0,0,0) — black, i.e. ink — without this
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, r.width, r.height)
+    task = page.render({ canvas, canvasContext: ctx, viewport: page.getViewport({ scale: r.scale, offsetX: r.offsetX, offsetY: r.offsetY }) })
+    await task.promise
+    done = true
+    const { data } = ctx.getImageData(0, 0, r.width, r.height)
+    let minX = r.width, minY = r.height, maxX = -1, maxY = -1
+    for (let y = 0; y < r.height; y++) {
+      for (let x = 0; x < r.width; x++) {
+        const i = (y * r.width + x) * 4
+        if (data[i] > INK_LEVEL && data[i + 1] > INK_LEVEL && data[i + 2] > INK_LEVEL) continue
+        if (x < minX) minX = x; if (x > maxX) maxX = x
+        if (y < minY) minY = y; if (y > maxY) maxY = y
+      }
+    }
+    canvas.width = canvas.height = 0
+    if (maxX < 0) return null // an empty region trims to nothing, and says so
+    const [cx0, cy0, cx1, cy1] = clip
+    const sx = (cx1 - cx0) / r.width, sy = (cy1 - cy0) / r.height
+    // …one scan pixel of air on every side, so the trim never shaves the outermost stroke
+    return [
+      cx0 + Math.max(0, minX - 1) * sx, cy0 + Math.max(0, minY - 1) * sy,
+      cx0 + Math.min(r.width, maxX + 2) * sx, cy0 + Math.min(r.height, maxY + 2) * sy,
+    ]
+  } finally {
+    if (!done) task?.cancel()
+    page.cleanup()
+  }
+}
+
 // Two board-child canvases (they pan/zoom with the board via CSS — instant, no
 // per-gesture re-raster). BASE blits the cached page bitmap (rasterized once,
 // reused forever). REFINE re-renders only the visible region at full resolution

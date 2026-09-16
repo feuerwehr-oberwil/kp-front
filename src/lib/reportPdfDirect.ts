@@ -11,6 +11,7 @@ import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { TILE_AR, floorLabel, pdfPageOf } from './whiteboard'
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
+import { packFrameRing } from './stackFit'
 import type { IncidentMeta } from './incidents'
 import type { ReportDraft } from './report'
 import {
@@ -124,9 +125,13 @@ export function floorStackPages(
   if (!floorsTTB.length) return []
   // the ACTIVE view — an operator-dialled `viewDeg` (A8) prints exactly as the screen shows it
   const viewAngle = activeViewDeg(building)
-  const fp = building.src?.length
-    ? buildView(building.src, viewAngle)
-    : { rings: building.rings ?? [building.ring], aspect: building.ringAspect || 1 }
+  // the pack turns on its frame (lib/stackFit · packFrameRing), an outline on its own polygons –
+  // one view either way, so the printed page is the shape the screen shows
+  const fp = building.pack
+    ? { ...buildView(packFrameRing(building.pack), viewAngle), rings: [] as [number, number][][] }
+    : building.src?.length
+      ? buildView(building.src, viewAngle)
+      : { rings: building.rings ?? [building.ring], aspect: building.ringAspect || 1 }
   const chunks: number[][] = []
   for (let i = 0; i < floorsTTB.length; i += STACK_FLOORS_PER_PAGE) chunks.push(floorsTTB.slice(i, i + STACK_FLOORS_PER_PAGE))
   return chunks.map((chunk, ci) => {
@@ -154,7 +159,11 @@ export function floorStackPages(
     // It used to send its own SVG — a red triangle with the N under the centre — so the floor
     // page and the Kroki carried two different north marks onto the same stapled rapport. The
     // client sends the ANGLE; the glyph has one definition.
-    if (ci === 0) page.push({ kind: 'north', x: 0.94, y: 0.045 / N, deg: viewAngle, sizeN: 0.055 })
+    // ⚠️ …and a PACK gets NO dial (16.09.2026). For a picked outline `viewAngle` IS the north
+    // angle, because `src` is stored north-up; a Geschossplan's page carries whatever bearing the
+    // architect's sheet had, which only its approved map fit knows and this function is not given.
+    // It used to print the glyph at 0° for every pack — a printed claim that the page is north-up.
+    if (ci === 0 && !building.pack) page.push({ kind: 'north', x: 0.94, y: 0.045 / N, deg: viewAngle, sizeN: 0.055 })
     // board annos of these storeys, lifted tile-local → page space (x spans the full width)
     const lift = (a: BoardAnno, idx: number): BoardAnno => ({
       ...a,
