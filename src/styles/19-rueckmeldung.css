@@ -2,8 +2,13 @@
    The prompt renders on the LAUNCHER only, never over an open incident — see lib/trouble.
    Styled as a calm card, not an alert: nothing here is urgent, and something that looks
    urgent on a command tablet costs attention that belongs to the Einsatz. */
-.fb-prompt { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px 14px;
+.fb-prompt { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 14px;
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--fill-soft); }
+/* ⚠️ …and it keeps the launcher's ONE rhythm (13-incident · .ip-emptyapp-card): 18px between
+   blocks. The card carried no bottom margin at all, so the sentence under it («Eröffne einen
+   Einsatz …») started 6px below its border while everything else in that card breathes at 18 —
+   the prompt read as glued to the copy it has nothing to do with (Bastian, 16.09.2026). */
+.ip-emptyapp-card .fb-prompt { margin-bottom: 18px; }
 .fb-prompt-head { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); }
 .fb-prompt-head svg { width: 15px; height: 15px; flex: none; }
 .fb-prompt-kicker { font: 700 11px var(--body); text-transform: uppercase; letter-spacing: .06em; }
