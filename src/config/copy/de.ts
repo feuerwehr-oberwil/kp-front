@@ -6842,6 +6842,10 @@ export const de = {
       spSyncing: 'Wird abgeglichen …',
       spSynced: 'Abgeglichen.',
       spSyncFailed: 'Abgleich fehlgeschlagen',
+      // ⚠️ NOT a failure: OUR clock ran out while the run was still fetching plans from Graph.
+      // The sync carries on server-side and the row above shows its result on the next load —
+      // which is exactly what the card now does after this case (SystemView · runNow).
+      spSyncStillRunning: 'Abgleich läuft noch – das Ergebnis erscheint oben, sobald er fertig ist',
       spSecret: 'Client-Secret',
       spSecretExpires: 'läuft in {days} Tagen ab',
       spSecretExpired: 'abgelaufen – die Anbindung steht still, bis im Azure-Portal ein neues erzeugt ist',

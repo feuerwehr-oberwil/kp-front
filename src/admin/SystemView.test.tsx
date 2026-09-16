@@ -25,7 +25,15 @@ const apiPost = vi.fn()
 
 vi.mock('../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../lib/api')>('../lib/api')
-  return { ...actual, apiGet: (p: string) => apiGet(p), apiPost: (p: string, b: unknown) => apiPost(p, b) }
+  // ⚠️ The ARGUMENT LIST verbatim, not a fixed arity: the SharePoint sync's timeout bound is
+  // behaviour under test below, and a mock that swallowed the extra arguments is what let the
+  // 20 s default sit on this call unnoticed. Spreading also keeps the two-argument callers
+  // (the probe) recording two arguments, so their assertions stay readable.
+  return {
+    ...actual,
+    apiGet: (p: string) => apiGet(p),
+    apiPost: (...args: Parameters<typeof actual.apiPost>) => apiPost(...args),
+  }
 })
 
 // The page reads the config draft for the one thing it shows out of the document itself: the
@@ -35,6 +43,7 @@ vi.mock('./ConfigContext', () => ({ useConfig: () => ({ draft: draft.value }) })
 vi.mock('./SetupChecklist', () => ({ SetupChecklist: () => null }))
 
 import { SystemView } from './SystemView'
+import { ApiError, CONNECTOR_TIMEOUT_MS } from '../lib/api'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 
@@ -241,7 +250,9 @@ describe('running it by hand', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: C.spSyncNow }))
 
-    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/sharepoint/sync', {}))
+    await waitFor(() =>
+      expect(apiPost).toHaveBeenCalledWith('/api/sharepoint/sync', {}, undefined, CONNECTOR_TIMEOUT_MS),
+    )
     await waitFor(() => expect(screen.getByText(C.spSynced)).toBeTruthy())
     // Re-read: the whole point of the button is finding out whether it works NOW.
     expect(apiGet.mock.calls.filter(([p]) => p === '/api/sharepoint/status')).toHaveLength(2)
@@ -258,6 +269,43 @@ describe('running it by hand', () => {
     fireEvent.click(await screen.findByRole('button', { name: C.spSyncNow }))
 
     expect(await screen.findByText(C.spSyncFailed)).toBeTruthy()
+  })
+
+  it('does not call a timeout a failure — the run is still going', async () => {
+    // ⚠️ The FWO case, 16.09.2026: a sync carrying one new 11 MB Modul 6 ran 60 s, the client
+    // bound cut it at 20 s, and the Verwaltung was told «Abgleich fehlgeschlagen» over a run
+    // that imported the sheet correctly. OUR clock running out says nothing about the server's.
+    serve({
+      configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: null,
+      areas: [area({})],
+    })
+    const timedOut = new ApiError(0, 'Zeitüberschreitung')
+    timedOut.timedOut = true
+    apiPost.mockRejectedValue(timedOut)
+    render(<SystemView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: C.spSyncNow }))
+
+    expect(await screen.findByText(C.spSyncStillRunning)).toBeTruthy()
+    expect(screen.queryByText(C.spSyncFailed)).toBeNull()
+  })
+
+  it('re-reads the card even when the call did not come back', async () => {
+    // The row is the honest answer, and it was left standing on the PREVIOUS run's counts —
+    // green — beside a red chip saying the opposite. The reload belongs in `finally`.
+    serve({
+      configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: null,
+      areas: [area({})],
+    })
+    apiPost.mockRejectedValue(new Error('nope'))
+    render(<SystemView />)
+
+    fireEvent.click(await screen.findByRole('button', { name: C.spSyncNow }))
+
+    await screen.findByText(C.spSyncFailed)
+    await waitFor(() =>
+      expect(apiGet.mock.calls.filter(([p]) => p === '/api/sharepoint/status')).toHaveLength(2),
+    )
   })
 })
 

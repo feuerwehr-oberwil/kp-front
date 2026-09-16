@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiGet, apiPost } from '../lib/api'
+import { ApiError, apiGet, apiPost, CONNECTOR_TIMEOUT_MS } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useConfig } from './ConfigContext'
@@ -289,15 +289,28 @@ function SharePointCard({
   const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [probe, setProbe] = useState<ProbeState>({ kind: 'idle' })
 
+  /** ⚠️ Two things this button learned the hard way (FWO, 16.09.2026).
+   *
+   *  The run costs whatever the library changed since the last one — it fetches every changed
+   *  plan from Graph before it answers — so it gets CONNECTOR_TIMEOUT_MS instead of the 20 s
+   *  field bound. One new 11 MB Modul 6 took 60 s, the default aborted it, and the Verwaltung
+   *  was told «Abgleich fehlgeschlagen» over a sync that had imported the sheet correctly.
+   *
+   *  And when our clock DOES run out, that is not a failure to report as one: the run carries on
+   *  server-side. The reload therefore happens in `finally` — on the timeout path it is the
+   *  whole point, because the card's own row is the honest answer and it was left showing the
+   *  PREVIOUS run's counts, green, next to a red chip saying the opposite.
+   */
   const runNow = async () => {
     setBusy(true)
     try {
-      await apiPost('/api/sharepoint/sync', {})
+      await apiPost('/api/sharepoint/sync', {}, undefined, CONNECTOR_TIMEOUT_MS)
       setResult({ tone: 'ok', text: C.spSynced })
-      await onReload()
-    } catch {
-      setResult({ tone: 'err', text: C.spSyncFailed })
+    } catch (e) {
+      const stillRunning = e instanceof ApiError && e.timedOut
+      setResult({ tone: stillRunning ? 'ok' : 'err', text: stillRunning ? C.spSyncStillRunning : C.spSyncFailed })
     } finally {
+      await onReload()
       setBusy(false)
     }
   }

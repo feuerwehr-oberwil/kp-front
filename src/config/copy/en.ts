@@ -4591,6 +4591,7 @@ export const en: Localizable<Copy> = {
       spSyncing: 'Syncing …',
       spSynced: 'Synced.',
       spSyncFailed: 'Sync failed',
+      spSyncStillRunning: 'Sync is still running – the result appears above once it finishes',
       spSecret: 'Client secret',
       spSecretExpires: 'expires in {days} days',
       spSecretExpired: 'expired – the connector stands still until a new one is created in the Azure portal',

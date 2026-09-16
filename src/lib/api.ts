@@ -25,6 +25,17 @@ const DEFAULT_TIMEOUT_MS = 20_000
 // longer leash — a premature abort would count a failed attempt against the upload queue.
 const UPLOAD_TIMEOUT_MS = 5 * 60_000
 /**
+ * The bound for an admin call whose duration is set by how much OTHER systems have to move —
+ * `POST /api/sharepoint/sync` fetches every changed plan from Graph before it answers, so it
+ * costs whatever the library changed since the last run. One new 11 MB Modul 6 took 60 s on the
+ * FWO deployment (16.09.2026) and the 20 s default aborted it, which the Verwaltung reported as
+ * «Abgleich fehlgeschlagen» over a sync that had in fact imported the sheet.
+ *
+ * ⚠️ NOT a general knob. It belongs to calls an admin starts deliberately and watches; a field
+ * screen must keep the short bound, because there the timeout IS the offline path.
+ */
+export const CONNECTOR_TIMEOUT_MS = 5 * 60_000
+/**
  * The bound for a LONG POLL (`?wait=1` on the workspace / journal live-follow reads). The server
  * deliberately holds those requests open until something changes — up to ~20 s (backend
  * app/live_wait · LONG_POLL_TIMEOUT_S) — so the normal 20 s bound would race the server's own
@@ -58,6 +69,7 @@ function networkError(e: unknown): ApiError {
   const timeout = isTimeout(e)
   const err = new ApiError(0, timeout ? c.serverTimeout : c.serverUnreachable)
   err.hint = timeout ? c.serverTimeoutHint : c.serverUnreachableHint
+  err.timedOut = timeout
   return err
 }
 
@@ -122,6 +134,12 @@ export class ApiError extends Error {
    *  then asks — a refusal an operator can only answer once they can see WHAT they are about to
    *  empty. Everything else reads `detail`/`code` and ignores this. */
   data?: Record<string, unknown>
+  /** OUR clock ran out, not the server's answer — the request may still be running server-side.
+   *  Only meaningful with `status === 0`, which a hard network failure also carries, and the two
+   *  call for opposite words: «nicht erreichbar» is a dead end, a timeout on a write is «wir
+   *  wissen es noch nicht». The SharePoint sync button is the case that named this: a run
+   *  carrying one 11 MB Modul 6 takes ~60 s, and the operator was told it had failed. */
+  timedOut?: boolean
   constructor(status: number, detail: string, retryAfter?: number) {
     super(detail)
     this.name = 'ApiError'
@@ -362,9 +380,15 @@ async function gzipText(text: string): Promise<Blob> {
 
 function withJson(method: string) {
   /** `extra` adds request headers — used for the `If-Match` version token on the
-   *  full-document config PUT (see admin/ConfigContext). */
-  return async <T>(path: string, body?: unknown, extra?: Record<string, string>): Promise<T> => {
-    if (body === undefined) return request<T>(path, { method, headers: extra })
+   *  full-document config PUT (see admin/ConfigContext). `timeoutMs` overrides the default
+   *  bound for the few calls whose work is not ours to hurry (CONNECTOR_TIMEOUT_MS). */
+  return async <T>(
+    path: string,
+    body?: unknown,
+    extra?: Record<string, string>,
+    timeoutMs: number = DEFAULT_TIMEOUT_MS,
+  ): Promise<T> => {
+    if (body === undefined) return request<T>(path, { method, headers: extra }, timeoutMs)
     const json = JSON.stringify(body)
     // decide the encoding FIRST, then issue exactly ONE request — a catch around the
     // request itself would silently re-send after a failure (double-applied writes on a
@@ -376,7 +400,7 @@ function withJson(method: string) {
         init = { method, headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip', ...extra }, body: gz }
       } catch { /* compression failed → plain JSON init stands */ }
     }
-    return request<T>(path, init)
+    return request<T>(path, init, timeoutMs)
   }
 }
 

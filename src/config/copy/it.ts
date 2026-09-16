@@ -4396,6 +4396,7 @@ export const it: Localizable<Copy> = {
       spSyncing: 'Sincronizzazione …',
       spSynced: 'Sincronizzato.',
       spSyncFailed: 'Sincronizzazione non riuscita',
+      spSyncStillRunning: 'La sincronizzazione è ancora in corso – il risultato appare sopra al termine',
       spSecret: 'Client secret',
       spSecretExpires: 'scade fra {days} giorni',
       spSecretExpired: 'scaduto – il collegamento resta fermo finché non se ne crea uno nuovo nel portale Azure',
