@@ -7887,7 +7887,7 @@
           "admin-plan-alignments"
         ],
         "summary": "Assign Floors",
-        "description": "Declare which page of this revision is which Geschoss (one floor per page, 14.09.2026).\n\nAn empty list turns the pack back into an ordinary document. The alignment row moves to the\npage the shared fit is measured on and – unless already approved – is re-queued there, so\nthe worker renders the right page. An approved fit is never moved silently: withdraw it\nfirst (409), then change the fit page.",
+        "description": "Declare which page of this revision is which Geschoss (one floor per page, 14.09.2026;\na floor may be drawn in several pieces on that page since 16.09.2026 – ``part``).\n\nAn empty list turns the pack back into an ordinary document. The alignment row moves to the\npage the shared fit is measured on and – unless already approved – is re-queued there, so\nthe worker renders the right page. An approved fit is never moved silently: withdraw it\nfirst (409), then change the fit page.",
         "operationId": "assign_floors_api_admin_plan_alignments__item_id__floors_put",
         "parameters": [
           {
@@ -13437,6 +13437,13 @@
             "minimum": -20.0,
             "title": "Index"
           },
+          "part": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 0.0,
+            "title": "Part",
+            "default": 0
+          },
           "name": {
             "anyOf": [
               {
@@ -13491,6 +13498,13 @@
             "maximum": 100.0,
             "minimum": -20.0,
             "title": "To"
+          },
+          "part": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 0.0,
+            "title": "Part",
+            "default": 0
           },
           "at": {
             "items": {

@@ -3,6 +3,9 @@ import { render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FloorPage } from './FloorPage'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget } from '../lib/pdfRenderBudget'
+import { joinShifts } from '../lib/floorPackBinding'
+import { packPagePlacement } from '../lib/stackFit'
+import type { PlanFloor } from '../lib/api/reference'
 import type { Pt } from '../lib/footprint'
 
 /* The storey tile renders ITS OWN rectangle of the sheet (16.09.2026). Two things must hold, and
@@ -57,5 +60,25 @@ describe('FloorPage', () => {
     sheet(<FloorPage url="/p.pdf" corners={PAGE} w={400} h={300} floors={1} />)
     await waitFor(() => expect(planRegionUrl).toHaveBeenCalled())
     expect((planRegionUrl.mock.calls[0] as unknown as [string, number[]])[1]).toEqual([0, 0, 1, 1])
+  })
+
+  // A Geschoss drawn as two wings (16.09.2026) is two rasters on ONE tile: each asks for its own
+  // rectangle and lands through its own join shift, so the two halves meet where the building does.
+  it('a storey drawn twice is two rasters, each its own region and its own place', async () => {
+    const west: PlanFloor = { index: 1, part: 0, page: 0, name: null, clip: [0.05, 0.55, 0.45, 0.95], join: { to: 0, at: [0.1, 0.6], there: [0.1, 0.1] } }
+    const east: PlanFloor = { index: 1, part: 1, page: 0, name: null, clip: [0.55, 0.55, 0.95, 0.95], join: { to: 0, at: [0.6, 0.6], there: [0.6, 0.1] } }
+    const ground: PlanFloor = { index: 0, part: 0, page: 0, name: null, clip: [0.05, 0.05, 0.95, 0.45] }
+    const shifts = joinShifts([ground, west, east], ground)
+    const { container } = sheet(<>
+      {[west, east].map((f) => (
+        <FloorPage key={f.part} url="/p.pdf" region={f.clip!} floors={2} w={400} h={300}
+          corners={packPagePlacement(ground.clip!, { shift: shifts.get(`${f.index}:${f.part}`)! })} />
+      ))}
+    </>)
+    await waitFor(() => expect(container.querySelectorAll('image')).toHaveLength(2))
+    expect(planRegionUrl.mock.calls.map((call) => (call as unknown as [string, number[]])[1]))
+      .toEqual([west.clip, east.clip])
+    const [a, b] = [...container.querySelectorAll('image')].map((el) => el.getAttribute('transform'))
+    expect(a).not.toBe(b) // two drawings, two places – never one raster drawn twice
   })
 })

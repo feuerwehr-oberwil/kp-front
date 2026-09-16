@@ -102,13 +102,18 @@ to prod.
   `pack.bindingId`; changing the selected Einsatzobjekt must not retarget its backdrop or ink.
   Prepared floors cannot be added or deleted in the incident. Floor drawings may connect in
   pairs across PDF pages; resolve those joins in a common frame, never independently centre
-  each crop. A symbol's Von/Bis range is one object shown and selectable on every covered floor.
+  each crop. **A storey may BE several drawings** (`PlanFloor.part`, 16.09.2026 – two wings of one
+  1. OG): each drawing is a row with its own region and its own join, all on one page, and the
+  storey is still ONE tile, ONE index and one surface for ink, Trupps and symbols. Every join
+  shift is keyed by (index, part); a shift per storey can only place one wing. A symbol's Von/Bis range is one object shown and selectable on every covered floor.
   Dragging it one storey moves the whole range (0–2 → 1–3), with one undo step; range controls
   change coverage, and old single-floor values remain readable without inventing assignments.
 - **A plan PDF may prepare itself (`§` markers).** The plan author writes `§EG` / `§1OG` / `§DG`
   (`§1OG.B` for a second join point, where no one staircase runs through the whole building –
   floors sharing a label join there, and the chain is resolved in one frame), optional region
-  corners `§[EG` / `§EG]` and `§GEO <E> <N>` as ordinary text spans on the sheet;
+  corners `§[EG` / `§EG]` and `§GEO <E> <N>` as ordinary text spans on the sheet; SEVERAL corner
+  pairs for one storey are its several drawings (16.09.2026), each holding the one join tag that
+  places it – a second drawing without its own tag is refused (`part_without_join`), never guessed;
   `app/plan_markers.py` is the one grammar, and the alignment worker turns them into the floor
   pack plus – with two or more `§GEO` – the map fit (`reason`/`reference_source` = `markers`).
   A marked fit is the plan author's own statement, so the worker APPROVES it on import through

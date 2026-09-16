@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { appendFloor, clampToClip, defaultStack, dropFromStack, entryJoined, floorsFromStack, hitJoinPoint, indexOf, moveJoinPoint, patchEntry, reorderStack, restoreToStack, reverseStack, sameStack, signedIndex, stackComplete, stackFromFloors, trayOf } from './floorPack'
+import { appendFloor, appendPart, clampToClip, defaultStack, dropFromStack, entryJoined, floorsFromStack, hitJoinPoint, indexOf, moveJoinPoint, patchEntry, reorderStack, restoreToStack, reverseStack, sameStack, signedIndex, stackComplete, stackFromFloors, storeysOf, partOf, partsOf, trayOf } from './floorPack'
 
 // Wyss Gartencenter Modul 6 as exported: page 0 = 2. OG, 1 = 1. OG, 2 = EG / ZWG, 3 = UG
 const wyss = [
-  { page: 0, index: 2, name: null, clip: null, join: null }, { page: 1, index: 1, name: null, clip: null, join: null },
-  { page: 2, index: 0, name: 'EG / ZWG', clip: null, join: null }, { page: 3, index: -1, name: null, clip: null, join: null },
+  { page: 0, index: 2, part: 0, name: null, clip: null, join: null }, { page: 1, index: 1, part: 0, name: null, clip: null, join: null },
+  { page: 2, index: 0, part: 0, name: 'EG / ZWG', clip: null, join: null }, { page: 3, index: -1, part: 0, name: null, clip: null, join: null },
 ]
 
 describe('floor stack ↔ floors', () => {
@@ -24,8 +24,8 @@ describe('floor stack ↔ floors', () => {
   })
   it('regions: several entries on one page, joined two at a time – and the chain must reach everyone', () => {
     const a0 = [
-      { page: 0, index: 1, name: null, clip: [0.02, 0.5, 0.35, 0.95] as [number, number, number, number], join: { to: 0, at: [0.05, 0.9] as [number, number], there: [0.41, 0.45] as [number, number] } },
-      { page: 0, index: 0, name: 'EG / ZWG', clip: [0.38, 0.02, 0.98, 0.5] as [number, number, number, number], join: null },
+      { page: 0, index: 1, part: 0, name: null, clip: [0.02, 0.5, 0.35, 0.95] as [number, number, number, number], join: { to: 0, at: [0.05, 0.9] as [number, number], there: [0.41, 0.45] as [number, number] } },
+      { page: 0, index: 0, part: 0, name: 'EG / ZWG', clip: [0.38, 0.02, 0.98, 0.5] as [number, number, number, number], join: null },
     ]
     const stack = stackFromFloors(a0, 0)!
     expect(stack.order.map((e) => e.page)).toEqual([0, 0])
@@ -111,4 +111,41 @@ it('requires cropped floors on different pages to connect to the reference', () 
     join: { toKey: stack.zero, at: [0.3, 0.3], there: [0.5, 0.5] },
   })
   expect(stackComplete(connected)).toBe(true)
+})
+
+// One Geschoss out of several drawings (16.09.2026): the further drawings are entries too, but
+// only the STOREYS carry an index – the pieces are pieces of the row above them.
+describe('a storey drawn in several pieces', () => {
+  const wings = [
+    { page: 0, index: 1, part: 0, name: 'West', clip: [0.02, 0.05, 0.45, 0.95] as [number, number, number, number], join: { to: 0, at: [0.1, 0.5] as [number, number], there: [0.2, 0.5] as [number, number] } },
+    { page: 0, index: 1, part: 1, name: 'Ost', clip: [0.5, 0.05, 0.95, 0.95] as [number, number, number, number], join: { to: 0, at: [0.6, 0.5] as [number, number], there: [0.8, 0.5] as [number, number] } },
+    { page: 1, index: 0, part: 0, name: null, clip: null, join: null },
+  ]
+  it('round-trips through the stack: two rows, three drawings, the indices unmoved', () => {
+    const stack = stackFromFloors(wings, 1)!
+    expect(storeysOf(stack)).toHaveLength(2)
+    expect(stack.order).toHaveLength(3)
+    expect(stack.order.map((e) => indexOf(stack, e.key))).toEqual([1, 1, 0])
+    expect(stack.order.map((e) => partOf(stack, e.key))).toEqual([0, 1, 0])
+    expect(floorsFromStack(stack)).toEqual(wings)
+    expect(stackComplete(stack)).toBe(true)
+  })
+  it('a further drawing is added behind its storey, needs its own rectangle, and can be dropped alone', () => {
+    const stack = stackFromFloors(wings, 1)!
+    const eg = storeysOf(stack)[1]
+    const { stack: grown, key } = appendPart(stack, eg.key)
+    expect(storeysOf(grown)).toHaveLength(2) // still two Geschosse…
+    expect(partsOf(grown, eg.key).map((e) => e.key)).toEqual([eg.key, key]) // …and the EG has two drawings
+    expect(floorsFromStack(grown).map((f) => [f.index, f.part])).toEqual([[1, 0], [1, 1], [0, 0], [0, 1]])
+    expect(stackComplete(grown)).toBe(false) // a piece without a rectangle is nothing yet
+    expect(floorsFromStack(dropFromStack(grown, key)).map((f) => [f.index, f.part])).toEqual([[1, 0], [1, 1], [0, 0]])
+  })
+  it('a storey takes its pieces with it – when it is removed, and when it is reversed', () => {
+    const stack = stackFromFloors(wings, 1)!
+    const gone = dropFromStack(stack, storeysOf(stack)[0].key)
+    expect(gone.order).toHaveLength(1) // both wings left with their storey…
+    expect(gone.order[0].join).toBeUndefined() // …and the join that pointed into them is no join
+    const flipped = reverseStack(stack)
+    expect(flipped.order.map((e) => [indexOf(flipped, e.key), partOf(flipped, e.key)])).toEqual([[0, 0], [-1, 0], [-1, 1]])
+  })
 })

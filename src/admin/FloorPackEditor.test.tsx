@@ -218,8 +218,8 @@ describe('cross-page joins', () => {
     expect(container.querySelector('.adm-floors-joins circle.pending')).toBeNull() // source mark never moves to target page
     tap(650, 350)
     expect(onDraft.mock.lastCall?.[0].floors).toEqual([
-      { page: 1, index: 1, name: null, clip: null, join: null },
-      { page: 0, index: 0, name: null, clip: null, join: { to: 1, at: [0.2, 0.3], there: [0.65, 0.7] } },
+      { page: 1, index: 1, part: 0, name: null, clip: null, join: null },
+      { page: 0, index: 0, part: 0, name: null, clip: null, join: { to: 1, at: [0.2, 0.3], there: [0.65, 0.7] } },
     ])
     expect(container.querySelectorAll('.adm-floors-joins circle')).toHaveLength(1)
     expect(container.querySelectorAll('.adm-floors-joins line')).toHaveLength(0)
@@ -241,5 +241,45 @@ describe('cross-page joins', () => {
     fireEvent.pointerUp(sheet, { clientX: 400, clientY: 200, pointerId: 1 })
     expect(container.querySelector('.adm-floors-box.moving')).toBeNull()
     expect(onDraft.mock.lastCall?.[0].dirty).toBe(false)
+  })
+})
+
+// A Geschoss out of several drawings (16.09.2026): ONE storey row, its drawings as small rows
+// under it. The list stays a list of Geschosse – a wing is not a storey and never gets an index.
+describe('a storey drawn in several pieces', () => {
+  const wings = {
+    ...item, page_count: 2, page: 1,
+    floors: [
+      { page: 0, index: 1, part: 0, name: 'Westflügel', clip: [0.02, 0.05, 0.45, 0.95] as [number, number, number, number], join: { to: 0, at: [0.1, 0.5] as [number, number], there: [0.2, 0.5] as [number, number] } },
+      { page: 0, index: 1, part: 1, name: 'Ostflügel', clip: [0.5, 0.05, 0.95, 0.95] as [number, number, number, number], join: { to: 0, at: [0.6, 0.5] as [number, number], there: [0.8, 0.5] as [number, number] } },
+      { page: 1, index: 0, part: 0, name: null },
+    ],
+  }
+  it('is one row with its drawings under it, and the name being typed is the drawing\'s own', () => {
+    const onDraft = vi.fn()
+    render(<FloorPackEditor item={wings} view="edit" onDraft={onDraft} />)
+    expect(screen.getAllByRole('listitem').map((el) => el.getAttribute('aria-label'))).toEqual(['+1 · 1. OG', '0 · EG'])
+    fireEvent.click(screen.getAllByRole('listitem')[0])
+    expect(screen.getByText('2 Zeichnungen')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '+1 · Ostflügel' }))
+    const field = screen.getByRole('textbox') as HTMLInputElement
+    expect(field.value).toBe('Ostflügel')
+    fireEvent.change(field, { target: { value: 'Verwaltung' } })
+    expect(onDraft.mock.lastCall?.[0].floors.map((f: { index: number; part: number; name: string | null }) => [f.index, f.part, f.name]))
+      .toEqual([[1, 0, 'Westflügel'], [1, 1, 'Verwaltung'], [0, 0, null]])
+  })
+  it('«Weitere Zeichnung» adds a piece to THAT storey and blocks the save until it has a rectangle', () => {
+    const onDraft = vi.fn()
+    render(<FloorPackEditor item={wings} view="edit" onDraft={onDraft} />)
+    fireEvent.click(screen.getAllByRole('listitem')[1]) // the EG
+    fireEvent.click(screen.getByRole('button', { name: 'Weitere Zeichnung' }))
+    expect(screen.getAllByRole('listitem')).toHaveLength(2) // still two Geschosse
+    expect(onDraft.mock.lastCall?.[0].floors.map((f: { index: number; part: number }) => [f.index, f.part]))
+      .toEqual([[1, 0], [1, 1], [0, 0], [0, 1]])
+    expect(onDraft.mock.lastCall?.[0].complete).toBe(false)
+    // …and it is removed on its own, without taking its storey with it
+    fireEvent.click(screen.getByRole('button', { name: 'Zeichnung entfernen' }))
+    expect(onDraft.mock.lastCall?.[0].floors.map((f: { index: number; part: number }) => [f.index, f.part]))
+      .toEqual([[1, 0], [1, 1], [0, 0]])
   })
 })

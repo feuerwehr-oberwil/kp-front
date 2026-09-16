@@ -1,5 +1,6 @@
 """Floor packs: one page = one Geschoss, one shared fit per PDF (14.09.2026)."""
 
+from dataclasses import replace
 from io import BytesIO
 from urllib.parse import quote
 
@@ -9,7 +10,7 @@ from sqlalchemy import select
 
 from app import storage
 from app.models import ObjectSite, PlanAlignment, PlanPageFloor
-from app.plan_floors import PlanFloor, default_fit_page, fit_publishable
+from app.plan_floors import FloorError, PlanFloor, default_fit_page, fit_publishable, validate_floors
 from app.plans import store_plan
 
 
@@ -29,9 +30,9 @@ PAIRS = [
 ]
 # page 0 = UG, page 1 = EG, page 2 = 1. OG – the fit belongs on page 1
 FLOORS = [
-    {"page": 0, "index": -1, "name": None, "clip": None, "join": None},
-    {"page": 1, "index": 0, "name": "EG / ZWG", "clip": None, "join": None},
-    {"page": 2, "index": 1, "name": None, "clip": None, "join": None},
+    {"page": 0, "index": -1, "part": 0, "name": None, "clip": None, "join": None},
+    {"page": 1, "index": 0, "part": 0, "name": "EG / ZWG", "clip": None, "join": None},
+    {"page": 2, "index": 1, "part": 0, "name": None, "clip": None, "join": None},
 ]
 
 
@@ -203,3 +204,88 @@ async def test_cross_page_join_survives_list_and_detail(client, admin_login, db_
     item = next(item for item in listed["items"] if item["id"] == row.id)
     assert item["floors"] == expected
     assert (await client.get(url)).json()["floors"] == expected
+
+
+# ---------------------------------------------------------------------------------------
+# one Geschoss, several drawings (16.09.2026)
+# ---------------------------------------------------------------------------------------
+
+WEST = [0.02, 0.05, 0.45, 0.95]
+EAST = [0.5, 0.05, 0.95, 0.95]
+
+
+def _wings() -> list[PlanFloor]:
+    """EG whole page 0, the 1. OG on page 1 as two wings, each joined to the EG at its own point."""
+    return [
+        PlanFloor(0, 0, None),
+        PlanFloor(1, 1, "West", WEST, {"to": 0, "at": [0.1, 0.5], "there": [0.2, 0.5]}, part=0),
+        PlanFloor(1, 1, "Ost", EAST, {"to": 0, "at": [0.6, 0.5], "there": [0.8, 0.5]}, part=1),
+    ]
+
+
+def test_a_storey_may_be_drawn_in_several_pieces_when_each_has_its_region_and_its_join():
+    validate_floors(_wings(), 2)
+    # the same drawing twice is not two drawings
+    with pytest.raises(FloorError):
+        validate_floors([*_wings(), PlanFloor(1, 1, None, EAST, None, part=1)], 2)
+    # …nor is a gap in the numbering a pack
+    with pytest.raises(FloorError, match="durchzunummerieren"):
+        validate_floors([_wings()[0], _wings()[1], replace(_wings()[2], part=3)], 2)
+
+
+def test_every_piece_of_a_storey_needs_its_own_region_its_own_join_and_the_same_page():
+    with pytest.raises(FloorError, match="Bereich"):
+        validate_floors([*_wings()[:2], PlanFloor(1, 1, "Ost", None, None, part=1)], 2)
+    with pytest.raises(FloorError, match="Verbindungspunkt"):
+        validate_floors([*_wings()[:2], replace(_wings()[2], join=None)], 2)
+    with pytest.raises(FloorError, match="derselben Seite"):
+        validate_floors([_wings()[0], _wings()[1], replace(_wings()[2], page=0)], 2)
+    # …except part 0 of the REFERENCE storey, which is the frame every join ends at
+    reference = [
+        PlanFloor(0, 0, "West", WEST, None, part=0),
+        PlanFloor(0, 0, "Ost", EAST, {"to": 1, "at": [0.6, 0.5], "there": [0.3, 0.3]}, part=1),
+        PlanFloor(1, 1, None, None, {"to": 0, "at": [0.3, 0.3], "there": [0.1, 0.5]}),
+    ]
+    validate_floors(reference, 2)
+
+
+async def test_the_api_carries_parts_through_save_list_and_detail(client, admin_login, db_session):
+    _, ds, row = await _seed_pack(db_session, pages=2)
+    await admin_login(client)
+    floors = [
+        {"page": 0, "index": 0},
+        {
+            "page": 1,
+            "index": 1,
+            "part": 0,
+            "name": "West",
+            "clip": WEST,
+            "join": {"to": 0, "at": [0.1, 0.5], "there": [0.2, 0.5]},
+        },
+        {
+            "page": 1,
+            "index": 1,
+            "part": 1,
+            "name": "Ost",
+            "clip": EAST,
+            "join": {"to": 0, "at": [0.6, 0.5], "there": [0.8, 0.5]},
+        },
+    ]
+    url = f"/api/admin/plan-alignments/{row.id}"
+    response = await client.put(url + "/floors", json={"edit_version": 1, "floors": floors})
+    assert response.status_code == 200, response.text
+    saved = response.json()["floors"]
+    assert [(f["index"], f["part"], f["name"]) for f in saved] == [(0, 0, None), (1, 0, "West"), (1, 1, "Ost")]
+    # part 0 stays unsaid on a join, so an untouched one-drawing pack sends what it always did
+    assert saved[1]["join"] == {"to": 0, "at": [0.1, 0.5], "there": [0.2, 0.5]}
+    assert (await client.get(url)).json()["floors"] == saved
+    rows = (
+        (await db_session.execute(select(PlanPageFloor).order_by(PlanPageFloor.floor_index, PlanPageFloor.part)))
+        .scalars()
+        .all()
+    )
+    assert [(r.floor_index, r.part) for r in rows] == [(0, 0), (1, 0), (1, 1)]
+    # …and a join pointing at a drawing that is not there is refused, part included
+    bad = [*floors[:2], {**floors[2], "join": {"to": 1, "part": 3, "at": [0.6, 0.5], "there": [0.8, 0.5]}}]
+    ev = response.json()["edit_version"]
+    assert (await client.put(url + "/floors", json={"edit_version": ev, "floors": bad})).status_code == 422

@@ -1,5 +1,5 @@
 import type { PlanFloor } from './api/reference'
-import { referenceUrl } from './api/reference'
+import { floorKey, joinKey, referenceUrl } from './api/reference'
 import { effectiveBindingGeoref, type IncidentPlanBinding } from './incidentPlanBindings'
 import { fitSimilarity, type GeorefFit } from './georef'
 import { withPdfPage } from './whiteboard'
@@ -16,6 +16,10 @@ import { withPdfPage } from './whiteboard'
  * direction and across PDF pages; a region nothing joins falls back to its rectangle's top-left corner against the
  * reference's. It is clipped to its own rectangle, so neighbouring drawings never bleed in.
  * All of this is in normalized page coordinates; the pack's ONE map fit speaks the same.
+ *
+ * A storey may be drawn in SEVERAL pieces (16.09.) – two wings of one 1. OG as two drawings –
+ * and then it has several tiles, each with its own rectangle and its own shift. They land in the
+ * one frame beside each other; the storey tile shows their union.
  */
 export interface FloorPackTile {
   /** the page's URL (`#page=N`, lib/whiteboard · pdfPageOf) */
@@ -24,10 +28,15 @@ export interface FloorPackTile {
   clip: [number, number, number, number]
   /** page-coordinate shift that lays this drawing onto the reference drawing */
   shift: [number, number]
+  /** which drawing of its storey this is (0 = the first / only one) */
+  part: number
+  /** the drawing's own name, where the pack gives it one («Westflügel») */
+  name: string | null
 }
 export interface FloorPackView {
   floors: PlanFloor[]
-  tiles: Record<number, FloorPackTile>
+  /** by storey index, that storey's drawings in part order – never an empty list */
+  tiles: Record<number, FloorPackTile[]>
   /** the reference drawing's rectangle – what a tile shows */
   frame: [number, number, number, number]
   fit: GeorefFit | null
@@ -44,10 +53,17 @@ export function floorPackOf(bindings: IncidentPlanBinding[], objectId: string | 
   const url = referenceUrl(b.datasetId, b.planVersion)
   const pairs = effectiveBindingGeoref(b).pairs
   const onFitPage = b.floors.filter((f) => f.page === b.page)
-  const ref = onFitPage.find((f) => f.index === 0) ?? onFitPage[0] ?? b.floors[0]
+  // the FRAME is one drawing: level 0's first piece, never a second wing of it
+  const first = onFitPage.filter((f) => (f.part ?? 0) === 0)
+  const ref = first.find((f) => f.index === 0) ?? first[0] ?? onFitPage[0] ?? b.floors[0]
   const shifts = joinShifts(b.floors, ref)
-  const tiles: Record<number, FloorPackTile> = {}
-  for (const f of b.floors) tiles[f.index] = { url: withPdfPage(url, f.page), clip: f.clip ?? WHOLE, shift: shifts.get(f.index) ?? [0, 0] }
+  const tiles: Record<number, FloorPackTile[]> = {}
+  for (const f of [...b.floors].sort((a, c) => (a.part ?? 0) - (c.part ?? 0))) {
+    (tiles[f.index] ??= []).push({
+      url: withPdfPage(url, f.page), clip: f.clip ?? WHOLE, shift: shifts.get(floorKey(f)) ?? [0, 0],
+      part: f.part ?? 0, name: f.name,
+    })
+  }
   return {
     floors: b.floors, tiles, frame: ref.clip ?? WHOLE,
     fit: pairs.length >= 2 && b.aspect ? fitSimilarity(pairs, b.aspect) : null,
@@ -57,24 +73,27 @@ export function floorPackOf(bindings: IncidentPlanBinding[], objectId: string | 
 
 /** Resolve explicit joins first, in either direction and across pages. Disconnected components
  *  retain the legacy page frame (whole page) or corner fallback (crop); their joins still apply.
- *  One point supplies translation only: pages must share normalized scale and orientation. */
-export function joinShifts(floors: PlanFloor[], ref: PlanFloor): Map<number, [number, number]> {
-  const out = new Map<number, [number, number]>()
+ *  One point supplies translation only: pages must share normalized scale and orientation.
+ *
+ *  Keyed by DRAWING (`floorKey`, storey + part): two wings of one storey are two drawings with
+ *  two joins, and a shift per storey could only ever place one of them. */
+export function joinShifts(floors: PlanFloor[], ref: PlanFloor): Map<string, [number, number]> {
+  const out = new Map<string, [number, number]>()
   const rc = ref.clip ?? WHOLE
   const resolve = (seed: PlanFloor, shift: [number, number]) => {
-    out.set(seed.index, shift)
+    out.set(floorKey(seed), shift)
     const pending = [seed]
     for (let i = 0; i < pending.length; i++) {
       const current = pending[i]
-      const s = out.get(current.index)!
+      const s = out.get(floorKey(current))!
       for (const f of floors) {
-        if (out.has(f.index)) continue
-        const forward = f.join?.to === current.index ? f.join : undefined
-        const backward = current.join?.to === f.index ? current.join : undefined
+        if (out.has(floorKey(f))) continue
+        const forward = f.join && joinKey(f.join) === floorKey(current) ? f.join : undefined
+        const backward = current.join && joinKey(current.join) === floorKey(f) ? current.join : undefined
         if (!forward && !backward) continue
         const j = (forward ?? backward)!
         const sign = forward ? 1 : -1
-        out.set(f.index, [s[0] + sign * (j.there[0] - j.at[0]), s[1] + sign * (j.there[1] - j.at[1])])
+        out.set(floorKey(f), [s[0] + sign * (j.there[0] - j.at[0]), s[1] + sign * (j.there[1] - j.at[1])])
         pending.push(f)
       }
     }
@@ -82,9 +101,26 @@ export function joinShifts(floors: PlanFloor[], ref: PlanFloor): Map<number, [nu
   resolve(ref, [0, 0])
   // A whole page is the existing shared-frame convention, so anchor it before orphan crops.
   for (const f of [...floors.filter(f => !f.clip), ...floors.filter(f => f.clip)]) {
-    if (out.has(f.index)) continue
+    if (out.has(floorKey(f))) continue
     const fc = f.clip ?? WHOLE
     resolve(f, f.clip ? [rc[0] - fc[0], rc[1] - fc[1]] : [0, 0])
+  }
+  return out
+}
+
+/** The stack's storeys, lowest first – one per index however many drawings the storey has: the
+ *  Gebäude has one tile per Geschoss, and its wings live inside that tile. */
+export const packStoreys = (floors: PlanFloor[]): number[] =>
+  [...new Set(floors.map((f) => f.index))].sort((a, b) => a - b)
+
+/** The operator-facing name per storey. A storey drawn in several pieces has a name PER PIECE
+ *  («Westflügel»), which is a caption on the drawing and not the name of the Geschoss – so only
+ *  a storey drawn once lends its name to the stack's heading. */
+export function packFloorNames(floors: PlanFloor[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const index of new Set(floors.map((f) => f.index))) {
+    const pieces = floors.filter((f) => f.index === index)
+    if (pieces.length === 1 && pieces[0].name) out[String(index)] = pieces[0].name
   }
   return out
 }

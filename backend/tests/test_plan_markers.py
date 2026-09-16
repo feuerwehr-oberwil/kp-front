@@ -371,9 +371,9 @@ def test_an_admin_edit_is_what_differs_from_that_revision_s_own_proposal():
         PlanFloor(0, 0, "Hauptebene", [0.12, 0.1, 0.5, 0.5], None, marker_snapshot(proposed, 3)),
         PlanFloor(1, 1, None, None, None, marker_snapshot(PlanFloor(1, 1, None, None, None), 3)),
     ]
-    assert admin_overrides(stored) == {0: {"name": "Hauptebene", "clip": [0.12, 0.1, 0.5, 0.5]}}
+    assert admin_overrides(stored) == {(0, 0): {"name": "Hauptebene", "clip": [0.12, 0.1, 0.5, 0.5]}}
     # a pack no markers ever made is the admin's, field for field
-    assert admin_overrides([PlanFloor(0, 0, "EG", None, None)]) == {0: {"name": "EG"}}
+    assert admin_overrides([PlanFloor(0, 0, "EG", None, None)]) == {(0, 0): {"name": "EG"}}
 
 
 def test_the_marker_wins_where_it_moved_and_the_admin_wins_where_they_edited():
@@ -381,14 +381,14 @@ def test_the_marker_wins_where_it_moved_and_the_admin_wins_where_they_edited():
         PlanFloor(0, 0, "Neu", [0.2, 0.2, 0.9, 0.9], None),  # the export moved the region…
         PlanFloor(1, 1, None, None, {"to": 0, "at": [0.4, 0.4], "there": [0.3, 0.3]}),  # …and the join
     ]
-    merged = apply_overrides(proposed, {0: {"name": "Hauptebene"}})
+    merged = apply_overrides(proposed, {(0, 0): {"name": "Hauptebene"}})
     assert merged[0].name == "Hauptebene"  # the admin typed this – it survives the re-export
     assert merged[0].clip == [0.2, 0.2, 0.9, 0.9]  # untouched by the admin, so the marker wins
     assert merged[1].join == {"to": 0, "at": [0.4, 0.4], "there": [0.3, 0.3]}
     # an override for a storey the new export dropped goes with it: structure is the export's
-    assert apply_overrides(proposed, {7: {"name": "Dach"}}) == proposed
+    assert apply_overrides(proposed, {(7, 0): {"name": "Dach"}}) == proposed
     # …and a carried join pointing at a storey that is gone is not a join any more
-    orphan = apply_overrides([proposed[1]], {1: {"join": {"to": 4, "at": [0.1, 0.1], "there": [0.2, 0.2]}}})
+    orphan = apply_overrides([proposed[1]], {(1, 0): {"join": {"to": 4, "at": [0.1, 0.1], "there": [0.2, 0.2]}}})
     assert orphan[0].join is None
 
 
@@ -708,3 +708,131 @@ async def test_an_admin_edit_survives_a_re_export_and_a_moved_marker_does_not(se
         assert first.marker["version"] == 2 and first.marker["name"] is None
         # v1 is untouched: an incident that pinned it keeps exactly what it opened
         assert next(f for f in await load_floors(db, dataset_id, 1) if f.index == 1).name == "Büro-Etage"
+
+
+# ---------------------------------------------------------------------------------------
+# one Geschoss, several drawings (16.09.2026)
+# ---------------------------------------------------------------------------------------
+
+#: One A0 page: the EG as ONE drawing with two staircases, the 1. OG as TWO – west and east wing,
+#: each with its own corner pair and its own join tag. Points in PDF space, y UP.
+WINGS = [
+    (60, 560, "§[EG"),
+    (100, 300, "§EG.A Erdgeschoss"),
+    (300, 300, "§EG.B"),
+    (380, 40, "§EG]"),
+    (450, 560, "§[1OG"),
+    (500, 300, "§1OG.A Westflügel"),
+    (600, 40, "§1OG]"),
+    (660, 560, "§[1OG"),
+    (700, 300, "§1OG.B Ostflügel"),
+    (780, 40, "§1OG]"),
+]
+
+
+def test_a_storey_drawn_as_two_wings_becomes_two_parts_joined_at_their_own_staircases():
+    """Bastian, 16.09.: a long building's 1. OG exists as two drawings. No new tag syntax – each
+    corner pair is one region, and the region's own join tag says which EG point it meets."""
+    plan = read_plan(_pdf([WINGS]))
+    assert plan is not None and plan.warnings == []
+    assert [(f.index, f.part) for f in plan.floors] == [(0, 0), (1, 0), (1, 1)]
+    assert plan.storeys == 2  # two GESCHOSSE, drawn three times
+    west, east = plan.floors[1], plan.floors[2]
+    # reading order: the west wing is part 0, and the names are the DRAWINGS' own
+    assert (west.name, east.name) == ("Westflügel", "Ostflügel")
+    assert west.clip[2] < east.clip[0]
+    # each wing hangs on the EG point it shares a label with – A for the west, B for the east
+    points = {(m.index, m.label): m.point for m in extract_markers(_pdf([WINGS])) if m.kind == "floor"}
+    assert west.join == {"to": 0, "at": points[(1, "A")], "there": points[(0, "A")]}
+    assert east.join == {"to": 0, "at": points[(1, "B")], "there": points[(0, "B")]}
+    # part 0 is left unsaid, so a pack drawn one drawing per storey keeps the join it always had
+    assert "part" not in west.join
+    assert plan.floors[0].join is None and plan.floors[0].name == "Erdgeschoss"
+
+
+def test_a_second_drawing_without_a_join_tag_is_refused_and_names_the_tag_to_add():
+    """«No guessing»: nothing on the sheet says where a wing without its own point lies, so the
+    drawing is dropped and the author is told which tag would place it."""
+    plan = read_plan(_pdf([[m for m in WINGS if m[2] != "§1OG.B Ostflügel"]]))
+    assert plan is not None
+    assert [(f.index, f.part) for f in plan.floors] == [(0, 0), (1, 0)]
+    warning = next(w for w in plan.warnings if w["code"] == "part_without_join")
+    assert (warning["storey"], warning["part"], warning["tag"], warning["want"]) == (1, 1, "§1OG", "§1OG.B")
+    assert marker_text(warning) == "§1OG: zweite Zeichnung ohne Verbindungspunkt (§1OG.B fehlt)."
+
+
+def test_a_wing_whose_point_nobody_shares_names_the_partner_tag_that_is_missing():
+    pages = [[(x, y, "§1OG.Z Ostflügel" if t == "§1OG.B Ostflügel" else t) for x, y, t in WINGS]]
+    plan = read_plan(_pdf(pages))
+    assert plan is not None
+    assert [(f.index, f.part) for f in plan.floors] == [(0, 0), (1, 0)]
+    warning = next(w for w in plan.warnings if w["code"] == "part_without_join")
+    assert warning["want"] == "§EG.Z"  # the point the EG would have to carry for this wing
+
+
+def test_the_reference_storey_itself_may_be_drawn_twice_and_its_sibling_is_placed_by_a_join():
+    """Part 0 of the reference IS the frame; its own second drawing is placed like any other –
+    here through the 1. OG, which carries both staircases and so bridges the two EG wings."""
+    pages = [
+        [
+            (60, 560, "§[EG"),
+            (100, 300, "§EG.A"),
+            (380, 40, "§EG]"),
+            (450, 560, "§[EG"),
+            (500, 300, "§EG.B"),
+            (600, 40, "§EG]"),
+            (660, 560, "§[1OG"),
+            (700, 300, "§1OG.A"),
+            (700, 200, "§1OG.B"),
+            (780, 40, "§1OG]"),
+        ]
+    ]
+    plan = read_plan(_pdf(pages))
+    assert plan is not None and plan.warnings == []
+    assert [(f.index, f.part) for f in plan.floors] == [(0, 0), (0, 1), (1, 0)]
+    assert plan.floors[0].join is None  # the frame origin owes nobody a join
+    assert plan.floors[1].join["to"] == 1  # the EG's east wing hangs on the 1. OG's B point…
+    assert plan.floors[2].join["to"] == 0  # …and the 1. OG itself on the EG's west wing, at A
+    assert "part" not in plan.floors[2].join
+
+
+def test_a_storey_drawn_once_still_keeps_a_point_the_author_put_outside_its_rectangle():
+    """The one-drawing case must not change: containment only decides between SEVERAL regions."""
+    plan = read_plan(_pdf([[(60, 560, "§[EG"), (700, 300, "§EG"), (380, 40, "§EG]"), (500, 120, "§1OG")]]))
+    assert plan is not None
+    ground = next(f for f in plan.floors if f.index == 0)
+    assert ground.clip is not None and ground.part == 0
+
+
+def test_an_admin_edit_is_carried_across_a_re_export_per_drawing_not_per_storey():
+    proposed = [
+        PlanFloor(0, 1, "Westflügel", [0.0, 0.0, 0.4, 1.0], None, part=0),
+        PlanFloor(0, 1, "Ostflügel", [0.5, 0.0, 0.9, 1.0], None, part=1),
+    ]
+    stored = [
+        replace(proposed[0], marker=marker_snapshot(proposed[0], 3)),
+        replace(proposed[1], name="Verwaltung", marker=marker_snapshot(proposed[1], 3)),
+    ]
+    assert admin_overrides(stored) == {(1, 1): {"name": "Verwaltung"}}
+    # …and it lands back on THAT drawing alone when the next export moves both rectangles
+    moved = [replace(f, clip=[c + 0.05 for c in f.clip]) for f in proposed]
+    merged = apply_overrides(moved, admin_overrides(stored))
+    assert [f.name for f in merged] == ["Westflügel", "Verwaltung"]
+    assert merged[0].clip == [0.05, 0.05, 0.45, 1.05]
+
+
+@pytest.mark.skipif(
+    not (SAMPLE.parent / "sample-modul6-parts.pdf").is_file(), reason="the parts sample is not in this checkout"
+)
+def test_the_parts_reference_export_reads_as_the_readme_documents_it():
+    plan = read_plan((SAMPLE.parent / "sample-modul6-parts.pdf").read_bytes())
+    assert plan is not None and plan.warnings == []
+    assert [(f.index, f.part, f.name) for f in plan.floors] == [
+        (0, 0, "Erdgeschoss"),
+        (1, 0, "Westflügel"),
+        (1, 1, "Ostflügel"),
+    ]
+    assert all(f.join["to"] == 0 for f in plan.floors[1:])
+    printed = report(SAMPLE.parent / "sample-modul6-parts.pdf")
+    assert "2 storey(s) in 3 drawing(s), fit page 1, 2 map pair(s)" in printed
+    assert "+1/2" in printed and "no warnings" in printed

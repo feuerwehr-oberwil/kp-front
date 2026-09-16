@@ -151,8 +151,8 @@ async def apply_marker_plan(db: AsyncSession, claim: Claim, plan: MarkerPlan) ->
     **What the markers may overwrite.** A pack the markers never made is the admin's own work
     and is left alone entirely. Otherwise the export is followed wherever it moved, and every
     field a human had corrected away from the previous export's proposal is laid back on top
-    (`plan_markers.admin_overrides`), keyed by storey index — so a re-export costs the station
-    nothing it had already fixed, and states nothing it had already been told.
+    (`plan_markers.admin_overrides`), keyed by storey index AND drawing — so a re-export costs the
+    station nothing it had already fixed, and states nothing it had already been told.
     """
     if not plan.floors:
         return False
@@ -172,8 +172,8 @@ async def apply_marker_plan(db: AsyncSession, claim: Claim, plan: MarkerPlan) ->
             claim.version,
         )
         floors = plan.floors
-    proposal = {f.index: marker_snapshot(f, claim.version) for f in plan.floors}
-    await replace_floors(db, claim.dataset_id, claim.version, [replace(f, marker=proposal[f.index]) for f in floors])
+    proposal = {f.key: marker_snapshot(f, claim.version) for f in plan.floors}
+    await replace_floors(db, claim.dataset_id, claim.version, [replace(f, marker=proposal[f.key]) for f in floors])
     if plan.fit_page == claim.page:
         return False
     taken = (
@@ -231,7 +231,8 @@ async def write_marker_notes(db: AsyncSession, claim: Claim, plan: MarkerPlan | 
         {
             "warnings": [dict(w) for w in plan.warnings],
             "storeys_found": plan.storeys,
-            "storeys_written": sum(1 for f in floors if (f.marker or {}).get("version") == claim.version),
+            # STOREYS, not drawings: a 1. OG drawn as two wings is one Geschoss on the row
+            "storeys_written": len({f.index for f in floors if (f.marker or {}).get("version") == claim.version}),
             "geo_pairs": len(plan.pairs),
         }
         if plan

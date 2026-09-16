@@ -6508,6 +6508,7 @@ export const de = {
         no_shared_join: 'Ebene {storey}: kein gemeinsamer Verbindungspunkt mit den übrigen Geschossen.',
         corner_missing: '{tag}: Ecke {side} fehlt – {have} hat kein Gegenstück.',
         corner_stray: 'Bereichsecken für Ebene {storey}, die kein §-Marker erklärt – ignoriert.',
+        part_without_join: '{tag}: eine weitere Zeichnung ohne Verbindungspunkt ({want} fehlt) – diese Zeichnung wird nicht übernommen.',
         region_off_page: '{tag} (Seite {page}): eine Ecke liegt ausserhalb der Seite ({axis} {value}).',
         region_page_split: 'Ebene {storey}: die Bereichsecken liegen nicht auf der Seite der Zeichnung – Bereich ignoriert.',
         geo_off_fit_page: '{count} §GEO liegen nicht auf der Ausrichtungsseite (Seite {page}) – ignoriert; ein Pack hat eine Passung.',
@@ -6612,6 +6613,12 @@ export const de = {
         region: 'Bereich zeichnen',
         join: 'Verbinden',
         wholePage: 'Ganze Seite',
+        // Ein Geschoss aus mehreren Zeichnungen (16.09.2026): die weiteren Zeichnungen stehen als
+        // kleine Zeilen unter dem Geschoss-Eintrag. «Teil {n}», solange keine benannt ist.
+        addPart: 'Weitere Zeichnung',
+        removePart: 'Zeichnung entfernen',
+        partName: 'Teil {n}',
+        parts: '{n} Zeichnungen',
         regionHint: '{floor}: Rechteck um die Zeichnung ziehen',
         joinHint1: '{floor}: einen Punkt in dieser Zeichnung antippen – Treppenhaus, Lift oder ein Achsenkreuz',
         joinHint2: 'Anderes Geschoss in der Liste wählen, dann dieselbe Treppenstelle antippen – auch auf einer anderen Seite.',

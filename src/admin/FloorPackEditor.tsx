@@ -6,10 +6,10 @@ import { joinShifts } from '../lib/floorPackBinding'
 import { ActionMenu } from './ui'
 import { hasMarkerWarnings } from './markerNotes'
 import { alignmentPagePreview, type AlignmentItem } from './planAlignmentApi'
-import type { PlanFloor } from '../lib/api/reference'
+import { floorKey, type PlanFloor } from '../lib/api/reference'
 import {
-  appendFloor, clampToClip, defaultStack, dropFromStack, entryJoined, floorsFromStack, hitJoinPoint, indexOf, joinPointClip, moveJoinPoint, patchEntry, reorderStack,
-  restoreToStack, reverseStack, sameStack, signedIndex, stackComplete, stackFromFloors, standardFloorName, trayOf, type Clip, type FloorEntry, type FloorStack, type JoinPointHit, type Pt,
+  appendFloor, appendPart, clampToClip, defaultStack, dropFromStack, entryJoined, floorsFromStack, hitJoinPoint, indexOf, joinPointClip, moveJoinPoint, partsOf, patchEntry, reorderStack,
+  restoreToStack, reverseStack, sameStack, signedIndex, stackComplete, stackFromFloors, standardFloorName, storeyKey, storeysOf, trayOf, type Clip, type FloorEntry, type FloorStack, type JoinPointHit, type Pt,
 } from './floorPack'
 
 /**
@@ -21,6 +21,10 @@ import {
  * point (staircase, lift, grid crossing) in another. Joined floor by floor, the sheet's drawings
  * are laid on each other. A row without a rectangle is a whole page. The server moves the shared
  * map fit onto the level-0 page and re-queues it there.
+ *
+ * A storey may be drawn SEVERAL times (16.09.2026) – two wings of one 1. OG. Its further drawings
+ * are small sub-rows under its record, each with its own region state and its own join tag, and
+ * «Weitere Zeichnung» in the open row adds one: no new mode, the same rectangle and the same join.
  *
  * Every row is a record row – index · name · its state as WORDS – and the SELECTED one expands in
  * place into its inspector, so what is being edited stands where it was read. The COLUMN owns
@@ -115,7 +119,13 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
     { label: C.reset, disabled: !dirty, onClick: () => { setHistory({ stack: published ?? defaultStack(pageCount), past: [] }); setMode(null) } },
   ]
 
-  const labelOf = (e: FloorEntry) => `${signedIndex(indexOf(stack, e.key))} · ${e.name || standardFloorName(indexOf(stack, e.key))}`
+  // a storey drawn in several pieces has no name of its own – each piece has one, so the row
+  // that carries the INDEX reads by its standard name
+  const labelOf = (e: FloorEntry) => {
+    const index = indexOf(stack, e.key)
+    const named = partsOf(stack, e.key).length > 1 && !e.of ? '' : e.name
+    return `${signedIndex(index)} · ${named || standardFloorName(index)}`
+  }
 
   return <section className={`adm-floors${view === 'map' ? ' adm-floors-baronly' : ''}`} aria-label={C.title}>
     {/* ONE row over both columns: the editor's tabs left, then – only where there is a sheet to
@@ -170,9 +180,13 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
           : <p className="adm-hint adm-floors-none" role="status">{C.none}</p>)}
         <div className="adm-floors-stack" role="list" onDragOver={(e) => { if (dragging != null) { e.preventDefault(); setOver(null) } }}
           onDrop={(e) => { e.preventDefault(); if (dragging != null) setStack((s) => reorderStack(s, dragging, undefined)); setDragging(null); setOver(null) }}>
-          {stack.order.map((entry) => {
-            const active = entry.key === selectedEntry?.key
-            const joined = entryJoined(stack, entry.key)
+          {storeysOf(stack).map((entry) => {
+            const group = partsOf(stack, entry.key)
+            // the storey row opens while ANY of its drawings is selected; the buttons in it act on
+            // that drawing, so a wing is edited where it is read
+            const drawing = group.find((e) => e.key === selectedEntry?.key) ?? entry
+            const active = group.some((e) => e.key === selectedEntry?.key)
+            const joined = group.every((e) => entryJoined(stack, e.key))
             const index = indexOf(stack, entry.key)
             const zero = entry.key === stack.zero
             const standard = standardFloorName(index)
@@ -185,10 +199,11 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
               : anyRegion ? C.stateWhole : null
             const tags = <span className="adm-floor-tags">
               {pageCount > 1 && <span className="adm-floor-tag">{fillTemplate(C.page, { n: entry.page + 1 })}</span>}
+              {group.length > 1 && <span className="adm-floor-tag">{fillTemplate(C.parts, { n: group.length })}</span>}
               {state && <span className={`adm-floor-tag${entry.clip && !joined ? ' warn' : ''}`}>{state}</span>}
               {pages.size > 1 && fitPage === entry.page && <span className="adm-floor-tag on">{C.stateReference}</span>}
             </span>
-            const name = <b>{entry.name || standard}</b>
+            const name = <b>{group.length > 1 ? standard : entry.name || standard}</b>
             return <div key={entry.key} role="listitem" aria-label={labelOf(entry)} className={`adm-floor${active ? ' active' : ''}${dragging === entry.key ? ' dragging' : ''}${over === entry.key ? ' over' : ''}`}
               onClick={() => setSelected(entry.key)}
               onDragOver={(e) => { if (dragging != null && dragging !== entry.key) { e.preventDefault(); e.stopPropagation(); setOver(entry.key) } }}
@@ -208,12 +223,33 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
                   </button>}
                 {/* the page goes back to the Ablage, so this ENTFERNT a floor – it deletes
                     nothing – and it stands in the open row's head, where what is being edited is */}
-                {active && <button type="button" className="btn adm-floor-remove" aria-label={C.remove} title={C.remove} disabled={stack.order.length <= 1}
+                {active && <button type="button" className="btn adm-floor-remove" aria-label={C.remove} title={C.remove} disabled={storeysOf(stack).length <= 1}
                   onClick={(e) => { e.stopPropagation(); setStack((s) => dropFromStack(s, entry.key)); setMode(null) }}><Icon id="close" /></button>}
               </div>
               {active && <div className="adm-floor-body">
-                <input className="adm-input adm-floor-name" value={entry.name} placeholder={fillTemplate(C.namePlaceholder, { name: standard })} aria-label={fillTemplate(C.standardName, { name: standard })} maxLength={80}
-                  onChange={(e) => setStack((s) => patchEntry(s, entry.key, { name: e.target.value }))} />
+                <input className="adm-input adm-floor-name" value={drawing.name}
+                  placeholder={group.length > 1 ? fillTemplate(C.partName, { n: group.indexOf(drawing) + 1 }) : fillTemplate(C.namePlaceholder, { name: standard })}
+                  aria-label={group.length > 1 ? fillTemplate(C.partName, { n: group.indexOf(drawing) + 1 }) : fillTemplate(C.standardName, { name: standard })} maxLength={80}
+                  onChange={(e) => setStack((s) => patchEntry(s, drawing.key, { name: e.target.value }))} />
+                {/* the storey's further drawings, as small rows under its record – each says what
+                    it is («Bereich» / «Ganze Seite») and whether its join tag is set, and a tap
+                    opens it in the same inspector */}
+                {group.length > 1 && <div className="adm-floor-parts">
+                  {group.map((piece, n) => {
+                    const pieceName = piece.name || fillTemplate(C.partName, { n: n + 1 })
+                    return <div key={piece.key} className={`adm-floor-part${piece.key === drawing.key ? ' on' : ''}`}>
+                      <button type="button" className="adm-floor-part-pick" aria-pressed={piece.key === drawing.key} aria-label={`${chip} · ${pieceName}`}
+                        onClick={(e) => { e.stopPropagation(); setSelected(piece.key); setMode(null) }}>
+                        <span>{pieceName}</span>
+                        <span className={`adm-floor-tag${piece.clip && !entryJoined(stack, piece.key) ? ' warn' : ''}`}>
+                          {!piece.clip ? C.stateWhole : !entryJoined(stack, piece.key) ? C.stateUnjoined : C.stateJoined}
+                        </span>
+                      </button>
+                      {n > 0 && <button type="button" className="btn adm-floor-part-x" aria-label={C.removePart} title={C.removePart}
+                        onClick={(e) => { e.stopPropagation(); setSelected(entry.key); setStack((st) => dropFromStack(st, piece.key)); setMode(null) }}><Icon id="close" /></button>}
+                    </div>
+                  })}
+                </div>}
                 {/* the fit belongs to the page, so it is a setting to read, not a chip to decode */}
                 {locked ? <p className="adm-hint adm-floor-fit-note">{C.fitLocked}</p>
                   : pages.size < 2 ? <p className="adm-hint adm-floor-fit-note">{fillTemplate(C.fitOnly, { n: (fitPage ?? entry.page) + 1 })}</p>
@@ -223,11 +259,17 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
                     <span><b>{C.fitHere}</b><small>{C.fitWhy}</small></span>
                   </label>}
                 <div className="adm-floor-acts">
-                  <button type="button" className="btn adm-floor-mode" aria-pressed={mode?.key === entry.key && mode.kind === 'region'} title={C.regionHint.replace('{floor}: ', '')}
-                    onClick={(e) => { e.stopPropagation(); setSelected(entry.key); setMode((m) => m?.key === entry.key && m.kind === 'region' ? null : { key: entry.key, kind: 'region' }) }}><Icon id="marquee" />{C.region}</button>
-                  <button type="button" className="btn adm-floor-mode" aria-pressed={mode?.key === entry.key && mode.kind === 'join'} disabled={stack.order.length < 2} title={C.joinWhat}
-                    onClick={(e) => { e.stopPropagation(); setSelected(entry.key); setMode((m) => m?.key === entry.key && m.kind === 'join' ? null : { key: entry.key, kind: 'join' }) }}><Icon id="cross" />{C.join}</button>
-                  {entry.clip && <button type="button" className="btn" onClick={(e) => { e.stopPropagation(); setStack((s) => ({ ...s, order: s.order.map((o) => o.key === entry.key ? { ...o, clip: undefined, join: undefined } : o.join?.toKey === entry.key ? { ...o, join: undefined } : o) })); setMode(null) }}>{C.wholePage}</button>}
+                  <button type="button" className="btn adm-floor-mode" aria-pressed={mode?.key === drawing.key && mode.kind === 'region'} title={C.regionHint.replace('{floor}: ', '')}
+                    onClick={(e) => { e.stopPropagation(); setSelected(drawing.key); setMode((m) => m?.key === drawing.key && m.kind === 'region' ? null : { key: drawing.key, kind: 'region' }) }}><Icon id="marquee" />{C.region}</button>
+                  <button type="button" className="btn adm-floor-mode" aria-pressed={mode?.key === drawing.key && mode.kind === 'join'} disabled={stack.order.length < 2} title={C.joinWhat}
+                    onClick={(e) => { e.stopPropagation(); setSelected(drawing.key); setMode((m) => m?.key === drawing.key && m.kind === 'join' ? null : { key: drawing.key, kind: 'join' }) }}><Icon id="cross" />{C.join}</button>
+                  {drawing.clip && group.length === 1 && <button type="button" className="btn" onClick={(e) => { e.stopPropagation(); setStack((s) => ({ ...s, order: s.order.map((o) => o.key === drawing.key ? { ...o, clip: undefined, join: undefined } : o.join?.toKey === drawing.key ? { ...o, join: undefined } : o) })); setMode(null) }}>{C.wholePage}</button>}
+                  {/* a second drawing of THIS storey – no new mode, it opens the same rectangle */}
+                  <button type="button" className="btn adm-floor-addpart" onClick={(e) => {
+                    e.stopPropagation()
+                    const { stack: next, key } = appendPart(stack, entry.key)
+                    setStack(next); setSelected(key); setMode({ key, kind: 'region' })
+                  }}><Icon id="plus" />{C.addPart}</button>
                 </div>
               </div>}
             </div>
@@ -448,6 +490,7 @@ const POINT_GRAB = 22
  * already says «Nicht ausgerichtet».
  */
 function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; floors: PlanFloor[]; fitPage: number; map?: ReactNode }) {
+  const C = appConfig.copy.admin.alignment.floors
   const pages = [...new Set(floors.map((f) => f.page))].sort((a, b) => a - b).join(',')
   const [images, setImages] = useState<Record<number, string>>({})
   const [failed, setFailed] = useState(false)
@@ -463,27 +506,36 @@ function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; flo
     }
     return () => { abort.abort(); urls.forEach(URL.revokeObjectURL) }
   }, [item.id, pages])
-  const onFitPage = floors.filter((f) => f.page === fitPage)
+  const onFitPage = floors.filter((f) => f.page === fitPage && !(f.part ?? 0))
   const reference = onFitPage.find((f) => f.index === 0) ?? onFitPage[0] ?? floors[0]
   if (!reference) return null
   const frame = reference.clip ?? [0, 0, 1, 1]
   const width = frame[2] - frame[0], height = frame[3] - frame[1]
   const shifts = joinShifts(floors, reference)
+  // ONE tile per Geschoss; a storey drawn as two wings shows both in it, each in its own place
+  const storeys = [...new Set(floors.map((f) => f.index))]
   return <div className="adm-floor-preview">
     {map && <div className="adm-floor-preview-map">{map}</div>}
     {failed && <p role="alert">{appConfig.copy.admin.alignment.previewFailed}</p>}
-    {floors.map((floor) => {
-      const shift = shifts.get(floor.index) ?? [0, 0]
-      const clip = floor.clip ?? [0, 0, 1, 1]
-      const clipId = `floor-preview-${item.id}-${floor.index}`
-      const chip = signedIndex(floor.index)
-      const name = floor.name || standardFloorName(floor.index)
-      return <div className="adm-floor-tile" key={floor.index}>
+    {storeys.map((index) => {
+      const parts = floors.filter((f) => f.index === index).sort((a, b) => (a.part ?? 0) - (b.part ?? 0))
+      const chip = signedIndex(index)
+      const name = (parts.length === 1 && parts[0].name) || standardFloorName(index)
+      return <div className="adm-floor-tile" key={index}>
         <svg viewBox={`${frame[0]} ${frame[1]} ${width} ${height}`} preserveAspectRatio="none" style={{ aspectRatio: `${width * (item.aspect ?? 1.414)} / ${height}` }} role="img" aria-label={`${chip} · ${name}`}>
-          <defs><clipPath id={clipId}><rect x={clip[0] + shift[0]} y={clip[1] + shift[1]} width={clip[2] - clip[0]} height={clip[3] - clip[1]} /></clipPath></defs>
-          {images[floor.page] && <image href={images[floor.page]} x={shift[0]} y={shift[1]} width={1} height={1} preserveAspectRatio="none" clipPath={`url(#${clipId})`} />}
+          {parts.map((floor) => {
+            const shift = shifts.get(floorKey(floor)) ?? [0, 0]
+            const clip = floor.clip ?? [0, 0, 1, 1]
+            const clipId = `floor-preview-${item.id}-${floorKey(floor).replace(':', '-')}`
+            return <g key={clipId}>
+              <defs><clipPath id={clipId}><rect x={clip[0] + shift[0]} y={clip[1] + shift[1]} width={clip[2] - clip[0]} height={clip[3] - clip[1]} /></clipPath></defs>
+              {images[floor.page] && <image href={images[floor.page]} x={shift[0]} y={shift[1]} width={1} height={1} preserveAspectRatio="none" clipPath={`url(#${clipId})`} />}
+            </g>
+          })}
         </svg>
-        <span className="adm-floor-tile-cap" aria-hidden><span className="adm-floor-index">{chip}</span><b>{name}</b></span>
+        <span className="adm-floor-tile-cap" aria-hidden><span className="adm-floor-index">{chip}</span><b>{name}</b>
+          {parts.length > 1 && <small>{parts.map((f, n) => f.name || fillTemplate(C.partName, { n: n + 1 })).join(' · ')}</small>}
+        </span>
       </div>
     })}
   </div>

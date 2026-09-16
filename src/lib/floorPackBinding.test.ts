@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { floorPackOf, frameAspect, joinShifts } from './floorPackBinding'
+import { floorPackOf, frameAspect, joinShifts, packFloorNames, packStoreys } from './floorPackBinding'
 import { inheritPlanBinding } from './incidentPlanBindings'
 import type { GeorefPair } from './georef'
 
@@ -16,7 +16,7 @@ describe('a floor pack as the stack sees it', () => {
     const b = { ...inheritPlanBinding(sheet, approval, null, false, floors), page: 1 }
     const pack = floorPackOf([b], 'wyss')!
     expect(pack.frame).toEqual([0, 0, 1, 1])
-    expect(pack.tiles[1]).toMatchObject({ url: '/api/reference/plan%3Awyss%3Amodul6?v=2#page=1', clip: [0, 0, 1, 1], shift: [0, 0] })
+    expect(pack.tiles[1][0]).toMatchObject({ url: '/api/reference/plan%3Awyss%3Amodul6?v=2#page=1', clip: [0, 0, 1, 1], shift: [0, 0] })
     expect(pack.fit).toBeTruthy()
     expect(floorPackOf([b], 'other')).toBeNull()
   })
@@ -27,9 +27,9 @@ describe('a floor pack as the stack sees it', () => {
     ]
     const pack = floorPackOf([{ ...inheritPlanBinding(sheet, approval, null, false, floors), page: 0 }], 'wyss')!
     expect(pack.frame).toEqual([0.38, 0.02, 0.98, 0.5])
-    expect(pack.tiles[0].shift).toEqual([0, 0])
-    expect(pack.tiles[1].shift[0]).toBeCloseTo(0.36); expect(pack.tiles[1].shift[1]).toBeCloseTo(-0.45)
-    expect(pack.tiles[1].clip).toEqual([0.02, 0.5, 0.35, 0.95])
+    expect(pack.tiles[0][0].shift).toEqual([0, 0])
+    expect(pack.tiles[1][0].shift[0]).toBeCloseTo(0.36); expect(pack.tiles[1][0].shift[1]).toBeCloseTo(-0.45)
+    expect(pack.tiles[1][0].clip).toEqual([0.02, 0.5, 0.35, 0.95])
     // a landscape A0 (w/h 1.414) region 0.6 wide × 0.48 tall → box h/w ≈ 0.566
     expect(frameAspect(pack.frame, 1.414)).toBeCloseTo(0.48 / (0.6 * 1.414), 3)
   })
@@ -51,10 +51,10 @@ describe('joins chain in both directions', () => {
     // C also says «my 0.1/0.1 is D's 0.6/0.1»? no – D joins from C: add that join on C's side is impossible (one join per floor), so D joins C
     withD[3] = { ...withD[3], join: { to: 2, at: [0.6, 0.1], there: [0.1, 0.1] } }
     const pack = floorPackOf([{ ...inheritPlanBinding(sheetB, approval, null, false, withD), page: 0 }], 'wyss')!
-    expect(pack.tiles[1].shift.map((v) => +v.toFixed(3))).toEqual([0.5, 0])
-    expect(pack.tiles[2].shift.map((v) => +v.toFixed(3))).toEqual([0.5, 0.5])
-    expect(pack.tiles[3].shift.map((v) => +v.toFixed(3))).toEqual([0, 0.5]) // through C
-    expect(pack.tiles[-1].shift.map((v) => +v.toFixed(3))).toEqual([0.3, 0.3]) // corner fallback: ref x0 − island x0
+    expect(pack.tiles[1][0].shift.map((v) => +v.toFixed(3))).toEqual([0.5, 0])
+    expect(pack.tiles[2][0].shift.map((v) => +v.toFixed(3))).toEqual([0.5, 0.5])
+    expect(pack.tiles[3][0].shift.map((v) => +v.toFixed(3))).toEqual([0, 0.5]) // through C
+    expect(pack.tiles[-1][0].shift.map((v) => +v.toFixed(3))).toEqual([0.3, 0.3]) // corner fallback: ref x0 − island x0
   })
 })
 
@@ -68,15 +68,50 @@ it('resolves joins across pages and within non-reference pages before defaults',
     { page: 2, index: 3, name: null },
     { page: 2, index: 4, name: null, join: { to: 3, at: [0.1, 0.1], there: [0.5, 0.6] } },
   ], ref)
-  expect(shifts.get(1)?.map(v => +v.toFixed(3))).toEqual([0.4, 0.4])
-  expect(shifts.get(2)?.map(v => +v.toFixed(3))).toEqual([0.5, 0.6])
-  expect(shifts.get(3)).toEqual([0, 0])
-  expect(shifts.get(4)?.map(v => +v.toFixed(3))).toEqual([0.4, 0.5])
+  expect(shifts.get('1:0')?.map(v => +v.toFixed(3))).toEqual([0.4, 0.4])
+  expect(shifts.get('2:0')?.map(v => +v.toFixed(3))).toEqual([0.5, 0.6])
+  expect(shifts.get('3:0')).toEqual([0, 0])
+  expect(shifts.get('4:0')?.map(v => +v.toFixed(3))).toEqual([0.4, 0.5])
 })
 
 
 it('resolves a cross-page join pointing away from the reference', () => {
   const ref = { page: 0, index: 0, name: null, join: { to: 1, at: [0.6, 0.7] as [number, number], there: [0.2, 0.3] as [number, number] } }
   const shifts = joinShifts([ref, { page: 1, index: 1, name: null }], ref)
-  expect(shifts.get(1)?.map(v => +v.toFixed(3))).toEqual([0.4, 0.4])
+  expect(shifts.get('1:0')?.map(v => +v.toFixed(3))).toEqual([0.4, 0.4])
+})
+
+
+// One Geschoss out of several drawings (16.09.2026): each wing joins the reference at its own
+// staircase, so a storey has SEVERAL tiles and they land beside each other in the one frame.
+describe('a storey drawn as two wings', () => {
+  const c = (x0: number, y0: number, x1: number, y1: number): [number, number, number, number] => [x0, y0, x1, y1]
+  const floors = [
+    { page: 0, index: 0, part: 0, name: 'EG', clip: c(0.05, 0.05, 0.95, 0.45) },
+    { page: 0, index: 1, part: 0, name: 'Westflügel', clip: c(0.05, 0.55, 0.45, 0.95), join: { to: 0, at: [0.1, 0.6] as [number, number], there: [0.1, 0.1] as [number, number] } },
+    { page: 0, index: 1, part: 1, name: 'Ostflügel', clip: c(0.55, 0.55, 0.95, 0.95), join: { to: 0, at: [0.6, 0.6] as [number, number], there: [0.6, 0.1] as [number, number] } },
+  ]
+  it('gives each drawing its own shift, keyed by storey AND part', () => {
+    const shifts = joinShifts(floors, floors[0])
+    expect(shifts.get('0:0')).toEqual([0, 0])
+    expect(shifts.get('1:0')!.map((v) => +v.toFixed(3))).toEqual([0, -0.5])
+    expect(shifts.get('1:1')!.map((v) => +v.toFixed(3))).toEqual([0, -0.5])
+    // …and a join may point at a specific wing: the EG hangs on the OST wing here
+    const onEast = [
+      { ...floors[0], join: { to: 1, part: 1, at: [0.6, 0.1] as [number, number], there: [0.6, 0.6] as [number, number] } },
+      floors[2],
+    ]
+    expect(joinShifts(onEast, onEast[1]).get('0:0')!.map((v) => +v.toFixed(3))).toEqual([0, 0.5])
+  })
+  it('lists both drawings under the one storey tile, in part order', () => {
+    const pack = floorPackOf([{ ...inheritPlanBinding(sheet, approval, null, false, floors), page: 0 }], 'wyss')!
+    expect(pack.frame).toEqual([0.05, 0.05, 0.95, 0.45])
+    expect(pack.tiles[0]).toHaveLength(1)
+    expect(pack.tiles[1].map((t) => [t.part, t.name])).toEqual([[0, 'Westflügel'], [1, 'Ostflügel']])
+    expect(pack.tiles[1][0].clip).toEqual([0.05, 0.55, 0.45, 0.95])
+    expect(pack.tiles[1][1].clip).toEqual([0.55, 0.55, 0.95, 0.95])
+    // the stack gets ONE tile per Geschoss, and a wing's own name never becomes the storey's
+    expect(packStoreys(floors)).toEqual([0, 1])
+    expect(packFloorNames(floors)).toEqual({ '0': 'EG' })
+  })
 })

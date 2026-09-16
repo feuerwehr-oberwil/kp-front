@@ -53,14 +53,22 @@ export interface ApprovedPlanAlignment {
 export interface PlanFloor {
   page: number
   index: number
+  /** which DRAWING of that storey this is – a 1. OG that exists as two wing drawings has one
+   *  entry per wing, numbered from 0 in reading order (16.09.). Absent = the storey's only one. */
+  part?: number
   name: string | null
   /** the drawing's rectangle on the page, normalized [x0, y0, x1, y1]; absent/null = the whole page */
   clip?: [number, number, number, number] | null
-  /** this drawing meets floor `to`'s drawing at one point pair – `at` here is the same building
-   *  point as `there` on the other (the staircase on both): the way the drawings of one sheet are
-   *  laid on each other, chained from the reference (decided 15.09.) */
-  join?: { to: number; at: [number, number]; there: [number, number] } | null
+  /** this drawing meets floor `to`'s drawing `part` at one point pair – `at` here is the same
+   *  building point as `there` on the other (the staircase on both): the way the drawings of one
+   *  sheet are laid on each other, chained from the reference (decided 15.09.) */
+  join?: { to: number; part?: number; at: [number, number]; there: [number, number] } | null
 }
+
+/** One drawing's identity inside a pack – its storey AND which piece of that storey it is. */
+export const floorKey = (f: Pick<PlanFloor, 'index' | 'part'>): string => `${f.index}:${f.part ?? 0}`
+/** …and the drawing a join points at, in the same spelling. */
+export const joinKey = (join: { to: number; part?: number }): string => `${join.to}:${join.part ?? 0}`
 
 /** What the station has published for one exact plan revision — what an incident binds to.
  *  A revision with `floors` is a floor pack: ONE fit (measured on one of its floor pages) is

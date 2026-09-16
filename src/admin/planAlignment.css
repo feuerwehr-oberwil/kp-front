@@ -242,6 +242,15 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-floor-fit b { display: block; font: 700 12.5px var(--body); }
 .adm-floor-fit small { display: block; margin-top: 3px; font-size: 11.5px; line-height: 1.4; color: var(--ink-dim); }
 .adm-floors .adm-floor-fit-note { margin: 0; padding: 10px 13px; border: 1px dashed var(--border); border-radius: var(--r-ctl); }
+/* one Geschoss out of several drawings (16.09.2026): the pieces are SMALL rows under the storey
+   record – a record's own lines, never rows of the Geschoss list, which stays a list of floors */
+.adm-floor-parts { display: flex; flex-direction: column; gap: 4px; }
+.adm-floor-part { display: flex; align-items: stretch; gap: 4px; }
+.adm-floor-part-pick { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 34px; padding: 5px 10px; text-align: left; font: 500 12px var(--body); color: var(--ink);
+  border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); cursor: pointer; }
+.adm-floor-part.on .adm-floor-part-pick { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); }
+.adm-floors .adm-floor-part-x { flex: 0 0 auto; min-height: 34px; padding-inline: 8px; }
 .adm-floor-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .adm-floors .adm-floor-acts .btn { flex: 1 1 auto; min-height: var(--tap); }
 .adm-floor-acts .i { width: 15px; height: 15px; }
@@ -268,6 +277,8 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
   max-width: calc(100% - 16px); padding: 4px 12px 4px 4px; border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--shadow-sm); }
 .adm-floor-tile-cap b { min-width: 0; font: 600 12.5px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a storey drawn in several pieces names them after its own name – «Westflügel · Ostflügel» */
+.adm-floor-tile-cap small { min-width: 0; font-size: 11px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 1050px) { .adm-floors-split, .adm-floors-bar { grid-template-columns: minmax(0, 1fr) 320px; } .adm-floors-bar-main { padding: 8px 12px; gap: 10px; } }
 @media (max-width: 700px) { .adm-floors-split, .adm-floors-bar { grid-template-columns: minmax(0, 1fr) 270px; } .adm-floors-col { padding: 10px; } .adm-floors-colhead { padding: 8px 10px; } }

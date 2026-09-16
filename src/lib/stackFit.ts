@@ -10,7 +10,7 @@ import type { FloorPackTile } from './floorPackBinding'
 /** Place a drawing in the common frame; never independently centre or fit each crop. The three
  *  corners are the whole PAGE's (0,0), (1,0), (0,1) in the tile box — `regionCorners` cuts the
  *  floor's own rectangle out of that placement. */
-export function packPagePlacement(frame: [number, number, number, number], tile: FloorPackTile): [Pt, Pt, Pt] {
+export function packPagePlacement(frame: [number, number, number, number], tile: Pick<FloorPackTile, 'shift'>): [Pt, Pt, Pt] {
   const [fx0, fy0, fx1, fy1] = frame
   const fw = fx1 - fx0, fh = fy1 - fy0
   const o: Pt = [(tile.shift[0] - fx0) / fw, (tile.shift[1] - fy0) / fh]

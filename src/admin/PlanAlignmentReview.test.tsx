@@ -232,7 +232,7 @@ describe('full-screen plan editor', () => {
     expect((screen.getByRole('textbox', { name: 'Standardname: EG' }) as HTMLInputElement).value).toBe('Halle')
     fireEvent.click(screen.getByRole('button', { name: 'Speichern' }))
     await waitFor(() => expect(onChange).toHaveBeenCalled())
-    expect(savePlanFloors).toHaveBeenCalledWith(floorItem, [{ page: 0, index: 0, name: 'Halle', clip: null, join: null }], undefined)
+    expect(savePlanFloors).toHaveBeenCalledWith(floorItem, [{ page: 0, index: 0, part: 0, name: 'Halle', clip: null, join: null }], undefined)
   })
 
   // The Vorschau is a picture, not a page of prose: the map relationship first and full-width,
@@ -291,7 +291,7 @@ it('offers the editor\'s own save as the third way out and closes behind it', as
   const warning = await screen.findByRole('alertdialog')
   fireEvent.click(within(warning).getByRole('button', { name: 'Speichern' }))
   await waitFor(() => expect(onClose).toHaveBeenCalled())
-  expect(savePlanFloors).toHaveBeenCalledWith(floorItem, [{ page: 0, index: 0, name: 'Halle', clip: null, join: null }], undefined)
+  expect(savePlanFloors).toHaveBeenCalledWith(floorItem, [{ page: 0, index: 0, part: 0, name: 'Halle', clip: null, join: null }], undefined)
 })
 
 // The §-marker diagnosis (16.09.2026): a marked export that prepared nothing must say WHY, in

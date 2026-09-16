@@ -32,6 +32,13 @@ A floor may state SEVERAL points, one per ``.label`` — no building owes its pl
 that runs from the Tiefgarage to the Dachstock. Two floors that share a label are joined at it,
 and the joins chain: EG–1OG at ``A``, 1OG–2OG at ``B`` still lays all three on one frame.
 
+A floor may also be DRAWN SEVERAL TIMES (16.09.2026): a long building whose 1. OG exists as two
+drawings, one per wing. No new grammar — each ``§[1OG`` / ``§1OG]`` corner pair delimits one
+*region* of storey +1, and the region that contains ``§1OG.A`` joins the EG drawing carrying
+``§EG.A`` while the one containing ``§1OG.B`` joins the one carrying ``§EG.B``. The regions of a
+storey are its ``PlanFloor.part``s, in reading order. A second region with no join tag of its own
+is refused (`part_without_join`) rather than guessed at: nothing on the sheet says where it lies.
+
 This module is pure: it reads bytes and returns a proposal. Who writes it, and what it may
 overwrite, is `plan_alignment_worker`'s business. ``python -m app.plan_markers <pdf>`` prints
 what a given export says, which is the plan author's dry run (``just plan-markers``).
@@ -43,6 +50,7 @@ import argparse
 import math
 import re
 import sys
+from collections import Counter
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal, TypedDict
@@ -83,6 +91,7 @@ WarningCode = Literal[
     "no_shared_join",  # a storey shares no point label with the chain, so it hangs free
     "corner_missing",  # one region corner without its counterpart
     "corner_stray",  # region corners for a storey no §-marker declares
+    "part_without_join",  # a storey drawn twice, with only one join tag – nothing places the other
     "region_off_page",  # a region corner's text box sits outside the page
     "region_page_split",  # a storey's region corners are not on its drawing's page
     "geo_off_fit_page",  # §GEO on a page that is not the pack's one fit page
@@ -97,6 +106,10 @@ class _WarningFields(TypedDict, total=False):
 
     #: the signed storey index the warning is about (0 = EG, +1 = 1. OG …)
     storey: int
+    #: which DRAWING of that storey, 0-based – only carried when it is not the first
+    part: int
+    #: the tag the author still has to write (`part_without_join`)
+    want: str
     #: the storey's point label – «A» where the author named none
     label: str
     #: the tag as written, «§» included – the thing the author has to go and fix
@@ -390,42 +403,128 @@ def _resolve_dach(markers: list[Marker]) -> list[Marker]:
     return [replace(m, index=dach) if m.dach else m for m in markers]
 
 
-def _chain(points: dict[int, dict[str, Marker]], anchor: int) -> tuple[dict[int, dict], list[int]]:
-    """Which floor joins which, and at which of its points – ONE join per floor, chained.
+#: one DRAWING of the pack: which storey, and which of that storey's drawings
+Key = tuple[int, int]
 
-    Two floors are joinable where they share a point LABEL: «§1OG.B» and «§2OG.B» are the same
+
+def _chain(points: dict[Key, dict[str, Marker]], anchor: Key) -> tuple[dict[Key, dict], list[Key]]:
+    """Which drawing joins which, and at which of its points – ONE join per drawing, chained.
+
+    Two drawings are joinable where they share a point LABEL: «§1OG.B» and «§2OG.B» are the same
     staircase, «§EG.A» is a different one. Only a partner that already hangs on the ``anchor``
     may be picked, so every chain ends there and none can close on itself. Among those the
     anchor itself wins (one hop, no accumulated error — and the whole-building staircase every
-    unlabelled sheet describes stays the star it is today), then the floor one storey nearer the
-    anchor, then the nearest one; ties go to the lower index so a sheet reads the same twice.
+    unlabelled sheet describes stays the star it is today), then the drawing one storey nearer
+    the anchor, then the nearest one; ties go to the lower index so a sheet reads the same twice.
+    Two drawings of the SAME storey never join each other: they are two wings of one floor, and
+    a staircase they shared would be one drawing, not two.
 
-    Returns the joins by storey index, and the storeys that share no point with the chain.
+    Returns the joins by drawing, and the drawings that share no point with the chain.
     """
-    joins: dict[int, dict] = {}
+    joins: dict[Key, dict] = {}
     resolved = {anchor}
-    pending = sorted((i for i in points if i != anchor), key=lambda i: (abs(i - anchor), i))
+    pending = sorted((k for k in points if k != anchor), key=lambda k: (abs(k[0] - anchor[0]), k[0], k[1]))
     while pending:
-        for index in pending:
-            step = index + (1 if anchor > index else -1)
-            best: tuple[tuple[int, int, int], int, str] | None = None
+        for key in pending:
+            index, _ = key
+            step = index + (1 if anchor[0] > index else -1)
+            best: tuple[tuple[int, int, int, int], Key, str] | None = None
             for other in sorted(resolved):
-                shared = sorted(set(points[index]) & set(points[other]))
+                if other[0] == index:
+                    continue
+                shared = sorted(set(points[key]) & set(points[other]))
                 if not shared:
                     continue
-                rank = (0 if other == anchor else 1 if other == step else 2, abs(other - index), abs(other - anchor))
+                rank = (
+                    0 if other == anchor else 1 if other[0] == step else 2,
+                    abs(other[0] - index),
+                    abs(other[0] - anchor[0]),
+                    other[1],
+                )
                 if best is None or rank < best[0]:
                     best = (rank, other, shared[0])
             if best is None:
                 continue
             _, other, label = best
-            joins[index] = {"to": other, "at": points[index][label].point, "there": points[other][label].point}
-            resolved.add(index)
-            pending.remove(index)
+            joins[key] = {
+                "to": other[0],
+                # part 0 is the whole world of every pack drawn one-floor-one-drawing, so it is
+                # left unsaid: an older stored join and a fresh one for the same point stay the
+                # same dict, which is what `admin_overrides` compares
+                **({"part": other[1]} if other[1] else {}),
+                "at": points[key][label].point,
+                "there": points[other][label].point,
+            }
+            resolved.add(key)
+            pending.remove(key)
             break  # the chain grew – re-scan, nearest the anchor first, against the new set
         else:
             break  # a full pass joined nothing: what is left shares no point with the chain
     return joins, pending
+
+
+def _pair_regions(corners: list[Marker]) -> tuple[list[tuple[Marker, Marker]], list[Marker]]:
+    """Corner marks of ONE storey → its rectangles, plus the corners that found no counterpart.
+
+    Read top-down, then left-right: each ``§[1OG`` takes the NEAREST unclaimed ``§1OG]`` that lies
+    below and to the right of it. Two drawings side by side therefore pair with the corners of
+    their own drawing rather than across the sheet, and a corner whose twin was never drawn is
+    handed back – it costs that one region, exactly as a lone corner always has.
+    """
+    tops = sorted((m for m in corners if m.kind == "corner_tl"), key=lambda m: (round(m.y, 4), round(m.x, 4)))
+    free = [m for m in corners if m.kind == "corner_br"]
+    pairs: list[tuple[Marker, Marker]] = []
+    for tl in tops:
+        candidates = [m for m in free if m.x > tl.x and m.y > tl.y]
+        if not candidates:
+            continue
+        br = min(candidates, key=lambda m: math.hypot(m.x - tl.x, m.y - tl.y))
+        free = [m for m in free if m is not br]
+        pairs.append((tl, br))
+    taken = {id(m) for pair in pairs for m in pair}
+    return pairs, [m for m in corners if id(m) not in taken]
+
+
+def _missing_corner(have: Marker) -> MarkerWarning:
+    """The tag the author has to ADD, spelled the way they spelled its counterpart: «§[4OG» is
+    there, so «§4OG]» is what is missing."""
+    token = have.text.lstrip("§").strip().lstrip("[").rstrip("]")
+    side: Literal["tl", "br"] = "br" if have.kind == "corner_tl" else "tl"
+    return MarkerWarning(
+        code="corner_missing",
+        storey=have.index if have.index is not None else 0,
+        tag=f"§{token}]" if side == "br" else f"§[{token}",
+        have=have.text,
+        side=side,
+        page=have.page + 1,
+    )
+
+
+def _storey_tag(index: int) -> str:
+    """The storey token as an author writes it – what a warning names when it asks for a tag."""
+    return "§EG" if index == 0 else f"§{index}OG" if index > 0 else f"§{-index}UG"
+
+
+def _free_label(used: set[str]) -> str:
+    """The point name the author still has free on this storey – «B» beside an «A»."""
+    return next((c for c in "ABCDEFGHJKLMNPQRSTUVWXYZ" if c not in used), "X")
+
+
+def _inside(m: Marker, clip: list[float]) -> bool:
+    return clip[0] <= m.x <= clip[2] and clip[1] <= m.y <= clip[3]
+
+
+def _renumber(
+    parts: dict[Key, dict[str, Marker]], clips: dict[Key, list[float] | None]
+) -> tuple[dict[Key, dict[str, Marker]], dict[Key, list[float] | None]]:
+    """The drawings of each storey numbered 0, 1, 2 … again after one of them was dropped —
+    `PlanFloor.part` is a position in the storey, and a gap in it is not a pack."""
+    kept_points: dict[Key, dict[str, Marker]] = {}
+    kept_clips: dict[Key, list[float] | None] = {}
+    for index in sorted({i for i, _ in parts}):
+        for part, key in enumerate(sorted(k for k in parts if k[0] == index)):
+            kept_points[(index, part)], kept_clips[(index, part)] = parts[key], clips[key]
+    return kept_points, kept_clips
 
 
 def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | None:
@@ -476,7 +575,7 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
     # exactly what a stray marker left in a template does (Allschwilerstrasse 100, 16.09.2026).
     # It is dropped HERE rather than at `validate_floors`, so the author is told which tag to move
     # instead of being handed «Bereich ausserhalb der Seite» about the whole pack.
-    corners: dict[int, dict[str, Marker]] = {}
+    corners: dict[int, list[Marker]] = {}
     for m, index in ((m, m.index) for m in markers if m.kind in ("corner_tl", "corner_br") and m.index is not None):
         axis: Literal["x", "y"] | None = "x" if not 0.0 <= m.x <= 1.0 else "y" if not 0.0 <= m.y <= 1.0 else None
         if axis is not None:
@@ -491,47 +590,100 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
                 )
             )
             continue
-        corners.setdefault(index, {})[m.kind] = m
+        corners.setdefault(index, []).append(m)
+
+    # …and the corners of one storey become its REGIONS, in reading order. One region (or none) is
+    # the storey drawn once, exactly as every pack before 16.09.2026; two are its two wings.
+    regions: dict[int, list[list[float]]] = {}
+    for index in sorted(corners):
+        if index not in storeys:
+            warnings.append(MarkerWarning(code="corner_stray", storey=index))
+            continue
+        page = storeys[index].page
+        rectangles, lonely = _pair_regions(corners[index])
+        boxes: list[list[float]] = []
+        for tl, br in rectangles:
+            if tl.page != page or br.page != page:
+                warnings.append(MarkerWarning(code="region_page_split", storey=index, page=page + 1))
+                continue
+            boxes.append([min(tl.x, br.x), min(tl.y, br.y), max(tl.x, br.x), max(tl.y, br.y)])
+        for have in lonely:
+            warnings.append(_missing_corner(have))
+        regions[index] = sorted(boxes, key=lambda c: (round(c[1], 4), round(c[0], 4)))
+
+    # Which point belongs to which drawing: the join tag INSIDE the rectangle. A storey with one
+    # drawing keeps every point it states, wherever on the page the author put the tag – that is
+    # how every existing sheet reads, and nothing here may change it.
+    parts: dict[Key, dict[str, Marker]] = {}
+    clips: dict[Key, list[float] | None] = {}
+    for index in sorted(storeys):
+        on = points[index]
+        boxes = regions.get(index, [])
+        if len(boxes) <= 1:
+            parts[(index, 0)] = on
+            clips[(index, 0)] = boxes[0] if boxes else None
+            continue
+        used, part = set(on), 0
+        for nth, box in enumerate(boxes):
+            mine = {label: m for label, m in on.items() if _inside(m, box)}
+            if not mine:
+                label = _free_label(used)
+                used.add(label)
+                warnings.append(
+                    MarkerWarning(
+                        code="part_without_join",
+                        storey=index,
+                        part=nth,
+                        tag=_storey_tag(index),
+                        want=f"{_storey_tag(index)}.{label}",
+                        page=storeys[index].page + 1,
+                    )
+                )
+                continue
+            parts[(index, part)], clips[(index, part)] = mine, box
+            part += 1
 
     reference_index = 0 if 0 in storeys else min(storeys, key=lambda i: abs(i))
     reference = storeys[reference_index]
-    joins, unjoined = _chain(points, reference_index)
-    for index in unjoined:
-        warnings.append(MarkerWarning(code="no_shared_join", storey=index))
-    floors: list[PlanFloor] = []
-    for index in sorted(storeys):
-        m = storeys[index]
-        pair = corners.pop(index, {})
-        clip = None
-        if len(pair) == 2:
-            tl, br = pair["corner_tl"], pair["corner_br"]
-            if tl.page != m.page or br.page != m.page:
-                warnings.append(MarkerWarning(code="region_page_split", storey=index, page=m.page + 1))
-            else:
-                clip = [min(tl.x, br.x), min(tl.y, br.y), max(tl.x, br.x), max(tl.y, br.y)]
-        elif pair:
-            # the tag the author has to ADD, spelled the way they spelled its counterpart:
-            # «§[4OG» is there, so «§4OG]» is what is missing
-            have = next(iter(pair.values()))
-            token = have.text.lstrip("§").strip().lstrip("[").rstrip("]")
-            side: Literal["tl", "br"] = "br" if "corner_tl" in pair else "tl"
+    # The reference storey's FIRST drawing is the frame; everything else – its own sibling wing
+    # included – is placed by a join. A drawing of a several-times-drawn storey that reaches no
+    # join has nothing to say where it lies, so it is dropped and named, never guessed at; the
+    # remaining drawings renumber and the chain is walked again over what is left.
+    joins: dict[Key, dict] = {}
+    unjoined: list[Key] = []
+    for _ in range(len(parts) + 1):
+        joins, unjoined = _chain(parts, (reference_index, 0))
+        counts = Counter(index for index, _ in parts)
+        loose = [key for key in unjoined if counts[key[0]] > 1]
+        if not loose:
+            break
+        for key in loose:
+            # the tag that WOULD place it: the same point name on the reference storey, because
+            # that is the drawing this wing has to meet
+            label = sorted(parts[key])[0]
             warnings.append(
                 MarkerWarning(
-                    code="corner_missing",
-                    storey=index,
-                    tag=f"§{token}]" if side == "br" else f"§[{token}",
-                    have=have.text,
-                    side=side,
-                    page=have.page + 1,
+                    code="part_without_join",
+                    storey=key[0],
+                    part=key[1],
+                    tag=_storey_tag(key[0]),
+                    want=f"{_storey_tag(reference_index)}.{label}",
+                    page=storeys[key[0]].page + 1,
                 )
             )
+            del parts[key], clips[key]
+        parts, clips = _renumber(parts, clips)
+    for key in unjoined:
+        warnings.append(MarkerWarning(code="no_shared_join", storey=key[0]))
+
+    floors: list[PlanFloor] = []
+    for key in sorted(parts):
+        index, part = key
         # A storey tag's own centre is a point of this drawing, and a point two drawings share
         # is what lays one on the other. One point is translation only, which is exactly what an
         # export that keeps scale and orientation across its pages needs.
-        name = next((p.name for p in points[index].values() if p.name), None)
-        floors.append(PlanFloor(m.page, index, name, clip, joins.get(index), marker=None))
-    for index in corners:
-        warnings.append(MarkerWarning(code="corner_stray", storey=index))
+        name = next((p.name for p in parts[key].values() if p.name), None)
+        floors.append(PlanFloor(storeys[index].page, index, name, clips[key], joins.get(key), part=part))
 
     # the level-0 drawing's page IS the fit page; without one, the same rule the admin's own
     # «Ausrichtungsseite» falls back to (plan_floors.default_fit_page)
@@ -551,12 +703,13 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
         warnings.append(MarkerWarning(code="geo_single", page=fit_page + 1))
         pairs = []
 
+    declared = len({f.index for f in floors})
     try:
         validate_floors(floors, page_count)
     except FloorError as e:
         warnings.append(MarkerWarning(code="pack_invalid", detail=str(e)))
-        return MarkerPlan([], fit_page, page_count, pairs, warnings, reference_index, len(floors))
-    return MarkerPlan(floors, fit_page, page_count, pairs, warnings, reference_index, len(floors))
+        return MarkerPlan([], fit_page, page_count, pairs, warnings, reference_index, declared)
+    return MarkerPlan(floors, fit_page, page_count, pairs, warnings, reference_index, declared)
 
 
 # ---------------------------------------------------------------------------------------
@@ -570,37 +723,41 @@ def marker_snapshot(floor: PlanFloor, version: int) -> dict:
     return {"version": version, "name": floor.name, "clip": floor.clip, "join": floor.join}
 
 
-def admin_overrides(floors: list[PlanFloor]) -> dict[int, dict]:
-    """Per storey index, what a human changed away from that revision's marker proposal.
+def admin_overrides(floors: list[PlanFloor]) -> dict[tuple[int, int], dict]:
+    """Per DRAWING – storey index and part – what a human changed away from that revision's
+    marker proposal.
 
     A floor with no snapshot was never proposed by markers — the admin built it — so every
     field it carries is an override. That is the same comparison, with an empty proposal.
     """
-    out: dict[int, dict] = {}
+    out: dict[tuple[int, int], dict] = {}
     for f in floors:
         proposed = f.marker or {}
         delta = {k: v for k, v in (("name", f.name), ("clip", f.clip), ("join", f.join)) if v != proposed.get(k)}
         if delta:
-            out[f.index] = delta
+            out[f.key] = delta
     return out
 
 
-def apply_overrides(floors: list[PlanFloor], overrides: dict[int, dict]) -> list[PlanFloor]:
-    """The marker plan with the admin's edits laid back on top, keyed by storey index.
+def apply_overrides(floors: list[PlanFloor], overrides: dict[tuple[int, int], dict]) -> list[PlanFloor]:
+    """The marker plan with the admin's edits laid back on top, keyed by storey index and part.
 
     So the marker wins wherever it MOVED and the admin had not touched that field, and the
-    admin wins wherever they had. A storey the new export no longer marks takes its override
+    admin wins wherever they had. A drawing the new export no longer marks takes its override
     with it: structure is the export's to state, corrections are the admin's.
     """
     out = []
     for f in floors:
-        delta = overrides.get(f.index, {})
+        delta = overrides.get(f.key, {})
         out.append(
             replace(f, name=delta.get("name", f.name), clip=delta.get("clip", f.clip), join=delta.get("join", f.join))
         )
-    # a carried-over join may point at a storey this export dropped – then it is not a join
-    indices = {f.index for f in out}
-    return [replace(f, join=None) if f.join and f.join.get("to") not in indices - {f.index} else f for f in out]
+    # a carried-over join may point at a drawing this export dropped – then it is not a join
+    keys = {f.key for f in out}
+    return [
+        replace(f, join=None) if f.join and (f.join.get("to"), f.join.get("part", 0)) not in keys - {f.key} else f
+        for f in out
+    ]
 
 
 # ---------------------------------------------------------------------------------------
@@ -620,6 +777,7 @@ _SAID: dict[str, str] = {
     "no_shared_join": "Ebene {storey}: kein gemeinsamer Verbindungspunkt mit den übrigen Geschossen.",
     "corner_missing": "{tag}: Ecke {side} fehlt – {have} hat kein Gegenstück; ohne beide gilt die ganze Seite.",
     "corner_stray": "Bereichsecken für Ebene {storey}, die kein §-Marker erklärt – ignoriert.",
+    "part_without_join": "{tag}: {nth} Zeichnung ohne Verbindungspunkt ({want} fehlt).",
     "region_off_page": "{tag} (Seite {page}): eine Ecke liegt ausserhalb der Seite ({axis} {value}) – Bereich ignoriert.",
     "region_page_split": "Ebene {storey}: die Bereichsecken liegen nicht auf der Seite der Zeichnung – Bereich ignoriert.",
     "geo_off_fit_page": "{count} §GEO liegen nicht auf der Ausrichtungsseite (Seite {page}) – ignoriert; ein Pack hat EINE Passung.",
@@ -628,6 +786,8 @@ _SAID: dict[str, str] = {
     "pack_invalid": "Die markierten Geschosse ergeben kein gültiges Geschoss-Pack ({detail}) – es wird keines vorgeschlagen.",
 }
 _SIDE = {"tl": "oben links", "br": "unten rechts"}
+#: «die zweite Zeichnung» reads as German; «Zeichnung 2» reads as a database
+_NTH = ("erste", "zweite", "dritte", "vierte", "fünfte", "sechste")
 
 
 def text(warning: MarkerWarning) -> str:
@@ -644,6 +804,9 @@ def text(warning: MarkerWarning) -> str:
         fields["storey"] = f"{warning['storey']:+d}"
     if "side" in warning:
         fields["side"] = _SIDE[warning["side"]]
+    # a storey drawn ONCE says nothing about drawings at all – which is every pack but a handful
+    part = warning.get("part", 0)
+    fields["nth"] = _NTH[part] if part < len(_NTH) else f"{part + 1}."
     return said.format_map(_Blanks(fields))
 
 
@@ -696,16 +859,20 @@ def report(path: Path) -> str:
     if plan is None:
         lines.append("\nNo storey marker – no floor pack is proposed.")
         return "\n".join(lines)
+    counts = Counter(f.index for f in plan.floors)
+    drawn = f" in {len(plan.floors)} drawing(s)" if len(plan.floors) > len(counts) else ""
     lines.append(
-        f"\nFloor pack: {len(plan.floors)} storey(s), fit page {plan.fit_page + 1}, {len(plan.pairs)} map pair(s)"
+        f"\nFloor pack: {len(counts)} storey(s){drawn}, fit page {plan.fit_page + 1}, {len(plan.pairs)} map pair(s)"
     )
     for f in plan.floors:
         region = "whole page" if f.clip is None else "region " + " ".join(f"{v:.4f}" for v in f.clip)
         if f.join is not None:
-            join = f"joins {f.join['to']:+d}"
+            join = f"joins {f.join['to']:+d}" + (f"/{f.join['part'] + 1}" if f.join.get("part") else "")
         else:
-            join = "reference" if f.index == plan.reference else "NOT JOINED"
-        lines.append(f"  {f.index:+d} {f.name or '–':<16} page {f.page + 1:<3} {region:<40} {join}")
+            join = "reference" if f.index == plan.reference and f.part == 0 else "NOT JOINED"
+        # a storey drawn twice reads «+1/2» – the storey, then which of its drawings
+        level = f"{f.index:+d}" + (f"/{f.part + 1}" if counts[f.index] > 1 else "")
+        lines.append(f"  {level:<5} {f.name or '–':<16} page {f.page + 1:<3} {region:<40} {join}")
     for w in plan.warnings:
         lines.append(f"  ⚠ [{w['code']}] {text(w)}")
     if not plan.warnings:

@@ -542,6 +542,8 @@ class PlanPageFloor(Base):
     one, ``there`` on floor ``to`` (the staircase on both, say) – which is what lines the drawings
     up on each other, chained floor by floor from the reference; the pack's one map fit is
     measured in page coordinates and applies through the joins. No clip = the whole page.
+    A storey may be drawn in SEVERAL pieces (``part``, 16.09.2026) – two wings of one 1. OG on one
+    sheet – and then every piece is a row with its own region and its own join.
     The index is vertical ORDER, never height above terrain. Rows are keyed by the exact
     revision, so an incident that pinned version N keeps N's floors after the station replaces
     the PDF; ``plans.store_plan`` copies them onto a replacement only when the page counts still
@@ -556,10 +558,16 @@ class PlanPageFloor(Base):
     dataset_id: Mapped[str] = mapped_column(Text, primary_key=True)
     plan_version: Mapped[int] = mapped_column(Integer, primary_key=True)
     floor_index: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: which DRAWING of that storey this row is (16.09.2026): a large building's 1. OG may exist
+    #: as two separate drawings for its two wings, and each is a row of its own with its own
+    #: ``clip`` and its own ``join``. 0 = the storey's first (and, for almost every pack, only)
+    #: drawing, which is why it is part of the key rather than a new table.
+    part: Mapped[int] = mapped_column(Integer, primary_key=True, nullable=False, default=0, server_default="0")
     page: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     floor_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     clip: Mapped[list | None] = mapped_column(JSONB, nullable=True)
-    #: {"to": <floor_index>, "at": [x, y], "there": [x, y]} – normalized page coordinates
+    #: {"to": <floor_index>, "part": <part, 0 when absent>, "at": [x, y], "there": [x, y]} –
+    #: normalized page coordinates
     join: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     #: what the PDF's own ``§`` markers proposed for this floor, when they proposed it:
     #: ``{"version", "name", "clip", "join"}`` (app/plan_markers.py). It is the baseline the row

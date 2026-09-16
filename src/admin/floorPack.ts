@@ -1,4 +1,4 @@
-import type { PlanFloor } from '../lib/api/reference'
+import { floorKey, joinKey, type PlanFloor } from '../lib/api/reference'
 import { floorLabel, signedFloor } from '../lib/whiteboard'
 
 /**
@@ -9,6 +9,12 @@ import { floorLabel, signedFloor } from '../lib/whiteboard'
  * point `at` is that floor's point `there»» (the staircase on both drawings). Joined floor by
  * floor, the sheet's drawings are laid on each other.
  * Pages that are no floor (an overview, a legend) sit in the tray and get no index.
+ *
+ * A storey may be DRAWN SEVERAL TIMES (16.09.2026) – two wings of one 1. OG. Its further drawings
+ * are entries too, marked `of` = the key of the storey's first entry and kept right behind it, so
+ * everything that works on a drawing (a rectangle, a join point, the sheet) keeps working on one
+ * flat list; only the INDEX is counted over the storeys. Each such drawing needs its own region
+ * and its own join – nothing else on the sheet says where it lies.
  *
  * `fitPage` is the page the shared map fit is measured on. Absent = level 0's page (the server's
  * default too), so a stack without an explicit choice never sends a fit page it did not mean.
@@ -22,9 +28,12 @@ export interface FloorEntry {
   name: string
   clip?: Clip
   join?: Join
+  /** set on a FURTHER drawing of a storey: the key of that storey's first entry. Such an entry
+   *  carries no index of its own – it is a piece of the storey it points at. */
+  of?: string
 }
 export interface FloorStack {
-  /** entries top → bottom; every entry IS a floor */
+  /** entries top → bottom; an entry without `of` IS a floor, one with `of` is a piece of one */
   order: FloorEntry[]
   /** the key of the entry that is level 0 – must be in `order` */
   zero: string
@@ -45,32 +54,59 @@ export function defaultStack(pageCount: number): FloorStack {
  *  explicit choice it was */
 export function stackFromFloors(floors: PlanFloor[], fitPage: number): FloorStack | null {
   if (!floors.length) return null
-  const sorted = [...floors].sort((a, b) => b.index - a.index)
-  const keyOf = new Map(sorted.map((f) => [f.index, newKey()]))
+  // top storey first; inside a storey, its drawings in part order, so a storey's pieces stay
+  // behind the row that carries its index
+  const sorted = [...floors].sort((a, b) => b.index - a.index || (a.part ?? 0) - (b.part ?? 0))
+  const keyOf = new Map(sorted.map((f) => [floorKey(f), newKey()]))
   const order: FloorEntry[] = sorted.map((f) => ({
-    key: keyOf.get(f.index)!, page: f.page, name: f.name ?? '',
+    key: keyOf.get(floorKey(f))!, page: f.page, name: f.name ?? '',
+    ...((f.part ?? 0) ? { of: keyOf.get(`${f.index}:0`)! } : {}),
     ...(f.clip ? { clip: [...f.clip] as Clip } : {}),
-    ...(f.join && keyOf.has(f.join.to) ? { join: { toKey: keyOf.get(f.join.to)!, at: [...f.join.at] as Pt, there: [...f.join.there] as Pt } } : {}),
+    ...(f.join && keyOf.has(joinKey(f.join))
+      ? { join: { toKey: keyOf.get(joinKey(f.join))!, at: [...f.join.at] as Pt, there: [...f.join.there] as Pt } }
+      : {}),
   }))
-  const zeroAt = sorted.findIndex((f) => f.index === 0)
-  const zero = order[zeroAt >= 0 ? zeroAt : order.length - 1]
+  const storeys = order.filter((e) => !e.of)
+  const zeroAt = sorted.filter((f) => !(f.part ?? 0)).findIndex((f) => f.index === 0)
+  const zero = storeys[zeroAt >= 0 ? zeroAt : storeys.length - 1]
   const stack: FloorStack = { order, zero: zero.key }
   if (fitPage !== zero.page && sorted.some((f) => f.page === fitPage)) stack.fitPage = fitPage
   return stack
 }
 
-export const indexOf = (stack: FloorStack, key: string): number =>
-  stack.order.findIndex((e) => e.key === stack.zero) - stack.order.findIndex((e) => e.key === key)
+/** the entries that ARE storeys, top → bottom – the list the index is counted over */
+export const storeysOf = (stack: FloorStack): FloorEntry[] => stack.order.filter((e) => !e.of)
+/** the storey entry a drawing belongs to (itself, when it is the storey's first drawing) */
+export const storeyKey = (stack: FloorStack, key: string): string =>
+  stack.order.find((e) => e.key === key)?.of ?? key
+/** one storey's drawings in order: its own entry first, then its further pieces */
+export const partsOf = (stack: FloorStack, key: string): FloorEntry[] => {
+  const head = storeyKey(stack, key)
+  return stack.order.filter((e) => e.key === head || e.of === head)
+}
+/** which drawing of its storey this entry is – 0 for a storey drawn once */
+export const partOf = (stack: FloorStack, key: string): number =>
+  partsOf(stack, key).findIndex((e) => e.key === key)
+
+export const indexOf = (stack: FloorStack, key: string): number => {
+  const storeys = storeysOf(stack)
+  return storeys.findIndex((e) => e.key === storeyKey(stack, stack.zero)) - storeys.findIndex((e) => e.key === storeyKey(stack, key))
+}
 
 /** what the server stores – trimmed names, no name when it equals the standard one */
 export function floorsFromStack(stack: FloorStack): PlanFloor[] {
   return stack.order.map((e) => {
     const index = indexOf(stack, e.key)
+    const part = partOf(stack, e.key)
     const name = e.name.trim()
     const target = e.join ? stack.order.find((o) => o.key === e.join!.toKey) : undefined
+    // part 0 is left unsaid, so a pack drawn one-floor-one-drawing sends exactly what it always did
+    const targetPart = target ? partOf(stack, target.key) : 0
     return {
-      page: e.page, index, name: name && name !== floorLabel(index) ? name : null, clip: e.clip ?? null,
-      join: e.join && target ? { to: indexOf(stack, target.key), at: e.join.at, there: e.join.there } : null,
+      page: e.page, index, part, name: name && name !== floorLabel(index) ? name : null, clip: e.clip ?? null,
+      join: e.join && target
+        ? { to: indexOf(stack, target.key), ...(targetPart ? { part: targetPart } : {}), at: e.join.at, there: e.join.there }
+        : null,
     }
   })
 }
@@ -82,25 +118,47 @@ export const signedIndex = signedFloor
 export const trayOf = (stack: FloorStack, pageCount: number): number[] =>
   Array.from({ length: pageCount }, (_, i) => i).filter((p) => !stack.order.some((e) => e.page === p))
 
-/** drop `key` so it sits where `before` was (before = undefined → bottom) */
+/** drop `key` so it sits where `before` was (before = undefined → bottom). A storey travels with
+ *  its further drawings – they are pieces of it, not rows of their own. */
 export function reorderStack(stack: FloorStack, key: string, before: string | undefined): FloorStack {
-  const moving = stack.order.find((e) => e.key === key)
-  if (!moving || key === before) return stack
-  const order = stack.order.filter((e) => e.key !== key)
-  const at = before == null ? order.length : order.findIndex((e) => e.key === before)
-  order.splice(at < 0 ? order.length : at, 0, moving)
+  const head = storeyKey(stack, key)
+  const group = partsOf(stack, head)
+  if (!group.length || head === storeyKey(stack, before ?? '')) return stack
+  const order = stack.order.filter((e) => !group.includes(e))
+  const at = before == null ? order.length : order.findIndex((e) => e.key === storeyKey(stack, before))
+  order.splice(at < 0 ? order.length : at, 0, ...group)
   return { ...stack, order }
 }
 
-/** out of the stack – if it was level 0, the nearest remaining entry becomes 0 so the stack stays valid */
+/** out of the stack – a storey takes its further drawings with it, and if it was level 0 the
+ *  nearest remaining storey becomes 0 so the stack stays valid */
 export function dropFromStack(stack: FloorStack, key: string): FloorStack {
-  const i = stack.order.findIndex((e) => e.key === key)
-  if (i < 0) return stack
-  const order = stack.order.filter((e) => e.key !== key)
-  const zero = stack.zero === key ? order[Math.min(i, order.length - 1)]?.key ?? '' : stack.zero
-  const gone = stack.order[i]
-  const fitPage = stack.fitPage === gone.page && !order.some((e) => e.page === gone.page) ? undefined : stack.fitPage
+  const entry = stack.order.find((e) => e.key === key)
+  if (!entry) return stack
+  const gone = entry.of ? [entry] : partsOf(stack, key)
+  const goneKeys = new Set(gone.map((e) => e.key))
+  const storeys = storeysOf(stack)
+  const i = storeys.findIndex((e) => e.key === storeyKey(stack, key))
+  const order = stack.order
+    .filter((e) => !goneKeys.has(e.key))
+    // a join that pointed INTO what just left is not a join any more
+    .map((e) => (e.join && goneKeys.has(e.join.toKey) ? { ...e, join: undefined } : e))
+  const left = order.filter((e) => !e.of)
+  const zero = goneKeys.has(stack.zero) ? left[Math.min(i, left.length - 1)]?.key ?? '' : stack.zero
+  const fitPage = stack.fitPage === entry.page && !order.some((e) => e.page === entry.page) ? undefined : stack.fitPage
   return { ...stack, order, zero, fitPage }
+}
+
+/** a FURTHER drawing of the storey `key` belongs to, kept right behind that storey's own pieces.
+ *  The key comes back because the caller draws that drawing's rectangle next. */
+export function appendPart(stack: FloorStack, key: string): { stack: FloorStack; key: string } {
+  const head = storeyKey(stack, key)
+  const group = partsOf(stack, head)
+  const anchor = group[group.length - 1]
+  const entry: FloorEntry = { key: newKey(), page: anchor.page, name: '', of: head }
+  const order = [...stack.order]
+  order.splice(order.indexOf(anchor) + 1, 0, entry)
+  return { stack: { ...stack, order }, key: entry.key }
 }
 
 /** a new floor at the BOTTOM of the stack – the storey below the lowest – on `page`. The key
@@ -117,7 +175,11 @@ export const patchEntry = (stack: FloorStack, key: string, patch: Partial<Omit<F
   ...stack, order: stack.order.map((e) => (e.key === key ? { ...e, ...patch } : e)),
 })
 
-export const reverseStack = (stack: FloorStack): FloorStack => ({ ...stack, order: [...stack.order].reverse() })
+/** top floor ↔ bottom floor. Storeys turn round; a storey's own drawings keep their order. */
+export const reverseStack = (stack: FloorStack): FloorStack => ({
+  ...stack,
+  order: storeysOf(stack).reverse().flatMap((e) => partsOf(stack, e.key)),
+})
 
 export const sameStack = (a: FloorStack | null, b: FloorStack | null): boolean =>
   JSON.stringify(a && floorsFromStack(a)) === JSON.stringify(b && floorsFromStack(b)) && (a?.fitPage ?? null) === (b?.fitPage ?? null)
@@ -139,7 +201,11 @@ export function joinedWith(stack: FloorStack, key: string): Set<string> {
 
 /** Whole-page exports retain their shared-frame convention. Crops need an explicit connection
  *  to the reference drawing, even when each crop is on a different PDF page. */
-export const stackComplete = (stack: FloorStack): boolean => stack.order.every((e) => entryJoined(stack, e.key))
+export const stackComplete = (stack: FloorStack): boolean =>
+  stack.order.every((e) => entryJoined(stack, e.key)) &&
+  // a storey drawn twice: every one of its drawings needs its own rectangle, or there is nothing
+  // to tell the two apart on the sheet
+  stack.order.every((e) => (partsOf(stack, e.key).length > 1 ? !!e.clip : true))
 
 /** ONE endpoint of ONE join: the entry that owns the join, and which of its two points it is –
  *  `at` lies in that floor's own drawing, `there` in the drawing it was joined to. */

@@ -40,6 +40,9 @@ class FloorAssignment(BaseModel):
     model_config = ConfigDict(extra="forbid")
     page: int = Field(ge=0)
     index: int = Field(ge=-20, le=100)
+    #: which DRAWING of that storey this is – a storey split over two wings has one row per
+    #: drawing, numbered from 0 in reading order (16.09.2026). Absent = the storey's only one.
+    part: int = Field(default=0, ge=0, le=20)
     name: str | None = Field(default=None, max_length=80)
     #: the drawing's rectangle on the page, normalized [x0, y0, x1, y1]; absent = whole page
     clip: list[float] | None = Field(default=None, min_length=4, max_length=4)
@@ -50,6 +53,9 @@ class FloorAssignment(BaseModel):
 class FloorJoin(BaseModel):
     model_config = ConfigDict(extra="forbid")
     to: int = Field(ge=-20, le=100)
+    #: which drawing of floor ``to`` – absent = its first, which is every pack drawn one
+    #: drawing per storey
+    part: int = Field(default=0, ge=0, le=20)
     at: list[float] = Field(min_length=2, max_length=2)
     there: list[float] = Field(min_length=2, max_length=2)
 
@@ -140,9 +146,11 @@ async def list_alignments(_admin: CurrentAdmin, db: AsyncSession = Depends(get_d
         )
     ).all()
     floors_by_revision: dict[tuple[str, int], list[PlanFloor]] = {}
-    for f in (await db.execute(select(PlanPageFloor).order_by(PlanPageFloor.floor_index))).scalars():
+    for f in (
+        await db.execute(select(PlanPageFloor).order_by(PlanPageFloor.floor_index, PlanPageFloor.part))
+    ).scalars():
         floors_by_revision.setdefault((f.dataset_id, f.plan_version), []).append(
-            PlanFloor(f.page, f.floor_index, f.floor_name, f.clip, f.join)
+            PlanFloor(f.page, f.floor_index, f.floor_name, f.clip, f.join, part=f.part)
         )
     items = []
     for row, ds, obj in rows:
@@ -261,7 +269,8 @@ async def retry_alignment(
 
 @router.put("/{item_id}/floors")
 async def assign_floors(item_id: int, body: FloorPack, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)):
-    """Declare which page of this revision is which Geschoss (one floor per page, 14.09.2026).
+    """Declare which page of this revision is which Geschoss (one floor per page, 14.09.2026;
+    a floor may be drawn in several pieces on that page since 16.09.2026 – ``part``).
 
     An empty list turns the pack back into an ordinary document. The alignment row moves to the
     page the shared fit is measured on and – unless already approved – is re-queued there, so
@@ -279,15 +288,20 @@ async def assign_floors(item_id: int, body: FloorPack, _admin: CurrentAdmin, db:
     # Whatever the PDF's own §-markers proposed for a storey stays pinned to it across this
     # save: it is the baseline that tells the admin's correction from the export's say-so, and
     # the next re-export re-applies the first on top of the second (app/plan_markers.py).
-    proposed = {f.index: f.marker for f in await load_floors(db, row.dataset_id, row.plan_version)}
+    proposed = {f.key: f.marker for f in await load_floors(db, row.dataset_id, row.plan_version)}
     floors = [
         PlanFloor(
             f.page,
             f.index,
             (f.name or "").strip() or None,
             f.clip,
-            f.join.model_dump() if f.join else None,
-            proposed.get(f.index),
+            # part 0 is left unsaid, so a join the admin re-saves unchanged stays byte-identical
+            # to the one the markers proposed (app/plan_markers · admin_overrides)
+            {"to": f.join.to, **({"part": f.join.part} if f.join.part else {}), "at": f.join.at, "there": f.join.there}
+            if f.join
+            else None,
+            proposed.get((f.index, f.part)),
+            f.part,
         )
         for f in body.floors
     ]

@@ -80,7 +80,7 @@ it('the PDF renderer puts joined staircases at identical XY without stretching t
   const ground: PlanFloor = { index: 0, page: 0, name: null, clip: [.1, .3, .9, .8] }
   const upper: PlanFloor = { index: 1, page: 0, name: null, clip: [.5, .02, .8, .25], join: { to: 0, at: [.65, .15], there: [.7, .4] } }
   const shifts = joinShifts([ground, upper], ground)
-  const place = (f: PlanFloor) => packPagePlacement(ground.clip!, { url: '', clip: f.clip!, shift: shifts.get(f.index)! })
+  const place = (f: PlanFloor) => packPagePlacement(ground.clip!, { shift: shifts.get(`${f.index}:${f.part ?? 0}`)! })
   const at = (f: PlanFloor, point: [number, number]) => {
     const [o, x, y] = place(f)
     return [o[0] + point[0] * (x[0] - o[0]) + point[1] * (y[0] - o[0]), o[1] + point[0] * (x[1] - o[1]) + point[1] * (y[1] - o[1])]

@@ -119,6 +119,42 @@ Bereich, egal wie viele Treppenhäuser er hat.
 
 ---
 
+## Ein Geschoss aus mehreren Zeichnungen
+
+Ein langes Gebäude wird oft nicht als ein Grundriss pro Stock gezeichnet, sondern flügelweise:
+das EG passt aufs Blatt, das 1. OG steht als **zwei** Zeichnungen daneben, West und Ost. Dafür
+gibt es **keine neue Marke** – es sind einfach zwei Bereiche desselben Geschosses:
+
+* **ein Eckpaar pro Zeichnung.** `§[1OG` / `§1OG]` um den Westflügel, ein zweites Paar um den
+  Ostflügel. Beide tragen dasselbe Kürzel – die Ecken sagen, wo eine Zeichnung anfängt und
+  aufhört, nicht welches Geschoss sie ist.
+* **eine Geschoss-Marke in jeder Zeichnung, mit eigenem Punktnamen.** Der Westflügel bekommt
+  `§1OG.A` – dort, wo im EG `§EG.A` steht – und der Ostflügel `§1OG.B`, am Treppenhaus, das im
+  EG `§EG.B` trägt. Jede Zeichnung hängt an ihrem eigenen Punkt.
+* **Nach dem Punktnamen darf ein Name für die Zeichnung stehen**, den die App auf der Kachel
+  zeigt: `§1OG.A Westflügel`. Ohne Namen heisst sie «Teil 1», «Teil 2».
+
+```
+§EG.A Erdgeschoss      §EG.B          §1OG.A Westflügel        §1OG.B Ostflügel
+```
+
+Das EG bleibt dabei **eine** Zeichnung mit zwei Treppenhaus-Marken; nur das 1. OG ist geteilt.
+Alle Zeichnungen eines Geschosses liegen auf **derselben Seite** – ein Geschoss, eine Seite,
+und darum weiterhin eine Passung pro PDF.
+
+> **Ohne Verbindungspunkt wird nicht geraten.** Zwei Bereiche und nur eine Geschoss-Marke: die
+> zweite Zeichnung sagt nirgends, wo sie liegt, und wird darum nicht übernommen. Der Prüflauf
+> schreibt `§1OG: zweite Zeichnung ohne Verbindungspunkt (§1OG.B fehlt)`. Dasselbe gilt, wenn
+> der Punktname eines Flügels auf keinem anderen Geschoss vorkommt.
+
+In der App bleibt das **ein** Geschoss: eine Kachel im Gebäudestapel, beide Zeichnungen darin,
+jede an ihrem Platz. Auch Symbole, Trupps und Tuschzeichnung bleiben pro Geschoss.
+
+Zum Ausprobieren liegt [`sample-modul6-parts.pdf`](sample-modul6-parts.pdf) in diesem Ordner –
+EG als eine Zeichnung mit zwei Treppenhäusern, 1. OG als West- und Ostflügel.
+
+---
+
 ## Platzierungsregeln
 
 1. **Treppenhaus, auf beiden Geschossen an derselben Stelle.** Der Verbindungspunkt ist
@@ -132,7 +168,8 @@ Bereich, egal wie viele Treppenhäuser er hat.
    und werden beim Prüflauf gemeldet – `§EG.A` und `§EG.B` dagegen sind zwei Punkte
    desselben Grundrisses und richtig so.
 3. **Eckmarken nur bei mehreren Zeichnungen pro Seite** – und dann konsequent beide, für
-   jeden Grundriss.
+   jeden Grundriss. Auch für jede einzelne Zeichnung eines geteilten Geschosses
+   ([Ein Geschoss aus mehreren Zeichnungen](#ein-geschoss-aus-mehreren-zeichnungen)).
 4. **`§GEO` mindestens zweimal, auf dem Geschoss 0** (EG bzw. `§0`). Die Seite mit
    Geschoss 0 ist die Seite, an der die App das Gebäude auf die Karte legt. Zwei Punkte
    ergeben Lage, Massstab und Drehung.
@@ -224,9 +261,19 @@ im Admin**, unter der Kopfzeile des Plan-Editors: der Server schreibt sie beim L
 Marken auf die Planzeile, und in der Objektliste steht dann «Marker unvollständig» statt
 eines Status. Korrigieren muss man sie im PDF – der nächste Export liest sich selbst neu ein.
 
-Zum Ausprobieren liegt in diesem Ordner [`sample-modul6.pdf`](sample-modul6.pdf) – ein
-A3-Musterblatt mit zwei Grundrissen, allen drei Markensorten und dem Massstab 1:500.
-Erzeugt wird es von [`make-sample.py`](make-sample.py).
+Zum Ausprobieren liegen in diesem Ordner zwei A3-Musterblätter, beide erzeugt von
+[`make-sample.py`](make-sample.py): [`sample-modul6.pdf`](sample-modul6.pdf) mit zwei
+Grundrissen, allen drei Markensorten und dem Massstab 1:500, und
+[`sample-modul6-parts.pdf`](sample-modul6-parts.pdf) mit einem Geschoss aus zwei Zeichnungen.
+Bei geteilten Geschossen schreibt der Prüflauf die Zeichnung hinter die Ebene – `+1/2` ist die
+zweite Zeichnung des 1. OG:
+
+```
+Floor pack: 2 storey(s) in 3 drawing(s), fit page 1, 2 map pair(s)
+  +0    Erdgeschoss      page 1   region 0.0381 0.1351 0.4381 0.8893       reference
+  +1/1  Westflügel       page 1   region 0.5333 0.1351 0.7333 0.8893       joins +0
+  +1/2  Ostflügel        page 1   region 0.7428 0.1351 0.9428 0.8893       joins +0
+```
 
 ---
 

@@ -507,6 +507,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const osm = active.osm
   const floorsTTB = useMemo(() => (stack ? [...building!.floors].sort((a, b) => b - a) : []), [stack, building])
   const N = floorsTTB.length || 1
+  /** how many PDF regions the stack bakes, which is what shares the device's pixel budget – a
+   *  storey drawn as two wings is two rasters, not one (lib/pdfRenderBudget · pageCanvasBudget) */
+  const drawings = Math.max(N, floorPack ? floorsTTB.reduce((n, f) => n + (floorPack.tiles[f]?.length ?? 0), 0) : 0)
   const blank = !active.imageUrl && !osm && !stack
 
   // Active footprint view: buildings picked since auto-orientation carry `src`, so the
@@ -3143,19 +3146,23 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     <svg viewBox={`0 0 ${fpBox?.w || 1} ${fpBox?.h || 1}`} preserveAspectRatio="none" className="wb-floor-svg">
                       {/* the storey's Geschossplan page UNDER the outline, placed through the pack's
                           map fit and the footprint's geo anchor (lib/stackFit · pagePlacement) */}
-                      {floorPack && floorPack.tiles[f] && fpBox && (building.pack || (floorPack.fit && building.src?.length)) && (() => {
-                        const tile = floorPack.tiles[f]
+                      {floorPack && floorPack.tiles[f]?.length && fpBox && (building.pack || (floorPack.fit && building.src?.length)) && (() => {
+                        const parts = floorPack.tiles[f]
                         if (building.pack) {
-                          // the tile box IS the reference frame: the floor's page is laid into it shifted by its
-                          // anchor difference, and only its OWN drawing is rendered (lib/floorPackBinding)
-                          const corners = packPagePlacement(building.pack.frame ?? [0, 0, 1, 1], tile)
-                          return <FloorPage key={`${f}:${tile.url}`} url={tile.url} corners={corners} region={tile.clip} w={fpBox.w} h={fpBox.h} floors={N} />
+                          // the tile box IS the reference frame: each of the storey's drawings is laid into it
+                          // shifted by its OWN anchor difference, and only that drawing is rendered
+                          // (lib/floorPackBinding) – two wings of one storey land side by side
+                          const frame = building.pack.frame ?? [0, 0, 1, 1]
+                          return parts.map((tile) => (
+                            <FloorPage key={`${f}:${tile.part}:${tile.url}`} url={tile.url} corners={packPagePlacement(frame, tile)}
+                              region={tile.clip} w={fpBox.w} h={fpBox.h} floors={drawings} />
+                          ))
                         }
-                        // a footprint stack places the whole page through the fits
+                        // a footprint stack places the whole page through the fits – one page, one raster
                         const corners = pagePlacement(building, shownAngle, floorPack.fit!)
-                        return corners && <FloorPage key={tile.url} url={tile.url} corners={corners} w={fpBox.w} h={fpBox.h} floors={N} />
+                        return corners && <FloorPage key={parts[0].url} url={parts[0].url} corners={corners} w={fpBox.w} h={fpBox.h} floors={N} />
                       })()}
-                      {building.pack && !floorPack?.tiles[f] && fpBox && (
+                      {building.pack && !floorPack?.tiles[f]?.length && fpBox && (
                         <text x={fpBox.w / 2} y={fpBox.h / 2} textAnchor="middle" className="wb-floor-noplan">{appConfig.copy.whiteboard.noFloorPlan}</text>
                       )}
                       {(fpView?.rings ?? building.rings ?? [building.ring]).map((ring, ri) => (

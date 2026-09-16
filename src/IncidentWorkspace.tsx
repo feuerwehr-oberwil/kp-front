@@ -136,7 +136,7 @@ import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { stackGroundFit } from './lib/stackFit'
-import { floorPackOf, frameAspect } from './lib/floorPackBinding'
+import { floorPackOf, frameAspect, packFloorNames, packStoreys } from './lib/floorPackBinding'
 import { buildingPackBinding } from './lib/buildingPackBinding'
 import { TILE_AR } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -2148,11 +2148,11 @@ export function IncidentWorkspace({
   // operator's footprint stack (an older incident, or picked on purpose) is left alone.
   useEffect(() => {
     if (building || !floorPack?.floors.length || !floorPack.aspect || readOnly) return
-    const names = Object.fromEntries(floorPack.floors.filter((f) => f.name).map((f) => [String(f.index), f.name as string]))
+    const names = packFloorNames(floorPack.floors)
     setBuilding({
       ring: [], rings: [], ringAspect: frameAspect(floorPack.frame, floorPack.aspect),
       pack: { bindingId: packBinding?.id, aspect: floorPack.aspect, ...(floorPack.frame.some((v, i) => v !== [0, 0, 1, 1][i]) ? { frame: floorPack.frame } : {}) },
-      floors: floorPack.floors.map((f) => f.index).sort((a, b) => a - b),
+      floors: packStoreys(floorPack.floors),
       ...(Object.keys(names).length ? { floorNames: names } : {}),
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5598,8 +5598,8 @@ export function IncidentWorkspace({
             // a FRESH stack takes its storeys and names from the object's floor pack (decided
             // 14.09.2026); an amendment keeps what the operator already has
             const pack = prevBuilding ? null : floorPackOf(planBindings, activeObjectId)
-            const floors = pack?.floors.length ? pack.floors.map((f) => f.index).sort((a, b) => a - b) : amend.floors
-            const floorNames = pack ? Object.fromEntries(pack.floors.filter((f) => f.name).map((f) => [String(f.index), f.name as string])) : prevBuilding?.floorNames
+            const floors = pack?.floors.length ? packStoreys(pack.floors) : amend.floors
+            const floorNames = pack ? packFloorNames(pack.floors) : prevBuilding?.floorNames
             const nextBuilding: BuildingDoc = { src, orientDeg, geo, northUp: false, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect, floors, ...(floorNames && Object.keys(floorNames).length ? { floorNames } : {}) }
             setBuilding(nextBuilding)
             setBoard((b) => ({ ...b, gebaeude: amend.annos }))
