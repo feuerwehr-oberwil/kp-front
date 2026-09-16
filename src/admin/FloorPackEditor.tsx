@@ -512,10 +512,14 @@ function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; flo
   const frame = reference.clip ?? [0, 0, 1, 1]
   const width = frame[2] - frame[0], height = frame[3] - frame[1]
   const shifts = joinShifts(floors, reference)
-  // ONE tile per Geschoss; a storey drawn as two wings shows both in it, each in its own place
-  const storeys = [...new Set(floors.map((f) => f.index))]
+  // ONE tile per Geschoss; a storey drawn as two wings shows both in it, each in its own place.
+  // ⚠️ Sorted HERE and not left to the order the stack happens to hand over: the tiles are a
+  // column beside the map, and a column of storeys is a building — highest on top, Untergeschoss
+  // at the bottom, the same way the Gebäude reads in the field (16.09.2026).
+  const storeys = [...new Set(floors.map((f) => f.index))].sort((a, b) => b - a)
   return <div className="adm-floor-preview">
     {map && <div className="adm-floor-preview-map">{map}</div>}
+    <div className="adm-floor-preview-tiles">
     {failed && <p role="alert">{appConfig.copy.admin.alignment.previewFailed}</p>}
     {storeys.map((index) => {
       const parts = floors.filter((f) => f.index === index).sort((a, b) => (a.part ?? 0) - (b.part ?? 0))
@@ -538,5 +542,6 @@ function FloorPreview({ item, floors, fitPage, map }: { item: AlignmentItem; flo
         </span>
       </div>
     })}
+    </div>
   </div>
 }

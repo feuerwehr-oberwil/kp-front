@@ -265,17 +265,34 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 /* the Vorschau tab: a grid of floor tiles in building order, in place of the split. Level 0 on
    the MAP – the one thing the crops cannot show – is the first tile and spans the row. Nothing
    is said in words here: a tile shows what it is. */
+/* The Vorschau is the two halves of one answer: WHERE the building stands (the map) and WHAT
+   each of its storeys is (the crops). Side by side since 16.09.2026 — stacked, the map ate the
+   first screen and the storeys wrapped into a grid that read as rows rather than as a building.
+   The map holds its place while the storeys scroll past it. */
 .adm-floor-preview { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 16px 24px;
-  display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); align-content: start; }
-.adm-floor-preview > p { grid-column: 1 / -1; margin: 0; font-size: 12.5px; color: var(--amber-strong); }
-.adm-floor-preview-map { grid-column: 1 / -1; border: 1px solid var(--border); border-radius: var(--r-ctl); overflow: hidden; }
-.adm-floor-preview-map .adm-align-map { height: 320px; }
+  display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(300px, 460px); align-items: start; }
+.adm-floor-preview-map { position: sticky; top: 0; border: 1px solid var(--border); border-radius: var(--r-ctl); overflow: hidden; }
+.adm-floor-preview-map .adm-align-map { height: min(74vh, 720px); }
+/* …and the storeys as a COLUMN: highest on top, Untergeschoss at the bottom (FloorPreview sorts
+   them), so the eye walks the building instead of reading a wrapped grid. */
+.adm-floor-preview-tiles { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.adm-floor-preview-tiles > p { margin: 0; font-size: 12.5px; color: var(--amber-strong); }
+@media (max-width: 980px) {
+  .adm-floor-preview { grid-template-columns: minmax(0, 1fr); }
+  .adm-floor-preview-map { position: static; }
+  .adm-floor-preview-map .adm-align-map { height: 320px; }
+}
 /* one crop, captioned with the floors list's own chip so the two read as the same object */
 .adm-floor-tile { position: relative; min-width: 0; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--board-bg); overflow: hidden; }
 .adm-floor-tile svg { display: block; width: 100%; }
-.adm-floor-tile-cap { position: absolute; left: 8px; top: 8px; display: flex; align-items: center; gap: 8px;
-  max-width: calc(100% - 16px); padding: 4px 12px 4px 4px; border-radius: var(--r-pill);
+/* ⚠️ The caption is the SHELL of the radius nesting (01-tokens: cluster → ctl → sm), not a pill:
+   a pill around a square chip put a 999px curve a few pixels from an 8px one and the two fought
+   (Bastian, 16.09.2026). --r-ctl outside, the chip's own --r-xs inside, and the chip drops the
+   40px tap size it carries in the floors LIST, where it is a button. */
+.adm-floor-tile-cap { position: absolute; left: 8px; top: 8px; display: flex; align-items: center; gap: 7px;
+  max-width: calc(100% - 16px); padding: 5px 12px 5px 6px; border-radius: var(--r-ctl);
   background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--shadow-sm); }
+.adm-floor-tile-cap .adm-floor-index { min-width: 28px; min-height: 24px; padding: 0 7px; font-size: 12.5px; border-radius: var(--r-xs); }
 .adm-floor-tile-cap b { min-width: 0; font: 600 12.5px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* a storey drawn in several pieces names them after its own name – «Westflügel · Ostflügel» */
 .adm-floor-tile-cap small { min-width: 0; font-size: 11px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

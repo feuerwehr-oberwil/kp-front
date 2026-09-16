@@ -102,6 +102,26 @@ describe('the editor\'s one bar', () => {
   })
 })
 
+// The Vorschau is where the preparation is CHECKED, so the storeys have to read like the
+// building: highest on top, Untergeschoss at the bottom, beside the map rather than wrapped into
+// a grid of rows (Bastian, 16.09.2026).
+describe('the Vorschau', () => {
+  it('stacks the storeys highest-first, whatever order the pack hands over', () => {
+    const jumbled = {
+      ...item,
+      page: 0,
+      page_count: 1,
+      floors: [
+        { page: 0, index: -1, name: null }, { page: 0, index: 2, name: null },
+        { page: 0, index: 0, name: null }, { page: 0, index: 1, name: null },
+      ],
+    }
+    const { container } = render(<FloorPackEditor item={jumbled} view="preview" />)
+    const caps = [...container.querySelectorAll('.adm-floor-tile-cap')].map((el) => el.textContent)
+    expect(caps).toEqual(['+2' + '2. OG', '+1' + '1. OG', '0' + 'EG', '−1' + '1. UG'])
+  })
+})
+
 describe('regions of one sheet', () => {
   it('a drag on the sheet becomes the selected floor\'s rectangle; two floors are joined by one point each; the draft carries it', () => {
     const onDraft = vi.fn()
