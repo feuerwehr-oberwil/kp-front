@@ -6,7 +6,7 @@ import { useConfig } from './ConfigContext'
 import { SetupChecklist, type SetupState } from './SetupChecklist'
 import { fillTemplate } from '../lib/format'
 import { providerLabel, type DeploymentSharePointSource } from '../lib/deploymentConfig'
-import { Card, StatusBadge, Metric, UsageBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
+import { Card, StatusBadge, Metric, UsageBar, ProgressBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
 import './system.css'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
@@ -166,6 +166,17 @@ interface SharePointArea {
   lastRunAt: string | null
   lastSuccessAt: string | null
 }
+/** What a RUNNING pull reports (GET /api/sharepoint/progress, app/sync_progress). `running:
+ *  false` is the normal answer; everything else is only there while a run is on. */
+interface SharePointProgress {
+  running: boolean
+  startedAt?: string
+  area?: string | null
+  areasDone?: number
+  areasTotal?: number
+  done?: number
+  total?: number
+}
 interface SharePointStatus {
   configured: boolean
   credentials: boolean
@@ -173,6 +184,24 @@ interface SharePointStatus {
   /** negative once the Azure client secret has expired; null when no date was recorded */
   secretExpiresInDays: number | null
   areas: SharePointArea[]
+}
+
+/** How often the card asks how far a running pull has got. Fast enough that a 60-second sync
+ *  visibly moves, slow enough that a five-minute one is 250 requests against a dictionary. */
+const PROGRESS_POLL_MS = 1200
+
+/** The sentence above the bar: which area, and how much of it — «Objektpläne · 12 von 43
+ *  Dateien». Before the first count there is nothing true to say beyond «wird vorbereitet». */
+function progressLabel(C: typeof appConfig.copy.admin.system, p: SharePointProgress | null): string {
+  if (!p?.area) return C.spProgressStarting
+  const area = C.spAreas[p.area] ?? p.area
+  const line = p.total
+    ? fillTemplate(C.spProgressFiles, { area, done: String(p.done ?? 0), total: String(p.total) })
+    : fillTemplate(C.spProgressArea, { area })
+  // …and where this area sits in the run, once there is more than one to walk
+  return (p.areasTotal ?? 0) > 1
+    ? `${line} · ${fillTemplate(C.spProgressAreas, { n: String((p.areasDone ?? 0) + 1), total: String(p.areasTotal) })}`
+    : line
 }
 
 /** Warn this many days before the Azure client secret lapses. Long enough that a volunteer can
@@ -288,6 +317,38 @@ function SharePointCard({
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [probe, setProbe] = useState<ProbeState>({ kind: 'idle' })
+  const [progress, setProgress] = useState<SharePointProgress | null>(null)
+
+  /** How far the pull has got, while it is running.
+   *
+   *  The POST answers only when the LAST area is done — up to five minutes on a library that has
+   *  changed a lot — so until 16.09.2026 this card had a spinner and nothing else to say. The run
+   *  keeps a note in the server's memory (app/sync_progress) and this polls it.
+   *
+   *  ⚠️ It polls on MOUNT too, not only while this device is the one syncing: the nightly run
+   *  goes through the same function, so opening the page at 05:03 now shows that run instead of
+   *  a card that looks idle while the plans are being replaced under it.
+   *
+   *  A failed poll costs the bar and nothing else — it is never allowed to end the run's own
+   *  waiting, which is `runNow`'s business. */
+  useEffect(() => {
+    let alive = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const tick = async () => {
+      try {
+        const p = await apiGet<SharePointProgress>('/api/sharepoint/progress')
+        if (!alive) return
+        setProgress(p.running ? p : null)
+        // keep asking while something runs — and while OUR run is in flight but has not reached
+        // the registry yet (resolving credentials, the first Graph token)
+        if (p.running || busy) timer = setTimeout(() => void tick(), PROGRESS_POLL_MS)
+      } catch {
+        if (alive && busy) timer = setTimeout(() => void tick(), PROGRESS_POLL_MS)
+      }
+    }
+    void tick()
+    return () => { alive = false; if (timer) clearTimeout(timer) }
+  }, [busy])
 
   /** ⚠️ Two things this button learned the hard way (FWO, 16.09.2026).
    *
@@ -437,7 +498,9 @@ function SharePointCard({
           </div>
           <div className="adm-sys-actions">
             <button type="button" className="btn adm-int-btn" disabled={busy} onClick={() => void runNow()}>
-              <Icon id="rotate" />
+              {/* ⚠️ `spin` — the glyph is a rotate arrow and sat perfectly still through the whole
+                  sync, which is the same picture a jammed button gives. */}
+              <Icon id="rotate" className={busy ? 'spin' : undefined} />
               {busy ? C.spSyncing : C.spSyncNow}
             </button>
             {probeButton}
@@ -447,6 +510,15 @@ function SharePointCard({
               </ResultChip>
             )}
           </div>
+          {/* …and what it is doing. Determinate once the area has counted its files; a travelling
+              stripe before that, and for a run this card can see but not measure. */}
+          {(busy || progress) && (
+            <ProgressBar
+              done={progress?.done}
+              total={progress?.total}
+              label={progressLabel(C, progress)}
+            />
+          )}
         </>
       )}
       {/* Under every branch, including «nicht eingerichtet»: what the config already names is

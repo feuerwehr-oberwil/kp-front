@@ -439,6 +439,38 @@ export function UsageBar({ pctFilled, tone = 'blue' }: { pctFilled: number; tone
   )
 }
 
+/**
+ * A bar for work that is RUNNING, not for a level that is filling up (that is `UsageBar`).
+ *
+ * Determinate when the work can say how far it is, and a travelling stripe when it cannot —
+ * which is honest for the moment before the first count arrives, and for a server that reports
+ * nothing at all. The label is the sentence above it; `pct` is shown beside it when known.
+ */
+export function ProgressBar({ done, total, label }: { done?: number; total?: number; label?: string }) {
+  const determinate = typeof done === 'number' && typeof total === 'number' && total > 0
+  const pct = determinate ? Math.max(0, Math.min(100, (done / total) * 100)) : 0
+  return (
+    <div className="adm-progress">
+      {(label || determinate) && (
+        <p className="adm-progress-label">
+          <span>{label}</span>
+          {determinate && <b>{Math.round(pct)}&nbsp;%</b>}
+        </p>
+      )}
+      <div
+        className="adm-sys-bar"
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={determinate ? 0 : undefined}
+        aria-valuemax={determinate ? total : undefined}
+        aria-valuenow={determinate ? done : undefined}
+      >
+        <span className={`adm-sys-bar-fill blue${determinate ? '' : ' adm-bar-wait'}`} style={determinate ? { width: `${pct}%` } : undefined} />
+      </div>
+    </div>
+  )
+}
+
 /** Teaching empty / load / error state. `message` is the headline; `hint` teaches the
  *  next action (e.g. which CLI command populates this surface); `action` is an optional
  *  button/link. `tone='err'` colours it as a failure. Replaces the bare inline

@@ -1078,3 +1078,36 @@ async def test_each_area_carries_its_own_folder_and_its_own_failure(db_session, 
     assert result["areas"]["plans"]["imported"] == 1
     assert result["areas"]["geodata"]["status"] == "unreachable"
     assert await datasets(db_session, "plan:") != []
+
+
+# --- what the card sees while it runs ---------------------------------------------------
+
+
+async def test_the_run_reports_its_progress_and_clears_it_afterwards(db_session, blank_env, storage_root, monkeypatch):
+    """The pull answers only when the last area is done, so the System card polls the note the
+    run keeps in memory (app/sync_progress). What is pinned: the note names the area being
+    walked and counts ITS files, and the run leaves nothing behind (16.09.2026)."""
+    from app import sync_progress
+
+    seen: list[tuple[str | None, int, int]] = []
+    real_step = sync_progress.step
+
+    def watched_step(n: int = 1) -> None:
+        real_step(n)
+        shot = sync_progress.snapshot()
+        seen.append((shot.get("area"), shot["done"], shot["total"]))
+
+    monkeypatch.setattr(sync_progress, "step", watched_step)
+    await configure(db_session, [source("plans"), source("geodata")])
+    tenant = FakeTenant(
+        {
+            "dorfmatt/modul1.pdf": PDF,
+            "werkhof/modul1.pdf": PDF,
+            "hydranten.geojson": geojson(),
+        }
+    )
+
+    await sync_sharepoint(db_session, transport=tenant.transport)
+
+    assert seen == [("plans", 1, 2), ("plans", 2, 2), ("geodata", 1, 1)]
+    assert sync_progress.snapshot() == {"running": False}

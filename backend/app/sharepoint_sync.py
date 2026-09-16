@@ -73,6 +73,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # `_upsert` is the ONE checklist write path (dataset id, storage key, version bump). Private by
 # name because admin_checklists is a CLI; this connector is its second legitimate caller, not a
 # copy of it.
+from . import sync_progress as progress
 from .admin_checklists import _upsert as store_checklist_dataset
 from .admin_geodata import GeodataManifestEntry, _first_coord, _to_reference_layers, store_geojson
 from .admin_objects import FolderIdentity, folder_identity, objects_without_coordinates
@@ -296,23 +297,30 @@ async def sync_sharepoint(
 
     tenant, client_id, client_secret = creds
     results: dict[str, Any] = {}
+    # What the System card polls while this runs (app/sync_progress) — memory only, and cleared
+    # in `finally` whatever ends the run, so a crashed sync cannot leave a bar standing forever.
+    progress.begin([source.area for source in config.sources])
     # One client and therefore one token for the whole run, closed here rather than per area.
-    async with httpx.AsyncClient(timeout=120.0, transport=transport) as http:
-        graph = GraphClient(http, tenant_id=tenant, client_id=client_id, client_secret=client_secret)
-        for source in config.sources:
-            state = await _state_row(db, source.area)
-            if full:
-                state.delta_token = None
-                state.files = {}
-            outcome = await _sync_one(db, graph, source, state)
-            _record(state, outcome)
-            results[source.area] = {
-                "status": outcome.status,
-                "imported": outcome.imported,
-                "skipped": outcome.skipped,
-                "missing": len(outcome.missing),
-                "detail": outcome.detail,
-            }
+    try:
+        async with httpx.AsyncClient(timeout=120.0, transport=transport) as http:
+            graph = GraphClient(http, tenant_id=tenant, client_id=client_id, client_secret=client_secret)
+            for source in config.sources:
+                progress.area(source.area)
+                state = await _state_row(db, source.area)
+                if full:
+                    state.delta_token = None
+                    state.files = {}
+                outcome = await _sync_one(db, graph, source, state)
+                _record(state, outcome)
+                results[source.area] = {
+                    "status": outcome.status,
+                    "imported": outcome.imported,
+                    "skipped": outcome.skipped,
+                    "missing": len(outcome.missing),
+                    "detail": outcome.detail,
+                }
+    finally:
+        progress.finish()
     return {"status": "ok", "areas": results}
 
 
@@ -677,7 +685,9 @@ async def _sync_plans(
     # What the memo may record: a file this run imported, or one it already had. Anything that
     # fell out below keeps its OLD eTag instead, so the next run tries it again (`_remember`).
     stored: list[RemoteFile] = []
+    progress.files(len(usable))  # the work of this area, as the card counts it
     for file, identity, module in usable:
+        progress.step()
         if not _changed(state, file):
             out.skipped += 1
             stored.append(file)
@@ -813,7 +823,9 @@ async def _sync_geodata(
     entries: list[GeodataManifestEntry] = []
     stored: list[RemoteFile] = []  # only what this run holds the bytes of — see `_remember`
     unread: set[str] = set()  # sidecars whose bytes did not arrive, or did not parse
+    progress.files(len(layers))
     for file in layers:
+        progress.step()
         slug = file.name[: -len(".geojson")]
         if not _SLUG_RE.match(slug):
             out.skip("not a usable layer id")
@@ -987,7 +999,9 @@ async def _sync_checklists(
 
     known = {f.name[: -len(".json")] for f in templates}
     stored: list[RemoteFile] = []  # only what this run holds the bytes of — see `_remember`
+    progress.files(len(templates))
     for file in templates:
+        progress.step()
         template_id = file.name[: -len(".json")]
         if not _SLUG_RE.match(template_id):
             out.skip("not a usable template id")
@@ -1095,6 +1109,8 @@ async def _sync_workbook(
         out.skipped = len(books)
         return out
 
+    progress.files(len(books))
+    progress.step()
     file = books[0]
     if not _changed(state, file):
         out.skipped = 1

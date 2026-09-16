@@ -18,6 +18,7 @@ import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import sync_progress
 from ..auth.dependencies import CurrentAdmin
 from ..credentials import load as load_credentials
 from ..database import get_db
@@ -42,6 +43,17 @@ async def get_status(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -
     like a card whose fetch failed.
     """
     return await sharepoint_status(db)
+
+
+@router.get("/progress")
+async def get_progress(_admin: CurrentAdmin) -> dict:
+    """How far a RUNNING pull has got — the card polls this while its button spins.
+
+    Memory, not the database (app/sync_progress says why), so it costs a dictionary read and
+    never waits on the transaction the run is holding open. `{"running": false}` is the normal
+    answer and the card draws nothing for it.
+    """
+    return sync_progress.snapshot()
 
 
 @router.post("/sync")

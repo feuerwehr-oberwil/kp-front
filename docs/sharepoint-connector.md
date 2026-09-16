@@ -406,6 +406,14 @@ cursor for that area: the next run walks the folder again and re-checks, rather 
 Freigabe» clears by itself once the cause is gone – and why it does **not** clear on its own while
 the cause is still there.
 
+**"How far is it?"** While a pull runs – by hand or as the nightly job – the card draws a progress
+bar under the buttons: which area it is walking and how many of that area's files it has done. It
+comes from `GET /api/sharepoint/progress`, which the server answers out of memory (nothing is
+written until the run finishes, exactly as before), so opening the System page during the nightly
+run shows that run too. A deployment behind more than one worker process may find the poll landing
+on a worker that is not the one syncing; the bar then travels instead of filling, and nothing else
+changes.
+
 **"The file is in SharePoint and the app still shows the old one."** Press «Jetzt abgleichen»
 first. If it persists, a full re-import is available over the API and forgets everything the
 connector recorded about what it already has:

@@ -6845,6 +6845,12 @@ export const de = {
       spCounts: '{imported} übernommen · {skipped} übersprungen · {missing} fehlen in SharePoint',
       spSyncNow: 'Jetzt abgleichen',
       spSyncing: 'Wird abgeglichen …',
+      // Fortschritt: der Lauf meldet, in welchem Bereich er steht und wieviele Dateien davon
+      // erledigt sind (app/sync_progress). Solange er noch nichts sagen kann, wandert der Balken.
+      spProgressFiles: '{area} · {done} von {total} Dateien',
+      spProgressArea: '{area}',
+      spProgressAreas: 'Bereich {n} von {total}',
+      spProgressStarting: 'Abgleich wird vorbereitet …',
       spSynced: 'Abgeglichen.',
       spSyncFailed: 'Abgleich fehlgeschlagen',
       // ⚠️ NOT a failure: OUR clock ran out while the run was still fetching plans from Graph.

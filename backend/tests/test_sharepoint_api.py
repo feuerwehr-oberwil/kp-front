@@ -153,3 +153,54 @@ async def test_the_config_section_survives_a_save_through_the_api(client, admin_
 
     row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
     assert row.config_json["sharepoint"]["intervalMinutes"] == 15
+
+
+# --- progress -------------------------------------------------------------------------------
+# The pull answers only when the last area is done, so until 16.09.2026 the card had a spinner
+# and nothing else to say for up to five minutes. The run now keeps a note in memory; these pin
+# what the card is allowed to believe.
+
+
+async def test_the_progress_is_admin_only_and_quiet_when_nothing_runs(client, admin_login):
+    assert (await client.get("/api/sharepoint/progress")).status_code in (401, 403)
+    await admin_login(client)
+    assert (await client.get("/api/sharepoint/progress")).json() == {"running": False}
+
+
+async def test_the_progress_counts_areas_and_their_files(client, admin_login):
+    from app import sync_progress
+
+    await admin_login(client)
+    sync_progress.begin(["plans", "geodata"])
+    sync_progress.area("plans")
+    sync_progress.files(43)
+    sync_progress.step()
+    sync_progress.step(11)
+    body = (await client.get("/api/sharepoint/progress")).json()
+    assert body["running"] is True
+    assert (body["area"], body["done"], body["total"]) == ("plans", 12, 43)
+    assert (body["areasDone"], body["areasTotal"]) == (0, 2)
+    assert body["startedAt"]
+
+    # …and the next area starts its own count, with the finished one behind it
+    sync_progress.area("geodata")
+    body = (await client.get("/api/sharepoint/progress")).json()
+    assert (body["area"], body["done"], body["total"], body["areasDone"]) == ("geodata", 0, 0, 1)
+
+    # ⚠️ whatever ends the run — success, failure, a cancelled request — clears it
+    sync_progress.finish()
+    assert (await client.get("/api/sharepoint/progress")).json() == {"running": False}
+
+
+async def test_a_run_that_never_finished_is_replaced_rather_than_believed(client, admin_login):
+    """A process killed mid-sync leaves its note behind; the next run must own the bar."""
+    from app import sync_progress
+
+    await admin_login(client)
+    sync_progress.begin(["plans"])
+    sync_progress.area("plans")
+    sync_progress.step(7)
+    sync_progress.begin(["geodata"])
+    body = (await client.get("/api/sharepoint/progress")).json()
+    assert (body["area"], body["done"], body["areasTotal"]) == (None, 0, 1)
+    sync_progress.finish()

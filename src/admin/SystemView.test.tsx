@@ -72,9 +72,12 @@ const SYSTEM = {
   monitoring: { heartbeatConfigured: true },
 }
 
-function serve(sharepoint: unknown, system: unknown = SYSTEM) {
+function serve(sharepoint: unknown, system: unknown = SYSTEM, progress: unknown = { running: false }) {
   apiGet.mockImplementation((p: string) =>
-    Promise.resolve(p.startsWith('/api/sharepoint/status') ? sharepoint : system))
+    Promise.resolve(
+      p.startsWith('/api/sharepoint/status') ? sharepoint
+      : p.startsWith('/api/sharepoint/progress') ? progress
+      : system))
 }
 
 const NO_SHAREPOINT = { configured: false, credentials: false, intervalMinutes: 60, secretExpiresInDays: null, areas: [] }
@@ -256,6 +259,49 @@ describe('running it by hand', () => {
     await waitFor(() => expect(screen.getByText(C.spSynced)).toBeTruthy())
     // Re-read: the whole point of the button is finding out whether it works NOW.
     expect(apiGet.mock.calls.filter(([p]) => p === '/api/sharepoint/status')).toHaveLength(2)
+  })
+
+  // The POST answers only when the LAST area is done — up to five minutes — so the card polls
+  // the note the run keeps in the server's memory (16.09.2026).
+  it('shows how far the running pull has got', async () => {
+    serve(
+      { configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: null, areas: [area({})] },
+      SYSTEM,
+      { running: true, area: 'plans', areasDone: 0, areasTotal: 2, done: 12, total: 43 },
+    )
+    render(<SystemView />)
+
+    const bar = await screen.findByRole('progressbar')
+    expect(bar.getAttribute('aria-valuenow')).toBe('12')
+    expect(bar.getAttribute('aria-valuemax')).toBe('43')
+    expect(screen.getByText(/12 von 43 Dateien/)).toBeTruthy()
+    expect(screen.getByText(/Bereich 1 von 2/)).toBeTruthy()
+    expect(screen.getByText('28 %')).toBeTruthy()
+  })
+
+  // ⚠️ Not only while THIS device is syncing: the nightly run goes through the same function, and
+  // a card that looks idle while the plans are being replaced under it is the old picture.
+  it('shows the nightly run without anybody pressing the button', async () => {
+    serve(
+      { configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: null, areas: [area({})] },
+      SYSTEM,
+      { running: true, area: 'geodata', areasDone: 1, areasTotal: 2, done: 0, total: 0 },
+    )
+    render(<SystemView />)
+
+    // no file count yet: the bar travels instead of claiming a fraction it does not have
+    const bar = await screen.findByRole('progressbar')
+    expect(bar.getAttribute('aria-valuenow')).toBeNull()
+    // …and it says WHICH area, even without a count («Geodaten» also names a row in the table)
+    expect(document.querySelector('.adm-progress-label')?.textContent).toContain('Geodaten')
+  })
+
+  it('draws no bar while nothing is running', async () => {
+    serve({ configured: true, credentials: true, intervalMinutes: 60, secretExpiresInDays: null, areas: [area({})] })
+    render(<SystemView />)
+
+    await screen.findByRole('button', { name: C.spSyncNow })
+    expect(screen.queryByRole('progressbar')).toBeNull()
   })
 
   it('says «fehlgeschlagen» rather than silently doing nothing', async () => {

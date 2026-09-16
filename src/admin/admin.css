@@ -1563,6 +1563,25 @@
 @media (prefers-reduced-motion: reduce) {
   .adm-sys-bar-fill { transition: none; }
 }
+/* running work (ui · ProgressBar): the label sentence, the percentage where it is known, and —
+   where it is not — a stripe that travels rather than a fill that lies */
+.adm-progress { width: 100%; margin-top: 2px; }
+.adm-progress-label {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin: 0 0 4px; font-size: 12.5px; color: var(--ink-dim);
+}
+.adm-progress-label b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.adm-sys-bar-fill.adm-bar-wait {
+  width: 34%; animation: adm-bar-travel 1.4s var(--ease) infinite;
+}
+@keyframes adm-bar-travel {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* no travel: a static third of the bar still says «läuft», and nothing moves */
+  .adm-sys-bar-fill.adm-bar-wait { animation: none; opacity: .6; }
+}
 /* Two buttons that belong together read as a pair at the gap a toolbar uses, not at the gap
    between two unrelated blocks. */
 .adm-sys-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

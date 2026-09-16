@@ -10544,6 +10544,58 @@
         }
       }
     },
+    "/api/sharepoint/progress": {
+      "get": {
+        "tags": [
+          "sharepoint"
+        ],
+        "summary": "Get Progress",
+        "description": "How far a RUNNING pull has got — the card polls this while its button spins.\n\nMemory, not the database (app/sync_progress says why), so it costs a dictionary read and\nnever waits on the transaction the run is holding open. `{\"running\": false}` is the normal\nanswer and the card draws nothing for it.",
+        "operationId": "get_progress_api_sharepoint_progress_get",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Progress Api Sharepoint Progress Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sharepoint/sync": {
       "post": {
         "tags": [
