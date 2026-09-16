@@ -66,7 +66,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
-from sqlalchemy import Text, cast, delete, func, select, update
+from sqlalchemy import Text, cast, delete, func, insert, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import storage
@@ -74,7 +74,18 @@ from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
 from .database import async_session_maker
 from .geocode import geocode
-from .models import DeploymentConfig, Incident, IncidentEvent, JournalEntry, ObjectSite, ReferenceDataset
+from .models import (
+    DeploymentConfig,
+    Incident,
+    IncidentEvent,
+    JournalEntry,
+    ObjectSite,
+    PlanAlignment,
+    PlanAlignmentEvent,
+    PlanPageFloor,
+    PlanRevision,
+    ReferenceDataset,
+)
 
 
 class PlanEntry(BaseModel):
@@ -1089,6 +1100,72 @@ def _print_rekey(plan: Rekey) -> None:
     print(f"  rekey  {plan.row.id} → {plan.target}  ({', '.join(bits)})")
 
 
+#: Everything that hangs off ONE plan dataset row, in the order a delete has to walk it. A plan
+#: sheet is no longer a single row: `plan_revisions` keeps the exact bytes an Einsatz may have
+#: pinned, and an alignment (plus its decision history) and a floor pack hang off a revision.
+#: ⚠️ `plan_revisions.dataset_id` is ON DELETE RESTRICT and carries no ON UPDATE CASCADE, so a
+#: dataset row that still has a revision can be neither deleted NOR re-keyed — without the two
+#: helpers below, every merge that folds a REAL sheet aborts its whole transaction. That is not
+#: theoretical: on the FWO deployment (16.09.2026) all 574 plan rows had a revision, and
+#: `merge-duplicates --apply` could not fold the one duplicate object on it.
+
+
+async def _drop_plan_rows(db: AsyncSession, dataset_id: str) -> None:
+    """Delete a plan dataset's revisions, alignments and floors — children before parents.
+
+    The stored blobs stay, exactly like the dataset rows this module retires: a row that is
+    redundant does not make its bytes redundant, and a plan the crew can still open is worth
+    more than a clean bucket.
+    """
+    alignments = select(PlanAlignment.id).where(PlanAlignment.dataset_id == dataset_id)
+    await db.execute(
+        delete(PlanAlignmentEvent)
+        .where(PlanAlignmentEvent.alignment_id.in_(alignments))
+        .execution_options(synchronize_session=False)
+    )
+    for model in (PlanAlignment, PlanPageFloor, PlanRevision):
+        await db.execute(
+            delete(model).where(model.dataset_id == dataset_id).execution_options(synchronize_session=False)
+        )
+
+
+async def _rekey_dataset(db: AsyncSession, old_id: str, new_id: str, object_id: uuid.UUID) -> None:
+    """Move a plan dataset — row, revisions, alignments, floors — onto a new dataset id.
+
+    ⚠️ Copied and dropped, never updated in place. `plan_revisions` is a CHILD of
+    ``reference_datasets`` and the PARENT of ``plan_alignments`` / ``plan_page_floors``, and
+    neither foreign key cascades an update, so there is no order in which a plain
+    ``UPDATE … SET dataset_id`` satisfies both sides at once. The same reasoning
+    :func:`_apply_rekey` gives for re-creating the object row, one level down.
+
+    The column lists are read off the tables rather than spelled out: a column added to either
+    model later follows the move on its own instead of being silently dropped here.
+    """
+    await _copy_row(db, ReferenceDataset, ReferenceDataset.id == old_id, {"id": new_id, "object_id": object_id})
+    await _copy_row(db, PlanRevision, PlanRevision.dataset_id == old_id, {"dataset_id": new_id})
+    for model in (PlanAlignment, PlanPageFloor):
+        await db.execute(
+            update(model)
+            .where(model.dataset_id == old_id)
+            .values(dataset_id=new_id)
+            .execution_options(synchronize_session=False)
+        )
+    await db.execute(
+        delete(PlanRevision).where(PlanRevision.dataset_id == old_id).execution_options(synchronize_session=False)
+    )
+    await db.execute(
+        delete(ReferenceDataset).where(ReferenceDataset.id == old_id).execution_options(synchronize_session=False)
+    )
+
+
+async def _copy_row(db: AsyncSession, model: Any, where: Any, overrides: dict[str, Any]) -> None:
+    """``INSERT … SELECT`` the matching rows back into their own table with some columns replaced."""
+    table = model.__table__
+    columns = [c.name for c in table.c]
+    picked = [literal(overrides[name], table.c[name].type) if name in overrides else table.c[name] for name in columns]
+    await db.execute(insert(table).from_select(columns, select(*picked).where(where)))
+
+
 async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
     """Move the survivor itself onto the NFC-key id. Only under ``--apply``, same transaction.
 
@@ -1110,12 +1187,7 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
     db.add(fresh)
     await db.flush()
     for old_id, new_id in plan.datasets:
-        await db.execute(
-            update(ReferenceDataset)
-            .where(ReferenceDataset.id == old_id)
-            .values(id=new_id, object_id=plan.target)
-            .execution_options(synchronize_session=False)
-        )
+        await _rekey_dataset(db, old_id, new_id, plan.target)
     for incident_id in plan.incidents:
         row = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
         if row is None or not isinstance(row.map_workspace_json, dict):
@@ -1136,28 +1208,21 @@ async def _apply_pair(db: AsyncSession, pair: MergePair) -> None:
         if slot.action == "replace":
             # The superseded row goes FIRST — its id is the key the newer row is about to take.
             # Its blob stays in the store, like every other row this module retires.
+            assert slot.replaces is not None  # noqa: S101 — a "replace" decision always names the row it takes over
+            await _drop_plan_rows(db, slot.replaces)
             await db.execute(
                 delete(ReferenceDataset)
                 .where(ReferenceDataset.id == slot.replaces)
                 .execution_options(synchronize_session=False)
             )
-            await db.execute(
-                update(ReferenceDataset)
-                .where(ReferenceDataset.id == slot.dataset_id)
-                .values(id=slot.target_id, object_id=pair.survivor.id)
-                .execution_options(synchronize_session=False)
-            )
+            await _rekey_dataset(db, slot.dataset_id, slot.target_id, pair.survivor.id)
         elif slot.action == "move":
             # Re-KEYED, not just re-pointed: the primary key encodes the object, and a row left
             # under the old key is a row the next `load` or pull would mint a second time.
-            await db.execute(
-                update(ReferenceDataset)
-                .where(ReferenceDataset.id == slot.dataset_id)
-                .values(id=slot.target_id, object_id=pair.survivor.id)
-                .execution_options(synchronize_session=False)
-            )
+            await _rekey_dataset(db, slot.dataset_id, slot.target_id, pair.survivor.id)
         elif slot.action == "drop":
             # The bytes stay in the store: the row is redundant, the blob may not be.
+            await _drop_plan_rows(db, slot.dataset_id)
             await db.execute(
                 delete(ReferenceDataset)
                 .where(ReferenceDataset.id == slot.dataset_id)
@@ -1194,7 +1259,9 @@ async def _merge_duplicates(*, apply: bool) -> int:
     would be undone by the next sync — a third row under the same name. A group kept back by a
     conflict is NOT re-keyed: half a merge on a new id is worse than none.
 
-    Under ``--apply`` the whole run is ONE transaction: either every group folds or none does.
+    Under ``--apply`` the whole run is ONE transaction: either every group folds or none does. A
+    sheet that moves or goes takes its revisions, alignments and floor packs with it — see the
+    note above :func:`_drop_plan_rows` for why nothing here may touch a dataset row on its own.
 
     ⚠️ Writes ``plan_scales_json`` directly, outside the If-Match guard a human write gets
     (api/plan_scales). Run it in a maintenance window, not while an Einsatz is being drawn on.
@@ -1597,8 +1664,9 @@ async def _remove_empty(*, apply: bool, names: list[str]) -> int:
 
     The «Grosspläne» case: a category folder that an import read as an Einsatzobjekt. With no plans
     under it, it falls out here on its own; if it did pick up plans, name it with ``--name`` and it
-    goes with them. Either way an object that an incident, a calibration or the audit trail names
-    is REFUSED — a station that used the thing is not a station that can lose it silently.
+    goes with them — sheets, revisions, alignments and floor packs alike (:func:`_drop_plan_rows`).
+    Either way an object that an incident, a calibration or the audit trail names is REFUSED — a
+    station that used the thing is not a station that can lose it silently.
     """
     wanted = {_name_key(n) for n in names}
     async with async_session_maker() as db:
@@ -1632,6 +1700,13 @@ async def _remove_empty(*, apply: bool, names: list[str]) -> int:
             removed.append(row)
             print(f"  - {row.id}  {_spelling(row.name)}  ({plans} plan(s){', named explicitly' if explicit else ''})")
             if apply:
+                doomed = list(
+                    (
+                        await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.object_id == row.id))
+                    ).scalars()
+                )
+                for dataset_id in doomed:
+                    await _drop_plan_rows(db, dataset_id)
                 await db.execute(
                     delete(ReferenceDataset)
                     .where(ReferenceDataset.object_id == row.id)

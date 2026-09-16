@@ -24,6 +24,10 @@ from app.models import (
     IncidentEvent,
     JournalEntry,
     ObjectSite,
+    PlanAlignment,
+    PlanAlignmentEvent,
+    PlanPageFloor,
+    PlanRevision,
     ReferenceDataset,
 )
 
@@ -391,3 +395,84 @@ async def test_a_deployment_without_duplicates_says_so(db_session, capsys):
 
     assert await admin_objects._merge_duplicates(apply=True) == 0
     assert "No duplicate object names" in capsys.readouterr().out
+
+
+async def _revision(db, dataset_id: str, *, version: int = 1, approved: bool = False) -> int:
+    """A plan sheet the way `store_plan` leaves it: an immutable revision, its alignment (plus one
+    decision in that alignment's history) and a floor of the building drawn on it."""
+    db.add(
+        PlanRevision(
+            dataset_id=dataset_id,
+            version=version,
+            storage_key=f"{dataset_id}-v{version}.pdf",
+            content_type="application/pdf",
+        )
+    )
+    await db.flush()
+    alignment = PlanAlignment(
+        dataset_id=dataset_id,
+        plan_version=version,
+        page=0,
+        status="approved" if approved else "pending",
+        edit_version=1,
+        pairs=[],
+        reference_rings=[],
+    )
+    db.add(alignment)
+    db.add(PlanPageFloor(dataset_id=dataset_id, plan_version=version, floor_index=0, page=0))
+    await db.flush()
+    db.add(PlanAlignmentEvent(alignment_id=alignment.id, action="approve", edit_version=1, snapshot={}))
+    await db.commit()
+    return alignment.id
+
+
+async def test_a_folded_sheet_takes_its_revisions_and_alignments_with_it(db_session):
+    """⚠️ The FWO case, 16.09.2026: a plan row is no longer alone. `plan_revisions.dataset_id` is
+    ON DELETE RESTRICT and carries no ON UPDATE CASCADE, so a merge that deletes or re-keys a
+    dataset row without moving its revisions first aborts the WHOLE run on postgres — which is
+    exactly what the one duplicate object on that deployment did. A dropped sheet's rows must be
+    gone, a moved sheet's rows must have followed it onto the new key."""
+    survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})
+    loser = await _object(
+        db_session,
+        NFD_NAME,
+        oid=object_id_for_key(NFD_NAME),
+        plans={"modul1": "a" * 64, "modul2": "b" * 64},  # same bytes → dropped; unheld slot → moved
+    )
+    await _revision(db_session, f"plan:{survivor}:modul1")
+    await _revision(db_session, f"plan:{loser}:modul1")
+    moved_alignment = await _revision(db_session, f"plan:{loser}:modul2", approved=True)
+
+    assert await admin_objects._merge_duplicates(apply=True) == 0
+
+    revisions = {r.dataset_id for r in (await db_session.execute(select(PlanRevision))).scalars()}
+    assert revisions == {f"plan:{survivor}:modul1", f"plan:{survivor}:modul2"}
+    floors = {f.dataset_id for f in (await db_session.execute(select(PlanPageFloor))).scalars()}
+    assert floors == revisions, "a floor pack stayed behind on a dataset id that no longer exists"
+
+    alignments = list((await db_session.execute(select(PlanAlignment).order_by(PlanAlignment.id))).scalars())
+    assert {a.dataset_id for a in alignments} == revisions
+    survived = next(a for a in alignments if a.id == moved_alignment)
+    assert survived.dataset_id == f"plan:{survivor}:modul2"
+    assert survived.status == "approved", "the admin's freigegebene Passung was rewritten"
+    # The dropped sheet's alignment history goes with it; the moved one keeps its own.
+    events = list((await db_session.execute(select(PlanAlignmentEvent))).scalars())
+    assert {e.alignment_id for e in events} == {a.id for a in alignments}
+
+
+async def test_an_object_removed_by_name_takes_its_revisions_with_it(db_session):
+    """`remove-empty --name` deletes plans and all — and a plan row that still has a revision
+    cannot be deleted at all (ON DELETE RESTRICT), so the revisions have to go first."""
+    keeper = await _object(db_session, "Wache", plans={"modul1": "a" * 64})
+    junk = await _object(db_session, "Grosspläne", plans={"modul1": "z" * 64})
+    await _revision(db_session, f"plan:{keeper}:modul1")
+    await _revision(db_session, f"plan:{junk}:modul1")
+
+    assert await admin_objects._remove_empty(apply=True, names=["Grosspläne"]) == 0
+
+    assert {r.dataset_id for r in (await db_session.execute(select(PlanRevision))).scalars()} == {
+        f"plan:{keeper}:modul1"
+    }
+    assert await _count(db_session, PlanAlignment) == 1
+    assert await _count(db_session, PlanPageFloor) == 1
+    assert await _count(db_session, PlanAlignmentEvent) == 1
