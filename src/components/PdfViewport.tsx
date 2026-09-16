@@ -435,7 +435,11 @@ export function planPreviewUrl(url: string, vw: number, vh: number, maxSide = 18
 }
 
 /**
- * ONE REGION of a page as a JPEG data URL — what a Gebäude storey tile draws.
+ * ONE REGION of a page as a JPEG data URL — a Gebäude storey tile's SHARP picture.
+ *
+ * ⚠️ Since 16.09.2026 this is the refinement, not the first paint: the tile comes up from
+ * `planRegionCropUrl` (the page's own bake, cut to the region) and asks for this only once it is
+ * drawn bigger than that crop. The reason is the pass, not the pixels — see there.
  *
  * Not `planPreviewUrl` + a clip-path: a storey that covers a fifth of an A1 got a fifth of the
  * page raster's pixels, so the stack read visibly softer than the very same sheet opened whole
@@ -518,6 +522,72 @@ async function renderRegion(
   }
 }
 
+/**
+ * ONE REGION of a page, cut out of the page's OWN bake — the storey tile's first picture.
+ *
+ * ⚠️ This exists because of what a dense sheet costs to RENDER, not what it costs to store.
+ * pdf.js walks the whole page's display list on every render call, whatever size canvas it is
+ * drawing into: the BLT Tramdepot's A1 measures ~2 s per pass at 40 dpi and at 200 dpi alike. Its
+ * pack is six drawings on that one page, so a stack that renders each region separately pays six
+ * passes before it is complete, while «Modul 6» — the same PDF, opened as a sheet — pays one
+ * (Bastian, 16.09.2026: «taking a bit too long for comfort, especially compared to just Modul 6»).
+ *
+ * So the tiles come up from a single page bake (the cache every other surface uses, so a prewarm
+ * or an already-open Modul 6 makes it free), cropped per region — a blit, no display list. The
+ * sharp per-region render still happens, behind them: `FloorPage` swaps it in when it lands.
+ */
+export async function planRegionCropUrl(url: string, clip: InkBox): Promise<RegionCrop> {
+  const key = `crop@${url}@${clip.map((v) => v.toFixed(4)).join(',')}`
+  const cached = cropCache.get(key)
+  if (cached) { cropCache.delete(key); cropCache.set(key, cached); return cached }
+  const p = (async () => {
+    const baked = await bake(url, CROP_BAKE_SIDE, CROP_BAKE_SIDE)
+    return cropBitmap(baked.bitmap, clip, Infinity)
+  })()
+  p.catch(() => { if (cropCache.get(key) === p) cropCache.delete(key) })
+  cropCache.set(key, p)
+  while (cropCache.size > PREVIEW_CAP) {
+    const oldest = cropCache.keys().next().value
+    if (oldest === undefined) break
+    cropCache.delete(oldest)
+  }
+  return p
+}
+
+/** A region cut from the page bake: the picture, and how many pixels wide it actually is — which
+ *  is what tells the tile whether the screen has outgrown it (components/FloorPage). */
+export interface RegionCrop { url: string; width: number }
+const cropCache = new Map<string, Promise<RegionCrop>>()
+
+/** The viewport the crop bake asks for: big enough that the largest region of a sheet is sharp at
+ *  a fitted stack, and bounded by the same budget every other bake respects. */
+const CROP_BAKE_SIDE = 4096
+
+/** One region of a baked page as a JPEG data URL, optionally shrunk to `maxSide`. White first: a
+ *  PDF page is transparent where nothing is drawn, and a JPEG has no alpha to keep it that way. */
+function cropCanvas(bitmap: ImageBitmap, clip: InkBox, maxSide: number): HTMLCanvasElement {
+  const [x0, y0, x1, y1] = clip
+  const sx = Math.max(0, Math.round(x0 * bitmap.width)), sy = Math.max(0, Math.round(y0 * bitmap.height))
+  const sw = Math.max(1, Math.round((x1 - x0) * bitmap.width)), sh = Math.max(1, Math.round((y1 - y0) * bitmap.height))
+  const k = Math.min(1, maxSide / Math.max(sw, sh))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(sw * k))
+  canvas.height = Math.max(1, Math.round(sh * k))
+  const ctx = canvas.getContext('2d', { willReadFrequently: maxSide < Infinity })
+  if (!ctx) throw new Error('no 2d ctx')
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+  return canvas
+}
+
+function cropBitmap(bitmap: ImageBitmap, clip: InkBox, maxSide: number): RegionCrop {
+  const canvas = cropCanvas(bitmap, clip, maxSide)
+  const out = { url: canvas.toDataURL('image/jpeg', 0.86), width: canvas.width }
+  canvas.width = canvas.height = 0
+  return out
+}
+
 /** how wide the throwaway canvas an ink scan renders into may be – enough that a 1 pt line still
  *  lands on a pixel, small enough that four storeys cost one page raster between them */
 const INK_SCAN_SIDE = 360
@@ -547,55 +617,40 @@ export function regionInkBox(url: string, clip: InkBox): Promise<InkBox | null> 
   const key = `${url}@${clip.map((v) => v.toFixed(4)).join(',')}`
   const cached = inkCache.get(key)
   if (cached) return cached
-  const p = regionQueue.then(() => scanRegionInk(url, clip)).catch(() => null)
-  regionQueue = p.catch(() => {}) // shares the storey tiles' queue: one page render at a time
+  const p = scanRegionInk(url, clip).catch(() => null)
   inkCache.set(key, p)
   return p
 }
 
+/** ⚠️ Reads the page's own bake — the same one the tiles are cropped from — instead of rendering
+ *  the region again. Measuring six drawings used to be six passes over the display list ON TOP of
+ *  the six the tiles cost, which is what made a marked A1 slower to open than the plain sheet
+ *  (16.09.2026). From the bake it is a blit and a pixel walk over at most a few hundred px. */
 async function scanRegionInk(url: string, clip: InkBox): Promise<InkBox | null> {
-  const pdf = await loadDocTimed(url)
-  const page = await pdf.getPage((pdfPageOf(url) ?? 0) + 1)
-  let task: ReturnType<typeof page.render> | null = null
-  let done = false
-  try {
-    const base = page.getViewport({ scale: 1 })
-    const r = regionRaster(base.width, base.height, clip, INK_SCAN_SIDE * INK_SCAN_SIDE, INK_SCAN_SIDE)
-    const canvas = document.createElement('canvas')
-    canvas.width = r.width
-    canvas.height = r.height
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) return null
-    // paper first: a PDF page is transparent where nothing is drawn, and a transparent pixel
-    // reads as (0,0,0,0) — black, i.e. ink — without this
-    ctx.fillStyle = '#fff'
-    ctx.fillRect(0, 0, r.width, r.height)
-    task = page.render({ canvas, canvasContext: ctx, viewport: page.getViewport({ scale: r.scale, offsetX: r.offsetX, offsetY: r.offsetY }) })
-    await task.promise
-    done = true
-    const { data } = ctx.getImageData(0, 0, r.width, r.height)
-    let minX = r.width, minY = r.height, maxX = -1, maxY = -1
-    for (let y = 0; y < r.height; y++) {
-      for (let x = 0; x < r.width; x++) {
-        const i = (y * r.width + x) * 4
-        if (data[i] > INK_LEVEL && data[i + 1] > INK_LEVEL && data[i + 2] > INK_LEVEL) continue
-        if (x < minX) minX = x; if (x > maxX) maxX = x
-        if (y < minY) minY = y; if (y > maxY) maxY = y
-      }
+  const baked = await bake(url, CROP_BAKE_SIDE, CROP_BAKE_SIDE)
+  const canvas = cropCanvas(baked.bitmap, clip, INK_SCAN_SIDE)
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  const { width, height } = canvas
+  const { data } = ctx.getImageData(0, 0, width, height)
+  let minX = width, minY = height, maxX = -1, maxY = -1
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4
+      if (data[i] > INK_LEVEL && data[i + 1] > INK_LEVEL && data[i + 2] > INK_LEVEL) continue
+      if (x < minX) minX = x; if (x > maxX) maxX = x
+      if (y < minY) minY = y; if (y > maxY) maxY = y
     }
-    canvas.width = canvas.height = 0
-    if (maxX < 0) return null // an empty region trims to nothing, and says so
-    const [cx0, cy0, cx1, cy1] = clip
-    const sx = (cx1 - cx0) / r.width, sy = (cy1 - cy0) / r.height
-    // …one scan pixel of air on every side, so the trim never shaves the outermost stroke
-    return [
-      cx0 + Math.max(0, minX - 1) * sx, cy0 + Math.max(0, minY - 1) * sy,
-      cx0 + Math.min(r.width, maxX + 2) * sx, cy0 + Math.min(r.height, maxY + 2) * sy,
-    ]
-  } finally {
-    if (!done) task?.cancel()
-    page.cleanup()
   }
+  canvas.width = canvas.height = 0
+  if (maxX < 0) return null // an empty region trims to nothing, and says so
+  const [cx0, cy0, cx1, cy1] = clip
+  const sx = (cx1 - cx0) / width, sy = (cy1 - cy0) / height
+  // …one scan pixel of air on every side, so the trim never shaves the outermost stroke
+  return [
+    cx0 + Math.max(0, minX - 1) * sx, cy0 + Math.max(0, minY - 1) * sy,
+    cx0 + Math.min(width, maxX + 2) * sx, cy0 + Math.min(height, maxY + 2) * sy,
+  ]
 }
 
 // Two board-child canvases (they pan/zoom with the board via CSS — instant, no

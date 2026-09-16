@@ -15,7 +15,13 @@ import { buildView, type Pt } from '../lib/footprint'
  * phone on 15.09.). */
 
 const planRegionUrl = vi.fn(() => Promise.resolve('data:image/jpeg;base64,AAAA'))
-vi.mock('./PdfViewport', () => ({ planRegionUrl: (...args: unknown[]) => planRegionUrl(...(args as [])) }))
+// a DELIBERATELY tiny crop: every tile below is drawn far bigger than 10 px, so the sharp render
+// is asked for — which is what the older assertions in this file are about
+const planRegionCropUrl = vi.fn(() => Promise.resolve({ url: 'data:image/jpeg;base64,CROP', width: 10 }))
+vi.mock('./PdfViewport', () => ({
+  planRegionUrl: (...args: unknown[]) => planRegionUrl(...(args as [])),
+  planRegionCropUrl: (...args: unknown[]) => planRegionCropUrl(...(args as [])),
+}))
 
 // the page laid into the tile box 1:1, and the storey's drawing on the left-hand 40 % of it
 const PAGE: [Pt, Pt, Pt] = [[0, 0], [1, 0], [0, 1]]
@@ -23,7 +29,7 @@ const EG: [number, number, number, number] = [0.1, 0.2, 0.5, 0.6]
 
 const sheet = (ui: React.ReactNode) => render(<svg viewBox="0 0 400 300">{ui}</svg>)
 
-afterEach(() => { planRegionUrl.mockClear() })
+afterEach(() => { planRegionUrl.mockClear(); planRegionCropUrl.mockClear() })
 
 describe('FloorPage', () => {
   it('asks for the storey\'s own region, at the storeys\' share of the budget', async () => {
@@ -54,6 +60,56 @@ describe('FloorPage', () => {
     // the unit square lands on the region: 0.4 × 0.4 of a 400 × 300 box, offset by (0.1, 0.2)
     expect(img.getAttribute('transform')).toBe('matrix(160.0000 0.0000 0.0000 120.0000 40.0000 60.0000)')
     expect(container.querySelector('clipPath')).toBeNull()
+  })
+
+  // ⚠️ A dense sheet charges per RENDER, not per pixel: the Tramdepot's A1 is ~2 s a pass at any
+  // size, and its pack is six drawings on that one page. So the tile comes up from the page's own
+  // bake (a blit) and the sharp per-region render swaps in behind it (16.09.2026).
+  it('shows the page crop first and swaps the sharp region in when it lands', async () => {
+    let land = (_u: string) => {}
+    planRegionUrl.mockImplementationOnce(() => new Promise<string>((res) => { land = res }))
+    const { container } = sheet(<FloorPage url="/p.pdf" corners={PAGE} region={EG} w={400} h={300} floors={6} />)
+
+    await waitFor(() => expect(container.querySelector('image')?.getAttribute('href')).toBe('data:image/jpeg;base64,CROP'))
+    expect(planRegionCropUrl).toHaveBeenCalledWith('/p.pdf', EG)
+
+    land('data:image/jpeg;base64,SHARP')
+    await waitFor(() => expect(container.querySelector('image')?.getAttribute('href')).toBe('data:image/jpeg;base64,SHARP'))
+  })
+
+  // ⚠️ …and it is NOT asked for while the crop is enough. A fitted stack of six drawings would
+  // otherwise spend six passes over a dense A1 in the background for a picture nobody can tell
+  // apart from the one already on screen.
+  it('leaves the page alone while the crop is bigger than the tile is drawn', async () => {
+    planRegionCropUrl.mockResolvedValueOnce({ url: 'data:image/jpeg;base64,BIG', width: 4000 })
+    const { container } = sheet(<FloorPage url="/p.pdf" corners={PAGE} region={EG} w={400} h={300} floors={6} />)
+
+    await waitFor(() => expect(container.querySelector('image')?.getAttribute('href')).toBe('data:image/jpeg;base64,BIG'))
+    expect(planRegionUrl).not.toHaveBeenCalled()
+  })
+
+  // …until the zoom outgrows it: the tile box grows with the board, and then the drawing is
+  // worth its own pass.
+  it('asks for the sharp render once the zoom outgrows the crop', async () => {
+    planRegionCropUrl.mockResolvedValueOnce({ url: 'data:image/jpeg;base64,BIG', width: 900 })
+    const { container, rerender } = sheet(<FloorPage url="/p.pdf" corners={PAGE} region={EG} w={400} h={300} floors={6} />)
+    await waitFor(() => expect(container.querySelector('image')).toBeTruthy())
+    expect(planRegionUrl).not.toHaveBeenCalled()
+
+    // 6× zoom: the region's own width on the board passes the crop's 900 px
+    rerender(<svg viewBox="0 0 2400 1800"><FloorPage url="/p.pdf" corners={PAGE} region={EG} w={2400} h={1800} floors={6} /></svg>)
+    await waitFor(() => expect(planRegionUrl).toHaveBeenCalledTimes(1))
+  })
+
+  // ⚠️ A bake that will not come is the one case where the tile has nothing to show and nothing to
+  // measure against: it waits on its placeholder, and asks for the sharp render the moment the
+  // bake FAILS rather than leaving the storey blank.
+  it('falls back to the region render when the page bake fails', async () => {
+    planRegionCropUrl.mockRejectedValueOnce(new Error('no bake'))
+    const { container } = sheet(<FloorPage url="/p.pdf" corners={PAGE} region={EG} w={400} h={300} floors={2} />)
+
+    await waitFor(() => expect(container.querySelector('image')?.getAttribute('href')).toBe('data:image/jpeg;base64,AAAA'))
+    expect(planRegionUrl).toHaveBeenCalledTimes(1)
   })
 
   // ⚠️ the bakes are serialised, so the last tile of a stack waits for the ones before it – an
