@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from './stackFit'
+import { packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from './stackFit'
 import type { BoardAnno } from '../types'
 import { fitSimilarity } from './georef'
 import { TILE_AR } from './whiteboard'
-import { fpBoxFrac } from './footprint'
+import { fpBoxFrac, type Pt } from './footprint'
 import { joinShifts } from './floorPackBinding'
 import type { PlanFloor } from './api/reference'
 
@@ -80,15 +80,38 @@ it('the PDF renderer puts joined staircases at identical XY without stretching t
   const ground: PlanFloor = { index: 0, page: 0, name: null, clip: [.1, .3, .9, .8] }
   const upper: PlanFloor = { index: 1, page: 0, name: null, clip: [.5, .02, .8, .25], join: { to: 0, at: [.65, .15], there: [.7, .4] } }
   const shifts = joinShifts([ground, upper], ground)
+  const place = (f: PlanFloor) => packPagePlacement(ground.clip!, { url: '', clip: f.clip!, shift: shifts.get(f.index)! })
   const at = (f: PlanFloor, point: [number, number]) => {
-    const { corners: [o, x, y] } = packPagePlacement(ground.clip!, { url: '', clip: f.clip!, shift: shifts.get(f.index)! })
+    const [o, x, y] = place(f)
     return [o[0] + point[0] * (x[0] - o[0]) + point[1] * (y[0] - o[0]), o[1] + point[0] * (x[1] - o[1]) + point[1] * (y[1] - o[1])]
   }
   const up = at(upper, upper.join!.at), down = at(ground, upper.join!.there)
   expect(up[0]).toBeCloseTo(down[0], 10)
   expect(up[1]).toBeCloseTo(down[1], 10)
-  const { clip } = packPagePlacement(ground.clip!, { url: '', clip: upper.clip!, shift: shifts.get(1)! })
-  expect(clip[2]).toBeCloseTo(.3 / .8) // stays narrower than EG
+  // and the raster of the upper floor covers ITS rectangle alone — narrower than EG's
+  const [ro, rx] = regionCorners(place(upper), upper.clip!)
+  expect(rx[0] - ro[0]).toBeCloseTo(.3 / .8)
+})
+
+// The storey tile renders its own rectangle, so the raster IS the drawing: where a clip-path
+// used to cut a region out of a page raster, `regionCorners` says where that region goes.
+describe('regionCorners – one region of a page, in the page\'s own placement', () => {
+  const corners: [Pt, Pt, Pt] = [[0.2, 0.1], [1.2, 0.1], [0.2, 1.1]]
+  it('leaves a whole page exactly where the page is', () => {
+    expect(regionCorners(corners, [0, 0, 1, 1])).toEqual(corners)
+  })
+  it('places a region at its own fraction of the page, at the page\'s scale', () => {
+    const [o, x, y] = regionCorners(corners, [0.5, 0.25, 0.75, 0.5])
+    expect(o[0]).toBeCloseTo(0.7); expect(o[1]).toBeCloseTo(0.35) // half a page right, a quarter down
+    expect(x[0] - o[0]).toBeCloseTo(0.25)   // a quarter of the page wide
+    expect(y[1] - o[1]).toBeCloseTo(0.25)
+  })
+  it('turns with a turned page – a footprint stack lays the sheet at the view angle', () => {
+    const turned: [Pt, Pt, Pt] = [[0, 0], [0, 1], [-1, 0]] // the page rotated 90°
+    const [o, x] = regionCorners(turned, [0.5, 0, 1, 1])
+    expect(o).toEqual([0, 0.5])
+    expect(x).toEqual([0, 1])
+  })
 })
 
 // A turn of the Gebäudeview moves the PAPER, and a bearing stored on it is relative to that

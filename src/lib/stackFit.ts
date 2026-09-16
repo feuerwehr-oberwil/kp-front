@@ -7,18 +7,32 @@ import { directionalGlyph, directionalGlyph2 } from './planProjection'
 import { turnedBy } from './selectionTransform'
 import type { FloorPackTile } from './floorPackBinding'
 
-/** Place a drawing in the common frame; never independently centre or fit each crop. */
-export function packPagePlacement(frame: [number, number, number, number], tile: FloorPackTile): {
-  corners: [Pt, Pt, Pt]; clip: [number, number, number, number]
-} {
+/** Place a drawing in the common frame; never independently centre or fit each crop. The three
+ *  corners are the whole PAGE's (0,0), (1,0), (0,1) in the tile box — `regionCorners` cuts the
+ *  floor's own rectangle out of that placement. */
+export function packPagePlacement(frame: [number, number, number, number], tile: FloorPackTile): [Pt, Pt, Pt] {
   const [fx0, fy0, fx1, fy1] = frame
   const fw = fx1 - fx0, fh = fy1 - fy0
   const o: Pt = [(tile.shift[0] - fx0) / fw, (tile.shift[1] - fy0) / fh]
-  const [cx0, cy0, cx1, cy1] = tile.clip
-  return {
-    corners: [o, [o[0] + 1 / fw, o[1]], [o[0], o[1] + 1 / fh]],
-    clip: [(cx0 + tile.shift[0] - fx0) / fw, (cy0 + tile.shift[1] - fy0) / fh, (cx1 - cx0) / fw, (cy1 - cy0) / fh],
-  }
+  return [o, [o[0] + 1 / fw, o[1]], [o[0], o[1] + 1 / fh]]
+}
+
+/**
+ * Where ONE REGION of a page lands, given the page's own placement: the region's three corners
+ * in the same frame, `region` being [x0, y0, x1, y1] of the page.
+ *
+ * The storey tile rasterises its region ALONE (components/PdfViewport · planRegionUrl, so the
+ * drawing gets the whole pixel budget instead of its share of a page raster), and this is where
+ * that raster goes. An affine placement, so it holds for the pack's axis-aligned frame and for a
+ * footprint stack's turned page alike; a whole page ([0, 0, 1, 1]) comes back unchanged.
+ */
+export function regionCorners(corners: [Pt, Pt, Pt], region: readonly [number, number, number, number]): [Pt, Pt, Pt] {
+  const [o, px, py] = corners
+  const [x0, y0, x1, y1] = region
+  const ex: Pt = [px[0] - o[0], px[1] - o[1]]
+  const ey: Pt = [py[0] - o[0], py[1] - o[1]]
+  const at = (x: number, y: number): Pt => [o[0] + x * ex[0] + y * ey[0], o[1] + x * ex[1] + y * ey[1]]
+  return [at(x0, y0), at(x1, y0), at(x0, y1)]
 }
 
 /**

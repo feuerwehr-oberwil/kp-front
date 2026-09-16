@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { MutableRefObject } from 'react'
 import type { BuildingDoc, PlanDocument } from '../types'
-import { FIT_VIEW, boardViewSignature, resumeBoardView, useBoardView, type BoardView, type BoardViews } from './useBoardView'
+import { FIT_VIEW, MAX_SCALE, MAX_SCALE_STACK, boardViewSignature, resumeBoardView, useBoardView, type BoardView, type BoardViews } from './useBoardView'
 
 const modul: PlanDocument = {
   id: 'm23', code: 'Modul 2-3', title: 'Angriff', subtitle: '', imageUrl: '/plans/m23.pdf',
@@ -95,5 +95,25 @@ describe('useBoardView · the per-plan memory', () => {
 
     const back = mount(views, 'm23', 'sig-after-a-new-scan')
     expect(back.result.current).toMatchObject({ scale: 1, pos: { x: 0, y: 0 } })
+  })
+})
+
+// A storey tile is 1/N of the board, so the same ceiling puts a five-storey stack at a fifth of
+// the magnification a Modul sheet reaches — «Gebäude könnte eine Zoomstufe mehr vertragen»
+// (Bastian, 16.09.2026). One more press, and only on the stack.
+describe('useBoardView · the zoom ceiling', () => {
+  const ref: MutableRefObject<HTMLDivElement | null> = { current: document.createElement('div') }
+  const pressPlus = (h: { result: { current: { zoom: (f: number) => void } } }) =>
+    act(() => { for (let i = 0; i < 20; i++) h.result.current.zoom(1.3) })
+
+  it('holds a sheet at MAX_SCALE and lets the floor-stack one step past it', () => {
+    const sheet = renderHook(() => useBoardView(ref, null))
+    pressPlus(sheet)
+    expect(sheet.result.current.scale).toBe(MAX_SCALE)
+
+    const stack = renderHook(() => useBoardView(ref, null, undefined, MAX_SCALE_STACK))
+    pressPlus(stack)
+    expect(stack.result.current.scale).toBe(MAX_SCALE_STACK)
+    expect(MAX_SCALE_STACK).toBeCloseTo(MAX_SCALE * 1.3, 6) // exactly one press of «+»
   })
 })

@@ -6,8 +6,8 @@ import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
 import { Palette } from './Palette'
-import { PdfViewport, planMatcherImage, planPreviewUrl, planPrintedMPerU, prewarmPlans } from './PdfViewport'
-import { floorPageSide, pageCanvasBudget } from '../lib/pdfRenderBudget'
+import { FloorPage } from './FloorPage'
+import { PdfViewport, planMatcherImage, planPrintedMPerU, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
@@ -69,7 +69,7 @@ import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler,
 import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
 import { PlanLiveLayer } from './PlanLiveLayer'
 import type { LiveMark } from '../lib/planProjection'
-import { MAX_SCALE, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
+import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
@@ -498,11 +498,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const viewMemory = views
     ? { views, planId: activeId, signature: boardViewSignature(active, building, planScale[activeId]) }
     : undefined
-  const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl, viewMemory)
+  // floor-stack: a vertical stack of footprint sheets (top = highest storey). Read before the
+  // view hook because the stack zooms one step deeper than a sheet does (see MAX_SCALE_STACK).
+  const stack = !!(active.floorStack && building && building.floors.length)
+  const maxScale = stack ? MAX_SCALE_STACK : MAX_SCALE
+  const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl, viewMemory, maxScale)
 
   const osm = active.osm
-  // floor-stack: a vertical stack of footprint sheets (top = highest storey)
-  const stack = !!(active.floorStack && building && building.floors.length)
   const floorsTTB = useMemo(() => (stack ? [...building!.floors].sort((a, b) => b - a) : []), [stack, building])
   const N = floorsTTB.length || 1
   const blank = !active.imageUrl && !osm && !stack
@@ -3145,9 +3147,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         const tile = floorPack.tiles[f]
                         if (building.pack) {
                           // the tile box IS the reference frame: the floor's page is laid into it shifted by its
-                          // anchor difference and clipped to its own drawing (lib/floorPackBinding)
-                          const placement = packPagePlacement(building.pack.frame ?? [0, 0, 1, 1], tile)
-                          return <FloorPage key={`${f}:${tile.url}`} url={tile.url} {...placement} clipId={`fp-${active.id}-${f}`} w={fpBox.w} h={fpBox.h} floors={N} />
+                          // anchor difference, and only its OWN drawing is rendered (lib/floorPackBinding)
+                          const corners = packPagePlacement(building.pack.frame ?? [0, 0, 1, 1], tile)
+                          return <FloorPage key={`${f}:${tile.url}`} url={tile.url} corners={corners} region={tile.clip} w={fpBox.w} h={fpBox.h} floors={N} />
                         }
                         // a footprint stack places the whole page through the fits
                         const corners = pagePlacement(building, shownAngle, floorPack.fit!)
@@ -3909,7 +3911,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           {readOnly && (!slimRail || isPhone) && (
             <div className="wb-zoom wb-zoom-float" onPointerDown={(e) => e.stopPropagation()}>
               <button onClick={() => zoom(1 / 1.3)} disabled={scale <= MIN_SCALE} title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut}><Icon id="minus" /></button>
-              <button onClick={() => zoom(1.3)} disabled={scale >= MAX_SCALE} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><Icon id="plus" /></button>
+              <button onClick={() => zoom(1.3)} disabled={scale >= maxScale} title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn}><Icon id="plus" /></button>
               <button className="wb-fit" onClick={() => applyView(1, { x: 0, y: 0 })} disabled={scale === 1 && pos.x === 0 && pos.y === 0} title={appConfig.copy.nav.fit}>{appConfig.copy.whiteboard.fit}</button>
             </div>
           )}
@@ -4018,7 +4020,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   on every touch form factor, and «Einpassen» above covers the one state that
                   matters. */}
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
-              <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= MAX_SCALE} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
+              <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= maxScale} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
               {/* Gebäude rotation — only on a floor-stack that was auto-rotated. The SAME
                   popover the north dial opens (30.08.): slider + named-angle chips; two doors,
                   one room, one visible control instead of a hidden drag. */}
@@ -4598,42 +4600,4 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {georefArmed && !isPhone && <GeorefSplitSeam />}
     </div>
   )
-}
-
-/** One storey's Geschossplan page under its tile: the page raster (PdfViewport · planPreviewUrl,
- *  which honours the URL's `#page=N`) drawn as a unit square mapped onto the page's three corners
- *  in the footprint box – a similarity, so the page turns and scales with the building. */
-function FloorPage({ url, corners, clip, clipId, w, h, floors }: {
-  url: string; corners: [[number, number], [number, number], [number, number]]
-  /** the visible part, in the frame's 0..1 box [x, y, w, h] – a region of a multi-floor sheet */
-  clip?: [number, number, number, number]; clipId?: string
-  /** how many storey tiles the stack has – they SHARE one pixel budget (lib/pdfRenderBudget) */
-  w: number; h: number; floors: number
-}) {
-  const [src, setSrc] = useState<string | null>(null) // keyed by url in the parent – a new page mounts anew
-  // ⚠️ ONE raster per page, at a FIXED size, and the stack's storeys share one pixel budget
-  // (15.09.2026, after an iPhone lost the tab on a five-storey A1 pack).
-  //  · fixed, not the tile's on-screen size: `sW` grows with the zoom, so asking in it minted a
-  //    new bake, a new JPEG and a new decoded image at EVERY zoom tick, eight held at once,
-  //    on a surface that draws one per storey.
-  //  · bigger than the tile all the same — the stack zooms to 4× and a tile-sized raster was
-  //    mush at 2× (Bastian, 15.09.) — but bounded: `FLOOR_PAGE_SIDE` is the ceiling and the
-  //    device's own budget divided by the storey count is the floor under it. An A1 storey is
-  //    then ~1450 × 2048 px (12 MB) instead of 4096 × 5799 (95 MB, and past what iOS draws).
-  // Past that the CSS scales the bitmap: a slightly soft plan is readable, a killed tab is not.
-  const side = floorPageSide(floors)
-  useEffect(() => {
-    let alive = true
-    void planPreviewUrl(url, side, side, side, pageCanvasBudget(floors)).then((u) => { if (alive) setSrc(u) }).catch(() => { /* the outline alone, as before */ })
-    return () => { alive = false }
-  }, [url, side, floors])
-  if (!src) return null
-  const [o, px, py] = corners
-  const m = [(px[0] - o[0]) * w, (px[1] - o[1]) * h, (py[0] - o[0]) * w, (py[1] - o[1]) * h, o[0] * w, o[1] * h]
-  const image = <image href={src} width={1} height={1} preserveAspectRatio="none" className="wb-floor-page" transform={`matrix(${m.map((v) => v.toFixed(4)).join(' ')})`} />
-  if (!clip || !clipId) return image
-  return <>
-    <clipPath id={clipId}><rect x={clip[0] * w} y={clip[1] * h} width={clip[2] * w} height={clip[3] * h} /></clipPath>
-    <g clipPath={`url(#${clipId})`}>{image}</g>
-  </>
 }

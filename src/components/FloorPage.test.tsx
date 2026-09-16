@@ -1,0 +1,61 @@
+// @vitest-environment jsdom
+import { render, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { FloorPage } from './FloorPage'
+import { FLOOR_PAGE_SIDE, pageCanvasBudget } from '../lib/pdfRenderBudget'
+import type { Pt } from '../lib/footprint'
+
+/* The storey tile renders ITS OWN rectangle of the sheet (16.09.2026). Two things must hold, and
+ * both were bugs once: the raster is asked for by REGION (a page raster clipped to a fifth of an
+ * A1 was a fifth as sharp as the same sheet on Modul 6), and it is never asked for in the tile's
+ * on-screen size (the tile grows with the zoom, and a bake per pinch tick is what jetsammed a
+ * phone on 15.09.). */
+
+const planRegionUrl = vi.fn(() => Promise.resolve('data:image/jpeg;base64,AAAA'))
+vi.mock('./PdfViewport', () => ({ planRegionUrl: (...args: unknown[]) => planRegionUrl(...(args as [])) }))
+
+// the page laid into the tile box 1:1, and the storey's drawing on the left-hand 40 % of it
+const PAGE: [Pt, Pt, Pt] = [[0, 0], [1, 0], [0, 1]]
+const EG: [number, number, number, number] = [0.1, 0.2, 0.5, 0.6]
+
+const sheet = (ui: React.ReactNode) => render(<svg viewBox="0 0 400 300">{ui}</svg>)
+
+afterEach(() => { planRegionUrl.mockClear() })
+
+describe('FloorPage', () => {
+  it('asks for the storey\'s own region, at the storeys\' share of the budget', async () => {
+    sheet(<FloorPage url="/plans/pack.pdf#page=2" corners={PAGE} region={EG} w={400} h={300} floors={5} />)
+    await waitFor(() => expect(planRegionUrl).toHaveBeenCalled())
+    const [url, clip, budget, maxSide] = planRegionUrl.mock.calls[0] as unknown as [string, number[], number, number]
+    expect(url).toBe('/plans/pack.pdf#page=2')
+    expect(clip).toEqual(EG)
+    expect(budget).toBe(pageCanvasBudget(5)) // five storeys, one document's worth between them
+    expect(maxSide).toBe(FLOOR_PAGE_SIDE)
+  })
+
+  it('does not re-bake when the tile grows – the zoom must never reach the raster', async () => {
+    const { rerender } = sheet(<FloorPage url="/p.pdf" corners={PAGE} region={EG} w={400} h={300} floors={3} />)
+    await waitFor(() => expect(planRegionUrl).toHaveBeenCalledTimes(1))
+    rerender(<svg viewBox="0 0 400 300"><FloorPage url="/p.pdf" corners={PAGE} region={EG} w={3200} h={2400} floors={3} /></svg>)
+    await Promise.resolve()
+    expect(planRegionUrl).toHaveBeenCalledTimes(1)
+  })
+
+  it('covers the region 1:1 – the raster IS the drawing, so nothing is clipped away', async () => {
+    const { container } = sheet(<FloorPage url="/p.pdf" corners={PAGE} region={EG} w={400} h={300} floors={2} />)
+    const img = await waitFor(() => {
+      const el = container.querySelector('image')
+      expect(el).toBeTruthy()
+      return el!
+    })
+    // the unit square lands on the region: 0.4 × 0.4 of a 400 × 300 box, offset by (0.1, 0.2)
+    expect(img.getAttribute('transform')).toBe('matrix(160.0000 0.0000 0.0000 120.0000 40.0000 60.0000)')
+    expect(container.querySelector('clipPath')).toBeNull()
+  })
+
+  it('renders the whole page when a storey has no rectangle of its own', async () => {
+    sheet(<FloorPage url="/p.pdf" corners={PAGE} w={400} h={300} floors={1} />)
+    await waitFor(() => expect(planRegionUrl).toHaveBeenCalled())
+    expect((planRegionUrl.mock.calls[0] as unknown as [string, number[]])[1]).toEqual([0, 0, 1, 1])
+  })
+})

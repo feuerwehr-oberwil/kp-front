@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   CANVAS_MAX_SIDE, MAX_CANVAS_PX, SMALL_DEVICE_DOC_PX, SMALL_DEVICE_PX,
-  FLOOR_PAGE_SIDE, floorPageSide, pageCanvasBudget, rasterSide, renderScale, smallMemoryDevice,
+  FLOOR_PAGE_SIDE, pageCanvasBudget, rasterSide, regionRaster, renderScale, smallMemoryDevice,
 } from './pdfRenderBudget'
 
 /* The one ceiling every pdf.js render site in the app renders under (15.09.2026). An A1
@@ -91,19 +91,49 @@ describe('rasterSide – one bitmap per page, scaled by CSS from there', () => {
   })
 })
 
-describe('floorPageSide – what one storey of a Gebäude stack may raster', () => {
-  it('is bounded by the ceiling, never by the tile\'s zoomed size', () => {
-    withDeviceMemory(16)
-    expect(floorPageSide(1)).toBe(FLOOR_PAGE_SIDE)
-    expect(floorPageSide(5)).toBe(FLOOR_PAGE_SIDE)
-    // …and well under the 3600 px the stack asked for before (15.09.2026)
-    expect(floorPageSide(5)).toBeLessThan(3600)
-  })
-  it('divides the phone\'s budget between the storeys, so the stack costs one sheet', () => {
+describe('regionRaster – the storey tile renders its REGION, not the page it sits on', () => {
+  // Dreilinden EG: the ground floor covers 62 % × 22 % of the A1 sheet the pack was exported from
+  const EG: [number, number, number, number] = [0.19, 0.08, 0.81, 0.30]
+  const across = (r: { width: number }) => r.width // px across the drawing, which is what «schärfer» means
+
+  it('gives the drawing the pixels the whole page used to get', () => {
     withDeviceMemory(2)
-    const side = floorPageSide(8)
-    expect(side).toBeLessThan(FLOOR_PAGE_SIDE)
-    const perFloor = (side / Math.SQRT2) * side // w × h of one A-format raster
-    expect(perFloor * 8 * 4).toBeLessThan(70 * 1024 * 1024) // bytes of decoded RGBA, all storeys
+    const budget = pageCanvasBudget(5) // five storeys share the phone's document budget
+    const region = regionRaster(A1_W, A1_H, EG, budget)
+    // what the same storey got when the page was baked and the tile clipped out of it
+    const pageSide = Math.min(FLOOR_PAGE_SIDE, rasterSide(A1_H / A1_W, budget))
+    const clipped = (pageSide / (A1_H / A1_W)) * (EG[2] - EG[0])
+    expect(across(region)).toBeGreaterThan(clipped * 2) // ≥ 2× the pixels across the drawing
+    expect(across(region)).toBeLessThanOrEqual(FLOOR_PAGE_SIDE)
+  })
+
+  it('never spends more than the budget it was handed, so five storeys cost one page', () => {
+    withDeviceMemory(2)
+    const budget = pageCanvasBudget(5)
+    const region = regionRaster(A1_W, A1_H, EG, budget)
+    expect(region.width * region.height).toBeLessThanOrEqual(budget)
+    expect(region.width * region.height * 5).toBeLessThanOrEqual(SMALL_DEVICE_DOC_PX)
+    expect(region.width * region.height * 5 * 4).toBeLessThan(70 * 1024 * 1024) // bytes of RGBA
+  })
+
+  it('stops at the storey ceiling rather than magnifying a small crop without end', () => {
+    withDeviceMemory(16) // a desktop: the budget alone would allow far more
+    const tiny = regionRaster(A1_W, A1_H, [0.4, 0.4, 0.45, 0.45], pageCanvasBudget(5))
+    expect(Math.max(tiny.width, tiny.height)).toBe(FLOOR_PAGE_SIDE)
+  })
+
+  it('shifts the rest of the page off the canvas — no full-page buffer is ever allocated', () => {
+    const r = regionRaster(A1_W, A1_H, EG, MAX_CANVAS_PX)
+    expect(r.offsetX).toBeCloseTo(-EG[0] * A1_W * r.scale, 6)
+    expect(r.offsetY).toBeCloseTo(-EG[1] * A1_H * r.scale, 6)
+    expect(r.width).toBe(Math.round((EG[2] - EG[0]) * A1_W * r.scale))
+    expect(r.height).toBe(Math.round((EG[3] - EG[1]) * A1_H * r.scale))
+  })
+
+  it('is the whole page when the whole page is the region', () => {
+    const whole = regionRaster(A1_W, A1_H, [0, 0, 1, 1], MAX_CANVAS_PX)
+    expect(whole.offsetX).toBe(-0)
+    expect(Math.max(whole.width, whole.height)).toBe(FLOOR_PAGE_SIDE)
+    expect(whole.width / whole.height).toBeCloseTo(A1_W / A1_H, 2)
   })
 })

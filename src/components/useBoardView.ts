@@ -20,6 +20,12 @@ export const MIN_SCALE = 0.6
  *  which is the whole reason anybody zooms a plan in the first place. The board re-rasterizes at
  *  the real zoom (layout, not a CSS transform), so the extra step costs sharpness nothing. */
 export const MAX_SCALE = 8
+/** …and one press MORE on the Gebäude floor-stack (16.09.2026). A storey tile is 1/N of the
+ *  board, so at MAX_SCALE one storey of a five-storey stack is only as big on the glass as a
+ *  Modul sheet is at 1.6 — «Gebäude könnte eine Zoomstufe mehr vertragen» (Bastian). The step is
+ *  affordable now that a storey rasterises its OWN drawing at the budget a whole page gets
+ *  (components/FloorPage), which is ~2.3× the pixels across the drawing it had before. */
+export const MAX_SCALE_STACK = 10.4
 
 /** A board view as it is remembered: the layout zoom, the pan offset in canvas px, and the
  *  `sig` the plan had when it was put away (see boardViewSignature). */
@@ -72,6 +78,8 @@ export function useBoardView(
    *  Scope mirrors the Lage map's `viewRef`: device-local and incident-scoped, never the synced
    *  workspace — a viewer's zoom is nobody else's business, and it does not survive a reload. */
   memory?: { views: MutableRefObject<BoardViews>; planId: string; signature: string },
+  /** this board's zoom ceiling — the floor-stack's is one step higher than a sheet's */
+  maxScale: number = MAX_SCALE,
 ) {
   const initial = memory ? resumeBoardView(memory.views.current[memory.planId], memory.signature) : FIT_VIEW
   const [scale, setScale] = useState(initial.scale)
@@ -99,7 +107,7 @@ export function useBoardView(
     // work) must not yank the view you are looking at — it is compared on the way back in.
   }, [memory?.planId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const clamp = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s))
+  const clamp = (s: number) => Math.min(maxScale, Math.max(MIN_SCALE, s))
   // zoom keeping a focal point fixed — cursor for the wheel, centre for the buttons
   const zoomTo = (factor: number, mx?: number, my?: number) => {
     const el = canvasRef.current; if (!el) return

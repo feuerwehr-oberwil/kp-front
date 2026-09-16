@@ -14,7 +14,7 @@ import pdfWorkerShimUrl from '../lib/pdfWorkerEntry?worker&url'
 import { RetryButton } from './RetryButton'
 import s from './PdfViewport.module.css'
 import { pdfPageOf } from '../lib/whiteboard'
-import { pageCanvasBudget, rasterSide, renderScale } from '../lib/pdfRenderBudget'
+import { FLOOR_PAGE_SIDE, pageCanvasBudget, rasterSide, regionRaster, renderScale } from '../lib/pdfRenderBudget'
 
 // The worker asset's URL, remembered for the diagnosis path: when a PDF fails, whether that
 // file is still being served is the single most telling fact we can gather (lib/pdfDiagnosis).
@@ -129,10 +129,13 @@ export async function planPrintedMPerU(url: string): Promise<number | null> {
 }
 
 // Forget everything cached for one plan URL — the «Erneut laden» tap goes through here
-// so the re-bake starts from a clean fetch instead of a stuck/rejected promise.
+// so the re-bake starts from a clean fetch instead of a stuck/rejected promise. The page
+// raster, every region raster of it and the data URLs made from them: a retry that left a
+// stale JPEG behind would redraw exactly the picture the operator asked to be rid of.
 export function evictPlan(url: string) {
   docCache.get(docKey(url))?.destroy()
   bitmapCache.delete(url)
+  for (const key of [...previewCache.keys()]) if (key.startsWith(`${url}@`)) previewCache.delete(key)
 }
 
 /**
@@ -395,7 +398,8 @@ export function prewarmPlans(urls: string[], vw: number, vh: number, near: strin
 // orientations; anything older is cheaper to re-bake than to hold.
 // ⚠️ 8, not 4, and it has to stay ≥ the storeys of a floor stack: five keys in a four-slot map
 // evict one on every render and re-bake it forever. What was dangerous about the stack was never
-// the COUNT but the SIZE — 3600 px a storey; each entry is now bounded by `floorPageSide`.
+// the COUNT but the SIZE — 3600 px a storey; every entry is now bounded by the render budget
+// (lib/pdfRenderBudget), the stack's storeys sharing one document's worth of it.
 const PREVIEW_CAP = 8
 const previewCache = new Map<string, Promise<string>>()
 export function planPreviewUrl(url: string, vw: number, vh: number, maxSide = 1800, budgetPx = pageCanvasBudget()): Promise<string> {
@@ -428,6 +432,90 @@ export function planPreviewUrl(url: string, vw: number, vh: number, maxSide = 18
     previewCache.delete(oldest) // the data URL is GC'd once no map source holds it
   }
   return p
+}
+
+/**
+ * ONE REGION of a page as a JPEG data URL — what a Gebäude storey tile draws.
+ *
+ * Not `planPreviewUrl` + a clip-path: a storey that covers a fifth of an A1 got a fifth of the
+ * page raster's pixels, so the stack read visibly softer than the very same sheet opened whole
+ * on Modul 6 (Bastian, 16.09.2026). Here pdf.js draws into a canvas the size of the REGION, the
+ * rest of the page shifted off it by the viewport's offset — no full-page buffer is allocated at
+ * any moment, and the region spends the whole budget the page used to (lib/pdfRenderBudget ·
+ * `regionRaster`). `budgetPx` is the caller's share: a stack passes the document budget divided
+ * by its storeys, so the SUM over the tiles is what one page was allowed.
+ *
+ * ⚠️ No ImageBitmap in between. The tile wants a data URL, and a resident bitmap beside the
+ * JPEG's decoded copy is the same pixels held twice — on the one surface that holds them per
+ * storey. The transient canvas is handed back the instant the JPEG has the pixels.
+ *
+ * ⚠️ Renders are SERIALISED — five storeys rasterising at once is five peaks at the same
+ * moment, and pdf.js hands them to one worker anyway. `alive` is asked again at the head of the
+ * queue, so a stack torn down mid-bake never starts the storeys still waiting behind it (the one
+ * already in the engine is left to finish; it is a single region, and cancelling it saves less
+ * than a half-drawn canvas costs).
+ */
+export function planRegionUrl(
+  url: string,
+  clip: readonly [number, number, number, number],
+  budgetPx = pageCanvasBudget(),
+  maxSide = FLOOR_PAGE_SIDE,
+  alive: () => boolean = () => true,
+): Promise<string> {
+  const key = `${url}@${clip.map((v) => v.toFixed(4)).join(',')}@${maxSide}@${Math.round(budgetPx)}`
+  const cached = previewCache.get(key)
+  if (cached) { previewCache.delete(key); previewCache.set(key, cached); return cached } // touch for LRU
+  const p = regionQueue.then(() => {
+    if (!alive()) throw new Error('region bake dropped')
+    return renderRegion(url, clip, budgetPx, maxSide)
+  })
+  regionQueue = p.catch(() => {}) // one rejection must not break the queue for the storeys behind it
+  p.catch(() => { if (previewCache.get(key) === p) previewCache.delete(key) })
+  previewCache.set(key, p)
+  while (previewCache.size > PREVIEW_CAP) {
+    const oldest = previewCache.keys().next().value
+    if (oldest === undefined) break
+    previewCache.delete(oldest)
+  }
+  return p
+}
+
+let regionQueue: Promise<unknown> = Promise.resolve()
+
+async function renderRegion(
+  url: string,
+  clip: readonly [number, number, number, number],
+  budgetPx: number,
+  maxSide: number,
+): Promise<string> {
+  const pdf = await loadDocTimed(url)
+  // the page of the floor pack this sheet names (`#page=N`); the DOCUMENT is shared across the
+  // stack's storeys, so only the page's own render internals are ever released below
+  const page = await pdf.getPage((pdfPageOf(url) ?? 0) + 1)
+  let task: ReturnType<typeof page.render> | null = null
+  let done = false
+  try {
+    const base = page.getViewport({ scale: 1 })
+    const r = regionRaster(base.width, base.height, clip, budgetPx, maxSide)
+    const canvas = document.createElement('canvas')
+    canvas.width = r.width
+    canvas.height = r.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('no 2d ctx')
+    task = page.render({
+      canvas,
+      canvasContext: ctx,
+      viewport: page.getViewport({ scale: r.scale, offsetX: r.offsetX, offsetY: r.offsetY }),
+    })
+    await task.promise
+    done = true
+    const out = canvas.toDataURL('image/jpeg', 0.86)
+    canvas.width = canvas.height = 0 // the JPEG holds the pixels now
+    return out
+  } finally {
+    if (!done) task?.cancel() // a failed or timed-out bake must not leave pdf.js drawing
+    page.cleanup()
+  }
 }
 
 // Two board-child canvases (they pan/zoom with the board via CSS — instant, no

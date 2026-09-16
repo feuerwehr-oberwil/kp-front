@@ -93,12 +93,42 @@ export function rasterSide(aspect: number, budgetPx: number = pageCanvasBudget()
 }
 
 /** The long side one storey's Geschossplan raster may have on the Gebäude floor-stack.
- *
- *  A ceiling first — 2048 px is ~2× a storey tile on a phone at the 4× zoom and about 1:1 on a
- *  tablet, which is what «not mush at 2×» asked for — and under it the device's own budget
- *  divided by the storeys, because a stack holds one of these PER FLOOR at the same time.
- *  ⚠️ It must not depend on the zoom: the tile grows with it, and asking in tile pixels minted
- *  a fresh bake, JPEG and decoded image at every tick of a pinch (15.09.2026). */
+ *  2048 px is ~2× a storey tile on a phone at full zoom and about 1:1 on a tablet — the ceiling
+ *  that «not mush at 2×» asked for. ⚠️ It must not depend on the zoom: the tile grows with it,
+ *  and asking in tile pixels minted a fresh bake, JPEG and decoded image at every tick of a
+ *  pinch (15.09.2026). */
 export const FLOOR_PAGE_SIDE = 2048
-export const floorPageSide = (floors: number): number =>
-  Math.min(FLOOR_PAGE_SIDE, rasterSide(Math.SQRT2, pageCanvasBudget(Math.max(1, floors))))
+
+/**
+ * The canvas ONE REGION of a page is rendered into, and the pdf.js viewport that puts that
+ * region on it — `clip` is [x0, y0, x1, y1], normalized, top-left origin.
+ *
+ * ⚠️ The REGION gets the budget, not the page. A Gebäude storey that covers a fifth of an A1
+ * used to be cut out of a page raster, so it was shown with a fifth of that raster's pixels
+ * while the same sheet opened whole (Modul 6) spent the entire budget on what you look at —
+ * «Gebäude ist unschärfer und könnte eine Zoomstufe mehr vertragen» (Bastian, 16.09.2026). At
+ * the same budget the region is `1/clipFraction` times denser; the ceiling above still bounds
+ * it, and the caller's `budgetPx` (the document budget divided by the storeys) still bounds
+ * the SUM over a stack — five storeys cost what one page was allowed to.
+ *
+ * Pure: everything pdf.js is told is derived here, so the offset math is testable without it.
+ */
+export function regionRaster(
+  pageWidthPt: number,
+  pageHeightPt: number,
+  clip: readonly [number, number, number, number],
+  budgetPx: number = pageCanvasBudget(),
+  maxSide: number = FLOOR_PAGE_SIDE,
+): { scale: number; width: number; height: number; offsetX: number; offsetY: number } {
+  const w = Math.max(1, (clip[2] - clip[0]) * pageWidthPt)
+  const h = Math.max(1, (clip[3] - clip[1]) * pageHeightPt)
+  const scale = renderScale(w, h, maxSide / Math.max(w, h), 1, budgetPx)
+  return {
+    scale,
+    width: Math.max(1, Math.round(w * scale)),
+    height: Math.max(1, Math.round(h * scale)),
+    // the rest of the page is shifted OFF the canvas — no full-page buffer is ever allocated
+    offsetX: -clip[0] * pageWidthPt * scale,
+    offsetY: -clip[1] * pageHeightPt * scale,
+  }
+}
