@@ -59,6 +59,11 @@ der Geschoss-Marke.
 Liegt nur eine Zeichnung auf der Seite, lässt du sie weg – dann ist die ganze Seite der
 Bereich.
 
+Eine Ecke darf **zusätzlich den Punktnamen** der Zeichnung tragen, die sie umrahmt
+(`§[1OG.A` … `§1OG.A]`). Das braucht es nur, wenn ein Geschoss aus mehreren Zeichnungen besteht
+– dann sagen die Ecken selber, welche Zeichnung sie meinen, statt es der Lage zu überlassen:
+[Ein Geschoss aus mehreren Zeichnungen](#ein-geschoss-aus-mehreren-zeichnungen).
+
 ### 3. Koordinaten – `geo.svg`
 
 ```
@@ -114,28 +119,37 @@ selber – direkt oder über die Kette – am Geschoss 0 hängt. Fehlt er, melde
 `Geschoss +2 hat keinen gemeinsamen Verbindungspunkt`; das Geschoss bleibt unverbunden und
 muss im Admin von Hand verbunden werden.
 
-Eckmarken tragen **keinen** Punktnamen (`§[1OG`, nicht `§[1OG.B`): ein Grundriss hat einen
-Bereich, egal wie viele Treppenhäuser er hat.
+Eine Eckmarke darf denselben Punktnamen tragen wie die Geschoss-Marke der Zeichnung, die sie
+umrahmt – `§[1OG.B` … `§1OG.B]` gehören zu `§1OG.B`. Bei **einer** Zeichnung pro Geschoss braucht
+es das nicht (`§[1OG` genügt, der Grundriss hat einen Bereich, egal wie viele Treppenhäuser er
+hat); bei mehreren ist es der empfohlene Weg – siehe
+[Ein Geschoss aus mehreren Zeichnungen](#ein-geschoss-aus-mehreren-zeichnungen).
 
 ---
 
 ## Ein Geschoss aus mehreren Zeichnungen
 
 Ein langes Gebäude wird oft nicht als ein Grundriss pro Stock gezeichnet, sondern flügelweise:
-das EG passt aufs Blatt, das 1. OG steht als **zwei** Zeichnungen daneben, West und Ost. Dafür
-gibt es **keine neue Marke** – es sind einfach zwei Bereiche desselben Geschosses:
+das EG passt aufs Blatt, das 1. OG steht als **zwei** Zeichnungen daneben, West und Ost. Es sind
+einfach zwei Bereiche desselben Geschosses:
 
-* **ein Eckpaar pro Zeichnung.** `§[1OG` / `§1OG]` um den Westflügel, ein zweites Paar um den
-  Ostflügel. Beide tragen dasselbe Kürzel – die Ecken sagen, wo eine Zeichnung anfängt und
-  aufhört, nicht welches Geschoss sie ist.
 * **eine Geschoss-Marke in jeder Zeichnung, mit eigenem Punktnamen.** Der Westflügel bekommt
   `§1OG.A` – dort, wo im EG `§EG.A` steht – und der Ostflügel `§1OG.B`, am Treppenhaus, das im
   EG `§EG.B` trägt. Jede Zeichnung hängt an ihrem eigenen Punkt.
+* **ein Eckpaar pro Zeichnung, mit demselben Punktnamen.** `§[1OG.A` / `§1OG.A]` um den
+  Westflügel, `§[1OG.B` / `§1OG.B]` um den Ostflügel. **So herum ist es empfohlen:** die Ecken
+  sagen dann selber, zu welcher Zeichnung sie gehören, und es ist egal, wo im Rahmen die
+  Geschoss-Marke sitzt – auch wenn sie an einer Hilfslinie aus dem Grundriss herausragt.
+* **Punktnamen weglassen darfst du trotzdem.** `§[1OG` / `§1OG]` ohne Namen paaren sich wie
+  bisher über die Geometrie – jede obere linke Ecke nimmt die nächste untere rechte rechts
+  unterhalb von ihr –, und die Zeichnung bekommt die Geschoss-Marke, die **innerhalb** ihres
+  Rechtecks liegt. Benannte und unbenannte Paare dürfen auf einem Geschoss gemischt werden.
 * **Nach dem Punktnamen darf ein Name für die Zeichnung stehen**, den die App auf der Kachel
   zeigt: `§1OG.A Westflügel`. Ohne Namen heisst sie «Teil 1», «Teil 2».
 
 ```
 §EG.A Erdgeschoss      §EG.B          §1OG.A Westflügel        §1OG.B Ostflügel
+§[EG          §EG]     §[1OG.A     §1OG.A]     §[1OG.B     §1OG.B]
 ```
 
 Das EG bleibt dabei **eine** Zeichnung mit zwei Treppenhaus-Marken; nur das 1. OG ist geteilt.
@@ -145,7 +159,9 @@ und darum weiterhin eine Passung pro PDF.
 > **Ohne Verbindungspunkt wird nicht geraten.** Zwei Bereiche und nur eine Geschoss-Marke: die
 > zweite Zeichnung sagt nirgends, wo sie liegt, und wird darum nicht übernommen. Der Prüflauf
 > schreibt `§1OG: zweite Zeichnung ohne Verbindungspunkt (§1OG.B fehlt)`. Dasselbe gilt, wenn
-> der Punktname eines Flügels auf keinem anderen Geschoss vorkommt.
+> der Punktname eines Flügels auf keinem anderen Geschoss vorkommt. Bei **benannten** Ecken
+> heisst dieselbe Lücke `Bereichsecken für Ebene +1 · Punkt B, die kein §-Marker erklärt` – das
+> Eckpaar `§[1OG.B` … `§1OG.B]` steht da, die Marke `§1OG.B` dazu fehlt.
 
 In der App bleibt das **ein** Geschoss: eine Kachel im Gebäudestapel, beide Zeichnungen darin,
 jede an ihrem Platz. Auch Symbole, Trupps und Tuschzeichnung bleiben pro Geschoss.
@@ -169,7 +185,8 @@ EG als eine Zeichnung mit zwei Treppenhäusern, 1. OG als West- und Ostflügel.
    desselben Grundrisses und richtig so.
 3. **Eckmarken nur bei mehreren Zeichnungen pro Seite** – und dann konsequent beide, für
    jeden Grundriss. Auch für jede einzelne Zeichnung eines geteilten Geschosses
-   ([Ein Geschoss aus mehreren Zeichnungen](#ein-geschoss-aus-mehreren-zeichnungen)).
+   ([Ein Geschoss aus mehreren Zeichnungen](#ein-geschoss-aus-mehreren-zeichnungen)); dort
+   nimmst du am besten den Punktnamen der Zeichnung mit in die Ecke: `§[1OG.A` … `§1OG.A]`.
 4. **`§GEO` mindestens zweimal, auf dem Geschoss 0** (EG bzw. `§0`). Die Seite mit
    Geschoss 0 ist die Seite, an der die App das Gebäude auf die Karte legt. Zwei Punkte
    ergeben Lage, Massstab und Drehung.
@@ -184,7 +201,12 @@ EG als eine Zeichnung mit zwei Treppenhäusern, 1. OG als West- und Ostflügel.
    nicht exportiert – dann ist der Tag weg. Ebene sichtbar lassen, Text weiss färben.
 7. **Ein Tag ist ein Textobjekt.** Nicht umbrechen, nicht auf einen Pfad legen, keine
    Silbentrennung, keine Sperrung, die Zeichen auseinanderreisst. Zwischen `§GEO`,
-   Ostwert und Nordwert genau ein Leerzeichen.
+   Ostwert und Nordwert genau ein Leerzeichen. Der Server liest die Marken **objektweise**:
+   was in einem Textrahmen steht, gehört zusammen, und was in einem anderen steht, ist eine
+   andere Marke – auch wenn beide auf derselben Grundlinie und nur Millimeter auseinander
+   stehen. Eine Ecke darf darum auch in einem Rahmen mit anderem Text stehen (`§2OG]` neben
+   einer Titelzeile): gelesen wird nur ihr eigenes Wort. Einzige Ausnahme: stehen die Zahlen
+   eines `§GEO` in einem zweiten Rahmen direkt daneben, werden die beiden zusammengefügt.
 
 ---
 
@@ -243,8 +265,8 @@ sample-modul6.pdf: 1 page(s), 8 marker(s)
   p1   §GEO 2612415.6 1264411.2       x=0.4047  y=0.2091   geo       map point 47.530316 7.603506 (WGS84 lat lon)
 
 Floor pack: 2 storey(s), fit page 1, 2 map pair(s)
-  +0 –                page 1   region 0.0285 0.1115 0.4476 0.9128       reference
-  +1 –                page 1   region 0.5285 0.1115 0.9476 0.9128       joins +0
+  +0    –                page 1   region 0.0285 0.1115 0.4476 0.9128       reference
+  +1    –                page 1   region 0.5285 0.1115 0.9476 0.9128       joins +0
   no warnings
 ```
 
@@ -252,7 +274,9 @@ Floor pack: 2 storey(s), fit page 1, 2 map pair(s)
   oben.
 * **Ein Geschoss fehlt** → die Marke liegt in einer ausgeblendeten Ebene, oder der Tag ist
   in zwei Textobjekte zerfallen.
-* **`§GEO` ohne Zahlen** → doppeltes Leerzeichen oder Zeilenumbruch im Textrahmen.
+* **`§GEO` ohne Zahlen** → die Zahlen stehen in einem eigenen Textrahmen, der nicht direkt
+  rechts neben `§GEO` auf derselben Grundlinie sitzt. Zusammenschieben oder in denselben
+  Rahmen schreiben.
 
 Stimmt etwas nicht, steht statt `no warnings` eine Zeile pro Fehler – mit dem Code und dem
 Satz dazu, z. B. `⚠ [corner_missing] §4OG]: Ecke unten rechts fehlt – §[4OG hat kein

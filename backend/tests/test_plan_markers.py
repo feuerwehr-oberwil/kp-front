@@ -1,17 +1,21 @@
 """The § grammar a plan author writes on the sheet, and what a document of them adds up to."""
 
+import ctypes
 from dataclasses import replace
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen.canvas import Canvas
 from sqlalchemy import select
 
 from app.models import ObjectSite
 from app.plan_floors import PlanFloor
 from app.plan_markers import (
+    _runs,
     admin_overrides,
     apply_overrides,
     extract_markers,
@@ -29,12 +33,16 @@ SAMPLE = Path(__file__).resolve().parents[2] / "docs" / "plan-markers" / "sample
 PAGE = (842, 595)  # A4 landscape, points
 
 
-def _pdf(pages: list[list[tuple[float, float, str]]], size: tuple[float, float] = PAGE) -> bytes:
-    """Pages of (x, y, text) in POINTS from the bottom-left – the frame markers are written in."""
+def _pdf(pages: list[list[tuple[float, float, str]]], size: tuple[float, float] = PAGE, font: float = 6) -> bytes:
+    """Pages of (x, y, text) in POINTS from the bottom-left – the frame markers are written in.
+
+    One `drawString` is one TEXT OBJECT, and ReportLab emits them in the order given – which is
+    what lets a fixture reproduce a sheet whose objects come out in draw order, not reading order.
+    """
     buf = BytesIO()
     canvas = Canvas(buf, pagesize=size)
     for page in pages:
-        canvas.setFont("Helvetica", 6)
+        canvas.setFont("Helvetica", font)
         for x, y, text in page:
             canvas.drawString(x, y, text)
         canvas.showPage()
@@ -62,8 +70,11 @@ def _pdf(pages: list[list[tuple[float, float, str]]], size: tuple[float, float] 
         ("§DG", {"kind": "floor", "index": None, "dach": True, "label": "A", "name": "DG"}),
         ("§0 Erdgeschoss", {"kind": "floor", "index": 0, "dach": False, "label": "A", "name": "Erdgeschoss"}),
         ("§-1 Tiefgarage", {"kind": "floor", "index": -1, "dach": False, "label": "A", "name": "Tiefgarage"}),
-        ("§[EG", {"kind": "corner_tl", "index": 0, "dach": False}),
-        ("§1OG]", {"kind": "corner_br", "index": 1, "dach": False}),
+        ("§[EG", {"kind": "corner_tl", "index": 0, "dach": False, "label": ""}),
+        ("§1OG]", {"kind": "corner_br", "index": 1, "dach": False, "label": ""}),
+        # …and a corner MAY name the drawing it delimits (16.09.2026)
+        ("§[1OG.A", {"kind": "corner_tl", "index": 1, "dach": False, "label": "A"}),
+        ("§1og.b]", {"kind": "corner_br", "index": 1, "dach": False, "label": "B"}),
     ],
 )
 def test_the_grammar_is_case_and_whitespace_tolerant(tag, expected):
@@ -102,9 +113,9 @@ def test_a_point_label_follows_the_storey_token_and_never_eats_the_name(tag, exp
     assert parse_tag(tag) == expected
 
 
-@pytest.mark.parametrize("tag", ["§1OG.", "§.B", "§1OG.Verbindungspunkt", "§[1OG.B", "§1OG.B]"])
+@pytest.mark.parametrize("tag", ["§1OG.", "§.B", "§1OG.Verbindungspunkt", "§[1OG.", "§1OG.Nordtreppe]"])
 def test_a_label_the_grammar_rejects_is_never_guessed_at(tag):
-    """A label is 1–8 letters/digits on a STOREY tag – a region corner has one point, not two."""
+    """A label is 1–8 letters/digits, on a storey tag and on a region corner alike."""
     assert parse_tag(tag) is None
 
 
@@ -134,6 +145,120 @@ def test_an_unreadable_tag_is_reported_rather_than_dropped():
     plan = read_plan(_pdf([[(60, 300, "§EG"), (60, 260, "§Keller")]]))
     assert plan is not None and [f.index for f in plan.floors] == [0]
     assert plan.warnings == [{"code": "unknown_tag", "tag": "§Keller", "page": 1}]
+
+
+# ---------------------------------------------------------------------------------------
+# the segmentation: one tag is one TEXT OBJECT (Grenzweg 1 – BLT Tramdepot, 16.09.2026)
+# ---------------------------------------------------------------------------------------
+
+A0 = (3370, 2384)  # points, landscape – the sheet the bug came off
+#: the Tramdepot's own tag layout, to scale: 3.2 pt text objects handed out in DRAW order, which
+#: is nothing like reading order, and several of them sharing one baseline a few mm apart. The
+#: gap-heuristic reader this replaced glued «§[1UG.B» and «§[1UG.A» into one span and placed the
+#: result halfway between them; the corner in the title block swallowed the date beside it.
+TRAMDEPOT = [
+    (1736, 2290, "§[1OG.B"),
+    (613, 545, "§[1OG.A"),
+    (1396, 712, "§[1UG.B"),
+    (647, 714, "§[1UG.A"),  # …the one before it, on the same baseline, 26 mm to the left
+    (2032, 324, "§1OG.A]"),
+    (1927, 13, "§2OG] 08.12.2016 Vun"),  # ONE frame: the corner and the title block's own line
+]
+
+
+TAG_PT = 3.2  # the size the Affinity template sets a tag in
+
+
+def _tiny(items: list[tuple[float, float, str]]) -> bytes:
+    return _pdf([items], A0, font=TAG_PT)
+
+
+def test_two_tiny_tags_on_one_baseline_stay_two_tags_at_their_own_positions():
+    markers = {m.text: m for m in extract_markers(_tiny(TRAMDEPOT))}
+    assert set(markers) == {"§[1OG.B", "§[1OG.A", "§[1UG.B", "§[1UG.A", "§1OG.A]", "§2OG]"}
+    for x, y, drawn in TRAMDEPOT:
+        tag = drawn.split(" ")[0]  # the corner in the title block is only its own token
+        # the marker is the tag's own box centre – half a tag's width right of where it was drawn,
+        # and a hair above its baseline (well inside the tolerance at 3.2 pt on an A0 sheet)
+        assert markers[tag].x == pytest.approx((x + stringWidth(tag, "Helvetica", TAG_PT) / 2) / A0[0], abs=0.002)
+        assert markers[tag].y == pytest.approx(1 - y / A0[1], abs=0.002)
+    # the two on one baseline are 26 mm apart, not one span centred between them
+    assert markers["§[1UG.A"].x < markers["§[1UG.B"].x
+
+
+def test_a_region_corner_never_swallows_the_line_it_shares_a_frame_with():
+    """«§2OG] 08.12.2016 Vun» is one text object on the Tramdepot sheet. A corner tag is exactly
+    its own token, so the corner still sits on the corner and not in the middle of a date."""
+    corner = next(m for m in extract_markers(_tiny(TRAMDEPOT)) if m.text == "§2OG]")
+    assert (corner.kind, corner.index, corner.label) == ("corner_br", 2, "")
+    assert corner.x == pytest.approx(1927 / A0[0], abs=0.004)
+
+
+class _StutteringTextPage:
+    """PDFium as the Tramdepot export drives it: a char list whose TEXT is shorter than it.
+
+    Five glyphs of that A0 sheet map to no character at all. The char list keeps them and
+    ``FPDFText_GetText`` drops them, so ``get_text_range(0, count)`` MUST NOT be indexed
+    positionally – from the first of them on, ``text[i]`` and ``get_charbox(i)`` describe
+    different characters, and the tags at the end of the stream came out with a stranger's
+    letters at a stranger's position. Each char here is (text, box, owning text object).
+    """
+
+    def __init__(self, chars):
+        self.chars = chars
+
+    def count_chars(self):
+        return len(self.chars)
+
+    def get_text_range(self, index=0, count=-1):
+        count = len(self.chars) - index if count == -1 else count
+        return "".join(c for c, _, _ in self.chars[index : index + count])
+
+    def get_charbox(self, index):
+        return self.chars[index][1]
+
+    def get_textobj(self, index):
+        owner = self.chars[index][2]
+        return None if owner is None else SimpleNamespace(raw=ctypes.c_void_p(owner))
+
+
+def _glyphs(text: str, x: float, y: float, owner: int, width: float = 2.0):
+    return [(c, (x + i * width, y, x + (i + 1) * width, y + 3.0), owner) for i, c in enumerate(text)]
+
+
+def test_a_char_pdfium_maps_to_no_letter_does_not_shift_every_tag_after_it():
+    """The actual cause of the Tramdepot misread, in isolation: one unmappable glyph early in the
+    stream, and every box after it belongs to the character before."""
+    chars = [
+        *_glyphs("NEU", 10, 900, 1),
+        ("", (30, 900, 32, 903), 1),  # the glyph with no character – kept here, dropped from text
+        *[("\r", None, None), ("\n", None, None)],
+        *_glyphs("§1OG.A", 100, 500, 2),
+        *[("\r", None, None), ("\n", None, None)],
+        *_glyphs("§EG.B", 700, 200, 3),
+    ]
+    tags = _runs(_StutteringTextPage(chars))
+    assert [text for text, _ in tags] == ["§1OG.A", "§EG.B"]
+    assert tags[0][1] == (100, 500, 112, 503)
+    assert tags[1][1] == (700, 200, 710, 203)
+
+
+def test_a_geo_whose_numbers_the_author_typed_into_a_second_frame_is_still_one_statement():
+    """The ONE merge left across text objects, and the only one: a bare «§GEO» states nothing."""
+    chars = [
+        *_glyphs("§GEO", 100, 500, 1),
+        *[("\r", None, None), ("\n", None, None)],
+        *_glyphs("2612345.6 1264321.2", 110, 500, 2),
+        *[("\r", None, None), ("\n", None, None)],
+        *_glyphs("§EG", 110, 400, 3),  # …two storey tags a hair apart are NOT merged
+        *[("\r", None, None), ("\n", None, None)],
+        *_glyphs("§1OG", 118, 400, 4),
+    ]
+    assert [text for text, _ in _runs(_StutteringTextPage(chars))] == [
+        "§GEO 2612345.6 1264321.2",
+        "§EG",
+        "§1OG",
+    ]
 
 
 # ---------------------------------------------------------------------------------------
@@ -794,6 +919,82 @@ def test_the_reference_storey_itself_may_be_drawn_twice_and_its_sibling_is_place
     assert plan.floors[1].join["to"] == 1  # the EG's east wing hangs on the 1. OG's B point…
     assert plan.floors[2].join["to"] == 0  # …and the 1. OG itself on the EG's west wing, at A
     assert "part" not in plan.floors[2].join
+
+
+#: The same sheet written the way Bastian wrote the Tramdepot's: the corners NAME their drawing.
+#: The 1. OG's west-wing join tag sits inside the EAST wing's rectangle – a leader line, a label
+#: nudged clear of the stairs – so containment alone would hand the west region no point at all.
+NAMED_WINGS = [
+    (60, 560, "§[EG"),
+    (100, 300, "§EG.A Erdgeschoss"),
+    (300, 300, "§EG.B"),
+    (380, 40, "§EG]"),
+    (450, 560, "§[1OG.A"),
+    (700, 320, "§1OG.A Westflügel"),
+    (600, 40, "§1OG.A]"),
+    (660, 560, "§[1OG.B"),
+    (690, 280, "§1OG.B Ostflügel"),
+    (780, 40, "§1OG.B]"),
+]
+
+
+def test_named_region_corners_place_their_drawing_even_when_the_join_tag_sits_elsewhere():
+    """A labelled corner pair belongs to the part whose join tag carries that label – naming beats
+    both nearest-corner pairing and containment (Grenzweg 1 – BLT Tramdepot, 16.09.2026)."""
+    plan = read_plan(_pdf([NAMED_WINGS]))
+    assert plan is not None and plan.warnings == []
+    assert [(f.index, f.part) for f in plan.floors] == [(0, 0), (1, 0), (1, 1)]
+    west, east = plan.floors[1], plan.floors[2]
+    assert (west.name, east.name) == ("Westflügel", "Ostflügel")
+    assert west.clip[2] < east.clip[0]  # the two rectangles, in reading order
+    points = {(m.index, m.label): m.point for m in extract_markers(_pdf([NAMED_WINGS])) if m.kind == "floor"}
+    assert west.join == {"to": 0, "at": points[(1, "A")], "there": points[(0, "A")]}
+    assert east.join == {"to": 0, "at": points[(1, "B")], "there": points[(0, "B")]}
+    # …and the same sheet with UNNAMED corners cannot do it: the west region holds no join tag
+    anonymous = [(x, y, t.replace("[1OG.A", "[1OG").replace("1OG.A]", "1OG]")) for x, y, t in NAMED_WINGS]
+    anonymous = [(x, y, t.replace("[1OG.B", "[1OG").replace("1OG.B]", "1OG]")) for x, y, t in anonymous]
+    loose = read_plan(_pdf([anonymous]))
+    assert loose is not None and [w["code"] for w in loose.warnings] == ["part_without_join"]
+
+
+def test_named_and_unnamed_corner_pairs_may_be_mixed_on_one_storey():
+    """The EG keeps the plain «§[EG» … «§EG]» it has always had while the 1. OG names its wings –
+    a sheet is never made to re-tag what already reads."""
+    plan = read_plan(_pdf([NAMED_WINGS]))
+    assert plan is not None
+    ground = plan.floors[0]
+    assert ground.part == 0 and ground.clip is not None and ground.join is None
+
+
+def test_a_named_region_whose_join_tag_the_sheet_never_states_is_refused_by_name():
+    """«§[1OG.B» … «§1OG.B]» without a «§1OG.B» places nothing – and the warning says which point
+    is missing, instead of «Ecken, die kein §-Marker erklärt» about the whole storey."""
+    pages = [[(x, y, t) for x, y, t in NAMED_WINGS if t != "§1OG.B Ostflügel"]]
+    plan = read_plan(_pdf(pages))
+    assert plan is not None
+    assert [(f.index, f.part) for f in plan.floors] == [(0, 0), (1, 0)]
+    assert {"code": "corner_stray", "storey": 1, "label": "B"} in plan.warnings
+    assert marker_text({"code": "corner_stray", "storey": 1, "label": "B"}) == (
+        "Bereichsecken für Ebene +1 · Punkt B, die kein §-Marker erklärt – ignoriert."
+    )
+    # the storey nobody declared at all still says exactly what it said before
+    assert marker_text({"code": "corner_stray", "storey": 4}) == (
+        "Bereichsecken für Ebene +4, die kein §-Marker erklärt – ignoriert."
+    )
+
+
+def test_a_named_corner_without_its_twin_names_the_tag_the_author_has_to_add():
+    pages = [[(x, y, t) for x, y, t in NAMED_WINGS if t != "§1OG.B]"]]
+    plan = read_plan(_pdf(pages))
+    assert plan is not None
+    assert {
+        "code": "corner_missing",
+        "storey": 1,
+        "tag": "§1OG.B]",
+        "have": "§[1OG.B",
+        "side": "br",
+        "page": 1,
+    } in plan.warnings
 
 
 def test_a_storey_drawn_once_still_keeps_a_point_the_author_put_outside_its_rectangle():

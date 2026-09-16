@@ -113,7 +113,12 @@ to prod.
   floors sharing a label join there, and the chain is resolved in one frame), optional region
   corners `§[EG` / `§EG]` and `§GEO <E> <N>` as ordinary text spans on the sheet; SEVERAL corner
   pairs for one storey are its several drawings (16.09.2026), each holding the one join tag that
-  places it – a second drawing without its own tag is refused (`part_without_join`), never guessed;
+  places it – a second drawing without its own tag is refused (`part_without_join`), never guessed.
+  A corner pair MAY name its drawing's point (`§[1OG.A` … `§1OG.A]`, 16.09.2026) and then pairs and
+  places by that name, which beats nearest-corner pairing and containment; named and unnamed pairs
+  mix on one storey, and a named pair whose join tag the sheet never states is `corner_stray`.
+  **A tag is one TEXT OBJECT and is read back as one** – PDFium's char stream is NOT positionally
+  aligned with its text, so never index `get_text_range(0, count)` by char index;
   `app/plan_markers.py` is the one grammar, and the alignment worker turns them into the floor
   pack plus – with two or more `§GEO` – the map fit (`reason`/`reference_source` = `markers`).
   A marked fit is the plan author's own statement, so the worker APPROVES it on import through

@@ -6507,7 +6507,9 @@ export const de = {
         no_level_zero: 'Kein §EG / §0 – die Ausrichtungsseite wird aus den markierten Ebenen geraten.',
         no_shared_join: 'Ebene {storey}: kein gemeinsamer Verbindungspunkt mit den übrigen Geschossen.',
         corner_missing: '{tag}: Ecke {side} fehlt – {have} hat kein Gegenstück.',
-        corner_stray: 'Bereichsecken für Ebene {storey}, die kein §-Marker erklärt – ignoriert.',
+        corner_stray: 'Bereichsecken für Ebene {storey}{point}, die kein §-Marker erklärt – ignoriert.',
+        // Der Zusatz, wenn die Ecken einen Punkt nennen: «§[1OG.B» … «§1OG.B]» ohne «§1OG.B».
+        pointClause: ' · Punkt {label}',
         part_without_join: '{tag}: eine weitere Zeichnung ohne Verbindungspunkt ({want} fehlt) – diese Zeichnung wird nicht übernommen.',
         region_off_page: '{tag} (Seite {page}): eine Ecke liegt ausserhalb der Seite ({axis} {value}).',
         region_page_split: 'Ebene {storey}: die Bereichsecken liegen nicht auf der Seite der Zeichnung – Bereich ignoriert.',

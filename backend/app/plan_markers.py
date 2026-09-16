@@ -20,8 +20,9 @@ reads them either way), so a marked-up sheet still prints and opens exactly as b
 **The grammar, exactly.** A marker is one text span starting with ``§``. Case-insensitive,
 whitespace-tolerant. The span's BOUNDING-BOX CENTRE is the point the marker states — its join
 point, its region corner, its geo landmark — so the author positions the text box, not its
-first glyph. The span ends at the line end or at a horizontal gap wider than 1.5 text heights
-(that is where the sheet's other text begins).
+first glyph. **A tag is one TEXT OBJECT** (README, Platzierungsregel 7), and that is how it is
+read back: PDFium's own object boundaries delimit the span, never a gap heuristic over a
+character stream (see `_runs`).
 
 ``EG`` = 0, ``nOG`` = +n, ``nUG`` = −n, ``DG`` = the highest OG + 1 (and +1 when there is no
 OG); the level-0 drawing's page is the pack's ONE fit page, and two or more ``§GEO`` markers on
@@ -33,11 +34,16 @@ that runs from the Tiefgarage to the Dachstock. Two floors that share a label ar
 and the joins chain: EG–1OG at ``A``, 1OG–2OG at ``B`` still lays all three on one frame.
 
 A floor may also be DRAWN SEVERAL TIMES (16.09.2026): a long building whose 1. OG exists as two
-drawings, one per wing. No new grammar — each ``§[1OG`` / ``§1OG]`` corner pair delimits one
-*region* of storey +1, and the region that contains ``§1OG.A`` joins the EG drawing carrying
-``§EG.A`` while the one containing ``§1OG.B`` joins the one carrying ``§EG.B``. The regions of a
-storey are its ``PlanFloor.part``s, in reading order. A second region with no join tag of its own
-is refused (`part_without_join`) rather than guessed at: nothing on the sheet says where it lies.
+drawings, one per wing. Each ``§[1OG`` / ``§1OG]`` corner pair delimits one *region* of storey
++1, and the region that contains ``§1OG.A`` joins the EG drawing carrying ``§EG.A`` while the one
+containing ``§1OG.B`` joins the one carrying ``§EG.B``. The corners may SAY which drawing they
+delimit instead of leaving it to containment — ``§[1OG.A`` … ``§1OG.A]`` are the corners of the
+drawing whose join tag is ``§1OG.A`` — and that is the recommended spelling, because it no longer
+depends on where in the rectangle the author dropped the join tag. Named and unnamed pairs may be
+mixed on one storey. The regions of a storey are its ``PlanFloor.part``s, in reading order. A
+second UNNAMED region with no join tag inside it is refused (`part_without_join`) rather than
+guessed at, and a NAMED pair whose join tag the sheet never states is refused the same way
+(`corner_stray`): nothing on the sheet says where that drawing lies.
 
 This module is pure: it reads bytes and returns a proposal. Who writes it, and what it may
 overwrite, is `plan_alignment_worker`'s business. ``python -m app.plan_markers <pdf>`` prints
@@ -47,13 +53,15 @@ what a given export says, which is the plan author's dry run (``just plan-marker
 from __future__ import annotations
 
 import argparse
+import ctypes
 import math
 import re
 import sys
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from . import storage
 from .geo_util import lv95_to_wgs84
@@ -64,13 +72,12 @@ from .plan_floors import FloorError, PlanFloor, default_fit_page, validate_floor
 MAX_PAGES = 100
 #: a tag longer than this is prose that happens to contain a «§», not a marker
 MAX_TAG_CHARS = 96
-#: a horizontal gap wider than this many text heights ends the span — the sheet's own text
-_BREAK_GAP = 1.5
-#: …and one wider than this is a word space PDFium did not emit as a character of its own
-_SPACE_GAP = 0.8
-#: anything shorter than this fraction of the span's text height is not a glyph but a box
+#: anything shorter than this fraction of the run's tallest glyph is not a glyph but a box
 #: PDFium generated (the space it inserts between two text objects has no height at all)
 _MIN_GLYPH = 0.2
+#: how far to the right of a bare «§GEO» its numbers may sit — in text heights — and still be
+#: the same statement, typed into a second frame (see `_join_geo`)
+_GEO_GAP = 3.0
 #: the point a storey tag states when it names none – «§1OG» ≡ «§1OG.A», so a sheet drawn before
 #: labels existed says «every floor meets every other at A», which is one staircase for all
 DEFAULT_LABEL = "A"
@@ -147,7 +154,9 @@ class Marker:
     #: storey index; None on a ``§DG`` (resolved against the plan's OG storeys) and on non-floors
     index: int | None = None
     dach: bool = False
-    #: which of the floor's points this is – «§1OG.B» → ``"B"``; an unlabelled tag states ``A``
+    #: which of the drawing's points this marker states – «§1OG.B» → ``"B"``. A STOREY tag that
+    #: names none states ``A`` (`DEFAULT_LABEL`); a REGION CORNER that names none states nothing
+    #: (``""``) and is paired with its nearest counterpart rather than by name.
     label: str = DEFAULT_LABEL
     #: the display name after the storey token, when the author wrote one
     name: str | None = None
@@ -229,6 +238,20 @@ def _point_token(token: str) -> tuple[int | None, bool, str] | None:
     return None if storey is None else (storey[0], storey[1], label)
 
 
+def _corner(kind: MarkerKind, token: str) -> dict | None:
+    """``"1OG"`` → the +1 corner, ``"1OG.A"`` → the corner of that storey's «A» drawing.
+
+    A region corner MAY carry the point label of the drawing it delimits (16.09.2026): ``§[1OG.A``
+    … ``§1OG.A]`` are the corners of the drawing whose join tag is ``§1OG.A``. One that names none
+    states ``""`` — not ``A`` — because «no name» is what tells `_pair_regions` to fall back on
+    nearest-corner pairing, and a sheet may mix the two spellings on one storey.
+    """
+    m = _LABEL_RE.match(token.strip())
+    base, label = (m["storey"], m["label"].upper()) if m else (token, "")
+    storey = _storey(base)
+    return None if storey is None else {"kind": kind, "index": storey[0], "dach": storey[1], "label": label}
+
+
 def _geo(rest: str) -> tuple[float, float] | None:
     """``"2612345.6 1264321.2"`` → (lng, lat). LV95 or WGS84, decided by magnitude."""
     nums = _NUMBER_RE.findall(rest)
@@ -254,11 +277,9 @@ def parse_tag(text: str) -> dict | None:
         point = _geo(body[3:])
         return None if point is None else {"kind": "geo", "lng": point[0], "lat": point[1]}
     if body.startswith("["):
-        storey = _storey(body[1:])
-        return None if storey is None else {"kind": "corner_tl", "index": storey[0], "dach": storey[1]}
+        return _corner("corner_tl", body[1:])
     if body.endswith("]"):
-        storey = _storey(body[:-1])
-        return None if storey is None else {"kind": "corner_br", "index": storey[0], "dach": storey[1]}
+        return _corner("corner_br", body[:-1])
     # «1 OG» is one token with a space in it, «0 Erdgeschoss» is a token and a name – so the
     # whole body is offered to the grammar first, and only a body it rejects is split.
     spot = _point_token(body)
@@ -283,40 +304,158 @@ def parse_tag(text: str) -> dict | None:
 # ---------------------------------------------------------------------------------------
 
 
-def _spans(text: str, boxes: list[tuple[float, float, float, float] | None]) -> list[tuple[str, tuple]]:
-    """Every ``§`` run on one page as (text, bbox), in reading order.
+#: a character's box on the page, in PDF space (left, bottom, right, top), y UP
+Box = tuple[float, float, float, float]
 
-    PDFium hands out characters, not spans: a run ends at a line break or where the next glyph
-    sits more than `_BREAK_GAP` text heights away — which is the sheet's own text starting, not
-    the marker continuing. A smaller gap with no space character is the word space PDFium chose
-    not to emit, and is restored, so «§0 Erdgeschoss» survives a two-object export.
+
+@dataclass(frozen=True, slots=True)
+class _Run:
+    """One text object's characters and the box PDFium drew each of them in, index-aligned."""
+
+    text: str
+    boxes: list[Box | None]
+
+    def bbox(self, begin: int, end: int) -> Box | None:
+        """The rectangle ``text[begin:end]`` covers, or None when none of it was placed."""
+        drawn = [b for b in self.boxes[begin:end] if b is not None and b[2] > b[0] and b[3] > b[1]]
+        if not drawn:
+            return None
+        # PDFium gives the space it inserts between two text objects a box with no height at
+        # all; a glyph that small is not part of the tag's rectangle
+        tall = max(b[3] - b[1] for b in drawn)
+        glyphs = [b for b in drawn if b[3] - b[1] >= _MIN_GLYPH * tall] or drawn
+        return (
+            min(b[0] for b in glyphs),
+            min(b[1] for b in glyphs),
+            max(b[2] for b in glyphs),
+            max(b[3] for b in glyphs),
+        )
+
+
+def _object_id(text_page: Any, index: int) -> int | None:
+    """Which TEXT OBJECT drew the character at ``index`` — its handle, as a plain address.
+
+    PDFium hands the same object out as a fresh wrapper per call, and a ctypes pointer compares
+    by Python identity, so the address is the only thing two calls can be asked to agree on.
+    None is a character no object owns: the ``\r\n`` PDFium generates between two objects.
     """
-    out: list[tuple[str, tuple]] = []
-    start = -1
-    while (start := text.find("§", start + 1)) >= 0:
-        first = boxes[start]
-        if first is None or first[2] <= first[0] or first[3] <= first[1]:
-            continue  # a «§» PDFium placed nowhere cannot state a position
-        chars: list[str] = []
-        x0, y0, x1, y1 = first
-        # the span's own text height, and with it every threshold below: a marker set in 2pt
-        # white and the sheet's 20pt title must break at the same RELATIVE distance
-        ref = first[3] - first[1]
-        previous: tuple[float, float, float, float] | None = None
-        for i in range(start, min(len(text), start + MAX_TAG_CHARS)):
-            char, box = text[i], boxes[i]
-            if char in "\r\n":
-                break
-            if box is not None and box[2] > box[0] and box[3] - box[1] >= _MIN_GLYPH * ref:
-                gap = box[0] - previous[2] if previous else 0.0
-                if previous and (gap > _BREAK_GAP * ref or abs(box[1] - previous[1]) > ref):
-                    break
-                if previous and gap > _SPACE_GAP * ref and not (chars and chars[-1].isspace()):
-                    chars.append(" ")
-                x0, y0, x1, y1 = min(x0, box[0]), min(y0, box[1]), max(x1, box[2]), max(y1, box[3])
-                previous, ref = box, max(ref, box[3] - box[1])
-            chars.append(char)
-        out.append(("".join(chars).rstrip(), (x0, y0, x1, y1)))
+    obj = text_page.get_textobj(index)
+    return None if obj is None else ctypes.cast(obj.raw, ctypes.c_void_p).value
+
+
+def _objects(text_page: Any, count: int) -> Iterator[tuple[int, int]]:
+    """The page's characters as one index range per text object, in the document's own order."""
+    start, current = 0, _object_id(text_page, 0)
+    for i in range(1, count):
+        key = _object_id(text_page, i)
+        if key != current:
+            yield start, i
+            start, current = i, key
+    yield start, count
+
+
+def _charbox(text_page: Any, index: int) -> Box | None:
+    try:
+        return text_page.get_charbox(index)
+    except (RuntimeError, ValueError):  # a generated \r\n has no box
+        return None
+
+
+def _object_run(text_page: Any, start: int, stop: int) -> _Run:
+    """One text object's text, with every character's box beside it.
+
+    ⚠️ **PDFium's character list and its text are two different sequences.** Wherever a glyph
+    maps to no character the char list keeps it and ``FPDFText_GetText`` drops it, so
+    ``get_text_range(0, count)`` MUST NOT be indexed positionally: from the first such glyph on,
+    ``text[i]`` and ``get_charbox(i)`` describe different characters. The Tramdepot A0 export
+    (Affinity Designer 2) has five of them near the start of the sheet, which is why every one of
+    its 22 tags used to come out with a stranger's letters and a stranger's position. The text is
+    therefore read per OBJECT — where the two agree for every export seen so far — and re-read
+    character by character whenever the two lengths still disagree.
+    """
+    n = stop - start
+    text = text_page.get_text_range(start, n)
+    if len(text) == n:
+        return _Run(text, [_charbox(text_page, start + i) for i in range(n)])
+    chars = [text_page.get_text_range(start + i, 1) for i in range(n)]
+    return _Run("".join(chars), [_charbox(text_page, start + i) for i, c in enumerate(chars) for _ in c])
+
+
+def _tag_end(text: str, begin: int) -> int:
+    """Where the tag that starts at ``text[begin]`` ends — which is not always the run's end.
+
+    A region corner is exactly its token: the Tramdepot sheet's «§2OG]» stands in the title block
+    right beside «08.12.2016 Vun», and a reader that swallowed the date would place the corner at
+    the middle of the line instead of on the corner. A «§GEO» ends after its second number. Only a
+    storey tag runs on, because its display name may carry spaces — and even that stops where the
+    next «§» begins, so two tags sharing one frame stay two tags.
+    """
+    stop = text.find("§", begin + 1)
+    if stop < 0:
+        stop = len(text)
+    body = text[begin + 1 : stop]
+    head = body.lstrip()
+    offset = stop - len(head)
+    if head.upper().startswith("GEO"):
+        numbers = list(_NUMBER_RE.finditer(head))
+        return offset + (numbers[1].end() if len(numbers) >= 2 else 3)
+    token = head.split()[0] if head.split() else ""
+    return offset + len(token) if token.startswith("[") or token.endswith("]") else stop
+
+
+def _join_geo(runs: list[_Run]) -> list[_Run]:
+    """«§GEO» and the numbers the author typed into a SECOND frame are one statement.
+
+    The one merge this reader still does across text objects, and it is deliberate: a bare «§GEO»
+    states nothing, so the only way it can be a tag at all is with numbers that follow it on the
+    same baseline. Nothing else is merged — two storey tags that happen to share a baseline stay
+    two tags, which is exactly what the gap heuristic this replaced got wrong.
+    """
+    bare = [r for r in runs if r.text.strip().upper() == "§GEO"]
+    if not bare:
+        return runs
+    tails = [(r, r.bbox(0, len(r.text))) for r in runs if r.text.strip() and "§" not in r.text]
+    merged: dict[int, _Run] = {}
+    for run in bare:
+        box = run.bbox(0, len(run.text))
+        near = [(r, b) for r, b in tails if _follows(box, b)]
+        if near:
+            numbers = min(near, key=lambda pair: pair[1][0] if pair[1] else 0.0)[0]
+            merged[id(run)] = _Run(run.text.rstrip() + " " + numbers.text, [*run.boxes, None, *numbers.boxes])
+    return [merged.get(id(r), r) for r in runs]
+
+
+def _follows(geo: Box | None, numbers: Box | None) -> bool:
+    """Does ``numbers`` sit on ``geo``'s baseline, just to its right?"""
+    if geo is None or numbers is None:
+        return False
+    height = geo[3] - geo[1]
+    return abs(numbers[1] - geo[1]) <= 0.4 * height and -0.2 * height <= numbers[0] - geo[2] <= _GEO_GAP * height
+
+
+def _runs(text_page: Any) -> list[tuple[str, Box]]:
+    """Every ``§`` tag on one page as (tag text, bounding box) — one TEXT OBJECT at a time.
+
+    A tag is one text object (README, Platzierungsregel 7), so PDFium's own object boundaries are
+    the segmentation: no gap, line or baseline heuristic decides where a tag starts or stops, and
+    two tiny tags on a shared baseline — or a sheet whose objects come out in a different order
+    than they are drawn — cannot be glued into one span. `_join_geo` is the single documented
+    exception, and `_tag_end` cuts a tag short where its own grammar ends.
+    """
+    count = text_page.count_chars()
+    if not count or "§" not in text_page.get_text_range(0, count):
+        return []  # the overwhelming majority of plan pages, read with one call
+    runs = [_object_run(text_page, start, stop) for start, stop in _objects(text_page, count)]
+    out: list[tuple[str, Box]] = []
+    for run in _join_geo(runs):
+        if "§" not in run.text:
+            continue
+        begin = -1
+        while (begin := run.text.find("§", begin + 1)) >= 0:
+            end = min(_tag_end(run.text, begin), begin + MAX_TAG_CHARS)
+            box = run.bbox(begin, end)
+            if box is not None:  # a «§» PDFium placed nowhere cannot state a position
+                out.append((run.text[begin:end].rstrip(), box))
     return out
 
 
@@ -354,19 +493,12 @@ def _read(source: bytes | str) -> tuple[list[Marker], int]:
                     rotated = bool(getattr(page, "get_rotation", lambda: 0)())
                     text_page = page.get_textpage()
                     try:
-                        count = text_page.count_chars()
-                        text = text_page.get_text_range(0, count) if count else ""
-                        boxes: list[tuple[float, float, float, float] | None] = []
-                        for i in range(len(text)):
-                            try:
-                                boxes.append(text_page.get_charbox(i))
-                            except (RuntimeError, ValueError):  # a generated \r\n has no box
-                                boxes.append(None)
+                        tags = _runs(text_page)
                     finally:
                         text_page.close()
                 finally:
                     page.close()
-                for span, (bx0, by0, bx1, by1) in _spans(text, boxes):
+                for span, (bx0, by0, bx1, by1) in tags:
                     fields = parse_tag(span) or {"kind": "unknown"}
                     markers.append(
                         Marker(
@@ -466,23 +598,36 @@ def _chain(points: dict[Key, dict[str, Marker]], anchor: Key) -> tuple[dict[Key,
 def _pair_regions(corners: list[Marker]) -> tuple[list[tuple[Marker, Marker]], list[Marker]]:
     """Corner marks of ONE storey → its rectangles, plus the corners that found no counterpart.
 
-    Read top-down, then left-right: each ``§[1OG`` takes the NEAREST unclaimed ``§1OG]`` that lies
-    below and to the right of it. Two drawings side by side therefore pair with the corners of
-    their own drawing rather than across the sheet, and a corner whose twin was never drawn is
-    handed back – it costs that one region, exactly as a lone corner always has.
+    A pair that NAMES a point is paired by that name, wherever on the sheet the two sit:
+    ``§[1OG.A`` belongs to ``§1OG.A]``, and together they delimit the drawing the join tag
+    ``§1OG.A`` places. Naming beats geometry, so a sheet whose wings interleave still reads
+    (Grenzweg 1 – BLT Tramdepot, 16.09.2026, where Bastian wrote it this way before the grammar
+    had it). Corners that name nothing keep the pairing they always had: read top-down, then
+    left-right, each ``§[1OG`` takes the NEAREST unclaimed ``§1OG]`` below and to the right of it,
+    so two drawings side by side pair within themselves rather than across the sheet. Named and
+    unnamed pairs may be mixed on one storey. A corner whose twin was never drawn is handed back –
+    it costs that one region, exactly as a lone corner always has.
     """
-    tops = sorted((m for m in corners if m.kind == "corner_tl"), key=lambda m: (round(m.y, 4), round(m.x, 4)))
-    free = [m for m in corners if m.kind == "corner_br"]
     pairs: list[tuple[Marker, Marker]] = []
-    for tl in tops:
+    lonely: list[Marker] = []
+    for label in sorted({m.label for m in corners if m.label}):
+        named = [m for m in corners if m.label == label]
+        tops = [m for m in named if m.kind == "corner_tl"]
+        bottoms = [m for m in named if m.kind == "corner_br"]
+        pairs += list(zip(tops, bottoms, strict=False))
+        lonely += tops[len(bottoms) :] + bottoms[len(tops) :]
+
+    free = [m for m in corners if not m.label and m.kind == "corner_br"]
+    anonymous = (m for m in corners if not m.label and m.kind == "corner_tl")
+    for tl in sorted(anonymous, key=lambda m: (round(m.y, 4), round(m.x, 4))):
         candidates = [m for m in free if m.x > tl.x and m.y > tl.y]
         if not candidates:
             continue
         br = min(candidates, key=lambda m: math.hypot(m.x - tl.x, m.y - tl.y))
         free = [m for m in free if m is not br]
         pairs.append((tl, br))
-    taken = {id(m) for pair in pairs for m in pair}
-    return pairs, [m for m in corners if id(m) not in taken]
+    taken = {id(m) for pair in pairs for m in pair} | {id(m) for m in lonely}
+    return pairs, lonely + [m for m in corners if id(m) not in taken]
 
 
 def _missing_corner(have: Marker) -> MarkerWarning:
@@ -592,28 +737,35 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
             continue
         corners.setdefault(index, []).append(m)
 
-    # …and the corners of one storey become its REGIONS, in reading order. One region (or none) is
-    # the storey drawn once, exactly as every pack before 16.09.2026; two are its two wings.
-    regions: dict[int, list[list[float]]] = {}
+    # …and the corners of one storey become its REGIONS, in reading order, each with the point
+    # label it names (or «» where it names none). One region (or none) is the storey drawn once,
+    # exactly as every pack before 16.09.2026; two are its two wings.
+    regions: dict[int, list[tuple[list[float], str]]] = {}
     for index in sorted(corners):
         if index not in storeys:
             warnings.append(MarkerWarning(code="corner_stray", storey=index))
             continue
         page = storeys[index].page
         rectangles, lonely = _pair_regions(corners[index])
-        boxes: list[list[float]] = []
+        boxes: list[tuple[list[float], str]] = []
         for tl, br in rectangles:
             if tl.page != page or br.page != page:
                 warnings.append(MarkerWarning(code="region_page_split", storey=index, page=page + 1))
                 continue
-            boxes.append([min(tl.x, br.x), min(tl.y, br.y), max(tl.x, br.x), max(tl.y, br.y)])
+            if tl.label and tl.label not in points[index]:
+                # a named pair says WHICH drawing it delimits, and that drawing has to be marked:
+                # «§[1OG.B» … «§1OG.B]» without a «§1OG.B» places nothing, so it is not guessed at
+                warnings.append(MarkerWarning(code="corner_stray", storey=index, label=tl.label))
+                continue
+            boxes.append(([min(tl.x, br.x), min(tl.y, br.y), max(tl.x, br.x), max(tl.y, br.y)], tl.label))
         for have in lonely:
             warnings.append(_missing_corner(have))
-        regions[index] = sorted(boxes, key=lambda c: (round(c[1], 4), round(c[0], 4)))
+        regions[index] = sorted(boxes, key=lambda c: (round(c[0][1], 4), round(c[0][0], 4)))
 
-    # Which point belongs to which drawing: the join tag INSIDE the rectangle. A storey with one
-    # drawing keeps every point it states, wherever on the page the author put the tag – that is
-    # how every existing sheet reads, and nothing here may change it.
+    # Which point belongs to which drawing: the one the region NAMES, and otherwise the join tag
+    # INSIDE the rectangle. A storey with one drawing keeps every point it states, wherever on the
+    # page the author put the tag – that is how every existing sheet reads, and nothing here may
+    # change it.
     parts: dict[Key, dict[str, Marker]] = {}
     clips: dict[Key, list[float] | None] = {}
     for index in sorted(storeys):
@@ -621,21 +773,23 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
         boxes = regions.get(index, [])
         if len(boxes) <= 1:
             parts[(index, 0)] = on
-            clips[(index, 0)] = boxes[0] if boxes else None
+            clips[(index, 0)] = boxes[0][0] if boxes else None
             continue
+        # a named region owns its point outright: no other drawing may claim it by containment
+        named = {label for _, label in boxes if label}
         used, part = set(on), 0
-        for nth, box in enumerate(boxes):
-            mine = {label: m for label, m in on.items() if _inside(m, box)}
+        for nth, (box, label) in enumerate(boxes):
+            mine = {lb: m for lb, m in on.items() if lb == label or (_inside(m, box) and lb not in named)}
             if not mine:
-                label = _free_label(used)
-                used.add(label)
+                free = _free_label(used)
+                used.add(free)
                 warnings.append(
                     MarkerWarning(
                         code="part_without_join",
                         storey=index,
                         part=nth,
                         tag=_storey_tag(index),
-                        want=f"{_storey_tag(index)}.{label}",
+                        want=f"{_storey_tag(index)}.{free}",
                         page=storeys[index].page + 1,
                     )
                 )
@@ -776,7 +930,7 @@ _SAID: dict[str, str] = {
     "no_level_zero": "Kein §EG / §0 – die Ausrichtungsseite wird aus den markierten Ebenen geraten.",
     "no_shared_join": "Ebene {storey}: kein gemeinsamer Verbindungspunkt mit den übrigen Geschossen.",
     "corner_missing": "{tag}: Ecke {side} fehlt – {have} hat kein Gegenstück; ohne beide gilt die ganze Seite.",
-    "corner_stray": "Bereichsecken für Ebene {storey}, die kein §-Marker erklärt – ignoriert.",
+    "corner_stray": "Bereichsecken für Ebene {storey}{point}, die kein §-Marker erklärt – ignoriert.",
     "part_without_join": "{tag}: {nth} Zeichnung ohne Verbindungspunkt ({want} fehlt).",
     "region_off_page": "{tag} (Seite {page}): eine Ecke liegt ausserhalb der Seite ({axis} {value}) – Bereich ignoriert.",
     "region_page_split": "Ebene {storey}: die Bereichsecken liegen nicht auf der Seite der Zeichnung – Bereich ignoriert.",
@@ -802,6 +956,9 @@ def text(warning: MarkerWarning) -> str:
     fields: dict[str, object] = dict(warning)
     if "storey" in warning:
         fields["storey"] = f"{warning['storey']:+d}"
+    # a NAMED region corner says which drawing it was meant to delimit; an unnamed one says «die
+    # Ecken dieser Ebene» and nothing more, so the clause is left out rather than filled with «?»
+    fields["point"] = f" · Punkt {warning['label']}" if warning.get("label") else ""
     if "side" in warning:
         fields["side"] = _SIDE[warning["side"]]
     # a storey drawn ONCE says nothing about drawings at all – which is every pack but a handful
@@ -834,10 +991,9 @@ def _says(m: Marker) -> str:
     """The marker's statement in words – what the CLI prints after its coordinates."""
     if m.kind == "geo":
         return f"map point {m.lat:.6f} {m.lng:.6f} (WGS84 lat lon)"
-    if m.kind == "corner_tl":
-        return f"region top-left of storey {_level(m)}"
-    if m.kind == "corner_br":
-        return f"region bottom-right of storey {_level(m)}"
+    if m.kind in ("corner_tl", "corner_br"):
+        side = "top-left" if m.kind == "corner_tl" else "bottom-right"
+        return f"region {side} of storey {_level(m)}" + (f" point «{m.label}»" if m.label else "")
     if m.kind == "floor":
         point = "" if m.label == DEFAULT_LABEL else f" point «{m.label}»"
         return f"storey {_level(m)}{point}" + (f" «{m.name}»" if m.name else "")

@@ -11,7 +11,8 @@ export type AlignmentStatus = 'pending' | 'processing' | 'ready' | 'needs_review
  */
 export type MarkerWarningCode =
   | 'unknown_tag' | 'page_rotated' | 'duplicate_storey' | 'storey_page_split' | 'no_level_zero'
-  | 'no_shared_join' | 'corner_missing' | 'corner_stray' | 'region_off_page' | 'region_page_split'
+  | 'no_shared_join' | 'corner_missing' | 'corner_stray' | 'part_without_join'
+  | 'region_off_page' | 'region_page_split'
   | 'geo_off_fit_page' | 'geo_duplicate' | 'geo_single' | 'pack_invalid'
 
 /** One warning: its code, plus whichever of these fields that code fills. */
@@ -19,7 +20,12 @@ export interface MarkerWarning {
   code: MarkerWarningCode
   /** signed storey index – 0 = EG, +1 = 1. OG */
   storey?: number
+  /** which DRAWING of that storey, 0-based – only carried when it is not the first */
+  part?: number
+  /** the storey's point label – «A» where the author named none, «» on an unnamed region corner */
   label?: string
+  /** the tag the author still has to write (`part_without_join`) */
+  want?: string
   /** the tag as written, «§» included – the thing the plan author has to go and fix */
   tag?: string
   /** the counterpart that IS on the sheet (`corner_missing`) */

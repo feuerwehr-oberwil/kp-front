@@ -34,7 +34,11 @@ export function markerWarningText(warning: MarkerWarning): string {
   return fillTemplate(template, {
     tag: warning.tag ?? '',
     have: warning.have ?? '',
+    want: warning.want ?? '',
     label: warning.label ?? '',
+    // a NAMED region corner says which drawing it was meant to delimit; an unnamed one says
+    // «die Ecken dieser Ebene» and nothing more, so the clause is left out entirely
+    point: warning.label ? fillTemplate(W.pointClause ?? '', { label: warning.label }) : '',
     page: warning.page ?? '',
     other: warning.other ?? '',
     axis: warning.axis ?? '',
