@@ -535,9 +535,17 @@ def test_the_dry_run_prints_the_storey_a_dach_marker_ended_up_at(tmp_path):
 
 @pytest.mark.skipif(not SAMPLE.is_file(), reason="docs/plan-markers/sample-modul6.pdf not in this checkout")
 def test_the_reference_export_reads_exactly_as_documented():
-    """docs/plan-markers/README.md states these numbers – the parser and the docs agree here."""
-    markers = {m.text: (round(m.x, 4), round(m.y, 4)) for m in extract_markers(SAMPLE.read_bytes())}
-    assert markers == {
+    """docs/plan-markers/README.md states these numbers – the parser and the docs agree here.
+
+    ⚠️ Compared with a tolerance, not as rounded tuples. PDFium's character boxes differ in the
+    last few decimals between architectures, and three of these sit within 1.5e-5 of a `round(.,
+    4)` boundary – «§[1OG».y is 0.11148520 here and 0.1114… on x86-64, which flipped the fourth
+    digit and turned a green suite red on CI alone (16.09.2026). The documented numbers stay
+    exactly as the README prints them; only the comparison stops pretending the measurement is
+    reproducible past them. Same reasoning as the `abs=0.002` above, one order tighter because
+    this fixture is a real export rather than a tag drawn at a known point.
+    """
+    documented = {
         "§[EG": (0.0285, 0.1115),
         "§GEO 2612345.6 1264321.2": (0.0714, 0.8152),
         "§EG": (0.2381, 0.4953),
@@ -547,6 +555,10 @@ def test_the_reference_export_reads_exactly_as_documented():
         "§1OG": (0.7381, 0.4953),
         "§1OG]": (0.9476, 0.9128),
     }
+    markers = {m.text: (m.x, m.y) for m in extract_markers(SAMPLE.read_bytes())}
+    assert set(markers) == set(documented), "a marker the reference export documents went missing"
+    for tag, (x, y) in documented.items():
+        assert markers[tag] == pytest.approx((x, y), abs=2e-4), f"{tag} moved"
     plan = read_plan(SAMPLE.read_bytes())
     assert plan is not None and plan.warnings == []
     assert [f.index for f in plan.floors] == [0, 1] and plan.fit_page == 0
