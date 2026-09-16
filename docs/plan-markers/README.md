@@ -225,16 +225,22 @@ Erzeugt wird es von [`make-sample.py`](make-sample.py).
 
 ## Was danach im Admin passiert
 
-Beim Hochladen oder beim nächsten Sync liest der Server die Marken und legt einen Vorschlag
-an. In der Objektverwaltung steht beim Plan dann **«Vorschlag bereit»**:
+Beim Hochladen oder beim nächsten Sync liest der Server die Marken. Mit mindestens zwei
+`§GEO`-Punkten auf dem Erdgeschoss-Blatt ist der Plan sofort **«Freigegeben»** – die Marken
+sind deine eigene Aussage, niemand muss ihr noch zustimmen. In der Objektverwaltung steht beim
+Plan dann:
 
 * die **Geschossliste ist ausgefüllt** – Seite, Kürzel, Anzeigename, in der Reihenfolge
   vom obersten zum untersten Stock;
 * die **Verbindungspunkte sind gesetzt**, die Geschosse liegen also schon richtig
   übereinander;
-* der **Kartenfit ist vorgeschlagen**, gerechnet aus den `§GEO`-Punkten.
+* der **Kartenfit ist gesetzt**, gerechnet aus den `§GEO`-Punkten, und im Einsatz verwendet.
 
-Du schaust drüber und **speicherst einmal**. Fertig. Stimmt etwas nicht, korrigierst du es
-an Ort und Stelle – der Vorschlag ist ein Vorschlag, keine Sperre.
+Du schaust nur noch drüber. Stimmt etwas nicht, korrigierst du es an Ort und Stelle –
+«Freigabe zurücknehmen» stellt den Plan zurück in die Prüfliste, der Vorschlag bleibt dabei
+erhalten.
+
+Ohne `§GEO` sind die Geschosse trotzdem vorausgefüllt; nur die Karten-Ausrichtung machst du
+dann von Hand.
 
 Ein Blatt ohne Marken funktioniert weiterhin: es wird wie bisher von Hand zugeordnet.

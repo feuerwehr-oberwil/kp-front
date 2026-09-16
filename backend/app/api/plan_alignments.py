@@ -1,19 +1,17 @@
 """Admin review of automatically prepared, immutable PDF page alignments."""
 
-import math
-from datetime import UTC, datetime
-
 import anyio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentAdmin
 from ..database import get_db
-from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanPageFloor, PlanRevision, ReferenceDataset
+from ..models import ObjectSite, PlanAlignment, PlanPageFloor, PlanRevision, ReferenceDataset
 from ..plan_alignment_compute import alignment_capability, render_preview
+from ..plan_approval import ADMIN, ApprovalError, approve_fit, record_change, snapshot
 from ..plan_floors import (
     FloorError,
     PlanFloor,
@@ -67,22 +65,6 @@ class FloorPack(AlignmentMutation):
     fit_page: int | None = Field(default=None, ge=0)
 
 
-def _snapshot(row: PlanAlignment) -> dict:
-    return {
-        "status": row.status,
-        "pairs": row.pairs,
-        "aspect": row.aspect,
-        "scale_m_per_u": row.scale_m_per_u,
-        "score": row.score,
-        "coverage": row.coverage,
-        "reason": row.reason,
-        "approved_at": row.approved_at.isoformat() if row.approved_at else None,
-        "reference_rings": row.reference_rings,
-        "reference_source": row.reference_source,
-        "reference_at": row.reference_at.isoformat() if row.reference_at else None,
-    }
-
-
 async def _item(db: AsyncSession, row: PlanAlignment) -> dict:
     ds = await db.get(ReferenceDataset, row.dataset_id)
     obj = await db.get(ObjectSite, ds.object_id) if ds and ds.object_id else None
@@ -120,7 +102,7 @@ def _serialize_item(
         "created_at": row.created_at,
         "updated_at": row.updated_at,
         "is_current": bool(ds and ds.current_version == row.plan_version),
-        **_snapshot(row),
+        **snapshot(row),
     }
 
 
@@ -218,33 +200,9 @@ async def alignment_preview(
 
 
 async def _change(db: AsyncSession, row: PlanAlignment, edit_version: int, action: str, values: dict) -> dict:
-    """CAS guards even databases without SELECT FOR UPDATE; history and mutation commit together."""
-    previous = _snapshot(row)
-    result = await db.execute(
-        update(PlanAlignment)
-        .where(PlanAlignment.id == row.id, PlanAlignment.edit_version == edit_version)
-        .values(**values, edit_version=PlanAlignment.edit_version + 1, updated_at=datetime.now(UTC))
-        .returning(PlanAlignment.id)
-        .execution_options(synchronize_session=False)
-    )
-    if result.scalar_one_or_none() is None:
+    """One admin decision: the shared CAS-plus-history write (plan_approval.record_change)."""
+    if not await record_change(db, row, edit_version, action, values, actor=ADMIN):
         raise HTTPException(status_code=409, detail="Ausrichtung wurde zwischenzeitlich geändert – neu laden")
-    db.add(
-        PlanAlignmentEvent(
-            alignment_id=row.id,
-            action=action,
-            edit_version=edit_version + 1,
-            snapshot={
-                "before": previous,
-                "after": {
-                    **previous,
-                    **{k: v.isoformat() if isinstance(v, datetime) else v for k, v in values.items()},
-                },
-            },
-        )
-    )
-    await db.flush()
-    await db.refresh(row)
     return await _item(db, row)
 
 
@@ -252,50 +210,14 @@ async def _change(db: AsyncSession, row: PlanAlignment, edit_version: int, actio
 async def approve_alignment(
     item_id: int, body: AlignmentApproval, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ):
+    """«Freigeben»: publish this fit to incidents – the same gate the marker worker passes
+    through when a plan states its own fit (app/plan_approval.py)."""
     row = await _get(db, item_id)
-    manual = body.pairs is not None and all(pair.kind in {"gesetzt", "korrigiert"} for pair in body.pairs)
-    allowed = {"ready", "needs_review"}
-    if manual:
-        # by hand, anything can be (re)aligned – including an approval whose pairs get corrected
-        allowed |= {"no_match", "failed", "unavailable", "unsupported", "rejected", "approved"}
-    if row.status not in allowed:
-        raise HTTPException(status_code=409, detail="Kein Vorschlag zur Freigabe vorhanden")
-    ds = await db.get(ReferenceDataset, row.dataset_id)
-    if ds is not None and ds.object_id is not None:
-        await db.execute(select(ObjectSite).where(ObjectSite.id == ds.object_id).with_for_update())
-        await db.refresh(ds)
-    if ds is None or ds.current_version != row.plan_version:
-        raise HTTPException(status_code=409, detail="Dieser Plan wurde ersetzt – aktuelle Version prüfen")
-    revision = await db.get(PlanRevision, (row.dataset_id, row.plan_version))
-    page_count = await revision_page_count(revision.storage_key, fresh=True) if revision else None
-    if not fit_publishable(page_count, row.page, await load_floors(db, row.dataset_id, row.plan_version)):
-        raise HTTPException(
-            status_code=422, detail="Nur einseitige PDF-Pläne oder Geschoss-Seiten können zentral ausgerichtet werden"
-        )
-    pairs = [p.model_dump() for p in body.pairs] if body.pairs is not None else row.pairs
     try:
-        checked = [GeorefPair.model_validate(p) for p in pairs]
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail="Ungültige Ausrichtung") from exc
-    has_auto = any(pair.kind == "auto" for pair in checked)
-    if (
-        len(checked) < 2
-        or (has_auto and len(checked) != 2)
-        or not row.aspect
-        or not math.isfinite(row.aspect)
-        or row.aspect <= 0
-    ):
-        raise HTTPException(status_code=422, detail="Ungültige Ausrichtung")
-    for i, a in enumerate(checked):
-        for b in checked[i + 1 :]:
-            if a.plan == b.plan or a.lngLat == b.lngLat:
-                raise HTTPException(status_code=422, detail="Ausrichtung braucht verschiedene Punkte")
-    # Preserve the actual origin. Moving an automatic fit must keep its auto markers;
-    # newly placed manual correspondences retain their measured-pair vocabulary.
-    pairs = [p.model_dump() for p in checked]
-    return await _change(
-        db, row, body.edit_version, "approve", {"status": "approved", "pairs": pairs, "approved_at": datetime.now(UTC)}
-    )
+        await approve_fit(db, row, body.pairs, actor=ADMIN, edit_version=body.edit_version)
+    except ApprovalError as refused:
+        raise HTTPException(status_code=refused.status_code, detail=refused.detail) from refused
+    return await _item(db, row)
 
 
 @router.post("/{item_id}/reject")

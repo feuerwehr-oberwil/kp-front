@@ -110,9 +110,11 @@ to prod.
   floors sharing a label join there, and the chain is resolved in one frame), optional region
   corners `§[EG` / `§EG]` and `§GEO <E> <N>` as ordinary text spans on the sheet;
   `app/plan_markers.py` is the one grammar, and the alignment worker turns them into the floor
-  pack plus – with two or more `§GEO` – a `ready` fit (`reason`/`reference_source` = `markers`).
-  It stays a PROPOSAL: markers never publish, never move an approved fit, and never overwrite a
-  pack the admin built by hand. Each row keeps the proposal it was born from
+  pack plus – with two or more `§GEO` – the map fit (`reason`/`reference_source` = `markers`).
+  A marked fit is the plan author's own statement, so the worker APPROVES it on import through
+  the one shared gate (`app/plan_approval.py`, 16.09.2026) – the admin checks instead of
+  approving; without `§GEO` only the floors are pre-filled and the fit stays a proposal. Markers
+  never move an approved fit, and never overwrite a pack the admin built by hand. Each row keeps the proposal it was born from
   (`plan_page_floors.marker`), so the next re-export follows the markers where they moved and
   re-applies, by storey index, every name/region/join a human had corrected. `just plan-markers
   <pdf>` is the author's dry run; the tag grammar for humans is `docs/plan-markers/README.md`.

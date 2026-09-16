@@ -1,4 +1,9 @@
-"""Lease one durable alignment job at a time; completion never publishes a revision."""
+"""Lease one durable alignment job at a time; a computed fit never publishes itself.
+
+The one exception, and it is not the worker's own judgement: a plan that states its fit in its
+own ``§GEO`` markers is approved on import (``approve_marker_fit`` → ``plan_approval``), because
+that fit is the plan author's statement and not a matcher's guess.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ from .plan_alignment_compute import (
     module_is_floor_pack,
     render_page,
 )
+from .plan_approval import MARKERS, ApprovalError, approve_fit
 from .plan_floors import FloorError, load_floors, replace_floors, validate_floors
 from .plan_markers import MarkerPlan, admin_overrides, apply_overrides, marker_snapshot, read_plan
 from .reference_buildings import ensure_snapshot
@@ -212,9 +218,10 @@ async def apply_marker_plan(db: AsyncSession, claim: Claim, plan: MarkerPlan) ->
 def marker_result(plan: MarkerPlan, rendered, scale: float | None) -> AlignmentResult:
     """A fit the plan author stated outright: no matcher, no OSM, no coverage to judge.
 
-    It is a PROPOSAL like any other — «Vorschlag bereit» on the wall, «Handlungsbedarf» on the
-    object until an admin approves it. What is different is that its landmarks are measured
-    coordinates somebody wrote on the drawing, not geometry a matcher guessed.
+    Its landmarks are measured coordinates somebody wrote on the drawing, not geometry a matcher
+    guessed — so it is not a proposal anybody needs to agree with: ``approve_marker_fit`` puts it
+    straight through the shared approval (16.09.2026). ``ready``/``markers`` is what it looks like
+    for the moment between the two writes, and where it stays if the approval is refused.
     """
     return AlignmentResult(
         "ready",
@@ -225,6 +232,26 @@ def marker_result(plan: MarkerPlan, rendered, scale: float | None) -> AlignmentR
         reference_source="markers",
         reference_at=datetime.now(UTC),
     )
+
+
+async def approve_marker_fit(db: AsyncSession, alignment_id: int) -> bool:
+    """Freigeben, with the markers as the actor: the sheet says where it is, so nobody has to.
+
+    The same gate and the same audit row as an admin's «Freigeben» (``plan_approval``), only
+    without a click – the plan author already stated the fit on the drawing. A refusal (the
+    revision was replaced while this job ran, the fit page is not one a fit may be measured on)
+    is not an error: the row stays exactly where ``finish_job`` left it, «Vorschlag bereit», and
+    a human decides.
+    """
+    row = await db.get(PlanAlignment, alignment_id)
+    if row is None:
+        return False
+    try:
+        await approve_fit(db, row, actor=MARKERS)
+    except ApprovalError as refused:
+        logger.info("Marker fit %s stays a proposal: %s", alignment_id, refused.detail)
+        return False
+    return True
 
 
 async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_maker) -> bool:
@@ -264,8 +291,12 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             logger.exception("Plan markers unreadable for job %s", claim.id)
     async with factory() as db:
         requeued = await apply_marker_plan(db, claim, plan) if plan else False
-        floor_page = any(f.page == claim.page for f in await load_floors(db, claim.dataset_id, claim.version))
+        floors = await load_floors(db, claim.dataset_id, claim.version)
         await db.commit()
+    floor_page = any(f.page == claim.page for f in floors)
+    # this page is a Geschoss THESE markers wrote – so the fit below is the marked plan's own,
+    # not one laid over a pack an admin built by hand (which apply_marker_plan refuses to touch)
+    marked_pack = any(f.page == claim.page and (f.marker or {}).get("version") == claim.version for f in floors)
     if requeued:
         # the pack's one fit sits on another page; the job now waits there
         return True
@@ -305,6 +336,8 @@ async def run_once(factory: async_sessionmaker[AsyncSession] = async_session_mak
             scale_m_per_u=(rendered.printed_scale or scale) if rendered else None,
         )
     async with factory() as db:
-        await finish_job(db, claim, result, digest=digest)
+        written = await finish_job(db, claim, result, digest=digest)
+        if written and result.reason == "markers" and marked_pack:
+            await approve_marker_fit(db, claim.id)
         await db.commit()
     return True

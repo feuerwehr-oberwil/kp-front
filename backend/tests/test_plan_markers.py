@@ -450,9 +450,11 @@ async def _object(db):
     return obj
 
 
-async def test_a_marked_modul6_arrives_as_a_ready_proposal_with_its_storeys(session_factory):
+async def test_a_marked_modul6_is_freigegeben_on_import_and_reaches_incidents(session_factory):
+    """The author stated the fit on the sheet – nobody has to agree with them (16.09.2026)."""
     from app import plan_alignment_worker as worker
-    from app.models import ObjectSite, PlanAlignment
+    from app.api.reference import dataset_alignments
+    from app.models import ObjectSite, PlanAlignment, PlanAlignmentEvent
     from app.plan_floors import load_floors
 
     async with session_factory() as db:
@@ -473,12 +475,18 @@ async def test_a_marked_modul6_arrives_as_a_ready_proposal_with_its_storeys(sess
     assert not await worker.run_once(session_factory)
     async with session_factory() as db:
         row = (await db.execute(select(PlanAlignment))).scalar_one()
-        assert (row.status, row.reason, row.reference_source) == ("ready", "markers", "markers")
+        assert (row.status, row.reason, row.reference_source) == ("approved", "markers", "markers")
+        assert row.approved_at is not None
         assert len(row.pairs) == 2 and {p["kind"] for p in row.pairs} == {"gesetzt"}
         assert row.aspect and row.aspect > 0  # approval refuses a proposal without one
-        from app.api.plan_alignments import _item
-
-        assert (await _item(db, row))["can_approve"] is True
+        # the audit row says who: the marker import, not a user who clicked «Freigeben»
+        event = (await db.execute(select(PlanAlignmentEvent))).scalar_one()
+        assert event.action == "approve" and event.snapshot["actor"] == "markers"
+        assert event.snapshot["after"]["status"] == "approved"
+        # …and an incident binding this revision gets the fit
+        published = await dataset_alignments(dataset_id, None, v=None, db=db)
+        assert [a["id"] for a in published["alignments"]] == [row.id]
+        assert published["alignments"][0]["approval_id"] == event.id
         assert (await db.execute(select(ObjectSite))).scalar_one() is not None
 
 
@@ -500,6 +508,7 @@ async def test_without_geo_markers_the_storeys_arrive_and_the_fit_stays_the_work
         assert row.page == 1 and row.pairs == []
         # Modul 6 has no matcher template – exactly what an unmarked pack gets today
         assert row.status == "unsupported" and row.reason == "unsupported_module"
+        assert row.approved_at is None  # no §GEO, no fit, nothing to freigeben
 
 
 async def test_an_approved_fit_is_never_re_read_or_re_queued_by_markers(session_factory):
@@ -515,9 +524,13 @@ async def test_an_approved_fit_is_never_re_read_or_re_queued_by_markers(session_
         dataset_id = ds.id
     assert not await worker.run_once(session_factory)  # an approved job is not claimable at all
     async with session_factory() as db:
+        from app.models import PlanAlignmentEvent
+
         row = (await db.execute(select(PlanAlignment))).scalar_one()
         assert (row.status, row.page) == ("approved", 0)
         assert await load_floors(db, dataset_id, 1) == []
+        # the admin's own approval stands as it is – the markers write no second one over it
+        assert not (await db.execute(select(PlanAlignmentEvent))).scalars().all()
 
 
 async def test_a_pack_the_admin_built_by_hand_is_never_overwritten_by_markers(session_factory):
@@ -536,6 +549,31 @@ async def test_a_pack_the_admin_built_by_hand_is_never_overwritten_by_markers(se
         floors = await load_floors(db, dataset_id, 1)
         assert [(f.index, f.page, f.name) for f in floors] == [(0, 0, "Nur diese Seite")]
         assert (await db.execute(select(PlanAlignment))).scalar_one().page == 0
+
+
+async def test_a_withdrawn_marker_approval_goes_back_to_the_queue_and_is_not_re_approved(
+    session_factory, client, admin_login
+):
+    """«Freigabe zurücknehmen» on a marked sheet: the fit stays on the row and the sheet is
+    «Bitte prüfen» again – the admin's decision is not undone by the next tick."""
+    from app import plan_alignment_worker as worker
+    from app.models import PlanAlignment
+
+    async with session_factory() as db:
+        await _import(db, await _object(db))
+        await db.commit()
+    await _drain(session_factory)
+    async with session_factory() as db:
+        row = (await db.execute(select(PlanAlignment))).scalar_one()
+        assert row.status == "approved"
+        item_id, edit_version = row.id, row.edit_version
+
+    await admin_login(client)
+    undone = await client.post(f"/api/admin/plan-alignments/{item_id}/undo", json={"edit_version": edit_version})
+    assert undone.status_code == 200, undone.text
+    assert undone.json()["status"] == "needs_review"  # the proposal itself is untouched …
+    assert len(undone.json()["pairs"]) == 2 and undone.json()["can_approve"] is True
+    assert not await worker.run_once(session_factory)  # … and no tick claims a decided row
 
 
 async def test_an_admin_edit_survives_a_re_export_and_a_moved_marker_does_not(session_factory):
@@ -570,7 +608,8 @@ async def test_an_admin_edit_survives_a_re_export_and_a_moved_marker_does_not(se
 
     async with session_factory() as db:
         row = (await db.execute(select(PlanAlignment).where(PlanAlignment.plan_version == 2))).scalar_one()
-        assert row.status == "ready" and row.reason == "markers"
+        # the re-export is the author stating the fit again, so it is freigegeben again
+        assert row.status == "approved" and row.reason == "markers"
         floors = await load_floors(db, dataset_id, 2)
         first = next(f for f in floors if f.index == 1)
         assert first.name == "Büro-Etage"  # the admin typed it – it crossed the re-export

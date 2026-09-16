@@ -7620,6 +7620,7 @@
           "admin-plan-alignments"
         ],
         "summary": "Approve Alignment",
+        "description": "«Freigeben»: publish this fit to incidents – the same gate the marker worker passes\nthrough when a plan states its own fit (app/plan_approval.py).",
         "operationId": "approve_alignment_api_admin_plan_alignments__item_id__approve_post",
         "parameters": [
           {

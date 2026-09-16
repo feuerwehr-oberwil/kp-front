@@ -488,8 +488,9 @@ class PlanAlignment(Base):
     """One durable alignment job/proposal per (plan revision, page) — never auto-published.
 
     ``status`` walks pending → processing → ready/needs_review/no_match/failed/unavailable/
-    unsupported, and only an admin's explicit approval sets ``approved``. ``edit_version`` is
-    the CAS token every mutation (worker completion included) must present.
+    unsupported, and ``approved`` is set only through ``plan_approval.approve_fit`` – by an
+    admin's «Freigeben», or by the import of a plan that states its own fit in ``§GEO`` markers.
+    ``edit_version`` is the CAS token every mutation (worker completion included) must present.
     """
 
     __tablename__ = "plan_alignments"
