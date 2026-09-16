@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { autoApplyBudgetLeft, AUTO_APPLY_WINDOW_MS, BOOT_APPLY_WINDOW_MS, MAX_AUTO_APPLY_ATTEMPTS, recordAutoApply, shouldAutoApply, type AutoApplyRecord } from './updatePolicy'
+import { autoApplyBudgetLeft, AUTO_APPLY_WINDOW_MS, BOOT_APPLY_WINDOW_MS, canApplyInPlace, MAX_AUTO_APPLY_ATTEMPTS, recordAutoApply, shouldAutoApply, type AutoApplyRecord } from './updatePolicy'
 
 describe('shouldAutoApply', () => {
   it('applies silently right after boot, untouched, first time', () => {
@@ -40,5 +40,21 @@ describe('automatic-apply budget (persistent — sessionStorage resets across iO
     const later = T0 + AUTO_APPLY_WINDOW_MS + 1
     expect(autoApplyBudgetLeft(rec, later)).toBe(true)
     expect(recordAutoApply(rec, later)).toEqual({ n: 1, at: later })
+  })
+})
+
+// The button exists because a waiting build activates only when every client of the origin is
+// gone — swiping the installed app away leaves a forgotten browser tab holding the old worker.
+describe('canApplyInPlace', () => {
+  it('lets Android, desktop and the rest apply in place', () => {
+    for (const p of ['android', 'desktop-chromium', 'mac-safari', 'unsupported']) {
+      expect(canApplyInPlace(p)).toBe(true)
+    }
+  })
+
+  // ⚠️ NOT iOS: the wedge that got this path removed for everybody in the first place — the
+  // waiting worker never activates and the reload lands back on the old build (2026-07-09).
+  it('never offers it on iOS, where the restart is the only reliable path', () => {
+    expect(canApplyInPlace('ios')).toBe(false)
   })
 })

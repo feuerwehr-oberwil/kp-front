@@ -43,3 +43,21 @@ export function recordAutoApply(rec: AutoApplyRecord | null, now: number): AutoA
   if (!rec || now - rec.at > AUTO_APPLY_WINDOW_MS) return { n: 1, at: now }
   return { n: rec.n + 1, at: rec.at }
 }
+
+// ── the operator's own apply ─────────────────────────────────────────────────────────────
+
+/**
+ * May this device apply a waiting build IN PLACE — skipWaiting, then reload?
+ *
+ * Everywhere except iOS. The in-place path was removed for everybody on 2026-07-09 because iOS
+ * standalone wedges: the waiting worker never activates, the forced reload lands back on the old
+ * build, and the operator is left staring at a cover. That has never been an Android or a desktop
+ * problem — and there the alternative is worse than the bug it avoids: a waiting build activates
+ * only when EVERY client of the origin is gone, which on Android means the installed app AND any
+ * forgotten browser tab on the same site. Swiping the app away then changes nothing, which is
+ * exactly what a Samsung user reported (16.09.2026).
+ *
+ * iOS keeps the restart wording: closing an app there is one gesture people already know, and it
+ * always works.
+ */
+export const canApplyInPlace = (platform: string): boolean => platform !== 'ios'

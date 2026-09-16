@@ -1934,6 +1934,9 @@ export const it: Localizable<Copy> = {
   update: {
     available: 'Aggiornamento pronto',
     hint: 'Attivo al prossimo avvio – chiudere completamente l’app e riaprirla.',
+    hintApply: 'Basta un tocco – l’app si ricarica brevemente.',
+    apply: 'Aggiorna ora',
+    applying: 'Aggiornamento …',
     dismiss: 'OK',
     updated: 'Aggiornato – {v}',
   },

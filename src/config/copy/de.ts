@@ -3125,10 +3125,15 @@ export const de = {
   // PWA update prompt (UpdateBanner). A new build installs and waits (registerType 'prompt')
   // instead of reloading mid-incident; the operator applies it when it's safe.
   update: {
-    // announce-only: no in-place «Neu laden» — a full app restart is the path that
-    // reliably activates the waiting build (decision 2026-07-09)
+    // ⚠️ Zwei Wege, weil zwei Geräteklassen: auf iOS bleibt es beim Neustart (die Aktivierung
+    // in der laufenden App hängt sich dort auf, Entscheid 2026-07-09), überall sonst genügt
+    // ein Tipp – dort hilft Schliessen allein oft nicht, weil ein vergessener Browser-Tab den
+    // alten Stand festhält (16.09.2026).
     available: 'Update bereit',
     hint: 'Wird beim Neustart aktiv – App schliessen & neu öffnen.',
+    hintApply: 'Ein Tipp genügt – die App lädt kurz neu.',
+    apply: 'Jetzt aktualisieren',
+    applying: 'Wird aktualisiert …',
     dismiss: 'OK',
     updated: 'Aktualisiert – {v}',
   },

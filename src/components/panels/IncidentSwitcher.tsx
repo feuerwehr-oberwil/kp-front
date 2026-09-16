@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
 import { buildLabel } from '../../lib/buildInfo'
+import { applyUpdateNow, onUpdateAvailable } from '../../lib/swUpdate'
+import { canApplyInPlace } from '../../lib/updatePolicy'
+import { getInstallPlatform } from '../../lib/installPrompt'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
 import { shortAddress } from '../../lib/deploymentConfig'
@@ -78,6 +81,14 @@ export function IncidentSwitcher({
   sheetOpen?: boolean
 }) {
   const cp = appConfig.copy.incidentSwitcher
+  const cu = appConfig.copy.update
+  // A waiting build, and whether this device may take it in place (iOS wedges — updatePolicy).
+  // Subscribed rather than read on open: the menu is mounted the whole time, and the button has
+  // to appear the moment a deploy lands, not only on the next open.
+  const [updateWaiting, setUpdateWaiting] = useState(false)
+  const [applyingUpdate, setApplyingUpdate] = useState(false)
+  useEffect(() => onUpdateAvailable(setUpdateWaiting), [])
+  const updateReady = updateWaiting && canApplyInPlace(getInstallPlatform())
   // «Jetzt synchronisieren» reports what it did on the button itself: the ring spins for the
   // round trip, then closes and draws a tick. Success needs no words — a toast for «alles
   // synchronisiert» was a sentence to read for the most boring outcome there is. Offline and
@@ -364,9 +375,18 @@ export function IncidentSwitcher({
             {onLogout && <button className="ip-menu-logout" onClick={() => { onLogout(); setOpen(false) }}><Icon id="logout" /> {cp.logout}</button>}
           </div>
           <div className="ip-menu-foot">
-            {/* No manual "check for updates" — a fresh deploy surfaces itself via the automatic
-                "Neue Version verfügbar" banner (UpdateBanner / swUpdate). Just the build label here. */}
+            {/* No manual "check for updates" — a fresh deploy surfaces itself (the 5-min poll and
+                the visibility-resume check). What IS here is the apply, and only while a build is
+                actually waiting: the menu is where somebody looks when an app feels stale, which
+                is exactly the state a dismissed banner leaves behind (16.09.2026). */}
             <span className="ip-menu-ver" title={cp.appVersion}>{buildLabel()}</span>
+            {updateReady && (
+              <button className="ip-menu-update" disabled={applyingUpdate}
+                onClick={() => { setApplyingUpdate(true); void applyUpdateNow() }}>
+                <Icon id="rotate" className={applyingUpdate ? 'spin' : undefined} />
+                {applyingUpdate ? cu.applying : cu.apply}
+              </button>
+            )}
           </div>
         </div>
       )}

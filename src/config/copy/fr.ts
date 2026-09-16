@@ -2284,6 +2284,9 @@ export const fr: Localizable<Copy> = {
   update: {
     available: 'Mise à jour prête',
     hint: 'Active au prochain démarrage – fermer complètement l’app et la rouvrir.',
+    hintApply: 'Une pression suffit – l’app se recharge brièvement.',
+    apply: 'Mettre à jour',
+    applying: 'Mise à jour …',
     dismiss: 'OK',
     updated: 'Mise à jour effectuée – {v}',
   },

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { onUpdateAvailable } from '../lib/swUpdate'
+import { applyUpdateNow, onUpdateAvailable } from '../lib/swUpdate'
+import { canApplyInPlace } from '../lib/updatePolicy'
+import { getInstallPlatform } from '../lib/installPrompt'
 import { useMeldung } from '../lib/useMeldung'
 
 // Non-blocking "a new build is ready" message. registerType is 'prompt', so a fresh deploy
@@ -18,6 +20,7 @@ import { useMeldung } from '../lib/useMeldung'
 export function UpdateBanner() {
   const [available, setAvailable] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [applying, setApplying] = useState(false)
 
   // A fresh waiting build re-shows the message even if a previous one was dismissed; an
   // update that resolves on its own (the announced worker took over) retracts it.
@@ -25,14 +28,32 @@ export function UpdateBanner() {
 
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.update
+  // ⚠️ …and on everything but iOS the message carries the apply itself (16.09.2026). «App
+  // schliessen & neu öffnen» is true but not sufficient there: a waiting build activates only
+  // once EVERY client of the origin is gone, so an installed app swiped away while a browser tab
+  // still holds the site simply stays on the old build — reported from a Samsung, reproduced by
+  // the lifecycle. iOS keeps the restart wording, where the in-place path wedges.
+  const inPlace = canApplyInPlace(getInstallPlatform())
   useMeldung(!available || dismissed ? null : {
     id: 'update',
     kind: 'update',
     tone: 'calm',
     icon: 'info',
     title: C.available,
-    sub: C.hint,
-    dismiss: { label: C.dismiss, onClick: () => setDismissed(true) },
+    sub: inPlace ? C.hintApply : C.hint,
+    ...(inPlace ? {
+      actions: [{
+        label: applying ? C.applying : C.apply,
+        icon: 'rotate',
+        busy: applying,
+        disabled: applying,
+        primary: true,
+        onClick: () => { setApplying(true); void applyUpdateNow() },
+      }],
+    } : {}),
+    // ⚠️ no ✕ while the reload is on its way: the row is about to go with the page, and a
+    // dismiss that raced it left the app looking like nothing had happened
+    ...(applying ? {} : { dismiss: { label: C.dismiss, onClick: () => setDismissed(true) } }),
   })
   return null
 }

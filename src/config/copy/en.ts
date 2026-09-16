@@ -2289,6 +2289,9 @@ export const en: Localizable<Copy> = {
   update: {
     available: 'Update ready',
     hint: 'Becomes active on the next start – fully close and reopen the app.',
+    hintApply: 'One tap – the app reloads briefly.',
+    apply: 'Update now',
+    applying: 'Updating …',
     dismiss: 'OK',
     updated: 'Updated – {v}',
   },

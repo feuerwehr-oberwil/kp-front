@@ -4,15 +4,16 @@
 //   · Boot window: an update discovered right after page load, before any interaction, is
 //     applied silently — nothing is in progress yet, so the reload is invisible and simply
 //     reopening the app after a deploy auto-updates.
-//   · Mid-session: a waiting build is only ANNOUNCED via onUpdateAvailable (UpdateBanner:
-//     «wird beim nächsten Start aktiv»). There is deliberately NO in-place «Neu laden»
-//     any more: the skipWaiting+reload dance proved unreliable on iOS standalone (the
-//     waiting worker wedges and the reload lands back on the old build — field reports
-//     2026-07-08/09), while fully closing and reopening the app always activates the
-//     waiting build cleanly. The banner tells the operator exactly that. (There is no
-//     manual "check for updates" — the 5-min poll + visibility-resume check discover
-//     deploys automatically.)
-// Silent applies go through applySilently(); a watchdog forces the reload if the SW
+//   · Mid-session: a waiting build is ANNOUNCED via onUpdateAvailable (UpdateBanner), and on
+//     every platform but iOS the announcement carries «Jetzt aktualisieren» — one tap through
+//     `applyUpdateNow` (16.09.2026). The automatic in-place apply stays off: the skipWaiting
+//     dance wedges on iOS standalone (the reload lands back on the old build — field reports
+//     2026-07-08/09), which is why iOS still reads «App schliessen & neu öffnen». Android needs
+//     the button, because there a waiting build activates only when EVERY client of the origin
+//     is gone — the installed app AND any forgotten browser tab on the same site, so swiping the
+//     app away changes nothing (field report 16.09.2026). (There is no manual "check for
+//     updates" — the 5-min poll + visibility-resume check discover deploys automatically.)
+// Applies go through applyWaitingBuild(); a watchdog forces the reload if the SW
 // 'controlling' event never delivers one — vite-plugin-pwa's updateSW() only POSTS
 // skipWaiting. They share a localStorage-backed attempt budget (updatePolicy): iOS
 // standalone can wedge a waiting worker so activation never happens, and can also reset
@@ -61,7 +62,12 @@ let updateSW: ((reloadPage?: boolean) => Promise<void>) | null = null
 let registration: ServiceWorkerRegistration | undefined
 let updateWaiting = false
 let applying = false
-let notify: ((available: boolean) => void) | null = null
+// ⚠️ A SET, not one callback. It used to be a single subscriber «by design — the app mounts
+// exactly one UpdateBanner»; since 16.09.2026 the menu carries the same «Jetzt aktualisieren»
+// button (a dismissed banner is exactly the state somebody goes looking in the menu for), so
+// two places listen and both must hear the retraction.
+const listeners = new Set<(available: boolean) => void>()
+const notify = (available: boolean) => { for (const cb of [...listeners]) cb(available) }
 let loadedAt = 0
 let interacted = false
 
@@ -121,7 +127,7 @@ export function initServiceWorker() {
       navigator.serviceWorker?.addEventListener('controllerchange', () => {
         if (!applying && updateWaiting) {
           updateWaiting = false
-          notify?.(false)
+          notify(false)
           // the new worker taking over proves activation works on this device — earn the
           // next deploy a fresh automatic-apply budget, same as a landed silent update
           try { localStorage.removeItem(ATTEMPTS_KEY) } catch { /* ignore */ }
@@ -131,12 +137,12 @@ export function initServiceWorker() {
         updateWaiting = true
         if (autoApplyBudgetLeft(readAttempts(), Date.now())) {
           spendAttempt()
-          void applySilently()
+          void applyWaitingBuild()
         } else {
           // budget exhausted — this waiting worker is wedged. Boot NORMALLY on the old
           // build and let the banner offer a manual retry (a later deploy, an app restart,
           // or the budget window expiring all earn a fresh automatic attempt).
-          notify?.(true)
+          notify(true)
         }
       }
     },
@@ -146,12 +152,12 @@ export function initServiceWorker() {
       const budgetLeft = autoApplyBudgetLeft(readAttempts(), Date.now())
       if (shouldAutoApply({ msSinceLoad: Date.now() - loadedAt, interacted, alreadyAutoApplied: !budgetLeft })) {
         spendAttempt()
-        void applySilently()
+        void applyWaitingBuild()
         return
       }
       // Mid-session: never apply — announce it. The banner explains that the new version
       // becomes active on the next app start (full close + reopen).
-      notify?.(true)
+      notify(true)
     },
   })
 }
@@ -161,17 +167,36 @@ export function initServiceWorker() {
  *  worker activated) so the banner retracts. Returns an unsubscribe. Single subscriber by
  *  design — the app mounts exactly one UpdateBanner. */
 export function onUpdateAvailable(cb: (available: boolean) => void): () => void {
-  notify = cb
+  listeners.add(cb)
   if (updateWaiting) cb(true)
-  return () => { if (notify === cb) notify = null }
+  return () => { listeners.delete(cb) }
 }
 
+/**
+ * Apply the waiting build NOW, because somebody asked for it.
+ *
+ * ⚠️ The same machinery as the boot-window apply (skipWaiting, one guarded reload, watchdog,
+ * surrender) and deliberately NOT the same budget: that budget caps what the app does by itself
+ * so a wedged worker cannot reload-loop. A tap is a decision, and refusing it would leave the
+ * operator with the thing this button exists to fix.
+ *
+ * Offered only where an in-place activation is reliable (updatePolicy · canApplyInPlace — iOS
+ * keeps the restart wording), and a no-op when nothing is waiting or an apply is already running.
+ */
+export function applyUpdateNow(): Promise<void> {
+  return applyWaitingBuild()
+}
+
+/** Is a build waiting right now? For a surface that mounts after the announcement — the menu
+ *  reads it on open rather than subscribing from boot. */
+export const updateIsWaiting = (): boolean => updateWaiting
+
 /** Apply the waiting build silently: skipWaiting + reload the page. Only the automatic
- *  boot-window and stalled-recovery paths call this — there is no operator-facing apply
- *  any more (the banner just announces the next-start activation). Never shows a blocking
+ *  boot-window and stalled-recovery paths call this automatically; `applyUpdateNow` is the
+ *  operator's own door to it (16.09.2026). Never shows a blocking
  *  cover, so a wedged worker can only cost brief reload flickers. No-op if nothing is
  *  waiting or an apply is already in flight. */
-async function applySilently(): Promise<void> {
+async function applyWaitingBuild(): Promise<void> {
   if (!updateSW || !updateWaiting || applying) return
   applying = true
   // stamp the CURRENT (old) build id — the next boot compares it to its own to tell
@@ -207,7 +232,7 @@ async function applySilently(): Promise<void> {
     applying = false
     reloadStarted = false // a later manual/retry path may reload again
     try { localStorage.removeItem(JUST_UPDATED_KEY) } catch { /* stale stamp is handled at boot */ }
-    notify?.(true)
+    notify(true)
   }, RELOAD_WATCHDOG_MS + 4_000)
   await updateSW(false)
 }
