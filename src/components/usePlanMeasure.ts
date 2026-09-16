@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import type React from 'react'
 import { calibrate, pathMetres, polyAreaM2, isStale, type PlanScale } from '../lib/planScale'
 import { resolvePlanScale } from '../lib/stationPlanScale'
-import { TILE_AR } from '../lib/whiteboard'
+
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { toast } from '../lib/ui'
@@ -19,6 +19,9 @@ interface Args {
   stack: boolean
   /** h/w of the active sheet (single-sheet docs only) */
   aspect: number
+  /** …and on a STACK the storey band's own h/w (lib/whiteboard · tileAspectOf): the measurement
+   *  space is one tile, so this is the number a calibration is stored against */
+  tileAR: number
   planScale: PlanScales
   /** whole-board normalized y → tile-local y, and which floor a y falls on */
   localY: (y: number, floor: number) => number
@@ -48,7 +51,7 @@ interface Args {
  * on 02.09.: in the field the quick throwaway question — «wie weit ist das?» — kept reaching
  * for a tool that was gone, and a drawn Linie is a journal-logged act, not a glance.)
  */
-export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale }: Args) {
+export function usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale }: Args) {
   // Plan-Maßstab calibration: the reference is captured by tapping its TWO endpoints (nodes), then
   // a popover asks for its real length. last-used length is pre-filled (plans share similar bars).
   const [calNodes, setCalNodes] = useState<Pt[]>([])
@@ -69,9 +72,9 @@ export function usePlanMeasure({ activeId, stack, aspect, planScale, localY, flo
 
   // Measurement is aspect-corrected: a normalized segment's true length depends on the plan's
   // aspect ratio (width / height). On a single sheet that's 1/aspect; on a floor-stack each storey
-  // TILE is measured in its own space (1/TILE_AR), so one calibration covers every floor of the
+  // TILE is measured in its own space (1/tileAR), so one calibration covers every floor of the
   // same drawing. The reference drag and stored line `pts` live in this same space.
-  const measureAR = stack ? 1 / TILE_AR : 1 / aspect
+  const measureAR = stack ? 1 / tileAR : 1 / aspect
   // Resolve through the STATION calibration (per-incident → per-plan override → station default),
   // so a plan measures out of the box without re-calibrating each incident (#3). A field
   // calibration for this incident still wins; a stale candidate falls through.

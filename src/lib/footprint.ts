@@ -200,16 +200,38 @@ export function northVec(angleDeg: number): Pt {
 
 // ---- tile <-> footprint-local affine -----------------------------------------------
 
+/** How much of a storey tile the drawing box may use — ONE definition, mirrored in px by
+ *  `fpBox` (components/Whiteboard) and used the other way round by `bandAspect`. The air that is
+ *  left is where the storey heading sits. */
+export const BOX_W = 0.9
+export const BOX_H = 0.82
+
 /** The footprint box fills most of a tile (centred), preserving aspect — mirrors the
  *  `fpBox` math in Whiteboard. Returns the box size as a fraction of the tile (w of the
  *  full board width, h of one storey band). */
 export function fpBoxFrac(aspect: number, boardW: number, boardH: number, floors: number): { rw: number; rh: number } {
   const tileH = boardH / floors
-  const availW = boardW * 0.9, availH = tileH * 0.82
+  const availW = boardW * BOX_W, availH = tileH * BOX_H
   let w = availW, h = availW * aspect
   if (h > availH) { h = availH; w = availH / aspect }
   return { rw: w / boardW, rh: h / tileH }
 }
+
+/** Widest and flattest a storey band may get. A band thinner than this leaves the heading nothing
+ *  to sit on; a taller one is a stack you cannot see two storeys of at once. */
+const BAND_MIN = 0.16, BAND_MAX = 1.3
+
+/**
+ * The storey band that FITS a drawing of this aspect — the card as tall as its content needs and
+ * no taller (Bastian, 16.09.2026: «keep the aspect ratio and positioning the same but just remove
+ * unnecessary whitespace of the card»).
+ *
+ * The band used to be a constant 0.72 of the board width for every building, so a hall drawn as a
+ * flat ribbon spent two thirds of every storey on air. Filling the width (BOX_W) and keeping the
+ * same proportional air around it (BOX_H) inverts `fpBoxFrac`: band = aspect · BOX_W / BOX_H.
+ */
+export const bandAspect = (viewAspect: number): number =>
+  Math.min(BAND_MAX, Math.max(BAND_MIN, (viewAspect * BOX_W) / BOX_H))
 
 /** Derived Massstab for a GEOREFERENCED floor-stack (A7, 29.08.): metres per aspect-corrected
  *  measure unit, from geometry alone — no calibration tap needed. The footprint's rotated bbox
@@ -241,12 +263,17 @@ const localToTile = ([fx, fy]: Pt, rw: number, rh: number): Pt => [0.5 - rw / 2 
 export interface StackLayout { boardW: number; boardH: number; floors: number }
 
 /** Remap an annotation point (stored in tile 0..1) when the building is re-oriented
- *  from `fromDeg` to `toDeg`, so it stays glued to the same spot on the footprint. */
-export function remapPoint(src: Ring[], fromDeg: number, toDeg: number, layout: StackLayout, p: Pt): Pt {
+ *  from `fromDeg` to `toDeg`, so it stays glued to the same spot on the footprint.
+ *
+ *  ⚠️ `toLayout` is the board the turn LANDS on, and it differs from `layout` whenever the storey
+ *  band follows the drawing (`bandAspect`): turning a flat frame upright makes the card taller,
+ *  which changes the box fractions the ink is stored against. Defaults to `layout` — a stack with
+ *  a fixed band turns exactly as before. */
+export function remapPoint(src: Ring[], fromDeg: number, toDeg: number, layout: StackLayout, p: Pt, toLayout: StackLayout = layout): Pt {
   const from = buildView(src, fromDeg)
   const to = buildView(src, toDeg)
   const a = fpBoxFrac(from.aspect, layout.boardW, layout.boardH, layout.floors)
-  const b = fpBoxFrac(to.aspect, layout.boardW, layout.boardH, layout.floors)
+  const b = fpBoxFrac(to.aspect, toLayout.boardW, toLayout.boardH, toLayout.floors)
   const local = tileToLocal(p, a.rw, a.rh)        // tile -> footprint-local (old view)
   const srcPt = from.fromNorm(local)              // -> isotropic src
   const local2 = to.toNorm(srcPt)                 // -> footprint-local (new view)

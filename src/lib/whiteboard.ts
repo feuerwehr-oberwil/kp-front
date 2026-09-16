@@ -10,7 +10,13 @@ const BASE = import.meta.env.BASE_URL
 // (absolute, e.g. /api/reference/plan:<obj>:modul1) — don't BASE-prefix absolute URLs.
 export const planUrl = (u: string) => (/^(https?:)?\/\//.test(u) || u.startsWith('/') ? u : `${BASE}${u}`)
 
+/** What a storey band measured before it followed its drawing (16.09.2026) — and what every stack
+ *  created until then keeps: the tile box is centred in the band, so a band that changed under
+ *  existing ink would take the ink with it. New stacks carry their own `tileAR`. */
 export const TILE_AR = 0.72 // each floor tile's height/width in the stack
+/** The band this Gebäude is drawn with. ⚠️ THE one resolver — the board's aspect, the measure
+ *  space (`1 / tileAR`), the ground fit and the printed page must all read the same number. */
+export const tileAspectOf = (b?: { tileAR?: number } | null): number => b?.tileAR ?? TILE_AR
 /** the Gebäude floor-stack's plan id – the ONE sheet whose ink also shows on the other linked
  *  sheets (lib/planProjection · projectOnto), because the building view is where a Brand is
  *  marked and the Übersicht is where it is read. data/demoIncident · gebaeudeDoc carries it. */

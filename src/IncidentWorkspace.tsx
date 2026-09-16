@@ -133,12 +133,12 @@ import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
 import { planPreviewUrl, prewarmPlans, regionInkBox } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
-import { buildView } from './lib/footprint'
+import { bandAspect, buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { stackGroundFit } from './lib/stackFit'
 import { floorPackOf, frameAspect, packFloorNames, packStoreys, trimmedPackFrame } from './lib/floorPackBinding'
 import { buildingPackBinding } from './lib/buildingPackBinding'
-import { TILE_AR } from './lib/whiteboard'
+import { tileAspectOf } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia,
@@ -2150,7 +2150,12 @@ export function IncidentWorkspace({
   // pick, no outline. A machine seed like the binding itself, so no toast and no undo step; an
   // operator's footprint stack (an older incident, or picked on purpose) is left alone.
   useEffect(() => {
-    if (building || !floorPack?.floors.length || !floorPack.aspect || readOnly) return
+    // …and a stack that came up BEFORE the frame was measured and the card fitted (16.09.2026)
+    // takes both, but ONLY while nothing is drawn on it: the frame and the band are what tile
+    // coordinates mean, so re-measuring under existing ink would move the ink. A stack somebody
+    // has already marked keeps the geometry it was marked on – for the whole Einsatz.
+    const upgrade = !!building?.pack && building.tileAR == null && !(board.gebaeude ?? []).length
+    if ((building && !upgrade) || !floorPack?.floors.length || !floorPack.aspect || readOnly) return
     let alive = true
     const names = packFloorNames(floorPack.floors)
     const aspect = floorPack.aspect
@@ -2161,12 +2166,18 @@ export function IncidentWorkspace({
     // the timeout rather than leaving the Gebäude tile empty.
     const seed = (frame: [number, number, number, number]) => {
       if (!alive) return
-      setBuilding({
-        ring: [], rings: [], ringAspect: frameAspect(frame, aspect),
-        pack: { bindingId: packBinding?.id, aspect, ...(frame.some((v, i) => v !== [0, 0, 1, 1][i]) ? { frame } : {}) },
-        floors: packStoreys(floorPack.floors),
-        ...(Object.keys(names).length ? { floorNames: names } : {}),
-      })
+      const ringAspect = frameAspect(frame, aspect)
+      const pack = { bindingId: building?.pack?.bindingId ?? packBinding?.id, aspect, ...(frame.some((v, i) => v !== [0, 0, 1, 1][i]) ? { frame } : {}) }
+      // the card is as tall as the trimmed frame needs – no storey spends two thirds of its band
+      // on air any more (lib/footprint · bandAspect, 16.09.2026)
+      const tileAR = bandAspect(ringAspect)
+      setBuilding(building
+        ? { ...building, ringAspect, tileAR, pack }
+        : {
+            ring: [], rings: [], ringAspect, tileAR, pack,
+            floors: packStoreys(floorPack.floors),
+            ...(Object.keys(names).length ? { floorNames: names } : {}),
+          })
     }
     const fallback = setTimeout(() => seed(floorPack.frame), PACK_TRIM_MS)
     void trimmedPackFrame(floorPack, regionInkBox)
@@ -2174,10 +2185,10 @@ export function IncidentWorkspace({
       .catch(() => { clearTimeout(fallback); seed(floorPack.frame) })
     return () => { alive = false; clearTimeout(fallback) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [building, floorPack, packBinding, readOnly])
+  }, [building, floorPack, packBinding, readOnly, board.gebaeude?.length])
   const fitsMap = useMemo(() => {
     const m = new Map<string, PlanFit>(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
-    if (stackFit && building) m.set(gebaeudeDoc.id, { fit: stackFit, aspect: 1 / TILE_AR, stack: { floors: building.floors } }) // aspect = width / height, like every sheet's
+    if (stackFit && building) m.set(gebaeudeDoc.id, { fit: stackFit, aspect: 1 / tileAspectOf(building), stack: { floors: building.floors } }) // aspect = width / height, like every sheet's
     return m
   }, [linkedPlans, stackFit, building])
   const stackSig = stackFit && building ? `${fitSignature({ id: gebaeudeDoc.id, fit: stackFit, widthM: 0 } as Parameters<typeof fitSignature>[0])}|${building.floors.join(',')}` : ''

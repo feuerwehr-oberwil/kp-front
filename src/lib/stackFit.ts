@@ -1,4 +1,4 @@
-import { TILE_AR } from './whiteboard'
+import { tileAspectOf } from './whiteboard'
 import { activeViewDeg, buildView, fpBoxFrac, type FootprintView, type Pt, type Ring } from './footprint'
 import { M_PER_LAT, mPerLon } from './buildingTransfer'
 import { fitSimilarity, type GeorefFit, type GeorefPair } from './georef'
@@ -54,7 +54,7 @@ export function regionCorners(corners: [Pt, Pt, Pt], region: readonly [number, n
  *
  * Every storey tile draws the same footprint in the same place, so ONE similarity maps a tile's
  * local coordinates (x = fraction of the board width, y = fraction of the tile's height; the
- * tile is 1/TILE_AR wide for its height) to WGS84 for every floor: tile → footprint-local box (lib/footprint · fpBoxFrac) →
+ * tile is 1/tileAR wide for its height, lib/whiteboard · tileAspectOf) to WGS84 for every floor: tile → footprint-local box (lib/footprint · fpBoxFrac) →
  * isotropic src → ground through `BuildingDoc.geo`. The floor an anno sits on is carried by
  * `anno.floor`, not by the coordinates – which is exactly what lets the stack share the unified
  * object model's PlanFit (lib/tacticalObjects · PlanFit.stack).
@@ -76,30 +76,31 @@ const groundToSrc = (geo: SrcGeoref, p: { lng: number; lat: number }): Pt => [
  *  footprint: its tile box IS the page, so the chain is tile → page → ground through the pack's
  *  fit, which the caller passes; a footprint stack goes tile → box → src → ground through `geo`. */
 export function stackGroundFit(
-  b: Pick<BuildingDoc, 'src' | 'geo' | 'floors' | 'viewDeg' | 'northUp' | 'orientDeg' | 'pack' | 'ringAspect'>,
+  b: Pick<BuildingDoc, 'src' | 'geo' | 'floors' | 'viewDeg' | 'northUp' | 'orientDeg' | 'pack' | 'ringAspect' | 'tileAR'>,
   packFit?: GeorefFit | null,
 ): GeorefFit | null {
   const N = b.floors.length || 1
+  const TILE = tileAspectOf(b)
   if (b.pack) {
     if (!packFit) return null
     // the tile box shows the reference drawing's FRAME on its page (whole page when unset), at the
     // building's COMMITTED view angle — the drag preview must not move what the ink is glued to
     const view = buildView(packFrameRing(b.pack), activeViewDeg(b))
-    const { rw, rh } = fpBoxFrac(view.aspect, 1, N * TILE_AR, N)
+    const { rw, rh } = fpBoxFrac(view.aspect, 1, N * TILE, N)
     const tileToGround = ([x, y]: Pt) => {
       const [ix, iy] = view.fromNorm([(x - (0.5 - rw / 2)) / rw, (y - (0.5 - rh / 2)) / rh])
       return packFit.toMap({ x: ix / b.pack!.aspect, y: iy })
     }
     const pairs: GeorefPair[] = ([[0.2, 0.3], [0.8, 0.3], [0.5, 0.8]] as Pt[]).map((t) => ({ plan: { x: t[0], y: t[1] }, lngLat: tileToGround(t), kind: 'auto' }))
-    return fitSimilarity(pairs, 1 / TILE_AR)
+    return fitSimilarity(pairs, 1 / TILE)
   }
   const src = b.src as Ring[] | undefined
   if (!b.geo || !src?.length) return null
   const view = buildView(src, activeViewDeg(b))
-  const { rw, rh } = fpBoxFrac(view.aspect, 1, N * TILE_AR, N)
+  const { rw, rh } = fpBoxFrac(view.aspect, 1, N * TILE, N)
   const tileToGround = ([x, y]: Pt) => srcToGround(b.geo!, view.fromNorm([(x - (0.5 - rw / 2)) / rw, (y - (0.5 - rh / 2)) / rh]))
   const pairs: GeorefPair[] = ([[0.2, 0.3], [0.8, 0.3], [0.5, 0.8]] as Pt[]).map((t) => ({ plan: { x: t[0], y: t[1] }, lngLat: tileToGround(t), kind: 'auto' }))
-  return fitSimilarity(pairs, 1 / TILE_AR) // planAspect is width / height
+  return fitSimilarity(pairs, 1 / TILE) // planAspect is width / height
 }
 
 /**

@@ -293,6 +293,13 @@
 /* the storey's Geschossplan page under the outline – quiet, the outline stays legible over it */
 .wb-floor-page { opacity: 1; }
 .wb-floor-noplan { font: 600 13px var(--body); fill: var(--ink-faint); }
+/* the storey's drawing is still being rasterised – its rectangle, breathing quietly, so an
+   unfinished tile reads as «kommt gleich» instead of «kein Geschossplan» */
+.wb-floor-page-wait { fill: color-mix(in srgb, var(--ink) 7%, transparent); animation: wb-floor-wait 1.6s ease-in-out infinite; }
+@keyframes wb-floor-wait { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .wb-floor-page-wait { animation: none; opacity: .7; }
+}
 .wb-floor-label { position: absolute; top: 8px; left: 10px; display: flex; align-items: center; gap: 6px; z-index: 1;
   font-family: var(--body); font-weight: 700; font-size: 13px; line-height: 1; color: var(--ink-dim);
   background: var(--label-soft); border-radius: var(--r-xs); padding: 4px 4px 4px 9px; user-select: none; -webkit-user-select: none; }

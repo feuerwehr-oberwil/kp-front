@@ -43,7 +43,7 @@ import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
-import { planUrl, TILE_AR, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
@@ -58,7 +58,7 @@ import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
-import { activeViewDeg, buildView, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
+import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
@@ -699,8 +699,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     prewarmPlans(plans.filter((p) => p.imageUrl).map((p) => planUrl(p.imageUrl)), vp.w, vp.h)
   }, [plans, vp.w, vp.h])
 
-  // in stack mode the board's aspect is driven by the floor count, not the doc
-  const effAspect = stack ? N * TILE_AR : aspect
+  // in stack mode the board's aspect is driven by the floor count and the BUILDING's own storey
+  // band – a flat hall gets flat cards, so the stack is as tall as its drawings need (16.09.2026)
+  const tileAR = tileAspectOf(building)
+  const effAspect = stack ? N * tileAR : aspect
   // "contain" the plan in the area below the top bar: full width, but the usable
   // height excludes TOP_INSET so the fitted plan never sits behind the bar. In the
   // floor-stack we also reserve STACK_VPAD top & bottom so the +OG / −UG pills (which
@@ -742,7 +744,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // an unchanged answer notifies nobody, so this costs a render only when something really moved.
   useEffect(() => { void refreshStationPlanScales() }, [activeGeorefKey])
   const canGeoref = !osm && !blank && !stack && active?.viewer !== true
-  const measureARForGeoref = stack ? 1 / TILE_AR : 1 / aspect
+  const measureARForGeoref = stack ? 1 / tileAR : 1 / aspect
   const georefPairs = georefArmed ? georef.pairs : georefForPlan(activeGeorefKey)?.pairs ?? []
   const georefFit = canGeoref ? fitSimilarity(georefPairs, measureARForGeoref) : null
   // A7 (29.08.): the Gebäude floor-stack is excluded from the georef fit (one similarity can't
@@ -787,7 +789,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     measPath, setMeasPath, measMpts, measLenM, measAreaM2, measPerimM, measReset, resetEphemeral,
     measNodeDown, measMove, measUp, measDragging, measInsert, measDelete, measPress,
     closeCalPrompt, commitCalibration,
-  } = usePlanMeasure({ activeId, stack, aspect, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale })
+  } = usePlanMeasure({ activeId, stack, aspect, tileAR, planScale, localY, floorAt, tool, setTool, toNorm, log, onCalibrate, autoScale })
   /**
    * The sheet's own ground width in metres — one normalized sheet width is `mPerU · measureAR`,
    * because the measurement space is `(nx · measureAR, ny)` (lib/planScale's header) and a stored
@@ -2931,7 +2933,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const fpBox = (() => {
     if (!stack || !fpView) return null
     const tileH = sH / N
-    const availW = sW * 0.9, availH = tileH * 0.82
+    const availW = sW * BOX_W, availH = tileH * BOX_H
     let w = availW, hgt = availW * fpView.aspect
     if (hgt > availH) { hgt = availH; w = availH / fpView.aspect }
     return { w, h: hgt }
@@ -2948,8 +2950,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (Math.abs(toDeg - fromDeg) < 0.01) return
     const view = buildView(orientSrc, toDeg)
     const layout = { boardW: sW, boardH: sH, floors: N }
+    // …and the board the turn lands on: a pack's card follows its frame, so turning a flat frame
+    // upright makes every storey band taller. The ink is stored against the box inside that band,
+    // so the re-glue has to know both boards (lib/footprint · remapPoint).
+    const nextTileAR = building.pack ? bandAspect(view.aspect) : tileAR
+    const toLayout = { boardW: sW, boardH: sW * N * nextTileAR, floors: N }
     const src = orientSrc
-    const mv = (p: [number, number]): [number, number] => remapPoint(src, fromDeg, toDeg, layout, p)
+    const mv = (p: [number, number]): [number, number] => remapPoint(src, fromDeg, toDeg, layout, p, toLayout)
     // where the view is looking, in tile coordinates, re-glued the same way (see the pan below)
     const anchor = (() => {
       const s = scaleRef.current, w = fit.w * s, h = fit.h * s
@@ -2977,7 +2984,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // rings would be the frame rectangle, which a pack deliberately has none of. Only the aspect
     // crosses over: it is what makes the tile box follow the turned frame.
     onReorient(building.pack
-      ? { ...building, viewDeg: toDeg, ringAspect: view.aspect }
+      ? { ...building, viewDeg: toDeg, ringAspect: view.aspect, tileAR: nextTileAR }
       : { ...building, viewDeg: toDeg, northUp: toDeg === 0, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect })
     emit('building.reorient', { northUp: toDeg === 0, deg: toDeg, planId: activeId })
     // …and the VIEW is re-glued too. The board keeps its size through a rotation (a stack's

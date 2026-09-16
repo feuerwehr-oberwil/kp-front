@@ -145,7 +145,7 @@ export interface PlanFit {
   fit: GeorefFit
   aspect: number
   /** the Gebäude floor-stack (lib/stackFit): `fit` maps ONE tile's local coordinates (x of the
-   *  board width, y of the tile; aspect 1/TILE_AR) to the ground, alike for every storey; `floors`
+   *  board width, y of the tile; aspect 1/tileAR) to the ground, alike for every storey; `floors`
    *  are the storeys the stack has. An anno's `floor` is the tile it stands on; its storeys on the
    *  Karte are `floorFrom`/`floorTo` – set explicitly, or both = the tile (decided 15.09.2026: ONE
    *  storey vocabulary, Von/Bis, on both surfaces; a span shows as copies on every tile in it). A

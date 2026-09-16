@@ -56,6 +56,21 @@ describe('FloorPage', () => {
     expect(container.querySelector('clipPath')).toBeNull()
   })
 
+  // ⚠️ the bakes are serialised, so the last tile of a stack waits for the ones before it – an
+  // empty tile read as «kein Geschossplan» rather than «kommt gleich» (Bastian, 16.09.2026)
+  it('holds the drawing\'s place while the raster is still baking', async () => {
+    let land = (_u: string) => {}
+    planRegionUrl.mockImplementationOnce(() => new Promise<string>((res) => { land = res }))
+    const { container } = sheet(<FloorPage url="/p.pdf" corners={PAGE} region={EG} w={400} h={300} floors={2} />)
+    const wait = container.querySelector('.wb-floor-page-wait')!
+    expect(wait).toBeTruthy()
+    // …on exactly the rectangle the raster will land on, so the tile never jumps
+    expect(wait.getAttribute('transform')).toBe('matrix(160.0000 0.0000 0.0000 120.0000 40.0000 60.0000)')
+    land('data:image/jpeg;base64,AAAA')
+    await waitFor(() => expect(container.querySelector('image')).toBeTruthy())
+    expect(container.querySelector('.wb-floor-page-wait')).toBeNull()
+  })
+
   it('renders the whole page when a storey has no rectangle of its own', async () => {
     sheet(<FloorPage url="/p.pdf" corners={PAGE} w={400} h={300} floors={1} />)
     await waitFor(() => expect(planRegionUrl).toHaveBeenCalled())

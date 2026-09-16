@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, TILE_AR, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings } from './whiteboard'
+import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, TILE_AR, tileAspectOf, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings } from './whiteboard'
 
 describe('planUrl', () => {
   it('leaves absolute http(s) URLs untouched', () => {
@@ -121,5 +121,17 @@ describe('a Leitung across storeys', () => {
     expect(floorCrossings(pts as never, 0)).toEqual([1, 3])
     expect(floorSections([[0, 0], [1, 1]], 2)).toHaveLength(1)
     expect(floorCrossings([[0, 0], [1, 1]], 2)).toEqual([])
+  })
+})
+
+// ⚠️ The band became a per-document value on 16.09.2026 (the card follows the drawing). Every
+// stack created before that has no `tileAR` and MUST keep the old constant: its ink is stored
+// against the box centred in a 0.72 band, and a band that changed under it would move it.
+describe('tileAspectOf', () => {
+  it('is the document\'s own band, and the historical constant without one', () => {
+    expect(tileAspectOf({ tileAR: 0.33 })).toBe(0.33)
+    expect(tileAspectOf({})).toBe(TILE_AR)
+    expect(tileAspectOf(null)).toBe(TILE_AR)
+    expect(tileAspectOf(undefined)).toBe(TILE_AR)
   })
 })

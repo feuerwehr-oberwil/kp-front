@@ -679,6 +679,17 @@ export interface BuildingDoc {
    *  (viewDeg === 0 ⇔ northUp) and the ring mirrors on the active view, so documents read by
    *  pre-dial clients still render a coherent (if binary-angled) picture. */
   viewDeg?: number
+  /** the storey band's height as a fraction of the board width — the CARD around one Geschoss.
+   *
+   *  Derived from the drawing's own aspect when the stack is created, and again whenever the
+   *  building is turned (lib/footprint · bandAspect), so a flat hall gets a flat card instead of
+   *  spending two thirds of every storey on air.
+   *
+   *  ⚠️ ABSENT means the historical 0.72 (lib/whiteboard · TILE_AR) and must stay that way for
+   *  every stack created before 16.09.2026: annotation coordinates are relative to the box CENTRED
+   *  in the band, so a band that changed under existing ink would move the ink with it. Resolve
+   *  through `tileAspectOf`, never by hand. */
+  tileAR?: number
   /** where this footprint sits on the ground, recorded at pick time from the picker's own square
    *  metre-bbox (lib/buildingTransfer · georefFromPick).
    *

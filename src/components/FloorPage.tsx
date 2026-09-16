@@ -43,9 +43,14 @@ export function FloorPage({ url, corners, region = WHOLE, w, h, floors }: {
     // a stack torn down mid-bake stops the queue behind it rather than rasterising for nobody
     return () => { alive.current = false }
   }, [url, x0, y0, x1, y1, floors])
-  if (!src) return null
   const [o, px, py] = regionCorners(corners, [x0, y0, x1, y1])
   const m = [(px[0] - o[0]) * w, (px[1] - o[1]) * h, (py[0] - o[0]) * w, (py[1] - o[1]) * h, o[0] * w, o[1] * h]
+  const at = `matrix(${m.map((v) => v.toFixed(4)).join(' ')})`
+  // ⚠️ The bakes are serialised (planRegionUrl), so on a four-storey stack the last tile waits for
+  // the three before it – and a tile with nothing in it looks like a storey WITHOUT a plan rather
+  // than one still coming (Bastian, 16.09.2026). The placeholder is the drawing's own rectangle,
+  // exactly where the raster will land, so the tile does not jump when it arrives.
+  if (!src) return <rect className="wb-floor-page-wait" width={1} height={1} transform={at} />
   return (
     <image
       href={src}
@@ -53,7 +58,7 @@ export function FloorPage({ url, corners, region = WHOLE, w, h, floors }: {
       height={1}
       preserveAspectRatio="none"
       className="wb-floor-page"
-      transform={`matrix(${m.map((v) => v.toFixed(4)).join(' ')})`}
+      transform={at}
     />
   )
 }

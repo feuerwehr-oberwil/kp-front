@@ -9,7 +9,7 @@
 
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
-import { TILE_AR, floorLabel, pdfPageOf } from './whiteboard'
+import { floorLabel, pdfPageOf, tileAspectOf } from './whiteboard'
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import { packFrameRing } from './stackFit'
 import type { IncidentMeta } from './incidents'
@@ -132,6 +132,7 @@ export function floorStackPages(
     : building.src?.length
       ? buildView(building.src, viewAngle)
       : { rings: building.rings ?? [building.ring], aspect: building.ringAspect || 1 }
+  const TILE = tileAspectOf(building)
   const chunks: number[][] = []
   for (let i = 0; i < floorsTTB.length; i += STACK_FLOORS_PER_PAGE) chunks.push(floorsTTB.slice(i, i + STACK_FLOORS_PER_PAGE))
   return chunks.map((chunk, ci) => {
@@ -142,7 +143,7 @@ export function floorStackPages(
     // upright and every floor tile the same size; a page that is short of a storey simply
     // leaves its lower band empty, which is what a stack with nothing above it looks like.
     const N = STACK_FLOORS_PER_PAGE
-    const { rw, rh } = fpBoxFrac(fp.aspect, 1, N * TILE_AR, N)
+    const { rw, rh } = fpBoxFrac(fp.aspect, 1, N * TILE, N)
     const page: Record<string, unknown>[] = []
     chunk.forEach((f, idx) => {
       if (idx > 0) page.push({ kind: 'draw', pts: [[0.02, idx / N], [0.98, idx / N]], color: '#b9c2cc', width: 1.5, dashed: true })
@@ -180,7 +181,7 @@ export function floorStackPages(
     })
     page.push(...planAnnosForPdf(lifted, byName, captionMode))
     const labels = chunk.map(floorLabel)
-    return { label: `${plan.title} · ${labels.length > 1 ? `${labels[0]} – ${labels[labels.length - 1]}` : labels[0]}`, blankAspect: N * TILE_AR, annos: page }
+    return { label: `${plan.title} · ${labels.length > 1 ? `${labels[0]} – ${labels[labels.length - 1]}` : labels[0]}`, blankAspect: N * TILE, annos: page }
   })
 }
 

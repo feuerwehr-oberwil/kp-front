@@ -3,7 +3,7 @@ import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorien
 import type { BoardAnno } from '../types'
 import { fitSimilarity } from './georef'
 import { TILE_AR } from './whiteboard'
-import { buildView, fpBoxFrac, type Pt } from './footprint'
+import { bandAspect, buildView, fpBoxFrac, type Pt } from './footprint'
 import { joinShifts } from './floorPackBinding'
 import type { PlanFloor } from './api/reference'
 
@@ -84,10 +84,10 @@ describe('a pack stack – the pages ARE the tiles', () => {
       { plan: { x: 0.9, y: 0.2 }, lngLat: { lng: 7.5512, lat: 47.5104 }, kind: 'gesetzt' },
     ], 1.6)!
     const pack = { aspect: 1.6, frame: [0.1, 0.1, 0.7, 0.5] as [number, number, number, number] }
-    const at = (deg: number, page: Pt) => {
-      const b = { pack, ringAspect: 0.4, floors: [0, 1], src: undefined, geo: undefined, viewDeg: deg }
+    const at = (deg: number, page: Pt, tileAR = TILE_AR) => {
+      const b = { pack, ringAspect: 0.4, floors: [0, 1], src: undefined, geo: undefined, viewDeg: deg, tileAR }
       const view = buildView(packFrameRing(pack), deg)
-      const { rw, rh } = fpBoxFrac(view.aspect, 1, 2 * TILE_AR, 2)
+      const { rw, rh } = fpBoxFrac(view.aspect, 1, 2 * tileAR, 2)
       const [o, px, py] = packPagePlacement(view, pack.aspect, { shift: [0, 0] })
       // page → the tile box the placement speaks, then box → tile, then tile → ground
       const bx = o[0] + page[0] * (px[0] - o[0]) + page[1] * (py[0] - o[0])
@@ -97,6 +97,13 @@ describe('a pack stack – the pages ARE the tiles', () => {
     const truth = pageFit.toMap({ x: 0.4, y: 0.3 })
     for (const deg of [0, 30, 90, -145]) {
       const got = at(deg, [0.4, 0.3])
+      expect(got.lng).toBeCloseTo(truth.lng, 9)
+      expect(got.lat).toBeCloseTo(truth.lat, 9)
+    }
+    // …and through a CARD that fits the drawing rather than the historical 0.72 band: the storey
+    // is drawn in a shorter tile, the ground it stands on is the same (16.09.2026)
+    for (const tileAR of [bandAspect(0.4), 0.2, 1.1]) {
+      const got = at(0, [0.4, 0.3], tileAR)
       expect(got.lng).toBeCloseTo(truth.lng, 9)
       expect(got.lat).toBeCloseTo(truth.lat, 9)
     }

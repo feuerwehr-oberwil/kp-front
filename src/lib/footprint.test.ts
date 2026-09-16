@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { activeViewDeg, buildView, fpBoxFrac, northVec, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring, type Pt } from './footprint'
+import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, fpBoxFrac, northVec, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring, type Pt } from './footprint'
 import { pathMetres } from './planScale'
 
 const rad = (d: number) => (d * Math.PI) / 180
@@ -154,5 +154,45 @@ describe('remapPoint', () => {
     const same = remapPoint(turned, orientDeg, orientDeg, layout, p)
     expect(same[0]).toBeCloseTo(p[0], 9)
     expect(same[1]).toBeCloseTo(p[1], 9)
+  })
+})
+
+// The card around a Geschoss: as tall as its drawing needs, and no taller. Before 16.09.2026 every
+// storey band was a flat 0.72 of the board width, so a hall drawn as a ribbon spent two thirds of
+// its card on air (Bastian: «just remove unnecessary whitespace of the card»).
+describe('bandAspect', () => {
+  it('is the inverse of the box the tile draws: the drawing fills the width, the air stays proportional', () => {
+    const aspect = 0.3
+    const band = bandAspect(aspect)
+    // one storey, board width 1 → the box is BOX_W wide and fills exactly BOX_H of the band
+    const { rw, rh } = fpBoxFrac(aspect, 1, band, 1)
+    expect(rw).toBeCloseTo(BOX_W, 10)
+    expect(rh).toBeCloseTo(BOX_H, 10)
+  })
+
+  it('keeps a band the heading can still sit on, and a stack you can see two storeys of', () => {
+    expect(bandAspect(0.001)).toBeGreaterThan(0.1)
+    expect(bandAspect(40)).toBeLessThanOrEqual(1.3)
+  })
+})
+
+// ⚠️ Turning a pack changes the CARD as well as the paper (the frame's aspect is what the band
+// follows), so the re-glue reads two boards. The ink must not move on the drawing.
+describe('remapPoint across a changing band', () => {
+  const FRAME: Ring[] = [[[0, 0], [2, 0], [2, 0.5], [0, 0.5]]] // a flat, landscape frame
+  it('keeps a point on the same spot of the drawing when the band changes with the turn', () => {
+    const N = 2
+    const from = { boardW: 1, boardH: N * bandAspect(buildView(FRAME, 0).aspect), floors: N }
+    const to = { boardW: 1, boardH: N * bandAspect(buildView(FRAME, 90).aspect), floors: N }
+    // the frame's own centre-right point, in tile coordinates of the untouched board
+    const a = fpBoxFrac(buildView(FRAME, 0).aspect, from.boardW, from.boardH, N)
+    const p: Pt = [0.5 - a.rw / 2 + 0.75 * a.rw, 0.5 - a.rh / 2 + 0.5 * a.rh]
+    const q = remapPoint(FRAME, 0, 90, from, p, to)
+    // …lands on the same point of the turned frame: (0.75, 0.5) of the drawing
+    const b = fpBoxFrac(buildView(FRAME, 90).aspect, to.boardW, to.boardH, N)
+    const local: Pt = [(q[0] - (0.5 - b.rw / 2)) / b.rw, (q[1] - (0.5 - b.rh / 2)) / b.rh]
+    const back = buildView(FRAME, 90).toNorm(buildView(FRAME, 0).fromNorm([0.75, 0.5]))
+    expect(local[0]).toBeCloseTo(back[0], 10)
+    expect(local[1]).toBeCloseTo(back[1], 10)
   })
 })

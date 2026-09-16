@@ -1,5 +1,5 @@
 import { activeViewDeg, buildView, fpBoxFrac, type Pt, type Ring } from './footprint'
-import { TILE_AR } from './whiteboard'
+import { tileAspectOf } from './whiteboard'
 import type { BoardAnno, BoardPoint, BuildingDoc, LngLat, SrcGeoref } from '../types'
 
 export type { SrcGeoref }
@@ -196,10 +196,10 @@ export function matchStoredRings(
 // ---- the whole floor stack across a building change ----------------------------------
 
 /** The board the floor stack is drawn on. Only the TILE aspect matters to `fpBoxFrac`, and in
- *  stack mode the board's aspect is `floors × TILE_AR` by construction (Whiteboard · effAspect) —
- *  so one tile is `TILE_AR` regardless of pixel size or storey count, and the re-anchoring needs
+ *  stack mode the board's aspect is `floors × tileAR` by construction (Whiteboard · effAspect) —
+ *  so one tile is the document's own band regardless of pixel size or storey count, and the re-anchoring needs
  *  no measured layout from the DOM. `reportPdfDirect` renders the stack off the same identity. */
-const stackLayout = (floors: number) => ({ boardW: 1, boardH: floors * TILE_AR })
+const stackLayout = (floors: number, tileAR: number) => ({ boardW: 1, boardH: floors * tileAR })
 
 /** Every floor-stack annotation carried from one building frame to the next, plus how many could
  *  not be. Pure — the caller owns the confirm, the toast and the undo. */
@@ -291,7 +291,7 @@ export function amendBuilding(
     return { floors: [0], annos: [], carried: 0, dropped: annos.length, legacy: true }
   }
   const floors = prev.floors.length ? prev.floors : [0]
-  const layout = stackLayout(floors.length)
+  const layout = stackLayout(floors.length, tileAspectOf(prev))
   const from: BuildingFrame = {
     src, angleDeg: activeViewDeg(prev), geo: prev.geo, floors: floors.length,
   }
