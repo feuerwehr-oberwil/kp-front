@@ -60,6 +60,17 @@ async def test_list_objects_filters_by_name(client, editor, db_session):
     assert names == ["Schulhaus Dorfmatt"]
 
 
+async def test_list_objects_filters_by_address(client, editor, db_session):
+    """The object an alarm names by its street: «Grenzweg» must find the Tramdepot standing on it."""
+    db_session.add_all([_obj(name="BLT Tramdepot", address="Grenzweg 1"), _obj(name="Werkhof", address="Bahnweg 3")])
+    await db_session.commit()
+    await _login(client, editor)
+
+    r = await client.get("/api/objects", params={"q": "grenzweg"})
+    assert r.status_code == 200, r.text
+    assert [o["name"] for o in r.json()] == ["BLT Tramdepot"]
+
+
 async def test_list_objects_near_sorts_by_distance_object_without_coords_last(client, editor, db_session):
     near = _obj(name="Nah", lat=47.502, lng=7.5)  # ~222 m from the reference point
     far = _obj(name="Fern", lat=47.505, lng=7.5)  # ~556 m

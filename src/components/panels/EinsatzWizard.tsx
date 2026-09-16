@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { confirmDialog, toast } from '../../lib/ui'
 import { ApiError } from '../../lib/api'
@@ -9,6 +9,7 @@ import { Combo } from '../Combo'
 import { appConfig } from '../../config/appConfig'
 import { dtLocalValue, dtLocalToIso, fillTemplate } from '../../lib/format'
 import { fmtDistance, haversineM } from '../../lib/geo'
+import { matchesAnyQuery, searchQuery } from '../../lib/search'
 import { isDemoMode, shortAddress } from '../../lib/deploymentConfig'
 import {
   createIncident,
@@ -217,17 +218,29 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     return () => clearTimeout(t)
   }, [address, addrOpen])
 
-  // load / filter the object library when its picker is open. Rank by the responder's own
-  // GPS first (where they stand), falling back to the being-set / incident coord if denied.
+  // load the object library when its picker is open. Rank by the responder's own GPS first
+  // (where they stand), falling back to the being-set / incident coord if denied.
+  //
+  // The whole library comes down once and the typing is filtered HERE, exactly as the
+  // Planauswahl does it (components/PlanPicker): the list is ~150 objects, so filtering is
+  // instant, and it is the only way the search covers the ADDRESS as well as the name. The
+  // server's `q` matches one field at a time and forgives nothing — «grenzweg» found nothing
+  // while the object sitting at Grenzweg 1 was two rows down, and a typo emptied the list.
   useEffect(() => {
     if (!objOpen) return
     const ref = myPos ?? coord ?? nearCoord
     const near = ref ? `${ref[0]},${ref[1]}` : undefined
-    const t = setTimeout(() => {
-      listObjects(objQuery.trim() || undefined, near).then(setObjects).catch(() => setObjects([]))
-    }, 250)
-    return () => clearTimeout(t)
-  }, [objOpen, objQuery, myPos, coord, nearCoord])
+    listObjects(undefined, near).then(setObjects).catch(() => setObjects([]))
+  }, [objOpen, myPos, coord, nearCoord])
+
+  // …the same tolerance every other picker has (lib/search): umlauts in either spelling and one
+  // typo from four characters up. Name OR address — «BLT» and «Grenzweg» must both find the
+  // Tramdepot, because an alarm names whichever of the two the caller knows.
+  const shownObjects = useMemo(() => {
+    const needle = searchQuery(objQuery)
+    if (!needle) return objects
+    return objects.filter((o) => matchesAnyQuery(needle, o.name, o.address))
+  }, [objects, objQuery])
 
   // Edit mode: pull the incident's Meldungstext (Alarmmeldung) — it isn't in IncidentMeta.
   useEffect(() => {
@@ -311,10 +324,10 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   }
 
   // near objects float to the top of the picker when we have a coordinate
-  const near = objects.filter((o) => o.distance_m != null && o.distance_m <= 1000)
+  const near = shownObjects.filter((o) => o.distance_m != null && o.distance_m <= 1000)
                        .sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0))
   const nearIds = new Set(near.map((o) => o.id))
-  const rest = objects.filter((o) => !nearIds.has(o.id)).sort((a, b) => a.name.localeCompare(b.name))
+  const rest = shownObjects.filter((o) => !nearIds.has(o.id)).sort((a, b) => a.name.localeCompare(b.name))
   const ObjRow = (o: ObjectWithPlans) => (
     <button key={o.id} type="button" className="ip-objrow" onClick={() => pickObject(o)}>
       <span className="ip-objrow-main">
@@ -378,7 +391,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         <div className="ip-objpick">
           <input className="ip-search" value={objQuery} placeholder={ix.objectSearchPlaceholder} onChange={(e) => setObjQuery(e.target.value)} />
           <div className="ip-objlist">
-            {objects.length === 0 && <div className="ip-ac-note">{ix.objectNoHits}</div>}
+            {shownObjects.length === 0 && <div className="ip-ac-note">{ix.objectNoHits}</div>}
             {near.length > 0 && <div className="ip-objgroup">{ix.objectNear}</div>}
             {near.map(ObjRow)}
             {rest.map(ObjRow)}

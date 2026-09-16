@@ -90,3 +90,9 @@ export function matchesRaw(raw: string, text: string): boolean {
   const q = searchQuery(raw)
   return !q || matchesQuery(q, text)
 }
+
+/** The same query against SEVERAL fields of one candidate — an Einsatzobjekt is as findable by
+ *  its address as by its name, because an alarm names whichever of the two the caller knows.
+ *  Blank fields simply never match. */
+export const matchesAnyQuery = (q: SearchQuery, ...texts: (string | null | undefined)[]): boolean =>
+  texts.some((t) => !!t && matchesQuery(q, t))

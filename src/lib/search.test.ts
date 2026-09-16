@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchesRaw, withinOneEdit } from './search'
+import { matchesAnyQuery, matchesRaw, searchQuery, withinOneEdit } from './search'
 
 // The two things every picker's search box forgives. Written against the names that actually
 // caused it: a Divera roster spelling «Müller» while the on-screen keyboard offers «Mueller»,
@@ -67,5 +67,26 @@ describe('withinOneEdit', () => {
   ])('%s ~ %s → %s', (a, b, expected) => {
     expect(withinOneEdit(a, b)).toBe(expected)
     expect(withinOneEdit(b, a)).toBe(expected)
+  })
+})
+
+// The reported bug (16.09.2026): the object picker found «BLT Tramdepot» but not «Grenzweg»,
+// the street it stands on — an alarm names whichever of the two the caller knows.
+describe('matchesAnyQuery — name OR address', () => {
+  const q = (raw: string) => searchQuery(raw)!
+  const depot = ['BLT Tramdepot', 'Grenzweg 1'] as const
+
+  it('finds the object by its name and by its address', () => {
+    expect(matchesAnyQuery(q('blt'), ...depot)).toBe(true)
+    expect(matchesAnyQuery(q('grenzweg'), ...depot)).toBe(true)
+  })
+
+  it('forgives the one typo in either field', () => {
+    expect(matchesAnyQuery(q('grenwzeg'), ...depot)).toBe(true)
+  })
+
+  it('an object without an address is matched on what it has', () => {
+    expect(matchesAnyQuery(q('werkhof'), 'Werkhof', null)).toBe(true)
+    expect(matchesAnyQuery(q('grenzweg'), 'Werkhof', null)).toBe(false)
   })
 })

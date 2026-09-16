@@ -6,7 +6,7 @@ import unicodedata
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin
@@ -65,7 +65,9 @@ async def list_objects(
 ):
     query = select(ObjectSite)
     if q:
-        query = query.where(ObjectSite.name.ilike(f"%{q}%"))
+        # Name OR address: an object is known to one caller as «BLT Tramdepot» and to the next
+        # as «Grenzweg 1», and neither of them is the wrong way to name it.
+        query = query.where(or_(ObjectSite.name.ilike(f"%{q}%"), ObjectSite.address.ilike(f"%{q}%")))
     objs = list((await db.execute(query.order_by(ObjectSite.name))).scalars())
 
     ref_lng = ref_lat = None
