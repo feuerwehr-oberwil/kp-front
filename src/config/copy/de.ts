@@ -3531,7 +3531,6 @@ export const de = {
     retry: 'Erneut versuchen',
     savedOk: 'Gespeichert',
     undo: 'Rückgängig',
-    removedEntry: '{name} entfernt (inkl. Zeiten)',
     mittelSet: '{label}: neu {n} {unit}',
     mittelRemoved: '{label} entfernt',
     mittelExtra: 'Weitere erfasste Positionen',

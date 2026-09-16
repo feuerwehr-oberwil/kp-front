@@ -1798,3 +1798,14 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
    height (CaptureApp), safe-area included, so no second inset here. */
 :root:has(.cv-shell) .toaster {
   top: calc(var(--cv-head-h, 64px) + 8px); bottom: auto; flex-direction: column; }
+/* …but that reason is a TOUCH one. On a machine with a mouse there is no software keyboard and
+   no collapsing URL bar, so nothing pans the viewport — and the top lane then parks the pill
+   squarely on the first card's heading («Anwesenheit», Bastian 16.09.2026) while the whole lower
+   half of the window is empty. There the poster takes the app's normal bottom lane back.
+   ⚠️ The pointer, not the width: an iPad in landscape is wider than most laptops and has exactly
+   the panning the top lane exists for — and a device with a fine pointer has a hardware keyboard,
+   which is the thing that actually decides it. */
+@media (hover: hover) and (pointer: fine) {
+  :root:has(.cv-shell) .toaster {
+    top: auto; bottom: max(28px, calc(16px + env(safe-area-inset-bottom))); flex-direction: column-reverse; }
+}

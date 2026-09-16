@@ -2125,7 +2125,6 @@ export const fr: Localizable<Copy> = {
     retry: 'Réessayer',
     savedOk: 'Enregistré',
     undo: 'Annuler',
-    removedEntry: '{name} retiré (heures comprises)',
     mittelSet: '{label} : désormais {n} {unit}',
     mittelRemoved: '{label} retiré',
     mittelExtra: 'Autres positions saisies',

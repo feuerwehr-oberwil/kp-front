@@ -552,26 +552,19 @@ export default function CaptureApp() {
 
   // attendance tap: frei → MAGAZIN → vor Ort → gegangen → frei, all on the row itself. Four
   // states, one gesture and no dialog — the modal that used to ask «wo bist du?» was one
-  // decision too many on a phone held at a door with a glove on (09.08.). The last tap DELETES
-  // the entry incl. its recorded times, so that one gets confirm-with-undo.
+  // decision too many on a phone held at a door with a glove on (09.08.).
+  //
+  // ⚠️ The last tap of the cycle DELETES the entry incl. its recorded times, and until
+  // 16.09.2026 it announced that with an undo toast. Dropped on Bastian's call: the pill sat
+  // over the roster for every fifth tap while somebody was working down a list, and the way back
+  // is the cycle itself — one more tap re-ticks the person. `restoreAttendance` STAYS in
+  // lib/captureClient: a device that queued one offline before this deploy still has to be able
+  // to replay it.
   const tapPerson = async (p: CapturePerson) => {
     if (!incident) return
-    const prev = attendance[p.id]
     // «von» = Alarmzeit (Vorschlag ab Alarmzeit) — retro ticking at the magazine must
     // not stamp everyone's arrival with the tap moment near the incident's end
-    const saved = await run({ kind: 'cycleAttendance', personId: p.id, name: p.display_name, vonIso: incident.started_at })
-    if (!saved) return
-    if (prev?.status === 'left') {
-      toast(fillTemplate(C.removedEntry, { name: p.display_name }), {
-        icon: 'warn',
-        action: {
-          label: C.undo,
-          onClick: () => {
-            void run({ kind: 'restoreAttendance', personId: p.id, entry: prev }).then((ok) => { if (ok) savedToast() })
-          },
-        },
-      })
-    }
+    await run({ kind: 'cycleAttendance', personId: p.id, name: p.display_name, vonIso: incident.started_at })
   }
 
   /**

@@ -2181,7 +2181,6 @@ export const it: Localizable<Copy> = {
     retry: 'Riprova',
     savedOk: 'Salvato',
     undo: 'Annulla',
-    removedEntry: '{name} rimosso (orari inclusi)',
     mittelSet: '{label}: ora {n} {unit}',
     mittelRemoved: '{label} rimosso',
     mittelExtra: 'Altre posizioni registrate',

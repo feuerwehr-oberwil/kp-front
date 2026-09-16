@@ -2129,7 +2129,6 @@ export const en: Localizable<Copy> = {
     retry: 'Try again',
     savedOk: 'Saved',
     undo: 'Undo',
-    removedEntry: '{name} removed (incl. times)',
     mittelSet: '{label}: now {n} {unit}',
     mittelRemoved: '{label} removed',
     mittelExtra: 'Other recorded items',
