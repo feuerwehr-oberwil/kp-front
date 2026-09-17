@@ -1,6 +1,7 @@
 import { appConfig } from '../config/appConfig'
 import { floorLabel } from './whiteboard'
 import { matchesQuery, type SearchQuery } from './search'
+import { abbreviateName } from './personnel'
 import type { TacticalObject } from './tacticalObjects'
 import type { LngLat, PlanDocument, Trupp, TruppKind } from '../types'
 
@@ -233,6 +234,22 @@ export interface MarkerOption {
   color?: string
   /** the Trupp standing here already — the option stays pickable, but says so */
   takenBy?: string
+}
+
+/**
+ * The holder worth NAMING under a marker option — undefined when the row would only repeat
+ * itself.
+ *
+ * ⚠️ A Trupp's marker carries that Trupp's name, so «Müller H.» with «Gehört zu Trupp Müller
+ * Hans» under it says one person twice (Bastian, 17.09.2026). The clause exists for the case
+ * where the two genuinely differ — a marker labelled «Angriff 1» that Trupp Müller is holding,
+ * or a label somebody typed by hand — and that is the only case it now appears in. Compared
+ * through `abbreviateName`, because the marker wears the short form of the same name.
+ */
+export function markerHolderNote(o: Pick<MarkerOption, 'name' | 'takenBy'>): string | undefined {
+  if (!o.takenBy) return undefined
+  const same = o.takenBy === o.name || abbreviateName(o.takenBy) === o.name
+  return same ? undefined : o.takenBy
 }
 
 /**

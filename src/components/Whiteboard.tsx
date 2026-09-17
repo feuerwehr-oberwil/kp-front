@@ -43,7 +43,7 @@ import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
-import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
@@ -2550,6 +2550,34 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
 
   // pan (no zoom change) so a normalized plan point lands at the centre of the unobscured work area
+  /**
+   * Move a whole Leitung to another Geschoss — the «Geschoss» stepper in its detail sheet.
+   *
+   * ⚠️ It used to patch `anno.floor` alone, and on the stack that changes NOTHING: every vertex
+   * of a line drawn here carries its own storey (`pts[i][2]`, stamped at draw time) and the
+   * renderer reads the point before the anno. The stepper stepped, the sheet said the new storey,
+   * and the hose stayed where it was (Bastian, 17.09.2026).
+   *
+   * Every vertex moves by the SAME step, so a Leitung that climbs keeps its climb. A step that
+   * would take any vertex off the building is refused; a storey the building does not have is
+   * resolved to the next one it does (a pack with EG and +2 steps straight from one to the
+   * other), and a folded-away target is unfolded, because a hose that moved somewhere invisible
+   * has simply gone missing.
+   */
+  const moveLineToStorey = (id: string, to: number | undefined) => {
+    if (to == null || readOnly) return
+    const a = annos.find((x) => x.id === id)
+    if (!a?.pts?.length) return
+    const from = a.pts[0][2] ?? a.floor ?? 0
+    const target = storeyTowards(allFloorsTTB, from, to)
+    if (target == null) return
+    const delta = target - from
+    const moved = a.pts.map(([x, y, f]): BoardPoint => [x, y, (f ?? a.floor ?? 0) + delta])
+    if (moved.some((p) => !allFloorsTTB.includes(p[2] as number))) return
+    revealFloor(target)
+    patchCommit(id, { floor: from + delta, pts: moved })
+  }
+
   const centerOnPoint = (x: number, y: number, floor: number, atScale?: number) => {
     const s = atScale ?? scaleRef.current, w = fit.w * s, h = fit.h * s
     const canvas = canvasRef.current?.getBoundingClientRect()
@@ -4396,11 +4424,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
           onContent={(content) => patchCommit(selDraw.id, { content })}
           onLineNo={(lineNo) => { patchCommit(selDraw.id, { lineNo }); onLineRenumber?.(selDraw.id, lineNo) }}
-          // on the stack the line's storey is its tile: stepping it moves the line (its base floor;
-          // vertices that name their own storey keep it) rather than writing a badge
-          onFloorTag={stack
-            ? (floorTag) => { if (floorTag != null && floorsTTB.includes(floorTag)) patchCommit(selDraw.id, { floor: floorTag }) }
-            : (floorTag) => patchCommit(selDraw.id, { floorTag })}
+          // on the stack the line's storey is its tile: stepping it MOVES the line rather than
+          // writing a badge (lib/whiteboard · movedToStorey)
+          onFloorTag={stack ? (floorTag) => moveLineToStorey(selDraw.id, floorTag) : (floorTag) => patchCommit(selDraw.id, { floorTag })}
           onTrupp={onLinkLineTrupp ? (truppId) => onLinkLineTrupp(selDraw.id, truppId) : undefined}
           trupps={trupps.filter((t) => t.status !== 'raus').map((t) => ({ id: t.id, name: t.name }))}
           usedLineNos={annos.filter((a) => a.kind === 'draw' && a.id !== selDraw.id && a.lineNo != null).map((a) => a.lineNo!)}

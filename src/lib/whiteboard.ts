@@ -89,6 +89,20 @@ export const pdfPageOf = (url: string): number | null => {
 }
 export const withPdfPage = (url: string, page: number): string => `${url.replace(/#.*$/, '')}#page=${page + 1}`
 
+/**
+ * The storey a step LANDS on: `wanted` when the building has it, otherwise the next one it does
+ * have in that direction — a pack with EG and 2. OG steps from one straight to the other instead
+ * of stopping at a +1 that was never drawn. Null when there is nothing further that way.
+ */
+export function storeyTowards(floors: readonly number[], from: number, wanted: number): number | null {
+  if (wanted === from) return null
+  if (floors.includes(wanted)) return wanted
+  const beyond = floors.filter((f) => (wanted > from ? f > from : f < from))
+  if (!beyond.length) return null
+  // the nearest one in the direction travelled — never past the storey that was asked for
+  return wanted > from ? Math.min(...beyond) : Math.max(...beyond)
+}
+
 /** Where the ink of a storey that is NOT on the board goes: one whole board above it, so it is
  *  clipped away by the SVG's own viewport instead of being drawn somewhere it does not belong.
  *  Reachable since a storey can be folded away per device (lib/floorPrefs) — before that it was

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, TILE_AR, tileAspectOf, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings } from './whiteboard'
+import { clamp01, floorGeometry, floorLabel, OFF_BOARD_Y, planUrl, storeyTowards, TILE_AR, tileAspectOf, TOP_INSET, pdfPageOf, signedFloor, withPdfPage, floorSections, floorCrossings } from './whiteboard'
 
 describe('planUrl', () => {
   it('leaves absolute http(s) URLs untouched', () => {
@@ -133,5 +133,27 @@ describe('tileAspectOf', () => {
     expect(tileAspectOf({})).toBe(TILE_AR)
     expect(tileAspectOf(null)).toBe(TILE_AR)
     expect(tileAspectOf(undefined)).toBe(TILE_AR)
+  })
+})
+
+// Stepping a Leitung's Geschoss walks the BUILDING, not the number line: a pack whose sheet
+// carries EG and 2. OG has no +1 to stop on (17.09.2026).
+describe('storeyTowards', () => {
+  const floors = [-1, 0, 2, 3]
+
+  it('takes the storey asked for when the building has it', () => {
+    expect(storeyTowards(floors, 0, -1)).toBe(-1)
+    expect(storeyTowards(floors, 2, 3)).toBe(3)
+  })
+
+  it('skips to the next one it does have, and never past the one asked for', () => {
+    expect(storeyTowards(floors, 0, 1)).toBe(2)   // no +1 drawn — the step lands on +2
+    expect(storeyTowards(floors, 2, 1)).toBe(0)   // …and back down again
+  })
+
+  it('answers null at the ends and for a step that goes nowhere', () => {
+    expect(storeyTowards(floors, 3, 4)).toBeNull()
+    expect(storeyTowards(floors, -1, -2)).toBeNull()
+    expect(storeyTowards(floors, 0, 0)).toBeNull()
   })
 })

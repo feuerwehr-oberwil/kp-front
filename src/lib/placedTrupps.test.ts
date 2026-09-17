@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { markerOptions, markerSite, nextTeamName, nextTruppNo, placedTrupps, resolveMarkerJoin, teamNameNo, truppMatches } from './placedTrupps'
+import { markerHolderNote, markerOptions, markerSite, nextTeamName, nextTruppNo, placedTrupps, resolveMarkerJoin, teamNameNo, truppMatches } from './placedTrupps'
 import { searchQuery } from './search'
 import { objectsFromLegacy } from './tacticalObjects'
 import type { BoardAnno, BoardDoc, Entity, PlanDocument, Trupp } from '../types'
@@ -153,6 +153,16 @@ describe('markerOptions (what a Trupp card offers)', () => {
     expect(opts[0].where).toBe('Karte')
     // the HOLDER's name off the board, not the marker's label
     expect(opts[1].takenBy).toBe('Keller Anna')
+  })
+
+  // ⚠️ «Müller H.» with «Gehört zu Trupp Müller Hans» under it says one person twice — and a
+  // Trupp's marker always carries that Trupp's name, so that was the normal case (17.09.2026).
+  it('names the holder only where it is not what the row already says', () => {
+    expect(markerHolderNote({ name: 'Müller H.', takenBy: 'Müller Hans' })).toBeUndefined()
+    expect(markerHolderNote({ name: 'Müller Hans', takenBy: 'Müller Hans' })).toBeUndefined()
+    expect(markerHolderNote({ name: 'Trupp 9', takenBy: undefined })).toBeUndefined()
+    // …and it still says it where the two really differ: a labelled symbol somebody is holding
+    expect(markerHolderNote({ name: 'Angriff 1', takenBy: 'Müller Hans' })).toBe('Müller Hans')
   })
 
   it('leaves out the asking Trupp’s own symbol — picking it would change nothing', () => {

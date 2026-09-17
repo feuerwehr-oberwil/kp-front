@@ -78,11 +78,13 @@ const aBuilding: BuildingDoc = {
 const renderBoard = (activeId: string, annos: BoardAnno[] = [], readOnly = false, building: BuildingDoc | null = null) => {
   const onSelectBuilding = vi.fn()
   const onBuildingFace = vi.fn()
+  // what the board would SAVE — the only way to read an edit that the DOM does not show
+  const onChange = vi.fn()
   render(<Whiteboard
     plans={[umrisse, gebaeudeDoc, tafel]}
     activeId={activeId}
     annos={annos}
-    onChange={() => {}}
+    onChange={onChange}
     building={building}
     onSelectBuilding={onSelectBuilding}
     onBuildingFace={onBuildingFace}
@@ -97,7 +99,7 @@ const renderBoard = (activeId: string, annos: BoardAnno[] = [], readOnly = false
     setHist={() => {}}
     focus={null}
   />)
-  return { onSelectBuilding, onBuildingFace }
+  return { onSelectBuilding, onBuildingFace, onChange }
 }
 
 // «Umrisse» exists to pick the building that becomes the Gebäude view. A tool that could only
@@ -1041,6 +1043,50 @@ describe('drehen · Gebäude aus Geschossplänen', () => {
     fireEvent.click(turn())
     expect(screen.getByRole('button', { name: 'Norden oben' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Wie gezeichnet' })).toBeNull()
+  })
+})
+
+// ⚠️ A Leitung drawn on the stack stamps its storey into EVERY VERTEX (pts[i][2]), and the
+// renderer reads the point before the anno — so the detail sheet's «Geschoss» stepper, which
+// patched `anno.floor` alone, moved nothing at all (Bastian, 17.09.2026).
+describe('das Geschoss einer Leitung ändern', () => {
+  const hose = (floor: number): BoardAnno => ({
+    id: 'l1', kind: 'draw', color: '#1f6feb', width: 5, floor,
+    pts: [[0.3, 0.4, floor], [0.6, 0.5, floor]],
+  })
+  const stepUp = () => {
+    const step = screen.getByRole('group', { name: appConfig.copy.drawingEditor.floorTag })
+    // ⚠️ the stepper repeats on HOLD, so its ± are pointer buttons, not click handlers
+    const more = within(step).getByRole('button', { name: appConfig.copy.stepper.more })
+    fireEvent.pointerDown(more, { pointerId: 1 })
+    fireEvent.pointerUp(more, { pointerId: 1 })
+  }
+  // ⚠️ a line whose vertices sit on different storeys is drawn as one run PER storey, and a run
+  // of a single vertex is a dot — so the tappable ink is a circle there, not a polyline
+  const select = () => {
+    const hit = document.querySelector('.wb-ink-svg polyline[style], .wb-ink-svg circle[style]')!
+    fireEvent.pointerDown(hit, { pointerId: 1, clientX: 10, clientY: 10 })
+  }
+
+  it('moves every vertex, so the hose actually changes storey', () => {
+    const { onChange } = renderBoard('gebaeude', [hose(0)], false, { ...aBuilding, floors: [0, 1, 2], pack: { aspect: 1 } })
+    select()
+    stepUp()
+
+    const saved = onChange.mock.lastCall?.[0]?.find((a: BoardAnno) => a.id === 'l1')
+    expect(saved?.pts?.map((p: number[]) => p[2])).toEqual([1, 1])
+    expect(saved?.floor).toBe(1)
+  })
+
+  // …and a Leitung that climbs keeps its climb: both ends move by the same step
+  it('shifts a storey-crossing line instead of flattening it', () => {
+    const climbing: BoardAnno = { ...hose(0), pts: [[0.3, 0.4, 0], [0.6, 0.5, 1]] }
+    const { onChange } = renderBoard('gebaeude', [climbing], false, { ...aBuilding, floors: [0, 1, 2], pack: { aspect: 1 } })
+    select()
+    stepUp()
+
+    const saved = onChange.mock.lastCall?.[0]?.find((a: BoardAnno) => a.id === 'l1')
+    expect(saved?.pts?.map((p: number[]) => p[2])).toEqual([1, 2])
   })
 })
 

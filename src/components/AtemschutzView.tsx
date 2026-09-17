@@ -16,7 +16,7 @@ import { useIsPhone } from '../lib/useIsPhone'
 import type { AttendanceState, Person, Trupp, TruppAuftrag, TruppFields, TruppKind, TruppReading } from '../types'
 import { abbreviateName, assignedPersonIds, personIdForName, rosterFromList, rosterIdByName, truppSlots } from '../lib/personnel'
 import { truppLineNo, type LeitungOption } from '../lib/truppLines'
-import type { MarkerOption } from '../lib/placedTrupps'
+import { markerHolderNote, type MarkerOption } from '../lib/placedTrupps'
 import { ClearableInput } from './ClearableInput'
 import type { Slot } from './PersonField'
 import { TruppTeam } from './TruppTeam'
@@ -1352,7 +1352,12 @@ export function AtemschutzView({
                       {m.name}
                     </span>
                     <span className={s.placeOptWhere}>
-                      {m.where}{m.takenBy ? ` · ${fillTemplate(az.markerOptTaken, { name: m.takenBy })}` : ''}
+                      {/* the holder only where it says something the title does not — a Trupp's
+                          own marker already carries its name (lib/placedTrupps · markerHolderNote) */}
+                      {(() => {
+                        const holder = markerHolderNote(m)
+                        return `${m.where}${holder ? ` · ${fillTemplate(az.markerOptTaken, { name: holder })}` : ''}`
+                      })()}
                     </span>
                   </button>
                 ))}
