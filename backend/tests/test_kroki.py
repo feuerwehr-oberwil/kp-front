@@ -862,3 +862,38 @@ def test_an_attached_leitung_end_lands_on_the_glyph_as_printed():
     assert half - 4 * u <= snapped_x - cx <= half  # …and now sits just inside its edge
     assert scene.drawings[1]["coords"][0] == stale
     assert scene.drawings[0]["coords"][1] == far  # only the attached vertex moves
+
+
+def test_a_branch_leaves_from_the_prong_of_the_fork_as_printed():
+    """⚠️ Same class of bug as the glyph coupling: the client fans a Teilstück's branches out by a
+    fixed 1.5 m on the GROUND, the fork is a glyph sized in PIXELS. On a close crop the branch
+    started a fork-length away from the prong it belongs to (18.09.2026 review)."""
+    trunk = [[7.5700, 47.5240], [7.5702, 47.5240]]  # runs due east
+    stale = [7.57025, 47.52395]  # where the client's metre-fan put the branch
+    scene = kk.KrokiScene(
+        drawings=[
+            {"kind": "line", "id": "trunk", "coords": [list(c) for c in trunk], "teilstueck": True, "width": 4},
+            {
+                "kind": "line",
+                "coords": [list(stale), [7.5704, 47.5238]],
+                "startAtLine": {"id": "trunk", "endpoint": "end", "port": 2},
+            },
+            # a plain joint (no Teilstück port) simply shares the target's point
+            {
+                "kind": "line",
+                "coords": [list(stale), [7.5704, 47.5242]],
+                "startAtLine": {"id": "trunk", "endpoint": "start"},
+            },
+        ]
+    )
+    view = kk.center_view((7.5702, 47.5240), 20.5, 1300, 1820)
+    u, ss = 1300 / 1050, 2
+    kk._snap_attached_ends(scene, view, 0.85, u, ss)
+
+    half, prong = kk._fork_dims(max(1, round(4 * u * ss)))
+    tip = view.project(*trunk[-1])
+    got = view.project(*scene.drawings[1]["coords"][0][:2])
+    # port 2 = the prong on the RIGHT of travel: `prong` forward (east, +x), `half` across (+y)
+    assert abs((got[0] - tip[0]) - prong / ss) < 0.5
+    assert abs((got[1] - tip[1]) - half / ss) < 0.5
+    assert scene.drawings[2]["coords"][0] == trunk[0]

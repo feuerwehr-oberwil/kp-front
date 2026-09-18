@@ -59,7 +59,14 @@ export type KrokiDrawingOut = Partial<Drawing> & {
    *  short of its vehicle (18.09.2026). */
   startAt?: string
   endAt?: string
+  /** …and the same for an end attached to ANOTHER Leitung's end. A branch off a Teilstück belongs
+   *  on one of the fork's prong tips, and the fork is a glyph sized in pixels — this file fans the
+   *  branches out by metres (backend · kroki · _snap_line_joints). `id` rides only on a line that
+   *  is such a target. ⚠️ Mirrored in backend/app/report_pdf.py · KrokiLineEndIn. */
+  startAtLine?: KrokiLineEnd
+  endAtLine?: KrokiLineEnd
 }
+export interface KrokiLineEnd { id: string; endpoint: 'start' | 'end'; port?: number }
 
 export interface KrokiPayloadOut {
   entities: KrokiEntityOut[]
@@ -250,6 +257,9 @@ export function buildKrokiPayload(args: {
   const base = layers.find((l) => l.base && l.visible && l.tiles?.length) ?? layers.find((l) => l.base && l.tiles?.length)
   if (!base?.tiles?.length) return null
   const objectTarget = (a: Drawing['startAttachment']): string | undefined => (a?.target.kind === 'object' ? a.target.id : undefined)
+  const lineTarget = (a: Drawing['startAttachment']): KrokiLineEnd | undefined =>
+    (a?.target.kind === 'line' ? { id: a.target.id, endpoint: a.target.endpoint, port: a.port } : undefined)
+  const targetLineIds = new Set(storedDrawings.flatMap((d) => [lineTarget(d.startAttachment)?.id, lineTarget(d.endAttachment)?.id]))
   const attachedIds = new Set(storedDrawings.flatMap((d) => [objectTarget(d.startAttachment), objectTarget(d.endAttachment)]))
   const ents = entities
     .filter((e) => visible(e.layer))
@@ -272,6 +282,8 @@ export function buildKrokiPayload(args: {
     fillOpacity: d.fillOpacity, hatch: d.hatch, radiusM: d.radiusM,
     teilstueck: d.teilstueck, lineNo: d.lineNo, content: d.content, floorTag: d.floorTag,
     startAt: objectTarget(d.startAttachment), endAt: objectTarget(d.endAttachment),
+    id: targetLineIds.has(d.id) ? d.id : undefined,
+    startAtLine: lineTarget(d.startAttachment), endAtLine: lineTarget(d.endAttachment),
     // the Atemschutz-Trupp on this Leitung, already resolved + abbreviated: the server draws the
     // Kroki from this payload alone and has no Trupp records to match against. Alarm TONES are
     // deliberately not sent — paper has no live clock, and a red hose on a printed rapport would

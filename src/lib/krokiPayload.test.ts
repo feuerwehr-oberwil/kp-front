@@ -148,6 +148,19 @@ describe('buildKrokiPayload', () => {
     expect(p.entities.map((e) => e.id)).toEqual(['tlf', undefined])
   })
 
+  // …and the same for a branch off a Teilstück: the fork is a glyph sized in pixels, this file
+  // fans the branches out by metres, so the server needs the target line and the prong.
+  it('names the line (and prong) a branch leaves from, and ids only that target line', () => {
+    const trunk = { id: 'trunk', kind: 'line', coords: [[7.55, 47.51], [7.5502, 47.5101]], teilstueck: true } as Drawing
+    const branch = {
+      id: 'branch', kind: 'line', coords: [[7.5502, 47.5101], [7.5504, 47.5100]],
+      startAttachment: { target: { kind: 'line', id: 'trunk', endpoint: 'end' }, routing: 'direct', port: 2 },
+    } as Drawing
+    const p = buildKrokiPayload({ entities: [], drawings: [trunk, branch], layers, byName: {}, center: [7.55, 47.51] })!
+    expect(p.drawings.map((d) => d.id)).toEqual(['trunk', undefined])
+    expect(p.drawings[1].startAtLine).toEqual({ id: 'trunk', endpoint: 'end', port: 2 })
+  })
+
   // The Schraffur is the FKS reading of an AFFECTED area, not a shade of the wash. Left out of the
   // payload it printed as an ordinary fill and the sheet said something else about the ground than
   // the screen it was framed on (field report 02.09.). ⚠️ Mirrored in backend · KrokiDrawingIn.

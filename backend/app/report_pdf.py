@@ -260,6 +260,15 @@ class KrokiEntityIn(BaseModel):
     notePlain: bool = False
 
 
+class KrokiLineEndIn(BaseModel):
+    """An end attached to ANOTHER Leitung's end (`KrokiDrawingIn.id`) — see kroki · _snap_line_joints."""
+
+    id: str
+    endpoint: str = "end"  # 'start' | 'end' of the TARGET line
+    #: 0..2 when the target is a Teilstück: which of the fork's three prongs this branch leaves from
+    port: int | None = None
+
+
 class KrokiDrawingIn(BaseModel):
     """One Lage drawing (client src/types.ts Drawing, incl. FKS hose-line decor)."""
 
@@ -283,6 +292,10 @@ class KrokiDrawingIn(BaseModel):
     #: (kroki · _snap_attached_ends). Absent = a free end, drawn where it is.
     startAt: str | None = None
     endAt: str | None = None
+    #: only on a line another line is attached to — what `startAtLine` / `endAtLine` name
+    id: str | None = None
+    startAtLine: KrokiLineEndIn | None = None
+    endAtLine: KrokiLineEndIn | None = None
     lineNo: int | None = None
     content: str | None = None
     floorTag: int | None = None

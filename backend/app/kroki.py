@@ -812,17 +812,33 @@ def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str
 # ----------------------------------------------------------------------------- line decor
 
 
+def _fork_dims(width: float) -> tuple[float, float]:
+    """(half, prong) of the Teilstück fork for a stroke `width`, in the same px the width is in —
+    the ONE definition the drawn glyph and the branch ports share (client lib/lineAttachments ·
+    forkDims plays the same role on screen). Slightly longer + thinner than the on-screen fork so
+    the E reads crisply on paper."""
+    half = max(10.0, width * 2.1)
+    return half, half * 1.25
+
+
+def _fork_bearing(pts: list[tuple[float, float]], width: float) -> tuple[float, float]:
+    """Forward unit vector at the line's tip — the direction the fork opens in."""
+    tip = pts[-1]
+    back = _lookback(pts, max(10.0, width * 2.5))
+    dx, dy = tip[0] - back[0], tip[1] - back[1]
+    n = math.hypot(dx, dy) or 1.0
+    return dx / n, dy / n
+
+
 def _teilstueck_fork(overlay: Image.Image, pts: list[tuple[float, float]], color: str, width: int) -> None:
     """The forward «E»-fork Teilstück coupling at the line tip — the client's
     TeilstueckFork SVG (round caps, clean joins) rasterised via resvg and composited
     at the tip; PIL's fat butt-capped strokes turned into blobs."""
     color = _safe_color(color)
     tip = pts[-1]
-    back = _lookback(pts, max(10.0, width * 2.5))
-    ang = math.degrees(math.atan2(tip[1] - back[1], tip[0] - back[0]))
-    # slightly longer + thinner than the on-screen fork so the E reads crisply on paper
-    half = max(10.0, width * 2.1)
-    prong = half * 1.25
+    fx, fy = _fork_bearing(pts, width)
+    ang = math.degrees(math.atan2(fy, fx))
+    half, prong = _fork_dims(width)
     sw = max(2.0, width * 0.55)
     box = (half + prong) * 2 + 8
     svg = (
@@ -1403,7 +1419,7 @@ def _north_arrow(img: Image.Image, img_w: float, u: float) -> None:
     img.paste(dial, (int(img_w - size - 14 * u), int(14 * u)), dial)
 
 
-def _snap_attached_ends(scene: KrokiScene, view: View, sym_mul: float, u: float) -> None:
+def _snap_attached_ends(scene: KrokiScene, view: View, sym_mul: float, u: float, ss: int = 2) -> None:
     """Couple every Leitung end that is attached to an object to the glyph AS PRINTED.
 
     The client resolves attachments before it sends the scene, but without a projection: it ends
@@ -1418,8 +1434,6 @@ def _snap_attached_ends(scene: KrokiScene, view: View, sym_mul: float, u: float)
     as coupled and one just outside as «not quite joined».
     """
     by_id = {e["id"]: e for e in scene.entities if e.get("id")}
-    if not by_id:
-        return
     overlay_z = view.overlay_z if view.overlay_z is not None else view.z
     for d in scene.drawings:
         coords = d.get("coords") or []
@@ -1450,6 +1464,48 @@ def _snap_attached_ends(scene: KrokiScene, view: View, sym_mul: float, u: float)
             # back to WGS84 along the same ray: the ray is short (half a glyph), so scaling the
             # coordinate delta by k is exact to well under a pixel
             coords[idx] = [lng + (coords[nb][0] - lng) * k, lat + (coords[nb][1] - lat) * k, *coords[idx][2:]]
+    _snap_line_joints(scene, view, u, ss)
+
+
+def _snap_line_joints(scene: KrokiScene, view: View, u: float, ss: int) -> None:
+    """…and the same for an end attached to ANOTHER LINE's end. A plain joint simply shares the
+    target's point. A branch off a Teilstück sits on one of the fork's three PRONG TIPS — and the
+    fork is a glyph sized in pixels (`_fork_dims`), while the client fans the branches out by a
+    fixed 1.5 m on the ground. On a close crop the branch started a whole fork-length away from
+    the prong it belongs to (18.09.2026). Runs AFTER the object pass, because a target's own end
+    may just have moved; three rounds settle any chain a hand would draw."""
+    by_id = {d["id"]: d for d in scene.drawings if d.get("id") and len(d.get("coords") or []) >= 2}
+    if not by_id:
+        return
+    for _ in range(3):
+        for d in scene.drawings:
+            coords = d.get("coords") or []
+            if d.get("kind") != "line" or len(coords) < 2:
+                continue
+            for key, idx in (("startAtLine", 0), ("endAtLine", len(coords) - 1)):
+                ref = d.get(key) or {}
+                target = by_id.get(ref.get("id") or "")
+                if target is None or target is d:
+                    continue
+                t_coords = target["coords"]
+                at_end = ref.get("endpoint") != "start"
+                tip = t_coords[-1] if at_end else t_coords[0]
+                lng, lat = tip[0], tip[1]
+                port = ref.get("port")
+                if at_end and target.get("teilstueck") and port is not None:
+                    # the prong tip, in the px the fork is rastered in — then back to WGS84 through
+                    # the local scale (north-up Mercator: no cross terms, linear over a few px)
+                    w = max(1, round((target.get("width") or 4) * u * ss))
+                    proj = [view.project(c0[0], c0[1]) for c0 in t_coords]
+                    pts = [(x * ss, y * ss) for x, y in proj]
+                    fx, fy = _fork_bearing(pts, w)
+                    half, prong = _fork_dims(w)
+                    perp = (int(port) - 1) * half
+                    ox, oy = (fx * prong - fy * perp) / ss, (fy * prong + fx * perp) / ss
+                    x0, y0 = view.project(lng, lat)
+                    x1, y1 = view.project(lng + 1e-5, lat + 1e-5)
+                    lng, lat = lng + ox * 1e-5 / (x1 - x0), lat + oy * 1e-5 / (y1 - y0)
+                coords[idx] = [lng, lat, *coords[idx][2:]]
 
 
 def render_kroki(
@@ -1482,7 +1538,7 @@ def render_kroki(
     u = width / ref_width  # UI scale: screen-px rules → render-px
     view = view or fit_view(scene.extent_points(), width, height)
     overlay_z = view.overlay_z if view.overlay_z is not None else view.z
-    _snap_attached_ends(scene, view, sym_mul, u)
+    _snap_attached_ends(scene, view, sym_mul, u, ss)
     # supersampled view: same world extent, ss× the pixels (tiles are stitched at 1× then
     # upscaled — map detail stays honest, but every overlay edge is drawn at ss× and
     # downsampled, which is where the crispness matters)
