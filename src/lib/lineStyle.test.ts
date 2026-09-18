@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FREEHAND_SIMPLIFY_PX, HANDLE_MIN_SPACING_PX, MARKER_SPACING_PX, MAX_VERTEX_HANDLES, MIN_STROKE_PX, evenIndices, isTapStroke, markerGlyph, markerParamsAlong, markerSpacing, rdpIndices, resolveLinePreset, vertexHandleIndices } from './lineStyle'
+import { FREEHAND_SIMPLIFY_PX, HANDLE_MIN_SPACING_PX, MARKER_SPACING_PX, MAX_VERTEX_HANDLES, MIN_STROKE_PX, evenIndices, isTapStroke, markerGlyph, markerParamsAlong, markerSpacing, arrowEndIndices, rdpIndices, resolveLinePreset, vertexHandleIndices } from './lineStyle'
 
 // resolveLinePreset is the ONE preset bundle both drawing surfaces (Lage map + Plan whiteboard)
 // apply — this pins the coercion so they can't drift. The default presets are the app's stock
@@ -259,5 +259,22 @@ describe('marker glyphs', () => {
     const params = markerParamsAlong([[0, 0], [100, 0], [100, 100]], 40)
     const bearings = [...new Set(params.map((m) => m.deg))]
     expect(bearings).toEqual([0, 90])
+  })
+})
+
+describe('arrowEndIndices', () => {
+  it('hollows the END vertex of an arrowed line', () => {
+    expect(arrowEndIndices({ kind: 'line', arrow: true }, 4)).toEqual([3])
+    expect(arrowEndIndices({ kind: 'line', arrow: true }, 2)).toEqual([1])
+  })
+  it('leaves an ordinary line alone', () => {
+    expect(arrowEndIndices({ kind: 'line' }, 4)).toEqual([])
+    expect(arrowEndIndices({ kind: 'line', arrow: false }, 4)).toEqual([])
+  })
+  it('never rings a closed Fläche or a line with no bearing', () => {
+    // an area draws no head at all (both renderers filter it out), and neither does a 1-point line
+    expect(arrowEndIndices({ kind: 'area', arrow: true }, 5)).toEqual([])
+    expect(arrowEndIndices({ kind: 'line', arrow: true }, 1)).toEqual([])
+    expect(arrowEndIndices({ kind: 'line', arrow: true }, 0)).toEqual([])
   })
 })

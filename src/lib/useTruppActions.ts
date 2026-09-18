@@ -20,6 +20,7 @@ import { alarmBarFor, currentRunStart, earlyEntryCorrection, isAtemschutzTrupp, 
 // unaffected.
 import { serverNowIso } from './serverClock'
 import { nextTruppNo, resolveMarkerJoin } from './placedTrupps'
+import { floorLabel } from './whiteboard'
 import type { UndoTimeline } from './undoTimeline'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
@@ -580,7 +581,14 @@ export function useTruppActions(deps: Deps) {
       setMode('plans'); setActivePlanId(planId); setPanel(null)
       setPlanFocus({ ...spot, annoId, nonce: Date.now() })
     }
-    logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: truppLogName(tr, 'leader') }), { kind: 'team', annoId, ...spot })
+    // …and WHICH STOREY (18.09.2026). The row already states a place («auf Plan platziert»), and
+    // on a Gebäude floor-stack that place is a tile — «Trupp 3 auf Plan platziert» said nothing
+    // about the 2. OG the Trupp was actually sent to. Appended rather than templated: the row is
+    // the one string the Verlauf, the Rapport and the hash chain all read, and `floorLabel` is
+    // already the localised word for it. Off a stack there is no storey to name.
+    const onStack = planId === gebaeudeDoc.id
+    logPlan('flag', fillTemplate(appConfig.copy.atemschutz.logPlaced, { name: truppLogName(tr, 'leader') })
+      + (onStack ? ` · ${floorLabel(spot.floor)}` : ''), { kind: 'team', annoId, ...spot })
     emit('atemschutz.place', { id, annoId, planId })
     void askTruppEntry(id)
     return annoId

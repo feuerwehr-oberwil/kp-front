@@ -11,7 +11,7 @@ import { Icon } from '../lib/icons'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { LockChip } from './LockChip'
 import { LINE_DASH_ML, ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
-import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { markerParamsAlong, markerSpacing, lerpPoint, vertexHandleIndices, evenIndices, arrowEndIndices, DEFAULT_INK, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
@@ -24,6 +24,13 @@ import { floorBadge } from '../lib/symbolRender'
 import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { cachedLabelSize, LABEL_RANK, MARKER_Z, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
+import type { TruppTrail } from '../lib/truppTrails'
+
+/** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
+ *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
+ *  Trupp is standing somewhere. A frozen value rather than a token because MapLibre's paint
+ *  cannot read a CSS custom property; it is deliberately mid-grey, so it reads on both themes. */
+const GHOST_TRAIL_INK = '#8a8f98'
 import { lineTakesTrupp, markerTakesLineEnd, teamLineBadges, truppForLine, truppIdForAttachment, truppLineTone, type LinkableLine } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM } from '../lib/geo'
 import { noteWPx } from '../lib/notes'
@@ -265,6 +272,10 @@ interface Props {
   /** see MapMarkers — the marker on the Karte is the only place a colour is still chosen */
   /** recolour a team marker (null = automatic) — see MapMarkers */
   onTeamClearTrail?: (id: string) => void
+  /** the incident's ghost «Spuren» (lib/truppTrails) — the searched area a removed Trupp marker
+   *  left behind. Drawn grey and read-only; `onGhostTrail` is the «Spur löschen» door. */
+  ghostTrails?: TruppTrail[]
+  onGhostTrail?: (id: string) => void
   /** «Lösen» on a joined Trupp marker — see MapMarkers (absent = locked / read-only) */
   onTeamUnlink?: (entityId: string, lineId: string) => void
   onTeamUndock?: (entityId: string) => void
@@ -398,7 +409,7 @@ interface Props {
 export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView && !isDemoMode()
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamUnlink, onTeamUndock,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
@@ -1572,6 +1583,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       ? vertexHandleIndices(editDraw.coords.map((c) => { const p = mapInst.current!.project(c as [number, number]); return [p.x, p.y] as [number, number] }))
       : evenIndices(editDraw.coords.length)
     : []
+  // The vertex that carries the arrowhead is drawn HOLLOW, so the spitze stays visible through it
+  // (the arrow is a symbol layer on the canvas and a node pad is a DOM marker — nothing can paint
+  // the head above it). Same helper the Plan uses, so the two surfaces ring the same node.
+  const editRingIdx = editDraw ? arrowEndIndices(editDraw, editDraw.coords.length) : []
   // A «+» in every gap between two SHOWN pads — one per gap, never one per stored segment.
   // ⚠️ Until 05.09. the «+» row was all-or-nothing: it appeared only while EVERY vertex still had
   // a pad, on the grounds that the midpoint of the chord between two shown nodes is nowhere near
@@ -1925,6 +1940,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const trailFC = fc(entities
     .filter((e) => e.kind === 'team' && isVisible(effectiveLayer(e)) && (e.trail?.length ?? 0) >= 2 && !hiddenTrails.has(e.id))
     .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), { color: e.color || appConfig.drawing.teamColors[0] })))
+  // …and the same dashed line for a ghost trail, in the neutral ink: the marker is gone, so the
+  // Trupp's own colour would claim a Trupp that is not standing anywhere (lib/truppTrails).
+  const ghostTrailFC = fc((ghostTrails ?? [])
+    .filter((g) => (g.geo?.length ?? 0) >= 2)
+    .map((g) => lineFeat((g.geo ?? []).map((p) => p.coord), { color: GHOST_TRAIL_INK })))
   // Vehicle tracks from Traccar — their own layer, off by default, and only polled while it is
   // switched on. Distinct from the Trupp trails above: those are positions the operator recorded
   // by hand, these are recorded by the vehicles themselves.
@@ -2143,6 +2163,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       <Source id="s-team-trails" type="geojson" data={trailFC}>
         <Layer id="l-team-trails" type="line" layout={{ 'line-join': 'round', ...vis(!georefOn) }}
           paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2.5, 2.5], 'line-opacity': 0.85 } as any} />
+      </Source>
+      {/* …and the ghost trails behind them: the same dashed path, in the neutral ink, because the
+          Trupp that walked it is no longer standing anywhere (lib/truppTrails). */}
+      <Source id="s-ghost-trails" type="geojson" data={ghostTrailFC}>
+        <Layer id="l-ghost-trails" type="line" layout={{ 'line-join': 'round', ...vis(!georefOn) }}
+          paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2, 3], 'line-opacity': 0.7 } as any} />
       </Source>
       {/* vehicle tracks (Traccar) — solid, thin and deliberately quiet: this is context behind
           the fleet, not a tactical statement, so it must not read like a drawn hose line. The
@@ -2600,7 +2626,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           }}
         >
           <div
-            className={`draw-handle ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
+            className={`draw-handle ${editRingIdx.includes(i) ? 'draw-handle--ring' : ''} ${vertexPress.armed?.key === `draw:${i}` ? 'doomed' : ''}`}
             title={appConfig.copy.measure.deleteNode}
             {...vertexPress.press(`draw:${i}`, () => deleteVertexKeepSelection(editDraw.id, i), editDraw.coords.length > (editArea ? 3 : 2))}
             onContextMenu={(ev) => { ev.stopPropagation(); ev.preventDefault(); deleteVertexKeepSelection(editDraw.id, i) }}
@@ -2797,6 +2823,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onTeamMark={onTeamMark}
         onTeamRename={onTeamRename}
         onTeamClearTrail={onTeamClearTrail}
+        ghostTrails={ghostTrails}
+        onGhostTrail={onGhostTrail}
         teamLines={teamLines}
         onTeamUnlink={onTeamUnlink}
         onTeamUndock={onTeamUndock}

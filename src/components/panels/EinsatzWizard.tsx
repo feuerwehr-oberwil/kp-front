@@ -155,6 +155,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // map picker (self-contained — works with no active incident yet)
   const [mapOpen, setMapOpen] = useState(false)
 
+  // The «Koordinaten» fold. DERIVED until the operator says otherwise (null = nobody has),
+  // so picking an address or an object closes it on its own and clearing the address opens it
+  // again — the fold follows the fact instead of freezing whatever was true at mount.
+  const [coordOverride, setCoordOverride] = useState<boolean | null>(null)
+  const coordOpen = coordOverride ?? !(coord && address.trim())
+
   // «Hier» — the PRIMARY location method: the EL usually stands at (or near) the Einsatzort,
   // so one tap takes a GPS fix; object library / map pick are the fallbacks for elsewhere
   const [locating, setLocating] = useState(false)
@@ -401,17 +407,37 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         </div>
       )}
 
-      <div className={`ip-loc${coord ? ' set' : ''}`}>
-        <Icon id={coord ? 'flag' : 'warn'} />
-        {coord ? (
-          <>
-            <span className="ip-loc-txt">{ix.coordSet} · {coord[1].toFixed(5)}, {coord[0].toFixed(5)}</span>
-            <button type="button" className="ip-loc-clear" onClick={() => setCoord(null)} aria-label={ix.coordClear}><Icon id="close" /></button>
-          </>
-        ) : (
-          <span className="ip-loc-txt">{ix.coordNone}</span>
-        )}
-      </div>
+      {/* --- Koordinaten, behind a fold (owner, 18.09.2026) ---------------------------------
+          People enter an ADDRESS. The literal coordinate is what the address resolved to, and
+          it stood open between the location methods and the Stichwort field on every incident
+          anybody ever corrected — a row of five decimal places nobody reads and a ✕ that quietly
+          clears the Einsatzort. Folded away it is still one tap from being read, cleared and
+          re-picked; nothing about how it is stored or edited changed, and the map picker is
+          exactly where it was, above.
+          ⚠️ It opens ITSELF whenever it is the only thing left saying where this Einsatz is: no
+          address, or an address that never resolved to a coordinate. «Kein Standort – wird ohne
+          Koordinate eröffnet» is a warning, and a warning behind a fold is not a warning. The
+          moment the operator works the head, their choice wins over the derivation. */}
+      <button
+        type="button" className="ip-fold-head" aria-expanded={coordOpen}
+        onClick={() => setCoordOverride(!coordOpen)}
+      >
+        <Icon id="chevron-down" className="chev" aria-hidden="true" />
+        <span className="ip-fold-title">{ix.coordFold}</span>
+      </button>
+      {coordOpen && (
+        <div className={`ip-loc${coord ? ' set' : ''}`}>
+          <Icon id={coord ? 'flag' : 'warn'} />
+          {coord ? (
+            <>
+              <span className="ip-loc-txt">{ix.coordSet} · {coord[1].toFixed(5)}, {coord[0].toFixed(5)}</span>
+              <button type="button" className="ip-loc-clear" onClick={() => setCoord(null)} aria-label={ix.coordClear}><Icon id="close" /></button>
+            </>
+          ) : (
+            <span className="ip-loc-txt">{ix.coordNone}</span>
+          )}
+        </div>
+      )}
 
       {/* --- Stichwort & Kategorie --- */}
       <div className="ip-ix-head">{ix.keywordHead}</div>

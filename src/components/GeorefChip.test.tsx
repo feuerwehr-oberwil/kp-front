@@ -489,6 +489,51 @@ describe('the armed plan surface places on a tap and pans on a drag', () => {
 // Geoportal), so its metres are measured rather than believed. A stored hand calibration used to
 // outrank that — and the one document that never needs calibrating was the one offering
 // «Neu kalibrieren». (11.09.)
+// ⚠️ The pill row on a phone is ONE line of icons (owner, 18.09.2026): Massstab and «⌖ Karte»
+// give up their words, so the 9px Ampel dot beside the icon is the entire reading. If a lamp ever
+// goes missing, or carries a tone that contradicts the chip's own text, a phone operator is left
+// with two identical grey pills and no way to tell a measured sheet from an unreferenced one.
+describe('the pill row\'s lamps — the phone\'s whole reading', () => {
+  const lamp = (el: HTMLElement | null) => el?.closest('button')?.querySelector('.wb-lamp')?.getAttribute('data-tone')
+
+  it('is red on both pills while the sheet has neither scale nor reference', () => {
+    renderBoard()
+    expect(lamp(screen.getByText('nicht kalibriert'))).toBe('red')
+    expect(lamp(screen.getByText('Karte verknüpfen'))).toBe('red')
+  })
+
+  // two pairs solve EXACTLY, so the fit is unmeasured — and the scale derived from it inherits
+  // that doubt rather than presenting itself as measured metres
+  it('goes amber on both once an unchecked two-point fit stands', () => {
+    store.pairs = TWO
+    renderBoard()
+    expect(lamp(screen.getByText('Verknüpft'))).toBe('amber')
+    expect(lamp(screen.getByText('Ref. auto'))).toBe('amber')
+  })
+
+  it('goes green on both once a third point has measured the fit', () => {
+    store.pairs = [...TWO, pair(0.5, 0.3, 7.5008, 47.4997)]
+    renderBoard()
+    expect(lamp(screen.getByText('Verknüpft'))).toBe('green')
+    expect(lamp(screen.getByText('Ref. auto'))).toBe('green')
+  })
+
+  // the Gebäude's metres come from its Grundriss — measured, and no fit's doubt applies
+  it('is green on the Gebäude stack, whose scale is its own footprint', () => {
+    renderStack()
+    expect(lamp(screen.getByText('Ref. auto'))).toBe('green')
+  })
+
+  // the words are gone on a phone, so they have to survive somewhere a screen reader and a
+  // long-press can still reach them
+  it('keeps every lamped pill\'s words in aria-label', () => {
+    store.pairs = TWO
+    renderBoard()
+    expect(screen.getByRole('button', { name: 'Verknüpft' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Ref. auto' })).toBeTruthy()
+  })
+})
+
 describe('the Gebäude measures off its Grundriss, not off a hand calibration', () => {
   it('reads «Ref. auto» even with a stored calibration on the stack', () => {
     // ⚠️ `ar` must be the stack's own measure space (1 / TILE_AR) or isStale drops the

@@ -27,7 +27,7 @@ import { confirmDialog, toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { Overlay, Popover } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
-import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
+import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
@@ -43,6 +43,7 @@ import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
+import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 
@@ -52,7 +53,7 @@ import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, det
 import { packFrameRing, packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { normalizeStackEdit, stackInstances } from '../lib/stackFloors'
-import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, type PlanScale } from '../lib/planScale'
+import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -69,7 +70,7 @@ import { fitSimilarity, hasAutoPairs, realPairCount } from '../lib/georef'
 import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import { georefForPlan, getStationPlanScales, noteMeasuredAspect, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { planAspect } from '../lib/georefTwins'
-import { georefChip, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
+import { georefChip, georefChipTone, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
 import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
 import { PlanLiveLayer } from './PlanLiveLayer'
 import type { LiveMark } from '../lib/planProjection'
@@ -229,6 +230,11 @@ interface Props {
   onLinkTrupp?: (annoId: string, truppId: string) => void
   /** jump to the Atemschutz board for a linked Trupp ("show the trupp"). */
   onShowTrupp?: (truppId: string) => void
+  /** the incident's ghost «Spuren» recorded on THIS sheet (lib/truppTrails · planGhostTrails) —
+   *  the searched area a removed Trupp chip left behind. Drawn read-only and grey, on the storey
+   *  each point was walked on; `onGhostTrail` is the «Spur löschen» door (absent ⇒ no door). */
+  ghostTrails?: TruppTrail[]
+  onGhostTrail?: (id: string) => void
   /** join this CHIP to an Atemschutz-Trupp — `undefined` lets go of the one it has. The plan twin
    *  of the map marker's «Atemschutz-Trupp» menu (MapMarkers · onTeamTrupp) and routed through the
    *  same action, so the takeover confirm and the «einrücken?» ask exist exactly once
@@ -311,7 +317,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -823,6 +829,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // reference wears — see georefMode · georefChip (18.09.2026).
   const georefApproved = incidentBindingApproved(activeGeorefKey)
   const georefState = georefChip(georefFit, georef, activeId, georefPairs, georefApproved)
+  /** The Massstab pill's own lamp (18.09.2026) — the phone pill is icon + lamp and nothing else,
+   *  so this dot is all that is left of «Ref. 25 m» / «nicht kalibriert» / «Massstab neu prüfen».
+   *  The mapping is a pure helper (planScale · scaleLampTone) so the tones cannot drift from the
+   *  branches the chip below actually renders. A scale DERIVED from the Kartenverknüpfung is only
+   *  as trustworthy as that fit, so it borrows the georef chip's own warn state. */
+  const scaleTone = scaleLampTone({
+    auto: scaleAuto, autoFromFit: !!georefFit, fitWarn: georefState.warn, stale: scaleStale, calibrated,
+  })
   /** The real plan bitmap for «Deckung prüfen». The PDF viewport already rendered it into its
    *  first canvas, so taking a same-origin snapshot is both cheaper and more faithful than
    *  rendering the PDF a second time on the map side. It rides in the cross-surface mode store,
@@ -1038,9 +1052,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * what a copied attachment points at); a twin's source lives in the other document, and this
    * surface's `add` writes only its own.
    *
-   * ⚠️ The copy carries no `trail`. A recorded track belongs to the Trupp that walked it — it is
-   * the very thing `teamLocked` refuses to delete one screen away, so a duplicate that inherited
-   * it would put a fabricated movement history into the record AND arrive undeletable.
+   * ⚠️ The copy carries no `trail`. A recorded track belongs to the Trupp that walked it, and a
+   * duplicate that inherited it would put a fabricated movement history into the record — and,
+   * since 18.09.2026, leave a ghost trail behind that nobody ever walked.
    */
   const DUP_OFFSET_N = 0.02 // ~2 % of the plan width — the same visible nudge a detached endpoint gets
   const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r' }
@@ -1350,7 +1364,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const color = TEAM_COLORS[teams % TEAM_COLORS.length]
     add({ id, kind: 'resource', x, y, floor, text: name, t: formatTime(new Date()), color, trail: [], truppId: trupp?.id })
     if (trupp) onLinkTrupp?.(id, trupp.id)
-    setSelId(id); log('flag', fillTemplate(appConfig.copy.whiteboard.placeTeam, { name }), { annoId: id, x, y, floor })
+    // the row already states a place («auf Plan gesetzt»); on a floor stack that place is a
+    // storey, so it is named (18.09.2026 — same rule as useTruppActions · placeTruppOnPlan)
+    setSelId(id); log('flag', fillTemplate(appConfig.copy.whiteboard.placeTeam, { name }) + (stack ? ` · ${floorLabel(floor)}` : ''), { annoId: id, x, y, floor })
   }
   // deferred placement for the node tools: run on a genuine tap (pointer-up without a pan). Mirrors
   // the bodies the Lage map runs on click — Maßstab nodes, node-draw vertices, Text, Symbol,
@@ -2441,8 +2457,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!a || a.kind !== 'resource') return
     const now = formatTime(new Date())
     patchCommit(a.id, { t: now, trail: [...(a.trail ?? []), { x: a.x ?? 0, y: a.y ?? 0, floor: a.floor ?? 0, t: now }] })
-    log('flag', fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }), { kind: 'team', annoId: a.id, x: a.x, y: a.y, floor: a.floor ?? 0 })
-    toast(fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }))
+    // «Position markieren» names a PLACE, so on a stack it names the storey too — a row that
+    // says only «Trupp 3: Position markiert» cannot be read back as a position at all
+    const where = stack ? ` · ${floorLabel(a.floor ?? 0)}` : ''
+    log('flag', fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }) + where, { kind: 'team', annoId: a.id, x: a.x, y: a.y, floor: a.floor ?? 0 })
+    toast(fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }) + where)
   }
   const clearTrail = async () => {
     const a = annos.find((x) => x.id === selId)
@@ -2460,12 +2479,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // ⚠️ No recolouring of a team chip any more (04.09.): a colour is changed on the Karte's
   // marker or not at all, so there is nothing here to write and nothing to carry to the card.
 
-  // a team that carries recorded positions is protected from deletion — its trail
-  // is part of the incident record, so it must be cleared deliberately first
-  const teamLocked = (a: BoardAnno) => a.kind === 'resource' && (a.trail?.length ?? 0) > 0
-
+  // ⚠️ A trail no longer LOCKS its chip (18.09.2026). The record is protected by outliving the
+  // marker instead: a removed chip's recorded positions move into a ghost trail the incident
+  // owns (lib/truppTrails · reconcileGhostTrails, driven from IncidentWorkspace), so the trash
+  // always does the one thing it says and the searched area is still on the sheet afterwards.
   const removeWithConnections = async (target: BoardAnno) => {
-    if (teamLocked(target)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'warn', tone: 'warn' }); return }
     const affected = annos.flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
       return rel && ((rel.target.kind === 'object' && rel.target.id === target.id) || (rel.target.kind === 'line' && rel.target.id === target.id)) ? [{ a, endpoint, rel }] : []
@@ -2505,11 +2523,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (selId === target.id) setSelId(null)
   }
 
-  // group delete — removes the selection, but trail-carrying teams are protected (their
-  // recorded trail is part of the incident record); those stay selected.
+  // group delete — removes the whole selection; a trail-carrying team goes with it and leaves
+  // its ghost trail behind (see removeWithConnections).
   const deleteGroup = async () => {
     if (readOnly) return
-    const removable = selIds.filter((id) => { const a = annos.find((x) => x.id === id); return !!a && !teamLocked(a) })
+    const removable = selIds.filter((id) => annos.some((x) => x.id === id))
     if (!removable.length) return
     const affected = annos.flatMap((a) => removable.includes(a.id) ? [] : (['start', 'end'] as const).flatMap((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
@@ -3173,16 +3191,32 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // ⚠️ Pure navigation, so a viewer/locked session gets it too — it changes nothing. Replacing
   // the building is still the picker's own act, with its confirm-and-undo (IncidentWorkspace ·
   // onSelectBuilding); this chip only walks there.
+  // ⚠️ On the STACK the pill reads the building's own NAME, not the verb (owner, 18.09.2026).
+  // «Anderes Gebäude wählen» is an instruction, and the object read-out beside it is dropped on
+  // exactly this surface (objectChipHidden) — so the one pill that could answer «which building
+  // am I standing in» spent its whole width telling the operator what tapping it would do. The
+  // name (the object's ADDRESS, name as fallback — the same string objectChip uses, because a
+  // BuildingDoc carries no name of its own) plus a chevron says both: what this is, and that
+  // the pill goes somewhere. The VERB stays in title/aria-label, so a screen reader and a
+  // long-press still get the instruction that left the face.
+  // On the picker face there is no stack to name yet — «Zurück zum Gebäude» is the whole point
+  // of the pill there, and it keeps the never-truncating treatment (.wb-building).
+  const buildingChipLabel = stack ? appConfig.copy.whiteboard.replaceBuilding : appConfig.copy.whiteboard.backToBuilding
+  // …and with no object bound at all there is no name to show: the verb comes back, and with it
+  // the never-truncating treatment, rather than a pill reading «Kein Objekt» about a building
+  // that is plainly there.
+  const buildingChipName = stack ? objectAddress?.trim() || objectName?.trim() || null : null
   const buildingChip = onBuildingFace && (stack || (osm && building)) ? (
     <button
       type="button"
-      className="wb-scale-chip wb-building"
-      aria-label={stack ? appConfig.copy.whiteboard.replaceBuilding : appConfig.copy.whiteboard.backToBuilding}
-      title={stack ? appConfig.copy.whiteboard.replaceBuilding : appConfig.copy.whiteboard.backToBuilding}
+      className={`wb-scale-chip wb-building${buildingChipName ? ' wb-building-named' : ''}`}
+      aria-label={buildingChipLabel}
+      title={buildingChipLabel}
       onClick={() => onBuildingFace(stack ? 'pick' : 'stack')}
     >
       <Icon id={stack ? 'footprint' : 'floors'} />
-      <span>{stack ? appConfig.copy.whiteboard.replaceBuilding : appConfig.copy.whiteboard.backToBuilding}</span>
+      <span>{buildingChipName ?? buildingChipLabel}</span>
+      {buildingChipName && <Icon id="chevron" className="wb-chip-chev" />}
     </button>
   ) : null
 
@@ -3830,6 +3864,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     return (
                       <span className={`team-dot ${isRaus ? 'raus' : ''}`} style={{ '--team': teamCol } as React.CSSProperties}>
                         <i /><b>{a.text}</b>
+                        {/* the storey, at rest as well as selected (18.09.2026): on a stack the
+                            tile says it only to whoever is already looking at that tile */}
+                        {stack && <span className="team-floor" title={floorLabel(a.floor ?? 0)}>{floorBadge(a.floor ?? 0)}</span>}
                       </span>
                     )
                   }
@@ -3846,7 +3883,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   return (
                     <TwinTeamPill
                       name={a.text ?? ''} time={a.t} color={teamCol}
-                      raus={isRaus} truppId={a.truppId} trailCount={a.trail?.length ?? 0}
+                      raus={isRaus} truppId={a.truppId} floor={stack ? a.floor ?? 0 : undefined}
+                      trailCount={a.trail?.length ?? 0}
                       trailShown={!hiddenTrails.has(a.id)} trupps={trupps}
                       renameRef={focusOnce}
                       // ⚠️ the rename flag stays OUT here: on this surface a chip also enters
@@ -4013,6 +4051,39 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 </div>
               )),
             )}
+
+            {/* Geister-Spuren: the searched area a removed Trupp chip left behind
+                (lib/truppTrails). Same breadcrumb dots, in the neutral ink and with no
+                timestamp-selection state, because it is a record rather than a Trupp — it is not
+                selectable AS one. The label chip is the hit target: one tap offers «Spur
+                löschen» with the existing confirm (IncidentWorkspace · deleteGhostTrail). Each
+                point is drawn on the storey it was WALKED on (TrailPoint.floor), not on the
+                chip's last tile — a Trupp that went up was a floor below a minute ago. */}
+            {ghostTrails.map((g) => {
+              const pts = g.points ?? []
+              const head = pts[pts.length - 1]
+              const label = ghostTrailLabel(g, appConfig.copy.whiteboard.team)
+              return (
+                <Fragment key={g.id}>
+                  {pts.map((p, i) => (
+                    <div key={`ghost-${g.id}-${i}`} className="wb-trail-dot wb-ghost-trail-dot"
+                      style={{ transform: `translate(${p.x * sW}px, ${mapY(p.floor ?? 0, p.y) * sH}px) translate(-50%, -50%)` }}>
+                      <span className="wb-trail-mark" />
+                      <i>{p.t}</i>
+                    </div>
+                  ))}
+                  {head && (
+                    <button type="button" className="wb-ghost-label"
+                      style={{ left: `${head.x * sW}px`, top: `${mapY(head.floor ?? 0, head.y) * sH}px` }}
+                      title={fillTemplate(appConfig.copy.whiteboard.ghostTrailHint, { name: label })}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); onGhostTrail?.(g.id) }}>
+                      <Icon id="footprint" />{label}
+                    </button>
+                  )}
+                </Fragment>
+              )
+            })}
 
             {/* create-tool capture layer */}
             {creating && (
@@ -4635,29 +4706,34 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
              ⚠️ Only a GEOREF-derived scale has a Passung to open. The Gebäude's scale (A7) is
              derived from geometry alone — no pairs, no residual — so there the tap says its
              hint as a toast instead of arming a panel that would come up empty. */
-          ? <button className="wb-scale-chip wb-scale-status on"
+          ? <button className="wb-scale-chip wb-scale-status wb-lamped on"
               title={georefFit || packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint}
+              aria-label={appConfig.copy.whiteboard.scale.chipAuto}
               aria-expanded={georefFit ? georefQuality : undefined}
               onClick={() => georefFit
                 ? setQualityFor(georefQuality ? null : activeId)
                 : toast(packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint)}>
               <Icon id="measure" />
               <span>{appConfig.copy.whiteboard.scale.chipAuto}</span>
+              <span className="wb-lamp" data-tone={scaleTone} aria-hidden="true" />
             </button>
-          : <button
-              className={`wb-scale-chip ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
-              title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
-              disabled={readOnly}
-              onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
-            >
-              <Icon id="measure" />
-              <span>{
-                tool === 'scale' ? appConfig.copy.whiteboard.scale.calibrateHint
-                  : scaleStale ? appConfig.copy.whiteboard.scale.stale
-                  : calibrated ? fillTemplate(appConfig.copy.whiteboard.scale.chipCalibrated, { m: String(activeScale!.refM) })
-                  : appConfig.copy.whiteboard.scale.chipUncalibrated
-              }</span>
-            </button>
+          : (() => {
+              const label = tool === 'scale' ? appConfig.copy.whiteboard.scale.calibrateHint
+                : scaleStale ? appConfig.copy.whiteboard.scale.stale
+                : calibrated ? fillTemplate(appConfig.copy.whiteboard.scale.chipCalibrated, { m: String(activeScale!.refM) })
+                : appConfig.copy.whiteboard.scale.chipUncalibrated
+              return <button
+                className={`wb-scale-chip wb-lamped ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
+                title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
+                aria-label={label}
+                disabled={readOnly}
+                onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
+              >
+                <Icon id="measure" />
+                <span>{label}</span>
+                <span className="wb-lamp" data-tone={scaleTone} aria-hidden="true" />
+              </button>
+            })()
       )}
       {/* «⌖ Karte» — the third fact about a plan that no page of it states: whether this sheet is
           tied to the world, and how well. Same recipe and same corner as the Massstab beside it,
@@ -4667,10 +4743,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           An Einsatz-Link viewer sees neither — see linkViewer on the Maßstab chip above. */}
       {canGeoref && (!readOnly || georefState.kind === 'linked') && !linkViewer && (
         <button
-          className={`wb-scale-chip ${georefState.kind === 'linked' ? (georefState.warn ? 'wb-georef-warn' : 'wb-georef-ok') : ''} ${georefQuality ? 'arm' : ''}`}
+          className={`wb-scale-chip wb-lamped ${georefState.kind === 'linked' ? (georefState.warn ? 'wb-georef-warn' : 'wb-georef-ok') : ''} ${georefQuality ? 'arm' : ''}`}
           title={readOnly ? undefined
             : georefState.kind === 'linked' ? appConfig.copy.whiteboard.georef.openQuality
             : appConfig.copy.whiteboard.georef.linkTitle}
+          aria-label={georefState.kind === 'linked'
+            ? appConfig.copy.whiteboard.georef.chipLinked
+            : appConfig.copy.whiteboard.georef.chipUnlinked}
           disabled={readOnly}
           aria-expanded={georefState.kind === 'linked' ? georefQuality : undefined}
           onClick={() => {
@@ -4692,6 +4771,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           <span>{georefState.kind === 'linked'
             ? appConfig.copy.whiteboard.georef.chipLinked
             : appConfig.copy.whiteboard.georef.chipUnlinked}</span>
+          {/* …and the tone as a LAMP as well as a text colour (18.09.2026). On a phone this pill
+              is icon + lamp and nothing else, so the dot has to carry the reading the words used
+              to — red: no reference · amber: a fit nobody has checked · green: measured or
+              station-approved. One source for the three tones (georefMode · georefChipTone). */}
+          <span className="wb-lamp" data-tone={georefChipTone(georefState)} aria-hidden="true" />
         </button>
       )}
       </>}

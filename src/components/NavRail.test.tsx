@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { NavRail } from './NavRail'
 import type { PlanDocument } from '../types'
 
@@ -114,5 +114,67 @@ describe('revealing the active surface', () => {
     scrollIntoView.mockClear()
     rerender({ mode: 'plans', activePlanId: 'modul1', planDocs: docs })
     expect(scrollIntoView).toHaveBeenCalled()
+  })
+})
+
+// ── the PHONE bar folds every plan document into ONE «Pläne» tile (18.09.2026) ──
+describe('folded plan tile', () => {
+  const tile = () => screen.getByRole('button', { name: /^Pläne/ })
+
+  it('replaces the per-document tiles and names the loaded document', () => {
+    setup({ fold: true, activePlanId: 'modul5-rwa' })
+    expect(screen.queryByRole('button', { name: 'Modul 1' })).toBeNull()
+    expect(tile().getAttribute('aria-label')).toBe('Pläne · RWA')
+    expect(tile().textContent).toContain('RWA')
+  })
+
+  it('is absent with no plan document at all', () => {
+    setup({ fold: true, planDocs: [] })
+    expect(screen.queryByRole('button', { name: /^Pläne/ })).toBeNull()
+  })
+
+  it('a first tap from another surface opens the last-used plan — no chooser', () => {
+    const p = setup({ fold: true, mode: 'map', activePlanId: 'tafel' })
+    fireEvent.click(tile())
+    expect(p.onSelectPlan).toHaveBeenCalledWith('tafel')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('a second tap — the tile is already the surface — opens the chooser', () => {
+    const p = setup({ fold: true, mode: 'plans', activePlanId: 'tafel' })
+    fireEvent.click(tile())
+    expect(p.onSelectPlan).not.toHaveBeenCalled()
+    expect(screen.getByRole('option', { name: /Übersicht/ })).toBeTruthy()
+  })
+
+  it('picking a row switches the document and closes the chooser', () => {
+    const p = setup({ fold: true, mode: 'plans', activePlanId: 'tafel' })
+    fireEvent.click(tile())
+    fireEvent.click(screen.getByRole('option', { name: /Übersicht/ }))
+    expect(p.onSelectPlan).toHaveBeenCalledWith('modul1')
+    expect(screen.queryByRole('option', { name: /Übersicht/ })).toBeNull()
+  })
+
+  // …and the hold is the second door into the list, from wherever you are standing (the app's
+  // own useLongPress: 500 ms, cancelled by any movement)
+  it('a hold on the tile opens the chooser without switching surface', () => {
+    vi.useFakeTimers()
+    try {
+      const p = setup({ fold: true, mode: 'map', activePlanId: 'tafel' })
+      const btn = tile() // …held on to: the open sheet marks the rail behind it inert
+      fireEvent.pointerDown(btn, { clientX: 10, clientY: 10 })
+      act(() => { vi.advanceTimersByTime(600) })
+      expect(screen.getByRole('option', { name: /Übersicht/ })).toBeTruthy()
+      // the click the browser still delivers on release must not ALSO be taken as the tap
+      fireEvent.click(btn)
+      expect(p.onSelectPlan).not.toHaveBeenCalled()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('a single document never offers a chooser', () => {
+    const p = setup({ fold: true, mode: 'plans', planDocs: [docs[0]], activePlanId: 'modul1' })
+    fireEvent.click(tile())
+    expect(screen.queryByRole('option')).toBeNull()
+    expect(p.onSelectPlan).not.toHaveBeenCalled()
   })
 })

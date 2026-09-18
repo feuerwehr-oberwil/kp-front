@@ -4,7 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { HatchDefs, LINE_DASH_SVG, hatchPatternId } from '../lib/draw'
 import { ToolDock } from './ToolDock'
 import { useNodeHold } from '../lib/nodeHold'
-import { vertexHandleIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
+import { vertexHandleIndices, arrowEndIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
 import { floorSections, signedFloor } from '../lib/whiteboard'
 import { fillTemplate } from '../lib/format'
@@ -328,6 +328,9 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   const closed = anno.kind === 'area'
   const sp: [number, number][] = pts.map(([x, y, floor]) => [x * sW, mapY(floor ?? anno.floor, y) * sH])
   const gripIdx = vertexHandleIndices(sp)
+  // the node under an arrowhead is drawn hollow so the spitze reads through it — the same rule,
+  // from the same helper, as on the Karte (lib/lineStyle · arrowEndIndices)
+  const ringIdx = arrowEndIndices(anno, pts.length)
   const allShown = gripIdx.length === sp.length
   const segs: number[] = [] // segment i runs from vertex i → i+1 (wraps to 0 for a closed area)
   if (allShown) {
@@ -397,7 +400,7 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
       {gripIdx.map((i) => {
         const [x, y] = sp[i]
         return (
-        <button key={`v-${i}`} className={`wb-vertex ${vertexPress.armed?.key === `v${i}` ? 'doomed' : ''}`}
+        <button key={`v-${i}`} className={`wb-vertex ${ringIdx.includes(i) ? 'wb-vertex--ring' : ''} ${vertexPress.armed?.key === `v${i}` ? 'doomed' : ''}`}
           title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex} data-holdaction
           style={{ left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
           onPointerDown={(e) => {

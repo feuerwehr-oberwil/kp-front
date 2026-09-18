@@ -35,7 +35,7 @@ export const de = {
   // the left navigation rail (Karte · Pläne group · Checkliste · Trupps)
   // (no «Objekt wählen» any more: the rail is pure navigation, the object sits on the
   //  plan surface – see whiteboard.objectLabel)
-  navRail: { map: 'Karte', plansGroup: 'Pläne', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
+  navRail: { map: 'Karte', plansGroup: 'Pläne', plansChoose: 'Plan wählen', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
   // «Trupp finden» – the one place that answers «wo steht Trupp 2», across Karte UND Pläne.
   // Deliberately the same shape as «Welcher Trupp?»: a short list you tap, no surface of its own.
   truppFinder: {
@@ -869,6 +869,8 @@ export const de = {
     coordSet: 'Koordinate gesetzt',
     coordNone: 'Kein Standort – wird ohne Koordinate eröffnet',
     coordClear: 'Standort entfernen',
+    // The fold over the literal coordinate (owner, 18.09.2026) — see EinsatzWizard.
+    coordFold: 'Koordinaten',
     // --- Stichwort section ---
     keywordHead: 'Stichwort & Kategorie',
     titleLabel: 'Stichwort / Titel',
@@ -2613,7 +2615,10 @@ export const de = {
     trails: 'Spuren',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
-    deleteLocked: 'Trupp mit erfasstem Verlauf – zuerst Spur löschen',
+    // The ghost a removed Truppmarker left behind (lib/truppTrails): grey, read-only, and
+    // labelled with the Trupp's number, because that is the name that stays true.
+    ghostTrail: 'Spur {name}',
+    ghostTrailHint: 'Spur von {name} – der Truppmarker wurde entfernt',
     textPlaceholder: 'Notiz …',
     blankHint: 'Leeres Blatt – mit Linie, Fläche, Notiz, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',

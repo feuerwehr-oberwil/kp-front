@@ -75,7 +75,7 @@ const aBuilding: BuildingDoc = {
   ring: [[0, 0], [1, 0], [1, 1], [0, 1]], ringAspect: 1, floors: [0],
 }
 
-const renderBoard = (activeId: string, annos: BoardAnno[] = [], readOnly = false, building: BuildingDoc | null = null) => {
+const renderBoard = (activeId: string, annos: BoardAnno[] = [], readOnly = false, building: BuildingDoc | null = null, objectAddress?: string) => {
   const onSelectBuilding = vi.fn()
   const onBuildingFace = vi.fn()
   // what the board would SAVE — the only way to read an edit that the DOM does not show
@@ -98,6 +98,7 @@ const renderBoard = (activeId: string, annos: BoardAnno[] = [], readOnly = false
     hist={{}}
     setHist={() => {}}
     focus={null}
+    objectAddress={objectAddress}
   />)
   return { onSelectBuilding, onBuildingFace, onChange }
 }
@@ -162,6 +163,25 @@ describe('the door between the two faces of the Gebäude tile', () => {
     const { onBuildingFace } = renderBoard('gebaeude', [], false, aBuilding)
     fireEvent.click(screen.getByRole('button', { name: OTHER }))
     expect(onBuildingFace).toHaveBeenCalledWith('pick')
+  })
+
+  // ⚠️ The stack drops the Objekt read-out (it would repeat this very pill), so on the Gebäude
+  // this is the ONLY thing on screen answering «which building am I standing in». It spent its
+  // whole width on the instruction instead — which the label still carries (owner, 18.09.2026).
+  it('wears the building\'s own name on the stack, with the verb left in the label', () => {
+    const { onBuildingFace } = renderBoard('gebaeude', [], false, aBuilding, 'Mühlemattstrasse 8')
+    const pill = screen.getByRole('button', { name: OTHER })
+    expect(pill.textContent).toContain('Mühlemattstrasse 8')
+    expect(pill.textContent).not.toContain(OTHER)
+    fireEvent.click(pill)   // …and it is still pure navigation to the picker
+    expect(onBuildingFace).toHaveBeenCalledWith('pick')
+  })
+
+  // nothing to name ⇒ the verb comes back, rather than a pill reading «Kein Objekt» about a
+  // building that is plainly there
+  it('falls back to the verb when no object is bound', () => {
+    renderBoard('gebaeude', [], false, aBuilding)
+    expect(screen.getByRole('button', { name: OTHER }).textContent).toContain(OTHER)
   })
 
   it('sends the picker back to the stack it already has', () => {

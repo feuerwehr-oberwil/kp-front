@@ -140,7 +140,10 @@ export function placedTrupps(
       key: e.id,
       name: (e.label ?? '').trim() || A.truppFallbackName,
       color: e.color,
-      where: appConfig.copy.modes.map,
+      // …and the storey when the marker has one: a map body baked off a Gebäude chip carries the
+      // tile's signed floor (lib/tacticalObjects · bakeGeoBody), so «Karte · 2. OG» reads the
+      // same way «Gebäude · 2. OG» does. A marker dropped straight onto the Karte has none.
+      where: [appConfig.copy.modes.map, e.floor != null ? floorLabel(e.floor) : ''].filter(Boolean).join(' · '),
       truppId: t?.id,
       no: t?.no,
       status: t?.status,

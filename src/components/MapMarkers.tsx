@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { buzz } from '../lib/haptics'
@@ -12,13 +12,14 @@ import { TwinTeamPill } from './TwinTeamPill'
 import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_M, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
 import type { TeamLineBadge } from '../lib/truppLines'
+import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { fillTemplate } from '../lib/format'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { ConnectRing } from './NodeDeleteChip'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
-import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom } from '../lib/symbolRender'
+import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
 import { symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { fanOffsets, markerZ, pileAt } from '../lib/labelPass'
@@ -190,6 +191,10 @@ interface Props {
    *  selected team toggles just that team's lines + breadcrumb dots */
   hiddenTrails?: ReadonlySet<string>
   onToggleTrail?: (id: string) => void
+  /** the incident's ghost «Spuren» recorded in geo (lib/truppTrails · mapGhostTrails) — drawn
+   *  read-only; the surface offers a delete only where `onGhostTrail` is supplied */
+  ghostTrails?: TruppTrail[]
+  onGhostTrail?: (id: string) => void
   /** «Ein Etikett» (15.09.): per team-marker id, the Leitung merged into that marker — the number
    *  in the hose's ink and, where the hose really ends there, a coupling. Resolved once per frame
    *  by the surface (MapView · teamLineBadges), because the same pass decides which end tags are
@@ -207,7 +212,8 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: Props) {
+  const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team)
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -801,6 +807,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                           Order = dot · Leitung · Name, the same order the selected pill has. */}
                       {!nameHidden && badge?.lineNo != null && <em className="team-ltg">{badge.lineNo}</em>}
                       {!nameHidden && <b>{e.label}</b>}
+                      {/* the storey (18.09.2026) — only where the marker HAS one, which on the
+                          Karte means its body was baked off a Gebäude chip (lib/tacticalObjects
+                          · bakeGeoBody). A Trupp dropped straight onto the map is on no storey,
+                          and a «0» there would assert an EG nobody stated. Tied to the name's
+                          visibility like the Leitung chip: the label pass books one box. */}
+                      {!nameHidden && e.floor != null && <em className="team-floor">{floorBadge(e.floor)}</em>}
                     </span>
                   </>
                 )
@@ -813,7 +825,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               return (
                 <TwinTeamPill
                   name={e.label ?? ''} time={e.t} color={teamCol}
-                  raus={isRaus} truppId={e.truppId} trailCount={e.trail?.length ?? 0}
+                  raus={isRaus} truppId={e.truppId} floor={e.floor}
+                  trailCount={e.trail?.length ?? 0}
                   trailShown={!hiddenTrails?.has(e.id)} trupps={trupps ?? []}
                   line={badge}
                   renameRef={focusTeam}
@@ -1153,6 +1166,35 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
           <span className="magnet-anchor"><ConnectRing since={endMagnet.since} armed={endMagnet.armed} /></span>
         </Marker>
       )}
+      {/* Geister-Spuren: the searched area a removed Trupp marker left behind (lib/truppTrails).
+          Read-only and grey — it is a record, not a Trupp, so it is not selectable as one. The
+          LABEL is the hit target: one tap offers «Spur löschen» with the same confirm the live
+          trail has (IncidentWorkspace · deleteGhostTrail), and that is undoable. */}
+      {ghostTrails?.map((g) => {
+        const pts = g.geo ?? []
+        const head = pts[pts.length - 1]
+        return (
+          <Fragment key={g.id}>
+            {pts.map((p, i) => (
+              <Marker key={`${g.id}-${i}`} longitude={p.coord[0]} latitude={p.coord[1]} anchor="center" draggable={false} style={{ pointerEvents: 'none' }}>
+                <div className="map-trail-dot map-ghost-trail">
+                  <span className="wb-trail-mark" />
+                  <i>{p.t}</i>
+                </div>
+              </Marker>
+            ))}
+            {head && (
+              <Marker longitude={head.coord[0]} latitude={head.coord[1]} anchor="center" draggable={false}>
+                <button className="wb-ghost-label" style={{ position: 'static', transform: 'translateY(-16px)' }}
+                  title={fillTemplate(appConfig.copy.whiteboard.ghostTrailHint, { name: ghostLabel(g) })}
+                  onClick={(ev) => { ev.stopPropagation(); onGhostTrail?.(g.id) }}>
+                  <Icon id="footprint" />{ghostLabel(g)}
+                </button>
+              </Marker>
+            )}
+          </Fragment>
+        )
+      })}
       {/* team trail breadcrumbs (recorded via «Position markieren») — same dot + timestamp
           look as the plan board; pointer-transparent so they never block a map tap */}
       {entities.filter((e) => e.kind === 'team' && isVisible(effectiveLayer(e)) && Array.isArray(e.coord) && e.trail?.length && !hiddenTrails?.has(e.id)).flatMap((e) =>

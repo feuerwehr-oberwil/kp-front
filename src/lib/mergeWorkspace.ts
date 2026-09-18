@@ -40,6 +40,12 @@ interface WsShape {
   // resolution this merge can never be asked for is 66 duplicated shifts per device.
   bands?: HasId[]
   cameraViews?: HasId[]
+  // Ghost «Spuren» (lib/truppTrails) — the searched area a removed Trupp marker left behind.
+  // Merges by id like any collection, and it converges without a resolver because the id is
+  // DERIVED from the marker (`ght-<markerId>`): two devices reconciling the same removal write
+  // the same row rather than two copies of one walked line, and «Spur löschen» is a `removedAt`
+  // stamp (a field edit) rather than a drop, so a delete cannot race a concurrent reconciliation.
+  trails?: HasId[]
   // Rapport-Beilagen (document/damage photos) — merge by id like any other collection: two
   // devices each adding one keeps both, and a delete beats a concurrent caption edit.
   attachments?: HasId[]
@@ -359,7 +365,7 @@ function mergeReportMeta(
  * working DIFFERENT domains of one incident (e.g. Atemschutz on one device, Lage/Plan/report on
  * another) must both keep their work. Every operational domain is merged so a save in one domain
  * never clobbers a concurrent edit in another:
- *   - object collections (entities, drawings, timeline, trupps, cameraViews, board) → per-object
+ *   - object collections (entities, drawings, timeline, trupps, cameraViews, trails, board) → per-object
  *     three-way by id (independent adds survive, same object is LWW-mine, delete beats edit);
  *   - records (vehicleOverrides, checklists, attendance, planScale) and singletons (settings,
  *     reportMeta, building, pickedObjectId) → three-way by value, so a field the resolver didn't
@@ -428,6 +434,7 @@ export function mergeWorkspace(
     shifts: mergeById(...list('shifts')),
     bands: mergeById(...list('bands')),
     cameraViews: mergeById(...list('cameraViews')),
+    trails: mergeById(...list('trails')),
     attachments: mergeById(...list('attachments')),
     board: views.board as BoardDoc,
     vehicleOverrides: mergeRecord(...record('vehicleOverrides')),

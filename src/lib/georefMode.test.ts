@@ -5,6 +5,7 @@ import {
   GEOREF_OFF,
   georefDispatch,
   georefChip,
+  georefChipTone,
   georefLamp,
   georefMatching,
   georefOpenCount,
@@ -1085,5 +1086,35 @@ describe('georefReduce · the scaffolding handover (auto pairs step aside)', () 
     s = georefReduce(s, { type: 'dragMap', idx: 0, lngLat: mapOf({ x: 0.16, y: 0.16 }) })
     expect(s.slots[0].kind).toBe('korrigiert')
     expect(realPairCount(s.pairs)).toBe(1)
+  })
+})
+
+// The pill row's lamp (18.09.2026). On a phone «⌖ Karte» is icon + lamp and nothing else, so the
+// dot has to say exactly what the words did — and it must NOT be georefLamp, which reads the
+// armed mode's live pairs and would be red on every idle plan that is perfectly well referenced.
+describe('georefChipTone — the Ampel tone of the idle pill', () => {
+  it('is red while the sheet has no reference at all', () => {
+    expect(georefChipTone({ kind: 'unlinked', residualM: null, warn: false })).toBe('red')
+  })
+
+  it('is amber for a fit nobody has checked', () => {
+    expect(georefChipTone({ kind: 'linked', residualM: null, warn: true })).toBe('amber')
+  })
+
+  it('is green for a measured — or station-approved — fit', () => {
+    expect(georefChipTone({ kind: 'linked', residualM: 1.2, warn: false })).toBe('green')
+  })
+
+  // armed never reaches the pill (the row carries the instrument instead), but «in progress» is
+  // honestly amber rather than either end
+  it('never calls a pairing in progress finished', () => {
+    expect(georefChipTone({ kind: 'armed', residualM: null, warn: false })).toBe('amber')
+  })
+
+  // …and it agrees with the chip it decorates, off the same georefChip value
+  it('tracks the chip it sits on', () => {
+    const chip = georefChip(null, GEOREF_OFF, 'modul2')
+    expect(chip.kind).toBe('unlinked')
+    expect(georefChipTone(chip)).toBe('red')
   })
 })

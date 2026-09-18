@@ -287,3 +287,22 @@ export function lookbackPoint(px: [number, number][], dist: number): [number, nu
   }
   return px[0]
 }
+
+/**
+ * Which vertex indices of a selected line carry an ARROWHEAD, and therefore get drawn as a hollow
+ * ring instead of a white-filled dot (decision 18.09.2026).
+ *
+ * The node dot is the last thing painted at an end (a DOM marker on the Karte, z 7 on the Plan),
+ * so a 24px white disc sat exactly on top of the spitze and swallowed it — the operator selected
+ * a Pfeil and the pfeil disappeared. Hollowing the ring gives the head its own tip and flanks back
+ * while the grip keeps its geometry: same 24px, same 3px `--blue` ring, same 44px hit pad.
+ *
+ * The rule mirrors what the two renderers actually draw a head for (MapView · `arrowFeats`,
+ * Whiteboard · `a.arrow &&`): the END vertex only, an `arrow` line only, never a closed `area`,
+ * and never a line too short to have a bearing. It is ONE function so the two surfaces cannot
+ * disagree about which node is hollow — the Lage↔Plan parity rule applied to edit chrome.
+ */
+export function arrowEndIndices(d: { kind?: string; arrow?: boolean }, pointCount: number): number[] {
+  if (!d.arrow || d.kind === 'area' || pointCount < 2) return []
+  return [pointCount - 1]
+}

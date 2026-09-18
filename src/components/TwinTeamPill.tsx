@@ -23,6 +23,8 @@ import { Menu } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { floorBadge } from '../lib/symbolRender'
+import { floorLabel } from '../lib/whiteboard'
 import type { TeamLineBadge } from '../lib/truppLines'
 import type { Trupp } from '../types'
 
@@ -168,7 +170,7 @@ function useBarPlacement(on: boolean) {
   return [ref, place] as const
 }
 
-export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming }: {
+export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, floor, trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming }: {
   name: string
   time?: string
   /** the colour actually painted (the source's own, or the palette's first) */
@@ -178,6 +180,13 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   originalLabel?: string
   raus: boolean
   truppId?: string
+  /** The storey this Trupp is working on — the Gebäude tile its chip sits on, or the `floor` its
+   *  map body was baked with (18.09.2026). Drawn as the SAME signed badge a Leitung wears
+   *  (`Drawing.floorTag`, lib/symbolRender · floorBadge): «wo ist Trupp 3» is answered on the
+   *  picture, and on a floor stack the tile alone only says it to whoever is looking at that
+   *  tile. ABSENT on a Trupp placed straight onto the Karte — it is on no storey, and a «0»
+   *  there would assert an EG nobody stated. */
+  floor?: number
   trailCount: number
   trailShown: boolean
   trupps: Trupp[]
@@ -273,6 +282,10 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
           {/* no «#N» badge here either (14.09.) — on the picture the name alone is the label, the
               number lives on the Atemschutz card (docs/trupp-naming.md §2) */}
           {raus && <span className="wb-resource-raus">{appConfig.copy.atemschutz.status.raus}</span>}
+          {/* the storey, LAST: the cap is the coordinate this marker states, and everything in
+              front of it moves the point (see the cap comment above). Same chip chrome as the
+              Leitung's number beside it, in the Trupp's own ink. */}
+          {floor != null && <span className="team-floor" title={floorLabel(floor)}>{floorBadge(floor)}</span>}
         </span>
         {time && <i className="wb-resource-time">{time}</i>}
       </span>
@@ -330,13 +343,18 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             <button className="wb-pa" title={originalLabel} aria-label={originalLabel}
               onClick={() => toOriginal()}><Icon id="external" /></button>
           )}
-          {/* the record is protected: while a trail exists the trash offers to clear IT, never the
-              marker (the same lock every surface carries) */}
-          {trailCount > 0
-            ? <button className="wb-pa wb-pa-del-off" title={appConfig.copy.whiteboard.deleteLocked} aria-label={appConfig.copy.whiteboard.deleteLocked}
-                onClick={() => acts.clearTrail()}><Icon id="trash" /></button>
-            : <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
-                onClick={() => acts.remove()}><Icon id="trash" /></button>}
+          {/* «Spur löschen» is its OWN action (18.09.2026), never a morph of the trash. The trash
+              used to change what it did while a trail existed — one glyph, two acts, and the one
+              the operator wanted (take the marker off the picture) was the one it refused. Now
+              the record is protected by OUTLIVING the marker instead: removing the marker moves
+              its trail into a ghost trail the incident owns (lib/truppTrails), and destroying the
+              trail is this deliberate second button with its own confirm. */}
+          {trailCount > 0 && (
+            <button className="wb-pa wb-pa-trail" title={appConfig.copy.whiteboard.clearTrail} aria-label={appConfig.copy.whiteboard.clearTrail}
+              onClick={() => acts.clearTrail()}><Icon id="footprint" /></button>
+          )}
+          <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
+            onClick={() => acts.remove()}><Icon id="trash" /></button>
         </div>
       )}
     </>
