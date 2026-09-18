@@ -35,7 +35,7 @@ export const de = {
   // the left navigation rail (Karte · Pläne group · Checkliste · Trupps)
   // (no «Objekt wählen» any more: the rail is pure navigation, the object sits on the
   //  plan surface – see whiteboard.objectLabel)
-  navRail: { map: 'Karte', plansGroup: 'Pläne', plansChoose: 'Plan wählen', pageGroup: 'Seite wählen', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
+  navRail: { map: 'Karte', plansGroup: 'Pläne', plansChoose: 'Plan wählen', rapportGroup: 'Einsatz', pageGroup: 'Seite wählen', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
   // «Trupp finden» – the one place that answers «wo steht Trupp 2», across Karte UND Pläne.
   // Deliberately the same shape as «Welcher Trupp?»: a short list you tap, no surface of its own.
   truppFinder: {
@@ -4124,6 +4124,9 @@ export const de = {
     // text is the only part of it a human wrote.
     vehicleOrder: 'Ausrückeordnung',
     einsatzplan: 'Einsatzplan',
+    stichwort: 'Stichwort',
+    einsatzart: 'Art',
+    ort: 'Ort',
     fromDispatch: 'Aus den Einsatzdaten',
     edit: 'Bearbeiten',
     alarmMessage: 'Alarmmeldung',

@@ -118,6 +118,9 @@ export function NavRail(p: Props) {
   // the phone bar's one plan tile — `null` with no plan documents at all, which is the rail's
   // existing empty state (no tile, and the separator above it is already conditional)
   const folded = p.fold ? foldPlanTiles(p.planDocs, p.activePlanId) : null
+  // folded, the tile is the door to Rapport · Anwesenheit · Material, so it wears the word for
+  // the whole record («Einsatz», owner 18.09.2026); on the rail it is the Rapport alone
+  const rapportWord = p.fold ? nav.rapportGroup : appConfig.copy.modes.rapport
   // the head count on the «Rapport» tile — only where the Anwesenheit tile is gone (see `fold`),
   // and only once there is a head to count
   const rapportCount = p.fold ? (p.presentCount ?? 0) : 0
@@ -302,7 +305,7 @@ export function NavRail(p: Props) {
           aria-pressed={rapportOn}
           /* the badge is a NUMBER, so it has to be said and not merely painted — a dot can be
              «there is something», a count cannot be read off a coloured circle */
-          aria-label={rapportCount ? `${appConfig.copy.modes.rapport} · ${fillTemplate(appConfig.copy.anwesenheit.summary, { present: rapportCount })}` : appConfig.copy.modes.rapport}
+          aria-label={rapportCount ? `${rapportWord} · ${fillTemplate(appConfig.copy.anwesenheit.summary, { present: rapportCount })}` : rapportWord}
           aria-haspopup={p.fold ? 'dialog' : undefined}
           {...(p.fold ? { 'data-holdaction': true as const } : null)}
           onPointerDown={(e) => { heldR.current = false; if (p.fold) holdRapport.onPointerDown(e) }}
@@ -322,7 +325,7 @@ export function NavRail(p: Props) {
                 a figure: same corner, same white ring, so the bar has ONE badge idiom. */}
             {rapportCount ? <span className="nav-live nav-count" aria-hidden>{rapportCount > 99 ? '99+' : rapportCount}</span> : null}
           </span>
-          <span className="nav-label">{appConfig.copy.modes.rapport}</span>
+          <span className="nav-label">{rapportWord}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.rapport}</span>
         </button>
 

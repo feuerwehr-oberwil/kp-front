@@ -1555,7 +1555,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   .useg-btn.on .rp-tab-dot { background: var(--on-fill); }
 
   /* One rule per tab: everything carrying a DIFFERENT tab is off screen. Blocks with no
-     `data-tab` at all (the fieldset, the columns) stay — they are structure, not content. */
+     `data-tab` at all (the fieldset, the columns) are structure and are not addressed here —
+     but a structural box left holding nothing still costs a `gap`, which is what the
+     `:not(:has())` rule below takes care of. */
   .report-preflight-body[data-phone-tab="bericht"] [data-tab="werwas"],
   .report-preflight-body[data-phone-tab="bericht"] [data-tab="beilagen"],
   .report-preflight-body[data-phone-tab="werwas"] [data-tab="bericht"],
@@ -1566,6 +1568,22 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      wrapped in an element of its own */
   .report-preflight-body[data-phone-tab="bericht"] .capture-usage-chip,
   .report-preflight-body[data-phone-tab="beilagen"] .capture-usage-chip { display: none; }
+  /* ⚠️ …and the STRUCTURE has to go with its content. The two `.rp-col` wrappers carry no
+     `data-tab` — they are the two columns of the wide layout — so the rules above emptied them
+     without removing them: on «Personal & Mittel» and on «Beilagen» the form column was a
+     zero-height flex item that still paid the body's 12px `gap`, and the first card sat 12px
+     lower than the same first card does on «Bericht». (The mirror image on «Bericht»: the
+     checklist column is the empty one, and its gap hung under the last card.) One gap of
+     difference between three tabs of the same page is exactly the kind of drift that reads as
+     the page having moved when nothing did.
+     `:not(:has())` rather than naming the columns, because the question is the general one — a
+     wrapper holding nothing for THIS tab is not a wrapper — and the column that is empty is a
+     different one on each tab. The chip above is inside `.rp-col-side`, which the «Bericht» rule
+     takes away wholesale; it keeps its own rule because the chip is also hidden on «Beilagen»,
+     where the column around it very much stays. */
+  .report-preflight-body[data-phone-tab="bericht"] > .rp-col:not(:has([data-tab="bericht"])),
+  .report-preflight-body[data-phone-tab="werwas"] > .rp-col:not(:has([data-tab="werwas"])),
+  .report-preflight-body[data-phone-tab="beilagen"] > .rp-col:not(:has([data-tab="beilagen"])) { display: none; }
 }
 .report-preflight > .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 

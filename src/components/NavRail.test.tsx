@@ -211,19 +211,19 @@ describe('folded plan tile', () => {
 // The head count was the one number the Anwesenheit tile stated just by existing. With that tile
 // folded away it rides on the «Rapport» tile — as a COUNT, not a dot, so it can still be read.
 describe('the head count on the Rapport tile', () => {
-  const rapport = () => screen.getByRole('button', { name: /^Rapport/ })
+  const rapport = () => screen.getByRole('button', { name: /^(Rapport|Einsatz)/ })
 
   it('states the number, and says it out loud too', () => {
     setup({ fold: true, presentCount: 12 })
     expect(rapport().querySelector('.nav-count')?.textContent).toBe('12')
-    expect(rapport().getAttribute('aria-label')).toBe('Rapport · 12 anwesend')
+    expect(rapport().getAttribute('aria-label')).toBe('Einsatz · 12 anwesend')
   })
 
   // a standing «0 anwesend» on a fresh Einsatz is a badge that teaches you to stop reading badges
   it('paints nothing while nobody is on scene', () => {
     setup({ fold: true, presentCount: 0 })
     expect(rapport().querySelector('.nav-count')).toBeNull()
-    expect(rapport().getAttribute('aria-label')).toBe('Rapport')
+    expect(rapport().getAttribute('aria-label')).toBe('Einsatz')
   })
 
   // on a tablet the Anwesenheit still has its own tile, and its own head line, right there
@@ -242,7 +242,7 @@ describe('the head count on the Rapport tile', () => {
 // Rapport · Anwesenheit · Material are three ordinary separate surfaces; on a phone they share
 // one tile, which stays lit on all three and opens whichever of them was last used.
 describe('the Rapport tile as the group door', () => {
-  const rapport = () => screen.getByRole('button', { name: /^Rapport/ })
+  const rapport = () => screen.getByRole('button', { name: /^(Rapport|Einsatz)/ })
 
   it('stays lit on every page of the group', () => {
     for (const mode of ['rapport', 'anwesenheit', 'mittel'] as const) {
@@ -285,7 +285,7 @@ describe('the Rapport tile as the group door', () => {
 // list of three (19.09.2026). The rows carry the live count that says which page has something
 // in it.
 describe('the page chooser behind the Rapport tile', () => {
-  const rapport = () => screen.getByRole('button', { name: /^Rapport/ })
+  const rapport = () => screen.getByRole('button', { name: /^(Rapport|Einsatz)/ })
   const rows = () => screen.queryAllByRole('option').map((r) => r.textContent)
 
   it('a tap from outside the group opens the last page — no list', () => {
