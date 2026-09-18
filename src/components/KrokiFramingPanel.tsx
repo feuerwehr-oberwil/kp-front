@@ -7,7 +7,7 @@ import { cx } from '../lib/cx'
 import { motionDuration, prefersReducedMotion } from '../lib/reducedMotion'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { operationalExtentPoints } from '../lib/report'
+import { krokiFitMaxZoom, operationalExtentPoints } from '../lib/report'
 import { circlePolygon } from '../lib/geo'
 import { TacticalSymbol } from '../lib/symbolRender'
 import { SHAPE_DEFS, SHAPE_MAX_PX, ShapeGlyph, shapeAspect } from '../lib/shapes'
@@ -41,9 +41,9 @@ import { cartoRasterTiles } from '../lib/carto'
 // On the page the crop is simply visible while the rest of the rapport is filled in, and the
 // framing on screen IS what prints: there is nothing left to confirm.
 
-// ⚠️ A MapLibre CAMERA zoom — one level tighter than the server's 256-px projection. Its mirror is
-// backend/app/report_pdf.py · _KROKI_FIT_MAX_Z (21), not fit_view's own default.
-const FIT_MAX_ZOOM = 20
+// The auto-fit's zoom ceiling is lib/report · krokiFitMaxZoom (20, or 21 for a compact Lage).
+// ⚠️ A MapLibre CAMERA zoom — one level tighter than the server's 256-px projection; its mirror is
+// backend/app/report_pdf.py · _kroki_fit_max_z, not fit_view's own default.
 /** Breathing room around the fitted Lage, in preview px. 48 was ~2 cm of white on every side of
  *  an A4 sheet — enough street to orient by is a good thing, that much of it is not. */
 const FIT_PAD = 28
@@ -190,6 +190,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
     return [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]] as [[number, number], [number, number]]
   }, [scene, drawingsVisible])
+  const fitMaxZoom = krokiFitMaxZoom(bounds)
 
   const geojson = useMemo(() => ({
     type: 'FeatureCollection' as const,
@@ -328,7 +329,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- labelsKey IS the labels, stably
   }, [mapReady, labelsKey, landscape])
 
-  const fit = () => mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM, ...(prefersReducedMotion() ? { duration: 0 } : {}) })
+  const fit = () => mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: fitMaxZoom, ...(prefersReducedMotion() ? { duration: 0 } : {}) })
   /** …and go back to following, because «alles zeigen» is a request for exactly that */
   const fitAndFollow = () => { setFollow(true); fit() }
 
@@ -343,7 +344,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const boundsKey = bounds.flat().join(',')
   useEffect(() => {
     if (!follow) return
-    mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM, duration: motionDuration(200) })
+    mapRef.current?.getMap().fitBounds(bounds, { padding: FIT_PAD, maxZoom: fitMaxZoom, duration: motionDuration(200) })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- boundsKey IS the bounds, stably
   }, [follow, boundsKey, landscape])
 
@@ -461,7 +462,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             ref={mapRef}
             initialViewState={initial
               ? { longitude: initial.center[0], latitude: initial.center[1], zoom: initial.zoom }
-              : { bounds, fitBoundsOptions: { padding: FIT_PAD, maxZoom: FIT_MAX_ZOOM } }}
+              : { bounds, fitBoundsOptions: { padding: FIT_PAD, maxZoom: fitMaxZoom } }}
             mapStyle={style}
             dragRotate={false}
             pitchWithRotate={false}

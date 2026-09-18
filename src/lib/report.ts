@@ -801,6 +801,25 @@ export function operationalExtentPoints(
   return pts.length > 0 ? pts : [incidentCenter]
 }
 
+/** A Lage this small is «compact»: everything placed fits inside one building. */
+export const KROKI_COMPACT_SPAN_M = 30
+/** The auto-fit's zoom ceiling, as a MapLibre CAMERA zoom. 20 is the basemap's last sharp level;
+ *  a COMPACT Lage may go one past it (18.09.2026): six symbols within 10 m stayed legible at 20,
+ *  but filled 15 % of the sheet. One level doubles their separation for a slightly soft basemap
+ *  that still shows the streets around the building — two levels lost the streets.
+ *  ⚠️ Mirrored in backend/app/report_pdf.py · _kroki_fit_max_z (projection zoom = this + 1), so
+ *  the crop the panel opens on is the crop a rapport without a reported crop prints. */
+export function krokiFitMaxZoom(points: LngLat[]): number {
+  if (points.length < 2) return 20
+  const lngs = points.map((p) => p[0]), lats = points.map((p) => p[1])
+  const lat = (Math.min(...lats) + Math.max(...lats)) / 2
+  const spanM = Math.max(
+    (Math.max(...lngs) - Math.min(...lngs)) * 111320 * Math.cos((lat * Math.PI) / 180),
+    (Math.max(...lats) - Math.min(...lats)) * 110540,
+  )
+  return spanM < KROKI_COMPACT_SPAN_M ? 21 : 20
+}
+
 export function describeDrawing(d: Drawing): string {
   const r = appConfig.copy.report
   if (d.kind === 'circle') return `${r.drawCircle}${d.radiusM ? ` ${fmtDistance(d.radiusM)}` : ''}`

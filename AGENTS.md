@@ -575,9 +575,12 @@ to prod.
     `startAt` / `endAt` + the entity `id`; a branch off a Teilstück by `startAtLine` / `endAtLine`
     onto the fork's prong tip – `_snap_line_joints`, one geometry with the glyph: `_fork_dims`). The client has no projection and ends the line on a
     fixed ground footprint; the glyph is sized in pixels, so only the sheet's own view can land the
-    end on it. ⚠️ And the fallback fit mirrors the PANEL: `KrokiFramingPanel · FIT_MAX_ZOOM` is a
-    MapLibre camera zoom, one level tighter than the 256-px projection
-    (`report_pdf · _KROKI_FIT_MAX_Z` = 21).
+    end on it. ⚠️ And the fallback fit mirrors the PANEL: the ceiling is
+    `report · krokiFitMaxZoom` (20; 21 for a COMPACT Lage under 30 m – one level past the basemap's
+    last sharp one, so a single-building cluster is not 15 % of the sheet). That is a MapLibre
+    camera zoom, one level tighter than the 256-px projection: `report_pdf · _kroki_fit_max_z` = +1.
+    On paper the count badge is a WHITE chip like the storey badge – the numbered legend discs are
+    the only dark marks on the sheet.
 - **The map surface is «Karte», the printed picture is «Kroki» – user-facing copy no longer says
   «Lage»** (2026-09-01). The word meant three things at once (the surface you draw on, the
   tactical picture that gets printed, and the doctrinal *Lage* of an Einsatz), so a row could

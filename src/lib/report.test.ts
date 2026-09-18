@@ -44,6 +44,7 @@ import {
   truppEquipmentLabels,
   truppRunTimes,
   truppStatusLabel,
+  krokiFitMaxZoom,
 } from './report'
 
 const plans: PlanDocument[] = [
@@ -1141,5 +1142,14 @@ describe('einsatzleiterSuccession (who led, since when)', () => {
       row('e1', '2026-08-29T12:00:00.000Z', 'Einsatzleiter noch nicht bestimmt'),
     ]
     expect(einsatzleiterSuccession(events)).toEqual([])
+  })
+})
+
+// ⚠️ Mirrored by backend · report_pdf · _kroki_fit_max_z (+1: MapLibre camera zoom vs projection).
+describe('krokiFitMaxZoom', () => {
+  it('lets only a COMPACT Lage zoom one level past the basemap\'s last sharp one', () => {
+    expect(krokiFitMaxZoom([[7.5704, 47.5241], [7.5709, 47.5241]])).toBe(20)    // ~38 m
+    expect(krokiFitMaxZoom([[7.5704, 47.5241], [7.57041, 47.52411]])).toBe(21) // inside one building
+    expect(krokiFitMaxZoom([[7.5704, 47.5241]])).toBe(20)                       // a lone symbol keeps its streets
   })
 })

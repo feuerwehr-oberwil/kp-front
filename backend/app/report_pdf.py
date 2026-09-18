@@ -1541,8 +1541,20 @@ _KROKI_PX = (2080, 1222)
 _KROKI_PX_PORTRAIT = (1300, 1820)
 
 
-#: KrokiFramingPanel · FIT_MAX_ZOOM (20, a MapLibre camera zoom) in this projection's terms
-_KROKI_FIT_MAX_Z = 21.0
+#: a Lage this small is «compact» — client lib/report · KROKI_COMPACT_SPAN_M
+_KROKI_COMPACT_SPAN_M = 30.0
+
+
+def _kroki_fit_max_z(pts: list[tuple[float, float]]) -> float:
+    """The auto-fit's zoom ceiling in THIS projection's terms — client lib/report · krokiFitMaxZoom
+    (a MapLibre camera zoom) + 1. 21 is the basemap's last sharp level; a COMPACT Lage may go one
+    past it, which doubles the separation of a cluster that otherwise fills 15 % of the sheet."""
+    if len(pts) < 2:
+        return 21.0
+    lngs, lats = [p[0] for p in pts], [p[1] for p in pts]
+    lat = (min(lats) + max(lats)) / 2
+    span = max((max(lngs) - min(lngs)) * 111320 * math.cos(math.radians(lat)), (max(lats) - min(lats)) * 110540)
+    return 22.0 if span < _KROKI_COMPACT_SPAN_M else 21.0
 
 
 def _kroki_view(pk, kw: int, kh: int):
@@ -1564,9 +1576,10 @@ def _kroki_view(pk, kw: int, kh: int):
     # reported (a rapport made before the panel settled). KrokiFramingPanel caps its auto-fit at
     # MapLibre zoom 20 — and a MapLibre zoom is one level TIGHTER than this 256-px projection's
     # (see center_view), so the «mirror» cap of 20 here framed twice the ground: on the 18.09.
-    # review the same Lage came out with its symbols merged into one blob. Cap at 21, and hand the
+    # review the same Lage came out with its symbols merged into one blob. Cap per
+    # `_kroki_fit_max_z`, and hand the
     # glyph sizing the camera zoom it gets on every other path (overlay_z).
-    view = kk.fit_view(pts, kw, kh, max_z=_KROKI_FIT_MAX_Z)
+    view = kk.fit_view(pts, kw, kh, max_z=_kroki_fit_max_z(pts))
     view.overlay_z = view.z - math.log2(512 / kk.TILE)
     return view
 

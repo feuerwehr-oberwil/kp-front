@@ -768,8 +768,13 @@ def _symbol_badges(
     floor_to: int | None,
     count: int | None,
 ) -> None:
-    """Storey badge top-right (white chip, ink), count badge bottom-right (ink chip, white) —
-    the client's `.sym-floor` / `.sym-count`. `u` is the sheet's px-per-unit factor (u · ss).
+    """Storey badge top-right, count badge bottom-right — both a WHITE chip with ink text (the
+    client's `.sym-floor` / `.sym-count`).
+
+    ⚠️ On screen the count is an INK chip. Not on paper (18.09.2026): since every symbol carries a
+    numbered legend disc, a dark «2» in the glyph's corner read as a second legend number right
+    beside the dark ❷ under it. The discs are the only dark marks on the sheet; the two badges
+    stay apart by corner and by sign (a storey is «+2» / «0» / «-1», a count is bare). `u` is the sheet's px-per-unit factor (u · ss).
 
     The storey is a single value or a von/bis RANGE (stairs, lift). On the Kroki it comes from
     the entity's `floor`, on a plan page from the anno's `storey` — two names because on a plan
@@ -787,7 +792,7 @@ def _symbol_badges(
         rng = "/".join(floor_badge(v) for v in (floor_from, floor_to) if v is not None)
         _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", "#1b2330")
     if (count or 0) > 1:
-        _badge(draw, (x + size / 2, y + size / 2), str(count), bh, "#1b2330", "white")
+        _badge(draw, (x + size / 2, y + size / 2), str(count), bh, "white", "#1b2330")
 
 
 def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str], fs: int) -> None:

@@ -936,7 +936,12 @@ def test_the_fallback_kroki_fit_frames_like_the_panel():
     symbols merged into one blob (18.09.2026 review)."""
     from app.report_pdf import KrokiIn, _kroki_view
 
-    pk = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.57041, 47.52411]]})  # a few metres
+    # a Lage spread over one street block: content would fit tighter, the cap holds it at 21
+    pk = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.5709, 47.5241]]})  # ~38 m
     view = _kroki_view(pk, 1300, 1820)
     assert view.z == 21.0
     assert view.overlay_z == 20.0  # glyphs are sized by the CAMERA zoom, as on every other path
+    # …and a COMPACT one (everything inside one building) may go one level past the basemap's last
+    # sharp one: six symbols within 10 m were legible at 21 but filled 15 % of the sheet
+    compact = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.57041, 47.52411]]})  # a few metres
+    assert _kroki_view(compact, 1300, 1820).z == 22.0
