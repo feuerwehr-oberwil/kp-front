@@ -290,6 +290,14 @@ describe('buildDirectReportPayload · plan pages', () => {
     expect(page.annos.map((a) => a.x)).toEqual([0.2, 0.6]) // each exactly once, in the sheet's order
   })
 
+  // one figure-page template: the heading, then which Einsatz and which moment — on a plan or
+  // Gebäude sheet too, because a sheet pulled out of the stapled rapport has to say what it is
+  it('dates every figure page, not only the Kroki', () => {
+    const [page] = pages({ m2: [{ id: 'own', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.3 }] }) as unknown as { caption?: string }[]
+    expect(page.caption).toContain('Brand')
+    expect(page.caption).toContain(formatDateTime('2026-09-03T12:00:00.000Z'))
+  })
+
   it('…and a sheet whose only marks come from the Karte still gets its page', () => {
     expect(pages({ m2: [{ id: 'fromMap', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.6, y: 0.4 }] })).toHaveLength(1)
     expect(pages({})).toHaveLength(0)

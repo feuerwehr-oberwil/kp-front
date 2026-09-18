@@ -114,9 +114,12 @@ async def test_report_pdf_full_with_figures(client, editor):
     payload["options"] = {"kroki": True, "atemschutz": True, "attendance": True, "mittel": True, "journal": True}
     payload["mittel"] = [{"label": "Ölbinder", "menge": "3 Sack", "sources": "TLF"}]
     payload["retablierung"] = [{"label": "Ölbinder", "menge": "3 Sack", "status": "Nachfüllen / ersetzen"}]
-    payload["krokiKey"] = "kroki"
+    payload["kroki"] = {
+        "tiles": "https://tiles.invalid/{z}/{x}/{y}.png",
+        "entities": [{"coord": [7.55, 47.51], "symbol": "VKF Feuer"}],
+    }
     payload["krokiCaption"] = "Stand 03:00"
-    payload["plans"] = [{"key": "plan_modul1", "label": "M1 Übersicht", "landscape": False}]
+    payload["planPages"] = [{"label": "Gebäude · EG", "caption": "Stand 03:00", "blankAspect": 1.4, "annos": []}]
     payload["trupps"] = [
         {
             "name": "AT 1",
@@ -134,8 +137,6 @@ async def test_report_pdf_full_with_figures(client, editor):
     ]
 
     files = [
-        ("figures", ("kroki", _png(40, 28), "image/png")),
-        ("figures", ("plan_modul1", _png(30, 40), "image/png")),
         ("figures", ("photo_e1", _png(20, 15), "image/png")),
     ]
     r = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)}, files=files)

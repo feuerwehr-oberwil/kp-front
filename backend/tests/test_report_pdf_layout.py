@@ -30,11 +30,15 @@ def test_no_blank_page_between_kroki_and_beilagen():
             "incident": {"title": "Blank-Page-Probe", "id": "p"},
             "generatedAt": "07.08.2026 01:00",
             "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
-            "krokiKey": "k",
+            # a real Kroki page with no network: an unknown tile host prints the grey base
+            "kroki": {
+                "tiles": "https://tiles.invalid/{z}/{x}/{y}.png",
+                "entities": [{"coord": [7.55, 47.51], "symbol": "VKF Feuer"}],
+            },
             "attachments": [{"url": "/api/media/a1", "caption": "Ausweis"}],
         }
     )
-    pdf = compose_report_pdf(payload, {"k": png(1600, 1000), "photo:/api/media/a1": png(1200, 1600)})
+    pdf = compose_report_pdf(payload, {"photo:/api/media/a1": png(1200, 1600)})
 
     doc = pdfium.PdfDocument(pdf)
     # a page is "blank" when the only thing on it is the «n / m» footer

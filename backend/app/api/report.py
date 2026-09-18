@@ -378,7 +378,7 @@ async def report_pdf(
 ) -> Response:
     inc = await get_incident_or_404(db, incident_id)
 
-    # Legacy figures are keyed by the multipart filename (krokiKey / plan.key / photoKey).
+    # Uploaded figures are keyed by the multipart filename (a journal row's photoKey, the logo).
     figs: dict[str, bytes] = {}
     for f in figures[:_MAX_FIGURES]:
         if not f.filename or (f.content_type or "") not in _ALLOWED_FIGURE_TYPES:

@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { addPlanBindings, effectiveBindingGeoref, incidentBindingApproved, inheritPlanBinding, incidentGeorefForPlan, incidentGeorefKey, isIncidentPlanBinding, overridePlanBinding, registerIncidentPlanBindings, saveIncidentGeoref } from './incidentPlanBindings'
 import { mergeWorkspace } from './mergeWorkspace'
 import { deriveInitial, sanitizeWorkspace } from './workspace'
-import { boardTwinAnnosForPrint, georefPlans, planAspect } from './georefTwins'
+import { georefPlans, planAspect } from './georefTwins'
+import { projectedAnnos } from './planProjection'
 import type { GeorefPair } from './georef'
 import { georefForPlan } from './stationPlanScale'
 import { referenceUrl } from './api/reference'
@@ -128,9 +129,11 @@ describe('incident plan snapshots', () => {
         georefByPlan: { [pinned.id]: { pairs: [] } },
       }))
       const point = linked.fit.toMap({ x: 0.25, y: 0.4 })
-      const twins = boardTwinAnnosForPrint(linked, [{
+      // what lib/useObjectStore · board hands the print path: the Karte's objects projected onto
+      // the sheet through the incident's own fit
+      const twins = projectedAnnos([{ id: 'note', entity: {
         id: 'note', kind: 'note', layer: 'taktisch', coord: [point.lng, point.lat], label: 'Zugang',
-      }], [])
+      } }], { fit: linked.fit, aspect: linked.widthM / linked.fit.scaleMPerU })
       expect(twins).toHaveLength(1)
       expect(twins[0].x).toBeCloseTo(0.25)
       expect(twins[0].y).toBeCloseTo(0.4)
@@ -144,7 +147,7 @@ describe('incident plan snapshots', () => {
           created_at: timestamp, updated_at: timestamp,
         },
         draft: { meta: {}, generatedAt: timestamp, proof: { intact: null, checkedAt: timestamp }, options: { ...defaultReportOptions, annotatedPlans: true } },
-        trupps: [], attendance: {}, events: [], plans: [document], board: {}, twinAnnos: { [pinned.planId]: twins },
+        trupps: [], attendance: {}, events: [], plans: [document], board: { [pinned.planId]: twins },
       })
       expect(payload.planPages).toMatchObject([{ url: '/api/reference/pdf%3Ahouse%3A2?v=3', annos: [{ text: 'Zugang' }] }])
     } finally { unregister() }

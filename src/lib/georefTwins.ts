@@ -15,9 +15,7 @@
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim, type Georef, type GeorefFit, type PlanPt } from './georef'
 import type { PlanScale } from './planScale'
 import type { StationPlanScales } from './stationPlanScale'
-import { projectedAnnos } from './planProjection'
-import type { TacticalObject } from './tacticalObjects'
-import type { BoardAnno, Drawing, Entity, LngLat, PlanDocument } from '../types'
+import type { BoardAnno, Entity, LngLat, PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 
@@ -262,24 +260,6 @@ export function referenceDelta(
   const dropped = new Set<string>()
   if (before) for (const p of plans) { const k = sheetKeyOf(p); if (before.has(k) && !referenced.has(k)) dropped.add(p.id) }
   return { dropped, referenced }
-}
-
-/**
- * The Karte's objects, projected onto one linked sheet for PRINT — the direct-payload builder
- * (lib/reportPdfDirect · twinAnnos) has no object store whose `board` view would already carry
- * the projections, so the page's annos are derived here from the raw collections instead.
- *
- * Same projection as the live sheet (lib/planProjection · projectedAnnos), so paper shows what
- * the screen shows: geo-anchored objects only, clipped to the sheet, turned into the paper's
- * frame. (The import is a deliberate, benign cycle: planProjection imports this module's
- * vocabulary-boundary helpers; both sides only touch each other inside function bodies.)
- */
-export function boardTwinAnnosForPrint(plan: GeorefPlan, entities: Entity[], drawings: Drawing[]): BoardAnno[] {
-  const objects: TacticalObject[] = [
-    ...entities.map((entity) => ({ id: entity.id, entity })),
-    ...drawings.map((drawing) => ({ id: drawing.id, drawing })),
-  ]
-  return projectedAnnos(objects, { fit: plan.fit, aspect: plan.widthM / plan.fit.scaleMPerU })
 }
 
 /* ⚠️ No twin-specific size bands. Until 30.08. twins wore their own «quieter» px bands — in the

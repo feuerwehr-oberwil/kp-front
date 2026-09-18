@@ -232,11 +232,6 @@ export interface DirectReportArgs {
   /** what every sheet DRAWS: its own annos plus the Karte's objects projected onto it
    *  (lib/useObjectStore · board). One list — the page shows what the screen shows. */
   board?: BoardDoc
-  /** planId → the Karte's objects projected onto that sheet, for a caller WITHOUT an object
-   *  store whose `board` already carries the projections (the direct/capture path). Derived via
-   *  georefTwins · boardTwinAnnosForPrint from the incident's own fit; concatenated onto the
-   *  sheet's board list — never pass both for the same content or it prints twice. */
-  twinAnnos?: Record<string, BoardAnno[]>
   /** the picked Gebäude (floor stack) — exports as blank-base plan pages when present */
   building?: BuildingDoc | null
   /** alternate endpoint/auth (capture view: poster token instead of the kiosk cookie) */
@@ -316,33 +311,30 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
 
   // annotated Objektpläne as references + board annos; the Gebäude floor-stack has no PDF
   // behind it and exports as client-composed blank-base pages instead (floorStackPages)
-  // `twinAnnos` joins the sheet's own list FIRST, so selection and rendering see one picture.
-  const sheetAnnos: BoardDoc | undefined = args.twinAnnos
-    ? Object.fromEntries(
-        [...new Set([...Object.keys(board ?? {}), ...Object.keys(args.twinAnnos)])]
-          .map((id): [string, BoardAnno[]] => [id, [...(board?.[id] ?? []), ...(args.twinAnnos?.[id] ?? [])]]),
-      )
-    : board
-  const selectedPlans = sheetAnnos && (draft.options.annotatedPlans || draft.options.allPlans)
-    ? annotatedPlans(plans, sheetAnnos, draft.options.allPlans)
+  const selectedPlans = board && (draft.options.annotatedPlans || draft.options.allPlans)
+    ? annotatedPlans(plans, board, draft.options.allPlans)
     : []
+  // Which Einsatz, which moment — under the heading of EVERY figure page, not only the Kroki's: a
+  // Gebäude sheet pulled out of the stapled rapport has to say what it belongs to. ⚠️ `generatedAt`,
+  // not `krokiAt`: only the Kroki can be reconstructed for a past moment, a sheet's annos are now.
+  const figureCaption = fillTemplate(appConfig.copy.report.krokiState, { title: incident.title, at: formatDateTime(draft.generatedAt) })
   const printPlans = selectedPlans.filter((p) => p.imageUrl && !p.floorStack)
   const planPages: Record<string, unknown>[] = printPlans.map((p) => ({
     label: `${p.code} · ${p.title}`,
+    caption: figureCaption,
     // a floor sheet names its page in the URL fragment; the server renders THAT page
     url: p.imageUrl.replace(/#.*$/, ''),
     page: pdfPageOf(p.imageUrl) ?? 0,
     // ⚠️ ONE list. The board view a sheet draws already carries the Karte's objects projected
     // onto it (lib/useObjectStore · board), so concatenating a second «mirrored» list here
     // printed every annotation on a linked plan twice — the sheet's own ink included.
-    // (`twinAnnos` is the direct path's substitute for exactly that projection, merged above.)
-    annos: planAnnosForPdf(sheetAnnos?.[p.id] ?? [], scene?.captionMode ?? 'auto'),
+    annos: planAnnosForPdf(board?.[p.id] ?? [], scene?.captionMode ?? 'auto'),
   }))
   // the Gebäude is its own section: it prints with the «Pläne» off, and only while a storey
   // carries something (floorStackPages returns no page for an untouched stack)
   if (building && draft.options.gebaeude !== false) {
     for (const p of plans.filter((x) => x.floorStack)) {
-      planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.captionMode ?? 'auto'))
+      planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.captionMode ?? 'auto').map((page) => ({ ...page, caption: figureCaption })))
     }
   }
 
