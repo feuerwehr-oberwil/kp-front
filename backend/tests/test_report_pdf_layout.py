@@ -911,3 +911,15 @@ def test_a_trupps_header_never_leaves_its_pressure_log_on_the_next_page():
             assert named, f"Trupp {n} missing at filler={filler}"
             # the page carrying the name carries its first logged reading too
             assert any(f"1{n}:44" in p for p in named), f"Trupp {n} split off its log at filler={filler}"
+
+
+def test_a_floor_stack_pages_north_dial_keeps_its_bearing():
+    """⚠️ The client sends the dial's ANGLE (`deg`) and the renderer reads it off the dumped anno —
+    but the model between them did not declare the field, so validation dropped it and every
+    turned Gebäude page printed a dial claiming north-up."""
+    from app.report_pdf import PlanPageIn
+
+    page = PlanPageIn.model_validate(
+        {"label": "Gebäude · EG", "blankAspect": 1.0, "annos": [{"kind": "north", "x": 0.94, "y": 0.02, "deg": 37.5}]}
+    )
+    assert page.annos[0].model_dump()["deg"] == 37.5

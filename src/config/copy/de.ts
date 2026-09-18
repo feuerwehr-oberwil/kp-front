@@ -35,7 +35,7 @@ export const de = {
   // the left navigation rail (Karte · Pläne group · Checkliste · Trupps)
   // (no «Objekt wählen» any more: the rail is pure navigation, the object sits on the
   //  plan surface – see whiteboard.objectLabel)
-  navRail: { map: 'Karte', plansGroup: 'Pläne', plansChoose: 'Plan wählen', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
+  navRail: { map: 'Karte', plansGroup: 'Pläne', plansChoose: 'Plan wählen', pageGroup: 'Seite wählen', assign: 'Plan zuweisen', expand: 'Ausklappen', collapse: 'Einklappen', resize: 'Leiste anpassen', scrollMore: 'Weitere anzeigen' },
   // «Trupp finden» – the one place that answers «wo steht Trupp 2», across Karte UND Pläne.
   // Deliberately the same shape as «Welcher Trupp?»: a short list you tap, no surface of its own.
   truppFinder: {
@@ -4114,10 +4114,7 @@ export const de = {
     // Handy (≤600px): die drei Reiter, die den Rapport in drei Bildschirme statt fünf teilen.
     // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
     tabsLabel: 'Teil des Rapports',
-    // ⚠️ Auf dem Telefon kommen «Anwesenheit» und «Material» dazu: dort sind sie Tabs des
-    // Rapports statt eigener Flächen (18.09.2026). Genau dieselben Wörter wie ihre Leisten-
-    // Kacheln auf dem Tablet (modes.anwesenheit / modes.mittel) – eine Sache, ein Wort.
-    tabs: { anwesenheit: 'Anwesenheit', mittel: 'Material', bericht: 'Bericht', werwas: 'Personal & Mittel', beilagen: 'Beilagen' },
+    tabs: { bericht: 'Bericht', werwas: 'Personal & Mittel', beilagen: 'Beilagen' },
     // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
     headOpenGo: 'Zu «{step}» springen',
     sectionBericht: 'Bericht & Beteiligte',
@@ -4434,7 +4431,9 @@ export const de = {
     controlHead: 'Kontrolle',
     // the state chip counts what is open instead of just saying «Kontrolle»
     controlOpen: '{n} Hinweis(e)',
-    annotatedDefault: '{n} annotierte Pläne werden standardmässig gedruckt.',
+    plansPrintNone: 'Pläne werden nicht gedruckt – bei Bedarf im Menü ▾ zuschalten.',
+    plansPrintAnnotated: '{n} Pläne mit Anmerkungen werden gedruckt.',
+    plansPrintAll: 'Alle Pläne werden gedruckt.',
     missingTranscripts: '{n} Audioeintrag/-einträge ohne Transkript – fürs Protokoll nachtragen.',
     fixTranscripts: 'Im Verlauf ergänzen',
     // Names WHO and WHY. On paper it said «N Person(en) ohne verwertbare Zeiten» – a number over

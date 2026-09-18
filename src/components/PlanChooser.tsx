@@ -39,11 +39,11 @@ export function PlanChooser({ docs, activeId, onPick, onClose }: {
               <span className="plan-choose-glyph" aria-hidden>
                 {'mono' in g ? <span className="nav-mono-chip">{g.mono}</span> : <Icon id={g.icon} />}
               </span>
+              {/* ONE line, the plan's own name as the station calls it («Modul 1», «RWA», «Gebäude»)
+                  — the same word the rail wears. What a Modul holds differs per station and they
+                  know it best; the catalogue's description only made every row two lines (18.09.2026). */}
               <span className="pp-row-main">
-                <b>{d.title || d.code}</b>
-                {/* the short code is what the folded tile shows, so the row that answers for it
-                    carries the same word — and the subtitle after it where a station wrote one */}
-                <span className="pp-row-addr">{[d.code, d.subtitle].filter(Boolean).join(' · ')}</span>
+                <b>{d.code || d.title}</b>
               </span>
               {on && <span className="pp-row-meta" aria-hidden><Icon id="check" /></span>}
             </button>

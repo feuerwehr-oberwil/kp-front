@@ -150,20 +150,26 @@ describe('navStops', () => {
       { mode: 'rapport' },
     ]))
 
-  // the Rapport has always been a tile; leaving it off the list made it a surface the stepping
-  // could be redirected INTO and never out of
-  it('always stops on the Rapport', () => {
-    expect(modes(false)).toContain('rapport')
-    expect(modes(true)).toContain('rapport')
+  // ⚠️ every surface stays steppable on a phone too — Anwesenheit and Material are ordinary
+  // separate pages there, reached through the Rapport tile and the switcher at their foot
+  it('stops on all three of the Rapport group, folded or not', () => {
+    for (const fold of [false, true]) {
+      expect(modes(fold)).toContain('rapport')
+      expect(modes(fold)).toContain('anwesenheit')
+      expect(modes(fold)).toContain('mittel')
+    }
   })
 
-  // …and with the phone bar folded, Anwesenheit and Material have no tile to land on: they are
-  // tabs of that Rapport (NavRail · fold, and the mode redirect in IncidentWorkspace)
-  it('drops the two folded surfaces while the phone bar is folded', () =>
-    expect(modes(true)).toEqual(['map', 'plans', 'plans', 'checklists', 'atemschutz', 'rapport']))
+  // …but in the order the fifth TILE implies: on the phone bar the Rapport is the door to the
+  // group, so the step walks into it first and then through the two pages behind it
+  it('leads the group with the Rapport while the phone bar is folded', () =>
+    expect(modes(true)).toEqual([
+      'map', 'plans', 'plans', 'checklists', 'atemschutz', 'rapport', 'anwesenheit', 'mittel',
+    ]))
 
   it('is the bare sections on a station with no plan documents', () =>
     expect(navStops([], true)).toEqual([
-      { mode: 'map' }, { mode: 'checklists' }, { mode: 'atemschutz' }, { mode: 'rapport' },
+      { mode: 'map' }, { mode: 'checklists' }, { mode: 'atemschutz' },
+      { mode: 'rapport' }, { mode: 'anwesenheit' }, { mode: 'mittel' },
     ]))
 })

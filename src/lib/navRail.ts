@@ -141,25 +141,27 @@ export function foldPlanTiles(docs: PlanDocument[], activeId: string): FoldedPla
 /**
  * One stop of ⌘[ / ⌘] — the flat order the rail is read in, top to bottom.
  *
- * It is the RAIL's list, not the catalogue: the step lands on tiles, so a stop with no tile is
- * a chevron that lands nowhere. That cuts both ways, and both ways are load-bearing —
- *  · the Rapport is a tile everywhere, so it is a stop; leaving it out made the phone's
- *    Anwesenheit/Material redirect a dead end (the step arrived on a mode the list did not
- *    know, and the next press had nowhere to go from);
- *  · Anwesenheit and Material lose their tiles the moment the phone bar folds them into that
- *    Rapport (18.09.2026, NavRail · `fold`), so while it is folded they stop being stops.
+ * Every SURFACE is a stop, on both layouts: Anwesenheit and Material are ordinary separate
+ * pages everywhere (they were briefly tabs of the Rapport on a folded phone, 18.09.2026, and
+ * that was reverted the same day). What the fold changes is only the ORDER, because it changes
+ * what the rail looks like: the phone bar's fifth tile is the Rapport, and it is the door to the
+ * group Anwesenheit and Material now hang off — so the step walks Rapport → Anwesenheit →
+ * Material, the order of the switcher at the foot of those three pages. The vertical rail still
+ * shows Anwesenheit and Material as tiles above the Rapport, and steps in that order.
  */
 export type NavStop =
   | { mode: 'plans'; planId: string }
   | { mode: 'map' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport' }
 
 export function navStops(planIds: string[], phoneFold: boolean): NavStop[] {
+  const group: NavStop[] = phoneFold
+    ? [{ mode: 'rapport' }, { mode: 'anwesenheit' }, { mode: 'mittel' }]
+    : [{ mode: 'anwesenheit' }, { mode: 'mittel' }, { mode: 'rapport' }]
   return [
     { mode: 'map' },
     ...planIds.map((planId): NavStop => ({ mode: 'plans', planId })),
     { mode: 'checklists' },
     { mode: 'atemschutz' },
-    ...(phoneFold ? [] : [{ mode: 'anwesenheit' } as NavStop, { mode: 'mittel' } as NavStop]),
-    { mode: 'rapport' },
+    ...group,
   ]
 }

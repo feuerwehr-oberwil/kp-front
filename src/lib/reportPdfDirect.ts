@@ -38,7 +38,7 @@ import type { JournalLink } from './journalLinks'
  *  `captionMode` is the device's Beschriftungen setting — the SAME one the board renders with
  *  (IncidentWorkspace · symbolCaptions), so the printed plan is labelled the way the screen it
  *  was drawn on was. */
-export function planAnnosForPdf(annos: BoardAnno[], _byName: Record<string, string>, captionMode: CaptionMode = 'auto'): Record<string, unknown>[] {
+export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = 'auto'): Record<string, unknown>[] {
   return resolvePlanAnnos(annos).map((a) => {
     const out: Record<string, unknown> = {
       kind: a.kind, x: a.x, y: a.y, pts: a.pts, color: a.color, width: a.width,
@@ -119,7 +119,7 @@ const STACK_INK = '#3b4656'
 
 /** The floor-stack rendered as blank-base plan pages (chunked, top storey first). */
 export function floorStackPages(
-  plan: PlanDocument, building: BuildingDoc, annos: BoardAnno[], byName: Record<string, string>, captionMode: CaptionMode = 'auto',
+  plan: PlanDocument, building: BuildingDoc, annos: BoardAnno[], captionMode: CaptionMode = 'auto',
 ): { label: string; blankAspect: number; annos: Record<string, unknown>[] }[] {
   const floorsTTB = [...building.floors].sort((a, b) => b - a)
   if (!floorsTTB.length) return []
@@ -179,7 +179,7 @@ export function floorStackPages(
       const idx = chunk.indexOf(pointFloors.find((f) => chunk.includes(f)) ?? a.floor ?? 0)
       return idx < 0 ? [] : [lift(a, idx)]
     })
-    page.push(...planAnnosForPdf(lifted, byName, captionMode))
+    page.push(...planAnnosForPdf(lifted, captionMode))
     const labels = chunk.map(floorLabel)
     return { label: `${plan.title} · ${labels.length > 1 ? `${labels[0]} – ${labels[labels.length - 1]}` : labels[0]}`, blankAspect: N * TILE, annos: page }
   })
@@ -324,11 +324,11 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     // onto it (lib/useObjectStore · board), so concatenating a second «mirrored» list here
     // printed every annotation on a linked plan twice — the sheet's own ink included.
     // (`twinAnnos` is the direct path's substitute for exactly that projection, merged above.)
-    annos: planAnnosForPdf(sheetAnnos?.[p.id] ?? [], scene?.byName ?? {}, scene?.captionMode ?? 'auto'),
+    annos: planAnnosForPdf(sheetAnnos?.[p.id] ?? [], scene?.captionMode ?? 'auto'),
   }))
   if (building) {
     for (const p of selectedPlans.filter((x) => x.floorStack)) {
-      planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.byName ?? {}, scene?.captionMode ?? 'auto'))
+      planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.captionMode ?? 'auto'))
     }
   }
 
