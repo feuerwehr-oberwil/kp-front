@@ -2628,7 +2628,7 @@ export const en: Localizable<Copy> = {
     printMenu: 'More print options',
     toggleKroki: 'Sketch',
     plansAnnotated: 'Annotated plans ({n})',
-    toggleGebaeude: 'Building ({n} storeys)',
+    toggleGebaeude: 'Building – storeys ({n})',
     plansAll: 'All plans',
     toggleAtemschutz: 'SCBA monitoring ({n})',
     toggleAttendance: 'Attendance ({n})',

@@ -558,7 +558,7 @@ to prod.
   else is opt-in or earns its page. Four rules, each from a printed review:
   - **Objektpläne are OFF by default** (`report · defaultReportOptions.annotatedPlans`). A linked
     sheet counts as «annotated» the moment the Karte's objects project onto it, so «on when there
-    are any» stapled every linked plan to every rapport. They are reference the station owns.
+    are any» stapled every linked plan to every rapport. They are reference material the station already owns.
   - **The Gebäude is its own section** (`options.gebaeude`, on), not one of the «Pläne»: it
     carries the Einsatz's own work. Only storeys with content print
     (`reportPdfDirect · usedStackFloors`); an untouched stack prints no page.

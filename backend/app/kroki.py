@@ -1424,6 +1424,25 @@ def _north_arrow(img: Image.Image, img_w: float, u: float) -> None:
     img.paste(dial, (int(img_w - size - 14 * u), int(14 * u)), dial)
 
 
+def _glyph_box(e: dict, lat: float, overlay_z: float, sym_mul: float) -> tuple[float, float]:
+    """(width, height) of an entity's printed glyph in the 1050-px reference units — the ONE sizing
+    the renderer draws with and the attachment pass couples to, so the two cannot disagree about
+    where a glyph's edge is. Symbols use the zoom band and stay square; a generic shape prints at
+    its ground size with its own aspect (height/width).
+
+    ⚠️ The limits are PER KIND, mirroring lib/shapes · SHAPE_MAX_PX / shapeAspect. A Rotation is a
+    shuttle RUN and spans the map: the flat 900 px ceiling truncated a Wasserpendel on paper the
+    same way it used to stop the drag on screen, and the 0.2 aspect floor fattened it tenfold,
+    because a run's width is capped in metres and a long one legitimately stores a few
+    thousandths (01.09.)."""
+    if e.get("sizeM"):
+        run = e.get("shape") == "rotation"
+        w = max(24.0, min(12000.0 if run else 900.0, e["sizeM"] * px_per_m(lat, overlay_z)))
+        return w, w * max(0.002 if run else 0.02, min(5.0, float(e.get("aspect") or 1)))
+    w = sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul)
+    return w, w
+
+
 def _snap_attached_ends(scene: KrokiScene, view: View, sym_mul: float, u: float, ss: int = 2) -> None:
     """Couple every Leitung end that is attached to an object to the glyph AS PRINTED.
 
@@ -1454,11 +1473,8 @@ def _snap_attached_ends(scene: KrokiScene, view: View, sym_mul: float, u: float,
             dx, dy = tx - cx, ty - cy
             if math.hypot(dx, dy) < 1e-6:
                 continue
-            if e.get("sizeM"):
-                w = max(24.0, e["sizeM"] * px_per_m(lat, overlay_z)) * u
-                h = w * max(0.02, min(5.0, float(e.get("aspect") or 1)))
-            else:
-                w = h = sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u
+            gw, gh = _glyph_box(e, lat, overlay_z, sym_mul)
+            w, h = gw * u, gh * u
             r = -math.radians(float(e.get("rotation") or 0))
             lx = dx * math.cos(r) - dy * math.sin(r)
             ly = dx * math.sin(r) + dy * math.cos(r)
@@ -1692,21 +1708,9 @@ def render_kroki(
                     box_w=nbox,
                 )
             continue
-        # shapes are sized in real-world metres (client shapePx) and may be stretched
-        # (aspect = height/width); symbols use the band and stay square.
-        #
-        # ⚠️ The limits are PER KIND, mirroring lib/shapes · SHAPE_MAX_PX / shapeAspect. A
-        # Rotation is a shuttle RUN and spans the map: the flat 900 px ceiling truncated a
-        # Wasserpendel on paper the same way it used to stop the drag on screen, and the 0.2
-        # aspect floor fattened it tenfold, because a run's width is capped in metres and a
-        # long one legitimately stores a few thousandths (01.09.).
-        if e.get("sizeM"):
-            run = e.get("shape") == "rotation"
-            size = round(max(24.0, min(12000.0 if run else 900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss)
-            gh = round(size * max(0.002 if run else 0.02, min(5.0, float(e.get("aspect") or 1))))
-        else:
-            size = round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss)
-            gh = size
+        # one sizing with the attachment pass — see _glyph_box
+        gw, gh_ = _glyph_box(e, lat, overlay_z, sym_mul)
+        size, gh = round(gw * u * ss), round(gh_ * u * ss)
         x, y = x0_, y0_
         _place_symbol(overlay, draw, svg, (x, y), size, e.get("rotation"), e.get("spread"), height=gh)
         _symbol_badges(draw, (x, y), size, u * ss, e.get("floor"), e.get("floorFrom"), e.get("floorTo"), e.get("count"))

@@ -4208,7 +4208,7 @@ export const de = {
     printMenu: 'Weitere Druckoptionen',
     toggleKroki: 'Kroki',
     plansAnnotated: 'Pläne mit Anmerkungen ({n})',
-    toggleGebaeude: 'Gebäude ({n} Geschosse)',
+    toggleGebaeude: 'Gebäude – Geschosse ({n})',
     plansAll: 'Alle Pläne',
     toggleAtemschutz: 'Atemschutzüberwachung ({n})',
     toggleAttendance: 'Anwesenheit ({n})',

@@ -2625,7 +2625,7 @@ export const it: Localizable<Copy> = {
     printMenu: 'Altre opzioni di stampa',
     toggleKroki: 'Schizzo',
     plansAnnotated: 'Piani annotati ({n})',
-    toggleGebaeude: 'Edificio ({n} piani)',
+    toggleGebaeude: 'Edificio – piani ({n})',
     plansAll: 'Tutti i piani',
     toggleAtemschutz: 'Sorveglianza autoprotezione ({n})',
     toggleAttendance: 'Presenza ({n})',

@@ -311,8 +311,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
 
   // annotated Objektpläne as references + board annos; the Gebäude floor-stack has no PDF
   // behind it and exports as client-composed blank-base pages instead (floorStackPages)
-  const selectedPlans = board && (draft.options.annotatedPlans || draft.options.allPlans)
-    ? annotatedPlans(plans, board, draft.options.allPlans)
+  // «Alle Pläne» needs no board to choose by — only «mit Anmerkungen» does
+  const selectedPlans = draft.options.allPlans || (board && draft.options.annotatedPlans)
+    ? annotatedPlans(plans, board ?? {}, draft.options.allPlans)
     : []
   // Which Einsatz, which moment — under the heading of EVERY figure page, not only the Kroki's: a
   // Gebäude sheet pulled out of the stapled rapport has to say what it belongs to. ⚠️ `generatedAt`,

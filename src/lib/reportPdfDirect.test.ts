@@ -298,6 +298,15 @@ describe('buildDirectReportPayload · plan pages', () => {
     expect(page.caption).toContain(formatDateTime('2026-09-03T12:00:00.000Z'))
   })
 
+  it('prints «Alle Pläne» even when no board was handed in — only «mit Anmerkungen» chooses by it', () => {
+    const out = buildDirectReportPayload({
+      incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T09:50:00.000Z' } as never,
+      draft: { meta: {}, generatedAt: '2026-09-03T12:00:00.000Z', proof: {}, options: { allPlans: true } } as never,
+      trupps: [], attendance: {}, events: [], plans: [plan],
+    }) as { planPages?: unknown[] }
+    expect(out.planPages).toHaveLength(1)
+  })
+
   it('…and a sheet whose only marks come from the Karte still gets its page', () => {
     expect(pages({ m2: [{ id: 'fromMap', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.6, y: 0.4 }] })).toHaveLength(1)
     expect(pages({})).toHaveLength(0)
