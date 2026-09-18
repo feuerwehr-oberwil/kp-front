@@ -1322,7 +1322,10 @@ export function ReportPreflight({
     // plausible and unrecognisable. Putting the target's top just under the sheet's top edge is
     // the same thing a reader would do with their thumb.
     const top = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 12
-    body.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    // jsdom has no element scrollTo – and the jump is driven from a timer, so a throw there is an
+    // unhandled error that fails the whole run rather than one test
+    if (typeof body.scrollTo === 'function') body.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    else body.scrollTop = Math.max(0, top)
     // …and the same two-beat ink ring the Atemschutz board uses when a locked Anwesenheits-Zeile
     // sends you to a card (Atemschutz.module.css · truppFlash). One surface, one way of saying
     // «this one» — a soft 1.2 s background wash read as a rendering artefact rather than a point.
