@@ -566,8 +566,14 @@ to prod.
     (`symbols · symbolLegendText`), for every symbol. ⚠️ Not `symbolCaptionText`: the screen's
     value-only caption is an answer without its question once lifted into a legend. A symbol's own
     `caption: 'off'` is a screen declutter and is not read; only «Beschriftungen aus» silences it.
+  - **One figure-page template** (`report_pdf · figure_pages`): heading, then the muted «Einsatz ·
+    Stand …» line, picture, legend – for the Kroki, a plan sheet and a Gebäude page alike. A new
+    kind of figure page joins that list; it does not get a layout block of its own. Orientation is
+    per kind ON PURPOSE: the Kroki is a free crop (the operator's choice), a plan sheet has the
+    shape its author gave it (the bitmap decides).
   - **An attached Leitung end is coupled by the SERVER** (`kroki · _snap_attached_ends`, fed by
-    `startAt` / `endAt` + the entity `id`). The client has no projection and ends the line on a
+    `startAt` / `endAt` + the entity `id`; a branch off a Teilstück by `startAtLine` / `endAtLine`
+    onto the fork's prong tip – `_snap_line_joints`, one geometry with the glyph: `_fork_dims`). The client has no projection and ends the line on a
     fixed ground footprint; the glyph is sized in pixels, so only the sheet's own view can land the
     end on it. ⚠️ And the fallback fit mirrors the PANEL: `KrokiFramingPanel · FIT_MAX_ZOOM` is a
     MapLibre camera zoom, one level tighter than the 256-px projection
