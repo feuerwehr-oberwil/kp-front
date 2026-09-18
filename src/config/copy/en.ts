@@ -27,7 +27,7 @@ export const en: Localizable<Copy> = {
   // «Teams», matching `atemschutz.boardTitle` — the surface carries work squads too, so naming it
   // «SCBA» told a traffic-control team it was in the wrong place (see de.ts for the full note).
   modes: { map: 'Map', plans: 'Plan', checklists: 'Checklist', atemschutz: 'Teams', anwesenheit: 'Attendance', mittel: 'Material', rapport: 'Report' },
-  navRail: { map: 'Map', plansGroup: 'Plans', plansChoose: 'Choose plan', assign: 'Assign plan', expand: 'Expand', collapse: 'Collapse', resize: 'Resize bar',
+  navRail: { map: 'Map', plansGroup: 'Plans', plansChoose: 'Choose plan', pageGroup: 'Choose page', assign: 'Assign plan', expand: 'Expand', collapse: 'Collapse', resize: 'Resize bar',
     scrollMore: 'Show more',
   },
   panels: { layers: 'Layers', history: 'Log' },
@@ -2591,7 +2591,7 @@ export const en: Localizable<Copy> = {
     headAllRecorded: 'all details recorded',
     headStillOpen: 'open',
     tabsLabel: 'Part of the report',
-    tabs: { anwesenheit: 'Attendance', mittel: 'Material', bericht: 'Report', werwas: 'Personnel & Material', beilagen: 'Attachments' },
+    tabs: { bericht: 'Report', werwas: 'Personnel & Material', beilagen: 'Attachments' },
     fromDispatch: 'From the incident data',
     edit: 'Edit',
     alarmMessage: 'Alarm message',
@@ -2725,7 +2725,9 @@ export const en: Localizable<Copy> = {
     framingLegendMissing: '{n} without a number – the disc does not fully fit on the sheet.',
     framingDiscOut: 'Will not be in the legend – the disc does not fully fit on the sheet.',
     controlHead: 'Checks',
-    annotatedDefault: '{n} annotated plans are printed by default.',
+    plansPrintNone: 'Plans are not printed – add them from the ▾ menu if needed.',
+    plansPrintAnnotated: '{n} annotated plans will be printed.',
+    plansPrintAll: 'All plans will be printed.',
     missingTranscripts: '{n} audio entry/entries without a transcript – add for the record.',
     fixTranscripts: 'Add in the log',
     stateNote: 'As of: whole incident up to report creation ({at}).',

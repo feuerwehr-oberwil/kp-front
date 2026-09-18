@@ -58,7 +58,11 @@ export const defaultReportOptions: ReportOptions = {
   // actually look at sideways in the middle of the stack. See ReportPreflight for the same
   // default on the sheet itself.
   krokiLandscape: false,
-  annotatedPlans: true,
+  // ⚠️ OFF (18.09.2026). The Kroki is the rapport's picture; an Objektplan is reference material
+  // the station already owns, and a linked sheet counts as «annotated» the moment the Karte's
+  // objects project onto it — so «on when there are any» stapled every linked plan to every
+  // rapport. The operator adds them from the ▾ menu when a sheet carries work of its own.
+  annotatedPlans: false,
   allPlans: false,
   atemschutz: true,
   attendance: true,

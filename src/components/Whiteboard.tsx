@@ -3318,11 +3318,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 const top = seam === 0 ? -(count - order) * FOLDED_H       // above the stack, in order
                   : seam >= N ? sH + order * FOLDED_H                      // below it
                   : (seam / N) * sH - FOLDED_H / 2 + order * FOLDED_H      // straddling the seam
+                const name = building.floorNames?.[String(f)] ?? floorLabel(f)
+                // ⚠️ the WHOLE strip is the button, and it says so by name: on a narrow tile the
+                // «einblenden» word and the eye on the headers above are both dropped (09-whiteboard.css),
+                // so this label is all that is left to announce what tapping the row does.
                 return (
                   <button key={`folded:${f}`} type="button" className="wb-floor-folded" style={{ top, width: sW, height: FOLDED_H }}
-                    title={appConfig.copy.whiteboard.floorShow} onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}>
+                    title={`${name} ${appConfig.copy.whiteboard.floorShow}`} aria-label={`${name} ${appConfig.copy.whiteboard.floorShow}`}
+                    onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}>
                     <span className={`wb-floor-idx${f === 0 ? ' zero' : ''}`}>{signedFloor(f)}</span>
-                    <span className="wb-floor-name">{building.floorNames?.[String(f)] ?? floorLabel(f)}</span>
+                    <span className="wb-floor-name">{name}</span>
                     <span className="wb-floor-folded-state">{appConfig.copy.whiteboard.floorHidden}</span>
                     <span className="wb-floor-folded-cta"><Icon id="eyeoff" />{appConfig.copy.whiteboard.floorShow}</span>
                   </button>

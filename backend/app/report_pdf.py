@@ -323,6 +323,11 @@ class PlanAnnoIn(BaseModel):
     symbol: str | None = None
     symbolSvg: str | None = None
     rotation: float | None = None
+    #: a `north` dial's bearing (floor-stack pages: the operator-dialled view angle). ⚠️ Has to be
+    #: DECLARED: an undeclared field is dropped on validation, and until 18.09.2026 this one was —
+    #: so kroki · _overlay_board_annos read no `deg` and every turned Gebäude page printed a dial
+    #: claiming north-up.
+    deg: float | None = None
     # --- symbol badges, the same decor the Kroki prints (KrokiEntityIn) and the board shows ---
     #: signed STOREY badge (+2 / 0 / -1). ⚠️ `storey`, not `floor`: on a plan anno `floor` is
     #: the Gebäude floor-stack's TILE INDEX (client types.ts · BoardAnno), and the client lifts

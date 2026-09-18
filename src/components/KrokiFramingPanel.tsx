@@ -91,7 +91,7 @@ function tagNormal(coords: LngLat[]): [number, number] {
   return [nx, ny]
 }
 
-export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false, onAtChange, moments = [], startedAtMs = null, landscape = true, onLandscapeChange, trupps = [], captionMode = 'auto', onViewChange }: {
+export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false, onAtChange, moments = [], startedAtMs = null, landscape = false, onLandscapeChange, trupps = [], captionMode = 'auto', onViewChange }: {
   scene: { entities: Entity[]; drawings: Drawing[]; layers: LayerDef[]; byName: Record<string, string>; center: LngLat }
   /** the crop this panel opens on — the last one chosen for this Einsatz, else auto-fit */
   initial: KrokiView | null

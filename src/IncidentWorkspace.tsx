@@ -173,7 +173,9 @@ import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterId
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
-import { ReportPreflight, requestReportStep, requestReportTab } from './components/ReportPreflight'
+import { ReportPreflight, requestReportStep } from './components/ReportPreflight'
+import { PageSwitcher } from './components/PageSwitcher'
+import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
@@ -1129,30 +1131,6 @@ export function IncidentWorkspace({
   const [journalFromRapport, setJournalFromRapport] = useState(false)
   // leaving those surfaces for anything else ends the round trip (no stale chip later)
   useEffect(() => { if (mode !== 'anwesenheit' && mode !== 'mittel') setRapportReturn(false) }, [mode])
-  /**
-   * PHONE: Anwesenheit and Material are TABS of the Rapport, not surfaces of their own
-   * (18.09.2026 — a 360px bar holds five tiles, and those two are read and corrected from the
-   * Rapport anyway). `phoneFold` is the same flag the bar folds on, so the bar and the surfaces
-   * cannot disagree about which destinations exist.
-   *
-   * ⚠️ ONE redirect, on the `mode` itself, rather than a guard at each of the dozen places that
-   * navigate: the doors into those two surfaces are the surface hotkeys (A / M), an open-items
-   * row, a checklist action, the Verlauf, and the mode restored from the cookie at boot — and the
-   * one that would have been missed is always the one somebody uses at 3am. Anything that still
-   * says «go to the Anwesenheit» arrives here and is carried to the Rapport with that tab
-   * selected, which is the same destination by another road.
-   *
-   * The two doors that do NOT arrive here are the two that are drawn from the same flag: the
-   * folded rail has no tile for either surface, and `navList` above drops both stops while the
-   * fold is on — ⌘[ / ⌘] steps onto the Rapport itself, which is a stop of its own, instead of
-   * landing on a mode this effect bounces onward and then having nowhere to step back to.
-   */
-  useEffect(() => {
-    if (!phoneFold) return
-    if (mode !== 'anwesenheit' && mode !== 'mittel') return
-    requestReportTab(mode)
-    setMode('rapport')
-  }, [phoneFold, mode])
   // per-object backend module plans (auto-surfaced near object, or a manual PlanPicker override),
   // plus the resolved plan-doc list with module PDFs swapped in — see useObjectPlans.
   // The binding options freeze each surfaced sheet on first contact: which dataset revision,
@@ -4339,6 +4317,27 @@ export function IncidentWorkspace({
   // present crew (attendance) — offered first in the Einsatzleiter picker (mirrors Atemschutz)
   const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => isPresent(a)).map(([id]) => id)), [attendance])
 
+  /**
+   * PHONE: which of the Rapport's THREE pages the «Rapport» tile opens, remembered per Einsatz
+   * and per device (lib/rapportPages). The three are ordinary separate surfaces — they were tried
+   * as tabs of the Rapport on 18.09.2026 and thrown out the same day, because a whole surface
+   * mounted under the Rapport's own tab strip stacked three navigations on one screen. What the
+   * fold actually buys is a bar of five tiles whose fifth one is a DOOR to the group, plus the
+   * switcher at the foot of all three pages.
+   */
+  useEffect(() => {
+    if (phoneFold && isRapportPage(mode)) writeRapportPage(incidentMeta.id, mode)
+  }, [phoneFold, mode, incidentMeta.id])
+  /** where the bar's «Rapport» tile goes: back to the page this device left the group on, else
+   *  the first-open rule (nobody present yet → Anwesenheit, else the Rapport itself). */
+  const rapportTarget = useMemo(
+    // ⚠️ INSIDE the group the target is the page already showing: the memory is written by the
+    // effect above, i.e. AFTER this render, so reading it here named the page just left and the
+    // lit tile bounced between the last two pages. The memory only answers a tap from outside.
+    () => (isRapportPage(mode) ? mode : initialRapportPage({ incidentId: incidentMeta.id, presentCount: presentIds.size })),
+    [incidentMeta.id, presentIds.size, mode],
+  )
+
   /** What is already known about a roster NAME — «unter AS», «Magazin», «gegangen». Shown on
    *  the dropdown entry itself (see roleAssignment · personStatusHint). */
   const personStatus = (name: string) => {
@@ -5217,9 +5216,26 @@ export function IncidentWorkspace({
         />
       ))}
 
+      {/* PHONE: the Rapport group's page switcher, docked above the bar on all three of its
+          pages (Rapport · Anwesenheit · Material). The bar carries ONE tile for the three, so
+          without this every switch between them is a trip back down to that tile and two taps.
+          See components/PageSwitcher — and 15-mobile.css · --pgsw-safe, which is how the three
+          surfaces, the FAB and the return pill make room for it. */}
+      {phoneFold && isRapportPage(mode) && (
+        <PageSwitcher
+          mode={mode}
+          onMode={(m) => { if (m !== mode) clearMapUi(); setMode(m) }}
+          presentCount={presentIds.size}
+          openCount={abschlussMissing.length}
+        />
+      )}
+
       {/* one-tap way back after a Rapport checklist row navigated here — without it, the
-          round trip went through the incident menu every time (feedback 2026-07-08) */}
-      {rapportReturn && (mode === 'anwesenheit' || mode === 'mittel') && (
+          round trip went through the incident menu every time (feedback 2026-07-08).
+          ⚠️ Not on a phone with the switcher up: «Rapport» is a segment of that control, right
+          beside this pill and saying the same thing. Two floating doors to one destination,
+          stacked in the same thumb lane, is the pile-up the embedded tabs were rejected for. */}
+      {rapportReturn && !(phoneFold && isRapportPage(mode)) && (mode === 'anwesenheit' || mode === 'mittel') && (
         <button
           type="button"
           className="rp-return"
@@ -5286,6 +5302,8 @@ export function IncidentWorkspace({
         fold={phoneFold}
         // …and with the Anwesenheit tile gone, its one number rides on the Rapport tile instead
         presentCount={presentIds.size}
+        // the tile is the door to the GROUP: it opens the page this device was last on
+        rapportTarget={rapportTarget}
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
@@ -6185,11 +6203,9 @@ export function IncidentWorkspace({
 
       {mode === 'atemschutz' && guarded('atemschutz', atemschutzBoard)}
 
-      {/* ⚠️ …but NOT on a phone: there the bar carries no Anwesenheit/Material tile and both
-          are TABS of the Rapport instead — see anwesenheitSurface, and the redirect above. */}
-      {mode === 'anwesenheit' && !phoneFold && guarded('anwesenheit', anwesenheitSurface)}
+      {mode === 'anwesenheit' && guarded('anwesenheit', anwesenheitSurface)}
 
-      {mode === 'mittel' && !phoneFold && guarded('mittel', mittelSurface)}
+      {mode === 'mittel' && guarded('mittel', mittelSurface)}
 
       {/* time-travel replay scrubber — read-only past view, owns the playhead + fold */}
       {replayActive && (
@@ -6267,11 +6283,6 @@ export function IncidentWorkspace({
           onEditDispatch={canEditMeta ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setMode('anwesenheit'); setRapportReturn(true) }}
           onOpenMittel={() => { setMode('mittel'); setRapportReturn(true) }}
-          // PHONE: the same two surfaces, as tabs of this one — same components, same props,
-          // no fork (see anwesenheitSurface / mittelSurface). Absent elsewhere, where the rail
-          // still carries both as surfaces of their own.
-          embedAnwesenheit={phoneFold ? guarded('anwesenheit', anwesenheitSurface) : undefined}
-          embedMittel={phoneFold ? guarded('mittel', mittelSurface) : undefined}
           onResolveConflict={canWriteRecord ? resolveAttendanceConflict : undefined}
           // Do NOT close the sheet here. On the real path the completion switches the active
           // Einsatz and this whole workspace unmounts, so closing it is redundant; on the demo

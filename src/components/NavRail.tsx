@@ -67,18 +67,26 @@ interface Props {
    *  are one decision — what a 360px bar can hold without scrolling:
    *    · every plan document folds into ONE «Pläne» tile (a station with four modules plus a
    *      Gebäude had eleven, so the bar scrolled and half its destinations sat behind the fade);
-   *    · Anwesenheit and Material lose their own tiles and become TABS of the Rapport, which is
-   *      the surface they are read and corrected from anyway. Five tiles remain: Karte · Pläne ·
-   *      Checkliste · Trupps · Rapport.
+   *    · Anwesenheit and Material give up their own tiles to the «Rapport» tile, which becomes
+   *      the DOOR to the three of them. Five tiles remain: Karte · Pläne · Checkliste · Trupps ·
+   *      Rapport, and they share the bar's width evenly.
+   *  ⚠️ A door, not a container. All three stay ordinary separate full pages; moving between them
+   *  is the switcher docked at their foot (components/PageSwitcher). Folding the other two INTO
+   *  the Rapport as extra tabs was tried on 18.09. and thrown out the same day — a whole surface
+   *  under the Rapport's own tab strip stacked three navigations on one screen.
    *  The vertical rail (tablet/desktop) is a column with room for all of them and is unchanged:
-   *  one tile per document, and Anwesenheit/Material stay their own surfaces. */
+   *  one tile per document, and Anwesenheit/Material keep tiles of their own. */
   fold?: boolean
   /** PHONE only: how many people are marked present right now — a COUNT badge on the «Rapport»
-   *  tile, which is where the Anwesenheit lives once it has folded in. Without it the head count
-   *  (the one number the bar used to state just by having an Anwesenheit tile) would be a
+   *  tile, which is the door to the Anwesenheit once the bar has folded. Without it the head
+   *  count (the one number the bar used to state just by having an Anwesenheit tile) would be a
    *  surface away. 0 / undefined paints nothing: a «0 anwesend» badge on a fresh Einsatz is a
    *  standing zero nobody reads. */
   presentCount?: number
+  /** PHONE only: which of the three pages the «Rapport» tile opens — the one this device left
+   *  the group on, else the first-open rule (lib/rapportPages · initialRapportPage). Defaults to
+   *  the Rapport itself, which is what the tile is named after. */
+  rapportTarget?: 'rapport' | 'anwesenheit' | 'mittel'
 }
 
 // The single left navigation rail: it switches the whole surface (Karte · the
@@ -100,6 +108,13 @@ export function NavRail(p: Props) {
   // the head count on the «Rapport» tile — only where the Anwesenheit tile is gone (see `fold`),
   // and only once there is a head to count
   const rapportCount = p.fold ? (p.presentCount ?? 0) : 0
+  /** the «Rapport» tile stands for its whole GROUP on a folded bar, so it is lit on all three of
+   *  its pages — a tile that went dark the moment its own door was used would say the operator
+   *  had left the bar behind. Unfolded it is the one surface it has always been. */
+  const rapportOn = p.mode === 'rapport'
+    || (!!p.fold && (p.mode === 'anwesenheit' || p.mode === 'mittel'))
+  /** …and it opens the page this device was last on (see `rapportTarget`) */
+  const rapportGo = (p.fold ? p.rapportTarget : undefined) ?? 'rapport'
   // …and the second way into the list, for the hand that has learned press-and-hold everywhere
   // else in this app: a hold opens the chooser wherever you are standing, so reaching another
   // document never costs the trip through the one that happens to be loaded.
@@ -127,7 +142,7 @@ export function NavRail(p: Props) {
   })
 
   return (
-    <nav className={`navrail rail${expanded ? ' expanded' : ''}${rail.dragging ? ' dragging' : ''}${p.labels === 'short' ? ' labelled' : ''}`}>
+    <nav className={`navrail rail${expanded ? ' expanded' : ''}${rail.dragging ? ' dragging' : ''}${p.labels === 'short' ? ' labelled' : ''}${p.fold ? ' folded' : ''}`}>
       {/* ⚠️ NO «Ausklappen» while the words are on. The chevron exists to reveal exactly what this
           setting already shows — with it on, expanding buys 128px of nothing but a second label
           position. It stays for everybody else, which is who it was for: somebody who does not
@@ -156,7 +171,7 @@ export function NavRail(p: Props) {
 
         {/* divider ABOVE the plan group too, so the module/floor tabs read as their own
             navigable "Pläne" cluster instead of blending into the Karte icon above them */}
-        {p.planDocs.length > 0 && <div className="nav-sep" />}
+        {p.planDocs.length > 0 && !p.fold && <div className="nav-sep" />}
         {folded && (
           /* the ONE folded tile, and it is shaped like every other tile: ONE glyph and ONE word.
              The glyph IS the loaded document (the mono chip «1»/«RWA», the floor stack, the
@@ -200,7 +215,7 @@ export function NavRail(p: Props) {
           )
         })}
 
-        <div className="nav-sep" />
+        {!p.fold && <div className="nav-sep" />}
         <button className={`nav-item${p.mode === 'checklists' ? ' on' : ''}`} aria-pressed={p.mode === 'checklists'} aria-label={appConfig.copy.modes.checklists} onClick={() => p.onMode('checklists')}>
           <span className="nav-glyph"><Icon id="checklist" /></span>
           <span className="nav-label">{appConfig.copy.modes.checklists}</span>
@@ -215,9 +230,10 @@ export function NavRail(p: Props) {
           <span className="nav-label">{appConfig.copy.modes.atemschutz}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.atemschutz}</span>
         </button>
-        {/* ⚠️ Anwesenheit and Material are NOT on the folded phone bar — they are tabs of the
-            Rapport there (see `fold`). Everywhere else they are their own surfaces, exactly as
-            they have always been. */}
+        {/* ⚠️ Anwesenheit and Material have no tile of their OWN on the folded phone bar — the
+            «Rapport» tile below is the door to all three (see `fold`). They are still separate
+            full pages there; the switcher at their foot moves between them. Everywhere else they
+            keep the tiles they have always had. */}
         {!p.fold && (
           <button className={`nav-item${p.mode === 'anwesenheit' ? ' on' : ''}`} aria-pressed={p.mode === 'anwesenheit'} aria-label={appConfig.copy.modes.anwesenheit} onClick={() => p.onMode('anwesenheit')}>
             <span className="nav-glyph"><Icon id="people" /></span>
@@ -238,12 +254,12 @@ export function NavRail(p: Props) {
             surface carries its letter; what R used to do (Nach Norden) has the compass, which is
             on screen at all times and rotates to say so (see lib/hotkeys). */}
         <button
-          className={`nav-item${p.mode === 'rapport' ? ' on' : ''}`}
-          aria-pressed={p.mode === 'rapport'}
+          className={`nav-item${rapportOn ? ' on' : ''}`}
+          aria-pressed={rapportOn}
           /* the badge is a NUMBER, so it has to be said and not merely painted — a dot can be
              «there is something», a count cannot be read off a coloured circle */
           aria-label={rapportCount ? `${appConfig.copy.modes.rapport} · ${fillTemplate(appConfig.copy.anwesenheit.summary, { present: rapportCount })}` : appConfig.copy.modes.rapport}
-          onClick={() => p.onMode('rapport')}
+          onClick={() => p.onMode(rapportGo)}
         >
           <span className="nav-glyph">
             <Icon id="doc" />

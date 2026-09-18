@@ -7,7 +7,7 @@ import type { BoardAnno, BuildingDoc, PlanDocument, TimelineEvent, Trupp } from 
 describe('planAnnosForPdf', () => {
   it('resolves a plan shape to a client-rendered svg glyph with its plan-relative size', () => {
     const annos: BoardAnno[] = [{ id: 'sh1', kind: 'shape', shape: 'cloud', x: 0.5, y: 0.5, sizeN: 0.2, color: '#123456', label: 'Rauch' }]
-    const [out] = planAnnosForPdf(annos, {})
+    const [out] = planAnnosForPdf(annos)
     expect(out.kind).toBe('symbol') // travels through the server's existing symbol branch
     expect(String(out.symbolSvg)).toContain('#123456')
     expect(out.sizeN).toBe(0.2)
@@ -19,7 +19,7 @@ describe('planAnnosForPdf', () => {
       id: 's1', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.3,
       storey: 2, floorFrom: -1, floorTo: 3, count: 4, spread: { up: true },
     }]
-    const [out] = planAnnosForPdf(annos, {})
+    const [out] = planAnnosForPdf(annos)
     expect(out.storey).toBe(2)
     expect(out.floorFrom).toBe(-1)
     expect(out.floorTo).toBe(3)
@@ -30,7 +30,7 @@ describe('planAnnosForPdf', () => {
   it('never sends the floor-stack TILE INDEX as a storey badge', () => {
     // ⚠️ `floor` on a BoardAnno is the tile the symbol sits on, `storey` the signed badge
     // (types · BoardAnno). Sending the tile index would stamp «+3» on the fourth sheet.
-    const [out] = planAnnosForPdf([{ id: 's2', kind: 'symbol', symbol: 'VKF Feuer', x: 0.5, y: 0.5, floor: 3 }], {})
+    const [out] = planAnnosForPdf([{ id: 's2', kind: 'symbol', symbol: 'VKF Feuer', x: 0.5, y: 0.5, floor: 3 }])
     expect(out.storey).toBeUndefined()
     expect(out.floor).toBeUndefined()
   })
@@ -39,35 +39,35 @@ describe('planAnnosForPdf', () => {
     // ⚠️ Same call as the board and the Kroki payload (lib/symbols · symbolCaptionText), so the
     // sheet's legend and the screen cannot word the same symbol differently.
     const anno: BoardAnno = { id: 's3', kind: 'symbol', symbol: 'FW Gefahr Tafel', x: 0.5, y: 0.5, fields: { 'UN-Nr.': '1203', Stoff: 'Benzin' } }
-    expect(planAnnosForPdf([anno], {})[0].caption).toBe('Benzin')           // 'auto': the one value
-    expect(planAnnosForPdf([anno], {}, 'all')[0].caption).toBe('1203\nBenzin')
-    expect(planAnnosForPdf([anno], {}, 'off')[0].caption).toBeUndefined()   // Beschriftungen aus
+    expect(planAnnosForPdf([anno])[0].caption).toBe('Benzin')           // 'auto': the one value
+    expect(planAnnosForPdf([anno], 'all')[0].caption).toBe('1203\nBenzin')
+    expect(planAnnosForPdf([anno], 'off')[0].caption).toBeUndefined()   // Beschriftungen aus
   })
 
   it('leaves a symbol with nothing typed on it without a caption', () => {
     // no caption → no numbered disc and no legend line: a symbol is still just a symbol
-    const [out] = planAnnosForPdf([{ id: 's4', kind: 'symbol', symbol: 'SI Ueberflurhydrant', x: 0.5, y: 0.5 }], {})
+    const [out] = planAnnosForPdf([{ id: 's4', kind: 'symbol', symbol: 'SI Ueberflurhydrant', x: 0.5, y: 0.5 }])
     expect(out.caption).toBeUndefined()
   })
 
   it('falls back to the shape defaults when colour/size were never touched', () => {
-    const [out] = planAnnosForPdf([{ id: 'sh2', kind: 'shape', shape: 'arrow', x: 0.1, y: 0.1 }], {})
+    const [out] = planAnnosForPdf([{ id: 'sh2', kind: 'shape', shape: 'arrow', x: 0.1, y: 0.1 }])
     expect(String(out.symbolSvg)).toContain('<svg')
     expect(typeof out.sizeN).toBe('number')
   })
 
   it('sends a stretched shape\'s aspect, and only when it stretches', () => {
-    const [rect] = planAnnosForPdf([{ id: 'sh3', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.2, aspect: 0.5 }], {})
+    const [rect] = planAnnosForPdf([{ id: 'sh3', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.2, aspect: 0.5 }])
     expect(rect.aspect).toBe(0.5)
     // absent / 1 stays off the wire; the aspect-locked Pfeil never stretches on paper
-    expect(planAnnosForPdf([{ id: 'sh4', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.2 }], {})[0].aspect).toBeUndefined()
-    expect(planAnnosForPdf([{ id: 'sh5', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, sizeN: 0.2, aspect: 3 }], {})[0].aspect).toBeUndefined()
+    expect(planAnnosForPdf([{ id: 'sh4', kind: 'shape', shape: 'square', x: 0.5, y: 0.5, sizeN: 0.2 }])[0].aspect).toBeUndefined()
+    expect(planAnnosForPdf([{ id: 'sh5', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, sizeN: 0.2, aspect: 3 }])[0].aspect).toBeUndefined()
   })
 
   it('bakes the arrow\'s Stopp-Balken into the printed glyph', () => {
-    const [out] = planAnnosForPdf([{ id: 'sh6', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, stop: true }], {})
+    const [out] = planAnnosForPdf([{ id: 'sh6', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5, stop: true }])
     expect(String(out.symbolSvg)).toContain('M20 7 L80 7')
-    const [plain] = planAnnosForPdf([{ id: 'sh7', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5 }], {})
+    const [plain] = planAnnosForPdf([{ id: 'sh7', kind: 'shape', shape: 'arrow', x: 0.5, y: 0.5 }])
     expect(String(plain.symbolSvg)).not.toContain('M20 7')
   })
 })
@@ -78,7 +78,7 @@ describe('floorStackPages', () => {
   const plan: PlanDocument = { id: 'gebaeude', code: 'GB', title: 'Gebäude', subtitle: '', imageUrl: '', orientation: 'portrait', floorStack: true }
 
   it('chunks max 2 storeys per page, top storey first, with matching aspects and labels', () => {
-    const pages = floorStackPages(plan, building, [], {})
+    const pages = floorStackPages(plan, building, [])
     expect(pages).toHaveLength(2)
     expect(pages[0].label).toBe('Gebäude · 1. OG – EG')
     expect(pages[0].blankAspect).toBeCloseTo(2 * TILE_AR)
@@ -93,18 +93,18 @@ describe('floorStackPages', () => {
       { id: 'a', kind: 'symbol', symbol: 'VKF Feuer', x: 0.5, y: 0.5, floor: 0 },   // EG → page 1, lower tile
       { id: 'b', kind: 'draw', pts: [[0.2, 0.4], [0.8, 0.6]], floor: -1, color: '#1f6feb' }, // UG → page 2
     ]
-    const pages = floorStackPages(plan, building, annos, {})
+    const pages = floorStackPages(plan, building, annos)
     const sym = pages[0].annos.find((x) => x.symbol === 'VKF Feuer')!
     expect(sym.y).toBeCloseTo((1 + 0.5) / 2) // second tile of a 2-tile page
     // the last page keeps the page's band grid, so its single storey sits in the TOP band
     expect(pages[1].annos.some((x) => x.kind === 'draw' && Array.isArray(x.pts) && (x.pts as number[][])[0][1] === 0.2)).toBe(true)
     // an anno on a storey the building no longer has is dropped, not misplaced
-    expect(floorStackPages(plan, building, [{ id: 'c', kind: 'text', x: 0.5, y: 0.5, floor: 4, text: 'x' }], {})
+    expect(floorStackPages(plan, building, [{ id: 'c', kind: 'text', x: 0.5, y: 0.5, floor: 4, text: 'x' }])
       .flatMap((p) => p.annos).some((x) => x.text === 'x')).toBe(false)
   })
 
   it('draws chrome on every page: outline area, floor-label pill, dial only on the first', () => {
-    const pages = floorStackPages(plan, building, [], {})
+    const pages = floorStackPages(plan, building, [])
     for (const p of pages) {
       expect(p.annos.some((x) => x.kind === 'area')).toBe(true)
       expect(p.annos.some((x) => x.kind === 'text')).toBe(true)
@@ -127,7 +127,7 @@ describe('floorStackPages', () => {
       ring: [], rings: [], ringAspect: 0.4, floors: [1, 0],
       pack: { aspect: 1, frame: [0.1, 0.1, 0.3, 0.9] }, viewDeg: 90,
     }
-    const pages = floorStackPages(plan, pack, [], {})
+    const pages = floorStackPages(plan, pack, [])
     expect(pages[0].annos.some((x) => x.kind === 'north')).toBe(false)
     expect(pages[0].annos.some((x) => x.kind === 'area')).toBe(false)
     // the storey labels are still there – the page is a stack, dial or no dial

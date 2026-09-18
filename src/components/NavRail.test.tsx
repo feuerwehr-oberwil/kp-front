@@ -160,15 +160,15 @@ describe('folded plan tile', () => {
     const p = setup({ fold: true, mode: 'plans', activePlanId: 'tafel' })
     fireEvent.click(tile())
     expect(p.onSelectPlan).not.toHaveBeenCalled()
-    expect(screen.getByRole('option', { name: /Übersicht/ })).toBeTruthy()
+    expect(screen.getByRole('option', { name: /Modul 1/ })).toBeTruthy()
   })
 
   it('picking a row switches the document and closes the chooser', () => {
     const p = setup({ fold: true, mode: 'plans', activePlanId: 'tafel' })
     fireEvent.click(tile())
-    fireEvent.click(screen.getByRole('option', { name: /Übersicht/ }))
+    fireEvent.click(screen.getByRole('option', { name: /Modul 1/ }))
     expect(p.onSelectPlan).toHaveBeenCalledWith('modul1')
-    expect(screen.queryByRole('option', { name: /Übersicht/ })).toBeNull()
+    expect(screen.queryByRole('option', { name: /Modul 1/ })).toBeNull()
   })
 
   // …and the hold is the second door into the list, from wherever you are standing (the app's
@@ -180,7 +180,7 @@ describe('folded plan tile', () => {
       const btn = tile() // …held on to: the open sheet marks the rail behind it inert
       fireEvent.pointerDown(btn, { clientX: 10, clientY: 10 })
       act(() => { vi.advanceTimersByTime(600) })
-      expect(screen.getByRole('option', { name: /Übersicht/ })).toBeTruthy()
+      expect(screen.getByRole('option', { name: /Modul 1/ })).toBeTruthy()
       // the click the browser still delivers on release must not ALSO be taken as the tap
       fireEvent.click(btn)
       expect(p.onSelectPlan).not.toHaveBeenCalled()
@@ -188,8 +188,8 @@ describe('folded plan tile', () => {
   })
 
   // ── five tiles on the phone: Karte · Pläne · Checkliste · Trupps · Rapport (18.09.2026) ──
-  // Anwesenheit and Material gave up their tiles and became tabs of the Rapport; the vertical
-  // rail keeps all seven.
+  // Anwesenheit and Material gave up their tiles to the «Rapport» tile, which is the door to
+  // all three; the vertical rail keeps a tile for each.
   it('leaves Anwesenheit and Material off the bar, and keeps them on the rail', () => {
     setup({ fold: true })
     expect(screen.queryByRole('button', { name: /^Anwesenheit/ })).toBeNull()
@@ -235,5 +235,64 @@ describe('the head count on the Rapport tile', () => {
   it('caps a three-figure crew so the badge stays a badge', () => {
     setup({ fold: true, presentCount: 140 })
     expect(rapport().querySelector('.nav-count')?.textContent).toBe('99+')
+  })
+})
+
+// ── the «Rapport» tile is the DOOR to a group of three pages on a folded bar ──
+// Rapport · Anwesenheit · Material are three ordinary separate surfaces; on a phone they share
+// one tile, which stays lit on all three and opens whichever of them was last used.
+describe('the Rapport tile as the group door', () => {
+  const rapport = () => screen.getByRole('button', { name: /^Rapport/ })
+
+  it('stays lit on every page of the group', () => {
+    for (const mode of ['rapport', 'anwesenheit', 'mittel'] as const) {
+      cleanup()
+      setup({ fold: true, mode })
+      expect(rapport().getAttribute('aria-pressed')).toBe('true')
+    }
+  })
+
+  // …and NOT on a tablet, where each of the three has a tile of its own and lighting the
+  // Rapport's for the Anwesenheit would point at the wrong one of the two
+  it('is lit for the Rapport alone on the vertical rail', () => {
+    setup({ mode: 'anwesenheit' })
+    expect(rapport().getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByRole('button', { name: /^Anwesenheit/ }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('opens the page this device was last on', () => {
+    const p = setup({ fold: true, rapportTarget: 'mittel' })
+    fireEvent.click(rapport())
+    expect(p.onMode).toHaveBeenCalledWith('mittel')
+  })
+
+  it('opens the Rapport itself when nothing says otherwise', () => {
+    const p = setup({ fold: true })
+    fireEvent.click(rapport())
+    expect(p.onMode).toHaveBeenCalledWith('rapport')
+  })
+
+  // the target is a PHONE rule: on the rail the tile is one surface among seven and means it
+  it('ignores the target on the vertical rail', () => {
+    const p = setup({ rapportTarget: 'mittel' })
+    fireEvent.click(rapport())
+    expect(p.onMode).toHaveBeenCalledWith('rapport')
+  })
+})
+
+// ⚠️ Five tiles, one per group — a separator between «Pläne» and «Checkliste» divides a thing
+// from a thing, and costs the five 10px of the 328px a 360px phone has.
+describe('the folded bar carries no separators', () => {
+  it('drops them when folded and keeps them on the rail', () => {
+    const { container } = render(<NavRail {...props({ fold: true })} />)
+    expect(container.querySelectorAll('.nav-sep').length).toBe(0)
+    cleanup()
+    const plain = render(<NavRail {...props()} />)
+    expect(plain.container.querySelectorAll('.nav-sep').length).toBe(2)
+  })
+
+  it('marks the bar as folded so the stylesheet can share its width', () => {
+    setup({ fold: true })
+    expect(screen.getByRole('navigation').className).toContain('folded')
   })
 })

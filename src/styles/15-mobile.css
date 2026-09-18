@@ -473,16 +473,25 @@
   .nav-scroll.more-top.more-bottom {
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent);
     mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
-  /* ⚠️ 44px, and the bar's arithmetic is why (18.09.2026, the plan fold). The narrowest phone
-     the app is used on is 360px; the bar keeps 8px either side (.navrail left/right) and 8px of
-     its own padding, which leaves 328px for the seven tiles the folded bar now holds —
-     Karte · Pläne · Checkliste · Trupps · Anwesenheit · Material · Rapport — plus two separators
-     (2 × (1px + 2 × 2px margin) = 10px) and eight 1px gaps. 7 × 44 = 308; 308 + 10 + 8 = 326 ≤ 328,
-     so the whole bar is reachable without a sideways scroll. 44px is still the gloved floor, and
-     the tile is 46px tall, so nothing about the target shrank but its width.
-     The scroll path below stays: the «Wort unter dem Zeichen» variant sizes its tiles to their
-     own words and can still overflow. */
+  /* ⚠️ 44px is the gloved floor, and on a bar that is a WIDTH as well as a height. The narrowest
+     phone the app is used on is 360px; the bar keeps 8px either side (.navrail left/right) and
+     8px of its own padding, so 328px is what the tiles have. Unfolded — one tile per plan
+     document — that overflows on any real station and the bar scrolls, which is what the fade
+     and the nudge below are for. */
   .nav-item { width: 44px; min-width: 44px; flex: 0 0 auto; }
+
+  /* ── the FOLDED bar: five tiles, and they share the width ──
+     Karte · Pläne · Checkliste · Trupps · Rapport. At a fixed 44px they huddled against the left
+     edge with a third of the bar empty to the right of «Rapport» — a row of five buttons that
+     does not look like the row of five destinations it is, and four fifths of the thumb's reach
+     wasted. Each tile takes its equal share instead (≈65px at 360px, more on a bigger phone),
+     never below the 44px floor, glyph and word centred in it as before.
+     ⚠️ And NO separators. They divided the plan tiles from the surfaces around them, which was a
+     real distinction while there were eleven of them; with exactly one tile per group they
+     separate a thing from a thing and cost the five tiles 10px between them (see NavRail ·
+     `fold`, which stops rendering them).
+     The scroll path itself is untouched and still measures: it simply finds nothing to scroll. */
+  .navrail.folded .nav-item { flex: 1 1 0; width: auto; }
 
   /* ── the folded «Pläne» tile ── NO rules of its own any more (18.09.2026). It wears the
      loaded document's own glyph at the size every other tile's glyph has, and the generic word
@@ -508,6 +517,10 @@
      surface respects, on the bar that is pressed most. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-item {
     width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
+  /* …and the folded bar shares its width in this mode too. Measured at 360px: «Checkliste», the
+     longest of the five words, is ~55px of Sora at 9.5px and each tile's equal share is ~65px, so
+     nothing truncates and the scroll the rule above kept for this variant finds nothing to do. */
+  .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-item { flex: 1 1 0; }
   .navrail.labelled:not(.expanded):not(.dragging) .nav-glyph { height: 22px; }
   /* …and the same two corrections the desktop rule makes, one size smaller (see 05-navrail.css) */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: 11px; }
@@ -674,12 +687,55 @@
      The map repaints when Karte is reselected. */
   .app:not(.mode-map) .maplibregl-map { visibility: hidden; }
   .app:not(.mode-map) { background: var(--canvas-bg); }
+  /* ── the Rapport group's page switcher (components/PageSwitcher) ──
+     Rapport · Anwesenheit · Material share ONE tile on the folded bar, so this is how the other
+     two are reached from inside the group: a three-way control docked in the same thumb lane as
+     the bar, reading as an extension of it. It is fixed, not part of any of the three surfaces —
+     they are three separate pages and a control that belonged to one of them would have to be
+     built three times.
+     ⚠️ Its height is RESERVED rather than measured: `--pgsw-safe`, the same idiom as `--fab-safe`
+     above. The .useg track is a full --tap (44px) plus this shell's 4px padding and 1px border
+     top and bottom = 54px, and 6px of channel above it → 60px. Everything that was pinned to the
+     `--rail-h + 18px` baseline adds it: the three surfaces (Surface.module.css · .shell), the FAB
+     and the toaster lane. Keep the four in step if the shell's padding ever changes. */
+  .app:is(.mode-rapport, .mode-anwesenheit, .mode-mittel) { --pgsw-safe: 60px; }
+  .pgsw {
+    position: fixed; z-index: var(--z-chrome);
+    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    bottom: calc(var(--rail-h) + 16px + env(safe-area-inset-bottom));
+    /* the bar's own glass, so the pair reads as one piece of chrome rather than as a panel
+       floating over one (04b-rail.css · .rail) */
+    background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+    border: 1px solid var(--glass-line); box-shadow: var(--shadow);
+    border-radius: var(--r-surface); padding: 4px; box-sizing: border-box;
+  }
+  /* full width, three equal shares. Everything else is the shared segmented spec, untouched —
+     the soft track, the blue pill on the active one, the --tap the option already carries
+     (06-contextpanel.css). This is the app's one option-picker and it does not get a second
+     costume for being at the bottom of the screen. */
+  .pgsw > .useg { display: flex; width: 100%; }
+  .pgsw .useg-btn { flex: 1 1 0; min-width: 0; padding: 6px 8px; white-space: nowrap; }
+  /* the head count, said on the segment that leads to it — same shape as the bar tile's badge
+     (05-navrail.css · .nav-count), inline here because a segment is a word, not a glyph */
+  .pgsw-count { flex: none; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+    border-radius: 8px; background: var(--accent); color: var(--on-accent-ink);
+    font: 800 10px var(--body); line-height: 16px; text-align: center; }
+  /* …and on the blue pill it inverts, or it would be one fill on another */
+  .pgsw .useg-btn.on .pgsw-count { background: var(--on-fill); color: var(--blue); }
+  /* …and «noch offen» as a dot, the same amber the Rapport's own head and tab strip use */
+  .pgsw-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
+  .pgsw .useg-btn.on .pgsw-dot { background: var(--on-fill); }
+  /* ⚠️ …and the shell keeps its own 4px of padding around that track, which is where the 54px in
+     `--pgsw-safe` comes from: 44px control + 2 × 4px + 2 × 1px border. */
+
   /* with the bottom bar present, the FAB lifts above it and the map attribution ⓘ lifts
-     above the FAB so the bottom-right reads bar → FAB → ⓘ with no overlap */
-  .fab-entry { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+     above the FAB so the bottom-right reads bar → FAB → ⓘ with no overlap
+     …and above the page switcher too, on the three pages that carry one. */
+  .fab-entry { bottom: calc(var(--rail-h) + 18px + var(--pgsw-safe, 0px) + env(safe-area-inset-bottom)); }
   /* «Zurück zum Rapport» return pill (Anwesenheit/Mittel only → single nav bar) sat at 18px, i.e.
-     ON the nav bar; lift it clear like the FAB. */
-  .rp-return { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+     ON the nav bar; lift it clear like the FAB. (On a phone with the switcher up it is not
+     rendered at all — «Rapport» is one of its three segments. See IncidentWorkspace.) */
+  .rp-return { bottom: calc(var(--rail-h) + 18px + var(--pgsw-safe, 0px) + env(safe-area-inset-bottom)); }
   .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 86px + env(safe-area-inset-bottom)); }
   /* Notification lanes. A fixed amount of bottom chrome gets an equally fixed reserve: one nav
      bar normally, two on an editable drawing surface, three while its option dock is open. The
@@ -695,8 +751,12 @@
      pills are icon + Ampel-lamp only and the whole row fits one line at 360px
      (09-whiteboard · .wb-botleft, .wb-lamped). Keep the two in step if that ever changes. */
   :root:has(.wb-botleft) .toaster { --plan-row-reserve: 38px; }
+  /* …and the switcher is one more fixed piece of bottom chrome, on exactly the three pages that
+     show one (components/PageSwitcher). `:has`, like every other lane state here, because the
+     host is a root sibling of `.app`. */
+  :root:has(.pgsw) .toaster { --pgsw-safe: 60px; }
   .toaster {
-    --toast-lane-bottom: calc(var(--rail-h) + 24px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
+    --toast-lane-bottom: calc(var(--rail-h) + 24px + var(--pgsw-safe, 0px) + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
     bottom: var(--toast-lane-bottom);
     max-height: calc(100dvh - var(--toast-lane-bottom) - 84px - env(safe-area-inset-top));
   }

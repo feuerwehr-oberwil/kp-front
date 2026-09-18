@@ -1214,6 +1214,22 @@ describe('ein Geschoss ausblenden', () => {
     renderBoard('gebaeude', [], true, { ...aBuilding, floors: [0, 1], pack: { aspect: 1 } })
     expect(eyeOf(tiles()[0])).toBeTruthy()
   })
+
+  // ⚠️ on a narrow tile (a zoomed-out stack on a phone) the container query in 09-whiteboard.css
+  // drops BOTH eye affordances — the headers' «Geschoss ausblenden» and the strip's «einblenden»
+  // word — so the way back is the strip itself. It is therefore one button over the whole row,
+  // named after the storey it restores; nothing inside it may be the only target.
+  it('the whole strip is the button back, and it names the storey it brings back', () => {
+    renderBoard('gebaeude', [], false, { ...aBuilding, floors: [-1, 0, 1], pack: { aspect: 1 } })
+    fireEvent.click(eyeOf(tiles()[0])) // fold the highest storey away
+
+    const strip = screen.getByRole('button', { name: `1. OG ${appConfig.copy.whiteboard.floorShow}` })
+    expect(strip.classList.contains('wb-floor-folded')).toBe(true)
+    expect(within(strip).queryAllByRole('button')).toHaveLength(0)
+
+    fireEvent.click(strip)
+    expect(tiles()).toHaveLength(3)
+  })
 })
 
 describe('prepared Gebäude floors and shared symbol instances', () => {

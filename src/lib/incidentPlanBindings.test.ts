@@ -143,7 +143,7 @@ describe('incident plan snapshots', () => {
           is_exercise: true, report_done_at: null, workspace_rev: 1, created_by: null,
           created_at: timestamp, updated_at: timestamp,
         },
-        draft: { meta: {}, generatedAt: timestamp, proof: { intact: null, checkedAt: timestamp }, options: defaultReportOptions },
+        draft: { meta: {}, generatedAt: timestamp, proof: { intact: null, checkedAt: timestamp }, options: { ...defaultReportOptions, annotatedPlans: true } },
         trupps: [], attendance: {}, events: [], plans: [document], board: {}, twinAnnos: { [pinned.planId]: twins },
       })
       expect(payload.planPages).toMatchObject([{ url: '/api/reference/pdf%3Ahouse%3A2?v=3', annos: [{ text: 'Zugang' }] }])
