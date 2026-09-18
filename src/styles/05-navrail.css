@@ -314,12 +314,21 @@ html.rail-dragging .layers-card { transition: none; }
 .opacity .opacity-v { font-family: var(--mono); font-size: 10px; color: color-mix(in srgb, var(--on-accent-ink) 60%, transparent);
   width: 34px; text-align: right; }
 
-/* ── «Plan wählen» ── the list behind the phone bar's folded «Pläne» tile (18.09.2026).
-   Rows are the app's existing option-list vocabulary (.pp-row, 09-whiteboard.css) — one wash,
-   one radius, one selected state — with a glyph column in front of them carrying the same
-   monogram chip / icon the rail tile does, so a row is recognised as the tile it replaced. */
-.plan-choose-list { display: flex; flex-direction: column; gap: 4px; padding: 0 0 8px;   /* rows sit flush with the sheet head: .ip-body already insets 20px, and a second inset left the wash 16px short of the title (18.09.2026) */ overflow-y: auto; }
-.plan-choose-list .pp-row { justify-content: flex-start; }
-.plan-choose-glyph { width: 34px; min-width: 34px; display: grid; place-items: center;
+/* ── «Plan wählen» / «Seite wählen» ── the list behind a folded phone-bar tile that stands for a
+   GROUP (components/GroupChooser, 18.09.2026): «Pläne» for every plan document, «Rapport» for its
+   three pages. Rows are the app's existing option-list vocabulary (.pp-row, 09-whiteboard.css) —
+   one wash, one radius, one selected state — with a glyph column in front of them carrying the
+   same monogram chip / icon the rail tile does, so a row is recognised as the tile it replaced. */
+.group-choose-list { display: flex; flex-direction: column; gap: 4px; padding: 0 0 8px;   /* rows sit flush with the sheet head: .ip-body already insets 20px, and a second inset left the wash 16px short of the title (18.09.2026) */ overflow-y: auto; }
+.group-choose-list .pp-row { justify-content: flex-start; }
+/* …and the name takes the slack, so the row's read-out sits at the far end rather than trailing
+   the word it belongs to */
+.group-choose-list .pp-row-main { flex: 1 1 auto; }
+.group-choose-list .pp-row-meta { flex-direction: row; align-items: center; gap: 7px; }
+.group-choose-glyph { width: 34px; min-width: 34px; display: grid; place-items: center;
   font-size: 14px; font-weight: 800; color: var(--ink-dim); }
-.plan-choose-glyph .i { width: 20px; height: 20px; }
+.group-choose-glyph .i { width: 20px; height: 20px; }
+/* the live count a row carries — «12 anwesend», «3 offen», «5 Positionen». A read-out, so it is
+   quiet: this is the answer to «which one has something in it», not a second title. */
+.group-choose-count { font-size: 12px; font-weight: 600; color: var(--ink-dim); white-space: nowrap; }
+.pp-row.on .group-choose-count { color: var(--blue); }

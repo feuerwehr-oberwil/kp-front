@@ -2871,6 +2871,7 @@ export const it: Localizable<Copy> = {
     conflictLeft: '{name} è registrato come «andato».',
     presentOnlyOn: 'Solo presenti – tocca per tutto il corpo',
     presentOnlyOff: 'Tutto il corpo – tocca per i soli presenti',
+    onlyPresent: 'Solo presenti',
     rankFilterLabel: 'Filtra per grado',
     rankAll: 'Tutti',
     backAgain: 'Di ritorno',

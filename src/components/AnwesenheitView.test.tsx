@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { AnwesenheitView } from './AnwesenheitView'
 import { appConfig } from '../config/appConfig'
@@ -157,5 +157,74 @@ describe('the Zeitplan print sheet inflects its two counts correctly', () => {
     expect(Z.bandsCount(1)).toBe('1 shift')
     expect(fillTemplate(Z.sheetContentBands, { people: Z.peopleCount(1), bands: Z.bandsCount(1), t: '13:13' }))
       .toBe('1 person · 1 shift · as of 13:13')
+  })
+})
+
+/* «Nur Anwesende» (18.09.2026) — the one-tap ✓ between the search field and the funnel. It
+ * replaced a planning-tab-only toggle that started ON, so the two things that have to hold are
+ * that it starts OFF (a list that opens already hiding people lies about the Mannschaft) and
+ * that it ANDs with everything else on the line instead of becoming a second, competing mode. */
+describe('«Nur Anwesende» — the one-tap quick filter', () => {
+  const A = appConfig.copy.anwesenheit
+  const crew: Person[] = [
+    { id: 'p1', displayName: 'Meier Anna', active: true, updatedAt: 't' },
+    { id: 'p2', displayName: 'Muster Felix', active: true, updatedAt: 't' },
+    { id: 'p3', displayName: 'Meier Beat', active: true, updatedAt: 't' },
+    { id: 'p4', displayName: 'Keller Rita', active: true, updatedAt: 't' },
+  ]
+  // Anna is here, Felix is at the Magazin, Beat has gone home, Rita was never ticked.
+  const attendance = {
+    p1: { status: 'present', intervals: [{ from: '2026-09-18T10:00:00.000Z' }] },
+    p2: { status: 'present', ort: 'station', intervals: [{ from: '2026-09-18T10:00:00.000Z' }] },
+    p3: { status: 'left', intervals: [{ from: '2026-09-18T09:00:00.000Z', to: '2026-09-18T10:00:00.000Z' }] },
+  } as unknown as AttendanceState
+  const toggle = () => screen.getByRole('button', { name: A.onlyPresent })
+  const names = () => crew.filter((p) => screen.queryByText(p.displayName)).map((p) => p.displayName)
+
+  beforeEach(() => sessionStorage.clear())
+
+  it('starts off and shows the whole Mannschaft', () => {
+    mount({ people: crew, attendance })
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(names()).toHaveLength(4)
+  })
+
+  it('narrows to whoever is «Vor Ort» — not the Magazin, not the gegangenen', () => {
+    mount({ people: crew, attendance })
+    fireEvent.click(toggle())
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(names()).toEqual(['Meier Anna'])
+  })
+
+  it('composes with the search (AND, never OR)', () => {
+    mount({ people: crew, attendance })
+    fireEvent.click(toggle())
+    fireEvent.change(screen.getByPlaceholderText(A.searchPlaceholder), { target: { value: 'Meier' } })
+    // «Meier» alone answers Anna AND Beat; Beat has gone home, so the ✓ takes him out
+    expect(names()).toEqual(['Meier Anna'])
+    fireEvent.change(screen.getByPlaceholderText(A.searchPlaceholder), { target: { value: 'Muster' } })
+    expect(screen.getByText(A.noMatches)).toBeTruthy()
+  })
+
+  it('is offered on the crew list, not only while planning', () => {
+    mount({ people: crew, attendance })
+    expect(toggle()).toBeTruthy()
+  })
+
+  it('is remembered for this incident and forgotten for the next one', () => {
+    mount({ people: crew, attendance, incidentId: 'i1' })
+    fireEvent.click(toggle())
+    cleanup()
+
+    mount({ people: crew, attendance, incidentId: 'i1' })
+    expect(toggle().getAttribute('aria-pressed')).toBe('true')
+    expect(names()).toEqual(['Meier Anna'])
+    cleanup()
+
+    // a different Einsatz starts on the whole Mannschaft again — the stamp is what makes the
+    // memory a reload-survivor rather than a setting that follows you around
+    mount({ people: crew, attendance, incidentId: 'i2' })
+    expect(toggle().getAttribute('aria-pressed')).toBe('false')
+    expect(names()).toHaveLength(4)
   })
 })

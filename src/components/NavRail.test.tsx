@@ -280,6 +280,82 @@ describe('the Rapport tile as the group door', () => {
   })
 })
 
+// ⚠️ The «Rapport» tile behaves EXACTLY like the «Pläne» tile above it — one tile standing for a
+// group, so one mechanic for both: tap from outside → the last page; tap again, or hold, → the
+// list of three (19.09.2026). The rows carry the live count that says which page has something
+// in it.
+describe('the page chooser behind the Rapport tile', () => {
+  const rapport = () => screen.getByRole('button', { name: /^Rapport/ })
+  const rows = () => screen.queryAllByRole('option').map((r) => r.textContent)
+
+  it('a tap from outside the group opens the last page — no list', () => {
+    const p = setup({ fold: true, mode: 'map', rapportTarget: 'anwesenheit' })
+    fireEvent.click(rapport())
+    expect(p.onMode).toHaveBeenCalledWith('anwesenheit')
+    expect(rows()).toEqual([])
+  })
+
+  it('a second tap — already inside the group — opens the three', () => {
+    const p = setup({ fold: true, mode: 'mittel' })
+    fireEvent.click(rapport())
+    expect(p.onMode).not.toHaveBeenCalled()
+    expect(rows().length).toBe(3)
+  })
+
+  it('…and so does a hold, from wherever you are standing', () => {
+    vi.useFakeTimers()
+    try {
+      const p = setup({ fold: true, mode: 'map' })
+      const btn = rapport()
+      fireEvent.pointerDown(btn, { clientX: 10, clientY: 10 })
+      act(() => { vi.advanceTimersByTime(600) })
+      expect(rows().length).toBe(3)
+      // the click the browser still delivers on release must not ALSO be taken as the tap
+      fireEvent.click(btn)
+      expect(p.onMode).not.toHaveBeenCalled()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('a row switches page and closes the list', () => {
+    const p = setup({ fold: true, mode: 'rapport' })
+    fireEvent.click(rapport())
+    fireEvent.click(screen.getByRole('option', { name: /Material/ }))
+    expect(p.onMode).toHaveBeenCalledWith('mittel')
+    expect(rows()).toEqual([])
+  })
+
+  it('marks the page that is standing', () => {
+    setup({ fold: true, mode: 'anwesenheit' })
+    fireEvent.click(rapport())
+    const on = screen.getAllByRole('option').filter((r) => r.getAttribute('aria-selected') === 'true')
+    expect(on.map((r) => r.textContent?.startsWith('Anwesenheit'))).toEqual([true])
+  })
+
+  // the read-out is the whole reason the list is worth opening rather than guessing
+  it('carries each page\'s live count', () => {
+    setup({ fold: true, mode: 'rapport', openCount: 3, presentCount: 12, mittelCount: 5 })
+    fireEvent.click(rapport())
+    expect(screen.getByRole('option', { name: /^Rapport/ }).textContent).toContain('3 offen')
+    expect(screen.getByRole('option', { name: /^Anwesenheit/ }).textContent).toContain('12 anwesend')
+    expect(screen.getByRole('option', { name: /^Material/ }).textContent).toContain('5 Positionen')
+  })
+
+  // …and a zero is not a read-out, it is a row saying «nothing here» in a place nobody reads
+  it('says nothing about a page that is still empty', () => {
+    setup({ fold: true, mode: 'rapport' })
+    fireEvent.click(rapport())
+    expect(document.querySelectorAll('.group-choose-count').length).toBe(0)
+  })
+
+  // on the vertical rail each of the three has a tile, so a list of three answers no question
+  it('is not offered on the vertical rail', () => {
+    const p = setup({ mode: 'rapport' })
+    fireEvent.click(rapport())
+    expect(p.onMode).toHaveBeenCalledWith('rapport')
+    expect(rows()).toEqual([])
+  })
+})
+
 // ⚠️ Five tiles, one per group — a separator between «Pläne» and «Checkliste» divides a thing
 // from a thing, and costs the five 10px of the 328px a 360px phone has.
 describe('the folded bar carries no separators', () => {

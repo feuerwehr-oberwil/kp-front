@@ -1524,7 +1524,11 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 }
 /* ⚠️ Rendered on every width, hidden everywhere but the phone — so the tab STATE is always
    there (a resize cannot land on a surface with no tab chosen) while the layout above 600px
-   never sees it. Declared BEFORE the media query below, which turns it back on. */
+   never sees it. Declared BEFORE the media query below, which turns it back on.
+   ⚠️ …and on a phone it is DOCKED AT THE FOOT of the page rather than under the head — fixed,
+   above the nav bar, in the bar's glass. That half lives in 15-mobile.css (`.rp-tabs`,
+   `--rp-tabs-safe`), because it is the same file that positions every other piece of bottom
+   chrome and reserves room for it. */
 .rp-tabs { display: none; }
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
@@ -1538,7 +1542,9 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      ⚠️ The whole mechanism lives inside this media query and nowhere else: above 600px the bar
      is `display: none` and `[data-tab]` selects nothing, so the one-column band (601–1080) and
      the two-column layout (1080+) are exactly what they were. */
-  .rp-tabs { display: block; flex: none; padding: 8px 14px 0; }
+  /* ⚠️ No padding or flex sizing here any more: the strip is taken out of the surface's column
+     and docked above the nav bar (15-mobile.css · .rp-tabs), which owns its box. */
+  .rp-tabs { display: block; }
   .rp-tabs > .useg { display: flex; width: 100%; }
   .rp-tabs .useg-btn { flex: 1; min-width: 0; min-height: var(--tap); position: relative;
     padding: 6px 8px; white-space: nowrap; }

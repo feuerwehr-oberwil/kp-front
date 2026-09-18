@@ -200,7 +200,7 @@ function CheckRow({ done, label, sub, onGo, anchor, tab, children }: {
  * (18.09.2026) and thrown out the same day: this surface already carries a head, a tab strip and
  * a page, and mounting a whole other surface — with ITS head and ITS own switcher — under the
  * strip stacked three navigations on top of each other. They are separate pages again, reached
- * from the phone's bottom page switcher (components/PageSwitcher) and from the rail.
+ * from the bar's «Rapport» tile and its chooser (NavRail · GroupChooser) and from the rail.
  */
 type PhoneTab = 'bericht' | 'werwas' | 'beilagen'
 const PHONE_TABS: PhoneTab[] = ['bericht', 'werwas', 'beilagen']

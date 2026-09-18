@@ -2902,6 +2902,7 @@ export const en: Localizable<Copy> = {
     removeGuest: 'Delete person',
     presentOnlyOn: 'Present only — tap for the whole crew',
     presentOnlyOff: 'Whole crew — tap for present only',
+    onlyPresent: 'Present only',
   },
   // Shift bands (BandGrid) — the schedule transposed: columns are named windows, not hours.
   schichten: {

@@ -151,7 +151,7 @@ describe('navStops', () => {
     ]))
 
   // ⚠️ every surface stays steppable on a phone too — Anwesenheit and Material are ordinary
-  // separate pages there, reached through the Rapport tile and the switcher at their foot
+  // separate pages there, reached through the Rapport tile and the chooser behind it
   it('stops on all three of the Rapport group, folded or not', () => {
     for (const fold of [false, true]) {
       expect(modes(fold)).toContain('rapport')

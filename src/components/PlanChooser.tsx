@@ -1,7 +1,7 @@
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { Sheet } from '../lib/overlays'
 import { planGlyph } from '../lib/navRail'
+import { GroupChooser } from './GroupChooser'
 import type { PlanDocument } from '../types'
 
 /**
@@ -9,10 +9,13 @@ import type { PlanDocument } from '../types'
  *
  * The bar carries ONE tile for every plan document now, so the choice between them has to live
  * somewhere: a second tap on the already-selected tile (or a hold on it) opens this. One row per
- * document — the glyph the rail tile used to carry, the descriptive title, and the short code
- * under it — with the loaded document marked, so the answer to «which one am I on» is on the
- * same screen as «take me to another one». Tapping a row switches and closes; there is no
- * second step, because a chooser that needs confirming is a chooser you tapped twice.
+ * document — the glyph the rail tile used to carry and the plan's own short name — with the
+ * loaded document marked, so the answer to «which one am I on» is on the same screen as «take me
+ * to another one».
+ *
+ * The list itself is GroupChooser, shared with the «Rapport» tile's three pages: two tiles on
+ * that bar stand for a group, they are opened by the same tap-again/hold, and they must not
+ * answer the same question in two different shapes.
  */
 export function PlanChooser({ docs, activeId, onPick, onClose }: {
   docs: PlanDocument[]
@@ -22,34 +25,22 @@ export function PlanChooser({ docs, activeId, onPick, onClose }: {
 }) {
   const nav = appConfig.copy.navRail
   return (
-    <Sheet open onClose={onClose} title={nav.plansChoose} fit sheetClassName="plan-choose">
-      <div className="plan-choose-list" role="listbox" aria-label={nav.plansChoose}>
-        {docs.map((d) => {
-          const g = planGlyph(d)
-          const on = d.id === activeId
-          return (
-            <button
-              key={d.id}
-              type="button"
-              role="option"
-              aria-selected={on}
-              className={`pp-row${on ? ' on' : ''}`}
-              onClick={() => { onPick(d.id); onClose() }}
-            >
-              <span className="plan-choose-glyph" aria-hidden>
-                {'mono' in g ? <span className="nav-mono-chip">{g.mono}</span> : <Icon id={g.icon} />}
-              </span>
-              {/* ONE line, the plan's own name as the station calls it («Modul 1», «RWA», «Gebäude»)
-                  — the same word the rail wears. What a Modul holds differs per station and they
-                  know it best; the catalogue's description only made every row two lines (18.09.2026). */}
-              <span className="pp-row-main">
-                <b>{d.code || d.title}</b>
-              </span>
-              {on && <span className="pp-row-meta" aria-hidden><Icon id="check" /></span>}
-            </button>
-          )
-        })}
-      </div>
-    </Sheet>
+    <GroupChooser
+      title={nav.plansChoose}
+      activeId={activeId}
+      onPick={onPick}
+      onClose={onClose}
+      rows={docs.map((d) => {
+        const g = planGlyph(d)
+        return {
+          id: d.id,
+          glyph: 'mono' in g ? <span className="nav-mono-chip">{g.mono}</span> : <Icon id={g.icon} />,
+          // the plan's own name as the station calls it («Modul 1», «RWA», «Gebäude») — the same
+          // word the rail wears. What a Modul holds differs per station and they know it best;
+          // the catalogue's description only made every row two lines (18.09.2026).
+          title: d.code || d.title,
+        }
+      })}
+    />
   )
 }

@@ -13,7 +13,7 @@ import { applyTimeToIso, isoOnDay } from '../lib/abschluss'
 import { rankAbbr, rankDisplay, rankOrder } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
-import { matchesAny, stateMatches, toggled, type StateKey } from '../lib/attendanceFilter'
+import { isOnlyPresentMatch, matchesAny, stateMatches, toggled, type StateKey } from '../lib/attendanceFilter'
 import { ortCounts, ortOf } from '../lib/attendanceOrt'
 import { fmtDayShort, fmtStartValue, incidentDays, isOtherDay } from '../lib/zeitplanFormat'
 import { loadPrefs, savePrefs } from '../lib/prefs'
@@ -60,6 +60,21 @@ function rememberedTab(incidentId: string | undefined): AnwesenheitTab | null {
     const v = JSON.parse(raw) as { incidentId?: string; view?: AnwesenheitTab }
     return v?.incidentId === incidentId && v.view ? v.view : null
   } catch { return null }
+}
+
+/** …and whether «Nur Anwesende» was on, remembered exactly the same way and for the same reason:
+ *  a narrowing survives the reload you did mid-Einsatz, and dies with the app. Default OFF — a
+ *  list that opens already hiding people is a list that lies about the Mannschaft. */
+const PRESENT_KEY = 'kp-front-anwesenheit-present-only'
+
+function rememberedOnlyPresent(incidentId: string | undefined): boolean {
+  if (!incidentId) return false
+  try {
+    const raw = sessionStorage.getItem(PRESENT_KEY)
+    if (!raw) return false
+    const v = JSON.parse(raw) as { incidentId?: string; on?: boolean }
+    return v?.incidentId === incidentId && !!v.on
+  } catch { return false }
 }
 
 // HH:MM of an ISO stamp — the tappable time chip / the <input type="time"> value
@@ -478,12 +493,26 @@ export function AnwesenheitView({
     return { present, left, scene, station }
   }, [attendance])
 
-  // Planning is done with the people who are HERE. The whole Mannschaft on the axis buries the
-  // handful actually on scene under a dozen empty lanes, so both planning tabs start filtered
-  // to those present — and the toggle is right there, because somebody who arrives in two
-  // hours still has to be plannable. Never applied to the crew list itself: that IS the
-  // surface where people are marked present, and hiding the absent would hide the work.
-  const [presentOnly, setPresentOnly] = useState(true)
+  /* «NUR ANWESENDE» — one tap, all three tabs (18.09.2026).
+   *
+   * It used to be a planning-tab-only toggle that started ON, on the argument that the whole
+   * Mannschaft on the Zeitplan axis buries the handful actually on scene. That default is gone
+   * rather than left to fight this one: two ways to the same narrowing, one of them invisible and
+   * pre-set, is exactly the surface that answers «wo ist die Hälfte meiner Leute» with silence.
+   * ONE state now, one button, one remembered value, and it starts OFF everywhere — the crew list
+   * is where people are marked present, and a list that opens already hiding the absent hides the
+   * work still to be done. Somebody arriving in two hours stays plannable by default.
+   *
+   * ⚠️ «Anwesend» here means «Vor Ort» (attendanceFilter · PRESENT_STATE): the Magazin is not
+   * here. It ANDs with the search and with both facets, like every other narrowing. */
+  const [presentOnly, setPresentOnly] = useState(() => rememberedOnlyPresent(incidentId))
+  const toggleOnlyPresent = () => {
+    setPresentOnly((v) => {
+      const on = !v
+      try { sessionStorage.setItem(PRESENT_KEY, JSON.stringify({ incidentId, on })) } catch { /* private mode */ }
+      return on
+    })
+  }
   // …and the state narrowing, plus the one genuinely orthogonal flag. Both are SETS: several
   // picks inside a facet OR together («anwesend oder gegangen» = wer war überhaupt da), an empty
   // set means «alle». Every row carries the MARK the person row carries — the grey/green/amber
@@ -512,7 +541,6 @@ export function AnwesenheitView({
     ...(noteOnly ? [A.statusNote] : []),
   ].join(' · ')
   const rankOn = ranksPresent.filter((r) => rankSel.has(r)).map(rankDisplay).join(' · ')
-  const planning = view !== 'list'
   /** Attendance entries with no roster row: guests, mutual aid, an AdF who never synced. They
    *  are shaped like a Person so every row action below works on them unchanged — and the
    *  Rapport already prints them as guest lines. */
@@ -531,12 +559,13 @@ export function AnwesenheitView({
       .filter((p) => !needle || matchesQuery(needle, p.displayName))
       // within a facet the picks OR; the facets AND with each other and with the search
       .filter((p) => matchesAny(rankSel, (r) => p.rank === r))
-      .filter((p) => !(planning && presentOnly) || isPresent(attendance[p.id]))
+      // the quick ✓ — one tap, ANDing with everything else on this line
+      .filter((p) => !presentOnly || isOnlyPresentMatch(attendance[p.id]))
       .filter((p) => matchesAny(stateSel, (k) => stateMatches(k, attendance[p.id])))
       .filter((p) => !noteOnly || !!attendance[p.id]?.note)
       // grouped by seniority (most senior first), alpha within a rank
       .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de'))
-  }, [people, guests, q, rankSel, planning, presentOnly, stateSel, noteOnly, attendance])
+  }, [people, guests, q, rankSel, presentOnly, stateSel, noteOnly, attendance])
 
   // frei → anwesend → gegangen → frei. A present+locked member jumps to the Trupp instead.
   const cycle = (p: Person) => {
@@ -755,22 +784,27 @@ export function AnwesenheitView({
             />
             {q && <button className={c.searchClear} onClick={() => setQ('')} aria-label={A.clearSearch}><Icon id="close" /></button>}
           </label>
-          {/* Only on the planning tabs — see the `presentOnly` note above. */}
-          {planning && (
-            <button
-              type="button"
-              className={cx(c.iconBtn, presentOnly && c.iconBtnOn)}
-              aria-pressed={presentOnly}
-              title={presentOnly ? A.presentOnlyOn : A.presentOnlyOff}
-              aria-label={presentOnly ? A.presentOnlyOn : A.presentOnlyOff}
-              onClick={() => setPresentOnly((v) => !v)}
-            >
-              {/* a TICK, the same glyph Mittel's «In Verwendung» carries: both mean «show only
-                  the ones that count right now». It used to be the people glyph, which the Grad
-                  filter beside it has a better claim to. */}
-              <Icon id="check" />
-            </button>
-          )}
+          {/* THE QUICK FILTER — «Nur Anwesende», one tap, on all three tabs (see the note at
+              `presentOnly`). It sits between the search and the funnel because that is the order
+              the questions come in: who, then who right now, then which Grad / which Status. It
+              is a plain pressed button rather than a row inside the funnel on purpose — the one
+              narrowing asked for often enough to cost a tap and not a menu. */}
+          <button
+            type="button"
+            className={cx(c.iconBtn, presentOnly && c.iconBtnOn)}
+            aria-pressed={presentOnly}
+            // The button NAMES the filter and lets `aria-pressed` carry the state, the way the two
+            // facet buttons beside it do. A label that flips to «tippen für …» on every press is an
+            // instruction, and it made the accessible name of a control change under the finger.
+            title={A.onlyPresent}
+            aria-label={A.onlyPresent}
+            onClick={toggleOnlyPresent}
+          >
+            {/* a TICK, the same glyph Mittel's «In Verwendung» carries: both mean «show only
+                the ones that count right now». It used to be the people glyph, which the Grad
+                filter beside it has a better claim to. */}
+            <Icon id="check" />
+          </button>
           {/* ⚠️ TWO buttons, one per QUESTION — «welcher Grad» and «wer ist wo». They were one
               merged funnel for an afternoon and it was wrong: a menu you open to reach either
               answer is slower than two you aim at, and the two facets have nothing to do with
