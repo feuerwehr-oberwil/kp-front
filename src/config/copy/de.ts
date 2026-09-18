@@ -718,6 +718,10 @@ export const de = {
     mittel: 'Material',
     checkliste: 'Checkliste',
     gebaeude: 'Gebäude',
+    /** Der Einsatzrapport – eine getippte Angabe, eine Rettung, eine Partnerorganisation. */
+    rapport: 'Rapport',
+    zeitplan: 'Zeitplan',
+    ansicht: 'Ansicht',
   },
   play: 'Abspielen',
   clear: 'Suche löschen',
@@ -790,7 +794,6 @@ export const de = {
     locate: 'Mein Standort',
     save: 'Ansicht speichern',
     hint: 'Eine Ansicht speichert die Karte wie sie gerade ist – Position, Zoom und Drehung. Tippe eine gespeicherte Ansicht an, um dorthin zu springen (z.B. zwischen Nordübersicht und der Karte gedreht wie du stehst). Kompass lange drücken: direkt einpassen.',
-    empty: 'Noch keine Ansichten. Speichere die aktuelle Karte – Position, Zoom und Drehung – um mit einem Tipp dorthin zurückzukehren.',
     rename: 'Umbenennen',
     delete: 'Löschen',
     saved: 'Ansicht gespeichert',
@@ -871,10 +874,6 @@ export const de = {
     titleLabel: 'Stichwort / Titel',
     titlePlaceholder: 'z. B. Gebäudebrand Schulhaus',
     categoryLabel: 'Kategorie',
-    // Priorität: guessed from the alarm's Stichwörter, hence correctable here
-    priorityLabel: 'Priorität',
-    priorityHigh: 'Dringend',
-    priorityLow: 'Normal',
     // Übungen stay fully operable, but do not feed the statistics and are the only ones
     // that can be deleted (Alle Einsätze)
     exerciseToggle: 'Übung – zählt nicht zur Einsatzstatistik',
@@ -2537,6 +2536,10 @@ export const de = {
       lampAutoHead: 'Automatisch ausgerichtet',
       // die Station hat den automatischen Vorschlag geprüft und freigegeben (Admin › Objektpläne)
       lampApprovedHead: 'Von der Station freigegeben',
+      // …und eine freigegebene Passung gilt als VERKNÜPFT (18.09.2026): kein «ungemessen»,
+      // kein Warnton. Ein ⌀ steht trotzdem nicht da – aus zwei synthetischen Paaren gibt es
+      // keinen zu berechnen; der Satz sagt stattdessen, wer für die Passung geradesteht.
+      lampApprovedBody: 'Die Station hat die Deckung geprüft und diese Passung freigegeben.',
       chipAuto: 'ungemessen',
       warnAuto: 'Referenzpunkte setzen, um die Passung zu messen – bisher gilt die Sichtprüfung der Deckung.',
       autoAddPoints: 'Referenzpunkte setzen',
@@ -2934,8 +2937,12 @@ export const de = {
     labelPlaceholder: 'Beschriftung …',
     areaLabelPlaceholder: 'z. B. Sektor A',
     // ── Abschnitt auf der Fläche (FKS Einsatzführung 3.5.2) ──
-    abschnittLeiter: 'Leiter',
-    abschnittLeiterPlaceholder: 'Leiter wählen …',
+    // ⚠️ «Abschnittschef», nicht «Leiter» (18.09.2026): «Leiter» ist im Feuerwehrdeutsch das
+    // Gerät an der Fassade, und «Leitung» heisst in dieser App die gezogene Schlauchleitung –
+    // beide Wörter sind auf der Karte schon vergeben. Abschnittschef ist der FKS-Begriff für
+    // die Person, die den Abschnitt führt (FKS Einsatzführung 3.5.2).
+    abschnittLeiter: 'Abschnittschef',
+    abschnittLeiterPlaceholder: 'Abschnittschef wählen …',
     abschnittAuftrag: 'Auftrag',
     abschnittAuftragPlaceholder: 'z. B. Brandbekämpfung Trakt B',
     abschnittMaxHint: 'FKS-Richtwert: höchstens 3–4 Abschnitte.',
@@ -4092,7 +4099,7 @@ export const de = {
     // off exactly the information the line exists for.
     headCounts: '{n} Personen · {m} Positionen',
     headAllRecorded: 'alle Angaben erfasst',
-    headStillOpen: 'noch offen',
+    headStillOpen: 'offen',
     // Handy (≤600px): die drei Reiter, die den Rapport in drei Bildschirme statt fünf teilen.
     // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
     tabsLabel: 'Teil des Rapports',
@@ -4282,6 +4289,11 @@ export const de = {
     attachmentsCaption: 'Bildlegende (z. B. «Ausweis Lenker»)',
     attachmentsPending: 'noch nicht hochgeladen',
     attachmentsFailed: 'Foto {name} konnte nicht hochgeladen werden – es erscheint nicht im Druck.',
+    // Was ↶ zurücknimmt, in der Sprache der Beilage – und der Toast, der das Löschen sofort
+    // zurückholt (Bestätigen-mit-Rückgängig, wie beim Geschoss).
+    attachmentAdded: 'Foto hinzugefügt',
+    attachmentCaptioned: 'Bildlegende',
+    attachmentRemoved: 'Foto entfernt',
     // «Formulare & Links» – die eigenen Formulare der Wehr (Verwaltung › Rapport). Der ganze
     // Abschnitt fehlt, wo keine konfiguriert sind, darum braucht es keinen leeren Zustand.
     linksHead: 'Formulare & Links',
@@ -4607,8 +4619,9 @@ export const de = {
     loading: 'Wird geladen …',
     // ⚠️ Das Feld sucht UND erfasst (11.09., wie im Trupp-Picker seit 04.09.): wen die
     // Mannschaftsliste nicht kennt, den nimmt die letzte Zeile der Liste als Gast auf. Der
-    // Platzhalter sagt das, sonst findet niemand die Tür – das war der Sinn des «+» daneben.
-    searchPlaceholder: 'Suchen oder Name eingeben …',
+    // Platzhalter sagt das aber NICHT mehr (18.09.): «Suchen …» ist die app-weite Beschriftung
+    // jeder Suchzeile, und die Gast-Tür steht als eigene letzte Zeile in der Liste.
+    searchPlaceholder: 'Suchen …',
     clearSearch: 'Suche löschen',
     statusFrei: 'nicht anwesend',
     statusPresent: 'anwesend',

@@ -217,6 +217,7 @@ html.rail-dragging .layers-card { transition: none; }
 @media (hover: hover) {
   .lc-x:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
 }
+.lc-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .lc-x .i { width: 16px; height: 16px; }
 /* Ebenen quick-taps under the title — all on / all off / Standard. Same chrome family as the
    .lc-x pill; colour via the on-ink token, never frozen white (the card is --ink-fill in both
@@ -244,9 +245,10 @@ html.rail-dragging .layers-card { transition: none; }
    left, so the one section at the TOP was the one that did not line up with anything. */
 .lbase { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px;
   min-height: 62px; padding: 8px 4px; cursor: pointer; font: inherit; color: var(--on-accent-ink);
-  background: rgba(255, 255, 255, .07); border: 1px solid transparent; border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, .07); border: 1px solid transparent; border-radius: var(--r-ctl);
   transition: background .14s var(--ease), border-color .14s var(--ease); }
 @media (hover: hover) { .lbase:hover { background: color-mix(in srgb, var(--on-accent-ink) 16%, transparent); } }
+.lbase:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* selected: the same accent wash the saved-views rows use on this surface (token + color-mix,
    so day/night both stay right) */
 .lbase.on { background: color-mix(in srgb, var(--blue) 34%, transparent); border-color: color-mix(in srgb, var(--blue) 62%, transparent); }
@@ -257,8 +259,9 @@ html.rail-dragging .layers-card { transition: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 /* clean list rows — transparent, no per-row box; visible vs hidden shown by the blue eye +
    opacity, with the dock's white hover highlight */
+/* a row, so `--r-ctl` (AGENTS.md · Buttons: rows and option cells are not buttons) */
 .lrow { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; border: none; background: transparent;
-  border-radius: var(--r-sm); font-size: 13px; font-weight: 600; color: var(--on-accent-ink); cursor: pointer;
+  border-radius: var(--r-ctl); font-size: 13px; font-weight: 600; color: var(--on-accent-ink); cursor: pointer;
   transition: opacity .14s, background .14s; }
 /* ⚠️ Gated on `(hover: hover)` — and since 28.08. that gate is APP-WIDE (every :hover in these
    stylesheets sits behind it); this block is where the bug was first understood. On a touchscreen
@@ -269,6 +272,8 @@ html.rail-dragging .layers-card { transition: none; }
 @media (hover: hover) {
   .lrow:hover { background: color-mix(in srgb, var(--on-accent-ink) 12%, transparent); }
 }
+/* …and the same --press wash every other list row in the app answers a finger with. */
+.lrow:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .lrow.off { opacity: .55; }
 .lrow .ic { font-size: 15px; color: rgba(255, 255, 255, .75); display: grid; place-items: center; }
 .lrow .name { flex: 1; font-size: 13px; font-weight: 600; }

@@ -45,7 +45,7 @@
  *  points, and Esc/«Behalten» put the cross back down untouched.
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react'
-import { BASELINE_WARN_M, fitSimilarity, hasAutoPairs, nudgePairsOnMap, realPairCount, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt, type SheetNudge } from './georef'
+import { approvedUntouched, BASELINE_WARN_M, fitSimilarity, hasAutoPairs, nudgePairsOnMap, realPairCount, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt, type SheetNudge } from './georef'
 import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
 import { incidentBindingApproved, isIncidentGeorefKey, saveIncidentGeoref } from './incidentPlanBindings'
 import { isAdminGeorefKey, saveAdminGeoref } from './adminGeorefSink'
@@ -696,7 +696,13 @@ export interface GeorefChip {
  * the chip is the progress read-out, not the quality read-out. `pairs` are the STORED pairs the
  * fit was solved from — automatic scaffolding among them keeps the chip amber and claims no ⌀.
  */
-export function georefChip(fit: GeorefFit | null, mode: GeorefModeState, planId: string, pairs: GeorefPair[] = []): GeorefChip {
+export function georefChip(
+  fit: GeorefFit | null,
+  mode: GeorefModeState,
+  planId: string,
+  pairs: GeorefPair[] = [],
+  approved = false,
+): GeorefChip {
   const armed = mode.planId === planId
   const warnings = georefWarnings(fit)
   const auto = hasAutoPairs(pairs)
@@ -704,9 +710,16 @@ export function georefChip(fit: GeorefFit | null, mode: GeorefModeState, planId:
     kind: armed ? 'armed' : fit ? 'linked' : 'unlinked',
     // ⚠️ through `residualClaim`, never the rule re-typed here: the «no ⌀ 0.0 m at two pairs»
     // honesty rule has to have exactly one home, or one surface starts claiming what another
-    // refuses to (see georef · residualClaim). Auto pairs in the fit void the claim entirely.
+    // refuses to (see georef · residualClaim). Auto pairs in the fit void the claim entirely —
+    // an APPROVAL does not restore the claim, it only stops the fit from being called doubtful.
     residualM: auto ? null : residualClaim(fit),
-    warn: warnings.length > 0 || auto,
+    // An APPROVED fit is a linked fit (18.09.2026): the station reviewed the coverage and
+    // published it, so the chip wears the same tone a hand-measured reference does. Amber is
+    // for a fit nobody has checked — a proposal, or two pairs that solve exactly.
+    // ⚠️ …and «approved» is `approvedUntouched`, the same condition the Ampel reads: with one
+    // hand-set point beside the Automatik a correction is in progress, and the chip said
+    // «verknüpft» while the lamp and the Passung panel stood amber about the very same fit.
+    warn: approvedUntouched(pairs, approved) ? false : warnings.length > 0 || auto,
   }
 }
 
@@ -751,9 +764,15 @@ export function georefLamp(fit: GeorefFit | null, mode: GeorefModeState): Georef
   // no ⌀ is ever claimed off a fit that synthetic pairs contaminate. Two REAL pairs drop the
   // scaffolding (settleSlots), so the only mixed state is «one own point beside the Automatik».
   if (hasAutoPairs(mode.pairs)) {
-    return realPairCount(mode.pairs) > 0
-      ? { tone: 'amber', head: withOpen(C.autoOneHead), body: C.autoOneBody }
-      : { tone: 'amber', head: withOpen(mode.storageKey && incidentBindingApproved(mode.storageKey) ? C.lampApprovedHead : C.lampAutoHead), body: C.warnAuto }
+    if (realPairCount(mode.pairs) > 0) return { tone: 'amber', head: withOpen(C.autoOneHead), body: C.autoOneBody }
+    // ⚠️ …unless the station APPROVED this fit (18.09.2026). Then it is not a proposal any more:
+    // an admin looked at the coverage on the Objektpläne review wall and published it, which is
+    // the same act of checking a third reference point performs — so the lamp goes green and the
+    // word «ungemessen» is gone. What it still does NOT do is invent a ⌀: there is no residual to
+    // claim off two synthetic pairs, and the body says who vouches for the fit instead.
+    return approvedUntouched(mode.pairs, !!mode.storageKey && incidentBindingApproved(mode.storageKey))
+      ? { tone: 'green', head: withOpen(C.lampApprovedHead), body: C.lampApprovedBody }
+      : { tone: 'amber', head: withOpen(C.lampAutoHead), body: C.warnAuto }
   }
   if (claim == null) return { tone: 'amber', head: withOpen(C.lampTwoHead), body: C.warnTwoPoints }
   const head = withOpen(fillTemplate(C.lampGoodHead, { n: String(n), m: claim.toFixed(1) }))

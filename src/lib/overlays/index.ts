@@ -8,3 +8,6 @@ export { ConfirmCard } from './ConfirmCard'
 export { Menu, type MenuActionItem } from './Menu'
 export { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 export { Popover, PopoverClose, type PopoverProps } from './Popover'
+// a hand-rolled dropdown that can open over a Sheet/Overlay registers here, so the sheet's
+// backdrop/Esc dismissal stands down while it is open
+export { usePopoverGuard, popoverOpen, resetPopoverGuard } from './popoverGuard'

@@ -6,6 +6,7 @@ import { cx } from '../lib/cx'
 import { fillTemplate } from '../lib/format'
 import { rankAbbr, rankLabel } from '../lib/rank'
 import { matchesQuery, searchQuery } from '../lib/search'
+import { usePopoverGuard } from '../lib/overlays/popoverGuard'
 import { visibleViewportBottom } from '../lib/useKeyboardInset'
 import c from './ComboMenu.module.css'
 
@@ -197,6 +198,27 @@ export function useComboMenu(openTick?: number): [ComboMenuState, ComboMenuRefs]
     document.addEventListener('pointerdown', onDown)
     return () => document.removeEventListener('pointerdown', onDown)
   }, [open])
+
+  // ⚠️ ESCAPE IS OURS WHILE WE ARE OPEN. This menu is portalled to <body>, so a sheet's Escape
+  // handler (Base UI's, on the document) saw the key too and closed the whole «Material erfassen»
+  // modal when the operator only wanted the dropdown away. Capture phase + stopPropagation takes
+  // the key before it can travel; `popoverGuard` below covers the outside-TAP half, where the
+  // dismissing click reaches the dialog a task later and there is nothing left to test for.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      e.preventDefault()
+      setOpen(false)
+      setSearch('')
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open])
+
+  // the sheet this picker sits in stands down while the menu is open — one gesture, one close
+  usePopoverGuard(open)
 
   const close = () => { setOpen(false); setSearch('') }
   return [{

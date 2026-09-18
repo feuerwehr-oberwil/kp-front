@@ -47,7 +47,10 @@ export function ContextMenu({ trigger, items, disabled }: {
             {items.map((it, i) => (
               <BaseContextMenu.Item
                 key={i}
-                className={`ui-ctxmenu-item${it.danger ? ' danger' : ''}${it.checked ? ' on' : ''}`}
+                // `ui-menu-item`/`ui-menu-danger` carry the app's one menu-row treatment — the
+                // same rows overlays·Menu renders (see rowClass there); `ui-ctxmenu-item` is left
+                // with this menu's own geometry and its tick slot.
+                className={`ui-menu-item${it.danger ? ' ui-menu-danger' : ''} ui-ctxmenu-item${it.danger ? ' danger' : ''}${it.checked ? ' on' : ''}`}
                 disabled={it.disabled}
                 onClick={it.onClick}
                 data-sep={it.separatorBefore ? '' : undefined}

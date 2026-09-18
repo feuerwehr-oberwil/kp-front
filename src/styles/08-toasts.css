@@ -561,8 +561,24 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 
 /* drawing editor reuses .ctx; dark swatches/widths on light bg */
 /* grouped sections: a divider BETWEEN groups, not between every row (cleaner, shorter) */
+/* ── the rule falls where the SUBJECT changes, and nowhere else (18.09.2026) ──
+   Every group used to be fenced off with a hairline. In a ~340px panel that is four or five
+   rules stacked down the sheet — the Zeichnung editor reads as a bordered table rather than as a
+   form, and not one of those lines said anything the layout was not already saying: the groups
+   are separated by their own padding, and two rows of the same block sit closer together than
+   two blocks do. Reported as «die Trennlinien stören».
+   So: a group that merely asks the NEXT question about the same object (Farbe → Text → Abschluss
+   → Abschnitt) is separated by AIR. A hairline is kept only above a group that OPENS A NAMED
+   SECTION — «Messung», «Höhenprofil», «Verbindungen» — because there the panel stops describing
+   the object and starts stating facts about it, and with spacing alone that section's own title
+   would read as one more label in the block above it.
+   ⚠️ Matched on the title/toggle the section header IS, so it holds for every sheet built on this
+   CSS: the Linien-/Flächen-Editor (DrawEditor) and the Form-Editor (ShapeEditor), whose Messung
+   block states the same numbers without the fold. */
 .draw-editor .de-group { padding: 6px 0; }
-.draw-editor .de-group + .de-group { border-top: 1px solid var(--border-soft); }
+.draw-editor .de-group + .de-group { margin-top: 12px; }
+.draw-editor .de-group + .de-group:has(> .de-group-toggle, > .de-conn-title) {
+  margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
 /* wrap: a row is a label plus its control, and several controls (the Abschluss glyph trio, the
    Inhalt letters, a ± stepper) are wider than half a narrow panel. Without wrapping they ran into
    their own label. The control drops onto its own line instead. */

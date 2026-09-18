@@ -105,10 +105,10 @@ describe('Abschnitt fields on a Fläche', () => {
     id: 'a1', kind: 'area', coords: [[7.5, 47.4], [7.51, 47.41], [7.51, 47.4]], ...over,
   })
 
-  it('records Leiter set / changed / cleared', () => {
-    expect(drawingEditChanges(area({}), area({ abschnittLeiter: 'Oblt Steiner' }))).toEqual(['Leiter: Oblt Steiner'])
-    expect(drawingEditChanges(area({ abschnittLeiter: 'Oblt Steiner' }), area({ abschnittLeiter: 'Lt Hofer' }))).toEqual(['Leiter auf Lt Hofer geändert'])
-    expect(drawingEditChanges(area({ abschnittLeiter: 'Lt Hofer' }), area({}))).toEqual(['Leiter entfernt'])
+  it('records Abschnittschef set / changed / cleared', () => {
+    expect(drawingEditChanges(area({}), area({ abschnittLeiter: 'Oblt Steiner' }))).toEqual(['Abschnittschef: Oblt Steiner'])
+    expect(drawingEditChanges(area({ abschnittLeiter: 'Oblt Steiner' }), area({ abschnittLeiter: 'Lt Hofer' }))).toEqual(['Abschnittschef auf Lt Hofer geändert'])
+    expect(drawingEditChanges(area({ abschnittLeiter: 'Lt Hofer' }), area({}))).toEqual(['Abschnittschef entfernt'])
   })
 
   it('records the Auftrag the same way', () => {

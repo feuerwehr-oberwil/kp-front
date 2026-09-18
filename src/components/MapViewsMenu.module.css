@@ -32,7 +32,7 @@
 .close { flex: none; width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
   color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0;
   transition: background .14s var(--ease); }
-@media (hover: hover) { .close:hover { background: rgba(255, 255, 255, .28); } }
+@media (hover: hover) { .close:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); } }
 .close:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .close :global(.i) { width: 16px; height: 16px; }
 
@@ -40,13 +40,17 @@
    against the dark background, but two adjacent HIGHLIGHTED rows (.on, or the saved-views list)
    share the same background fill with nothing between them and merge into one solid block. A
    real gap after every row gives both cases the same visible seam. */
-.row { display: flex; align-items: center; gap: 2px; width: 100%; min-height: 44px; border-radius: var(--r-sm); margin-bottom: 4px; }
+/* a row, not a button: `--r-ctl` (AGENTS.md · Buttons) — the same radius the Ebenen rows
+   beside this dock carry. */
+.row { display: flex; align-items: center; gap: 2px; width: 100%; min-height: 44px; border-radius: var(--r-ctl); margin-bottom: 4px; }
 .row.on { background: color-mix(in srgb, var(--blue) 30%, transparent); }
 /* the tap-to-fly target fills the row; mini actions sit to its right */
 .go, .north, .save { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0;
-  min-height: 44px; padding: 0 8px; border: none; background: transparent; border-radius: var(--r-sm);
+  min-height: 44px; padding: 0 8px; border: none; background: transparent; border-radius: var(--r-ctl);
   color: var(--on-accent-ink); cursor: pointer; text-align: left; font: inherit; transition: background .12s var(--ease); }
-@media (hover: hover) { .go:hover, .north:hover, .save:hover { background: rgba(255, 255, 255, .12); } }
+/* the same mix the Ebenen rows use on this same --ink-fill dock, via the token rather than a
+   frozen white (AGENTS.md · Theming) — .lrow:hover in 05-navrail.css. */
+@media (hover: hover) { .go:hover, .north:hover, .save:hover { background: color-mix(in srgb, var(--on-accent-ink) 12%, transparent); } }
 .go:active:not(:disabled), .north:active:not(:disabled), .save:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .row.on .go { font-weight: 600; }
 
@@ -75,7 +79,7 @@
 .mini { flex: none; width: 40px; height: 44px; display: grid; place-items: center; border: none;
   background: transparent; border-radius: var(--r-sm); color: rgba(255, 255, 255, .6); cursor: pointer;
   transition: background .12s var(--ease), color .12s var(--ease); }
-@media (hover: hover) { .mini:hover { background: rgba(255, 255, 255, .12); color: var(--on-accent-ink); } }
+@media (hover: hover) { .mini:hover { background: color-mix(in srgb, var(--on-accent-ink) 12%, transparent); color: var(--on-accent-ink); } }
 .mini:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .mini :global(.i) { width: 16px; height: 16px; }
 
@@ -83,7 +87,6 @@
 /* ⚠️ 8px, the same inset the row labels carry (.go/.north/.save) — and the same the inline
    help text below carries (DockInfo · .wb-dock-tip-inline). The two prose blocks in this
    popover sat at 10px and 2px, so one paragraph started six pixels right of the other. */
-.empty { padding: 6px 8px 10px; font-size: 12.5px; line-height: 1.4; color: rgba(255, 255, 255, .6); }
 
 .editing { padding: 0 8px; gap: 10px; }
 .input { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 8px; font: inherit; font-size: 14px;

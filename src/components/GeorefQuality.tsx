@@ -68,6 +68,10 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
   // solve exactly» is already stated by the line above — so it only speaks when alone.
   const raised = georefWarnings(fit)
   const warning = (['collinear', 'baseline', 'twoPoints'] as const).find((w) => raised.includes(w))
+  /** The station reviewed this automatic fit and published it — it is VERKNÜPFT, not a proposal
+   *  (18.09.2026). No «ungemessen», no amber box; one operator-set point of their own means the
+   *  operator is mid-correction and the proposal wording is the honest one again. */
+  const linked = auto && approved && realPoints === 0
 
   const reset = async () => {
     const ok = await confirmDialog({
@@ -90,11 +94,18 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
         {/* the value column stays SHORT — «· 1 Punkt» in the head plus «ungemessen» beside it
             overflowed the row; the warning line below carries the rest of the sentence */}
         {auto
-          ? <span><b>{approved && realPoints === 0 ? C.lampApprovedHead : C.lampAutoHead}</b></span>
+          ? <span><b>{linked ? C.lampApprovedHead : C.lampAutoHead}</b></span>
           : <span><b>{fit.n}</b> {C.pairs}</span>}
-        <strong>{auto ? (realPoints > 0 ? C.autoOnePoint : C.chipAuto) : claim == null ? C.chipTwoPoints : fillTemplate(C.qualityDeviation, { m: m(claim) })}</strong>
+        {/* ⚠️ An approved fit says NOTHING here (18.09.2026) rather than «ungemessen»: the
+            station checked and published it, so it is linked — and there is still no residual
+            to claim off two synthetic pairs, so the column is simply omitted. */}
+        {!linked && (
+          <strong>{auto ? (realPoints > 0 ? C.autoOnePoint : C.chipAuto) : claim == null ? C.chipTwoPoints : fillTemplate(C.qualityDeviation, { m: m(claim) })}</strong>
+        )}
       </div>
-      {auto
+      {linked
+        ? <div className={s.qNote}>{C.lampApprovedBody}</div>
+        : auto
         ? <div className={s.qWarn}><Icon id="warn" />{realPoints > 0 ? C.autoOneBody : C.warnAuto}</div>
         : warning && <div className={s.qWarn}><Icon id="warn" />{warningText(warning, fit)}</div>}
       <div className={`${s.qActions} ${onTransfer ? s.qActionsFour : ''}`}>

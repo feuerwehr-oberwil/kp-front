@@ -692,7 +692,11 @@
   font-size: 12.5px; font-weight: 600; color: var(--ink-dim);
 }
 .adm-fleet-guide { border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); }
-.adm-fleet-guide > summary { padding: 11px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--ink-dim); }
+/* the whole summary row folds the guide, so it is a full 44px target and answers a press */
+.adm-fleet-guide > summary { display: flex; align-items: center; min-height: var(--tap); padding: 11px 13px;
+  font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--ink-dim); border-radius: var(--r-ctl); }
+.adm-fleet-guide > summary:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .adm-fleet-guide > summary:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
 .adm-fleet-guide-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; padding: 2px 14px 14px; }
 .adm-fleet-glossary { min-width: 0; }
 .adm-fleet-glossary > strong { display: block; margin-bottom: 9px; font-size: 12.5px; }
@@ -877,10 +881,13 @@
 }
 .adm-select-opt {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 8px 10px; border-radius: var(--r-sm);
+  padding: 8px 10px; border-radius: var(--r-ctl);
   font-size: 13px; font-weight: 600; color: var(--ink-dim); cursor: pointer;
 }
-.adm-select-opt.active { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--ink); }
+/* the keyboard/active-descendant cursor — the same 8 % of --blue every menu row is highlighted
+   with (13-incident.css · «ONE menu row»); the press is the house --press wash. */
+.adm-select-opt.active { background: color-mix(in srgb, var(--blue) 8%, transparent); color: var(--ink); }
+.adm-select-opt:active { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-select-opt.sel { color: var(--ink); }
 .adm-select-opt-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adm-select-tick { width: 15px; height: 15px; flex: none; color: var(--blue); }
@@ -1715,7 +1722,11 @@ p.adm-sys-path { margin: 3px 0 0; }
    admin-scoped raise at the end of this file. */
 .adm-menu-item {
   display: flex; flex-direction: column; gap: 2px; width: 100%;
-  padding: 8px 10px; border: none; border-radius: var(--r-sm);
+  /* `--r-ctl`, not `--r-sm`: a menu row is a row, not a button (AGENTS.md · Buttons), and this
+     is the same radius/hover/press every menu row in the app now carries — 13-incident.css ·
+     «ONE menu row». The admin ships its own stylesheet, so the rules are repeated here rather
+     than inherited. */
+  padding: 8px 10px; border: none; border-radius: var(--r-ctl);
   background: transparent; color: var(--ink-dim); text-align: left; cursor: pointer;
   transition: background .12s var(--ease), color .12s var(--ease);
 }
@@ -1728,9 +1739,9 @@ p.adm-sys-path { margin: 3px 0 0; }
 }
 .adm-menu-item:active:not([data-disabled]) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-menu-item.danger { color: var(--red); }
-.adm-menu-item.danger[data-highlighted]:not([data-disabled]) { background: color-mix(in srgb, var(--red) 8%, transparent); }
+.adm-menu-item.danger[data-highlighted]:not([data-disabled]) { background: color-mix(in srgb, var(--red) 10%, transparent); }
 @media (hover: hover) {
-  .adm-menu-item.danger:hover:not([data-disabled]) { background: color-mix(in srgb, var(--red) 8%, transparent); }
+  .adm-menu-item.danger:hover:not([data-disabled]) { background: color-mix(in srgb, var(--red) 10%, transparent); }
 }
 .adm-menu-item[data-disabled] { cursor: default; color: var(--ink-faint); }
 .adm-menu-item:focus-visible { outline: 2px solid var(--blue); outline-offset: -1px; }
@@ -1790,7 +1801,10 @@ p.adm-sys-path { margin: 3px 0 0; }
 .adm-hist-burst { display: flex; flex-direction: column; gap: 2px; }
 .adm-hist-when-to { display: block; font: 500 11px var(--mono); color: var(--ink-faint); }
 .adm-hist-count { margin-left: 8px; font: 600 11.5px var(--body); color: var(--ink-faint); }
-.adm-hist-toggle { align-self: flex-start; margin-top: 2px; padding: 0; cursor: pointer;
+/* it folds a burst open, so it is a real target and not an 11.5px word: --tap tall, with the
+   padding negated on the left so the label still starts on the column above it */
+.adm-hist-toggle { align-self: flex-start; display: inline-flex; align-items: center;
+  min-height: var(--tap); margin: 0 0 0 -8px; padding: 0 8px; border-radius: var(--r-ctl); cursor: pointer;
   border: 0; background: none; color: var(--blue); font: 600 11.5px var(--body); }
 @media (hover: hover) {
   .adm-hist-toggle:hover { text-decoration: underline; }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
@@ -23,7 +23,7 @@ import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays 
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from './lib/docking'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
+import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ReportAttachment, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId } from './lib/ids'
@@ -52,6 +52,7 @@ import { useUndoTimeline } from './lib/useUndoTimeline'
 import type { UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
+import { REPORT_COALESCE_MS, foldsIntoPrevious, keepMachineFields, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
@@ -68,7 +69,7 @@ import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
 import { useTacticalSelection } from './lib/useTacticalSelection'
 import { useWorkspaceDoc } from './lib/useWorkspaceDoc'
-import { addPlanBindings, hasLegacyAlignmentContext } from './lib/incidentPlanBindings'
+import { addPlanBindings, hasLegacyAlignmentContext, incidentBindingApproved } from './lib/incidentPlanBindings'
 import { useIncidentPlanBindings } from './lib/useIncidentPlanBindings'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
@@ -172,12 +173,13 @@ import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterId
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
-import { ReportPreflight } from './components/ReportPreflight'
+import { ReportPreflight, requestReportStep } from './components/ReportPreflight'
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
+import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen } from './lib/abschlussOpen'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
@@ -287,6 +289,9 @@ interface WorkspaceProps {
   onBackFromArchive?: () => void
 }
 
+
+/** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
+const REORIENT_FOLD_MS = 1500
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
@@ -1573,6 +1578,11 @@ export function IncidentWorkspace({
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's
     // unmount (see `planHistory`), so nothing else drops them any more.
     attHistClear.current?.(); setPlanHistory({})
+    // …and every OPEN fold window with them. A burst that is still collecting (a Kurzbericht
+    // being typed, a Bildlegende, the Gebäude-Drehung) points at a state the merge has replaced:
+    // folding the next write into it would write a pre-merge value back, and — worse — lay no
+    // step of its own, so the edit that followed a merge would be the one thing with no way back.
+    lastReportStep.current = null; lastCaptionStep.current = null; lastReorient.current = null
     // ⚠️ …and the ONE global timeline goes with ALL of them. This path replaces every slice at
     // once — the doc, the board, the trupps, the Anwesenheit, Mittel, Checklisten — so there is
     // no entry left that describes anything real: a delegating one would step a stack that has
@@ -1689,8 +1699,20 @@ export function IncidentWorkspace({
   const mittelCountRef = useRef(0)
   useEffect(() => { mittelCountRef.current = mittelLineCount(mittel) }, [mittel])
 
+  /**
+   * The Rapport's ONE write path, held in a ref.
+   *
+   * ⚠️ It is the undoable slice's `set` (see `reportSet` further down, where `canWriteRecord`
+   * and the timeline are both in scope), while `saveReportMeta` itself is deliberately
+   * identity-stable per mount — the same shape `attHistClear` uses for the Anwesenheit. Before
+   * that assignment lands it is the plain setter, so a write on the very first render still
+   * reaches the workspace; it simply lays no step down.
+   */
+  const reportSetRef = useRef<UndoableSlice<ReportMeta>['set']>((u) => { setReportMeta(u); return false })
+  /** the step that stands, so the next keystroke can decide whether it belongs to it */
+  const lastReportStep = useRef<{ key: string; at: number } | null>(null)
   const saveReportMeta = useCallback((next: ReportMeta) => {
-    setReportMeta((prev) => {
+    reportSetRef.current((prev) => {
       // «Entfällt» and a value are two answers to the same question — resolve the contradiction
       // on EVERY meta write, here where all of them funnel through (lib/report ·
       // normalizeReportMeta; the QR poster's path does the same in CaptureApp).
@@ -1795,25 +1817,31 @@ export function IncidentWorkspace({
     // ⚠️ Pending media belongs in this list. The Abschluss closes the incident, and a Foto or a
     // Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
     // about to walk away, so that is part of what they are confirming.
-    const pendingItem = media.pendingCount > 0
-      ? [fillTemplate(P.pendingMediaConfirm, { n: media.pendingCount })]
-      : []
     /* ⚠️ A Trupp that was never reported out belongs on this list (04.09.). It is not a missing
        Angabe — that is what `abschlussMissing` collects — but a fact about the Einsatz being
        closed over it: nobody said the crew came back, and from here on the board freezes at the
        Einsatzende, so this is the last moment anybody is asked. The Abschluss still goes through
        («Trotzdem abschliessen»), and it writes nothing by itself: closing an Einsatz must never
-       put an Austritt on the record that nobody reported. */
-    const truppItem = truppsStillOut > 0
-      ? [fillTemplate(P.truppsDeployedConfirm, { n: truppsStillOut })]
-      : []
+       put an Austritt on the record that nobody reported.
+       ⚠️ Pending media belongs here too. The Abschluss closes the incident, and a Foto or a
+       Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
+       about to walk away, so that is part of what they are confirming. */
+    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount)
     // …and it counts as an open point for the WORDING, the way a missing Angabe does: the message
     // and the button both have to say that something is being closed over.
-    const anyOpen = abschlussMissing.length > 0 || truppItem.length > 0
+    const anyOpen = points.some(countsAsOpen)
     const ok = await confirmDialog({
       title: A.confirmTitle,
       message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
-      items: [...abschlussMissing.map((s) => A.steps[s]), ...truppItem, ...pendingItem],
+      // ⚠️ Every row is a LINK, exactly as the print warning's rows are (lib/abschlussOpen).
+      // Naming a gap on the last screen before the Akte closes and leaving the operator to hunt
+      // for it is the same failure the «noch offen» chips fixed on the sheet itself. Tapping one
+      // resolves the ask false — going there is not going ahead.
+      items: abschlussOpenItems(points, {
+        step: (st) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
+        trupps: () => { setMode('atemschutz'); setPanel(null) },
+        media: () => setOfflineReadyOpen(true),
+      }),
       note: anyOpen ? A.confirmMsg : undefined,
       // the button names what is actually about to happen — closing an Einsatz with open points
       // is allowed, and the label is where that is said out loud
@@ -1829,7 +1857,7 @@ export function IncidentWorkspace({
     // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport()
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen])
 
   // upload a captured photo/audio blob and swap the timeline row's session blob: URL for the
   // persistent server URL (so history keeps the media). On failure the blob is persisted to the
@@ -1885,6 +1913,16 @@ export function IncidentWorkspace({
    * Rapport and the picture catches up. A failed upload leaves the blob: row, and the preflight
    * says «noch nicht hochgeladen» beside it rather than pretending it will print.
    */
+  /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
+   *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
+  const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => () => void>(() => () => {})
+  /** what the list says right now, for the handlers that have to read a row before changing it */
+  const attachmentsRef = useRef(attachments); attachmentsRef.current = attachments
+  /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
+   *  letter (same window and the same reason as the Rapportangaben above). */
+  const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
+  /** …and the Gebäude-Drehung, which is a slider: one drag is one step (see onReorient). */
+  const lastReorient = useRef<{ at: number; from: BuildingDoc; drop: () => void } | null>(null)
   const addAttachments = useCallback((files: File[]) => {
     if (!canWriteRecord) return
     const at = new Date().toISOString()
@@ -1897,6 +1935,15 @@ export function IncidentWorkspace({
         await mintLocalThumb(localUrl, file)
         setAttachments((list) => [...list, { id, url: localUrl, at }])
         emit('report.attachment.add', { id })
+        // ↶ takes the Beilage off again. ⚠️ The box, not a captured row: the upload swaps this
+        // row's `blob:` URL for the server one a moment later, and a ↷ that put the local URL
+        // back would restore a picture that exists on no other device and after no reload.
+        const kept: { row: ReportAttachment } = { row: { id, url: localUrl, at } }
+        rememberOneShotRef.current(
+          'rapport', appConfig.copy.preflight.attachmentAdded,
+          () => setAttachments((list) => { const cur = list.find((a) => a.id === id); if (cur) kept.row = cur; return list.filter((a) => a.id !== id) }),
+          () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list, kept.row])),
+        )
         try {
           // Re-encode first: the server takes jpeg/png/webp only and a phone hands over HEIC at
           // 4–12 MB, so the raw file 4xx'd and the Beilage silently never printed (lib/imagePrep).
@@ -1919,12 +1966,39 @@ export function IncidentWorkspace({
     // deleted before the next letter arrived — «Ausweis Lenker» came out «AusweisLenker» and a
     // trailing space was impossible. Trimming belongs where the caption is USED (the print
     // payload), not where it is being written.
-    setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: caption || undefined } : a)))
+    const key = `caption:${id}`
+    const now = Date.now()
+    const prev = lastCaptionStep.current
+    // still the same Bildlegende, still being typed: take the standing step off the timeline and
+    // put back a wider one, so ↶ gives the caption the operator started from — not one letter.
+    const folding = prev?.key === key && now - prev.at <= REPORT_COALESCE_MS
+    const from = folding ? prev.from : attachmentsRef.current.find((a) => a.id === id)?.caption
+    if (folding) prev.drop()
+    const to = caption || undefined
+    setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: to } : a)))
+    const drop = rememberOneShotRef.current(
+      'rapport', appConfig.copy.preflight.attachmentCaptioned,
+      () => setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: from } : a))),
+      () => setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: to } : a))),
+    )
+    lastCaptionStep.current = { key, at: now, from, drop }
   }, [canWriteRecord, setAttachments])
   const removeAttachment = useCallback((id: string) => {
     if (!canWriteRecord) return
+    // confirm-with-undo, the standing rule for a one-shot that destroys something: the picture
+    // and its Bildlegende come back at the index they stood at, and the toast's «Rückgängig»
+    // drops the timeline entry so the act can never be taken back twice (see the Gebäude pair).
+    const index = attachmentsRef.current.findIndex((a) => a.id === id)
+    const row = attachmentsRef.current[index]
+    if (!row) return
     setAttachments((list) => list.filter((a) => a.id !== id))
     emit('report.attachment.remove', { id })
+    const restore = () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list.slice(0, index), row, ...list.slice(index)]))
+    const drop = rememberOneShotRef.current(
+      'rapport', appConfig.copy.preflight.attachmentRemoved,
+      restore, () => setAttachments((list) => list.filter((a) => a.id !== id)),
+    )
+    undoToast(appConfig.copy.preflight.attachmentRemoved, () => { restore(); drop() })
   }, [canWriteRecord, setAttachments, emit])
 
   // When the workspace sync recovers (server reachable again), drain any queued media too —
@@ -2090,7 +2164,9 @@ export function IncidentWorkspace({
   // aspect each fit is taken at is recovered from the plan's calibration — see georefTwins ·
   // planAspect for why that is the right source and what happens when there is none.
   const linkedPlans = useMemo(
-    () => georefPlans(planDocs, georefForPlan, (p) => planAspect(p, stationScales, planScale[p.id])),
+    // …plus whether the station APPROVED each fit, which is what lets an approved automatic
+    // alignment's Ebenen row read «Verknüpft» instead of «ungemessen» (18.09.2026)
+    () => georefPlans(planDocs, georefForPlan, (p) => planAspect(p, stationScales, planScale[p.id]), incidentBindingApproved),
     [planDocs, planScale, stationScales],
   )
   // …the same fits, keyed for the unified-object bake (the store's writers read this through
@@ -3049,13 +3125,32 @@ export function IncidentWorkspace({
       // save order anyway. Renaming stays one tap away for a view worth a real name.
       const v: CameraView = { id: 'v' + Date.now(), name: formatTime(new Date()), center: view.center, zoom: view.zoom, bearing: view.bearing }
       setCameraViews((vs) => [...vs, v])
+      // …and it comes back off the list with ↶, like everything else on the Karte. An Ansicht is
+      // cheap to make and was impossible to unmake except by deleting it through a confirm.
+      rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
+        () => setCameraViews((vs) => vs.filter((x) => x.id !== v.id)),
+        () => setCameraViews((vs) => (vs.some((x) => x.id === v.id) ? vs : [...vs, v])))
       toast(appConfig.copy.mapViews.saved, { icon: 'compass', tone: 'success' })
     },
-    onRename: (id, name) => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name: name || v.name } : v))),
+    onRename: (id, name) => {
+      const prev = cameraViews.find((v) => v.id === id)
+      if (!prev || !name || name === prev.name) return
+      setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v)))
+      rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
+        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name: prev.name } : v))),
+        () => setCameraViews((vs) => vs.map((v) => (v.id === id ? { ...v, name } : v))))
+    },
     onDelete: async (id) => {
-      const v = cameraViews.find((x) => x.id === id); if (!v) return
+      const index = cameraViews.findIndex((x) => x.id === id)
+      const v = cameraViews[index]; if (!v) return
       const ok = await confirmDialog({ title: appConfig.copy.mapViews.deleteTitle, message: fillTemplate(appConfig.copy.mapViews.deleteMsg, { name: v.name }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
-      if (ok) setCameraViews((vs) => vs.filter((x) => x.id !== id))
+      if (!ok) return
+      setCameraViews((vs) => vs.filter((x) => x.id !== id))
+      // the confirm asked; the timeline entry is what makes the answer reversible — the view
+      // comes back at the position it stood in, because the list is in save order
+      rememberOneShotRef.current('ansicht', C_HIST.undoDomains.ansicht,
+        () => setCameraViews((vs) => (vs.some((x) => x.id === id) ? vs : [...vs.slice(0, index), v, ...vs.slice(index)])),
+        () => setCameraViews((vs) => vs.filter((x) => x.id !== id)))
     },
   }
   // Open/close the views popover. Opening it first drops any active tool and the Ebenen
@@ -3853,7 +3948,7 @@ export function IncidentWorkspace({
     redo: () => stepAttendanceRef.current('redo'),
   })
   /** The one write path for the Anwesenheit: checkpoint on the slice, and record the step. */
-  const attSet: typeof attHist.set = (update) => { attHist.set(update); rememberAttendanceStep() }
+  const attSet: typeof attHist.set = (update) => { const laid = attHist.set(update); rememberAttendanceStep(); return laid }
   /**
    * A Gebäude one-shot on the timeline. These own no stack at all — a storey added, a storey
    * removed, a building replaced — so the entry carries BOTH states itself, the way the
@@ -3863,12 +3958,15 @@ export function IncidentWorkspace({
    * drops its entry when it is used, so an act is never undoable twice. The label is the toast's
    * own sentence, so the header says «Rückgängig: Geschoss gelöscht» and not «… Gebäude».
    */
-  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) => undoHist.push({
-    domain: 'gebaeude',
+  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => undoHist.push({
+    domain,
     label,
     undo: () => { restore(); logHistStep('undo', label, ''); return true },
     redo: () => { reapply(); logHistStep('redo', label, ''); return true },
   })
+  rememberOneShotRef.current = rememberOneShot
+  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
+    rememberOneShot('gebaeude', label, restore, reapply)
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record
   // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back
   // when the same person is ticked present again — see useAttendanceActions · noteMemory. Per
@@ -3934,17 +4032,62 @@ export function IncidentWorkspace({
   const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord)
   /** One recorded step over a slice somebody else owns. `op` is the domain-scoped audit prefix —
    *  see `logHistStep` for why a bare `undo` would wedge an `el` session's outbox. */
-  const rememberSliceStep = <T,>(domain: UndoDomain, hist: UndoableSlice<T>, label: string, op: string, icon: string) => undoHist.push({
+  const rememberSliceStep = <T,>(domain: UndoDomain, hist: UndoableSlice<T>, label: string, op: string, icon: string, onStep?: () => void) => undoHist.push({
     domain,
     label,
-    undo: () => histStep(!!hist.undo(), 'undo', label, op, icon, 'journal'),
-    redo: () => histStep(!!hist.redo(), 'redo', label, op, icon, 'journal'),
+    // ⚠️ `onStep` FIRST, before the stack moves: it closes whatever fold window is still open
+    // (the Rapport's), because the step that window would fold into is the one being popped.
+    undo: () => { onStep?.(); return histStep(!!hist.undo(), 'undo', label, op, icon, 'journal') },
+    redo: () => { onStep?.(); return histStep(!!hist.redo(), 'redo', label, op, icon, 'journal') },
   })
-  const mittelSet: typeof mittelHist.set = (u) => { mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef.current, C_HIST.undoDomains.mittel, 'mittel.', 'box') }
-  const checklistSet: typeof checklistHist.set = (u) => { checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef.current, C_HIST.undoDomains.checkliste, 'checklist.', 'check') }
+  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef.current, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
+  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef.current, C_HIST.undoDomains.checkliste, 'checklist.', 'check'); return laid }
   // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
   const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
   const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
+  /**
+   * …and the Einsatzrapport, the last record surface with no way back (field report 18.09.2026:
+   * «Rettungen eingetragen, Zahl war falsch, Rückgängig macht nichts»). Same slice mechanism as
+   * Mittel and the Checklisten — but the Rapport is the only surface that persists on every
+   * KEYSTROKE, so a checkpoint per write would have filled the whole history with one
+   * Kurzbericht and made ↶ hand back a single character. `lib/reportUndo` classifies the write
+   * instead: a burst of typing in the same field is ONE step, and a value or a row appearing or
+   * disappearing (a Rettung, «Keine», a Partnerorganisation, a cleared Gruppenzeit) is its own.
+   *
+   * ⚠️ Deliberately NOT a separate pair of buttons on the sheet: the Rapport wears the same
+   * TopBar as every other surface, and its ↶ ↷ already drive this one timeline (08.09.2026).
+   */
+  // ⚠️ the machine's own bookkeeping rides OUTSIDE the snapshots (lib/reportUndo ·
+  // keepMachineFields): it lays no step of its own, so it travels inside whatever step stands —
+  // and a ↶ that handed back an outstanding `printJob` would leave `settlePrintJob` nothing to
+  // stamp, i.e. lose the «in der Warteschlange» / «Rapport erstellt» marks to an undone sentence.
+  const reportHist = useUndoableSlice(reportMeta, setReportMeta, !canWriteRecord, keepMachineFields)
+  const reportHistRef = useRef(reportHist); reportHistRef.current = reportHist
+  const reportSet: typeof reportHist.set = (u) => {
+    // ⚠️ A session that may not write the record still writes LOCALLY exactly as it did before
+    // this stack existed — it simply lays no step down. Dropping the write here instead would
+    // have made undo a silent gate on a path that never had one.
+    if (!canWriteRecord) { setReportMeta(u); return false }
+    const hist = reportHistRef.current
+    const laid = hist.set(u, {
+      coalesce: (prev, next) => {
+        const step = reportStepOf(prev, next)
+        // the app's own bookkeeping (reportMadeAt / printJob / krokiPrint) — it rides along with
+        // whatever step stands and never becomes one of its own
+        if (!step) { lastReportStep.current = null; return true }
+        const now = Date.now()
+        const fold = foldsIntoPrevious(lastReportStep.current, step, now)
+        lastReportStep.current = { key: step.key, at: now }
+        return fold
+      },
+    })
+    // ⚠️ …and the fold window closes on every ↶ ↷ (the last argument): the step it would fold
+    // into has just moved to the other stack, so typing in the same field right after an undo
+    // would lay no step of its own — and the next ↷ would overwrite it.
+    if (laid) rememberSliceStep('rapport', reportHistRef.current, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
+    return laid
+  }
+  reportSetRef.current = reportSet
   const { saveMittel } = useMittelActions({ mittel, setMittel: mittelSet, authorName: user?.display_name, log })
   // Symbol→Mittel moved OUT of the symbol's card (28.08.): the Material surface itself now shows
   // the «Gesetzt, aber nicht erfasst» strip, fed with every symbol standing on Lage + all plans.
@@ -3960,11 +4103,48 @@ export function IncidentWorkspace({
     ).values()],
     [doc.entities, board],
   )
+  /**
+   * The Zeitplan joins the timeline as ONE slice, because a Schichtband and the Schichten in it
+   * are not two things to an operator: removing a band strips `bandId` off its shifts in the
+   * same breath, and two entries for that act would need two ↶ to take back half of what looked
+   * like one press. `shifts` + `bands` are therefore snapshotted together.
+   *
+   * ⚠️ …which is also why one GESTURE is one step: the writers here legitimately touch both
+   * lists in the same synchronous handler, so the first write of a burst lays the checkpoint and
+   * whatever follows it in the same task folds in. A microtask closes the burst, so nothing is
+   * held open across an await (the band-times question asks first and is its own decision).
+   *
+   * Before this, `addShift`, `setShiftTime`, `addBand`, `renameBand`, `setBandTimes` and every
+   * cell tap had no way back at all — the surface's only doors were the four confirm-with-undo
+   * toasts, and a toast expires.
+   */
+  const zeitplanDoc = useMemo(() => ({ shifts, bands }), [shifts, bands])
+  const zeitplanHist = useUndoableSlice(zeitplanDoc, (v) => {
+    const next = typeof v === 'function' ? v(zeitplanDoc) : v
+    setShifts(next.shifts); setBands(next.bands)
+  }, !canWriteRecord)
+  const zeitplanHistRef = useRef(zeitplanHist); zeitplanHistRef.current = zeitplanHist
+  const zeitplanBurst = useRef(false)
+  const zeitplanWrite = (next: (cur: { shifts: Shift[]; bands: ShiftBand[] }) => { shifts: Shift[]; bands: ShiftBand[] }) => {
+    const fold = zeitplanBurst.current
+    const laid = zeitplanHistRef.current.set(next, { coalesce: () => fold })
+    if (!zeitplanBurst.current) {
+      zeitplanBurst.current = true
+      queueMicrotask(() => { zeitplanBurst.current = false })
+    }
+    // `shift.` is on the `el` audit allowlist (backend · EL_EVENT_PREFIXES): an Einsatzleiter
+    // plans shifts, so their ↶ must not 403 the batch — see logHistStep.
+    if (laid) rememberSliceStep('zeitplan', zeitplanHistRef.current, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
+  }
+  const setShiftsUndoable: Dispatch<SetStateAction<Shift[]>> = (u) =>
+    zeitplanWrite((cur) => ({ ...cur, shifts: typeof u === 'function' ? u(cur.shifts) : u }))
+  const setBandsUndoable: Dispatch<SetStateAction<ShiftBand[]>> = (u) =>
+    zeitplanWrite((cur) => ({ ...cur, bands: typeof u === 'function' ? u(cur.bands) : u }))
   // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
-  const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts, startedAt: incidentMeta.started_at })
+  const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts: setShiftsUndoable, startedAt: incidentMeta.started_at })
   // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
   // writes no shift, deleting one deletes no shift — see useBandActions.
-  const bandActions = useBandActions({ bands, setBands, shifts, setShifts })
+  const bandActions = useBandActions({ bands, setBands: setBandsUndoable, shifts, setShifts: setShiftsUndoable })
   // The Zeitplan-Führungsformular on paper. The relay status is fetched once per incident and
   // fail-closed (null → no printer button at all); the PDF download needs no relay.
   const [zeitplanRelay, setZeitplanRelay] = useState<PrintRelayStatus | null>(null)
@@ -5651,7 +5831,21 @@ export function IncidentWorkspace({
           // this only moves the active one, which is what makes the merged tile navigable at all
           // (railPlanTiles reads activePlanId to decide which face the tile wears).
           onBuildingFace={(face) => setActivePlanId(face === 'pick' ? BUILDING_PICK_ID : gebaeudeDoc.id)}
-          onReorient={(next) => setBuilding(next)}
+          onReorient={(next) => {
+            // The Drehung is a SLIDER with a live preview, so it writes many times per drag: one
+            // burst is one step, and the step goes back to the angle the drag started from — the
+            // same fold the Bildlegende uses, for the same reason. It matters beyond the screen,
+            // because the printed Geschossseiten come out at whatever angle is set.
+            const now = Date.now()
+            const prev = lastReorient.current
+            const folding = !!prev && now - prev.at <= REORIENT_FOLD_MS
+            const from = folding ? prev.from : building
+            if (folding) prev.drop()
+            setBuilding(next)
+            if (!from) return
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.orientMenuTitle, () => setBuilding(from), () => setBuilding(next))
+            lastReorient.current = { at: now, from, drop }
+          }}
           onAddFloor={(dir) => {
             if (!building || building.pack) return
             const prevBuilding = building
@@ -6073,6 +6267,9 @@ export function IncidentWorkspace({
           incidentId={incidentMeta.id}
           initialKind={shareLink}
           archived={incidentMeta.is_archived}
+          // the QR beside the Atemschutz bell hands over in ONE tap: pressing it IS the
+          // decision, so the sheet mints the link rather than asking a second time
+          autoCreate={shareLink === 'atemschutz'}
           onClose={() => setShareLink(null)}
           // the Atemschutz header's own button paints its «ein Link läuft» tint from this,
           // so minting or revoking one is reflected the moment the sheet closes

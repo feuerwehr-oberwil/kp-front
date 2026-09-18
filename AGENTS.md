@@ -82,10 +82,29 @@ to prod.
   `apply_workspace_put` against the stored incident, retaining exact existing malformed rows
   while rejecting new, edited or duplicated invalid rows. Never silently drop operational
   records or skip validation because a revision differs; return the normal conflict instead.
-- **Undo/redo – every mutating op should be undoable, scoped to the workspace.** The standing
-  rule: Lage map has document-level undo (`useUndoableDoc`), Plan has per-plan-document undo
-  (`useBoardDoc`), and one-shot ops (Gebäude floor add/remove, building replace) use
-  confirm-with-undo toasts. Add undo for new mutations; don't skip it.
+- **Undo/redo – every mutating op should be undoable, scoped to the workspace.** ONE
+  chronological timeline for the whole Einsatz (`lib/undoTimeline`), driven by the TopBar's ↶ ↷
+  and by Cmd/Ctrl+Z on every surface – so «take back the last thing that happened» never asks
+  which surface you are standing on. Three ways to join it, and the choice is decided by what
+  the domain already owns:
+  - *Delegating* – the domain keeps its own history and the entry calls it: the Karte's document
+    (`useUndoableDoc` through `useObjectStore`), a Plan's per-document history (`useBoardDoc`),
+    and the synced slices (`useUndoableSlice` – Anwesenheit, Mittel, Checklisten, **Rapport**,
+    **Zeitplan**). Always through a **ref**: the entry outlives the render that pushed it.
+  - *Closure* – the entry carries its own inverse, for a domain with no stack: the
+    Atemschutz-Tafel, the Gebäude one-shots (floor add/remove, building replace, Drehung),
+    Rapport-Beilagen, Ansichten (`rememberOneShot`).
+  - *Confirm-with-undo toast* – the fast door beside the header pair, for a one-shot that
+    destroys something (a Geschoss, a Beilage, an Anwesenheits-Block). It does the inverse
+    itself and **drops its timeline entry** (`push` returns the dropper), so an act is never
+    undoable twice.
+  Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
+  writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
+  (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate drops the whole
+  timeline plus every open fold window, because nothing on it describes anything real any more.
+  Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
+  new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
+  metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
 - **Objektpläne is object-first.** Tabs Objekte · Vorschläge (the review wall's staged ✓/✕ +
   Übernehmen, only open proposals) · Übersicht. The object table row itself opens the detail
   (chevron, no «Öffnen» button), which IS the object editor: auto-saving settings rows (explicit
@@ -220,7 +239,10 @@ to prod.
   on the Karte and a share of the sheet on a Plan) it is `ScaleStepper`, the same chrome handing
   the caller a ×-factor. A one-press action is a `.de-action` row, in the grammar «Verbindung
   lösen» already had – it is not given toggle chrome, because it has no state to be in. Rows are
-  grouped in `.de-group`, so the hairline falls where the subject changes. And **no native form
+  grouped in `.de-group`, and since 18.09.2026 a group boundary is SPACING: a hairline is drawn
+  ONLY above a group that opens a NAMED section («Messung», «Verbindungen» — matched on the
+  `.de-group-toggle`/`.de-conn-title` it starts with), because four or five rules stacked down a
+  340px panel read as a bordered table and said nothing the padding did not. And **no native form
   control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
   instead of a number field, `components/Slider` instead of `<input type="range">`.
 - **One object, two surfaces — there are no twins any more** (10.09.2026,
@@ -345,8 +367,16 @@ to prod.
   answering every press with «…ist auf diesem Server nicht eingerichtet» (field report
   09.09.2026). The honesty rules are load-bearing: an accepted fit is stored as exactly
   **two pairs `kind: 'auto'`** (more would fabricate zero-residual evidence); while any auto
-  pair is in the fit no surface claims a ⌀ (chip/lamp/Passung read «Automatisch ausgerichtet ·
-  ungemessen»); auto anchors are ghosted, badged «A», excluded from every count, and the
+  pair is in the fit no surface ever claims a ⌀ — but **whether it is called «ungemessen»
+  depends on the APPROVAL** (18.09.2026): an unapproved proposal reads «Automatisch ausgerichtet ·
+  ungemessen» in the amber tone, while a fit the admin greenlit on Objektpläne is a plain
+  **«verknüpft»** everywhere — chip tone, lamp («Von der Station freigegeben», green), Passung,
+  Ebenen row — with the residual simply OMITTED rather than replaced by a word that calls a
+  reviewed reference doubtful. The signal is the binding, never a heuristic on the pairs:
+  `incidentPlanBindings · incidentBindingApproved` (`source === 'approved'` and no operator
+  `override`), threaded into `georefChip` / `georefLamp` / `GeorefQuality` / `georefPlans`; one
+  operator-set pair of their own is a correction in progress and brings the proposal wording
+  back. Auto anchors are ghosted, badged «A», excluded from every count, and the
   SECOND operator-set pair drops them (`georefMode · settleSlots`); score ≤ 6 = confident,
   under the template ceiling (12 · m1 16) = amber «Deckung nachprüfen», above = «kein
   Vorschlag» — and an **m1 result is never confident**. The proposal review lives on «Deckung
@@ -365,6 +395,21 @@ to prod.
   running Einsatz's backdrop). Bound sheets carry `incident:` georef keys, routed by
   `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
   silently replaced.
+- **A plan PDF is downloaded ONCE per revision, and its pages are rendered once per width**
+  (18.09.2026). pdf.js is never handed a URL: `lib/pdfBytes` does one plain `GET` and
+  `PdfViewport · docEntry` opens the document from `data` (a COPY — pdf.js transfers, i.e.
+  detaches, the buffer it is given). The reason is cacheability, not tidiness: pdf.js fetches in
+  RANGE requests, and a `206` is cacheable by nothing — not the HTTP cache, not Workbox (`200`
+  only) — so every cold open re-downloaded tens of megabytes and offline the sheet was simply
+  gone. `?v=N` is immutable by construction, so the backend says so
+  (`api/reference · _download_headers`), the fetch may read it straight out of the cache, and a
+  dedicated Workbox `reference-plans` CacheFirst route keeps it (purged with the others on an
+  explicit denial, `public/sw-media-cache.js`). The unpinned address is always revalidated, so a
+  replaced PDF still refreshes. The reader's rasterised pages survive its unmount in a
+  byte-bounded LRU (`lib/pdfPageCache`, keyed document + page + CSS width, evicted bitmaps
+  CLOSED) — the Plan surface is unmounted on every tab switch, and re-rasterising a multi-page
+  A4 is the seconds of white column that read as «it is loading again». `evictPlan` («Erneut
+  laden») drops bytes, pages and bitmaps together.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
@@ -388,6 +433,23 @@ to prod.
   tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
   model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
   keyboard-driven and unportalled.
+  Three rules the primitives own, so no surface re-answers them (18.09.2026):
+  - **One gesture closes one thing.** A dropdown open INSIDE a dialog closes first and alone — the
+    first Esc / the first outside tap is the menu's, the second is the sheet's. Every transient
+    surface registers while it is open (`overlays/popoverGuard` · `usePopoverGuard`; `Menu`,
+    `Popover` and `ComboMenu` already do), and `Sheet`/`Overlay` veto an `outside-press`/
+    `escape-key` dismissal while the register is warm. Add a hand-rolled popover ⇒ register it.
+  - **A phone bottom sheet is closed by pushing it down.** `overlays/swipeDismiss`, spread on the
+    popup by `Sheet` and `Overlay` (`swipeToClose`, on by default) — never a per-surface copy. It
+    measures that the popup IS a bottom sheet, leaves a scrolled body its own gesture, never starts
+    on a control, and `Sheet` draws the one grab bar (`.ui-sheet-grab`, the same 40×5px pill as the
+    `.ctx` editors' `.sheet-grip`).
+  - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`
+    (+ `ui-menu-danger`), which carries the hover (`--blue` at 8 %, gated on `hover: hover`), the
+    keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
+    (13-incident.css · «ONE menu row»). A caller's `itemClassName` skin owns padding, type and
+    icons — never what a press looks like. Hand-rolled option lists (`.combo-opt`, `.pickOpt`,
+    `.pp-row`, `.tb-uhr-row`, `.ip-ac-row`, `.lrow`) match those values.
 - **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
   `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
   and the geocoder bbox. Reference-layer GeoJSON (hydrants, …) must be WGS84.

@@ -127,10 +127,13 @@ function kindCopy(kind: ShareLinkKind) {
  *
  *  `archived` drops the Atemschutz tab: that link dies with the Einsatz (404), so after the
  *  Abschluss it is not a choice but a dead end — see `lib/viewLink · shareDoors`. */
-export function ShareIncident({ incidentId, initialKind = 'view', archived, onState }: {
+export function ShareIncident({ incidentId, initialKind = 'view', archived, autoCreate, onState }: {
   incidentId: string
   initialKind?: ShareLinkKind
   archived?: boolean
+  /** mint the `initialKind` link straight away when the door that opened this sheet already IS
+   *  the decision — see the effect below */
+  autoCreate?: boolean
   onState?: (kind: ShareLinkKind, link: ShareLink) => void
 }) {
   const C = appConfig.copy.preflight
@@ -218,6 +221,28 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
     setBusy(true)
     try { setLink(kind, await fn()) } catch { toast(failure) } finally { setBusy(false) }
   }
+
+  /* ONE TAP (18.09.2026). The QR beside the Atemschutz bell is pressed by somebody already
+     holding the other phone out — «Überwachung abgeben» IS the decision, and a sheet that then
+     asks «Link erstellen?» is the same question a second time (the reasoning that removed the
+     chooser step in front of this sheet on 03.09.). So that door mints as soon as the fetch says
+     there is none, and what opens is the QR.
+     Three guards, all load-bearing: only the kind the door meant (switching tabs by hand is a
+     decision of its own and must not mint anything), only once per sheet (`minted`, so «Link
+     aufheben» leaves the sheet revoked instead of instantly re-minting), and only on a REAL
+     answer — `links[kind] === undefined` is «not asked yet» and `failed[kind]` is «the question
+     came back unanswered», neither of which says a link does not exist. */
+  const minted = useRef(false)
+  useEffect(() => {
+    if (!autoCreate || minted.current || busy) return
+    if (kind !== initialKind) return
+    const known = links[kind]
+    if (known === undefined || failed[kind]) return
+    if (known.enabled && viewLinkUrl(known)) return
+    minted.current = true
+    void run(() => createShareLink(incidentId, kind), C.shareCreateFailed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `run`/`C` are re-made every render
+  }, [autoCreate, incidentId, initialKind, kind, links, failed, busy])
 
   const kc = kindCopy(kind)
 
@@ -313,17 +338,18 @@ export function ShareIncident({ incidentId, initialKind = 'view', archived, onSt
  *  door means; only the QR passes one, because standing on the Tafel it is the only link it
  *  could have meant. `fit` — there are at most seven things on it, and the uniform 800px frame
  *  would be mostly empty below them. */
-export function ShareIncidentSheet({ incidentId, initialKind, archived, onClose, onState }: {
+export function ShareIncidentSheet({ incidentId, initialKind, archived, autoCreate, onClose, onState }: {
   incidentId: string
   initialKind?: ShareLinkKind
   archived?: boolean
+  autoCreate?: boolean
   onClose: () => void
   onState?: (kind: ShareLinkKind, link: ShareLink) => void
 }) {
   return (
     <Modal title={appConfig.copy.incidentSwitcher.share} onClose={onClose} fit>
       <div className="esh">
-        <ShareIncident incidentId={incidentId} initialKind={initialKind} archived={archived} onState={onState} />
+        <ShareIncident incidentId={incidentId} initialKind={initialKind} archived={archived} autoCreate={autoCreate} onState={onState} />
       </div>
     </Modal>
   )

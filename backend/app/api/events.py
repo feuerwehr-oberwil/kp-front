@@ -57,7 +57,19 @@ async def list_events(
 # new ops inside a domain need no list edit; a new DOMAIN is the same deliberate decision as
 # widening the workspace allowlist. ⚠️ Keep in step with what the frontend's canWriteRecord
 # surfaces emit — one refused op_type 403s the whole batch and wedges the outbox behind it.
-EL_EVENT_PREFIXES = ("attendance.", "checklist.", "mittel.", "report.", "journal.", "reminder.", "weather.")
+EL_EVENT_PREFIXES = (
+    "attendance.",
+    "checklist.",
+    "mittel.",
+    "report.",
+    "journal.",
+    "reminder.",
+    "weather.",
+    # the Zeitplan — ``shifts``/``bands`` are record keys, so an ``el`` plans shifts, and
+    # since 18.09.2026 the Zeitplan is on the one undo timeline: its ``shift.undo`` would
+    # otherwise 403 the whole batch the first time an Einsatzleiter pressed ↶.
+    "shift.",
+)
 
 
 def _el_event_ok(op_type: str) -> bool:

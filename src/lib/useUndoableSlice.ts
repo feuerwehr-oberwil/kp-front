@@ -24,8 +24,17 @@ import { appConfig } from '../config/appConfig'
  * the caller can name what changed in the Verlauf without keeping a second copy of the state.
  */
 export interface UndoableSlice<T> {
-  /** write + checkpoint — the one path an editing action should use */
-  set: Dispatch<SetStateAction<T>>
+  /**
+   * write + checkpoint — the one path an editing action should use.
+   *
+   * Returns whether a NEW step was laid down, so the caller knows whether to put an entry on
+   * the global timeline as well. `coalesce` is asked, with the two states, whether this write
+   * belongs to the step already on the stack: a surface that persists on every KEYSTROKE (the
+   * Rapport) would otherwise fill the whole history with one sentence, and ↶ would give back
+   * one character at a time. Folding writes through without a checkpoint, so the step that
+   * stands already grows to cover it — `false`/absent is the ordinary «this is its own step».
+   */
+  set: (update: SetStateAction<T>, opts?: { coalesce?: (prev: T, next: T) => boolean }) => boolean
   undo: () => { from: T; to: T } | null
   redo: () => { from: T; to: T } | null
   canUndo: boolean
@@ -34,7 +43,17 @@ export interface UndoableSlice<T> {
   clear: () => void
 }
 
-export function useUndoableSlice<T>(value: T, setValue: Dispatch<SetStateAction<T>>, readOnly = false): UndoableSlice<T> {
+export function useUndoableSlice<T>(
+  value: T,
+  setValue: Dispatch<SetStateAction<T>>,
+  readOnly = false,
+  /** Fields that ride OUTSIDE the history: given the snapshot about to be restored and the state
+   *  standing right now, return what should actually be written. The Rapport's machine-written
+   *  bookkeeping is the case (lib/reportUndo · keepMachineFields) — a ↶ of a typed sentence must
+   *  not hand back an outstanding print job with it. Applied to `undo` and `redo` alike, so the
+   *  slice's `latest` and the state the caller sees can never disagree. */
+  onRestore?: (to: T, live: T) => T,
+): UndoableSlice<T> {
   const [past, setPast] = useState<T[]>([])
   const [future, setFuture] = useState<T[]>([])
   const cap = appConfig.defaults.historyCap
@@ -46,14 +65,20 @@ export function useUndoableSlice<T>(value: T, setValue: Dispatch<SetStateAction<
   const latest = useRef(value)
   latest.current = value
 
-  const set: Dispatch<SetStateAction<T>> = (update) => {
-    if (readOnly) return
+  const set: UndoableSlice<T>['set'] = (update, opts) => {
+    if (readOnly) return false
     const before = latest.current
-    setPast((p) => [...p, before].slice(-cap))
-    setFuture([])
     const next = typeof update === 'function' ? (update as (prev: T) => T)(before) : update
+    // ⚠️ Asked BEFORE the checkpoint and with both states, because only the caller can say what
+    // this write was: another letter in a Kurzbericht, or a row that appeared.
+    const fold = opts?.coalesce?.(before, next) ?? false
+    if (!fold) {
+      setPast((p) => [...p, before].slice(-cap))
+      setFuture([])
+    }
     latest.current = next
     setValue(next)
+    return !fold
   }
   const step = (from: 'past' | 'future') => {
     const stack = from === 'past' ? past : future
@@ -67,9 +92,10 @@ export function useUndoableSlice<T>(value: T, setValue: Dispatch<SetStateAction<
       setPast((p) => [...p, cur])
       setFuture((f) => f.slice(1))
     }
-    latest.current = to
-    setValue(to)
-    return { from: cur, to }
+    const put = onRestore ? onRestore(to, cur) : to
+    latest.current = put
+    setValue(put)
+    return { from: cur, to: put }
   }
   // stable (only stable setters) so callers can keep it out of effect deps
   const clear = useCallback(() => { setPast([]); setFuture([]) }, [])

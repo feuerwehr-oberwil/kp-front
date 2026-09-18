@@ -24,6 +24,9 @@ vi.mock('pdfjs-dist', () => ({
 const canvases: { el: HTMLCanvasElement; width: number; height: number }[] = []
 beforeEach(() => {
   vi.clearAllMocks()
+  // the document's BYTES come from one plain GET now (lib/pdfBytes), not from pdf.js' own
+  // range-requesting fetch — that is what makes the file cacheable at all (18.09.2026)
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([0x25, 0x50, 0x44, 0x46]))))
   canvases.length = 0
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement) {
     canvases.push({ el: this, width: this.width, height: this.height })

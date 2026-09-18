@@ -434,11 +434,19 @@
 @media (hover: hover) { .qX:hover { background: var(--fill-soft); color: var(--ink); } }
 .qX:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .qX svg { width: 15px; height: 15px; }
-.qSummary { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
-  padding: 2px 2px 4px; color: var(--ink-dim); font: 600 12.5px/1.4 var(--body); }
-.qSummary span { white-space: nowrap; }
+/* ⚠️ The row WRAPS (18.09.2026). Its left column used to be `nowrap` — written when it held a
+   count («3 Paare») — and then grew sentences: «Automatisch ausgerichtet», «Von der Station
+   freigegeben». At 15px mono that is ~240px of unbreakable text beside the value column, in a
+   dock that is 338px wide on a 360px phone, and it left the panel through its right edge. Both
+   columns may now shrink and the value may drop onto its own line. */
+.qSummary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 2px 16px; padding: 2px 2px 4px; color: var(--ink-dim); font: 600 12.5px/1.4 var(--body); }
+.qSummary span, .qSummary strong { min-width: 0; overflow-wrap: anywhere; }
 .qSummary span b { color: var(--ink); font: 700 15px var(--mono); }
 .qSummary strong { color: var(--ink); font: 700 15px/1.35 var(--body); text-align: right; }
+/* the calm twin of .qWarn: an approved fit states who vouches for it, and states it in the
+   panel's own voice — an amber box would call a published reference a defect */
+.qNote { padding: 0 2px; color: var(--ink-dim); font: 600 12px/1.45 var(--body); }
 .qWarn {
   display: flex; gap: 9px; padding: 9px 11px; border-radius: var(--r-sm);
   font: 600 12px/1.45 var(--body);

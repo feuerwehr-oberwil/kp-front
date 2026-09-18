@@ -1,5 +1,6 @@
-import type { ReactElement, ReactNode } from 'react'
+import { useState, type ReactElement, type ReactNode } from 'react'
 import { Popover as BasePopover } from '@base-ui/react/popover'
+import { usePopoverGuard } from './popoverGuard'
 
 /**
  * Anchored, non-modal popover — wraps Base UI's Popover. The Positioner anchors to the trigger
@@ -34,8 +35,12 @@ export interface PopoverProps {
 }
 
 export function Popover({ trigger, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, collisionPadding = 10, zIndex, open, onOpenChange }: PopoverProps) {
+  // uncontrolled callers give us no `open` to read, so the Root reports it — a popover open over
+  // a Sheet/Overlay keeps that sheet's backdrop/Esc dismissal off (popoverGuard)
+  const [isOpen, setIsOpen] = useState(false)
+  usePopoverGuard(open ?? isOpen)
   return (
-    <BasePopover.Root open={open} onOpenChange={onOpenChange}>
+    <BasePopover.Root open={open} onOpenChange={(next) => { setIsOpen(next); onOpenChange?.(next) }}>
       <BasePopover.Trigger render={trigger} />
       <BasePopover.Portal>
         <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding} style={zIndex != null ? { zIndex } : undefined}>

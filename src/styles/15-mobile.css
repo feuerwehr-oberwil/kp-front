@@ -31,8 +31,8 @@
 @media (hover: hover) {
   .fab-entry:hover { filter: brightness(1.05); }
 }
-/* press = the house ink wash (02-base.css) over the dark fill; the transform transition above
-   stays — the «quiet» step-back still scales */
+/* press = the house ink wash (02-base.css) over the dark fill — nothing moves on press
+   (AGENTS.md · touch vocabulary) */
 .fab-entry:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* names the LABEL, not every span — see the note on .tb-act-add in 10-journal.css */
   .fab-entry .i, .fab-entry .tb-act-label { position: relative; z-index: 1; }
@@ -40,12 +40,12 @@
 /* recording: the FAB turns red + shows the running timer, same as the TopBar Eintrag */
 .fab-entry.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
 .fab-entry.rec span { font-family: var(--mono); }
-/* while something underneath is being scrolled the circle steps back — smaller, half-transparent,
-   so the row or the curve it sits on can be READ during the gesture. It never moves and never
-   disappears (it is the only way to log from the field on a phone), and it is back at full size
-   ~400ms after the finger stops, so nothing about where it is has to be remembered. A recording
-   FAB stays loud: a running voice memo is not something to make quiet. */
-.fab-entry.quiet:not(.rec) { transform: scale(.82); opacity: .5; box-shadow: none; }
+/* ⚠️ NO «quiet» step-back any more (18.09.2026, field ask). The circle used to shrink to .82
+   and half-fade while anything underneath was scrolled: on the Journal, where the list is
+   scrolled constantly, the one button that logs from the field spent most of its life small and
+   pale, and it read as a button that was disappearing rather than one getting out of the way.
+   It now keeps one size and one opacity at all times. (The `quiet` class and its scroll listener
+   went with it — see FabEntry.) */
 @media (prefers-reduced-motion: reduce) { .fab-entry { transition: none; } }
 
 /* ---- Tablet (the primary device, ~768–1024px): the desktop layout's fixed-width side
@@ -441,11 +441,9 @@
      ⚠️ CHROME ONLY. Translating the box that contains the caret moves the field back under the
      keyboard, iOS pans further to reveal it, and round it goes — the loop useKeyboardInset
      documents. Neither of these two holds a text field.
-     ⚠️ NOT the FAB: it already carries a transform of its own (the «quiet» step-back while
-     something under it scrolls), and a second `transform` on the same element
-     replaces rather than composes — the circle would snap back to the panned position the moment
-     a thumb touched it. It is a floating action anyway; those ride above a keyboard in native
-     apps too. */
+     ⚠️ NOT the FAB: it is a floating action, and those ride above a keyboard in native apps
+     too. (It also used to carry a transform of its own, and a second `transform` on the same
+     element replaces rather than composes.) */
   .topbar, .navrail { transform: translateY(var(--vv-pan, 0px)); }
 
   /* ── NavRail → bottom bar on a phone ── the SAME surface items, re-laid-out as a
@@ -615,6 +613,20 @@
   /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
      .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */
   .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
+  /* …and now it can be pushed back down (lib/overlays · swipeDismiss). The bar is the SAME
+     40×5px pill as the `.ctx` editors' grip below, hung in the same 24px band clear of the
+     sheet's --r-hero corner curve — one shape, one gesture, whichever sheet is open. It is
+     decorative: the drag lives on the whole sheet (header, or a body already scrolled to its
+     top), so nothing depends on hitting it. */
+  .ui-sheet-grab { display: flex; align-items: flex-end; justify-content: center; flex: none;
+    height: 24px; padding: 0 0 5px; }
+  .ui-sheet-grab span { width: 40px; height: 5px; border-radius: var(--r-pill); background: var(--border); }
+  /* the head is the sheet's handle, so it must not hand the vertical gesture to the browser
+     first — same reason `.ctx-head` carries it (below). Its own controls opt back in. */
+  .ip-sheet .ip-head { touch-action: none; }
+  .ip-sheet .ip-head button, .ip-sheet .ip-head input { touch-action: auto; }
+  /* with a grab bar above it the head no longer needs its own top gutter */
+  .ip-sheet .ui-sheet-grab + .ip-head { padding-top: 4px; }
   /* …and with the keyboard up it stays a bottom sheet, lifted by the inline `marginBottom`
      (13-incident.css rides a CENTRED sheet to the top instead — that rule outweighs the line
      above, so it is undone here) and capped so the lifted sheet cannot run off the top. */
@@ -830,7 +842,13 @@
   /* title ALWAYS owns its line (wrapping instead of mid-word ellipsis), so the badges land
      together on the row below — not sometimes-beside, sometimes-under (landing feedback) */
   .ip-hist-name { flex: 1 1 100%; white-space: normal; }
+  /* ⚠️ Only the FIRST action takes the auto margin. With it on every button the wrapped row had
+     two auto margins in it, and flexbox split the free space BETWEEN them — «Wieder öffnen» sat
+     at the left of the row and «Löschen» at the right, with a hand's width of nothing between
+     two actions that belong to the same Einsatz (18.09.2026). One auto margin pushes the whole
+     pair to the right end, the flex gap holds them apart. */
   .ip-hist > .ip-btn { margin-left: auto; }
+  .ip-hist > .ip-btn + .ip-btn { margin-left: 0; }
 }
 
 /* Below ~355px even the 88px freed by dropping undo/redo is not enough for the Atemschutz

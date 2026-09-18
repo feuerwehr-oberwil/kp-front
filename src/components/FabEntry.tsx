@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fmtMMSS } from '../lib/format'
 import { useHoldEntry } from '../lib/useHoldEntry'
@@ -32,32 +32,16 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
   // tap instead of the whole workspace.
   const georefArmed = !!useGeorefMode().planId
 
-  // The circle steps back while something under it is being scrolled, so the row / curve it
-  // covers can be read during the gesture. Scroll does not bubble, hence the capture listener:
-  // one for every scroller in the app. State flips exactly TWICE per gesture (in, and out on the
-  // idle timer) — a setState per scroll event is the shape of the battery bug this app already
-  // had once (see the media-queue commit storm), and it is not needed for two class changes.
-  const [quiet, setQuiet] = useState(false)
-  const quietRef = useRef(false)
-  useEffect(() => {
-    let idle: ReturnType<typeof setTimeout> | undefined
-    const onScroll = () => {
-      if (!quietRef.current) { quietRef.current = true; setQuiet(true) }
-      clearTimeout(idle)
-      idle = setTimeout(() => { quietRef.current = false; setQuiet(false) }, 400)
-    }
-    window.addEventListener('scroll', onScroll, { capture: true, passive: true })
-    return () => {
-      clearTimeout(idle)
-      window.removeEventListener('scroll', onScroll, { capture: true })
-    }
-  }, [])
+  // ⚠️ There is deliberately NO scroll-triggered «quiet» mode any more (18.09.2026): the circle
+  // used to shrink and half-fade while anything under it was scrolled, which on the Journal was
+  // most of the time. One size, one opacity, always — it is the only way to log from the field
+  // on a phone, and a control that keeps changing shape cannot be aimed at without looking.
 
   if (georefArmed) return null
 
   return (
     <button
-      className={`fab-entry ${recording ? 'rec' : ''} ${quiet ? 'quiet' : ''} ${latched ? 'cancelling' : ''}`}
+      className={`fab-entry ${recording ? 'rec' : ''} ${latched ? 'cancelling' : ''}`}
       style={latched && anchor ? { width: anchor.width } : undefined}
       aria-label={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.add}
       title={recording ? appConfig.copy.journal.recordStop : appConfig.copy.journal.addHint}

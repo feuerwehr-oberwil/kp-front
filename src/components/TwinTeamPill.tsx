@@ -17,7 +17,7 @@
  *  that is absent draws no button. That is how the plan board keeps its chip colour in the
  *  SelectionBar (no swatch here), and how a read-only Karte shows the pill with no bar at all.
  */
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
@@ -100,6 +100,74 @@ export interface TwinTeamActions {
   undock?: () => void
 }
 
+/** How much of the stage an edge-hugging bar must keep to itself. */
+const EDGE_MARGIN = 8
+/** The gap the bar keeps from the marker — the same number `.wb-pill-acts` states in CSS. */
+const BAR_GAP = 9
+/** The lanes a phone pins over the bottom of the stage (pill row, tool rail, tool dock). They are
+ *  `position: fixed` only where they actually cover the surface, and none of them exists on the
+ *  Karte — so this is a query, never a table of per-surface offsets. */
+const BOTTOM_LANES = '.wb-botleft, .wb-tools, .wb-dock'
+
+/**
+ * Keep the action bar on screen. It hangs BELOW the marker, and a marker low on the stage put it
+ * under the phone's fixed bottom lanes — or straight past the canvas' own `overflow: hidden`
+ * edge, where it was simply cut off. So the bar MEASURES where it landed: not enough room below
+ * (and more above) flips it above the marker, and it slides sideways until both canvas edges are
+ * clear by EDGE_MARGIN. `data-flip="up"` is the one signal, so the connections panel that hangs
+ * under the bar on the Plan follows it through a CSS sibling selector rather than a second
+ * measurement. The anchor is the bar's own offset parent — `.wb-anno` on the Plan, `.marker` on
+ * the Karte — so both surfaces get this from the same code.
+ */
+function useBarPlacement(on: boolean) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [place, setPlace] = useState({ up: false, dx: 0 })
+  // no dep array on purpose: every render re-measures, which is what a dragged or re-labelled
+  // marker needs. The state guard below makes it converge in one extra pass at most.
+  useLayoutEffect(() => {
+    if (!on) return
+    const measure = () => {
+      const el = ref.current
+      const anchor = el?.parentElement
+      if (!el || !anchor) return
+      const stage = el.closest('.wb-canvas')?.getBoundingClientRect()
+      const ceil = Math.max(stage?.top ?? 0, 0)
+      let floor = Math.min(stage?.bottom ?? window.innerHeight, window.innerHeight)
+      for (const lane of Array.from(document.querySelectorAll(BOTTOM_LANES))) {
+        const r = lane.getBoundingClientRect()
+        if (r.height > 0 && getComputedStyle(lane).position === 'fixed') floor = Math.min(floor, r.top)
+      }
+      const a = anchor.getBoundingClientRect()
+      const bar = el.getBoundingClientRect()
+      // whatever hangs under the bar counts towards the room the bar needs — it moves with it
+      const panel = anchor.querySelector('.wb-resource-connections')?.getBoundingClientRect()
+      const need = BAR_GAP + bar.height + (panel?.height ? panel.height + 4 : 0) + EDGE_MARGIN
+      const below = floor - a.bottom
+      const up = below < need && a.top - ceil > below
+      // ⚠️ The nudge is computed ABSOLUTELY — from where the bar would sit UNshifted — never as a
+      // correction to the shift already applied. Reading its own effect back makes the pass depend
+      // on the browser having laid the last one out, and one environment that does not (jsdom
+      // measures every rect as zero) walks the bar off the screen one pass per render.
+      const minX = (stage?.left ?? 0) + EDGE_MARGIN
+      const maxX = (stage?.right ?? window.innerWidth) - EDGE_MARGIN
+      const home = a.left + a.width / 2 - bar.width / 2
+      let dx = 0
+      if (home + bar.width > maxX) dx = maxX - bar.width - home
+      if (home + dx < minX) dx = minX - home
+      dx = Math.round(dx)
+      setPlace((p) => (p.up === up && p.dx === dx ? p : { up, dx }))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  })
+  return [ref, place] as const
+}
+
 export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, trailCount, trailShown, trupps, line, acts, hit, renameRef, renaming: renamingProp, onRenaming }: {
   name: string
   time?: string
@@ -138,7 +206,17 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
 }) {
   // inline rename on the pill's pen — the same grammar every surface uses
   const [selfRenaming, setSelfRenaming] = useState(false)
+  const [barRef, barPlace] = useBarPlacement(!!acts)
   const renaming = renamingProp ?? selfRenaming
+  /* The field is CONTROLLED since 18.09.2026, for the ✕ beside it: a `defaultValue` input cannot
+     be emptied from the outside, and «Trupp Nord 2» is exactly the kind of free-text name that
+     gets rewritten rather than corrected (the reason ClearableInput exists — its 44px ✕ and its
+     form geometry do not fit a 76px field on the map, so this is the same idea at pill size). */
+  const [draft, setDraft] = useState(name)
+  // seeded when the edit OPENS, not on every name change: a rename landing from sync mid-edit
+  // must not overwrite what is being typed here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (renaming) setDraft(name) }, [renaming])
   const setRenaming = onRenaming ?? setSelfRenaming
   const rename = acts?.rename
   const pick = acts?.pick
@@ -170,14 +248,27 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
       <span className="wb-resource-body">
         <span className="wb-resource-name">
           {renaming && rename
-            ? <input className="wb-resource-input" autoFocus={!renameRef} ref={renameRef} defaultValue={name}
-                onPointerDown={(ev) => ev.stopPropagation()}
-                onBlur={(ev) => { rename(ev.target.value); setRenaming(false) }}
-                onKeyDown={(ev) => {
-                  if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
-                  // Esc abandons: blur would commit, so drop the edit first
-                  if (ev.key === 'Escape') { ev.stopPropagation(); setRenaming(false) }
-                }} />
+            ? <span className="wb-resource-edit">
+                <input className="wb-resource-input" autoFocus={!renameRef} ref={renameRef} value={draft}
+                  onPointerDown={(ev) => ev.stopPropagation()}
+                  onChange={(ev) => setDraft(ev.target.value)}
+                  onBlur={(ev) => { rename(ev.target.value); setRenaming(false) }}
+                  onKeyDown={(ev) => {
+                    if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur()
+                    // Esc abandons: blur would commit, so drop the edit first
+                    if (ev.key === 'Escape') { ev.stopPropagation(); setDraft(name); setRenaming(false) }
+                  }} />
+                {/* ✕ empties the field WITHOUT committing or closing — `preventDefault` on the
+                    press keeps the focus (and the phone keyboard) on the field the operator is
+                    about to type the new name into, exactly as ClearableInput does it. */}
+                {draft !== '' && (
+                  <button type="button" className="wb-resource-clear"
+                    title={appConfig.copy.atemschutz.clearName} aria-label={appConfig.copy.atemschutz.clearName}
+                    onPointerDown={(ev) => { ev.preventDefault(); ev.stopPropagation() }}
+                    onClick={() => setDraft('')}
+                  ><Icon id="close" /></button>
+                )}
+              </span>
             : <b>{name}</b>}
           {/* no «#N» badge here either (14.09.) — on the picture the name alone is the label, the
               number lives on the Atemschutz card (docs/trupp-naming.md §2) */}
@@ -191,7 +282,9 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
     <>
       {hit ? hit(pill) : pill}
       {acts && (
-        <div className="wb-pill-acts" onPointerDown={(ev) => ev.stopPropagation()}>
+        <div ref={barRef} className="wb-pill-acts" data-flip={barPlace.up ? 'up' : undefined}
+          style={{ transform: `translateX(calc(-50% + ${barPlace.dx}px))` }}
+          onPointerDown={(ev) => ev.stopPropagation()}>
           {/* «Lösen» (15.09.): the one explicit way to part the marker from what it hangs on – its
               Leitung, the symbol it is docked to, or both at once. A glyph, first in the bar: the
               pill's own «1» chip already says which Leitung, and the words «Leitung 1 · Trupp 3»
@@ -204,8 +297,16 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               marker is named by the Atemschutz board, so it gets no pen: renaming it here would
               fork the two names apart. */}
           {!truppId && rename && (
-            <button className="wb-pa" title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
-              onClick={() => setRenaming(true)}><Icon id="pen" /></button>
+            // blue while the field is open — the same `--blue` «this is armed» the bar's other
+            // state-carrying button wears, so the pen says which mode the pill is in
+            // ⚠️ `preventDefault` on the press, like the ✕ beside the field: without it the pen
+            // could never CLOSE the edit — pressing it blurred the input first (commit +
+            // `setRenaming(false)`), so the click that followed found `renaming` already false
+            // and opened the field straight back up.
+            <button className={`wb-pa${renaming ? ' wb-pa-edit' : ''}`} aria-pressed={renaming}
+              title={appConfig.copy.edit} aria-label={appConfig.copy.edit}
+              onPointerDown={(ev) => { ev.preventDefault(); ev.stopPropagation() }}
+              onClick={() => setRenaming(!renaming)}><Icon id="pen" /></button>
           )}
           {truppId && showTrupp && (
             <button className="wb-pa wb-pa-show" title={appConfig.copy.whiteboard.showTrupp} aria-label={appConfig.copy.whiteboard.showTrupp}

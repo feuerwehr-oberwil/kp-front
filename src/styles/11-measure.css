@@ -238,9 +238,9 @@
    phone's width — same guard the print menu and the context menu already carry. */
 .de-menu-pop { min-width: 200px; max-width: min(320px, 92vw); padding: 6px; border-radius: var(--r-ctl); background: var(--surface);
   box-shadow: var(--shadow); border: 1px solid var(--glass-edge); z-index: var(--z-popover); }
+/* skin only — radius + hover/press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
 .de-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; min-height: var(--tap);
-  padding: 0 11px; border-radius: var(--r-sm); cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none; }
-.de-menu-item[data-highlighted] { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  padding: 0 11px; cursor: pointer; font: 600 13.5px var(--body); color: var(--ink); outline: none; }
 /* the tick marks the current pick; the empty slot keeps every label on the same left edge */
 .de-menu-tick { flex: none; width: 15px; height: 15px; visibility: hidden; color: var(--blue); }
 .de-menu-tick.on { visibility: visible; }

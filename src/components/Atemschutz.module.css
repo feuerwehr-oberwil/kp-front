@@ -931,12 +931,14 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    would otherwise clip the menu at its overflow boundary. Keep it above modal sheets (@80/81)
    as well as drawers (.ctx @62), but below the toaster (@90). */
 .comboMenuPortal { position: fixed; right: auto; z-index: var(--z-dialog-menu); }
+/* the app's one option-row treatment — hover 8 % of --blue, the --press wash, --r-ctl
+   (13-incident.css · «ONE menu row»). */
 .comboOpt {
   width: 100%; display: flex; align-items: center; gap: 9px; cursor: pointer; text-align: left;
-  border: none; background: none; border-radius: var(--r-xs); padding: 9px 10px; min-height: var(--tap);
+  border: none; background: none; border-radius: var(--r-ctl); padding: 9px 10px; min-height: var(--tap);
   font: 600 14px var(--body); color: var(--ink);
 }
-@media (hover: hover) { .comboOpt:hover { background: var(--fill-soft); } }
+@media (hover: hover) { .comboOpt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
 .comboOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .comboDot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .comboDotPresent { background: var(--green); }
@@ -1712,10 +1714,17 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* ── Ausrüstung (14.09., mock «chips + Kennzeile») ───────────────────────────────────────────
    Multi-select chips in the form: the same row shape as the Art tiles, but pills with a tick
    box, so «several go» is visible before the first tap. On = ink fill, the box inverts. */
-.eqChips { display: flex; flex-wrap: wrap; gap: 8px; }
-.eqChip { display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap); padding: 0 14px;
+/* ⚠️ Sized so the three default chips (Retthaube · WBK · Multiwarn) stand on ONE line on a
+   360px phone (18.09.2026). Measured: the sheet is 100vw there with 20px of body padding, so
+   320px are free, and 10px of chip padding + the 16px box + a 6px inner gap + 12.5px labels
+   comes to ~300px. 12.5/700 is also the app's compact button type (AGENTS.md · buttons) — the
+   13.5px here was off-spec and cost the line ~15px. `flex-wrap: wrap` stays: a station may list
+   more (or longer) equipment than the three defaults, and then wrapping is the right answer.
+   `white-space: nowrap` only says a single label never breaks mid-word. */
+.eqChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.eqChip { display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 10px;
   border: 1.5px solid var(--glass-edge); border-radius: 999px; background: var(--surface);
-  font: 700 13.5px var(--body); color: var(--ink); cursor: pointer; }
+  font: 700 12.5px var(--body); color: var(--ink); cursor: pointer; white-space: nowrap; }
 .eqChip:active { background-image: linear-gradient(var(--press), var(--press)); }
 .eqChipOn { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 .eqBox { display: grid; place-items: center; width: 16px; height: 16px; flex: none;

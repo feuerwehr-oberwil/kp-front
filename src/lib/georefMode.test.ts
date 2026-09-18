@@ -32,6 +32,10 @@ import {
   type GeorefSlot,
 } from './georefMode'
 import { fitSimilarity, realPairCount, PAIR_EPS_N, type GeoPt, type Georef, type GeorefPair, type PlanPt } from './georef'
+import { incidentGeorefKey, registerIncidentPlanBindings } from './incidentPlanBindings'
+import { appConfig } from '../config/appConfig'
+
+const C = appConfig.copy.whiteboard.georef
 
 // The store persists on its own (the surface that completes a pair may be unmounted by then), so
 // the write is stubbed rather than the network.
@@ -987,6 +991,72 @@ describe('georefReduce · the automatic suggestion (proposal review)', () => {
     expect(georefReduce(s, { type: 'proposalNudge', nudge: { dxM: 5 }, checkpoint: true })).toBe(s)
     expect(georefReduce(s, { type: 'proposalUndo' })).toBe(s)
     expect(georefReduce(s, { type: 'proposalRestore' })).toBe(s)
+  })
+})
+
+describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen» (18.09.2026)', () => {
+  const AUTO_PAIRS: GeorefPair[] = [
+    { plan: { x: 0.15, y: 0.15 }, lngLat: mapOf({ x: 0.15, y: 0.15 }), kind: 'auto' },
+    { plan: { x: 0.85, y: 0.85 }, lngLat: mapOf({ x: 0.85, y: 0.85 }), kind: 'auto' },
+  ]
+  const KEY = incidentGeorefKey('inc-1', 'object:o1:plan:modul2')
+  /** the REAL approval signal: a binding the station published, registered exactly as the
+   *  workspace registers it — no heuristic on the pairs, which cannot tell the two apart */
+  const withBinding = (source: 'approved' | 'legacy', override?: Georef) =>
+    registerIncidentPlanBindings('inc-1', {
+      bindings: [{
+        id: 'object:o1:plan:modul2', objectId: 'o1', planId: 'modul2', datasetId: 'plan:o1:modul2',
+        planVersion: 3, page: 0, title: 'Modul 2', georef: { pairs: AUTO_PAIRS }, source, override,
+      }],
+      save: vi.fn(),
+    })
+
+  it('the chip drops the warning tone once the fit is approved — and still claims no ⌀', () => {
+    const fit = fitSimilarity(AUTO_PAIRS, AR)
+    expect(georefChip(fit, GEOREF_OFF, 'modul2', AUTO_PAIRS)).toMatchObject({ kind: 'linked', warn: true, residualM: null })
+    expect(georefChip(fit, GEOREF_OFF, 'modul2', AUTO_PAIRS, true)).toMatchObject({ kind: 'linked', warn: false, residualM: null })
+  })
+
+  it('…but keeps it while the approved fit is being corrected — one point beside the Automatik', () => {
+    // the chip read «verknüpft» here while the Ampel and the Passung panel stood amber about the
+    // very same fit: all three now ask `approvedUntouched` (lib/georef)
+    const mixed: GeorefPair[] = [{ ...AUTO_PAIRS[0] }, { ...AUTO_PAIRS[1], kind: 'gesetzt' }]
+    expect(georefChip(fitSimilarity(mixed, AR), GEOREF_OFF, 'modul2', mixed, true)).toMatchObject({ warn: true })
+  })
+
+  it('the lamp goes green and names the station instead of «ungemessen»', () => {
+    const release = withBinding('approved')
+    const mode = georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', storageKey: KEY, pairs: AUTO_PAIRS, aspect: AR })
+    const lamp = georefLamp(fitSimilarity(AUTO_PAIRS, AR), mode)
+    expect(lamp.tone).toBe('green')
+    expect(lamp.head).toBe(C.lampApprovedHead)
+    expect(lamp.body).toBe(C.lampApprovedBody)
+    expect(lamp.body).not.toContain(C.chipAuto)
+    release()
+  })
+
+  it('…while an unapproved proposal keeps its proposal wording', () => {
+    const release = withBinding('legacy')
+    const mode = georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', storageKey: KEY, pairs: AUTO_PAIRS, aspect: AR })
+    const lamp = georefLamp(fitSimilarity(AUTO_PAIRS, AR), mode)
+    expect(lamp).toMatchObject({ tone: 'amber', head: C.lampAutoHead, body: C.warnAuto })
+    release()
+  })
+
+  it('one hand-set point beside the Automatik is a correction in progress — amber, not green', () => {
+    const release = withBinding('approved')
+    const mixed: GeorefPair[] = [{ ...AUTO_PAIRS[0] }, { ...AUTO_PAIRS[1], kind: 'gesetzt' }]
+    const mode = georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', storageKey: KEY, pairs: mixed, aspect: AR })
+    expect(georefLamp(fitSimilarity(mixed, AR), mode)).toMatchObject({ tone: 'amber', head: C.autoOneHead })
+    release()
+  })
+
+  it('an operator correction disconnects the approval — the proposal wording is back', () => {
+    // an override IS the operator's own fit (incidentPlanBindings · incidentBindingApproved)
+    const release = withBinding('approved', { pairs: AUTO_PAIRS })
+    const mode = georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', storageKey: KEY, pairs: AUTO_PAIRS, aspect: AR })
+    expect(georefLamp(fitSimilarity(AUTO_PAIRS, AR), mode)).toMatchObject({ tone: 'amber', head: C.lampAutoHead })
+    release()
   })
 })
 

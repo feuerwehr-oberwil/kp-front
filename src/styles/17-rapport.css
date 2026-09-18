@@ -61,13 +61,12 @@
 .ui-ctxmenu { min-width: 208px; max-width: min(320px, 92vw); padding: 6px;
   background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
   box-shadow: var(--shadow); outline: none; }
+/* skin only — the row radius, the hover/keyboard wash, the press wash and the red row are the
+   shared `.ui-menu-item` / `.ui-menu-danger` this menu's rows also wear (13-incident.css). */
 .ui-ctxmenu-item { display: flex; align-items: center; gap: 8px; width: 100%;
-  min-height: 36px; padding: 0 10px; border: 0; border-radius: var(--r-ctl); background: none;
+  min-height: 36px; padding: 0 10px; border: 0; background: none;
   font: 600 13.5px var(--body); color: var(--ink); text-align: left; cursor: pointer; user-select: none; }
-.ui-ctxmenu-item[data-highlighted] { background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .ui-ctxmenu-item[data-disabled] { opacity: var(--disabled); cursor: default; }
-.ui-ctxmenu-item.danger { color: var(--red); }
-.ui-ctxmenu-item.danger[data-highlighted] { background: color-mix(in srgb, var(--red) 10%, transparent); }
 /* a rule above, separating «which state is it» from «what can I do to it» */
 .ui-ctxmenu-item[data-sep] { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--glass-edge);
   border-top-left-radius: 0; border-top-right-radius: 0; }
@@ -376,11 +375,17 @@
 .report-fieldset:disabled .report-att-x, .report-fieldset:disabled .report-row-add,
 .report-fieldset:disabled .report-partner-add { display: none; }
 
-/* Search-to-create under the Partner checklist: a picker, not a «+ Zeile» — what is typed into
-   its search row becomes the organisation (ReportPreflight · addPartner). Left-aligned and
-   capped, so it reads as one more control under the rows rather than a field spanning the
-   column; `.combo` itself is `flex: 1` and fills whatever it is given. */
-.report-partner-add { display: flex; align-self: flex-start; width: 100%; max-width: 280px; }
+/* Type-to-create under the Partner checklist: a plain field + «+», not a picker — what is typed
+   becomes the organisation (ReportPreflight · commitPartner). Left-aligned and capped, so it
+   reads as one more control under the rows rather than a field spanning the column. */
+.report-partner-add { display: flex; align-items: center; gap: 8px; align-self: flex-start; width: 100%; max-width: 280px; }
+.report-partner-add .ci { flex: 1 1 auto; min-width: 0; }
+.report-partner-go { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  cursor: pointer; }
+.report-partner-go:disabled { opacity: var(--disabled); cursor: default; }
+.report-partner-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.report-partner-go .i { width: 18px; height: 18px; }
 
 /* «+ Zeile» under a repeating block (Beilage) */
 .report-row-add { display: inline-flex; align-self: flex-start; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; cursor: pointer;
