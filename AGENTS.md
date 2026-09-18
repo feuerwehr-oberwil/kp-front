@@ -178,9 +178,15 @@ to prod.
     `lib/truppTrails`). Removing a chip / map marker (or the Trupp, via «Entfernen») moves its
     recorded positions into a synced GHOST TRAIL — read-only, grey, labelled «Trupp N», drawn on
     the storey it was walked on and in the frame it was recorded in (sheet-normalised for a plan,
-    geo for the Karte; never projected across). The trash therefore always removes the marker:
-    `deleteLocked` and the morphing trash are gone, and «Spur löschen» is its own button beside
-    it, with its own confirm. ⚠️ Ghosting is a RECONCILIATION over the marker set
+    geo for the Karte; never projected across). The marker's bar has ONE trash (`deleteLocked` and
+    the morphing trash are gone, and so is the short-lived footprint button beside it): with no
+    trail it removes the marker outright, and with one it opens the app's `Menu` — «Marker
+    entfernen» (the ghost stays) · «Spur löschen» · «Marker und Spur löschen», the last two danger
+    rows, each confirming first. The combined row leaves NO ghost: the surface arms the
+    reconciliation (`reconcileGhostTrails · dropped`, `IncidentWorkspace · armTrailDrop`) and the
+    ghost is born `removedAt`-stamped rather than skipped — a skipped one is ghosted again by the
+    next pass — so the marker's own ↶ is still the whole act.
+    ⚠️ Ghosting is a RECONCILIATION over the marker set
     (`reconcileGhostTrails`, one effect in `IncidentWorkspace`), NOT a write bolted onto each of
     the four removal paths — that is what keeps the removal's own ↶ ONE step: a marker that comes
     back takes its trail home and its ghost goes with it, and nothing was ever pushed onto the

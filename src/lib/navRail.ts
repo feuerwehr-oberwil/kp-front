@@ -107,15 +107,20 @@ export function moduleNumbers(doc: PlanDocument): number[] {
 
 /** What the phone bar's ONE folded «Pläne» tile stands for (18.09.2026).
  *
- *  A phone bar has room for seven tiles, and a station with four modules plus a Gebäude had
- *  eleven — so the bar scrolled, and the destinations past the fade could not be recognised at
- *  all. The plan documents fold into one tile whose sub-label names the document that is
- *  loaded, which is the recognition the per-document tiles were carrying. */
+ *  A phone bar has room for a handful of tiles, and a station with four modules plus a Gebäude
+ *  had eleven — so the bar scrolled, and the destinations past the fade could not be recognised
+ *  at all. The plan documents fold into one tile that WEARS the loaded document's own glyph (the
+ *  mono chip «1»/«RWA», the floor stack, the Tafel's pencil) and is worded «Pläne»: the glyph
+ *  carries the recognition, the word carries the destination.
+ *
+ *  ⚠️ No sub-label. It used to stack chip + «Pläne» + the document code into a 46px tile, three
+ *  lines of type where every other tile has one glyph and one word (field report 18.09.). The
+ *  code survives in the tile's aria-label, which is where a reader who cannot see the glyph
+ *  needs it. */
 export interface FoldedPlans {
-  /** the document a first tap opens — the active/last-used one, else the first in the list */
+  /** the document a first tap opens — the active/last-used one, else the first in the list.
+   *  It is also the tile's GLYPH, so `target.code` is all a label ever needs from it. */
   target: PlanDocument
-  /** the short code shown under «Pläne» — «Gebäude», «M6», «RWA» … */
-  sub: string
   /** more than one document, so there is something for a chooser to choose BETWEEN. With one
    *  document a second tap and a hold do nothing: a list of one answers no question. */
   many: boolean
@@ -130,5 +135,31 @@ export function foldPlanTiles(docs: PlanDocument[], activeId: string): FoldedPla
   // so «last used» needs no store of its own. An id that no longer resolves (the object was
   // switched) falls back to the first document instead of showing a code for nothing.
   const target = docs.find((d) => d.id === activeId) ?? docs[0]
-  return { target, sub: target.code, many: docs.length > 1 }
+  return { target, many: docs.length > 1 }
+}
+
+/**
+ * One stop of ⌘[ / ⌘] — the flat order the rail is read in, top to bottom.
+ *
+ * It is the RAIL's list, not the catalogue: the step lands on tiles, so a stop with no tile is
+ * a chevron that lands nowhere. That cuts both ways, and both ways are load-bearing —
+ *  · the Rapport is a tile everywhere, so it is a stop; leaving it out made the phone's
+ *    Anwesenheit/Material redirect a dead end (the step arrived on a mode the list did not
+ *    know, and the next press had nowhere to go from);
+ *  · Anwesenheit and Material lose their tiles the moment the phone bar folds them into that
+ *    Rapport (18.09.2026, NavRail · `fold`), so while it is folded they stop being stops.
+ */
+export type NavStop =
+  | { mode: 'plans'; planId: string }
+  | { mode: 'map' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport' }
+
+export function navStops(planIds: string[], phoneFold: boolean): NavStop[] {
+  return [
+    { mode: 'map' },
+    ...planIds.map((planId): NavStop => ({ mode: 'plans', planId })),
+    { mode: 'checklists' },
+    { mode: 'atemschutz' },
+    ...(phoneFold ? [] : [{ mode: 'anwesenheit' } as NavStop, { mode: 'mittel' } as NavStop]),
+    { mode: 'rapport' },
+  ]
 }

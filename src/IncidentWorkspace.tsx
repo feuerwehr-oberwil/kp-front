@@ -18,7 +18,7 @@ import { liveOverlay } from './lib/planProjection'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
-import { moduleNumbers } from './lib/navRail'
+import { moduleNumbers, navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
@@ -173,11 +173,12 @@ import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterId
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
-import { ReportPreflight, requestReportStep } from './components/ReportPreflight'
+import { ReportPreflight, requestReportStep, requestReportTab } from './components/ReportPreflight'
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
-import { ghostTrailLabel, mapGhostTrails, planGhostTrails, reconcileGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources, type TrailSource } from './lib/truppTrails'
+import { useGhostTrails } from './lib/useGhostTrails'
+import { ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen } from './lib/abschlussOpen'
@@ -335,6 +336,12 @@ export function IncidentWorkspace({
   // + sync alive (those hang off `readOnly`, which stays false for a editor). Tablets
   // and desktop keep full editing.
   const isPhone = useIsPhone()
+  /** The phone bar's FOLDED shape (18.09.2026): the plan documents collapse into one «Pläne»
+   *  tile, and Anwesenheit + Material give up their tiles to become tabs of the Rapport — five
+   *  tiles, which is what 360px holds without a sideways scroll. One flag for both folds and for
+   *  the surfaces they move, so the bar can never offer a destination that is not there (or
+   *  hide one that is). The vertical rail on a tablet/desktop is untouched. */
+  const phoneFold = isPhone
   /** The ONE width at which the top bar drops its ↶ ↷ (15-mobile.css · max-width 359px), so the
    *  surface being tapped can offer its own pair instead of leaving the operator with no way back.
    *  ⚠️ NOT «an Atemschutz-Alarmchip is in the bar» any more (15.09.2026). That cost the pair
@@ -1122,6 +1129,30 @@ export function IncidentWorkspace({
   const [journalFromRapport, setJournalFromRapport] = useState(false)
   // leaving those surfaces for anything else ends the round trip (no stale chip later)
   useEffect(() => { if (mode !== 'anwesenheit' && mode !== 'mittel') setRapportReturn(false) }, [mode])
+  /**
+   * PHONE: Anwesenheit and Material are TABS of the Rapport, not surfaces of their own
+   * (18.09.2026 — a 360px bar holds five tiles, and those two are read and corrected from the
+   * Rapport anyway). `phoneFold` is the same flag the bar folds on, so the bar and the surfaces
+   * cannot disagree about which destinations exist.
+   *
+   * ⚠️ ONE redirect, on the `mode` itself, rather than a guard at each of the dozen places that
+   * navigate: the doors into those two surfaces are the surface hotkeys (A / M), an open-items
+   * row, a checklist action, the Verlauf, and the mode restored from the cookie at boot — and the
+   * one that would have been missed is always the one somebody uses at 3am. Anything that still
+   * says «go to the Anwesenheit» arrives here and is carried to the Rapport with that tab
+   * selected, which is the same destination by another road.
+   *
+   * The two doors that do NOT arrive here are the two that are drawn from the same flag: the
+   * folded rail has no tile for either surface, and `navList` above drops both stops while the
+   * fold is on — ⌘[ / ⌘] steps onto the Rapport itself, which is a stop of its own, instead of
+   * landing on a mode this effect bounces onward and then having nowhere to step back to.
+   */
+  useEffect(() => {
+    if (!phoneFold) return
+    if (mode !== 'anwesenheit' && mode !== 'mittel') return
+    requestReportTab(mode)
+    setMode('rapport')
+  }, [phoneFold, mode])
   // per-object backend module plans (auto-surfaced near object, or a manual PlanPicker override),
   // plus the resolved plan-doc list with module PDFs swapped in — see useObjectPlans.
   // The binding options freeze each surfaced sheet on first contact: which dataset revision,
@@ -1382,20 +1413,17 @@ export function IncidentWorkspace({
     return () => document.documentElement.classList.remove('slim-tools')
   }, [slimRail])
 
-  // the flat nav order (matches NavRail) — map, EACH rail tile, then the four sections. The `nav`
+  // the flat nav order (matches NavRail) — map, EACH rail tile, then the sections. The `nav`
   // hotkey steps one destination at a time, so it walks through the modules individually instead
   // of collapsing to whatever plan was last open (the Gebäude).
   // ⚠️ The RAIL list, not the catalog: ⌘[ / ⌘] steps what the rail shows, so the merged Gebäude
   // tile is one stop, not two. Stepping onto an «Umrisse» stop that has no tile to land on is
-  // exactly the chevron-lands-nowhere bug the merge exists to remove.
-  const navList = useMemo(() => [
-    { mode: 'map' as const },
-    ...railPlanDocs.map((d) => ({ mode: 'plans' as const, planId: d.id })),
-    { mode: 'checklists' as const },
-    { mode: 'atemschutz' as const },
-    { mode: 'anwesenheit' as const },
-    { mode: 'mittel' as const },
-  ], [railPlanDocs])
+  // exactly the chevron-lands-nowhere bug the merge exists to remove — and the SAME rule is why
+  // the Rapport is a stop (it has always been a tile, and a surface the stepping could reach but
+  // never leave is that bug in its worst form) and why Anwesenheit and Material stop being stops
+  // once the phone bar folds them into it (18.09.2026): there is no tile to land on, and the
+  // mode redirect below would bounce the step onward to the Rapport anyway.
+  const navList = useMemo(() => navStops(railPlanDocs.map((d) => d.id), phoneFold), [railPlanDocs, phoneFold])
   const goToNav = (dir: -1 | 1) => {
     const cur = navList.findIndex((n) => n.mode === mode && (n.mode !== 'plans' || n.planId === activePlanId))
     const next = cur >= 0 ? navList[cur + dir] : undefined
@@ -1555,6 +1583,9 @@ export function IncidentWorkspace({
   // needs the roster and the attendance actions), while this merge path has to exist up here.
   // Same shape as `planHist` below.
   const attHistClear = useRef<(() => void) | null>(null)
+  // …and the ghost-trail reconciliation's re-seed, for the same reason: the hook that owns it
+  // (lib/useGhostTrails) needs the tactical store, which is built further down.
+  const ghostReseedRef = useRef<(() => void) | null>(null)
   /* The blob's `layerState` as it stands on the SERVER — carried through untouched.
    *
    * Which Ebenen are on is a device preference now (lib/layerPrefs), so this device's toggles
@@ -1581,7 +1612,8 @@ export function IncidentWorkspace({
     attHistClear.current?.(); setPlanHistory({})
     // …and the ghost-trail reconciliation re-seeds instead of running: the store was REPLACED, so
     // every marker on it would read as «vanished» and the merge would ghost the whole picture.
-    prevTrailSources.current = null
+    // Through a ref, because the hook that owns it is declared further down this component.
+    ghostReseedRef.current?.()
     // …and every OPEN fold window with them. A burst that is still collecting (a Kurzbericht
     // being typed, a Bildlegende, the Gebäude-Drehung) points at a state the merge has replaced:
     // folding the next write into it would write a pre-merge value back, and — worse — lay no
@@ -3994,13 +4026,40 @@ export function IncidentWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [objects, planDocs, allTrupps],
   )
-  const prevTrailSources = useRef<TrailSource[] | null>(null)
-  useEffect(() => {
-    const prev = prevTrailSources.current
-    prevTrailSources.current = trailSourcesNow
-    if (!prev) return // first pass / post-hydrate seed: nothing vanished, nothing to ghost
-    setTrails((ts) => reconcileGhostTrails(ts, prev, trailSourcesNow, serverNowIso()))
-  }, [trailSourcesNow, setTrails])
+  /* The pass itself, plus «Marker und Spur löschen»'s arming, are ONE mechanism and live in one
+   * hook (lib/useGhostTrails): the surface arms `armTrailDrop(id, true)` in the same breath as
+   * the removal, and the very next pass writes that marker's ghost already `removedAt`-stamped
+   * instead of standing the searched area back up. `reseedGhostTrails` is the hydrate's door. */
+  const { armTrailDrop, reseed: reseedGhostTrails } = useGhostTrails({ sources: trailSourcesNow, setTrails })
+  ghostReseedRef.current = reseedGhostTrails
+  /**
+   * «Marker und Spur löschen» on the Karte's Trupp marker — the third row of its trash menu
+   * (components/TwinTeamPill), the twin of the plan chip's (Whiteboard · removeWithTrail).
+   * The reconciliation is armed FIRST, so the ghost this removal would otherwise stand up is
+   * written already `removedAt`-stamped (lib/truppTrails) and the searched area goes with the
+   * marker. One undo step: only the marker's own removal was ever committed, and taking it back
+   * brings the marker home with its trail — the stamped row is dropped by the next pass, because
+   * its marker is live again.
+   */
+  const removeTeamWithTrail = async (id: string) => {
+    if (tacticalLocked) return
+    const e = entities.find((x) => x.id === id)
+    if (!e || e.kind !== 'team' || !e.trail?.length) return
+    // a trail is never destroyed without the ask, wherever the door is (Plan parity)
+    const ok = await confirmDialog({
+      title: appConfig.copy.whiteboard.removeMarkerTrail,
+      message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: e.label ?? '', n: e.trail.length }),
+      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+    })
+    if (!ok) return
+    armTrailDrop(id, true)
+    // the connection question inside deleteEntity may still be answered with «Abbrechen» — then
+    // the marker stays and the arming has to go, or its next removal would eat the trail
+    if (!await deleteEntity(id)) { armTrailDrop(id, false); return }
+    // the Verlauf says BOTH things happened; no `entity.edit` beside it, because the entity the
+    // edit would describe is the one just deleted (the `entity.delete` row carries the act)
+    log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: e.label ?? '' }))
+  }
   /** «Spur löschen» on a ghost — the same confirm the live trail has, and undoable as one step. */
   const deleteGhostTrail = async (id: string) => {
     if (tacticalLocked) return
@@ -4725,6 +4784,83 @@ export function IncidentWorkspace({
     )
   }
 
+  /* ── Anwesenheit and Material: full surfaces here, TABS of the Rapport on a phone ──
+     ONE instance of each, built once and handed to whichever mounts it (18.09.2026). The phone
+     bar holds five tiles, so those two gave up theirs; they are the same components with the
+     same props either way — a fork would have been two rosters to keep in step, and the one on
+     the phone is the one that gets corrected during the Appell. */
+  const anwesenheitSurface = (
+      <AnwesenheitView
+        people={personnel}
+        attendance={effAttendance}
+        canEdit={canEditRecord}
+        loading={personnelLoading}
+        error={personnelError}
+        blockedIds={blockedAttendanceIds}
+        onAddGuest={canEditRecord ? addGuest : undefined}
+        onMarkPresent={markPresent}
+        onMarkLeft={markLeft}
+        onClear={clearAttendance}
+        truppOfPerson={truppOfPerson}
+        onJumpToTrupp={(truppId) => {
+          setMode('atemschutz'); setPanel(null)
+          if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
+        }}
+        onReload={() => { void reloadPersonnel() }}
+        // the phone's way back — but ONLY while the top bar's own ↶ ↷ are off the bar, which
+        // since 15.09.2026 is one width and nothing else: below 360px (see topBarUndoHidden).
+        // Any other time the bar pair is the one door, so nothing is duplicated (06.09.).
+        onUndo={canEditRecord ? onHistoryPress('undo') : undefined}
+        onRedo={canEditRecord ? onHistoryPress('redo') : undefined}
+        canUndo={histCanUndo}
+        canRedo={histCanRedo}
+        topBarUndoHidden={topBarUndoHidden}
+        onSetTimes={canEditRecord ? setAttendanceTimes : undefined}
+        onRemoveBlock={canEditRecord ? removeAttendanceBlock : undefined}
+        onSetNote={canEditRecord ? setAttendanceNote : undefined}
+        onSetOrt={canEditRecord ? setAttendanceOrt : undefined}
+        captureUsage={captureUsage}
+        shifts={effShifts}
+        bands={effBands}
+        onCreateBand={canEditRecord ? (label, from, to) => { bandActions.addBand(label, from, to) } : undefined}
+        onSaveBand={canEditRecord ? (id, label, from, to) => {
+          bandActions.renameBand(id, label)
+          void bandActions.askAndSetBandTimes(id, from, to)
+        } : undefined}
+        onRemoveBand={canEditRecord ? bandActions.removeBand : undefined}
+        onCycleCell={canEditRecord ? bandActions.cycleCell : undefined}
+        onSetCellState={canEditRecord ? bandActions.setCellState : undefined}
+        onPutCellState={canEditRecord ? bandActions.putCellState : undefined}
+        startedAt={incidentMeta.started_at}
+        onAddShift={canEditRecord ? addShift : undefined}
+        onAddShiftSpan={canEditRecord ? addShiftSpan : undefined}
+        onReplaceShift={canEditRecord ? replaceShift : undefined}
+        onSetShiftTime={canEditRecord ? setShiftTime : undefined}
+        onRemoveShift={canEditRecord ? removeShift : undefined}
+        // Zeitplan-PDF and Zeitplan-Druck are both refused for a link session (the sheet
+        // carries the crew's names) — without either prop the block hides itself
+        onPrintZeitplan={!linkScoped && zeitplanRelay?.available ? onPrintZeitplan : undefined}
+        onDownloadZeitplan={linkScoped ? undefined : onDownloadZeitplan}
+        zeitplanPrintOnline={!!zeitplanRelay?.online}
+        // Live crew positions, read next to the name — this is where somebody looks when
+        // they want to know where a person is, and where they would pick up the phone.
+        incidentId={incidentMeta.id}
+        livePositions={livePeople.byPerson}
+        incidentCenter={incidentView.center}
+        onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}
+      />
+  )
+  const mittelSurface = (
+      <MittelView
+        entries={effMittel}
+        canEdit={canEditRecord}
+        onSave={saveMittel}
+        captureUsage={captureUsage}
+        placedSymbols={placedSymbols}
+        trupps={effTrupps}
+      />
+  )
+
   return (
     <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
@@ -4774,6 +4910,7 @@ export function IncidentWorkspace({
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
           onTeamRename={tacticalLocked ? undefined : renameTeam}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
+          onTeamRemoveWithTrail={tacticalLocked ? undefined : (id) => void removeTeamWithTrail(id)}
           // the searched areas removed Trupp markers left behind (lib/truppTrails)
           ghostTrails={mapGhostTrails(trails)}
           onGhostTrail={tacticalLocked ? undefined : (id) => void deleteGhostTrail(id)}
@@ -5142,10 +5279,13 @@ export function IncidentWorkspace({
         // the RAIL list: «Umrisse» + «Gebäude» are one morphing tile here, two documents everywhere
         // else (see railPlanDocs)
         planDocs={railPlanDocs}
-        // PHONE only: those tiles fold into ONE «Pläne» tile there (18.09.2026) — seven tiles is
-        // what a 360px bar holds, and the plan documents were the group that pushed it into a
-        // sideways scroll. The vertical rail keeps one tile per document.
-        fold={isPhone}
+        // PHONE only: the bar folds (18.09.2026) — every plan document into ONE «Pläne» tile,
+        // and Anwesenheit + Material out of the bar entirely and into the Rapport as tabs. Five
+        // tiles is what a 360px bar holds without a sideways scroll. The vertical rail keeps one
+        // tile per document and both surfaces.
+        fold={phoneFold}
+        // …and with the Anwesenheit tile gone, its one number rides on the Rapport tile instead
+        presentCount={presentIds.size}
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
@@ -5827,6 +5967,8 @@ export function IncidentWorkspace({
              sheet is what was on the screen at the recorded moment (lib/replay stays VIEW-based). */
           ghostTrails={replayActive ? [] : planGhostTrails(trails, activePlanId)}
           onGhostTrail={tacticalLocked ? undefined : (id) => void deleteGhostTrail(id)}
+          // «Marker und Spur löschen» on a chip: arm the ghosting to write it already deleted
+          onTrailDrop={tacticalLocked ? undefined : armTrailDrop}
           onChange={(next) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next })) }}
           building={replayActive ? replayBuilding : building}
           floorPack={floorPack}
@@ -6043,78 +6185,11 @@ export function IncidentWorkspace({
 
       {mode === 'atemschutz' && guarded('atemschutz', atemschutzBoard)}
 
-      {mode === 'anwesenheit' && guarded('anwesenheit', (
-        <AnwesenheitView
-          people={personnel}
-          attendance={effAttendance}
-          canEdit={canEditRecord}
-          loading={personnelLoading}
-          error={personnelError}
-          blockedIds={blockedAttendanceIds}
-          onAddGuest={canEditRecord ? addGuest : undefined}
-          onMarkPresent={markPresent}
-          onMarkLeft={markLeft}
-          onClear={clearAttendance}
-          truppOfPerson={truppOfPerson}
-          onJumpToTrupp={(truppId) => {
-            setMode('atemschutz'); setPanel(null)
-            if (truppId) setTruppFocus({ id: truppId, nonce: Date.now() })
-          }}
-          onReload={() => { void reloadPersonnel() }}
-          // the phone's way back — but ONLY while the top bar's own ↶ ↷ are off the bar, which
-          // since 15.09.2026 is one width and nothing else: below 360px (see topBarUndoHidden).
-          // Any other time the bar pair is the one door, so nothing is duplicated (06.09.).
-          onUndo={canEditRecord ? onHistoryPress('undo') : undefined}
-          onRedo={canEditRecord ? onHistoryPress('redo') : undefined}
-          canUndo={histCanUndo}
-          canRedo={histCanRedo}
-          topBarUndoHidden={topBarUndoHidden}
-          onSetTimes={canEditRecord ? setAttendanceTimes : undefined}
-          onRemoveBlock={canEditRecord ? removeAttendanceBlock : undefined}
-          onSetNote={canEditRecord ? setAttendanceNote : undefined}
-          onSetOrt={canEditRecord ? setAttendanceOrt : undefined}
-          captureUsage={captureUsage}
-          shifts={effShifts}
-          bands={effBands}
-          onCreateBand={canEditRecord ? (label, from, to) => { bandActions.addBand(label, from, to) } : undefined}
-          onSaveBand={canEditRecord ? (id, label, from, to) => {
-            bandActions.renameBand(id, label)
-            void bandActions.askAndSetBandTimes(id, from, to)
-          } : undefined}
-          onRemoveBand={canEditRecord ? bandActions.removeBand : undefined}
-          onCycleCell={canEditRecord ? bandActions.cycleCell : undefined}
-          onSetCellState={canEditRecord ? bandActions.setCellState : undefined}
-          onPutCellState={canEditRecord ? bandActions.putCellState : undefined}
-          startedAt={incidentMeta.started_at}
-          onAddShift={canEditRecord ? addShift : undefined}
-          onAddShiftSpan={canEditRecord ? addShiftSpan : undefined}
-          onReplaceShift={canEditRecord ? replaceShift : undefined}
-          onSetShiftTime={canEditRecord ? setShiftTime : undefined}
-          onRemoveShift={canEditRecord ? removeShift : undefined}
-          // Zeitplan-PDF and Zeitplan-Druck are both refused for a link session (the sheet
-          // carries the crew's names) — without either prop the block hides itself
-          onPrintZeitplan={!linkScoped && zeitplanRelay?.available ? onPrintZeitplan : undefined}
-          onDownloadZeitplan={linkScoped ? undefined : onDownloadZeitplan}
-          zeitplanPrintOnline={!!zeitplanRelay?.online}
-          // Live crew positions, read next to the name — this is where somebody looks when
-          // they want to know where a person is, and where they would pick up the phone.
-          incidentId={incidentMeta.id}
-          livePositions={livePeople.byPerson}
-          incidentCenter={incidentView.center}
-          onShowOnMap={(personId) => { setMode('map'); setPanel(null); focusEntity(`pos-${personId}`) }}
-        />
-      ))}
+      {/* ⚠️ …but NOT on a phone: there the bar carries no Anwesenheit/Material tile and both
+          are TABS of the Rapport instead — see anwesenheitSurface, and the redirect above. */}
+      {mode === 'anwesenheit' && !phoneFold && guarded('anwesenheit', anwesenheitSurface)}
 
-      {mode === 'mittel' && guarded('mittel', (
-        <MittelView
-          entries={effMittel}
-          canEdit={canEditRecord}
-          onSave={saveMittel}
-          captureUsage={captureUsage}
-          placedSymbols={placedSymbols}
-          trupps={effTrupps}
-        />
-      ))}
+      {mode === 'mittel' && !phoneFold && guarded('mittel', mittelSurface)}
 
       {/* time-travel replay scrubber — read-only past view, owns the playhead + fold */}
       {replayActive && (
@@ -6192,6 +6267,11 @@ export function IncidentWorkspace({
           onEditDispatch={canEditMeta ? onEditMeta : undefined}
           onOpenAnwesenheit={() => { setMode('anwesenheit'); setRapportReturn(true) }}
           onOpenMittel={() => { setMode('mittel'); setRapportReturn(true) }}
+          // PHONE: the same two surfaces, as tabs of this one — same components, same props,
+          // no fork (see anwesenheitSurface / mittelSurface). Absent elsewhere, where the rail
+          // still carries both as surfaces of their own.
+          embedAnwesenheit={phoneFold ? guarded('anwesenheit', anwesenheitSurface) : undefined}
+          embedMittel={phoneFold ? guarded('mittel', mittelSurface) : undefined}
           onResolveConflict={canWriteRecord ? resolveAttendanceConflict : undefined}
           // Do NOT close the sheet here. On the real path the completion switches the active
           // Einsatz and this whole workspace unmounts, so closing it is redundant; on the demo

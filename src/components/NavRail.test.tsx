@@ -125,7 +125,23 @@ describe('folded plan tile', () => {
     setup({ fold: true, activePlanId: 'modul5-rwa' })
     expect(screen.queryByRole('button', { name: 'Modul 1' })).toBeNull()
     expect(tile().getAttribute('aria-label')).toBe('Pläne · RWA')
-    expect(tile().textContent).toContain('RWA')
+  })
+
+  // ⚠️ ONE glyph and ONE word, like every tile beside it (18.09.2026). The glyph IS the loaded
+  // document — the same chip/icon its own tile wears on the vertical rail — and the word is the
+  // generic «Pläne». It used to stack chip + «Pläne» + the code, three lines in a 46px tile.
+  it('wears the loaded document as its glyph, and «Pläne» as its only word', () => {
+    setup({ fold: true, activePlanId: 'modul5-rwa' })
+    expect(tile().querySelector('.nav-mono-chip')?.textContent).toBe('RWA')
+    expect(tile().querySelector('.nav-label')?.textContent).toBe('Pläne')
+    expect(tile().querySelector('.nav-sub')).toBeNull()
+  })
+
+  it('takes the icon of an icon-document just as the rail does', () => {
+    setup({ fold: true, activePlanId: 'tafel' })
+    // the Tafel is an icon doc, so there is no monogram chip at all — only its pen glyph
+    expect(tile().querySelector('.nav-mono-chip')).toBeNull()
+    expect(tile().querySelector('.nav-glyph svg')).toBeTruthy()
   })
 
   it('is absent with no plan document at all', () => {
@@ -171,10 +187,53 @@ describe('folded plan tile', () => {
     } finally { vi.useRealTimers() }
   })
 
+  // ── five tiles on the phone: Karte · Pläne · Checkliste · Trupps · Rapport (18.09.2026) ──
+  // Anwesenheit and Material gave up their tiles and became tabs of the Rapport; the vertical
+  // rail keeps all seven.
+  it('leaves Anwesenheit and Material off the bar, and keeps them on the rail', () => {
+    setup({ fold: true })
+    expect(screen.queryByRole('button', { name: /^Anwesenheit/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Material/ })).toBeNull()
+    cleanup()
+    setup()
+    expect(screen.getByRole('button', { name: /^Anwesenheit/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Material/ })).toBeTruthy()
+  })
+
   it('a single document never offers a chooser', () => {
     const p = setup({ fold: true, mode: 'plans', planDocs: [docs[0]], activePlanId: 'modul1' })
     fireEvent.click(tile())
     expect(screen.queryByRole('option')).toBeNull()
     expect(p.onSelectPlan).not.toHaveBeenCalled()
+  })
+})
+
+// The head count was the one number the Anwesenheit tile stated just by existing. With that tile
+// folded away it rides on the «Rapport» tile — as a COUNT, not a dot, so it can still be read.
+describe('the head count on the Rapport tile', () => {
+  const rapport = () => screen.getByRole('button', { name: /^Rapport/ })
+
+  it('states the number, and says it out loud too', () => {
+    setup({ fold: true, presentCount: 12 })
+    expect(rapport().querySelector('.nav-count')?.textContent).toBe('12')
+    expect(rapport().getAttribute('aria-label')).toBe('Rapport · 12 anwesend')
+  })
+
+  // a standing «0 anwesend» on a fresh Einsatz is a badge that teaches you to stop reading badges
+  it('paints nothing while nobody is on scene', () => {
+    setup({ fold: true, presentCount: 0 })
+    expect(rapport().querySelector('.nav-count')).toBeNull()
+    expect(rapport().getAttribute('aria-label')).toBe('Rapport')
+  })
+
+  // on a tablet the Anwesenheit still has its own tile, and its own head line, right there
+  it('is a phone badge only — the vertical rail still carries the Anwesenheit itself', () => {
+    setup({ presentCount: 12 })
+    expect(rapport().querySelector('.nav-count')).toBeNull()
+  })
+
+  it('caps a three-figure crew so the badge stays a badge', () => {
+    setup({ fold: true, presentCount: 140 })
+    expect(rapport().querySelector('.nav-count')?.textContent).toBe('99+')
   })
 })

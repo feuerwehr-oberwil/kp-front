@@ -50,25 +50,70 @@ describe('the selected pill of a bound Trupp', () => {
 })
 
 describe('the action bar and the trail (18.09.2026)', () => {
-  // the trash used to MORPH while a trail existed: one glyph, two acts, and the act the operator
-  // wanted — take the marker off the picture — was the one it refused
-  it('always removes the marker, and offers «Spur löschen» as its own button beside it', () => {
+  const W = appConfig.copy.whiteboard
+  const openTrash = () => fireEvent.click(screen.getByRole('button', { name: appConfig.copy.delete }))
+
+  // ONE trash. The bar carried a second, footprint-glyphed «Spur löschen» button for a day, and
+  // the building outline did not read as a delete — so the trash asks WHICH of the two goes.
+  it('asks which of the two goes, and each row does exactly that', () => {
     const remove = vi.fn()
     const clearTrail = vi.fn()
+    const removeWithTrail = vi.fn()
     render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={4} trailShown trupps={TRUPPS}
-      acts={{ clearTrail, remove }} />)
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.delete }))
+      acts={{ clearTrail, remove, removeWithTrail }} />)
+    openTrash()
+    expect(screen.getAllByRole('menuitem').map((el) => el.textContent))
+      .toEqual([W.removeMarker, W.clearTrail, W.removeMarkerTrail])
+    // …and the two that destroy the record are danger rows
+    expect(screen.getByRole('menuitem', { name: W.removeMarker }).className).not.toContain('ui-menu-danger')
+    for (const name of [W.clearTrail, W.removeMarkerTrail]) {
+      expect(screen.getByRole('menuitem', { name }).className).toContain('ui-menu-danger')
+    }
+
+    fireEvent.click(screen.getByRole('menuitem', { name: W.removeMarker }))
     expect(remove).toHaveBeenCalledTimes(1)
     expect(clearTrail).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.clearTrail }))
+    expect(removeWithTrail).not.toHaveBeenCalled()
+
+    openTrash()
+    fireEvent.click(screen.getByRole('menuitem', { name: W.clearTrail }))
+    expect(clearTrail).toHaveBeenCalledTimes(1)
+    expect(remove).toHaveBeenCalledTimes(1)
+
+    openTrash()
+    fireEvent.click(screen.getByRole('menuitem', { name: W.removeMarkerTrail }))
+    expect(removeWithTrail).toHaveBeenCalledTimes(1)
+    expect(remove).toHaveBeenCalledTimes(1)
     expect(clearTrail).toHaveBeenCalledTimes(1)
   })
 
-  it('draws no «Spur löschen» where there is no trail to delete', () => {
+  // nothing to ask about: the trash is the trash
+  it('removes straight away where the marker carries no trail', () => {
+    const remove = vi.fn()
+    const clearTrail = vi.fn()
     render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={0} trailShown={false} trupps={TRUPPS}
+      acts={{ clearTrail, remove, removeWithTrail: () => {} }} />)
+    openTrash()
+    expect(screen.queryAllByRole('menuitem')).toEqual([])
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(clearTrail).not.toHaveBeenCalled()
+  })
+
+  // …and the footprint button is gone: one delete, one glyph
+  it('draws no second trail button beside the trash', () => {
+    const { container } = render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={4} trailShown trupps={TRUPPS}
       acts={{ clearTrail: () => {}, remove: () => {} }} />)
-    expect(screen.queryByRole('button', { name: appConfig.copy.whiteboard.clearTrail })).toBeNull()
-    expect(screen.getByRole('button', { name: appConfig.copy.delete })).toBeTruthy()
+    expect(container.querySelector('.wb-pa-trail')).toBeNull()
+    expect(screen.queryByRole('button', { name: W.clearTrail })).toBeNull()
+  })
+
+  // a surface that does not offer the combined door draws two rows, not three — the same «a
+  // missing writer draws no button» rule every other action here follows
+  it('leaves «Marker und Spur löschen» out where the surface has no such writer', () => {
+    render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={4} trailShown trupps={TRUPPS}
+      acts={{ clearTrail: () => {}, remove: () => {} }} />)
+    openTrash()
+    expect(screen.getAllByRole('menuitem').map((el) => el.textContent)).toEqual([W.removeMarker, W.clearTrail])
   })
 })
 

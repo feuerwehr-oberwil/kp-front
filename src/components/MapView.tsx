@@ -272,6 +272,8 @@ interface Props {
   /** see MapMarkers — the marker on the Karte is the only place a colour is still chosen */
   /** recolour a team marker (null = automatic) — see MapMarkers */
   onTeamClearTrail?: (id: string) => void
+  /** «Marker und Spur löschen» on the marker's trash menu — see MapMarkers */
+  onTeamRemoveWithTrail?: (id: string) => void
   /** the incident's ghost «Spuren» (lib/truppTrails) — the searched area a removed Trupp marker
    *  left behind. Drawn grey and read-only; `onGhostTrail` is the «Spur löschen» door. */
   ghostTrails?: TruppTrail[]
@@ -409,7 +411,7 @@ interface Props {
 export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView && !isDemoMode()
 
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
-  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
+  const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
     onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
@@ -2823,6 +2825,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onTeamMark={onTeamMark}
         onTeamRename={onTeamRename}
         onTeamClearTrail={onTeamClearTrail}
+        onTeamRemoveWithTrail={onTeamRemoveWithTrail}
         ghostTrails={ghostTrails}
         onGhostTrail={onGhostTrail}
         teamLines={teamLines}

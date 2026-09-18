@@ -28,6 +28,12 @@
  * the same removal reconcile independently, and `mergeById` then sees one record rather than two
  * copies of the same walked line.
  *
+ * «Marker und Spur löschen» (the trash menu on TwinTeamPill) is the one case where no ghost is
+ * meant to survive the removal. It does NOT skip the reconciliation — it hands it the marker id
+ * (`reconcileGhostTrails · dropped`), and the ghost is born `removedAt`-stamped, i.e. in exactly
+ * the state «ghosted, then deleted» leaves behind. Skipping instead would be re-ghosted by the
+ * next pass; stamping is read by everything as the deliberate deletion it was.
+ *
  * Deleting a ghost («Spur löschen») STAMPS `removedAt` instead of dropping the row — the same
  * shape `Trupp.removedAt` uses, and for the same two reasons: the reconciliation must not read a
  * deliberately deleted trail as «never ghosted» and write it straight back, and the undo is then
@@ -98,9 +104,11 @@ export const mapGhostTrails = (trails: TruppTrail[] | undefined): TruppTrail[] =
 export const ghostTrailLabel = (t: Pick<TruppTrail, 'truppNo' | 'name'>, teamWord: string): string =>
   t.truppNo != null ? `${teamWord} ${t.truppNo}` : t.name
 
-/** A live marker's trail, turned into the ghost it leaves behind. */
-export function ghostFromSource(src: TrailSource, at: string): TruppTrail {
-  return { ...src, id: ghostTrailId(src.sourceId), createdAt: at }
+/** A live marker's trail, turned into the ghost it leaves behind. `dropped` is «Marker und Spur
+ *  löschen» (18.09.2026): the ghost is born already stamped, so the searched area goes with the
+ *  marker instead of outliving it — see `reconcileGhostTrails`. */
+export function ghostFromSource(src: TrailSource, at: string, dropped = false): TruppTrail {
+  return { ...src, id: ghostTrailId(src.sourceId), createdAt: at, ...(dropped ? { removedAt: at } : null) }
 }
 
 /**
@@ -150,12 +158,21 @@ export function trailSources(
  *
  * `prev` is the marker set as it stood a moment ago, `live` as it stands now. Returns the SAME
  * array when nothing changed, so the caller's effect can write unconditionally without looping.
+ *
+ * `dropped` holds the source ids the operator chose «Marker und Spur löschen» on (18.09.2026,
+ * the trash menu on TwinTeamPill). Their ghost is still WRITTEN — id, points and all — but born
+ * `removedAt`-stamped, exactly as if it had been ghosted and then deleted: a skipped row would be
+ * ghosted again by the next pass (and by the next device), while the stamp is the one shape this
+ * collection already has for «this trail was deliberately destroyed». The intent is passed in
+ * rather than written by the removal path for the same reason the ghosting itself is a
+ * reconciliation: nothing extra lands on the timeline, so the marker's own ↶ undoes the whole act.
  */
 export function reconcileGhostTrails(
   trails: TruppTrail[],
   prev: TrailSource[],
   live: TrailSource[],
   at: string,
+  dropped?: ReadonlySet<string>,
 ): TruppTrail[] {
   const liveIds = new Set(live.map((s) => s.sourceId))
   // a marker that is back on the picture carries its own trail again (the surface's undo
@@ -168,7 +185,7 @@ export function reconcileGhostTrails(
     if (!trailPointCount(src)) continue
     const id = ghostTrailId(src.sourceId)
     if (have.has(id)) continue
-    out = [...out, ghostFromSource(src, at)]
+    out = [...out, ghostFromSource(src, at, dropped?.has(src.sourceId))]
     have.add(id)
     changed = true
   }

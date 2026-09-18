@@ -131,6 +131,13 @@
 .navrail.expanded:not(.dragging) .nav-glyph.nav-frac { font-size: 20px; }
 .nav-live { position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); border: 2px solid #fff; }
 .nav-item.on .nav-live { border-color: var(--ink-fill); }
+/* ⚠️ A COUNT, not a dot — same family as .nav-live (same corner, same white ring, so the bar has
+   one badge idiom), but it carries a figure and therefore needs a box that grows with it. The
+   phone's «Rapport» tile wears it with the head count, because Anwesenheit folded into the
+   Rapport there and its one number must not disappear with its tile (18.09.2026). */
+.nav-live.nav-count { top: 2px; right: 2px; width: auto; min-width: 16px; height: 16px; padding: 0 3px;
+  box-sizing: border-box; border-radius: 8px; background: var(--accent); color: var(--on-accent-ink);
+  font: 800 10px var(--body); line-height: 12px; text-align: center; }
 /* Atemschutz cross-surface alarm dot: amber when fällig, red + pulse when überfällig */
 .nav-live.nav-alarm { background: var(--amber); }
 .nav-live.nav-alarm.crit { background: var(--red); animation: nav-alarm-pulse 1.4s infinite; }
@@ -311,7 +318,7 @@ html.rail-dragging .layers-card { transition: none; }
    Rows are the app's existing option-list vocabulary (.pp-row, 09-whiteboard.css) — one wash,
    one radius, one selected state — with a glyph column in front of them carrying the same
    monogram chip / icon the rail tile does, so a row is recognised as the tile it replaced. */
-.plan-choose-list { display: flex; flex-direction: column; gap: 4px; padding: 0 16px 8px; overflow-y: auto; }
+.plan-choose-list { display: flex; flex-direction: column; gap: 4px; padding: 0 0 8px;   /* rows sit flush with the sheet head: .ip-body already insets 20px, and a second inset left the wash 16px short of the title (18.09.2026) */ overflow-y: auto; }
 .plan-choose-list .pp-row { justify-content: flex-start; }
 .plan-choose-glyph { width: 34px; min-width: 34px; display: grid; place-items: center;
   font-size: 14px; font-weight: 800; color: var(--ink-dim); }

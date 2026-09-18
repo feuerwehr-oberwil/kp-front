@@ -88,8 +88,14 @@ export interface TwinTeamActions {
   /** «Neuer Trupp» on the join sheet — register a Trupp that adopts this marker on save */
   newTrupp?: () => void
   mark?: () => void
+  /** «Spur löschen» — the marker stays, its recorded positions go. Confirms on the surface. */
   clearTrail: () => void
+  /** «Marker entfernen» — the trail it walked stays behind as a ghost (lib/truppTrails). */
   remove: () => void
+  /** «Marker und Spur löschen» — both at once, and NO ghost is left standing: the surface arms
+   *  the reconciliation's `dropped` set before it removes, so the ghost is born already stamped
+   *  (lib/truppTrails). Absent ⇒ the row is not offered, like every other writer here. */
+  removeWithTrail?: () => void
   showTrupp?: (truppId: string) => void
   /** pan the OTHER surface to the original — the MIRROR's one extra door, absent on a native */
   toOriginal?: () => void
@@ -343,18 +349,36 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             <button className="wb-pa" title={originalLabel} aria-label={originalLabel}
               onClick={() => toOriginal()}><Icon id="external" /></button>
           )}
-          {/* «Spur löschen» is its OWN action (18.09.2026), never a morph of the trash. The trash
-              used to change what it did while a trail existed — one glyph, two acts, and the one
-              the operator wanted (take the marker off the picture) was the one it refused. Now
-              the record is protected by OUTLIVING the marker instead: removing the marker moves
-              its trail into a ghost trail the incident owns (lib/truppTrails), and destroying the
-              trail is this deliberate second button with its own confirm. */}
-          {trailCount > 0 && (
-            <button className="wb-pa wb-pa-trail" title={appConfig.copy.whiteboard.clearTrail} aria-label={appConfig.copy.whiteboard.clearTrail}
-              onClick={() => acts.clearTrail()}><Icon id="footprint" /></button>
+          {/* ONE trash (18.09.2026). The bar carried two red-ish doors for a while — the trash and
+              a separate «Spur löschen» wearing the building-outline glyph — and the footprint did
+              not read as a delete at all. So the trash is the one delete on this bar, and where
+              the marker carries a Spur it ASKS which of the two goes (the app's own Menu, never a
+              native select): the marker alone (its trail stays behind as a ghost the incident
+              owns, lib/truppTrails), the trail alone, or both. The two trail rows are danger rows
+              and each confirms before anything is destroyed; a marker with no trail has nothing to
+              ask about and the trash removes it straight away, exactly as before. */}
+          {trailCount > 0 ? (
+            <Menu
+              popupClassName="de-menu-pop"
+              itemClassName={() => 'de-menu-item'}
+              trigger={
+                <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}>
+                  <Icon id="trash" />
+                </button>
+              }
+              items={[
+                { label: appConfig.copy.whiteboard.removeMarker, onClick: () => acts.remove() },
+                { label: appConfig.copy.whiteboard.clearTrail, danger: true, onClick: () => acts.clearTrail() },
+                ...(acts.removeWithTrail ? [{
+                  label: appConfig.copy.whiteboard.removeMarkerTrail, danger: true,
+                  onClick: () => acts.removeWithTrail?.(),
+                }] : []),
+              ]}
+            />
+          ) : (
+            <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
+              onClick={() => acts.remove()}><Icon id="trash" /></button>
           )}
-          <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
-            onClick={() => acts.remove()}><Icon id="trash" /></button>
         </div>
       )}
     </>

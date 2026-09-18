@@ -93,6 +93,30 @@ describe('reconcileGhostTrails', () => {
     expect(liveGhostTrails(deleted)).toEqual([])
   })
 
+  // «Marker und Spur löschen» (the trash menu on TwinTeamPill): both go, and no searched area is
+  // left standing. The row is still WRITTEN — stamped, exactly as «ghosted, then deleted» leaves
+  // it — because a skipped one would simply be ghosted again by the next pass.
+  it('writes the ghost of a dropped marker already deleted, and never resurrects it', () => {
+    const out = reconcileGhostTrails([], [walked], [], AT, new Set(['a1']))
+    expect(out).toHaveLength(1)
+    expect(out[0].removedAt).toBe(AT)
+    expect(liveGhostTrails(out)).toEqual([])
+    expect(planGhostTrails(out, 'gebaeude')).toEqual([])
+    // the intent is spent: a later pass reads the stamp and leaves it alone
+    expect(reconcileGhostTrails(out, [walked], [], AT)).toBe(out)
+  })
+
+  it('drops that stamped row again when the marker’s own ↶ brings it back', () => {
+    const out = reconcileGhostTrails([], [walked], [], AT, new Set(['a1']))
+    expect(reconcileGhostTrails(out, [], [walked], AT)).toEqual([])
+  })
+
+  it('leaves a marker nobody dropped alone — the set names exactly one removal', () => {
+    const other: TrailSource = { ...walked, sourceId: 'a2' }
+    const out = reconcileGhostTrails([], [walked, other], [], AT, new Set(['a2']))
+    expect(out.map((t) => [t.sourceId, !!t.removedAt])).toEqual([['a1', false], ['a2', true]])
+  })
+
   it('derives the id from the marker, so two devices reconciling one removal converge', () => {
     const mine = reconcileGhostTrails([], [walked], [], AT)
     const theirs = reconcileGhostTrails([], [walked], [], '2026-09-18T03:12:04.000Z')
