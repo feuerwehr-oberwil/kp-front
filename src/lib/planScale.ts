@@ -119,3 +119,33 @@ export function circleRingN(cx: number, cy: number, radiusN: number, ar: number,
   }
   return out
 }
+
+/** What the Massstab pill's lamp says about the metres it is offering (Plan/Gebäude pill row,
+ *  18.09.2026). On a phone the pill is icon + lamp and nothing else, so this dot is the ONLY
+ *  thing left saying whether the sheet's metres can be trusted — it must therefore map the
+ *  branches the chip already distinguishes, and invent no state of its own:
+ *
+ *   • green — the scale is measured. Either hand-calibrated against the printed scale bar, or
+ *     derived from the Gebäude's own Grundriss (a ground size that arrived WITH the footprint),
+ *     or derived from a map fit that is itself checked.
+ *   • amber — a number that stands but is unverified: a stored calibration taken at another
+ *     aspect (`stale` — «Massstab neu prüfen»), or a map-derived scale whose fit is the amber
+ *     one (two pairs, automatic scaffolding, a warned-about geometry). Planungshilfe, not fact.
+ *   • red — the sheet has no scale at all («nicht kalibriert»). Nothing to trust either way.
+ */
+export function scaleLampTone(s: {
+  /** the metres are DERIVED, not typed in (Whiteboard · scaleAuto) */
+  auto: boolean
+  /** …and derived from the Kartenverknüpfung rather than the building's footprint */
+  autoFromFit: boolean
+  /** that fit is the unchecked one (georefMode · georefChip.warn) */
+  fitWarn: boolean
+  /** a stored calibration taken at a different aspect (planScale · isStale) */
+  stale: boolean
+  /** a hand calibration stands */
+  calibrated: boolean
+}): 'red' | 'amber' | 'green' {
+  if (s.auto) return s.autoFromFit && s.fitWarn ? 'amber' : 'green'
+  if (s.stale) return 'amber'
+  return s.calibrated ? 'green' : 'red'
+}

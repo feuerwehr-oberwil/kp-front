@@ -1,4 +1,5 @@
 import { nextTruppNo } from './placedTrupps'
+import type { TruppTrail } from './truppTrails'
 import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
@@ -218,6 +219,11 @@ export interface Saved {
   bands?: ShiftBand[]
   /** saved map views (camera bookmarks): position + zoom + rotation, shared with the team */
   cameraViews?: CameraView[]
+  /** «Spuren» a Trupp marker left behind — the searched area, kept by the incident after the
+   *  chip/marker that recorded it was removed (lib/truppTrails). A NEW key only: the markers'
+   *  own `trail` fields are untouched, so an older client reads this incident unchanged and
+   *  simply does not draw the ghosts. */
+  trails?: TruppTrail[]
   /** Einsatzrapport metadata: supplemental bookkeeping text, not tactical state. */
   reportMeta?: ReportMeta
   /** Beilagen: photos that belong to the Rapport (documents, damage) rather than to the Verlauf */
@@ -328,6 +334,10 @@ const boardPt = (v: unknown): v is BoardPoint => Array.isArray(v) && (v.length =
 const isReading = (v: unknown): v is TruppReading => isObj(v) && typeof v.t === 'string' && num(v.bar) && typeof v.kind === 'string'
 const isGeoTrailPt = (v: unknown): v is GeoTrailPoint => isObj(v) && lngLat(v.coord) && typeof v.t === 'string'
 const isTrailPt = (v: unknown): v is TrailPoint => isObj(v) && num(v.x) && num(v.y) && typeof v.t === 'string'
+/** A ghost trail is only a trail while it still holds the points it was made of — one with
+ *  neither frame filled draws nothing and would only ever be a row nobody can see or delete. */
+const isTruppTrail = (v: unknown): v is TruppTrail =>
+  hasId(v) && typeof v.sourceId === 'string' && (Array.isArray(v.points) || Array.isArray(v.geo))
 
 /** A map entity the markers can place: known kind and a finite, in-range [lng, lat]. */
 export const isEntity = (v: unknown): v is Entity =>
@@ -521,6 +531,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     shifts: arr<Shift>(raw.shifts, hasId),
     bands: arr<ShiftBand>(raw.bands, hasId, (b) => strFields(b, ['label'])),
     cameraViews: arr<CameraView>(raw.cameraViews, hasId),
+    trails: arr<TruppTrail>(raw.trails, isTruppTrail),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     attachments: arr<ReportAttachment>(raw.attachments, hasId),
     planBindings: arr<IncidentPlanBinding>(raw.planBindings, isIncidentPlanBinding),
@@ -543,6 +554,7 @@ export interface InitialState {
   shifts: Shift[]
   bands: ShiftBand[]
   cameraViews: CameraView[]
+  trails: TruppTrail[]
   attachments: ReportAttachment[]
   planScale: PlanScales
   reportMeta: ReportMeta
@@ -763,6 +775,7 @@ export function deriveInitial(
     shifts: ws?.shifts ?? [],
     bands: ws?.bands ?? [],
     cameraViews: ws?.cameraViews ?? [],
+    trails: ws?.trails ?? [],
     attachments: ws?.attachments ?? [],
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},

@@ -68,7 +68,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
         <Fragment key={t.id}>
           <button
             type="button"
-            className={`lrow ${t.visible ? '' : 'off'}`}
+            className={`lrow lrow-twin ${t.visible ? '' : 'off'}`}
             style={{ appearance: 'none', WebkitAppearance: 'none', border: 'none', width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
             aria-pressed={t.visible}
             aria-label={`${t.label} – ${t.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}`}

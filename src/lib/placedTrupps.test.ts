@@ -37,6 +37,16 @@ describe('placedTrupps', () => {
     expect(out.map((t) => t.where)).toEqual(['Karte', 'Gebäude · 2. OG', 'Modul 3'])
   })
 
+  // 18.09.2026: a Trupp standing on a Gebäude storey says so on the Karte too — its map body is
+  // baked off the stack chip and carries the tile's signed floor (lib/tacticalObjects)
+  it('names the storey on the Karte as well, wherever the marker has one', () => {
+    const out = placedTrupps(objs([
+      ent({ id: 'e1', label: 'Trupp 1', floor: 2 }),
+      ent({ id: 'e2', label: 'Trupp 4' }),
+    ], {}), PLANS, [])
+    expect(out.map((t) => t.where)).toEqual(['Karte · 2. OG', 'Karte'])
+  })
+
   it('leaves a live vehicle alone — nobody placed it', () => {
     const out = placedTrupps(objs([ent({ id: 'v1', label: 'TLF 1', live: true })], {}), PLANS, [])
     expect(out).toHaveLength(0)

@@ -308,6 +308,12 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
       id: o.id, kind: 'team', layer: o.entity?.layer ?? layer, coord: at(anno.x, anno.y),
       label: anno.text ?? anno.label, color: anno.color, truppId: anno.truppId, t: anno.t,
       trail: anno.trail?.map((p) => ({ coord: at(p.x, p.y), t: p.t })),
+      // …and the STOREY it is working on (18.09.2026). On a floor stack the tile the chip sits
+      // on IS the answer, and it is signed the same way `Entity.floor` is (0 = EG), so it
+      // crosses as itself. Off a stack there is no storey to state — and a `0` would assert an
+      // EG nobody said — so the badge stays absent, exactly as it does for a marker the operator
+      // dropped straight onto the Karte.
+      floor: plan.stack ? anno.floor ?? 0 : undefined,
     }
     return settle({ entity })
   }

@@ -1,16 +1,49 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import type { RailLabels } from '../lib/prefs'
 import type { PlanDocument } from '../types'
-import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, planGlyph } from '../lib/navRail'
+import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, foldPlanTiles, planGlyph } from '../lib/navRail'
 import { useRail } from '../lib/useRail'
+import { useLongPress } from '../lib/useLongPress'
+import { buzz } from '../lib/haptics'
+import { PlanChooser } from './PlanChooser'
 import { SURFACE_KEY } from '../lib/hotkeys'
 
 // precomposed Unicode fraction glyphs for combined-module monograms (clean proper fractions);
 // anything without one falls back to a compact diagonal rendering.
 const FRAC_GLYPH: Record<string, string> = {
   '1/2': '½', '1/3': '⅓', '2/3': '⅔', '1/4': '¼', '3/4': '¾', '1/6': '⅙', '5/6': '⅚',
+}
+
+/** the glyph a plan tile wears — the document's monogram chip or its icon. Shared by the
+ *  per-document tiles of the vertical rail and by the phone's ONE folded «Pläne» tile, which
+ *  shows the glyph of whichever document is loaded. */
+function planGlyphNode(doc: PlanDocument) {
+  const g = planGlyph(doc)
+  if (!('mono' in g)) return <span className="nav-glyph"><Icon id={g.icon} /></span>
+  if (g.mono.includes('/')) {
+    // combined module ("2/3") as a proper typographic fraction — a precomposed glyph
+    // (⅔ …) where one exists, else a compact diagonal fallback. Single-glyph footprint.
+    return FRAC_GLYPH[g.mono] ? (
+      <span className="nav-glyph mono nav-frac" aria-hidden><span className="nav-mono-chip">{FRAC_GLYPH[g.mono]}</span></span>
+    ) : (
+      <span className="nav-glyph mono nav-frac nav-frac-diag" aria-hidden><span className="nav-mono-chip">
+        <span className="nav-frac-n">{g.mono.split('/')[0]}</span>
+        <span className="nav-frac-s">/</span>
+        <span className="nav-frac-d">{g.mono.split('/')[1]}</span>
+      </span></span>
+    )
+  }
+  // The glyph column is 46px wide and the chip has to fit INSIDE it, border and all. A single
+  // digit does at 15px; a three-letter sub-slot acronym ("RWA") does not — it pushed its own
+  // border past the rail edge. The letter count picks the size (see .nav-mono-chip), because
+  // CSS can't count characters.
+  return (
+    <span className="nav-glyph mono" data-mono-len={g.mono.length}>
+      <span className="nav-mono-chip">{g.mono}</span>
+    </span>
+  )
 }
 
 interface Props {
@@ -29,6 +62,11 @@ interface Props {
    *  the expand chevron, which widens the rail and sets the word beside the glyph for as long as
    *  it stays open — this is a standing decision and costs ~10px, not 156. */
   labels?: RailLabels
+  /** PHONE only: fold every plan document into ONE «Pläne» tile (18.09.2026). The bar has room
+   *  for seven tiles and a station with four modules plus a Gebäude had eleven, so the bar
+   *  scrolled and half its destinations sat behind the fade. The vertical rail is a column with
+   *  room for all of them and keeps one tile per document. */
+  fold?: boolean
 }
 
 // The single left navigation rail: it switches the whole surface (Karte · the
@@ -42,7 +80,20 @@ interface Props {
 // the policy below are this rail's own.
 export function NavRail(p: Props) {
   const [expanded, setExpanded] = useState(false)
+  const [chooser, setChooser] = useState(false)
   const nav = appConfig.copy.navRail
+  // the phone bar's one plan tile — `null` with no plan documents at all, which is the rail's
+  // existing empty state (no tile, and the separator above it is already conditional)
+  const folded = p.fold ? foldPlanTiles(p.planDocs, p.activePlanId) : null
+  // …and the second way into the list, for the hand that has learned press-and-hold everywhere
+  // else in this app: a hold opens the chooser wherever you are standing, so reaching another
+  // document never costs the trip through the one that happens to be loaded.
+  const hold = useLongPress()
+  /** a fired hold must not also be taken as the tap — the browser still delivers the click on
+   *  release. Cleared at the START of every press, so a hold whose click never lands (a finger
+   *  that slid off) cannot swallow the next tap. */
+  const held = useRef(false)
+  const holdProps = hold.press(() => { held.current = true; buzz(); setChooser(true) })
 
   const rail = useRail({
     varName: '--rail-w',
@@ -91,39 +142,41 @@ export function NavRail(p: Props) {
         {/* divider ABOVE the plan group too, so the module/floor tabs read as their own
             navigable "Pläne" cluster instead of blending into the Karte icon above them */}
         {p.planDocs.length > 0 && <div className="nav-sep" />}
-        {p.planDocs.map((doc) => {
-          const g = planGlyph(doc)
+        {folded && (
+          /* the ONE folded tile: the glyph of the document that is loaded, «Pläne» as the word,
+             and the document's own short code under it — which is the recognition the
+             per-document tiles used to carry, in one tile instead of eleven.
+             (No badge: no plan tile carries one today. If one ever does — an alignment
+             proposal, say — its union belongs on this tile, since the documents it would be
+             about are no longer on the bar.) */
+          <button
+            className={`nav-item nav-plans${p.mode === 'plans' ? ' on' : ''}`}
+            aria-pressed={p.mode === 'plans'}
+            aria-label={`${nav.plansGroup} · ${folded.sub}`}
+            aria-haspopup={folded.many ? 'dialog' : undefined}
+            {...(folded.many ? { 'data-holdaction': true as const } : null)}
+            onPointerDown={(e) => { held.current = false; if (folded.many) holdProps.onPointerDown(e) }}
+            onClick={() => {
+              if (held.current) { held.current = false; return } // the hold already answered
+              // standing on another surface: go to the plan that was last open, never via a list
+              if (p.mode !== 'plans') { p.onSelectPlan(folded.target.id); return }
+              // already here: the tile's second job is the choice between the documents
+              if (folded.many) setChooser(true)
+            }}
+          >
+            {planGlyphNode(folded.target)}
+            <span className="nav-label">{nav.plansGroup}</span>
+            <span className="nav-sub">{folded.sub}</span>
+          </button>
+        )}
+        {!folded && p.planDocs.map((doc) => {
           const on = p.mode === 'plans' && p.activePlanId === doc.id
           // short code ("Modul 3") as the label — the descriptive title overflows the rail.
           // Module monograms sit in a bordered chip (.nav-mono-chip) so they read as document
           // tabs, not bare tool glyphs; the Gebäude/Umgebung/Tafel icon-docs stay un-chipped.
           return (
             <button key={doc.id} className={`nav-item${on ? ' on' : ''}`} aria-pressed={on} aria-label={doc.code} onClick={() => p.onSelectPlan(doc.id)}>
-              {'mono' in g ? (
-                g.mono.includes('/') ? (
-                  // combined module ("2/3") as a proper typographic fraction — a precomposed glyph
-                  // (⅔ …) where one exists, else a compact diagonal fallback. Single-glyph footprint.
-                  FRAC_GLYPH[g.mono] ? (
-                    <span className="nav-glyph mono nav-frac" aria-hidden><span className="nav-mono-chip">{FRAC_GLYPH[g.mono]}</span></span>
-                  ) : (
-                    <span className="nav-glyph mono nav-frac nav-frac-diag" aria-hidden><span className="nav-mono-chip">
-                      <span className="nav-frac-n">{g.mono.split('/')[0]}</span>
-                      <span className="nav-frac-s">/</span>
-                      <span className="nav-frac-d">{g.mono.split('/')[1]}</span>
-                    </span></span>
-                  )
-                ) : (
-                  // The glyph column is 46px wide and the chip has to fit INSIDE it, border and
-                  // all. A single digit does at 15px; a three-letter sub-slot acronym ("RWA")
-                  // does not — it pushed its own border past the rail edge. The letter count
-                  // picks the size (see .nav-mono-chip), because CSS can't count characters.
-                  <span className="nav-glyph mono" data-mono-len={g.mono.length}>
-                    <span className="nav-mono-chip">{g.mono}</span>
-                  </span>
-                )
-              ) : (
-                <span className="nav-glyph"><Icon id={g.icon} /></span>
-              )}
+              {planGlyphNode(doc)}
               <span className="nav-label">{doc.code}</span>
             </button>
           )
@@ -172,6 +225,15 @@ export function NavRail(p: Props) {
       </div>
 
       {p.trailing}
+
+      {chooser && folded && (
+        <PlanChooser
+          docs={p.planDocs}
+          activeId={p.activePlanId}
+          onPick={p.onSelectPlan}
+          onClose={() => setChooser(false)}
+        />
+      )}
 
       {/* drag GRIP — aria-label only (a native `title` would pop the OS tooltip box) */}
       <button className={`nav-grip rail-grip${rail.dragging ? ' drag' : ''}`} aria-label={nav.resize} {...rail.gripProps} />

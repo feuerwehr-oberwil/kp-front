@@ -240,6 +240,15 @@ describe('what a storey tile carries onto the Karte', () => {
     expect(bakeGeoBody(tile({ storey: 1 }), PLAN, 'taktisch').entity?.floor).toBe(1) // an ordinary sheet: the storey badge, as before
     expect(bakeGeoBody(tile({}), PLAN, 'taktisch').entity?.floor).toBeUndefined()
   })
+  // 18.09.2026: the Trupp marker shows its storey on the Karte too. A resource chip is the one
+  // symbol whose storey is a signed BADGE rather than a Von/Bis span — it stands on one floor.
+  it('a Trupp chip hands the Karte its storey as a signed floor badge', () => {
+    const teamOn = (floor?: number): TacticalObject => ({ id: 'r', sheet: { planId: 'gebaeude', anno: { id: 'r', kind: 'resource', text: 'Müller', x: 0.5, y: 0.5, floor } } })
+    expect(bakeGeoBody(teamOn(2), STACK, 'taktisch').entity?.floor).toBe(2)
+    expect(bakeGeoBody(teamOn(), STACK, 'taktisch').entity?.floor).toBe(0)
+    // off a stack there is no storey to state, and a 0 would assert an EG nobody said
+    expect(bakeGeoBody(teamOn(2), PLAN, 'taktisch').entity?.floor).toBeUndefined()
+  })
   it('a line gets the floorTag, a note the floor', () => {
     const line: TacticalObject = { id: 'l', sheet: { planId: 'gebaeude', anno: { id: 'l', kind: 'draw', floor: 1, pts: [[0.1, 0.1], [0.4, 0.4]] } } }
     expect(bakeGeoBody(line, STACK, 'taktisch').drawing?.floorTag).toBe(1)

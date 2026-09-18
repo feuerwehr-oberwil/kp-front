@@ -461,7 +461,7 @@
      the column's top/bottom edge buttons), which on a bar is a chevron laid over every item. The
      fade below is the whole cue here, and a bar is dragged with a thumb. */
   .nav-more { display: none; }
-  .nav-scroll { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 2px; }
+  .nav-scroll { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; gap: 1px; }
   /* fade whichever edge still has items behind it, so a clipped item reads as «scroll for more»
      — and the bar's END reads as the end. Same start/end flags as the tool bar above. */
   .nav-scroll.more-bottom:not(.more-top) {
@@ -473,7 +473,27 @@
   .nav-scroll.more-top.more-bottom {
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent);
     mask-image: linear-gradient(90deg, transparent, #000 22px, #000 calc(100% - 22px), transparent); }
-  .nav-item { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  /* ⚠️ 44px, and the bar's arithmetic is why (18.09.2026, the plan fold). The narrowest phone
+     the app is used on is 360px; the bar keeps 8px either side (.navrail left/right) and 8px of
+     its own padding, which leaves 328px for the seven tiles the folded bar now holds —
+     Karte · Pläne · Checkliste · Trupps · Anwesenheit · Material · Rapport — plus two separators
+     (2 × (1px + 2 × 2px margin) = 10px) and eight 1px gaps. 7 × 44 = 308; 308 + 10 + 8 = 326 ≤ 328,
+     so the whole bar is reachable without a sideways scroll. 44px is still the gloved floor, and
+     the tile is 46px tall, so nothing about the target shrank but its width.
+     The scroll path below stays: the «Wort unter dem Zeichen» variant sizes its tiles to their
+     own words and can still overflow. */
+  .nav-item { width: 44px; min-width: 44px; flex: 0 0 auto; }
+
+  /* ── the folded «Pläne» tile ── glyph over the short code of the document that is loaded
+     («Gebäude», «M6», «RWA»). The code is the recognition the per-document tiles carried: the
+     tile says WHICH plan the next tap opens, not merely that plans exist. */
+  .nav-item.nav-plans { flex-direction: column; gap: 0; justify-content: center; }
+  .nav-item.nav-plans .nav-glyph { width: auto; min-width: 0; height: 24px; }
+  .nav-item.nav-plans .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: 11px; }
+  /* 9px — a legend under a glyph, like the rail's own labels, and the 44 × 46px button is the
+     target. Never truncated to an ellipsis: a code cut to «Gebä…» names nothing. */
+  .nav-sub { font-size: 9px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em;
+    max-width: 100%; padding: 0 1px; white-space: nowrap; overflow: hidden; }
 
   /* ── «Wort unter dem Zeichen» on a PHONE ──
      ⚠️ The desktop rule for that preference (05-navrail.css · .labelled) sets a rail WIDTH, and on
@@ -501,8 +521,12 @@
      visible without scrolling. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-label {
     font-size: 9.5px; overflow: visible; text-overflow: clip; }
+  /* …and where the words are on, the folded tile carries BOTH: «Pläne» under the glyph and the
+     loaded document's code under that, a point smaller so the pair still clears the 46px tile. */
+  .navrail.labelled:not(.expanded):not(.dragging) .nav-sub { font-size: 8.5px; }
+  .navrail.labelled:not(.expanded):not(.dragging) .nav-item.nav-plans .nav-glyph { height: 22px; }
   .nav-foot { margin-top: 0; }
-  .nav-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }   /* vertical divider in a row */
+  .nav-sep { width: 1px; height: 26px; margin: 0 2px; flex: none; }   /* vertical divider in a row (see the width math on .nav-item) */
 
   /* zoom controls reposition (.toputil) migrated → MapUtility.module.css */
 
@@ -672,11 +696,12 @@
      rail-h baselines as the lanes below — 4px under the pill — so the toast that row's own
      Massstab chip raises («Ref. automatisch – Massstab aus dem Gebäudegrundriss») landed square
      on the chips that raised it, wedged between them and the tool bar. It lifts over the row the
-     way it already lifts over each bar. The row publishes no height (its chips wrap to a second
-     line on a narrow phone), so like --ml-reserve below this is a CAP, not a measurement: two
-     ~30px chip rows, their 8px gap and an 8px channel. Over a single row the pill therefore
-     floats a little higher than it strictly must; it is gone in six seconds either way. */
-  :root:has(.wb-botleft) .toaster { --plan-row-reserve: 76px; }
+     way it already lifts over each bar. The row publishes no height, so like --ml-reserve below
+     this is a CAP, not a measurement: ONE ~30px chip row and an 8px channel. It was two rows
+     until 18.09.2026, when the row stopped wrapping — on a phone the Massstab and «⌖ Karte»
+     pills are icon + Ampel-lamp only and the whole row fits one line at 360px
+     (09-whiteboard · .wb-botleft, .wb-lamped). Keep the two in step if that ever changes. */
+  :root:has(.wb-botleft) .toaster { --plan-row-reserve: 38px; }
   .toaster {
     --toast-lane-bottom: calc(var(--rail-h) + 24px + var(--plan-row-reserve, 0px) + env(safe-area-inset-bottom));
     bottom: var(--toast-lane-bottom);

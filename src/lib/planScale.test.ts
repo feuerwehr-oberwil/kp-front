@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { unitLen, pathUnits, calibrate, pathMetres, polyAreaM2, isStale, circleRadiusM, circleRadiusN, circleRingN, type NPoint } from './planScale'
+import { unitLen, pathUnits, calibrate, pathMetres, polyAreaM2, isStale, circleRadiusM, circleRadiusN, circleRingN, scaleLampTone, type NPoint } from './planScale'
 
 describe('unitLen — aspect correction', () => {
   it('is plain Euclidean on a square page (ar = 1)', () => {
@@ -114,5 +114,41 @@ describe('circleRingN', () => {
     const ring = circleRingN(0.5, 0.5, 0.1, 1, 8)
     expect(ring).toHaveLength(8)
     expect(ring[7]).not.toEqual(ring[0])
+  })
+})
+
+// On a phone the Massstab pill is icon + lamp and nothing else, so this dot IS the reading. It
+// may only ever restate a branch the chip already renders — «green» on a sheet nobody measured
+// would be the app lying about its own metres.
+describe('scaleLampTone — what the Massstab pill\'s lamp says about the metres', () => {
+  const S = { auto: false, autoFromFit: false, fitWarn: false, stale: false, calibrated: false }
+
+  it('is red on a sheet with no scale at all — «nicht kalibriert»', () => {
+    expect(scaleLampTone(S)).toBe('red')
+  })
+
+  it('is green for a hand calibration against the printed scale bar', () => {
+    expect(scaleLampTone({ ...S, calibrated: true })).toBe('green')
+  })
+
+  // the stored factor was taken at another aspect (the sheet was replaced/resized): the number
+  // still stands, but it is «Massstab neu prüfen», not a measurement
+  it('is amber for a stale calibration, even one that was measured once', () => {
+    expect(scaleLampTone({ ...S, calibrated: true, stale: true })).toBe('amber')
+  })
+
+  // the Gebäude's metres come from the footprint's own ground size — measured, with no fit
+  // anywhere near it, so no fit's doubts apply
+  it('is green for the Gebäude stack, whose scale is its Grundriss', () => {
+    expect(scaleLampTone({ ...S, auto: true })).toBe('green')
+    expect(scaleLampTone({ ...S, auto: true, fitWarn: true })).toBe('green')
+  })
+
+  // ⚠️ THE case this helper exists for: a scale is only as trustworthy as what it was derived
+  // from. Two pairs solve exactly, so the fit is unmeasured — and the metres it hands the sheet
+  // are unmeasured with it.
+  it('inherits the Kartenverknüpfung\'s own doubt when the scale comes from the fit', () => {
+    expect(scaleLampTone({ ...S, auto: true, autoFromFit: true })).toBe('green')
+    expect(scaleLampTone({ ...S, auto: true, autoFromFit: true, fitWarn: true })).toBe('amber')
   })
 })

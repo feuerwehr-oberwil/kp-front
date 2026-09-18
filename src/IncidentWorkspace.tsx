@@ -177,6 +177,7 @@ import { ReportPreflight, requestReportStep } from './components/ReportPreflight
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
+import { ghostTrailLabel, mapGhostTrails, planGhostTrails, reconcileGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources, type TrailSource } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen } from './lib/abschlussOpen'
@@ -696,7 +697,7 @@ export function IncidentWorkspace({
   // is a view of the tactical store above.
   const {
     incidentSettings, setIncidentSettings, checklists, setChecklists,
-    trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, attachments, setAttachments,
+    trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, trails, setTrails, attachments, setAttachments,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
     planBindings, setPlanBindings,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
@@ -1572,12 +1573,15 @@ export function IncidentWorkspace({
     // undoing into it would resurrect remotely-deleted content).
     replaceObjects(next.objects); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
+    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setTrails(next.trails); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
     // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
     // list that no longer exists, and stepping into one would write this device's rows back over
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's
     // unmount (see `planHistory`), so nothing else drops them any more.
     attHistClear.current?.(); setPlanHistory({})
+    // …and the ghost-trail reconciliation re-seeds instead of running: the store was REPLACED, so
+    // every marker on it would read as «vanished» and the merge would ghost the whole picture.
+    prevTrailSources.current = null
     // …and every OPEN fold window with them. A burst that is still collecting (a Kurzbericht
     // being typed, a Bildlegende, the Gebäude-Drehung) points at a state the merge has replaced:
     // folding the next write into it would write a pre-merge value back, and — worse — lay no
@@ -1611,7 +1615,7 @@ export function IncidentWorkspace({
     return {
     objects: persisted,
     entities: views.entities,
-    drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, settings: incidentSettings, planBindings, intakeReviewedAt,
+    drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, settings: incidentSettings, planBindings, intakeReviewedAt,
     // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
     // syncedLayerState above and lib/layerPrefs). The record's own value goes back unchanged.
     layerState: syncedLayerState.current,
@@ -1620,7 +1624,7 @@ export function IncidentWorkspace({
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
   }
-  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, planScale, reportMeta, attachments, incidentSettings, planBindings, intakeReviewedAt])
+  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, incidentSettings, planBindings, intakeReviewedAt])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every
   // change (not just on a deliberate toggle) so the set derived at boot — including the
@@ -3439,12 +3443,12 @@ export function IncidentWorkspace({
       groupOrig.current = { draws: {}, ents: {}, centre: null }
     }
   }
-  // a team marker that carries recorded positions is protected from deletion — its trail is
-  // part of the incident record, so it must be cleared deliberately first (plan-board parity)
-  const teamEntityLocked = (e: Entity | undefined) => e?.kind === 'team' && (e.trail?.length ?? 0) > 0
+  // ⚠️ A trail no longer LOCKS its marker (18.09.2026, Karte/Plan parity). The record is
+  // protected by outliving the marker instead: the removed marker's recorded positions move into
+  // a ghost trail the incident owns (lib/truppTrails · reconcileGhostTrails, the effect below).
   const deleteGroup = async (ids: string[], entIds: string[]) => {
     if (tacticalLocked) return
-    const ents = entIds.filter((id) => !liveIds.has(id) && !teamEntityLocked(entities.find((e) => e.id === id)))
+    const ents = entIds.filter((id) => !liveIds.has(id))
     const affected = drawings.flatMap((dr) => ids.includes(dr.id) ? [] : (['start', 'end'] as const).flatMap((endpoint) => {
       const a = endpoint === 'start' ? dr.startAttachment : dr.endAttachment
       return a && ((a.target.kind === 'object' && ents.includes(a.target.id)) || (a.target.kind === 'line' && ids.includes(a.target.id))) ? [{ dr, endpoint, a }] : []
@@ -3711,8 +3715,6 @@ export function IncidentWorkspace({
   const deleteEntity = async (id: string) => {
     if (tacticalLocked) return false
     const ent = entities.find((e) => e.id === id)
-    // a trail-carrying team stays: clear the trail deliberately first (plan-board parity)
-    if (teamEntityLocked(ent)) { toast(appConfig.copy.whiteboard.deleteLocked, { icon: 'warn', tone: 'warn' }); return false }
     const connected = drawings.filter((d) => [d.startAttachment, d.endAttachment].some((a) => a?.target.kind === 'object' && a.target.id === id))
     // Written notes and any indirectly detached lines ask once before the structural change.
     if ((ent?.kind === 'note' && (ent.label ?? '').trim()) || connected.length) {
@@ -3967,6 +3969,59 @@ export function IncidentWorkspace({
   rememberOneShotRef.current = rememberOneShot
   const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
     rememberOneShot('gebaeude', label, restore, reapply)
+
+  /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
+   *
+   * Removing a Trupp marker used to remove the searched area with it, which is why both surfaces
+   * REFUSED to remove a marker carrying a trail. The trail is now owned by the incident
+   * (lib/truppTrails): a marker that disappears leaves a read-only grey ghost behind, and one
+   * that comes back takes its own trail home again.
+   *
+   * ⚠️ Driven as a RECONCILIATION rather than as a write on each removal path, and that is what
+   * makes the undo ONE step. Four doors take a marker off a picture — the chip's trash, the map
+   * marker's trash, either group delete, and `deleteTrupp` · `dropPlacements` — each with its own
+   * history; a ghost written by each of them would be a second timeline entry, and «Rückgängig»
+   * would hand the marker back with its ghost still standing beside it. Here nothing is pushed:
+   * the removal's own step is the whole act, in both directions.
+   *
+   * ⚠️ `prevSources` is NULLED by a remote hydrate (applyWorkspace replaces the whole store), or
+   * the merge would read every marker as removed at once and ghost the lot.
+   */
+  const truppNoOf = (id: string | undefined) => (id ? allTrupps.find((t) => t.id === id)?.no : undefined)
+  const planIsStack = (id: string) => !!planDocs.find((p) => p.id === id)?.floorStack
+  const trailSourcesNow = useMemo(
+    () => trailSources(objects, planIsStack, truppNoOf),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [objects, planDocs, allTrupps],
+  )
+  const prevTrailSources = useRef<TrailSource[] | null>(null)
+  useEffect(() => {
+    const prev = prevTrailSources.current
+    prevTrailSources.current = trailSourcesNow
+    if (!prev) return // first pass / post-hydrate seed: nothing vanished, nothing to ghost
+    setTrails((ts) => reconcileGhostTrails(ts, prev, trailSourcesNow, serverNowIso()))
+  }, [trailSourcesNow, setTrails])
+  /** «Spur löschen» on a ghost — the same confirm the live trail has, and undoable as one step. */
+  const deleteGhostTrail = async (id: string) => {
+    if (tacticalLocked) return
+    const g = trails.find((t) => t.id === id)
+    if (!g || g.removedAt) return
+    const name = ghostTrailLabel(g, appConfig.copy.whiteboard.team)
+    const ok = await confirmDialog({
+      title: appConfig.copy.whiteboard.clearTrail,
+      message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name, n: trailPointCount(g) }),
+      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+    })
+    if (!ok) return
+    const at = serverNowIso()
+    setTrails((ts) => removeGhostTrail(ts, id, at))
+    log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name }))
+    // the domain is where the trail was WALKED — a ghost on a sheet is the Plan's act, so the
+    // header's «Rückgängig: …» names the surface the operator is standing on
+    rememberOneShot(g.planId ? 'plan' : 'karte', appConfig.copy.whiteboard.clearTrail,
+      () => setTrails((ts) => restoreGhostTrail(ts, id)),
+      () => setTrails((ts) => removeGhostTrail(ts, id, at)))
+  }
   // …and what each person's Bemerkung said, for as long as this incident is open here. The record
   // loses it when a row is cycled to «frei» (the entry goes, as it must); this is what puts it back
   // when the same person is ticked present again — see useAttendanceActions · noteMemory. Per
@@ -4719,6 +4774,9 @@ export function IncidentWorkspace({
           onTeamMark={tacticalLocked ? undefined : markTeamPosition}
           onTeamRename={tacticalLocked ? undefined : renameTeam}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
+          // the searched areas removed Trupp markers left behind (lib/truppTrails)
+          ghostTrails={mapGhostTrails(trails)}
+          onGhostTrail={tacticalLocked ? undefined : (id) => void deleteGhostTrail(id)}
           // «Lösen» on a joined Trupp marker: it lets go of the Leitung on BOTH sides (anchor +
           // the Trupp's own number), which is a Trupp-record write and therefore outside the
           // Karte's document undo — so it quits with the confirm-with-undo toast one-shot ops
@@ -5084,6 +5142,10 @@ export function IncidentWorkspace({
         // the RAIL list: «Umrisse» + «Gebäude» are one morphing tile here, two documents everywhere
         // else (see railPlanDocs)
         planDocs={railPlanDocs}
+        // PHONE only: those tiles fold into ONE «Pläne» tile there (18.09.2026) — seven tiles is
+        // what a 360px bar holds, and the plan documents were the group that pushed it into a
+        // sideways scroll. The vertical rail keeps one tile per document.
+        fold={isPhone}
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}
@@ -5761,6 +5823,10 @@ export function IncidentWorkspace({
              the derivation would use TODAY's fit on yesterday's record. Absent is the honest
              answer until replay carries the projection it was recorded with (phase 4). */
           annos={(replayActive ? replayBoard : board)?.[activePlanId] ?? []}
+          /* ⚠️ Not during replay: a ghost trail is today's record of a removal, and the replayed
+             sheet is what was on the screen at the recorded moment (lib/replay stays VIEW-based). */
+          ghostTrails={replayActive ? [] : planGhostTrails(trails, activePlanId)}
+          onGhostTrail={tacticalLocked ? undefined : (id) => void deleteGhostTrail(id)}
           onChange={(next) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next })) }}
           building={replayActive ? replayBuilding : building}
           floorPack={floorPack}

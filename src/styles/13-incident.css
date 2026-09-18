@@ -1649,6 +1649,19 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-objrow-dist { color: var(--blue); font-weight: 600; }
 .ip-objrow-sub { font: 500 12px var(--body); color: var(--ink-faint); margin-top: 1px; }
 
+/* «Koordinaten» — the fold the resolved-location line lives behind (EinsatzWizard, 18.09.2026).
+   The whole ROW is the button, at the touch floor, with the app's one disclosure chevron
+   (02-base · .chev, which flips off `aria-expanded`). It wears the section-head type of the
+   `.ip-ix-head` rows it sits among, so a fold reads as a heading that happens to open rather
+   than as a fourth location method. */
+.ip-fold-head { display: flex; align-items: center; gap: 7px; min-height: var(--tap);
+  margin: 4px 0 -2px; padding: 0 2px; border: none; background: none; cursor: pointer; text-align: left; }
+.ip-fold-head .i { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
+.ip-fold-title { font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+@media (hover: hover) {
+  .ip-fold-head:hover .ip-fold-title, .ip-fold-head:hover .i { color: var(--ink-dim); }
+}
+
 /* resolved-location line — a QUIET one-line hint, not a boxed warning (the dashed
    mono-font box read louder than the actual inputs; cleanup 2026-07-15) */
 .ip-loc { display: flex; align-items: center; gap: 7px; padding: 2px 2px;

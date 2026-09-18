@@ -104,3 +104,31 @@ export function moduleNumbers(doc: PlanDocument): number[] {
   const nums = g.mono.match(/\d+/g)
   return nums ? nums.map(Number) : []
 }
+
+/** What the phone bar's ONE folded «Pläne» tile stands for (18.09.2026).
+ *
+ *  A phone bar has room for seven tiles, and a station with four modules plus a Gebäude had
+ *  eleven — so the bar scrolled, and the destinations past the fade could not be recognised at
+ *  all. The plan documents fold into one tile whose sub-label names the document that is
+ *  loaded, which is the recognition the per-document tiles were carrying. */
+export interface FoldedPlans {
+  /** the document a first tap opens — the active/last-used one, else the first in the list */
+  target: PlanDocument
+  /** the short code shown under «Pläne» — «Gebäude», «M6», «RWA» … */
+  sub: string
+  /** more than one document, so there is something for a chooser to choose BETWEEN. With one
+   *  document a second tap and a hold do nothing: a list of one answers no question. */
+  many: boolean
+}
+
+/** Fold every plan document into the single phone tile. `null` = no documents at all, which is
+ *  the rail's existing empty state: no tile and no separator, rather than a tile that opens
+ *  nothing. */
+export function foldPlanTiles(docs: PlanDocument[], activeId: string): FoldedPlans | null {
+  if (docs.length === 0) return null
+  // `activeId` is the plan the workspace already tracks, and it survives a trip to the Karte —
+  // so «last used» needs no store of its own. An id that no longer resolves (the object was
+  // switched) falls back to the first document instead of showing a code for nothing.
+  const target = docs.find((d) => d.id === activeId) ?? docs[0]
+  return { target, sub: target.code, many: docs.length > 1 }
+}

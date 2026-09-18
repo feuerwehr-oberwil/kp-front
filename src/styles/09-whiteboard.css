@@ -123,10 +123,28 @@
   .wb-nearby-banner { left: 12px; right: 12px; flex-wrap: wrap; }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
 }
-/* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). It never
-   truncates: it is a verb, and half a verb is not an instruction — the object read-out beside it
-   is the one that gives way when the row runs out of room. */
+/* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the
+   PICKER face it is a verb («Zurück zum Gebäude») and never truncates: half a verb is not an
+   instruction — the object read-out beside it is the one that gives way when the row runs out. */
 .wb-building { flex: none; }
+/* …on the STACK face it is the building's NAME instead (18.09.2026), and a name is exactly the
+   kind of thing that may end in an ellipsis: the object read-out is dropped on this surface, so
+   this pill is the only one competing for the row's width and it gives way like any read-out.
+   The verb lives in title/aria-label. */
+.wb-building.wb-building-named { flex: 0 1 auto; min-width: 0; }
+/* the pill goes somewhere — a small, quiet chevron, never the pill's own weight */
+.wb-scale-chip .wb-chip-chev { width: 12px; height: 12px; flex: none; color: var(--ink-faint); margin-left: -2px; }
+/* ── The pill row's lamps ──────────────────────────────────────────────────────────────────────
+   Massstab and «⌖ Karte» each carry a 9px Ampel dot in the SAME three tones the georeference's
+   own lamp uses (GeorefMode.module.css · .dot / .sdot). It is not decoration: on a phone these
+   two pills are icon + lamp and nothing else (the words move into title/aria-label, see the
+   phone block below), so the dot is the whole reading. Tones are decided in TS — planScale ·
+   scaleLampTone and georefMode · georefChipTone — never here, so the pill and the panel behind
+   it can never disagree about whether a reference is good. */
+.wb-lamp { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.wb-lamp[data-tone='red'] { background: var(--red); }
+.wb-lamp[data-tone='amber'] { background: var(--amber); }
+.wb-lamp[data-tone='green'] { background: var(--green); }
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
    — it is still the answer to «which building am I looking at», it simply cannot be tapped */
 .wb-object:disabled { cursor: default; opacity: 1; }
@@ -164,6 +182,18 @@
      covered by it half the time. Same `:has` idiom the FAB already uses to get out of its way. */
   .app:has(.wb-dock) .wb-botleft {
     bottom: calc(var(--rail-h) * 3 + 26px + env(safe-area-inset-bottom)); }
+  /* ⚠️ ONE line, always (owner, 18.09.2026). The row used to wrap, and on a 360px phone the two
+     status pills dropped onto a second line over the plan — a whole extra band of chrome across
+     the sheet, budgeted for in the toast lane (15-mobile · --plan-row-reserve) and read by
+     nobody. So on a phone Massstab and «⌖ Karte» give up their WORDS and keep their icon and
+     their lamp: what they said («Ref. 25 m», «Verknüpft») was a state, and a state is exactly
+     what an Ampel dot says in 9px. The words are still there for a screen reader and a
+     long-press — every one of these pills carries its label in `aria-label`/`title`
+     (Whiteboard · the .wb-lamped chips). The Gebäude/Objekt read-out keeps its NAME, because a
+     name cannot be an Ampel; it is the one that truncates when the row runs out of room. */
+  .wb-botleft { flex-wrap: nowrap; }
+  .wb-botleft > .wb-scale-chip.wb-lamped { flex: none; }
+  .wb-botleft > .wb-scale-chip.wb-lamped > span:not(.wb-lamp) { display: none; }
 }
 
 /* PlanPicker modal — searchable object list (primary) + supporting mini-map.
@@ -464,6 +494,37 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   border-style: dashed; border-color: var(--ink-dim); color: var(--ink-dim);
 }
 
+/* ── Das Geschoss im Truppmarker (18.09.2026) ────────────────────────────────────────────────
+   Same chip as the Leitung's number next to it, in the TRUPP's own ink, carrying the same signed
+   badge a Leitung's `floorTag` wears (+2 / 0 / −1, lib/symbolRender · floorBadge). On a Gebäude
+   stack the tile alone says the storey only to whoever is looking at that tile; on the Karte the
+   marker had no way of saying it at all. `min-width` rather than the Leitung's fixed 19px: «−1»
+   and «+12» are both possible and the badge sits at the END of the pill, outside the strip the
+   label pass books for [dot][gap][name]. */
+.team-floor, .wb-resource-pill .team-floor {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  min-width: 19px; height: 19px; padding: 0 3px; box-sizing: border-box;
+  border: 1.5px solid var(--team); border-radius: 4px; color: var(--team); background: var(--surface);
+  font-family: var(--body); font-size: 11.5px; font-weight: 800; font-style: normal; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.team-dot.raus .team-floor, .wb-resource-pill.raus .team-floor {
+  border-style: dashed; border-color: var(--ink-dim); color: var(--ink-dim);
+}
+
+/* ── Geister-Spuren: der abgesuchte Bereich ohne seinen Marker (lib/truppTrails) ──────────────
+   Grey and read-only wherever it is drawn — it is a record, not a Trupp. The dots are the same
+   `.wb-trail-mark` a live trail leaves; only the label chip is new, and it is the hit target:
+   tapping it offers «Spur löschen» with the same confirm the live trail has. */
+.wb-ghost-trail-dot .wb-trail-mark, .map-ghost-trail .wb-trail-mark { background: var(--ink-dim); opacity: .7; }
+.wb-ghost-trail-dot i, .map-ghost-trail i { color: var(--ink-dim); }
+.wb-ghost-label { position: absolute; z-index: 6; transform: translate(-50%, -150%);
+  display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 7px;
+  border: 1px dashed var(--ink-dim); border-radius: var(--r-ctl);
+  background: var(--label-bg); color: var(--ink-dim);
+  font-family: var(--body); font-size: 11px; font-weight: 700; cursor: pointer; }
+.wb-ghost-label .i { width: 12px; height: 12px; }
+
 /* selected-team action bar — one compact toolbar under the pill, replacing the two
    corner orbs (mark top-left + delete top-right) that used to crowd the pill */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
@@ -496,13 +557,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 @media (hover: hover) {
   .wb-pa-show:hover { background: var(--green); filter: brightness(1.08); }
 }
-/* Delete is blocked because the team carries a recorded trail. It stays the SAME trash glyph in
-   the same slot, greyed out — a padlock only said "locked" without saying locked out of WHAT.
-   Still clickable: it offers the confirmed trail clear, which is the way back to a normal delete. */
-.wb-pa-del-off { background: color-mix(in srgb, var(--on-accent-ink) 8%, transparent); color: color-mix(in srgb, var(--on-accent-ink) 45%, transparent); }
-@media (hover: hover) {
-  .wb-pa-del-off:hover { background: color-mix(in srgb, var(--on-accent-ink) 16%, transparent); }
-}
+/* «Spur löschen» — its OWN button beside the trash since 18.09.2026, never a morph of it (see
+   TwinTeamPill). Neutral chrome, not red: the danger colour belongs to the one button that takes
+   something off the picture, and this one is guarded by its own confirm. */
+.wb-pa-trail { background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); }
 /* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling */
 .wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 62px); }
 .wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; transform: translateX(-50%); z-index: 7;
@@ -721,7 +779,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 /* line arrowhead — a 0×0 svg (overflow visible) so the path tip sits exactly at the line end;
    the marker letter (e.g. R for Rettungsachse) sits at the line midpoint */
-.wb-arrowhead { position: absolute; overflow: visible; pointer-events: none; }
+/* z 8 like .wb-grow: above the vertex grips (7), so the spitze of a selected Linie paints over
+   its (hollow) end node instead of under it. Still pointer-inert — it is a picture, not a grip. */
+.wb-arrowhead { position: absolute; z-index: 8; overflow: visible; pointer-events: none; }
 /* ⚠️ `--on-accent-ink`, not `--surface` (31.08.) — see .line-end-tag below: letter and ring are the
    LINE's colour, so the plate has to stay near-white in night mode or an «S» on a blue Leitung is
    dark-on-dark. Same plate as the tactical-symbol chip. */
@@ -933,6 +993,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   background: var(--on-accent-ink); border: 3px solid var(--blue); cursor: grab; touch-action: none; box-shadow: var(--shadow-sm); }
 .wb-vertex::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .wb-vertex:active { cursor: grabbing; }
+/* The end node of an arrowed Linie is hollow, so the spitze reads through it — the Karte's
+   .draw-handle--ring, same rule and same helper (lib/lineStyle · arrowEndIndices). Here the
+   arrowhead is a sibling SVG, so it is ALSO lifted above the node (see .wb-arrowhead's z-index). */
+.wb-vertex--ring { background: transparent; }
 /* Verlängern-Griff auf dem Plan: dieselbe Optik wie auf der Lage (.draw-grow in 11-measure.css),
    hier nur absolut im Board-Layer positioniert statt in einem Marker. z 8 über Knoten (7) und
    Einfügepunkten (6) — er liegt ausserhalb der Linie, kann also nichts verdecken, aber am

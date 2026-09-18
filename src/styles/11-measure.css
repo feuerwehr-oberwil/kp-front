@@ -45,6 +45,13 @@
 .measure-handle::after, .draw-handle::after { content: ''; position: absolute; left: 50%; top: 50%;
   width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .measure-handle:active, .draw-handle:active { cursor: grabbing; transform: scale(1.15); }
+/* ── the node under an arrowhead is a HOLLOW ring (18.09.2026) ───────────────────────────────
+   A Pfeil's spitze is painted on the GL canvas and every node pad is a DOM marker above it, so
+   selecting an arrowed Linie hid the one thing that says which end it points at. Dropping the
+   white fill gives the head its tip and flanks back; the grip is otherwise untouched — 24px,
+   the same 3px --blue ring, the same 44px ::after hit pad, and it still steps aside during a
+   transform. Which node this is comes from lib/lineStyle · arrowEndIndices, shared with the Plan. */
+.draw-handle--ring { background: transparent; }
 /* Insert-a-node «+» at a segment's midpoint — Messung, Lage-Zeichnung and the Plan's .wb-vins,
    which this matches pixel for pixel.
    ⚠️ DASHED and hollow, not a filled blue dot (19.08.): filled, it read as a node that is already

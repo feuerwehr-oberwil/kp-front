@@ -48,3 +48,45 @@ describe('the selected pill of a bound Trupp', () => {
     expect(container.textContent).not.toContain('#2')
   })
 })
+
+describe('the action bar and the trail (18.09.2026)', () => {
+  // the trash used to MORPH while a trail existed: one glyph, two acts, and the act the operator
+  // wanted — take the marker off the picture — was the one it refused
+  it('always removes the marker, and offers «Spur löschen» as its own button beside it', () => {
+    const remove = vi.fn()
+    const clearTrail = vi.fn()
+    render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={4} trailShown trupps={TRUPPS}
+      acts={{ clearTrail, remove }} />)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.delete }))
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(clearTrail).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.clearTrail }))
+    expect(clearTrail).toHaveBeenCalledTimes(1)
+  })
+
+  it('draws no «Spur löschen» where there is no trail to delete', () => {
+    render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={0} trailShown={false} trupps={TRUPPS}
+      acts={{ clearTrail: () => {}, remove: () => {} }} />)
+    expect(screen.queryByRole('button', { name: appConfig.copy.whiteboard.clearTrail })).toBeNull()
+    expect(screen.getByRole('button', { name: appConfig.copy.delete })).toBeTruthy()
+  })
+})
+
+describe('the storey badge', () => {
+  it('states the Geschoss the Trupp is working on, signed like a Leitung’s floor tag', () => {
+    const { container } = render(<TwinTeamPill name="Müller" color="#c00" raus={false} floor={2} trailCount={0} trailShown={false} trupps={TRUPPS} />)
+    expect(container.querySelector('.team-floor')?.textContent).toBe('+2')
+    cleanup()
+    // EG and a Untergeschoss read as themselves — a Trupp is as often in the Keller as upstairs
+    const eg = render(<TwinTeamPill name="Müller" color="#c00" raus={false} floor={0} trailCount={0} trailShown={false} trupps={TRUPPS} />)
+    expect(eg.container.querySelector('.team-floor')?.textContent).toBe('0')
+    cleanup()
+    const ug = render(<TwinTeamPill name="Müller" color="#c00" raus={false} floor={-1} trailCount={0} trailShown={false} trupps={TRUPPS} />)
+    expect(ug.container.querySelector('.team-floor')?.textContent).toBe('-1')
+  })
+
+  it('says nothing for a Trupp that is on no storey — a «0» would assert an EG nobody stated', () => {
+    const { container } = render(<TwinTeamPill name="Müller" color="#c00" raus={false} trailCount={0} trailShown={false} trupps={TRUPPS} />)
+    expect(container.querySelector('.team-floor')).toBeNull()
+  })
+})

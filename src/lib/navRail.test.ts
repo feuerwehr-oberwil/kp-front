@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers, moduleTileLabel } from './navRail'
+import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers, moduleTileLabel, foldPlanTiles } from './navRail'
 import type { PlanDocument } from '../types'
 
 // a minimal PlanDocument factory — only the fields planGlyph reads matter
@@ -99,4 +99,30 @@ describe('the label and the chip agree', () => {
     expect(chip('modul5-pv15', 'PV 15')).toEqual({ mono: 'PV15' })
     expect(chip('modul5-pv20', 'PV 20')).toEqual({ mono: 'PV20' })
   })
+})
+
+// The phone bar folds every plan document into ONE tile (18.09.2026) — so the fold has to name
+// the document that is loaded, and it has to say whether a chooser exists at all.
+describe('foldPlanTiles', () => {
+  const docs = [
+    doc({ id: 'modul1', code: 'M1' }),
+    doc({ id: 'gebaeude', code: 'Gebäude', floorStack: true }),
+    doc({ id: 'tafel', code: 'Tafel' }),
+  ]
+
+  it('is nothing at all without a plan document — the rail keeps its empty state', () =>
+    expect(foldPlanTiles([], 'modul1')).toBeNull())
+
+  it('names the active document under the tile', () =>
+    expect(foldPlanTiles(docs, 'gebaeude')).toMatchObject({ sub: 'Gebäude', many: true }))
+
+  it('opens the active document on a first tap', () =>
+    expect(foldPlanTiles(docs, 'tafel')?.target.id).toBe('tafel'))
+
+  // switching Einsatzobjekt leaves an id behind that no document answers to
+  it('falls back to the first document when the active id does not resolve', () =>
+    expect(foldPlanTiles(docs, 'modul9')?.target.id).toBe('modul1'))
+
+  it('offers no chooser for a single document', () =>
+    expect(foldPlanTiles([docs[0]], 'modul1')).toEqual({ target: docs[0], sub: 'M1', many: false }))
 })

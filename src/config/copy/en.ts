@@ -27,7 +27,7 @@ export const en: Localizable<Copy> = {
   // «Teams», matching `atemschutz.boardTitle` — the surface carries work squads too, so naming it
   // «SCBA» told a traffic-control team it was in the wrong place (see de.ts for the full note).
   modes: { map: 'Map', plans: 'Plan', checklists: 'Checklist', atemschutz: 'Teams', anwesenheit: 'Attendance', mittel: 'Material', rapport: 'Report' },
-  navRail: { map: 'Map', plansGroup: 'Plans', assign: 'Assign plan', expand: 'Expand', collapse: 'Collapse', resize: 'Resize bar',
+  navRail: { map: 'Map', plansGroup: 'Plans', plansChoose: 'Choose plan', assign: 'Assign plan', expand: 'Expand', collapse: 'Collapse', resize: 'Resize bar',
     scrollMore: 'Show more',
   },
   panels: { layers: 'Layers', history: 'Log' },
@@ -528,6 +528,7 @@ export const en: Localizable<Copy> = {
     coordSet: 'Coordinate set',
     coordNone: 'No location – will open without a coordinate',
     coordClear: 'Remove location',
+    coordFold: 'Coordinates',
     keywordHead: 'Keyword & category',
     titleLabel: 'Keyword / title',
     titlePlaceholder: 'e.g. Building fire, school',
@@ -1585,7 +1586,8 @@ export const en: Localizable<Copy> = {
     trails: 'Trails',
     trailsOn: 'Show trails',
     trailsOff: 'Hide trails',
-    deleteLocked: 'Team with recorded history – clear the trail first',
+    ghostTrail: 'Trail {name}',
+    ghostTrailHint: 'Trail of {name} – the team marker was removed',
     textPlaceholder: 'Note ...',
     blankHint: 'Blank sheet – annotate with line, area, note, symbol or team',
     osmLoading: 'Loading building outlines …',

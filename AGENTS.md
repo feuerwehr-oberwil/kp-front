@@ -167,6 +167,26 @@ to prod.
   name – never the primary label. Every Verlauf row about a Trupp is `Trupp N (crew …)` through
   `truppLogName`, and the crew's history is `crew` rows in the Trupp's own log, which is what the
   Rapport prints per cycle. Add a crew-changing action ⇒ it writes a `crew` row.
+  - **A Trupp's marker says which STOREY it is on** (18.09.2026): the Gebäude chip — at rest
+    (`.team-dot`) and selected (`TwinTeamPill`) — and the Karte marker whose body was baked off
+    that chip wear the same signed badge a Leitung's `floorTag` wears (`.team-floor`,
+    `symbolRender · floorBadge`). A Trupp placed straight onto the Karte shows none: it is on no
+    storey, and a «0» would assert an EG nobody stated. Every row that already names the place a
+    Trupp was put or marked names the storey too (« · 2. OG», appended through `floorLabel` — no
+    new row kind, no new template key).
+  - **A Trupp's «Spur» belongs to the incident, not to its marker** (18.09.2026,
+    `lib/truppTrails`). Removing a chip / map marker (or the Trupp, via «Entfernen») moves its
+    recorded positions into a synced GHOST TRAIL — read-only, grey, labelled «Trupp N», drawn on
+    the storey it was walked on and in the frame it was recorded in (sheet-normalised for a plan,
+    geo for the Karte; never projected across). The trash therefore always removes the marker:
+    `deleteLocked` and the morphing trash are gone, and «Spur löschen» is its own button beside
+    it, with its own confirm. ⚠️ Ghosting is a RECONCILIATION over the marker set
+    (`reconcileGhostTrails`, one effect in `IncidentWorkspace`), NOT a write bolted onto each of
+    the four removal paths — that is what keeps the removal's own ↶ ONE step: a marker that comes
+    back takes its trail home and its ghost goes with it, and nothing was ever pushed onto the
+    timeline for the ghost. Ids are derived (`ght-<markerId>`) so two devices reconciling the same
+    removal converge under `mergeById`; deleting a ghost STAMPS `removedAt` (never drops the row),
+    or the reconciliation would write a deliberate deletion straight back.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
   (`<prefix><ms>-<seq><rand>`) for records the app mints and syncs; plain
   `'p'+Date.now()` survives in older call sites. Offline-friendly, no DB roundtrip;
