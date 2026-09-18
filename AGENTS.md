@@ -573,6 +573,11 @@ to prod.
     Headings and titles never take one, even when they are full clauses («Ein Fehler ist
     aufgetreten»). The rule is per locale – French «La suppression a échoué.» is a clause where
     German «Löschen fehlgeschlagen» is a fragment, and both are right.
+- **A search field's placeholder is «<Thing> suchen …», or bare «Suchen …» where the surface
+  already names the thing** (swept 18.09.2026: «Suchen», «Name suchen», «Suchen oder Name
+  eingeben …» and three-dot `...` all existed side by side). Always the ellipsis character with a
+  space before it, in every locale. A string that serves only as `aria-label`/button text is
+  the plain infinitive («Im Verlauf suchen»); a key used for BOTH keeps the placeholder form.
 - **Prose language split: technical English, user-facing German.** Everything technical –
   `docs/`, READMEs, `CHANGELOG.md`, code comments, commit messages – is written in English;
   German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
