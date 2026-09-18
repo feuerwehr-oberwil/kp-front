@@ -768,8 +768,13 @@ def _symbol_badges(
     floor_to: int | None,
     count: int | None,
 ) -> None:
-    """Storey badge top-right (white chip, ink), count badge bottom-right (ink chip, white) —
-    the client's `.sym-floor` / `.sym-count`. `u` is the sheet's px-per-unit factor (u · ss).
+    """Storey badge top-right, count badge bottom-right — both a WHITE chip with ink text (the
+    client's `.sym-floor` / `.sym-count`).
+
+    ⚠️ On screen the count is an INK chip. Not on paper (18.09.2026): since every symbol carries a
+    numbered legend disc, a dark «2» in the glyph's corner read as a second legend number right
+    beside the dark ❷ under it. The discs are the only dark marks on the sheet; the two badges
+    stay apart by corner and by sign (a storey is «+2» / «0» / «-1», a count is bare). `u` is the sheet's px-per-unit factor (u · ss).
 
     The storey is a single value or a von/bis RANGE (stairs, lift). On the Kroki it comes from
     the entity's `floor`, on a plan page from the anno's `storey` — two names because on a plan
@@ -787,7 +792,7 @@ def _symbol_badges(
         rng = "/".join(floor_badge(v) for v in (floor_from, floor_to) if v is not None)
         _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", "#1b2330")
     if (count or 0) > 1:
-        _badge(draw, (x + size / 2, y + size / 2), str(count), bh, "#1b2330", "white")
+        _badge(draw, (x + size / 2, y + size / 2), str(count), bh, "white", "#1b2330")
 
 
 def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str], fs: int) -> None:
@@ -812,17 +817,33 @@ def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str
 # ----------------------------------------------------------------------------- line decor
 
 
+def _fork_dims(width: float) -> tuple[float, float]:
+    """(half, prong) of the Teilstück fork for a stroke `width`, in the same px the width is in —
+    the ONE definition the drawn glyph and the branch ports share (client lib/lineAttachments ·
+    forkDims plays the same role on screen). Slightly longer + thinner than the on-screen fork so
+    the E reads crisply on paper."""
+    half = max(10.0, width * 2.1)
+    return half, half * 1.25
+
+
+def _fork_bearing(pts: list[tuple[float, float]], width: float) -> tuple[float, float]:
+    """Forward unit vector at the line's tip — the direction the fork opens in."""
+    tip = pts[-1]
+    back = _lookback(pts, max(10.0, width * 2.5))
+    dx, dy = tip[0] - back[0], tip[1] - back[1]
+    n = math.hypot(dx, dy) or 1.0
+    return dx / n, dy / n
+
+
 def _teilstueck_fork(overlay: Image.Image, pts: list[tuple[float, float]], color: str, width: int) -> None:
     """The forward «E»-fork Teilstück coupling at the line tip — the client's
     TeilstueckFork SVG (round caps, clean joins) rasterised via resvg and composited
     at the tip; PIL's fat butt-capped strokes turned into blobs."""
     color = _safe_color(color)
     tip = pts[-1]
-    back = _lookback(pts, max(10.0, width * 2.5))
-    ang = math.degrees(math.atan2(tip[1] - back[1], tip[0] - back[0]))
-    # slightly longer + thinner than the on-screen fork so the E reads crisply on paper
-    half = max(10.0, width * 2.1)
-    prong = half * 1.25
+    fx, fy = _fork_bearing(pts, width)
+    ang = math.degrees(math.atan2(fy, fx))
+    half, prong = _fork_dims(width)
     sw = max(2.0, width * 0.55)
     box = (half + prong) * 2 + 8
     svg = (
@@ -1403,6 +1424,111 @@ def _north_arrow(img: Image.Image, img_w: float, u: float) -> None:
     img.paste(dial, (int(img_w - size - 14 * u), int(14 * u)), dial)
 
 
+def _glyph_box(e: dict, lat: float, overlay_z: float, sym_mul: float) -> tuple[float, float]:
+    """(width, height) of an entity's printed glyph in the 1050-px reference units — the ONE sizing
+    the renderer draws with and the attachment pass couples to, so the two cannot disagree about
+    where a glyph's edge is. Symbols use the zoom band and stay square; a generic shape prints at
+    its ground size with its own aspect (height/width).
+
+    ⚠️ The limits are PER KIND, mirroring lib/shapes · SHAPE_MAX_PX / shapeAspect. A Rotation is a
+    shuttle RUN and spans the map: the flat 900 px ceiling truncated a Wasserpendel on paper the
+    same way it used to stop the drag on screen, and the 0.2 aspect floor fattened it tenfold,
+    because a run's width is capped in metres and a long one legitimately stores a few
+    thousandths (01.09.)."""
+    if e.get("sizeM"):
+        run = e.get("shape") == "rotation"
+        w = max(24.0, min(12000.0 if run else 900.0, e["sizeM"] * px_per_m(lat, overlay_z)))
+        return w, w * max(0.002 if run else 0.02, min(5.0, float(e.get("aspect") or 1)))
+    w = sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul)
+    return w, w
+
+
+def _snap_attached_ends(scene: KrokiScene, view: View, sym_mul: float, u: float, ss: int = 2) -> None:
+    """Couple every Leitung end that is attached to an object to the glyph AS PRINTED.
+
+    The client resolves attachments before it sends the scene, but without a projection: it ends
+    the line on a fixed ~4 m GROUND footprint (lib/lineAttachments · resolveMapDrawings). A printed
+    glyph is sized in PIXELS (`sym_px`), so the two only agree at one zoom — on a close crop 4 m is
+    several glyph widths and the hose stopped visibly short of the vehicle it was coupled to
+    (18.09.2026). The screen has always used the real glyph rectangle (MapView · objectPoint); this
+    is the same rule with the sheet's own view, which only the server knows.
+
+    Mutates the scene's line coords in place. Port of the client's `boundaryPoint`, including its
+    slightly NEGATIVE padding: the glyph paints over the line, so an end just inside the tile reads
+    as coupled and one just outside as «not quite joined».
+    """
+    by_id = {e["id"]: e for e in scene.entities if e.get("id")}
+    overlay_z = view.overlay_z if view.overlay_z is not None else view.z
+    for d in scene.drawings:
+        coords = d.get("coords") or []
+        if d.get("kind") != "line" or len(coords) < 2:
+            continue
+        for key, idx, nb in (("startAt", 0, 1), ("endAt", len(coords) - 1, len(coords) - 2)):
+            e = by_id.get(d.get(key) or "")
+            if e is None:
+                continue
+            lng, lat = e["coord"][0], e["coord"][1]
+            cx, cy = view.project(lng, lat)
+            tx, ty = view.project(coords[nb][0], coords[nb][1])
+            dx, dy = tx - cx, ty - cy
+            if math.hypot(dx, dy) < 1e-6:
+                continue
+            gw, gh = _glyph_box(e, lat, overlay_z, sym_mul)
+            w, h = gw * u, gh * u
+            r = -math.radians(float(e.get("rotation") or 0))
+            lx = dx * math.cos(r) - dy * math.sin(r)
+            ly = dx * math.sin(r) + dy * math.cos(r)
+            pad = -2.0 * u
+            k = min((w / 2 + pad) / max(abs(lx), 1e-9), (h / 2 + pad) / max(abs(ly), 1e-9))
+            if k >= 1:  # the neighbour vertex is already inside the tile — nothing to pull in
+                continue
+            # back to WGS84 along the same ray: the ray is short (half a glyph), so scaling the
+            # coordinate delta by k is exact to well under a pixel
+            coords[idx] = [lng + (coords[nb][0] - lng) * k, lat + (coords[nb][1] - lat) * k, *coords[idx][2:]]
+    _snap_line_joints(scene, view, u, ss)
+
+
+def _snap_line_joints(scene: KrokiScene, view: View, u: float, ss: int) -> None:
+    """…and the same for an end attached to ANOTHER LINE's end. A plain joint simply shares the
+    target's point. A branch off a Teilstück sits on one of the fork's three PRONG TIPS — and the
+    fork is a glyph sized in pixels (`_fork_dims`), while the client fans the branches out by a
+    fixed 1.5 m on the ground. On a close crop the branch started a whole fork-length away from
+    the prong it belongs to (18.09.2026). Runs AFTER the object pass, because a target's own end
+    may just have moved; three rounds settle any chain a hand would draw."""
+    by_id = {d["id"]: d for d in scene.drawings if d.get("id") and len(d.get("coords") or []) >= 2}
+    if not by_id:
+        return
+    for _ in range(3):
+        for d in scene.drawings:
+            coords = d.get("coords") or []
+            if d.get("kind") != "line" or len(coords) < 2:
+                continue
+            for key, idx in (("startAtLine", 0), ("endAtLine", len(coords) - 1)):
+                ref = d.get(key) or {}
+                target = by_id.get(ref.get("id") or "")
+                if target is None or target is d:
+                    continue
+                t_coords = target["coords"]
+                at_end = ref.get("endpoint") != "start"
+                tip = t_coords[-1] if at_end else t_coords[0]
+                lng, lat = tip[0], tip[1]
+                port = ref.get("port")
+                if at_end and target.get("teilstueck") and port is not None:
+                    # the prong tip, in the px the fork is rastered in — then back to WGS84 through
+                    # the local scale (north-up Mercator: no cross terms, linear over a few px)
+                    w = max(1, round((target.get("width") or 4) * u * ss))
+                    proj = [view.project(c0[0], c0[1]) for c0 in t_coords]
+                    pts = [(x * ss, y * ss) for x, y in proj]
+                    fx, fy = _fork_bearing(pts, w)
+                    half, prong = _fork_dims(w)
+                    perp = (int(port) - 1) * half
+                    ox, oy = (fx * prong - fy * perp) / ss, (fy * prong + fx * perp) / ss
+                    x0, y0 = view.project(lng, lat)
+                    x1, y1 = view.project(lng + 1e-5, lat + 1e-5)
+                    lng, lat = lng + ox * 1e-5 / (x1 - x0), lat + oy * 1e-5 / (y1 - y0)
+                coords[idx] = [lng, lat, *coords[idx][2:]]
+
+
 def render_kroki(
     scene: KrokiScene,
     pack: SymbolPack,
@@ -1433,6 +1559,7 @@ def render_kroki(
     u = width / ref_width  # UI scale: screen-px rules → render-px
     view = view or fit_view(scene.extent_points(), width, height)
     overlay_z = view.overlay_z if view.overlay_z is not None else view.z
+    _snap_attached_ends(scene, view, sym_mul, u, ss)
     # supersampled view: same world extent, ss× the pixels (tiles are stitched at 1× then
     # upscaled — map detail stays honest, but every overlay edge is drawn at ss× and
     # downsampled, which is where the crispness matters)
@@ -1581,21 +1708,9 @@ def render_kroki(
                     box_w=nbox,
                 )
             continue
-        # shapes are sized in real-world metres (client shapePx) and may be stretched
-        # (aspect = height/width); symbols use the band and stay square.
-        #
-        # ⚠️ The limits are PER KIND, mirroring lib/shapes · SHAPE_MAX_PX / shapeAspect. A
-        # Rotation is a shuttle RUN and spans the map: the flat 900 px ceiling truncated a
-        # Wasserpendel on paper the same way it used to stop the drag on screen, and the 0.2
-        # aspect floor fattened it tenfold, because a run's width is capped in metres and a
-        # long one legitimately stores a few thousandths (01.09.).
-        if e.get("sizeM"):
-            run = e.get("shape") == "rotation"
-            size = round(max(24.0, min(12000.0 if run else 900.0, e["sizeM"] * px_per_m(lat, overlay_z))) * u * ss)
-            gh = round(size * max(0.002 if run else 0.02, min(5.0, float(e.get("aspect") or 1))))
-        else:
-            size = round(sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u * ss)
-            gh = size
+        # one sizing with the attachment pass — see _glyph_box
+        gw, gh_ = _glyph_box(e, lat, overlay_z, sym_mul)
+        size, gh = round(gw * u * ss), round(gh_ * u * ss)
         x, y = x0_, y0_
         _place_symbol(overlay, draw, svg, (x, y), size, e.get("rotation"), e.get("spread"), height=gh)
         _symbol_badges(draw, (x, y), size, u * ss, e.get("floor"), e.get("floorFrom"), e.get("floorTo"), e.get("count"))

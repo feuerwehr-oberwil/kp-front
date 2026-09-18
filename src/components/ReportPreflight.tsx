@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
-import { buildDirectReportPayload, downloadDirectReportPdf } from '../lib/reportPdfDirect'
+import { buildDirectReportPayload, downloadDirectReportPdf, usedStackFloors } from '../lib/reportPdfDirect'
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
@@ -356,6 +356,12 @@ export function ReportPreflight({
   // and for the rest of the Einsatz. The payload carries an empty list when there are none, so
   // «always on» costs nothing: the section prints if and only if there is something to print.
   const pendenzCount = useMemo(() => pendenzRows(events).length, [events])
+  // the Gebäude section's count is its diagnostic, like the Pendenzen's: «(0)» says no storey
+  // carries anything, which is why no Gebäude page will print
+  const stackFloorCount = useMemo(() => {
+    const stack = plans.find((p) => p.floorStack)
+    return stack && building ? usedStackFloors(building, board?.[stack.id] ?? []).length : 0
+  }, [plans, building, board])
   const [options, setOptions] = useState<ReportOptions>(() => ({
     ...defaultReportOptions,
     kroki: mapContentCount > 0,
@@ -1585,6 +1591,9 @@ export function ReportPreflight({
                   // annotated ones, or all of them. Off is «neither ticked».
                   { kind: 'check' as const, label: fillTemplate(P.plansAnnotated, { n: annotatedPlanCount }), checked: options.annotatedPlans && !options.allPlans, onChange: (v: boolean) => patchOpt({ annotatedPlans: v, allPlans: false }) },
                   { kind: 'check' as const, label: P.plansAll, checked: options.allPlans, onChange: (v: boolean) => patchOpt({ allPlans: v, annotatedPlans: v ? false : options.annotatedPlans }) },
+                  // ⚠️ NOT one of the «Pläne»: an Objektplan is reference, the Gebäude is the Einsatz's
+                  // own work (Trupp positions per storey). Only storeys that carry something print.
+                  { kind: 'check' as const, label: fillTemplate(P.toggleGebaeude, { n: stackFloorCount }), checked: options.gebaeude && stackFloorCount > 0, disabled: stackFloorCount === 0, onChange: (v: boolean) => patchOpt({ gebaeude: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAtemschutz, { n: truppCount }), checked: options.atemschutz, onChange: (v: boolean) => patchOpt({ atemschutz: v }) },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttendance, { n: attendanceCount }), checked: options.attendance, onChange: (v: boolean) => patchOpt({ attendance: v }) },

@@ -34,6 +34,8 @@ export interface ReportOptions {
   krokiLandscape: boolean
   annotatedPlans: boolean
   allPlans: boolean
+  /** the Gebäude floor stack — its OWN section, not one of the «Pläne» (see defaultReportOptions) */
+  gebaeude: boolean
   atemschutz: boolean
   attendance: boolean
   mittel: boolean
@@ -64,6 +66,12 @@ export const defaultReportOptions: ReportOptions = {
   // rapport. The operator adds them from the ▾ menu when a sheet carries work of its own.
   annotatedPlans: false,
   allPlans: false,
+  // ⚠️ Its own section, and ON (18.09.2026). It used to ride the «Pläne» switch, but it is the
+  // opposite kind of page: an Objektplan is reference material the station already owns, the
+  // Gebäude carries the Einsatz's own work — where each Trupp stood, on which storey. Same
+  // reasoning as `pendenzen`: not seeded from a count read once at mount, because the payload
+  // simply carries no page while no storey has anything on it (reportPdfDirect · floorStackPages).
+  gebaeude: true,
   atemschutz: true,
   attendance: true,
   mittel: true,
@@ -107,7 +115,9 @@ export function hasVisiblePlanAnnotation(board: BoardDoc, planId: string): boole
  *  counts as annotated by construction. It used to take a second list beside this one, and the
  *  two then had to be concatenated everywhere — which is how every anno came to print twice. */
 export function annotatedPlans(plans: PlanDocument[], board: BoardDoc, includeAll: boolean): PlanDocument[] {
-  return includeAll ? plans : plans.filter((p) => hasVisiblePlanAnnotation(board, p.id))
+  // the Gebäude floor stack is not a «Plan» on paper — it has its own section (options.gebaeude)
+  const sheets = plans.filter((p) => !p.floorStack)
+  return includeAll ? sheets : sheets.filter((p) => hasVisiblePlanAnnotation(board, p.id))
 }
 
 export function planLabel(plan: PlanDocument | undefined, floor?: number): string {
@@ -789,6 +799,25 @@ export function operationalExtentPoints(
   // nothing is placed — including it always dragged the fit to the far-away alarm pin
   // and pushed the action to the page edge (Kroki feedback 2026-07-18)
   return pts.length > 0 ? pts : [incidentCenter]
+}
+
+/** A Lage this small is «compact»: everything placed fits inside one building. */
+export const KROKI_COMPACT_SPAN_M = 30
+/** The auto-fit's zoom ceiling, as a MapLibre CAMERA zoom. 20 is the basemap's last sharp level;
+ *  a COMPACT Lage may go one past it (18.09.2026): six symbols within 10 m stayed legible at 20,
+ *  but filled 15 % of the sheet. One level doubles their separation for a slightly soft basemap
+ *  that still shows the streets around the building — two levels lost the streets.
+ *  ⚠️ Mirrored in backend/app/report_pdf.py · _kroki_fit_max_z (projection zoom = this + 1), so
+ *  the crop the panel opens on is the crop a rapport without a reported crop prints. */
+export function krokiFitMaxZoom(points: LngLat[]): number {
+  if (points.length < 2) return 20
+  const lngs = points.map((p) => p[0]), lats = points.map((p) => p[1])
+  const lat = (Math.min(...lats) + Math.max(...lats)) / 2
+  const spanM = Math.max(
+    (Math.max(...lngs) - Math.min(...lngs)) * 111320 * Math.cos((lat * Math.PI) / 180),
+    (Math.max(...lats) - Math.min(...lats)) * 110540,
+  )
+  return spanM < KROKI_COMPACT_SPAN_M ? 21 : 20
 }
 
 export function describeDrawing(d: Drawing): string {

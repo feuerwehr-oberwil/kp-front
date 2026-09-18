@@ -55,16 +55,17 @@ describe('krokiEntity (glyph resolution for the server compositor)', () => {
     // other value typed onto a symbol — was on screen and missing from the printed Kroki.
     // The server has drawn these all along (app/kroki.py · _caption).
     const el = krokiEntity(sym({ symbol: 'Einsatzleiter', fields: { Name: 'Céline Widmer' } }), {})
-    expect(el?.caption).toBe('Céline Widmer')
+    expect(el?.caption).toBe('Einsatzleiter · Céline Widmer')
   })
 
-  it('labels the Kroki the way the map it was framed on is labelled', () => {
+  it('words the legend line for paper, not for the screen it was framed on', () => {
     const e = sym({ symbol: 'Einsatzleiter', fields: { Name: 'Céline Widmer' }, notes: 'ab 21:40' })
     expect(krokiEntity(e, {}, 'off')?.caption).toBeUndefined()
-    expect(krokiEntity(e, {}, 'auto')?.caption).toBe('Céline Widmer')
+    expect(krokiEntity(e, {}, 'auto')?.caption).toBe('Einsatzleiter · Céline Widmer')
     expect(krokiEntity(e, {}, 'all')?.caption).toContain('ab 21:40')
-    // a per-symbol override still beats the global setting, exactly as on the map
-    expect(krokiEntity({ ...e, caption: 'off' }, {}, 'all')?.caption).toBeUndefined()
+    // ⚠️ a symbol's own `caption: 'off'` declutters a SCREEN. A legend line clutters nothing, and
+    // a glyph with a number but no line is worse than either – so the sheet does not read it.
+    expect(krokiEntity({ ...e, caption: 'off' }, {}, 'auto')?.caption).toBe('Einsatzleiter · Céline Widmer')
   })
 
   it('renders shapes as sized SVG silhouettes', () => {
@@ -128,6 +129,36 @@ describe('buildKrokiPayload', () => {
 
   it('returns null without a raster base layer (nothing to render)', () => {
     expect(buildKrokiPayload({ entities, drawings, layers: layers.slice(1), byName: {}, center: [7.55, 47.51] })).toBeNull()
+  })
+
+  // ⚠️ 18.09.2026: this file resolves an attached end against a fixed ~4 m GROUND footprint (it
+  // has no projection), while the printed glyph is sized in pixels — on a close crop the hose
+  // stopped several glyph widths short of its vehicle. The server re-couples the end to the glyph
+  // as printed, and for that it has to be told WHICH end hangs on WHICH entity.
+  it('names the entity an attached Leitung end hangs on, and ids only those entities', () => {
+    const tlf = sym({ id: 'tlf', symbol: 'Feuer', coord: [7.55, 47.51] })
+    const other = sym({ id: 'other', symbol: 'Feuer', coord: [7.5504, 47.5102] })
+    const hose: Drawing = {
+      id: 'h', kind: 'line', coords: [[7.55001, 47.51001], [7.5503, 47.5102]],
+      startAttachment: { target: { kind: 'object', id: 'tlf' }, routing: 'direct' },
+    } as Drawing
+    const p = buildKrokiPayload({ entities: [tlf, other], drawings: [hose], layers, byName: {}, center: [7.55, 47.51] })!
+    expect(p.drawings[0]).toMatchObject({ startAt: 'tlf' })
+    expect(p.drawings[0].endAt).toBeUndefined()
+    expect(p.entities.map((e) => e.id)).toEqual(['tlf', undefined])
+  })
+
+  // …and the same for a branch off a Teilstück: the fork is a glyph sized in pixels, this file
+  // fans the branches out by metres, so the server needs the target line and the prong.
+  it('names the line (and prong) a branch leaves from, and ids only that target line', () => {
+    const trunk = { id: 'trunk', kind: 'line', coords: [[7.55, 47.51], [7.5502, 47.5101]], teilstueck: true } as Drawing
+    const branch = {
+      id: 'branch', kind: 'line', coords: [[7.5502, 47.5101], [7.5504, 47.5100]],
+      startAttachment: { target: { kind: 'line', id: 'trunk', endpoint: 'end' }, routing: 'direct', port: 2 },
+    } as Drawing
+    const p = buildKrokiPayload({ entities: [], drawings: [trunk, branch], layers, byName: {}, center: [7.55, 47.51] })!
+    expect(p.drawings.map((d) => d.id)).toEqual(['trunk', undefined])
+    expect(p.drawings[1].startAtLine).toEqual({ id: 'trunk', endpoint: 'end', port: 2 })
   })
 
   // The Schraffur is the FKS reading of an AFFECTED area, not a shade of the wash. Left out of the

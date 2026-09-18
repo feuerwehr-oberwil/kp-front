@@ -180,6 +180,36 @@ export function isNamedPerson(props: SymbolProps): boolean {
   return !!fields?.includes('Name') && !!props.fields?.['Name']?.trim()
 }
 
+/**
+ * A symbol's line in a PRINTED legend — «Art · Bezeichnung · Status», e.g.
+ * «Rettung · 2 Personen vermisst · in Rettung».
+ *
+ * ⚠️ NOT `symbolCaptionText`. A caption hangs under a glyph the reader is looking at, so it is
+ * value-only and as short as it can be («in Rettung») — the glyph says the rest. On paper the
+ * words are lifted OFF the picture into a numbered legend (backend · kroki · _number_words), and
+ * there the same string is an answer without its question: the 18.09.2026 review's legend read
+ * «in Rettung · nicht bestätigt · Widmer Céline» and named not one object. The legend has the
+ * room, so the line says what the thing IS first.
+ *
+ * Every symbol gets one — a bare Lüfter too, so each glyph on the sheet can be looked up. The
+ * symbol's own `caption: 'off'` is deliberately NOT read: it declutters a screen, and a legend
+ * line clutters nothing. Only the device-wide «Beschriftungen aus» still silences the sheet.
+ * 'all' adds the free-text notes, as it does on screen.
+ */
+export function symbolLegendText(props: SymbolProps, globalMode: CaptionMode): string | null {
+  if (globalMode === 'off') return null
+  // a Form has no Art to name — it keeps exactly the words the operator gave it
+  if (!props.symbol) return props.label?.trim() || null
+  const fields = props.fields ?? {}
+  const order = presets.byName[props.symbol]?.fields ?? []
+  const keys = [...order, ...Object.keys(fields).filter((k) => !order.includes(k))]
+  // a vehicle's label IS its name («TLF 1») and never equals the symbol's own, so it passes
+  const parts = [formatSymbolName(props.symbol), customLabel(props), ...keys.map((k) => fields[k]?.trim()), globalMode === 'all' ? props.notes?.trim() : undefined]
+  const seen = new Set<string>()
+  // one line: the legend wraps by itself, and a newline would start a second, unnumbered row
+  return parts.filter((v): v is string => !!v && !seen.has(v) && !!seen.add(v)).map((v) => v.replace(/\s*\n\s*/g, ' ')).join(' · ')
+}
+
 /** The text to print under a symbol's glyph, or null when there's nothing worth showing.
  *  Value-only (the glyph implies the key). `globalMode` is the device default; a symbol's own
  *  `caption` overrides it. 'auto' = the one discriminating value; 'all' = every filled detail

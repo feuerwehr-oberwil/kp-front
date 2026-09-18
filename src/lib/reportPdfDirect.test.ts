@@ -1,6 +1,6 @@
 import { formatDateTime } from './report'
 import { describe, it, expect } from 'vitest'
-import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf } from './reportPdfDirect'
+import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf, usedStackFloors } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
 import type { BoardAnno, BuildingDoc, PlanDocument, TimelineEvent, Trupp } from '../types'
 
@@ -35,19 +35,19 @@ describe('planAnnosForPdf', () => {
     expect(out.floor).toBeUndefined()
   })
 
-  it('sends the caption the board shows under the glyph, composed by the ONE resolver', () => {
-    // ⚠️ Same call as the board and the Kroki payload (lib/symbols · symbolCaptionText), so the
-    // sheet's legend and the screen cannot word the same symbol differently.
+  it('sends the symbol\'s LEGEND line – Art first, then what was typed on it', () => {
+    // ⚠️ Same call as the Kroki payload (lib/symbols · symbolLegendText), so every sheet of the
+    // rapport words the same symbol the same way. NOT the screen's value-only caption: lifted
+    // into a legend, «Benzin» alone names no object (18.09.2026).
     const anno: BoardAnno = { id: 's3', kind: 'symbol', symbol: 'FW Gefahr Tafel', x: 0.5, y: 0.5, fields: { 'UN-Nr.': '1203', Stoff: 'Benzin' } }
-    expect(planAnnosForPdf([anno])[0].caption).toBe('Benzin')           // 'auto': the one value
-    expect(planAnnosForPdf([anno], 'all')[0].caption).toBe('1203\nBenzin')
+    expect(planAnnosForPdf([anno])[0].caption).toBe('Gefahrentafel · 1203 · Benzin')
     expect(planAnnosForPdf([anno], 'off')[0].caption).toBeUndefined()   // Beschriftungen aus
   })
 
-  it('leaves a symbol with nothing typed on it without a caption', () => {
-    // no caption → no numbered disc and no legend line: a symbol is still just a symbol
+  it('gives a symbol with nothing typed on it a legend line too – its Art', () => {
+    // every glyph on the sheet can be looked up; the reader need not know the FKS signature
     const [out] = planAnnosForPdf([{ id: 's4', kind: 'symbol', symbol: 'SI Ueberflurhydrant', x: 0.5, y: 0.5 }])
-    expect(out.caption).toBeUndefined()
+    expect(out.caption).toBe('Überflurhydrant')
   })
 
   it('falls back to the shape defaults when colour/size were never touched', () => {
@@ -76,9 +76,11 @@ describe('floorStackPages', () => {
   const ring: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]]
   const building: BuildingDoc = { ring, ringAspect: 0.8, floors: [1, 0, -1], src: [ring], orientDeg: 0, northUp: true }
   const plan: PlanDocument = { id: 'gebaeude', code: 'GB', title: 'Gebäude', subtitle: '', imageUrl: '', orientation: 'portrait', floorStack: true }
+  // one mark per storey: only a storey that carries something prints (see the last test here)
+  const onEvery = (floors: number[]): BoardAnno[] => floors.map((f) => ({ id: `m${f}`, kind: 'text', x: 0.5, y: 0.5, floor: f, text: `m${f}` }))
 
   it('chunks max 2 storeys per page, top storey first, with matching aspects and labels', () => {
-    const pages = floorStackPages(plan, building, [])
+    const pages = floorStackPages(plan, building, onEvery(building.floors))
     expect(pages).toHaveLength(2)
     expect(pages[0].label).toBe('Gebäude · 1. OG – EG')
     expect(pages[0].blankAspect).toBeCloseTo(2 * TILE_AR)
@@ -92,6 +94,7 @@ describe('floorStackPages', () => {
     const annos: BoardAnno[] = [
       { id: 'a', kind: 'symbol', symbol: 'VKF Feuer', x: 0.5, y: 0.5, floor: 0 },   // EG → page 1, lower tile
       { id: 'b', kind: 'draw', pts: [[0.2, 0.4], [0.8, 0.6]], floor: -1, color: '#1f6feb' }, // UG → page 2
+      ...onEvery([1]),                                                               // keeps the 1. OG on page 1
     ]
     const pages = floorStackPages(plan, building, annos)
     const sym = pages[0].annos.find((x) => x.symbol === 'VKF Feuer')!
@@ -104,7 +107,7 @@ describe('floorStackPages', () => {
   })
 
   it('draws chrome on every page: outline area, floor-label pill, dial only on the first', () => {
-    const pages = floorStackPages(plan, building, [])
+    const pages = floorStackPages(plan, building, onEvery(building.floors))
     for (const p of pages) {
       expect(p.annos.some((x) => x.kind === 'area')).toBe(true)
       expect(p.annos.some((x) => x.kind === 'text')).toBe(true)
@@ -127,11 +130,24 @@ describe('floorStackPages', () => {
       ring: [], rings: [], ringAspect: 0.4, floors: [1, 0],
       pack: { aspect: 1, frame: [0.1, 0.1, 0.3, 0.9] }, viewDeg: 90,
     }
-    const pages = floorStackPages(plan, pack, [])
+    const pages = floorStackPages(plan, pack, onEvery(pack.floors))
     expect(pages[0].annos.some((x) => x.kind === 'north')).toBe(false)
     expect(pages[0].annos.some((x) => x.kind === 'area')).toBe(false)
     // the storey labels are still there – the page is a stack, dial or no dial
-    expect(pages[0].annos.filter((x) => x.kind === 'text')).toHaveLength(2)
+    expect(pages[0].annos.filter((x) => x.kind === 'text' && !String(x.text).startsWith('m'))).toHaveLength(2)
+  })
+
+  // ⚠️ 18.09.2026: the demo Einsatz printed two Gebäude sheets for ONE Trupp chip — the second a
+  // bare EG outline. An empty storey tells the reader nothing the storey labels do not.
+  it('prints only the storeys that carry something, and no page at all for an untouched stack', () => {
+    expect(floorStackPages(plan, building, [])).toEqual([])
+    const pages = floorStackPages(plan, building, [
+      { id: 'a', kind: 'resource', x: 0.4, y: 0.2, floor: 1, text: 'Müller H.' },
+      // a Leitung counts on every storey it PASSES, not only the one it is filed under
+      { id: 'b', kind: 'draw', floor: 1, pts: [[0.2, 0.4, 1], [0.8, 0.6, -1]], color: '#1f6feb' },
+    ])
+    expect(pages.map((p) => p.label)).toEqual(['Gebäude · 1. OG – 1. UG'])
+    expect(usedStackFloors(building, [{ id: 'c', kind: 'text', x: 0.5, y: 0.5, floor: 4, text: 'x' }])).toEqual([])
   })
 })
 
@@ -272,6 +288,23 @@ describe('buildDirectReportPayload · plan pages', () => {
       { id: 'fromMap', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.6, y: 0.4 }, // …and the Karte's
     ] })
     expect(page.annos.map((a) => a.x)).toEqual([0.2, 0.6]) // each exactly once, in the sheet's order
+  })
+
+  // one figure-page template: the heading, then which Einsatz and which moment — on a plan or
+  // Gebäude sheet too, because a sheet pulled out of the stapled rapport has to say what it is
+  it('dates every figure page, not only the Kroki', () => {
+    const [page] = pages({ m2: [{ id: 'own', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.3 }] }) as unknown as { caption?: string }[]
+    expect(page.caption).toContain('Brand')
+    expect(page.caption).toContain(formatDateTime('2026-09-03T12:00:00.000Z'))
+  })
+
+  it('prints «Alle Pläne» even when no board was handed in — only «mit Anmerkungen» chooses by it', () => {
+    const out = buildDirectReportPayload({
+      incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T09:50:00.000Z' } as never,
+      draft: { meta: {}, generatedAt: '2026-09-03T12:00:00.000Z', proof: {}, options: { allPlans: true } } as never,
+      trupps: [], attendance: {}, events: [], plans: [plan],
+    }) as { planPages?: unknown[] }
+    expect(out.planPages).toHaveLength(1)
   })
 
   it('…and a sheet whose only marks come from the Karte still gets its page', () => {

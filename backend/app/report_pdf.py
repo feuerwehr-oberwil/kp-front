@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import re
 from html.parser import HTMLParser
 
@@ -232,6 +233,8 @@ class KrokiEntityIn(BaseModel):
     (live vehicles, placards) arrive as the client-resolved SVG string."""
 
     coord: list[float]  # [lng, lat] WGS84
+    #: only on an entity a Leitung is attached to — what `KrokiDrawingIn.startAt/endAt` name
+    id: str | None = None
     symbol: str | None = None
     symbolSvg: str | None = None
     kind: str = "symbol"
@@ -257,6 +260,15 @@ class KrokiEntityIn(BaseModel):
     notePlain: bool = False
 
 
+class KrokiLineEndIn(BaseModel):
+    """An end attached to ANOTHER Leitung's end (`KrokiDrawingIn.id`) — see kroki · _snap_line_joints."""
+
+    id: str
+    endpoint: str = "end"  # 'start' | 'end' of the TARGET line
+    #: 0..2 when the target is a Teilstück: which of the fork's three prongs this branch leaves from
+    port: int | None = None
+
+
 class KrokiDrawingIn(BaseModel):
     """One Lage drawing (client src/types.ts Drawing, incl. FKS hose-line decor)."""
 
@@ -275,6 +287,15 @@ class KrokiDrawingIn(BaseModel):
     hatch: bool = False
     radiusM: float | None = None
     teilstueck: bool = False
+    #: the `KrokiEntityIn.id` this end is ATTACHED to. The client has already resolved the end,
+    #: but against a fixed ground footprint; the renderer re-couples it to the glyph as printed
+    #: (kroki · _snap_attached_ends). Absent = a free end, drawn where it is.
+    startAt: str | None = None
+    endAt: str | None = None
+    #: only on a line another line is attached to — what `startAtLine` / `endAtLine` name
+    id: str | None = None
+    startAtLine: KrokiLineEndIn | None = None
+    endAtLine: KrokiLineEndIn | None = None
     lineNo: int | None = None
     content: str | None = None
     floorTag: int | None = None
@@ -367,6 +388,9 @@ class PlanPageIn(BaseModel):
     (`url` = /api/reference/<dataset_id>) and renders page 1 + annotations."""
 
     label: str
+    #: the muted line under the heading — which Einsatz, which moment (client-formatted, like
+    #: `ReportPayload.krokiCaption`)
+    caption: str | None = None
     url: str | None = None
     #: 0-based page of the PDF – a floor-pack sheet is one page of its Modul-6 PDF
     page: int = 0
@@ -539,12 +563,6 @@ class PersonalRowIn(BaseModel):
         return self
 
 
-class PlanRef(BaseModel):
-    key: str  # figure key
-    label: str
-    landscape: bool = False
-
-
 class MittelFormRowIn(BaseModel):
     """One Material worksheet row: the full catalogue prints with amount stubs, recorded
     amounts print bold (client merges catalogue + recorded lines)."""
@@ -621,9 +639,6 @@ class ReportPayload(BaseModel):
     kroki: KrokiIn | None = None
     krokiCaption: str | None = None
     planPages: list[PlanPageIn] = []
-    # legacy client-captured figures (one-release compat window)
-    krokiKey: str | None = None
-    plans: list[PlanRef] = []
     trupps: list[TruppIn] = []
     # What «überfällig» MEANT on this Einsatz. The Atemschutz protocol is read to judge the
     # contact log — was a gap acceptable, when did the board go red — and that judgement is
@@ -1526,6 +1541,22 @@ _KROKI_PX = (2080, 1222)
 _KROKI_PX_PORTRAIT = (1300, 1820)
 
 
+#: a Lage this small is «compact» — client lib/report · KROKI_COMPACT_SPAN_M
+_KROKI_COMPACT_SPAN_M = 30.0
+
+
+def _kroki_fit_max_z(pts: list[tuple[float, float]]) -> float:
+    """The auto-fit's zoom ceiling in THIS projection's terms — client lib/report · krokiFitMaxZoom
+    (a MapLibre camera zoom) + 1. 21 is the basemap's last sharp level; a COMPACT Lage may go one
+    past it, which doubles the separation of a cluster that otherwise fills 15 % of the sheet."""
+    if len(pts) < 2:
+        return 21.0
+    lngs, lats = [p[0] for p in pts], [p[1] for p in pts]
+    lat = (min(lats) + max(lats)) / 2
+    span = max((max(lngs) - min(lngs)) * 111320 * math.cos(math.radians(lat)), (max(lats) - min(lats)) * 110540)
+    return 22.0 if span < _KROKI_COMPACT_SPAN_M else 21.0
+
+
 def _kroki_view(pk, kw: int, kh: int):
     """Derive the print View for a Kroki scene — shared by the composer and the tile prewarm."""
     from . import kroki as kk
@@ -1541,7 +1572,16 @@ def _kroki_view(pk, kw: int, kh: int):
         entities=[e.model_dump() for e in pk.entities], drawings=[d.model_dump() for d in pk.drawings]
     )
     pts = [tuple(p) for p in pk.fitPoints] or scene.extent_points()
-    return kk.fit_view(pts, kw, kh)
+    # ⚠️ The fallback has to frame like the PANEL does, because it is what prints when no crop was
+    # reported (a rapport made before the panel settled). KrokiFramingPanel caps its auto-fit at
+    # MapLibre zoom 20 — and a MapLibre zoom is one level TIGHTER than this 256-px projection's
+    # (see center_view), so the «mirror» cap of 20 here framed twice the ground: on the 18.09.
+    # review the same Lage came out with its symbols merged into one blob. Cap per
+    # `_kroki_fit_max_z`, and hand the
+    # glyph sizing the camera zoom it gets on every other path (overlay_z).
+    view = kk.fit_view(pts, kw, kh, max_z=_kroki_fit_max_z(pts))
+    view.overlay_z = view.z - math.log2(512 / kk.TILE)
+    return view
 
 
 def warm_report_tiles(payload: ReportPayload) -> None:
@@ -1569,8 +1609,8 @@ def warm_report_tiles(payload: ReportPayload) -> None:
 def compose_report_pdf(
     payload: ReportPayload, figures: dict[str, bytes], plan_pdfs: dict[str, bytes] | None = None
 ) -> bytes:
-    """Compose the full rapport. `figures` carries legacy client-captured PNGs plus
-    server-resolved journal photos (key `photo:<url>`); `plan_pdfs` maps a planPage url
+    """Compose the full rapport. `figures` carries the uploaded journal photos and the
+    server-resolved ones (key `photo:<url>`) plus the logo; `plan_pdfs` maps a planPage url
     to the plan-PDF bytes the API layer loaded from the reference store."""
     st = _styles()
     buf = io.BytesIO()
@@ -2090,16 +2130,15 @@ def compose_report_pdf(
             b = io.BytesIO()
             img_out.save(b, "PNG")
             kroki_png = b.getvalue()
-    if kroki_png is None and opt.kroki and payload.krokiKey:
-        kroki_png = figures.get(payload.krokiKey)
 
-    # server-rendered plan pages (pdfium + board annos, blank-base Gebäude stacks);
-    # legacy captured figures fall back. Rendered BEFORE the Kroki page is appended so
-    # the Kroki's trailing page break can be skipped when plan pages follow (each plan
-    # page issues its own template+break — two breaks in a row print an empty page).
-    #: label, PNG, landscape, legend — a plan page numbers its symbol captions exactly as the
-    #: Kroki does, so the words travel back out of the renderer the same way (legend_out)
-    plan_imgs: list[tuple[str, bytes, bool, list[str]]] = []
+    # ONE list of figure pages — the Kroki first, then the Gebäude / Objektplan pages — and ONE
+    # template that lays every one of them out (`figure_page` below). They used to be two blocks
+    # that had drifted: only the Kroki said when its picture was taken.
+    #: heading, caption, PNG, landscape, legend — every page numbers its symbol captions the same
+    #: way, so the words travel back out of the renderer the same way (legend_out)
+    figure_pages: list[tuple[str, str | None, bytes, bool, list[str]]] = []
+    if kroki_png:
+        figure_pages.append((L["kroki"], payload.krokiCaption, kroki_png, opt.krokiLandscape, kroki_legend))
     for pp in payload.planPages:
         pdf_bytes = plan_pdfs.get(pp.url or "")
         if not pdf_bytes and not pp.blankAspect:
@@ -2122,57 +2161,37 @@ def compose_report_pdf(
             continue
         b = io.BytesIO()
         rendered.save(b, "PNG")
-        plan_imgs.append((pp.label, b.getvalue(), rendered.width >= rendered.height, plan_legend))
-    for p in payload.plans:
-        data = figures.get(p.key)
-        if data:
-            # a legacy CAPTURED plan is pixels the client composed; it carries its own words
-            plan_imgs.append((p.label, data, p.landscape, []))
+        # ⚠️ Orientation follows the BITMAP here, while the Kroki's is the operator's choice. Not
+        # an inconsistency: a Kroki is a free crop, so its shape is a decision; a plan sheet has
+        # the shape its author gave it, and the page that wastes least of it is the right one.
+        figure_pages.append((pp.label, pp.caption, b.getvalue(), rendered.width >= rendered.height, plan_legend))
 
-    if kroki_png:
-        k_land = opt.krokiLandscape
-        story.append(NextPageTemplate("landscape" if k_land else "portrait"))
+    for heading, caption, data, is_landscape, legend in figure_pages:
+        story.append(NextPageTemplate("landscape" if is_landscape else "portrait"))
         story.append(PageBreak())
-        story.extend(head(L["kroki"]))
-        if payload.krokiCaption:
-            story.append(Paragraph(_esc(payload.krokiCaption), st["muted"]))
-        k_w = land_inner_w if k_land else inner_w
-        k_h = (land_inner_h if k_land else (ph - 2 * margin)) - 22 * mm
-        # the legend claims its own room when there is one, so the picture is never squeezed
-        # under a block that then overflows onto a second sheet
-        # …and the room it claims halves with it: two columns are half the rows
-        legend_h = _legend_height(kroki_legend)
-        img = _fit_image(kroki_png, k_w, k_h - legend_h)
+        story.extend(head(heading))
+        # what the picture shows and WHEN — on every figure page, not only the Kroki: a Gebäude
+        # sheet pulled out of the stapled rapport has to say which Einsatz and which moment it is
+        if caption:
+            story.append(Paragraph(_esc(caption), st["muted"]))
+        mw = land_inner_w if is_landscape else inner_w
+        mh = (land_inner_h if is_landscape else (ph - 2 * margin)) - 22 * mm
+        # the legend claims its room first, so the picture is sized to what is left and the words
+        # stay on the SAME sheet as the discs they explain — never squeezed under a block that
+        # then overflows onto a second sheet
+        img = _fit_image(data, mw, mh - _legend_height(legend))
         if img:
             story.append(Spacer(1, 4))
             story.append(img)
         # ⚠️ Numbers on the picture are useless without this. The renderer numbers every drawing
         # label and symbol caption (kroki · not a collision fallback, that was dropped 09.08.),
-        # and the legend is where the words go — with room for the FULL text, which is the
-        # other reason it is the better fallback than a shortened chip.
-        if kroki_legend:
+        # and the legend is where the words go — with room for the FULL text.
+        if legend:
             story.append(Spacer(1, 4))
-            story.append(_legend_table(kroki_legend, k_w, st))
-        if not plan_imgs:
-            story.append(NextPageTemplate("portrait"))
-            story.append(PageBreak())
-
-    for label, data, is_landscape, plan_legend in plan_imgs:
-        story.append(NextPageTemplate("landscape" if is_landscape else "portrait"))
-        story.append(PageBreak())
-        story.extend(head(label))
-        mw = land_inner_w if is_landscape else inner_w
-        mh = (land_inner_h if is_landscape else (ph - 2 * margin)) - 22 * mm
-        # the legend claims its room first, so the plan is sized to what is left and the words
-        # stay on the SAME sheet as the discs they explain (the Kroki page's rule)
-        img = _fit_image(data, mw, mh - _legend_height(plan_legend))
-        if img:
-            story.append(Spacer(1, 4))
-            story.append(img)
-        if plan_legend:
-            story.append(Spacer(1, 4))
-            story.append(_legend_table(plan_legend, mw, st))
-    if plan_imgs:
+            story.append(_legend_table(legend, mw, st))
+    # each figure page issues its own template+break, so only the LAST one hands back to portrait
+    # (two breaks in a row print an empty sheet)
+    if figure_pages:
         story.append(NextPageTemplate("portrait"))
         story.append(PageBreak())
 

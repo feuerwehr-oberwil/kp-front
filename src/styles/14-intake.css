@@ -64,6 +64,9 @@
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); overflow: hidden; }
 .kf-map.portrait { aspect-ratio: 1000 / 1400; max-width: calc(var(--kf-map-h) * 1000 / 1400); }
 .kf-map .maplibregl-map { position: absolute; inset: 0; }
+/* the crop previews the SHEET: on paper the count badge is a white chip like the storey badge, so
+   the numbered legend discs are the only dark marks (backend · kroki · _symbol_badges) */
+.kf-map .sym-count { background: var(--surface); color: var(--ink); }
 /* ⚠️ the phone rule «hide the live map on every non-map surface» (see @media max-width 600px)
    matches this one too — mode-rapport is not mode-map — and blanked the crop the one time it is
    opened on a phone. The exception is scoped to the crop, so the Lage map behind the surface

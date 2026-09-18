@@ -30,11 +30,15 @@ def test_no_blank_page_between_kroki_and_beilagen():
             "incident": {"title": "Blank-Page-Probe", "id": "p"},
             "generatedAt": "07.08.2026 01:00",
             "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
-            "krokiKey": "k",
+            # a real Kroki page with no network: an unknown tile host prints the grey base
+            "kroki": {
+                "tiles": "https://tiles.invalid/{z}/{x}/{y}.png",
+                "entities": [{"coord": [7.55, 47.51], "symbol": "VKF Feuer"}],
+            },
             "attachments": [{"url": "/api/media/a1", "caption": "Ausweis"}],
         }
     )
-    pdf = compose_report_pdf(payload, {"k": png(1600, 1000), "photo:/api/media/a1": png(1200, 1600)})
+    pdf = compose_report_pdf(payload, {"photo:/api/media/a1": png(1200, 1600)})
 
     doc = pdfium.PdfDocument(pdf)
     # a page is "blank" when the only thing on it is the «n / m» footer
@@ -923,3 +927,21 @@ def test_a_floor_stack_pages_north_dial_keeps_its_bearing():
         {"label": "Gebäude · EG", "blankAspect": 1.0, "annos": [{"kind": "north", "x": 0.94, "y": 0.02, "deg": 37.5}]}
     )
     assert page.annos[0].model_dump()["deg"] == 37.5
+
+
+def test_the_fallback_kroki_fit_frames_like_the_panel():
+    """⚠️ KrokiFramingPanel caps its auto-fit at MapLibre zoom 20 — one level TIGHTER than this
+    256-px projection's z20. The server's «mirror» cap of 20 therefore framed twice the ground
+    whenever a rapport printed without a reported crop: a single-building Lage came out with its
+    symbols merged into one blob (18.09.2026 review)."""
+    from app.report_pdf import KrokiIn, _kroki_view
+
+    # a Lage spread over one street block: content would fit tighter, the cap holds it at 21
+    pk = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.5709, 47.5241]]})  # ~38 m
+    view = _kroki_view(pk, 1300, 1820)
+    assert view.z == 21.0
+    assert view.overlay_z == 20.0  # glyphs are sized by the CAMERA zoom, as on every other path
+    # …and a COMPACT one (everything inside one building) may go one level past the basemap's last
+    # sharp one: six symbols within 10 m were legible at 21 but filled 15 % of the sheet
+    compact = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.57041, 47.52411]]})  # a few metres
+    assert _kroki_view(compact, 1300, 1820).z == 22.0
