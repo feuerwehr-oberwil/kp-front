@@ -241,10 +241,12 @@
    "category can't be selected"). Below the toaster (@90). The menu is portalled precisely
    so no container can clip it; it must out-stack them all. */
 .combo-menu-portal { position: fixed; right: auto; z-index: var(--z-dialog-menu); }
+/* the app's one option-row treatment — hover 8 % of --blue, the --press wash, --r-ctl
+   (13-incident.css · «ONE menu row»). */
 .combo-opt { width: 100%; display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; border: none;
-  background: none; border-radius: var(--r-xs); padding: 8px 9px; min-height: var(--tap); font: 600 13px var(--body); color: var(--ink); }
+  background: none; border-radius: var(--r-ctl); padding: 8px 9px; min-height: var(--tap); font: 600 13px var(--body); color: var(--ink); }
 @media (hover: hover) {
-  .combo-opt:hover { background: var(--fill-soft); }
+  .combo-opt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
 }
 .combo-opt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-opt.on { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue); }

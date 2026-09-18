@@ -101,11 +101,11 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ctx-body">
-        {/* ⚠️ The rows are GROUPED, the way the Linien-Editor's are (DrawEditor · `.de-group`):
-            the hairline falls where the subject changes and nowhere else. Ungrouped, every row
-            here ran flush into the Messung block below, so the one rule in the panel appeared
-            between «Stopp-Balken» and «Fläche» — where nothing changes — and none appeared
-            between the numbers and the Träger row, where everything does. */}
+        {/* ⚠️ The rows are GROUPED, the way the Linien-Editor's are (DrawEditor · `.de-group`).
+            Ungrouped, every row here ran flush into the Messung block below. Since 18.09.2026 a
+            group boundary is SPACING and only a named section («Messung») still draws a hairline
+            — see the block comment on `.de-group` in 08-toasts.css — so the Träger/Umkehren group
+            below is told apart from the numbers above it by air rather than by a rule. */}
         <div className="de-group">
         {onFill && entity.shape === 'square' && (() => {
           const fillOpacity = entity.fillOpacity ?? SQUARE_FILL_DEFAULT

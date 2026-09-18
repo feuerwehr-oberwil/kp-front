@@ -111,6 +111,28 @@ async def test_upload_then_download_roundtrip(client, viewer, admin_login):
     assert r.headers["content-type"] == "application/pdf"
 
 
+async def test_pinned_revision_is_immutable_the_current_address_is_not(client, viewer, admin_login):
+    """A Referenz-PDF must be downloaded ONCE per revision.
+
+    `?v=N` names bytes that can never change (a replacement is a new revision), so it is
+    advertised as immutable — without that header the browser applies heuristic freshness and
+    re-fetches tens of megabytes on every open, and the service worker has nothing to keep
+    (18.09.2026). The bare address may change under the same name and is revalidated instead.
+    """
+    await _upload(client, admin_login, "plan:muster:modul1", PDF, "application/pdf")
+    await _login(client, viewer)
+
+    pinned = await client.get("/api/reference/plan:muster:modul1", params={"v": 1})
+    assert pinned.status_code == 200
+    assert pinned.content == PDF
+    assert pinned.headers["cache-control"] == "private, max-age=31536000, immutable"
+
+    current = await client.get("/api/reference/plan:muster:modul1")
+    assert current.status_code == 200
+    assert current.headers["cache-control"] == "private, no-cache"
+    assert current.headers.get("etag")  # …so the revalidation is a cheap 304
+
+
 # --- bbox crop --------------------------------------------------------------------------
 
 

@@ -133,8 +133,10 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
             <span className={s.name}>{appConfig.copy.nav.coords}</span>
           </button>
         )}
-        <div className={s.sep} />
-        {api.list.length === 0 && <div className={s.empty}>{cp.empty}</div>}
+        {/* No empty state: an operator who has saved no view is told nothing by a paragraph
+            saying so — the «Ansicht speichern» row below IS the instruction, and the ⓘ carries
+            the explanation. (18.09.2026) */}
+        {api.list.length > 0 && <div className={s.sep} />}
         {api.list.map((v) => editingId === v.id ? (
           <div key={v.id} className={cx(s.row, s.editing)}>
             <span className={s.ico} style={{ transform: `rotate(${-v.bearing}deg)` }}><Icon id="compass" /></span>

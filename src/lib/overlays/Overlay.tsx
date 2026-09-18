@@ -2,6 +2,8 @@ import type { CSSProperties, ReactNode, Ref, RefObject } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
+import { useSwipeDismiss } from './swipeDismiss'
+import { popoverOpen } from './popoverGuard'
 
 /**
  * Lower-level sibling of <Sheet>: gives an EXISTING bespoke overlay — one with its own
@@ -52,11 +54,18 @@ export interface OverlayProps {
    * the composer its «nothing shrinks» rule for weeks (see 10-journal.css).
    */
   popupRef?: Ref<HTMLDivElement>
+  /**
+   * Swipe the phone bottom sheet down to close it — the same gesture <Sheet> carries, on by
+   * default for the same reason (see swipeDismiss). No grab bar is drawn here: a bespoke frame
+   * owns its own head markup, and injecting a child would land inside its `> *` rules.
+   */
+  swipeToClose?: boolean
   children: ReactNode
 }
 
-export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, popupRef, children }: OverlayProps) {
+export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, popupRef, swipeToClose = true, children }: OverlayProps) {
   const isOpeningEcho = useDismissGrace(open)
+  const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
   // the on-screen keyboard, the same way <Sheet> answers it; only an `.ip-sheet` frame has the
   // CSS for `is-kb`, a bespoke frame gets the margin (its bottom-sheet case) and the variable
   const lift = keyboardLift(useKeyboardInset(open))
@@ -72,12 +81,16 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
         // a touch surface opened from pointerup gets its own synthetic mousedown back as an
         // "outside press" — ignore it (see dismissGrace)
         if (isOpeningEcho(details.reason)) { details.cancel(); return }
+        // …and a dropdown open inside this overlay closes first, alone — see Sheet/popoverGuard
+        if ((details.reason === 'outside-press' || details.reason === 'escape-key') && popoverOpen()) {
+          details.cancel(); return
+        }
         onClose()
       }}
     >
       <Dialog.Portal>
         <Dialog.Backdrop className={backdropClassName} />
-        <Dialog.Popup ref={popupRef} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus}>
+        <Dialog.Popup ref={popupRef} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus} {...swipe}>
           {children}
         </Dialog.Popup>
       </Dialog.Portal>

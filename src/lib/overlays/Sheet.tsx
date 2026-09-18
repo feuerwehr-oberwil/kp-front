@@ -5,6 +5,8 @@ import { appConfig } from '../../config/appConfig'
 import { SheetGrip } from '../../components/SheetGrip'
 import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
+import { useSwipeDismiss } from './swipeDismiss'
+import { popoverOpen } from './popoverGuard'
 
 /**
  * The shared modal Sheet — ONE overlay primitive behind every `.ip-sheet`.
@@ -39,6 +41,12 @@ export interface SheetProps {
   sheetClassName?: string
   /** Offer the phone drag-to-resize/dismiss grip (SheetGrip) on this modal. */
   grip?: boolean
+  /**
+   * Swipe the phone bottom sheet down to close it (`swipeDismiss`). ON by default — it is what a
+   * bottom sheet's shape promises, so it belongs to the primitive and not to a call site. Pass
+   * `false` only for a surface that owns the vertical gesture itself.
+   */
+  swipeToClose?: boolean
   /** Override where focus lands on open (default: Base UI picks the first focusable). */
   initialFocus?: RefObject<HTMLElement | null>
   /**
@@ -52,12 +60,14 @@ export interface SheetProps {
   modal?: boolean | 'trap-focus'
 }
 
-export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide, fit, sheetClassName, grip, initialFocus, modal = 'trap-focus' }: SheetProps) {
+export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide, fit, sheetClassName, grip, swipeToClose = true, initialFocus, modal = 'trap-focus' }: SheetProps) {
   // the on-screen keyboard: a phone sheet lifts by margin, a tablet sheet rides up and caps its
   // height (`is-kb` + `--kb-inset`, see keyboardLift) — without a keyboard neither is rendered
   const kbInset = useKeyboardInset(open)
   const cls = ['ip-sheet', 'ui-dialog', wide && 'ip-wide', fit && 'ip-fit', sheetClassName, kbInset > 0 && 'is-kb'].filter(Boolean).join(' ')
   const isOpeningEcho = useDismissGrace(open)
+  // phone bottom sheet: push it back down and it goes away (see swipeDismiss)
+  const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
   return (
     <Dialog.Root
       open={open}
@@ -67,13 +77,22 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
         // a touch surface opened from pointerup gets its own synthetic mousedown back as an
         // "outside press" — ignore it (see dismissGrace)
         if (isOpeningEcho(details.reason)) { details.cancel(); return }
+        // a dropdown open INSIDE the sheet owns this gesture: the first Esc / the first tap
+        // outside it closes the menu, not the sheet the operator is filling in (popoverGuard)
+        if ((details.reason === 'outside-press' || details.reason === 'escape-key') && popoverOpen()) {
+          details.cancel(); return
+        }
         onClose()
       }}
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="ui-backdrop" />
-        <Dialog.Popup className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined}>
+        <Dialog.Popup className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined} {...swipe}>
           {grip && <SheetGrip onClose={onClose} />}
+          {/* the grab bar — phone-only in CSS, and the same 40×5px pill as the `.ctx` sheets'
+              (15-mobile.css · .sheet-grip span), so one shape means one gesture everywhere.
+              Decorative: the gesture lives on the whole sheet, and the ✕ is the button. */}
+          {!grip && swipeToClose && <div className="ui-sheet-grab" aria-hidden><span /></div>}
           <div className="ip-head">
             {title != null && <Dialog.Title>{title}</Dialog.Title>}
             <Dialog.Close className="ip-x" aria-label={appConfig.copy.closeDialog}><Icon id="close" /></Dialog.Close>

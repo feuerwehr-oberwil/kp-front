@@ -28,6 +28,8 @@
 .summary {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px;
   border: none; background: none; padding: 0; cursor: pointer; text-align: left; color: inherit;
+  /* a fold header is a target: the --tap floor, not the 13px line its text happened to be */
+  min-height: var(--tap); border-radius: var(--r-ctl);
   -webkit-tap-highlight-color: transparent;
 }
 .summary:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }

@@ -24,7 +24,7 @@ import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
 import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd, missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
 import { ortOf } from '../lib/attendanceOrt'
-import { addPartnerOrg, unlistedPartnerOrgs } from '../lib/partnerOrgs'
+import { addPartnerOrg } from '../lib/partnerOrgs'
 import { Overlays, toast } from '../lib/ui'
 import { Overlay } from '../lib/overlays'
 import { prepareUploadImage } from '../lib/imagePrep'
@@ -480,16 +480,19 @@ export default function CaptureApp() {
     })
     return rows
   }, [partnerOrgs, partners])
-  /** the station's organisations that are NOT on the sheet yet — what the add picker offers
-   *  without typing; anything already listed has its row above (lib/partnerOrgs) */
-  const partnerChoices = unlistedPartnerOrgs(partnerOrgs, partners)
-  /** Search-to-create, the same motion and the same rule as on the Rapport sheet: the typed name
+  /** Type-to-create, the same motion and the same rule as on the Rapport sheet: the typed name
    *  IS the row, and one the station's list carries ticks THAT row instead of standing a second
    *  one beside it (lib/partnerOrgs · addPartnerOrg). */
   const addPartner = (typed: string) => {
     const next = addPartnerOrg(partners, stripUnprintable(typed))
     if (!next) return
     void run({ kind: 'setMeta', patch: { partnerContacts: next } }).then((ok) => { if (ok) savedToast() })
+  }
+  const [partnerDraft, setPartnerDraft] = useState('')
+  const commitPartner = () => {
+    if (!partnerDraft.trim()) return
+    addPartner(partnerDraft)
+    setPartnerDraft('')
   }
   const savePartner = (i: number, over: Partial<PartnerContact>) => {
     const next = partners.map((p, j) => (j === i ? { ...p, ...over } : p))
@@ -1357,15 +1360,22 @@ export default function CaptureApp() {
                 })}
                 {/* the list covers the usual partners; the unexpected one still has to fit — and
                     it fits by being TYPED, not by opening a blank row first (see addPartner).
-                    A <fieldset> because `Combo` has no disabled of its own and `run()` drops a
-                    save that lands while another is in flight: a pick nobody can see fail is
-                    worse than a control that is briefly not tappable. */}
+                    ⚠️ A PLAIN field since 18.09.2026, not a picker: the menu suggested the
+                    station's own organisations, i.e. the very rows standing above it.
+                    A <fieldset> because `run()` drops a save that lands while another is in
+                    flight: an add nobody can see fail is worse than a control that is briefly
+                    not tappable. */}
                 <fieldset className="cv-partner-add" disabled={busy}>
-                  <Combo
-                    value="" options={partnerChoices} placeholder={C.partnerAdd}
-                    searchPlaceholder={appConfig.copy.combo.searchOrType}
-                    allowCustom clearable={false} onChange={addPartner}
+                  <input
+                    className="cv-input" value={partnerDraft} placeholder={C.partnerAdd} aria-label={C.partnerAdd}
+                    maxLength={80}
+                    onChange={(e) => setPartnerDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}
                   />
+                  <button type="button" className="cv-btn cv-btn-ghost" title={C.partnerAdd} aria-label={C.partnerAdd}
+                    disabled={!partnerDraft.trim()} onClick={commitPartner}>
+                    <Icon id="plus" />
+                  </button>
                 </fieldset>
               </div>
             </div>

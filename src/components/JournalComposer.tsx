@@ -29,7 +29,6 @@ import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
 import { useKeyboardInset } from '../lib/useKeyboardInset'
 import { nextCompact } from '../lib/composerFit'
-import { useSuggestionPan } from '../lib/useSuggestionPan'
 
 // `C` (appConfig.copy.journal) is read at the top of each component below rather than captured
 // here at module-load, so the locale resolved at boot (config/copy) applies.
@@ -267,7 +266,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       el.setSelectionRange(edit.caret, edit.caret)
     })
   }
-  const panGuard = useSuggestionPan()
   // ── the clock: any entry may say when it has to come back ─────────────────────────────────
   // ⚠️ There is no «Eintrag · Erinnerung» switch any more. Asking for the KIND of row first cost
   // the Erinnerung everything the ordinary sheet has — Art, Foto, Sprachnotiz, the ring — and made
@@ -856,8 +854,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         {/* A single ranked band; its empty row keeps the phone sheet steady while typing. */}
         {(suggestions.length === 0 && pendenzHits.length === 0)
           ? <div className="jc-phrases is-empty" aria-hidden /> : (
-          // Keep the keyboard focused on mousedown; pointer events remain available for dragging.
-          <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria} {...panGuard}>
+          // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
+          // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
+          <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
             {suggestions.map((c) => (
               <button
                 key={c.label}

@@ -421,18 +421,12 @@ interface DocksProps {
   lineMode: 'freehand' | 'nodes'
   /** the in-progress node draft is committable (line ≥2 pts / area ≥3 pts) — gates the ✓ button */
   draftActive: boolean
-  selResource: BoardAnno | undefined
   setTool: (t: BoardTool) => void
   setLineMode: (m: 'freehand' | 'nodes') => void
   areaMode: 'nodes' | 'freehand'
   setAreaMode: (m: 'nodes' | 'freehand') => void
   onFinish: () => void
   onCancelDraft: () => void
-  /** the selected chip belongs to a REGISTERED Trupp — its colour is edited on the Trupp form */
-  resourceBound?: boolean
-  /** the SELECTED team's trail visibility — the dock eye toggles just that team */
-  trailsShown: boolean
-  onToggleTrails: () => void
   /** Messen tool: line/area mode + clear/close, mirroring the Lage map's measure dock */
   measMode: 'line' | 'area'
   setMeasMode: (m: 'line' | 'area') => void
@@ -448,13 +442,13 @@ interface DocksProps {
 }
 
 /**
- * Right-edge tool option docks (Linie/Fläche style pickers / armed-tool hints / selected-team
- * recolour+clear-trail), each top-aligned to its rail button. Built from the SHARED `ToolDock`
+ * Right-edge tool option docks (Linie/Fläche style pickers / armed-tool hints), each top-aligned
+ * to its rail button. Built from the SHARED `ToolDock`
  * renderer — same control vocabulary (and look) as the Lage map; the Linie tool carries the same
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, selResource, resourceBound = false, setTool, setLineMode, onFinish, onCancelDraft, trailsShown, onToggleTrails, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, setTool, setLineMode, onFinish, onCancelDraft, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (
@@ -539,17 +533,11 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive
         ]} />
       )}
 
-      {/* selected team — recolour (grid, since the palette is now larger) + trail visibility.
-          Trail CLEARING moved behind the pill bar's lock button (confirmed) — a one-tap ✕
-          here silently wiped the recorded Truppverfolgung.
-          ⚠️ No colour grid on a chip bound to a REGISTERED Trupp: its colour is the Trupp's
-          identity and is edited on the Trupp's own form — a second palette here said the same
-          thing twice and buried the trail toggle behind ten swatches. */}
-      {selResource && tool === 'pan' && (
-        <ToolDock groups={[
-          [{ type: 'toggle', icon: trailsShown ? 'eye' : 'eyeoff', label: trailsShown ? appConfig.copy.whiteboard.trailsOff : appConfig.copy.whiteboard.trailsOn, on: trailsShown, disabled: !selResource.trail?.length, onClick: onToggleTrails }],
-        ]} />
-      )}
+      {/* No dock for a selected team (18.09.2026). The Spuren-Auge lived here AND on the marker's
+          own bar (components/TwinTeamPill) — the same state, two places, and the dock copy was the
+          far one: it opened a third fixed bar in the same bottom strip the pill row already uses.
+          The bar beside the marker is the one answer; recolour and trail clearing had already
+          moved off this dock. */}
     </>
   )
 }

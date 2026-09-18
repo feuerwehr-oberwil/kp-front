@@ -12,7 +12,7 @@
  *  `TWIN_CLIP_MARGIN` is quoted by both projections; renaming either would rewrite device
  *  preferences for a word.
  */
-import { fitSimilarity, hasAutoPairs, residualClaim, type Georef, type GeorefFit, type PlanPt } from './georef'
+import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim, type Georef, type GeorefFit, type PlanPt } from './georef'
 import type { PlanScale } from './planScale'
 import type { StationPlanScales } from './stationPlanScale'
 import { projectedAnnos } from './planProjection'
@@ -99,6 +99,10 @@ export interface GeorefPlan {
   /** the fit still leans on the automatic scaffolding (georef · hasAutoPairs) — the Ebenen
    *  rows then say «ungemessen» instead of claiming a ⌀ off the contaminated fit */
   auto?: boolean
+  /** …unless the station APPROVED it and nobody has started correcting it (georef ·
+   *  approvedUntouched, the Ampel's own condition): a published fit is linked, and the row says
+   *  so instead (18.09.2026) */
+  approved?: boolean
 }
 
 /**
@@ -112,17 +116,21 @@ export function georefPlans(
   plans: PlanDocument[],
   georefOf: (planId: string) => Georef | null,
   aspectOf: (plan: PlanDocument) => number,
+  /** was this sheet's fit published by the station's approval? Handed in rather than read here,
+   *  so this stays a pure derivation over the values it is given (and testable as one). */
+  approvedOf: (georefKey: string) => boolean = () => false,
 ): GeorefPlan[] {
   const out: GeorefPlan[] = []
   for (const p of plans) {
     // a floor stack is a COLUMN of copies of one footprint — one similarity transform cannot
     // mean anything across it, and the pairing mode refuses to arm on it for the same reason
     if (p.floorStack || p.viewer) continue
-    const pairs = georefOf(p.georefKey ?? p.id)?.pairs
+    const key = p.georefKey ?? p.id
+    const pairs = georefOf(key)?.pairs
     if (!pairs?.length) continue
     const aspect = aspectOf(p)
     const fit = fitSimilarity(pairs, aspect)
-    if (fit) out.push({ id: p.id, code: p.code, title: p.title, imageUrl: p.imageUrl, fit, widthM: planGroundWidthM(fit, aspect), auto: hasAutoPairs(pairs) })
+    if (fit) out.push({ id: p.id, code: p.code, title: p.title, imageUrl: p.imageUrl, fit, widthM: planGroundWidthM(fit, aspect), auto: hasAutoPairs(pairs), approved: approvedUntouched(pairs, approvedOf(key)) })
   }
   return out
 }
@@ -419,12 +427,14 @@ export function twinPlanImageVisible(prefs: Record<string, boolean> | undefined,
 
 /** How well this plan sits, in the same words the Passung chip uses — «aus 2 Punkten» when the
  *  fit is exact and therefore UNMEASURED, a residual once a third pair has measured it. */
-export function twinFitNote(fit: GeorefFit, auto = false): string {
+export function twinFitNote(fit: GeorefFit, auto = false, approved = false): string {
   const C = appConfig.copy.whiteboard.georef
   // an automatic scaffolding in the fit voids every claim: no ⌀ (the synthetic pairs
   // contaminate the number) and no «aus 2 Punkten» (nobody set them) — the row says what it
-  // is, exactly as the chip/lamp/Passung do
-  if (auto) return C.chipAuto
+  // is, exactly as the chip/lamp/Passung do…
+  // …and once the station APPROVED that fit it is no longer a proposal (18.09.2026): the row
+  // reads «Verknüpft», the word a hand-measured fit's row wears, and still claims no ⌀.
+  if (auto) return approved ? C.chipLinked : C.chipAuto
   const m = residualClaim(fit)
   return m == null ? C.chipTwoPoints : fillTemplate(C.chipResidual, { m: m.toFixed(2) })
 }
@@ -442,7 +452,7 @@ export function planRasterRows(
     id: twinPlanImageLayerId(p.id),
     group: C.layerGroupPlans,
     label: fillTemplate(C.layerPlanImage, { plan: p.code }),
-    sub: twinFitNote(p.fit, p.auto),
+    sub: twinFitNote(p.fit, p.auto, p.approved),
     icon: 'map',
     visible: twinPlanImageVisible(prefs, p.id),
     opacity: opacity?.[twinPlanImageLayerId(p.id)] ?? 55,

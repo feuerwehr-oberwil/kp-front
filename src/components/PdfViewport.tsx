@@ -4,6 +4,8 @@ import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { appConfig } from '../config/appConfig'
 import { GIT_SHA } from '../lib/buildInfo'
 import { ByteBudgetCache } from '../lib/byteBudgetCache'
+import { dropPdfBytes, loadPdfBytes, pdfDataCopy } from '../lib/pdfBytes'
+import { dropPdfPages } from '../lib/pdfPageCache'
 import { diagnosePdfFailure, type PdfFailure } from '../lib/pdfDiagnosis'
 // MAIN-THREAD side of the pdf.js engine polyfills (Samsung Internet, 08.09.) — static and
 // first, so they are installed before the pdfjs chunk can resolve; the fake-worker fallback
@@ -53,7 +55,11 @@ function getPdfjs(): Promise<typeof PdfjsLib> {
   return pdfjsPromise
 }
 
-const LOAD_TIMEOUT_MS = 20_000 // stall guard on the doc open — pdf.js' own fetch has no timeout
+// Stall guard on the doc open — neither pdf.js nor `fetch` has a timeout of its own. ⚠️ Since
+// 18.09.2026 the guard covers the WHOLE transfer (lib/pdfBytes downloads the file in one GET
+// instead of letting pdf.js stream it), so it is sized for a tablet radio carrying a 40 MB
+// Referenz-PDF, not for a stalled header.
+const LOAD_TIMEOUT_MS = 60_000
 
 // Doc cache entries keep the pdf.js loading task alongside the promise so a stuck or
 // superseded load can be aborted (destroy cancels the underlying fetch). Failed loads
@@ -69,8 +75,13 @@ function docEntry(rawUrl: string): DocEntry {
   if (!e) {
     let dead = false
     let task: PdfjsLib.PDFDocumentLoadingTask | null = null
-    const promise = getPdfjs().then((lib) => {
-      task = lib.getDocument({ url })
+    // ⚠️ `data`, not `url` (18.09.2026): pdf.js fetching for itself asks in RANGE requests, and a
+    // `206` is cacheable by nothing — not the HTTP cache, not the service worker's Workbox route
+    // (`200` only). Every cold open re-downloaded the whole sheet and offline it was simply gone.
+    // `lib/pdfBytes` does ONE plain GET, which every cache keeps, and holds the bytes for the
+    // session; the copy is because pdf.js TRANSFERS (detaches) the buffer it is handed.
+    const promise = Promise.all([getPdfjs(), loadPdfBytes(url)]).then(([lib, bytes]) => {
+      task = lib.getDocument({ data: pdfDataCopy(bytes) })
       if (dead) void task.destroy()
       return task.promise
     })
@@ -79,6 +90,11 @@ function docEntry(rawUrl: string): DocEntry {
       destroy: () => {
         dead = true
         void task?.destroy().catch(() => {})
+        // ⚠️ the BYTES too, and not only on «Erneut laden»: before `getDocument` exists there is
+        // no loading task to abort, so a load killed by the stall guard left the hung fetch's
+        // pending promise sitting in the bytes cache — and every automatic re-attempt awaited
+        // that same dead request (only the manual retry, which evicts, ever recovered).
+        dropPdfBytes(url)
         if (docCache.get(url) === entry) docCache.delete(url)
       },
     }
@@ -134,6 +150,8 @@ export async function planPrintedMPerU(url: string): Promise<number | null> {
 // stale JPEG behind would redraw exactly the picture the operator asked to be rid of.
 export function evictPlan(url: string) {
   docCache.get(docKey(url))?.destroy()
+  dropPdfBytes(url)   // …the downloaded bytes too, or «Erneut laden» would re-open the same file
+  dropPdfPages(url)   // …and the reader's kept page rasters (lib/pdfPageCache)
   bitmapCache.delete(url)
   for (const key of [...previewCache.keys()]) if (key.startsWith(`${url}@`)) previewCache.delete(key)
 }

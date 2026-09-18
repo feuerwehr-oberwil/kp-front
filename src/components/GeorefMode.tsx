@@ -11,7 +11,8 @@ import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { confirmDialog, toast, undoToast } from '../lib/ui'
 import { acceptGeorefProposal, beginTap, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefProposalScalePct, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, resetGeorefPlan, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
-import { fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
+import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
+import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import type { GeorefSuggestStep } from '../lib/georefSuggest'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { GeorefPair, PlanPt } from '../lib/georef'
@@ -622,8 +623,16 @@ function georefStatus(mode: GeorefModeState) {
   // the folded quality detail behind the (i): the pair count, the claimable ⌀, and the one
   // instruction-shaped sentence (georefLamp body — what the next point should do)
   const claim = residualClaim(fit)
+  // ⚠️ An APPROVED automatic fit reads «Verknüpft», not «ungemessen» (18.09.2026 — the station
+  // published it; see georefMode · georefLamp). It still claims no ⌀: there is none to claim.
+  // ⚠️ `approvedUntouched`, exactly as the Ampel reads it (lib/georef): a hand-set point beside
+  // the Automatik is a correction in progress, and the fold value must not read «Verknüpft»
+  // while the lamp two lines above it stands amber about the same fit.
+  const approved = approvedUntouched(mode.pairs, !!mode.storageKey && incidentBindingApproved(mode.storageKey))
   const foldValue = fit
-    ? hasAutoPairs(mode.pairs) ? C.chipAuto : claim == null ? C.chipTwoPoints : fillTemplate(C.chipResidual, { m: claim.toFixed(1) })
+    ? hasAutoPairs(mode.pairs)
+      ? approved ? C.chipLinked : C.chipAuto
+      : claim == null ? C.chipTwoPoints : fillTemplate(C.chipResidual, { m: claim.toFixed(1) })
     : null
   return { lamp, sub, foldPairs: `${mode.pairs.length} ${C.pairs}`, foldValue, foldBody: lamp.body }
 }

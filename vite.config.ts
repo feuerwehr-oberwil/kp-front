@@ -182,6 +182,22 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
+              // A PINNED plan revision (`/api/reference/plan:x?v=3`) is IMMUTABLE by construction
+              // — replaced bytes are a new `plan_revisions` row and therefore a new `v` — so it
+              // is cache-first: opened once, it opens offline and costs no request again. Its own
+              // cache because these are PDFs of tens of megabytes, which would evict the 50 small
+              // symbol/geojson entries of the rule below within one Einsatz.
+              // ⚠️ Listed FIRST: Workbox takes the first matching route.
+              // ⚠️ And purged with the others on an explicit denial (public/sw-media-cache.js).
+              urlPattern: /\/api\/reference\/plan(%3A|:)[^?]*\?(?:[^#]*&)?v=\d+/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'reference-plans',
+                cacheableResponse: { statuses: [200] },
+                expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              },
+            },
+            {
               // Reference datasets (symbols + geojson) — keep fresh when online, usable offline.
               urlPattern: /\/api\/reference\/.*/,
               handler: 'StaleWhileRevalidate',

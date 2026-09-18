@@ -544,6 +544,14 @@ describe('JournalComposer · what comes next', () => {
 
 // The band never wraps and regularly holds more than it can show, so side-scroll is how the rest
 // of it is reached — and the finger doing that lifts on whatever chip it stopped over.
+//
+// ⚠️ That scroll is the BROWSER's since 18.09.2026 (see `.jc-phrases` in 18-audio.css): the row is
+// an ordinary `overflow-x: auto` scroller with `touch-action: pan-x pan-y`, so it has momentum and
+// rubber-band, and the compositor — not a pointermove handler — decides when a gesture became a
+// pan. Suppressing the release click is the browser's job too, and jsdom implements none of it, so
+// what is worth testing here is the CONTRACT that makes native scrolling possible: nothing on this
+// row may capture a pointer or prevent a touch default, or the band stops panning at all — which
+// is the bug it has already had twice.
 describe('JournalComposer · swiping the suggestion band', () => {
   const VOCAB = [{ name: 'Meier Anna', kind: 'person' as const }]
   const field = () => screen.getByRole('textbox') as HTMLTextAreaElement
@@ -558,15 +566,26 @@ describe('JournalComposer · swiping the suggestion band', () => {
     expect(field().value).toBe('Meier Anna ')
   })
 
-  // ⚠️ Swallowed on the CLICK. Nothing here may cancel the pointer event itself: WebKit builds
-  // its pointer events on the touch stream, so a cancelled pointerdown cancels the touch's
-  // default and the band stops panning at all — which is the bug this row already had once.
-  it('a swipe scrolls it and picks nothing', () => {
+  // ⚠️ WebKit builds its pointer events on the touch stream, so a cancelled pointerdown cancels the
+  // touch's default and the band stops panning at all. Nothing on the row — and nothing on a chip —
+  // may consume the gesture; the only default this surface takes is the MOUSEdown that would move
+  // focus out of the text field.
+  it('leaves the swipe to the browser: no chip consumes the pointer gesture', () => {
     setup({ vocab: VOCAB })
     type('Meier')
-    fireEvent.pointerDown(chip(), { pointerType: 'touch', pointerId: 1, button: 0, clientX: 100, clientY: 200 })
-    fireEvent.pointerMove(chip(), { pointerType: 'touch', pointerId: 1, button: 0, clientX: 160, clientY: 204 })
-    fireEvent.click(chip(), { detail: 1 })
-    expect(field().value).toBe('Meier')
+    const c = chip()
+    c.setPointerCapture = () => { throw new Error('a chip must never capture the pan') }
+    expect(fireEvent.pointerDown(c, { pointerType: 'touch', pointerId: 1, button: 0, clientX: 100, clientY: 200 })).toBe(true)
+    expect(fireEvent.pointerMove(c, { pointerType: 'touch', pointerId: 1, button: 0, clientX: 160, clientY: 204 })).toBe(true)
+    expect(fireEvent.pointerUp(c, { pointerType: 'touch', pointerId: 1, button: 0, clientX: 160, clientY: 204 })).toBe(true)
+    expect(fireEvent.touchMove(c, { touches: [{ clientX: 160, clientY: 204 }] })).toBe(true)
+  })
+
+  // …and the row it all hangs on is a scroller, not a hand-driven strip.
+  it('is a real horizontal scroller', () => {
+    setup({ vocab: VOCAB })
+    type('Meier')
+    const row = chip().parentElement as HTMLElement
+    expect(row.className).toContain('jc-phrases')
   })
 })

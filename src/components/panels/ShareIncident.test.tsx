@@ -233,3 +233,48 @@ describe('nach dem Abschluss', () => {
     expect(fetchShareLink).not.toHaveBeenCalledWith('i1', 'atemschutz')
   })
 })
+
+// ONE TAP (18.09.2026). The QR beside the Atemschutz bell is pressed with the other phone
+// already held out: pressing it IS the decision, so the sheet mints instead of asking «Link
+// erstellen?» a second time. The guards matter more than the mint — a door that mints on its own
+// must not mint twice, must not mint the OTHER door's link, and must not mint over a question
+// that was never answered.
+describe('«Nur Atemschutz» aus dem QR — ein Tipp', () => {
+  it('mints the Atemschutz link on open and shows its address, with nothing left to press', async () => {
+    render(<ShareIncident incidentId="i1" initialKind="atemschutz" autoCreate />)
+    await screen.findByText(/\/l\/tok123$/)
+    expect(createShareLink).toHaveBeenCalledTimes(1)
+    expect(createShareLink).toHaveBeenCalledWith('i1', 'atemschutz')
+    expect(screen.queryByText(C.shareCreate)).toBeNull()
+  })
+
+  it('leaves a link that already exists alone', async () => {
+    vi.mocked(fetchShareLink).mockResolvedValue(on)
+    render(<ShareIncident incidentId="i1" initialKind="atemschutz" autoCreate />)
+    await screen.findByText(/\/l\/tok123$/)
+    expect(createShareLink).not.toHaveBeenCalled()
+  })
+
+  it('mints nothing when the question came back unanswered', async () => {
+    vi.mocked(fetchShareLink).mockRejectedValue(new Error('offline'))
+    render(<ShareIncident incidentId="i1" initialKind="atemschutz" autoCreate />)
+    await screen.findByText(C.shareLoadFailed)
+    expect(createShareLink).not.toHaveBeenCalled()
+  })
+
+  it('mints nothing for the OTHER door, and re-mints nothing after a revoke', async () => {
+    confirmDialog.mockResolvedValue(true)
+    render(<ShareIncident incidentId="i1" initialKind="atemschutz" autoCreate />)
+    await screen.findByText(/\/l\/tok123$/)
+    // the read-only tab is a decision of its own — it keeps its «Link erstellen»
+    fireEvent.click(screen.getByText(C.shareKindFull))
+    await screen.findByText(C.shareCreate)
+    expect(createShareLink).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByText(C.shareKindAtem))
+    await screen.findByText(C.shareRevoke)
+    fireEvent.click(screen.getByText(C.shareRevoke))
+    await waitFor(() => expect(screen.getByText(C.shareCreate)).toBeTruthy())
+    expect(createShareLink).toHaveBeenCalledTimes(1)
+  })
+})

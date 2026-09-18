@@ -1,5 +1,6 @@
-import type { ReactElement, ReactNode } from 'react'
+import { useState, type ReactElement, type ReactNode } from 'react'
 import { Menu as BaseMenu } from '@base-ui/react/menu'
+import { usePopoverGuard } from './popoverGuard'
 
 /**
  * Anchored action menu — wraps Base UI's Menu. Base UI's Positioner does the
@@ -63,6 +64,23 @@ export interface MenuActionItem {
   reason?: ReactNode
 }
 
+/**
+ * Every row this menu renders wears `ui-menu-item` on top of whatever skin the caller paints
+ * (`itemClassName`). That class — and `ui-menu-danger` for the destructive row — is where the
+ * app's ONE menu-row treatment lives: the hover wash, the `--press` wash and the row radius
+ * (13-incident.css · «ONE menu row»).
+ *
+ * ⚠️ It is added HERE rather than asked of the four call-site skins, because that is exactly what
+ * went wrong: `.rp-print-menu-item`, `.de-menu-item`, `SurfaceControls .menuItem` and
+ * `.adm-menu-item` are one control wearing four coats, and they had drifted into three hover
+ * colours, one press wash between them and a button's radius on a row. A skin still owns its
+ * padding, its type and its icons — it no longer owns what a press looks like.
+ */
+function rowClass(skin: string | undefined, danger?: boolean, sticky?: boolean) {
+  return ['ui-menu-item', danger && 'ui-menu-danger', sticky && 'ui-menu-sticky', skin]
+    .filter(Boolean).join(' ')
+}
+
 export function Menu({ trigger, items, popupClassName, itemClassName, reasonClassName, side = 'bottom', align = 'end', sideOffset = 4, alignOffset = 0, collisionPadding = 10, scrollToEnd = false, modal = true }: {
   trigger: ReactElement
   items: (MenuActionItem | MenuCheckItem | MenuSeparator | MenuHeading | MenuRadioGroup)[]
@@ -101,6 +119,11 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
    *  filter-bar menus. The dismiss itself (Base UI's useDismiss) and Esc work either way. */
   modal?: boolean
 }) {
+  // A menu opened from inside a Sheet/Overlay must be the ONLY thing the dismissing tap or the
+  // first Esc closes — the sheet stands down while this is open (see popoverGuard).
+  const [open, setOpen] = useState(false)
+  usePopoverGuard(open)
+
   const renderItem = (it: MenuActionItem | MenuCheckItem | MenuRadioGroup, key: number) => {
     if ('kind' in it && it.kind === 'radio') {
       return (
@@ -110,7 +133,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
               key={o.value}
               value={o.value}
               disabled={o.disabled}
-              className={itemClassName ? itemClassName(false) : undefined}
+              className={rowClass(itemClassName?.(false))}
             >
               <BaseMenu.RadioItemIndicator className="ui-menu-check ui-menu-radio" keepMounted>
                 <svg viewBox="0 0 24 24" aria-hidden><path d="M5 13l4 4L19 7" /></svg>
@@ -128,7 +151,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
       return (
         <BaseMenu.CheckboxItem
           key={key}
-          className={itemClassName ? itemClassName(false) : undefined}
+          className={rowClass(itemClassName?.(false))}
           checked={it.checked}
           disabled={it.disabled}
           onCheckedChange={it.onChange}
@@ -144,9 +167,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
     return (
       <BaseMenu.Item
         key={key}
-        className={[itemClassName ? itemClassName(!!it.danger) : '',
-          it.sticky ? 'ui-menu-sticky' : '']
-          .filter(Boolean).join(' ') || undefined}
+        className={rowClass(itemClassName?.(!!it.danger), it.danger, it.sticky)}
         disabled={it.disabled}
         onClick={it.onClick}
       >
@@ -179,7 +200,7 @@ export function Menu({ trigger, items, popupClassName, itemClassName, reasonClas
   return (
     // MODAL by default — the backdrop that swallows the dismissing tap is what keeps that tap off
     // the map / the list underneath. Only the callers that ask for it go non-modal (see `modal`).
-    <BaseMenu.Root modal={modal}>
+    <BaseMenu.Root modal={modal} onOpenChange={setOpen}>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
         <BaseMenu.Positioner className="ui-menu-pos" side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding}>

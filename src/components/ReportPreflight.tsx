@@ -23,7 +23,7 @@ import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGrupp
 import type { ZeitKind } from '../lib/alarmzeiten'
 import type { AssignableRole } from '../lib/roleAssignment'
 import { deploymentName, getDeploymentConfig, reportLinks } from '../lib/deploymentConfig'
-import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage, unlistedPartnerOrgs } from '../lib/partnerOrgs'
+import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage } from '../lib/partnerOrgs'
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -38,7 +38,6 @@ import { incidentDays } from '../lib/zeitplanFormat'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, Person, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
 import { visibleMittel } from '../lib/mittel'
 import { ClearableInput } from './ClearableInput'
-import { Combo } from './Combo'
 import { PersonField } from './PersonField'
 import { Segmented } from './Segmented'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -50,6 +49,22 @@ import { Menu, Popover } from '../lib/overlays'
 import { useMediaQuery } from '../lib/useIsPhone'
 
 const NO_IDS = new Set<string>()
+
+/**
+ * «Zeig mir diese offene Angabe» — asked from OUTSIDE the sheet.
+ *
+ * The Abschluss confirm lists the same Mindestangaben the head's «noch offen» chips do, and
+ * since 18.09.2026 its rows are tappable too (lib/abschlussOpen). But it also opens from the
+ * Einsatz-Menü, where this surface is not mounted at all — so the ask has to survive the
+ * `setMode('rapport')` that follows it. One live listener while the sheet stands, one queued
+ * step while it does not; whichever answers, `jumpToStep` does the rest.
+ */
+let stepListener: ((step: AbschlussStep) => void) | null = null
+const queuedStep: { current: AbschlussStep | null } = { current: null }
+export function requestReportStep(step: AbschlussStep) {
+  if (stepListener) stepListener(step)
+  else queuedStep.current = step
+}
 
 /** Does this partner row say anything at all? Blank rows live on screen and never reach the blob. */
 const partnerFilled = (p: PartnerContact) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim())
@@ -479,8 +494,6 @@ export function ReportPreflight({
     })
     return rows
   }, [presetOrgs, partners])
-  /** what the manual add offers WITHOUT typing (lib/partnerOrgs) */
-  const partnerChoices = unlistedPartnerOrgs(presetOrgs, partners)
   /* SEARCH-TO-CREATE (11.09.) — the typed name IS the new row. «+ Organisation hinzufügen» used
    * to append a BLANK row with an empty input: two steps, and the empty row stood there as a
    * half-finished record until somebody typed into it (and `partnerFilled` silently dropped it
@@ -490,6 +503,16 @@ export function ReportPreflight({
   const addPartner = (typed: string) => {
     const next = addPartnerOrg(partners, stripUnprintable(typed))
     if (next) savePartners(next)
+  }
+  /* ⚠️ A PLAIN field since 18.09.2026, not a picker. The Combo suggested exactly the station's
+     own organisations — the same names standing as tappable rows two centimetres above it — so
+     typing opened a menu offering what was already on screen, over the field being typed into.
+     What is left is the one thing the rows cannot do: name an organisation nobody listed. */
+  const [partnerDraft, setPartnerDraft] = useState('')
+  const commitPartner = () => {
+    if (!partnerDraft.trim()) return
+    addPartner(partnerDraft)
+    setPartnerDraft('')
   }
   const [proof, setProof] = useState<AuditProof>({ intact: null, checkedAt: new Date().toISOString(), offline: true })
   const [checking, setChecking] = useState(true)
@@ -1308,6 +1331,18 @@ export function ReportPreflight({
   }
 
   const bodyRef = useRef<HTMLDivElement>(null)
+  // …and the outside ask (see requestReportStep). Through a ref because `jumpToStep` is rebuilt
+  // every render while this subscription is mount-only — the sheet must not re-register on each
+  // keystroke, and a jump queued before the mount is consumed exactly once.
+  const jumpRef = useRef(jumpToStep)
+  jumpRef.current = jumpToStep
+  useEffect(() => {
+    stepListener = (s) => jumpRef.current(s)
+    const queued = queuedStep.current
+    queuedStep.current = null
+    if (queued) jumpRef.current(queued)
+    return () => { stepListener = null }
+  }, [])
   // …and the tab + the Kroki-Stand ride with it (see savedScroll). Read through refs in the
   // cleanup because the effect below is mount-only and would otherwise capture the values this
   // surface OPENED on. (`optionOverrides` is already a ref, so it needs no mirror.)
@@ -2347,16 +2382,21 @@ export function ReportPreflight({
                     </div>
                   )}
                   {/* the list covers the usual partners; the one that turns up anyway still has
-                      to be recordable — so this picker carries the station's remaining
-                      organisations AND takes whatever is typed as the row's name (see
-                      addPartner). The row appears already named; its Bemerkung and its bin are
-                      the same as on any other free row. */}
+                      to be recordable — a name typed here becomes the row (see addPartner and
+                      commitPartner). The row appears already named; its Bemerkung and its bin
+                      are the same as on any other free row. */}
                   <div className="report-partner-add">
-                    <Combo
-                      value="" options={partnerChoices} placeholder={P.partnerAdd}
-                      searchPlaceholder={appConfig.copy.combo.searchOrType}
-                      allowCustom clearable={false} onChange={addPartner}
+                    <ClearableInput
+                      className="ip-input" value={partnerDraft}
+                      placeholder={P.partnerAdd} aria-label={P.partnerAdd}
+                      clearLabel={P.partnerOrgShort} maxLength={80}
+                      onChange={(v) => setPartnerDraft(stripUnprintable(v))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}
                     />
+                    <button type="button" className="report-partner-go" onClick={commitPartner}
+                      disabled={!partnerDraft.trim()} title={P.partnerAdd} aria-label={P.partnerAdd}>
+                      <Icon id="plus" />
+                    </button>
                   </div>
                 </fieldset>
               </div>

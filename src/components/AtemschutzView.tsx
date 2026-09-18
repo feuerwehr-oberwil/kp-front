@@ -2043,7 +2043,7 @@ function TruppCard({
               </button>
             }
             popupClassName="rp-print-menu"
-            itemClassName={(danger) => cx('rp-print-menu-item', danger && 'rp-print-menu-danger')}
+            itemClassName={() => 'rp-print-menu-item'}
             items={menuItems}
           />
         )}
@@ -2599,7 +2599,12 @@ function TruppForm({
   // …said, not enforced (15.09., Bastian: «with the warning»): while the Auftrag is empty on a NEW
   // Trupp an amber line above the footer names the gap; the save goes through regardless.
   const auftragGiven = (auftrag != null && !isAnderes) || ziel.trim().length > 0
+  // ⚠️ …and only once somebody is IN the Trupp (18.09.2026): on a blank form the line stood
+  // there before the first tap, naming a gap in a form nobody had started filling. The crew is
+  // the first thing entered, so «at least one name» is «the operator has begun» — and from then
+  // on the amber line says what is still missing.
   const auftragMissing = mode === 'create' && !auftragGiven
+    && team.some((sl) => sl.name.trim().length > 0)
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.

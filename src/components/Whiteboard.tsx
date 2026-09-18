@@ -818,7 +818,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // measureAR is the plan's width/height — exactly the `planAspect` the fit is taken at. Solved
   // per render rather than memoised: it is a closed-form fit over at most a handful of points,
   // and a memo here would depend on an array identity the linter cannot reason about.
-  const georefState = georefChip(georefFit, georef, activeId, georefPairs)
+  // ⚠️ …and whether the station APPROVED this sheet's fit (incidentPlanBindings ·
+  // incidentBindingApproved): an approved fit is a linked one, in the same tone a hand-measured
+  // reference wears — see georefMode · georefChip (18.09.2026).
+  const georefApproved = incidentBindingApproved(activeGeorefKey)
+  const georefState = georefChip(georefFit, georef, activeId, georefPairs, georefApproved)
   /** The real plan bitmap for «Deckung prüfen». The PDF viewport already rendered it into its
    *  first canvas, so taking a same-origin snapshot is both cheaper and more faithful than
    *  rendering the PDF a second time on the map side. It rides in the cross-surface mode store,
@@ -2671,7 +2675,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   const pickSymbol = (name: string) => { setPending(name); setPendingShape(null); setTool('symbol'); setPaletteOpen(false); onRecent(name) }
   const pickShape = (kind: ShapeKind) => { setPendingShape(kind); setPending(null); setTool('shape'); setPaletteOpen(false) }
-  const selResource = annos.find((a) => a.id === selId && a.kind === 'resource')
   /**
    * ⚠️ The Plan has no Ebenen of its own any more (15.09.2026). It used to share the slot with
    * the selected object's details — the layer list said which projection that object belonged to
@@ -4114,14 +4117,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           areaMode={areaMode}
           setAreaMode={setAreaMode}
           draftActive={draftActive}
-          selResource={selResource}
           setTool={setTool}
           setLineMode={setLineMode}
           onFinish={finishShape}
           onCancelDraft={cancelShape}
-          resourceBound={!!selResource?.truppId && trupps.some((t) => t.id === selResource.truppId && !t.removedAt)}
-          trailsShown={!!selResource && !hiddenTrails.has(selResource.id)}
-          onToggleTrails={() => { if (selResource) toggleTrail(selResource.id) }}
           measMode={measMode}
           setMeasMode={setMeasMode}
           measCount={measPath.length}
@@ -4715,7 +4714,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           <GeorefQuality
             fit={georefFit}
             auto={hasAutoPairs(georefPairs)}
-            approved={incidentBindingApproved(activeGeorefKey)}
+            approved={georefApproved}
             realPoints={realPairCount(georefPairs)}
             onClose={() => setQualityFor(null)}
             onAddPoint={() => beginGeoref({ returnToQuality: true })}

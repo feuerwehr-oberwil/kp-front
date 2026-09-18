@@ -187,6 +187,7 @@
 @media (hover: hover) {
   .pp-row:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); border-color: color-mix(in srgb, var(--blue) 18%, transparent); }
 }
+.pp-row:active { background-image: linear-gradient(var(--press), var(--press)); }
 .pp-row.on { background: color-mix(in srgb, var(--blue) 14%, transparent); border-color: var(--blue); }
 .pp-row-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 .pp-row-main b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -209,8 +210,11 @@
 .pp-pin:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pp-pin.on { color: var(--blue); }
 .pp-pin-inc { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--red); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .4); }
-.pp-maptoggle { display: none; margin: 8px 20px 16px; padding: 11px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
+/* a fold control on a phone, so it sits on the --tap floor rather than the ~40px its padding
+   happened to produce */
+.pp-maptoggle { display: none; margin: 8px 20px 16px; min-height: var(--tap); padding: 11px; border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
   background: var(--surface); cursor: pointer; font: 700 14px var(--body); color: var(--ink-dim); align-items: center; justify-content: center; gap: 8px; }
+.pp-maptoggle:active { background-image: linear-gradient(var(--press), var(--press)); }
 .pp-maptoggle .i { width: 16px; height: 16px; }
 
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
@@ -321,14 +325,25 @@
 .wb-floor-eye .i { width: 13px; height: 13px; stroke-width: 2; }
 /* …and what it leaves behind: a strip where the storey belongs, which says what it is and how to
    get it back. Sits at the seam between the two drawn tiles, so the stack still reads in order. */
+/* ⚠️ ONE line, whatever the strip is wide (18.09.2026). The row is as wide as the sheet, which on
+   a phone — or on a zoomed-out stack — is narrow enough that «2. UG» broke over two lines and the
+   whole strip overflowed its own FOLDED_H height. So: nothing wraps, the storey NAME keeps its
+   room (it is what the row is about), and the row sheds the one word it can afford to lose. It is
+   a size container rather than a viewport media query because what matters is the width of THIS
+   strip — the board's own zoom changes it without the window changing at all. */
 .wb-floor-folded { position: absolute; left: 0; z-index: 8; display: flex; align-items: center; gap: 8px;
+  flex-wrap: nowrap; overflow: hidden; container-type: inline-size;
   padding: 0 12px; border: none; border-top: 1px dashed color-mix(in srgb, var(--ink) 28%, transparent);
   border-bottom: 1px dashed color-mix(in srgb, var(--ink) 28%, transparent);
   background: color-mix(in srgb, var(--board-bg) 82%, var(--ink) 6%);
-  font: 600 12px var(--body); color: var(--ink-dim); text-align: left; cursor: pointer; }
-.wb-floor-folded .wb-floor-idx { opacity: .55; }
-.wb-floor-folded-state { color: var(--ink-faint); font-weight: 500; }
-.wb-floor-folded-cta { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; color: var(--blue); font-weight: 700; }
+  font: 600 12px var(--body); color: var(--ink-dim); text-align: left; cursor: pointer;
+  white-space: nowrap; }
+.wb-floor-folded .wb-floor-idx { opacity: .55; flex: none; }
+.wb-floor-folded .wb-floor-name { flex: 0 1 auto; min-width: 4.5em; overflow: hidden; text-overflow: ellipsis; }
+.wb-floor-folded-state { flex: 0 1 auto; min-width: 0; overflow: hidden; color: var(--ink-faint); font-weight: 500; }
+.wb-floor-folded-cta { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 5px; color: var(--blue); font-weight: 700; }
+/* narrow strip: «ausgeblendet» goes first — the dashed row and «einblenden» already say it */
+@container (max-width: 320px) { .wb-floor-folded-state { display: none; } }
 .wb-floor-folded-cta .i { width: 13px; height: 13px; stroke-width: 2; }
 @media (hover: hover) {
   .wb-floor-folded:hover { background: color-mix(in srgb, var(--board-bg) 70%, var(--ink) 10%); }
@@ -453,6 +468,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    corner orbs (mark top-left + delete top-right) that used to crowd the pill */
 .wb-pill-acts { position: absolute; top: calc(100% + 9px); left: 50%; transform: translateX(-50%); z-index: 6;
   display: flex; gap: 6px; background: var(--ink-fill); border-radius: var(--r-ctl); padding: 5px; box-shadow: var(--shadow); }
+/* …flipped ABOVE the marker when it would otherwise land under the phone's fixed bottom lanes or
+   past the canvas edge. The decision is measured in components/TwinTeamPill (`data-flip`), which
+   also writes the horizontal nudge as an inline transform — here we only restate the anchor. */
+.wb-pill-acts[data-flip="up"] { top: auto; bottom: calc(100% + 9px); }
 .wb-pa { width: 40px; height: 40px; border-radius: var(--r-sm); border: none; padding: 0; color: var(--on-accent-ink);
   background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); display: grid; place-items: center; cursor: pointer; }
 @media (hover: hover) {
@@ -469,6 +488,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 @media (hover: hover) {
   .wb-pa-del:hover { background: var(--red); filter: brightness(1.06); }
 }
+.wb-pa-edit { background: var(--blue); }
+@media (hover: hover) {
+  .wb-pa-edit:hover { background: var(--blue); filter: brightness(1.08); }
+}
 .wb-pa-show { background: var(--green); }
 @media (hover: hover) {
   .wb-pa-show:hover { background: var(--green); filter: brightness(1.08); }
@@ -480,6 +503,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 @media (hover: hover) {
   .wb-pa-del-off:hover { background: color-mix(in srgb, var(--on-accent-ink) 16%, transparent); }
 }
+/* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling */
+.wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 62px); }
 .wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; transform: translateX(-50%); z-index: 7;
   width: min(290px, 70vw); padding: 9px; border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink); }
@@ -500,8 +525,11 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-trupp-opt { display: flex; align-items: center; gap: 9px; border: 1px solid var(--glass-edge); background: var(--surface-2, #fff);
   border-radius: var(--r-ctl); cursor: pointer; padding: 12px 12px; font: 700 14px var(--body); color: var(--ink); min-height: 48px; text-align: left; }
 @media (hover: hover) {
-  .wb-trupp-opt:hover { border-color: var(--blue); }
+  /* …and the same 8 % fill every other option row in the app lights with: the border alone was
+     the one row in this family whose hover did not change its BACKGROUND. */
+  .wb-trupp-opt:hover { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 8%, transparent); }
 }
+.wb-trupp-opt:not(.placed):active { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-trupp-opt b { flex: 1; }
 .wb-trupp-opt i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-faint); }
 /* «AS» — the Trupp in this row is under Atemschutz. A FACT about the crew, not an alarm, so it
@@ -544,6 +572,15 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .team-dot.raus b { text-decoration: line-through; color: var(--ink-dim); }
 .wb-resource-input { border: none; outline: none; background: color-mix(in srgb, var(--blue) 8%, transparent); border-radius: var(--r-xs); font-family: var(--body);
   font-size: 12.5px; font-weight: 700; color: var(--ink); width: 76px; padding: 2px 5px; }
+/* the ✕ that empties the name field — pill-sized (the form's 44px ClearableInput would be
+   wider than the field it sits in) and inside the field's own right padding */
+.wb-resource-edit { position: relative; display: inline-flex; align-items: center; }
+.wb-resource-edit .wb-resource-input { padding-right: 20px; }
+.wb-resource-clear { position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: none;
+  border-radius: var(--r-xs); background: none; color: var(--ink-dim); cursor: pointer; }
+.wb-resource-clear .i { width: 12px; height: 12px; }
+@media (hover: hover) { .wb-resource-clear:hover { color: var(--ink); } }
 /* (no floating delete orb on annos and no note grips row anymore — deletion lives in the
    detail panels, tap = panel / drag = move, 29.08.) */
 

@@ -201,6 +201,40 @@ describe('the Ebenen rows', () => {
     expect(planRasterRows([p], undefined)[0].sub).toMatch(/^⌀ \d+\.\d\d m$/)
   })
 
+  it('an automatic fit says «ungemessen» — and a station-APPROVED one says «Verknüpft» (18.09.2026)', () => {
+    const C = appConfig.copy.whiteboard.georef
+    const auto: GeorefPair[] = PAIRS.map((pr) => ({ ...pr, kind: 'auto' }))
+    const rowsFor = (approvedOf: (key: string) => boolean) =>
+      planRasterRows(georefPlans([plan('modul2')], () => ({ pairs: auto }), () => 1, approvedOf), undefined)
+    expect(rowsFor(() => false)[0].sub).toBe(C.chipAuto)
+    // approved: the row wears the word a hand-measured fit's row wears — and still no ⌀
+    expect(rowsFor(() => true)[0].sub).toBe(C.chipLinked)
+    expect(rowsFor(() => true)[0].sub).not.toContain('⌀')
+  })
+
+  it('…but a hand-set point beside the Automatik is a correction, not the approved fit', () => {
+    // the same amber mid-correction state the Ampel shows (georef · approvedUntouched): the row
+    // may not read «Verknüpft» about a fit the operator has started moving
+    const C = appConfig.copy.whiteboard.georef
+    const mixed: GeorefPair[] = [
+      { ...PAIRS[0], kind: 'auto' },
+      { ...PAIRS[1], kind: 'gesetzt' },
+    ]
+    const [row] = planRasterRows(georefPlans([plan('modul2')], () => ({ pairs: mixed }), () => 1, () => true), undefined)
+    expect(row.sub).toBe(C.chipAuto)
+  })
+
+  it('asks about approval under the sheet KEY, never the shared Modul slot', () => {
+    const asked: string[] = []
+    georefPlans(
+      [plan('modul2', { georefKey: 'incident:i1:object:o1:plan:modul2' })],
+      () => ({ pairs: PAIRS }),
+      () => 1,
+      (key) => { asked.push(key); return false },
+    )
+    expect(asked).toEqual(['incident:i1:object:o1:plan:modul2'])
+  })
+
   it('marks its ids as twin ids, so the panel can route the toggle', () => {
     expect(isTwinLayerId(twinPlanImageLayerId('modul2'))).toBe(true)
     expect(isTwinLayerId('hydrant')).toBe(false)

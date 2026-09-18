@@ -68,6 +68,10 @@ export class ByteBudgetCache<T> {
 
   delete(key: string): boolean { return this.entries.delete(key) }
 
+  /** The keys currently held, least recently used first — for callers that have to drop a
+   *  FAMILY of entries (every raster of one document) rather than one they can name. */
+  keys(): string[] { return [...this.entries.keys()] }
+
   /**
    * Drop the least recently used RESOLVED entries until the held bytes fit the budget. The most
    * recently used entry is never dropped, even when it alone exceeds the budget — it is the one

@@ -250,6 +250,9 @@
   margin-top: 6px; border: 1px solid var(--glass-edge); border-radius: var(--r-ctl);
   background: var(--surface); cursor: pointer; text-align: left; font: inherit; color: inherit;
 }
+/* hover was missing entirely — every other option cell in the app answers a pointer
+   (13-incident.css · «ONE menu row»), and mouse-only, so a tap leaves nothing lit. */
+@media (hover: hover) { .pickOpt:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
 .pickOpt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pickOptOn { border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); }
 .pickRadio { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--ink-faint); }

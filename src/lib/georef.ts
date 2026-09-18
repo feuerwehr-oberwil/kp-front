@@ -137,6 +137,20 @@ export function realPairCount(pairs: GeorefPair[]): number {
   return pairs.filter((p) => p.kind !== 'auto').length
 }
 
+/**
+ * Is this fit the PUBLISHED automatic one, untouched? The one home of «approved counts» — the
+ * Ampel, the Passung chip, the mode's fold value and the Ebenen row all read it here, so they
+ * cannot disagree about whether a sheet is linked or mid-correction (18.09.2026).
+ *
+ * An approval is the station's word about the fit it reviewed. The moment an operator sets or
+ * drags a point of their own, that is no longer the fit anybody approved: the correction is in
+ * progress, the scaffolding still carries part of it, and every surface says amber until the
+ * second real pair drops the synthetic ones (settleSlots).
+ */
+export function approvedUntouched(pairs: GeorefPair[], approved: boolean): boolean {
+  return approved && hasAutoPairs(pairs) && realPairCount(pairs) === 0
+}
+
 /** Are these two plan points the SAME landmark? The one place that question is answered, so
  *  «re-tapping corrects instead of appending» (`replacePair`), «this drag would land on top of a
  *  neighbour» (georefMode · dragPlan) and «these references carry no sheet» (`fitSimilarity`)

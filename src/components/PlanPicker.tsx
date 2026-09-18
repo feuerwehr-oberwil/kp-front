@@ -184,7 +184,7 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
         </div>
 
         {/* phone-friendly: let the map collapse so the list owns the narrow screen */}
-        <button className="pp-maptoggle" onClick={() => setMapOpen((v) => !v)}>
+        <button className="pp-maptoggle" aria-expanded={mapOpen} onClick={() => setMapOpen((v) => !v)}>
           <Icon id="map" /> {mapOpen ? pp.hideMap : pp.showMap}
         </button>
     </Overlay>

@@ -7,12 +7,16 @@
    here never fired, and the panel is the answer to a question the operator just asked. */
 .mp-hint { text-align: center; font-size: 12.5px; font-weight: 500; color: var(--ink-dim); padding: 4px 0; }
 .mp-stat-row { display: flex; gap: 18px; align-items: center; }
-/* ↕ toggle that opens/closes the elevation profile; sits at the right of the summary row */
-.mp-prof-toggle { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center;
-  border: none; background: transparent; color: var(--ink-dim); cursor: pointer; border-radius: var(--r-sm);
+/* …and when the row folds the Höhenprofil, the row IS the button: full width, the --tap floor,
+   left-aligned like the readout it still is, and the app's own press wash. */
+.mp-stat-row-btn { width: 100%; min-height: var(--tap); padding: 2px 0; border: 0; border-radius: var(--r-ctl);
+  background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
   -webkit-tap-highlight-color: transparent; }
-@media (hover: hover) { .mp-prof-toggle:hover { color: var(--ink); background: var(--fill-soft); } }
-.mp-prof-toggle:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .mp-stat-row-btn:hover .mp-prof-toggle { color: var(--ink); } }
+.mp-stat-row-btn:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* the ▾ is DECORATION now — it says which way the section will go, it is not the target */
+.mp-prof-toggle { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+  color: var(--ink-dim); }
 /* the ▾ flip is the app-wide `.chev` (02-base.css), off this button's aria-expanded */
 .mp-prof-toggle :global(.i) { width: 18px; height: 18px; }
 .mp-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

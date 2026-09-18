@@ -60,16 +60,25 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
         <div className={s['mp-hint']}>{blocked && hint ? hint : mode === 'line' ? C.hintLine : C.hintArea}</div>
       ) : mode === 'line' ? (
         <>
-          <div className={s['mp-stat-row']}>
-            <div className={s['mp-stat']}><span className={s['mp-k']}>{C.distance}</span><b className={s['mp-v']}>{fmtDistance(lengthM)}</b></div>
-            <div className={s['mp-stat']}><span className={s['mp-k']}>{C.hoses} à {appConfig.drawing.hoseLengthM} m</span><b className={s['mp-v']}>{hoseCount(lengthM)}</b></div>
-            {hasProfile && (
-              <button type="button" className={s['mp-prof-toggle']}
-                aria-expanded={profileOpen} aria-label={C.profile} onClick={() => setProfileOpen((o) => !o)}>
-                <Icon id="chevron-down" className="chev" />
-              </button>
-            )}
-          </div>
+          {/* ⚠️ The WHOLE ROW opens the Höhenprofil, not the ▾ (18.09.2026). The chevron was a
+              40px target at the far right of a 320px panel, and the two numbers beside it —
+              which is what anyone reaches for — did nothing. Where a section can be folded, the
+              header IS the button and the chevron is decoration; the same shape the Zeichnung
+              editor's «Messung» row already has (DrawEditor · .de-group-toggle). Without a
+              profile there is nothing to open, so the row stays a plain readout. */}
+          {hasProfile ? (
+            <button type="button" className={cx(s['mp-stat-row'], s['mp-stat-row-btn'])}
+              aria-expanded={profileOpen} onClick={() => setProfileOpen((o) => !o)}>
+              <div className={s['mp-stat']}><span className={s['mp-k']}>{C.distance}</span><b className={s['mp-v']}>{fmtDistance(lengthM)}</b></div>
+              <div className={s['mp-stat']}><span className={s['mp-k']}>{C.hoses} à {appConfig.drawing.hoseLengthM} m</span><b className={s['mp-v']}>{hoseCount(lengthM)}</b></div>
+              <span className={s['mp-prof-toggle']} aria-hidden><Icon id="chevron-down" className="chev" /></span>
+            </button>
+          ) : (
+            <div className={s['mp-stat-row']}>
+              <div className={s['mp-stat']}><span className={s['mp-k']}>{C.distance}</span><b className={s['mp-v']}>{fmtDistance(lengthM)}</b></div>
+              <div className={s['mp-stat']}><span className={s['mp-k']}>{C.hoses} à {appConfig.drawing.hoseLengthM} m</span><b className={s['mp-v']}>{hoseCount(lengthM)}</b></div>
+            </div>
+          )}
           {/* «Als Linie übernehmen» — the measured path becomes a drawn line, with the measured
               points as its nodes. Without it the only way to KEEP a Strecke was to draw it a
               second time by hand over the top of the one just measured. */}

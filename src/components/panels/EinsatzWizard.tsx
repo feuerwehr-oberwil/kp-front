@@ -89,11 +89,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   )
   // category defaults to the first VKF type (Brandbekämpfung) so the dropdown is never empty
   const [kategorie, setKategorie] = useState<string | null>(edit?.type ?? ix.kategorien[0])
-  // Priorität — inferred from the alarm keywords when an incident opens itself, so it is
-  // sometimes wrong and has to be correctable here: it drives how the Einsatz reads to
-  // everyone who sees it and it goes out with the statistics. Two values, same as the
-  // backend's HIGH/LOW; anything unexpected on an existing incident falls back to normal.
-  const [priority, setPriority] = useState<'HIGH' | 'LOW'>(edit?.priority === 'HIGH' ? 'HIGH' : 'LOW')
+  // Priorität has NO control any more (18.09.2026): it is inferred from the alarm keywords and
+  // nobody was correcting it here — a field on the intake form that only ever repeated a guess.
+  // The value itself is untouched: an existing incident keeps whatever it carries (so the diff
+  // below never reports a change), and a manual create sends none, which the backend derives.
+  const priority = edit ? (edit.priority === 'HIGH' ? 'HIGH' : 'LOW') : null
   // [lng, lat] resolved location (object / address hit / map-pick / the alarm's own coord)
   const [coord, setCoord] = useState<[number, number] | null>(realCoord(edit?.lng, edit?.lat))
   // Übung — stats-excluded + deletable. A Probealarm that opened itself gets retro-tagged here.
@@ -291,7 +291,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     const full = {
       title: effectiveTitle,
       type: kategorie,
-      priority,
+      ...(priority ? { priority } : {}),
       address: address.trim() || null,
       ...(textReady ? { text: text.trim() || null } : {}),
       ...(dtLocalToIso(alarmiertAt) ? { started_at: dtLocalToIso(alarmiertAt) } : {}),
@@ -379,7 +379,9 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       </div>
 
       <div className="ip-ix-methods">
-        <button type="button" className={`ip-btn${objOpen ? ' on' : ''}`} onClick={() => setObjOpen((v) => !v)}>
+        {/* it FOLDS the object list open — so it says so, and the `.on` state is not the only
+            thing a screen reader has to go on */}
+        <button type="button" className={`ip-btn${objOpen ? ' on' : ''}`} aria-expanded={objOpen} onClick={() => setObjOpen((v) => !v)}>
           <Icon id="doc" /> {ix.objectButton}
         </button>
         <button type="button" className="ip-btn" onClick={() => setMapOpen(true)}>
@@ -430,17 +432,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
             const key = ix.kategorien.find((k) => (ix.kategorienLabels[k] ?? k) === label) ?? label
             setKategorie(key)
           }}
-        />
-      </div>
-      <div className="ip-field"><span>{ix.priorityLabel}</span>
-        {/* two values, same Combo as the Kategorie above — the stored value is the backend's
-            HIGH/LOW, the option is the word an EL uses */}
-        <Combo
-          value={priority === 'HIGH' ? ix.priorityHigh : ix.priorityLow}
-          options={[ix.priorityHigh, ix.priorityLow]}
-          placeholder={ix.priorityLabel}
-          clearable={false}
-          onChange={(label) => setPriority(label === ix.priorityHigh ? 'HIGH' : 'LOW')}
         />
       </div>
       {/* ⚠️ A toggle CHIP, not a native `<input type="checkbox">` (05.09. fix) — this surface's

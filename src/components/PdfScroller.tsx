@@ -3,6 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { loadDocTimed, pdfWorkerUrl, PdfFailDetail, usePdfLoad } from './PdfViewport'
 import { diagnosePdfFailure } from '../lib/pdfDiagnosis'
 import { anchorScroll, canvasScale, pageAnchorAt, pageCanvasBudget, pinchZoom, scrollAfterZoom, stepZoom, toggleZoom, ZOOM_STEP, type Box, type PageAnchor } from '../lib/pdfZoom'
+import { cachedPdfPage, pdfPageKey, snapshotPdfPage } from '../lib/pdfPageCache'
 import { RetryButton } from './RetryButton'
 import s from './PdfScroller.module.css'
 
@@ -105,6 +106,8 @@ export function PdfScroller({ url }: { url: string }) {
       .then(async (pdf) => {
         const frag = document.createDocumentFragment()
         const budget = pageCanvasBudget(pdf.numPages)
+        /** pages this pass rasterised, to be kept once they are safely on screen */
+        const fresh: [string, HTMLCanvasElement][] = []
         for (let i = 1; i <= pdf.numPages; i++) {
           if (cancelled) { drop(); return }
           const page = await pdf.getPage(i)
@@ -121,11 +124,34 @@ export function PdfScroller({ url }: { url: string }) {
           canvas.style.width = `${cssW}px`
           canvas.style.height = `${Math.round(cssH)}px`
           const ctx = canvas.getContext('2d')
-          if (ctx) {
+          // ⚠️ The kept raster of THIS page at THIS width, if there is one (lib/pdfPageCache):
+          // this column is thrown away on every tab switch and every document switch, and
+          // re-rasterising a multi-page A4 costs seconds of white column — which reads as «the
+          // document is loading again». A blit costs a frame. A bitmap closed between the
+          // lookup and the draw means «render it», never a throw.
+          const cacheKey = pdfPageKey(url, i, cssW)
+          const kept = ctx ? await cachedPdfPage(cacheKey)?.catch(() => null) : null
+          let painted = false
+          if (ctx && kept) {
+            try {
+              canvas.width = kept.width
+              canvas.height = kept.height
+              ctx.drawImage(kept, 0, 0)
+              painted = true
+            } catch { painted = false }
+          }
+          if (ctx && !painted) {
+            canvas.width = Math.max(1, Math.floor(vp.width))
+            canvas.height = Math.max(1, Math.floor(vp.height))
             const t = page.render({ canvas, canvasContext: ctx, viewport: vp })
             task = t
             await t.promise.catch(() => {})
             task = null
+            // …and the next mount of this reader draws that pass instead of repeating it.
+            // ⚠️ Snapshotted only once the column is COMMITTED (below): an abandoned pass hands
+            // its canvases back by zeroing them, and a snapshot racing that would cache a blank
+            // page — the one failure this cache must never produce.
+            fresh.push([cacheKey, canvas])
           }
           // the page's own render internals — the pdf.js document is shared across every sheet
           // of the same PDF (PdfViewport · docKey), so nothing else ever frees them
@@ -141,6 +167,7 @@ export function PdfScroller({ url }: { url: string }) {
         }
         made.length = 0 // these are on screen now; the NEXT pass owns their release
         host.replaceChildren(frag) // swap in atomically (also clears a prior render)
+        for (const [key, canvas] of fresh) snapshotPdfPage(key, canvas)
         host.style.transform = '' // a pinch preview, if one was up, is now the real thing
         const pending = pendingScroll.current
         if (pending && wrapRef.current) {

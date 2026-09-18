@@ -121,6 +121,25 @@ _SANDBOXED_SVG_HEADERS = {
     "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
 }
 
+#: A request that NAMES its revision (`?v=3`) can only ever be answered with the same bytes —
+#: `plans.store_plan` writes changed bytes as a new ``plan_revisions`` row, so the version is part
+#: of the identity, never a hint. Say so, or the browser applies heuristic freshness and asks
+#: again for every megabyte of an «RWA» sheet on every open (18.09.2026). ``private`` because the
+#: dataset is behind the session — a shared proxy must not keep it.
+_PINNED_CACHE_CONTROL = "private, max-age=31536000, immutable"
+#: …and the CURRENT bytes of the same dataset live at an address that DOES change under them, so
+#: they are revalidated every time. ETag/Last-Modified (FileResponse sets both) make that a 304.
+_CURRENT_CACHE_CONTROL = "private, no-cache"
+
+
+def _download_headers(pinned: bool, media_type: str | None, extra: dict[str, str] | None = None) -> dict[str, str]:
+    headers = {"Cache-Control": _PINNED_CACHE_CONTROL if pinned else _CURRENT_CACHE_CONTROL}
+    if (media_type or "").startswith("image/svg+xml"):
+        headers.update(_SANDBOXED_SVG_HEADERS)
+    if extra:
+        headers.update(extra)
+    return headers
+
 
 @router.get("/{dataset_id}")
 async def download_reference(
@@ -139,7 +158,11 @@ async def download_reference(
     if v is not None and v != ds.current_version:
         revision = await db.get(PlanRevision, (dataset_id, v))
         if revision is not None and storage.exists(revision.storage_key):
-            return FileResponse(storage.local_path(revision.storage_key), media_type=revision.content_type or None)
+            return FileResponse(
+                storage.local_path(revision.storage_key),
+                media_type=revision.content_type or None,
+                headers=_download_headers(True, revision.content_type),
+            )
         has_revisions = (
             await db.execute(select(PlanRevision.version).where(PlanRevision.dataset_id == dataset_id).limit(1))
         ).first() is not None
@@ -163,8 +186,11 @@ async def download_reference(
         except (ValueError, TypeError, OSError):
             pass  # malformed bbox / unreadable → fall through to the full file
     media_type = ds.content_type or None
-    headers = _SANDBOXED_SVG_HEADERS if (media_type or "").startswith("image/svg+xml") else None
-    return FileResponse(storage.local_path(ds.storage_key), media_type=media_type, headers=headers)
+    return FileResponse(
+        storage.local_path(ds.storage_key),
+        media_type=media_type,
+        headers=_download_headers(v is not None, media_type),
+    )
 
 
 @router.get("/{dataset_id}/alignments")
