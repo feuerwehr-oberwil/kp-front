@@ -41,7 +41,9 @@ import { cartoRasterTiles } from '../lib/carto'
 // On the page the crop is simply visible while the rest of the rapport is filled in, and the
 // framing on screen IS what prints: there is nothing left to confirm.
 
-const FIT_MAX_ZOOM = 20 // mirror of the server's fit_view max_z
+// ⚠️ A MapLibre CAMERA zoom — one level tighter than the server's 256-px projection. Its mirror is
+// backend/app/report_pdf.py · _KROKI_FIT_MAX_Z (21), not fit_view's own default.
+const FIT_MAX_ZOOM = 20
 /** Breathing room around the fitted Lage, in preview px. 48 was ~2 cm of white on every side of
  *  an A4 sheet — enough street to orient by is a good thing, that much of it is not. */
 const FIT_PAD = 28

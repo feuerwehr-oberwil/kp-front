@@ -14,11 +14,14 @@ import { SHAPE_DEFS, SHAPE_MAX_PX, rotationInner, rotationViewBox, shapeAspect, 
 import { operationalExtentPoints, type KrokiView } from './report'
 import { resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
-import { symbolCaptionText } from './symbols'
+import { symbolLegendText } from './symbols'
 import { withoutCartoBasemapKey } from './carto'
 
 export interface KrokiEntityOut {
   coord: LngLat
+  /** only on an entity a Leitung is attached to — what a drawing's `startAt` / `endAt` names.
+   *  ⚠️ Mirrored in backend/app/report_pdf.py · KrokiEntityIn. */
+  id?: string
   symbol?: string
   symbolSvg?: string
   kind: string
@@ -47,7 +50,16 @@ export interface KrokiEntityOut {
 
 /** A drawing as the SERVER needs it: the stored fields plus `trupp`, the Atemschutz leader
  *  already resolved + abbreviated here (the compositor has no Trupp records of its own). */
-export type KrokiDrawingOut = Partial<Drawing> & { trupp?: string }
+export type KrokiDrawingOut = Partial<Drawing> & {
+  trupp?: string
+  /** the entity this end is ATTACHED to. `coords` are already resolved, but against the fixed
+   *  ground footprint of lib/lineAttachments · resolveMapDrawings — this file has no projection.
+   *  The server knows the sheet's view and re-couples the end to the glyph as printed
+   *  (backend · kroki · _snap_attached_ends); without it a close crop left the hose visibly
+   *  short of its vehicle (18.09.2026). */
+  startAt?: string
+  endAt?: string
+}
 
 export interface KrokiPayloadOut {
   entities: KrokiEntityOut[]
@@ -162,11 +174,10 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
     coord: e.coord, kind: e.kind, rotation: e.rotation,
     floor: e.floor, floorFrom: e.floorFrom, floorTo: e.floorTo,
     count: e.count, spread: e.spread,
-    // What the operator TYPED on the symbol — the Einsatzleiter's name, a Fahrer, a
-    // Bezeichnung. The server has drawn these captions all along (app/kroki.py · _caption);
-    // only `team` and `note` ever sent one, so every other label was on screen and missing
-    // from the paper. Same resolver the map uses, so the two cannot say different things.
-    caption: symbolCaptionText(e, captionMode) ?? undefined,
+    // The symbol's LEGEND line — «Art · Bezeichnung · Status». The server lifts it off the picture
+    // into a numbered legend, where the screen's value-only caption («in Rettung») named no
+    // object at all (18.09.2026) — see lib/symbols · symbolLegendText.
+    caption: symbolLegendText(e, captionMode) ?? undefined,
   }
   if (e.kind === 'team') return { ...base, caption: e.label || undefined, color: e.color || undefined }
   if (e.kind === 'note') {
@@ -238,9 +249,14 @@ export function buildKrokiPayload(args: {
   const visible = (id: string) => layers.find((l) => l.id === id)?.visible ?? true
   const base = layers.find((l) => l.base && l.visible && l.tiles?.length) ?? layers.find((l) => l.base && l.tiles?.length)
   if (!base?.tiles?.length) return null
+  const objectTarget = (a: Drawing['startAttachment']): string | undefined => (a?.target.kind === 'object' ? a.target.id : undefined)
+  const attachedIds = new Set(storedDrawings.flatMap((d) => [objectTarget(d.startAttachment), objectTarget(d.endAttachment)]))
   const ents = entities
     .filter((e) => visible(e.layer))
-    .map((e) => krokiEntity(e, byName, captionMode, args.currentView?.zoom))
+    .map((e) => {
+      const out = krokiEntity(e, byName, captionMode, args.currentView?.zoom)
+      return out && attachedIds.has(e.id) ? { ...out, id: e.id } : out
+    })
     .filter((e): e is KrokiEntityOut => e !== null)
   const truppLabel = (d: Drawing): string | undefined => {
     const t = truppForLine(d, trupps)
@@ -255,6 +271,7 @@ export function buildKrokiPayload(args: {
     // and said something else about the ground than the screen it was framed on (02.09.).
     fillOpacity: d.fillOpacity, hatch: d.hatch, radiusM: d.radiusM,
     teilstueck: d.teilstueck, lineNo: d.lineNo, content: d.content, floorTag: d.floorTag,
+    startAt: objectTarget(d.startAttachment), endAt: objectTarget(d.endAttachment),
     // the Atemschutz-Trupp on this Leitung, already resolved + abbreviated: the server draws the
     // Kroki from this payload alone and has no Trupp records to match against. Alarm TONES are
     // deliberately not sent — paper has no live clock, and a red hose on a printed rapport would

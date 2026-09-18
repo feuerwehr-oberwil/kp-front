@@ -832,3 +832,33 @@ def test_render_plan_page_renders_the_named_page():
     assert first.getpixel((100, 100))[:3] == (0, 0, 0)
     assert second.getpixel((100, 100))[:3] == (255, 255, 255)
     assert beyond.getpixel((100, 100))[:3] == (255, 255, 255)
+
+
+def test_an_attached_leitung_end_lands_on_the_glyph_as_printed():
+    """⚠️ The client resolves an attached end against a fixed ~4 m GROUND footprint (it has no
+    projection); the printed glyph is sized in PIXELS. On a close crop 4 m is several glyph widths,
+    so the hose stopped visibly short of the vehicle it was coupled to (18.09.2026 review). The
+    renderer re-couples the end with the sheet's own view — the rule the screen has always used."""
+    centre = (7.5704, 47.5241)
+    # the end as the client sends it: ~4.8 m east of the vehicle it is attached to
+    stale = [centre[0] + 4.8 / (111320 * math.cos(math.radians(centre[1]))), centre[1]]
+    far = [centre[0] + 0.0004, centre[1]]
+    scene = kk.KrokiScene(
+        entities=[{"id": "tlf", "coord": list(centre), "kind": "symbol", "symbol": "VKF Feuer"}],
+        drawings=[
+            {"kind": "line", "coords": [list(stale), list(far)], "startAt": "tlf"},
+            {"kind": "line", "coords": [list(stale), list(far)]},  # a FREE end stays where it is
+        ],
+    )
+    view = kk.center_view(centre, 20.5, 1300, 1820)  # a close crop, like a single-building Lage
+    u = 1300 / 1050
+    kk._snap_attached_ends(scene, view, 0.85, u)
+
+    half = kk.sym_px("symbol", centre[1], view.overlay_z, 0.85) * u / 2
+    cx, _ = view.project(*centre)
+    snapped_x, _ = view.project(*scene.drawings[0]["coords"][0][:2])
+    stale_x, _ = view.project(*stale)
+    assert stale_x - cx > 2 * half  # the premise: the client's end was well clear of the glyph
+    assert half - 4 * u <= snapped_x - cx <= half  # …and now sits just inside its edge
+    assert scene.drawings[1]["coords"][0] == stale
+    assert scene.drawings[0]["coords"][1] == far  # only the attached vertex moves

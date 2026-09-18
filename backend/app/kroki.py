@@ -1403,6 +1403,55 @@ def _north_arrow(img: Image.Image, img_w: float, u: float) -> None:
     img.paste(dial, (int(img_w - size - 14 * u), int(14 * u)), dial)
 
 
+def _snap_attached_ends(scene: KrokiScene, view: View, sym_mul: float, u: float) -> None:
+    """Couple every Leitung end that is attached to an object to the glyph AS PRINTED.
+
+    The client resolves attachments before it sends the scene, but without a projection: it ends
+    the line on a fixed ~4 m GROUND footprint (lib/lineAttachments · resolveMapDrawings). A printed
+    glyph is sized in PIXELS (`sym_px`), so the two only agree at one zoom — on a close crop 4 m is
+    several glyph widths and the hose stopped visibly short of the vehicle it was coupled to
+    (18.09.2026). The screen has always used the real glyph rectangle (MapView · objectPoint); this
+    is the same rule with the sheet's own view, which only the server knows.
+
+    Mutates the scene's line coords in place. Port of the client's `boundaryPoint`, including its
+    slightly NEGATIVE padding: the glyph paints over the line, so an end just inside the tile reads
+    as coupled and one just outside as «not quite joined».
+    """
+    by_id = {e["id"]: e for e in scene.entities if e.get("id")}
+    if not by_id:
+        return
+    overlay_z = view.overlay_z if view.overlay_z is not None else view.z
+    for d in scene.drawings:
+        coords = d.get("coords") or []
+        if d.get("kind") != "line" or len(coords) < 2:
+            continue
+        for key, idx, nb in (("startAt", 0, 1), ("endAt", len(coords) - 1, len(coords) - 2)):
+            e = by_id.get(d.get(key) or "")
+            if e is None:
+                continue
+            lng, lat = e["coord"][0], e["coord"][1]
+            cx, cy = view.project(lng, lat)
+            tx, ty = view.project(coords[nb][0], coords[nb][1])
+            dx, dy = tx - cx, ty - cy
+            if math.hypot(dx, dy) < 1e-6:
+                continue
+            if e.get("sizeM"):
+                w = max(24.0, e["sizeM"] * px_per_m(lat, overlay_z)) * u
+                h = w * max(0.02, min(5.0, float(e.get("aspect") or 1)))
+            else:
+                w = h = sym_px(e.get("kind", "symbol"), lat, overlay_z, sym_mul) * u
+            r = -math.radians(float(e.get("rotation") or 0))
+            lx = dx * math.cos(r) - dy * math.sin(r)
+            ly = dx * math.sin(r) + dy * math.cos(r)
+            pad = -2.0 * u
+            k = min((w / 2 + pad) / max(abs(lx), 1e-9), (h / 2 + pad) / max(abs(ly), 1e-9))
+            if k >= 1:  # the neighbour vertex is already inside the tile — nothing to pull in
+                continue
+            # back to WGS84 along the same ray: the ray is short (half a glyph), so scaling the
+            # coordinate delta by k is exact to well under a pixel
+            coords[idx] = [lng + (coords[nb][0] - lng) * k, lat + (coords[nb][1] - lat) * k, *coords[idx][2:]]
+
+
 def render_kroki(
     scene: KrokiScene,
     pack: SymbolPack,
@@ -1433,6 +1482,7 @@ def render_kroki(
     u = width / ref_width  # UI scale: screen-px rules → render-px
     view = view or fit_view(scene.extent_points(), width, height)
     overlay_z = view.overlay_z if view.overlay_z is not None else view.z
+    _snap_attached_ends(scene, view, sym_mul, u)
     # supersampled view: same world extent, ss× the pixels (tiles are stitched at 1× then
     # upscaled — map detail stays honest, but every overlay edge is drawn at ss× and
     # downsampled, which is where the crispness matters)

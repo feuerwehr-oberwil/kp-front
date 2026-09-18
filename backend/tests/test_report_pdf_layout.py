@@ -923,3 +923,16 @@ def test_a_floor_stack_pages_north_dial_keeps_its_bearing():
         {"label": "Gebäude · EG", "blankAspect": 1.0, "annos": [{"kind": "north", "x": 0.94, "y": 0.02, "deg": 37.5}]}
     )
     assert page.annos[0].model_dump()["deg"] == 37.5
+
+
+def test_the_fallback_kroki_fit_frames_like_the_panel():
+    """⚠️ KrokiFramingPanel caps its auto-fit at MapLibre zoom 20 — one level TIGHTER than this
+    256-px projection's z20. The server's «mirror» cap of 20 therefore framed twice the ground
+    whenever a rapport printed without a reported crop: a single-building Lage came out with its
+    symbols merged into one blob (18.09.2026 review)."""
+    from app.report_pdf import KrokiIn, _kroki_view
+
+    pk = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.57041, 47.52411]]})  # a few metres
+    view = _kroki_view(pk, 1300, 1820)
+    assert view.z == 21.0
+    assert view.overlay_z == 20.0  # glyphs are sized by the CAMERA zoom, as on every other path

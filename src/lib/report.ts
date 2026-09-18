@@ -34,6 +34,8 @@ export interface ReportOptions {
   krokiLandscape: boolean
   annotatedPlans: boolean
   allPlans: boolean
+  /** the Gebäude floor stack — its OWN section, not one of the «Pläne» (see defaultReportOptions) */
+  gebaeude: boolean
   atemschutz: boolean
   attendance: boolean
   mittel: boolean
@@ -64,6 +66,12 @@ export const defaultReportOptions: ReportOptions = {
   // rapport. The operator adds them from the ▾ menu when a sheet carries work of its own.
   annotatedPlans: false,
   allPlans: false,
+  // ⚠️ Its own section, and ON (18.09.2026). It used to ride the «Pläne» switch, but it is the
+  // opposite kind of page: an Objektplan is reference material the station already owns, the
+  // Gebäude carries the Einsatz's own work — where each Trupp stood, on which storey. Same
+  // reasoning as `pendenzen`: not seeded from a count read once at mount, because the payload
+  // simply carries no page while no storey has anything on it (reportPdfDirect · floorStackPages).
+  gebaeude: true,
   atemschutz: true,
   attendance: true,
   mittel: true,
@@ -107,7 +115,9 @@ export function hasVisiblePlanAnnotation(board: BoardDoc, planId: string): boole
  *  counts as annotated by construction. It used to take a second list beside this one, and the
  *  two then had to be concatenated everywhere — which is how every anno came to print twice. */
 export function annotatedPlans(plans: PlanDocument[], board: BoardDoc, includeAll: boolean): PlanDocument[] {
-  return includeAll ? plans : plans.filter((p) => hasVisiblePlanAnnotation(board, p.id))
+  // the Gebäude floor stack is not a «Plan» on paper — it has its own section (options.gebaeude)
+  const sheets = plans.filter((p) => !p.floorStack)
+  return includeAll ? sheets : sheets.filter((p) => hasVisiblePlanAnnotation(board, p.id))
 }
 
 export function planLabel(plan: PlanDocument | undefined, floor?: number): string {

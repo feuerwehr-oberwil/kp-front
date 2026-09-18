@@ -22,7 +22,7 @@ import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './att
 import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
-import { symbolCaptionText } from './symbols'
+import { symbolLegendText } from './symbols'
 import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { ensureErg } from './erg'
@@ -61,11 +61,10 @@ export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = '
       out.floorTo = a.floorTo
       out.count = a.count
       out.spread = a.spread
-      // …and the WORDS under the glyph. ⚠️ symbolCaptionText, not a hand-rolled join: it is the
-      // one resolver the board, the Lage map and the Kroki payload all ask, so the same symbol
-      // says the same thing on the screen and on every sheet of the rapport. The server prints
-      // it as a numbered disc + a legend line (backend · kroki · _number_words).
-      out.caption = symbolCaptionText(a, captionMode) ?? undefined
+      // …and the symbol's LEGEND line. ⚠️ symbolLegendText, the SAME call the Kroki payload makes,
+      // so a symbol reads the same on every sheet of the rapport. The server prints it as a
+      // numbered disc + a legend line (backend · kroki · _number_words).
+      out.caption = symbolLegendText(a, captionMode) ?? undefined
       const veh = a.symbol === appConfig.symbols.vehicleName
       const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0) : placardSvgForSymbol(a.symbol, a.fields)
       if (svg) {
@@ -117,11 +116,24 @@ export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = '
 const STACK_FLOORS_PER_PAGE = 2
 const STACK_INK = '#3b4656'
 
-/** The floor-stack rendered as blank-base plan pages (chunked, top storey first). */
+/** The storeys of the stack that carry anything — an anno standing on them, or a line passing
+ *  through. Top storey first. An EMPTY storey is an outline the reader learns nothing from: the
+ *  18.09.2026 review printed two sheets for one Trupp chip, the second a bare EG. */
+export function usedStackFloors(building: BuildingDoc, annos: BoardAnno[]): number[] {
+  const used = new Set<number>()
+  for (const a of resolvePlanAnnos(annos)) {
+    if (a.pts?.length) for (const p of a.pts) used.add(p[2] ?? a.floor ?? 0)
+    else used.add(a.floor ?? 0)
+  }
+  return building.floors.filter((f) => used.has(f)).sort((a, b) => b - a)
+}
+
+/** The floor-stack rendered as blank-base plan pages (chunked, top storey first) — only the
+ *  storeys with content (`usedStackFloors`); none ⇒ no page at all. */
 export function floorStackPages(
   plan: PlanDocument, building: BuildingDoc, annos: BoardAnno[], captionMode: CaptionMode = 'auto',
 ): { label: string; blankAspect: number; annos: Record<string, unknown>[] }[] {
-  const floorsTTB = [...building.floors].sort((a, b) => b - a)
+  const floorsTTB = usedStackFloors(building, annos)
   if (!floorsTTB.length) return []
   // the ACTIVE view — an operator-dialled `viewDeg` (A8) prints exactly as the screen shows it
   const viewAngle = activeViewDeg(building)
@@ -326,8 +338,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     // (`twinAnnos` is the direct path's substitute for exactly that projection, merged above.)
     annos: planAnnosForPdf(sheetAnnos?.[p.id] ?? [], scene?.captionMode ?? 'auto'),
   }))
-  if (building) {
-    for (const p of selectedPlans.filter((x) => x.floorStack)) {
+  // the Gebäude is its own section: it prints with the «Pläne» off, and only while a storey
+  // carries something (floorStackPages returns no page for an untouched stack)
+  if (building && draft.options.gebaeude !== false) {
+    for (const p of plans.filter((x) => x.floorStack)) {
       planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.captionMode ?? 'auto'))
     }
   }

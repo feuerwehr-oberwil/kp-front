@@ -43,7 +43,7 @@ describe('krokiLabels — only what the sheet turns into a numbered disc', () =>
     ]
     const out = krokiLabels({ drawings: [], entities, byName: BY_NAME })
     expect(out.map((l) => l.key)).toEqual(['es1'])
-    expect(out[0].text).toBe('Widmer Céline')
+    expect(out[0].text).toBe('Testsymbol · Widmer Céline')
     // a caption hangs under its glyph, so its disc does too
     expect(out[0].glyph).not.toBeNull()
   })

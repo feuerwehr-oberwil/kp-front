@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import re
 from html.parser import HTMLParser
 
@@ -232,6 +233,8 @@ class KrokiEntityIn(BaseModel):
     (live vehicles, placards) arrive as the client-resolved SVG string."""
 
     coord: list[float]  # [lng, lat] WGS84
+    #: only on an entity a Leitung is attached to — what `KrokiDrawingIn.startAt/endAt` name
+    id: str | None = None
     symbol: str | None = None
     symbolSvg: str | None = None
     kind: str = "symbol"
@@ -275,6 +278,11 @@ class KrokiDrawingIn(BaseModel):
     hatch: bool = False
     radiusM: float | None = None
     teilstueck: bool = False
+    #: the `KrokiEntityIn.id` this end is ATTACHED to. The client has already resolved the end,
+    #: but against a fixed ground footprint; the renderer re-couples it to the glyph as printed
+    #: (kroki · _snap_attached_ends). Absent = a free end, drawn where it is.
+    startAt: str | None = None
+    endAt: str | None = None
     lineNo: int | None = None
     content: str | None = None
     floorTag: int | None = None
@@ -1526,6 +1534,10 @@ _KROKI_PX = (2080, 1222)
 _KROKI_PX_PORTRAIT = (1300, 1820)
 
 
+#: KrokiFramingPanel · FIT_MAX_ZOOM (20, a MapLibre camera zoom) in this projection's terms
+_KROKI_FIT_MAX_Z = 21.0
+
+
 def _kroki_view(pk, kw: int, kh: int):
     """Derive the print View for a Kroki scene — shared by the composer and the tile prewarm."""
     from . import kroki as kk
@@ -1541,7 +1553,15 @@ def _kroki_view(pk, kw: int, kh: int):
         entities=[e.model_dump() for e in pk.entities], drawings=[d.model_dump() for d in pk.drawings]
     )
     pts = [tuple(p) for p in pk.fitPoints] or scene.extent_points()
-    return kk.fit_view(pts, kw, kh)
+    # ⚠️ The fallback has to frame like the PANEL does, because it is what prints when no crop was
+    # reported (a rapport made before the panel settled). KrokiFramingPanel caps its auto-fit at
+    # MapLibre zoom 20 — and a MapLibre zoom is one level TIGHTER than this 256-px projection's
+    # (see center_view), so the «mirror» cap of 20 here framed twice the ground: on the 18.09.
+    # review the same Lage came out with its symbols merged into one blob. Cap at 21, and hand the
+    # glyph sizing the camera zoom it gets on every other path (overlay_z).
+    view = kk.fit_view(pts, kw, kh, max_z=_KROKI_FIT_MAX_Z)
+    view.overlay_z = view.z - math.log2(512 / kk.TILE)
+    return view
 
 
 def warm_report_tiles(payload: ReportPayload) -> None:
