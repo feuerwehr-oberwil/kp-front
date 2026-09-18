@@ -5282,6 +5282,8 @@ export function IncidentWorkspace({
         // tiles is what a 360px bar holds without a sideways scroll. The vertical rail keeps one
         // tile per document and both surfaces.
         fold={phoneFold}
+        // …and the first tap on «Pläne» in an Einsatz opens «Plan wählen» by itself, once
+        incidentId={incidentMeta.id}
         // …and with the Anwesenheit tile gone, its one number rides on the Rapport tile instead
         presentCount={presentIds.size}
         // the tile is the door to the GROUP: it opens the page this device was last on, and a
@@ -5322,19 +5324,23 @@ export function IncidentWorkspace({
             />
           )}
 
-          {/* phone: the rail-footer compass is CSS-hidden in the bottom tool bar, which left
-              a rotated map with NO way back to north — so the same multi-purpose views button
-              (live bearing · Nach Norden · Einpassen · Standort · saved framings) floats
-              top-right under the bar instead. NOT on a read-only surface: there the slim rail
-              has room for the compass in its footer and the top bar has room for the weather
-              (measured: 96px free with no undo/redo/Eintrag), so both go back where they
-              belong on every other form factor and the floating cluster disappears. */}
-          {isPhone && !slimRail && displayWeather?.wind_dir_deg != null && (
+          {/* PHONE: the map's own read-out and its own control float top-right, on the map they
+              are about — the wind, and the multi-purpose compass (live bearing · Nach Norden ·
+              Einpassen · Standort · saved framings). The compass lived here until 05.08.2026,
+              moved to the tool bar for ONE reason that still holds and one that does not: it had
+              two homes (an editor found it floating, a read-only session in the bar), and that is
+              fixed the other way round now — on a phone it is HERE for every session, and the
+              bar's footer does not render one (so there is still exactly one MapViewsButton, and
+              one portalled menu). What changed is the bar: it is four wide tiles now
+              (lib/toolFold), and a control used a few times an Einsatz does not earn a quarter of
+              the thumb lane. The wind stays out of a read-only session's cluster: that top bar
+              has the room for it (.slim-tools .topbar .tb-weather-wrap). */}
+          {isPhone && (
             <div className="phone-wx">
-              {/* Wind stays up here. In the top bar it clipped at the screen edge (that bar
-                  already carries switcher · Einsatzuhr · undo/redo · Verlauf), and the
-                  compass leaving for the tool bar does not free that width. */}
-              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} />
+              {!slimRail && displayWeather?.wind_dir_deg != null && (
+                <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} />
+              )}
+              <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="util" btnClassName="pc-btn" activeClassName="on" glyphClassName="pc-glyph" open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
             </div>
           )}
 
@@ -5851,7 +5857,14 @@ export function IncidentWorkspace({
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). */}
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
+                {/* PHONE: «Mein Standort» is the bar's fifth tile (18.09.2026). «Wo bin ich» is the one
+                    map question a phone answers better than the tablet at the command post, and it
+                    was two taps deep in the compass menu — where the row stays, so nobody who
+                    learned it there loses it. A one-shot, like every button in this footer: it
+                    takes a fix and flies to it, and has no state to be lit in. */}
+                {isPhone && <button className="vrail-nbtn vrail-locate" title={appConfig.copy.mapViews.locate} aria-label={appConfig.copy.mapViews.locate} onClick={() => viewsApi.onLocate()}><span className="vrail-glyph"><Icon id="locate" /></span><span className="vrail-label">{appConfig.copy.toolBar.locate}</span></button>}
+                {/* …except on a PHONE, where it floats on the map instead (.phone-wx, above) */}
+                {!isPhone && <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />}
                 {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px). Every touch form
                     factor pinches, and on a tablet the two buttons cost rail space that the
                     tools above need more. */}
@@ -5868,6 +5881,10 @@ export function IncidentWorkspace({
           sym={sym}
           onPick={(name) => { setTool('symbol'); setPending(name); setPaletteOpen(false) }}
           onPickShape={pickShape}
+          // PHONE: Linie · Fläche · Absperrkreis · Notiz · Trupp are the sheet's first section
+          // there, because they have left the bar for it (lib/toolFold). `pick` closes the sheet.
+          tools={appConfig.copy.mapTools}
+          onPickTool={pick}
           onClose={() => setPaletteOpen(false)}
         />
       )}

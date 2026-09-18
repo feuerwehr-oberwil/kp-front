@@ -133,12 +133,12 @@
   /* Ebenen plus one surface reset stay pinned instead of joining the scrolling tools: Karte uses
      its views/compass control, Plan uses Einpassen. Zoom remains a pinch gesture on both. */
   :is(.tool-rail, .wb-tools) .vrail-nav { flex: none; flex-direction: row; align-items: center; gap: 2px; }
-  :is(.tool-rail, .wb-tools) .vrail-nav > :not(.vrail-layers):not(.vrail-views):not(.vrail-fit) { display: none; }
-  :is(.tool-rail, .wb-tools) :is(.vrail-layers, .vrail-views, .vrail-fit) { width: 50px; min-width: 50px; flex: 0 0 auto; }
+  :is(.tool-rail, .wb-tools) .vrail-nav > :not(.vrail-layers):not(.vrail-views):not(.vrail-fit):not(.vrail-locate) { display: none; }
+  :is(.tool-rail, .wb-tools) :is(.vrail-layers, .vrail-views, .vrail-fit, .vrail-locate) { width: 50px; min-width: 50px; flex: 0 0 auto; }
   /* Ebenen stays the OUTERMOST control — it is the one reached most often, so it keeps the
      corner the thumb finds without looking. `order` rather than a DOM swap: on every wider
      form factor this footer is a vertical column where the existing order is right. */
-  :is(.tool-rail, .wb-tools) :is(.vrail-views, .vrail-fit) { order: 1; }
+  :is(.tool-rail, .wb-tools) :is(.vrail-views, .vrail-fit, .vrail-locate) { order: 1; }
   :is(.tool-rail, .wb-tools) .vrail-layers { order: 2; }
   /* the weather goes back into the top bar on a read-only surface: that bar carries no
      undo/redo and no Eintrag, which measures 96px free against the readout's 83px. */
@@ -168,12 +168,39 @@
      specificity from another file, which is how the desktop rule leaked onto the phone. */
   .vrail.labelled:not(.expanded):not(.dragging) {
     width: auto; padding: 5px 8px; }
-  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-layers, .vrail-views, .vrail-fit) {
+  :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) :is(.vrail-tool, .vrail-layers, .vrail-views, .vrail-fit, .vrail-locate) {
     width: auto; min-width: 50px; padding: 0 7px; height: auto; min-height: 46px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-glyph { height: 22px; }
   :is(.tool-rail, .wb-tools).labelled:not(.expanded):not(.dragging) .vrail-label {
     display: block; font-size: 9.5px; overflow: visible; text-overflow: clip; }
   :is(.tool-rail, .wb-tools) .vrail-sep { width: 1px; height: 26px; margin: 0 4px; flex: none; }
+
+  /* ── The phone bar holds FIVE tiles, not ten (18.09.2026, lib/toolFold) ── Auswahl · «+
+     Hinzufügen» · Messen plus the surface's pinned controls (Karte: Standort · Ebenen, Plan:
+     Einpassen), splitting the width evenly — ~64px tiles at 360px, and nothing scrolls. Everything that puts something
+     on the surface lives in the «+» sheet (components/Palette), and the Karte's compass sits on
+     the map itself (.phone-views). It used to be ten tools in the room of ~4½, and the fade at the
+     lane's end read as «Fläche is clipped», never as «four more tools live here».
+     ⚠️ Every selector here carries the `:not(.expanded):not(.dragging)` pair the «Beschriftung ·
+     Wörter» rules above carry: those set a width and a padding per tile, and at one class fewer
+     these lost to them. */
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-scroll { overflow: hidden; -webkit-mask-image: none; mask-image: none; }
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-scroll > .vrail-tool { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
+  /* the pinned control is one more tile of the same row: the lane holds three, so a quarter of
+     the bar less the hairline is the width its neighbours come out at */
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav { flex: 0 0 calc(25% - 5px); }
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav > :is(.vrail-layers, .vrail-fit, .vrail-locate) { flex: 1 1 0; width: auto; min-width: 44px; padding: 0; }
+  /* …and the Karte pins TWO (Standort · Ebenen): five tiles, so two fifths of the bar */
+  :is(.tool-rail, .wb-tools).folded:not(.expanded):not(.dragging) .vrail-nav:has(.vrail-locate) { flex-basis: calc(40% - 5px); }
+  /* the corner mark: «this tile holds more than one thing» — the two-state Auswahl ↔ Mehrfach
+     here, and the nav bar's «Pläne» and «Einsatz».
+     ⚠️ TOP right, not the conventional bottom right: with «Beschriftung · Wörter» on, the tile's
+     word runs into the bottom corner and the mark sat on it. */
+  :is(.vrail-grp, .nav-grp) { position: relative; }
+  :is(.vrail-grp, .nav-grp)::after { content: ''; position: absolute; right: 5px; top: 5px;
+    border: 3.5px solid transparent; border-right-color: currentColor; border-top-color: currentColor;
+    opacity: .5; pointer-events: none; }
+  :is(.vrail-grp, .nav-grp).on::after { opacity: .85; }
   /* the tool-option dock is a HORIZONTAL bar in line with the other bottom bars (not a right-edge
      vertical column, which overlapped the centred hints + measure panel). It stacks as the third
      bar above the tool bar; the ℹ tip + measure panel sit above IT (see their rail-h*3 rules).
@@ -704,14 +731,18 @@
      ⚠️ Its height is RESERVED rather than measured: `--rp-tabs-safe`, the same idiom as
      `--fab-safe` above. The .useg track is a full --tap (44px) plus this shell's 4px padding and
      1px border top and bottom = 54px, and 6px of channel above it → 60px. Everything pinned to
-     the `--rail-h + 18px` baseline adds it: the Rapport surface (Surface.module.css · .shell, so
+     a `--rail-h + …` baseline adds it: the Rapport surface (Surface.module.css · .shell, so
      its own «Drucken / Abschliessen» row clears the strip), the FAB and the toaster lane. Keep
      the four in step if the shell's padding ever changes. */
   .app.mode-rapport { --rp-tabs-safe: 60px; }
   .rp-tabs {
     position: fixed; z-index: var(--z-chrome);
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
-    bottom: calc(var(--rail-h) + 16px + env(safe-area-inset-bottom));
+    /* ⚠️ 14px = the nav bar's 8px + the SAME 6px channel the tool bar keeps above it on the Karte
+       (.tool-rail, above). It was 16px — an 8px channel — so the second lane stood 2px higher on
+       the Einsatz pages than on the Karte, and the page card above it kept a third distance
+       again (Surface.module.css · .shell). One channel for everything stacked down here. */
+    bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom));
     /* the bar's own glass, so the pair reads as one piece of chrome rather than as a panel
        floating over one (04b-rail.css · .rail) */
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
@@ -857,12 +888,19 @@
      rail-footer compass is hidden in the bottom tool bar, and the wind readout moved out
      of the top bar (it clipped at the screen edge on 375–393px). Sits BELOW the bar
      (74px clears the 10px offset + ~58px bar), mirroring the desktop .toputil placement. */
-  /* Wind, floating top-right. It used to share this box with the compass; the compass moved
-     to the tool bar, the wind stayed — it is a READ-OUT, and the bar has no room for it. */
+  /* Wind and compass, floating top-right — the map's own read-out and its own control, on the map
+     (18.09.2026; the compass spent 05.08.–18.09. in the tool bar, see IncidentWorkspace). */
   .phone-wx { position: absolute; top: calc(76px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: var(--z-map-util);
     display: flex; align-items: center;
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
     border-radius: var(--r-cluster); padding: 4px; box-shadow: var(--shadow); }
+  .phone-wx { gap: 2px; }
+  .pc-btn { width: 44px; height: 44px; flex: none; border: none; background: transparent; border-radius: var(--r-sm);
+    color: var(--ink); display: grid; place-items: center; padding: 0; cursor: pointer; }
+  .pc-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+  .pc-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+  .pc-glyph { display: grid; place-items: center; transition: transform .15s ease; }
+  .pc-glyph .i { width: 22px; height: 22px; }
   /* the bar's own weather readout is phone-hidden — it lives in this cluster instead */
   .topbar .tb-weather-wrap { display: none; }
   /* …and the GPS caveat leaves the bar for the same reason the weather did: there is no room

@@ -58,9 +58,13 @@
      the surface has to leave room for it, or its «Drucken / Abschliessen» row and the «+» FAB
      above it sit behind the strip. 0 on every other surface and at every other width. Set in
      15-mobile.css, where the number and its arithmetic live. */
+  /* ⚠️ 14px, not 18: the bar stands 8px off the screen edge, and everything stacked above it keeps
+     ONE 6px channel — the tool bar over the nav bar on the Karte, the Rapport's tab strip over the
+     nav bar, and this card over whichever of them is topmost. At 18px the card ended 10px above
+     the bar (8px above the strip), so the foot of every page read as three different gaps. */
   :where(.shell) {
     inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-      calc(var(--rail-h) + 18px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom))
+      calc(var(--rail-h) + 14px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom))
       max(8px, env(safe-area-inset-left));
   }
 }

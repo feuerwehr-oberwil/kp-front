@@ -1179,6 +1179,11 @@ export const de = {
     drawKinds: { area: 'Fläche', line: 'Linie', circle: 'Absperrkreis' } as Record<string, string>,
   },
   // unified, append-only journal (Verlauf) shared by Karte + Plan
+  // PHONE: the «+» tile's word and the first section of its sheet (lib/toolFold · Palette) —
+  // Linie · Fläche · Absperrkreis · Notiz · Trupp leave the bar for it
+  // PHONE: the short word under the bar's «Mein Standort» tile — the menu row keeps the long one
+  toolBar: { locate: 'Standort' },
+  addSheet: { tile: 'Hinzufügen', tools: 'Zeichnen & Trupp' },
   toolDock: {
     colorGroup: 'Farbe',
     colorName: '{group} {n}',

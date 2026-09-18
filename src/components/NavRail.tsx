@@ -8,6 +8,7 @@ import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, foldPlanTiles, planGlyph } from
 import { RAPPORT_PAGES, type RapportPage } from '../lib/rapportPages'
 import { useRail } from '../lib/useRail'
 import { useLongPress } from '../lib/useLongPress'
+import { markChooserOffered, offerChooser } from '../lib/chooserOffer'
 import { buzz } from '../lib/haptics'
 import { PlanChooser } from './PlanChooser'
 import { GroupChooser, type GroupRow } from './GroupChooser'
@@ -80,6 +81,9 @@ interface Props {
    *  The vertical rail (tablet/desktop) is a column with room for all of them and is unchanged:
    *  one tile per document, and Anwesenheit/Material keep tiles of their own. */
   fold?: boolean
+  /** PHONE only: the running Einsatz — what «Plan wählen» remembers having offered itself for
+   *  (lib/chooserOffer). Without one the list is never opened unasked. */
+  incidentId?: string
   /** PHONE only: how many people are marked present right now — a COUNT badge on the «Rapport»
    *  tile, which is the door to the Anwesenheit once the bar has folded. Without it the head
    *  count (the one number the bar used to state just by having an Anwesenheit tile) would be a
@@ -109,7 +113,13 @@ interface Props {
 // the policy below are this rail's own.
 export function NavRail(p: Props) {
   const [expanded, setExpanded] = useState(false)
-  const [chooser, setChooser] = useState(false)
+  const [chooser, setChooserOpen] = useState(false)
+  /** every door into the list goes through here, so whichever one opened it, this Einsatz has
+   *  been shown that the list exists (lib/chooserOffer) */
+  const setChooser = (open: boolean) => {
+    if (open && p.incidentId) markChooserOffered('plans', p.incidentId)
+    setChooserOpen(open)
+  }
   /** …and the same list for the «Rapport» tile's three pages. Two booleans rather than one
    *  «which chooser», because the two tiles are independent and a shared slot would let a stale
    *  value decide which sheet a tap opens. */
@@ -226,7 +236,7 @@ export function NavRail(p: Props) {
              proposal, say — its union belongs on this tile, since the documents it would be
              about are no longer on the bar.) */
           <button
-            className={`nav-item nav-plans${p.mode === 'plans' ? ' on' : ''}`}
+            className={`nav-item nav-plans${folded.many ? ' nav-grp' : ''}${p.mode === 'plans' ? ' on' : ''}`}
             aria-pressed={p.mode === 'plans'}
             aria-label={`${nav.plansGroup} · ${folded.target.code}`}
             aria-haspopup={folded.many ? 'dialog' : undefined}
@@ -234,8 +244,15 @@ export function NavRail(p: Props) {
             onPointerDown={(e) => { held.current = false; if (folded.many) holdProps.onPointerDown(e) }}
             onClick={() => {
               if (held.current) { held.current = false; return } // the hold already answered
-              // standing on another surface: go to the plan that was last open, never via a list
-              if (p.mode !== 'plans') { p.onSelectPlan(folded.target.id); return }
+              // standing on another surface: go to the plan that was last open, never via a list —
+              // except the FIRST time in an Einsatz, when the list opens over it unasked. Nothing
+              // about this tile says it holds several documents, and the second tap / the hold
+              // that reach them are recall, not recognition (lib/chooserOffer).
+              if (p.mode !== 'plans') {
+                p.onSelectPlan(folded.target.id)
+                if (offerChooser({ group: 'plans', incidentId: p.incidentId, many: folded.many })) setChooser(true)
+                return
+              }
               // already here: the tile's second job is the choice between the documents
               if (folded.many) setChooser(true)
             }}
@@ -301,7 +318,8 @@ export function NavRail(p: Props) {
             group — or a hold from anywhere opens the list of three. One mechanic, learned once,
             for both of the bar's group tiles (see GroupChooser). */}
         <button
-          className={`nav-item${rapportOn ? ' on' : ''}`}
+          // `nav-grp` is the corner mark «this tile holds more than one thing» (15-mobile.css)
+          className={`nav-item${p.fold ? ' nav-grp' : ''}${rapportOn ? ' on' : ''}`}
           aria-pressed={rapportOn}
           /* the badge is a NUMBER, so it has to be said and not merely painted — a dot can be
              «there is something», a count cannot be read off a coloured circle */

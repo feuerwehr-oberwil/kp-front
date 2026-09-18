@@ -4611,7 +4611,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       )}
 
       {paletteOpen && sym.ready && (
-        <Palette sym={sym} onPick={pickSymbol} onPickShape={pickShape} onClose={() => { setPaletteOpen(false); if (!pending && !pendingShape) setTool('pan') }} />
+        <Palette sym={sym} onPick={pickSymbol} onPickShape={pickShape}
+          // PHONE: the draw tools, the Notiz and the Trupp are the sheet's first section there —
+          // the same five the Karte's sheet carries (lib/toolFold), by the plan's own ids
+          tools={planTools} onPickTool={(id) => { setPaletteOpen(false); setTool(id as BoardTool); setPending(null) }}
+          onClose={() => { setPaletteOpen(false); if (!pending && !pendingShape) setTool('pan') }} />
       )}
 
       {truppPick && (

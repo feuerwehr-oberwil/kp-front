@@ -804,6 +804,8 @@ export const en: Localizable<Copy> = {
       circle: 'Cordon circle',
     },
   },
+  toolBar: { locate: 'Location' },
+  addSheet: { tile: 'Add', tools: 'Draw & crew' },
   toolDock: {
     colorGroup: 'Colour',
     colorName: '{group} {n}',

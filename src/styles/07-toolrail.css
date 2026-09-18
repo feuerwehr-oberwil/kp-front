@@ -302,6 +302,11 @@
 .sym-cell:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .sym-cell svg { width: 40px; height: 40px; }
 .sym-shape { width: 40px; height: 40px; display: block; }
+/* a TOOL in the sheet (phone: Linie · Fläche · Absperrkreis · Notiz · Trupp, lib/toolFold) — the
+   same cell a symbol gets, with the line glyph its rail tile wears set into the symbol's 40px box
+   so the first row lines up with every row below it */
+.sym-tool-glyph { width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink); }
+.sym-cell .sym-tool-glyph svg { width: 30px; height: 30px; }
 /* ⚠️ `hyphens: manual`, NOT auto. The browser's German dictionary breaks by SYLLABLE, so a
    symbol read at arm's length came out as «Kontrollpos-ten» / «Verwundeten-nest» — broken
    inside the very component the eye recognises it by. The legal breaks are named at the

@@ -682,6 +682,31 @@ to prod.
   - *A control whose press-and-hold IS its own gesture spreads `data-holdaction`* (the shared
     hooks already do), so the global hold-tooltip never claims it and asking «what is this»
     can never also do it.
+- **The phone's two bottom bars hold what 360px holds without scrolling** (18.09.2026) — five wide tiles at most, never a scrolling lane whose only cue is a fade.
+  - *Tool bar:* `Auswahl · + Hinzufügen · Messen | Standort · Ebenen` (Plan: `… | Einpassen`).
+    «Standort» is the one-shot «Mein Standort» (a fix, then fly to it) — the map question a phone
+    answers best; its row stays in the compass menu too. **«+» is the
+    one door to everything that is PUT ON the surface**: Linie · Fläche · Absperrkreis · Notiz ·
+    Trupp are the first section of its sheet (`components/Palette` · `tools`, `lib/toolFold`),
+    above the symbols and Formen, and search finds them by their word. «+» ALWAYS opens the sheet
+    — it never re-arms a remembered tool — and while a tool out of the sheet is armed the tile is
+    lit and wears that tool's glyph and word. Auswahl stays: it is the state, the one-tap way out,
+    and the door to Mehrfach (a two-member pair flips on the second tap; anything larger gets a
+    list, never a cycle). Add a tool that places something ⇒ add its id to `ADD_TOOLS`, in BOTH
+    spellings if the Karte and the Plan name it differently.
+  - *The Karte's compass floats top-right on the map* (`.phone-wx`, beside the wind), for EVERY
+    phone session incl. read-only, and the bar's footer renders none there — one home, one
+    `MapViewsButton`, one portalled menu. (It lived in the bar 05.08.–18.09.2026; the «two homes»
+    that move fixed is fixed this way round now.)
+  - *Nav bar:* «Pläne» and «Einsatz» each stand for a group: a tap goes to the last-used member,
+    a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
+    unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).
+    Both wear the corner mark (`.nav-grp`; `.vrail-grp` on the two-state Auswahl).
+  - Everything stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
+    `.rp-tabs`, the page card in `Surface.module.css`).
+  - Tried and thrown out the same day, so nobody rebuilds them: a «Zeichnen» tile with a flyout, the
+    same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
+    Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for

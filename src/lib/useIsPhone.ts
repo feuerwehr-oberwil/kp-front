@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 
 /** Reactive `matchMedia` — the one place the resize/orientation plumbing lives, so a surface that
- *  needs its own threshold doesn't hand-roll the same effect. Query must be a constant. */
+ *  needs its own threshold doesn't hand-roll the same effect. Query must be a constant.
+ *  ⚠️ An environment WITHOUT `matchMedia` (jsdom, a server render) reads as «no match» rather than
+ *  throwing: shared components ask this now (the Palette, the ToolRail), and a missing browser API
+ *  must not be what takes their tests down. */
+const canMatch = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia(query).matches,
-  )
+  const [matches, setMatches] = useState(() => canMatch() && window.matchMedia(query).matches)
   useEffect(() => {
+    if (!canMatch()) return
     const mq = window.matchMedia(query)
     const on = () => setMatches(mq.matches)
     setMatches(mq.matches)   // the query can change between render and effect

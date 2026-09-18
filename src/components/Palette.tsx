@@ -9,6 +9,8 @@ import { symbolMatchesQuery } from '../lib/symbolSearch'
 import { softHyphenate } from '../lib/symbolWrap'
 import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
+import { useIsPhone } from '../lib/useIsPhone'
+import { addTools } from '../lib/toolFold'
 
 // the geometric "Formen" section (Pfeil · Rechteck) renders right after this FireGIS category.
 const FORMEN_AFTER_CAT = 'Gefahren'
@@ -31,6 +33,27 @@ interface Props {
   onClose: () => void
   /** when provided, a "Formen" section lets the user place editable shapes */
   onPickShape?: (kind: ShapeKind) => void
+  /** the surface's tool list. PHONE only, its draw tools · Notiz · Trupp become the sheet's FIRST
+   *  section (lib/toolFold · addTools): they have no tile on the phone bar, because «+» is the one
+   *  door to everything that is put on the surface. Wider layouts keep them on the rail and the
+   *  sheet stays a symbol palette. */
+  tools?: readonly PaletteTool[]
+  onPickTool?: (id: string) => void
+}
+
+/** what the sheet needs of a rail tool — the rail's own entries fit as they are */
+interface PaletteTool { id: string; icon: string; label: string; sep?: boolean; slot?: boolean }
+
+/** a tool in the sheet: the same cell a symbol gets, wearing the glyph its rail tile wears */
+function ToolCell({ tool, onPick }: { tool: PaletteTool; onPick: (id: string) => void }) {
+  return (
+    <button className="sym-cell sym-cell-tool" title={tool.label} onClick={() => onPick(tool.id)} draggable={false}>
+      <span className="sym-cell-in">
+        <span className="sym-tool-glyph"><Icon id={tool.icon} /></span>
+        <small>{tool.label}</small>
+      </span>
+    </button>
+  )
 }
 
 function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: string) => void }) {
@@ -52,8 +75,10 @@ function Cell({ name, svg, onPick }: { name: string; svg: string; onPick: (n: st
 }
 
 // Centred symbol-search modal — no tabs; all signs shown, grouped, scrollable.
-export function Palette({ sym, onPick, onClose, onPickShape }: Props) {
+export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }: Props) {
   const [q, setQ] = useState('')
+  const phone = useIsPhone()
+  const sheetTools = phone && tools && onPickTool ? addTools(tools) : []
   const inputRef = useRef<HTMLInputElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -86,6 +111,9 @@ export function Palette({ sym, onPick, onClose, onPickShape }: Props) {
     () => (query ? sym.symbols.filter((s) => symbolMatchesQuery(s, query)) : []),
     [query, sym],
   )
+  // …and a tool is found by its word too: somebody who types «Linie» must not be told there is
+  // no such symbol
+  const toolMatches = query ? sheetTools.filter((t) => t.label.toLowerCase().includes(query)) : []
   // portal to <body> so the backdrop escapes the .surface stacking context (z-index 20) and
   // covers the left NavRail (z-index 35) instead of rendering beneath it
   return createPortal((
@@ -113,11 +141,22 @@ export function Palette({ sym, onPick, onClose, onPickShape }: Props) {
 
         <div className="sym-scroll">
           {query ? (
-            matches.length === 0
+            matches.length + toolMatches.length === 0
               ? <div className="sym-empty">{appConfig.copy.noSymbolMatches}</div>
-              : <div className="sym-grid">{matches.map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}</div>
+              : <div className="sym-grid">
+                  {toolMatches.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)}
+                  {matches.map((s) => <Cell key={s.name} name={s.name} svg={s.svg} onPick={onPick} />)}
+                </div>
           ) : (
             <>
+              {sheetTools.length > 0 && (
+                <section>
+                  <div className="sym-ghead">{appConfig.copy.addSheet.tools}</div>
+                  <div className="sym-grid">
+                    {sheetTools.map((t) => <ToolCell key={t.id} tool={t} onPick={onPickTool!} />)}
+                  </div>
+                </section>
+              )}
               {sym.order.map((cat) => (
                 <Fragment key={cat}>
                   <section>

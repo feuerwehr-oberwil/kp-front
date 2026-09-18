@@ -4,6 +4,8 @@ import type { RailLabels } from '../lib/prefs'
 import { appConfig } from '../config/appConfig'
 import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE } from '../lib/navRail'
 import { useRail } from '../lib/useRail'
+import { useIsPhone } from '../lib/useIsPhone'
+import { addFace, barTools } from '../lib/toolFold'
 
 export interface ToolDef {
   id: string
@@ -66,6 +68,13 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
   const [expanded, setExpandedState] = useState(lastExpanded)
   const setExpanded = (v: boolean) => { lastExpanded = v; setExpandedState(v) }
   const nav = appConfig.copy.navRail
+  // PHONE: the bar keeps Auswahl · «+» · Messen, and everything that PUTS SOMETHING ON THE
+  // SURFACE moves into the «+» sheet (lib/toolFold, components/Palette) — five wide tiles with
+  // the footer's two, nothing scrolls. The vertical rail has the room and is unchanged.
+  const phone = useIsPhone()
+  const bar = phone ? barTools(tools) : tools
+  /** the armed tool that came out of the sheet, which the «+» tile wears while it is armed */
+  const face = phone ? addFace(tools, active) : null
 
   // The rail mechanic — scroll edges, nudge, reveal, width publish, grip — is lib/useRail,
   // shared with the left NavRail. Only the content and the policy below are this rail's own.
@@ -86,8 +95,33 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
     releaseOnUnmount: true,
   })
 
+  // a two-state tool (Auswahl ↔ Mehrfach) wears whichever half is armed, and a tap while
+  // armed flips to the other one — so one slot carries both without a hidden mode: the
+  // glyph, the word, the tooltip and the accessible name all say which state you are in.
+  const toolButton = (t: ToolDef) => {
+    const alt = t.alt && active === t.alt.id ? t.alt : null
+    const on = active === t.id || alt !== null
+    const shown = alt ?? t
+    const target = alt ? t.id : (on && t.alt ? t.alt.id : t.id)
+    return (
+      <button
+        key={t.id}
+        ref={toolRefs ? (el) => { toolRefs.current[t.id] = el } : undefined}
+        // `vrail-grp` is the corner mark «this tile holds more than one thing» — the two-state
+        // Auswahl wears the one the nav bar's «Pläne» and «Einsatz» wear (phone only, 15-mobile.css)
+        className={`vrail-tool ${on ? 'on' : ''}${t.alt ? ' vrail-grp' : ''}`}
+        title={shown.label}
+        aria-label={shown.label}
+        aria-pressed={on}
+        onClick={() => onPick(target)}
+      >
+        <span className="vrail-glyph"><Icon id={shown.icon} /></span><span className="vrail-label">{shown.label}</span>
+      </button>
+    )
+  }
+
   return (
-    <aside className={`vrail rail${expanded ? ' expanded' : ''}${rail.dragging ? ' dragging' : ''}${labels === 'short' ? ' labelled' : ''} ${className ?? ''}`}>
+    <aside className={`vrail rail${expanded ? ' expanded' : ''}${rail.dragging ? ' dragging' : ''}${labels === 'short' ? ' labelled' : ''}${phone ? ' folded' : ''} ${className ?? ''}`}>
       {/* ⚠️ NO «Ausklappen» while the words are on. The chevron exists to reveal exactly what this
           setting already shows — with it on, expanding buys 128px of nothing but a second label
           position. It stays for everybody else, which is who it was for: somebody who does not
@@ -107,47 +141,34 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
       {rail.edge.top && <button type="button" className="vrail-more rail-more rail-more-up" aria-label={nav.scrollMore} onClick={() => rail.nudge(-1)}><Icon id="chevron-down" /></button>}
       {rail.edge.bottom && <button type="button" className="vrail-more rail-more rail-more-down" aria-label={nav.scrollMore} onClick={() => rail.nudge(1)}><Icon id="chevron-down" /></button>}
       <div ref={rail.scrollRef} className={`vrail-scroll rail-scroll${rail.edge.top ? ' more-top' : ''}${rail.edge.bottom ? ' more-bottom' : ''}`}>
-        {tools.map((t) => {
+        {bar.map((t) => {
           // Symbol renders inline among the tools (between selection and drawing) as a plain
           // tool — no special "primary" ink styling, lighting up like any other when active.
+          // PHONE: it is «+ Hinzufügen», the one door to everything that is placed, and while a
+          // tool out of its sheet is armed it is lit and wears THAT tool. ⚠️ A tap always opens
+          // the sheet — never `onPick(face.id)`, which would re-arm or put the tool away
+          // depending on a state nobody is looking at.
           if (t.slot) {
-            const on = active === primary.id
+            const on = active === primary.id || face !== null
+            const label = face?.label ?? (phone ? appConfig.copy.addSheet.tile : primary.label)
             return (
               <button
                 key="__primary__"
                 className={`vrail-tool ${on ? 'on' : ''}`}
-                title={primary.label}
-                aria-label={primary.label}
+                title={label}
+                aria-label={label}
                 aria-pressed={on}
+                aria-haspopup={phone ? 'dialog' : undefined}
                 onClick={() => onPick(primary.id)}
               >
-                <span className="vrail-glyph"><Icon id={primary.icon} /></span><span className="vrail-label">{primary.label}</span>
+                <span className="vrail-glyph"><Icon id={face?.icon ?? primary.icon} /></span><span className="vrail-label">{label}</span>
               </button>
             )
           }
           // a sentinel entry renders a group divider so the rail reads as clusters
           // (selection · symbol · create · annotate) instead of one undifferentiated stack
           if (t.sep) return <span key={t.id} className="vrail-sep" aria-hidden />
-          // a two-state tool (Auswahl ↔ Mehrfach) wears whichever half is armed, and a tap while
-          // armed flips to the other one — so one slot carries both without a hidden mode: the
-          // glyph, the word, the tooltip and the accessible name all say which state you are in.
-          const alt = t.alt && active === t.alt.id ? t.alt : null
-          const on = active === t.id || alt !== null
-          const shown = alt ?? t
-          const target = alt ? t.id : (on && t.alt ? t.alt.id : t.id)
-          return (
-            <button
-              key={t.id}
-              ref={toolRefs ? (el) => { toolRefs.current[t.id] = el } : undefined}
-              className={`vrail-tool ${on ? 'on' : ''}`}
-              title={shown.label}
-              aria-label={shown.label}
-              aria-pressed={on}
-              onClick={() => onPick(target)}
-            >
-              <span className="vrail-glyph"><Icon id={shown.icon} /></span><span className="vrail-label">{shown.label}</span>
-            </button>
-          )
+          return toolButton(t)
         })}
         {extras}
       </div>

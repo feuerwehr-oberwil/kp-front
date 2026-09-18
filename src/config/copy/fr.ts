@@ -806,6 +806,8 @@ export const fr: Localizable<Copy> = {
       circle: 'Cercle de barrage',
     },
   },
+  toolBar: { locate: 'Position' },
+  addSheet: { tile: 'Ajouter', tools: 'Dessin & équipe' },
   toolDock: {
     colorGroup: 'Couleur',
     colorName: '{group} {n}',

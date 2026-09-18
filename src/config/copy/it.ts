@@ -806,6 +806,8 @@ export const it: Localizable<Copy> = {
       circle: 'Cerchio di sbarramento',
     },
   },
+  toolBar: { locate: 'Posizione' },
+  addSheet: { tile: 'Aggiungi', tools: 'Disegno & squadra' },
   toolDock: {
     colorGroup: 'Colore',
     colorName: '{group} {n}',

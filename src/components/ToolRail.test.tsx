@@ -1,11 +1,23 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ToolRail } from './ToolRail'
 import { appConfig } from '../config/appConfig'
 import { slimTools, MAP_READONLY_TOOLS } from '../lib/readOnlyTools'
 
 afterEach(cleanup)
+
+/** jsdom has no `matchMedia`, and the rail asks it whether this is a phone (lib/useIsPhone) —
+ *  the bar folds there. Every suite below is the vertical rail unless it says otherwise. */
+let phone = false
+beforeEach(() => {
+  phone = false
+  window.matchMedia = ((query: string) => ({
+    matches: phone, media: query, onchange: null,
+    addEventListener: () => {}, removeEventListener: () => {},
+    addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+  })) as typeof window.matchMedia
+})
 
 // The rail a locked surface gets is the SAME component with a smaller tool list — same place,
 // same look, same footer. What must never appear is a tool that writes.
@@ -213,5 +225,56 @@ describe('the rail marks the edge that still has tools behind it', () => {
     const el = port(0, 600)
     expect(el.classList.contains('more-top')).toBe(false)
     expect(el.classList.contains('more-bottom')).toBe(false)
+  })
+})
+
+// PHONE: the bar keeps Auswahl · «+ Hinzufügen» · Messen; everything that is PLACED lives in the
+// «+» sheet (lib/toolFold, components/Palette).
+describe('the phone bar', () => {
+  const renderPhone = (active: string, onPick = vi.fn()) => {
+    phone = true
+    render(<ToolRail
+      className="tool-rail"
+      primary={appConfig.copy.primarySymbol}
+      tools={appConfig.copy.mapTools}
+      active={active}
+      onPick={onPick}
+      footer={null}
+    />)
+    return onPick
+  }
+  const ADD = () => appConfig.copy.addSheet.tile
+
+  it('shows Auswahl · Hinzufügen · Messen and none of the tools that moved into the sheet', () => {
+    renderPhone('select')
+    for (const name of ['Auswahl', ADD(), 'Messen']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    for (const name of ['Linie', 'Fläche', 'Absperrkreis', 'Notiz', 'Trupp']) expect(screen.queryByRole('button', { name })).toBeNull()
+  })
+
+  it('opens the sheet on «+»', () => {
+    const onPick = renderPhone('select')
+    fireEvent.click(screen.getByRole('button', { name: ADD() }))
+    expect(onPick).toHaveBeenCalledWith('symbol')
+  })
+
+  // «was macht mein nächster Tipp» is answered on the bar: the tile is lit and named after the tool
+  it('wears the armed tool that came out of the sheet', () => {
+    renderPhone('area')
+    const tile = screen.getByRole('button', { name: 'Fläche' })
+    expect(tile.getAttribute('aria-pressed')).toBe('true')
+    expect(screen.queryByRole('button', { name: ADD() })).toBeNull()
+  })
+
+  // ⚠️ never onPick('area'): on both surfaces that would put the armed tool away instead
+  it('still opens the sheet while it wears one', () => {
+    const onPick = renderPhone('area')
+    fireEvent.click(screen.getByRole('button', { name: 'Fläche' }))
+    expect(onPick).toHaveBeenCalledWith('symbol')
+    expect(onPick).not.toHaveBeenCalledWith('area')
+  })
+
+  it('leaves the vertical rail every tool and its old word', () => {
+    render(<ToolRail className="tool-rail" primary={appConfig.copy.primarySymbol} tools={appConfig.copy.mapTools} active="select" onPick={vi.fn()} footer={null} />)
+    for (const name of ['Linie', 'Trupp', appConfig.copy.primarySymbol.label]) expect(screen.getByRole('button', { name })).toBeTruthy()
   })
 })
