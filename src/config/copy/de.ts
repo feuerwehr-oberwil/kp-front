@@ -3709,7 +3709,7 @@ export const de = {
     // stünde sonst der Name des letzten Einsatzes auf der Karte.
     pickAgain: 'Neuer Einsatz – bitte bestätige nochmals, wer du bist. Der zuletzt gewählte Name steht zuoberst.',
     pickLast: 'zuletzt',
-    search: 'Name suchen',
+    search: 'Name suchen …',
     yes: 'Ja, Standort teilen',
     no: 'Nein, danke',
     // compass menu: the one row that switches sharing on and off
@@ -4898,7 +4898,7 @@ export const de = {
     viewBySource: 'In Verwendung',
     // Suche + Kategorie-Filter, gebaut wie in der Anwesenheit: eine Zeile über der Liste
     noSource: 'Ohne Zuordnung',
-    searchPlaceholder: 'Suchen',
+    searchPlaceholder: 'Suchen …',
     clearSearch: 'Suche löschen',
     noMatches: 'Keine Treffer.',
     categoryFilterLabel: 'Nach Kategorie filtern',
@@ -6482,7 +6482,7 @@ export const de = {
       filterLabel: 'Filter',
       openCount: 'Offen ({n})',
       all: 'Alle',
-      search: 'Objekt oder Modul suchen',
+      search: 'Objekt oder Modul suchen …',
       queueCount: '{n} Pläne',
       empty: 'Keine Pläne im Bestand.',
       noResults: 'Keine passenden Pläne.',
