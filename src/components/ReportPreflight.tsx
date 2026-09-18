@@ -47,6 +47,7 @@ import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
 import { useMediaQuery } from '../lib/useIsPhone'
+import { initialReportTab, reportTabs, writeReportTab, type ReportTab } from '../lib/reportTabs'
 
 const NO_IDS = new Set<string>()
 
@@ -64,6 +65,22 @@ const queuedStep: { current: AbschlussStep | null } = { current: null }
 export function requestReportStep(step: AbschlussStep) {
   if (stepListener) stepListener(step)
   else queuedStep.current = step
+}
+
+/**
+ * «Öffne den Rapport auf DIESEM Tab» — the same mechanic, one level up (18.09.2026).
+ *
+ * On a phone Anwesenheit and Material are tabs of this surface rather than surfaces of their
+ * own, so every deep link that used to say `setMode('anwesenheit')` — the open-items rows, the
+ * Trupp finder's «Bei den Trupps zeigen» neighbours, ⌘[/⌘] stepping the nav, a remembered mode
+ * restored from the cookie on boot — has to arrive here with a tab in hand. Same two states as
+ * the step ask: one live listener while the surface stands, one queued value while it does not.
+ */
+let tabListener: ((tab: ReportTab) => void) | null = null
+const queuedTab: { current: ReportTab | null } = { current: null }
+export function requestReportTab(tab: ReportTab) {
+  if (tabListener) tabListener(tab)
+  else queuedTab.current = tab
 }
 
 /** Does this partner row say anything at all? Blank rows live on screen and never reach the blob. */
@@ -195,9 +212,14 @@ function CheckRow({ done, label, sub, onGo, anchor, tab, children }: {
  * ⚠️ It decides what is SHOWN, never the order: the DOM stays in the printed rapport's order
  * (report_pdf.py / admin/capturePdf.ts), and from 601px up the bar is `display: none` and every
  * section is on screen exactly as it is today — the two-column layout at 1080 is untouched.
+ *
+ * ⚠️ …and on a phone whose bar has FOLDED (18.09.2026) there are two more, «Anwesenheit» and
+ * «Material», which are not sections of this page at all: they mount the real AnwesenheitView /
+ * MittelView in place of the body, header, search and all. No fork, no second implementation —
+ * the same components the vertical rail opens as their own surfaces. The set + its order + which
+ * one opens live in lib/reportTabs; `embedAnwesenheit`/`embedMittel` carry the nodes.
  */
-type PhoneTab = 'bericht' | 'werwas' | 'beilagen'
-const PHONE_TABS: PhoneTab[] = ['bericht', 'werwas', 'beilagen']
+type PhoneTab = ReportTab
 /** Which tab a still-open Mindestangabe lives in — the head's «noch offen» chips switch to it
  *  before they scroll, and the tab itself carries a dot while one of its steps is open. */
 const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
@@ -216,10 +238,11 @@ const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
 // zum Einsatzrapport» remounts it) — remember the body's scroll position per incident so the
 // return lands where they left off, not back at the top. A deliberate close (X / overlay /
 // Abbrechen / Abschliessen) resets it, so a later fresh open starts at the top again.
-// ⚠️ The phone TAB rides in the same box and for the same reason: the Appell is «Rapport →
-// Personal & Mittel → hop to Anwesenheit to correct → back», and a return that landed on «Bericht»
-// would cost a tap on every single round trip. A genuinely fresh open — another Einsatz, or
-// after Abschliessen — still starts on «Bericht».
+// ⚠️ The phone TAB used to ride in this box too. It lives in sessionStorage now (lib/reportTabs),
+// stamped with the incident: the reason was always «a return that landed on «Bericht» costs a tap
+// on every round trip of the Appell», and a module box loses that to a reload — which on a phone
+// in a pocket at 3am is not a rare event. A genuinely fresh open — another Einsatz, or after
+// Abschliessen — still starts on the default (lib/reportTabs · initialReportTab).
 // ⚠️ …and so does WHAT WILL PRINT: the print-section toggles (incl. the Kroki's Quer/Hoch and
 // its framing) plus the chosen Kroki-Stand. Switching «Einsatzjournal» off, hopping to
 // Anwesenheit to fix a name and coming back put every section silently back on — on the one
@@ -232,7 +255,7 @@ const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
 // (a mutated `.current` box, not a reassigned binding — the react-compiler lint forbids
 // reassigning module variables inside the component)
 const savedScroll: {
-  current: { incidentId: string; top: number; tab: PhoneTab; optionOverrides: Partial<ReportOptions>; krokiAt: number | null } | null
+  current: { incidentId: string; top: number; optionOverrides: Partial<ReportOptions>; krokiAt: number | null } | null
 } = { current: null }
 
 /** What the box holds for THIS Einsatz, or null — another incident always starts fresh. */
@@ -247,7 +270,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, embedAnwesenheit, embedMittel,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -263,6 +286,15 @@ export function ReportPreflight({
    *  job, because a Gast's row is CREATED by this call — there is nothing yet for a following
    *  `onRolePicked` to write a Bemerkung onto. Absent = the session may not write. */
   onAddGuest?: (name: string, role: AssignableRole, note?: string) => string | undefined
+  /** PHONE ONLY: the Anwesenheit and Material surfaces, handed in as nodes so this one can show
+   *  them as two more TABS (18.09.2026). The phone bar holds five tiles; those two gave theirs
+   *  up and moved in here, which is the surface they were already read and corrected from.
+   *  ⚠️ Nodes, not a fork: the workspace passes the very same <AnwesenheitView>/<MittelView> the
+   *  vertical rail mounts as full surfaces, with the same props and their own heads and search.
+   *  Both or neither — one of them alone would be a strip with a tab that opens nothing.
+   *  Absent on tablet/desktop, where the rail still carries both as surfaces of their own. */
+  embedAnwesenheit?: ReactNode
+  embedMittel?: ReactNode
   events: TimelineEvent[]
   annotatedPlanCount: number
   truppCount: number
@@ -1225,17 +1257,30 @@ export function ReportPreflight({
   // tabs themselves are pure CSS, because a layout that depends on a JS breakpoint and one that
   // depends on a media query drift apart on exactly the widths nobody tests.
   const isPhone = useIsPhone()
-  // The phone's three tabs (see PhoneTab). Seeded from the box that also carries the scroll
-  // position, so a hop to Anwesenheit and back returns to the tab it left from; a fresh Einsatz
-  // opens on «Bericht», which is the first section of the printed rapport.
-  const [phoneTab, setPhoneTab] = useState<PhoneTab>(() => keptFor(incident.id)?.tab ?? 'bericht')
+  /** Does this device fold Anwesenheit + Material into this surface? Exactly when the nodes were
+   *  handed to us, which the workspace does on a phone and nowhere else — so one decision is made
+   *  in one place instead of this file guessing at a width the rail already decided. */
+  const folded = !!embedAnwesenheit && !!embedMittel
+  const tabs = reportTabs(folded)
+  // Which tab opens: the last one used on this device for this Einsatz, else the default rule
+  // (nobody present yet → «Anwesenheit», else «Bericht»). See lib/reportTabs · initialReportTab.
+  const [phoneTab, setPhoneTab] = useState<PhoneTab>(() =>
+    initialReportTab({ incidentId: incident.id, folded, presentCount: presentIds.size }))
   /** Picked by hand — each tab starts at ITS top, never at the scroll offset of the one before
    *  (which is a different page of different length). The «noch offen» chips do NOT go through
    *  here: they scroll to their own field instead. */
   const pickTab = (t: PhoneTab) => {
     setPhoneTab(t)
+    // …and it is REMEMBERED from here, not from the render: this is the one place a tab is
+    // chosen deliberately, and a jump forced by a «noch offen» chip is not a preference.
+    writeReportTab(incident.id, t)
     if (bodyRef.current) bodyRef.current.scrollTop = 0
   }
+  // ⚠️ A tab that the strip no longer holds — the memory was written on a phone and the window
+  // has since been widened, or the rail unfolded — would select nothing and show an empty body.
+  const tab: PhoneTab = tabs.includes(phoneTab) ? phoneTab : 'bericht'
+  /** the embedded surface standing in for the body, or null while a real Rapport tab is open */
+  const embedded = tab === 'anwesenheit' ? embedAnwesenheit : tab === 'mittel' ? embedMittel : null
 
   // The head's one line, in the voice the other surfaces use («12 anwesend · 3 gegangen · 28
   // Mannschaft»): what is recorded, then the verdict. «Alle Angaben erfasst» is a claim, so it is
@@ -1331,6 +1376,8 @@ export function ReportPreflight({
   }
 
   const bodyRef = useRef<HTMLDivElement>(null)
+  /** the body's live scroll offset — see the unmount capture below */
+  const lastTop = useRef(0)
   // …and the outside ask (see requestReportStep). Through a ref because `jumpToStep` is rebuilt
   // every render while this subscription is mount-only — the sheet must not re-register on each
   // keystroke, and a jump queued before the mount is consumed exactly once.
@@ -1343,22 +1390,44 @@ export function ReportPreflight({
     if (queued) jumpRef.current(queued)
     return () => { stepListener = null }
   }, [])
-  // …and the tab + the Kroki-Stand ride with it (see savedScroll). Read through refs in the
-  // cleanup because the effect below is mount-only and would otherwise capture the values this
-  // surface OPENED on. (`optionOverrides` is already a ref, so it needs no mirror.)
-  const phoneTabRef = useRef(phoneTab)
+  // …and the same pair for the outside «open on THIS tab» ask (see requestReportTab). It goes
+  // through pickTab, so arriving on «Anwesenheit» from an open-items row is also what the next
+  // tap on the Rapport tile returns to — which is the whole point of the memory.
+  const pickTabRef = useRef(pickTab)
+  pickTabRef.current = pickTab
+  useEffect(() => {
+    tabListener = (t) => pickTabRef.current(t)
+    const queued = queuedTab.current
+    queuedTab.current = null
+    if (queued) pickTabRef.current(queued)
+    return () => { tabListener = null }
+  }, [])
+  // The strip scrolls sideways once Anwesenheit + Material are in it (five tabs will not fit at
+  // 360px without shrinking a target below the gloved floor), so the ACTIVE one has to be
+  // brought into view — otherwise «Beilagen» is simply not on screen when it is selected.
+  useEffect(() => {
+    if (!folded) return // three tabs always fit; nothing scrolls, nothing to reveal
+    const on = tabsRef.current?.querySelector<HTMLElement>('.useg-btn[aria-pressed="true"]')
+    on?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' })
+  }, [tab, folded])
+  const tabsRef = useRef<HTMLDivElement>(null)
+  // …and the Kroki-Stand rides with it (see savedScroll). Read through a ref in the cleanup
+  // because the effect below is mount-only and would otherwise capture the value this surface
+  // OPENED on. (`optionOverrides` is already a ref, so it needs no mirror.)
   const krokiAtRef = useRef(krokiAt)
-  useEffect(() => { phoneTabRef.current = phoneTab; krokiAtRef.current = krokiAt })
+  useEffect(() => { krokiAtRef.current = krokiAt })
   useLayoutEffect(() => {
     const el = bodyRef.current
     const kept = keptFor(incident.id)
     if (el && kept) el.scrollTop = kept.top
     return () => {
-      if (el) {
-        savedScroll.current = {
-          incidentId: incident.id, top: el.scrollTop, tab: phoneTabRef.current,
-          optionOverrides: optionOverrides.current, krokiAt: krokiAtRef.current,
-        }
+      // ⚠️ `el` is the body captured at MOUNT and it is gone while an embedded tab stands
+      // (Anwesenheit / Material replace it) — so the scroll offset comes from the ref the body
+      // keeps up to date, and the box is written either way. Without this, leaving the Rapport
+      // from the Anwesenheit tab dropped the operator's print-section choices on the floor.
+      savedScroll.current = {
+        incidentId: incident.id, top: el ? el.scrollTop : lastTop.current,
+        optionOverrides: optionOverrides.current, krokiAt: krokiAtRef.current,
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1649,12 +1718,12 @@ export function ReportPreflight({
             surface, like the head, so it cannot scroll away from under the thumb. The dot marks
             a tab holding a Mindestangabe that is still open — the same amber the head's chips
             use, so «noch offen» means one thing on this page. */}
-        <div className="rp-tabs">
+        <div className={`rp-tabs${folded ? ' rp-tabs-many' : ''}`} ref={tabsRef}>
           <Segmented<PhoneTab>
             ariaLabel={P.tabsLabel}
-            value={phoneTab}
+            value={tab}
             onChange={pickTab}
-            options={PHONE_TABS.map((t) => {
+            options={tabs.map((t) => {
               const open = missing.some((s) => STEP_TAB[s] === t)
               return {
                 value: t,
@@ -1664,7 +1733,16 @@ export function ReportPreflight({
             })}
           />
         </div>
-        <div className="ip-body report-preflight-body" data-phone-tab={phoneTab} ref={bodyRef}>
+        {/* An embedded tab REPLACES the body — the Anwesenheit and the Material are whole
+            surfaces with their own head, search and controls, and they need the whole screen
+            under the strip. Mounted only while their tab stands: a roster and a Mittel list
+            kept alive behind «Bericht» would poll and re-render for a screen nobody is on.
+            (Nothing is lost by unmounting: picking any tab already starts it at its own top.) */}
+        {embedded ? <div className="rp-embed">{embedded}</div> : (
+        <div
+          className="ip-body report-preflight-body" data-phone-tab={tab} ref={bodyRef}
+          onScroll={(e) => { lastTop.current = e.currentTarget.scrollTop }}
+        >
           {/* TWO columns on a wide screen (one below 1080px, see app.css), because the rapport is
               worked in two different ways and they interleave: the FORM is typed straight through
               — dispatch readout, Zusammenfassung, the Zeiten, Bemerkungen — while the ROUND-UP
@@ -2168,7 +2246,11 @@ export function ReportPreflight({
               done={stepDone('anwesenheit', facts)}
               label={A.steps.anwesenheit}
               sub={fillTemplate(A.personen, { n: attendanceCount })}
-              onGo={onOpenAnwesenheit}
+              /* Where Anwesenheit is a TAB of this surface, the row switches to it rather than
+                 navigating away — there is nowhere to navigate to, and the «Zurück zum
+                 Einsatzrapport» chip that used to catch the return trip has nothing to return
+                 from. Everywhere else it is the surface hop it has always been. */
+              onGo={embedAnwesenheit ? () => pickTab('anwesenheit') : onOpenAnwesenheit}
             >
               {/* quick double-check, not an editor: everyone recorded, early leavers
                   flagged inline — corrections go through the row's arrow (Anwesenheit) */}
@@ -2194,7 +2276,7 @@ export function ReportPreflight({
                 </div>
               )}
             </CheckRow>
-            <CheckRow anchor="mittel" tab="werwas" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={fillTemplate(A.mittelCount, { n: mittelCount })} onGo={onOpenMittel}>
+            <CheckRow anchor="mittel" tab="werwas" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={fillTemplate(A.mittelCount, { n: mittelCount })} onGo={embedMittel ? () => pickTab('mittel') : onOpenMittel}>
               {mittelCount > 0 && (
                 <div className="rp-check-extra">
                   <div className="rp-people">
@@ -2531,7 +2613,7 @@ export function ReportPreflight({
               framing. This panel decides what the printed Kroki shows, so a crop nobody chose is
               not a cosmetic bug. Above 600px `isPhone` is false and this is the same always-on
               panel it was. */}
-          {krokiPanel && (!isPhone || phoneTab === 'beilagen') && (
+          {krokiPanel && (!isPhone || tab === 'beilagen') && (
             <section className="report-pre-section rp-kroki" data-tab="beilagen">
               <h3>{P.krokiHead}</h3>
               <KrokiFramingPanel
@@ -2577,6 +2659,7 @@ export function ReportPreflight({
 
           </div>
         </div>
+        )}
 
         {/* Pinned to the bottom of the surface instead of scrolling away at the end of the form.
             As a sheet the buttons WERE the end of a thing you filled in top to bottom; a page is

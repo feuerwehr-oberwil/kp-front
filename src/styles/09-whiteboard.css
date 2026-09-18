@@ -557,10 +557,6 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 @media (hover: hover) {
   .wb-pa-show:hover { background: var(--green); filter: brightness(1.08); }
 }
-/* «Spur löschen» — its OWN button beside the trash since 18.09.2026, never a morph of it (see
-   TwinTeamPill). Neutral chrome, not red: the danger colour belongs to the one button that takes
-   something off the picture, and this one is guarded by its own confirm. */
-.wb-pa-trail { background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); }
 /* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling */
 .wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 62px); }
 .wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; transform: translateX(-50%); z-index: 7;

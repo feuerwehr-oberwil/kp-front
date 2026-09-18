@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers, moduleTileLabel, foldPlanTiles } from './navRail'
+import { clampRailWidth, snapExpanded, planGlyph, moduleNumbers, moduleTileLabel, foldPlanTiles, navStops } from './navRail'
 import type { PlanDocument } from '../types'
 
 // a minimal PlanDocument factory — only the fields planGlyph reads matter
@@ -101,8 +101,10 @@ describe('the label and the chip agree', () => {
   })
 })
 
-// The phone bar folds every plan document into ONE tile (18.09.2026) — so the fold has to name
-// the document that is loaded, and it has to say whether a chooser exists at all.
+// The phone bar folds every plan document into ONE tile (18.09.2026) — so the fold has to hand
+// back the document that is loaded (it IS the tile's glyph), and it has to say whether a chooser
+// exists at all. It carries NO sub-label any more: one glyph and one word, like every tile
+// beside it.
 describe('foldPlanTiles', () => {
   const docs = [
     doc({ id: 'modul1', code: 'M1' }),
@@ -113,8 +115,13 @@ describe('foldPlanTiles', () => {
   it('is nothing at all without a plan document — the rail keeps its empty state', () =>
     expect(foldPlanTiles([], 'modul1')).toBeNull())
 
-  it('names the active document under the tile', () =>
-    expect(foldPlanTiles(docs, 'gebaeude')).toMatchObject({ sub: 'Gebäude', many: true }))
+  it('hands back the active document — the tile wears its glyph', () =>
+    expect(foldPlanTiles(docs, 'gebaeude')).toMatchObject({ target: docs[1], many: true }))
+
+  // the tile shows ONE word, «Pläne». The document's code is the aria-label's job, not a third
+  // line of type in a 46px tile (field report 18.09.2026).
+  it('carries no sub-label at all', () =>
+    expect(foldPlanTiles(docs, 'gebaeude')).not.toHaveProperty('sub'))
 
   it('opens the active document on a first tap', () =>
     expect(foldPlanTiles(docs, 'tafel')?.target.id).toBe('tafel'))
@@ -124,5 +131,39 @@ describe('foldPlanTiles', () => {
     expect(foldPlanTiles(docs, 'modul9')?.target.id).toBe('modul1'))
 
   it('offers no chooser for a single document', () =>
-    expect(foldPlanTiles([docs[0]], 'modul1')).toEqual({ target: docs[0], sub: 'M1', many: false }))
+    expect(foldPlanTiles([docs[0]], 'modul1')).toEqual({ target: docs[0], many: false }))
+})
+
+/* ⌘[ / ⌘] steps what the rail SHOWS — every tile is a stop, and nothing else is. */
+describe('navStops', () => {
+  const modes = (fold: boolean) => navStops(['modul1', 'gebaeude'], fold).map((n) => n.mode)
+
+  it('walks the rail top to bottom, one stop per plan document', () =>
+    expect(navStops(['modul1', 'gebaeude'], false)).toEqual([
+      { mode: 'map' },
+      { mode: 'plans', planId: 'modul1' },
+      { mode: 'plans', planId: 'gebaeude' },
+      { mode: 'checklists' },
+      { mode: 'atemschutz' },
+      { mode: 'anwesenheit' },
+      { mode: 'mittel' },
+      { mode: 'rapport' },
+    ]))
+
+  // the Rapport has always been a tile; leaving it off the list made it a surface the stepping
+  // could be redirected INTO and never out of
+  it('always stops on the Rapport', () => {
+    expect(modes(false)).toContain('rapport')
+    expect(modes(true)).toContain('rapport')
+  })
+
+  // …and with the phone bar folded, Anwesenheit and Material have no tile to land on: they are
+  // tabs of that Rapport (NavRail · fold, and the mode redirect in IncidentWorkspace)
+  it('drops the two folded surfaces while the phone bar is folded', () =>
+    expect(modes(true)).toEqual(['map', 'plans', 'plans', 'checklists', 'atemschutz', 'rapport']))
+
+  it('is the bare sections on a station with no plan documents', () =>
+    expect(navStops([], true)).toEqual([
+      { mode: 'map' }, { mode: 'checklists' }, { mode: 'atemschutz' }, { mode: 'rapport' },
+    ]))
 })

@@ -184,9 +184,12 @@ interface Props {
   /** recolour a team marker (null = back to automatic). Takes the ENTITY, because the two cases
    *  write different things: a marker bound to a Trupp recolours the TRUPP (board card and plan
    *  chip follow), a loose one recolours just itself. */
-  /** clear a team marker's recorded trail (unlocks deletion) — reached via the lock button,
-   *  behind a confirm; the everyday bar button only TOGGLES visibility */
+  /** «Spur löschen» on the selected marker's trash menu — the marker stays, its recorded
+   *  positions go, behind a confirm; the everyday bar button only TOGGLES visibility */
   onTeamClearTrail?: (id: string) => void
+  /** «Marker und Spur löschen» on that same menu (18.09.2026): both go, and no ghost trail is
+   *  left standing (IncidentWorkspace · removeTeamWithTrail) */
+  onTeamRemoveWithTrail?: (id: string) => void
   /** per-team hidden trails (entity ids) — mirrors the plan's hiddenTrails; the eye on a
    *  selected team toggles just that team's lines + breadcrumb dots */
   hiddenTrails?: ReadonlySet<string>
@@ -212,7 +215,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: Props) {
   const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team)
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
@@ -837,6 +840,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     mark: onTeamMark && (() => onTeamMark(e.id)),
                     clearTrail: () => onTeamClearTrail?.(e.id),
                     remove: () => onDelete(e.id),
+                    removeWithTrail: onTeamRemoveWithTrail && (() => onTeamRemoveWithTrail(e.id)),
                     showTrupp: onShowTrupp,
                     toggleTrail: onToggleTrail && (() => onToggleTrail(e.id)),
                     unlink: badge && onTeamUnlink && (() => onTeamUnlink(e.id, badge.lineId)),

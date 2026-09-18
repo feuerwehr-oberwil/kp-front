@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { BoardAnno, BuildingDoc, PlanDocument, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import type { SymbolsApi } from '../lib/useSymbols'
 import { NODE_HOLD_ARM_MS, NODE_HOLD_FIRE_MS, NODE_HOLD_MOVE_PX } from '../lib/nodeHold'
 
@@ -21,12 +22,23 @@ vi.mock('./OsmOutline', () => ({
 
 // the auto-commit release talks through the global toast pill — recorded here so the tests can
 // read its text and press its «Rückgängig» without mounting the app-level toast host
-const ui = vi.hoisted(() => ({ toasts: [] as { text: string; action?: { label: string; onClick: () => void } }[] }))
+// …and the asks go through the same recorder: `answer` is what the operator presses, which for
+// every test that does not care is «Abbrechen» — nothing destroyed, exactly as an unanswered
+// dialog would leave it.
+const ui = vi.hoisted(() => ({
+  toasts: [] as { text: string; action?: { label: string; onClick: () => void } }[],
+  confirms: [] as { title?: string; message?: string }[],
+  answer: false,
+}))
 vi.mock('../lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../lib/ui')>()
   return {
     ...mod,
     toast: (text: string, opts?: { action?: { label: string; onClick: () => void } }) => { ui.toasts.push({ text, action: opts?.action }); return 1 },
+    confirmDialog: (opts: { title?: string; message?: string }) => {
+      ui.confirms.push(opts)
+      return Promise.resolve(ui.answer)
+    },
   }
 })
 
@@ -47,7 +59,7 @@ beforeAll(() => {
     addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 })
-afterEach(() => { cleanup(); osm.calls.length = 0 })
+afterEach(() => { cleanup(); osm.calls.length = 0; ui.confirms.length = 0; ui.answer = false })
 
 const umrisse: PlanDocument = {
   id: 'osm', code: 'Umrisse', title: 'Gebäudeumrisse', subtitle: '', imageUrl: '',
@@ -222,6 +234,66 @@ const chip: BoardAnno = { id: 'c1', kind: 'resource', x: 0.5, y: 0.5, floor: 0, 
 const line: BoardAnno = { id: 'l1', kind: 'draw', pts: [[0.2, 0.2, 0], [0.8, 0.8, 0]], floor: 0 }
 // the fat transparent hit surface WbInkLayer lays over each stroke — the only way to tap ink
 const hitShape = (c: HTMLElement) => c.querySelector('.wb-ink-svg polyline[style], .wb-ink-svg polygon[style]')!
+
+/* ── the chip's ONE trash (18.09.2026) ──────────────────────────────────────────────────────
+ * A marker carrying a Spur asks which of the two goes; the rows that destroy the record confirm
+ * first, and «Marker und Spur löschen» arms the incident's ghosting so nothing is left standing
+ * (components/TwinTeamPill · lib/truppTrails).
+ */
+describe('the plan chip’s trash', () => {
+  const W = appConfig.copy.whiteboard
+  const walked: BoardAnno = {
+    ...chip,
+    trail: [{ x: 0.1, y: 0.1, floor: 0, t: '03:10' }, { x: 0.2, y: 0.2, floor: 0, t: '03:11' }],
+  }
+  const openTrash = () => {
+    fireEvent.pointerDown(screen.getByText('Trupp 1'))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.delete }))
+  }
+
+  it('takes the chip off the sheet without asking — its Spur stays behind as a ghost', () => {
+    const onTrailDrop = vi.fn()
+    const { onChange } = renderPlan([walked], { onTrailDrop })
+    openTrash()
+    fireEvent.click(screen.getByRole('menuitem', { name: W.removeMarker }))
+    expect(onChange).toHaveBeenCalledWith([])
+    expect(ui.confirms).toEqual([])           // the marker is not the record
+    expect(onTrailDrop).not.toHaveBeenCalled() // …so the ghosting is left to do its work
+  })
+
+  it('«Marker und Spur löschen» asks first, then arms the ghosting and removes the chip', async () => {
+    ui.answer = true
+    const onTrailDrop = vi.fn()
+    const { onChange } = renderPlan([walked], { onTrailDrop })
+    openTrash()
+    fireEvent.click(screen.getByRole('menuitem', { name: W.removeMarkerTrail }))
+    await act(async () => {})
+    expect(ui.confirms[0]?.message).toBe(
+      fillTemplate(W.clearTrailConfirm, { name: 'Trupp 1', n: 2 }))
+    expect(onTrailDrop).toHaveBeenCalledWith('c1', true)
+    expect(onChange).toHaveBeenCalledWith([])
+  })
+
+  it('destroys nothing when that ask is declined — and takes its arming back', async () => {
+    const onTrailDrop = vi.fn()
+    const { onChange } = renderPlan([walked], { onTrailDrop })
+    openTrash()
+    fireEvent.click(screen.getByRole('menuitem', { name: W.removeMarkerTrail }))
+    await act(async () => {})
+    expect(ui.confirms).toHaveLength(1)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onTrailDrop).not.toHaveBeenCalled()
+  })
+
+  it('«Spur löschen» empties the trail and leaves the chip standing', async () => {
+    ui.answer = true
+    const { onChange } = renderPlan([walked])
+    openTrash()
+    fireEvent.click(screen.getByRole('menuitem', { name: W.clearTrail }))
+    await act(async () => {})
+    expect(onChange).toHaveBeenCalledWith([{ ...walked, trail: [] }])
+  })
+})
 
 describe('the plan chip’s «Atemschutz-Trupp» menu (the map marker’s twin)', () => {
   const A = appConfig.copy.atemschutz

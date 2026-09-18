@@ -1527,6 +1527,20 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    never sees it. Declared BEFORE the media query below, which turns it back on. */
 .rp-tabs { display: none; }
 
+/* ── an embedded tab: the real Anwesenheit / Mittel surface, under the tab strip ──
+   Both are `position: absolute` full-screen surfaces (Surface.module.css · .shell) — inside the
+   Rapport they would otherwise inset themselves 78px from ITS top edge and cover the head and
+   the tabs that put them there. Here they fill the slot the body would have had.
+   ⚠️ Those base rules are all `:where()`-wrapped, i.e. specificity 0, so this plain pair wins
+   without an `!important` and without either surface knowing it is being embedded.
+   (MittelView renders its opaque backdrop as a first child; it lands behind the card, exactly as
+   it does standing on its own.)
+   ⚠️ OUTSIDE the phone media query, unlike the tabs themselves. The embed is mounted by JS, not
+   by CSS, and a viewport dragged past 600px mid-render must not leave a surface positioning
+   itself against the wrong box for a frame. */
+.rp-embed { position: relative; flex: 1 1 auto; min-height: 0; display: block; }
+.rp-embed > div { position: absolute; inset: 0; border-radius: 0; box-shadow: none; }
+
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .rp-head { padding: 10px 14px; gap: 10px 12px; }
   .report-preflight-surface > .ip-body { padding: 12px 14px calc(16px + var(--fab-safe, 0px)); }
@@ -1542,6 +1556,19 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   .rp-tabs > .useg { display: flex; width: 100%; }
   .rp-tabs .useg-btn { flex: 1; min-width: 0; min-height: var(--tap); position: relative;
     padding: 6px 8px; white-space: nowrap; }
+
+  /* ── FIVE tabs, because Anwesenheit and Material folded in (18.09.2026) ──
+     Three share 360px; five cannot — «Personal & Mittel» alone wants most of a third of it, and
+     `flex: 1` would either ellipsise every word («Anwes…», «Pers…») or push the buttons under the
+     44px gloved floor. So the strip SCROLLS sideways and each tab takes the width of its own
+     word: every target stays ≥44px and every word stays readable, which is the trade the phone
+     bar above already makes. The active tab is scrolled into view from the component, so a tab
+     chosen from outside (an open-items link, the remembered one) is never off screen. */
+  .rp-tabs-many > .useg { overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+    overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  .rp-tabs-many > .useg::-webkit-scrollbar { display: none; }
+  .rp-tabs-many .useg-btn { flex: 0 0 auto; min-width: max-content; padding: 6px 12px; }
+
   /* the same amber the head's «noch offen» chips carry — one page, one meaning for «offen» */
   .rp-tab-dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%;
     background: var(--amber); }
@@ -1549,6 +1576,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 
   /* One rule per tab: everything carrying a DIFFERENT tab is off screen. Blocks with no
      `data-tab` at all (the fieldset, the columns) stay — they are structure, not content. */
+  /* (the «Anwesenheit» / «Material» tabs need no rule here: they replace the body outright —
+     see .rp-embed — so there is no section of this page left on screen to hide.) */
   .report-preflight-body[data-phone-tab="bericht"] [data-tab="werwas"],
   .report-preflight-body[data-phone-tab="bericht"] [data-tab="beilagen"],
   .report-preflight-body[data-phone-tab="werwas"] [data-tab="bericht"],

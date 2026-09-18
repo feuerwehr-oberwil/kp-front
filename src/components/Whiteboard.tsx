@@ -235,6 +235,11 @@ interface Props {
    *  each point was walked on; `onGhostTrail` is the «Spur löschen» door (absent ⇒ no door). */
   ghostTrails?: TruppTrail[]
   onGhostTrail?: (id: string) => void
+  /** «Marker und Spur löschen» (18.09.2026): ARM the incident's ghost reconciliation to write
+   *  this chip's ghost already deleted, so the removal that follows leaves no searched area
+   *  standing (lib/truppTrails · reconcileGhostTrails `dropped`). Disarmed again when the
+   *  removal is called off, or the chip's NEXT removal would silently take its trail with it. */
+  onTrailDrop?: (annoId: string, on: boolean) => void
   /** join this CHIP to an Atemschutz-Trupp — `undefined` lets go of the one it has. The plan twin
    *  of the map marker's «Atemschutz-Trupp» menu (MapMarkers · onTeamTrupp) and routed through the
    *  same action, so the takeover confirm and the «einrücken?» ask exist exactly once
@@ -317,7 +322,7 @@ export interface PlanLogExtra { kind?: 'symbol' | 'team' | 'history'; annoId?: s
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, emit = () => {}, historyRef, onHistoryState, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -2483,18 +2488,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // marker instead: a removed chip's recorded positions move into a ghost trail the incident
   // owns (lib/truppTrails · reconcileGhostTrails, driven from IncidentWorkspace), so the trash
   // always does the one thing it says and the searched area is still on the sheet afterwards.
-  const removeWithConnections = async (target: BoardAnno) => {
+  // returns whether the object actually went — «Marker und Spur löschen» has to take its arming
+  // back when the connection question (or the note question) was answered with «Abbrechen»
+  const removeWithConnections = async (target: BoardAnno): Promise<boolean> => {
     const affected = annos.flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
       return rel && ((rel.target.kind === 'object' && rel.target.id === target.id) || (rel.target.kind === 'line' && rel.target.id === target.id)) ? [{ a, endpoint, rel }] : []
     }))
-    if (!affected.length) { await removeAnno(target); return }
+    if (!affected.length) return await removeAnno(target)
     const ok = await confirmDialog({
       title: fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: target.label ?? target.text ?? appConfig.copy.drawingEditor.drawing }),
       message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }),
       confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
     })
-    if (!ok) return
+    if (!ok) return false
     const changed = new Set(affected.map((x) => x.a.id))
     commit(annos.filter((a) => a.id !== target.id).map((a) => {
       let next = a
@@ -2521,6 +2528,28 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       emit('board.edit', { id, patch: { pts: next.pts, startAttachment: next.startAttachment, endAttachment: next.endAttachment }, planId: activeId })
     })
     if (selId === target.id) setSelId(null)
+    return true
+  }
+
+  /**
+   * «Marker und Spur löschen» — the third row of the chip's trash menu (components/TwinTeamPill).
+   * Both go, and unlike a plain removal NOTHING is left behind: the incident is armed first
+   * (`onTrailDrop`), so the reconciliation writes this chip's ghost already `removedAt`-stamped
+   * instead of standing the searched area back up (lib/truppTrails). It stays ONE undo step —
+   * the chip's own removal — because nothing but that removal was ever committed.
+   */
+  const removeWithTrail = async (a: BoardAnno) => {
+    if (a.kind !== 'resource' || !a.trail?.length) return
+    // a trail is never destroyed without the ask, wherever the door is (Karte parity)
+    const ok = await confirmDialog({
+      title: appConfig.copy.whiteboard.removeMarkerTrail,
+      message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: a.text ?? '', n: a.trail.length }),
+      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+    })
+    if (!ok) return
+    onTrailDrop?.(a.id, true)
+    if (!await removeWithConnections(a)) { onTrailDrop?.(a.id, false); return }
+    log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: a.text ?? '' }))
   }
 
   // group delete — removes the whole selection; a trail-carrying team goes with it and leaves
@@ -3899,6 +3928,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                         mark: markPosition,
                         clearTrail: () => void clearTrail(),
                         remove: () => void removeWithConnections(a),
+                        removeWithTrail: () => void removeWithTrail(a),
                         showTrupp: onShowTrupp,
                         toggleTrail: () => toggleTrail(a.id),
                       } : undefined} />

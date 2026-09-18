@@ -2609,6 +2609,12 @@ export const de = {
     showTrupp: 'Bei den Trupps zeigen',
     markPosition: 'Position markieren',
     positionMarked: '{name}: Position markiert',
+    // The trash on a Trupp marker that carries a Spur asks WHICH of the two goes (18.09.2026,
+    // the app's own Menu): the marker alone leaves the searched area behind as a Geister-Spur,
+    // and the record is only destroyed where the operator said so. Both löschen rows are danger
+    // rows, and both confirm first.
+    removeMarker: 'Marker entfernen',
+    removeMarkerTrail: 'Marker und Spur löschen',
     clearTrail: 'Spur löschen',
     clearTrailConfirm: 'Alle {n} markierten Positionen von {name} löschen? Die Spur verschwindet von Karte und Plan.',
     trailCleared: '{name}: Spur gelöscht',
@@ -4108,7 +4114,10 @@ export const de = {
     // Handy (≤600px): die drei Reiter, die den Rapport in drei Bildschirme statt fünf teilen.
     // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
     tabsLabel: 'Teil des Rapports',
-    tabs: { bericht: 'Bericht', werwas: 'Personal & Mittel', beilagen: 'Beilagen' },
+    // ⚠️ Auf dem Telefon kommen «Anwesenheit» und «Material» dazu: dort sind sie Tabs des
+    // Rapports statt eigener Flächen (18.09.2026). Genau dieselben Wörter wie ihre Leisten-
+    // Kacheln auf dem Tablet (modes.anwesenheit / modes.mittel) – eine Sache, ein Wort.
+    tabs: { anwesenheit: 'Anwesenheit', mittel: 'Material', bericht: 'Bericht', werwas: 'Personal & Mittel', beilagen: 'Beilagen' },
     // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
     headOpenGo: 'Zu «{step}» springen',
     sectionBericht: 'Bericht & Beteiligte',

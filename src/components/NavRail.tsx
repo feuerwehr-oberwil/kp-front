@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
+import { fillTemplate } from '../lib/format'
 import type { RailLabels } from '../lib/prefs'
 import type { PlanDocument } from '../types'
 import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, foldPlanTiles, planGlyph } from '../lib/navRail'
@@ -62,11 +63,22 @@ interface Props {
    *  the expand chevron, which widens the rail and sets the word beside the glyph for as long as
    *  it stays open — this is a standing decision and costs ~10px, not 156. */
   labels?: RailLabels
-  /** PHONE only: fold every plan document into ONE «Pläne» tile (18.09.2026). The bar has room
-   *  for seven tiles and a station with four modules plus a Gebäude had eleven, so the bar
-   *  scrolled and half its destinations sat behind the fade. The vertical rail is a column with
-   *  room for all of them and keeps one tile per document. */
+  /** PHONE only: the bottom bar's FOLDED shape (18.09.2026). Two folds, one flag, because they
+   *  are one decision — what a 360px bar can hold without scrolling:
+   *    · every plan document folds into ONE «Pläne» tile (a station with four modules plus a
+   *      Gebäude had eleven, so the bar scrolled and half its destinations sat behind the fade);
+   *    · Anwesenheit and Material lose their own tiles and become TABS of the Rapport, which is
+   *      the surface they are read and corrected from anyway. Five tiles remain: Karte · Pläne ·
+   *      Checkliste · Trupps · Rapport.
+   *  The vertical rail (tablet/desktop) is a column with room for all of them and is unchanged:
+   *  one tile per document, and Anwesenheit/Material stay their own surfaces. */
   fold?: boolean
+  /** PHONE only: how many people are marked present right now — a COUNT badge on the «Rapport»
+   *  tile, which is where the Anwesenheit lives once it has folded in. Without it the head count
+   *  (the one number the bar used to state just by having an Anwesenheit tile) would be a
+   *  surface away. 0 / undefined paints nothing: a «0 anwesend» badge on a fresh Einsatz is a
+   *  standing zero nobody reads. */
+  presentCount?: number
 }
 
 // The single left navigation rail: it switches the whole surface (Karte · the
@@ -85,6 +97,9 @@ export function NavRail(p: Props) {
   // the phone bar's one plan tile — `null` with no plan documents at all, which is the rail's
   // existing empty state (no tile, and the separator above it is already conditional)
   const folded = p.fold ? foldPlanTiles(p.planDocs, p.activePlanId) : null
+  // the head count on the «Rapport» tile — only where the Anwesenheit tile is gone (see `fold`),
+  // and only once there is a head to count
+  const rapportCount = p.fold ? (p.presentCount ?? 0) : 0
   // …and the second way into the list, for the hand that has learned press-and-hold everywhere
   // else in this app: a hold opens the chooser wherever you are standing, so reaching another
   // document never costs the trip through the one that happens to be loaded.
@@ -143,16 +158,20 @@ export function NavRail(p: Props) {
             navigable "Pläne" cluster instead of blending into the Karte icon above them */}
         {p.planDocs.length > 0 && <div className="nav-sep" />}
         {folded && (
-          /* the ONE folded tile: the glyph of the document that is loaded, «Pläne» as the word,
-             and the document's own short code under it — which is the recognition the
-             per-document tiles used to carry, in one tile instead of eleven.
+          /* the ONE folded tile, and it is shaped like every other tile: ONE glyph and ONE word.
+             The glyph IS the loaded document (the mono chip «1»/«RWA», the floor stack, the
+             Tafel's pencil) — so the tile still says WHICH plan the next tap opens — and the word
+             is the generic «Pläne», which says where it goes. It used to stack chip + «Pläne» +
+             the document code, three lines of type in a 46px tile, and read cramped against the
+             one-glyph-one-word tiles beside it (field report 18.09.2026). The code stays in the
+             aria-label, for the reader who cannot see the glyph.
              (No badge: no plan tile carries one today. If one ever does — an alignment
              proposal, say — its union belongs on this tile, since the documents it would be
              about are no longer on the bar.) */
           <button
             className={`nav-item nav-plans${p.mode === 'plans' ? ' on' : ''}`}
             aria-pressed={p.mode === 'plans'}
-            aria-label={`${nav.plansGroup} · ${folded.sub}`}
+            aria-label={`${nav.plansGroup} · ${folded.target.code}`}
             aria-haspopup={folded.many ? 'dialog' : undefined}
             {...(folded.many ? { 'data-holdaction': true as const } : null)}
             onPointerDown={(e) => { held.current = false; if (folded.many) holdProps.onPointerDown(e) }}
@@ -166,7 +185,6 @@ export function NavRail(p: Props) {
           >
             {planGlyphNode(folded.target)}
             <span className="nav-label">{nav.plansGroup}</span>
-            <span className="nav-sub">{folded.sub}</span>
           </button>
         )}
         {!folded && p.planDocs.map((doc) => {
@@ -197,23 +215,43 @@ export function NavRail(p: Props) {
           <span className="nav-label">{appConfig.copy.modes.atemschutz}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.atemschutz}</span>
         </button>
-        <button className={`nav-item${p.mode === 'anwesenheit' ? ' on' : ''}`} aria-pressed={p.mode === 'anwesenheit'} aria-label={appConfig.copy.modes.anwesenheit} onClick={() => p.onMode('anwesenheit')}>
-          <span className="nav-glyph"><Icon id="people" /></span>
-          <span className="nav-label">{appConfig.copy.modes.anwesenheit}</span>
-          <span className="nav-key" aria-hidden>{SURFACE_KEY.anwesenheit}</span>
-        </button>
-        <button className={`nav-item${p.mode === 'mittel' ? ' on' : ''}`} aria-pressed={p.mode === 'mittel'} aria-label={appConfig.copy.modes.mittel} onClick={() => p.onMode('mittel')}>
-          <span className="nav-glyph"><Icon id="box" /></span>
-          <span className="nav-label">{appConfig.copy.modes.mittel}</span>
-          <span className="nav-key" aria-hidden>{SURFACE_KEY.mittel}</span>
-        </button>
+        {/* ⚠️ Anwesenheit and Material are NOT on the folded phone bar — they are tabs of the
+            Rapport there (see `fold`). Everywhere else they are their own surfaces, exactly as
+            they have always been. */}
+        {!p.fold && (
+          <button className={`nav-item${p.mode === 'anwesenheit' ? ' on' : ''}`} aria-pressed={p.mode === 'anwesenheit'} aria-label={appConfig.copy.modes.anwesenheit} onClick={() => p.onMode('anwesenheit')}>
+            <span className="nav-glyph"><Icon id="people" /></span>
+            <span className="nav-label">{appConfig.copy.modes.anwesenheit}</span>
+            <span className="nav-key" aria-hidden>{SURFACE_KEY.anwesenheit}</span>
+          </button>
+        )}
+        {!p.fold && (
+          <button className={`nav-item${p.mode === 'mittel' ? ' on' : ''}`} aria-pressed={p.mode === 'mittel'} aria-label={appConfig.copy.modes.mittel} onClick={() => p.onMode('mittel')}>
+            <span className="nav-glyph"><Icon id="box" /></span>
+            <span className="nav-label">{appConfig.copy.modes.mittel}</span>
+            <span className="nav-key" aria-hidden>{SURFACE_KEY.mittel}</span>
+          </button>
+        )}
         {/* The Rapport is a SURFACE, not a dialog: it is filled in across a whole Einsatz, it
             wants the full width its Zeiten grid and roster need, and as a sheet it had the Kroki
             framing modal opening on top of it — two dialogs deep. It carries R like every other
             surface carries its letter; what R used to do (Nach Norden) has the compass, which is
             on screen at all times and rotates to say so (see lib/hotkeys). */}
-        <button className={`nav-item${p.mode === 'rapport' ? ' on' : ''}`} aria-pressed={p.mode === 'rapport'} aria-label={appConfig.copy.modes.rapport} onClick={() => p.onMode('rapport')}>
-          <span className="nav-glyph"><Icon id="doc" /></span>
+        <button
+          className={`nav-item${p.mode === 'rapport' ? ' on' : ''}`}
+          aria-pressed={p.mode === 'rapport'}
+          /* the badge is a NUMBER, so it has to be said and not merely painted — a dot can be
+             «there is something», a count cannot be read off a coloured circle */
+          aria-label={rapportCount ? `${appConfig.copy.modes.rapport} · ${fillTemplate(appConfig.copy.anwesenheit.summary, { present: rapportCount })}` : appConfig.copy.modes.rapport}
+          onClick={() => p.onMode('rapport')}
+        >
+          <span className="nav-glyph">
+            <Icon id="doc" />
+            {/* PHONE only, and only once somebody is actually on scene — see `presentCount`.
+                Same family as the Trupps alarm dot (.nav-live), one size up because it carries
+                a figure: same corner, same white ring, so the bar has ONE badge idiom. */}
+            {rapportCount ? <span className="nav-live nav-count" aria-hidden>{rapportCount > 99 ? '99+' : rapportCount}</span> : null}
+          </span>
           <span className="nav-label">{appConfig.copy.modes.rapport}</span>
           <span className="nav-key" aria-hidden>{SURFACE_KEY.rapport}</span>
         </button>

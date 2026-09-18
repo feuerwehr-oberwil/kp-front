@@ -81,13 +81,16 @@ export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSe
   const patch = (id: string, p: Partial<BoardAnno>) => set(annos.map((a) => (a.id === id ? { ...a, ...p } : a)))
   const patchCommit = (id: string, p: Partial<BoardAnno>) => { commit(annos.map((a) => (a.id === id ? { ...a, ...p } : a))); emit('board.edit', { id, patch: p, planId: activeId }) }
   const remove = (id: string) => { commit(annos.filter((a) => a.id !== id)); emit('board.delete', { id, planId: activeId }); if (selId === id) setSelId(null); if (editId === id) setEditId(null) }
-  // confirm before deleting a note that has been written (parity with the Lage map note)
-  const removeAnno = async (a: BoardAnno) => {
+  // confirm before deleting a note that has been written (parity with the Lage map note).
+  // Answers whether the object actually went: a caller that armed something on the way in
+  // («Marker und Spur löschen», Whiteboard) has to take that back when the ask was declined.
+  const removeAnno = async (a: BoardAnno): Promise<boolean> => {
     if (a.kind === 'text' && a.text?.trim()) {
       const ok = await confirmDialog({ title: appConfig.copy.notes.deleteTitle, message: appConfig.copy.notes.deleteMsg, confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
-      if (!ok) return
+      if (!ok) return false
     }
     remove(a.id)
+    return true
   }
   const undo = () => {
     const c = hist[activeId]; if (!c || !c.past.length) return

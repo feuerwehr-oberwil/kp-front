@@ -484,16 +484,13 @@
      own words and can still overflow. */
   .nav-item { width: 44px; min-width: 44px; flex: 0 0 auto; }
 
-  /* ── the folded «Pläne» tile ── glyph over the short code of the document that is loaded
-     («Gebäude», «M6», «RWA»). The code is the recognition the per-document tiles carried: the
-     tile says WHICH plan the next tap opens, not merely that plans exist. */
-  .nav-item.nav-plans { flex-direction: column; gap: 0; justify-content: center; }
-  .nav-item.nav-plans .nav-glyph { width: auto; min-width: 0; height: 24px; }
-  .nav-item.nav-plans .nav-mono-chip { min-width: 22px; min-height: 22px; font-size: 11px; }
-  /* 9px — a legend under a glyph, like the rail's own labels, and the 44 × 46px button is the
-     target. Never truncated to an ellipsis: a code cut to «Gebä…» names nothing. */
-  .nav-sub { font-size: 9px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em;
-    max-width: 100%; padding: 0 1px; white-space: nowrap; overflow: hidden; }
+  /* ── the folded «Pläne» tile ── NO rules of its own any more (18.09.2026). It wears the
+     loaded document's own glyph at the size every other tile's glyph has, and the generic word
+     «Pläne» — one glyph, one word, like its neighbours. It used to stack chip + word + the
+     document's code into 46px and read cramped; the code is in the aria-label now.
+     Only the glyph COLUMN is narrowed, because a tile here is 44px wide and the shared 46px
+     column would centre the chip against the wrong box. */
+  .nav-item.nav-plans .nav-glyph { width: auto; min-width: 0; }
 
   /* ── «Wort unter dem Zeichen» on a PHONE ──
      ⚠️ The desktop rule for that preference (05-navrail.css · .labelled) sets a rail WIDTH, and on
@@ -521,10 +518,6 @@
      visible without scrolling. */
   .navrail.labelled:not(.expanded):not(.dragging) .nav-label {
     font-size: 9.5px; overflow: visible; text-overflow: clip; }
-  /* …and where the words are on, the folded tile carries BOTH: «Pläne» under the glyph and the
-     loaded document's code under that, a point smaller so the pair still clears the 46px tile. */
-  .navrail.labelled:not(.expanded):not(.dragging) .nav-sub { font-size: 8.5px; }
-  .navrail.labelled:not(.expanded):not(.dragging) .nav-item.nav-plans .nav-glyph { height: 22px; }
   .nav-foot { margin-top: 0; }
   .nav-sep { width: 1px; height: 26px; margin: 0 2px; flex: none; }   /* vertical divider in a row (see the width math on .nav-item) */
 
