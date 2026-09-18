@@ -1727,6 +1727,12 @@ export function ReportPreflight({
                 )}
               </div>
               <dl className="report-meta-readout">
+                {/* Stichwort, Art and Ort first (owner, 18.09.2026): the block is what the Rapport
+                    was opened FOR, and with the three pages behind one tile the reader must see
+                    which Einsatz this is without going back to the Karte. */}
+                <div><dt>{P.stichwort}</dt><dd>{incident.title || <span className="report-meta-empty">{P.notRecorded}</span>}</dd></div>
+                {incident.type && <div><dt>{P.einsatzart}</dt><dd>{incident.type}</dd></div>}
+                <div><dt>{P.ort}</dt><dd>{incident.address || <span className="report-meta-empty">{P.notRecorded}</span>}</dd></div>
                 {/* The gateway hands us one field holding four different things (see
                     lib/alarmText). Shown verbatim it is mostly machinery — a marching order,
                     an object's notes, and a 300-character link this app minted itself — under
