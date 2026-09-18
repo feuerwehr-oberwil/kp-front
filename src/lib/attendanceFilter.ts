@@ -29,6 +29,20 @@ export function stateMatches(f: StateKey, a: AttendanceEntry | undefined): boole
   }
 }
 
+/** The state the «Nur Anwesende» quick filter means (18.09.2026).
+ *
+ *  ⚠️ It is `scene`, not `present`: the tick asks «wer steht jetzt hier», and somebody still at
+ *  the Magazin is not. It is deliberately ONE of the keys the state facet already offers rather
+ *  than a predicate of its own, so the quick filter and the ✓ row inside the funnel can never
+ *  come to disagree about what «Vor Ort» means. */
+export const PRESENT_STATE: StateKey = 'scene'
+
+/** The quick filter's predicate — one tap, no set, no facet. Composes with everything else by
+ *  ANDing, the way every other narrowing on this surface does. */
+export function isOnlyPresentMatch(a: AttendanceEntry | undefined): boolean {
+  return stateMatches(PRESENT_STATE, a)
+}
+
 /** Several picks inside ONE facet are an OR — «anwesend oder gegangen» is «wer war überhaupt
  *  da». ⚠️ An empty set is «alle», not «keine»: a filter nobody has touched must not hide the
  *  list it sits above. (Facets AND with each other — see AnwesenheitView · rows.) */

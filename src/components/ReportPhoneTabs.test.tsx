@@ -4,12 +4,12 @@
 // asserted here is the pair the CSS keys off — `data-phone-tab` on the body and `data-tab` on
 // each block — not pixels. That pair IS the mechanism: get it wrong and a section either never
 // appears or appears in all three tabs.
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./KrokiFramingPanel', () => ({ KrokiFramingPanel: () => null }))
 
-import { ReportPreflight } from './ReportPreflight'
+import { ReportPreflight, requestReportStep } from './ReportPreflight'
 
 // The Rapport asks whether it is on a phone (useIsPhone → matchMedia) to decide whether the
 // Kroki map may be mounted; jsdom implements no matchMedia. Pinned to «not a phone», which is
@@ -82,6 +82,32 @@ describe('Einsatzrapport · phone tabs', () => {
     const { body } = setup()
     fireEvent.click(screen.getByRole('button', { name: /Zu «Anwesenheit» springen/ }))
     await waitFor(() => expect(body().dataset.phoneTab).toBe('werwas'))
+  })
+
+  // ── the strip moved to the FOOT of the page on phones (19.09.2026) ──
+  // It is the same element and the same <Segmented> it always was; only 15-mobile.css changed,
+  // and jsdom applies no stylesheet. What IS testable — and what the dock depends on — is that
+  // the strip is a sibling of the scrolling body rather than a block inside it: a strip that
+  // scrolled with the page could not be pinned above the nav bar at all.
+  it('keeps the strip out of the scrolling body, so it can be docked', () => {
+    const { body } = setup()
+    const tabs = document.querySelector('.rp-tabs') as HTMLElement
+    expect(tabs).toBeTruthy()
+    expect(body().contains(tabs)).toBe(false)
+    expect(tabs.parentElement).toBe(body().parentElement)
+  })
+
+  // ⚠️ …and the jump from OUTSIDE the surface (the Abschluss confirm's rows, the Einsatz-Menü —
+  // see requestReportStep) still has to change tab before it scrolls. With the strip at the foot
+  // it is the same two beats it always was, and this is the path that queues while the surface
+  // is not even mounted.
+  it('an outside «zeig mir diesen Punkt» ask still carries the tab with it', async () => {
+    requestReportStep('anwesenheit')       // queued: nothing is mounted yet
+    const { body } = setup()
+    await waitFor(() => expect(body().dataset.phoneTab).toBe('werwas'))
+    // …and again with the surface standing, through the live listener
+    act(() => requestReportStep('kurzbericht'))
+    await waitFor(() => expect(body().dataset.phoneTab).toBe('bericht'))
   })
 
   // ⚠️ The same box carries WHAT WILL PRINT. The surface unmounts on every hop to

@@ -1,21 +1,21 @@
 // The Rapport GROUP — Rapport · Anwesenheit · Material — and the device-side memory of which of
 // the three this Einsatz was last left on. Pure and storage-injectable so the rules are
-// node-testable: components/PageSwitcher and NavRail own the pixels, this file owns the policy.
+// node-testable: NavRail owns the pixels (the tile and its chooser), this file owns the policy.
 //
 // Why a group at all: on a phone the bottom bar holds five tiles (18.09.2026), and these three
 // were the group that had to give two of them up. They stayed three ORDINARY, separate full
 // pages — folding Anwesenheit and Material into the Rapport as extra tabs was tried the same day
 // and thrown out: a whole surface mounted under the Rapport's own tab strip put three
 // navigations on one screen, one above the other. So the bar keeps ONE tile for the three, it
-// opens the page you were last on, and the switcher at the foot of all three moves between them
-// without a trip back up to the bar.
+// opens the page you were last on, and a second tap or a hold on it opens the list of three —
+// exactly the way the «Pläne» tile opens its documents (components/GroupChooser).
 
 /** One of the three pages the phone's «Rapport» tile stands for. These are `mode` values — the
  *  same ones the vertical rail sets with three tiles of its own. */
 export type RapportPage = 'rapport' | 'anwesenheit' | 'mittel'
 
 /**
- * The switcher's order: the Rapport first, then the two pages it is filled in from.
+ * The chooser's order: the Rapport first, then the two pages it is filled in from.
  *
  * ⚠️ The Rapport leads because it is the page the tile is NAMED after and the one the group is
  * about — the other two are where its numbers come from. It is also the stable anchor: whichever
@@ -24,7 +24,7 @@ export type RapportPage = 'rapport' | 'anwesenheit' | 'mittel'
 export const RAPPORT_PAGES: RapportPage[] = ['rapport', 'anwesenheit', 'mittel']
 
 /** Is this `mode` one of the three? Used both to light the bar's tile and to decide whether the
- *  switcher belongs on screen at all. */
+ *  chooser's rows can mark the page that is standing. */
 export function isRapportPage(mode: string): mode is RapportPage {
   return (RAPPORT_PAGES as string[]).includes(mode)
 }

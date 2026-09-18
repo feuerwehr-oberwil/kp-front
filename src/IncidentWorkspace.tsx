@@ -174,7 +174,6 @@ import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import type { NoteSize } from './types'
 import { ReportPreflight, requestReportStep } from './components/ReportPreflight'
-import { PageSwitcher } from './components/PageSwitcher'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
@@ -5216,26 +5215,9 @@ export function IncidentWorkspace({
         />
       ))}
 
-      {/* PHONE: the Rapport group's page switcher, docked above the bar on all three of its
-          pages (Rapport · Anwesenheit · Material). The bar carries ONE tile for the three, so
-          without this every switch between them is a trip back down to that tile and two taps.
-          See components/PageSwitcher — and 15-mobile.css · --pgsw-safe, which is how the three
-          surfaces, the FAB and the return pill make room for it. */}
-      {phoneFold && isRapportPage(mode) && (
-        <PageSwitcher
-          mode={mode}
-          onMode={(m) => { if (m !== mode) clearMapUi(); setMode(m) }}
-          presentCount={presentIds.size}
-          openCount={abschlussMissing.length}
-        />
-      )}
-
       {/* one-tap way back after a Rapport checklist row navigated here — without it, the
-          round trip went through the incident menu every time (feedback 2026-07-08).
-          ⚠️ Not on a phone with the switcher up: «Rapport» is a segment of that control, right
-          beside this pill and saying the same thing. Two floating doors to one destination,
-          stacked in the same thumb lane, is the pile-up the embedded tabs were rejected for. */}
-      {rapportReturn && !(phoneFold && isRapportPage(mode)) && (mode === 'anwesenheit' || mode === 'mittel') && (
+          round trip went through the incident menu every time (feedback 2026-07-08) */}
+      {rapportReturn && (mode === 'anwesenheit' || mode === 'mittel') && (
         <button
           type="button"
           className="rp-return"
@@ -5302,8 +5284,11 @@ export function IncidentWorkspace({
         fold={phoneFold}
         // …and with the Anwesenheit tile gone, its one number rides on the Rapport tile instead
         presentCount={presentIds.size}
-        // the tile is the door to the GROUP: it opens the page this device was last on
+        // the tile is the door to the GROUP: it opens the page this device was last on, and a
+        // second tap / a hold opens the list of three — which carries each page's live count
         rapportTarget={rapportTarget}
+        openCount={abschlussMissing.length}
+        mittelCount={mittelLineCount(mittel)}
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}
         azSeverity={azAlarm.peak}

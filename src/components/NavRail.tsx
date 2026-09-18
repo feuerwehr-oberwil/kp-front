@@ -5,10 +5,12 @@ import { fillTemplate } from '../lib/format'
 import type { RailLabels } from '../lib/prefs'
 import type { PlanDocument } from '../types'
 import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, foldPlanTiles, planGlyph } from '../lib/navRail'
+import { RAPPORT_PAGES, type RapportPage } from '../lib/rapportPages'
 import { useRail } from '../lib/useRail'
 import { useLongPress } from '../lib/useLongPress'
 import { buzz } from '../lib/haptics'
 import { PlanChooser } from './PlanChooser'
+import { GroupChooser, type GroupRow } from './GroupChooser'
 import { SURFACE_KEY } from '../lib/hotkeys'
 
 // precomposed Unicode fraction glyphs for combined-module monograms (clean proper fractions);
@@ -71,9 +73,10 @@ interface Props {
    *      the DOOR to the three of them. Five tiles remain: Karte · Pläne · Checkliste · Trupps ·
    *      Rapport, and they share the bar's width evenly.
    *  ⚠️ A door, not a container. All three stay ordinary separate full pages; moving between them
-   *  is the switcher docked at their foot (components/PageSwitcher). Folding the other two INTO
-   *  the Rapport as extra tabs was tried on 18.09. and thrown out the same day — a whole surface
-   *  under the Rapport's own tab strip stacked three navigations on one screen.
+   *  is a second tap or a hold on this tile, which opens the three (GroupChooser) — exactly the
+   *  way the «Pläne» tile opens its documents. Folding them INTO the Rapport as extra tabs was
+   *  tried on 18.09. and thrown out the same day: a whole surface mounted under the Rapport's own
+   *  tab strip stacked three navigations on one screen.
    *  The vertical rail (tablet/desktop) is a column with room for all of them and is unchanged:
    *  one tile per document, and Anwesenheit/Material keep tiles of their own. */
   fold?: boolean
@@ -86,7 +89,13 @@ interface Props {
   /** PHONE only: which of the three pages the «Rapport» tile opens — the one this device left
    *  the group on, else the first-open rule (lib/rapportPages · initialRapportPage). Defaults to
    *  the Rapport itself, which is what the tile is named after. */
-  rapportTarget?: 'rapport' | 'anwesenheit' | 'mittel'
+  rapportTarget?: RapportPage
+  /** PHONE only: how many of the Rapport's Mindestangaben are still open (lib/abschluss ·
+   *  missingSteps) — the read-out on its row of the page chooser, the same «{n} offen» its own
+   *  head carries. */
+  openCount?: number
+  /** PHONE only: how many distinct Mittel positions are recorded — the Material row's read-out */
+  mittelCount?: number
 }
 
 // The single left navigation rail: it switches the whole surface (Karte · the
@@ -101,6 +110,10 @@ interface Props {
 export function NavRail(p: Props) {
   const [expanded, setExpanded] = useState(false)
   const [chooser, setChooser] = useState(false)
+  /** …and the same list for the «Rapport» tile's three pages. Two booleans rather than one
+   *  «which chooser», because the two tiles are independent and a shared slot would let a stale
+   *  value decide which sheet a tap opens. */
+  const [pageChooser, setPageChooser] = useState(false)
   const nav = appConfig.copy.navRail
   // the phone bar's one plan tile — `null` with no plan documents at all, which is the rail's
   // existing empty state (no tile, and the separator above it is already conditional)
@@ -115,6 +128,27 @@ export function NavRail(p: Props) {
     || (!!p.fold && (p.mode === 'anwesenheit' || p.mode === 'mittel'))
   /** …and it opens the page this device was last on (see `rapportTarget`) */
   const rapportGo = (p.fold ? p.rapportTarget : undefined) ?? 'rapport'
+  /** The three rows behind it, in the group's own order (lib/rapportPages · RAPPORT_PAGES), each
+   *  with the glyph its rail tile wears and the one number that says whether there is anything
+   *  in it: «{n} offen» for the Rapport — the very count its own head shows — «{n} anwesend» for
+   *  the Anwesenheit, «{n} Positionen» for the Material. That read-out is the whole reason the
+   *  list is worth opening rather than guessing: it answers «where is the thing I came for». */
+  const P = appConfig.copy
+  // ⚠️ mapped over RAPPORT_PAGES, so the chooser's order and ⌘[/⌘]'s read it from one place
+  const pageRows: GroupRow[] = RAPPORT_PAGES.map((page) => ({
+    rapport: {
+      id: page, glyph: <Icon id="doc" />, title: P.modes.rapport,
+      meta: (p.openCount ?? 0) > 0 ? `${p.openCount} ${P.preflight.headStillOpen}` : undefined,
+    },
+    anwesenheit: {
+      id: page, glyph: <Icon id="people" />, title: P.modes.anwesenheit,
+      meta: (p.presentCount ?? 0) > 0 ? fillTemplate(P.anwesenheit.summary, { present: p.presentCount ?? 0 }) : undefined,
+    },
+    mittel: {
+      id: page, glyph: <Icon id="box" />, title: P.modes.mittel,
+      meta: (p.mittelCount ?? 0) > 0 ? fillTemplate(P.mittel.summary, { lines: p.mittelCount ?? 0 }) : undefined,
+    },
+  }[page]))
   // …and the second way into the list, for the hand that has learned press-and-hold everywhere
   // else in this app: a hold opens the chooser wherever you are standing, so reaching another
   // document never costs the trip through the one that happens to be loaded.
@@ -124,6 +158,11 @@ export function NavRail(p: Props) {
    *  that slid off) cannot swallow the next tap. */
   const held = useRef(false)
   const holdProps = hold.press(() => { held.current = true; buzz(); setChooser(true) })
+  /** …and its twin for the «Rapport» tile. One `useLongPress` instance serves both handles (only
+   *  one press is ever live), but the «already fired» flags are per tile: a hold on one must not
+   *  swallow the next tap on the other. */
+  const heldR = useRef(false)
+  const holdRapport = hold.press(() => { heldR.current = true; buzz(); setPageChooser(true) })
 
   const rail = useRail({
     varName: '--rail-w',
@@ -232,8 +271,8 @@ export function NavRail(p: Props) {
         </button>
         {/* ⚠️ Anwesenheit and Material have no tile of their OWN on the folded phone bar — the
             «Rapport» tile below is the door to all three (see `fold`). They are still separate
-            full pages there; the switcher at their foot moves between them. Everywhere else they
-            keep the tiles they have always had. */}
+            full pages there; a second tap or a hold on that tile chooses between them. Everywhere
+            else they keep the tiles they have always had. */}
         {!p.fold && (
           <button className={`nav-item${p.mode === 'anwesenheit' ? ' on' : ''}`} aria-pressed={p.mode === 'anwesenheit'} aria-label={appConfig.copy.modes.anwesenheit} onClick={() => p.onMode('anwesenheit')}>
             <span className="nav-glyph"><Icon id="people" /></span>
@@ -253,13 +292,28 @@ export function NavRail(p: Props) {
             framing modal opening on top of it — two dialogs deep. It carries R like every other
             surface carries its letter; what R used to do (Nach Norden) has the compass, which is
             on screen at all times and rotates to say so (see lib/hotkeys). */}
+        {/* ⚠️ On a folded bar this tile behaves EXACTLY like the «Pläne» tile above it, because
+            it is the same kind of thing: one tile standing for a group. A tap from another
+            surface opens the page you were last on; a second tap — you are already inside the
+            group — or a hold from anywhere opens the list of three. One mechanic, learned once,
+            for both of the bar's group tiles (see GroupChooser). */}
         <button
           className={`nav-item${rapportOn ? ' on' : ''}`}
           aria-pressed={rapportOn}
           /* the badge is a NUMBER, so it has to be said and not merely painted — a dot can be
              «there is something», a count cannot be read off a coloured circle */
           aria-label={rapportCount ? `${appConfig.copy.modes.rapport} · ${fillTemplate(appConfig.copy.anwesenheit.summary, { present: rapportCount })}` : appConfig.copy.modes.rapport}
-          onClick={() => p.onMode(rapportGo)}
+          aria-haspopup={p.fold ? 'dialog' : undefined}
+          {...(p.fold ? { 'data-holdaction': true as const } : null)}
+          onPointerDown={(e) => { heldR.current = false; if (p.fold) holdRapport.onPointerDown(e) }}
+          onClick={() => {
+            if (heldR.current) { heldR.current = false; return } // the hold already answered
+            // standing outside the group: go to the page that was last open, never via a list
+            if (!rapportOn) { p.onMode(rapportGo); return }
+            // already inside it: the tile's second job is the choice between the three
+            if (p.fold) setPageChooser(true)
+            else p.onMode('rapport')
+          }}
         >
           <span className="nav-glyph">
             <Icon id="doc" />
@@ -279,6 +333,17 @@ export function NavRail(p: Props) {
       </div>
 
       {p.trailing}
+
+      {pageChooser && folded && (
+        <GroupChooser
+          title={nav.pageGroup}
+          rows={pageRows}
+          // from outside the group (a hold on Karte) the marked row is the one a tap would open
+          activeId={rapportOn ? p.mode : rapportGo}
+          onPick={(id) => p.onMode(id as RapportPage)}
+          onClose={() => setPageChooser(false)}
+        />
+      )}
 
       {chooser && folded && (
         <PlanChooser

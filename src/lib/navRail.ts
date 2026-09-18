@@ -146,7 +146,7 @@ export function foldPlanTiles(docs: PlanDocument[], activeId: string): FoldedPla
  * that was reverted the same day). What the fold changes is only the ORDER, because it changes
  * what the rail looks like: the phone bar's fifth tile is the Rapport, and it is the door to the
  * group Anwesenheit and Material now hang off — so the step walks Rapport → Anwesenheit →
- * Material, the order of the switcher at the foot of those three pages. The vertical rail still
+ * Material, the order of that tile's own chooser (components/GroupChooser). The vertical rail still
  * shows Anwesenheit and Material as tiles above the Rapport, and steps in that order.
  */
 export type NavStop =

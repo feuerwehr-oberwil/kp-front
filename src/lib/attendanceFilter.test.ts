@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchesAny, stateMatches, toggled } from './attendanceFilter'
+import { isOnlyPresentMatch, matchesAny, PRESENT_STATE, stateMatches, toggled } from './attendanceFilter'
 import type { AttendanceEntry } from '../types'
 
 const entry = (over: Partial<AttendanceEntry> = {}): AttendanceEntry =>
@@ -55,5 +55,25 @@ describe('toggled', () => {
     expect([...b].sort()).toEqual(['of', 'wm'])
     expect([...toggled(b, 'of')]).toEqual(['wm'])
     expect([...a]).toEqual(['of']) // the state is the set — it is never mutated in place
+  })
+})
+
+/* «Nur Anwesende» (18.09.2026) — the one-tap ✓ in the search row. It is not a predicate of its
+ * own: it is the `scene` key the state facet already offers, so the quick filter and the ✓ row
+ * inside the funnel cannot come to disagree about what «Vor Ort» means. */
+describe('isOnlyPresentMatch — the quick filter means «Vor Ort», not «irgendwie erfasst»', () => {
+  it('is exactly the state facet’s «Vor Ort» key', () => {
+    expect(PRESENT_STATE).toBe('scene')
+  })
+
+  it('keeps somebody who is here', () => {
+    expect(isOnlyPresentMatch(entry({ status: 'present' }))).toBe(true)
+    expect(isOnlyPresentMatch(entry({ status: 'present', ort: 'scene' }))).toBe(true)
+  })
+
+  it('drops the Magazin, the gegangenen and everybody never ticked', () => {
+    expect(isOnlyPresentMatch(entry({ status: 'present', ort: 'station' }))).toBe(false)
+    expect(isOnlyPresentMatch(entry({ status: 'left' }))).toBe(false)
+    expect(isOnlyPresentMatch(undefined)).toBe(false)
   })
 })

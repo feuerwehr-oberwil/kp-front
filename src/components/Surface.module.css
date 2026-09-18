@@ -53,14 +53,14 @@
    title. Above this breakpoint the rail is at the left and the surfaces leave room for it; below
    it the rail is a bottom bar and the surfaces take the full width. */
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
-  /* ⚠️ `--pgsw-safe` is the Rapport group's page switcher (Rapport · Anwesenheit · Material),
-     which is docked above the nav bar on exactly those three pages and is fixed rather than part
-     of any of them — so the surface has to leave room for it or its last row, and the «+» FAB
-     above it, sit behind the control. 0 everywhere else. Set in 15-mobile.css, where the number
-     and its arithmetic live. */
+  /* ⚠️ `--rp-tabs-safe` is the Rapport's own tab strip (Bericht · Personal & Mittel · Beilagen),
+     which is docked above the nav bar on a phone and is FIXED rather than part of the page — so
+     the surface has to leave room for it, or its «Drucken / Abschliessen» row and the «+» FAB
+     above it sit behind the strip. 0 on every other surface and at every other width. Set in
+     15-mobile.css, where the number and its arithmetic live. */
   :where(.shell) {
     inset: calc(78px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
-      calc(var(--rail-h) + 18px + var(--pgsw-safe, 0px) + env(safe-area-inset-bottom))
+      calc(var(--rail-h) + 18px + var(--rp-tabs-safe, 0px) + env(safe-area-inset-bottom))
       max(8px, env(safe-area-inset-left));
   }
 }

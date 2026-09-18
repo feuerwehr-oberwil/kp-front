@@ -2873,6 +2873,7 @@ export const fr: Localizable<Copy> = {
     conflictLeft: '{name} est enregistré comme «parti».',
     presentOnlyOn: 'Présents seulement – toucher pour toute la troupe',
     presentOnlyOff: 'Toute la troupe – toucher pour les présents seulement',
+    onlyPresent: 'Présents seulement',
     rankFilterLabel: 'Filtrer par grade',
     rankAll: 'Tous',
     backAgain: 'De retour',
