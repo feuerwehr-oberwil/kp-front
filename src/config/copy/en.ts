@@ -804,7 +804,6 @@ export const en: Localizable<Copy> = {
       circle: 'Cordon circle',
     },
   },
-  toolBar: { locate: 'Location' },
   addSheet: { tile: 'Add', tools: 'Draw & crew' },
   toolDock: {
     colorGroup: 'Colour',
@@ -2589,7 +2588,6 @@ export const en: Localizable<Copy> = {
     rueckmeldungName: 'Name',
     rueckmeldungZeit: 'Time of report to control room',
     title: 'Incident report',
-    headCounts: '{n} people · {m} items',
     headAllRecorded: 'all details recorded',
     headStillOpen: 'open',
     tabsLabel: 'Part of the report',

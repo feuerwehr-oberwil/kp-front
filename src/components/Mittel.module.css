@@ -165,7 +165,6 @@
   .head { padding: 10px 14px; gap: 6px 10px; flex-wrap: wrap; }
   .headTitles { flex: 1 1 120px; }
   .headActions { flex: none; }
-  .headTitles h2 { font-size: 17px; }
   .headTitles p { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .composerFields { gap: 10px; }
   .field { flex: 1 1 100%; }

@@ -806,7 +806,6 @@ export const fr: Localizable<Copy> = {
       circle: 'Cercle de barrage',
     },
   },
-  toolBar: { locate: 'Position' },
   addSheet: { tile: 'Ajouter', tools: 'Dessin & équipe' },
   toolDock: {
     colorGroup: 'Couleur',
@@ -2586,7 +2585,6 @@ export const fr: Localizable<Copy> = {
     rueckmeldungName: 'Nom',
     rueckmeldungZeit: 'Heure du retour à la centrale',
     title: 'Rapport d’intervention',
-    headCounts: '{n} personnes · {m} positions',
     headAllRecorded: 'toutes les données saisies',
     headStillOpen: 'ouvert',
     tabsLabel: 'Partie du rapport',

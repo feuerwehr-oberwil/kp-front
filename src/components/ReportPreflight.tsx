@@ -1267,7 +1267,6 @@ export function ReportPreflight({
    * overlap and a tap between «Zeiten» and «Kurzbericht» becomes a coin flip. One control can be
    * 44px; four in a wrapped strip cannot. */
   const narrowHead = useMediaQuery('(max-width: 860px)')
-  const headCounts = fillTemplate(P.headCounts, { n: attendanceCount, m: mittelCount })
 
   // «Einsatz abschliessen» is bookkeeping, not the artefact: it stamps report_done_at and
   // archives. The PDF is its own (primary) action — decoupled by decision 2026-07-08 after
@@ -1400,14 +1399,17 @@ export function ReportPreflight({
         <header className="rp-head">
           <div className="rp-head-titles">
             <h2>{P.title}</h2>
-            {/* ⚠️ NOT one sentence. As «5 Personen · 2 Positionen · noch offen: Kurzberi…» the
-                line truncated away the only part of itself worth reading — what is still
-                missing was the first thing to go, because it sits at the end. The counts are a
-                read-out and stay one line; what is OPEN is a set, so it is a set of chips that
-                wrap onto a second row and are named in full however many there are. */}
+            {/* What is still OPEN, as chips that wrap onto a second row and are named in full
+                however many there are — never one truncating sentence, which cut off the only
+                part of itself worth reading. The «n Personen · m Positionen» read-out that led
+                this line is gone (19.09.2026): both numbers are stated on their own rows two
+                thumb-lengths down, and on the «Einsatz» tile's page list, and under a title they
+                were a second line for nothing. ⚠️ The line is not rendered EMPTY: on a narrow
+                head the open steps ride in the actions row instead, and an empty <p> still takes
+                its margin. */}
+            {(missing.length === 0 || !narrowHead) && (
             <p className="rp-head-sum">
-              <span className="rp-head-counts">{headCounts}</span>
-              {missing.length > 0 && !narrowHead ? (
+              {missing.length > 0 ? (
                 <span className="rp-head-open">
                   <span className="rp-head-open-k">{P.headStillOpen}</span>
                   {/* each chip JUMPS to the thing it names — see jumpToStep */}
@@ -1420,10 +1422,11 @@ export function ReportPreflight({
                     >{A.steps[s]}</button>
                   ))}
                 </span>
-              ) : missing.length === 0 ? (
+              ) : (
                 <span className="rp-head-done"><Icon id="check" />{P.headAllRecorded}</span>
-              ) : null}
+              )}
             </p>
+            )}
           </div>
           {/* The controls sit HERE, with the other surfaces' controls, and the readiness state
               rides with them — that pairing is not decoration. A warning about the record (a

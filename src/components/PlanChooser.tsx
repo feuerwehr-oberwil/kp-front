@@ -34,7 +34,9 @@ export function PlanChooser({ docs, activeId, onPick, onClose }: {
         const g = planGlyph(d)
         return {
           id: d.id,
-          glyph: 'mono' in g ? <span className="nav-mono-chip">{g.mono}</span> : <Icon id={g.icon} />,
+          // ⚠️ the letter count rides on the chip: the box is a fixed square and CSS cannot count
+          // characters, so «RWA» at the digit's size painted straight through its own border
+          glyph: 'mono' in g ? <span className="nav-mono-chip" data-mono-len={g.mono.length}>{g.mono}</span> : <Icon id={g.icon} />,
           // the plan's own name as the station calls it («Modul 1», «RWA», «Gebäude») — the same
           // word the rail wears. What a Modul holds differs per station and they know it best;
           // the catalogue's description only made every row two lines (18.09.2026).

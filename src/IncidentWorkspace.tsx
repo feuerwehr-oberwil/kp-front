@@ -5324,23 +5324,16 @@ export function IncidentWorkspace({
             />
           )}
 
-          {/* PHONE: the map's own read-out and its own control float top-right, on the map they
-              are about — the wind, and the multi-purpose compass (live bearing · Nach Norden ·
-              Einpassen · Standort · saved framings). The compass lived here until 05.08.2026,
-              moved to the tool bar for ONE reason that still holds and one that does not: it had
-              two homes (an editor found it floating, a read-only session in the bar), and that is
-              fixed the other way round now — on a phone it is HERE for every session, and the
-              bar's footer does not render one (so there is still exactly one MapViewsButton, and
-              one portalled menu). What changed is the bar: it is four wide tiles now
-              (lib/toolFold), and a control used a few times an Einsatz does not earn a quarter of
-              the thumb lane. The wind stays out of a read-only session's cluster: that top bar
-              has the room for it (.slim-tools .topbar .tb-weather-wrap). */}
-          {isPhone && (
+          {/* phone: the wind read-out floats top-right under the bar — the top bar clipped it at
+              the screen edge (that bar already carries switcher · Einsatzuhr · undo/redo ·
+              Verlauf). NOT on a read-only surface: there the top bar has room for the weather
+              (measured: 96px free with no undo/redo/Eintrag). The compass is NOT up here: it sits
+              in the tool bar, beside Ebenen, where the map's other controls are (05.08.2026). It
+              floated here again for one day (18.09.) and came back down — above the bar its menu
+              opened half a screen away from the thumb that asked for it. */}
+          {isPhone && !slimRail && displayWeather?.wind_dir_deg != null && (
             <div className="phone-wx">
-              {!slimRail && displayWeather?.wind_dir_deg != null && (
-                <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} />
-              )}
-              <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="util" btnClassName="pc-btn" activeClassName="on" glyphClassName="pc-glyph" open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
+              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} />
             </div>
           )}
 
@@ -5857,14 +5850,7 @@ export function IncidentWorkspace({
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
                     framings · Ansicht speichern). */}
-                {/* PHONE: «Mein Standort» is the bar's fifth tile (18.09.2026). «Wo bin ich» is the one
-                    map question a phone answers better than the tablet at the command post, and it
-                    was two taps deep in the compass menu — where the row stays, so nobody who
-                    learned it there loses it. A one-shot, like every button in this footer: it
-                    takes a fix and flies to it, and has no state to be lit in. */}
-                {isPhone && <button className="vrail-nbtn vrail-locate" title={appConfig.copy.mapViews.locate} aria-label={appConfig.copy.mapViews.locate} onClick={() => viewsApi.onLocate()}><span className="vrail-glyph"><Icon id="locate" /></span><span className="vrail-label">{appConfig.copy.toolBar.locate}</span></button>}
-                {/* …except on a PHONE, where it floats on the map instead (.phone-wx, above) */}
-                {!isPhone && <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />}
+                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
                 {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px). Every touch form
                     factor pinches, and on a tablet the two buttons cost rail space that the
                     tools above need more. */}

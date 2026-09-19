@@ -205,7 +205,6 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   /* (the full-width inset is the shared shell's — Surface.module.css) */
   .head { padding: 10px 14px; gap: 10px; align-items: center; }
-  .headTitles h2 { font-size: 17px; }
   /* keep the counts on a single line so the header stays short (was wrapping to 4 lines and
      ballooning the header); the action buttons collapse to icons to free the width for it */
   /* ⚠️ The counts are never cut. «13 anwesend · 2 gegange…» is the one line this panel exists

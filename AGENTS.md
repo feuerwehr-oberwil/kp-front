@@ -683,9 +683,8 @@ to prod.
     hooks already do), so the global hold-tooltip never claims it and asking «what is this»
     can never also do it.
 - **The phone's two bottom bars hold what 360px holds without scrolling** (18.09.2026) — five wide tiles at most, never a scrolling lane whose only cue is a fade.
-  - *Tool bar:* `Auswahl · + Hinzufügen · Messen | Standort · Ebenen` (Plan: `… | Einpassen`).
-    «Standort» is the one-shot «Mein Standort» (a fix, then fly to it) — the map question a phone
-    answers best; its row stays in the compass menu too. **«+» is the
+  - *Tool bar:* `Auswahl · + Hinzufügen · Messen · Ansichten · Ebenen` (Plan: `… · Einpassen`) —
+    five even tiles and NO hairline between the tools and the pinned controls. **«+» is the
     one door to everything that is PUT ON the surface**: Linie · Fläche · Absperrkreis · Notiz ·
     Trupp are the first section of its sheet (`components/Palette` · `tools`, `lib/toolFold`),
     above the symbols and Formen, and search finds them by their word. «+» ALWAYS opens the sheet
@@ -694,10 +693,16 @@ to prod.
     and the door to Mehrfach (a two-member pair flips on the second tap; anything larger gets a
     list, never a cycle). Add a tool that places something ⇒ add its id to `ADD_TOOLS`, in BOTH
     spellings if the Karte and the Plan name it differently.
-  - *The Karte's compass floats top-right on the map* (`.phone-wx`, beside the wind), for EVERY
-    phone session incl. read-only, and the bar's footer renders none there — one home, one
-    `MapViewsButton`, one portalled menu. (It lived in the bar 05.08.–18.09.2026; the «two homes»
-    that move fixed is fixed this way round now.)
+  - *The compass lives in the BAR, beside Ebenen* (05.08.2026). It floated top-right on the map
+    for one day (18.09.) and came back: up there its menu opened half a screen from the thumb that
+    asked for it. «Mein Standort» is a row of that menu, not a tile of its own (also tried 18.09.).
+  - *ONE page-title size*: `--head-title` is 17px on a phone, set as the TOKEN in `15-mobile.css`
+    — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
+    19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;
+    the «n Personen · m Positionen» line under it is gone (19.09.2026).
+  - *A monogram chip is a fixed square and its TEXT gives* (`data-mono-len` on the chip; the
+    rail's tiles and the `GroupChooser` rows each restate the steps) — «RWA» never paints through
+    its own border.
   - *Nav bar:* «Pläne» and «Einsatz» each stand for a group: a tap goes to the last-used member,
     a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
     unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).

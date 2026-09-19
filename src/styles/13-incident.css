@@ -1305,7 +1305,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    need one, which on a head that is already allowed to wrap costs nothing. */
 .rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
   font-size: var(--head-sub); color: var(--ink-dim); min-width: 0; }
-.rp-head-counts { white-space: nowrap; }
 .rp-head-done { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .rp-head-done svg { width: 13px; height: 13px; }
 /* Amber, not red: nothing here is wrong, it is simply not written yet — and --accent is the

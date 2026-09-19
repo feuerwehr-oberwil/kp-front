@@ -1123,7 +1123,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   /* header: tighter, the title truncates instead of running under the create button, and
      the button shrinks to an icon-only circle so the two never collide on a narrow screen */
   .head { padding: 12px 14px; gap: 10px; }
-  .headTitles h2 { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .headTitles h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .newBtn { flex: none; width: 44px; padding: 0; justify-content: center; }
   .newBtn span { display: none; }
   /* the overdue badge is critical — keep it fully informative; the title truncates to make room */
