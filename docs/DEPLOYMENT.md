@@ -407,15 +407,18 @@ ausserhalb des Einsatzbetriebs auslösen."*
 
 Two things back that doctrine beyond "please don't":
 
-- **The app itself never reloads a running session out from under an operator.** The in-app
-  update banner only *announces* a new build – it never applies one in place. A fresh deploy
+- **The app itself never reloads a running session out from under an operator.** A fresh deploy
   installs and waits (`registerType: 'prompt'`, `vite.config.ts`); the only automatic, no-prompt
   activation happens in the boot window right after a page loads, before any interaction – there
   is nothing running yet to interrupt. Once someone is mid-session, a waiting build is only ever
-  surfaced as the calm «Update verfügbar» message and becomes active on the operator's own next
-  full close-and-reopen; the in-place "Neu laden" was deliberately removed (unreliable
-  activation on iOS standalone). This is enforced in code, not merely by convention –
-  [`src/lib/swUpdate.ts`](../src/lib/swUpdate.ts) and
+  surfaced as the calm «Update verfügbar» message, and nothing happens until a person decides:
+  either the next full close-and-reopen, or – since 16.09.2026, everywhere but iOS – one tap on
+  **«Jetzt aktualisieren»** in that banner or beside the build stamp at the foot of the menu.
+  The button exists because closing the app is not always enough: a waiting build activates only
+  once *every* client of the origin is gone, and a forgotten browser tab on the same site keeps
+  the old one alive. iOS keeps the restart wording – the in-place path wedges in iOS standalone
+  (the reason it was removed for everybody on 2026-07-09). This is enforced in code, not merely
+  by convention – [`src/lib/swUpdate.ts`](../src/lib/swUpdate.ts) and
   [`src/components/UpdateBanner.tsx`](../src/components/UpdateBanner.tsx).
 - **A published tag has already passed the whole gate.** `.github/workflows/release.yml` builds
   the image only after `needs: gate` on the complete `.github/workflows/ci.yml` suite for that

@@ -383,6 +383,35 @@ flowchart LR
   group; the published image ships it, and a build without it answers 503 on the worker's
   behalf and keeps the manual flow.
 
+### Floor packs and `§` markers – a PDF that says what it is
+
+A building plan (Modul 6) is usually one PDF holding several storeys, and the Gebäude surface
+wants them as a stack. A revision with rows in `plan_page_floors` is a **floor pack**: each row
+is one Geschoss – a signed `floor_index` (0 = the reference level; vertical order, never a
+height), the `page` it is drawn on, an optional `clip` when one A1 sheet carries several
+storeys, and a `join`: the point pair that lines this drawing up on another storey's (the
+staircase, on both). A storey drawn in several pieces – two wings of one 1. OG – is several
+rows (`part`), each with its own region and join. **One map fit per PDF:** it is measured on
+the level-0 page and reaches every other storey through the joins. Rows are keyed by the exact
+revision, so an incident that pinned version N keeps N's floors after a replacement; Kroki and
+the printed Rapport render the named page of a pack, not page one.
+
+Two ways to make a pack. By hand in `/admin` → Objektpläne → the object's editor → Geschosse.
+Or the plan author states it **on the sheet**: small text tags starting with `§` – `§EG`,
+`§1OG`, `§[EG … §EG]` corner pairs for a region, `§GEO <E> <N>` for a known coordinate. The
+alignment worker reads them on every new revision, whichever import path stored it, and writes
+the pack; an admin's later corrections survive a re-export. Two `§GEO` points are the author's
+own statement of where the building stands, so that fit goes **straight to approved** – through
+the same gate as «Freigeben» (`app/plan_approval.py`, actor «markers», audit row); «Freigabe
+zurücknehmen» returns it to the wall. An export that is wrong says so: coded warnings
+(`corner_missing`, `no_level_zero`, `geo_single`, …) are stored on the alignment row, the object
+reads «Marker unvollständig», and the editor names each problem in one sentence.
+
+The tag grammar, the icon set and two sample sheets are in
+[`plan-markers/README.md`](plan-markers/README.md) – written in German, for the person drawing
+the plan. `just plan-markers <pdf>` is their dry run: it prints what the server would read,
+and the same warnings, without importing anything.
+
 ## How you know it ran — and today, mostly you don't
 
 ⚠️ **Known limitation, stated because a scheduled job that fails quietly is worse than one that

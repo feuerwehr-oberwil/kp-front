@@ -29,7 +29,20 @@ from sqlalchemy import delete, select
 from .auth.router import revoke_sessions
 from .auth.security import hash_pin
 from .database import async_session_maker
-from .models import DeploymentConfig, DiveraEmergency, Incident, JournalEntry, ObjectSite, Personnel, User
+from .models import (
+    DeploymentConfig,
+    DiveraEmergency,
+    Incident,
+    JournalEntry,
+    ObjectSite,
+    Personnel,
+    PlanAlignment,
+    PlanAlignmentEvent,
+    PlanPageFloor,
+    PlanRevision,
+    ReferenceDataset,
+    User,
+)
 from .personnel import format_name
 
 logger = logging.getLogger(__name__)
@@ -550,7 +563,22 @@ async def reset(wipe_objects: bool = True) -> None:
         # an ObjectSite cascades to its plan datasets; the geo: reference layers (object_id NULL)
         # are untouched and get re-pushed by the reset script. Skipped in-process (wipe_objects=
         # False), where nothing reloads them — see the reset() docstring.
+        # ⚠️ `plan_revisions.dataset_id` is ON DELETE RESTRICT: the cascade from an object to its
+        # plan datasets aborts the whole reset while one sheet still has a revision – and since
+        # 0.11.0 every stored sheet has one. Children first (20.09.2026: the nightly reset had
+        # failed on exactly this for a week, and the demo kept a week of visitors' edits).
         if wipe_objects:
+            plan_rows = select(ReferenceDataset.id).where(ReferenceDataset.object_id.is_not(None))
+            alignments = select(PlanAlignment.id).where(PlanAlignment.dataset_id.in_(plan_rows))
+            await db.execute(
+                delete(PlanAlignmentEvent)
+                .where(PlanAlignmentEvent.alignment_id.in_(alignments))
+                .execution_options(synchronize_session=False)
+            )
+            for model in (PlanAlignment, PlanPageFloor, PlanRevision):
+                await db.execute(
+                    delete(model).where(model.dataset_id.in_(plan_rows)).execution_options(synchronize_session=False)
+                )
             await db.execute(delete(ObjectSite))
         # Clear any prior/taken alarms so the demo lands with NO incoming-alarm waiting — just
         # the one running incident below (decision 2026-07-20: the take-flow banner cluttered the
