@@ -727,6 +727,12 @@
 
   /* confirm dialog stays centred but fits the narrow screen with safe-area gutters */
   .confirm-card { width: min(420px, calc(100vw - 24px)); }
+  /* ⚠️ The action row could neither shrink nor wrap, and it is right-aligned – so a long confirm
+     label («Anderes Gebäude wählen», 20.09.2026) overflowed to the LEFT and pushed «Abbrechen»
+     through the card's padding into its corner curve. On a phone the buttons share the row, and
+     when they do not fit the confirm takes the line ABOVE (wrap-reverse), each the full width. */
+  .confirm-actions { flex-wrap: wrap-reverse; }
+  .confirm-actions .ip-btn { flex: 1 1 auto; }
   /* symbol search → bottom sheet (the grid is tall; bottom-aligning keeps the search
      field + close reachable). Symbol picking is editor-only so this is rare on a phone. */
   .modal-backdrop:not(.confirm-backdrop) { place-items: end center; }
