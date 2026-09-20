@@ -20,6 +20,8 @@ export type HoldAnchor = { top: number; right: number; bottom: number; width: nu
 
 /** how long a «Foto» that could not open the camera waits for its confirming tap */
 export const STICKY_MS = 6000
+/** …and how long after `input.click()` the page is looked at to see whether a picker opened */
+export const PICKER_CHECK_MS = 500
 
 /**
  * May a file picker be opened RIGHT NOW? `input.click()` needs transient user activation, and a
@@ -124,15 +126,14 @@ export function useHoldEntry(opts: {
     // second call.
     detach.current?.()
     const up = () => end(false)
-    const touchUp = () => end(false, true)
     const cancel = () => end(true)
     window.addEventListener('pointerup', up, true)
     window.addEventListener('pointercancel', cancel, true)
-    window.addEventListener('touchend', touchUp, true)
+    window.addEventListener('touchend', up, true)
     detach.current = () => {
       window.removeEventListener('pointerup', up, true)
       window.removeEventListener('pointercancel', cancel, true)
-      window.removeEventListener('touchend', touchUp, true)
+      window.removeEventListener('touchend', up, true)
     }
 
     if (opts.recording) return // a press while recording just stops it on release
@@ -169,27 +170,29 @@ export function useHoldEntry(opts: {
   const onPointerCancel = () => end(true)
   const onPointerUp = () => end(false)
 
-  /** Release over «Foto». The camera opens only with activation (canOpenPicker); a pointerup
-   *  without it gives the touchend that follows one chance to bring it, and otherwise the
-   *  chooser stays for the confirming tap rather than the gesture ending in nothing. */
-  const releasePhoto = (viaTouchEnd: boolean) => {
+  /**
+   * Release over «Foto». ⚠️ Whether the camera may open cannot be ASKED, only observed: on the
+   * iPhone `navigator.userActivation.isActive` is true at this point and `input.click()` is
+   * refused all the same (field report 20.09.2026, after the first fix trusted the flag) – WebKit
+   * wants a TAP for a file picker, and a slid touch is not one. So the camera is tried, and then
+   * the page is looked at: a picker that opened takes the focus or hides the document; a page
+   * still standing there untouched means nothing opened, and the chooser stays lit on «Foto» for
+   * the confirming tap. The chooser is left up for that beat either way, so nothing flickers.
+   * A browser that says outright it will refuse is not even tried.
+   */
+  const releasePhoto = () => {
     const fire = opts.onHoldPhoto
     if (!fire) return
-    if (canOpenPicker()) { fire(); return }
-    if (viaTouchEnd) { stick(); return }
-    let settled = false
-    const settle = () => {
-      if (settled) return
-      settled = true
-      window.removeEventListener('touchend', settle, true)
-      if (canOpenPicker()) { unstick(); fire() } else stick()
-    }
-    window.addEventListener('touchend', settle, true)
-    window.setTimeout(settle, 80)
+    if (!canOpenPicker()) { stick(); return }
+    fire()
+    window.setTimeout(() => {
+      if (document.hasFocus() && document.visibilityState === 'visible') stick()
+      else unstick()
+    }, PICKER_CHECK_MS)
   }
 
   /** `fromCancel` — no click is coming, so a plain tap has to be settled here. */
-  const end = (fromCancel: boolean, viaTouchEnd = false) => {
+  const end = (fromCancel: boolean) => {
     if (!holding.current) return
     holding.current = false
     detach.current?.(); detach.current = null
@@ -201,13 +204,13 @@ export function useHoldEntry(opts: {
       latchedRef.current = false
       const pick = hoverRef.current
       const photo = pick === 'photo' && !!opts.onHoldPhoto
-      // a «Foto» keeps the chooser's anchor until it is known whether the camera may open
-      if (!photo || canOpenPicker()) { setLatched(false); setHoverTarget(null); setAnchor(null) }
+      // a «Foto» keeps the chooser up until it is known whether the camera opened (releasePhoto)
+      if (!photo) { setLatched(false); setHoverTarget(null); setAnchor(null) }
       resolved.current = true
       // THIS is where a HOLD acts — one outcome, chosen by where the finger let go. Anything
       // that is not one of the two options (the ✕, the gap, off-screen) does NOTHING: a hold
       // you thought better of has to be abandonable without leaving a recording behind.
-      if (photo) releasePhoto(viaTouchEnd)
+      if (photo) releasePhoto()
       else if (pick === 'audio') opts.onHoldStart()
       return
     }

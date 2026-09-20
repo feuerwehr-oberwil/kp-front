@@ -2631,6 +2631,7 @@ export const de = {
     ghostTrailTitle: 'Spur von {name}',
     ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur löschen?',
     ghostTrailRestore: 'Trupp wieder platzieren',
+    ghostTrailRestored: '{name} wieder platziert – Spur übernommen',
     textPlaceholder: 'Notiz …',
     blankHint: 'Leeres Blatt – mit Linie, Fläche, Notiz, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',

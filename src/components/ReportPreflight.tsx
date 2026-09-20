@@ -1267,6 +1267,8 @@ export function ReportPreflight({
    * overlap and a tap between «Zeiten» and «Kurzbericht» becomes a coin flip. One control can be
    * 44px; four in a wrapped strip cannot. */
   const narrowHead = useMediaQuery('(max-width: 860px)')
+  /** narrow head: what is still open rides inside the Kontrolle popover instead of a second chip */
+  const openInControl = narrowHead && missing.length > 0
 
   // «Einsatz abschliessen» is bookkeeping, not the artefact: it stamps report_done_at and
   // archives. The PDF is its own (primary) action — decoupled by decision 2026-07-08 after
@@ -1436,27 +1438,11 @@ export function ReportPreflight({
               bottom of a scrolling form would be exactly the failure the never-behind-a-fold rule
               prevents; they move together or not at all. */}
           <div className="rp-head-actions">
-            {/* Same row as the archive and print buttons — the head has one line of controls and
-                this belongs on it, not above it. Only rendered where the chips would wrap. */}
-            {narrowHead && missing.length > 0 && (
-              <Menu
-                trigger={
-                  <button type="button" className="rp-head-open-menu"
-                    aria-label={`${missing.length} ${P.headStillOpen}`} title={`${missing.length} ${P.headStillOpen}`}>
-                    <Icon id="warn" />
-                    <span className="rp-head-open-menu-label">{missing.length} {P.headStillOpen}</span>
-                    <Icon id="chevron-down" className="chev" />
-                  </button>
-                }
-                popupClassName="rp-print-menu"
-                itemClassName={() => 'rp-print-menu-item'}
-                items={missing.map((s) => ({
-                  label: A.steps[s],
-                  // the same jump the chip made — one control, same destinations
-                  onClick: () => jumpToStep(s),
-                }))}
-              />
-            )}
+            {/* ⚠️ ONE amber chip on a narrow head (20.09.2026). «n offen» used to be a Menu of its
+                own beside the Kontrolle chip – two warning triangles side by side, each truncated to
+                «⚠ 1…», and nothing to say which was which. What is still open is now the first
+                block of the Kontrolle popover, and the chip counts both. On a wide head the open
+                steps are chips of their own under the title, as before. */}
             {/* The chip appears ONLY when something is wrong. A green «Alles bereit» spent a
                 control on the most contested row of the surface to announce that nothing had
                 happened — and the line under the title already says whether the Angaben are
@@ -1483,7 +1469,7 @@ export function ReportPreflight({
                 were cut off the left of the screen, hard-clipped by the surface's `overflow: hidden`.
                 Portalled + collision-aware, the panel is clamped to the viewport instead of to the
                 chip, so no breakpoint has to guess which way it should open. */}
-            {!checking && !controlOk && (
+            {((!checking && !controlOk) || openInControl) && (
               <Popover
                 open={controlOpen}
                 onOpenChange={setControlOpen}
@@ -1492,10 +1478,22 @@ export function ReportPreflight({
                 trigger={(
                   <button type="button" className={cx('rp-state', 'warn')} title={P.controlHead}>
                     <Icon id="warn" />
-                    <span className="rp-state-label">{fillTemplate(P.controlOpen, { n: warnCount })}</span>
+                    <span className="rp-state-label">{fillTemplate(P.controlOpen, { n: (checking ? 0 : warnCount) + (openInControl ? missing.length : 0) })}</span>
                   </button>
                 )}
               >
+                {openInControl && (
+                  <div className="rp-control-open">
+                    <div className="rp-control-open-head">{missing.length} {P.headStillOpen}</div>
+                    {missing.map((st) => (
+                      // the same jump the chip under the title makes — one control, same destinations
+                      <button key={st} type="button" className="rp-control-step"
+                        onClick={() => { setControlOpen(false); jumpToStep(st) }}>
+                        <span>{A.steps[st]}</span><Icon id="chevron" />
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {missTx > 0 && (
                   <p className="report-pre-warn">
                     <Icon id="warn" /> <span>{fillTemplate(P.missingTranscripts, { n: missTx })}</span>

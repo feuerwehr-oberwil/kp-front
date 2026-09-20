@@ -22,11 +22,16 @@
    part of it is missing here) can sit directly above the buttons it qualifies. */
 .wb-osm-barwrap { position: fixed; left: 50%; bottom: 58px; transform: translateX(-50%); z-index: var(--z-help-scrim);
   display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.wb-osm-bar { display: flex; align-items: center; gap: 8px; padding: 7px 8px; background: var(--glass);
-  border: 1px solid var(--glass-line); border-radius: var(--r-pill); box-shadow: var(--shadow); backdrop-filter: blur(16px); }
+/* ⚠️ The house shapes, not pills (20.09.2026): this bar was the one place in the app with
+   fully round buttons in a fully round tray, at 13px/600 – and on a phone both labels wrapped
+   onto two lines, so it stood twice as tall as any other bar. Buttons are --r-sm at the compact
+   12.5px/700 on the --tap floor like every button (AGENTS.md · buttons), the tray is the glass
+   cluster the map's other floating controls sit in, and a label never wraps. */
+.wb-osm-bar { display: flex; align-items: center; gap: 6px; padding: 5px; background: var(--glass);
+  border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--shadow); backdrop-filter: blur(16px); }
 /* the context line wears the same pill so the two read as one control group */
 .wb-osm-note, .wb-osm-warn { max-width: min(92vw, 460px); text-align: center;
-  padding: 6px 14px; border-radius: var(--r-pill); border: 1px solid var(--glass-line);
+  padding: 6px 14px; border-radius: var(--r-ctl); border: 1px solid var(--glass-line);
   background: var(--glass); box-shadow: var(--shadow); backdrop-filter: blur(16px);
   font: 600 12.5px var(--body); }
 .wb-osm-note { color: var(--ink-dim); }
@@ -35,12 +40,14 @@
 .wb-osm-warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, var(--glass-line));
   background: color-mix(in srgb, var(--amber) 14%, var(--glass)); }
 .wb-osm-barhint { font: 600 12.5px var(--body); color: var(--ink-dim); padding: 4px 12px; }
-.wb-osm-clear, .wb-osm-take { border: none; cursor: pointer; font: 600 13px var(--body); border-radius: var(--r-pill);
-  padding: 9px 16px; transition: filter .14s var(--ease), background .14s var(--ease); }
+.wb-osm-clear, .wb-osm-take { border: none; cursor: pointer; font: 700 12.5px var(--body); border-radius: var(--r-sm);
+  min-height: var(--tap); padding: 0 14px; white-space: nowrap; transition: filter .14s var(--ease), background .14s var(--ease); }
 .wb-osm-clear { background: var(--fill-soft); color: var(--ink-dim); }
 @media (hover: hover) { .wb-osm-clear:hover { background: var(--border); color: var(--ink); } }
 .wb-osm-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-osm-take { background: var(--red); color: var(--on-accent-ink); }
+/* the one action of the bar → the primary fill. It was red, and red never fills an action
+   (AGENTS.md · buttons): «Übernehmen» destroys nothing. */
+.wb-osm-take { background: var(--btn-primary); color: var(--on-btn-primary); font-weight: 800; }
 @media (hover: hover) { .wb-osm-take:hover { filter: brightness(1.06); } }
 .wb-osm-take:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-osm-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;

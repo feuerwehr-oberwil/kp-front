@@ -174,6 +174,7 @@ import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
+import { flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { ReportPreflight, requestReportStep } from './components/ReportPreflight'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
@@ -4056,8 +4057,14 @@ export function IncidentWorkspace({
     if (!g || g.removedAt) return
     const name = ghostTrailLabel(g, appConfig.copy.whiteboard.team)
     const message = fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name, n: trailPointCount(g) })
-    const back = g.truppId && trupps.some((t) => t.id === g.truppId && !t.removedAt) ? ghostRevival(g) : null
-    if (back && g.truppId) {
+    // ⚠️ offered for EVERY ghost that has somewhere to return to, not only one with a live Trupp
+    // behind it (first cut, 20.09.2026 – and the field's first try was a loose «Trupp 1» chip,
+    // which got the delete-only ask again). A marker joined to a Trupp that still exists goes
+    // back through the Trupp's own placement; anything else – a loose chip, or one whose Trupp
+    // has since been removed – returns as the loose marker it then is, under the same id.
+    const back = ghostRevival(g)
+    const liveTruppId = g.truppId && trupps.some((t) => t.id === g.truppId && !t.removedAt) ? g.truppId : undefined
+    if (back) {
       const answer = await confirmDialog({
         title: fillTemplate(appConfig.copy.whiteboard.ghostTrailTitle, { name }),
         message: appConfig.copy.whiteboard.ghostTrailAsk,
@@ -4065,8 +4072,19 @@ export function IncidentWorkspace({
         altLabel: appConfig.copy.whiteboard.clearTrail, altDanger: true,
       })
       if (answer === true) {
-        if (back.surface === 'plan') placeTruppOnPlan(g.truppId, back.planId, back.at, { id: back.markerId, trail: back.trail })
-        else placeTruppOnMap(g.truppId, back.coord, { id: back.markerId, trail: back.trail })
+        const revive = { id: back.markerId, trail: back.trail }
+        // (the Trupp's own placement writes its «platziert» row; the loose marker gets this one)
+        if (!liveTruppId) log('flag', fillTemplate(appConfig.copy.whiteboard.ghostTrailRestored, { name }))
+        if (liveTruppId) {
+          if (back.surface === 'plan') placeTruppOnPlan(liveTruppId, back.planId, back.at, { id: back.markerId, trail: back.trail })
+          else placeTruppOnMap(liveTruppId, back.coord, { id: back.markerId, trail: back.trail })
+        } else if (back.surface === 'plan') {
+          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: g.name || name, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          setBoard((b) => ({ ...b, [back.planId]: [...(b[back.planId] ?? []).filter((a) => a.id !== chip.id), chip] }))
+        } else {
+          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: g.name || name, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          setDocRaw((d) => ({ ...d, entities: [...d.entities.filter((e) => e.id !== marker.id), marker] }))
+        }
         return
       }
       if (answer !== 'alt') return
@@ -6522,9 +6540,12 @@ export function IncidentWorkspace({
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}
-          // the composer opens on its text field WITH the keyboard (lib/keyboardPrime): on a
-          // phone the entry is typed far more often than it is tapped together
-          onTap={() => { primeKeyboard(); setComposerOpen(true) }}
+          // the composer opens on its text field WITH the keyboard: on a phone the entry is typed
+          // far more often than it is tapped together. ⚠️ flushSync, so the sheet commits INSIDE
+          // this click and its textarea focuses itself in the same call stack (JournalComposer ·
+          // focusedOnAttach) – React otherwise commits a microtask later, and iOS gives a focus
+          // made outside the tap a caret and no keys. primeKeyboard is the belt to that brace.
+          onTap={() => { primeKeyboard(); flushSync(() => setComposerOpen(true)) }}
           onHoldStart={startVoiceMemo}
           onHoldStop={voice.stop}
           onHoldPhoto={startQuickPhoto}

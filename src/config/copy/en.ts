@@ -1594,6 +1594,7 @@ export const en: Localizable<Copy> = {
     ghostTrailTitle: 'Trail of {name}',
     ghostTrailAsk: 'The team marker was removed and its trail stayed. Place the team back at the end of the trail – or delete the trail?',
     ghostTrailRestore: 'Place team again',
+    ghostTrailRestored: '{name} placed again – trail carried over',
     textPlaceholder: 'Note ...',
     blankHint: 'Blank sheet – annotate with line, area, note, symbol or team',
     osmLoading: 'Loading building outlines …',

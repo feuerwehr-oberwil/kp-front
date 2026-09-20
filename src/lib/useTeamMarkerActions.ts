@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
-import { toast, confirmDialog } from './ui'
+import { confirmDialog } from './ui'
 import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { nextTeamName } from './placedTrupps'
@@ -65,7 +65,7 @@ export function useTeamMarkerActions({ entities, commit, log, emit, setSelectedI
     const now = formatTime(new Date())
     commit((d) => ({ ...d, entities: d.entities.map((x) => (x.id === id ? { ...x, t: now, trail: [...(x.trail ?? []), { coord: x.coord, t: now }] } : x)) }))
     log('flag', fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: e.label ?? '' }), 'team', undefined, id)
-    toast(fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: e.label ?? '' }))
+    // no toast (20.09.2026): the dot lands under the finger and the Verlauf has the row
     emit('entity.edit', { id, patch: { trail: 'mark' } })
   }
   const clearTeamTrail = async (id: string) => {

@@ -418,26 +418,27 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           address, or an address that never resolved to a coordinate. «Kein Standort – wird ohne
           Koordinate eröffnet» is a warning, and a warning behind a fold is not a warning. The
           moment the operator works the head, their choice wins over the derivation. */}
-      <button
-        type="button" className="ip-fold-head" aria-expanded={coordOpen}
-        onClick={() => setCoordOverride(!coordOpen)}
-      >
-        <Icon id="chevron-down" className="chev" aria-hidden="true" />
-        <span className="ip-fold-title">{ix.coordFold}</span>
-      </button>
-      {coordOpen && (
-        <div className={`ip-loc${coord ? ' set' : ''}`}>
-          <Icon id={coord ? 'flag' : 'warn'} />
-          {coord ? (
+      {/* ⚠️ ONE row, open or shut (20.09.2026). Opened, the head used to stay and the coordinate
+          came in as a second row under it – so the fold that was meant to save the line cost two.
+          Now the head BECOMES the line: the chevron stays the way back, the title gives way to
+          what it was hiding, and the ✕ sits beside it as its own button. */}
+      <div className="ip-fold-row">
+        <button
+          type="button" className={`ip-fold-head${coordOpen ? ` ip-loc${coord ? ' set' : ''}` : ''}`} aria-expanded={coordOpen}
+          aria-label={ix.coordFold} onClick={() => setCoordOverride(!coordOpen)}
+        >
+          <Icon id="chevron-down" className="chev" aria-hidden="true" />
+          {!coordOpen ? <span className="ip-fold-title">{ix.coordFold}</span> : (
             <>
-              <span className="ip-loc-txt">{ix.coordSet} · {coord[1].toFixed(5)}, {coord[0].toFixed(5)}</span>
-              <button type="button" className="ip-loc-clear" onClick={() => setCoord(null)} aria-label={ix.coordClear}><Icon id="close" /></button>
+              <Icon id={coord ? 'flag' : 'warn'} />
+              <span className="ip-loc-txt">{coord ? `${ix.coordSet} · ${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}` : ix.coordNone}</span>
             </>
-          ) : (
-            <span className="ip-loc-txt">{ix.coordNone}</span>
           )}
-        </div>
-      )}
+        </button>
+        {coordOpen && coord && (
+          <button type="button" className="ip-loc-clear" onClick={() => setCoord(null)} aria-label={ix.coordClear}><Icon id="close" /></button>
+        )}
+      </div>
 
       {/* --- Stichwort & Kategorie --- */}
       <div className="ip-ix-head">{ix.keywordHead}</div>
