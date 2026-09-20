@@ -26,6 +26,12 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # codeql-action/init and /analyze must be the SAME version: proposed as two PRs (13.09.2026),
+    # each failed CodeQL against the other's old half and neither could ever go green.
+    groups:
+      codeql:
+        patterns:
+          - "github/codeql-action/*"
 
   # Base images. Added after Node 20 sat three months past its 2026-04-30 end-of-life in the
   # Dockerfile's build stage without anything proposing the bump: npm, pip and actions were
