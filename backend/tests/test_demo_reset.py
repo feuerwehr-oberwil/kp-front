@@ -191,6 +191,39 @@ async def test_reset_keeps_objects_when_not_wiping(session_factory, monkeypatch)
     assert cleared == 0, "CLI reset clears objects (the reset script reloads them next step)"
 
 
+async def test_reset_wipes_an_object_whose_sheet_has_a_revision(session_factory, monkeypatch):
+    """Regression (20.09.2026): `plan_revisions.dataset_id` is ON DELETE RESTRICT, so the cascade
+    object → plan dataset aborted the WHOLE reset as soon as one sheet had a revision – which,
+    since 0.11.0, every stored sheet has. The nightly demo reset failed for a week on it, and the
+    test above never noticed because its object carries no plan."""
+    from app.models import ObjectSite, PlanAlignment, PlanPageFloor, PlanRevision, ReferenceDataset
+
+    monkeypatch.setenv("KP_DEMO_RESET", "1")  # this is the throwaway test database
+    monkeypatch.setattr(dr, "async_session_maker", session_factory)
+    async with session_factory() as db:
+        site = ObjectSite(name="Schloss Musterdorf", address="Schlossgasse 9, 9999 Musterdorf")
+        db.add(site)
+        db.add(ReferenceDataset(id="geo:hydrant", kind="geojson"))
+        await db.flush()
+        plan_id = f"plan:{site.id}:modul1"
+        db.add(ReferenceDataset(id=plan_id, object_id=site.id, module="modul1", kind="pdf"))
+        await db.flush()
+        db.add(PlanRevision(dataset_id=plan_id, version=1, storage_key="plans/x.pdf"))
+        await db.flush()
+        db.add(PlanAlignment(dataset_id=plan_id, plan_version=1, page=1))
+        db.add(PlanPageFloor(dataset_id=plan_id, plan_version=1, page=1, floor_index=0))
+        await db.commit()
+
+    await dr.reset()
+
+    async with session_factory() as db:
+        for table in ("objects", "plan_revisions", "plan_alignments", "plan_page_floors"):
+            left = (await db.execute(text(f"select count(*) from {table}"))).scalar_one()  # noqa: S608
+            assert left == 0, f"{table} survived the CLI reset"
+        layers = (await db.execute(text("select id from reference_datasets"))).scalars().all()
+    assert layers == ["geo:hydrant"], "the geo: reference layers are not the reset's to delete"
+
+
 class TestTheDemoGuardCoversEveryCaller:
     """`reset()` deletes every incident, its journal and the roster.
 

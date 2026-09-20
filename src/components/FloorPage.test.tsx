@@ -66,12 +66,18 @@ describe('FloorPage', () => {
   // size, and its pack is six drawings on that one page. So the tile comes up from the page's own
   // bake (a blit) and the sharp per-region render swaps in behind it (16.09.2026).
   it('shows the page crop first and swaps the sharp region in when it lands', async () => {
+    // ⚠️ Held back by URL, not by «the next call»: on CI (20.09.2026) a one-shot implementation was
+    // spent on a call that was not this tile's, the tile got the default at once, and main went
+    // red on a test that passes everywhere else. Whoever asks for THIS sheet waits for `land`.
     let land = (_u: string) => {}
-    planRegionUrl.mockImplementationOnce(() => new Promise<string>((res) => { land = res }))
-    const { container } = sheet(<FloorPage url="/p.pdf" corners={PAGE} region={EG} w={400} h={300} floors={6} />)
+    const held = new Promise<string>((res) => { land = res })
+    planRegionUrl.mockImplementation(((u: string) => (
+      u === '/held.pdf' ? held : Promise.resolve('data:image/jpeg;base64,AAAA')
+    )) as unknown as () => Promise<string>)
+    const { container } = sheet(<FloorPage url="/held.pdf" corners={PAGE} region={EG} w={400} h={300} floors={6} />)
 
     await waitFor(() => expect(container.querySelector('image')?.getAttribute('href')).toBe('data:image/jpeg;base64,CROP'))
-    expect(planRegionCropUrl).toHaveBeenCalledWith('/p.pdf', EG)
+    expect(planRegionCropUrl).toHaveBeenCalledWith('/held.pdf', EG)
 
     land('data:image/jpeg;base64,SHARP')
     await waitFor(() => expect(container.querySelector('image')?.getAttribute('href')).toBe('data:image/jpeg;base64,SHARP'))

@@ -29,6 +29,131 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **The Gebäude stack IS the object's building plan – one Geschoss per storey, straight from
+  the PDF.** A plan revision's pages become storeys (a *floor pack*): signed index, the page
+  and – on an A1 that carries several – the rectangle it is drawn in, and the point pair that
+  lines it up on its neighbour (the staircase, on both). One map fit per PDF reaches every
+  storey through those joins, so the whole stack stands on the Karte once one page does. A
+  storey may be drawn in several pieces (two wings of one 1. OG). In the field the stack is
+  read one storey at a time: an eye folds a Geschoss away (device-local – the Karte, the other
+  tablets and the Rapport keep the whole building), the frame is trimmed to the ink instead
+  of paying the paper margin once per storey, a plan-based Gebäude turns like a picked
+  outline («Wie gezeichnet» is its 0°, north only where a fit measured one), and a Leitung
+  climbing storeys is drawn per floor with a stair mark. Each tile renders its own region of
+  the sheet – 2.3× sharper at a fraction of the memory – and comes up from the page's single
+  bake, so a dense A1 with six drawings opens on one pdf.js pass, not twelve; a tile still
+  baking says so instead of looking like a storey without a plan. `/admin` → Objektpläne gets
+  the FloorPackEditor (storeys stacked like the building), a module may set
+  `hideWhenGebaeude`, and Kroki and Rapport print the named page of a pack. Four migrations,
+  all automatic.
+- **`§` markers – a plan that says what it is.** Whoever draws the station's Modul 6 places
+  small text tags on the sheet: `§EG`, `§1OG`, corner pairs for a region, `§GEO <E> <N>` for a
+  known coordinate. The server reads them on every new revision from any import path and
+  writes the floor pack; an admin's corrections survive a re-export. Two `§GEO` points are the
+  author's own statement, so that fit is **freigegeben on import** – through the same gate as
+  «Freigeben», with its audit row, and «Freigabe zurücknehmen» still returns it to the wall. A
+  wrong export says what is wrong: coded warnings land on the row, the object reads «Marker
+  unvollständig», and the editor names each problem in one German sentence. Convention, icon
+  set and sample sheets: `docs/plan-markers/`; `just plan-markers <pdf>` is the author's dry
+  run.
+- **Objektpläne in `/admin` is object-first.** Tabs Objekte · Vorschläge · Übersicht; an object
+  row opens its editor (auto-saving settings, one row per catalogue module, one primary action
+  per row). The review wall takes its queue from the page that holds it, lazy-loads thumbnails
+  and outlines, and names a multi-page PDF as pages or Geschosse; the Vorschau puts the map
+  beside the storeys.
+- **The phone gets its own navigation.** Five wide tool tiles instead of ten tools behind a
+  fade: Auswahl · «+» · Messen and Standort · Ebenen on the Karte – Linie, Fläche,
+  Absperrkreis, Notiz and Trupp live in the «+» sheet above the symbols, findable by their
+  word, and the tile wears the armed tool's glyph. Every plan document folds into one «Pläne»
+  tile, and Rapport · Anwesenheit · Material into one «Rapport» tile: a tap opens the page this
+  device last used, a tap on the lit tile (or a hold) opens the chooser with the same numbers
+  the page heads print. The Rapport's own tabs dock at the foot, the compass floats on the map
+  beside the wind, every bottom sheet swipes closed and carries one grab bar, and everything
+  stacked above the bar keeps one 6 px channel. Tablet and desktop rails are unchanged.
+- **The Kroki is the picture.** Every symbol gets a numbered legend line «Art · Bezeichnung ·
+  Status» on the Kroki, plan and Gebäude pages; a Leitung attached to a vehicle ends on the
+  glyph *as printed* instead of several glyph widths short of it; the server's fallback framing
+  mirrors the framing panel; and the Gebäude is its own Rapport section (on by default) that
+  prints only storeys carrying something. The «Angaben fehlen» rows in front of Ausdrucken are
+  tappable and jump to their step; undo reaches everywhere on the Rapport.
+- **Atemschutz, from the 14./15.09. field batches.** A Trupp may be created without an Auftrag
+  («Auftrag offen»); a Druck reading within 3 min of Eingang corrects the Eingangsdruck instead
+  of feeding the consumption rate; AS-Trupps carry an **Ausrüstung** (Retthaube, WBK, Multiwarn
+  – `doctrine.equipment`) as form chips, Kennzeile tags and in the Rapport. Joins happen in the
+  picture – hose ↔ Trupp and Trupp ↔ symbol without a tap mode – and «Neuer Trupp» on a loose
+  chip's sheet opens the form and joins the chip on save. Several Trupps in alarm for the same
+  reason share ONE Meldeleiste row («Atemschutz überfällig – 2 Trupps: Huber · Meier»). A
+  Trupp's marker shows a signed storey badge, and its **Spur survives its marker**: removing a
+  chip, a marker or the Trupp leaves a grey ghost trail owned by the Einsatz, which offers
+  «Trupp wieder platzieren» before «Spur löschen».
+- **«Bedienung» – who mans the device.** Most devices and posts take a roster field; naming a
+  person marks them present with «Bedienung Lüfter» on the Anwesenheit. «VKF KP Front» gets
+  the Einsatzleiter glyph's Name/Stv. rows, handover and Rapport pre-fill.
+- **The Mittel sheet counts off the Atemschutz-Tafel.** Catalogue keys `perAtemschutz`
+  (`person` | `trupp`) and `equipment` seed a suggestion from live Trupps the way a placed
+  symbol does. File/CLI-only, preserved by the Arbeitsmappe.
+- **The Verlauf has a search.** A lens in the drawer head filters rows live by text and names –
+  umlaut- and one-typo-tolerant, like the person search.
+- **A typo in the street still finds the address.** The backend keeps a weekly street
+  dictionary for the geocoder's bounding box and retries a zero-hit query with the one street
+  within a single edit («haupstrasse 12» → Hauptstrasse 12). And an object is as findable by
+  its address as by its name, in the picker and in the API's `q`.
+- **A plan surfaced from the *nearest* object says so.** The object chip turns amber with
+  «· 80 m entfernt», and a banner over the sheet names both addresses once per Einsatz and
+  object.
+- **The plain PDF reader zooms** – ctrl/⌘ + wheel, pinch and double tap, 1× to 4×, landing where
+  the fingers were.
+- **«Jetzt aktualisieren» – one tap where closing the app is not enough.** A waiting build
+  activates only once every client of the origin is gone, and a forgotten browser tab keeps the
+  old one alive (seen on Android, 16.09.). The update banner and the menu foot carry the apply.
+  Not on iOS, where the in-place path wedges; it keeps the restart wording. Still never
+  automatic mid-session – `docs/DEPLOYMENT.md` §5.
+- **The SharePoint Abgleich says how far it has got** – «Objektpläne · 12 von 43 Dateien», area
+  by area, for the nightly run too.
+- **Map zoom to 21**, and a Koordinaten fold in «Einsatz erfassen» that stays shut once address
+  and coordinate both stand.
+
+### Fixed
+
+- **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
+  pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
+  resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched
+  once per revision and rendered pages survive a tab switch.
+- **The PDF reader zooms on an iPad.** Pinch and double tap are read from touches (Safari
+  cancelled the pointer path as a two-finger pan), a page's canvas stays under iOS's 16.7-Mpx
+  limit instead of going blank past ~1.9×, and a zoomed page scrolls to its left edge too.
+- **«Kein Geschossplan» on every storey.** A binding made before its pack was published had no
+  floors, and the floor-less side won the merge. A binding may now gain its floors – once, and
+  only from the same revision.
+- **The marker reader follows pdfium's own text objects** – a glyph without a character no longer
+  shifts every tag against its box.
+- **`admin_objects merge-duplicates` could not touch a real plan.** A folded sheet now takes its
+  revisions, alignments and floor packs with it (`plan_revisions` is `ON DELETE RESTRICT`). The
+  same constraint had stopped the demo's nightly reset since 0.11.0.
+- **A combined sheet's key is read from the «modul» word of its title**, not from a range in the
+  object name – «Im Wasen 1-8» keyed its Modul 2-3 as `modul1-8`.
+- **«Jetzt abgleichen» called its own timeout a failure** – a 20 s bound cut a 60 s sync.
+- **The Geschoss stepper actually moves the Leitung**, and a Trupp's marker stops naming itself
+  twice.
+- **A line end snaps to a symbol only after 500 ms** (to another line or a Teilstück port at
+  once) – passing a symbol was attaching by accident.
+- **Phone, three field reviews (18.–20.09.).** The top bar keeps ↶ ↷ while a Trupp is
+  überfällig; the Verlauf's search stays on screen above the keyboard; the hold → «Foto» target
+  opens on iOS (a slid touch carries no user activation, so it waits for a confirming tap); the
+  journal FAB opens the composer with keys, not only a caret; a confirm dialog's action row
+  wraps instead of pushing «Abbrechen» into the corner; the Atemschutz alarm chip's clock no
+  longer ghosts the previous second in WebKit; the night map's dark end is stretched instead of
+  squeezed; a station-approved fit reads «Verknüpft» everywhere; one shape for every search
+  placeholder.
+- **The «#N» badge leaves the marker, chip, pill and phone row** – the Trupp's name stands alone
+  there, and the card carries the number.
+
+### Security
+
+- **anyio 4.14.2** – three advisories published against 4.14.0.
+
 ## [0.11.0] – 2026-09-13
 
 ### Added
