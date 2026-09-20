@@ -313,8 +313,10 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .jr-delivery strong { font-size: 14px; }
 .jr-delivery p { margin-block: 8px 12px; font-size: 13px; line-height: 1.5; }
 .jr-delivery-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* ⚠️ 36px like every other button of this head (20.09.2026): the ✕ went to the house 36 (13-incident.css ·
+   «ONE size for the ✕») and left ⓘ, the lens and ▶ standing at 28 beside it – one row, two sizes. */
 .journal-replay { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
-  height: 28px; padding: 0 11px; border: none; border-radius: var(--r-sm); cursor: pointer;
+  height: 36px; min-width: 36px; justify-content: center; padding: 0 10px; border: none; border-radius: var(--r-sm); cursor: pointer;
   background: var(--amber); color: var(--on-fill); font-family: var(--body); font-weight: 700; font-size: 12px; }
 /* full-height transparent pad — visually compact chip, finger-sized target */
 .journal-replay::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
@@ -322,7 +324,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   .journal-replay:hover { filter: brightness(.96); }
 }
 .journal-replay:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.journal-replay .i { width: 13px; height: 13px; }
+.journal-replay .i { width: 15px; height: 15px; }
 /* with the replay button taking the auto margin, the × just trails it */
 .journal-replay + .journal-x { margin-left: 0; }
 .journal-x { margin-left: auto; width: 28px; height: 28px; border-radius: var(--r-sm); border: none; cursor: pointer;
@@ -340,17 +342,17 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    opens it by itself. There is no hover on the primary device, so a tooltip alone would not do.
    The button sits beside the title rather than out at the margin — it belongs to what is being
    read, not to the drawer's controls. */
-.journal-legend-btn { flex: none; position: relative; width: 28px; height: 28px; border-radius: var(--r-sm);
+.journal-legend-btn { flex: none; position: relative; width: 36px; height: 36px; border-radius: var(--r-sm);
   border: none; cursor: pointer; background: var(--surface-2); color: var(--ink-faint);
   display: grid; place-items: center; }
-/* finger-sized target under a 28px chip, the same trick .journal-replay uses */
+/* finger-sized target under a 36px chip, the same trick .journal-replay uses */
 .journal-legend-btn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) {
   .journal-legend-btn:hover { background: var(--hover-strong); color: var(--ink-dim); }
 }
 .journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-legend-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
-.journal-legend-btn .i { width: 15px; height: 15px; }
+.journal-legend-btn .i { width: 18px; height: 18px; }
 
 /* ── the search ──
    The lens is a second .journal-legend-btn beside the ⓘ (same chip, same 44px pad). Tapped, the
