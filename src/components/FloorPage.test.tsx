@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, waitFor } from '@testing-library/react'
+import { cleanup, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FloorPage } from './FloorPage'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget } from '../lib/pdfRenderBudget'
@@ -29,7 +29,12 @@ const EG: [number, number, number, number] = [0.1, 0.2, 0.5, 0.6]
 
 const sheet = (ui: React.ReactNode) => render(<svg viewBox="0 0 400 300">{ui}</svg>)
 
-afterEach(() => { planRegionUrl.mockClear(); planRegionCropUrl.mockClear() })
+// ⚠️ Unmount FIRST, then clear. The sharp render is asked for in a passive effect AFTER the crop's
+// commit, and that commit happens outside act() – so on a loaded CI runner the effect can still
+// be pending when a test ends. Testing Library's own cleanup (registered earlier, so it runs
+// LATER) then flushed it into the NEXT test's freshly cleared mock: twice red on main-bound CI
+// on 20.09.2026, in two different tests, and never once locally.
+afterEach(() => { cleanup(); planRegionUrl.mockClear(); planRegionCropUrl.mockClear() })
 
 describe('FloorPage', () => {
   it('asks for the storey\'s own region, at the storeys\' share of the budget', async () => {
@@ -153,8 +158,9 @@ describe('FloorPage', () => {
       ))}
     </>)
     await waitFor(() => expect(container.querySelectorAll('image')).toHaveLength(2))
-    expect(planRegionUrl.mock.calls.map((call) => (call as unknown as [string, number[]])[1]))
-      .toEqual([west.clip, east.clip])
+    // the images are the CROPS; the sharp renders are asked for an effect later – wait for them
+    await waitFor(() => expect(planRegionUrl.mock.calls.map((call) => (call as unknown as [string, number[]])[1]))
+      .toEqual([west.clip, east.clip]))
     const [a, b] = [...container.querySelectorAll('image')].map((el) => el.getAttribute('transform'))
     expect(a).not.toBe(b) // two drawings, two places – never one raster drawn twice
   })
