@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { StrictMode } from 'react'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { JournalComposer, type JournalDraft } from './JournalComposer'
 import { clearAllDrafts } from '../lib/draftKeep'
 
@@ -104,11 +104,16 @@ describe('JournalComposer · the arrow', () => {
   })
 
   // ⚠️ The space after the name still counts — nobody writes a name and then stops mid-air.
-  it('keeps the Tab arrow shortcut to one step, then allows focus navigation', () => {
+  it('keeps the Tab arrow shortcut to one step, then allows focus navigation', async () => {
     setup({ vocab: VOCAB })
     type('EL ')
     expect(fireEvent.keyDown(field(), { key: 'Tab' })).toBe(false)
     expect(field().value).toBe('EL → ')
+    // the field is FOCUSED from the moment it attaches (20.09.2026), as it always was in the app
+    // a frame later: the accepted text's caret is placed on the next frame (accept · rAF), and no
+    // hand presses Tab twice inside one – so the second press is made where a real one would be
+    await act(async () => { await new Promise((r) => requestAnimationFrame(() => r(null))) })
+    field().setSelectionRange(5, 5); fireEvent.select(field())
     expect(fireEvent.keyDown(field(), { key: 'Tab' })).toBe(true)
     expect(field().value).toBe('EL → ')
   })

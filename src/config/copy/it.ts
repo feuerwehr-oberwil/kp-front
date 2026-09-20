@@ -1590,6 +1590,7 @@ export const it: Localizable<Copy> = {
     ghostTrailTitle: 'Traccia di {name}',
     ghostTrailAsk: 'Il marcatore è stato rimosso, la sua traccia è rimasta. Riposizionare la squadra alla fine della traccia – o eliminare la traccia?',
     ghostTrailRestore: 'Riposiziona la squadra',
+    ghostTrailRestored: '{name} riposizionata – traccia ripresa',
     textPlaceholder: 'Nota ...',
     blankHint: 'Foglio bianco – annota con linea, superficie, nota, simbolo o squadra',
     osmLoading: 'Caricamento sagome degli edifici …',

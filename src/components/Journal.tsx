@@ -549,7 +549,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                 </span>
               )}
             </label>
-            <button type="button" className="journal-x on" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
+            <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
           </div>
         ) : (
         <div className="journal-head">

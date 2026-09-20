@@ -99,13 +99,18 @@
 }
 .kf-ctl-fit { flex: 0 1 auto; min-width: 0; min-height: var(--tap); white-space: nowrap; }
 .kf-ctl-fit > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* ⚠️ …except on a phone, where giving up width cost the label itself: beside the ± pair and the
-   FAB's column the button has ~150px, and both of its labels need more («Folgt der …», 20.09.2026).
-   There it takes a line of its own, DELIBERATELY – a full-width mode button over a right-aligned
-   ± pair is two rows on purpose, not the ragged wrap the rule above forbids. */
+/* ⚠️ On a phone the three still share ONE row, and the label still reads in full (20.09.2026).
+   Beside the ± pair and the FAB's column the button has ~150px; at the standard 14px with its
+   glyph «Folgt der Karte» needs ~165, which is where «Folgt der …» came from. A line of its own
+   was tried the same day and read as a control group that had fallen apart. So the button goes
+   to the COMPACT size this row is entitled to (12.5px/700 – AGENTS.md · buttons: dense rows),
+   drops the glyph, which says nothing the word does not, and the gaps close up. Measured:
+   «Auf Einsatz zoomen», the longer of its two labels, fits 248px with the ± pair at 44px. */
 @media (max-width: 600px) {
-  .kf-ctl-cluster { flex-wrap: wrap; }
-  .kf-ctl-fit { flex: 1 1 100%; justify-content: center; }
+  .kf-ctl-cluster { gap: 6px; }
+  .kf-ctl-fit { flex: 1 1 auto; justify-content: center; padding: 0 8px; font-size: 12.5px; gap: 0; }
+  .kf-ctl-fit > .i { display: none; }
+  .kf-zoom { gap: 4px; }
 }
 /* «folgt der Lage» is a MODE, not a press — it stays lit while it is on */
 .kf-ctl-follow { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, transparent);

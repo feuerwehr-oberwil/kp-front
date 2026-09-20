@@ -1590,6 +1590,7 @@ export const fr: Localizable<Copy> = {
     ghostTrailTitle: "Trace de {name}",
     ghostTrailAsk: "Le marqueur a été supprimé, sa trace est restée. Replacer l’équipe à la fin de la trace – ou supprimer la trace ?",
     ghostTrailRestore: "Replacer l’équipe",
+    ghostTrailRestored: '{name} replacée – trace reprise',
     textPlaceholder: 'Note ...',
     blankHint: 'Feuille vierge – annotez avec ligne, surface, note, symbole ou binôme',
     osmLoading: 'Chargement des contours de bâtiment …',

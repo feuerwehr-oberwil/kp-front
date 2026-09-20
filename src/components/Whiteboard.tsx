@@ -2466,7 +2466,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // says only «Trupp 3: Position markiert» cannot be read back as a position at all
     const where = stack ? ` · ${floorLabel(a.floor ?? 0)}` : ''
     log('flag', fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }) + where, { kind: 'team', annoId: a.id, x: a.x, y: a.y, floor: a.floor ?? 0 })
-    toast(fillTemplate(appConfig.copy.whiteboard.positionMarked, { name: a.text ?? '' }) + where)
+    // no toast (20.09.2026): the dot lands under the finger and the Verlauf has the row
   }
   const clearTrail = async () => {
     const a = annos.find((x) => x.id === selId)

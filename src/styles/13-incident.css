@@ -482,6 +482,15 @@
 }
 .ip-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-x svg { width: 18px; height: 18px; }
+/* ── ONE size for the ✕ that closes a sheet (20.09.2026) ──
+   It was 28px on the Verlauf and the Journaleintrag, 30 on an .ip-sheet and 32 on the `.ctx`
+   editors – three sizes for one button, all of them small beside the 44px controls around them.
+   36px with an 18px glyph everywhere; the invisible 44px pad (02-base.css) is unchanged, so this
+   is what the button LOOKS like, not what can be hit. Here, after all three definitions, because
+   the numbering is the cascade. (The Palette's and the Verlauf search's ✕ stand beside a 44px
+   field and match that instead.) */
+.ip-x, .journal-x, .ctx-x { width: 36px; height: 36px; padding: 0; }
+.ip-x svg, .journal-x .i, .ctx-x .i { width: 18px; height: 18px; }
 .ip-body { padding: 6px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
 
 .ip-field { display: flex; flex-direction: column; gap: 5px; }
@@ -1436,6 +1445,15 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   max-height: 46vh; overflow-y: auto; }
 /* long personnel lists in the Einsatzstunden warning must wrap, not push the panel wider */
 .rp-control .report-pre-warn { min-width: 0; overflow-wrap: anywhere; }
+/* «n offen» inside the Kontrolle popover (narrow head): a list of doors, each a full-width row */
+.rp-control-open { display: flex; flex-direction: column; margin-bottom: 10px; }
+.rp-control-open-head { font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); padding: 0 2px 4px; }
+.rp-control-step { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: var(--tap);
+  padding: 0 10px; border: none; background: none; border-radius: var(--r-ctl); cursor: pointer; text-align: left;
+  font: 600 13.5px var(--body); color: var(--ink); }
+.rp-control-step .i { width: 15px; height: 15px; flex: none; color: var(--ink-faint); }
+@media (hover: hover) { .rp-control-step:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); } }
+.rp-control-step:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the head must not clip a popover anchored inside it */
 .rp-head { position: relative; overflow: visible; }
 /* the ✕ is a control on this row, so it obeys the row's floor — .ip-x is a 30px dialog affordance
@@ -1684,6 +1702,9 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-fold-head { display: flex; align-items: center; gap: 7px; min-height: var(--tap);
   margin: 4px 0 -2px; padding: 0 2px; border: none; background: none; cursor: pointer; text-align: left; }
 .ip-fold-head .i { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
+/* open, the head IS the coordinate line (EinsatzWizard): same row, the ✕ beside it */
+.ip-fold-row { display: flex; align-items: center; gap: 4px; margin: 4px 0 -2px; }
+.ip-fold-row .ip-fold-head { flex: 1 1 auto; min-width: 0; margin: 0; }
 .ip-fold-title { font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 @media (hover: hover) {
   .ip-fold-head:hover .ip-fold-title, .ip-fold-head:hover .i { color: var(--ink-dim); }

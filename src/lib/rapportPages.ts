@@ -29,18 +29,20 @@ export function isRapportPage(mode: string): mode is RapportPage {
   return (RAPPORT_PAGES as string[]).includes(mode)
 }
 
-/** Per-incident, per-DEVICE, and deliberately session-scoped — the same shape and the same
- *  reasoning as the Anwesenheit view's own tab memory (AnwesenheitView · TAB_KEY, and the note
- *  left in lib/prefs where that used to be a cookie): coming back to the page you were on across
- *  a reload is worth keeping, a choice made last week deciding where a fresh Einsatz opens is
- *  not. */
+/** Per-incident and per-DEVICE. ⚠️ localStorage since 20.09.2026 – it was session-scoped, on
+ *  the reasoning that a reload should come back to the page you were on while last week's choice
+ *  should not decide where a fresh Einsatz opens. But an installed PWA that iOS killed, or was
+ *  simply refreshed, starts a NEW session: the memory was gone exactly when it was wanted, and
+ *  with nobody checked in yet the first-open rule sent «Einsatz» to Anwesenheit every time
+ *  (field report). The box is keyed by incident id, so it still cannot leak into another
+ *  Einsatz – which was the only thing the session scope was protecting (cf. lib/chooserOffer). */
 const KEY = 'kp-front-rapport-page'
 
-/** Storage-shaped for tests; `sessionStorage` in the app. */
+/** Storage-shaped for tests; `localStorage` in the app. */
 type Store = Pick<Storage, 'getItem' | 'setItem'>
 
 const store = (s?: Store): Store | undefined =>
-  s ?? (typeof sessionStorage === 'undefined' ? undefined : sessionStorage)
+  s ?? (typeof localStorage === 'undefined' ? undefined : localStorage)
 
 /** the page this device last left the group on for THIS Einsatz, or null. Another incident always
  *  reads as null: the stamp is part of the record, so yesterday's page cannot open tonight's

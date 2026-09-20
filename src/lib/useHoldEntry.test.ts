@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { STICKY_MS, useHoldEntry } from './useHoldEntry'
+import { PICKER_CHECK_MS, STICKY_MS, useHoldEntry } from './useHoldEntry'
 
 // The hook's timing state machine (CUE_MS=130, HOLD_MS=350) drives three outcomes from a
 // pointer press: quick tap → onTap, hold past HOLD_MS → a CHOICE that acts on release ONLY if
@@ -194,7 +194,7 @@ describe('useHoldEntry timing state machine', () => {
   describe('a «Foto» released without user activation', () => {
     const activation = (isActive: boolean | undefined) =>
       Object.defineProperty(navigator, 'userActivation', { configurable: true, value: isActive === undefined ? undefined : { isActive } })
-    afterEach(() => activation(undefined))
+    afterEach(() => { activation(undefined); vi.restoreAllMocks() })
     const slideOntoPhoto = (hook: ReturnType<typeof setup>['hook']) => {
       document.elementFromPoint = () => ({ closest: () => ({ getAttribute: () => 'photo' }) }) as unknown as Element
       act(() => hook.result.current.handlers.onPointerDown(pointer()))
@@ -202,21 +202,35 @@ describe('useHoldEntry timing state machine', () => {
       act(() => hook.result.current.handlers.onPointerMove({ clientX: 10, clientY: 10 } as React.PointerEvent<HTMLButtonElement>))
     }
 
-    it('opens the camera straight away where the release is allowed to', () => {
-      activation(true)
+    const focused = (yes: boolean) => vi.spyOn(document, 'hasFocus').mockReturnValue(yes)
+
+    it('opens the camera, and lets the chooser go once the picker has taken the page', () => {
+      activation(true); focused(false) // the picker took the focus
       const { hook, onHoldPhoto } = setup(false, true)
       slideOntoPhoto(hook)
       act(() => hook.result.current.handlers.onPointerUp())
       expect(onHoldPhoto).toHaveBeenCalledTimes(1)
-      expect(hook.result.current.latched).toBe(false)
+      act(() => void vi.advanceTimersByTime(PICKER_CHECK_MS + 10))
+      expect(hook.result.current).toMatchObject({ sticky: false, latched: false })
     })
 
-    it('keeps the chooser lit on «Foto» and opens the camera on the confirming tap', () => {
+    // the iPhone: the flag says yes, the picker is refused silently, the page just stands there
+    it('stays lit on «Foto» when the camera was tried and nothing opened', () => {
+      activation(true); focused(true)
+      const { hook, onHoldPhoto } = setup(false, true)
+      slideOntoPhoto(hook)
+      act(() => hook.result.current.handlers.onPointerUp())
+      act(() => void vi.advanceTimersByTime(PICKER_CHECK_MS + 10))
+      expect(hook.result.current).toMatchObject({ sticky: true, latched: true, hover: 'photo' })
+      act(() => hook.result.current.pickSticky('photo'))
+      expect(onHoldPhoto).toHaveBeenCalledTimes(2) // the refused try, then the tap that works
+    })
+
+    it('does not even try where the browser says it will refuse, and opens on the confirming tap', () => {
       activation(false)
       const { hook, onHoldPhoto } = setup(false, true)
       slideOntoPhoto(hook)
       act(() => hook.result.current.handlers.onPointerUp())
-      act(() => void vi.advanceTimersByTime(100)) // the touchend that might have brought it never did
       expect(onHoldPhoto).not.toHaveBeenCalled()
       expect(hook.result.current).toMatchObject({ sticky: true, latched: true, hover: 'photo' })
       act(() => hook.result.current.pickSticky('photo'))

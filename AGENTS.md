@@ -197,6 +197,8 @@ to prod.
     platzieren», 20.09.2026, `truppTrails · ghostRevival`): the marker returns at the trail's end
     under the id the trail was recorded on (`placeTruppOn… · revive`), carrying the points — so
     the same reconciliation takes the ghost home, and nothing is written for the ghost itself.
+    Offered for EVERY ghost with points, not only one with a live Trupp: a loose «Trupp N» chip,
+    or one whose Trupp was since removed, returns as the loose marker it then is.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
   (`<prefix><ms>-<seq><rand>`) for records the app mints and syncs; plain
   `'p'+Date.now()` survives in older call sites. Offline-friendly, no DB roundtrip;
@@ -654,6 +656,9 @@ to prod.
   appConfig/copy/backend config; keep them stable.
 - **Buttons follow one spec – don't invent a per-surface variant.** Decided 2026-07-28 after a
   sweep found 12 label type combos, 6 disabled opacities and 8 stray radii for one role.
+  - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
+    `.ctx-x` — one rule in 13-incident.css; it was 28/30/32). Beside a 44px search field it is
+    44px instead (Palette, Verlauf search), and it is the ordinary grey, never a filled «on».
   - *Radius:* **every** button is `var(--r-sm)`, whatever its size, border or icon-only-ness.
     Rows, list items, option cells, tiles and field triggers are **not** buttons and keep
     `--r-ctl`; on-canvas furniture (handles, vertices, pins, trail marks, colour swatches, the
@@ -717,10 +722,14 @@ to prod.
   - *The FAB follows the THEME, not `--btn-primary`*: white surface by day, the raised `--ink-fill`
     pill at night. That token inverts at night so a form's one action has an edge against its
     sheet; the FAB sits on no sheet, and inverted it was the one pale disc in a dark cab. Its
-    hold → «Foto» needs a real TAP where the release carries no user activation (iOS: a slid
-    touch is not a tap, and `input.click()` is then refused silently) — the chooser stays lit on
-    «Foto» for that tap (`useHoldEntry · sticky`). A tap on the FAB primes the keyboard inside
-    the click (`lib/keyboardPrime`), or iOS gives the composer a caret and no keys.
+    hold → «Foto» needs a real TAP on iOS (a slid touch is not a tap, and `input.click()` is then
+    refused silently). ⚠️ That cannot be ASKED — `navigator.userActivation.isActive` is true on
+    the iPhone and the picker is refused anyway — only observed: the camera is tried, and a page
+    still focused and visible a beat later means nothing opened, so the chooser stays lit on
+    «Foto» for the confirming tap (`useHoldEntry · releasePhoto` / `sticky`). A tap on the FAB
+    commits the composer with `flushSync` INSIDE the click and the textarea focuses itself as it
+    attaches (`JournalComposer · attachText`): React otherwise commits a microtask later, and iOS
+    gives a focus made outside the tap a caret and no keys.
   - *ONE page-title size*: `--head-title` is 17px on a phone, set as the TOKEN in `15-mobile.css`
     — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
     19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;

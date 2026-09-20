@@ -387,6 +387,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   }
   const recRef = useRef<{ rec: MediaRecorder; startedAt: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const focusedOnAttach = useRef(false)
+  // ⚠️ STABLE (useCallback): an inline ref is detached and re-attached on every render, which
+  // nulls `textRef.current` for a moment mid-commit – and the Tab arrow reads it right there.
+  const attachText = useCallback((el: HTMLTextAreaElement | null) => {
+    textRef.current = el
+    if (el && !focusedOnAttach.current) { focusedOnAttach.current = true; el.focus({ preventScroll: true }) }
+  }, [])
   /** the ONE upload picker: pictures, recordings and documents in a single dialog (the camera
    *  button beside it stays, because «take a picture now» is a different gesture) */
   const attachRef = useRef<HTMLInputElement>(null)
@@ -822,7 +829,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             {'\n'}
           </div>
         <textarea
-          ref={textRef}
+          // ⚠️ focused the moment it ATTACHES, not an effect later. iOS raises the keyboard only
+          // for a focus() made inside the tap's own call stack; the opener commits this sheet with
+          // flushSync from its click handler, so this ref runs inside that stack. The dialog's
+          // `initialFocus` still names the same field – it lands a frame later, on a field that
+          // already has the caret, and is what every other way of opening the sheet relies on.
+          ref={attachText}
           className="jc-text"
           value={text}
           onChange={(e) => {
