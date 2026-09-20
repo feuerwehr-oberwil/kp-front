@@ -39,9 +39,11 @@ updates:
   - package-ecosystem: docker
     directory: "/"
     # Node 25 is end-of-life; keep updates on the supported Node 24 LTS line.
+    # ⚠️ The docker ecosystem takes no range here: «>=25.0.0 <26.0.0» made the WHOLE file
+    # invalid, so Dependabot read none of it (found 20.09.2026). `25.x` is the form it accepts.
     ignore:
       - dependency-name: node
-        versions: [">=25.0.0 <26.0.0"]
+        versions: ["25.x"]
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
