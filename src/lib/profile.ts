@@ -1,5 +1,5 @@
 import type { LngLat } from '../types'
-import { wgs84ToLV95 } from './geo'
+import { pathLengthM, wgs84ToLV95 } from './geo'
 
 // Height profile along a path, from the swisstopo elevation service. Switzerland
 // only (LV95 / EPSG:2056) — outside CH the API returns nothing, so callers treat
@@ -45,4 +45,54 @@ export async function fetchElevationProfile(coords: LngLat[], signal?: AbortSign
     if (i > 0) { const d = a - points[i - 1].alt; if (d > 0) gain += d; else loss -= d }
   }
   return { points, min, max, gain, loss, start: points[0].alt, end: points[points.length - 1].alt }
+}
+
+/** One tapped node of the measured path, placed on its own profile. */
+export interface ProfileNode {
+  /** 0‥1 along the chart's x axis */
+  frac: number
+  /** metres from the start, measured the way the map's own node labels measure it */
+  dist: number
+  /** the profile's altitude there (interpolated between the two samples around it) */
+  alt: number
+}
+
+/**
+ * Where the path's own nodes fall on its profile (20.09.2026). The chart alone is a silhouette
+ * with no orientation: nothing said which end is the first tap, or which dip belongs to which
+ * leg. The nodes are the one thing the operator placed by hand and can find again on the map.
+ *
+ * ⚠️ Placed by FRACTION of the path, not by the service's metres: swisstopo measures in LV95 and
+ * the map labels measure geodesically, and the two totals differ by a few per mille. The fraction
+ * agrees on both, and `dist` stays the number the map shows beside that node.
+ */
+export function profileNodes(p: ProfileResult, path: LngLat[]): ProfileNode[] {
+  if (path.length < 2 || p.points.length < 2) return []
+  const cum = [0]
+  for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + pathLengthM([path[i - 1], path[i]]))
+  const total = cum[cum.length - 1]
+  if (!(total > 0)) return []
+  const maxDist = p.points[p.points.length - 1].dist || 1
+  const altAt = (d: number) => {
+    const pts = p.points
+    const hi = pts.findIndex((q) => q.dist >= d)
+    if (hi <= 0) return pts[hi === 0 ? 0 : pts.length - 1].alt
+    const a = pts[hi - 1], b = pts[hi]
+    return b.dist === a.dist ? b.alt : a.alt + ((d - a.dist) / (b.dist - a.dist)) * (b.alt - a.alt)
+  }
+  return cum.map((dist) => ({ frac: dist / total, dist, alt: altAt((dist / total) * maxDist) }))
+}
+
+/** Which node labels fit: both ends always, an inner one only with `minGap` (a share of the axis)
+ *  of room to the label before it AND to the end. Returns the indices to label. */
+export function labelledNodes(nodes: ProfileNode[], minGap = 0.2): Set<number> {
+  const out = new Set<number>()
+  if (!nodes.length) return out
+  const last = nodes.length - 1
+  out.add(0); out.add(last)
+  let prev = 0
+  for (let i = 1; i < last; i++) {
+    if (nodes[i].frac - prev >= minGap && 1 - nodes[i].frac >= minGap) { out.add(i); prev = nodes[i].frac }
+  }
+  return out
 }

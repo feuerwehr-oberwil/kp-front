@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ghostTrailId, ghostTrailLabel, liveGhostTrails, mapGhostTrails, planGhostTrails,
-  reconcileGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources,
+  ghostRevival, reconcileGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources,
   type TrailSource, type TruppTrail,
 } from './truppTrails'
 import { mergeWorkspace } from './mergeWorkspace'
@@ -150,5 +150,19 @@ describe('which surface draws which ghost', () => {
     expect(planGhostTrails(all, 'gebaeude').map((t) => t.sourceId)).toEqual(['a1'])
     expect(planGhostTrails(all, 'modul6')).toEqual([])
     expect(mapGhostTrails(all).map((t) => t.sourceId)).toEqual(['e1'])
+  })
+  // «Trupp wieder platzieren»: the marker comes back under the id its trail was recorded on, so
+  // the reconciliation that made the ghost is also what takes it away again.
+  it('puts a marker back where its ghost ends, and the ghost goes home with it', () => {
+    const ghosted = reconcileGhostTrails([], [walked], [], AT)
+    const back = ghostRevival(ghosted[0])
+    expect(back).toMatchObject({ surface: 'plan', markerId: 'a1', planId: walked.planId })
+    const head = walked.points![walked.points!.length - 1]
+    expect(back?.surface === 'plan' && back.at).toEqual({ x: head.x, y: head.y, floor: head.floor })
+    expect(back?.trail).toEqual(ghosted[0].points)
+    // the revived chip is a live source under the same id again → no ghost left
+    expect(reconcileGhostTrails(ghosted, [], [{ ...walked, points: back!.trail as typeof walked.points }], AT)).toEqual([])
+    // a deliberately deleted trail offers nothing to come back to
+    expect(ghostRevival(removeGhostTrail(ghosted, ghosted[0].id, AT)[0])).toBeNull()
   })
 })

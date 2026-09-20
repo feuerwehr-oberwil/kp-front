@@ -99,6 +99,14 @@
 }
 .kf-ctl-fit { flex: 0 1 auto; min-width: 0; min-height: var(--tap); white-space: nowrap; }
 .kf-ctl-fit > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* ⚠️ …except on a phone, where giving up width cost the label itself: beside the ± pair and the
+   FAB's column the button has ~150px, and both of its labels need more («Folgt der …», 20.09.2026).
+   There it takes a line of its own, DELIBERATELY – a full-width mode button over a right-aligned
+   ± pair is two rows on purpose, not the ragged wrap the rule above forbids. */
+@media (max-width: 600px) {
+  .kf-ctl-cluster { flex-wrap: wrap; }
+  .kf-ctl-fit { flex: 1 1 100%; justify-content: center; }
+}
 /* «folgt der Lage» is a MODE, not a press — it stays lit while it is on */
 .kf-ctl-follow { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, transparent);
   background: color-mix(in srgb, var(--green) 12%, transparent); }

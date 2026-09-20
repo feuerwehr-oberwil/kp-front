@@ -407,7 +407,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
   return (
     // dismissEscape=false: this sheet owns Escape (Esc-in-a-field blurs it; Esc elsewhere closes;
     // plus Space/←/→/↑/↓ transport) via the keydown effect above — Base UI must not also close on Esc.
-    <Overlay open onClose={onClose} className="ip-sheet ap-sheet ui-dialog" ariaLabel={row.text} dismissEscape={false}>
+    <Overlay open onClose={onClose} className="ip-sheet ap-sheet ui-dialog" ariaLabel={row.text} dismissEscape={false} grab>
         <div className="ip-head ap-head">
           <span className="ap-title">
             <h2>{row.text}</h2>

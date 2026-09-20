@@ -205,3 +205,29 @@ export function restoreGhostTrail(trails: TruppTrail[], id: string): TruppTrail[
   if (!t || !t.removedAt) return trails
   return trails.map((x) => (x.id === id ? { ...x, removedAt: undefined } : x))
 }
+
+/**
+ * «Trupp wieder platzieren» (20.09.2026): what it takes to put the marker BACK where a ghost
+ * trail ends. A tap on a ghost used to offer «Spur löschen» and nothing else – but the usual
+ * reason a marker is gone is a mis-tap or a tidy-up, and the crew is still in the building.
+ *
+ * The marker returns under the id the trail was recorded on (`sourceId`) and with the walked
+ * points on it again, at the last of them. That id is the whole mechanism: the reconciliation
+ * above keys on it, so the ghost goes home with its marker in the very next pass – the same path
+ * the removal's own ↶ takes – and nothing is ever written for the ghost itself. Null when there
+ * is nowhere to put it (no points) or the trail was deliberately deleted.
+ */
+export type GhostRevival =
+  | { surface: 'plan'; markerId: string; planId: string; at: { x: number; y: number; floor: number }; trail: TrailPoint[] }
+  | { surface: 'map'; markerId: string; coord: GeoTrailPoint['coord']; trail: GeoTrailPoint[] }
+export function ghostRevival(g: TruppTrail): GhostRevival | null {
+  if (g.removedAt) return null
+  if (g.planId) {
+    const trail = g.points ?? []
+    const head = trail[trail.length - 1]
+    return head ? { surface: 'plan', markerId: g.sourceId, planId: g.planId, at: { x: head.x, y: head.y, floor: head.floor ?? 0 }, trail } : null
+  }
+  const trail = g.geo ?? []
+  const head = trail[trail.length - 1]
+  return head ? { surface: 'map', markerId: g.sourceId, coord: head.coord, trail } : null
+}

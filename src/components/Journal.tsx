@@ -526,7 +526,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
 
 
   return (
-    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false}>
+    <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false} grab>
         {/* ── the head, OR the search field in its place ──
             One row, two states. Tapping the lens swaps the title · ⓘ · Replay for the field (focus
             at once, keyboard up) and the drawer's ✕ for the search's ✕; that ✕ – or Escape in the

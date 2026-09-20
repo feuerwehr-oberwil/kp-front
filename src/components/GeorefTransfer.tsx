@@ -37,7 +37,7 @@ export function GeorefTransfer({ source, targets, onTransfer, onClose, onDone }:
   }
 
   return (
-    <Overlay open onClose={close} className="ip-sheet ip-fit ui-dialog" ariaLabel={C.transferTitle}>
+    <Overlay open onClose={close} className="ip-sheet ip-fit ui-dialog" ariaLabel={C.transferTitle} grab>
       <div className="ip-head">
         <h2>{C.transferTitle}</h2>
         <button className="ip-x" disabled={busy != null} onClick={close} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>

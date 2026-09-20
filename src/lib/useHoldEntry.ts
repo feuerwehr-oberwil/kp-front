@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { buzz } from './haptics'
 
 export const HOLD_MS = 350 // hold longer than this offers the choice instead of opening the composer — the charge ring (HoldChargeRing) fills over exactly this window
@@ -17,6 +17,19 @@ export type HoldTarget = 'audio' | 'photo' | 'cancel'
  *  would visibly shrink it the moment it became an ✕. The edges stay rect-derived, since those
  *  should follow the button to where it actually appears. */
 export type HoldAnchor = { top: number; right: number; bottom: number; width: number }
+
+/** how long a «Foto» that could not open the camera waits for its confirming tap */
+export const STICKY_MS = 6000
+
+/**
+ * May a file picker be opened RIGHT NOW? `input.click()` needs transient user activation, and a
+ * browser that withholds it does so silently – no event, no error. WebKit grants a touch its
+ * activation only when it was a potential TAP, and a hold that slid onto «Foto» is by definition
+ * not one: on the iPhone the release opened nothing at all (field report 20.09.2026), while the
+ * Sprachnotiz beside it worked, because a microphone asks a permission, not a gesture.
+ * A browser that cannot say (no `navigator.userActivation`) is assumed willing, as before.
+ */
+const canOpenPicker = () => (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation?.isActive ?? true
 
 /**
  * Shared tap / press-and-hold interaction for the journal "Eintrag" affordance, used by both
@@ -66,8 +79,36 @@ export function useHoldEntry(opts: {
   const [hover, setHover] = useState<HoldTarget | null>(null)
   const hoverRef = useRef<HoldTarget | null>(null)
   const setHoverTarget = (t: HoldTarget | null) => { hoverRef.current = t; setHover(t) }
+  /** «Foto» was chosen but the release carried no activation: the chooser STAYS, lit on Foto, and
+   *  the next real tap on it opens the camera (see canOpenPicker). Anything else lets it go. */
+  const [sticky, setSticky] = useState(false)
+  const stickyTimer = useRef<number | null>(null)
+  const unstick = () => {
+    if (stickyTimer.current) { clearTimeout(stickyTimer.current); stickyTimer.current = null }
+    setSticky(false); setLatched(false); setHoverTarget(null); setAnchor(null)
+  }
+  const stick = () => {
+    setSticky(true); setLatched(true); setHoverTarget('photo')
+    if (stickyTimer.current) clearTimeout(stickyTimer.current)
+    stickyTimer.current = window.setTimeout(unstick, STICKY_MS)
+  }
+  // a press anywhere but the chooser or its button lets a waiting «Foto» go
+  useEffect(() => {
+    if (!sticky) return
+    const away = (e: PointerEvent) => {
+      const t = e.target as Element | null
+      if (t?.closest?.('[data-hold-target]') || (hostRef.current && t && hostRef.current.contains(t))) return
+      unstick()
+    }
+    window.addEventListener('pointerdown', away, true)
+    return () => window.removeEventListener('pointerdown', away, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sticky])
+  useEffect(() => () => { if (stickyTimer.current) clearTimeout(stickyTimer.current) }, [])
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    // the button is the ✕ of a waiting «Foto»: that press is a plain tap, settled in onClick
+    if (sticky) return
     hostRef.current = e.currentTarget
     e.currentTarget.setPointerCapture?.(e.pointerId)
     holding.current = true
@@ -83,14 +124,15 @@ export function useHoldEntry(opts: {
     // second call.
     detach.current?.()
     const up = () => end(false)
+    const touchUp = () => end(false, true)
     const cancel = () => end(true)
     window.addEventListener('pointerup', up, true)
     window.addEventListener('pointercancel', cancel, true)
-    window.addEventListener('touchend', up, true)
+    window.addEventListener('touchend', touchUp, true)
     detach.current = () => {
       window.removeEventListener('pointerup', up, true)
       window.removeEventListener('pointercancel', cancel, true)
-      window.removeEventListener('touchend', up, true)
+      window.removeEventListener('touchend', touchUp, true)
     }
 
     if (opts.recording) return // a press while recording just stops it on release
@@ -127,8 +169,27 @@ export function useHoldEntry(opts: {
   const onPointerCancel = () => end(true)
   const onPointerUp = () => end(false)
 
+  /** Release over «Foto». The camera opens only with activation (canOpenPicker); a pointerup
+   *  without it gives the touchend that follows one chance to bring it, and otherwise the
+   *  chooser stays for the confirming tap rather than the gesture ending in nothing. */
+  const releasePhoto = (viaTouchEnd: boolean) => {
+    const fire = opts.onHoldPhoto
+    if (!fire) return
+    if (canOpenPicker()) { fire(); return }
+    if (viaTouchEnd) { stick(); return }
+    let settled = false
+    const settle = () => {
+      if (settled) return
+      settled = true
+      window.removeEventListener('touchend', settle, true)
+      if (canOpenPicker()) { unstick(); fire() } else stick()
+    }
+    window.addEventListener('touchend', settle, true)
+    window.setTimeout(settle, 80)
+  }
+
   /** `fromCancel` — no click is coming, so a plain tap has to be settled here. */
-  const end = (fromCancel: boolean) => {
+  const end = (fromCancel: boolean, viaTouchEnd = false) => {
     if (!holding.current) return
     holding.current = false
     detach.current?.(); detach.current = null
@@ -139,12 +200,14 @@ export function useHoldEntry(opts: {
     if (latchedRef.current) {
       latchedRef.current = false
       const pick = hoverRef.current
-      setLatched(false); setHoverTarget(null); setAnchor(null)
+      const photo = pick === 'photo' && !!opts.onHoldPhoto
+      // a «Foto» keeps the chooser's anchor until it is known whether the camera may open
+      if (!photo || canOpenPicker()) { setLatched(false); setHoverTarget(null); setAnchor(null) }
       resolved.current = true
       // THIS is where a HOLD acts — one outcome, chosen by where the finger let go. Anything
       // that is not one of the two options (the ✕, the gap, off-screen) does NOTHING: a hold
       // you thought better of has to be abandonable without leaving a recording behind.
-      if (pick === 'photo' && opts.onHoldPhoto) opts.onHoldPhoto()
+      if (photo) releasePhoto(viaTouchEnd)
       else if (pick === 'audio') opts.onHoldStart()
       return
     }
@@ -167,6 +230,7 @@ export function useHoldEntry(opts: {
    * whatever appeared under the finger — which is how tapping «Eintrag» opened the camera.
    */
   const onClick = () => {
+    if (sticky) { resolved.current = false; unstick(); return } // the button is the ✕ of a waiting «Foto»
     if (resolved.current) { resolved.current = false; return } // the pointer phase already acted
     if (opts.recording) { opts.onHoldStop(); return }
     opts.onTap()
@@ -182,6 +246,14 @@ export function useHoldEntry(opts: {
     hover,
     /** the host button's rect at latch time — the portalled chooser anchors to it */
     anchor,
+    /** a released «Foto» is waiting for its confirming TAP — the targets answer taps while true */
+    sticky,
+    /** that tap. A real click, so it carries the activation the release did not. */
+    pickSticky: (t: HoldTarget) => {
+      if (!sticky) return
+      unstick()
+      if (t === 'photo') opts.onHoldPhoto?.()
+    },
     handlers: {
       onPointerDown,
       onPointerMove,

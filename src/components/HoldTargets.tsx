@@ -56,11 +56,15 @@ export function HoldChargeRing({ since }: { since: number }) {
  * their own. They must therefore stay HIT-TESTABLE — elementFromPoint skips anything with
  * `pointer-events: none`, which is why the container carries it and the targets undo it.
  */
-export function HoldTargets({ hover, placement, anchor }: {
+export function HoldTargets({ hover, placement, anchor, onPick }: {
   hover: HoldTarget | null
   placement: 'above' | 'below'
   /** where the host button was when the hold latched */
   anchor: HoldAnchor | null
+  /** set while a released «Foto» waits for its confirming tap (useHoldEntry · sticky): only then
+   *  is a target ever CLICKED. ⚠️ Portalled, but still inside the host button's React tree – the
+   *  press and the click must not bubble into the button's own hold handlers. */
+  onPick?: (t: HoldTarget) => void
 }) {
   const C = appConfig.copy.journal
   if (!anchor) return null
@@ -79,7 +83,9 @@ export function HoldTargets({ hover, placement, anchor }: {
       <span className={`hold-target${hover === 'audio' ? ' on' : ''}`} data-hold-target="audio">
         <Icon id="mic" />{C.record}
       </span>
-      <span className={`hold-target${hover === 'photo' ? ' on' : ''}`} data-hold-target="photo">
+      <span className={`hold-target${hover === 'photo' ? ' on' : ''}`} data-hold-target="photo"
+        onPointerDown={onPick ? (e) => e.stopPropagation() : undefined}
+        onClick={onPick ? (e) => { e.stopPropagation(); onPick('photo') } : undefined}>
         <Icon id="cam" />{C.photo}
       </span>
     </div>,

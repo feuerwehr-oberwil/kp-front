@@ -193,6 +193,10 @@ to prod.
     timeline for the ghost. Ids are derived (`ght-<markerId>`) so two devices reconciling the same
     removal converge under `mergeById`; deleting a ghost STAMPS `removedAt` (never drops the row),
     or the reconciliation would write a deliberate deletion straight back.
+    A tap on a ghost whose Trupp still exists offers the way BACK before the delete («Trupp wieder
+    platzieren», 20.09.2026, `truppTrails · ghostRevival`): the marker returns at the trail's end
+    under the id the trail was recorded on (`placeTruppOn… · revive`), carrying the points — so
+    the same reconciliation takes the ghost home, and nothing is written for the ghost itself.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
   (`<prefix><ms>-<seq><rand>`) for records the app mints and syncs; plain
   `'p'+Date.now()` survives in older call sites. Offline-friendly, no DB roundtrip;
@@ -268,7 +272,9 @@ to prod.
   grouped in `.de-group`, and since 18.09.2026 a group boundary is SPACING: a hairline is drawn
   ONLY above a group that opens a NAMED section («Messung», «Verbindungen» — matched on the
   `.de-group-toggle`/`.de-conn-title` it starts with), because four or five rules stacked down a
-  340px panel read as a bordered table and said nothing the padding did not. And **no native form
+  340px panel read as a bordered table and said nothing the padding did not. «Spacing» is the
+  ROW RHYTHM, not a band of air (20.09.2026): plain groups follow each other as one continuous
+  list of options — the 24px the dropped rules left behind read as something missing. And **no native form
   control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
   instead of a number field, `components/Slider` instead of `<input type="range">`.
 - **One object, two surfaces — there are no twins any more** (10.09.2026,
@@ -418,7 +424,12 @@ to prod.
   what it opened as an `IncidentPlanBinding` in the workspace blob (`lib/incidentPlanBindings`:
   exact dataset revision + fit; first binding wins, corrections are an `override`, an override
   with empty pairs is a deliberate disconnect — a later replacement or approval never moves a
-  running Einsatz's backdrop). Bound sheets carry `incident:` georef keys, routed by
+  running Einsatz's backdrop). ⚠️ The one thing a frozen binding may still GAIN is its `floors`,
+  once and only from the SAME dataset revision (`fillBindingFloors`, also inside
+  `mergeIncidentPlanBindings`; `useObjectPlans` asks once per session): absent floors are an
+  answer not given yet — bound before the pack was published, or by a device with an older
+  cached answer — and a stack whose `pack.bindingId` names a floor-less binding reads «Kein
+  Geschossplan» on every storey (prod, 20.09.2026). Floors that exist are never replaced. Bound sheets carry `incident:` georef keys, routed by
   `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
   silently replaced.
 - **A plan PDF is downloaded ONCE per revision, and its pages are rendered once per width**
@@ -468,8 +479,13 @@ to prod.
   - **A phone bottom sheet is closed by pushing it down.** `overlays/swipeDismiss`, spread on the
     popup by `Sheet` and `Overlay` (`swipeToClose`, on by default) — never a per-surface copy. It
     measures that the popup IS a bottom sheet, leaves a scrolled body its own gesture, never starts
-    on a control, and `Sheet` draws the one grab bar (`.ui-sheet-grab`, the same 40×5px pill as the
-    `.ctx` editors' `.sheet-grip`).
+    on a control. ONE grab bar (`overlays/SheetGrab` → `.ui-sheet-grab`, the same 40×5px pill as the
+    `.ctx` editors' `.sheet-grip`): `Sheet` draws it by default, a bespoke `Overlay` frame that IS
+    a bottom sheet on a phone opts in with `grab` (composer, Verlauf, PlanPicker, audio player, …
+    — never a frame that is full-screen or centred there, like the Trupp form), and the one
+    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The
+    gesture needs the frame FLUSH with the bottom edge — which is why the phone Verlauf is a real
+    bottom sheet now and no longer a card floating 8px off it.
   - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`
     (+ `ui-menu-danger`), which carries the hover (`--blue` at 8 %, gated on `hover: hover`), the
     keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
@@ -696,6 +712,15 @@ to prod.
   - *The compass lives in the BAR, beside Ebenen* (05.08.2026). It floated top-right on the map
     for one day (18.09.) and came back: up there its menu opened half a screen from the thumb that
     asked for it. «Mein Standort» is a row of that menu, not a tile of its own (also tried 18.09.).
+  - *«Einpassen» on a Plan is the bar's tile*; the top bar's twin (`TopBar · mapNav`) survives only
+    where there is no bar at all (viewer-only Modul, Gebäude pick surface, replay — 20.09.2026).
+  - *The FAB follows the THEME, not `--btn-primary`*: white surface by day, the raised `--ink-fill`
+    pill at night. That token inverts at night so a form's one action has an edge against its
+    sheet; the FAB sits on no sheet, and inverted it was the one pale disc in a dark cab. Its
+    hold → «Foto» needs a real TAP where the release carries no user activation (iOS: a slid
+    touch is not a tap, and `input.click()` is then refused silently) — the chooser stays lit on
+    «Foto» for that tap (`useHoldEntry · sticky`). A tap on the FAB primes the keyboard inside
+    the click (`lib/keyboardPrime`), or iOS gives the composer a caret and no keys.
   - *ONE page-title size*: `--head-title` is 17px on a phone, set as the TOKEN in `15-mobile.css`
     — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
     19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;

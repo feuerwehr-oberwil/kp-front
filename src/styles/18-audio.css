@@ -365,7 +365,12 @@
    fallback keeps this honest if a positioner ever stops setting it. */
 .jc-pendenz-menu { max-height: min(60vh, 460px, var(--available-height, 60vh));
   overflow-y: auto; overscroll-behavior: contain; }
-.jc-pendenz-menu .rp-print-menu-item { align-items: flex-start; white-space: normal; line-height: 1.35; gap: 11px; }
+/* ⚠️ centred, not flex-start (20.09.2026): the row is --tap tall and its one line of text is 18px,
+   so top-aligned content stood 5px above the middle of its own press wash – in «Erinnern» and in
+   the Pendenzen picker alike, since they share this skin. A label that wraps is centred against
+   its ring, which is how every other two-line row in the app sits. The per-glyph margin-tops that
+   used to fake a first-line alignment went with it. */
+.jc-pendenz-menu .rp-print-menu-item { align-items: center; white-space: normal; line-height: 1.35; gap: 11px; }
 .jc-pendenz-menu .jc-menu-label { flex: 1; min-width: 0; }
 /* the pinned rows at the foot of the picker (Menu · MenuActionItem.sticky). Opaque, or the list
    scrolling under them shows through; the first of them carries the rule that used to be a
@@ -412,9 +417,9 @@
   content: ""; position: absolute; left: -4px; right: -4px; top: -1px; height: 1px;
   background: var(--border); box-shadow: 0 -7px 9px -5px rgba(20, 30, 50, .16); }
 .jc-pendenz-menu .ui-menu-sticky + .ui-menu-sticky::before { display: none; }
-.jc-pendenz-menu .i { flex: none; width: 15px; height: 15px; color: var(--green); margin-top: 2px; }
+.jc-pendenz-menu .i { flex: none; width: 15px; height: 15px; color: var(--green); }
 /* the ring, in the state the row stands for — the same three fills the switch itself shows */
-.jc-menu-ring { flex: none; width: 19px; height: 19px; margin-top: 1px; border-radius: 50%;
+.jc-menu-ring { flex: none; width: 19px; height: 19px; border-radius: 50%;
   border: 2px solid var(--ink-faint); display: grid; place-items: center; }
 .jc-menu-ring[data-state="1"] { border-color: var(--amber-strong); background: var(--amber-strong);
   box-shadow: inset 0 0 0 3px var(--surface); }

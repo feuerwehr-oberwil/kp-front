@@ -22,6 +22,10 @@ export interface PopoverProps {
   side?: 'top' | 'bottom' | 'left' | 'right'
   align?: 'start' | 'center' | 'end'
   sideOffset?: number
+  /** Shift along the aligned edge. For a trigger that sits INSIDE the visible control (a button
+   *  in a padded glass cluster): the popup aligns to the trigger, and the eye aligns it to the
+   *  cluster. With `align="end"` a NEGATIVE value moves the popup outward, past the trigger. */
+  alignOffset?: number
   /** z-index for the (fixed) Positioner — set it to stack above surrounding fixed chrome. */
   zIndex?: number
   /** Keep-off distance from the viewport edge — the same default, and for the same reason, as
@@ -34,7 +38,7 @@ export interface PopoverProps {
   onOpenChange?: (open: boolean) => void
 }
 
-export function Popover({ trigger, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, collisionPadding = 10, zIndex, open, onOpenChange }: PopoverProps) {
+export function Popover({ trigger, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, alignOffset, collisionPadding = 10, zIndex, open, onOpenChange }: PopoverProps) {
   // uncontrolled callers give us no `open` to read, so the Root reports it — a popover open over
   // a Sheet/Overlay keeps that sheet's backdrop/Esc dismissal off (popoverGuard)
   const [isOpen, setIsOpen] = useState(false)
@@ -43,7 +47,7 @@ export function Popover({ trigger, children, ariaLabel, popupClassName, side = '
     <BasePopover.Root open={open} onOpenChange={(next) => { setIsOpen(next); onOpenChange?.(next) }}>
       <BasePopover.Trigger render={trigger} />
       <BasePopover.Portal>
-        <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} collisionPadding={collisionPadding} style={zIndex != null ? { zIndex } : undefined}>
+        <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding} style={zIndex != null ? { zIndex } : undefined}>
           {/* `ui-pop`: shared exit hook — see 13-incident.css [data-ending-style] */}
           <BasePopover.Popup className={popupClassName ? `ui-pop ${popupClassName}` : 'ui-pop'} aria-label={ariaLabel}>
             {children}

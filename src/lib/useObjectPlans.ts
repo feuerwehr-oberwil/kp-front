@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { planDocuments } from '../data/demoIncident'
 import { objectsNearIncidentResilient, getObjectResilient, referenceUrl, type ObjectWithPlans, type ReferenceDataset } from './incidents'
 import { getApprovedPlanAlignments } from './api/reference'
-import { addPlanBindings, incidentGeorefKey, inheritPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
+import { addPlanBindings, fillBindingFloors, incidentGeorefKey, inheritPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
 import { georefForPlan } from './stationPlanScale'
 import { toast } from './ui'
 import { fillTemplate } from './format'
@@ -240,7 +240,7 @@ export function useObjectPlans(
   // follows through onBind, but a slow round-trip must not leave the sheet unpinned meanwhile.
   const [proposed, setProposed] = useState<IncidentPlanBinding[]>([])
   const effectiveBindings = useMemo(
-    () => addPlanBindings(bindingOpts?.bindings ?? [], proposed),
+    () => fillBindingFloors(addPlanBindings(bindingOpts?.bindings ?? [], proposed), proposed),
     [bindingOpts?.bindings, proposed],
   )
   // Stable refs for the callback/set options, so the binding effect keys on data, not identity.
@@ -377,6 +377,37 @@ export function useObjectPlans(
     })()
     return () => { alive = false }
   }, [activeObjectId, backendDatasets, backendTitles, boundIdsKey])
+
+  // …and a sheet bound WITHOUT floors asks once per session whether its revision has them by now
+  // (lib/incidentPlanBindings · fillBindingFloors): bound before the station published the pack,
+  // or by a device holding an older answer. Only the revision it froze – a newer one is not its.
+  const floorsAsked = useRef(new Set<string>())
+  const floorlessKey = effectiveBindings.filter((b) => b.objectId === activeObjectId && !b.floors?.length && b.source !== 'legacy')
+    .map((b) => b.id).join('|')
+  useEffect(() => {
+    if (!bindingRef.current || !floorlessKey) return
+    const ids = new Set(floorlessKey.split('|'))
+    const targets = effectiveBindings.filter((b) => ids.has(b.id) && !floorsAsked.current.has(b.id)
+      && backendDatasets[b.planId]?.id === b.datasetId && backendDatasets[b.planId]?.version === b.planVersion)
+    if (!targets.length) return
+    let alive = true
+    void (async () => {
+      const out: IncidentPlanBinding[] = []
+      for (const b of targets) {
+        floorsAsked.current.add(b.id)
+        try {
+          const metadata = await getApprovedPlanAlignments(b.datasetId, b.planVersion)
+          if (metadata.floors?.length) out.push({ ...b, floors: metadata.floors })
+        } catch { floorsAsked.current.delete(b.id) /* unreachable and uncached – ask again next time */ }
+      }
+      if (alive && out.length) {
+        setProposed((prev) => fillBindingFloors(addPlanBindings(prev, out), out))
+        bindingRef.current?.onBind(out)
+      }
+    })()
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [floorlessKey, backendDatasets])
 
   // reflect the synced picked-object id (workspace blob): when set — this device's pick, a reload,
   // or ANOTHER device's pick arriving via the live-follow poll — fetch the object's plans; when

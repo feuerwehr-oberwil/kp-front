@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import type { BoardAnno, BoardDoc, BoardPoint, BuildingDoc, Drawing, Entity, LineAttachment, LngLat, TimelineEvent, Trupp, TruppFields, TruppReading } from '../types'
+import type { BoardAnno, BoardDoc, BoardPoint, BuildingDoc, Drawing, Entity, GeoTrailPoint, LineAttachment, LngLat, TimelineEvent, TrailPoint, Trupp, TruppFields, TruppReading } from '../types'
 import type { Doc } from './workspace'
 import type { TacticalObject } from './tacticalObjects'
 import { appConfig } from '../config/appConfig'
@@ -565,15 +565,19 @@ export function useTruppActions(deps: Deps) {
   /** `at`: a known spot on the sheet (the end of the hose the Trupp was just linked to) – the
    *  chip lands there and the view stays where it is; without it the chip lands mid-sheet and
    *  the surface jumps to it (the card's «Platzieren»). Returns the chip's id. */
-  const placeTruppOnPlan = (id: string, targetPlanId?: string, at?: { x: number; y: number; floor: number }): string | undefined => {
+  /** `revive`: the chip comes BACK as the marker a ghost trail was recorded on («Trupp wieder
+   *  platzieren», 20.09.2026) – same id, the walked points on it again. The id is the whole
+   *  mechanism: `reconcileGhostTrails` keys on it, so the ghost goes home with its marker in the
+   *  next pass and nothing is written for it here (lib/truppTrails). */
+  const placeTruppOnPlan = (id: string, targetPlanId?: string, at?: { x: number; y: number; floor: number }, revive?: { id: string; trail: TrailPoint[] }): string | undefined => {
     const tr = trupps.find((t) => t.id === id)
     if (!tr) return
     // explicit target (from the placement picker) wins; else default to the Gebäude
     // floor-stack when a building exists, otherwise Modul 6
     const planId = targetPlanId ?? (building ? gebaeudeDoc.id : 'modul6')
-    const annoId = newId('trupp')
+    const annoId = revive?.id ?? newId('trupp')
     const spot = at ?? { x: 0.5, y: 0.5, floor: 0 }
-    const chip: BoardAnno = { id: annoId, kind: 'resource', ...spot, text: truppLabel(tr.name), t: formatTime(new Date()), color: teamColor(id), trail: [], truppId: id }
+    const chip: BoardAnno = { id: annoId, kind: 'resource', ...spot, text: truppLabel(tr.name), t: formatTime(new Date()), color: teamColor(id), trail: revive?.trail ?? [], truppId: id }
     dropPlacements(tr)
     setBoard((b) => ({ ...b, [planId]: [...(b[planId] ?? []), chip] }))
     updateTrupp(id, { annoId, planId, entityId: undefined })
@@ -597,14 +601,14 @@ export function useTruppActions(deps: Deps) {
   // search): a 'team' marker either AT a tapped coord (the map's Trupp tool) or at the current
   // map centre (the Atemschutz card's «Platzieren»), dragged to position like a plan chip.
   // Same one-place rule: placing here removes any plan chip.
-  const placeTruppOnMap = (id: string, atCoord?: LngLat): string | undefined => {
+  const placeTruppOnMap = (id: string, atCoord?: LngLat, revive?: { id: string; trail: GeoTrailPoint[] }): string | undefined => {
     const tr = trupps.find((t) => t.id === id)
     if (!tr) return
-    const entityId = newId('trupp')
+    const entityId = revive?.id ?? newId('trupp')
     const marker: Entity = {
       id: entityId, kind: 'team', layer: appConfig.defaults.operationalLayerId,
       coord: atCoord ?? mapCenter(), label: truppLabel(tr.name), t: formatTime(new Date()),
-      color: teamColor(id), trail: [], truppId: id,
+      color: teamColor(id), trail: revive?.trail ?? [], truppId: id,
     }
     dropPlacements(tr)
     setDocRaw((d) => ({ ...d, entities: [...d.entities, marker] }))

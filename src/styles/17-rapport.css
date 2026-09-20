@@ -379,6 +379,8 @@
    becomes the organisation (ReportPreflight · commitPartner). Left-aligned and capped, so it
    reads as one more control under the rows rather than a field spanning the column. */
 .report-partner-add { display: flex; align-items: center; gap: 8px; align-self: flex-start; width: 100%; max-width: 280px; }
+/* on a phone the cap cost the placeholder its last letters («Organisation hinzufüge») */
+@media (max-width: 600px) { .report-partner-add { max-width: none; } }
 .report-partner-add .ci { flex: 1 1 auto; min-width: 0; }
 .report-partner-go { flex: none; width: var(--tap); height: var(--tap); display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);

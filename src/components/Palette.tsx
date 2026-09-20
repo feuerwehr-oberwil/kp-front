@@ -11,6 +11,7 @@ import { FORMEN_ORDER, SHAPE_DEFS, ShapeGlyph } from '../lib/shapes'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
 import { useIsPhone } from '../lib/useIsPhone'
 import { addTools } from '../lib/toolFold'
+import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 
 // the geometric "Formen" section (Pfeil · Rechteck) renders right after this FireGIS category.
 const FORMEN_AFTER_CAT = 'Gefahren'
@@ -91,6 +92,7 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const swipe = useSwipeDismiss({ onClose, enabled: true })
   // keep Tab focus inside the dialog
   const trapFocus = (e: React.KeyboardEvent) => {
     if (e.key !== 'Tab') return
@@ -126,7 +128,11 @@ export function Palette({ sym, onPick, onClose, onPickShape, tools, onPickTool }
         aria-label={appConfig.copy.symbolSearchPlaceholder}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={trapFocus}
+        {...swipe}
       >
+        {/* hand-rolled, so it borrows the two things every other phone sheet gets from the
+            primitives: the grab bar and the push-down that closes it (20.09.2026) */}
+        <SheetGrab />
         <div className="sym-top">
           <label className="sym-search">
             <Icon id="search" />

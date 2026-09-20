@@ -2550,8 +2550,14 @@ function TruppForm({
     // with the operator left to find out why. It gets the station's default, like a new Trupp.
     return mode === 'edit' ? (initial?.entryPressureBar || dz.defaultPressureBar) : dz.defaultPressureBar
   })
-  // No autofocus: on a tablet the on-screen keyboard would immediately cover the form's other
-  // fields. The EL taps the field they want first.
+  // No autofocus on a TABLET: the on-screen keyboard would immediately cover the form's other
+  // fields, and the Mannschaft is a list that can simply be ticked. The EL taps the field they
+  // want first. ⚠️ A PHONE creating a Trupp is the exception (20.09.2026): there the roster
+  // appears only under a typed query, so the search IS the first step and nothing else on the
+  // form can be answered before it – the dialog opens with the caret in it, and the phone frame
+  // already folds the other sections away while it has the keyboard (Atemschutz.module.css).
+  const teamSearchRef = useRef<HTMLInputElement | null>(null)
+  const focusTeamFirst = !!stack && mode === 'create'
   // Esc closes the form (keyboard parity with the scrim/close-button)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel() }
@@ -2793,7 +2799,7 @@ function TruppForm({
           the Mannschaft is a wrapping chip row and the roster appears only under a typed query.
           Same record, same handlers — see TruppTeam · `phone`. */}
       <TruppTeam
-        value={team} onChange={setTeam} phone={stack}
+        value={team} onChange={setTeam} phone={stack} wanted={mode === 'create'} searchInputRef={teamSearchRef}
         personnel={personnel} legacyRoster={roster} presentIds={presentIds} stationIds={stationIds}
         assignedIds={assignedIds} rolesById={rolesById} onAddGuest={onAddGuest}
       />
@@ -2958,7 +2964,8 @@ function TruppForm({
   // portal to <body> so the modal escapes the .surface stacking context (z-index 20) and covers
   // the TopBar ("+ Eintrag", z-index 40) instead of rendering beneath it
   return (
-    <Overlay open onClose={onCancel} className={cx(s.modal, stack && s.modalStack)} ariaLabel={title}>
+    <Overlay open onClose={onCancel} className={cx(s.modal, stack && s.modalStack)} ariaLabel={title}
+      initialFocus={focusTeamFirst ? teamSearchRef : undefined}>
       <div className={s.modalHead}>
         <h3>{title}</h3>
         <button className={s.iconBtn} aria-label={az.cancel} onClick={onCancel}><Icon id="close" /></button>

@@ -783,7 +783,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
     // in than the field under it. `mp-backdrop` because this opens OVER the Mittel sheet.
     <Overlay
       open onClose={onClose} backdropClassName="mp-backdrop"
-      className="ip-sheet ip-fit ui-dialog mv-note-dialog" ariaLabel={target.custom ? M.editLabel : M.noteLabel}
+      className="ip-sheet ip-fit ui-dialog mv-note-dialog" ariaLabel={target.custom ? M.editLabel : M.noteLabel} grab
     >
       <div className="ip-head"><h2>{target.label}</h2>
         <button className="ip-x" onClick={onClose} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>

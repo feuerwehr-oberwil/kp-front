@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { addPlanBindings, effectiveBindingGeoref, incidentBindingApproved, inheritPlanBinding, incidentGeorefForPlan, incidentGeorefKey, isIncidentPlanBinding, overridePlanBinding, registerIncidentPlanBindings, saveIncidentGeoref } from './incidentPlanBindings'
+import { addPlanBindings, effectiveBindingGeoref, fillBindingFloors, mergeIncidentPlanBindings, incidentBindingApproved, inheritPlanBinding, incidentGeorefForPlan, incidentGeorefKey, isIncidentPlanBinding, overridePlanBinding, registerIncidentPlanBindings, saveIncidentGeoref } from './incidentPlanBindings'
 import { mergeWorkspace } from './mergeWorkspace'
 import { deriveInitial, sanitizeWorkspace } from './workspace'
 import { georefPlans, planAspect } from './georefTwins'
@@ -33,6 +33,31 @@ describe('incident plan snapshots', () => {
     const updated = inheritPlanBinding({ ...sheet, planVersion: 4 }, { ...approval, id: 12, aspect: 2 }, null, false)
     expect(addPlanBindings(existing, [updated])).toBe(existing)
     expect(existing[0].approvalId).toBe(11)
+  })
+
+  // 20.09.2026: a stack's `pack.bindingId` named a binding with no floors – «Kein Geschossplan»
+  // on every storey. Absent floors are an answer not given yet, never a frozen fact.
+  it('lets a floor-less binding gain its floors from the same revision, once', () => {
+    const floors = [{ page: 0, index: 0, name: 'EG' }, { page: 1, index: 1, name: null }]
+    const withFloors = inheritPlanBinding(sheet, approval, null, false, floors)
+    const filled = fillBindingFloors([binding()], [withFloors])
+    expect(filled[0].floors).toEqual(floors)
+    expect(filled[0].floors![0]).not.toBe(floors[0])
+    // floors that exist are never replaced, and another revision's floors never apply
+    const other = [{ page: 0, index: 0, name: 'Hauptebene' }]
+    expect(fillBindingFloors(filled, [inheritPlanBinding(sheet, approval, null, false, other)])).toBe(filled)
+    const existing = [binding()]
+    expect(fillBindingFloors(existing, [inheritPlanBinding({ ...sheet, planVersion: 4 }, approval, null, false, floors)])).toBe(existing)
+  })
+
+  it('keeps the floors when two devices bound the same sheet and only one had them', () => {
+    const floors = [{ page: 0, index: 0, name: 'EG' }]
+    const mine = inheritPlanBinding(sheet, approval, null, false, floors)
+    const override = { pairs: [] }
+    expect(mergeIncidentPlanBindings([], [mine], [binding()])[0].floors).toEqual(floors)
+    expect(mergeIncidentPlanBindings([], [binding()], [mine])[0].floors).toEqual(floors)
+    // …and having them does not make my side «a different snapshot» whose override is dropped
+    expect(mergeIncidentPlanBindings([], [{ ...mine, override }], [binding()])[0].override).toEqual(override)
   })
 
   it('records the exact approval event when a proposal has been published more than once', () => {

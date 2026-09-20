@@ -5,6 +5,7 @@ import { appConfig } from '../../config/appConfig'
 import { SheetGrip } from '../../components/SheetGrip'
 import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
+import { SheetGrab } from './SheetGrab'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
 
@@ -89,10 +90,7 @@ export function Sheet({ open, onClose, title, ariaLabel, children, footer, wide,
         <Dialog.Backdrop className="ui-backdrop" />
         <Dialog.Popup className={cls} style={keyboardLift(kbInset)} initialFocus={initialFocus} aria-label={title == null ? ariaLabel : undefined} {...swipe}>
           {grip && <SheetGrip onClose={onClose} />}
-          {/* the grab bar — phone-only in CSS, and the same 40×5px pill as the `.ctx` sheets'
-              (15-mobile.css · .sheet-grip span), so one shape means one gesture everywhere.
-              Decorative: the gesture lives on the whole sheet, and the ✕ is the button. */}
-          {!grip && swipeToClose && <div className="ui-sheet-grab" aria-hidden><span /></div>}
+          {!grip && swipeToClose && <SheetGrab />}
           <div className="ip-head">
             {title != null && <Dialog.Title>{title}</Dialog.Title>}
             <Dialog.Close className="ip-x" aria-label={appConfig.copy.closeDialog}><Icon id="close" /></Dialog.Close>

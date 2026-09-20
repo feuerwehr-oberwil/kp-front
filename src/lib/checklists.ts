@@ -163,6 +163,31 @@ export async function loadTemplates(): Promise<ChecklistTemplate[]> {
   return value
 }
 
+/** how long a warmed list is handed out before a newer one is asked for behind it */
+export const TEMPLATES_FRESH_MS = 5 * 60_000
+let warm: { at: number; list: Promise<ChecklistTemplate[]> } | null = null
+
+/**
+ * The templates WITHOUT the wait (20.09.2026). `loadTemplates` is network-first, and it was only
+ * ever called when the Checkliste surface mounted – so the first thing the surface did, every
+ * time it was opened, was wait for the registry; and an Einsatz whose Checkliste tab was first
+ * opened offline had never cached anything at all. The workspace now warms this the moment an
+ * Einsatz opens, and the surface reads what is already there.
+ *
+ * `list` is the answer in hand (the running or finished load – it resolves at once when warmed).
+ * `newer` is set only when that answer is older than TEMPLATES_FRESH_MS: a background reload the
+ * caller may apply when it lands, so a station that corrected a list mid-Einsatz still sees it.
+ */
+export function warmTemplates(now = Date.now()): { list: Promise<ChecklistTemplate[]>; newer: Promise<ChecklistTemplate[]> | null } {
+  if (!warm) { warm = { at: now, list: loadTemplates() }; return { list: warm.list, newer: null } }
+  if (now - warm.at <= TEMPLATES_FRESH_MS) return { list: warm.list, newer: null }
+  const stale = warm.list
+  warm = { at: now, list: loadTemplates() }
+  return { list: stale, newer: warm.list }
+}
+/** test seam */
+export function resetWarmTemplates() { warm = null }
+
 // --- pure logic (unit-tested) ----------------------------------------------------
 
 /** Items of a phase that are live given the chosen branch (if any). When a phase

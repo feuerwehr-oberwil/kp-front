@@ -575,10 +575,13 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    ⚠️ Matched on the title/toggle the section header IS, so it holds for every sheet built on this
    CSS: the Linien-/Flächen-Editor (DrawEditor) and the Form-Editor (ShapeEditor), whose Messung
    block states the same numbers without the fold. */
-.draw-editor .de-group { padding: 6px 0; }
-.draw-editor .de-group + .de-group { margin-top: 12px; }
+/* ⚠️ …and «air» means the ROW RHYTHM, not a band of it (20.09.2026). With the rules gone the old
+   6 + 12 + 6px between two groups was left standing as a 24px hole in the middle of a list whose
+   rows are otherwise 48px apart – it read as something missing. Groups now follow each other as
+   ONE continuous list of options; only a named section keeps its rule and the room around it. */
+.draw-editor .de-group { padding: 0; }
 .draw-editor .de-group + .de-group:has(> .de-group-toggle, > .de-conn-title) {
-  margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
 /* wrap: a row is a label plus its control, and several controls (the Abschluss glyph trio, the
    Inhalt letters, a ± stepper) are wider than half a narrow panel. Without wrapping they ran into
    their own label. The control drops onto its own line instead. */

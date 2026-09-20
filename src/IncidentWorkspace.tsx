@@ -69,7 +69,7 @@ import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
 import { useTacticalSelection } from './lib/useTacticalSelection'
 import { useWorkspaceDoc } from './lib/useWorkspaceDoc'
-import { addPlanBindings, hasLegacyAlignmentContext, incidentBindingApproved } from './lib/incidentPlanBindings'
+import { addPlanBindings, fillBindingFloors, hasLegacyAlignmentContext, incidentBindingApproved } from './lib/incidentPlanBindings'
 import { useIncidentPlanBindings } from './lib/useIncidentPlanBindings'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
@@ -172,6 +172,8 @@ import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterIdByName as rosterIdByNameOf, truppByPersonId } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
 import type { Item } from './lib/checklists'
+import { warmTemplates } from './lib/checklists'
+import { primeKeyboard } from './lib/keyboardPrime'
 import type { NoteSize } from './types'
 import { ReportPreflight, requestReportStep } from './components/ReportPreflight'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
@@ -179,7 +181,7 @@ import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
 import { useGhostTrails } from './lib/useGhostTrails'
-import { ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
+import { ghostRevival, ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
 import { missingSteps } from './lib/abschluss'
 import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen } from './lib/abschlussOpen'
@@ -1142,7 +1144,7 @@ export function IncidentWorkspace({
   )
   const { backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
-    onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => addPlanBindings(prev, proposed)) },
+    onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
     preserveLegacy,
   })
@@ -1366,6 +1368,10 @@ export function IncidentWorkspace({
   // incidents drops every kept draft, so the next one can never be handed the previous one's
   // entry — see lib/draftKeep.
   useEffect(() => { clearAllDrafts() }, [incidentMeta.id])
+  // The Checkliste templates load the moment an Einsatz opens, not when the tab is first tapped
+  // (lib/checklists · warmTemplates): the surface opens on a list that is already there, and the
+  // offline cache is filled while there is still a network to fill it from.
+  useEffect(() => { void warmTemplates().list }, [incidentMeta.id])
   // A plan surface that shows no tool bar at all: an admin-configured module viewer, or the
   // select-only Umrisse (23.08.) — different reasons, same consequence for the phone's lanes.
   const activePlanNoTools = mode === 'plans' && (() => {
@@ -4037,18 +4043,40 @@ export function IncidentWorkspace({
     // edit would describe is the one just deleted (the `entity.delete` row carries the act)
     log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name: e.label ?? '' }))
   }
-  /** «Spur löschen» on a ghost — the same confirm the live trail has, and undoable as one step. */
+  /**
+   * A tap on a ghost trail. «Spur löschen» with the same confirm the live trail has, undoable as
+   * one step – and, where the Trupp behind it still exists, the way BACK first (20.09.2026): the
+   * marker returns where the trail ends, under the id it was recorded on, and the reconciliation
+   * takes the ghost home with it (lib/truppTrails · ghostRevival). One ask, three answers; the
+   * delete stays the red one and keeps its own wording.
+   */
   const deleteGhostTrail = async (id: string) => {
     if (tacticalLocked) return
     const g = trails.find((t) => t.id === id)
     if (!g || g.removedAt) return
     const name = ghostTrailLabel(g, appConfig.copy.whiteboard.team)
-    const ok = await confirmDialog({
-      title: appConfig.copy.whiteboard.clearTrail,
-      message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name, n: trailPointCount(g) }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
-    })
-    if (!ok) return
+    const message = fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name, n: trailPointCount(g) })
+    const back = g.truppId && trupps.some((t) => t.id === g.truppId && !t.removedAt) ? ghostRevival(g) : null
+    if (back && g.truppId) {
+      const answer = await confirmDialog({
+        title: fillTemplate(appConfig.copy.whiteboard.ghostTrailTitle, { name }),
+        message: appConfig.copy.whiteboard.ghostTrailAsk,
+        confirmLabel: appConfig.copy.whiteboard.ghostTrailRestore, cancelLabel: appConfig.copy.cancel,
+        altLabel: appConfig.copy.whiteboard.clearTrail, altDanger: true,
+      })
+      if (answer === true) {
+        if (back.surface === 'plan') placeTruppOnPlan(g.truppId, back.planId, back.at, { id: back.markerId, trail: back.trail })
+        else placeTruppOnMap(g.truppId, back.coord, { id: back.markerId, trail: back.trail })
+        return
+      }
+      if (answer !== 'alt') return
+    } else {
+      const ok = await confirmDialog({
+        title: appConfig.copy.whiteboard.clearTrail, message,
+        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      })
+      if (!ok) return
+    }
     const at = serverNowIso()
     setTrails((ts) => removeGhostTrail(ts, id, at))
     log('cross', fillTemplate(appConfig.copy.whiteboard.trailCleared, { name }))
@@ -5111,12 +5139,15 @@ export function IncidentWorkspace({
         archived={incidentMeta.is_archived}
         onBackFromArchive={onBackFromArchive}
         onReactivate={onReactivateActive}
-        // On the phone map surface the floating compass cluster already carries Einpassen
+        // On the phone map surface the compass in the bottom bar already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
-        // alarm chip). Plan has no compass cluster, so it keeps its Einpassen button here.
-        mapNav={!isPhone ? null
-          : mode === 'plans' ? { action: { icon: 'cross', label: appConfig.copy.nav.fit, onClick: () => planFit.current?.() } }
+        // alarm chip). A Plan's bottom bar carries «Einpassen» as its own tile too (20.09.2026:
+        // the top-bar twin went) – so this is left ONLY for the sheets that have no bar at all:
+        // a viewer-only Modul, the Gebäude pick surface, a replay. There the floating zoom is
+        // dropped on a phone (15-mobile.css · .wb-zoom-float) and this is the one way back.
+        mapNav={isPhone && mode === 'plans' && !phoneTools
+          ? { action: { icon: 'cross', label: appConfig.copy.nav.fit, onClick: () => planFit.current?.() } }
           : null}
         titleSlot={
           <IncidentSwitcher
@@ -5333,7 +5364,7 @@ export function IncidentWorkspace({
               opened half a screen away from the thumb that asked for it. */}
           {isPhone && !slimRail && displayWeather?.wind_dir_deg != null && (
             <div className="phone-wx">
-              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} />
+              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} popAlignOffset={-5} />
             </div>
           )}
 
@@ -6491,7 +6522,9 @@ export function IncidentWorkspace({
         <FabEntry
           recording={voice.recording}
           recStartedAt={voice.recStartedAt}
-          onTap={() => setComposerOpen(true)}
+          // the composer opens on its text field WITH the keyboard (lib/keyboardPrime): on a
+          // phone the entry is typed far more often than it is tapped together
+          onTap={() => { primeKeyboard(); setComposerOpen(true) }}
           onHoldStart={startVoiceMemo}
           onHoldStop={voice.stop}
           onHoldPhoto={startQuickPhoto}

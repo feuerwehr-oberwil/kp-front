@@ -2628,6 +2628,9 @@ export const de = {
     // labelled with the Trupp's number, because that is the name that stays true.
     ghostTrail: 'Spur {name}',
     ghostTrailHint: 'Spur von {name} – der Truppmarker wurde entfernt',
+    ghostTrailTitle: 'Spur von {name}',
+    ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur löschen?',
+    ghostTrailRestore: 'Trupp wieder platzieren',
     textPlaceholder: 'Notiz …',
     blankHint: 'Leeres Blatt – mit Linie, Fläche, Notiz, Symbol oder Trupp beschriften',
     osmLoading: 'Gebäudeumrisse werden geladen …',

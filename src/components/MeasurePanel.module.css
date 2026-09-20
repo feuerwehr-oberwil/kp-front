@@ -27,7 +27,21 @@
 .mp-v.down { color: var(--red); }
 .mp-prof-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 .mp-prof-msg { font-size: 12px; color: var(--ink-faint); padding: 10px 0; text-align: center; }
+.mp-chart-wrap { width: 100%; }
+.mp-chart-plot { position: relative; }
 .mp-chart { width: 100%; height: 84px; display: block; }
+/* the tapped nodes on their own profile (lib/profile · profileNodes): a faint guide through the
+   plot, a node dot in the map's own vocabulary – white fill, --blue ring; the two ends solid –
+   and under the axis the cumulative distance the map writes beside the same node */
+.mp-chart-guide { stroke: color-mix(in srgb, var(--ink) 16%, transparent); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.mp-chart-node { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--blue); pointer-events: none; }
+.mp-chart-node.end { background: var(--blue); }
+.mp-chart-axis { position: relative; height: 16px; margin-top: 2px; }
+.mp-chart-tick { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
+  font: 700 10.5px var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.mp-chart-tick.first { transform: none; left: 0 !important; }
+.mp-chart-tick.last { transform: none; left: auto !important; right: 0; }
 .mp-chart-fill { fill: color-mix(in srgb, var(--blue) 14%, transparent); stroke: none; }
 .mp-chart-line { fill: none; stroke: var(--blue); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .mp-prof-stats .mp-v { font-size: 14px; }

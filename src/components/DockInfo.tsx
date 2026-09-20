@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -14,8 +14,17 @@ import s from './DockInfo.module.css'
 // floating tip (they have no room for inline text).
 export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
   const [open, setOpen] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  // ⚠️ inline, the paragraph opens ABOVE the ⓘ and pushes it down. In a popover that is already
+  // at its max-height that pushed the button under the fold with the scroller still at the top –
+  // the text was open and the one control that closes it was out of sight (20.09.2026). The
+  // button follows its own text; `nearest` moves nothing when it is still visible.
+  useLayoutEffect(() => {
+    if (inline && open) btnRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [inline, open])
   const button = (
     <button
+      ref={btnRef}
       className={cx(s['wb-dock-ibtn'], open && s.on)}
       aria-label={text}
       aria-expanded={open}
