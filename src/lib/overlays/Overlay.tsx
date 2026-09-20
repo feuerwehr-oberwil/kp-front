@@ -4,6 +4,7 @@ import { keyboardLift, useKeyboardInset } from '../useKeyboardInset'
 import { useDismissGrace } from './dismissGrace'
 import { useSwipeDismiss } from './swipeDismiss'
 import { popoverOpen } from './popoverGuard'
+import { SheetGrab } from './SheetGrab'
 
 /**
  * Lower-level sibling of <Sheet>: gives an EXISTING bespoke overlay — one with its own
@@ -56,14 +57,21 @@ export interface OverlayProps {
   popupRef?: Ref<HTMLDivElement>
   /**
    * Swipe the phone bottom sheet down to close it — the same gesture <Sheet> carries, on by
-   * default for the same reason (see swipeDismiss). No grab bar is drawn here: a bespoke frame
-   * owns its own head markup, and injecting a child would land inside its `> *` rules.
+   * default for the same reason (see swipeDismiss).
    */
   swipeToClose?: boolean
+  /**
+   * Draw the grab bar as the frame's first child — the SAME element <Sheet> draws
+   * (`SheetGrab`), phone-only in CSS. Opt-in, because a bespoke frame owns its own layout and a
+   * child lands inside its `> *` rules: pass it for every frame that IS a bottom sheet on a
+   * phone (20.09.2026 – the composer, the Verlauf and the pickers had the gesture and no sign
+   * of it), never for one that is full-screen or centred there.
+   */
+  grab?: boolean
   children: ReactNode
 }
 
-export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, popupRef, swipeToClose = true, children }: OverlayProps) {
+export function Overlay({ open, onClose, className, backdropClassName = 'ui-backdrop', ariaLabel, initialFocus, modal = 'trap-focus', dismissEscape = true, style, popupRef, swipeToClose = true, grab = false, children }: OverlayProps) {
   const isOpeningEcho = useDismissGrace(open)
   const swipe = useSwipeDismiss({ onClose, enabled: swipeToClose })
   // the on-screen keyboard, the same way <Sheet> answers it; only an `.ip-sheet` frame has the
@@ -91,6 +99,7 @@ export function Overlay({ open, onClose, className, backdropClassName = 'ui-back
       <Dialog.Portal>
         <Dialog.Backdrop className={backdropClassName} />
         <Dialog.Popup ref={popupRef} className={cls} style={lift ? { ...lift, ...style } : style} aria-label={ariaLabel} initialFocus={initialFocus} {...swipe}>
+          {grab && swipeToClose && <SheetGrab />}
           {children}
         </Dialog.Popup>
       </Dialog.Portal>

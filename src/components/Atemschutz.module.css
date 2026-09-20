@@ -1080,6 +1080,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .teamSearch { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
 .teamSearch :global(.i) { width: 16px; height: 16px; color: var(--ink-faint); flex: none; }
+/* «Trupp erstellen» with nobody in it yet: the one field that has to be answered first says so,
+   in the focus ring's own colour – it is where the form starts, with or without the keyboard */
+.teamSearchWant { border-color: var(--blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent); }
+.teamSearchWant :global(.i) { color: var(--blue); }
 .teamSearch input { flex: 1 1 auto; min-width: 0; border: none; background: transparent; outline: none;
   font-family: var(--body); font-size: 15px; color: var(--ink); padding: 0; }
 .teamSearchClear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: none;

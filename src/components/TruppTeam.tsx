@@ -38,8 +38,14 @@ const PHONE_HITS = 4
  */
 export function TruppTeam({
   value, onChange, personnel, legacyRoster, presentIds, stationIds, assignedIds, rolesById, onAddGuest,
-  phone = false,
+  phone = false, wanted = false, searchInputRef,
 }: {
+  /** this form is here to NAME a Trupp and has nobody in it yet («Trupp erstellen»): the search
+   *  wears the ring until the first person stands in the list – who is going in matters more than
+   *  what they will do there, and the field looked exactly as optional as the rest (20.09.2026) */
+  wanted?: boolean
+  /** the form's handle on the search field, for the dialog's initial focus (phone only) */
+  searchInputRef?: React.RefObject<HTMLInputElement | null>
   /** the Trupp, in printed order — `value[0]` is the Gruppenführer */
   value: Slot[]
   onChange: (next: Slot[]) => void
@@ -297,10 +303,10 @@ export function TruppTeam({
           not the search's: whatever stands here can end up on the Personalblatt.
           ⚠️ `stripUnprintable` on the way IN, for the same reason — the query is a search until
           the moment it is committed as a name, and there is no second field left to clean it. */}
-      <label className={s.teamSearch}>
+      <label className={cx(s.teamSearch, wanted && !value.length && s.teamSearchWant)}>
         <Icon id="search" />
         <input
-          ref={searchRef}
+          ref={(el) => { searchRef.current = el; if (searchInputRef) searchInputRef.current = el }}
           value={q} onChange={(e) => setQ(stripUnprintable(e.target.value))} inputMode="search"
           maxLength={40} onFocus={caretToEnd} onKeyDown={onSearchKeyDown}
           // ⚠️ The PLACEHOLDER moves on once the Trupp has somebody in it — «Weitere Person

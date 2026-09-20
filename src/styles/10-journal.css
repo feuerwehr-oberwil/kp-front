@@ -365,6 +365,10 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .journal-search input::placeholder { color: var(--ink-faint); }
 /* the live «2 von 42» — read at a glance, never wrapped */
 .journal-search-count { flex: none; font: 700 12px var(--body); color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* ⚠️ …and beside the 44px field it is 44px too (20.09.2026): at its 28px it hung beside the pill
+   like a stray badge. Same fix, same reason as the Palette's search row (07-toolrail.css). */
+.journal-search + .journal-x { width: var(--tap); height: var(--tap); margin-left: 0; }
+.journal-search + .journal-x .i { width: 16px; height: 16px; }
 /* the ✕ that closes the search is «on» the way the open legend button is on: it undoes a mode */
 .journal-x.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .jr-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px;

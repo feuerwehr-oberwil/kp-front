@@ -769,7 +769,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     // `is-compact` is the rung below that and asks a different question — not «is a keyboard up»
     // but «does the card still fit», measured (see lib/composerFit · 10-journal.css).
     <Overlay open onClose={onClose} className={`journal-composer ${kbInset > 0 ? 'is-kb' : ''}${compact ? ' is-compact' : ''}`} backdropClassName="modal-backdrop"
-      ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef}
+      ariaLabel={C.composerTitle} dismissEscape={false} initialFocus={textRef} grab
       style={{ marginBottom: kbInset, '--jc-kb': `${kbInset}px` } as React.CSSProperties}
       popupRef={setCard}>
         {/* What this sheet is, and the ✕ beside it.

@@ -92,7 +92,7 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
           ) : profile ? (
             <>
               <div className={s['mp-prof-title']}>{C.profile}</div>
-              <ProfileChart p={profile} />
+              <ProfileChart p={profile} path={coords} />
               <ProfileStats p={profile} />
             </>
           ) : (

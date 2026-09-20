@@ -24,21 +24,28 @@
 :root:has(.fab-entry) { --fab-safe: 66px; }
 .fab-entry { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-fab);
   display: inline-flex; align-items: center; gap: 8px; padding: 14px 20px 14px 16px;
-  border: none; border-radius: var(--r-pill); background: var(--btn-primary); color: var(--on-btn-primary);
+  border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--ink);
   font: 700 15px var(--body); cursor: pointer; touch-action: none; user-select: none;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 34%, transparent), var(--shadow-sm);
   animation: pop .2s var(--ease); transition: transform .12s var(--ease), filter .14s var(--ease); }
+/* ⚠️ The FAB follows the THEME, not --btn-primary (20.09.2026, field report «flipped»). That token
+   inverts at night on purpose – a form's one action needs an edge against the sheet it sits on
+   (01-tokens.css) – but the FAB sits on no sheet: it floats over the map beside glass chrome, and
+   there the inversion made it the one dark disc on a day screen and the one pale disc in a dark
+   cab. Day: the white surface. Night: the raised dark pill the tool docks wear. */
+:root[data-theme="night"] .fab-entry { background: var(--ink-fill); color: var(--on-accent-ink);
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
 @media (hover: hover) {
   .fab-entry:hover { filter: brightness(1.05); }
 }
-/* press = the house ink wash (02-base.css) over the dark fill — nothing moves on press
+/* press = the house ink wash (02-base.css) over the fill — nothing moves on press
    (AGENTS.md · touch vocabulary) */
 .fab-entry:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* names the LABEL, not every span — see the note on .tb-act-add in 10-journal.css */
   .fab-entry .i, .fab-entry .tb-act-label { position: relative; z-index: 1; }
 .fab-entry .i { width: 18px; height: 18px; }
 /* recording: the FAB turns red + shows the running timer, same as the TopBar Eintrag */
-.fab-entry.rec { background: var(--red); animation: recPulse 1.4s ease-in-out infinite; }
+.fab-entry.rec, :root[data-theme="night"] .fab-entry.rec { background: var(--red); color: var(--on-accent-ink); border-color: transparent; animation: recPulse 1.4s ease-in-out infinite; }
 .fab-entry.rec span { font-family: var(--mono); }
 /* ⚠️ NO «quiet» step-back any more (18.09.2026, field ask). The circle used to shrink to .82
    and half-fade while anything underneath was scrolled: on the Journal, where the list is
@@ -600,17 +607,22 @@
      map rail is CSS-hidden here, so the scrim covers the full screen again (no rail strip
      to expose) and the floating MapUtility provides map-nav. */
   .journal-scrim { inset: 0; }
-  .journal-drawer { top: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
-    bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-width: none;
-    max-height: calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    border-radius: var(--r-hero) var(--r-hero) var(--r-surface) var(--r-surface); }
+  /* ⚠️ A real bottom sheet since 20.09.2026 – flush left, right and bottom, risen from below,
+     grab bar on top (Overlay · grab). It used to float 8px off every edge as a card, which is
+     why it could not be pushed down (swipeDismiss measures «flush with the bottom») and why, with
+     the keyboard up, 8px + the home-indicator inset stood open between it and the keys. */
+  .journal-drawer { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-width: none;
+    max-height: calc(100dvh - 70px - env(safe-area-inset-top));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    border-radius: var(--r-hero) var(--r-hero) 0 0; animation: sheetUp .22s var(--ease); }
   /* ⚠️ Keyboard up (the Verlauf search, 15.09.2026): the Overlay lifts this bottom-anchored
      drawer by the keyboard's height (keyboardLift · marginBottom), but the cap above is the whole
      screen – so a full drawer rode up with its HEAD, the row holding the search field, above the
      top of the screen, and the operator typed into a field they could not see. The cap gives the
      keyboard its share, the same way the incident sheet's `.is-kb` does (13-incident.css). */
-  .journal-drawer.is-kb {
-    max-height: calc(100dvh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--kb-inset, 0px)); }
+  /* …and the keyboard covers the home indicator, so its inset is not paid twice */
+  .journal-drawer.is-kb { padding-bottom: 10px;
+    max-height: calc(100dvh - 70px - env(safe-area-inset-top) - var(--kb-inset, 0px)); }
   /* ⚠️ The Pendenzen box needs a cap this side of a PERCENTAGE. Its `max-height: 45%` resolves
      against `.journal-drawer`, and on a phone this drawer is `height: auto` (bottom-anchored,
      capped by max-height) — an indefinite height, against which a percentage max-height computes
@@ -679,6 +691,11 @@
   .ip-sheet, .ip-sheet.ip-wide, .pp-sheet:not(.pp-nomap) { width: 100%; max-width: none;
     height: auto; max-height: 92dvh; border-radius: var(--r-hero) var(--r-hero) 0 0; }
   .ip-body { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  /* ⚠️ …but where a sheet HAS a footer, the footer is its bottom edge, and it paid no inset at
+     all: «Abbrechen» sat 16px off the glass, inside the phone's own corner curve and on the home
+     indicator (20.09.2026). The footer takes the inset; the body above it no longer needs one. */
+  .ip-sheet > .ip-actions { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .ip-sheet:has(> .ip-actions) .ip-body { padding-bottom: 12px; }
   /* Base UI Dialog popup has no .ip-ovl grid parent, so bottom-anchor it here (the old
      .ip-ovl{place-items:end center} did this) — same full-width bottom sheet + sheetUp entrance. */
   .ip-sheet.ui-dialog { top: auto; bottom: 0; left: 0; transform: none; }
@@ -690,6 +707,12 @@
   .ui-sheet-grab { display: flex; align-items: flex-end; justify-content: center; flex: none;
     height: 24px; padding: 0 0 5px; }
   .ui-sheet-grab span { width: 40px; height: 5px; border-radius: var(--r-pill); background: var(--border); }
+  /* …and the bespoke frames that wear it (Overlay · grab, Palette): each gives back the top
+     padding the 24px band replaces, so the bar hangs where it hangs on an .ip-sheet – and the
+     band itself is a handle, so it must not hand the vertical gesture to the browser first. */
+  .ui-sheet-grab { touch-action: none; }
+  :is(.journal-composer, .journal-drawer, .sym-modal) { padding-top: 0; }
+  :is(.journal-composer, .sym-modal) > .ui-sheet-grab { margin-bottom: -4px; }
   /* the head is the sheet's handle, so it must not hand the vertical gesture to the browser
      first — same reason `.ctx-head` carries it (below). Its own controls opt back in. */
   .ip-sheet .ip-head { touch-action: none; }
@@ -713,8 +736,8 @@
   /* incident switcher dropdown caps to the viewport so it can't run off the bottom */
   .ip-menu { max-height: calc(100dvh - 80px - env(safe-area-inset-top)); }
 
-  /* the plan's floating zoom (−/%/+/fit) is dropped on a phone — pinch handles zoom and
-     Fit moves into the top bar (TopBar mapNav), matching the map's locate treatment */
+  /* the plan's floating zoom (−/%/+/fit) is dropped on a phone — pinch handles zoom, and Fit is
+     the bottom bar's «Einpassen» tile; a sheet with no bar keeps it in the top bar (TopBar mapNav) */
   .wb-zoom-float { display: none; }
   /* the plan stage spans the full width and clears the bottom bar (the board's fit
      re-measures to this area) so plan content isn't hidden behind the bar */

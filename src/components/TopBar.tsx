@@ -184,7 +184,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // unconditionally — hooks can't be skipped — but with the button unrendered nothing ever
   // reaches these handlers, so the no-op fallbacks are only there to satisfy the signature.
   const noop = () => {}
-  const { pressing, pressedSince, latched, hover, anchor, handlers } = useHoldEntry({
+  const { pressing, pressedSince, latched, hover, anchor, sticky, pickSticky, handlers } = useHoldEntry({
     recording,
     onTap: onAddEntry ?? noop,
     onHoldStart: onHoldStart ?? noop,
@@ -273,7 +273,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             {...handlers}
           >
             {/* below: this button lives in the TOP bar, so the targets open downward */}
-            {latched && <HoldTargets hover={hover} placement="below" anchor={anchor} />}
+            {latched && <HoldTargets hover={hover} placement="below" anchor={anchor} onPick={sticky ? pickSticky : undefined} />}
             {recording
               ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
               : <>
@@ -402,13 +402,16 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
 /** The tappable wind/weather readout + its detail popover. Lives in the TopBar on
  *  desktop/tablet; on phones App floats it in the top-right .phone-wx read-out
  *  instead (the bar is too narrow — it clipped at the screen edge). */
-export function WeatherBadge({ weather, onOpenMeteo, bearing = 0 }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number }) {
+export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
+  /** the phone's glass cluster wraps the chip in 5px of its own (padding + border) – see Popover · alignOffset */
+  popAlignOffset?: number }) {
   const cond = condition(weather.weather_code)
   if (weather.wind_dir_deg == null) return null
   return (
     <div className="tb-weather-wrap">
       <Popover
         popupClassName="tb-weather-pop"
+        alignOffset={popAlignOffset}
         ariaLabel={appConfig.copy.weather.details}
         side="bottom"
         align="end"

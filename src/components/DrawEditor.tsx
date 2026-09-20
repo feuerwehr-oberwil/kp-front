@@ -1,4 +1,5 @@
-import { Fragment, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { prefersReducedMotion } from '../lib/reducedMotion'
 import { Icon } from '../lib/icons'
 import { Combo } from './Combo'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
@@ -215,6 +216,14 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
   const [measureOpen, setMeasureOpen] = useState(false)
   const hasProfileCoords = isLine && !!profileCoords && profileCoords.length >= 2
   const { profile, loading: profileLoading } = useLineProfile(profileCoords ?? [], hasProfileCoords && measureOpen)
+  // Opening «Messung» brings it to the top of the sheet's scroller: it is the LAST group, so on a
+  // phone sheet the fold opened entirely below the edge and the tap seemed to do nothing
+  // (20.09.2026). Again when the Höhenprofil arrives – it is most of the section's height.
+  const measureRef = useRef<HTMLDivElement>(null)
+  const profileReady = !!profile
+  useEffect(() => {
+    if (measureOpen) measureRef.current?.scrollIntoView?.({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+  }, [measureOpen, profileReady])
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
   // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
   const actions = readOnly ? null : (
@@ -531,7 +540,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             only reachable by re-drawing the line with the Messen tool, and the Höhenprofil not at
             all; the old An/Aus toggle lives on here as «Auf Karte», which is what it always did. */}
         {(isLine ? lengthM != null || supportsDistance : areaM2 != null) && (
-          <div className="de-group">
+          <div className="de-group" ref={measureRef}>
             <button type="button" className={`de-prof-toggle de-group-toggle${measureOpen ? ' on' : ''}`} aria-expanded={measureOpen} onClick={() => setMeasureOpen((o) => !o)}>
               <span className="de-conn-title">{appConfig.copy.drawingEditor.measurement}</span><Icon id="chevron-down" className="chev" />
             </button>
@@ -584,7 +593,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 {profileLoading ? (
                   <div className="de-prof-msg">{appConfig.copy.measure.profileLoading}</div>
                 ) : profile ? (
-                  <><ProfileChart p={profile} /><ProfileStats p={profile} /></>
+                  <><ProfileChart p={profile} path={profileCoords} /><ProfileStats p={profile} /></>
                 ) : (
                   <div className="de-prof-msg">{appConfig.copy.measure.profileNone}</div>
                 )}

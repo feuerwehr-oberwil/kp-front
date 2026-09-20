@@ -374,7 +374,7 @@
 
 /* build stamp + manual update check, pinned to the menu foot */
 .ip-menu-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  margin-top: 4px; padding: 8px 8px 4px; border-top: 1px solid var(--glass-edge); }
+  margin-top: 4px; padding: 4px 8px 4px; }
 .ip-menu-ver { font: 600 10.5px var(--mono, var(--body)); letter-spacing: .02em; color: var(--ink-faint);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* «Jetzt aktualisieren» — only while a build is actually waiting, so the foot is a build stamp
@@ -1662,7 +1662,10 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-objpick { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: 6px 8px; background: var(--surface-2); }
 .ip-objlist { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .ip-objgroup { font: 700 10.5px var(--body); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); padding: 6px 8px 2px; }
-.ip-objrow { display: flex; width: 100%; padding: 8px 10px; border: none; background: none; cursor: pointer;
+/* ⚠️ flex: none – the list is a scrolling flex COLUMN, and a flex item may shrink below its
+   content: once the list overflowed, every row was squeezed to its min-height and a name that
+   wrapped onto two lines painted its sub-line under the next row's title (20.09.2026). */
+.ip-objrow { flex: none; display: flex; width: 100%; padding: 8px 10px; border: none; background: none; cursor: pointer;
   text-align: left; border-radius: var(--r-ctl); }
 @media (hover: hover) {
   .ip-objrow:hover { background: var(--hover-strong); }

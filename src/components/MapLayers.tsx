@@ -10,12 +10,16 @@ import { useNightTheme } from '../lib/useNightTheme'
 // tactical overlays/symbols keep their real colours. Each basemap stays itself (no swap), just
 // darker; satellite imagery is left untouched.
 const NIGHT_BASE_PAINT = { 'raster-brightness-max': 0.6, 'raster-saturation': -0.1, 'raster-contrast': 0.1 } as const
-// A true-dark raster (Carto Dark Matter, or the night swap) renders buildings near-black on black,
-// so almost everything is invisible. `raster-brightness-min` is the lever: it lifts the BLACK floor
-// so the dark structure rises into a legible charcoal range. (Positive `raster-contrast` would do
-// the opposite here — it pushes the dark mid-tones back toward black — so we keep it flat/slightly
-// negative.) Raise brightness-min toward ~0.4 for lighter, lower toward ~0.2 for darker.
-const DARK_BASE_PAINT = { 'raster-brightness-min': 0.34, 'raster-contrast': -0.05 } as const
+// A true-dark raster (Carto Dark Matter, or the night swap) renders buildings near-black on black:
+// measured off a z17 tile (20.09.2026) the whole picture lives in 0–33 of 255 – buildings 0,
+// ground 8, roads 25. MapLibre's shader is `mix(min, max, (v − .5) · f + .5)` with
+// f = 1 / (1 − contrast), so the separation between two dark tones is scaled by f · (max − min).
+// `raster-brightness-min` ALONE lifts the floor but squeezes that span (0.34 → ×0.63: everything
+// landed in 91–112, one flat grey). The pair does both: a high min sets the floor, a high
+// positive contrast stretches the dark end back out underneath it (×1.47 here: 36–84, the floor
+// DARKER than before and the roads further from it). Floor = .5 + .5·min − .5·f·(1 − min); keep
+// it near 0.14 when retuning, and the labels (≥ ~0.55 in the source) clip to white.
+const DARK_BASE_PAINT = { 'raster-brightness-min': 0.75, 'raster-contrast': 0.83 } as const
 
 interface Props {
   layers: LayerDef[]

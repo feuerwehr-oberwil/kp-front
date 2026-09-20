@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useHoldEntry } from './useHoldEntry'
+import { STICKY_MS, useHoldEntry } from './useHoldEntry'
 
 // The hook's timing state machine (CUE_MS=130, HOLD_MS=350) drives three outcomes from a
 // pointer press: quick tap → onTap, hold past HOLD_MS → a CHOICE that acts on release ONLY if
@@ -188,5 +188,56 @@ describe('useHoldEntry timing state machine', () => {
 
     expect(onHoldPhoto).not.toHaveBeenCalled()
     expect(onHoldStart).not.toHaveBeenCalled()
+  })
+  // 20.09.2026: on the iPhone a hold released over «Foto» opened nothing – a slid touch carries no
+  // user activation and `input.click()` is then silently refused. The chooser stays for a real tap.
+  describe('a «Foto» released without user activation', () => {
+    const activation = (isActive: boolean | undefined) =>
+      Object.defineProperty(navigator, 'userActivation', { configurable: true, value: isActive === undefined ? undefined : { isActive } })
+    afterEach(() => activation(undefined))
+    const slideOntoPhoto = (hook: ReturnType<typeof setup>['hook']) => {
+      document.elementFromPoint = () => ({ closest: () => ({ getAttribute: () => 'photo' }) }) as unknown as Element
+      act(() => hook.result.current.handlers.onPointerDown(pointer()))
+      act(() => void vi.advanceTimersByTime(360))
+      act(() => hook.result.current.handlers.onPointerMove({ clientX: 10, clientY: 10 } as React.PointerEvent<HTMLButtonElement>))
+    }
+
+    it('opens the camera straight away where the release is allowed to', () => {
+      activation(true)
+      const { hook, onHoldPhoto } = setup(false, true)
+      slideOntoPhoto(hook)
+      act(() => hook.result.current.handlers.onPointerUp())
+      expect(onHoldPhoto).toHaveBeenCalledTimes(1)
+      expect(hook.result.current.latched).toBe(false)
+    })
+
+    it('keeps the chooser lit on «Foto» and opens the camera on the confirming tap', () => {
+      activation(false)
+      const { hook, onHoldPhoto } = setup(false, true)
+      slideOntoPhoto(hook)
+      act(() => hook.result.current.handlers.onPointerUp())
+      act(() => void vi.advanceTimersByTime(100)) // the touchend that might have brought it never did
+      expect(onHoldPhoto).not.toHaveBeenCalled()
+      expect(hook.result.current).toMatchObject({ sticky: true, latched: true, hover: 'photo' })
+      act(() => hook.result.current.pickSticky('photo'))
+      expect(onHoldPhoto).toHaveBeenCalledTimes(1)
+      expect(hook.result.current).toMatchObject({ sticky: false, latched: false })
+    })
+
+    it('lets it go on the ✕ and by itself, opening nothing', () => {
+      activation(false)
+      const { hook, onHoldPhoto, onTap } = setup(false, true)
+      slideOntoPhoto(hook)
+      act(() => hook.result.current.handlers.onPointerUp())
+      act(() => void vi.advanceTimersByTime(100))
+      act(() => hook.result.current.handlers.onClick()) // the button is the ✕
+      expect(hook.result.current.sticky).toBe(false)
+      slideOntoPhoto(hook)
+      act(() => hook.result.current.handlers.onPointerUp())
+      act(() => void vi.advanceTimersByTime(100 + STICKY_MS))
+      expect(hook.result.current).toMatchObject({ sticky: false, latched: false })
+      expect(onHoldPhoto).not.toHaveBeenCalled()
+      expect(onTap).not.toHaveBeenCalled()
+    })
   })
 })

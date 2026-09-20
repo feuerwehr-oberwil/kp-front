@@ -68,6 +68,29 @@ export function addPlanBindings(existing: IncidentPlanBinding[], proposed: Incid
   return added.length ? [...existing, ...added] : existing
 }
 
+const sameRevision = (a: IncidentPlanBinding, b: IncidentPlanBinding) => a.datasetId === b.datasetId && a.planVersion === b.planVersion
+
+/**
+ * A binding may GAIN its floors, once, and never change them. «First binding wins» protects the
+ * backdrop – which revision, which fit – and absent floors are not a backdrop, they are an answer
+ * that had not been given yet: the sheet was bound before the station published the pack, or by a
+ * device that only had an older answer cached. Found 20.09.2026 on a stack whose `pack.bindingId`
+ * named a binding with no floors – every storey read «Kein Geschossplan». Only the SAME dataset
+ * revision may fill them in; a binding that has floors keeps exactly those.
+ */
+export function fillBindingFloors(existing: IncidentPlanBinding[], proposed: IncidentPlanBinding[]): IncidentPlanBinding[] {
+  const donors = new Map(proposed.filter((b) => b.floors?.length).map((b) => [b.id, b]))
+  if (!donors.size) return existing
+  let changed = false
+  const out = existing.map((binding) => {
+    const donor = donors.get(binding.id)
+    if (!donor || binding.floors?.length || !sameRevision(binding, donor)) return binding
+    changed = true
+    return { ...binding, floors: donor.floors!.map((f) => ({ ...f })) }
+  })
+  return changed ? out : existing
+}
+
 export function overridePlanBinding(bindings: IncidentPlanBinding[], id: string, georef: Georef): IncidentPlanBinding[] {
   return bindings.map((binding) => binding.id === id ? { ...binding, override: cloneGeoref(georef) } : binding)
 }
@@ -79,17 +102,23 @@ export function mergeIncidentPlanBindings(base: IncidentPlanBinding[], mine: Inc
   const server = new Map(theirs.map((binding) => [binding.id, binding]))
   const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
   const snapshot = ({ override: _override, ...binding }: IncidentPlanBinding) => binding
+  // what «the same snapshot» is compared on: floors may be filled in later (fillBindingFloors),
+  // so a side that merely HAS them is still the same frozen backdrop
+  const frozen = ({ override: _override, floors: _floors, ...binding }: IncidentPlanBinding) => binding
   const out: IncidentPlanBinding[] = []
   for (const id of new Set([...server.keys(), ...local.keys()])) {
     const ancestor = bases.get(id), mi = local.get(id), th = server.get(id)
     if (ancestor && (!mi || !th)) continue // retain workspace delete-beats-edit semantics
     if (!mi || !th) { out.push((mi ?? th)!); continue }
     const fixed = ancestor ?? th
-    const localMatches = equal(snapshot(mi), snapshot(fixed))
-    const serverMatches = equal(snapshot(th), snapshot(fixed))
+    const localMatches = equal(frozen(mi), frozen(fixed))
+    const serverMatches = equal(frozen(th), frozen(fixed))
     let override = serverMatches ? th.override : fixed.override
     if (localMatches && (ancestor ? !equal(mi.override, ancestor.override) : mi.override !== undefined)) override = mi.override
-    out.push({ ...snapshot(fixed), override })
+    // the fixed side's floors stand; only their ABSENCE is filled, server side first
+    const floors = fixed.floors?.length ? fixed.floors
+      : [th, mi].find((side) => side.floors?.length && sameRevision(side, fixed))?.floors
+    out.push({ ...snapshot(fixed), ...(floors?.length ? { floors } : {}), override })
   }
   return out
 }

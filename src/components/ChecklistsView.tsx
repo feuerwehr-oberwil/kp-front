@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { ChecklistState, ChecklistTemplate, Item, TemplateState } from '../lib/checklists'
-import { allEntries, loadTemplates, matchDiveraEntries, searchEntries, templateProgress } from '../lib/checklists'
+import { allEntries, warmTemplates, matchDiveraEntries, searchEntries, templateProgress } from '../lib/checklists'
 import { ChecklistRunner } from './ChecklistRunner'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { cx } from '../lib/cx'
@@ -34,12 +34,17 @@ export function ChecklistsView({
   const [ready, setReady] = useState(false)
   useEffect(() => {
     let alive = true
-    loadTemplates().then((t) => {
+    const apply = (t: ChecklistTemplate[]) => {
       if (alive) {
         setTemplates(t)
         setReady(true)
       }
-    })
+    }
+    // already loading or loaded since the Einsatz opened (lib/checklists · warmTemplates); a
+    // list older than a few minutes is shown at once and replaced when its reload lands
+    const { list, newer } = warmTemplates()
+    void list.then(apply)
+    void newer?.then(apply)
     return () => {
       alive = false
     }

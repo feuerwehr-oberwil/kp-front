@@ -4,6 +4,9 @@
 // through src/lib/overlays/") for which surfaces are deliberately excluded and why.
 export { Sheet, SheetClose, type SheetProps } from './Sheet'
 export { Overlay, type OverlayProps } from './Overlay'
+// for the ONE hand-rolled bottom sheet (components/Palette): the same bar, the same gesture
+export { SheetGrab } from './SheetGrab'
+export { useSwipeDismiss } from './swipeDismiss'
 export { ConfirmCard } from './ConfirmCard'
 export { Menu, type MenuActionItem } from './Menu'
 export { ContextMenu, type ContextMenuEntry } from './ContextMenu'
