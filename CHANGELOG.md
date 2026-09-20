@@ -145,8 +145,9 @@ so this file – not the log – is the record of what shipped up to that point.
   journal FAB opens the composer with keys, not only a caret; a confirm dialog's action row
   wraps instead of pushing «Abbrechen» into the corner; the Atemschutz alarm chip's clock no
   longer ghosts the previous second in WebKit; the night map's dark end is stretched instead of
-  squeezed; a station-approved fit reads «Verknüpft» everywhere; one shape for every search
-  placeholder.
+  squeezed; a station-approved fit reads «Verknüpft» everywhere; the folded «Rapport» tile remembers its
+  page across a reload of the installed app; every sheet's ✕ is 36 px; one shape for every
+  search placeholder.
 - **The «#N» badge leaves the marker, chip, pill and phone row** – the Trupp's name stands alone
   there, and the card carries the number.
 
