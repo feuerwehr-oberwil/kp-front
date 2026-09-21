@@ -9,6 +9,7 @@ import { Palette } from './Palette'
 import { FloorPage } from './FloorPage'
 import { usePlanPaperMm } from './usePlanPaper'
 import { paperMaxScale } from '../lib/planTiles'
+import { prefetchPlanTiles } from '../lib/planTilePrefetch'
 import { PdfViewport, planMatcherImage, planPrintedMPerU, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
@@ -720,6 +721,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (!vp.w || !vp.h) return
     prewarmPlans(plans.filter((p) => p.imageUrl).map((p) => planUrl(p.imageUrl)), vp.w, vp.h)
   }, [plans, vp.w, vp.h])
+  // …and the sheets that have a tile pyramid are fetched WHOLE for offline use (lib/planTilePrefetch)
+  useEffect(() => {
+    const t = setTimeout(() => prefetchPlanTiles(plans.filter((p) => p.imageUrl).map((p) => planUrl(p.imageUrl))), 4000)
+    return () => clearTimeout(t)
+  }, [plans])
 
   // in stack mode the board's aspect is driven by the floor count and the BUILDING's own storey
   // band – a flat hall gets flat cards, so the stack is as tall as its drawings need (16.09.2026)

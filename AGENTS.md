@@ -449,6 +449,35 @@ to prod.
   CLOSED) — the Plan surface is unmounted on every tab switch, and re-rasterising a multi-page
   A4 is the seconds of white column that read as «it is loading again». `evictPlan` («Erneut
   laden») drops bytes, pages and bitmaps together.
+- **A plan sheet is drawn from a server-side TILE PYRAMID; pdf.js is the fallback** (21.09.2026).
+  pdf.js walks a page's whole display list on every render, whatever the canvas size: the
+  Gymnasium's A1 Modul 6 (357 000 paths) cost 4.5 s a pass on a desktop and 10 s+ on a tablet, and
+  its 0.29 mm room stamps need ~600 dpi — a raster no tablet can hold, so the pixel budget
+  (`lib/pdfRenderBudget`) capped it to mush. `app/plan_tiles.py` renders every current plan
+  revision ONCE with PDFium into lossless-WebP tiles (512 px, top level 600 dpi, ~10 MB for that
+  A1): a scheduler tick fills pyramids a few seconds at a time (`fill_once`; the page is loaded
+  once per BATCH because loading parses it, each block is encoded before the next is drawn, and
+  `malloc_trim` hands PDFium's ~200 MB back), and a cold tile is rendered on demand with its
+  block. Tiles are DERIVED: own storage root `plan-tiles/`, skipped by `app.backup`, regenerable.
+  `GET /api/reference/{id}/tiles?v=N` is the manifest (revalidated — `complete` is live),
+  `…/tiles/{v}/{page}/{z}/{x}/{y}` a tile (the revision is in the PATH → immutable), both under
+  the same session/link narrowing as the PDF itself (`auth/incident_link`). Client:
+  `lib/planTiles` is the pure half (level by the √2 rule, visible tiles, the stitched multi-page
+  layout — ⚠️ which must never drift from `PdfViewport · render`, ink is stored in it);
+  `PlanTileLayer` (board) and `FloorPage · TiledFloorPage` (Gebäude storeys) mount an always-there
+  small UNDERLAY plus the on-screen tiles of the level the zoom asks for, so a device holds about
+  two screenfuls of pixels for any sheet at any depth. Tile overlap against seams is half a
+  PIXEL, never a constant of the unit square. `lib/planTileRaster · composeTiles` gives the
+  Karte backdrop, the auto-align upload and the ink scan their pixels without a bake, and a
+  tiled sheet is never pre-baked. `lib/planTilePrefetch` fetches an object's complete pyramids
+  through the service worker (`plan-tiles` CacheFirst, `plan-tile-manifests` NetworkFirst — both
+  listed BEFORE the reference routes and purged on denial) so a sheet is whole offline. No
+  pyramid (unpinned/bundled PDF, >12 pages, PDFium cannot read it, a tile that cannot be had
+  offline) ⇒ every caller keeps the pdf.js path unchanged.
+  ⚠️ **The zoom ceiling of a tiled sheet follows the PAPER** (`planTiles · paperMaxScale`, 28 CSS
+  px per paper mm ≈ 5× life size; `MAX_SCALE` / `MAX_SCALE_STACK` are its floor): a multiple of
+  «eingepasst» gave an A1 a sixth of the magnification it gave an A4. It ARRIVES after mount, so
+  `useBoardView` clamps through a ref — its wheel listener is bound once.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
