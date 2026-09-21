@@ -7,6 +7,8 @@ import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
 import { Palette } from './Palette'
 import { FloorPage } from './FloorPage'
+import { usePlanPaperMm } from './usePlanPaper'
+import { paperMaxScale } from '../lib/planTiles'
 import { PdfViewport, planMatcherImage, planPrintedMPerU, prewarmPlans } from './PdfViewport'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
@@ -516,7 +518,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // floor-stack: a vertical stack of footprint sheets (top = highest storey). Read before the
   // view hook because the stack zooms one step deeper than a sheet does (see MAX_SCALE_STACK).
   const stack = !!(active.floorStack && building && building.floors.length)
-  const maxScale = stack ? MAX_SCALE_STACK : MAX_SCALE
+  // ⚠️ A sheet drawn from tiles zooms by its PAPER size (lib/planTiles · paperMaxScale): the fit it
+  // is measured against is computed further down, so the ceiling lives in state and the view hook
+  // reads it through a ref.
+  const [paperScale, setPaperScale] = useState<number | null>(null)
+  // …and a Gebäude whose storeys are tiled reports how dense its drawings lie on the board
+  // (FloorPage · onDensity, board px per paper mm AT FIT), which gives the stack the same rule.
+  const [stackDensity, setStackDensity] = useState<number | null>(null)
+  const maxScale = stack
+    ? (stackDensity ? paperMaxScale(stackDensity, 1, MAX_SCALE_STACK) : MAX_SCALE_STACK)
+    : Math.max(MAX_SCALE, paperScale ?? 0)
   const { scale, pos, scaleRef, posRef, applyView, zoomTo, zoom } = useBoardView(canvasRef, canvasEl, viewMemory, maxScale)
 
   const osm = active.osm
@@ -728,6 +739,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const byW = { w, h: w * effAspect }
     return byW.h <= h ? byW : { w: h / effAspect, h }
   }, [vp, effAspect, stack, side])
+  // a storey says its density at the CURRENT zoom; the ceiling wants it at fit. Rounded, so the
+  // sub-pixel wobble of a re-layout cannot move the ceiling under a finger.
+  const takeStackDensity = (now: number) => {
+    // `scale` of THIS render – the one the storey measured itself in – never the ref, which a
+    // pinch has already moved on
+    const atFit = Math.round((now / (scale || 1)) * 100) / 100
+    if (atFit > 0) setStackDensity((was) => (was === atFit ? was : atFit))
+  }
+  const paperMm = usePlanPaperMm(!stack && active.imageUrl ? planUrl(active.imageUrl) : null)
+  useEffect(() => {
+    setPaperScale(paperMm && fit.w ? paperMaxScale(fit.w, paperMm, MAX_SCALE) : null)
+  }, [paperMm, fit.w])
   // Zoom by LAYOUT, not by a CSS scale transform: the board's real pixel size is
   // fit × scale. This re-rasterizes the PDF + SVG symbols + text crisply at the
   // actual zoom instead of bitmap-scaling a 100% texture (which pixelates them).
@@ -3370,12 +3393,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                           // (lib/floorPackBinding) – two wings of one storey land side by side
                           return parts.map((tile) => (
                             <FloorPage key={`${f}:${tile.part}:${tile.url}`} url={tile.url} corners={packPagePlacement(packView!, building.pack!.aspect, tile)}
-                              region={tile.clip} w={fpBox.w} h={fpBox.h} floors={drawings} />
+                              region={tile.clip} w={fpBox.w} h={fpBox.h} floors={drawings} onDensity={takeStackDensity} />
                           ))
                         }
                         // a footprint stack places the whole page through the fits – one page, one raster
                         const corners = pagePlacement(building, shownAngle, floorPack.fit!)
-                        return corners && <FloorPage key={parts[0].url} url={parts[0].url} corners={corners} w={fpBox.w} h={fpBox.h} floors={N} />
+                        return corners && <FloorPage key={parts[0].url} url={parts[0].url} corners={corners} w={fpBox.w} h={fpBox.h} floors={N} onDensity={takeStackDensity} />
                       })()}
                       {building.pack && !floorPack?.tiles[f]?.length && fpBox && (
                         <text x={fpBox.w / 2} y={fpBox.h / 2} textAnchor="middle" className="wb-floor-noplan">{appConfig.copy.whiteboard.noFloorPlan}</text>

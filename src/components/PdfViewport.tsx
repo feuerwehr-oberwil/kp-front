@@ -19,6 +19,7 @@ import { pdfPageOf } from '../lib/whiteboard'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget, rasterSide, regionRaster, renderScale } from '../lib/pdfRenderBudget'
 import { dropTileManifest, loadTileManifest, tileSource, type TileManifest } from '../lib/planTiles'
 import { PlanTileLayer } from './PlanTileLayer'
+import { composeTiles } from '../lib/planTileRaster'
 
 // The worker asset's URL, remembered for the diagnosis path: when a PDF fails, whether that
 // file is still being served is the single most telling fact we can gather (lib/pdfDiagnosis).
@@ -292,6 +293,13 @@ const MATCHER_SIDE = 1755
  * retina screen), which is exactly what made «Plan rendern» take forever.
  */
 export async function planMatcherImage(url: string): Promise<Blob> {
+  // a tiled sheet is composed from its tiles – no pdf.js pass, no page-sized bake (21.09.2026)
+  const tiled = await composeTiles(url, [0, 0, 1, 1], MATCHER_SIDE).catch(() => null)
+  if (tiled) {
+    const out = await new Promise<Blob | null>((resolve) => tiled.toBlob(resolve, 'image/jpeg', 0.86))
+    tiled.width = tiled.height = 0
+    if (out) return out
+  }
   const resident = await cachedBake(url)?.catch(() => null)
   const baked = resident && Math.max(resident.bitmap.width, resident.bitmap.height) >= 1200
     ? resident
@@ -434,7 +442,16 @@ export function planPreviewUrl(url: string, vw: number, vh: number, maxSide = 18
   const cached = previewCache.get(key)
   // touch for LRU — an entry still being asked for is the last one that should be dropped
   if (cached) { previewCache.delete(key); previewCache.set(key, cached); return cached }
-  const p = bake(url, bw, bh, maxSide, budgetPx).then((b) => {
+  // ⚠️ A sheet with a tile pyramid is COMPOSED from a handful of tiles (lib/planTileRaster,
+  // 21.09.2026): the bake below is a full pdf.js pass over the page and a page-sized bitmap held
+  // for it, which is exactly what tiles exist to retire. null = no pyramid, a rejection = a tile
+  // could not be had (offline, cold cache) – both fall through to the bake.
+  const p = composeTiles(url, [0, 0, 1, 1], Math.min(maxSide, rasterSide(1, budgetPx))).catch(() => null).then((tiled) => {
+    if (!tiled) return null
+    const out = tiled.toDataURL('image/jpeg', 0.86)
+    tiled.width = tiled.height = 0
+    return out
+  }).then((fromTiles) => fromTiles ?? bake(url, bw, bh, maxSide, budgetPx).then((b) => {
     // ⚠️ The DECODED image is what this costs, not the base64 string: every <img>/<image> that
     // points at the data URL holds one, and the Gebäude stack points one per storey at it. So
     // the same budget that bounds the bake bounds this raster too (lib/pdfRenderBudget).
@@ -449,7 +466,7 @@ export function planPreviewUrl(url: string, vw: number, vh: number, maxSide = 18
     const out = canvas.toDataURL('image/jpeg', 0.86)
     canvas.width = canvas.height = 0 // the JPEG holds the pixels now
     return out
-  })
+  }))
   p.catch(() => { if (previewCache.get(key) === p) previewCache.delete(key) })
   previewCache.set(key, p)
   while (previewCache.size > PREVIEW_CAP) {
@@ -653,8 +670,9 @@ export function regionInkBox(url: string, clip: InkBox): Promise<InkBox | null> 
  *  the six the tiles cost, which is what made a marked A1 slower to open than the plain sheet
  *  (16.09.2026). From the bake it is a blit and a pixel walk over at most a few hundred px. */
 async function scanRegionInk(url: string, clip: InkBox): Promise<InkBox | null> {
-  const baked = await bake(url, CROP_BAKE_SIDE, CROP_BAKE_SIDE)
-  const canvas = cropCanvas(baked.bitmap, clip, INK_SCAN_SIDE)
+  // …or, for a sheet with a tile pyramid, a few tiles of a small level (lib/planTileRaster)
+  const canvas = (await composeTiles(url, clip, INK_SCAN_SIDE).catch(() => null))
+    ?? cropCanvas((await bake(url, CROP_BAKE_SIDE, CROP_BAKE_SIDE)).bitmap, clip, INK_SCAN_SIDE)
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) return null
   const { width, height } = canvas

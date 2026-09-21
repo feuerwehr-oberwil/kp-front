@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { planRegionCropUrl, planRegionUrl, type RegionCrop } from './PdfViewport'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget } from '../lib/pdfRenderBudget'
 import { regionCorners } from '../lib/stackFit'
 import type { Pt } from '../lib/footprint'
+import {
+  loadTileManifest, pickLevel, ptToMm, sourcePages, tileSource, tileUrl, underlayLevel, visibleTiles,
+  type Tile, type TileManifest, type TilePage,
+} from '../lib/planTiles'
 
 /** the whole page – a footprint stack lays one sheet per storey, uncropped */
 const WHOLE: [number, number, number, number] = [0, 0, 1, 1]
@@ -23,7 +27,7 @@ const WHOLE: [number, number, number, number] = [0, 0, 1, 1]
  * image at every tick of a pinch (15.09.2026). Past that the CSS scales the bitmap – a slightly
  * soft plan is readable at 3am, a killed tab is not.
  */
-export function FloorPage({ url, corners, region = WHOLE, w, h, floors }: {
+function RasterFloorPage({ url, corners, region = WHOLE, w, h, floors }: {
   url: string
   /** the PAGE's (0,0), (1,0), (0,1) in the tile's 0..1 box (lib/stackFit) */
   corners: [Pt, Pt, Pt]
@@ -98,5 +102,158 @@ export function FloorPage({ url, corners, region = WHOLE, w, h, floors }: {
       className="wb-floor-page"
       transform={at}
     />
+  )
+}
+
+type FloorPageProps = Parameters<typeof RasterFloorPage>[0] & {
+  /** how many board px one PAPER millimetre of this drawing spans right now – only a tiled
+   *  storey can say (the manifest states the page size), and the board turns it into the stack's
+   *  zoom ceiling (lib/planTiles · paperMaxScale) */
+  onDensity?: (boardPxPerPaperMm: number) => void
+}
+
+/**
+ * One storey's Geschossplan under its tile. ⚠️ Since 21.09.2026 it is drawn from the server's
+ * TILE PYRAMID whenever the sheet has one (`TiledFloorPage`), and the raster pair above is what a
+ * sheet without tiles keeps. Why it matters most HERE: a storey is a fifth of an A1 shown on a
+ * sixth of the board, its one raster was capped at 2048 px, and the Gymnasium's room stamps are
+ * 0.29 mm tall – «which room is this» could not be answered on the Gebäude at any zoom.
+ */
+export function FloorPage(props: FloorPageProps) {
+  const source = useMemo(() => tileSource(props.url), [props.url])
+  const [answer, setAnswer] = useState<{ url: string; manifest: TileManifest | null } | null>(null)
+  useEffect(() => {
+    if (!source) return
+    let cancelled = false
+    loadTileManifest(source).then(
+      (manifest) => { if (!cancelled) setAnswer({ url: props.url, manifest }) },
+      () => { if (!cancelled) setAnswer({ url: props.url, manifest: null }) },
+    )
+    return () => { cancelled = true }
+  }, [props.url, source])
+  const mine = answer && answer.url === props.url ? answer : null
+  const page = mine?.manifest && source ? sourcePages(mine.manifest, source)[0] : undefined
+  if (source && !mine) {
+    // still asking: the drawing's own rectangle, exactly where the picture will land
+    const [o, px, py] = regionCorners(props.corners, props.region ?? WHOLE)
+    const { w, h } = props
+    const m = [(px[0] - o[0]) * w, (px[1] - o[1]) * h, (py[0] - o[0]) * w, (py[1] - o[1]) * h, o[0] * w, o[1] * h]
+    return <rect className="wb-floor-page-wait" width={1} height={1} transform={`matrix(${m.map((v) => v.toFixed(4)).join(' ')})`} />
+  }
+  if (!page || !mine?.manifest || !source) { const { onDensity: _unused, ...raster } = props; void _unused; return <RasterFloorPage {...raster} /> }
+  return (
+    <TiledFloorPage {...props} page={page} tileSize={mine.manifest.tileSize}
+      href={(z, x, y) => tileUrl(source, page.page, z, x, y)}
+      onFail={() => setAnswer({ url: props.url, manifest: null })} />
+  )
+}
+
+const SETTLE_MS = 90
+/** how long the previous level's tiles stay under a new level's while those load */
+const KEEP_MS = 1500
+const DPR = () => Math.min(window.devicePixelRatio || 1, 2)
+
+/**
+ * The storey's drawing as tiles, inside the stack's SVG. The group carries the SAME matrix the
+ * raster carried, so its unit square is the drawing's REGION on the page; a tile lies in it at
+ * its page fractions re-based onto that region, and a clip cuts away what the page shows beside
+ * the drawing. Which tiles: the underlay level's, always (soft, instant), plus – settled – the
+ * tiles of the level the zoom asks for that are ON SCREEN, found by taking the window's corners
+ * back through the group's own screen matrix (a storey may be turned, so it is a quad's bounds,
+ * not a rectangle). A storey off screen mounts no detail tiles at all.
+ */
+function TiledFloorPage({ corners, region = WHOLE, w, h, page, tileSize, href, onFail, onDensity }: FloorPageProps & {
+  page: TilePage
+  tileSize: number
+  href: (z: number, x: number, y: number) => string
+  onFail: () => void
+}) {
+  const [x0, y0, x1, y1] = region
+  const rw = x1 - x0, rh = y1 - y0
+  const [o, px, py] = regionCorners(corners, [x0, y0, x1, y1])
+  const m = [(px[0] - o[0]) * w, (px[1] - o[1]) * h, (py[0] - o[0]) * w, (py[1] - o[1]) * h, o[0] * w, o[1] * h]
+  const at = `matrix(${m.map((v) => v.toFixed(4)).join(' ')})`
+  const drawnPx = Math.hypot(m[0], m[1]) // the REGION's width in board px – grows with the zoom
+  const drawnPy = Math.hypot(m[2], m[3]) // …and its height
+  const clipId = useId()
+  const group = useRef<SVGGElement>(null)
+
+  const under = useMemo(() => {
+    const level = underlayLevel(page)
+    return { z: level.z, tiles: visibleTiles(level, tileSize, [x0, y0, x1, y1]) }
+  }, [page, tileSize, x0, y0, x1, y1])
+  const [detail, setDetail] = useState<{ z: number; tiles: Tile[]; id: string } | null>(null)
+  // the set before it, kept a moment under the new one: a level change goes sharp → sharp
+  const [kept, setKept] = useState<{ z: number; tiles: Tile[]; id: string } | null>(null)
+  const detailId = useRef('')
+  const detailRef = useRef<typeof detail>(null)
+  useEffect(() => {
+    if (!kept) return
+    const t = setTimeout(() => setKept(null), KEEP_MS)
+    return () => clearTimeout(t)
+  }, [kept])
+
+  const density = Math.round((drawnPx / (rw * ptToMm(page.widthPt))) * 1000) / 1000
+  useEffect(() => { if (density > 0) onDensity?.(density) }, [density]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // after EVERY render: the board re-renders this on each pan and zoom, and where the storey sits
+  // on the glass is only known from the DOM
+  useLayoutEffect(() => {
+    const t = setTimeout(() => {
+      const g = group.current
+      const ctm = g?.getScreenCTM()
+      if (!g || !ctm) return
+      const level = pickLevel(page, (drawnPx / rw) * DPR())
+      let next: { z: number; tiles: Tile[]; id: string } | null = null
+      if (level.z > under.z) {
+        const inv = ctm.inverse()
+        const pts = [[0, 0], [window.innerWidth, 0], [0, window.innerHeight], [window.innerWidth, window.innerHeight]]
+          .map(([sx, sy]) => new DOMPoint(sx, sy).matrixTransform(inv))
+        // the window in REGION units, clamped to the region, then said in page fractions
+        const ux0 = Math.max(0, Math.min(...pts.map((p) => p.x))), ux1 = Math.min(1, Math.max(...pts.map((p) => p.x)))
+        const uy0 = Math.max(0, Math.min(...pts.map((p) => p.y))), uy1 = Math.min(1, Math.max(...pts.map((p) => p.y)))
+        const tiles = ux1 > ux0 && uy1 > uy0
+          // no ring of margin here: six storeys would each pay for one, and the underlay
+          // already covers the strip a pan uncovers
+          ? visibleTiles(level, tileSize, [x0 + ux0 * rw, y0 + uy0 * rh, x0 + ux1 * rw, y0 + uy1 * rh])
+          : []
+        next = { z: level.z, tiles, id: `${level.z}:${tiles.map((t) => `${t.x}-${t.y}`).join(',')}` }
+      }
+      if ((next?.id ?? '') === detailId.current) return
+      detailId.current = next?.id ?? ''
+      if (detailRef.current && next && detailRef.current.z !== next.z) setKept(detailRef.current)
+      detailRef.current = next
+      setDetail(next)
+    }, SETTLE_MS)
+    return () => clearTimeout(t)
+  })
+
+  const image = (z: number, t: Tile, underlay: boolean) => (
+    <image
+      key={`${z}:${t.x}-${t.y}`}
+      href={href(z, t.x, t.y)}
+      x={(t.left - x0) / rw}
+      y={(t.top - y0) / rh}
+      // half a PIXEL of overlap, said in the group's units: neighbouring tiles land on fractional
+      // device px and would show a hairline between them. ⚠️ In px, never a constant of the unit
+      // square – at zoom 16 «0.0004» was 4 px of stretch, which nicked every line at a tile border.
+      width={t.width / rw + 0.5 / Math.max(1, drawnPx)}
+      height={t.height / rh + 0.5 / Math.max(1, drawnPy)}
+      preserveAspectRatio="none"
+      className="wb-floor-page"
+      onError={underlay ? onFail : undefined}
+    />
+  )
+
+  return (
+    <g ref={group} transform={at}>
+      <clipPath id={clipId}><rect width={1} height={1} /></clipPath>
+      <g clipPath={`url(#${clipId})`}>
+        <rect width={1} height={1} fill="#fff" />
+        {under.tiles.map((t) => image(under.z, t, true))}
+        {kept && kept.z !== detail?.z && kept.tiles.map((t) => image(kept.z, t, false))}
+        {detail?.tiles.map((t) => image(detail.z, t, false))}
+      </g>
+    </g>
   )
 }
