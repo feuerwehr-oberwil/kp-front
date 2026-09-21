@@ -158,6 +158,21 @@ async def _plan_alignment_tick() -> None:
         logger.exception("Plan alignment worker tick failed")
 
 
+#: The tile pyramids (app/plan_tiles): one tick advances ONE revision by a few seconds of PDFium,
+#: so a bulk import fills steadily and a Rapport never waits behind a whole sheet. Idle, the tick
+#: is one query and no file access (the settled keys are remembered per process).
+PLAN_TILES_TICK_SECONDS = 15
+
+
+async def _plan_tiles_tick() -> None:
+    from .plan_tiles import fill_once
+
+    try:
+        await fill_once()
+    except Exception:
+        logger.exception("Plan tile fill tick failed")
+
+
 #: How often the SharePoint pull ticks. NOT the poll interval — the station's own cadence lives
 #: in the config document (`sharepoint.intervalMinutes`), which an admin can change from the
 #: browser, and a job registered at boot could not follow it. So the timer is fixed and short
@@ -672,6 +687,16 @@ def _start_scheduler_jobs() -> None:
         coalesce=True,
     )
     jobs.append(f"plan alignments ({PLAN_ALIGNMENT_TICK_SECONDS}s tick, idle without pending plans)")
+    # Always on: every current plan PDF gets its tile pyramid once; idle afterwards.
+    _scheduler.add_job(
+        _plan_tiles_tick,
+        "interval",
+        seconds=PLAN_TILES_TICK_SECONDS,
+        id="plan_tiles",
+        max_instances=1,
+        coalesce=True,
+    )
+    jobs.append(f"plan tiles ({PLAN_TILES_TICK_SECONDS}s tick, idle once every plan has its pyramid)")
     # Always on: a cheap no-op unless there is something for one of its two clocks to sweep
     # (alarms.autoArchiveDays for untouched auto-opened ones, alarms.staleIncidentDays for the
     # worked-on-but-never-closed ones); both at 0 makes it two indexed queries and done.

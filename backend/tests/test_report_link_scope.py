@@ -191,6 +191,10 @@ async def test_view_link_cannot_read_an_unrelated_objects_plan(client, editor, i
     r = await client.get(f"/api/reference/{foreign}")
     assert r.status_code == 403, f"a report link read an unrelated object's plan: {r.text[:200]}"
     assert r.json()["detail"] == DENIED_DETAIL
+    # …and the same sheet as TILES (app/plan_tiles) is the same pixels behind the same door
+    for tiles in (f"/api/reference/{foreign}/tiles?v=1", f"/api/reference/{foreign}/tiles/1/0/0/0/0"):
+        r = await client.get(tiles)
+        assert r.status_code == 403, f"a report link read an unrelated object's tiles: {r.text[:200]}"
 
     r = await client.get("/api/objects/00000000-0000-0000-0000-0000000000ff")
     assert r.status_code == 403, r.text

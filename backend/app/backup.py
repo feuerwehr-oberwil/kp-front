@@ -95,7 +95,11 @@ def pin_blobs(destination: Path) -> None:
     for directory, subdirs, files in os.walk(root, onerror=refuse_unreadable):
         parent = Path(directory)
         subdirs[:] = [
-            name for name in subdirs if not name.startswith(".") and not (parent == root and name == "backups")
+            name
+            for name in subdirs
+            # `plan-tiles` is DERIVED (app/plan_tiles): thousands of small files per sheet, every
+            # one re-rendered from the plan PDF this backup does carry
+            if not name.startswith(".") and not (parent == root and name in ("backups", "plan-tiles"))
         ]
         for name in [*subdirs, *files]:
             if (parent / name).is_symlink():

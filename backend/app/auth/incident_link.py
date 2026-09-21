@@ -294,6 +294,11 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/reference/{dataset_id}"),
         # the station-approved plan fits — how a link session's plan tab anchors its sheets
         ("GET", "/api/reference/{dataset_id}/alignments"),
+        # …and the same sheets as TILES (app/plan_tiles): the identical pixels the PDF above gives,
+        # under the identical narrowing. Like the thumbnail, a cold tile writes a derived file;
+        # bounded by the one pyramid of a revision the session may already read whole.
+        ("GET", "/api/reference/{dataset_id}/tiles"),
+        ("GET", "/api/reference/{dataset_id}/tiles/{v}/{page}/{z}/{x}/{y}"),
         ("GET", "/api/personnel"),
         ("GET", "/api/media/{media_id}"),
         # ⚠️ The thumbnail DOES write a file on first request, which is what keeps
@@ -401,6 +406,11 @@ VIEW_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         # the published fits of the same datasets — narrowed by the identical rule below,
         # because knowing where a building's sheet sits IS knowing the building
         ("GET", "/api/reference/{dataset_id}/alignments"),
+        # …and the same sheets as TILES (app/plan_tiles): the identical pixels the PDF above gives,
+        # under the identical narrowing. Like the thumbnail, a cold tile writes a derived file;
+        # bounded by the one pyramid of a revision the session may already read whole.
+        ("GET", "/api/reference/{dataset_id}/tiles"),
+        ("GET", "/api/reference/{dataset_id}/tiles/{v}/{page}/{z}/{x}/{y}"),
         ("GET", "/api/objects/{object_id}"),
         ("GET", "/api/personnel"),
     }
@@ -647,7 +657,12 @@ async def _view_link_param_allowed(request: Request, db: AsyncSession, path: str
             return False
         return wanted in await _surfaced_object_ids(db, incident_id)
 
-    if path in ("/api/reference/{dataset_id}", "/api/reference/{dataset_id}/alignments"):
+    if path in (
+        "/api/reference/{dataset_id}",
+        "/api/reference/{dataset_id}/alignments",
+        "/api/reference/{dataset_id}/tiles",
+        "/api/reference/{dataset_id}/tiles/{v}/{page}/{z}/{x}/{y}",
+    ):
         dataset_id = str(request.path_params.get("dataset_id"))
         ds = (
             await db.execute(
