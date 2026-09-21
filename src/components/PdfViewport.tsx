@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as PdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { appConfig } from '../config/appConfig'
@@ -17,6 +17,8 @@ import { RetryButton } from './RetryButton'
 import s from './PdfViewport.module.css'
 import { pdfPageOf } from '../lib/whiteboard'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget, rasterSide, regionRaster, renderScale } from '../lib/pdfRenderBudget'
+import { dropTileManifest, loadTileManifest, tileSource, type TileManifest } from '../lib/planTiles'
+import { PlanTileLayer } from './PlanTileLayer'
 
 // The worker asset's URL, remembered for the diagnosis path: when a PDF fails, whether that
 // file is still being served is the single most telling fact we can gather (lib/pdfDiagnosis).
@@ -399,7 +401,13 @@ export function prewarmPlans(urls: string[], vw: number, vh: number, near: strin
   const order = [...urls.filter((u) => !full.has(u)), ...urls.filter((u) => full.has(u))]
   for (const url of order) {
     if (!full.has(url) && bitmapCache.has(url)) continue
-    warmQueue = warmQueue.then(() => bake(url, vw, vh, full.has(url) ? Infinity : PREVIEW_SIDE).catch(() => {}))
+    warmQueue = warmQueue.then(async () => {
+      // ⚠️ A sheet with a tile pyramid is never baked (21.09.2026): the board draws it from tiles,
+      // and warming it here was a multi-second pdf.js pass and up to ~95 MB held for nothing.
+      const source = tileSource(url)
+      if (source && (await loadTileManifest(source).catch(() => null))) return
+      await bake(url, vw, vh, full.has(url) ? Infinity : PREVIEW_SIDE).catch(() => {})
+    })
   }
 }
 
@@ -677,7 +685,51 @@ async function scanRegionInk(url: string, clip: InkBox): Promise<InkBox | null> 
 // when zoomed in deep, after the view settles — the base shows underneath so
 // nothing ever blanks. (Refine is single-page only; a stitched multi-page plan
 // is served from the base bitmap alone.)
-export function PdfViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props) {
+/**
+ * The plan on the board. ⚠️ Since 21.09.2026 it is drawn from the server's TILE PYRAMID whenever
+ * the revision has one (lib/planTiles, PlanTileLayer) – no pdf.js, no page-sized bitmap, any
+ * zoom. The pdf.js viewport below is what every other sheet keeps: an unpinned or bundled PDF, a
+ * server without tiles, and a device that is offline with the PDF cached but its tiles not
+ * (a tile that cannot be had hands over to it).
+ */
+export function PdfViewport(props: Props) {
+  const { url } = props
+  const source = useMemo(() => tileSource(url), [url])
+  // undefined = still asking · null = no pyramid, pdf.js
+  const [tiles, setTiles] = useState<{ url: string; manifest: TileManifest | null } | undefined>(undefined)
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    setReady(false)
+    if (!source) { setTiles({ url, manifest: null }); return }
+    let cancelled = false
+    setTiles(undefined)
+    loadTileManifest(source).then(
+      (manifest) => { if (!cancelled) setTiles({ url, manifest }) },
+      () => { if (!cancelled) setTiles({ url, manifest: null }) },
+    )
+    return () => { cancelled = true }
+  }, [url]) // eslint-disable-line react-hooks/exhaustive-deps
+  const answer = tiles?.url === url ? tiles : undefined
+  if (answer && (!answer.manifest || !source)) return <PdfJsViewport {...props} />
+  return (
+    <>
+      {answer?.manifest && source && (
+        <PlanTileLayer
+          {...props}
+          source={source}
+          manifest={answer.manifest}
+          onReady={() => setReady(true)}
+          onFail={() => { dropTileManifest(source); setTiles({ url, manifest: null }) }}
+        />
+      )}
+      {!ready && (
+        <div className={s['wb-pdf-status']} role="status"><span>{appConfig.copy.pdf.loading}</span></div>
+      )}
+    </>
+  )
+}
+
+function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props) {
   const baseRef = useRef<HTMLCanvasElement>(null)
   const refineRef = useRef<HTMLCanvasElement>(null)
   const refineTask = useRef<{ cancel: () => void } | null>(null)

@@ -1,6 +1,10 @@
 /* PDF render layers (board children — pan/zoom with the board via CSS) */
 .wb-pdf-base { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; -webkit-user-drag: none; }
 .wb-pdf-refine { position: absolute; pointer-events: none; -webkit-user-drag: none; }
+/* the same sheet from the server's tile pyramid (PlanTileLayer): images laid out in fractions of
+   the board, so they pan and zoom with it. White under them – a tile still loading is paper. */
+.wb-tiles { position: absolute; inset: 0; overflow: hidden; pointer-events: none; background: #fff; }
+.wb-tile { position: absolute; display: block; max-width: none; pointer-events: none; user-select: none; -webkit-user-drag: none; }
 /* cold-load placeholder — visible only until the first baked bitmap paints (or the load
    fails); same quiet visual language as PdfScroller's status hint. The container stays
    click-through (the board underneath keeps panning); only the retry button is tappable. */
