@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import storage
+from .. import plan_tiles, storage
 from ..auth.dependencies import CurrentAdmin, OptionalUser, UserOrAdmin
 from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
@@ -190,6 +190,72 @@ async def download_reference(
         storage.local_path(ds.storage_key),
         media_type=media_type,
         headers=_download_headers(v is not None, media_type),
+    )
+
+
+async def _plan_revision_key(db: AsyncSession, dataset_id: str, v: int) -> str:
+    """The stored bytes one pinned plan revision names — the only thing a tile is ever drawn from."""
+    revision = await db.get(PlanRevision, (dataset_id, v))
+    if revision is None or "pdf" not in (revision.content_type or "") or not storage.exists(revision.storage_key):
+        raise HTTPException(status_code=404, detail="Planversion nicht gefunden")
+    return revision.storage_key
+
+
+#: PDFium is one lock wide (app/pdfium_lock), so more threads than this would only queue on it
+#: while holding a worker thread each.
+_tile_limiter = anyio.CapacityLimiter(2)
+
+
+@router.get("/{dataset_id}/tiles")
+async def plan_tile_manifest(
+    dataset_id: str,
+    _user: UserOrAdmin,
+    v: int = Query(ge=1, description="Exact pinned revision"),
+    db: AsyncSession = Depends(get_db),
+):
+    """The tile pyramid of one plan revision (app/plan_tiles): page sizes and levels, plus
+    `complete` — whether the background fill has finished. 404 = this revision has no pyramid
+    (not a PDF, unreadable, a long reader document) and the client keeps its pdf.js path.
+
+    ⚠️ Revalidated, never immutable: the geometry cannot change, but `complete` does."""
+    key = await _plan_revision_key(db, dataset_id, v)
+    if plan_tiles.is_unsupported(key):
+        raise HTTPException(status_code=404, detail="Keine Kacheln für diesen Plan")
+    try:
+        doc = await anyio.to_thread.run_sync(plan_tiles.manifest, key, limiter=_tile_limiter)
+    except plan_tiles.TileError as e:
+        raise HTTPException(status_code=404, detail="Keine Kacheln für diesen Plan") from e
+    except Exception as e:  # PDFium could not read it: say «no pyramid», the PDF itself still serves
+        plan_tiles.mark_unsupported(key)
+        raise HTTPException(status_code=404, detail="Keine Kacheln für diesen Plan") from e
+    return JSONResponse(doc, headers={"Cache-Control": _CURRENT_CACHE_CONTROL})
+
+
+@router.get("/{dataset_id}/tiles/{v}/{page}/{z}/{x}/{y}")
+async def plan_tile(
+    dataset_id: str,
+    v: int,
+    page: int,
+    z: int,
+    x: int,
+    y: int,
+    _user: UserOrAdmin,
+    db: AsyncSession = Depends(get_db),
+):
+    """One tile. The revision is part of the PATH, so the address is immutable by construction
+    and every cache may keep it for good. A tile whose block the fill has not reached yet is
+    rendered on the spot (one PDFium pass draws its sixteen neighbours with it)."""
+    key = await _plan_revision_key(db, dataset_id, v)
+    if min(v, page, z, x, y) < 0 or plan_tiles.is_unsupported(key):
+        raise HTTPException(status_code=404, detail="Kachel nicht gefunden")
+    try:
+        tile_key = await anyio.to_thread.run_sync(plan_tiles.tile, key, page, z, x, y, limiter=_tile_limiter)
+    except plan_tiles.TileError as e:
+        raise HTTPException(status_code=404, detail="Kachel nicht gefunden") from e
+    return FileResponse(
+        storage.local_path(tile_key),
+        media_type="image/webp",
+        headers={"Cache-Control": _PINNED_CACHE_CONTROL},
     )
 
 
