@@ -31,6 +31,19 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
+  once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
+  A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the
+  Gymnasium's A1 Modul 6 paints in a quarter of a second instead of 4.5 s and more, sharpens
+  ~0.3 s after every pan or zoom, and a tablet holds a few dozen MB of pixels whatever the
+  sheet's size. The Gebäude's storeys draw from the same tiles, so room stamps 0.29 mm tall on
+  paper are readable there too. The zoom limit now follows the paper size (an A1 reaches ~30×,
+  a small sheet keeps its 8×). An object's tiles are fetched in the background for offline use.
+  Tiles are derived data: regenerated on demand, excluded from backups. Sheets without a
+  pyramid keep the pdf.js path. *Automatic: pyramids fill in the background after the update.*
+- **A misplaced region corner is named.** A storey whose own join tag lies outside the region its
+  `§[…` / `§…]` corners state now reads «Marker unvollständig» with the tag to check
+  (`join_outside_region`) instead of silently becoming a sliver of a storey.
 - **The Gebäude stack IS the object's building plan – one Geschoss per storey, straight from
   the PDF.** A plan revision's pages become storeys (a *floor pack*): signed index, the page
   and – on an A1 that carries several – the rectangle it is drawn in, and the point pair that
