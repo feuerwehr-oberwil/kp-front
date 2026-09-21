@@ -120,10 +120,39 @@ def test_the_fill_works_small_levels_first_and_says_when_it_is_done(stored):
     assert plan_tiles.fill(key, batches=99) is True and plan_tiles.missing_blocks(key) == []
 
 
-def test_a_long_reader_document_gets_no_pyramid(stored):
-    key = stored(_pdf(pages=plan_tiles.MAX_PAGES + 1))
+def test_a_bound_reader_document_gets_no_pyramid(stored, monkeypatch):
+    monkeypatch.setattr(plan_tiles, "MAX_PAGES", 3)
+    key = stored(_pdf(pages=4))
     with pytest.raises(plan_tiles.TileError):
         plan_tiles.manifest(key)
+
+
+@pytest.mark.asyncio
+async def test_the_fill_leaves_a_long_document_to_demand_but_never_a_floor_pack(session_factory, tmp_path, monkeypatch):
+    """Langegasse 97a, 21.09.2026: a 29-page Modul 6 is one Geschoss per page – the sheets the
+    Gebäude draws from – and the first release's single page limit refused it a pyramid."""
+    from app.models import ObjectSite
+    from app.plans import store_plan
+
+    monkeypatch.setattr(storage, "_ROOT", str(tmp_path))
+    monkeypatch.setattr(plan_tiles, "FILL_MAX_PAGES", 1)
+    plan_tiles._settled.clear()
+    small = (120.0, 170.0)
+    async with session_factory() as db:
+        obj = ObjectSite(name="Langegasse 97a")
+        db.add(obj)
+        await db.flush()
+        pack = await store_plan(db, obj, "modul6", _pdf(size=small, pages=2))
+        reader = await store_plan(db, obj, "modul5-pv", _pdf(size=small, pages=3))
+        keys = {"pack": pack.storage_key, "reader": reader.storage_key}
+        await db.commit()
+    for _ in range(40):
+        if not await plan_tiles.fill_once(session_factory):
+            break
+    assert plan_tiles.is_complete(keys["pack"])
+    assert not plan_tiles.is_complete(keys["reader"]) and not plan_tiles.is_unsupported(keys["reader"])
+    # …and a page of the long one that IS opened still gets its tile
+    assert storage.exists(plan_tiles.tile(keys["reader"], 2, 0, 0, 0))
 
 
 def test_tiles_are_derived_and_stay_out_of_the_backup(stored, tmp_path):
