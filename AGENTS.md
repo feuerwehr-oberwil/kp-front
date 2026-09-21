@@ -458,7 +458,8 @@ to prod.
   A1): a scheduler tick fills pyramids a few seconds at a time (`fill_once`; the page is loaded
   once per BATCH because loading parses it, each block is encoded before the next is drawn, and
   `malloc_trim` hands PDFium's ~200 MB back), and a cold tile is rendered on demand with its
-  block. Tiles are DERIVED: own storage root `plan-tiles/`, skipped by `app.backup`, regenerable.
+  block. The fill walks documents of up to 12 pages on its own and EVERY `modul6` (a floor pack is
+  one Geschoss per page, however many); a long PV/RWA document renders on demand only. Tiles are DERIVED: own storage root `plan-tiles/`, skipped by `app.backup`, regenerable.
   `GET /api/reference/{id}/tiles?v=N` is the manifest (revalidated — `complete` is live),
   `…/tiles/{v}/{page}/{z}/{x}/{y}` a tile (the revision is in the PATH → immutable), both under
   the same session/link narrowing as the PDF itself (`auth/incident_link`). Client:
@@ -472,7 +473,7 @@ to prod.
   tiled sheet is never pre-baked. `lib/planTilePrefetch` fetches an object's complete pyramids
   through the service worker (`plan-tiles` CacheFirst, `plan-tile-manifests` NetworkFirst — both
   listed BEFORE the reference routes and purged on denial) so a sheet is whole offline. No
-  pyramid (unpinned/bundled PDF, >12 pages, PDFium cannot read it, a tile that cannot be had
+  pyramid (unpinned/bundled PDF, >80 pages, PDFium cannot read it, a tile that cannot be had
   offline) ⇒ every caller keeps the pdf.js path unchanged.
   ⚠️ **The zoom ceiling of a tiled sheet follows the PAPER** (`planTiles · paperMaxScale`, 28 CSS
   px per paper mm ≈ 5× life size; `MAX_SCALE` / `MAX_SCALE_STACK` are its floor): a multiple of

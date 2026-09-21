@@ -60,9 +60,17 @@ TOP_DPI = 600
 #: …lowered for a sheet so large that 600 dpi would pass this many px on its long side (an A0
 #: is 28 087 — it fits; a plotted banner does not, and is simply served a little softer).
 MAX_LEVEL_SIDE = 32_768
-#: A document with more pages than this is a Referenz-PDF for the reader (components/PdfScroller
-#: keeps pdf.js), not a plan sheet – and at 600 dpi it would be half an hour of background work.
-MAX_PAGES = 12
+#: Past this many pages nothing is tiled at all: a bound Referenz-PDF of hundreds of pages is for
+#: the reader (components/PdfScroller keeps pdf.js), and its manifest alone would be megabytes.
+MAX_PAGES = 80
+#: …and the BACKGROUND fill only walks documents up to this size on its own – except a floor pack
+#: (`modul6`), which is one Geschoss per page however many storeys there are. ⚠️ 21.09.2026: one
+#: limit for both refused Langegasse 97a's 29-page Modul 6 a pyramid altogether, i.e. exactly the
+#: sheets the Gebäude draws its storeys from. A long PV/RWA document is still not rendered ahead
+#: of time (39 pages at 600 dpi is ten minutes of PDFium nobody asked for); a page of it that IS
+#: opened on the board renders on demand like any cold tile.
+FILL_MAX_PAGES = 12
+FILL_ALWAYS_MODULES = ("modul6",)
 #: A lossless tile heavier than this is a scan or a photo; lossy WebP is then a fifth of it.
 LOSSLESS_LIMIT = 96 * 1024
 ROOT = "plan-tiles"
@@ -315,13 +323,15 @@ def fill(storage_key: str, batches: int = 1) -> bool:
 
 
 def mark_unsupported(storage_key: str) -> None:
-    """A PDF PDFium cannot open (or a 200-page reader document) is not retried every tick."""
+    """A PDF PDFium cannot open is not retried every tick. ⚠️ `unreadable`, not the `unsupported`
+    the first release wrote: that one was also set for a document merely past the old page limit,
+    and those must be asked again."""
     with contextlib.suppress(OSError):
-        storage.put_bytes(f"{prefix(storage_key)}/unsupported", b"1")
+        storage.put_bytes(f"{prefix(storage_key)}/unreadable", b"1")
 
 
 def is_unsupported(storage_key: str) -> bool:
-    return storage.exists(f"{prefix(storage_key)}/unsupported")
+    return storage.exists(f"{prefix(storage_key)}/unreadable")
 
 
 # ---------------------------------------------------------------------------------------
@@ -347,7 +357,7 @@ async def fill_once(factory: Any = None) -> bool:
     async with (factory or async_session_maker)() as db:
         rows = (
             await db.execute(
-                select(PlanRevision.storage_key)
+                select(PlanRevision.storage_key, ReferenceDataset.module)
                 .join(
                     ReferenceDataset,
                     (ReferenceDataset.id == PlanRevision.dataset_id)
@@ -357,10 +367,25 @@ async def fill_once(factory: Any = None) -> bool:
                 .order_by(PlanRevision.created_at.desc())
             )
         ).all()
-    for (key,) in rows:
+    for key, module in rows:
         if key in _settled:
             continue
         if is_complete(key) or is_unsupported(key) or not storage.exists(key):
+            _settled.add(key)
+            continue
+        try:
+            # by design, not a fault: a long document that is not a floor pack is left to the
+            # on-demand path (and one past MAX_PAGES has no pyramid at all)
+            pages = len((await anyio.to_thread.run_sync(manifest, key))["pages"])
+            if pages > FILL_MAX_PAGES and module not in FILL_ALWAYS_MODULES:
+                _settled.add(key)
+                continue
+        except TileError:
+            _settled.add(key)
+            continue
+        except Exception:
+            logger.exception("Plan tiles: %s cannot be read – this revision keeps the pdf.js path", key)
+            mark_unsupported(key)
             _settled.add(key)
             continue
         try:
