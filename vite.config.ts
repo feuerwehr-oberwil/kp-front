@@ -182,6 +182,36 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
+              // A plan TILE (backend · app/plan_tiles, 21.09.2026): the revision is part of the
+              // path, so the address is immutable and cache-first for good. Its own cache, and a
+              // big one — a dense A1 is ~1 500 tiles (10 MB), an ordinary A3/A4 sheet a few
+              // hundred — prefetched per Einsatzobjekt (lib/planTilePrefetch) so a sheet opened
+              // once online is whole offline.
+              // ⚠️ Listed before BOTH reference routes: the manifest below would otherwise match
+              // the pinned-PDF rule and freeze its `complete` flag, and a tile would land in the
+              // 50-entry `reference-data` cache and evict the symbols. Purged on an explicit
+              // denial with the others (public/sw-media-cache.js).
+              urlPattern: /\/api\/reference\/[^/?]+\/tiles\/\d+\/\d+\/\d+\/\d+\/\d+$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'plan-tiles',
+                cacheableResponse: { statuses: [200] },
+                expiration: { maxEntries: 12000, maxAgeSeconds: 60 * 60 * 24 * 90, purgeOnQuotaError: true },
+              },
+            },
+            {
+              // …and its manifest: geometry that never changes plus a live `complete` flag, so
+              // the network is asked first and the cached copy answers offline.
+              urlPattern: /\/api\/reference\/[^/?]+\/tiles\?/,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'plan-tile-manifests',
+                networkTimeoutSeconds: 3,
+                cacheableResponse: { statuses: [200] },
+                expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              },
+            },
+            {
               // A PINNED plan revision (`/api/reference/plan:x?v=3`) is IMMUTABLE by construction
               // — replaced bytes are a new `plan_revisions` row and therefore a new `v` — so it
               // is cache-first: opened once, it opens offline and costs no request again. Its own
