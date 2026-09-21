@@ -116,4 +116,15 @@ describe('useBoardView · the zoom ceiling', () => {
     expect(stack.result.current.scale).toBe(MAX_SCALE_STACK)
     expect(MAX_SCALE_STACK).toBeCloseTo(MAX_SCALE * 1.3, 6) // exactly one press of «+»
   })
+
+  // 21.09.2026: a sheet drawn from tiles gets its ceiling from the PAPER size, which the tile
+  // manifest states a moment after mount — and the wheel listener is bound once per canvas.
+  it('follows a ceiling that arrives after mount, on the wheel too', () => {
+    const el = document.createElement('div')
+    const canvas: MutableRefObject<HTMLDivElement | null> = { current: el }
+    const h = renderHook(({ max }: { max: number }) => useBoardView(canvas, el, undefined, max), { initialProps: { max: MAX_SCALE } })
+    h.rerender({ max: 31 })
+    act(() => { for (let i = 0; i < 40; i++) el.dispatchEvent(new WheelEvent('wheel', { deltaY: -1, cancelable: true })) })
+    expect(h.result.current.scale).toBe(31)
+  })
 })

@@ -15,7 +15,12 @@ import { TOP_INSET } from '../lib/whiteboard'
  *  edge, and a whole Gebäude floor-stack in one view. Below fit the board stays centred
  *  (see zoomTo), because panning a board smaller than its canvas only loses it. */
 export const MIN_SCALE = 0.6
-/** 8, not 6 — one more press of the + button (each step is ×1.3). At 6 a Modul sheet stopped
+/** ⚠️ Since 21.09.2026 this is the FLOOR of a sheet's ceiling, not the ceiling: a sheet drawn from
+ *  tiles may zoom until a paper millimetre is `MAX_CSS_PX_PER_PAPER_MM` wide (lib/planTiles ·
+ *  paperMaxScale), because a multiple of «eingepasst» gave an A1 a sixth of the real magnification
+ *  it gave an A4. A sheet without tiles keeps exactly this.
+ *
+ *  8, not 6 — one more press of the + button (each step is ×1.3). At 6 a Modul sheet stopped
  *  just short of the zoom that makes a hydrant number or a room label readable at arm's length,
  *  which is the whole reason anybody zooms a plan in the first place. The board re-rasterizes at
  *  the real zoom (layout, not a CSS transform), so the extra step costs sharpness nothing. */
@@ -107,7 +112,12 @@ export function useBoardView(
     // work) must not yank the view you are looking at — it is compared on the way back in.
   }, [memory?.planId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const clamp = (s: number) => Math.min(maxScale, Math.max(MIN_SCALE, s))
+  // ⚠️ Through a ref: the wheel listener below is bound once per canvas and would otherwise clamp
+  // at the ceiling of the render it was born in — and a sheet's ceiling now ARRIVES (it follows
+  // the paper size, which the tile manifest states a moment after mount; lib/planTiles).
+  const maxRef = useRef(maxScale)
+  maxRef.current = maxScale
+  const clamp = (s: number) => Math.min(maxRef.current, Math.max(MIN_SCALE, s))
   // zoom keeping a focal point fixed — cursor for the wheel, centre for the buttons
   const zoomTo = (factor: number, mx?: number, my?: number) => {
     const el = canvasRef.current; if (!el) return
