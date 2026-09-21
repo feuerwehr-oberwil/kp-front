@@ -24,7 +24,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
     return () => clearInterval(t)
   }, [recording])
   const recSec = recording && recStartedAt ? Math.max(0, Math.round((now - recStartedAt) / 1000)) : 0
-  const { pressing, pressedSince, latched, hover, anchor, sticky, pickSticky, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
+  const { pressing, pressedSince, latched, anchor, pick, handlers } = useHoldEntry({ recording, onTap, onHoldStart, onHoldStop, onHoldPhoto })
   // ⚠️ Gone while «Karte verknüpfen» is armed. On a phone the mode's bar takes the foot of the
   // screen and this circle floats ON its right end, over «Deckung prüfen» / «Fertig» — a button
   // that opens the journal, parked on top of the two that finish what you are doing. The
@@ -48,7 +48,7 @@ export function FabEntry({ recording, recStartedAt, onTap, onHoldStart, onHoldSt
       data-hold-target="cancel"
       {...handlers}
     >
-      {latched && <HoldTargets hover={hover} placement="above" anchor={anchor} onPick={sticky ? pickSticky : undefined} />}
+      {latched && <HoldTargets placement="above" anchor={anchor} onPick={pick} />}
       {recording
         ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
         : <>

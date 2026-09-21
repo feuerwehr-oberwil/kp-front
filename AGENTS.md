@@ -722,11 +722,12 @@ to prod.
   - *The FAB follows the THEME, not `--btn-primary`*: white surface by day, the raised `--ink-fill`
     pill at night. That token inverts at night so a form's one action has an edge against its
     sheet; the FAB sits on no sheet, and inverted it was the one pale disc in a dark cab. Its
-    hold → «Foto» needs a real TAP on iOS (a slid touch is not a tap, and `input.click()` is then
-    refused silently). ⚠️ That cannot be ASKED — `navigator.userActivation.isActive` is true on
-    the iPhone and the picker is refused anyway — only observed: the camera is tried, and a page
-    still focused and visible a beat later means nothing opened, so the chooser stays lit on
-    «Foto» for the confirming tap (`useHoldEntry · releasePhoto` / `sticky`). A tap on the FAB
+    hold OPENS a chooser (Sprachnotiz · Foto) that STAYS until one is tapped; the button is its ✕
+    and a press elsewhere closes it (`useHoldEntry`, 21.09.2026). It was slide-and-release, which
+    «Foto» cannot be on an iPhone: WebKit opens a file picker only for a real TAP, refuses a slid
+    touch silently, and `navigator.userActivation.isActive` reads true while it does — two rounds
+    of detecting the refusal ended in one chooser with two grammars. Do not bring the slide back.
+    A tap on the FAB
     commits the composer with `flushSync` INSIDE the click and the textarea focuses itself as it
     attaches (`JournalComposer · attachText`): React otherwise commits a microtask later, and iOS
     gives a focus made outside the tap a caret and no keys.

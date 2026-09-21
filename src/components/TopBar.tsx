@@ -184,7 +184,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   // unconditionally — hooks can't be skipped — but with the button unrendered nothing ever
   // reaches these handlers, so the no-op fallbacks are only there to satisfy the signature.
   const noop = () => {}
-  const { pressing, pressedSince, latched, hover, anchor, sticky, pickSticky, handlers } = useHoldEntry({
+  const { pressing, pressedSince, latched, anchor, pick, handlers } = useHoldEntry({
     recording,
     onTap: onAddEntry ?? noop,
     onHoldStart: onHoldStart ?? noop,
@@ -273,7 +273,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             {...handlers}
           >
             {/* below: this button lives in the TOP bar, so the targets open downward */}
-            {latched && <HoldTargets hover={hover} placement="below" anchor={anchor} onPick={sticky ? pickSticky : undefined} />}
+            {latched && <HoldTargets placement="below" anchor={anchor} onPick={pick} />}
             {recording
               ? <><span className="tb-stop" /><span className="tb-act-label">{fmtMMSS(recSec)}</span></>
               : <>
