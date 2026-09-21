@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { PICKER_CHECK_MS, STICKY_MS, useHoldEntry } from './useHoldEntry'
+import { useHoldEntry } from './useHoldEntry'
 
 // The hook's timing state machine (CUE_MS=130, HOLD_MS=350) drives three outcomes from a
 // pointer press: quick tap → onTap, hold past HOLD_MS → a CHOICE that acts on release ONLY if
@@ -78,7 +78,6 @@ describe('useHoldEntry timing state machine', () => {
     act(() => void vi.advanceTimersByTime(360)) // > HOLD_MS
 
     expect(hook.result.current.latched).toBe(true)
-    expect(hook.result.current.hover).toBe('cancel') // the finger is still on the button = ✕
     expect(onHoldStart).not.toHaveBeenCalled()
     expect(onHoldPhoto).not.toHaveBeenCalled()
   })
@@ -98,27 +97,59 @@ describe('useHoldEntry timing state machine', () => {
     expect(onHoldStop).not.toHaveBeenCalled()
   })
 
-  // …and sliding onto a target is what makes it act. The move is hit-tested with
-  // elementFromPoint, so the target is faked here rather than laid out.
-  it('sliding onto a target is what commits the gesture', () => {
-    const { hook, onHoldStart, onHoldPhoto } = setup(false, true)
-    // jsdom has no layout, so it has no elementFromPoint at all — stand one in
-    const over = (name: string) => {
-      document.elementFromPoint = () =>
-        ({ closest: () => ({ getAttribute: () => name }) }) as unknown as Element
-    }
-
+  // ⚠️ THE grammar since 21.09.2026: the hold OPENS, a TAP chooses. A release chose until then,
+  // which «Foto» cannot be on an iPhone (a slid touch is not a tap, the picker is refused).
+  it('stays open after the release, and a tap on a target is what acts', () => {
+    const { hook, onHoldStart, onHoldPhoto, onTap } = setup(false, true)
     act(() => hook.result.current.handlers.onPointerDown(pointer()))
     act(() => void vi.advanceTimersByTime(360))
-    over('photo')
-    act(() => hook.result.current.handlers.onPointerMove({ clientX: 10, clientY: 10 } as React.PointerEvent<HTMLButtonElement>))
-    expect(hook.result.current.hover).toBe('photo')
-    // …and sliding BACK onto the button re-arms the cancel rather than sticking on the target
-    over('cancel')
-    act(() => hook.result.current.handlers.onPointerMove({ clientX: 10, clientY: 90 } as React.PointerEvent<HTMLButtonElement>))
     act(() => hook.result.current.handlers.onPointerUp())
+    act(() => hook.result.current.handlers.onClick()) // the release's own click: not the ✕
+    expect(hook.result.current.latched).toBe(true)
+    expect(onHoldStart).not.toHaveBeenCalled()
 
+    act(() => hook.result.current.pick('photo'))
+    expect(onHoldPhoto).toHaveBeenCalledTimes(1)
+    expect(hook.result.current.latched).toBe(false)
+
+    // …and the Sprachnotiz is chosen the same way
+    act(() => hook.result.current.handlers.onPointerDown(pointer()))
+    act(() => void vi.advanceTimersByTime(360))
+    act(() => hook.result.current.handlers.onPointerUp())
+    act(() => hook.result.current.pick('audio'))
+    expect(onHoldStart).toHaveBeenCalledTimes(1)
+    expect(onTap).not.toHaveBeenCalled()
+  })
+
+  it('the button is the ✕ while the chooser is up: a later tap closes it and opens nothing', () => {
+    const { hook, onTap, onHoldStart, onHoldPhoto } = setup(false, true)
+    act(() => hook.result.current.handlers.onPointerDown(pointer()))
+    act(() => void vi.advanceTimersByTime(360))
+    act(() => hook.result.current.handlers.onPointerUp())
+    act(() => void vi.advanceTimersByTime(600)) // well past the release's own click
+    act(() => hook.result.current.handlers.onPointerDown(pointer())) // a press on the ✕ arms no new hold
+    act(() => hook.result.current.handlers.onClick())
+    expect(hook.result.current.latched).toBe(false)
+    act(() => void vi.advanceTimersByTime(600))
+    expect(hook.result.current.latched).toBe(false)
+    expect(onTap).not.toHaveBeenCalled()
+    expect(onHoldStart).not.toHaveBeenCalled()
     expect(onHoldPhoto).not.toHaveBeenCalled()
+    // iOS often fires NO click for a long press – the first real tap on the ✕ must still close
+    act(() => hook.result.current.handlers.onPointerDown(pointer()))
+    act(() => void vi.advanceTimersByTime(360))
+    act(() => hook.result.current.handlers.onPointerUp())
+    act(() => void vi.advanceTimersByTime(600))
+    act(() => hook.result.current.handlers.onClick())
+    expect(hook.result.current.latched).toBe(false)
+  })
+
+  it('offers nothing where there is nothing to choose (no «Foto» host)', () => {
+    const { hook, onHoldStart } = setup(false, false)
+    act(() => hook.result.current.handlers.onPointerDown(pointer()))
+    act(() => void vi.advanceTimersByTime(360))
+    expect(hook.result.current.latched).toBe(false)
+    act(() => hook.result.current.handlers.onPointerUp())
     expect(onHoldStart).not.toHaveBeenCalled()
   })
 
@@ -178,9 +209,8 @@ describe('useHoldEntry timing state machine', () => {
     expect(onHoldStop).not.toHaveBeenCalled()
   })
 
-  // The whole point of the rewrite: the camera is reachable ONLY by an explicit slide onto the
-  // photo target. A hold that never moved can never open it.
-  it('a hold that never moved reaches neither the camera nor the mic', () => {
+  // The camera and the mic are reachable ONLY by a tap on their target – never by the hold.
+  it('a hold alone reaches neither the camera nor the mic', () => {
     const { hook, onHoldPhoto, onHoldStart } = setup(false, true)
     act(() => hook.result.current.handlers.onPointerDown(pointer()))
     act(() => void vi.advanceTimersByTime(360))
@@ -188,70 +218,5 @@ describe('useHoldEntry timing state machine', () => {
 
     expect(onHoldPhoto).not.toHaveBeenCalled()
     expect(onHoldStart).not.toHaveBeenCalled()
-  })
-  // 20.09.2026: on the iPhone a hold released over «Foto» opened nothing – a slid touch carries no
-  // user activation and `input.click()` is then silently refused. The chooser stays for a real tap.
-  describe('a «Foto» released without user activation', () => {
-    const activation = (isActive: boolean | undefined) =>
-      Object.defineProperty(navigator, 'userActivation', { configurable: true, value: isActive === undefined ? undefined : { isActive } })
-    afterEach(() => { activation(undefined); vi.restoreAllMocks() })
-    const slideOntoPhoto = (hook: ReturnType<typeof setup>['hook']) => {
-      document.elementFromPoint = () => ({ closest: () => ({ getAttribute: () => 'photo' }) }) as unknown as Element
-      act(() => hook.result.current.handlers.onPointerDown(pointer()))
-      act(() => void vi.advanceTimersByTime(360))
-      act(() => hook.result.current.handlers.onPointerMove({ clientX: 10, clientY: 10 } as React.PointerEvent<HTMLButtonElement>))
-    }
-
-    const focused = (yes: boolean) => vi.spyOn(document, 'hasFocus').mockReturnValue(yes)
-
-    it('opens the camera, and lets the chooser go once the picker has taken the page', () => {
-      activation(true); focused(false) // the picker took the focus
-      const { hook, onHoldPhoto } = setup(false, true)
-      slideOntoPhoto(hook)
-      act(() => hook.result.current.handlers.onPointerUp())
-      expect(onHoldPhoto).toHaveBeenCalledTimes(1)
-      act(() => void vi.advanceTimersByTime(PICKER_CHECK_MS + 10))
-      expect(hook.result.current).toMatchObject({ sticky: false, latched: false })
-    })
-
-    // the iPhone: the flag says yes, the picker is refused silently, the page just stands there
-    it('stays lit on «Foto» when the camera was tried and nothing opened', () => {
-      activation(true); focused(true)
-      const { hook, onHoldPhoto } = setup(false, true)
-      slideOntoPhoto(hook)
-      act(() => hook.result.current.handlers.onPointerUp())
-      act(() => void vi.advanceTimersByTime(PICKER_CHECK_MS + 10))
-      expect(hook.result.current).toMatchObject({ sticky: true, latched: true, hover: 'photo' })
-      act(() => hook.result.current.pickSticky('photo'))
-      expect(onHoldPhoto).toHaveBeenCalledTimes(2) // the refused try, then the tap that works
-    })
-
-    it('does not even try where the browser says it will refuse, and opens on the confirming tap', () => {
-      activation(false)
-      const { hook, onHoldPhoto } = setup(false, true)
-      slideOntoPhoto(hook)
-      act(() => hook.result.current.handlers.onPointerUp())
-      expect(onHoldPhoto).not.toHaveBeenCalled()
-      expect(hook.result.current).toMatchObject({ sticky: true, latched: true, hover: 'photo' })
-      act(() => hook.result.current.pickSticky('photo'))
-      expect(onHoldPhoto).toHaveBeenCalledTimes(1)
-      expect(hook.result.current).toMatchObject({ sticky: false, latched: false })
-    })
-
-    it('lets it go on the ✕ and by itself, opening nothing', () => {
-      activation(false)
-      const { hook, onHoldPhoto, onTap } = setup(false, true)
-      slideOntoPhoto(hook)
-      act(() => hook.result.current.handlers.onPointerUp())
-      act(() => void vi.advanceTimersByTime(100))
-      act(() => hook.result.current.handlers.onClick()) // the button is the ✕
-      expect(hook.result.current.sticky).toBe(false)
-      slideOntoPhoto(hook)
-      act(() => hook.result.current.handlers.onPointerUp())
-      act(() => void vi.advanceTimersByTime(100 + STICKY_MS))
-      expect(hook.result.current).toMatchObject({ sticky: false, latched: false })
-      expect(onHoldPhoto).not.toHaveBeenCalled()
-      expect(onTap).not.toHaveBeenCalled()
-    })
   })
 })

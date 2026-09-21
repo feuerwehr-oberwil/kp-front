@@ -35,36 +35,30 @@ export function HoldChargeRing({ since }: { since: number }) {
 }
 
 /**
- * The two slide targets a latched «Eintrag» hold offers: Sprachnotiz and Foto.
- * Rendered by both the TopBar button and the phone FAB.
+ * The chooser a held «Eintrag» opens: Sprachnotiz and Foto. Rendered by both the TopBar button
+ * and the phone FAB. It STAYS until one is tapped (lib/useHoldEntry, 21.09.2026) — they were
+ * slide targets answered by the release, which «Foto» cannot be on an iPhone.
  *
  * They STACK away from the button along one axis — up from the phone FAB, down from the TopBar
- * button — with Sprachnotiz nearest and Foto beyond it, so the distance the finger travels picks
- * the option. DOM order here is always nearest-first; the CSS reverses the column for `above`.
- * Neither host is cancel: the button itself becomes the ✕ (see useHoldEntry · HoldTarget).
+ * button — with Sprachnotiz nearest and Foto beyond it. DOM order here is always nearest-first;
+ * the CSS reverses the column for `above`. The button itself is the ✕ that closes the chooser.
  *
  * ⚠️ PORTALLED to <body>, positioned from the button's measured rect. It used to live inside
  * the button, and every single thing that can go wrong with that did: the button clipped it
  * (`overflow: hidden`, there for the charging cue) so a dark fragment flashed inside the button
  * as the hold latched; the host's `.tb-act-add span { position: relative }` fought the
  * `position: absolute` on specificity; and the top bar's own stacking context boxed it in.
- * Out here it is anchored to the viewport and owned by nobody — there is no ancestor left to
- * clip it, restyle it or stack over it.
+ * Out here it is anchored to the viewport and owned by nobody.
  *
- * `data-hold-target` is the hit-test hook: the button owns the pointer capture for the whole
- * gesture, so useHoldEntry finds these with elementFromPoint rather than by pointer events of
- * their own. They must therefore stay HIT-TESTABLE — elementFromPoint skips anything with
- * `pointer-events: none`, which is why the container carries it and the targets undo it.
+ * ⚠️ …but still inside the host button's REACT tree, so a press or a click on a target bubbles
+ * into the button's own hold handlers unless it is stopped here. `data-hold-target` is how the
+ * hook tells «inside the chooser» from «somewhere else» when a press closes it.
  */
-export function HoldTargets({ hover, placement, anchor, onPick }: {
-  hover: HoldTarget | null
+export function HoldTargets({ placement, anchor, onPick }: {
   placement: 'above' | 'below'
   /** where the host button was when the hold latched */
   anchor: HoldAnchor | null
-  /** set while a released «Foto» waits for its confirming tap (useHoldEntry · sticky): only then
-   *  is a target ever CLICKED. ⚠️ Portalled, but still inside the host button's React tree – the
-   *  press and the click must not bubble into the button's own hold handlers. */
-  onPick?: (t: HoldTarget) => void
+  onPick: (t: HoldTarget) => void
 }) {
   const C = appConfig.copy.journal
   if (!anchor) return null
@@ -78,16 +72,17 @@ export function HoldTargets({ hover, placement, anchor, onPick }: {
       ? { bottom: window.innerHeight - anchor.top + 10 }
       : { top: anchor.bottom + 10 }),
   }
+  const target = (t: HoldTarget, icon: string, label: string) => (
+    <button type="button" className="hold-target" data-hold-target={t}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); onPick(t) }}>
+      <Icon id={icon} />{label}
+    </button>
+  )
   return createPortal(
-    <div className={`hold-targets hold-targets-${placement}`} style={style} aria-hidden>
-      <span className={`hold-target${hover === 'audio' ? ' on' : ''}`} data-hold-target="audio">
-        <Icon id="mic" />{C.record}
-      </span>
-      <span className={`hold-target${hover === 'photo' ? ' on' : ''}`} data-hold-target="photo"
-        onPointerDown={onPick ? (e) => e.stopPropagation() : undefined}
-        onClick={onPick ? (e) => { e.stopPropagation(); onPick('photo') } : undefined}>
-        <Icon id="cam" />{C.photo}
-      </span>
+    <div className={`hold-targets hold-targets-${placement}`} style={style} role="menu">
+      {target('audio', 'mic', C.record)}
+      {target('photo', 'cam', C.photo)}
     </div>,
     document.body,
   )

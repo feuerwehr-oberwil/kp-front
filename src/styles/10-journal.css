@@ -272,10 +272,12 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .hold-target .i { width: 15px; height: 15px; }
 /* the one the finger is over — this is the whole feedback of the gesture, so it is not subtle.
    The nudge is what makes a slide feel like it LANDED rather than merely recoloured something. */
-.hold-target.on { background: var(--btn-primary); color: var(--on-btn-primary); transform: scale(1.04); }
+/* a tap chooses (21.09.2026) — so these are buttons and press like every button: the --press wash,
+   nothing moves. (`.on` was the highlight under a sliding finger; nothing slides any more.) */
+.hold-target:active { background-image: linear-gradient(var(--press), var(--press)); }
 @media (prefers-reduced-motion: reduce) {
   .hold-target { animation: none; }
-  .hold-target, .hold-target.on { transition: none; transform: none; }
+  .hold-target { transition: none; transform: none; }
   .tb-act-add .i, .fab-entry .i { transition: none; }
 }
 /* explicit stop affordance shown while recording — a white square reads as "stop" */
