@@ -12,7 +12,7 @@ export type AlignmentStatus = 'pending' | 'processing' | 'ready' | 'needs_review
 export type MarkerWarningCode =
   | 'unknown_tag' | 'page_rotated' | 'duplicate_storey' | 'storey_page_split' | 'no_level_zero'
   | 'no_shared_join' | 'corner_missing' | 'corner_stray' | 'part_without_join'
-  | 'region_off_page' | 'region_page_split'
+  | 'region_off_page' | 'region_page_split' | 'join_outside_region'
   | 'geo_off_fit_page' | 'geo_duplicate' | 'geo_single' | 'pack_invalid'
 
 /** One warning: its code, plus whichever of these fields that code fills. */

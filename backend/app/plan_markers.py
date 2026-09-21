@@ -101,6 +101,7 @@ WarningCode = Literal[
     "part_without_join",  # a storey drawn twice, with only one join tag – nothing places the other
     "region_off_page",  # a region corner's text box sits outside the page
     "region_page_split",  # a storey's region corners are not on its drawing's page
+    "join_outside_region",  # a storey's own join tag lies outside the region its corners state
     "geo_off_fit_page",  # §GEO on a page that is not the pack's one fit page
     "geo_duplicate",  # a §GEO repeating a point already paired
     "geo_single",  # exactly one §GEO – a fit needs two
@@ -774,6 +775,19 @@ def plan_from_markers(markers: list[Marker], page_count: int) -> MarkerPlan | No
         if len(boxes) <= 1:
             parts[(index, 0)] = on
             clips[(index, 0)] = boxes[0][0] if boxes else None
+            # A join tag's centre is a point OF the drawing, so a region that holds none of the
+            # storey's points frames something else – a «§EG]» dropped in the wrong place left the
+            # Gymnasium's EG a strip 1 % of the sheet wide, with no warning at all (21.09.2026).
+            # Said, never acted on: the one-drawing reading stays exactly what it was.
+            if boxes and not any(_inside(m, boxes[0][0]) for m in on.values()):
+                warnings.append(
+                    MarkerWarning(
+                        code="join_outside_region",
+                        storey=index,
+                        tag=storeys[index].text,
+                        page=storeys[index].page + 1,
+                    )
+                )
             continue
         # a named region owns its point outright: no other drawing may claim it by containment
         named = {label for _, label in boxes if label}
@@ -934,6 +948,7 @@ _SAID: dict[str, str] = {
     "part_without_join": "{tag}: {nth} Zeichnung ohne Verbindungspunkt ({want} fehlt).",
     "region_off_page": "{tag} (Seite {page}): eine Ecke liegt ausserhalb der Seite ({axis} {value}) – Bereich ignoriert.",
     "region_page_split": "Ebene {storey}: die Bereichsecken liegen nicht auf der Seite der Zeichnung – Bereich ignoriert.",
+    "join_outside_region": "{tag} (Seite {page}): der Verbindungspunkt liegt ausserhalb des Bereichs, den die Ecken dieser Ebene angeben – Ecken prüfen.",
     "geo_off_fit_page": "{count} §GEO liegen nicht auf der Ausrichtungsseite (Seite {page}) – ignoriert; ein Pack hat EINE Passung.",
     "geo_duplicate": "{tag} (Seite {page}): derselbe Punkt ist bereits gepaart – ignoriert.",
     "geo_single": "Kartenfit: nur ein §GEO auf der Ausrichtungsseite (Seite {page}) – zwei sind nötig, also wird keine Passung vorgeschlagen.",

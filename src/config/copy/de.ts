@@ -6562,6 +6562,7 @@ export const de = {
         part_without_join: '{tag}: eine weitere Zeichnung ohne Verbindungspunkt ({want} fehlt) – diese Zeichnung wird nicht übernommen.',
         region_off_page: '{tag} (Seite {page}): eine Ecke liegt ausserhalb der Seite ({axis} {value}).',
         region_page_split: 'Ebene {storey}: die Bereichsecken liegen nicht auf der Seite der Zeichnung – Bereich ignoriert.',
+        join_outside_region: '{tag} (Seite {page}): der Verbindungspunkt liegt ausserhalb des Bereichs, den die Ecken dieser Ebene angeben – Ecken prüfen.',
         geo_off_fit_page: '{count} §GEO liegen nicht auf der Ausrichtungsseite (Seite {page}) – ignoriert; ein Pack hat eine Passung.',
         geo_duplicate: '{tag} (Seite {page}): derselbe Punkt ist bereits gepaart – ignoriert.',
         geo_single: 'Kartenfit: nur ein §GEO auf der Ausrichtungsseite (Seite {page}) – zwei sind nötig.',
