@@ -4145,6 +4145,7 @@ export const it: Localizable<Copy> = {
         part_without_join: '{tag}: un ulteriore disegno senza punto di collegamento (manca {want}) – quel disegno non viene ripreso.',
         region_off_page: '{tag} (pagina {page}): un angolo si trova fuori dalla pagina ({axis} {value}).',
         region_page_split: 'Livello {storey}: gli angoli d’area non sono sulla pagina del disegno – area ignorata.',
+        join_outside_region: '{tag} (pagina {page}): il punto di collegamento è fuori dall’area indicata dagli angoli di questo livello – controllare gli angoli.',
         geo_off_fit_page: '{count} §GEO non sono sulla pagina di allineamento (pagina {page}) – ignorati; un pacchetto ha un solo calettamento.',
         geo_duplicate: '{tag} (pagina {page}): lo stesso punto è già accoppiato – ignorato.',
         geo_single: 'Calettamento mappa: un solo §GEO sulla pagina di allineamento (pagina {page}) – ne servono due.',

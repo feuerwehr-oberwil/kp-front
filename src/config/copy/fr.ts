@@ -4146,6 +4146,7 @@ export const fr: Localizable<Copy> = {
         part_without_join: '{tag} : un autre dessin sans point de liaison ({want} manque) – ce dessin n’est pas repris.',
         region_off_page: '{tag} (page {page}) : un coin se trouve hors de la page ({axis} {value}).',
         region_page_split: 'Niveau {storey} : les coins de zone ne sont pas sur la page du dessin – zone ignorée.',
+        join_outside_region: '{tag} (page {page}) : le point de liaison se trouve hors de la zone indiquée par les coins de ce niveau – vérifier les coins.',
         geo_off_fit_page: '{count} §GEO ne sont pas sur la page d’alignement (page {page}) – ignorés ; un pack a un seul calage.',
         geo_duplicate: '{tag} (page {page}) : ce point est déjà apparié – ignoré.',
         geo_single: 'Calage carte : un seul §GEO sur la page d’alignement (page {page}) – il en faut deux.',

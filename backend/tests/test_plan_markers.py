@@ -1015,6 +1015,14 @@ def test_a_storey_drawn_once_still_keeps_a_point_the_author_put_outside_its_rect
     assert plan is not None
     ground = next(f for f in plan.floors if f.index == 0)
     assert ground.clip is not None and ground.part == 0
+    # …but it is SAID (21.09.2026): the Gymnasium's misplaced «§EG]» framed a strip 1 % of the
+    # sheet wide around nothing, and the dry run answered «no warnings»
+    assert {"code": "join_outside_region", "storey": 0, "tag": "§EG", "page": 1} in plan.warnings
+
+
+def test_a_join_tag_inside_its_own_region_raises_nothing():
+    plan = read_plan(_pdf([[(60, 560, "§[EG"), (200, 300, "§EG"), (380, 40, "§EG]"), (500, 120, "§1OG")]]))
+    assert plan is not None and "join_outside_region" not in [w["code"] for w in plan.warnings]
 
 
 def test_an_admin_edit_is_carried_across_a_re_export_per_drawing_not_per_storey():

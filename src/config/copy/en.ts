@@ -4340,6 +4340,7 @@ export const en: Localizable<Copy> = {
         part_without_join: '{tag}: a further drawing with no join point ({want} is missing) – that drawing is not taken over.',
         region_off_page: '{tag} (page {page}): one corner sits outside the page ({axis} {value}).',
         region_page_split: 'Level {storey}: the region corners are not on the drawing’s page – region ignored.',
+        join_outside_region: '{tag} (page {page}): the join point lies outside the region this level’s corners state – check the corners.',
         geo_off_fit_page: '{count} §GEO are not on the alignment page (page {page}) – ignored; a pack has one fit.',
         geo_duplicate: '{tag} (page {page}): the same point is already paired – ignored.',
         geo_single: 'Map fit: only one §GEO on the alignment page (page {page}) – two are needed.',
