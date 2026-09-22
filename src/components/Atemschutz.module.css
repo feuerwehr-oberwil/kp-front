@@ -339,7 +339,10 @@
    no gap at all. The zone that owns the buttons owns the air around them. */
 /* 8px above (the card's one vertical rhythm — see `.kenn`), the 12px gutter on the other sides */
 .actZone { padding: 8px 12px 12px; }
-.actZone:empty { padding: 0; }
+/* ⚠️ Empty is not zero (22.09., screenshot): a read-only card has no buttons, and with no padding
+   here nothing else puts air under the framed block — its border sat flush on the Verlauf's
+   hairline. The gutter stays; only the buttons' own 8px above goes. */
+.actZone:empty { padding: 12px 0 0; }
 
 /* ── 6 Sockel: everything one LOOKS UP ──────────────────────────────────────────────────────
    The quiet end of the card, on the same dimmed ground as the Verlauf below it: same small rows
@@ -1670,10 +1673,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .focusCard .band:not(.bandQuiet) .bandVal { font-size: 34px; }
 .focusCard .block .kontaktBtn { min-height: 48px; padding: 11px 10px; }
 .focusCard .block .pressureBlock { padding: 8px 10px; }
-/* ⚠️ `:not(:empty)` on the zone that collapses. `.actZone:empty` zeroes its own padding, and a
-   pseudo-class weighs the same as a class — so a plain `.focusCard .actZone` ties with it and,
-   being later in the file, would win: a viewer's card (no action row) would grow back the
-   padding and the hairline the empty-zone rule exists to take away. */
+/* ⚠️ `:not(:empty)` on the zone that collapses. `.actZone:empty` trims its own padding to the
+   gutter under the block, and a pseudo-class weighs the same as a class — so a plain
+   `.focusCard .actZone` ties with it and, being later in the file, would win: a viewer's card
+   (no action row) would grow back the padding of a row it does not have. */
 /* ⚠️ Asymmetric since 09.09. (field review): the bottom 8 sat directly above the Verlauf
    block's own hairline and its 6px, so ~14px of air crossed a rule that is there to separate,
    not to space. Six below the buttons, and the block underneath brings its own. */

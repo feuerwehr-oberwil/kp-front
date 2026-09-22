@@ -1821,8 +1821,10 @@ function TruppCard({
      old enough to carry no `registered` row simply shows the word alone rather than a dash. */
   const neverDeployed = out && truppNeverDeployed(t)
   const registeredAt = neverDeployed ? truppRegisteredAt(t) : null
-  /* The break clock — «Draussen seit» plus a ticking duration, in the band's quiet type. Only an
-     Atemschutz-Trupp that actually came out of something gets it: `neverDeployed` is the crew
+  /* The break clock — a ticking duration beside the bare word «Draussen», in the band's quiet
+     type. No «Draussen seit» sub-line (22.09., screenshot): it said the word above it a second
+     time, and a ticking number reads as a duration on its own. Only an Atemschutz-Trupp that
+     actually came out of something gets it: `neverDeployed` is the crew
      that never went under PA (its own line below) and a work squad has no recovery time to
      count. `outSec` is null until an `exitTime` exists, so a Trupp stood down without one keeps
      the word alone rather than showing «00:00». */
@@ -1832,7 +1834,6 @@ function TruppCard({
     : pressureCrit ? az.clockAlarmPressure
     : sev >= 2 ? az.clockOverdue : sev === 1 ? az.clockWarn : az.clockOk
   const bandSub = neverDeployed ? (registeredAt != null ? az.bandRegisteredAt : '')
-    : breakClock ? az.outFor
     : out ? ''
     // ⚠️ the long «…sobald der Trupp unter Atemschutz…» hint is NOT the sub-line: it repeats the
     // word above it and it names Atemschutz, which a work squad does not have. It is a hint, and

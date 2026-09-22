@@ -1841,9 +1841,10 @@ export const de = {
     elapsed: 'Einsatzzeit',
     // Break clock: how long the Trupp has been out. The Einsatzzeit stands still from «Raus» on
     // (it is finished), this one runs instead – that is the number the Überwacher needs for the
-    // recovery time before the next Einsatz. It heads the out card's BAND (AtemschutzView ·
-    // breakClock) and it belongs to Atemschutz alone: a work squad has no recovery rule, so its
-    // out card says «Draussen» and nothing else.
+    // recovery time before the next Einsatz. It labels the closed ROW's clock (AtemschutzView ·
+    // collapsedClock) and it belongs to Atemschutz alone: a work squad has no recovery rule, so
+    // its out row says nothing here. The open card's band does NOT use it (22.09.): the word
+    // «Draussen» already heads that band, and the sub-line said it twice.
     outFor: 'Draussen seit',
     // ⚠️ APP ONLY, same split as `actExitPlain` below – der ausgehändigte Link behält «Draussen
     // seit» für jeden Trupp, AS oder nicht.

@@ -241,11 +241,12 @@ describe('the state a tier cannot say', () => {
   /* WHICH time an out card carries depends on whether anybody was ever monitoring it (settled
    * 05.09. evening). An Atemschutz-Trupp that came out of something keeps the BREAK CLOCK: it
    * cannot go back in until it has rested and re-equipped, so «wie lange ist der schon draussen»
-   * is the next question about it. No tier and no contact word though — nobody is watching it. */
+   * is the next question about it. No tier and no contact word though — nobody is watching it.
+   * And no «Draussen seit» under the word (22.09.): the band read «DRAUSSEN / Draussen seit». */
   it('gives an Atemschutz-Trupp that is out its break clock, and no tier', () => {
     mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(5 * 60_000) }] })
     expect(screen.getByText(az.status.raus)).toBeTruthy()
-    expect(screen.getByText(az.outFor)).toBeTruthy()
+    expect(screen.queryByText(az.outFor)).toBeNull()
     expect(screen.queryByText(az.clockOk)).toBeNull()
     expect(screen.queryByText(az.sinceContact)).toBeNull()
     const band = document.querySelector(`.${s.bandVal}`)!
