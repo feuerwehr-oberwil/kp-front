@@ -104,9 +104,12 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
           and «where did everything go» without ten taps. */}
       {onShowAll && onHideAll && onReset && (
         <div className="lc-quick">
-          <button type="button" onClick={onShowAll}><Icon id="eye" />{appConfig.copy.layerPanel.showAll}</button>
-          <button type="button" onClick={onHideAll}><Icon id="eyeoff" />{appConfig.copy.layerPanel.hideAll}</button>
-          <button type="button" onClick={onReset}><Icon id="undo" />{appConfig.copy.layerPanel.reset}</button>
+          {/* words only (22.09.2026): three columns of a 264px dock give each button ~67px, and the
+              eye / eye-off / undo glyphs took 20 of them — «Standard» ran past its edge and even
+              «Alle ein» broke in two. The rows' eyes already say what «ein / aus» means. */}
+          <button type="button" onClick={onShowAll}>{appConfig.copy.layerPanel.showAll}</button>
+          <button type="button" onClick={onHideAll}>{appConfig.copy.layerPanel.hideAll}</button>
+          <button type="button" onClick={onReset}>{appConfig.copy.layerPanel.reset}</button>
         </div>
       )}
 

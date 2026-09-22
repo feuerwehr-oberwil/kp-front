@@ -37,7 +37,7 @@
    label 64px where a tool handed 76 — «Vergrössern» clipped while the longer «Absperrkreis» in
    the list above it did not. Twelve pixels of browser default, invisible in the stylesheet. */
 .vrail-nbtn { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none; border: none; background: transparent; padding: 0;
-  border-radius: var(--r-sm); color: var(--ink); cursor: pointer; font: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
+  border-radius: var(--r-nested, var(--r-sm)); color: var(--ink); cursor: pointer; font: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .vrail:not(.expanded) .vrail-nbtn, .vrail.dragging .vrail-nbtn { justify-content: center; }
 @media (hover: hover) {
   .vrail-nbtn:not(.on):hover:not(:disabled) { background: var(--hover); color: var(--ink); }
@@ -70,7 +70,7 @@
 /* tool buttons mirror the left rail's nav-item: a fixed right-edge glyph column + a
    label that shows only in the committed expanded state (never mid-drag, so it can't clip) */
 .vrail-tool { display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; height: 46px; flex: none;
-  border: none; background: transparent; border-radius: var(--r-sm); color: var(--ink); cursor: pointer; font: inherit; padding: 0; width: 100%;
+  border: none; background: transparent; border-radius: var(--r-nested, var(--r-sm)); color: var(--ink); cursor: pointer; font: inherit; padding: 0; width: 100%;
   transition: background .14s var(--ease), color .14s var(--ease); }
 .vrail:not(.expanded) .vrail-tool, .vrail.dragging .vrail-tool { justify-content: center; }
 .vrail-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; }

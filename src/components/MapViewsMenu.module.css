@@ -28,13 +28,13 @@
 }
 
 .head { display: flex; align-items: center; justify-content: flex-end; padding: 0 0 6px; }
-/* round close button — mirrors the ToolDock's .wb-dock-x */
-.close { flex: none; width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
+/* close button — the house ✕ (36px, 18px glyph — AGENTS.md · Buttons), like the Ebenen panel's .lc-x */
+.close { flex: none; width: 36px; height: 36px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
   color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0;
   transition: background .14s var(--ease); }
 @media (hover: hover) { .close:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); } }
 .close:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.close :global(.i) { width: 16px; height: 16px; }
+.close :global(.i) { width: 18px; height: 18px; }
 
 /* margin-bottom, not a `.pop` flex-gap: a plain (unfilled) row already reads as "spaced out"
    against the dark background, but two adjacent HIGHLIGHTED rows (.on, or the saved-views list)

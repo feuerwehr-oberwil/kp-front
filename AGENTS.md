@@ -700,7 +700,13 @@ to prod.
   - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
     `.ctx-x` — one rule in 13-incident.css; it was 28/30/32). Beside a 44px search field it is
     44px instead (Palette, Verlauf search), and it is the ordinary grey, never a filled «on».
-  - *Radius:* **every** button is `var(--r-sm)`, whatever its size, border or icon-only-ness.
+  - *Radius:* **every** button is `var(--r-sm)`, whatever its size, border or icon-only-ness —
+    **except one that sits in a bar's padding** (22.09.2026): its corner is the bar's radius minus
+    the padding, so the two curves run concentric (`--r-nested`, stated beside the padding of
+    `.topbar` and `.rail` and their phone rules; read by the identity pill, `.tb-act`, the
+    Einsatzuhr, the rails' tiles; falls back to `--r-sm` outside a bar). A 10px card inside a
+    22px bar read as «way more angled than the container around it». `.toputil` already was
+    this arithmetic (16 − 6 = 10). The dark docks' ✕ (Ebenen, Ansichten) are the house 36/18 too.
     Rows, list items, option cells, tiles and field triggers are **not** buttons and keep
     `--r-ctl`; on-canvas furniture (handles, vertices, pins, trail marks, colour swatches, the
     badges attached to a map object), dots, legends and avatars stay round – roundness is what

@@ -10,7 +10,7 @@
 .ip-switch-glyph .i { width: 17px; height: 17px; }
 .ip-switch-btn {
   display: inline-flex; align-items: center; gap: 8px; max-width: 46vw; min-width: 0;
-  padding: 6px 12px; border: none; border-radius: var(--r-sm);
+  padding: 6px 12px; border: none; border-radius: var(--r-nested, var(--r-sm));   /* concentric with the bar — 01-tokens · --r-nested */
   background: var(--glass); box-shadow: var(--shadow-sm); color: var(--ink);
   font: 700 14px/1.1 var(--body); cursor: pointer;
 }

@@ -88,8 +88,12 @@
    utilities exist) the bar reserves space on the right for them. */
 @media (max-width: 860px) {
   /* .toputil reposition migrated → MapUtility.module.css */
-  /* journal actions go icon-only so the title + clock fit (undo/redo stay icons) */
-  .tb-actions .tb-act:not(.icon) span { display: none; }
+  /* journal actions go icon-only so the title + clock fit (undo/redo stay icons).
+     ⚠️ `span:not(.tb-act-ic)…` — Eintrag's glyph sits in a SPAN (`.tb-act-ic`, the hold ring's
+     anchor), and the bare `span` took it with the word: on every tablet in portrait (601–860px)
+     «Eintrag» was an empty blue square (22.09.2026). The recording square and the reminder count
+     are spans too, and neither is a label. */
+  .tb-actions .tb-act:not(.icon) span:not(.tb-act-ic):not(.tb-stop):not(.tb-rem-count) { display: none; }
   /* ⚠️ …and once a button is ONLY an icon it has to be a full tap target. It was `padding: 8px`,
      which lands around 31px — under the gloved floor — and the --tap sizing only arrived at
      ≤600px. So every width between 601 and 860 offered the smallest buttons in the app on the
@@ -139,7 +143,8 @@
     position: fixed;
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
     bottom: calc(14px + var(--rail-h) + env(safe-area-inset-bottom)); top: auto; width: auto !important; height: var(--rail-h);
-    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px; }
+    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px;
+    --r-nested: calc(var(--r-surface) - 6px); }   /* 6px of padding now — the tiles' corner follows (01-tokens · --r-nested) */
   /* Rail chrome that has no meaning in a bar: expand/collapse and resize/overflow affordances.
      The footer stays: both surfaces pin Ebenen plus their one view reset at the right edge. */
   :is(.tool-rail, .wb-tools) :is(.vrail-exp, .vrail-grip, .vrail-more, .vrail-label) { display: none; }
@@ -393,7 +398,8 @@
   /* top bar — one clean full-width row; the title truncates, Eintrag is the FAB.
      top/left/right hug the safe area so the bar clears the notch + rounded corners */
   .topbar { top: calc(10px + env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
-    right: max(10px, env(safe-area-inset-right)); max-width: none; padding: 6px 10px; gap: 8px; flex-wrap: nowrap; }
+    right: max(10px, env(safe-area-inset-right)); max-width: none; padding: 6px 10px; gap: 8px; flex-wrap: nowrap;
+    --r-nested: calc(var(--r-hero) - 6px); }   /* the padding shrank, so the nested corner grows to stay concentric */
   .eaddr { display: none; }
   /* ⚠️ `0 1 auto`, not `0 0 auto`. With the title hidden every remaining child of the switcher
      is a fixed-size glyph or pill, so a bar that ran out of width had NOTHING left that could
@@ -496,7 +502,8 @@
      Atemschutz · object · Ebenen/base). Desktop keeps the vertical left rail. */
   .navrail { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
     bottom: calc(8px + env(safe-area-inset-bottom)); top: auto; width: auto; height: var(--rail-h);
-    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px; }
+    margin-block: 0; flex-direction: row; align-items: center; gap: 2px; max-height: none; padding: 6px 8px;
+    --r-nested: calc(var(--r-surface) - 6px); }   /* 6px of padding now — the tiles' corner follows (01-tokens · --r-nested) */
   /* Alignment replaces the all-surface bar with its own Karte/Modul switch. Keeping both in the
      same thumb lane would be two navigation models at once and would leave the destructive
      destinations tappable behind the active task. */

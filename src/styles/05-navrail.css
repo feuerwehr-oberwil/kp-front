@@ -41,7 +41,7 @@
    not, and beside the chips' own borders they read as a table. The element stays (it is where a
    group starts, and the folded bar's test counts it); only its paint went. */
 .nav-sep { height: 6px; flex: none; }
-.nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
+.nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-nested, var(--r-sm));
   cursor: pointer; color: var(--ink); font: inherit; padding: 0; width: 100%; position: relative; transition: background .14s var(--ease); }
 .navrail:not(.expanded) .nav-item, .navrail.dragging .nav-item { justify-content: center; }
 @media (hover: hover) {
@@ -229,8 +229,9 @@ html.rail-dragging .layers-card { transition: none; }
   background: var(--ink-fill); border-radius: var(--r-surface) var(--r-surface) 0 0;
   font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 255, 255, .65);
   display: flex; align-items: center; gap: 7px; }
-/* round close button at the title's right end — mirrors the views popover / .wb-dock-x */
-.lc-x { flex: none; margin-left: auto; width: 34px; height: 34px; border-radius: var(--r-sm); border: none;
+/* close button at the title's right end — the house ✕ (36px, 18px glyph — AGENTS.md · Buttons,
+   13-incident.css · .ip-x), like the views popover's. It was 34/16 here, a size of its own. */
+.lc-x { flex: none; margin-left: auto; width: 36px; height: 36px; border-radius: var(--r-sm); border: none;
   background: rgba(255, 255, 255, .14); color: var(--on-accent-ink); display: grid; place-items: center;
   cursor: pointer; padding: 0; transition: background .14s var(--ease); }
 /* ⚠️ Every hover in this panel is gated on a pointer that can LEAVE again — see `.lrow:hover`
@@ -240,7 +241,7 @@ html.rail-dragging .layers-card { transition: none; }
   .lc-x:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, transparent); }
 }
 .lc-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.lc-x .i { width: 16px; height: 16px; }
+.lc-x .i { width: 18px; height: 18px; }
 /* Ebenen quick-taps under the title — all on / all off / Standard. Same chrome family as the
    .lc-x pill; colour via the on-ink token, never frozen white (the card is --ink-fill in both
    themes). Labels are 12.5/700 compact per the button spec, height stays the --tap floor. */
@@ -248,12 +249,15 @@ html.rail-dragging .layers-card { transition: none; }
 .lc-quick button { height: var(--tap); border: none; border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--on-accent-ink) 14%, transparent); color: var(--on-accent-ink);
   font-size: 12.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
-  gap: 5px; padding: 0 4px; cursor: pointer; transition: background .14s var(--ease); }
+  gap: 5px; padding: 0 4px; cursor: pointer; transition: background .14s var(--ease);
+  /* words only (the glyphs left 22.09.2026 — see LayerPanel.tsx), and a word may take two lines
+     inside the 44px: «Tout afficher» / «Nascondi tutti» are ~85px at 12.5/700 and a third of the
+     264px dock is 67 — nowrap ran them past the button's edge */
+  min-width: 0; min-height: var(--tap); height: auto; white-space: normal; line-height: 1.1; text-align: center; }
 .lc-quick button:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
   .lc-quick button:hover { background: color-mix(in srgb, var(--on-accent-ink) 24%, transparent); }
 }
-.lc-quick .i { width: 15px; height: 15px; flex: none; }
 .lgroup { font-size: 11px; font-weight: 700; color: rgba(255, 255, 255, .7); padding: 13px 8px 5px; }
 /* Basiskarte tiles — one row for a one-of-three choice. auto-fit so a deployment with a
    different number of bases still lays out; 70px is the floor a glyph + short name needs. */
@@ -277,7 +281,10 @@ html.rail-dragging .layers-card { transition: none; }
 .lbase-ic { display: grid; place-items: center; color: rgba(255, 255, 255, .8); }
 .lbase.on .lbase-ic { color: var(--on-accent-ink); }
 .lbase-ic .i { width: 20px; height: 20px; }
-.lbase-t { font-size: 11px; font-weight: 700; line-height: 1.15; text-align: left;
+/* 12.5px — the tile is interactive, so its word sits on the interactive floor (AGENTS.md · 3am),
+   not on the 11px the group heads use; it was 11 (22.09.2026). A long full name still ellipsises
+   (the `title` keeps it), the short names the deployment ships fit whole. */
+.lbase-t { font-size: 12.5px; font-weight: 700; line-height: 1.15; text-align: left;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 /* clean list rows — transparent, no per-row box; visible vs hidden shown by the blue eye +
    opacity, with the dock's white hover highlight */

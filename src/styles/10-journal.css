@@ -17,7 +17,7 @@
    (16px where every other neighbour has 8) — a slot with nothing in it takes no room */
 .tb-share:empty { display: none; }
 .tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
-  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
+  background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-nested, var(--r-sm)); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
   font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
 .tb-act .i { width: 15px; height: 15px; }
 /* ⚠️ The undo/redo glyphs (lib/icons · #undo/#redo) are NOT centred in their own 24×24 viewBox
@@ -347,12 +347,15 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    The button sits beside the title rather than out at the margin — it belongs to what is being
    read, not to the drawer's controls. */
 .journal-legend-btn { flex: none; position: relative; width: 36px; height: 36px; border-radius: var(--r-sm);
-  border: none; cursor: pointer; background: var(--surface-2); color: var(--ink-faint);
-  display: grid; place-items: center; }
+  border: none; cursor: pointer; display: grid; place-items: center;
+  /* the ✕'s own fill and ink (see .journal-x): on `--surface-2` — white at .6 over a white glass
+     drawer — the chip vanished and only its 18px glyph stayed, so ⓘ and the lens read smaller
+     than the ✕ they are the size of (22.09.2026) */
+  background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink-dim); }
 /* finger-sized target under a 36px chip, the same trick .journal-replay uses */
 .journal-legend-btn::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) {
-  .journal-legend-btn:hover { background: var(--hover-strong); color: var(--ink-dim); }
+  .journal-legend-btn:hover { background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
 }
 .journal-legend-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .journal-legend-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
