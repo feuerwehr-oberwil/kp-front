@@ -60,7 +60,9 @@ function ItemRow({
         <div className={s['cl-item-text']}>{item.text}</div>
         <div className={s['cl-item-meta']}>
           {item.when && <span className={s['cl-when']}>{item.when}</span>}
-          {item.milestone && <span className={s['cl-milestone']} title={CL.milestoneTitle}><Icon id="flag" /></span>}
+          {/* the flag WITH its word (22.09.2026): alone it was a 12px glyph whose meaning lived in a
+              tooltip no tablet shows — the row now says what ticking it does */}
+          {item.milestone && <span className={s['cl-milestone']} title={CL.milestoneTitle}><Icon id="flag" />{CL.milestoneTag}</span>}
           {checked && tickInfo && (
             <span className={s['cl-tickinfo']}>
               {tickTime(tickInfo.t)}{tickInfo.by ? ` · ${tickInfo.by}` : ''}

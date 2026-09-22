@@ -1251,6 +1251,10 @@ export const en: Localizable<Copy> = {
     alarmBlockedNoFallback: 'Sound not released – tap to enable it. This browser cannot show a notification.',
     alarmDemoNote: 'Demo – sound and notification are disabled on this instance',
     restoreMenu: 'Removed teams',
+    // the bell's WORD on a wide head (22.09.2026; the honest state stays in the tooltip/aria)
+    alarmWord: 'Alarm sound',
+    alarmMutedWord: 'Muted',
+    alarmBlockedWord: 'Enable sound',
     restoreItem: 'Restore {name}',
     alarmNotifyTitle: 'SCBA overdue',
     alarmNotifyBody: 'Team {name} overdue – establish contact.',
@@ -3044,6 +3048,8 @@ export const en: Localizable<Copy> = {
     summaryEmpty: 'Nothing recorded yet',
     add: 'Material',
     viewBySource: 'by source',
+    // the category filter's WORD on a wide head (22.09.2026)
+    categoryFilterWord: 'Filter',
     noSource: 'No source',
     searchPlaceholder: 'Search …',
     clearSearch: 'Clear search',
@@ -3120,6 +3126,9 @@ export const en: Localizable<Copy> = {
     variantLabel: 'Variant',
     pickVariant: 'Choose a variant to see the tasks.',
     milestoneTitle: 'Milestone – appears in the log',
+    // the word the flag wears on the row (22.09.2026): the tooltip above is what a mouse
+    // reads, and a tablet reads nothing — a lone glyph said «something», not what
+    milestoneTag: 'noted in the log',
     actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Draw' },
     hazardLabels: { red: 'Fire', orange: 'Hazards', green: 'Traffic', yellow: 'Technical', blue: 'Water' },
     diagramAlt: 'Diagram page {page}',

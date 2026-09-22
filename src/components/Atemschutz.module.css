@@ -37,6 +37,9 @@
   border: 1px solid var(--glass-edge); background: var(--surface); color: var(--ink-dim); border-radius: var(--r-sm); }
 .orderBtn :global(.i) { width: 18px; height: 18px; }
 @media (hover: hover) { .orderBtn:hover { color: var(--ink); border-color: var(--ink-faint); } }
+/* the same square with its word beside the glyph — wide heads only (AtemschutzView · isPhone) */
+.wordBtn { width: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px;
+  font: 700 13px var(--body); white-space: nowrap; }
 .orderBtn[data-popup-open] { color: var(--ink); border-color: var(--ink-faint); }
 .orderBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* «Überwachung abgeben», while a link IS live. Green = a running, healthy state, the same

@@ -779,6 +779,18 @@ to prod.
     and the EXPANDED rail's column does the same (22.09.2026): the rail stamps its longest
     monogram on itself (`data-mono-max`) and the column is 26 · 28 · 38px for a digit · «PV» ·
     «RWA», one width for every row, so no label steps out of line and no chip is clipped.
+  - *The rail's key badges (K · C · A …) show only while ⌘ / Ctrl / Alt is held* (22.09.2026,
+    `lib/useModifierHeld` → `data-keys` on the rail): standing on every icon they read as status
+    marks in the corner the alarm dot uses, and they are wanted at exactly the moment the
+    modifier marks.
+  - *A head's icon buttons carry their word on a wide screen* (22.09.2026, `.wordBtn` in
+    `Atemschutz.module.css` and `SurfaceControls.module.css`, switched by `useIsPhone`):
+    «Reihenfolge · Überwachung abgeben · Alarmton», «In Verwendung · Filtern · Anderes Material».
+    The phone keeps the bare square — its row has no room, and the hold-tooltip is its way of
+    asking. The bell's word is its honest STATE (Alarmton / Stumm / Ton freigeben).
+  - *A checklist item that writes to the Verlauf says so on its row* («⚑ wird im Verlauf
+    notiert», `checklists.milestoneTag`, 22.09.2026) — the lone flag's meaning lived in a tooltip
+    no tablet shows.
   - *Nav bar:* «Pläne» and «Einsatz» each stand for a group: a tap goes to the last-used member,
     a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
     unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).

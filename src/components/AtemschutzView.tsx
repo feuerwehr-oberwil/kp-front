@@ -868,12 +868,16 @@ export function AtemschutzView({
   // two copies that could drift.
   const bellButton = (
     <button
-      className={cx(s.muteBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
+      className={cx(s.muteBtn, !isPhone && s.wordBtn, muted && s.muteOn, audioBlocked && s.muteBlocked)}
       onClick={audioBlocked ? onUnlockAudio : onToggleMuted}
       aria-pressed={muted}
       aria-label={bellLabel} title={bellLabel}
     >
       <Icon id={muted ? 'bell-off' : 'bell'} />
+      {/* the WORD on a wide head (22.09.2026): three unlabelled squares beside «Trupp erstellen»
+          were a guess for anybody who had not held them. A phone keeps the square — its bar has
+          no room, and the hold-tooltip is the phone's way of asking. */}
+      {!isPhone && <span>{muted ? az.alarmMutedWord : audioBlocked ? az.alarmBlockedWord : az.alarmWord}</span>}
     </button>
   )
 
@@ -1082,8 +1086,8 @@ export function AtemschutzView({
         {canEdit && removedTrupps.length > 0 && (
           <Menu
             trigger={
-              <button type="button" className={s.orderBtn} aria-label={az.restoreMenu} title={az.restoreMenu}>
-                <Icon id="archive" />
+              <button type="button" className={cx(s.orderBtn, !isPhone && s.wordBtn)} aria-label={az.restoreMenu} title={az.restoreMenu}>
+                <Icon id="archive" />{!isPhone && <span>{az.restoreMenu}</span>}
               </button>
             }
             popupClassName="rp-print-menu"
@@ -1126,8 +1130,8 @@ export function AtemschutzView({
         {trupps.length > 1 && onOrder && !lite && (
           <Menu
             trigger={
-              <button type="button" className={s.orderBtn} aria-label={az.orderLabel} title={az.orderLabel}>
-                <Icon id="filter" />
+              <button type="button" className={cx(s.orderBtn, !isPhone && s.wordBtn)} aria-label={az.orderLabel} title={az.orderLabel}>
+                <Icon id="filter" />{!isPhone && <span>{az.orderLabel}</span>}
               </button>
             }
             popupClassName="rp-print-menu"
@@ -1155,11 +1159,11 @@ export function AtemschutzView({
         {onShareLink && (
           <button
             type="button"
-            className={cx(s.orderBtn, shareLinkActive && s.shareOn)}
+            className={cx(s.orderBtn, !isPhone && s.wordBtn, shareLinkActive && s.shareOn)}
             onClick={onShareLink}
             aria-label={shareLabel} title={shareLabel}
           >
-            <Icon id="qr" />
+            <Icon id="qr" />{!isPhone && <span>{az.shareLink}</span>}
           </button>
         )}
         {/* ⚠️ Stays HERE even on the lite/phone focus board (maintainer correction, 03.09.): an

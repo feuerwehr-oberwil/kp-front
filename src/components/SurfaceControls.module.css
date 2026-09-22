@@ -78,6 +78,13 @@
 @media (hover: hover) { .addBtn:hover { border-color: var(--ink-faint); color: var(--ink); background: var(--surface); } }
 .addBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .addBtn svg { width: 18px; height: 18px; }
+/* a control WITH its word, on a wide screen (22.09.2026): rides on .iconBtn / .addBtn, which
+   keep the bare square for the phone, where the row has a field and two filters to fit. The
+   word is a fixed string, so the width it takes is fixed too — the filter's DOT stays the way
+   an active filter is shown, for the reason above.
+   ⚠️ AFTER .addBtn: same specificity, and .addBtn's fixed --tap width would otherwise win. */
+.wordBtn { width: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px;
+  font: 700 13px var(--body); white-space: nowrap; }
 
 /* the dropdown each filter button opens */
 .menuPop {

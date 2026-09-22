@@ -1240,6 +1240,10 @@ export const it: Localizable<Copy> = {
     alarmBlockedNoFallback: 'Audio non sbloccato – toccare per attivarlo. Questo browser non può mostrare notifiche.',
     alarmDemoNote: 'Demo – suono e notifica sono disattivati su questa istanza',
     restoreMenu: 'Squadre rimosse',
+    // the bell's WORD on a wide head (22.09.2026; the honest state stays in the tooltip/aria)
+    alarmWord: 'Suono allarme',
+    alarmMutedWord: 'Muto',
+    alarmBlockedWord: 'Attiva audio',
     restoreItem: 'Ripristina {name}',
     alarmNotifyTitle: 'Autoprotezione in ritardo',
     alarmNotifyBody: 'Squadra {name} in ritardo – stabilire il contatto.',
@@ -2920,6 +2924,9 @@ export const it: Localizable<Copy> = {
     variantLabel: 'Variante',
     pickVariant: 'Scegli una variante per vedere i compiti.',
     milestoneTitle: 'Traguardo – appare nel diario',
+    // the word the flag wears on the row (22.09.2026): the tooltip above is what a mouse
+    // reads, and a tablet reads nothing — a lone glyph said «something», not what
+    milestoneTag: 'annotato nel diario',
     actionLabels: { journal: 'Diario', plan: 'Piano', draw: 'Disegna' },
     hazardLabels: { red: 'Incendio', orange: 'Pericoli', green: 'Traffico', yellow: 'Tecnico', blue: 'Acqua' },
     diagramAlt: 'Diagramma pagina {page}',
@@ -4927,6 +4934,8 @@ export const it: Localizable<Copy> = {
     summaryEmpty: 'Niente di registrato',
     add: 'Materiale',
     viewBySource: 'In uso',
+    // the category filter's WORD on a wide head (22.09.2026)
+    categoryFilterWord: 'Filtra',
     noSource: 'Senza assegnazione',
     searchPlaceholder: 'Cerca …',
     clearSearch: 'Cancella la ricerca',

@@ -2047,6 +2047,10 @@ export const de = {
     // erfolgen?»).
     alarmDemoNote: 'Demo – Ton und Benachrichtigung sind auf dieser Instanz deaktiviert',
     restoreMenu: 'Entfernte Trupps',
+    // the bell's WORD on a wide head (22.09.2026; the honest state stays in the tooltip/aria)
+    alarmWord: 'Alarmton',
+    alarmMutedWord: 'Stumm',
+    alarmBlockedWord: 'Ton freigeben',
     restoreItem: '{name} wiederherstellen',
     // OS notification when a Trupp goes überfällig while the app is backgrounded
     alarmNotifyTitle: 'Atemschutz überfällig',
@@ -4918,6 +4922,8 @@ export const de = {
     // «In Verwendung» ist ein Filter-Knopf auf der Suchzeile, kein Tab mehr – die Bezeichnung
     // bleibt, sie ist jetzt Tooltip und aria-label. (viewLabel/viewList sind mit dem Tab weg.)
     viewBySource: 'In Verwendung',
+    // the category filter's WORD on a wide head (22.09.2026)
+    categoryFilterWord: 'Filtern',
     // Suche + Kategorie-Filter, gebaut wie in der Anwesenheit: eine Zeile über der Liste
     noSource: 'Ohne Zuordnung',
     searchPlaceholder: 'Suchen …',
@@ -5035,6 +5041,9 @@ export const de = {
     variantLabel: 'Variante',
     pickVariant: 'Variante wählen, um die Aufgaben zu sehen.',
     milestoneTitle: 'Meilenstein – erscheint im Verlauf',
+    // the word the flag wears on the row (22.09.2026): the tooltip above is what a mouse
+    // reads, and a tablet reads nothing — a lone glyph said «something», not what
+    milestoneTag: 'wird im Verlauf notiert',
     actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
     // reference reader: hazard-colour badge labels
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,

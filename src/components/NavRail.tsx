@@ -7,6 +7,7 @@ import type { PlanDocument } from '../types'
 import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, foldPlanTiles, planGlyph } from '../lib/navRail'
 import { RAPPORT_PAGES, type RapportPage } from '../lib/rapportPages'
 import { useRail } from '../lib/useRail'
+import { useModifierHeld } from '../lib/useModifierHeld'
 import { useLongPress } from '../lib/useLongPress'
 import { markChooserOffered, offerChooser } from '../lib/chooserOffer'
 import { buzz } from '../lib/haptics'
@@ -198,11 +199,13 @@ export function NavRail(p: Props) {
   // keeps its height and hugs its text, so «RWA» in a fixed 26px column painted through its own
   // border (22.09.2026). CSS cannot count letters, so the rail says how many its longest has —
   // and with a digit or none the column stays the 26px an icon needs.
+  // the key badges show while a modifier is held — see lib/useModifierHeld
+  const keysHeld = useModifierHeld()
   const monoMax = p.planDocs.reduce((n, d) => { const g = planGlyph(d); return 'mono' in g && !g.mono.includes('/') ? Math.max(n, g.mono.length) : n }, 0)
 
   return (
     <nav className={`navrail rail${expanded ? ' expanded' : ''}${rail.dragging ? ' dragging' : ''}${p.labels === 'short' ? ' labelled' : ''}${p.fold ? ' folded' : ''}`}
-      data-mono-max={monoMax > 1 ? monoMax : undefined}>
+      data-mono-max={monoMax > 1 ? monoMax : undefined} data-keys={keysHeld || undefined}>
       {/* ⚠️ NO «Ausklappen» while the words are on. The chevron exists to reveal exactly what this
           setting already shows — with it on, expanding buys 128px of nothing but a second label
           position. It stays for everybody else, which is who it was for: somebody who does not
