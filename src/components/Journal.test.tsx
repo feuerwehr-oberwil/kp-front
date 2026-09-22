@@ -482,26 +482,38 @@ describe('Journal · Beilagen chips (files on a row)', () => {
   })
 })
 
-// ── the search (mock verlauf-02, 14.09.) ────────────────────────────────────────────────────
-// The lens swaps the head row for the field; the field filters the list live and its ✕ (or
-// Escape in it) puts the head and the full list back. The matching itself is lib/journalSearch's.
+// ── the search (mock verlauf-02, 14.09.; head kept 22.09.) ──────────────────────────────────
+// The lens opens the field UNDER the head — title · ⓘ · Replay · ✕ stay, so the drawer still says
+// what it is — and lights up; the field filters the list live and its ✕ (or Escape in it, or the
+// lens again) closes it and shows the full list. The matching itself is lib/journalSearch's.
 describe('Journal · the search in the head', () => {
   const lens = () => screen.getByRole('button', { name: 'Im Verlauf suchen' })
   const rows = () => [...document.querySelectorAll<HTMLElement>('[data-ev]')].map((el) => el.dataset.ev)
 
-  it('the lens REPLACES the head with the field, focused; ✕ restores the head and the list', () => {
+  it('the lens opens the field UNDER the head, focused — the head stays; ✕ closes it and shows the list', () => {
     setup()
     fireEvent.click(lens())
     const field = screen.getByRole('textbox', { name: 'Im Verlauf suchen' })
     expect(document.activeElement).toBe(field)
-    expect(screen.queryByText(/Verlauf · 3/)).toBeNull()
+    // the head is still there, and the lens in it is lit
+    expect(screen.getByText(/Verlauf · 3/)).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Suche schliessen' })[0].classList.contains('on')).toBe(true)
     fireEvent.change(field, { target: { value: 'feuer' } })
     expect(rows()).toEqual(['r3'])
     expect(screen.getByText('1 von 3')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Suche schliessen' }))
+    // the field's own ✕ (the last of the two «Suche schliessen» — the lens is the first)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Suche schliessen' }).at(-1)!)
     expect(screen.queryByRole('textbox')).toBeNull()
     expect(screen.getByText(/Verlauf · 3/)).toBeTruthy()
     expect(rows()).toEqual(['r3', 'r2', 'r1'])
+  })
+
+  it('the lit lens closes the search again', () => {
+    setup()
+    fireEvent.click(lens())
+    expect(screen.getByRole('textbox')).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Suche schliessen' })[0])
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 
   it('Escape in the field closes the SEARCH, not the drawer', () => {

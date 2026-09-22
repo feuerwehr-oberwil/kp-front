@@ -527,13 +527,43 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
 
   return (
     <Overlay open onClose={onClose} className="journal-drawer" backdropClassName="journal-scrim" ariaLabel={C.title} dismissEscape={false} grab>
-        {/* ── the head, OR the search field in its place ──
-            One row, two states. Tapping the lens swaps the title · ⓘ · Replay for the field (focus
-            at once, keyboard up) and the drawer's ✕ for the search's ✕; that ✕ – or Escape in the
-            field – puts the head back and shows the full list again. Nothing is added below the
-            head, so the list keeps its height whether or not somebody is searching. */}
-        {searching ? (
-          <div className="journal-head">
+        {/* ── the head STAYS while searching (22.09.2026) ──
+            The field used to take the head's place – title · ⓘ · Replay · ✕ gone, a bare search
+            box at the top – and with it went the answer to «where am I»: the drawer no longer said
+            it was the Verlauf. The head is constant now; the field sits BELOW it, in the row the
+            timeline strip vacates (the strip is hidden while searching anyway), with its own ✕.
+            The lens in the head is lit while the field is open and closes it on a second tap. */}
+        <div className="journal-head">
+          <span className="journal-title"><Icon id="history" />{C.title} · {events.length}</span>
+          {/* ⚠️ ON A TAP, never by itself. The disc carries the Bereich now, and a glyph has to be
+              learned — but a panel that opens on its own, or one the app remembers having opened,
+              is a thing to dismiss on the way to the record. This one is a question somebody asks
+              once. No hover either: the primary device has none. */}
+          <button
+            type="button" className={`journal-legend-btn${showLegend ? ' on' : ''}`}
+            title={C.legend} aria-label={C.legend} aria-expanded={showLegend}
+            onClick={() => setShowLegend((v) => !v)}
+          ><Icon id="info" /></button>
+          {/* the lens: same chip as the ⓘ, and it closes the legend on its way in – the legend
+              explains discs the search is about to hide most of */}
+          <button
+            type="button" className={`journal-legend-btn${searching ? ' on' : ''}`}
+            title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-pressed={searching}
+            onClick={() => { if (searching) { setSearch(null); return } setShowLegend(false); setSearch('') }}
+          ><Icon id="search" /></button>
+          {/* ⚠️ `aria-label`, because the word inside it is hidden on a phone (10-journal.css) —
+              the head is one item wider since the legend button joined it, and this is the label
+              that can most afford to go. */}
+          {onReplay && (
+            <button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay}>
+              <Icon id="play" /><span>{C.replay}</span>
+            </button>
+          )}
+          <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
+        </div>
+        {deliveryNotice}
+        {searching && (
+          <div className="journal-search-row">
             <label className="journal-search">
               <Icon id="search" />
               <input
@@ -551,37 +581,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             </label>
             <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
           </div>
-        ) : (
-        <div className="journal-head">
-          <span className="journal-title"><Icon id="history" />{C.title} · {events.length}</span>
-          {/* ⚠️ ON A TAP, never by itself. The disc carries the Bereich now, and a glyph has to be
-              learned — but a panel that opens on its own, or one the app remembers having opened,
-              is a thing to dismiss on the way to the record. This one is a question somebody asks
-              once. No hover either: the primary device has none. */}
-          <button
-            type="button" className={`journal-legend-btn${showLegend ? ' on' : ''}`}
-            title={C.legend} aria-label={C.legend} aria-expanded={showLegend}
-            onClick={() => setShowLegend((v) => !v)}
-          ><Icon id="info" /></button>
-          {/* the lens: same chip as the ⓘ, and it closes the legend on its way in – the legend
-              explains discs the search is about to hide most of */}
-          <button
-            type="button" className="journal-legend-btn"
-            title={C.search} aria-label={C.search}
-            onClick={() => { setShowLegend(false); setSearch('') }}
-          ><Icon id="search" /></button>
-          {/* ⚠️ `aria-label`, because the word inside it is hidden on a phone (10-journal.css) —
-              the head is one item wider since the legend button joined it, and this is the label
-              that can most afford to go. */}
-          {onReplay && (
-            <button className="journal-replay" onClick={onReplay} title={C.replayHint} aria-label={C.replay}>
-              <Icon id="play" /><span>{C.replay}</span>
-            </button>
-          )}
-          <button className="journal-x" title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
-        </div>
         )}
-        {deliveryNotice}
         {showLegend && !searching && (
           <div className="jr-legend">
             {legendEntries().map((l) => (

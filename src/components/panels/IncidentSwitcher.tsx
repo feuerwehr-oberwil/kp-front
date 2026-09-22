@@ -359,9 +359,10 @@ export function IncidentSwitcher({
           {active && <button className="ip-menu-act" onClick={onOfflineReadiness}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={onHelp}><Icon id="info" /> {appConfig.copy.help.menu}</button>
           {onInstall && <button className="ip-menu-act" onClick={onInstall}><Icon id="share-ios" /> {appConfig.copy.install.menu}</button>}
-          {/* no hairline above either group (22.09.2026): the small-caps label heads «App», the
-              avatar heads the identity row, and the spacing does the rest — the two rules read as
-              a table drawn over a list. */}
+          {/* ONE hairline in this menu, above the identity row (22.09.2026): the small-caps label
+              heads «App» on its own, but the row under the actions is not an action — it is who
+              is signed in, and the rule is what says «the list ends here». */}
+          <div className="ip-menu-sep" />
           <div className="ip-menu-user">
             <span className="ip-menu-av" style={{ background: user.color ?? 'var(--ink-faint)' }}>{initials(user.display_name)}</span>
             <span className="ip-menu-userinfo">

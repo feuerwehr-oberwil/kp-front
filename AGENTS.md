@@ -277,11 +277,16 @@ to prod.
   340px panel read as a bordered table and said nothing the padding did not. «Spacing» is the
   ROW RHYTHM, not a band of air (20.09.2026): plain groups follow each other as one continuous
   list of options — the 24px the dropped rules left behind read as something missing. The same
-  rule reached the app chrome on 22.09.2026: the two side rails, the top bar, the map-utility
-  cluster and the Einsatz menu draw NO hairline between groups any more (`.nav-sep`, `.vrail-sep`,
-  `.vr`, `.tb-vr`, `.tu-divider` are 2–6px of air; `.ip-menu-sep` is gone) — a bordered pill, a
-  filled button, a small-caps label or an avatar already says where a group starts. A hairline
-  survives only where it carries a label (`.jr-day-sep`) or guards a destructive row in a `Menu`.
+  rule reached the app chrome on 22.09.2026, and was then tuned by hand the same day — what
+  stands is: the TOP BAR has ONE 8px gap between every neighbour and no groups at all (a wider
+  «group gap» was tried and read as holes); the LEFT rail keeps 14px of air around the plan
+  tiles; the TOOL rail's tools are ONE undivided list (the `sep` entries left `mapTools` /
+  `planTools`) and its one hairline is the FOOT's, above the generic controls (Ebenen · compass ·
+  zoom) — a real seam, where «select vs. create» was noise; the map-utility cluster has air; and
+  the Einsatz menu draws ONE hairline, above the identity row (the small-caps label heads «App»
+  on its own, but the signed-in row is not an action and the rule says «the list ends here»).
+  A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
+  in a `Menu`.
   And **no native form
   control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
   instead of a number field, `components/Slider` instead of `<input type="range">`.
@@ -779,6 +784,9 @@ to prod.
     and the EXPANDED rail's column does the same (22.09.2026): the rail stamps its longest
     monogram on itself (`data-mono-max`) and the column is 26 · 28 · 38px for a digit · «PV» ·
     «RWA», one width for every row, so no label steps out of line and no chip is clipped.
+  - *The Verlauf's head stays while searching* (22.09.2026): the field sits UNDER title · ⓘ ·
+    lens · Replay · ✕, in the row the timeline strip vacates, with its own ✕; the lens is lit and
+    closes it. The field used to REPLACE the head, and the drawer then no longer said what it was.
   - *The rail's key badges (K · C · A …) show only while ⌘ / Ctrl / Alt is held* (22.09.2026,
     `lib/useModifierHeld` → `data-keys` on the rail): standing on every icon they read as status
     marks in the corner the alarm dot uses, and they are wanted at exactly the moment the

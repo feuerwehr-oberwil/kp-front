@@ -730,34 +730,30 @@ export const de = {
   //   'action' — one-shot, fires & gives toast feedback (push-button look)
   //   'mode'   — switches the whole surface (push-button look)
   mapTools: [
-    // grouped: selection · create (Symbol + drawing) · annotate/measure. One divider before
-    // the create group; Symbol leads it as a plain tool — no divider isolating it from the
-    // drawing tools and no special styling.
+    // ONE list, no dividers (22.09.2026): the rail used to draw a hairline before the create
+    // group, and it read as noise beside the one seam that matters — the footer's generic
+    // controls, which the rail separates itself. Symbol leads the create tools as a plain tool.
     // Auswahl carries Mehrfach as its SECOND state (05.09.) instead of a rail slot of its own:
     // tapping the already-armed Auswahl swaps glyph AND word to Mehrfach, tapping again swaps
     // back. Both keys keep working ([[V]] / [[W]]) — this is chrome, not a new tool.
     { id: 'select', icon: 'select', label: 'Auswahl', kind: 'tool', alt: { id: 'lasso', icon: 'marquee', label: 'Mehrfach' } },
-    { id: 'sep-symbol', sep: true, icon: '', label: '' },
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
     { id: 'line', icon: 'pen', label: 'Linie', kind: 'tool' },
     { id: 'area', icon: 'area', label: 'Fläche', kind: 'tool' },
     { id: 'circle', icon: 'circle', label: 'Absperrkreis', kind: 'tool' },
-    // (no divider between Absperrkreis and Notiz any more — it cost a rail row to separate two
-    // groups that are both «etwas auf die Karte setzen». The one before Symbol stays: that IS a
-    // real seam, between choosing something and creating it.)
+    // (no divider between Absperrkreis and Notiz — it cost a rail row to separate two groups
+    // that are both «etwas auf die Karte setzen»; the one before Symbol followed it on 22.09.)
     { id: 'note', icon: 'type', label: 'Notiz', kind: 'tool' },
     { id: 'team', icon: 'flag', label: 'Trupp', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Messen', kind: 'tool' },
   ],
   // Plan/whiteboard tool list — mirrors mapTools' ordering (Auswahl · Symbol · then the create
   // tools) so the two shared tool rails read the same. Symbol leads the create group as a plain
-  // tool (no divider isolating it from Zeichnen).
+  // tool, one undivided list — the same as mapTools.
   planTools: [
-    // grouped: selection · create — mirrors mapTools' divider rhythm
     // …and the same two-state Auswahl the Karte has: 'pan' IS the plan's Auswahl, Mehrfach is
     // the second tap on it. Lage ↔ Plan parity — one interaction, both surfaces.
     { id: 'pan', icon: 'select', label: 'Auswahl', alt: { id: 'lasso', icon: 'marquee', label: 'Mehrfach' } },
-    { id: 'sep-symbol', sep: true, icon: '', label: '' },
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
     // single Linie tool (Freihand-drag ↔ Punkte toggle lives in its dock), mirroring the Karte map
     { id: 'line', icon: 'pen', label: 'Linie' },
@@ -765,7 +761,6 @@ export const de = {
     { id: 'circle', icon: 'circle', label: 'Absperrkreis' },
     { id: 'text', icon: 'type', label: 'Notiz' },
     { id: 'resource', icon: 'flag', label: 'Trupp' },
-    { id: 'sep-measure', sep: true, icon: '', label: '' },
     // Messen: node-based distance/area on the plan (uses the calibrated scale). Calibration
     // itself is reached via the always-visible Massstab trust chip, not a separate rail button.
     { id: 'measure', icon: 'measure', label: 'Messen' },

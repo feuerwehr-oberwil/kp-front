@@ -443,7 +443,6 @@
      the vertical separators are dropped entirely: on a bar this narrow they read as
      clutter, and the grouping is clear from the icons alone */
   .tb-actions { gap: 1px; }
-  .tb-act-history + .tb-act:not(.tb-act-history) { margin-left: 0; }   /* the desktop group gap (10-journal.css) has no room here */
   .topbar { gap: 6px; }
   /* weather trims to the bare downwind arrow + speed on phones (condition/temp are
      "read, not felt" detail that doesn't fit the narrow bar) */

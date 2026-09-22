@@ -12,7 +12,10 @@
    right edge (no clip on .topbar): 177px of «5 km/h» sitting on the map at 861px, and again in
    the 601–740px band. The bar already has a member whose whole job is to yield — the incident
    title ellipsises (.ip-switch-title, min-width:0) — so let the width come from there. */
-.tb-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; min-width: 0; }
+.tb-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: none; min-width: 0; }   /* the bar's one gap — see .topbar */
+/* ⚠️ an EMPTY share slot still counted as a flex child and doubled the gap before the weather
+   (16px where every other neighbour has 8) — a slot with nothing in it takes no room */
+.tb-share:empty { display: none; }
 .tb-act { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer;
   background: var(--fill-soft); color: var(--ink-dim); border-radius: var(--r-sm); padding: 7px 11px; min-height: 42px; font-size: 12.5px;
   font-weight: 700; font-family: inherit; transition: background .14s var(--ease), color .14s var(--ease); }
@@ -23,9 +26,6 @@
    rest of `.tb-actions` lines up on. Nudged back onto that line here rather than in the shared
    symbol, which other callers (the undo toast, the Rückgängig-Uhr) draw against their own box. */
 .tb-act-history .i { transform: translateY(-1.5px); }
-/* ↶ ↷ belong with the clock, «Verlauf» + «Eintrag» are the next group: the bar's 14px group gap
-   between them, where a hairline stood until 22.09.2026 (the row's own gap is 4px) */
-.tb-act-history + .tb-act:not(.tb-act-history) { margin-left: 10px; }
 .tb-act.icon { padding: 7px 9px; min-width: 42px; background: transparent; }
 @media (hover: hover) {
   .tb-act:hover { color: var(--ink); background: var(--fill-soft); }
@@ -363,6 +363,8 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
    field REPLACES the head row (mock verlauf-02, 14.09.): the title, ⓘ and Replay go, the field
    takes their width, and the ✕ that closes the search stands where the drawer's ✕ stood — one
    place for «back out of this», whichever «this» is. No space is lost while nothing is searched. */
+/* the search row sits UNDER the constant head, where the timeline strip stands otherwise (22.09.2026) */
+.journal-search-row { display: flex; align-items: center; gap: 8px; padding: 0 4px 10px; }
 .journal-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 44px;
   padding: 0 12px; border-radius: var(--r-ctl); background: var(--fill-soft); color: var(--ink-dim); }
 .journal-search .i { flex: none; width: 16px; height: 16px; }

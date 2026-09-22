@@ -443,7 +443,6 @@ export const it: Localizable<Copy> = {
   clear: 'Cancella ricerca',
   mapTools: [
     { id: 'select', icon: 'select', label: 'Selezione', kind: 'tool', alt: { id: 'lasso', icon: 'marquee', label: 'Multiplo' } },
-    { id: 'sep-symbol', sep: true, icon: '', label: '' },
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
     { id: 'line', icon: 'pen', label: 'Linea', kind: 'tool' },
     { id: 'area', icon: 'area', label: 'Superficie', kind: 'tool' },
@@ -454,14 +453,12 @@ export const it: Localizable<Copy> = {
   ],
   planTools: [
     { id: 'pan', icon: 'select', label: 'Selezione', alt: { id: 'lasso', icon: 'marquee', label: 'Multiplo' } },
-    { id: 'sep-symbol', sep: true, icon: '', label: '' },
     { id: 'symbol-slot', slot: true, icon: '', label: '' },
     { id: 'line', icon: 'pen', label: 'Linea' },
     { id: 'area', icon: 'area', label: 'Superficie' },
     { id: 'circle', icon: 'circle', label: 'Perimetro di sicurezza' },
     { id: 'text', icon: 'type', label: 'Nota' },
     { id: 'resource', icon: 'flag', label: 'Squadra' },
-    { id: 'sep-measure', sep: true, icon: '', label: '' },
     { id: 'measure', icon: 'measure', label: 'Misura' },
   ],
   nav: {
