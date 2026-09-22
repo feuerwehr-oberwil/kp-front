@@ -89,6 +89,14 @@ describe('monogram chip sizing', () => {
     const modul1 = screen.getByRole('button', { name: 'Modul 1' })
     expect(modul1.querySelector('.nav-glyph.mono')?.getAttribute('data-mono-len')).toBe('1')
   })
+
+  // The expanded rail's glyph column is one width for every row — the widest chip it holds — so
+  // «RWA» neither paints through a 26px column nor pushes its own label out of line. The rail
+  // states that width's input on itself; a rail of digits and icons states nothing.
+  it('stamps the longest monogram on the rail so the expanded column can be sized to it', () => {
+    setup()
+    expect(document.querySelector('.navrail')?.getAttribute('data-mono-max')).toBe('3')
+  })
 })
 
 // A reload restores the surface from prefs, but the plan tiles are fetched afterwards — so on the

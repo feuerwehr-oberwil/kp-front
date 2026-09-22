@@ -205,6 +205,7 @@
 .rowNoteBtn { position: relative; flex: none; display: grid; place-items: center; width: 32px; height: 32px;
   margin-right: 2px; margin-left: 2px; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent;
   color: var(--ink-faint); cursor: pointer; }
+@media (pointer: coarse) { .rowNoteBtn { width: var(--tap); height: var(--tap); } }   /* 32px under a finger (22.09.2026) */
 @media (hover: hover) { .rowNoteBtn:hover { border-color: var(--glass-edge); color: var(--ink); } }
 .rowNoteBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .rowNoteBtn :global(.i) { width: 15px; height: 15px; }

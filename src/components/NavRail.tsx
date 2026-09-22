@@ -193,8 +193,16 @@ export function NavRail(p: Props) {
     dragClass: 'rail-dragging',
   })
 
+  // ⚠️ The expanded rail's glyph column is as wide as the WIDEST monogram chip it holds (the
+  // same call the chooser's glyph column makes, 05-navrail.css · .group-choose-glyph): the chip
+  // keeps its height and hugs its text, so «RWA» in a fixed 26px column painted through its own
+  // border (22.09.2026). CSS cannot count letters, so the rail says how many its longest has —
+  // and with a digit or none the column stays the 26px an icon needs.
+  const monoMax = p.planDocs.reduce((n, d) => { const g = planGlyph(d); return 'mono' in g && !g.mono.includes('/') ? Math.max(n, g.mono.length) : n }, 0)
+
   return (
-    <nav className={`navrail rail${expanded ? ' expanded' : ''}${rail.dragging ? ' dragging' : ''}${p.labels === 'short' ? ' labelled' : ''}${p.fold ? ' folded' : ''}`}>
+    <nav className={`navrail rail${expanded ? ' expanded' : ''}${rail.dragging ? ' dragging' : ''}${p.labels === 'short' ? ' labelled' : ''}${p.fold ? ' folded' : ''}`}
+      data-mono-max={monoMax > 1 ? monoMax : undefined}>
       {/* ⚠️ NO «Ausklappen» while the words are on. The chevron exists to reveal exactly what this
           setting already shows — with it on, expanding buys 128px of nothing but a second label
           position. It stays for everybody else, which is who it was for: somebody who does not

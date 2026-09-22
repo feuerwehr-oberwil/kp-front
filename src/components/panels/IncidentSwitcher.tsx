@@ -344,11 +344,6 @@ export function IncidentSwitcher({
                   one opens an earlier Einsatz, one opens a new one. The old blue text link looked
                   detached from the full-size creation row directly below it, especially on a
                   phone, so both now use the same recognised icon+label action recipe. */}
-              {/* ⚠️ Only when something stands ABOVE it inside this group. With one Einsatz running
-                  and no others, the rows above are empty and the rule landed directly under the
-                  active Einsatz's card — a divider between a card and the two doors out of a list
-                  that isn't there, which reads as «there is more, and it is hidden». */}
-              {(running.length > 0 || !active) && (onHistory || isEditor) && <div className="ip-menu-sep" />}
               {onHistory && (
                 <button className="ip-menu-act" onClick={onHistory}>
                   <Icon id="history" /> {cp.allIncidents}
@@ -357,7 +352,6 @@ export function IncidentSwitcher({
               {isEditor && <button className="ip-menu-act" onClick={onDivera}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
             </div>
           )}
-          <div className="ip-menu-sep" />
           {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
               unconditional — so the label never heads an empty group the way «Einsätze» can. */}
           <div className="ip-menu-label">{cp.app}</div>
@@ -365,7 +359,9 @@ export function IncidentSwitcher({
           {active && <button className="ip-menu-act" onClick={onOfflineReadiness}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
           <button className="ip-menu-act" onClick={onHelp}><Icon id="info" /> {appConfig.copy.help.menu}</button>
           {onInstall && <button className="ip-menu-act" onClick={onInstall}><Icon id="share-ios" /> {appConfig.copy.install.menu}</button>}
-          <div className="ip-menu-sep" />
+          {/* no hairline above either group (22.09.2026): the small-caps label heads «App», the
+              avatar heads the identity row, and the spacing does the rest — the two rules read as
+              a table drawn over a list. */}
           <div className="ip-menu-user">
             <span className="ip-menu-av" style={{ background: user.color ?? 'var(--ink-faint)' }}>{initials(user.display_name)}</span>
             <span className="ip-menu-userinfo">

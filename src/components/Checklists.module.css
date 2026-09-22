@@ -85,7 +85,12 @@
 .cl-item.done .cl-check { background: var(--green); border-color: var(--green); }
 .cl-check:disabled { cursor: default; opacity: var(--disabled); }
 /* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
-@media (pointer: coarse) { .cl-check { width: 44px; height: 44px; } }
+@media (pointer: coarse) {
+  .cl-check { width: 44px; height: 44px; }
+  /* …and the rest of the surface's targets (22.09.2026): the rail's rows (31–37px), the
+     Stichwort hint and the deep-link chips (26px) */
+  .cl-rail-item, .cl-rail-entry, .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
+}
 .cl-item-body { flex: 1 1 auto; min-width: 0; }
 /* whole text body is a tap target to toggle the item (the checkbox is just the visual) */
 .cl-item-tap { cursor: pointer; }

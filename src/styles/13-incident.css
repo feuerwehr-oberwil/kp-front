@@ -187,7 +187,7 @@
   .sync-glyph.on .sync-ring, .sync-glyph.on .sync-tick { transition: none; }
 }
 /* small-caps section label inside the dropdown (e.g. "Dieser Einsatz") — same idiom as .set-group-t */
-.ip-menu-label { padding: 4px 12px 2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ip-menu-label { margin-top: 8px; padding: 4px 12px 2px; font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 
 .ip-menu {
   position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(430px, 92vw);
@@ -227,7 +227,6 @@
    itself. The section views carry their own absolute inset/z-index, so they never needed the
    wrapper for layout.) */
 
-.ip-menu-sep { height: 1px; background: var(--glass-edge); margin: 4px; }
 .ip-menu-act.danger { color: var(--red); }
 /* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
    labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
@@ -357,7 +356,7 @@
 .or-foot { margin: 0 2px; font: 500 12px var(--body); color: var(--ink-faint); line-height: 1.45; }
 
 /* signed-in user + logout, docked at the foot of the incident menu */
-.ip-menu-user { display: flex; align-items: center; gap: 9px; padding: 6px 6px 4px; }
+.ip-menu-user { display: flex; align-items: center; gap: 9px; margin-top: 10px; padding: 6px 6px 4px; }
 .ip-menu-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none;
   font: 700 12.5px var(--body); color: var(--on-accent-ink); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .22); }
 .ip-menu-userinfo { display: flex; flex-direction: column; min-width: 0; flex: 1; }
@@ -1800,7 +1799,7 @@ details[open] > summary.ip-group-head::before { transform: rotate(90deg); }
 .ip-btn.block { justify-content: center; padding: 13px 16px; }
 /* keep the empty-state CTAs flush-left with the headline rather than centered (full-width, left label) */
 .ip-emptyapp-actions .ip-btn { justify-content: flex-start; }
-.ip-emptyapp-foot { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--glass-edge);
+.ip-emptyapp-foot { margin-top: 30px;   /* spacing, not a rule — see .ip-menu-user (22.09.2026) */
   display: flex; flex-direction: column; gap: 10px; }
 /* identity card reuses the in-incident menu classes (ip-menu-user/-av/-userinfo) so both
    surfaces render "who am I" identically; only spacing differs in the card footer */

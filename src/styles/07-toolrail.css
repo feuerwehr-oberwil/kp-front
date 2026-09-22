@@ -53,7 +53,7 @@
    they were removed for. The two conditions together mean: gone on anything you touch, kept on
    a mouse, whatever the window measures. */
 @media (max-width: 1023px), (pointer: coarse) { .vrail-zoom { display: none; } }
-.vrail-sep-foot { flex: none; margin: 2px 10px; }
+.vrail-sep-foot { flex: none; height: 4px; }
 .vrail-compass { display: grid; place-items: center; transition: transform .15s ease; }
 /* expand toggle — the shared .rail-exp chrome, but row-reversed so the chevron sits in the
    right-edge glyph column (the rail is anchored right and opens leftward), and pointing the
@@ -114,7 +114,8 @@
   .vrail-tool.on:hover:not(:disabled) { background: var(--ink-fill-hover); color: var(--on-accent-ink); }
 }
 .vrail-tool:disabled { opacity: var(--disabled); cursor: default; }
-.vrail-sep { height: 1px; flex: none; background: var(--border); margin: 5px 9px; }
+/* a group boundary is spacing, not a hairline — see .nav-sep in 05-navrail.css (22.09.2026) */
+.vrail-sep { height: 6px; flex: none; }
 /* one-shot actions + the display-mode switch read as discrete push-buttons
    (faint resting fill + hairline), visually distinct from the flat, sticky modal
    tools above — so "press to do X" is never confused with "select a mode" */

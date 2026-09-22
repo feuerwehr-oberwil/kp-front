@@ -23,6 +23,9 @@
    rest of `.tb-actions` lines up on. Nudged back onto that line here rather than in the shared
    symbol, which other callers (the undo toast, the Rückgängig-Uhr) draw against their own box. */
 .tb-act-history .i { transform: translateY(-1.5px); }
+/* ↶ ↷ belong with the clock, «Verlauf» + «Eintrag» are the next group: the bar's 14px group gap
+   between them, where a hairline stood until 22.09.2026 (the row's own gap is 4px) */
+.tb-act-history + .tb-act:not(.tb-act-history) { margin-left: 10px; }
 .tb-act.icon { padding: 7px 9px; min-width: 42px; background: transparent; }
 @media (hover: hover) {
   .tb-act:hover { color: var(--ink); background: var(--fill-soft); }
@@ -33,7 +36,6 @@
   .tb-act:disabled:hover { background: transparent; color: var(--ink-dim); }
 }
 .tb-act.on { background: var(--ink-fill); color: var(--on-accent-ink); }
-.tb-vr { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
 /* Atemschutz alarm chip — conditional (only rendered while a Trupp is fällig/überfällig).
    A compact pill, not a banner, so it's an ambient cue rather than an interruption. */
 .tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-pill);
@@ -139,7 +141,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tb-weather b { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .tb-weather-cond { display: grid; place-items: center; flex: none; color: var(--ink); }
 .tb-weather-cond svg { width: 18px; height: 18px; display: block; }
-.tb-weather-temp { padding-right: 8px; border-right: 1px solid var(--border); }
+.tb-weather-temp { padding-right: 8px; }   /* the wind wears its own arrow; no rule between the two readings (22.09.2026) */
 
 
 /* weather detail popover (tap the bar readout) */

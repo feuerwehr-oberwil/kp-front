@@ -394,7 +394,7 @@
      top/left/right hug the safe area so the bar clears the notch + rounded corners */
   .topbar { top: calc(10px + env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
     right: max(10px, env(safe-area-inset-right)); max-width: none; padding: 6px 10px; gap: 8px; flex-wrap: nowrap; }
-  .eaddr, .vr { display: none; }
+  .eaddr { display: none; }
   /* ⚠️ `0 1 auto`, not `0 0 auto`. With the title hidden every remaining child of the switcher
      is a fixed-size glyph or pill, so a bar that ran out of width had NOTHING left that could
      give — and the flex algorithm let the whole action cluster paint straight out through the
@@ -443,7 +443,7 @@
      the vertical separators are dropped entirely: on a bar this narrow they read as
      clutter, and the grouping is clear from the icons alone */
   .tb-actions { gap: 1px; }
-  .tb-vr { display: none; }
+  .tb-act-history + .tb-act:not(.tb-act-history) { margin-left: 0; }   /* the desktop group gap (10-journal.css) has no room here */
   .topbar { gap: 6px; }
   /* weather trims to the bare downwind arrow + speed on phones (condition/temp are
      "read, not felt" detail that doesn't fit the narrow bar) */
@@ -1010,5 +1010,5 @@
      Alarmchip no longer costs it, the Einsatzuhr yields to that one (see the phone block above).
      It is therefore also the one condition `topBarUndoHidden` describes (IncidentWorkspace →
      AnwesenheitView): where the bar has no pair, the surface being tapped offers its own. */
-  .topbar :is(.tb-act-history, .tb-vr-history) { display: none; }
+  .topbar .tb-act-history { display: none; }
 }

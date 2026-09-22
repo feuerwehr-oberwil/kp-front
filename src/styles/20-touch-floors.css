@@ -60,6 +60,17 @@
      that `.tb-act` above was, and picked the same way: a number that looked right rather than one
      measured against a finger. The glass cluster grows 2px with them; nothing else moves. */
   .tu-btn { width: var(--tap); height: var(--tap); }
+  /* The rest of the bar (22.09.2026, measured on an iPad-sized coarse pointer): the Einsatz pill
+     and the Einsatzuhr were 31px tall, the weather 42 — beside a .tb-act that had just been
+     raised to 44. The bar is already 62px tall around that button, so none of these move it. */
+  .ip-switch-btn, .tb-einsatzuhr, .tb-weather { min-height: var(--tap); }
+  /* the Einsatz card's row of actions (40) and its sync mark (32), and the menu's «Abmelden» (30) */
+  .ip-card-act, .ip-menu-logout, .ip-btn { min-height: var(--tap); }
+  .ip-card-sync { width: var(--tap); height: var(--tap); margin: -9px -10px 0 0; }
+  /* the plan's trust chips along its foot — Einsatzobjekt · Massstab · Karte verknüpfen — were 29px */
+  .wb-scale-chip { min-height: var(--tap); }
+  /* the Rapport's pencil on the Einsatzdaten card (26) and the ± stepper's reset (32) */
+  .report-meta-dispatch-hint, .step-clear { width: var(--tap); height: var(--tap); }
 }
 
 /* ---- The drawing controls stay as they are — decided, not overlooked ------------------------

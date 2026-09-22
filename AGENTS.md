@@ -276,7 +276,13 @@ to prod.
   `.de-group-toggle`/`.de-conn-title` it starts with), because four or five rules stacked down a
   340px panel read as a bordered table and said nothing the padding did not. «Spacing» is the
   ROW RHYTHM, not a band of air (20.09.2026): plain groups follow each other as one continuous
-  list of options — the 24px the dropped rules left behind read as something missing. And **no native form
+  list of options — the 24px the dropped rules left behind read as something missing. The same
+  rule reached the app chrome on 22.09.2026: the two side rails, the top bar, the map-utility
+  cluster and the Einsatz menu draw NO hairline between groups any more (`.nav-sep`, `.vrail-sep`,
+  `.vr`, `.tb-vr`, `.tu-divider` are 2–6px of air; `.ip-menu-sep` is gone) — a bordered pill, a
+  filled button, a small-caps label or an avatar already says where a group starts. A hairline
+  survives only where it carries a label (`.jr-day-sep`) or guards a destructive row in a `Menu`.
+  And **no native form
   control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
   instead of a number field, `components/Slider` instead of `<input type="range">`.
 - **One object, two surfaces — there are no twins any more** (10.09.2026,
@@ -765,9 +771,14 @@ to prod.
     — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
     19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;
     the «n Personen · m Positionen» line under it is gone (19.09.2026).
-  - *A monogram chip is a fixed square and its TEXT gives* (`data-mono-len` on the chip; the
-    rail's tiles and the `GroupChooser` rows each restate the steps) — «RWA» never paints through
-    its own border.
+  - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
+    (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
+    steps) — the same chip on a phone as on a wide screen. A fixed square was tried and cannot
+    work: «RWA» in Sora 800 is 25.5px at 10px, against a 27px inner box (19.09.2026). The
+    chooser's glyph column is 44px, the widest chip, so every row's name starts on one line —
+    and the EXPANDED rail's column does the same (22.09.2026): the rail stamps its longest
+    monogram on itself (`data-mono-max`) and the column is 26 · 28 · 38px for a digit · «PV» ·
+    «RWA», one width for every row, so no label steps out of line and no chip is clipped.
   - *Nav bar:* «Pläne» and «Einsatz» each stand for a group: a tap goes to the last-used member,
     a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
     unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).

@@ -36,7 +36,11 @@
    right edge, which aligns their edges rather than their centres. */
 .nav-exp .i { width: 22px; height: 22px; }
 /* …and the flip is the app-wide `.chev` (02-base.css), off this button's aria-expanded */
-.nav-sep { height: 1px; flex: none; background: var(--border); margin: 5px 9px; }
+/* A group boundary is SPACING, not a hairline (22.09.2026 — the same rule the editor sheets
+   adopted on 18.09.): the lines above and below the plan tiles said nothing the 12px of air does
+   not, and beside the chips' own borders they read as a table. The element stays (it is where a
+   group starts, and the folded bar's test counts it); only its paint went. */
+.nav-sep { height: 6px; flex: none; }
 .nav-item { display: flex; align-items: center; gap: 10px; height: 46px; flex: none; border: 0; background: transparent; border-radius: var(--r-sm);
   cursor: pointer; color: var(--ink); font: inherit; padding: 0; width: 100%; position: relative; transition: background .14s var(--ease); }
 .navrail:not(.expanded) .nav-item, .navrail.dragging .nav-item { justify-content: center; }
@@ -120,14 +124,22 @@
    column so icon-only centering is untouched. */
 .navrail.expanded:not(.dragging) .nav-item,
 .navrail.expanded:not(.dragging) .nav-exp { padding-inline: 12px; }
+/* ⚠️ The column is ONE width for every row — the widest chip the rail holds, which the rail
+   states on itself (`data-mono-max`, NavRail.tsx): 26px for icons and digits, 28 for «PV», 38 for
+   «RWA» / «WAS2» (measured off Sora 800: text 26.7px + 4px padding a side + the border). Two ways
+   that did not work: a chip sized to a fixed 26px column, and «RWA» painted through its own border
+   (22.09.2026); and a chip that hugs its text inside an auto-width column, which pushed «Modul 1»
+   right of every other label — the rows read as indented and unevenly spaced. The chevron's box
+   takes the same width so it stays centred over the glyphs below it. */
+.navrail.expanded:not(.dragging) { --nav-col: 26px; }
+.navrail.expanded:not(.dragging)[data-mono-max="2"] { --nav-col: 28px; }
+.navrail.expanded:not(.dragging):is([data-mono-max="3"], [data-mono-max="4"]) { --nav-col: 38px; }
 .navrail.expanded:not(.dragging) .nav-glyph,
-.navrail.expanded:not(.dragging) .nav-exp-ic { width: 26px; min-width: 26px; }
-/* ⚠️ the module monogram is a BOX, not a glyph: at min-width 30px it was wider than the 22px
-   column the expanded rail shrinks the glyph to, so it spilled over and pushed «Modul 1» /
-   «Modul 2/3» right — the module rows read as indented and unevenly spaced next to the icon
-   rows. Expanded, the chip is sized to the column (and the column to the chip), so every label
-   starts on the same edge. Collapsed keeps the big chip: there it IS the whole row. */
-.navrail.expanded:not(.dragging) .nav-mono-chip { min-width: 26px; min-height: 26px; padding: 1px 4px; }
+.navrail.expanded:not(.dragging) .nav-exp-ic { width: var(--nav-col); min-width: var(--nav-col); }
+/* the module monogram is a BOX, not a glyph: the chip keeps its 26px height, hugs its text and
+   never exceeds the column it was measured for. Collapsed keeps the 30px chip: there it IS the
+   whole row. */
+.navrail.expanded:not(.dragging) .nav-mono-chip { min-width: 26px; min-height: 26px; padding: 1px 4px; white-space: nowrap; }
 .navrail.expanded:not(.dragging) .nav-glyph.nav-frac { font-size: 20px; }
 .nav-live { position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); border: 2px solid #fff; }
 .nav-item.on .nav-live { border-color: var(--ink-fill); }
@@ -325,18 +337,21 @@ html.rail-dragging .layers-card { transition: none; }
    the word it belongs to */
 .group-choose-list .pp-row-main { flex: 1 1 auto; }
 .group-choose-list .pp-row-meta { flex-direction: row; align-items: center; gap: 7px; }
-.group-choose-glyph { width: 34px; min-width: 34px; display: grid; place-items: center;
+/* ⚠️ 44px, not the 34px a digit needs: the column is as wide as the WIDEST chip it can hold, so
+   every row's name starts on one line whether its chip is «1» or «WAS2». */
+.group-choose-glyph { width: 44px; min-width: 44px; display: grid; place-items: center;
   font-size: 14px; font-weight: 800; color: var(--ink-dim); }
 .group-choose-glyph .i { width: 20px; height: 20px; }
-/* The chip is a fixed 30px square in a 34px column, so the TEXT gives, never the box — the same
-   rule the rail's own chips follow (.nav-glyph.mono[data-mono-len], above), restated here
-   because this chip has no .nav-glyph around it. A digit keeps the column's 14px; «PV», «RWA»
-   and a four-letter slot step down until they sit inside the border with air on both sides. */
-.group-choose-glyph .nav-mono-chip { width: 30px; min-width: 30px; height: 30px; padding: 0; overflow: hidden; }
+/* The chip is what the rail tile wears on a wide screen (.nav-glyph.mono[data-mono-len], above),
+   restated because this chip has no .nav-glyph around it: a fixed 30px HEIGHT, a 30px minimum
+   width, and past one letter the box hugs the text with 5px of air a side. A fixed square could
+   not do it (19.09.2026, measured off Sora 800's own advances): «RWA» is 25.5px at 10px in a
+   27px inner box, and the size that would fit – 8px – is no longer read. Widths: «PV» 30 ·
+   «RWA» 40 · «WAS2» 41. */
+.group-choose-glyph .nav-mono-chip { min-width: 30px; height: 30px; min-height: 30px; padding: 0 5px; white-space: nowrap; }
 .group-choose-glyph .nav-mono-chip[data-mono-len="2"] { font-size: 12.5px; }
-.group-choose-glyph .nav-mono-chip[data-mono-len="3"] { font-size: 10px; letter-spacing: -.02em; }
-/* four letters take the whole 34px column: at 30px «WAS2» touched both borders */
-.group-choose-glyph .nav-mono-chip[data-mono-len="4"] { width: 34px; min-width: 34px; font-size: 8.5px; letter-spacing: -.03em; }
+.group-choose-glyph .nav-mono-chip[data-mono-len="3"] { font-size: 10.5px; letter-spacing: -.01em; }
+.group-choose-glyph .nav-mono-chip[data-mono-len="4"] { font-size: 9px; letter-spacing: -.02em; }
 /* the live count a row carries — «12 anwesend», «3 offen», «5 Positionen». A read-out, so it is
    quiet: this is the answer to «which one has something in it», not a second title. */
 .group-choose-count { font-size: 12px; font-weight: 600; color: var(--ink-dim); white-space: nowrap; }
