@@ -54,7 +54,7 @@ describe('noteDrawingEdit via patchDrawing (C1)', () => {
     expect(deps.log).toHaveBeenCalledTimes(1)
     const text = deps.log.mock.calls[0][1] as string
     expect(text).toContain('Leitung Nr.: 3')
-    expect(text).toContain('Stockwerk')
+    expect(text).toContain('Geschoss')
   })
 
   it('colour/width/dash stay silent — arranging the picture is not an event', () => {
