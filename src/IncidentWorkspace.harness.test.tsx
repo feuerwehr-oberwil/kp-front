@@ -17,6 +17,7 @@ import type { BoardAnno, Drawing, Entity } from './types'
  *   (c) the Abschluss: cancel closes nothing; OK drains the media queue FIRST, then hands over.
  *   (d) the render budget: how many commits mount + idle cost, against a recorded baseline — a
  *       move that adds a memo, a state or an effect-order change shows up here first.
+ *   (e) the two-device loop: a merge that changes nothing must write nothing back.
  *
  * The two heavy surfaces are prop recorders. The Plan's stand-in runs the REAL useBoardDoc, so
  * a plan step is exactly the checkpoint the Whiteboard lays down.
@@ -295,6 +296,29 @@ describe('(c) the Abschluss', () => {
     await pressAbschluss()
     expect(onCompleteRapport).toHaveBeenCalledTimes(1)
     expect(rec.order.slice(-2)).toEqual(['flush', 'complete'])
+  })
+})
+
+describe('(e) a hydrate that changes nothing writes nothing', () => {
+  // The two-device loop (IncidentWorkspace · the georef re-bake's «really» note): every hydrate
+  // rebuilds the fits, and a re-bake or a save on identity alone would mark the store dirty after
+  // a merge that changed nothing — the other device then pulls, re-applies, and pushes back, and
+  // each round wipes both undo stacks. Two identical hydrates must leave the sync untouched.
+  it('two identical merges in a row: no save, nothing unsynced', async () => {
+    const m = meta()
+    const sync = new WorkspaceSync(m.id)
+    const { tree } = workspaceTree(m, { sync })
+    render(tree)
+    await settle(60); await settle(60)
+    const save = vi.spyOn(sync, 'save')
+    const blob = { entities: [truck] } as unknown as Parameters<NonNullable<typeof sync.onApplyMerged>>[0]
+    expect(sync.onApplyMerged).toBeTypeOf('function')
+    act(() => sync.onApplyMerged!(blob, 1))
+    await settle(60)
+    act(() => sync.onApplyMerged!(blob, 1))
+    await settle(60)
+    expect(save).not.toHaveBeenCalled()
+    expect(sync.hasUnsynced).toBe(false)
   })
 })
 
