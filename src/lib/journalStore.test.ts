@@ -752,6 +752,64 @@ describe('JournalStore — display ordering', () => {
 })
 
 
+describe('JournalStore — one IndexedDB write per task', () => {
+  it('a burst of appends in one task is ONE snapshot, carrying every row', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const store = new JournalStore(INC, false)
+    await store.init([])
+    await settle()
+    const write = vi.spyOn(idb, 'idbSet')
+    try {
+      for (let n = 0; n < 50; n++) store.append(row(`burst-${n}`))
+      expect(write).not.toHaveBeenCalled() // taken at the end of the task, not per row
+      await settle()
+      expect(write).toHaveBeenCalledTimes(1)
+      const snapshot = write.mock.calls[0][1] as { outbox: TimelineEvent[] }
+      expect(snapshot.outbox.map((r) => r.id)).toEqual(Array.from({ length: 50 }, (_, n) => `burst-${n}`))
+      // …and a later task gets its own write
+      store.append(row('later'))
+      await settle()
+      expect(write).toHaveBeenCalledTimes(2)
+    } finally { write.mockRestore(); store.dispose() }
+  })
+
+  it('never claims durability before the write carrying the row has landed', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const store = new JournalStore(INC, false)
+    await store.init([])
+    await settle()
+    let answer!: (durable: boolean) => void
+    const write = vi.spyOn(idb, 'idbSet').mockImplementationOnce(() => new Promise<boolean>((resolve) => { answer = resolve }))
+    try {
+      store.append(row('owed'))
+      // owed but not yet issued: already 'pending', never a durable-looking status
+      expect(store.syncStatus).toBe('pending')
+      await settle()
+      expect(write).toHaveBeenCalledTimes(1)
+      expect(store.syncStatus).toBe('pending') // issued, not landed
+      answer(false)                            // the device refused it
+      await settle()
+      expect(store.syncStatus).toBe('storage')
+    } finally { write.mockRestore(); store.dispose() }
+  })
+
+  it('a demotion in the same task still writes what was appended while this tab owned it', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const store = new JournalStore(INC, false)
+    await store.init([])
+    store.append(row('before-handover'))
+    store.setReadOnly(true) // the tab lock moved on before the task ended
+    await settle(); await settle()
+    const reopened = new JournalStore(INC, true)
+    await reopened.init([])
+    expect(reopened.display().map((r) => r.id)).toEqual(['before-handover'])
+    reopened.dispose(); store.dispose()
+  })
+})
+
 describe('JournalStore – awaited manual retry', () => {
   it('waits for an in-flight POST and every successful follow-on batch', async () => {
     const write = vi.spyOn(idb, 'idbSet').mockResolvedValue(true)

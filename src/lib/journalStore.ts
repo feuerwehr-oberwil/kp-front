@@ -26,6 +26,7 @@ import type { SyncStatus } from './api/workspaceSync'
  *   and keeps the rest flowing.
  * - persist() is skipped while read-only, so a demoted/viewer tab can never clobber the
  *   editing tab's persisted outbox under the shared IDB key.
+ * - persist() writes ONCE per task, however many rows the task touched (see persist).
  */
 
 /** What one live-follow round achieved: rows adopted · the server said «nothing» · no answer
@@ -117,6 +118,8 @@ export class JournalStore {
   private cacheDurable = true
   private writeSeq = 0
   private persisting = false
+  /** a snapshot is owed and will be taken at the end of this task (persist · writeSnapshot) */
+  private persistQueued = false
   private writeTail: Promise<void> = Promise.resolve()
   private deliveryFailure: 'offline' | 'error' | null = null
   /** The last hydration could not READ the cache (a failed IndexedDB read, not a miss). The
@@ -134,6 +137,9 @@ export class JournalStore {
   /** read-only can flip at runtime (viewer role is fixed, but the tab lock isn't) */
   setReadOnly(v: boolean) {
     const was = this.readOnly
+    // A write owed from THIS task was asked for while we still owned the tab: issue it now,
+    // before the flip turns persist into a no-op (see persist).
+    if (v && !was) this.writeSnapshot()
     this.readOnly = v
     // a read-only store writes nothing, so an unread cache no longer puts anything at risk here
     if (v) this.readFailed = false
@@ -208,7 +214,7 @@ export class JournalStore {
     this.initDone = true
     this.ingestLegacy(legacyNewestFirst)
     this.persist()
-    await this.writeTail
+    await this.landed()
   }
 
   /** Blob-timeline rows arriving at open or via any live-poll/merge inflow. */
@@ -433,9 +439,9 @@ export class JournalStore {
     this.deliveryFailure = null
     this.persist()
     this.emit()
-    await this.writeTail
+    await this.landed()
     await this.flush()
-    await this.writeTail
+    await this.landed()
   }
 
   /** Portable recovery copy; exporting never acknowledges or removes queued work. */
@@ -505,6 +511,7 @@ export class JournalStore {
 
   dispose() {
     if (this.disposed) return
+    this.writeSnapshot() // the last append of this task was asked for before the close
     if (this.preHydrationAppends.size) {
       const pending = hydrationHandoffs.get(this.incidentId) ?? new Map<string, TimelineEvent>()
       for (const [id, row] of this.preHydrationAppends) pending.set(id, row)
@@ -550,19 +557,56 @@ export class JournalStore {
     return s
   }
 
+  /**
+   * Ask for the state to be written to IndexedDB.
+   *
+   * ⚠️ Coalesced to ONE write per task (perf sweep 23.09.2026). Every write is a structured
+   * clone of the WHOLE Verlauf plus an IDB put, and it used to run per row: a burst — a pulled
+   * page, a batch of legacy rows, an action that logs several lines, a patch cascade — cloned
+   * and rewrote everything once per row. Now the snapshot is taken in a microtask at the end
+   * of the task that asked, so the burst costs one. Deliberately a MICROTASK and not a timer:
+   * the transaction is still created inside the task that made the edit, i.e. while this tab
+   * still owns it (see writeSnapshot), and nothing — a tab handover, a page teardown — can run
+   * in between. The few paths that end ownership or wait for the write in the SAME task
+   * (setReadOnly, dispose, landed) issue it on the spot.
+   *
+   * «Saved» stays truthful: `persisting` is raised HERE, at the ask, and `syncStatus` says
+   * 'pending' from that moment until the write that carries it has landed.
+   */
   private persist() {
     // a read-only store (viewer, or an editor tab demoted by the tab lock) must never
     // write the shared per-incident IDB key — it would clobber the editing tab's outbox.
     // Disposal blocks new snapshots; already-issued IDB writes still finish below.
     if (this.readOnly || !this.initDone || this.readFailed || this.disposed) return
+    this.persisting = true
+    if (this.persistQueued) return
+    this.persistQueued = true
+    queueMicrotask(() => this.writeSnapshot())
+  }
+
+  /** Issue the owed write NOW, and resolve once every write issued so far has landed. */
+  private landed(): Promise<void> {
+    this.writeSnapshot()
+    return this.writeTail
+  }
+
+  /** Take the owed snapshot and write it (a no-op when none is owed). */
+  private writeSnapshot() {
+    if (!this.persistQueued) return
+    this.persistQueued = false
+    // owed while we were the writer, but the store has since been shut or demoted by a path
+    // that did not land it first, or a re-hydration has since failed to READ the slot (see
+    // readFailed: nothing is written over it) — the rows are in memory only, and the status
+    // must say so
+    if (this.readOnly || !this.initDone || this.readFailed || this.disposed) { this.persisting = false; this.cacheDurable = false; this.emit(); return }
     const snapshot = structuredClone(this.state)
     const seq = ++this.writeSeq
-    this.persisting = true
     // Start the transaction while we still own the tab. IDB orders these writes; deferring
     // its creation until an earlier write settles can cross a tab handover and lose the last edit.
     const write = idbSet(KEY(this.incidentId), snapshot)
     this.writeTail = Promise.all([this.writeTail, write]).then(([, durable]) => {
-      if (seq !== this.writeSeq) return
+      // a newer write — issued, or owed and about to be — decides the status, not this one
+      if (seq !== this.writeSeq || this.persistQueued) return
       this.cacheDurable = durable
       if (durable) {
         // Clear only rows actually contained in this committed snapshot. A new append can
