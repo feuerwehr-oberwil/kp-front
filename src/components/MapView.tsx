@@ -1206,20 +1206,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     }
     // …and a colour outside the palette (a legacy drawing, a station that re-cut `drawing.colors`)
     // asks for a tile nobody registered — a missing `fill-pattern` paints NOTHING, so that Fläche
-    // would simply be gone from the Karte. Mint it the moment the style asks for it.
-    const onMissing = (e: { id: string }) => {
-      const c = hatchImageColor(e.id)
-      if (c) { ensureHatchImage(map, e.id, c); map.triggerRepaint() }
+    // would simply be gone from the Karte. Mint it the moment the style asks for it — as a
+    // resolver, not a `styleimagemissing` listener (MapLibre 6; lib/draw · ensureHatchImages).
+    const resolveMissing = (id: string) => {
+      const c = hatchImageColor(id)
+      if (c) ensureHatchImage(map, id, c)
     }
     ensureArrow()
     ensureHatch()
     map.on('styledata', ensureArrow)
     map.on('styledata', ensureHatch)
-    map.on('styleimagemissing', onMissing)
+    map.setMissingStyleImageResolver(resolveMissing)
     return () => {
       map.off('styledata', ensureArrow)
       map.off('styledata', ensureHatch)
-      map.off('styleimagemissing', onMissing)
+      map.setMissingStyleImageResolver(null)
     }
   }, [mapReady])
 

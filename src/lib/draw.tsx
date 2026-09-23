@@ -133,8 +133,11 @@ interface HatchImageHost {
  *
  * ⚠️ Registration is not optional decoration: a `fill-pattern` whose image is missing paints
  * NOTHING AT ALL (not a fallback colour), so an unregistered colour makes the Fläche disappear.
- * Pair it with `styleimagemissing` → `hatchImageColor` so a drawing in a colour outside the
+ * Pair it with a missing-image resolver → `hatchImageColor` so a drawing in a colour outside the
  * current palette (a legacy incident, a station that re-cut `drawing.colors`) still hatches.
+ * ⚠️ A resolver (`map.setMissingStyleImageResolver`), NOT a `styleimagemissing` listener: since
+ * MapLibre 6 (23.09.2026) that event is notify-only and fires AFTER the tile's image request was
+ * answered without the image, so an `addImage` inside it came too late for the Fläche that asked.
  */
 export function ensureHatchImages(map: HatchImageHost, colors: readonly string[]): void {
   for (const c of colors) ensureHatchImage(map, hatchImageId(c), c)
