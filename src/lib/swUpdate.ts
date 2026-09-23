@@ -164,8 +164,8 @@ export function initServiceWorker() {
 
 /** Subscribe to the pending-update state: `cb(true)` when a new build is waiting (fires
  *  immediately if one already is), `cb(false)` when the wait resolves without us (the
- *  worker activated) so the banner retracts. Returns an unsubscribe. Single subscriber by
- *  design — the app mounts exactly one UpdateBanner. */
+ *  worker activated) so the banner retracts. Returns an unsubscribe. Any number of
+ *  subscribers (the banner and the menu both listen — see `listeners`). */
 export function onUpdateAvailable(cb: (available: boolean) => void): () => void {
   listeners.add(cb)
   if (updateWaiting) cb(true)
