@@ -172,7 +172,8 @@ export const sheetKeyOf = (p: Pick<PlanDocument, 'id' | 'georefKey'>): string =>
  * correction twice and laid a ↶ over an act the server had already undone. Only the writer knows,
  * so the writer says so (`takeRolledBackStationWrite`).
  *
- * Exhaustive: `seed` (the first bake of a session — nobody's act), `measurement`, `reference`,
+ * Exhaustive: `seed` (the first bake of a session, or of a SHEET — a reference arriving rather
+ * than changing, see `fitChange`; nobody's act), `measurement`, `reference`,
  * `rollback`. Adding a fifth means deciding its Verlauf row AND whether it earns an undo step;
  * only the two that somebody actually performed do (IncidentWorkspace · the fit effect).
  */
@@ -260,6 +261,114 @@ export function referenceDelta(
   const dropped = new Set<string>()
   if (before) for (const p of plans) { const k = sheetKeyOf(p); if (before.has(k) && !referenced.has(k)) dropped.add(p.id) }
   return { dropped, referenced }
+}
+
+/** One SHEET's reference as the fit effect baked it: what the fit does, what the operator set,
+ *  and which plan ids show that sheet (an object names its sheet by plan id). */
+export interface SheetFit {
+  /** `fitSignature` of every plan showing this sheet */
+  fit: string
+  /** the landmark pairs as stored — the one thing only a hand changes (see `fitChangeCause`) */
+  pairs: string
+  planIds: string[]
+}
+
+/** Every linked plan's fit, keyed by SHEET (`sheetKeyOf`) — the unit a reference belongs to. */
+export function sheetFits(
+  plans: Pick<PlanDocument, 'id' | 'georefKey'>[],
+  linked: GeorefPlan[],
+  georefOf: (georefKey: string) => Georef | null,
+): Map<string, SheetFit> {
+  const byId = new Map(plans.map((p) => [p.id, p]))
+  const out = new Map<string, SheetFit>()
+  for (const p of linked) {
+    const doc = byId.get(p.id)
+    const key = doc ? sheetKeyOf(doc) : p.id
+    const was = out.get(key)
+    if (was) { was.fit += `|${fitSignature(p)}`; was.planIds.push(p.id); continue }
+    out.set(key, { fit: fitSignature(p), pairs: JSON.stringify(georefOf(key)?.pairs ?? []), planIds: [p.id] })
+  }
+  return out
+}
+
+export interface FitChange {
+  cause: FitChangeCause
+  /** the PLAN IDS whose sheet's fit really changed — the only sheets a row may count objects on */
+  changed: Set<string>
+  /** every sheet this session has baked a fit for, at its latest: the next call's `known` */
+  known: Map<string, SheetFit>
+}
+
+/**
+ * ⚠️ WHAT changed between two bakes, decided PER SHEET (23.09.2026).
+ *
+ * The first answer read one signature over the whole rail, so ANY difference was a correction —
+ * and the rail is not a constant: after a remount the plans, the object's details and its
+ * bindings arrive asynchronously, and every arrival (a plan listed, a `georefKey` resolving from
+ * the station's key to the binding's) changed that signature. Prod journalled «Referenz angepasst
+ * – 4 Objekte neu verortet» twice that evening with nobody near a reference, and counted objects
+ * whose bake merely differed for an unrelated reason (a Lüfter's drifted rotation on the Gebäude
+ * stack, which is not even a referenced sheet). So:
+ *
+ *   · a sheet this session has NEVER baked a fit for is a SEED — a reference arriving, not one
+ *     changing. Nobody's act, no row, no step, however many of them arrive in whatever order.
+ *   · a sheet baked before whose `fitSignature` differs is a change, and ITS pairs say whose:
+ *     moved pairs are a hand (`reference`), the same pairs re-solved are the app (`measurement`).
+ *   · a sheet whose reference VANISHED is `referenceDelta`'s business, unchanged.
+ *
+ * ⚠️ `known` remembers every sheet at its LAST fit, not only those in the previous bake: a sheet
+ * that leaves the rail (an object switch, a list refetching) and comes back unchanged is nothing,
+ * and a reference re-linked after «Referenz entfernt» is compared with the fit its objects were
+ * left standing on — it moves them, so it is a change somebody made, not a seed.
+ */
+export function fitChange(
+  now: ReadonlyMap<string, SheetFit>,
+  /** null on the session's very first bake */
+  known: ReadonlyMap<string, SheetFit> | null,
+  rolledBack = false,
+): FitChange {
+  const next = new Map(known ?? [])
+  for (const [key, s] of now) next.set(key, s)
+  const changed = new Set<string>()
+  if (!known) return { cause: 'seed', changed, known: next }
+  let byHand = false
+  for (const [key, s] of now) {
+    const was = known.get(key)
+    if (!was || was.fit === s.fit) continue
+    for (const id of s.planIds) changed.add(id)
+    if (fitChangeCause(s.pairs, was.pairs) === 'reference') byHand = true
+  }
+  // the writer's own word outranks everything but the first bake (see fitChangeCause)
+  if (rolledBack) return { cause: 'rollback', changed, known: next }
+  return { cause: !changed.size ? 'seed' : byHand ? 'reference' : 'measurement', changed, known: next }
+}
+
+/** Where an object stands on the ground, as its map body says — nothing else about it. */
+const groundOf = (o: { entity?: { coord: LngLat }; drawing?: { coords: LngLat[] } }): LngLat[] | null =>
+  o.entity ? [o.entity.coord] : o.drawing ? o.drawing.coords : null
+
+/**
+ * ⚠️ How many objects a re-bake RELOCATED on the sheets whose fit changed — the `n` of «Referenz
+ * angepasst – n Objekte neu verortet». `before`/`after` are the store either side of the bake,
+ * index for index (bakeAll maps). Counted: an object on one of `sheets` whose ground position
+ * differs. Not counted: objects on other sheets, a body appearing where there was none (nothing
+ * was relocated from anywhere), and any other difference in the bake — a turn, a size, a label.
+ */
+export function movedOnSheets(
+  before: readonly { sheet?: { planId: string }; entity?: { coord: LngLat }; drawing?: { coords: LngLat[] } }[],
+  after: readonly { entity?: { coord: LngLat }; drawing?: { coords: LngLat[] } }[],
+  sheets: ReadonlySet<string>,
+): number {
+  if (!sheets.size) return 0
+  let n = 0
+  for (let i = 0; i < before.length; i++) {
+    const a = before[i], b = after[i]
+    if (a === b || !a.sheet || !sheets.has(a.sheet.planId)) continue
+    const from = groundOf(a), to = b && groundOf(b)
+    if (!from || !to) continue
+    if (from.length !== to.length || from.some((c, j) => c[0] !== to[j][0] || c[1] !== to[j][1])) n++
+  }
+  return n
 }
 
 /* ⚠️ No twin-specific size bands. Until 30.08. twins wore their own «quieter» px bands — in the

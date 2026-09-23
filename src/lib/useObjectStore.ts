@@ -104,8 +104,14 @@ export interface ObjectStore {
    * getting its map bodies for the first time) deliberately takes no checkpoint: nothing moved
    * from anywhere, there is nothing to step back to, and a stack entry for it would be a step
    * the operator never took.
+   *
+   * ⚠️ `count` says WHAT the caller means by «moved» (23.09.2026): the fit effect counts only
+   * relocations on the sheets whose fit changed (georefTwins · movedOnSheets), because a re-bake
+   * re-derives every body and some differ for reasons that are no fit's. Without it every changed
+   * object counts. And the checkpoint follows the count: a re-bake that moved nothing the caller
+   * counts is still written, but it is not an undo step — there is nothing to take back.
    */
-  rebake: (opts?: { checkpoint?: boolean }) => number
+  rebake: (opts?: { checkpoint?: boolean; count?: (before: TacticalObject[], after: TacticalObject[]) => number }) => number
 }
 
 export interface ObjectStoreOptions {
@@ -315,16 +321,14 @@ export function useObjectStore(
     // anything, and an undo step for a fit change on a sheet nobody has drawn on is a step the
     // operator never took. ⚠️ Against the LIVE store (`current()`), the same value the updater
     // below will see — reading this render's snapshot answered about a state one write behind.
-    if (bakeAll(store.current(), getFits(), defaultLayer) === store.current()) return 0
-    let moved = 0
-    const of = (objects: TacticalObject[]) => {
-      const next = bakeAll(objects, getFits(), defaultLayer)
-      moved = next === objects ? 0 : next.reduce((n, o, i) => n + (o === objects[i] ? 0 : 1), 0)
-      return next
-    }
-    // ⚠️ The updater runs eagerly, exactly once (useUndoableDoc), so `moved` is set by the time
-    // this returns — and it is measured against the LIVE store, not this render's snapshot.
-    if (opts?.checkpoint) store.commit(of); else setObjects(of)
+    const live = store.current()
+    const baked = bakeAll(live, getFits(), defaultLayer)
+    if (baked === live) return 0
+    // ⚠️ Counted on the dry pass, BEFORE the write, because the count decides whether the write
+    // is a step. The updater below runs eagerly against the same live store (useUndoableDoc).
+    const moved = opts?.count ? opts.count(live, baked) : baked.reduce((n, o, i) => n + (o === live[i] ? 0 : 1), 0)
+    const of = (objects: TacticalObject[]) => bakeAll(objects, getFits(), defaultLayer)
+    if (opts?.checkpoint && moved > 0) store.commit(of); else setObjects(of)
     return moved
   }
 

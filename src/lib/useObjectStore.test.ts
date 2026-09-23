@@ -204,6 +204,34 @@ describe('useObjectStore — one collection, two documents', () => {
     expect(result.current.rebake({ checkpoint: true })).toBe(0)
     expect(result.current.canUndo).toBe(false)
   })
+
+  /* ⚠️ 23.09.2026: the fit effect counts only relocations on the sheets whose fit changed
+   * (georefTwins · movedOnSheets). A re-bake that changes bodies it does not count is still
+   * written — the record must match the fits — but it is no step: nothing to take back. */
+  it('the caller\'s count decides the step: counted nothing → written, but not a step', () => {
+    const fits = new Map([['modul2', PLAN]])
+    const { result } = store([], fits)
+    act(() => result.current.setBoard(() => ({ modul2: [anno('s1', { x: 0.5, y: 0 })] })))
+    fits.set('modul2', { fit: fitSimilarity([PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }], 1)!, aspect: 1 })
+    let moved = -1
+    act(() => { moved = result.current.rebake({ checkpoint: true, count: () => 0 }) })
+    expect(moved).toBe(0)
+    expect(result.current.objects[0].entity!.coord[0]).toBeCloseTo(mEast(100).lng, 8) // written
+    expect(result.current.canUndo).toBe(false) // …but no step
+  })
+
+  it('…and a counted relocation is exactly ONE step, whatever the count', () => {
+    const fits = new Map([['modul2', PLAN]])
+    const { result } = store([], fits)
+    act(() => result.current.setBoard(() => ({ modul2: [anno('s1'), anno('s2', { x: 0.25 })] })))
+    fits.set('modul2', { fit: fitSimilarity([PAIRS[0], { plan: { x: 1, y: 0 }, lngLat: mEast(200) }], 1)!, aspect: 1 })
+    let moved = 0
+    act(() => { moved = result.current.rebake({ checkpoint: true, count: (before, after) => after.filter((o, i) => o !== before[i]).length }) })
+    expect(moved).toBe(2)
+    act(() => { result.current.undo() })
+    expect(result.current.objects[0].entity!.coord[0]).toBeCloseTo(mEast(50).lng, 8)
+    expect(result.current.canUndo).toBe(false) // one step, and it is gone
+  })
 })
 
 /* The unit-bearing seam (10.09.): a metre width means nothing on paper, so these fields cross

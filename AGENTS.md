@@ -374,6 +374,14 @@ to prod.
     derived from SHEET KEYS still on the rail (`georefTwins · referenceDelta`) — every
     Einsatzobjekt has a «Modul 2», so counting plan ids would read every object switch as a
     deletion. Re-linking later re-links both directions and re-bakes.
+    ⚠️ **A reference ARRIVING is a seed, never a correction** (23.09.2026, two phantom rows in
+    prod after a remount): the cause is decided PER SHEET KEY (`georefTwins · fitChange`). A key
+    this session has never baked a fit for — plans listed late, a `georefKey` resolving to the
+    binding's — bakes silently, no row, no step. Only a known key whose `fitSignature` changed is
+    a change (its own pairs say `reference` or `measurement`); a key re-linked after «Referenz
+    entfernt» is compared with the fit it was left on. `n` counts only GROUND relocations on those
+    sheets (`movedOnSheets`) — never objects whose bake differs for another reason (a turn, a
+    size, another sheet) — and `rebake` takes the undo step only when that count is > 0.
   - ⚠️ **The aspect the fit is solved in is its own stored fact** (`measuredArByPlan`), NOT
     `PlanScale.ar`. `ar` is half of a pair — a sheet's ground width is `ar · mPerU` — so
     correcting it in place silently rescales every measured distance on that plan. The measured
