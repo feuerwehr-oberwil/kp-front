@@ -763,6 +763,22 @@ to prod.
   - *A control whose press-and-hold IS its own gesture spreads `data-holdaction`* (the shared
     hooks already do), so the global hold-tooltip never claims it and asking «what is this»
     can never also do it.
+  - *The Karte turns like Google Maps, and in no other way* (24.09.2026, `lib/mapTwist`): two
+    fingers pan and pinch freely, but the map only TURNS after a deliberate twist past
+    `TWIST_ENGAGE_DEG` (12°) from where the fingers came down — and, fingers close together
+    (gloves), past `TWIST_ENGAGE_ARC_PX` of travel along their circle. Once engaged the bearing
+    follows the fingers exactly (zoom alongside) until a finger lifts, without jumping by the
+    threshold. No snap-back: the old 6° `snapNorth` self-heal is gone, because nothing leaks into
+    the bearing any more and a deliberate turn stays; the compass's «Nach Norden» is the way
+    back. The gate replaces MapLibre's own rotate handler's `_start`/`_move`/`reset` and is
+    FAIL-CLOSED — internals not where MapLibre 4.7 keeps them ⇒ touch rotation off, never
+    un-gated (the test pins the shape). ⚠️ MapLibre's own 25 px-of-arc threshold is ~5° with
+    the fingers a hand apart, which every two-finger pan crosses: that is what turned the basemap
+    and plan overlay «when just scrolling» on an iPad (23.09.2026). Pitch stays off
+    (`maxPitch={0}`), mouse right-drag rotation is MapLibre's own. The Plan boards never rotate
+    under a gesture at all (`useBoardView` holds scale + pan only); a Gebäude turns only through
+    its orientation slider, and a slider gesture that is CANCELLED (iOS: the touch became a
+    scroll) or left live when the popover closes drops its preview (`components/OrientSlider`).
 - **The phone's two bottom bars hold what 360px holds without scrolling** (18.09.2026) — five wide tiles at most, never a scrolling lane whose only cue is a fade.
   - *Tool bar:* `Auswahl · + Hinzufügen · Messen · Ansichten · Ebenen` (Plan: `… · Einpassen`) —
     five even tiles and NO hairline between the tools and the pinned controls. **«+» is the

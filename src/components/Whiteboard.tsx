@@ -84,6 +84,7 @@ import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
+import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
 
 const COLORS = appConfig.drawing.colors
@@ -597,6 +598,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // A8 (29.08.): a DRAG on the north dial rotates the building continuously. While the finger
   // is down this holds the live preview angle; the commit (one reorientTo, through the same
   // remap + undo path as the tap) happens on release, so annotations re-glue exactly once.
+  // A gesture that is cancelled instead of released drops it again (OrientSlider).
   const [dialDragDeg, setDialDragDeg] = useState<number | null>(null)
   const shownAngle = dialDragDeg ?? viewAngle
   /** the turned view of `orientSrc` – present whenever there is something to turn */
@@ -3126,14 +3128,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     <div className="wb-orient-pop">
       <label className="wb-orient-row">
         <span className="wb-orient-lbl">{appConfig.copy.whiteboard.orientSliderLabel}</span>
-        <input
-          type="range" min={-180} max={180} step={1}
+        {/* ⚠️ a cancelled gesture (iOS: the touch became a scroll) or the popover closing drops
+            the preview instead of leaving the backdrop turned uncommitted (24.09.2026) */}
+        <OrientSlider
           value={Math.round(normDeg(dialDragDeg ?? viewAngle))}
-          aria-label={appConfig.copy.whiteboard.orientSliderLabel}
-          onChange={(e) => setDialDragDeg(snapDial(Number(e.target.value)))}
-          onPointerUp={(e) => commitOrient(Number((e.target as HTMLInputElement).value))}
-          onKeyUp={(e) => { if (e.key.startsWith('Arrow')) commitOrient(Number((e.target as HTMLInputElement).value)) }}
-          onBlur={(e) => { if (dialDragDeg != null) commitOrient(Number(e.target.value)) }}
+          pending={dialDragDeg != null}
+          label={appConfig.copy.whiteboard.orientSliderLabel}
+          onPreview={(deg) => setDialDragDeg(snapDial(deg))}
+          onCommit={commitOrient}
+          onAbandon={() => setDialDragDeg(null)}
         />
         <b className="wb-orient-val">{Math.round(normDeg(dialDragDeg ?? viewAngle))}°</b>
       </label>

@@ -11,7 +11,6 @@ import {
   resumeViewState,
   shapePx,
   effectiveLayer,
-  snapNorth,
   symPx,
   vis,
   nativeDrawingChromeVisible,
@@ -49,17 +48,6 @@ describe('lineLabelAction', () => {
     expect(lineLabelAction('tr1', 'warn')).toEqual({ kind: 'drawing' })
     expect(lineLabelAction(undefined, 'crit')).toEqual({ kind: 'drawing' })
   })
-})
-
-describe('snapNorth — accidental-rotation self-heal', () => {
-  it('snaps a small clockwise drift back to north', () => expect(snapNorth(3)).toBe(0))
-  it('snaps a small counter-clockwise drift (negative bearing)', () => expect(snapNorth(-4)).toBe(0))
-  it('snaps a near-360 bearing (wraps the circle)', () => expect(snapNorth(357)).toBe(0))
-  it('keeps a deliberate rotation past the threshold', () => expect(snapNorth(15)).toBeNull())
-  it('keeps a deliberate counter-rotation', () => expect(snapNorth(-45)).toBeNull())
-  it('does nothing at exactly north (no redundant ease)', () => expect(snapNorth(0)).toBeNull())
-  it('honours the boundary inclusively', () => expect(snapNorth(6)).toBe(0))
-  it('honours a custom threshold', () => expect(snapNorth(10, 12)).toBe(0))
 })
 
 describe('pxPerM / symPx / shapePx — world-scaled sizing', () => {

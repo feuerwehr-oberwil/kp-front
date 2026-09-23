@@ -3078,7 +3078,9 @@ export function IncidentWorkspace({
     list: cameraViews,
     current: view,
     onGo: (v) => mapRef.current?.flyTo({ center: v.center, zoom: v.zoom, bearing: v.bearing, duration: motionDuration(600) }),
-    onResetNorth: () => mapRef.current?.resetNorth(),
+    // an animated turn back to north, like a map app's compass — at the saved views' pace, and
+    // instant under reduced motion (MapLibre's own default is a fixed 1 s that ignores it)
+    onResetNorth: () => mapRef.current?.resetNorth({ duration: motionDuration(600) }),
     onFit: centerIncident,
     onLocate: () => setLocateReq((n) => n + 1),
     // Standort teilen — the act, one row under «Mein Standort». ALWAYS rendered: when there is

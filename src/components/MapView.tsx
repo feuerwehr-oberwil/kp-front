@@ -7,6 +7,7 @@ import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, L
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
+import { gateTouchRotation } from '../lib/mapTwist'
 import { Icon } from '../lib/icons'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { LockChip } from './LockChip'
@@ -17,7 +18,7 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, snapNorth, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE } from '../lib/mapView'
 import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -1988,6 +1989,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       onLoad={(e) => {
         const m = e.target as MlMap
         mapInst.current = m
+        // two fingers turn the Karte only after a deliberate twist (lib/mapTwist) — never
+        // incidentally inside a pan or a pinch, which is what turned it on an iPad (23.09.2026)
+        gateTouchRotation(m)
         setMapReady(true)
         // PWA cold start can initialise the map before its container has a real size, leaving a
         // single tile stretched across the view (the "kaleidoscope"). Force a couple of resizes
@@ -2034,15 +2038,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // one would cost the desktop operator the tap right after a zoom.
       onZoomStart={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek() } }}
       onZoomEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { endPanGesture(); endSheetPeek() } }}
-      // North-snap: a GESTURE (originalEvent set — programmatic easeTo/flyTo carry none, so
-      // «Nach Norden», saved views and the snap's own ease never re-trigger it) that releases
-      // within a few degrees of north eases back to exactly 0. Accidental rotation from a
-      // two-finger zoom self-heals; deliberate rotation past the threshold sticks.
-      onRotateEnd={(e) => {
-        if (e.originalEvent && snapNorth(e.viewState.bearing) != null) {
-          mapInst.current?.easeTo({ bearing: 0, duration: motionDuration(250) })
-        }
-      }}
+      // ⚠️ No north-snap on release any more (24.09.2026): the 6° self-heal only ever existed for
+      // the rotation a two-finger pan/pinch leaked in, and the twist gate (lib/mapTwist, installed
+      // in onLoad) no longer lets one leak. A turn the map does make is a deliberate twist and
+      // stays — the compass's «Nach Norden» is the way back, as in Google Maps.
       // ⚠️ A press that begins on a CROSS never starts a placement gesture: the cross's own
       // handlers (pick / drag) own it, but their native events still bubble to this container —
       // without the filter, clicking a pending cross also dropped a stray point underneath it.
