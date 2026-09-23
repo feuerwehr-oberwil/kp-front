@@ -398,7 +398,12 @@ function movedOnMap(prev: TacticalObject, body: { entity?: Entity; drawing?: Dra
  * `noteW`. A note's width is deliberately per-surface (`noteW` is screen px, `wN` a fraction of
  * the plan width); it survives a re-bake through BAKE_PRESERVED instead.
  */
-function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Drawing }, plan?: PlanFit, movedBy?: 'machine'): BoardAnno {
+function annoAfterMapEdit(
+  anno: BoardAnno, body: { entity?: Entity; drawing?: Drawing }, plan?: PlanFit, movedBy?: 'machine',
+  /** the map body the Karte showed BEFORE this write — what tells an edited bearing from one the
+   *  write merely carried along (see `sheetBearings`) */
+  was?: Entity,
+): BoardAnno {
   const { entity, drawing } = body
   const widthM = plan ? planGroundWidthM(plan.fit, plan.aspect) : undefined
   /**
@@ -430,8 +435,9 @@ function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Dr
         : anno.trail
       return { ...anno, ...shared, text: entity.label, truppId: entity.truppId, t: entity.t, trail, ...point(entity.coord) }
     }
-    if (anno.kind === 'shape') return { ...anno, ...shared, storey: entity.floor, ...(asN(entity.sizeM) != null ? { sizeN: asN(entity.sizeM) } : null), ...point(entity.coord) }
-    return { ...anno, ...shared, storey: entity.floor, ...(asN(entity.reachM) != null ? { reachN: asN(entity.reachM) } : null), ...point(entity.coord) }
+    const bearings = sheetBearings(anno, entity, plan, was)
+    if (anno.kind === 'shape') return { ...anno, ...shared, ...bearings, storey: entity.floor, ...(asN(entity.sizeM) != null ? { sizeN: asN(entity.sizeM) } : null), ...point(entity.coord) }
+    return { ...anno, ...shared, ...bearings, storey: entity.floor, ...(asN(entity.reachM) != null ? { reachN: asN(entity.reachM) } : null), ...point(entity.coord) }
   }
   if (drawing) {
     if (anno.kind === 'circle') {
@@ -440,6 +446,49 @@ function annoAfterMapEdit(anno: BoardAnno, body: { entity?: Entity; drawing?: Dr
     return { ...anno, ...pick(drawing, SHARED_PATH_PROPS), ...path(drawing.coords) }
   }
   return anno
+}
+
+/**
+ * ⚠️ The paper's TURN, taken back out on the way onto the anno (24.09.2026, Feueralarm 23.09.).
+ *
+ * `rotation` and `rotation2` are the one pair of shared props that are NOT the same number on both
+ * surfaces: the map body's is a GROUND bearing, the anno's is relative to paper-up, and the bake
+ * converts between them (`turnedToGround`, planProjection · turnedToSheet). `entitySharedProps`
+ * spread the ground bearing straight into the paper's frame, for EVERY sheet-anchored object in
+ * every Karte write, changed or not — so each «Karte write → bake» cycle turned the glyph by
+ * `−rotationDeg`. On the Gebäude stack (rotationDeg −41.49) the live-GPS loop ran that cycle
+ * continuously: one Lüfter ended at 66 735°, and every re-bake of the plan turned all of them at
+ * once («ich drehe einen Lüfter, und alle drehen sich»).
+ *
+ * The exact inverse of the bake, in geometry AND in absence:
+ *   · a bearing the write did not change — the map body's own, or exactly what the bake of this
+ *     anno says — keeps the anno's value VERBATIM. Converting it would be a round trip through
+ *     floating point on every write; not converting it is the identity.
+ *   · a changed one crosses through `turnedToSheet`, with the same «is it directional» the
+ *     projection asks (`directionalGlyph`, and `rotation2` only where there is one) — so an absent
+ *     ground bearing becomes the paper's own turn, which bakes straight back to absent.
+ *   · a glyph with no direction is copied verbatim, exactly as the bake copies it.
+ *   · no fit (an unlinked sheet): the ground bearing cannot be said on this paper at all, so the
+ *     anno keeps its own.
+ * Only symbols and Formen turn with the paper; a note's `rotation` is paper decoration that the
+ * bake never converts, so it keeps crossing as itself.
+ */
+function sheetBearings(anno: BoardAnno, entity: Entity, plan: PlanFit | undefined, was: Entity | undefined): Pick<BoardAnno, 'rotation' | 'rotation2'> | null {
+  if (anno.kind !== 'symbol' && anno.kind !== 'shape') return null
+  const one = (key: 'rotation' | 'rotation2', turned: boolean, turnsNow: boolean): number | undefined => {
+    const ground = entity[key]
+    const own = anno[key]
+    if (!turned && !turnsNow) return ground
+    if (!plan) return own
+    if (sameValue(ground, was?.[key]) || sameValue(ground, turnedToGround(own, plan.fit, turned))) return own
+    const sheet = turnedToSheet(ground, plan.fit, turnsNow)
+    // …and an absent ground bearing on an UNTURNED sheet stays absent rather than becoming `0`
+    return ground == null && sheet === 0 ? undefined : sheet
+  }
+  return {
+    rotation: one('rotation', directionalGlyph(anno), directionalGlyph({ kind: anno.kind, symbol: entity.symbol ?? anno.symbol })),
+    rotation2: one('rotation2', directionalGlyph2(anno), entity.rotation2 != null),
+  }
 }
 
 /**
@@ -502,13 +551,21 @@ export function applyDocToObjects(
       next.push(o)
       continue
     }
+    // ⚠️ Unchanged is NOTHING (24.09.2026): a Karte write carries every baked body along, and
+    // rebuilding the ones it did not touch re-derived their annos on every GPS poll — the cycle
+    // that compounded the paper's turn into the Lüfter (see `sheetBearings`). Same value, same
+    // record.
+    if (entity ? !o.drawing && sameValue(o.entity, entity) : !o.entity && sameValue(o.drawing, drawing)) {
+      next.push(o)
+      continue
+    }
     const body = entity ? { entity } : { drawing }
     const moved = movedOnMap(o, body)
     const byHand = gesture && (!movedIds || movedIds.has(o.id))
     if (moved && byHand) next.push({ id: o.id, ...body })
     else {
       const plan = fits?.get(o.sheet.planId)
-      const edited = annoAfterMapEdit(o.sheet.anno, body, plan, moved ? 'machine' : undefined)
+      const edited = annoAfterMapEdit(o.sheet.anno, body, plan, moved ? 'machine' : undefined, o.entity)
       const anno = plan?.stack ? normalizeStackEdit(o.sheet.anno, edited) : edited
       next.push({ ...o, entity: undefined, drawing: undefined, ...body, sheet: { ...o.sheet, anno } })
     }

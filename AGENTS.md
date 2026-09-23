@@ -311,7 +311,15 @@ to prod.
     by `rotationDeg` in the paper's frame, so the projection has to state that — and «points
     north» is the same fact as «has no bearing», so the bake returns the shorter one
     (`turnedToGround`). Without it every ordinary unturned Fahrzeug acquired `rotation: 0` on its
-    first flip. A field that cannot be said in both units — a note's width, a label's nudge —
+    first flip. ⚠️ **The DOC seam converts bearings too** (24.09.2026, Feueralarm-Übung 23.09.):
+    a Karte write hands back the GROUND bearing, and `annoAfterMapEdit` once spread it into the
+    PAPER's frame for every sheet-anchored object, changed or not — each «Karte write → bake»
+    cycle turned the glyph by −`rotationDeg` (a Lüfter reached 66 735°, and turning one turned
+    all). Now `sheetBearings` keeps an unchanged bearing verbatim and sends a changed one through
+    `turnedToSheet`; `applyDocToObjects` hands an object whose map body did not change back as
+    the same record; both conversions answer in [0, 360); and the load gate
+    (`sanitizeWorkspace`) brings any stored bearing into [0, 360) by mod alone.
+    Pinned by `sheetBearingRoundtrip.test.ts`. A field that cannot be said in both units — a note's width, a label's nudge —
     does not cross at all: it is preserved through the bake instead (`BAKE_PRESERVED`), because a
     number that means two distances is worse in the record than no number.
   - **Last hand-placement owns the truth.** A drag flips the anchor to the surface it happened

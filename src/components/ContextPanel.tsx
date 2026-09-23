@@ -18,6 +18,7 @@ import { Segmented } from './Segmented'
 import { compositeSpec } from '../lib/symbolRender'
 import { UN_CAPABLE } from '../lib/symbols'
 import { sanitizeSvg } from '../lib/sanitizeSvg'
+import { bearing360 } from '../lib/planProjection'
 
 // detail-field controls: short fixed lists render as directly-tappable segmented tabs (they
 // wrap to multiple rows), longer lists (and the person roster) as a native dropdown; roster
@@ -243,6 +244,10 @@ const FLOOR_MIN = -9
 const FLOOR_MAX = 40
 const COUNT_MAX = 999
 const ROT_STEP = 15   // degrees per tap — same control on both surfaces
+/** ⚠️ A bearing is STORED in [0, 360) (lib/planProjection · bearing360, 24.09.2026) but STEPPED in
+ *  (−180, 180], the stepper's own range: read raw, a stored 270° pinned it at its max and the
+ *  first − jumped to 180°. What the stepper hands back is stored in [0, 360) again. */
+const signedDeg = (d: number) => { const b = bearing360(d); return b > 180 ? b - 360 : b }
 
 type Row = { k: string; v: string }
 const toRows = (fields?: Record<string, string>): Row[] => Object.entries(fields ?? {}).map(([k, v]) => ({ k, v }))
@@ -844,16 +849,16 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               )}
               {showRotate && (
                 // when a fan rotation is also present (Grosslüfter) the body stepper reads «Fahrzeug»
-                <LabeledStepper label={showRotate2 ? C.rotationVehicle : C.rotation} value={entity.rotation ?? 0} step={ROT_STEP} format={(v) => `${v}°`}
-                  onChange={(v) => onRotate!(v)} onClear={() => onRotate!(null)} canClear={(entity.rotation ?? 0) !== 0}
+                <LabeledStepper label={showRotate2 ? C.rotationVehicle : C.rotation} value={signedDeg(entity.rotation ?? 0)} step={ROT_STEP} format={(v) => `${v}°`}
+                  onChange={(v) => onRotate!(bearing360(v))} onClear={() => onRotate!(null)} canClear={(entity.rotation ?? 0) !== 0}
                   min={-180} max={180} readOnly={readOnly} ariaLabel={showRotate2 ? C.rotationVehicle : C.rotation} />
               )}
               {showRotate2 && (() => {
                 // the part stepper reads «Lüfter», «Leiter» … per the composite (fan vs ladder/boom)
                 const partLabel = C[compositeSpec(entity.symbol)?.partLabel ?? 'rotationFan']
                 return (
-                  <LabeledStepper label={partLabel} value={entity.rotation2 ?? 0} step={ROT_STEP} format={(v) => `${v}°`}
-                    onChange={(v) => onRotate2!(v)} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
+                  <LabeledStepper label={partLabel} value={signedDeg(entity.rotation2 ?? 0)} step={ROT_STEP} format={(v) => `${v}°`}
+                    onChange={(v) => onRotate2!(bearing360(v))} onClear={() => onRotate2!(null)} canClear={(entity.rotation2 ?? 0) !== 0}
                     min={-180} max={180} readOnly={readOnly} ariaLabel={partLabel} />
                 )
               })()}

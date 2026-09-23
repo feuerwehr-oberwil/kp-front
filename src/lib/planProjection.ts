@@ -37,6 +37,13 @@ import { GEBAEUDE_PLAN_ID } from './whiteboard'
  * (`TWIN_CLIP_MARGIN`) so a hydrant a hair past the paper edge still shows.
  */
 
+/** A bearing said once: in [0, 360). Mod only — it never rounds and never guesses intent. */
+export const bearing360 = (deg: number): number => ((deg % 360) + 360) % 360
+
+/** Closer to north than any hand can turn — float noise from the ± `rotationDeg` pair, which the
+ *  mod can leave just below 360 rather than at 0. */
+const NORTH_EPS = 1e-9
+
 /**
  * ⚠️ The sheet's own TURN, as a frame change carried in the data.
  *
@@ -49,9 +56,15 @@ import { GEBAEUDE_PLAN_ID } from './whiteboard'
  *
  * Only for glyphs that HAVE a direction: a symbol with no rotation control (the Offizier, the
  * Sammelplatz) must not acquire one from the paper it happens to lie on.
+ *
+ * ⚠️ Both directions answer in [0, 360) (24.09.2026). A frame change is an addition, and an
+ * addition that is ever applied twice COMPOUNDS without bound — the Feueralarm of 23.09. ended
+ * with a Lüfter at 66 735° because the doc seam never undid this turn (lib/tacticalObjects ·
+ * sheetBearings). The seam is fixed; the bound stays, so a bearing in the record is always one a
+ * human can read.
  */
 export const turnedToSheet = (deg: number | undefined, fit: GeorefFit, directional: boolean): number | undefined =>
-  (directional ? (deg ?? 0) + fit.rotationDeg : deg)
+  (directional ? bearing360((deg ?? 0) + fit.rotationDeg) : deg)
 
 /**
  * …and back to north, the inverse the bake applies.
@@ -62,11 +75,14 @@ export const turnedToSheet = (deg: number | undefined, fit: GeorefFit, direction
  * the same fact as «has no bearing», and the record should say the shorter one. Without this,
  * every ordinary unturned Fahrzeug acquired `rotation: 0` the first time it was flipped, and the
  * inverse was one field short of being an inverse.
+ *
+ * «Exactly 0» is read modulo the circle and to within `NORTH_EPS`: once both directions answer in
+ * [0, 360), `(360 + R) − R` can land a hair below 360 instead of on 0, and that hair is north.
  */
 export const turnedToGround = (deg: number | undefined, fit: GeorefFit, directional: boolean): number | undefined => {
   if (!directional) return deg
-  const ground = (deg ?? 0) - fit.rotationDeg
-  return ground === 0 ? undefined : ground
+  const ground = bearing360((deg ?? 0) - fit.rotationDeg)
+  return ground < NORTH_EPS || 360 - ground < NORTH_EPS ? undefined : ground
 }
 
 /** Does this body's glyph carry a direction the paper's turn applies to? */
