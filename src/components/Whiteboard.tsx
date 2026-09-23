@@ -16,9 +16,10 @@ import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
 import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
-import { canDropVertex, extendEnd, insertAt, minPoints, removeVertex, replaceVertex, segmentMid } from '../lib/vertexOps'
+import { minPoints } from '../lib/vertexOps'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { freeResizeLocal, rotationEnd, rotationEndDeg, rotorDeg } from '../lib/rotorMath'
+import { useWbVertexEdit, type PlanEndpointDrag } from './useWbVertexEdit'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
@@ -55,7 +56,7 @@ import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPre
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
 const FOLDED_H = 28
-import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint } from '../lib/lineAttachments'
+import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { normalizeStackEdit, stackInstances } from '../lib/stackFloors'
@@ -471,13 +472,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // `bpts` keep each vertex's storey AS STORED (floorGeometry · boardPts); `last` is the stroke as
   // the latest sample wrote it, which is what the release reports
   const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean; last?: BoardPoint[] } | null>(null)
-  // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based).
-  // `pushed` = the undo checkpoint for this gesture was already taken BEFORE the shape changed
-  // (extendLine/insertVertex grow it on pointer-down), so the release must not take a second one.
-  const vertDrag = useRef<{ id: string; idx: number; floor: number; moved: boolean; pushed: boolean } | null>(null)
   // `origin` + `attached` + `detach` are the RELEASE half of the ring language (see the Lage map's
   // EndpointDrag — same shape, board coords instead of lng/lat).
-  type PlanEndpointDrag = { id: string; endpoint: LineEndpoint; point: BoardPoint; origin: BoardPoint; attached: boolean; detach: number; dwell: DwellState; candidate: MagneticTarget | null }
   const [planEndpointDragState, setPlanEndpointDragState] = useState<PlanEndpointDrag | null>(null)
   const planEndpointDrag = useRef<PlanEndpointDrag | null>(null)
   const planDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1918,233 +1914,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       patch: st.which === 'end' ? { endDx: a?.endDx, endDy: a?.endDy } : { labelDx: a?.labelDx, labelDy: a?.labelDy } })
   }
 
-  // --- vertex editing of a selected line/area (drag a node, insert on a segment, delete a node).
-  // Identical for both kinds — they're both just `pts`, so one code path serves Linie and Fläche. ---
-  const vertDown = (idx: number, e: React.PointerEvent) => {
-    if (tool !== 'pan' || readOnly) return
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const a = annos.find((x) => x.id === selId); if (!a?.pts) return
-    const endpoint: LineEndpoint | null = a.kind === 'draw' && idx === 0 ? 'start' : a.kind === 'draw' && idx === a.pts.length - 1 ? 'end' : null
-    if (endpoint) {
-      const resolved = resolvedPts.get(a.id) ?? a.pts
-      const attached = !!(endpoint === 'start' ? a.startAttachment : a.endAttachment)
-      setPlanEndpointDrag({ id: a.id, endpoint, point: resolved[idx], origin: resolved[idx], attached, detach: 0, dwell: EMPTY_DWELL, candidate: null })
-    }
-    vertDrag.current = { id: a.id, idx, floor: a.floor ?? 0, moved: false, pushed: false }
-  }
-  const vertMove = (e: React.PointerEvent) => {
-    const st = vertDrag.current; if (!st) return
-    const n = toNorm(e.clientX, e.clientY); if (!n) return
-    const magnetic = planEndpointDrag.current
-    if (magnetic) {
-      const floor = stack ? floorAt(n[1]) : st.floor
-      const point: BoardPoint = [n[0], localY(n[1], floor), floor]
-      const pointer: [number, number] = [n[0] * sW, n[1] * sH]
-      if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
-      st.moved = true
-      // Still hooked up? Then the only thing on offer is letting go, and the red ring at the OLD
-      // socket runs on distance: pull past the detach radius and the link is off; stop short and
-      // release, and it springs back. Mirrors the Lage map's moveEndpointDrag exactly.
-      if (magnetic.attached) {
-        const o = magnetic.origin
-        const detach = detachProgress([o[0] * sW, mapY(o[2] ?? 0, o[1]) * sH], pointer)
-        setPlanEndpointDrag({ ...magnetic, point, detach, attached: detach < 1, candidate: null, dwell: EMPTY_DWELL })
-        if (detach >= 1) buzz()
-        return
-      }
-      const targets = planCandidatesAt(st.id, pointer)
-      const candidate = stickyMagneticTarget(pointer, targets, magnetic.candidate?.key ?? null)
-      const dwell = advanceDwell(magnetic.dwell, candidate, Date.now())
-      setPlanEndpointDrag({ ...magnetic, point, candidate, dwell })
-      // a line target arms on acquisition (dwellFor = 0): the haptic says so, as the timer does
-      if (dwell.armed && !magnetic.dwell.armed) buzz()
-      // a finger that has found its target stops moving — and then nothing but this timer can
-      // close the ring (the visible fill is its CSS twin)
-      if (candidate && !dwell.armed) planDwellTimer.current = setTimeout(() => {
-        const cur = planEndpointDrag.current
-        if (!cur || cur.candidate?.key !== candidate.key) return
-        setPlanEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } }); buzz()
-      }, Math.max(0, dwellFor(candidate) - (Date.now() - dwell.since)))
-      return
-    }
-    if (!st.moved) { pushPast(); st.moved = true; st.pushed = true }
-    const floor = stack ? floorAt(n[1]) : st.floor
-    patch(st.id, { pts: replaceVertex<BoardPoint>(annos.find((a) => a.id === st.id)?.pts ?? [], st.idx, [n[0], localY(n[1], floor), floor]) })
-  }
-  const vertUp = () => {
-    const st = vertDrag.current; vertDrag.current = null
-    const magnetic = planEndpointDrag.current
-    if (magnetic && st?.moved) {
-      if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
-      const a = annos.find((x) => x.id === magnetic.id)
-      if (a?.pts) {
-        // Ring lädt, dann schnappt es: ONLY a closed ring attaches, and only a closed RELEASE ring
-        // (`attached` already flipped false mid-drag) frees an endpoint that had a link. Anything
-        // in between — let go while either ring was still filling — leaves the endpoint where the
-        // finger dropped it, or springs it back to the socket it never left.
-        const floor = magnetic.point[2] ?? 0
-        let attachment: LineAttachment | undefined
-        let endPt = magnetic.point
-        if (magnetic.dwell.armed && magnetic.candidate) {
-          const target = magnetic.candidate.target
-          attachment = { target, routing: magnetic.candidate.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: magnetic.candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
-          if (sW && sH) endPt = [magnetic.candidate.point[0] / sW, localY(magnetic.candidate.point[1] / sH, floor), floor]
-        } else if (magnetic.attached) { setPlanEndpointDrag(null); return }  // ring never closed → snap back, no change
-        const pts = replaceVertex(a.pts, magnetic.endpoint === 'start' ? 0 : a.pts.length - 1, endPt)
-        const out: Partial<BoardAnno> = { pts, ...(magnetic.endpoint === 'start' ? { startAttachment: attachment } : { endAttachment: attachment }) }
-        // `pushed` = extendLine already checkpointed BEFORE it grew the line, so a second
-        // checkpoint here would snapshot the already-grown shape and make one grow gesture cost
-        // two undo presses. Write + emit without one instead; the emitted `pts` is the final
-        // array either way, so the replay is identical.
-        if (st.pushed) { patch(a.id, out); emit('board.edit', { id: a.id, patch: out, planId: activeId }) }
-        else patchCommit(a.id, out)
-        // …and an end dragged ONTO a Trupp's chip joins the two, exactly as a fresh stroke's does;
-        // dragged OFF it, they part
-        const previous = magnetic.endpoint === 'start' ? a.startAttachment : a.endAttachment
-        if (attachment) onLineAttached?.(a.id, attachment)
-        else if (previous) onLineDetached?.(a.id, previous)
-      }
-      setPlanEndpointDrag(null)
-      return
-    }
-    setPlanEndpointDrag(null)
-    // …and the ordinary, unmagnetic reshape: the points ARE what moved, so they travel with it
-    // (an empty `board.edit` folds to nothing — see the magnetic branch above, which always said so)
-    if (st?.moved) emit('board.edit', { id: st.id, planId: activeId, patch: { pts: annos.find((a) => a.id === st.id)?.pts } })
-  }
-  /**
-   * Grow the line past one of its open ends: append a point where the finger is, then hand the
-   * gesture straight over to the ordinary vertex drag so the new point follows until release.
-   * One undo step (pushPast once, at the start) — the same shape a reshape has.
-   *
-   * ⚠️ The grown point IS the line's new start/end, so the drag runs through the MAGNET path
-   * (`planEndpointDrag`), not the plain vertex reshape. Without that, «Verlängern» was the one
-   * way of moving an endpoint that could never dock — grow a Leitung onto a Fahrzeug and nothing
-   * connected (field report 01.09.). The Lage map's grip had the identical hole and is fixed with
-   * it (MapView · the «Verlängern» NewNodeHandle), so both surfaces grow AND dock the same way.
-   * An end that is ALREADY attached keeps the plain reshape: unplugging is the node grip's and
-   * the × chip's job, and a grip that could also detach would promise two things at once.
-   */
-  /** the staircase: the Leitung continues at the SAME x/y one storey up or down – one new vertex
-   *  there, its own storey, one undo step. The stair marks then stand at both ends of the climb. */
-  const climbLine = (end: 'start' | 'end', dir: 1 | -1) => {
-    if (tool !== 'pan' || readOnly || !stack) return
-    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts || a.kind !== 'draw') return
-    const i = end === 'start' ? 0 : pts.length - 1
-    const [x, y, f] = pts[i]
-    const floor = (f ?? a.floor ?? 0) + dir
-    if (!allFloorsTTB.includes(floor)) return
-    revealFloor(floor) // a Leitung may climb into a storey this device folded away — it comes back
-    // the way back: if the neighbouring vertex IS this spot one storey in that direction, the
-    // tap undoes the climb (drops this end) instead of laying a second flight back down the same
-    // stairs – which left the line 0 → +1 → 0 with two marks on top of each other
-    const nb = pts[end === 'start' ? 1 : pts.length - 2]
-    const retreat = !!nb && nb[0] === x && nb[1] === y && (nb[2] ?? a.floor ?? 0) === floor && pts.length > 2
-    if (retreat) {
-      patchCommit(a.id, { pts: end === 'start' ? pts.slice(1) : pts.slice(0, -1) })
-      requestAnimationFrame(() => centerOnPoint(x, y, floor, Math.max(scaleRef.current, 2.5)))
-      return
-    }
-    const point: BoardPoint = [x, y, floor]
-    patchCommit(a.id, { pts: extendEnd(pts, end, point) })
-    // …and the view follows the Leitung upstairs: the new end, close enough to place the next
-    // vertex, so the climb is one tap and not a tap plus a scroll to find where it went
-    requestAnimationFrame(() => centerOnPoint(x, y, floor, Math.max(scaleRef.current, 2.5)))
-  }
-  const extendLine = (end: 'start' | 'end', e: React.PointerEvent) => {
-    if (tool !== 'pan' || readOnly) return
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
-    const n = toNorm(e.clientX, e.clientY); if (!n) return
-    const floor = a.kind === 'draw' && stack ? floorAt(n[1]) : (a.floor ?? 0)
-    const point: BoardPoint = [n[0], localY(n[1], floor), floor]
-    pushPast()
-    const next = extendEnd(pts, end, point)
-    patch(a.id, { pts: next })
-    if (a.kind === 'draw' && !(end === 'start' ? a.startAttachment : a.endAttachment)) {
-      setPlanEndpointDrag({ id: a.id, endpoint: end, point, origin: point, attached: false, detach: 0, dwell: EMPTY_DWELL, candidate: null })
-    }
-    // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and
-    // vertUp commits exactly as if the node had always been there.
-    vertDrag.current = { id: a.id, idx: end === 'start' ? 0 : next.length - 1, floor, moved: true, pushed: true }
-  }
-
-  /**
-   * Insert a node on the segment after vertex `idx` (at its midpoint) — and then hand the SAME
-   * press over to the ordinary vertex drag, exactly as `extendLine` does, so the new node follows
-   * the finger until it lifts. Letting go without moving leaves the node at the midpoint, which is
-   * what a plain tap on the «+» always left. One undo step (pushPast once, at the start).
-   *
-   * No magnet here, unlike `extendLine`: the new node lands at `idx + 1`, which for an open line
-   * is never index 0 nor the last one, and for a closed Fläche there is no endpoint at all. So it
-   * is always an interior vertex — nothing to dock, and no attachment can change which point it
-   * refers to.
-   */
-  const insertVertex = (idx: number, e: React.PointerEvent) => {
-    if (tool !== 'pan' || readOnly) return
-    e.stopPropagation()
-    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const n = toNorm(e.clientX, e.clientY)
-    const floor = a.kind === 'draw' && n && stack ? floorAt(n[1]) : (a.floor ?? 0)
-    const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [...segmentMid(pts, idx), floor] // wraps for the closing edge of an area
-    pushPast()
-    patch(a.id, { pts: insertAt(pts, idx + 1, mid) })
-    // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and vertUp
-    // commits — the new node never gets a chance to look like something you have to find again.
-    vertDrag.current = { id: a.id, idx: idx + 1, floor, moved: true, pushed: true }
-  }
-  // delete vertex `idx`, keeping a valid shape (≥2 for a line, ≥3 for an area)
-  const deleteVertex = (idx: number) => {
-    if (readOnly) return
-    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
-    if (!canDropVertex(a.kind, pts.length)) return
-    // a long-press delete fires mid-pointer-session — drop the pending drag so further
-    // finger movement can't reshape whichever point inherited this index
-    vertDrag.current = null
-    patchCommit(a.id, { pts: removeVertex(pts, idx) })
-  }
-
-  // --- vertex editing of the IN-PROGRESS node draft (A3, 29.08.) — the same grip/insert/hold
-  // vocabulary a finished shape gets (WbDraftHandles), wired straight into the draft points and
-  // never into the document: the draft is still ephemeral state until it commits. ---
-  const draftVert = useRef<{ idx: number } | null>(null)
-  const draftVertDown = (idx: number, e: React.PointerEvent) => {
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    draftVert.current = { idx }
-  }
-  const draftVertMove = (e: React.PointerEvent) => {
-    const st = draftVert.current; if (!st) return
-    const n = toNorm(e.clientX, e.clientY); if (!n) return
-    // a Linie's node follows the pointer's storey (a Leitung may cross floors); a Fläche stays
-    // on the floor its ring was started on — the same rule placeNode applies to a fresh tap
-    const floor = tool === 'line' && stack ? floorAt(n[1]) : draftFloor.current
-    setDraft((d) => (d ? replaceVertex<BoardPoint>(d, st.idx, [n[0], localY(n[1], floor), floor]) : d))
-  }
-  const draftVertUp = () => { draftVert.current = null }
-  /** Insert a node on draft segment `idx` and keep the SAME press dragging it — the twin of
-   *  insertVertex on a committed shape (releasing without moving leaves it where it appeared). */
-  const draftInsert = (idx: number, e: React.PointerEvent) => {
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const n = toNorm(e.clientX, e.clientY)
-    const floor = tool === 'line' && n && stack ? floorAt(n[1]) : draftFloor.current
-    setDraft((d) => {
-      if (!d) return d
-      const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [...segmentMid(d, idx), floor] // wraps for the closing edge of an area draft
-      return insertAt(d, idx + 1, mid)
-    })
-    draftVert.current = { idx: idx + 1 }
-  }
-  // hold-to-delete a draft node — allowed all the way down: deleting the last node leaves no
-  // draft at all, the same empty hand Escape leaves
-  const draftDeleteVertex = (idx: number) => {
-    draftVert.current = null
-    setDraft((d) => { const next = d ? removeVertex(d, idx) : null; return next?.length ? next : null })
-  }
+  // --- vertex editing of a selected line/area and of the in-progress node draft (drag a node,
+  // insert on a segment, delete a node, grow an end, take the stairs) — components/useWbVertexEdit.
+  // ⚠️ Called HERE, where the handlers used to be defined: everything it reads is declared above,
+  // except centerOnPoint (further down), which is handed over as a lazy wrapper.
+  const {
+    vertDrag, draftVert, vertDown, vertMove, vertUp, climbLine, extendLine, insertVertex, deleteVertex,
+    draftVertDown, draftVertMove, draftVertUp, draftInsert, draftDeleteVertex,
+  } = useWbVertexEdit({
+    annos, selId, tool, readOnly, stack, toNorm, localY, floorAt, mapY, sW, sH,
+    resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
+    onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef: planDwellTimer,
+    allFloorsTTB, revealFloor, centerOnPoint: (x, y, floor, atScale) => centerOnPoint(x, y, floor, atScale), scaleRef,
+    draftFloor, setDraft,
+  })
 
   // --- chip dragging (resource / symbol / text in pan mode) ---
   const chipDown = (e: React.PointerEvent, id: string, shownFloor?: number) => {
