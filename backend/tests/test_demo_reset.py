@@ -224,6 +224,34 @@ async def test_reset_wipes_an_object_whose_sheet_has_a_revision(session_factory,
     assert layers == ["geo:hydrant"], "the geo: reference layers are not the reset's to delete"
 
 
+@pytest.mark.asyncio
+async def test_reset_removes_the_media_and_snapshot_files_of_the_wiped_incidents(session_factory, monkeypatch):
+    """⚠️ The cascade deleted the media and snapshot ROWS and left their files on the volume for
+    ever — a nightly reset of a public demo grew without bound (23.09.2026). The files go once the
+    wipe commits; the derived thumbnail and waveform go with them."""
+    from app import storage
+    from app.models import Incident, Media, WorkspaceSnapshot
+
+    monkeypatch.setenv("KP_DEMO_RESET", "1")  # this is the throwaway test database
+    monkeypatch.setattr(dr, "async_session_maker", session_factory)
+    photo, audio, snap = "media/demo-photo.jpg", "media/demo-memo.webm", "snapshots/demo/s.json"
+    files = [photo, photo + ".thumb.jpg", audio, audio + ".peaks.json", snap]
+    for key in files:
+        storage.put_bytes(key, b"x")
+    async with session_factory() as db:
+        inc = Incident(title="Besucher-Einsatz", source="manual", map_workspace_json={})
+        db.add(inc)
+        await db.flush()
+        db.add(Media(incident_id=inc.id, kind="photo", storage_key=photo))
+        db.add(Media(incident_id=inc.id, kind="audio", storage_key=audio))
+        db.add(WorkspaceSnapshot(incident_id=inc.id, seq_at=0, storage_key=snap))
+        await db.commit()
+
+    await dr.reset(wipe_objects=False)
+
+    assert [key for key in files if storage.exists(key)] == []
+
+
 class TestTheDemoGuardCoversEveryCaller:
     """`reset()` deletes every incident, its journal and the roster.
 
