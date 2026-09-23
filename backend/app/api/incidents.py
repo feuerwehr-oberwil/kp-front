@@ -7,7 +7,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,8 +103,10 @@ async def get_incident_or_404(db: AsyncSession, incident_id: uuid.UUID, *, lock:
 async def list_incidents(
     _user: UserOrAdmin,
     archived: bool | None = None,
-    limit: int = 100,
-    skip: int = 0,
+    # Bounded at the edge: a negative LIMIT/OFFSET reached Postgres, which refuses it, and
+    # the caller got a 500 for a malformed query string. 500 is the most the admin history asks for.
+    limit: int = Query(default=100, ge=1, le=500),
+    skip: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[Incident]:
     # IncidentMeta never carries the heavy JSONB blobs — defer them so the list (hit on open
@@ -112,7 +114,7 @@ async def list_incidents(
     q = select(Incident).options(defer(Incident.map_workspace_json), defer(Incident.details_json))
     if archived is not None:
         q = q.where(Incident.is_archived.is_(archived))
-    q = q.order_by(Incident.started_at.desc()).limit(min(limit, 500)).offset(skip)
+    q = q.order_by(Incident.started_at.desc()).limit(limit).offset(skip)
     return list((await db.execute(q)).scalars())
 
 
