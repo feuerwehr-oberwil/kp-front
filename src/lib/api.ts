@@ -4,7 +4,7 @@
 // cooldown, …). Reused by every later phase — keep it generic.
 
 import { appConfig } from '../config/appConfig'
-import { noteServerTime } from './serverClock'
+import { isFreshSampleSource, noteServerTime } from './serverClock'
 import { linkPageOwnsSession, linkSessionHeaders } from './linkMode'
 
 // Base URL: empty in dev (Vite proxies /api to the backend), or a fully-qualified
@@ -205,6 +205,7 @@ export function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSign
  * must not carry it.
  */
 async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
+  const sentAt = Date.now()
   const res = await fetch(`${BASE}${path}`, {
     credentials: 'include',
     // API JSON must never come from the HTTP cache: responses carry no Cache-Control, and
@@ -225,7 +226,11 @@ async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TI
   // the sampling point: the boot config/`/me` fetches already teach lib/serverClock the offset
   // before the first Atemschutz clock is ever painted, and every later request keeps it honest.
   // Error responses count too — an offline device learns nothing, and that is handled there.
-  noteServerTime(res.headers.get('X-Server-Time'))
+  // ⚠️ …but only an answer that cannot have come out of a cache (24.09.2026, Feueralarm root
+  // cause B): the service worker serves `/api/reference/…` from its caches with the header of the
+  // day it was stored, and a three-day-old one pulled the shared clock back mid-Einsatz. The send
+  // time rides along so the clock can tell an answer stamped before it was asked for.
+  if (isFreshSampleSource(path, init?.cache)) noteServerTime(res.headers.get('X-Server-Time'), Date.now(), sentAt)
   return res
 }
 

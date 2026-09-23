@@ -412,4 +412,47 @@ describe('request — the server clock rides along', () => {
     await apiGet('/api/x')
     expect(serverClockOffsetMs()).toBeNull()
   })
+
+  // Feueralarm 23.09.2026, root cause B: the service worker answered the plan alignments out of
+  // its CacheFirst store, with the X-Server-Time of the day they were cached, and the clock went
+  // three days back. A path the SW may cache is never a clock source, whatever its header says.
+  const stale = (ageMs: number) => json({ alignments: [] }, {
+    headers: { 'Content-Type': 'application/json', 'X-Server-Time': new Date(Date.now() - ageMs).toISOString() },
+  })
+  const fresh = () => json({ ok: 1 }, {
+    headers: { 'Content-Type': 'application/json', 'X-Server-Time': new Date().toISOString() },
+  })
+
+  it('never samples the plan alignments — the path the SW served three days old', async () => {
+    fetchMock.mockResolvedValueOnce(stale(3 * 86_400_000))
+    await apiGet('/api/reference/plan%3Agym-m6/alignments?v=4')
+    expect(serverClockOffsetMs()).toBeNull()
+  })
+
+  it.each([
+    '/api/reference/plan%3Agym-m6?v=4', // the pinned PDF (CacheFirst)
+    '/api/reference/checklists:fu:p1', // checklist templates (StaleWhileRevalidate)
+    '/api/reference/plan%3Agym-m6/tiles?v=4', // a tile manifest (NetworkFirst → cache offline)
+    '/api/media/m123', // sw-media-cache
+  ])('never samples %s, which the service worker may answer from a cache', async (path) => {
+    fetchMock.mockResolvedValueOnce(stale(90 * 60_000))
+    await apiGet(path)
+    expect(serverClockOffsetMs()).toBeNull()
+  })
+
+  it('does not let a cached answer move a clock it already learned', async () => {
+    fetchMock.mockResolvedValueOnce(fresh())
+    await apiGet('/api/auth/me')
+    const learned = serverClockOffsetMs()!
+    fetchMock.mockResolvedValueOnce(stale(3 * 86_400_000))
+    await apiGet('/api/reference/plan%3Agym-m6/alignments?v=4')
+    expect(Math.abs(serverClockOffsetMs()! - learned)).toBeLessThan(1_000)
+  })
+
+  it('sends the request with no-store, so the HTTP cache is never the answer', async () => {
+    fetchMock.mockResolvedValueOnce(fresh())
+    await apiGet('/api/incidents/i1/workspace')
+    expect(fetchMock).toHaveBeenCalledWith('/api/incidents/i1/workspace', expect.objectContaining({ cache: 'no-store' }))
+    expect(serverClockOffsetMs()).not.toBeNull()
+  })
 })
