@@ -381,3 +381,30 @@ describe('useIncidentSync – edit during a conflict merge', () => {
     sync.dispose()
   })
 })
+
+describe('useIncidentSync — unmounting unhooks only its own sync callbacks', () => {
+  it('leaves a handler someone registered after it in place', () => {
+    const sync = makeSync()
+    const { unmount } = mount(sync, { appendJournal: vi.fn() })
+    // the hook's own handlers are in the slots…
+    expect(sync.onStatus).toBeTypeOf('function')
+    expect(sync.onApplyMerged).toBeTypeOf('function')
+    expect(sync.onAttendanceConflicts).toBeTypeOf('function')
+    expect(sync.onTruppConflicts).toBeTypeOf('function')
+    // …until a later subscriber takes them over
+    const later = { onStatus: vi.fn(), onApplyMerged: vi.fn(), onAttendanceConflicts: vi.fn(), onTruppConflicts: vi.fn() }
+    Object.assign(sync, later)
+    unmount()
+    expect(sync).toMatchObject(later)
+  })
+
+  it('clears its own handlers when nobody replaced them', () => {
+    const sync = makeSync()
+    const { unmount } = mount(sync, { appendJournal: vi.fn() })
+    unmount()
+    expect(sync.onStatus).toBeUndefined()
+    expect(sync.onApplyMerged).toBeUndefined()
+    expect(sync.onAttendanceConflicts).toBeUndefined()
+    expect(sync.onTruppConflicts).toBeUndefined()
+  })
+})
