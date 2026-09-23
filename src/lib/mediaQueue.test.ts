@@ -2,17 +2,21 @@ import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
+import * as idb from './idb'
 import { __resetIdbForTests } from './idb'
 import {
+  __resetMediaQueueForTests,
   clearIncidentMedia,
   clearUploadedMedia,
   enqueueMedia,
   flushMediaQueue,
+  isMediaQueueDurable,
   listMediaQueue,
   mediaQueueId,
   sameQueue,
   type MediaUploader,
 } from './mediaQueue'
+import { mediaSyncStatus } from './useMediaQueue'
 
 const INC = 'inc1'
 const blob = (s = 'x') => new Blob([s], { type: 'text/plain' })
@@ -25,7 +29,9 @@ function setOnline(v: boolean) {
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
   __resetIdbForTests()
+  __resetMediaQueueForTests()
   setOnline(true)
+  vi.restoreAllMocks()
 })
 
 describe('mediaQueue', () => {
@@ -236,6 +242,58 @@ describe('mediaQueue under concurrency', () => {
     expect(upload).toHaveBeenCalledTimes(2)
     expect(a.uploaded.length + b.uploaded.length).toBe(2)
     expect(await listMediaQueue(INC)).toEqual([])
+  })
+})
+
+// ⚠️ A refused queue write used to be ignored (23.09.2026): the capture read as queued, lived only
+// in the tab, and nothing said so. And a queue that could not be READ was taken for an empty one,
+// so the next capture was written over every capture already stored.
+describe('mediaQueue · a capture the device could not store', () => {
+  it('reports the refused write, keeps the capture in memory, and still uploads it', async () => {
+    const write = vi.spyOn(idb, 'idbSet').mockResolvedValue(false)
+    expect(await enqueueMedia(INC, 'e1', 'photo', blob('held'), 'p', '2026-07-01T10:00:00Z', 'blob:held')).toBe(false)
+    expect(isMediaQueueDurable(INC)).toBe(false)
+    expect((await listMediaQueue(INC)).map((i) => i.localUrl)).toEqual(['blob:held'])
+
+    const upload: MediaUploader = vi.fn(async () => ({ url: 'https://srv/held' }))
+    const out = await flushMediaQueue(INC, upload)
+    expect(out.uploaded.map((u) => u.localUrl)).toEqual(['blob:held'])
+    expect(isMediaQueueDurable(INC)).toBe(true) // nothing is left that needs storing
+    write.mockRestore()
+  })
+
+  it('writes what it held as soon as a later write lands', async () => {
+    const write = vi.spyOn(idb, 'idbSet').mockResolvedValueOnce(false)
+    expect(await enqueueMedia(INC, 'e1', 'photo', blob('one'), 'p', '2026-07-01T10:00:00Z', 'blob:one')).toBe(false)
+    expect(await enqueueMedia(INC, 'e2', 'photo', blob('two'), 'p', '2026-07-01T10:00:01Z', 'blob:two')).toBe(true)
+    write.mockRestore()
+    expect(isMediaQueueDurable(INC)).toBe(true)
+    __resetMediaQueueForTests() // a reload: only what was stored comes back
+    expect((await listMediaQueue(INC)).map((i) => i.localUrl)).toEqual(['blob:one', 'blob:two'])
+  })
+
+  it('never writes a new capture over a stored queue it could not read', async () => {
+    await enqueueMedia(INC, 'e1', 'photo', blob('stored'), 'p', '2026-07-01T10:00:00Z', 'blob:stored')
+    const read = vi.spyOn(idb, 'idbRead').mockResolvedValueOnce({ ok: false, error: new Error('io') })
+    const write = vi.spyOn(idb, 'idbSet')
+    expect(await enqueueMedia(INC, 'e2', 'photo', blob('new'), 'p', '2026-07-01T10:00:05Z', 'blob:new')).toBe(false)
+    expect(write).not.toHaveBeenCalled()
+    read.mockRestore()
+    // the next read answers: both are there, and the next write stores both
+    expect((await listMediaQueue(INC)).map((i) => i.localUrl)).toEqual(['blob:stored', 'blob:new'])
+    expect(await enqueueMedia(INC, 'e3', 'audio', blob('a'), 'a', '2026-07-01T10:00:09Z')).toBe(true)
+    __resetMediaQueueForTests()
+    expect((await listMediaQueue(INC)).map((i) => i.rowId)).toEqual(['e1', 'e2', 'e3'])
+  })
+})
+
+describe('mediaSyncStatus (the queue in the shared sync status)', () => {
+  const item = (status: 'pending' | 'failed') => ({ id: 'x', incidentId: INC, rowId: 'r', kind: 'photo' as const, blob: blob(), filename: 'p', createdAt: '', attempts: 0, status })
+  it('is synced with nothing queued, pending while captures wait, error when refused, storage when unstored', () => {
+    expect(mediaSyncStatus([], true)).toBe('synced')
+    expect(mediaSyncStatus([item('pending')], true)).toBe('pending')
+    expect(mediaSyncStatus([item('pending'), item('failed')], true)).toBe('error')
+    expect(mediaSyncStatus([item('failed')], false)).toBe('storage')
   })
 })
 
