@@ -53,6 +53,7 @@ import { useUndoTimeline } from './lib/useUndoTimeline'
 import type { UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
+import { pushSliceStep } from './lib/sliceUndoStep'
 import { REPORT_COALESCE_MS, foldsIntoPrevious, keepMachineFields, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
@@ -4242,25 +4243,15 @@ export function IncidentWorkspace({
   /*  `describe` lets the domain write the step's rows itself — the Checklisten write «☑ …» /
    *  «Meilenstein zurückgenommen: …» for a milestone, the same row a tap writes — and a `true`
    *  from it replaces the generic «… rückgängig gemacht», so one step is never two rows. */
-  /*  ⚠️ `histRef`, read when the step is TAKEN — not the slice object of the render that wrote.
-   *  That object's `undo` closes over its render's stacks, which do not yet hold the checkpoint
-   *  the write just laid down: ↶ then restored the snapshot one step too far back (the first ↶
-   *  after a fresh mount found an empty stack and was «lost»; a later one restored the state the
-   *  write had started from, so a re-tick «rückgängig gemacht» stayed ticked — 23.09.2026). */
-  const rememberSliceStep = <T,>(domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) => {
-    const step = (moved: { from: T; to: T } | null, dir: 'undo' | 'redo') => {
-      if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
-      return histStep(!!moved, dir, label, op, icon, 'journal')
-    }
-    return undoHist.push({
-      domain,
-      label,
-      // ⚠️ `onStep` FIRST, before the stack moves: it closes whatever fold window is still open
-      // (the Rapport's), because the step that window would fold into is the one being popped.
-      undo: () => { onStep?.(); return step(histRef.current.undo(), 'undo') },
-      redo: () => { onStep?.(); return step(histRef.current.redo(), 'redo') },
+  /*  ⚠️ The slice's history travels as a REF, read when the step is taken (lib/sliceUndoStep). */
+  const rememberSliceStep = <T,>(domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) =>
+    pushSliceStep(undoHist, {
+      domain, label, histRef, onStep,
+      record: (moved, dir) => {
+        if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
+        return histStep(!!moved, dir, label, op, icon, 'journal')
+      },
     })
-  }
   const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
   const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
   // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
