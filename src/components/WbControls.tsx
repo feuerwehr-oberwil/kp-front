@@ -1,4 +1,4 @@
-import type { BoardAnno, BoardPoint, BoardTool, NoteSize } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { HatchDefs, LINE_DASH_SVG, hatchPatternId } from '../lib/draw'
@@ -436,12 +436,6 @@ interface DocksProps {
   measCount: number
   onMeasClear: () => void
   onMeasClose: () => void
-  /** Defaults for the NEXT note, set while the Notiz tool is armed. They live here — before a
-   *  note exists — rather than during editing on purpose: a dock button tapped mid-edit blurs
-   *  the note's textarea, which commits and unmounts the dock under the finger reaching for it.
-   *  Once a note is placed, the same settings live in its detail panel. */
-  noteDefaults: { size: NoteSize; plain: boolean; color: string }
-  setNoteDefaults: (patch: Partial<{ size: NoteSize; plain: boolean; color: string }>) => void
 }
 
 /**
@@ -451,7 +445,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, setTool, setLineMode, onFinish, onCancelDraft, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, noteDefaults, setNoteDefaults }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, setTool, setLineMode, onFinish, onCancelDraft, measMode, setMeasMode, measCount, onMeasClear, onMeasClose }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (

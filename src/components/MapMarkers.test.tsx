@@ -158,7 +158,6 @@ describe('what a selected Form shows on the Karte', () => {
  * strip grows hangs off the RIGHT of the dot, because the dot is the coordinate.
  */
 describe('a Trupp marker that is joined, loose, or docked', () => {
-  const az = appConfig.copy.atemschutz
   const team = (extra: Partial<Entity> = {}): Entity =>
     ({ id: 'e1', kind: 'team', layer: 'lage', coord: at, label: 'Frei Nina', truppId: 'T1', ...extra }) as Entity
   const hydrant = { id: 'h1', kind: 'symbol', layer: 'lage', coord: at, label: 'Hydrant' } as Entity

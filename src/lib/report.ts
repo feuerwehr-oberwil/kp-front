@@ -1,4 +1,4 @@
-import type { AttendanceState, BoardAnno, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
+import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'

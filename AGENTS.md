@@ -41,7 +41,7 @@ pnpm install
 pnpm dev     # Vite dev server on http://localhost:5188 (http origin required, not file://)
 pnpm build   # tsc --noEmit + vite build
 pnpm test    # vitest
-pnpm lint    # eslint
+pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when you fix some, never raise it
 ```
 
 **Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every

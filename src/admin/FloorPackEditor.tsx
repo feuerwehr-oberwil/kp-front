@@ -9,7 +9,7 @@ import { alignmentPagePreview, type AlignmentItem } from './planAlignmentApi'
 import { floorKey, type PlanFloor } from '../lib/api/reference'
 import {
   appendFloor, appendPart, clampToClip, defaultStack, dropFromStack, entryJoined, floorsFromStack, hitJoinPoint, indexOf, joinPointClip, moveJoinPoint, partsOf, patchEntry, reorderStack,
-  restoreToStack, reverseStack, sameStack, signedIndex, stackComplete, stackFromFloors, standardFloorName, storeyKey, storeysOf, trayOf, type Clip, type FloorEntry, type FloorStack, type JoinPointHit, type Pt,
+  restoreToStack, reverseStack, sameStack, signedIndex, stackComplete, stackFromFloors, standardFloorName, storeysOf, trayOf, type Clip, type FloorEntry, type FloorStack, type JoinPointHit, type Pt,
 } from './floorPack'
 
 /**

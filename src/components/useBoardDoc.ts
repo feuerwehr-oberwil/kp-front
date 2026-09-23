@@ -2,7 +2,6 @@ import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } 
 import { appConfig } from '../config/appConfig'
 import { confirmDialog } from '../lib/ui'
 import type { BoardAnno } from '../types'
-import type { PlanLogExtra } from './Whiteboard'
 
 const EMPTY_HIST = { past: [] as BoardAnno[][], future: [] as BoardAnno[][] }
 
@@ -30,7 +29,6 @@ interface BoardDocDeps {
   onChange: (next: BoardAnno[], opts?: { gesture?: boolean }) => void
   emit: (op: string, payload?: Record<string, unknown>) => void
   activeId: string
-  log: (icon: string, text: string, extra?: PlanLogExtra) => void
   selId: string | null
   setSelId: (id: string | null) => void
   editId: string | null
@@ -63,7 +61,7 @@ interface BoardDocDeps {
  * drag is one step. The functions stay byte-for-byte equivalent to their former inline selves; the
  * gesture handlers in Whiteboard call the returned pushPast/commit/patchCommit/… as before.
  */
-export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint, onStepEnd }: BoardDocDeps) {
+export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint, onStepEnd }: BoardDocDeps) {
   // Per-document undo/redo, mirroring the map's history model. Every discrete
   // mutation checkpoints the previous annotation array; a continuous gesture
   // (chip drag) checkpoints once, on first movement, so a whole drag is one step.

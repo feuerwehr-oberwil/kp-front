@@ -1734,7 +1734,6 @@ describe('useTruppActions — crew rows', () => {
   it('the timeline’s ↷ re-applies the SAME crew row — stamped once, not per redo', () => {
     const timeline = createUndoTimeline()
     const h = harness(baseTrupp({ members: [], readings: [] }))
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
     const actions = useTruppActions({ ...h.deps, undoTimeline: timeline, liveTrupps: () => h.state.trupps })
     actions.editTrupp('T1', { name: 'Keller Anna', members: ['Frei Nina'], pressure: 300 })
     const stamped = h.state.trupps[0].readings?.slice(-1)[0]
