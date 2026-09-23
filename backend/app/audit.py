@@ -14,6 +14,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+import anyio
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -148,16 +149,34 @@ async def append_event(
     return event
 
 
+def _encode_snapshot(workspace: dict) -> bytes:
+    return json.dumps(workspace, separators=(",", ":")).encode("utf-8")
+
+
 async def snapshot_workspace(db: AsyncSession, *, incident_id: uuid.UUID, workspace: dict) -> WorkspaceSnapshot:
-    """Persist a versioned copy of the saved blob = a fold checkpoint for replay."""
+    """Persist a versioned copy of the saved blob = a fold checkpoint for replay.
+
+    One per save, deliberately: the replay fold (``src/lib/replay``) applies only the events whose
+    payload carries the change (entity/draw/board/layer ops); Trupps, attendance, the Gebäude,
+    a georef re-bake and every other slice reach a past moment ONLY through the snapshot the save
+    that carried them wrote. Thinning them out would make replay show a Trupp's clock or a
+    storey's ink up to one interval late.
+
+    The encode and the write run on a worker thread: at field blob sizes (megabytes) both were a
+    stall of the whole event loop on every save — every other request, the live position feed
+    included, waited behind it. The blob is published before the row that references it is
+    flushed, and the rollback hook is armed before the write starts, so a save cancelled or
+    rolled back mid-way leaves no orphan (AGENTS.md · backup originals).
+    """
     seq_at = (
         await db.execute(
             select(func.coalesce(func.max(IncidentEvent.seq), 0)).where(IncidentEvent.incident_id == incident_id)
         )
     ).scalar_one()
     key = storage.new_key(f"snapshots/{incident_id}", ".json")
-    storage.put_bytes(key, json.dumps(workspace, separators=(",", ":")).encode("utf-8"))
     storage.created_in_transaction(db, key)
+    data = await anyio.to_thread.run_sync(_encode_snapshot, workspace)
+    await storage.aput_bytes(key, data)
     snap = WorkspaceSnapshot(incident_id=incident_id, seq_at=seq_at, storage_key=key)
     db.add(snap)
     await db.flush()

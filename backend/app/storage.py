@@ -84,6 +84,12 @@ def put_bytes(key: str, data: bytes) -> str:
     return key
 
 
+async def aput_bytes(key: str, data: bytes) -> str:
+    """`put_bytes` without stalling the event loop (the write, its temporary file and the
+    atomic publish all run on a worker thread)."""
+    return await anyio.to_thread.run_sync(put_bytes, key, data)
+
+
 async def put_astream(key: str, chunks: AsyncIterator[bytes], max_bytes: int | None = None) -> int:
     """Stream async chunks (e.g. an UploadFile) to key without holding the file in memory.
     Enforces max_bytes while writing. A failure removes only the unpublished temporary file;

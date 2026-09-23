@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from .. import audit, live_wait, storage
-from ..alarm_validation import validate_alarm_workspace
+from ..alarm_validation import ALARM_VALIDATED_KEYS, validate_alarm_workspace
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
     CurrentAtemschutzWriter,
@@ -275,7 +275,12 @@ async def apply_workspace_put(
     if inc.workspace_rev != body.base_rev:
         raise _workspace_revision_conflict(inc.workspace_rev, body.base_rev)
     _scrub_drawing_props(body.workspace)
-    previous = deepcopy(inc.map_workspace_json) if isinstance(inc.map_workspace_json, dict) else {}
+    # The stored side of the comparison, scrubbed the same way so an unchanged legacy row still
+    # compares equal to its scrubbed resubmission. Only the keys validate_alarm_workspace reads
+    # are copied: a deepcopy of the whole stored blob (megabytes in the field) per save bought
+    # nothing — the scrub mutates, so it must not touch the loaded row itself.
+    stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
+    previous = {key: deepcopy(stored[key]) for key in ALARM_VALIDATED_KEYS if key in stored}
     _scrub_drawing_props(previous)
     try:
         validate_alarm_workspace(body.workspace, previous)
