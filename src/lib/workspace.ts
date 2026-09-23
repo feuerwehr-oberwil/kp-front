@@ -8,6 +8,7 @@ import { keyCartoTileTemplates } from './carto'
 import { loadLayerPrefs } from './layerPrefs'
 import { isSafeColor } from './shapes'
 import { sanitizeSvgResult } from './sanitizeSvg'
+import { minPoints } from './vertexOps'
 import type { ChecklistState } from './checklists'
 import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
 import { bearing360 } from './planProjection'
@@ -330,7 +331,7 @@ export const isDrawing = (v: unknown): v is Drawing =>
 export const isBoardAnno = (v: unknown): v is BoardAnno =>
   hasId(v) && typeof v.kind === 'string' && LEGACY_BOARD_KINDS.has(v.kind)
   && (v.kind === 'draw' || v.kind === 'area'
-    ? Array.isArray(v.pts) && v.pts.length >= (v.kind === 'area' ? 3 : 2) && v.pts.every(boardPt)
+    ? Array.isArray(v.pts) && v.pts.length >= minPoints(v.kind) && v.pts.every(boardPt)
     : num(v.x) && num(v.y))
 /** A Gebäude doc the floor-stack can open: at least one finite storey and a footprint of some shape. */
 export const isBuilding = (v: unknown): v is BuildingDoc =>

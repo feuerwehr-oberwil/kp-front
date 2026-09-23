@@ -16,6 +16,7 @@ import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
 import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { canDropVertex, extendEnd, insertAt, minPoints, removeVertex, replaceVertex, segmentMid } from '../lib/vertexOps'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
@@ -1149,7 +1150,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    *  predicate the three pointer handlers share, so the two tools cannot drift apart. */
   const inking = (tool === 'line' && lineMode === 'freehand') || (tool === 'area' && areaMode === 'freehand')
   // the in-progress node draft is committable: an area needs ≥3 pts, a Punkte-mode line ≥2 (gates ✓)
-  const draftActive = (tool === 'area' && areaMode === 'nodes' && (draft?.length ?? 0) >= 3) || (tool === 'line' && lineMode === 'nodes' && (draft?.length ?? 0) >= 2)
+  const draftActive = (tool === 'area' && areaMode === 'nodes' && (draft?.length ?? 0) >= minPoints('area')) || (tool === 'line' && lineMode === 'nodes' && (draft?.length ?? 0) >= minPoints('draw'))
   // symbols/notes are sized smaller on the Gebäude floor-stack (small storey tiles) than on the
   // full-page module plans, so they don't dwarf the building outline — closer to the Lage map feel
   // Symbol/note size: on a PDF plan, scale it to the board WIDTH (= one page's width, since stitched
@@ -1621,7 +1622,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloor.current, y) * sH])
       if (!isTapStroke(px)) {
         const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
-        if (idx.length >= 3) addArea(idx.map((i) => draft[i]))
+        if (idx.length >= minPoints('area')) addArea(idx.map((i) => draft[i]))
       }
       setDraft(null)
       return
@@ -1696,12 +1697,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Then drop to pan so it's immediately selectable.
   const finishShape = () => {
     const d = draft
-    if (tool === 'line' && d && d.length >= 2) {
+    if (tool === 'line' && d && d.length >= minPoints('draw')) {
       setDraft(null); lastTap.current = null
       addLine(d)
       return
     }
-    if (tool === 'area' && d && d.length >= 3) {
+    if (tool === 'area' && d && d.length >= minPoints('area')) {
       setDraft(null); lastTap.current = null
       addArea(d)
       return
@@ -1739,7 +1740,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     setDraft(null); lastTap.current = null
-    if (d.length < (kind === 'area' ? 3 : 2)) {
+    if (d.length < minPoints(kind)) {
       draftAttachments.current = {}
       toast(appConfig.copy.toolDock.draftDiscarded)
       return
@@ -1968,7 +1969,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     if (!st.moved) { pushPast(); st.moved = true; st.pushed = true }
     const floor = stack ? floorAt(n[1]) : st.floor
-    patch(st.id, { pts: (annos.find((a) => a.id === st.id)?.pts ?? []).map((p, i): BoardPoint => (i === st.idx ? [n[0], localY(n[1], floor), floor] : p)) })
+    patch(st.id, { pts: replaceVertex<BoardPoint>(annos.find((a) => a.id === st.id)?.pts ?? [], st.idx, [n[0], localY(n[1], floor), floor]) })
   }
   const vertUp = () => {
     const st = vertDrag.current; vertDrag.current = null
@@ -1989,7 +1990,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           attachment = { target, routing: magnetic.candidate.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: magnetic.candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
           if (sW && sH) endPt = [magnetic.candidate.point[0] / sW, localY(magnetic.candidate.point[1] / sH, floor), floor]
         } else if (magnetic.attached) { setPlanEndpointDrag(null); return }  // ring never closed → snap back, no change
-        const pts = a.pts.map((p, i): BoardPoint => i === (magnetic.endpoint === 'start' ? 0 : a.pts!.length - 1) ? endPt : p)
+        const pts = replaceVertex(a.pts, magnetic.endpoint === 'start' ? 0 : a.pts.length - 1, endPt)
         const out: Partial<BoardAnno> = { pts, ...(magnetic.endpoint === 'start' ? { startAttachment: attachment } : { endAttachment: attachment }) }
         // `pushed` = extendLine already checkpointed BEFORE it grew the line, so a second
         // checkpoint here would snapshot the already-grown shape and make one grow gesture cost
@@ -2045,7 +2046,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     const point: BoardPoint = [x, y, floor]
-    patchCommit(a.id, { pts: end === 'start' ? [point, ...pts] : [...pts, point] })
+    patchCommit(a.id, { pts: extendEnd(pts, end, point) })
     // …and the view follows the Leitung upstairs: the new end, close enough to place the next
     // vertex, so the climb is one tap and not a tap plus a scroll to find where it went
     requestAnimationFrame(() => centerOnPoint(x, y, floor, Math.max(scaleRef.current, 2.5)))
@@ -2059,7 +2060,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const floor = a.kind === 'draw' && stack ? floorAt(n[1]) : (a.floor ?? 0)
     const point: BoardPoint = [n[0], localY(n[1], floor), floor]
     pushPast()
-    const next = end === 'start' ? [point, ...pts] : [...pts, point]
+    const next = extendEnd(pts, end, point)
     patch(a.id, { pts: next })
     if (a.kind === 'draw' && !(end === 'start' ? a.startAttachment : a.endAttachment)) {
       setPlanEndpointDrag({ id: a.id, endpoint: end, point, origin: point, attached: false, detach: 0, dwell: EMPTY_DWELL, candidate: null })
@@ -2087,10 +2088,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const n = toNorm(e.clientX, e.clientY)
     const floor = a.kind === 'draw' && n && stack ? floorAt(n[1]) : (a.floor ?? 0)
-    const next = pts[(idx + 1) % pts.length] // wraps for the closing edge of an area
-    const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [(pts[idx][0] + next[0]) / 2, (pts[idx][1] + next[1]) / 2, floor]
+    const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [...segmentMid(pts, idx), floor] // wraps for the closing edge of an area
     pushPast()
-    patch(a.id, { pts: [...pts.slice(0, idx + 1), mid, ...pts.slice(idx + 1)] })
+    patch(a.id, { pts: insertAt(pts, idx + 1, mid) })
     // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and vertUp
     // commits — the new node never gets a chance to look like something you have to find again.
     vertDrag.current = { id: a.id, idx: idx + 1, floor, moved: true, pushed: true }
@@ -2099,11 +2099,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const deleteVertex = (idx: number) => {
     if (readOnly) return
     const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
-    if (pts.length <= (a.kind === 'area' ? 3 : 2)) return
+    if (!canDropVertex(a.kind, pts.length)) return
     // a long-press delete fires mid-pointer-session — drop the pending drag so further
     // finger movement can't reshape whichever point inherited this index
     vertDrag.current = null
-    patchCommit(a.id, { pts: pts.filter((_, i) => i !== idx) })
+    patchCommit(a.id, { pts: removeVertex(pts, idx) })
   }
 
   // --- vertex editing of the IN-PROGRESS node draft (A3, 29.08.) — the same grip/insert/hold
@@ -2121,7 +2121,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // a Linie's node follows the pointer's storey (a Leitung may cross floors); a Fläche stays
     // on the floor its ring was started on — the same rule placeNode applies to a fresh tap
     const floor = tool === 'line' && stack ? floorAt(n[1]) : draftFloor.current
-    setDraft((d) => d?.map((p, i): BoardPoint => (i === st.idx ? [n[0], localY(n[1], floor), floor] : p)) ?? d)
+    setDraft((d) => (d ? replaceVertex<BoardPoint>(d, st.idx, [n[0], localY(n[1], floor), floor]) : d))
   }
   const draftVertUp = () => { draftVert.current = null }
   /** Insert a node on draft segment `idx` and keep the SAME press dragging it — the twin of
@@ -2133,9 +2133,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const floor = tool === 'line' && n && stack ? floorAt(n[1]) : draftFloor.current
     setDraft((d) => {
       if (!d) return d
-      const b = d[(idx + 1) % d.length] // wraps for the closing edge of an area draft
-      const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [(d[idx][0] + b[0]) / 2, (d[idx][1] + b[1]) / 2, floor]
-      return [...d.slice(0, idx + 1), mid, ...d.slice(idx + 1)]
+      const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [...segmentMid(d, idx), floor] // wraps for the closing edge of an area draft
+      return insertAt(d, idx + 1, mid)
     })
     draftVert.current = { idx: idx + 1 }
   }
@@ -2143,7 +2142,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // draft at all, the same empty hand Escape leaves
   const draftDeleteVertex = (idx: number) => {
     draftVert.current = null
-    setDraft((d) => { const next = d?.filter((_, i) => i !== idx) ?? null; return next?.length ? next : null })
+    setDraft((d) => { const next = d ? removeVertex(d, idx) : null; return next?.length ? next : null })
   }
 
   // --- chip dragging (resource / symbol / text in pan mode) ---

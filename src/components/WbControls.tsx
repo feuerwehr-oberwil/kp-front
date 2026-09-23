@@ -8,6 +8,7 @@ import { vertexHandleIndices, arrowEndIndices, EXTEND_STEP_PX } from '../lib/lin
 import { NodeDeleteChip } from './NodeDeleteChip'
 import { floorSections, signedFloor } from '../lib/whiteboard'
 import { fillTemplate } from '../lib/format'
+import { canDropVertex } from '../lib/vertexOps'
 
 const COLORS = appConfig.drawing.colors
 /** id namespace for the ink layer's Schraffur — kept distinct from the circle layer's defs so
@@ -337,12 +338,11 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
     for (let i = 0; i < sp.length - 1; i++) segs.push(i)
     if (closed && sp.length >= 3) segs.push(sp.length - 1)
   }
-  const minPts = closed ? 3 : 2
   /** ONE answer to «may this node go», read by both ways of asking: the hold (which simply never
    *  arms below the floor — a shape's minimum is a thing not to offer, not a thing to explain
    *  mid-gesture) and the right-click below. `deleteVertex` upstream enforces it again, together
    *  with the read-only gate that already keeps these handles off a locked sheet. */
-  const canDeleteNode = pts.length > minPts
+  const canDeleteNode = canDropVertex(anno.kind, pts.length)
   return (
     <>
       {segs.map((i) => {

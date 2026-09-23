@@ -1,5 +1,6 @@
 import type { BoardAnno } from '../types'
 import { resolvePlanAnnos } from './lineAttachments'
+import { minPoints } from './vertexOps'
 
 /** A range is one object; its home tile is only the editing anchor. */
 export function stackRange(anno: BoardAnno): { from: number; to: number } {
@@ -104,7 +105,7 @@ export function removeStorey(view: readonly BoardAnno[], ownIds: ReadonlySet<str
       ...((droppedStart || targetGone(a.startAttachment)) ? { startAttachment: undefined } : {}),
       ...((droppedEnd || targetGone(a.endAttachment)) ? { endAttachment: undefined } : {}),
     }
-  }).filter((a) => !a.pts || a.pts.length >= (a.kind === 'area' ? 3 : 2))
+  }).filter((a) => !a.pts || a.pts.length >= minPoints(a.kind))
   const untouched = new Set(before)
   const lost = before.length - after.filter((a) => untouched.has(a)).length
   return { before, after, owned: new Set(before.map((a) => a.id)), lost }
