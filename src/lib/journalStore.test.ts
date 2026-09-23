@@ -12,7 +12,7 @@ vi.mock('./api', async () => {
 import { ApiError } from './api'
 import { __resetIdbForTests } from './idb'
 import * as idb from './idb'
-import { chronological, JournalStore } from './journalStore'
+import { chronological, JournalStore, persistedPendingRows } from './journalStore'
 import { simulatedDevice } from './devices.test-utils'
 import type { TimelineEvent } from '../types'
 
@@ -915,5 +915,14 @@ describe('JournalStore — two devices, one millisecond', () => {
       }
       a.store.dispose(); b.store.dispose()
     } finally { vi.useRealTimers() }
+  })
+})
+
+describe('persistedPendingRows — the launcher\'s «Abmelden» count', () => {
+  it('sums the outbox and the rejected rows of every incident, and counts a missing slot as 0', async () => {
+    await idb.idbSet('kp-journal-a', { rows: [], latestSeq: 0, outbox: [row('a1'), row('a2')], dead: [row('a3')] })
+    await idb.idbSet('kp-journal-b', { rows: [], latestSeq: 3, outbox: [row('b1')] })
+    expect(await persistedPendingRows(['a', 'b', 'never-opened'])).toBe(4)
+    expect(await persistedPendingRows([])).toBe(0)
   })
 })

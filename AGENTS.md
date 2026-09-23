@@ -698,7 +698,9 @@ to prod.
   same model and are easy to break: a page sending `use` with no live link session is **401, never
   the device's login** (falling through would turn a lapsed board into the phone owner's account),
   and the device's own «Abmelden» **does** clear the link cookie — headerless requests (typed
-  address, `<img>`, service worker) answer as the link guest otherwise.
+  address, `<img>`, service worker) answer as the link guest otherwise. That «Abmelden» **always
+  confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
+  unsent-entries cost when there is one.
 - **Per-station config has four layers:** national defaults (code) → per-station deployment
   config (DB/admin) → secrets (env) → per-incident (workspace). One deployment = one station
   (**single-tenant**, no multi-tenancy). See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).

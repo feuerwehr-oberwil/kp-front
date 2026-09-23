@@ -2339,6 +2339,12 @@ export const it: Localizable<Copy> = {
     report: 'Rapporto d’intervento',
     noOpenIncidents: 'Nessun intervento aperto',
     logout: 'Disconnetti',
+    logoutTitle: 'Disconnettere?',
+    logoutMsg: 'Dopo, questo dispositivo apre interventi solo dopo un accesso con PIN.',
+    logoutOffline: 'Un nuovo accesso è possibile solo con la rete – fino ad allora questo dispositivo non apre alcun intervento.',
+    logoutUnsyncedOne: '1 voce non è ancora stata trasmessa. Resta su questo dispositivo e sarà inviata appena accedi di nuovo.',
+    logoutUnsyncedMany: '{n} voci non sono ancora state trasmesse. Restano su questo dispositivo e saranno inviate appena accedi di nuovo.',
+    logoutUnsyncedChanges: 'Alcune modifiche non sono ancora state trasmesse. Restano su questo dispositivo e saranno inviate appena accedi di nuovo.',
     appVersion: 'Versione app (build)',
 
     startedRow: 'Inizio dell\'intervento {t} · {d}',

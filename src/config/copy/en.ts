@@ -2299,6 +2299,12 @@ export const en: Localizable<Copy> = {
     shareShort: 'Share',
     noOpenIncidents: 'No open incidents',
     logout: 'Log out',
+    logoutTitle: 'Log out?',
+    logoutMsg: 'This device will then only open incidents again after a sign-in with PIN.',
+    logoutOffline: 'Signing in again needs a network connection – until then this device opens no incident.',
+    logoutUnsyncedOne: '1 entry has not been sent yet. It stays on this device and is sent as soon as you sign in again.',
+    logoutUnsyncedMany: '{n} entries have not been sent yet. They stay on this device and are sent as soon as you sign in again.',
+    logoutUnsyncedChanges: 'Changes have not been sent yet. They stay on this device and are sent as soon as you sign in again.',
     appVersion: 'App version (build)',
 
     editMeta: 'Edit incident details',

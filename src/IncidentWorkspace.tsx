@@ -57,6 +57,7 @@ import { REPORT_COALESCE_MS, foldsIntoPrevious, keepMachineFields, reportStep as
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
+import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
 import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
@@ -5257,7 +5258,14 @@ export function IncidentWorkspace({
             // ⚠️ No «Abmelden» for a link session (02.09.): a link is the literal page and owns
             // no login on this device, so there is none to end here — and the row used to end
             // the DEVICE's own one. Leaving the link means leaving the page.
-            onLogout={linkScoped ? undefined : () => { void logout() }}
+            // …and it always asks first (lib/logoutConfirm), saying what is still unsent here
+            onLogout={linkScoped ? undefined : () => {
+              void confirmLogout({
+                online: navigator.onLine,
+                unsyncedEntries: journal.pendingCount + journal.rejectedCount + media.pendingCount,
+                unsyncedOther: syncStatus !== 'synced',
+              }).then((ok) => { if (ok) void logout() })
+            }}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
             sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
           />

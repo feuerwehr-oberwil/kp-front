@@ -2280,6 +2280,12 @@ export const fr: Localizable<Copy> = {
     report: 'Rapport d’intervention',
     noOpenIncidents: 'Aucune intervention ouverte',
     logout: 'Déconnexion',
+    logoutTitle: 'Se déconnecter ?',
+    logoutMsg: 'Cet appareil n’ouvrira ensuite des interventions qu’après une connexion avec PIN.',
+    logoutOffline: 'Une nouvelle connexion n’est possible qu’avec le réseau – d’ici là, cet appareil n’ouvre aucune intervention.',
+    logoutUnsyncedOne: '1 entrée n’a pas encore été transmise. Elle reste sur cet appareil et sera envoyée dès ta prochaine connexion.',
+    logoutUnsyncedMany: '{n} entrées n’ont pas encore été transmises. Elles restent sur cet appareil et seront envoyées dès ta prochaine connexion.',
+    logoutUnsyncedChanges: 'Des modifications n’ont pas encore été transmises. Elles restent sur cet appareil et seront envoyées dès ta prochaine connexion.',
     appVersion: 'Version de l’app (build)',
 
     startedRow: 'Début de l\'intervention {t} · {d}',

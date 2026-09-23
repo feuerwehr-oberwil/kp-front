@@ -3849,6 +3849,16 @@ export const de = {
     shareShort: 'Teilen',
     noOpenIncidents: 'Keine offenen Einsätze',
     logout: 'Abmelden',
+    // «Abmelden» ALWAYS asks (23.09.2026, lib/logoutConfirm): afterwards this device opens no
+    // Einsatz without a PIN. Offline and/or with something unsent, the SAME card adds what it
+    // costs on top — one ask, not a second dialog model for the expensive case.
+    logoutTitle: 'Abmelden?',
+    logoutMsg: 'Danach öffnet dieses Gerät Einsätze erst wieder nach einer Anmeldung mit PIN.',
+    logoutOffline: 'Eine neue Anmeldung ist erst wieder mit Netz möglich – bis dahin öffnet dieses Gerät keinen Einsatz.',
+    logoutUnsyncedOne: '1 Eintrag ist noch nicht übertragen. Er bleibt auf diesem Gerät und wird gesendet, sobald du dich wieder anmeldest.',
+    logoutUnsyncedMany: '{n} Einträge sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.',
+    // …where only the Einsatz itself (Karte, Pläne, lists) is still unsent, no countable entry
+    logoutUnsyncedChanges: 'Änderungen sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.',
     appVersion: 'App-Version (Build)',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).

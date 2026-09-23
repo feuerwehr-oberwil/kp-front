@@ -7,6 +7,8 @@ import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode, alarmProviderName } from './lib/deploymentConfig'
 import { fillTemplate, initials, roleLabel } from './lib/format'
 import { Overlays, toast, confirmDialog } from './lib/ui'
+import { confirmLogout } from './lib/logoutConfirm'
+import { persistedPendingRows } from './lib/journalStore'
 import { loadPrefs, savePrefs } from './lib/prefs'
 import { useDevicePrefs } from './lib/useDevicePrefs'
 import { buildLabel } from './lib/buildInfo'
@@ -623,6 +625,14 @@ export default function App() {
       .finally(() => { clearCrash(); location.reload() })
   }
 
+  // «Abmelden» on the launcher asks first, like the Einsatz-Menü's (lib/logoutConfirm). With no
+  // Einsatz open there is no live store to ask, so the unsent Verlauf rows are read off the
+  // persisted outboxes of every Einsatz this device knows.
+  const askLogout = async () => {
+    const unsyncedEntries = await persistedPendingRows(incidents.map((i) => i.id))
+    if (await confirmLogout({ online: navigator.onLine, unsyncedEntries })) await logout()
+  }
+
   // Landing list when no incident is active: the open Einsätze to resume + the Divera alarms
   // to take, shown directly (no "Kein offener Einsatz" dead-end), with manual create always on.
   const openIncidents = incidents.filter((i) => !i.is_archived)
@@ -807,7 +817,7 @@ export default function App() {
                     bare site is whoever it was before the link was tapped, and stays so (lib/
                     linkMode). The button here used to end the DEVICE's own session. */}
                 {!linkScoped && (
-                  <button className="ip-foot-logout" onClick={() => void logout()}><Icon id="logout" />{appConfig.copy.incidentSwitcher.logout}</button>
+                  <button className="ip-foot-logout" onClick={() => void askLogout()}><Icon id="logout" />{appConfig.copy.incidentSwitcher.logout}</button>
                 )}
               </div>
               <div className="ip-emptyapp-utils">
