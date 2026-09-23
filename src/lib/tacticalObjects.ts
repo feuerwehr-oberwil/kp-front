@@ -352,11 +352,6 @@ export function bakeSheetSymbol(o: TacticalObject, planId: string, pt: { x: numb
   return anno ? { ...o, sheet: { planId, anno } } : null
 }
 
-/** Replace one object's sheet anno in place (same plan, same id). */
-export function withSheetAnno(o: TacticalObject, anno: BoardAnno): TacticalObject {
-  return o.sheet ? { ...o, sheet: { ...o.sheet, anno } } : o
-}
-
 const sameCoord = (a: LngLat | undefined, b: LngLat | undefined): boolean =>
   a === b || (!!a && !!b && a[0] === b[0] && a[1] === b[1])
 

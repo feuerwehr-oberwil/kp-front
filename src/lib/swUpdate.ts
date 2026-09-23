@@ -187,10 +187,6 @@ export function applyUpdateNow(): Promise<void> {
   return applyWaitingBuild()
 }
 
-/** Is a build waiting right now? For a surface that mounts after the announcement — the menu
- *  reads it on open rather than subscribing from boot. */
-export const updateIsWaiting = (): boolean => updateWaiting
-
 /** Apply the waiting build silently: skipWaiting + reload the page. Only the automatic
  *  boot-window and stalled-recovery paths call this automatically; `applyUpdateNow` is the
  *  operator's own door to it (16.09.2026). Never shows a blocking

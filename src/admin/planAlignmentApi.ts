@@ -119,8 +119,6 @@ export const alignmentPreview = (id: number, signal: AbortSignal) => apiGetRaw(`
 export const alignmentThumbnail = (id: number, signal: AbortSignal) => apiGetRaw(`${BASE}/${id}/preview?thumbnail=true`, { signal }).then(r => r.blob())
 /** the exact PNG raster of ANOTHER page – the floor-pack editor's sheet to draw regions on */
 export const alignmentPagePreview = (id: number, page: number, signal: AbortSignal) => apiGetRaw(`${BASE}/${id}/preview?page=${page}`, { signal }).then(r => r.blob())
-/** the same small JPEG for ANOTHER page of the revision – the floor-pack editor's tiles */
-export const alignmentPageThumbnail = (id: number, page: number, signal: AbortSignal) => apiGetRaw(`${BASE}/${id}/preview?thumbnail=true&page=${page}`, { signal }).then(r => r.blob())
 // Every mutation answers the FULL sheet, and takes any queue row: a decision only needs the
 // sheet's id and its CAS token, which a list row carries.
 export const approveAlignment = (item: AlignmentListItem, pairs: GeorefPair[]) => apiPost<AlignmentItem>(`${BASE}/${item.id}/approve`, { edit_version: item.edit_version, pairs })

@@ -80,6 +80,3 @@ export const pdfDataCopy = (bytes: Uint8Array): Uint8Array => bytes.slice()
 export function dropPdfBytes(url: string): void {
   bytesCache.delete(pdfBytesKey(url))
 }
-
-/** Bytes currently resident, for tests and diagnostics. */
-export const pdfBytesResident = () => bytesCache.bytes

@@ -7,29 +7,12 @@ let nameOrder: 'last-first' | 'first-last' = 'last-first'
 vi.mock('./deploymentConfig', () => ({ rosterNameOrder: () => nameOrder }))
 afterEach(() => { nameOrder = 'last-first' })
 
-import { abbreviateName, assignedPersonIds, canonicalName, personIdForName, presentCount, resolvePersonName, linkTrupps, rosterFromList, rosterIdByName, truppSlots } from './personnel'
+import { abbreviateName, assignedPersonIds, canonicalName, personIdForName, presentCount, linkTrupps, rosterFromList, rosterIdByName, truppSlots } from './personnel'
 
 const person = (id: string, displayName: string, active = true): Person => ({ id, displayName, active, updatedAt: '2026-06-23T10:00:00Z' })
 
 const trupp = (over: Partial<Trupp>): Trupp => ({
   id: 't1', name: '', entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', ...over,
-})
-
-describe('resolvePersonName', () => {
-  const roster = rosterFromList([person('p1', 'Müller Hans')])
-
-  it('prefers the snapshot over the roster (historical stability)', () => {
-    expect(resolvePersonName(roster, 'p1', 'Müller H. (alt)')).toBe('Müller H. (alt)')
-  })
-  it('falls back to current roster name when no snapshot', () => {
-    expect(resolvePersonName(roster, 'p1')).toBe('Müller Hans')
-  })
-  it('falls back to the id when person is unknown', () => {
-    expect(resolvePersonName(roster, 'ghost')).toBe('ghost')
-  })
-  it('returns empty string when nothing is given', () => {
-    expect(resolvePersonName(roster)).toBe('')
-  })
 })
 
 describe('assignedPersonIds', () => {

@@ -730,19 +730,6 @@ export function timeAtFraction(fraction: number, span: Span): number {
   return Math.max(span.from, Math.min(span.to, Math.round(raw / SLOT_MS) * SLOT_MS))
 }
 
-/** A shift begun by tapping empty lane at `at` — one default watch, clipped to the window's end. */
-export function shiftAt(personId: string, at: number, hours: number, span: Span): Shift {
-  const want = Number.isFinite(at) ? at : span.from
-  const from = Math.max(span.from, Math.min(want, span.to - SLOT_MS))
-  const to = Math.min(from + (Number.isFinite(hours) ? hours : 1) * HOUR, span.to)
-  return {
-    id: newId('sh'),
-    personId,
-    from: new Date(from).toISOString(),
-    to: new Date(Math.max(to, from + SLOT_MS)).toISOString(),
-  }
-}
-
 export type DragEdge = 'move' | 'from' | 'to'
 
 /**
