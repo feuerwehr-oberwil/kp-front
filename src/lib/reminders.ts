@@ -7,6 +7,9 @@
 //                  `dueAt` — a Meldung that moves the Wiedervorlage («Werkhof meldet 20 Minuten»)
 //   - `snoozed`  → a later row with a new `dueAt` (timed Erinnerungen only)
 //   - `done`     → a later row that closes it
+//   - `reopened` → a later row that takes a `done` back («Rückgängig» on the erledigt toast, or ↶,
+//                  23.09.2026). The done row STAYS — the record says it was ticked off and then
+//                  reopened, in that order — and the item is open again with the due it had.
 // The open set, each item's *effective* due time and its latest Meldung are derived here — never
 // stored as mutable fields. This keeps everything correct under offline merge + replay for free.
 //
@@ -72,7 +75,7 @@ export interface OpenReminder {
  */
 export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: string | null): OpenReminder[] {
   const created = new Map<string, TimelineEvent>()
-  const latest = new Map<string, { op: 'created' | 'snoozed' | 'done'; dueAt?: string }>()
+  const latest = new Map<string, { op: 'created' | 'snoozed' | 'done' | 'reopened'; dueAt?: string }>()
   const urgency = new Map<string, boolean>()
   const notes = new Map<string, PendenzNote[]>()
 
@@ -102,7 +105,8 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
       created.set(r.id, e)
       latest.set(r.id, { op: 'created', dueAt: r.dueAt })
     } else {
-      // a snooze without an explicit dueAt keeps the previous due
+      // a snooze without an explicit dueAt keeps the previous due — and so do `done` and
+      // `reopened`, which is what hands a reopened Erinnerung back the Fälligkeit it had
       latest.set(r.id, { op: r.op, dueAt: r.dueAt ?? latest.get(r.id)?.dueAt })
     }
   }

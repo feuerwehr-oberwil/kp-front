@@ -44,6 +44,19 @@ describe('deriveReminders', () => {
     expect(deriveReminders(tl)).toHaveLength(0)
   })
 
+  // «Rückgängig» on an erledigt toast is a NEW row beside the done one — append-only — and the
+  // item is open again with the due time it had
+  it('reopens an item a later `reopened` row takes back, keeping its due time', () => {
+    const tl = [
+      row('r3', 'wieder offen', { op: 'reopened', id: 'a' }),
+      row('r2', 'erledigt', { op: 'done', id: 'a' }),
+      row('r1', 'Lüfter prüfen', { op: 'created', id: 'a', dueAt: '2026-06-24T03:10:00.000Z' }),
+    ]
+    expect(deriveReminders(tl)).toMatchObject([{ id: 'a', rowId: 'r1', dueAt: '2026-06-24T03:10:00.000Z' }])
+    // …and a done AFTER the reopen closes it again: the latest op wins
+    expect(deriveReminders([row('r4', 'erledigt', { op: 'done', id: 'a' }), ...tl])).toHaveLength(0)
+  })
+
   it('applies the latest snooze as the effective due time', () => {
     const tl = [
       row('r2', '+10', { op: 'snoozed', id: 'a', dueAt: '2026-06-24T03:20:00.000Z' }),

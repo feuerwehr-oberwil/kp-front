@@ -79,6 +79,10 @@ the same rows:
   check-off ring in the Verlauf writes. One obligation per row: since 23.08. **every** due
   Wiedervorlage has its own row on the strip («2 Erinnerungen fällig» named two and
   completed one).
+  Since 23.09.2026 both doors are **confirm-with-undo** (`useReminders` · `completeReminder`):
+  the toast «Pendenz erledigt: … · Rückgängig» (and ↶) appends **«Pendenz wieder offen: …»** /
+  «Erinnerung wieder offen: …» (`reminder.op: 'reopened'`) beside the done row, which stays;
+  ↷ appends a fresh done row. The toast drops its ↶ entry, so the act is never taken back twice.
 - The **Atemschutz alarm row** reads the same fold that plays the sound and writes nothing
   new – the alarm's Verlauf row is created once per cycle as before (see above).
 - **Swiping away (✕), take-over navigation, «Zum Trupp»** write nothing – view, not

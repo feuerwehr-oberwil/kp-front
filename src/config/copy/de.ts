@@ -1459,6 +1459,9 @@ export const de = {
     openRemindersHead: 'Pendenzen',
     openReminderGo: 'Zum Eintrag springen',
     doneLog: 'Erinnerung erledigt: {text}',
+    // «Rückgängig» on an erledigt toast (or ↶) appends this beside the done row — append-only,
+    // the done row stays (lib/useReminders · completeReminder)
+    reopenLog: 'Erinnerung wieder offen: {text}',
     snoozeLog: 'Erinnerung +{mins} min: {text}',
     // Verlauf reminder row: due label + done toggle (checklist-style)
     dueAtLabel: 'fällig {t}',
@@ -1497,6 +1500,7 @@ export const de = {
     pendenzUrgentSaved: 'Pendenz erfasst – dringend',
     // an undatierte Pendenz never called itself an Erinnerung, so its done row must not either
     pendenzDoneLog: 'Pendenz erledigt: {text}',
+    pendenzReopenLog: 'Pendenz wieder offen: {text}',
     // Meldungen ON a Pendenz — written in the ORDINARY composer, opened from the item's row
     noteOnTitle: 'Meldung',
     noteOnLabel: 'zu ',

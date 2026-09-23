@@ -2940,15 +2940,19 @@ export function IncidentWorkspace({
     (ev) => {
       pushEvent({ icon: ev.icon, text: ev.text, kind: 'reminder', surface: mode === 'plans' ? 'plan' : 'map', planId: mode === 'plans' ? activePlanId : undefined, reminder: ev.reminder })
       // mirror the create emit (see addJournal) so the hash-chained audit / replay carry the FULL
-      // reminder lifecycle — done + snooze — not just creation.
-      emit(ev.reminder.op === 'done' ? 'reminder.done' : 'reminder.snooze', { id: ev.reminder.id, ...(ev.reminder.dueAt ? { dueAt: ev.reminder.dueAt } : {}) })
+      // reminder lifecycle — done + snooze + reopen — not just creation.
+      const op = ev.reminder.op
+      emit(op === 'done' ? 'reminder.done' : op === 'reopened' ? 'reminder.reopen' : 'reminder.snooze', { id: ev.reminder.id, ...(ev.reminder.dueAt ? { dueAt: ev.reminder.dueAt } : {}) })
     },
     {
       dueTitle: appConfig.copy.journal.dueTitle, doneLog: appConfig.copy.journal.doneLog,
       pendenzDoneLog: appConfig.copy.journal.pendenzDoneLog, snoozeLog: appConfig.copy.journal.snoozeLog,
+      reopenLog: appConfig.copy.journal.reopenLog, pendenzReopenLog: appConfig.copy.journal.pendenzReopenLog,
     },
     !replayActive,
     incidentMeta.closed_at,
+    // «Erledigt» is confirm-with-undo and joins the one timeline (useReminders · completeReminder)
+    undoHist,
   )
 
   // «wieder in …» on a done row (Journal · onReminderAgain): re-raise a closed item as a FRESH

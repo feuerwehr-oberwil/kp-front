@@ -125,7 +125,8 @@ to prod.
     Atemschutz-Tafel, the Gebäude one-shots (floor add/remove, building replace, Drehung),
     Rapport-Beilagen, Ansichten (`rememberOneShot`).
   - *Confirm-with-undo toast* – the fast door beside the header pair, for a one-shot that
-    destroys something (a Geschoss, a Beilage, an Anwesenheits-Block). It does the inverse
+    destroys something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's «Erledigt» —
+    whose inverse is an APPENDED `reopened` row, since 23.09.2026). It does the inverse
     itself and **drops its timeline entry** (`push` returns the dropper), so an act is never
     undoable twice.
   Two rules that fall out of it: a surface that persists on every **keystroke** classifies its

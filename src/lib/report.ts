@@ -465,6 +465,9 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
     if (r.dueAt) due.set(r.id, r.dueAt)
     if (r.op === 'created') created.set(r.id, e)
     else if (r.op === 'done') doneAt.set(r.id, clock(e))
+    // an «Erledigt» taken back (lib/reminders · reopened): open again on paper too, until a later
+    // done row closes it with ITS time
+    else if (r.op === 'reopened') doneAt.delete(r.id)
     else if (r.op === 'note') notes.set(r.id, [...(notes.get(r.id) ?? []), { timeLabel: clock(e), text: e.text }])
   }
   return [...created.entries()]

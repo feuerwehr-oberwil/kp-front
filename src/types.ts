@@ -407,14 +407,17 @@ export interface TimelineEvent {
    *  keying it to the tag would turn every Auftrag row already written into an eternally open
    *  Pendenz, in live and archived incidents alike.
    *  ⚠️ `note` is forward-compatible by construction: the reducer treats everything that is not
-   *  `done` as still open, so an older client meeting one fails in the safe direction. */
+   *  `done` as still open, so an older client meeting one fails in the safe direction.
+   *  `reopened` (23.09.2026) is the «Rückgängig» of an «Erledigt» — the correction appended beside
+   *  the done row, never a deletion of it — and rides the same tolerance: to an older client (and
+   *  to the backend's push sweep) it is simply «not done». */
   reminder?: {
     /** ⚠️ `dueAt` on a `note` is a MOVED Wiedervorlage, not a second reminder: a Meldung that
      *  reports «Werkhof meldet 20 Minuten» is exactly the moment the item's own clock shifts. It
      *  rides on the note rather than on a `snoozed` row of its own, because the sentence has to
      *  stay in the item's thread (lib/reminders · the note branch reads the dueAt and leaves the
      *  open/closed state alone). */
-    op: 'created' | 'done' | 'snoozed' | 'note'; id: string; dueAt?: string
+    op: 'created' | 'done' | 'snoozed' | 'note' | 'reopened'; id: string; dueAt?: string
     /** Pendenz only: sorts to the top of the list and prints a marker.
      *  ⚠️ Written by `created` alone. The composer offered it on a Meldung for a while, as a
      *  «normal / dringend» switch — but a Meldung reports on an item, and a control sitting on one

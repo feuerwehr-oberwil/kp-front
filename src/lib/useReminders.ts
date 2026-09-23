@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TimelineEvent } from '../types'
+import { appConfig } from '../config/appConfig'
 import { deriveReminders, isDue, type OpenReminder } from './reminders'
 import { notify, startAlarm, stopAlarm } from './alarm'
+import { toast } from './ui'
+import type { UndoTimeline } from './undoTimeline'
 
 /** payload App turns into an appended timeline row (keeps all timeline writes in one place) */
 export interface ReminderEvent {
@@ -19,6 +22,60 @@ interface Copy {
   pendenzDoneLog: string
   /** Verlauf text for a snooze row, `{mins}` + `{text}` */
   snoozeLog: string
+  /** Verlauf text for the row that takes a done back, on a timed Erinnerung / a Pendenz */
+  reopenLog: string
+  pendenzReopenLog: string
+}
+
+/**
+ * «Erledigt» with the house confirm-with-undo (decided 23.09.2026, option A of the UX review).
+ *
+ * Ticking a Pendenz off was the one irreversible tap on the Verlauf: a 26px ring, no ask, and the
+ * item left the pinned block for good. Now it is the same act as every other one-shot that makes
+ * something disappear — it happens at once, a toast says «Pendenz erledigt: {text} · Rückgängig»,
+ * and the act sits on the Einsatz's ONE undo timeline for ↶ as well. Both doors (the ring in the
+ * Verlauf, «Erledigt» on the Meldeleiste) come through here.
+ *
+ * ⚠️ APPEND-ONLY both ways. The Verlauf never loses a row, so «Rückgängig» is not a removal of the
+ * done row but a NEW `reopened` row beside it («Pendenz wieder offen: …»), and ↷ appends a fresh
+ * done row. `deriveReminders` folds the sequence; nothing is edited.
+ * ⚠️ Each direction checks the item's CURRENT state first (`isOpen`) and does nothing — returning
+ * `false`, the timeline's soft failure — when it already stands where the step would put it: a
+ * colleague may have reopened or closed it meanwhile, and a second «wieder offen» row for an item
+ * that is open is a record of something that did not happen.
+ * ⚠️ The toast's «Rückgängig» does the inverse itself and DROPS the timeline entry, so the act
+ * is never undoable twice (AGENTS.md · confirm-with-undo).
+ */
+export function completeReminder(r: OpenReminder, deps: {
+  append: (ev: ReminderEvent) => void
+  /** is this item open RIGHT NOW — read at step time, never at push time */
+  isOpen: (id: string) => boolean
+  copy: Pick<Copy, 'doneLog' | 'pendenzDoneLog' | 'reopenLog' | 'pendenzReopenLog'>
+  timeline?: Pick<UndoTimeline, 'push'>
+  /** the toast; `onUndo` is its «Rückgängig» */
+  announce?: (text: string, onUndo: () => void) => void
+}): void {
+  const { append, isOpen, copy, timeline, announce } = deps
+  // ⚠️ Two wordings, picked off the item itself: an undatierte Pendenz never called itself an
+  // Erinnerung, so «Erinnerung erledigt: Absperrmaterial» would name a thing that never existed.
+  const doneText = (r.dueAt ? copy.doneLog : copy.pendenzDoneLog).replace('{text}', r.text)
+  const reopenText = (r.dueAt ? copy.reopenLog : copy.pendenzReopenLog).replace('{text}', r.text)
+  const close = () => append({ icon: 'check', text: doneText, reminder: { op: 'done', id: r.id } })
+  close()
+  // 'undo', the glyph of a taking-back; the Bereich still comes from the `reminder` payload
+  // (report · journalArea answers «Pendenz» before it ever looks at the icon)
+  const reopen = () => {
+    if (isOpen(r.id)) return false
+    append({ icon: 'undo', text: reopenText, reminder: { op: 'reopened', id: r.id } })
+    return true
+  }
+  const redo = () => {
+    if (!isOpen(r.id)) return false
+    close()
+    return true
+  }
+  const drop = timeline?.push({ domain: 'pendenz', label: doneText, undo: reopen, redo }) ?? (() => {})
+  announce?.(doneText, () => { if (reopen()) drop() })
 }
 
 /** Same ids in the same order — the due set is derived from an ordered `open`, so order is stable. */
@@ -42,8 +99,15 @@ export function useReminders(
   enabled = true,
   /** the Einsatzende — reminders due before it are expired by closure (no stale alarms on reopen) */
   closedAt?: string | null,
+  /** the Einsatz's undo timeline — an «Erledigt» joins it (completeReminder) */
+  undo?: Pick<UndoTimeline, 'push'>,
 ) {
   const open = useMemo(() => deriveReminders(timeline, closedAt), [timeline, closedAt])
+  // ⚠️ Both read through refs: an undo entry and a toast outlive the render that made them, and
+  // must see the item's state — and the writer — as they are when the step is TAKEN.
+  const openRef = useRef(open)
+  const onEventRef = useRef(onEvent)
+  useEffect(() => { openRef.current = open; onEventRef.current = onEvent })
 
   // the host's verdict — ids, so a re-derived `open` (a new row anywhere) never has to wait for
   // the next tick to show the right banner
@@ -51,12 +115,17 @@ export function useReminders(
   const onDue = useCallback((ids: readonly string[]) => setDueIds((prev) => (sameIds(prev, ids) ? prev : ids)), [])
   const due = useMemo(() => open.filter((r) => dueIds.includes(r.id)), [open, dueIds])
 
-  // ⚠️ Two wordings, picked off the item itself: an undatierte Pendenz never called itself an
-  // Erinnerung, so «Erinnerung erledigt: Absperrmaterial» would name a thing that never existed.
+  // confirm-with-undo — see completeReminder above
+  const { doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog } = copy
   const markDone = useCallback((r: OpenReminder) => {
-    const tpl = r.dueAt ? copy.doneLog : copy.pendenzDoneLog
-    onEvent({ icon: 'check', text: tpl.replace('{text}', r.text), reminder: { op: 'done', id: r.id } })
-  }, [onEvent, copy.doneLog, copy.pendenzDoneLog])
+    completeReminder(r, {
+      append: (ev) => onEventRef.current(ev),
+      isOpen: (id) => openRef.current.some((o) => o.id === id),
+      copy: { doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog },
+      timeline: undo,
+      announce: (text, onUndo) => toast(text, { icon: 'check', action: { label: appConfig.copy.undo, onClick: onUndo } }),
+    })
+  }, [doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog, undo])
 
   // ⚠️ 'bell', not 'clock' (23.08.). On the Verlauf the 26px disc IS the Bereich now, and 'clock'
   // was also the glyph the QR poster writes on an Anwesenheits-Zeitenzeile — one glyph, two
