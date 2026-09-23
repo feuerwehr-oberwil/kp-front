@@ -17,7 +17,7 @@
  *  that is absent draws no button. That is how the plan board keeps its chip colour in the
  *  SelectionBar (no swatch here), and how a read-only Karte shows the pill with no bar at all.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
@@ -130,49 +130,62 @@ const BOTTOM_LANES = '.wb-botleft, .wb-tools, .wb-dock'
 function useBarPlacement(on: boolean) {
   const ref = useRef<HTMLDivElement | null>(null)
   const [place, setPlace] = useState({ up: false, dx: 0 })
+  /** the placement last handed to React — what `measure` compares against */
+  const placed = useRef(place)
+  /**
+   * ⚠️ `measure` sets state ONLY when the placement really changed (24.09.2026). It runs after
+   * every render, and it used to call `setPlace` every time — with an updater that returned the
+   * old value, which React still has to schedule and render to find out. Harmless alone; inside
+   * the live-GPS render storm of 23.09.2026 it was the update that tipped React's nested-update
+   * counter, so #185 was thrown HERE, in the tapped Trupp's pill, and took the Karte down.
+   * Compared against a ref, an unchanged measurement is no update at all.
+   */
+  const measure = useCallback(() => {
+    const el = ref.current
+    const anchor = el?.parentElement
+    if (!el || !anchor) return
+    const stage = el.closest('.wb-canvas')?.getBoundingClientRect()
+    const ceil = Math.max(stage?.top ?? 0, 0)
+    let floor = Math.min(stage?.bottom ?? window.innerHeight, window.innerHeight)
+    for (const lane of Array.from(document.querySelectorAll(BOTTOM_LANES))) {
+      const r = lane.getBoundingClientRect()
+      if (r.height > 0 && getComputedStyle(lane).position === 'fixed') floor = Math.min(floor, r.top)
+    }
+    const a = anchor.getBoundingClientRect()
+    const bar = el.getBoundingClientRect()
+    // whatever hangs under the bar counts towards the room the bar needs — it moves with it
+    const panel = anchor.querySelector('.wb-resource-connections')?.getBoundingClientRect()
+    const need = BAR_GAP + bar.height + (panel?.height ? panel.height + 4 : 0) + EDGE_MARGIN
+    const below = floor - a.bottom
+    const up = below < need && a.top - ceil > below
+    // ⚠️ The nudge is computed ABSOLUTELY — from where the bar would sit UNshifted — never as a
+    // correction to the shift already applied. Reading its own effect back makes the pass depend
+    // on the browser having laid the last one out, and one environment that does not (jsdom
+    // measures every rect as zero) walks the bar off the screen one pass per render.
+    const minX = (stage?.left ?? 0) + EDGE_MARGIN
+    const maxX = (stage?.right ?? window.innerWidth) - EDGE_MARGIN
+    const home = a.left + a.width / 2 - bar.width / 2
+    let dx = 0
+    if (home + bar.width > maxX) dx = maxX - bar.width - home
+    if (home + dx < minX) dx = minX - home
+    dx = Math.round(dx)
+    if (placed.current.up === up && placed.current.dx === dx) return
+    placed.current = { up, dx }
+    setPlace(placed.current)
+  }, [])
   // no dep array on purpose: every render re-measures, which is what a dragged or re-labelled
-  // marker needs. The state guard below makes it converge in one extra pass at most.
+  // marker needs — and costs nothing when nothing moved (see `measure`)
+  useLayoutEffect(() => { if (on) measure() })
+  // …while the listeners are bound once per opening, not re-bound on every render
   useLayoutEffect(() => {
     if (!on) return
-    const measure = () => {
-      const el = ref.current
-      const anchor = el?.parentElement
-      if (!el || !anchor) return
-      const stage = el.closest('.wb-canvas')?.getBoundingClientRect()
-      const ceil = Math.max(stage?.top ?? 0, 0)
-      let floor = Math.min(stage?.bottom ?? window.innerHeight, window.innerHeight)
-      for (const lane of Array.from(document.querySelectorAll(BOTTOM_LANES))) {
-        const r = lane.getBoundingClientRect()
-        if (r.height > 0 && getComputedStyle(lane).position === 'fixed') floor = Math.min(floor, r.top)
-      }
-      const a = anchor.getBoundingClientRect()
-      const bar = el.getBoundingClientRect()
-      // whatever hangs under the bar counts towards the room the bar needs — it moves with it
-      const panel = anchor.querySelector('.wb-resource-connections')?.getBoundingClientRect()
-      const need = BAR_GAP + bar.height + (panel?.height ? panel.height + 4 : 0) + EDGE_MARGIN
-      const below = floor - a.bottom
-      const up = below < need && a.top - ceil > below
-      // ⚠️ The nudge is computed ABSOLUTELY — from where the bar would sit UNshifted — never as a
-      // correction to the shift already applied. Reading its own effect back makes the pass depend
-      // on the browser having laid the last one out, and one environment that does not (jsdom
-      // measures every rect as zero) walks the bar off the screen one pass per render.
-      const minX = (stage?.left ?? 0) + EDGE_MARGIN
-      const maxX = (stage?.right ?? window.innerWidth) - EDGE_MARGIN
-      const home = a.left + a.width / 2 - bar.width / 2
-      let dx = 0
-      if (home + bar.width > maxX) dx = maxX - bar.width - home
-      if (home + dx < minX) dx = minX - home
-      dx = Math.round(dx)
-      setPlace((p) => (p.up === up && p.dx === dx ? p : { up, dx }))
-    }
-    measure()
     window.addEventListener('resize', measure)
     window.addEventListener('scroll', measure, true)
     return () => {
       window.removeEventListener('resize', measure)
       window.removeEventListener('scroll', measure, true)
     }
-  })
+  }, [on, measure])
   return [ref, place] as const
 }
 

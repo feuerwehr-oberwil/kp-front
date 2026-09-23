@@ -728,3 +728,46 @@ describe('Gebäude objects edited through another module', () => {
     expect(result.current.canUndo).toBe(false)
   })
 })
+
+/* The writers keep ONE identity for the life of the store (24.09.2026). The live-GPS pass listed
+ * `setDocRaw` in its effect deps, and a new `setDocRaw` per render re-ran it after every render —
+ * the render storm of the Übung on 23.09.2026. Stable, but still the LATEST render's behaviour. */
+describe('useObjectStore — stable writers', () => {
+  const WRITERS = ['setDocRaw', 'setBoard', 'commit', 'beginSheetStep', 'endSheetStep', 'beginDrag', 'endDrag', 'undo', 'redo', 'rebake', 'replaceObjects'] as const
+
+  it('hands out the same writer functions across renders and writes', () => {
+    const { result, rerender } = store()
+    const first = Object.fromEntries(WRITERS.map((k) => [k, result.current[k]]))
+    act(() => result.current.commit((d) => ({ ...d, entities: [ent('e1')] })))
+    act(() => result.current.setDocRaw((d) => ({ ...d, entities: [...d.entities, ent('e2')] })))
+    act(() => result.current.setBoard((b) => ({ ...b, modul2: [...(b.modul2 ?? []), anno('a1')] })))
+    rerender()
+    for (const k of WRITERS) expect(result.current[k], k).toBe(first[k])
+    expect(result.current.doc.entities.map((e) => e.id)).toEqual(['e1', 'e2', 'a1'])
+  })
+
+  it('…and each one still acts with the latest render: readOnly, the undo stack, the anchor reporter', () => {
+    const seen: string[] = []
+    const { result, rerender } = renderHook(
+      ({ readOnly, tag }: { readOnly: boolean; tag: string }) => useObjectStore([], readOnly, {
+        getFits: () => FITS, defaultLayer: 'taktisch', fitsVersion: 0,
+        onAnchorChange: (c) => { seen.push(`${tag}:${c.map((x) => x.id).join()}`) },
+      }),
+      { initialProps: { readOnly: false, tag: 'first' } },
+    )
+    const { commit, undo, setBoard, setDocRaw } = result.current
+    act(() => commit((d) => ({ ...d, entities: [ent('e1')] })))
+    // the stack the stable `undo` reads is this render's, not the mount's empty one
+    act(() => { expect(undo()).toBe(true) })
+    expect(result.current.doc.entities).toEqual([])
+    // the reporter is the one handed in by the latest render
+    rerender({ readOnly: false, tag: 'second' })
+    act(() => setBoard(() => ({ modul2: [anno('s1')] })))
+    act(() => setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => ({ ...e, coord: [e.coord[0] + 0.001, e.coord[1]] as [number, number] })) })))
+    expect(seen).toEqual(['second:s1'])
+    // and a store that turned read-only refuses through the very same `commit`
+    rerender({ readOnly: true, tag: 'second' })
+    act(() => commit((d) => ({ ...d, entities: [...d.entities, ent('e9')] })))
+    expect(result.current.doc.entities.map((e) => e.id)).toEqual(['s1'])
+  })
+})

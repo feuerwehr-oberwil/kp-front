@@ -48,6 +48,7 @@ import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
 import { useObjectStore } from './lib/useObjectStore'
+import { useGpsFollow } from './lib/useGpsFollow'
 import { useUndoTimeline } from './lib/useUndoTimeline'
 import type { UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
@@ -2536,39 +2537,15 @@ export function IncidentWorkspace({
       emit('draw.edit', { id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
     })
   }
-  // External GPS movement is safety-guarded per connection. Safe samples update only the small
-  // lastSafe field; continuous/Spur samples intentionally edit and simplify the line geometry.
-  // No hover/sample audit spam: the operator's follow/pause choice is emitted by DrawEditor.
-  useEffect(() => {
-    if (replayActive || !liveVehicles.length) return
-    setDocRaw((cur) => {
-      let changed = false
-      const next = cur.drawings.map((d) => {
-        if (d.kind !== 'line') return d
-        let drawing = d
-        for (const endpoint of ['start', 'end'] as const) {
-          const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
-          const a = drawing[key]
-          if (a?.target.kind !== 'object' || !a.target.live || !a.gps) continue
-          const target = liveVehicles.find((e) => e.id === a.target.id)
-          if (!target || a.gps.state === 'paused') continue // known Traccar positions remain visible; no prominent missing-signal alarm
-          if (a.gps.state === 'guarded') {
-            const exceeded = haversineM(a.gps.confirmedAt, target.coord) >= 20
-            const gps = exceeded ? { ...a.gps, state: 'paused' as const } : { ...a.gps, lastSafe: target.coord }
-            drawing = { ...drawing, [key]: { ...a, gps } }; changed = true
-          } else {
-            const coords = applyRouting(drawing.coords, endpoint, target.coord, 'trace', 0.000008)
-            drawing = { ...drawing, coords, [key]: { ...a, gps: { ...a.gps, lastSafe: target.coord } } }; changed = true
-          }
-        }
-        return drawing
-      })
-      return changed ? { ...cur, drawings: next } : cur
-    // ⚠️ `gesture: false` — a poll is not a hand. This pass rewrites an attached Leitung's
-    // geometry every few seconds, and read as a hand-placement it would tear a plan-drawn hose
-    // off its sheet with nobody touching anything (lib/useObjectStore · setDocRaw).
-    }, { gesture: false })
-  }, [liveVehicles, replayActive, setDocRaw])
+  // Attached Leitung ends follow their live vehicles (lib/useGpsFollow).
+  // ⚠️ 24.09.2026 — this pass was the render storm of the Übung on 23.09.2026 (React #185 on
+  // every device with the vehicle feed, and the Karte torn down under a tapped Trupp): it wrote a
+  // fresh drawing on every run whether or not anything had moved, and it ran after every render
+  // because `setDocRaw` was a new function each time. Both halves are fixed at their root — the
+  // pass is idempotent, the store's writers are stable — and both have to stay that way. Gated on
+  // `canEditIncident` like the other machine writer on the feed below: a device that cannot
+  // write the tactical document only reads the coupling, and a replay is the past.
+  useGpsFollow({ liveVehicles, enabled: canEditIncident, setDocRaw })
 
   // «Wann ist das TLF weggefahren?» — the feed answers it into the Verlauf, because an hour
   // later nobody can. Reads the RAW feed (`gpsVehicles`), not the overridden view: a vehicle
@@ -5075,7 +5052,8 @@ export function IncidentWorkspace({
           onMarquee={onMarquee}
           onGroupTransform={transformGroup}
         />
-      )) : (
+      // the Karte's own card offers no «Zur Karte»: that button would lead to the view it is on
+      ), false) : (
         <Splash inApp sub={appConfig.copy.loadingSubtitle} />
       )}
 
