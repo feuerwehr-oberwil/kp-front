@@ -5,6 +5,7 @@ import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionM
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
+import { newId } from '../lib/ids'
 import { Palette } from './Palette'
 import { FloorPage } from './FloorPage'
 import { usePlanPaperMm } from './usePlanPaper'
@@ -1099,7 +1100,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (readOnly || selIds.length > 1) return
     const src = annos.find((a) => a.id === selId)
     if (!src) return
-    const id = `${DUP_PREFIX[src.kind]}${Date.now()}`
+    const id = newId(DUP_PREFIX[src.kind])
     const copy: BoardAnno = {
       ...src, id, trail: undefined,
       ...(src.pts ? { pts: src.pts.map(([x, y, floor]): BoardPoint => [x + DUP_OFFSET_N, y + DUP_OFFSET_N, floor ?? src.floor ?? 0]) } : {}),
@@ -1391,7 +1392,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // create a resource chip — linked to a tracked Trupp when one is picked, else a generic team
   const placeTeamChip = (x: number, y: number, floor: number, trupp?: Trupp) => {
     const teams = annos.filter((a) => a.kind === 'resource').length
-    const id = `r${Date.now()}`
+    const id = newId('r')
     // generic chips are numbered from the ONE counter of the Einsatz — every surface's chips
     // and every registered Trupp — so a second «Trupp 1» cannot appear anywhere (placedTeamNames)
     const name = trupp ? trupp.name : nextTeamName([
@@ -1458,7 +1459,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     if (tool === 'text') {
-      const id = `t${Date.now()}`
+      const id = newId('t')
       // carries whatever was chosen in the armed dock; the 'm'/off/no-colour defaults stay
       // ABSENT rather than written out, so an untouched note is byte-identical to a legacy one
       add({
@@ -1478,7 +1479,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     if (tool === 'symbol') {
       if (!pending) { setPaletteOpen(true); return }
-      const id = `s${Date.now()}`; const s = pending
+      const id = newId('s'); const s = pending
       // shared seeding (label / subtitle / fields) — identical to the Lage placement
       // path, so a plan symbol now carries the same editable structure as a map one
       add({ id, kind: 'symbol', x, y, floor, ...seedSymbolProps(s, sym.symbols) })
@@ -1492,7 +1493,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     if (tool === 'shape') {
       if (!pendingShape) { setPaletteOpen(true); return }
-      const id = `sh${Date.now()}`; const k = pendingShape
+      const id = newId('sh'); const k = pendingShape
       const def = SHAPE_DEFS[k]
       const name = appConfig.copy.shapes.names[k] ?? appConfig.copy.shapes.kindLabel
       // same defaults + naming as the Lage placement path; size is normalized to the plan width
@@ -1655,7 +1656,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // identically. Returns the anno so the tap-away auto-commit (releaseDraft) can offer its undo;
   // addLine below is the interactive wrapper (select + drop to pan so the style editor opens).
   const commitLine = (pts: BoardPoint[]): BoardAnno => {
-    const id = `l${Date.now()}`
+    const id = newId('l')
     const floor = pts[0]?.[2] ?? draftFloor.current
     const anno: BoardAnno = { id, kind: 'draw', pts, floor, color, width, ...draftAttachments.current,
       dashed: dashed || undefined, ...(marker ? { marker } : {}), ...(lineArrow ? { arrow: true } : {}) }
@@ -1675,7 +1676,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // where a finished area auto-selects for reshaping).
   // ⚠️ an area lives on ONE storey: the caller pins every vertex to the same floor.
   const commitArea = (pts: BoardPoint[]): BoardAnno => {
-    const id = `a${Date.now()}`
+    const id = newId('a')
     const floor = pts[0]?.[2] ?? draftFloor.current
     const anno: BoardAnno = { id, kind: 'area', pts, floor, color, width, dashed }
     add(anno)
@@ -1688,7 +1689,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // through the same `add`. Drops to pan with the circle selected so its radius stepper is right
   // there, exactly as the map's does.
   const addCircle = (x: number, y: number, floor: number, radiusN: number) => {
-    const id = `c${Date.now()}`
+    const id = newId('c')
     add({ id, kind: 'circle', x, y, floor, radiusN, color: appConfig.drawing.circleColor,
       dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity })
     log('circle', appConfig.copy.whiteboard.placeCircle, { annoId: id, x, y, floor })

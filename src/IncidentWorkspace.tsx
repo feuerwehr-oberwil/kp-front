@@ -26,7 +26,7 @@ import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } fr
 import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ReportAttachment, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
-import { newId } from './lib/ids'
+import { newId, newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
@@ -945,7 +945,6 @@ export function IncidentWorkspace({
   // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
   const { swapPhoto, overlaySession: overlayRow, appendPatch: patchRow } = journal
   const timeline = journal.rows
-  const rowSeq = useRef(0) // per-mount suffix so same-millisecond rows get distinct ids
   const [recent, setRecent] = useState<string[]>(init.recent)
   // most-recently-used symbols (shared by both surfaces' palettes) — newest first, deduped, capped
   const addRecent = (name: string) => setRecent((r) => [name, ...r.filter((x) => x !== name)].slice(0, 12))
@@ -2466,9 +2465,10 @@ export function IncidentWorkspace({
     // `serverNowIso()` IS `Date.now()`, so nothing changes for a station that never reached the
     // server.
     const at = atOverride ?? serverNowIso()
-    // a monotonic counter, not randomness: two rows in the same millisecond must never share
-    // an id — the server's idempotency skip would silently swallow the second (legal record)
-    journal.append({ id: id ?? `e${Date.now()}-${rowSeq.current++}`, t: formatTime(new Date(at)), at, ...rest })
+    // ⚠️ Two rows in the same millisecond must never share an id — the server's idempotency skip
+    // silently swallows the second (legal record). A per-mount counter kept ONE device's rows
+    // apart but not two devices' (post-mortem 23.09.2026): newRowId adds the random tail (lib/ids).
+    journal.append({ id: id ?? newRowId(), t: formatTime(new Date(at)), at, ...rest })
   }
   // map events keep the positional signature, so every existing call site is unchanged
   // `opts` carries the two things a row may need that are not part of its sentence: `rowId`
@@ -2751,7 +2751,7 @@ export function IncidentWorkspace({
         // words the row would be a blank line with a play button. (Rows already written with the
         // placeholder are cleaned at render — lib/verlauf · rowText.)
         : d.audioUrl ? `${appConfig.copy.log.audioNote}${d.secs ? ` (${d.secs}s)` : ''}` : photoUrls.length ? '' : appConfig.copy.log.journalNote)
-    const rowId = `e${Date.now()}-j`
+    const rowId = newRowId('j')
     // ── Pendenz / Meldung ────────────────────────────────────────────────────────────────────
     // ⚠️ The lifecycle event rides on THIS row — the entry IS the Pendenz. «Auftrag · Trupp 2
     // entraucht Treppenhaus» is both the record and the open item; there is no shadow row.
@@ -2767,7 +2767,7 @@ export function IncidentWorkspace({
     // the hash-chained audit got a `reminder.create` for an id that exists in no row at all, and
     // the `reminder.note` event never fired: the one feature this change adds, corrupting the
     // record it is supposed to keep.
-    const pendenzId = !d.noteFor && (d.pendenz || d.dueAt) ? `pnd${Date.now()}` : undefined
+    const pendenzId = !d.noteFor && (d.pendenz || d.dueAt) ? newId('pnd') : undefined
     const reminder: TimelineEvent['reminder'] = d.noteFor
       // ⚠️ A Meldung with a due time RE-DATES the item it reports on — «Werkhof meldet 20 Minuten»
       // is exactly the moment to move the Wiedervorlage. It stays op `note`, NOT `snoozed`: the
@@ -2836,11 +2836,10 @@ export function IncidentWorkspace({
   // is the wall-clock instant inside the recording, so it lands (and marks) correctly.
   const [player, setPlayer] = useState<{ row: TimelineEvent; seekSec?: number } | null>(null)
   const playerRow = player?.row ?? null
-  const playerSeq = useRef(0)
   // returns the created row id (the STT confirm flow stamps it onto the draft segment);
   // `quiet` skips the toast for bulk confirms — the row appearing as a marker IS the feedback
   const addPlayerEntry = (text: string, atIso: string, quiet = false): string => {
-    const rowId = `e${Date.now()}-p${playerSeq.current++}`
+    const rowId = newRowId('p')
     pushEvent({
       icon: 'type', text, kind: 'journal', at: atIso,
       surface: playerRow?.surface ?? 'map', planId: playerRow?.planId,
@@ -2880,7 +2879,7 @@ export function IncidentWorkspace({
     // server clock, like the row's own `at` (pushEvent): the Wiedervorlage is read by every
     // device, so a fast tablet must not make it ring early for the whole deployment
     const dueAt = new Date(Date.parse(serverNowIso()) + mins * 60_000).toISOString()
-    const id = `pnd${Date.now()}`
+    const id = newId('pnd')
     pushEvent({
       icon: 'bell', kind: 'reminder',
       // the record row carries the time in words (same template the legacy composer wrote, and
@@ -2901,7 +2900,7 @@ export function IncidentWorkspace({
   const voiceStartCtx = useRef<{ onPlan: boolean; planId: string }>({ onPlan: false, planId: activePlanId })
   const voice = useVoiceMemo(({ url, secs }) => {
     const { onPlan, planId } = voiceStartCtx.current
-    const rowId = `e${Date.now()}-v`
+    const rowId = newRowId('v')
     pushEvent({
       icon: 'mic', text: `${appConfig.copy.log.audioNote} (${secs}s)`, kind: 'audio', audioUrl: url,
       audioMeta: { source: 'recorded', startedAt: new Date(Date.now() - secs * 1000).toISOString(), durationSec: secs },
@@ -3127,7 +3126,7 @@ export function IncidentWorkspace({
       // The time it was saved, not «Ansicht 3». A counter says nothing about which view it
       // is; the clock at least anchors it to what was happening then, and the list is in
       // save order anyway. Renaming stays one tap away for a view worth a real name.
-      const v: CameraView = { id: 'v' + Date.now(), name: formatTime(new Date()), center: view.center, zoom: view.zoom, bearing: view.bearing }
+      const v: CameraView = { id: newId('v'), name: formatTime(new Date()), center: view.center, zoom: view.zoom, bearing: view.bearing }
       setCameraViews((vs) => [...vs, v])
       // …and it comes back off the list with ↶, like everything else on the Karte. An Ansicht is
       // cheap to make and was impossible to unmake except by deleting it through a confirm.

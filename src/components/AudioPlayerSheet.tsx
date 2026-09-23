@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import type { TimelineEvent } from '../types'
 import { Icon } from '../lib/icons'
+import { isPlayerRowId } from '../lib/ids'
 import { Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtDuration } from '../lib/format'
@@ -650,7 +651,7 @@ export function AudioPlayerSheet({ row, events, readOnly, onAddEntry, onAddSecti
                       onClick={(e) => { e.stopPropagation(); setEditMarker({ id: m.row.id, value: m.row.text }) }}
                     ><Icon id="pen" /></button>
                   )}
-                  {onRetractEntry && /-p\d+$/.test(m.row.id) && (
+                  {onRetractEntry && isPlayerRowId(m.row.id) && (
                     // only rows this player created — incident log lines are never deletable
                     <button
                       className="ap-row-edit"

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
+import { newId } from './ids'
 import { currentLineFor, mittelKey } from './mittel'
 import type { MittelDraft } from '../components/MittelView'
 import type { MittelEntry, TimelineEvent } from '../types'
@@ -54,7 +55,9 @@ export function useMittelActions({ mittel, setMittel, authorName, log }: MittelA
     // (Retablierung status retired 2026-07-14 — old entries keep their stored status,
     // new events simply don't carry one; cleanup/defects live outside the system.)
     const at = new Date().toISOString()
-    setMittel((c) => [...c, { id: `m${Date.now()}-${c.length}`, ...probe, menge, note, stock, deleted, at, by: authorName || undefined }])
+    // ⚠️ newId, not `m${Date.now()}-${c.length}`: two devices holding the same list length minted
+    // the same id in one millisecond, and the merge (by id) folded two materials into one (24.09.2026)
+    setMittel((c) => [...c, { id: newId('m'), ...probe, menge, note, stock, deleted, at, by: authorName || undefined }])
     const where = sourceLabel ? ` · ${sourceLabel}` : ''
     // An explicit removal is its own sentence — «auf 0 gesetzt» and «gelöscht» stopped being the
     // same act the moment a zeroed line started surviving on the sheet. It is also the one case

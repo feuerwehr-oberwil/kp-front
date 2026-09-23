@@ -200,9 +200,15 @@ to prod.
     Offered for EVERY ghost with points, not only one with a live Trupp: a loose «Trupp N» chip,
     or one whose Trupp was since removed, returns as the loose marker it then is.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
-  (`<prefix><ms>-<seq><rand>`) for records the app mints and syncs; plain
-  `'p'+Date.now()` survives in older call sites. Offline-friendly, no DB roundtrip;
-  don't reach for `crypto.randomUUID()`.
+  (`<prefix><ms>-<seq><rand>`) for EVERY record the app mints and syncs — Verlauf rows
+  included (`newRowId(tag?)`), Mittel events, patch rows, Gäste, Pendenzen. A per-device
+  counter is not enough: one login on three tablets (Übung 23.09.2026) had each counter at
+  0, and the journal's idempotency-by-id silently dropped the second device's row. Ids
+  already stored keep their old shape (never rewrite them); a reader that needs to know
+  what wrote a row reads the tag (`isPlayerRowId`), never a parsed timestamp. Deliberately
+  DERIVED ids (`ght-<markerId>`, `vp-…`, `azal-`/`azcl-`) stay deterministic — two devices
+  must mint the same one. Offline-friendly, no DB roundtrip; don't reach for
+  `crypto.randomUUID()`.
 - **Incident records are append-only where it matters.** Verlauf is the human operational journal
   plus selected meaningful system events; audit/events record committed domain actions. Don't add
   mutate/delete shortcuts for production records; lifecycle changes (reminders, media transcripts,

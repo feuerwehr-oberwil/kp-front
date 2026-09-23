@@ -13,6 +13,7 @@ import { ApiError } from './api'
 import { __resetIdbForTests } from './idb'
 import * as idb from './idb'
 import { chronological, JournalStore } from './journalStore'
+import { simulatedDevice } from './devices.test-utils'
 import type { TimelineEvent } from '../types'
 
 const INC = 'inc-1'
@@ -756,5 +757,44 @@ describe('JournalStore – awaited manual retry', () => {
       expect(apiPost.mock.calls.map((call) => call[1].entries.length)).toEqual([1, 400])
       store.dispose()
     } finally { write.mockRestore() }
+  })
+})
+
+// Post-mortem 23.09.2026: one editor login on three tablets, and the server journal is idempotent
+// BY row id — a second device's row that happened to share an id was dropped without a word.
+describe('JournalStore — two devices, one millisecond', () => {
+  it('the server keeps both devices’ rows and both patches, and each device sees them all', async () => {
+    const server = fakeServer([row('e1758038400123-0', { text: 'Alarm' })])
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-23T19:04:05.123Z'))
+    try {
+      // each device: its own module graph (counters at 0), its own IndexedDB, its own Math.random
+      const device = async (seed: number) => {
+        globalThis.indexedDB = new IDBFactory()
+        const d = await simulatedDevice(seed, async () => ({ ...(await import('./journalStore')), ...(await import('./ids')) }))
+        const store = new d.mod.JournalStore(INC, false)
+        await store.init([])
+        return { ...d, store }
+      }
+      const a = await device(1)
+      const b = await device(2)
+      const at = new Date().toISOString()
+      a.run(() => a.store.append(row(a.mod.newRowId(), { at, text: 'Trupp 1 drinnen' })))
+      b.run(() => b.store.append(row(b.mod.newRowId(), { at, text: 'Trupp 2 drinnen' })))
+      // …and both annotate the same row in the same millisecond
+      a.run(() => a.store.appendPatch('e1758038400123-0', { transcriptSection: { at: 1, text: 'von A' } }))
+      b.run(() => b.store.appendPatch('e1758038400123-0', { transcriptSection: { at: 2, text: 'von B' } }))
+      await a.store.flush(); await b.store.flush()
+      await a.store.pull(); await b.store.pull()
+
+      expect(server.rows).toHaveLength(5)
+      expect(new Set(server.rows.map((r) => r.row.id)).size).toBe(5)
+      for (const store of [a.store, b.store]) {
+        const shown = store.display()
+        expect(shown.map((r) => r.text).sort()).toEqual(['Alarm', 'Trupp 1 drinnen', 'Trupp 2 drinnen'])
+        expect(shown.find((r) => r.text === 'Alarm')?.transcriptSections?.map((s) => s.text)).toEqual(['von A', 'von B'])
+      }
+      a.store.dispose(); b.store.dispose()
+    } finally { vi.useRealTimers() }
   })
 })

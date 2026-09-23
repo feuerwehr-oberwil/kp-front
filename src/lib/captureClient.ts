@@ -12,6 +12,7 @@ import { ortOf } from './attendanceOrt'
 import { currentLineFor } from './mittel'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm } from './format'
+import { newId } from './ids'
 import { linkSessionHeaders } from './linkMode'
 
 // --- pure mutations -------------------------------------------------------------------
@@ -79,14 +80,15 @@ export interface CaptureLogContext {
 }
 
 export function captureJournalRow(
-  action: CaptureAction, nowIso: string, seq = 0, ctx: CaptureLogContext = {},
+  action: CaptureAction, nowIso: string, ctx: CaptureLogContext = {},
 ): TimelineEvent | null {
   const C = appConfig.copy.capture
   const P = appConfig.copy.preflight
   const row = (icon: string, text: string): TimelineEvent => ({
-    // `qr` prefix + a caller-supplied counter: two rows in the same millisecond must not share
-    // an id, or the server's idempotency skip swallows the second one
-    id: `qr${Date.parse(nowIso) || Date.now()}-${seq}`,
+    // two rows in the same millisecond must not share an id, or the server's idempotency skip
+    // swallows the second one. ⚠️ A per-page counter kept one phone's rows apart but not two
+    // posters' (each starts at 0 — post-mortem 23.09.2026), hence newId's random tail.
+    id: newId('qr'),
     t: hhmm(new Date(nowIso)),
     at: nowIso,
     icon,
@@ -225,12 +227,11 @@ export function attendanceForPickedName(
   return actions
 }
 
-/** monotonic within a session, so two Gäste typed in the same millisecond get distinct ids */
-let guestSeq = 0
 /** The id a new Gast is filed under — the app's own shape (lib/useAttendanceActions · addGuest):
  *  an attendance key that matches no Person row IS the guest. Minted once per commit, by the
- *  caller, because `saveAction` re-applies its action after a 409. */
-export const nextGuestId = (): string => `g${Date.now().toString(36)}-${++guestSeq}`
+ *  caller, because `saveAction` re-applies its action after a 409. `newId`, so two posters at
+ *  the door typing a Gast in the same millisecond do not file both under one key (24.09.2026). */
+export const nextGuestId = (): string => newId('g')
 
 /**
  * What a NAME typed into the poster's Anwesenheit means — resolve first, invent second.
@@ -527,9 +528,6 @@ export async function saveAction(
   }
 }
 
-/** monotonic within a session, so two rows in the same millisecond get distinct ids */
-let captureRowSeq = 0
-
 /**
  * Write the Verlaufszeile for a capture action — AFTER the workspace write has been accepted.
  *
@@ -552,7 +550,7 @@ async function logCaptureAction(
   if (action.kind === 'setTimes' || action.kind === 'restoreAttendance' || action.kind === 'setAttendanceNote') {
     ctx.name = att(after, action.personId)?.displayNameSnapshot ?? att(before, action.personId)?.displayNameSnapshot
   }
-  const row = captureJournalRow(action, nowIso, captureRowSeq++, ctx)
+  const row = captureJournalRow(action, nowIso, ctx)
   if (!row) return
   try {
     await captureApi.appendJournal(token, incidentId, [row])

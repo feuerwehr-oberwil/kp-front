@@ -349,10 +349,10 @@ describe('captureJournalRow — the poster writes to the Verlauf too', () => {
 
   it('names which way the attendance cycle went', () => {
     const a = { kind: 'cycleAttendance', personId: 'p1', name: 'Meier Anna' } as const
-    expect(captureJournalRow(a, NOW, 0, { outcome: 'present' })?.text).toContain('anwesend')
-    expect(captureJournalRow(a, NOW, 0, { outcome: 'left' })?.text).toContain('gegangen')
-    expect(captureJournalRow(a, NOW, 0, { outcome: 'cleared' })?.text).toContain('entfernt')
-    expect(captureJournalRow(a, NOW, 0, { outcome: 'present' })?.text).toContain('Meier Anna')
+    expect(captureJournalRow(a, NOW, { outcome: 'present' })?.text).toContain('anwesend')
+    expect(captureJournalRow(a, NOW, { outcome: 'left' })?.text).toContain('gegangen')
+    expect(captureJournalRow(a, NOW, { outcome: 'cleared' })?.text).toContain('entfernt')
+    expect(captureJournalRow(a, NOW, { outcome: 'present' })?.text).toContain('Meier Anna')
   })
 
   it('marks the row as coming from the QR surface', () => {
@@ -384,21 +384,21 @@ describe('captureJournalRow — the poster writes to the Verlauf too', () => {
 
   it('gives same-millisecond rows distinct ids', () => {
     // the server skips a duplicate id idempotently — two rows sharing one would lose the second
-    const a = captureJournalRow({ kind: 'addAttachment', id: 'x', url: '/u' }, NOW, 0)
-    const b = captureJournalRow({ kind: 'addAttachment', id: 'y', url: '/u' }, NOW, 1)
+    const a = captureJournalRow({ kind: 'addAttachment', id: 'x', url: '/u' }, NOW)
+    const b = captureJournalRow({ kind: 'addAttachment', id: 'y', url: '/u' }, NOW)
     expect(a?.id).not.toBe(b?.id)
   })
 
   it('logs a Bemerkung by name, in the same words the tablet uses', () => {
     const row = captureJournalRow(
-      { kind: 'setAttendanceNote', personId: 'p1', note: 'Einsatzleiter' }, NOW, 0, { name: 'Meier Anna' },
+      { kind: 'setAttendanceNote', personId: 'p1', note: 'Einsatzleiter' }, NOW, { name: 'Meier Anna' },
     )
     expect(row?.text).toContain('Meier Anna')
     expect(row?.text).toContain('Einsatzleiter')
   })
 
   it('resolves a person id to a name where it has one', () => {
-    const row = captureJournalRow({ kind: 'setTimes', personId: 'p1', from: NOW }, NOW, 0, { name: 'Meier Anna' })
+    const row = captureJournalRow({ kind: 'setTimes', personId: 'p1', from: NOW }, NOW, { name: 'Meier Anna' })
     expect(row?.text).toContain('Meier Anna')
     expect(row?.text).not.toContain('p1')
   })
