@@ -71,6 +71,15 @@ to prod.
   a failed IndexedDB write must never claim local durability. Hydrate and merge a predecessor's
   queue before a promoted tab writes it. Client audit events carry a stable `client_id` through
   retries; a beacon does not acknowledge delivery.
+  ⚠️ **An audit event the ROLE can never write is not owed** (24.09.2026, `lib/eventScope`,
+  `auditEventStore · refused`). The client mirrors the server's append allowlist
+  (`EL_EVENT_PREFIXES`, `atemschutz.*` for an Atemschutz-Link, nothing for a viewer — a test
+  pins the prefix list to `api/events.py`) and never queues an op outside it; a 403 for such an
+  op is PARKED as `refused` — persisted, exported with «Einträge sichern», never re-sent by
+  «Erneut versuchen», and NOT part of the shared sync status (a calm note in the Verlauf, not a
+  red lamp). A 403 for an op the role SHOULD be able to write stays `rejected` and red: that
+  is a real mismatch. Never drop either kind. (The `el` phone sat red for three hours on
+  23.09.2026 over five `atemschutz.alarm` events it could never deliver.)
   A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,
@@ -173,6 +182,24 @@ to prod.
   order). Same-object conflicts can stay simple for now. To add a synced collection: extend
   `HasId` and register it in `WsShape`. (`Person`/roster is the exception – it carries
   `updatedAt` because it's pulled from Divera, not merged.)
+  - ⚠️ **What every device OBSERVES is recorded under a DERIVED id, once** (24.09.2026). One
+    login is routinely open on three devices, and each runs the same engines — the Atemschutz
+    alarm clock, the Fahrzeug presence rings. A row or event such an engine writes must carry
+    an id every device computes identically from the fact itself, so the server's idempotency
+    keeps one: Verlauf rows `azal-`/`azcl-<trupp>-<turnus>` (alarm), `vp-<n>-<zone>-<vehicle>`
+    (presence — `n` is the vehicle's transition number in the shared Verlauf, so a device that
+    wakes ten minutes later finds the row and writes nothing), and the audit event beside an
+    observed row `observedEventId(rowId, actor)` with a payload free of anything device-local.
+    Audit ids are ACTOR-scoped (the server binds a `client_id` to its author; two accounts each
+    observed it). The server treats a same-id, same-author, same-op, same-payload event with a
+    different `occurred_at` as the duplicate (the first observation's time is kept) — a
+    different payload under one id stays a 409. A hand-performed act keeps a fresh `newId`.
+  - **409 re-merges wait a jittered moment** (`workspaceSync · conflictBackoffMs`: none before
+    the first merge, then 125–375 · 250–750 · 500–1500 ms) so three devices do not retry in
+    lock-step. ⚠️ An edit saved while a re-merge is in flight is built on the live view, which
+    has not seen that merge — the resolver re-bases it onto the merge before merging again
+    (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
+    (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
 - **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
   [`docs/trupp-naming.md`](docs/trupp-naming.md)). The number comes from ONE counter per Einsatz
   that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's

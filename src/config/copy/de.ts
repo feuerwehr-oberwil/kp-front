@@ -1201,6 +1201,11 @@ export const de = {
       retrying: 'Wird versucht …',
       export: 'Einträge sichern',
       short: 'Einträge nicht übertragen',
+      // 24.09.2026: audit events this ROLE can never write (the `el` phone's Atemschutz alarm) —
+      // parked on the device, not an error, but still exportable. No «Erneut versuchen».
+      refusedTitleOne: '1 Protokollereignis für diese Rolle nicht vorgesehen',
+      refusedTitle: '{n} Protokollereignisse für diese Rolle nicht vorgesehen',
+      refusedBody: 'Der Server nimmt diese Ereignisse von dieser Anmeldung nicht an. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
     },
     open: 'Verlauf',
     add: 'Eintrag',

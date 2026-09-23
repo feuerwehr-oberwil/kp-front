@@ -4,13 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from './api'
 import * as idb from './idb'
 import { AuditEventStore, type PendingAuditEvent } from './auditEventStore'
+import { eventScopeFor, type EventScope } from './eventScope'
 
 const { ingestEvents, ingestEventsBeacon } = vi.hoisted(() => ({ ingestEvents: vi.fn(), ingestEventsBeacon: vi.fn() }))
 vi.mock('./api/events', () => ({ ingestEvents, ingestEventsBeacon }))
 
 const stores: AuditEventStore[] = []
-function open(owner = 'editor', readOnly = false) {
-  const store = new AuditEventStore('incident', owner, readOnly)
+function open(owner = 'editor', readOnly = false, scope?: EventScope) {
+  const store = new AuditEventStore('incident', owner, readOnly, scope)
   stores.push(store)
   store.start()
   return store
@@ -212,5 +213,83 @@ describe('AuditEventStore', () => {
     watcher.setReadOnly(false)
     await watcher.flush()
     expect(ingestEvents).toHaveBeenCalledWith('incident', [event('first-edit'), event('later-edit')])
+  })
+})
+
+// Post-mortem 23.09.2026, D6: the `el` phone ran the alarm engine like every device, its five
+// `atemschutz.alarm` events came back 403, and the outbox held the shared sync status red for the
+// rest of the Einsatz — «Erneut versuchen» re-sent them into the same 403.
+describe('AuditEventStore · a 403 the role can never avoid is parked, not held red', () => {
+  const el = eventScopeFor({ role: 'el' })
+  const alarm = (id: string) => event(id, 'atemschutz.alarm')
+
+  it('never queues an op the role cannot write', async () => {
+    ingestEvents.mockResolvedValue([])
+    const store = open('el-phone', false, el)
+    store.append(alarm('az-1'))
+    store.append(event('weather-1', 'weather.observe'))
+    expect(store.pendingCount).toBe(1)
+    await store.flush()
+    expect(ingestEvents).toHaveBeenCalledWith('incident', [event('weather-1', 'weather.observe')])
+    expect(store.status).toBe('synced')
+  })
+
+  it('an already-queued refused event (an older build’s outbox) lands in `refused`: synced, exportable, never re-sent', async () => {
+    await idb.idbSet('kp-audit-incident:el-phone', { pending: [alarm('az-1'), event('att-1', 'attendance.set')], rejected: [] })
+    ingestEvents.mockImplementation(async (_id: string, events: PendingAuditEvent[]) => {
+      if (events.some((e) => e.op_type.startsWith('atemschutz.'))) throw new ApiError(403, 'denied')
+      return []
+    })
+    const store = open('el-phone', false, el)
+    await store.flush()
+    expect(store.pendingCount).toBe(0)
+    expect(store.rejectedCount).toBe(0)
+    expect(store.refusedCount).toBe(1)
+    expect(store.status).toBe('synced')
+    expect(store.getRecoveryData()).toMatchObject({ refused: [alarm('az-1')] })
+    ingestEvents.mockClear()
+    await store.retry()
+    expect(ingestEvents).not.toHaveBeenCalled()
+    expect(store.refusedCount).toBe(1)
+    // …and it survives a reload with the rest of the outbox
+    store.stop()
+    const reopened = open('el-phone', false, el)
+    await reopened.flush()
+    expect(reopened.refusedCount).toBe(1)
+    expect(reopened.status).toBe('synced')
+  })
+
+  it('the cache the el phone carried out of 23.09. (five `rejected` alarms) goes quiet on the next open', async () => {
+    const five = [1, 2, 3, 4, 5].map((n) => alarm(`az-${n}`))
+    await idb.idbSet('kp-audit-incident:el-phone', { pending: [], rejected: five })
+    const store = open('el-phone', false, el)
+    await store.flush()
+    expect(store.rejectedCount).toBe(0)
+    expect(store.refusedCount).toBe(5)
+    expect(store.status).toBe('synced')
+    expect(await idb.idbGet('kp-audit-incident:el-phone')).toMatchObject({ refused: five, rejected: [] })
+  })
+
+  it('a 403 for an op the role SHOULD be able to write stays a visible error', async () => {
+    ingestEvents.mockRejectedValue(new ApiError(403, 'denied'))
+    const store = open('el-phone', false, el)
+    store.append(event('att-1', 'attendance.set'))
+    await store.flush()
+    expect(store.rejectedCount).toBe(1)
+    expect(store.refusedCount).toBe(0)
+    expect(store.status).toBe('error')
+  })
+
+  it('an undurable cache holding a parked event is still the storage warning', async () => {
+    vi.spyOn(idb, 'idbSet').mockResolvedValue(false)
+    ingestEvents.mockRejectedValue(new ApiError(403, 'denied'))
+    const editor = open('editor', false, () => true)
+    editor.append(alarm('az-1'))
+    await editor.flush()
+    expect(editor.rejectedCount).toBe(1) // an editor may write it: a 403 here is a real mismatch
+    editor.setScope(el)                  // the login was demoted to `el` under the open store
+    expect(editor.rejectedCount).toBe(0)
+    expect(editor.refusedCount).toBe(1)
+    expect(editor.status).toBe('storage')
   })
 })

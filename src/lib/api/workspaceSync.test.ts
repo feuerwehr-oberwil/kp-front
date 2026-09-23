@@ -29,7 +29,7 @@ vi.mock('../tileEvict', () => ({ withTileEviction: (fn: () => Promise<boolean>) 
 
 const { ApiError } = await import('../api')
 const { idbSet } = vi.mocked(await import('../idb'))
-const { CACHE_DEBOUNCE_MS, WorkspaceSync } = await import('./workspaceSync')
+const { CACHE_DEBOUNCE_MS, CONFLICT_ATTEMPTS, CONFLICT_BACKOFF_MS, WorkspaceSync, conflictBackoffMs } = await import('./workspaceSync')
 
 const trupp = { id: 'tr1', name: 'Trupp 1', status: 'aktiv' }
 const blob = { trupps: [trupp], drawings: [{ id: 'd1' }] }
@@ -151,6 +151,59 @@ describe('WorkspaceSync · the 409 resolver', () => {
     await expect(sync.flush()).resolves.toBeUndefined()
     expect(status[status.length - 1]).toBe('error')
     sync.dispose()
+  })
+
+  // ⚠️ Found by the three-device load test (24.09.2026): a local edit saved while the merge PUT
+  // 409s again is built on the live view, which never saw that merge — it lacks the remote
+  // objects the merge brought in, while `base` (the server copy the merge was made against) has
+  // them. Merged as-is, the next attempt read their absence as a local delete and removed another
+  // device's work from the server (7–14 % of edits in the load test, with or without the jitter).
+  it('an edit saved while a re-merge is 409ing is re-based onto that merge — no remote object is deleted', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0) // shortest backoff (125 ms, real timers)
+    const sync = new WorkspaceSync('i1', { debounceMs: 0 })
+    await sync.init() // rev 7, empty
+    sync.save({ cameraViews: [{ id: 'm1' }] })
+    putWorkspace
+      .mockRejectedValueOnce(conflict()) // the original push: another device landed r1
+      .mockImplementationOnce(async () => {
+        // the merge PUT is in flight: the operator adds m2 on the view that has no r1 yet…
+        sync.save({ cameraViews: [{ id: 'm1' }, { id: 'm2' }] })
+        throw conflict() // …and a third device landed r2 meanwhile
+      })
+      .mockResolvedValueOnce({ workspace: null, workspace_rev: 11 })
+    getWorkspace
+      .mockResolvedValueOnce({ workspace: { cameraViews: [{ id: 'r1' }] }, workspace_rev: 9 })
+      .mockResolvedValueOnce({ workspace: { cameraViews: [{ id: 'r1' }, { id: 'r2' }] }, workspace_rev: 10 })
+    await sync.flush()
+    const last = putWorkspace.mock.calls[putWorkspace.mock.calls.length - 1]
+    expect(last[2]).toBe(10)
+    expect((last[1] as { cameraViews: { id: string }[] }).cameraViews.map((v) => v.id).sort()).toEqual(['m1', 'm2', 'r1', 'r2'])
+    sync.dispose()
+    vi.restoreAllMocks()
+  })
+})
+
+// D4 of the 23.09.2026 post-mortem: 409 re-merges ran back-to-back with no pause, so three
+// devices on one login retried in lock-step. The pause is jittered and bounded.
+describe('conflictBackoffMs', () => {
+  it('the first merge after a 409 goes at once; re-merges wait base·2^(n−1) × [0.5, 1.5)', () => {
+    expect(conflictBackoffMs(0, () => 0.99)).toBe(0)
+    const bounds = [[1, 125, 375], [2, 250, 750], [3, 500, 1500]] as const
+    for (const [attempt, lo, hi] of bounds) {
+      expect(conflictBackoffMs(attempt, () => 0)).toBe(lo)
+      expect(conflictBackoffMs(attempt, () => 0.999999)).toBeLessThanOrEqual(hi)
+      for (let i = 0; i < 200; i++) {
+        const ms = conflictBackoffMs(attempt)
+        expect(ms).toBeGreaterThanOrEqual(lo)
+        expect(ms).toBeLessThanOrEqual(hi)
+      }
+    }
+    expect(CONFLICT_BACKOFF_MS).toBe(250)
+    expect(CONFLICT_ATTEMPTS).toBe(4)
+  })
+
+  it('actually spreads: two devices drawing different randoms wait different times', () => {
+    expect(conflictBackoffMs(1, () => 0.1)).not.toBe(conflictBackoffMs(1, () => 0.9))
   })
 })
 

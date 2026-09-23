@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuditEventStore } from './auditEventStore'
 import { newId } from './ids'
+import { ALL_EVENTS, observedEventId, type EventScope } from './eventScope'
 import type { SyncStatus } from './api/workspaceSync'
 
 /** Capture tactical events durably under the incident and actor who made them. The server
- *  deduplicates client_id, so a lost response or unacknowledged teardown can safely retry. */
-export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: string | null = null) {
+ *  deduplicates client_id, so a lost response or unacknowledged teardown can safely retry.
+ *  `scope` is what this session's role may append (lib/eventScope) — anything outside it is
+ *  never queued, and a 403 for it is parked rather than held red (auditEventStore · refused). */
+export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: string | null = null, scope: EventScope = ALL_EVENTS) {
   const [, changed] = useState(0)
-  const store = useMemo(() => ownerId ? new AuditEventStore(incidentId, ownerId, readOnly) : null, [incidentId, ownerId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const store = useMemo(() => ownerId ? new AuditEventStore(incidentId, ownerId, readOnly, scope) : null, [incidentId, ownerId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!store) return
     const unsubscribe = store.subscribe(() => changed((n) => n + 1))
@@ -27,11 +30,17 @@ export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: s
     }
   }, [store])
   useEffect(() => { store?.setReadOnly(readOnly) }, [store, readOnly])
+  useEffect(() => { store?.setScope(scope) }, [store, scope])
 
-  const emit = useCallback((op_type: string, payload?: Record<string, unknown>) => {
+  /** `opts.observed` names an event EVERY device sees rather than one hand performs (the
+   *  Atemschutz alarm, 24.09.2026): its `client_id` is derived from that key and this actor
+   *  (`observedEventId`), so the same account on three devices lands ONE event — the server
+   *  keeps the first and answers the others with it (backend · audit.append_event). */
+  const emit = useCallback((op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => {
     if (readOnly) return
-    store?.append({ client_id: newId('audit'), op_type, payload, occurred_at: new Date().toISOString() })
-  }, [store, readOnly])
+    const client_id = opts?.observed && ownerId ? observedEventId(opts.observed, ownerId) : newId('audit')
+    store?.append({ client_id, op_type, payload, occurred_at: new Date().toISOString() })
+  }, [store, readOnly, ownerId])
   const flushEvents = useCallback(() => store?.flush() ?? Promise.resolve(), [store])
   const flushEventsBeacon = useCallback(() => store?.flushKeepalive(), [store])
 
@@ -41,7 +50,7 @@ export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: s
 
   return {
     emit, flushEvents, flushEventsBeacon, retry, getStatus, getRecoveryData,
-    pendingCount: store?.pendingCount ?? 0, rejectedCount: store?.rejectedCount ?? 0,
+    pendingCount: store?.pendingCount ?? 0, rejectedCount: store?.rejectedCount ?? 0, refusedCount: store?.refusedCount ?? 0,
     cacheDurable: store?.cacheDurable ?? true, status: store?.status ?? 'synced',
   }
 }

@@ -242,7 +242,7 @@ async def test_conflicting_id_rolls_back_earlier_new_events_in_the_batch(client,
     assert (await client.get(f"/api/incidents/{inc}/verify")).json()["count"] == 2
 
 
-async def test_event_id_cannot_be_reused_for_a_different_author_or_time(client, editor, db_session):
+async def test_event_id_cannot_be_reused_for_a_different_author(client, editor, db_session):
     await _login(client, editor)
     inc = uuid.UUID(await _incident(client))
     stamp = datetime(2026, 9, 6, tzinfo=UTC)
@@ -255,12 +255,81 @@ async def test_event_id_cannot_be_reused_for_a_different_author_or_time(client, 
         occurred_at=stamp,
         client_id="audit-author",
     )
-    for changed in ({"source": "atemschutz-link", "user_id": None}, {"occurred_at": stamp + timedelta(seconds=1)}):
+    for changed in ({"source": "atemschutz-link", "user_id": None}, {"source": "el"}):
         args = {"source": "client", "user_id": editor.id, "occurred_at": stamp, **changed}
         with pytest.raises(audit.EventIdentityConflictError):
             await audit.append_event(
                 db_session, incident_id=inc, op_type="draw.create", client_id="audit-author", **args
             )
+
+
+async def test_a_second_observation_of_the_same_event_is_the_duplicate_not_a_conflict(client, editor, db_session):
+    """24.09.2026: an event every device OBSERVES (the Atemschutz alarm) carries one derived
+    client_id and one payload, but each device stamps when IT noticed. The stamp is not part
+    of the identity — the first observation is kept, the later ones answer with it."""
+    await _login(client, editor)
+    inc = uuid.UUID(await _incident(client))
+    stamp = datetime(2026, 9, 23, 17, 42, 13, tzinfo=UTC)
+    kwargs = {"incident_id": inc, "op_type": "atemschutz.alarm", "source": "client", "user_id": editor.id}
+    first = await audit.append_event(
+        db_session, **kwargs, payload={"id": "tr1"}, occurred_at=stamp, client_id="obs-azal-tr1"
+    )
+    later = await audit.append_event(
+        db_session,
+        **kwargs,
+        payload={"id": "tr1"},
+        occurred_at=stamp + timedelta(seconds=61),
+        client_id="obs-azal-tr1",
+    )
+    assert later.id == first.id
+    assert later.occurred_at == first.occurred_at
+
+
+# Post-mortem 23.09.2026, D5: one editor login on three tablets recorded every
+# `atemschutz.alarm` / `.cleared` three times, because each device minted its own id. The
+# client now derives the id from the alarm (lib/eventScope · observedEventId); the server has
+# to answer all three devices with success and keep ONE row.
+ALARM_ID = "obs-azal-tr1790184777162-2026-09-23T17:36:14.228Z@9ff239:login"
+
+
+async def test_the_same_alarm_from_three_devices_is_one_row_and_success_for_all(client, editor):
+    await _login(client, editor)
+    inc = await _incident(client)
+    stamps = ["2026-09-23T17:42:13.815Z", "2026-09-23T17:42:14.402Z", "2026-09-23T17:43:20.117Z"]
+    answers = []
+    for stamp in stamps:  # three devices, same login: same id, same payload, own stamp
+        event = {
+            "client_id": ALARM_ID,
+            "op_type": "atemschutz.alarm",
+            "payload": {"id": "tr1790184777162", "status": "ueberfaellig"},
+            "occurred_at": stamp,
+        }
+        r = await client.post(f"/api/incidents/{inc}/events", json={"events": [event]})
+        assert r.status_code in (200, 201), r.text
+        answers.append(r.json()[0])
+    assert len({a["id"] for a in answers}) == 1
+    assert all(a["occurred_at"].startswith("2026-09-23T17:42:13") for a in answers)
+    listed = (await client.get(f"/api/incidents/{inc}/events")).json()
+    assert [e["op_type"] for e in listed].count("atemschutz.alarm") == 1
+    assert (await client.get(f"/api/incidents/{inc}/verify")).json() == _intact(listed)
+
+
+async def test_the_same_alarm_id_with_a_different_payload_is_still_409(client, editor):
+    await _login(client, editor)
+    inc = await _incident(client)
+    event = {"client_id": ALARM_ID, "op_type": "atemschutz.alarm", "payload": {"id": "tr1", "status": "ueberfaellig"}}
+    assert (await client.post(f"/api/incidents/{inc}/events", json={"events": [event]})).status_code == 201
+    changed = {**event, "payload": {"id": "tr2", "status": "ueberfaellig"}}
+    assert (await client.post(f"/api/incidents/{inc}/events", json={"events": [changed]})).status_code == 409
+    other_op = {**event, "op_type": "atemschutz.alarm.cleared"}
+    assert (await client.post(f"/api/incidents/{inc}/events", json={"events": [other_op]})).status_code == 409
+    listed = (await client.get(f"/api/incidents/{inc}/events")).json()
+    assert [e["op_type"] for e in listed].count("atemschutz.alarm") == 1
+
+
+def _intact(listed: list[dict]) -> dict:
+    """What /verify answers for an unbroken chain of these events."""
+    return {"intact": True, "broken_at_seq": None, "count": len(listed), "head": listed[-1]["hash"]}
 
 
 async def test_concurrent_identified_retry_appends_once_on_postgres(client, editor, engine):

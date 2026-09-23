@@ -148,6 +148,7 @@ import {
   isIncidentRunning,
 } from './lib/incidents'
 import { useAuditEvents } from './lib/useAuditEvents'
+import { eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { downloadBlob } from './lib/download'
 import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
@@ -1534,7 +1535,11 @@ export function IncidentWorkspace({
   const coord = useCoordPicker(false, view.center)
 
   // --- audit capture (substrate A): batch client tactical events, flush debounced (see useAuditEvents) ---
-  const auditDelivery = useAuditEvents(incidentMeta.id, readOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null)
+  // ⚠️ SCOPED to what this role may append (lib/eventScope, 24.09.2026): the `el` phone runs
+  // the Atemschutz alarm engine like every device, and its `atemschutz.*` events 403'd into an
+  // outbox that stayed red for the whole Einsatz.
+  const auditScope = useMemo(() => eventScopeFor(user), [user?.role, user?.link_kind]) // eslint-disable-line react-hooks/exhaustive-deps
+  const auditDelivery = useAuditEvents(incidentMeta.id, readOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null, auditScope)
   const { emit, flushEvents, flushEventsBeacon } = auditDelivery
 
   // Weather for the incident location. Polled live; each NEW observation is recorded as a
@@ -2566,6 +2571,9 @@ export function IncidentWorkspace({
     center: incidentView.center,
     enabled: canEditIncident && !replayActive,
     log,
+    // the shared Verlauf: another device's row for the same transition is read back here, so
+    // three tablets on one login write ONE «hat den Einsatzort verlassen» (24.09.2026)
+    rows: journal.rows,
   })
 
   const pausedGpsConnections = useMemo(() => drawings.flatMap((drawing) => (['start', 'end'] as const).flatMap((endpoint) => {
@@ -6340,6 +6348,7 @@ export function IncidentWorkspace({
           deliveryNotice={<JournalDeliveryNotice
             status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
             count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
+            refused={auditDelivery.refusedCount}
             onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
             onExport={() => downloadBlob(new Blob([JSON.stringify({ ...journal.recoveryData(), audit: auditDelivery.getRecoveryData() }, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)}
           />}

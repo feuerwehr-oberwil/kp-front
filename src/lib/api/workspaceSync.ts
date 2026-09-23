@@ -96,6 +96,29 @@ function isDenial(e: unknown): boolean {
 /** how long after the last save() the offline cache write waits for the next one */
 export const CACHE_DEBOUNCE_MS = 300
 
+/** How many times one conflict is re-merged and re-pushed before the flush gives up to the
+ *  ordinary retry backoff (which re-enters the resolver with a fresh budget). */
+export const CONFLICT_ATTEMPTS = 4
+/** Base of the wait before a RE-merge after a second 409 (24.09.2026). */
+export const CONFLICT_BACKOFF_MS = 250
+
+/**
+ * The wait before re-merge attempt `attempt` (1-based: the first merge after the original 409
+ * is attempt 0 and never waits). Exponential with FULL-RANGE jitter: base·2^(attempt−1) scaled
+ * by a factor in [0.5, 1.5) — attempt 1 waits 125–375 ms, 2 250–750 ms, 3 500–1500 ms.
+ *
+ * ⚠️ Why (post-mortem 23.09.2026, D4): one editor login on three devices produced 140 409s in
+ * ~40 minutes. Each device answered its 409 with an immediate GET + merge + PUT, up to four
+ * times, so the three raced each other in lock-step — whoever lost once was likely to lose
+ * again at the same instant. The merge was always right (revs 1–574 contiguous); only the
+ * retry timing was not. A random pause breaks the lock-step; it changes nothing about WHAT is
+ * merged. `random` is injectable for the bounds test.
+ */
+export function conflictBackoffMs(attempt: number, random: () => number = Math.random): number {
+  if (attempt <= 0) return 0
+  return Math.round(CONFLICT_BACKOFF_MS * 2 ** (attempt - 1) * (0.5 + random()))
+}
+
 function readCache(id: string): Promise<CacheEntry | null> {
   return idbGet<CacheEntry>(cacheKey(id))
 }
@@ -640,11 +663,35 @@ export class WorkspaceSync {
     // The content that 409'd — the common ancestor for any local edit that lands while the
     // merge PUT is in flight (so that newer edit can be re-based onto the merge, not lost).
     const mine0 = this.entry.workspace
-    for (let attempt = 0; attempt < 4; attempt++) {
+    /** the last merge this resolver wrote into the entry, and the saveSeq it was written at */
+    let lastMerged: Workspace | null = null
+    let lastMergedSeq = 0
+    for (let attempt = 0; attempt < CONFLICT_ATTEMPTS; attempt++) {
+      // a RE-merge (another device landed during ours) waits a jittered moment first — see
+      // conflictBackoffMs. The first merge after the original 409 goes at once.
+      const wait = conflictBackoffMs(attempt)
+      if (wait) {
+        await new Promise((resolve) => setTimeout(resolve, wait))
+        if (this.disposed) return false
+      }
       try {
         const server = await getWorkspace(this.incidentId)
+        // ⚠️ A local edit landed while the PREVIOUS merge's PUT was 409ing (or during the wait
+        // or the GET) — 24.09.2026, found by the three-device load test. The live view never
+        // saw `lastMerged` (it is applied only on success), so that save() replaced the entry
+        // with «pre-merge view + the edit», which LACKS every remote object the merge had
+        // brought in — while `entry.base` (the server copy that merge was made against) HAS
+        // them. Merged as-is, the next attempt read their absence as a local DELETE and
+        // removed other devices' work from the server. Re-base the edit onto the merge first:
+        // the same rebase the success branch below does with `mine0`, for the same reason.
+        // No await between here and the merge, so no save can slip in between.
+        if (lastMerged && this.saveSeq !== lastMergedSeq) {
+          this.entry = { ...this.entry, workspace: mergeWorkspace(mine0, this.entry.workspace, lastMerged) }
+        }
         const merged = this.mergeReporting(this.entry.base ?? {}, this.entry.workspace, server.workspace ?? {})
         this.entry = { ...this.entry, workspace: merged, base: server.workspace ?? {}, baseRev: server.workspace_rev, dirty: true }
+        lastMerged = merged
+        lastMergedSeq = this.saveSeq
         this.writeCache()
         const seqAtStart = this.saveSeq
         const { workspace_rev } = await this.push(merged, server.workspace_rev)

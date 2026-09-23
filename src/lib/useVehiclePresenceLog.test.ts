@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Entity, LngLat } from '../types'
-import { useVehiclePresenceLog } from './useVehiclePresenceLog'
+import type { Entity, LngLat, TimelineEvent } from '../types'
+import { lastPresence, presenceRowId, useVehiclePresenceLog } from './useVehiclePresenceLog'
 
 const CENTER: LngLat = [7.53, 47.41]
 // ~0.001° of latitude ≈ 111 m, which is the unit these rings are worth testing in
@@ -128,5 +128,98 @@ describe('useVehiclePresenceLog', () => {
     }
     expect(log).toHaveBeenCalledTimes(1)
     expect(log.mock.calls[0][1]).toBe('TLF vor Ort')
+  })
+})
+
+// ⚠️ 23.09.2026 (post-mortem D5): «MAWA hat den Einsatzort verlassen» three times — 18:38:53,
+// :58 and 18:39:04, one per tablet on the same login — and a device that woke later wrote TLF
+// and PIO leaving a SECOND time, ten minutes after the first. The row id is now the vehicle's
+// transition number in the shared Verlauf, so every device mints the same one.
+describe('useVehiclePresenceLog · one row per transition across devices', () => {
+  /** the server's Verlauf: a known id is skipped (backend · journal.append_rows) */
+  const server = () => {
+    const rows = new Map<string, TimelineEvent>()
+    return {
+      rows,
+      view: () => [...rows.values()],
+      logFor: (written: string[]) => vi.fn((_icon: string, text: string, _k?: unknown, _s?: unknown, _e?: unknown, opts?: { rowId?: string }) => {
+        const id = opts?.rowId ?? `e${Date.now()}-${written.length}`
+        written.push(id)
+        if (!rows.has(id)) rows.set(id, { id, t: '', at: new Date().toISOString(), icon: 'truck', text } as TimelineEvent)
+      }),
+    }
+  }
+  type Server = ReturnType<typeof server>
+  const device = (srv: Server, written: string[], start: LngLat, rows: () => TimelineEvent[] = srv.view) => {
+    const log = srv.logFor(written)
+    const hook = renderHook(
+      ({ v, r }: { v: Entity[]; r: TimelineEvent[] }) => useVehiclePresenceLog({ vehicles: v, center: CENTER, enabled: true, log, rows: r }),
+      { initialProps: { v: [tlf(start)], r: rows() } },
+    )
+    return { see: (coord: LngLat) => hook.rerender({ v: [tlf(coord)], r: rows() }) }
+  }
+
+  it('three devices settling on the same departure before any row synced write ONE id', () => {
+    const srv = server()
+    const written: string[] = []
+    // each device reads only its own (empty) view — nothing has synced between them yet
+    const devices = [0, 1, 2].map(() => device(srv, written, north(20), () => []))
+    for (const d of devices) d.see(north(600))
+    vi.advanceTimersByTime(95_000)
+    for (const d of devices) { d.see(north(600)); vi.advanceTimersByTime(5_000) }
+    expect(written).toHaveLength(3)
+    expect(new Set(written)).toEqual(new Set(['vp-1-away-tlf']))
+    expect(srv.rows.size).toBe(1)
+  })
+
+  it('a device whose settle finishes after the row arrived writes nothing — even ten minutes later', () => {
+    const srv = server()
+    const written: string[] = []
+    const a = device(srv, written, north(20))
+    const b = device(srv, written, north(20))
+    a.see(north(600)); vi.advanceTimersByTime(95_000); a.see(north(600))
+    expect(srv.rows.size).toBe(1)
+    vi.advanceTimersByTime(600_000) // b was asleep
+    b.see(north(600)); vi.advanceTimersByTime(95_000); b.see(north(600))
+    expect(written).toEqual(['vp-1-away-tlf'])
+  })
+
+  it('a vehicle that genuinely shuttles gets a row per trip, numbered', () => {
+    const srv = server()
+    const written: string[] = []
+    const a = device(srv, written, north(20))
+    const b = device(srv, written, north(20))
+    for (const coord of [north(900), north(30), north(900), north(30)]) {
+      for (const d of [a, b]) d.see(coord)
+      vi.advanceTimersByTime(95_000)
+      for (const d of [a, b]) d.see(coord)
+      vi.advanceTimersByTime(60_000)
+    }
+    expect([...srv.rows.keys()]).toEqual(['vp-1-away-tlf', 'vp-2-scene-tlf', 'vp-3-away-tlf', 'vp-4-scene-tlf'])
+    expect(written).toHaveLength(4) // the second device found every one already written
+  })
+
+  it('a departure after an arrival nobody recorded is still a NEW row, not adopted', () => {
+    const srv = server()
+    const written: string[] = []
+    const a = device(srv, written, north(20))
+    a.see(north(900)); vi.advanceTimersByTime(95_000); a.see(north(900)) // vp-1 away
+    // a second device opens later with the vehicle back at the Einsatzort (its return unrecorded)
+    vi.advanceTimersByTime(300_000)
+    const b = device(srv, written, north(20))
+    vi.advanceTimersByTime(60_000); b.see(north(20))
+    b.see(north(900)); vi.advanceTimersByTime(95_000); b.see(north(900))
+    expect([...srv.rows.keys()]).toEqual(['vp-1-away-tlf', 'vp-2-away-tlf'])
+  })
+
+  it('lastPresence reads the chain back off the ids, ignoring other vehicles and legacy rows', () => {
+    const rows = [
+      { id: 'e1790188733349-39', at: '2026-09-23T18:38:53Z' },
+      { id: presenceRowId('gps-8', 1, 'away'), at: '2026-09-23T18:38:53Z' },
+      { id: presenceRowId('gps-8', 2, 'scene'), at: '2026-09-23T18:51:00Z' },
+      { id: presenceRowId('gps-3', 7, 'away'), at: '2026-09-23T20:30:01Z' },
+    ] as TimelineEvent[]
+    expect(lastPresence(rows, 'gps-8')).toEqual({ n: 2, zone: 'scene', atMs: Date.parse('2026-09-23T18:51:00Z') })
+    expect(lastPresence(rows, 'gps-4')).toBeNull()
   })
 })

@@ -259,7 +259,7 @@ interface Deps {
    *  journal.append_rows). Everything else leaves it alone and gets a fresh id. */
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   logPlan: (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) => void
-  emit: (op_type: string, payload?: Record<string, unknown>) => void
+  emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
   setMode: (m: Mode) => void
   setActivePlanId: (id: string) => void
   setPanel: (p: 'layers' | null) => void
@@ -1578,12 +1578,20 @@ export function useTruppActions(deps: Deps) {
    * silently skips every later one with the same id (backend · journal.append_rows), which is
    * the same idempotency an offline outbox retry already relies on. Two genuinely different
    * alarms differ in their turnus, so nothing that deserves its own line loses one.
+   *
+   * ⚠️ The AUDIT EVENT is keyed the same way (24.09.2026). It was minted per device, so the
+   * 23.09. Einsatz holds every `atemschutz.alarm` / `.cleared` three times — one per tablet on
+   * the same login — while the rows beside them had long been single. `observed` derives its
+   * `client_id` from the row id and the actor (lib/eventScope · observedEventId), and the
+   * payload carries nothing device-local, so the copies are byte-identical and the server keeps
+   * one. Only `occurred_at` differs between observers, and the server keeps the first.
    */
   const logTruppAlarm = (id: string, status: Trupp['status'], turnus = '') => {
     const tr = trupps.find((t) => t.id === id)
+    const rowId = `azal-${id}-${turnus}`
     log('warn', fillTemplate(appConfig.copy.atemschutz.logAlarm, { name: tr ? truppLogName(tr) : '', status: appConfig.copy.atemschutz.status[status] ?? status }), 'team',
-      undefined, undefined, { rowId: `azal-${id}-${turnus}`, subjectId: id })
-    emit('atemschutz.alarm', { id, status })
+      undefined, undefined, { rowId, subjectId: id })
+    emit('atemschutz.alarm', { id, status }, { observed: rowId })
   }
   /** …and the line that ends it, naming what ended it. Read off the Trupp's OWN log — the same
    *  readings the printed Druckprotokoll shows — so the row can never claim a Funkkontakt where
@@ -1594,9 +1602,10 @@ export function useTruppActions(deps: Deps) {
     // the last MEASURED or lifecycle row — a crew row says nothing about how the alarm ended
     const last = tr?.readings?.filter((r) => r.kind !== 'crew').slice(-1)[0]?.kind
     const reason = (last && az.alarmClearedBy[last]) || az.alarmClearedOther
+    const rowId = `azcl-${id}-${turnus}`
     log('radio', fillTemplate(az.logAlarmCleared, { name: tr ? truppLogName(tr) : '', reason }), 'team',
-      undefined, undefined, { rowId: `azcl-${id}-${turnus}`, subjectId: id })
-    emit('atemschutz.alarm.cleared', { id })
+      undefined, undefined, { rowId, subjectId: id })
+    emit('atemschutz.alarm.cleared', { id }, { observed: rowId })
   }
   const deleteTrupp = (id: string) => {
     const tr = trupps.find((t) => t.id === id)

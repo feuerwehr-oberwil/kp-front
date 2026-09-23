@@ -81,6 +81,14 @@ async def append_event(
 
     # The lock also serialises retry lookup with append. A lost response must not turn one
     # action into two chain links. Existing clients without IDs retain append semantics.
+    #
+    # ⚠️ An event's identity is (client_id, author, op_type, payload) — NOT its occurred_at
+    # (24.09.2026). Some events are OBSERVED by every open device rather than performed by one
+    # hand (the Atemschutz alarm and its end): each device derives the same client_id from the
+    # same fact and sends the same payload, but stamps the moment IT noticed, a second or a
+    # backgrounded minute apart. Comparing the stamp turned the 2nd and 3rd copy into 409s,
+    # parked red in their outboxes. The first observation's time is kept; the copies are the
+    # duplicate they are. A DIFFERENT author, op or payload under one id is still the conflict.
     if client_id is not None:
         existing = (
             await db.execute(
@@ -95,7 +103,6 @@ async def append_event(
                 or existing.user_id != user_id
                 or existing.op_type != op_type
                 or _canonical(existing.payload_json or {}) != _canonical(payload or {})
-                or (occurred_at is not None and _stamp(existing.occurred_at) != _stamp(occurred_at))
             ):
                 raise EventIdentityConflictError("Event ID already belongs to a different operation")
             return existing
