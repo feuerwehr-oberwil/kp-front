@@ -10,6 +10,7 @@ import { isSafeColor } from './shapes'
 import { sanitizeSvgResult } from './sanitizeSvg'
 import type { ChecklistState } from './checklists'
 import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
+import { bearing360 } from './planProjection'
 import { isIncidentPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
@@ -327,6 +328,8 @@ const MIN_DRAW_PTS: Record<DrawKind, number> = { circle: 1, line: 2, area: 3 }
  *  shape and a string paints a shape nobody chose. Mirrored server-side
  *  (backend/app/schemas.py · _NUMERIC_DRAWING_KEYS). */
 const DRAW_NUMBERS = ['aspect', 'fillOpacity', 'rotation', 'rotation2', 'sizeM', 'sizeN', 'strokeW', 'width'] as const
+/** …of which these are bearings, and a bearing is said once: in [0, 360) (planProjection · bearing360). */
+const BEARINGS = ['rotation', 'rotation2'] as const
 
 const lngLat = (v: unknown): v is LngLat =>
   Array.isArray(v) && v.length === 2 && num(v[0]) && num(v[1]) && Math.abs(v[0]) <= 180 && Math.abs(v[1]) <= 90
@@ -415,6 +418,17 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
       out = out ?? { ...r }
       delete out[k]
       dropped++
+    }
+    // ⚠️ …and a bearing outside [0, 360) loads as its mod-360 equivalent (24.09.2026). The
+    // Feueralarm of 23.09. stored Lüfter at 66 735° and 3 931° (lib/tacticalObjects ·
+    // sheetBearings): they paint the same either way, but a number that size is no bearing anyone
+    // can read or step back by hand. Mod ONLY — never «repaired» toward what the operator meant —
+    // and not counted as a loss, because nothing was lost.
+    for (const k of BEARINGS) {
+      const v = (out ?? r)[k]
+      if (!num(v) || (v >= 0 && v < 360)) continue
+      out = out ?? { ...r }
+      out[k] = bearing360(v)
     }
     // …and `symbolSvg`, a live-vehicle/twin glyph that also ends up in the DOM (lib/symbolRender ·
     // TacticalSymbol → dangerouslySetInnerHTML). The render sink already sanitises it, but a
