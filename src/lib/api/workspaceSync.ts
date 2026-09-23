@@ -1,7 +1,7 @@
 // Per-incident sync engine: offline cache (IndexedDB) + debounced last-write-wins save with a
 // three-way merge on conflict. Split out of the incidents data layer because it's the single
 // heaviest, most stateful unit — see ./workspace for the plain get/put the engine drives.
-import { ApiError } from '../api'
+import { ApiError, isDenial } from '../api'
 import { idbDel, idbGet, idbRead, idbSet, type IdbRead } from '../idb'
 import { withTileEviction } from '../tileEvict'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
@@ -88,11 +88,6 @@ function mayRead(entry: CacheEntry): boolean {
   return entry.owner === cacheOwner
 }
 
-/** Did the server ANSWER «no», as opposed to not answering at all (api · isUnverifiable)? Only
- *  this closes the offline fallback; every other failure keeps the device usable. */
-function isDenial(e: unknown): boolean {
-  return e instanceof ApiError && (e.status === 401 || e.status === 403)
-}
 /** how long after the last save() the offline cache write waits for the next one */
 export const CACHE_DEBOUNCE_MS = 300
 
