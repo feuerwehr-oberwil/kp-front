@@ -987,6 +987,13 @@ export const en: Localizable<Copy> = {
     searchCount: '{n} of {m}',
     searchEmpty: 'Nothing for «{q}»',
     searchEmptyHint: 'Searches the text as well as the names of people and teams. One typo is forgiven.',
+    filter: 'Filter the log',
+    filterArt: 'Kind of entry',
+    filterArea: 'Area',
+    filterAll: 'Show all',
+    filterActive: 'Filtered:',
+    filterEmpty: 'No entries in this selection',
+    filterEmptyHint: '«Show all» clears the filter.',
 
     stripLabel: 'Timeline — tap to jump to the matching place',
     photoOpen: 'View the photo large',

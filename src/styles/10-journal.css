@@ -389,15 +389,55 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   font: 600 12.5px var(--body); color: var(--ink-dim); }
 /* the discs here are the row's discs, at the row's size — a legend drawn smaller than the thing
    it explains is a second shape to recognise */
-.jr-legend .ic { width: 26px; height: 26px; border-radius: 50%; flex: none;
+:is(.jr-legend, .jr-filter-menu) .ic { width: 26px; height: 26px; border-radius: 50%; flex: none;
   display: grid; place-items: center; background: var(--surface-2);
   border: 1px solid var(--border-soft); color: var(--ink-dim); }
-.jr-legend .ic .i { width: 14px; height: 14px; }
-.jr-legend .ic.jr-ic-map { background: color-mix(in srgb, var(--blue) 13%, transparent);
+:is(.jr-legend, .jr-filter-menu) .ic .i { width: 14px; height: 14px; }
+:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-map { background: color-mix(in srgb, var(--blue) 13%, transparent);
   border-color: color-mix(in srgb, var(--blue) 24%, transparent); color: var(--blue-strong); }
-.jr-legend .ic.jr-ic-plan { background: color-mix(in srgb, var(--green) 14%, transparent);
+:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-plan { background: color-mix(in srgb, var(--green) 14%, transparent);
   border-color: color-mix(in srgb, var(--green) 26%, transparent); color: var(--green-strong); }
-.jr-legend .ic.jr-ic-ring { background: none; border-color: transparent; }
+:is(.jr-legend, .jr-filter-menu) .ic.jr-ic-ring { background: none; border-color: transparent; }
+
+/* ── the filter (feat 37 · option B, 23.09.2026) ──
+   A third .journal-legend-btn beside the lens (same chip, same 44px pad, lit `.on` while any
+   category is ticked). The dot is the Anwesenheit's filter dot (SurfaceControls · .filterDot):
+   absolutely placed, so the chip measures the same filtered or not — a label on it would move
+   Replay and ✕ and re-anchor the menu the moment something is ticked. Ringed in the lit chip's
+   own fill, since it only ever shows on it. */
+.journal-filter-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--blue); box-shadow: 0 0 0 2px var(--ink-fill); pointer-events: none; }
+/* the menu: the legend's discs with ticks and counts. The height cap is the one every
+   SurfaceControls menu has — a station with many plans makes this taller than a phone, and a
+   too-tall popup is repositioned, never trimmed. */
+.jr-filter-menu { min-width: 250px; max-width: min(340px, 92vw);
+  max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
+  padding: 6px; border-radius: var(--r-ctl);
+  background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--glass-edge); }
+/* skin only — radius, hover and press ride on `.ui-menu-item` (13-incident.css · «ONE menu row») */
+.jr-filter-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--tap);
+  padding: 0 11px; cursor: pointer; outline: none; font: 600 13.5px var(--body); color: var(--ink); }
+.jr-filter-item[data-disabled] { opacity: var(--disabled); cursor: default; }
+.jr-filter-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.jr-filter-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jr-filter-count { flex: none; font: 700 12.5px var(--body); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+/* «Alle zeigen» is the way OUT, not one more category — the word in the action blue */
+.jr-filter-reset .jr-filter-label { color: var(--blue-strong); font-weight: 700; }
+/* the one-line «Gefiltert: … · Alle zeigen» under the head, where the timeline strip stands
+   otherwise (it is hidden while a filter is on, as during a search) */
+.jr-filter-strip { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 4px 8px;
+  font: 600 12.5px var(--body); color: var(--ink-dim); }
+.jr-filter-strip-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jr-filter-strip-text b { color: var(--ink); font-weight: 700; }
+.jr-filter-all { flex: none; position: relative; height: 32px; padding: 0 10px; border: none; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--blue-strong);
+  font: 700 12.5px var(--body); cursor: pointer; }
+/* finger-sized target under the compact chip, the same pad the head's chips use */
+.jr-filter-all::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+@media (hover: hover) {
+  .jr-filter-all:hover { background: color-mix(in srgb, var(--blue) 16%, transparent); }
+}
+.jr-filter-all:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ⚠️ On a phone the head is 22px too wide for four items, and «Wiedergabe starten» is the one
    that can most afford to lose its word — the same trade the TopBar already makes for «Verlauf»
    above. The button keeps its `aria-label` (Journal.tsx), so nothing is lost but the letters. */

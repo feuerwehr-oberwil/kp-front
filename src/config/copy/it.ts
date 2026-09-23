@@ -966,6 +966,13 @@ export const it: Localizable<Copy> = {
     searchCount: '{n} di {m}',
     searchEmpty: 'Nessun risultato per «{q}»',
     searchEmptyHint: 'Si cerca nel testo e nei nomi di persone e squadre. Un errore di battitura è tollerato.',
+    filter: 'Filtra il diario',
+    filterArt: 'Tipo di voce',
+    filterArea: 'Ambito',
+    filterAll: 'Mostra tutto',
+    filterActive: 'Filtrato:',
+    filterEmpty: 'Nessuna voce in questa selezione',
+    filterEmptyHint: '«Mostra tutto» rimuove il filtro.',
 
     stripLabel: 'Linea del tempo – tocca per saltare al punto corrispondente',
     photoOpen: 'Vedi la foto in grande',
