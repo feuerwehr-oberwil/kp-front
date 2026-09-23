@@ -16,6 +16,8 @@ export interface UndoableDoc<D> {
   beginDrag: () => void
   /** fold the whole gesture into a single undo step on release */
   endDrag: () => void
+  /** is a `beginDrag` gesture open right now (read live, not a render snapshot) */
+  dragging: () => boolean
   /** step back one checkpoint; returns true if the doc changed (so the caller can log it) */
   undo: () => boolean
   /** step forward one checkpoint; returns true if the doc changed */
@@ -100,5 +102,5 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: () 
     onCheckpoint?.()
   }
 
-  return { doc, current: () => docRef.current, setDocRaw, commit, beginDrag, endDrag, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, replace, checkpoint }
+  return { doc, current: () => docRef.current, setDocRaw, commit, beginDrag, endDrag, dragging: () => dragSnap.current !== null, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, replace, checkpoint }
 }

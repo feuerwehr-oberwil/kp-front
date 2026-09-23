@@ -345,6 +345,20 @@ describe('a sheet edit of an object the sheet does not own', () => {
     expect(result.current.objects[0].sheet).toBeUndefined() // one ↶ undid the whole drag
   })
 
+  it('says a gesture is open from its first sample to its release, on either surface', () => {
+    // read by the save path (useIncidentSync · gestureOpen) to skip its per-sample compare
+    const { result } = store(geoStore())
+    expect(result.current.gestureOpen()).toBe(false)
+    act(() => result.current.beginSheetStep())
+    expect(result.current.gestureOpen()).toBe(true)
+    act(() => result.current.endSheetStep())
+    expect(result.current.gestureOpen()).toBe(false)
+    act(() => result.current.beginDrag())
+    expect(result.current.gestureOpen()).toBe(true)
+    act(() => result.current.endDrag())
+    expect(result.current.gestureOpen()).toBe(false)
+  })
+
   it('…while an edit of the sheet’s OWN anno leaves this stack alone', () => {
     const { result } = store()
     act(() => result.current.setBoard(() => ({ modul2: [anno('s1')] })))

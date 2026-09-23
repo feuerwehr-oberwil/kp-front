@@ -557,7 +557,7 @@ export function IncidentWorkspace({
   // all of them would be a different change. The Tafel, Mittel and the Checklisten name their
   // action exactly, because there the timeline entry is written by hand anyway.
   const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, rebake,
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
     undo: undoDoc, redo: redoDoc, replaceObjects,
   } = useObjectStore(
     init.objects,
@@ -1680,6 +1680,9 @@ export function IncidentWorkspace({
     // a ringing device polls fast even when hidden — the Funkkontakt that ends its alarm is
     // usually entered on another device and arrives via this very poll
     alarmUrgent: azAlarm.peak >= 2,
+    // a Karte drag, a plan step, or typing (the Rapport saves per keystroke): while one is open
+    // and a push is owed, the save skips its whole-blob compare
+    gestureOpen: () => gestureOpen() || isTypingTarget(document.activeElement),
   })
   // The record outboxes alone — what the media drain waits for (below). The badge's status adds
   // the media queue to it once that exists (`syncStatus`, after useMediaQueue).

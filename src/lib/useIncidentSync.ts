@@ -44,6 +44,10 @@ interface IncidentSyncDeps {
    *  a hidden tab drops from hiddenPollMs to hiddenAlarmPollMs while it is true. A device that
    *  is actively ringing has no battery case for a sleepy radio. */
   alarmUrgent?: boolean
+  /** A hand is mid-gesture right now — a Karte drag, an open plan step, the caret in a text field.
+   *  Read on every save; see the persistence effect for what it buys. Optional: omitted → every
+   *  save is compared, as before. */
+  gestureOpen?: () => boolean
 }
 
 /**
@@ -54,7 +58,7 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent, gestureOpen }: IncidentSyncDeps) {
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
@@ -63,8 +67,10 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
    *  nothing this device cares about still produced a fresh identity and a push. Two devices
    *  with the same Einsatz open pushed each other's echoes back and forth, and since a hydrate
    *  drops both undo stacks by design, the loop quietly ate every ↶ on both of them. Content,
-   *  not identity, is the only thing that can tell those apart. */
-  const lastPushed = useRef<string | null>(null)
+   *  not identity, is the only thing that can tell those apart.
+   *  Held as the serialized string — or, after a skipped mid-gesture compare (below), as the
+   *  payload itself, serialized only when the next compare needs it. */
+  const lastPushed = useRef<string | Saved | null>(null)
   const hydrate = (ws: Saved) => { skipSave.current = true; applyWorkspace(ws) }
 
   // Attendance divergence → ONE Verlauf note per affected person: a merge kept LWW but saw
@@ -102,12 +108,32 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   const firstSave = useRef(true)
   useEffect(() => {
     const payload = buildPayload()
+    if (firstSave.current) { firstSave.current = false; lastPushed.current = JSON.stringify(payload); return }
+    if (skipSave.current) { skipSave.current = false; lastPushed.current = JSON.stringify(payload); return }
+    // ⚠️ Mid-gesture, with a push already owed, the compare is skipped (perf sweep 23.09.2026).
+    // A Karte drag writes the document per pointer move, a plan chip drag per sample, the Rapport
+    // per keystroke — and each of those re-serialized the WHOLE workspace here, 60 times a second
+    // on a tablet, only to learn that yes, it changed. The skip is safe exactly because of
+    // `hasUnsynced`: the compare exists to stop an ECHO (a hydrate re-seeding identical slices),
+    // and a hydrate never lands while this device has unsynced work (the live-follow guard
+    // below), so a same-blob save here can only re-queue content a push already owes. Nothing
+    // is deferred: every sample still reaches sync.save — and with it the cache and the push
+    // debounce — the moment it happens, so the gesture's final frame is as durable as before.
+    // The first sample of a gesture (not yet dirty) is compared as always, and so is the first
+    // write after it: the baseline is kept as the payload and serialized only then.
+    if (!readOnly && sync.hasUnsynced && gestureOpen?.()) {
+      lastPushed.current = payload
+      sync.save(payload as unknown as Workspace)
+      return
+    }
     const body = JSON.stringify(payload)
-    if (firstSave.current) { firstSave.current = false; lastPushed.current = body; return }
-    if (skipSave.current) { skipSave.current = false; lastPushed.current = body; return }
+    const last = lastPushed.current
     // …and the same blob a second time is not a save. (Retrying a FAILED push is WorkspaceSync's
     // own job — `hasUnsynced` outlives this effect — so nothing is dropped by skipping here.)
-    if (body === lastPushed.current) return
+    if (last !== null && body === (typeof last === 'string' ? last : JSON.stringify(last))) {
+      lastPushed.current = body
+      return
+    }
     lastPushed.current = body
     // Demo edits DO persist now (shared, like a real station) — visitors work a live incident that
     // survives reload and is reset once nightly (backend cron at 00:00 Europe/Zurich). Creating NEW
