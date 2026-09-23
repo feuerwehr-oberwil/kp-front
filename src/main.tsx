@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { initServiceWorker } from './lib/swUpdate'
 import { initInstallPrompt } from './lib/installPrompt'
 import { installGlobalErrorReporting } from './lib/reportError'
-import App from './App'
+// maplibre's stylesheet BEFORE app.css, as it was when App was a static import: app.css overrides
+// `.maplibregl-*` at equal specificity, and a lazy chunk's CSS would otherwise land after it.
+import 'maplibre-gl/dist/maplibre-gl.css'
 import './fonts.css'
 import './app.css'
 import { AuthProvider, useAuth } from './lib/auth'
@@ -50,6 +52,20 @@ initServiceWorker()
 // fire early and is lost if nothing listens) — the InstallGuide then offers one-tap install.
 initInstallPrompt()
 
+// The field app itself (App → IncidentWorkspace → MapView → maplibre, ~2 MB of script) is a
+// lazy chunk too, so the capture poster (/e/) and /admin no longer download and parse it — the
+// entry used to import it statically, which also made index.html modulepreload maplibre on
+// EVERY route (perf sweep 23.09.2026). ⚠️ No extra round trip for the field app: the import is
+// kicked off HERE, at module evaluation, for every route that will mount it (the main route and
+// the link door, whose LinkApp imports App statically), so the chunk downloads in parallel with
+// the boot awaits below (IDB migration, /api/config, locale) instead of after them. `lazy()`
+// then resolves from the same, already-settled module promise.
+const loadApp = () => import('./App')
+// eslint-disable-next-line react-refresh/only-export-components -- the entry is never hot-swapped
+const App = lazy(loadApp)
+const bootPath = window.location.pathname
+if (!bootPath.startsWith('/e/') && !bootPath.startsWith('/admin')) void loadApp()
+
 // Admin surface: an unlinked /admin route loaded as its OWN lazy chunk so field
 // users (the overwhelming majority of loads) never download any admin code. The
 // Suspense fallback reuses the same boot Splash as the auth Gate below.
@@ -74,7 +90,7 @@ function Gate() {
   return (
     <>
       <DemoRibbon />
-      {loading ? <Splash /> : !user ? <LoginScreen /> : <App />}
+      {loading ? <Splash /> : !user ? <LoginScreen /> : <Suspense fallback={<Splash />}><App /></Suspense>}
     </>
   )
 }
