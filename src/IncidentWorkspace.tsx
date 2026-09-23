@@ -4242,7 +4242,12 @@ export function IncidentWorkspace({
   /*  `describe` lets the domain write the step's rows itself — the Checklisten write «☑ …» /
    *  «Meilenstein zurückgenommen: …» for a milestone, the same row a tap writes — and a `true`
    *  from it replaces the generic «… rückgängig gemacht», so one step is never two rows. */
-  const rememberSliceStep = <T,>(domain: UndoDomain, hist: UndoableSlice<T>, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) => {
+  /*  ⚠️ `histRef`, read when the step is TAKEN — not the slice object of the render that wrote.
+   *  That object's `undo` closes over its render's stacks, which do not yet hold the checkpoint
+   *  the write just laid down: ↶ then restored the snapshot one step too far back (the first ↶
+   *  after a fresh mount found an empty stack and was «lost»; a later one restored the state the
+   *  write had started from, so a re-tick «rückgängig gemacht» stayed ticked — 23.09.2026). */
+  const rememberSliceStep = <T,>(domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) => {
     const step = (moved: { from: T; to: T } | null, dir: 'undo' | 'redo') => {
       if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
       return histStep(!!moved, dir, label, op, icon, 'journal')
@@ -4252,12 +4257,12 @@ export function IncidentWorkspace({
       label,
       // ⚠️ `onStep` FIRST, before the stack moves: it closes whatever fold window is still open
       // (the Rapport's), because the step that window would fold into is the one being popped.
-      undo: () => { onStep?.(); return step(hist.undo(), 'undo') },
-      redo: () => { onStep?.(); return step(hist.redo(), 'redo') },
+      undo: () => { onStep?.(); return step(histRef.current.undo(), 'undo') },
+      redo: () => { onStep?.(); return step(histRef.current.redo(), 'redo') },
     })
   }
-  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef.current, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
-  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef.current, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
+  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
+  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
   // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
   const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
   const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
@@ -4302,7 +4307,7 @@ export function IncidentWorkspace({
     // ⚠️ …and the fold window closes on every ↶ ↷ (the last argument): the step it would fold
     // into has just moved to the other stack, so typing in the same field right after an undo
     // would lay no step of its own — and the next ↷ would overwrite it.
-    if (laid) rememberSliceStep('rapport', reportHistRef.current, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
+    if (laid) rememberSliceStep('rapport', reportHistRef, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
     return laid
   }
   reportSetRef.current = reportSet
@@ -4352,7 +4357,7 @@ export function IncidentWorkspace({
     }
     // `shift.` is on the `el` audit allowlist (backend · EL_EVENT_PREFIXES): an Einsatzleiter
     // plans shifts, so their ↶ must not 403 the batch — see logHistStep.
-    if (laid) rememberSliceStep('zeitplan', zeitplanHistRef.current, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
+    if (laid) rememberSliceStep('zeitplan', zeitplanHistRef, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
   }
   const setShiftsUndoable: Dispatch<SetStateAction<Shift[]>> = (u) =>
     zeitplanWrite((cur) => ({ ...cur, shifts: typeof u === 'function' ? u(cur.shifts) : u }))
