@@ -312,8 +312,8 @@ export default defineConfig(({ mode }) => {
       target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
       rolldownOptions: {
         output: {
-          // Split maplibre (~800 KB) into its own chunk so it no longer bloats the initial
-          // app chunk. pdfjs deliberately has NO group here: PdfViewport's dynamic import
+          // Split maplibre (~1 MB since v6, ~800 KB in v4) into its own chunk so it no longer
+          // bloats the initial app chunk. pdfjs deliberately has NO group here: PdfViewport's dynamic import
           // already splits it into a lazy chunk on its own, and a manual group made it
           // EAGER — rolldown placed the shared module-preload helper inside the pdfjs
           // chunk, so the entry statically imported the whole 470 KB of pdf.js to reach it
@@ -324,9 +324,13 @@ export default defineConfig(({ mode }) => {
           // `.maplibregl-*` at equal specificity) now that the field app is a lazy chunk — and a
           // group that also matched the .css pulled the entry into depending on the maplibre
           // chunk, which put its 790 KB modulepreload back into index.html on every route.
+          // ⚠️ `.mjs` since MapLibre 6 (ESM-only: maplibre-gl.mjs + maplibre-gl-shared.mjs). A
+          // `.js`-only test silently matches nothing — on 23.09.2026 rolldown's own split happened
+          // to produce the same chunk anyway, but that is luck, not this rule. The worker is not
+          // in this group: lib/maplibreWorker has Vite emit it as its own self-contained asset.
           codeSplitting: {
             groups: [
-              { name: 'maplibre', test: /\/node_modules\/maplibre-gl\/.*\.js$/ },
+              { name: 'maplibre', test: /\/node_modules\/maplibre-gl\/.*\.m?js$/ },
             ],
           },
         },

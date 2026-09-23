@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import Map, { Marker, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import '../lib/maplibreWorker'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { deploymentDefaultCenter } from '../lib/deploymentConfig'

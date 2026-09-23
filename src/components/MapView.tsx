@@ -3,6 +3,7 @@ import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import '../lib/maplibreWorker'
 import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
@@ -2102,8 +2103,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Only the print/report instance needs its GL back-buffer preserved (it captures the canvas
       // via getCanvas().toDataURL() — see ReportPrintView / reportPdf). On the always-live field
       // map keeping the buffer around just raises the per-repaint GPU/memory cost for the whole
-      // shift, so gate it to the static instance.
-      preserveDrawingBuffer={staticView}
+      // shift, so gate it to the static instance. (A WebGL context attribute since MapLibre 5 —
+      // the rest of the object keeps MapLibre's defaults, it is merged, not replaced.)
+      canvasContextAttributes={{ preserveDrawingBuffer: staticView }}
     >
       <QuietAttributionControl />
       <MapLayers layers={layers} preparedOverlays={preparedOverlays} isVisible={isVisible} mapReady={mapReady} />
