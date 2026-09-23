@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dueClock, fillTemplate, fmtDuration, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref } from './format'
+import { dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -224,5 +224,18 @@ describe('telHref (the Kontaktperson dial link)', () => {
     expect(telHref(undefined)).toBeUndefined()
     expect(telHref('-')).toBeUndefined()
     expect(telHref('kommt noch')).toBeUndefined()
+  })
+})
+
+describe('fmtFileSize', () => {
+  it('prints bytes, whole KB and one-decimal MB — the admin lists\' one reading of a file size', () => {
+    expect(fmtFileSize(512)).toBe('512 B')
+    expect(fmtFileSize(940 * 1024)).toBe('940 KB')
+    expect(fmtFileSize(1.5 * 1024 ** 2)).toBe('1.5 MB')
+    expect(fmtFileSize(120 * 1024 ** 2)).toBe('120.0 MB')
+  })
+  it('says «—» for a size the server did not report', () => {
+    expect(fmtFileSize(null)).toBe('—')
+    expect(fmtFileSize(undefined)).toBe('—')
   })
 })
