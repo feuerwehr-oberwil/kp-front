@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import type { Map as MlMap } from 'maplibre-gl'
+import type { Map as MlMap, MapMouseEvent, MapTouchEvent } from 'maplibre-gl'
 import type { Drawing, Entity, LineAttachment, LngLat } from '../types'
 import { haversineM } from '../lib/geo'
 import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
@@ -115,19 +115,19 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
         }
       }
     }
-    const onTouchStart = (e: any) => {
+    const onTouchStart = (e: MapTouchEvent) => {
       usingTouch.current = true
       if ((e.originalEvent.touches?.length ?? 1) >= 2) { finish(false); return } // 2 fingers → let the map pan/zoom
       start([e.lngLat.lng, e.lngLat.lat])
     }
-    const onTouchMove = (e: any) => {
+    const onTouchMove = (e: MapTouchEvent) => {
       if (!fhActive.current) return
       if ((e.originalEvent.touches?.length ?? 1) >= 2) { finish(false); return }
       addPoint([e.lngLat.lng, e.lngLat.lat])
     }
-    const onTouchEnd = (e: any) => { if ((e.originalEvent.touches?.length ?? 0) === 0) finish(true) }
-    const onMouseDown = (e: any) => { if (usingTouch.current || spaceHeld.current) return; start([e.lngLat.lng, e.lngLat.lat]) }
-    const onMouseMove = (e: any) => { if (!fhActive.current || usingTouch.current) return; addPoint([e.lngLat.lng, e.lngLat.lat]) }
+    const onTouchEnd = (e: MapTouchEvent) => { if ((e.originalEvent.touches?.length ?? 0) === 0) finish(true) }
+    const onMouseDown = (e: MapMouseEvent) => { if (usingTouch.current || spaceHeld.current) return; start([e.lngLat.lng, e.lngLat.lat]) }
+    const onMouseMove = (e: MapMouseEvent) => { if (!fhActive.current || usingTouch.current) return; addPoint([e.lngLat.lng, e.lngLat.lat]) }
     const onMouseUp = () => { if (!usingTouch.current) finish(true) }
     // hybrid device (iPad + trackpad): a REAL mouse press reclaims the tool after a finger set the
     // latch – the compat mousedown a touch synthesizes never fires a 'mouse' pointerdown, so this
@@ -168,10 +168,10 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
     const map = mapInst.current
     if (!map || !mapReady || !marqueeEnabled) return
     const setRect = (r: Rect) => { marqueeRef.current = r; setMarquee(r) }
-    const clientXY = (e: any): [number, number] => {
+    const clientXY = (e: MapMouseEvent | MapTouchEvent): [number, number] => {
       const oe = e.originalEvent
-      const t = oe.touches?.[0] ?? oe.changedTouches?.[0]
-      return t ? [t.clientX, t.clientY] : [oe.clientX, oe.clientY]
+      const t = 'touches' in oe ? oe.touches?.[0] ?? oe.changedTouches?.[0] : undefined
+      return t ? [t.clientX, t.clientY] : [(oe as MouseEvent).clientX, (oe as MouseEvent).clientY]
     }
     const begin = (cx: number, cy: number) => { setRect({ x0: cx, y0: cy, x1: cx, y1: cy }); map.dragPan.disable() }
     const cancel = () => { map.dragPan.enable(); marqueeRef.current = null; setMarquee(null) }
@@ -193,19 +193,19 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       const twinKeys = twinPointsRef.current.filter((t) => t.points.some((c) => inBox(c))).map((t) => t.key)
       onMarqueeRef.current?.(drawIds, entityIds, twinKeys)
     }
-    const onTouchStart = (e: any) => {
+    const onTouchStart = (e: MapTouchEvent) => {
       mUsingTouch.current = true
       if ((e.originalEvent.touches?.length ?? 1) >= 2) { cancel(); return }
       const [cx, cy] = clientXY(e); begin(cx, cy)
     }
-    const onTouchMove = (e: any) => {
+    const onTouchMove = (e: MapTouchEvent) => {
       if (!marqueeRef.current) return
       if ((e.originalEvent.touches?.length ?? 1) >= 2) { cancel(); return }
       const [cx, cy] = clientXY(e); setRect({ ...marqueeRef.current, x1: cx, y1: cy })
     }
-    const onTouchEnd = (e: any) => { if ((e.originalEvent.touches?.length ?? 0) === 0 && marqueeRef.current) commitSel() }
-    const onMouseDown = (e: any) => { if (mUsingTouch.current) return; const [cx, cy] = clientXY(e); begin(cx, cy) }
-    const onMouseMove = (e: any) => { if (!marqueeRef.current || mUsingTouch.current) return; const [cx, cy] = clientXY(e); setRect({ ...marqueeRef.current, x1: cx, y1: cy }) }
+    const onTouchEnd = (e: MapTouchEvent) => { if ((e.originalEvent.touches?.length ?? 0) === 0 && marqueeRef.current) commitSel() }
+    const onMouseDown = (e: MapMouseEvent) => { if (mUsingTouch.current) return; const [cx, cy] = clientXY(e); begin(cx, cy) }
+    const onMouseMove = (e: MapMouseEvent) => { if (!marqueeRef.current || mUsingTouch.current) return; const [cx, cy] = clientXY(e); setRect({ ...marqueeRef.current, x1: cx, y1: cy }) }
     const onMouseUp = () => { if (!mUsingTouch.current && marqueeRef.current) commitSel() }
     // hybrid device: a real 'mouse' pointerdown unlatches – touch's compat mousedown never fires one
     const onPtrDown = (ev: PointerEvent) => { if (ev.pointerType === 'mouse') mUsingTouch.current = false }
@@ -243,20 +243,20 @@ export function useMapCanvasGestures({ mapInst, mapReady, freehand, onFreehand, 
       // circle so the tool never does "nothing" — the radius is then editable.
       if (c) onCircleRef.current?.(c.center, Math.round(c.radiusM >= circleMinRadiusM ? c.radiusM : circleInitialRadiusM))
     }
-    const ll = (e: any): LngLat => [e.lngLat.lng, e.lngLat.lat]
-    const onTouchStart = (e: any) => {
+    const ll = (e: MapMouseEvent | MapTouchEvent): LngLat => [e.lngLat.lng, e.lngLat.lat]
+    const onTouchStart = (e: MapTouchEvent) => {
       cUsingTouch.current = true
       if ((e.originalEvent.touches?.length ?? 1) >= 2) { cancel(); return }
       begin(ll(e))
     }
-    const onTouchMove = (e: any) => {
+    const onTouchMove = (e: MapTouchEvent) => {
       if (!circleRef.current) return
       if ((e.originalEvent.touches?.length ?? 1) >= 2) { cancel(); return }
       update(ll(e))
     }
-    const onTouchEnd = (e: any) => { if ((e.originalEvent.touches?.length ?? 0) === 0 && circleRef.current) finish() }
-    const onMouseDown = (e: any) => { if (cUsingTouch.current) return; begin(ll(e)) }
-    const onMouseMove = (e: any) => { if (!circleRef.current || cUsingTouch.current) return; update(ll(e)) }
+    const onTouchEnd = (e: MapTouchEvent) => { if ((e.originalEvent.touches?.length ?? 0) === 0 && circleRef.current) finish() }
+    const onMouseDown = (e: MapMouseEvent) => { if (cUsingTouch.current) return; begin(ll(e)) }
+    const onMouseMove = (e: MapMouseEvent) => { if (!circleRef.current || cUsingTouch.current) return; update(ll(e)) }
     const onMouseUp = () => { if (!cUsingTouch.current && circleRef.current) finish() }
     // hybrid device: a real 'mouse' pointerdown unlatches – touch's compat mousedown never fires one
     const onPtrDown = (ev: PointerEvent) => { if (ev.pointerType === 'mouse') cUsingTouch.current = false }
