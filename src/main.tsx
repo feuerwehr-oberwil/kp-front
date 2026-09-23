@@ -22,6 +22,7 @@ import { requestPersistentStorage } from './lib/idb'
 import { applyLocale } from './config/copy'
 import { ensureErg } from './lib/erg'
 import { ensureUnHazard } from './lib/unHazard'
+import { whenIdle } from './lib/idle'
 
 // zoom applies only to the map/plan, not the UI chrome (app feel, not a web page)
 lockChromeZoom()
@@ -64,7 +65,9 @@ const loadApp = () => import('./App')
 // eslint-disable-next-line react-refresh/only-export-components -- the entry is never hot-swapped
 const App = lazy(loadApp)
 const bootPath = window.location.pathname
-if (!bootPath.startsWith('/e/') && !bootPath.startsWith('/admin')) void loadApp()
+/** the routes that mount the field app: everything but the capture poster and /admin */
+const fieldRoute = !bootPath.startsWith('/e/') && !bootPath.startsWith('/admin')
+if (fieldRoute) void loadApp()
 
 // Admin surface: an unlinked /admin route loaded as its OWN lazy chunk so field
 // users (the overwhelming majority of loads) never download any admin code. The
@@ -149,9 +152,12 @@ void (async () => {
     // Prefetch the hazard reference datasets (ADR table + ERG — static assets since they
     // left the entry bundle, see lib/staticData). Deliberately NOT awaited: nothing on the
     // boot path may block first paint, and the surfaces re-render when they land
-    // (lib/useHazardData).
-    void ensureUnHazard()
-    void ensureErg()
+    // (lib/useHazardData). ⚠️ On IDLE, and only where the field app mounts (perf sweep
+    // 23.09.2026): fetching and parsing ~660 KB of JSON right before createRoot competed with
+    // the first render, and the capture poster and /admin never read a UN number at all. The
+    // idle callback fires in the first quiet moment after first paint (2 s at the latest), and
+    // both files are precached, so offline they land exactly as before.
+    if (fieldRoute) whenIdle(() => { void ensureUnHazard(); void ensureErg() })
   } catch (e) {
     // Boot init must never white-screen the kiosk: fall through to defaults and render.
     console.error('Boot init failed (continuing with defaults):', e)
