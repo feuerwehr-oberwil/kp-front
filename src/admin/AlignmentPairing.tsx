@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Source, Layer, NavigationControl, type MapRef } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import '../lib/maplibreWorker'
 import { QuietAttributionControl } from '../components/MapAttribution'
 import { GeorefBoardLayer, GeorefInstrument, type PlanViewApi } from '../components/GeorefMode'
 import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from '../components/GeorefMapLayer'
