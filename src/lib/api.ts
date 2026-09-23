@@ -163,6 +163,13 @@ export function isUnverifiable(e: unknown): boolean {
   return e instanceof ApiError && (e.status === 0 || e.status === 502 || e.status === 503 || e.status === 504)
 }
 
+/** …and its opposite: did the server ANSWER «no» (401/403)? The whole offline story turns on
+ *  this one distinction – a refusal ends the session and closes every offline fallback (cached
+ *  user, cached workspace), silence changes nothing at all. */
+export function isDenial(e: unknown): boolean {
+  return e instanceof ApiError && (e.status === 401 || e.status === 403)
+}
+
 /**
  * Fired on `window` when a 401 could not be repaired by the refresh: the session is gone for
  * good (refresh cookie expired mid-incident, SECRET_KEY rotated, server redeployed with a fresh
