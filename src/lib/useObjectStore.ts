@@ -328,12 +328,40 @@ export function useObjectStore(
     return moved
   }
 
+  /**
+   * ⚠️ The writers handed out keep ONE identity for the life of the store (24.09.2026).
+   *
+   * Each of them is a closure over this render — `store`, `readOnly`, `onAnchorChange`, the undo
+   * stacks — so each render made a new one, and an effect that listed one in its deps re-ran
+   * after every render. The live-GPS pass did exactly that with `setDocRaw`: its write rendered,
+   * the render made a new `setDocRaw`, the effect ran again and wrote again — a render storm and
+   * React #185 on every device with the vehicle feed (Übung 23.09.2026). So the identities below
+   * are fixed, and each forwards to the implementation of the LATEST render through a ref,
+   * which keeps every semantic the closures had: `commit` still sees the current `readOnly`,
+   * `reporting` the current `onAnchorChange`, `undo` the current stack. Assigned during render
+   * like `foreignReporter` above — a child's layout effect that writes must reach this render's
+   * store, not the last one's.
+   */
+  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake })
+  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake }
+  const writers = useMemo(() => ({
+    setDocRaw: ((a, opts) => impl.current.setDocRaw(a, opts)) as ObjectStore['setDocRaw'],
+    setBoard: ((a) => impl.current.setBoard(a)) as ObjectStore['setBoard'],
+    beginSheetStep: () => impl.current.beginSheetStep(),
+    endSheetStep: () => impl.current.endSheetStep(),
+    commit: (updater: (d: Doc) => Doc) => impl.current.commit(updater),
+    beginDrag: () => impl.current.beginDrag(),
+    endDrag: () => impl.current.endDrag(),
+    undo: () => impl.current.undo(),
+    redo: () => impl.current.redo(),
+    rebake: ((opts) => impl.current.rebake(opts)) as ObjectStore['rebake'],
+  }), [])
+
   return {
     objects: store.doc, doc, board,
-    setDocRaw, setBoard, beginSheetStep, endSheetStep, commit,
-    beginDrag: store.beginDrag, endDrag: store.endDrag,
-    undo: store.undo, redo: store.redo, canUndo: store.canUndo, canRedo: store.canRedo,
-    replaceObjects: store.replace, rebake,
+    ...writers,
+    canUndo: store.canUndo, canRedo: store.canRedo,
+    replaceObjects: store.replace,
   }
 }
 
