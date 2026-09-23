@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { autoActivateLayers, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
+import { autoActivateLayers, demoClockAnchor, DEMO_SEED_REV, demoSeedRebase, deriveInitial, isBoardAnno, latestTruppStamp, normalizeBoard, numberTrupps, rebaseDemoClocks, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Saved } from './workspace'
 import type { LayerDef, Trupp } from '../types'
 
 // Inject one station reference layer with a category rule so the auto-activation path is
@@ -591,5 +591,29 @@ describe('sanitizeWorkspace — Rauch cloud → VKF Rauch symbol migration', () 
   it('leaves other shapes (arrow/square) untouched', () => {
     const g = sanitizeWorkspace({ schemaVersion: WORKSPACE_SCHEMA_VERSION, entities: [{ id: 'sh2', kind: 'shape', shape: 'arrow', coord: [7.5, 47.5] }] })
     expect((g.ws!.entities[0] as unknown as Record<string, unknown>).kind).toBe('shape')
+  })
+})
+
+// The ink minimums at the load gate — the same «a Linie keeps 2 points, a Fläche 3» the two
+// vertex editors enforce, pinned at their exact boundaries before the rule moves to one module.
+// A floor-tagged point [x, y, floor] is a valid vertex too.
+describe('isBoardAnno — ink vertex minimums', () => {
+  const pts = (n: number) => Array.from({ length: n }, (_, i) => [i / 10, i / 20])
+  it('a draw needs 2 points: 1 is dropped, 2 is kept', () => {
+    expect(isBoardAnno({ id: 'a', kind: 'draw', pts: pts(1) })).toBe(false)
+    expect(isBoardAnno({ id: 'a', kind: 'draw', pts: pts(2) })).toBe(true)
+  })
+  it('an area needs 3 points: 2 is dropped, 3 is kept', () => {
+    expect(isBoardAnno({ id: 'a', kind: 'area', pts: pts(2) })).toBe(false)
+    expect(isBoardAnno({ id: 'a', kind: 'area', pts: pts(3) })).toBe(true)
+  })
+  it('a floor-tagged vertex passes, a malformed one sinks the anno', () => {
+    expect(isBoardAnno({ id: 'a', kind: 'draw', pts: [[0, 0, 1], [1, 1, 1]] })).toBe(true)
+    expect(isBoardAnno({ id: 'a', kind: 'draw', pts: [[0, 0], [1]] })).toBe(false)
+    expect(isBoardAnno({ id: 'a', kind: 'draw', pts: [[0, 0], [1, Number.NaN]] })).toBe(false)
+  })
+  it('a non-ink anno needs only a finite anchor', () => {
+    expect(isBoardAnno({ id: 'a', kind: 'symbol', x: 0.1, y: 0.2 })).toBe(true)
+    expect(isBoardAnno({ id: 'a', kind: 'symbol', x: 0.1 })).toBe(false)
   })
 })
