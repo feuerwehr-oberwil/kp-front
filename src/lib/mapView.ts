@@ -2,7 +2,7 @@
 // feature builders, and the symbol-kind predicates. No React — safe to unit-test.
 import type { Entity, LayerId, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
-import { ROTATABLE, VEHICLE_SYMBOLS } from '../lib/symbols'
+import { VEHICLE_SYMBOLS } from '../lib/symbols'
 import { lookbackPoint } from './lineStyle'
 import { dockSlotOffset } from './docking'
 import { cachedLabelSize } from './labelPass'
@@ -84,11 +84,9 @@ export function teamDockAnchor(
 // `maxPx` is the per-kind ceiling (lib/shapes · SHAPE_MAX_PX) — the general 900 stops a stray
 // value producing a mile-wide DOM box, but a Rotation is meant to span the map and needs its own.
 export const shapePx = (sizeM: number | undefined, lat: number, z: number, maxPx = 900) => Math.max(24, Math.min(maxPx, (sizeM ?? 40) * pxPerM(lat, z)))
-// directional tactical symbols that support drag-to-rotate (ladders, fans, vehicles…)
-// — set derived from the symbol presets (lib/symbols · ROTATABLE)
-export const isRotatableSym = (e: Entity) => e.kind === 'symbol' && !!e.symbol && ROTATABLE.has(e.symbol)
-// a placed generic vehicle — rendered like the live GPS glyph, with its typed name baked in
-export const isVehicleSym = (e: Entity) => e.kind === 'symbol' && e.symbol === appConfig.symbols.vehicleName
+// directional tactical symbols that support drag-to-rotate, and the generic placed vehicle —
+// one pair of predicates for the Karte and the Plan, defined beside ROTATABLE (lib/symbols)
+export { isRotatableSym, isVehicleSym } from './symbols'
 
 /**
  * The layer an entity actually belongs to. Vehicles answer «Fahrzeuge» whatever their stored

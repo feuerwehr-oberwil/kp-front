@@ -39,6 +39,14 @@ export const ROTATABLE: Set<string> = new Set(
     .map(([name]) => name),
 )
 
+/** A placed directional symbol that supports drag-to-rotate (ladders, fans, vehicles…) — ONE
+ *  predicate for both surfaces: typed on the shape an Entity and a BoardAnno share, so the Karte
+ *  (lib/mapView re-exports it) and the Plan (Whiteboard) cannot drift apart on which glyphs wear
+ *  a rotor. */
+export const isRotatableSym = (a: { kind: string; symbol?: string }) => a.kind === 'symbol' && !!a.symbol && ROTATABLE.has(a.symbol)
+/** …and the generic placed vehicle, whose typed name is baked into the glyph (text stays upright). */
+export const isVehicleSym = (a: { kind: string; symbol?: string }) => a.kind === 'symbol' && a.symbol === appConfig.symbols.vehicleName
+
 /** Names of every symbol whose preset carries a UN-Nr. field (dot-tolerant, like every other
  *  reader of that key): the Gefahrentafel plus the Gas/Chemie hazard symbols. Derived from the
  *  presets — the ONE source — so the ADR/ERG panel, the Stoff search and the Schutzabstand

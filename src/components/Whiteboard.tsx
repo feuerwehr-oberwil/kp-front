@@ -35,7 +35,7 @@ import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHu
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
-import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, symbolCaptionText, ROTATABLE } from '../lib/symbols'
+import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, symbolCaptionText, isRotatableSym, isVehicleSym } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
@@ -111,11 +111,6 @@ const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cy
  *  sheet. A cordon legitimately reaches past the paper (the Karte's radius stepper caps at
  *  100 km for the same reason), so the ceiling is only there to stop a runaway drag. */
 const CIRCLE_MAX_N = 2
-// parity with the Lage map: directional symbols that support drag-to-rotate (set
-// derived from the symbol presets, lib/symbols · ROTATABLE), and the generic
-// vehicle whose typed name is baked into the glyph (text stays upright).
-const isRotatableSym = (a: BoardAnno) => a.kind === 'symbol' && !!a.symbol && ROTATABLE.has(a.symbol)
-const isVehicleSym = (a: BoardAnno) => a.kind === 'symbol' && a.symbol === appConfig.symbols.vehicleName
 // a composite symbol (Grosslüfter vehicle+fan, Drehleiter/Hubretter body+ladder/boom): a two-handle
 // rotor + two-layer render, like the map. Returns the spec (base/part/scale/label) or undefined.
 const annoComposite = (a: BoardAnno) => (a.kind === 'symbol' ? compositeSpec(a.symbol) : undefined)
