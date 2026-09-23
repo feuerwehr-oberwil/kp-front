@@ -72,7 +72,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import storage
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
-from .database import async_session_maker
+from .database import async_session_maker, execute_dml
 from .geocode import geocode
 from .models import (
     DeploymentConfig,
@@ -1183,7 +1183,8 @@ async def _retarget_incident(db: AsyncSession, incident_id: uuid.UUID, old_id: u
         new_doc, hits = _retarget_json(current.map_workspace_json, old_id, new_id)
         if not hits or not isinstance(new_doc, dict):
             return
-        result = await db.execute(
+        result = await execute_dml(
+            db,
             update(Incident)
             .where(Incident.id == incident_id, Incident.workspace_rev == current.workspace_rev)
             .values(
@@ -1191,7 +1192,7 @@ async def _retarget_incident(db: AsyncSession, incident_id: uuid.UUID, old_id: u
                 workspace_rev=Incident.workspace_rev + 1,
                 updated_at=Incident.updated_at,
             )
-            .execution_options(synchronize_session=False)
+            .execution_options(synchronize_session=False),
         )
         if result.rowcount:
             return
