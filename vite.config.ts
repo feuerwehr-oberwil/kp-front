@@ -182,6 +182,18 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
+              // A plan revision's APPROVED ALIGNMENTS (`/api/reference/plan:x/alignments?v=3`)
+              // are never the service worker's to keep (24.09.2026, Feueralarm root cause B). The
+              // pinned-PDF rule below matched them — `[^?]*` runs through `/alignments` — and
+              // served them cache-first forever: a withdrawn approval never reached the device,
+              // and the stored answer's `X-Server-Time` (days old) pulled the shared clock back
+              // mid-Einsatz. The approval is live state; the offline copy lives in IndexedDB
+              // (lib/api/reference · getApprovedPlanAlignments), which falls back only when the
+              // fetch fails. ⚠️ Listed before every other /api/reference route.
+              urlPattern: /\/api\/reference\/[^/?]+\/alignments(?:\?|$)/,
+              handler: 'NetworkOnly',
+            },
+            {
               // A plan TILE (backend · app/plan_tiles, 21.09.2026): the revision is part of the
               // path, so the address is immutable and cache-first for good. Its own cache, and a
               // big one — a dense A1 is ~1 500 tiles (10 MB), an ordinary A3/A4 sheet a few
