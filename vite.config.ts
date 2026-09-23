@@ -160,6 +160,16 @@ export default defineConfig(({ mode }) => {
           // few devices, no pattern). Adding an extension here is never cosmetic — check what
           // is emitted with it (`ls dist/assets`) before removing one.
           globPatterns: ['**/*.{js,mjs,css,html,svg,woff2,json}'],
+          // ⚠️ The build writes hidden sourcemaps (build.sourcemap below). None of them may be
+          // precached: they are for the person reading a crash, never for the tablet, and together
+          // they are several times the size of the code they describe. `**/*.map` is not matched
+          // by the patterns above today — this says so explicitly, and scripts/check-sourcemaps.mjs
+          // (CI) fails the build if a `.map` ever reaches the manifest anyway.
+          globIgnores: ['**/*.map'],
+          // …and the generated service worker gets none: vite-plugin-pwa inherits `build.sourcemap`
+          // for it but not the `hidden` part, so sw.js and workbox-*.js came out POINTING at maps
+          // of Workbox's own code, which nobody will ever need to symbolicate.
+          sourcemap: false,
           // Notification routing plus the auth-aware incident-media cache. Imported before
           // Workbox registers routes; sw-media-cache owns /api/media/* itself.
           importScripts: ['sw-notify.js', 'sw-media-cache.js'],
@@ -289,6 +299,15 @@ export default defineConfig(({ mode }) => {
       coverage: { provider: 'v8', include: ['src/lib/**'] },
     },
     build: {
+      // ⚠️ HIDDEN sourcemaps (24.09.2026): written next to every chunk, referenced by none. Without
+      // them a field stack is `at Xe (index-abc.js:1:234567)` and says nothing — the 23.09. crash
+      // had to be found by reading the code. `hidden` rather than `true` so no bundle carries a
+      // `sourceMappingURL` (a browser would fetch the maps for every devtools user, and a tablet
+      // has no use for them); the repo is public, so the maps themselves are no secret. They ship
+      // in the image and are served beside the chunks — how to symbolicate: docs/SOURCEMAPS.md.
+      // scripts/check-sourcemaps.mjs (CI) holds all three facts: maps exist, no bundle points at
+      // them, the service worker precaches none.
+      sourcemap: 'hidden',
       // Keep Vite 5's browser floor when upgrading the build tool, including older tablets.
       target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
       rolldownOptions: {

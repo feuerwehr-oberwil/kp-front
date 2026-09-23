@@ -47,6 +47,11 @@ jobs:
       - name: Build SPA
         run: pnpm build
 
+      # Hidden sourcemaps (vite.config.ts · build.sourcemap, docs/SOURCEMAPS.md): they exist,
+      # no shipped file references them, and the service worker precaches none.
+      - name: Sourcemaps are hidden and not precached
+        run: node scripts/check-sourcemaps.mjs
+
       # GitHub Pages serves site/ verbatim, so the generated pages are committed.
       # This fails if index.html / fr/index.html are behind the template or the
       # texts – otherwise the site in the repo stops being the site on the web.

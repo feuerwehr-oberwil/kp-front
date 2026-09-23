@@ -1067,6 +1067,76 @@ async def test_view_link_does_not_need_the_stations_minting_key(client, editor, 
     assert (await client.get(f"/api/incidents/{incident.id}/journal")).status_code == 200
 
 
+# --- the crash sink (24.09.2026) ----------------------------------------------------------
+#
+# Feueralarm-Übung 23.09., 20:34:12: an iPhone on a link page POSTed a crash report and got
+# this guard's 403, so the one device that had crashed said nothing. The sink is on every list
+# now, and liveness-exempt — without widening anything else.
+
+CRASH = {"kind": "render", "message": "Minified React error #185", "componentStack": "\n    at TwinTeamPill"}
+
+
+async def test_an_alarm_link_may_report_a_crash(client, link_key, incident):
+    await _open_link(client)
+    r = await client.post("/api/diag/client-error", json=CRASH)
+    assert r.status_code == 204, r.text
+    # …and nothing else came with it: the export (its READ half) and the other named
+    # exclusions stay refused
+    for method, url in [("GET", "/api/diag/export"), ("POST", "/api/push/subscriptions")]:
+        r = await client.request(method, url)
+        assert r.status_code == 403, f"{method} {url}"
+        assert r.json()["detail"] == DENIED_DETAIL
+
+
+async def test_a_view_link_may_report_a_crash(client, editor, incident):
+    token = await _mint_view_link(client, editor, incident)
+    assert (await client.post("/api/incident-link/session", json={"token": token})).status_code == 200
+    assert (await client.post("/api/diag/client-error", json=CRASH)).status_code == 204
+    assert (await client.get("/api/diag/export")).status_code == 403
+
+
+async def test_an_atemschutz_page_may_report_a_crash(client, editor, incident):
+    await _open_atemschutz(client, editor, incident)
+    r = await client.post("/api/diag/client-error", json=CRASH, headers=LINK_PAGE)
+    assert r.status_code == 204, r.text
+
+
+async def test_a_dead_link_page_still_reports_its_crash(client, link_key, incident, db_session, caplog):
+    """The 20:34 shape: the Einsatz behind the session is over, so even an allowlisted read like
+    /api/plan-scales is refused — but the crash it is showing still reaches the log. And the
+    refusal says WHY in the server log, which on 23.09. nothing did."""
+    import logging
+
+    await _open_link(client)
+    incident.status = "geschlossen"
+    incident.closed_at = datetime.now(UTC)
+    await db_session.commit()
+
+    with caplog.at_level(logging.INFO, logger="kpfront.linkscope"):
+        r = await client.get("/api/plan-scales")
+    assert r.status_code == 403
+    assert r.json()["detail"] == DENIED_DETAIL  # the holder still learns nothing more
+    [line] = [rec.getMessage() for rec in caplog.records if rec.name == "kpfront.linkscope"]
+    assert "GET /api/plan-scales" in line
+    assert "Einsatz closed" in line
+    assert "link=alarm" in line
+    assert str(incident.id) in line
+
+    assert (await client.post("/api/diag/client-error", json=CRASH)).status_code == 204
+
+
+async def test_a_link_session_is_throttled_like_everyone_else(client, link_key, incident, monkeypatch):
+    from app.api import diag
+
+    monkeypatch.setattr(diag, "CLIENT_ERROR_BURST", 5)
+    monkeypatch.setattr(diag, "CLIENT_ERROR_PER_MINUTE", 1)
+    diag.client_error_limiter.reset()
+    await _open_link(client)
+    codes = [(await client.post("/api/diag/client-error", json=CRASH)).status_code for _ in range(50)]
+    assert codes[:5] == [204] * 5
+    assert set(codes[5:]) == {429}
+
+
 # --- the Atemschutz link ------------------------------------------------------------------
 #
 # The third kind: minted by an editor from a RUNNING Einsatz, opened by somebody who is not on

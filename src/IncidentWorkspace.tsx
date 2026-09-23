@@ -1034,8 +1034,12 @@ export function IncidentWorkspace({
   // the next workspace inherited a `planId` and armed its mode bars for a plan it does not have.
   useEffect(() => () => georefDispatch({ type: 'dismiss' }), [])
   // diagnostics only — a non-throwing render storm of THIS component gets one beacon + a
-  // Rückmeldung prompt; nothing else in the tree can see one (lib/useRenderStorm)
-  useRenderStorm('IncidentWorkspace')
+  // Rückmeldung prompt; nothing else in the tree can see one (lib/useRenderStorm). The beacon names
+  // the open tab and which of these values kept changing (identity checks, nothing deeper).
+  useRenderStorm('IncidentWorkspace', {
+    context: `tab=${mode}`,
+    watch: { objects, layers, fitsVersion, planHistory, planCan, journalRows: journal.rows, recent, georefMode },
+  })
   const phoneGeoref = isPhone && !!georefMode.planId
   // Demo-only: which surface someone opened, for the public demo's visit statistics. A no-op
   // on every real station (isDemoMode) and in a link session — see lib/visitBeacon.ts.
