@@ -242,7 +242,9 @@ def render_blocks(storage_key: str, page: int, blocks: list[tuple[int, int, int]
                                 with image.crop((tx, ty, min(tx + TILE, width), min(ty + TILE, height))) as cut:
                                     data = _encode(cut)
                                 key = tile_key(storage_key, page, z, (x0 + tx) // TILE, (y0 + ty) // TILE)
-                                storage.put_bytes(key, data)
+                                # derived and regenerable (own root, skipped by the backup):
+                                # no fsync per tile — see storage · _atomic_writer
+                                storage.put_bytes(key, data, durable=False)
                                 written += 1
                     finally:
                         image.close()

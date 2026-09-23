@@ -59,27 +59,71 @@ def new_key(prefix: str, suffix: str = "") -> str:
     return f"{prefix.rstrip('/')}/{uuid.uuid4().hex}{suffix}"
 
 
-@contextlib.contextmanager
-def _atomic_writer(key: str) -> Iterator[BinaryIO]:
-    """Publish complete bytes by replacement; failed writes leave the previous blob intact."""
+def _fsync_directory(directory: str) -> None:
+    """Make a rename in `directory` durable. Best-effort: a platform or filesystem that cannot
+    open or fsync a directory (Windows, some network mounts) keeps the old behaviour."""
+    try:
+        fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+def _open_temporary(key: str) -> tuple[str, str, int]:
+    """(final path, temporary path, open fd) of a fresh temporary file beside `key`."""
     path = _full(key)
-    directory = os.path.dirname(path)
-    os.makedirs(directory, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=".upload-", dir=directory)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".upload-", dir=os.path.dirname(path))
+    return path, temporary, fd
+
+
+def _sync_file(fh: BinaryIO) -> None:
+    fh.flush()
+    os.fsync(fh.fileno())
+
+
+def _publish(temporary: str, path: str, *, durable: bool) -> None:
+    # A backup holds the same shared lock, so publishing does not wait for it.
+    # Only a single physical deletion's inode check/unlink needs exclusivity.
+    with backup_guard():
+        os.replace(temporary, path)
+    if durable:
+        _fsync_directory(os.path.dirname(path))
+
+
+@contextlib.contextmanager
+def _atomic_writer(key: str, *, durable: bool = True) -> Iterator[BinaryIO]:
+    """Publish complete bytes by replacement; failed writes leave the previous blob intact.
+
+    ⚠️ Durable by default (23.09.2026): the bytes are fsynced BEFORE the rename and the
+    directory after it. Without that, a power cut or a container kill shortly after a save could
+    leave the new name pointing at an empty or truncated file — the rename is atomic, the data
+    behind it was not yet on disk — while the database row committed to reference it. A photo,
+    a Modul PDF, a snapshot the replay anchors on: all originals. `durable=False` is for DERIVED
+    bytes only (plan tiles), which are regenerated when missing and would otherwise pay two
+    fsyncs per 512-px tile.
+    """
+    path, temporary, fd = _open_temporary(key)
     try:
         with os.fdopen(fd, "wb") as fh:
             yield fh
-        # A backup holds the same shared lock, so publishing does not wait for it.
-        # Only a single physical deletion's inode check/unlink needs exclusivity.
-        with backup_guard():
-            os.replace(temporary, path)
+            if durable:
+                _sync_file(fh)
+        _publish(temporary, path, durable=durable)
     finally:
         with contextlib.suppress(FileNotFoundError):
             os.remove(temporary)
 
 
-def put_bytes(key: str, data: bytes) -> str:
-    with _atomic_writer(key) as fh:
+def put_bytes(key: str, data: bytes, *, durable: bool = True) -> str:
+    """Write a blob atomically. Blocking — including an fsync; from a request handler with a
+    large payload prefer `aput_bytes`. `durable=False`: derived data only (see _atomic_writer)."""
+    with _atomic_writer(key, durable=durable) as fh:
         fh.write(data)
     return key
 
@@ -97,12 +141,21 @@ async def put_astream(key: str, chunks: AsyncIterator[bytes], max_bytes: int | N
     total = 0
     # Writes interleave with awaited chunk reads, so uploads yield without being buffered
     # in memory. The temporary file becomes visible at its final key only after completion.
-    with _atomic_writer(key) as fh:
-        async for chunk in chunks:
-            total += len(chunk)
-            if max_bytes is not None and total > max_bytes:
-                raise TooLargeError(key)
-            fh.write(chunk)
+    # The two fsyncs (file, then directory — see _atomic_writer) run on a worker thread: for a
+    # 25 MB upload they are the one part of this that can take real time.
+    path, temporary, fd = _open_temporary(key)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            async for chunk in chunks:
+                total += len(chunk)
+                if max_bytes is not None and total > max_bytes:
+                    raise TooLargeError(key)
+                fh.write(chunk)
+            await anyio.to_thread.run_sync(_sync_file, fh)
+        await anyio.to_thread.run_sync(lambda: _publish(temporary, path, durable=True))
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(temporary)
     return total
 
 
