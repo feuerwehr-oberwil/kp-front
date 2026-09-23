@@ -105,16 +105,6 @@ export const effectiveLayer = (e: Entity): LayerId =>
   (e.kind === 'symbol' && e.symbol && VEHICLE_SYMBOLS.has(e.symbol)
     ? appConfig.gps.layerId
     : e.layer)
-// Accidental-rotation self-heal: a rotate gesture that ends ALMOST north (within ±threshold°)
-// snaps back to exactly 0 — the common case of a two-finger zoom that drags the bearing a few
-// degrees off heals itself, while deliberate rotation past the threshold sticks. Returns the
-// corrected bearing (0) or null when the bearing should stay as released.
-export const snapNorth = (bearing: number, threshold = 6): number | null => {
-  const b = ((bearing % 360) + 360) % 360 // normalise to [0, 360)
-  const d = Math.min(b, 360 - b) // angular distance to north
-  return d > 0 && d <= threshold ? 0 : null
-}
-
 /** `initialViewState` for a map instance: the live view when we have one (so a WebGL
  *  context-loss remount resumes the operator's framing instead of snapping back to the
  *  incident's initial one), else the incident's opening view. */
