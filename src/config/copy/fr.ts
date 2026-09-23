@@ -2942,6 +2942,7 @@ export const fr: Localizable<Copy> = {
     // the word the flag wears on the row (22.09.2026): the tooltip above is what a mouse
     // reads, and a tablet reads nothing — a lone glyph said «something», not what
     milestoneTag: 'noté dans le journal',
+    milestoneUndone: 'Jalon annulé : {text}',
     actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Dessiner' },
     hazardLabels: { red: 'Incendie', orange: 'Dangers', green: 'Circulation', yellow: 'Technique', blue: 'Eau' },
     diagramAlt: 'Diagramme page {page}',

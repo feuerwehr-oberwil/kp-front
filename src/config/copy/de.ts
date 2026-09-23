@@ -5070,6 +5070,8 @@ export const de = {
     // the word the flag wears on the row (22.09.2026): the tooltip above is what a mouse
     // reads, and a tablet reads nothing — a lone glyph said «something», not what
     milestoneTag: 'wird im Verlauf notiert',
+    // un-ticking a milestone — by tap or by ↶ — APPENDS this beside the ☑ row (lib/useChecklistActions)
+    milestoneUndone: 'Meilenstein zurückgenommen: {text}',
     actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
     // reference reader: hazard-colour badge labels
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,

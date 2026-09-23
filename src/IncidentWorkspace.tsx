@@ -176,7 +176,7 @@ import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterIdByName as rosterIdByNameOf, truppByPersonId } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
-import type { Item } from './lib/checklists'
+import type { ChecklistState, Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
 import { flushSync } from 'react-dom'
@@ -4239,19 +4239,30 @@ export function IncidentWorkspace({
   const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord)
   /** One recorded step over a slice somebody else owns. `op` is the domain-scoped audit prefix —
    *  see `logHistStep` for why a bare `undo` would wedge an `el` session's outbox. */
-  const rememberSliceStep = <T,>(domain: UndoDomain, hist: UndoableSlice<T>, label: string, op: string, icon: string, onStep?: () => void) => undoHist.push({
-    domain,
-    label,
-    // ⚠️ `onStep` FIRST, before the stack moves: it closes whatever fold window is still open
-    // (the Rapport's), because the step that window would fold into is the one being popped.
-    undo: () => { onStep?.(); return histStep(!!hist.undo(), 'undo', label, op, icon, 'journal') },
-    redo: () => { onStep?.(); return histStep(!!hist.redo(), 'redo', label, op, icon, 'journal') },
-  })
+  /*  `describe` lets the domain write the step's rows itself — the Checklisten write «☑ …» /
+   *  «Meilenstein zurückgenommen: …» for a milestone, the same row a tap writes — and a `true`
+   *  from it replaces the generic «… rückgängig gemacht», so one step is never two rows. */
+  const rememberSliceStep = <T,>(domain: UndoDomain, hist: UndoableSlice<T>, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) => {
+    const step = (moved: { from: T; to: T } | null, dir: 'undo' | 'redo') => {
+      if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
+      return histStep(!!moved, dir, label, op, icon, 'journal')
+    }
+    return undoHist.push({
+      domain,
+      label,
+      // ⚠️ `onStep` FIRST, before the stack moves: it closes whatever fold window is still open
+      // (the Rapport's), because the step that window would fold into is the one being popped.
+      undo: () => { onStep?.(); return step(hist.undo(), 'undo') },
+      redo: () => { onStep?.(); return step(hist.redo(), 'redo') },
+    })
+  }
   const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef.current, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
-  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef.current, C_HIST.undoDomains.checkliste, 'checklist.', 'check'); return laid }
+  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef.current, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
   // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
   const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
   const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
+  /** the milestone rows of a Checklisten step (useChecklistActions · describeStep), set below */
+  const checklistDescribeRef = useRef<(moved: { from: ChecklistState; to: ChecklistState }) => boolean>(() => false)
   /**
    * …and the Einsatzrapport, the last record surface with no way back (field report 18.09.2026:
    * «Rettungen eingetragen, Zahl war falsch, Rückgängig macht nichts»). Same slice mechanism as
@@ -4698,7 +4709,9 @@ export function IncidentWorkspace({
   // canEditRecord, not canEditIncident (07.09.): ticking is record-keeping — the el role
   // and an editor's Führungsansicht keep it; the backend enforces the same boundary.
   const canTick = canEditRecord
-  const { toggleTick, setBranch } = useChecklistActions({ canTick, checklists, setChecklists: checklistSet, authorName: user?.display_name, log, emit })
+  const { toggleTick, setBranch, describeStep: describeChecklistStep } = useChecklistActions({ canTick, checklists, setChecklists: checklistSet, authorName: user?.display_name, log, emit })
+  // in an effect, not during render: it is read only when a step is TAKEN, long after this commit
+  useEffect(() => { checklistDescribeRef.current = describeChecklistStep })
   // Deep links: an item's `action` jumps to the matching surface (best-effort, reusing
   // existing setters). journal → open the composer; plan → Plan tab; draw → Lage + pen.
   const checklistAction = (_item: Item, a: NonNullable<Item['action']>) => {
