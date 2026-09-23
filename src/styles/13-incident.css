@@ -1308,20 +1308,12 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    paints over whatever is beside it */
 .rp-head-titles h2 { margin: 0; font: var(--head-title); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* ⚠️ It WRAPS now. Truncating this line meant truncating the missing steps, because they sit
-   at its end — «noch offen: Kurzberi…» hides the one thing the line exists to say. The
-   counts stay a single read-out; the open steps are chips that take a second row when they
-   need one, which on a head that is already allowed to wrap costs nothing. */
+/* the verdict line — only «alle Angaben erfasst» since 23.09.2026; what is still open is the
+   Kontrolle chip's business (ReportPreflight · openInControl) */
 .rp-head-sum { margin: var(--head-sub-gap) 0 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px;
   font-size: var(--head-sub); color: var(--ink-dim); min-width: 0; }
 .rp-head-done { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .rp-head-done svg { width: 13px; height: 13px; }
-/* Amber, not red: nothing here is wrong, it is simply not written yet — and --accent is the
-   brand red and never means state. The label is the quiet one, the fields are what is read. */
-.rp-head-open { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
-.rp-head-open-k { color: var(--ink-faint); }
-.rp-head-open em { font-style: normal; font-weight: 700; padding: 1px 7px; border-radius: var(--r-pill);
-  color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 14%, transparent); }
 .rp-head-actions { flex: 0 1 auto; min-width: 0; margin-left: auto;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 /* Each control keeps its own width when the cluster wraps — only the print split may give, and
@@ -1421,8 +1413,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .rp-state.ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 35%, transparent); }
 .rp-state.warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 45%, transparent);
   background: color-mix(in srgb, var(--amber) 10%, var(--surface)); }
-/* the count is the one part allowed to give under the same squeeze as `.rp-head-open-menu-label`
-   (17-rapport.css) — this chip's text is exactly as variable («N Hinweis(e)»). */
+/* the count is the one part of the chip allowed to give — its text is the most variable in the
+   row («4 noch offen · 2 Hinweise»), so it ellipsizes before it pushes a neighbour. */
 .rp-state-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The Kontrolle detail as a POPOVER on its chip. A band across the page pushed the form down
    every time anything was amiss, for a handful of lines about the record; anchored here, «what is
@@ -1445,7 +1437,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   max-height: 46vh; overflow-y: auto; }
 /* long personnel lists in the Einsatzstunden warning must wrap, not push the panel wider */
 .rp-control .report-pre-warn { min-width: 0; overflow-wrap: anywhere; }
-/* «n offen» inside the Kontrolle popover (narrow head): a list of doors, each a full-width row */
+/* «Noch offen» inside the Kontrolle popover (every width since 23.09.2026): a list of doors,
+   each a full-width 44px row */
 .rp-control-open { display: flex; flex-direction: column; margin-bottom: 10px; }
 .rp-control-open-head { font: 700 11px var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); padding: 0 2px 4px; }
 .rp-control-step { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: var(--tap);
@@ -1526,17 +1519,17 @@ select.cv-input { appearance: none; -webkit-appearance: none;
   .rp-head-actions .ip-btn.print-send.offline { width: auto; padding: 0 10px; }
   .rp-head-actions .print-send-main { gap: 5px; }
   /* ⚠️ The row no longer WRAPS here (05.09. fix). At this width the archive/print squares and the
-     split pair are fixed, so the only things that ever grow are the two chips with counted text —
-     the «N noch offen» menu and the Kontrolle «N Hinweis(e)» chip — and wrapping used to move the
-     split PDF button (the one with a distinct fill, the one action a glance has to find) onto a
-     second line whenever either count changed. Those two chips are the controls that give: they
-     keep `flex: none` everywhere else in this row (see above), but here they take the squeeze and
-     ellipsize instead of pushing their neighbours down. The archive/print squares and the split
+     split pair are fixed, so the only thing that ever grows is the chip with counted text — the
+     Kontrolle chip («4 noch offen · 2 Hinweise»; until 20.09. a second «N offen» menu beside it)
+     — and wrapping used to move the split PDF button (the one with a distinct fill, the one action
+     a glance has to find) onto a second line whenever a count changed. That chip gives: it
+     keeps `flex: none` everywhere else in this row (see above), but here it takes the squeeze and
+     ellipsizes instead of pushing its neighbours down. The archive/print squares and the split
      pair stay pinned at their exact widths (`flex: none`) so none of them can be squeezed into a
      clipped icon by the same rule — the surface shell clips overflow, so a control that cannot
      shrink and cannot wrap would run off the edge instead. */
   .rp-head-actions { flex-wrap: nowrap; }
-  .rp-head-actions > .rp-head-open-menu, .rp-head-actions > .rp-state { flex: 1 1 auto; min-width: 0; }
+  .rp-head-actions > .rp-state { flex: 1 1 auto; min-width: 0; }
   .rp-head-actions > .rp-split { flex: none; }
 }
 /* ⚠️ Rendered on every width, hidden everywhere but the phone — so the tab STATE is always

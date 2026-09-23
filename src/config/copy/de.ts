@@ -4151,8 +4151,6 @@ export const de = {
     // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
     tabsLabel: 'Teil des Rapports',
     tabs: { bericht: 'Bericht', werwas: 'Personal & Mittel', beilagen: 'Beilagen' },
-    // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
-    headOpenGo: 'Zu «{step}» springen',
     sectionBericht: 'Bericht & Beteiligte',
     sectionZeiten: 'Zeiten',
     sectionNachbearbeitung: 'Nachbearbeitung',
@@ -4469,8 +4467,14 @@ export const de = {
     framingDiscOut: 'Kommt nicht in die Legende – die Scheibe passt nicht ganz aufs Blatt.',
     // Kontrolle section
     controlHead: 'Kontrolle',
-    // the state chip counts what is open instead of just saying «Kontrolle»
-    controlOpen: '{n} Hinweis(e)',
+    // THE chip in the Rapport head (23.09.2026 — the separate «noch offen» chips under the title
+    // are gone at every width): what is still open, and the warnings about the record, each
+    // counted in its own words (lib/abschlussOpen · controlChipLabel). «Hinweis(e)» said both.
+    controlOpen: '{n} noch offen',
+    controlHint: '1 Hinweis',
+    controlHints: '{n} Hinweise',
+    // the heading of the open steps inside the chip's popover
+    controlOpenHead: 'Noch offen',
     plansPrintNone: 'Pläne werden nicht gedruckt – bei Bedarf im Menü ▾ zuschalten.',
     plansPrintAnnotated: '{n} Pläne mit Anmerkungen werden gedruckt.',
     plansPrintAll: 'Alle Pläne werden gedruckt.',

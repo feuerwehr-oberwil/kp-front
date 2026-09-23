@@ -32,6 +32,7 @@ import {
   defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
+import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
 import { incidentDays } from '../lib/zeitplanFormat'
@@ -46,7 +47,6 @@ import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
-import { useMediaQuery } from '../lib/useIsPhone'
 
 const NO_IDS = new Set<string>()
 
@@ -1256,19 +1256,13 @@ export function ReportPreflight({
   // are warnings, they live beside the buttons they must be read before, and a header that also
   // mentioned them would be the second place to look for the same thing.
   const missing = missingSteps(facts)
-  /* «noch offen» as chips or as one dropdown. Measured with four open steps: the strip wraps onto a
-   * second row below 834px and fits on one line from there up — so below that it becomes a single
-   * control that rides with the other head buttons, and above it the chips stay exactly as they
-   * were. 860 rather than 834 because it is a threshold this codebase already uses, and because
-   * the wrap point moves with the number of open steps anyway (five would wrap wider).
-   *
-   * Raising the chips to var(--tap) was tried first and reverted: four 44px pills take over the
-   * head, and the ::after-pad trick cannot help once the strip wraps — the pads of two rows
-   * overlap and a tap between «Zeiten» and «Kurzbericht» becomes a coin flip. One control can be
-   * 44px; four in a wrapped strip cannot. */
-  const narrowHead = useMediaQuery('(max-width: 860px)')
-  /** narrow head: what is still open rides inside the Kontrolle popover instead of a second chip */
-  const openInControl = narrowHead && missing.length > 0
+  /* What is still open rides inside the ONE Kontrolle chip, at every width (23.09.2026, option B
+   * of the UX review). It was a strip of 18px chips under the title on a wide head — the smallest
+   * targets in the product, 5–7px apart — and this same popover only below 860px. Raising the
+   * chips to var(--tap) was tried and reverted (four 44px pills take over the head, and once the
+   * strip wraps the pads of two rows overlap); one control can be 44px, four in a strip cannot.
+   * So the narrow form became the only form: «⚠ 4 noch offen» opens the list of doors. */
+  const openInControl = missing.length > 0
 
   // «Einsatz abschliessen» is bookkeeping, not the artefact: it stamps report_done_at and
   // archives. The PDF is its own (primary) action — decoupled by decision 2026-07-08 after
@@ -1401,33 +1395,15 @@ export function ReportPreflight({
         <header className="rp-head">
           <div className="rp-head-titles">
             <h2>{P.title}</h2>
-            {/* What is still OPEN, as chips that wrap onto a second row and are named in full
-                however many there are — never one truncating sentence, which cut off the only
-                part of itself worth reading. The «n Personen · m Positionen» read-out that led
-                this line is gone (19.09.2026): both numbers are stated on their own rows two
-                thumb-lengths down, and on the «Einsatz» tile's page list, and under a title they
-                were a second line for nothing. ⚠️ The line is not rendered EMPTY: on a narrow
-                head the open steps ride in the actions row instead, and an empty <p> still takes
-                its margin. */}
-            {(missing.length === 0 || !narrowHead) && (
-            <p className="rp-head-sum">
-              {missing.length > 0 ? (
-                <span className="rp-head-open">
-                  <span className="rp-head-open-k">{P.headStillOpen}</span>
-                  {/* each chip JUMPS to the thing it names — see jumpToStep */}
-                  {missing.map((s) => (
-                    <button
-                      key={s} type="button" className="rp-head-open-go"
-                      title={fillTemplate(P.headOpenGo, { step: A.steps[s] })}
-                      aria-label={fillTemplate(P.headOpenGo, { step: A.steps[s] })}
-                      onClick={() => jumpToStep(s)}
-                    >{A.steps[s]}</button>
-                  ))}
-                </span>
-              ) : (
+            {/* The verdict line under the title says only the GOOD news now: «alle Angaben
+                erfasst». What is still open is counted and listed by the Kontrolle chip in the
+                actions row (see `openInControl`), at every width — the chips that stood here are
+                gone (23.09.2026). The «n Personen · m Positionen» read-out that led this line went
+                on 19.09.2026. ⚠️ Not rendered EMPTY: an empty <p> still takes its margin. */}
+            {missing.length === 0 && (
+              <p className="rp-head-sum">
                 <span className="rp-head-done"><Icon id="check" />{P.headAllRecorded}</span>
-              )}
-            </p>
+              </p>
             )}
           </div>
           {/* The controls sit HERE, with the other surfaces' controls, and the readiness state
@@ -1438,11 +1414,11 @@ export function ReportPreflight({
               bottom of a scrolling form would be exactly the failure the never-behind-a-fold rule
               prevents; they move together or not at all. */}
           <div className="rp-head-actions">
-            {/* ⚠️ ONE amber chip on a narrow head (20.09.2026). «n offen» used to be a Menu of its
-                own beside the Kontrolle chip – two warning triangles side by side, each truncated to
-                «⚠ 1…», and nothing to say which was which. What is still open is now the first
-                block of the Kontrolle popover, and the chip counts both. On a wide head the open
-                steps are chips of their own under the title, as before. */}
+            {/* ⚠️ ONE amber chip (20.09.2026 on a narrow head, 23.09.2026 on every width). «n offen»
+                used to be a Menu of its own beside the Kontrolle chip – two warning triangles side
+                by side, each truncated to «⚠ 1…», and nothing to say which was which. What is still
+                open is the first block of the Kontrolle popover, and the chip names both counts in
+                their own words («4 noch offen · 1 Hinweis», lib/abschlussOpen · controlChipLabel). */}
             {/* The chip appears ONLY when something is wrong. A green «Alles bereit» spent a
                 control on the most contested row of the surface to announce that nothing had
                 happened — and the line under the title already says whether the Angaben are
@@ -1478,15 +1454,15 @@ export function ReportPreflight({
                 trigger={(
                   <button type="button" className={cx('rp-state', 'warn')} title={P.controlHead}>
                     <Icon id="warn" />
-                    <span className="rp-state-label">{fillTemplate(P.controlOpen, { n: (checking ? 0 : warnCount) + (openInControl ? missing.length : 0) })}</span>
+                    <span className="rp-state-label">{controlChipLabel(missing.length, checking ? 0 : warnCount)}</span>
                   </button>
                 )}
               >
                 {openInControl && (
                   <div className="rp-control-open">
-                    <div className="rp-control-open-head">{missing.length} {P.headStillOpen}</div>
+                    <div className="rp-control-open-head">{P.controlOpenHead}</div>
                     {missing.map((st) => (
-                      // the same jump the chip under the title makes — one control, same destinations
+                      // each row JUMPS to the thing it names (jumpToStep), a full 44px row
                       <button key={st} type="button" className="rp-control-step"
                         onClick={() => { setControlOpen(false); jumpToStep(st) }}>
                         <span>{A.steps[st]}</span><Icon id="chevron" />

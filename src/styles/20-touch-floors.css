@@ -23,15 +23,11 @@
   .report-partner { min-height: var(--tap); }
   .report-partner-tick { min-height: var(--tap); }
   .report-row-add { min-height: var(--tap); }
-  /* ⚠️ NOT the Rapport head's «noch offen» chips, though they are the smallest targets in the product
-     (55×18px, 5–7px apart) and are real jump-links — each switches the phone tab, scrolls the
-     sheet, flashes the target and focuses the field.
-     Raising them to var(--tap) was tried and reverted: four 44px pills wrap onto two rows and take
-     over the Rapport head, and the ::after-pad trick used elsewhere in this file does not rescue
-     it either — once the strip wraps, the pads of two rows overlap and a tap between «Zeiten» and
-     «Kurzbericht» becomes a coin flip. You cannot have 44px here without a taller header.
-     The fix belongs in the markup, not the floor: collapse the strip to one control («4 offen ▾»)
-     that opens the list. Until then these stay small on purpose. */
+  /* The Rapport head's «noch offen» chips (55×18px, 5–7px apart — the smallest targets in the
+     product) are GONE (23.09.2026). Raising them to var(--tap) had been tried and reverted: four
+     44px pills wrap onto two rows, and once the strip wraps the ::after pads of two rows overlap.
+     The fix was the markup's, as this note said it would be: what is still open is listed in the
+     ONE Kontrolle chip («⚠ 4 noch offen»), whose popover rows are 44px (`.rp-control-step`). */
 }
 
 /* ---- App chrome: the floor every surface inherits ------------------------------------------
