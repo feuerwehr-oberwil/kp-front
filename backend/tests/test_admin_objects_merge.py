@@ -140,6 +140,36 @@ async def test_the_nfc_twin_survives_and_the_nfd_row_hands_everything_over(db_se
     assert "U+0308" in out and "U+00FC" in out, "the diff has to show the spellings apart"
 
 
+async def test_a_merge_is_a_new_workspace_revision_so_a_stale_save_gets_its_409(db_session, session_factory):
+    """⚠️ The retarget used to leave ``workspace_rev`` alone (23.09.2026): a tablet still holding the
+    pre-merge rev saved straight over it and put the dead object id back. The rev is the whole
+    optimistic-concurrency contract of ``PUT …/workspace`` — a merge has to move it."""
+    from fastapi import HTTPException
+
+    from app.api.incidents import apply_workspace_put
+    from app.schemas import WorkspacePut
+
+    survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})
+    loser = await _object(db_session, NFD_NAME, oid=object_id_for_key(NFD_NAME), plans={"modul2": "b" * 64})
+    incident = await _incident(db_session, picked=loser)
+    before = (await db_session.execute(select(Incident).where(Incident.id == incident))).scalar_one()
+    base_rev, updated_at = before.workspace_rev, before.updated_at
+
+    assert await admin_objects._merge_duplicates(apply=True) == 0
+
+    async with session_factory() as db:
+        row = (await db.execute(select(Incident).where(Incident.id == incident))).scalar_one()
+        assert row.workspace_rev == base_rev + 1
+        assert row.map_workspace_json["pickedObjectId"] == str(survivor)
+        # a maintenance fold is not a change to the Einsatz («geändert nach Abschluss» reads this)
+        assert row.updated_at == updated_at
+        stale = WorkspacePut(base_rev=base_rev, workspace={"pickedObjectId": str(loser), "entities": []})
+        with pytest.raises(HTTPException) as refused:
+            await apply_workspace_put(db, incident, stale, user_id=None)
+        assert refused.value.status_code == 409
+        assert refused.value.detail["server_rev"] == base_rev + 1
+
+
 async def test_the_dry_run_is_the_default_and_writes_nothing(db_session, capsys):
     """A maintenance command that deletes rows earns its default the hard way."""
     survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})
