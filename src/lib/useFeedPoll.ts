@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { apiGetRaw } from './api'
+import { visibleInterval } from './visibleInterval'
 
 export interface FeedPollOpts<T> {
   /** Path on the deployment's API — apiGetRaw prepends the origin, so the path alone goes in.
@@ -35,6 +36,9 @@ export interface FeedPollOpts<T> {
  *
  * One round at a time: on a half-open field link a round can take the full 20 s apiGetRaw bound,
  * and a tick that ignored that would stack a new pending request every cadence.
+ *
+ * Paused while the page is hidden, with a round at once on the way back (lib/visibleInterval):
+ * every consumer of these feeds is the screen.
  */
 export function useFeedPoll<T>({ path, pollMs, enabled = true, deadStatuses, onData, onError }: FeedPollOpts<T>): void {
   // The callbacks are rebuilt on every render of the calling hook. Reading them through refs is
@@ -47,12 +51,12 @@ export function useFeedPoll<T>({ path, pollMs, enabled = true, deadStatuses, onD
     if (!enabled) return
     let alive = true
     let busy = false
-    let timer: number | null = null
+    let cancel: (() => void) | null = null
+    // for good: a dead status also drops the visibility listener, so a return to the page does
+    // not ask again either
     const stop = () => {
-      if (timer != null) {
-        window.clearInterval(timer)
-        timer = null
-      }
+      cancel?.()
+      cancel = null
     }
 
     const poll = async () => {
@@ -76,8 +80,7 @@ export function useFeedPoll<T>({ path, pollMs, enabled = true, deadStatuses, onD
       }
     }
 
-    void poll()
-    timer = window.setInterval(() => void poll(), pollMs)
+    cancel = visibleInterval(() => void poll(), pollMs)
     return () => {
       alive = false
       stop()

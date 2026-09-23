@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { LngLat, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { apiGet } from './api'
+import { visibleInterval } from './visibleInterval'
 
 const POLL_MS = 10 * 60_000 // observations refresh ~every 10 min
 
@@ -20,7 +21,6 @@ export interface WeatherApi {
 export function useWeather(center: LngLat): WeatherApi {
   const [data, setData] = useState<WeatherData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const timer = useRef<number | null>(null)
   // Round the key so a sub-km map jitter doesn't re-fire the effect every render.
   const lat = Math.round(center[1] * 100) / 100
   const lng = Math.round(center[0] * 100) / 100
@@ -40,11 +40,11 @@ export function useWeather(center: LngLat): WeatherApi {
         setError(appConfig.copy.weather.unavailable)
       }
     }
-    void poll()
-    timer.current = window.setInterval(poll, POLL_MS)
+    // paused while the page is hidden, refreshed at once on the way back (lib/visibleInterval)
+    const stop = visibleInterval(() => void poll(), POLL_MS)
     return () => {
       alive = false
-      if (timer.current != null) window.clearInterval(timer.current)
+      stop()
     }
   }, [lat, lng])
 
