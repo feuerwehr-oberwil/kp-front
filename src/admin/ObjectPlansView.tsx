@@ -1,13 +1,13 @@
 import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, fmtFileSize } from '../lib/format'
 import { listObjects, type ObjectWithPlans } from '../lib/incidents'
 import { referenceUrl, type ReferenceDataset } from '../lib/api/reference'
 import { moduleAlignment, type DeploymentModule } from '../lib/deploymentConfig'
 import { Icon } from '../lib/icons'
 import { Segmented } from '../components/Segmented'
 import { sortPlanModules, sortPlansByModule } from '../lib/planOrder'
-import { ObjectEditor, PlanSourceBadge, fmtBytes, moduleShortForm, planSlots, usePlanUpload, type Slot } from './ObjectEditor'
+import { ObjectEditor, PlanSourceBadge, moduleShortForm, planSlots, usePlanUpload, type Slot } from './ObjectEditor'
 import { PlanAlignmentEditor, PlanAlignmentReview } from './PlanAlignmentReview'
 import { loadAlignmentQueue, type AlignmentListItem, type AlignmentQueue } from './planAlignmentApi'
 import { ActionMenu, Card, EmptyState, StatusBadge, Table, fmtDate, type MenuAction } from './ui'
@@ -405,7 +405,7 @@ function PlanRow({ slot, facts, busy, error, onUpload, onPrepare }: {
           ? <span className="aop-source">
             <span className="adm-view-key">{fillTemplate(O.planVersion, { n: plan.current_version, date: fmtDate(plan.updated_at) })}</span>
             <PlanSourceBadge sourceType={plan.source_type} />
-            <span className="adm-ref-note">{fmtBytes(plan.size_bytes)}</span>
+            <span className="adm-ref-note">{fmtFileSize(plan.size_bytes)}</span>
           </span>
           // the row's press opens the picker, so the empty cell says what it would pick
           : <span className="adm-fleet-freeval">{O.choosePdf}</span>}</td>
