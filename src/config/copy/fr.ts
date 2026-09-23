@@ -1789,7 +1789,7 @@ export const fr: Localizable<Copy> = {
     ergNightShort: 'Nuit',
     dockedTo: 'Amarré à «{name}»',
     dockedRelease: 'Détacher',
-    ergAdopt: 'Reprendre',
+    ergAdopt: 'Reprendre comme périmètre',
     ergRingsLabel: 'Rayon sur la carte',
     ergRingsOff: 'Non',
     ergRingsSmall: 'Petit',

@@ -2907,8 +2907,10 @@ export const de = {
     // Andocken (lib/docking): the panel row that makes the invisible bond visible
     dockedTo: 'Angedockt an «{name}»',
     dockedRelease: 'Lösen',
-    // one tap turns an ERG distance into a real Absperrkreis around the symbol
-    ergAdopt: 'Übernehmen',
+    // one tap turns an ERG distance into a real Absperrkreis around the symbol. Since 23.09.2026
+    // an ICON-ONLY 44px button (the Absperrkreis tool's own ⊙), so this is its accessible name
+    // and the hold-tooltip — it says what appears, where «Übernehmen» only said that something did
+    ergAdopt: 'Absperrkreis übernehmen',
     ergRingsLabel: 'Radius auf der Karte',
     ergRingsOff: 'Aus',
     ergRingsSmall: 'Klein',

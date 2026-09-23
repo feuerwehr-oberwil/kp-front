@@ -1795,7 +1795,7 @@ export const en: Localizable<Copy> = {
     ergNightShort: 'Night',
     dockedTo: 'Docked to «{name}»',
     dockedRelease: 'Release',
-    ergAdopt: 'Apply',
+    ergAdopt: 'Apply as cordon',
     ergRingsLabel: 'Radius on the map',
     ergRingsOff: 'Off',
     ergRingsSmall: 'Small',
