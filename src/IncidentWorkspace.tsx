@@ -18,6 +18,7 @@ import { liveOverlay } from './lib/planProjection'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
+import { routeHotkey } from './lib/hotkeyRoute'
 import { moduleNumbers, navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
@@ -3298,73 +3299,38 @@ export function IncidentWorkspace({
   // live handlers/state without re-subscribing — the latest-ref pattern.
   useEffect(() => { hotkeyRef.current = (e: KeyboardEvent) => {
     if (isTypingTarget(document.activeElement)) return
-    // a modal sheet owns the screen — its own focus trap / Esc handle keys; stay inert behind it.
-    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || shareLink || composerOpen) return
-    const cmd = resolveHotkey(e)
-    if (!cmd) return
-    // An alignment session owns navigation on every form factor. The hidden NavRail must not
-    // have a keyboard back door to another module or surface; only its own Karte/Modul pair
-    // remains reachable until the operator deliberately finishes or cancels the task.
-    if (georefActive && cmd.type === 'module') {
-      e.preventDefault()
-      const target = planDocs.find((p) => moduleNumbers(p).includes(cmd.n))
-      if (target?.id === georefMode.planId) georefDispatch({ type: 'goPlan' })
-      return
-    }
-    if (georefActive && cmd.type === 'nav') {
-      e.preventDefault()
-      return
-    }
-    if (georefActive && cmd.type === 'surface') {
-      e.preventDefault()
-      if (cmd.surface === 'map') georefDispatch({ type: 'goMap' })
-      return
-    }
-    const onMap = mode === 'map', onPlan = mode === 'plans', drawing = onMap || onPlan
-    switch (cmd.type) {
-      case 'module': e.preventDefault(); goToModule(cmd.n); break
-      case 'surface': e.preventDefault(); if (cmd.surface !== mode) clearMapUi(); setMode(cmd.surface); break
-      case 'nav': e.preventDefault(); goToNav(cmd.dir); break
-      case 'fit':
-        e.preventDefault()
-        if (onPlan) planFit.current?.(); else if (onMap) centerIncident()
-        break
-      // ⚠️ The keyboard reaches the SAME one timeline the header pair does, and no longer routes
-      // by surface: Cmd-Z means «take back the last thing that happened», wherever it happened.
+    // WHERE the key goes is lib/hotkeyRoute's table (pure, tested there); this only carries it out
+    const { action: a, prevent } = routeHotkey(resolveHotkey(e), {
+      // a modal sheet owns the screen — its own focus trap / Esc handle keys; stay inert behind it.
+      modalOpen: !!(settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || shareLink || composerOpen),
+      mode, georefPlanId: georefActive ? georefMode.planId : null,
+      moduleTargetId: (n) => planDocs.find((p) => moduleNumbers(p).includes(n))?.id,
+      tacticalLocked, replayActive, readOnly, linkScoped,
+    })
+    if (prevent) e.preventDefault()
+    switch (a.type) {
+      case 'georef': georefDispatch({ type: a.go }); break
+      case 'module': goToModule(a.n); break
+      case 'surface': if (a.clear) clearMapUi(); setMode(a.surface); break
+      case 'nav': goToNav(a.dir); break
+      case 'fitPlan': planFit.current?.(); break
+      case 'centerMap': centerIncident(); break
       // No caption — a keyboard user is not asking a button what it did.
-      case 'undo': e.preventDefault(); stepHistory('undo'); break
-      case 'redo': e.preventDefault(); stepHistory('redo'); break
-      // both drawing surfaces duplicate their own single selection; every other surface has
-      // nothing Cmd+D could mean (A22 — the key used to resolve and then do nothing on the Plan)
-      case 'duplicate':
-        if (onMap) { e.preventDefault(); duplicateSelection() }
-        else if (onPlan) { e.preventDefault(); planKeys.current?.duplicate() }
-        break
-      case 'tool':
-        // a locked surface keeps the keys for the tools it still shows (D = Messen, V = Auswahl)
-        if (!drawing || (tacticalLocked && !isMapReadOnlyTool(cmd.tool)) || replayActive) break
-        e.preventDefault()
-        if (onMap) pick(cmd.tool); else planKeys.current?.pickTool(cmd.tool)
-        break
-      case 'panel':
-        switch (cmd.panel) {
-          case 'journal': e.preventDefault(); setJournalOpen((v) => !v); break
-          case 'composer': if (!readOnly && !linkScoped) { e.preventDefault(); setComposerOpen(true) } break
-          case 'layers': if (onMap) { e.preventDefault(); togglePanel('layers') } break
-          case 'settings': if (!linkScoped) { e.preventDefault(); setSettingsOpen(true) } break
-          case 'help': e.preventDefault(); setHelpOpen(true); break
-        }
-        break
-      case 'view':
-        switch (cmd.view) {
-          case 'zoomIn': e.preventDefault(); if (onPlan) planKeys.current?.zoom(1.3); else mapRef.current?.zoomIn(); break
-          case 'zoomOut': e.preventDefault(); if (onPlan) planKeys.current?.zoom(1 / 1.3); else mapRef.current?.zoomOut(); break
-          case 'locate': if (onMap) { e.preventDefault(); setLocateReq((n) => n + 1) } break
-          case 'coord': if (onMap) { e.preventDefault(); coord.cycle() } break
-          // «Nach Norden» has no key — the compass button carries it on every form factor and
-          // R went to the Rapport surface (see lib/hotkeys)
-        }
-        break
+      case 'undo': stepHistory('undo'); break
+      case 'redo': stepHistory('redo'); break
+      case 'duplicateMap': duplicateSelection(); break
+      case 'duplicatePlan': planKeys.current?.duplicate(); break
+      case 'toolMap': pick(a.tool); break
+      case 'toolPlan': planKeys.current?.pickTool(a.tool); break
+      case 'journal': setJournalOpen((v) => !v); break
+      case 'composer': setComposerOpen(true); break
+      case 'layers': togglePanel('layers'); break
+      case 'settings': setSettingsOpen(true); break
+      case 'help': setHelpOpen(true); break
+      case 'zoomPlan': planKeys.current?.zoom(a.factor); break
+      case 'zoomMap': if (a.dir === 'in') mapRef.current?.zoomIn(); else mapRef.current?.zoomOut(); break
+      case 'locate': setLocateReq((n) => n + 1); break
+      case 'coord': coord.cycle(); break
     }
   } })
 
