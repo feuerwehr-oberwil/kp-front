@@ -27,7 +27,7 @@ export type BoardHistory = Record<string, { past: BoardAnno[][]; future: BoardAn
 
 interface BoardDocDeps {
   annos: BoardAnno[]
-  onChange: (next: BoardAnno[]) => void
+  onChange: (next: BoardAnno[], opts?: { gesture?: boolean }) => void
   emit: (op: string, payload?: Record<string, unknown>) => void
   activeId: string
   log: (icon: string, text: string, extra?: PlanLogExtra) => void
@@ -96,7 +96,9 @@ export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSe
     const c = hist[activeId]; if (!c || !c.past.length) return
     const prev = c.past[c.past.length - 1]
     setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: cc.past.slice(0, -1), future: [annos, ...cc.future] } } })
-    onChange(prev); setSelId(null); setEditId(null)
+    // ⚠️ a restore, not a placement: `gesture: false`, or a projection the snapshot still held at
+    // an older spot would flip onto this sheet (lib/useObjectStore · setBoard, 24.09.2026)
+    onChange(prev, { gesture: false }); setSelId(null); setEditId(null)
     // ⚠️ No Verlauf row here since 08.09.2026. This is reached ONLY through the one global
     // timeline now (IncidentWorkspace · planStepAt), which writes the row itself — and writes
     // the SAME row whether the plan happened to be open or not. Logging in both places gave a
@@ -106,7 +108,7 @@ export function useBoardDoc({ annos, onChange, emit, activeId, log, selId, setSe
     const c = hist[activeId]; if (!c || !c.future.length) return
     const next = c.future[0]
     setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: [...cc.past, annos], future: cc.future.slice(1) } } })
-    onChange(next); setSelId(null); setEditId(null)
+    onChange(next, { gesture: false }); setSelId(null); setEditId(null)
     // …and the same for the way forward (see `undo` above).
   }
   // hand this plan's history to the global TopBar undo/redo (App routes by surface).

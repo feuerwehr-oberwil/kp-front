@@ -135,6 +135,10 @@ to prod.
   shift is keyed by (index, part); a shift per storey can only place one wing. A symbol's Von/Bis range is one object shown and selectable on every covered floor.
   Dragging it one storey moves the whole range (0–2 → 1–3), with one undo step; range controls
   change coverage, and old single-floor values remain readable without inventing assignments.
+  A Linie/Fläche dragged or turned WHOLE stays on the storeys it is drawn on and keeps its shape:
+  at a tile's edge the translation stops, never each vertex (`whiteboard · floorGeometry.moveRigid`,
+  24.09.2026 — the per-vertex clamp flattened a Leitung onto the tile's rim in the field); a vertex
+  changes storey only by its own grip.
 - **A plan PDF may prepare itself (`§` markers).** The plan author writes `§EG` / `§1OG` / `§DG`
   (`§1OG.B` for a second join point, where no one staircase runs through the whole building –
   floors sharing a label join there, and the chain is resolved in one frame), optional region
@@ -336,10 +340,22 @@ to prod.
     read a document as a GESTURE rather than as the truth, in four readings each — unchanged is
     nothing, a prop edit writes through to the OTHER body, a positional edit flips the anchor,
     and absence deletes the whole object, because deleting an object deletes the object.
+    ⚠️ The flip is between the Karte and PAPER, never between two sheets (24.09.2026): a move of
+    the Gebäude's ink on a sheet it is lent to is written back INTO the Gebäude through both fits
+    (that sheet's → ground → the stack's), storey and per-vertex storeys intact, and the Gebäude
+    keeps it. It used to flip, and a 0.3° ⟳ on Modul 1 took a 1. OG Leitung off its storey (prod
+    23.09.2026). Only a HAND drag that leaves the Gebäude's paper (a Brand dragged out onto the
+    street), or a stack with no fit to write through, still re-homes it to the sheet it happened on.
   - ⚠️ **A MACHINE write never flips an anchor.** Only a hand places something. The live-GPS pass
     re-routes attached Leitungen several times a minute, and read as a placement it tore
     plan-drawn hoses off their sheet with nobody touching anything; such writers pass
-    `gesture: false` and their position crosses through the fit instead.
+    `gesture: false` and their position crosses through the fit instead. Both store writers take
+    it — `setDocRaw` and, since 24.09.2026, `setBoard` (it hard-coded «gesture»): a plan ↶/↷
+    restoring a snapshot (`planStepAt`, `useBoardDoc`), the Trupp sweeps that move a marker
+    (`settleAtHoseEnd`, `unlinkTruppLine`), a Gebäude amend and a storey removal. A writer that
+    rewrites what a sheet OWNS hands the lent annos back untouched (`tacticalObjects ·
+    withOwnAnnos`) — the Gebäude amend carried the Karte's projections through the old building
+    frame and they came back «moved».
   - ⚠️ **A machine writer is idempotent — writing an unchanged value is a render loop**
     (24.09.2026, post-mortem of the Übung on 23.09.2026). A pass that runs on a feed or an effect
     returns the document it was given (`cur` itself) when nothing changed BY VALUE; a copy with an
@@ -366,8 +382,11 @@ to prod.
     other's objects with its OWN native chrome and sizing (map `symPx`, board `symBase`) — no
     projection tone, no reduced opacity, no twin-only band — and every capability the surface has
     applies: selection, the `SelectionBar`, the marquee, the magnet, the fat-finger fan, Delete.
-    A sheet is never shown its own objects back through the projection, and never a SIBLING
-    sheet's: plan A's work has never cluttered plan B. What IS lent is only what is not a record
+    A sheet is never shown its own objects back through the projection, nor a sibling sheet's
+    — with ONE exception: the Gebäude stack's ink shows on every other linked sheet, its storey as
+    a badge (14.09.2026, `planProjection · projectOntoSheet`), because the building is where a
+    Brand is marked and the Übersicht is where it is read. The stack itself never shows another
+    sheet's ink, and plan A's work never clutters plan B. What IS lent is only what is not a record
     — the live vehicle and responder feed (`planProjection · liveOverlay`, `PlanLiveLayer`),
     read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
     held-in-place override the Karte writes.

@@ -774,6 +774,34 @@ describe('useObjectStore — stable writers', () => {
     expect(result.current.doc.entities.map((e) => e.id)).toEqual(['e1', 'e2', 'a1'])
   })
 
+  // ⚠️ The first cut forwarded `(a) => impl.current.setBoard(a)` behind an `as` cast and dropped
+  // the `{ gesture }` option on the floor: every machine plan write became a hand placement again.
+  it('forwards EVERY argument — setBoard’s `{ gesture: false }` reaches the implementation', () => {
+    const geo = () => [{ id: 'g', entity: ent('g', { coord: [mEast(50).lng, ORIGIN.lat] }) }]
+    const nudge = (b: Record<string, BoardAnno[]>) => ({ ...b, modul2: b.modul2.map((a) => (a.id === 'g' ? { ...a, x: 0.6 } : a)) })
+    const machine = store(geo())
+    const stable = machine.result.current.setBoard
+    machine.rerender()
+    expect(machine.result.current.setBoard).toBe(stable)
+    act(() => stable(nudge, { gesture: false }))
+    // a machine write: the Karte object stays geo-anchored and only its ground position moved
+    expect(machine.result.current.objects[0].sheet).toBeUndefined()
+    expect(machine.result.current.objects[0].entity?.coord[0]).toBeCloseTo(mEast(60).lng, 8)
+    // …the control: the same write as a gesture is a placement onto the sheet
+    const hand = store(geo())
+    act(() => hand.result.current.setBoard(nudge))
+    expect(hand.result.current.objects[0].sheet?.planId).toBe('modul2')
+    // and setDocRaw's options arrive the same way
+    const onSheet = store([{
+      id: 's1', sheet: { planId: 'modul2', anno: anno('s1', { x: 0.5, y: 0 }) },
+      entity: ent('s1', { coord: [mEast(50).lng, ORIGIN.lat] }),
+    }])
+    act(() => onSheet.result.current.setDocRaw((d) => ({
+      ...d, entities: d.entities.map((e) => ({ ...e, coord: [mEast(300).lng, ORIGIN.lat] as [number, number] })),
+    }), { gesture: false }))
+    expect(onSheet.result.current.objects[0].sheet?.planId).toBe('modul2')
+  })
+
   it('…and each one still acts with the latest render: readOnly, the undo stack, the anchor reporter', () => {
     const seen: string[] = []
     const { result, rerender } = renderHook(

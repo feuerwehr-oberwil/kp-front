@@ -136,5 +136,62 @@ export function floorGeometry(stack: boolean, floorsTTB: number[], N: number) {
   }
   // which storey a board-normalized y falls into
   const floorAt = (ny: number) => floorsTTB[Math.min(N - 1, Math.max(0, Math.floor(ny * N)))]
-  return { mapY, localY, floorAt }
+  /** The snapshot `moveRigid` is handed: a stroke's stored vertices in board space, each keeping its
+   *  storey exactly as stored (absent stays absent; `home` is what the absence means). */
+  const boardPts = (pts: readonly BoardPoint[], home: number): BoardPoint[] =>
+    pts.map((p): BoardPoint => (p[2] == null ? [p[0], mapY(home, p[1])] : [p[0], mapY(p[2], p[1]), p[2]]))
+  /**
+   * ⚠️ A whole stroke moved (and/or turned) as ONE BODY — `localY` for a shape, not for a point.
+   *
+   * `bpts` are the stroke's vertices in board space as the gesture STARTED (y through `mapY`),
+   * each carrying its own storey exactly as stored — absent where the record has none; `home` is
+   * the anno's storey that an absent one means. `to` is the gesture's frame: where a start point
+   * is now. `pinned` names the vertices that must not move (an attached end stays on its target).
+   *
+   * Every free vertex stays on its OWN tile, and the stack keeps the stroke on those tiles by
+   * limiting the TRANSLATION: past a tile's edge the whole shape stops at it (`rigidTileShift`),
+   * so every vertex keeps its offset from every other. Clamping per point — `localY` on each
+   * vertex, which is what the body drag and the SelectionBar did — flattened every vertex that
+   * crossed onto y = 1 while the rest travelled on (prod 23.09.2026 18:22:19: 5 of 6 vertices of
+   * a Leitung at y = 1, and the Karte hose baked off it collapsed with it).
+   *
+   * The storey a vertex was stored with is written back AS stored: `[x, y]` stays `[x, y]`. An
+   * absent storey and `0` are different facts on the stack (absent = the anno's own storey), and
+   * off it `0` states a storey the sheet does not have — it also made the store read an unmoved
+   * projection as a drag (tacticalObjects · sameValue compares the arity).
+   */
+  const moveRigid = (
+    bpts: readonly BoardPoint[], home: number,
+    to: (x: number, by: number) => [number, number],
+    pinned?: (i: number) => BoardPoint | null | undefined,
+  ): BoardPoint[] => {
+    const fixed = bpts.map((_, i) => pinned?.(i) ?? null)
+    const moved = bpts.map((p, i) => (fixed[i] ? null : to(p[0], p[1])))
+    // tile-local, UNclamped: the overshoot is what the shift is measured from
+    const raw = moved.map((q, i) => (q == null ? 0 : stack ? q[1] * N - floorsTTB.indexOf(bpts[i][2] ?? home) : q[1]))
+    const shift = stack ? rigidTileShift(raw.filter((_, i) => moved[i] != null)) : 0
+    return bpts.map((p, i): BoardPoint => {
+      const pin = fixed[i]; if (pin) return pin
+      // clamp01 only bites when the shape is TALLER than a tile (a long stroke turned upright),
+      // where no translation can keep it whole — see rigidTileShift
+      const ly = stack ? clamp01(raw[i] + shift) : raw[i]
+      return p[2] == null ? [moved[i]![0], ly] : [moved[i]![0], ly, p[2]]
+    })
+  }
+  return { mapY, localY, floorAt, boardPts, moveRigid }
+}
+
+/**
+ * How far a rigid shape has to be shifted (tile-local y) so all of it lies inside [0, 1] — 0 when
+ * it already does. A shape taller than one tile cannot fit whichever way it is shifted; it is
+ * centred, and the per-point clamp then flattens only what overhangs at either end — the least
+ * a tile can do for it (moving it between storeys is not a body drag's business: a stroke stays on
+ * the storeys it was drawn on, like a cordon, and a vertex changes storey by its own grip).
+ */
+export function rigidTileShift(ys: readonly number[]): number {
+  if (!ys.length) return 0
+  let lo = Infinity, hi = -Infinity
+  for (const y of ys) { if (y < lo) lo = y; if (y > hi) hi = y }
+  if (hi - lo > 1) return 0.5 - (lo + hi) / 2
+  return lo < 0 ? -lo : hi > 1 ? 1 - hi : 0
 }

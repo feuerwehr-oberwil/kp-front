@@ -16,3 +16,19 @@ describe('discrete plan edit completion', () => {
     expect(calls).toEqual(['checkpoint', 'write', 'end', 'event'])
   })
 })
+
+describe('the board’s own ↶ ↷ are restores, not placements (post-mortem D3, 24.09.2026)', () => {
+  it('hands the snapshot back with `gesture: false`, both ways', () => {
+    const a = { id: 's', kind: 'symbol' as const, x: .5, y: .5 }
+    const onChange = vi.fn()
+    const hist = { modul2: { past: [[{ ...a, x: .2 }]], future: [[{ ...a, x: .8 }]] } }
+    const { result } = renderHook(() => useBoardDoc({
+      annos: [a], activeId: 'modul2', onChange, emit: vi.fn(),
+      hist, setHist: vi.fn(), log: vi.fn(), selId: null, setSelId: vi.fn(), editId: null, setEditId: vi.fn(),
+    }))
+    act(() => result.current.undo())
+    expect(onChange).toHaveBeenLastCalledWith([{ ...a, x: .2 }], { gesture: false })
+    act(() => result.current.redo())
+    expect(onChange).toHaveBeenLastCalledWith([{ ...a, x: .8 }], { gesture: false })
+  })
+})

@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { BoardAnno, BoardDoc, BoardPoint, BuildingDoc, Drawing, Entity, GeoTrailPoint, LineAttachment, LngLat, TimelineEvent, TrailPoint, Trupp, TruppFields, TruppReading } from '../types'
 import type { Doc } from './workspace'
 import type { TacticalObject } from './tacticalObjects'
+import type { ObjectStore, SetBoard } from './useObjectStore'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
 import { confirmDialog, toast } from './ui'
@@ -245,9 +246,12 @@ interface Deps {
   setTrupps: Dispatch<SetStateAction<Trupp[]>>
   /** read-only board (to locate a Trupp's plan chip so «auf Plan zeigen» centres on it) */
   board: BoardDoc
-  setBoard: Dispatch<SetStateAction<BoardDoc>>
+  /** …the store's writers, WITH their `gesture` door: a write the app makes on its own (a chip
+   *  settled at a hose end, a hose let go of a crew) passes `gesture: false`, so it never flips an
+   *  anchor (lib/useObjectStore) */
+  setBoard: SetBoard
   /** raw Lage-doc setter (no undo snapshot — placement mirrors the plan chip's setBoard) */
-  setDocRaw: Dispatch<SetStateAction<Doc>>
+  setDocRaw: ObjectStore['setDocRaw']
   building: BuildingDoc | null
   /** `rowId` mints the Verlauf row under a CALLER-CHOSEN id instead of a fresh one. Only for
    *  rows a fact can produce more than once — the same Atemschutz-Alarm evaluated on three
@@ -1386,7 +1390,9 @@ export function useTruppActions(deps: Deps) {
       if (a) return
       let markerId = marker?.id
       if (marker) {
-        setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === marker.id ? { ...e, coord: end, dockedTo: undefined } : e)) }))
+        // ⚠️ the APP moves the marker here, not a hand: a plan-drawn chip stays on its sheet and
+        // takes the new spot through the fit (lib/useObjectStore · `gesture`)
+        setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === marker.id ? { ...e, coord: end, dockedTo: undefined } : e)) }), { gesture: false })
         emit('entity.move', { id: marker.id, coord: end })
       } else markerId = placeTruppOnMap(tr.id, end)
       if (!markerId) return
@@ -1405,11 +1411,12 @@ export function useTruppActions(deps: Deps) {
     const spot = { x: end[0], y: end[1], floor: end[2] ?? line.floor ?? 0 }
     let chipId = chip?.id
     if (chip) {
-      setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((x) => (x.id === chip.id ? { ...x, ...spot } : x)) }))
+      // …and the same on a sheet: a Karte marker lent to this sheet keeps its geo anchor
+      setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((x) => (x.id === chip.id ? { ...x, ...spot } : x)) }), { gesture: false })
       emit('board.edit', { id: chip.id, patch: spot, planId })
     } else chipId = placeTruppOnPlan(tr.id, planId, spot)
     if (!chipId) return
-    setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((x) => (x.id === lineId ? { ...x, endAttachment: coupling(chipId) } : x)) }))
+    setBoard((b) => ({ ...b, [planId]: (b[planId] ?? []).map((x) => (x.id === lineId ? { ...x, endAttachment: coupling(chipId) } : x)) }), { gesture: false })
     emit('board.edit', { id: lineId, patch: { endAttachment: coupling(chipId) }, planId })
   }
 
@@ -1503,14 +1510,16 @@ export function useTruppActions(deps: Deps) {
     const tr = trupps.find((t) => t.id === truppId)
     if (!tr) return
     const drop = <T extends { truppId?: string }>(l: T): T => (l.truppId === truppId ? { ...l, truppId: undefined } : l)
-    setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.kind === 'line' ? drop(dr) : dr)) }))
+    setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => (dr.kind === 'line' ? drop(dr) : dr)) }), { gesture: false })
     setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) =>
-      [pid, annos.map((a) => (a.kind === 'draw' ? drop(a) : a))])))
+      [pid, annos.map((a) => (a.kind === 'draw' ? drop(a) : a))])), { gesture: false })
     updateTrupp(truppId, { lineId: undefined, lineNo: undefined })
     // …and the hose lets go of the Trupp's marker/chip (15.09.): link and coupling are ONE fact
     // (settleAtHoseEnd), so «Kein Trupp» from the line editor, the marker menu or the pill's
     // «Lösen» must part the picture too, or the hose kept following a crew it no longer had.
-    // The end stays where the marker stands.
+    // The end stays where the marker stands. ⚠️ Both writes below are the APP's (`gesture:
+    // false`): the freed end is put where the marker stood, which is no placement, and read as one
+    // it tore a plan-drawn hose off its sheet (or a Karte hose onto one).
     const marker = entities.find((e) => e.kind === 'team' && e.truppId === truppId)
     if (marker) {
       setDocRaw((d) => ({ ...d, drawings: d.drawings.map((dr) => {
@@ -1524,7 +1533,7 @@ export function useTruppActions(deps: Deps) {
           emit('draw.detach', { id: dr.id, endpoint: ep, fallback: marker.coord })
         }
         return next
-      }) }))
+      }) }), { gesture: false })
     }
     setBoard((b) => Object.fromEntries(Object.entries(b).map(([pid, annos]) => {
       const chip = annos.find((a) => a.kind === 'resource' && a.truppId === truppId)
@@ -1542,7 +1551,7 @@ export function useTruppActions(deps: Deps) {
         }
         return next
       })]
-    })))
+    })), { gesture: false })
     log('drop', fillTemplate(appConfig.copy.atemschutz.logLineUnlinked, { name: truppLogName(tr, 'leader') }), 'team', undefined, undefined, { subjectId: truppId })
     emit('atemschutz.line.unlink', { id: truppId })
   }

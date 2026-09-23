@@ -615,14 +615,26 @@ export function sheetAnnos(objects: TacticalObject[], planId: string, plan?: Pla
   return projected.length ? [...projected, ...own] : own
 }
 
+/**
+ * One sheet's view with its OWN annos replaced and every lent one — a projection of the Karte's
+ * work, or of the Gebäude's — left exactly as shown. For a writer that rewrites what a sheet OWNS
+ * (a Gebäude amend carrying the stack's ink into a new building frame): handed back unchanged,
+ * a projection folds to nothing, and so neither moves on the ground nor flips its anchor. `owned`
+ * are the ids the sheet owns before AND after, so an own anno the writer dropped goes.
+ */
+export function withOwnAnnos(view: readonly BoardAnno[] | undefined, owned: ReadonlySet<string>, own: readonly BoardAnno[]): BoardAnno[] {
+  return [...(view ?? []).filter((a) => !owned.has(a.id)), ...own]
+}
+
 export function applyBoardToObjects(
   objects: TacticalObject[],
   planId: string,
   incoming: BoardAnno[],
   plan?: PlanFit,
   defaultLayer: Entity['layer'] = 'taktisch',
-  /** `false` = a MACHINE produced this list, so a changed position is not a hand-placement. No
-   *  such writer exists on the plan surface today; the door is here because the map's has one. */
+  /** `false` = a MACHINE produced this list, so a changed position is not a hand-placement: a
+   *  plan ↶/↷ restoring a snapshot, the Trupp sweeps settling a chip at a hose end, a Gebäude
+   *  amend or storey removal (lib/useObjectStore · setBoard's `gesture` option). */
   gesture = true,
   fits?: ReadonlyMap<string, PlanFit>,
 ): TacticalObject[] {
@@ -666,13 +678,37 @@ export function applyBoardToObjects(
     const was = shown.get(prev.id)
     if (prev.sheet) {
       if (!was) return { ...prev, sheet: { planId, anno } }
-      // Moving changes ownership; a property edit writes back through the owner's frame.
+      /*
+       * ⚠️ ANOTHER SHEET OWNS IT — the Gebäude stack's ink, lent to this sheet with its storey as
+       * a badge (planProjection · projectOntoSheet, 14.09.2026). A move here, by hand or by a
+       * machine, is written back INTO the owner through both fits (this sheet's → ground → the
+       * owner's) and the owner keeps it, storey and all. «Last hand-placement owns the truth»
+       * decides between the Karte and PAPER; between two sheets it does not re-home: the owner
+       * already holds the object on paper, this sheet is only showing it, and the move is fully
+       * sayable on the owner's paper. It used to flip — the anno moved to this sheet and the
+       * storey went with the stack's frame (prod 23.09.2026 19:00:54: a 0.3° ⟳ turn on Modul 1
+       * took a 1. OG Leitung off the Gebäude).
+       *
+       * The one move the owner cannot hold is one off its paper — a Brand dragged out of the
+       * building onto the street — and only a HAND says that. Then, and when the owner has no fit
+       * to say anything through, this sheet takes it: the flip it always was.
+       */
       const dragged = floorPlacements.has(anno.id) || !sameValue(was.x, anno.x) || !sameValue(was.y, anno.y) || !sameValue(was.pts, anno.pts)
-      if (dragged && gesture) return { ...prev, sheet: { planId, anno } }
       if (sameValue(was, anno) || !plan) return prev
-      const body = geoAfterSheetEdit(prev, planId, anno, plan, defaultLayer, dragged)
       const owner = fits?.get(prev.sheet.planId)
-      let edited = annoAfterMapEdit(prev.sheet.anno, body, owner)
+      if (dragged && gesture && !owner) return { ...prev, sheet: { planId, anno } }
+      const body = geoAfterSheetEdit(prev, planId, anno, plan, defaultLayer, dragged)
+      // the position crosses exactly as a machine write's does — through the fit, each vertex
+      // keeping its own storey by index (annoAfterMapEdit · path)
+      let edited = annoAfterMapEdit(prev.sheet.anno, body, owner, dragged ? 'machine' : undefined)
+      if (dragged && gesture && !onOwnPaper(edited)) return { ...prev, sheet: { planId, anno } }
+      // …and a derived value handed back unchanged stays derived: the stack bakes a Leitung's
+      // end tag off its last vertex's storey, and the lent anno merely carries that result. Written
+      // onto the owner it would freeze the tag, and an absent field would have materialised.
+      if (owner?.stack && prev.sheet.anno.floorTag == null && sameValue(was.floorTag, anno.floorTag)) {
+        const { floorTag: _derived, ...rest } = edited
+        edited = rest
+      }
       if (edited.kind === 'symbol' && body.entity && owner) {
         // Both sheets have their own bearing frame. Preserve untouched paper bearings
         // verbatim, and translate a changed bearing through ground into the owner's fit.
@@ -681,7 +717,10 @@ export function applyBoardToObjects(
           rotation2: sameValue(was.rotation2, anno.rotation2) ? prev.sheet.anno.rotation2 : turnedToSheet(body.entity.rotation2, owner.fit, directionalGlyph2(body.entity)),
         }
       }
-      return { ...prev, ...body, sheet: { ...prev.sheet, anno: owner?.stack ? normalizeStackEdit(prev.sheet.anno, edited) : edited } }
+      const next = { ...prev, ...body, sheet: { ...prev.sheet, anno: owner?.stack ? normalizeStackEdit(prev.sheet.anno, edited) : edited } }
+      // a move re-derives the map body from the owner's paper — that is where its truth now
+      // stands, and a body carried over from this sheet's bake would only agree to float noise
+      return dragged && owner ? bakeGeoBody(next, owner, prev.entity?.layer ?? defaultLayer) : next
     }
     // it was NOT on this sheet a moment ago, so this is a placement onto it
     if (!was) return { ...prev, sheet: { planId, anno } }
@@ -733,6 +772,19 @@ function geoAfterSheetEdit(
   const entity = baked.entity && (movedByMachine || !o.entity ? baked.entity : { ...baked.entity, coord: o.entity.coord })
   const drawing = baked.drawing && (movedByMachine || !o.drawing ? baked.drawing : { ...baked.drawing, coords: o.drawing.coords })
   return { id: o.id, entity, drawing }
+}
+
+/**
+ * Does this anno lie on its sheet — every vertex, or its point — within float noise? What a move
+ * made through ANOTHER sheet has to satisfy to stay with its owner (applyBoardToObjects · fold): a
+ * Gebäude tile is x and y ∈ [0, 1] of one storey, and a coordinate past it would be drawn on the
+ * next storey down, or on no paper at all.
+ */
+function onOwnPaper(anno: BoardAnno): boolean {
+  const eps = 1e-6
+  const on = (x: number, y: number) => x >= -eps && x <= 1 + eps && y >= -eps && y <= 1 + eps
+  if (anno.pts?.length) return anno.pts.every((p) => on(p[0], p[1]))
+  return anno.x == null || anno.y == null || on(anno.x, anno.y)
 }
 
 /**

@@ -305,7 +305,9 @@ describe('the Gebäude stack\'s ink shows on the other linked sheets', () => {
     expect(projectOnto(sheetFire, PLAN)).toBeNull()
     expect(projectOnto(stackFire, { ...PLAN, stack: { floors: [0, 1, 2] } })).toBeNull()
   })
-  it('handing the sheet\'s list back unchanged leaves it on its tile; a drag makes the sheet its anchor', () => {
+  // ⚠️ With no fit for the STACK to write through, a drag here has nowhere else to land and this
+  // sheet takes it. With one, the Gebäude keeps it (24.09.2026, lib/sheetAnchor.test.ts).
+  it('handing the sheet\'s list back unchanged leaves it on its tile; without the stack\'s fit a drag makes the sheet its anchor', () => {
     const objects = [stackFire]
     const shownList = sheetAnnos(objects, 'modul1', PLAN)
     expect(shownList).toHaveLength(1)
