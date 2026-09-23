@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
-import { liveOverlay, projectOnto, projectedAnnos } from './planProjection'
+import { liveOverlay, projectOnto } from './planProjection'
 import { applyBoardToObjects, bakeGeoBody, sheetAnnos, viewsOf, type PlanFit, type TacticalObject } from './tacticalObjects'
 import { SHAPE_DEFS } from './shapes'
 import type { BoardAnno, Drawing, Entity } from '../types'
@@ -116,7 +116,7 @@ describe('projection ⇄ bake are inverse', () => {
 
 describe('applyBoardToObjects — a sheet edit of what it was only SHOWING', () => {
   const store = () => [geo(ent({ id: 'e1', symbol: 'Feuer', coord: coordEast(50), label: 'Brandherd' }))]
-  const sheet = (o: TacticalObject[]) => projectedAnnos(o, PLAN)
+  const sheet = (o: TacticalObject[]) => o.map((x) => projectOnto(x, PLAN)).filter((a): a is BoardAnno => !!a)
 
   it('handing the projection straight back changes nothing at all', () => {
     const objects = store()

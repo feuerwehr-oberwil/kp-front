@@ -428,14 +428,6 @@ export async function saveGeoref(georefKey: string, georef: Georef): Promise<voi
 
 // --- the sheet's measured shape --------------------------------------------------------------
 
-/** The measured aspect (width / height) stored for one concrete sheet, or undefined. ⚠️
- *  `georefKey`, not a `planId` — see `georefForPlan`; the bitmap belongs to one Einsatzobjekt's
- *  sheet, not to the Modul slot every object shares. */
-export function measuredArForPlan(georefKey: string): number | undefined {
-  const ar = getStationPlanScales().measuredArByPlan?.[georefKey]
-  return ar && ar > 0 ? ar : undefined
-}
-
 /** The plans whose measured aspect this session has already settled — so a surface may ask on
  *  every render and a sheet is written at most once per session. Module-level, like the document
  *  itself: opening the same plan twice is the same answer. */

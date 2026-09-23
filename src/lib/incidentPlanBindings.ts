@@ -146,22 +146,14 @@ interface BindingSession {
   save: (id: string, georef: Georef, coalesce?: boolean) => void
 }
 const sessions = new Map<string, BindingSession>()
-const listeners = new Set<() => void>()
-export function subscribeIncidentPlanBindings(listener: () => void) {
-  listeners.add(listener)
-  return () => { listeners.delete(listener) }
-}
-function notify() { listeners.forEach((listener) => listener()) }
 
 /** Namespaced sessions stop an old debounced georef write reaching the next incident. */
 export function registerIncidentPlanBindings(incidentId: string, session: BindingSession): () => void {
   const prefix = incidentGeorefKey(incidentId, '')
   sessions.set(prefix, session)
-  notify()
   return () => {
     if (sessions.get(prefix) !== session) return
     sessions.delete(prefix)
-    notify()
   }
 }
 function findBinding(key: string) {
