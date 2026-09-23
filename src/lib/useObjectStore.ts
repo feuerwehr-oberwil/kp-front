@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, type SetStateAction } from 'react'
 import { useUndoableDoc } from './useUndoableDoc'
 import {
   anchorChanges, applyBoardToObjects, applyDocToObjects, bakeAll, bakePlan, sheetAnnos, viewsOf,
@@ -72,8 +72,15 @@ export interface ObjectStore {
    * annotations cannot express «this object was geo-anchored» to undo it with. So a fold that
    * touches a non-sheet-anchored object lays a checkpoint on THIS stack — the one the twin era
    * already used for exactly these edits, through the Karte's own writers.
+   *
+   * ⚠️ `gesture: false` says a MACHINE produced this list — the same door `setDocRaw` has, and
+   * for the same reason: only a hand places an object, so a changed position crosses through the
+   * fit instead of flipping an anchor (tacticalObjects · applyBoardToObjects). A plan ↶/↷
+   * restoring a snapshot, the Trupp sweeps settling a chip at a hose end, a Gebäude amend or
+   * storey removal: none of them is a placement. Absent ⇒ a gesture, which every surface
+   * writer is. (It hard-coded `true` until 24.09.2026, so each of those could flip an anchor.)
    */
-  setBoard: Dispatch<SetStateAction<BoardDoc>>
+  setBoard: SetBoard
   /** A plan step is beginning (IncidentWorkspace · rememberPlanStep). One gesture is one step on
    *  either stack, so the first cross-ownership fold after this arms is the only one that
    *  checkpoints; a discrete write outside a gesture is its own step and needs no arming. */
@@ -113,6 +120,9 @@ export interface ObjectStore {
    */
   rebake: (opts?: { checkpoint?: boolean; count?: (before: TacticalObject[], after: TacticalObject[]) => number }) => number
 }
+
+/** The plan writer — `SetStateAction` plus the one option a machine writer has to pass. */
+export type SetBoard = (update: SetStateAction<BoardDoc>, opts?: { gesture?: boolean }) => void
 
 export interface ObjectStoreOptions {
   /** the plans' solved fits, read at WRITE time — a ref-backed getter, because the fits are
@@ -275,7 +285,7 @@ export function useObjectStore(
     }
   }, [])
 
-  const setBoard: Dispatch<SetStateAction<BoardDoc>> = (a) => {
+  const setBoard: SetBoard = (a, opts) => {
     const changedOwners = new Map<string, { before: TacticalObject; after: TacticalObject }>()
     reporting((see) => setObjects((objects) => {
       const view = boardViewOf(objects, getFits())
@@ -287,7 +297,7 @@ export function useObjectStore(
         const annos = next[planId] ?? []
         if (annos === view[planId]) continue
         const plan = getFits().get(planId)
-        const folded = bakePlan(applyBoardToObjects(out, planId, annos, plan, defaultLayer, true, getFits()), planId, plan, defaultLayer)
+        const folded = bakePlan(applyBoardToObjects(out, planId, annos, plan, defaultLayer, opts?.gesture ?? true, getFits()), planId, plan, defaultLayer)
         const foldedById = new Map(folded.map((o) => [o.id, o]))
         for (const before of out) {
           if (!before.sheet || before.sheet.planId === planId) continue
@@ -348,17 +358,21 @@ export function useObjectStore(
    */
   const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake })
   impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake }
+  // ⚠️ Every forwarder spreads the WHOLE parameter list, typed off the public signature, and
+  // carries no cast: a hand-written `(a) => …` behind an `as` silently dropped `setBoard`'s
+  // `{ gesture }` (24.09.2026), and tsc could not say so. Add an option to a writer and it
+  // arrives; drop one from the implementation and this stops compiling.
   const writers = useMemo(() => ({
-    setDocRaw: ((a, opts) => impl.current.setDocRaw(a, opts)) as ObjectStore['setDocRaw'],
-    setBoard: ((a) => impl.current.setBoard(a)) as ObjectStore['setBoard'],
-    beginSheetStep: () => impl.current.beginSheetStep(),
-    endSheetStep: () => impl.current.endSheetStep(),
-    commit: (updater: (d: Doc) => Doc) => impl.current.commit(updater),
-    beginDrag: () => impl.current.beginDrag(),
-    endDrag: () => impl.current.endDrag(),
-    undo: () => impl.current.undo(),
-    redo: () => impl.current.redo(),
-    rebake: ((opts) => impl.current.rebake(opts)) as ObjectStore['rebake'],
+    setDocRaw: (...args: Parameters<ObjectStore['setDocRaw']>) => impl.current.setDocRaw(...args),
+    setBoard: (...args: Parameters<ObjectStore['setBoard']>) => impl.current.setBoard(...args),
+    beginSheetStep: (...args: Parameters<ObjectStore['beginSheetStep']>) => impl.current.beginSheetStep(...args),
+    endSheetStep: (...args: Parameters<ObjectStore['endSheetStep']>) => impl.current.endSheetStep(...args),
+    commit: (...args: Parameters<ObjectStore['commit']>) => impl.current.commit(...args),
+    beginDrag: (...args: Parameters<ObjectStore['beginDrag']>) => impl.current.beginDrag(...args),
+    endDrag: (...args: Parameters<ObjectStore['endDrag']>) => impl.current.endDrag(...args),
+    undo: (...args: Parameters<ObjectStore['undo']>) => impl.current.undo(...args),
+    redo: (...args: Parameters<ObjectStore['redo']>) => impl.current.redo(...args),
+    rebake: (...args: Parameters<ObjectStore['rebake']>) => impl.current.rebake(...args),
   }), [])
 
   return {

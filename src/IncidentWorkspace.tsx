@@ -13,7 +13,7 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
-import { viewsOf, type PlanFit } from './lib/tacticalObjects'
+import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
 import { liveOverlay } from './lib/planProjection'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
@@ -837,7 +837,9 @@ export function IncidentWorkspace({
         ? { past: c.past.slice(0, -1), future: [from, ...c.future] }
         : { past: [...c.past, from], future: c.future.slice(1) } }
     })
-    setBoard((all) => ({ ...all, [planId]: to }))
+    // ⚠️ a RESTORE, not a placement (`gesture: false`): the snapshot is the sheet's whole view,
+    // projections included, and read as a hand it flipped any it still held at an older spot
+    setBoard((all) => ({ ...all, [planId]: to }), { gesture: false })
     return true
   }
   /** Record on the timeline that one plan document just gained a step. The Whiteboard pushes its
@@ -6009,7 +6011,7 @@ export function IncidentWorkspace({
           onGhostTrail={tacticalLocked ? undefined : (id) => void deleteGhostTrail(id)}
           // «Marker und Spur löschen» on a chip: arm the ghosting to write it already deleted
           onTrailDrop={tacticalLocked ? undefined : armTrailDrop}
-          onChange={(next) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next })) }}
+          onChange={(next, opts) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next }), opts) }}
           building={replayActive ? replayBuilding : building}
           floorPack={floorPack}
           onSelectBuilding={async (src, orientDeg, geo) => {
@@ -6029,10 +6031,18 @@ export function IncidentWorkspace({
             // counted and named. Never guessed, never quietly — and the undo is one tap away
             // either way.
             if (!src.length) return
-            const markCount = board.gebaeude?.length ?? 0
+            // ⚠️ Only the stack's OWN ink is carried (24.09.2026). Its view also holds the Karte's
+            // objects projected onto it, and those are not the stack's to re-anchor: their ground
+            // position is their truth, and the new stack's fit projects them afresh. Carried
+            // through the amend they came back «moved» — measured against the fit of the building
+            // being replaced, the store has not seen the new one yet — and either flipped onto the
+            // stack or, as a machine write, moved on the ground.
+            const ownIds = sheetAnchoredIds(objects, 'gebaeude')
+            const prevGebaeude = (board.gebaeude ?? []).filter((a) => ownIds.has(a.id))
+            const markCount = prevGebaeude.length
             const prevBuilding = building
-            const prevGebaeude = board.gebaeude ?? []
             const amend = amendBuilding(prevBuilding, { src, orientDeg, geo }, prevGebaeude)
+            const owned = new Set([...ownIds, ...amend.annos.map((a) => a.id)])
             const hasWork = !!building && (markCount > 0 || building.floors.length > 1)
             const wb = appConfig.copy.whiteboard
             if (hasWork) {
@@ -6059,7 +6069,8 @@ export function IncidentWorkspace({
             const floorNames = pack ? packFloorNames(pack.floors) : prevBuilding?.floorNames
             const nextBuilding: BuildingDoc = { src, orientDeg, geo, northUp: false, rings: view.rings, ring: view.rings[0], ringAspect: view.aspect, floors, ...(floorNames && Object.keys(floorNames).length ? { floorNames } : {}) }
             setBuilding(nextBuilding)
-            setBoard((b) => ({ ...b, gebaeude: amend.annos }))
+            // a machine write (`gesture: false`): the amend re-anchors ink, nobody placed it
+            setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false })
             setActivePlanId('gebaeude') // auto-jump to the floor-stack
             if (hasWork) {
               // confirm-with-undo: the previous stack (floors + markings) is restorable in place,
@@ -6069,8 +6080,8 @@ export function IncidentWorkspace({
                 : amend.dropped > 0 ? fillTemplate(wb.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
                 : markCount > 0 ? fillTemplate(wb.buildingReplacedCarried, { n: amend.carried })
                 : wb.buildingReplacedKept
-              const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) }
-              const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: amend.annos })) }
+              const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
+              const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
               const drop = rememberGebaeudeStep(line, restore, reapply)
               undoToast(line, () => { restore(); drop() })
             }
@@ -6102,7 +6113,7 @@ export function IncidentWorkspace({
             setBuilding(nextBuilding)
             // confirm-with-undo (standing rule): the undo also sweeps any annotation already
             // dropped on the brand-new storey so nothing orphans
-            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: (b.gebaeude ?? []).filter((a) => (a.floor ?? 0) !== newFloor) })) }
+            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: (b.gebaeude ?? []).filter((a) => (a.floor ?? 0) !== newFloor) }), { gesture: false }) }
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
             undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
           }}
@@ -6140,10 +6151,11 @@ export function IncidentWorkspace({
                 }
               }).filter((a) => !a.pts || a.pts.length >= (a.kind === 'area' ? 3 : 2))
             })()
-            setBoard((b) => ({ ...b, gebaeude: nextGebaeude }))
+            // a machine write (`gesture: false`) — a sweep of what stood on the storey, no placement
+            setBoard((b) => ({ ...b, gebaeude: nextGebaeude }), { gesture: false })
             // confirm-with-undo: the removed storey's annotations come back with it
-            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude })) }
-            const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: nextGebaeude })) }
+            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude }), { gesture: false }) }
+            const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: nextGebaeude }), { gesture: false }) }
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
             undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
           }}
