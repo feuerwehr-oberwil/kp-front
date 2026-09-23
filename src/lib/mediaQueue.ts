@@ -11,9 +11,20 @@
 // private mode, locked-down WebViews) a Blob does NOT survive JSON serialization, so queuing
 // degrades to session-only there — the same loss behaviour we had before this queue existed,
 // never worse.
+//
+// ⚠️ Every read-modify-write of an incident's queue runs through ONE lane (lib/serialQueue,
+// 23.09.2026). The queue is a single IDB value, so two writers that each read it, change it and
+// write it back lose whichever wrote first — and there are always two: a composer row with three
+// photos fires three uploads at once (each enqueues on failure), and a flush held its snapshot
+// across every awaited upload and then wrote «what I had minus what went up» over anything
+// captured in the meantime. The uploads themselves stay OUTSIDE the lane (a capture must never
+// wait behind a slow upload to be stored); the flush re-reads the queue in the lane before it
+// writes, and touches only the entries it actually attempted.
 
 import { ApiError } from './api'
 import { idbDel, idbGet, idbSet } from './idb'
+import { newId } from './ids'
+import { serialQueue } from './serialQueue'
 import { withTileEviction } from './tileEvict'
 
 const PREFIX = 'kp-front-mediaq-'
@@ -37,6 +48,10 @@ export interface MediaQueueItem {
   /** the row's blob: URL this capture stands for — the picture the server URL replaces once
    *  it uploads. Absent on audio (a row has one voice memo) and on pre-2026-08 queue entries. */
   localUrl?: string
+  /** which CAPTURE this entry is — minted per enqueue. The queue id alone cannot say it: a
+   *  re-recorded voice memo reuses its row's id, and a flush that uploaded the old recording
+   *  must not drop the new one queued behind it. Absent on entries queued before 23.09.2026. */
+  rev?: string
 }
 
 /** After this many server-side (non-network) failures an item is surfaced as `failed`
@@ -55,6 +70,21 @@ export const mediaQueueId = (rowId: string, kind: 'photo' | 'audio', localUrl?: 
  *  setItems → render), a measured phone battery/heat drain. */
 export const sameQueue = (a: MediaQueueItem[], b: MediaQueueItem[]): boolean =>
   a.length === b.length && a.every((x, i) => x.id === b[i].id && x.status === b[i].status && x.attempts === b[i].attempts)
+
+/** Per incident: `edit` serialises every read-modify-write of the stored queue; `flush` keeps two
+ *  flushes from uploading the same item twice (the `online` event and the sync recovering
+ *  routinely fire together). Two lanes, so a capture is stored while a flush is uploading. */
+const lanes = new Map<string, { edit: ReturnType<typeof serialQueue>; flush: ReturnType<typeof serialQueue> }>()
+function laneFor(incidentId: string) {
+  let lane = lanes.get(incidentId)
+  if (!lane) { lane = { edit: serialQueue(), flush: serialQueue() }; lanes.set(incidentId, lane) }
+  return lane
+}
+
+/** The same capture (not just the same slot): a flush settles an entry only while it is still
+ *  the one it attempted. */
+const sameCapture = (a: MediaQueueItem, b: MediaQueueItem) =>
+  a.id === b.id && a.rev === b.rev && a.createdAt === b.createdAt
 
 const navigatorOnline = () => (typeof navigator !== 'undefined' ? navigator.onLine : true)
 
@@ -82,16 +112,20 @@ export async function enqueueMedia(
   localUrl?: string,
 ): Promise<void> {
   const id = mediaQueueId(rowId, kind, localUrl)
-  const items = await readQueue(incidentId)
-  const next = items.filter((i) => i.id !== id)
-  next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', ...(localUrl ? { localUrl } : {}) })
-  await writeQueue(incidentId, next)
+  const rev = newId('mq')
+  await laneFor(incidentId).edit(async () => {
+    const items = await readQueue(incidentId)
+    const next = items.filter((i) => i.id !== id)
+    next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', rev, ...(localUrl ? { localUrl } : {}) })
+    await writeQueue(incidentId, next)
+  })
 }
 
 export const listMediaQueue = (incidentId: string): Promise<MediaQueueItem[]> => readQueue(incidentId)
 
 /** Drop the whole queue for an incident (called when an incident is archived/closed). */
-export const clearIncidentMedia = (incidentId: string): Promise<void> => idbDel(keyFor(incidentId))
+export const clearIncidentMedia = (incidentId: string): Promise<void> =>
+  laneFor(incidentId).edit(() => idbDel(keyFor(incidentId)))
 
 /**
  * Drop an archived incident's queue — UNLESS something is still waiting in it.
@@ -105,11 +139,14 @@ export const clearIncidentMedia = (incidentId: string): Promise<void> => idbDel(
  * Returns how many items were kept, so the caller can say so. What stays goes up the next time
  * the incident is opened: the workspace drains the queue whenever the sync reports «synced».
  */
-export async function clearUploadedMedia(incidentId: string): Promise<number> {
-  const pending = await readQueue(incidentId).catch(() => [] as MediaQueueItem[])
-  if (pending.length) return pending.length
-  await idbDel(keyFor(incidentId)).catch(() => {})
-  return 0
+export function clearUploadedMedia(incidentId: string): Promise<number> {
+  // in the lane: a capture enqueued between the check and the delete would be deleted with it
+  return laneFor(incidentId).edit(async () => {
+    const pending = await readQueue(incidentId).catch(() => [] as MediaQueueItem[])
+    if (pending.length) return pending.length
+    await idbDel(keyFor(incidentId)).catch(() => {})
+    return 0
+  })
 }
 
 export type MediaUploader = (
@@ -129,23 +166,40 @@ export interface FlushOutcome {
  *  leaves the item `pending` (attempts unchanged — it never got to the server); a real server
  *  error counts an attempt and flips to `failed` past MAX_ATTEMPTS. Never throws — a bad flush
  *  just leaves work queued for the next one. */
-export async function flushMediaQueue(incidentId: string, upload: MediaUploader): Promise<FlushOutcome> {
-  const items = await readQueue(incidentId)
-  const uploaded: FlushOutcome['uploaded'] = []
-  const remaining: MediaQueueItem[] = []
-  for (const item of items) {
-    try {
-      const { url } = await upload(incidentId, item.blob, item.kind, item.filename)
-      uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl })
-    } catch (e) {
-      // A network failure (offline / server unreachable) is not the item's fault — keep it
-      // pending without burning an attempt. Only a reachable-but-rejecting server counts.
-      const networkDown = !navigatorOnline() || (e instanceof ApiError && e.status === 0)
-      const attempts = networkDown ? item.attempts : item.attempts + 1
-      const status: MediaStatus = !networkDown && attempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
-      remaining.push({ ...item, attempts, status, lastError: e instanceof Error ? e.message : String(e) })
+export function flushMediaQueue(incidentId: string, upload: MediaUploader): Promise<FlushOutcome> {
+  const lane = laneFor(incidentId)
+  return lane.flush(async () => {
+    const items = await lane.edit(() => readQueue(incidentId))
+    const uploaded: FlushOutcome['uploaded'] = []
+    /** per attempted entry: its updated state, or null once it is on the server */
+    const settled: { item: MediaQueueItem; next: MediaQueueItem | null }[] = []
+    for (const item of items) {
+      try {
+        const { url } = await upload(incidentId, item.blob, item.kind, item.filename)
+        uploaded.push({ id: item.id, rowId: item.rowId, kind: item.kind, url, localUrl: item.localUrl })
+        settled.push({ item, next: null })
+      } catch (e) {
+        // A network failure (offline / server unreachable) is not the item's fault — keep it
+        // pending without burning an attempt. Only a reachable-but-rejecting server counts.
+        const networkDown = !navigatorOnline() || (e instanceof ApiError && e.status === 0)
+        const attempts = networkDown ? item.attempts : item.attempts + 1
+        const status: MediaStatus = !networkDown && attempts >= MAX_ATTEMPTS ? 'failed' : 'pending'
+        settled.push({ item, next: { ...item, attempts, status, lastError: e instanceof Error ? e.message : String(e) } })
+      }
     }
-  }
-  await writeQueue(incidentId, remaining)
-  return { uploaded, remaining }
+    // Write back against the queue as it is NOW, not the snapshot above: whatever was captured
+    // (or re-recorded) during the uploads stays exactly as it was stored.
+    const remaining = await lane.edit(async () => {
+      const current = await readQueue(incidentId)
+      const next: MediaQueueItem[] = []
+      for (const cur of current) {
+        const s = settled.find((x) => sameCapture(x.item, cur))
+        if (!s) next.push(cur)
+        else if (s.next) next.push(s.next)
+      }
+      await writeQueue(incidentId, next)
+      return next
+    })
+    return { uploaded, remaining }
+  })
 }
