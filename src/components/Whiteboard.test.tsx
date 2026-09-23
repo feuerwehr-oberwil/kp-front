@@ -801,6 +801,43 @@ describe('the plan’s selection bar', () => {
     expect(moved.pts[0][1]).toBeCloseTo(0.2) // untouched across
   })
 
+  // ⚠️ post-mortem D2 (23.09.2026 19:00:55): the bar's release sent x/y/floor for a stroke — which
+  // has none — so the event named no position and the replay folded nothing
+  it('reports a stroke’s release with its POINTS — the frame it ended on — for ✥ and ⟳ alike', () => {
+    const emit = vi.fn()
+    const { container, onChange } = renderPlan([line], { emit })
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerMove(grip, { clientX: 140, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grip, { clientX: 180, clientY: 120, pointerId: 1 }) // the release moves on
+    const written = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
+    const moves = emit.mock.calls.filter(([op]) => op === 'board.move')
+    expect(moves).toHaveLength(1)
+    expect(moves[0][1]).toEqual({ id: 'l1', pts: written.pts, planId: 'tafel' })
+    expect(written.pts[0][0]).toBeCloseTo(0.4) // …the RELEASE frame, not the sample before it
+    const dial = within(bar()!).getByRole('button', { name: R })
+    fireEvent.pointerDown(dial, { clientX: 200, clientY: 200, pointerId: 1 })
+    fireEvent.pointerMove(dial, { clientX: 260, clientY: 200, pointerId: 1 })
+    fireEvent.pointerUp(dial, { clientX: 260, clientY: 200, pointerId: 1 })
+    const turned = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
+    const all = emit.mock.calls.filter(([op]) => op === 'board.move')
+    const last = all[all.length - 1]
+    expect(last[1]).toEqual({ id: 'l1', pts: turned.pts, planId: 'tafel' })
+  })
+
+  it('writes a vertex back with the storey it was stored with — `[x, y]` stays `[x, y]`', () => {
+    const bare: BoardAnno = { id: 'l1', kind: 'draw', pts: [[0.2, 0.2], [0.8, 0.8]] }
+    const { container, onChange } = renderPlan([bare])
+    fireEvent.pointerDown(hitShape(container))
+    const grip = within(bar()!).getByRole('button', { name: D.move })
+    fireEvent.pointerDown(grip, { clientX: 100, clientY: 100, pointerId: 1 })
+    fireEvent.pointerMove(grip, { clientX: 140, clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grip, { clientX: 140, clientY: 100, pointerId: 1 })
+    const moved = onChange.mock.calls[onChange.mock.calls.length - 1][0].find((a: BoardAnno) => a.id === 'l1')
+    expect(moved.pts.map((p: number[]) => p.length)).toEqual([2, 2])
+  })
+
   it('turns a Form about the selection centre and its own bearing with it', () => {
     const { container, onChange } = renderPlan([box])
     fireEvent.pointerDown(container.querySelector('.wb-shape')!)

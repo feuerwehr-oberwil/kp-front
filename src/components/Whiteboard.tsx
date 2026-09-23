@@ -133,7 +133,9 @@ interface Props {
   /** Entity ids whose captions the source Lage map currently suppresses in its shared label
    *  pass. Their Modul twins must stay captionless too. */
   mapSuppressedCaptions?: ReadonlySet<string>
-  onChange: (next: BoardAnno[]) => void
+  /** the one writer of this sheet's list. `gesture: false` = the board's own ↶/↷ restoring a
+   *  snapshot, which places nothing (lib/useObjectStore · setBoard) */
+  onChange: (next: BoardAnno[], opts?: { gesture?: boolean }) => void
   building: BuildingDoc | null
   /** the active object's floor pack – the PDF page each storey tile draws underneath, and the
    *  pack's shared map fit that places it (lib/floorPackBinding) */
@@ -470,7 +472,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const toolBtn = useRef<Record<string, HTMLButtonElement | null>>({})
   const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number; floorOffset: number } | null>(null)
   // drag a single selected freehand stroke (its original board-space vertices + the start point)
-  const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean } | null>(null)
+  // `bpts` keep each vertex's storey AS STORED (floorGeometry · boardPts); `last` is the stroke as
+  // the latest sample wrote it, which is what the release reports
+  const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean; last?: BoardPoint[] } | null>(null)
   // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based).
   // `pushed` = the undo checkpoint for this gesture was already taken BEFORE the shape changed
   // (extendLine/insertVertex grow it on pointer-down), so the release must not take a second one.
@@ -638,7 +642,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
   }
   // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard)
-  const { mapY, localY, floorAt } = floorGeometry(stack, floorsTTB, N)
+  const { mapY, localY, floorAt, boardPts, moveRigid } = floorGeometry(stack, floorsTTB, N)
 
   // Leaving Linie/Fläche mid-shape no longer silently drops the draft (A6, 29.08.): the
   // tool-change release lives BELOW, next to the commit machinery it needs (see releaseDraft).
@@ -1808,8 +1812,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const a = annos.find((x) => x.id === id); if (!a || (a.kind !== 'draw' && a.kind !== 'area')) return
     // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
     // applied to the original geometry — no drift across re-renders (mirrors the group-move math)
-    drawDrag.current = { id, floor: a.floor ?? 0, sx: e.clientX, sy: e.clientY,
-      bpts: (a.pts ?? []).map(([x, y, floor]): BoardPoint => [x, mapY(floor ?? a.floor, y), floor ?? a.floor ?? 0]), moved: false }
+    drawDrag.current = { id, floor: a.floor ?? 0, sx: e.clientX, sy: e.clientY, bpts: boardPts(a.pts ?? [], a.floor ?? 0), moved: false }
   }
   const drawMove = (e: React.PointerEvent) => {
     const st = drawDrag.current; if (!st) return
@@ -1824,11 +1827,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     }
     const ndx = (e.clientX - st.sx) / rect.width, ndy = (e.clientY - st.sy) / rect.height
     const a = annos.find((x) => x.id === st.id)
-    patch(st.id, { pts: st.bpts.map(([x, by, floor], i): BoardPoint => {
-      if ((i === 0 && a?.startAttachment) || (i === st.bpts.length - 1 && a?.endAttachment)) return a?.pts?.[i] ?? [x, localY(by, floor ?? st.floor), floor ?? st.floor]
-      const pf = floor ?? st.floor
-      return [x + ndx, localY(by + ndy, pf), pf]
-    }) })
+    // ⚠️ ONE body: the stroke keeps its shape at a tile's edge (floorGeometry · moveRigid) — the
+    // per-vertex clamp flattened a Leitung onto the tile's rim in the field (23.09.2026)
+    const pts = moveRigid(st.bpts, st.floor, (x, by) => [x + ndx, by + ndy], (i) => (
+      (i === 0 && a?.startAttachment) || (i === st.bpts.length - 1 && a?.endAttachment)
+        ? a?.pts?.[i] ?? [st.bpts[i][0], localY(st.bpts[i][1], st.bpts[i][2] ?? st.floor), st.bpts[i][2] ?? st.floor]
+        : null))
+    st.last = pts
+    patch(st.id, { pts })
   }
   const drawUp = () => {
     const st = drawDrag.current; drawDrag.current = null
@@ -1836,7 +1842,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     // ⚠️ …WITH the points. A stroke's position IS its points, and this was the one board.move that
     // named none — an unfoldable payload, so the replay left the line where the last snapshot had
     // it while every other plan drag now moves (lib/replay · board.move).
-    emit('board.move', { id: st.id, pts: annos.find((x) => x.id === st.id)?.pts, planId: activeId })
+    emit('board.move', { id: st.id, pts: st.last ?? annos.find((x) => x.id === st.id)?.pts, planId: activeId })
   }
 
   // --- single Absperrkreis select + move (tap its ring/fill in WbCircleLayer, pan mode) ---
@@ -2851,43 +2857,53 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     pushPast() // one checkpoint for the whole gesture
     groupOrig.current = annos.filter((a) => barIds.includes(a.id)).map((a) =>
       a.pts
-        ? { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bpts: a.pts.map(([x, y, floor]): BoardPoint => [x, mapY(floor ?? a.floor, y), floor ?? a.floor ?? 0]) }
+        ? { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bpts: boardPts(a.pts, a.floor ?? 0) }
         : { id: a.id, floor: a.floor ?? 0, rot: a.rotation, rot2: a.rotation2, bx: a.x ?? 0, by: mapY(a.floor, a.y ?? 0) },
     )
   }
   /** write one frame of the gesture: `t` moves in board fractions, `deg` turns about `barCentre`.
    *  Members stay on their own storey (floor unchanged) and an ATTACHED line end stays pinned to
-   *  its target — the same two rules the single-object body drag already follows. */
-  const barApply = (t: { ndx: number; ndy: number; deg: number }, centre: { x: number; y: number } | null) => {
+   *  its target — the same two rules the single-object body drag already follows. Returns what
+   *  it wrote, so the release reports the frame it actually ended on. */
+  const barApply = (t: { ndx: number; ndy: number; deg: number }, centre: { x: number; y: number } | null): BoardAnno[] => {
     // x and y are fractions of DIFFERENT edges, so a turn has to happen in px proportions
     const xScale = (sW || 1) / (sH || 1)
     const turn = (x: number, by: number): [number, number] => (t.deg && centre
       ? rotateAround([x, by], [centre.x, centre.y], t.deg, { xScale })
       : [x, by])
-    set(annos.map((a) => {
+    const next = annos.map((a) => {
       const o = groupOrig.current.find((g) => g.id === a.id); if (!o) return a
       const turned = t.deg
         ? { ...(o.rot !== undefined ? { rotation: turnedBy(o.rot, t.deg) } : null), ...(o.rot2 !== undefined ? { rotation2: turnedBy(o.rot2, t.deg) } : null) }
         : null
-      if (o.bpts) return { ...a, ...turned, pts: o.bpts.map(([x, by, floor], i): BoardPoint => {
-        if ((i === 0 && a.startAttachment) || (i === o.bpts!.length - 1 && a.endAttachment)) return a.pts?.[i] ?? [x, localY(by, floor ?? o.floor), floor ?? o.floor]
-        const pf = floor ?? o.floor
-        const [rx, ry] = turn(x, by)
-        return [rx + t.ndx, localY(ry + t.ndy, pf), pf]
-      }) }
+      // ⚠️ each stroke is ONE body, turned and moved whole and kept whole at its tile's edge
+      // (floorGeometry · moveRigid) — the same writer as the stroke body drag above
+      const bpts = o.bpts
+      if (bpts) return { ...a, ...turned, pts: moveRigid(bpts, o.floor, (x, by) => { const [rx, ry] = turn(x, by); return [rx + t.ndx, ry + t.ndy] }, (i) => (
+        (i === 0 && a.startAttachment) || (i === bpts.length - 1 && a.endAttachment)
+          ? a.pts?.[i] ?? [bpts[i][0], localY(bpts[i][1], bpts[i][2] ?? o.floor), bpts[i][2] ?? o.floor]
+          : null)) }
       const [rx, ry] = turn(o.bx ?? 0, o.by ?? 0)
       return { ...a, ...turned, x: rx + t.ndx, y: localY(ry + t.ndy, o.floor) }
-    }))
+    })
+    set(next)
+    return next
   }
-  const barCommit = () => annos.filter((a) => barIds.includes(a.id))
-    .forEach((a) => emit('board.move', { id: a.id, x: a.x, y: a.y, floor: a.floor, planId: activeId }))
+  /** One `board.move` per member, carrying its POSITION — `pts` for ink, whose position IS its
+   *  points (the same payload `drawUp` sends). ⚠️ It sent x/y/floor for everything, which a stroke
+   *  does not have: the event named no position at all and the replay folded nothing (prod
+   *  23.09.2026 19:00:55). Read off the frame the gesture ended on, not off the last render. */
+  const barCommit = (written: BoardAnno[]) => written.filter((a) => barIds.includes(a.id))
+    .forEach((a) => emit('board.move', a.pts
+      ? { id: a.id, pts: a.pts, planId: activeId }
+      : { id: a.id, x: a.x, y: a.y, floor: a.floor, planId: activeId }))
   const barMove = (dx: number, dy: number, phase: 'start' | 'move' | 'end') => {
     if (readOnly) return
     if (phase === 'start') { barSnapshot(); beginSheetPeek(); return }
     const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
     const t = { ndx: dx / rect.width, ndy: dy / rect.height, deg: 0 }
-    barApply(t, barCentre)
-    if (phase === 'end') { endSheetPeek(); barCommit(); onStepEnd?.() }
+    const written = barApply(t, barCentre)
+    if (phase === 'end') { endSheetPeek(); barCommit(written); onStepEnd?.() }
   }
   const barRotate = (deg: number, phase: 'start' | 'move' | 'end') => {
     if (readOnly) return
@@ -2896,8 +2912,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     else if (phase === 'start') { const c = barCentreClient(); setBarTurn(c ? { cx: c.x, cy: c.y, deg: 0 } : null) }
     else setBarTurn((t) => (t ? { ...t, deg } : t))
     if (phase === 'start') { barRotCentre.current = barCentre; barSnapshot(); return }
-    barApply({ ndx: 0, ndy: 0, deg }, barRotCentre.current)
-    if (phase === 'end') { barCommit(); barRotCentre.current = null; onStepEnd?.() }
+    const written = barApply({ ndx: 0, ndy: 0, deg }, barRotCentre.current)
+    if (phase === 'end') { barCommit(written); barRotCentre.current = null; onStepEnd?.() }
   }
   /** Remove whatever the bar is pointed at — a Mehrfach group, a single Linie/Fläche/
    *  Absperrkreis, a Form, and the mirrored members of any of those (which delete through their
