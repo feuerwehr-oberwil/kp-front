@@ -1,5 +1,5 @@
 import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './api'
-import { idbGet, idbSet } from './idb'
+import { idbRead, idbSet } from './idb'
 import { newId } from './ids'
 import { rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
@@ -38,6 +38,8 @@ interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEven
 
 const KEY = (incidentId: string) => `kp-journal-${incidentId}`
 const FLUSH_BATCH = 400
+/** How soon a hydration whose IndexedDB read FAILED is tried again (see JournalStore.hydrate). */
+const REREAD_MS = 5_000
 // Same-page handoff only: rows entered before hydration have no safe full snapshot yet.
 // The next writable store merges them with its current cache; disposed stores never write.
 const hydrationHandoffs = new Map<string, Map<string, TimelineEvent>>()
@@ -117,6 +119,12 @@ export class JournalStore {
   private persisting = false
   private writeTail: Promise<void> = Promise.resolve()
   private deliveryFailure: 'offline' | 'error' | null = null
+  /** The last hydration could not READ the cache (a failed IndexedDB read, not a miss). The
+   *  stored snapshot may hold a predecessor's undelivered rows, so nothing is written over it —
+   *  persist() is off — and the read is retried every REREAD_MS. Delivery keeps running: the
+   *  server is the one place a row is safe while the local copy is unknown. */
+  private readFailed = false
+  private rereadTimer: ReturnType<typeof setTimeout> | null = null
   onChange?: () => void
 
   constructor(private readonly incidentId: string, readOnly: boolean) {
@@ -127,6 +135,8 @@ export class JournalStore {
   setReadOnly(v: boolean) {
     const was = this.readOnly
     this.readOnly = v
+    // a read-only store writes nothing, so an unread cache no longer puts anything at risk here
+    if (v) this.readFailed = false
     if (was && !v) {
       // The previous writer may have accumulated offline rows while this tab was read-only.
       // Re-read them before publishing this tab's own snapshot or starting a flush.
@@ -151,8 +161,28 @@ export class JournalStore {
   }
 
   private async hydrate(legacyNewestFirst: TimelineEvent[]): Promise<void> {
-    const cached = await idbGet<Persisted>(KEY(this.incidentId))
+    const read = await idbRead<Persisted>(KEY(this.incidentId))
     if (this.disposed) return
+    // ⚠️ A failed read is not an empty cache. Read as one, the snapshot persisted below replaced
+    // the stored outbox — the predecessor's (or this device's last session's) undelivered rows —
+    // with this store's own state (23.09.2026). A read-only store writes nothing, so for it the
+    // old «nothing cached» answer stays harmless and the rows come from the server as ever.
+    if (!read.ok && !this.readOnly) {
+      this.readFailed = true
+      this.initDone = true
+      this.ingestLegacy(legacyNewestFirst)
+      this.emit()
+      if (this.rereadTimer) clearTimeout(this.rereadTimer)
+      this.rereadTimer = setTimeout(() => {
+        this.rereadTimer = null
+        if (this.disposed || !this.readFailed) return
+        this.rehydrateRequested = true
+        void this.init([...this.legacy].reverse())
+      }, REREAD_MS)
+      return
+    }
+    this.readFailed = false
+    const cached = read.ok ? read.value : null
     if (cached) {
       // MERGE the snapshot into current state — rows may have been appended while the
       // idbGet was in flight, and replacing the state would silently drop them.
@@ -214,7 +244,7 @@ export class JournalStore {
     if (row.photoUrls?.some(isBlob)) this.overlaySession(row.id, { photoUrls: row.photoUrls })
     const clean = stripSessionUrls(row)
     this.state.outbox.push(clean)
-    if (!this.initDone) {
+    if (!this.initDone || this.readFailed) {
       this.preHydrationAppends.set(clean.id, clean)
       this.cacheDurable = false // memory alone cannot survive page termination
     }
@@ -384,6 +414,8 @@ export class JournalStore {
 
   /** A synced workspace must not hide an unsent or undurable journal. */
   get syncStatus(): SyncStatus {
+    // an unread cache may hold undelivered rows: nothing can be called acknowledged yet
+    if (this.readFailed) return 'storage'
     if (!this.pendingCount && !this.rejectedCount) return 'synced'
     if (!this.cacheDurable) return 'storage'
     if (this.persisting) return 'pending'
@@ -479,6 +511,7 @@ export class JournalStore {
       hydrationHandoffs.set(this.incidentId, pending)
       this.preHydrationAppends.clear()
     }
+    if (this.rereadTimer) { clearTimeout(this.rereadTimer); this.rereadTimer = null }
     this.disposed = true
   }
 
@@ -521,7 +554,7 @@ export class JournalStore {
     // a read-only store (viewer, or an editor tab demoted by the tab lock) must never
     // write the shared per-incident IDB key — it would clobber the editing tab's outbox.
     // Disposal blocks new snapshots; already-issued IDB writes still finish below.
-    if (this.readOnly || !this.initDone || this.disposed) return
+    if (this.readOnly || !this.initDone || this.readFailed || this.disposed) return
     const snapshot = structuredClone(this.state)
     const seq = ++this.writeSeq
     this.persisting = true

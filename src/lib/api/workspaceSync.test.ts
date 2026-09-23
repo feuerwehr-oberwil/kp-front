@@ -20,11 +20,16 @@ vi.mock('./workspace', () => ({
   putWorkspaceRecord: (...a: unknown[]) => putWorkspaceRecord(...a),
   putWorkspaceRecordBeacon: (...a: unknown[]) => putWorkspaceRecordBeacon(...a),
 }))
-vi.mock('../idb', () => ({
-  idbGet: vi.fn(async () => null),
-  idbSet: vi.fn(async () => true),
-  idbDel: vi.fn(async () => undefined),
-}))
+vi.mock('../idb', () => {
+  const idbGet = vi.fn(async (_key: string): Promise<unknown> => null)
+  return {
+    idbGet,
+    // the hydrate paths read through `idbRead`; it answers from the same mocked store
+    idbRead: vi.fn(async (key: string) => ({ ok: true, value: await idbGet(key) })),
+    idbSet: vi.fn(async () => true),
+    idbDel: vi.fn(async () => undefined),
+  }
+})
 vi.mock('../tileEvict', () => ({ withTileEviction: (fn: () => Promise<boolean>) => fn() }))
 
 const { ApiError } = await import('../api')

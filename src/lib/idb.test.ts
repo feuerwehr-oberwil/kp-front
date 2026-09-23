@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { idbGet, idbSet, idbDel, readThrough, __resetIdbForTests } from './idb'
+import { idbGet, idbRead, idbSet, idbDel, readThrough, __resetIdbForTests } from './idb'
 import { ApiError } from './api'
 
 beforeEach(() => {
@@ -31,6 +31,64 @@ describe('idb key-value store (IndexedDB backend)', () => {
     await idbSet('k', { x: 1 })
     await idbDel('k')
     expect(await idbGet('k')).toBeNull()
+  })
+})
+
+// ⚠️ A failed read and a miss used to be the same `null`, so a hydrate that then wrote back
+// replaced whatever the store could not deliver (23.09.2026). And a connection the browser
+// closed stayed cached for the rest of the session.
+describe('idbRead · a miss is not a failure', () => {
+  /** Capture every connection this module opens. */
+  function trackOpens() {
+    const conns: IDBDatabase[] = []
+    const factory = globalThis.indexedDB
+    const open = factory.open.bind(factory)
+    vi.spyOn(factory, 'open').mockImplementation((...args: Parameters<IDBFactory['open']>) => {
+      const req = open(...args)
+      req.addEventListener('success', () => conns.push(req.result))
+      return req
+    })
+    return conns
+  }
+
+  it('answers ok with null for a missing key, and ok with the value for a stored one', async () => {
+    expect(await idbRead('nope')).toEqual({ ok: true, value: null })
+    await idbSet('k', { x: 1 })
+    expect(await idbRead('k')).toEqual({ ok: true, value: { x: 1 } })
+  })
+
+  it('answers ok: false when the transaction fails, where idbGet still says null', async () => {
+    await idbSet('k', { x: 1 })
+    const spy = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => {
+      throw new DOMException('disk I/O', 'UnknownError')
+    })
+    try {
+      expect(await idbRead('k')).toMatchObject({ ok: false })
+      expect(await idbGet('k')).toBeNull()
+    } finally { spy.mockRestore() }
+    expect(await idbRead('k')).toEqual({ ok: true, value: { x: 1 } })
+  })
+
+  it('reopens once when the cached connection was closed under it', async () => {
+    const conns = trackOpens()
+    await idbSet('k', 1)
+    conns[0].close() // every later transaction on it throws InvalidStateError
+    expect(await idbRead('k')).toEqual({ ok: true, value: 1 })
+    expect(await idbSet('k', 2)).toBe(true)
+    expect(conns).toHaveLength(2)
+  })
+
+  it('forgets a connection the browser reports closed, and one another tab asks to give up', async () => {
+    const conns = trackOpens()
+    await idbSet('k', 1)
+    conns[0].onclose?.call(conns[0], new Event('close'))
+    expect(await idbGet('k')).toBe(1)
+    expect(conns).toHaveLength(2)
+    const close = vi.spyOn(conns[1], 'close')
+    conns[1].onversionchange?.call(conns[1], new Event('versionchange') as IDBVersionChangeEvent)
+    expect(close).toHaveBeenCalled()
+    expect(await idbGet('k')).toBe(1)
+    expect(conns).toHaveLength(3)
   })
 })
 

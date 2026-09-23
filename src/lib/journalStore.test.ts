@@ -54,6 +54,32 @@ beforeEach(() => {
 })
 
 describe('JournalStore — append/flush/pull', () => {
+  // ⚠️ A failed IndexedDB read is not an empty cache: read as one, the store's first snapshot
+  // replaced the stored outbox — undelivered rows of the previous session (23.09.2026).
+  it('a failed cache read writes nothing over the stored outbox, says so, and re-reads later', async () => {
+    fakeServer()
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    await idb.idbSet(`kp-journal-${INC}`, { rows: [], latestSeq: 0, outbox: [row('offline-last-session')] })
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    const read = vi.spyOn(idb, 'idbRead').mockResolvedValueOnce({ ok: false, error: new Error('io') })
+    const write = vi.spyOn(idb, 'idbSet')
+    const store = new JournalStore(INC, false)
+    try {
+      await store.init([])
+      store.append(row('new'))
+      await Promise.resolve()
+      expect(write).not.toHaveBeenCalled()
+      expect(store.syncStatus).toBe('storage')
+
+      await vi.advanceTimersByTimeAsync(5_000) // the re-read answers this time
+      vi.useRealTimers()
+      await settle(); await settle()
+      const stored = await idb.idbGet<{ outbox: TimelineEvent[] }>(`kp-journal-${INC}`)
+      expect(stored?.outbox.map((r) => r.id).sort()).toEqual(['new', 'offline-last-session'])
+      expect(store.syncStatus).toBe('offline')
+    } finally { vi.useRealTimers(); read.mockRestore(); write.mockRestore(); store.dispose() }
+  })
+
   it('reports refused journal storage and preserves a recoverable copy until retry succeeds', async () => {
     apiGet.mockRejectedValue(new ApiError(0, 'offline'))
     apiPost.mockRejectedValue(new ApiError(0, 'offline'))
@@ -95,7 +121,7 @@ describe('JournalStore — append/flush/pull', () => {
     apiGet.mockRejectedValue(new ApiError(0, 'offline'))
     apiPost.mockRejectedValue(new ApiError(0, 'offline'))
     let finishRead!: (value: unknown) => void
-    const read = vi.spyOn(idb, 'idbGet').mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    const read = vi.spyOn(idb, 'idbRead').mockImplementationOnce(() => new Promise((resolve) => { finishRead = (value) => resolve({ ok: true, value } as never) }))
     const store = new JournalStore(INC, false)
     const initializing = store.init([])
     store.append(row('new'))
@@ -115,7 +141,7 @@ describe('JournalStore — append/flush/pull', () => {
     const cached = { rows: [], latestSeq: 0, outbox: [row('old')] }
     await idb.idbSet(`kp-journal-${INC}`, cached)
     let finishRead!: (value: unknown) => void
-    const read = vi.spyOn(idb, 'idbGet').mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    const read = vi.spyOn(idb, 'idbRead').mockImplementationOnce(() => new Promise((resolve) => { finishRead = (value) => resolve({ ok: true, value } as never) }))
     const old = new JournalStore(INC, false)
     const replacement = new JournalStore(INC, false)
     try {
@@ -140,7 +166,7 @@ describe('JournalStore — append/flush/pull', () => {
     const cached = { rows: [], latestSeq: 0, outbox: [row('cached')] }
     await idb.idbSet(`kp-journal-${INC}`, cached)
     let finishRead!: (value: unknown) => void
-    const read = vi.spyOn(idb, 'idbGet').mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    const read = vi.spyOn(idb, 'idbRead').mockImplementationOnce(() => new Promise((resolve) => { finishRead = (value) => resolve({ ok: true, value } as never) }))
     const old = new JournalStore(INC, false)
     const replacement = new JournalStore(INC, false)
     try {
@@ -169,7 +195,7 @@ describe('JournalStore — append/flush/pull', () => {
     apiGet.mockRejectedValue(new ApiError(0, 'offline'))
     apiPost.mockRejectedValue(new ApiError(0, 'offline'))
     let finishRead!: (value: null) => void
-    const read = vi.spyOn(idb, 'idbGet').mockImplementationOnce(() => new Promise((resolve) => { finishRead = resolve }))
+    const read = vi.spyOn(idb, 'idbRead').mockImplementationOnce(() => new Promise((resolve) => { finishRead = (value) => resolve({ ok: true, value } as never) }))
     const store = new JournalStore(INC, false)
     try {
       const opening = store.init([])
