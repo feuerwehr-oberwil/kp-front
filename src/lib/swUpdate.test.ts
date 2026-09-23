@@ -246,6 +246,23 @@ describe('swUpdate — applyUpdateNow (the operator’s own tap)', () => {
     expect(waiting.postMessage).not.toHaveBeenCalled()
   })
 
+  it('the plugin’s own reload on «controlling» joins the same guard — still exactly one reload', async () => {
+    // vite-plugin-pwa 1.x reloads on workbox's 'controlling' unless onNeedReload is given, and
+    // ignores updateSW's reloadPage argument: that reload used to race ours on the same event
+    const { mod } = await announced()
+    await mod.applyUpdateNow()
+    pwa.options!.onNeedReload!() // the plugin's 'controlling' handler (registered first, fires first)
+    sw.dispatchEvent(new Event('controllerchange')) // …and ours, on the same event
+    vi.advanceTimersByTime(RELOAD_WATCHDOG_MS + 1_000)
+    expect(win.location.reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('an activation from elsewhere still reloads through the plugin, as before', async () => {
+    await announced()
+    pwa.options!.onNeedReload!()
+    expect(win.location.reload).toHaveBeenCalledTimes(1)
+  })
+
   it('a second tap while an apply is in flight does nothing', async () => {
     const { mod } = await announced()
     await mod.applyUpdateNow()
