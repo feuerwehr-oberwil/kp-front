@@ -22,7 +22,7 @@
 // writes, and touches only the entries it actually attempted.
 
 import { ApiError } from './api'
-import { idbDel, idbGet, idbSet } from './idb'
+import { idbDel, idbRead, idbSet } from './idb'
 import { newId } from './ids'
 import { serialQueue } from './serialQueue'
 import { withTileEviction } from './tileEvict'
@@ -88,8 +88,25 @@ const sameCapture = (a: MediaQueueItem, b: MediaQueueItem) =>
 
 const navigatorOnline = () => (typeof navigator !== 'undefined' ? navigator.onLine : true)
 
-async function readQueue(incidentId: string): Promise<MediaQueueItem[]> {
-  return (await idbGet<MediaQueueItem[]>(keyFor(incidentId))) ?? []
+/** Captures this device holds but could NOT store — kept in page memory so they still upload,
+ *  still count, and are written the moment a later queue operation's write lands.
+ *  ⚠️ A failed write used to be ignored (23.09.2026): the capture was reported queued, existed
+ *  only in the dying tab, and the sync status said «gespeichert». `known` says whether `items` is
+ *  the WHOLE queue (a write failed after a good read) or only what was added while the stored
+ *  queue could not even be read — which must then never be written over (lib/idb · idbRead). */
+const unstored = new Map<string, { items: MediaQueueItem[]; known: boolean }>()
+
+/** The queue as it stands: stored, plus whatever is held in memory. `known: false` = the store
+ *  could not be read, so `items` is only the part this page holds. */
+async function readQueue(incidentId: string): Promise<{ items: MediaQueueItem[]; known: boolean }> {
+  const held = unstored.get(incidentId)
+  const read = await idbRead<MediaQueueItem[]>(keyFor(incidentId))
+  if (!read.ok) return held ?? { items: [], known: false }
+  const stored = read.value ?? []
+  if (!held) return { items: stored, known: true }
+  if (held.known) return held // the newer whole queue whose write failed
+  const heldIds = new Set(held.items.map((i) => i.id))
+  return { items: [...stored.filter((i) => !heldIds.has(i.id)), ...held.items], known: true }
 }
 /** Returns whether the queue is durably stored. A queued photo/voice memo is an incident record
  *  that exists ONLY here until it uploads, so a full device evicts map tiles to make room rather
@@ -98,10 +115,29 @@ async function writeQueue(incidentId: string, items: MediaQueueItem[]): Promise<
   if (!items.length) { await idbDel(keyFor(incidentId)); return true }
   return withTileEviction(() => idbSet(keyFor(incidentId), items))
 }
+/** Store the queue, or hold it in memory when that is not possible. Returns durability. */
+async function storeQueue(incidentId: string, items: MediaQueueItem[], known: boolean): Promise<boolean> {
+  if (!known) {
+    // never write over a queue that could not be read; what this page holds waits in memory
+    if (!items.length) { unstored.delete(incidentId); return true }
+    unstored.set(incidentId, { items, known: false })
+    return false
+  }
+  const ok = await writeQueue(incidentId, items)
+  if (ok) unstored.delete(incidentId)
+  else unstored.set(incidentId, { items, known: true })
+  return ok
+}
+
+/** Is everything queued for this incident durably stored on the device? False while a capture
+ *  lives only in page memory (a refused write, or a queue that could not be read). */
+export const isMediaQueueDurable = (incidentId: string): boolean => !unstored.has(incidentId)
 
 /** Persist a captured blob for later upload, replacing any prior entry with the same queue id
  *  (a re-recorded voice memo supersedes the old one; photos key per picture, so they stack).
- *  Resets it to `pending` for a fresh retry cycle. */
+ *  Resets it to `pending` for a fresh retry cycle. Resolves whether the capture is DURABLY
+ *  queued; when not, it is held in memory (still listed, still flushed) and written by the next
+ *  queue operation whose write lands. */
 export async function enqueueMedia(
   incidentId: string,
   rowId: string,
@@ -110,22 +146,22 @@ export async function enqueueMedia(
   filename: string,
   createdAt: string,
   localUrl?: string,
-): Promise<void> {
+): Promise<boolean> {
   const id = mediaQueueId(rowId, kind, localUrl)
   const rev = newId('mq')
-  await laneFor(incidentId).edit(async () => {
-    const items = await readQueue(incidentId)
+  return laneFor(incidentId).edit(async () => {
+    const { items, known } = await readQueue(incidentId)
     const next = items.filter((i) => i.id !== id)
     next.push({ id, incidentId, rowId, kind, blob, filename, createdAt, attempts: 0, status: 'pending', rev, ...(localUrl ? { localUrl } : {}) })
-    await writeQueue(incidentId, next)
+    return storeQueue(incidentId, next, known)
   })
 }
 
-export const listMediaQueue = (incidentId: string): Promise<MediaQueueItem[]> => readQueue(incidentId)
+export const listMediaQueue = async (incidentId: string): Promise<MediaQueueItem[]> => (await readQueue(incidentId)).items
 
 /** Drop the whole queue for an incident (called when an incident is archived/closed). */
 export const clearIncidentMedia = (incidentId: string): Promise<void> =>
-  laneFor(incidentId).edit(() => idbDel(keyFor(incidentId)))
+  laneFor(incidentId).edit(() => { unstored.delete(incidentId); return idbDel(keyFor(incidentId)) })
 
 /**
  * Drop an archived incident's queue — UNLESS something is still waiting in it.
@@ -142,9 +178,10 @@ export const clearIncidentMedia = (incidentId: string): Promise<void> =>
 export function clearUploadedMedia(incidentId: string): Promise<number> {
   // in the lane: a capture enqueued between the check and the delete would be deleted with it
   return laneFor(incidentId).edit(async () => {
-    const pending = await readQueue(incidentId).catch(() => [] as MediaQueueItem[])
+    const { items: pending, known } = await readQueue(incidentId)
     if (pending.length) return pending.length
-    await idbDel(keyFor(incidentId)).catch(() => {})
+    // a queue that could not be read may still hold captures: leave it for the next open
+    if (known) await idbDel(keyFor(incidentId)).catch(() => {})
     return 0
   })
 }
@@ -169,7 +206,7 @@ export interface FlushOutcome {
 export function flushMediaQueue(incidentId: string, upload: MediaUploader): Promise<FlushOutcome> {
   const lane = laneFor(incidentId)
   return lane.flush(async () => {
-    const items = await lane.edit(() => readQueue(incidentId))
+    const { items } = await lane.edit(() => readQueue(incidentId))
     const uploaded: FlushOutcome['uploaded'] = []
     /** per attempted entry: its updated state, or null once it is on the server */
     const settled: { item: MediaQueueItem; next: MediaQueueItem | null }[] = []
@@ -189,17 +226,25 @@ export function flushMediaQueue(incidentId: string, upload: MediaUploader): Prom
     }
     // Write back against the queue as it is NOW, not the snapshot above: whatever was captured
     // (or re-recorded) during the uploads stays exactly as it was stored.
+    // A write that fails keeps the result in memory (storeQueue), so an upload that landed is not
+    // re-sent from a stale stored copy while this page lives.
     const remaining = await lane.edit(async () => {
-      const current = await readQueue(incidentId)
+      const { items: current, known } = await readQueue(incidentId)
       const next: MediaQueueItem[] = []
       for (const cur of current) {
         const s = settled.find((x) => sameCapture(x.item, cur))
         if (!s) next.push(cur)
         else if (s.next) next.push(s.next)
       }
-      await writeQueue(incidentId, next)
+      await storeQueue(incidentId, next, known)
       return next
     })
     return { uploaded, remaining }
   })
+}
+
+/** Test-only: forget the in-memory holdings (the IDB double is replaced per test). */
+export function __resetMediaQueueForTests(): void {
+  unstored.clear()
+  lanes.clear()
 }

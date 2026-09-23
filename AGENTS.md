@@ -67,7 +67,7 @@ to prod.
   flags. UI copy/locale/defaults/storage keys live in
   `src/config/appConfig.ts`; the neutral fallback incident is `src/data/demoIncident.ts`.
 - **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
-  outboxes contribute to the shared sync status. Preserve rejected entries for retry/export;
+  outboxes and the media upload queue contribute to the shared sync status. Preserve rejected entries for retry/export;
   a failed IndexedDB write must never claim local durability. Hydrate and merge a predecessor's
   queue before a promoted tab writes it. A failed IndexedDB READ is not a miss: every hydrate that
   writes back reads through `idbRead` and never writes over a slot it could not read. Client audit events carry a stable `client_id` through
