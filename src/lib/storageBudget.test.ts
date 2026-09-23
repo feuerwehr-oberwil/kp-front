@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PREFETCH_BUDGET_SHARE, TILE_BYTES, estimateStorage, fittedTileCap, fmtBytes, prefetchFit } from './storageBudget'
+import { PREFETCH_BUDGET_SHARE, TILE_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './storageBudget'
 
 // Guards «Alles für offline laden» from filling the bucket the incident record has to write into.
 // The important asymmetry: a device that WON'T report its quota must still be allowed to try —
@@ -67,22 +67,6 @@ describe('estimateStorage', () => {
     expect(await withNavigator({ estimate: async () => ({}) })).toBeNull()
     expect(await withNavigator({ estimate: async () => ({ usage: 1, quota: 0 }) })).toBeNull()
     expect(await withNavigator({ estimate: async () => { throw new Error('no') } })).toBeNull()
-  })
-})
-
-describe('fmtBytes', () => {
-  it('scales the unit and keeps operator-readable precision', () => {
-    expect(fmtBytes(512)).toBe('512 B')
-    expect(fmtBytes(940 * 1024)).toBe('940 KB')
-    expect(fmtBytes(1.5 * 1024 ** 2)).toBe('1.5 MB')
-    expect(fmtBytes(120 * 1024 ** 2)).toBe('120 MB')
-    expect(fmtBytes(1.4 * 1024 ** 3)).toBe('1.4 GB')
-    expect(fmtBytes(20 * 1024 ** 3)).toBe('20 GB')
-  })
-
-  it('degrades safely on nonsense', () => {
-    expect(fmtBytes(NaN)).toBe('–')
-    expect(fmtBytes(-1)).toBe('–')
   })
 })
 

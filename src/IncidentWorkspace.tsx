@@ -29,7 +29,7 @@ import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
-import { fillTemplate, formatSymbolName, formatTime } from './lib/format'
+import { fillTemplate, fmtFileSize, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
 import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, VEHICLE_SYMBOLS } from './lib/symbols'
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
@@ -167,7 +167,7 @@ import { fetchShareLink } from './lib/viewLink'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
 import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
-import { WARM_BYTES, estimateStorage, fittedTileCap, fmtBytes, prefetchFit } from './lib/storageBudget'
+import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
 import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
@@ -1251,14 +1251,14 @@ export function IncidentWorkspace({
       const reduced = Math.floor(reducedTotal / rasterSourceCount)
       if (reduced === 0) {
         // not even the plans fit — nothing useful to offer but the honest refusal
-        if (!quiet) toast(fillTemplate(co.dlNoSpace, { free: fmtBytes(budget.free) }), { icon: 'map', tone: 'warn' })
+        if (!quiet) toast(fillTemplate(co.dlNoSpace, { free: fmtFileSize(budget.free) }), { icon: 'map', tone: 'warn' })
         return
       }
       if (!quiet) {
         const ok = await confirmDialog({
           title: co.dlTightTitle,
           message: fillTemplate(co.dlTightMsg, {
-            need: fmtBytes(fit.needBytes), free: fmtBytes(budget.free), pct: String(Math.round((reduced / coverageTileCount) * 100)),
+            need: fmtFileSize(fit.needBytes), free: fmtFileSize(budget.free), pct: String(Math.round((reduced / coverageTileCount) * 100)),
           }),
           confirmLabel: co.dlTightConfirm,
           cancelLabel: appConfig.copy.cancel,

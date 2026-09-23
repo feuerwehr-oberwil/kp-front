@@ -228,14 +228,21 @@ describe('telHref (the Kontaktperson dial link)', () => {
 })
 
 describe('fmtFileSize', () => {
-  it('prints bytes, whole KB and one-decimal MB — the admin lists\' one reading of a file size', () => {
+  it('scales the unit and keeps operator-readable precision — one reading of a size app-wide', () => {
     expect(fmtFileSize(512)).toBe('512 B')
     expect(fmtFileSize(940 * 1024)).toBe('940 KB')
     expect(fmtFileSize(1.5 * 1024 ** 2)).toBe('1.5 MB')
-    expect(fmtFileSize(120 * 1024 ** 2)).toBe('120.0 MB')
+    expect(fmtFileSize(120 * 1024 ** 2)).toBe('120 MB')
+    expect(fmtFileSize(1.4 * 1024 ** 3)).toBe('1.4 GB')
+    expect(fmtFileSize(20 * 1024 ** 3)).toBe('20 GB')
   })
-  it('says «—» for a size the server did not report', () => {
+  it('has a GB step — a 1.5 GB disk no longer reads «1536.0 MB»', () => {
+    expect(fmtFileSize(1.5 * 1024 ** 3)).toBe('1.5 GB')
+  })
+  it('says «—» for a size the server did not report, or one that is nonsense', () => {
     expect(fmtFileSize(null)).toBe('—')
     expect(fmtFileSize(undefined)).toBe('—')
+    expect(fmtFileSize(NaN)).toBe('—')
+    expect(fmtFileSize(-1)).toBe('—')
   })
 })
