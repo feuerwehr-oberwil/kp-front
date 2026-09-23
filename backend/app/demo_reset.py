@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select
 
+from . import storage
 from .auth.router import revoke_sessions
 from .auth.security import hash_pin
 from .database import async_session_maker
@@ -34,6 +35,7 @@ from .models import (
     DiveraEmergency,
     Incident,
     JournalEntry,
+    Media,
     ObjectSite,
     Personnel,
     PlanAlignment,
@@ -42,6 +44,7 @@ from .models import (
     PlanRevision,
     ReferenceDataset,
     User,
+    WorkspaceSnapshot,
 )
 from .personnel import format_name
 
@@ -538,6 +541,17 @@ async def reset(wipe_objects: bool = True) -> None:
     assert_demo_database()
 
     async with async_session_maker() as db:
+        # ⚠️ The cascade deletes the ROWS; the photos, voice memos and workspace snapshots they
+        # point at are files, and used to stay on the volume forever — a demo that resets nightly
+        # and invites strangers to upload grew without bound (23.09.2026). Collect the keys first
+        # and let them go once the wipe COMMITS, the way the incident delete does
+        # (api/incidents · delete_incident); the derived thumbnail and waveform go with them.
+        keys = list((await db.execute(select(Media.storage_key))).scalars()) + list(
+            (await db.execute(select(WorkspaceSnapshot.storage_key))).scalars()
+        )
+        for key in keys:
+            for derived in ("", ".thumb.jpg", ".peaks.json"):
+                storage.delete_after_commit(db, key + derived)
         # Deleting incidents cascades to all incident-scoped tables (ON DELETE CASCADE).
         await db.execute(delete(Incident))
         # Roster is standalone (no incident FK) — clear manual/demo additions, then re-seed
