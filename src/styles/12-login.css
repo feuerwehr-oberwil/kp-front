@@ -29,6 +29,11 @@
 .eb-actions { display: flex; flex-direction: column; gap: 8px; }
 .eb-actions .ip-btn { width: 100%; justify-content: center; }
 .eb-warn { margin: 0; color: var(--ink-faint); font-size: 12.5px; line-height: 1.4; }
+/* «Lokale Kopie verwerfen» while offline: the button disabled, and the REASON under it in the
+   warning's register — amber glyph, the sentence beside it, read left to right like prose */
+.eb-actions .ip-btn:disabled { opacity: var(--disabled); cursor: default; background: var(--surface); }
+.eb-blocked { display: flex; gap: 8px; align-items: flex-start; text-align: left; color: var(--ink-dim); }
+.eb-blocked .i { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--amber-strong); }
 /* SurfaceBoundary — the same card, INSIDE one view. Not the fixed .login cover: it fills the
    incident's canvas under the chrome (rail, top bar, Meldeleiste all stay live), padded so the
    card centres in the area a surface actually occupies, and washed so it reads over a busy map. */

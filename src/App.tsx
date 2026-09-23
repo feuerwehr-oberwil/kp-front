@@ -675,6 +675,7 @@ export default function App() {
           scopeId={activeId}
           onCloseIncident={escapeToLanding}
           onDiscardLocal={() => discardLocalAndReload(activeId)}
+          hasUnsyncedChanges={() => (syncRef.current?.syncStatus ?? 'synced') !== 'synced'}
         >
         <IncidentWorkspace
           key={`${activeId}:${remount}`}

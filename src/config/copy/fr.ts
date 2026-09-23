@@ -1933,6 +1933,8 @@ export const fr: Localizable<Copy> = {
     closeIncident: 'Fermer l’intervention',
     discardLocal: 'Supprimer la copie locale',
     discardLocalHint: 'Supprime uniquement la copie sur cet appareil et recharge l’intervention depuis le serveur. Les modifications de cet appareil non encore synchronisées seront perdues.',
+    discardLocalOffline: 'Impossible sans connexion – l’intervention ne pourrait plus être rechargée depuis le serveur.',
+    discardLocalOfflineUnsynced: 'Des modifications de cet appareil n’ont pas encore été transmises.',
     bodyRepeatRoot: 'L’app ne démarre pas – même après un rechargement. Réinitialise les listes locales ; les interventions et modifications enregistrées sont conservées.',
     resetShell: 'Réinitialiser l’app',
     resetShellHint: 'Vide uniquement la liste des interventions et les données de connexion sur cet appareil. Les interventions et leurs modifications restent enregistrées.',

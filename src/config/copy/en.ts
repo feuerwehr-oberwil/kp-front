@@ -1939,6 +1939,8 @@ export const en: Localizable<Copy> = {
     closeIncident: 'Close incident',
     discardLocal: 'Discard local copy',
     discardLocalHint: 'Discards only the copy on this device and reloads the incident from the server. Changes made on this device that have not synced yet will be lost.',
+    discardLocalOffline: 'Not possible without a connection – the incident could not be reloaded from the server afterwards.',
+    discardLocalOfflineUnsynced: 'Changes from this device have not been sent yet.',
     bodyRepeatRoot: 'The app will not start – not even after a reload. Reset the local lists; saved incidents and changes stay intact.',
     resetShell: 'Reset app',
     resetShellHint: 'Clears only the incident list and the sign-in data on this device. Incidents and their changes stay saved.',

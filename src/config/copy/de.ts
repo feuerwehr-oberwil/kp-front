@@ -3141,6 +3141,9 @@ export const de = {
     closeIncident: 'Einsatz schliessen',
     discardLocal: 'Lokale Kopie verwerfen',
     discardLocalHint: 'Verwirft nur die Kopie auf diesem Gerät und lädt den Einsatz neu vom Server. Noch nicht synchronisierte Änderungen von diesem Gerät gehen dabei verloren.',
+    // …and why it is greyed out while offline (ErrorBoundary · discardBlocked)
+    discardLocalOffline: 'Ohne Verbindung nicht möglich – der Einsatz liesse sich danach nicht neu vom Server laden.',
+    discardLocalOfflineUnsynced: 'Änderungen von diesem Gerät sind noch nicht übertragen.',
     // the ROOT boundary's repeat crash (launcher, login, a lazy chunk — no Einsatz to close):
     // «App zurücksetzen» drops only the cached incident list and user, never a workspace cache
     bodyRepeatRoot: 'Die App startet nicht – auch nach dem Neuladen nicht. Setze die lokalen Listen zurück; gespeicherte Einsätze und Änderungen bleiben erhalten.',
