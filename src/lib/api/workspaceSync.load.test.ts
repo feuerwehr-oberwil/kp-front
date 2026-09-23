@@ -52,6 +52,8 @@ vi.mock('./workspace', async () => {
 })
 vi.mock('../idb', () => ({
   idbGet: vi.fn(async () => null),
+  // the hydrate paths read through `idbRead`: an empty slot, read fine
+  idbRead: vi.fn(async () => ({ ok: true, value: null })),
   idbSet: vi.fn(async () => true),
   idbDel: vi.fn(async () => undefined),
 }))

@@ -15,16 +15,21 @@ vi.mock('./workspace', () => ({
   putWorkspaceTrupps: (...a: unknown[]) => putWorkspaceTrupps(...a),
   putWorkspaceTruppsBeacon: vi.fn(),
 }))
-vi.mock('../idb', () => ({
-  idbGet: vi.fn(async () => null),
-  idbSet: vi.fn(async () => true),
-  idbDel: vi.fn(async () => undefined),
-}))
+vi.mock('../idb', () => {
+  const idbGet = vi.fn(async (_key: string): Promise<unknown> => null)
+  return {
+    idbGet,
+    // the hydrate paths read through `idbRead`; it answers from the same mocked store
+    idbRead: vi.fn(async (key: string) => ({ ok: true, value: await idbGet(key) })),
+    idbSet: vi.fn(async () => true),
+    idbDel: vi.fn(async () => undefined),
+  }
+})
 vi.mock('../tileEvict', () => ({ withTileEviction: (fn: () => Promise<boolean>) => fn() }))
 
 const { ApiError } = await import('../api')
-const { idbGet, idbSet, idbDel } = vi.mocked(await import('../idb'))
-const { WorkspaceSync, denyWorkspaceCache, setWorkspaceCacheOwner } = await import('./workspaceSync')
+const { idbGet, idbRead, idbSet, idbDel } = vi.mocked(await import('../idb'))
+const { CACHE_DEBOUNCE_MS, WorkspaceSync, denyWorkspaceCache, setWorkspaceCacheOwner } = await import('./workspaceSync')
 
 /** an unsynced edit sitting in this device's cache, owned by `owner` */
 const cachedEdit = (owner?: string) => ({
@@ -351,6 +356,48 @@ describe('WorkspaceSync · a different user cannot destroy or inherit another’
     // u1's work was parked for u1, stamped u1 — not merged/served under u2.
     expect(store.get('kp-front-ws-i1::u1')).toMatchObject({ owner: 'u1', workspace: { entities: [{ id: 'mine' }] } })
     expect(store.get('kp-front-ws-i1')).toMatchObject({ owner: 'u2', dirty: false })
+  })
+})
+
+// ⚠️ A main slot that could not be READ is not an empty one (23.09.2026). Taken for «no cache»,
+// init() adopted the server copy and wrote it over the slot — on a device back from being offline,
+// the only copy of its unsynced edits.
+describe('WorkspaceSync.init · an unreadable cache is not an empty one', () => {
+  it('never writes the server copy over a slot it could not read, and says the cache is not durable', async () => {
+    signedInAs('u1')
+    const store = backingStore({ 'kp-front-ws-i1': cachedEdit('u1') })
+    idbRead.mockResolvedValueOnce({ ok: false, error: new Error('io') }) // the main slot, once
+    idbRead.mockResolvedValueOnce({ ok: false, error: new Error('io') }) // …and the probe on the first write
+    vi.useFakeTimers()
+    try {
+      const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+      const statuses: string[] = []
+      sync.onStatus = (s) => statuses.push(s)
+      const { fromCache } = await sync.init()
+      expect(fromCache).toBe(false)
+      sync.save({ entities: [{ id: 'server-side-edit' }] })
+      await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS)
+      expect(idbSet).not.toHaveBeenCalledWith('kp-front-ws-i1', expect.anything())
+      expect(store.get('kp-front-ws-i1')).toEqual(cachedEdit('u1'))
+      expect(statuses[statuses.length - 1]).toBe('storage')
+      sync.dispose()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('lifts the block once a later read answers and the slot holds nothing unsynced', async () => {
+    signedInAs('u1')
+    const store = backingStore()
+    idbRead.mockResolvedValueOnce({ ok: false, error: new Error('io') })
+    vi.useFakeTimers()
+    try {
+      const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+      await sync.init()
+      sync.save({ entities: [{ id: 'e1' }] })
+      await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS) // blocked: probes the slot, finds it empty
+      await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS) // …and the re-armed write lands
+      expect(store.get('kp-front-ws-i1')).toMatchObject({ workspace: { entities: [{ id: 'e1' }] }, dirty: true })
+      sync.dispose()
+    } finally { vi.useRealTimers() }
   })
 })
 

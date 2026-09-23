@@ -1,6 +1,6 @@
 import { ApiError, isUnverifiable } from './api'
 import { ingestEvents, ingestEventsBeacon, type ClientEvent } from './api/events'
-import { idbGet, idbSet } from './idb'
+import { idbRead, idbSet } from './idb'
 import { ALL_EVENTS, type EventScope } from './eventScope'
 import type { SyncStatus } from './api/workspaceSync'
 
@@ -37,6 +37,10 @@ export class AuditEventStore {
   private singleMode = false
   private durable = true
   private failure: 'offline' | 'error' | null = null
+  /** The last hydration could not READ the outbox (a failed IndexedDB read, not a miss): nothing
+   *  is written over it and the read is retried every RETRY_MS. See load. */
+  private readFailed = false
+  private rereadTimer: ReturnType<typeof setTimeout> | null = null
   private onChange?: () => void
 
   constructor(private incidentId: string, private ownerId: string, private readOnly: boolean, private scope: EventScope = ALL_EVENTS) {}
@@ -73,7 +77,18 @@ export class AuditEventStore {
 
   private load(): Promise<void> {
     if (!this.loaded) {
-      const opening = idbGet<StoredAuditEvents>(this.key).then((cached) => {
+      const opening = idbRead<StoredAuditEvents>(this.key).then((read) => {
+        // ⚠️ A failed read is not an empty outbox. Read as one, the store counted as hydrated and
+        // its first snapshot replaced the predecessor's undelivered events (23.09.2026). Stay
+        // unhydrated — writeSnapshot then writes nothing and the store reports not-durable —
+        // and read again later; delivery of this store's own events carries on meanwhile.
+        if (!read.ok) {
+          if (this.loaded === opening) { this.readFailed = true; this.scheduleReread(opening) }
+          this.onChange?.()
+          return
+        }
+        if (this.loaded === opening) this.readFailed = false
+        const cached = read.value
         if (cached) {
           const pending = new Map([...(cached.pending ?? []), ...this.state.pending].map((e) => [e.client_id, e]))
           const rejected = new Map([...(cached.rejected ?? []), ...this.state.rejected].map((e) => [e.client_id, e]))
@@ -93,6 +108,16 @@ export class AuditEventStore {
     return this.loaded
   }
 
+  private scheduleReread(failed: Promise<void>) {
+    if (this.rereadTimer) clearTimeout(this.rereadTimer)
+    this.rereadTimer = setTimeout(() => {
+      this.rereadTimer = null
+      if (this.loaded !== failed) return // a promotion already started a fresh read
+      this.loaded = null
+      void this.load().then(() => { if (this.writable && this.hydrated) void this.persist().then(() => this.flush()) })
+    }, RETRY_MS)
+  }
+
   /** Promotion can replace a still-pending initial read; wait for the current owner’s read. */
   private async hydrate(): Promise<void> {
     let opening: Promise<void>
@@ -100,6 +125,12 @@ export class AuditEventStore {
   }
 
   private writeSnapshot(): Promise<void> {
+    if (!this.hydrated) {
+      // the stored outbox was never read (see load): writing now would replace it blind
+      this.durable = false
+      this.onChange?.()
+      return Promise.resolve()
+    }
     const seq = ++this.writeSeq
     // Enqueue the IDB transaction now, while still holding ownership. IDB orders it
     // before the next owner's read; a deferred callback could run after the handover.
@@ -132,6 +163,8 @@ export class AuditEventStore {
     this.generation++
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
+    if (this.rereadTimer) clearTimeout(this.rereadTimer)
+    this.rereadTimer = null
   }
 
   setReadOnly(value: boolean) {
@@ -295,6 +328,8 @@ export class AuditEventStore {
   get refusedCount() { return this.state.refused?.length ?? 0 }
   get cacheDurable() { return this.durable }
   get status(): SyncStatus {
+    // an unread outbox may hold undelivered events: nothing can be called acknowledged yet
+    if (this.readFailed && !this.readOnly) return 'storage'
     // a refused event still lives only here, so an undurable cache holding one IS the storage
     // warning — parking it takes it out of «not delivered», not out of «not safely kept»
     if (!this.durable && (this.pendingCount || this.rejectedCount || this.refusedCount)) return 'storage'

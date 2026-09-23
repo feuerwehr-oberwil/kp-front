@@ -30,7 +30,21 @@ const STORE = 'kv'
 // One shared open request. null until first use; a rejected promise means "IDB unavailable,
 // use the localStorage fallback" — we cache that decision so we don't re-probe on every call.
 let dbPromise: Promise<IDBDatabase> | null = null
+/** the connection `dbPromise` resolved to — so a close event only forgets ITS OWN promise */
+let dbConn: IDBDatabase | null = null
 let idbUnavailable = false
+
+/** Drop a connection the browser closed under us, so the next operation opens a fresh one.
+ *  ⚠️ Without this a cached promise kept handing out a dead connection for the rest of the
+ *  session: WebKit closes IndexedDB connections on its own (a page restored from the back-forward
+ *  cache, «Connection to Indexed Database server lost», storage pressure), and every later
+ *  `db.transaction()` then threw InvalidStateError — reads came back empty and writes fell to the
+ *  localStorage fallback until the tab was reloaded (23.09.2026). */
+function forgetConnection(db: IDBDatabase) {
+  if (dbConn !== db) return
+  dbConn = null
+  dbPromise = null
+}
 
 // --- Degraded storage -----------------------------------------------------------------
 // Set when a write could not be stored durably ANYWHERE (realistically: the origin's quota is
@@ -113,7 +127,12 @@ function openDb(): Promise<IDBDatabase> {
       // already been told to use the fallback namespace, and a late switch would split the
       // store between two backends.
       if (gaveUp) { req.result.close(); return }
-      resolve(req.result)
+      const db = req.result
+      dbConn = db
+      db.onclose = () => forgetConnection(db)
+      // another tab wants a newer schema: step aside (never block its upgrade) and reopen later
+      db.onversionchange = () => { db.close(); forgetConnection(db) }
+      resolve(db)
     }
     req.onerror = () => { clearTimeout(timer); reject(req.error) }
     req.onblocked = () => { clearTimeout(timer); reject(new Error('idb blocked')) }
@@ -128,11 +147,20 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise
 }
 
-function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+function txOnce<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return openDb().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
-        const t = db.transaction(STORE, mode)
+        let t: IDBTransaction
+        try {
+          t = db.transaction(STORE, mode)
+        } catch (e) {
+          // A closed connection throws here, synchronously. Forget it before rejecting so the
+          // retry in `tx` (and every later caller) opens a fresh one.
+          if (isInvalidState(e)) forgetConnection(db)
+          reject(e)
+          return
+        }
         const req = run(t.objectStore(STORE))
         let result!: T
         let requestError: DOMException | null = null
@@ -147,6 +175,17 @@ function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
         t.onabort = () => reject(t.error ?? requestError ?? new Error('IndexedDB transaction aborted'))
       }),
   )
+}
+
+const isInvalidState = (e: unknown) => (e as { name?: unknown } | null)?.name === 'InvalidStateError'
+
+/** One transaction, reopening the database ONCE when the cached connection turned out to be
+ *  closed (see forgetConnection). Any other failure is the caller's to handle. */
+function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  return txOnce(mode, run).catch((e) => {
+    if (!isInvalidState(e) || idbUnavailable) throw e
+    return txOnce(mode, run)
+  })
 }
 
 // --- localStorage fallback (JSON, since localStorage is string-only) -----------------
@@ -195,26 +234,50 @@ const lsDel = (key: string): boolean => {
 
 // --- Public API: async, structured-clone values, transparent fallback ----------------
 
-/** Read a value (structured-clone object), or null if absent. Never rejects — a storage
- *  failure resolves to null so callers degrade gracefully (the same shape as a cache miss). */
-export async function idbGet<T>(key: string): Promise<T | null> {
+/** A read that says whether it READ. `ok: false` is «the store could not answer» — NOT «there is
+ *  nothing»: the value may well be sitting in IndexedDB behind a failed transaction. */
+export type IdbRead<T> = { ok: true; value: T | null } | { ok: false; error: unknown }
+
+/**
+ * Read a value, telling a miss (`{ ok: true, value: null }`) from a failed read (`{ ok: false }`).
+ *
+ * ⚠️ Anything that HYDRATES operator work and later writes it back must use this, not `idbGet`.
+ * Read as «no cache», a failed read made the workspace adopt the server copy and write it over
+ * the unsynced offline edits still in the slot, and the journal/audit outboxes write their
+ * snapshot over the predecessor's queue the same way (23.09.2026). A failed read must leave the
+ * stored value alone and report the local copy as not durable until a later read answers.
+ *
+ * A database that could not be OPENED at all is not a failed read: localStorage is then the
+ * store (see the header), and its miss is a real miss.
+ */
+export async function idbRead<T>(key: string): Promise<IdbRead<T>> {
   // A fallback write is canonical until a later IDB transaction commits and removes it. Check
   // it first even when IDB is available: a previous attempt may have committed its request and
   // then aborted, leaving an older IDB value that must never outrank the fallback.
   const fallback = lsRead<T>(FB_PREFIX + key)
-  if (fallback.found) return fallback.value
-  if (idbUnavailable) return lsGet<T>(key) // legacy failed-open namespace
+  if (fallback.found) return { ok: true, value: fallback.value }
+  if (idbUnavailable) return { ok: true, value: lsGet<T>(key) } // legacy failed-open namespace
   try {
     const v = await tx<T | undefined>('readonly', (s) => s.get(key) as IDBRequest<T | undefined>)
     const concurrentFallback = lsRead<T>(FB_PREFIX + key)
-    if (concurrentFallback.found) return concurrentFallback.value
-    return v === undefined ? null : v
-  } catch {
+    if (concurrentFallback.found) return { ok: true, value: concurrentFallback.value }
+    return { ok: true, value: v === undefined ? null : v }
+  } catch (error) {
     // Re-read in case a concurrent failed write installed the canonical fallback while the IDB
     // read was in flight. The plain key is consulted only after a failed database open.
     const retryFallback = lsRead<T>(FB_PREFIX + key)
-    return retryFallback.found ? retryFallback.value : (idbUnavailable ? lsGet<T>(key) : null)
+    if (retryFallback.found) return { ok: true, value: retryFallback.value }
+    if (idbUnavailable) return { ok: true, value: lsGet<T>(key) }
+    return { ok: false, error }
   }
+}
+
+/** Read a value (structured-clone object), or null if absent. Never rejects — a storage
+ *  failure resolves to null so callers degrade gracefully (the same shape as a cache miss).
+ *  Fine for re-fetchable caches; a caller that writes back what it read uses `idbRead`. */
+export async function idbGet<T>(key: string): Promise<T | null> {
+  const read = await idbRead<T>(key)
+  return read.ok ? read.value : null
 }
 
 /**
@@ -317,6 +380,7 @@ export async function readThrough<T>(
 /** Test-only: drop the cached open promise so a fresh fake-indexeddb is picked up. */
 export function __resetIdbForTests(): void {
   dbPromise = null
+  dbConn = null
   idbUnavailable = false
   degraded = false
 }

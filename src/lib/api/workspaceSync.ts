@@ -2,7 +2,7 @@
 // three-way merge on conflict. Split out of the incidents data layer because it's the single
 // heaviest, most stateful unit — see ./workspace for the plain get/put the engine drives.
 import { ApiError, isUnverifiable } from '../api'
-import { idbDel, idbGet, idbSet } from '../idb'
+import { idbDel, idbGet, idbRead, idbSet, type IdbRead } from '../idb'
 import { withTileEviction } from '../tileEvict'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
 import {
@@ -119,8 +119,9 @@ export function conflictBackoffMs(attempt: number, random: () => number = Math.r
   return Math.round(CONFLICT_BACKOFF_MS * 2 ** (attempt - 1) * (0.5 + random()))
 }
 
-function readCache(id: string): Promise<CacheEntry | null> {
-  return idbGet<CacheEntry>(cacheKey(id))
+/** `ok: false` = the slot could not be READ — which is not «empty»: see init / slotUnread. */
+function readCache(id: string): Promise<IdbRead<CacheEntry>> {
+  return idbRead<CacheEntry>(cacheKey(id))
 }
 // NOTE: the per-instance writer is `this.writeCache` below — it keeps the durability of each
 // write, which a bare fire-and-forget threw away. "Non-fatal because the server is authoritative"
@@ -257,6 +258,13 @@ export class WorkspaceSync {
    *  non-durable instead. Cleared only by a reload (a fresh init re-attempts the park once the
    *  storage pressure has cleared). See init / serveServerWithoutCaching. */
   private mainSlotBlocked = false
+  /** init() could not READ the main slot (a failed IndexedDB read, not a miss). What it holds is
+   *  unknown — possibly this device's only copy of unsynced offline edits — so the slot is blocked
+   *  exactly like an un-parkable foreign entry (mainSlotBlocked). Unlike that case the block is
+   *  re-probed on the next cache write: once a read answers and the slot holds nothing unsynced,
+   *  it lifts and the cache is written again. See probeUnreadSlot. */
+  private slotUnread = false
+  private probing = false
 
   constructor(
     private readonly incidentId: string,
@@ -311,6 +319,7 @@ export class WorkspaceSync {
     // session stays in memory only and reports the cache as non-durable — nothing is written here.
     if (this.mainSlotBlocked) {
       if (!this.disposed && this.cacheDurable) { this.cacheDurable = false; this.publish() }
+      if (this.slotUnread) void this.probeUnreadSlot()
       return
     }
     // The entry already carries the owner captured when it was BUILT or last edited (construction
@@ -322,6 +331,24 @@ export class WorkspaceSync {
       this.cacheDurable = ok
       this.publish()
     })
+  }
+
+  /** Try the main slot init() could not read once more. Missing or clean (the server has it) ⇒
+   *  lift the block and write the cache again. Unsynced ⇒ it is the only copy of that work and
+   *  stays untouched for a reload's init() to merge, the same rule as an un-parkable entry. */
+  private async probeUnreadSlot() {
+    if (this.probing) return
+    this.probing = true
+    try {
+      const read = await readCache(this.incidentId)
+      if (!read.ok || this.disposed || !this.slotUnread) return
+      this.slotUnread = false
+      if (read.value?.dirty) return
+      this.mainSlotBlocked = false
+      this.writeCache()
+    } finally {
+      this.probing = false
+    }
   }
 
   /** mergeWorkspace with divergence reporting (attendance keys + concurrently edited Trupps):
@@ -431,8 +458,10 @@ export class WorkspaceSync {
    *  parked, it is itself a durable copy. Returns whether a durable copy now exists at the orphan
    *  key (an existing one, or a freshly written one), so the caller can honour durable-or-abort. */
   private async parkOrphan(stored: CacheEntry): Promise<boolean> {
-    const existing = await idbGet<CacheEntry>(orphanCacheKey(this.incidentId))
-    if (existing) return true
+    const existing = await idbRead<CacheEntry>(orphanCacheKey(this.incidentId))
+    // an unreadable orphan slot may hold the real pre-upgrade copy: not durable, never overwrite
+    if (!existing.ok) return false
+    if (existing.value) return true
     return idbSet(orphanCacheKey(this.incidentId), stored)
   }
 
@@ -462,10 +491,19 @@ export class WorkspaceSync {
     // Read the offline cache once up front and seed entry/status from it, so the sync badge is
     // correct even while the server fetch is in flight (and so a cold offline reopen restores
     // unsynced edits immediately). The server fetch below refines this.
-    const stored = await readCache(this.incidentId)
+    const read = await readCache(this.incidentId)
+    // ⚠️ A slot that could not be READ is not an empty one. Treated as «no cache», the server copy
+    // below was adopted and written over whatever the slot held — on a device that had been
+    // offline, the only copy of its unsynced edits (23.09.2026). Block the slot instead: the
+    // session runs from the server copy in memory, reports the cache as not durable, and
+    // re-probes the slot on its next write (slotUnread). Nothing here may write the main slot,
+    // which is why loadReadableEntry (its adopt and re-home both do) is skipped too.
+    if (!read.ok) this.slotUnread = true
     // Decide what THIS session may load — and protect what it may not (see loadReadableEntry:
     // another user's unsynced work is parked, never destroyed or served to a different account).
-    const { entry: cached, parkBlocked } = await this.loadReadableEntry(stored)
+    const { entry: cached, parkBlocked } = read.ok
+      ? await this.loadReadableEntry(read.value)
+      : { entry: null, parkBlocked: true }
     if (cached) {
       this.entry = cached
       this.setStatus(cached.dirty ? 'pending' : 'synced')
