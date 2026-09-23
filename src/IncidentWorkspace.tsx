@@ -159,6 +159,7 @@ import { downloadBlob } from './lib/download'
 import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings } from './lib/lineAttachments'
+import { duplicateDrawing, duplicateEntity } from './lib/duplicate'
 import { centroid, rotateAround, turnedBy } from './lib/selectionTransform'
 import { leitungOptions, lineTakesTrupp, truppForLine, truppIsOut } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
@@ -3255,9 +3256,8 @@ export function IncidentWorkspace({
 
   // --- keyboard shortcuts ---------------------------------------------------------------------
   // Duplicate the current selection (Cmd/Ctrl+D) — a small nudge so the copy is visibly offset and
-  // separately selectable. Single symbol/shape/note OR single drawing; live GPS markers can't be
-  // copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
-  const DUP_OFFSET = 0.00008 // ~6–9 m in WGS84 at Swiss latitudes
+  // separately selectable (lib/duplicate). Single symbol/shape/note OR single drawing; live GPS
+  // markers can't be copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
   const duplicateSelection = () => {
     // tacticalLocked, not readOnly: the drawing branch below used to duplicate for real in the
     // Führungsansicht, where readOnly is false.
@@ -3266,7 +3266,7 @@ export function IncidentWorkspace({
       const src = doc.entities.find((e) => e.id === selectedId)
       if (!src || src.live || !Array.isArray(src.coord)) return
       const id = newId('p')
-      const copy: Entity = { ...src, id, coord: [src.coord[0] + DUP_OFFSET, src.coord[1] - DUP_OFFSET] }
+      const copy = duplicateEntity(src, id)
       commit((d) => ({ ...d, entities: [...d.entities, copy] }))
       setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('entity.add', { id, entity: copy })
@@ -3274,7 +3274,7 @@ export function IncidentWorkspace({
       const src = doc.drawings.find((dr) => dr.id === selectedDrawingId)
       if (!src) return
       const id = newId('sh')
-      const copy: Drawing = { ...src, id, coords: src.coords.map(([x, y]) => [x + DUP_OFFSET, y - DUP_OFFSET] as LngLat) }
+      const copy = duplicateDrawing(src, id)
       commit((d) => ({ ...d, drawings: [...d.drawings, copy] }))
       setSelectedDrawingId(id); setSelectedId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('draw.add', { id, kind: src.kind, drawing: copy })
