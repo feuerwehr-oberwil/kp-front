@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { mergeById, mergeRecord, mergeWorkspace } from './mergeWorkspace'
+import { MERGE_POLICY, mergeById, mergeRecord, mergeWorkspace } from './mergeWorkspace'
+import type { Saved } from './workspace'
 
 const o = (id: string, extra: Record<string, unknown> = {}) => ({ id, ...extra })
 
@@ -504,5 +505,44 @@ describe('mergeWorkspace — a server blob this app did not write', () => {
   it('a collection entry without an id is not a merge participant', () => {
     const out = mergeWorkspace({}, { entities: [o('a')] }, { entities: [null, 'junk', { noId: 1 }, o('b')] }) as { entities: { id: string }[] }
     expect(out.entities.map((e) => e.id)).toEqual(['b', 'a'])
+  })
+})
+
+describe('mergeWorkspace — every field of the blob has a declared merge policy', () => {
+  // Typed Record<keyof Saved, …> like MERGE_POLICY itself: a field added to `Saved` without a
+  // policy fails tsc there AND here, and this list is what the runtime checks below walk.
+  const FIELDS: Record<keyof Saved, true> = {
+    entities: true, drawings: true, recent: true, objects: true, layerState: true, timeline: true,
+    board: true, activePlanId: true, activeModule: true, pickedObjectId: true, planScale: true,
+    building: true, vehicleOverrides: true, checklists: true, trupps: true, attendance: true,
+    mittel: true, shifts: true, bands: true, cameraViews: true, trails: true, reportMeta: true,
+    attachments: true, planBindings: true, settings: true, intakeReviewedAt: true, weather: true,
+    schemaVersion: true,
+  }
+  const keys = Object.keys(FIELDS) as (keyof Saved)[]
+  const local = keys.filter((k) => MERGE_POLICY[k] === 'local')
+
+  it('names exactly the fields of Saved — none missing, none stale', () => {
+    expect(Object.keys(MERGE_POLICY).sort()).toEqual([...keys].sort())
+  })
+
+  it('keeps exactly the device/view state local', () => {
+    expect(local.sort()).toEqual(['activeModule', 'activePlanId', 'layerState', 'recent', 'schemaVersion', 'weather'])
+  })
+
+  it('a local field is mine verbatim even when only the server changed it, and absent stays absent', () => {
+    for (const k of local) {
+      expect(mergeWorkspace({ [k]: 'base' }, { [k]: 'base' }, { [k]: 'server' })[k]).toBe('base')
+      expect(k in mergeWorkspace({ [k]: 'base' }, {}, { [k]: 'server' })).toBe(false)
+    }
+  })
+
+  it('every merged field is written, even when no side has it', () => {
+    const merged = mergeWorkspace({}, {}, {})
+    for (const k of keys.filter((k) => MERGE_POLICY[k] !== 'local')) expect(k in merged).toBe(true)
+  })
+
+  it('a key this build does not know rides with mine, as before the policy map', () => {
+    expect(mergeWorkspace({ future: 1 }, { future: 1 }, { future: 2 }).future).toBe(1)
   })
 })

@@ -194,8 +194,10 @@ to prod.
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by
   `id`** (`mergeById` in `mergeWorkspace.ts`; delete beats concurrent edit; server-then-local
-  order). Same-object conflicts can stay simple for now. To add a synced collection: extend
-  `HasId` and register it in `WsShape`. (`Person`/roster is the exception – it carries
+  order). Same-object conflicts can stay simple for now. To add a synced field: add it to
+  `Saved` and give it a row in `MERGE_POLICY` (`mergeWorkspace.ts`) – the map is checked against
+  `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
+  as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
   `updatedAt` because it's pulled from Divera, not merged.)
   - ⚠️ **What every device OBSERVES is recorded under a DERIVED id, once** (24.09.2026). One
     login is routinely open on three devices, and each runs the same engines — the Atemschutz
