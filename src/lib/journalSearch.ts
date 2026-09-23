@@ -1,4 +1,5 @@
-import type { TimelineEvent } from '../types'
+import type { PlanDocument, TimelineEvent } from '../types'
+import { journalCategories, matchesJournalCategories } from './journalFilter'
 import { matchesQuery, searchQuery, type SearchQuery } from './search'
 
 // The Verlauf drawer's search: which rows a typed query keeps. The tolerance is the person
@@ -37,9 +38,20 @@ export function matchesJournalQuery(e: TimelineEvent, query: string | SearchQuer
   return words.every((w) => fields.some((f) => matchesQuery(w, f)))
 }
 
-/** The rows a query keeps, in their given order. A blank query returns the list as is. */
-export function filterJournal(events: readonly TimelineEvent[], raw: string): TimelineEvent[] {
+/** The ticked categories of the drawer's filter (lib/journalFilter), and the plans a plan row's
+ *  category is named after. */
+export interface JournalCategoryFilter {
+  selected: ReadonlySet<string>
+  plans: PlanDocument[]
+}
+
+/** The rows a query — and, when given, the filter's ticks — keep, in their given order. The two
+ *  AND: «trupp 2» with «Auftrag» ticked is the Aufträge that name Trupp 2. A blank query and an
+ *  empty selection return the list as is. */
+export function filterJournal(events: readonly TimelineEvent[], raw: string, filter?: JournalCategoryFilter): TimelineEvent[] {
   const words = journalQuery(raw)
-  if (!words) return [...events]
-  return events.filter((e) => matchesJournalQuery(e, words))
+  const selected = filter?.selected
+  if (!words && !selected?.size) return [...events]
+  const cats = selected?.size ? journalCategories(events, filter!.plans) : null
+  return events.filter((e) => matchesJournalQuery(e, words) && (!cats || matchesJournalCategories(e, selected!, cats)))
 }
