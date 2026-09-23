@@ -105,6 +105,22 @@ async def test_stale_base_rev_answers_409_even_for_a_body_validation_would_refus
 # --- Permission enforcement ---------------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    "query", ["limit=-1", "limit=0", "limit=501", "skip=-1", "limit=abc"], ids=lambda q: q.replace("=", "_")
+)
+async def test_the_incident_list_refuses_an_out_of_range_page_as_422(client, editor, query):
+    """A negative LIMIT/OFFSET reached Postgres, which refuses it: a malformed query string was
+    a 500 (23.09.2026). Bounded at the edge now; the widest real caller asks for 500."""
+    await _login(client, editor)
+    assert (await client.get(f"/api/incidents?{query}")).status_code == 422
+
+
+async def test_the_incident_list_serves_its_bounds(client, editor):
+    await _login(client, editor)
+    for query in ("limit=1", "limit=500", "skip=0", "limit=10&skip=3"):
+        assert (await client.get(f"/api/incidents?{query}")).status_code == 200, query
+
+
 async def test_viewer_cannot_create_incident(client, viewer):
     await _login(client, viewer)
     r = await client.post("/api/incidents", json={"title": "nope"})
