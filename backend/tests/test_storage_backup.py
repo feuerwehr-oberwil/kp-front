@@ -5,6 +5,7 @@ import io
 import json
 import multiprocessing
 import os
+import stat
 import sys
 import tarfile
 from pathlib import Path
@@ -96,6 +97,71 @@ async def test_failed_stream_does_not_destroy_a_committed_blob(tmp_path, monkeyp
 
     assert storage.get_bytes("media/example.wav") == b"committed recording"
     assert list((tmp_path / "storage" / "media").iterdir()) == [tmp_path / "storage" / "media" / "example.wav"]
+
+
+def _trace_durability(monkeypatch) -> list[str]:
+    """Record fsyncs (file vs directory) and renames, in the order they happen."""
+    events: list[str] = []
+    real_fsync, real_replace = os.fsync, os.replace
+
+    def fsync(fd):
+        events.append("fsync-dir" if stat.S_ISDIR(os.fstat(fd).st_mode) else "fsync-file")
+        return real_fsync(fd)
+
+    def replace(src, dst):
+        events.append("replace")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "fsync", fsync)
+    monkeypatch.setattr(os, "replace", replace)
+    return events
+
+
+def test_a_blob_is_on_disk_before_its_name_is_and_the_rename_is_synced(tmp_path, monkeypatch):
+    """⚠️ The rename was atomic, the bytes behind it were not yet on disk (23.09.2026): a power cut
+    after a save could leave the new name on an empty file while the SQL row referencing it had
+    committed. File fsync BEFORE the rename, directory fsync after it."""
+    monkeypatch.setattr(storage, "_ROOT", str(tmp_path / "storage"))
+    events = _trace_durability(monkeypatch)
+    storage.put_bytes("media/photo.jpg", b"jpeg")
+    assert events == ["fsync-file", "replace", "fsync-dir"]
+    assert storage.get_bytes("media/photo.jpg") == b"jpeg"
+
+
+def test_derived_bytes_skip_the_fsyncs(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "_ROOT", str(tmp_path / "storage"))
+    events = _trace_durability(monkeypatch)
+    storage.put_bytes("plan-tiles/x/1/0/0/0.webp", b"tile", durable=False)
+    assert events == ["replace"]
+
+
+@pytest.mark.asyncio
+async def test_a_streamed_upload_is_synced_the_same_way(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "_ROOT", str(tmp_path / "storage"))
+    events = _trace_durability(monkeypatch)
+
+    async def chunks():
+        yield b"part one, "
+        yield b"part two"
+
+    assert await storage.put_astream("media/memo.webm", chunks()) == len(b"part one, part two")
+    assert events == ["fsync-file", "replace", "fsync-dir"]
+    assert storage.get_bytes("media/memo.webm") == b"part one, part two"
+
+
+def test_a_directory_that_cannot_be_synced_still_publishes(tmp_path, monkeypatch):
+    """Best-effort on platforms without directory fsync: the blob is published regardless."""
+    monkeypatch.setattr(storage, "_ROOT", str(tmp_path / "storage"))
+    real_open = os.open
+
+    def no_dir_open(path, flags, *args, **kwargs):
+        if os.path.isdir(path):
+            raise PermissionError("directories cannot be opened here")
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", no_dir_open)
+    storage.put_bytes("media/photo.jpg", b"jpeg")
+    assert storage.get_bytes("media/photo.jpg") == b"jpeg"
 
 
 @pytest.fixture
