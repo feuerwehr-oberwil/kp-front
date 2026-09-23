@@ -129,6 +129,71 @@ describe('useIncidentSync — the server answers again without an `online` event
   })
 })
 
+describe('useIncidentSync — mid-gesture saves', () => {
+  /** A blob that counts how often it is serialized — the cost the gesture skip exists to avoid. */
+  let serialized = 0
+  const blob = (n: number) => ({ activePlanId: `m${n}`, toJSON() { serialized++; return { activePlanId: `m${n}` } } }) as unknown as Saved
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function mountGesture(sync: any, open: { current: boolean }) {
+    serialized = 0
+    return renderHook(
+      ({ bp }) => useIncidentSync({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        sync: sync as any, readOnly: false, incidentId: 'i1', buildPayload: bp,
+        applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+        gestureOpen: () => open.current,
+      }),
+      { initialProps: { bp: () => blob(0) } },
+    )
+  }
+
+  it('saves every sample of a drag WITHOUT re-serializing the workspace once a push is owed', () => {
+    const sync = makeSync()
+    const open = { current: false }
+    const { rerender } = mountGesture(sync, open)
+    open.current = true
+    // the gesture's first sample: nothing is owed yet, so it is compared as always
+    rerender({ bp: () => blob(1) })
+    expect(sync.save).toHaveBeenCalledTimes(1)
+    sync.hasUnsynced = true // …and now a push is owed
+    const before = serialized
+    for (let i = 2; i <= 60; i++) rerender({ bp: () => blob(i) })
+    expect(serialized).toBe(before) // 59 pointer moves, not one whole-blob stringify
+    // …yet nothing is deferred: every sample reached the engine at once, the last one last
+    expect(sync.save).toHaveBeenCalledTimes(60)
+    expect((sync.save.mock.calls[59][0] as { activePlanId: string }).activePlanId).toBe('m60')
+  })
+
+  it('compares again once the gesture is over — the baseline is the last sample it saved', () => {
+    const sync = makeSync()
+    const open = { current: true }
+    sync.hasUnsynced = true
+    const { rerender } = mountGesture(sync, open)
+    rerender({ bp: () => blob(1) })
+    rerender({ bp: () => blob(2) })
+    expect(sync.save).toHaveBeenCalledTimes(2)
+    open.current = false
+    sync.hasUnsynced = false // the push landed
+    // an identity change carrying the same blob (a re-seeded slice) is still not a save…
+    rerender({ bp: () => blob(2) })
+    expect(sync.save).toHaveBeenCalledTimes(2)
+    // …and a real edit still is
+    rerender({ bp: () => blob(3) })
+    expect(sync.save).toHaveBeenCalledTimes(3)
+  })
+
+  it('never skips the compare on a CLEAN device — that is where an echo can come from', () => {
+    // A hydrate only lands while nothing is owed (the live-follow guard), so a same-blob identity
+    // change on a clean device is exactly the echo the compare stops, gesture or not.
+    const sync = makeSync()
+    const open = { current: true }
+    const { rerender } = mountGesture(sync, open)
+    rerender({ bp: () => blob(0) })
+    rerender({ bp: () => blob(0) })
+    expect(sync.save).not.toHaveBeenCalled()
+  })
+})
+
 describe('useIncidentSync — trupp conflict notes', () => {
   it('appends ONE Verlauf note per concurrently edited Trupp, never twice for the same divergence', () => {
     const sync = makeSync()
