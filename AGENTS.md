@@ -777,8 +777,10 @@ to prod.
     and plan overlay «when just scrolling» on an iPad (23.09.2026). Pitch stays off
     (`maxPitch={0}`), mouse right-drag rotation is MapLibre's own. The Plan boards never rotate
     under a gesture at all (`useBoardView` holds scale + pan only); a Gebäude turns only through
-    its orientation slider, and a slider gesture that is CANCELLED (iOS: the touch became a
-    scroll) or left live when the popover closes drops its preview (`components/OrientSlider`).
+    its orientation slider (`components/OrientSlider`), which commits on the input's NATIVE
+    `change` — the browser's own release, once per drag or keyboard step — never on `pointerup`;
+    a gesture that is CANCELLED (iOS: the touch became a scroll) or left live when the popover
+    closes drops its preview, unless a `change` still follows (then the browser did finish it).
 - **The phone's two bottom bars hold what 360px holds without scrolling** (18.09.2026) — five wide tiles at most, never a scrolling lane whose only cue is a fade.
   - *Tool bar:* `Auswahl · + Hinzufügen · Messen · Ansichten · Ebenen` (Plan: `… · Einpassen`) —
     five even tiles and NO hairline between the tools and the pinned controls. **«+» is the

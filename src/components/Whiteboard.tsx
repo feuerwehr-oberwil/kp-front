@@ -598,7 +598,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // A8 (29.08.): a DRAG on the north dial rotates the building continuously. While the finger
   // is down this holds the live preview angle; the commit (one reorientTo, through the same
   // remap + undo path as the tap) happens on release, so annotations re-glue exactly once.
-  // A gesture that is cancelled instead of released drops it again (OrientSlider).
+  // The release is the slider's native `change`; a gesture cancelled instead drops the preview
+  // again (OrientSlider).
   const [dialDragDeg, setDialDragDeg] = useState<number | null>(null)
   const shownAngle = dialDragDeg ?? viewAngle
   /** the turned view of `orientSrc` – present whenever there is something to turn */
@@ -3132,7 +3133,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             the preview instead of leaving the backdrop turned uncommitted (24.09.2026) */}
         <OrientSlider
           value={Math.round(normDeg(dialDragDeg ?? viewAngle))}
-          pending={dialDragDeg != null}
           label={appConfig.copy.whiteboard.orientSliderLabel}
           onPreview={(deg) => setDialDragDeg(snapDial(deg))}
           onCommit={commitOrient}
