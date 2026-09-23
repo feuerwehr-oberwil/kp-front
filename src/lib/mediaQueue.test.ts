@@ -152,6 +152,93 @@ describe('mediaQueue', () => {
   })
 })
 
+// ⚠️ The queue is ONE IDB value per incident, and it always has more than one writer: a composer
+// row with three photos fires three uploads at once (each enqueues on failure), and a flush used
+// to hold its snapshot across every awaited upload and then write it back over whatever had been
+// captured in the meantime. Both lost captures without an error anywhere (23.09.2026).
+describe('mediaQueue under concurrency', () => {
+  /** An uploader that parks every call until the test lets it go. */
+  function gatedUploader() {
+    const gates: (() => void)[] = []
+    const started: string[] = []
+    const upload: MediaUploader = vi.fn(async (_i, b) => {
+      started.push(await b.text())
+      await new Promise<void>((r) => gates.push(r))
+      return { url: `https://srv/${started.length}` }
+    })
+    const release = () => gates.splice(0).forEach((g) => g())
+    const waitStarted = async (n: number) => { while (started.length < n) await new Promise((r) => setTimeout(r, 0)) }
+    return { upload, release, waitStarted }
+  }
+
+  it('parallel enqueues all land', async () => {
+    await Promise.all(['one', 'two', 'three', 'four', 'five'].map((t, i) =>
+      enqueueMedia(INC, 'e1', 'photo', blob(t), 'p', `2026-07-01T10:00:0${i}Z`, `blob:${t}`)))
+    const q = await listMediaQueue(INC)
+    expect(q.map((i) => i.localUrl).sort()).toEqual(['blob:five', 'blob:four', 'blob:one', 'blob:three', 'blob:two'])
+  })
+
+  it('a capture enqueued while a flush is uploading survives the flush', async () => {
+    await enqueueMedia(INC, 'e1', 'photo', blob('first'), 'p', '2026-07-01T10:00:00Z', 'blob:first')
+    const { upload, release, waitStarted } = gatedUploader()
+    const flushing = flushMediaQueue(INC, upload)
+    await waitStarted(1)
+    // the enqueue is NOT held behind the upload: it is stored before the upload settles
+    await enqueueMedia(INC, 'e2', 'photo', blob('second'), 'p', '2026-07-01T10:00:05Z', 'blob:second')
+    expect((await listMediaQueue(INC)).map((i) => i.localUrl)).toEqual(['blob:first', 'blob:second'])
+    release()
+    const out = await flushing
+
+    expect(out.uploaded.map((u) => u.localUrl)).toEqual(['blob:first'])
+    const q = await listMediaQueue(INC)
+    expect(q.map((i) => i.localUrl)).toEqual(['blob:second'])
+    expect(out.remaining.map((i) => i.localUrl)).toEqual(['blob:second'])
+  })
+
+  it('a voice memo re-recorded during the flush is not dropped with the old upload', async () => {
+    await enqueueMedia(INC, 'e1', 'audio', blob('old'), 'a', '2026-07-01T10:00:00Z')
+    const { upload, release, waitStarted } = gatedUploader()
+    const flushing = flushMediaQueue(INC, upload)
+    await waitStarted(1)
+    await enqueueMedia(INC, 'e1', 'audio', blob('new'), 'a', '2026-07-01T10:00:00Z')
+    release()
+    await flushing
+
+    const q = await listMediaQueue(INC)
+    expect(q).toHaveLength(1)
+    expect(await q[0].blob.text()).toBe('new')
+    expect(q[0]).toMatchObject({ status: 'pending', attempts: 0 })
+  })
+
+  it('a failed attempt is written onto the current queue, not over it', async () => {
+    await enqueueMedia(INC, 'bad', 'audio', blob('bad'), 'a', '2026-07-01T10:00:00Z')
+    let letGo!: () => void
+    const upload: MediaUploader = vi.fn(async () => {
+      await new Promise<void>((r) => { letGo = r })
+      throw new ApiError(500, 'nope')
+    })
+    const flushing = flushMediaQueue(INC, upload)
+    while (!letGo) await new Promise((r) => setTimeout(r, 0))
+    await enqueueMedia(INC, 'late', 'photo', blob('late'), 'p', '2026-07-01T10:00:09Z', 'blob:late')
+    letGo()
+    await flushing
+
+    const q = await listMediaQueue(INC)
+    expect(q.map((i) => [i.rowId, i.attempts])).toEqual([['bad', 1], ['late', 0]])
+  })
+
+  it('two flushes at once upload each item once', async () => {
+    await enqueueMedia(INC, 'e1', 'photo', blob('one'), 'p', '2026-07-01T10:00:00Z', 'blob:one')
+    await enqueueMedia(INC, 'e2', 'photo', blob('two'), 'p', '2026-07-01T10:00:01Z', 'blob:two')
+    const upload: MediaUploader = vi.fn(async () => ({ url: 'https://srv/x' }))
+    const [a, b] = await Promise.all([flushMediaQueue(INC, upload), flushMediaQueue(INC, upload)])
+
+    expect(upload).toHaveBeenCalledTimes(2)
+    expect(a.uploaded.length + b.uploaded.length).toBe(2)
+    expect(await listMediaQueue(INC)).toEqual([])
+  })
+})
+
 describe('sameQueue (re-render loop guard)', () => {
   // identical content must compare equal so the React binding keeps the previous state
   // identity (an unconditional setItems drove an App-wide render->flush->IDB loop)
