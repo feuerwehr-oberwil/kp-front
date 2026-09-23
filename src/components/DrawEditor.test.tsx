@@ -13,7 +13,7 @@ const base = {
   pointCount: 2,
   onColor: noop, onWidth: noop, onDashed: noop, onLabel: noop,
   onMarker: noop, onArrow: noop, onShowDistance: noop, onRadius: noop,
-  onFillOpacity: noop, onDelete: noop, onClose: noop,
+  onDelete: noop, onClose: noop,
 }
 
 describe('shared magnetic connection controls', () => {

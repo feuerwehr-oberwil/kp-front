@@ -1079,7 +1079,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // «Sicherung» is nine undo steps and nine audit rows.
   const titleLive = useRef<string | null>(null)
   const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
-    annos, onChange, emit, activeId, log, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint, onStepEnd,
+    annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint, onStepEnd,
   })
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
@@ -4273,8 +4273,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           measCount={measPath.length}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
-          noteDefaults={noteDefaults}
-          setNoteDefaults={(p) => setNoteDefaults((d) => ({ ...d, ...p }))}
         />}
       </div>
 
@@ -4586,7 +4584,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             const n = circleRadiusN(radiusM, activeScale.mPerU, measureAR)
             if (n != null) patchCommit(selDraw.id, { radiusN: Math.max(appConfig.drawing.circleMinRadiusN, Math.min(CIRCLE_MAX_N, n)) })
           }}
-          onFillOpacity={(fillOpacity) => patchCommit(selDraw.id, { fillOpacity })}
           onHatch={(hatch, fillOpacity) => patchCommit(selDraw.id, { hatch: hatch || undefined, fillOpacity })}
           attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
             const a = endpoint === 'start' ? selDraw.startAttachment : selDraw.endAttachment

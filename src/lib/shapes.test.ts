@@ -382,12 +382,12 @@ describe('Rotation Richtung umkehren', () => {
 
 describe('Rotation carrier badge', () => {
   const badgeWidth = (run: number) => {
-    const { size, aspect } = rotationBox(run, ROTATION_W_M)
+    const { aspect } = rotationBox(run, ROTATION_W_M)
     const boxPx = 4 * run // whatever pixel width that run happens to be drawn at
     const svg = rotationInner('#1f6feb', shapeAspect('rotation', aspect), 'tlf', undefined, boxPx)
     const m = /<rect x="[\d.-]+" y="[\d.-]+" width="([\d.]+)"[^>]*fill="#ffffff"/.exec(svg)!
     return Number(m[1]) * boxPx / 100 // units → px
-    // (`size` only decides the aspect here; the badge must not care how long the run is)
+    // (the run only decides the aspect here; the badge must not care how long the run is)
   }
   it('stays the same size on screen however far the shuttle runs', () => {
     // to the two decimals the SVG string is emitted with
