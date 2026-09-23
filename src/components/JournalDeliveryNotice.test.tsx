@@ -40,3 +40,21 @@ it.each([
   render(<JournalDeliveryNotice status="error" count={1} onRetry={vi.fn()} onExport={vi.fn()} />)
   expect(screen.getByRole('alert').querySelector('strong')?.textContent).toBe(title)
 })
+
+// 23.09.2026 (post-mortem D6): the `el` phone's refused Atemschutz events held the sync red and
+// «Erneut versuchen» re-sent them into the same 403. Parked events are a calm note: exportable,
+// never an alert, never a retry.
+it('parked (refused) events are a calm note with export only, never an alert or a retry', () => {
+  const save = vi.fn()
+  render(<JournalDeliveryNotice status="synced" count={0} refused={5} onRetry={vi.fn()} onExport={save} />)
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByRole('status').textContent).toContain('5 Protokollereignisse für diese Rolle nicht vorgesehen')
+  expect(screen.queryByRole('button', { name: 'Erneut versuchen' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Einträge sichern' }))
+  expect(save).toHaveBeenCalledOnce()
+})
+
+it('a parked event on an undurable cache is still the storage alert', () => {
+  render(<JournalDeliveryNotice status="storage" count={0} refused={1} onRetry={vi.fn()} onExport={vi.fn()} />)
+  expect(screen.getByRole('alert').textContent).toContain('App offen lassen')
+})

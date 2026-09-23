@@ -988,6 +988,29 @@ describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Ei
     expect(rows[1].id).toBe(rows[0].id) // …so the server keeps exactly one of them
   })
 
+  // ⚠️ 23.09.2026 (post-mortem D5): the ROWS were single, the audit events beside them were not —
+  // three tablets on one login, three `atemschutz.alarm` events. The emit now names the row it
+  // belongs to, so every device derives the same client_id (lib/eventScope · observedEventId).
+  it('keys the audit events on the same identity as the rows, with nothing device-local in them', () => {
+    const emitted: [string, Record<string, unknown> | undefined, { observed?: string } | undefined][] = []
+    const devices = [0, 1, 2].map(() => {
+      const h = harness(baseTrupp({ name: 'Fabich Mischa' }))
+      // eslint-disable-next-line react-hooks/rules-of-hooks -- plain closure factory, no hooks inside
+      return useTruppActions({ ...h.deps, emit: (op, payload, opts) => { emitted.push([op, payload, opts]) } })
+    })
+    for (const d of devices) {
+      d.logTruppAlarm('T1', 'ueberfaellig', '2026-07-06T10:00:00Z')
+      d.logTruppAlarmCleared('T1', '2026-07-06T10:00:00Z')
+    }
+    const alarms = emitted.filter(([op]) => op === 'atemschutz.alarm')
+    const cleared = emitted.filter(([op]) => op === 'atemschutz.alarm.cleared')
+    expect(alarms).toHaveLength(3)
+    expect(new Set(alarms.map((e) => JSON.stringify(e))).size).toBe(1)
+    expect(alarms[0]).toEqual(['atemschutz.alarm', { id: 'T1', status: 'ueberfaellig' }, { observed: 'azal-T1-2026-07-06T10:00:00Z' }])
+    expect(new Set(cleared.map((e) => JSON.stringify(e))).size).toBe(1)
+    expect(cleared[0][2]).toEqual({ observed: 'azcl-T1-2026-07-06T10:00:00Z' })
+  })
+
   it('reads what ENDED the alarm off the Trupp’s own log, never guesses it', () => {
     const cases: [Trupp['readings'], string][] = [
       [[{ t: 'x', bar: 200, kind: 'contact' }], 'Funkkontakt'],

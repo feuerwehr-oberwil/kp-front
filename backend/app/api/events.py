@@ -57,6 +57,8 @@ async def list_events(
 # new ops inside a domain need no list edit; a new DOMAIN is the same deliberate decision as
 # widening the workspace allowlist. ⚠️ Keep in step with what the frontend's canWriteRecord
 # surfaces emit — one refused op_type 403s the whole batch and wedges the outbox behind it.
+# The frontend MIRRORS this tuple (src/lib/eventScope.ts · EL_EVENT_PREFIXES, 24.09.2026) so
+# it never queues what an `el` cannot write; eventScope.test.ts fails if the two drift.
 EL_EVENT_PREFIXES = (
     "attendance.",
     "checklist.",

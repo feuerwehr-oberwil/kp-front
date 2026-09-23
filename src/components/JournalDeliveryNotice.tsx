@@ -3,16 +3,36 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import type { SyncStatus } from '../lib/api/workspaceSync'
 
-/** One recovery point for journal entries that have not reached the server. */
-export function JournalDeliveryNotice({ status, count, onRetry, onExport }: {
+/** One recovery point for journal entries that have not reached the server.
+ *
+ *  `refused` (24.09.2026) counts audit events the server refused for a role that can never write
+ *  them (auditEventStore · refused). They are not «not uploaded yet» — no retry delivers them —
+ *  so they never make the notice an alert and never offer «Erneut versuchen»; but they are still
+ *  only on this device, so while nothing else is outstanding a calm note keeps «Einträge
+ *  sichern» in reach. Never dropped, never shouted. */
+export function JournalDeliveryNotice({ status, count, refused = 0, onRetry, onExport }: {
   status: SyncStatus
   count: number
+  refused?: number
   onRetry: () => Promise<void>
   onExport: () => void
 }) {
   const [busy, setBusy] = useState(false)
   const C = appConfig.copy.journal.delivery
-  if (status === 'synced' || status === 'pending' || count === 0) return null
+  const outstanding = count > 0 && status !== 'synced' && status !== 'pending'
+  // a parked event on an undurable cache is still «not safely kept» — that warning stays loud
+  if (!outstanding && !(status === 'storage' && refused > 0)) {
+    if (!refused || status === 'pending') return null
+    return (
+      <div className="jr-delivery" role="status">
+        <strong>{refused === 1 ? C.refusedTitleOne : fillTemplate(C.refusedTitle, { n: refused })}</strong>
+        <p>{C.refusedBody}</p>
+        <div className="jr-delivery-actions">
+          <button type="button" className="ip-btn" onClick={onExport}>{C.export}</button>
+        </div>
+      </div>
+    )
+  }
   const unsafe = status === 'storage'
   const run = async () => {
     if (busy) return
