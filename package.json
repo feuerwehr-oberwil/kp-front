@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint . --max-warnings=419",
+    "lint": "eslint . --max-warnings=418",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "preview": "vite preview --port 4173"
