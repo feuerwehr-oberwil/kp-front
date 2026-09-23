@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
@@ -128,7 +128,6 @@ import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { isAtemschutzTrupp, truppStillDeployed, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
-import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefLinkedHandler, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
 import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
@@ -182,7 +181,6 @@ import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
 import { flushSync } from 'react-dom'
 import type { NoteSize } from './types'
-import { ReportPreflight, requestReportStep } from './components/ReportPreflight'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
@@ -198,8 +196,27 @@ import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { prepareUploadImage } from './lib/imagePrep'
 import { forgetLocalThumb, mintLocalThumb } from './lib/mediaUrl'
+import { whenIdle } from './lib/idle'
 
 const prefs = loadPrefs()
+
+/* Two single-mode surfaces are their OWN chunks (perf sweep 23.09.2026): the Plan (Whiteboard,
+ * ~140 KB minified) and the Rapport (ReportPreflight + the Kroki framing panel, ~65 KB) sat in
+ * the field app's chunk, parsed on every boot — on the Karte, the Atemschutz-Tafel and a link
+ * phone alike. (GeorefMode cannot follow them: GeorefMapLayer, which the Karte mounts, needs it.) They are fetched on IDLE right after the workspace mounts (see the prefetch
+ * effect), so by the time anyone switches mode the chunk is already here and the switch is as
+ * instant as it was; offline they come out of the precache like every other chunk.
+ * ⚠️ Nothing alarm-critical is lazy: the Atemschutz-Tafel, the alarm banner and the sync status
+ * stay in the eager chunk — a surface that may be needed at 3am must never show a gap first. */
+const loadWhiteboard = () => import('./components/Whiteboard')
+const Whiteboard = lazy(() => loadWhiteboard().then((m) => ({ default: m.Whiteboard })))
+const loadReportPreflight = () => import('./components/ReportPreflight')
+const ReportPreflight = lazy(() => loadReportPreflight().then((m) => ({ default: m.ReportPreflight })))
+/** «Open the Rapport ON this Mindestangabe» (ReportPreflight · requestReportStep), through the
+ *  lazy module: the ask queues there until the sheet mounts, exactly as it did when static. */
+const requestReportStep = (step: Parameters<typeof import('./components/ReportPreflight').requestReportStep>[0]) => {
+  void loadReportPreflight().then((m) => m.requestReportStep(step))
+}
 
 /**
  * Let a drawing go from an object that is disappearing off the Karte, pinning the endpoint where
@@ -2165,6 +2182,14 @@ export function IncidentWorkspace({
   // (…but never FROM a link session: its surface is forced, so remembering it would make the
   // next ordinary open of this browser land on the Atemschutz board for no reason anyone gave.)
   useEffect(() => { savePrefs({ ...loadPrefs(), ...(asLink ? {} : { mode, modeIncidentId: incidentMeta.id }), activePlanId, symbolScaleMap: symbolScale.map, symbolScaleBoard: symbolScale.board, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels }) }, [asLink, mode, incidentMeta.id, activePlanId, symbolScale, symbolCaptions, offlineRadiusM, offlineAuto, keepScreenOn, railLabels])
+
+  // …and the CODE of the two lazy surfaces (Plan, Rapport — see loadWhiteboard at the top), on
+  // idle after the first paint, so a mode switch finds its chunk already parsed. Not for an
+  // Atemschutz-Link phone: it is shown the Tafel and nothing else.
+  useEffect(() => {
+    if (asLink) return
+    return whenIdle(() => { void loadWhiteboard(); void loadReportPreflight() })
+  }, [asLink])
 
   // warm the plan bitmaps at app load (on idle) so the first open of the Plan tab appears
   // instantly — the exact-fit bake reuses these unless the stage is larger. ⚠️ Only the active
@@ -6017,7 +6042,9 @@ export function IncidentWorkspace({
 
       {/* like the map: mounted once the pack has loaded OR failed for good (empty glyph table) */}
       {mode === 'plans' && (sym.ready || sym.error) && guarded('board', (
-        <Whiteboard
+        /* the chunk is prefetched on idle (loadWhiteboard); on the rare cold switch the fallback is
+           the board's own empty paper, never a spinner */
+        <Suspense fallback={<div className="whiteboard" aria-hidden />}><Whiteboard
           railLabels={railLabels}
           plans={planDocs}
           // on desktop the Verlauf drawer docks beside the plan's tool rail (same as the
@@ -6256,7 +6283,7 @@ export function IncidentWorkspace({
           onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
-        />
+        /></Suspense>
       ))}
 
       {pickerOpen && (
@@ -6313,7 +6340,7 @@ export function IncidentWorkspace({
         /* onEditDispatch leaves the preflight open so the Einsatzdaten wizard stacks on top
            (later in DOM, same z-index) — canceling it reveals the rapport again instead of a
            dead end. (Saving still remounts the workspace and returns to the map.) */
-        <ReportPreflight
+        <Suspense fallback={<div className="rp-backdrop" aria-hidden />}><ReportPreflight
           incident={incidentMeta}
           reportMeta={reportMeta}
           personnel={pickablePersonnel}
@@ -6372,7 +6399,7 @@ export function IncidentWorkspace({
           // above, shared with the Einsatz-Menü row — one action, one dialog, one wording.
           onComplete={canEditIncident && !readOnly ? confirmAndComplete : undefined}
           onFixTranscripts={() => { setJournalOpen(true); setJournalFromRapport(true) }}
-        />
+        /></Suspense>
       ))}
       {/* unified Verlauf + quick-add — rendered app-level so both open over either surface,
           and AFTER the Rapport sheet so its checklist row can stack the Verlauf on top */}
