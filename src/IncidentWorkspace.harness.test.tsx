@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import 'fake-indexeddb/auto'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { Profiler, useState } from 'react'
 import type { BoardAnno, Drawing, Entity } from './types'
 
@@ -139,9 +139,14 @@ const key = (k: string, o: KeyboardEventInit = {}) => {
   return e
 }
 const mode = () => /mode-(\w+)/.exec(document.querySelector('.app')!.className)![1]
-/** step the nav with ⌘] until the Plan surface shows `planId` */
+/** step the nav with ⌘] until the Plan surface shows `planId`. ⚠️ The Plan is a LAZY chunk: on
+ *  a loaded machine its first import outlasts any fixed settle, and a second ⌘] pressed before
+ *  the board is up steps straight past the plans — so each step waits for the board itself. */
 const openPlan = async (planId: string) => {
-  for (let i = 0; i < 8 && !(mode() === 'plans' && lastBoard()?.activeId === planId); i++) { key(']', { metaKey: true }); await settle() }
+  for (let i = 0; i < 8 && !(mode() === 'plans' && lastBoard()?.activeId === planId); i++) {
+    key(']', { metaKey: true }); await settle()
+    if (mode() === 'plans') await waitFor(() => expect(screen.getByTestId('whiteboard')).toBeTruthy(), { timeout: 10_000 })
+  }
   expect(mode()).toBe('plans')
   expect(lastBoard()?.activeId).toBe(planId)
 }
