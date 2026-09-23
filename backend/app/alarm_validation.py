@@ -70,6 +70,11 @@ def _encoded(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+# The only workspace keys `validate_alarm_workspace` reads — the save path copies just these of
+# the stored blob as `previous` (api/incidents · apply_workspace_put). Read a new key ⇒ add it.
+ALARM_VALIDATED_KEYS = ("trupps", "timeline", "settings")
+
+
 def validate_alarm_workspace(workspace: dict, previous: dict | None = None) -> None:
     """Reject new invalid alarm values; preserve exact, counted legacy rows already stored."""
     previous = previous or {}

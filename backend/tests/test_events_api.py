@@ -567,3 +567,51 @@ async def test_verify_pinpoints_a_forged_hash_even_when_the_payload_matches(clie
     body = (await client.get(f"/api/incidents/{inc}/verify")).json()
     assert body["intact"] is False
     assert body["broken_at_seq"] == rows[0].seq
+
+
+# --- the snapshot a save writes ------------------------------------------------------------
+
+
+async def test_a_save_writes_its_snapshot_off_the_event_loop(client, editor, monkeypatch):
+    """⚠️ `json.dumps` + the file write of a megabytes-sized blob ran ON the event loop, once per
+    save — every other request, the live position feed included, waited behind it (23.09.2026).
+    The encode and the write now happen on a worker thread; one snapshot per save stays (the
+    replay fold reaches Trupps, attendance, the Gebäude only through them — app/audit)."""
+    import threading
+
+    loop_thread = threading.current_thread()
+    seen: list[threading.Thread] = []
+    real_put = storage.put_bytes
+    real_encode = audit._encode_snapshot
+
+    def spying_put(key: str, data: bytes) -> str:
+        seen.append(threading.current_thread())
+        return real_put(key, data)
+
+    def spying_encode(workspace: dict) -> bytes:
+        seen.append(threading.current_thread())
+        return real_encode(workspace)
+
+    monkeypatch.setattr(storage, "put_bytes", spying_put)
+    monkeypatch.setattr(audit, "_encode_snapshot", spying_encode)
+    await _login(client, editor)
+    inc = await _incident(client)
+
+    r = await client.put(f"/api/incidents/{inc}/workspace", json={"base_rev": 0, "workspace": {"v": 1}})
+    assert r.status_code == 200, r.text
+    assert len(seen) == 2 and all(t is not loop_thread for t in seen)
+    snap = await client.get(f"/api/incidents/{inc}/snapshot", params={"at": datetime.now(UTC).isoformat()})
+    assert snap.json()["workspace"] == {"v": 1}
+
+
+async def test_a_rolled_back_save_leaves_no_snapshot_file(db_session, editor):
+    """The rollback hook is armed before the threaded write, so no orphan survives a failed save."""
+    from app.models import Incident
+
+    incident = Incident(title="Rollback", source="manual", map_workspace_json={})
+    db_session.add(incident)
+    await db_session.commit()
+    snap = await audit.snapshot_workspace(db_session, incident_id=incident.id, workspace={"v": 1})
+    assert storage.exists(snap.storage_key)
+    await db_session.rollback()
+    assert not storage.exists(snap.storage_key)
