@@ -9,7 +9,10 @@ operator what happened.
 * ``POST /client-error`` — the sink. Always logged and always buffered locally
   (``telemetry/recent.py``); additionally queued for an upstream ingest only when an admin
   has switched telemetry on AND the deployer configured a DSN. Unauthenticated (a crash can
-  happen on the login screen), so it is capped per hour on top of the client's own cap.
+  happen on the login screen), so it is throttled per source (a token bucket, 429 past it)
+  and the upstream queue is capped per hour, on top of the client's own budget. Reachable
+  from every kind of Einsatz-Link session too (auth/incident_link, 24.09.2026): the 403 a
+  link page got here on 23.09. is why that phone's crash never reached the log.
 * ``GET /export`` — the bundle an operator downloads and attaches to a mail or a GitHub
   issue. Any logged-in user, no consent involved: it hands them their own instance's
   sanitised error traces so a Rückmeldung can say more than "es ist abgestürzt". Nothing is
@@ -33,6 +36,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..auth.capture_limiter import CaptureLimiter
+from ..auth.client_ip import client_ip
 from ..auth.dependencies import CurrentAdmin, CurrentUser
 from ..config import settings
 from ..database import get_db
@@ -45,13 +50,48 @@ logger = logging.getLogger("kpfront.clienterror")
 
 router = APIRouter(prefix="/diag", tags=["diag"])
 
-# Ceiling on background payloads queued per hour, per instance. The client already caps
-# itself at 20 per session, but that cap lives in code an attacker controls — this one is
+# Ceiling on background payloads queued per hour, per instance. The client already budgets
+# itself (lib/reportError), but that budget lives in code an attacker controls — this one is
 # ours. A wedged app producing 60 distinct errors an hour is a story we can already tell
 # from the first 60; everything after that is noise we'd pay to store.
 MAX_QUEUED_PER_HOUR = 60
 
+# ⚠️ The sink ITSELF is throttled per source too (24.09.2026). The hourly cap above only ever
+# guarded the upstream queue: the log line and the in-memory buffer were free for anyone to
+# fill, and since this route is open to a link session — i.e. to a URL that leaves the
+# station — «the client caps itself» is not a control. Sized far above what a real client
+# sends: lib/reportError spends at most CLIENT_ERROR_BURST requests at once and one per 30 s
+# after that, so a whole Wache behind one NAT still fits.
+CLIENT_ERROR_BURST = 60
+CLIENT_ERROR_PER_MINUTE = 20
+client_error_limiter = CaptureLimiter(lambda: (float(CLIENT_ERROR_BURST), CLIENT_ERROR_PER_MINUTE / 60.0))
+
+# One log RECORD per report, on ONE line: Railway (like most log shippers) splits on newlines,
+# and on 23.09. the stack and the component stack of every report landed as separate,
+# unattributed lines — the `client-error` line itself carried the message and nothing else.
+# Newlines become LOG_NEWLINE, and each field is bounded so one report cannot become a wall.
+LOG_NEWLINE = " ⏎ "
+LOG_MAX_MESSAGE = 1000
+LOG_MAX_STACK = 3000
+LOG_MAX_COMPONENT_STACK = 2000
+
 APP_NAME = "kp-front"
+
+#: Kinds newer than the vendored scrubber's enum (see report_client_error).
+_RENDER_SUBKINDS = frozenset({"surface-recrash", "render-storm"})
+
+
+def _one_line(text: str | None, limit: int) -> str:
+    """``text`` as a single bounded log line: CR/LF become ``LOG_NEWLINE``, other control
+    characters a space, and anything past ``limit`` is cut with a marker saying so. A client
+    cannot forge a second log record this way either — which it could before."""
+    if not text:
+        return ""
+    flat = text.replace("\r\n", "\n").replace("\r", "\n").strip("\n").replace("\n", LOG_NEWLINE)
+    flat = "".join(ch if ch >= " " or ch == "\t" else " " for ch in flat)
+    if len(flat) > limit:
+        flat = f"{flat[:limit]}…[+{len(flat) - limit}]"
+    return flat
 
 
 class ClientError(BaseModel):
@@ -61,9 +101,17 @@ class ClientError(BaseModel):
     stack: str | None = Field(default=None, max_length=8000)
     component_stack: str | None = Field(default=None, max_length=8000, alias="componentStack")
     # 'render' (ErrorBoundary) | 'error' (window.onerror) | 'unhandledrejection'
+    # | 'surface-recrash' (a SurfaceBoundary's «stürzt wiederholt ab») | 'render-storm'
     kind: str = Field(default="error", max_length=40)
     path: str | None = Field(default=None, max_length=400)
     build: str | None = Field(default=None, max_length=120)
+    # which SurfaceBoundary caught it (`map`, `board`, …) — absent for everything else
+    surface: str | None = Field(default=None, max_length=60)
+    # A REPEAT report (lib/reportError): the same signature happened `repeat` more times between
+    # `since` and `last` (ISO). The first occurrence went out in full; this one carries no stack.
+    repeat: int | None = Field(default=None, ge=1, le=10_000_000)
+    since: str | None = Field(default=None, max_length=40)
+    last: str | None = Field(default=None, max_length=40)
 
 
 async def _queued_last_hour(db: AsyncSession) -> int:
@@ -78,34 +126,76 @@ async def _queued_last_hour(db: AsyncSession) -> int:
     )
 
 
+def _hhmm(iso: str | None) -> str:
+    """``2026-09-23T20:28:14.123Z`` → ``20:28:14Z`` for the log; anything else, as sent (bounded)."""
+    if not iso:
+        return "?"
+    try:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(UTC).strftime("%H:%M:%SZ")
+    except ValueError:
+        return _one_line(iso, 40)
+
+
+def _log_line(payload: ClientError, ua: str) -> str:
+    """The one line a report becomes in the server log. Built by hand rather than with logging's
+    %-args so the bounding and flattening cover every field, the client's and ours alike."""
+    head = [
+        "client-error",
+        f"kind={_one_line(payload.kind, 40)}",
+        f"build={_one_line(payload.build, 120) or '?'}",
+        # the SERVER's version beside the client's: a tablet on a stale precache is a finding
+        f"srv={settings.version}",
+    ]
+    if payload.surface:
+        head.append(f"surface={_one_line(payload.surface, 60)}")
+    if payload.repeat:
+        head.append(f"repeat=×{payload.repeat} since={_hhmm(payload.since)} last={_hhmm(payload.last)}")
+    head += [f"path={_one_line(payload.path, 400) or '?'}", f"ua={_one_line(ua, 300)}"]
+    line = " ".join(head) + " :: " + _one_line(payload.message, LOG_MAX_MESSAGE)
+    if payload.stack:
+        line += " :: stack: " + _one_line(payload.stack, LOG_MAX_STACK)
+    if payload.component_stack:
+        line += " :: componentStack: " + _one_line(payload.component_stack, LOG_MAX_COMPONENT_STACK)
+    return line
+
+
 @router.post("/client-error", status_code=204)
 async def report_client_error(
     payload: ClientError,
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Log a client-reported error at WARNING (visible without DEBUG). Never raises."""
+    """Log a client-reported error at WARNING (visible without DEBUG). Never raises a 500.
+
+    Past the per-source throttle it answers 429 and records nothing — the client keeps
+    counting and its next report carries the tally (lib/reportError)."""
+    wait = client_error_limiter.check(client_ip(request))
+    if wait:
+        raise HTTPException(status_code=429, detail="Zu viele Fehlerberichte", headers={"Retry-After": str(wait)})
     ua = request.headers.get("user-agent", "?")[:300]
     try:  # noqa: SIM105 — contextlib.suppress would hide which call is the fragile one
-        logger.warning(
-            "client-error kind=%s build=%s path=%s ua=%s :: %s%s%s",
-            payload.kind,
-            payload.build,
-            payload.path,
-            ua,
-            payload.message,
-            f"\n{payload.stack}" if payload.stack else "",
-            f"\ncomponentStack:{payload.component_stack}" if payload.component_stack else "",
-        )
+        logger.warning("%s", _log_line(payload, ua))
     except Exception:  # noqa: BLE001, S110 — a diagnostics sink must never raise
         pass
 
     # Sanitised once, read twice. The local buffer below and the upstream envelope further
     # down share this object, so there is no path by which one of them carries a field the
-    # other scrubbed away.
+    # other scrubbed away. A repeat report says so in its message: the export is read by a
+    # person, and «×37 seit 20:28» is the whole content of that report.
+    message = payload.message
+    if payload.repeat:
+        message = f"{message} (×{payload.repeat} seit {_hhmm(payload.since)})"
+    # ⚠️ The two newer kinds are not in the vendored scrubber's enum (telemetry/scrub.py is kept
+    # byte-identical with kp-rueck, test_telemetry_vendored), which would flatten them to
+    # «error». Both are render trouble, so they travel as `render` with the real kind at the head
+    # of the message. The log line above carries the real kind as its own field.
+    kind = payload.kind
+    if kind in _RENDER_SUBKINDS:
+        message = f"[{kind}] {message}"
+        kind = "render"
     error = scrub.build_error(
-        kind=payload.kind,
-        message=payload.message,
+        kind=kind,
+        message=message,
         stack=payload.stack,
         component_stack=payload.component_stack,
         path=payload.path,

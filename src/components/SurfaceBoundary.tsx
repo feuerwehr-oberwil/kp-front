@@ -58,11 +58,19 @@ export class SurfaceBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(`SurfaceBoundary(${this.props.surface}) caught:`, error, info.componentStack)
+    const repeat = noteSurfaceCrash(this.props.surface)
     // the same two reports the incident boundary files: the server log gets the stack, the
-    // Rückmeldung prompt on the launcher gets the fact that something crashed
-    reportClientError(error, { kind: 'render', componentStack: info.componentStack ?? undefined })
+    // Rückmeldung prompt on the launcher gets the fact that something crashed.
+    // ⚠️ The «stürzt wiederholt ab» state is its OWN kind (24.09.2026): it is the one that says
+    // «Ansicht neu aufbauen» did not help, and on 23.09. it was exactly the report that never
+    // reached the log — filed as a repeat of the first crash and dropped (lib/reportError).
+    reportClientError(error, {
+      kind: repeat ? 'surface-recrash' : 'render',
+      componentStack: info.componentStack ?? undefined,
+      surface: this.props.surface,
+    })
     recordTrouble('crash')
-    this.setState({ repeat: noteSurfaceCrash(this.props.surface) })
+    this.setState({ repeat })
   }
 
   retry = () => {

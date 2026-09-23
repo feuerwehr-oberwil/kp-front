@@ -10919,7 +10919,7 @@
           "diag"
         ],
         "summary": "Report Client Error",
-        "description": "Log a client-reported error at WARNING (visible without DEBUG). Never raises.",
+        "description": "Log a client-reported error at WARNING (visible without DEBUG). Never raises a 500.\n\nPast the per-source throttle it answers 429 and records nothing — the client keeps\ncounting and its next report carries the tally (lib/reportError).",
         "operationId": "report_client_error_api_diag_client_error_post",
         "requestBody": {
           "content": {
@@ -12186,6 +12186,55 @@
               }
             ],
             "title": "Build"
+          },
+          "surface": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Surface"
+          },
+          "repeat": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repeat"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last"
           }
         },
         "type": "object",

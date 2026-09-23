@@ -126,6 +126,7 @@ Fail-closed: no ``incident_link_key`` configured → the whole surface answers 4
 
 import contextlib
 import hashlib
+import logging
 import secrets
 import uuid
 
@@ -137,6 +138,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..database import get_db
 from .security import decode_token
+
+logger = logging.getLogger("kpfront.linkscope")
 
 LINK_COOKIE = "link_session"
 
@@ -185,8 +188,22 @@ _LIVENESS_EXEMPT: frozenset[tuple[str, str]] = frozenset(
         # so it is exactly the recovery path: it must keep answering after the bound Einsatz
         # closed, or the terminal is stuck on a dead session until someone clears cookies.
         ("POST", "/api/incident-link/terminal-session"),
+        # The crash sink (24.09.2026) — see _CLIENT_ERROR below. A page whose link has just died
+        # is exactly the page most likely to be showing an error, and the route is open to a
+        # caller with no session at all, so a dead session gains nothing a cookie-less one lacks.
+        ("POST", "/api/diag/client-error"),
     }
 )
+
+#: The frontend's crash sink (api/diag · report_client_error), on EVERY link list (24.09.2026).
+#:
+#: It was on none, and that is how the Feueralarm-Übung of 23.09. lost a crash report: an iPhone
+#: on a link page posted one at 20:34:12 and got the link guard's 403, so the one device that
+#: could have said what it saw said nothing. Allowing it widens nothing: the route takes no
+#: session and answers the login screen too, it reads nothing back, it is throttled per source
+#: in its own handler, and what it writes is the station's own log line and the in-memory
+#: buffer that `GET /api/diag/export` — which stays OFF every list — hands to a logged-in user.
+_CLIENT_ERROR = ("POST", "/api/diag/client-error")
 
 #: The session-EXCHANGE endpoint — the one route that MINTS a link session from a mint/view/
 #: Atemschutz token. It is the bootstrap, so it is called with ``X-Incident-Link: use`` and no
@@ -213,13 +230,19 @@ LINK_TOKEN_TYPE = "incident-link"  # noqa: S105 — a claim discriminator, not a
 class _Denied(HTTPException):
     """One message for every refusal. A link holder must not be able to tell 'that route
     exists but you may not have it' from 'no such route' — the difference is a map of the
-    API drawn by probing."""
+    API drawn by probing.
 
-    def __init__(self) -> None:
+    ⚠️ …which is why ``reason`` never reaches the response. It is for the SERVER log only
+    (``enforce_link_scope`` writes it): on 23.09.2026 an iPhone got this 403 on
+    ``/api/plan-scales`` — a route on every list — and nothing anywhere said which liveness rule
+    had refused it. The holder still sees one message; the deployer now sees why."""
+
+    def __init__(self, reason: str = "") -> None:
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Für diesen Einsatz-Link nicht freigegeben",
         )
+        self.reason = reason
 
 
 # --- the allowlist ---------------------------------------------------------------------
@@ -233,7 +256,9 @@ class _Denied(HTTPException):
 #   print-jobs DELETE               — cancels another person's job
 #   push/subscriptions              — writes rows tied to a user
 #   diag/export                     — the station's own crash traces. Sanitised, but a link
-#                                     is handed to outsiders and this is internal diagnostics
+#                                     is handed to outsiders and this is internal diagnostics.
+#                                     (Its WRITE half, POST diag/client-error, IS allowed —
+#                                     see _CLIENT_ERROR: a link page's crash must be seen.)
 #   geocode/*, overpass/*           — billable third-party calls, and an open proxy
 #   media/*/peaks, */transcription  — GETs that mutate state or write files
 #
@@ -270,6 +295,8 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/auth/me"),
         ("GET", "/api/config"),
         ("GET", "/api/plan-scales"),
+        # the crash sink — a link page's crash must reach the log like any other (see above)
+        _CLIENT_ERROR,
         # `{key:path}` — the converter is part of the route's path as FastAPI records it, so
         # the plain `{key}` form matched no route and link sessions were refused the logo.
         ("GET", "/api/branding/file/{key:path}"),
@@ -387,6 +414,9 @@ VIEW_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/config"),
         ("GET", "/api/plan-scales"),
         ("GET", "/api/branding/file/{key:path}"),
+        # the crash sink. Not a leak for a link that leaves the station: it reads nothing back,
+        # and the same route answers a caller with no cookie at all (see _CLIENT_ERROR)
+        _CLIENT_ERROR,
         # the incident's own record — the Rapport, and everything it is derived from
         ("GET", "/api/incidents/{incident_id}"),
         ("GET", "/api/incidents/{incident_id}/workspace"),
@@ -686,6 +716,16 @@ async def _view_link_param_allowed(request: Request, db: AsyncSession, path: str
     return True
 
 
+def _session_kind(claims: dict | None) -> str:
+    """Which kind of link a session is, by its liveness claim — for the log line only."""
+    if not claims:
+        return "none"
+    for claim, kind in (("ak", "atemschutz"), ("sk", "atemschutz-standing"), ("vk", "view"), ("tk", "terminal")):
+        if claims.get(claim):
+            return kind
+    return "alarm"
+
+
 async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db)) -> None:
     """App-level gate. Runs on every route; no-ops unless the caller holds a link session.
 
@@ -693,7 +733,28 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     run *after* routing, so ``request.scope["route"]`` is the resolved route and the
     allowlist can be matched against path templates instead of re-implementing path matching
     with regexes that would drift from the real routes.
+
+    Every refusal is logged at INFO with its reason, the session's kind and incident — see
+    ``_Denied``. One line per refused request, beside the access line it writes anyway.
     """
+    try:
+        await _enforce_link_scope(request, db)
+    except _Denied as denied:
+        with contextlib.suppress(Exception):
+            claims = read_link_session(request)
+            logger.info(
+                "link-scope refused %s %s: %s (link=%s inc=%s mode=%s)",
+                request.method,
+                request.url.path[:200],
+                denied.reason or "?",
+                _session_kind(claims),
+                str((claims or {}).get("inc", "-"))[:36],
+                request.headers.get(LINK_MODE_HEADER, "-")[:8],
+            )
+        raise
+
+
+async def _enforce_link_scope(request: Request, db: AsyncSession) -> None:
     # Both imported lazily: `cookies` imports LINK_COOKIE from this module, and `dependencies`
     # imports read_link_session, so either at module level is a cycle.
     from .cookies import ADMIN_COOKIE
@@ -717,7 +778,7 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
             # denied.
             if (request.method.upper(), _effective_path(request)) in _SESSION_EXCHANGE:
                 return
-            raise _Denied()
+            raise _Denied("forced mode, no link session, admin cookie")
         return
 
     # A live admin session must not be narrowed by a leftover link cookie: the operator who
@@ -738,7 +799,7 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
 
     path = _effective_path(request)
     if path is None:  # unrouted (404) — refuse rather than fall through
-        raise _Denied()
+        raise _Denied("unrouted")
 
     # One list per kind. The Atemschutz sessions (per-incident `ak` AND standing `sk` — same
     # surface, different credential) widen the alarm list by exactly three entries; the VIEW
@@ -753,19 +814,19 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     else:
         allowed = LINK_ALLOWED
     if (request.method.upper(), path) not in allowed:
-        raise _Denied()
+        raise _Denied("not on this link's allowlist")
 
     # Scope check: an allowlisted route naming an incident must name *this* one.
     scoped = claims.get("inc")
     for param in _INCIDENT_PARAMS:
         got = request.path_params.get(param)
         if got is not None and str(got) != str(scoped):
-            raise _Denied()
+            raise _Denied("another incident")
 
     # …and the routes that name no incident but answer with station-wide data are narrowed on
     # their own parameters. Only the view link needs this: it is the only one handed outside.
     if view and not await _view_link_param_allowed(request, db, path, str(scoped)):
-        raise _Denied()
+        raise _Denied("view link: outside this Einsatz")
 
     # Liveness checks: closing the Einsatz — or rotating the minting key — revokes every
     # link to it, immediately. Skipped for the SPA shell itself so a responder whose link
@@ -781,7 +842,7 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # own view key still says what the session was born from, i.e. nobody revoked it.
     if claims.get("vk"):
         if not await _view_key_unchanged(db, str(scoped), claims.get("vk")):
-            raise _Denied()
+            raise _Denied("view link revoked")
         return
 
     # An ATEMSCHUTZ link is the alarm link's lifecycle on a per-incident key: it exists while
@@ -789,9 +850,9 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # without rotating the station's key or ending the Einsatz. Both conditions, always.
     if claims.get("ak"):
         if not await _atemschutz_key_unchanged(db, str(scoped), claims.get("ak")):
-            raise _Denied()
+            raise _Denied("Atemschutz link revoked")
         if not await _incident_still_open(db, str(scoped)):
-            raise _Denied()
+            raise _Denied("Einsatz closed")
         return
 
     # The STANDING kinds are that same lifecycle on a station-level key: the Einsatz still
@@ -799,21 +860,21 @@ async def enforce_link_scope(request: Request, db: AsyncSession = Depends(get_db
     # enrolled terminal is taken back, and it has to mean every open session, now.
     if claims.get("sk"):
         if not await _deployment_key_unchanged(db, "atemschutz_standing_key", claims.get("sk")):
-            raise _Denied()
+            raise _Denied("standing Atemschutz key rotated")
         if not await _incident_still_open(db, str(scoped)):
-            raise _Denied()
+            raise _Denied("Einsatz closed")
         return
     if claims.get("tk"):
         if not await _deployment_key_unchanged(db, "terminal_link_key", claims.get("tk")):
-            raise _Denied()
+            raise _Denied("terminal key rotated")
         if not await _incident_still_open(db, str(scoped)):
-            raise _Denied()
+            raise _Denied("Einsatz closed")
         return
 
     if not await _minting_key_unchanged(db, claims.get("kf")):
-        raise _Denied()
+        raise _Denied("minting key rotated")
     if not await _incident_still_open(db, str(scoped)):
-        raise _Denied()
+        raise _Denied("Einsatz closed")
 
 
 def link_session_incident(request: Request) -> str | None:

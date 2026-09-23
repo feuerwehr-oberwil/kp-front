@@ -4,6 +4,9 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { SurfaceBoundary, __resetSurfaceCrashesForTests, noteSurfaceCrash } from './SurfaceBoundary'
 import { appConfig } from '../config/appConfig'
 import { CRASH_WINDOW_MS } from '../lib/crashLoop'
+import { reportClientError } from '../lib/reportError'
+
+vi.mock('../lib/reportError', () => ({ reportClientError: vi.fn() }))
 
 // The claim this file pins: a view that throws takes ONLY itself down. The sibling standing
 // beside the boundary — in the app that is the Atemschutz alarm host — keeps rendering, the card
@@ -78,6 +81,18 @@ describe('SurfaceBoundary', () => {
     fireEvent.click(screen.getByRole('button', { name: c.retry }))
     expect(screen.getByText(c.repeatHint)).toBeTruthy()
     expect(screen.getByRole('button', { name: c.retry }).className).not.toMatch(/primary/)
+  })
+
+  it('reports the «stürzt wiederholt ab» state as its own kind, naming the surface', () => {
+    // 23.09.: the Karte's re-crash after «Ansicht neu aufbauen» was filed as a repeat of the first
+    // crash and never reached the log. It is the report that says rebuilding did not help.
+    vi.mocked(reportClientError).mockClear()
+    render(<SurfaceBoundary surface="map"><Boom /></SurfaceBoundary>)
+    fireEvent.click(screen.getByRole('button', { name: c.retry }))
+    const calls = vi.mocked(reportClientError).mock.calls
+    expect(calls.map(([, ctx]) => ctx?.kind)).toEqual(['render', 'surface-recrash'])
+    expect(calls.every(([, ctx]) => ctx?.surface === 'map')).toBe(true)
+    expect((calls[1][0] as Error).message).toBe('label missing')
   })
 
   it('counts per surface and forgets crashes outside the window', () => {

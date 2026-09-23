@@ -44,6 +44,14 @@ pnpm test    # vitest
 pnpm lint    # eslint
 ```
 
+**Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every
+chunk. No bundle references it, and the service worker's precache excludes `*.map`.
+`scripts/check-sourcemaps.mjs` checks all of this in CI. Never switch to `true`, and never
+precache maps. To read a field stack, see [`docs/SOURCEMAPS.md`](docs/SOURCEMAPS.md). A client
+crash report is ONE log line (`kpfront.clienterror`, newlines as « ⏎ », each field bounded). The
+client sends a repeated signature as a counter (`repeat=×N since=…`) and never drops it
+(`src/lib/reportError.ts`).
+
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
@@ -590,7 +598,12 @@ to prod.
   running Einsatz that lets a non-FU operate only the Atemschutzüberwachung) writes through
   `CurrentAtemschutzWriter` on exactly three routes – `PUT …/workspace/trupps`, `POST …/journal`
   (`kind: 'team'` rows only) and `POST …/events` (`atemschutz.*` only); the allowlist and the
-  liveness rules live in `backend/app/auth/incident_link.py`. Never widen the full workspace PUT
+  liveness rules live in `backend/app/auth/incident_link.py`. ⚠️ Every link kind may also
+  `POST /api/diag/client-error` (24.09.2026), even with a dead session (liveness-exempt). The
+  route needs no session and is throttled per source in its own handler. Without it, a crash on
+  a responder's phone got a 403 and never reached the log. Its read half, `GET /api/diag/export`,
+  stays off every list. A refusal logs its reason server-side (`kpfront.linkscope`) and never
+  sends it to the holder. Never widen the full workspace PUT
   to a link session. **A link is the literal page and touches nothing on the device** (02.09.):
   its cookie has to be site-wide (an `<img>` carries no header), so the PAGE says which session
   it is asking with — `X-Incident-Link: off` from the app and `/admin`, `use` from the

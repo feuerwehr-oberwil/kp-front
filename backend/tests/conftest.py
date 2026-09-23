@@ -167,6 +167,11 @@ async def client(engine, session_factory):
     # The per-account aggregate (M1a) is a FOURTH singleton: a test that seeds it over the
     # throttle threshold would otherwise slow every later login for the same seeded user.
     login_aggregate.reset()
+    # …and a FIFTH: the crash sink's per-source bucket (api/diag, 24.09.2026). Every test client
+    # is one source, so a file of client-error tests would otherwise 429 the next one.
+    from app.api.diag import client_error_limiter
+
+    client_error_limiter.reset()
 
     async def _override_get_db():
         async with session_factory() as session:
