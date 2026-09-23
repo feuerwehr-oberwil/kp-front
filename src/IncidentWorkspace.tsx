@@ -84,8 +84,8 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import {
-  fitChangeCause, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, pairsSignature,
-  planAspect, planRasterRows, referenceDelta,
+  fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, movedOnSheets,
+  planAspect, planRasterRows, referenceDelta, sheetFits, type SheetFit,
   twinPlanImageLayerId, twinPlanImageVisible, twinVisible, isTwinLayerId,
 } from './lib/georefTwins'
 import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded, takeRolledBackStationWrite } from './lib/stationPlanScale'
@@ -2223,10 +2223,10 @@ export function IncidentWorkspace({
    * and every plan the rail stops offering — as a reference somebody deleted.
    */
   const referencedSheets = useRef<ReadonlySet<string> | null>(null)
-  /** …and what the OPERATOR had set at that bake: the landmark pairs, and nothing derived from
-   *  them. It is the whole difference between «Referenz angepasst» and «Blattform gemessen» —
-   *  see georefTwins · fitChangeCause for why the Verlauf reads the cause instead of assuming it. */
-  const bakedPairs = useRef<string | null>(null)
+  /** …and every SHEET this session has baked a fit for, at its last fit, with the landmark pairs
+   *  the OPERATOR had set — the whole difference between a reference arriving (a seed), «Referenz
+   *  angepasst» and «Blattform gemessen». See georefTwins · fitChange for why it is per sheet. */
+  const knownSheets = useRef<ReadonlyMap<string, SheetFit> | null>(null)
   // The Gebäude stack on the ground (lib/stackFit): one more fit in the map, keyed by the stack's
   // plan id, so its tile ink bakes onto the Karte and the Karte's objects land on their storey
   // tile. It comes from the BUILDING, not from a station reference – so it stays out of the
@@ -2314,8 +2314,9 @@ export function IncidentWorkspace({
     if (readOnly || tacticalLocked) return
     // ⚠️ The SEED bake is not a correction. A blob written before the store existed simply gains
     // its map bodies; nothing moved from anywhere, so there is no step to take back and nothing
-    // to tell the Verlauf. A LATER change of the same signature is the operator correcting the
-    // reference, and that MOVES every symbol on that sheet — one undo step and one row for the
+    // to tell the Verlauf — and the same holds for every sheet whose reference ARRIVES later. A
+    // later change of a KNOWN sheet's fit is the operator correcting the reference, and that
+    // MOVES every symbol on that sheet — one undo step and one row for the
     // lot, because it was one gesture (tmp/design-unified-objects.md · «Reference change»).
     const seeding = bakedFits.current === null
     // ⚠️ The seed bake WRITES ground positions into the record, derived from a station document
@@ -2332,10 +2333,14 @@ export function IncidentWorkspace({
     // ⚠️ …and WHY it changed, which the row and the ↶ caption must not guess: a hand corrected the
     // reference, or the app measured the sheet and re-solved the SAME pairs in a truer shape. Both
     // move every symbol on that sheet; only one of them is something somebody did.
-    const pairSig = pairsSignature(planDocs, georefForPlan)
-    const cause = seeding ? 'seed' : fitChangeCause(pairSig, bakedPairs.current, rolledBack)
+    // ⚠️ Decided PER SHEET (23.09.2026): after a remount the plans, their keys and the bindings
+    // arrive one by one, and read as one signature over the rail every arrival was «Referenz
+    // angepasst». A sheet this session never baked is a seed; only a known sheet whose fit
+    // changed is a change, and only ITS objects are counted (georefTwins · fitChange).
+    const change = fitChange(sheetFits(planDocs, linkedPlans, georefForPlan), seeding ? null : knownSheets.current, rolledBack)
+    const { cause } = change
     bakedFits.current = sig
-    bakedPairs.current = pairSig
+    knownSheets.current = change.known
     const C_LOG = appConfig.copy.log
     // ⚠️ Which of the four causes somebody PERFORMED — the one question that decides both the ↶
     // and the row, answered in one place beside the cause itself (georefTwins · fitChangeUndoLabel).
@@ -2360,7 +2365,7 @@ export function IncidentWorkspace({
      * and that save — seconds — a scrub shows the pre-correction positions. Written down here
      * because it is the one place the fold's coverage stops, and lib/replay's header points at it.
      */
-    const moved = rebake({ checkpoint: !!undoLabel })
+    const moved = rebake({ checkpoint: !!undoLabel, count: (before, after) => movedOnSheets(before, after, change.changed) })
     stepLabel.current = null
     const row = fitChangeRow(cause, moved)
     if (row) log('map', row, 'layer')
