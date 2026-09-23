@@ -176,3 +176,35 @@ async def test_the_sink_is_throttled_per_source(client, caplog, monkeypatch):
     r = await client.post("/api/diag/client-error", json={"message": "again"})
     assert r.status_code == 429
     assert int(r.headers["Retry-After"]) >= 1
+
+
+async def test_a_forged_log_line_stays_on_its_own_record(client, caplog):
+    """⚠️ The sink is unauthenticated, and its fields went into the log raw (23.09.2026): a
+    message carrying a newline wrote a second, forged record into the station's log."""
+    forged = "boom\n2026-09-23 03:00:00 ERROR kpfront.auth admin login from 10.0.0.1\r\x1b[2J\x7f\u2028x\u2029"
+    with caplog.at_level(logging.WARNING, logger="kpfront.clienterror"):
+        r = await client.post(
+            "/api/diag/client-error",
+            json={"message": forged, "stack": "at A\nat B", "path": "/\n/x", "kind": "error x"},
+            headers={"User-Agent": "UA\r\nforged"},
+        )
+    assert r.status_code == 204
+    [line] = _client_error_lines(caplog)
+    for ch in ("\n", "\r", "\x1b", "\x7f", "\u2028", "\u2029"):
+        assert ch not in line
+    assert "boom ⏎ 2026-09-23" in line and "at A ⏎ at B" in line
+
+
+async def test_a_flood_from_one_address_is_throttled(client, caplog):
+    """Unauthenticated and logged at WARNING: without a brake anyone could fill the log. A burst
+    far above the app's own cap is served; past it, 429 and nothing logged."""
+    from app.api.diag import CLIENT_ERROR_BURST
+
+    for i in range(CLIENT_ERROR_BURST):
+        assert (await client.post("/api/diag/client-error", json={"message": f"e{i}"})).status_code == 204
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="kpfront.clienterror"):
+        r = await client.post("/api/diag/client-error", json={"message": "one too many"})
+    assert r.status_code == 429
+    assert int(r.headers["Retry-After"]) >= 1
+    assert not _client_error_lines(caplog)

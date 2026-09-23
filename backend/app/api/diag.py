@@ -88,7 +88,8 @@ def _one_line(text: str | None, limit: int) -> str:
     if not text:
         return ""
     flat = text.replace("\r\n", "\n").replace("\r", "\n").strip("\n").replace("\n", LOG_NEWLINE)
-    flat = "".join(ch if ch >= " " or ch == "\t" else " " for ch in flat)
+    # DEL and the two Unicode line separators end a record in some viewers too (23.09.2026)
+    flat = "".join(" " if (ch < " " and ch != "\t") or ch in "\x7f\u2028\u2029" else ch for ch in flat)
     if len(flat) > limit:
         flat = f"{flat[:limit]}…[+{len(flat) - limit}]"
     return flat
