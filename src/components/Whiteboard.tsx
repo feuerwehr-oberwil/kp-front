@@ -18,6 +18,7 @@ import { appConfig } from '../config/appConfig'
 import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { canDropVertex, extendEnd, insertAt, minPoints, removeVertex, replaceVertex, segmentMid } from '../lib/vertexOps'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
+import { freeResizeLocal, rotationEnd, rotationEndDeg, rotorDeg } from '../lib/rotorMath'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
@@ -2387,24 +2388,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       // One end moves, the other stays: position, length, bearing and width all fall out of the
       // pair (lib/shapes · rotationBox). Same maths as the map, in plan-width fractions.
       const f = st.fixed
-      const d = Math.hypot(e.clientX - f.x, e.clientY - f.y) || 1
-      const ux = (e.clientX - f.x) / d, uy = (e.clientY - f.y) / d
       // the grip floats past the cap, so the END is the pointer pulled back along the run
-      let ex = e.clientX - ux * st.gripOffPx, ey = e.clientY - uy * st.gripOffPx
+      let { x: ex, y: ey } = rotationEnd({ x: e.clientX, y: e.clientY }, f, st.gripOffPx)
       const snap = trackEndMagnet(st.id, { x: ex, y: ey })
       if (snap) { ex = snap.x; ey = snap.y }
       const runN = Math.max(SHAPE_MIN_N, Math.min(st.maxN, Math.hypot(ex - f.x, ey - f.y) / sW))
       const box = rotationBox(runN, rotN.w)
-      const deg = st.mode === 'endB'
-        ? (Math.atan2(ey - f.y, ex - f.x) * 180) / Math.PI
-        : (Math.atan2(f.y - ey, f.x - ex) * 180) / Math.PI
       const mid = toNorm((f.x + ex) / 2, (f.y + ey) / 2)
       if (!mid) return
       patch(st.id, {
         // toNorm is board-global; stored y is storey-local — on a floor stack the raw value
         // would multiply through mapY and teleport the loop down the stack
         x: mid[0], y: localY(mid[1], st.floor),
-        rotation: Math.round(((deg % 360) + 360) % 360),
+        rotation: rotationEndDeg(st.mode, f, { x: ex, y: ey }),
         sizeN: box.size,
         aspect: Math.round(box.aspect * 1000) / 1000,
       })
@@ -2415,10 +2411,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         // free-aspect drag: the pointer offset, rotated into the shape's own frame, gives the
         // two axes independently — identical maths to the map (MapMarkers · shapeMove), in plan
         // space, so a Form feels the same on both surfaces.
-        const rad = (-st.rot * Math.PI) / 180
-        const dx = e.clientX - st.cx, dy = e.clientY - st.cy
-        const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
-        const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
+        const { lx, ly } = freeResizeLocal({ x: e.clientX, y: e.clientY }, { x: st.cx, y: st.cy }, st.rot)
         // ⚠️ A fraction of the PLAN, not screen px (lib/shapes · SHAPE_MIN_N): the plan zooms too,
         // and a pixel floor would store a different share of the sheet at every zoom.
         const minN = SHAPE_MIN_N
@@ -2461,14 +2454,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (st.mode === 'cage') {
       // Hubretter cage tip: one handle sets the boom bearing (rotation2, no offset — the handle IS the
       // tip) AND the reach as a fraction of the (scaled) plan width — the plan analogue of reachM.
-      const deg = (Math.atan2(e.clientY - st.cy, e.clientX - st.cx) * 180) / Math.PI
       const dist = Math.hypot(e.clientX - st.cx, e.clientY - st.cy)
-      patch(st.id, { rotation2: Math.round(((deg % 360) + 360) % 360), reachN: Math.max(0.03, Math.min(0.6, dist / sW)) })
+      patch(st.id, { rotation2: rotorDeg({ x: e.clientX, y: e.clientY }, { x: st.cx, y: st.cy }, 'aim'), reachN: Math.max(0.03, Math.min(0.6, dist / sW)) })
       return
     }
-    const deg = (Math.atan2(e.clientY - st.cy, e.clientX - st.cx) * 180) / Math.PI
     // body knob at the top (+90), fan knob at the BOTTOM (−90) — opposite sides, easy to grab apart
-    const val = Math.round((((deg + (st.mode === 'rotate2' ? -90 : 90)) % 360) + 360) % 360)
+    const val = rotorDeg({ x: e.clientX, y: e.clientY }, { x: st.cx, y: st.cy }, st.mode === 'rotate2' ? 'rotate2' : 'rotate')
     patch(st.id, st.mode === 'rotate2' ? { rotation2: val } : { rotation: val })
   }
   const rotUp = () => {
