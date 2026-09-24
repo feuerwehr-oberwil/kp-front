@@ -27,13 +27,13 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
   })
 
   it('names the Stockwerk it turned out to be on', () => {
-    expect(entityEditChanges(sym({}), sym({ floor: 2 }))).toEqual(['Stockwerk 2. OG'])
-    expect(entityEditChanges(sym({ floor: 2 }), sym({}))).toEqual(['Stockwerk entfernt'])
+    expect(entityEditChanges(sym({}), sym({ floor: 2 }))).toEqual(['Geschoss 2. OG'])
+    expect(entityEditChanges(sym({ floor: 2 }), sym({}))).toEqual(['Geschoss entfernt'])
   })
 
   it('carries a Stockwerk range — what a Treppe or a Lift covers', () => {
     expect(entityEditChanges(sym({}), sym({ floorFrom: -1, floorTo: 3 })))
-      .toEqual(['Stockwerke 1. UG – 3. OG'])
+      .toEqual(['Geschosse 1. UG – 3. OG'])
   })
 
   it('counts, and treats an absent count as one', () => {
@@ -73,7 +73,7 @@ describe('entityEditChanges (the Verlauf line for editing the Kroki)', () => {
   it('collects several edits into one line, in the order they are read', () => {
     const prev = sym({ fields: {} })
     expect(entityEditChanges(prev, sym({ fields: { Name: 'Widmer Céline' }, floor: 2, count: 3 })))
-      .toEqual(['Name: Widmer Céline', 'Stockwerk 2. OG', 'Anzahl 3'])
+      .toEqual(['Name: Widmer Céline', 'Geschoss 2. OG', 'Anzahl 3'])
   })
 
   // ⚠️ The caller wraps these lines in «{name}: {changes}», so a field named after the symbol it

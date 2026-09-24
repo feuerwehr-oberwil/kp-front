@@ -9,7 +9,7 @@ import { appConfig } from '../../config/appConfig'
 
 // installed-app view, so the readiness list (and the bar) renders instead of the browser card
 vi.mock('../../lib/installPrompt', () => ({ isStandalone: () => true, getInstallPlatform: () => 'ios' }))
-vi.mock('../../lib/storageBudget', () => ({ estimateStorage: async () => null, fmtBytes: (n: number) => `${n}` }))
+vi.mock('../../lib/storageBudget', () => ({ estimateStorage: async () => null }))
 
 const base = {
   onClose: () => {},

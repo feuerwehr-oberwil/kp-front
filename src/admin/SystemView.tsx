@@ -4,7 +4,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useConfig } from './ConfigContext'
 import { SetupChecklist, type SetupState } from './SetupChecklist'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, fmtFileSize } from '../lib/format'
 import { providerLabel, type DeploymentSharePointSource } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, ProgressBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
 import './system.css'
@@ -85,15 +85,6 @@ interface SystemResponse {
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-
-/** Human-readable byte size (KB/MB/GB); null/invalid → "—". */
-function fmtBytes(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return '—'
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`
-}
 
 /** Count or "—" when the COUNT query failed server-side. */
 function fmtCount(n: number | null | undefined): string {
@@ -626,7 +617,7 @@ function OfflineCacheCard() {
               a card that is not empty, for one value that is simply unknown. */}
           {state.usage != null && state.quota != null && state.quota > 0 ? (
             <div className="adm-sys-storage">
-              <Metric label={C.usedQuota} value={`${fmtBytes(state.usage)} / ${fmtBytes(state.quota)}`} />
+              <Metric label={C.usedQuota} value={`${fmtFileSize(state.usage)} / ${fmtFileSize(state.quota)}`} />
               <UsageBar pctFilled={pct(state.usage, state.quota)} />
             </div>
           ) : (
@@ -940,14 +931,14 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
             >
               {storage ? (
                 <>
-                  <Metric label={C.mediaUsed} value={fmtBytes(storage.used_bytes)} />
+                  <Metric label={C.mediaUsed} value={fmtFileSize(storage.used_bytes)} />
                   <Metric label={C.files} value={String(storage.file_count)} />
                   <Metric label={C.directory} value={storage.media_dir} />
                   {storage.disk_total_bytes != null ? (
                     <div className="adm-sys-storage">
                       <Metric
                         label={C.diskUsed}
-                        value={`${fmtBytes((storage.disk_total_bytes ?? 0) - (storage.disk_free_bytes ?? 0))} / ${fmtBytes(storage.disk_total_bytes)}`}
+                        value={`${fmtFileSize((storage.disk_total_bytes ?? 0) - (storage.disk_free_bytes ?? 0))} / ${fmtFileSize(storage.disk_total_bytes)}`}
                       />
                       <UsageBar
                         pctFilled={pct(
@@ -956,7 +947,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                         )}
                         tone="amber"
                       />
-                      <p className="adm-card-cap">{fillTemplate(C.free, { size: fmtBytes(storage.disk_free_bytes) })}</p>
+                      <p className="adm-card-cap">{fillTemplate(C.free, { size: fmtFileSize(storage.disk_free_bytes) })}</p>
                     </div>
                   ) : (
                     // same rule as the cache card: an unknown value is still this row's value

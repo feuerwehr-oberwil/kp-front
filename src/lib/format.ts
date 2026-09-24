@@ -193,14 +193,19 @@ export function telHref(raw?: string): string | undefined {
   return dial.replace(/\D/g, '').length >= 3 ? `tel:${dial}` : undefined
 }
 
-/** Size of one stored file for the admin lists (a plan PDF, a reference dataset): B, whole KB,
- *  one-decimal MB; null → «—». One helper so the Objektpläne list, the object detail and the
- *  Daten page say the same thing about the same bytes. ⚠️ Deliberately NOT storageBudget ·
- *  fmtBytes (device storage, rounds and has GB) nor SystemView's (server disk, has GB): those
- *  print different strings for the same number, and unifying them is a copy decision. */
+/** THE byte size, wherever the app prints one: «940 KB», «1.5 MB», «120 MB», «1.4 GB», «20 GB» –
+ *  whole B/KB, one decimal below 10 of a unit and whole numbers above, a GB step; null, NaN or
+ *  negative → «—». One helper since 2026-09-23: the device-storage toasts (storageBudget) said
+ *  «120 MB» / «1.4 GB», the Verwaltung's System page «120.0 MB» / «1.50 GB» and the plan/data
+ *  lists «1536.0 MB» for the same bytes. The decimal is a point, like every other number the app
+ *  prints (de-CH writes «1.4», not «1,4»). */
 export function fmtFileSize(n: number | null | undefined): string {
-  if (n == null) return '—'
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+  if (n == null || !Number.isFinite(n) || n < 0) return '—'
+  if (n < 1024) return `${Math.round(n)} B`
+  const kb = n / 1024
+  if (kb < 1024) return `${Math.round(kb)} KB`
+  const mb = kb / 1024
+  if (mb < 1024) return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`
+  const gb = mb / 1024
+  return `${gb < 10 ? gb.toFixed(1) : Math.round(gb)} GB`
 }

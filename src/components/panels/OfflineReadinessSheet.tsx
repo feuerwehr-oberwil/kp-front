@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { SyncGlyph } from '../SyncGlyph'
-import { fillTemplate } from '../../lib/format'
+import { fillTemplate, fmtFileSize } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import type { SyncStatus } from '../../lib/incidents'
 import { isStorageDegraded, onStorageDegraded } from '../../lib/idb'
 import { getInstallPlatform, isStandalone } from '../../lib/installPrompt'
 import { installOffered } from '../../lib/installPolicy'
-import { estimateStorage, fmtBytes } from '../../lib/storageBudget'
+import { estimateStorage } from '../../lib/storageBudget'
 import { Modal } from './_shared'
 import { InstallSteps } from '../InstallGuide'
 
@@ -238,7 +238,7 @@ export function OfflineReadinessSheet({
               ? o.storageFullShort
               : space === undefined ? o.checking
                 : space === null ? o.storageUnknown
-                  : fillTemplate(o.storageFree, { size: fmtBytes(space.free) })}
+                  : fillTemplate(o.storageFree, { size: fmtFileSize(space.free) })}
           />
         </div>
 

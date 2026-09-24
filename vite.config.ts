@@ -2,7 +2,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { defineConfig, loadEnv, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin, type Rollup } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -70,8 +70,61 @@ function dropManifestFromPrecache(): Plugin {
   }
 }
 
+// ⚠️ The Verwaltung (/admin) is NOT precached (2026-09-23). Every device installed the whole
+// AdminApp chunk (~250 KB JS + ~90 KB CSS, plus its lazy map/alignment chunks) with every
+// deploy, although /admin is opened by one person on one laptop, online — it cannot do anything
+// without the API anyway. The set is computed from the CHUNK GRAPH, not from file names: what is
+// reachable from AdminApp but not from the field entry without passing through it. A chunk the
+// field app also imports (appConfig, api, the shared vendor chunks) stays precached — so the
+// field app offline is exactly what it was.
+//
+// Its twin is `navigateFallbackDenylist: /^\/admin/` below. Without it an /admin navigation is
+// still answered by the PRECACHED index.html of whatever build the device's worker holds — and
+// under registerType 'prompt' that is legitimately an old one — which then imports an AdminApp
+// hash the server no longer has: a 404 on every device that had not restarted since the deploy
+// (the pdf.worker story, AGENTS.md). Going to the network for the shell means /admin always boots
+// the deploy it talks to. Offline, /admin is the browser's own offline page; accepted.
+//
+// Deliberately LOUD like the plugin above: no AdminApp chunk, or no AdminApp entry in the
+// precache list to take out, fails the build rather than silently precaching the admin again.
+function adminOutsidePrecache(): { plugin: Plugin; isAdminOnly: (url: string) => boolean } {
+  const adminOnly = new Set<string>()
+  const plugin: Plugin = {
+    name: 'kp-admin-outside-precache',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      adminOnly.clear()
+      const chunks = Object.values(bundle).filter((o): o is Rollup.OutputChunk => o.type === 'chunk')
+      const byFile = new Map(chunks.map((c) => [c.fileName, c]))
+      const admin = chunks.find((c) => c.facadeModuleId?.replaceAll('\\', '/').endsWith('/src/admin/AdminApp.tsx'))
+      if (!admin) throw new Error('kp-admin-outside-precache: no chunk for src/admin/AdminApp.tsx — did it move? Fix the path here.')
+      /** every file (chunk, its CSS, its assets) reachable from `from`, never walking into `stop` */
+      const reach = (from: Rollup.OutputChunk[], stop?: Rollup.OutputChunk) => {
+        const seen = new Set<string>()
+        const todo = [...from]
+        while (todo.length) {
+          const c = todo.pop()!
+          if (c === stop || seen.has(c.fileName)) continue
+          seen.add(c.fileName)
+          for (const f of c.viteMetadata?.importedCss ?? []) seen.add(f)
+          for (const f of c.viteMetadata?.importedAssets ?? []) seen.add(f)
+          for (const f of [...c.imports, ...c.dynamicImports]) {
+            const next = byFile.get(f)
+            if (next) todo.push(next)
+          }
+        }
+        return seen
+      }
+      const field = reach(chunks.filter((c) => c.isEntry), admin)
+      for (const f of reach([admin])) if (!field.has(f)) adminOnly.add(f)
+    },
+  }
+  return { plugin, isAdminOnly: (url) => adminOnly.has(url) }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
+  const adminPrecache = adminOutsidePrecache()
   const env = loadEnv(mode, process.cwd(), '')
   // kp-rueck backend (Traccar GPS feed). Proxying /api in dev means the browser
   // talks to the Vite origin and Vite forwards server-side, so the live vehicle
@@ -176,8 +229,21 @@ export default defineConfig(({ mode }) => {
           // maplibre + pdf.worker chunks are large; precache them so the shell works offline.
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           navigateFallback: '/index.html',
-          // never let the SPA fallback shadow the API or health probe.
-          navigateFallbackDenylist: [/^\/api\//, /^\/health/],
+          // never let the SPA fallback shadow the API or health probe — nor /admin, whose chunks
+          // are not precached: its shell has to come from the deploy that serves them
+          // (adminOutsidePrecache above).
+          navigateFallbackDenylist: [/^\/api\//, /^\/health/, /^\/admin/],
+          // /admin's own chunks leave the precache list (adminOutsidePrecache above).
+          manifestTransforms: [
+            (entries) => {
+              const manifest = entries.filter((e) => !adminPrecache.isAdminOnly(e.url))
+              if (manifest.length === entries.length) {
+                throw new Error('kp-admin-outside-precache: no AdminApp file in the precache list — '
+                  + 'the manifest shape changed; do NOT ship a worker that installs /admin on every device.')
+              }
+              return { manifest, warnings: [] }
+            },
+          ],
           cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
@@ -277,6 +343,7 @@ export default defineConfig(({ mode }) => {
         },
         devOptions: { enabled: false },
       }),
+      adminPrecache.plugin,
       // MUST stay after VitePWA — it rewrites the sw.js that plugin has just written.
       dropManifestFromPrecache(),
     ],

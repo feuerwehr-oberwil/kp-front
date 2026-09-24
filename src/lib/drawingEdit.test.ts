@@ -24,9 +24,9 @@ describe('drawingEditChanges (the Verlauf line for editing a drawing)', () => {
   })
 
   it('names the Stockwerk the line works on, same wording as a symbol', () => {
-    expect(drawingEditChanges(line({}), line({ floorTag: 2 }))).toEqual(['Stockwerk 2. OG'])
-    expect(drawingEditChanges(line({ floorTag: 2 }), line({ floorTag: 0 }))).toEqual(['Stockwerk EG'])
-    expect(drawingEditChanges(line({ floorTag: -1 }), line({}))).toEqual(['Stockwerk entfernt'])
+    expect(drawingEditChanges(line({}), line({ floorTag: 2 }))).toEqual(['Geschoss 2. OG'])
+    expect(drawingEditChanges(line({ floorTag: 2 }), line({ floorTag: 0 }))).toEqual(['Geschoss EG'])
+    expect(drawingEditChanges(line({ floorTag: -1 }), line({}))).toEqual(['Geschoss entfernt'])
   })
 
   // ⚠️ 03.09. Rapport: «Pfeil: Abschluss: Pfeil». The caller writes «{name}: {changes}», and a

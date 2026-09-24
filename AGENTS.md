@@ -610,6 +610,13 @@ to prod.
   px per paper mm ≈ 5× life size; `MAX_SCALE` / `MAX_SCALE_STACK` are its floor): a multiple of
   «eingepasst» gave an A1 a sixth of the magnification it gave an A4. It ARRIVES after mount, so
   `useBoardView` clamps through a ref — its wheel listener is bound once.
+- **The precache is the field app; `/admin` is online-only** (2026-09-23). Every device used to
+  install the AdminApp chunk (~250 KB JS + ~90 KB CSS) and its lazy map/alignment chunks with
+  every deploy. `vite.config · adminOutsidePrecache` takes out what is reachable from
+  `src/admin/AdminApp.tsx` but not from the field entry (computed from the chunk graph, so a
+  chunk both import stays), and `navigateFallbackDenylist` sends an `/admin` navigation to the
+  network – a precached old shell would import an AdminApp hash the server no longer has.
+  Offline, `/admin` does not open. Both fail the build loudly if the shape they rely on changes.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
@@ -777,6 +784,11 @@ to prod.
   and friends keep their names, and so does `alarmText.ts`'s `LINK_PREFIX = 'Lage & Pläne:'`,
   which is a **wire literal** matching what the external alerting gateway (fwo-divera ·
   `src/api/sms.py`) emits – renaming it would break link extraction on every real alarm.
+- **A storey is a «Geschoss», the Plan surface an «Arbeitsfläche» – never «Stockwerk» or
+  «Whiteboard» in user-facing copy** (2026-09-23: the controls, the Plan stack, the admin and
+  OG/UG already said Geschoss while the help and the Verlauf rows said Stockwerk). Already-written
+  Verlauf rows keep their wording (append-only); code identifiers (`floor`, `floorTag`,
+  `whiteboard.*`, `Whiteboard.tsx`) keep their names.
 - **Failure copy has two shapes, and they are not interchangeable** (settled 2026-08-27 after a
   sweep found 35 of one and 20+ of the other with no rule between them):
   - *«X fehlgeschlagen»* – the action the operator just triggered failed, on a surface that
