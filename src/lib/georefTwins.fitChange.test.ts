@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type Georef, type GeorefPair } from './georef'
 import {
-  fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, movedOnSheets, referenceDelta, sheetFits,
+  fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, handLinkRow, movedOnSheets, referenceDelta, sheetFits,
   type SheetFit,
 } from './georefTwins'
 import { bakeAll, type PlanFit, type TacticalObject } from './tacticalObjects'
@@ -74,7 +74,16 @@ function session(init: TacticalObject[], extraFits: ReadonlyMap<string, PlanFit>
       s.rows.push(kept ? fillTemplate(C.referenceDroppedKept, { n: kept }) : C.referenceDropped)
     }
   }
-  return { s, bake }
+  /** …and the ACT's half (IncidentWorkspace · `handLinked`): the georef flow announces a first
+   *  link with the pairs it stored, and the row is decided against what the reader knows NOW. */
+  const handLink = (docs: PlanDocument[], georefKey: string, p: GeorefPair[]) => {
+    const row = handLinkRow(georefKey, p, {
+      plans: docs, known, aspectOf: () => 1, objects: s.objects,
+      bake: (all, fits) => bakeAll(all, fits, 'taktisch'),
+    })
+    if (row) s.rows.push(row)
+  }
+  return { s, bake, handLink }
 }
 
 /** a store as it stood before the remount: every body baked by the fits of the time */
@@ -207,6 +216,102 @@ describe('fitChange — a reference arriving is not a reference changing', () =>
     expect(s.causes).toEqual(['seed', 'reference', 'rollback'])
     expect(s.rows).toEqual([fillTemplate(C.referenceRebaked, { n: 1 }), C.referenceRolledBack])
     expect(s.steps).toBe(1)
+  })
+})
+
+/* A HAND linking a sheet that had no fit (24.09.2026). The reader stays silent — to it that is a
+ * key arriving, exactly like a plan finishing loading — and the act writes the one row. */
+describe('handLinkRow — a first link by hand is one row, from the act', () => {
+  const linked = (plan: string, n?: number) => n
+    ? fillTemplate(C.referenceLinkedPlaced, { plan, n })
+    : fillTemplate(C.referenceLinked, { plan })
+
+  it('a first hand link writes exactly one row, counting the objects that gained a place', () => {
+    const docs = [plan('modul2'), plan('modul3')]
+    const store: Record<string, Georef> = { [key('modul3')]: { pairs: pairs(200) } }
+    const { s, bake, handLink } = session([onSheet('a', 'modul2'), onSheet('b', 'modul2', { x: 0.9 }), onSheet('c', 'modul3')])
+    bake(docs, store) // the session's seed: modul3 is linked, modul2 is not
+    // the operator places the second pair on modul2: the act first, then the re-bake it causes
+    handLink(docs, key('modul2'), pairs(0))
+    bake(docs, { ...store, [key('modul2')]: { pairs: pairs(0) } })
+    expect(s.rows).toEqual([linked('MODUL2', 2)])
+    expect(s.causes).toEqual(['seed', 'seed']) // the reader stayed silent: it is a seed to it
+    expect(s.steps).toBe(0)
+    expect(s.objects.filter((o) => o.sheet?.planId === 'modul2').every((o) => o.entity)).toBe(true)
+  })
+
+  it('…before the session\'s very first bake too', () => {
+    const docs = [plan('modul2')]
+    const { s, bake, handLink } = session([onSheet('a', 'modul2')])
+    handLink(docs, key('modul2'), pairs(0))
+    bake(docs, { [key('modul2')]: { pairs: pairs(0) } })
+    expect(s.rows).toEqual([linked('MODUL2', 1)])
+  })
+
+  it('a plan that merely finishes loading writes no row at all', () => {
+    const docs = [plan('modul2'), plan('modul3')]
+    const store = { [key('modul2')]: { pairs: pairs(0) }, [key('modul3')]: { pairs: pairs(200) } }
+    const { s, bake } = session([onSheet('a', 'modul2'), onSheet('b', 'modul3')])
+    bake([], {})
+    bake(docs.slice(0, 1), store) // listed late — no act, so nothing announces it
+    bake(docs, store)
+    expect(s.rows).toEqual([])
+  })
+
+  it('a correction writes only «Referenz angepasst» — the act owes nothing for a known sheet', () => {
+    const docs = [plan('modul2')]
+    const store = { [key('modul2')]: { pairs: pairs(0) } }
+    const { s, bake, handLink } = session(bakedStore([onSheet('a', 'modul2')], fitsOf(docs, store)))
+    bake(docs, store)
+    // the georef flow never announces a sheet that had a fit — and even if it did, the reader knows it
+    handLink(docs, key('modul2'), pairs(20))
+    bake(docs, { [key('modul2')]: { pairs: pairs(20) } })
+    expect(s.rows).toEqual([fillTemplate(C.referenceRebaked, { n: 1 })])
+  })
+
+  it('re-linked after «Referenz entfernt» in the same session: the re-bake\'s row, not a second one', () => {
+    const docs = [plan('modul2')]
+    const store = { [key('modul2')]: { pairs: pairs(0) } }
+    const { s, bake, handLink } = session(bakedStore([onSheet('a', 'modul2')], fitsOf(docs, store)))
+    bake(docs, store)
+    bake(docs, {}) // Referenz zurücksetzen
+    handLink(docs, key('modul2'), pairs(30)) // the hand links it again: the sheet has no fit
+    bake(docs, { [key('modul2')]: { pairs: pairs(30) } })
+    expect(s.rows).toEqual([fillTemplate(C.referenceDroppedKept, { n: 1 }), fillTemplate(C.referenceRebaked, { n: 1 })])
+  })
+
+  it('an accepted proposal and a transfer are each one row (the same act, two doors)', () => {
+    const docs = [plan('modul2'), plan('modul3')]
+    const { s, bake, handLink } = session([onSheet('a', 'modul3')])
+    bake(docs, {})
+    const auto = pairs(0).map((p) => ({ ...p, kind: 'auto' as const }))
+    handLink(docs, key('modul2'), auto) // «Übernehmen»
+    bake(docs, { [key('modul2')]: { pairs: auto } })
+    handLink(docs, key('modul3'), auto) // «Passung übertragen» onto modul3
+    bake(docs, { [key('modul2')]: { pairs: auto }, [key('modul3')]: { pairs: auto } })
+    expect(s.rows).toEqual([linked('MODUL2'), linked('MODUL3', 1)])
+  })
+
+  it('the row without a count: no objects, or a fit that cannot be solved here', () => {
+    const docs = [plan('modul2')]
+    const objects = [onSheet('a', 'modul2')]
+    const ctx = { plans: docs, known: null, objects, bake: (all: TacticalObject[], fits: ReadonlyMap<string, PlanFit>) => bakeAll(all, fits, 'taktisch') }
+    expect(handLinkRow(key('modul2'), pairs(0), { ...ctx, objects: [], aspectOf: () => 1 })).toBe('Plan mit Karte verknüpft – MODUL2')
+    // no usable aspect ⇒ the count is omitted, never guessed
+    expect(handLinkRow(key('modul2'), pairs(0), { ...ctx, aspectOf: () => 0 })).toBe('Plan mit Karte verknüpft – MODUL2')
+    expect(handLinkRow(key('modul2'), pairs(0), { ...ctx, aspectOf: () => 1 })).toBe('Plan mit Karte verknüpft – MODUL2 – 1 Objekte verortet')
+    // a key no sheet on the rail answers to is nobody's row here
+    expect(handLinkRow('object:b:plan:modul2', pairs(0), { ...ctx, aspectOf: () => 1 })).toBeNull()
+  })
+
+  it('counts a body GAINED and a body MOVED, not an object that stands still or sits elsewhere', () => {
+    const docs = [plan('modul2'), plan('modul3')]
+    const old = { [key('modul2')]: { pairs: pairs(50) } }
+    // one object still carries the ground body an earlier session's fit gave it, one never had one
+    const [kept] = bakedStore([onSheet('kept', 'modul2')], fitsOf(docs, old))
+    const objects = [kept, onSheet('fresh', 'modul2', { x: 0.1 }), onSheet('other', 'modul3'), { id: 'map-only', entity: { id: 'map-only', kind: 'symbol', layer: 'taktisch', coord: [7.5, 47.5] } } as TacticalObject]
+    const row = handLinkRow(key('modul2'), pairs(0), { plans: docs, known: null, aspectOf: () => 1, objects, bake: (all, fits) => bakeAll(all, fits, 'taktisch') })
+    expect(row).toBe(linked('MODUL2', 2))
   })
 })
 

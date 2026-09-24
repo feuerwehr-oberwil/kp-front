@@ -12,7 +12,8 @@
  *  `TWIN_CLIP_MARGIN` is quoted by both projections; renaming either would rewrite device
  *  preferences for a word.
  */
-import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim, type Georef, type GeorefFit, type PlanPt } from './georef'
+import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim, type Georef, type GeorefFit, type GeorefPair, type PlanPt } from './georef'
+import type { PlanFit, TacticalObject } from './tacticalObjects'
 import type { PlanScale } from './planScale'
 import type { StationPlanScales } from './stationPlanScale'
 import type { BoardAnno, Entity, LngLat, PlanDocument } from '../types'
@@ -353,11 +354,14 @@ const groundOf = (o: { entity?: { coord: LngLat }; drawing?: { coords: LngLat[] 
  * index for index (bakeAll maps). Counted: an object on one of `sheets` whose ground position
  * differs. Not counted: objects on other sheets, a body appearing where there was none (nothing
  * was relocated from anywhere), and any other difference in the bake — a turn, a size, a label.
+ * `gained` counts that appearing body too — the hand-link row's «verortet» (`handLinkRow`), where
+ * gaining a place on the Karte is exactly what happened.
  */
 export function movedOnSheets(
   before: readonly { sheet?: { planId: string }; entity?: { coord: LngLat }; drawing?: { coords: LngLat[] } }[],
   after: readonly { entity?: { coord: LngLat }; drawing?: { coords: LngLat[] } }[],
   sheets: ReadonlySet<string>,
+  gained = false,
 ): number {
   if (!sheets.size) return 0
   let n = 0
@@ -365,10 +369,61 @@ export function movedOnSheets(
     const a = before[i], b = after[i]
     if (a === b || !a.sheet || !sheets.has(a.sheet.planId)) continue
     const from = groundOf(a), to = b && groundOf(b)
-    if (!from || !to) continue
+    if (!to) continue
+    if (!from) { if (gained) n++; continue }
     if (from.length !== to.length || from.some((c, j) => c[0] !== to[j][0] || c[1] !== to[j][1])) n++
   }
   return n
+}
+
+/**
+ * ⚠️ The Verlauf row for a sheet a HAND linked to the Karte — «Plan mit Karte verknüpft – Modul 2
+ * – 5 Objekte verortet» — or null when this act is not the one that owes it (24.09.2026).
+ *
+ * Handed the pairs by the act itself (georefMode · setGeorefLinkedHandler: the second pair
+ * placed, «Übernehmen», «Passung übertragen»), never by the re-bake: to the fit reader a first
+ * link is a sheet key ARRIVING, the same as a plan that finished loading, and it writes nothing
+ * for either (`fitChange`). So there is exactly one row, and it is this one.
+ *
+ * Null when:
+ *   · the fit reader has baked this sheet before in this session (`known`) — a reference
+ *     re-linked after «Referenz entfernt» is compared with the fit it was left on, and the
+ *     re-bake's «Referenz angepasst» is its row. Writing here too would be the double row.
+ *   · no sheet on the rail answers to the key — nothing of this Einsatz stands on it.
+ *
+ * `n` counts what the re-bake is about to do on that sheet, the way `movedOnSheets` counts, plus
+ * a body GAINED: the sheet's objects baked through the new fit, against where they stand now.
+ * When the fit cannot be solved here (no usable aspect) the count is omitted, never guessed —
+ * and so is a count of 0, which is a row about nothing.
+ */
+export function handLinkRow(
+  georefKey: string,
+  pairs: GeorefPair[],
+  ctx: {
+    plans: PlanDocument[]
+    known: ReadonlyMap<string, SheetFit> | null
+    aspectOf: (plan: PlanDocument) => number
+    objects: readonly TacticalObject[]
+    /** the store's own bake (tacticalObjects · bakeAll), injected — that module imports this one */
+    bake: (objects: TacticalObject[], fits: ReadonlyMap<string, PlanFit>) => readonly TacticalObject[]
+  },
+): string | null {
+  if (ctx.known?.has(georefKey)) return null
+  // the same sheets `georefPlans` would give a fit — a floor stack and a viewer-only plan never have one
+  const sheets = ctx.plans.filter((p) => sheetKeyOf(p) === georefKey && !p.floorStack && !p.viewer)
+  if (!sheets.length) return null
+  const fits = new Map<string, PlanFit>()
+  for (const p of sheets) {
+    const aspect = ctx.aspectOf(p)
+    const fit = fitSimilarity(pairs, aspect)
+    if (fit) fits.set(p.id, { fit, aspect })
+  }
+  const placed = fits.size === sheets.length
+    ? movedOnSheets(ctx.objects, ctx.bake(ctx.objects as TacticalObject[], fits), new Set(fits.keys()), true)
+    : 0
+  const C = appConfig.copy.log
+  const plan = sheets[0].code
+  return placed ? fillTemplate(C.referenceLinkedPlaced, { plan, n: placed }) : fillTemplate(C.referenceLinked, { plan })
 }
 
 /* ⚠️ No twin-specific size bands. Until 30.08. twins wore their own «quieter» px bands — in the

@@ -442,6 +442,12 @@ to prod.
     entfernt» is compared with the fit it was left on. `n` counts only GROUND relocations on those
     sheets (`movedOnSheets`) — never objects whose bake differs for another reason (a turn, a
     size, another sheet) — and `rebake` takes the undo step only when that count is > 0.
+    A sheet with no fit linked BY HAND gets its ONE row from the act, never the re-bake
+    (24.09.2026): the three commit points in `georefMode` (second pair placed, «Übernehmen»,
+    «Passung übertragen») call `noteHandLink`, and `georefTwins · handLinkRow` writes «Plan mit
+    Karte verknüpft – {plan}[ – n Objekte verortet]» unless the reader already knows that key (a
+    re-link after «Referenz entfernt» keeps the re-bake's «Referenz angepasst»); `tacticalLocked`
+    devices write nothing.
   - ⚠️ **The aspect the fit is solved in is its own stored fact** (`measuredArByPlan`), NOT
     `PlanScale.ar`. `ar` is half of a pair — a sheet's ground width is `ar · mPerU` — so
     correcting it in place silently rescales every measured distance on that plan. The measured

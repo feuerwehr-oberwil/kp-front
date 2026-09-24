@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { saveGeoref } from './stationPlanScale'
 import {
   beginTap,
@@ -29,6 +29,9 @@ import {
   settleSlots,
   trackTap,
   transferGeorefPlan,
+  acceptGeorefProposal,
+  setGeorefLinkedHandler,
+  startGeorefProposal,
   type GeorefModeState,
   type GeorefSlot,
 } from './georefMode'
@@ -819,6 +822,82 @@ describe('the store persists exactly the edits — and nothing else', () => {
       expect(vi.mocked(saveGeoref).mock.calls[0][0]).toBe(key)
       expect(vi.mocked(saveGeoref).mock.calls[0][1].pairs).toEqual([])
     })
+  })
+})
+
+/* The Verlauf row for a first link has to come from the ACT — the fit reader sees a key arriving
+ * and cannot tell a hand from a plan that finished loading (georefTwins · fitChange). These pin
+ * the three commit points: each announces exactly once, and only for a sheet that had no fit. */
+describe('a hand linking an unlinked sheet is announced by the act, once', () => {
+  const linked = vi.fn<(key: string, pairs: GeorefPair[]) => void>()
+  const KEY = 'object:o1:plan:modul2'
+  beforeEach(() => {
+    resetGeorefMode(); mockGeorefForPlan.mockReset(); mockGeorefForPlan.mockReturnValue(null); vi.mocked(saveGeoref).mockClear()
+    linked.mockClear(); setGeorefLinkedHandler(linked)
+  })
+  afterEach(() => setGeorefLinkedHandler(null))
+  const place = (p: PlanPt) => {
+    georefDispatch({ type: 'planTap', pt: p })
+    georefDispatch({ type: 'mapTap', lngLat: mapOf(p) })
+  }
+
+  it('the point flow: the SECOND pair links, and only it', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', storageKey: KEY, pairs: [], aspect: AR })
+    place(T1)
+    expect(linked).not.toHaveBeenCalled() // one pair is no fit
+    place(T2)
+    expect(linked).toHaveBeenCalledTimes(1)
+    expect(linked.mock.calls[0][0]).toBe(KEY)
+    expect(linked.mock.calls[0][1]).toHaveLength(2)
+    place(T3) // a third pair refines the fit that now stands — the re-bake's business
+    georefDispatch({ type: 'dragPlan', idx: 0, pt: { x: 0.21, y: 0.2 } })
+    georefDispatch({ type: 'end' })
+    expect(linked).toHaveBeenCalledTimes(1)
+  })
+
+  it('a correction of an existing fit is never announced — «Referenz angepasst» is its row', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', storageKey: KEY, pairs: TRI.slice(0, 2), aspect: AR })
+    georefDispatch({ type: 'dragPlan', idx: 0, pt: { x: 0.25, y: 0.2 } })
+    place(T3)
+    georefDispatch({ type: 'end' })
+    expect(linked).not.toHaveBeenCalled()
+  })
+
+  it('an admin review draft is no Einsatz — nothing to tell', () => {
+    georefDispatch({ type: 'start', planId: 'modul2', storageKey: 'admin:a1', pairs: [], aspect: AR })
+    place(T1); place(T2)
+    expect(linked).not.toHaveBeenCalled()
+  })
+
+  it('«Übernehmen» on an unlinked sheet links it; on a linked one it does not', async () => {
+    startGeorefProposal('modul2', AR, { storageKey: KEY, pairs: TRI.slice(0, 2) })
+    await expect(acceptGeorefProposal()).resolves.toBe(true)
+    expect(linked).toHaveBeenCalledTimes(1)
+    expect(linked.mock.calls[0]).toEqual([KEY, TRI.slice(0, 2)])
+    linked.mockClear()
+    mockGeorefForPlan.mockReturnValue({ pairs: TRI })
+    startGeorefProposal('modul2', AR, { storageKey: KEY, pairs: TRI.slice(0, 2) })
+    await acceptGeorefProposal()
+    expect(linked).not.toHaveBeenCalled()
+  })
+
+  it('«Verwerfen» stores nothing and links nothing', () => {
+    startGeorefProposal('modul2', AR, { storageKey: KEY, pairs: TRI.slice(0, 2) })
+    georefDispatch({ type: 'end' })
+    expect(linked).not.toHaveBeenCalled()
+  })
+
+  it('a transfer onto an unlinked Modul links it; replacing a linked Modul\'s fit does not', async () => {
+    const src = 'object:o1:plan:modul3', dst = 'object:o1:plan:modul4'
+    let dstPairs: GeorefPair[] | null = null
+    mockGeorefForPlan.mockImplementation((k) => k === src ? { pairs: TRI } : k === dst && dstPairs ? { pairs: dstPairs } : null)
+    await expect(transferGeorefPlan(src, dst)).resolves.toBe(true)
+    expect(linked).toHaveBeenCalledTimes(1)
+    expect(linked.mock.calls[0][0]).toBe(dst)
+    linked.mockClear()
+    dstPairs = TRI.slice(0, 2)
+    await transferGeorefPlan(src, dst)
+    expect(linked).not.toHaveBeenCalled()
   })
 })
 

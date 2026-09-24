@@ -132,6 +132,7 @@ below.
 | «Blattform gemessen – {n} Objekte neu verortet» (`referenceRemeasured`) | the **app** measured the sheet and re-solved the SAME pairs in a truer shape (`noteMeasuredAspect`) | yes |
 | «Referenz entfernt» / «… – {n} Objekte behalten ihre letzte Position» (`referenceDropped` / `referenceDroppedKept`) | «Referenz zurücksetzen»: the fit is gone, and **nothing moves** – both bodies stand where they stood | no – nothing moved |
 | «Referenz-Änderung verworfen – Speichern fehlgeschlagen» (`referenceRolledBack`) | the station document PUT was refused (409 or offline) and the optimistic write was rolled back | no – the correction above it never stuck |
+| «Plan mit Karte verknüpft – {plan}» / «… – {n} Objekte verortet» (`referenceLinked` / `referenceLinkedPlaced`) | a **hand** linked a sheet that had NO fit (second pair placed, «Übernehmen», «Passung übertragen»). Written by the ACT (`georefMode · noteHandLink` → `georefTwins · handLinkRow`), not by this effect, which reads a first link as a seed like a plan finishing loading (24.09.2026) | no own step – the act's own ↶ (the binding's step, «Übernehmen»'s undo toast) |
 
 ⚠️ **The same visible effect is not the same act.** The first two both move every symbol on that
 sheet and both are one journalled step, but «Referenz angepasst» over a measurement credits the

@@ -826,6 +826,26 @@ export function setGeorefSaveErrorHandler(fn: (() => void) | null) { onSaveError
 let onOpenDropped: ((k: number) => void) | null = null
 export function setGeorefOpenDroppedHandler(fn: ((k: number) => void) | null) { onOpenDropped = fn }
 
+/**
+ * ⚠️ A HAND just linked a sheet that had NO fit — the second pair placed, a proposal's
+ * «Übernehmen», a «Passung übertragen» onto an unlinked Modul. Called from those three commit
+ * points and from nowhere else, with the pairs that now stand, so the Verlauf gets its row from
+ * the ACT (IncidentWorkspace · the hand-link row).
+ *
+ * It cannot come from the re-bake: to the fit reader a first link and a plan that merely finished
+ * loading are the same thing — a sheet key appearing with a fit — and it rightly reads both as a
+ * seed that writes nothing (georefTwins · fitChange). Only the writer knows a hand did it, so the
+ * writer says so. A correction of an EXISTING fit is not announced here: its row is the re-bake's
+ * «Referenz angepasst». Admin review drafts never are either — there is no Einsatz to tell.
+ */
+let onHandLinked: ((georefKey: string, pairs: GeorefPair[]) => void) | null = null
+export function setGeorefLinkedHandler(fn: ((georefKey: string, pairs: GeorefPair[]) => void) | null) { onHandLinked = fn }
+/** «Had no fit, has one now» — a fit needs two pairs (georef · fitSimilarity). */
+function noteHandLink(georefKey: string, before: readonly GeorefPair[], after: GeorefPair[]) {
+  if (isAdminGeorefKey(georefKey) || before.length >= 2 || after.length < 2) return
+  onHandLinked?.(georefKey, after)
+}
+
 /** THE way out of the mode for «Fertig», «Schliessen» and Esc: ends it, and NAMES what fell
  *  away — a half still waiting for its counterpart never persists, and dropping it silently
  *  is what made «I saw 3 points, now there is 1» a bug report. */
@@ -887,15 +907,19 @@ export function georefDispatch(a: GeorefAction) {
   state = next
   if (prev.storageKey && EDITS_PAIRS.has(a.type) && next.pairs !== prev.pairs) {
     rev++
+    let stored = true
     if (isIncidentGeorefKey(prev.storageKey)) {
       // An incident binding lives in the workspace slice (undo/redo + sync), not behind the
       // station PUT — written through immediately; the debounce exists for a network write
       // this path never makes. Drag frames coalesce into the binding's single undo step.
-      try { saveIncidentGeoref(prev.storageKey, { pairs: next.pairs }, a.type === 'dragPlan' || a.type === 'dragMap') } catch { onSaveError?.() }
+      try { saveIncidentGeoref(prev.storageKey, { pairs: next.pairs }, a.type === 'dragPlan' || a.type === 'dragMap') } catch { stored = false; onSaveError?.() }
     } else if (isAdminGeorefKey(prev.storageKey)) {
       // the admin's review draft (adminGeorefSink): in memory until «Ausrichtung freigeben»
       try { saveAdminGeoref(prev.storageKey, { pairs: next.pairs }) } catch { onSaveError?.() }
     } else queueSave(prev.storageKey, next.pairs)
+    // commit point 1 of 3: the pair that makes an unlinked sheet's fit (see `noteHandLink`).
+    // The mode's pairs ARE the stored ones — seeded from storage at `start`, saved on every edit.
+    if (stored) noteHandLink(prev.storageKey, prev.pairs, next.pairs)
   }
   if (a.type === 'end' || a.type === 'dismiss') void flushSave() // never leave a debounced write in the air
   listeners.forEach((l) => l())
@@ -1019,11 +1043,14 @@ export async function transferGeorefPlan(sourceKey: string, targetKey: string): 
     plan: { ...p.plan },
     lngLat: { ...p.lngLat },
   }))
+  const before = georefForPlan(targetKey)?.pairs ?? []
   if (isIncidentGeorefKey(targetKey)) {
     try { saveIncidentGeoref(targetKey, { pairs }) } catch { onSaveError?.(); return false }
   } else {
     await saveGeoref(targetKey, { pairs })
   }
+  // commit point 3 of 3: a Passung copied onto a Modul that had none (see `noteHandLink`)
+  noteHandLink(targetKey, before, pairs)
   rev++
   listeners.forEach((l) => l())
   return true
@@ -1068,6 +1095,7 @@ export function startGeorefProposal(planId: string, aspect: number, opts: { stor
 export async function acceptGeorefProposal(): Promise<boolean> {
   const s = state
   if (!s.proposal || !s.storageKey || s.pairs.length < 2) return false
+  const before = georefForPlan(s.storageKey)?.pairs ?? []
   try {
     if (isIncidentGeorefKey(s.storageKey)) saveIncidentGeoref(s.storageKey, { pairs: s.pairs })
     else await saveGeoref(s.storageKey, { pairs: s.pairs })
@@ -1075,6 +1103,8 @@ export async function acceptGeorefProposal(): Promise<boolean> {
     onSaveError?.()
     return false
   }
+  // commit point 2 of 3: «Übernehmen» on an unlinked sheet (see `noteHandLink`)
+  noteHandLink(s.storageKey, before, s.pairs)
   georefDispatch({ type: 'dismiss' })
   return true
 }

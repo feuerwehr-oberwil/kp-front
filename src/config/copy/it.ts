@@ -765,6 +765,8 @@ export const it: Localizable<Copy> = {
     referenceRolledBack: 'Modifica del riferimento annullata – salvataggio non riuscito',
     referenceDropped: 'Riferimento rimosso',
     referenceDroppedKept: 'Riferimento rimosso – {n} oggetti mantengono la loro ultima posizione',
+    referenceLinked: 'Piano collegato alla mappa – {plan}',
+    referenceLinkedPlaced: 'Piano collegato alla mappa – {plan} – {n} oggetti posizionati',
     objectDeleted: '{name} eliminato',
     drawingDeleted: 'Disegno eliminato',
     undo: 'Azione annullata',
