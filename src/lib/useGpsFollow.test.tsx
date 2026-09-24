@@ -14,6 +14,11 @@ import { act, render } from '@testing-library/react'
 import { followLiveVehicles, useGpsFollow } from './useGpsFollow'
 import { useObjectStore } from './useObjectStore'
 import { objectsFromLegacy, type TacticalObject } from './tacticalObjects'
+import { useMapDrawing } from './useMapDrawing'
+import { routingPatch } from './gpsReturn'
+import { resolveMapDrawings } from './lineAttachments'
+import { mergeWorkspace } from './mergeWorkspace'
+import { haversineM } from './geo'
 import type { Drawing, Entity, GpsFollowState, LngLat } from '../types'
 
 const TLF: LngLat = [7.5497636, 47.5229055]
@@ -123,5 +128,97 @@ describe('followLiveVehicles · the pass itself', () => {
     const next = followLiveVehicles(cur, [vehicle([TLF[0] + STEP, TLF[1]]), vehicle(TLF, 'gps-9')])
     expect(next).not.toBe(cur)
     expect(next.drawings[1]).toBe(other)
+  })
+})
+
+/**
+ * D3 (24.09.2026) over the REAL store, the way the Übung went: a hose coupled to the TLF, the TLF
+ * drives off (the coupling pauses), «Weiter folgen» is tapped, the TLF drives to the Magazin —
+ * and «Zurück auf Stand am Einsatzort» has to put the line back as it stood, as ONE undo step,
+ * with the snapshot surviving every follower write, the sync merge and ↶/↷.
+ */
+describe('useGpsFollow · «Weiter folgen» keeps the way back (D3)', () => {
+  const SITE = TLF
+  const DEPOT: LngLat = [TLF[0] + 0.0100, TLF[1] + 0.0070] // ~1.1 km
+  const path = (from: LngLat, to: LngLat, n: number): LngLat[] =>
+    Array.from({ length: n }, (_, i) => [from[0] + ((to[0] - from[0]) * (i + 1)) / n, from[1] + ((to[1] - from[1]) * (i + 1)) / n + (i % 2 ? 0.00004 : 0)])
+  const reach = (coords: LngLat[]) => Math.max(...coords.map((p) => haversineM(SITE, p)))
+
+  function mountWithEditor(init: TacticalObject[], vehicles: Entity[]) {
+    const seen = {
+      drawings: [] as Drawing[],
+      log: vi.fn(),
+      emit: vi.fn(),
+      api: null as null | { store: ReturnType<typeof useObjectStore>; drawing: ReturnType<typeof useMapDrawing> },
+    }
+    function Host({ vehicles }: { vehicles: Entity[] }) {
+      const store = useObjectStore(init, false, { getFits: () => new Map(), defaultLayer: 'taktisch', fitsVersion: 0 })
+      const drawing = useMapDrawing({
+        drawings: store.doc.drawings, selectedDrawingId: null, tacticalLocked: false, tool: 'select', setTool: () => {},
+        commit: store.commit, setDocRaw: store.setDocRaw, beginDrag: store.beginDrag, endDrag: store.endDrag,
+        emit: seen.emit, log: seen.log,
+        setSelectedDrawingId: () => {}, setSelectedId: () => {}, setSelectedDrawIds: () => {}, setSelectedEntityIds: () => {},
+      })
+      seen.drawings = store.doc.drawings
+      seen.api = { store, drawing }
+      useGpsFollow({ liveVehicles: vehicles, enabled: true, setDocRaw: store.setDocRaw })
+      return null
+    }
+    const r = render(<Host vehicles={vehicles} />)
+    return { seen, feed: (next: Entity[]) => act(() => r.rerender(<Host vehicles={next} />)) }
+  }
+
+  it('drive-off → «Weiter folgen» → Magazin → «Zurück»: the on-site line, one ↶ step, no spike', () => {
+    const start = hose('guarded')
+    const { seen, feed } = mountWithEditor(objectsFromLegacy([], [start], {}), [vehicle(SITE)])
+    // the TLF drives off: past 20 m the coupling pauses and the end stays on site
+    const away = path(SITE, DEPOT, 30)
+    feed([vehicle(away[2])])
+    expect(seen.drawings[0].endAttachment!.gps!.state).toBe('paused')
+    // «Weiter folgen» (IncidentWorkspace · setGpsRouting)
+    const d0 = seen.drawings[0]
+    act(() => { seen.api!.drawing.patchDrawingById(d0.id, routingPatch(d0, 'end', 'trace', { resolvedEnd: d0.coords[d0.coords.length - 1], at: '2026-09-23T20:31:00.000Z' })!) })
+    const before = seen.drawings[0].endAttachment!.gps!.before!
+    expect(before.coords).toEqual(start.coords)
+    // …to the Magazin: every sample is a machine write, and the snapshot rides along untouched
+    for (const p of away.slice(3)) feed([vehicle(p)])
+    const followed = seen.drawings[0]
+    expect(followed.endAttachment!.gps!.before).toEqual(before)
+    expect(reach(followed.coords)).toBeGreaterThan(1000)
+    // «Zurück auf Stand am Einsatzort»
+    let ok = false
+    act(() => { ok = seen.api!.drawing.revertGpsFollow(followed.id, 'end', 'Leitung: zurück') })
+    expect(ok).toBe(true)
+    expect(seen.drawings[0].coords).toEqual(start.coords)
+    expect(seen.drawings[0].endAttachment).toBeUndefined()
+    expect(reach(resolveMapDrawings(seen.drawings, [vehicle(DEPOT)])[0].coords)).toBeLessThan(100)
+    expect(seen.log).toHaveBeenCalledTimes(1)
+    // the feed keeps polling: a detached line is nobody's to move
+    const drawingsNow = seen.drawings
+    feed([vehicle(SITE)])
+    expect(seen.drawings).toBe(drawingsNow)
+    // ONE ↶ gives the followed line back — drive, coupling and snapshot — and ↷ takes it again
+    act(() => { seen.api!.store.undo() })
+    expect(seen.drawings[0].endAttachment!.gps!.state).toBe('continuous')
+    expect(seen.drawings[0].endAttachment!.gps!.before).toEqual(before)
+    act(() => { seen.api!.store.redo() })
+    expect(seen.drawings[0].coords).toEqual(start.coords)
+    expect(seen.drawings[0].endAttachment).toBeUndefined()
+  })
+
+  it('the snapshot survives the three-way sync merge, from either side and from a views-only blob', () => {
+    const paused = hose('paused')
+    const followed: Drawing = { ...paused, ...routingPatch(paused, 'end', 'trace', { resolvedEnd: TLF, at: '2026-09-23T20:31:00.000Z' })! }
+    const other: Entity = { id: 'sym', kind: 'symbol', layer: 'taktisch', symbol: 'VKF Feuer', coord: [7.55, 47.52] } as Entity
+    const base = { objects: objectsFromLegacy([], [paused], {}) }
+    const snap = followed.endAttachment!.gps!.before
+    const snapOf = (ws: Record<string, unknown>) => (ws.drawings as Drawing[]).find((d) => d.id === 'hose')!.endAttachment!.gps!.before
+    // I followed, the server has another device's new symbol
+    const mine = { objects: objectsFromLegacy([], [followed], {}) }
+    expect(snapOf(mergeWorkspace(base, mine, { objects: objectsFromLegacy([other], [paused], {}) }))).toEqual(snap)
+    // another device followed, I only placed a symbol
+    expect(snapOf(mergeWorkspace(base, { objects: objectsFromLegacy([other], [paused], {}) }, mine))).toEqual(snap)
+    // an older build saves VIEWS only — the field it does not know is still in the drawing it saved
+    expect(snapOf(mergeWorkspace(base, { drawings: [followed] }, base))).toEqual(snap)
   })
 })

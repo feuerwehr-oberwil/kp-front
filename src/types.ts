@@ -294,7 +294,25 @@ export interface LineAttachment {
     confirmedAt: LngLat
     /** Last safely resolved endpoint; used while GPS following is paused/missing. */
     lastSafe: LngLat
+    /** The line as it stood ON SITE when «Weiter folgen» (or «Spur») was tapped — lib/gpsReturn.
+     *  Taken once and never overwritten while the end follows, so «Zurück auf Stand am
+     *  Einsatzort» can put the line back exactly. Optional and additive: an older client spreads
+     *  `gps` wherever it writes it, so the field rides along untouched and is simply never read. */
+    before?: GpsFollowSnapshot
   }
+}
+/** `LineAttachment.gps.before` — the on-site line at the moment following began. */
+export interface GpsFollowSnapshot {
+  /** the line's vertices, its GPS end on the point the screen showed on site */
+  coords: LngLat[]
+  routing: LineRoutingMode
+  state: GpsFollowState
+  confirmedAt: LngLat
+  /** the vehicle's position at the tap — the on-site point every «vom Einsatzort» distance is
+   *  measured from */
+  lastSafe: LngLat
+  /** ISO time of the tap (server clock) */
+  at: string
 }
 export interface Drawing {
   id: string
