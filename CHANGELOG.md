@@ -127,6 +127,17 @@ so this file – not the log – is the record of what shipped up to that point.
   by area, for the nightly run too.
 - **Map zoom to 21**, and a Koordinaten fold in «Einsatz erfassen» that stays shut once address
   and coordinate both stand.
+- **CI plays the Übung of 23.09.2026 on every pull request.** A new e2e scenario
+  (`e2e/field-scenario.spec.ts`) parks a fake TLF next to an Übung, couples a Leitung to it on
+  the Karte, drops a Trupp, lets the fleet report for 22 s and taps the Trupp – once on one
+  device, once on three devices with one login that place their Trupps at the same moment (every
+  Trupp has to be on every device and on the server afterwards). With the post-mortem's render
+  loop put back, it fails with the field's own reports: React #185 on the Karte and «render
+  storm: IncidentWorkspace». And **every e2e test now fails when the app reports a client error
+  or a render storm** (`e2e/guard.ts`), with the report attached and the matching
+  `kpfront.clienterror` lines printed from the container log; until now those reports only ever
+  reached the server log. CI-only: the fake fleet is switched on by an overlay
+  (`e2e/compose.e2e.yml`), never in `docker-compose.yml`.
 
 ### Fixed
 

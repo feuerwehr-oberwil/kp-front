@@ -1029,8 +1029,14 @@ to prod.
   `ci.yml` go **fully green**, *then* merge – never merge a red branch. `ci.yml` runs three gate
   jobs: *Frontend (tsc + build)* – eslint + `tsc --noEmit` + vitest + `vite build`; *Backend
   (ruff + alembic + pytest)*; *Image (hadolint + build + smoke)* – builds & boots the real
-  production container and drives the Playwright white-screen smoke (`e2e/smoke.spec.ts`) against
-  it. An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
+  production container and drives the Playwright e2e against it: the white-screen smoke
+  (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026
+  (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp,
+  and then three devices on one login). ⚠️ **Every e2e test fails when the app reports a client
+  error or a render storm** (`e2e/guard.ts`, 24.09.2026). A spec imports `test` from
+  `e2e/helpers`, never from `@playwright/test` (eslint enforces it). A report a test provokes on
+  purpose is listed with `expectedClientErrors`; nothing turns the guard off (`e2e/README.md`).
+  An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
   tenet) – but run `pnpm lint && pnpm test` (and ideally `pnpm build`) locally first. For
   interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify` to
   drive the real app. Keep the house rule: every new mutating feature ships with a `src/lib` test.
