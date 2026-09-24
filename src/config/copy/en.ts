@@ -3702,6 +3702,8 @@ export const en: Localizable<Copy> = {
       alarmBarRueckzugInvalid: 'Value not stored yet – expected is a whole number above 0 and at most {max} (not above the alarm pressure; the withdrawal line alarms earlier, not later).',
       defaultPressure: 'Entry pressure (bar)',
       defaultPressureTip: 'Fill pressure the Trupp form starts with (e.g. a 300 bar cylinder in service).',
+      entryPressureMin: 'Minimum entry pressure (bar)',
+      entryPressureMinTip: 'An entry pressure below this – at registration, at re-entry with a new cylinder or in a correction – is asked about once («180 bar is low for an entry»). No upper bound. 0 switches the question off. Unset, {n} bar applies.',
       pressureStep: 'Pressure step (bar)',
       pressureStepTip: 'Step of the ± pressure controls; inputs snap to this grid.',
       pressureMax: 'Pressure maximum (bar)',

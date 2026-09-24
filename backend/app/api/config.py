@@ -22,7 +22,7 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
                              "chemiewehr": [], "zivilschutz": []} },
       "doctrine": { "defaultFunkkanal": null, "funkkanalMin": null, "funkkanalMax": null,
                     "alarmBar": null, "alarmBarRueckzug": null, "contactIntervalMin": null,
-                    "contactGraceSec": null, "defaultPressureBar": null,
+                    "contactGraceSec": null, "defaultPressureBar": null, "entryPressureMin": null,
                     "pressureStep": null, "pressureMax": null },
       "roster": { "source": "manual"|"divera"|null },
       "alarmKeywords": null | { … },   # ADMIN SESSIONS ONLY — withheld from anonymous GET

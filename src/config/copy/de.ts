@@ -5865,6 +5865,8 @@ export const de = {
       alarmBarRueckzugInvalid: 'Wert noch nicht gespeichert – erwartet wird eine ganze Zahl über 0 und höchstens {max} (nicht über dem Alarmdruck; die Rückzugslinie meldet sich früher, nicht später).',
       defaultPressure: 'Eingangsdruck (bar)',
       defaultPressureTip: 'Fülldruck, mit dem der Trupp-Assistent startet (z. B. 300-bar-Flasche im Dienst).',
+      entryPressureMin: 'Eingangsdruck mindestens (bar)',
+      entryPressureMinTip: 'Ein Eingangsdruck darunter – bei der Anmeldung, beim Wiedereintritt mit neuer Flasche oder beim Korrigieren – wird einmal nachgefragt («180 bar ist für einen Eintritt tief»). Keine Obergrenze. 0 schaltet die Rückfrage ab. Ohne Eintrag gilt {n} bar.',
       pressureStep: 'Druck-Schrittweite (bar)',
       pressureStepTip: 'Schrittweite der ±Druckregler; Eingaben rasten auf dieses Raster ein.',
       pressureMax: 'Druck-Maximum (bar)',
