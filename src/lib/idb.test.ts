@@ -92,6 +92,75 @@ describe('idbRead · a miss is not a failure', () => {
   })
 })
 
+// ⚠️ A REOPEN that fails is not a database that cannot be opened (24.09.2026). Once this session
+// has had a connection its data is in IndexedDB; latching the localStorage fallback there made
+// `idbRead` answer «ok, nothing» for a key that holds a predecessor's undelivered rows, and the
+// audit/journal re-read or a promotion then hydrated that and wrote its snapshot to the fallback
+// namespace — which outranks IndexedDB on the next load.
+describe('idb · a failed reopen mid-session', () => {
+  beforeEach(() => {
+    const store = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+      setItem: (k: string, v: string) => void store.set(k, String(v)),
+      removeItem: (k: string) => void store.delete(k),
+    })
+  })
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
+
+  it('a reopen that times out reports a failed read, latches nothing, and the next call opens again', async () => {
+    const real = globalThis.indexedDB
+    const conns: IDBDatabase[] = []
+    const realOpen = real.open.bind(real)
+    let silent = false
+    vi.spyOn(real, 'open').mockImplementation((...args: Parameters<IDBFactory['open']>) => {
+      if (silent) return {} as IDBOpenDBRequest // an open that never answers
+      const req = realOpen(...args)
+      req.addEventListener('success', () => conns.push(req.result))
+      return req
+    })
+    const rows = { pending: [{ client_id: 'predecessor' }], rejected: [] }
+    expect(await idbSet('kp-audit-i:u', rows)).toBe(true)
+
+    // the browser drops the connection; the reopen then hangs past the bound
+    conns[0].onclose?.call(conns[0], new Event('close'))
+    silent = true
+    vi.useFakeTimers()
+    const read = idbRead('kp-audit-i:u')
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(await read).toMatchObject({ ok: false })
+    vi.useRealTimers()
+
+    // no fallback namespace was chosen: the key is not «empty» there, and nothing was written
+    expect(localStorage.getItem('kp-idb-fb:kp-audit-i:u')).toBeNull()
+
+    // a later call retries the open and reads the rows that were there all along
+    silent = false
+    expect(await idbRead('kp-audit-i:u')).toEqual({ ok: true, value: rows })
+    expect(conns).toHaveLength(2)
+  })
+
+  it('a reopen the browser refuses also reports a failed read, not an empty one', async () => {
+    const real = globalThis.indexedDB
+    const conns: IDBDatabase[] = []
+    const realOpen = real.open.bind(real)
+    let refuse = false
+    vi.spyOn(real, 'open').mockImplementation((...args: Parameters<IDBFactory['open']>) => {
+      if (refuse) throw new DOMException('quota', 'UnknownError')
+      const req = realOpen(...args)
+      req.addEventListener('success', () => conns.push(req.result))
+      return req
+    })
+    await idbSet('k', { x: 1 })
+    conns[0].onclose?.call(conns[0], new Event('close'))
+    refuse = true
+    expect(await idbRead('k')).toMatchObject({ ok: false })
+    expect(await idbRead('k')).toMatchObject({ ok: false })
+    refuse = false
+    expect(await idbRead('k')).toEqual({ ok: true, value: { x: 1 } })
+  })
+})
+
 describe('idb localStorage fallback when IndexedDB is unavailable', () => {
   beforeEach(() => {
     // Shim localStorage for the node env, then make indexedDB.open throw so every call has to

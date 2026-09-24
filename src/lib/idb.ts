@@ -33,6 +33,9 @@ let dbPromise: Promise<IDBDatabase> | null = null
 /** the connection `dbPromise` resolved to — so a close event only forgets ITS OWN promise */
 let dbConn: IDBDatabase | null = null
 let idbUnavailable = false
+/** Whether this session ever held a connection. A failed REOPEN is then a failed operation, not
+ *  a database that cannot be opened: see the catch in `openDb`. */
+let hadConnection = false
 
 /** Drop a connection the browser closed under us, so the next operation opens a fresh one.
  *  ⚠️ Without this a cached promise kept handing out a dead connection for the rest of the
@@ -129,6 +132,7 @@ function openDb(): Promise<IDBDatabase> {
       if (gaveUp) { req.result.close(); return }
       const db = req.result
       dbConn = db
+      hadConnection = true
       db.onclose = () => forgetConnection(db)
       // another tab wants a newer schema: step aside (never block its upgrade) and reopen later
       db.onversionchange = () => { db.close(); forgetConnection(db) }
@@ -140,10 +144,22 @@ function openDb(): Promise<IDBDatabase> {
   // Set this in the promise callers await, rather than a detached catch handler. The first
   // operation that observes the failed open must choose the same fallback namespace as every
   // subsequent operation.
-  dbPromise = opening.catch((error) => {
-    idbUnavailable = true
+  const settled: Promise<IDBDatabase> = opening.catch((error) => {
+    // ⚠️ Only a FIRST open may latch the fallback. Once this session has had a connection, the
+    // data is in IndexedDB: a reopen that times out or errors (after `forgetConnection`) must
+    // not flip every read to localStorage, where the key is simply absent — `idbRead` would
+    // answer «ok, nothing», an audit/journal re-read or a promoted tab would hydrate that empty
+    // queue and write its snapshot to the fallback namespace, which outranks IndexedDB on the
+    // next load, hiding and then overwriting a predecessor's undelivered rows (24.09.2026). The
+    // operation fails instead (`idbRead` → `ok: false`), and the next call tries the open again.
+    if (hadConnection) {
+      if (dbPromise === settled) dbPromise = null
+    } else {
+      idbUnavailable = true
+    }
     throw error
   })
+  dbPromise = settled
   return dbPromise
 }
 
@@ -382,5 +398,6 @@ export function __resetIdbForTests(): void {
   dbPromise = null
   dbConn = null
   idbUnavailable = false
+  hadConnection = false
   degraded = false
 }
