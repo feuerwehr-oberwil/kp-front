@@ -85,8 +85,8 @@ async def incident(db_session):
         title="Feueralarm",
         source="manual",
         status="offen",
-        lat=47.5163,
-        lng=7.5617,
+        lat=46.9480,
+        lng=7.4474,
         started_at=datetime.now(UTC) - timedelta(hours=1),
     )
     db_session.add(inc)

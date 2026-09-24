@@ -6,14 +6,14 @@ import type { TimelineEvent } from '../types'
 
 const FLEET = [
   { id: 'tlf', label: 'TLF' },
-  { id: 'mawa', label: 'MAWA' },
+  { id: 'mtf', label: 'MTF' },
   { id: 'pio', label: 'PIO' },
 ]
 const NOW = Date.parse('2026-09-23T18:40:00Z')
 
 describe('vehicleTableRows — what the server observed, for display', () => {
   const fahrzeuge: FahrzeugZeit[] = [
-    { id: 'mawa', vorOrt: '2026-09-23T17:28:00Z', gps: { zone: 'away', device: 8, an: '2026-09-23T17:28:00Z', ab: '2026-09-23T18:37:00Z', fahrten: 3 } },
+    { id: 'mtf', vorOrt: '2026-09-23T17:28:00Z', gps: { zone: 'away', device: 8, an: '2026-09-23T17:28:00Z', ab: '2026-09-23T18:37:00Z', fahrten: 3 } },
     { id: 'tlf', gps: { zone: 'scene', device: 3, an: '2026-09-23T17:23:00Z', fahrten: 1 } },
     // a row the geofence/an operator filled but the server never observed: not in the table
     { id: 'pio', vorOrt: '2026-09-23T17:23:30Z' },
@@ -23,7 +23,7 @@ describe('vehicleTableRows — what the server observed, for display', () => {
     const fixes = new Map([[3, '2026-09-23T18:39:48Z'], [8, '2026-09-23T17:58:00Z']])
     expect(vehicleTableRows(FLEET, fahrzeuge, fixes, NOW)).toEqual([
       { id: 'tlf', label: 'TLF', zone: 'scene', an: '2026-09-23T17:23:00Z', ab: undefined, fahrten: 1, fixAgeMs: 12_000 },
-      { id: 'mawa', label: 'MAWA', zone: 'away', an: '2026-09-23T17:28:00Z', ab: '2026-09-23T18:37:00Z', fahrten: 3, fixAgeMs: 42 * 60_000 },
+      { id: 'mtf', label: 'MTF', zone: 'away', an: '2026-09-23T17:28:00Z', ab: '2026-09-23T18:37:00Z', fahrten: 3, fixAgeMs: 42 * 60_000 },
     ])
   })
 
@@ -39,7 +39,7 @@ describe('vehicleTableRows — what the server observed, for display', () => {
   })
 
   it('counts the trips only where there was more than one', () => {
-    expect(fahrtenText({ id: 'mawa', gps: { zone: 'away', fahrten: 3 } })).toBe('3 Fahrten')
+    expect(fahrtenText({ id: 'mtf', gps: { zone: 'away', fahrten: 3 } })).toBe('3 Fahrten')
     expect(fahrtenText({ id: 'tlf', gps: { zone: 'scene', fahrten: 1 } })).toBe('')
     expect(fahrtenText({ id: 'tlf' })).toBe('')
   })

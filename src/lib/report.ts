@@ -897,8 +897,8 @@ export function metaExtrasForPdf(meta: ReportMeta, bounds?: IncidentBounds): {
     ...gRows.map(({ config: c, value: v }): [string, string] => [
       c.color ? `${c.label} (${c.color})` : c.label, clock(v?.alarmedAt),
     ]),
-    // «· 3 Fahrten» where the server's GPS saw a vehicle on scene more than once (the MAWA
-    // shuttle) — the trips the Verlauf leaves out on purpose (D2-a, 24.09.2026)
+    // «· 3 Fahrten» where the server's GPS saw a vehicle on scene more than once (a
+    // shuttle to the depot) — the trips the Verlauf leaves out on purpose (D2-a, 24.09.2026)
     ...vRows.map(({ config: c, value: v }): [string, string] => [
       c.label, [clock(v?.ausgerueckt), fahrtenText(v)].filter(Boolean).join(' · '),
     ]),

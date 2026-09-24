@@ -4,7 +4,7 @@ Why this is server-side (24.09.2026, post-mortem of the Feueralarm-Übung on 23.
 client hook this replaces (`src/lib/useVehiclePresenceLog.ts`, deleted) ran on every editor
 device and stamped a transition at the moment THAT device noticed it. #204 made its row ids
 deterministic, so three tablets converged on one row — but the time on the row was still «when
-some device woke up»: GPS had TLF/PIO/TRAWA on scene at 19:23–19:24, the Verlauf had all five
+some device woke up»: GPS had the first three vehicles on scene at 19:23–19:24, the Verlauf had all five
 vehicles at 19:43, the moment the tablet was unlocked. A vehicle's arrival is a fact about the
 GPS track, not about a screen, so the one process that sees every fix whether or not anybody is
 looking — the scheduler's 30 s sweep — records it, stamped with the FIX time.
@@ -25,7 +25,7 @@ What reaches the record (D2, ★ picks):
   derived id ``vp:<device>:<n>`` — the machine record every later tick, restart or second
   worker rebuilds from and converges on;
 * the Verlauf gets the FIRST arrival and the LAST departure per vehicle, nothing in between
-  (D2-a): the MAWA's five Magazin runs are counted («5 Fahrten») in `reportMeta.fahrzeuge` and
+  (D2-a): a supply vehicle's five runs to the depot are counted («5 Fahrten») in `reportMeta.fahrzeuge` and
   shown in the vehicle table and the Rapport. «Last» is only known once the vehicle stays away,
   so a departure's row is written when the vehicle has been gone ``FINAL_AWAY_S`` — or when the
   Einsatz stops being active — stamped with the departure's own fix time. The Verlauf orders by

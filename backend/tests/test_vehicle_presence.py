@@ -1,6 +1,6 @@
 """The server observes «vor Ort» / «verlassen» (app.vehicle_presence, 24.09.2026 — D2).
 
-What the Übung of 23.09.2026 showed: GPS had TLF/PIO/TRAWA on scene at 19:23–19:24, the Verlauf
+What the Übung of 23.09.2026 showed: GPS had the first three vehicles on scene at 19:23–19:24, the Verlauf
 said 19:43 for all five — the moment a tablet woke up. What this file pins:
 
 * the RULES are the client hook's, number for number (rings, band, settle, silent baseline);
@@ -22,7 +22,7 @@ from app.models import DeploymentConfig, Incident, IncidentEvent, JournalEntry
 from app.schemas import MilestonesIn
 from app.traccar import VehiclePosition
 
-LAT, LNG = 47.5163, 7.5617
+LAT, LNG = 46.9480, 7.4474
 #: ~1 km east — «weg»
 AWAY = (LAT, LNG + 0.0133)
 #: ~200 m east — the band between the rings
@@ -197,9 +197,9 @@ def test_a_manual_row_keeps_its_times_but_the_table_still_learns():
 
 
 def test_the_last_departure_moves_with_the_shuttle_while_it_is_the_servers():
-    ws, _, _ = vp.apply_gps_presence(None, "mawa", _presence(zone="away", n=2, last_departure=T0))
+    ws, _, _ = vp.apply_gps_presence(None, "mtf", _presence(zone="away", n=2, last_departure=T0))
     later = T0 + timedelta(minutes=30)
-    ws, _, _ = vp.apply_gps_presence(ws, "mawa", _presence(zone="away", n=4, fahrten=2, last_departure=later))
+    ws, _, _ = vp.apply_gps_presence(ws, "mtf", _presence(zone="away", n=4, fahrten=2, last_departure=later))
     row = ws["reportMeta"]["fahrzeuge"][0]
     assert row["zurueck"] == later.isoformat() and row["gps"]["fahrten"] == 2
 
@@ -211,7 +211,7 @@ def test_the_last_departure_moves_with_the_shuttle_while_it_is_the_servers():
 async def incident(db_session):
     db_session.add(DeploymentConfig(id=1, config_json={"fleet": {"vehicles": [{"id": "tlf", "label": "TLF"}]}}))
     inc = Incident(
-        title="Feueralarm Gymnasium",
+        title="Übung Musterstrasse",
         source="manual",
         status="offen",
         is_exercise=True,  # Übungen are observed too

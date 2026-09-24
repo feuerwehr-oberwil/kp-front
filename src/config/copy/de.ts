@@ -4292,7 +4292,7 @@ export const de = {
     gpsAgeMin: 'vor {n} min',
     gpsAgeHour: 'vor {n} h',
     gpsAgeStale: 'Position veraltet',
-    // …and on paper, where a vehicle was on scene more than once (the MAWA shuttle)
+    // …and on paper, where a vehicle was on scene more than once (a supply vehicle shuttling to the depot)
     fahrtenCount: '{n} Fahrten',
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',

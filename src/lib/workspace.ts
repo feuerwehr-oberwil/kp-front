@@ -148,7 +148,7 @@ export interface FahrzeugGps {
   an?: string
   /** last departure from scene (GPS fix time) */
   ab?: string
-  /** stays on scene — 3 for a MAWA that shuttled to the Magazin twice */
+  /** stays on scene — 3 for a vehicle that shuttled to the depot twice */
   fahrten?: number
   /** the Rapport clocks the server stamped first (first writer wins against the geofence) */
   owns?: ('vorOrt' | 'zurueck')[]
