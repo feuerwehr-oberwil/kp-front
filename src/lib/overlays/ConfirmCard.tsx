@@ -56,13 +56,19 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
   onResolve: (confirmed: boolean | 'alt') => void
 }) {
   const confirmRef = useRef<HTMLButtonElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
   return (
     // every route out of here — backdrop, Esc, ✕-less cancel — resolves FALSE. There is no path
     // by which not answering counts as yes.
     <Dialog.Root open={open} onOpenChange={(next) => { if (!next) onResolve(false) }}>
       <Dialog.Portal>
         <Dialog.Backdrop className="modal-backdrop confirm-backdrop" />
-        <Dialog.Popup role="alertdialog" className="confirm-card ui-dialog" initialFocus={confirmRef} aria-label={title ?? message}>
+        {/* ⚠️ Where the focus LANDS is an answer given in advance. On an ordinary ask («Einsatz
+            abschliessen?») it is the confirm — the operator came here to do it. On a DANGER ask it
+            is «Abbrechen» (23.09.2026): an Enter or Space from a tablet's keyboard cover — pressed to
+            «get the dialog away» — would otherwise confirm the one thing that cannot be taken
+            back. Going ahead is still one tap away. */}
+        <Dialog.Popup role="alertdialog" className="confirm-card ui-dialog" initialFocus={danger ? cancelRef : confirmRef} aria-label={title ?? message}>
           {title && <Dialog.Title className="confirm-title" render={<h3 />}>{title}</Dialog.Title>}
           {/* An empty message renders NOTHING, not an empty paragraph with its own margin: some
               confirms are a title and two buttons («Stationsdrucker offline» — the title already
@@ -90,7 +96,7 @@ export function ConfirmCard({ open, title, message, items, note, confirmLabel, c
           )}
           {note && <p className="confirm-note">{note}</p>}
           <div className="confirm-actions">
-            <button className="ip-btn" onClick={() => onResolve(false)}>{cancelLabel}</button>
+            <button ref={cancelRef} className="ip-btn" onClick={() => onResolve(false)}>{cancelLabel}</button>
             {altLabel && (
               <button className={`ip-btn${altDanger ? ' ip-btn-danger' : ''}`} onClick={() => onResolve('alt')}>{altLabel}</button>
             )}

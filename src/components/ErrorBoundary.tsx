@@ -4,6 +4,7 @@ import { reportClientError } from '../lib/reportError'
 import { clearCrash, isLooping, recordCrash, type CrashRecord } from '../lib/crashLoop'
 import { idbDel } from '../lib/idb'
 import { recordTrouble } from '../lib/trouble'
+import { Icon } from '../lib/icons'
 
 // The ROOT boundary's repeat-crash escape («App zurücksetzen»): drop the two shell caches that a
 // deterministic root throw can come from — the cached incident list (lib/api/incidents ·
@@ -43,14 +44,30 @@ interface Props {
   onCloseIncident?: () => void
   /** destructive escape: drop the locally cached workspace and re-pull from the server. */
   onDiscardLocal?: () => void
+  /** does THIS device hold workspace changes the server has not acknowledged — read when the
+   *  fallback renders, for the offline reason below. Omitted = unknown, and nothing is claimed. */
+  hasUnsyncedChanges?: () => boolean
 }
 interface State {
   error: Error | null
   crash: CrashRecord | null
+  /** `navigator.onLine`, kept live — «Lokale Kopie verwerfen» is refused while it is false */
+  online: boolean
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null, crash: null }
+  state: State = { error: null, crash: null, online: typeof navigator === 'undefined' ? true : navigator.onLine }
+
+  private readonly onOnline = () => this.setState({ online: true })
+  private readonly onOffline = () => this.setState({ online: false })
+  componentDidMount() {
+    window.addEventListener('online', this.onOnline)
+    window.addEventListener('offline', this.onOffline)
+  }
+  componentWillUnmount() {
+    window.removeEventListener('online', this.onOnline)
+    window.removeEventListener('offline', this.onOffline)
+  }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { error }
@@ -72,11 +89,18 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.error) return this.props.children
     const eb = appConfig.copy.errorBoundary
-    const { scopeId, onCloseIncident, onDiscardLocal } = this.props
+    const { scopeId, onCloseIncident, onDiscardLocal, hasUnsyncedChanges } = this.props
     // Reopening this incident has already failed once → offer the destructive path too.
     const looping = isLooping(this.state.crash, scopeId ?? '', Date.now())
     // …and at the root, where there is no incident to close, the repeat offers the shell reset
     const rootLoop = looping && !scopeId
+    // ⚠️ «Lokale Kopie verwerfen» is REFUSED offline (23.09.2026, option B of the UX review). It
+    // drops this device's copy and reloads the Einsatz from the server — and with no connection
+    // there is no server copy to reload, so the device would be left holding no Einsatz at all,
+    // with whatever it had not sent gone with it. The row stays, disabled, with the reason
+    // under it, so the way out is visible and says when it comes back. Online nothing changes.
+    const discardBlocked = !this.state.online
+    const unsynced = discardBlocked && !!hasUnsyncedChanges?.()
     return (
       <div className="login" role="alert">
         <div className="login-card eb-card">
@@ -107,12 +131,19 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
             )}
             {looping && onDiscardLocal && (
-              <button type="button" className="ip-btn ip-btn-danger" onClick={onDiscardLocal}>
+              <button type="button" className="ip-btn ip-btn-danger" onClick={onDiscardLocal} disabled={discardBlocked}>
                 {eb.discardLocal}
               </button>
             )}
           </div>
-          {looping && onDiscardLocal && <p className="eb-warn">{eb.discardLocalHint}</p>}
+          {looping && onDiscardLocal && (discardBlocked
+            ? (
+              <p className="eb-warn eb-blocked">
+                <Icon id="warn" />
+                <span>{eb.discardLocalOffline}{unsynced && <> <b>{eb.discardLocalOfflineUnsynced}</b></>}</span>
+              </p>
+            )
+            : <p className="eb-warn">{eb.discardLocalHint}</p>)}
           {rootLoop && <p className="eb-warn">{eb.resetShellHint}</p>}
         </div>
       </div>

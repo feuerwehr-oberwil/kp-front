@@ -329,8 +329,8 @@ describe('ContextPanel — Gefahrentafel UN-Nr. autofill', () => {
 })
 
 /* The ADR readout explains its codes (Feldtest 07.09.: «keine Ahnung, was 6.1 heisst»), and
- * every ERG distance carries an «Übernehmen» that turns it into a real Absperrkreis. */
-describe('ContextPanel — ADR meanings and ERG Übernehmen', () => {
+ * every ERG distance carries an «Absperrkreis übernehmen» button that turns it into a real one. */
+describe('ContextPanel — ADR meanings and ERG «Absperrkreis übernehmen»', () => {
   const tafel = (fields: Record<string, string>) => ({
     entity: { id: 'g1', symbol: 'FW Gefahr Tafel', fields } as SymbolView,
     protectedKeys: new Set(['UN-Nr.', 'Stoff']),
@@ -344,12 +344,14 @@ describe('ContextPanel — ADR meanings and ERG Übernehmen', () => {
     expect(screen.getByText(/II – mittlere Gefahr/)).toBeTruthy()
   })
 
-  it('«Übernehmen» hands the parsed distance to onAdoptRadius', () => {
+  it('«Absperrkreis übernehmen» hands the parsed distance to onAdoptRadius', () => {
     const onAdoptRadius = vi.fn()
     // UN 1005 (Ammoniak): si 30 m / pd 0.1 km / pn 0.2 km
     setup({ ...tafel({ 'UN-Nr.': '1005', Stoff: '' }), onAdoptRadius })
     const buttons = screen.getAllByRole('button', { name: appConfig.copy.contextPanel.ergAdopt })
     expect(buttons.length).toBe(3)
+    // icon-only (23.09.2026): the row keeps its width, the name is the hold-tooltip
+    expect(buttons[0].textContent).toBe('')
     fireEvent.click(buttons[0])
     expect(onAdoptRadius).toHaveBeenCalledWith(30)
     fireEvent.click(buttons[2])

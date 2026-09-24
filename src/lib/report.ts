@@ -221,6 +221,8 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // a Checklisten-Haken is a documented decision, not a free note — and it is the only other
   // thing `journal` is written for besides the composer
   if (e.kind === 'journal' && e.icon === 'check') return r.areaChecklist
+  // …and so is taking one back: its ↶ glyph is shared, the template it was written from is not
+  if (e.kind === 'journal' && startsWithTemplate(e.text, appConfig.copy.checklists.milestoneUndone)) return r.areaChecklist
   // ⚠️ A row that WAS given a type says so in this column. «Manuell» answers «wo kam das her»,
   // which is the least interesting thing about an Auftrag or a Sofortmassnahme — and the type
   // was already in the text as a «Auftrag · » prefix, so the printed row carried the word twice
@@ -465,6 +467,9 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
     if (r.dueAt) due.set(r.id, r.dueAt)
     if (r.op === 'created') created.set(r.id, e)
     else if (r.op === 'done') doneAt.set(r.id, clock(e))
+    // an «Erledigt» taken back (lib/reminders · reopened): open again on paper too, until a later
+    // done row closes it with ITS time
+    else if (r.op === 'reopened') doneAt.delete(r.id)
     else if (r.op === 'note') notes.set(r.id, [...(notes.get(r.id) ?? []), { timeLabel: clock(e), text: e.text }])
   }
   return [...created.entries()]

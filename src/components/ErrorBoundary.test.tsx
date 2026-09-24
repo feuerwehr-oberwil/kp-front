@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import { ErrorBoundary } from './ErrorBoundary'
 import { appConfig } from '../config/appConfig'
 import { clearCrash, readCrash, recordCrash } from '../lib/crashLoop'
@@ -92,6 +92,44 @@ describe('ErrorBoundary — recovery affordances', () => {
     expect(screen.getByText(eb.discardLocalHint)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: eb.discardLocal }))
     expect(onDiscardLocal).toHaveBeenCalledOnce()
+  })
+
+  // Offline, discarding would leave the device with no copy at all: the server one cannot be
+  // reloaded. The row stays visible, disabled, with the reason — and comes back with the network.
+  it('refuses «Lokale Kopie verwerfen» while offline, says why, and re-enables when back online', () => {
+    recordCrash('inc-1')
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const onDiscardLocal = vi.fn()
+    render(
+      <ErrorBoundary scopeId="inc-1" onCloseIncident={vi.fn()} onDiscardLocal={onDiscardLocal} hasUnsyncedChanges={() => true}>
+        <Boom />
+      </ErrorBoundary>,
+    )
+    const discard = screen.getByRole('button', { name: eb.discardLocal }) as HTMLButtonElement
+    expect(discard.disabled).toBe(true)
+    fireEvent.click(discard)
+    expect(onDiscardLocal).not.toHaveBeenCalled()
+    expect(screen.getByText(eb.discardLocalOfflineUnsynced)).toBeTruthy()
+    expect(screen.queryByText(eb.discardLocalHint)).toBeNull()
+
+    onLine.mockReturnValue(true)
+    act(() => { window.dispatchEvent(new Event('online')) })
+    expect(discard.disabled).toBe(false)
+    expect(screen.getByText(eb.discardLocalHint)).toBeTruthy()
+    fireEvent.click(discard)
+    expect(onDiscardLocal).toHaveBeenCalledOnce()
+  })
+
+  it('claims no unsent changes offline when the device has none', () => {
+    recordCrash('inc-1')
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    render(
+      <ErrorBoundary scopeId="inc-1" onCloseIncident={vi.fn()} onDiscardLocal={vi.fn()} hasUnsyncedChanges={() => false}>
+        <Boom />
+      </ErrorBoundary>,
+    )
+    expect(screen.getByText(eb.discardLocalOffline)).toBeTruthy()
+    expect(screen.queryByText(eb.discardLocalOfflineUnsynced)).toBeNull()
   })
 
   it('does NOT escalate when the earlier crash was a different incident', () => {

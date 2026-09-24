@@ -61,7 +61,7 @@ the clock. Sound and system notification deliberately do **not** hang off it.
 | Area | Why |
 |---|---|
 | Zeitplan / shifts | `src/lib/useShiftActions.ts:16-19`: *«attendance is a RECORD … a plan is not, and logging each nudge of a chip would bury the operational journal under bookkeeping»* |
-| Checklists | only milestones create a row (`src/lib/useChecklistActions.ts:34`) |
+| Checklists | only milestones create a row (`src/lib/useChecklistActions.ts` · `milestoneRow`): «☑ …» on a tick, and since 23.09.2026 the appended correction «Meilenstein zurückgenommen: …» (↶ glyph, Bereich «Checkliste») on an un-tick – by tap and by ↶ alike (`describeStep`), one row per step, ☑ again on a re-tick or ↷ |
 | Editing drawings (color, style, geometry) | operator action, not an event – see the doctrine note below |
 
 The doctrine lives in the AdFU workflow description: *«Der Verlauf ist keine automatische
@@ -79,6 +79,10 @@ the same rows:
   check-off ring in the Verlauf writes. One obligation per row: since 23.08. **every** due
   Wiedervorlage has its own row on the strip («2 Erinnerungen fällig» named two and
   completed one).
+  Since 23.09.2026 both doors are **confirm-with-undo** (`useReminders` · `completeReminder`):
+  the toast «Pendenz erledigt: … · Rückgängig» (and ↶) appends **«Pendenz wieder offen: …»** /
+  «Erinnerung wieder offen: …» (`reminder.op: 'reopened'`) beside the done row, which stays;
+  ↷ appends a fresh done row. The toast drops its ↶ entry, so the act is never taken back twice.
 - The **Atemschutz alarm row** reads the same fold that plays the sound and writes nothing
   new – the alarm's Verlauf row is created once per cycle as before (see above).
 - **Swiping away (✕), take-over navigation, «Zum Trupp»** write nothing – view, not

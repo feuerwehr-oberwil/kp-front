@@ -1459,6 +1459,9 @@ export const de = {
     openRemindersHead: 'Pendenzen',
     openReminderGo: 'Zum Eintrag springen',
     doneLog: 'Erinnerung erledigt: {text}',
+    // «Rückgängig» on an erledigt toast (or ↶) appends this beside the done row — append-only,
+    // the done row stays (lib/useReminders · completeReminder)
+    reopenLog: 'Erinnerung wieder offen: {text}',
     snoozeLog: 'Erinnerung +{mins} min: {text}',
     // Verlauf reminder row: due label + done toggle (checklist-style)
     dueAtLabel: 'fällig {t}',
@@ -1510,6 +1513,7 @@ export const de = {
     pendenzUrgentSaved: 'Pendenz erfasst – dringend',
     // an undatierte Pendenz never called itself an Erinnerung, so its done row must not either
     pendenzDoneLog: 'Pendenz erledigt: {text}',
+    pendenzReopenLog: 'Pendenz wieder offen: {text}',
     // Meldungen ON a Pendenz — written in the ORDINARY composer, opened from the item's row
     noteOnTitle: 'Meldung',
     noteOnLabel: 'zu ',
@@ -2916,8 +2920,10 @@ export const de = {
     // Andocken (lib/docking): the panel row that makes the invisible bond visible
     dockedTo: 'Angedockt an «{name}»',
     dockedRelease: 'Lösen',
-    // one tap turns an ERG distance into a real Absperrkreis around the symbol
-    ergAdopt: 'Übernehmen',
+    // one tap turns an ERG distance into a real Absperrkreis around the symbol. Since 23.09.2026
+    // an ICON-ONLY 44px button (the Absperrkreis tool's own ⊙), so this is its accessible name
+    // and the hold-tooltip — it says what appears, where «Übernehmen» only said that something did
+    ergAdopt: 'Absperrkreis übernehmen',
     ergRingsLabel: 'Radius auf der Karte',
     ergRingsOff: 'Aus',
     ergRingsSmall: 'Klein',
@@ -3150,6 +3156,9 @@ export const de = {
     closeIncident: 'Einsatz schliessen',
     discardLocal: 'Lokale Kopie verwerfen',
     discardLocalHint: 'Verwirft nur die Kopie auf diesem Gerät und lädt den Einsatz neu vom Server. Noch nicht synchronisierte Änderungen von diesem Gerät gehen dabei verloren.',
+    // …and why it is greyed out while offline (ErrorBoundary · discardBlocked)
+    discardLocalOffline: 'Ohne Verbindung nicht möglich – der Einsatz liesse sich danach nicht neu vom Server laden.',
+    discardLocalOfflineUnsynced: 'Änderungen von diesem Gerät sind noch nicht übertragen.',
     // the ROOT boundary's repeat crash (launcher, login, a lazy chunk — no Einsatz to close):
     // «App zurücksetzen» drops only the cached incident list and user, never a workspace cache
     bodyRepeatRoot: 'Die App startet nicht – auch nach dem Neuladen nicht. Setze die lokalen Listen zurück; gespeicherte Einsätze und Änderungen bleiben erhalten.',
@@ -3862,6 +3871,16 @@ export const de = {
     shareShort: 'Teilen',
     noOpenIncidents: 'Keine offenen Einsätze',
     logout: 'Abmelden',
+    // «Abmelden» ALWAYS asks (23.09.2026, lib/logoutConfirm): afterwards this device opens no
+    // Einsatz without a PIN. Offline and/or with something unsent, the SAME card adds what it
+    // costs on top — one ask, not a second dialog model for the expensive case.
+    logoutTitle: 'Abmelden?',
+    logoutMsg: 'Danach öffnet dieses Gerät Einsätze erst wieder nach einer Anmeldung mit PIN.',
+    logoutOffline: 'Eine neue Anmeldung ist erst wieder mit Netz möglich – bis dahin öffnet dieses Gerät keinen Einsatz.',
+    logoutUnsyncedOne: '1 Eintrag ist noch nicht übertragen. Er bleibt auf diesem Gerät und wird gesendet, sobald du dich wieder anmeldest.',
+    logoutUnsyncedMany: '{n} Einträge sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.',
+    // …where only the Einsatz itself (Karte, Pläne, lists) is still unsent, no countable entry
+    logoutUnsyncedChanges: 'Änderungen sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.',
     appVersion: 'App-Version (Build)',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
@@ -4147,8 +4166,6 @@ export const de = {
     // Tablet und Desktop sehen sie nie — siehe ReportPreflight · PhoneTab.
     tabsLabel: 'Teil des Rapports',
     tabs: { bericht: 'Bericht', werwas: 'Personal & Mittel', beilagen: 'Beilagen' },
-    // a «noch offen» chip is a button: it scrolls to the thing it names and flashes it
-    headOpenGo: 'Zu «{step}» springen',
     sectionBericht: 'Bericht & Beteiligte',
     sectionZeiten: 'Zeiten',
     sectionNachbearbeitung: 'Nachbearbeitung',
@@ -4465,8 +4482,14 @@ export const de = {
     framingDiscOut: 'Kommt nicht in die Legende – die Scheibe passt nicht ganz aufs Blatt.',
     // Kontrolle section
     controlHead: 'Kontrolle',
-    // the state chip counts what is open instead of just saying «Kontrolle»
-    controlOpen: '{n} Hinweis(e)',
+    // THE chip in the Rapport head (23.09.2026 — the separate «noch offen» chips under the title
+    // are gone at every width): what is still open, and the warnings about the record, each
+    // counted in its own words (lib/abschlussOpen · controlChipLabel). «Hinweis(e)» said both.
+    controlOpen: '{n} noch offen',
+    controlHint: '1 Hinweis',
+    controlHints: '{n} Hinweise',
+    // the heading of the open steps inside the chip's popover
+    controlOpenHead: 'Noch offen',
     plansPrintNone: 'Pläne werden nicht gedruckt – bei Bedarf im Menü ▾ zuschalten.',
     plansPrintAnnotated: '{n} Pläne mit Anmerkungen werden gedruckt.',
     plansPrintAll: 'Alle Pläne werden gedruckt.',
@@ -5066,6 +5089,8 @@ export const de = {
     // the word the flag wears on the row (22.09.2026): the tooltip above is what a mouse
     // reads, and a tablet reads nothing — a lone glyph said «something», not what
     milestoneTag: 'wird im Verlauf notiert',
+    // un-ticking a milestone — by tap or by ↶ — APPENDS this beside the ☑ row (lib/useChecklistActions)
+    milestoneUndone: 'Meilenstein zurückgenommen: {text}',
     actionLabels: { journal: 'Journal', plan: 'Plan', draw: 'Zeichnen' } as Record<string, string>,
     // reference reader: hazard-colour badge labels
     hazardLabels: { red: 'Brand', orange: 'Gefahren', green: 'Verkehr', yellow: 'Technik', blue: 'Wasser' } as Record<string, string>,

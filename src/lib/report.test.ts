@@ -375,6 +375,12 @@ describe('journalArea · one glyph, one Bereich — without breaking the record'
     expect(journalArea(ev({ icon: 'photo', kind: 'photo', text: 'Foto' }), plans)).toBe('Manuell')
   })
 
+  // the ↶ glyph is shared (Rückzug, Anwesenheit); the template says where it came from
+  it('reads a milestone\'s correction row under «Checkliste», like the ☑ row it answers', () => {
+    expect(journalArea(ev({ icon: 'check', kind: 'journal', text: '☑ Standort bestimmen' }), plans)).toBe('Checkliste')
+    expect(journalArea(ev({ icon: 'undo', kind: 'journal', text: 'Meilenstein zurückgenommen: Standort bestimmen' }), plans)).toBe('Checkliste')
+  })
+
   it('reads a snooze row as Pendenz under both glyphs, and a Zeiten row as Anwesenheit', () => {
     const snoozed = { op: 'snoozed', id: 'p1', dueAt: at } as const
     expect(journalArea(ev({ icon: 'bell', kind: 'reminder', reminder: snoozed }), plans)).toBe('Pendenz')
@@ -794,6 +800,15 @@ describe('report Pendenzen rows', () => {
 
   it('prints the bare text, not the row with its «Auftrag · » tag', () => {
     expect(pendenzRows(events)[1].text).toBe('Patient an Sanität übergeben')
+  })
+
+  // «Rückgängig» on the erledigt toast appends `reopened` — open again on paper, until a LATER
+  // done row closes it with that row's time
+  it('prints a reopened item as open, and a re-closed one with the later time', () => {
+    const reopened = [entry('o1', '2026-08-16T21:00:00.000Z', 'wieder offen', { op: 'reopened', id: 'p1' }), ...events]
+    expect(pendenzRows(reopened)[0].erledigt).toBeUndefined()
+    const closedAgain = [entry('d2', '2026-08-16T21:05:00.000Z', 'erledigt', { op: 'done', id: 'p1' }), ...reopened]
+    expect(pendenzRows(closedAgain)[0].erledigt).toMatch(/:05$/)
   })
 
   it('carries urgency, the assignee and every Meldung', () => {

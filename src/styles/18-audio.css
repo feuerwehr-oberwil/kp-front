@@ -585,11 +585,18 @@
    base size and dwarfs the rest of the block (Feldtest Manuel, 08.09.). */
 .un-erg-rings { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 13px; }
 .un-erg-rings .un-haz-k { flex: 1 1 auto; }
-/* «Übernehmen» beside a distance value — a quiet inline action, underlined, never filled:
-   the row's information stays the loudest thing in it */
-.un-erg-adopt { margin-left: auto; border: 0; background: none; padding: 0 2px; cursor: pointer;
-  font: inherit; font-size: 12px; color: var(--ink-dim); text-decoration: underline; text-underline-offset: 2px; }
-@media (hover: hover) { .un-erg-adopt:hover { color: var(--ink); } }
+/* «Absperrkreis übernehmen» beside a distance value (23.09.2026): its own 44px square with the
+   Absperrkreis tool's ⊙, the house button (outline, `--r-sm`, never filled) — the value stays
+   the loudest thing in the row. It was a 12px underlined «Übernehmen» the row squeezed around.
+   Icon-only so the key and the value keep their columns; the word is the hold-tooltip. */
+.un-erg-adopt { margin-left: auto; flex: none; width: var(--tap); height: var(--tap); padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); }
+.un-erg-adopt .i { width: 18px; height: 18px; }
+@media (hover: hover) { .un-erg-adopt:hover { background: var(--hover-strong); } }
+.un-erg-adopt:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* a row carrying the button centres its key and value on it instead of hanging them off the top */
+.un-haz-row:has(> .un-erg-adopt) { align-items: center; padding: 2px 0; }
 .un-erg-src { margin: 6px 0 0; font-size: 11px; color: var(--ink-dim); }
 
 /* ⚠️ TOMBSTONE, 23.08. — `.gps-follow-prompts` / `.gps-follow-prompt` are gone. The guarded

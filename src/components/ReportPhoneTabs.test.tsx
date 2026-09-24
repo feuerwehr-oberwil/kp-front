@@ -4,7 +4,7 @@
 // asserted here is the pair the CSS keys off — `data-phone-tab` on the body and `data-tab` on
 // each block — not pixels. That pair IS the mechanism: get it wrong and a section either never
 // appears or appears in all three tabs.
-import { act, render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 
@@ -76,13 +76,27 @@ describe('Einsatzrapport · phone tabs', () => {
     expect(body().dataset.phoneTab).toBe('werwas')
   })
 
-  // ⚠️ The chips name what is still missing and jump to the field. On a phone that field may sit
-  // in a tab that is not on screen — and a jump that scrolls to a `display: none` element lands
-  // nowhere at all, silently. So the chip has to change tabs first.
-  it('a «noch offen» chip carries the tab with it', async () => {
+  // ⚠️ The Kontrolle chip's «Noch offen» rows name what is still missing and jump to the field.
+  // On a phone that field may sit in a tab that is not on screen — and a jump that scrolls to a
+  // `display: none` element lands nowhere at all, silently. So the row has to change tabs first.
+  it('a «Noch offen» row carries the tab with it', async () => {
     const { body } = setup()
-    fireEvent.click(screen.getByRole('button', { name: /Zu «Anwesenheit» springen/ }))
+    fireEvent.click(screen.getByRole('button', { name: /noch offen/ }))
+    const list = await waitFor(() => {
+      const el = document.querySelector('.rp-control-open') as HTMLElement | null
+      if (!el) throw new Error('popover not open')
+      return el
+    })
+    expect(within(list).getByText('Noch offen')).toBeTruthy()
+    fireEvent.click(within(list).getByRole('button', { name: /Anwesenheit/ }))
     await waitFor(() => expect(body().dataset.phoneTab).toBe('werwas'))
+  })
+
+  // …and the separate 18px chips under the title are gone at every width (23.09.2026)
+  it('draws no «noch offen» chips under the title — the one chip counts them', () => {
+    setup()
+    expect(document.querySelector('.rp-head-open-go')).toBeNull()
+    expect(screen.getByRole('button', { name: /^\d+ noch offen$/ })).toBeTruthy()
   })
 
   // ── the strip moved to the FOOT of the page on phones (19.09.2026) ──

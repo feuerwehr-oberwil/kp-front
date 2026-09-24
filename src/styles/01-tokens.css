@@ -151,8 +151,6 @@
   --z-dialog-scrim: 80;      /* `.ui-backdrop` — the modal scrim */
   --z-dialog: 81;            /* `.ip-sheet.ui-dialog` — the modal itself */
   --z-dialog-menu: 85;       /* a Combo opened INSIDE a modal */
-  --z-confirm-scrim: 95;     /* ConfirmCard outranks the sheet that raised it */
-  --z-confirm: 96;
   --z-admin: 100;            /* the /admin shell — a fixed surface over the whole app */
   --z-blocking-scrim: 120;   /* «WebGL verloren» · the intake picker */
   --z-blocking: 121;
@@ -163,6 +161,13 @@
   --z-floating-card: 201;    /* Ebenen · the map-views popover */
   --z-floating-tip: 205;     /* the dock's tap-to-explain bubble */
   --z-menu: 210;             /* portalled menus and context menus */
+  /* ConfirmCard outranks EVERYTHING that can raise one: the sheet, the admin shell, the
+     drawing card, the Ebenen card, a portalled menu's row — and the full-screen error and login
+     cards (`.login`). It sat at 96 until 23.09.2026, i.e. under all of those, so an ask raised
+     from the error screen was focus-trapped and painted behind it. Only the photo viewer, the
+     toast and the pickers stay above: none of them asks anything. */
+  --z-confirm-scrim: 220;
+  --z-confirm: 221;
   --z-photo-scrim: 300;
   --z-photo: 301;            /* the full-screen picture */
   --z-admin-overlay-scrim: 1200; /* admin.css lifts the app's overlays over `.adm` */

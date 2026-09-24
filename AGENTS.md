@@ -125,7 +125,8 @@ to prod.
     Atemschutz-Tafel, the Gebäude one-shots (floor add/remove, building replace, Drehung),
     Rapport-Beilagen, Ansichten (`rememberOneShot`).
   - *Confirm-with-undo toast* – the fast door beside the header pair, for a one-shot that
-    destroys something (a Geschoss, a Beilage, an Anwesenheits-Block). It does the inverse
+    destroys something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's «Erledigt» —
+    whose inverse is an APPENDED `reopened` row, since 23.09.2026). It does the inverse
     itself and **drops its timeline entry** (`push` returns the dropper), so an act is never
     undoable twice.
   Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
@@ -705,7 +706,9 @@ to prod.
   same model and are easy to break: a page sending `use` with no live link session is **401, never
   the device's login** (falling through would turn a lapsed board into the phone owner's account),
   and the device's own «Abmelden» **does** clear the link cookie — headerless requests (typed
-  address, `<img>`, service worker) answer as the link guest otherwise.
+  address, `<img>`, service worker) answer as the link guest otherwise. That «Abmelden» **always
+  confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
+  unsent-entries cost when there is one.
 - **Per-station config has four layers:** national defaults (code) → per-station deployment
   config (DB/admin) → secrets (env) → per-incident (workspace). One deployment = one station
   (**single-tenant**, no multi-tenancy). See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).

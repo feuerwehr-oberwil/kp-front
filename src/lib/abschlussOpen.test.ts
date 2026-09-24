@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, countsAsOpen } from './abschlussOpen'
+import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, controlChipLabel, countsAsOpen } from './abschlussOpen'
 import { ABSCHLUSS_STEPS } from './abschluss'
 import { appConfig } from '../config/appConfig'
 
@@ -65,5 +65,15 @@ describe('every open point is a link', () => {
     expect(abschlussOpenLabel({ kind: 'media', n: 3 })).toContain('3')
     expect(abschlussOpenLabel({ kind: 'trupps', n: 2 })).not.toContain('{n}')
     expect(abschlussOpenLabel({ kind: 'media', n: 3 })).not.toContain('{n}')
+  })
+})
+
+describe('controlChipLabel — the Rapport head\'s one Kontrolle chip', () => {
+  it('counts the open steps and the warnings each in its own words', () => {
+    expect(controlChipLabel(4, 0)).toBe('4 noch offen')
+    expect(controlChipLabel(0, 1)).toBe('1 Hinweis')
+    expect(controlChipLabel(0, 3)).toBe('3 Hinweise')
+    expect(controlChipLabel(4, 2)).toBe('4 noch offen · 2 Hinweise')
+    expect(controlChipLabel(1, 1)).toBe('1 noch offen · 1 Hinweis')
   })
 })

@@ -350,8 +350,8 @@
 
 .confirm-backdrop { z-index: var(--z-confirm-scrim); }
 /* Base UI AlertDialog (src/lib/overlays/ConfirmCard.tsx): scrim + card are portal siblings, so
-   the card centres itself (the old .modal-backdrop grid parent is gone). Sits just above the
-   confirm-backdrop (95). */
+   the card centres itself (the old .modal-backdrop grid parent is gone). Sits just above its own
+   scrim — both on the layer ladder (01-tokens · --z-confirm). */
 .confirm-card.ui-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-confirm); }
 /* ⚠️ `.ui-dialog` alone positions NOTHING — every dialog pairs it with its own sheet class, and
    one that forgets renders unstyled at the top of <body>: present in the DOM, invisible on

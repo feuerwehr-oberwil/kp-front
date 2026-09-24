@@ -295,7 +295,8 @@
 .un-haz-list { margin: 0 0 8px; padding-left: 18px; }
 .un-haz-list li { font-size: 12.5px; color: var(--ink); padding: 2px 0; }
 .un-haz-none { margin: 2px 0 2px; font-size: 12px; color: var(--ink-faint); }
-.un-haz-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px;
+/* 12.5px, the floor for interactive text (was 12, 23.09.2026) */
+.un-haz-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12.5px;
   font-weight: 600; color: var(--blue, #1f6feb); text-decoration: none; }
 @media (hover: hover) {
   .un-haz-link:hover { text-decoration: underline; }
@@ -492,9 +493,12 @@
    heading already says these are Pendenzen, and the ring is this row's icon as much as its
    control. It is the ONLY place an item is ticked off — the Verlauf row carried a second,
    identical control that scrolled away while this one cannot.
-   ⚠️ 26px wide is under the gloved floor on its own, so the button takes the row's FULL height
-   for its target (26 × 44). A miss lands on the text, which opens the Meldung sheet — recoverable,
-   and its draft now survives a close. */
+   ⚠️ 26px wide is under the gloved floor on its own, so the TARGET grows past the ring on a
+   pseudo-element (below): 9px into each 10px gutter and through the row's padding, 44 × the row
+   (23.09.2026 — it was 26 × 34, and «Erledigt» is the one tap here that closes something). The
+   ring and the text's axis do not move, and the 1px left in each gutter keeps it off the clock's
+   and the text's own targets. A miss still lands on the text, which opens the Meldung sheet —
+   recoverable, and its draft survives a close. */
 /* ⚠️ 26px — the same number `.hist-ev .ic` carries, because the app is `box-sizing: border-box`
    throughout and that 26 therefore INCLUDES the icon's 1px border. Measured at 28 once, against a
    test page that lacked the reset, and the text came out 2px right of the log's. If this is ever
@@ -502,6 +506,7 @@
 .jr-pinned-row .jr-rem { flex: none; width: 26px; min-height: 34px; align-self: stretch;
   padding: 0; border: 0; background: none; border-radius: var(--r-sm);
   display: grid; place-items: start center; padding-top: 3px; }
+.jr-pinned-row .jr-rem::before { content: ""; position: absolute; inset: -6px -9px; border-radius: var(--r-sm); }
 /* ⚠️ No fill on hover. `--hover` is a neutral wash meant for white rows; over the block's amber
    (and over a dringend row's red) it came out as a pale grey tile floating behind the ring. The
    ring itself answers instead — it greens and ghosts its check in, the same thing the Verlauf's

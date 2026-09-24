@@ -86,6 +86,20 @@ const isPermanentRejection = (e: unknown): boolean =>
  * key of the row before it rather than sorting as 0 — an undated row belongs where it already
  * sits between its neighbours, not flushed to one end of the Verlauf.
  */
+/**
+ * Verlauf rows this device still holds for the server, summed over the given incidents and read
+ * straight off their persisted outboxes — for a surface with no live store to ask (the launcher's
+ * «Abmelden», lib/logoutConfirm). Rejected rows count: they are just as unsent. An unreadable
+ * slot counts 0 — the answer only PHRASES an ask, it never decides anything.
+ */
+export async function persistedPendingRows(incidentIds: readonly string[]): Promise<number> {
+  const counts = await Promise.all(incidentIds.map(async (id) => {
+    const read = await idbRead<Persisted>(KEY(id))
+    return read.ok && read.value ? (read.value.outbox?.length ?? 0) + (read.value.dead?.length ?? 0) : 0
+  }))
+  return counts.reduce((a, b) => a + b, 0)
+}
+
 export function chronological(rows: readonly TimelineEvent[]): TimelineEvent[] {
   let carry = Number.POSITIVE_INFINITY // a leading undated row has no predecessor: leave it on top
   return rows

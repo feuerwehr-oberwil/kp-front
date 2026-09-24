@@ -76,3 +76,18 @@ export function abschlussOpenItems(points: AbschlussOpenPoint[], go: AbschlussOp
     },
   }))
 }
+
+/**
+ * The words on the Rapport head's ONE Kontrolle chip (23.09.2026): what is still open for the
+ * Abschluss, and how many warnings about the record there are — «4 noch offen», «1 Hinweis»,
+ * «2 Hinweise», «4 noch offen · 2 Hinweise». It used to read «{n} Hinweis(e)» for both summed,
+ * so four missing Mindestangaben announced themselves as four «Hinweise» — a word for something
+ * to note, on the things that have to be filled in.
+ */
+export function controlChipLabel(open: number, hints: number): string {
+  const P = appConfig.copy.preflight
+  return [
+    open > 0 ? fillTemplate(P.controlOpen, { n: open }) : '',
+    hints === 1 ? P.controlHint : hints > 1 ? fillTemplate(P.controlHints, { n: hints }) : '',
+  ].filter(Boolean).join(' · ')
+}

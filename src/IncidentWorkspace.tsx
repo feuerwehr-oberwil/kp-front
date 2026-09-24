@@ -53,10 +53,12 @@ import { useUndoTimeline } from './lib/useUndoTimeline'
 import type { UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
+import { pushSliceStep } from './lib/sliceUndoStep'
 import { REPORT_COALESCE_MS, foldsIntoPrevious, keepMachineFields, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
+import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay } from './lib/overlays'
 import { apiDelete } from './lib/api'
 import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
@@ -175,7 +177,7 @@ import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterIdByName as rosterIdByNameOf, truppByPersonId } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
-import type { Item } from './lib/checklists'
+import type { ChecklistState, Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
 import { flushSync } from 'react-dom'
@@ -2939,15 +2941,19 @@ export function IncidentWorkspace({
     (ev) => {
       pushEvent({ icon: ev.icon, text: ev.text, kind: 'reminder', surface: mode === 'plans' ? 'plan' : 'map', planId: mode === 'plans' ? activePlanId : undefined, reminder: ev.reminder })
       // mirror the create emit (see addJournal) so the hash-chained audit / replay carry the FULL
-      // reminder lifecycle — done + snooze — not just creation.
-      emit(ev.reminder.op === 'done' ? 'reminder.done' : 'reminder.snooze', { id: ev.reminder.id, ...(ev.reminder.dueAt ? { dueAt: ev.reminder.dueAt } : {}) })
+      // reminder lifecycle — done + snooze + reopen — not just creation.
+      const op = ev.reminder.op
+      emit(op === 'done' ? 'reminder.done' : op === 'reopened' ? 'reminder.reopen' : 'reminder.snooze', { id: ev.reminder.id, ...(ev.reminder.dueAt ? { dueAt: ev.reminder.dueAt } : {}) })
     },
     {
       dueTitle: appConfig.copy.journal.dueTitle, doneLog: appConfig.copy.journal.doneLog,
       pendenzDoneLog: appConfig.copy.journal.pendenzDoneLog, snoozeLog: appConfig.copy.journal.snoozeLog,
+      reopenLog: appConfig.copy.journal.reopenLog, pendenzReopenLog: appConfig.copy.journal.pendenzReopenLog,
     },
     !replayActive,
     incidentMeta.closed_at,
+    // «Erledigt» is confirm-with-undo and joins the one timeline (useReminders · completeReminder)
+    undoHist,
   )
 
   // «wieder in …» on a done row (Journal · onReminderAgain): re-raise a closed item as a FRESH
@@ -4234,19 +4240,25 @@ export function IncidentWorkspace({
   const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord)
   /** One recorded step over a slice somebody else owns. `op` is the domain-scoped audit prefix —
    *  see `logHistStep` for why a bare `undo` would wedge an `el` session's outbox. */
-  const rememberSliceStep = <T,>(domain: UndoDomain, hist: UndoableSlice<T>, label: string, op: string, icon: string, onStep?: () => void) => undoHist.push({
-    domain,
-    label,
-    // ⚠️ `onStep` FIRST, before the stack moves: it closes whatever fold window is still open
-    // (the Rapport's), because the step that window would fold into is the one being popped.
-    undo: () => { onStep?.(); return histStep(!!hist.undo(), 'undo', label, op, icon, 'journal') },
-    redo: () => { onStep?.(); return histStep(!!hist.redo(), 'redo', label, op, icon, 'journal') },
-  })
-  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef.current, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
-  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef.current, C_HIST.undoDomains.checkliste, 'checklist.', 'check'); return laid }
+  /*  `describe` lets the domain write the step's rows itself — the Checklisten write «☑ …» /
+   *  «Meilenstein zurückgenommen: …» for a milestone, the same row a tap writes — and a `true`
+   *  from it replaces the generic «… rückgängig gemacht», so one step is never two rows. */
+  /*  ⚠️ The slice's history travels as a REF, read when the step is taken (lib/sliceUndoStep). */
+  const rememberSliceStep = <T,>(domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) =>
+    pushSliceStep(undoHist, {
+      domain, label, histRef, onStep,
+      record: (moved, dir) => {
+        if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
+        return histStep(!!moved, dir, label, op, icon, 'journal')
+      },
+    })
+  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep('mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
+  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep('checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
   // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
   const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
   const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
+  /** the milestone rows of a Checklisten step (useChecklistActions · describeStep), set below */
+  const checklistDescribeRef = useRef<(moved: { from: ChecklistState; to: ChecklistState }) => boolean>(() => false)
   /**
    * …and the Einsatzrapport, the last record surface with no way back (field report 18.09.2026:
    * «Rettungen eingetragen, Zahl war falsch, Rückgängig macht nichts»). Same slice mechanism as
@@ -4286,7 +4298,7 @@ export function IncidentWorkspace({
     // ⚠️ …and the fold window closes on every ↶ ↷ (the last argument): the step it would fold
     // into has just moved to the other stack, so typing in the same field right after an undo
     // would lay no step of its own — and the next ↷ would overwrite it.
-    if (laid) rememberSliceStep('rapport', reportHistRef.current, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
+    if (laid) rememberSliceStep('rapport', reportHistRef, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
     return laid
   }
   reportSetRef.current = reportSet
@@ -4336,7 +4348,7 @@ export function IncidentWorkspace({
     }
     // `shift.` is on the `el` audit allowlist (backend · EL_EVENT_PREFIXES): an Einsatzleiter
     // plans shifts, so their ↶ must not 403 the batch — see logHistStep.
-    if (laid) rememberSliceStep('zeitplan', zeitplanHistRef.current, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
+    if (laid) rememberSliceStep('zeitplan', zeitplanHistRef, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
   }
   const setShiftsUndoable: Dispatch<SetStateAction<Shift[]>> = (u) =>
     zeitplanWrite((cur) => ({ ...cur, shifts: typeof u === 'function' ? u(cur.shifts) : u }))
@@ -4693,7 +4705,9 @@ export function IncidentWorkspace({
   // canEditRecord, not canEditIncident (07.09.): ticking is record-keeping — the el role
   // and an editor's Führungsansicht keep it; the backend enforces the same boundary.
   const canTick = canEditRecord
-  const { toggleTick, setBranch } = useChecklistActions({ canTick, checklists, setChecklists: checklistSet, authorName: user?.display_name, log, emit })
+  const { toggleTick, setBranch, describeStep: describeChecklistStep } = useChecklistActions({ canTick, checklists, setChecklists: checklistSet, authorName: user?.display_name, log, emit })
+  // in an effect, not during render: it is read only when a step is TAKEN, long after this commit
+  useEffect(() => { checklistDescribeRef.current = describeChecklistStep })
   // Deep links: an item's `action` jumps to the matching surface (best-effort, reusing
   // existing setters). journal → open the composer; plan → Plan tab; draw → Lage + pen.
   const checklistAction = (_item: Item, a: NonNullable<Item['action']>) => {
@@ -5257,7 +5271,14 @@ export function IncidentWorkspace({
             // ⚠️ No «Abmelden» for a link session (02.09.): a link is the literal page and owns
             // no login on this device, so there is none to end here — and the row used to end
             // the DEVICE's own one. Leaving the link means leaving the page.
-            onLogout={linkScoped ? undefined : () => { void logout() }}
+            // …and it always asks first (lib/logoutConfirm), saying what is still unsent here
+            onLogout={linkScoped ? undefined : () => {
+              void confirmLogout({
+                online: navigator.onLine,
+                unsyncedEntries: journal.pendingCount + journal.rejectedCount + media.pendingCount,
+                unsyncedOther: syncStatus !== 'synced',
+              }).then((ok) => { if (ok) void logout() })
+            }}
             navKey={`${mode}|${journalOpen ? 'journal' : ''}`}
             sheetOpen={settingsOpen || helpOpen || installGuideOpen || offlineReadyOpen || !!shareLink}
           />

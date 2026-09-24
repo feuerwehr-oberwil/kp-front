@@ -1046,8 +1046,12 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                   )}
                   {erg.p && <p className="un-haz-water"><Icon id="warn" /> {C.ergPolymerization}</p>}
                   {(erg.tih ?? []).map((row, i) => {
-                    // «Übernehmen» beside each distance (Feldtest 07.09.): the value becomes a
-                    // real Absperrkreis around the symbol, one tap, no re-typing of «0.2 km».
+                    // «Absperrkreis übernehmen» beside each distance (Feldtest 07.09.): the value
+                    // becomes a real Absperrkreis around the symbol, one tap, no re-typing of
+                    // «0.2 km». ⚠️ Its OWN 44px button with the Absperrkreis tool's ⊙ (23.09.2026),
+                    // not a 12px underlined «Übernehmen» squeezed after the value — and not the
+                    // whole row either: touching the number to read it would then drop a circle on
+                    // the map. Icon-only, so the row keeps its width; the name is the hold-tooltip.
                     const distRow = (label: string, value?: string) => {
                       if (!value) return null
                       const metres = parseErgDistance(value)
@@ -1056,9 +1060,11 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                           <span className="un-haz-k">{label}</span>
                           <span className="un-haz-v">{value}</span>
                           {onAdoptRadius && metres != null && (
-                            <button type="button" className="un-erg-adopt" onClick={() => onAdoptRadius(metres)}>
-                              {C.ergAdopt}
-                            </button>
+                            <button
+                              type="button" className="un-erg-adopt"
+                              aria-label={C.ergAdopt} title={C.ergAdopt}
+                              onClick={() => onAdoptRadius(metres)}
+                            ><Icon id="circle" /></button>
                           )}
                         </div>
                       )
