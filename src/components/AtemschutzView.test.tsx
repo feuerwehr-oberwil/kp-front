@@ -1492,3 +1492,113 @@ describe('the Ausrüstung of an Atemschutz-Trupp', () => {
     expect(screen.getByRole('group', { name: az.equipmentLabel })).toBeTruthy()
   })
 })
+
+/* ── The phone board of the full app (24.09.2026, Übung Allschwilerstrasse 100) ───────────────
+ * One Überwacher ran five Trupps from a phone; the hand-set order hid the overdue ones and ten of
+ * seventeen contacts came after the alarm. The phone board is now arranged by what to do next,
+ * every button says its word, and one pressure picker answers Druck and Raus. */
+describe('the phone board (full app)', () => {
+  afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
+  const inField = (id: string, name: string, contactAgoMin: number): Trupp => ({
+    ...aktivTrupp(), id, name, lastContactTime: iso(contactAgoMin * 60_000),
+  })
+  const rowNames = () => Array.from(document.querySelectorAll(`.${s.rowList} .${s.trowNameTxt}`)).map((el) => el.textContent)
+
+  it('puts the Trupp due next on top of «Drin», whatever the hand-set order', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [inField('a', 'Fresh Anna', 1), inField('b', 'Due Beat', 4.5)] })
+    expect(rowNames().slice(0, 2)).toEqual(['Due Beat', 'Fresh Anna'])
+    const titles = Array.from(document.querySelectorAll(`.${s.sectTitle}`)).map((el) => el.textContent)
+    expect(titles[0]).toBe(az.phoneSectionIn)
+  })
+
+  it('orders the sections Drin · Sicherungstrupp · Bereit · Draussen', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [
+      { ...aktivTrupp(), id: 'o', name: 'Out Otto', status: 'raus', exitTime: iso(60_000) },
+      { ...aktivTrupp(), id: 'r', name: 'Ready Rita', status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] },
+      { ...aktivTrupp(), id: 'sich', name: 'Safe Sam', auftrag: 'sichern', status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] },
+      inField('i', 'In Ida', 1),
+    ] })
+    const text = document.body.textContent ?? ''
+    const at = (needle: string) => text.indexOf(needle)
+    expect(at('In Ida')).toBeLessThan(at('Safe Sam'))
+    expect(at('Safe Sam')).toBeLessThan(at('Ready Rita'))
+    expect(at('Ready Rita')).toBeLessThan(at('Out Otto'))
+    // the order menu is not offered: the phone arrangement is fixed
+    expect(screen.queryByRole('button', { name: az.orderLabel })).toBeNull()
+  })
+
+  it('«Druck» on the row opens the picker and one tap records the reading', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const props = mount({ trupps: [inField('a', 'Anna', 1)] })
+    fireEvent.click(screen.getByRole('button', { name: az.actPressure }))
+    fireEvent.click(screen.getByRole('button', { name: '200' }))
+    expect(props.recordPressure).toHaveBeenCalledWith('a', 200)
+  })
+
+  it('«Raus melden» asks the Restdruck — a number goes out with it, «Ohne Druck raus» without', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const setTruppStatus = vi.fn()
+    mount({ trupps: [inField('a', 'Anna', 1)], setTruppStatus })
+    fireEvent.click(document.querySelector(`.${s.trow}`)!)
+    fireEvent.click(screen.getByRole('button', { name: az.actExit }))
+    fireEvent.click(screen.getByRole('button', { name: '180' }))
+    expect(setTruppStatus).toHaveBeenCalledWith('a', 'raus', 180)
+  })
+
+  it('offers «Ohne Druck raus» on the same sheet', () => {
+    const setTruppStatus = vi.fn()
+    mount({ trupps: [inField('a', 'Anna', 1)], setTruppStatus })
+    fireEvent.click(screen.getByRole('button', { name: az.actExit }))
+    fireEvent.click(screen.getByRole('button', { name: az.exitNoBar }))
+    expect(setTruppStatus).toHaveBeenCalledWith('a', 'raus')
+  })
+
+  it('asks for a Sicherungstrupp while a crew is inside and none stands ready', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [inField('a', 'Anna', 1)] })
+    expect(screen.getByText(az.safetyNone)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: az.safetyPick }))
+    const sichern = within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' })
+    expect(sichern.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('sends the standing Sicherungstrupp in with one tap', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    const setTruppStatus = vi.fn()
+    mount({ trupps: [
+      inField('a', 'Anna', 1),
+      { ...aktivTrupp(), id: 'sich', name: 'Safe Sam', auftrag: 'sichern', status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] },
+    ], setTruppStatus })
+    expect(screen.queryByText(az.safetyNone)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: az.safetyDeploy }))
+    expect(setTruppStatus).toHaveBeenCalledWith('sich', 'aktiv')
+  })
+})
+
+describe('re-entry right after an Austritt asks which cylinder', () => {
+  const justOut = (minAgo: number): Trupp => ({
+    ...aktivTrupp(), status: 'raus', exitTime: iso(minAgo * 60_000),
+    readings: [...aktivTrupp().readings!, { t: iso(minAgo * 60_000), bar: 180, kind: 'exit', measured: true }],
+  })
+
+  it('holds «Im Einsatz» until «Gleiche» or «Neue Flasche» is chosen, and takes the chosen bar', () => {
+    const reactivateTrupp = vi.fn()
+    render(<Overlays />)
+    mount({ trupps: [justOut(2)], reactivateTrupp })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    expect(screen.getByText(fillTemplate(az.bottleAsk, { min: '2', bar: '180' }))).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(reactivateTrupp).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(az.bottleSame) }))
+    fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
+    expect(reactivateTrupp).toHaveBeenCalledWith('tr1', expect.objectContaining({ pressure: 180 }), false)
+  })
+
+  it('does not ask after a real break', () => {
+    mount({ trupps: [justOut(25)] })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    expect(screen.queryByRole('button', { name: new RegExp(az.bottleSame) })).toBeNull()
+  })
+})

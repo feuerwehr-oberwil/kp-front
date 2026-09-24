@@ -955,6 +955,14 @@ export interface TruppReading {
    * rides along as the last value known, like a `contact` row, and is never printed as measured.
    */
   crew?: { name: string; members: string[] }
+  /**
+   * The bar on THIS row was read off a gauge, although its kind normally only carries the last
+   * known value forward (lib/report · readingBarIsMeasured). Written by one row only: an `exit`
+   * whose Restdruck was asked at «Raus melden» (24.09.2026). Übung 23.09. showed why: with no
+   * place for the pressure at the exit, the Überwacher typed it into «Eingangsdruck korrigieren»
+   * three times and the Rapport printed entries of 60, 170 and 180 bar. Absent everywhere else.
+   */
+  measured?: true
 }
 
 export interface Trupp {
