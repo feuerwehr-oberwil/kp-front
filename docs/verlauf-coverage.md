@@ -26,6 +26,24 @@ On top of that there is a third, small source: the server writes lifecycle rows 
 (`append_system_row`, `backend/app/api/journal.py:96`) – incident closed, reopened,
 Nachalarm, automatic archival.
 
+## What the server observes (since 24.09.2026)
+
+Observations of the outside world are written by the scheduler, never by a
+device (`docs/ARCHITECTURE.md` · «The server observes»). Their rows carry derived ids, `t: ""`
+(clients render the time from `at`) and German text, like the other server rows:
+
+| Row | Id | `at` | When |
+|---|---|---|---|
+| «TLF vor Ort» | `vp-<n>-scene-gps-<device>` | the FIRST GPS fix inside 150 m | the vehicle's first arrival only; later arrivals are trips, counted in `reportMeta.fahrzeuge[].gps.fahrten` and printed as «3 Fahrten», never rows. No row when the external geofence already wrote «TLF vor Ort 19:23» for it (first writer wins) |
+| «TLF hat den Einsatzort verlassen» | `vp-<n>-away-gps-<device>` | the FIRST GPS fix beyond 300 m | the LAST departure only: written once the vehicle stayed away 20 min, or when the Einsatz stops being active — so it appears late but stands where it happened |
+| «Wind dreht: W → NO (286° → 66°) · Lüfter prüfen» | `wxd-<observed_at>` | the confirming reading | a turn ≥ 45° at ≥ 10 km/h, held over two readings; the devices show it once on the Meldeleiste (`WindShiftMeldung`, ✕ is remembered per device) |
+
+Audit only (no row): `vehicle.presence` (every transition and the silent baseline, source
+`gps`) and `weather.observe` (every reading, source `weather`, id `wx:<incident>:<observed_at>`
+— the replay's wind badge). Rows written before 24.09.2026 by the devices (`vp-` rows stamped
+when a device noticed, `weather.observe` per device) stay as they are; an older build's new
+ones are dropped at the endpoints.
+
 ## Atemschutz: the full cycle is on the record
 
 Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.

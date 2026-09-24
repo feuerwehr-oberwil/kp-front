@@ -58,9 +58,9 @@ flowchart TB
 | Hazmat UN-Nr → Stoff (ADR) | UNECE ADR table | bundled `src/data/unHazard.json` | ✅ in-app |
 | Base map tiles | swisstopo WMTS · OSM · canton WMS | **browser fetches tile servers directly** | ⚠️ pre-cached areas only – a per-device setting (Offline-Vorbereitung) can pre-cache automatically shortly after an incident opens, instead of relying on the manual «Alles für offline laden» |
 | Geocoding / address search | swisstopo geo.admin | backend proxy `GET /api/geocode` | ✗ online only |
-| Weather / wind | MeteoSwiss → Open-Meteo fallback | backend proxy `GET /api/weather` | last value cached |
-| Alarm + roster | Divera 24/7 | backend proxy `/api/divera`, `/api/personnel` | roster cached |
-| Live vehicle GPS | Traccar | backend proxy `/api/traccar` | ✗ live only |
+| Weather / wind | MeteoSwiss → Open-Meteo fallback | backend proxy `GET /api/weather`; recorded by the scheduler (`weather.observe`) | last value cached |
+| Alarm + roster | Divera 24/7 | webhook + the scheduler's poll → pool; devices read `/api/divera/pool`, `/api/personnel` | roster cached |
+| Live vehicle GPS | Traccar | backend proxy `/api/traccar` (one cached answer per 10 s); «vor Ort»/«verlassen» observed by the scheduler | ✗ live only |
 | Reference geodata (hydrants, Leitungskataster, canton WMS) | the station's own (often private) data repo | `admin_geodata` → reference store + `config.referenceLayers` (see [`geodata-architecture.md`](geodata-architecture.md)) | ✅ GeoJSON cached (WMS tiles online) |
 | Incident state · Verlauf · exports | **the operator (this app)** | workspace sync + append-only event log in Postgres | ✅ IndexedDB + queued sync |
 
@@ -113,6 +113,32 @@ admin endpoint rather than falling back to the editor PIN.
 Incident state is one workspace blob per incident; the audit trail (`audit.py`) hash-chains
 every change and keeps fold snapshots so an incident can be replayed and verified
 (`GET /api/incidents/{id}/verify`).
+
+### The server observes; devices never write observations
+
+Everything the app merely OBSERVES about the outside world is recorded by the scheduler (one
+leader per deployment, `scheduler.py` · PostgreSQL advisory lock), once, stamped with the time
+the fact is about — never by a device. Decided after the Feueralarm-Übung of 23.09.2026, where
+every editor device wrote what it noticed, when it noticed: all five vehicles «vor Ort» at
+19:43 (the moment a tablet woke up; GPS said 19:23–19:28), one weather reading up to five
+times, and 469 Divera polls.
+
+The observer is **active** for an incident that is open, started within the last 24 h and has
+a real coordinate (not 0/0); Übungen included.
+
+| Observation | Where | Record |
+| --- | --- | --- |
+| Fahrzeug «vor Ort» / «verlassen» | `vehicle_presence.py`, inside the 30 s GPS sweep (`_vehicle_samples_sweep`); rings ≤ 150 m / ≥ 300 m, 90 s settle, stamped with the FIRST GPS fix in the new zone | a `vehicle.presence` audit event per transition (`vp:<device>:<n>`, the restart memory); Verlauf rows for the first arrival and the last departure only (`vp-<n>-<zone>-gps-<device>`, the departure once the vehicle stayed away 20 min or the incident ends); `reportMeta.fahrzeuge[].gps` (zone, an, ab, Fahrten) for the vehicle table and the Rapport; `vorOrt`/`zurueck` first-writer-wins against the external geofence (`api/alarms · apply_milestones`) |
+| Wetter | `observations.py`, every 10 min (`_weather_sweep`) | one `weather.observe` event per reading, `wx:<incident>:<observed_at>` (the shape the replay reads) |
+| Winddrehung | `observations.py` — ≥ 45° at ≥ 10 km/h, held over two readings | one Verlauf row `wxd-<observed_at>`; devices show it once on the Meldeleiste |
+| Divera-Alarme | `_divera_tick`: 30 s while no incident runs, 120 s while one does, exponential back-off on 429 | the pool; the webhook stays the primary intake, devices only READ `/api/divera/pool` |
+| Fahrzeugpositionen | `traccar.cached_vehicle_positions`: one Traccar answer per 10 s for every device | — (the map's live layer) |
+
+A derived id makes a second writer (a restart, a rolling deploy) converge rather than
+duplicate. A device on an older build still writes its own presence rows and weather events;
+the journal and events endpoints acknowledge and drop them (`api/journal · observed_by_server`,
+`api/events · SERVER_OBSERVED_OPS`). The fake fleet (`TRACCAR_FAKE`) feeds the same sweep, so
+all of it runs on dev and demo data.
 
 ## Configuration: four layers
 
@@ -209,5 +235,8 @@ flowchart LR
   outbound call is SSRF-guarded and cacheable.
 - **Append-only, hash-chained history** → the incident record is tamper-evident and replayable,
   suitable as a legal record.
+- **The server observes, devices never write observations** → a vehicle's arrival, the weather
+  and a new Divera alarm are facts about the world, not about a screen: one writer, stamped with
+  the time of the fact, whether or not any device is awake (see above).
 - **Bundle nothing station-specific** → clean open-source posture; each station brings its own
   branding, config, and geodata.

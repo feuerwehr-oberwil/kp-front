@@ -31,6 +31,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The server observes; the devices only show** (post-mortem of the Übung on 23.09.2026). «TLF
+  vor Ort» and «hat den Einsatzort verlassen» are detected by the server's 30 s GPS sweep and
+  stamped with the GPS fix time – not when a tablet happened to wake up (all five vehicles read
+  19:43 in the Übung; GPS said 19:23–19:28). Same rings as before (≤ 150 m, ≥ 300 m, 90 s). The
+  Verlauf gets each vehicle's first arrival and last departure; shuttle trips are counted
+  instead («3 Fahrten» in the Rapport) and a new **«Fahrzeuge GPS · live»** table under the
+  Rapport's Fahrzeugzeiten shows status, an, ab, Fahrten and how old each position is. The
+  weather at a running Einsatz is recorded once per reading by the server, and a **wind shift**
+  (≥ 45° at ≥ 10 km/h, held over two readings) writes «Wind dreht: W → NO (286° → 66°) · Lüfter
+  prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included.
+
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the
@@ -127,6 +138,20 @@ so this file – not the log – is the record of what shipped up to that point.
   by area, for the nightly run too.
 - **Map zoom to 21**, and a Koordinaten fold in «Einsatz erfassen» that stays shut once address
   and coordinate both stand.
+
+### Changed
+
+- **Divera is polled by the server only**: every 30 s while no Einsatz runs, every 120 s while
+  one does, backing off on HTTP 429. The devices read the pool and no longer make the server
+  poll (469 Divera calls in one Übung). The webhook stays the primary intake.
+- **One Traccar answer serves every device for 10 s**, instead of one Traccar login per device
+  per 15 s poll.
+- **The fake fleet (`TRACCAR_FAKE`) reaches the server's GPS sweep**, so the replay track and the
+  presence detection run on dev and demo data; a fake position may carry its fix time (`ts`, or
+  `at` as an offset in a scenario file).
+- A device still on the previous build keeps writing its own «vor Ort» rows and weather
+  events; the server acknowledges and drops them, so a mixed-version day converges on the
+  server's record.
 
 ### Fixed
 
