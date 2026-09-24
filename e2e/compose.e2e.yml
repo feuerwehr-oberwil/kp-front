@@ -1,0 +1,9 @@
+# CI-only overlay on docker-compose.yml for the Image job's e2e run (.github/workflows/ci.yml,
+# via COMPOSE_FILE). It adds exactly one thing the production file must never carry: the fake
+# vehicle fleet (TRACCAR_FAKE — the Karte would show it instead of the real one), which
+# e2e/field-scenario.spec.ts parks next to its Einsatz. Injecting a vehicle also needs
+# ALARM_WEBHOOK_SECRET, which docker-compose.yml already passes through from .env.
+services:
+  app:
+    environment:
+      TRACCAR_FAKE: "1"
