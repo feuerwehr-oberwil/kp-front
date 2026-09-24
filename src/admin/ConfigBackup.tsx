@@ -61,7 +61,7 @@ function isEmpty(v: unknown): boolean {
 function emptiedSections(current: Record<string, unknown>, next: Record<string, unknown>): string[] {
   const out: string[] = []
   for (const [key, oldVal] of Object.entries(current)) {
-    if (key === 'integrations' || key === 'version' || key === 'alarmVocabulary') continue
+    if (key === 'integrations' || key === 'version' || key === 'alarmVocabulary' || key === 'lageGrundgeruestPresets') continue
     const newVal = next[key]
     if (oldVal && typeof oldVal === 'object' && !Array.isArray(oldVal)
         && newVal && typeof newVal === 'object' && !Array.isArray(newVal)) {

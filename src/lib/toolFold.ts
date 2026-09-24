@@ -22,7 +22,9 @@
 
 /** the tools that live in the «+» sheet on a phone, in sheet order.
  *  ⚠️ Both spellings: the Karte says `note` / `team`, a Plan says `text` / `resource`. */
-export const ADD_TOOLS: readonly string[] = ['line', 'area', 'circle', 'note', 'text', 'team', 'resource']
+// `grundgeruest` (the Karte's Lage-Grundgerüst card) is not a tool but belongs behind the same
+// door: every row of that card puts something on the Karte, and the bar has no sixth tile.
+export const ADD_TOOLS: readonly string[] = ['line', 'area', 'circle', 'note', 'text', 'team', 'resource', 'grundgeruest']
 
 interface ToolLike { id: string; sep?: boolean; slot?: boolean }
 

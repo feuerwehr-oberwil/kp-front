@@ -291,8 +291,9 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     attemptedRef.current = json
     setSave({ kind: 'saving' })
     // integrations is env-derived / read-only; symbols (quickPick) was dropped from the
-    // app. Strip both before the full-document PUT so neither is ever re-sent.
-    const { integrations: _ignore, symbols: _dropSymbols, ...payload } =
+    // app; the Lage-Grundgerüst presets are the server's shipped files, served beside the
+    // document. Strip all three before the full-document PUT so none is ever re-sent.
+    const { integrations: _ignore, symbols: _dropSymbols, lageGrundgeruestPresets: _presets, ...payload } =
       sent as DeploymentConfig & { symbols?: unknown }
     let echo: DeploymentConfig | undefined
     try {

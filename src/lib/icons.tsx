@@ -98,6 +98,9 @@ export function IconSprite() {
       {/* who LEADS — the Gruppenführer crown in the Trupp picker. Outline while it is an offer,
           filled by the caller (.teamCrownOn) once it is the state, so the leader reads as a
           fact rather than as one more button that could still be pressed. */}
+      {/* the Lage-Grundgerüst — a list whose done rows are ticked and whose open rows are a «+»,
+          which is exactly what the card on the Karte is (and why it is not Checklisten's glyph) */}
+      <symbol id="grundgeruest" viewBox="0 0 24 24"><path d="M3.8 7.2l2 2 3.4-3.7" /><path d="M12.5 7.5h8" /><path d="M6 13v5M3.5 15.5h5" /><path d="M12.5 15.5h8" /></symbol>
       <symbol id="star" viewBox="0 0 24 24"><path d="m12 3.8 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" stroke-linejoin="round" /></symbol>
       <symbol id="checklist" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="14" height="14" rx="2" /><path d="M8 3.5h10.5a2 2 0 0 1 2 2V16" /><path d="M6.8 12.4l1.5 1.5 2.7-3M13.2 13h2" /><path d="M6.8 17.2l1.5 1.5 2.7-3M13.2 17.8h2" /></symbol>
       <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>
