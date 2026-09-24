@@ -1,5 +1,6 @@
 import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './api'
 import { idbGet, idbSet } from './idb'
+import { newId } from './ids'
 import { rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
 import type { SyncStatus } from './api/workspaceSync'
@@ -110,7 +111,6 @@ export class JournalStore {
   private rehydrateRequested = false
   /** after a 4xx: send rows one at a time to isolate the poisoned one */
   private singleMode = false
-  private patchSeq = 0
   private readOnly: boolean
   private cacheDurable = true
   private writeSeq = 0
@@ -229,8 +229,9 @@ export class JournalStore {
   appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) {
     const at = new Date().toISOString()
     const clean = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v ?? '']))
-    // seq suffix: two patches for one target can land in the same millisecond
-    this.append({ id: `tp${Date.now()}-${this.patchSeq++}-${targetId}`, t: '', at, icon: '', text: '', patchOf: targetId, ...clean })
+    // two patches for one target can land in the same millisecond — on one device (newId's
+    // counter) or on two (its random tail; a per-store counter restarted at 0 on each, 24.09.2026)
+    this.append({ id: `${newId('tp')}-${targetId}`, t: '', at, icon: '', text: '', patchOf: targetId, ...clean })
   }
 
   /** Session-only display fields (blob: URLs from a fresh capture / the media-queue restore). */

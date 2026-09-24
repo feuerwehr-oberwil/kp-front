@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
+import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
 import { Stepper } from './Stepper'
 import { Menu, Overlay, Popover } from '../lib/overlays'
@@ -678,7 +679,7 @@ export function AtemschutzView({
       unlinkTruppLine(clash.id) // the previous Trupp lets go — its Leitung is now this one's
     }
     if (form.mode === 'create') {
-      const id = `tr${Date.now()}`
+      const id = newId('tr')
       createTrupp({
         id,
         // ⚠️ WRITTEN ONLY for the new kind. Absent means «unter Atemschutz» (types · TruppKind),

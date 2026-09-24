@@ -1,16 +1,11 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
+import { newId } from './ids'
 import { undoToast } from './ui'
 import type { AttendanceState, Person, TimelineEvent } from '../types'
 import { closePresence, currentIntervalIndex, intervalsOf, isPresent, openPresence, setIntervalTime, withIntervals } from './attendanceIntervals'
 import { ortOf, otherOrt } from './attendanceOrt'
-
-/** Monotonic suffix for guest ids. `Date.now()` alone collides: two people walking in together
- *  are entered in the same millisecond, and the second entry then OVERWRITES the first — one of
- *  them silently missing from the Anwesenheit and from the Rapport. Module-level so it survives
- *  a remount mid-incident. */
-let guestSeq = 0
 
 /** A freshly opened block cannot be split again this soon — that is a double tap, not a relief. */
 const MIN_BLOCK_MS = 60_000
@@ -195,8 +190,11 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
   const addGuest = (name: string, note?: string): string | undefined => {
     const display = name.trim()
     if (!display) return undefined
-    guestSeq += 1
-    const id = `g${Date.now().toString(36)}-${guestSeq}`
+    // ⚠️ `Date.now()` alone collides: two people walking in together are entered in the same
+    // millisecond, and the second entry then OVERWRITES the first — one of them silently missing
+    // from the Anwesenheit and from the Rapport. A module counter fixed that for ONE device; two
+    // devices each start it at 0, so the id takes newId's random tail too (24.09.2026).
+    const id = newId('g')
     const job = note?.trim()
     setAttendance((cur) => ({
       ...cur,

@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useMittelActions } from './useMittelActions'
+import { mergeWorkspace } from './mergeWorkspace'
+import { simulatedDevice } from './devices.test-utils'
 import type { MittelEntry } from '../types'
 
 // A settled Mittel count says where the number came FROM («… (vorher 3)»), because the Verlauf is
@@ -57,5 +59,34 @@ describe('useMittelActions · the settled count row', () => {
     act(() => { h.result.current.saveMittel(draft(4)) })
     act(() => { vi.advanceTimersByTime(3000) })
     expect(h.rows()).toEqual(['Schlauch 75er: 4 Stk.'])
+  })
+})
+
+// Post-mortem 23.09.2026: `m${Date.now()}-${list.length}` — two devices holding the same list
+// length minted the same id in one millisecond, and the workspace merge (by id) folded two
+// materials into one.
+describe('useMittelActions · two devices, one millisecond', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('mints distinct ids, and the merge keeps both materials', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-23T19:04:05.123Z'))
+    const base = [entry(3)] // both devices start from the same synced list — same length
+    const onDevice = async (seed: number, d: ReturnType<typeof draft>) => {
+      const dev = await simulatedDevice(seed, () => import('./useMittelActions'))
+      let mittel = base
+      const { result } = renderHook(() => dev.mod.useMittelActions({
+        mittel, setMittel: (u) => { mittel = typeof u === 'function' ? u(mittel) : u }, authorName: undefined, log: vi.fn(),
+      }))
+      dev.run(() => act(() => { result.current.saveMittel(d) }))
+      return mittel
+    }
+    const a = await onDevice(1, { label: 'Ölbinder', unit: 'Sack', menge: 2 })
+    const b = await onDevice(2, { label: 'Tauchpumpe', unit: 'Stk.', menge: 1 })
+    expect(a).toHaveLength(2)
+    expect(b).toHaveLength(2)
+    expect(a[1].id).not.toBe(b[1].id)
+    const merged = mergeWorkspace({ mittel: base }, { mittel: a }, { mittel: b }).mittel as MittelEntry[]
+    expect(merged.map((m) => m.label).sort()).toEqual(['Schlauch 75er', 'Tauchpumpe', 'Ölbinder'])
   })
 })
