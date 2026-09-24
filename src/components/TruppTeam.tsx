@@ -239,7 +239,7 @@ export function TruppTeam({
     ? { list: s.teamChips, row: s.chip, lead: s.chipLead, pick: s.chipPick,
         role: s.chipRole, roleLead: s.chipRoleLead, name: s.chipName, remove: s.chipX }
     : { list: s.teamChosen, row: s.teamRow, lead: s.teamRowLead, pick: s.teamPick,
-        role: s.teamRole, roleLead: s.teamRoleLead, name: s.teamName, remove: s.slotRemove }
+        role: s.teamRole, roleLead: s.teamRoleLead, name: s.teamName, remove: s.teamX }
 
   return (
     <div className={s.team}>

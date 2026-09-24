@@ -989,8 +989,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* Four slots, always. The box therefore never changes height as people are ticked — the modal
    used to grow with every pick and the roster list walked down the screen after it. */
 .teamChosen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.teamRow { display: flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 0 6px 0 0;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface); }
+.teamRow { display: flex; align-items: center; min-height: var(--tap);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface);
+  --seg-r: calc(var(--r-ctl) - 1px); }
+/* ⚠️ ONE OUTLINE, TWO SEGMENTS (24.09.2026, «ugly hover effect»): the name (crowns) and the ✕
+   (removes) are two targets inside ONE row, so each washes exactly its own half of it — flush
+   to the border, corners concentric with the row's (its radius minus the 1px border, `--seg-r`),
+   square where the two halves meet. The name used to wash as a rounded pill of its own that
+   stopped short of a small ✕ square, and the row read as two mismatched pills. Same on the
+   phone chip below. */
 /* a slot nobody is in yet: the shape of the row, none of its weight */
 /* ⚠️ The same left inset and gap as a FILLED row (.teamPick), so the role column lines up down
    the whole stack — «GF» over «AdF» over a name has to be one column, not three near-misses. */
@@ -1009,8 +1016,16 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      text with the selection callout — which eats the gesture and leaves a highlighted name */
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .teamPick:disabled { cursor: default; }
-@media (hover: hover) { .teamPick:hover:not(:disabled) { background: var(--fill-soft); border-radius: var(--r-ctl); } }
-.teamPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); border-radius: var(--r-ctl); }
+.teamPick { border-radius: var(--seg-r) 0 0 var(--seg-r); }
+@media (hover: hover) { .teamPick:hover:not(:disabled) { background: var(--fill-soft); } }
+.teamPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* the row's ✕: the row's full height and a --tap wide, the end of the row's own outline */
+.teamX { flex: none; display: grid; place-items: center; width: var(--tap); align-self: stretch;
+  border: none; background: none; color: var(--ink-faint); cursor: pointer;
+  border-radius: 0 var(--seg-r) var(--seg-r) 0; }
+.teamX :global(.i) { width: 14px; height: 14px; }
+@media (hover: hover) { .teamX:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
+.teamX:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the role, spelled out on the left — «GF» or «AdF». It replaced a star: a symbol that has to
    be learnt, on a row whose whole job is to say who leads. */
 /* the Gruppenführer's row carries the emphasis, not just a badge — the card, the Rapport and the
@@ -1043,10 +1058,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    says «these are targets, that is a field». */
 .chip { display: inline-flex; align-items: center; max-width: 100%; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
-  padding: 0 2px 0 0; }
+  --seg-r: calc(var(--r-sm) - 1px); }
 .chipPick { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 7px;
   align-self: stretch; padding: 0 4px 0 9px; border: none; background: none; cursor: pointer;
-  text-align: left; font: inherit; color: inherit; border-radius: var(--r-sm);
+  text-align: left; font: inherit; color: inherit; border-radius: var(--seg-r) 0 0 var(--seg-r);
   -webkit-tap-highlight-color: transparent;
   /* the chip promotes on a HOLD too (TruppTeam · useLongPress), and iOS answers a hold over text
      with the selection callout — which eats the gesture and leaves a highlighted name */
@@ -1067,13 +1082,15 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    inset `box-shadow` (the way `.tabOn` rings a Trupp tab), never geometry. */
 .chipLead { border-color: color-mix(in srgb, var(--amber) 45%, transparent);
   background: color-mix(in srgb, var(--amber) 12%, var(--surface)); }
-/* ⚠️ 34px wide against the chip's full height: a mis-grip must never take somebody OUT of the
-   Trupp — at worst it crowns them, which is one tap to undo. */
-.chipX { flex: none; display: grid; place-items: center; width: 34px; align-self: stretch;
-  border: none; background: none; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
+/* ⚠️ 36px wide against the chip's full height: a mis-grip must never take somebody OUT of the
+   Trupp — at worst it crowns them, which is one tap to undo. Flush with the chip's right edge
+   (36 = the old 34 + the 2px the chip used to pad it with), so its wash is the chip's own end. */
+.chipX { flex: none; display: grid; place-items: center; width: 36px; align-self: stretch;
+  border: none; background: none; color: var(--ink-faint); cursor: pointer;
+  border-radius: 0 var(--seg-r) var(--seg-r) 0; }
 .chipX :global(.i) { width: 15px; height: 15px; }
 @media (hover: hover) { .chipX:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
-.chipX:active { background-image: linear-gradient(var(--press), var(--press)); }
+.chipX:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* The matches under the field, and ONLY while something is typed. Shrink-wrapped, never a
    scroller: it is as tall as its ≤4 rows and pushes what stands below it down by exactly that
