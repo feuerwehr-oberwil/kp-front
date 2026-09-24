@@ -420,6 +420,29 @@ export function gpsGuard(state: GpsFollowState, confirmedAt: Point, lastSafe: Po
   return { state, point: target, exceeded: false }
 }
 
+/** Local metres for the guard, off the map export's own flat approximation (no projection here). */
+const flatMetres = (a: Point, b: Point) => {
+  const lat = ((a[1] + b[1]) / 2) * Math.PI / 180
+  return Math.hypot((b[0] - a[0]) * 111320 * Math.cos(lat), (b[1] - a[1]) * 110540)
+}
+
+/**
+ * Does this attached end sit ON its target right now — or does the live-GPS guard hold it
+ * elsewhere? A paused end (the vehicle drove off) resolves to `lastSafe`, on site, and so does a
+ * guarded one whose vehicle is already past the guard: the line does NOT end at the vehicle then.
+ *
+ * ⚠️ The printed Kroki reads this (krokiPayload · `startAt`/`endAt`): the server re-couples every
+ * end it is told about to the target glyph AS PRINTED (backend · kroki · `_snap_attached_ends`),
+ * and a paused hose whose TLF stood at the Magazin was drawn from the site to the Magazin on
+ * paper while the screen showed it ending on site. An end the guard holds is not coupled on paper.
+ */
+export function endOnTarget(attachment: LineAttachment, targetCoord: LngLat): boolean {
+  if (!attachment.gps) return true
+  const g = attachment.gps
+  const p = gpsGuard(g.state, g.confirmedAt, g.lastSafe, targetCoord, flatMetres).point
+  return p[0] === targetCoord[0] && p[1] === targetCoord[1]
+}
+
 /** Non-interactive/map-export adapter. Uses a small ground footprint so fitting, Kroki and
  *  reports consume resolved geometry even without a browser projection. The live map adapter
  *  uses the exact current screen glyph rectangle instead. */
@@ -431,11 +454,7 @@ export function resolveMapDrawings(drawings: Drawing[], entities: Entity[], radi
     if (!e) return attachment.gps?.lastSafe ?? null
     let center = e.coord
     if (attachment.gps) {
-      const metres = (a: Point, b: Point) => {
-        const lat = ((a[1] + b[1]) / 2) * Math.PI / 180
-        return Math.hypot((b[0] - a[0]) * 111320 * Math.cos(lat), (b[1] - a[1]) * 110540)
-      }
-      center = gpsGuard(attachment.gps.state, attachment.gps.confirmedAt, attachment.gps.lastSafe, center, metres).point as LngLat
+      center = gpsGuard(attachment.gps.state, attachment.gps.confirmedAt, attachment.gps.lastSafe, center, flatMetres).point as LngLat
     }
     const cos = Math.cos(center[1] * Math.PI / 180) || 1e-6
     const localToward: Point = [(toward[0] - center[0]) * 111320 * cos, (center[1] - toward[1]) * 110540]

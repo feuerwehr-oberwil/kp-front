@@ -148,6 +148,35 @@ describe('buildKrokiPayload', () => {
     expect(p.entities.map((e) => e.id)).toEqual(['tlf', undefined])
   })
 
+  // ⚠️ D3 (24.09.2026): a live-GPS end the guard holds ON SITE — paused, the TLF drove off — must
+  // not be named. The server couples every named end to the glyph where the vehicle is NOW
+  // (kroki · _snap_attached_ends), so a paused hose whose TLF stood at the Magazin printed a line
+  // from the site to the Magazin while the screen showed it ending on site.
+  it('does not name a live-GPS end the guard holds on site; names one that sits on its vehicle', () => {
+    const SITE: [number, number] = [7.55, 47.51]
+    const DEPOT: [number, number] = [7.56, 47.517] // ~1.1 km
+    const tlf = sym({ id: 'gps-3', symbol: 'Feuer', coord: DEPOT, live: true })
+    const hose = (state: 'paused' | 'guarded' | 'continuous', at = SITE): Drawing => ({
+      id: 'h', kind: 'line', coords: [[7.5495, 47.5098], at],
+      endAttachment: { target: { kind: 'object', id: 'gps-3', live: true }, routing: 'direct', gps: { state, confirmedAt: SITE, lastSafe: SITE } },
+    } as Drawing)
+    const print = (d: Drawing, e = tlf) => buildKrokiPayload({ entities: [e], drawings: [d], layers: layers.map((l) => ({ ...l, visible: true })), byName: {}, center: SITE })!
+    const reach = (coords: [number, number][]) => Math.max(...coords.map((p) => Math.hypot((p[0] - SITE[0]) * 75000, (p[1] - SITE[1]) * 111000)))
+    // paused: the TLF is at the Magazin, the line still ends on site — on paper too
+    const paused = print(hose('paused'))
+    expect(paused.drawings[0].endAt).toBeUndefined()
+    expect(reach(paused.drawings[0].coords as [number, number][])).toBeLessThan(100)
+    // guarded but already past the guard: same answer (the next poll pauses it)
+    expect(print(hose('guarded')).drawings[0].endAt).toBeUndefined()
+    // guarded and on site, and a following end: the line DOES end at the vehicle
+    expect(print(hose('guarded'), { ...tlf, coord: SITE }).drawings[0].endAt).toBe('gps-3')
+    expect(print(hose('continuous', DEPOT)).drawings[0].endAt).toBe('gps-3')
+    // after «Zurück auf Stand am Einsatzort» the end is detached: plain coords, no coupling, no spike
+    const reverted = { ...hose('paused'), endAttachment: undefined }
+    expect(print(reverted).drawings[0].endAt).toBeUndefined()
+    expect(reach(print(reverted).drawings[0].coords as [number, number][])).toBeLessThan(100)
+  })
+
   // …and the same for a branch off a Teilstück: the fork is a glyph sized in pixels, this file
   // fans the branches out by metres, so the server needs the target line and the prong.
   it('names the line (and prong) a branch leaves from, and ids only that target line', () => {

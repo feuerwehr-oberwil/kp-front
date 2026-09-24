@@ -864,6 +864,32 @@ def test_an_attached_leitung_end_lands_on_the_glyph_as_printed():
     assert scene.drawings[0]["coords"][1] == far  # only the attached vertex moves
 
 
+def test_a_named_end_follows_its_entity_so_a_held_gps_end_must_not_be_named():
+    """⚠️ D3 (24.09.2026): the coupling pass pulls every NAMED end onto the entity where it stands
+    now — 1.1 km away if the TLF is at the Magazin. A live-GPS end the guard holds on site (paused)
+    is therefore sent WITHOUT `endAt` by the client (lineAttachments · endOnTarget), and so is a
+    line reverted with «Zurück auf Stand am Einsatzort» (it is detached). Both print where the
+    screen shows them. This pins the server half of that contract."""
+    site = (7.5497, 47.5229)
+    depot = [7.5597, 47.5299]  # ~1.1 km
+    near = [site[0] - 0.0003, site[1] - 0.0002]
+    scene = kk.KrokiScene(
+        entities=[{"id": "gps-3", "coord": depot, "kind": "symbol", "symbol": "VKF Feuer"}],
+        drawings=[
+            {"kind": "line", "coords": [list(near), list(site)], "endAt": "gps-3"},  # the old payload
+            {"kind": "line", "coords": [list(near), list(site)]},  # held on site / reverted
+        ],
+    )
+    view = kk.center_view(site, 16, 1300, 1820)
+    kk._snap_attached_ends(scene, view, 0.85, 1300 / 1050)
+
+    def metres(p):
+        return math.hypot((p[0] - site[0]) * 111320 * math.cos(math.radians(site[1])), (p[1] - site[1]) * 110540)
+
+    assert metres(scene.drawings[0]["coords"][-1]) > 1000  # named: the spike the Rapport printed
+    assert scene.drawings[1]["coords"][-1] == list(site)  # unnamed: stays on site
+
+
 def test_a_branch_leaves_from_the_prong_of_the_fork_as_printed():
     """⚠️ Same class of bug as the glyph coupling: the client fans a Teilstück's branches out by a
     fixed 1.5 m on the GROUND, the fork is a glyph sized in PIXELS. On a close crop the branch

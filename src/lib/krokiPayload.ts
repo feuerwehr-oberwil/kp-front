@@ -12,7 +12,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { LUEFTER, LUEFTER_EXTRACT, compositeSpec, compositePartGlyph, composeCompositeSvg, isHubretter, composeHubretterSvg } from './symbolRender'
 import { SHAPE_DEFS, SHAPE_MAX_PX, rotationInner, rotationViewBox, shapeAspect, squareInner, squareViewBox, type RotationCarrier } from './shapes'
 import { operationalExtentPoints, type KrokiView } from './report'
-import { resolveMapDrawings } from './lineAttachments'
+import { endOnTarget, resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
 import { symbolLegendText } from './symbols'
 import { withoutCartoBasemapKey } from './carto'
@@ -256,7 +256,15 @@ export function buildKrokiPayload(args: {
   const visible = (id: string) => layers.find((l) => l.id === id)?.visible ?? true
   const base = layers.find((l) => l.base && l.visible && l.tiles?.length) ?? layers.find((l) => l.base && l.tiles?.length)
   if (!base?.tiles?.length) return null
-  const objectTarget = (a: Drawing['startAttachment']): string | undefined => (a?.target.kind === 'object' ? a.target.id : undefined)
+  // ⚠️ Only an end that really SITS on its object names it: the server couples a named end to the
+  // glyph as printed, and a live-GPS end the guard holds on site (paused — the TLF drove off) would
+  // be pulled to wherever the vehicle is now (lineAttachments · endOnTarget).
+  const entityById = new Map(entities.map((e) => [e.id, e]))
+  const objectTarget = (a: Drawing['startAttachment']): string | undefined => {
+    if (a?.target.kind !== 'object') return undefined
+    const e = entityById.get(a.target.id)
+    return e && !endOnTarget(a, e.coord) ? undefined : a.target.id
+  }
   const lineTarget = (a: Drawing['startAttachment']): KrokiLineEnd | undefined =>
     (a?.target.kind === 'line' ? { id: a.target.id, endpoint: a.target.endpoint, port: a.port } : undefined)
   const targetLineIds = new Set(storedDrawings.flatMap((d) => [lineTarget(d.startAttachment)?.id, lineTarget(d.endAttachment)?.id]))
