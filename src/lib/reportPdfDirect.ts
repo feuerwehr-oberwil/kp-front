@@ -9,7 +9,8 @@
 
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
-import { floorLabel, pdfPageOf, tileAspectOf } from './whiteboard'
+import { floorLabel, floorSections, pdfPageOf, tileAspectOf } from './whiteboard'
+import { circleRing, clipConvex, clipStroke, edgeMarkSvg, markDeg, rectPoly, thinMarks, type EdgeMark, type Pt } from './storeyClip'
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import { packFrameRing } from './stackFit'
 import type { IncidentMeta } from './incidents'
@@ -115,6 +116,84 @@ export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = '
 
 const STACK_FLOORS_PER_PAGE = 2
 const STACK_INK = '#3b4656'
+/** the printed edge mark's diameter, and the closest two may stand — in page widths */
+const STACK_MARK_N = 0.022
+const STACK_MARK_GAP_N = 0.02
+/** the stroke a cut Fläche's FILL is given: the server strokes every polygon it fills, and the
+ *  cut edge is no edge of the Fläche — the outline that IS travels separately, as runs */
+const HAIRLINE = 0.01
+
+/**
+ * A stroke, Fläche or Absperrkreis on a printed Gebäude page, CUT to its storey's band — the same
+ * rule the screen follows (lib/storeyClip, 24.09.2026). On paper the section IS the band: the
+ * printed stack carries no Geschossplan, so the band is all the storey there is. It used to be
+ * lifted whole, and a Karte hose that left the 1. OG ran through the EG's band on the same page.
+ *
+ * Works in ISOTROPIC page units (y in page widths) so the marks point the way the stroke goes, and
+ * hands back page-normalized annos: a stroke may come back as several runs, a cut Fläche or
+ * Absperrkreis as its fill plus the runs of its outline that remain, and every crossing as an
+ * edge-mark glyph. A run on a storey this page does not carry is not printed here — it is on its
+ * own storey's page, which is where a climbing Leitung's other half has always been.
+ */
+function cutToBands(a: BoardAnno, chunk: readonly number[], tileAR: number): { annos: BoardAnno[]; marks: Record<string, unknown>[] } {
+  const N = STACK_FLOORS_PER_PAGE
+  const band = (k: number) => [rectPoly(0, k * tileAR, 1, (k + 1) * tileAR)]
+  const iso = (k: number, x: number, y: number): Pt => [x, (k + y) * tileAR]
+  const back = ([x, y]: Pt): [number, number] => [x, y / (N * tileAR)]
+  const color = a.color || (a.kind === 'circle' ? appConfig.drawing.circleColor : appConfig.drawing.colors[0])
+  const marks: Record<string, unknown>[] = []
+  const markAll = (ms: EdgeMark[]) => {
+    for (const m of thinMarks(ms, STACK_MARK_GAP_N)) {
+      const [x, y] = back(m.at)
+      marks.push({ kind: 'symbol', x, y, sizeN: STACK_MARK_N, symbolSvg: edgeMarkSvg(color, markDeg(m)) })
+    }
+  }
+  // attachments are already resolved into the points (resolvePlanAnnos); a cut end must not be
+  // pulled back onto its target by the second pass planAnnosForPdf makes
+  const plain = { startAttachment: undefined, endAttachment: undefined }
+  if (a.kind === 'draw') {
+    const out: BoardAnno[] = []
+    for (const run of floorSections(a.pts ?? [], a.floor)) {
+      const k = chunk.indexOf(run[0][2] ?? a.floor ?? 0)
+      if (k < 0) continue
+      const c = clipStroke(run.map((p) => iso(k, p[0], p[1])), band(k))
+      markAll(c.marks)
+      // wholly on its band: lifted exactly as before, without a detour through the page's aspect
+      const runs = c.cut ? c.runs.map((r) => r.map(back)) : [run.map((p): [number, number] => [p[0], (k + p[1]) / N])]
+      for (const r of runs) {
+        if (r.length < 2) continue
+        out.push({ ...a, ...plain, id: out.length ? `${a.id}~${out.length}` : a.id, pts: r, label: out.length ? undefined : a.label })
+      }
+    }
+    return { annos: out, marks }
+  }
+  const k = chunk.indexOf(a.floor ?? 0)
+  if (k < 0) return { annos: [], marks }
+  // the ring the fill is cut from, and the outline the marks are read off
+  const ring: Pt[] = a.kind === 'circle'
+    ? circleRing(a.x ?? 0, (k + (a.y ?? 0)) * tileAR, a.radiusN ?? 0)
+    : (a.pts ?? []).map((p) => iso(k, p[0], p[1]))
+  const c = clipStroke(ring, band(k), true)
+  if (!c.cut) {
+    // wholly on its storey: printed exactly as before
+    return { annos: [{ ...a, y: a.y != null ? (k + a.y) / N : a.y, pts: a.kind === 'area' ? a.pts?.map((p): [number, number] => [p[0], (k + p[1]) / N]) : a.pts }], marks }
+  }
+  const piece = clipConvex(ring, band(k)[0])
+  if (!piece.length) return { annos: [], marks }
+  markAll(c.marks)
+  const circle = a.kind === 'circle'
+  const fill: BoardAnno = {
+    ...a, ...plain, kind: 'area', pts: piece.map(back), width: HAIRLINE, x: undefined, y: undefined, radiusN: undefined,
+    color, fillOpacity: circle ? a.fillOpacity ?? appConfig.drawing.circleFillOpacity : a.fillOpacity,
+  }
+  // the circle prints dashed unless it says otherwise — circleSvgString's own default
+  const dashed = circle ? a.dashed !== false : a.dashed
+  const outline = c.runs.filter((r) => r.length >= 2).map((r, i): BoardAnno => ({
+    id: `${a.id}~o${i}`, kind: 'draw', pts: r.map(back), color, dashed,
+    width: circle ? a.width ?? appConfig.drawing.circleLineWidth : a.width,
+  }))
+  return { annos: [fill, ...outline], marks }
+}
 
 /** The storeys of the stack that carry anything — an anno standing on them, or a line passing
  *  through. Top storey first. An EMPTY storey is an outline the reader learns nothing from: the
@@ -186,12 +265,20 @@ export function floorStackPages(
         return [px, ((pointIdx < 0 ? idx : pointIdx) + py) / N] as [number, number]
       }),
     })
+    const edgeMarks: Record<string, unknown>[] = []
     const lifted = resolvePlanAnnos(annos).flatMap((a) => {
+      // strokes, Flächen and Absperrkreise are cut to their storey's band (see cutToBands)
+      if ((a.kind === 'draw' && (a.pts?.length ?? 0) >= 2) || (a.kind === 'area' && (a.pts?.length ?? 0) >= 3) || (a.kind === 'circle' && (a.radiusN ?? 0) > 0)) {
+        const cut = cutToBands(a, chunk, TILE)
+        edgeMarks.push(...cut.marks)
+        return cut.annos
+      }
       const pointFloors = a.pts?.map((p) => p[2] ?? a.floor ?? 0) ?? []
       const idx = chunk.indexOf(pointFloors.find((f) => chunk.includes(f)) ?? a.floor ?? 0)
       return idx < 0 ? [] : [lift(a, idx)]
     })
-    page.push(...planAnnosForPdf(lifted, captionMode))
+    // the marks go on top: they stand ON the crossing, half over the band beside it
+    page.push(...planAnnosForPdf(lifted, captionMode), ...edgeMarks)
     const labels = chunk.map(floorLabel)
     return { label: `${plan.title} · ${labels.length > 1 ? `${labels[0]} – ${labels[labels.length - 1]}` : labels[0]}`, blankAspect: N * TILE, annos: page }
   })

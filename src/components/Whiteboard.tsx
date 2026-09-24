@@ -58,7 +58,8 @@ import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPre
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
 const FOLDED_H = 28
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
-import { packFrameRing, packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from '../lib/stackFit'
+import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
+import { inSection, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
@@ -2508,6 +2509,28 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return { w, h: hgt }
   })()
 
+  /** Each drawn storey's VISIBLE SECTION in board px (lib/storeyClip, 24.09.2026): the drawings the
+   *  tile shows — laid exactly as the <FloorPage>s below lay them — cut to the footprint box, or
+   *  the whole tile where there is no Geschossplan. Ink, Flächen and Absperrkreise are cut to it
+   *  and wear an edge mark where they leave; a Karte hose no longer runs through the blank band
+   *  into the next storey's plan. Null off the stack. */
+  const sections = stack && building && sW && sH ? storeySections({
+    floorsTTB, sW, sH, box: fpBox,
+    drawings: (f) => {
+      const parts = floorPack?.tiles[f]
+      if (!parts?.length || !fpBox) return []
+      if (building.pack) return packView ? parts.map((tile) => regionCorners(packPagePlacement(packView, building.pack!.aspect, tile), tile.clip)) : []
+      const corners = floorPack?.fit && building.src?.length ? pagePlacement(building, shownAngle, floorPack.fit) : null
+      return corners ? [corners] : []
+    },
+  }) : null
+  /** is a board-px point on its storey's visible section? (true off the stack) — what decides
+   *  whether a line's arrowhead, tag, label or stair mark still has somewhere to stand */
+  const onSection = (floor: number | undefined, p: [number, number]) => {
+    const s = sections?.get(floor ?? 0)
+    return !s || inSection(p, s)
+  }
+
   // Rotate the Gebäudeview to `toDeg`. Re-derives the footprint view and re-glues every
   // floor-stack annotation (x/y, freehand pts, team trails) so they stay on the same
   // real-world spot — see lib/footprint · remapPoint — and the VIEW with them (the pan at the
@@ -2913,12 +2936,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {/* Absperrkreise — their own px-space layer, painted under the ink (WbCircleLayer) */}
             <WbCircleLayer annos={renderAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
               color={appConfig.drawing.circleColor} selId={selId} flashId={flashId}
-              onPickCircle={tool === 'pan' ? circleDown : undefined} />
+              onPickCircle={tool === 'pan' ? circleDown : undefined} sections={sections ?? undefined} />
 
             {/* committed drawings */}
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
-              truppTones={truppTones} sW={sW} sH={sH} />
+              truppTones={truppTones} sW={sW} sH={sH} sections={sections ?? undefined} />
             {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
                 BESIDE the target whose ring is the remaining dwell (only a full one attaches), and
                 its red twin at the socket an attached endpoint is being pulled out of (only a full
@@ -2972,6 +2995,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               const color = a.color || COLORS[0]
               return floorCrossings(p, a.floor).flatMap((i) => [[p[i], p[i + 1]], [p[i + 1], p[i]]].map(([at, other], side) => {
                 const atFloor = at[2] ?? a.floor ?? 0, otherFloor = other[2] ?? a.floor ?? 0
+                // a climb made outside the storey's visible section has nowhere to stand
+                if (!onSection(atFloor, [at[0] * sW, mapY(atFloor, at[1]) * sH])) return null
                 const label = fillTemplate(side === 0 ? appConfig.copy.whiteboard.stairTo : appConfig.copy.whiteboard.stairFrom, { floor: signedFloor(otherFloor) })
                 return (
                   <button key={`${a.id}:stair:${i}:${side}`} type="button" className="wb-line-stair" aria-label={label} title={label}
@@ -2994,8 +3019,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               const p = a.pts!
               const bpx = p.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
               const end = bpx[bpx.length - 1]
-              const mid = bpx[Math.floor((bpx.length - 1) / 2)]
+              const midIdx = Math.floor((bpx.length - 1) / 2)
+              const mid = bpx[midIdx]
               const color = a.color || COLORS[0]
+              // On the stack the stroke is cut to its storey's section (lib/storeyClip): whatever
+              // stands on a part that is not drawn — the tip, the tag, a marker, the label — is not
+              // drawn either; the edge mark says the line goes on. `seg` names the vertex a spot
+              // follows, whose storey it is on.
+              const onLine = (seg: number, at: [number, number]) => onSection(p[seg][2] ?? a.floor, at)
+              const endShown = onLine(bpx.length - 1, end)
               // arrowhead sized to the line weight (tip at 0,0 = the end point), like a real spitze
               const ahw = Math.max(7, (a.width ?? 5) * 1.7) // half-width
               const ahl = ahw * 2.1 // length back from the tip
@@ -3014,9 +3046,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               // is directly usable — the same value the Lage map computes from projected px.
               const markerPts: { at: [number, number]; deg: number }[] = a.marker
                 ? (() => {
-                  const ps = markerParamsAlong(bpx, markerSpacing(a.marker))
-                    .map(({ seg, t, deg }) => ({ at: lerpPoint(bpx[seg], bpx[seg + 1], t), deg }))
-                  return ps.length ? ps : [{ at: mid, deg: 0 }]
+                  const along = markerParamsAlong(bpx, markerSpacing(a.marker))
+                  const ps = along.map(({ seg, t, deg }) => ({ seg, at: lerpPoint(bpx[seg], bpx[seg + 1], t), deg }))
+                  return (ps.length ? ps : [{ seg: midIdx, at: mid, deg: 0 }])
+                    .filter((m) => onLine(m.seg, m.at)).map(({ at, deg }) => ({ at, deg }))
                 })()
                 : []
               // distance read-out (calibrated plans only); falls back to a "calibrate first" nudge
@@ -3030,7 +3063,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               if (a.label) labelLines.push(a.label)
               return (
                 <Fragment key={`am-${a.id}`}>
-                  {a.arrow && (
+                  {a.arrow && endShown && (
                     // SVG centred on the end point (viewBox origin (0,0) = svg centre = the path tip).
                     // Centring uses the same translate-pair the markers use (reliable); the head is
                     // rotated by an SVG `transform` on the path about (0,0), so the TIP stays pinned to
@@ -3044,7 +3077,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     </svg>
                   )}
                   {/* FKS Teilstück fork at the tip (rotated to the line's screen angle) */}
-                  {a.teilstueck && (
+                  {a.teilstueck && endShown && (
                     <span className="wb-line-deco" style={{ transform: `translate(${end[0]}px, ${end[1]}px) translate(-50%, -50%)` }}>
                       <TeilstueckFork angleDeg={ang} color={color} width={a.width ?? 5} />
                     </span>
@@ -3054,8 +3087,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   {(a.content || a.lineNo != null || a.floorTag != null || lineTrupp) && (() => {
                     const pe = bpx[bpx.length - 1]
                     const pp = bpx[bpx.length - 2] ?? pe
-                    const ax = pp[0] + (pe[0] - pp[0]) * 0.72 + (a.endDx ?? 0) * sW
-                    const ay = pp[1] + (pe[1] - pp[1]) * 0.72 + (a.endDy ?? -0.02) * sH
+                    const base: [number, number] = [pp[0] + (pe[0] - pp[0]) * 0.72, pp[1] + (pe[1] - pp[1]) * 0.72]
+                    if (!onLine(bpx.length - 1, base)) return null
+                    const ax = base[0] + (a.endDx ?? 0) * sW
+                    const ay = base[1] + (a.endDy ?? -0.02) * sH
                     return (
                       <span className="wb-line-deco draggable" style={{ transform: `translate(${ax}px, ${ay}px) translate(-50%, -50%)`, cursor: tool === 'pan' ? 'move' : undefined }}
                         onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.endDx ?? 0, a.endDy ?? -0.02, 'end') : undefined}
@@ -3078,7 +3113,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       <LineMarker marker={a.marker!} color={color} deg={mp.deg} className="wb-line-mk" />
                     </span>
                   ))}
-                  {labelLines.length > 0 && (
+                  {labelLines.length > 0 && onLine(midIdx, mid) && (
                     <span className="wb-line-label" style={{ left: 0, top: 0, transform: `translate(${mid[0] + (a.labelDx ?? 0) * sW}px, ${mid[1] + (a.labelDy ?? 0) * sH}px) translate(-50%, -100%)`, cursor: tool === 'pan' ? 'move' : undefined }}
                       onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.labelDx ?? 0, a.labelDy ?? 0) : undefined}
                       onPointerMove={tool === 'pan' ? labelMove : undefined}
@@ -3095,8 +3130,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 its Länge — the switch existed for a plan area but nothing rendered what it turned on. */}
             {renderAnnos.filter((a) => a.kind === 'area' && (a.label || a.showDistance) && (a.pts?.length ?? 0) >= 3).map((a) => {
               const bpx = a.pts!.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
-              const cx = bpx.reduce((s, q) => s + q[0], 0) / bpx.length
-              const cy = bpx.reduce((s, q) => s + q[1], 0) / bpx.length
+              // on the stack: the centre of what is LEFT of the Fläche on its storey's section
+              // (lib/storeyClip) — none when nothing of it shows
+              const section = sections?.get(a.floor ?? 0)
+              const centre = section ? visibleCentre(bpx, section) : null
+              if (section && !centre) return null
+              const cx = centre ? centre[0] : bpx.reduce((s, q) => s + q[0], 0) / bpx.length
+              const cy = centre ? centre[1] : bpx.reduce((s, q) => s + q[1], 0) / bpx.length
               const areaLines: string[] = []
               if (a.showDistance) {
                 const m2 = calibrated && activeScale ? polyAreaM2(a.pts!.map(([x, y]) => [x, y]), activeScale.mPerU, measureAR) : null

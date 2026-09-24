@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { BoardAnno, BoardPoint, BoardTool } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -9,6 +10,7 @@ import { NodeDeleteChip } from './NodeDeleteChip'
 import { floorSections, signedFloor } from '../lib/whiteboard'
 import { fillTemplate } from '../lib/format'
 import { canDropVertex } from '../lib/vertexOps'
+import { circleRing, clipStroke, edgeMarkHead, markDeg, thinMarks, type EdgeMark, type Pt, type Section } from '../lib/storeyClip'
 
 const COLORS = appConfig.drawing.colors
 /** id namespace for the ink layer's Schraffur — kept distinct from the circle layer's defs so
@@ -39,6 +41,68 @@ interface InkProps {
   /** the sheet's size in CSS px — the coordinate space this whole layer renders in */
   sW: number
   sH: number
+  /** the Gebäude stack: each drawn storey's visible section in board px (lib/storeyClip ·
+   *  storeySections). Ink is cut to the section of the storey it is on; absent off the stack. */
+  sections?: ReadonlyMap<number, Section>
+}
+
+/** how close two edge marks may stand before the second is dropped (board px) */
+const MARK_GAP = 16
+
+/** the clipPath id of one storey's section — a storey index may be negative */
+const sectionClipId = (space: string, floor: number) => `${space}-sec${floor < 0 ? `m${-floor}` : floor}`
+
+/** One `<clipPath>` per storey section, for the layer that references them. */
+function SectionClips({ space, sections }: { space: string; sections?: ReadonlyMap<number, Section> }) {
+  if (!sections?.size) return null
+  return (
+    <defs>
+      {[...sections].map(([floor, polys]) => (
+        <clipPath key={floor} id={sectionClipId(space, floor)} clipPathUnits="userSpaceOnUse">
+          {polys.map((poly, i) => <polygon key={i} points={poly.map((p) => `${p[0]},${p[1]}`).join(' ')} />)}
+        </clipPath>
+      ))}
+    </defs>
+  )
+}
+
+/** a layer's clip-id namespace — React's useId carries colons, which not every engine lets
+ *  through a `url(#…)` reference */
+const useClipSpace = (prefix: string) => `${prefix}${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+
+/**
+ * Where a stroke leaves its storey's section: a disc on the crossing with an arrowhead pointing
+ * the way the stroke goes on (lib/storeyClip). Round, because it is on-canvas furniture; in the
+ * stroke's colour on the paper-white the stair mark wears, because it says the same kind of
+ * thing — «this line continues elsewhere» — and the two read as one family. A tap on it is a tap
+ * on the line: the visible part stays selectable, and so does its mark.
+ */
+function EdgeMarks({ marks, color, width, id, onPick }: {
+  marks: EdgeMark[]; color: string; width?: number; id: string
+  onPick?: (id: string, e: React.PointerEvent) => void
+}) {
+  const r = Math.max(9, Math.min(12, (width ?? 5) + 4))
+  return (
+    <>
+      {marks.map((m, i) => (
+        <g key={i} className="wb-edge-mark" transform={`translate(${m.at[0]} ${m.at[1]}) rotate(${markDeg(m)})`}
+          style={onPick ? { pointerEvents: 'all', cursor: 'grab' } : { pointerEvents: 'none' }}
+          onPointerDown={onPick ? (e) => onPick(id, e) : undefined}>
+          <circle r={r} fill="var(--on-accent-ink)" stroke={color} strokeWidth={2} />
+          {/* a FILLED head, not a stroked chevron: at 18px a turned «›» read as a tick */}
+          <path d={edgeMarkHead(r)} fill={color} stroke={color} strokeWidth={1} strokeLinejoin="round" />
+        </g>
+      ))}
+    </>
+  )
+}
+
+/** a stroke's crossings of its storey's section, thinned, and whether anything was cut away —
+ *  nothing either way off the stack */
+function strokeCut(pts: Pt[], section: Section | undefined, closed = false): { marks: EdgeMark[]; cut: boolean } {
+  if (!section) return { marks: [], cut: false }
+  const c = clipStroke(pts, section, closed)
+  return { marks: thinMarks(c.marks, MARK_GAP), cut: c.cut }
 }
 
 /**
@@ -55,46 +119,73 @@ interface InkProps {
  * (Line arrowheads + marker letters still render OUTSIDE this layer — they need their own
  * un-stretched transforms either way.)
  */
-export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {}, sW, sH }: InkProps) {
+export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {}, sW, sH, sections }: InkProps) {
   const W = Math.max(1, sW), H = Math.max(1, sH)
-  const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0] * W},${mapY(p[2] ?? floor, p[1]) * H}`).join(' ')
+  const toPx = (pts: BoardPoint[], floor: number | undefined): Pt[] => pts.map((p) => [p[0] * W, mapY(p[2] ?? floor, p[1]) * H])
+  const str = (pts: Pt[]) => pts.map((p) => `${p[0]},${p[1]}`).join(' ')
+  const pointStr = (pts: BoardPoint[], floor: number | undefined) => str(toPx(pts, floor))
   const hatchId = (c: string) => hatchPatternId(c, INK_HATCH_SPACE)
+  const space = useClipSpace('ink')
+  /** the section clip of one storey — nothing off the stack, or for a storey the board does not draw */
+  const clipOf = (floor: number | undefined) => (sections?.has(floor ?? 0) ? `url(#${sectionClipId(space, floor ?? 0)})` : undefined)
+  const sectionOf = (floor: number | undefined) => sections?.get(floor ?? 0)
   return (
     <svg className="wb-ink-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <HatchDefs colors={COLORS} space={INK_HATCH_SPACE} />
+      <SectionClips space={space} sections={sections} />
       {/* filled areas (under the lines) */}
       {annos.filter((a) => a.kind === 'area' && a.pts && a.pts.length >= 3).map((a) => {
-        const pts = pointStr(a.pts!, a.floor)
+        const px = toPx(a.pts!, a.floor)
+        const pts = str(px)
+        const { marks, cut } = strokeCut(px, sectionOf(a.floor), true)
         return (
         <g key={a.id}>
-          {selId === a.id && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 3) + 6} strokeOpacity={0.35} strokeLinejoin="round" />}
-          <polygon points={pts} fill={a.hatch ? `url(#${hatchId(a.color || COLORS[0])})` : (a.color || COLORS[0])}
-            fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? 0.14)}
-            stroke={a.color || COLORS[0]} strokeWidth={a.width || 3} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
-            strokeLinejoin="round" />
-          {onPickDraw && <polygon points={pts} fill="transparent" stroke="transparent" strokeWidth={18}
-            style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickDraw(a.id, e)} />}
+          {/* selected and cut: the whole outline as a faint ghost, so the vertex grips that stand
+              outside the section are still attached to something */}
+          {selId === a.id && cut && <polygon points={pts} fill="none" stroke={a.color || COLORS[0]} strokeWidth={2} strokeOpacity={0.4} strokeDasharray="3 5" style={{ pointerEvents: 'none' }} />}
+          <g clipPath={clipOf(a.floor)}>
+            {selId === a.id && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 3) + 6} strokeOpacity={0.35} strokeLinejoin="round" />}
+            <polygon points={pts} fill={a.hatch ? `url(#${hatchId(a.color || COLORS[0])})` : (a.color || COLORS[0])}
+              fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? 0.14)}
+              stroke={a.color || COLORS[0]} strokeWidth={a.width || 3} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
+              strokeLinejoin="round" />
+            {onPickDraw && <polygon points={pts} fill="transparent" stroke="transparent" strokeWidth={18}
+              style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickDraw(a.id, e)} />}
+          </g>
+          <EdgeMarks marks={marks} color={a.color || COLORS[0]} width={a.width || 3} id={a.id} onPick={onPickDraw} />
         </g>
         )
       })}
       {annos.filter((a) => a.kind === 'draw' && a.pts).flatMap((a) => floorSections(a.pts!, a.floor).map((run, ri) => {
         // a Leitung that climbs storeys is drawn per storey; the climb itself is a stair mark
         // on either tile (Whiteboard · stair marks), not a stroke through the ceiling
-        const pts = pointStr(run, a.floor)
+        const runFloor = run[0][2] ?? a.floor
+        const px = toPx(run, a.floor)
+        const pts = str(px)
         // a run of ONE vertex – the Leitung has just arrived on this storey (↑/↓) – is a dot, or
         // there would be nothing to see or select on the tile until the next vertex is placed
         if (run.length === 1) {
-          const [cx, cy] = [run[0][0] * W, mapY(run[0][2] ?? a.floor, run[0][1]) * H]
+          const [cx, cy] = px[0]
           return (
-            <g key={`${a.id}:${ri}`}>
+            <g key={`${a.id}:${ri}`} clipPath={clipOf(runFloor)}>
               {selId === a.id && <circle cx={cx} cy={cy} r={(a.width || 5) / 2 + 5} fill="var(--blue)" fillOpacity={0.35} />}
               <circle cx={cx} cy={cy} r={(a.width || 5) / 2 + 1.5} fill={a.color || COLORS[0]} />
               {onPickDraw && <circle cx={cx} cy={cy} r={14} fill="transparent" style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickDraw(a.id, e)} />}
             </g>
           )
         }
+        // ⚠️ Cut to the storey's section (24.09.2026): past it the stroke is not drawn at all —
+        // it used to run on through the blank band and into the neighbouring storey's plan — and
+        // an edge mark stands where it leaves. The clip cuts the hit line too, so only the part
+        // that can be seen can be tapped.
+        const { marks, cut } = strokeCut(px, sectionOf(runFloor))
         return (
         <g key={`${a.id}:${ri}`}>
+          {selId === a.id && cut && (
+            <polyline points={pts} fill="none" stroke={a.color || COLORS[0]} strokeWidth={2} strokeOpacity={0.4} strokeDasharray="3 5"
+              strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+          )}
+          <g clipPath={clipOf(runFloor)}>
           {truppTones[a.id] && (
             <polyline points={pts} fill="none" stroke={truppTones[a.id] === 'crit' ? 'var(--red)' : 'var(--amber)'}
               strokeWidth={(a.width || 5) + 8} strokeOpacity={0.45}
@@ -121,6 +212,8 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
               style={{ pointerEvents: 'stroke', cursor: 'grab' }}
               onPointerDown={(e) => onPickDraw(a.id, e)} />
           )}
+          </g>
+          <EdgeMarks marks={marks} color={a.color || COLORS[0]} width={a.width || 5} id={a.id} onPick={onPickDraw} />
         </g>
         )
       }))}
@@ -129,15 +222,22 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
           ? <polygon points={pointStr(draft, draftFloor)} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinejoin="round" />
           : <polyline points={pointStr(draft, draftFloor)} fill="none" stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinecap={dashed ? 'butt' : 'round'} strokeLinejoin="round" />
       )}
-      {/* team trails — path through the explicitly RECORDED positions only (not the live pill) */}
-      {annos.filter((a) => a.kind === 'resource' && (a.trail?.length ?? 0) > 1 && !hiddenTrails.has(a.id)).map((a) => (
-        <polyline
-          key={`trail-${a.id}`}
-          points={(a.trail ?? []).map((p) => `${p.x * W},${mapY(p.floor ?? a.floor, p.y) * H}`).join(' ')}
-          fill="none" stroke={a.color || COLORS[0]} strokeWidth={2} strokeDasharray="5 5"
-          strokeLinecap="round" strokeLinejoin="round" opacity={0.85}
-        />
-      ))}
+      {/* team trails — path through the explicitly RECORDED positions only (not the live pill).
+          On the stack a trail is cut per storey like a Leitung, without edge marks: it records
+          where somebody walked, it is not a line that goes on somewhere. */}
+      {annos.filter((a) => a.kind === 'resource' && (a.trail?.length ?? 0) > 1 && !hiddenTrails.has(a.id)).flatMap((a) => {
+        const trail = (a.trail ?? []).map((p): BoardPoint => [p.x, p.y, p.floor ?? a.floor ?? 0])
+        const runs = sections ? floorSections(trail, a.floor).filter((run) => run.length > 1) : [trail]
+        return runs.map((run, ri) => (
+          <polyline
+            key={`trail-${a.id}:${ri}`}
+            points={pointStr(run, a.floor)}
+            clipPath={sections ? clipOf(run[0][2]) : undefined}
+            fill="none" stroke={a.color || COLORS[0]} strokeWidth={2} strokeDasharray="5 5"
+            strokeLinecap="round" strokeLinejoin="round" opacity={0.85}
+          />
+        ))
+      })}
     </svg>
   )
 }
@@ -155,6 +255,8 @@ interface CircleProps {
   flashId?: string | null
   /** select/drag a circle by tapping it (pan mode only); omitted ⇒ not hittable */
   onPickCircle?: (id: string, e: React.PointerEvent) => void
+  /** the Gebäude stack's storey sections (see InkProps · sections) */
+  sections?: ReadonlyMap<number, Section>
 }
 
 /**
@@ -168,29 +270,40 @@ interface CircleProps {
  * Painted UNDER the ink layer on purpose: a Leitung drawn across a big cordon must win the tap,
  * the same ordering rule the Karte states (MapView · handleClick).
  */
-export function WbCircleLayer({ annos, draft, sW, sH, mapY, color, selId, flashId, onPickCircle }: CircleProps) {
+export function WbCircleLayer({ annos, draft, sW, sH, mapY, color, selId, flashId, onPickCircle, sections }: CircleProps) {
   const W = Math.max(1, sW), H = Math.max(1, sH)
+  const space = useClipSpace('circ')
   return (
     <svg className="wb-ink-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <HatchDefs colors={COLORS} />
+      <SectionClips space={space} sections={sections} />
       {annos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
         const cx = (a.x ?? 0) * sW, cy = mapY(a.floor, a.y ?? 0) * sH
         const r = Math.max(1, (a.radiusN ?? 0) * sW)
         const ink = a.color || appConfig.drawing.circleColor
         const w = a.width ?? appConfig.drawing.circleLineWidth
+        // on the stack a cordon is cut to its storey's section like any ink — a 100 m Absperrkreis
+        // projected off the Karte washed every storey of the building (24.09.2026) — and its ring
+        // wears an edge mark wherever it leaves the section
+        const section = sections?.get(a.floor ?? 0)
+        const { marks, cut } = strokeCut(section ? circleRing(cx, cy, r) : [], section, true)
         return (
           <g key={a.id}>
-            {flashId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 14} strokeOpacity={0.3} />}
-            {selId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 6} strokeOpacity={0.35} />}
-            <circle cx={cx} cy={cy} r={r}
-              fill={a.hatch ? `url(#${hatchPatternId(ink)})` : ink}
-              fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? appConfig.drawing.circleFillOpacity)}
-              stroke={ink} strokeWidth={w} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined} />
-            {/* a LOCKED circle is click-through — its LockChip is the only door (Whiteboard) */}
-            {onPickCircle && !a.locked && (
-              <circle cx={cx} cy={cy} r={r} fill="transparent" stroke="transparent" strokeWidth={18}
-                style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickCircle(a.id, e)} />
-            )}
+            {selId === a.id && cut && <circle cx={cx} cy={cy} r={r} fill="none" stroke={ink} strokeWidth={2} strokeOpacity={0.4} strokeDasharray="3 5" style={{ pointerEvents: 'none' }} />}
+            <g clipPath={section ? `url(#${sectionClipId(space, a.floor ?? 0)})` : undefined}>
+              {flashId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 14} strokeOpacity={0.3} />}
+              {selId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 6} strokeOpacity={0.35} />}
+              <circle cx={cx} cy={cy} r={r}
+                fill={a.hatch ? `url(#${hatchPatternId(ink)})` : ink}
+                fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? appConfig.drawing.circleFillOpacity)}
+                stroke={ink} strokeWidth={w} strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined} />
+              {/* a LOCKED circle is click-through — its LockChip is the only door (Whiteboard) */}
+              {onPickCircle && !a.locked && (
+                <circle cx={cx} cy={cy} r={r} fill="transparent" stroke="transparent" strokeWidth={18}
+                  style={{ pointerEvents: 'all', cursor: 'grab' }} onPointerDown={(e) => onPickCircle(a.id, e)} />
+              )}
+            </g>
+            <EdgeMarks marks={marks} color={ink} width={w} id={a.id} onPick={a.locked ? undefined : onPickCircle} />
           </g>
         )
       })}
