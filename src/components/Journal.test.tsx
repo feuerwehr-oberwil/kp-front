@@ -204,6 +204,35 @@ describe('Journal · the Pendenzen block', () => {
 // ⚠️ The row's text is the ONE string the Verlauf, the Rapport and the hash chain all read
 // (lib/journalEntry). The classification column changed what is DRAWN around it, and this pins
 // that it changed nothing about the string itself.
+// ⚠️ The user's decision (24.09.2026): the pinned block is part of what the funnel narrows —
+// hidden under a filter that leaves «Pendenz» unticked, back when it is ticked or cleared.
+describe('Journal · the Pendenzen block under the funnel', () => {
+  const rows: TimelineEvent[] = [
+    { ...row('auf', 1_050_000, 'Auftrag · Trupp 2 sichert'), entryType: 'auftrag' },
+    { ...row('pnd', 1_020_000, 'Lüfter nachfordern'), kind: 'reminder', reminder: { op: 'created', id: 'p1' } },
+  ]
+  const tick = async (word: string) => {
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: new RegExp(word) }))
+  }
+
+  it('hides the block while only «Auftrag» is ticked, and shows it with «Pendenz» or «Alle zeigen»', async () => {
+    setup({ events: rows, openReminders: [pendenz('p1', 'Lüfter nachfordern', { rowId: 'pnd' })] })
+    expect(document.querySelector('.jr-pinned')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Verlauf filtern' }))
+    await tick('Auftrag')
+    await waitFor(() => expect(document.querySelector('.jr-pinned')).toBeNull())
+
+    await tick('Pendenz')
+    await waitFor(() => expect(document.querySelector('.jr-pinned')).not.toBeNull())
+
+    await tick('Pendenz') // untick: «Auftrag» alone again
+    await waitFor(() => expect(document.querySelector('.jr-pinned')).toBeNull())
+    fireEvent.click(document.querySelector('.jr-filter-all')!)
+    await waitFor(() => expect(document.querySelector('.jr-pinned')).not.toBeNull())
+  })
+})
+
 describe('Journal · the classification column', () => {
   const auftrag: TimelineEvent = {
     id: 'a1', t: '', at: new Date(1_000_000).toISOString(), icon: 'type', kind: 'journal',

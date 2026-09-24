@@ -3,7 +3,7 @@ import type { PlanDocument, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { Icon } from '../lib/icons'
 import { EmptyState } from './EmptyState'
-import { Overlay, Sheet } from '../lib/overlays'
+import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
@@ -11,6 +11,7 @@ import { safeHref, thumbUrl } from '../lib/mediaUrl'
 import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
+import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
 import type { OpenReminder } from '../lib/reminders'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -148,6 +149,15 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
   ]
 }
 
+/** The disc a filter row wears — the legend's disc for the same Bereich, so the menu reads as the
+ *  legend with ticks. The three «Art» words share the composer's glyph, as their rows do. */
+const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' | 'plan'; ring?: RingState }> = {
+  manual: { icon: 'type' }, auftrag: { icon: 'type' }, sofort: { icon: 'type' }, pendenz: { ring: 'open' },
+  map: { icon: 'circle', surface: 'map' }, plan: { icon: 'flag', surface: 'plan' },
+  anwesenheit: { icon: 'people' }, atemschutz: { icon: 'gauge' }, mittel: { icon: 'box' },
+  rapport: { icon: 'clipboard' }, checklist: { icon: 'check' }, system: { icon: 'doc' },
+}
+
 // The unified Verlauf — the single, append-only stream of everything that
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened.
@@ -238,6 +248,18 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   const [search, setSearch] = useState<string | null>(null)
   const query = useMemo(() => (search == null ? null : journalQuery(search)), [search])
   const searching = search != null
+  // ── the filter (feat 37 · option B, 23.09.2026) ──
+  // The ticked categories (lib/journalFilter): empty = «alle». Per-opening like the search it
+  // combines with — the drawer remounts on each open, so closing it resets both. Never stored,
+  // never synced: it is how this reader is looking right now, not a fact about the Einsatz.
+  // ⚠️ It narrows the LIST and nothing else. «Wiedergabe starten» closes the drawer (so the next
+  // opening starts unfiltered), and the Wiedergabe always plays the whole picture — a replay
+  // that left out what was filtered away would show a Lage that never existed. While a
+  // Wiedergabe runs the Verlauf beside it may be filtered like any other; its rows still set
+  // the moment (`onSeekTo`).
+  const [filterSel, setFilterSel] = useState<ReadonlySet<string>>(() => new Set())
+  const filtering = filterSel.size > 0
+  const categories = useMemo(() => journalCategories(events, plans), [events, plans])
   const [editTx, setEditTx] = useState<{ id: string; value: string } | null>(null)
   const saveTranscript = () => {
     if (!editTx) return
@@ -283,12 +305,21 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // reveals up to it first (`revealRow`), so the strip and a Meldung's reference still land.
   // …and, while a query is typed, only the rows it keeps (lib/journalSearch): a day whose rows
   // all fell out loses its separator too, so the list reads as hits and not as empty headings.
+  // …and the filter's ticks AND with it (lib/journalFilter).
   const groups = useMemo(
     () => groupByDay(events)
-      .map((g) => ({ ...g, events: g.events.filter((e) => !repeats.hidden.has(e.id) && matchesJournalQuery(e, query)) }))
+      .map((g) => ({ ...g, events: g.events.filter((e) => !repeats.hidden.has(e.id) && matchesJournalQuery(e, query) && matchesJournalCategories(e, filterSel, categories)) }))
       .filter((g) => g.events.length > 0),
-    [events, repeats, query],
+    [events, repeats, query, filterSel, categories],
   )
+  // The filter menu's rows and counts. Counted over what the list would show WITHOUT the ticks —
+  // the folded rows the search keeps — so each number is what ticking that row would add.
+  const facets = useMemo(() => {
+    const folded = events.filter((e) => !repeats.hidden.has(e.id))
+    return journalFacets(folded, folded.filter((e) => matchesJournalQuery(e, query)), categories, filterSel)
+  }, [events, repeats, query, categories, filterSel])
+  const facetTotal = facets.reduce((n, f) => n + f.count, 0)
+  const filterOn = facets.filter((f) => filterSel.has(f.key)).map((f) => f.label).join(' · ')
   const [pageCount, setVisibleCount] = useState(PAGE_ROWS)
   // no observer (jsdom, an old WebView): everything, as before
   const visibleCount = typeof IntersectionObserver === 'undefined' ? Infinity : pageCount
@@ -522,7 +553,56 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // ⚠️ NOT re-sorted here. lib/reminders already orders them — dringend first, then oldest first
   // — and it is the same order the Rapport prints. Two sorts in two places is how the list on
   // screen and the list on paper start disagreeing about what is most urgent.
-  const pinnedReminders = openReminders ?? []
+  // …and HIDDEN while a filter is on that does not tick «Pendenz» (lib/journalFilter ·
+  // showsPinnedPendenzen): the box is part of what the ticks narrow.
+  const pinnedReminders = showsPinnedPendenzen(filterSel) ? openReminders ?? [] : []
+
+  /** The funnel's menu: «Art des Eintrags», then «Bereich», each row a checkbox with the row's
+   *  own disc and its count, and «Alle zeigen» last. Checkboxes keep the menu open (lib/overlays ·
+   *  Menu), because a selection is several ticks in a row; «Alle zeigen» is an action and closes
+   *  it — you asked to see everything, and the menu is in the way of seeing it. */
+  const filterItems = () => {
+    const toggle = (key: string) => (on: boolean) => setFilterSel((sel) => {
+      const next = new Set(sel)
+      if (on) next.add(key)
+      else next.delete(key)
+      return next
+    })
+    const group = (g: 'art' | 'bereich', head: string) => {
+      const rows = facets.filter((f) => f.group === g)
+      if (!rows.length) return []
+      return [
+        { kind: 'head' as const, label: head },
+        ...rows.map((f) => ({
+          kind: 'check' as const,
+          checked: filterSel.has(f.key),
+          onChange: toggle(f.key),
+          label: (
+            <span className="jr-filter-row">
+              <Disc {...FILTER_DISC[f.kind]} />
+              <span className="jr-filter-label">{f.label}</span>
+              <b className="jr-filter-count">{f.count}</b>
+            </span>
+          ),
+        })),
+      ]
+    }
+    return [
+      ...group('art', C.filterArt),
+      ...group('bereich', C.filterArea),
+      { kind: 'sep' as const },
+      {
+        label: (
+          <span className="jr-filter-row jr-filter-reset">
+            <span className="jr-filter-label">{C.filterAll}</span>
+            <b className="jr-filter-count">{facetTotal}</b>
+          </span>
+        ),
+        disabled: !filtering,
+        onClick: () => setFilterSel(new Set()),
+      },
+    ]
+  }
 
 
   return (
@@ -551,6 +631,26 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             title={searching ? C.searchClose : C.search} aria-label={searching ? C.searchClose : C.search} aria-pressed={searching}
             onClick={() => { if (searching) { setSearch(null); return } setShowLegend(false); setSearch('') }}
           ><Icon id="search" /></button>
+          {/* the funnel (feat 37 · B): lit with a dot while anything is ticked, like the Anwesenheit's
+              filter buttons — WHAT is ticked is in its name, in the menu and in the strip below,
+              never printed on the button, whose width then never changes under the finger. */}
+          {/* ⚠️ Standing whenever there is a row, even while every row is in one category: a head
+              whose buttons come and go with the content is a head that has to be re-read. */}
+          {events.length > 0 && (
+            <Menu
+              trigger={
+                <button
+                  type="button" className={`journal-legend-btn${filtering ? ' on' : ''}`}
+                  title={filtering ? `${C.filter} – ${filterOn}` : C.filter}
+                  aria-label={filtering ? `${C.filter} – ${filterOn}` : C.filter}
+                ><Icon id="filter" />{filtering && <span className="journal-filter-dot" aria-hidden />}</button>
+              }
+              align="start"
+              popupClassName="jr-filter-menu"
+              itemClassName={() => 'jr-filter-item'}
+              items={filterItems()}
+            />
+          )}
           {/* ⚠️ `aria-label`, because the word inside it is hidden on a phone (10-journal.css) —
               the head is one item wider since the legend button joined it, and this is the label
               that can most afford to go. */}
@@ -582,6 +682,21 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             <button type="button" className="journal-x" title={C.searchClose} aria-label={C.searchClose} onClick={() => setSearch(null)}><Icon id="close" /></button>
           </div>
         )}
+        {/* what is filtered, on ONE line, with the way out beside it — the funnel's dot says THAT
+            something is, and a reader who did not tick it (or forgot) has to learn WHAT without
+            opening a menu. The count stands here only while there is no query: with one, the
+            field's own «n von m» already counts both. */}
+        {filtering && (
+          <div className="jr-filter-strip">
+            <span className="jr-filter-strip-text">{C.filterActive} <b>{filterOn}</b></span>
+            {!query && (
+              <span className="journal-search-count" aria-live="polite">
+                {fillTemplate(C.searchCount, { n: totalRows, m: events.length })}
+              </span>
+            )}
+            <button type="button" className="jr-filter-all" onClick={() => setFilterSel(new Set())}>{C.filterAll}</button>
+          </div>
+        )}
         {showLegend && !searching && (
           <div className="jr-legend">
             {legendEntries().map((l) => (
@@ -595,9 +710,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             which «was war um halb zehn» means scrolling and reading — the strip answers it by
             position instead, and a tap on it lands on the nearest row. Ticks are not targets
             (the strip takes the tap as a whole), so nothing here needs a gloved-finger hit box.
-            ⚠️ NOT while searching: its ticks and its jump are positioned over the FULL list, and
-            above a filtered one they would point at rows that are not there. */}
-        {stripSpan && !searching && (
+            ⚠️ NOT while searching or filtering: its ticks and its jump are positioned over the FULL
+            list, and above a narrowed one they would point at rows that are not there. */}
+        {stripSpan && !searching && !filtering && (
           <div
             className="jr-strip" role="slider" tabIndex={0}
             aria-label={C.stripLabel}
@@ -714,8 +829,11 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           {events.length === 0 && <EmptyState icon="history" title={C.empty} />}
           {/* a query that kept nothing says so – and what it looked in, because «Nichts» beside a
               name that IS in the Verlauf otherwise reads as the search being broken */}
-          {query && totalRows === 0 && events.length > 0 && (
-            <EmptyState icon="search" title={fillTemplate(C.searchEmpty, { q: (search ?? '').trim() })} sub={C.searchEmptyHint} />
+          {/* …and with a filter on, the ticks are the likelier culprit, so they are what it names */}
+          {(query || filtering) && totalRows === 0 && events.length > 0 && (
+            filtering
+              ? <EmptyState icon="filter" title={C.filterEmpty} sub={C.filterEmptyHint} />
+              : <EmptyState icon="search" title={fillTemplate(C.searchEmpty, { q: (search ?? '').trim() })} sub={C.searchEmptyHint} />
           )}
           {shown.map((g, gi) => (
             <Fragment key={g.label ?? `today-${gi}`}>

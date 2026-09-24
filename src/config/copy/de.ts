@@ -1487,6 +1487,19 @@ export const de = {
     searchCount: '{n} von {m}',
     searchEmpty: 'Nichts zu «{q}»',
     searchEmptyHint: 'Gesucht wird im Text sowie in Namen von Personen und Trupps. Ein Tippfehler ist erlaubt.',
+    // ── Filter ────────────────────────────────────────────────────────────────────────────
+    // The funnel beside the lens (feat 37 · B, 23.09.2026). Its categories are NOT words of its
+    // own: they are the Bereiche the disc, the legend and the Rapport's «Bereich» column already
+    // say (report · areaManual …, entryTypes, noteChip), so nothing is named twice. The ticks
+    // OR together and AND with the search (lib/journalFilter).
+    filter: 'Verlauf filtern',
+    filterArt: 'Art des Eintrags',
+    filterArea: 'Bereich',
+    filterAll: 'Alle zeigen',
+    // the one-line strip under the head while a filter is on: «Gefiltert: Auftrag · Pendenz»
+    filterActive: 'Gefiltert:',
+    filterEmpty: 'Keine Einträge in dieser Auswahl',
+    filterEmptyHint: '«Alle zeigen» hebt den Filter auf.',
     // ── Pendenzen ─────────────────────────────────────────────────────────────────────────
     // The ○ switch beside the Art chips. THREE states on one control; the accessible name says
     // what a tap will leave behind, because the ring alone cannot.

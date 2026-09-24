@@ -966,6 +966,13 @@ export const fr: Localizable<Copy> = {
     searchCount: '{n} sur {m}',
     searchEmpty: 'Rien pour «{q}»',
     searchEmptyHint: 'La recherche porte sur le texte ainsi que sur les noms des personnes et des binômes. Une faute de frappe est tolérée.',
+    filter: 'Filtrer le journal',
+    filterArt: 'Type d’entrée',
+    filterArea: 'Domaine',
+    filterAll: 'Tout afficher',
+    filterActive: 'Filtré :',
+    filterEmpty: 'Aucune entrée dans cette sélection',
+    filterEmptyHint: '«Tout afficher» lève le filtre.',
 
     stripLabel: 'Frise chronologique – toucher pour sauter à l\'endroit correspondant',
     photoOpen: 'Voir la photo en grand',
