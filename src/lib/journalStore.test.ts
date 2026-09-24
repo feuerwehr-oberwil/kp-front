@@ -296,6 +296,41 @@ describe('JournalStore — append/flush/pull', () => {
     expect(s.pendingCount).toBe(0)
   })
 
+  // e2e «offline journal entries survive reload and reconnect» (24.09.2026): the `online` event
+  // arrived while the last offline POST was still settling, its flush merely awaited that doomed
+  // attempt, and the row waited ~20 s for the next live-follow round.
+  it('a flush asked for while a failing attempt is in flight gets its own attempt', async () => {
+    apiGet.mockResolvedValue({ entries: [], latest_seq: 0 })
+    let failInFlight!: () => void
+    apiPost.mockImplementationOnce(() => new Promise((_, reject) => { failInFlight = () => reject(new ApiError(0, 'offline')) }))
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a')) // starts the POST that is about to fail
+    await settle()
+    const srv = fakeServer() // the link is back…
+    const reconnect = s.flush() // …and the `online` handler asks for a flush meanwhile
+    failInFlight()
+    await reconnect
+
+    expect(s.pendingCount).toBe(0)
+    expect(srv.rows.map((r) => r.row.id)).toEqual(['a'])
+    expect(apiPost).toHaveBeenCalledTimes(2)
+  })
+
+  it('a failing attempt nobody asked to repeat is not repeated (an offline device does not spin)', async () => {
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    const s = new JournalStore(INC, false)
+    await s.init([])
+    s.append(row('a'))
+    await s.flush()
+    await settle()
+    const before = apiPost.mock.calls.length
+    await s.flush()
+    expect(apiPost.mock.calls.length).toBe(before + 1)
+    expect(s.pendingCount).toBe(1)
+  })
+
   it('a flush NEVER advances the pull cursor — rows other devices appended in between still arrive', async () => {
     const srv = fakeServer([row('x')]) // seq 1
     const s = new JournalStore(INC, false)

@@ -188,6 +188,10 @@ test('offline journal entries survive reload and reconnect', async ({ page, cont
   await page.getByRole('button', { name: 'Verlauf', exact: true }).click()
   await expect(page.getByText(offline, { exact: true })).toBeVisible()
   await context.setOffline(false)
-  await expect(notice).toHaveCount(0)
+  // Delivery must come without a click, but not necessarily off the `online` event: after a
+  // reload WHILE offline, Chromium's emulation sometimes never dispatches it (the top bar still
+  // said «Offline» 15 s later, 24.09.2026). The outbox then goes out on the Verlauf's next poll
+  // round, which pushes before it pulls (useJournal) and is at most `livePollMaxMs` (15 s) away.
+  await expect(notice, 'the offline entry must be delivered on its own after reconnect').toHaveCount(0, { timeout: 30_000 })
   await expectNoCrash(page, 'after offline journal recovery')
 })
