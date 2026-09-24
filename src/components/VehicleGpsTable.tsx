@@ -61,7 +61,7 @@ export function VehicleGpsTable({ fahrzeuge }: { fahrzeuge: FahrzeugZeit[] | und
         <thead>
           <tr>
             <th scope="col">{P.gpsColFzg}</th>
-            <th scope="col">{P.gpsColStatus}</th>
+            <th scope="col" className={s.status}>{P.gpsColStatus}</th>
             <th scope="col" className={s.num}>{P.gpsColAn}</th>
             <th scope="col" className={s.num}>{P.gpsColAb}</th>
             <th scope="col" className={s.num}>{P.gpsColFahrten}</th>
@@ -71,12 +71,17 @@ export function VehicleGpsTable({ fahrzeuge }: { fahrzeuge: FahrzeugZeit[] | und
         <tbody>
           {rows.map((r) => {
             const stale = r.fixAgeMs != null && r.fixAgeMs > FIX_STALE_MS
+            const status = r.zone === 'scene' ? P.gpsStatusScene : P.gpsStatusAway
+            const zoneClass = r.zone === 'scene' ? s.scene : s.away
             return (
               <tr key={r.id}>
-                <th scope="row" className={s.name}>{r.label}</th>
-                <td className={r.zone === 'scene' ? s.scene : s.away}>
-                  {r.zone === 'scene' ? P.gpsStatusScene : P.gpsStatusAway}
-                </td>
+                {/* on a phone the status column folds under the name (CSS) — six columns do not
+                    fit 360px. Exactly one of the two is displayed, so it is read once. */}
+                <th scope="row" className={s.name}>
+                  {r.label}
+                  <span className={`${s.sub} ${zoneClass}`}>{status}</span>
+                </th>
+                <td className={`${s.status} ${zoneClass}`}>{status}</td>
                 <td className={s.num}>{clock(r.an)}</td>
                 <td className={s.num}>{clock(r.ab)}</td>
                 <td className={s.num}>{r.fahrten || '–'}</td>

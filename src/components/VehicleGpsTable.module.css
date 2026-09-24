@@ -25,6 +25,16 @@
 .away { color: var(--ink-faint); }
 /* a fix older than FIX_STALE_MS: the position on the map is last known, not current */
 .stale { color: var(--amber); font-weight: 700; }
+/* the status folded under the name — shown only where the status column is not */
+.sub { display: none; font: 500 11.5px var(--body); }
+/* A phone: six columns do not fit 360px, so «Status» becomes the name's second line (the
+   component renders both; one is hidden). Measured on an iPhone 14 at 390px: «Pos.» was cut. */
+@media (max-width: 560px) {
+  .status { display: none; }
+  .sub { display: block; }
+  .table th,
+  .table td { padding: 6px 3px; }
+}
 .note {
   display: block;
   margin-top: 4px;
