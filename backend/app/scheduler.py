@@ -711,6 +711,8 @@ def _start_scheduler_jobs() -> None:
         id="divera_poll",
         max_instances=1,
         coalesce=True,
+        # late rather than skipped — see the vehicle sweep below
+        misfire_grace_time=divera_tick_seconds() // 2,
     )
     jobs.append(
         f"divera poll ({DIVERA_IDLE_POLL_SECONDS}s idle / {settings.divera_poll_interval_seconds}s "
@@ -741,6 +743,10 @@ def _start_scheduler_jobs() -> None:
         id="vehicle_samples",
         max_instances=1,
         coalesce=True,
+        # ⚠️ APScheduler SKIPS a run that starts more than 1 s late (its default grace), and a
+        # busy event loop makes that routine: 9 of 55 ticks were dropped on the live check
+        # (24.09.2026). Late is fine for an observer; skipped is a hole in the track.
+        misfire_grace_time=VEHICLE_SAMPLE_SECONDS // 2,
     )
     jobs.append(f"vehicle samples + presence ({VEHICLE_SAMPLE_SECONDS}s, idle without Traccar or a fake fleet)")
     from .observations import WEATHER_OBSERVE_SECONDS
@@ -752,6 +758,8 @@ def _start_scheduler_jobs() -> None:
         id="weather_observe",
         max_instances=1,
         coalesce=True,
+        # a skipped run is a 20-minute hole in the weather record (two were, on the live check)
+        misfire_grace_time=WEATHER_OBSERVE_SECONDS // 2,
         # the first reading shortly after boot, not ten minutes into a running Einsatz
         next_run_time=datetime.now(UTC) + timedelta(seconds=20),
     )

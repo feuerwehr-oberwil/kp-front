@@ -731,6 +731,24 @@ async def test_the_credential_backed_jobs_are_registered_before_their_credential
     assert "demo_reset" not in ids
 
 
+async def test_the_observers_run_late_rather_than_not_at_all(monkeypatch):
+    """APScheduler skips a run that starts >1 s late by default; on the live check (24.09.2026)
+    a busy dev worker dropped 9 of 55 GPS sweeps and two 10-minute weather readings."""
+    import app.plans as plans_mod
+
+    monkeypatch.setattr(plans_mod, "plans_pull_enabled", lambda: False)
+    monkeypatch.setattr(settings, "demo_reset_cron", "")
+    monkeypatch.setattr(settings, "demo_reset_seconds", 0)
+    try:
+        scheduler._start_scheduler_jobs()
+        grace = {j.id: j.misfire_grace_time for j in scheduler._scheduler.get_jobs()}
+    finally:
+        scheduler._stop_scheduler_jobs()
+    assert grace["vehicle_samples"] >= 15
+    assert grace["weather_observe"] >= 300
+    assert grace["divera_poll"] >= 15
+
+
 async def test_the_plan_pull_is_registered_once_a_plan_store_is_configured(monkeypatch):
     """The one job that is still boot-gated, and correctly so: `PLANS_S3_*` belongs to the
     system that maintains the plan library, so nothing about it can change while we run."""
