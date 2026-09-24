@@ -124,7 +124,7 @@ export const planDocuments: PlanDocument[] = [
   // combined sheet: some objects ship Modul 2 + 3 on one PDF ("Modul 2-3.pdf"); the backend
   // serves it under the id "modul2-3" and useObjectPlans then hides the separate 2 + 3 tiles.
   { id: 'modul2-3', code: 'Modul 2/3', title: 'Zugang & Objekt', subtitle: 'Umgebungs- + Objektplan (kombiniert)', imageUrl: '', orientation: 'landscape' },
-  { id: 'modul6', code: 'Modul 6', title: 'Gebäudepläne', subtitle: 'Geschosspläne (alle Stockwerke)', imageUrl: '', orientation: 'portrait' },
+  { id: 'modul6', code: 'Modul 6', title: 'Gebäudepläne', subtitle: 'Geschosspläne (alle Geschosse)', imageUrl: '', orientation: 'portrait' },
   { id: 'osm', code: 'Umrisse', title: 'Gebäudeumrisse', subtitle: 'OSM-Gebäude (live) – Gebäude antippen', imageUrl: '', orientation: 'landscape', icon: 'footprint', osm: { center: CENTER, radiusM: 250 } },
   { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: 'Freie Notiz- / Skizzenfläche', imageUrl: '', orientation: 'landscape', icon: 'pen' },
 ]
