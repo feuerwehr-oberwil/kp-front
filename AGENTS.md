@@ -424,6 +424,21 @@ to prod.
     it. And the seam honours it per object: a lent anno
     handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
     the bake — which lost a note's text and laid a store step for nothing.
+  - ⚠️ **A live-GPS Leitung end lets go ON SITE, and following keeps the way back** (24.09.2026,
+    D3, `lib/gpsReturn`). The first «Weiter folgen» / «Spur» on a GPS end stores the on-site line
+    in `gps.before` (geometry, coupling state, tap time). It is taken ONCE — never overwritten while
+    the end follows or after «Folgen stoppen» — rides with the attachment through sync, merge, bake
+    and ↶, and is dropped only by detaching or a fresh confirmation («Direkt» out of a pause). An
+    older client spreads `gps`, so it carries the field without reading it. Every detach of a GPS
+    end (the Meldung's green «Am Einsatzort lassen», the editor's «Am Einsatzort lösen», the map's
+    × chip — all through `useMapDrawing · setDrawingAttachment`) ends the line where it stood on
+    site: a followed trace is cut back to its snapshot (`onSiteCoords`), never cut at the vehicle's
+    current position, which is what drew the depot → site → depot spike into the record on
+    23.09.2026. «Zurück auf Stand am Einsatzort» restores the snapshot exactly — one store
+    checkpoint, one Verlauf row (`log.gpsReverted`). The «back on site» offer (≤150 m while
+    following) is asked once per return, device-local, re-armed past 300 m. And the printed Kroki
+    names an attached end only while it SITS on its object (`lineAttachments · endOnTarget`): the
+    server couples every named end to the glyph where the vehicle is now.
   - ⚠️ **A machine writer is idempotent — writing an unchanged value is a render loop**
     (24.09.2026, post-mortem of the Übung on 23.09.2026). A pass that runs on a feed or an effect
     returns the document it was given (`cur` itself) when nothing changed BY VALUE; a copy with an
