@@ -52,7 +52,7 @@ import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
 import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../lib/nearbyBanner'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
-import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
+import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, floorSections, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
@@ -86,6 +86,7 @@ import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView
 import { pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
+import { clipPolygon, clipPolyline, insideRect, longestRunMid, tilePx } from '../lib/tileClip'
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
@@ -617,7 +618,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return { dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
   }
   // floor-stack ↔ board-normalized y maps for the current document (see lib/whiteboard)
-  const { mapY, localY, floorAt, boardPts, moveRigid } = floorGeometry(stack, floorsTTB, N)
+  const { mapY, localY, floorAt, boardPts, moveRigid, tileOf } = floorGeometry(stack, floorsTTB, N)
 
   // Leaving Linie/Fläche mid-shape no longer silently drops the draft (A6, 29.08.): the
   // tool-change release lives BELOW, next to the commit machinery it needs (see releaseDraft).
@@ -743,6 +744,24 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // fit × scale. This re-rasterizes the PDF + SVG symbols + text crisply at the
   // actual zoom instead of bitmap-scaling a 100% texture (which pixelates them).
   const sW = fit.w * scale, sH = fit.h * scale
+  /** Is this board-px point seen on its storey's tile? Always, off the stack. The ink layer cuts
+   *  every line to its tile (lib/tileClip); the chrome drawn beside the ink — arrowhead, fork,
+   *  tag, marker letters, stair marks, labels — asks this, so none of it floats on a storey the
+   *  line is not seen on. */
+  const onTile = (p: readonly [number, number], floor: number | undefined): boolean => {
+    const r = tilePx(tileOf, floor, sW, sH)
+    return r === undefined || (r !== null && insideRect(p, r))
+  }
+  /** Where a label anchored at `at` goes when that spot is cut away: the middle of the line's
+   *  longest visible piece, or nowhere when none of it is seen. */
+  const visibleLineMid = (a: BoardAnno): [number, number] | null => longestRunMid(
+    floorSections(a.pts ?? [], a.floor).flatMap((run) => {
+      const f = run[0][2] ?? a.floor
+      const r = tilePx(tileOf, f, sW, sH)
+      const px = run.map((q): [number, number] => [q[0] * sW, mapY(q[2] ?? a.floor, q[1]) * sH])
+      return r === undefined ? [px] : r === null ? [] : clipPolyline(px, r).runs
+    }),
+  )
 
   // client point → normalized 0..1 in plan space (board rect reflects the transform)
   const toNorm = (clientX: number, clientY: number): [number, number] | null => {
@@ -1937,7 +1956,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
   const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp } = useBoardGestures({
-    tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
+    tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, tileOf, manipMove, manipUp,
   })
 
   // --- drag-to-rotate / resize / the Rotation's ends and its claim ring — components/useWbRotor ---
@@ -2913,12 +2932,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {/* Absperrkreise — their own px-space layer, painted under the ink (WbCircleLayer) */}
             <WbCircleLayer annos={renderAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
               color={appConfig.drawing.circleColor} selId={selId} flashId={flashId}
-              onPickCircle={tool === 'pan' ? circleDown : undefined} />
+              onPickCircle={tool === 'pan' ? circleDown : undefined} tileOf={tileOf} />
 
             {/* committed drawings */}
             <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
-              truppTones={truppTones} sW={sW} sH={sH} />
+              truppTones={truppTones} sW={sW} sH={sH} tileOf={tileOf} />
             {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
                 BESIDE the target whose ring is the remaining dwell (only a full one attaches), and
                 its red twin at the socket an attached endpoint is being pulled out of (only a full
@@ -2970,8 +2989,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {stack && renderAnnos.filter((a) => a.kind === 'draw' && (a.pts?.length ?? 0) >= 2).flatMap((a) => {
               const p = a.pts!
               const color = a.color || COLORS[0]
-              return floorCrossings(p, a.floor).flatMap((i) => [[p[i], p[i + 1]], [p[i + 1], p[i]]].map(([at, other], side) => {
+              return floorCrossings(p, a.floor).flatMap((i) => [[p[i], p[i + 1]], [p[i + 1], p[i]]].flatMap(([at, other], side) => {
                 const atFloor = at[2] ?? a.floor ?? 0, otherFloor = other[2] ?? a.floor ?? 0
+                // a climb off the tile's edge has no stair to mark on it (lib/tileClip)
+                if (!onTile([at[0] * sW, mapY(atFloor, at[1]) * sH], atFloor)) return []
                 const label = fillTemplate(side === 0 ? appConfig.copy.whiteboard.stairTo : appConfig.copy.whiteboard.stairFrom, { floor: signedFloor(otherFloor) })
                 return (
                   <button key={`${a.id}:stair:${i}:${side}`} type="button" className="wb-line-stair" aria-label={label} title={label}
@@ -2996,6 +3017,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               const end = bpx[bpx.length - 1]
               const mid = bpx[Math.floor((bpx.length - 1) / 2)]
               const color = a.color || COLORS[0]
+              // on the stack the line is seen through its tile only (lib/tileClip): what belongs to
+              // an end that tile cuts away — spitze, fork, tag — is not drawn in mid-air
+              const floorOf = (i: number) => p[i][2] ?? a.floor
+              const endSeen = onTile(end, floorOf(p.length - 1))
               // arrowhead sized to the line weight (tip at 0,0 = the end point), like a real spitze
               const ahw = Math.max(7, (a.width ?? 5) * 1.7) // half-width
               const ahl = ahw * 2.1 // length back from the tip
@@ -3015,10 +3040,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               const markerPts: { at: [number, number]; deg: number }[] = a.marker
                 ? (() => {
                   const ps = markerParamsAlong(bpx, markerSpacing(a.marker))
-                    .map(({ seg, t, deg }) => ({ at: lerpPoint(bpx[seg], bpx[seg + 1], t), deg }))
-                  return ps.length ? ps : [{ at: mid, deg: 0 }]
+                    .map(({ seg, t, deg }) => ({ seg, at: lerpPoint(bpx[seg], bpx[seg + 1], t), deg }))
+                  return ps.length ? ps : [{ seg: Math.floor((bpx.length - 1) / 2), at: mid, deg: 0 }]
                 })()
+                  // …only where the line is seen: on its own tile, never on a climb between two
+                  .filter(({ seg, at }) => !stack || (onTile(at, floorOf(seg)) && floorOf(seg) === floorOf(Math.min(seg + 1, p.length - 1))))
                 : []
+              const labelAt = (() => {
+                const want: [number, number] = [mid[0] + (a.labelDx ?? 0) * sW, mid[1] + (a.labelDy ?? 0) * sH]
+                return onTile(want, floorOf(Math.floor((p.length - 1) / 2))) ? want : visibleLineMid(a)
+              })()
               // distance read-out (calibrated plans only); falls back to a "calibrate first" nudge
               // the Atemschutz-Trupp on this Leitung (anchor or number) and how it is doing
               const lineTrupp = truppForLine(a, trupps)
@@ -3030,7 +3061,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               if (a.label) labelLines.push(a.label)
               return (
                 <Fragment key={`am-${a.id}`}>
-                  {a.arrow && (
+                  {a.arrow && endSeen && (
                     // SVG centred on the end point (viewBox origin (0,0) = svg centre = the path tip).
                     // Centring uses the same translate-pair the markers use (reliable); the head is
                     // rotated by an SVG `transform` on the path about (0,0), so the TIP stays pinned to
@@ -3044,7 +3075,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                     </svg>
                   )}
                   {/* FKS Teilstück fork at the tip (rotated to the line's screen angle) */}
-                  {a.teilstueck && (
+                  {a.teilstueck && endSeen && (
                     <span className="wb-line-deco" style={{ transform: `translate(${end[0]}px, ${end[1]}px) translate(-50%, -50%)` }}>
                       <TeilstueckFork angleDeg={ang} color={color} width={a.width ?? 5} />
                     </span>
@@ -3054,8 +3085,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                   {(a.content || a.lineNo != null || a.floorTag != null || lineTrupp) && (() => {
                     const pe = bpx[bpx.length - 1]
                     const pp = bpx[bpx.length - 2] ?? pe
-                    const ax = pp[0] + (pe[0] - pp[0]) * 0.72 + (a.endDx ?? 0) * sW
-                    const ay = pp[1] + (pe[1] - pp[1]) * 0.72 + (a.endDy ?? -0.02) * sH
+                    const base: [number, number] = [pp[0] + (pe[0] - pp[0]) * 0.72, pp[1] + (pe[1] - pp[1]) * 0.72]
+                    if (!onTile(base, floorOf(p.length - 1))) return null
+                    const ax = base[0] + (a.endDx ?? 0) * sW
+                    const ay = base[1] + (a.endDy ?? -0.02) * sH
                     return (
                       <span className="wb-line-deco draggable" style={{ transform: `translate(${ax}px, ${ay}px) translate(-50%, -50%)`, cursor: tool === 'pan' ? 'move' : undefined }}
                         onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.endDx ?? 0, a.endDy ?? -0.02, 'end') : undefined}
@@ -3078,8 +3111,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       <LineMarker marker={a.marker!} color={color} deg={mp.deg} className="wb-line-mk" />
                     </span>
                   ))}
-                  {labelLines.length > 0 && (
-                    <span className="wb-line-label" style={{ left: 0, top: 0, transform: `translate(${mid[0] + (a.labelDx ?? 0) * sW}px, ${mid[1] + (a.labelDy ?? 0) * sH}px) translate(-50%, -100%)`, cursor: tool === 'pan' ? 'move' : undefined }}
+                  {labelLines.length > 0 && labelAt && (
+                    <span className="wb-line-label" style={{ left: 0, top: 0, transform: `translate(${labelAt[0]}px, ${labelAt[1]}px) translate(-50%, -100%)`, cursor: tool === 'pan' ? 'move' : undefined }}
                       onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.labelDx ?? 0, a.labelDy ?? 0) : undefined}
                       onPointerMove={tool === 'pan' ? labelMove : undefined}
                       onPointerUp={tool === 'pan' ? labelUp : undefined}
@@ -3103,9 +3136,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 areaLines.push(m2 != null ? fmtArea(m2) : appConfig.copy.whiteboard.scale.needsCalibration)
               }
               if (a.label) areaLines.push(a.label)
+              // on the stack: at its own spot while that is on the tile, else at the middle of what
+              // the tile shows of the area, and nowhere when it shows none (lib/tileClip)
+              const want: [number, number] = [cx + (a.labelDx ?? 0) * sW, cy + (a.labelDy ?? 0) * sH]
+              const at = onTile(want, a.floor) ? want : (() => {
+                const r = tilePx(tileOf, a.floor, sW, sH)
+                const seen = r ? clipPolygon(bpx, r) : []
+                return seen.length ? [seen.reduce((s, q) => s + q[0], 0) / seen.length, seen.reduce((s, q) => s + q[1], 0) / seen.length] as const : null
+              })()
+              if (!at) return null
               return (
                 <span key={`al-${a.id}`} className="wb-line-label wb-area-label"
-                  style={{ left: 0, top: 0, transform: `translate(${cx + (a.labelDx ?? 0) * sW}px, ${cy + (a.labelDy ?? 0) * sH}px) translate(-50%, -50%)`, cursor: tool === 'pan' ? 'move' : undefined }}
+                  style={{ left: 0, top: 0, transform: `translate(${at[0]}px, ${at[1]}px) translate(-50%, -50%)`, cursor: tool === 'pan' ? 'move' : undefined }}
                   onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.labelDx ?? 0, a.labelDy ?? 0) : undefined}
                   onPointerMove={tool === 'pan' ? labelMove : undefined}
                   onPointerUp={tool === 'pan' ? labelUp : undefined}

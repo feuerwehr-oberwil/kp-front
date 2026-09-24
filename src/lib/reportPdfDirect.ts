@@ -9,7 +9,8 @@
 
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, BoardAnno, BoardDoc, BuildingDoc, CaptionMode, Drawing, Entity, LayerDef, LngLat, MittelEntry, PlanDocument, ReportAttachment, TimelineEvent, Trupp } from '../types'
-import { floorLabel, pdfPageOf, tileAspectOf } from './whiteboard'
+import { floorLabel, floorSections, pdfPageOf, tileAspectOf } from './whiteboard'
+import { clipPolygon, clipPolyline, continuationChevrons } from './tileClip'
 import { activeViewDeg, buildView, fpBoxFrac } from './footprint'
 import { packFrameRing } from './stackFit'
 import type { IncidentMeta } from './incidents'
@@ -115,6 +116,8 @@ export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = '
 
 const STACK_FLOORS_PER_PAGE = 2
 const STACK_INK = '#3b4656'
+/** one «geht weiter» chevron's depth on paper, in page widths (~2.5 mm on an A4) */
+const PAPER_CHEVRON = 0.012
 
 /** The storeys of the stack that carry anything — an anno standing on them, or a line passing
  *  through. Top storey first. An EMPTY storey is an outline the reader learns nothing from: the
@@ -186,12 +189,55 @@ export function floorStackPages(
         return [px, ((pointIdx < 0 ? idx : pointIdx) + py) / N] as [number, number]
       }),
     })
-    const lifted = resolvePlanAnnos(annos).flatMap((a) => {
+    // ⚠️ A line or area is seen through its storey's TILE only, exactly as on screen (lib/tileClip,
+    // 24.09.2026): a Karte Leitung from the building to the TLF 200 m south printed through the
+    // band below and off the page. Each storey run is cut to its tile, a «geht weiter» mark
+    // stands where it leaves, and a run on a storey this page does not print is not drawn here.
+    // The cut happens in page-WIDTH units (a tile is 1 wide and TILE tall), so an exit's
+    // direction is a true angle on paper.
+    const tile = { x0: 0, y0: 0, x1: 1, y1: TILE }
+    const scaled = (pts: readonly (readonly number[])[]) => pts.map((q): [number, number] => [q[0], q[1] * TILE])
+    const toPage = (idx: number) => ([x, y]: [number, number]): [number, number] => [x, (idx + y / TILE) / N]
+    const onTile = (pts: readonly (readonly number[])[]) => pts.every(([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1)
+    const marks: Record<string, unknown>[] = []
+    const lifted = resolvePlanAnnos(annos).flatMap((a): BoardAnno[] => {
+      const sections = a.kind === 'draw' && a.pts?.length ? floorSections(a.pts, a.floor) : []
+      // one storey, wholly on its tile: lifted exactly as it always was (id, attachments and all)
+      if (sections.length > 1 || (sections.length === 1 && !onTile(sections[0]))) {
+        const pieces: BoardAnno[] = []
+        for (const run of sections) {
+          const idx = chunk.indexOf(run[0][2] ?? a.floor ?? 0)
+          if (idx < 0) continue
+          const cut = clipPolyline(scaled(run), tile)
+          for (const piece of cut.runs) {
+            if (piece.length < 2) continue
+            // its own id, and no attachments: the ends are resolved already, and a second
+            // resolution in page space would pull a cut end back onto the target it was cut from
+            pieces.push({
+              ...a, id: `${a.id}~${pieces.length}`, pts: piece.map(toPage(idx)),
+              startAttachment: undefined, endAttachment: undefined,
+              label: pieces.length ? undefined : a.label,
+            })
+          }
+          for (const c of cut.exits) {
+            const chev = continuationChevrons(c, PAPER_CHEVRON, tile).map((ch) => ch.map(toPage(idx)))
+            for (const pts of chev) marks.push({ kind: 'draw', pts, color: '#ffffff', width: 4.5 })
+            for (const pts of chev) marks.push({ kind: 'draw', pts, color: a.color, width: 2 })
+          }
+        }
+        return pieces
+      }
+      if (a.kind === 'area' && a.pts?.length && !onTile(a.pts)) {
+        const idx = chunk.indexOf(a.floor ?? 0)
+        if (idx < 0) return []
+        const seen = clipPolygon(scaled(a.pts), tile)
+        return seen.length ? [{ ...a, pts: seen.map(toPage(idx)) }] : []
+      }
       const pointFloors = a.pts?.map((p) => p[2] ?? a.floor ?? 0) ?? []
       const idx = chunk.indexOf(pointFloors.find((f) => chunk.includes(f)) ?? a.floor ?? 0)
       return idx < 0 ? [] : [lift(a, idx)]
     })
-    page.push(...planAnnosForPdf(lifted, captionMode))
+    page.push(...planAnnosForPdf(lifted, captionMode), ...marks)
     const labels = chunk.map(floorLabel)
     return { label: `${plan.title} · ${labels.length > 1 ? `${labels[0]} – ${labels[labels.length - 1]}` : labels[0]}`, blankAspect: N * TILE, annos: page }
   })

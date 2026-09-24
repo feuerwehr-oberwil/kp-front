@@ -164,6 +164,10 @@ to prod.
   at a tile's edge the translation stops, never each vertex (`whiteboard · floorGeometry.moveRigid`,
   24.09.2026 — the per-vertex clamp flattened a Leitung onto the tile's rim in the field); a vertex
   changes storey only by its own grip.
+  A storey tile is a window onto its storey: every line, area and Absperrkreis is drawn — and
+  hit — only inside its own tile, with one «geht weiter» double chevron in the line's colour per
+  edge crossing, on screen and on the printed Gebäude page alike (`lib/tileClip`, render-only;
+  24.09.2026 — a Karte Leitung to the TLF 200 m south ran through the next storey's drawing).
 - **A plan PDF may prepare itself (`§` markers).** The plan author writes `§EG` / `§1OG` / `§DG`
   (`§1OG.B` for a second join point, where no one staircase runs through the whole building –
   floors sharing a label join there, and the chain is resolved in one frame), optional region

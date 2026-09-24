@@ -9,6 +9,8 @@ import { NodeDeleteChip } from './NodeDeleteChip'
 import { floorSections, signedFloor } from '../lib/whiteboard'
 import { fillTemplate } from '../lib/format'
 import { canDropVertex } from '../lib/vertexOps'
+import { chevronPx, clipPolygon, clipPolyline, continuationChevrons, tilePx, type Rect, type XY } from '../lib/tileClip'
+import { useId } from 'react'
 
 const COLORS = appConfig.drawing.colors
 /** id namespace for the ink layer's Schraffur — kept distinct from the circle layer's defs so
@@ -39,6 +41,10 @@ interface InkProps {
   /** the sheet's size in CSS px — the coordinate space this whole layer renders in */
   sW: number
   sH: number
+  /** Gebäude stack only: a storey's tile in board-normalized space (whiteboard · floorGeometry ·
+   *  tileOf), null for a storey not drawn. Given ⇒ every line and area is cut to its own tile,
+   *  with a «geht weiter» mark where a line leaves it (lib/tileClip). */
+  tileOf?: (floor: number | undefined) => Rect | null
 }
 
 /**
@@ -55,18 +61,40 @@ interface InkProps {
  * (Line arrowheads + marker letters still render OUTSIDE this layer — they need their own
  * un-stretched transforms either way.)
  */
-export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {}, sW, sH }: InkProps) {
+export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width, dashed, hiddenTrails, mapY, selId, flashId, networkIds = [], onPickDraw, truppTones = {}, sW, sH, tileOf }: InkProps) {
   const W = Math.max(1, sW), H = Math.max(1, sH)
-  const pointStr = (pts: BoardPoint[], floor: number | undefined) => pts.map((p) => `${p[0] * W},${mapY(p[2] ?? floor, p[1]) * H}`).join(' ')
+  const pxOf = (pts: BoardPoint[], floor: number | undefined): XY[] => pts.map((p) => [p[0] * W, mapY(p[2] ?? floor, p[1]) * H])
+  const str = (pts: XY[]) => pts.map((p) => `${p[0]},${p[1]}`).join(' ')
+  const pointStr = (pts: BoardPoint[], floor: number | undefined) => str(pxOf(pts, floor))
   const hatchId = (c: string) => hatchPatternId(c, INK_HATCH_SPACE)
+  // ⚠️ One clip per drawn storey. The cut geometry below already ends at the tile's edge; the clip
+  // takes the rest — a round cap or the 18-px hit stroke would otherwise reach past it, and a tap
+  // there would select a line nobody can see (SVG does not hit-test what a clip-path hides).
+  const uid = useId()
+  const clipOf = (floor: number | undefined) => `url(#${uid}-tile-${floor ?? 0})`
+  const tiles = tileOf
+    ? [...new Set(annos.filter((a) => a.kind === 'draw' || a.kind === 'area').flatMap((a) => [a.floor ?? 0, ...(a.pts ?? []).map((p) => p[2] ?? a.floor ?? 0)]))]
+      .flatMap((f) => { const r = tilePx(tileOf, f, W, H); return r ? [{ f, r }] : [] })
+    : []
   return (
     <svg className="wb-ink-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <HatchDefs colors={COLORS} space={INK_HATCH_SPACE} />
+      {tiles.length > 0 && (
+        <defs>
+          {tiles.map(({ f, r }) => (
+            <clipPath key={f} id={`${uid}-tile-${f}`}><rect x={r.x0} y={r.y0} width={r.x1 - r.x0} height={r.y1 - r.y0} /></clipPath>
+          ))}
+        </defs>
+      )}
       {/* filled areas (under the lines) */}
       {annos.filter((a) => a.kind === 'area' && a.pts && a.pts.length >= 3).map((a) => {
         const pts = pointStr(a.pts!, a.floor)
+        // on the stack an area is seen through its storey's tile only; one wholly outside it (or on
+        // a storey folded away) is not drawn and cannot be tapped
+        const tile = tilePx(tileOf, a.floor, W, H)
+        if (tile === null || (tile && !clipPolygon(pxOf(a.pts!, a.floor), tile).length)) return null
         return (
-        <g key={a.id}>
+        <g key={a.id} clipPath={tile ? clipOf(a.floor) : undefined}>
           {selId === a.id && <polygon points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 3) + 6} strokeOpacity={0.35} strokeLinejoin="round" />}
           <polygon points={pts} fill={a.hatch ? `url(#${hatchId(a.color || COLORS[0])})` : (a.color || COLORS[0])}
             fillOpacity={a.hatch ? 1 : (a.fillOpacity ?? 0.14)}
@@ -80,11 +108,18 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
       {annos.filter((a) => a.kind === 'draw' && a.pts).flatMap((a) => floorSections(a.pts!, a.floor).map((run, ri) => {
         // a Leitung that climbs storeys is drawn per storey; the climb itself is a stair mark
         // on either tile (Whiteboard · stair marks), not a stroke through the ceiling
-        const pts = pointStr(run, a.floor)
+        const runFloor = run[0][2] ?? a.floor
+        const tile = tilePx(tileOf, runFloor, W, H)
+        if (tile === null) return null // its storey is folded away
+        const px = pxOf(run, a.floor)
+        // …and on the stack each run is cut to its own tile: a Karte Leitung from the building to
+        // the TLF 200 m south no longer runs through the next storey's drawing (24.09.2026)
+        const cut = tile ? clipPolyline(px, tile) : { runs: [px], exits: [] }
+        if (!cut.runs.length) return null
         // a run of ONE vertex – the Leitung has just arrived on this storey (↑/↓) – is a dot, or
         // there would be nothing to see or select on the tile until the next vertex is placed
         if (run.length === 1) {
-          const [cx, cy] = [run[0][0] * W, mapY(run[0][2] ?? a.floor, run[0][1]) * H]
+          const [cx, cy] = px[0]
           return (
             <g key={`${a.id}:${ri}`}>
               {selId === a.id && <circle cx={cx} cy={cy} r={(a.width || 5) / 2 + 5} fill="var(--blue)" fillOpacity={0.35} />}
@@ -93,34 +128,54 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
             </g>
           )
         }
+        const ink = a.color || COLORS[0]
         return (
-        <g key={`${a.id}:${ri}`}>
-          {truppTones[a.id] && (
-            <polyline points={pts} fill="none" stroke={truppTones[a.id] === 'crit' ? 'var(--red)' : 'var(--amber)'}
-              strokeWidth={(a.width || 5) + 8} strokeOpacity={0.45}
-              strokeLinecap="round" strokeLinejoin="round" />
-          )}
-          {networkIds.includes(a.id) && <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth={(a.width || 5) + 9} strokeOpacity={selId === a.id ? 0.34 : 0.16} strokeLinecap="round" strokeLinejoin="round" />}
-          {flashId === a.id && (
-            <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 14}
-              strokeOpacity={0.3} strokeLinecap="round" strokeLinejoin="round" />
-          )}
-          {selId === a.id && (
-            <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 6}
-              strokeOpacity={0.35} strokeLinecap="round" strokeLinejoin="round" />
-          )}
-          <polyline
-            points={pts}
-            fill="none" stroke={a.color || COLORS[0]} strokeWidth={a.width || 5}
-            strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
-            strokeLinecap={a.dashed ? 'butt' : 'round'} strokeLinejoin="round"
-          />
-          {onPickDraw && (
-            <polyline points={pts} fill="none" stroke="transparent" strokeWidth={18}
-              strokeLinecap="round" strokeLinejoin="round"
-              style={{ pointerEvents: 'stroke', cursor: 'grab' }}
-              onPointerDown={(e) => onPickDraw(a.id, e)} />
-          )}
+        <g key={`${a.id}:${ri}`} clipPath={tile ? clipOf(runFloor) : undefined}>
+          {cut.runs.map((piece, pi) => {
+            const pts = str(piece)
+            return (
+              <g key={pi}>
+                {truppTones[a.id] && (
+                  <polyline points={pts} fill="none" stroke={truppTones[a.id] === 'crit' ? 'var(--red)' : 'var(--amber)'}
+                    strokeWidth={(a.width || 5) + 8} strokeOpacity={0.45}
+                    strokeLinecap="round" strokeLinejoin="round" />
+                )}
+                {networkIds.includes(a.id) && <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth={(a.width || 5) + 9} strokeOpacity={selId === a.id ? 0.34 : 0.16} strokeLinecap="round" strokeLinejoin="round" />}
+                {flashId === a.id && (
+                  <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 14}
+                    strokeOpacity={0.3} strokeLinecap="round" strokeLinejoin="round" />
+                )}
+                {selId === a.id && (
+                  <polyline points={pts} fill="none" stroke="var(--blue)" strokeWidth={(a.width || 5) + 6}
+                    strokeOpacity={0.35} strokeLinecap="round" strokeLinejoin="round" />
+                )}
+                <polyline
+                  points={pts}
+                  fill="none" stroke={ink} strokeWidth={a.width || 5}
+                  strokeDasharray={a.dashed ? LINE_DASH_SVG : undefined}
+                  strokeLinecap={a.dashed ? 'butt' : 'round'} strokeLinejoin="round"
+                />
+                {onPickDraw && (
+                  <polyline points={pts} fill="none" stroke="transparent" strokeWidth={18}
+                    strokeLinecap="round" strokeLinejoin="round"
+                    style={{ pointerEvents: 'stroke', cursor: 'grab' }}
+                    onPointerDown={(e) => onPickDraw(a.id, e)} />
+                )}
+              </g>
+            )
+          })}
+          {/* «geht weiter»: once per crossing of the tile's edge, in the line's own colour, over a
+              paper halo so it reads on the line it sits on. Never a target: the tap belongs to the
+              line under it (the hit stroke above), and a mark is not an object. */}
+          {cut.exits.map((c, ci) => {
+            const chev = continuationChevrons(c, chevronPx(a.width || 5), tile ?? undefined).map(str)
+            return (
+              <g key={`more-${ci}`} className="wb-ink-more" aria-hidden style={{ pointerEvents: 'none' }}>
+                {chev.map((d, k) => <polyline key={`h${k}`} points={d} className="wb-ink-more-halo" fill="none" strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" />)}
+                {chev.map((d, k) => <polyline key={`c${k}`} points={d} fill="none" stroke={ink} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />)}
+              </g>
+            )
+          })}
         </g>
         )
       }))}
@@ -155,6 +210,8 @@ interface CircleProps {
   flashId?: string | null
   /** select/drag a circle by tapping it (pan mode only); omitted ⇒ not hittable */
   onPickCircle?: (id: string, e: React.PointerEvent) => void
+  /** Gebäude stack only — as on WbInkLayer: a cordon is seen through its storey's tile only */
+  tileOf?: (floor: number | undefined) => Rect | null
 }
 
 /**
@@ -168,18 +225,33 @@ interface CircleProps {
  * Painted UNDER the ink layer on purpose: a Leitung drawn across a big cordon must win the tap,
  * the same ordering rule the Karte states (MapView · handleClick).
  */
-export function WbCircleLayer({ annos, draft, sW, sH, mapY, color, selId, flashId, onPickCircle }: CircleProps) {
+export function WbCircleLayer({ annos, draft, sW, sH, mapY, color, selId, flashId, onPickCircle, tileOf }: CircleProps) {
   const W = Math.max(1, sW), H = Math.max(1, sH)
+  const uid = useId()
+  const circles = annos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0)
+  const tiles = tileOf
+    ? [...new Set(circles.map((a) => a.floor ?? 0))].flatMap((f) => { const r = tilePx(tileOf, f, W, H); return r ? [{ f, r }] : [] })
+    : []
   return (
     <svg className="wb-ink-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <HatchDefs colors={COLORS} />
-      {annos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
+      {tiles.length > 0 && (
+        <defs>
+          {tiles.map(({ f, r }) => (
+            <clipPath key={f} id={`${uid}-tile-${f}`}><rect x={r.x0} y={r.y0} width={r.x1 - r.x0} height={r.y1 - r.y0} /></clipPath>
+          ))}
+        </defs>
+      )}
+      {circles.map((a) => {
         const cx = (a.x ?? 0) * sW, cy = mapY(a.floor, a.y ?? 0) * sH
         const r = Math.max(1, (a.radiusN ?? 0) * sW)
         const ink = a.color || appConfig.drawing.circleColor
         const w = a.width ?? appConfig.drawing.circleLineWidth
+        const tile = tilePx(tileOf, a.floor, W, H)
+        // a ring whose box misses its tile is not seen there at all (nor tapped)
+        if (tile === null || (tile && (cx + r < tile.x0 || cx - r > tile.x1 || cy + r < tile.y0 || cy - r > tile.y1))) return null
         return (
-          <g key={a.id}>
+          <g key={a.id} clipPath={tile ? `url(#${uid}-tile-${a.floor ?? 0})` : undefined}>
             {flashId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 14} strokeOpacity={0.3} />}
             {selId === a.id && <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--blue)" strokeWidth={w + 6} strokeOpacity={0.35} />}
             <circle cx={cx} cy={cy} r={r}

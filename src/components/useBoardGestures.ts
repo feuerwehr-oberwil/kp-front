@@ -16,6 +16,9 @@ interface BoardGesturesDeps {
   canvasRef: RefObject<HTMLDivElement | null>
   boardRef: RefObject<HTMLDivElement | null>
   mapY: (floor: number | undefined, y: number) => number
+  /** Gebäude stack only: a storey's tile (whiteboard · floorGeometry · tileOf). A line's vertex
+   *  cut away by its tile is not seen there, so the lasso does not catch it (lib/tileClip). */
+  tileOf?: (floor: number | undefined) => unknown
   /** dispatch a pointer-move to the active object-manipulation drag (chip/draw/vertex), if any */
   manipMove: (e: ReactPointerEvent) => void
   /** end every object-manipulation drag (chip/draw/vertex up — each no-ops if inactive) */
@@ -34,7 +37,7 @@ interface BoardGesturesDeps {
  * to the two-finger gesture happen in the CAPTURE phase (trackDown/trackUp) so they see fingers
  * that a chip's own handler swallows — see the comment there.
  */
-export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp }: BoardGesturesDeps) {
+export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, tileOf, manipMove, manipUp }: BoardGesturesDeps) {
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const pan = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const pointers = useRef<Map<number, { x: number; y: number }>>(new Map())
@@ -73,11 +76,14 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     const inBox = marqueeContains(r, ({ x, y, floor }: { x: number; y: number; floor: number | undefined }) => ({
       cx: rect.left + x * rect.width, cy: rect.top + mapY(floor, y) * rect.height,
     }))
+    // on the stack a vertex is seen only on its own tile — never through the storey below
+    const seen = (x: number, y: number, floor: number | undefined) =>
+      !tileOf || (tileOf(floor) != null && x >= 0 && x <= 1 && y >= 0 && y <= 1)
     // anything LOCKED is click-through (its LockChip is the only door) — the lasso may neither
     // move, delete nor select it, exactly as on the Lage map (IncidentWorkspace · onMarquee)
     const ids = annos.filter((a) =>
       !a.locked && (a.kind === 'draw'
-        ? (a.pts ?? []).some(([x, y]) => inBox({ x, y, floor: a.floor }))
+        ? (a.pts ?? []).some(([x, y, f]) => seen(x, y, f ?? a.floor) && inBox({ x, y, floor: f ?? a.floor }))
         : inBox({ x: a.x ?? 0, y: a.y ?? 0, floor: a.floor })),
     ).map((a) => a.id)
     // Exactly one caught → drop into the normal single-edit selection, so the object gets its

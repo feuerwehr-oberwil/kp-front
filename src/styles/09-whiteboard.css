@@ -429,6 +429,10 @@
   font-family: var(--body); font-size: 14px; font-weight: 500; color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
 
 .wb-ink-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* «geht weiter» (lib/tileClip, 24.09.2026): where a line leaves its storey's tile, two open
+   chevrons in the LINE's colour – never --red/--amber, which say «delete» and «second axis» on this
+   surface. The halo is the paper, so the chevrons read over the very line they sit on. */
+.wb-ink-more-halo { stroke: var(--board-bg); stroke-opacity: .9; }
 .wb-ink { position: absolute; inset: 0; z-index: 5; touch-action: none; }
 
 /* point annotations — anchor centred on the plan point via translate(-50%,-50%) */

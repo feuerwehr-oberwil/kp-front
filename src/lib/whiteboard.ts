@@ -178,7 +178,19 @@ export function floorGeometry(stack: boolean, floorsTTB: number[], N: number) {
       return p[2] == null ? [moved[i]![0], ly] : [moved[i]![0], ly, p[2]]
     })
   }
-  return { mapY, localY, floorAt, boardPts, moveRigid }
+  /**
+   * The storey's TILE in board-normalized space — the band `mapY` lays its ink into, and the one
+   * window that ink may be seen through (lib/tileClip, 24.09.2026). Null for a storey the board
+   * does not draw (folded away); `undefined` for a single sheet, which has no tiles to cut to —
+   * the board's own edge is its only clip.
+   */
+  const tileOf = stack
+    ? (floor: number | undefined): { x0: number; y0: number; x1: number; y1: number } | null => {
+      const idx = floorsTTB.indexOf(floor ?? 0)
+      return idx < 0 ? null : { x0: 0, y0: idx / N, x1: 1, y1: (idx + 1) / N }
+    }
+    : undefined
+  return { mapY, localY, floorAt, boardPts, moveRigid, tileOf }
 }
 
 /**
