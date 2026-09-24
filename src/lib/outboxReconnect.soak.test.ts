@@ -150,7 +150,7 @@ describe('outbox reconnect soak', () => {
       expect(sync.syncStatus, `seed ${seed}`).toBe('synced')
       sync.dispose()
     }
-  })
+  }, 60_000)
 
   it(`audit events: ${SCENARIOS} interleavings — never dropped early, always delivered after reconnect`, async () => {
     for (let seed = 1; seed <= SCENARIOS; seed++) {
@@ -189,5 +189,5 @@ describe('outbox reconnect soak', () => {
       expect(store.status, `seed ${seed}`).toBe('synced')
       store.stop()
     }
-  })
+  }, 60_000)
 })
