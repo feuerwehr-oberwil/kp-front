@@ -542,7 +542,14 @@ export function AtemschutzView({
 
   const FREEZE_MS = 2000
   const [frozenIds, setFrozenIds] = useState<string[] | null>(null)
-  const freezeTimer = useRef<number | undefined>(undefined)
+  // the thaw: every freeze is a NEW array, so a second tap inside the window restarts the 2 s
+  // (the timer used to live in a ref written from `freezeOrder`, which the phone board's extra
+  // call sites turned into react-hooks/refs findings — an effect owns it without one)
+  useEffect(() => {
+    if (!frozenIds) return
+    const h = window.setTimeout(() => setFrozenIds(null), FREEZE_MS)
+    return () => window.clearTimeout(h)
+  }, [frozenIds])
 
   const sortTrupps = (list: Trupp[]) => {
     const sorted = baseSort(list)
@@ -608,10 +615,7 @@ export function AtemschutzView({
   // render, which is exactly what react-hooks/refs warns about.)
   const freezeOrder = () => {
     setFrozenIds((phoneMode ? [...phoneIn, ...phoneSafety, ...phoneReady, ...phoneOut, ...plainBoard] : board).map((t) => t.id))
-    window.clearTimeout(freezeTimer.current)
-    freezeTimer.current = window.setTimeout(() => setFrozenIds(null), FREEZE_MS)
   }
-  useEffect(() => () => window.clearTimeout(freezeTimer.current), [])
 
   // roster of everyone already entered on any Trupp (GF + AdF) — offered as quick-select chips
   // in the form so names don't have to be retyped each time.
@@ -821,21 +825,22 @@ export function AtemschutzView({
   // TruppRow ⇄ TruppCard under the same key, i.e. a REMOUNT — without this memory the fresh
   // mount replayed the ring + scroll on every collapse, long after the gesture that pointed
   // there (Feldtest 08.09., «Trupp Schmid blinkt nach collapse»). A ref, not state: recording a
-  // finished flash must not itself re-render the board.
+  // finished flash must not itself re-render the board. ⚠️ It is therefore read only in the
+  // card's flash EFFECT (`flashSeen` / `onFlashed`), never here while rendering — `cards()` runs
+  // during render, and a ref read there is what react-hooks/refs counts once per call site.
   const flashSeen = useRef(new Map<string, number>())
-  const focusNonceOf = (id: string) => {
-    if (!activeFocus || !(activeFocus.id === id || (markAll && sevOf(id) >= 2))) return undefined
-    return flashSeen.current.get(id) === activeFocus.nonce ? undefined : activeFocus.nonce
-  }
+  const focusNonceOf = (id: string) =>
+    activeFocus && (activeFocus.id === id || (markAll && sevOf(id) >= 2)) ? activeFocus.nonce : undefined
 
   const cards = (list: Trupp[]) => list.map((t) => {
     const nonce = focusNonceOf(t.id)
+    const seen = nonce == null ? undefined : () => flashSeen.current.get(t.id) === nonce
     const flashed = nonce == null ? undefined : () => flashSeen.current.set(t.id, nonce)
     return (
     compact && !focusMode && openRow !== t.id ? (
       <TruppRow
         key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
-        focusNonce={nonce} focusScroll={activeFocus?.id === t.id} onFlashed={flashed}
+        focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
         onContact={(id) => { freezeOrder(); recordContact(id) }}
         onPressure={(id) => setPressureAsk({ id, kind: 'pressure' })}
         onOpen={() => setOpenRow(t.id)}
@@ -852,7 +857,7 @@ export function AtemschutzView({
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
       intervalMin={intervalMin}
-      focusNonce={nonce} focusScroll={activeFocus?.id === t.id} onFlashed={flashed}
+      focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
       onContact={(id) => { freezeOrder(); recordContact(id) }}
       onPressure={(id, bar) => { freezeOrder(); recordPressure(id, bar) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
@@ -1706,7 +1711,7 @@ function collapsedClock(t: Trupp, live: TruppLive): { val: string; sub: string }
 }
 
 function TruppRow({
-  t, live, alarm, color, canEdit, onContact, onPressure, onOpen, focusNonce, focusScroll = true, onFlashed, lite,
+  t, live, alarm, color, canEdit, onContact, onPressure, onOpen, focusNonce, focusScroll = true, flashSeen, onFlashed, lite,
 }: {
   t: Trupp; live: TruppLive; now: number; color?: string; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the card use */
@@ -1722,6 +1727,8 @@ function TruppRow({
   /** the ring has run its full 1.9s — the board writes the nonce down so a later expand/collapse
    *  REMOUNT of this Trupp does not replay a gesture that already landed (see `focusNonceOf`) */
   onFlashed?: () => void
+  /** …and this is where the remount reads it back: true = this nonce already rang here */
+  flashSeen?: () => boolean
   /** the handed-over «Tafel pur» (see TruppCard) — only gates plain-Trupp WORDING here
    *  (AtemschutzView · plainWords); the row itself carries no lite-only controls. */
   lite: boolean
@@ -1757,10 +1764,11 @@ function TruppRow({
   // A nonce, not a boolean: tapping the same alarm again must replay the pointing gesture.
   // `onFlashed` rides in a ref so its (per-render) identity never restarts the flash effect.
   const onFlashedRef = useRef(onFlashed)
-  useEffect(() => { onFlashedRef.current = onFlashed }, [onFlashed])
+  const flashSeenRef = useRef(flashSeen)
+  useEffect(() => { onFlashedRef.current = onFlashed; flashSeenRef.current = flashSeen }, [onFlashed, flashSeen])
   useEffect(() => {
     const el = rowRef.current
-    if (focusNonce == null || !el) return
+    if (focusNonce == null || !el || flashSeenRef.current?.()) return
     if (focusScroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.classList.remove(s.cardFlash)
     void el.offsetWidth
@@ -1859,7 +1867,7 @@ function TruppRow({
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false,
+  t, live, alarm, now, color, canEdit, intervalMin, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onPressure, onStatus, onAskExit, onAskPressure, onEdit, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, lite = false,
 }: {
   t: Trupp; live: TruppLive; now: number; canEdit: boolean
   /** the shared tier (lib · truppAlarm) — the SAME number the tone, the chip and the row use */
@@ -1883,6 +1891,7 @@ function TruppCard({
   focusScroll?: boolean
   /** see TruppRow — the completed ring reports back so a remount does not replay it */
   onFlashed?: () => void
+  flashSeen?: () => boolean
   onEdit: (focus?: 'auftrag') => void
   onReenter: () => void
   onDelete: (id: string) => void
@@ -1929,10 +1938,11 @@ function TruppCard({
   const cardRef = useRef<HTMLDivElement>(null)
   // `onFlashed` rides in a ref so its (per-render) identity never restarts the flash effect.
   const onFlashedRef = useRef(onFlashed)
-  useEffect(() => { onFlashedRef.current = onFlashed }, [onFlashed])
+  const flashSeenRef = useRef(flashSeen)
+  useEffect(() => { onFlashedRef.current = onFlashed; flashSeenRef.current = flashSeen }, [onFlashed, flashSeen])
   useEffect(() => {
     const el = cardRef.current
-    if (focusNonce == null || !el) return
+    if (focusNonce == null || !el || flashSeenRef.current?.()) return
     if (focusScroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     el.classList.remove(s.cardFlash)
     void el.offsetWidth
