@@ -2,6 +2,7 @@ import { formatDateTime } from './report'
 import { describe, it, expect } from 'vitest'
 import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf, usedStackFloors } from './reportPdfDirect'
 import { TILE_AR } from './whiteboard'
+import { appConfig } from '../config/appConfig'
 import type { BoardAnno, BuildingDoc, PlanDocument, TimelineEvent, Trupp } from '../types'
 
 describe('planAnnosForPdf', () => {
@@ -135,6 +136,55 @@ describe('floorStackPages', () => {
     expect(pages[0].annos.some((x) => x.kind === 'area')).toBe(false)
     // the storey labels are still there – the page is a stack, dial or no dial
     expect(pages[0].annos.filter((x) => x.kind === 'text' && !String(x.text).startsWith('m'))).toHaveLength(2)
+  })
+
+  // ⚠️ 24.09.2026: a Karte hose that left its storey was lifted whole and ran on through the next
+  // storey's band. The paper cuts to the band (its section — no Geschossplan is printed) and marks
+  // the crossing, as the screen does (lib/storeyClip).
+  describe('cuts ink to its storey band', () => {
+    const edgeMarks = (annos: Record<string, unknown>[]) => annos.filter((x) => x.kind === 'symbol' && String(x.symbolSvg).includes('<circle r="10"'))
+    it('stops a Leitung at the edge of its band and marks where it leaves', () => {
+      const pages = floorStackPages(plan, building, [
+        ...onEvery([0]),
+        { id: 'h', kind: 'draw', floor: 1, pts: [[0.5, 0.5], [0.5, 1.8]], color: '#1f6feb', arrow: true },
+      ])
+      const hose = pages[0].annos.filter((x) => x.kind === 'draw' && x.color === '#1f6feb')
+      expect(hose).toHaveLength(1)
+      const ys = (hose[0].pts as number[][]).map((p) => p[1])
+      expect(Math.max(...ys)).toBeCloseTo(0.5, 9) // the 1. OG band is the page's top half
+      const [mark] = edgeMarks(pages[0].annos)
+      expect(mark).toMatchObject({ x: 0.5 })
+      expect(mark.y as number).toBeCloseTo(0.5, 9)
+      // pointing DOWN, the way the hose goes on
+      expect(String(mark.symbolSvg)).toContain('rotate(90.0)')
+    })
+    it('prints a Leitung wholly on its storey exactly as before, with no mark', () => {
+      const pages = floorStackPages(plan, building, [{ id: 'h', kind: 'draw', floor: 0, pts: [[0.2, 0.4], [0.8, 0.6]], color: '#1f6feb' }, ...onEvery([1])])
+      expect(pages[0].annos.find((x) => x.color === '#1f6feb')!.pts).toEqual([[0.2, 0.7], [0.8, 0.8]])
+      expect(edgeMarks(pages[0].annos)).toHaveLength(0)
+    })
+    it('cuts a Fläche to its band: the fill, what is left of its outline, a mark at each crossing', () => {
+      const pages = floorStackPages(plan, building, [
+        ...onEvery([0]),
+        { id: 'f', kind: 'area', floor: 1, pts: [[0.3, 0.6], [0.7, 0.6], [0.7, 1.4], [0.3, 1.4]], color: '#e8392b', label: 'Abschnitt' },
+      ])
+      const fill = pages[0].annos.find((x) => x.kind === 'area' && x.color === '#e8392b')!
+      expect(Math.max(...(fill.pts as number[][]).map((p) => p[1]))).toBeCloseTo(0.5, 9)
+      expect(fill.label).toBe('Abschnitt')
+      const outline = pages[0].annos.filter((x) => x.kind === 'draw' && x.color === '#e8392b')
+      expect(outline).toHaveLength(1)
+      expect(edgeMarks(pages[0].annos)).toHaveLength(2)
+    })
+    it('fills only its own band with an Absperrkreis larger than the storey', () => {
+      const pages = floorStackPages(plan, building, [...onEvery([1]), { id: 'k', kind: 'circle', floor: 0, x: 0.5, y: 0.5, radiusN: 3 }])
+      expect(pages[0].annos.some((x) => x.kind === 'symbol' && x.sizeN === 6)).toBe(false) // no whole-page disc
+      const fill = pages[0].annos.find((x) => x.kind === 'area' && x.color === appConfig.drawing.circleColor)!
+      const ys = (fill.pts as number[][]).map((p) => p[1])
+      expect(Math.min(...ys)).toBeCloseTo(0.5, 9)
+      expect(Math.max(...ys)).toBeCloseTo(1, 9)
+      // its ring never crosses the band, so there is nothing to mark
+      expect(edgeMarks(pages[0].annos)).toHaveLength(0)
+    })
   })
 
   // ⚠️ 18.09.2026: the demo Einsatz printed two Gebäude sheets for ONE Trupp chip — the second a
