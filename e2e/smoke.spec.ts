@@ -131,9 +131,17 @@ test.describe(() => {
     const config = await page.request.get('/api/config')
     test.skip((await config.json()).identity?.demoMode === true, 'Recovery drill requires an ordinary station session')
     await ensureIncidentOpen(page)
+    // ⚠️ The old page is still alive between these two lines: a request of its own may 401 and
+    // start a refresh that the reload then tears down mid-flight. The server has rotated by
+    // then, the browser never stored the successor — and until 24.09.2026 that signed the
+    // device out (3 in 40 locally; backend auth/router · refresh now re-delivers it). Kept
+    // racy on purpose: it is the reload-while-renewing a real tablet does too.
     await context.clearCookies({ name: 'access_token' })
     await page.reload()
-    await expect(page.locator('nav.navrail')).toBeVisible()
+    await expect(
+      page.locator('nav.navrail'),
+      'the refresh cookie must renew the session after a reload – the container log says why a refresh was refused',
+    ).toBeVisible()
 
     // A locally visible row must never masquerade as accepted by the server.
     const endpoint = '**/api/incidents/*/journal'

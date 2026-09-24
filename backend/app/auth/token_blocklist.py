@@ -14,7 +14,7 @@ request, so ``is_revoked`` is a single indexed primary-key lookup.
 import asyncio
 import contextlib
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -92,6 +92,30 @@ class TokenBlocklist:
             await session.commit()
             return inserted
 
+    async def rotation_replayable(self, jti: str, successor: str, within: timedelta) -> bool:
+        """May a refresh token whose ``consume`` just failed be answered once more?
+
+        Only as a RE-DELIVERY of its one rotation (auth/security · `successor_jti`): the token
+        was consumed less than ``within`` ago, and its successor has been neither consumed (the
+        client evidently received it and moved on) nor revoked (a logout blocks the successor
+        of the token it ends — auth/cookies · `revoke_refresh_token`). Anything older, or a
+        chain that has moved past this token, stays refused.
+        """
+        async with self._factory()() as session:
+            consumed_at = (
+                await session.execute(select(RevokedToken.revoked_at).where(RevokedToken.jti == jti))
+            ).scalar_one_or_none()
+            if consumed_at is None:
+                return False
+            if consumed_at.tzinfo is None:  # SQLite hands back naive datetimes; they are UTC
+                consumed_at = consumed_at.replace(tzinfo=UTC)
+            if datetime.now(UTC) - consumed_at > within:
+                return False
+            moved_on = (
+                await session.execute(select(RevokedToken.jti).where(RevokedToken.jti == successor))
+            ).scalar_one_or_none()
+            return moved_on is None
+
     async def cleanup_expired(self) -> int:
         """Delete rows whose tokens have already expired; returns rows removed."""
         async with self._factory()() as session:
@@ -108,7 +132,9 @@ class TokenBlocklist:
         await session.execute(delete(RevokedToken).where(RevokedToken.expires_at <= datetime.now(UTC)))
         stmt = (
             dialect_insert(session)(RevokedToken)
-            .values(jti=jti, expires_at=expires_at)
+            # revoked_at from THIS clock, not the database's: `rotation_replayable` measures a
+            # grace window against it, and the app and its database need not share a host.
+            .values(jti=jti, expires_at=expires_at, revoked_at=datetime.now(UTC))
             .on_conflict_do_nothing(index_elements=["jti"])
             .returning(RevokedToken.jti)
         )
