@@ -897,3 +897,55 @@ def test_a_branch_leaves_from_the_prong_of_the_fork_as_printed():
     assert abs((got[0] - tip[0]) - prong / ss) < 0.5
     assert abs((got[1] - tip[1]) - half / ss) < 0.5
     assert scene.drawings[2]["coords"][0] == trunk[0]
+
+
+# --- «Gelöscht / erledigt» (review item 21b, 24.09.2026) ------------------------------------
+# The Übung's EG Feuer was DELETED when it was out, and the Rapport then showed no fire at all. A
+# done symbol now STAYS on the sheet — grey, with the time top-left — on the Kroki, a Modul page
+# and every Gebäude storey alike (they all go through _place_symbol / _symbol_badges).
+
+
+def _reds(img: Image.Image, box: tuple[int, int, int, int] | None = None) -> int:
+    """Clearly RED pixels (the Feuer's own ink) — a greyed glyph has none left."""
+    part = img.crop(box) if box else img
+    return sum(n for n, px in part.getcolors(maxcolors=1_000_000) if px[0] > 150 and px[0] - max(px[1], px[2]) > 60)
+
+
+def test_a_done_plan_symbol_prints_grey_with_its_time_top_left():
+    base = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer"}
+    cx = cy = 200
+    glyph = (int(cx - _HALF), int(cy - _HALF), int(cx + _HALF), int(cy + _HALF))
+    top_left = (int(cx - _HALF - 14), int(cy - _HALF - 8), int(cx - _HALF + 4), int(cy - _HALF + 4))
+
+    bare = _blank_plan(base)
+    assert _reds(bare, glyph) > 0
+    assert _plan_ink(bare, top_left) == 0
+
+    done = _blank_plan({**base, "done": "20:40"})
+    assert _reds(done, glyph) == 0  # grey, not a faded red flame
+    assert _plan_ink(done, glyph) > 0  # …but still THERE
+    assert _plan_ink(done, top_left) > 0  # «20:40»
+
+
+def test_a_done_symbol_keeps_its_storey_and_count_in_full_ink():
+    """Only the glyph recedes; what the badges say is still the record."""
+    base = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer", "floorFrom": 0, "floorTo": 2, "count": 3}
+    top_right = (int(200 + _HALF - 4), int(200 - _HALF - 8), int(200 + _HALF + 14), int(200 - _HALF + 4))
+    a, b = _blank_plan(base), _blank_plan({**base, "done": "20:40"})
+    assert _plan_ink(a, top_right) == _plan_ink(b, top_right)
+
+
+def test_a_done_kroki_symbol_prints_grey():
+    def scene(done: str | None) -> kk.KrokiScene:
+        return kk.KrokiScene(entities=[{"coord": [7.556, 47.5139], "symbol": "VKF Feuer", "done": done}])
+
+    assert _reds(kk.render_kroki(scene(None), PACK, NO_TILES, width=640, height=400)) > 0
+    assert _reds(kk.render_kroki(scene("20:40"), PACK, NO_TILES, width=640, height=400)) == 0
+
+
+def test_the_schemas_let_done_through():
+    """pydantic drops an unknown field without a word — the sheet would simply print it red."""
+    from app.report_pdf import KrokiEntityIn, PlanAnnoIn
+
+    assert PlanAnnoIn.model_validate({"kind": "symbol", "done": "20:40"}).model_dump()["done"] == "20:40"
+    assert KrokiEntityIn.model_validate({"coord": [7.5, 47.5], "done": "20:40"}).model_dump()["done"] == "20:40"

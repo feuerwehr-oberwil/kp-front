@@ -722,6 +722,20 @@ def _badge(draw: ImageDraw.ImageDraw, xy: tuple[float, float], text: str, h: flo
     draw.text((x, y - h * 0.04), text, font=f, fill=fg, anchor="mm")
 
 
+#: «Gelöscht / erledigt» on paper — the client's `--done-filter: grayscale(1)` and
+#: `--done-opacity: .5` (src/styles/01-tokens.css), so a symbol reads as over on the sheet exactly
+#: as it does on both screens. Keep the two in step.
+DONE_ALPHA = 0.5
+
+
+def _greyed(img: Image.Image) -> Image.Image:
+    """The glyph as a done symbol prints it: desaturated, at `DONE_ALPHA` of its own alpha."""
+    alpha = img.getchannel("A").point(lambda a: int(a * DONE_ALPHA))
+    grey = img.convert("LA").convert("RGBA")
+    grey.putalpha(alpha)
+    return grey
+
+
 def _place_symbol(
     overlay: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -731,6 +745,7 @@ def _place_symbol(
     rotation: float | None,
     spread: dict | None,
     height: int | None = None,
+    done: bool = False,
 ) -> None:
     """Paint one tactical glyph with the decor that belongs to the glyph itself: the FKS
     Entwicklung arrows outside it (client `.sym-spread`, a 250% box), the white legibility chip
@@ -739,6 +754,9 @@ def _place_symbol(
     Shared by the Kroki and the plan pages — a symbol carries the same decor wherever it was
     placed, which is also what the two screens show. `height` stretches the glyph box
     (generic shapes with an `aspect`); symbols stay square.
+
+    `done` («Gelöscht / erledigt», client lib/objectDone): glyph, arrows and chip go grey — the
+    symbol STAYS on the record, it only recedes. Its badges keep full ink (`_symbol_badges`).
     """
     x, y = xy
     h = height or size
@@ -746,13 +764,15 @@ def _place_symbol(
     if spread:
         osize = int(size * 2.5)
         oimg = raster_svg(spread_overlay_svg(spread, sym_color(svg)), osize)
-        overlay.alpha_composite(oimg, (int(x - osize / 2), int(y - osize / 2)))
+        overlay.alpha_composite(_greyed(oimg) if done else oimg, (int(x - osize / 2), int(y - osize / 2)))
     if needs_white(svg):
         draw.rounded_rectangle(
             [x - size / 2, y - h / 2, x + size / 2, y + h / 2],
             radius=min(size, h) * 0.14,
-            fill=(255, 255, 255, 235),
+            fill=(255, 255, 255, int(235 * DONE_ALPHA) if done else 235),
         )
+    if done:
+        glyph = _greyed(glyph)
     if rotation:
         glyph = glyph.rotate(-rotation, expand=True, resample=Image.Resampling.BICUBIC)
     overlay.alpha_composite(glyph, (int(x - glyph.width / 2), int(y - glyph.height / 2)))
@@ -767,9 +787,11 @@ def _symbol_badges(
     floor_from: int | None,
     floor_to: int | None,
     count: int | None,
+    done: str | None = None,
 ) -> None:
     """Storey badge top-right, count badge bottom-right — both a WHITE chip with ink text (the
-    client's `.sym-floor` / `.sym-count`).
+    client's `.sym-floor` / `.sym-count`) — and, on a symbol marked «Gelöscht / erledigt», its
+    HH:MM top-LEFT (the client's `.sym-done`), in the same chip, the dimmer ink the screen uses.
 
     ⚠️ On screen the count is an INK chip. Not on paper (18.09.2026): since every symbol carries a
     numbered legend disc, a dark «2» in the glyph's corner read as a second legend number right
@@ -793,6 +815,13 @@ def _symbol_badges(
         _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", "#1b2330")
     if (count or 0) > 1:
         _badge(draw, (x + size / 2, y + size / 2), str(count), bh, "white", "#1b2330")
+    if done:
+        # anchored by its RIGHT edge a little inside the glyph's left side, so a wide «20:40» grows
+        # OUTWARDS, away from the storey badge — a printed glyph is small, and the two must not
+        # meet over it (the same width `_badge` computes)
+        w = max(bh, draw.textlength(done, font=_font(int(bh * 0.72))) + bh * 0.5)
+        right = x - size / 2 + bh * 0.9
+        _badge(draw, (right - w / 2, y - size / 2), done, bh, "white", "#4a5568")
 
 
 def _caption(draw: ImageDraw.ImageDraw, xy: tuple[float, float], lines: list[str], fs: int) -> None:
@@ -1712,8 +1741,11 @@ def render_kroki(
         gw, gh_ = _glyph_box(e, lat, overlay_z, sym_mul)
         size, gh = round(gw * u * ss), round(gh_ * u * ss)
         x, y = x0_, y0_
-        _place_symbol(overlay, draw, svg, (x, y), size, e.get("rotation"), e.get("spread"), height=gh)
-        _symbol_badges(draw, (x, y), size, u * ss, e.get("floor"), e.get("floorFrom"), e.get("floorTo"), e.get("count"))
+        done = e.get("done") or None
+        _place_symbol(overlay, draw, svg, (x, y), size, e.get("rotation"), e.get("spread"), height=gh, done=bool(done))
+        _symbol_badges(
+            draw, (x, y), size, u * ss, e.get("floor"), e.get("floorFrom"), e.get("floorTo"), e.get("count"), done
+        )
         # metadata caption under the glyph (the map's .sym-caption) — DEFERRED into the same
         # collision pass the drawing labels go through: on the 08.08. Kroki two of these
         # («Kurmann Thomas» over «Lüfter Akku 3. OG») printed straight on top of one another,
@@ -1906,14 +1938,17 @@ def _overlay_board_annos(
             # ⚠️ Same decor as the Kroki, deliberately: a plan symbol printed BARE until 26.08.
             # — no Entwicklung arrows, no white chip, no storey and no count — so «3 Brände im
             # 2. OG», drawn once on the board, came off the printer as one nameless flame.
-            _place_symbol(overlay, draw, svg, (x, y), size, a.get("rotation"), a.get("spread"), height=gh)
+            done = a.get("done") or None
+            _place_symbol(
+                overlay, draw, svg, (x, y), size, a.get("rotation"), a.get("spread"), height=gh, done=bool(done)
+            )
             # `storey`, never `floor`: on a plan anno that name is the floor-stack's tile index.
             # On the Gebäude floor-stack `storey` is always absent — the sheet the symbol sits on
             # IS the storey, so the client never offers the control there (Whiteboard · onFloor)
             # and the page needs no second answer that could disagree with the first. A von/bis
             # RANGE and the count are placed things, not page facts, and print on every page.
             _symbol_badges(
-                draw, (x, y), size, u * ss, a.get("storey"), a.get("floorFrom"), a.get("floorTo"), a.get("count")
+                draw, (x, y), size, u * ss, a.get("storey"), a.get("floorFrom"), a.get("floorTo"), a.get("count"), done
             )
             # …and the WORDS the board shows under the glyph («Melder 3. OG», a Fahrer, the typed
             # detail fields). They print the way the Kroki prints them: a numbered disc under the
