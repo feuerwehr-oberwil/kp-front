@@ -7,14 +7,14 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from .. import audit, live_wait, storage
-from ..alarm_validation import validate_alarm_workspace
+from ..alarm_validation import ALARM_VALIDATED_KEYS, validate_alarm_workspace
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
     CurrentAtemschutzWriter,
@@ -103,8 +103,10 @@ async def get_incident_or_404(db: AsyncSession, incident_id: uuid.UUID, *, lock:
 async def list_incidents(
     _user: UserOrAdmin,
     archived: bool | None = None,
-    limit: int = 100,
-    skip: int = 0,
+    # Bounded at the edge: a negative LIMIT/OFFSET reached Postgres, which refuses it, and
+    # the caller got a 500 for a malformed query string. 500 is the most the admin history asks for.
+    limit: int = Query(default=100, ge=1, le=500),
+    skip: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ) -> list[Incident]:
     # IncidentMeta never carries the heavy JSONB blobs — defer them so the list (hit on open
@@ -112,7 +114,7 @@ async def list_incidents(
     q = select(Incident).options(defer(Incident.map_workspace_json), defer(Incident.details_json))
     if archived is not None:
         q = q.where(Incident.is_archived.is_(archived))
-    q = q.order_by(Incident.started_at.desc()).limit(min(limit, 500)).offset(skip)
+    q = q.order_by(Incident.started_at.desc()).limit(limit).offset(skip)
     return list((await db.execute(q)).scalars())
 
 
@@ -275,7 +277,12 @@ async def apply_workspace_put(
     if inc.workspace_rev != body.base_rev:
         raise _workspace_revision_conflict(inc.workspace_rev, body.base_rev)
     _scrub_drawing_props(body.workspace)
-    previous = deepcopy(inc.map_workspace_json) if isinstance(inc.map_workspace_json, dict) else {}
+    # The stored side of the comparison, scrubbed the same way so an unchanged legacy row still
+    # compares equal to its scrubbed resubmission. Only the keys validate_alarm_workspace reads
+    # are copied: a deepcopy of the whole stored blob (megabytes in the field) per save bought
+    # nothing — the scrub mutates, so it must not touch the loaded row itself.
+    stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
+    previous = {key: deepcopy(stored[key]) for key in ALARM_VALIDATED_KEYS if key in stored}
     _scrub_drawing_props(previous)
     try:
         validate_alarm_workspace(body.workspace, previous)

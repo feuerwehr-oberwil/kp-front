@@ -72,7 +72,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import storage
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
-from .database import async_session_maker
+from .database import async_session_maker, execute_dml
 from .geocode import geocode
 from .models import (
     DeploymentConfig,
@@ -1158,6 +1158,47 @@ async def _rekey_dataset(db: AsyncSession, old_id: str, new_id: str, object_id: 
     )
 
 
+async def _retarget_incident(db: AsyncSession, incident_id: uuid.UUID, old_id: uuid.UUID, new_id: uuid.UUID) -> None:
+    """Point one incident's workspace blob from ``old_id`` at ``new_id`` — as a new REVISION.
+
+    ⚠️ The blob used to be reassigned without touching ``workspace_rev`` (23.09.2026). The rev is
+    the whole optimistic-concurrency contract of ``PUT …/workspace`` (``apply_workspace_put``: the
+    save wins only while the rev still equals the client's ``base_rev``), so a tablet holding the
+    pre-merge rev saved straight over the retargeted blob and put the dead object id back — and
+    no follower ever re-read it, because nothing said it had changed. Bumping it turns that save
+    into the ordinary 409, whose three-way merge keeps the retarget.
+
+    Conditional on the rev it read, like the PUT: a save committing in between is re-read and
+    retargeted, never overwritten. ``updated_at`` is left alone on purpose — «geändert nach
+    Abschluss» is derived from it, and a maintenance fold is not a change to the Einsatz.
+    """
+    for _ in range(5):
+        current = (
+            await db.execute(
+                select(Incident.map_workspace_json, Incident.workspace_rev).where(Incident.id == incident_id)
+            )
+        ).one_or_none()
+        if current is None or not isinstance(current.map_workspace_json, dict):
+            return
+        new_doc, hits = _retarget_json(current.map_workspace_json, old_id, new_id)
+        if not hits or not isinstance(new_doc, dict):
+            return
+        result = await execute_dml(
+            db,
+            update(Incident)
+            .where(Incident.id == incident_id, Incident.workspace_rev == current.workspace_rev)
+            .values(
+                map_workspace_json=new_doc,
+                workspace_rev=Incident.workspace_rev + 1,
+                updated_at=Incident.updated_at,
+            )
+            .execution_options(synchronize_session=False),
+        )
+        if result.rowcount:
+            return
+    raise RuntimeError(f"incident {incident_id}: workspace kept changing under the merge — run it again")
+
+
 async def _copy_row(db: AsyncSession, model: Any, where: Any, overrides: dict[str, Any]) -> None:
     """``INSERT … SELECT`` the matching rows back into their own table with some columns replaced."""
     table = model.__table__
@@ -1189,12 +1230,7 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
     for old_id, new_id in plan.datasets:
         await _rekey_dataset(db, old_id, new_id, plan.target)
     for incident_id in plan.incidents:
-        row = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-        if row is None or not isinstance(row.map_workspace_json, dict):
-            continue
-        new_doc, hits = _retarget_json(row.map_workspace_json, old.id, plan.target)
-        if hits and isinstance(new_doc, dict):
-            row.map_workspace_json = new_doc
+        await _retarget_incident(db, incident_id, old.id, plan.target)
     if source_key is not None:
         old.source_key = None  # UNIQUE — free it before the re-keyed row takes it
         await db.flush()
@@ -1229,12 +1265,7 @@ async def _apply_pair(db: AsyncSession, pair: MergePair) -> None:
                 .execution_options(synchronize_session=False)
             )
     for incident_id in pair.incidents:
-        row = (await db.execute(select(Incident).where(Incident.id == incident_id))).scalar_one_or_none()
-        if row is None or not isinstance(row.map_workspace_json, dict):
-            continue
-        new_doc, hits = _retarget_json(row.map_workspace_json, pair.loser.id, pair.survivor.id)
-        if hits and isinstance(new_doc, dict):
-            row.map_workspace_json = new_doc  # reassigned, not mutated: JSONB change detection
+        await _retarget_incident(db, incident_id, pair.loser.id, pair.survivor.id)
     if pair.deletable:
         if pair.source_key:
             pair.loser.source_key = None  # source_key is UNIQUE — free it before the survivor takes it

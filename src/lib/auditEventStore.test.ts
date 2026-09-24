@@ -36,10 +36,44 @@ afterEach(() => {
 })
 
 describe('AuditEventStore', () => {
+  // ⚠️ A failed IndexedDB read is not an empty outbox (23.09.2026) — see AuditEventStore · load.
+  it('a failed outbox read writes nothing over the predecessor’s events, and merges them once a re-read answers', async () => {
+    await idb.idbSet('kp-audit-incident:editor', { pending: [event('predecessor')], rejected: [] })
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    vi.spyOn(idb, 'idbRead').mockResolvedValueOnce({ ok: false, error: new Error('io') })
+    const write = vi.spyOn(idb, 'idbSet')
+    const store = open()
+    store.append(event('mine'))
+    await store.flush()
+    expect(write).not.toHaveBeenCalled()
+    expect(store.status).toBe('storage')
+
+    await vi.advanceTimersByTimeAsync(8_000)
+    vi.useRealTimers()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(await idb.idbGet('kp-audit-incident:editor')).toMatchObject({ pending: [event('predecessor'), event('mine')] })
+    expect(store.status).toBe('offline')
+  })
+
+  it('a stop → start after a failed outbox read reads again, rather than keeping the failed read', async () => {
+    await idb.idbSet('kp-audit-incident:editor', { pending: [event('predecessor')], rejected: [] })
+    const read = vi.spyOn(idb, 'idbRead').mockResolvedValueOnce({ ok: false, error: new Error('io') })
+    const store = open()
+    await store.flush()
+    expect(store.status).toBe('storage')
+    // StrictMode's remount: stop() clears the re-read timer, start() must arm a fresh read
+    store.stop()
+    store.start()
+    await store.flush()
+    expect(read).toHaveBeenCalledTimes(2)
+    expect(store.pendingCount).toBe(1)
+    expect(store.status).toBe('offline')
+  })
+
   it('unions an immediate local event with delayed cache hydration before writing or posting', async () => {
     let release!: (value: { pending: PendingAuditEvent[]; rejected: PendingAuditEvent[] }) => void
     const hydration = new Promise<{ pending: PendingAuditEvent[]; rejected: PendingAuditEvent[] }>((resolve) => { release = resolve })
-    vi.spyOn(idb, 'idbGet').mockReturnValueOnce(hydration)
+    vi.spyOn(idb, 'idbRead').mockReturnValueOnce(hydration.then((value) => ({ ok: true as const, value })))
     const write = vi.spyOn(idb, 'idbSet')
     const store = open()
     store.append(event('new-edit'))
@@ -184,7 +218,7 @@ describe('AuditEventStore', () => {
   it('exposes recoverable undurable work if ownership is lost before initial hydration answers', async () => {
     let release!: () => void
     const hydration = new Promise<null>((resolve) => { release = () => resolve(null) })
-    vi.spyOn(idb, 'idbGet').mockReturnValueOnce(hydration)
+    vi.spyOn(idb, 'idbRead').mockReturnValueOnce(hydration.then((value) => ({ ok: true as const, value })))
     const write = vi.spyOn(idb, 'idbSet')
     const store = open()
     store.append(event('early-edit'))

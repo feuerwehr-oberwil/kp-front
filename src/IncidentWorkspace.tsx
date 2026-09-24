@@ -1690,13 +1690,9 @@ export function IncidentWorkspace({
     // usually entered on another device and arrives via this very poll
     alarmUrgent: azAlarm.peak >= 2,
   })
-  const syncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
-  const syncNow = async () => {
-    await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
-    if (combinedSyncStatus(sync.syncStatus, journal.getStatus(), auditDelivery.getStatus()) !== 'synced') {
-      throw new Error('Operational records have not all been acknowledged')
-    }
-  }
+  // The record outboxes alone — what the media drain waits for (below). The badge's status adds
+  // the media queue to it once that exists (`syncStatus`, after useMediaQueue).
+  const recordsSyncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
 
   // Publish this device's «Einsatzdaten geprüft» to the crew. The question belongs to the Einsatz,
   // not to the tablet it was answered on (lib/incidentAlerts), and this component is the only
@@ -1812,6 +1808,17 @@ export function IncidentWorkspace({
     incidentId: incidentMeta.id, readOnly: !canWriteRecord,
     onUploaded: swapRowMedia, onRestore: swapRowMedia,
   })
+  // ⚠️ The media queue is an operational outbox too (23.09.2026): a Foto or Sprachnotiz that has
+  // not reached the server is not saved, and one this device could not even store is `storage`.
+  // It used to be left out, so the badge said «gespeichert» over captures that lived only here.
+  const syncStatus = combinedSyncStatus(recordsSyncStatus, media.syncStatus)
+  const syncNow = async () => {
+    await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
+    await media.flush().catch(() => {})
+    if (combinedSyncStatus(sync.syncStatus, journal.getStatus(), auditDelivery.getStatus(), media.getStatus()) !== 'synced') {
+      throw new Error('Operational records have not all been acknowledged')
+    }
+  }
 
   // --- ONE «Einsatz abschliessen» ------------------------------------------------------------
   //
@@ -2043,7 +2050,9 @@ export function IncidentWorkspace({
 
   // When the workspace sync recovers (server reachable again), drain any queued media too —
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
-  useEffect(() => { if (syncStatus === 'synced') void media.flush() }, [syncStatus, media])
+  // ⚠️ On the RECORD status, not `syncStatus`: that one includes the media queue itself, and
+  // would never read «synced» while anything is queued — the drain would wait for itself.
+  useEffect(() => { if (recordsSyncStatus === 'synced') void media.flush() }, [recordsSyncStatus, media])
 
   // Escape is the universal bail-out — it peels back one layer of transient state at a time so
   // there's always a quick way back to the plain map: (1) cancel an armed placement, (2) close the

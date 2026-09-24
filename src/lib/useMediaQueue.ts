@@ -9,11 +9,25 @@ import { forgetLocalThumb, mintLocalThumb } from './mediaUrl'
 import {
   enqueueMedia,
   flushMediaQueue,
+  isMediaQueueDurable,
   listMediaQueue,
   sameQueue,
   type MediaQueueItem,
   type MediaStatus,
 } from './mediaQueue'
+import type { SyncStatus } from './api/workspaceSync'
+
+/**
+ * The media queue's part of the shared sync status («Saved means every operational queue is
+ * acknowledged», AGENTS.md). A capture is not on the record until the server has it, so a queued
+ * one is `pending`; one the server keeps refusing is `error`; one this device could not even
+ * store is `storage` — the same three words the workspace, journal and audit outboxes use.
+ */
+export function mediaSyncStatus(items: MediaQueueItem[], durable: boolean): SyncStatus {
+  if (!items.length) return 'synced'
+  if (!durable) return 'storage'
+  return items.some((i) => i.status === 'failed') ? 'error' : 'pending'
+}
 
 interface Opts {
   incidentId: string
@@ -30,14 +44,21 @@ export interface MediaQueueApi {
   statusOf: (rowId: string) => MediaStatus | undefined
   /** number of captures not yet on the server (pending + failed) */
   pendingCount: number
-  /** persist a blob whose direct upload just failed, so it survives reload and retries */
-  enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => Promise<void>
+  /** persist a blob whose direct upload just failed, so it survives reload and retries.
+   *  Resolves false when it could only be held in memory (see mediaQueue · enqueueMedia). */
+  enqueue: (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => Promise<boolean>
   /** attempt to upload everything queued for this incident (best-effort, never throws) */
   flush: () => Promise<void>
+  /** this queue's part of the shared sync status (mediaSyncStatus) */
+  syncStatus: SyncStatus
+  /** the same, current as of the last queue operation — for a caller that just awaited flush() */
+  getStatus: () => SyncStatus
 }
 
 export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: Opts): MediaQueueApi {
   const [items, setItems] = useState<MediaQueueItem[]>([])
+  const [durable, setDurable] = useState(true)
+  const status = useRef<SyncStatus>('synced')
   // keep callbacks in refs so the window/online listeners always call the fresh versions
   const cb = useRef({ onUploaded, onRestore })
   cb.current = { onUploaded, onRestore }
@@ -46,6 +67,9 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
 
   const refresh = useCallback(async () => {
     const next = await listMediaQueue(incidentId)
+    const stored = isMediaQueueDurable(incidentId)
+    status.current = mediaSyncStatus(next, stored)
+    setDurable(stored)
     // IDENTITY-PRESERVING when nothing changed (the common case: empty queue, no uploads).
     // setItems(fresh array) unconditionally was one half of an App-wide re-render loop:
     // render → flush effect (unstable `media` dep) → IDB roundtrips → setItems(new []) →
@@ -90,6 +114,8 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
         // replaces that dead entry instead of appending a duplicate picture to the row
         cb.current.onRestore(item.rowId, item.kind, url, item.localUrl)
       }
+      status.current = mediaSyncStatus(q, isMediaQueueDurable(incidentId))
+      setDurable(isMediaQueueDurable(incidentId))
       setItems(q)
       void flush()
     })()
@@ -109,8 +135,9 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
   }, [flush])
 
   const enqueue = useCallback(async (rowId: string, kind: 'photo' | 'audio', blob: Blob, filename: string, createdAt: string, localUrl?: string) => {
-    await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt, localUrl)
+    const stored = await enqueueMedia(incidentId, rowId, kind, blob, filename, createdAt, localUrl)
     await refresh()
+    return stored
   }, [incidentId, refresh])
 
   const statusOf = useCallback((rowId: string): MediaStatus | undefined => {
@@ -122,6 +149,10 @@ export function useMediaQueue({ incidentId, readOnly, onUploaded, onRestore }: O
 
   // stable API object — consumers hang effects off `media`, and a fresh object per render
   // (the other half of the re-render loop above) re-fired them on every commit
-  return useMemo(() => ({ statusOf, pendingCount: items.length, enqueue, flush }),
-    [statusOf, items.length, enqueue, flush])
+  // A read-only tab uploads nothing and re-lists nothing: the tab that owns the incident reports
+  // the queue, and a watcher repeating its stale copy would only contradict it.
+  const syncStatus: SyncStatus = readOnly ? 'synced' : mediaSyncStatus(items, durable)
+  const getStatus = useCallback((): SyncStatus => (readOnly ? 'synced' : status.current), [readOnly])
+  return useMemo(() => ({ statusOf, pendingCount: items.length, enqueue, flush, syncStatus, getStatus }),
+    [statusOf, items.length, enqueue, flush, syncStatus, getStatus])
 }
