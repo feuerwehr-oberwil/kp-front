@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, controlChipLabel, countsAsOpen } from './abschlussOpen'
+import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, controlChipLabel, countsAsOpen, registeredAbschlussMessage } from './abschlussOpen'
+import type { Trupp } from '../types'
 import { ABSCHLUSS_STEPS } from './abschluss'
 import { appConfig } from '../config/appConfig'
 
@@ -75,5 +76,21 @@ describe('controlChipLabel — the Rapport head\'s one Kontrolle chip', () => {
     expect(controlChipLabel(0, 3)).toBe('3 Hinweise')
     expect(controlChipLabel(4, 2)).toBe('4 noch offen · 2 Hinweise')
     expect(controlChipLabel(1, 1)).toBe('1 noch offen · 1 Hinweis')
+  })
+})
+
+describe('registeredAbschlussMessage — who is still angemeldet', () => {
+  const t = (over: Partial<Trupp>): Trupp => ({
+    id: 'x', name: 'Muster Leo', entryPressureBar: 300, entryTime: '', lastContactTime: '', status: 'angemeldet', ...over,
+  })
+
+  it('names one Trupp by number and Gruppenführer, and says it is the Sicherungstrupp', () => {
+    expect(registeredAbschlussMessage([t({ no: 6, auftrag: 'sichern' })]))
+      .toBe('1 Trupp noch angemeldet (#6 Muster Leo, Sicherungstrupp).')
+  })
+
+  it('counts several, and leaves out a number the record does not have', () => {
+    expect(registeredAbschlussMessage([t({ no: 6, auftrag: 'sichern' }), t({ id: 'y', name: 'Meier', auftrag: 'loeschen' })]))
+      .toBe('2 Trupps noch angemeldet (#6 Muster Leo, Sicherungstrupp · Meier).')
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppTransferState } from './atemschutz'
+import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppFieldsOf, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -450,6 +450,48 @@ describe('truppStillDeployed (the Abschluss question)', () => {
     expect(truppStillDeployed({ ...base, status: 'angemeldet', entryTime: '' })).toBe(false)
     expect(truppStillDeployed({ ...base, status: 'raus', exitTime: base.entryTime })).toBe(false)
     expect(truppStillDeployed({ ...base, exitTime: base.entryTime })).toBe(false)
+  })
+})
+
+describe('truppStillRegistered (the Abschluss asks about the crew that stood ready)', () => {
+  const ready: Trupp = { ...base, status: 'angemeldet', entryTime: '', lastContactTime: '', auftrag: 'sichern' }
+
+  it('counts an Atemschutz-Trupp still angemeldet, and nothing else', () => {
+    expect(truppStillRegistered(ready)).toBe(true)
+    expect(truppStillRegistered(base)).toBe(false)
+    expect(truppStillRegistered({ ...ready, status: 'raus' })).toBe(false)
+  })
+
+  it('leaves out a work squad and a card taken off the board', () => {
+    expect(truppStillRegistered({ ...ready, kind: 'einfach' })).toBe(false)
+    expect(truppStillRegistered({ ...ready, removedAt: '2026-06-21T10:05:00Z' })).toBe(false)
+  })
+})
+
+describe('truppFieldsOf — an edit that changes one thing', () => {
+  it('hands the Trupp back as the form would, with the one override', () => {
+    const t: Trupp = { ...base, members: ['Meier'], auftrag: 'loeschen', ziel: '2. OG', lineNo: 3, funkkanal: 11, equipment: ['wbk'], color: '#e8392b' }
+    expect(truppFieldsOf(t, { auftrag: 'sichern' })).toEqual({
+      name: 'Müller', members: ['Meier'], auftrag: 'sichern', ziel: '2. OG', lineNo: 3, funkkanal: 11,
+      pressure: 300, leaderPersonId: undefined, memberPersonIds: undefined, kind: undefined, equipment: ['wbk'],
+    })
+  })
+})
+
+describe('entryPressureAsks — the ONE plausibility question', () => {
+  const d = { entryPressureMin: 270, defaultPressureBar: 300 }
+
+  it('asks below the station minimum, never at or above it, and never with no upper bound', () => {
+    expect(entryPressureAsks(180, d)).toBe(true)
+    expect(entryPressureAsks(260, d)).toBe(true)
+    expect(entryPressureAsks(270, d)).toBe(false)
+    expect(entryPressureAsks(320, d)).toBe(false)
+  })
+
+  it('is off at 0, and never asks about the station’s own default or about no reading', () => {
+    expect(entryPressureAsks(180, { ...d, entryPressureMin: 0 })).toBe(false)
+    expect(entryPressureAsks(200, { entryPressureMin: 270, defaultPressureBar: 200 })).toBe(false)
+    expect(entryPressureAsks(0, d)).toBe(false)
   })
 })
 

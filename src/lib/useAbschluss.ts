@@ -5,8 +5,8 @@ import type { IncidentMeta } from './api/incidents'
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { missingSteps, type AbschlussStep } from './abschluss'
-import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen } from './abschlussOpen'
-import { truppStillDeployed } from './atemschutz'
+import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen, registeredAbschlussMessage } from './abschlussOpen'
+import { truppStillDeployed, truppStillRegistered } from './atemschutz'
 import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
 
@@ -28,6 +28,10 @@ interface Args {
   /** open the Rapport ON one Mindestangabe (IncidentWorkspace · requestReportStep, a stable
    *  module-level loader of the lazy ReportPreflight chunk) */
   requestReportStep: (step: AbschlussStep) => void
+  /** Close these Trupps as «nicht eingesetzt» — the card's own stand-down (useTruppActions ·
+   *  setTruppStatus(id, 'raus') on a Trupp that never went in), one undo step each. Absent (a
+   *  caller without the Tafel) ⇒ the registered question is not asked. */
+  standDownTrupps?: (ids: string[]) => void
 }
 
 /**
@@ -42,7 +46,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
@@ -77,6 +81,25 @@ export function useAbschluss({
   const confirmAndComplete = useCallback(async (): Promise<boolean> => {
     const A = appConfig.copy.abschluss
     const P = appConfig.copy.preflight
+    /* ⚠️ A Trupp still ANGEMELDET is asked about FIRST, on its own (24.09.2026, D1 ⑦). On 23.09.
+       the Sicherungstrupp T6 stood «angemeldet» to the end, and the confirm below counted only
+       the crews inside, so the record closed with a crew neither sent in nor stood down. Two
+       answers, and neither writes anything by itself being skipped: «Zur Tafel» goes there (and
+       does not close), «Als «nicht eingesetzt» schliessen» is the SAME close-out the card offers
+       (Trupp … nicht eingesetzt, undoable per Trupp) and then goes on to the Abschluss.
+       Dismissing does nothing at all. */
+    const registered = standDownTrupps ? trupps.filter(truppStillRegistered) : []
+    if (registered.length > 0 && standDownTrupps) {
+      const answer = await confirmDialog({
+        message: registeredAbschlussMessage(registered),
+        confirmLabel: A.registeredStandDown,
+        altLabel: A.registeredToBoard,
+        cancelLabel: appConfig.copy.cancel,
+      })
+      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
+      if (answer !== true) return false
+      standDownTrupps(registered.map((t) => t.id))
+    }
     // ⚠️ Pending media belongs in this list. The Abschluss closes the incident, and a Foto or a
     // Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
     // about to walk away, so that is part of what they are confirming.
@@ -121,7 +144,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport()
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, trupps, standDownTrupps])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

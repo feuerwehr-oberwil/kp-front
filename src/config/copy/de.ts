@@ -2138,6 +2138,11 @@ export const de = {
      * er ist der Normalfall, und sein Eingangsdruck sagt es ohnehin.
      */
     logEntryNoAs: 'Trupp {name}: Eintritt – ohne Atemschutz',
+    /** …und der Sicherungstrupp, der hineingeht (24.09.2026, D1 ⑦): er wird nur geschickt, wenn
+     *  drinnen etwas schiefgeht – die Zeile, nach der eine Rekonstruktion zuerst sucht. Abgeleitet
+     *  vom Trupp (Auftrag «Sichern», erster Eintritt), nicht vom Knopf (useTruppActions ·
+     *  setTruppStatus). */
+    logSafetyEntry: 'Trupp {name}: Sicherungstrupp eingesetzt',
     logContact: 'Trupp {name}: Kontakt bestätigt',
     logPressure: 'Trupp {name}: Druck {bar} bar',
     // Rückzug and Fortsetzen reset the contact clock; that has to be in the Verlauf, otherwise
@@ -3978,6 +3983,15 @@ export const de = {
     // …und wenn noch etwas offen ist, sagt es der Knopf. Abschliessen ist erlaubt – das ist der
     // Ort, an dem das ausgesprochen wird, statt hinter einem gleich beschrifteten Knopf.
     confirmAnyway: 'Trotzdem abschliessen',
+    /* Ein Atemschutz-Trupp, der beim Abschluss noch ANGEMELDET ist (24.09.2026, D1 ⑦): typisch
+       der Sicherungstrupp, der bereitstand und nie hinein musste. Vor der eigentlichen Frage
+       gestellt; «nicht eingesetzt» ist derselbe Abschluss wie auf der Karte (Trupp … nicht
+       eingesetzt). */
+    registeredOne: '1 Trupp noch angemeldet ({list}).',
+    registeredMany: '{n} Trupps noch angemeldet ({list}).',
+    registeredSafety: '{name}, Sicherungstrupp',
+    registeredToBoard: 'Zur Tafel',
+    registeredStandDown: 'Als «nicht eingesetzt» schliessen',
     done: 'Rapport abgeschlossen',
     doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',

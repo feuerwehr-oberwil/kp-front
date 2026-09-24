@@ -1281,6 +1281,7 @@ export const en: Localizable<Copy> = {
     logEntry: 'Team {name}: entry',
     // ⚠️ the ENTRY rows say which kind of team went in — see the German base for why
     logEntryNoAs: 'Team {name}: entry – without SCBA',
+    logSafetyEntry: 'Team {name}: safety team deployed',
     logContact: 'Team {name}: contact confirmed',
     logPressure: 'Team {name}: pressure {bar} bar',
     // ⚠️ says what HAPPENS instead of asserting a contact nobody confirmed — see the German base
@@ -2461,6 +2462,11 @@ export const en: Localizable<Copy> = {
     confirmMsg: 'The report is marked complete and the incident closed. Later corrections stay possible and appear as addenda.',
     confirmBtn: 'Complete',
     confirmAnyway: 'Complete anyway',
+    registeredOne: '1 team still registered ({list}).',
+    registeredMany: '{n} teams still registered ({list}).',
+    registeredSafety: '{name}, safety team',
+    registeredToBoard: 'To the board',
+    registeredStandDown: 'Close as «not deployed»',
     done: 'Report completed',
     doneMediaPending: 'Report completed · {n} photo/audio not uploaded yet – kept and sent the next time it is opened',
     failed: 'Completion failed',

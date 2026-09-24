@@ -1838,9 +1838,16 @@ export function IncidentWorkspace({
   // «offen» for ever, while the identically-labelled path through the Rapport stamped and
   // counted. Two doors into one room are fine; two doors with the same sign into different rooms
   // are not. The confirm and the open-point count live HERE, above both of them.
+  /** «Als «nicht eingesetzt» schliessen» in the Abschluss (useAbschluss · standDownTrupps,
+   *  24.09.2026): the card's own stand-down, per Trupp. The Trupp actions are created much further
+   *  down, so the hook gets a stable door and the ref is pointed at them once they exist. */
+  const standDownRef = useRef<(ids: string[]) => void>(() => {})
+  const standDownTrupps = useCallback((ids: string[]) => standDownRef.current(ids), [])
   const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+    // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
+    standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
   })
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
@@ -3513,6 +3520,9 @@ export function IncidentWorkspace({
     redo: () => { reapply(); logHistStep('redo', label, ''); return true },
   })
   rememberOneShotRef.current = rememberOneShot
+  // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
+  // is answered, long after this commit, so an effect is the place to point it
+  useEffect(() => { standDownRef.current = (ids) => { for (const id of ids) setTruppStatus(id, 'raus') } })
   const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
     rememberOneShot('gebaeude', label, restore, reapply)
 
