@@ -60,7 +60,7 @@ describe('the words — one key, a family switch', () => {
   })
 
   it('stamps who, when known, and only symbols can be done', () => {
-    expect(markDone(AT, ' Eichenberger Bastian ')).toEqual({ at: AT, by: 'Eichenberger Bastian' })
+    expect(markDone(AT, ' Muster Anna ')).toEqual({ at: AT, by: 'Muster Anna' })
     expect(markDone(AT)).toEqual({ at: AT })
     expect(canBeDone('symbol')).toBe(true)
     expect(canBeDone('area')).toBe(false)

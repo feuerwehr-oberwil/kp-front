@@ -1629,7 +1629,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
   const open = (annos: BoardAnno[], extra: Partial<React.ComponentProps<typeof Whiteboard>> = {}) => {
     const log = vi.fn()
     const emit = vi.fn()
-    const utils = renderPlan(annos, { log, emit, authorName: 'Eichenberger Bastian', ...extra })
+    const utils = renderPlan(annos, { log, emit, authorName: 'Muster Anna', ...extra })
     fireEvent.pointerDown(utils.container.querySelector('.wb-symbol')!)
     return { ...utils, log, emit }
   }
@@ -1640,7 +1640,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     const saved = lastSaved(onChange)
     expect(saved).toHaveLength(1) // still there
     expect(saved[0].done?.at).toBeTruthy()
-    expect(saved[0].done?.by).toBe('Eichenberger Bastian')
+    expect(saved[0].done?.by).toBe('Muster Anna')
     // ONE row, naming what, where and when — «Feuer EG gelöscht (20:40)»
     expect(log).toHaveBeenCalledTimes(1)
     expect(log.mock.calls[0][1]).toMatch(/^Feuer EG gelöscht \(\d\d:\d\d\)$/)
