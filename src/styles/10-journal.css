@@ -444,6 +444,12 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .journal-replay span { display: none; }
   .journal-replay { padding: 0 8px; }
+  /* …and since the funnel joined it the head is SIX items: at 360px a real Einsatz's
+     «Verlauf · 312» ran 1px past the edge and the ✕ was squeezed to 34px (measured 24.09.2026).
+     The gaps close up to 6px — the room a four-digit count needs — and no chip may shrink: the
+     ✕ is the house 36px everywhere, and a squeezed target is the one thing a head cannot lose. */
+  .journal-head { gap: 6px; }
+  .journal-replay, .journal-x { flex: none; }
   /* …and the trailing group closes up, so the sentence keeps its share on the one row that can
      still crowd it: an audio row whose clip has not uploaded yet carries four controls and a
      «Wird geladen» chip. */
