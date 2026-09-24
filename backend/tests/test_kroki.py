@@ -943,6 +943,15 @@ def test_a_done_kroki_symbol_prints_grey():
     assert _reds(kk.render_kroki(scene("20:40"), PACK, NO_TILES, width=640, height=400)) == 0
 
 
+def test_a_one_storey_span_prints_one_value_like_the_screen():
+    """Von = Bis is ONE storey (client symbolRender · floorRangeBadge): «0», never «0/0»."""
+    base = {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer"}
+    top_right = (int(200 + _HALF - 4), int(200 - _HALF - 8), int(200 + _HALF + 30), int(200 - _HALF + 4))
+    single = _plan_ink(_blank_plan({**base, "floorFrom": 1, "floorTo": 1}), top_right)
+    span = _plan_ink(_blank_plan({**base, "floorFrom": 1, "floorTo": 3}), top_right)
+    assert 0 < single < span
+
+
 def test_the_schemas_let_done_through():
     """pydantic drops an unknown field without a word — the sheet would simply print it red."""
     from app.report_pdf import KrokiEntityIn, PlanAnnoIn

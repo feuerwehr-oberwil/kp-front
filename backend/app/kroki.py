@@ -811,7 +811,10 @@ def _symbol_badges(
     if storey is not None:
         _badge(draw, (x + size / 2, y - size / 2), floor_badge(storey), bh, "white", "#1b2330")
     elif floor_from is not None or floor_to is not None:
-        rng = "/".join(floor_badge(v) for v in (floor_from, floor_to) if v is not None)
+        # a single storey said as a span (Von = Bis, the Gebäude's default) is ONE value — the
+        # client's floorRangeBadge says «0», and «0/0» on paper read as two storeys
+        ends = [v for v in (floor_from, floor_to) if v is not None]
+        rng = floor_badge(ends[0]) if len(set(ends)) == 1 else "/".join(floor_badge(v) for v in ends)
         _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", "#1b2330")
     if (count or 0) > 1:
         _badge(draw, (x + size / 2, y + size / 2), str(count), bh, "white", "#1b2330")
