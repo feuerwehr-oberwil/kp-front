@@ -393,7 +393,10 @@ to prod.
     frame and they came back «moved». So does «Geschoss entfernen» and the ↶ of «Geschoss
     hinzufügen» (24.09.2026, `stackFloors · removeStorey` / `withoutOwnOnStorey`): a Karte object
     SHOWN on a storey is not the storey's, and swept out of the view it was deleted outright. It
-    stays on the Karte and simply finds no tile. And the seam honours it per object: a lent anno
+    stays on the Karte and simply finds no tile. The removal's confirm asks only about what the
+    SAME sweep loses (`removeStorey · lost`, `lib/storeyRemoval`) — «n Markierungen … gelöscht oder
+    gekürzt» — and a storey showing only Karte objects goes without asking; the toast still undoes
+    it. And the seam honours it per object: a lent anno
     handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
     the bake — which lost a note's text and laid a store step for nothing.
   - ⚠️ **A machine writer is idempotent — writing an unchanged value is a render loop**

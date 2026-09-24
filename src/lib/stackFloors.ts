@@ -57,10 +57,13 @@ export function stackInstances(anno: BoardAnno, floors: readonly number[]): Boar
  *
  * `remaining` is the stack's storeys AFTER the removal. `owned` is every id the stack owned
  * BEFORE — a superset of `after`'s, so the removal's write drops the swept ones and its ↶ puts
- * them back through the same door.
+ * them back through the same door. `lost` counts the own annos the removal deletes OR changes —
+ * the number the confirm asks about (`storeyRemoval · askStoreyRemoval`), taken off this very
+ * sweep so the question and the act cannot drift apart. An anno the removal leaves alone is
+ * handed back as the same record, which is what makes it countable by identity.
  */
 export function removeStorey(view: readonly BoardAnno[], ownIds: ReadonlySet<string>, floor: number, remaining: readonly number[]): {
-  before: BoardAnno[]; after: BoardAnno[]; owned: Set<string>
+  before: BoardAnno[]; after: BoardAnno[]; owned: Set<string>; lost: number
 } {
   const before = view.filter((a) => ownIds.has(a.id))
   // resolved against the WHOLE view: an own Leitung may be docked onto a lent object
@@ -102,7 +105,9 @@ export function removeStorey(view: readonly BoardAnno[], ownIds: ReadonlySet<str
       ...((droppedEnd || targetGone(a.endAttachment)) ? { endAttachment: undefined } : {}),
     }
   }).filter((a) => !a.pts || a.pts.length >= (a.kind === 'area' ? 3 : 2))
-  return { before, after, owned: new Set(before.map((a) => a.id)) }
+  const untouched = new Set(before)
+  const lost = before.length - after.filter((a) => untouched.has(a)).length
+  return { before, after, owned: new Set(before.map((a) => a.id)), lost }
 }
 
 /**

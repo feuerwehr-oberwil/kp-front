@@ -140,9 +140,10 @@ import { bandAspect, buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { stackGroundFit } from './lib/stackFit'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
+import { askStoreyRemoval } from './lib/storeyRemoval'
 import { floorPackOf, frameAspect, packFloorNames, packStoreys, trimmedPackFrame } from './lib/floorPackBinding'
 import { buildingPackBinding } from './lib/buildingPackBinding'
-import { tileAspectOf } from './lib/whiteboard'
+import { floorLabel, tileAspectOf } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia,
@@ -6162,7 +6163,7 @@ export function IncidentWorkspace({
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
             undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
           }}
-          onRemoveFloor={(floor) => {
+          onRemoveFloor={async (floor) => {
             if (building?.pack || floorPack?.tiles[floor]) return
             const prevBuilding = building
             const nextBuilding = prevBuilding ? { ...prevBuilding, floors: prevBuilding.floors.filter((f) => f !== floor) } : prevBuilding
@@ -6175,6 +6176,9 @@ export function IncidentWorkspace({
             // exactly the stack this removal produced, not re-run a sweep against a document that
             // has moved on since.
             const sweep = removeStorey(board.gebaeude ?? [], sheetAnchoredIds(objects, 'gebaeude'), floor, nextBuilding?.floors ?? [])
+            // asks only about what the sweep LOSES — own annos deleted or cut short, never a Karte
+            // object shown here — and not at all when that is nothing; the toast undoes either way
+            if (!await askStoreyRemoval(sweep.lost, floorLabel(floor))) return
             // a machine write (`gesture: false`) — a sweep of what stood on the storey, no placement
             const writeOwn = (own: BoardAnno[]) => setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, sweep.owned, own) }), { gesture: false })
             setBuilding(nextBuilding)

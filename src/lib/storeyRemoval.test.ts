@@ -5,7 +5,17 @@ import { useObjectStore } from './useObjectStore'
 import { bakeGeoBody, sheetAnchoredIds, withOwnAnnos, type AnchorChange, type PlanFit, type TacticalObject } from './tacticalObjects'
 import { fitSimilarity } from './georef'
 import { removeStorey, stackInstances, withoutOwnOnStorey } from './stackFloors'
+import { askStoreyRemoval } from './storeyRemoval'
+import { appConfig } from '../config/appConfig'
+import { fillTemplate } from './format'
 import type { BoardAnno, Drawing, Entity } from '../types'
+
+// the confirm, answered the way the operator would (`answer` is what the next dialog resolves to)
+const ui = vi.hoisted(() => ({ confirms: [] as { title?: string; message: string }[], answer: false }))
+vi.mock('./ui', async (importOriginal) => ({
+  ...await importOriginal<typeof import('./ui')>(),
+  confirmDialog: (opts: { title?: string; message: string }) => { ui.confirms.push(opts); return Promise.resolve(ui.answer) },
+}))
 
 /* «Geschoss entfernen» on a hand-made Gebäude stack (24.09.2026, noted in the 23.09.2026
  * post-mortem, PR #202). The stack's view holds the Karte's objects projected onto their storey,
@@ -216,5 +226,52 @@ describe('«Geschoss entfernen» keeps the Karte’s objects', () => {
     expect(byId(result.current.objects)).toEqual(byId([tlf, stays]))
     expect(onAnchorChange).not.toHaveBeenCalled()
     expect(result.current.canUndo).toBe(false)
+  })
+
+  describe('the confirm asks about what the removal LOSES, counted by the same sweep', () => {
+    /** IncidentWorkspace · onRemoveFloor up to the question: the sweep, then the ask off its count */
+    const ask = async (init: TacticalObject[], floor: number) => {
+      const { result } = mount(init)
+      const r = result.current
+      const sweep = removeStorey(r.board.gebaeude ?? [], sheetAnchoredIds(r.objects, 'gebaeude'), floor, FLOORS.filter((f) => f !== floor))
+      ui.confirms.length = 0
+      const go = await askStoreyRemoval(sweep.lost, `${floor}. OG`)
+      return { sweep, go, confirms: [...ui.confirms] }
+    }
+
+    it('a storey showing ONLY Karte objects goes without a dialog', async () => {
+      const { sweep, go, confirms } = await ask([
+        karteEntity('tlf', { symbol: 'VKF Fahrzeug', floor: 2 }),
+        karteDrawing('hose', { floorTag: 2 }),
+        karteEntity('fire', { symbol: 'VKF Feuer', floorFrom: 1, floorTo: 3 }),
+        own({ id: 'below', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.2, floor: 1 }), // another storey's
+      ], 2)
+      expect(sweep.lost).toBe(0)
+      expect(go).toBe(true)
+      expect(confirms).toEqual([])
+    })
+
+    it('a storey with its own ink asks once, with the count of what is deleted or cut short', async () => {
+      ui.answer = false
+      const { sweep, go, confirms } = await ask([
+        karteEntity('tlf', { symbol: 'VKF Fahrzeug', floor: 2 }), // shown there, not counted
+        own({ id: 'up', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.2, floor: 2 }), // deleted
+        own({ id: 'riser', kind: 'draw', floor: 1, pts: [[0.2, 0.2, 1], [0.3, 0.3, 2], [0.4, 0.4, 3]] }), // cut short
+        own({ id: 'chip', kind: 'resource', text: 'Trupp 1', x: 0.5, y: 0.5, floor: 1, trail: [{ x: 0.4, y: 0.4, floor: 2, t: '10:01' }] }), // loses its crumb
+        own({ id: 'span', kind: 'symbol', symbol: 'VKF Feuer', x: 0.5, y: 0.5, floor: 1, floorFrom: 1, floorTo: 2 }), // shrinks
+        own({ id: 'below', kind: 'symbol', symbol: 'VKF Feuer', x: 0.2, y: 0.2, floor: 1 }), // untouched
+      ], 2)
+      expect(sweep.lost).toBe(4)
+      expect(confirms).toHaveLength(1)
+      expect(confirms[0].message).toBe(fillTemplate(appConfig.copy.whiteboard.removeFloorConfirm, { floor: '2. OG', n: 4 }))
+      expect(go).toBe(false) // «Abbrechen» calls it off
+    })
+
+    it('one own mark reads in the singular, and «Löschen» goes ahead', async () => {
+      ui.answer = true
+      const { go, confirms } = await ask([own({ id: 'up', kind: 'text', text: 'Schlüssel', x: 0.2, y: 0.2, floor: 3 })], 3)
+      expect(confirms.map((c) => c.message)).toEqual([fillTemplate(appConfig.copy.whiteboard.removeFloorConfirmOne, { floor: '3. OG' })])
+      expect(go).toBe(true)
+    })
   })
 })
