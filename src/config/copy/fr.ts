@@ -765,6 +765,8 @@ export const fr: Localizable<Copy> = {
     referenceRolledBack: 'Modification de la référence abandonnée – échec de l’enregistrement',
     referenceDropped: 'Référence supprimée',
     referenceDroppedKept: 'Référence supprimée – {n} objets conservent leur dernière position',
+    referenceLinked: 'Plan lié à la carte – {plan}',
+    referenceLinkedPlaced: 'Plan lié à la carte – {plan} – {n} objets placés',
     objectDeleted: '{name} supprimé',
     drawingDeleted: 'Dessin supprimé',
     undo: 'Action annulée',

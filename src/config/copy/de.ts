@@ -1117,6 +1117,13 @@ export const de = {
      *  Objekte behalten ihre letzte Position» keine Aussage ist. */
     referenceDropped: 'Referenz entfernt',
     referenceDroppedKept: 'Referenz entfernt – {n} Objekte behalten ihre letzte Position',
+    /** …und das Gegenstück: ein Blatt OHNE Passung wurde VON HAND mit der Karte verknüpft
+     *  (zweiter Passpunkt gesetzt, Vorschlag übernommen, Passung übertragen). Die Zeile kommt aus
+     *  der Handlung selbst – ein Plan, der bloss fertig lädt, schreibt nichts. «Verortet», nicht
+     *  «neu verortet»: vorher stand das Gezeichnete nirgends auf der Karte. Ohne Objekte steht die
+     *  Zeile ohne Zahl, wie «Referenz entfernt». (georefTwins · handLinkRow) */
+    referenceLinked: 'Plan mit Karte verknüpft – {plan}',
+    referenceLinkedPlaced: 'Plan mit Karte verknüpft – {plan} – {n} Objekte verortet',
     objectDeleted: '{name} gelöscht',
     drawingDeleted: 'Zeichnung gelöscht',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is

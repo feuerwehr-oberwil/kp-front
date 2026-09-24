@@ -764,6 +764,8 @@ export const en: Localizable<Copy> = {
     referenceRolledBack: 'Reference change discarded – saving failed',
     referenceDropped: 'Reference removed',
     referenceDroppedKept: 'Reference removed – {n} objects keep their last position',
+    referenceLinked: 'Plan linked to the map – {plan}',
+    referenceLinkedPlaced: 'Plan linked to the map – {plan} – {n} objects placed',
     objectDeleted: '{name} deleted',
     drawingDeleted: 'Drawing deleted',
     undo: 'Action undone',

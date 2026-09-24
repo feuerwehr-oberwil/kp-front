@@ -13,7 +13,7 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
-import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
+import { bakeAll, sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
 import { liveOverlay } from './lib/planProjection'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
@@ -84,11 +84,12 @@ import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
 import {
-  fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, movedOnSheets,
+  fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, handLinkRow, movedOnSheets,
   planAspect, planRasterRows, referenceDelta, sheetFits, type SheetFit,
   twinPlanImageLayerId, twinPlanImageVisible, twinVisible, isTwinLayerId,
 } from './lib/georefTwins'
 import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded, takeRolledBackStationWrite } from './lib/stationPlanScale'
+import type { GeorefPair } from './lib/georef'
 import { effectiveLayer } from './lib/mapView'
 import { ToolRail } from './components/ToolRail'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
@@ -128,7 +129,7 @@ import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { Whiteboard } from './components/Whiteboard'
 import { GeorefModeBars } from './components/GeorefMode'
-import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
+import { georefDispatch, setGeorefLinkedHandler, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
 import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
@@ -2392,6 +2393,30 @@ export function IncidentWorkspace({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedPlans, readOnly, tacticalLocked])
+  // ⚠️ …and the one fit change the effect above CANNOT journal: a sheet with no fit linked BY
+  // HAND. To it that is a key arriving, like a plan that finished loading, and it stays silent
+  // for both (georefTwins · fitChange) — so the ACT reports it (lib/georefMode · the three commit
+  // points of `noteHandLink`) and the row is written here, once. Same guard as the re-bake: a
+  // device that may not write the tactical record (viewer, `el`, replay) writes no row about it.
+  // No undo of its own: the link's ↶ is whatever the act already had, and the row is append-only.
+  const handLinked = useRef<(georefKey: string, pairs: GeorefPair[]) => void>(() => {})
+  useEffect(() => {
+    handLinked.current = (georefKey, pairs) => {
+      if (readOnly || tacticalLocked) return
+      const row = handLinkRow(georefKey, pairs, {
+        plans: planDocs,
+        known: knownSheets.current,
+        aspectOf: (p) => planAspect(p, getStationPlanScales(), planScale[p.id]),
+        objects,
+        bake: (all, fits) => bakeAll(all, fits, appConfig.defaults.operationalLayerId),
+      })
+      if (row) log('map', row, 'layer')
+    }
+  })
+  useEffect(() => {
+    setGeorefLinkedHandler((georefKey, pairs) => handLinked.current(georefKey, pairs))
+    return () => setGeorefLinkedHandler(null)
+  }, [])
   const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
   useEffect(() => {
     if (replayActive) return
