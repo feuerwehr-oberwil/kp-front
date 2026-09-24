@@ -1727,7 +1727,7 @@ export const fr: Localizable<Copy> = {
     logVehicleArrived: '{name} sur place',
     logVehicleLeft: '{name} a quitté le lieu d’intervention',
     driverLabel: 'Conducteur',
-    driverPlaceholder: 'Nom de l’effectif',
+    driverPlaceholder: 'Nom',
     rotateHint: 'Tirer la poignée pour orienter',
     notes: 'Notes',
     notesPlaceholder: 'Notes générales …',

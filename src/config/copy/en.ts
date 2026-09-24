@@ -1730,7 +1730,7 @@ export const en: Localizable<Copy> = {
     logVehicleArrived: '{name} on scene',
     logVehicleLeft: '{name} left the scene',
     driverLabel: 'Driver',
-    driverPlaceholder: 'Name from the crew',
+    driverPlaceholder: 'Name',
     rotateHint: 'Drag the handle to align',
     caption: 'Caption',
     captionDefault: 'Default',

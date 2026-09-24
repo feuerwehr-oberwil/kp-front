@@ -423,6 +423,14 @@
      save time is one tap away in the dropdown. Hidden in BOTH states, never per-state: a slot
      that comes and goes on every save would shift the whole bar sideways twice a minute. */
   .topbar .ip-status { display: none; }
+  /* ⚠️ …and the two RED chips (Sync-Fehler · Speicher voll) keep their warn glyph and drop the
+     word (24.09.2026). `flex: none` is right – a chip that ellipsised into «Sync-…» would say
+     nothing – but beside the Atemschutz chip there is no room left in the bar, so the word
+     painted out through the identity pill and over ↶ (and ⌖ on the plans). The red tint and the
+     triangle are the alarm; the words are in its aria-label/title and one tap away in the menu.
+     «Offline» keeps its word: its mark is a dot, and a dot alone says nothing. */
+  .topbar .ip-error-chip .ip-chip-word { display: none; }
+  .topbar .ip-error-chip { padding: 2px 5px; }
   /* With a drill running, the doc glyph is a second «this is an Einsatz» beside a marker that
      already says which KIND of Einsatz it is — and it costs the 25px the marker needs. */
   .topbar:has(.ip-switch-btn > .ip-badge-exercise) .ip-switch-glyph { display: none; }
@@ -802,6 +810,10 @@
      ON the nav bar; lift it clear like the FAB. */
   .rp-return { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
   .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 86px + env(safe-area-inset-bottom)); }
+  /* ⚠️ …and above the FAB where the FAB stands a bar higher (24.09.2026): with the tool bar up
+     (`.phone-tools .fab-entry`, rail-h × 2 + 28px) the ⓘ stayed on the one-bar lift and sat
+     BEHIND the FAB, a white half-moon peeking out at its right edge. Same 68px over the FAB. */
+  .phone-tools .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) * 2 + 96px + env(safe-area-inset-bottom)); }
   /* Notification lanes. A fixed amount of bottom chrome gets an equally fixed reserve: one nav
      bar normally, two on an editable drawing surface, three while its option dock is open. The
      host is a root sibling of `.app`, so every state selector starts at :root. */
@@ -814,8 +826,11 @@
      this is a CAP, not a measurement: ONE ~30px chip row and an 8px channel. It was two rows
      until 18.09.2026, when the row stopped wrapping — on a phone the Massstab and «⌖ Karte»
      pills are icon + Ampel-lamp only and the whole row fits one line at 360px
-     (09-whiteboard · .wb-botleft, .wb-lamped). Keep the two in step if that ever changes. */
-  :root:has(.wb-botleft) .toaster { --plan-row-reserve: 38px; }
+     (09-whiteboard · .wb-botleft, .wb-lamped). Keep the two in step if that ever changes.
+     ⚠️ ONE row of --tap, not of 30px (24.09.2026): on a touch screen the chips stand 44px tall
+     (20-touch-floors · .wb-scale-chip), so the 38px reserve still put the pill's foot on their
+     heads – the Gebäude's «Ref. automatisch» toast sat square on the Gebäude chip. */
+  :root:has(.wb-botleft) .toaster { --plan-row-reserve: calc(var(--tap) + 8px); }
   /* …and the Rapport's docked tab strip is one more fixed piece of bottom chrome, on exactly the
      one page that shows one. `:has`, like every other lane state here, because the host is a root
      sibling of `.app`. (The strip is rendered at every width but only `display: block` here, so

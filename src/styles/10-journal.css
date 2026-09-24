@@ -37,8 +37,12 @@
 }
 .tb-act.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 /* Atemschutz alarm chip — conditional (only rendered while a Trupp is fällig/überfällig).
-   A compact pill, not a banner, so it's an ambient cue rather than an interruption. */
-.tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-pill);
+   A compact chip, not a banner, so it's an ambient cue rather than an interruption.
+   ⚠️ Not a pill (24.09.2026): it sits in the bar's padding like .tb-act beside it, so it takes
+   the bar's nested corner (AGENTS.md · buttons · radius). On a phone it is --tap tall, and a
+   44px capsule next to the square-cornered Verlauf button read as a foreign object. The same
+   goes for .tb-gps and .tb-mode below – the three status chips of the bar share one shape. */
+.tb-az { display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: var(--r-nested, var(--r-sm));
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: 0 1 auto; min-width: 0; transition: background .14s var(--ease); }
 .tb-az .i { width: 15px; height: 15px; flex: none; }
@@ -89,7 +93,7 @@
    map (disappearing reads as «it has driven off», not as «the feed is gone»), so the freeze
    has to become visible here. Amber, not red: a frozen position is a caveat, not an alarm —
    and red belongs to the überfälliger Trupp. */
-.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-pill);
+.tb-gps { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: var(--r-nested, var(--r-sm));
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; margin-right: 2px;
   flex: none; cursor: default;
   background: color-mix(in srgb, var(--amber, #b45309) 16%, transparent); color: var(--amber-strong, #b45309); }
@@ -102,7 +106,7 @@
    the head. Amber for the same reason .tb-gps is: a state to be aware of, not an alarm. Tapping
    it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
    with the banner; on a link session there are no exits and it is a plain, inert chip. */
-.tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-pill);
+.tb-mode { display: inline-flex; align-items: center; gap: 6px; flex: none; border: none; border-radius: var(--r-nested, var(--r-sm));
   font-family: var(--body); font-size: 12.5px; font-weight: 700; padding: 5px 11px 5px 9px; white-space: nowrap;
   background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber-strong); }
 .tb-mode .i { width: 14px; height: 14px; flex: none; }
