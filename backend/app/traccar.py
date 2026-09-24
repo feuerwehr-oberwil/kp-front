@@ -1,10 +1,21 @@
 """Traccar GPS integration — lifted from kp-rueck (severing the kp-rueck dependency).
 
-Stateless: a fresh session per call. Speed converted knots→km/h. The VehiclePosition
-shape is byte-for-byte what the frontend's useVehiclePositions already consumes.
+A fresh Traccar session per call. Speed converted knots→km/h. The VehiclePosition shape is
+byte-for-byte what the frontend's useVehiclePositions already consumes.
+
+Two things sit in front of the client (24.09.2026, post-mortem of the Übung on 23.09.2026):
+
+* ``cached_vehicle_positions`` — every open device polls ``/api/traccar/positions`` every 15 s,
+  and each poll used to be one Traccar LOGIN plus two reads. One answer now serves every device
+  for ``POSITIONS_CACHE_SECONDS``, single-flight.
+* ``fleet_positions`` — the ONE source the scheduler's sweep reads: the injected fake fleet when
+  ``TRACCAR_FAKE`` is on, else Traccar. The fake fleet used to be served to the map only, so
+  nothing the server derives from the feed (the replay track, «vor Ort» / «verlassen») could be
+  exercised on dev or demo data.
 """
 
 import asyncio
+import time
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -162,3 +173,68 @@ class TraccarClient:
 
 
 traccar_client = TraccarClient()
+
+
+#: How long one Traccar answer serves every device. The map polls every 15 s per device; three
+#: devices on one login were three Traccar logins every 15 s for the same fleet.
+POSITIONS_CACHE_SECONDS = 10.0
+
+# (who asked — base url + account, so a credential change is a miss —, monotonic time, answer
+# or the error it raised). An error is cached for the same window: with the lock below, N
+# devices polling a dead Traccar would otherwise wait out N timeouts in a row.
+_positions_cache: tuple[str, float, list[VehiclePosition] | Exception] | None = None
+_positions_lock = asyncio.Lock()
+
+
+async def cached_vehicle_positions() -> list[VehiclePosition]:
+    """``traccar_client.get_vehicle_positions()``, answered at most once per
+    ``POSITIONS_CACHE_SECONDS`` for everybody. Single-flight: a request that arrives while the
+    fetch is running waits for it and reads its answer."""
+    global _positions_cache
+    key = f"{traccar_client.base_url}|{traccar_client.email}"
+    async with _positions_lock:
+        hit = _positions_cache
+        if hit is not None and hit[0] == key and time.monotonic() - hit[1] < POSITIONS_CACHE_SECONDS:
+            if isinstance(hit[2], Exception):
+                raise hit[2]
+            return list(hit[2])
+        try:
+            answer = await traccar_client.get_vehicle_positions()
+        except Exception as e:
+            _positions_cache = (key, time.monotonic(), e)
+            raise
+        _positions_cache = (key, time.monotonic(), answer)
+        return list(answer)
+
+
+def reset_positions_cache() -> None:
+    """Tests, and nothing else."""
+    global _positions_cache
+    _positions_cache = None
+
+
+#: The injected fake fleet (``POST /api/traccar/fake``) — in memory only, a restart clears it and
+#: the scenario CLI re-injects. Never consulted while ``TRACCAR_FAKE`` is off.
+fake_positions: list[VehiclePosition] = []
+
+
+def fleet_source() -> str | None:
+    """Where the vehicle feed comes from: ``"fake"``, ``"traccar"``, or None (no feed)."""
+    from .config import settings
+
+    if settings.traccar_fake:
+        return "fake"
+    return "traccar" if traccar_client.is_configured else None
+
+
+async def fleet_positions() -> list[VehiclePosition]:
+    """The fleet as the SERVER sees it — the same list the map is served, fake or real.
+
+    Uncached on purpose: the sweep asks every 30 s, and a sweep that read a 10 s old answer
+    would stamp nothing wrong but would make its own tests order-dependent for no gain."""
+    source = fleet_source()
+    if source == "fake":
+        return list(fake_positions)
+    if source == "traccar":
+        return await traccar_client.get_vehicle_positions()
+    return []

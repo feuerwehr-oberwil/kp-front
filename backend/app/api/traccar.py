@@ -6,6 +6,11 @@ Fake mode (TRACCAR_FAKE=1, dev/testing only): `/positions` serves an injected in
 fleet instead of a real Traccar server, so the Fahrzeuge layer can be exercised without
 GPS hardware — see `app.fake_scenario`. Injection is double-gated: the env flag AND the
 ALARM_WEBHOOK_SECRET (same secret convention as the alarm intake), both fail-closed.
+Since 24.09.2026 the fake fleet is also what the scheduler's GPS sweep reads
+(`traccar.fleet_positions`), so the server's «vor Ort» / «verlassen» detection and the replay
+track run on it too.
+
+`/positions` answers every device from ONE Traccar call per 10 s (`traccar.cached_vehicle_positions`).
 """
 
 from datetime import UTC, datetime
@@ -19,13 +24,14 @@ from ..auth.secret_token import SecretGate
 from ..config import settings
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
-from ..traccar import VehiclePosition, VehicleTrail, traccar_client
+from ..traccar import VehiclePosition, VehicleTrail, cached_vehicle_positions, fake_positions, traccar_client
 
 router = APIRouter(prefix="/traccar", tags=["traccar"])
 
 # Injected fake fleet — in-memory only (a restart clears it; the scenario CLI re-injects).
-# Never consulted while the TRACCAR_FAKE flag is off.
-_fake_positions: list[VehiclePosition] = []
+# Never consulted while the TRACCAR_FAKE flag is off. It lives in `app.traccar` so the
+# scheduler's sweep reads the same list; this name stays for the tests that reach for it.
+_fake_positions = fake_positions
 
 
 class FakeVehicleIn(BaseModel):
@@ -39,6 +45,9 @@ class FakeVehicleIn(BaseModel):
     speed: float | None = None  # km/h
     course: float | None = None
     address: str | None = None
+    #: The GPS fix time. Omitted = the moment of injection, which is what a live tracker
+    #: reporting now looks like; set it to replay a drive with the times it happened at.
+    ts: datetime | None = None
 
 
 #: The second of the two gates on the fake fleet: the intake secret, with this surface's own
@@ -80,7 +89,7 @@ async def set_fake_positions(
             longitude=v.lng,
             speed=v.speed,
             course=v.course,
-            last_update=now,
+            last_update=(v.ts if v.ts.tzinfo else v.ts.replace(tzinfo=UTC)) if v.ts else now,
             address=v.address,
         )
         for i, v in enumerate(payload)
@@ -116,7 +125,7 @@ async def positions(_user: UserOrAdmin) -> list[VehiclePosition]:
     if not traccar_client.is_configured:
         raise HTTPException(status_code=503, detail="Traccar nicht konfiguriert")
     try:
-        return await traccar_client.get_vehicle_positions()
+        return await cached_vehicle_positions()
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"Traccar nicht erreichbar: {e}") from e
 

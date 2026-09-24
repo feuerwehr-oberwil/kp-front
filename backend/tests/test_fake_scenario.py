@@ -9,6 +9,7 @@ from app.fake_scenario import (
     EXAMPLE_SCENARIO,
     Scenario,
     ScenarioAlarm,
+    fake_positions_payload,
     milestones_payload,
     parse_offset,
     webhook_payload,
@@ -68,3 +69,19 @@ def test_milestones_payload_resolves_offsets_and_omits_absent_times():
     assert veh["ausgerueckt"] == (NOW - timedelta(minutes=21)).isoformat()
     assert veh["vorOrt"] == (NOW - timedelta(minutes=17)).isoformat()
     assert "zurueck" not in veh
+
+
+def test_a_position_may_carry_its_fix_time_as_an_offset():
+    """The server stamps «vor Ort» with the FIX time (24.09.2026), so a scenario can place one."""
+    s = Scenario(positions=[{"name": "TLF", "lat": 47.5, "lng": 7.5, "at": "-8m"}, {"name": "ADL", "lat": 1, "lng": 2}])
+    body = fake_positions_payload(s.positions, NOW)
+    assert body[0] == {
+        "name": "TLF",
+        "lat": 47.5,
+        "lng": 7.5,
+        "status": "online",
+        "ts": (NOW - timedelta(minutes=8)).isoformat(),
+    }
+    assert "ts" not in body[1] and "at" not in body[1]
+    with pytest.raises(ValidationError):
+        Scenario(positions=[{"name": "TLF", "lat": 1, "lng": 2, "at": "soon"}])
