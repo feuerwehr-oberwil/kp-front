@@ -1176,6 +1176,113 @@ describe('drehen · Gebäude aus Geschossplänen', () => {
   })
 })
 
+// Field report 24.09.2026 (iPad): «clicking the north indicator in Gebäude doesn't always toggle
+// the rotation – in fact pretty rarely». The dial sits INSIDE the board's canvas, and the canvas
+// answers every pointerdown with a one-finger pan that takes pointer capture — so the release,
+// and with it the click, landed on the canvas and never on the dial (nor, through the portal's
+// React bubbling, on the popover's «Norden oben»). jsdom neither captures nor retargets, so
+// `press` does what a browser does: whoever took capture receives the up, and the click goes to
+// the nearest common ancestor of the down and up targets (UI Events) — for a mouse that is Blink's
+// behaviour in the probe, and the iPad showed the same for taps. A touch that travels is no tap.
+describe('the Gebäude north dial answers one tap, every time', () => {
+  const footprint: BuildingDoc = { ...aBuilding, src: [[[0, 0], [1, 0], [1, 0.3], [0, 0.3]]], orientDeg: 30, viewDeg: 30 }
+  const TURN = appConfig.copy.whiteboard.orientMenuTitle
+
+  beforeEach(() => {
+    // a measured viewport, or the board has no size and a turn has nothing to re-glue into
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(1000)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(800)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  const renderStack = () => {
+    const onReorient = vi.fn()
+    const { container } = render(<Whiteboard
+      plans={[umrisse, gebaeudeDoc, tafel]} activeId="gebaeude" annos={[]} onChange={() => {}}
+      building={footprint} onSelectBuilding={() => {}} onBuildingFace={() => {}} onReorient={onReorient}
+      onAddFloor={() => {}} onRemoveFloor={() => {}} slimTools sym={sym} onRecent={() => {}} log={() => {}}
+      hist={{}} setHist={() => {}} focus={null}
+    />)
+    const canvas = container.querySelector('.wb-canvas')!
+    // the viewport's dial — the rail footer carries the other door, which is not on the canvas
+    const dial = () => within(canvas as HTMLElement).getByRole('button', { name: TURN })
+    return { onReorient, canvas, dial }
+  }
+  const isOpen = (dial: HTMLElement) => dial.getAttribute('aria-expanded') === 'true'
+
+  const commonAncestor = (a: Element, b: Element) => {
+    let n: Element | null = a
+    while (n && !n.contains(b)) n = n.parentElement
+    return n ?? document.body
+  }
+  /** One press as a browser delivers it. `upOn` is where a mouse is released; `travel` px of
+   *  movement between down and up (a touch past the tap slop fires no click at all). */
+  const press = (down: Element, pointerType: 'touch' | 'mouse', { upOn = down, travel = 0 }: { upOn?: Element; travel?: number } = {}) => {
+    const cap: { el: Element | null } = { el: null }
+    const spy = vi.spyOn(Element.prototype, 'setPointerCapture').mockImplementation(function (this: Element) { cap.el = this })
+    try {
+      const at = { pointerId: 7, pointerType, isPrimary: true, button: 0, clientY: 100 }
+      fireEvent.pointerDown(down, { ...at, clientX: 100 })
+      if (travel) fireEvent.pointerMove(cap.el ?? down, { ...at, clientX: 100 + travel })
+      // a touch is implicitly captured by what it went down on; a mouse lands where it is released
+      const up = cap.el ?? (pointerType === 'touch' ? down : upOn)
+      fireEvent.pointerUp(up, { ...at, clientX: 100 + travel })
+      if (pointerType === 'touch' && travel > 10) return
+      fireEvent.click(commonAncestor(down, up), { button: 0, detail: 1 })
+    } finally { spy.mockRestore() }
+  }
+  // the needle inside the button is what a finger actually lands on
+  const glyph = (dial: HTMLElement) => dial.querySelector('path') ?? dial
+
+  it('opens on a touch tap and closes on the next', () => {
+    const { dial } = renderStack()
+    press(glyph(dial()), 'touch')
+    expect(isOpen(dial())).toBe(true)
+    expect(screen.getByRole('button', { name: 'Norden oben' })).toBeTruthy()
+    press(glyph(dial()), 'touch')
+    expect(isOpen(dial())).toBe(false)
+  })
+
+  it('opens on a mouse click and closes on the next', () => {
+    const { dial } = renderStack()
+    press(glyph(dial()), 'mouse')
+    expect(isOpen(dial())).toBe(true)
+    press(glyph(dial()), 'mouse')
+    expect(isOpen(dial())).toBe(false)
+  })
+
+  it('20 rapid taps, touch and mouse alternating, toggle 20 times and end closed', () => {
+    const { dial } = renderStack()
+    for (let i = 0; i < 20; i++) {
+      press(glyph(dial()), i % 2 ? 'mouse' : 'touch')
+      expect(isOpen(dial())).toBe(i % 2 === 0)
+    }
+    expect(isOpen(dial())).toBe(false)
+  })
+
+  // the actual turn lives one tap further in — the popover is portalled, but its presses bubble
+  // through the React tree to the same canvas
+  it.each(['touch', 'mouse'] as const)('«Norden oben» turns the building on a %s press', (how) => {
+    const { dial, onReorient } = renderStack()
+    press(glyph(dial()), how)
+    press(screen.getByRole('button', { name: 'Norden oben' }), how)
+    expect(onReorient).toHaveBeenCalledOnce()
+    expect(onReorient.mock.calls[0][0]).toMatchObject({ viewDeg: 0, northUp: true })
+  })
+
+  it('a drag that starts on the dial is no tap: it neither opens nor closes the popover', () => {
+    const { dial, canvas } = renderStack()
+    press(glyph(dial()), 'touch', { travel: 40 })
+    expect(isOpen(dial())).toBe(false)
+    press(glyph(dial()), 'mouse', { upOn: canvas, travel: 40 })
+    expect(isOpen(dial())).toBe(false)
+    // …and an open popover is not closed by one either
+    press(glyph(dial()), 'touch')
+    press(glyph(dial()), 'touch', { travel: 40 })
+    expect(isOpen(dial())).toBe(true)
+  })
+})
+
 // ⚠️ A Leitung drawn on the stack stamps its storey into EVERY VERTEX (pts[i][2]), and the
 // renderer reads the point before the anno — so the detail sheet's «Geschoss» stepper, which
 // patched `anno.floor` alone, moved nothing at all (Bastian, 17.09.2026).

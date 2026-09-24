@@ -22,7 +22,7 @@
 @media (hover: hover) {
   .btn:hover { background: var(--hover-strong); }
 }
-.btn:active { background-image: linear-gradient(var(--press), var(--press)); }
+.btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* A read-only plan floats its zoom cluster in exactly this corner (09-whiteboard · .wb-zoom-float,
    rendered just before this chip) — the compass then takes the next line down instead of landing

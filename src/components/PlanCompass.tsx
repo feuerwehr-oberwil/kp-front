@@ -47,6 +47,12 @@ export function PlanCompass({ deg, controls, northUnknown = false }: { deg: numb
       </div>
     )
   }
+  // ⚠️ The chip is rendered INSIDE the board's canvas (Whiteboard · .wb-canvas), whose pointerdown
+  // starts a one-finger pan and takes pointer capture on the canvas. Captured, the release — and
+  // with it the click — lands on the CANVAS, not on this button: a mouse never opened the popover,
+  // and on the iPad a tap mostly did nothing (field report 24.09.2026). A press on the dial is
+  // the dial's, like the floating zoom cluster's. The popover's contents stop it themselves
+  // (Whiteboard · orientControls): a portal still bubbles through the React tree to the canvas.
   return (
     <Popover
       ariaLabel={appConfig.copy.whiteboard.orientMenuTitle}
@@ -56,6 +62,7 @@ export function PlanCompass({ deg, controls, northUnknown = false }: { deg: numb
         <button type="button" className={`${s.chip} ${s.btn}`}
           title={appConfig.copy.whiteboard.orientMenuTitle}
           aria-label={appConfig.copy.whiteboard.orientMenuTitle}
+          onPointerDown={(e) => e.stopPropagation()}
         >{dial}</button>
       }
     >{controls}</Popover>

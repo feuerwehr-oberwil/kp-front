@@ -2584,8 +2584,13 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     return n
   }
   const commitOrient = (deg: number) => { setDialDragDeg(null); reorientTo(snapDial(deg)) }
+  // ⚠️ The popover is portalled to <body>, but React bubbles its events through the COMPONENT
+  // tree — for the north dial's door that is the board's canvas, whose pointerdown pans and takes
+  // pointer capture. Captured, a chip's click landed on the canvas («Norden oben» did nothing with
+  // a mouse, rarely something on the iPad) and the slider's drag panned the board. Nothing inside
+  // the popover is the board's (24.09.2026).
   const orientControls = (
-    <div className="wb-orient-pop">
+    <div className="wb-orient-pop" onPointerDown={(e) => e.stopPropagation()}>
       <label className="wb-orient-row">
         <span className="wb-orient-lbl">{appConfig.copy.whiteboard.orientSliderLabel}</span>
         {/* ⚠️ a cancelled gesture (iOS: the touch became a scroll) or the popover closing drops
