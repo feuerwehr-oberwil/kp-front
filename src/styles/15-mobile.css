@@ -616,7 +616,8 @@
   .lgg.lgg-phone { left: max(8px, env(safe-area-inset-left)); width: auto;
     right: calc(max(16px, env(safe-area-inset-right)) + var(--fab-safe));
     bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom));
-    max-height: calc(100dvh - var(--rail-h) * 2 - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    /* …and it stops under the wind chip (.phone-wx, top-right under the bar), not beside it */
+    max-height: calc(100dvh - var(--rail-h) * 2 - 172px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     padding: 4px; }
   .lgg.lgg-phone.lgg-folded { right: auto; max-width: calc(100vw - 24px - var(--fab-safe)); }
   .lgg-phone .lgg-head { min-height: var(--tap); padding: 0; }
