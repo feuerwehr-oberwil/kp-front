@@ -34,7 +34,6 @@ interface BoardDocDeps {
   editId: string | null
   setEditId: (id: string | null) => void
   historyRef?: MutableRefObject<{ undo: () => void; redo: () => void } | null>
-  onHistoryState?: (s: { canUndo: boolean; canRedo: boolean }) => void
   /** ⚠️ The history stacks live OUTSIDE this hook, in the surface that mounts the Whiteboard —
    *  the board unmounts on every surface switch (`mode !== 'plans'`), and as component state the
    *  stacks went with it: draw a Leitung, glance at the Verlauf, come back, and Rückgängig was
@@ -54,14 +53,14 @@ interface BoardDocDeps {
  * It drives the caller-owned keyed history map (`hist`/`setHist`) and the mutation funnel
  * (set = raw write, commit = checkpoint + write) plus the audit-emitting CRUD
  * (add/patch/patchCommit/remove) and undo/redo, and wires this plan's history into the global
- * TopBar (historyRef) + reports can-undo/redo up (onHistoryState).
+ * TopBar (historyRef).
  *
  * Mirrors the map's history model exactly — every discrete mutation checkpoints the previous
  * annotation array; a continuous gesture (chip drag) checkpoints once on first movement, so a whole
  * drag is one step. The functions stay byte-for-byte equivalent to their former inline selves; the
  * gesture handlers in Whiteboard call the returned pushPast/commit/patchCommit/… as before.
  */
-export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, onHistoryState, hist, setHist, onCheckpoint, onStepEnd }: BoardDocDeps) {
+export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd }: BoardDocDeps) {
   // Per-document undo/redo, mirroring the map's history model. Every discrete
   // mutation checkpoints the previous annotation array; a continuous gesture
   // (chip drag) checkpoints once, on first movement, so a whole drag is one step.
@@ -113,7 +112,6 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
   // Re-assign after every commit so the captured undo/redo always close over the latest
   // state; cleared on unmount so a stale plan undo can't fire from another surface.
   useEffect(() => { if (historyRef) historyRef.current = { undo, redo }; return () => { if (historyRef) historyRef.current = null } })
-  useEffect(() => { onHistoryState?.({ canUndo, canRedo }) }, [canUndo, canRedo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return { canUndo, canRedo, pushPast, set, commit, add, patch, patchCommit, remove, removeAnno, undo, redo }
 }
