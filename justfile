@@ -69,6 +69,13 @@ doctor *args:
 restore *args:
     bash scripts/restore.sh {{args}}
 
+# (Overwrites the Railway `staging` environment's database and volume; prod is only read. It
+# empties prod's push subscriptions and webhooks in the copy – docs/DEPLOYMENT.md §3a.)
+# Copy prod into the Railway staging environment (`--db-only` skips the volume).
+[group('Operations')]
+staging-refresh *args:
+    bash scripts/railway-staging-refresh.sh {{args}}
+
 # --- Development -------------------------------------------------------------
 
 # THE dev command: Postgres + backend + frontend in one terminal (Ctrl+C stops all).

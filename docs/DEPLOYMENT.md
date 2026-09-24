@@ -321,6 +321,45 @@ Railway the database is managed, so the backup story is §6's Railway paragraph 
 `pg_dump` against `DATABASE_PUBLIC_URL` from a machine you control, plus the automatic
 pre-migration dumps on the volume.
 
+### A staging copy on Railway
+
+A place to try an idea on the station's real data without touching the station: a second
+Railway **environment** of the same project, with its own Postgres, its own volume and its own
+URL. A different origin is a different PWA, so a tablet can have both installed side by side.
+
+```bash
+railway environment new staging --duplicate production \
+  --service-config <app-service> source.branch staging \
+  --service-config <app-service> variables.HEALTHCHECK_PING_URL.value "" \
+  --service-config <app-service> variables.ADMIN_SECRET.value "$(openssl rand -hex 24)" …
+railway environment link production          # `new` re-links the checkout to the new environment
+railway variable set SEED_PIN=<digits> PUBLIC_URL=https://<app-service>-staging.up.railway.app \
+  --service <app-service> --environment staging
+railway ssh keys add                          # once, for the copy below
+./scripts/railway-staging-refresh.sh          # prod → staging: database + volume, then the cuts
+```
+
+- **Code** reaches staging through the `staging` branch: push or force-push anything there.
+  `main` and prod are untouched, and the CI gate does not apply. Keep the branch **on top of
+  `main`** (`git rebase origin/main`): the copy carries prod's migration state, and staging code
+  older than that does not boot on it.
+- **Keep `SECRET_KEY` identical** (the duplicate copies it). It peppers every PIN and seals the
+  stored credentials, so with a different key nobody can log in to the copy.
+- **Give staging its own** `ADMIN_SECRET`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`
+  (`app.gen_vapid`), `PRINT_AGENT_SECRET` and the two inbound webhook secrets. Leave
+  `HEALTHCHECK_PING_URL` **empty**, because the copy would otherwise keep prod's dead-man's switch
+  green. `SEED_PIN` only lets the empty first boot come up; after the copy the accounts exist.
+- **What the refresh cuts**, in the same transaction as the restore: prod's push subscriptions
+  (every Divera alarm staging polls would otherwise reach the crew's phones a second time),
+  `alarms.webhooks`, and the stored copies of the credentials listed above. It also renames the
+  app to «KP Staging». Read-only feeds (Divera poll, Traccar, SharePoint, STT, CARTO) keep
+  working, so staging sees the same alarms and vehicles.
+- **A refresh overwrites staging completely.** Prod is only read, via `pg_dump` and `tar -c`
+  over `railway ssh`. `--db-only` skips the volume.
+- **Not cut:** the plaintext link and poster keys on `deployment_config`. A prod QR code points
+  at prod's host, so it never reaches staging, but a prod link pasted onto the staging host opens
+  there.
+
 ## 4. Configuration split
 
 | What | Where | Who |
