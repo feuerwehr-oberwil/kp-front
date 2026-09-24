@@ -4,6 +4,7 @@ import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
 import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
+import { fahrtenText } from './vehiclePresence'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
 import { truppNeverDeployed } from './atemschutz'
 import { atemschutzEquipment, attendanceMergeGapMin, getDeploymentConfig } from './deploymentConfig'
@@ -896,7 +897,11 @@ export function metaExtrasForPdf(meta: ReportMeta, bounds?: IncidentBounds): {
     ...gRows.map(({ config: c, value: v }): [string, string] => [
       c.color ? `${c.label} (${c.color})` : c.label, clock(v?.alarmedAt),
     ]),
-    ...vRows.map(({ config: c, value: v }): [string, string] => [c.label, clock(v?.ausgerueckt)]),
+    // «· 3 Fahrten» where the server's GPS saw a vehicle on scene more than once (the MAWA
+    // shuttle) — the trips the Verlauf leaves out on purpose (D2-a, 24.09.2026)
+    ...vRows.map(({ config: c, value: v }): [string, string] => [
+      c.label, [clock(v?.ausgerueckt), fahrtenText(v)].filter(Boolean).join(' · '),
+    ]),
   ]
   return {
     gerettete, rueckmeldungElz, zeiten,

@@ -3344,6 +3344,10 @@ export const de = {
       fog: 'Nebel', drizzle: 'Niesel', rain: 'Regen', snow: 'Schnee',
       rainShowers: 'Regenschauer', snowShowers: 'Schneeschauer', thunder: 'Gewitter', cloudy: 'Bewölkt',
     } as Record<string, string>,
+    // The wind-shift Meldung (24.09.2026, D2). Its words are the server's Verlauf row
+    // («Wind dreht: W → NO (286° → 66°) · Lüfter prüfen»); these two are its doors.
+    windShiftOpen: 'Im Verlauf öffnen',
+    windShiftDismiss: 'Ausblenden',
   },
   // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {
@@ -4272,6 +4276,24 @@ export const de = {
     ausgeruecktDerived: 'aus den Fahrzeugzeiten übernommen',
     vorOrtShort: 'vor Ort',
     zurueckShort: 'zurück',
+    // The vehicle table (24.09.2026, D2): what the SERVER observed from the GPS positions,
+    // display only. an = first arrival, ab = last departure, both GPS fix times.
+    gpsTableTitle: 'Fahrzeuge GPS · live',
+    gpsTableNote: 'Zeiten aus den GPS-Positionen, vom Server erfasst',
+    gpsColFzg: 'Fzg',
+    gpsColStatus: 'Status',
+    gpsColAn: 'an',
+    gpsColAb: 'ab',
+    gpsColFahrten: 'Fahrten',
+    gpsColPos: 'Pos.',
+    gpsStatusScene: 'vor Ort',
+    gpsStatusAway: 'unterwegs',
+    gpsAgeSec: 'vor {n} s',
+    gpsAgeMin: 'vor {n} min',
+    gpsAgeHour: 'vor {n} h',
+    gpsAgeStale: 'Position veraltet',
+    // …and on paper, where a vehicle was on scene more than once (the MAWA shuttle)
+    fahrtenCount: '{n} Fahrten',
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
     // ⚠️ Nicht bloss «Zeit»: das Feld steht jetzt neben dem Einsatzende, und zwei Zeitfelder
