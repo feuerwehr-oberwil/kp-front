@@ -757,6 +757,11 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             const openRem = isReminder && e.reminder ? openMap.get(e.reminder.id) : undefined
             const remDone = isReminder && !openRem
             const remOverdue = !!openRem?.dueAt && Date.parse(openRem.dueAt) <= now
+            // A `done` row CLOSED its item only while the item is still closed: «Erledigt» →
+            // «Rückgängig» appends a `reopened`, and the old done row then describes nothing
+            // current — no closed ring, and no «wieder in», which would raise a duplicate of an
+            // item that is open right now.
+            const closedRow = e.reminder?.op === 'done' && !openMap.has(e.reminder.id)
             // ── the disc ──
             // ONE classification column, and the row's only one. A Pendenz shows the ring (the
             // composer's own, which is what it has always promised); every other row shows its
@@ -768,7 +773,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               ? (remDone ? 'done' : openRem?.urgent ? 'urgent' : remOverdue ? 'overdue' : 'open')
               // …and the row that CLOSED the item wears the closed ring. `snoozed` and `note` do
               // not: they are log lines about the item, not the item.
-              : e.reminder?.op === 'done' ? 'done' : null
+              : closedRow ? 'done' : null
             const disc = journalDisc(e, plans)
             // the footnotes on the row — appended facts about it, so they read AFTER the sentence
             const repeated = repeats.counts.get(e.id) ?? 1
@@ -871,7 +876,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       appends a FRESH `created` row with a new id — the closed item stays closed,
                       the record stays append-only. Deliberately on every done row, not only the
                       newest: re-raising an hours-old Pendenz from where it was closed is the use. */}
-                  {e.reminder?.op === 'done' && onReminderAgain && (
+                  {closedRow && onReminderAgain && (
                     <span className="jr-again">
                       {[30, 60].map((m) => (
                         <button

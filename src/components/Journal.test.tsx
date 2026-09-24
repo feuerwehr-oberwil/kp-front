@@ -263,6 +263,29 @@ describe('Journal · the classification column', () => {
     expect(document.querySelectorAll('[data-ev="a1"] .jr-again-btn')).toHaveLength(0)
   })
 
+  // ⚠️ «Erledigt» → «Rückgängig» appends `reopened`: the item is open again, and the old done row
+  // describes nothing current. It kept the closed ring and offered «wieder in 30», which raised a
+  // DUPLICATE of the open item (review 24.09.2026).
+  it('a done row whose item was reopened wears no closed ring and offers no «wieder in»', () => {
+    const onReminderAgain = vi.fn()
+    setup({
+      events: [
+        { id: 'r1', t: '', at: new Date(1_040_000).toISOString(), icon: 'type', kind: 'reminder',
+          text: 'Pendenz wieder offen: Lagerapport durchführen', reminder: { op: 'reopened', id: 'p2' } },
+        { id: 'd1', t: '', at: new Date(1_030_000).toISOString(), icon: 'check', kind: 'reminder',
+          text: 'Pendenz erledigt: Lagerapport durchführen', reminder: { op: 'done', id: 'p2' } },
+        { id: 'c1', t: '', at: new Date(1_000_000).toISOString(), icon: 'type', kind: 'journal',
+          text: 'Lagerapport durchführen', reminder: { op: 'created', id: 'p2' } },
+      ],
+      openReminders: [pendenz('p2', 'Lagerapport durchführen', { rowId: 'c1' })],
+      onReminderAgain,
+    })
+    expect(document.querySelector('[data-ev="d1"] .jr-ring-done')).toBeNull()
+    expect(document.querySelectorAll('[data-ev="d1"] .jr-again-btn')).toHaveLength(0)
+    // the row that raised it is open again, and says so
+    expect(document.querySelector('[data-ev="c1"] .jr-ring-open')).toBeTruthy()
+  })
+
   it('renders no «wieder in» chips when the handler is absent', () => {
     setup({
       events: [
