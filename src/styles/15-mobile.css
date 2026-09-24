@@ -810,10 +810,13 @@
      ON the nav bar; lift it clear like the FAB. */
   .rp-return { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
   .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) + 86px + env(safe-area-inset-bottom)); }
-  /* ⚠️ …and above the FAB where the FAB stands a bar higher (24.09.2026): with the tool bar up
-     (`.phone-tools .fab-entry`, rail-h × 2 + 28px) the ⓘ stayed on the one-bar lift and sat
-     BEHIND the FAB, a white half-moon peeking out at its right edge. Same 68px over the FAB. */
-  .phone-tools .maplibregl-ctrl-bottom-right { margin-bottom: calc(var(--rail-h) * 2 + 96px + env(safe-area-inset-bottom)); }
+  /* ⚠️ …but not on the Karte (owner, 24.09.2026). There the ⓘ stood beside the FAB – with the
+     tool bar up it sat BEHIND it, a white half-moon peeking out at its right edge – and on a
+     phone it is furniture nobody taps mid-Einsatz. The credits are not dropped: the tile
+     providers' terms want them reachable, so they sit at the foot of the Ebenen panel, one tap
+     from the bar and beside the basemap they belong to (LayerPanel · .lc-credits). The other
+     maps (PlanPicker's mini-map, admin) are not in `.app` and keep their ⓘ. */
+  .app .maplibregl-ctrl-attrib { display: none; }
   /* Notification lanes. A fixed amount of bottom chrome gets an equally fixed reserve: one nav
      bar normally, two on an editable drawing surface, three while its option dock is open. The
      host is a root sibling of `.app`, so every state selector starts at :root. */
