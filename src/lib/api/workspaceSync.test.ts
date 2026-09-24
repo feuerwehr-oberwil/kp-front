@@ -254,6 +254,39 @@ describe('WorkspaceSync · the cache write is debounced', () => {
 })
 
 
+// ⚠️ A save made without a compare (useIncidentSync's mid-gesture skip, which a caret left in a
+// field also triggers) used to restart the 3 s debounce like any other: churn faster than that
+// held the push back for as long as it lasted (review 24.09.2026).
+describe('WorkspaceSync · keepTimer', () => {
+  it('saves that keep the timer push at the time the first one armed, however fast they come', async () => {
+    vi.useFakeTimers()
+    const sync = new WorkspaceSync('i1', { debounceMs: 3_000 })
+    await sync.init()
+    sync.save({ n: 0 })
+    for (let i = 1; i <= 7; i++) { // every 500 ms, for 3.5 s
+      await vi.advanceTimersByTimeAsync(500)
+      sync.save({ n: i }, { keepTimer: true })
+    }
+    expect(putWorkspace).toHaveBeenCalledTimes(1) // at 3 s, not «3 s after the churn stops»
+    expect(putWorkspace.mock.calls[0][1]).toEqual({ n: 5 })
+    sync.dispose()
+  })
+
+  it('an ordinary save still restarts it', async () => {
+    vi.useFakeTimers()
+    const sync = new WorkspaceSync('i1', { debounceMs: 3_000 })
+    await sync.init()
+    for (let i = 0; i <= 5; i++) {
+      sync.save({ n: i })
+      await vi.advanceTimersByTimeAsync(500)
+    }
+    expect(putWorkspace).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(2_500)
+    expect(putWorkspace).toHaveBeenCalledTimes(1)
+    sync.dispose()
+  })
+})
+
 describe('WorkspaceSync – awaited flush', () => {
   it('joins the in-flight PUT and waits for the newer edit sent after its acknowledgement', async () => {
     vi.useFakeTimers()

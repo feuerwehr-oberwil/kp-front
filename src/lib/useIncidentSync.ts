@@ -122,9 +122,12 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     // debounce — the moment it happens, so the gesture's final frame is as durable as before.
     // The first sample of a gesture (not yet dirty) is compared as always, and so is the first
     // write after it: the baseline is kept as the payload and serialized only then.
+    // ⚠️ Such a save keeps the push already armed (`keepTimer`) rather than restarting the
+    // debounce: `gestureOpen` also counts a caret left in a field, and churn faster than the
+    // debounce (a live feed, a clock) otherwise held the push back for as long as it lasted.
     if (!readOnly && sync.hasUnsynced && gestureOpen?.()) {
       lastPushed.current = payload
-      sync.save(payload as unknown as Workspace)
+      sync.save(payload as unknown as Workspace, { keepTimer: true })
       return
     }
     const body = JSON.stringify(payload)

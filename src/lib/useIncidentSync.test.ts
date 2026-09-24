@@ -162,6 +162,9 @@ describe('useIncidentSync — mid-gesture saves', () => {
     // …yet nothing is deferred: every sample reached the engine at once, the last one last
     expect(sync.save).toHaveBeenCalledTimes(60)
     expect((sync.save.mock.calls[59][0] as { activePlanId: string }).activePlanId).toBe('m60')
+    // …and none of the uncompared samples restarts the push debounce; the compared first one did
+    expect(sync.save.mock.calls[0][1]).toBeUndefined()
+    expect(sync.save.mock.calls.slice(1).every((c) => c[1]?.keepTimer === true)).toBe(true)
   })
 
   it('compares again once the gesture is over — the baseline is the last sample it saved', () => {
