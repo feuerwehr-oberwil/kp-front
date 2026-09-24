@@ -3038,19 +3038,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }
 
 
-  // removing a storey is frictionless when empty, but a floor that carries any
-  // annotation (even a single team trace) must be confirmed before it's dropped
-  const removeFloor = async (f: number) => {
+  // removing a storey: the confirm is the OWNER's (IncidentWorkspace · onRemoveFloor →
+  // lib/storeyRemoval), because only the store knows which annos on this tile are the stack's own
+  // and which are the Karte's, merely shown here — and only the own ones can be lost
+  const removeFloor = (f: number) => {
     if (readOnly || building?.pack || floorPack?.tiles[f]) return
-    const hasContent = annos.some((a) => (a.floor ?? 0) === f || a.pts?.some((p) => (p[2] ?? a.floor ?? 0) === f) || a.trail?.some((p) => (p.floor ?? a.floor ?? 0) === f))
-    if (hasContent) {
-      const ok = await confirmDialog({
-        title: appConfig.copy.whiteboard.removeFloor,
-        message: fillTemplate(appConfig.copy.whiteboard.removeFloorConfirm, { floor: floorLabel(f) }),
-        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
-      })
-      if (!ok) return
-    }
     onRemoveFloor(f)
   }
 
