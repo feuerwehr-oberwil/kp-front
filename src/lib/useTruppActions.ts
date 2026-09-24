@@ -931,8 +931,14 @@ export function useTruppActions(deps: Deps) {
   // Trupp, and a Fortsetzen means the Trupp was reached and sent back in. Leaving the clock
   // running afterwards showed «überfällig» on a Trupp somebody had just spoken to, which trains
   // the Überwacher to ignore red. Same rule a Druckmeldung already follows (recordPressure).
-  const setTruppStatus = (id: string, status: Trupp['status']) => {
+  /* `exitBar` — the Restdruck asked at «Raus melden» (24.09.2026, AtemschutzView · PressureSheet).
+   * Only meaningful for `raus`; absent = «Ohne Druck raus», which writes exactly what it always
+   * did (the last known value, carried). Given, the exit row carries a MEASURED bar
+   * (types · TruppReading.measured) and the Trupp's pressure state takes it like a Druckmeldung —
+   * without touching the contact clock, which stops at the Austritt anyway. */
+  const setTruppStatus = (id: string, status: Trupp['status'], exitBar?: number) => {
     const tr = trupps.find((t) => t.id === id)
+    const measuredExit = status === 'raus' && exitBar != null && exitBar > 0 && !!tr?.entryTime
     const az = appConfig.copy.atemschutz
     /* ⚠️ A transition INTO the state the Trupp is already in does nothing at all (04.09.,
      * Feldtest: «Austritt 2×» on one afternoon). Every one of these buttons sits under a finger
@@ -963,6 +969,11 @@ export function useTruppActions(deps: Deps) {
       // printed pressure log simply stopped mid-Einsatz and the reader had to look up to find
       // out whether the crew ever came out. The clock is untouched — this only records.
       if (status === 'raus') {
+        if (measuredExit) {
+          return { ...t, status, exitTime: now, lastPressureBar: exitBar, lastPressureTime: now,
+            lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, exitBar),
+            readings: [...(t.readings ?? []), { t: now, bar: exitBar, kind: 'exit', measured: true }] }
+        }
         return { ...t, status, exitTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'exit' }] }
       }
       if (impliesContact) {
@@ -991,13 +1002,13 @@ export function useTruppActions(deps: Deps) {
     const entryTpl = tr && !isAtemschutzTrupp(tr) ? az.logEntryNoAs : az.logEntry
     const tpl = status === 'aktiv' ? (isResume ? az.logContinue : entryTpl)
       : status === 'rueckzug' ? az.logRueckzug
-      : status === 'raus' ? (neverDeployed ? az.logNotDeployed : az.logExit) : null
+      : status === 'raus' ? (neverDeployed ? az.logNotDeployed : measuredExit ? az.logExitBar : az.logExit) : null
     const icon = status === 'raus' ? 'logout' : status === 'rueckzug' ? 'undo' : 'flag'
-    const line = tpl ? fillTemplate(tpl, { name: tr ? truppLogName(tr) : '' }) : null
+    const line = tpl ? fillTemplate(tpl, { name: tr ? truppLogName(tr) : '', bar: exitBar ?? '' }) : null
     // ⚠️ `subjectId`: the row NAMES this Trupp without becoming a jump target — which is what lets
     // the Verlauf tell a repeated line from a second, real cycle (lib/verlauf · repeatRuns).
     if (line) log(icon, line, 'team', undefined, undefined, { subjectId: id })
-    emit('atemschutz.status', { id, status })
+    emit('atemschutz.status', measuredExit ? { id, status, bar: exitBar } : { id, status })
     /* ⚠️ EVERY transition is undoable, not only «Raus» (23.08.). Three of the four touch the
      * SAFETY CLOCK: «Eingerückt» stamps entryTime and starts it, «Rückzug» and «Fortsetzen»
      * reset it (see the note at the top of this function). So a mis-tap on the wrong card —

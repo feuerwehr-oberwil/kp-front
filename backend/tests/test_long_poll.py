@@ -40,6 +40,19 @@ async def _parked() -> None:
         await asyncio.sleep(0.005)
 
 
+@pytest.fixture
+def _long_park(monkeypatch):
+    """For the WAKE tests: park long enough that only the wake can end the wait.
+
+    ⚠️ The 0.2 s of `_short_wait` starts when the poll parks, and the whole PUT/POST the test
+    then sends — auth, validation, commit, the after-commit wake — had to land inside it. On a
+    loaded runner it did not (CI, 24.09.2026, and 3 of 12 local runs): the waiter timed out,
+    re-read BEFORE the writer's commit, and answered 304. The bound on the wake is the test's own
+    `asyncio.wait_for(poll, timeout=2)`, which starts after the write returned.
+    """
+    monkeypatch.setattr(live_wait, "LONG_POLL_TIMEOUT_S", 30.0)
+
+
 async def _login(client, user) -> None:
     r = await client.post("/api/auth/login", json={"user_id": str(user.id), "pin": "135790"})
     assert r.status_code == 200
@@ -64,7 +77,7 @@ async def test_workspace_wait_times_out_into_the_plain_304(client, editor):
     assert not live_wait._waiters, "a timed-out waiter stayed registered"
 
 
-async def test_workspace_wait_wakes_on_another_devices_save(client, editor):
+async def test_workspace_wait_wakes_on_another_devices_save(client, editor, _long_park):
     await _login(client, editor)
     inc = await _incident(client)
 
@@ -104,7 +117,7 @@ async def test_journal_wait_times_out_into_an_empty_page(client, editor):
     assert not live_wait._waiters
 
 
-async def test_journal_wait_wakes_on_an_append(client, editor):
+async def test_journal_wait_wakes_on_an_append(client, editor, _long_park):
     await _login(client, editor)
     inc = await _incident(client)
 

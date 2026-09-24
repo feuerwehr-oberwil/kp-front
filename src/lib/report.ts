@@ -608,8 +608,9 @@ export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
  * of the Rapport. «Eingerückt 0 bar» reads as an empty cylinder, which is the one number on that
  * sheet nobody may misread. The row stays, the column is blank for it.
  */
-export function readingBarShown(r: Pick<TruppReading, 'kind' | 'bar'>): boolean {
-  return readingBarIsMeasured(r.kind) && r.bar > 0
+export function readingBarShown(r: Pick<TruppReading, 'kind' | 'bar' | 'measured'>): boolean {
+  // …an Austritt that was asked its Restdruck carries a real reading (types · TruppReading.measured)
+  return (readingBarIsMeasured(r.kind) || r.measured === true) && r.bar > 0
 }
 
 /**

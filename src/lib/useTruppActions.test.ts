@@ -2300,3 +2300,45 @@ describe('useTruppActions automatic hose ↔ Trupp join', () => {
     expect(state.trupps[0].lineId).toBeUndefined()
   })
 })
+
+/* ── The Restdruck at «Raus melden» (24.09.2026, Übung Allschwilerstrasse 100) ─────────────────
+ * With nowhere to put it, the Überwacher typed the exit pressure into «Eingangsdruck korrigieren»
+ * three times that evening, and the Rapport printed Trupps going in with 60, 170 and 180 bar.
+ * The exit now takes it: a MEASURED exit row, the Trupp's pressure state, and the Verlauf says it. */
+describe('useTruppActions — Raus with a Restdruck', () => {
+  it('records the Restdruck as a measured Austritt and says so in the Verlauf', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(
+      baseTrupp({ status: 'aktiv', lastPressureBar: 240, lowestBar: 240 }), undefined, (_i, text) => lines.push(text),
+    )
+    actions.setTruppStatus('T1', 'raus', 180)
+    const t = state.trupps[0]
+    expect(t.status).toBe('raus')
+    expect(t.readings?.[t.readings.length - 1]).toMatchObject({ kind: 'exit', bar: 180, measured: true })
+    expect(t.lastPressureBar).toBe(180)
+    expect(t.lowestBar).toBe(180)
+    // the Eingangsdruck is not touched — that was the whole failure
+    expect(t.entryPressureBar).toBe(300)
+    expect(lines).toEqual(['Trupp Keller Anna: Austritt – Restdruck 180 bar'])
+  })
+
+  it('«Ohne Druck raus» writes exactly what it always did', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(baseTrupp({ status: 'aktiv', lastPressureBar: 240 }), undefined, (_i, text) => lines.push(text))
+    actions.setTruppStatus('T1', 'raus')
+    const t = state.trupps[0]
+    const exit = t.readings?.[t.readings.length - 1]
+    expect(exit).toMatchObject({ kind: 'exit', bar: 240 })
+    expect(exit && 'measured' in exit).toBe(false)
+    expect(lines).toEqual(['Trupp Keller Anna: Austritt'])
+  })
+
+  it('ignores a Restdruck on a Trupp that never went in (a stand-down, not an Austritt)', () => {
+    const lines: string[] = []
+    const { actions, state } = harness(baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '' }), undefined, (_i, text) => lines.push(text))
+    actions.setTruppStatus('T1', 'raus', 180)
+    const t = state.trupps[0]
+    expect(t.lastPressureBar).toBeUndefined()
+    expect(lines).toEqual(['Trupp Keller Anna nicht eingesetzt'])
+  })
+})

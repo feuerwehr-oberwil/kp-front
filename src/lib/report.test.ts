@@ -861,6 +861,13 @@ describe('readingBarIsMeasured (which pressures the Rapport may print)', () => {
     expect(readingBarShown({ kind: 'entry', bar: 300 })).toBe(true)
     expect(readingBarShown({ kind: 'contact', bar: 300 })).toBe(false)
   })
+
+  /* 24.09.2026 (Übung 23.09.): «Raus melden» asks the Restdruck. An Austritt normally only carries
+   * the last value forward and prints none — one that was ASKED carries a gauge reading and must. */
+  it('prints the bar of an Austritt whose Restdruck was asked, and only that one', () => {
+    expect(readingBarShown({ kind: 'exit', bar: 180, measured: true })).toBe(true)
+    expect(readingBarShown({ kind: 'exit', bar: 180 })).toBe(false)
+  })
 })
 
 // ⚠️ Field report 02.09.: a Trupp went in at 13:44, came out at 15:03, was re-registered and went
