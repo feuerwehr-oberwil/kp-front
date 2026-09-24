@@ -117,6 +117,10 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 480  # 8h
     refresh_token_expire_days: int = 7
+    # How long a just-rotated refresh token is still answered — with the SAME successor, never a
+    # second one (auth/security · successor_jti). Covers a rotation whose answer never arrived:
+    # the page reloaded mid-POST, the tablet lost the network. 0 = strictly one-time.
+    refresh_reuse_grace_seconds: int = Field(default=60, ge=0, le=600)
 
     # PIN policy: 6–12 digits (06.09. — was exactly 6). The login pad no longer announces a
     # length, so a station may hand out longer PINs; existing 6-digit hashes keep verifying.

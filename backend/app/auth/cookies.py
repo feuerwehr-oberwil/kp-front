@@ -7,7 +7,7 @@ from jwt import InvalidTokenError as JWTError
 
 from ..config import settings
 from .incident_link import LINK_COOKIE
-from .security import decode_token
+from .security import decode_token, successor_jti
 from .token_blocklist import token_blocklist
 
 ACCESS_COOKIE = "access_token"
@@ -93,3 +93,27 @@ async def revoke_token(token: str | None) -> None:
     exp = payload.get("exp")
     if jti and exp:
         await token_blocklist.revoke(jti, datetime.fromtimestamp(exp, tz=UTC))
+
+
+async def revoke_refresh_token(token: str | None) -> None:
+    """End a refresh token AND its rotation's re-delivery (best-effort, like `revoke_token`).
+
+    A refresh token found in the blocklist moments ago can be answered once more, with its one
+    derived successor, for as long as that successor is unused (auth/router · refresh) — and a
+    blocklist row cannot tell a logout from a rotation. Revoking only the jti would therefore
+    leave this very token replayable for the grace window, minting a fresh eight-hour access
+    cookie after the «Abmelden». Blocking its successor too is what closes it; the token this
+    one REPLACED is closed already, since its successor is this token's own, now revoked, jti.
+    """
+    if not token:
+        return
+    try:
+        payload = decode_token(token)
+    except JWTError:
+        return
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if isinstance(jti, str) and jti and exp:
+        expires_at = datetime.fromtimestamp(exp, tz=UTC)
+        await token_blocklist.revoke(jti, expires_at)
+        await token_blocklist.revoke(successor_jti(jti), expires_at)

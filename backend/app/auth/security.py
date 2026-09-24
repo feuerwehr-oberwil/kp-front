@@ -73,14 +73,14 @@ async def verify_pin_async(pin: str, pin_hash: str) -> bool:
     return await anyio.to_thread.run_sync(verify_pin, pin, pin_hash, limiter=_PIN_VERIFY_LIMITER)
 
 
-def _encode(data: dict, *, token_type: str, expires: timedelta) -> str:
+def _encode(data: dict, *, token_type: str, expires: timedelta, jti: str | None = None) -> str:
     to_encode = data.copy()
     now = datetime.now(UTC)
     to_encode.update(
         {
             "exp": now + expires,
             "iat": now,
-            "jti": str(uuid.uuid4()),
+            "jti": jti or str(uuid.uuid4()),
             "type": token_type,
         }
     )
@@ -94,8 +94,26 @@ def create_access_token(data: dict) -> str:
     return _encode(data, token_type="access", expires=timedelta(minutes=settings.access_token_expire_minutes))  # noqa: S106
 
 
-def create_refresh_token(data: dict) -> str:
-    return _encode(data, token_type="refresh", expires=timedelta(days=settings.refresh_token_expire_days))  # noqa: S106
+def create_refresh_token(data: dict, *, jti: str | None = None) -> str:
+    """A refresh token; `jti` only for a rotation's successor (see `successor_jti`)."""
+    return _encode(data, token_type="refresh", expires=timedelta(days=settings.refresh_token_expire_days), jti=jti)  # noqa: S106
+
+
+def successor_jti(jti: str) -> str:
+    """The ONE jti a refresh token's rotation may mint — derived, not random.
+
+    Rotation is one-time (auth/router · refresh), but its answer can be lost after the server
+    has already consumed the old token: the page reloads or closes while the POST is in flight,
+    the tablet drops off the network, the client's own timeout fires. The browser then still
+    holds the consumed token, and a strictly one-time rotation turns that lost answer into a
+    signed-out device. So a presentation of a just-consumed token is answered AGAIN — and
+    deriving the successor's jti from the consumed one is what keeps that a re-delivery rather
+    than a second session: however often the old token is replayed, there is one successor
+    jti, and once THAT is consumed or revoked, the replay is refused (token_blocklist ·
+    `rotation_replayable`). Keyed with SECRET_KEY so nobody can compute it from a jti alone.
+    """
+    digest = hmac.new(settings.secret_key.encode("utf-8"), f"refresh-successor:{jti}".encode(), hashlib.sha256)
+    return str(uuid.UUID(hex=digest.hexdigest()[:32]))
 
 
 def _admin_secret_fingerprint() -> str:

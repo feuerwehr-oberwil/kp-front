@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import anyio
@@ -27,6 +27,7 @@ from .client_ip import client_ip
 from .cookies import (
     REFRESH_COOKIE,
     clear_auth_cookies,
+    revoke_refresh_token,
     revoke_token,
     set_auth_cookies,
 )
@@ -38,6 +39,7 @@ from .security import (
     create_refresh_token,
     decode_token,
     hash_pin,
+    successor_jti,
     verify_pin_async,
 )
 from .token_blocklist import token_blocklist
@@ -241,6 +243,7 @@ async def refresh(
     # A refresh token outlives the access cookie it came with and mints a fresh successor every
     # time, so this is the check that decides whether a revoked session can rebuild itself.
     if token_generation(payload) != user.auth_generation:
+        logger.warning("Refresh refused: session revoked by a PIN reset or deactivation (user=%s)", user_id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sitzung widerrufen")
 
     # Atomically consume before rotating. A check followed by a separate revoke lets two
@@ -249,10 +252,23 @@ async def refresh(
         expires_at = datetime.fromtimestamp(exp, tz=UTC)
     except (OverflowError, OSError, ValueError) as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ungültiges Refresh-Token") from e
+    # The successor's jti is DERIVED from this one, so there is exactly one successor however
+    # many times this token is answered (security · successor_jti).
+    successor = successor_jti(jti)
     if not await token_blocklist.consume(jti, expires_at):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh-Token widerrufen")
+        # Already consumed — but perhaps by a rotation whose answer this browser never got: a
+        # reload while the old page's refresh was in flight, a dropped connection, the client's
+        # own timeout. The server rotated, the cookie jar still holds this token, and strictly
+        # one-time rotation signed the device out (24.09.2026, e2e «session renewal»: 3 in 40
+        # locally). Within the grace window, and while the successor is still unused and
+        # unrevoked, answer again with that same successor. Everything else is a replay.
+        grace = timedelta(seconds=settings.refresh_reuse_grace_seconds)
+        if not grace or not await token_blocklist.rotation_replayable(jti, successor, grace):
+            logger.warning("Refresh refused: token already used (user=%s)", user_id)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh-Token widerrufen")
+        logger.info("Refresh re-delivered: a rotation's answer was lost (user=%s)", user_id)
     claims = _claims(user)
-    set_auth_cookies(response, create_access_token(claims), create_refresh_token(claims))
+    set_auth_cookies(response, create_access_token(claims), create_refresh_token(claims, jti=successor))
     return user
 
 
@@ -264,7 +280,7 @@ async def logout(
     refresh_token: Annotated[str | None, Cookie(alias=REFRESH_COOKIE)] = None,
 ) -> dict:
     await revoke_token(access_token)
-    await revoke_token(refresh_token)
+    await revoke_refresh_token(refresh_token)
     clear_auth_cookies(response)
     return {"ok": True}
 
