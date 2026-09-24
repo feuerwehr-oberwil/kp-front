@@ -394,7 +394,7 @@
 .ctx-done { cursor: pointer; color: var(--ink); font-size: 14px; font-weight: 700; text-align: left; }
 .ctx-done > .i { flex: none; width: 26px; height: 26px; padding: 5px; box-sizing: border-box; border-radius: 50%;
   border: 1.5px solid var(--ink-faint); color: var(--ink-dim); stroke-width: 2.4; }
-.ctx-done-word { flex: 0 1 auto; min-width: 0; }
+.ctx-done-word { flex: none; white-space: nowrap; }
 .ctx-done-hint { margin-left: auto; padding-left: 8px; font-size: 12.5px; font-weight: 500; color: var(--ink-faint); text-align: right; }
 @media (hover: hover) {
   .ctx-done:hover, .ctx-done:hover > .i { color: var(--blue); border-color: var(--blue); }

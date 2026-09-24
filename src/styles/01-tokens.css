@@ -248,6 +248,10 @@
    --------------------------------------------------------------------------- */
 :root[data-theme="night"] {
   color-scheme: dark;
+  /* «erledigt» at night: half the ink of a dark glyph on a dark board is nothing at all (checked
+     24.09.2026 on the Gebäude) — lifted and less transparent, so it recedes without vanishing */
+  --done-filter: grayscale(1) brightness(1.6);
+  --done-opacity: .75;
   /* near-opaque so glass panels (Ebenen, ctx, Verlauf, rails) read properly dark
      instead of letting the map bleed through the blur */
   --glass: rgba(20, 26, 36, .97);
