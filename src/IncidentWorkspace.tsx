@@ -49,6 +49,7 @@ import { useCoordPicker } from './lib/useCoordPicker'
 import { useVoiceMemo } from './lib/useVoiceMemo'
 import { useObjectStore } from './lib/useObjectStore'
 import { useGpsFollow } from './lib/useGpsFollow'
+import { backKey, fmtAway, gpsLineName, gpsNotices, onSiteAnchor, routingPatch, useBackOffers } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
 import type { UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
@@ -2072,7 +2073,7 @@ export function IncidentWorkspace({
     draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment,
+    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow,
   } = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
@@ -2141,24 +2142,40 @@ export function IncidentWorkspace({
     rows: journal.rows,
   })
 
-  const pausedGpsConnections = useMemo(() => drawings.flatMap((drawing) => (['start', 'end'] as const).flatMap((endpoint) => {
-    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
-    return attachment?.gps?.state === 'paused' ? [{ drawing, endpoint, attachment }] : []
-  })), [drawings])
+  // The GPS ends the Meldeleiste speaks about (lib/gpsReturn · gpsNotices): a vehicle that drove
+  // off, one whose following was stopped, one back on site while its Leitung still follows.
+  const backOffers = useBackOffers(drawings, entities)
+  const gpsNoticeList = useMemo(() => gpsNotices(drawings, entities, backOffers.dismissed), [drawings, entities, backOffers.dismissed])
+  /** The end as the SCREEN shows it now — on a paused coupling that is the on-site point. */
+  const resolvedEndOf = (drawing: Drawing, endpoint: 'start' | 'end'): LngLat => {
+    const resolved = resolvedMapDrawings.find((d) => d.id === drawing.id)
+    return resolved?.coords[endpoint === 'start' ? 0 : resolved.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
+  }
   const setGpsRouting = (drawing: Drawing, endpoint: 'start' | 'end', routing: 'direct' | 'trace') => {
-    const key = endpoint === 'start' ? 'startAttachment' : 'endAttachment'
-    const attachment = drawing[key]
+    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
     if (!attachment) return
     const target = attachment.target.kind === 'object' ? entities.find((e) => e.id === attachment.target.id) : null
-    const state = routing === 'trace' ? 'continuous' : attachment.gps?.state === 'continuous' ? 'paused' : 'guarded'
-    patchDrawingById(drawing.id, { [key]: { ...attachment, routing, ...(attachment.gps ? { gps: { ...attachment.gps, state, ...(target && state === 'guarded' ? { confirmedAt: target.coord, lastSafe: target.coord } : {}) } } : {}) } })
+    // «Weiter folgen» / «Spur» on a GPS end photographs the on-site line first (gps.before), once
+    const patch = routingPatch(drawing, endpoint, routing, { resolvedEnd: resolvedEndOf(drawing, endpoint), targetCoord: target?.coord, at: serverNowIso() })
+    if (patch) patchDrawingById(drawing.id, patch)
   }
+  /** «Am Einsatzort lassen» / «Am Einsatzort lösen» — never at the vehicle's current position:
+   *  setDrawingAttachment cuts a followed trace back to its snapshot (gpsReturn · onSiteCoords). */
   const detachGpsHere = (drawing: Drawing, endpoint: 'start' | 'end') => {
     const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
     if (!attachment) return
-    const resolved = resolvedMapDrawings.find((d) => d.id === drawing.id)
-    const fallback = resolved?.coords[endpoint === 'start' ? 0 : resolved.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
-    setDrawingAttachment(drawing.id, endpoint, undefined, fallback)
+    setDrawingAttachment(drawing.id, endpoint, undefined, resolvedEndOf(drawing, endpoint))
+  }
+  /** «Zurück auf Stand am Einsatzort (20:31)»: one ↶ (named), one Verlauf row, snapshot cleared. */
+  const revertGps = (drawing: Drawing, endpoint: 'start' | 'end') => {
+    const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+    const before = attachment?.gps?.before
+    if (!attachment || !before) return
+    const name = gpsLineName(drawing)
+    const vehicle = entities.find((e) => e.id === attachment.target.id)?.label ?? appConfig.copy.drawingEditor.drawing
+    stepLabel.current = fillTemplate(appConfig.copy.drawingEditor.gpsRevertStep, { name })
+    const done = revertGpsFollow(drawing.id, endpoint, fillTemplate(appConfig.copy.log.gpsReverted, { name, time: formatTime(new Date(before.at)), vehicle }))
+    if (!done) stepLabel.current = null
   }
 
   const toggleLayer = (id: LayerId) => {
@@ -4786,14 +4803,20 @@ export function IncidentWorkspace({
         }}
       />
 
-      {/* one row per paused GPS attachment — they queue behind each other instead of stacking */}
-      {mapUI && !tacticalLocked && pausedGpsConnections.map(({ drawing, endpoint, attachment }) => (
+      {/* one row per GPS end with something to say — they queue behind each other instead of
+          stacking (lib/gpsReturn · gpsNotices: drove off, following stopped, back on site) */}
+      {mapUI && !tacticalLocked && gpsNoticeList.map((n) => (
         <GpsFollowMeldung
-          key={`${drawing.id}:${endpoint}`}
-          id={`${drawing.id}:${endpoint}`}
-          label={entities.find((e) => e.id === attachment.target.id)?.label ?? drawing.label ?? appConfig.copy.drawingEditor.drawing}
-          onContinue={() => setGpsRouting(drawing, endpoint, 'trace')}
-          onDetach={() => detachGpsHere(drawing, endpoint)}
+          key={n.key}
+          notice={n}
+          label={n.vehicle?.label ?? n.drawing.label ?? appConfig.copy.drawingEditor.drawing}
+          onKeep={() => detachGpsHere(n.drawing, n.endpoint)}
+          onRevert={() => revertGps(n.drawing, n.endpoint)}
+          // on a «back» row, «Weiter folgen» changes nothing on the Karte: it answers the
+          // question for this return, on this device (gpsReturn · useBackOffers)
+          onFollow={() => (n.kind === 'back' && n.before
+            ? backOffers.dismiss(backKey(n.drawing.id, n.endpoint, n.before))
+            : setGpsRouting(n.drawing, n.endpoint, 'trace'))}
         />
       ))}
 
@@ -5257,9 +5280,26 @@ export function IncidentWorkspace({
             return [[endpoint, label]]
           }))}
           onRouting={tacticalLocked ? undefined : (endpoint, routing) => setGpsRouting(selectedDrawing, endpoint, routing)}
+          // the GPS block at the head of the editor while an end follows or has followed (D3):
+          // how long, how far, and the way back — read off the same snapshot the Meldung reads
+          gpsInfo={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
+            const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
+            if (a?.target.kind !== 'object' || !a.gps || (a.gps.state !== 'continuous' && !a.gps.before)) return []
+            const vehicle = entities.find((e) => e.id === a.target.id)
+            return [[endpoint, {
+              line: gpsLineName(selectedDrawing),
+              vehicle: vehicle?.label ?? a.target.id,
+              since: a.gps.before ? formatTime(new Date(a.gps.before.at)) : undefined,
+              distance: vehicle ? fmtAway(haversineM(onSiteAnchor(a.gps), vehicle.coord)) : undefined,
+            }]]
+          }))}
+          onRevertGps={tacticalLocked ? undefined : (endpoint) => revertGps(selectedDrawing, endpoint)}
           onDetach={tacticalLocked ? undefined : (endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
             if (!a) return
+            // ⚠️ a GPS end lets go ON SITE — never at the vehicle's current position, which is what
+            // this used to do and drew the depot into the hose line (23.09.2026)
+            if (a.gps) { detachGpsHere(selectedDrawing, endpoint); return }
             const fallback: LngLat = a.target.kind === 'object'
               ? entities.find((e) => e.id === a.target.id)?.coord ?? (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1])
               : (() => { const target = drawings.find((d) => d.id === a.target.id); return target ? (a.target.endpoint === 'start' ? target.coords[0] : target.coords[target.coords.length - 1]) : (endpoint === 'start' ? selectedDrawing.coords[0] : selectedDrawing.coords[selectedDrawing.coords.length - 1]) })()

@@ -170,11 +170,17 @@ interface Props {
   onFocusAttachment?: (endpoint: LineEndpoint) => void
   attachmentHidden?: Partial<Record<LineEndpoint, boolean>>
   onRevealAttachment?: (endpoint: LineEndpoint) => void
+  /** An end that follows a vehicle's GPS, or has followed one (lib/gpsReturn): the words for the
+   *  GPS block at the head of the panel. `since` exists only when the line kept its on-site state
+   *  (`gps.before`), and that is also what offers «Zurück auf Stand am Einsatzort». */
+  gpsInfo?: Partial<Record<LineEndpoint, { line: string; vehicle: string; since?: string; distance?: string }>>
+  /** «Zurück auf Stand am Einsatzort (hh:mm)» */
+  onRevertGps?: (endpoint: LineEndpoint) => void
 }
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps }: Props) {
   // free-typed Abschnitt-Leiter draft (see the Combo below): null = not typing
   const [leiterDraft, setLeiterDraft] = useState<string | null>(null)
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
@@ -247,6 +253,40 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>
       <div className="ctx-body">
+        {/* ⚠️ The GPS block LEADS while an end follows a vehicle (D3, 24.09.2026). Following is the
+            one state of a Leitung that keeps changing it with nobody touching it, and its way back
+            sat at the foot of the panel under «Verbindungen» — below the fold on a phone. It says
+            how long and how far, and offers the three moves: back to the on-site state (the green
+            primary, only where that state was kept), stop following, let go on site. The same end
+            then shows no route/detach controls in «Verbindungen»: one place per question. */}
+        {isLine && gpsInfo && (['start', 'end'] as const).map((endpoint) => {
+          const info = gpsInfo[endpoint]
+          const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
+          if (!info || !a?.gps) return null
+          const C = appConfig.copy.drawingEditor
+          const following = a.gps.state === 'continuous'
+          const head = !following ? fillTemplate(C.gpsStoppedHead, info)
+            : info.since ? fillTemplate(C.gpsFollowingHead, { ...info, time: info.since }) : fillTemplate(C.gpsFollowingHeadBare, info)
+          return (
+            <div key={endpoint} className="de-group de-gps">
+              <div className="de-gps-head">
+                <Icon id="truck" />
+                <div><b>{head}</b>{info.distance && <span>{fillTemplate(C.gpsDistanceNow, { distance: info.distance })}</span>}</div>
+              </div>
+              {!readOnly && info.since && onRevertGps && (
+                <button type="button" className="de-gps-back" onClick={() => onRevertGps(endpoint)}>{fillTemplate(C.gpsRevertAt, { time: info.since })}</button>
+              )}
+              {!readOnly && (onRouting || onDetach) && (
+                <div className="de-gps-row">
+                  {onRouting && (following
+                    ? <button type="button" className="de-gps-btn" onClick={() => onRouting(endpoint, 'direct')}>{C.gpsPause}</button>
+                    : <button type="button" className="de-gps-btn" onClick={() => onRouting(endpoint, 'trace')}>{C.gpsContinue}</button>)}
+                  {onDetach && <button type="button" className="de-gps-btn" onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</button>}
+                </div>
+              )}
+            </div>
+          )
+        })}
         {/* shape group — the circle's radius. ⚠️ Füllung is NOT here any more (01.09.): it sat in
             its own group directly above Farbe, so a hairline was drawn between the two rows that
             answer the same question — what colour is this thing and how solid. They belong to one
@@ -607,8 +647,11 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
               if (!a) return null
               const gps = a.gps?.state, hidden = !!attachmentHidden?.[endpoint]
+              // the GPS block above already carries this end's moves
+              const inGpsBlock = !!gpsInfo?.[endpoint]
               const name = attachmentLabels?.[endpoint] ?? a.target.id
-              const note = gps === 'continuous' ? appConfig.copy.drawingEditor.gpsFollowing
+              const note = inGpsBlock ? (hidden ? appConfig.copy.drawingEditor.hiddenTarget : null)
+                : gps === 'continuous' ? appConfig.copy.drawingEditor.gpsFollowing
                 : gps === 'paused' ? appConfig.copy.drawingEditor.gpsMovingAway
                 : hidden ? appConfig.copy.drawingEditor.hiddenTarget : null
               return <Fragment key={endpoint}>
@@ -625,7 +668,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 {/* the connection READS in read-only (who the line hangs on, and «springe zu»);
                     what it may not do is re-route or cut it — so the two mutating controls are
                     gated here, not only by each surface remembering to pass undefined. */}
-                {!readOnly && onRouting && (
+                {!readOnly && onRouting && !inGpsBlock && (
                   <div className="de-row"><span>{appConfig.copy.drawingEditor.route}</span>
                     <span className="de-presets">
                       {gps === 'paused'
@@ -639,7 +682,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     </span>
                   </div>
                 )}
-                {!readOnly && onDetach && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps === 'paused' ? appConfig.copy.drawingEditor.gpsDetachHere : appConfig.copy.drawingEditor.detachConnection}</button>}
+                {!readOnly && onDetach && !inGpsBlock && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps ? appConfig.copy.drawingEditor.gpsDetachOnSite : appConfig.copy.drawingEditor.detachConnection}</button>}
               </Fragment>
             })}
           </div>

@@ -32,6 +32,49 @@ describe('shared magnetic connection controls', () => {
     expect(onFocusAttachment).toHaveBeenCalledWith('start')
   })
 
+  // D3 (24.09.2026): while an end follows a vehicle, the editor LEADS with it — how long, how far,
+  // and the way back — and the same end shows no second set of controls under «Verbindungen».
+  it('a following end: the GPS block with «Zurück auf Stand …», «Folgen stoppen», «Am Einsatzort lösen»', () => {
+    const onRouting = vi.fn(), onDetach = vi.fn(), onRevertGps = vi.fn()
+    const gps = { state: 'continuous' as const, confirmedAt: [7.5, 47.5] as [number, number], lastSafe: [7.51, 47.51] as [number, number],
+      before: { coords: [[7.49, 47.49], [7.5, 47.5]] as [number, number][], routing: 'direct' as const, state: 'paused' as const, confirmedAt: [7.5, 47.5] as [number, number], lastSafe: [7.5, 47.5] as [number, number], at: '2026-09-23T20:31:00.000Z' } }
+    render(<DrawEditor {...base}
+      drawing={{ kind: 'line', endAttachment: { target: { kind: 'object', id: 'gps-3', live: true }, routing: 'trace', gps } }}
+      attachmentLabels={{ end: 'TLF' }}
+      gpsInfo={{ end: { line: 'Leitung 1', vehicle: 'TLF', since: '20:31', distance: '1.1 km' } }}
+      onRouting={onRouting} onDetach={onDetach} onRevertGps={onRevertGps} />)
+    expect(screen.getByText('Leitung 1 · folgt TLF seit 20:31')).toBeTruthy()
+    expect(screen.getByText('jetzt 1.1 km entfernt')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Zurück auf Stand am Einsatzort (20:31)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Folgen stoppen' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Am Einsatzort lösen' }))
+    expect(onRevertGps).toHaveBeenCalledWith('end')
+    expect(onRouting).toHaveBeenCalledWith('end', 'direct')
+    expect(onDetach).toHaveBeenCalledWith('end')
+    // one place per question: no second detach or route row for this end
+    expect(screen.getAllByRole('button', { name: /lösen/ })).toHaveLength(1)
+    expect(screen.queryByText('GPS folgt aktiv')).toBeNull()
+  })
+
+  it('a following end without a kept on-site state offers no way back it cannot keep', () => {
+    render(<DrawEditor {...base}
+      drawing={{ kind: 'line', endAttachment: { target: { kind: 'object', id: 'gps-3', live: true }, routing: 'trace', gps: { state: 'continuous', confirmedAt: [7.5, 47.5], lastSafe: [7.51, 47.51] } } }}
+      gpsInfo={{ end: { line: 'Linie', vehicle: 'TLF', distance: '40 m' } }}
+      onRouting={noop} onDetach={noop} onRevertGps={noop} />)
+    expect(screen.getByText('Linie · folgt TLF')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Zurück auf Stand/ })).toBeNull()
+  })
+
+  it('a paused GPS end (no block) lets go «Am Einsatzort» — never «Hier»', () => {
+    const onDetach = vi.fn()
+    render(<DrawEditor {...base}
+      drawing={{ kind: 'line', endAttachment: { target: { kind: 'object', id: 'gps-3', live: true }, routing: 'direct', gps: { state: 'paused', confirmedAt: [7.5, 47.5], lastSafe: [7.5, 47.5] } } }}
+      onRouting={noop} onDetach={onDetach} />)
+    expect(screen.queryByText('Hier lösen')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Am Einsatzort lösen' }))
+    expect(onDetach).toHaveBeenCalledWith('end')
+  })
+
   it('uses the reviewed indirect-removal consequence copy', () => {
     expect(fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: 2 })).toBe('2 Linien werden gelöst.')
   })
