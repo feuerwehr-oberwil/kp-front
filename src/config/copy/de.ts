@@ -2859,9 +2859,10 @@ export const de = {
     stopSharing: 'Standort entfernen',
     stopSharingTitle: 'Selbstgemeldete Position dieser Person entfernen. Sie kann danach jederzeit wieder teilen.',
     stopSharingFailed: 'Standort konnte nicht entfernt werden.',
-    // Driver of a LIVE Fahrzeug: the GPS feed knows where it is, never who is at the wheel.
+    // Driver of a LIVE Fahrzeug: the GPS feed knows where it is, never who is at the wheel. The
+    // placeholder is one word (24.09.2026) – the long one ran past the phone sheet's field.
     driverLabel: 'Fahrer',
-    driverPlaceholder: 'Name aus dem Personalstamm',
+    driverPlaceholder: 'Name',
     rotateHint: 'Griff ziehen zum Ausrichten',
     // on-canvas caption override for this one symbol (Standard = follow the device default)
     caption: 'Beschriftung',
