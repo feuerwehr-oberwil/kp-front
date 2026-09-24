@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { journalCategories, journalCategory, journalFacets, matchesJournalCategories } from './journalFilter'
+import { journalCategories, journalCategory, journalFacets, matchesJournalCategories, showsPinnedPendenzen } from './journalFilter'
 import { filterJournal } from './journalSearch'
 import type { PlanDocument, TimelineEvent } from '../types'
 
@@ -128,5 +128,19 @@ describe('filterJournal · ticks × search', () => {
   it('a search alone is unchanged by the new parameter', () => {
     expect(ids('strom')).toEqual(filterJournal(events, 'strom').map((e) => e.id))
     expect(ids('strom')).toEqual(['sof', 'chk'])
+  })
+})
+
+// The user's decision (24.09.2026): the pinned Pendenzen block is part of what the ticks narrow.
+describe('showsPinnedPendenzen', () => {
+  it('shows the block unfiltered, and whenever «Pendenz» is among the ticks', () => {
+    expect(showsPinnedPendenzen(new Set())).toBe(true)
+    expect(showsPinnedPendenzen(new Set([keyOf('pnd')]))).toBe(true)
+    expect(showsPinnedPendenzen(new Set([keyOf('auf'), keyOf('pnd')]))).toBe(true)
+  })
+
+  it('hides it under any filter that leaves «Pendenz» unticked', () => {
+    expect(showsPinnedPendenzen(new Set([keyOf('auf')]))).toBe(false)
+    expect(showsPinnedPendenzen(new Set([keyOf('az1'), keyOf('taf')]))).toBe(false)
   })
 })

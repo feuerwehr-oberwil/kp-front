@@ -149,3 +149,11 @@ export function matchesJournalCategories(
   const c = cats.get(e.id)
   return !!c && selected.has(c.key)
 }
+
+/** Does the pinned Pendenzen block stand above the list under these ticks (decided 24.09.2026)?
+ *  Only unfiltered, or with «Pendenz» among the ticks: a reader who ticked «Atemschutz» asked
+ *  for Atemschutz rows, and a box of open items above them is an answer to another question. It
+ *  comes back the moment the filter is cleared or «Pendenz» is ticked. */
+export function showsPinnedPendenzen(selected: ReadonlySet<string>): boolean {
+  return selected.size === 0 || selected.has('pendenz' satisfies JournalCategoryKind)
+}

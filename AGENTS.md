@@ -947,7 +947,9 @@ to prod.
     («Art des Eintrags» · «Bereich», with counts); ticks OR, and AND with the search. Lit + dot
     while on, one «Gefiltert: … · Alle zeigen» line under the head, the timeline strip hidden as
     during a search. Per-opening like the search, never stored; it narrows the list only — the
-    Wiedergabe always plays the whole picture.
+    Wiedergabe always plays the whole picture. The pinned Pendenzen block is part of the list it
+    narrows (24.09.2026, `journalFilter · showsPinnedPendenzen`): hidden while a filter is on
+    that leaves «Pendenz» unticked, back once «Pendenz» is ticked or the filter is cleared.
   - *The rail's key badges (K · C · A …) show only while ⌘ / Ctrl / Alt is held* (22.09.2026,
     `lib/useModifierHeld` → `data-keys` on the rail): standing on every icon they read as status
     marks in the corner the alarm dot uses, and they are wanted at exactly the moment the

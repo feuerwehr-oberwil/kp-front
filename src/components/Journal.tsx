@@ -11,7 +11,7 @@ import { safeHref, thumbUrl } from '../lib/mediaUrl'
 import { groupByDay, isHandWritten, isNachtrag, repeatRuns, rowPhotos, rowText, rowTime } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
-import { journalCategories, journalFacets, matchesJournalCategories, type JournalCategoryKind } from '../lib/journalFilter'
+import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
 import type { OpenReminder } from '../lib/reminders'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
@@ -553,7 +553,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // ⚠️ NOT re-sorted here. lib/reminders already orders them — dringend first, then oldest first
   // — and it is the same order the Rapport prints. Two sorts in two places is how the list on
   // screen and the list on paper start disagreeing about what is most urgent.
-  const pinnedReminders = openReminders ?? []
+  // …and HIDDEN while a filter is on that does not tick «Pendenz» (lib/journalFilter ·
+  // showsPinnedPendenzen): the box is part of what the ticks narrow.
+  const pinnedReminders = showsPinnedPendenzen(filterSel) ? openReminders ?? [] : []
 
   /** The funnel's menu: «Art des Eintrags», then «Bereich», each row a checkbox with the row's
    *  own disc and its count, and «Alle zeigen» last. Checkboxes keep the menu open (lib/overlays ·
