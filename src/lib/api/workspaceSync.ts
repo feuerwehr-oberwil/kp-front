@@ -95,6 +95,8 @@ function isDenial(e: unknown): boolean {
 }
 /** how long after the last save() the offline cache write waits for the next one */
 export const CACHE_DEBOUNCE_MS = 300
+/** how often a main slot init() could not read is read again, whether or not anything is saved */
+export const SLOT_PROBE_MS = 8_000
 
 /** How many times one conflict is re-merged and re-pushed before the flush gives up to the
  *  ordinary retry backoff (which re-enters the resolver with a fresh budget). */
@@ -265,6 +267,7 @@ export class WorkspaceSync {
    *  it lifts and the cache is written again. See probeUnreadSlot. */
   private slotUnread = false
   private probing = false
+  private probeTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
     private readonly incidentId: string,
@@ -288,7 +291,9 @@ export class WorkspaceSync {
 
   /** Fire onStatus only on a real transition (de-dupes repeated saves while pending). */
   private publish() {
-    const eff = effectiveSyncStatus(this.base, this.entry.dirty, this.cacheDurable)
+    // ⚠️ An unread slot may hold this device's only copy of unsynced offline edits, which nothing
+    // in this session has merged or pushed: «synced» would be a promise nobody can keep yet.
+    const eff = this.slotUnread ? 'storage' : effectiveSyncStatus(this.base, this.entry.dirty, this.cacheDurable)
     if (this.status === eff) return
     this.status = eff
     this.onStatus?.(eff)
@@ -333,22 +338,57 @@ export class WorkspaceSync {
     })
   }
 
-  /** Try the main slot init() could not read once more. Missing or clean (the server has it) ⇒
-   *  lift the block and write the cache again. Unsynced ⇒ it is the only copy of that work and
-   *  stays untouched for a reload's init() to merge, the same rule as an un-parkable entry. */
+  /** Try the main slot init() could not read once more — on the next blocked cache write, and
+   *  every SLOT_PROBE_MS on its own, so a session that saves nothing still finds out.
+   *  Missing or clean (the server has it) ⇒ lift the block and write the cache again.
+   *  Unsynced and MINE ⇒ merge it into this session the way init() merges a cold reopen, then
+   *  lift the block: the entry now carries that work, and the next flush pushes it (24.09.2026 —
+   *  it used to sit in the slot until a reload, neither merged nor pushed, under a green badge).
+   *  Unsynced and someone else's ⇒ park it for its owner first, durable-or-abort, as init() does. */
   private async probeUnreadSlot() {
     if (this.probing) return
     this.probing = true
     try {
       const read = await readCache(this.incidentId)
-      if (!read.ok || this.disposed || !this.slotUnread) return
+      if (this.disposed || !this.slotUnread) return
+      if (!read.ok) { this.scheduleProbe(); return }
+      const stored = read.value
+      if (stored?.dirty) {
+        if (mayRead(stored)) this.mergeFoundSlot(stored)
+        else {
+          const durable = stored.owner
+            ? await idbSet(ownerCacheKey(this.incidentId, stored.owner), stored)
+            : await this.parkOrphan(stored)
+          if (this.disposed || !this.slotUnread) return
+          // the only copy stays where it is; this session carries on in memory, as after init()
+          if (!durable) { this.slotUnread = false; this.publish(); return }
+        }
+      }
       this.slotUnread = false
-      if (read.value?.dirty) return
       this.mainSlotBlocked = false
       this.writeCache()
+      this.publish()
     } finally {
       this.probing = false
     }
+  }
+
+  private scheduleProbe() {
+    if (this.disposed || !this.slotUnread || this.probeTimer) return
+    this.probeTimer = setTimeout(() => { this.probeTimer = null; void this.probeUnreadSlot() }, SLOT_PROBE_MS)
+  }
+
+  /** The late answer to init()'s cold-reopen merge: the slot's own unsynced edits against their
+   *  cached ancestor, merged over what this session holds now (the server copy plus anything
+   *  edited since). The server ancestor and rev stay this session's, so the push goes at them. */
+  private mergeFoundSlot(stored: CacheEntry) {
+    const merged = this.mergeReporting(stored.base ?? {}, stored.workspace, this.entry.workspace)
+    this.saveSeq++ // a push in flight carries the pre-merge state: it must not mark this clean
+    this.entry = { ...this.entry, workspace: merged, dirty: true, owner: this.entry.owner ?? stored.owner ?? cacheOwner ?? undefined }
+    if (this.onApplyMerged) this.onApplyMerged(merged, this.entry.baseRev)
+    else this.opts.onServerWorkspace?.(merged, this.entry.baseRev)
+    this.setStatus('pending')
+    this.armDebounce()
   }
 
   /** mergeWorkspace with divergence reporting (attendance keys + concurrently edited Trupps):
@@ -477,6 +517,7 @@ export class WorkspaceSync {
     this.cacheDurable = false
     this.opts.onRev?.(rev)
     this.setStatus('synced')
+    this.scheduleProbe()
     return { workspace: ws, rev, fromCache: false }
   }
 
@@ -829,5 +870,6 @@ export class WorkspaceSync {
     this.disposed = true
     if (this.timer) clearTimeout(this.timer)
     if (this.retryTimer) clearTimeout(this.retryTimer)
+    if (this.probeTimer) clearTimeout(this.probeTimer)
   }
 }

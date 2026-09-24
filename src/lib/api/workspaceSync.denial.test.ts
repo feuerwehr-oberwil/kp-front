@@ -29,7 +29,7 @@ vi.mock('../tileEvict', () => ({ withTileEviction: (fn: () => Promise<boolean>) 
 
 const { ApiError } = await import('../api')
 const { idbGet, idbRead, idbSet, idbDel } = vi.mocked(await import('../idb'))
-const { CACHE_DEBOUNCE_MS, WorkspaceSync, denyWorkspaceCache, setWorkspaceCacheOwner } = await import('./workspaceSync')
+const { CACHE_DEBOUNCE_MS, SLOT_PROBE_MS, WorkspaceSync, denyWorkspaceCache, setWorkspaceCacheOwner } = await import('./workspaceSync')
 
 /** an unsynced edit sitting in this device's cache, owned by `owner` */
 const cachedEdit = (owner?: string) => ({
@@ -396,6 +396,78 @@ describe('WorkspaceSync.init · an unreadable cache is not an empty one', () => 
       await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS) // blocked: probes the slot, finds it empty
       await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS) // …and the re-armed write lands
       expect(store.get('kp-front-ws-i1')).toMatchObject({ workspace: { entities: [{ id: 'e1' }] }, dirty: true })
+      sync.dispose()
+    } finally { vi.useRealTimers() }
+  })
+})
+
+// ⚠️ …and while it stays unread, or turns out to hold unsynced edits, the badge may not be green
+// (24.09.2026): the late read used to leave those edits in the slot until a reload, neither
+// merged nor pushed, with the session reporting 'synced'.
+describe('WorkspaceSync · the unread slot is re-read, and its unsynced edits are merged and pushed', () => {
+  it('reports storage from init on, without waiting for a save', async () => {
+    signedInAs('u1')
+    backingStore({ 'kp-front-ws-i1': cachedEdit('u1') })
+    idbRead.mockResolvedValueOnce({ ok: false, error: new Error('io') })
+    vi.useFakeTimers()
+    try {
+      const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+      await sync.init()
+      expect(sync.syncStatus).toBe('storage')
+      sync.dispose()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('a later read that finds this user’s unsynced edits merges them over the session and pushes the union', async () => {
+    signedInAs('u1')
+    const store = backingStore({ 'kp-front-ws-i1': cachedEdit('u1') })
+    getWorkspace.mockResolvedValue({ workspace: { entities: [{ id: 'remote' }] }, workspace_rev: 7 })
+    idbRead.mockResolvedValueOnce({ ok: false, error: new Error('io') }) // init's read
+    idbRead.mockResolvedValueOnce({ ok: false, error: new Error('io') }) // the first re-read, too
+    vi.useFakeTimers()
+    try {
+      const sync = new WorkspaceSync('i1', { debounceMs: 1_000 })
+      const applied: unknown[] = []
+      sync.onApplyMerged = (ws) => applied.push(ws)
+      await sync.init()
+      expect(sync.syncStatus).toBe('storage')
+      await vi.advanceTimersByTimeAsync(SLOT_PROBE_MS) // still unreadable: stays storage, tries again
+      expect(sync.syncStatus).toBe('storage')
+      expect(sync.hasUnsynced).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(SLOT_PROBE_MS) // this one answers: the slot holds 'mine'
+      const union = { entities: [{ id: 'remote' }, { id: 'mine' }] }
+      expect(applied).toEqual([expect.objectContaining({ entities: expect.arrayContaining(union.entities) })])
+      expect(sync.hasUnsynced).toBe(true)
+      expect(sync.syncStatus).toBe('storage') // the union is in memory only…
+      await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS)
+      expect(store.get('kp-front-ws-i1')).toMatchObject({ dirty: true, baseRev: 7 })
+      expect(sync.syncStatus).toBe('pending') // …until the slot holds it
+
+      await vi.advanceTimersByTimeAsync(1_000) // the debounce pushes the union at the server's rev
+      expect(putWorkspace).toHaveBeenCalledTimes(1)
+      const [, pushed, rev] = putWorkspace.mock.calls[0] as [string, { entities: { id: string }[] }, number]
+      expect(rev).toBe(7)
+      expect(pushed.entities.map((e) => e.id).sort()).toEqual(['mine', 'remote'])
+      expect(sync.syncStatus).toBe('synced')
+      // …and the slot is written again, now with what the server has
+      await vi.advanceTimersByTimeAsync(CACHE_DEBOUNCE_MS)
+      expect(store.get('kp-front-ws-i1')).toMatchObject({ dirty: false, baseRev: 8 })
+      sync.dispose()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('a later read that finds the slot clean lifts the storage status without any save', async () => {
+    signedInAs('u1')
+    backingStore()
+    idbRead.mockResolvedValueOnce({ ok: false, error: new Error('io') })
+    vi.useFakeTimers()
+    try {
+      const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+      await sync.init()
+      expect(sync.syncStatus).toBe('storage')
+      await vi.advanceTimersByTimeAsync(SLOT_PROBE_MS)
+      expect(sync.syncStatus).toBe('synced')
       sync.dispose()
     } finally { vi.useRealTimers() }
   })
