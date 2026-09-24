@@ -376,6 +376,9 @@ class DiveraApiError(Exception):
     single door, and it keeps the one thing worth keeping: the status code.
     """
 
+    #: the HTTP status Divera answered with (None where the failure was not an answer)
+    status_code: int | None = None
+
 
 def check_response(response: httpx.Response) -> None:
     """``response.raise_for_status()`` minus the credential-bearing URL.
@@ -386,7 +389,10 @@ def check_response(response: httpx.Response) -> None:
     """
     if response.is_success:
         return
-    raise DiveraApiError(f"Divera antwortete mit HTTP {response.status_code}")
+    err = DiveraApiError(f"Divera antwortete mit HTTP {response.status_code}")
+    # the code alone, as data — the scheduler backs off on 429 (scheduler · _poll_divera)
+    err.status_code = response.status_code
+    raise err
 
 
 async def fetch_and_upsert(db: AsyncSession) -> int:
