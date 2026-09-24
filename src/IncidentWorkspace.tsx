@@ -186,6 +186,7 @@ import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
+import { canBeDone, doneName, doneOf, donePlace, doneRowText, markDone, reopenedRowText } from './lib/objectDone'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
@@ -2055,8 +2056,8 @@ export function IncidentWorkspace({
     opts?: { rowId?: string; subjectId?: string }) =>
     pushEvent({ icon, text, kind, audioUrl, entityId, subjectId: opts?.subjectId, surface: 'map' }, opts?.rowId)
   // plan events carry document + (optional) team / coordinate context for jump-back
-  const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) =>
-    pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor })
+  const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) =>
+    pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor, subjectId: extra?.subjectId })
   // …and now that both exist, hand them to the timeline's entries (see `histSide` far above:
   // an entry is pushed long before this line runs and pressed long after it).
   histSide.current = { log, emit }
@@ -3300,6 +3301,26 @@ export function IncidentWorkspace({
       }
     })
     return true
+  }
+  /**
+   * «Gelöscht / erledigt» on the Karte (review item 21b, lib/objectDone). A PROP edit — one undo
+   * step through `commit`, the `entity.edit` audit event, and the write-through onto the anno when
+   * the symbol stands on a sheet (lib/tacticalObjects) — plus its OWN Verlauf row, written here
+   * and nowhere else: the ↶ writes only its own «… rückgängig gemacht» (the timeline's row).
+   * ⚠️ The audit patch says `done: null` for «Wieder aktiv»: JSON drops an `undefined`, and the
+   * replay would then fold an empty patch and keep the symbol grey (lib/replay · entity.edit).
+   */
+  const setEntityDone = (ent: Entity, on: boolean) => {
+    if (tacticalLocked || !canBeDone(ent.kind)) return
+    if (on === !!doneOf(ent)) return
+    const done = on ? markDone(serverNowIso(), user?.display_name) : undefined
+    const name = doneName(ent)
+    const place = donePlace(ent.floorFrom ?? ent.floor, ent.floorTo)
+    const text = done ? doneRowText(name, place, ent.symbol, done) : reopenedRowText(name, place)
+    stepLabel.current = text // the ↶ names the act, not «Änderung auf der Karte»
+    commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === ent.id ? { ...e, done } : e)) }))
+    emit('entity.edit', { id: ent.id, patch: { done: done ?? null } })
+    log(on ? 'check' : 'undo', text, 'symbol', undefined, ent.id)
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({
@@ -5107,6 +5128,7 @@ export function IncidentWorkspace({
           fieldHints={rosterFieldHints(selected)}
           protectedKeys={selected.kind === 'symbol' ? new Set(symbolPresetFieldKeys(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)) : undefined}
           onDelete={() => deleteEntity(selected.id)}
+          onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked ? (on) => setEntityDone(selected, on) : undefined}
           hasOverride={vehicleOverrides[selected.id] != null}
           // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
           // dot has neither (both are blocked in MapMarkers), so the button sat there
@@ -5708,6 +5730,7 @@ export function IncidentWorkspace({
           // placed on Modul 1 books onto the Material sheet like one placed on the Karte
           onRecent={addRecent}
           log={logPlan}
+          authorName={user?.display_name}
           emit={emit}
           historyRef={planHist}
           hist={planHistory}
