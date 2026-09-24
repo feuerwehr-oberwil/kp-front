@@ -724,6 +724,12 @@ export function applyBoardToObjects(
     }
     // it was NOT on this sheet a moment ago, so this is a placement onto it
     if (!was) return { ...prev, sheet: { planId, anno } }
+    // ⚠️ handed back exactly as shown is NOTHING (24.09.2026) — the first of the four readings,
+    // per object and not only for the whole list. A writer that rewrites what a sheet OWNS
+    // passes the lent annos through (`withOwnAnnos`); folded through the bake below they came
+    // back a different record — a note's text gone, a storey badge rewritten as a span — and
+    // the identity change alone laid a store step for an act that touched no Karte object.
+    if (sameValue(was, anno)) return prev
     const moved = floorPlacements.has(anno.id) || !sameValue(was.x, anno.x) || !sameValue(was.y, anno.y) || !sameValue(was.pts, anno.pts)
     // moved by a HAND → «last hand-placement owns the truth»: the sheet takes the anchor, and
     // the bake derives the ground position from the paper the operator actually pointed at

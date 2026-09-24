@@ -144,6 +144,8 @@ to prod.
   shift is keyed by (index, part); a shift per storey can only place one wing. A symbol's Von/Bis range is one object shown and selectable on every covered floor.
   Dragging it one storey moves the whole range (0–2 → 1–3), with one undo step; range controls
   change coverage, and old single-floor values remain readable without inventing assignments.
+  Removing a storey never deletes a range that still covers another one: it shrinks to the
+  storeys left, and a home on the removed storey moves to the lowest of them.
   A Linie/Fläche dragged or turned WHOLE stays on the storeys it is drawn on and keeps its shape:
   at a tile's edge the translation stops, never each vertex (`whiteboard · floorGeometry.moveRigid`,
   24.09.2026 — the per-vertex clamp flattened a Leitung onto the tile's rim in the field); a vertex
@@ -388,7 +390,12 @@ to prod.
     (`settleAtHoseEnd`, `unlinkTruppLine`), a Gebäude amend and a storey removal. A writer that
     rewrites what a sheet OWNS hands the lent annos back untouched (`tacticalObjects ·
     withOwnAnnos`) — the Gebäude amend carried the Karte's projections through the old building
-    frame and they came back «moved».
+    frame and they came back «moved». So does «Geschoss entfernen» and the ↶ of «Geschoss
+    hinzufügen» (24.09.2026, `stackFloors · removeStorey` / `withoutOwnOnStorey`): a Karte object
+    SHOWN on a storey is not the storey's, and swept out of the view it was deleted outright. It
+    stays on the Karte and simply finds no tile. And the seam honours it per object: a lent anno
+    handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
+    the bake — which lost a note's text and laid a store step for nothing.
   - ⚠️ **A machine writer is idempotent — writing an unchanged value is a render loop**
     (24.09.2026, post-mortem of the Übung on 23.09.2026). A pass that runs on a feed or an effect
     returns the document it was given (`cur` itself) when nothing changed BY VALUE; a copy with an

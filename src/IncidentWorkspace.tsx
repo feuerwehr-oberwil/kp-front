@@ -139,6 +139,7 @@ import { prefetchOutlines } from './components/OsmOutline'
 import { bandAspect, buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { stackGroundFit } from './lib/stackFit'
+import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
 import { floorPackOf, frameAspect, packFloorNames, packStoreys, trimmedPackFrame } from './lib/floorPackBinding'
 import { buildingPackBinding } from './lib/buildingPackBinding'
 import { tileAspectOf } from './lib/whiteboard'
@@ -154,7 +155,7 @@ import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { downloadBlob } from './lib/download'
 import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
 import { useMapDrawing } from './lib/useMapDrawing'
-import { applyRouting, moveLineBody, resolveMapDrawings, resolvePlanAnnos } from './lib/lineAttachments'
+import { applyRouting, moveLineBody, resolveMapDrawings } from './lib/lineAttachments'
 import { centroid, rotateAround, turnedBy } from './lib/selectionTransform'
 import { leitungOptions, lineTakesTrupp, truppForLine, truppIsOut } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
@@ -617,6 +618,9 @@ export function IncidentWorkspace({
   // render's `past`/`future`. Calling the captured one would step a stack that has moved on.
   const undoDocRef = useRef(undoDoc); undoDocRef.current = undoDoc
   const redoDocRef = useRef(redoDoc); redoDocRef.current = redoDoc
+  // …and the store itself, for a closure that has to ask «which of these does the Gebäude OWN»
+  // when it RUNS (the ↶ of «Geschoss hinzufügen»), not when it was made
+  const objectsRef = useRef(objects); objectsRef.current = objects
   // Live vehicles from kp-rueck's GPS feed — kept out of the editable document so
   // they auto-update and never get persisted. The operator can drag a vehicle to
   // reposition it and drag its handle to orient it; those overrides live here
@@ -6148,50 +6152,36 @@ export function IncidentWorkspace({
             const nextBuilding = { ...prevBuilding, floors: dir > 0 ? [...prevBuilding.floors, newFloor] : [newFloor, ...prevBuilding.floors] }
             setBuilding(nextBuilding)
             // confirm-with-undo (standing rule): the undo also sweeps any annotation already
-            // dropped on the brand-new storey so nothing orphans
-            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: (b.gebaeude ?? []).filter((a) => (a.floor ?? 0) !== newFloor) }), { gesture: false }) }
+            // dropped on the brand-new storey so nothing orphans — the stack's OWN only
+            // (24.09.2026): a Karte object shown on the new storey is the Karte's, and dropped from
+            // the view it was deleted outright (see onRemoveFloor)
+            const restore = () => {
+              setBuilding(prevBuilding)
+              setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
+            }
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
             undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
           }}
           onRemoveFloor={(floor) => {
             if (building?.pack || floorPack?.tiles[floor]) return
             const prevBuilding = building
-            const prevGebaeude = board.gebaeude ?? []
-            const resolvedBeforeRemoval = new Map(resolvePlanAnnos(prevGebaeude).map((a) => [a.id, a]))
             const nextBuilding = prevBuilding ? { ...prevBuilding, floors: prevBuilding.floors.filter((f) => f !== floor) } : prevBuilding
-            setBuilding(nextBuilding)
-            // ⚠️ The sweep is computed HERE, off `prevGebaeude`, rather than inside the setter's
-            // updater — which is the same array (captured one line above) and therefore the same
-            // result. It has to be a value the closure can keep, because the timeline's ↷ has to
-            // put back exactly the stack this removal produced, not re-run a sweep against a
-            // document that has moved on since.
-            const nextGebaeude = (() => {
-              const removedIds = new Set(prevGebaeude.filter((a) => a.pts?.length
-                ? a.pts.every((p) => (p[2] ?? a.floor ?? 0) === floor)
-                : (a.floor ?? 0) === floor).map((a) => a.id))
-              return prevGebaeude.filter((a) => !removedIds.has(a.id)).map((a) => {
-                const oldPts = a.pts ?? []
-                let pts = oldPts.filter((p) => (p[2] ?? a.floor ?? 0) !== floor)
-                const droppedStart = oldPts.length > 0 && pts.length > 0 && oldPts[0] !== pts[0]
-                const droppedEnd = oldPts.length > 0 && pts.length > 0 && oldPts[oldPts.length - 1] !== pts[pts.length - 1]
-                const targetGone = (rel: typeof a.startAttachment) => !!rel && removedIds.has(rel.target.id)
-                const resolved = resolvedBeforeRemoval.get(a.id)?.pts
-                if (pts.length && resolved && targetGone(a.startAttachment)) pts = pts.map((p, i) => i === 0 ? [resolved[0][0], resolved[0][1], p[2] ?? a.floor ?? 0] : p)
-                if (pts.length && resolved && targetGone(a.endAttachment)) pts = pts.map((p, i) => i === pts.length - 1 ? [resolved[resolved.length - 1][0], resolved[resolved.length - 1][1], p[2] ?? a.floor ?? 0] : p)
-                return {
-                  ...a,
-                  ...(a.pts ? { pts } : {}),
-                  ...(a.trail ? { trail: a.trail.filter((p) => (p.floor ?? a.floor ?? 0) !== floor) } : {}),
-                  ...((droppedStart || targetGone(a.startAttachment)) ? { startAttachment: undefined } : {}),
-                  ...((droppedEnd || targetGone(a.endAttachment)) ? { endAttachment: undefined } : {}),
-                }
-              }).filter((a) => !a.pts || a.pts.length >= (a.kind === 'area' ? 3 : 2))
-            })()
+            // ⚠️ Only the stack's OWN annos are swept (24.09.2026). The view also shows the Karte's
+            // objects projected onto their storey, and those are not the storey's: handed back
+            // untouched (`withOwnAnnos`) they fold to nothing, stay on the Karte, and simply find no
+            // tile once the storey is gone. The sweep used to run over the whole view — and an
+            // absent anno is a deletion, so every Karte Fahrzeug shown on the storey went with it.
+            // ⚠️ Computed HERE, as values the closures keep: the timeline's ↷ has to put back
+            // exactly the stack this removal produced, not re-run a sweep against a document that
+            // has moved on since.
+            const sweep = removeStorey(board.gebaeude ?? [], sheetAnchoredIds(objects, 'gebaeude'), floor, nextBuilding?.floors ?? [])
             // a machine write (`gesture: false`) — a sweep of what stood on the storey, no placement
-            setBoard((b) => ({ ...b, gebaeude: nextGebaeude }), { gesture: false })
+            const writeOwn = (own: BoardAnno[]) => setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, sweep.owned, own) }), { gesture: false })
+            setBuilding(nextBuilding)
+            writeOwn(sweep.after)
             // confirm-with-undo: the removed storey's annotations come back with it
-            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: prevGebaeude }), { gesture: false }) }
-            const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: nextGebaeude }), { gesture: false }) }
+            const restore = () => { setBuilding(prevBuilding); writeOwn(sweep.before) }
+            const reapply = () => { setBuilding(nextBuilding); writeOwn(sweep.after) }
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
             undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
           }}
