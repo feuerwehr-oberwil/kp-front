@@ -2276,6 +2276,7 @@ export const de = {
     safetyDeploy: 'Einsetzen',
     safetyNone: 'Kein Sicherungstrupp',
     safetyNoneHint: 'Ein Trupp ist drin',
+    safetyNoneHintMany: '{n} Trupps sind drin',
     safetyPick: 'Bestimmen',
     bottleAsk: 'Vor {min} min raus, zuletzt {bar} bar. Welche Flasche?',
     bottleAskNow: 'Gerade raus, zuletzt {bar} bar. Welche Flasche?',

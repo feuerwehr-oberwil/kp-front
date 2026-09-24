@@ -1765,6 +1765,20 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .trowActs { display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; }
 .trow.trowTwo .trowKontakt { min-height: 48px; padding: 0 12px; }
 .trow.trowTwo .trowKontakt span { display: inline; }
+/* …and a row WITHOUT the two actions (Bereit, Draussen, a viewer's board, a Trupp without
+   Atemschutz) takes the same three tracks as `.trowTwo`'s first line, so the clock column runs
+   straight down the whole board. It kept the old narrow set — an empty 46px action track in front
+   of the chevron, and above 760px a state track whose cell is gone — so its clock stood ~50px left
+   of the ones above it and «Fischer Lukas» ellipsised to «Fischer Luk…» (UI check, 24.09.2026). */
+.trow.trowOne { grid-template-columns: minmax(0, 1fr) auto 24px; column-gap: 8px; }
+.trow.trowOne .trowAct { display: none; }
+.trow.trowOne .trowChevron { width: 24px; }
+/* a long Gruppenführer name wraps once instead of losing the first name — the part that tells two
+   Schönenbergers apart — to an ellipsis */
+.trow.trowTwo .trowNameTxt, .trow.trowOne .trowNameTxt { white-space: normal; overflow-wrap: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.2; }
+/* a Trupp not yet in has no contact clock: its «–:––» is quiet, like an out crew's (.trowOut) */
+.trowIdle .trowClockVal { font-size: 17px; font-weight: 700; color: var(--ink-dim); }
 .trowPressBtn { min-height: 48px; padding: 0 12px; border-radius: var(--r-ctl); font-size: 14px;
   background: var(--surface); color: var(--ink);
   box-shadow: inset 0 0 0 1.5px var(--glass-edge); }
@@ -1778,6 +1792,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .safetyDeploy { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
   border-radius: var(--r-ctl); background: var(--green); color: var(--on-accent-ink); font: 800 14px var(--body); }
+.safetyDeploy:active { background-image: linear-gradient(var(--press), var(--press)); }
 .safetyNone { display: flex; align-items: center; gap: 10px; padding: 10px 11px 10px 14px; border-radius: var(--r-ctl);
   border: 2px dashed color-mix(in srgb, var(--amber) 60%, transparent);
   background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
@@ -1786,6 +1801,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .safetyNoneTxt small { font-size: 12.5px; color: var(--ink-dim); }
 .safetyPick { flex: none; min-height: 48px; padding: 0 16px; border: none; cursor: pointer; border-radius: var(--r-ctl);
   background: var(--surface); color: var(--ink); font: 800 14px var(--body); box-shadow: inset 0 0 0 1.5px var(--glass-edge); }
+.safetyPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* the card's Druck on the phone — the picker's door, with the current bar on it */
 .cardPressBtn { width: 100%; justify-content: space-between; margin-top: 8px; padding: 0 14px; background: var(--surface);
@@ -1813,15 +1829,21 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .pressureCol:last-child { background: color-mix(in srgb, var(--red) 9%, var(--surface)); }
 .pressureCellLast { box-shadow: inset 0 0 0 2.5px var(--ink); }
 .pressureSheetFooter { margin: 8px 16px 16px; min-height: 50px; border: none; cursor: pointer; border-radius: var(--r-ctl);
-  background: var(--fill-soft, rgba(0, 0, 0, .045)); font: 800 15px var(--body); color: var(--ink); }
+  background: var(--fill-soft, rgba(0, 0, 0, .045)); font: 700 14px var(--body); color: var(--ink); }
+.pressureSheetFooter:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .pressureSheet .pressureGrid:last-child { padding-bottom: 16px; }
 
 /* «Gleiche Flasche oder neue?» above the Druck on a quick re-entry */
 .bottleAsk { margin: 4px 0 10px; }
 .bottleAsk p { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; color: var(--ink); }
 .bottleBtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.bottleBtn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; border: none; cursor: pointer;
+.bottleBtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; border: none; cursor: pointer;
   border-radius: var(--r-ctl); background: var(--surface); font: 700 14px var(--body); color: var(--ink);
   box-shadow: inset 0 0 0 1.5px var(--glass-edge); }
 .bottleBtn b { font: 800 15px var(--mono); }
-.bottleOn { background: var(--ink-fill); color: var(--on-fill, #fff); box-shadow: none; }
+.bottleBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* picked = the form's own chip «selected» (the Auftrag chips above it: blue ring, tint and text).
+   It was `--ink-fill` + `--on-fill`, which at night is #0d1118 on #2b3545 — the answer the
+   operator had just given was the one thing on the form they could not read. */
+.bottleOn { background: color-mix(in srgb, var(--blue) 12%, var(--surface)); color: var(--blue);
+  box-shadow: inset 0 0 0 2px var(--blue); }

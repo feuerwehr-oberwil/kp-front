@@ -1292,6 +1292,7 @@ export const fr: Localizable<Copy> = {
     safetyDeploy: 'Engager',
     safetyNone: 'Pas d’équipe de sécurité',
     safetyNoneHint: 'Un binôme est engagé',
+    safetyNoneHintMany: '{n} binômes sont engagés',
     safetyPick: 'Désigner',
     bottleAsk: 'Sorti il y a {min} min, dernière {bar} bar. Quelle bouteille ?',
     bottleAskNow: 'Tout juste sorti, dernière {bar} bar. Quelle bouteille ?',

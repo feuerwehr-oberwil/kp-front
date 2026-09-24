@@ -1256,7 +1256,7 @@ export function AtemschutzView({
                     onOpen={() => setOpenRow(t.id)} />
                 ))) : (
                   <div className={s.safetyNone}>
-                    <span className={s.safetyNoneTxt}><b>{az.safetyNone}</b><small>{az.safetyNoneHint}</small></span>
+                    <span className={s.safetyNoneTxt}><b>{az.safetyNone}</b><small>{phoneIn.length === 1 ? az.safetyNoneHint : fillTemplate(az.safetyNoneHintMany, { n: phoneIn.length })}</small></span>
                     {canEdit && (
                       <button type="button" className={s.safetyPick} onClick={() => openForm('create', undefined, undefined, undefined, 'sichern')}>
                         {az.safetyPick}
@@ -1789,7 +1789,7 @@ function TruppRow({
   // wording test below.
   const clockSub = clock.sub === az.outFor ? words.outFor : clock.sub
   return (
-    <button ref={rowRef} type="button" className={cx(s.trow, acts && s.trowTwo, tone)} onClick={onOpen}
+    <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone)} onClick={onOpen}
       aria-label={`${t.name} — ${words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))}`}>
       <span className={s.trowId}>
         <span className={s.trowName}>

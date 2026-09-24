@@ -1303,6 +1303,7 @@ export const en: Localizable<Copy> = {
     safetyDeploy: 'Deploy',
     safetyNone: 'No safety team',
     safetyNoneHint: 'A team is inside',
+    safetyNoneHintMany: '{n} teams are inside',
     safetyPick: 'Designate',
     bottleAsk: 'Out {min} min ago, last {bar} bar. Which cylinder?',
     bottleAskNow: 'Just out, last {bar} bar. Which cylinder?',

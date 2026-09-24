@@ -6,7 +6,7 @@
 // explicit «Bestätigen» commits.
 import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { AtemschutzView } from './AtemschutzView'
 import { useIsPhone } from '../lib/useIsPhone'
 import s from './Atemschutz.module.css'
@@ -1562,6 +1562,51 @@ describe('the phone board (full app)', () => {
     fireEvent.click(screen.getByRole('button', { name: az.safetyPick }))
     const sichern = within(screen.getByRole('group', { name: az.auftragLabel })).getByRole('button', { name: 'Sichern' })
     expect(sichern.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('counts the crews inside on the empty Sicherungstrupp slot — never «Ein Trupp» for four', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [inField('a', 'Anna', 1)] })
+    expect(screen.getByText(az.safetyNoneHint)).toBeTruthy()
+    cleanup()
+    mount({ trupps: [inField('a', 'Anna', 1), inField('b', 'Beat', 2), inField('c', 'Cla', 3)] })
+    expect(screen.getByText(fillTemplate(az.safetyNoneHintMany, { n: 3 }))).toBeTruthy()
+  })
+
+  it('gives a row without the two actions the one-line grid, so every clock sits in one column', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [
+      inField('i', 'In Ida', 1),
+      { ...aktivTrupp(), id: 'r', name: 'Ready Rita', status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [] },
+      { ...aktivTrupp(), id: 'o', name: 'Out Otto', status: 'raus', exitTime: iso(60_000) },
+    ] })
+    const rowOf = (name: string) => screen.getByText(name).closest(`.${s.trow}`)!
+    expect(rowOf('In Ida').classList.contains(s.trowTwo)).toBe(true)
+    for (const name of ['Ready Rita', 'Out Otto']) {
+      expect(rowOf(name).classList.contains(s.trowOne)).toBe(true)
+      expect(rowOf(name).classList.contains(s.trowTwo)).toBe(false)
+    }
+  })
+
+  it('holds the arrangement for 2 s after a Kontakt, then lets the due Trupp rise again', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      vi.mocked(useIsPhone).mockReturnValue(true)
+      const trupps = [inField('a', 'Fresh Anna', 1), inField('b', 'Due Beat', 4.5)]
+      const props = propsFor({ trupps })
+      const view = render(<AtemschutzView {...props} />)
+      expect(rowNames().slice(0, 2)).toEqual(['Due Beat', 'Fresh Anna'])
+      // Kontakt on «Due Beat» freezes the order; the parent then hands back its fresh clock
+      fireEvent.click(within(screen.getByText('Due Beat').closest(`.${s.trow}`) as HTMLElement).getByRole('button', { name: az.actContact }))
+      expect(props.recordContact).toHaveBeenCalledWith('b')
+      const fresh = [trupps[0], { ...trupps[1], lastContactTime: iso(0) }]
+      view.rerender(<AtemschutzView {...props} trupps={fresh} />)
+      expect(rowNames().slice(0, 2)).toEqual(['Due Beat', 'Fresh Anna'])
+      act(() => { vi.advanceTimersByTime(2100) })
+      expect(rowNames().slice(0, 2)).toEqual(['Fresh Anna', 'Due Beat'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('sends the standing Sicherungstrupp in with one tap', () => {
