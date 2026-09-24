@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AuditEventStore } from './auditEventStore'
+import { onReachable } from './connectivity'
 import { newId } from './ids'
 import { ALL_EVENTS, observedEventId, type EventScope } from './eventScope'
 import type { SyncStatus } from './api/workspaceSync'
@@ -19,12 +20,15 @@ export function useAuditEvents(incidentId: string, readOnly: boolean, ownerId: s
     const hidden = () => { if (document.visibilityState === 'hidden') store.flushKeepalive() }
     const pagehide = () => store.flushKeepalive()
     window.addEventListener('online', online)
+    // the server answered again without the browser saying so (lib/connectivity)
+    const offReachable = onReachable(online)
     document.addEventListener('visibilitychange', hidden)
     window.addEventListener('pagehide', pagehide)
     return () => {
       unsubscribe()
       store.stop()
       window.removeEventListener('online', online)
+      offReachable()
       document.removeEventListener('visibilitychange', hidden)
       window.removeEventListener('pagehide', pagehide)
     }

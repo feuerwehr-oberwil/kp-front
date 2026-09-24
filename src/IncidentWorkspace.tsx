@@ -76,6 +76,7 @@ import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
 import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { useOnline } from './lib/useOnline'
+import { onReachable } from './lib/connectivity'
 import { MapView } from './components/MapView'
 import { Splash } from './components/Splash'
 import { TopBar, WeatherBadge } from './components/TopBar'
@@ -500,7 +501,9 @@ export function IncidentWorkspace({
   useEffect(() => {
     const clear = () => setNoBasemap(false)
     window.addEventListener('online', clear)
-    return () => window.removeEventListener('online', clear)
+    // …or the server answered again without the browser announcing it (lib/connectivity)
+    const offReachable = onReachable(clear)
+    return () => { window.removeEventListener('online', clear); offReachable() }
   }, [])
   const mapRef = useRef<MapRef>(null)
   // the locked surface's tool set — see lib/readOnlyTools for why only these two qualify

@@ -5,6 +5,7 @@
 
 import { appConfig } from '../config/appConfig'
 import { isFreshSampleSource, noteServerTime } from './serverClock'
+import { noteAnswered, noteUnreached } from './connectivity'
 import { linkPageOwnsSession, linkSessionHeaders } from './linkMode'
 
 // Base URL: empty in dev (Vite proxies /api to the backend), or a fully-qualified
@@ -221,6 +222,11 @@ async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TI
     // page never borrows — or touches — the device's login. Before the caller's own headers,
     // so nothing but a deliberate override can misstate it.
     headers: { Accept: 'application/json', ...linkSessionHeaders(), ...(init?.headers ?? {}) },
+  }).catch((e: unknown) => {
+    // the server was not reached (lib/connectivity) — unless the CALLER dropped the request
+    // (a restarted long poll, a teardown), which says nothing about the network
+    if (!init?.signal?.aborted) noteUnreached()
+    throw e
   })
   // Every /api/ answer carries the server's own clock (backend · api_server_time), so THIS is
   // the sampling point: the boot config/`/me` fetches already teach lib/serverClock the offset
@@ -230,7 +236,13 @@ async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TI
   // cause B): the service worker serves `/api/reference/…` from its caches with the header of the
   // day it was stored, and a three-day-old one pulled the shared clock back mid-Einsatz. The send
   // time rides along so the clock can tell an answer stamped before it was asked for.
-  if (isFreshSampleSource(path, init?.cache)) noteServerTime(res.headers.get('X-Server-Time'), Date.now(), sentAt)
+  const fresh = isFreshSampleSource(path, init?.cache)
+  if (fresh) noteServerTime(res.headers.get('X-Server-Time'), Date.now(), sentAt)
+  // …and the same answer says the server is REACHABLE (lib/connectivity), which the browser's
+  // `online` event does not reliably say. Fresh only, for the same reason: a cached answer is
+  // not today's. A 304 is the live-follow poll's «nothing new» — an answer all the same.
+  if (res.status === 502 || res.status === 503 || res.status === 504) noteUnreached()
+  else if (fresh && (res.ok || res.status === 304)) noteAnswered()
   return res
 }
 

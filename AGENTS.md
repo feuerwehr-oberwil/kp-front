@@ -80,6 +80,18 @@ to prod.
   red lamp). A 403 for an op the role SHOULD be able to write stays `rejected` and red: that
   is a real mismatch. Never drop either kind. (The `el` phone sat red for three hours on
   23.09.2026 over five `atemschutz.alarm` events it could never deliver.)
+  ⚠️ **Reconnect is proven by an answer, not by the `online` event** (24.09.2026, after #209).
+  A WLAN that routes nowhere, a backend restart, or a reload while offline never fires `online`.
+  So the fetch wrapper reports what it saw (`lib/connectivity`). Any FRESH successful answer
+  (`serverClock · isFreshSampleSource`, never a service-worker cache hit) turns `useOnline` back
+  on. Only the `offline` event turns it off: a failed request never does, so it cannot flap. The
+  first answer after a failure to reach the server (status 0 or 502/503/504, or an `offline`
+  event) fires `onReachable`, and the workspace and audit outboxes flush on it as on `online`.
+  A flush REQUESTED while an outbox attempt is in flight gets one more attempt if that attempt
+  failed to reach the server. Workspace and audit do this through the public `flush()`; the
+  journal has its own copy. The stores' own timers go through `run()` and request nothing. It is
+  one re-run per request and never after an answer (401, refused, exhausted merge), so an offline
+  device does not spin (`outboxReconnect.soak.test.ts`).
   A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,

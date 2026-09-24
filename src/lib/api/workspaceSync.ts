@@ -1,7 +1,7 @@
 // Per-incident sync engine: offline cache (IndexedDB) + debounced last-write-wins save with a
 // three-way merge on conflict. Split out of the incidents data layer because it's the single
 // heaviest, most stateful unit — see ./workspace for the plain get/put the engine drives.
-import { ApiError } from '../api'
+import { ApiError, isUnverifiable } from '../api'
 import { idbDel, idbGet, idbSet } from '../idb'
 import { withTileEviction } from '../tileEvict'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
@@ -211,6 +211,10 @@ export class WorkspaceSync {
   private cacheTimer: ReturnType<typeof setTimeout> | null = null
   private entry: CacheEntry
   private flushing: Promise<void> | null = null
+  /** somebody asked for a flush while one was in flight — see `flush` */
+  private flushRequested = false
+  /** the last attempt failed because the server could not be ASKED (api · isUnverifiable) */
+  private unreached = false
   private disposed = false
   private saveSeq = 0 // bumped on each save(); lets a flush detect an edit that landed mid-PUT
   private readonly debounceMs: number
@@ -547,14 +551,34 @@ export class WorkspaceSync {
 
   private armDebounce() {
     if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => void this.flush(), this.debounceMs)
+    this.timer = setTimeout(() => void this.run(), this.debounceMs)
   }
 
-  /** Await the shared attempt and any newer edit rebased onto its successful response. */
+  /** Await the shared attempt and any newer edit rebased onto its successful response.
+   *
+   *  ⚠️ A flush asked for WHILE an attempt is in flight is owed its own attempt if that one
+   *  fails (the journal's rule, #209): the `online` handler, the reach signal
+   *  (lib/connectivity) and «Jetzt synchronisieren» arrive exactly when an attempt sent under
+   *  the old conditions may still be settling — merely joining it left the edits for the
+   *  backoff, up to 60 s later. Only a failure to REACH the server is re-run (a
+   *  401, a refused slice or an exhausted merge is an answer, and asking again changes nothing),
+   *  once per request, so an offline device does not spin. The engine's own timers (debounce,
+   *  backoff) go through `run` and ask for nothing: they carry no news about the link. */
   flush(): Promise<void> {
+    if (this.flushing) this.flushRequested = true
+    return this.run()
+  }
+
+  private run(): Promise<void> {
     if (this.flushing) return this.flushing
     if (!this.entry.dirty || this.disposed) return Promise.resolve()
-    this.flushing = this.drain().finally(() => {
+    this.flushing = (async () => {
+      do {
+        this.flushRequested = false
+        this.unreached = false
+        await this.drain()
+      } while (this.flushRequested && this.unreached && this.entry.dirty && !this.disposed)
+    })().finally(() => {
       this.flushing = null
       // A failed attempt keeps the existing automatic backoff; joining callers never spin.
       if (this.entry.dirty && !this.timer) this.scheduleRetry()
@@ -576,6 +600,7 @@ export class WorkspaceSync {
           // A 403 can be a legitimately refused link slice and must not revoke the device.
           if (e instanceof ApiError && e.status === 401) denyWorkspaceCache()
           this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
+          this.unreached = isUnverifiable(e)
           return
         }
       }
@@ -592,7 +617,7 @@ export class WorkspaceSync {
     this.retryCount++
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null
-      void this.flush()
+      void this.run()
     }, delay)
   }
 
@@ -722,6 +747,7 @@ export class WorkspaceSync {
         if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
+        this.unreached = isUnverifiable(e)
         return false // offline/other: stay dirty + merged; a later flush retries
       }
     }

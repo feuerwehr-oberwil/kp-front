@@ -13,6 +13,7 @@ vi.mock('./api/events', async () => ({
   ingestEvents, ingestEventsBeacon,
 }))
 import { useAuditEvents } from './useAuditEvents'
+import { noteAnswered, noteUnreached, resetConnectivityForTests } from './connectivity'
 import { eventScopeFor } from './eventScope'
 
 beforeEach(() => {
@@ -46,6 +47,22 @@ describe('durable audit capture', () => {
     await act(async () => { await second.result.current.flushEvents() })
     await waitFor(() => expect(ingestEvents).toHaveBeenCalledWith('incident', [original]))
     second.unmount()
+  })
+})
+
+describe('the server answers again without an `online` event', () => {
+  it('the audit outbox goes out on the first answer after a failure to reach the server', async () => {
+    resetConnectivityForTests(true)
+    const hook = renderHook(() => useAuditEvents('incident', false, 'editor'))
+    act(() => hook.result.current.emit('draw.add', { id: 'drawing' }))
+    await act(async () => { await hook.result.current.flushEvents() })
+    await waitFor(() => expect(hook.result.current.status).toBe('offline'))
+    ingestEvents.mockClear().mockResolvedValue([])
+    noteUnreached() // what the failed POST told the fetch wrapper
+    act(() => { noteAnswered() }) // some other request got through — no `online` event
+    await waitFor(() => expect(hook.result.current.status).toBe('synced'))
+    expect(ingestEvents).toHaveBeenCalledTimes(1)
+    hook.unmount()
   })
 })
 
