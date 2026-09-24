@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Layer, Marker, Source, type MapRef } from 'react-map-gl/maplibre'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import '../lib/maplibreWorker'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import { motionDuration, prefersReducedMotion } from '../lib/reducedMotion'
@@ -296,14 +297,15 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
     const m = mapRef.current?.getMap()
     if (!m) return
     const ensure = () => { ensureHatchImages(m, appConfig.drawing.colors); m.triggerRepaint() }
-    const onMissing = (e: { id: string }) => {
-      const c = hatchImageColor(e.id)
-      if (c) { ensureHatchImage(m, e.id, c); m.triggerRepaint() }
+    // a resolver, not a `styleimagemissing` listener — see lib/draw · ensureHatchImages
+    const resolveMissing = (id: string) => {
+      const c = hatchImageColor(id)
+      if (c) ensureHatchImage(m, id, c)
     }
     ensure()
     m.on('styledata', ensure)
-    m.on('styleimagemissing', onMissing)
-    return () => { m.off('styledata', ensure); m.off('styleimagemissing', onMissing) }
+    m.setMissingStyleImageResolver(resolveMissing)
+    return () => { m.off('styledata', ensure); m.setMissingStyleImageResolver(null) }
   }, [mapReady])
 
   useEffect(() => {
