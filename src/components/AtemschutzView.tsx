@@ -3038,7 +3038,7 @@ function TruppForm({
             : isEdit && !upgrading ? az.editPressureLabel : az.pressureLabel}</span>
           {bottleAsk && (
             <div className={s.bottleAsk}>
-              <p>{fillTemplate(az.bottleAsk, { min: String(outMin), bar: String(lastExit!.bar) })}</p>
+              <p>{fillTemplate(outMin! < 1 ? az.bottleAskNow : az.bottleAsk, { min: String(outMin), bar: String(lastExit!.bar) })}</p>
               <div className={s.bottleBtns}>
                 <button type="button" className={cx(s.bottleBtn, bottle === 'same' && s.bottleOn)}
                   onClick={() => { setBottle('same'); setPressure(lastExit!.bar) }}>

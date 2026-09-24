@@ -2278,6 +2278,7 @@ export const de = {
     safetyNoneHint: 'Ein Trupp ist drin',
     safetyPick: 'Bestimmen',
     bottleAsk: 'Vor {min} min raus, zuletzt {bar} bar. Welche Flasche?',
+    bottleAskNow: 'Gerade raus, zuletzt {bar} bar. Welche Flasche?',
     bottleSame: 'Gleiche Flasche',
     bottleNew: 'Neue Flasche',
     saveBlockedBottle: 'Gleiche oder neue Flasche wählen',

@@ -1294,6 +1294,7 @@ export const it: Localizable<Copy> = {
     safetyNoneHint: 'Una squadra è dentro',
     safetyPick: 'Designare',
     bottleAsk: 'Uscita {min} min fa, ultima {bar} bar. Quale bombola?',
+    bottleAskNow: 'Appena uscita, ultima {bar} bar. Quale bombola?',
     bottleSame: 'Stessa bombola',
     bottleNew: 'Nuova bombola',
     saveBlockedBottle: 'Scegliere stessa o nuova bombola',
