@@ -5,7 +5,7 @@ import {
   bandCoverFraction, barGeometry,
   ceilSlot, unshownShifts,
   conflictingShiftIds, coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts,
-  intervalSpan, overlaps, plannedPersonCount, shiftAt, shiftInBand, shiftSpan, shiftsFor, sortBands,
+  intervalSpan, overlaps, plannedPersonCount, shiftInBand, shiftSpan, shiftsFor, sortBands,
   timeAtFraction, timelineSpan,
 } from './shifts'
 import type { AttendanceState, Shift, ShiftBand } from '../types'
@@ -13,7 +13,6 @@ import type { AttendanceState, Shift, ShiftBand } from '../types'
 const T = (h: number, m = 0) => `2026-07-26T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`
 const ms = (iso: string) => Date.parse(iso)
 const shift = (id: string, personId: string, from: string, to: string): Shift => ({ id, personId, from, to })
-const MIDNIGHT = '2026-07-27T00:00:00.000Z' // the right edge of a window written as T(24)
 
 describe('slot grid', () => {
   it('snaps to the half hour so a bar never starts on half a column', () => {
@@ -209,17 +208,6 @@ describe('direct manipulation on the grid', () => {
     // a zero-width lane mid-layout used to produce NaN and crash the surface on the next render
     expect(timeAtFraction(NaN, span)).toBe(span.from)
     expect(timeAtFraction(Infinity, span)).toBe(span.to)
-    const sh = shiftAt('p1', NaN, 8, span)
-    expect(Number.isFinite(Date.parse(sh.from))).toBe(true)
-    expect(Number.isFinite(Date.parse(sh.to))).toBe(true)
-  })
-
-  it('plans one default watch where the finger landed, clipped to the window', () => {
-    const sh = shiftAt('p1', ms(T(14)), 8, span)
-    expect(sh.from).toBe(T(14))
-    expect(sh.to).toBe(T(22))
-    // a tap near the right edge yields a short shift rather than one running off the axis
-    expect(shiftAt('p1', ms(T(23, 30)), 8, span).to).toBe(MIDNIGHT)
   })
 
   it('moves a bar whole, keeping its length', () => {

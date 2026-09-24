@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { apiGet, apiPost, ApiError, isUnverifiable, SESSION_EXPIRED_EVENT } from './api'
+import { apiGet, apiPost, ApiError, isDenial, isUnverifiable, SESSION_EXPIRED_EVENT } from './api'
 import { idbGet, idbSet, idbDel } from './idb'
 import { getDeploymentConfig, isDemoMode, loadDeploymentConfig } from './deploymentConfig'
 import { syncMediaCacheAuth } from './authMediaCache'
@@ -104,12 +104,6 @@ const CACHED_PROBE_TIMEOUT_MS = 7_000
 
 /** how long the boot probe waits for the session-bearing config re-read before mounting the app */
 const SESSION_CONFIG_BUDGET_MS = 4_000
-
-/** Did the server ANSWER «no»? The whole offline story turns on this one distinction: a refusal
- *  ends the session (and with it every cached read), silence changes nothing at all. */
-function isDenial(e: unknown): boolean {
-  return e instanceof ApiError && (e.status === 401 || e.status === 403)
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)

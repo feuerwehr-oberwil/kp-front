@@ -91,7 +91,6 @@ import {
 } from './lib/georefTwins'
 import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded, takeRolledBackStationWrite } from './lib/stationPlanScale'
 import type { GeorefPair } from './lib/georef'
-import { effectiveLayer } from './lib/mapView'
 import { ToolRail } from './components/ToolRail'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { Palette } from './components/Palette'
@@ -130,7 +129,7 @@ import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefLinkedHandler, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
-import { pushBoardPast, type BoardHistory } from './components/useBoardDoc'
+import type { BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
@@ -814,10 +813,9 @@ export function IncidentWorkspace({
   const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
   useEffect(() => clearUndoCaption, [])
   // the Plan keeps its own per-document history (inside Whiteboard); it reports its
-  // step fns + can-flags up here so the GLOBAL TopBar undo/redo drives whichever
+  // step fns up here so the GLOBAL TopBar undo/redo drives whichever
   // surface is showing — one control, both surfaces, no rail-level duplication.
   const planHist = useRef<{ undo: () => void; redo: () => void } | null>(null)
-  const [planCan, setPlanCan] = useState({ canUndo: false, canRedo: false })
   // ⚠️ …and the STACKS live here rather than inside the Whiteboard, because the Whiteboard is
   // mounted only while `mode === 'plans'`: as component state the plan's history was thrown away
   // every time somebody glanced at the Verlauf or the Karte and came back — «nichts, was sich
@@ -1066,7 +1064,7 @@ export function IncidentWorkspace({
   // the open tab and which of these values kept changing (identity checks, nothing deeper).
   useRenderStorm('IncidentWorkspace', {
     context: `tab=${mode}`,
-    watch: { objects, layers, fitsVersion, planHistory, planCan, journalRows: journal.rows, recent, georefMode },
+    watch: { objects, layers, fitsVersion, planHistory, journalRows: journal.rows, recent, georefMode },
   })
   const phoneGeoref = isPhone && !!georefMode.planId
   // Demo-only: which surface someone opened, for the public demo's visit statistics. A no-op
@@ -2572,7 +2570,7 @@ export function IncidentWorkspace({
   const {
     draft, setDraft,
     drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
-    drawMarker, setDrawMarker, drawArrow, setDrawArrow,
+    setDrawMarker, setDrawArrow,
     lineMode, setLineMode, areaMode, setAreaMode,
     draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
@@ -4413,19 +4411,6 @@ export function IncidentWorkspace({
     () => Object.fromEntries(pickablePersonnel.filter((p) => p.active).map((p) => [p.displayName, p.rank])),
     [pickablePersonnel],
   )
-  /** person id → the job they already hold on this Einsatz, read off their Anwesenheits-Bemerkung
-   *  («Einsatzleiter», «Fahrer TLF», «Offizier SiBe»). ⚠️ ONE map, handed to EVERY person picker.
-   *  The Atemschutz board built its own and the Rapport's Einsatzleiter/Rückmeldung pickers had
-   *  none, so the same roster read differently depending on which screen you opened it from —
-   *  and the picker that most needs to say «this one is already leading» was the silent one. */
-  const rolesById = useMemo(
-    () => new Map(
-      Object.entries(attendance)
-        .map(([id, a]) => [id, (a.note ?? '').trim()] as const)
-        .filter(([, note]) => note.length > 0),
-    ),
-    [attendance],
-  )
   // present crew (attendance) — offered first in the Einsatzleiter picker (mirrors Atemschutz)
   const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => isPresent(a)).map(([id]) => id)), [attendance])
 
@@ -5783,7 +5768,6 @@ export function IncidentWorkspace({
           onShowTrupp={() => { setSelectedDrawingId(null); setMode('atemschutz'); setPanel(null) }}
           onShowDistance={(showDistance) => patchDrawing({ showDistance })}
           onRadius={(radiusM) => patchDrawing({ radiusM })}
-          onFillOpacity={(fillOpacity) => patchDrawing({ fillOpacity })}
           onHatch={(hatch, fillOpacity) => patchDrawing({ hatch: hatch || undefined, fillOpacity })}
           attachmentLabels={Object.fromEntries((['start', 'end'] as const).flatMap((endpoint) => {
             const a = endpoint === 'start' ? selectedDrawing.startAttachment : selectedDrawing.endAttachment
@@ -6246,7 +6230,6 @@ export function IncidentWorkspace({
           log={logPlan}
           emit={emit}
           historyRef={planHist}
-          onHistoryState={setPlanCan}
           hist={planHistory}
           setHist={setPlanHistory}
           onCheckpoint={rememberPlanStep}

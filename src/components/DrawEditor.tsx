@@ -156,7 +156,6 @@ interface Props {
   usedLineNos?: number[]
   onShowDistance: (showDistance: boolean) => void
   onRadius: (radiusM: number) => void
-  onFillOpacity: (fillOpacity: number) => void
   /** pick the fill KIND: hatched, or a flat wash at `fillOpacity`. One row, one answer. */
   onHatch?: (hatch: boolean, fillOpacity: number) => void
   /** lock the shape against accidental moves (it goes click-through; unlock via the centre
@@ -175,7 +174,7 @@ interface Props {
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onFillOpacity, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment }: Props) {
   // free-typed Abschnitt-Leiter draft (see the Combo below): null = not typing
   const [leiterDraft, setLeiterDraft] = useState<string | null>(null)
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM

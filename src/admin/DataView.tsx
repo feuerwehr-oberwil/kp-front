@@ -16,7 +16,7 @@ import type { VehiclePosition } from '../types'
 import { isGeoDataset } from '../lib/api/reference'
 import { providerLabel } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, fmtFileSize } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { Card, Offer, StatusBadge, Table, EmptyState, ResultChip, fmtDate, fmtRelTime } from './ui'
 
@@ -30,14 +30,6 @@ import { Card, Offer, StatusBadge, Table, EmptyState, ResultChip, fmtDate, fmtRe
 function fmtSpeed(kmh: number | null | undefined): string {
   if (kmh == null || !Number.isFinite(kmh)) return '—'
   return `${Math.round(kmh)} km/h`
-}
-
-/** Human-readable byte size; null → "—". */
-function fmtBytes(n: number | null | undefined): string {
-  if (n == null) return '—'
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // A per-card async resource: 'loading' until the first fetch settles, then either
@@ -801,7 +793,7 @@ export function GeodataView({ title }: {
                 <td>
                   <span className="adm-ref-src">{r.source_type}</span>
                   {r.source_note && <span className="adm-ref-note">{r.source_note}</span>}
-                  {r.size_bytes != null && <span className="adm-ref-note">{fmtBytes(r.size_bytes)}</span>}
+                  {r.size_bytes != null && <span className="adm-ref-note">{fmtFileSize(r.size_bytes)}</span>}
                 </td>
               </tr>
             ))}

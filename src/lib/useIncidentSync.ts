@@ -101,7 +101,13 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     sync.onTruppConflicts = reportTrupps
     report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge
     reportTrupps(sync.drainTruppConflicts())
-    return () => { sync.onAttendanceConflicts = undefined; sync.onTruppConflicts = undefined }
+    // ⚠️ Each cleanup below clears only ITS OWN handler: WorkspaceSync's callbacks are single
+    // slots, and an unconditional `= undefined` would silently unhook whoever registered after
+    // this effect (the auditEventStore · subscribe rule).
+    return () => {
+      if (sync.onAttendanceConflicts === report) sync.onAttendanceConflicts = undefined
+      if (sync.onTruppConflicts === reportTrupps) sync.onTruppConflicts = undefined
+    }
   }, [sync, appendJournal, readOnly])
 
   // persistence → server (offline cache + debounced sync). Skip the first run so loading
@@ -263,8 +269,9 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // let the sync engine apply an auto-merged conflict result IN PLACE (no remount), so the
   // resolver smoothly gains the other device's edits instead of having the screen rebuilt.
   useEffect(() => {
-    sync.onApplyMerged = (ws, rev) => { liveRev.current = rev; hydrate(ws as unknown as Saved) }
-    return () => { sync.onApplyMerged = undefined }
+    const onApplyMerged = (ws: Workspace, rev: number) => { liveRev.current = rev; hydrate(ws as unknown as Saved) }
+    sync.onApplyMerged = onApplyMerged
+    return () => { if (sync.onApplyMerged === onApplyMerged) sync.onApplyMerged = undefined }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sync])
 
@@ -294,7 +301,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     const onStatus = (s: SyncStatus) => { setSyncStatus(s); setLastSyncedAt(sync.lastSyncedAt); tracker.onStatus(s) }
     sync.onStatus = onStatus
     onStatus(sync.syncStatus)
-    return () => { sync.onStatus = undefined; tracker.dispose() }
+    return () => { if (sync.onStatus === onStatus) sync.onStatus = undefined; tracker.dispose() }
   }, [sync])
 
   // Device-vs-server clock skew, sampled from X-Server-Time on every live-follow poll answer

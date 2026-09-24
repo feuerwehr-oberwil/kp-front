@@ -7,7 +7,7 @@ import {
 } from './georefTwins'
 import { appConfig } from '../config/appConfig'
 import type { StationPlanScales } from './stationPlanScale'
-import type { BoardAnno, Drawing, Entity, PlanDocument } from '../types'
+import type { BoardAnno, Entity, PlanDocument } from '../types'
 
 // A square sheet 100 m across, laid north-up over Oberwil: plan (0,0) is its top-left corner and
 // plan (1,0) sits 100 m due east of it. Two pairs solve a similarity exactly, so every expectation

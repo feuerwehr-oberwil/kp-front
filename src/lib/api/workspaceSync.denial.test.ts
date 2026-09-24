@@ -155,7 +155,7 @@ describe('WorkspaceSync.init · a denied session, and the way back', () => {
 
 describe('WorkspaceSync · a different user cannot destroy or inherit another’s unsynced work', () => {
   it('user B opening the incident never clobbers user A’s dirty cache — A recovers it on return (SEC-10 regression)', async () => {
-    const store = backingStore({ 'kp-front-ws-i1': cachedEdit('u1') })
+    backingStore({ 'kp-front-ws-i1': cachedEdit('u1') })
 
     // B opens the SAME incident, online. B has no right to A's entry, so B starts from the server.
     signedInAs('u2')

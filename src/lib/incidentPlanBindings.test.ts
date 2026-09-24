@@ -3,7 +3,7 @@ import { addPlanBindings, effectiveBindingGeoref, fillBindingFloors, mergeIncide
 import { mergeWorkspace } from './mergeWorkspace'
 import { deriveInitial, sanitizeWorkspace } from './workspace'
 import { georefPlans, planAspect } from './georefTwins'
-import { projectedAnnos } from './planProjection'
+import { projectOnto } from './planProjection'
 import type { GeorefPair } from './georef'
 import { georefForPlan } from './stationPlanScale'
 import { referenceUrl } from './api/reference'
@@ -156,9 +156,10 @@ describe('incident plan snapshots', () => {
       const point = linked.fit.toMap({ x: 0.25, y: 0.4 })
       // what lib/useObjectStore · board hands the print path: the Karte's objects projected onto
       // the sheet through the incident's own fit
-      const twins = projectedAnnos([{ id: 'note', entity: {
+      const note = projectOnto({ id: 'note', entity: {
         id: 'note', kind: 'note', layer: 'taktisch', coord: [point.lng, point.lat], label: 'Zugang',
-      } }], { fit: linked.fit, aspect: linked.widthM / linked.fit.scaleMPerU })
+      } }, { fit: linked.fit, aspect: linked.widthM / linked.fit.scaleMPerU })
+      const twins = note ? [note] : []
       expect(twins).toHaveLength(1)
       expect(twins[0].x).toBeCloseTo(0.25)
       expect(twins[0].y).toBeCloseTo(0.4)

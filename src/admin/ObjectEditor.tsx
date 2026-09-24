@@ -3,7 +3,7 @@ import { caretToEnd } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
+import { fillTemplate, fmtFileSize } from '../lib/format'
 import { type DeploymentModule } from '../lib/deploymentConfig'
 import { moduleCatalogue, sortPlanModules } from '../lib/planOrder'
 import type { ObjectWithPlans, ReferenceDataset } from '../lib/incidents'
@@ -36,15 +36,6 @@ import './stationData.css'
 // the uuid5 of its folder name, i.e. exactly the derivation above — so an object created here
 // IS reachable, the moment a folder carries its key. Two different sentences, and only the ones
 // the deployment's configured pulls make true are printed (`usePlanSources`).
-
-/** Human size for a stored plan; null → "—". Exported so the detail page's merged plan rows
- *  say the same thing about the same bytes as the sheet's slot list. */
-export function fmtBytes(n: number | null | undefined): string {
-  if (n == null) return '—'
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
-}
 
 /** The in-force module catalogue, in the ONE order every surface lists modules in
  *  (`lib/planOrder`) — exactly what ModulesViewer shows. Only for callers that have no catalogue
@@ -475,7 +466,7 @@ function PlanSlots({ object, onStored }: { object: ObjectWithPlans; onStored: (d
                   >
                     <Icon id="doc" />
                     {fillTemplate(C.planVersion, { n: s.plan.current_version, date: fmtDate(s.plan.updated_at) })}
-                    <span className="adm-ref-note">{fmtBytes(s.plan.size_bytes)}</span>
+                    <span className="adm-ref-note">{fmtFileSize(s.plan.size_bytes)}</span>
                   </a>{' '}
                   {/* Which door THIS sheet came through — and, in the tip, that replacing a
                       pulled plan by hand only holds until the next run. */}

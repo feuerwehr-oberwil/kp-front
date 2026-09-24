@@ -10,7 +10,7 @@ describe('discrete plan edit completion', () => {
       annos: [{ id: 's', kind: 'symbol', x: .5, y: .5 }], activeId: 'modul2',
       onChange: () => calls.push('write'), onCheckpoint: () => calls.push('checkpoint'),
       onStepEnd: () => calls.push('end'), emit: () => calls.push('event'),
-      hist: {}, setHist: vi.fn(), log: vi.fn(), selId: null, setSelId: vi.fn(), editId: null, setEditId: vi.fn(),
+      hist: {}, setHist: vi.fn(), selId: null, setSelId: vi.fn(), editId: null, setEditId: vi.fn(),
     }))
     act(() => result.current.patchCommit('s', { label: 'Updated' }))
     expect(calls).toEqual(['checkpoint', 'write', 'end', 'event'])
@@ -24,7 +24,7 @@ describe('the board’s own ↶ ↷ are restores, not placements (post-mortem D3
     const hist = { modul2: { past: [[{ ...a, x: .2 }]], future: [[{ ...a, x: .8 }]] } }
     const { result } = renderHook(() => useBoardDoc({
       annos: [a], activeId: 'modul2', onChange, emit: vi.fn(),
-      hist, setHist: vi.fn(), log: vi.fn(), selId: null, setSelId: vi.fn(), editId: null, setEditId: vi.fn(),
+      hist, setHist: vi.fn(), selId: null, setSelId: vi.fn(), editId: null, setEditId: vi.fn(),
     }))
     act(() => result.current.undo())
     expect(onChange).toHaveBeenLastCalledWith([{ ...a, x: .2 }], { gesture: false })

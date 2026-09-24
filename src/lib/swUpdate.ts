@@ -70,6 +70,14 @@ const listeners = new Set<(available: boolean) => void>()
 const notify = (available: boolean) => { for (const cb of [...listeners]) cb(available) }
 let loadedAt = 0
 let interacted = false
+// Every reload this module wants goes through reloadOnce() — see applyWaitingBuild for why a
+// second location.reload() while the first navigation commits is the thing to avoid.
+let reloadStarted = false
+const reloadOnce = () => {
+  if (reloadStarted) return
+  reloadStarted = true
+  window.location.reload()
+}
 
 // One boot-time read of the pre-reload stamp: same build ⇒ the apply STALLED (we're still
 // on the old build); different build ⇒ the update landed (drives the «Aktualisiert» toast).
@@ -92,6 +100,13 @@ export function initServiceWorker() {
   window.addEventListener('keydown', markInteracted, { once: true, capture: true })
   updateSW = registerSW({
     immediate: true,
+    // ⚠️ vite-plugin-pwa (1.x) reloads the page ITSELF on workbox's 'controlling' event once
+    // onNeedRefresh has fired, unless this hook is given — and `updateSW(false)` does not turn
+    // that off (its argument is ignored). So the plugin's bare reload used to race reloadOnce on
+    // the very same controllerchange: the double reload the guard below exists to prevent.
+    // Routed through the guard it is ONE reload; when nothing here is applying (another window
+    // of the app activated the build) it still reloads, exactly as the plugin did.
+    onNeedReload: reloadOnce,
     onRegisteredSW(_swUrl, r) {
       registration = r
       if (!r) return
@@ -164,8 +179,8 @@ export function initServiceWorker() {
 
 /** Subscribe to the pending-update state: `cb(true)` when a new build is waiting (fires
  *  immediately if one already is), `cb(false)` when the wait resolves without us (the
- *  worker activated) so the banner retracts. Returns an unsubscribe. Single subscriber by
- *  design — the app mounts exactly one UpdateBanner. */
+ *  worker activated) so the banner retracts. Returns an unsubscribe. Any number of
+ *  subscribers (the banner and the menu both listen — see `listeners`). */
 export function onUpdateAvailable(cb: (available: boolean) => void): () => void {
   listeners.add(cb)
   if (updateWaiting) cb(true)
@@ -187,10 +202,6 @@ export function applyUpdateNow(): Promise<void> {
   return applyWaitingBuild()
 }
 
-/** Is a build waiting right now? For a surface that mounts after the announcement — the menu
- *  reads it on open rather than subscribing from boot. */
-export const updateIsWaiting = (): boolean => updateWaiting
-
 /** Apply the waiting build silently: skipWaiting + reload the page. Only the automatic
  *  boot-window and stalled-recovery paths call this automatically; `applyUpdateNow` is the
  *  operator's own door to it (16.09.2026). Never shows a blocking
@@ -202,21 +213,17 @@ async function applyWaitingBuild(): Promise<void> {
   // stamp the CURRENT (old) build id — the next boot compares it to its own to tell
   // "update landed" from "activation stalled, still the old build"
   try { localStorage.setItem(JUST_UPDATED_KEY, BUILD_ID) } catch { /* no confirmation toast then */ }
-  // Own the reload — and issue it exactly ONCE. Three triggers used to race here (this
-  // controllerchange listener, the watchdog below, and vite-plugin-pwa's internal reload
-  // from updateSW(true)); on iOS standalone a second location.reload() fired while the
+  // Own the reload — and issue it exactly ONCE. Three triggers race here (this
+  // controllerchange listener, the watchdog below, and vite-plugin-pwa's own reload on
+  // workbox's 'controlling'); on iOS standalone a second location.reload() fired while the
   // first navigation is committing can blank/freeze the webview (field reports
   // 2026-07-18: app frozen right after an update). So: updateSW(false) only posts
-  // skipWaiting, and every reload goes through the guarded reloadOnce(). First controller
+  // skipWaiting, and every reload — the plugin's too, via onNeedReload (23.09.2026: the
+  // `false` alone never silenced it) — goes through the guarded reloadOnce(). First controller
   // change → reload (the normal path, sub-second). Watchdog: if nothing happened after
   // RELOAD_WATCHDOG_MS, re-post SKIP_WAITING straight to the waiting worker (the
   // vite/workbox message can get lost in an activation stall), give it a beat, reload.
-  let reloadStarted = false
-  const reloadOnce = () => {
-    if (reloadStarted) return
-    reloadStarted = true
-    window.location.reload()
-  }
+  reloadStarted = false // this apply owns its reload, as a fresh page life would
   navigator.serviceWorker?.addEventListener('controllerchange', reloadOnce, { once: true })
   window.setTimeout(() => {
     if (reloadStarted) return // a reload is already committing — don't kick the worker again

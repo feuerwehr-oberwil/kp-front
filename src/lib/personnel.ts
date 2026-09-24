@@ -9,17 +9,6 @@ export type Roster = Map<string, Person>
 
 export const rosterFromList = (people: Person[]): Roster => new Map(people.map((p) => [p.id, p]))
 
-/** Resolve one person to a printable name: snapshot → current roster → id (last resort). */
-export function resolvePersonName(roster: Roster, id?: string, snapshot?: string): string {
-  const snap = snapshot?.trim()
-  if (snap) return snap
-  if (id) {
-    const p = roster.get(id)
-    if (p) return p.displayName
-  }
-  return id ?? ''
-}
-
 /** One name reduced to what it MEANS for matching: trimmed, case-folded, whitespace collapsed. */
 const nameKey = (name: string) => name.trim().toLowerCase().replace(/\s+/g, ' ')
 

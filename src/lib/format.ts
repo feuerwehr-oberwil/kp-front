@@ -192,3 +192,15 @@ export function telHref(raw?: string): string | undefined {
   const dial = (raw ?? '').replace(/[^\d+]/g, '')
   return dial.replace(/\D/g, '').length >= 3 ? `tel:${dial}` : undefined
 }
+
+/** Size of one stored file for the admin lists (a plan PDF, a reference dataset): B, whole KB,
+ *  one-decimal MB; null → «—». One helper so the Objektpläne list, the object detail and the
+ *  Daten page say the same thing about the same bytes. ⚠️ Deliberately NOT storageBudget ·
+ *  fmtBytes (device storage, rounds and has GB) nor SystemView's (server disk, has GB): those
+ *  print different strings for the same number, and unifying them is a copy decision. */
+export function fmtFileSize(n: number | null | undefined): string {
+  if (n == null) return '—'
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}

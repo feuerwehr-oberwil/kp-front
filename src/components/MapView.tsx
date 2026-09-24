@@ -2131,37 +2131,37 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         {/* Atemschutz halo: the Leitung a due/überfällig Trupp works on keeps its own colour and
             gains a soft outline in the alarm tone — the picture says WHERE those people are,
             while the Atemschutz board stays the surface that actually alarms. */}
-        <Layer id="l-draw-atemschutz" type="line" filter={['!=', ['get', 'truppTone'], ''] as any}
+        <Layer id="l-draw-atemschutz" type="line" filter={['!=', ['get', 'truppTone'], '']}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
           paint={{
             'line-color': ['match', ['get', 'truppTone'], 'crit', appConfig.drawing.atemschutzTone.crit, appConfig.drawing.atemschutzTone.warn],
             'line-width': ['+', ['get', 'width'], 8],
             'line-opacity': 0.45,
-          } as any} />
-        <Layer id="l-draw-network" type="line" filter={['>=', ['get', 'networkDepth'], 0] as any}
+          }} />
+        <Layer id="l-draw-network" type="line" filter={['>=', ['get', 'networkDepth'], 0]}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
-          paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 9], 'line-opacity': ['interpolate', ['linear'], ['get', 'networkDepth'], 0, 0.34, 4, 0.08] } as any} />
+          paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 9], 'line-opacity': ['interpolate', ['linear'], ['get', 'networkDepth'], 0, 0.34, 4, 0.08] }} />
         {/* «zeigen» outline: wider and softer than the selection halo, and it goes away by itself.
             Deliberately NOT animated — a pulsing hose was tried and rejected on the Lage; the
             camera has just moved here, so a steady ring is enough to say which line. */}
-        <Layer id="l-draw-flash" type="line" filter={['in', ['get', 'id'], ['literal', flashHighlight]] as any}
+        <Layer id="l-draw-flash" type="line" filter={['in', ['get', 'id'], ['literal', flashHighlight]]}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
-          paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 14], 'line-opacity': 0.3 } as any} />
-        <Layer id="l-draw-sel" type="line" filter={['in', ['get', 'id'], ['literal', selHighlight]] as any}
+          paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 14], 'line-opacity': 0.3 }} />
+        <Layer id="l-draw-sel" type="line" filter={['in', ['get', 'id'], ['literal', selHighlight]]}
           layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }}
-          paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 } as any} />
+          paint={{ 'line-color': appConfig.drawing.selectColor, 'line-width': ['+', ['get', 'width'], 6], 'line-opacity': 0.5 }} />
         {/* TWO fill layers, not one expression: `fill-pattern` overrides `fill-color` whenever it
             resolves, and a `case` that yields no image paints nothing at all — so the washed and
             the hatched Flächen are filtered apart and each gets the paint it can actually use. */}
-        <Layer id="l-draw-fill" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['!', ['coalesce', ['get', 'hatch'], false]]] as any} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.14] } as any} />
-        <Layer id="l-draw-hatch" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['coalesce', ['get', 'hatch'], false]] as any} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-pattern': ['concat', 'hatch-', ['downcase', ['get', 'color']]] } as any} />
+        <Layer id="l-draw-fill" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['!', ['coalesce', ['get', 'hatch'], false]]]} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-color': ['get', 'color'], 'fill-opacity': ['coalesce', ['get', 'fillOpacity'], 0.14] }} />
+        <Layer id="l-draw-hatch" type="fill" filter={['all', ['==', ['geometry-type'], 'Polygon'], ['coalesce', ['get', 'hatch'], false]]} layout={vis(drawingsVisible && !georefOn)} paint={{ 'fill-pattern': ['concat', 'hatch-', ['downcase', ['get', 'color']]] }} />
         {/* solid + dashed split: line-dasharray can't be data-driven, so dashed lines
             render in their own layer filtered on the feature's `dashed` property */}
-        <Layer id="l-draw-line" type="line" filter={['!', ['get', 'dashed']] as any} layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] } as any} />
-        <Layer id="l-draw-line-dash" type="line" filter={['get', 'dashed'] as any} layout={{ 'line-cap': 'butt', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': LINE_DASH_ML } as any} />
+        <Layer id="l-draw-line" type="line" filter={['!', ['get', 'dashed']]} layout={{ 'line-cap': 'round', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'] }} />
+        <Layer id="l-draw-line-dash" type="line" filter={['get', 'dashed']} layout={{ 'line-cap': 'butt', 'line-join': 'round', ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': ['get', 'color'], 'line-width': ['get', 'width'], 'line-dasharray': LINE_DASH_ML }} />
         {/* fat transparent hit line over EVERY drawn line (solid + dashed) so a click on or
             near any line — including thin/styled ones like the Rettungsachse — selects it */}
-        <Layer id="l-draw-hit" type="line" filter={['!=', ['geometry-type'], 'Polygon']} layout={{ ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 } as any} />
+        <Layer id="l-draw-hit" type="line" filter={['!=', ['geometry-type'], 'Polygon']} layout={{ ...vis(drawingsVisible && !georefOn) }} paint={{ 'line-color': '#000', 'line-opacity': 0, 'line-width': 18 }} />
         {/* the inline letter marker (e.g. R on a Rettungsachse) renders as a DOM Marker below
             — a MapLibre text-field symbol would require a `glyphs` font source this
             offline-first style intentionally omits (it would also break offline). */}
@@ -2170,8 +2170,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           SDF icon rotated to the final-segment bearing */}
       <Source id="s-draw-arrow" type="geojson" data={arrowFC}>
         <Layer id="l-draw-arrow" type="symbol"
-          layout={{ 'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1, ...vis(drawingsVisible && !georefOn) } as any}
-          paint={{ 'icon-color': ['get', 'color'] } as any} />
+          layout={{ 'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-anchor': 'center', 'icon-size': 1.1, ...vis(drawingsVisible && !georefOn) }}
+          paint={{ 'icon-color': ['get', 'color'] }} />
       </Source>
       {/* team trails — dashed path through the recorded positions, in the team's colour
           (same look as the plan board's trail polyline); under the DOM markers by nature.
@@ -2179,13 +2179,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           a dashed breadcrumb reads exactly like a landmark-worthy path during calibration. */}
       <Source id="s-team-trails" type="geojson" data={trailFC}>
         <Layer id="l-team-trails" type="line" layout={{ 'line-join': 'round', ...vis(!georefOn) }}
-          paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2.5, 2.5], 'line-opacity': 0.85 } as any} />
+          paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2.5, 2.5], 'line-opacity': 0.85 }} />
       </Source>
       {/* …and the ghost trails behind them: the same dashed path, in the neutral ink, because the
           Trupp that walked it is no longer standing anywhere (lib/truppTrails). */}
       <Source id="s-ghost-trails" type="geojson" data={ghostTrailFC}>
         <Layer id="l-ghost-trails" type="line" layout={{ 'line-join': 'round', ...vis(!georefOn) }}
-          paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2, 3], 'line-opacity': 0.7 } as any} />
+          paint={{ 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2, 3], 'line-opacity': 0.7 }} />
       </Source>
       {/* vehicle tracks (Traccar) — solid, thin and deliberately quiet: this is context behind
           the fleet, not a tactical statement, so it must not read like a drawn hose line. The

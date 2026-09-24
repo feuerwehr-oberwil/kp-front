@@ -12,60 +12,14 @@
 // mine) apart from "I never had X" (absent in both base and mine). Without it a naive union
 // can't honor deletes and would resurrect everything the other device removed.
 
-import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
+import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
-import type { BoardAnno, BoardDoc, Drawing, Entity } from '../types'
+import type { BoardDoc, Drawing, Entity } from '../types'
+import type { Saved } from './workspace'
 
 type Id = string
 interface HasId {
   id: Id
-}
-
-/** Minimal structural view of the workspace blob — only the id-keyed collaborative
- *  collections matter for merging; everything else (view/config) defaults to the local side. */
-interface WsShape {
-  /** the unified tactical objects (schema 2) — authoritative when present; the three legacy
-   *  collections below are its derived views (see lib/workspace · Saved.objects) */
-  objects?: HasId[]
-  entities?: HasId[]
-  drawings?: HasId[]
-  timeline?: HasId[]
-  trupps?: HasId[]
-  mittel?: HasId[] // append-only material-use events — merge by event id like timeline
-  shifts?: HasId[] // Schichtenplanung: planned availability blocks, merged by shift id
-  // the Schichten grid's columns. They merge by id like any other collection, which gives exactly
-  // the semantics the surface needs for free: a band the AdFU creates at the desk appears on the
-  // EL's phone seconds later, two devices each creating one keep both, and a delete beats a
-  // concurrent rename. Creating a band writes NO shifts (see types.ShiftBand), so the one
-  // resolution this merge can never be asked for is 66 duplicated shifts per device.
-  bands?: HasId[]
-  cameraViews?: HasId[]
-  // Ghost «Spuren» (lib/truppTrails) — the searched area a removed Trupp marker left behind.
-  // Merges by id like any collection, and it converges without a resolver because the id is
-  // DERIVED from the marker (`ght-<markerId>`): two devices reconciling the same removal write
-  // the same row rather than two copies of one walked line, and «Spur löschen» is a `removedAt`
-  // stamp (a field edit) rather than a drop, so a delete cannot race a concurrent reconciliation.
-  trails?: HasId[]
-  // Rapport-Beilagen (document/damage photos) — merge by id like any other collection: two
-  // devices each adding one keeps both, and a delete beats a concurrent caption edit.
-  attachments?: HasId[]
-  board?: Record<string, HasId[]>
-  vehicleOverrides?: Record<string, unknown>
-  checklists?: Record<string, unknown>
-  // singletons / records that ALSO need three-way merging so a concurrent edit in another domain
-  // (the "task-scoped multi-editor" case) isn't clobbered by the resolver's whole-blob default:
-  attendance?: Record<string, unknown> // per-Person presence — a prime parallel-editor surface
-  planScale?: Record<string, unknown> // per-plan calibration (planId → scale)
-  settings?: Record<string, unknown> // per-incident operational settings (Atemschutz doctrine …)
-  reportMeta?: Record<string, unknown> // Einsatzrapport bookkeeping text
-  planBindings?: HasId[] // frozen sheet bindings — first server binding wins, overrides merge
-  building?: unknown // the Gebäude floor-stack doc (merged whole — same-object stays LWW)
-  pickedObjectId?: unknown // the shared picked Einsatzobjekt (one picture across devices)
-  // «Einsatzdaten geprüft» stamp — MUST be merged, not defaulted to mine: a device that still
-  // shows the review banner saves without it, and `...m` would quietly unset the stamp another
-  // device just wrote, bringing the banner back on every device.
-  intakeReviewedAt?: unknown
-  [k: string]: unknown
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -360,6 +314,101 @@ function mergeReportMeta(
 // (per-plan board merging is gone — since schema 2 the board is a derived view of the merged
 // `objects` collection, so a plan's annos merge as whole objects like everything else)
 
+// --- The merge policy: one row per field of the blob -----------------------------------------
+//
+// ⚠️ Every field of `Saved` states HOW it merges, and the map is checked against `Saved` at
+// compile time (`satisfies Record<keyof Saved, FieldPolicy>`): a field added to the blob without
+// a row here fails `tsc`. The old shape — a `...mine` spread with the merged fields listed after
+// it — let a new synced field fall through to «this device wins» silently, which is how
+// `attendance`, `settings`, `reportMeta` and `intakeReviewedAt` each clobbered concurrent edits
+// until they were given a merge of their own. Policy map since 23.09.2026.
+
+/** What a field's merge may need beyond its own three values: the tactical objects (merged ONCE,
+ *  up front, because the three legacy views are derived from them) and the two conflict reporters. */
+interface MergeCx {
+  objects: TacticalObject[]
+  views: ObjectViews
+  onAttendanceConflict?: (c: RecordConflict) => void
+  onTruppConflict?: (c: RecordConflict) => void
+}
+
+/** How ONE field of the blob merges.
+ *  - `'local'` — genuinely local view/device state: the resolving device's own value, verbatim
+ *    (absent stays absent). A merge must never yank the resolving device's active plan or its
+ *    layer toggles.
+ *  - a function — the three-way merge of that field (base, mine, theirs, each exactly as it
+ *    stands in its blob, so possibly malformed or absent); its result is always written. */
+type FieldPolicy = 'local' | ((b: unknown, m: unknown, t: unknown, cx: MergeCx) => unknown)
+
+const byId = (b: unknown, m: unknown, t: unknown) => mergeById(asList(b), asList(m), asList(t))
+const byKey = (b: unknown, m: unknown, t: unknown) => mergeRecord(asRecord(b), asRecord(m), asRecord(t))
+
+/** Every field of the blob and how it merges (see FieldPolicy). The functions run in this order,
+ *  which is also the order their keys are appended to the merged blob. */
+export const MERGE_POLICY = {
+  // the unified tactical objects (schema 2) — authoritative; merged up front (mergeWorkspace)
+  objects: (_b, _m, _t, cx) => cx.objects,
+  // … and the three legacy collections, its DERIVED views (see lib/workspace · Saved.objects)
+  entities: (_b, _m, _t, cx) => cx.views.entities,
+  drawings: (_b, _m, _t, cx) => cx.views.drawings,
+  timeline: byId,
+  // field-level, not whole-object LWW: see mergeTrupp for why trupps are the exception
+  trupps: (b, m, t, cx) => mergeById(asList(b), asList(m), asList(t), (ancestor, mi, th) => {
+    cx.onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
+    return mergeTrupp(ancestor, mi, th)
+  }),
+  mittel: byId, // append-only material-use events — merge by event id like timeline
+  shifts: byId, // Schichtenplanung: planned availability blocks, merged by shift id
+  // the Schichten grid's columns. They merge by id like any other collection, which gives exactly
+  // the semantics the surface needs for free: a band the AdFU creates at the desk appears on the
+  // EL's phone seconds later, two devices each creating one keep both, and a delete beats a
+  // concurrent rename. Creating a band writes NO shifts (see types.ShiftBand), so the one
+  // resolution this merge can never be asked for is 66 duplicated shifts per device.
+  bands: byId,
+  cameraViews: byId,
+  // Ghost «Spuren» (lib/truppTrails) — the searched area a removed Trupp marker left behind.
+  // Merges by id like any collection, and it converges without a resolver because the id is
+  // DERIVED from the marker (`ght-<markerId>`): two devices reconciling the same removal write
+  // the same row rather than two copies of one walked line, and «Spur löschen» is a `removedAt`
+  // stamp (a field edit) rather than a drop, so a delete cannot race a concurrent reconciliation.
+  trails: byId,
+  // Rapport-Beilagen (document/damage photos) — merge by id like any other collection: two
+  // devices each adding one keeps both, and a delete beats a concurrent caption edit.
+  attachments: byId,
+  board: (_b, _m, _t, cx) => cx.views.board,
+  vehicleOverrides: byKey, // by entity id
+  checklists: byKey, // by template id
+  // records/singletons that ALSO need three-way merging so a concurrent edit in another domain
+  // (the "task-scoped multi-editor" case) isn't clobbered by the resolver's whole blob:
+  attendance: (b, m, t, cx) => mergeRecord(asRecord(b), asRecord(m), asRecord(t), cx.onAttendanceConflict), // per-Person presence — a prime parallel-editor surface
+  planScale: byKey, // per-plan calibration (planId → scale)
+  settings: byKey, // per-incident operational settings (Atemschutz doctrine …)
+  reportMeta: (b, m, t) => mergeReportMeta(asRecord(b), asRecord(m), asRecord(t)), // Einsatzrapport bookkeeping text
+  // frozen sheet bindings — NOT mergeById: the first server binding fixes the backdrop, and only
+  // an override of that same snapshot merges; the rule lives with the binding type
+  // (lib/incidentPlanBindings).
+  planBindings: (b, m, t) => mergeIncidentPlanBindings(
+    asList(b) as IncidentPlanBinding[],
+    asList(m) as IncidentPlanBinding[],
+    asList(t) as IncidentPlanBinding[],
+  ),
+  building: pick3, // the Gebäude floor-stack doc (merged whole — same-object stays LWW)
+  pickedObjectId: pick3, // the shared picked Einsatzobjekt (one picture across devices)
+  // «Einsatzdaten geprüft» stamp — MUST be merged, not left to mine: a device that still shows
+  // the review banner saves without it, and «mine» would quietly unset the stamp another device
+  // just wrote, bringing the banner back on every device.
+  intakeReviewedAt: pick3,
+  // genuinely local view/device state:
+  activePlanId: 'local',
+  activeModule: 'local',
+  layerState: 'local',
+  recent: 'local',
+  // written only by the replay fold, never by a live save — nothing to merge
+  weather: 'local',
+  // the resolving build's own stamp: the merged blob is what THIS build wrote
+  schemaVersion: 'local',
+} satisfies Record<keyof Saved, FieldPolicy>
+
 /**
  * Three-way merge of whole workspace blobs, built for TASK-SCOPED multi-editor use: two operators
  * working DIFFERENT domains of one incident (e.g. Atemschutz on one device, Lage/Plan/report on
@@ -370,8 +419,9 @@ function mergeReportMeta(
  *   - records (vehicleOverrides, checklists, attendance, planScale) and singletons (settings,
  *     reportMeta, building, pickedObjectId) → three-way by value, so a field the resolver didn't
  *     touch yields to the server's concurrent change instead of being reverted.
- * Only genuinely LOCAL view/device state stays defaulted to mine (activePlanId, layerState, recent,
- * activeModule) — a merge must never yank the resolving device's active plan or layer toggles.
+ * Only genuinely LOCAL view/device state stays mine (the `'local'` rows of MERGE_POLICY:
+ * activePlanId, activeModule, layerState, recent, weather, schemaVersion). A key this build does
+ * not know at all rides with mine too, as it always has.
  * (Same-object field-level edits remain LWW-mine for every collection except trupps — see the
  * documented limitation in the tests, and mergeTrupp for why trupps are the exception.)
  *
@@ -396,64 +446,24 @@ export function mergeWorkspace(
   onAttendanceConflict?: (c: RecordConflict) => void,
   onTruppConflict?: (c: RecordConflict) => void,
 ): Record<string, unknown> {
-  const b = base as WsShape
-  const m = mine as WsShape
-  const t = theirs as WsShape
-  const list = (k: keyof WsShape) => [asList(b[k]), asList(m[k]), asList(t[k])] as const
-  const record = (k: keyof WsShape) => [asRecord(b[k]), asRecord(m[k]), asRecord(t[k])] as const
   // The unified objects (schema 2) are the authoritative tactical collection: each side
   // unifies FIRST (a legacy side — an un-updated device's save — derives its objects from
   // its views), the objects merge per id like any collection, and the three legacy views
   // are then DERIVED from the merged result. Merging views independently beside the
   // objects could let the two disagree about the same id — one truth, derived twice.
-  const objectsOf = (ws: WsShape): TacticalObject[] =>
+  const objectsOf = (ws: Record<string, unknown>): TacticalObject[] =>
     Array.isArray(ws.objects)
-      ? (ws.objects as unknown as TacticalObject[])
+      ? (ws.objects as TacticalObject[])
       : objectsFromLegacy(
-          asList(ws.entities) as unknown as Entity[],
-          asList(ws.drawings) as unknown as Drawing[],
-          asBoard(ws.board) as unknown as Record<string, BoardAnno[]>,
+          asList(ws.entities) as Entity[],
+          asList(ws.drawings) as Drawing[],
+          asBoard(ws.board) as BoardDoc,
         )
-  const objects = mergeById(
-    objectsOf(b) as unknown as HasId[],
-    objectsOf(m) as unknown as HasId[],
-    objectsOf(t) as unknown as HasId[],
-  ) as unknown as TacticalObject[]
-  const views = viewsOf(objects)
-  return {
-    ...m, // local view/device state (activePlanId, layerState, recent, activeModule) defaults to mine
-    objects,
-    entities: views.entities,
-    drawings: views.drawings,
-    timeline: mergeById(...list('timeline')),
-    trupps: mergeById(...list('trupps'), (ancestor, mi, th) => {
-      onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
-      return mergeTrupp(ancestor, mi, th)
-    }),
-    mittel: mergeById(...list('mittel')),
-    shifts: mergeById(...list('shifts')),
-    bands: mergeById(...list('bands')),
-    cameraViews: mergeById(...list('cameraViews')),
-    trails: mergeById(...list('trails')),
-    attachments: mergeById(...list('attachments')),
-    board: views.board as BoardDoc,
-    vehicleOverrides: mergeRecord(...record('vehicleOverrides')),
-    checklists: mergeRecord(...record('checklists')),
-    // domains that previously fell through to `...m` (the resolver's whole blob) and so could be
-    // clobbered by a concurrent cross-domain edit — now merged three-way:
-    attendance: mergeRecord(...record('attendance'), onAttendanceConflict),
-    planScale: mergeRecord(...record('planScale')),
-    settings: mergeRecord(...record('settings')),
-    reportMeta: mergeReportMeta(...record('reportMeta')),
-    // NOT mergeById: the first server binding fixes the backdrop, and only an override of that
-    // same snapshot merges — the rule lives with the binding type (lib/incidentPlanBindings).
-    planBindings: mergeIncidentPlanBindings(
-      asList(b.planBindings) as unknown as IncidentPlanBinding[],
-      asList(m.planBindings) as unknown as IncidentPlanBinding[],
-      asList(t.planBindings) as unknown as IncidentPlanBinding[],
-    ),
-    building: pick3(b.building, m.building, t.building),
-    pickedObjectId: pick3(b.pickedObjectId, m.pickedObjectId, t.pickedObjectId),
-    intakeReviewedAt: pick3(b.intakeReviewedAt, m.intakeReviewedAt, t.intakeReviewedAt),
+  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs))
+  const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }
+  const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
+  for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {
+    if (policy !== 'local') out[k] = policy(base[k], mine[k], theirs[k], cx)
   }
+  return out
 }

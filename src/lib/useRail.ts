@@ -181,8 +181,9 @@ export function useRail(o: RailOptions) {
     if (labels === 'short' && expanded) { setExpanded(false); setRailVar(compactW); return release }
     setRailVar(expanded ? wideW : compactW)
     return release
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pref-driven; `expanded` is read, not
-    // tracked: every toggle goes through apply(), which publishes the width itself.
+    // pref-driven; `expanded` is read, not tracked: every toggle goes through apply(), which
+    // publishes the width itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compactW, labels])
 
   // pull the grip to resize (pointer-capture pattern mirrors lib/useHoldEntry); labels stay

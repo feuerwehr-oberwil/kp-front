@@ -217,8 +217,8 @@ safety values (contact interval, grace period, default Funkkanal) writing a row 
 new value when changed from the in-app Einstellungen sheet (`changedSafetySettings`,
 `src/lib/workspace.ts`). That sheet no longer offers those fields at all – they are station
 doctrine, set only from `/admin` › Doktrin, which does not write to the Verlauf. The dead
-`changedSafetySettings` code path stays in `src/lib/workspace.ts` unused; nothing in the app
-calls it any more.
+`changedSafetySettings` code path was removed on 2026-09-23; `git show 99c4348^:src/lib/workspace.ts`
+has it if an in-incident safety editor ever comes back.
 
 ## Closed since then (2026-08-17 to 2026-08-19)
 

@@ -226,16 +226,6 @@ function projectOntoSheet(o: TacticalObject, plan: PlanFit, margin: number): Boa
   }
 }
 
-/** …every object that lands on this sheet, in store order. */
-export function projectedAnnos(objects: TacticalObject[], plan: PlanFit, margin = TWIN_CLIP_MARGIN): BoardAnno[] {
-  const out: BoardAnno[] = []
-  for (const o of objects) {
-    const anno = projectOnto(o, plan, margin)
-    if (anno) out.push(anno)
-  }
-  return out
-}
-
 /**
  * The live feed on this sheet: vehicles and shared responder positions, as annos the sheet draws
  * but never owns. They are moments rather than records — nothing places them, nothing may edit
