@@ -53,7 +53,10 @@ export function PlanCompass({ deg, controls, northUnknown = false }: { deg: numb
       popupClassName="wb-orient-popup"
       side="bottom" align="end" zIndex={30}
       trigger={
-        <button type="button" className={`${s.chip} ${s.btn}`}
+        // ⚠️ viewport chrome, not paper: the board's pan and marquee stand down for a press on it
+        // (useBoardGestures · isViewportChrome — they took the pointer, and with it this click),
+        // and so does an armed ✥ / ⟳, which would otherwise swallow the tap as a drag.
+        <button type="button" className={`${s.chip} ${s.btn}`} data-arm-exempt
           title={appConfig.copy.whiteboard.orientMenuTitle}
           aria-label={appConfig.copy.whiteboard.orientMenuTitle}
         >{dial}</button>

@@ -1176,6 +1176,76 @@ describe('drehen · Gebäude aus Geschossplänen', () => {
   })
 })
 
+// Field report 24.09.2026 (iPad): «tapping the north indicator in Gebäude pretty rarely does
+// anything». The dial sits in the stage, over the paper, and the stage's pan took pointer capture
+// on every press that reached it — the browser then sends pointerup AND the click to the capturing
+// stage, so the dial's popover never heard its own tap. jsdom does no capture retargeting, so the
+// tap below does what the browser does: the release goes wherever the capture went.
+describe('der Nordpfeil · ein Tipp ist ein Tipp', () => {
+  const footprint: BuildingDoc = { ...aBuilding, src: [[[0, 0], [1, 0], [1, 0.3], [0, 0.3]]], orientDeg: 30, viewDeg: 30 }
+  const packBuilding: BuildingDoc = { ...aBuilding, ring: [], rings: [], ringAspect: 0.4, floors: [0, 1], pack: { aspect: 1.4 } }
+  const dial = () => within(document.querySelector('.wb-canvas') as HTMLElement).getByRole('button', { name: 'Gebäude drehen' })
+  const isOpen = () => dial().getAttribute('aria-expanded') === 'true'
+
+  let capture: Mock
+  let captor: Element | null = null
+  /** the element that claimed the pointer since the last reset (the spy records its `this`) */
+  const claimed = (since: number): Element | null =>
+    capture.mock.contexts.length > since ? capture.mock.contexts[capture.mock.contexts.length - 1] as Element : null
+  beforeEach(() => {
+    captor = null
+    capture = vi.spyOn(Element.prototype, 'setPointerCapture').mockImplementation(() => {}) as unknown as Mock
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  /** press → release → click, retargeted to the element holding capture — as a browser does */
+  const tap = (el: Element, pointerType: 'mouse' | 'pen' | 'touch') => {
+    const before = capture.mock.contexts.length
+    const at = { pointerId: 7, pointerType, isPrimary: true, button: 0, clientX: 700, clientY: 90 }
+    fireEvent.pointerDown(el, at)
+    captor = claimed(before)
+    const target = captor ?? el
+    fireEvent.pointerUp(target, at)
+    fireEvent.click(target, { button: 0, clientX: 700, clientY: 90 })
+  }
+
+  for (const pointerType of ['mouse', 'pen', 'touch'] as const) {
+    it(`opens and closes on every ${pointerType} tap, exactly once each`, () => {
+      renderBoard('gebaeude', [], false, footprint)
+      expect(isOpen()).toBe(false)
+      tap(dial(), pointerType)
+      // the stage never took the pointer the dial was pressed with
+      expect(captor).toBeNull()
+      expect(isOpen()).toBe(true)
+      expect(screen.getByRole('button', { name: 'Norden oben' })).toBeTruthy()
+      tap(dial(), pointerType)
+      expect(isOpen()).toBe(false)
+      tap(dial(), pointerType)
+      expect(isOpen()).toBe(true)
+    })
+  }
+
+  // the turn-arrow face (a pack with no map fit) is icon-only, so the app-wide hold-tooltip
+  // claims it — a quick tap must still reach the popover, only a HOLD may explain instead
+  it('a quick tap through the app-wide hold-tooltip still opens the turn-arrow face', async () => {
+    const { installHoldTooltip } = await import('../lib/holdTooltip')
+    const uninstall = installHoldTooltip()
+    try {
+      renderBoard('gebaeude', [], false, packBuilding)
+      tap(dial(), 'touch')
+      expect(isOpen()).toBe(true)
+      expect(document.querySelector('.hold-tip')).toBeNull()
+    } finally { uninstall() }
+  })
+
+  // the guard is about the viewport's chrome only: a press on the paper still pans
+  it('still pans from the paper', () => {
+    renderBoard('gebaeude', [], false, footprint)
+    fireEvent.pointerDown(document.querySelector('.wb-board')!, { pointerId: 8, pointerType: 'touch', clientX: 300, clientY: 300 })
+    expect(claimed(0)).toBe(document.querySelector('.wb-canvas'))
+  })
+})
+
 // ⚠️ A Leitung drawn on the stack stamps its storey into EVERY VERTEX (pts[i][2]), and the
 // renderer reads the point before the anno — so the detail sheet's «Geschoss» stepper, which
 // patched `anno.floor` alone, moved nothing at all (Bastian, 17.09.2026).

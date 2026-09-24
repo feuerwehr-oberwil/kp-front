@@ -22,6 +22,19 @@ interface BoardGesturesDeps {
   manipUp: () => void
 }
 
+/** what counts as a control: anything that answers a tap of its own */
+const CONTROL = 'button, [role="button"], a[href], input, select, textarea, label'
+
+/**
+ * A press that starts on a control pinned in the stage but OFF the paper — the viewport's HUD
+ * (the Gebäude's north dial, the floating zoom, the selection bar). Controls ON the paper (a
+ * storey's eye, «+ OG», a grip) live inside the board and keep their own grammar.
+ */
+function isViewportChrome(target: EventTarget | null, board: Element | null): boolean {
+  const ctl = (target as Element | null)?.closest?.(CONTROL)
+  return !!ctl && !board?.contains(ctl)
+}
+
 /**
  * The board's NAVIGATION pointer layer, lifted out of the Whiteboard god-component: one-finger
  * pan, two-finger pinch-zoom, and the Mehrfach/lasso marquee multi-select — plus the shared stage
@@ -137,6 +150,13 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
 
   const stageDown = (e: ReactPointerEvent) => {
     if (pinchDist.current != null) return // the capture pass handed this gesture to the pinch
+    // ⚠️ a press on the VIEWPORT's own chrome is that control's tap, never a pan (24.09.2026).
+    // The pan and the marquee take pointer capture on the stage, and a captured pointer's
+    // pointerup — and with it the click — is retargeted to the stage: the Gebäude's north dial
+    // (PlanCompass, the door to «Gebäude drehen») never saw its click from a mouse, a trackpad
+    // or a Pencil and opened only now and then from a finger. Every control pinned in the stage
+    // but off the paper is covered here, including the next one somebody adds.
+    if (isViewportChrome(e.target, boardRef.current)) return
     if (tool === 'lasso') { marqueeDown(e); return }
     panDown(e)
   }
