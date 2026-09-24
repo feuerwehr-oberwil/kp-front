@@ -279,19 +279,60 @@ describe('WorkspaceSync – awaited flush', () => {
     sync.dispose()
   })
 
-  it('joined flushes share one failed attempt and retain the existing automatic retry delay', async () => {
+  // A flush that JOINS a failing attempt is owed one attempt of its own (the journal's rule,
+  // #209) — and no more: an offline device does not spin, and the backoff still follows.
+  it('a joined flush gets one attempt of its own after a failure, then the automatic retry delay', async () => {
     vi.useFakeTimers()
     putWorkspace.mockRejectedValue(new ApiError(0, 'offline'))
     const sync = new WorkspaceSync('i1')
     await sync.init()
     sync.save({ n: 1 })
     await Promise.all([sync.flush(), sync.flush()])
-    expect(putWorkspace).toHaveBeenCalledTimes(1)
+    expect(putWorkspace).toHaveBeenCalledTimes(2)
     expect(sync.syncStatus).toBe('offline')
     await vi.advanceTimersByTimeAsync(4_999)
-    expect(putWorkspace).toHaveBeenCalledTimes(1)
-    await vi.advanceTimersByTimeAsync(1)
     expect(putWorkspace).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(putWorkspace).toHaveBeenCalledTimes(3)
+    sync.dispose()
+  })
+})
+
+describe('WorkspaceSync · a flush asked for while a failing attempt is in flight', () => {
+  // #209's failure mode (a) for the workspace: the `online` handler / the reach signal / «Jetzt
+  // synchronisieren» arrived while the PUT sent before the reconnect was still settling, joined
+  // it, and the edits then sat out the backoff (5–60 s) although the link was back.
+  it('gets its own attempt once the in-flight one fails, and delivers', async () => {
+    let failInFlight!: () => void
+    putWorkspace.mockImplementationOnce(() => new Promise((_, reject) => { failInFlight = () => reject(new ApiError(0, 'offline')) }))
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    await sync.init()
+    sync.save({ n: 1 })
+    const doomed = sync.flush() // the PUT that is about to fail
+    const reconnect = sync.flush() // …and the link is back: somebody asks again meanwhile
+    failInFlight()
+    await Promise.all([doomed, reconnect])
+    expect(putWorkspace).toHaveBeenCalledTimes(2)
+    expect(putWorkspace).toHaveBeenLastCalledWith('i1', { n: 1 }, 7)
+    expect(sync.hasUnsynced).toBe(false)
+    expect(sync.syncStatus).toBe('synced')
+    sync.dispose()
+  })
+
+  it('a failed attempt nobody asked to repeat is not repeated (an offline device does not spin)', async () => {
+    vi.useFakeTimers()
+    putWorkspace.mockRejectedValue(new ApiError(0, 'offline'))
+    const sync = new WorkspaceSync('i1', { debounceMs: 60_000 })
+    await sync.init()
+    sync.save({ n: 1 })
+    await sync.flush()
+    expect(putWorkspace).toHaveBeenCalledTimes(1)
+    await sync.flush()
+    expect(putWorkspace).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(4_000) // below the first backoff step: nothing by itself
+    expect(putWorkspace).toHaveBeenCalledTimes(2)
+    expect(sync.hasUnsynced).toBe(true)
+    expect(sync.syncStatus).toBe('offline')
     sync.dispose()
   })
 })

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { pollWorkspaceSince, type WorkspaceSync, type Workspace, type SyncStatus } from './incidents'
 import { appConfig } from '../config/appConfig'
 import { onWorkspaceServerTime } from './api/workspace'
+import { onReachable } from './connectivity'
 import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
@@ -141,10 +142,15 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // made offline would sit in 'offline' status until the next edit happened to re-arm a flush.
   // The live-follow poll below already resumes PULLING on its own once fetches succeed again;
   // this covers the PUSH side. flush() is a no-op when nothing is dirty.
+  // …and when the server ANSWERS again after this device failed to reach it (lib/connectivity ·
+  // onReachable), which the browser never announces for a WLAN that routed nowhere or a backend
+  // restart: the edits would otherwise sit out the retry backoff (up to 60 s) while the Verlauf
+  // is already delivering. The audit outbox listens for itself (useAuditEvents).
   useEffect(() => {
     const onOnline = () => { if (!readOnly) { flushEvents(); void sync.flush() } }
     window.addEventListener('online', onOnline)
-    return () => window.removeEventListener('online', onOnline)
+    const offReachable = onReachable(() => { if (!readOnly) void sync.flush() })
+    return () => { window.removeEventListener('online', onOnline); offReachable() }
   }, [readOnly, sync, flushEvents])
 
   // Manual "Jetzt synchronisieren": push pending edits AND snap the live-follow pull to now —

@@ -1,4 +1,4 @@
-import { ApiError } from './api'
+import { ApiError, isUnverifiable } from './api'
 import { ingestEvents, ingestEventsBeacon, type ClientEvent } from './api/events'
 import { idbGet, idbSet } from './idb'
 import { ALL_EVENTS, type EventScope } from './eventScope'
@@ -27,6 +27,10 @@ export class AuditEventStore {
   private writeSeq = 0
   private writing: Promise<void> | null = null
   private flushing: Promise<void> | null = null
+  /** somebody asked for a flush while one was in flight — see `flush` */
+  private flushRequested = false
+  /** the last attempt failed because the server could not be ASKED (api · isUnverifiable) */
+  private unreached = false
   private timer: ReturnType<typeof setTimeout> | null = null
   private running = false
   private generation = 0
@@ -119,7 +123,7 @@ export class AuditEventStore {
 
   start() {
     this.running = true
-    void this.load().then(() => { if (this.writable) void this.flush() })
+    void this.load().then(() => { if (this.writable) void this.run() })
   }
 
   stop() {
@@ -142,7 +146,7 @@ export class AuditEventStore {
       // A promoted tab must first recover what its predecessor queued while it watched.
       this.loaded = null
       this.hydrated = false
-      void this.load().then(() => { if (this.writable) void this.flush() })
+      void this.load().then(() => { if (this.writable) void this.run() })
     }
   }
 
@@ -178,12 +182,30 @@ export class AuditEventStore {
   private schedule(ms: number) {
     if (!this.writable) return
     if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => { this.timer = null; void this.flush() }, ms)
+    this.timer = setTimeout(() => { this.timer = null; void this.run() }, ms)
   }
 
+  /** ⚠️ A flush asked for WHILE an attempt is in flight is owed its own attempt if that one
+   *  fails (the journal's rule, #209): the `online` handler and the reach signal
+   *  (lib/connectivity) arrive exactly when a POST sent under the old conditions may still be
+   *  settling, and merely joining it left the events for the next RETRY_MS tick. Only a
+   *  failure to REACH the server is re-run, once per request, so an offline device does not
+   *  spin. The store's own triggers (start, the retry timer) go through `run` and ask for
+   *  nothing: they carry no news about the link. */
   flush(): Promise<void> {
+    if (this.flushing) this.flushRequested = true
+    return this.run()
+  }
+
+  private run(): Promise<void> {
     if (this.flushing) return this.flushing
-    this.flushing = this.drain().finally(() => {
+    this.flushing = (async () => {
+      do {
+        this.flushRequested = false
+        this.unreached = false
+        await this.drain()
+      } while (this.flushRequested && this.unreached && this.writable && this.state.pending.length)
+    })().finally(() => {
       this.flushing = null
       if (this.state.pending.length) this.schedule(RETRY_MS)
     })
@@ -212,6 +234,7 @@ export class AuditEventStore {
         const permanent = error instanceof ApiError && [400, 403, 409, 413, 422].includes(error.status)
         if (!permanent) {
           this.failure = error instanceof ApiError && error.status === 0 ? 'offline' : 'error'
+          this.unreached = isUnverifiable(error)
           this.onChange?.()
           return
         }

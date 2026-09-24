@@ -292,4 +292,36 @@ describe('AuditEventStore · a 403 the role can never avoid is parked, not held 
     expect(editor.refusedCount).toBe(1)
     expect(editor.status).toBe('storage')
   })
+  // #209's failure mode (a) for the audit outbox: the `online` handler / the reach signal
+  // arrived while the POST sent before the reconnect was still settling, joined it, and the
+  // events then waited for the next RETRY_MS tick although the link was back.
+  it('a flush asked for while a failing POST is in flight gets its own attempt', async () => {
+    const store = open()
+    await store.flush() // hydrated, nothing to send
+    let failInFlight!: () => void
+    ingestEvents.mockImplementationOnce(() => new Promise((_, reject) => { failInFlight = () => reject(new ApiError(0, 'offline')) }))
+    store.append(event('a'))
+    const doomed = store.flush()
+    await vi.waitFor(() => expect(ingestEvents).toHaveBeenCalledTimes(1))
+    ingestEvents.mockResolvedValue(undefined) // the link is back…
+    const reconnect = store.flush() // …and somebody asks again meanwhile
+    failInFlight()
+    await Promise.all([doomed, reconnect])
+    expect(ingestEvents).toHaveBeenCalledTimes(2)
+    expect(ingestEvents).toHaveBeenLastCalledWith('incident', [event('a')])
+    expect(store.pendingCount).toBe(0)
+    expect(store.status).toBe('synced')
+  })
+
+  it('a failed POST nobody asked to repeat is not repeated (an offline device does not spin)', async () => {
+    const store = open()
+    await store.flush()
+    store.append(event('a'))
+    await store.flush()
+    expect(ingestEvents).toHaveBeenCalledTimes(1)
+    await store.flush()
+    expect(ingestEvents).toHaveBeenCalledTimes(2)
+    expect(store.pendingCount).toBe(1)
+    expect(store.status).toBe('offline')
+  })
 })

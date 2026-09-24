@@ -19,6 +19,7 @@ import { appConfig } from '../config/appConfig'
 import * as deploymentConfig from './deploymentConfig'
 import { LONG_POLL_SPACING_MS } from './pollBackoff'
 import { useIncidentSync } from './useIncidentSync'
+import { noteAnswered, noteUnreached, resetConnectivityForTests } from './connectivity'
 import type { Saved } from './workspace'
 
 // A minimal WorkspaceSync stand-in — only the members useIncidentSync touches. In the
@@ -108,6 +109,23 @@ describe('useIncidentSync — persistence', () => {
     const sync = makeSync()
     render(sync)
     expect(sync.save).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useIncidentSync — the server answers again without an `online` event', () => {
+  // A WLAN that routed nowhere, a backend restart: the browser never fires `online`, and the
+  // edits sat out the retry backoff (up to 60 s) while the Verlauf already delivered.
+  it('pushes the outbox on the first answer after a failure to reach the server', () => {
+    resetConnectivityForTests(true)
+    const sync = makeSync()
+    mount(sync)
+    noteAnswered()
+    expect(sync.flush).not.toHaveBeenCalled() // nothing had failed: nothing to catch up on
+    noteUnreached()
+    noteAnswered()
+    expect(sync.flush).toHaveBeenCalledTimes(1)
+    noteAnswered()
+    expect(sync.flush).toHaveBeenCalledTimes(1) // once per recovery, not per answer
   })
 })
 
