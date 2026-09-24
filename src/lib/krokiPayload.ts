@@ -15,6 +15,7 @@ import { operationalExtentPoints, type KrokiView } from './report'
 import { resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
 import { symbolLegendText } from './symbols'
+import { doneBadge } from './objectDone'
 import { withoutCartoBasemapKey } from './carto'
 
 export interface KrokiEntityOut {
@@ -32,6 +33,10 @@ export interface KrokiEntityOut {
   count?: number
   spread?: Entity['spread']
   caption?: string
+  /** «Gelöscht / erledigt» (lib/objectDone): the HH:MM it was declared over — the sheet prints the
+   *  glyph grey with this time in its top-left corner. ⚠️ Mirrored in backend/app/report_pdf.py ·
+   *  KrokiEntityIn; the legend's word («gelöscht 20:40») already rides in `caption`. */
+  done?: string
   sizeM?: number
   /** generic shapes: which kind, so the server can apply the SAME size and aspect limits the
    *  client does (a Rotation spans the map and is far leaner than any box — lib/shapes ·
@@ -185,6 +190,7 @@ export function krokiEntity(e: Entity, byName: Record<string, string>, captionMo
     // into a numbered legend, where the screen's value-only caption («in Rettung») named no
     // object at all (18.09.2026) — see lib/symbols · symbolLegendText.
     caption: symbolLegendText(e, captionMode) ?? undefined,
+    done: doneBadge(e) ?? undefined,
   }
   if (e.kind === 'team') return { ...base, caption: e.label || undefined, color: e.color || undefined }
   if (e.kind === 'note') {

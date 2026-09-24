@@ -24,6 +24,7 @@ import { getDeploymentConfig } from './deploymentConfig'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
+import { doneBadge } from './objectDone'
 import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { ensureErg } from './erg'
@@ -66,6 +67,8 @@ export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = '
       // so a symbol reads the same on every sheet of the rapport. The server prints it as a
       // numbered disc + a legend line (backend · kroki · _number_words).
       out.caption = symbolLegendText(a, captionMode) ?? undefined
+      // «Gelöscht / erledigt»: grey on paper too, with the time (⚠️ mirrored in PlanAnnoIn)
+      out.done = doneBadge(a) ?? undefined
       const veh = a.symbol === appConfig.symbols.vehicleName
       const svg = veh ? vehicleSymbolSvg(a.label ?? '', a.rotation ?? 0) : placardSvgForSymbol(a.symbol, a.fields)
       if (svg) {

@@ -803,6 +803,20 @@ export const en: Localizable<Copy> = {
       circle: 'Cordon circle',
     },
   },
+  objectDone: {
+    word: {
+      fire: { title: 'Extinguished', inline: 'extinguished' },
+      other: { title: 'Done', inline: 'done' },
+    },
+    action: 'Extinguished / done',
+    actionHint: 'stays visible in grey',
+    state: '{word} {time}',
+    reopen: 'Active again',
+    remove: 'Remove',
+    removeHint: 'only for a mistake',
+    logDone: '{name} {word} ({time})',
+    logReopened: '{name} active again',
+  },
   addSheet: { tile: 'Add', tools: 'Draw & crew' },
   toolDock: {
     colorGroup: 'Colour',

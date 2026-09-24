@@ -1180,6 +1180,32 @@ export const de = {
     // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
     drawKinds: { area: 'Fläche', line: 'Linie', circle: 'Absperrkreis' } as Record<string, string>,
   },
+  /** «Gelöscht / erledigt» statt löschen (review item 21b, 24.09.2026, lib/objectDone). Das Feuer
+   *  im EG war aus, also wurde das Symbol um 20:40 GELÖSCHT – und der Rapport zeigte danach keinen
+   *  Brand mehr. Jetzt bleibt ein erledigtes Symbol stehen, grau, mit der Uhrzeit; «Entfernen» ist
+   *  nur noch für eine Fehleingabe. */
+  objectDone: {
+    /** ⚠️ EIN Wort, nach Familie: ein Feuer ist «gelöscht», alles andere «erledigt»
+     *  (appConfig.symbols.fireFamily). `title` steht am Zeilenanfang, `inline` mitten im Satz. */
+    word: {
+      fire: { title: 'Gelöscht', inline: 'gelöscht' },
+      other: { title: 'Erledigt', inline: 'erledigt' },
+    },
+    /** die Aktion oben im Symbol-Editor – die Worte der Entscheidung, für jede Familie gleich */
+    action: 'Gelöscht / erledigt',
+    actionHint: 'bleibt grau sichtbar',
+    /** der gesetzte Zustand im Editor und auf dem Rapport: «Erledigt 20:40» */
+    state: '{word} {time}',
+    reopen: 'Wieder aktiv',
+    /** ⚠️ «Entfernen», nicht «Löschen», auf jedem Symbol, das «Gelöscht / erledigt» kennt: neben
+     *  einem «gelöschten» Feuer hiesse «Löschen» das Gegenteil. Entfernen ist für die Fehleingabe. */
+    remove: 'Entfernen',
+    removeHint: 'nur bei Fehleingabe',
+    /** Verlauf: «Feuer EG gelöscht (20:40)» – was, wo, wann. Die Uhrzeit steht in Klammern, weil
+     *  sie die Aussage ist (der Zeilenkopf ist der Moment des Tippens). */
+    logDone: '{name} {word} ({time})',
+    logReopened: '{name} wieder aktiv',
+  },
   // unified, append-only journal (Verlauf) shared by Karte + Plan
   // PHONE: the «+» tile's word and the first section of its sheet (lib/toolFold · Palette) —
   // Linie · Fläche · Absperrkreis · Notiz · Trupp leave the bar for it

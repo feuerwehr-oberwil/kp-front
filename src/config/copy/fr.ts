@@ -805,6 +805,20 @@ export const fr: Localizable<Copy> = {
       circle: 'Cercle de barrage',
     },
   },
+  objectDone: {
+    word: {
+      fire: { title: 'Éteint', inline: 'éteint' },
+      other: { title: 'Terminé', inline: 'terminé' },
+    },
+    action: 'Éteint / terminé',
+    actionHint: 'reste visible en gris',
+    state: '{word} {time}',
+    reopen: 'De nouveau actif',
+    remove: 'Retirer',
+    removeHint: 'seulement en cas d’erreur',
+    logDone: '{name} {word} ({time})',
+    logReopened: '{name} de nouveau actif',
+  },
   addSheet: { tile: 'Ajouter', tools: 'Dessin & équipe' },
   toolDock: {
     colorGroup: 'Couleur',

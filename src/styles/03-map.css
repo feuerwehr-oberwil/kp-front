@@ -109,6 +109,17 @@
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim);
   box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
 .sym-dock .i { width: 12px; height: 12px; }
+/* «Gelöscht / erledigt» (lib/objectDone, 24.09.2026): the glyph, its composite part and its FKS
+   arrows go grey — the chip behind an outline glyph with them, so the whole mark recedes — while
+   every badge and the caption keep full ink. Same rule on both surfaces (TacticalSymbol). The
+   time sits top-LEFT, the one corner still free, in the storey badge's chrome — anchored by its
+   RIGHT edge just inside the glyph, so «20:40» grows OUTWARDS: at the Gebäude's 20px glyphs a
+   chip laid over the symbol hid the very symbol it dates (the printed badge does the same). */
+.ts.ts-done > .ts-rot, .ts.ts-done > .sym-spread { filter: var(--done-filter); opacity: var(--done-opacity); }
+.sym-done { position: absolute; top: calc(var(--badge-out, 7px) * -1); right: calc(100% - 7px); z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); pointer-events: none; }
 /* metadata caption — a symbol's discriminating value(s) printed just under its glyph (e.g.
    "CO₂" under a Kleinlöscher), so an operator reads it without opening the dashboard. Same
    chrome as the line label (.measure-label.draw-label / .wb-line-label) for Lage↔Plan parity;

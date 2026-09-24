@@ -157,6 +157,22 @@ export interface SymbolProps {
    *  sheet). The renderers add a `--note-halo` outline so bare text stays legible over an
    *  aerial / a dark plan — never a background-less plain colour. */
   notePlain?: boolean
+  /** «Gelöscht / erledigt» (review item 21b, 24.09.2026): the thing this symbol marks is OVER —
+   *  the fire is out, the Rettung done — but it happened, so the symbol STAYS on the picture,
+   *  greyed, with the time (lib/objectDone). Deleting it («Entfernen») is for a mistake only.
+   *  A PROP, not geometry: it lives in SymbolProps, so it is part of the vocabulary both bodies
+   *  share and crosses with every write-through and every bake (lib/tacticalObjects) like `count`
+   *  does. Setting and clearing it are ordinary undoable prop edits. Offered on `kind: 'symbol'`
+   *  only — a Fläche/Absperrkreis would need its own greyed ink on four renderers. */
+  done?: ObjectDone
+}
+
+/** When a symbol was marked «gelöscht / erledigt», and by whom. `at` is an ISO instant on the
+ *  deployment's clock (lib/serverClock · serverNowIso), the same clock every Verlauf row uses. */
+export interface ObjectDone {
+  at: string
+  /** author display name snapshot, when known (like `MittelEvent.by`) */
+  by?: string
 }
 
 /** Relative note text size. Absent = 'm'; see `NOTE_SIZE_SCALE` in lib/notes. */

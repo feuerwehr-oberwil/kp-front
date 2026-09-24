@@ -1,8 +1,8 @@
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
+import { fillTemplate, formatSymbolName } from './format'
 import { linePresetLabel } from './lineStyle'
 import { floorLabel } from './whiteboard'
-import type { Drawing } from '../types'
+import type { BoardAnno, Drawing } from '../types'
 
 /**
  * What changed on a drawing, in words — the Verlauf line for editing a line/Fläche on the Kroki.
@@ -112,4 +112,26 @@ export function drawingLogName(d: Drawing): string {
     if (preset) return preset
   }
   return kinds[d.kind] || kinds.line
+}
+
+/**
+ * The name a Verlauf row calls a PLAN annotation — the SAME name the Karte's row gives the same
+ * object, so «Entfernen» writes one row, «{name} gelöscht», whichever surface the finger was on
+ * (review item 21b, 24.09.2026: the plan used to write none at all). A drawing is named by
+ * `drawingLogName`, a symbol/Form/Trupp chip by its label or text like `entityLogName`, and a
+ * symbol without one by its display name.
+ *
+ * Null for an EMPTY Notiz: the Karte writes no row for one either (IncidentWorkspace ·
+ * deleteEntity) — a note that said nothing is a placement being taken back, not a record.
+ */
+export function annoLogName(a: BoardAnno): string | null {
+  if (a.kind === 'draw' || a.kind === 'area' || a.kind === 'circle') {
+    return drawingLogName({ ...a, kind: a.kind === 'draw' ? 'line' : a.kind, coords: [] } as Drawing)
+  }
+  if (a.kind === 'text') return (a.text ?? '').trim() || null
+  const own = (a.kind === 'resource' ? a.text ?? a.label : a.label ?? a.text)?.trim()
+  if (own) return own
+  if (a.kind === 'symbol' && a.symbol) return formatSymbolName(a.symbol)
+  if (a.kind === 'shape' && a.shape) return appConfig.copy.shapes.names[a.shape] ?? appConfig.copy.entities.fallbackObjectName
+  return appConfig.copy.entities.fallbackObjectName
 }

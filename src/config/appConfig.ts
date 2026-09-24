@@ -211,6 +211,10 @@ const base = {
     // the generic vehicle glyph — placed copies render their (typed) name baked in,
     // exactly like the live GPS vehicles (see lib/useVehiclePositions · vehicleSymbolSvg)
     vehicleName: 'VKF Fahrzeug',
+    // the FIRE family: a symbol marked «Gelöscht / erledigt» (lib/objectDone) says «gelöscht»,
+    // every other symbol «erledigt». Not the whole «Schadenlage» category — a Rettung, a Wasser
+    // or an Unfall is never «gelöscht». Names are the pack's compatibility keys.
+    fireFamily: ['VKF Feuer'] as string[],
     // detail fields that offer the Mannschaft roster as a combobox (person pickers).
     // «Bedienung» (14.09.) = the person operating a placed device – Lüfter, Pumpe, Absperrung …
     // It is the LAST field of every manned preset below, so the existing caption/field order is

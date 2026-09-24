@@ -805,6 +805,20 @@ export const it: Localizable<Copy> = {
       circle: 'Cerchio di sbarramento',
     },
   },
+  objectDone: {
+    word: {
+      fire: { title: 'Spento', inline: 'spento' },
+      other: { title: 'Concluso', inline: 'concluso' },
+    },
+    action: 'Spento / concluso',
+    actionHint: 'resta visibile in grigio',
+    state: '{word} {time}',
+    reopen: 'Di nuovo attivo',
+    remove: 'Rimuovi',
+    removeHint: 'solo in caso di errore',
+    logDone: '{name} {word} ({time})',
+    logReopened: '{name} di nuovo attivo',
+  },
   addSheet: { tile: 'Aggiungi', tools: 'Disegno & squadra' },
   toolDock: {
     colorGroup: 'Colore',
