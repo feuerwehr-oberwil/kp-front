@@ -41,6 +41,13 @@ export function useJournal({ incidentId, readOnly, legacy }: {
       maxMs: appConfig.sync.livePollMaxMs,
       hiddenMs: () => appConfig.sync.hiddenPollMs,
       round: async ({ hidden, signal }) => {
+        // Push BEFORE the pull, not only after it: a visible tab's pull is a long poll the server
+        // holds ~20 s when nothing is new, so an outbox flushed only on its answer waited that
+        // long after every recovery the `online` event did not announce — a backend restart, a
+        // WLAN that was up but routed nowhere (navigator.onLine never went false), or a missed
+        // event (e2e «offline journal entries survive reload and reconnect», 24.09.2026). A round
+        // with an empty outbox costs nothing here: flush() returns at once.
+        void store.flush()
         const result = await store.pull({ wait: !hidden, signal })
         void store.flush()
         // 'failed' (offline, aborted, backend down) → the loop eases off so a dead server isn't

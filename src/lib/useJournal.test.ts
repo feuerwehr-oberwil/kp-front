@@ -85,6 +85,17 @@ describe('useJournal — live-follow loop', () => {
     expect(pull).toHaveBeenCalledTimes(2)
   })
 
+  it('pushes the outbox BEFORE holding the long poll, not only on its answer', async () => {
+    // A recovery nobody announced (no `online` event) must not leave offline rows waiting for
+    // the server to release a ~20 s hold (e2e «offline journal entries survive reload…»).
+    pull.mockImplementation(() => new Promise(() => {}))
+    mount()
+    await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
+    expect(pull).toHaveBeenCalledTimes(1)
+    expect(flush).toHaveBeenCalled()
+    expect(flush.mock.invocationCallOrder[0]).toBeLessThan(pull.mock.invocationCallOrder[0])
+  })
+
   it('aborts the held request on teardown', async () => {
     let held: AbortSignal | undefined
     pull.mockImplementation((o: { signal: AbortSignal }) => { held = o.signal; return new Promise(() => {}) })

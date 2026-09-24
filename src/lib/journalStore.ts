@@ -104,6 +104,8 @@ export class JournalStore {
   private blobEcho: TimelineEvent[] = []
   private overlay = new Map<string, Partial<TimelineEvent>>()
   private flushing: Promise<void> | null = null
+  /** somebody asked for a flush while one was in flight — see `flush` */
+  private flushRequested = false
   private disposed = false
   private initDone = false
   private preHydrationAppends = new Map<string, TimelineEvent>()
@@ -270,19 +272,38 @@ export class JournalStore {
     else this.overlay.delete(id)
   }
 
-  /** Concurrent callers await the same drain, including every successful follow-on batch. */
+  /** Concurrent callers await the same drain, including every successful follow-on batch.
+   *
+   *  ⚠️ A flush asked for WHILE an attempt is in flight is owed its own attempt if that one
+   *  fails. The in-flight POST was sent under the old conditions: the `online` event, the poll
+   *  round after a reconnect and «Erneut versuchen» all arrive precisely when an attempt that
+   *  was doomed a moment ago may still be settling — and merely awaiting it dropped their retry.
+   *  The row then sat on this device until the next live-follow round got round to flushing,
+   *  which behind a held long poll is ~20 s later (e2e «offline journal entries survive reload
+   *  and reconnect», 24.09.2026). One re-run per request, so an offline device does not spin. */
   flush(): Promise<void> {
-    if (this.flushing) return this.flushing
+    if (this.flushing) {
+      this.flushRequested = true
+      return this.flushing
+    }
     if (!this.initDone || this.readOnly || this.disposed || !this.state.outbox.length) return Promise.resolve()
-    this.flushing = this.drain().finally(() => { this.flushing = null })
+    this.flushing = (async () => {
+      do {
+        this.flushRequested = false
+        if (await this.drain()) return
+      } while (this.flushRequested && this.initDone && !this.readOnly && !this.disposed && this.state.outbox.length)
+    })().finally(() => { this.flushing = null })
     return this.flushing
   }
 
-  private async drain(): Promise<void> {
+  /** Send the outbox batch by batch. `true` = emptied; `false` = a batch failed and the rest
+   *  waits for the next poll/online/manual retry. */
+  private async drain(): Promise<boolean> {
     while (this.initDone && !this.readOnly && !this.disposed && this.state.outbox.length) {
-      if (!(await this.flushBatch())) return // failures wait for the existing poll/online retry
+      if (!(await this.flushBatch())) return false // failures wait for the existing poll/online retry
     }
     if (!this.disposed && !this.readOnly) void this.pull() // converge without moving the push cursor
+    return true
   }
 
   private async flushBatch(): Promise<boolean> {
