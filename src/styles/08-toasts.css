@@ -335,6 +335,14 @@
     inset 3px 0 0 0 var(--toast-edge);
   padding-left: 19px;
 }
+/* a failure is an edge by default now (lib/ui · defaultToneStyle, 23.09.2026) — the full red fill
+   read as an alarm for «Synchronisierung fehlgeschlagen», whose changes are safe on the device.
+   It keeps a trace of red in the pill itself, so a failure and a plain status still tell apart
+   at a glance without the edge; ~12 % holds in both themes (the ink fill flips, the mix follows).
+   ⚠️ FAILURES only (`.toast-fail`, lib/ui · isFailure) — not every warn edge: the print pill wears
+   the same edge while a job is queued or printing, and a minute and a half of red-tinted pill for
+   a printer that is merely busy is exactly what the edge style exists to avoid (printJobToast). */
+.toast-edge.toast-warn.toast-fail { background: color-mix(in srgb, var(--red) 12%, var(--ink-fill)); }
 /* the glyph the sentence leads with (a failure's ⚠) and the running step's own icon carry the
    same colour — the state is readable without the edge, for whoever reads glyphs before edges */
 .toast-edge > .i, .toast-edge .toast-step.now .i { color: var(--toast-edge); }

@@ -11,12 +11,20 @@ import { safeHref } from './mediaUrl'
 // module store; mount <Overlays/> once at the app root.
 
 type Tone = 'default' | 'warn' | 'success'
-/** How a tone is shown. `fill` paints the whole pill — right for a one-shot message that has to
- * be noticed once («Sync-Fehler»). `edge` keeps the neutral ink pill every other status shares
- * and puts the colour on the leading edge and the icons — right for a LIVE status that stands on
- * screen for as long as a job takes: a print sitting in a queue is not an alarm, and a saturated
- * red pill for a minute and a half says it is. Same idea as the Meldeleiste's `.ml-row.t-*`. */
+/** How a tone is shown. `edge` keeps the neutral ink pill every other status shares and puts the
+ * colour on the leading edge and the icons; `fill` paints the whole pill. A failure (`warn`) is an
+ * EDGE by default since 23.09.2026: a saturated red pill for «Synchronisierung fehlgeschlagen» —
+ * changes that are safe on the device — read as an alarm, and the app has real alarms (the
+ * Atemschutz clock, the Meldeleiste) that must keep that register to themselves. The live print
+ * job wore the edge first, for the same reason. `success` stays a fill: it is short and calm.
+ * Same idea as the Meldeleiste's `.ml-row.t-*`. */
 type ToneStyle = 'fill' | 'edge'
+const defaultToneStyle = (tone: Tone): ToneStyle => (tone === 'warn' ? 'edge' : 'fill')
+/** Is this toast a FAILURE, as opposed to a live status that wears the warn edge? A step chain is
+ *  a job still under way (the print pill while queued/printing — lib/printJobToast); its own
+ *  failure drops the chain. Only a failure gets the red trace in the pill (08-toasts.css ·
+ *  `.toast-fail`): a job queued for 90 s is not a failure and must not look like one. */
+const isFailure = (t: { tone: Tone; steps?: ToastStep[] }) => t.tone === 'warn' && !t.steps?.length
 export interface ToastAction { label: string; onClick: () => void }
 /** One stage of a multi-step toast (the live print job). `icon` omitted = an unreached step,
  * drawn as a dim pip; `printer` is the animated «paper coming out» glyph. */
@@ -76,7 +84,7 @@ export function dismissToast(id: number) {
 
 export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneStyle?: ToneStyle; duration?: number; action?: ToastAction; sticky?: boolean; steps?: ToastStep[]; onDismiss?: () => void }): number {
   const id = seq++
-  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? 'fill', action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss }]
+  toasts = [...toasts, { id, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action, steps: opts?.steps, onDismiss: opts?.onDismiss }]
   emit()
   // sticky toasts stay until updateToast/dismissToast decides (live status). Otherwise an
   // action (e.g. confirm-with-undo) needs time to be seen and tapped.
@@ -106,7 +114,7 @@ export function updateToast(id: number, text: string, opts?: { icon?: string; to
   const cur = toasts.find((t) => t.id === id)
   if (!cur || cur.leaving) return
   toasts = toasts.map((t) => t.id === id
-    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? 'fill', action: opts?.action ?? undefined, steps: opts?.steps ?? undefined }
+    ? { ...t, text, icon: opts?.icon, tone: opts?.tone ?? 'default', toneStyle: opts?.toneStyle ?? defaultToneStyle(opts?.tone ?? 'default'), action: opts?.action ?? undefined, steps: opts?.steps ?? undefined }
     : t)
   emit()
   if (opts?.duration) scheduleDismiss(id, opts.duration)
@@ -330,7 +338,7 @@ function ToastRow({ t }: { t: Toast }) {
 
   return (
     <div
-      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${t.leaving ? ' out' : ''}${!t.action && !t.steps ? ' tap' : ''}`}
+      className={`toast toast-${t.tone}${t.toneStyle === 'edge' ? ' toast-edge' : ''}${isFailure(t) ? ' toast-fail' : ''}${t.leaving ? ' out' : ''}${!t.action && !t.steps ? ' tap' : ''}`}
       style={dx ? {
         transform: `translateX(${dx}px)`,
         opacity: flung ? 0 : Math.max(.25, 1 - Math.abs(dx) / (FLICK * 2)),
