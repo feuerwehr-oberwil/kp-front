@@ -1009,8 +1009,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      text with the selection callout — which eats the gesture and leaves a highlighted name */
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .teamPick:disabled { cursor: default; }
-@media (hover: hover) { .teamPick:hover:not(:disabled) { background: var(--fill-soft); border-radius: var(--r-ctl); } }
-.teamPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); border-radius: var(--r-ctl); }
+/* ⚠️ The wash is the ROW's, not the button's (24.09.2026, field report): painted on `.teamPick`
+   it stopped short of the ✕ and ran its own radius inside the row's border — a grey half and a
+   white half in one frame. The row is one control; the ✕ keeps its own red state on top. */
+@media (hover: hover) { .teamRow:has(.teamPick:hover:not(:disabled)) { background-image: linear-gradient(var(--fill-soft), var(--fill-soft)); } }
+.teamRow:has(.teamPick:active:not(:disabled)) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the role, spelled out on the left — «GF» or «AdF». It replaced a star: a symbol that has to
    be learnt, on a row whose whole job is to say who leads. */
 /* the Gruppenführer's row carries the emphasis, not just a badge — the card, the Rapport and the
@@ -1043,7 +1046,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    says «these are targets, that is a field». */
 .chip { display: inline-flex; align-items: center; max-width: 100%; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
-  padding: 0 2px 0 0; }
+  /* the ✕'s wash sits 3px in from the chip's border on three sides (see .chipX::before), so its
+     corner is the chip's minus the border and that inset — the two curves run concentric
+     (AGENTS.md · Buttons) */
+  padding: 0 2px 0 0; --r-nested: calc(var(--r-sm) - 4px); }
 .chipPick { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 7px;
   align-self: stretch; padding: 0 4px 0 9px; border: none; background: none; cursor: pointer;
   text-align: left; font: inherit; color: inherit; border-radius: var(--r-sm);
@@ -1052,8 +1058,11 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      with the selection callout — which eats the gesture and leaves a highlighted name */
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .chipPick:disabled { cursor: default; }
-@media (hover: hover) { .chipPick:hover:not(:disabled) { background: var(--fill-soft); } }
-.chipPick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* ⚠️ The CHIP washes, not the name (24.09.2026, field report «ugly hover»): on `.chipPick` the
+   grey stopped before the ✕ and rounded its own corners mid-chip. A tap on the name crowns, so
+   the chip is the control and the whole of it answers; the ✕ has its own nested state below. */
+@media (hover: hover) { .chip:has(.chipPick:hover:not(:disabled)) { background-image: linear-gradient(var(--fill-soft), var(--fill-soft)); } }
+.chip:has(.chipPick:active:not(:disabled)) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the role as a pill rather than the row's 30px column: on a chip there is no column to line up
    with, and «GF» has to read as a mark ON this person */
 .chipName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1070,10 +1079,20 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 /* ⚠️ 34px wide against the chip's full height: a mis-grip must never take somebody OUT of the
    Trupp — at worst it crowns them, which is one tap to undo. */
 .chipX { flex: none; display: grid; place-items: center; width: 34px; align-self: stretch;
-  border: none; background: none; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-sm); }
+  border: none; background: none; color: var(--ink-faint); cursor: pointer; border-radius: var(--r-nested);
+  position: relative; isolation: isolate; }
 .chipX :global(.i) { width: 15px; height: 15px; }
-@media (hover: hover) { .chipX:hover { background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); } }
-.chipX:active { background-image: linear-gradient(var(--press), var(--press)); }
+/* ⚠️ The ✕'s own state is painted on an INSET layer, not by shrinking its box: the box keeps
+   the 34px it always had, so the name beside it keeps every pixel of its width */
+.chipX::before { content: ''; position: absolute; inset: 3px 1px; z-index: -1; border-radius: var(--r-nested); }
+@media (hover: hover) {
+  .chipX:hover { color: var(--red); }
+  .chipX:hover::before { background: color-mix(in srgb, var(--red) 12%, transparent); }
+}
+.chipX:active::before { background-image: linear-gradient(var(--press), var(--press)); }
+/* the gloved floor: a 44px pad that takes no layout width and grows to the RIGHT — over the
+   chip's own edge and into the grid's 6px gap, never onto the name (the mis-grip reason above) */
+@media (pointer: coarse) { .chipX::after { content: ''; position: absolute; left: -1px; top: 50%; width: var(--tap); height: var(--tap); transform: translateY(-50%); } }
 
 /* The matches under the field, and ONLY while something is typed. Shrink-wrapped, never a
    scroller: it is as tall as its ≤4 rows and pushes what stands below it down by exactly that
