@@ -11,6 +11,11 @@
 /* right-edge safe area — see the note on .navrail's `left` (05-navrail.css) */
 .tool-rail { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 88px; bottom: 16px; height: max-content; margin-block: auto;
   z-index: var(--z-dock); max-height: calc(100dvh - 104px); }
+/* The Karte's ninth entry («Grundgerüst», 24.09.2026) left the list 13px short of fitting on a
+   1180×820 landscape tablet — the one screen the app is built for — and the «more» chevron then
+   sat on the last tile. Two pixels less between the tiles buys 16px back where the height is
+   short; the phone's folded bar (a row, not a column) keeps its own spacing. */
+@media (max-height: 860px) { .tool-rail:not(.folded) .rail-scroll { gap: 2px; } }
 /* The shell, the scroller, its "scroll for more" chevrons, the expand toggle and the drag grip
    are the SHARED rail base (.rail-* · 04b-rail.css), which the left NavRail wears too. What is
    left here is this rail's own half: it is anchored to the RIGHT edge, so it opens leftward, its
@@ -321,3 +326,60 @@
 /* terse empty/transient line — search no-match, loading, load error (shared with .pp-empty) */
 .sym-empty, .pp-empty { text-align: center; color: var(--ink-faint); font: 500 13px var(--body); padding: 28px 0; }
 .sym-empty { grid-column: 1/-1; }
+
+/* ── Lage-Grundgerüst (components/LageGrundgeruestCard) ─────────────────────────────────────
+   A small glass card, BOTTOM-LEFT of the Karte, clear of the nav rail. Not up top: the
+   Meldeleiste owns the band under the top bar between the rails (08-toasts · .ml), and an alarm
+   row must never have to fight a checklist for it. The bottom-centre lane belongs to the
+   selection bar and the coordinate readout; where the viewport is narrow enough for the card to
+   reach into that lane, the host lifts it (`.lgg-raised`) while the bar is up.
+   Map furniture z-level (--z-map-util), so every sheet, dock and message paints over it. */
+.lgg { position: absolute; z-index: var(--z-map-util);
+  left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  width: 340px; max-height: calc(100dvh - 200px); overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-cluster); box-shadow: var(--shadow);
+  padding: 6px; animation: pop .16s var(--ease); }
+/* the selection bar is ~230px wide, centred: only a viewport under ~1100px lets the two meet */
+@media (max-width: 1100px) { .lgg.lgg-raised { bottom: calc(96px + env(safe-area-inset-bottom)); } }
+.lgg-head { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 0 0 6px; }
+.lgg-heading, .lgg-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.lgg-ic { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
+.lgg-title { font: 700 13.5px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the count is the card's one number — the tabular mono the Einsatzuhr reads in */
+.lgg-count { flex: none; font: 700 12.5px var(--mono); color: var(--ink-dim);
+  padding: 2px 7px; border-radius: var(--r-pill); background: var(--fill-soft); }
+.lgg-complete .lgg-count { color: var(--green-strong); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.lgg-hide { flex: none; height: 36px; padding: 0 8px; border: none; border-radius: var(--r-nested, var(--r-sm));
+  background: transparent; color: var(--ink-dim); font: 700 12.5px var(--body); cursor: pointer; }
+.lgg-hide:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .lgg-hide:hover { background-color: var(--fill-soft); color: var(--ink); } }
+.lgg-note { margin: 2px 8px 6px; font: 500 12.5px var(--body); color: var(--ink-dim); line-height: 1.35; }
+.lgg-done-note { color: var(--green-strong); font-weight: 600; }
+.lgg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.lgg-row { display: flex; flex-direction: column; }
+/* one row = one 44px target: tapping the words arms the place tool; the suggestion is its own
+   44px line under it, so «hier setzen» is never a small link beside a big one */
+.lgg-add, .lgg-line { min-height: var(--tap); width: 100%; display: flex; align-items: center; gap: 9px;
+  padding: 0 10px; border-radius: var(--r-ctl); font: 600 13.5px var(--body); color: var(--ink); text-align: left; }
+.lgg-add { border: none; background: transparent; cursor: pointer; }
+.lgg-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .lgg-add:hover { background-color: color-mix(in srgb, var(--blue) 8%, transparent); } }
+.lgg-plus { width: 16px; height: 16px; flex: none; color: var(--blue); }
+.lgg-tick { width: 16px; height: 16px; flex: none; color: var(--green); }
+.lgg-row.done .lgg-label { color: var(--ink-dim); }
+.lgg-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lgg-opt { flex: none; font: 600 12px var(--body); color: var(--ink-faint); }
+/* armed = the tool this row armed is live: lit like an armed rail tool, and it says what the next
+   tap does, where the eye already is */
+.lgg-row.armed .lgg-add { background: var(--ink-fill); color: var(--on-accent-ink); }
+.lgg-row.armed .lgg-plus { color: inherit; }
+.lgg-armed { flex: none; font: 600 12px var(--body); opacity: .85; }
+.lgg-sug { min-height: var(--tap); width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 0 10px 0 35px; border: none; border-radius: var(--r-ctl); background: transparent; cursor: pointer; text-align: left; }
+.lgg-sug:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .lgg-sug:hover { background-color: color-mix(in srgb, var(--blue) 8%, transparent); } }
+.lgg-sug-t { flex: 1; min-width: 0; font: 500 12.5px var(--body); color: var(--ink-dim); line-height: 1.3; text-wrap: pretty; }
+.lgg-sug-act { flex: none; font: 700 12.5px var(--body); color: var(--blue); }
