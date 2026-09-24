@@ -31,6 +31,15 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now opens with
+  «Gelöscht / erledigt»: the symbol stays on the Karte, the Plan and every Gebäude storey, greyed
+  and with the time in its corner, and it prints the same way on the Kroki and the Gebäude pages
+  of the Rapport, its legend line ending «gelöscht 20:40» (a Feuer) or «erledigt 20:40»
+  (everything else). «Wieder aktiv» takes it back; both are undoable and each writes one Verlauf
+  row («Feuer EG gelöscht (20:40)»). The delete button on those panels now reads «Entfernen» –
+  for a mistake – and removing a single object on a plan finally writes the same Verlauf row the
+  Karte writes. On the Übung of 23.09.2026 the extinguished EG fire was deleted, and the
+  Rapport's plan no longer showed there had been a fire at all.
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the

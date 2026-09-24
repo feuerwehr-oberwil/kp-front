@@ -169,6 +169,32 @@ have to be projected through a fit, and the only fit a replay has is *today's*.
   dirty and the save that follows is snapshotted server-side. Between the two, a scrub shows the
   pre-correction positions. That is the one place the fold's coverage stops.
 
+## «Gelöscht / erledigt» and «Entfernen» (2026-09-24)
+
+Übung 23.09.2026: the fire on the EG was out, so somebody **deleted** the Feuer symbol at 20:40 –
+the Rapport's plan then showed no fire at all, and the plan wrote no row for the deletion (the
+Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
+
+| Act | Verlauf row | Audit | ↶ |
+|---|---|---|---|
+| «Gelöscht / erledigt» (first row of a symbol's editor sheet) | «Feuer EG gelöscht (20:40)» – a Feuer is «gelöscht», every other symbol «erledigt» (`objectDone.logDone`), with the storey it stands on | `entity.edit` / `board.edit` with `{ done: {at, by?} }` | yes – one prop-edit step; the ↶ writes its own «… rückgängig gemacht» |
+| «Wieder aktiv» | «Feuer EG wieder aktiv» (`objectDone.logReopened`) | the same op with `{ done: null }` – `null`, because JSON drops `undefined` and the replay would fold an empty patch and keep the symbol grey | yes |
+| «Entfernen» (single object) on the **Plan** | «Feuer gelöscht» – the Karte's own `log.objectDeleted`, named the way the Karte names it (`drawingEdit · annoLogName`), carried as `subjectId` | `board.delete` | yes, as before |
+
+- **One act, one row.** Each row is written by the act's own handler (`IncidentWorkspace ·
+  setEntityDone`, `Whiteboard · setAnnoDone` / `logRemoved`) and nowhere else: the store fold
+  writes none, the Karte's edit-settle window (`entityEditChanges`) does not read `done`, and a
+  plan removal of a *projected* Karte object goes through the plan's handler only.
+- **Replay stays coherent** because `done` is an ordinary prop: it rides the same `entity.edit` /
+  `board.edit` the other symbol props ride, and the views carry it (the anno and the baked map
+  body both hold it – `lib/tacticalObjects`).
+- **A group** of several removed on the Plan keeps «{n} Objekte vom Plan gelöscht»; a «group» of
+  one writes the single-object row. An empty Notiz writes nothing, as on the Karte.
+- ⚠️ **Known ambiguity, left open for a decision:** «Feuer gelöscht» (removed) and «Feuer EG
+  gelöscht (20:40)» (extinguished) share the verb. The row for the act carries the time in
+  brackets and the object stays on the picture; the removal row is the Karte's existing wording,
+  kept unchanged on purpose (the house rule «gelöscht wird ein Record»).
+
 ## What a Verlauf row can carry since 17.08.
 
 The row is no longer just text and a timestamp. Four properties have been added, and all four
@@ -258,8 +284,7 @@ not operator actions. Ordered by operational impact.
    Leitung – so the mapping can be shifted silently. ⚠️ Since 19.08. a renumber pulls the
    number onto the Trupp (**via the anchor, never via the number**), so the mapping *is*
    correct – but the shift is still recorded only machine-readably.
-3. **Deleting a single Plan annotation** – audit only (`src/components/useBoardDoc.ts` ·
-   `removeAnno`), while group deletion writes a row (`Whiteboard.tsx`).
+3. *(closed 2026-09-24, see «Gelöscht / erledigt» above)* ~~Deleting a single Plan annotation~~.
 4. **Rapport attachments** – adding/removing audit only, the image caption not at all
    (`src/IncidentWorkspace.tsx`, Rapport attachments block).
 5. **Driver of a GPS vehicle** and **creating a building/floor** have no channel.

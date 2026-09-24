@@ -283,6 +283,10 @@ to prod.
   their actual text/value, because the Rapport is read on paper where nothing can be clicked. The
   row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
   reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
+  **Deleting and creating belong in the same channel, on both surfaces**: a single object removed
+  on a Plan writes the Karte's «{name} gelöscht» (24.09.2026, `drawingEdit · annoLogName`, as a
+  `subjectId`, never a jump target), and «Gelöscht / erledigt» writes «Feuer EG gelöscht (20:40)» /
+  «Feuer EG wieder aktiv» from the act itself — one row per act ([`docs/verlauf-coverage.md`](docs/verlauf-coverage.md)).
   The one accepted maintenance exception is whole-incident hard deletion through `/admin`:
   `DELETE /api/incidents/{id}` is deployment-admin-only, and a real Einsatz must already be
   archived (an Übung may be deleted in any state). It deliberately removes the full record and
@@ -458,6 +462,18 @@ to prod.
     — the live vehicle and responder feed (`planProjection · liveOverlay`, `PlanLiveLayer`),
     read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
     held-in-place override the Karte writes.
+  - **A symbol whose matter is over is marked, never deleted** (24.09.2026, review item 21b,
+    `lib/objectDone`). «Gelöscht / erledigt», the first row of the symbol's editor sheet, sets
+    `done {at, by?}` — a SymbolProps prop, so both bodies share it and every write-through and bake
+    carries it (never `BAKE_PRESERVED`: that list would re-add a cleared value from the map body).
+    The symbol stays, greyed with its HH:MM top-left, by ONE rule on the Karte, the Plan and the
+    Gebäude (`TacticalSymbol` · `.ts-done`, the `--done-*` tokens) and on paper (`kroki ·
+    _place_symbol`, `DONE_ALPHA`). «Wieder aktiv» clears it; both are ordinary undoable prop edits,
+    audited with `done: null` for the clear (JSON drops `undefined`, and the replay would keep it
+    grey). A Feuer is «gelöscht», everything else «erledigt» (`appConfig.symbols.fireFamily`, one
+    copy key `objectDone.word`). Where the row is offered the footer's delete reads «Entfernen» —
+    for a mistake — and it writes the Karte's removal row on the Plan too. Symbols only: a
+    Fläche/Absperrkreis would need greyed ink on four renderers.
   - **Reference change or delete loses nothing.** Correcting a fit re-bakes every sheet-anchored
     object's map body — that correction is the whole point of correcting a fit — as ONE undo step
     with one Verlauf row («Referenz angepasst – n Objekte neu verortet»). A DELETED reference
@@ -769,6 +785,8 @@ to prod.
     (`symbols · symbolLegendText`), for every symbol. ⚠️ Not `symbolCaptionText`: the screen's
     value-only caption is an answer without its question once lifted into a legend. A symbol's own
     `caption: 'off'` is a screen declutter and is not read; only «Beschriftungen aus» silences it.
+    A «Gelöscht / erledigt» symbol ends its line on that Status with its time («Feuer · gelöscht
+    20:40», 24.09.2026) and prints grey, never absent.
   - **One figure-page template** (`report_pdf · figure_pages`): heading, then the muted «Einsatz ·
     Stand …» line, picture, legend – for the Kroki, a plan sheet and a Gebäude page alike. A new
     kind of figure page joins that list; it does not get a layout block of its own. Orientation is
