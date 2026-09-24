@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 
 // White-screen smoke: log in, open an incident, render each core surface, and
@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises'
 // Runs against a live, seeded stack (see playwright.config.ts). The German strings
 // below mirror src/config/copy/de.ts (the default de-CH deployment locale).
 
-import { expectNoCrash, login, ensureIncidentOpen } from './helpers'
+import { test, expect, expectNoCrash, login, ensureIncidentOpen } from './helpers'
 
 test('core surfaces render and survive reload', async ({ page }) => {
   await login(page)
@@ -100,30 +100,37 @@ test.describe(() => {
   })
 })
 
-test('offline journal entries survive reload and reconnect', async ({ page, context, browserName }) => {
-  // Playwright's service-worker support is Chromium-only (playwright.dev/docs/service-workers).
-  // WebKit offline emulation fails even for a minimal cached page; physical Safari remains
-  // an acceptance gate. Core reload + session/rejection recovery above still run in WebKit.
-  test.skip(browserName !== 'chromium', 'Offline service-worker automation requires Chromium')
-  await login(page)
-  const config = await page.request.get('/api/config')
-  test.skip((await config.json()).identity?.demoMode === true, 'Recovery drill requires an ordinary station session')
-  await ensureIncidentOpen(page)
-  await page.evaluate(async () => { await navigator.serviceWorker.ready })
-  await context.setOffline(true)
-  const offline = `E2E offline ${Date.now()}`
-  await enterJournalRow(page, offline)
-  const notice = page.locator('.jr-delivery')
-  await expect(notice).toBeVisible()
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.locator('nav.navrail')).toBeVisible()
-  await page.getByRole('button', { name: 'Verlauf', exact: true }).click()
-  await expect(page.getByText(offline, { exact: true })).toBeVisible()
-  await context.setOffline(false)
-  // Delivery must come without a click, but not necessarily off the `online` event: after a
-  // reload WHILE offline, Chromium's emulation sometimes never dispatches it (the top bar still
-  // said «Offline» 15 s later, 24.09.2026). The outbox then goes out on the Verlauf's next poll
-  // round, which pushes before it pulls (useJournal) and is at most `livePollMaxMs` (15 s) away.
-  await expect(notice, 'the offline entry must be delivered on its own after reconnect').toHaveCount(0, { timeout: 30_000 })
-  await expectNoCrash(page, 'after offline journal recovery')
+test.describe(() => {
+  // Offline, the Karte's basemap tiles fail to load and MapView reports each failure (onError →
+  // lib/reportError, kind «error», «Failed to fetch»). The drill takes the network away on
+  // purpose, so that one report is expected; any other still fails the test (./guard.ts).
+  test.use({ expectedClientErrors: [/^error: Failed to fetch$/] })
+
+  test('offline journal entries survive reload and reconnect', async ({ page, context, browserName }) => {
+    // Playwright's service-worker support is Chromium-only (playwright.dev/docs/service-workers).
+    // WebKit offline emulation fails even for a minimal cached page; physical Safari remains
+    // an acceptance gate. Core reload + session/rejection recovery above still run in WebKit.
+    test.skip(browserName !== 'chromium', 'Offline service-worker automation requires Chromium')
+    await login(page)
+    const config = await page.request.get('/api/config')
+    test.skip((await config.json()).identity?.demoMode === true, 'Recovery drill requires an ordinary station session')
+    await ensureIncidentOpen(page)
+    await page.evaluate(async () => { await navigator.serviceWorker.ready })
+    await context.setOffline(true)
+    const offline = `E2E offline ${Date.now()}`
+    await enterJournalRow(page, offline)
+    const notice = page.locator('.jr-delivery')
+    await expect(notice).toBeVisible()
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.locator('nav.navrail')).toBeVisible()
+    await page.getByRole('button', { name: 'Verlauf', exact: true }).click()
+    await expect(page.getByText(offline, { exact: true })).toBeVisible()
+    await context.setOffline(false)
+    // Delivery must come without a click, but not necessarily off the `online` event: after a
+    // reload WHILE offline, Chromium's emulation sometimes never dispatches it (the top bar still
+    // said «Offline» 15 s later, 24.09.2026). The outbox then goes out on the Verlauf's next poll
+    // round, which pushes before it pulls (useJournal) and is at most `livePollMaxMs` (15 s) away.
+    await expect(notice, 'the offline entry must be delivered on its own after reconnect').toHaveCount(0, { timeout: 30_000 })
+    await expectNoCrash(page, 'after offline journal recovery')
+  })
 })

@@ -53,4 +53,21 @@ export default tseslint.config(
     files: ['**/*.test.{ts,tsx}'],
     languageOptions: { globals: { ...globals.node } },
   },
+  // Playwright e2e: node, and a fixture's `use` callback is Playwright's, not React's hook
+  {
+    files: ['e2e/**/*.ts'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: { 'react-hooks/rules-of-hooks': 'off' },
+  },
+  // Every spec takes `test` from ./helpers: that one carries the client-error guard (e2e/guard.ts),
+  // and a spec on the bare Playwright `test` would pass through a render storm unnoticed.
+  {
+    files: ['e2e/**/*.spec.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: [{
+        name: '@playwright/test', importNames: ['test'],
+        message: "Import `test` from './helpers' — it carries the client-error guard (e2e/guard.ts).",
+      }] }],
+    },
+  },
 )
