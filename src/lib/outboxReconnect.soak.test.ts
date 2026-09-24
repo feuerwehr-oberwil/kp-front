@@ -61,6 +61,8 @@ vi.mock('./api/events', async () => {
 const disk = vi.hoisted(() => new Map<string, unknown>())
 vi.mock('./idb', () => ({
   idbGet: vi.fn(async (k: string) => (disk.has(k) ? structuredClone(disk.get(k)) : null)),
+  // the hydrate paths read through `idbRead` (#188); it answers from the same disk
+  idbRead: vi.fn(async (k: string) => ({ ok: true, value: disk.has(k) ? structuredClone(disk.get(k)) : null })),
   idbSet: vi.fn(async (k: string, v: unknown) => { disk.set(k, structuredClone(v)); return true }),
   idbDel: vi.fn(async (k: string) => { disk.delete(k) }),
 }))
