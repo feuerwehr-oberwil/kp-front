@@ -795,6 +795,12 @@ to prod.
   the generator, never the JSON, and re-run `python3 tools/gen_symbols.py emit` (a `review`
   mode renders a sign-off grid). Names/categories are compatibility keys referenced across
   appConfig/copy/backend config; keep them stable.
+  ⚠️ **FKS spread arrows (`spread`) are a drawn convention, never a bearing** (decided 30.08.2026,
+  `27f0d92f`; re-confirmed 24.09.2026): ↑/↓ mean upper/lower storeys, ←/→ mean «sideways». They
+  are drawn screen-upright outside the glyph's rotated layer on the Karte, on every plan sheet —
+  a turned one included — and on paper (`kroki · _spread_dirs`). Turning them through a fit or
+  the map bearing was built once (28.08., `spreadRotation`) and made the Feuer's Ausbreitung
+  point the wrong way on a turned sheet; do not re-add it.
 - **Buttons follow one spec – don't invent a per-surface variant.** Decided 2026-07-28 after a
   sweep found 12 label type combos, 6 disabled opacities and 8 stray radii for one role.
   - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
