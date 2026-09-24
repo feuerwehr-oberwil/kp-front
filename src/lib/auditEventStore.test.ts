@@ -55,6 +55,21 @@ describe('AuditEventStore', () => {
     expect(store.status).toBe('offline')
   })
 
+  it('a stop → start after a failed outbox read reads again, rather than keeping the failed read', async () => {
+    await idb.idbSet('kp-audit-incident:editor', { pending: [event('predecessor')], rejected: [] })
+    const read = vi.spyOn(idb, 'idbRead').mockResolvedValueOnce({ ok: false, error: new Error('io') })
+    const store = open()
+    await store.flush()
+    expect(store.status).toBe('storage')
+    // StrictMode's remount: stop() clears the re-read timer, start() must arm a fresh read
+    store.stop()
+    store.start()
+    await store.flush()
+    expect(read).toHaveBeenCalledTimes(2)
+    expect(store.pendingCount).toBe(1)
+    expect(store.status).toBe('offline')
+  })
+
   it('unions an immediate local event with delayed cache hydration before writing or posting', async () => {
     let release!: (value: { pending: PendingAuditEvent[]; rejected: PendingAuditEvent[] }) => void
     const hydration = new Promise<{ pending: PendingAuditEvent[]; rejected: PendingAuditEvent[] }>((resolve) => { release = resolve })

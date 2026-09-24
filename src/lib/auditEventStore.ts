@@ -114,7 +114,7 @@ export class AuditEventStore {
       this.rereadTimer = null
       if (this.loaded !== failed) return // a promotion already started a fresh read
       this.loaded = null
-      void this.load().then(() => { if (this.writable && this.hydrated) void this.persist().then(() => this.flush()) })
+      void this.load().then(() => { if (this.writable && this.hydrated) void this.persist().then(() => this.run()) })
     }, RETRY_MS)
   }
 
@@ -154,6 +154,10 @@ export class AuditEventStore {
 
   start() {
     this.running = true
+    // A read that failed before a stop() is never retried by the timer stop() cleared, so a
+    // StrictMode remount (stop → start on the same store) kept the failed `loaded` promise and
+    // never read the outbox again. Re-arm it: the next load() reads afresh.
+    if (this.readFailed) this.loaded = null
     void this.load().then(() => { if (this.writable) void this.run() })
   }
 
