@@ -189,3 +189,115 @@ describe('freehand: the armed tool decides what the stroke becomes', () => {
     expect(result.current.freehandKind).toBe(null)
   })
 })
+
+// Vertex insert/delete are DISCRETE edits: each is one commit (one undo step on the Karte's
+// document) and one draw.edit — and the delete refuses to take a shape below what it needs to
+// stay drawable (a Linie keeps 2 points, a Fläche 3). Pinned before the vertex rules move to
+// one shared module, so the move cannot shift an index or a threshold.
+describe('insertDrawingVertex / deleteDrawingVertex', () => {
+  const area = (): Drawing => ({ id: 'a1', kind: 'area', coords: [[0, 0], [1, 0], [1, 1]] }) as Drawing
+
+  it('inserts AT the index (splice), as one commit and one draw.edit', () => {
+    const deps = makeDeps()
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.insertDrawingVertex('d1', 1, [7.75, 47.45]) })
+    expect(deps.commit).toHaveBeenCalledTimes(1)
+    expect(deps.drawings[0].coords).toEqual([[7.7, 47.4], [7.75, 47.45], [7.8, 47.5]])
+    expect(deps.emit).toHaveBeenCalledTimes(1)
+    expect(deps.emit).toHaveBeenCalledWith('draw.edit', { id: 'd1', patch: { coords: [[7.7, 47.4], [7.75, 47.45], [7.8, 47.5]] } })
+  })
+
+  it('inserting at index 0 prepends, at length appends', () => {
+    const deps = makeDeps()
+    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.insertDrawingVertex('d1', 0, [7.6, 47.3]) })
+    rerender({ ...deps })
+    act(() => { result.current.insertDrawingVertex('d1', 3, [7.9, 47.6]) })
+    expect(deps.drawings[0].coords).toEqual([[7.6, 47.3], [7.7, 47.4], [7.8, 47.5], [7.9, 47.6]])
+    expect(deps.commit).toHaveBeenCalledTimes(2)
+  })
+
+  it('deletes a vertex of a 3-point line — one commit, one draw.edit', () => {
+    const deps = makeDeps()
+    deps.drawings = [line({ coords: [[0, 0], [1, 1], [2, 2]] })]
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.deleteDrawingVertex('d1', 1) })
+    expect(deps.commit).toHaveBeenCalledTimes(1)
+    expect(deps.emit).toHaveBeenCalledWith('draw.edit', { id: 'd1', patch: { coords: [[0, 0], [2, 2]] } })
+  })
+
+  it('refuses at the minimum — a Linie keeps 2 points', () => {
+    const deps = makeDeps()
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.deleteDrawingVertex('d1', 0) })
+    expect(deps.commit).not.toHaveBeenCalled()
+    expect(deps.emit).not.toHaveBeenCalled()
+  })
+
+  it('refuses at the minimum — a Fläche keeps 3 points, and a 4th may go', () => {
+    const deps = makeDeps()
+    deps.drawings = [area()]
+    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.deleteDrawingVertex('a1', 0) })
+    expect(deps.commit).not.toHaveBeenCalled()
+    deps.drawings = [{ ...area(), coords: [[0, 0], [1, 0], [1, 1], [0, 1]] }]
+    rerender({ ...deps })
+    act(() => { result.current.deleteDrawingVertex('a1', 3) })
+    expect(deps.emit).toHaveBeenCalledWith('draw.edit', { id: 'a1', patch: { coords: [[0, 0], [1, 0], [1, 1]] } })
+  })
+
+  it('both are no-ops under the tactical lock', () => {
+    const deps = makeDeps({ tacticalLocked: true })
+    deps.drawings = [line({ coords: [[0, 0], [1, 1], [2, 2]] })]
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.insertDrawingVertex('d1', 1, [0.5, 0.5]) })
+    act(() => { result.current.deleteDrawingVertex('d1', 1) })
+    expect(deps.commit).not.toHaveBeenCalled()
+    expect(deps.emit).not.toHaveBeenCalled()
+  })
+
+  it('an unknown id is a no-op', () => {
+    const deps = makeDeps()
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.insertDrawingVertex('nope', 0, [0, 0]) })
+    act(() => { result.current.deleteDrawingVertex('nope', 0) })
+    expect(deps.commit).not.toHaveBeenCalled()
+  })
+})
+
+// The draft thresholds: ✓ lights at 2 node-line points / 3 area points, and commitDraft
+// creates exactly then (below it, the draft is simply cleared).
+describe('draft thresholds', () => {
+  it('draftActive: a node line at 2 points, an area at 3', () => {
+    const deps = makeDeps({ tool: 'line' })
+    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setLineMode('nodes') })
+    act(() => { result.current.setDraft([[0, 0]]) })
+    expect(result.current.draftActive).toBe(false)
+    act(() => { result.current.setDraft([[0, 0], [1, 1]]) })
+    expect(result.current.draftActive).toBe(true)
+    rerender({ ...deps, tool: 'area' })
+    expect(result.current.draftActive).toBe(false)
+    act(() => { result.current.setDraft([[0, 0], [1, 1], [1, 0]]) })
+    expect(result.current.draftActive).toBe(true)
+  })
+
+  it('commitDraft: a line from 2 points, an area only from 3', () => {
+    const deps = makeDeps({ tool: 'line' })
+    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setDraft([[0, 0]]) })
+    act(() => { result.current.commitDraft() })
+    expect(deps.commit).not.toHaveBeenCalled()
+    expect(result.current.draft).toEqual([])
+    act(() => { result.current.setDraft([[0, 0], [1, 1]]) })
+    act(() => { result.current.commitDraft() })
+    expect(deps.commit).toHaveBeenCalledTimes(1)
+    rerender({ ...deps, tool: 'area' })
+    act(() => { result.current.setDraft([[0, 0], [1, 1]]) })
+    act(() => { result.current.commitDraft() })
+    expect(deps.commit).toHaveBeenCalledTimes(1)
+    act(() => { result.current.setDraft([[0, 0], [1, 1], [1, 0]]) })
+    act(() => { result.current.commitDraft() })
+    expect(deps.commit).toHaveBeenCalledTimes(2)
+  })
+})

@@ -26,6 +26,7 @@ import { fanOffsets, markerZ, pileAt } from '../lib/labelPass'
 import { noteScale, noteWPx } from '../lib/notes'
 import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { dockSlots } from '../lib/docking'
+import { freeResizeLocal, rotationEnd, rotationEndDeg, rotorDeg } from '../lib/rotorMath'
 
 // A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
 // stopPropagation, so react-map-gl's marker-drag (a listener on the parent that fires on the same
@@ -365,9 +366,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   }
   const rotMove = (clientX: number, clientY: number) => {
     const st = rotateRef.current; if (!st) return
-    const deg = (Math.atan2(clientY - st.cy, clientX - st.cx) * 180) / Math.PI
     // store the GEOGRAPHIC heading (+ bearing) so it renders as −bearing and survives map rotation
-    onRotate?.(st.id, Math.round((((deg + bearing) % 360) + 360) % 360))
+    onRotate?.(st.id, rotorDeg({ x: clientX, y: clientY }, { x: st.cx, y: st.cy }, 'aim', bearing))
   }
   const rotUp = () => { rotateRef.current = null }
 
@@ -481,24 +481,19 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       // the width follows the run (lib/shapes · rotationBox). Everything the app stores about the
       // loop is rewritten from these two points, which is what makes them the only two grips.
       const f = st.fixed
-      const d = Math.hypot(clientX - f.x, clientY - f.y) || 1
-      const ux = (clientX - f.x) / d, uy = (clientY - f.y) / d
       // the grip floats past the cap, so the END is the pointer pulled back along the run
-      let ex = clientX - ux * st.gripOffPx, ey = clientY - uy * st.gripOffPx
+      let { x: ex, y: ey } = rotationEnd({ x: clientX, y: clientY }, f, st.gripOffPx)
       const snap = trackEndMagnet(st.id, { x: ex, y: ey }, st.toCont)
       if (snap) { ex = snap.x; ey = snap.y }
       const ppm = pxPerM(st.lat, zoom)
       const runM = Math.max(SHAPE_MIN_M, Math.min(ROTATION_MAX_M, Math.hypot(ex - f.x, ey - f.y) / ppm))
       const { size, aspect } = rotationBox(runM, ROTATION_W_M)
-      // the run points fixed→dragged when the far end is A, and the other way when it is B
-      const deg = st.mode === 'endB'
-        ? (Math.atan2(ey - f.y, ex - f.x) * 180) / Math.PI
-        : (Math.atan2(f.y - ey, f.x - ex) * 180) / Math.PI
       const c = unproject({ x: (f.x + ex) / 2 + st.toCont.x, y: (f.y + ey) / 2 + st.toCont.y })
       if (!c) return
       onShapeTransform?.(st.id, {
         coord: c,
-        rotation: Math.round((((deg + bearing) % 360) + 360) % 360),
+        // the run points fixed→dragged when the far end is A, and the other way when it is B
+        rotation: rotationEndDeg(st.mode, f, { x: ex, y: ey }, bearing),
         sizeM: Math.round(size),
         aspect: Math.round(aspect * 1000) / 1000,
       }, 'move')
@@ -508,27 +503,21 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       // Hubretter cage tip: one handle sets BOTH the boom bearing (rotation2, geographic) AND the
       // reach (metres from the truck to the cage). No +90/−90 offset — the handle IS the tip, so its
       // angle is the boom direction directly.
-      const deg = (Math.atan2(clientY - st.cy, clientX - st.cx) * 180) / Math.PI
-      const rotation2 = Math.round((((deg + bearing) % 360) + 360) % 360)
+      const rotation2 = rotorDeg({ x: clientX, y: clientY }, { x: st.cx, y: st.cy }, 'aim', bearing)
       const dist = Math.hypot(clientX - st.cx, clientY - st.cy)
       const reachM = Math.max(5, Math.min(120, Math.round(dist / pxPerM(st.lat, zoom))))
       onShapeTransform?.(st.id, { rotation2, reachM }, 'move')
     } else if (st.mode === 'rotate' || st.mode === 'rotate2') {
-      const deg = (Math.atan2(clientY - st.cy, clientX - st.cx) * 180) / Math.PI
       // the body knob sits at the top (+90 → 0°); the fan knob sits at the BOTTOM (−90), so the two
       // are always on opposite sides of the ring and easy to grab apart. + bearing stores the
       // GEOGRAPHIC angle (renders as −bearing).
-      const off = st.mode === 'rotate2' ? -90 : 90
-      const val = Math.round((((deg + off + bearing) % 360) + 360) % 360)
+      const val = rotorDeg({ x: clientX, y: clientY }, { x: st.cx, y: st.cy }, st.mode, bearing)
       onShapeTransform?.(st.id, st.mode === 'rotate2' ? { rotation2: val } : { rotation: val }, 'move')
     } else if (st.free) {
       // free-aspect corner drag (Rechteck / Rauch): the pointer offset, rotated into the
       // shape's own frame, sets width from |dx| and height from |dy| independently. Same
       // maths as the Plan's resize (Whiteboard · rotMove), so the two surfaces feel identical.
-      const rad = (-st.rot * Math.PI) / 180
-      const dx = clientX - st.cx, dy = clientY - st.cy
-      const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
-      const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
+      const { lx, ly } = freeResizeLocal({ x: clientX, y: clientY }, { x: st.cx, y: st.cy }, st.rot)
       const ppm = pxPerM(st.lat, zoom)
       // ⚠️ GROUND metres, not screen px (lib/shapes · SHAPE_MIN_M): a pixel floor would store a
       // different real-world size depending on the zoom the drag happened at, and one zoom step

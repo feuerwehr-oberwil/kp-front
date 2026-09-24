@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { useState } from 'react'
 import type { BoardAnno, BuildingDoc, PlanDocument, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -1285,5 +1286,226 @@ describe('prepared Gebäude floors and shared symbol instances', () => {
       expect(instance.classList.contains('sel')).toBe(true)
     }
     expect(document.querySelector('.wb-span-copy')).toBeNull()
+  })
+})
+
+// ── One gesture, one step: the vertex, grow, climb and rotor gestures (23.09.2026) ─────────
+// Pinned before those handlers leave this file for their own hooks (useWbVertexEdit ·
+// useWbRotor): the contract is what a gesture WRITES — how many undo steps (a pushPast is one
+// `onCheckpoint`), how many audit events, and the exact numbers the maths lands on for a fixed
+// pointer path. A CONTROLLED harness, so the board reads back what it wrote exactly as it does
+// under IncidentWorkspace — and the one ↶ is proven by pressing it.
+describe('gesture contracts of the plan surface', () => {
+  const W = appConfig.copy.whiteboard
+  beforeEach(() => {
+    ui.toasts.length = 0
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+    vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(400)
+    vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(400)
+  })
+  afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
+
+  type Fn = (...args: unknown[]) => void
+  type Spies = { onChange: Mock<Fn>; onCheckpoint: Mock<Fn>; emit: Mock<Fn> }
+  const history = { current: null as { undo: () => void; redo: () => void } | null }
+  const latest = { annos: [] as BoardAnno[] }
+  function Controlled({ initial, spies, extra }: { initial: BoardAnno[]; spies: Spies; extra: Partial<React.ComponentProps<typeof Whiteboard>> }) {
+    const [annos, setAnnos] = useState(initial)
+    const [hist, setHist] = useState({})
+    latest.annos = annos
+    return <Whiteboard
+      plans={[tafel, gebaeudeDoc]} activeId="tafel" annos={annos}
+      onChange={(n) => { spies.onChange(n); setAnnos(n) }}
+      building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
+      sym={sym} onRecent={() => {}} log={() => {}} hist={hist} setHist={setHist} focus={null}
+      onCheckpoint={spies.onCheckpoint} emit={spies.emit} historyRef={history}
+      {...extra}
+    />
+  }
+  const mount = (initial: BoardAnno[], extra: Partial<React.ComponentProps<typeof Whiteboard>> = {}) => {
+    const spies: Spies = { onChange: vi.fn<Fn>(), onCheckpoint: vi.fn<Fn>(), emit: vi.fn<Fn>() }
+    const utils = render(<Controlled initial={initial} spies={spies} extra={extra} />)
+    return { ...utils, ...spies }
+  }
+  const focused = (annoId: string) => ({ x: 0.5, y: 0.5, floor: 0, annoId, nonce: 1 })
+  const edits = (emit: Mock<Fn>) => emit.mock.calls.filter((c) => c[0] === 'board.edit')
+  const find = (id: string) => latest.annos.find((a) => a.id === id)!
+  const drag = (el: Element, path: [number, number][]) => {
+    const [first, ...rest] = path
+    fireEvent.pointerDown(el, { clientX: first[0], clientY: first[1], pointerId: 1 })
+    for (const [x, y] of rest) fireEvent.pointerMove(el, { clientX: x, clientY: y, pointerId: 1 })
+    const last = path[path.length - 1]
+    fireEvent.pointerUp(el, { clientX: last[0], clientY: last[1], pointerId: 1 })
+  }
+
+  const three: BoardAnno = { id: 'l1', kind: 'draw', pts: [[0.2, 0.2, 0], [0.5, 0.5, 0], [0.8, 0.8, 0]], floor: 0 }
+
+  it('a vertex drag is ONE undo step and ONE board.edit, carrying the final points', () => {
+    const { container, onCheckpoint, emit } = mount([three], { focus: focused('l1') })
+    const grip = container.querySelectorAll('.wb-vertex')[1]
+    drag(grip, [[200, 200], [220, 200], [240, 180], [260, 160]])
+    expect(onCheckpoint).toHaveBeenCalledTimes(1)
+    expect(edits(emit)).toHaveLength(1)
+    expect(find('l1').pts![1][0]).toBeCloseTo(0.65, 6)
+    expect(find('l1').pts![1][1]).toBeCloseTo(0.4, 6)
+    expect(edits(emit)[0][1]).toEqual({ id: 'l1', planId: 'tafel', patch: { pts: find('l1').pts } })
+    act(() => history.current!.undo())
+    expect(find('l1').pts).toEqual(three.pts)
+  })
+
+  it('an endpoint drag that docks on nothing is one step too — the magnetic path', () => {
+    const { container, onCheckpoint, emit } = mount([three], { focus: focused('l1') })
+    const grip = container.querySelectorAll('.wb-vertex')[0]
+    drag(grip, [[80, 80], [60, 80], [40, 80]])
+    expect(onCheckpoint).toHaveBeenCalledTimes(1)
+    expect(edits(emit)).toHaveLength(1)
+    expect(find('l1').pts![0].slice(0, 2)).toEqual([0.1, 0.2])
+    expect(find('l1').startAttachment).toBeUndefined()
+  })
+
+  it('«+» inserts at idx + 1 and the same press drags it — one step, one board.edit', () => {
+    const { container, onCheckpoint, emit } = mount([three], { focus: focused('l1') })
+    const plus = container.querySelectorAll('.wb-vins')[0]
+    drag(plus, [[140, 140], [140, 100], [120, 100]])
+    expect(onCheckpoint).toHaveBeenCalledTimes(1)
+    expect(edits(emit)).toHaveLength(1)
+    const pts = find('l1').pts!
+    expect(pts).toHaveLength(4)
+    expect(pts[1][0]).toBeCloseTo(0.3, 6)
+    expect(pts[1][1]).toBeCloseTo(0.25, 6)
+    expect(pts[1][2]).toBe(0)
+    act(() => history.current!.undo())
+    expect(find('l1').pts).toEqual(three.pts)
+  })
+
+  it('a vertex delete refuses at the minimum — a Linie keeps 2 points', () => {
+    const { container, onChange } = mount([line], { focus: focused('l1') })
+    fireEvent.contextMenu(container.querySelectorAll('.wb-vertex')[0])
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('a vertex delete refuses at the minimum — a Fläche keeps 3 points', () => {
+    const area: BoardAnno = { id: 'a1', kind: 'area', pts: [[0.2, 0.2, 0], [0.8, 0.2, 0], [0.5, 0.8, 0]], floor: 0 }
+    const { container, onChange } = mount([area], { focus: focused('a1') })
+    fireEvent.contextMenu(container.querySelectorAll('.wb-vertex')[0])
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('a held vertex above the minimum goes — one commit, one step', () => {
+    vi.useFakeTimers()
+    const { container, onCheckpoint } = mount([three], { focus: focused('l1') })
+    const grip = container.querySelectorAll('.wb-vertex')[1]
+    fireEvent.pointerDown(grip, { clientX: 200, clientY: 200, pointerId: 1 })
+    act(() => { vi.advanceTimersByTime(NODE_HOLD_FIRE_MS + 50) })
+    fireEvent.pointerUp(grip, { clientX: 200, clientY: 200, pointerId: 1 })
+    expect(find('l1').pts).toEqual([[0.2, 0.2, 0], [0.8, 0.8, 0]])
+    expect(onCheckpoint).toHaveBeenCalledTimes(1)
+  })
+
+  describe('Verlängern docks only on a closed ring', () => {
+    const short: BoardAnno = { id: 'l1', kind: 'draw', pts: [[0.2, 0.2, 0], [0.5, 0.2, 0]], floor: 0 }
+    const truck: BoardAnno = { id: 's1', kind: 'symbol', symbol: 'VKF Fahrzeug', x: 0.8, y: 0.2, floor: 0 }
+    const growEnd = (c: HTMLElement) => c.querySelectorAll('.wb-grow')[1]
+
+    it('released before the ring closes: the line grows, nothing attaches', () => {
+      vi.useFakeTimers()
+      const { container, onCheckpoint, emit } = mount([short, truck], { focus: focused('l1') })
+      const g = growEnd(container)
+      fireEvent.pointerDown(g, { clientX: 230, clientY: 80, pointerId: 1 })
+      fireEvent.pointerMove(g, { clientX: 318, clientY: 80, pointerId: 1 })
+      act(() => { vi.advanceTimersByTime(100) })
+      fireEvent.pointerUp(g, { clientX: 318, clientY: 80, pointerId: 1 })
+      const l = find('l1')
+      expect(l.pts).toHaveLength(3)
+      expect(l.endAttachment).toBeUndefined()
+      expect(l.pts![2][0]).toBeCloseTo(318 / 400, 6)
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(edits(emit)).toHaveLength(1)
+    })
+
+    it('held until the ring closes: the new end docks onto the Fahrzeug, still ONE step', () => {
+      vi.useFakeTimers()
+      const { container, onCheckpoint, emit } = mount([short, truck], { focus: focused('l1') })
+      const g = growEnd(container)
+      fireEvent.pointerDown(g, { clientX: 230, clientY: 80, pointerId: 1 })
+      fireEvent.pointerMove(g, { clientX: 318, clientY: 80, pointerId: 1 })
+      act(() => { vi.advanceTimersByTime(1000) })
+      fireEvent.pointerUp(g, { clientX: 318, clientY: 80, pointerId: 1 })
+      const l = find('l1')
+      expect(l.pts).toHaveLength(3)
+      expect(l.endAttachment?.target).toEqual({ kind: 'object', id: 's1' })
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(edits(emit)).toHaveLength(1)
+      act(() => history.current!.undo())
+      expect(find('l1').pts).toEqual(short.pts)
+      expect(find('l1').endAttachment).toBeUndefined()
+    })
+  })
+
+  describe('the staircase (climbLine)', () => {
+    const building: BuildingDoc = { ...aBuilding, floors: [0, 1], pack: { aspect: 1 } }
+    const onStack = (annos: BoardAnno[]) => mount(annos, { activeId: 'gebaeude', building, focus: focused('l1') })
+
+    it('a climb adds ONE vertex at the same spot one storey up, as one step', () => {
+      const { onCheckpoint } = onStack([{ id: 'l1', kind: 'draw', pts: [[0.3, 0.4, 0], [0.6, 0.5, 0]], floor: 0 }])
+      fireEvent.click(screen.getAllByRole('button', { name: W.climbUp })[1])
+      expect(find('l1').pts).toEqual([[0.3, 0.4, 0], [0.6, 0.5, 0], [0.6, 0.5, 1]])
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+    })
+
+    it('the way back drops the end instead of laying a second flight', () => {
+      const climbed: BoardAnno = { id: 'l1', kind: 'draw', pts: [[0.3, 0.4, 0], [0.6, 0.5, 0], [0.6, 0.5, 1]], floor: 0 }
+      onStack([climbed])
+      // the ↓ at the climbed end reads «Zurück auf …» — the tap that retreats
+      const back = document.querySelector('.wb-climb.back')!
+      expect(back.getAttribute('aria-label')).toContain(W.climbBack.split('{')[0].trim())
+      fireEvent.click(back)
+      expect(find('l1').pts).toEqual([[0.3, 0.4, 0], [0.6, 0.5, 0]])
+    })
+  })
+
+  describe('rotor · cage · Rotation end — golden numbers for a fixed pointer path', () => {
+    // every glyph rect is the mocked 400×400 board, so each gesture pivots on (200, 200)
+    it('a directional symbol turns to the pointer bearing + 90°, one step, one board.edit', () => {
+      const sperre: BoardAnno = { id: 's1', kind: 'symbol', symbol: 'FW Absperrung', x: 0.5, y: 0.5, floor: 0 }
+      const { container, onCheckpoint, emit } = mount([sperre])
+      fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+      const knob = container.querySelector('.shape-rotate')!
+      drag(knob, [[200, 100], [300, 200], [200, 300]])
+      expect(find('s1').rotation).toBe(180)
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(edits(emit).map((c) => c[1])).toEqual([{ id: 's1', patch: { rotation: 180 }, planId: 'tafel' }])
+    })
+
+    it('a Hubretter cage sets the boom bearing and reach from one handle', () => {
+      const hub: BoardAnno = { id: 'h1', kind: 'symbol', symbol: 'VKF Hubretter', x: 0.5, y: 0.5, floor: 0 }
+      const { container, onCheckpoint, emit } = mount([hub])
+      fireEvent.pointerDown(container.querySelector('.wb-symbol')!)
+      const cage = container.querySelector('.shape-cage')!
+      drag(cage, [[250, 200], [260, 280]])
+      const h = find('h1')
+      expect(h.rotation2).toBe(53)
+      // 100 px of travel over the fitted sheet's 220 px width
+      expect(h.reachN).toBeCloseTo(100 / 220, 9)
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(edits(emit).map((c) => (c[1] as { patch: unknown }).patch)).toEqual([{ rotation2: 53, reachN: h.reachN }])
+    })
+
+    it('a Rotation end pins the other end and sets position, run, bearing and width at once', () => {
+      const loop: BoardAnno = { id: 'r1', kind: 'shape', shape: 'rotation', x: 0.5, y: 0.5, sizeN: 0.42, aspect: 0.13, rotation: 25, floor: 0 }
+      const { container, onCheckpoint, emit } = mount([loop])
+      fireEvent.pointerDown(container.querySelector('.wb-shape')!)
+      const [, endB] = container.querySelectorAll('.handle.shape-end')
+      drag(endB, [[300, 250], [340, 300]])
+      const r = find('r1')
+      // exact on purpose: a pure move of this maths must land on the same bits
+      expect({ x: r.x, y: r.y, rotation: r.rotation, sizeN: r.sizeN, aspect: r.aspect }).toEqual({
+        x: 0.6086229370502754, y: 0.5899466702759255, rotation: 34, sizeN: 0.9212922304076605, aspect: 0.054,
+      })
+      expect(onCheckpoint).toHaveBeenCalledTimes(1)
+      expect(edits(emit)).toHaveLength(1)
+    })
   })
 })

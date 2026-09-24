@@ -10,75 +10,7 @@ import { readFile } from 'node:fs/promises'
 // Runs against a live, seeded stack (see playwright.config.ts). The German strings
 // below mirror src/config/copy/de.ts (the default de-CH deployment locale).
 
-// Seed kiosk PIN — the committed dev seed (backend/app/seed_users.json). Override
-// with E2E_PIN if a deployment seeds a different one.
-const PIN = process.env.E2E_PIN || '000000'
-
-// The ErrorBoundary render-throw fallback (copy/de.ts → errorBoundary.title). If this
-// is on screen a surface crashed on mount — the exact failure this smoke exists to catch.
-const CRASH_TITLE = 'Ein Fehler ist aufgetreten'
-
-async function expectNoCrash(page: Page, where: string) {
-  await expect(
-    page.getByText(CRASH_TITLE),
-    `${where}: surface crashed (ErrorBoundary fallback shown)`,
-  ).toHaveCount(0)
-}
-
-async function login(page: Page) {
-  await page.goto('/')
-  // A station starts on kiosk login; the public demo auto-authenticates and lands directly in
-  // its prepared incident. Accept both so the same production-image smoke covers both entryways.
-  // ⚠️ ONE locator, not `Promise.race` over two `waitFor`s: the loser of that race stays
-  // pending and rejects with a TimeoutError ~30 s later, with nobody left to catch it. Playwright
-  // fails the run on an unhandled rejection — typically inside whichever test happens to be
-  // running by then, which is not this one.
-  const tile = page.locator('.roster-tile').first()
-  await page.locator('.roster-tile, nav.navrail').first().waitFor({ state: 'visible' })
-  if (await tile.isVisible()) {
-    await tile.click()
-    await expect(page.locator('.pinpad')).toBeVisible()
-    for (const digit of PIN) await page.keyboard.press(digit)
-    // the pad no longer auto-submits on a fixed length (06.09.) — Enter is the ✓
-    await page.keyboard.press('Enter')
-  }
-
-  // The demo's first-visit contract intentionally owns the screen until acknowledged. Read the
-  // deployment flag rather than racing an immediate isVisible() against the async config load.
-  const config = await page.request.get('/api/config')
-  const demoMode = config.ok() && (await config.json()).identity?.demoMode === true
-  if (demoMode) {
-    const demoWelcome = page.locator('.dw-card')
-    await expect(demoWelcome).toBeVisible()
-    await demoWelcome.locator('.dw-cta').click()
-  }
-}
-
-// After login the app shows either the empty state (no open incident) or, if one is
-// already open server-side, the incident surfaces directly. Normalise to "an incident
-// is open" so the smoke is idempotent across a fresh container and a re-run.
-async function ensureIncidentOpen(page: Page) {
-  const navrail = page.locator('nav.navrail')
-
-  // The empty state can briefly FLASH before the workspace loads and swaps in an
-  // already-open incident, so we can't branch on the CTA being momentarily visible.
-  // Instead: give the navrail a chance to appear (incident loaded); only if it never
-  // does is the deployment genuinely empty — then open a manual incident.
-  try {
-    await expect(navrail).toBeVisible({ timeout: 12_000 })
-    return
-  } catch {
-    /* no incident open — fall through to create one */
-  }
-
-  // Empty state → open a manual incident (no Divera, no coordinate needed). The landing CTA
-  // is "Manueller Einsatz", which opens the create wizard form directly (since the landing
-  // rework — there is no intermediate "Einsatz eröffnen" chooser step on the empty state).
-  await page.getByRole('button', { name: 'Manueller Einsatz' }).click()
-  await page.getByPlaceholder('z. B. Gebäudebrand Schulhaus').fill('E2E Smoke Test')
-  await page.getByRole('button', { name: 'Einsatz öffnen' }).click()
-  await expect(navrail).toBeVisible()
-}
+import { expectNoCrash, login, ensureIncidentOpen } from './helpers'
 
 test('core surfaces render and survive reload', async ({ page }) => {
   await login(page)

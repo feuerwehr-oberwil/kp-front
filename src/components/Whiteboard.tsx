@@ -16,7 +16,11 @@ import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
 import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, DEFAULT_INK, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { minPoints } from '../lib/vertexOps'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
+import { useWbVertexEdit, type PlanEndpointDrag } from './useWbVertexEdit'
+import { useWbChipDrag } from './useWbChipDrag'
+import { CIRCLE_MAX_N, useWbRotor } from './useWbRotor'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
@@ -35,14 +39,14 @@ import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHu
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
-import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, symbolCaptionText, ROTATABLE } from '../lib/symbols'
+import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions, symbolPresetFieldKeys, symbolCaptionText, isRotatableSym, isVehicleSym } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { ContextPanel } from './ContextPanel'
 import { DrawEditor } from './DrawEditor'
 import { ShapeEditor } from './ShapeEditor'
 import { TwinTeamPill } from './TwinTeamPill'
 import { LockChip } from './LockChip'
-import { ShapeGlyph, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
+import { ShapeGlyph, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_MAX_N, SHAPE_MIN_N, SHAPE_TWO_POINT, rotationBoundsN, rotationBox, rotationGripOffPx, rotationRun, shapeAspect } from '../lib/shapes'
 import { TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
 import { noteScale, autoNoteWN, noteWN } from '../lib/notes'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
@@ -53,10 +57,10 @@ import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPre
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
 const FOLDED_H = 28
-import { advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint } from '../lib/lineAttachments'
+import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import type { FloorPackView } from '../lib/floorPackBinding'
-import { normalizeStackEdit, stackInstances } from '../lib/stackFloors'
+import { stackInstances } from '../lib/stackFloors'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
 import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
@@ -107,15 +111,6 @@ function autoGrow(el: HTMLInputElement | HTMLTextAreaElement | null) {
   // Width comes from React (wN) — every note carries one.
 }
 const TEAM_COLORS = appConfig.drawing.teamColors // distinct accent per team (cycled)
-/** How far an Absperrkreis may be dragged out on a plan, in plan-width fractions: twice the
- *  sheet. A cordon legitimately reaches past the paper (the Karte's radius stepper caps at
- *  100 km for the same reason), so the ceiling is only there to stop a runaway drag. */
-const CIRCLE_MAX_N = 2
-// parity with the Lage map: directional symbols that support drag-to-rotate (set
-// derived from the symbol presets, lib/symbols · ROTATABLE), and the generic
-// vehicle whose typed name is baked into the glyph (text stays upright).
-const isRotatableSym = (a: BoardAnno) => a.kind === 'symbol' && !!a.symbol && ROTATABLE.has(a.symbol)
-const isVehicleSym = (a: BoardAnno) => a.kind === 'symbol' && a.symbol === appConfig.symbols.vehicleName
 // a composite symbol (Grosslüfter vehicle+fan, Drehleiter/Hubretter body+ladder/boom): a two-handle
 // rotor + two-layer render, like the map. Returns the spec (base/part/scale/label) or undefined.
 const annoComposite = (a: BoardAnno) => (a.kind === 'symbol' ? compositeSpec(a.symbol) : undefined)
@@ -469,18 +464,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const stageRef = useRef<HTMLDivElement>(null)
   // rail tool buttons, so a tool's option dock can be top-aligned to its button
   const toolBtn = useRef<Record<string, HTMLButtonElement | null>>({})
-  const chipDrag = useRef<{ id: string; moved: boolean; sx: number; sy: number; floorOffset: number } | null>(null)
   // drag a single selected freehand stroke (its original board-space vertices + the start point)
   // `bpts` keep each vertex's storey AS STORED (floorGeometry · boardPts); `last` is the stroke as
   // the latest sample wrote it, which is what the release reports
   const drawDrag = useRef<{ id: string; floor: number; sx: number; sy: number; bpts: BoardPoint[]; moved: boolean; last?: BoardPoint[] } | null>(null)
-  // drag a single VERTEX of a selected line/area (shared by both — they're both pts-based).
-  // `pushed` = the undo checkpoint for this gesture was already taken BEFORE the shape changed
-  // (extendLine/insertVertex grow it on pointer-down), so the release must not take a second one.
-  const vertDrag = useRef<{ id: string; idx: number; floor: number; moved: boolean; pushed: boolean } | null>(null)
   // `origin` + `attached` + `detach` are the RELEASE half of the ring language (see the Lage map's
   // EndpointDrag — same shape, board coords instead of lng/lat).
-  type PlanEndpointDrag = { id: string; endpoint: LineEndpoint; point: BoardPoint; origin: BoardPoint; attached: boolean; detach: number; dwell: DwellState; candidate: MagneticTarget | null }
   const [planEndpointDragState, setPlanEndpointDragState] = useState<PlanEndpointDrag | null>(null)
   const planEndpointDrag = useRef<PlanEndpointDrag | null>(null)
   const planDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -495,19 +484,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // which text note is mid-edit (so we checkpoint undo once per edit session, then stream
   // each keystroke live into the anno — like the Lage note title)
   const textEditId = useRef<string | null>(null)
-  // drag-to-rotate a selected directional symbol — mirrors the map's rotor handle
-  // `rot` = the shape's rotation at grab time and `free` = per-axis resize allowed — captured
-  // on pointer-down so a corner drag can be resolved in the shape's own rotated frame
-  const rotate = useRef<{
-    id: string; cx: number; cy: number; moved: boolean
-    mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'radius' | 'endA' | 'endB'
-    rot: number; free: boolean; keepHeightN: number | null; aspectMax: number; maxN: number
-    /** the shape's storey — stored y is storey-LOCAL (floorGeometry · localY), so every write
-     *  of a board-global coordinate has to come back through it */
-    floor: number
-    /** end drags only: the end that stays put (client px) and how far the grip floats past the cap */
-    fixed: { x: number; y: number } | null; gripOffPx: number
-  } | null>(null)
   // The selection bar's drag origin: the original board-space geometry and bearings of every
   // selected anno, plus the centre a turn pivots about. Pan/pinch/marquee refs live in
   // useBoardGestures.
@@ -1146,7 +1122,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // an orphaned anchor dot in pan mode and silently became one end of the NEXT Rotation.
   useEffect(() => {
     if (!rotPlacing) { setRotStart(null); clearRotMagnet() }
-  }, [rotPlacing])
+  }, [rotPlacing]) // eslint-disable-line react-hooks/exhaustive-deps
   // node-based (tap each vertex, then finish): the area tool, and the Linie tool in Punkte mode.
   // In Freihand mode the Linie tool drags a stroke instead (handled below).
   const noding = (tool === 'area' && areaMode === 'nodes') || (tool === 'line' && lineMode === 'nodes')
@@ -1154,7 +1130,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    *  predicate the three pointer handlers share, so the two tools cannot drift apart. */
   const inking = (tool === 'line' && lineMode === 'freehand') || (tool === 'area' && areaMode === 'freehand')
   // the in-progress node draft is committable: an area needs ≥3 pts, a Punkte-mode line ≥2 (gates ✓)
-  const draftActive = (tool === 'area' && areaMode === 'nodes' && (draft?.length ?? 0) >= 3) || (tool === 'line' && lineMode === 'nodes' && (draft?.length ?? 0) >= 2)
+  const draftActive = (tool === 'area' && areaMode === 'nodes' && (draft?.length ?? 0) >= minPoints('area')) || (tool === 'line' && lineMode === 'nodes' && (draft?.length ?? 0) >= minPoints('draw'))
   // symbols/notes are sized smaller on the Gebäude floor-stack (small storey tiles) than on the
   // full-page module plans, so they don't dwarf the building outline — closer to the Lage map feel
   // Symbol/note size: on a PDF plan, scale it to the board WIDTH (= one page's width, since stitched
@@ -1626,7 +1602,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloor.current, y) * sH])
       if (!isTapStroke(px)) {
         const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
-        if (idx.length >= 3) addArea(idx.map((i) => draft[i]))
+        if (idx.length >= minPoints('area')) addArea(idx.map((i) => draft[i]))
       }
       setDraft(null)
       return
@@ -1701,12 +1677,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // Then drop to pan so it's immediately selectable.
   const finishShape = () => {
     const d = draft
-    if (tool === 'line' && d && d.length >= 2) {
+    if (tool === 'line' && d && d.length >= minPoints('draw')) {
       setDraft(null); lastTap.current = null
       addLine(d)
       return
     }
-    if (tool === 'area' && d && d.length >= 3) {
+    if (tool === 'area' && d && d.length >= minPoints('area')) {
       setDraft(null); lastTap.current = null
       addArea(d)
       return
@@ -1744,7 +1720,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return
     }
     setDraft(null); lastTap.current = null
-    if (d.length < (kind === 'area' ? 3 : 2)) {
+    if (d.length < minPoints(kind)) {
       draftAttachments.current = {}
       toast(appConfig.copy.toolDock.draftDiscarded)
       return
@@ -1921,327 +1897,26 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       patch: st.which === 'end' ? { endDx: a?.endDx, endDy: a?.endDy } : { labelDx: a?.labelDx, labelDy: a?.labelDy } })
   }
 
-  // --- vertex editing of a selected line/area (drag a node, insert on a segment, delete a node).
-  // Identical for both kinds — they're both just `pts`, so one code path serves Linie and Fläche. ---
-  const vertDown = (idx: number, e: React.PointerEvent) => {
-    if (tool !== 'pan' || readOnly) return
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const a = annos.find((x) => x.id === selId); if (!a?.pts) return
-    const endpoint: LineEndpoint | null = a.kind === 'draw' && idx === 0 ? 'start' : a.kind === 'draw' && idx === a.pts.length - 1 ? 'end' : null
-    if (endpoint) {
-      const resolved = resolvedPts.get(a.id) ?? a.pts
-      const attached = !!(endpoint === 'start' ? a.startAttachment : a.endAttachment)
-      setPlanEndpointDrag({ id: a.id, endpoint, point: resolved[idx], origin: resolved[idx], attached, detach: 0, dwell: EMPTY_DWELL, candidate: null })
-    }
-    vertDrag.current = { id: a.id, idx, floor: a.floor ?? 0, moved: false, pushed: false }
-  }
-  const vertMove = (e: React.PointerEvent) => {
-    const st = vertDrag.current; if (!st) return
-    const n = toNorm(e.clientX, e.clientY); if (!n) return
-    const magnetic = planEndpointDrag.current
-    if (magnetic) {
-      const floor = stack ? floorAt(n[1]) : st.floor
-      const point: BoardPoint = [n[0], localY(n[1], floor), floor]
-      const pointer: [number, number] = [n[0] * sW, n[1] * sH]
-      if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
-      st.moved = true
-      // Still hooked up? Then the only thing on offer is letting go, and the red ring at the OLD
-      // socket runs on distance: pull past the detach radius and the link is off; stop short and
-      // release, and it springs back. Mirrors the Lage map's moveEndpointDrag exactly.
-      if (magnetic.attached) {
-        const o = magnetic.origin
-        const detach = detachProgress([o[0] * sW, mapY(o[2] ?? 0, o[1]) * sH], pointer)
-        setPlanEndpointDrag({ ...magnetic, point, detach, attached: detach < 1, candidate: null, dwell: EMPTY_DWELL })
-        if (detach >= 1) buzz()
-        return
-      }
-      const targets = planCandidatesAt(st.id, pointer)
-      const candidate = stickyMagneticTarget(pointer, targets, magnetic.candidate?.key ?? null)
-      const dwell = advanceDwell(magnetic.dwell, candidate, Date.now())
-      setPlanEndpointDrag({ ...magnetic, point, candidate, dwell })
-      // a line target arms on acquisition (dwellFor = 0): the haptic says so, as the timer does
-      if (dwell.armed && !magnetic.dwell.armed) buzz()
-      // a finger that has found its target stops moving — and then nothing but this timer can
-      // close the ring (the visible fill is its CSS twin)
-      if (candidate && !dwell.armed) planDwellTimer.current = setTimeout(() => {
-        const cur = planEndpointDrag.current
-        if (!cur || cur.candidate?.key !== candidate.key) return
-        setPlanEndpointDrag({ ...cur, dwell: { ...cur.dwell, armed: true } }); buzz()
-      }, Math.max(0, dwellFor(candidate) - (Date.now() - dwell.since)))
-      return
-    }
-    if (!st.moved) { pushPast(); st.moved = true; st.pushed = true }
-    const floor = stack ? floorAt(n[1]) : st.floor
-    patch(st.id, { pts: (annos.find((a) => a.id === st.id)?.pts ?? []).map((p, i): BoardPoint => (i === st.idx ? [n[0], localY(n[1], floor), floor] : p)) })
-  }
-  const vertUp = () => {
-    const st = vertDrag.current; vertDrag.current = null
-    const magnetic = planEndpointDrag.current
-    if (magnetic && st?.moved) {
-      if (planDwellTimer.current) clearTimeout(planDwellTimer.current)
-      const a = annos.find((x) => x.id === magnetic.id)
-      if (a?.pts) {
-        // Ring lädt, dann schnappt es: ONLY a closed ring attaches, and only a closed RELEASE ring
-        // (`attached` already flipped false mid-drag) frees an endpoint that had a link. Anything
-        // in between — let go while either ring was still filling — leaves the endpoint where the
-        // finger dropped it, or springs it back to the socket it never left.
-        const floor = magnetic.point[2] ?? 0
-        let attachment: LineAttachment | undefined
-        let endPt = magnetic.point
-        if (magnetic.dwell.armed && magnetic.candidate) {
-          const target = magnetic.candidate.target
-          attachment = { target, routing: magnetic.candidate.defaultRouting ?? 'direct', ...(target.kind === 'line' ? { port: magnetic.candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}) }
-          if (sW && sH) endPt = [magnetic.candidate.point[0] / sW, localY(magnetic.candidate.point[1] / sH, floor), floor]
-        } else if (magnetic.attached) { setPlanEndpointDrag(null); return }  // ring never closed → snap back, no change
-        const pts = a.pts.map((p, i): BoardPoint => i === (magnetic.endpoint === 'start' ? 0 : a.pts!.length - 1) ? endPt : p)
-        const out: Partial<BoardAnno> = { pts, ...(magnetic.endpoint === 'start' ? { startAttachment: attachment } : { endAttachment: attachment }) }
-        // `pushed` = extendLine already checkpointed BEFORE it grew the line, so a second
-        // checkpoint here would snapshot the already-grown shape and make one grow gesture cost
-        // two undo presses. Write + emit without one instead; the emitted `pts` is the final
-        // array either way, so the replay is identical.
-        if (st.pushed) { patch(a.id, out); emit('board.edit', { id: a.id, patch: out, planId: activeId }) }
-        else patchCommit(a.id, out)
-        // …and an end dragged ONTO a Trupp's chip joins the two, exactly as a fresh stroke's does;
-        // dragged OFF it, they part
-        const previous = magnetic.endpoint === 'start' ? a.startAttachment : a.endAttachment
-        if (attachment) onLineAttached?.(a.id, attachment)
-        else if (previous) onLineDetached?.(a.id, previous)
-      }
-      setPlanEndpointDrag(null)
-      return
-    }
-    setPlanEndpointDrag(null)
-    // …and the ordinary, unmagnetic reshape: the points ARE what moved, so they travel with it
-    // (an empty `board.edit` folds to nothing — see the magnetic branch above, which always said so)
-    if (st?.moved) emit('board.edit', { id: st.id, planId: activeId, patch: { pts: annos.find((a) => a.id === st.id)?.pts } })
-  }
-  /**
-   * Grow the line past one of its open ends: append a point where the finger is, then hand the
-   * gesture straight over to the ordinary vertex drag so the new point follows until release.
-   * One undo step (pushPast once, at the start) — the same shape a reshape has.
-   *
-   * ⚠️ The grown point IS the line's new start/end, so the drag runs through the MAGNET path
-   * (`planEndpointDrag`), not the plain vertex reshape. Without that, «Verlängern» was the one
-   * way of moving an endpoint that could never dock — grow a Leitung onto a Fahrzeug and nothing
-   * connected (field report 01.09.). The Lage map's grip had the identical hole and is fixed with
-   * it (MapView · the «Verlängern» NewNodeHandle), so both surfaces grow AND dock the same way.
-   * An end that is ALREADY attached keeps the plain reshape: unplugging is the node grip's and
-   * the × chip's job, and a grip that could also detach would promise two things at once.
-   */
-  /** the staircase: the Leitung continues at the SAME x/y one storey up or down – one new vertex
-   *  there, its own storey, one undo step. The stair marks then stand at both ends of the climb. */
-  const climbLine = (end: 'start' | 'end', dir: 1 | -1) => {
-    if (tool !== 'pan' || readOnly || !stack) return
-    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts || a.kind !== 'draw') return
-    const i = end === 'start' ? 0 : pts.length - 1
-    const [x, y, f] = pts[i]
-    const floor = (f ?? a.floor ?? 0) + dir
-    if (!allFloorsTTB.includes(floor)) return
-    revealFloor(floor) // a Leitung may climb into a storey this device folded away — it comes back
-    // the way back: if the neighbouring vertex IS this spot one storey in that direction, the
-    // tap undoes the climb (drops this end) instead of laying a second flight back down the same
-    // stairs – which left the line 0 → +1 → 0 with two marks on top of each other
-    const nb = pts[end === 'start' ? 1 : pts.length - 2]
-    const retreat = !!nb && nb[0] === x && nb[1] === y && (nb[2] ?? a.floor ?? 0) === floor && pts.length > 2
-    if (retreat) {
-      patchCommit(a.id, { pts: end === 'start' ? pts.slice(1) : pts.slice(0, -1) })
-      requestAnimationFrame(() => centerOnPoint(x, y, floor, Math.max(scaleRef.current, 2.5)))
-      return
-    }
-    const point: BoardPoint = [x, y, floor]
-    patchCommit(a.id, { pts: end === 'start' ? [point, ...pts] : [...pts, point] })
-    // …and the view follows the Leitung upstairs: the new end, close enough to place the next
-    // vertex, so the climb is one tap and not a tap plus a scroll to find where it went
-    requestAnimationFrame(() => centerOnPoint(x, y, floor, Math.max(scaleRef.current, 2.5)))
-  }
-  const extendLine = (end: 'start' | 'end', e: React.PointerEvent) => {
-    if (tool !== 'pan' || readOnly) return
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
-    const n = toNorm(e.clientX, e.clientY); if (!n) return
-    const floor = a.kind === 'draw' && stack ? floorAt(n[1]) : (a.floor ?? 0)
-    const point: BoardPoint = [n[0], localY(n[1], floor), floor]
-    pushPast()
-    const next = end === 'start' ? [point, ...pts] : [...pts, point]
-    patch(a.id, { pts: next })
-    if (a.kind === 'draw' && !(end === 'start' ? a.startAttachment : a.endAttachment)) {
-      setPlanEndpointDrag({ id: a.id, endpoint: end, point, origin: point, attached: false, detach: 0, dwell: EMPTY_DWELL, candidate: null })
-    }
-    // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and
-    // vertUp commits exactly as if the node had always been there.
-    vertDrag.current = { id: a.id, idx: end === 'start' ? 0 : next.length - 1, floor, moved: true, pushed: true }
-  }
+  // --- vertex editing of a selected line/area and of the in-progress node draft (drag a node,
+  // insert on a segment, delete a node, grow an end, take the stairs) — components/useWbVertexEdit.
+  // ⚠️ Called HERE, where the handlers used to be defined: everything it reads is declared above,
+  // except centerOnPoint (further down), which is handed over as a lazy wrapper.
+  const {
+    vertDrag, draftVert, vertDown, vertMove, vertUp, climbLine, extendLine, insertVertex, deleteVertex,
+    draftVertDown, draftVertMove, draftVertUp, draftInsert, draftDeleteVertex,
+  } = useWbVertexEdit({
+    annos, selId, tool, readOnly, stack, toNorm, localY, floorAt, mapY, sW, sH,
+    resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
+    onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef: planDwellTimer,
+    allFloorsTTB, revealFloor, centerOnPoint: (x, y, floor, atScale) => centerOnPoint(x, y, floor, atScale), scaleRef,
+    draftFloor, setDraft,
+  })
 
-  /**
-   * Insert a node on the segment after vertex `idx` (at its midpoint) — and then hand the SAME
-   * press over to the ordinary vertex drag, exactly as `extendLine` does, so the new node follows
-   * the finger until it lifts. Letting go without moving leaves the node at the midpoint, which is
-   * what a plain tap on the «+» always left. One undo step (pushPast once, at the start).
-   *
-   * No magnet here, unlike `extendLine`: the new node lands at `idx + 1`, which for an open line
-   * is never index 0 nor the last one, and for a closed Fläche there is no endpoint at all. So it
-   * is always an interior vertex — nothing to dock, and no attachment can change which point it
-   * refers to.
-   */
-  const insertVertex = (idx: number, e: React.PointerEvent) => {
-    if (tool !== 'pan' || readOnly) return
-    e.stopPropagation()
-    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const n = toNorm(e.clientX, e.clientY)
-    const floor = a.kind === 'draw' && n && stack ? floorAt(n[1]) : (a.floor ?? 0)
-    const next = pts[(idx + 1) % pts.length] // wraps for the closing edge of an area
-    const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [(pts[idx][0] + next[0]) / 2, (pts[idx][1] + next[1]) / 2, floor]
-    pushPast()
-    patch(a.id, { pts: [...pts.slice(0, idx + 1), mid, ...pts.slice(idx + 1)] })
-    // …and from here it IS a vertex drag: `moved` is already true, so vertMove streams and vertUp
-    // commits — the new node never gets a chance to look like something you have to find again.
-    vertDrag.current = { id: a.id, idx: idx + 1, floor, moved: true, pushed: true }
-  }
-  // delete vertex `idx`, keeping a valid shape (≥2 for a line, ≥3 for an area)
-  const deleteVertex = (idx: number) => {
-    if (readOnly) return
-    const a = annos.find((x) => x.id === selId); const pts = a?.pts; if (!a || !pts) return
-    if (pts.length <= (a.kind === 'area' ? 3 : 2)) return
-    // a long-press delete fires mid-pointer-session — drop the pending drag so further
-    // finger movement can't reshape whichever point inherited this index
-    vertDrag.current = null
-    patchCommit(a.id, { pts: pts.filter((_, i) => i !== idx) })
-  }
-
-  // --- vertex editing of the IN-PROGRESS node draft (A3, 29.08.) — the same grip/insert/hold
-  // vocabulary a finished shape gets (WbDraftHandles), wired straight into the draft points and
-  // never into the document: the draft is still ephemeral state until it commits. ---
-  const draftVert = useRef<{ idx: number } | null>(null)
-  const draftVertDown = (idx: number, e: React.PointerEvent) => {
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    draftVert.current = { idx }
-  }
-  const draftVertMove = (e: React.PointerEvent) => {
-    const st = draftVert.current; if (!st) return
-    const n = toNorm(e.clientX, e.clientY); if (!n) return
-    // a Linie's node follows the pointer's storey (a Leitung may cross floors); a Fläche stays
-    // on the floor its ring was started on — the same rule placeNode applies to a fresh tap
-    const floor = tool === 'line' && stack ? floorAt(n[1]) : draftFloor.current
-    setDraft((d) => d?.map((p, i): BoardPoint => (i === st.idx ? [n[0], localY(n[1], floor), floor] : p)) ?? d)
-  }
-  const draftVertUp = () => { draftVert.current = null }
-  /** Insert a node on draft segment `idx` and keep the SAME press dragging it — the twin of
-   *  insertVertex on a committed shape (releasing without moving leaves it where it appeared). */
-  const draftInsert = (idx: number, e: React.PointerEvent) => {
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-    const n = toNorm(e.clientX, e.clientY)
-    const floor = tool === 'line' && n && stack ? floorAt(n[1]) : draftFloor.current
-    setDraft((d) => {
-      if (!d) return d
-      const b = d[(idx + 1) % d.length] // wraps for the closing edge of an area draft
-      const mid: BoardPoint = n ? [n[0], localY(n[1], floor), floor] : [(d[idx][0] + b[0]) / 2, (d[idx][1] + b[1]) / 2, floor]
-      return [...d.slice(0, idx + 1), mid, ...d.slice(idx + 1)]
-    })
-    draftVert.current = { idx: idx + 1 }
-  }
-  // hold-to-delete a draft node — allowed all the way down: deleting the last node leaves no
-  // draft at all, the same empty hand Escape leaves
-  const draftDeleteVertex = (idx: number) => {
-    draftVert.current = null
-    setDraft((d) => { const next = d?.filter((_, i) => i !== idx) ?? null; return next?.length ? next : null })
-  }
-
-  // --- chip dragging (resource / symbol / text in pan mode) ---
-  const chipDown = (e: React.PointerEvent, id: string, shownFloor?: number) => {
-    if (tool !== 'pan') return
-    // (a locked shape never reaches this handler: its anno div is pointer-events:none —
-    // click-through ink, the LockChip is the only door, same as a locked drawn Fläche)
-    // Notiz-Grammatik (29.08., unified with symbols across Karte AND Plan): tapping a note opens
-    // its detail panel, exactly as tapping a symbol opens its ContextPanel — the ⚙ grip that used
-    // to be the panel's only door is gone. Not while the note is mid-edit (its textarea owns the
-    // taps then), and never on placement: placeNode arms editId, not this.
-    const isNote = annos.find((x) => x.id === id)?.kind === 'text'
-    if (readOnly) {
-      // view-only (viewer / replay / EL view): a tap still SELECTS — so the read-only
-      // detail panel can open, parity with the Lage map — but never arms a drag
-      e.stopPropagation()
-      setSelId(id); setSelIds([])
-      if (isNote) setNotePanelId(id)
-      return
-    }
-    e.stopPropagation()
-    // ⚠️ A FORM has no body drag (02.09., Karte parity): it is moved from the bar's ✥, and its
-    // body only selects — so a press on a Rotation's loop cannot nudge it away from the end grip
-    // somebody was aiming for.
-    if (annos.find((x) => x.id === id)?.kind !== 'shape') {
-      chipDrag.current = { id, moved: false, sx: e.clientX, sy: e.clientY, floorOffset: (shownFloor ?? 0) - (annos.find((a) => a.id === id)?.floor ?? 0) }
-      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    }
-    setSelId(id); setSelIds([])
-    if (isNote && editId !== id) setNotePanelId(id)
-  }
-  const chipMove = (e: React.PointerEvent) => {
-    if (!chipDrag.current) return
-    const a = annos.find((x) => x.id === chipDrag.current!.id); if (!a) return
-    const n = toNorm(e.clientX, e.clientY); if (!n) return
-    // deadzone (shared with the Lage map's hold-to-drag): don't move until the pointer travels
-    // past DRAG_DEADZONE_PX, so a tap-to-select can't nudge a placed chip a pixel.
-    if (!chipDrag.current.moved && Math.hypot(e.clientX - chipDrag.current.sx, e.clientY - chipDrag.current.sy) < DRAG_DEADZONE_PX) return
-    if (!chipDrag.current.moved) pushPast() // one checkpoint per drag, before the first move
-    chipDrag.current.moved = true
-    // on the floor-stack the chip drags FREELY across storeys: the floor follows the cursor,
-    // y is re-localised into whichever storey the pointer is over. Single-sheet docs unchanged.
-    const f = stack ? floorAt(n[1]) : a.floor
-    const point: BoardPoint = [n[0], localY(n[1], f ?? 0), f ?? 0]
-    set(annos.map((anno) => {
-      if (anno.id === chipDrag.current!.id) {
-        const moved = { ...anno, x: point[0], y: point[1], ...(stack ? { floor: (f ?? 0) - chipDrag.current!.floorOffset } : {}) }
-        return stack ? normalizeStackEdit(anno, moved) : moved
-      }
-      if (anno.kind !== 'draw' || !anno.pts?.length) return anno
-      let next = anno
-      for (const endpoint of ['start', 'end'] as const) {
-        const rel = endpoint === 'start' ? next.startAttachment : next.endAttachment
-        if (rel?.target.kind === 'object' && rel.target.id === a.id && rel.routing === 'trace') next = { ...next, pts: applyRouting(next.pts!, endpoint, point, 'trace', 0.002) }
-      }
-      return next
-    }))
-  }
-  const chipUp = () => {
-    const d = chipDrag.current; chipDrag.current = null
-    if (!d || !d.moved) return
-    // moving just relocates the team's live position — it does NOT record a
-    // breadcrumb. Positions are logged only via markPosition (explicit), so the
-    // rule is unambiguous: a dot exists exactly where you chose to log one.
-    const a = annos.find((x) => x.id === d.id)
-    if (a?.kind === 'resource') patch(d.id, { t: formatTime(new Date()) })
-    // record the relocation in the audit trail (the drag itself was silent patches)
-    if (a) emit('board.move', { id: d.id, x: a.x, y: a.y, floor: a.floor, ...(stack && a.kind === 'symbol' ? { floorFrom: a.floorFrom, floorTo: a.floorTo } : {}), planId: activeId })
-    annos.filter((line) => [line.startAttachment, line.endAttachment].some((rel) => rel?.target.kind === 'object' && rel.target.id === d.id && rel.routing === 'trace'))
-      .forEach((line) => emit('board.edit', { id: line.id, patch: { pts: line.pts }, planId: activeId }))
-    // Ein Trupp auf dem Leitungsende (15.09.): a Trupp's chip dropped on the FREE end of a hose
-    // joins the two, the same link snapping the hose onto the chip makes — the picture is the
-    // pick, from whichever side the operator works. The Karte does exactly this on its own marker
-    // release (IncidentWorkspace · finishEntityMove). The chip's own DOT is what is measured (its
-    // body hangs to the right of it — see attachBox), only ends that hang free count, and the
-    // middle of a hose says nothing about who works it.
-    if (a?.kind !== 'resource' || !a.truppId || a.x == null || a.y == null || !sW || !sH) return
-    const join = nearestFreeEndpoint<BoardPoint>(
-      [a.x * sW, mapY(a.floor, a.y) * sH],
-      attachmentLines,
-      (p) => [p[0] * sW, mapY(p[2] ?? 0, p[1]) * sH],
-    )
-    if (!join) return
-    // the chip's own trace-routed coupling, written exactly as the endpoint magnet writes one
-    const out: Partial<BoardAnno> = join.endpoint === 'start'
-      ? { startAttachment: { target: { kind: 'object', id: d.id }, routing: 'trace' } }
-      : { endAttachment: { target: { kind: 'object', id: d.id }, routing: 'trace' } }
-    patch(join.lineId, out) // the drag's own checkpoint already stands — one gesture, one step
-    emit('board.edit', { id: join.lineId, patch: out, planId: activeId })
-    // …and the link itself, unless this hose is already anchored to this very Trupp — nudging the
-    // chip beside its own Leitung is not a new fact, and every link writes a Verlauf row
-    if (annos.find((x) => x.id === join.lineId)?.truppId !== a.truppId) onLinkLineTrupp?.(join.lineId, a.truppId)
-  }
+  // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
+  const { chipDrag, chipDown, chipMove, chipUp } = useWbChipDrag({
+    tool, readOnly, annos, editId, setSelId, setSelIds, setNotePanelId, toNorm, stack, floorAt, localY, mapY, sW, sH,
+    attachmentLines, pushPast, set, patch, emit, activeId, onLinkLineTrupp,
+  })
 
   // object-manipulation hand-off for the stage dispatcher in useBoardGestures: when no
   // pan/pinch/marquee gesture owns the pointer, route move/up to the active chip/draw/vertex
@@ -2265,233 +1940,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
-  // --- drag-to-rotate a selected directional symbol (rotor handle) ---
-  // ── «Halten, dann verbindet es», an einer Rotation ───────────────────────────────────────
-  // The plan twin of the map's claim (MapMarkers · trackEndMagnet / MapView · trackPlaceMagnet),
-  // down to the same chip, the same ring and the same rule: the point keeps following the finger
-  // while the ring fills, and only a FULL ring puts it on the symbol. It serves both moments a
-  // Rotation has — laying one of its two points down, and dragging an end afterwards — because
-  // they are the same question asked twice.
-  //
-  // Nothing is STORED by it: a Rotation carries no attachment field and deliberately none. What
-  // it buys is exactness — the run starts on the Wasserbezug's own spot rather than beside it —
-  // and it says so before it does it.
-  const [rotMagnet, setRotMagnet] = useState<{ x: number; y: number; floor: number; since: number; armed: boolean } | null>(null)
-  const rotMagnetRef = useRef<{ key: string; x: number; y: number; floor: number; since: number; armed: boolean } | null>(null)
-  const rotDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** Board pan paused while a placement claim is live — the map does exactly this
-   *  (MapView · placePanPaused): a finger holding still for the MAGNET_DWELL_MS dwell wobbles
-   *  past the tap threshold, and the pan that started killed the claim AND discarded the tap, so
-   *  on a real device the ring could never be ridden to the end. Paused, the full
-   *  MAGNET_RADIUS_PX is the wobble budget; leaving the ring clears the claim and hands the pan
-   *  back. Only the placement press pauses anything — an end drag owns its pointer already. */
-  const rotPanPaused = useRef(false)
-  const clearRotMagnet = () => {
-    if (rotDwellTimer.current) { clearTimeout(rotDwellTimer.current); rotDwellTimer.current = null }
-    if (rotMagnetRef.current) { rotMagnetRef.current = null; setRotMagnet(null) }
-    rotPanPaused.current = false
-  }
-  useEffect(() => () => { if (rotDwellTimer.current) clearTimeout(rotDwellTimer.current) }, [])
-  /** Track the claim under a point and answer with the symbol it has actually taken — `null`
-   *  until the ring has closed. `pt` is in the client px both gestures work in. */
-  const claimRotTarget = (pt: { x: number; y: number }, skipId?: string) => {
-    const r = boardRef.current?.getBoundingClientRect()
-    if (!r || !r.width) { clearRotMagnet(); return null }
-    let best: { a: BoardAnno; d: number } | null = null
-    for (const a of annos) {
-      if (a.id === skipId || (a.kind !== 'symbol' && a.kind !== 'resource')) continue
-      if (a.x == null || a.y == null) continue
-      // mapY folds the sheet's own y into the stack's, so a claim lands on the floor it is drawn on
-      const x = r.left + a.x * r.width, y = r.top + mapY(a.floor, a.y) * r.height
-      const d = Math.hypot(x - pt.x, y - pt.y)
-      if (d < MAGNET_RADIUS_PX && (!best || d < best.d)) best = { a, d }
-    }
-    if (!best) { clearRotMagnet(); return null }
-    const cur = rotMagnetRef.current
-    if (cur?.key !== best.a.id) {
-      clearRotMagnet()
-      const st = { key: best.a.id, x: best.a.x ?? 0, y: best.a.y ?? 0, floor: best.a.floor ?? 0, since: Date.now(), armed: false }
-      rotMagnetRef.current = st
-      if (inkTap.current) rotPanPaused.current = true // a placement press: hold the board still
-      setRotMagnet({ ...st })
-      // arm on a motionless finger — there is no pointermove to advance a dwell by itself
-      rotDwellTimer.current = setTimeout(() => {
-        const now = rotMagnetRef.current
-        if (!now || now.key !== st.key) return
-        now.armed = true
-        setRotMagnet({ ...now })
-        buzz()
-      }, MAGNET_DWELL_MS)
-      return null
-    }
-    return cur.armed ? cur : null
-  }
-  /** the same claim, answered in the client px an end drag needs */
-  const trackEndMagnet = (id: string, pt: { x: number; y: number }) => {
-    const hit = claimRotTarget(pt, id)
-    const r = boardRef.current?.getBoundingClientRect()
-    if (!hit || !r || !r.width) return null
-    return { x: r.left + hit.x * r.width, y: r.top + mapY(hit.floor, hit.y) * r.height }
-  }
-
-  // angle from the glyph centre to the pointer becomes the rotation (+90° so the
-  // top knob leads); the whole gesture is one undo step (checkpoint on first move).
-  const rotDown = (e: React.PointerEvent, id: string, mode: 'rotate' | 'rotate2' | 'resize' | 'sizeY' | 'cage' | 'radius' | 'endA' | 'endB' = 'rotate') => {
-    if (tool !== 'pan' || readOnly) return
-    e.stopPropagation()
-    const a = annos.find((x) => x.id === id)
-    const shp = a?.kind === 'shape' ? (a.shape ?? 'square') : null
-    let cx: number, cy: number
-    if (mode === 'radius') {
-      // an Absperrkreis is ink, not a `.wb-anno` chip: its centre is the stored point, read
-      // through the same board rect every other plan gesture works in
-      const rect = boardRef.current?.getBoundingClientRect()
-      if (!rect?.width || !a) return
-      cx = rect.left + (a.x ?? 0) * rect.width; cy = rect.top + mapY(a.floor, a.y ?? 0) * rect.height
-    } else {
-      const anno = (e.currentTarget as HTMLElement).closest('.wb-anno')
-      const glyph = (anno?.querySelector('.ts, .shape-glyph') ?? anno) as HTMLElement | null
-      if (!glyph) return
-      const r = glyph.getBoundingClientRect()
-      cx = r.left + r.width / 2; cy = r.top + r.height / 2
-    }
-    // ── the two ends of a Rotation (lib/shapes · SHAPE_TWO_POINT) ──────────────────────────
-    // Identical to the Lage map (MapMarkers · shapeDown), in plan space: dragging one end pins
-    // the other, so the grip sets the run's length and its bearing at once.
-    let fixed: { x: number; y: number } | null = null
-    let gripOffPx = 0
-    if ((mode === 'endA' || mode === 'endB') && a) {
-      const size = a.sizeN ?? SHAPE_DEFS.rotation.defaultSizeN
-      const half = (rotationRun(size, a.aspect) * sW) / 2
-      const rad = ((a.rotation ?? 0) * Math.PI) / 180
-      const away = mode === 'endA' ? 1 : -1 // the end that stays put is the far one
-      fixed = { x: cx + Math.cos(rad) * half * away, y: cy + Math.sin(rad) * half * away }
-      gripOffPx = rotationGripOffPx(size * shapeAspect('rotation', a.aspect) * sW)
-    }
-    rotate.current = {
-      id, cx, cy, moved: false, mode, fixed, gripOffPx,
-      rot: a?.rotation ?? 0, floor: a?.floor ?? 0,
-      free: (mode === 'resize' || mode === 'sizeY') && !!shp && SHAPE_FREE_ASPECT[shp],
-      // One grip per axis: capture whichever axis the drag must LEAVE ALONE — the ↔ keeps the
-      // height, the ↕ keeps the length. Identical to the Lage map (MapMarkers · shapeDown).
-      keepHeightN: !shp || !SHAPE_AXIS_GRIPS[shp] ? null
-        : mode === 'sizeY'
-          ? Math.max(0.005, a?.sizeN ?? SHAPE_DEFS[shp].defaultSizeN)
-          : Math.max(0.005, (a?.sizeN ?? SHAPE_DEFS[shp].defaultSizeN) * shapeAspect(shp, a?.aspect)),
-      aspectMax: shp ? shapeAspectMax(shp) : 5,
-      // a Wasserpendel spans the plan; every other form stays inside the ordinary cap
-      // (lib/shapes · SHAPE_MAX_N — the same number the ± stepper clamps to). The loop's ceiling
-      // is 20 km of GROUND, so on a scaled sheet it is that distance in the sheet's unit.
-      maxN: shp === 'rotation' ? rotN.maxN : SHAPE_MAX_N[shp ?? 'square'],
-    }
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }
-  const rotMove = (e: React.PointerEvent) => {
-    const st = rotate.current; if (!st) return
-    if (!st.moved) { pushPast(); st.moved = true } // one checkpoint per rotate/resize gesture
-    if ((st.mode === 'endA' || st.mode === 'endB') && st.fixed) {
-      // One end moves, the other stays: position, length, bearing and width all fall out of the
-      // pair (lib/shapes · rotationBox). Same maths as the map, in plan-width fractions.
-      const f = st.fixed
-      const d = Math.hypot(e.clientX - f.x, e.clientY - f.y) || 1
-      const ux = (e.clientX - f.x) / d, uy = (e.clientY - f.y) / d
-      // the grip floats past the cap, so the END is the pointer pulled back along the run
-      let ex = e.clientX - ux * st.gripOffPx, ey = e.clientY - uy * st.gripOffPx
-      const snap = trackEndMagnet(st.id, { x: ex, y: ey })
-      if (snap) { ex = snap.x; ey = snap.y }
-      const runN = Math.max(SHAPE_MIN_N, Math.min(st.maxN, Math.hypot(ex - f.x, ey - f.y) / sW))
-      const box = rotationBox(runN, rotN.w)
-      const deg = st.mode === 'endB'
-        ? (Math.atan2(ey - f.y, ex - f.x) * 180) / Math.PI
-        : (Math.atan2(f.y - ey, f.x - ex) * 180) / Math.PI
-      const mid = toNorm((f.x + ex) / 2, (f.y + ey) / 2)
-      if (!mid) return
-      patch(st.id, {
-        // toNorm is board-global; stored y is storey-local — on a floor stack the raw value
-        // would multiply through mapY and teleport the loop down the stack
-        x: mid[0], y: localY(mid[1], st.floor),
-        rotation: Math.round(((deg % 360) + 360) % 360),
-        sizeN: box.size,
-        aspect: Math.round(box.aspect * 1000) / 1000,
-      })
-      return
-    }
-    if (st.mode === 'resize' || st.mode === 'sizeY') {
-      if (st.free) {
-        // free-aspect drag: the pointer offset, rotated into the shape's own frame, gives the
-        // two axes independently — identical maths to the map (MapMarkers · shapeMove), in plan
-        // space, so a Form feels the same on both surfaces.
-        const rad = (-st.rot * Math.PI) / 180
-        const dx = e.clientX - st.cx, dy = e.clientY - st.cy
-        const lx = dx * Math.cos(rad) - dy * Math.sin(rad)
-        const ly = dx * Math.sin(rad) + dy * Math.cos(rad)
-        // ⚠️ A fraction of the PLAN, not screen px (lib/shapes · SHAPE_MIN_N): the plan zooms too,
-        // and a pixel floor would store a different share of the sheet at every zoom.
-        const minN = SHAPE_MIN_N
-        if (st.keepHeightN != null) {
-          // ── one grip, one axis (lib/shapes · SHAPE_AXIS_GRIPS) ──
-          const asp = (h: number, len: number) =>
-            Math.max(0.02, Math.min(st.aspectMax, Math.round((h / len) * 1000) / 1000))
-          if (st.mode === 'sizeY') {
-            const len = st.keepHeightN // captured LENGTH
-            const hN = Math.max(minN, Math.min(len * st.aspectMax, (2 * Math.abs(ly)) / sW))
-            patch(st.id, { sizeN: len, aspect: asp(hN, len) })
-            return
-          }
-          const hN = st.keepHeightN // captured HEIGHT
-          const len = Math.max(Math.max(minN, hN / st.aspectMax), Math.min(st.maxN, (2 * Math.abs(lx)) / sW))
-          patch(st.id, { sizeN: len, aspect: asp(hN, len) })
-          return
-        }
-        // the Rauch keeps its diagonal corner: both axes at once
-        const wN = Math.max(minN, Math.min(st.maxN, (2 * Math.abs(lx)) / sW))
-        const hN = Math.max(minN, Math.min(st.maxN, (2 * Math.abs(ly)) / sW))
-        patch(st.id, { sizeN: wN, aspect: Math.max(0.2, Math.min(5, Math.round((hN / wN) * 100) / 100)) })
-        return
-      }
-      // corner grip = half-diagonal from the glyph centre → full width, normalized to the
-      // (scaled) plan width — same maths as the map's shape resize, in plan space
-      const dist = Math.hypot(e.clientX - st.cx, e.clientY - st.cy)
-      // …and the same floor for a proportional shape (the Pfeil)
-      patch(st.id, { sizeN: Math.max(SHAPE_MIN_N, Math.min(st.maxN, (dist * Math.SQRT2) / sW)) })
-      return
-    }
-    if (st.mode === 'radius') {
-      // Absperrkreis: the grip rides the ring, so the pointer's distance from the centre IS the
-      // radius — the same «drag from the centre outward» the placement gesture used, in
-      // plan-width fractions (types · BoardAnno.radiusN)
-      const rect = boardRef.current?.getBoundingClientRect(); if (!rect?.width) return
-      patch(st.id, { radiusN: Math.max(appConfig.drawing.circleMinRadiusN, Math.min(CIRCLE_MAX_N, Math.hypot(e.clientX - st.cx, e.clientY - st.cy) / rect.width)) })
-      return
-    }
-    if (st.mode === 'cage') {
-      // Hubretter cage tip: one handle sets the boom bearing (rotation2, no offset — the handle IS the
-      // tip) AND the reach as a fraction of the (scaled) plan width — the plan analogue of reachM.
-      const deg = (Math.atan2(e.clientY - st.cy, e.clientX - st.cx) * 180) / Math.PI
-      const dist = Math.hypot(e.clientX - st.cx, e.clientY - st.cy)
-      patch(st.id, { rotation2: Math.round(((deg % 360) + 360) % 360), reachN: Math.max(0.03, Math.min(0.6, dist / sW)) })
-      return
-    }
-    const deg = (Math.atan2(e.clientY - st.cy, e.clientX - st.cx) * 180) / Math.PI
-    // body knob at the top (+90), fan knob at the BOTTOM (−90) — opposite sides, easy to grab apart
-    const val = Math.round((((deg + (st.mode === 'rotate2' ? -90 : 90)) % 360) + 360) % 360)
-    patch(st.id, st.mode === 'rotate2' ? { rotation2: val } : { rotation: val })
-  }
-  const rotUp = () => {
-    const st = rotate.current; rotate.current = null
-    clearRotMagnet()
-    onStepEnd?.()
-    if (!st?.moved) return
-    const a = annos.find((x) => x.id === st.id)
-    if (!a) return
-    const patchOut = st.mode === 'endA' || st.mode === 'endB'
-        ? { x: a.x, y: a.y, rotation: a.rotation, sizeN: a.sizeN, aspect: a.aspect }
-      : st.mode === 'resize' || st.mode === 'sizeY' ? { sizeN: a.sizeN, aspect: a.aspect }
-      : st.mode === 'radius' ? { radiusN: a.radiusN }
-      : st.mode === 'cage' ? { rotation2: a.rotation2, reachN: a.reachN }
-      : st.mode === 'rotate2' ? { rotation2: a.rotation2 } : { rotation: a.rotation }
-    emit('board.edit', { id: st.id, patch: patchOut, planId: activeId })
-  }
+  // --- drag-to-rotate / resize / the Rotation's ends and its claim ring — components/useWbRotor ---
+  const { rotMagnet, rotMagnetRef, rotPanPaused, clearRotMagnet, claimRotTarget, rotDown, rotMove, rotUp } = useWbRotor({
+    tool, readOnly, annos, boardRef, inkTap, toNorm, localY, mapY, sW, rotN, pushPast, patch, emit, activeId, onStepEnd,
+  })
 
   // the ONLY way a position is recorded: stamp the current spot + time into the trail
   const markPosition = () => {

@@ -13,17 +13,17 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
-import { bakeAll, sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
-import { liveOverlay } from './lib/planProjection'
+import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
+import { routeHotkey } from './lib/hotkeyRoute'
 import { moduleNumbers, navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
 import { carryDocked, dockRadiusFor, isDockable, isPlacard, nearestDockHost } from './lib/docking'
-import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ReportAttachment, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
+import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, MittelEntry, Person, ReactivateResult, ShapeKind, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
@@ -54,7 +54,7 @@ import type { UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { pushSliceStep } from './lib/sliceUndoStep'
-import { REPORT_COALESCE_MS, foldsIntoPrevious, keepMachineFields, reportStep as reportStepOf } from './lib/reportUndo'
+import { foldsIntoPrevious, keepMachineFields, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
@@ -72,7 +72,7 @@ import { useSheets } from './lib/useSheets'
 import { useAtemschutzMute } from './lib/useAtemschutzMute'
 import { useTacticalSelection } from './lib/useTacticalSelection'
 import { useWorkspaceDoc } from './lib/useWorkspaceDoc'
-import { addPlanBindings, fillBindingFloors, hasLegacyAlignmentContext, incidentBindingApproved } from './lib/incidentPlanBindings'
+import { addPlanBindings, fillBindingFloors, hasLegacyAlignmentContext } from './lib/incidentPlanBindings'
 import { useIncidentPlanBindings } from './lib/useIncidentPlanBindings'
 import { buildLabel } from './lib/buildInfo'
 import { consumeJustUpdated } from './lib/swUpdate'
@@ -86,13 +86,7 @@ import { NavRail } from './components/NavRail'
 import { MapUtility } from './components/MapUtility'
 import { MapViewsButton, type ViewsApi } from './components/MapViewsMenu'
 import { LayerPanel } from './components/LayerPanel'
-import {
-  fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, handLinkRow, movedOnSheets,
-  planAspect, planRasterRows, referenceDelta, sheetFits, type SheetFit,
-  twinPlanImageLayerId, twinPlanImageVisible, twinVisible, isTwinLayerId,
-} from './lib/georefTwins'
-import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded, takeRolledBackStationWrite } from './lib/stationPlanScale'
-import type { GeorefPair } from './lib/georef'
+import { planRasterRows, twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { ToolRail } from './components/ToolRail'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { Palette } from './components/Palette'
@@ -126,25 +120,23 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, truppStillDeployed, type AtemschutzAlarmState } from './lib/atemschutz'
+import { isAtemschutzTrupp, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
-import { georefDispatch, setGeorefLinkedHandler, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefStorage, useGeorefSurfaceBridge } from './lib/georefMode'
+import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
 import type { BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
-import { planPreviewUrl, prewarmPlans, regionInkBox } from './components/PdfViewport'
+import { prewarmPlans } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
-import { bandAspect, buildView } from './lib/footprint'
+import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
-import { stackGroundFit } from './lib/stackFit'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
 import { askStoreyRemoval } from './lib/storeyRemoval'
-import { floorPackOf, frameAspect, packFloorNames, packStoreys, trimmedPackFrame } from './lib/floorPackBinding'
-import { buildingPackBinding } from './lib/buildingPackBinding'
-import { floorLabel, tileAspectOf } from './lib/whiteboard'
+import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
+import { floorLabel } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import {
   WorkspaceSync, uploadMedia,
@@ -158,6 +150,7 @@ import { downloadBlob } from './lib/download'
 import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings } from './lib/lineAttachments'
+import { duplicateDrawing, duplicateEntity } from './lib/duplicate'
 import { centroid, rotateAround, turnedBy } from './lib/selectionTransform'
 import { leitungOptions, lineTakesTrupp, truppForLine, truppIsOut } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
@@ -189,14 +182,14 @@ import { serverNowIso } from './lib/serverClock'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
-import { missingSteps } from './lib/abschluss'
-import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen } from './lib/abschlussOpen'
+import { useAbschluss } from './lib/useAbschluss'
+import { useRowMediaUpload } from './lib/useRowMediaUpload'
+import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
-import { prepareUploadImage } from './lib/imagePrep'
-import { forgetLocalThumb, mintLocalThumb } from './lib/mediaUrl'
+import { mintLocalThumb } from './lib/mediaUrl'
 import { whenIdle } from './lib/idle'
 
 const prefs = loadPrefs()
@@ -248,9 +241,6 @@ function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
  *  it. Shared by the Rapportangaben logger and the Kroki symbol-edit logger — both write on
  *  every keystroke, and both would otherwise produce one row per character. */
 const META_LOG_SETTLE_MS = 4000
-/** how long the Gebäude stack waits for its frame to be measured off the pages before it comes up
- *  with the untrimmed one (lib/floorPackBinding · trimmedPackFrame) */
-const PACK_TRIM_MS = 4000
 
 /** Is the caret in a free-text Rapportangabe right now? Read off the `[data-sync]` markers the
  *  ReportPreflight puts on every synced field (its own focus bookkeeping runs on the same
@@ -1848,225 +1838,26 @@ export function IncidentWorkspace({
   // «offen» for ever, while the identically-labelled path through the Rapport stamped and
   // counted. Two doors into one room are fine; two doors with the same sign into different rooms
   // are not. The confirm and the open-point count live HERE, above both of them.
-  const abschlussMissing = useMemo(
-    () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
-    [reportMeta, attendance, mittel],
-  )
-  /** How many Trupps are still recorded as being out there (lib/atemschutz · truppStillDeployed).
-   *  NOT an ABSCHLUSS_STEP: those are the Rapport's Mindestangaben, and this is a state of the
-   *  Einsatz rather than an empty field — it rides beside them in the confirm, the way pending
-   *  media does. */
-  const truppsStillOut = useMemo(() => trupps.filter(truppStillDeployed).length, [trupps])
-  /** The moment every Trupp clock is read against once the Einsatz is abgeschlossen — after that
-   *  no more time passes on this Einsatz, and a board that kept counting was describing a
-   *  situation that had ended (see AtemschutzView · `frozenAt`).
-   *
-   *  ⚠️ The EINSATZENDE, not `closed_at`: the record is often closed the morning after, and
-   *  freezing on that would have counted the night as Einsatzzeit — the very number this fixes.
-   *  `closed_at` is the fallback for an Einsatz archived without one ever being entered. */
-  const azFrozenAt = useMemo(() => {
-    if (!incidentMeta.is_archived) return undefined
-    const at = Date.parse(reportMeta.endedAt ?? incidentMeta.closed_at ?? '')
-    return Number.isFinite(at) ? at : undefined
-  }, [incidentMeta.is_archived, incidentMeta.closed_at, reportMeta.endedAt])
-  /* ⚠️ …and the ALARM stops with the clocks. It is not a display: it plays a tone and posts an OS
-     notification, and it ran off the live clock regardless of the Einsatz's state — so opening a
-     closed Akte with a Trupp that was never reported out started an überfällig alarm about a
-     crew that went home hours ago. `active: false` stops the tone and reports a silent state, so
-     the TopBar chip and the NavRail dot go quiet with it. Replay was already excluded for the
-     same reason: a read-only past does not alarm. */
-  const azMonitoring = !replayActive && !incidentMeta.is_archived
-  /** Resolves TRUE when the Einsatz was actually handed over for closing — the Rapport uses that
-   *  to decide whether to forget its scroll position, and a cancelled confirm must not. */
-  const confirmAndComplete = useCallback(async (): Promise<boolean> => {
-    const A = appConfig.copy.abschluss
-    const P = appConfig.copy.preflight
-    // ⚠️ Pending media belongs in this list. The Abschluss closes the incident, and a Foto or a
-    // Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
-    // about to walk away, so that is part of what they are confirming.
-    /* ⚠️ A Trupp that was never reported out belongs on this list (04.09.). It is not a missing
-       Angabe — that is what `abschlussMissing` collects — but a fact about the Einsatz being
-       closed over it: nobody said the crew came back, and from here on the board freezes at the
-       Einsatzende, so this is the last moment anybody is asked. The Abschluss still goes through
-       («Trotzdem abschliessen»), and it writes nothing by itself: closing an Einsatz must never
-       put an Austritt on the record that nobody reported.
-       ⚠️ Pending media belongs here too. The Abschluss closes the incident, and a Foto or a
-       Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
-       about to walk away, so that is part of what they are confirming. */
-    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount)
-    // …and it counts as an open point for the WORDING, the way a missing Angabe does: the message
-    // and the button both have to say that something is being closed over.
-    const anyOpen = points.some(countsAsOpen)
-    const ok = await confirmDialog({
-      title: A.confirmTitle,
-      message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
-      // ⚠️ Every row is a LINK, exactly as the print warning's rows are (lib/abschlussOpen).
-      // Naming a gap on the last screen before the Akte closes and leaving the operator to hunt
-      // for it is the same failure the «noch offen» chips fixed on the sheet itself. Tapping one
-      // resolves the ask false — going there is not going ahead.
-      items: abschlussOpenItems(points, {
-        step: (st) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
-        trupps: () => { setMode('atemschutz'); setPanel(null) },
-        media: () => setOfflineReadyOpen(true),
-      }),
-      note: anyOpen ? A.confirmMsg : undefined,
-      // the button names what is actually about to happen — closing an Einsatz with open points
-      // is allowed, and the label is where that is said out loud
-      confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
-    })
-    if (!ok) return false
-    // ⚠️ Drain the media queue FIRST, from here. The Abschluss closes the incident and App then
-    // drops what has already gone up (clearUploadedMedia) — and an upload also has to patch its
-    // Verlauf row's blob: URL to the server one (useMediaQueue · onUploaded), which needs this
-    // workspace and its journal store, both gone after the handover.
-    await media.flush().catch(() => {})
-    // …and the answer is the REAL outcome, not the firing of the request: App reports whether
-    // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
-    // (offline, server error) instead of being forgotten for an Einsatz that is still open.
-    return onCompleteRapport()
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen])
+  const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
+    reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
+    setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+  })
 
-  // upload a captured photo/audio blob and swap the timeline row's session blob: URL for the
-  // persistent server URL (so history keeps the media). On failure the blob is persisted to the
-  // offline queue so the capture survives a reload and re-uploads when connectivity returns.
-  /**
-   * Upload ONE picture of a row that may carry several, and swap that picture's local blob: URL
-   * for the server URL — by value, not by field: a row with three photos must not lose two of
-   * them because the third finished uploading. Failures keep the blob: entry, which the Rapport
-   * preflight already counts as pending media.
-   */
-  const uploadPhotoForRow = useCallback(async (rowId: string, localUrl: string) => {
-    if (!canWriteRecord) return
-    let blob: Blob
-    try {
-      blob = await (await fetch(localUrl)).blob()
-    } catch { return }
-    blob = await prepareUploadImage(blob)
-    try {
-      const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', `photo-${rowId}`)
-      swapPhoto(rowId, localUrl, url)
-      forgetLocalThumb(localUrl) // the chip reads the server's small copy from here on
-    } catch {
-      // queue THIS picture (keyed by its own blob: URL) — a row-wide key made each photo of a
-      // multi-photo row evict the previous one, losing every capture but the last while offline
-      await media.enqueue(rowId, 'photo', blob, `photo-${rowId}`, new Date().toISOString(), localUrl)
-    }
-  }, [incidentMeta.id, canWriteRecord, media, swapPhoto])
-
-  const uploadMediaForRow = useCallback(async (rowId: string, localUrl: string, kind: 'photo' | 'audio') => {
-    if (!canWriteRecord) return
-    let blob: Blob
-    try {
-      blob = await (await fetch(localUrl)).blob()
-    } catch { return /* the blob: URL is already gone — nothing to persist */ }
-    // A photo is re-encoded BEFORE the first attempt (and therefore before it is queued): the
-    // server takes jpeg/png/webp only and a phone hands over a 4–12 MB HEIC, so the upload used
-    // to 4xx, retry forever from the offline queue, and the picture quietly never reached the
-    // printed Rapport. See lib/imagePrep.
-    if (kind === 'photo') blob = await prepareUploadImage(blob)
-    try {
-      const { url } = await uploadMedia(incidentMeta.id, blob, kind, `${kind}-${rowId}`)
-      swapRowMedia(rowId, kind, url, localUrl)
-    } catch {
-      // offline / server error — keep the blob for later instead of losing it this session
-      await media.enqueue(rowId, kind, blob, `${kind}-${rowId}`, new Date().toISOString(), kind === 'photo' ? localUrl : undefined)
-    }
-  }, [incidentMeta.id, canWriteRecord, media, swapRowMedia])
-
-  /**
-   * Rapport-Beilagen: add one or more photos that belong to the REPORT (an ID document, a damage
-   * close-up). The row appears immediately with a local blob: URL and swaps to the server URL when
-   * the upload lands — same shape as a journal photo, so an offline KP can still assemble the
-   * Rapport and the picture catches up. A failed upload leaves the blob: row, and the preflight
-   * says «noch nicht hochgeladen» beside it rather than pretending it will print.
-   */
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
    *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
   const rememberOneShotRef = useRef<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => () => void>(() => () => {})
-  /** what the list says right now, for the handlers that have to read a row before changing it */
-  const attachmentsRef = useRef(attachments); attachmentsRef.current = attachments
   /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
    *  letter (same window and the same reason as the Rapportangaben above). */
   const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
   /** …and the Gebäude-Drehung, which is a slider: one drag is one step (see onReorient). */
   const lastReorient = useRef<{ at: number; from: BuildingDoc; drop: () => void } | null>(null)
-  const addAttachments = useCallback((files: File[]) => {
-    if (!canWriteRecord) return
-    const at = new Date().toISOString()
-    for (const file of files) {
-      const id = newId('att')
-      const localUrl = URL.createObjectURL(file)
-      void (async () => {
-        // the Beilagen list shows a session thumbnail, never the camera file (lib/mediaUrl) —
-        // minted before the row appears, so the chip never renders without one
-        await mintLocalThumb(localUrl, file)
-        setAttachments((list) => [...list, { id, url: localUrl, at }])
-        emit('report.attachment.add', { id })
-        // ↶ takes the Beilage off again. ⚠️ The box, not a captured row: the upload swaps this
-        // row's `blob:` URL for the server one a moment later, and a ↷ that put the local URL
-        // back would restore a picture that exists on no other device and after no reload.
-        const kept: { row: ReportAttachment } = { row: { id, url: localUrl, at } }
-        rememberOneShotRef.current(
-          'rapport', appConfig.copy.preflight.attachmentAdded,
-          () => setAttachments((list) => { const cur = list.find((a) => a.id === id); if (cur) kept.row = cur; return list.filter((a) => a.id !== id) }),
-          () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list, kept.row])),
-        )
-        try {
-          // Re-encode first: the server takes jpeg/png/webp only and a phone hands over HEIC at
-          // 4–12 MB, so the raw file 4xx'd and the Beilage silently never printed (lib/imagePrep).
-          const blob = await prepareUploadImage(file)
-          const { url } = await uploadMedia(incidentMeta.id, blob, 'photo', file.name || 'beilage.jpg')
-          setAttachments((list) => list.map((a) => (a.id === id ? { ...a, url } : a)))
-          forgetLocalThumb(localUrl)
-        } catch (e) {
-          // NOT silent: an upload that failed means this Beilage will not be on the paper, and
-          // the operator has to hear that while they can still do something about it.
-          toast(fillTemplate(appConfig.copy.preflight.attachmentsFailed, { name: file.name || '' }), { icon: 'warn', tone: 'warn' })
-          console.warn('Beilage upload failed', e)
-        }
-      })()
-    }
-  }, [incidentMeta.id, canWriteRecord, setAttachments, emit])
-  const captionAttachment = useCallback((id: string, caption: string) => {
-    if (!canWriteRecord) return
-    // Stored AS TYPED. `.trim()` here ran on every keystroke, so the space you pressed was
-    // deleted before the next letter arrived — «Ausweis Lenker» came out «AusweisLenker» and a
-    // trailing space was impossible. Trimming belongs where the caption is USED (the print
-    // payload), not where it is being written.
-    const key = `caption:${id}`
-    const now = Date.now()
-    const prev = lastCaptionStep.current
-    // still the same Bildlegende, still being typed: take the standing step off the timeline and
-    // put back a wider one, so ↶ gives the caption the operator started from — not one letter.
-    const folding = prev?.key === key && now - prev.at <= REPORT_COALESCE_MS
-    const from = folding ? prev.from : attachmentsRef.current.find((a) => a.id === id)?.caption
-    if (folding) prev.drop()
-    const to = caption || undefined
-    setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: to } : a)))
-    const drop = rememberOneShotRef.current(
-      'rapport', appConfig.copy.preflight.attachmentCaptioned,
-      () => setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: from } : a))),
-      () => setAttachments((list) => list.map((a) => (a.id === id ? { ...a, caption: to } : a))),
-    )
-    lastCaptionStep.current = { key, at: now, from, drop }
-  }, [canWriteRecord, setAttachments])
-  const removeAttachment = useCallback((id: string) => {
-    if (!canWriteRecord) return
-    // confirm-with-undo, the standing rule for a one-shot that destroys something: the picture
-    // and its Bildlegende come back at the index they stood at, and the toast's «Rückgängig»
-    // drops the timeline entry so the act can never be taken back twice (see the Gebäude pair).
-    const index = attachmentsRef.current.findIndex((a) => a.id === id)
-    const row = attachmentsRef.current[index]
-    if (!row) return
-    setAttachments((list) => list.filter((a) => a.id !== id))
-    emit('report.attachment.remove', { id })
-    const restore = () => setAttachments((list) => (list.some((a) => a.id === id) ? list : [...list.slice(0, index), row, ...list.slice(index)]))
-    const drop = rememberOneShotRef.current(
-      'rapport', appConfig.copy.preflight.attachmentRemoved,
-      restore, () => setAttachments((list) => list.filter((a) => a.id !== id)),
-    )
-    undoToast(appConfig.copy.preflight.attachmentRemoved, () => { restore(); drop() })
-  }, [canWriteRecord, setAttachments, emit])
+  // the row media uploads and the Rapport-Beilagen — lib/useRowMediaUpload. ⚠️ The two refs go in
+  // as the REF OBJECTS: rememberOneShotRef is assigned much further down, and lastCaptionStep is
+  // reset by the remote hydrate above.
+  const { uploadPhotoForRow, uploadMediaForRow, addAttachments, captionAttachment, removeAttachment } = useRowMediaUpload({
+    incidentMeta, canWriteRecord, media, swapPhoto, swapRowMedia, attachments, setAttachments, emit,
+    rememberOneShotRef, lastCaptionStepRef: lastCaptionStep,
+  })
 
   // When the workspace sync recovers (server reachable again), drain any queued media too —
   // a stronger signal than the browser's `online` event, which fires on link-up not reach.
@@ -2226,310 +2017,14 @@ export function IncidentWorkspace({
     return (id: LayerId) => m.get(id) ?? true
   }, [mapLayers])
 
-  // --- Georeferenz: which plans are tied to the ground, and how ---------------------------------
-  // The fits themselves. Everything derived FROM them — a sheet's view of the Karte's objects,
-  // a sheet-drawn object's map body — lives in the store (lib/useObjectStore).
-  //
-  // ⚠️ `useGeorefStorage()` is what makes the memo below re-run. `georefForPlan` reads a module
-  // singleton synchronously, so a plan that was just linked has nothing else to tell React with.
-  useGeorefStorage()
-  // …and THIS is the dep that carries it: `saveStationPlanScales` replaces the singleton with a
-  // new object on every write, so its identity changes exactly when a reference does (and once
-  // more when the boot fetch lands). Read during render — it is a synchronous accessor.
-  const stationScales = getStationPlanScales()
-  // Every plan of this object that carries a usable fit, solved once per plan/pairs change. The
-  // aspect each fit is taken at is recovered from the plan's calibration — see georefTwins ·
-  // planAspect for why that is the right source and what happens when there is none.
-  const linkedPlans = useMemo(
-    // …plus whether the station APPROVED each fit, which is what lets an approved automatic
-    // alignment's Ebenen row read «Verknüpft» instead of «ungemessen» (18.09.2026)
-    () => georefPlans(planDocs, georefForPlan, (p) => planAspect(p, stationScales, planScale[p.id]), incidentBindingApproved),
-    [planDocs, planScale, stationScales],
-  )
-  // …the same fits, keyed for the unified-object bake (the store's writers read this through
-  // `getFits` — see the note there). aspect = widthM / scaleMPerU inverts planGroundWidthM.
-  // ⚠️ And whenever a fit REALLY changes, every baked map body is re-derived: a corrected
-  // georeference MOVES every symbol standing on that sheet, and correcting itself is the entire
-  // point of correcting a fit (tmp/design-unified-objects.md · «Reference change»).
-  //
-  // ⚠️ «Really» is what `fitSignature` measures, and it has to: `linkedPlans` is rebuilt by any
-  // render that touches planDocs or the station scales — including the one every hydrate causes —
-  // and re-baking on identity would mark the store dirty after a merge that changed nothing. Two
-  // devices with the same Einsatz open then push each other in a loop, wiping both undo stacks on
-  // every round (applyWorkspace drops them by design). The bake itself is no-op-safe too (see
-  // tacticalObjects · sameValue), so this is a belt beside that brace, not instead of it.
-  const bakedFits = useRef<string | null>(null)
-  /** …and the signature the RENDER was last derived at. ⚠️ Two refs, deliberately: a viewer
-   *  derives the picture but writes nothing into the record, so «what is on screen» and «what has
-   *  been baked» move independently. Sharing one ref put Stage 2 behind the read-only guard —
-   *  a Führungsansicht computed every sheet against an empty fits map and never re-ran. */
-  const shownFits = useRef<string | null>(null)
-  /** one retry for the station document before the first bake — see the note below */
-  const seedWaited = useRef(false)
-  /**
-   * The SHEETS that carried a fit at the last bake — so a reference that VANISHED can be told from
-   * one that merely changed. It has to be told: a vanished fit moves nothing at all (bakeGeoBody
-   * hands a record straight back when its plan has no fit), so `rebake` honestly reports 0 and the
-   * Verlauf would say nothing whatever about «Referenz zurücksetzen» — an act somebody performed
-   * on purpose, after which every symbol on that sheet is standing on a ground position nothing
-   * will correct again.
-   *
-   * ⚠️ By `georefKey`, not by plan id, and only for sheets STILL among this object's plans. Every
-   * Einsatzobjekt has a «Modul 2», so a drop measured on plan ids would read every object switch —
-   * and every plan the rail stops offering — as a reference somebody deleted.
-   */
-  const referencedSheets = useRef<ReadonlySet<string> | null>(null)
-  /** …and every SHEET this session has baked a fit for, at its last fit, with the landmark pairs
-   *  the OPERATOR had set — the whole difference between a reference arriving (a seed), «Referenz
-   *  angepasst» and «Blattform gemessen». See georefTwins · fitChange for why it is per sheet. */
-  const knownSheets = useRef<ReadonlyMap<string, SheetFit> | null>(null)
-  // The Gebäude stack on the ground (lib/stackFit): one more fit in the map, keyed by the stack's
-  // plan id, so its tile ink bakes onto the Karte and the Karte's objects land on their storey
-  // tile. It comes from the BUILDING, not from a station reference – so it stays out of the
-  // reference bookkeeping below (signature, Verlauf rows) and re-bakes silently on its own effect.
-  const packBinding = useMemo(() => building?.pack
-    ? buildingPackBinding(building, planBindings)
-    : planBindings.find((binding) => binding.objectId === activeObjectId && binding.floors?.length) ?? null,
-  [building, planBindings, activeObjectId])
-  const floorPack = useMemo(() => floorPackOf(packBinding ? [packBinding] : [], packBinding?.objectId), [packBinding])
-  useEffect(() => {
-    if (building?.pack && !building.pack.bindingId && packBinding && !readOnly) {
-      setBuilding({ ...building, pack: { ...building.pack, bindingId: packBinding.id } })
-    }
-  }, [building, packBinding, readOnly, setBuilding])
-  const stackFit = useMemo(() => (building ? stackGroundFit(building, floorPack?.fit) : null), [building, floorPack])
-  // A floor pack IS the Gebäude (decided 14.09.2026): the moment the object's binding carries
-  // floors and there is no stack yet, the stack comes up from the pack's pages – no footprint to
-  // pick, no outline. A machine seed like the binding itself, so no toast and no undo step; an
-  // operator's footprint stack (an older incident, or picked on purpose) is left alone.
-  useEffect(() => {
-    // …and a stack that came up BEFORE the frame was measured and the card fitted (16.09.2026)
-    // takes both, but ONLY while nothing is drawn on it: the frame and the band are what tile
-    // coordinates mean, so re-measuring under existing ink would move the ink. A stack somebody
-    // has already marked keeps the geometry it was marked on – for the whole Einsatz.
-    const upgrade = !!building?.pack && building.tileAR == null && !(board.gebaeude ?? []).length
-    if ((building && !upgrade) || !floorPack?.floors.length || !floorPack.aspect || readOnly) return
-    let alive = true
-    const names = packFloorNames(floorPack.floors)
-    const aspect = floorPack.aspect
-    // ⚠️ The frame is measured BEFORE the stack exists, not corrected afterwards: tile coordinates
-    // are relative to it, so a frame that moved under ink somebody had already drawn would take
-    // that ink with it. The measurement reads the pages (lib/floorPackBinding · trimmedPackFrame)
-    // and is bounded – offline, or a sheet that will not render, seeds the untrimmed frame after
-    // the timeout rather than leaving the Gebäude tile empty.
-    const seed = (frame: [number, number, number, number]) => {
-      if (!alive) return
-      const ringAspect = frameAspect(frame, aspect)
-      const pack = { bindingId: building?.pack?.bindingId ?? packBinding?.id, aspect, ...(frame.some((v, i) => v !== [0, 0, 1, 1][i]) ? { frame } : {}) }
-      // the card is as tall as the trimmed frame needs – no storey spends two thirds of its band
-      // on air any more (lib/footprint · bandAspect, 16.09.2026)
-      const tileAR = bandAspect(ringAspect)
-      setBuilding(building
-        ? { ...building, ringAspect, tileAR, pack }
-        : {
-            ring: [], rings: [], ringAspect, tileAR, pack,
-            floors: packStoreys(floorPack.floors),
-            ...(Object.keys(names).length ? { floorNames: names } : {}),
-          })
-    }
-    const fallback = setTimeout(() => seed(floorPack.frame), PACK_TRIM_MS)
-    void trimmedPackFrame(floorPack, regionInkBox)
-      .then((frame) => { clearTimeout(fallback); seed(frame) })
-      .catch(() => { clearTimeout(fallback); seed(floorPack.frame) })
-    return () => { alive = false; clearTimeout(fallback) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [building, floorPack, packBinding, readOnly, board.gebaeude?.length])
-  const fitsMap = useMemo(() => {
-    const m = new Map<string, PlanFit>(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
-    if (stackFit && building) m.set(gebaeudeDoc.id, { fit: stackFit, aspect: 1 / tileAspectOf(building), stack: { floors: building.floors } }) // aspect = width / height, like every sheet's
-    return m
-  }, [linkedPlans, stackFit, building])
-  const stackSig = stackFit && building ? `${fitSignature({ id: gebaeudeDoc.id, fit: stackFit, widthM: 0 } as Parameters<typeof fitSignature>[0])}|${building.floors.join(',')}` : ''
-  useEffect(() => {
-    planFitsRef.current = fitsMap
-    setFitsVersion((v) => v + 1)
-    if (!stackSig || readOnly || tacticalLocked) return
-    rebake({ checkpoint: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stackSig, readOnly, tacticalLocked])
-  useEffect(() => {
-    // ⚠️ ABOVE the guard, both of them. The fits and the version that carries them into the
-    // memos are what every surface RENDERS through (lib/useObjectStore · board); only writing
-    // derived geometry back into the record is an editor's privilege.
-    planFitsRef.current = fitsMap
-    // ⚠️ Taken FIRST, above every early return, because the taking is what disarms it. A refused
-    // write that changed no fit — a Massstab on some other plan — notifies this effect just the
-    // same, and a flag left standing there would have made the operator's NEXT real correction
-    // read as a rollback (lib/stationPlanScale · takeRolledBackStationWrite).
-    const rolledBack = takeRolledBackStationWrite()
-    const sig = linkedPlans.map(fitSignature).join('|')
-    if (sig !== shownFits.current) { shownFits.current = sig; setFitsVersion((v) => v + 1) }
-    if (sig === bakedFits.current) return
-    // A viewer derives nothing INTO the record. The baked signature stays unrecorded with it, so
-    // a session that later becomes editable (replay left) still gets its bake.
-    if (readOnly || tacticalLocked) return
-    // ⚠️ The SEED bake is not a correction. A blob written before the store existed simply gains
-    // its map bodies; nothing moved from anywhere, so there is no step to take back and nothing
-    // to tell the Verlauf — and the same holds for every sheet whose reference ARRIVES later. A
-    // later change of a KNOWN sheet's fit is the operator correcting the reference, and that
-    // MOVES every symbol on that sheet — one undo step and one row for the
-    // lot, because it was one gesture (tmp/design-unified-objects.md · «Reference change»).
-    const seeding = bakedFits.current === null
-    // ⚠️ The seed bake WRITES ground positions into the record, derived from a station document
-    // that is a module singleton — empty until the boot load resolves, and empty again when that
-    // load found nothing anywhere. Baking out of the second would store a picture built on a
-    // reference nobody has read. So the first bake waits for a real answer; the load notifies,
-    // which re-runs this effect. Offline (or after a failed retry) the cache is the honest
-    // answer and the bake proceeds — once, so a dead network cannot spin here.
-    if (seeding && !stationPlanScalesLoaded() && !seedWaited.current) {
-      seedWaited.current = true
-      void loadStationPlanScales()
-      return
-    }
-    // ⚠️ …and WHY it changed, which the row and the ↶ caption must not guess: a hand corrected the
-    // reference, or the app measured the sheet and re-solved the SAME pairs in a truer shape. Both
-    // move every symbol on that sheet; only one of them is something somebody did.
-    // ⚠️ Decided PER SHEET (23.09.2026): after a remount the plans, their keys and the bindings
-    // arrive one by one, and read as one signature over the rail every arrival was «Referenz
-    // angepasst». A sheet this session never baked is a seed; only a known sheet whose fit
-    // changed is a change, and only ITS objects are counted (georefTwins · fitChange).
-    const change = fitChange(sheetFits(planDocs, linkedPlans, georefForPlan), seeding ? null : knownSheets.current, rolledBack)
-    const { cause } = change
-    bakedFits.current = sig
-    knownSheets.current = change.known
-    const C_LOG = appConfig.copy.log
-    // ⚠️ Which of the four causes somebody PERFORMED — the one question that decides both the ↶
-    // and the row, answered in one place beside the cause itself (georefTwins · fitChangeUndoLabel).
-    const undoLabel = fitChangeUndoLabel(cause)
-    stepLabel.current = undoLabel
-    /**
-     * ⚠️ THE RE-BAKE EMITS NO EVENTS, and that is the decided answer rather than an omission
-     * (phase 4). It moves n map bodies at once, so the two obvious alternatives are:
-     *
-     *   · n `entity.move` rows — which would put n placements into the record that nobody made.
-     *     The stream is what the replay folds AND what the chain attests: «the operator moved 40
-     *     objects» is not what happened, «the reference was corrected» is, and the Verlauf already
-     *     says exactly that, once, above.
-     *   · one row of a new op type — which no fold could apply anyway. Re-deriving the positions
-     *     here would need a FIT, and the only fit a replay ever has is today's; applying it to
-     *     yesterday's record is the one thing the bake exists to make unnecessary (the map bodies
-     *     are baked at WRITE time precisely so the record is self-contained).
-     *
-     * So the SNAPSHOT carries it, which is what snapshots are for: this write marks the workspace
-     * dirty, the save that follows within the autosave window stores the blob, and the backend
-     * snapshots every save (backend · api/incidents · apply_workspace_put). Between the re-bake
-     * and that save — seconds — a scrub shows the pre-correction positions. Written down here
-     * because it is the one place the fold's coverage stops, and lib/replay's header points at it.
-     */
-    const moved = rebake({ checkpoint: !!undoLabel, count: (before, after) => movedOnSheets(before, after, change.changed) })
-    stepLabel.current = null
-    const row = fitChangeRow(cause, moved)
-    if (row) log('map', row, 'layer')
-
-    // …and the other half of a fit change: a reference that is GONE (see `referencedSheets`).
-    const { dropped, referenced } = referenceDelta(planDocs, linkedPlans.map((p) => p.id), referencedSheets.current)
-    referencedSheets.current = referenced
-    if (!seeding && dropped.size) {
-      // Nothing moved, so the row counts what STAYS: the objects drawn on that sheet keep the
-      // ground position the last fit gave them — last known truth, deliberately not marked stale
-      // (tmp/design-unified-objects.md · decision 2).
-      const kept = objects.reduce((n, o) => n + (o.sheet && dropped.has(o.sheet.planId) ? 1 : 0), 0)
-      log('map', kept ? fillTemplate(C_LOG.referenceDroppedKept, { n: kept }) : C_LOG.referenceDropped, 'layer')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkedPlans, readOnly, tacticalLocked])
-  // ⚠️ …and the one fit change the effect above CANNOT journal: a sheet with no fit linked BY
-  // HAND. To it that is a key arriving, like a plan that finished loading, and it stays silent
-  // for both (georefTwins · fitChange) — so the ACT reports it (lib/georefMode · the three commit
-  // points of `noteHandLink`) and the row is written here, once. Same guard as the re-bake: a
-  // device that may not write the tactical record (viewer, `el`, replay) writes no row about it.
-  // No undo of its own: the link's ↶ is whatever the act already had, and the row is append-only.
-  const handLinked = useRef<(georefKey: string, pairs: GeorefPair[]) => void>(() => {})
-  useEffect(() => {
-    handLinked.current = (georefKey, pairs) => {
-      if (readOnly || tacticalLocked) return
-      const row = handLinkRow(georefKey, pairs, {
-        plans: planDocs,
-        known: knownSheets.current,
-        aspectOf: (p) => planAspect(p, getStationPlanScales(), planScale[p.id]),
-        objects,
-        bake: (all, fits) => bakeAll(all, fits, appConfig.defaults.operationalLayerId),
-      })
-      if (row) log('map', row, 'layer')
-    }
+  // --- Georeferenz: which plans are tied to the ground, and how — lib/useGeorefFits -------------
+  // ⚠️ Called HERE, where the block stood: its effects must keep their place after the store's and
+  // the hydrate's. `log` is declared below and reaches it through `histSide` (assigned under it).
+  const { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, selectedPlanProjection, planLive } = useGeorefFits({
+    planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
+    planFitsRef, fitsVersion, setFitsVersion, stepLabelRef: stepLabel, histSide, readOnly, tacticalLocked, replayActive,
+    twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible,
   })
-  useEffect(() => {
-    setGeorefLinkedHandler((georefKey, pairs) => handLinked.current(georefKey, pairs))
-    return () => setGeorefLinkedHandler(null)
-  }, [])
-  const [georefPlanPreviews, setGeorefPlanPreviews] = useState<Record<string, string>>({})
-  useEffect(() => {
-    if (replayActive) return
-    let cancelled = false
-    for (const p of linkedPlans) {
-      if (!p.imageUrl || !twinPlanImageVisible(twinLayers, p.id) || georefPlanPreviews[p.id]) continue
-      const url = p.imageUrl.startsWith('/') || /^https?:/.test(p.imageUrl)
-        ? p.imageUrl
-        : `${import.meta.env.BASE_URL}${p.imageUrl}`
-      void planPreviewUrl(url, window.innerWidth, window.innerHeight).then((preview) => {
-        if (!cancelled) setGeorefPlanPreviews((cur) => cur[p.id] ? cur : { ...cur, [p.id]: preview })
-      }).catch(() => {})
-    }
-    return () => { cancelled = true }
-  }, [replayActive, linkedPlans, twinLayers, georefPlanPreviews])
-  const georefPlanRasters = useMemo(() => replayActive ? [] : linkedPlans.flatMap((p) => {
-    const url = georefPlanPreviews[p.id]
-    if (!url || !twinPlanImageVisible(twinLayers, p.id)) return []
-    const points = ([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] as const)
-      .map((pt) => { const c = p.fit.toMap(pt); return [c.lng, c.lat] as [number, number] })
-    return [{
-      id: p.id,
-      url,
-      opacity: (twinLayerOpacity[twinPlanImageLayerId(p.id)] ?? 55) / 100,
-      coordinates: points as [[number, number], [number, number], [number, number], [number, number]],
-    }]
-  }), [replayActive, linkedPlans, georefPlanPreviews, twinLayers, twinLayerOpacity])
-  // …and the other direction: what the Karte lends the OPEN sheet — the LIVE feed, and nothing
-  // else (everything that is a record arrives as the sheet's own anno through the store's board
-  // view). Only the raw lists travel: the Whiteboard projects and clips them against its own fit,
-  // which is solved at the aspect it has actually measured (lib/planProjection · liveOverlay,
-  // drawn by components/PlanLiveLayer).
-  const activeLinkedPlan = linkedPlans.find((p) => p.id === activePlanId) ?? null
-  /** Which linked sheet DRAWS the selected object — the active one first, so «auf Plan zeigen»
-   *  goes where the operator is looking. It is the sheet's own board view that answers, because
-   *  that view IS what the sheet draws (projections included). */
-  const selectedPlanProjection = useMemo(() => {
-    if (!selectedId) return null
-    const ordered = [...linkedPlans].sort((a, b) => Number(b.id === activePlanId) - Number(a.id === activePlanId))
-    for (const plan of ordered) {
-      const anno = (board[plan.id] ?? []).find((a) => a.id === selectedId)
-      if (anno && anno.x != null && anno.y != null) return { plan, pt: { x: anno.x, y: anno.y } }
-    }
-    return null
-  }, [board, selectedId, linkedPlans, activePlanId])
-  /**
-   * The live feed this sheet draws — vehicles and shared responder positions, projected and
-   * clipped against the plan's own fit (lib/planProjection · liveOverlay).
-   *
-   * ⚠️ This is ALL that is lent to a sheet now. Everything else the Karte holds is an object,
-   * and an object arrives in the sheet's own `annos` through the store's board view — drawn,
-   * selected, edited and deleted with the sheet's native chrome. A GPS fix is the one thing that
-   * cannot: nothing placed it, so there is nothing for the sheet to own.
-   *
-   * ⚠️ Hidden during replay, and only that: the vehicle feed is the present tense, and a past
-   * picture must not carry it. The objects around it come from the recorded blob instead.
-   */
-  const planLive = useMemo(() => {
-    if (replayActive || !activeLinkedPlan) return []
-    const plan = planFitsRef.current.get(activeLinkedPlan.id)
-    if (!plan) return []
-    const feed = [
-      ...(isVisible(appConfig.gps.layerId) ? liveVehicles : []),
-      ...livePeople.people,
-    ]
-    return liveOverlay(feed, plan)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replayActive, activeLinkedPlan, liveVehicles, livePeople.people, isVisible, fitsVersion])
 
   // The journal is append-only: every action pushes a row, and nothing ever edits
   // or removes one — undo/redo log their own lines. So the stream stays a faithful
@@ -3254,9 +2749,8 @@ export function IncidentWorkspace({
 
   // --- keyboard shortcuts ---------------------------------------------------------------------
   // Duplicate the current selection (Cmd/Ctrl+D) — a small nudge so the copy is visibly offset and
-  // separately selectable. Single symbol/shape/note OR single drawing; live GPS markers can't be
-  // copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
-  const DUP_OFFSET = 0.00008 // ~6–9 m in WGS84 at Swiss latitudes
+  // separately selectable (lib/duplicate). Single symbol/shape/note OR single drawing; live GPS
+  // markers can't be copied. Multi-select duplicate isn't wired (rare; would need per-item id remap).
   const duplicateSelection = () => {
     // tacticalLocked, not readOnly: the drawing branch below used to duplicate for real in the
     // Führungsansicht, where readOnly is false.
@@ -3265,7 +2759,7 @@ export function IncidentWorkspace({
       const src = doc.entities.find((e) => e.id === selectedId)
       if (!src || src.live || !Array.isArray(src.coord)) return
       const id = newId('p')
-      const copy: Entity = { ...src, id, coord: [src.coord[0] + DUP_OFFSET, src.coord[1] - DUP_OFFSET] }
+      const copy = duplicateEntity(src, id)
       commit((d) => ({ ...d, entities: [...d.entities, copy] }))
       setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('entity.add', { id, entity: copy })
@@ -3273,7 +2767,7 @@ export function IncidentWorkspace({
       const src = doc.drawings.find((dr) => dr.id === selectedDrawingId)
       if (!src) return
       const id = newId('sh')
-      const copy: Drawing = { ...src, id, coords: src.coords.map(([x, y]) => [x + DUP_OFFSET, y - DUP_OFFSET] as LngLat) }
+      const copy = duplicateDrawing(src, id)
       commit((d) => ({ ...d, drawings: [...d.drawings, copy] }))
       setSelectedDrawingId(id); setSelectedId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('draw.add', { id, kind: src.kind, drawing: copy })
@@ -3298,73 +2792,38 @@ export function IncidentWorkspace({
   // live handlers/state without re-subscribing — the latest-ref pattern.
   useEffect(() => { hotkeyRef.current = (e: KeyboardEvent) => {
     if (isTypingTarget(document.activeElement)) return
-    // a modal sheet owns the screen — its own focus trap / Esc handle keys; stay inert behind it.
-    if (settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || shareLink || composerOpen) return
-    const cmd = resolveHotkey(e)
-    if (!cmd) return
-    // An alignment session owns navigation on every form factor. The hidden NavRail must not
-    // have a keyboard back door to another module or surface; only its own Karte/Modul pair
-    // remains reachable until the operator deliberately finishes or cancels the task.
-    if (georefActive && cmd.type === 'module') {
-      e.preventDefault()
-      const target = planDocs.find((p) => moduleNumbers(p).includes(cmd.n))
-      if (target?.id === georefMode.planId) georefDispatch({ type: 'goPlan' })
-      return
-    }
-    if (georefActive && cmd.type === 'nav') {
-      e.preventDefault()
-      return
-    }
-    if (georefActive && cmd.type === 'surface') {
-      e.preventDefault()
-      if (cmd.surface === 'map') georefDispatch({ type: 'goMap' })
-      return
-    }
-    const onMap = mode === 'map', onPlan = mode === 'plans', drawing = onMap || onPlan
-    switch (cmd.type) {
-      case 'module': e.preventDefault(); goToModule(cmd.n); break
-      case 'surface': e.preventDefault(); if (cmd.surface !== mode) clearMapUi(); setMode(cmd.surface); break
-      case 'nav': e.preventDefault(); goToNav(cmd.dir); break
-      case 'fit':
-        e.preventDefault()
-        if (onPlan) planFit.current?.(); else if (onMap) centerIncident()
-        break
-      // ⚠️ The keyboard reaches the SAME one timeline the header pair does, and no longer routes
-      // by surface: Cmd-Z means «take back the last thing that happened», wherever it happened.
+    // WHERE the key goes is lib/hotkeyRoute's table (pure, tested there); this only carries it out
+    const { action: a, prevent } = routeHotkey(resolveHotkey(e), {
+      // a modal sheet owns the screen — its own focus trap / Esc handle keys; stay inert behind it.
+      modalOpen: !!(settingsOpen || paletteOpen || pickerOpen || helpOpen || installGuideOpen || offlineReadyOpen || shareLink || composerOpen),
+      mode, georefPlanId: georefActive ? georefMode.planId : null,
+      moduleTargetId: (n) => planDocs.find((p) => moduleNumbers(p).includes(n))?.id,
+      tacticalLocked, replayActive, readOnly, linkScoped,
+    })
+    if (prevent) e.preventDefault()
+    switch (a.type) {
+      case 'georef': georefDispatch({ type: a.go }); break
+      case 'module': goToModule(a.n); break
+      case 'surface': if (a.clear) clearMapUi(); setMode(a.surface); break
+      case 'nav': goToNav(a.dir); break
+      case 'fitPlan': planFit.current?.(); break
+      case 'centerMap': centerIncident(); break
       // No caption — a keyboard user is not asking a button what it did.
-      case 'undo': e.preventDefault(); stepHistory('undo'); break
-      case 'redo': e.preventDefault(); stepHistory('redo'); break
-      // both drawing surfaces duplicate their own single selection; every other surface has
-      // nothing Cmd+D could mean (A22 — the key used to resolve and then do nothing on the Plan)
-      case 'duplicate':
-        if (onMap) { e.preventDefault(); duplicateSelection() }
-        else if (onPlan) { e.preventDefault(); planKeys.current?.duplicate() }
-        break
-      case 'tool':
-        // a locked surface keeps the keys for the tools it still shows (D = Messen, V = Auswahl)
-        if (!drawing || (tacticalLocked && !isMapReadOnlyTool(cmd.tool)) || replayActive) break
-        e.preventDefault()
-        if (onMap) pick(cmd.tool); else planKeys.current?.pickTool(cmd.tool)
-        break
-      case 'panel':
-        switch (cmd.panel) {
-          case 'journal': e.preventDefault(); setJournalOpen((v) => !v); break
-          case 'composer': if (!readOnly && !linkScoped) { e.preventDefault(); setComposerOpen(true) } break
-          case 'layers': if (onMap) { e.preventDefault(); togglePanel('layers') } break
-          case 'settings': if (!linkScoped) { e.preventDefault(); setSettingsOpen(true) } break
-          case 'help': e.preventDefault(); setHelpOpen(true); break
-        }
-        break
-      case 'view':
-        switch (cmd.view) {
-          case 'zoomIn': e.preventDefault(); if (onPlan) planKeys.current?.zoom(1.3); else mapRef.current?.zoomIn(); break
-          case 'zoomOut': e.preventDefault(); if (onPlan) planKeys.current?.zoom(1 / 1.3); else mapRef.current?.zoomOut(); break
-          case 'locate': if (onMap) { e.preventDefault(); setLocateReq((n) => n + 1) } break
-          case 'coord': if (onMap) { e.preventDefault(); coord.cycle() } break
-          // «Nach Norden» has no key — the compass button carries it on every form factor and
-          // R went to the Rapport surface (see lib/hotkeys)
-        }
-        break
+      case 'undo': stepHistory('undo'); break
+      case 'redo': stepHistory('redo'); break
+      case 'duplicateMap': duplicateSelection(); break
+      case 'duplicatePlan': planKeys.current?.duplicate(); break
+      case 'toolMap': pick(a.tool); break
+      case 'toolPlan': planKeys.current?.pickTool(a.tool); break
+      case 'journal': setJournalOpen((v) => !v); break
+      case 'composer': setComposerOpen(true); break
+      case 'layers': togglePanel('layers'); break
+      case 'settings': setSettingsOpen(true); break
+      case 'help': setHelpOpen(true); break
+      case 'zoomPlan': planKeys.current?.zoom(a.factor); break
+      case 'zoomMap': if (a.dir === 'in') mapRef.current?.zoomIn(); else mapRef.current?.zoomOut(); break
+      case 'locate': setLocateReq((n) => n + 1); break
+      case 'coord': coord.cycle(); break
     }
   } })
 

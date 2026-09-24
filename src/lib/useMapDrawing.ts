@@ -7,6 +7,7 @@ import type { Drawing, LineAttachment, LineEndpoint, LngLat, TimelineEvent } fro
 import { confirmDialog, toast } from './ui'
 import { fillTemplate } from './format'
 import { newId } from './ids'
+import { canDropVertex, insertAt, minPoints, removeVertex } from './vertexOps'
 
 // same settle window as the workspace's noteEntityEdit / Rapportangaben logger
 // (IncidentWorkspace · META_LOG_SETTLE_MS) — a burst of taps on the editor is one row
@@ -84,11 +85,11 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const commitDraft = () => {
     // node-mode line: ≥2 tapped vertices → a line (createLine drops into Select itself)
     if (tool === 'line') {
-      if (draft.length >= 2) { const coords = draft; const attachments = draftAttachments; setDraft([]); createLine(coords, attachments); return }
+      if (draft.length >= minPoints('line')) { const coords = draft; const attachments = draftAttachments; setDraft([]); createLine(coords, attachments); return }
       setDraft([]); return
     }
     // node-mode area: ≥3 tapped vertices → a Fläche (createArea drops into Select itself)
-    if (draft.length >= 3) { const coords = draft; setDraft([]); createArea(coords); return }
+    if (draft.length >= minPoints('area')) { const coords = draft; setDraft([]); createArea(coords); return }
     setDraft([])
   }
   // create an area from a finished ring — the node-tapped draft, or a measured Fläche taken over
@@ -134,7 +135,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   // into a Fläche or stays a Linie. The path is already thinned by the gesture hook, so an area
   // drawn with a finger arrives with the same handful of editable nodes a tapped one has.
   const onFreehand = (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => {
-    if (tool === 'area') return coords.length >= 3 ? createArea(coords) : null
+    if (tool === 'area') return coords.length >= minPoints('area') ? createArea(coords) : null
     return createLine(coords, attachments)
   }
   const setDraftPointAttachment = (attachment?: LineAttachment) => {
@@ -177,7 +178,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // tab lock lost, Führungsansicht) this session may no longer write, and createLine/createArea
     // would rightly refuse — so the honest outcome is the discard toast, never a silent drop.
     const committable = !tacticalLocked
-      && ((wasTool === 'area' && coords.length >= 3) || (wasTool === 'line' && lineMode === 'nodes' && coords.length >= 2))
+      && ((wasTool === 'area' && coords.length >= minPoints('area')) || (wasTool === 'line' && lineMode === 'nodes' && coords.length >= minPoints('line')))
     if (!committable) {
       toast(C.draftDiscarded, { icon: 'info' })
       return
@@ -343,14 +344,14 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const insertDrawingVertex = (id: string, index: number, c: LngLat) => {
     if (tacticalLocked) return
     const dr = drawings.find((x) => x.id === id); if (!dr) return
-    const coords = [...dr.coords]; coords.splice(index, 0, c)
+    const coords = insertAt(dr.coords, index, c)
     emit('draw.edit', { id, patch: { coords } }); commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, coords } : x)) }))
   }
   const deleteDrawingVertex = (id: string, index: number) => {
     if (tacticalLocked) return
     const dr = drawings.find((x) => x.id === id); if (!dr) return
-    if (dr.coords.length <= (dr.kind === 'area' ? 3 : 2)) return // keep a drawable shape
-    const coords = dr.coords.filter((_, j) => j !== index)
+    if (!canDropVertex(dr.kind, dr.coords.length)) return // keep a drawable shape
+    const coords = removeVertex(dr.coords, index)
     emit('draw.edit', { id, patch: { coords } }); commit((d) => ({ ...d, drawings: d.drawings.map((x) => (x.id === id ? { ...x, coords } : x)) }))
   }
   /**
@@ -442,7 +443,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   }
 
   // ✓ enabled when the draft is committable: an area needs ≥3 points, a node-mode line ≥2
-  const draftActive = (tool === 'area' && areaMode === 'nodes' && draft.length >= 3) || (tool === 'line' && lineMode === 'nodes' && draft.length >= 2)
+  const draftActive = (tool === 'area' && areaMode === 'nodes' && draft.length >= minPoints('area')) || (tool === 'line' && lineMode === 'nodes' && draft.length >= minPoints('line'))
   // node-mode line taps seed the draft (like the area/measure tools), so the freehand gesture is off
   const lineNodes = tool === 'line' && lineMode === 'nodes'
   /**
