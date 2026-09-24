@@ -80,6 +80,30 @@ describe('useVehiclePositions polling', () => {
     unmount()
   })
 
+  it('sleeps while the page is hidden, and neither fetches nor goes stale; fresh at once on return', async () => {
+    const setHidden = (hidden: boolean) => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+    // a fresh Response per round: a body can be read once
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify([gpsPos(1)]), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { result, unmount } = renderHook(() => useVehiclePositions())
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      act(() => setHidden(true))
+      await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000) })
+      expect(fetchMock).toHaveBeenCalledTimes(1) // nobody is looking
+      act(() => setHidden(false))
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(fetchMock).toHaveBeenCalledTimes(2) // the return round, at once
+      // the hidden spell was a pause, not a frozen fleet: no degraded symbols on the way back
+      await act(async () => { await vi.advanceTimersByTimeAsync(15_000) })
+      expect(result.current.stale).toBe(false)
+    } finally { unmount(); setHidden(false) }
+  })
+
   it('stops polling for good when the deployment has no Traccar (503)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 503 }))
     vi.stubGlobal('fetch', fetchMock)

@@ -615,8 +615,13 @@ export class WorkspaceSync {
     }
   }
 
-  /** Queue a save. Writes the offline cache immediately; flushes to server debounced. */
-  save(workspace: Workspace) {
+  /** Queue a save. Writes the offline cache immediately; flushes to server debounced.
+   *
+   *  `keepTimer`: a push already armed stays at its time instead of restarting the debounce. For
+   *  a save the caller made without comparing (useIncidentSync's mid-gesture skip): those can
+   *  arrive faster than the debounce indefinitely — a caret left in a field while other state
+   *  churns — and restarting it on each held the push back for as long as the churn lasted. */
+  save(workspace: Workspace, { keepTimer = false }: { keepTimer?: boolean } = {}) {
     if (this.disposed) return
     this.saveSeq++
     // Stamp the editing session NOW (the enqueue moment), so the debounced write can't be
@@ -625,12 +630,15 @@ export class WorkspaceSync {
     this.entry = { ...this.entry, workspace, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined }
     this.writeCache()
     this.setStatus('pending')
-    this.armDebounce()
+    this.armDebounce(keepTimer)
   }
 
-  private armDebounce() {
-    if (this.timer) clearTimeout(this.timer)
-    this.timer = setTimeout(() => void this.run(), this.debounceMs)
+  private armDebounce(keepTimer = false) {
+    if (this.timer) {
+      if (keepTimer) return
+      clearTimeout(this.timer)
+    }
+    this.timer = setTimeout(() => { this.timer = null; void this.run() }, this.debounceMs)
   }
 
   /** Await the shared attempt and any newer edit rebased onto its successful response.

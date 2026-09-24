@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { forwardRef, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
@@ -69,6 +69,12 @@ const handleZ: React.CSSProperties = { zIndex: MARKER_Z.selected }
 // be mirrored here. When a label's CSS changes, these change with it — each is named for the
 // rule it comes from.
 const NO_LABELS: ReadonlySet<string> = new Set()
+/** the `measurePoints` default — a module constant, so an absent prop keeps ONE identity and the
+ *  memoized measure source below is not rebuilt on every render */
+const NO_POINTS: LngLat[] = []
+
+/** a circle drawing as a closed polygon ring (LngLat[]) for rendering / selection outline. */
+const circleRing = (d: Drawing): LngLat[] => circlePolygon(d.coords[0], d.radiusM ?? 0)[0] as LngLat[]
 /** How far a press on a RESTING end tag may travel and still count as a tap. The drag deadzone
  *  (8px) is the wrong ruler for a finger: a gloved 3am tap wanders further than that, and every
  *  one of those was silently dropped — which is why a tag nobody's marker covered («50 · S · +1 ·
@@ -414,7 +420,7 @@ export const autoCoarseFixWanted = (staticView: boolean): boolean => !staticView
 export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const { entities, layers, byName, symMul = 1, captionMode = 'off', onCaptionSuppressionChange, initialCenter, initialZoom = 17.6, initialBearing = 0, fitPoints, staticView = false, locateNonce = 0, preparedOverlays, isVisible, selectedId, onSelect, onMapClick, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, truppSeverities, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, ghostTrails, onGhostTrail, onTeamUnlink, onTeamUndock,
     readOnly = false, drawings: storedDrawings, drawingsVisible, draft, draftKind, placing, onDraftDrag, onDraftInsert, onDraftDelete, onDraftPointAttachment, draggable, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onRotate, onShapeTransform,
-    onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = [], measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
+    onView, onBasemapUnavailable, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
     onSelectionDone, georefPlanRasters = [] } = props
@@ -621,7 +627,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // that endpoint as temporarily free (its own attachment ignored) — this makes attached branch
   // lines follow the node live (move + carry) instead of snapping only on release. The other
   // endpoint keeps its attachment.
-  const attachmentLines: AttachableLine<LngLat>[] = storedDrawings
+  // ⚠️ This chain (attachmentLines → resolvedCoords → drawings, relationship) is MEMOIZED
+  // (perf sweep 23.09.2026): it was rebuilt on every render of the parent, so every GeoJSON
+  // source below got a fresh object and react-map-gl deep-compared all of it per render. Each
+  // step keeps its identity until one of its real inputs moves — which is what lets the sources
+  // (drawFC, arrowFC, editFC …) keep theirs.
+  const attachmentLines = useMemo((): AttachableLine<LngLat>[] => storedDrawings
     .filter((d) => d.kind === 'line' && d.coords.length >= 2)
     .map((d) => {
       const drag = endpointDrag?.id === d.id ? endpointDrag : null
@@ -632,14 +643,20 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         startAttachment: drag.endpoint === 'start' ? undefined : d.startAttachment,
         endAttachment: drag.endpoint === 'end' ? undefined : d.endAttachment,
       }
-    })
+    }), [storedDrawings, endpointDrag])
   /* ⚠️ No mirrored-magnet list any more. A plan-drawn Hydrant IS an entity on this map now
      (lib/tacticalObjects), so it offers itself to a Leitung end through the ordinary object
      targets below — and the attachment names an object in the SAME document, which is what the
      stored id always claimed and, until the store was unified, could not keep. */
-  const resolvedCoords = new globalThis.Map<string, LngLat[]>()
+  // ⚠️ Screen-space work (project → glyph boundary → unproject), yet keyed on the CAMERA STATE
+  // (zoom, bearing), not on the live camera: with pitch locked at 0 a pan is a pure translation of
+  // screen space, so the geo point it lands on does not depend on the centre. zoom/bearing are the
+  // values the glyph sizes were already read from, and they land on moveend — the same moment the
+  // map bumps a render so this re-resolves (bumpLabelFrame).
+  const resolvedCoords = useMemo(() => {
+  const resolved = new globalThis.Map<string, LngLat[]>()
   const objectPoint = (id: string, toward: LngLat, attachment: import('../types').LineAttachment, source: AttachableLine<LngLat>): LngLat | null => {
-    const map = mapInst.current
+    const map = mapReady ? mapInst.current : null
     const e = entities.find((x) => x.id === id)
     if (!e || !map || !Array.isArray(e.coord)) return attachment.gps?.lastSafe ?? null
     let center = e.coord
@@ -658,25 +675,28 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return [ll.lng, ll.lat]
   }
   const linePoint = (target: AttachableLine<LngLat>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: LngLat): LngLat => {
-    const map = mapInst.current
+    const map = mapReady ? mapInst.current : null
     if (!map || !(endpoint === 'end' && target.teilstueck) || attachment.port == null || target.points.length < 2) return resolved
     const p = map.project(resolved), q = map.project(target.points[target.points.length - 2])
     const port = forkPortPoint([p.x, p.y], [q.x, q.y], target.width ?? 4, attachment.port)
     const ll = map.unproject(port)
     return [ll.lng, ll.lat]
   }
-  for (const l of attachmentLines) resolvedCoords.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
+  for (const l of attachmentLines) resolved.set(l.id, resolveLinePoints(l, { lines: attachmentLines, objectPoint, linePoint }))
+  return resolved
+  }, [attachmentLines, entities, zoom, bearing, symMul, mapReady])
   // ⚠️ not seeded from a selected TRUPP marker (15.09.): its hose's other end lit up the symbol
   // the water comes from, which read as «that thing is selected» beside the pill. A selected
   // Leitung still shows what it hangs on, which is what the network halo is for.
-  const relationship = relationshipNetwork(attachmentLines, selectedDrawingId ? [selectedDrawingId] : [],
-    selectedId && entities.find((e) => e.id === selectedId)?.kind !== 'team' ? [selectedId] : [])
+  const relationship = useMemo(() => relationshipNetwork(attachmentLines, selectedDrawingId ? [selectedDrawingId] : [],
+    selectedId && entities.find((e) => e.id === selectedId)?.kind !== 'team' ? [selectedId] : []),
+  [attachmentLines, selectedDrawingId, selectedId, entities])
   // resolvedCoords already carries the dragged endpoint at the finger position (attachmentLines
   // injects it above), so downstream consumers see the live drag without a second override.
-  const drawings: Drawing[] = storedDrawings.map((d): Drawing =>
-    resolvedCoords.has(d.id) ? { ...d, coords: resolvedCoords.get(d.id)! } : d)
-  const resolvedSelectedDrawing = selectedDrawing && resolvedCoords.has(selectedDrawing.id)
-    ? { ...selectedDrawing, coords: resolvedCoords.get(selectedDrawing.id)! } : selectedDrawing
+  const drawings = useMemo(() => storedDrawings.map((d): Drawing =>
+    resolvedCoords.has(d.id) ? { ...d, coords: resolvedCoords.get(d.id)! } : d), [storedDrawings, resolvedCoords])
+  const resolvedSelectedDrawing = useMemo(() => selectedDrawing && resolvedCoords.has(selectedDrawing.id)
+    ? { ...selectedDrawing, coords: resolvedCoords.get(selectedDrawing.id)! } : selectedDrawing, [selectedDrawing, resolvedCoords])
   const hiddenAttachmentTargets = selectedDrawing ? [selectedDrawing.startAttachment, selectedDrawing.endAttachment].flatMap((a) => {
     if (a?.target.kind !== 'object') return []
     const e = entities.find((x) => x.id === a.target.id)
@@ -1211,9 +1231,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // magnet and no attachments — those belong to a Leitung's ends»).
   const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand: !!freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
 
-  // a circle drawing as a closed polygon ring (LngLat[]) for rendering / selection outline.
-  const circleRing = (d: Drawing): LngLat[] => circlePolygon(d.coords[0], d.radiusM ?? 0)[0] as LngLat[]
-
   // a point on a circle's edge at a SCREEN direction (0 = top of the screen, 180 = bottom),
   // compensated for the live map `bearing` so the chip stays put relative to the screen as the
   // map rotates. (Was pinned to geographic north, so the radius readout swung off the top edge
@@ -1224,7 +1241,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return [center[0] + (radiusM * Math.sin(dir)) / mPerLon, center[1] + (radiusM * Math.cos(dir)) / 110540]
   }
 
-  const drawFC = fc(drawings.filter((d) => Array.isArray(d.coords) && d.coords.length > 0).map((d) => {
+  const drawFC = useMemo(() => fc(drawings.filter((d) => Array.isArray(d.coords) && d.coords.length > 0).map((d) => {
     // `truppTone` drives the Atemschutz halo below: '' unless a Trupp on this Leitung is due
     // or überfällig. Resolved here (not per frame) so the paint expression stays a plain lookup.
     const linked = d.kind === 'line' ? truppForLine(d, trupps ?? []) : undefined
@@ -1232,13 +1249,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const p = { id: d.id, color: d.color || DEFAULT_INK, width: d.width || 4, dashed: !!d.dashed, arrow: !!d.arrow, marker: d.marker || '', showDistance: !!d.showDistance, label: d.label || '', fillOpacity: d.fillOpacity ?? 0.14, hatch: !!d.hatch, networkDepth: relationship.depth.get(`line:${d.id}`) ?? -1, truppTone: tone === 'warn' || tone === 'crit' ? tone : '' }
     if (d.kind === 'circle') return polyFeat(circleRing(d), p)
     return d.kind === 'area' && d.coords.length >= 3 ? polyFeat(d.coords, p) : lineFeat(d.coords, p)
-  }))
+  })), [drawings, trupps, truppSeverities, relationship])
 
   // arrowheads: a Point per line carrying an `arrow` flag, placed at the LAST coord with
   // a `bearing` (deg, clockwise-from-north) derived from the final segment in a local
   // east/north frame (lng delta scaled by cos(lat)) so the rotation looks geographically
   // correct. Rendered by a symbol layer with a registered arrow icon.
-  const arrowFeats = drawings
+  const arrowFC = useMemo(() => fc(drawings
     .filter((d) => d.kind !== 'area' && d.arrow && Array.isArray(d.coords) && d.coords.length >= 2)
     .map((d) => {
       const n = d.coords.length
@@ -1248,8 +1265,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const dx = (bLng - aLng) * cosL, dy = bLat - aLat
       const bearing = (Math.atan2(dx, dy) * 180) / Math.PI // 0 = north, +clockwise
       return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || DEFAULT_INK, bearing, icon: d.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' } }
-    })
-  const arrowFC = fc(arrowFeats)
+    })), [drawings])
 
   // distance / free-text overlays pinned to each annotated line's midpoint (reuses the
   // measure-label HTML-marker pattern). Distance uses the SAME geodesic length the Measure
@@ -1561,11 +1577,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   }, [onCaptionSuppressionChange, suppressedCaptionKey])
 
   // the draft outline/fill; its vertices render as draggable Markers (not circles) below
-  const draftFC = fc(draft.length >= 2 ? [draftKind === 'area' && draft.length >= 3 ? polyFeat(draft) : lineFeat(draft)] : [])
+  const draftFC = useMemo(() => fc(draft.length >= 2 ? [draftKind === 'area' && draft.length >= 3 ? polyFeat(draft) : lineFeat(draft)] : []), [draft, draftKind])
   // measure path: line / polygon only — the vertices are draggable Markers, not circles
-  const measureFC = fc(measurePoints.length >= 2
+  const measureFC = useMemo(() => fc(measurePoints.length >= 2
     ? [measureKind === 'area' && measurePoints.length >= 3 ? polyFeat(measurePoints) : lineFeat(measurePoints)]
-    : [])
+    : []), [measurePoints, measureKind])
 
   // editing a selected drawing: show draggable vertex handles + a move handle.
   // read-only never gets handles: the app's edit callbacks are no-ops there, so grabbable-looking
@@ -1605,7 +1621,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const editInserts = editNodes && editDraw && editDraw.coords.length >= 2
     ? handleGaps(editHandleIdx, editDraw.coords.length, editArea).map(([a, b]) => subPathInsert(editDraw.coords, a, b))
     : []
-  const editFC = fc(editDraw ? [editCircle ? polyFeat(circleRing(editDraw)) : editArea ? polyFeat(editDraw.coords) : lineFeat(editDraw.coords)] : [])
+  const editFC = useMemo(() => fc(editDraw ? [editCircle ? polyFeat(circleRing(editDraw)) : editArea ? polyFeat(editDraw.coords) : lineFeat(editDraw.coords)] : []), [editDraw, editCircle, editArea])
   const editCentroid: LngLat | null = editDraw
     ? [editDraw.coords.reduce((s, c) => s + c[0], 0) / editDraw.coords.length,
        editDraw.coords.reduce((s, c) => s + c[1], 0) / editDraw.coords.length]
@@ -1937,17 +1953,17 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     }
     onMapClick(placeMagnet ? placedCoord(lc) : lc)
   }
-  const fhFC = fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : [])
+  const fhFC = useMemo(() => fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : []), [fhPath])
   // team trails: the dashed line through a Trupp's RECORDED positions (parity with the plan
   // board's ink polyline — the breadcrumb dots + timestamps stay DOM markers in MapMarkers)
-  const trailFC = fc(entities
+  const trailFC = useMemo(() => fc(entities
     .filter((e) => e.kind === 'team' && isVisible(effectiveLayer(e)) && (e.trail?.length ?? 0) >= 2 && !hiddenTrails.has(e.id))
-    .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), { color: e.color || appConfig.drawing.teamColors[0] })))
+    .map((e) => lineFeat((e.trail ?? []).map((p) => p.coord), { color: e.color || appConfig.drawing.teamColors[0] }))), [entities, isVisible, hiddenTrails])
   // …and the same dashed line for a ghost trail, in the neutral ink: the marker is gone, so the
   // Trupp's own colour would claim a Trupp that is not standing anywhere (lib/truppTrails).
-  const ghostTrailFC = fc((ghostTrails ?? [])
+  const ghostTrailFC = useMemo(() => fc((ghostTrails ?? [])
     .filter((g) => (g.geo?.length ?? 0) >= 2)
-    .map((g) => lineFeat((g.geo ?? []).map((p) => p.coord), { color: GHOST_TRAIL_INK })))
+    .map((g) => lineFeat((g.geo ?? []).map((p) => p.coord), { color: GHOST_TRAIL_INK }))), [ghostTrails])
   // Vehicle tracks from Traccar — their own layer, off by default, and only polled while it is
   // switched on. Distinct from the Trupp trails above: those are positions the operator recorded
   // by hand, these are recorded by the vehicles themselves.

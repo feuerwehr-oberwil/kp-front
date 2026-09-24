@@ -95,6 +95,9 @@ export interface ObjectStore {
   commit: (updater: (d: Doc) => Doc) => void
   beginDrag: () => void
   endDrag: () => void
+  /** a hand is mid-gesture on either surface: a Karte drag (`beginDrag`) or a plan step
+   *  (`beginSheetStep`) is open. Read live — for the save path (useIncidentSync · gestureOpen). */
+  gestureOpen: () => boolean
   undo: () => boolean
   redo: () => boolean
   canUndo: boolean
@@ -356,8 +359,9 @@ export function useObjectStore(
    * like `foreignReporter` above — a child's layout effect that writes must reach this render's
    * store, not the last one's.
    */
-  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake })
-  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake }
+  const gestureOpen = () => store.dragging() || sheetStep.current !== null
+  const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen })
+  impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen }
   // ⚠️ Every forwarder spreads the WHOLE parameter list, typed off the public signature, and
   // carries no cast: a hand-written `(a) => …` behind an `as` silently dropped `setBoard`'s
   // `{ gesture }` (24.09.2026), and tsc could not say so. Add an option to a writer and it
@@ -373,6 +377,8 @@ export function useObjectStore(
     undo: (...args: Parameters<ObjectStore['undo']>) => impl.current.undo(...args),
     redo: (...args: Parameters<ObjectStore['redo']>) => impl.current.redo(...args),
     rebake: (...args: Parameters<ObjectStore['rebake']>) => impl.current.rebake(...args),
+    // read by the save path (useIncidentSync) per sample: a drag or an open plan step
+    gestureOpen: () => impl.current.gestureOpen(),
   }), [])
 
   return {

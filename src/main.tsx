@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { initServiceWorker } from './lib/swUpdate'
 import { initInstallPrompt } from './lib/installPrompt'
 import { installGlobalErrorReporting } from './lib/reportError'
-import App from './App'
+// maplibre's stylesheet BEFORE app.css, as it was when App was a static import: app.css overrides
+// `.maplibregl-*` at equal specificity, and a lazy chunk's CSS would otherwise land after it.
+import 'maplibre-gl/dist/maplibre-gl.css'
 import './fonts.css'
 import './app.css'
 import { AuthProvider, useAuth } from './lib/auth'
@@ -20,6 +22,7 @@ import { requestPersistentStorage } from './lib/idb'
 import { applyLocale } from './config/copy'
 import { ensureErg } from './lib/erg'
 import { ensureUnHazard } from './lib/unHazard'
+import { whenIdle } from './lib/idle'
 
 // zoom applies only to the map/plan, not the UI chrome (app feel, not a web page)
 lockChromeZoom()
@@ -50,6 +53,22 @@ initServiceWorker()
 // fire early and is lost if nothing listens) — the InstallGuide then offers one-tap install.
 initInstallPrompt()
 
+// The field app itself (App → IncidentWorkspace → MapView → maplibre, ~2 MB of script) is a
+// lazy chunk too, so the capture poster (/e/) and /admin no longer download and parse it — the
+// entry used to import it statically, which also made index.html modulepreload maplibre on
+// EVERY route (perf sweep 23.09.2026). ⚠️ No extra round trip for the field app: the import is
+// kicked off HERE, at module evaluation, for every route that will mount it (the main route and
+// the link door, whose LinkApp imports App statically), so the chunk downloads in parallel with
+// the boot awaits below (IDB migration, /api/config, locale) instead of after them. `lazy()`
+// then resolves from the same, already-settled module promise.
+const loadApp = () => import('./App')
+// eslint-disable-next-line react-refresh/only-export-components -- the entry is never hot-swapped
+const App = lazy(loadApp)
+const bootPath = window.location.pathname
+/** the routes that mount the field app: everything but the capture poster and /admin */
+const fieldRoute = !bootPath.startsWith('/e/') && !bootPath.startsWith('/admin')
+if (fieldRoute) void loadApp()
+
 // Admin surface: an unlinked /admin route loaded as its OWN lazy chunk so field
 // users (the overwhelming majority of loads) never download any admin code. The
 // Suspense fallback reuses the same boot Splash as the auth Gate below.
@@ -74,7 +93,7 @@ function Gate() {
   return (
     <>
       <DemoRibbon />
-      {loading ? <Splash /> : !user ? <LoginScreen /> : <App />}
+      {loading ? <Splash /> : !user ? <LoginScreen /> : <Suspense fallback={<Splash />}><App /></Suspense>}
     </>
   )
 }
@@ -133,9 +152,12 @@ void (async () => {
     // Prefetch the hazard reference datasets (ADR table + ERG — static assets since they
     // left the entry bundle, see lib/staticData). Deliberately NOT awaited: nothing on the
     // boot path may block first paint, and the surfaces re-render when they land
-    // (lib/useHazardData).
-    void ensureUnHazard()
-    void ensureErg()
+    // (lib/useHazardData). ⚠️ On IDLE, and only where the field app mounts (perf sweep
+    // 23.09.2026): fetching and parsing ~660 KB of JSON right before createRoot competed with
+    // the first render, and the capture poster and /admin never read a UN number at all. The
+    // idle callback fires in the first quiet moment after first paint (2 s at the latest), and
+    // both files are precached, so offline they land exactly as before.
+    if (fieldRoute) whenIdle(() => { void ensureUnHazard(); void ensureErg() })
   } catch (e) {
     // Boot init must never white-screen the kiosk: fall through to defaults and render.
     console.error('Boot init failed (continuing with defaults):', e)

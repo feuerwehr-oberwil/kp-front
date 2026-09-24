@@ -319,9 +319,14 @@ export default defineConfig(({ mode }) => {
           // chunk, so the entry statically imported the whole 470 KB of pdf.js to reach it
           // and index.html modulepreloaded it on every boot (profiling 11.09.2026). After
           // editing this block check `dist/index.html`: it must not preload a pdfjs chunk.
+          // ⚠️ The group takes maplibre's SCRIPT only (23.09.2026). Its stylesheet is imported by
+          // main.tsx, ahead of app.css, so the cascade stays what it always was (app.css overrides
+          // `.maplibregl-*` at equal specificity) now that the field app is a lazy chunk — and a
+          // group that also matched the .css pulled the entry into depending on the maplibre
+          // chunk, which put its 790 KB modulepreload back into index.html on every route.
           codeSplitting: {
             groups: [
-              { name: 'maplibre', test: /\/node_modules\/maplibre-gl\// },
+              { name: 'maplibre', test: /\/node_modules\/maplibre-gl\/.*\.js$/ },
             ],
           },
         },

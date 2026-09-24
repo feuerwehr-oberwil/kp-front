@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { formatTime } from './format'
 import { xmlEscape } from './svg'
 import { useFeedPoll } from './useFeedPoll'
+import { visibleInterval } from './visibleInterval'
 
 const cfg = appConfig.gps
 
@@ -203,6 +204,9 @@ export function useVehiclePositions(): VehiclePositionsApi {
   // own — `setError` with an identical message re-renders nothing — so without this the map
   // would never notice it had frozen. Written to be a no-op while healthy: returning `prev`
   // unchanged makes React bail out, so an idle map stays genuinely idle.
+  // ⚠️ Paused with the feed while the page is hidden, and NOT run on the way back: the feed
+  // sleeps too (useFeedPoll), so a hidden spell would otherwise read as a frozen fleet, and the
+  // symbols came back degraded for a cadence before the return round's data could clear them.
   useEffect(() => {
     const evaluate = () => {
       const last = lastOkRef.current
@@ -215,8 +219,7 @@ export function useVehiclePositions(): VehiclePositionsApi {
         return { stale, ageMs }
       })
     }
-    const id = window.setInterval(evaluate, cfg.pollMs)
-    return () => window.clearInterval(id)
+    return visibleInterval(evaluate, cfg.pollMs, { leading: false })
   }, [])
 
   return useMemo(() => {
