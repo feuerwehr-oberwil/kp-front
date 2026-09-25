@@ -724,6 +724,22 @@ to prod.
   Edit a station's config as code: `cd backend && uv run python -m app.admin_config
   <schema|example|validate|diff|load>`; it's served at `GET /api/config` and applied at boot to
   override `appConfig` defaults.
+- **The Lage-Grundgerüst is station doctrine that PLACES, never configures** (24.09.2026,
+  post-mortem 23.09.: 65 minutes, no Zufahrt/Absperrung/Wasserbezug on the Karte). A card on the
+  Karte lists what the incident's Einsatzart needs (`lib/lageGrundgeruest`,
+  `components/LageGrundgeruestCard`); each row is a symbol or a line preset, ticked when one exists
+  on the Karte OR any plan, and its only acts are the ordinary ones — arm the place tool, or «hier
+  setzen» through the same `placeSymbolAt` a Karte tap uses (one undo step, the usual Verlauf row).
+  «auf die Karte übernehmen» for a plan-ANCHORED match is the anchor flip a drag makes
+  (`useObjectStore · reanchorToKarte`) — the same record, never a twin. Suggestions come only from
+  the incident's OWN location (never the station default centre) and the fresher incident copy.
+  Nothing is written until the operator places something; it is never a block. The lists are the
+  deployment config `lageGrundgeruest` (a shipped preset from `backend/app/data/lage_grundgeruest/`
+  + per-Einsatzart replacements, `/admin › Lage-Grundgerüst`, `admin_config presets|example
+  --section`), and the presets are served beside the document (`lageGrundgeruestPresets`,
+  response-only). A slot's `symbol` must be in the pack and its `linie` in
+  `backend/app/lage_grundgeruest · LINE_PRESETS` — a Vitest pins that list and the category labels
+  to their frontend twins. Add a line preset a slot should name ⇒ add its label there too.
 - **Integration credentials are settable from `/admin`, encrypted, and read through an
   accessor — never off `settings`.** Divera / Traccar / VAPID / STT / CARTO / the two webhook secrets /
   the print-agent secret / `HEALTHCHECK_PING_URL` live in `integration_credentials`

@@ -39,6 +39,10 @@ interface MapDrawingDeps {
    *  drag-off. Handed up with the coupling it HAD, so the workspace can drop the Trupp link that
    *  coupling made (useTruppActions · unlinkLineFromDetachedTrupp). */
   onLineDetached?: (lineId: string, previous: LineAttachment) => void
+  /** Names the undo step the NEXT commit lays — called just before a drawing is created, with the
+   *  same words its Verlauf row gets («Zufahrt gezeichnet»), so the ↶ says what it takes back
+   *  instead of «Änderung auf der Karte» (IncidentWorkspace · stepLabel). */
+  nameStep?: (label: string) => void
 }
 
 /**
@@ -56,8 +60,10 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const {
     drawings, resolvedDrawings = drawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
-    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached,
+    setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds, onLineAttached, onLineDetached, nameStep,
   } = deps
+  /** «Zufahrt gezeichnet» — the Verlauf row's words, and the undo step's */
+  const drawnName = (drawing: Drawing) => fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) })
 
   const [draft, setDraftRaw] = useState<LngLat[]>([])
   const [draftAttachments, setDraftAttachments] = useState<{ startAttachment?: LineAttachment; endAttachment?: LineAttachment }>({})
@@ -100,8 +106,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     // carry the dock's colour/width/dash so the area-tool style controls actually apply
     // (parity with the line tool + the Plan area tool); still fully editable in the DrawEditor.
     const drawing: Drawing = { id, kind: 'area', coords, color: drawColor, width: drawWidth, dashed: drawDashed }
+    nameStep?.(drawnName(drawing))
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-    log('area', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'area', drawing })
+    log('area', drawnName(drawing), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'area', drawing })
     // drop into Select with the new area active so its reshape/move/rotate handles are
     // immediately usable (mirrors symbol/shape placement). Staying in 'area' would keep
     // draftKind set, which suppresses the edit handles → the area looks uneditable.
@@ -120,10 +127,11 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       id, kind: 'line', coords, color: drawColor, width: drawWidth, dashed: drawDashed || undefined,
       ...(drawMarker ? { marker: drawMarker } : {}), ...(drawArrow ? { arrow: true } : {}), ...attachments,
     }
+    nameStep?.(drawnName(drawing))
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
     // named by drawingLogName, so «Rettungsachse gezeichnet» opens what «Rettungsachse gelöscht»
     // closes — before 31.08. every line, whatever it was drawn with, opened on «Zeichnung erstellt»
-    log('pen', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'line', drawing })
+    log('pen', drawnName(drawing), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'line', drawing })
     // a stroke that ENDED on a Trupp's marker is that Trupp's Leitung — reported for both ends,
     // because either of them may be the coupling (see MapDrawingDeps · onLineAttached)
     for (const a of [attachments?.startAttachment, attachments?.endAttachment]) if (a) onLineAttached?.(id, a)
@@ -148,8 +156,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
   const createCircle = (center: LngLat, radiusM: number) => {
     const id = newId('d')
     const drawing: Drawing = { id, kind: 'circle', coords: [center], radiusM, color: appConfig.drawing.circleColor, dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity }
+    nameStep?.(drawnName(drawing))
     commit((d) => ({ ...d, drawings: [...d.drawings, drawing] }))
-    log('circle', fillTemplate(appConfig.copy.log.shapeDrawn, { name: drawingLogName(drawing) }), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'circle', drawing })
+    log('circle', drawnName(drawing), 'symbol', undefined, undefined, { subjectId: id }); emit('draw.add', { id, kind: 'circle', drawing })
     setTool('select'); setSelectedDrawingId(id); setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedId(null)
   }
   // (the preset row is gone — 09.09., «das ganze Stil-Ding»: a line's decorations are assembled

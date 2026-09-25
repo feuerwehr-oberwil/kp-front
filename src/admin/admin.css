@@ -1933,3 +1933,25 @@ body:has(.adm) .ui-menu-pos { z-index: var(--z-admin-overlay-menu); }
 @media (max-width: 720px) {
   .adm-pick { grid-template-columns: 1fr; }
 }
+
+/* ── Lage-Grundgerüst (admin/LageGrundgeruestSection) ─────────────────────────────────────── */
+/* the Einsatzart tabs and the «Einsatzart hinzufügen …» picker on one wrapping line */
+.agg-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.agg-addcat { min-width: 220px; }
+/* a customised Einsatzart wears a dot on its tab — the header counts them, the dot says which */
+.agg-dot { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%;
+  background: var(--amber); vertical-align: middle; }
+.agg-origin { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.agg-meta { display: inline-flex; align-items: center; gap: 8px; font-family: var(--body); }
+.agg-glyph { width: 26px; height: 26px; }
+.agg-glyph svg { width: 20px; height: 20px; }
+/* the row's neutral icon actions (↑ ↓ ✎) — the bin beside them keeps its red hover */
+.agg-btn { flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); cursor: pointer; }
+.agg-btn .i { width: 17px; height: 17px; }
+.agg-btn:disabled { opacity: var(--disabled); cursor: default; }
+.agg-btn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.agg-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { .agg-btn:not(:disabled):not(.on):hover { background: var(--fill-soft); color: var(--ink); } }
+.agg-up { transform: rotate(180deg); }
+.adm-rec > .adm-set-row:not(.span) > .adm-set-ctl > .adm-input.agg-metres { max-width: 120px; }

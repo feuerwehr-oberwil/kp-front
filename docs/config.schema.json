@@ -804,6 +804,139 @@
       "title": "JournalConfig",
       "type": "object"
     },
+    "LageGrundgeruestConfig": {
+      "description": "`lageGrundgeruest` — which shipped preset runs, and the Einsatzarten the station replaced.\n\n``{\"preset\": \"fks-standard\"}`` alone is a whole, valid answer (and the default). A key under\n``kategorien`` (an alarm keyword category, e.g. ``brandbekaempfung``) REPLACES that one\nEinsatzart of the preset; an empty list there means «no Grundgerüst for this Einsatzart».\nPresets: app/data/lage_grundgeruest/*.json; docs/CONFIGURATION.md §1e.\n\nA STORED document is read leniently (``context={\"stored\": True}``): a slot today's rules\nrefuse — a symbol renamed in a newer pack — is dropped and logged rather than taking the whole\nstation config down, like every other rule grown since a row was written (load_stored_config).",
+      "properties": {
+        "preset": {
+          "default": "fks-standard",
+          "title": "Preset",
+          "type": "string"
+        },
+        "kategorien": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/LageSlot"
+            },
+            "type": "array"
+          },
+          "title": "Kategorien",
+          "type": "object"
+        }
+      },
+      "title": "LageGrundgeruestConfig",
+      "type": "object"
+    },
+    "LageSlot": {
+      "description": "One row of a Lage-Grundgerüst: a thing the Karte should carry, and how to place it.\n\n``symbol`` (a name from public/tactical-symbols.json) XOR ``linie`` (a line preset label) —\nchecked against both vocabularies in ``lage_grundgeruest.check_slot_target``, with a\ndid-you-mean. ``optional`` rows are shown but never counted towards «fertig».",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "symbol": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol"
+        },
+        "linie": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linie"
+        },
+        "vorschlag": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LageVorschlag"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "LageSlot",
+      "type": "object"
+    },
+    "LageVorschlag": {
+      "description": "Where the Grundgerüst card suggests putting a slot's symbol — a starting point to drag.\n\nExactly one kind: ``{\"naechster\": \"hydrant\"}`` (the nearest point of the station's hydrant\nlayer, straight-line) or ``{\"wind\": \"auf\", \"m\": N}`` (N metres upwind of the Einsatzort, off\nthe incident's current weather). Absent = no suggestion; the row then only arms the tool.",
+      "properties": {
+        "naechster": {
+          "anyOf": [
+            {
+              "const": "hydrant",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Naechster"
+        },
+        "wind": {
+          "anyOf": [
+            {
+              "const": "auf",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wind"
+        },
+        "m": {
+          "anyOf": [
+            {
+              "maximum": 2000,
+              "minimum": 5,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "M"
+        }
+      },
+      "title": "LageVorschlag",
+      "type": "object"
+    },
     "MapConfig": {
       "properties": {
         "defaultView": {
@@ -1782,6 +1915,9 @@
     },
     "setup": {
       "$ref": "#/$defs/SetupConfig"
+    },
+    "lageGrundgeruest": {
+      "$ref": "#/$defs/LageGrundgeruestConfig"
     }
   },
   "title": "DeploymentConfigIn",

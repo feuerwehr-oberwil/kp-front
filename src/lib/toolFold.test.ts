@@ -20,8 +20,8 @@ describe('what the phone bar keeps', () => {
 
 describe('what moves into the «+» sheet', () => {
   // ⚠️ Notiz is `note` on the Karte and `text` on a Plan; Trupp is `team` and `resource`
-  it('is Linie · Fläche · Absperrkreis · Notiz · Trupp, on both surfaces', () => {
-    expect(addTools(MAP).map((t) => t.id)).toEqual(['line', 'area', 'circle', 'note', 'team'])
+  it('is Linie · Fläche · Absperrkreis · Notiz · Trupp (+ the Karte\'s Grundgerüst), on both surfaces', () => {
+    expect(addTools(MAP).map((t) => t.id)).toEqual(['line', 'area', 'circle', 'note', 'team', 'grundgeruest'])
     expect(addTools(PLAN).map((t) => t.id)).toEqual(['line', 'area', 'circle', 'text', 'resource'])
   })
 

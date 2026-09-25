@@ -29,6 +29,9 @@ interface Props {
   tools: readonly ToolDef[]
   /** the active tool id (lights its button) */
   active: string
+  /** entries lit for a state that is not the armed tool — a toggle whose thing is showing (the
+   *  Karte's «Grundgerüst» while its card is open). Lit, never armed: a tap still toggles it. */
+  lit?: readonly string[]
   onPick: (id: string) => void
   /** optional refs to each tool button, so a tool's option dock can top-align to it */
   toolRefs?: React.MutableRefObject<Record<string, HTMLButtonElement | null>>
@@ -64,7 +67,7 @@ const MAXW = 280
  *  wanting the words permanently is what the `railLabels` device pref is for. */
 let lastExpanded = false
 
-export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, footer, className, labels }: Props) {
+export function ToolRail({ primary, tools, active, lit, onPick, toolRefs, extras, footer, className, labels }: Props) {
   const [expanded, setExpandedState] = useState(lastExpanded)
   const setExpanded = (v: boolean) => { lastExpanded = v; setExpandedState(v) }
   const nav = appConfig.copy.navRail
@@ -100,7 +103,7 @@ export function ToolRail({ primary, tools, active, onPick, toolRefs, extras, foo
   // glyph, the word, the tooltip and the accessible name all say which state you are in.
   const toolButton = (t: ToolDef) => {
     const alt = t.alt && active === t.alt.id ? t.alt : null
-    const on = active === t.id || alt !== null
+    const on = active === t.id || alt !== null || !!lit?.includes(t.id)
     const shown = alt ?? t
     const target = alt ? t.id : (on && t.alt ? t.alt.id : t.id)
     return (
