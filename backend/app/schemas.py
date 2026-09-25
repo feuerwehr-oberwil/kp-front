@@ -1367,6 +1367,15 @@ class JournalConfig(BaseModel):
     quickPhrases: list[str] = Field(default_factory=list)
 
 
+class SucheConfig(BaseModel):
+    """The Suche (24.09.2026): `uebergabe` is the short list «weiter an» offers when a found
+    person is handed over (Rettungsdienst · Sammelplatz · Angehörige). Empty = the app's national
+    default; the operator can always type another."""
+
+    model_config = ConfigDict(extra="ignore")
+    uebergabe: list[str] = Field(default_factory=list)
+
+
 class ReportConfig(BaseModel):
     """Einsatzrapport form presets. `partnerOrgs` feeds the Partnerorganisationen
     checkbox row (paper Erfassungsblatt + rapport form quick-pick); free-text entries
@@ -1783,6 +1792,7 @@ class DeploymentConfigIn(BaseModel):
     # docs/CONFIGURATION.md says why, and says to copy the shipped file to add one keyword).
     alarmKeywords: AlarmKeywordsConfig | None = None
     report: ReportConfig = Field(default_factory=ReportConfig)
+    suche: SucheConfig = Field(default_factory=SucheConfig)
     # ⚠️ Declared HERE or it does not survive a save: every model in this document is
     # `extra="ignore"`, so an undeclared section is dropped on the next round-trip and the
     # station's folders vanish the first time anybody presses save in /admin.
