@@ -686,6 +686,11 @@ export const de = {
   exerciseBadge: 'Übung',
   keepPlacing: 'Mehrere platzieren',
   delete: 'Löschen',
+  /** ⚠️ The ONE word for taking a tactical object (Symbol, Notiz, Form, Linie, Fläche,
+   *  Absperrkreis, Truppmarker) off the picture — its panel's button, its confirm and its Verlauf
+   *  row («… entfernt»), since 25.09.2026. «gelöscht» now means only an extinguished Feuer
+   *  (objectDone); «Löschen» stays for records that are not on the picture (views, checklists). */
+  remove: 'Entfernen',
   undo: 'Rückgängig',
   // ⚠️ «Wiederherstellen», nicht «Wiederholen» (11.09.): «wiederholen» heisst, die Aktion NOCH
   // EINMAL auszuführen – im Verlauf stand hintereinander «Druck 280 bar rückgängig gemacht» und
@@ -1124,11 +1129,15 @@ export const de = {
      *  Zeile ohne Zahl, wie «Referenz entfernt». (georefTwins · handLinkRow) */
     referenceLinked: 'Plan mit Karte verknüpft – {plan}',
     referenceLinkedPlaced: 'Plan mit Karte verknüpft – {plan} – {n} Objekte verortet',
-    objectDeleted: '{name} gelöscht',
-    drawingDeleted: 'Zeichnung gelöscht',
+    /** ⚠️ «entfernt», nicht mehr «gelöscht» (25.09.2026): seit «Gelöscht / erledigt» (objectDone)
+     *  heisst «Feuer gelöscht» ein GELÖSCHTES Feuer. Ein Objekt, das von Karte oder Plan genommen
+     *  wird, ist «entfernt» – das Wort des Knopfs (copy · remove). Geschriebene Zeilen behalten
+     *  ihr «gelöscht» (append-only). */
+    objectDeleted: '{name} entfernt',
+    drawingDeleted: 'Zeichnung entfernt',
     // «Zeichnung entfernt» after a lasso selection over eleven objects isn't imprecise, it is
     // wrong – the singular claims there was only one.
-    selectionDeleted: '{n} Objekte gelöscht',
+    selectionDeleted: '{n} Objekte entfernt',
     duplicated: 'Objekt dupliziert',
     undo: 'Aktion rückgängig gemacht',
     redo: 'Aktion wiederhergestellt',
@@ -1197,9 +1206,8 @@ export const de = {
     /** der gesetzte Zustand im Editor und auf dem Rapport: «Erledigt 20:40» */
     state: '{word} {time}',
     reopen: 'Wieder aktiv',
-    /** ⚠️ «Entfernen», nicht «Löschen», auf jedem Symbol, das «Gelöscht / erledigt» kennt: neben
-     *  einem «gelöschten» Feuer hiesse «Löschen» das Gegenteil. Entfernen ist für die Fehleingabe. */
-    remove: 'Entfernen',
+    /** Der Knopf selbst heisst überall «Entfernen» (copy · remove); auf einem Symbol mit «Gelöscht /
+     *  erledigt» sagt dieser Hinweis, wofür er noch da ist: für die Fehleingabe. */
     removeHint: 'nur bei Fehleingabe',
     /** Verlauf: «Feuer EG gelöscht (20:40)» – was, wo, wann. Die Uhrzeit steht in Klammern, weil
      *  sie die Aussage ist (der Zeilenkopf ist der Moment des Tippens). */
@@ -2396,8 +2404,8 @@ export const de = {
     fallbackObjectName: 'Objekt',
   },
   notes: {
-    deleteTitle: 'Notiz löschen',
-    deleteMsg: 'Diese Notiz enthält Text. Wirklich löschen?',
+    deleteTitle: 'Notiz entfernen',
+    deleteMsg: 'Diese Notiz enthält Text. Wirklich entfernen?',
     // note styling — shared by the Karte map and the Plan whiteboard (same controls in the
     // armed-tool dock before placing and in the detail panel afterwards)
     section: 'Notiz',
@@ -2673,9 +2681,9 @@ export const de = {
     insertVertex: 'Punkt einfügen',
     dragVertex: 'Eckpunkt ziehen · gedrückt halten zum Löschen',
     dragRadius: 'Radius ziehen',
-    groupDeleteTitle: 'Auswahl löschen',
-    groupDeleted: 'Auswahl gelöscht',
-    groupDeletedN: '{n} Objekte vom Plan gelöscht',
+    groupDeleteTitle: 'Auswahl entfernen',
+    groupDeleted: 'Auswahl entfernt',
+    groupDeletedN: '{n} Objekte vom Plan entfernt',
     placeText: 'Notiz auf Plan gesetzt',
     placeSymbol: 'Symbol «{name}» auf Plan gesetzt',
     placeLine: 'Linie auf Plan gezeichnet',
@@ -3108,7 +3116,7 @@ export const de = {
     gpsPause: 'Folgen pausieren',
     hiddenTarget: 'Ziel ausgeblendet',
     revealTarget: 'Ebene einblenden',
-    removeConnectedTitle: '{name} löschen',
+    removeConnectedTitle: '{name} entfernen',
     removeConnectedMessage: '{n} Linien werden gelöst.',
     removeEMessage: 'Teilstück löschen? {n} angeschlossene Linien werden gelöst.',
   },

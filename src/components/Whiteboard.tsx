@@ -2037,7 +2037,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const ok = await confirmDialog({
       title: fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: target.label ?? target.text ?? appConfig.copy.drawingEditor.drawing }),
       message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return false
     const changed = new Set(affected.map((x) => x.a.id))
@@ -2102,7 +2102,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return rel && removable.includes(rel.target.id) ? [{ a, endpoint, rel }] : []
     }))
     if (affected.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     commit(annos.filter((a) => !removable.includes(a.id)).map((a) => {

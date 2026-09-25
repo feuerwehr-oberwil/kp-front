@@ -553,7 +553,7 @@ describe('ContextPanel — the Einsatzleiter pair', () => {
 // not because the object is protected — and its original's own panel offers Löschen.
 describe('ContextPanel — Löschen on an otherwise read-only panel', () => {
   // rendered twice on purpose (pinned footer + the phone's inline copy); CSS shows exactly one
-  const del = () => screen.queryAllByRole('button', { name: appConfig.copy.delete })
+  const del = () => screen.queryAllByRole('button', { name: appConfig.copy.remove })
 
   it('is hidden on a read-only panel, as it always was', () => {
     setup({ readOnly: true })
@@ -689,7 +689,7 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
     expect(row.closest('.ctx-body')?.firstElementChild).toBe(row)
     fireEvent.click(row)
     expect(p.onDone).toHaveBeenCalledWith(true)
-    expect(screen.getAllByRole('button', { name: O.remove }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
   })
 
@@ -701,13 +701,13 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
     expect(p.onDone).toHaveBeenCalledWith(false)
   })
 
-  it('a read-only panel states it and offers nothing; a surface that does not wire it keeps «Löschen»', () => {
+  it('a read-only panel states it and offers nothing; a surface that does not wire it has no row, and its delete is «Entfernen» too', () => {
     setup({ readOnly: true, onDone: vi.fn(), entity: { id: 's1', symbol: 'VKF Rettungen', done: { at: AT } } })
     expect(screen.getByText(new RegExp(`^${O.word.other.title} `))).toBeTruthy()
     expect(screen.queryByRole('button', { name: new RegExp(O.reopen) })).toBeNull()
     cleanup()
     setup()
     expect(screen.queryByRole('button', { name: new RegExp(O.action) })).toBeNull()
-    expect(screen.getAllByRole('button', { name: appConfig.copy.delete }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 })

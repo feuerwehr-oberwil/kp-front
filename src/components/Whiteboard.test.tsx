@@ -249,7 +249,7 @@ describe('the plan chip’s trash', () => {
   }
   const openTrash = () => {
     fireEvent.pointerDown(screen.getByText('Trupp 1'))
-    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.delete }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.remove }))
   }
 
   it('takes the chip off the sheet without asking — its Spur stays behind as a ghost', () => {
@@ -513,15 +513,15 @@ describe('Plan round 3 (29.08.)', () => {
     expect(container.querySelector('.wb-del')).toBeNull()
     // the ContextPanel opened by the same tap carries the delete — «Entfernen» on a symbol since
     // it also offers «Gelöscht / erledigt» (review item 21b)
-    expect(screen.getAllByRole('button', { name: appConfig.copy.objectDone.remove }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 
   it('opens a note’s panel on a plain TAP — the symbol grammar, no grips row', () => {
     const { container } = renderPlan([{ id: 'n1', kind: 'text', x: 0.5, y: 0.5, floor: 0, text: 'Hallo' }])
-    expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+    expect(screen.queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
     fireEvent.pointerDown(screen.getByText('Hallo'))
     expect(container.querySelector('.note-grips')).toBeNull()
-    expect(screen.getAllByRole('button', { name: appConfig.copy.delete }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
   })
 })
 
@@ -947,7 +947,7 @@ describe('the plan’s selection bar', () => {
   it('ends the editing state on «Fertig», and offers no trash at all', () => {
     const { container, onChange } = renderPlan([line])
     fireEvent.pointerDown(hitShape(container))
-    expect(within(bar()!).queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+    expect(within(bar()!).queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
     fireEvent.click(within(bar()!).getByRole('button', { name: appConfig.copy.done }))
     expect(bar()).toBeNull()
     // …and it deletes nothing on the way out
@@ -1662,7 +1662,7 @@ describe('«Gelöscht / erledigt» on the plan', () => {
 
   it('«Entfernen» writes the same removal row the Karte writes — once, about the object', async () => {
     const { onChange, log } = open([feuer])
-    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: O.remove })[0]) })
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.remove })[0]) })
     expect(lastSaved(onChange)).toEqual([])
     expect(log).toHaveBeenCalledTimes(1)
     expect(log.mock.calls[0][1]).toBe(fillTemplate(appConfig.copy.log.objectDeleted, { name: 'Feuer' }))

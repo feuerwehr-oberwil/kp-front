@@ -375,7 +375,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               popupClassName="de-menu-pop"
               itemClassName={() => 'de-menu-item'}
               trigger={
-                <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}>
+                <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}>
                   <Icon id="trash" />
                 </button>
               }
@@ -389,7 +389,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               ]}
             />
           ) : (
-            <button className="wb-pa wb-pa-del" title={appConfig.copy.delete} aria-label={appConfig.copy.delete}
+            <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}
               onClick={() => acts.remove()}><Icon id="trash" /></button>
           )}
         </div>

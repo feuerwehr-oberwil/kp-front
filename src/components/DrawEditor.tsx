@@ -232,7 +232,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
         </button>
       )}
-      <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>
+      <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.remove}</button>
     </div>
   )
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)

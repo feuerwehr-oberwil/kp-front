@@ -83,7 +83,7 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
   // («Marker und Spur löschen», Whiteboard) has to take that back when the ask was declined.
   const removeAnno = async (a: BoardAnno): Promise<boolean> => {
     if (a.kind === 'text' && a.text?.trim()) {
-      const ok = await confirmDialog({ title: appConfig.copy.notes.deleteTitle, message: appConfig.copy.notes.deleteMsg, confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.notes.deleteTitle, message: appConfig.copy.notes.deleteMsg, confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return false
     }
     remove(a.id)

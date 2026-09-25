@@ -179,7 +179,7 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 |---|---|---|---|
 | «Gelöscht / erledigt» (first row of a symbol's editor sheet) | «Feuer EG gelöscht (20:40)» – a Feuer is «gelöscht», every other symbol «erledigt» (`objectDone.logDone`), with the storey it stands on | `entity.edit` / `board.edit` with `{ done: {at, by?} }` | yes – one prop-edit step; the ↶ writes its own «… rückgängig gemacht» |
 | «Wieder aktiv» | «Feuer EG wieder aktiv» (`objectDone.logReopened`) | the same op with `{ done: null }` – `null`, because JSON drops `undefined` and the replay would fold an empty patch and keep the symbol grey | yes |
-| «Entfernen» (single object) on the **Plan** | «Feuer gelöscht» – the Karte's own `log.objectDeleted`, named the way the Karte names it (`drawingEdit · annoLogName`), carried as `subjectId` | `board.delete` | yes, as before |
+| «Entfernen» (single object) on the **Plan** | «Feuer entfernt» – the Karte's own `log.objectDeleted`, named the way the Karte names it (`drawingEdit · annoLogName`), carried as `subjectId` | `board.delete` | yes, as before |
 
 - **One act, one row.** Each row is written by the act's own handler (`IncidentWorkspace ·
   setEntityDone`, `Whiteboard · setAnnoDone` / `logRemoved`) and nowhere else: the store fold
@@ -188,12 +188,14 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 - **Replay stays coherent** because `done` is an ordinary prop: it rides the same `entity.edit` /
   `board.edit` the other symbol props ride, and the views carry it (the anno and the baked map
   body both hold it – `lib/tacticalObjects`).
-- **A group** of several removed on the Plan keeps «{n} Objekte vom Plan gelöscht»; a «group» of
+- **A group** of several removed on the Plan keeps «{n} Objekte vom Plan entfernt»; a «group» of
   one writes the single-object row. An empty Notiz writes nothing, as on the Karte.
-- ⚠️ **Known ambiguity, left open for a decision:** «Feuer gelöscht» (removed) and «Feuer EG
-  gelöscht (20:40)» (extinguished) share the verb. The row for the act carries the time in
-  brackets and the object stays on the picture; the removal row is the Karte's existing wording,
-  kept unchanged on purpose (the house rule «gelöscht wird ein Record»).
+- ⚠️ **The two acts never share a verb** (decided 2026-09-25). Every removal row – Karte and
+  Plan, every object kind – says «entfernt», the word of its button «Entfernen»: `objectDeleted`
+  «{name} entfernt», `drawingDeleted` «Zeichnung entfernt», `selectionDeleted` «{n} Objekte
+  entfernt», `groupDeleted` / `groupDeletedN` «Auswahl entfernt» / «{n} Objekte vom Plan
+  entfernt». «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
+  – the journal is append-only, and the Rapport prints the row text as written.
 
 ## What a Verlauf row can carry since 17.08.
 

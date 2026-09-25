@@ -284,9 +284,14 @@ to prod.
   row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
   reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
   **Deleting and creating belong in the same channel, on both surfaces**: a single object removed
-  on a Plan writes the Karte's «{name} gelöscht» (24.09.2026, `drawingEdit · annoLogName`, as a
+  on a Plan writes the Karte's «{name} entfernt» (24.09.2026, `drawingEdit · annoLogName`, as a
   `subjectId`, never a jump target), and «Gelöscht / erledigt» writes «Feuer EG gelöscht (20:40)» /
   «Feuer EG wieder aktiv» from the act itself — one row per act ([`docs/verlauf-coverage.md`](docs/verlauf-coverage.md)).
+  ⚠️ **The two acts never share a verb** (decided 25.09.2026): taking a tactical object off the
+  picture is «Entfernen» / «… entfernt» — button, confirm and Verlauf row, Karte and Plan, every
+  object kind (`copy · remove`, `log.objectDeleted` …) — so «gelöscht» only ever means an
+  extinguished Feuer. Rows already written keep their «gelöscht» (append-only). «Löschen» stays
+  for records that are not on the picture (an Ansicht, a Checkliste, a Trupp's Spur).
   The one accepted maintenance exception is whole-incident hard deletion through `/admin`:
   `DELETE /api/incidents/{id}` is deployment-admin-only, and a real Einsatz must already be
   archived (an Übung may be deleted in any state). It deliberately removes the full record and
@@ -327,8 +332,9 @@ to prod.
   turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
   swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
   two grips are icon-only and never re-flow mid-gesture. «Fertig» ends the editing state
-  (disarm + clear the selection + close its sheets); **«Löschen» is not on the bar** – an object
-  is deleted from its own editor sheet and with the Delete key, which on both surfaces reaches a
+  (disarm + clear the selection + close its sheets); **«Entfernen» is not on the bar** (it was
+  called «Löschen» until 25.09.2026) – an object is removed from its own editor sheet and with the
+  Delete key, which on both surfaces reaches a
   Mehrfach group and a mirrored selection too. On the object itself only **geometry** grips live:
   vertex, «+» midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own
   resize grips (its rotate knob left on 02.09.: the bar's ⟳ is the one way to turn a Form;
@@ -471,8 +477,8 @@ to prod.
     _place_symbol`, `DONE_ALPHA`). «Wieder aktiv» clears it; both are ordinary undoable prop edits,
     audited with `done: null` for the clear (JSON drops `undefined`, and the replay would keep it
     grey). A Feuer is «gelöscht», everything else «erledigt» (`appConfig.symbols.fireFamily`, one
-    copy key `objectDone.word`). Where the row is offered the footer's delete reads «Entfernen» —
-    for a mistake — and it writes the Karte's removal row on the Plan too. Symbols only: a
+    copy key `objectDone.word`). The footer's delete reads «Entfernen» — for a mistake — and it
+    writes the Karte's removal row («… entfernt») on the Plan too. Symbols only: a
     Fläche/Absperrkreis would need greyed ink on four renderers.
   - **Reference change or delete loses nothing.** Correcting a fit re-bakes every sheet-anchored
     object's map body — that correction is the whole point of correcting a fit — as ONE undo step

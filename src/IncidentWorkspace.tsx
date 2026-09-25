@@ -3001,7 +3001,7 @@ export function IncidentWorkspace({
       return a && ((a.target.kind === 'object' && ents.includes(a.target.id)) || (a.target.kind === 'line' && ids.includes(a.target.id))) ? [{ dr, endpoint, a }] : []
     }))
     if (affected.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     commit((d) => ({
@@ -3268,7 +3268,7 @@ export function IncidentWorkspace({
       const ok = await confirmDialog({
         title: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedTitle, { name: ent?.label ?? appConfig.copy.entities.fallbackObjectName }) : appConfig.copy.notes.deleteTitle,
         message: connected.length ? fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: connected.length }) : appConfig.copy.notes.deleteMsg,
-        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
       })
       if (!ok) return false
     }

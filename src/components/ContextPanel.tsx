@@ -671,9 +671,13 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
       {onPinGps && <button className="btn" onClick={onPinGps} title={C.pinGpsTitle}><Icon id="coords" />{C.pinGps}</button>}
       {onResetGps
         ? <button className="btn" disabled={!hasOverride} onClick={onResetGps} title={C.resetGpsTitle}><Icon id="compass" />{C.resetGps}</button>
-        : (!readOnly || allowDelete) && !onStopSharing && (onDone
-          ? <button className="btn warn" onClick={onDelete} title={appConfig.copy.objectDone.removeHint}><Icon id="close" />{appConfig.copy.objectDone.remove}</button>
-          : <button className="btn warn" onClick={onDelete}><Icon id="close" />{appConfig.copy.delete}</button>)}
+        // «Entfernen», the one word for taking a tactical object off the picture (25.09.2026) —
+        // «gelöscht» is what a Feuer becomes (objectDone), so it can no longer name this press
+        : (!readOnly || allowDelete) && !onStopSharing && (
+          <button className="btn warn" onClick={onDelete} title={onDone ? appConfig.copy.objectDone.removeHint : undefined}>
+            <Icon id="close" />{appConfig.copy.remove}
+          </button>
+        )}
     </div>
   )
 
