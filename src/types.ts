@@ -1006,6 +1006,15 @@ export interface Trupp {
    * the face of the card and the marker, and this is the small badge beside it.
    */
   no?: number
+  /**
+   * The numbers this Trupp carried BEFORE a merge gave its number to another device's Trupp,
+   * oldest first (lib/truppNumbers · resolveTruppNumbers, 25.09.2026). Written by the resolver
+   * alone, deterministically, so every device computes the same list. The Rapport's heading reads
+   * «Trupp 3 (zuerst Trupp 1)» from it, because the rows written before the change still say
+   * «Trupp 1»; the Verlauf marks those rows' «Trupp 1» as THIS Trupp (journalLinks · subjectId).
+   * Absent on every Trupp that was never renumbered.
+   */
+  formerNos?: number[]
   /** group leader's name = the Trupp title (also the linked plan chip's label) */
   name: string
   /** other team members (for the board card; the chip shows only the leader) */

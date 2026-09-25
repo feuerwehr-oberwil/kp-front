@@ -101,6 +101,47 @@ describe('resolveTruppNumbers — one number, one holder', () => {
     expect(resolveTruppNumbers([trupp('a', undefined, '2026-09-25T10:00:00Z'), trupp('b', undefined, '2026-09-25T10:00:01Z')], [])).toBeNull()
   })
 
+  it('a Trupp on the board keeps its number over one taken off it — even one that went in', () => {
+    const removed = trupp('gone', 2, '2026-09-25T10:00:00Z', { removedAt: '2026-09-25T10:05:00Z', entryTime: '2026-09-25T10:01:00Z' } as Partial<Trupp>)
+    const live = trupp('live', 2, '2026-09-25T10:00:09Z')
+    const r = resolveTruppNumbers([removed, live], [])!
+    expect(r.trupps.find((t) => t.id === 'live')!.no).toBe(2)
+    expect(r.trupps.find((t) => t.id === 'gone')!.no).toBe(3)
+  })
+
+  it('a renumbered Trupp remembers what it was called first (formerNos), deterministically', () => {
+    const ts = [trupp('a', 1, '2026-09-25T10:00:00.010Z'), trupp('b', 1, '2026-09-25T10:00:00.020Z', { formerNos: [7] })]
+    const r = resolveTruppNumbers(ts, [])!
+    expect(r.trupps.find((t) => t.id === 'a')).not.toHaveProperty('formerNos')
+    expect(r.trupps.find((t) => t.id === 'b')).toMatchObject({ no: 8, formerNos: [7, 1] })
+    expect(resolveTruppNumbers([...ts].reverse(), [])!.trupps.find((t) => t.id === 'b')).toEqual(r.trupps.find((t) => t.id === 'b'))
+  })
+
+  it('a ghost trail holds its number: a fresh one is never a number a deleted chip left behind', () => {
+    const ghosts = [
+      { id: 'ght-x', sourceId: 'x', name: 'Trupp 5', createdAt: '2026-09-25T10:00:00Z', removedAt: '2026-09-25T10:01:00Z' },
+      { id: 'ght-y', sourceId: 'y', truppId: 'gone', truppNo: 6, name: 'Meier A.', createdAt: '2026-09-25T10:00:00Z' },
+    ]
+    const r = resolveTruppNumbers([trupp('a', 1, '2026-09-25T10:00:00.010Z'), trupp('b', 1, '2026-09-25T10:00:00.020Z')], [], ghosts)!
+    expect(r.trupps.find((t) => t.id === 'b')!.no).toBe(7)
+  })
+
+  it('a malformed log never throws out of the merge', () => {
+    const odd = { ...trupp('a', 1, 'x'), readings: {} } as unknown as Trupp
+    const worse = { ...trupp('b', 1, 'x'), readings: [null, 'junk', { t: 3 }] } as unknown as Trupp
+    expect(() => resolveTruppNumbers([odd, worse], [])).not.toThrow()
+    expect(new Set(resolveTruppNumbers([odd, worse], [])!.trupps.map((t) => t.no)).size).toBe(2)
+  })
+
+  it('scope «trupps» (the Atemschutz-Link) settles Trupps only; «off» (the el role) settles nothing', () => {
+    const ts = [trupp('a', 1, '2026-09-25T10:00:00.010Z'), trupp('b', 1, '2026-09-25T10:00:00.020Z')]
+    const chips = [chip('trupp1758794400000-00a', 'Trupp 2'), chip('trupp1758794400001-00b', 'Trupp 2')]
+    const r = resolveTruppNumbers(ts, chips, [], 'trupps')!
+    expect(r.trupps.map((t) => t.no)).toEqual([1, 3]) // above the chips' 2 — the counter still reads them
+    expect(r.objects.map(labelOf)).toEqual(['Trupp 2', 'Trupp 2']) // chips it cannot push stay as they are
+    expect(resolveTruppNumbers(ts, chips, [], 'off')).toBeNull()
+  })
+
   it('is settled: resolving the result again changes nothing (no ping-pong)', () => {
     const r = resolveTruppNumbers(
       [trupp('a', 1, '2026-09-25T10:00:00.010Z'), trupp('b', 1, '2026-09-25T10:00:00.020Z'), trupp('c', 2, '2026-09-25T10:00:00.030Z')],
@@ -129,7 +170,7 @@ describe('truppRenumberings — what a device that showed the old number has to 
     const lost = { before: chip('c1', 'Trupp 1'), after: chip('c1', 'Trupp 2') }
     const keeper = chip('c0', 'Trupp 1')
     expect(truppRenumberings({ objects: [keeper, lost.before] }, { objects: [keeper, lost.after] }))
-      .toEqual([{ kind: 'chip', id: 'c1', from: 1, to: 2 }])
+      .toEqual([{ kind: 'chip', id: 'c1', from: 1, to: 2, fromLabel: 'Trupp 1', toLabel: 'Trupp 2' }])
     // «Trupp 2» renamed to «Trupp 5» on another device: nobody holds 2 afterwards — a rename
     expect(truppRenumberings({ objects: [chip('c1', 'Trupp 2')] }, { objects: [chip('c1', 'Trupp 5')] })).toEqual([])
     // …and a chip renamed to a word is not numbered any more at all
@@ -149,6 +190,13 @@ describe('renumberRow — the one Verlauf row', () => {
       id: 'trn-tr1-1-3', kind: 'team', subjectId: 'tr1', at: '2026-09-25T10:00:04.000Z',
       text: 'Trupp 1 (Meier Anna / Müller Hans) heisst jetzt Trupp 3',
     })
+  })
+
+  it('a loose chip is named by the labels it wore, in its own spelling', () => {
+    const row = renumberRow({ kind: 'chip', id: 'c1', from: 1, to: 4, fromLabel: 'trupp 1', toLabel: 'trupp 4' }, '2026-09-25T10:00:04Z')
+    expect(row).toMatchObject({ id: 'trn-c1-1-4', text: 'trupp 1 heisst jetzt trupp 4', subjectId: 'c1' })
+    // …and without labels (an older report) from the app's own word
+    expect(renumberRow({ kind: 'chip', id: 'c1', from: 1, to: 4 }, '2026-09-25T10:00:04Z').text).toBe('Trupp 1 heisst jetzt Trupp 4')
   })
 
   it('the id is derived from the change alone — two devices write the same row', () => {

@@ -1,4 +1,5 @@
 import { nextTruppNo } from './placedTrupps'
+import { ghostCounterNames } from './truppTrails'
 import type { TruppTrail } from './truppTrails'
 import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -760,6 +761,8 @@ export function deriveInitial(
     trupps: numberTrupps(ws?.trupps ?? [], [
       ...entities.filter((e) => e.kind === 'team').map((e) => e.label),
       ...Object.values(board).flat().filter((a) => a.kind === 'resource').map((a) => a.text),
+      // …and every ghost trail: a deleted chip that left a Spur used its number too
+      ...ghostCounterNames(ws?.trails),
     ]),
     attendance: ws?.attendance ?? {},
     mittel: ws?.mittel ?? [],

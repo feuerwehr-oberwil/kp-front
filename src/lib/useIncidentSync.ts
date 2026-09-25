@@ -42,6 +42,12 @@ interface IncidentSyncDeps {
    *  merge saw both sides change the same person's entry. Optional: omitted (or read-only) →
    *  conflicts stay silent, merge behavior is unchanged. */
   appendJournal?: (row: TimelineEvent) => void
+  /** Append one Trupp row (`kind: 'team'`) — the renumbering row a merge makes necessary
+   *  (lib/truppNumbers · renumberRow). Separate from `appendJournal` because the Atemschutz-Link
+   *  has this one and not that one: the server takes `team` rows from a link and nothing else, and
+   *  the Link's own Trupp is as likely to be renumbered as anybody's. Omitted → no row is written
+   *  here (and the change is not buffered: nobody will ever listen). */
+  appendTeamRow?: (row: TimelineEvent) => void
   /** THIS device is sounding the Atemschutz alarm (tier 2). The event that ends the tone — a
    *  Funkkontakt or Druckmeldung, usually entered on another device — arrives via this poll, so
    *  a hidden tab drops from hiddenPollMs to hiddenAlarmPollMs while it is true. A device that
@@ -61,7 +67,7 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent, gestureOpen }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen }: IncidentSyncDeps) {
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
@@ -85,8 +91,27 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   const seenTruppConflicts = useRef(new Set<string>())
   const seenRenumbered = useRef(new Set<string>())
   useEffect(() => {
-    if (!appendJournal || readOnly) return
+    if (readOnly) return
+    // A Trupp (or loose chip) whose number a merge gave to another device's — ONE row per change,
+    // under a derived id, so every other device saying the same change adds nothing
+    // (lib/truppNumbers · renumberRow). The seen-set only saves the round-trip. Wired on its OWN
+    // appender: the Atemschutz-Link writes these (`team` rows) and none of the conflict notes.
+    const reportRenumbered = (changes: TruppRenumbering[]) => {
+      if (!appendTeamRow) return
+      const at = serverNowIso()
+      for (const c of changes) {
+        const row = renumberRow(c, at)
+        if (seenRenumbered.current.has(row.id)) continue
+        seenRenumbered.current.add(row.id)
+        appendTeamRow(row)
+      }
+    }
+    if (appendTeamRow) {
+      sync.onTruppRenumbered = reportRenumbered
+      reportRenumbered(sync.drainTruppRenumbered())
+    }
     const report = (conflicts: RecordConflict[]) => {
+      if (!appendJournal) return
       const rows = attendanceConflictRows(conflicts, seenConflicts.current)
       for (const row of rows) appendJournal(row)
       // A divergence that produced a note is worth asking the operator about later: LWW kept
@@ -96,28 +121,17 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     // Same wiring for concurrently edited Trupps. Here the merge is field-level (nothing was
     // dropped), but an SCBA record two devices wrote at once still gets its note + follow-up.
     const reportTrupps = (conflicts: RecordConflict[]) => {
+      if (!appendJournal) return
       const rows = truppConflictRows(conflicts, seenTruppConflicts.current)
       for (const row of rows) appendJournal(row)
       if (rows.length > 0) recordTrouble('syncConflict')
     }
-    // A Trupp (or loose chip) that lost a number two devices minted at once — ONE row per change,
-    // under a derived id, so the other devices noticing the same change add nothing
-    // (lib/truppNumbers · renumberRow). The seen-set only saves the round-trip.
-    const reportRenumbered = (changes: TruppRenumbering[]) => {
-      const at = serverNowIso()
-      for (const c of changes) {
-        const row = renumberRow(c, at)
-        if (seenRenumbered.current.has(row.id)) continue
-        seenRenumbered.current.add(row.id)
-        appendJournal(row)
-      }
+    if (appendJournal) {
+      sync.onAttendanceConflicts = report
+      sync.onTruppConflicts = reportTrupps
+      report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge
+      reportTrupps(sync.drainTruppConflicts())
     }
-    sync.onAttendanceConflicts = report
-    sync.onTruppConflicts = reportTrupps
-    sync.onTruppRenumbered = reportRenumbered
-    report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge
-    reportTrupps(sync.drainTruppConflicts())
-    reportRenumbered(sync.drainTruppRenumbered())
     // ⚠️ Each cleanup below clears only ITS OWN handler: WorkspaceSync's callbacks are single
     // slots, and an unconditional `= undefined` would silently unhook whoever registered after
     // this effect (the auditEventStore · subscribe rule).
@@ -126,7 +140,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       if (sync.onTruppConflicts === reportTrupps) sync.onTruppConflicts = undefined
       if (sync.onTruppRenumbered === reportRenumbered) sync.onTruppRenumbered = undefined
     }
-  }, [sync, appendJournal, readOnly])
+  }, [sync, appendJournal, appendTeamRow, readOnly])
 
   // persistence → server (offline cache + debounced sync). Skip the first run so loading
   // an incident doesn't immediately re-push the just-loaded state.

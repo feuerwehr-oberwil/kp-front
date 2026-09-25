@@ -236,15 +236,22 @@ to prod.
   - ⚠️ **Two devices that mint the same number at once are settled by the MERGE** (25.09.2026,
     `lib/truppNumbers`, trupp-naming §7). Every device derives the next number from its own view,
     so three online devices tapping «Neuer Trupp» in one second all minted «Trupp 1». At the end
-    of `mergeWorkspace`, every contested number stays with ONE claimant (a Trupp that went in >
-    a registered Trupp > an unlinked «Trupp N» chip, then registration time, then id), and the
-    others take the next numbers of the one counter. It is pure over the merged record: every
-    device reaches the same answer, and nothing is left to ping-pong. It is NOT an act: it reaches
-    the view by a hydrate (which drops the undo timeline) and writes ONE Verlauf row, «Trupp 1
-    (…) heisst jetzt Trupp 3», under the DERIVED id `trn-<id>-<from>-<to>`. Every device that
-    showed the old number writes that row (`WorkspaceSync · reportRenumbered` diffs what the view
-    held against what it is handed), and the journal keeps one. Rows written under the old number
-    stay as they are. `Trupp.no` changes nowhere else — don't add a second writer.
+    of `mergeWorkspace`, every contested number stays with ONE claimant (on the board and went in
+    > on the board > taken off the board > an unlinked «Trupp N» chip, then registration time,
+    then id), and the others take the next numbers of the one counter (`formerNos` keeps what
+    they lost). It is pure over the merge's INPUTS: the same inputs give the same numbers on every
+    device, nothing is left to ping-pong — but which merge lands first can decide the keeper. A
+    session settles only what its push carries (`WorkspaceSync · numberScope`: the Link Trupps
+    only, `el` nothing). It is NOT an act: it reaches the view by a hydrate (which drops the undo
+    timeline) and writes ONE Verlauf row, «Trupp 1 (…) heisst jetzt Trupp 3», under the DERIVED
+    id `trn-<id>-<from>-<to>` — said against the view's content that 409'd AND its latest save,
+    against every adopted revision, and by the resolving device after its push; the Link writes
+    it too (`appendTeamRow`). Rows written under the old number stay as they are; the Rapport
+    heading reads «Trupp 3 (zuerst Trupp 1)», and a row's `subjectId` links its «Trupp 1» by id.
+    `Trupp.no` changes nowhere else — don't add a second writer. A duplicate ONE device could see
+    coming (⌘D, a rename, a revived Spur) is refused or re-minted at the source
+    (`placedTrupps · counterNames / freshTeamLabel`), never left for a merge; the counter reads
+    every chip, every ghost trail and every Trupp ever registered.
   - **A Trupp's marker says which STOREY it is on** (18.09.2026): the Gebäude chip — at rest
     (`.team-dot`) and selected (`TwinTeamPill`) — and the Karte marker whose body was baked off
     that chip wear the same signed badge a Leitung's `floorTag` wears (`.team-floor`,

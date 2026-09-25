@@ -46,7 +46,7 @@ function makeSync() {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void }) {
+function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: unknown) => void; appendTeamRow?: (row: unknown) => void }) {
   const blob = {} as unknown as Saved
   return renderHook(
     ({ bp }) => useIncidentSync({
@@ -55,6 +55,8 @@ function mount(sync: any, opts?: { alarmUrgent?: boolean; appendJournal?: (row: 
       applyWorkspace: vi.fn(), flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       appendJournal: opts?.appendJournal as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      appendTeamRow: opts?.appendTeamRow as any,
       alarmUrgent: opts?.alarmUrgent,
     }),
     { initialProps: { bp: () => blob } },
@@ -222,7 +224,7 @@ describe('useIncidentSync — renumbered Trupps', () => {
     const sync = makeSync()
     sync.drainTruppRenumbered = vi.fn().mockReturnValue([change]) // init()'s cold-reopen merge
     const appendJournal = vi.fn()
-    mount(sync, { appendJournal })
+    mount(sync, { appendTeamRow: appendJournal })
     expect(appendJournal).toHaveBeenCalledTimes(1)
     const row = appendJournal.mock.calls[0][0]
     expect(row.id).toBe('trn-tr1-1-3')
@@ -233,12 +235,29 @@ describe('useIncidentSync — renumbered Trupps', () => {
     expect(appendJournal).toHaveBeenCalledTimes(1)
   })
 
-  it('a loose chip says its old and its new name', () => {
+  it('a loose chip says its old and its new name, as the picture showed them', () => {
     const sync = makeSync()
     const appendJournal = vi.fn()
-    mount(sync, { appendJournal })
-    sync.onTruppRenumbered?.([{ kind: 'chip', id: 'trupp1758', from: 1, to: 2 }])
-    expect(appendJournal.mock.calls[0][0]).toMatchObject({ id: 'trn-trupp1758-1-2', text: 'Trupp 1 heisst jetzt Trupp 2', subjectId: 'trupp1758' })
+    mount(sync, { appendTeamRow: appendJournal })
+    sync.onTruppRenumbered?.([{ kind: 'chip', id: 'trupp1758', from: 1, to: 2, fromLabel: 'trupp 1', toLabel: 'trupp 2' }])
+    expect(appendJournal.mock.calls[0][0]).toMatchObject({ id: 'trn-trupp1758-1-2', text: 'trupp 1 heisst jetzt trupp 2', subjectId: 'trupp1758' })
+  })
+
+  it('the Atemschutz-Link writes it too: it has the team-row appender and none of the conflict notes', () => {
+    const sync = makeSync()
+    const appendTeamRow = vi.fn()
+    mount(sync, { appendTeamRow }) // no appendJournal — the Link session
+    expect(sync.onTruppConflicts).toBeUndefined()
+    sync.onTruppRenumbered?.([change])
+    expect(appendTeamRow).toHaveBeenCalledTimes(1)
+    expect(appendTeamRow.mock.calls[0][0].kind).toBe('team') // the one kind a link may append
+  })
+
+  it('without a team-row appender nothing registers — the engine is not left buffering for nobody', () => {
+    const sync = makeSync()
+    mount(sync, { appendJournal: vi.fn() })
+    expect(sync.onTruppRenumbered).toBeUndefined()
+    expect(sync.drainTruppRenumbered).not.toHaveBeenCalled()
   })
 })
 
@@ -415,7 +434,7 @@ describe('useIncidentSync – edit during a conflict merge', () => {
 describe('useIncidentSync — unmounting unhooks only its own sync callbacks', () => {
   it('leaves a handler someone registered after it in place', () => {
     const sync = makeSync()
-    const { unmount } = mount(sync, { appendJournal: vi.fn() })
+    const { unmount } = mount(sync, { appendJournal: vi.fn(), appendTeamRow: vi.fn() })
     // the hook's own handlers are in the slots…
     expect(sync.onStatus).toBeTypeOf('function')
     expect(sync.onApplyMerged).toBeTypeOf('function')
@@ -431,7 +450,7 @@ describe('useIncidentSync — unmounting unhooks only its own sync callbacks', (
 
   it('clears its own handlers when nobody replaced them', () => {
     const sync = makeSync()
-    const { unmount } = mount(sync, { appendJournal: vi.fn() })
+    const { unmount } = mount(sync, { appendJournal: vi.fn(), appendTeamRow: vi.fn() })
     unmount()
     expect(sync.onStatus).toBeUndefined()
     expect(sync.onApplyMerged).toBeUndefined()

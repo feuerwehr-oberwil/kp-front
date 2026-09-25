@@ -16,7 +16,8 @@
 
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
-import { resolveTruppNumbers } from './truppNumbers'
+import { resolveTruppNumbers, type NumberScope } from './truppNumbers'
+import type { TruppTrail } from './truppTrails'
 import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
 import type { Saved } from './workspace'
 
@@ -441,6 +442,9 @@ export const MERGE_POLICY = {
  * buildPayload and clean, the other two are whatever the server and the cached ancestor hold.
  * A collection that is not an array merges as empty rather than throwing — the throw used to
  * wedge sync silently and forever (badge stuck on «ausstehend», no toast, re-thrown every retry).
+ *
+ * `opts.numbers` — which «Trupp N» collisions this merge settles (lib/truppNumbers · NumberScope):
+ * `all` by default; a slice session passes what its push can carry (WorkspaceSync · numberScope).
  */
 export function mergeWorkspace(
   base: Record<string, unknown>,
@@ -448,6 +452,7 @@ export function mergeWorkspace(
   theirs: Record<string, unknown>,
   onAttendanceConflict?: (c: RecordConflict) => void,
   onTruppConflict?: (c: RecordConflict) => void,
+  opts: { numbers?: NumberScope } = {},
 ): Record<string, unknown> {
   // The unified objects (schema 2) are the authoritative tactical collection: each side
   // unifies FIRST (a legacy side — an un-updated device's save — derives its objects from
@@ -472,7 +477,7 @@ export function mergeWorkspace(
   // both records, as it must, and now settles the NUMBER — one keeps it, the others take the next
   // ones (lib/truppNumbers). A chip that lost is relabelled in the objects, so the three legacy
   // views are derived again from them.
-  const renumbered = resolveTruppNumbers(out.trupps as Trupp[], objects)
+  const renumbered = resolveTruppNumbers(out.trupps as Trupp[], objects, out.trails as TruppTrail[], opts.numbers ?? 'all')
   if (renumbered) {
     out.trupps = renumbered.trupps
     if (renumbered.objects.some((o, i) => o !== objects[i])) {
