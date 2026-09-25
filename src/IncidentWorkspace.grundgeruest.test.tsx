@@ -181,6 +181,9 @@ describe('a line row arms the gesture it promises', () => {
     expect(lines[0]).toMatchObject({ arrow: true, marker: 'Z' })
     expect(lines[0].coords).toHaveLength(2)
     expect(screen.queryByText(C.armedLine)).toBeNull()
+    // …and its ↶ says what it takes back, in the Verlauf row's words
+    const action = fillTemplate(appConfig.copy.log.shapeDrawn, { name: 'Zufahrt' })
+    expect(screen.getAllByRole('button', { name: fillTemplate(appConfig.copy.undoNamed, { action }) }).length).toBeGreaterThan(0)
   })
 })
 

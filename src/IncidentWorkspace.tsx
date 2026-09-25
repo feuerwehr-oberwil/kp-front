@@ -2139,6 +2139,8 @@ export function IncidentWorkspace({
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
     onLineAttached: (lineId, attachment) => { linkLineToAttachedTrupp(lineId, attachment) },
     onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
+    // a drawn line/Fläche/Absperrkreis names its ↶ step the way its Verlauf row does
+    nameStep: (label) => { stepLabel.current = label },
   })
   const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
     if (!drawing) return
