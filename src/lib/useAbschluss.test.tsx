@@ -192,4 +192,52 @@ describe('useAbschluss', () => {
       expect(a.onCompleteRapport).not.toHaveBeenCalled()
     })
   })
+
+  /* People still MISSING (walk-through 25.09.2026, N6): «8 Personen noch vermisst» was a grey row
+     under a filled, focused «Trotzdem abschliessen», and an Enter closed the Einsatz over them. */
+  describe('people still missing are their own question, after the crews', () => {
+    const inside: Trupp = {
+      id: 'in', no: 1, name: 'Muster Leo', entryPressureBar: 300,
+      entryTime: '2026-09-25T10:00:00Z', lastContactTime: '2026-09-25T10:04:00Z', status: 'aktiv',
+    }
+    const suche = { vermisst: 9, openBereiche: [], ask: '9 Personen noch vermisst: Klasse 4b (8), Tim Muster.' }
+
+    it('asks after the crews, names them, and «Zur Suche» is the focused answer that closes nothing', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce('alt' as never)
+      const openSuche = vi.fn()
+      const a = args({ trupps: [inside], suche, openSuche })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
+      expect(ask.mock.calls[0][0].message).toContain('Trupp ist noch drin')
+      expect(ask.mock.calls[1][0]).toMatchObject({
+        message: suche.ask,
+        altLabel: appConfig.copy.suche.abschlussToSuche,
+        confirmLabel: appConfig.copy.abschluss.insideClose,
+        safeAnswer: 'alt',
+      })
+      expect(openSuche).toHaveBeenCalled()
+      expect(a.onCompleteRapport).not.toHaveBeenCalled()
+    })
+
+    it('closing anyway goes on — and the paperwork list does not ask about them a second time', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+      const a = args({ suche })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(true)
+      const list = ask.mock.calls[1][0] as { items?: { label: string }[] }
+      expect((list.items ?? []).map((i) => i.label).join(' ')).not.toMatch(/vermisst/)
+    })
+
+    it('dismissing it does nothing; nobody missing asks nothing', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(undefined as never)
+      const a = args({ suche })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
+      expect(a.onCompleteRapport).not.toHaveBeenCalled()
+      ask.mockReset().mockResolvedValueOnce(true)
+      const b = args({ suche: { vermisst: 0, openBereiche: [], ask: null } })
+      await renderHook(() => useAbschluss(b)).result.current.confirmAndComplete()
+      expect(ask).toHaveBeenCalledTimes(1) // only the Abschluss itself
+    })
+  })
 })

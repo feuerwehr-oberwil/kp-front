@@ -321,6 +321,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     [text, suchePersonen, onSucheLink, sucheLink],
   )
   const sucheNew = !suchePersonen || !onSucheLink || sucheLink || sucheHits.length ? null : newPersonFromText(text)
+  const sucheRow = !!sucheLink || sucheHits.length > 0 || !!sucheNew
   // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────
   // ⚠️ Three states reached by tapping the same ring in turn were a guessing game, and the way to
   // «hang this on something already open» was a long press — a gesture that cannot announce
@@ -879,8 +880,8 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         </div>
 
         {/* A single ranked band; its empty row keeps the phone sheet steady while typing. */}
-        {(suggestions.length === 0 && pendenzHits.length === 0 && sucheHits.length === 0 && !sucheNew && !sucheLink)
-          ? <div className="jc-phrases is-empty" aria-hidden /> : (
+        {(suggestions.length === 0 && pendenzHits.length === 0)
+          ? (sucheRow ? null : <div className="jc-phrases is-empty" aria-hidden />) : (
           // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
           // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
           <div className="jc-phrases" role="group" aria-label={C.quickPhrasesAria}>
@@ -910,7 +911,13 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 onClick={() => onLinkPendenz?.({ id: r.id, text: r.text })}
               ><span className="jc-ring" />{C.noteOnLabel}{r.text}</button>
             ))}
-            {/* ── the Suche (Tür 2): the status changes on the way; the sentence stays the row ── */}
+          </div>
+        )}
+        {/* ── the Suche (Tür 2) — its OWN row under the band, wrapping (walk-through 25.09.2026):
+            last in the scrolling band it was cut off at «→ gef…» and at 360 px it was off screen
+            until somebody swiped. A chip that changes a person's status has to be read whole. ── */}
+        {sucheRow && (
+          <div className="jc-suche-row" role="group" aria-label={appConfig.copy.suche.composerTitle}>
             {sucheLink && (
               <button key="suche:on" type="button" className="jc-phrase jc-phrase-suche on" aria-pressed
                 title={appConfig.copy.suche.composerTitle}

@@ -230,7 +230,7 @@
      when a busy tool (line/area) has more options than fit. */
   .phone-tools .wb-dock { position: fixed; left: 50%; right: auto; top: auto; transform: translateX(-50%);
     /* 6px above the tool bar — the SAME gap the tool bar has above the nav bar (both are +6 offsets) */
-    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom));
+    bottom: calc(var(--rail-h) * 2 + 20px + var(--suche-lift, 0px) + env(safe-area-inset-bottom));
     flex-direction: row; align-items: center; gap: 10px;
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
@@ -271,9 +271,9 @@
      a sheet is open; the sheet then covers both Plan rails as its Lage twin already does, while
      the top bar (z 56) and modal overlays remain above it. */
   .phone-tools .whiteboard:has(.ctx) { z-index: var(--z-chrome-raised); }
-  .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + env(safe-area-inset-bottom)); }
+  .phone-tools :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) * 2 + 30px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
   /* the Eintrag-FAB clears both bars on the drawing surfaces */
-  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom)); }
+  .phone-tools .fab-entry { bottom: calc(var(--rail-h) * 2 + 28px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
 
   /* ── details as a bottom sheet ── the shared .ctx editors (ContextPanel / DrawEditor /
      ShapeEditor) become a drag-expandable bottom sheet: half-height default so the map and
@@ -1040,7 +1040,14 @@
   .topbar .tb-act-history { display: none; }
 }
 /* The Suche's phone sheet (components/suche · SuchePhoneSheet, 24.09.2026) stands where the tool bar
-   stands — directly on the nav bar, which it never covers. While it is open the drawing tools, the
-   FAB and the selection bar step aside: the sheet is for LOOKING at the plan while the list is
-   worked, and its ✕ gives all of them back. Only ever set on a phone (IncidentWorkspace). */
+   stands — directly on the nav bar, which it never covers. While it is open at HALF or FULL the
+   drawing tools, the FAB and the selection bar step aside: the sheet is for LOOKING at the plan
+   while the list is worked, and its ✕ gives all of them back. Only ever set on a phone
+   (IncidentWorkspace · sucheAppClass). */
 .app.suche-sheet :is(.tool-rail, .wb-tools, .fab-entry, .sel-bar) { display: none; }
+/* …but at PEEK it is one line, and the tool bar stays (walk-through 25.09.2026): placing a symbol
+   no longer means closing the Suche first. The line stands on the TOOL bar instead
+   (Suche.module.css), and what stands above the tool bar — the tool's own dock, the selection bar,
+   the FAB, the plan's chips — moves up by the line's height. */
+.app.phone-tools.suche-peek { --suche-lift: 70px; }
+.app.phone-tools.suche-peek:has([data-suche-floorchips]) { --suche-lift: 114px; }

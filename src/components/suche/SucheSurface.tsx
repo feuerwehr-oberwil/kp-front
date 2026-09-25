@@ -43,9 +43,10 @@ export function SuchePhoneSheet({ onClose, detent, onDetent, surface, onSurface,
   const groups = useMemo(() => sucheGroups(panel.doc, { key: panel.stackKey, floors: panel.floors, floorName: panel.floorName }), [panel.doc, panel.stackKey, panel.floors, panel.floorName])
   const badges = storeyBadges(groups)
   const missing = vermisstCount(panel.doc)
+  const asks = panel.asks?.length ?? 0
   const summary = sucheSummary(missing, sucheProgress(groups))
   const floorChips = surface === 'gebaeude' && panel.floors.length > 0 && (
-    <div className={s.floorChips} role="group" aria-label={C.tabBereiche}>
+    <div className={s.floorChips} role="group" aria-label={C.tabBereiche} data-suche-floorchips>
       {[...panel.floors].sort((a, b) => b - a).map((f) => (
         <button key={f} type="button" className={s.floorChip} onClick={() => panel.onFloor?.(f)}
           data-complete={badges[f]?.complete || undefined} data-active={badges[f]?.active || undefined}>
@@ -56,9 +57,13 @@ export function SuchePhoneSheet({ onClose, detent, onDetent, surface, onSurface,
   )
   const head = detent === 'peek' ? (
     <div className={s.peekRow}>
-      <button type="button" className={s.peekText} onClick={() => onDetent('half')} aria-label={`${summary} – ${C.sheetExpand}`}>
+      {/* the open «abgesucht?» questions ride in the one line that is always there (N13): as the
+          amber «1?» the head chip wears too — in words they pushed the line past a phone's width */}
+      <button type="button" className={s.peekText} onClick={() => onDetent('half')}
+        aria-label={`${sucheSummary(missing, sucheProgress(groups), asks)} – ${C.sheetExpand}`}>
         <Icon id="search" />
-        <span className={missing > 0 ? s.peekMissing : undefined}>{summary}</span>
+        <span className={`${s.peekLine}${missing > 0 ? ` ${s.peekMissing}` : ''}`}>{summary}</span>
+        {asks > 0 && <span className={s.askBadge} aria-hidden>{asks}?</span>}
         <Icon id="chevron-up" />
       </button>
       <button type="button" className={s.x} onClick={onClose} aria-label={C.close}><Icon id="close" /></button>
@@ -87,3 +92,4 @@ export function SuchePhoneSheet({ onClose, detent, onDetent, surface, onSurface,
     </DetentSheet>
   )
 }
+

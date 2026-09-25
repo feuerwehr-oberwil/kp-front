@@ -11,6 +11,7 @@ import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
+import { asksWords } from '../lib/suche'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -120,6 +121,8 @@ interface Props {
    *  in every head, for everyone, from the first vermisst until the last is found — like the
    *  Atemschutz chip, it is only there while it has something to say. */
   sucheMissing?: number
+  /** the Suche's open «abgesucht?» questions (lib/suche · pendingAsks) — counted on the chip (N13) */
+  sucheAsks?: number
   /** tap on that chip: the Suche, on its Personen tab */
   onOpenSuche?: () => void
   /** Live GPS feed has gone silent — the vehicles on the map are frozen. */
@@ -147,7 +150,7 @@ interface Props {
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, sucheMissing = 0, onOpenSuche, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, onOpenAtemschutz, sucheMissing = 0, sucheAsks = 0, onOpenSuche, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -317,16 +320,21 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         )}
         {/* the Suche's chip (24.09.2026): «2 vermisst», red, for everyone while anybody is — the
             one question the Übung on 23.09. could not answer from any screen at 20:15 */}
-        {sucheMissing > 0 && (
-          <button className="tb-az crit tb-suche" onClick={onOpenSuche} title={appConfig.copy.suche.vermisstChipHint}
-            aria-label={`${appConfig.copy.suche.title}: ${fillTemplate(appConfig.copy.suche.vermisstChip, { n: sucheMissing })}`}>
-            <Icon id="people" />
-            {/* the words on a wide bar, the bare count on a phone's (15-mobile.css) — the bar there
-                also carries the Atemschutz chip, and two worded chips pushed the title under ↶ */}
-            <span className="tb-suche-full">{fillTemplate(appConfig.copy.suche.vermisstChip, { n: sucheMissing })}</span>
-            <span className="tb-suche-short" aria-hidden>{sucheMissing}</span>
-          </button>
-        )}
+        {(sucheMissing > 0 || sucheAsks > 0) && (() => {
+          const S = appConfig.copy.suche
+          // …and the questions a Trupp's Raus left open («abgesucht?»), where everybody looks (N13)
+          const words = [sucheMissing > 0 ? fillTemplate(S.vermisstChip, { n: sucheMissing }) : '', sucheAsks > 0 ? asksWords(sucheAsks) : ''].filter(Boolean).join(' · ')
+          return (
+            <button className={`tb-az ${sucheMissing > 0 ? 'crit' : 'warn'} tb-suche`} onClick={onOpenSuche} title={S.vermisstChipHint}
+              aria-label={`${S.title}: ${words}`}>
+              <Icon id="people" />
+              {/* the words on a wide bar, the bare count on a phone's (15-mobile.css) — the bar there
+                  also carries the Atemschutz chip, and two worded chips pushed the title under ↶ */}
+              <span className="tb-suche-full">{words}</span>
+              <span className="tb-suche-short" aria-hidden>{sucheMissing > 0 ? sucheMissing : ''}{sucheAsks > 0 && <b className="tb-suche-ask">{sucheAsks}?</b>}</span>
+            </button>
+          )
+        })()}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
             the top bar said anything was the red alarm), RED once a Trupp is überfällig or at

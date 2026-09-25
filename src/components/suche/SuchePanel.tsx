@@ -3,7 +3,7 @@ import { appConfig } from '../../config/appConfig'
 import { fillTemplate, formatTime } from '../../lib/format'
 import { Icon } from '../../lib/icons'
 import {
-  personenViews, sucheGroups, sucheProgress, truppShort, truppsOnStorey, vermisstCount,
+  BEREICH_STATUSES, personenViews, sucheGroups, sucheProgress, truppShort, truppsOnStorey, vermisstCount,
   type BereichView, type PersonView, type SucheGroup, type TruppHere,
 } from '../../lib/suche'
 import type { SucheActions } from '../../lib/useSucheActions'
@@ -30,6 +30,7 @@ type View =
   | { kind: 'rename'; id: string }
   | { kind: 'addBereich' }
   | { kind: 'korrigieren'; id: string }
+  | { kind: 'entwarnen' | 'irrtuemlich'; id: string }
 
 /** «Fund melden» on a Trupp (Tür 3): the Trupp and its storey, pre-filled into the find */
 export interface FundPreset { truppId: string; floor?: number }
@@ -58,6 +59,9 @@ export interface SuchePanelProps {
   onFloor?: (floor: number) => void
   /** «weiter an» — the station's short list */
   uebergabe: readonly string[]
+  /** The panel hosts ONE flow and hands back when it is done (the «Fund melden» sheet over the
+   *  Atemschutz board, N17): every «done» and every ‹ calls this instead of showing the list. */
+  onExit?: () => void
 }
 
 const hhmm = (iso?: string) => (iso && Number.isFinite(Date.parse(iso)) ? formatTime(new Date(iso)) : '')
@@ -81,7 +85,9 @@ export function SuchePanel(p: SuchePanelProps) {
   const missing = vermisstCount(p.doc)
 
 
-  const back = () => setView({ kind: 'list' })
+  // hosted as one flow (the «Fund melden» sheet): done is done — the host closes, never the list
+  const go = (next: View) => (p.onExit ? p.onExit() : setView(next))
+  const back = () => go({ kind: 'list' })
   const person = (id: string) => personen.find((x) => x.id === id)
   const bereich = (id: string) => groups.flatMap((g) => [...g.units, ...(g.storeyRow ? [g.storeyRow] : [])]).find((u) => u.id === id)
 
@@ -97,11 +103,14 @@ export function SuchePanel(p: SuchePanelProps) {
       onOther={() => setView({ kind: 'vermisst', found: true, preset: view.preset })} />
   } else if (view.kind === 'person' && person(view.id)) {
     body = <PersonCard v={person(view.id)!} {...p} onBack={back} onFound={() => setView({ kind: 'gefunden', id: view.id })}
-      onHand={() => setView({ kind: 'uebergeben', id: view.id })} onFix={() => setView({ kind: 'korrigieren', id: view.id })} />
+      onHand={() => setView({ kind: 'uebergeben', id: view.id })} onFix={() => setView({ kind: 'korrigieren', id: view.id })}
+      onWhy={(kind) => setView({ kind, id: view.id })} />
+  } else if ((view.kind === 'entwarnen' || view.kind === 'irrtuemlich') && person(view.id)) {
+    return <WhyForm kind={view.kind} v={person(view.id)!} {...p} onCancel={() => setView({ kind: 'person', id: view.id })} onDone={back} />
   } else if (view.kind === 'korrigieren' && person(view.id)) {
     return <KorrigierenForm v={person(view.id)!} {...p} onDone={() => setView({ kind: 'person', id: view.id })} />
   } else if (view.kind === 'gefunden' && person(view.id)) {
-    return <GefundenForm v={person(view.id)!} {...p} preset={view.preset} onDone={() => setView({ kind: 'person', id: view.id })} />
+    return <GefundenForm v={person(view.id)!} {...p} preset={view.preset} onDone={() => go({ kind: 'person', id: view.id })} />
   } else if (view.kind === 'uebergeben' && person(view.id)) {
     return <UebergebenForm v={person(view.id)!} {...p} onDone={() => setView({ kind: 'person', id: view.id })} />
   } else if (view.kind === 'bereich' && bereich(view.id)) {
@@ -142,7 +151,8 @@ export function SuchePanel(p: SuchePanelProps) {
           <button type="button" role="tab" aria-selected={p.tab === 'bereiche'} className={`${s.tab}${p.tab === 'bereiche' ? ` ${s.on}` : ''}`} onClick={() => p.onTab('bereiche')}>
             {C.tabBereiche}
             {progress.total > 0 && <span className={s.tabCount}>{fillTemplate(C.progress, progress)}</span>}
-            {(p.asks?.length ?? 0) > 0 && <span className={s.askBadge} aria-label={fillTemplate(C.asksOpen, { n: p.asks!.length })}>?</span>}
+            {/* the open «abgesucht?» questions, counted — the tab is where they are answered */}
+            {(p.asks?.length ?? 0) > 0 && <span className={s.askBadge} aria-label={fillTemplate(C.asksOpen, { n: p.asks!.length })}>{p.asks!.length}?</span>}
           </button>
         </div>
       )}
@@ -156,7 +166,9 @@ export function SuchePanel(p: SuchePanelProps) {
 // ── the lists ────────────────────────────────────────────────────────────────────────────────
 
 const PERSON_TONE: Record<PersonView['status'], string> = { vermisst: 'red', gefunden: 'amber', uebergeben: 'green', entwarnt: 'grey', irrtuemlich: 'grey' }
-const BEREICH_TONE: Record<SucheBereichStatus, string> = { offen: 'grey', inArbeit: 'blue', abgesucht: 'green', nichtZugaenglich: 'amber' }
+// «teilweise» wears its own colour AND a half-filled dot (N14): never the grey of «offen», never
+// the full green of «abgesucht»
+const BEREICH_TONE: Record<SucheBereichStatus, string> = { offen: 'grey', inArbeit: 'blue', teilweise: 'part', abgesucht: 'green', nichtZugaenglich: 'amber' }
 
 function personLine(v: PersonView, floorName: (f: number) => string, trupps: readonly TruppHere[], doc: SucheDoc): string {
   const C = appConfig.copy.suche
@@ -253,7 +265,8 @@ function AskRow({ u, actions }: { u: BereichView; actions: SucheActions }) {
     <div className={s.ask} role="group" aria-label={fillTemplate(C.askInline, { trupp: u.trupp ?? '' })}>
       <span className={s.askText}>{fillTemplate(C.askInline, { trupp: truppShort(u.trupp ?? '') })}</span>
       <button type="button" className={s.askBtn} onClick={() => actions.setStatus(u.id, 'abgesucht', trupp)}>{C.rausJa}</button>
-      <button type="button" className={s.askBtn} onClick={() => actions.setStatus(u.id, 'offen', undefined, C.teilweiseAbgesucht)}>{C.rausTeilweise}</button>
+      {/* «Teilweise» is its own status (N14) and keeps the Trupp: «teilweise abgesucht · T1 · 14:19» */}
+      <button type="button" className={s.askBtn} onClick={() => actions.setStatus(u.id, 'teilweise', trupp)}>{C.rausTeilweise}</button>
       <button type="button" className={s.askBtn} onClick={() => actions.setStatus(u.id, 'offen')}>{C.rausNein}</button>
     </div>
   )
@@ -282,7 +295,7 @@ function CardHead({ title, tone, pill, onBack }: { title: string; tone: string; 
   )
 }
 
-function PersonCard({ v, floorName, canEdit, actions, onBack, onFound, onHand, onFix }: SuchePanelProps & { v: PersonView; onBack: () => void; onFound: () => void; onHand: () => void; onFix: () => void }) {
+function PersonCard({ v, floorName, canEdit, onBack, onFound, onHand, onFix, onWhy }: SuchePanelProps & { v: PersonView; onBack: () => void; onFound: () => void; onHand: () => void; onFix: () => void; onWhy: (kind: 'entwarnen' | 'irrtuemlich') => void }) {
   const C = appConfig.copy.suche
   const where = [v.floor != null ? floorName(v.floor) : '', v.wo ?? ''].filter(Boolean).join(' ')
   return (
@@ -296,18 +309,22 @@ function PersonCard({ v, floorName, canEdit, actions, onBack, onFound, onHand, o
         <div className={s.cardActions}>
           {(v.status === 'vermisst') && <button type="button" className="ip-btn primary" onClick={onFound}>{C.gefundenBtn}</button>}
           {(v.found > v.handed) && <button type="button" className="ip-btn" onClick={onHand}>{C.uebergebenBtn}</button>}
+          {/* ⚠️ «Entwarnen» ends a missing-person record: it asks why and who said so first (N7) */}
           {v.status === 'vermisst' && v.found === 0 && (
-            <button type="button" className="ip-btn" onClick={() => { actions.entwarnen(v.id); onBack() }}>{C.entwarnenBtn}</button>
+            <button type="button" className="ip-btn" onClick={() => onWhy('entwarnen')}>{C.entwarnenBtn}</button>
           )}
-          {/* a wrong name, count or place, or a record that should never have been one — both are
-              rows (lib/suche · korrigiert / irrtuemlich), and both are one ↶ away */}
+          {/* a wrong name, count or place is a row (lib/suche · korrigiert), one ↶ away */}
           {v.status !== 'irrtuemlich' && <button type="button" className="ip-btn" onClick={onFix}>{C.korrigierenBtn}</button>}
-          {v.status !== 'irrtuemlich' && (
-            <button type="button" className="ip-btn ip-btn-danger" onClick={() => { actions.irrtuemlich(v.id); onBack() }}>{C.irrtuemlichBtn}</button>
-          )}
         </div>
       )}
       <History rows={v.rows} />
+      {/* ⚠️ «Irrtümlich erfasst» stands APART, at the foot of the card — it was the red button right
+          beside «Korrigieren …» and withdrew a person in one tap (walk-through 25.09.2026, N7) */}
+      {canEdit && v.status !== 'irrtuemlich' && (
+        <div className={s.cardFoot}>
+          <button type="button" className="ip-btn ip-btn-danger" onClick={() => onWhy('irrtuemlich')}>{C.irrtuemlichBtn}</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -319,7 +336,7 @@ function BereichCard({ b, group, trupps, canEdit, actions, onBack, onSplit, onRe
     actions.setStatus(b.id, st, t ? { label: t.label, id: t.id } : t === null ? { label: undefined } : undefined)
     setPickTrupp(false)
   }
-  const statuses: SucheBereichStatus[] = ['offen', 'inArbeit', 'abgesucht', 'nichtZugaenglich']
+  const statuses = BEREICH_STATUSES
   const restRow = b.storey && !!group?.hasParts
   return (
     <div className={s.card}>
@@ -381,7 +398,10 @@ function FundPicker({ preset, personen, trupps, floorName, onBack, onPerson, onO
 
 // ── forms ────────────────────────────────────────────────────────────────────────────────────
 
-function Form({ title, children, submit, submitLabel, disabled, onCancel }: { title: string; children: ReactNode; submit: () => void; submitLabel: string; disabled?: boolean; onCancel: () => void }) {
+function Form({ title, children, submit, submitLabel, disabled, onCancel, focusCancel, danger }: { title: string; children: ReactNode; submit: () => void; submitLabel: string; disabled?: boolean; onCancel: () => void
+  /** «Abbrechen» takes the focus — for a form that ENDS something (N7): Enter must not */
+  focusCancel?: boolean
+  danger?: boolean }) {
   return (
     // ⚠️ NOT a <form>: the shared Stepper renders plain <button>s, and inside a form every one of
     // them is a submit — «+» on «Anzahl» reported the group missing at 3 (found in the visual pass)
@@ -393,8 +413,8 @@ function Form({ title, children, submit, submitLabel, disabled, onCancel }: { ti
         </div>
       </div>
       <div className={s.foot}>
-        <button type="button" className="ip-btn" onClick={onCancel}>{appConfig.copy.suche.cancel}</button>
-        <button type="button" className="ip-btn primary" disabled={disabled} onClick={() => { if (!disabled) submit() }}>{submitLabel}</button>
+        <button type="button" className="ip-btn" onClick={onCancel} autoFocus={focusCancel}>{appConfig.copy.suche.cancel}</button>
+        <button type="button" className={`ip-btn ${danger ? 'ip-btn-danger' : 'primary'}`} disabled={disabled} onClick={() => { if (!disabled) submit() }}>{submitLabel}</button>
       </div>
     </div>
   )
@@ -628,6 +648,42 @@ function KorrigierenForm({ v, floors, floorName, actions, onDone }: SuchePanelPr
       <Field label={C.zuletzt}>
         <StoreyChips floors={floors} floorName={floorName} value={floor} onChange={setFloor} label={C.zuletzt} />
         <input className="ip-input" value={wo} onChange={(e) => setWo(e.target.value)} placeholder={C.woPlaceholder} aria-label={C.woGenau} />
+      </Field>
+    </Form>
+  )
+}
+
+/**
+ * «Entwarnen» and «Irrtümlich erfasst» (N7): both END a missing-person record, so neither is one
+ * tap any more. A short form asks why and who said so — both optional, chips for the usual
+ * answers, free text for the rest — and «Abbrechen» holds the focus, so a stray Enter keeps the
+ * person on the list. Both words go into the row (lib/suche · personEntwarnt / personIrrtuemlich).
+ */
+function WhyForm({ kind, v, actions, onCancel, onDone }: SuchePanelProps & { kind: 'entwarnen' | 'irrtuemlich'; v: PersonView; onCancel: () => void; onDone: () => void }) {
+  const C = appConfig.copy.suche
+  const [grund, setGrund] = useState('')
+  const [quelle, setQuelle] = useState('')
+  const gruende = kind === 'entwarnen' ? C.entwarnenGruende : C.irrtuemlichGruende
+  const submit = () => {
+    const why = { grund, quelle }
+    if (kind === 'entwarnen') actions.entwarnen(v.id, why)
+    else actions.irrtuemlich(v.id, why)
+    onDone()
+  }
+  return (
+    <Form title={fillTemplate(kind === 'entwarnen' ? C.formEntwarnen : C.formIrrtuemlich, { name: v.label })} submit={submit}
+      submitLabel={kind === 'entwarnen' ? C.submitEntwarnen : C.submitIrrtuemlich} onCancel={onCancel} focusCancel danger={kind === 'irrtuemlich'}>
+      <Field label={C.grund}>
+        <div className={s.chips} role="group" aria-label={C.grund}>
+          {gruende.map((g) => <button key={g} type="button" className={s.chip} aria-pressed={grund === g} onClick={() => setGrund(grund === g ? '' : g)}>{g}</button>)}
+        </div>
+        <input className="ip-input" value={grund} onChange={(e) => setGrund(e.target.value)} placeholder={C.grundPlaceholder} aria-label={C.grund} />
+      </Field>
+      <Field label={C.werSagt}>
+        <div className={s.chips} role="group" aria-label={C.werSagt}>
+          {C.whyQuellen.map((q) => <button key={q} type="button" className={s.chip} aria-pressed={quelle === q} onClick={() => setQuelle(quelle === q ? '' : q)}>{q}</button>)}
+        </div>
+        <input className="ip-input" value={quelle} onChange={(e) => setQuelle(e.target.value)} placeholder={C.werSagtPlaceholder} aria-label={C.werSagt} />
       </Field>
     </Form>
   )

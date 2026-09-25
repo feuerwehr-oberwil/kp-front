@@ -467,7 +467,7 @@
    the viewport between two lines its owner publishes — `--detent-bottom` (above the nav bar it
    must never cover) and `--detent-top` (under the top bar). No backdrop: what is under it stays
    live. The height is the detent's, or the finger's while it drags (`--detent-live`). */
-.ui-detent { position: fixed; left: 0; right: 0; z-index: var(--z-dock);
+.ui-detent { position: fixed; left: 0; right: 0; z-index: var(--z-detent);
   bottom: var(--detent-bottom, 0px);
   --detent-peek: 64px;
   --detent-half: min(46dvh, calc(100dvh - var(--detent-top, 64px) - var(--detent-bottom, 0px) - 120px));

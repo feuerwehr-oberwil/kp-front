@@ -176,12 +176,12 @@
     bottom: calc(var(--rail-h) + 20px + env(safe-area-inset-bottom)); }
   /* an editable surface adds the tool rail under it… */
   .app.phone-tools .wb-botleft {
-    bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
+    bottom: calc(var(--rail-h) * 2 + 20px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
   /* …and a third lane when the tool-SPECIFIC dock is out (a line/area tool's colours and widths).
      That bar appears and disappears with the tool, so the chips move with it rather than being
      covered by it half the time. Same `:has` idiom the FAB already uses to get out of its way. */
   .app:has(.wb-dock) .wb-botleft {
-    bottom: calc(var(--rail-h) * 3 + 26px + env(safe-area-inset-bottom)); }
+    bottom: calc(var(--rail-h) * 3 + 26px + var(--suche-lift, 0px) + env(safe-area-inset-bottom)); }
   /* ⚠️ ONE line, always (owner, 18.09.2026). The row used to wrap, and on a 360px phone the two
      status pills dropped onto a second line over the plan — a whole extra band of chrome across
      the sheet, budgeted for in the toast lane (15-mobile · --plan-row-reserve) and read by

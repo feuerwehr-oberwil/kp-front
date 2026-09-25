@@ -28,9 +28,10 @@ interface Args {
   /** open the Rapport ON one Mindestangabe (IncidentWorkspace · requestReportStep, a stable
    *  module-level loader of the lazy ReportPreflight chunk) */
   requestReportStep: (step: AbschlussStep) => void
-  /** the Suche's state for the confirm: people still missing (asks «trotzdem beenden?») and the
-   *  Bereiche not abgesucht (a hint) — and where to answer them */
-  suche?: { vermisst: number; openBereiche: string[] }
+  /** the Suche's state for the confirm: people still missing and the Bereiche not abgesucht (a
+   *  hint) — and where to answer them. `ask` is the missing people's OWN question
+   *  (lib/suche · vermisstAbschlussMessage), null when nobody is missing. */
+  suche?: { vermisst: number; openBereiche: string[]; ask?: string | null }
   openSuche?: () => void
   /** Close these Trupps as «nicht eingesetzt» — the card's own stand-down (useTruppActions ·
    *  setTruppStatus(id, 'raus') on a Trupp that never went in), one undo step each. The caller
@@ -120,6 +121,23 @@ export function useAbschluss({
        ⚠️ Not while a crew is still recorded inside: that is the question that matters, and the
        confirm below asks it («Noch im Einsatz …»). Closing the waiting crews first would put
        «nicht eingesetzt» rows beside a Trupp nobody has reported out. */
+    /* ⚠️ People still MISSING are their own question too, right after the crews (walk-through
+       25.09.2026, N6). «8 Personen noch vermisst» was the first grey row of nine under a filled,
+       focused «Trotzdem abschliessen», and an Enter closed the Einsatz over them. The sentence
+       names the count and the first names; «Zur Suche» is the filled, focused answer, closing
+       anyway the quiet one — and the paperwork list below then does not repeat it. */
+    const vermisstAsk = suche?.ask
+    if (vermisstAsk) {
+      const answer = await confirmDialog({
+        message: vermisstAsk,
+        confirmLabel: A.insideClose,
+        altLabel: appConfig.copy.suche.abschlussToSuche,
+        cancelLabel: appConfig.copy.cancel,
+        safeAnswer: 'alt',
+      })
+      if (answer === 'alt') { openSuche?.(); return false }
+      if (answer !== true) return false
+    }
     const registered = standDownTrupps && truppsStillOut === 0 ? truppsRef.current.filter(truppStillRegistered) : []
     let standDown: string[] = []
     if (registered.length > 0) {
@@ -148,7 +166,8 @@ export function useAbschluss({
        about to walk away, so that is part of what they are confirming. */
     // …and the Suche (24.09.2026): «2 Personen noch vermisst» makes the button «Trotzdem
     // abschliessen»; an area nobody searched is only named
-    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount, suche)
+    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount,
+      suche && vermisstAsk ? { ...suche, vermisst: 0 } : suche)
     // …and it counts as an open point for the WORDING, the way a missing Angabe does: the message
     // and the button both have to say that something is being closed over.
     const anyOpen = points.some(countsAsOpen)

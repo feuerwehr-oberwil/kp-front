@@ -31,7 +31,7 @@
 .tab.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(20, 40, 80, .14); }
 .tab:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tabBadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--red); color: var(--on-fill);
-  font: 800 12px var(--body); display: inline-grid; place-items: center; }
+  font: 800 12px var(--body); display: inline-grid; place-items: center; flex: none; }
 .tabCount { font: 600 12.5px var(--mono); color: var(--ink-faint); }
 
 .empty { padding: 28px 12px; }
@@ -54,6 +54,9 @@
 .panel [data-tone="green"] { --tone: var(--green); --tone-strong: var(--green-strong); }
 .panel [data-tone="blue"] { --tone: var(--blue); --tone-strong: var(--blue-strong); }
 .panel [data-tone="grey"] { --tone: var(--border); --tone-strong: var(--ink-dim); }
+/* «teilweise abgesucht» (N14): its own colour, between the blue of «in Arbeit» and the green of
+   «abgesucht» — and a HALF-filled dot, so it reads apart from both even without colour */
+.panel [data-tone="part"] { --tone: color-mix(in srgb, var(--green) 55%, var(--blue)); --tone-strong: color-mix(in srgb, var(--green-strong) 55%, var(--blue-strong)); }
 
 .pill { flex: none; padding: 4px 9px; border-radius: var(--r-pill); font: 700 12.5px var(--body); white-space: nowrap;
   color: var(--tone-strong); background: color-mix(in srgb, var(--tone) 14%, transparent); }
@@ -63,6 +66,7 @@
   border: 2px solid var(--tone); color: var(--on-fill); }
 .dot[data-tone="green"] { background: var(--green); }
 .dot[data-tone="blue"] { background: color-mix(in srgb, var(--blue) 25%, transparent); }
+.dot[data-tone="part"] { background: linear-gradient(90deg, var(--tone) 50%, transparent 50%); }
 .dot :global(.i) { width: 14px; height: 14px; }
 
 /* ── Bereiche: one group per storey ──────────────────────────────────────────────────────────── */
@@ -88,6 +92,9 @@
 .cardLine { margin: 0; font: 500 13px var(--body); color: var(--ink-dim); }
 .cardActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .cardActions :global(.ip-btn) { min-height: var(--tap); }
+/* the one act that withdraws a record stands apart, under its history (N7) */
+.cardFoot { display: flex; justify-content: flex-start; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--border); }
+.cardFoot :global(.ip-btn) { min-height: var(--tap); }
 .history { list-style: none; margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border-soft);
   display: flex; flex-direction: column; gap: 6px; font: 500 12.5px var(--body); color: var(--ink-dim); }
 .history li { display: flex; gap: 10px; }
@@ -121,6 +128,8 @@
   font: 700 14px var(--body); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 .peekText :global(.i) { width: 16px; height: 16px; flex: none; }
 .peekMissing { color: var(--red-strong); }
+/* the line gives way with an ellipsis before the «1?» and the chevron do */
+.peekLine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .x { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: none; border-radius: var(--r-sm); color: var(--ink-dim); cursor: pointer; }
 .x :global(.i) { width: 18px; height: 18px; }
 .x:active { background-image: linear-gradient(var(--press), var(--press)); }
@@ -144,7 +153,7 @@
 .row[data-withdrawn] .rowTitle { text-decoration: line-through; color: var(--ink-dim); }
 /* «?» on the Bereiche tab while a question stands on one of its rows */
 .askBadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--amber); color: var(--on-fill);
-  font: 800 12px var(--body); display: inline-grid; place-items: center; }
+  font: 800 12px var(--body); display: inline-grid; place-items: center; flex: none; }
 /* «Trupp 4 raus – abgesucht? Ja / Teilweise / Nein» — under the area's row, never a dialog */
 .ask { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px 12px; padding: 6px 8px;
   border-radius: var(--r-ctl); background: color-mix(in srgb, var(--amber) 12%, transparent); }
@@ -154,3 +163,5 @@
 .askBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* at peek the floor chips stand under the one line — the sheet is that much taller */
 .sheet.withChips:global(.ui-detent) { --detent-peek: 108px; }
+/* at peek the tool bar stays (15-mobile.css · .suche-peek): the one line stands on IT */
+:global(.app.phone-tools.suche-peek) .sheet:global(.ui-detent) { --detent-bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }

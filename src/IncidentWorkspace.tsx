@@ -59,7 +59,7 @@ import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
-import { Overlay } from './lib/overlays'
+import { Overlay, Sheet } from './lib/overlays'
 import { apiDelete } from './lib/api'
 import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
@@ -188,9 +188,10 @@ import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
 import { drawingLogName } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
-import { SUCHE_DOCK_INSET, sucheChangeWords, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, stackKeyOf, storeyBadges, storeyBereichId, sucheGroups, vermisstCount, type SucheStack, type TruppHere } from './lib/suche'
+import { SUCHE_DOCK_INSET, sucheChangeWords, type SucheComposerLink, bereichStatusOf, emptySuche, openBereiche, pendingAsks, personenViews, sanitizeSuche, stackKeyOf, storeyBadges, storeyBereichId, sucheAppClass, sucheFocusFor, sucheGroups, vermisstAbschlussMessage, vermisstCount, type SucheFocus, type SucheStack, type TruppHere } from './lib/suche'
 import { SucheDock, SuchePhoneSheet } from './components/suche/SucheSurface'
-import type { FundPreset, SucheTab } from './components/suche/SuchePanel'
+import { SuchePanel, type FundPreset, type SucheTab } from './components/suche/SuchePanel'
+import { SucheAskMeldungen } from './components/suche/SucheAskMeldungen'
 import { useSucheTrupps } from './lib/useSucheTrupps'
 import type { Detent } from './lib/overlays'
 import { useSucheActions, type SucheActions } from './lib/useSucheActions'
@@ -1872,6 +1873,7 @@ export function IncidentWorkspace({
   }), [building, planDocs])
   const sucheAbschluss = useMemo(() => ({
     vermisst: vermisstCount(suche), openBereiche: openBereiche(suche, sucheGroups(suche, sucheStack)),
+    ask: vermisstAbschlussMessage(suche),
   }), [suche, sucheStack])
   /** the Suche's door for the confirm's rows — `openSuche` is built further down */
   const openSucheRef = useRef<() => void>(() => {})
@@ -3866,7 +3868,10 @@ export function IncidentWorkspace({
    *    over them on a phone. Device state — which list somebody is looking at is not the record. */
   const [sucheOpen, setSucheOpen] = useState(false)
   const [sucheTab, setSucheTab] = useState<SucheTab>('personen')
-  const [sucheFocus, setSucheFocus] = useState<{ personId?: string; bereichId?: string; fund?: FundPreset; nonce: number } | null>(null)
+  const [sucheFocus, setSucheFocus] = useState<SucheFocus | null>(null)
+  /** «Fund melden» from a Trupp (N17): a sheet OVER the surface it was asked from — the Atemschutz
+   *  board stays where it is, and closing the sheet is being back there */
+  const [sucheFund, setSucheFund] = useState<{ preset: FundPreset; nonce: number } | null>(null)
   const [sucheDetent, setSucheDetent] = useState<Detent>('half')
   /** replay shows the search as it stood (lib/suche · sucheAt folds the anchor's slice) */
   const effSuche = useMemo<SucheDoc>(
@@ -3889,6 +3894,12 @@ export function IncidentWorkspace({
     .filter((a) => a.kind === 'resource' && !!a.truppId)
     .map((a) => ({ truppId: a.truppId!, floor: a.floor ?? 0 })), [board, stackPlanId])
   const sucheGroupsNow = useMemo(() => sucheGroups(effSuche, sucheStack), [effSuche, sucheStack])
+  /** «Trupp 4 raus – abgesucht?»: the areas whose Trupp is out and nobody has answered yet — on the
+   *  area's row, on the head chip, in the peek line and in the Meldeleiste (N13) */
+  const sucheAskUnits = useMemo(() => pendingAsks(sucheGroupsNow, (id) => {
+    const t = allTrupps.find((x) => x.id === id)
+    return !t || t.status === 'raus' || !!t.removedAt
+  }), [sucheGroupsNow, allTrupps])
   const sucheBadges = useMemo(() => (sucheOpen || effSuche.personen.length || effSuche.bereiche.some((b) => b.log.length) ? storeyBadges(sucheGroupsNow) : undefined), [sucheOpen, effSuche, sucheGroupsNow])
   /**
    * Open the Suche. From the Karte or a plan it docks on the surface you are on (the tool rail's
@@ -3896,10 +3907,11 @@ export function IncidentWorkspace({
    * the Gebäude, or beside the Karte when there is none (E5 «Wo man hinkommt»). Opening is also
    * the moment every storey becomes its «ganzes Geschoss» (E6 «von selbst»).
    */
-  const openSuche = (opts?: { tab?: SucheTab; personId?: string; bereichId?: string; fund?: FundPreset; stay?: boolean }) => {
+  const openSuche = (opts?: { tab?: SucheTab; personId?: string; bereichId?: string; stay?: boolean }) => {
     setSucheOpen(true)
     if (opts?.tab) setSucheTab(opts.tab)
-    if (opts?.personId || opts?.bereichId || opts?.fund) setSucheFocus((f) => ({ personId: opts.personId, bereichId: opts.bereichId, fund: opts.fund, nonce: (f?.nonce ?? 0) + 1 }))
+    // a jump opens its record; a plain open is the LIST — never a form left over from before (N17)
+    setSucheFocus((f) => sucheFocusFor(f, opts))
     if (isPhone) setSucheDetent('half')
     const onSurface = mode === 'map' || mode === 'plans'
     if (!(opts?.stay && onSurface)) sucheSurface(sucheHasGebaeude ? 'gebaeude' : 'karte')
@@ -3923,7 +3935,7 @@ export function IncidentWorkspace({
   const suchePanelProps = {
     doc: effSuche, floors: sucheFloors, floorName: sucheFloorName, stackKey: sucheStack.key, trupps: sucheTrupps, placed: sucheTruppFloors,
     // «Trupp 4 raus – abgesucht?» stands on the area's own row while its Trupp is out
-    asks: pendingAsks(sucheGroupsNow, (id) => { const t = allTrupps.find((x) => x.id === id); return !t || t.status === 'raus' || !!t.removedAt }).map((u) => u.id),
+    asks: sucheAskUnits.map((u) => u.id),
     canEdit: canEditSuche, actions: sucheActions, tab: sucheTab, onTab: setSucheTab, focus: sucheFocus,
     onFloor: sucheToFloor, uebergabe: sucheUebergabe(),
   }
@@ -3942,7 +3954,8 @@ export function IncidentWorkspace({
     const mine = suche.bereiche.filter((b) => { const st = bereichStatusOf(b); return st.status === 'inArbeit' && st.truppId === t.id })
     const label = sucheTrupps.find((x) => x.id === t.id)?.label ?? t.name
     return [
-      { label: S.fundMelden, onClick: () => openSuche({ tab: 'personen', fund: { truppId: t.id, floor } }) },
+      // a sheet over the board, not a trip to the Suche (N17): the clocks stay in sight
+      { label: S.fundMelden, onClick: () => setSucheFund({ preset: { truppId: t.id, floor }, nonce: Date.now() }) },
       {
         label: S.bereichAbgesucht,
         // the one area it searches is marked straight away (↶ takes it back); otherwise the
@@ -4627,7 +4640,7 @@ export function IncidentWorkspace({
   )
 
   return (
-    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${isPhone && sucheSurfaceOn ? ' suche-sheet' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
+    <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${sucheAppClass(isPhone, sucheSurfaceOn, sucheDetent)}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
       <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
@@ -4864,7 +4877,9 @@ export function IncidentWorkspace({
         }}
         // «2 vermisst» for everyone, and the tap lands on the Personen tab (E5)
         sucheMissing={sucheMissing}
-        onOpenSuche={() => openSuche({ tab: 'personen' })}
+        sucheAsks={canEditSuche && !replayActive ? sucheAskUnits.length : 0}
+        // with a question open the chip goes where it is answered
+        onOpenSuche={() => openSuche({ tab: canEditSuche && sucheAskUnits.length ? 'bereiche' : 'personen' })}
         // Only on the map surface: the chip is a caveat about what the MAP is showing, and on
         // Plan/Atemschutz there are no vehicle symbols for it to qualify. During replay the
         // positions are historical by definition, so a staleness warning would be nonsense.
@@ -5995,6 +6010,16 @@ export function IncidentWorkspace({
       ) : (
         <SucheDock {...suchePanelProps} onClose={() => setSucheOpen(false)} />
       ), false)}
+      {/* «Fund melden» (N17): over whatever surface asked for it, and back there when done */}
+      {sucheFund && canEditSuche && !replayActive && guarded('suche-fund', (
+        <Sheet open onClose={() => setSucheFund(null)} title={appConfig.copy.suche.fundMelden} sheetClassName="suche-fund-sheet" fit>
+          <SuchePanel key={sucheFund.nonce} {...suchePanelProps} focus={{ fund: sucheFund.preset, nonce: sucheFund.nonce }} onExit={() => setSucheFund(null)} />
+        </Sheet>
+      ), false)}
+      {/* the open «abgesucht?» questions in the Meldeleiste (N13) — editor devices only */}
+      {canEditSuche && !replayActive && (
+        <SucheAskMeldungen asks={sucheAskUnits} actions={sucheActions} onOpen={(id) => openSuche({ tab: 'bereiche', bereichId: id })} />
+      )}
 
       {/* time-travel replay scrubber — read-only past view, owns the playhead + fold */}
       {replayActive && (

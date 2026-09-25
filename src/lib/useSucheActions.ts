@@ -7,7 +7,7 @@ import {
   addBereich, addFoundPerson, addPerson, applySuchePatch, diffSuche, ensureStoreyBereiche, markFund, patchEmpty, patchRows,
   personEntwarnt, personGefunden, personIrrtuemlich, personKorrigiert, personUebergeben, renameBereich, rowOwner,
   setBereichStatus, setOhneRest, splitStorey,
-  type GefundenInput, type SucheCx, type SuchePatch, type VermisstInput,
+  type GefundenInput, type SucheCx, type SuchePatch, type SucheWhy, type VermisstInput,
 } from './suche'
 import type { SucheBereichStatus, SucheDoc, SucheRow, TimelineEvent } from '../types'
 
@@ -118,16 +118,16 @@ export function useSucheActions({ suche, setRaw, remember, canEdit, log, emit, f
       const r = personUebergeben(ref.current, personId, { an, n }, cx())
       return commit(r.doc, r.rows)
     },
-    entwarnen(personId: string) {
-      const r = personEntwarnt(ref.current, personId, cx())
+    entwarnen(personId: string, why?: SucheWhy) {
+      const r = personEntwarnt(ref.current, personId, cx(), why)
       return commit(r.doc, r.rows)
     },
     korrigieren(personId: string, next: { name?: string; count?: number; floor?: number; wo?: string }) {
       const r = personKorrigiert(ref.current, personId, next, cx())
       return commit(r.doc, r.rows)
     },
-    irrtuemlich(personId: string) {
-      const r = personIrrtuemlich(ref.current, personId, cx())
+    irrtuemlich(personId: string, why?: SucheWhy) {
+      const r = personIrrtuemlich(ref.current, personId, cx(), why)
       return commit(r.doc, r.rows)
     },
     setStatus(bereichId: string, status: SucheBereichStatus, trupp?: { label?: string; id?: string }, note?: string) {

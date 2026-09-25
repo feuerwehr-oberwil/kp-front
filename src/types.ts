@@ -1260,11 +1260,16 @@ export interface SucheRow {
   set?: { name?: string; count?: number; floor?: number | null; wo?: string }
   /** Bereich `status` row: the new status */
   status?: SucheBereichStatus
+  /** `entwarnt` / `irrtuemlich`: why, and who said so — both optional, both in the row's text */
+  grund?: string
+  quelle?: string
   /** Bereich `fund` row: the Person found there, when the find was reported through the list */
   personId?: string
 }
 
-export type SucheBereichStatus = 'offen' | 'inArbeit' | 'abgesucht' | 'nichtZugaenglich'
+/** `teilweise`: a Trupp came out and said «partly» (walk-through 25.09.2026) — its own state, since
+ *  «offen» read the same as never searched; it counts as NOT done in every progress figure. */
+export type SucheBereichStatus = 'offen' | 'inArbeit' | 'teilweise' | 'abgesucht' | 'nichtZugaenglich'
 
 /** Step 2: a position on a plan sheet or the Karte. Never written in step 1. */
 export interface SuchePoint {

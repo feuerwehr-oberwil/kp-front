@@ -5070,7 +5070,7 @@ export const de = {
     surfaceSwitch: 'Unterlage',
     // Zustände
     status: { vermisst: 'vermisst', gefunden: 'gefunden', uebergeben: 'übergeben', entwarnt: 'entwarnt', irrtuemlich: 'irrtümlich' },
-    bereichStatus: { offen: 'offen', inArbeit: 'in Arbeit', abgesucht: 'abgesucht', nichtZugaenglich: 'nicht zugänglich' },
+    bereichStatus: { offen: 'offen', inArbeit: 'in Arbeit', teilweise: 'teilweise abgesucht', abgesucht: 'abgesucht', nichtZugaenglich: 'nicht zugänglich' },
     fund: 'Fund',
     sucht: '{trupp} sucht',
     ganzesGeschoss: 'ganzes Geschoss',
@@ -5166,7 +5166,24 @@ export const de = {
     rausJa: 'Ja',
     rausTeilweise: 'Teilweise',
     rausNein: 'Nein',
-    teilweiseAbgesucht: 'teilweise abgesucht',
+    // Warum/Wer bei «Entwarnen» und «Irrtümlich erfasst» (N7) — beides freiwillig, «Abbrechen» ist vorgewählt
+    formEntwarnen: '{name} entwarnen',
+    formIrrtuemlich: '{name} als irrtümlich erfasst streichen',
+    grund: 'Warum? (optional)',
+    grundPlaceholder: 'z. B. telefonisch zu Hause erreicht',
+    werSagt: 'Wer sagt das? (optional)',
+    werSagtPlaceholder: 'z. B. Angehörige',
+    entwarnenGruende: ['telefonisch erreicht', 'zu Hause', 'selbst gemeldet', 'am Sammelplatz'] as string[],
+    irrtuemlichGruende: ['doppelt erfasst', 'Falschmeldung', 'war nie im Gebäude'] as string[],
+    whyQuellen: ['Angehörige', 'Polizei', 'Rettungsdienst', 'Person selbst'] as string[],
+    submitEntwarnen: 'Entwarnen',
+    submitIrrtuemlich: 'Streichen',
+    rowGrund: ' · {grund}',
+    // offene Fragen «abgesucht?» — Kopfchip, Handy-Zeile, Meldeleiste (N13)
+    asksOne: '1 Frage',
+    asksMany: '{n} Fragen',
+    askMeldung: '{trupp} raus – {bereich} abgesucht?',
+    askMeldungOpen: 'In der Suche beantworten',
     rowVermisst: 'Vermisst: {name}',
     rowZuletzt: ' · zuletzt {wo}',
     rowQuelle: ' · Quelle {quelle}',
@@ -5215,6 +5232,11 @@ export const de = {
     abschlussVermisst: '{n} Personen noch vermisst',
     abschlussVermisstOne: '1 Person noch vermisst',
     abschlussBereiche: 'Nicht abgesucht: {list}',
+    // die eigene Frage vor dem Abschluss (N6)
+    abschlussAskOne: '1 Person noch vermisst: {list}.',
+    abschlussAskMany: '{n} Personen noch vermisst: {list}.',
+    abschlussAskGroup: '{name} ({n})',
+    abschlussToSuche: 'Zur Suche',
   },
   // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {

@@ -5,6 +5,7 @@ import {
   personIrrtuemlich, personKorrigiert, personPrintRows, personUebergeben, personView, personenViews, renameBereich, rowOwner,
   sanitizeSuche, setBereichStatus, setOhneRest, splitStorey, stackKeyOf, storeyBadges, storeyBereichId, sucheGroups, sucheLine,
   sucheProgress, suggestSuchePersonen, truppShort, truppsOnStorey, vermisstCount, zielBereich, sucheChangeWords, sucheLinkLabel,
+  bereichStatusOf, sucheFocusFor, vermisstAbschlussMessage,
   type SucheCx, type SucheStack,
 } from './suche'
 import { mergeSuche, mergeWorkspace } from './mergeWorkspace'
@@ -431,5 +432,64 @@ describe('the Rapport', () => {
     expect(sucheLine(d, groups, clock)).toBeNull()
     expect(openBereiche(d, groups)).toEqual([])
     expect(personPrintRows(d, clock, floorLabel)).toEqual([])
+  })
+})
+
+describe('the walk-through of 25.09.2026 (round 2)', () => {
+  it('N14 · «teilweise abgesucht» is its own status: it keeps the Trupp, and it is NOT done', () => {
+    const w = world(t('20:10'))
+    const a = setBereichStatus(emptySuche(), sid(2), 'inArbeit', { label: 'Trupp 1', id: 't1' }, w.cx())
+    w.set(t('20:19'))
+    const b = setBereichStatus(a.doc, sid(2), 'teilweise', undefined, w.cx())
+    expect(b.rows[0]).toMatchObject({ status: 'teilweise', trupp: 'Trupp 1', truppId: 't1', text: '2. OG teilweise abgesucht · Trupp 1' })
+    const groups = sucheGroups(b.doc, stack([2]))
+    expect(groups[0].units[0]).toMatchObject({ status: 'teilweise', trupp: 'Trupp 1' })
+    expect(sucheProgress(groups)).toEqual({ done: 0, total: 1 })
+    expect(openBereiche(b.doc, groups)).toEqual(['2. OG'])
+    expect(sucheLine(b.doc, groups, clock)).toBe('Suche: 1 Bereiche, 0 abgesucht · nicht abgesucht: 2. OG')
+    // …and it asks nothing more: the Trupp answered
+    expect(pendingAsks(groups, () => true)).toEqual([])
+  })
+
+  it('a status this build does not know is skipped, never shown as «undefined»', () => {
+    const b = { id: sid(0), floor: 0, stack: K, createdAt: '', log: [
+      { id: 'r1', op: 'status' as const, status: 'inArbeit' as const, at: t('20:00'), text: '' },
+      { id: 'r2', op: 'status' as const, status: 'verraucht' as never, at: t('20:05'), text: '' },
+    ] }
+    expect(bereichStatusOf(b).status).toBe('inArbeit')
+  })
+
+  it('N7 · «Entwarnen» and «Irrtümlich erfasst» carry why and who said so, in the row', () => {
+    const w = world(t('20:08'))
+    const a = addPerson(emptySuche(), { name: 'Tim Muster' }, w.cx())
+    const e = personEntwarnt(a.doc, a.person.id, w.cx(), { grund: 'zu Hause', quelle: 'Angehörige' })
+    expect(e.rows[0]).toMatchObject({ grund: 'zu Hause', quelle: 'Angehörige', text: 'Entwarnung: Tim Muster · zu Hause · Quelle Angehörige' })
+    const i = personIrrtuemlich(a.doc, a.person.id, w.cx(), { grund: '  ' })
+    expect(i.rows[0].text).toBe('Irrtümlich erfasst: Tim Muster')
+    expect(i.rows[0]).not.toHaveProperty('grund')
+  })
+
+  it('N6 · the Abschluss names the count and the first names of who is still missing', () => {
+    const w = world(t('20:08'))
+    let d = addPerson(emptySuche(), { name: 'Klasse 4b', count: 8 }, w.cx()).doc
+    d = addPerson(d, { name: 'Tim Muster' }, w.cx()).doc
+    expect(vermisstAbschlussMessage(d)).toBe('9 Personen noch vermisst: Klasse 4b (8), Tim Muster.')
+    const one = addPerson(emptySuche(), { name: 'Ada Probe' }, w.cx())
+    expect(vermisstAbschlussMessage(one.doc)).toBe('1 Person noch vermisst: Ada Probe.')
+    // withdrawn, stood down or found: nobody to ask about
+    expect(vermisstAbschlussMessage(personIrrtuemlich(one.doc, one.person.id, w.cx()).doc)).toBeNull()
+    expect(vermisstAbschlussMessage(emptySuche())).toBeNull()
+    // more than three records: three names in the list's order, and the rest counted
+    let many = emptySuche()
+    for (const n of ['A Eins', 'B Zwei', 'C Drei', 'D Vier']) many = addPerson(many, { name: n }, w.cx()).doc
+    const shown = personenViews(many).slice(0, 3).map((v) => v.label).join(', ')
+    expect(vermisstAbschlussMessage(many)).toBe(`4 Personen noch vermisst: ${shown} +1.`)
+  })
+
+  it('N17 · a plain open is the LIST — a jump from before never comes back', () => {
+    const jump = sucheFocusFor(null, { personId: 'p1' })
+    expect(jump).toEqual({ personId: 'p1', bereichId: undefined, nonce: 1 })
+    expect(sucheFocusFor(jump, undefined)).toBeNull()
+    expect(sucheFocusFor(jump, { bereichId: 'b1' })).toEqual({ personId: undefined, bereichId: 'b1', nonce: 2 })
   })
 })

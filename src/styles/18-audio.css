@@ -358,6 +358,9 @@
   background: color-mix(in srgb, var(--red) 8%, transparent); border-color: color-mix(in srgb, var(--red) 35%, transparent); }
 .jc-phrase-suche .i { width: 14px; height: 14px; flex: none; }
 .jc-phrase-suche.on { background: var(--red); border-color: var(--red); color: var(--on-fill); }
+/* the Suche's chips stand in their own row under the band and WRAP — never cut off (25.09.2026) */
+.jc-suche-row { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.jc-suche-row .jc-phrase { max-width: 100%; white-space: normal; text-align: left; }
 /* the item's own words, truncated — the chip is a target, not the entry */
 .jc-phrase-pendenz { white-space: nowrap; text-overflow: ellipsis; }
 /* the picker's own list. It borrows the shared menu look (.rp-print-menu) and adds the one thing

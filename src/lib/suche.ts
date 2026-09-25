@@ -305,6 +305,8 @@ export interface BereichView {
 
 /** The area's status, folded from its rows. `doc` adds the finds booked on PEOPLE: a `gefunden`
  *  row names the area it happened in, and that is what makes the area wear «Fund». */
+export const BEREICH_STATUSES: readonly SucheBereichStatus[] = ['offen', 'inArbeit', 'teilweise', 'abgesucht', 'nichtZugaenglich']
+
 export function bereichStatusOf(b: SucheBereich, doc?: SucheDoc): { status: SucheBereichStatus; trupp?: string; truppId?: string; at: string; fund: boolean } {
   let status: SucheBereichStatus = 'offen'
   let trupp: string | undefined
@@ -312,10 +314,11 @@ export function bereichStatusOf(b: SucheBereich, doc?: SucheDoc): { status: Such
   let at = ''
   let fund = false
   for (const r of chrono(b.log)) {
-    if (r.op === 'status' && r.status) {
+    // a status this build does not know (a newer one wrote it) is skipped, never shown as «undefined»
+    if (r.op === 'status' && r.status && BEREICH_STATUSES.includes(r.status)) {
       status = r.status
       at = r.at
-      // «in Arbeit · T4» and «abgesucht · T4» keep their Trupp; «offen» clears it
+      // «in Arbeit · T4», «teilweise · T4» and «abgesucht · T4» keep their Trupp; «offen» clears it
       trupp = r.status === 'offen' ? undefined : r.trupp
       truppId = r.status === 'offen' ? undefined : r.truppId
     } else if (r.op === 'fund') fund = true
@@ -564,10 +567,24 @@ export function personUebergeben(doc: SucheDoc, personId: string, input: { an: s
   return { doc: { ...doc, personen: appendRow(doc.personen, personId, row) }, rows: [row] }
 }
 
-export function personEntwarnt(doc: SucheDoc, personId: string, cx: SucheCx): { doc: SucheDoc; rows: SucheRow[] } {
+/** Why a record ends without a find, and who said so (N7) — both optional, both in the row. */
+export interface SucheWhy { grund?: string; quelle?: string }
+
+function whyFields(why: SucheWhy | undefined): { text: string; fields: Pick<SucheRow, 'grund' | 'quelle'> } {
+  const C = appConfig.copy.suche
+  const grund = why?.grund?.trim() || undefined
+  const quelle = why?.quelle?.trim() || undefined
+  return {
+    text: seg(C.rowGrund, { grund: grund ?? '' }, grund) + seg(C.rowQuelle, { quelle: quelle ?? '' }, quelle),
+    fields: { ...(grund ? { grund } : {}), ...(quelle ? { quelle } : {}) },
+  }
+}
+
+export function personEntwarnt(doc: SucheDoc, personId: string, cx: SucheCx, why?: SucheWhy): { doc: SucheDoc; rows: SucheRow[] } {
   const p = doc.personen.find((x) => x.id === personId)
   if (!p) return { doc, rows: [] }
-  const row: SucheRow = { id: cx.newId('sr'), at: cx.at, op: 'entwarnt', text: fillTemplate(appConfig.copy.suche.rowEntwarnt, { name: personView(p).label }) }
+  const w = whyFields(why)
+  const row: SucheRow = { id: cx.newId('sr'), at: cx.at, op: 'entwarnt', text: fillTemplate(appConfig.copy.suche.rowEntwarnt, { name: personView(p).label }) + w.text, ...w.fields }
   return { doc: { ...doc, personen: appendRow(doc.personen, personId, row) }, rows: [row] }
 }
 
@@ -605,10 +622,11 @@ export function personKorrigiert(doc: SucheDoc, personId: string, next: { name?:
 }
 
 /** «Irrtümlich erfasst: Tim Muster» — the record is withdrawn; it counts nowhere from here on. */
-export function personIrrtuemlich(doc: SucheDoc, personId: string, cx: SucheCx): { doc: SucheDoc; rows: SucheRow[] } {
+export function personIrrtuemlich(doc: SucheDoc, personId: string, cx: SucheCx, why?: SucheWhy): { doc: SucheDoc; rows: SucheRow[] } {
   const p = doc.personen.find((x) => x.id === personId)
   if (!p || p.log.some((r) => r.op === 'irrtuemlich')) return { doc, rows: [] }
-  const row: SucheRow = { id: cx.newId('sr'), at: cx.at, op: 'irrtuemlich', text: fillTemplate(appConfig.copy.suche.rowIrrtuemlich, { name: personView(p).label }) }
+  const w = whyFields(why)
+  const row: SucheRow = { id: cx.newId('sr'), at: cx.at, op: 'irrtuemlich', text: fillTemplate(appConfig.copy.suche.rowIrrtuemlich, { name: personView(p).label }) + w.text, ...w.fields }
   return { doc: { ...doc, personen: appendRow(doc.personen, personId, row) }, rows: [row] }
 }
 
@@ -1033,12 +1051,36 @@ export function openBereiche(doc: SucheDoc | undefined, groups: readonly SucheGr
 }
 
 /** The Suche's one line — «Suche · 2 vermisst · Bereiche 5/8» — the phone sheet's peek. */
-export function sucheSummary(missing: number, progress: { done: number; total: number }): string {
+export function sucheSummary(missing: number, progress: { done: number; total: number }, asks = 0): string {
   const C = appConfig.copy.suche
   const vermisst = missing > 0 ? fillTemplate(C.peekVermisst, { n: missing }) : C.peekNobody
-  return progress.total > 0
+  const line = progress.total > 0
     ? fillTemplate(C.peek, { vermisst, done: progress.done, total: progress.total })
     : fillTemplate(C.peekNoBereiche, { vermisst })
+  // …and the questions nobody has answered yet stand in the one line that is always visible
+  return asks > 0 ? `${line} · ${asksWords(asks)}` : line
+}
+
+/** «1 Frage» / «3 Fragen» — the open «abgesucht?» questions, wherever they are counted */
+export function asksWords(n: number): string {
+  const C = appConfig.copy.suche
+  return n === 1 ? C.asksOne : fillTemplate(C.asksMany, { n })
+}
+
+/**
+ * The first question in front of the Abschluss while the Suche still lists people as missing
+ * (walk-through 25.09.2026, N6): «8 Personen noch vermisst: Klasse 4b (8), Tim Muster.» — the
+ * count and the first names, because «8» alone does not say whether it is one class or eight
+ * strangers. At most three names; the rest is counted («+2»).
+ */
+export function vermisstAbschlussMessage(doc: SucheDoc): string | null {
+  const C = appConfig.copy.suche
+  const open = personenViews(doc).filter((v) => v.status === 'vermisst' && v.missing > 0)
+  const n = open.reduce((sum, v) => sum + v.missing, 0)
+  if (!n) return null
+  const names = open.slice(0, 3).map((v) => (v.group ? fillTemplate(C.abschlussAskGroup, { name: v.label, n: v.missing }) : v.label))
+  const list = names.join(', ') + (open.length > 3 ? ` +${open.length - 3}` : '')
+  return n === 1 ? fillTemplate(C.abschlussAskOne, { list }) : fillTemplate(C.abschlussAskMany, { n, list })
 }
 
 /** What the tablet dock takes off the right of the surface beside it: its 340 px plus the 10 px
@@ -1065,4 +1107,28 @@ export function sucheLinkLabel(l: SucheComposerLink): string {
   return l.kind === 'gefunden'
     ? fillTemplate(S.composerKnown, { name: l.label, from: S.status.vermisst, to: S.status.gefunden })
     : fillTemplate(S.composerNew, { name: l.name })
+}
+
+/** A jump into the Suche: open ONE record straight away. */
+export interface SucheFocus { personId?: string; bereichId?: string; nonce: number }
+
+/**
+ * What the Suche opens on (walk-through 25.09.2026, N17). A jump — a Verlauf row, a Meldeleiste
+ * question — names its record and gets a fresh nonce (the panel remounts on it). A PLAIN open is
+ * the list: the focus is dropped, so a jump from an hour ago (a «Fund · Trupp 1» form for a Trupp
+ * long out) can never come back when somebody taps the head chip.
+ */
+export function sucheFocusFor(prev: SucheFocus | null, jump?: { personId?: string; bereichId?: string }): SucheFocus | null {
+  if (!jump?.personId && !jump?.bereichId) return null
+  return { personId: jump.personId, bereichId: jump.bereichId, nonce: (prev?.nonce ?? 0) + 1 }
+}
+
+/**
+ * The phone's app-level class while the Suche sheet is up (15-mobile.css): at HALF and FULL the
+ * drawing tools step aside (`suche-sheet`); at PEEK — one line — they stay, and the line stands on
+ * the tool bar (`suche-peek`, walk-through 25.09.2026). Nothing on a tablet: the dock sits beside.
+ */
+export function sucheAppClass(isPhone: boolean, open: boolean, detent: 'peek' | 'half' | 'full'): string {
+  if (!isPhone || !open) return ''
+  return detent === 'peek' ? ' suche-peek' : ' suche-sheet'
 }
