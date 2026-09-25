@@ -377,3 +377,25 @@ describe('what a closed Einsatz still takes is never refused along with the rest
     } finally { vi.useRealTimers() }
   })
 })
+
+describe('a re-send never empties a refused slot it could not read (review of #235)', () => {
+  it('requeueRefused after a failed read of the main slot sends nothing and leaves the slot', async () => {
+    const idb = await import('./idb')
+    const KEY = `kp-front-ws-${INC}::__refused__`
+    const earlier = [{ workspace: { trupps: [TRUPP] }, baseRev: 1, refusedAt: 1 }]
+    await idb.idbSet(KEY, earlier)
+    const realRead = idb.idbRead
+    const read = vi.spyOn(idb, 'idbRead').mockImplementation(((key: string) =>
+      key === KEY ? Promise.resolve({ ok: false, error: new Error('io') }) : realRead(key)) as typeof idb.idbRead)
+    try {
+      const sync = new WorkspaceSync(INC, { debounceMs: 60_000 })
+      await sync.init()
+      const puts = server.rev
+      await sync.requeueRefused()
+      expect(server.rev).toBe(puts) // nothing sent
+      read.mockRestore()
+      expect(await idb.idbGet(KEY)).toEqual(earlier) // and nothing emptied
+      sync.dispose()
+    } finally { read.mockRestore() }
+  })
+})

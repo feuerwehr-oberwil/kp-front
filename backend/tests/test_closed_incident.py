@@ -16,6 +16,7 @@ and the tablet ran the Einsatz live for minutes, and a «Kontakt» tap and two �
 
 import asyncio
 import time
+import uuid
 
 import pytest
 
@@ -410,3 +411,71 @@ async def test_a_view_change_beside_a_rapport_edit_is_not_refused(client, editor
     assert (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]["reportMeta"] == {
         "kurzbericht": "korrigiert"
     }
+
+
+async def test_a_second_close_is_judged_by_itself_not_by_the_first(client, editor, db_session):
+    """`closed_at` keeps the FIRST Einsatzende across «Wieder öffnen». A Kontakt made while the
+    reopened Einsatz ran, delivered after it was closed again, is before THIS close — recorded."""
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import update
+
+    from app.models import Incident
+
+    await _login(client, editor)
+    inc = await _incident(client)
+    await _close(client, inc)
+    # the first close was hours ago (a morning-after reopen for a late correction)
+    first = await _closed_at(client, inc)
+    await db_session.execute(
+        update(Incident).where(Incident.id == uuid.UUID(inc)).values(closed_at=first - timedelta(hours=3))
+    )
+    await db_session.commit()
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+    during_reopen = datetime.now(UTC).isoformat()
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": True})).status_code == 200
+    r = await client.post(
+        f"/api/incidents/{inc}/journal",
+        json={"entries": [{**KONTAKT_ROW, "id": "r-reopened", "at": during_reopen}]},
+    )
+    assert r.status_code == 201, r.text
+    late = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
+    _assert_closed_refusal(
+        await client.post(
+            f"/api/incidents/{inc}/journal", json={"entries": [{**KONTAKT_ROW, "id": "r-after", "at": late}]}
+        )
+    )
+
+
+async def test_the_second_close_is_what_the_answers_carry(client, editor, db_session):
+    from datetime import timedelta
+
+    from sqlalchemy import update
+
+    from app.models import Incident
+
+    await _login(client, editor)
+    inc = await _incident(client)
+    await _close(client, inc)
+    first = await _closed_at(client, inc)
+    # the first close was hours ago (a morning-after reopen)
+    await db_session.execute(
+        update(Incident).where(Incident.id == uuid.UUID(inc)).values(closed_at=first - timedelta(hours=3))
+    )
+    await db_session.commit()
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": True})).status_code == 200
+    r = await client.get(f"/api/incidents/{inc}/workspace?since=0")
+    from datetime import datetime
+
+    assert datetime.fromisoformat(r.headers["X-Incident-Closed-At"]) > first - timedelta(minutes=1)
+
+
+async def test_frozen_plan_bindings_are_not_view_state(client, editor):
+    await _login(client, editor)
+    inc, rev = await _seeded(client)
+    stored = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
+    rebound = {**stored, "planBindings": [{"planId": "modul2", "revision": 9}]}
+    _assert_closed_refusal(
+        await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": rebound, "base_rev": rev})
+    )

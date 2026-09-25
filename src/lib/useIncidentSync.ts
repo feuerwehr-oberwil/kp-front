@@ -243,7 +243,13 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
         // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being
         // clobbered mid-edit; the nightly reset re-seeds everyone at once. A dirty round fetches
         // nothing, so it reports "unanswered" and the loop eases off.
-        if (!readOnly && sync.hasUnsynced) return false
+        if (!readOnly && sync.hasUnsynced) {
+          // ⚠️ …but it still asks whether the Einsatz is RUNNING (review of #235): a device that is
+          // always a little dirty would otherwise never hear a close by the poll. A quick no-wait
+          // read, whose lifecycle header is all that is used — nothing is adopted over the edits.
+          await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: incidentOpenRef.current }).catch(() => null)
+          return false
+        }
         const since = Math.max(liveRev.current, sync.rev)
         const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: incidentOpenRef.current })
         // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in

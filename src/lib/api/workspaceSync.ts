@@ -1034,7 +1034,10 @@ export class WorkspaceSync {
    * the slots are emptied. Everything after the reopen prints as a Nachtrag.
    */
   async requeueRefused(): Promise<void> {
-    await this.loadRefused()
+    // ⚠️ Only once the MAIN slot was actually read: emptying a slot that could not be read would
+    // destroy what an earlier session parked there. Unread ⇒ nothing is re-sent now; the next
+    // attempt (the next render that sees the Einsatz running) reads again.
+    if (!(await this.loadRefused())) return
     if (this.disposed || !this.refused.length) return
     const parked = this.refused
     let ws = this.entry.workspace

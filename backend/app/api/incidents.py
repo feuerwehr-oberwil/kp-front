@@ -145,10 +145,11 @@ VIEW_WORKSPACE_KEYS = frozenset(
         "recent",
         "cameraViews",
         "pickedObjectId",
-        "planBindings",
         "intakeReviewedAt",
     }
 )
+# ⚠️ NOT `planBindings`: a binding FREEZES which plan revision and fit this Einsatz ran on
+# (lib/incidentPlanBindings) — part of what the record says, not a way of looking at it.
 
 
 def _as_utc(at: object) -> datetime | None:
@@ -194,7 +195,40 @@ async def incident_lifecycle(db: AsyncSession, incident_id: uuid.UUID, *, lock: 
     row = (await db.execute(stmt)).one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
-    return IncidentLifecycle(bool(row.is_archived), row.status, row.closed_at)
+    return await _resolved(db, incident_id, IncidentLifecycle(bool(row.is_archived), row.status, row.closed_at))
+
+
+async def current_close(db: AsyncSession, incident_id: uuid.UUID, first_closed_at: datetime | None) -> datetime | None:
+    """When the Einsatz was closed THIS time. `closed_at` is the FIRST Einsatzende and is kept
+    across «Wieder öffnen» (so later rows print as Nachträge) — judged against it, a write made
+    while a reopened Einsatz ran would count as «after the close» once it is closed again. The
+    latest lifecycle event that closed it says when; `closed_at` is the fallback for an Einsatz
+    closed before those events existed. Only ever asked for a closed Einsatz (a handful of rows)."""
+    from ..models import IncidentEvent
+
+    rows = (
+        await db.execute(
+            select(IncidentEvent.occurred_at, IncidentEvent.payload_json)
+            .where(IncidentEvent.incident_id == incident_id, IncidentEvent.op_type == "status.change")
+            .order_by(IncidentEvent.seq.desc())
+        )
+    ).all()
+    for at, payload in rows:
+        if not isinstance(payload, dict):
+            continue
+        closes = payload.get("archived") is True or (
+            "to" in payload and payload.get("to") not in INCIDENT_ACTIVE_STATUSES
+        )
+        if closes:
+            return at if first_closed_at is None else max(at, first_closed_at)
+    return first_closed_at
+
+
+async def _resolved(db: AsyncSession, incident_id: uuid.UUID, lc: "IncidentLifecycle") -> "IncidentLifecycle":
+    """A closed lifecycle carries the CURRENT close (see current_close); an open one as read."""
+    if lc.is_open:
+        return lc
+    return lc._replace(closed_at=await current_close(db, incident_id, lc.closed_at))
 
 
 def incident_closed(closed_at: datetime | None) -> HTTPException:
@@ -323,19 +357,20 @@ class _LiveState(NamedTuple):
     lifecycle: IncidentLifecycle
 
 
-async def _live_state(db: AsyncSession, incident_id: uuid.UUID) -> _LiveState:
+async def _live_state(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> _LiveState:
     """The revision AND the lifecycle — still four cheap columns, no JSONB. What the live-follow
-    poll decides on and answers with (see `_lifecycle_headers`)."""
-    row = (
-        await db.execute(
-            select(Incident.workspace_rev, Incident.is_archived, Incident.status, Incident.closed_at).where(
-                Incident.id == incident_id
-            )
-        )
-    ).one_or_none()
+    poll decides on and answers with (see `_lifecycle_headers`). `lock` takes the row FOR UPDATE:
+    the full save holds it from this read to its UPDATE, so a close cannot commit in between."""
+    stmt = select(Incident.workspace_rev, Incident.is_archived, Incident.status, Incident.closed_at).where(
+        Incident.id == incident_id
+    )
+    if lock:
+        stmt = stmt.with_for_update()
+    row = (await db.execute(stmt)).one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
-    return _LiveState(row.workspace_rev, IncidentLifecycle(bool(row.is_archived), row.status, row.closed_at))
+    lc = await _resolved(db, incident_id, IncidentLifecycle(bool(row.is_archived), row.status, row.closed_at))
+    return _LiveState(row.workspace_rev, lc)
 
 
 #: Headers every workspace read answers with — the 304 included, because on a quiet Einsatz the
@@ -408,7 +443,11 @@ async def get_workspace(
     inc = await get_incident_or_404(db, incident_id)
     if latch and since is None:
         await _latch_editor_opened(db, incident_id)
-    response.headers.update(_lifecycle_headers(IncidentLifecycle(inc.is_archived, inc.status, inc.closed_at)))
+    response.headers.update(
+        _lifecycle_headers(
+            await _resolved(db, incident_id, IncidentLifecycle(inc.is_archived, inc.status, inc.closed_at))
+        )
+    )
     return WorkspaceOut(workspace=inc.map_workspace_json, workspace_rev=inc.workspace_rev)
 
 
@@ -506,7 +545,9 @@ async def put_workspace(
     # refused HERE, before the full-blob SELECT and validation it would throw away. Purely an
     # optimization: the authoritative check stays the conditional UPDATE in apply_workspace_put,
     # and the success path skips no validation (AGENTS.md · alarm validation).
-    state = await _live_state(db, incident_id)
+    # ⚠️ Under the row lock (review of #235): read open, then a close commits, then this save's
+    # UPDATE — which checks the revision, not the lifecycle — would land in the closed record.
+    state = await _live_state(db, incident_id, lock=True)
     await _latch_editor_opened(db, incident_id)
     if state.rev != body.base_rev:
         raise _workspace_revision_conflict(state.rev, body.base_rev)
@@ -519,8 +560,9 @@ async def put_workspace(
         # were all MADE before the close. Under the row lock, like the journal/audit appenders.
         inc = await get_incident_or_404(db, incident_id, lock=True)
         stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
-        if operational_keys_changed(stored, body.workspace) and happened_after_close(body.edited_at, inc.closed_at):
-            raise incident_closed(inc.closed_at)
+        closed_at = state.lifecycle.closed_at
+        if operational_keys_changed(stored, body.workspace) and happened_after_close(body.edited_at, closed_at):
+            raise incident_closed(closed_at)
     saved = await apply_workspace_put(db, incident_id, body, user_id=user.id, inc=inc)
     # `slim=1`: only the revision goes back — the caller sent the blob and reads nothing but
     # the rev (workspaceSync · pushCurrent), and echoing it doubled the wire cost of every
@@ -552,8 +594,10 @@ async def put_workspace_trupps(
     # The Tafel ends with the Einsatz: no Kontakt, Druck or Austritt made AFTER the close lands in
     # the closed record (N3, 25.09.2026). An Atemschutz-LINK never gets here then — its session
     # dies with the Einsatz (auth/incident_link) — so this is the editor on the slice route.
-    if not inc.is_open and happened_after_close(body.edited_at, inc.closed_at):
-        raise incident_closed(inc.closed_at)
+    if not inc.is_open:
+        closed_at = await current_close(db, incident_id, inc.closed_at)
+        if happened_after_close(body.edited_at, closed_at):
+            raise incident_closed(closed_at)
     link = is_atemschutz_link(user)
     if not link:
         await _latch_editor_opened(db, incident_id)

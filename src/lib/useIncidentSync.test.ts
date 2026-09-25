@@ -277,13 +277,16 @@ describe('useIncidentSync — live-follow loop', () => {
   })
 
   it('skips the round while local edits are unsynced (the guard that prevents clobbering)', async () => {
-    pollWorkspaceSince.mockResolvedValue(null)
+    // …it still ASKS, no-wait, whether the Einsatz runs (review of #235: a device that is always
+    // a little dirty must hear a close too) — but it adopts nothing over the local edits
+    pollWorkspaceSince.mockResolvedValue({ workspace: { remote: true }, workspace_rev: 99 })
     const sync = makeSync()
     sync.hasUnsynced = true
     mount(sync)
 
     await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
-    expect(pollWorkspaceSince).not.toHaveBeenCalled()
+    expect(pollWorkspaceSince).toHaveBeenCalledWith(expect.any(String), expect.any(Number), expect.objectContaining({ wait: false }))
+    expect(sync.adoptServer).not.toHaveBeenCalled()
   })
 
   it('aborts the held request on teardown so a 20 s hold cannot outlive the loop', async () => {
