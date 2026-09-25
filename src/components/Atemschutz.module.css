@@ -1042,7 +1042,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    ⚠️ 150px: at 390px the sheet leaves ~362px between its paddings, which is two cells; the
    third person starts a second row exactly as before. */
 .teamChips { list-style: none; margin: 0; padding: 0; display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; justify-items: start; }
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; justify-items: start; }
+/* 160, not 150 (25.09.2026): the ✕ grew to the full 44px target, and at 360px two 157px cells
+   left a name «Gast A…». A 360px phone now lays one chip per row, whole; from ~390px it is two. */
 /* ⚠️ `--r-sm`, not the row's `--r-ctl`: a chip is a button in the house spec (AGENTS.md ·
    Buttons), and it sits beside the search field's own `--r-ctl` — two different shapes is what
    says «these are targets, that is a field». */
@@ -1964,6 +1966,9 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 35%, transparent); }
 /* the empty board's own door (AtemschutzView · empty state) */
 .emptyAct { margin-top: 14px; min-height: 48px; justify-content: center; }
+/* its «+» is a button glyph, not the empty state's big grey warning mark above it */
+.empty .emptyAct :global(.i) { width: 16px; height: 16px; margin: 0; color: currentColor; opacity: 1; }
+.empty .emptyAct span { font-size: 14px; }
 /* the head's «+ Trupp» keeps its word on the phone too (it was a bare square) */
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {
   .newBtn { width: auto; padding: 0 14px 0 12px; }
