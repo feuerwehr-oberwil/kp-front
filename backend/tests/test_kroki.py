@@ -870,8 +870,8 @@ def test_a_named_end_follows_its_entity_so_a_held_gps_end_must_not_be_named():
     is therefore sent WITHOUT `endAt` by the client (lineAttachments · endOnTarget), and so is a
     line reverted with «Zurück auf Stand am Einsatzort» (it is detached). Both print where the
     screen shows them. This pins the server half of that contract."""
-    site = (7.5497, 47.5229)
-    depot = [7.5597, 47.5299]  # ~1.1 km
+    site = (8.0, 47.0)  # a neutral point, no station's real place
+    depot = [8.01, 47.007]  # ~1.1 km
     near = [site[0] - 0.0003, site[1] - 0.0002]
     scene = kk.KrokiScene(
         entities=[{"id": "gps-3", "coord": depot, "kind": "symbol", "symbol": "VKF Feuer"}],

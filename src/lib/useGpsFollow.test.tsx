@@ -21,7 +21,7 @@ import { mergeWorkspace } from './mergeWorkspace'
 import { haversineM } from './geo'
 import type { Drawing, Entity, GpsFollowState, LngLat } from '../types'
 
-const TLF: LngLat = [7.5497636, 47.5229055]
+const TLF: LngLat = [8.0, 47.0] // a neutral point — no station's real place
 /** ~0.1 m east per step at this latitude — far inside the 20 m guard for 60 steps */
 const STEP = 0.0000013
 const vehicle = (coord: LngLat, id = 'gps-3'): Entity => ({ id, kind: 'symbol', layer: 'fahrzeuge', coord, live: true } as Entity)
@@ -209,7 +209,7 @@ describe('useGpsFollow · «Weiter folgen» keeps the way back (D3)', () => {
   it('the snapshot survives the three-way sync merge, from either side and from a views-only blob', () => {
     const paused = hose('paused')
     const followed: Drawing = { ...paused, ...routingPatch(paused, 'end', 'trace', { resolvedEnd: TLF, at: '2026-09-23T20:31:00.000Z' })! }
-    const other: Entity = { id: 'sym', kind: 'symbol', layer: 'taktisch', symbol: 'VKF Feuer', coord: [7.55, 47.52] } as Entity
+    const other: Entity = { id: 'sym', kind: 'symbol', layer: 'taktisch', symbol: 'VKF Feuer', coord: [8.002, 47.001] } as Entity
     const base = { objects: objectsFromLegacy([], [paused], {}) }
     const snap = followed.endAttachment!.gps!.before
     const snapOf = (ws: Record<string, unknown>) => (ws.drawings as Drawing[]).find((d) => d.id === 'hose')!.endAttachment!.gps!.before

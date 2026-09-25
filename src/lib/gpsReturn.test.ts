@@ -14,9 +14,9 @@ import { followLiveVehicles } from './useGpsFollow'
 import { haversineM } from './geo'
 import type { Drawing, Entity, GpsFollowState, LngLat } from '../types'
 
-const SITE: LngLat = [7.5497636, 47.5229055]
+const SITE: LngLat = [8.0, 47.0] // a neutral point — no station's real place
 /** ~1.1 km north-east — the Magazin */
-const DEPOT: LngLat = [7.5597636, 47.5299055]
+const DEPOT: LngLat = [8.01, 47.007]
 const HYDRANT: LngLat = [SITE[0] - 0.0007, SITE[1] - 0.0004]
 const AT = '2026-09-23T20:31:00.000Z'
 const tlf = (coord: LngLat): Entity => ({ id: 'gps-3', kind: 'symbol', layer: 'fahrzeuge', coord, live: true, label: 'TLF' } as Entity)

@@ -307,12 +307,12 @@ describe('draft thresholds', () => {
 // hose line because «Weiter folgen» overwrote the on-site point and «Hier lösen» cut at the
 // vehicle's current position.
 describe('GPS ends: on-site detach and «Zurück auf Stand am Einsatzort»', () => {
-  const SITE: [number, number] = [7.5497, 47.5229]
-  const DEPOT: [number, number] = [7.5597, 47.5299]
-  const onSite: [number, number][] = [[7.549, 47.5225], [7.5494, 47.5227], SITE]
+  const SITE: [number, number] = [8.0, 47.0]
+  const DEPOT: [number, number] = [8.01, 47.007]
+  const onSite: [number, number][] = [[7.9993, 46.9996], [7.9997, 46.9998], SITE]
   const followed = (): Drawing => line({
     // the line after following the TLF to the Magazin: the drive is its tail
-    coords: [[7.549, 47.5225], [7.5494, 47.5227], [7.553, 47.525], [7.557, 47.528], DEPOT],
+    coords: [[7.9993, 46.9996], [7.9997, 46.9998], [8.003, 47.002], [8.007, 47.005], DEPOT],
     endAttachment: {
       target: { kind: 'object', id: 'gps-3', live: true }, routing: 'trace',
       gps: { state: 'continuous', confirmedAt: SITE, lastSafe: DEPOT, before: { coords: onSite, routing: 'direct', state: 'paused', confirmedAt: SITE, lastSafe: SITE, at: '2026-09-23T20:31:00.000Z' } },
