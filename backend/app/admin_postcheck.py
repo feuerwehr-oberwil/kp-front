@@ -99,6 +99,15 @@ _FRACTION = re.compile(r"(\.\d{1,6})\d*")
 _NEW_ID = re.compile(r"^[a-z]+(\d{13})-([0-9a-z]{2})[0-9a-z]{3}(?:-[a-z])?$")
 #: `vp-<n>-<zone>-<vehicle>` — the derived presence row id (since 24.09.2026).
 _PRESENCE_ID = re.compile(r"^vp-(\d+)-(scene|away)-(.+)$")
+#: `vps-<n>-<zone>-<vehicle>` — the SERVER's presence row, once the server observes the
+#: fleet itself: stamped with the first fix in the new zone, written for the first arrival and
+#: the last departure only. Recognised by its shape alone — this check does not import it.
+_SERVER_PRESENCE_ID = re.compile(r"^vps-(\d+)-(scene|away)-(.+)$")
+#: How far a server row's stamp may sit from the first stored fix in its zone: samples are kept
+#: on a move and a heartbeat, the server stamps the tracker report it read on its 30 s sweep.
+_SERVER_STAMP_TOLERANCE_S = 60.0
+#: The server writes the LAST departure once the vehicle has stayed away this long (or at close).
+_SERVER_FINAL_AWAY = timedelta(minutes=20)
 #: A row the audio player wrote (src/lib/ids.ts · isPlayerRowId): Durchhören and
 #: Nachdokumentation stamp what was SAID at the moment it was said, i.e. backdated on purpose.
 _PLAYER_ROW = re.compile(r"^e\d+-(?:p\d{1,3}|[0-9a-z]+-p)$")
@@ -1339,16 +1348,27 @@ def section_auth(book: DeviceBook | None) -> Section:
     return sec
 
 
-def _presence_zone(row: dict) -> str | None:
-    m = _PRESENCE_ID.match(str(row.get("id") or ""))
+def _presence_match(row: dict) -> tuple[str, str] | None:
+    """(model, zone) of a presence row: ``vps-`` is the SERVER's (it observes since the server
+    observer landed), ``vp-`` and a legacy ``e…`` row with the presence wording the client's."""
+    rid = str(row.get("id") or "")
+    m = _SERVER_PRESENCE_ID.match(rid)
     if m:
-        return m.group(2)
+        return "server", m.group(2)
+    m = _PRESENCE_ID.match(rid)
+    if m:
+        return "client", m.group(2)
     text = str(row.get("text") or "")
     if text.endswith(_ARRIVED_SUFFIXES):
-        return "scene"
+        return "client", "scene"
     if text.endswith(_LEFT_SUFFIXES):
-        return "away"
+        return "client", "away"
     return None
+
+
+def _presence_zone(row: dict) -> str | None:
+    match = _presence_match(row)
+    return match[1] if match else None
 
 
 def _presence_name(text: str) -> str:
@@ -1360,8 +1380,9 @@ def _presence_name(text: str) -> str:
 
 @dataclass(frozen=True)
 class Transition:
-    """A change the client's presence log writes: the first fix in the new zone (its `since`),
-    and the moment a device watching the feed writes the row (`since` + 90 s)."""
+    """A settled change of zone: the first fix in the new zone (its `since` — the SERVER stamps
+    its row with exactly this), and the moment a CLIENT watching the feed wrote its row
+    (`since` + 90 s)."""
 
     gps: datetime
     due: datetime
@@ -1371,15 +1392,16 @@ class Transition:
 
 
 def presence_transitions(samples: list[Sample], center: tuple[float, float]) -> list[Transition]:
-    """The GPS truth under the client's own state machine, fix by fix — exactly
-    src/lib/useVehiclePresenceLog.ts: inside 150 m is «scene», beyond 300 m «away»; the band
-    between clears a pending change (it neither starts a state nor ends one), and so does a
-    reading back in the written zone; a pending zone is written once it has held 90 s.
+    """The GPS truth under the presence state machine, fix by fix — the client's
+    (src/lib/useVehiclePresenceLog.ts) and, number for number, the server's that replaced it:
+    inside 150 m is «scene», beyond 300 m «away»; the band between clears a pending change (it
+    neither starts a state nor ends one), and so does a reading back in the written zone; a
+    pending zone counts once it has held 90 s.
 
-    One difference is the feed itself: the client re-reads the vehicle every poll, and the
-    vehicle keeps its last position between two fixes (samples are only stored on a move).
-    So a pending zone that has held 90 s before the next fix arrives was written at `since` +
-    90 s. The first zone is the BASELINE — the app never writes a first sighting."""
+    The feed keeps a vehicle at its last position between two fixes (samples are only stored
+    on a move) and both observers re-read it on a timer, so a pending zone that has held 90 s
+    before the next fix arrives counted at `since` + 90 s. The first zone is the BASELINE —
+    neither observer ever writes a first sighting."""
     out: list[Transition] = []
     written: str | None = None
     pending: str | None = None
@@ -1411,10 +1433,61 @@ def presence_transitions(samples: list[Sample], center: tuple[float, float]) -> 
     return out
 
 
+def presence_model(ev: Evidence) -> str:
+    """Which observer wrote this incident's presence record.
+
+    ``server`` — ``vps-`` rows or a ``reportMeta.fahrzeuge[].gps`` block: the server observes,
+    stamps a row with the GPS time itself, and writes only the FIRST arrival and the LAST
+    departure (trips in between are counted in ``gps.fahrten``). ``client`` — ``vp-`` / ``e…``
+    rows: a device wrote a row per transition, 90 s after it. ``mixed`` — both: the incident
+    spans the deploy. ``unknown`` — no presence row and no gps block: nothing says which."""
+    server = client = False
+    for r in ev.journal:
+        match = _presence_match(r.row)
+        if match and str(r.row.get("entityId") or "").startswith("gps-"):
+            server |= match[0] == "server"
+            client |= match[0] == "client"
+    server |= bool(_gps_blocks(ev))
+    if server and client:
+        return "mixed"
+    return "server" if server else ("client" if client else "unknown")
+
+
+def _gps_blocks(ev: Evidence) -> dict[int, dict]:
+    """The server's ``gps`` block per tracker (``gps.device``), with the Zeiten-grid row it sits in."""
+    meta = (ev.workspace or {}).get("reportMeta") or {}
+    rows = meta.get("fahrzeuge") if isinstance(meta, dict) else None
+    out: dict[int, dict] = {}
+    for f in rows if isinstance(rows, list) else []:
+        gps = f.get("gps") if isinstance(f, dict) else None
+        if isinstance(gps, dict) and isinstance(gps.get("device"), int):
+            out[gps["device"]] = f
+    return out
+
+
+_MODEL_NOTE = {
+    "client": "Presence model: the CLIENT's (vp-/e… rows) — a row per change, written ≈ 90 s after the GPS",
+    "server": (
+        "Presence model: the SERVER's (vps- rows / gps blocks) — a row stamped at the GPS for the first "
+        "arrival and the last departure only; trips in between are counted in gps.fahrten"
+    ),
+    "mixed": (
+        "Presence model: BOTH — this incident spans the deploy of the server observer. Each row is judged "
+        "by its own model; a server row beside a client row for one change is expected, and missing rows "
+        "are not judged"
+    ),
+    "unknown": (
+        "Presence model: unknown — no presence row and no gps block, so nothing says which observer "
+        "ran; missing rows are not judged"
+    ),
+}
+
+
 @dataclass
 class _PresenceRow:
     vehicle: str
     row: JournalRow
+    model: str
     zone: str
     when: datetime
     by_created: bool
@@ -1440,7 +1513,7 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
     names: dict[str, str] = {}
     for r in ev.journal:
         entity = str(r.row.get("entityId") or "")
-        if _presence_zone(r.row) and entity.startswith("gps-"):
+        if _presence_match(r.row) and entity.startswith("gps-"):
             rows_by_entity[entity].append(r)
             names.setdefault(entity, _presence_name(str(r.row.get("text") or "")))
     if center is None or not is_location(*center):
@@ -1449,12 +1522,20 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
     if not by_dev and not rows_by_entity:
         sec.lines.append("no vehicle samples and no presence rows")
         return sec
+    model = presence_model(ev)
+    blocks = _gps_blocks(ev)
     sec.lines.append(f"Einsatzort {center[0]:.6f}, {center[1]:.6f} · rings {int(AT_SCENE_M)} m / {int(LEFT_M)} m")
-    # a row is only owed once some device had the incident open
+    sec.lines.append(_MODEL_NOTE[model])
+    # a row is only owed once some device had the incident open (the client model)…
     app_open = (book.first_incident_request() if book and book.http else None) or min(
         (r.created_at for r in ev.journal), default=None
     )
-    per_vehicle: list[tuple[str, str, list[Sample], list[Transition], list[_PresenceRow]]] = []
+    # …and a last departure once the vehicle stayed away 20 min while observed, or at close
+    evidence_end = max(
+        [s.ts for s in ev.samples] + [r.created_at for r in ev.journal] + [e.recorded_at for e in ev.events],
+        default=None,
+    )
+    per_vehicle: list[tuple[str, str, int | None, list[Sample], list[Transition], list[_PresenceRow]]] = []
     for entity in sorted(set(rows_by_entity) | {f"gps-{d}" for d in by_dev}, key=lambda e: (len(e), e)):
         dev_id = int(entity[4:]) if entity[4:].isdigit() else None
         samples = sorted(by_dev.get(dev_id, []) if dev_id is not None else [], key=lambda s: s.ts)
@@ -1463,27 +1544,44 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
         real = [t for t in trans if not t.baseline]
         prs = []
         for r in sorted(rows_by_entity.get(entity, []), key=lambda r: r.when):
-            zone = _presence_zone(r.row) or "?"
+            row_model, zone = _presence_match(r.row) or ("client", "?")
             at = r.at
-            # a row whose own clock is off is placed where the server received it
-            by_created = at is None or abs((at - r.created_at).total_seconds()) > opts.skew_s
+            # a DEVICE row whose own clock is off is placed where the server received it; a
+            # server row's stamp is the server's own and deliberately earlier than its receipt
+            # (a last departure is written 20 min after it happened)
+            by_created = at is None or (
+                row_model == "client" and abs((at - r.created_at).total_seconds()) > opts.skew_s
+            )
             when = r.created_at if by_created or at is None else at
             att = book.writer("journal", r.created_at) if book else Attribution()
-            pr = _PresenceRow(name, r, zone, when, by_created, att)
-            cand = [t for t in real if t.zone == zone and t.gps <= when + timedelta(seconds=30)]
-            if cand:
-                pr.trans = cand[-1]
-                if att.device is not None:
-                    pr.online = att.device.online(pr.trans.gps.timestamp() - 30, pr.trans.due.timestamp() + 60)
+            pr = _PresenceRow(name, r, row_model, zone, when, by_created, att)
+            if row_model == "client":
+                cand = [t for t in real if t.zone == zone and t.gps <= when + timedelta(seconds=30)]
+                if cand:
+                    pr.trans = cand[-1]
+                    if att.device is not None:
+                        pr.online = att.device.online(pr.trans.gps.timestamp() - 30, pr.trans.due.timestamp() + 60)
+            else:
+                # the server stamps the first fix in the zone: the nearest change is the one
+                cand = [t for t in real if t.zone == zone]
+                if cand:
+                    best = min(cand, key=lambda t: abs((t.gps - when).total_seconds()))
+                    if abs((best.gps - when).total_seconds()) <= _SERVER_STAMP_TOLERANCE_S:
+                        pr.trans = best
             prs.append(pr)
-        per_vehicle.append((entity, name, samples, trans, prs))
+        per_vehicle.append((entity, name, dev_id, samples, trans, prs))
 
-    # rows one device wrote in the same second are ONE catch-up (a tablet waking, a device
-    # opening the incident) — one finding for the batch, not one per vehicle
+    # CLIENT rows one device wrote in the same second are ONE catch-up (a tablet waking, a
+    # device opening the incident) — one finding for the batch, not one per vehicle
     def batch_key(pr: _PresenceRow) -> tuple[str, int]:
         return (pr.att.device.tag if pr.att.device else "?", int(pr.row.created_at.timestamp()))
 
-    late = [pr for *_x, prs in per_vehicle for pr in prs if pr.trans and pr.lag > opts.vehicle_lag_s]
+    late = [
+        pr
+        for *_x, prs in per_vehicle
+        for pr in prs
+        if pr.model == "client" and pr.trans and pr.lag > opts.vehicle_lag_s
+    ]
     batches: dict[tuple[str, int], list[_PresenceRow]] = defaultdict(list)
     for pr in late:
         batches[batch_key(pr)].append(pr)
@@ -1508,11 +1606,12 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
 
     vehicles_out = []
     first_arrival: dict[str, datetime] = {}
-    for entity, name, samples, trans, prs in per_vehicle:
+    for entity, name, dev_id, samples, trans, prs in per_vehicle:
         head = f"{name} ({entity}) · {len(samples)} fixes"
         if samples:
             head += f" {_hms(samples[0].ts)}–{_hms(samples[-1].ts)}"
         sec.lines.append(head)
+        real = [t for t in trans if not t.baseline]
         inside = next((t for t in trans if t.zone == "scene"), None)
         beyond = next((t for t in trans if t.zone == "away" and inside and t.gps > inside.gps), None)
         if inside:
@@ -1526,20 +1625,48 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
         if trans:
             steps = " → ".join(f"{t.zone} {_hms(t.gps)}" for t in trans)
             sec.lines.append(f"    GPS  {steps} (the first is the baseline, never written)")
-        used: dict[int, list[_PresenceRow]] = defaultdict(list)
+        # what the SERVER writes: the first arrival (only when the vehicle was first seen away)
+        # and the last departure (only when it did not come back)
+        server_arrival = (
+            next((t for t in real if t.zone == "scene"), None) if trans and trans[0].zone == "away" else None
+        )
+        server_departure = real[-1] if real and real[-1].zone == "away" else None
+        used: dict[tuple[str, int], list[_PresenceRow]] = defaultdict(list)
         rows_out = []
         for pr in prs:
             label = f"«{_short(pr.row.row.get('text'), 50)}»"
             by = f" · {pr.att.label}" if book else ""
             if not samples:
                 sec.lines.append(f"    row  {label} {_hms(pr.when)}: no GPS fixes recorded for this vehicle{by}")
+            elif pr.model == "server":
+                t = pr.trans
+                if t is None:
+                    sec.finding(
+                        f"{label} (server) stamped {_hms(pr.when)}: no GPS change to «{pr.zone}» within "
+                        f"{int(_SERVER_STAMP_TOLERANCE_S)} s of it — the server stamps the first fix in the zone",
+                        f"{name}: server row «{pr.zone}» at {_hms(pr.when)} without a GPS change",
+                    )
+                else:
+                    used[("server", id(t))].append(pr)
+                    delta = _span(pr.lag)
+                    if t is not server_arrival and t is not server_departure:
+                        sec.finding(
+                            f"{label} (server) stamped {_hms(pr.when)} for a trip in between — the server writes "
+                            "only the first arrival and the last departure",
+                            f"{name}: server row for an in-between trip at {_hms(t.gps)}",
+                        )
+                    else:
+                        sec.lines.append(
+                            f"    row  {label} (server) stamped {_hms(pr.when)} = GPS {_hms(t.gps)} ({delta}), "
+                            f"written {_hms(pr.row.created_at)}"
+                        )
             elif pr.trans is None:
                 sec.finding(
                     f"{label} {_hms(pr.when)}: no GPS change to «{pr.zone}» before it{by}",
                     f"{name}: row «{pr.zone}» at {_hms(pr.when)} without a GPS change",
                 )
             else:
-                used[id(pr.trans)].append(pr)
+                used[("client", id(pr.trans))].append(pr)
                 if pr.lag <= opts.vehicle_lag_s:
                     sec.lines.append(f"    row  {label} {_hms(pr.when)}: {_span(pr.lag)} after the GPS{by}")
                 elif len(batches[batch_key(pr)]) > 1:
@@ -1552,6 +1679,7 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
             rows_out.append(
                 {
                     "text": pr.row.row.get("text"),
+                    "model": pr.model,
                     "at": pr.when.isoformat(),
                     "receivedAt": pr.row.created_at.isoformat(),
                     "gps": pr.trans.gps.isoformat() if pr.trans else None,
@@ -1560,21 +1688,63 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
                 }
             )
         by_id = {id(t): t for t in trans}
-        for tid, lst in used.items():
+        for (row_model, tid), lst in used.items():
             if len(lst) > 1:
                 sec.finding(
-                    f"{name}: {len(lst)} rows for the one GPS change at {_hms(by_id[tid].gps)} "
+                    f"{name}: {len(lst)} {row_model} rows for the one GPS change at {_hms(by_id[tid].gps)} "
                     f"({', '.join(pr.row.client_id for pr in lst)})",
                     f"{name}: {len(lst)} rows for one change",
                 )
-        for t in trans:
-            if t.baseline or id(t) in used or app_open is None or t.due < app_open:
-                continue
-            sec.finding(
-                f"{name}: GPS says {'arrived' if t.zone == 'scene' else 'left'} at {_hms(t.gps)} "
-                f"(row due ≈ {_hms(t.due)}), no Verlauf row",
-                f"{name}: no row for {'arrival' if t.zone == 'scene' else 'departure'} at {_hms(t.gps)}",
-            )
+        used_ids = {tid for (_m, tid) in used}
+        if model == "client":
+            for t in real:
+                if id(t) in used_ids or app_open is None or t.due < app_open:
+                    continue
+                sec.finding(
+                    f"{name}: GPS says {'arrived' if t.zone == 'scene' else 'left'} at {_hms(t.gps)} "
+                    f"(row due ≈ {_hms(t.due)}), no Verlauf row",
+                    f"{name}: no row for {'arrival' if t.zone == 'scene' else 'departure'} at {_hms(t.gps)}",
+                )
+        block = blocks.get(dev_id) if dev_id is not None else None
+        gps_block = block.get("gps") if block else None
+        if model == "server" and samples:
+            if server_arrival is not None and id(server_arrival) not in used_ids:
+                owns = gps_block.get("owns") if isinstance(gps_block, dict) else None
+                if block is not None and block.get("vorOrt") and "vorOrt" not in (owns or []):
+                    sec.lines.append(
+                        f"    no server «vor Ort» row for {_hms(server_arrival.gps)}: the alarm gateway's geofence "
+                        "wrote «vor Ort» first — by design"
+                    )
+                else:
+                    sec.finding(
+                        f"{name}: GPS says arrived at {_hms(server_arrival.gps)} (first arrival), no server row "
+                        "stamped with it",
+                        f"{name}: no row for the first arrival at {_hms(server_arrival.gps)}",
+                    )
+            if server_departure is not None and id(server_departure) not in used_ids:
+                due = server_departure.gps + _SERVER_FINAL_AWAY
+                closed = ev.incident.closed_at is not None
+                if closed or (evidence_end is not None and evidence_end >= due):
+                    sec.finding(
+                        f"{name}: GPS says left at {_hms(server_departure.gps)} (last departure), no server row — "
+                        f"due after 20 min away ({_hms(due)}) or at close",
+                        f"{name}: no row for the last departure at {_hms(server_departure.gps)}",
+                    )
+                else:
+                    sec.lines.append(
+                        f"    last departure {_hms(server_departure.gps)}: its row is due at {_hms(due)} "
+                        "(20 min away) or at close — not yet"
+                    )
+        stays = (1 if trans and trans[0].zone == "scene" else 0) + sum(1 for t in real if t.zone == "scene")
+        if isinstance(gps_block, dict):
+            said = gps_block.get("fahrten")
+            line = f"{name}: gps.fahrten {said}, the samples show {stays} stay{'s' if stays != 1 else ''} on scene"
+            if said != stays and model == "server" and samples:
+                sec.finding(line, f"{name}: gps.fahrten {said} ≠ {stays}")
+            else:
+                sec.lines.append(
+                    f"    {line}" + (" (mixed incident: counted since the deploy)" if model == "mixed" else "")
+                )
         vehicles_out.append(
             {
                 "entity": entity,
@@ -1582,6 +1752,8 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
                 "fixes": len(samples),
                 "firstInside": inside.gps.isoformat() if inside else None,
                 "firstBeyondAfter": beyond.gps.isoformat() if beyond else None,
+                "staysOnScene": stays,
+                "gpsBlock": gps_block if isinstance(gps_block, dict) else None,
                 "transitions": [
                     {"gps": t.gps.isoformat(), "due": t.due.isoformat(), "zone": t.zone, "baseline": t.baseline}
                     for t in trans
@@ -1618,6 +1790,8 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
                 val = f.get(key)
                 ts = parse_ts(val)
                 parts.append(f"{key} {_hms(ts) if ts else (val or '–')}")
+            gps_row = f.get("gps") if isinstance(f.get("gps"), dict) else None
+            owned = isinstance(gps_row, dict) and "vorOrt" in (gps_row.get("owns") or [])
             gps = first_arrival.get(label.lower()) or first_arrival.get(vid.lower())
             vor = parse_ts(f.get("vorOrt"))
             if gps and vor:
@@ -1626,12 +1800,25 @@ def section_vehicles(ev: Evidence, book: DeviceBook | None, opts: Options) -> Se
                 cmp = f" · no GPS vehicle named «{label}» to compare with"
             else:
                 cmp = ""
-            manual = " (typed)" if f.get("manual") else ""
-            sec.lines.append(f"    {label}: {' · '.join(parts)}{manual}{cmp}")
-            grid_out.append({"id": vid, "label": label, **{k: f.get(k) for k in ("ausgerueckt", "vorOrt", "zurueck")}})
+            manual = " (typed)" if f.get("manual") else (" (from the GPS)" if owned else "")
+            gps_note = ""
+            if gps_row is not None:
+                gps_note = (
+                    f" · gps: {gps_row.get('zone', '?')}, an {_hms(parse_ts(gps_row.get('an')))}, "
+                    f"ab {_hms(parse_ts(gps_row.get('ab')))}, fahrten {gps_row.get('fahrten', '?')}"
+                )
+            sec.lines.append(f"    {label}: {' · '.join(parts)}{manual}{cmp}{gps_note}")
+            grid_out.append(
+                {
+                    "id": vid,
+                    "label": label,
+                    **{k: f.get(k) for k in ("ausgerueckt", "vorOrt", "zurueck")},
+                    **({"gps": gps_row} if gps_row is not None else {}),
+                }
+            )
     else:
         sec.lines.append("Zeiten grid: no Fahrzeugzeiten recorded")
-    sec.data.update({"vehicles": vehicles_out, "zeiten": grid_out})
+    sec.data.update({"model": model, "vehicles": vehicles_out, "zeiten": grid_out})
     return sec
 
 

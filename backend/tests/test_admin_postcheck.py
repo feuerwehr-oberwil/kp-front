@@ -494,7 +494,7 @@ def test_vehicle_rows_are_held_against_the_gps(full):
     assert [r["lagSeconds"] for r in lf["rows"]] == [120, 900, 1200]
     # the late departure, the later copy of it, and the two rows for one change
     assert len(sec.findings) == 3
-    assert any("2 rows for the one GPS change" in line for line in sec.lines)
+    assert any("2 client rows for the one GPS change" in line for line in sec.lines)
     late = next(line for line in sec.lines if "(+15 min 0 s)" in line)
     assert "GPS 19:00:00 → expected ≈ 19:01:30 (GPS + 90 s)" in late
     assert "row stated 19:15:00 / received 19:15:00" in late
@@ -871,3 +871,117 @@ def test_an_expired_session_before_opening_the_incident_is_still_a_finding():
     sec = pc.section_auth(pc.DeviceBook(http, INC))
     assert len(sec.findings) == 1
     assert "session had expired (refresh 401 ×1) — PIN needed before the device could open the incident" in sec.lines[0]
+
+
+# ── the two presence models: the client's (vp-) and the server's (vps-) ───────────────────
+
+
+def _trip_samples() -> list[pc.Sample]:
+    """away → on scene at +5 → a trip away at +30 → back at +40 → gone at +60, seen until +90."""
+    return [
+        _fix(3, 0, 900),
+        _fix(3, 5, 20),
+        _fix(3, 10, 15),
+        _fix(3, 30, 600),
+        _fix(3, 35, 650),
+        _fix(3, 40, 20),
+        _fix(3, 45, 15),
+        _fix(3, 60, 700),
+        _fix(3, 90, 800),
+    ]
+
+
+def _server_block(fahrten: int, *, owns: bool = True, vor_ort: datetime | None = None) -> dict:
+    gps: dict = {"zone": "away", "fahrten": fahrten, "an": iso(at(5)), "ab": iso(at(60)), "device": 3}
+    if owns:
+        gps["owns"] = ["vorOrt"]
+    return {"reportMeta": {"fahrzeuge": [{"id": "lf1", "vorOrt": z(vor_ort or at(5)), "gps": gps}]}}
+
+
+def _model_ev(rows, samples, workspace=None, closed=None) -> pc.Evidence:
+    return pc.Evidence(
+        incident=pc.IncidentInfo(INC, lat=CENTER[0], lng=CENTER[1], closed_at=closed),
+        journal=rows,
+        events=[],
+        samples=samples,
+        workspace=workspace,
+    )
+
+
+def test_the_client_model_is_recognised_by_its_rows(full):
+    sec = section(report_of(full), "vehicles")
+    assert sec.data["model"] == "client"
+    assert any("the CLIENT's" in line for line in sec.lines)
+
+
+def test_a_server_observed_incident_is_judged_by_the_servers_rules():
+    """The server stamps the FIRST fix in the zone and writes only the first arrival and the
+    last departure — the trip in between is counted in gps.fahrten, not written. Held to the
+    client's rules this incident would show a missing row per trip and a 20-minute-late
+    departure; held to its own, it is clean."""
+    rows = [
+        _jr("vps-1-scene-gps-3", at(6.5), at(5), "LF 1 vor Ort", "gps-3"),
+        # written 20 min after the vehicle left, stamped with the departure itself
+        _jr("vps-4-away-gps-3", at(80), at(60), "LF 1 hat den Einsatzort verlassen", "gps-3"),
+    ]
+    sec = pc.section_vehicles(_model_ev(rows, _trip_samples(), _server_block(2)), None, pc.Options())
+    assert sec.data["model"] == "server"
+    assert sec.findings == []
+    assert any("(server) stamped 17:05:00 = GPS 17:05:00 (+0 s)" in line for line in sec.lines)
+    assert any("gps.fahrten 2, the samples show 2 stays on scene" in line for line in sec.lines)
+
+
+def test_what_the_server_model_does_find():
+    rows = [
+        # stamped 90 s after the fix — the client's habit, not the server's
+        _jr("vps-1-scene-gps-3", at(7), at(6.5), "LF 1 vor Ort", "gps-3"),
+        # a row for the trip in between: the server never writes one
+        _jr("vps-2-away-gps-3", at(31), at(30), "LF 1 hat den Einsatzort verlassen", "gps-3"),
+    ]
+    ev = _model_ev(rows, _trip_samples(), _server_block(3), closed=at(95))
+    sec = pc.section_vehicles(ev, None, pc.Options())
+    assert sorted(sec.findings) == sorted(
+        [
+            "LF 1: server row «scene» at 17:06:30 without a GPS change",
+            "LF 1: no row for the first arrival at 17:05:00",
+            "LF 1: server row for an in-between trip at 17:30:00",
+            "LF 1: no row for the last departure at 18:00:00",  # the incident closed: owed at close
+            "LF 1: gps.fahrten 3 ≠ 2",
+        ]
+    )
+
+
+def test_a_server_departure_not_yet_due_and_a_geofence_arrival_are_not_findings():
+    samples = [s for s in _trip_samples() if s.ts <= at(70)]  # observed only 10 min past the departure
+    # the alarm gateway's geofence wrote «vor Ort» first (not in gps.owns): no server arrival row
+    ev = _model_ev([], samples, _server_block(2, owns=False))
+    sec = pc.section_vehicles(ev, None, pc.Options())
+    assert sec.data["model"] == "server", "a gps block alone says the server observed"
+    assert sec.findings == []
+    assert any("geofence wrote «vor Ort» first — by design" in line for line in sec.lines)
+    assert any("its row is due at 18:20:00 (20 min away) or at close — not yet" in line for line in sec.lines)
+
+
+def test_an_incident_spanning_the_deploy_judges_each_row_by_its_own_model():
+    """Before the deploy a device wrote «vor Ort» 90 s after the GPS (vp-); after it the server
+    wrote the same arrival again at the GPS time (vps-), and the departure. Both arrival rows
+    are right by their own model — and neither side's missing rows can be judged."""
+    samples = [_fix(3, 0, 900), _fix(3, 5, 20), _fix(3, 10, 15), _fix(3, 30, 600), _fix(3, 35, 650)]
+    rows = [
+        _jr("vp-1-scene-gps-3", at(6.5), at(6.5), "LF 1 vor Ort", "gps-3"),
+        _jr("vps-1-scene-gps-3", at(12), at(5), "LF 1 vor Ort", "gps-3"),
+        _jr("vps-2-away-gps-3", at(50), at(30), "LF 1 hat den Einsatzort verlassen", "gps-3"),
+    ]
+    sec = pc.section_vehicles(_model_ev(rows, samples), None, pc.Options())
+    assert sec.data["model"] == "mixed"
+    assert any("BOTH — this incident spans the deploy" in line for line in sec.lines)
+    assert sec.findings == []
+    # in stated-time order: the server stamps the arrival 90 s before the device wrote it
+    assert [r["model"] for r in sec.data["vehicles"][0]["rows"]] == ["server", "client", "server"]
+    assert sec.data["vehicles"][0]["rows"][1]["lagSeconds"] == 90
+
+
+def test_no_row_and_no_gps_block_says_the_model_is_unknown():
+    sec = pc.section_vehicles(_model_ev([], _trip_samples()), None, pc.Options())
+    assert sec.data["model"] == "unknown"
+    assert sec.findings == [], "without a row or a gps block nothing says which rows were owed"
