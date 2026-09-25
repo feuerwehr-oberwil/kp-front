@@ -1574,7 +1574,12 @@ export function IncidentWorkspace({
   // outbox that stayed red for the whole Einsatz.
   const auditScope = useMemo(() => eventScopeFor(user), [user?.role, user?.link_kind]) // eslint-disable-line react-hooks/exhaustive-deps
   const auditDelivery = useAuditEvents(incidentMeta.id, outboxReadOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null, auditScope)
-  const { emit, flushEvents, flushEventsBeacon } = auditDelivery
+  const { emit: emitAudit, flushEvents, flushEventsBeacon } = auditDelivery
+  // ⚠️ The outbox still DELIVERS on a closed Einsatz (`outboxReadOnly`), so it must not be FED
+  // there: an Ebene toggled on the closed view would otherwise be queued, refused and counted as
+  // «nicht übernommen» — a refusal of something nobody meant to record. Nothing new is emitted
+  // once the Einsatz is over; what was queued before still goes out and is classified.
+  const emit = useCallback<typeof emitAudit>((...args) => { if (running) emitAudit(...args) }, [emitAudit, running])
 
   // Weather for the incident location. Polled live; each NEW observation is recorded as a
   // `weather.observe` event so the replay fold can show the wind/condition as it stood at any
