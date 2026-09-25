@@ -11,6 +11,7 @@ import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useHoldEntry } from '../lib/useHoldEntry'
 import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
+import { useHeadFit } from '../lib/useHeadFit'
 import { asksWords } from '../lib/suche'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
@@ -202,8 +203,15 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
     onHoldPhoto,
   })
 
+  // the bar's priority ladder (lib/useHeadFit): measured, one step at a time, until it fits
+  const barRef = useRef<HTMLDivElement>(null)
+  useHeadFit(barRef, [
+    incident.title, clockText.length, hasWind, sucheMissing, sucheAsks, gpsStale ? 1 : 0, archived ? 1 : 0,
+    azAlarm?.urgent ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
+  ].join('|'))
+
   return (
-    <div className="topbar">
+    <div className="topbar" ref={barRef}>
       {titleSlot ?? (
         <>
           <div className="ename">{incident.title}</div>
@@ -254,7 +262,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
                 selectors would have picked the wrong buttons, because the mapNav action ahead of
                 them is a .tb-act.icon too and comes and goes with the surface. */}
             <button className="tb-act icon tb-act-history" title={undoWord} aria-label={undoWord} disabled={!canUndo} onClick={onUndo}><Icon id="undo" /></button>
-            <button className="tb-act icon tb-act-history" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
+            <button className="tb-act icon tb-act-history tb-act-redo" title={redoWord} aria-label={redoWord} disabled={!canRedo} onClick={onRedo}><Icon id="redo" /></button>
           </>
         )}
         {/* ⚠️ `has-rem` tints the BUTTON, not just its corner. The count badge alone is 17px of amber
