@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import {
-  AWAY_AGAIN_M, BACK_ON_SITE_M, endKey, fmtAway, followerOnlyChange, freshBefore, gpsLineName, gpsLineNames, gpsNotices,
+  AWAY_AGAIN_M, AWAY_NOTICE_M, BACK_ON_SITE_M, endKey, fmtAway, followerOnlyChange, freshBefore, gpsLineName, gpsLineNames, gpsNotices,
   gpsReleaseRow, gpsRevertWords, hasTraced, onSiteAnchor, onSiteCoords, onSiteKnown, revertCoords, routingPatch, useGpsNotices,
 } from './gpsReturn'
 import { formatTime } from './format'
@@ -251,9 +251,21 @@ describe('gpsNotices · one Meldung per vehicle', () => {
     expect(gpsNotices([out], [tlf(NEAR)], { armed: new Set(), answered: new Set([key]), dismissed: new Set() })).toEqual([])
   })
 
-  it('a vehicle missing from the feed still gets its row, without a distance', () => {
-    const [n] = gpsNotices([hose('paused')], [])
-    expect(n.distanceM).toBeUndefined()
+  it('a PARKED vehicle whose fix jitters past the 20 m pause raises nothing below 100 m — and clears silently when it comes back', () => {
+    const jitter: LngLat = [SITE[0] + 0.00021, SITE[1]] // ~16 m: the staging walk-through of 25.09.2026
+    const at95: LngLat = [SITE[0] + 0.00125, SITE[1]]   // ~95 m
+    const at110: LngLat = [SITE[0] + 0.00145, SITE[1]]  // ~110 m
+    expect(haversineM(SITE, at95)).toBeLessThan(AWAY_NOTICE_M)
+    expect(haversineM(SITE, at110)).toBeGreaterThanOrEqual(AWAY_NOTICE_M)
+    expect(gpsNotices([hose('paused')], [tlf(jitter)])).toEqual([])
+    expect(gpsNotices([hose('paused')], [tlf(at95)])).toEqual([])
+    expect(gpsNotices([hose('paused')], [tlf(at110)]).map((n) => n.kind)).toEqual(['away'])
+    // back under the threshold: the row is simply gone again, nothing is written
+    expect(gpsNotices([hose('paused')], [tlf(jitter)])).toEqual([])
+  })
+
+  it('a vehicle missing from the feed raises nothing — no distance, no evidence it left', () => {
+    expect(gpsNotices([hose('paused')], [])).toEqual([])
   })
 
   it('guarded ends and plain attachments say nothing', () => {

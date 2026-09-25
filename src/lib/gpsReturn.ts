@@ -44,6 +44,16 @@ export const BACK_ON_SITE_M = 150
 /** …and it has to have been this far out before «back» means anything — the presence log's
  *  hysteresis, for the same reason: a vehicle that starts following 40 m off is not «back». */
 export const AWAY_AGAIN_M = 300
+/**
+ * The «fährt weg» Meldung is RAISED only this far from the on-site point (25.09.2026, staging
+ * walk-through: a parked PIO sat under a permanent «PIO fährt weg · 16 m vom Einsatzort» with a
+ * green «Am Einsatzort lassen» — 16 m is GPS scatter). The silent 20 m pause stays exactly as it
+ * is (GPS_GUARD_METRES: the line end stays on site); only the QUESTION waits until the vehicle is
+ * really going, and a vehicle that comes back under it clears the row without a word. The feed
+ * carries no fix accuracy (Traccar positions as proxied by /api/traccar/positions), so there is
+ * nothing to widen it by; a vehicle missing from the feed has shown no distance and raises nothing.
+ */
+export const AWAY_NOTICE_M = 100
 
 const keyOf = (ep: LineEndpoint) => (ep === 'start' ? 'startAttachment' : 'endAttachment') as 'startAttachment' | 'endAttachment'
 const endIdx = (coords: readonly unknown[], ep: LineEndpoint) => (ep === 'start' ? 0 : coords.length - 1)
@@ -259,7 +269,7 @@ export function gpsNotices(drawings: readonly Drawing[], vehicles: readonly Enti
       const k = endKey(drawing.id, endpoint, before)
       let kind: GpsNoticeKind | null = null
       if (gps.state === 'paused') {
-        if (!hasTraced(gps)) kind = 'away'
+        if (!hasTraced(gps)) { if (distanceM != null && distanceM >= AWAY_NOTICE_M) kind = 'away' }
         else if (!memory.dismissed.has(k)) kind = 'stopped'
       } else if (gps.state === 'continuous' && before && distanceM != null && distanceM <= BACK_ON_SITE_M
         && !memory.answered.has(k) && (memory.armed.has(k) || traceWasAway(drawing, before))) {

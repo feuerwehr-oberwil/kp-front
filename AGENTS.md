@@ -438,7 +438,9 @@ to prod.
     point. Restoring or cutting back is `commit(…, { gesture: false })`: not a placement, so a
     plan-drawn hose keeps its sheet and storey. Either act that takes vertices out writes ONE
     Verlauf row (`log.gpsReverted` / `log.gpsReleasedOnSite`). The Meldung is ONE row per vehicle
-    and question, acting on all of its ends; the «back on site» offer ARMS only once the vehicle
+    and question, acting on all of its ends; «fährt weg» is RAISED only at ≥100 m from the on-site
+    point (`AWAY_NOTICE_M` — below it the 20 m pause stays silent, GPS scatter of a parked vehicle
+    asks nothing, and a vehicle back under it clears the row without a word); the «back on site» offer ARMS only once the vehicle
     was ≥300 m out (live or in the trace) and is asked once per return; a «stopped» row can be
     waved away — both device-local. The sync merge lets a hand's change of a hose beat a
     follower-only change (`followerOnlyChange` in `mergeWorkspace`), or another device's poll puts
