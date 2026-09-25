@@ -255,6 +255,29 @@ version of this file:
 priority create an audit event (`meta.change`, `_TRACKED_META` in `backend/app/api/incidents.py`) –
 but still **no Verlauf row**. Whoever reads the Verlauf does not see the correction.
 
+## The Suche: every change is a row (2026-09-24)
+
+The Suche (`lib/suche`, step 1) keeps no status field anywhere: each Person and Bereich carries its
+own append-only `log`, and every entry of it wrote ONE Verlauf row with the same sentence, linked
+back to its record (`TimelineEvent.suche` — the Bereich column prints «Suche», the filter has it,
+a tap opens the Suche on that record):
+
+| Act | Row |
+|---|---|
+| + Vermisst | «Vermisst: {Name} · zuletzt {Geschoss Ort} · Quelle {…}» |
+| Gefunden… | «Gefunden: {Name} · {Ort} · Trupp N» (a group: «Gefunden: 5 von {Gruppe} …»), plus «Fund: {Bereich} · {Name}» on the area it was found in |
+| weiter an / Übergeben… | «Übergeben: {Name} an {Rettungsdienst}» |
+| Entwarnen | «Entwarnung: {Name}» |
+| an area's status | «1. OG Trakt 3 abgesucht · Trupp 4» / «in Arbeit» / «nicht zugänglich» / «offen» |
+| Teilen, Umbenennen | «1. OG geteilt: Trakt 1, Trakt 2» · «Bereich umbenannt: … → …» |
+| a Trupp's Ziel under «Absuchen» | «{Bereich} in Arbeit · Trupp N» — written under a DERIVED id, so every editor device observing the same Trupp save writes the one row |
+| «abgesucht?» at Raus | Ja → «… abgesucht · Trupp N», Teilweise → «… teilweise abgesucht», Nein → «… offen» |
+| ↶ / ↷ of any of these | «Zurückgenommen: {the row's own sentence}» / the sentence again |
+| Verlauf composer (Tür 2) | the WRITTEN sentence is the row; the status changes on its way and writes no second one |
+
+Deliberately silent: the storeys becoming «ganzes Geschoss» on first open (a machine seed, no
+act of anybody's), and opening/closing the dock or the sheet.
+
 ## Gaps – known, not yet closed
 
 These are **not** covered by the doctrine: they concern the content of the record itself,

@@ -31,6 +31,20 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The Suche, step 1: who is still missing, and what is abgesucht (Übung 23.09.2026).** One list
+  of Personen (vermisst → gefunden → übergeben, or entwarnt; groups with a count) and Bereiche
+  (every storey of the Gebäude by itself, split by names; offen · in Arbeit + Trupp · abgesucht ·
+  nicht zugänglich · Fund), synced across devices and written into the Verlauf change by change.
+  On a tablet it docks beside the Gebäude or the Karte and the storey labels carry the progress
+  («1. OG 2/4»); on a phone it is a peek · half · full sheet over the plan that never covers the
+  nav bar, with floor chips and a Gebäude | Karte switch. Doors: the rail entry with the red count,
+  the «2 vermisst» head chip for everyone, the tool rail's toggle, the Verlauf composer («Name ·
+  vermisst → gefunden»), and «Fund melden» / «Bereich abgesucht» on a Trupp. A Trupp's Ziel picks
+  an area and marks it «in Arbeit»; «Raus» asks «… abgesucht? Ja / Teilweise / Nein». The Rapport
+  counts the Gerettete from the list and prints a «Personen» section with one line per person and
+  «Suche: 8 Bereiche, alle abgesucht 20:39»; the Abschluss asks about people still missing.
+  Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
+
 - **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
   phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
   (at most two, most urgent first) stand above it with a live «Kontakt» that confirms without
@@ -142,6 +156,10 @@ so this file – not the log – is the record of what shipped up to that point.
   and coordinate both stand.
 
 ### Fixed
+
+- **Mittel from another device no longer vanish after a merge.** A remote merge refreshed every
+  synced slice except the Mittel log, so this device's next save deleted the other device's
+  entries.
 
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB

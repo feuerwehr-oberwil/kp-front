@@ -99,6 +99,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `modules` (the Objektplan-Modul catalogue) | ❌ | **file only** – the Objektpläne page lists the catalogue read-only; the objects and their PDFs are what you edit there ([`objektplaene-architecture.md`](objektplaene-architecture.md)) |
 | `doctrine.*` | ✅ | Station › **Doktrin** |
 | `journal.*` | ✅ | Station › **Journal** |
+| `suche.uebergabe` (the Suche's «weiter an» list) | ❌ | file only – empty = the national default «Rettungsdienst · Sammelplatz · Angehörige»; the operator can always type another |
 | `report.hoursRounding`, `.attendanceMergeGapMin`, `.reversePrintOrder`, `.links` | ✅ | Station › **Rapport** (§1b–§1d) |
 | `report.partnerOrgs` | ✅ | Station › **Rapport** – **and** the Arbeitsmappe (§9h) |
 | `alarms.autoArchiveDays`, `.staleIncidentDays`, `.captureWindowHours`, `.webhooks`, `.groups` | ✅ | Station › **Alarme & Einsätze** |

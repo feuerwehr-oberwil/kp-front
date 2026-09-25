@@ -289,6 +289,37 @@ to prod.
   its audit chain, so do not widen this to editors, individual production rows, or a mutable
   history shortcut. Revisit external deletion evidence/retention policy before offering managed
   hosting; the current trust boundary is one station operating its own deployment.
+- **The Suche is ONE synced slice + append-only rows** (24.09.2026, step 1 — `lib/suche`,
+  `components/suche`). `suche = { personen, bereiche }`: a record says who or where, and what
+  happened to it is its own `log` — every state (vermisst → gefunden → übergeben / entwarnt; a
+  Bereich's offen / in Arbeit + Trupp / abgesucht / nicht zugänglich, «Fund») is FOLDED from it,
+  never stored. Each log row carries the Verlauf sentence it wrote, and the Verlauf row carries a
+  `suche` link back (Bereich «Suche», a tap opens the record). Rules that fall out of it:
+  - It merges by id, and a record both sides changed merges field-wise with its log as a union
+    by row id (`mergeWorkspace · mergeSuche`) — two devices booking two things about one person
+    keep both; a row one side took back stays gone.
+  - A storey's own area is `sbg<index>` — DERIVED, so every device seeds the same record; the
+    seed on first open (and on the first Trupp sent to «Absuchen») is a machine write, idempotent
+    and no undo step (`ensureStoreyBereiche`, `keepSucheSeeds` on ↶). An unseeded storey renders
+    as a virtual «ganzes Geschoss · offen» so read-only devices see the same gaps.
+  - What a Trupp's save implies (its Ziel's area «in Arbeit · Trupp N», a new name creating the
+    part) is OBSERVED on every editor device and written under derived ids
+    (`useSucheActions · observe`, `lib/useSucheTrupps`); «abgesucht?» at Raus is asked only on the
+    device that saw the Raus happen, never after a merge.
+  - Undo is the slice's (`useUndoableSlice`); a step's Verlauf row quotes the rows it took back
+    («Zurückgenommen: …», `movedRows`). The composer's entry that changes a status IS that
+    change's Verlauf row (`silent`), never a second one.
+  - EDITOR only in step 1 (`canEditIncident`): the `el` and viewers read; the record slice and the
+    Atemschutz-Link routes do not carry `suche`, and «Fund melden» from a link session is not
+    offered. Replay folds the anchor's slice to the scrubbed instant (`sucheAt`).
+  - Tablet: a DOCK beside the Gebäude or the Karte (the stack fits itself into the room left,
+    `Whiteboard · dockInset`), storey labels carry «2/4». Phone: `overlays/DetentSheet`, the one
+    NON-modal peek · half · full sheet — it stands on the nav bar and never covers it; the tool bar
+    steps aside while it is up.
+  - ⚠️ Step 2 (not built): drawn areas and person markers on the plan/Karte, and the Rettung
+    symbol becoming a Person, fill the fields that are typed and empty today (`SuchePerson.point`,
+    `SucheBereich.shape`) — no migration. A drawn area is its own kind «Suchbereich», never a line,
+    so it can never be offered to a Trupp as its Leitung (the 23.09.2026 failure).
 - **A setting lives in one of three places – pick by who owns it, not by what is easiest to
   reach.** (1) *Device preference* – theme, symbol scale, rail words, offline radius, screen
   wake: cookie via `src/lib/prefs.ts`, surfaced in the **Einstellungen sheet**
@@ -665,7 +696,9 @@ to prod.
     — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
     handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
     wears the bar, see the Atemschutz bullet), and the one
-    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The
+    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The one
+    NON-modal bottom sheet is `DetentSheet` (peek · half · full over a live surface, 24.09.2026,
+    the Suche): no backdrop, no focus trap, never closed by a swipe — its owner's ✕ closes it. The
     gesture needs the frame FLUSH with the bottom edge — which is why the phone Verlauf is a real
     bottom sheet now and no longer a card floating 8px off it.
   - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`
