@@ -15,7 +15,6 @@ Two things sit in front of the client (24.09.2026, post-mortem of the Übung on 
 """
 
 import asyncio
-import hashlib
 import time
 from datetime import datetime
 from urllib.parse import urlsplit
@@ -184,14 +183,16 @@ POSITIONS_CACHE_SECONDS = 10.0
 # monotonic time, answer). Only ANSWERS are cached: an error is handed to every request that
 # was waiting on the same fetch (single-flight, below) and forgotten, so the next poll asks
 # Traccar again instead of repeating a stale failure for ten seconds.
-_positions_cache: tuple[str, float, list[VehiclePosition]] | None = None
-_positions_inflight: tuple[str, asyncio.Future[list[VehiclePosition]]] | None = None
+_positions_cache: tuple[tuple[str, str, str], float, list[VehiclePosition]] | None = None
+_positions_inflight: tuple[tuple[str, str, str], asyncio.Future[list[VehiclePosition]]] | None = None
 
 
-def _credential_identity() -> str:
-    """Who the answer belongs to: URL + account + a digest of the password (never the password)."""
-    digest = hashlib.sha256(traccar_client.password.encode("utf-8")).hexdigest()[:16]
-    return f"{traccar_client.base_url}|{traccar_client.email}|{digest}"
+def _credential_identity() -> tuple[str, str, str]:
+    """Who the answer belongs to: URL, account and password, compared in memory only. Never
+    logged, never stored anywhere but this process — where the credential snapshot
+    (`app.credentials`) holds the same password already; a digest of it would add nothing but a
+    weak-hash finding."""
+    return (traccar_client.base_url, traccar_client.email, traccar_client.password)
 
 
 async def cached_vehicle_positions() -> list[VehiclePosition]:
