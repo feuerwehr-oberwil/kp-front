@@ -136,9 +136,30 @@ so this file – not the log – is the record of what shipped up to that point.
   by area, for the nightly run too.
 - **Map zoom to 21**, and a Koordinaten fold in «Einsatz erfassen» that stays shut once address
   and coordinate both stand.
+- **CI plays the Übung of 23.09.2026 on every pull request.** A new e2e scenario
+  (`e2e/field-scenario.spec.ts`) parks a fake TLF next to an Übung, couples a Leitung to it on
+  the Karte, drops a Trupp, lets the fleet report for 22 s and taps the Trupp – once on one
+  device, once on three devices with one login that place their Trupps concurrently (every
+  Trupp has to be on every device and on the server afterwards). With the post-mortem's render
+  loop put back, it fails with the field's own reports: React #185 on the Karte and «render
+  storm: IncidentWorkspace». And **every e2e test now fails when the app reports a client error
+  or a render storm** (`e2e/guard.ts`), with the report attached and the matching
+  `kpfront.clienterror` lines printed from the container log; until now those reports only ever
+  reached the server log. CI-only: the fake fleet is switched on by an overlay
+  (`e2e/compose.e2e.yml`), never in `docker-compose.yml`. The scenario runs without retries, so
+  an intermittent crash cannot pass as «flaky». A third test pins a bug the scenario turned up
+  by asserting today's behaviour: three devices that tap «Neuer Trupp» at the same moment all
+  name it «Trupp 1». The assertion flips once the numbering is fixed.
 
 ### Fixed
 
+- **No «Failed to fetch» counter in the server log after an offline spell.** While offline, every
+  basemap tile the Karte could not load was counted as a client error. The reports themselves
+  could not leave the device, but the repeat counter did once the network was back:
+  «Failed to fetch ×N» with nothing broken behind it. A bare fetch failure while the browser says
+  it is offline is now not counted at all (`lib/reportError · isOfflineNetworkNoise`). Render
+  throws, render storms and a failure while nominally online are still reported, so the
+  post-Einsatz check reads only what broke.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched

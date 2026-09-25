@@ -4,7 +4,8 @@ import { defineConfig } from '@playwright/test'
 //
 // The smoke drives the REAL app in a browser to guard against the catastrophic
 // "it doesn't even load / a core surface white-screens" class of regression — the
-// one thing the unit suite (pure src/lib logic) can't catch.
+// one thing the unit suite (pure src/lib logic) can't catch. Beside it, the field scenario of the
+// Übung on 23.09.2026, and under every test the client-error guard — see e2e/README.md.
 //
 // It runs against an ALREADY-RUNNING stack (this config starts no servers):
 //   • CI: the `image` job's docker-compose container, served same-origin on :8000.
