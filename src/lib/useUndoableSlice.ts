@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { newId } from './ids'
-import { historyStepKeys, rebaseHistory, type HistoryStep, type RecordKey, type RecordShape } from './undoKeys'
+import { rebaseHistory, touchesCache, type HistoryStep, type RecordKey, type RecordShape } from './undoKeys'
 
 /**
  * Undo/redo over a piece of state somebody ELSE owns.
@@ -119,6 +119,7 @@ export function useUndoableSlice<T>(
   // stable (only refs + stable setters) so callers can keep it out of effect deps
   const clear = useCallback(() => { past.current = []; future.current = []; setDepth({ past: 0, future: 0 }) }, [])
   const history = () => ({ past: past.current, present: latest.current, future: future.current })
+  const touches = useRef(shape ? touchesCache(shape) : null)
   const rebase: UndoableSlice<T>['rebase'] = (next, keep) => {
     if (shape) {
       const laid = rebaseHistory(history(), next, keep, shape)
@@ -132,7 +133,7 @@ export function useUndoableSlice<T>(
     set, undo: (expect) => step('past', expect), redo: (expect) => step('future', expect),
     canUndo: depth.past > 0, canRedo: depth.future > 0, clear,
     topStep: () => past.current[past.current.length - 1]?.id ?? null,
-    stepKeys: (id) => (shape ? historyStepKeys(history(), id, shape) : null),
+    stepKeys: (id) => (touches.current ? touches.current(history(), id) : null),
     rebase,
   }
 }

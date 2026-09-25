@@ -1,4 +1,6 @@
 import type { Saved } from './workspace'
+import { GEBAEUDE_PLAN_ID } from './whiteboard'
+import type { UndoTimeline } from './undoTimeline'
 
 /**
  * WHICH RECORDS an undo step writes, and which ones a remote merge changed — the two halves of
@@ -99,15 +101,24 @@ export interface RecordShape<T> {
    *  exactly as it was — the same object when nothing had to change. A record that comes BACK
    *  takes its place from `order`, the state its value was read from. */
   patch: (v: T, values: ReadonlyMap<RecordKey, unknown>, order: T) => T
+  /**
+   * The OTHER records one record's value depends on — a placard docked to its host, a Leitung
+   * end attached to an object or another line. A step that writes such a record re-states the
+   * link, and the link means «where the target is NOW»: a ↷ re-docking a placard onto a host
+   * another device has since moved a kilometre would drop it at the old spot. So a step also
+   * touches every record its written values point at, old value and new (`stepTouches`).
+   */
+  refs?: (value: unknown) => RecordKey[]
 }
 
 interface HasId { id: string }
 const hasId = (v: unknown): v is HasId => isPlain(v) && typeof v.id === 'string'
 
 /** An id-keyed list (objects, Trupps, Mittel, Schichten, …) — `mergeById`'s unit. */
-export function listById<E extends HasId>(field: string): RecordShape<E[]> {
+export function listById<E extends HasId>(field: string, refs?: (value: unknown) => RecordKey[]): RecordShape<E[]> {
   const key = (id: string) => recordKey(field, id)
   return {
+    refs,
     records: (v) => new Map((Array.isArray(v) ? v : []).filter(hasId).map((o) => [key(o.id), o])),
     patch: (v, values, order) => {
       const list = Array.isArray(v) ? v : []
@@ -203,6 +214,35 @@ export function fieldsOf<T extends Record<string, unknown>>(shapes: { [K in keyo
   }
 }
 
+/**
+ * Every record a tactical object's value POINTS AT (RecordShape · refs). Audited 25.09.2026
+ * against `types` / `tacticalObjects`: the only id-valued links between records are
+ *   • `dockedTo` — a Gefahrentafel on its host (Entity);
+ *   • `startAttachment` / `endAttachment` — a Leitung end on an object or on another line
+ *     (Drawing and BoardAnno alike, so every body is read);
+ *   • `truppId` — a marker, chip or hose that belongs to a Trupp;
+ *   • a Gebäude-stack body's `floor` — a storey the `building` has to still have.
+ * (`sheet.planId` names a sheet, not a record; its fit is `planview:`'s business.)
+ */
+export function objectRefs(value: unknown): RecordKey[] {
+  if (!isPlain(value)) return []
+  const out: RecordKey[] = []
+  const sheet = isPlain(value.sheet) ? value.sheet : null
+  for (const body of [value.entity, value.drawing, sheet?.anno]) {
+    if (!isPlain(body)) continue
+    if (typeof body.dockedTo === 'string') out.push(recordKey('objects', body.dockedTo))
+    for (const att of [body.startAttachment, body.endAttachment]) {
+      if (isPlain(att) && isPlain(att.target) && typeof att.target.id === 'string') out.push(recordKey('objects', att.target.id))
+    }
+    if (typeof body.truppId === 'string') out.push(recordKey('trupps', body.truppId))
+  }
+  if (sheet?.planId === GEBAEUDE_PLAN_ID) out.push(recordKey('building'))
+  return out
+}
+
+/** …and the same links read off a sheet's anno (a plan snapshot holds annos, not objects). */
+export const annoRefs = (anno: unknown): RecordKey[] => objectRefs({ drawing: anno })
+
 /** The records whose value differs between `a` and `b`, mapped to their value in `b` (`undefined`
  *  = absent there). `a` → `b` is a step; this is what the step wrote. */
 export function recordDiff<T>(a: T, b: T, shape: Pick<RecordShape<T>, 'records'>): Map<RecordKey, unknown> {
@@ -225,7 +265,7 @@ export function recordDiff<T>(a: T, b: T, shape: Pick<RecordShape<T>, 'records'>
  *  device-local fields. Checked against `Saved` at compile time, like MERGE_POLICY: a synced field
  *  added without a row here fails `tsc` rather than being silently invisible to a merge. */
 export const WORKSPACE_RECORDS = {
-  objects: listById('objects'),
+  objects: listById('objects', objectRefs),
   entities: null,
   drawings: null,
   board: null,
@@ -255,6 +295,22 @@ export const WORKSPACE_RECORDS = {
   schemaVersion: null,
 } satisfies Record<keyof Saved, Pick<RecordShape<never>, 'records'> | null>
 
+/**
+ * What a step from `before` to `after` TOUCHES: the records it writes, plus every record the old
+ * or the new value of one of them points at (RecordShape · refs).
+ */
+export function stepTouches<T>(before: T, after: T, shape: RecordShape<T>): RecordKey[] {
+  const wrote = recordDiff(before, after, shape)
+  if (!shape.refs || !wrote.size) return [...wrote.keys()]
+  const out = new Set<RecordKey>(wrote.keys())
+  const old = shape.records(before)
+  for (const [k, v] of wrote) {
+    for (const r of shape.refs(old.get(k))) out.add(r)
+    for (const r of shape.refs(v)) out.add(r)
+  }
+  return [...out]
+}
+
 /** Every record a hydrate changes: the live state before it against the state it writes. */
 export function workspaceChanges(prev: Partial<Record<keyof Saved, unknown>>, next: Partial<Record<keyof Saved, unknown>>): Set<RecordKey> {
   const out = new Set<RecordKey>()
@@ -280,7 +336,8 @@ const FIT_FIELDS = ['planScale', 'planBindings', 'building', 'pickedObjectId']
  */
 export function planViewChanges(
   before: Readonly<Record<string, readonly HasId[]>>,
-  after: Readonly<Record<string, readonly HasId[]>>,
+  /** a thunk: deriving every sheet's view is the costly half, and most merges change no object */
+  after: () => Readonly<Record<string, readonly HasId[]>>,
   changed: ReadonlySet<RecordKey>,
 ): RecordKey[] {
   const ids = new Set<string>()
@@ -290,9 +347,10 @@ export function planViewChanges(
     if (f === 'objects') ids.add(id)
   }
   if (!ids.size) return []
+  const next = after()
   const out: RecordKey[] = []
-  for (const planId of new Set([...Object.keys(before), ...Object.keys(after)])) {
-    if ([...(before[planId] ?? []), ...(after[planId] ?? [])].some((a) => ids.has(a.id))) out.push(recordKey('planview', planId))
+  for (const planId of new Set([...Object.keys(before), ...Object.keys(next)])) {
+    if ([...(before[planId] ?? []), ...(next[planId] ?? [])].some((a) => ids.has(a.id))) out.push(recordKey('planview', planId))
   }
   return out
 }
@@ -312,17 +370,31 @@ function eachStep<T>(h: History<T>, fn: (id: string, before: T, after: T, dir: '
 }
 
 /**
- * The records ONE step of the history writes, when it is taken in either direction — or `null`
- * when the history holds no such step.
+ * What EACH step of the history touches (`stepTouches`), taken in either direction, by step id —
+ * every transition diffed once, so a merge that asks about every entry pays one pass.
  *
  * ⚠️ The top step reaches up to the PRESENT, so it also covers whatever was written without a
  * checkpoint after it (a live-GPS re-route, a Trupp sweep): taking it back restores the snapshot,
  * and the snapshot restores those too. That is what the step does, so that is what it touches.
  */
-export function historyStepKeys<T>(h: History<T>, id: string, shape: RecordShape<T>): RecordKey[] | null {
-  let out: RecordKey[] | null = null
-  eachStep(h, (sid, before, after) => { if (sid === id) out = [...recordDiff(before, after, shape).keys()] })
+export function historyTouches<T>(h: History<T>, shape: RecordShape<T>): Map<string, RecordKey[]> {
+  const out = new Map<string, RecordKey[]>()
+  eachStep(h, (id, before, after) => { out.set(id, stepTouches(before, after, shape)) })
   return out
+}
+
+/**
+ * `historyTouches`, memoised on the history's identity — the stacks and the present only ever
+ * change by replacement, so the same three references mean the same answer.
+ */
+export function touchesCache<T>(shape: RecordShape<T>): (h: History<T>, id: string) => RecordKey[] | null {
+  let seen: { past: unknown; present: unknown; future: unknown; keys: Map<string, RecordKey[]> } | null = null
+  return (h, id) => {
+    if (!seen || seen.past !== h.past || seen.present !== h.present || seen.future !== h.future) {
+      seen = { past: h.past, present: h.present, future: h.future, keys: historyTouches(h, shape) }
+    }
+    return seen.keys.get(id) ?? null
+  }
 }
 
 /**
@@ -363,15 +435,62 @@ export function rebaseHistory<T>(h: History<T>, next: T, keep: (id: string) => b
 /**
  * An OPEN gesture's starting point (a Karte drag in progress), re-laid the same way: the records
  * the gesture has written so far keep their pre-gesture value over the merge — unless the merge
- * changed one of them, in which case the gesture so far is part of the present and its step will
- * cover only what follows.
+ * changed one of them, or one they link to, in which case the gesture so far is part of the
+ * present and its step will cover only what follows.
  */
 export function rebasePending<T>(start: T, present: T, next: T, shape: RecordShape<T>): T {
   const wrote = recordDiff(present, start, shape)
   if (!wrote.size) return next
   const moved = recordDiff(present, next, shape)
-  for (const k of wrote.keys()) if (moved.has(k)) return next
+  // what the gesture wrote AND what those values point at (a dragged placard's host) — the same
+  // set a finished step would name (stepTouches)
+  for (const k of stepTouches(start, present, shape)) if (moved.has(k)) return next
   return shape.patch(next, wrote, start)
+}
+
+// ── the merge's undo half, all of it or none of it ─────────────────────────────────────────────
+
+/** One domain's side of a merge: keep the steps the timeline kept, or — when the bookkeeping has
+ *  failed — drop its history and still take the merged state. */
+export interface MergeUndoDomain {
+  rebase: (keep: (step: string) => boolean) => void
+  drop: () => void
+}
+
+/**
+ * The undo half of a hydrate (IncidentWorkspace · applyWorkspace), in one place: learn what the
+ * merge changed, let the timeline drop what that invalidated, and have every domain keep exactly
+ * the steps whose entries survived — `keep` is a set captured HERE, never read later.
+ *
+ * ⚠️ All of it or none of it. This is new bookkeeping on the one path that must never fail — a
+ * hydrate that throws half-way leaves a device showing a state nobody saved. So any throw falls
+ * back to the rule this replaced (25.09.2026): the whole timeline goes, every domain drops its
+ * history and takes the merged state wholesale, and every still-standing undo toast is spent.
+ * Returns what changed, or `null` after a fallback.
+ */
+export function carryUndoThroughMerge(
+  timeline: Pick<UndoTimeline, 'rebase' | 'steps' | 'clear'>,
+  changes: () => Set<RecordKey>,
+  domains: readonly MergeUndoDomain[],
+  onFail?: (e: unknown) => void,
+): Set<RecordKey> | null {
+  try {
+    const changed = changes()
+    timeline.rebase(changed)
+    const live = timeline.steps()
+    const keep = (step: string) => live.has(step)
+    for (const d of domains) d.rebase(keep)
+    noteRemoteChanges(changed)
+    return changed
+  } catch (e) {
+    onFail?.(e)
+    timeline.clear()
+    for (const d of domains) {
+      try { d.drop() } catch (inner) { onFail?.(inner) }
+    }
+    noteRemoteChanges(null)
+    return null
+  }
 }
 
 // ── the one-shot doors that outlive a merge: confirm-with-undo toasts ────────────────────────────
@@ -398,8 +517,14 @@ export function watchRecords(keys: readonly RecordKey[]): { ok: () => boolean; r
   return { ok: () => w.ok, release: () => { watching.delete(w) } }
 }
 
-/** A merge changed these records: every watch that names one of them is spent. */
-export function noteRemoteChanges(changed: Iterable<RecordKey>): void {
+/** A merge changed these records: every watch that names one of them is spent. `null` = it is not
+ *  known what the merge changed (the bookkeeping failed, see `carryUndoThroughMerge`): all are. */
+export function noteRemoteChanges(changed: Iterable<RecordKey> | null): void {
+  if (changed === null) {
+    for (const w of watching) w.ok = false
+    watching.clear()
+    return
+  }
   const m = keyMatcher(changed)
   if (m.empty) return
   for (const w of watching) if (m.meets(w.keys)) { w.ok = false; watching.delete(w) }

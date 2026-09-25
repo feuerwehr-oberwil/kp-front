@@ -20,6 +20,10 @@ import type { UndoableSlice } from './useUndoableSlice'
 export function pushSliceStep<T>(timeline: Pick<UndoTimeline, 'push'>, entry: {
   domain: UndoDomain
   label: string
+  /** what the slice's `set` answered: did the write lay a step down? A write that folded into
+   *  the standing step, or that a viewer made, laid none — and an entry pushed for it would
+   *  point at somebody else's step (the one below), or at nothing. */
+  laid: boolean
   histRef: { readonly current: UndoableSlice<T> }
   /** runs FIRST, before the stack moves — it closes whatever fold window is still open (the
    *  Rapport's), because the step that window would fold into is the one being popped */
@@ -28,13 +32,14 @@ export function pushSliceStep<T>(timeline: Pick<UndoTimeline, 'push'>, entry: {
    *  the timeline's answer: `false` = the entry could not act and is dropped */
   record: (moved: { from: T; to: T } | null, dir: 'undo' | 'redo') => boolean
 }): Dropper {
-  const { domain, label, histRef, onStep, record } = entry
+  const { domain, label, laid, histRef, onStep, record } = entry
   const step = histRef.current.topStep() ?? undefined
+  if (!laid || !step) return Object.assign(() => {}, { standing: () => false })
   return timeline.push({
     domain,
     label,
     step,
-    touches: () => (step ? histRef.current.stepKeys(step) : null),
+    touches: () => histRef.current.stepKeys(step),
     undo: () => { onStep?.(); return record(histRef.current.undo(step), 'undo') },
     redo: () => { onStep?.(); return record(histRef.current.redo(step), 'redo') },
   })

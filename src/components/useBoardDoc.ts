@@ -1,11 +1,19 @@
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
+import { newId } from '../lib/ids'
 import { confirmDialog } from '../lib/ui'
-import { recordKey, type RecordKey } from '../lib/undoKeys'
-import type { UndoEntry } from '../lib/undoTimeline'
+import { annoRefs, recordKey, type HistoryStep, type RecordKey } from '../lib/undoKeys'
 import type { BoardAnno } from '../types'
 
-const EMPTY_HIST = { past: [] as BoardAnno[][], future: [] as BoardAnno[][] }
+/** One step of a plan's history: the sheet's view before it (on `past`) or after it (on
+ *  `future`), under the id its timeline entry names. */
+export type PlanStep = HistoryStep<BoardAnno[]>
+
+const EMPTY_HIST: { past: PlanStep[]; future: PlanStep[] } = { past: [], future: [] }
+
+/** A fresh id for a plan step — minted by whoever lays the step, and handed to the timeline with
+ *  it (`onCheckpoint`), so a merge can keep or drop THAT snapshot (`keepPlanSteps`). */
+export const newPlanStep = () => newId('pl')
 
 /**
  * Check-point one plan's annotations — the single definition of what an undo step IS on the board.
@@ -16,15 +24,15 @@ const EMPTY_HIST = { past: [] as BoardAnno[][], future: [] as BoardAnno[][] }
  * the document an undo step, and it must be the SAME step, capped the same way, or the two writers
  * would disagree about what Rückgängig means on one document.
  */
-export function pushBoardPast(hist: BoardHistory, planId: string, snapshot: BoardAnno[]): BoardHistory {
+export function pushBoardPast(hist: BoardHistory, planId: string, snapshot: BoardAnno[], id: string): BoardHistory {
   const c = hist[planId] ?? EMPTY_HIST
-  return { ...hist, [planId]: { past: [...c.past, snapshot].slice(-appConfig.defaults.historyCap), future: [] } }
+  return { ...hist, [planId]: { past: [...c.past, { id, snap: snapshot }].slice(-appConfig.defaults.historyCap), future: [] } }
 }
 
 /** Undo/redo stacks for every plan document, keyed by plan id — the scope is per-plan, so one
  *  plan's history can never step into another's. Owned by the surface ABOVE the Whiteboard: see
  *  `hist`/`setHist` below. */
-export type BoardHistory = Record<string, { past: BoardAnno[][]; future: BoardAnno[][] }>
+export type BoardHistory = Record<string, { past: PlanStep[]; future: PlanStep[] }>
 
 /**
  * The records ONE plan's history can write, for every entry of it alike: each object any of its
@@ -40,24 +48,29 @@ export type BoardHistory = Record<string, { past: BoardAnno[][]; future: BoardAn
  */
 export function planStackTouches(planId: string, hist: BoardHistory[string] | undefined, live: readonly BoardAnno[] | undefined): RecordKey[] {
   const ids = new Set<string>()
-  for (const snap of [...(hist?.past ?? []), ...(hist?.future ?? []), live ?? []]) for (const a of snap) ids.add(a.id)
-  return [recordKey('planview', planId), ...[...ids].map((id) => recordKey('objects', id))]
+  const refs = new Set<RecordKey>()
+  const snaps = [...(hist?.past ?? []), ...(hist?.future ?? [])].map((s) => s.snap)
+  for (const snap of [...snaps, live ?? []]) {
+    for (const a of snap) {
+      ids.add(a.id)
+      // …and what each anno points at (a Leitung end on another object): a restore re-states it
+      for (const r of annoRefs(a)) refs.add(r)
+    }
+  }
+  return [recordKey('planview', planId), ...[...ids].map((id) => recordKey('objects', id)), ...refs]
 }
 
 /**
- * Each plan's stacks cut down to the entries of them still on the timeline after a merge (the
- * entries carry a `step`; the plan-binding entries share the scope and carry none). A plan's
- * surviving entries are always its NEWEST on the ↶ side and its NEXT on the ↷ side — see
- * `planStackTouches` — so the cut is from the far end of each stack.
+ * Each plan's stacks cut down to the steps whose timeline entries survived a merge — by step id,
+ * against a set captured when the merge ran (`keep`), never re-read later. A plan's steps all
+ * name the same records (`planStackTouches`), so a plan's survivors are always its newest on the
+ * ↶ side and its next on the ↷ side, but the id says so exactly.
  */
-export function trimPlanHistory(hist: BoardHistory, entries: { past: readonly UndoEntry[]; future: readonly UndoEntry[] }): BoardHistory {
-  const count = (list: readonly UndoEntry[], planId: string) => list.filter((e) => e.domain === 'plan' && e.scope === planId && e.step).length
+export function keepPlanSteps(hist: BoardHistory, keep: (step: string) => boolean): BoardHistory {
   let out: BoardHistory | null = null
   for (const [planId, h] of Object.entries(hist)) {
-    const kp = count(entries.past, planId)
-    const kf = count(entries.future, planId)
-    const past = kp ? h.past.slice(-kp) : []
-    const future = h.future.slice(0, kf)
+    const past = h.past.filter((s) => keep(s.id))
+    const future = h.future.filter((s) => keep(s.id))
     if (past.length === h.past.length && future.length === h.future.length) continue
     out ??= { ...hist }
     out[planId] = { past, future }
@@ -74,7 +87,7 @@ interface BoardDocDeps {
   setSelId: (id: string | null) => void
   editId: string | null
   setEditId: (id: string | null) => void
-  historyRef?: MutableRefObject<{ undo: () => void; redo: () => void } | null>
+  historyRef?: MutableRefObject<{ undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null>
   /** ⚠️ The history stacks live OUTSIDE this hook, in the surface that mounts the Whiteboard —
    *  the board unmounts on every surface switch (`mode !== 'plans'`), and as component state the
    *  stacks went with it: draw a Leitung, glance at the Verlauf, come back, and Rückgängig was
@@ -85,7 +98,7 @@ interface BoardDocDeps {
   /** Told whenever a step is laid down on THIS plan, so the one global timeline
    *  (`lib/undoTimeline`) can record that the plan moved, in the same chronology as the Karte and
    *  the Tafel. The per-plan stacks above stay the thing that answers the step itself. */
-  onCheckpoint?: (planId: string) => void
+  onCheckpoint?: (planId: string, step: string) => void
   onStepEnd?: () => void
 }
 
@@ -109,8 +122,31 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
   const h = hist[activeId] ?? EMPTY_HIST
   const canUndo = h.past.length > 0
   const canRedo = h.future.length > 0
-  const pushPast = () => { setHist((m) => pushBoardPast(m, activeId, annos)); onCheckpoint?.(activeId) }
-  const set = (next: BoardAnno[]) => onChange(next)                      // raw write, no checkpoint
+  /** the step the running gesture laid — see `set` */
+  const openStep = useRef<string | null>(null)
+  const seenStep = useRef<string | null>(null)
+  const pushPast = () => {
+    const step = newPlanStep()
+    openStep.current = step
+    setHist((m) => pushBoardPast(m, activeId, annos, step)); onCheckpoint?.(activeId, step)
+  }
+  /**
+   * Raw write, no checkpoint — a gesture's later samples fold into the step its first one laid.
+   * ⚠️ Unless a remote merge took that step away mid-gesture (keepPlanSteps, 25.09.2026): the
+   * samples would then fold into nothing and the rest of the gesture could not be taken back, so
+   * the first sample after it lays a fresh step (its snapshot is the merged sheet).
+   */
+  const set = (next: BoardAnno[]) => {
+    const open = openStep.current
+    if (open) {
+      // ⚠️ only a step this hook has SEEN on the stack counts as gone when it is missing: the
+      // stack arrives a render after `pushPast`, and the samples in between must fold, not heal
+      const standing = h.past.some((s) => s.id === open) || h.future.some((s) => s.id === open)
+      if (standing) seenStep.current = open
+      else if (seenStep.current === open) pushPast()
+    }
+    onChange(next)
+  }
   const commit = (next: BoardAnno[]) => { pushPast(); onChange(next); onStepEnd?.() }   // checkpoint + write
   // plan mutations now feed the hash-chained audit trail too (board.* ops) — previously
   // the whole Plan surface was invisible to replay/audit. Replay ignores these (it
@@ -130,24 +166,29 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
     remove(a.id)
     return true
   }
-  const undo = () => {
-    const c = hist[activeId]; if (!c || !c.past.length) return
-    const prev = c.past[c.past.length - 1]
-    setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: cc.past.slice(0, -1), future: [annos, ...cc.future] } } })
+  // `expect` = the step the timeline entry stands for; a different top is not stepped
+  const undo = (expect?: string): boolean => {
+    const c = hist[activeId]
+    const prev = c?.past[c.past.length - 1]
+    if (!prev || (expect !== undefined && prev.id !== expect)) return false
+    setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: cc.past.slice(0, -1), future: [{ id: prev.id, snap: annos }, ...cc.future] } } })
     // ⚠️ a restore, not a placement: `gesture: false`, or a projection the snapshot still held at
     // an older spot would flip onto this sheet (lib/useObjectStore · setBoard, 24.09.2026)
-    onChange(prev, { gesture: false }); setSelId(null); setEditId(null)
+    onChange(prev.snap, { gesture: false }); setSelId(null); setEditId(null)
     // ⚠️ No Verlauf row here since 08.09.2026. This is reached ONLY through the one global
     // timeline now (IncidentWorkspace · planStepAt), which writes the row itself — and writes
     // the SAME row whether the plan happened to be open or not. Logging in both places gave a
     // step on the open plan two lines and a step on a closed one a different wording.
+    return true
   }
-  const redo = () => {
-    const c = hist[activeId]; if (!c || !c.future.length) return
-    const next = c.future[0]
-    setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: [...cc.past, annos], future: cc.future.slice(1) } } })
-    onChange(next, { gesture: false }); setSelId(null); setEditId(null)
+  const redo = (expect?: string): boolean => {
+    const c = hist[activeId]
+    const next = c?.future[0]
+    if (!next || (expect !== undefined && next.id !== expect)) return false
+    setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: [...cc.past, { id: next.id, snap: annos }], future: cc.future.slice(1) } } })
+    onChange(next.snap, { gesture: false }); setSelId(null); setEditId(null)
     // …and the same for the way forward (see `undo` above).
+    return true
   }
   // hand this plan's history to the global TopBar undo/redo (App routes by surface).
   // Re-assign after every commit so the captured undo/redo always close over the latest

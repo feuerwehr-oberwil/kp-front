@@ -60,9 +60,10 @@ export interface UndoEntry {
    *  merge keeps exactly the domain steps whose entries survive `rebase` (see `steps()`). */
   step?: string
   /**
-   * The records this entry's undo/redo WRITES (lib/undoKeys · RecordKey), asked when a remote
-   * merge lands. Must cover everything the inverse writes — a record left out is one a ↶ could
-   * carry a pre-merge value back into. Absent, `null` or throwing = unknown: the entry is dropped
+   * The records this entry's undo/redo TOUCHES (lib/undoKeys · RecordKey), asked when a remote
+   * merge lands: everything the inverse writes, and every record those values link to (a
+   * placard's host, a Leitung end's target — undoKeys · objectRefs). A record left out is one a
+   * ↶ could carry a pre-merge value back into, or re-link to where it no longer is. Absent, `null` or throwing = unknown: the entry is dropped
    * by any merge that changed anything, and so is everything older than it.
    */
   touches?: () => readonly RecordKey[] | null

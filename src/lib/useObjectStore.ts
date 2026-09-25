@@ -5,7 +5,7 @@ import {
   type AnchorChange, type PlanFit, type TacticalObject,
 } from './tacticalObjects'
 import type { Doc } from './workspace'
-import { listById, type RecordKey } from './undoKeys'
+import { listById, objectRefs, type RecordKey } from './undoKeys'
 import type { BoardDoc, Entity } from '../types'
 
 /**
@@ -256,6 +256,10 @@ export function useObjectStore(
    */
   const sheetStep = useRef<symbol | null>(null)
   const stepped = useRef<symbol | undefined>(undefined)
+  /** …and the id of the store step that token took — a merge that drops that step re-opens the
+   *  token (`rebaseObjects`), or the rest of the gesture would fold into a step that is gone and
+   *  lay none of its own */
+  const steppedStep = useRef<string | null>(null)
   const foreignPending = useRef(new Map<string, { before: TacticalObject; after: TacticalObject }>())
   const foreignReporter = useRef(onForeignSheetEdit)
   foreignReporter.current = onForeignSheetEdit
@@ -327,7 +331,7 @@ export function useObjectStore(
       const gesture = sheetStep.current
       // no gesture open ⇒ a discrete write, and every one of those is its own step
       if (out !== objects && foreignEdit && (gesture === null || stepped.current !== gesture)) {
-        store.checkpoint(objects)
+        steppedStep.current = store.checkpoint(objects)
         stepped.current = gesture ?? undefined // …the gesture's remaining samples fold into it
       }
       see(objects, out)
@@ -372,7 +376,11 @@ export function useObjectStore(
    * store, not the last one's.
    */
   const gestureOpen = () => store.dragging() || sheetStep.current !== null
-  const rebaseObjects: ObjectStore['rebaseObjects'] = (objects, keep) => store.rebase(objects, keep)
+  const rebaseObjects: ObjectStore['rebaseObjects'] = (objects, keep) => {
+    store.rebase(objects, keep)
+    // ⚠️ the open plan gesture's step went with the merge: its next sample must lay a new one
+    if (steppedStep.current && !keep(steppedStep.current)) { stepped.current = undefined; steppedStep.current = null }
+  }
   const impl = useRef({ setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current })
   impl.current = { setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag: store.beginDrag, endDrag: store.endDrag, undo: store.undo, redo: store.redo, rebake, gestureOpen, rebaseObjects, stepKeys: store.stepKeys, liveObjects: store.current }
   // ⚠️ Every forwarder spreads the WHOLE parameter list, typed off the public signature, and
@@ -416,8 +424,10 @@ function touchedForeign(before: TacticalObject[], after: TacticalObject[], planI
   return false
 }
 
-/** How the store is made of records for undo: one object per id, the merge's own unit. */
-const OBJECT_RECORDS = listById<TacticalObject>('objects')
+/** How the store is made of records for undo: one object per id, the merge's own unit — and what
+ *  each object LINKS to (docking, Leitung attachments, its Trupp, a Gebäude storey), so a step
+ *  that re-states a link is dropped with the record it links to (undoKeys · objectRefs). */
+const OBJECT_RECORDS = listById<TacticalObject>('objects', objectRefs)
 
 /** …and what every sheet DRAWS, for the same reason: an updater must see the LIVE store. ONE
  *  builder per sheet (tacticalObjects · sheetAnnos), shared with the write seam's own «what did

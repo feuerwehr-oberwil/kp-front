@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { newId } from './ids'
-import { historyStepKeys, rebaseHistory, rebasePending, type HistoryStep, type RecordKey, type RecordShape } from './undoKeys'
+import { rebaseHistory, rebasePending, touchesCache, type HistoryStep, type RecordKey, type RecordShape } from './undoKeys'
 
 // The undoable-document funnel, extracted from App's god component. Owns the doc plus
 // its past/future history stacks and the single mutation paths (commit + gesture fold).
@@ -46,7 +46,7 @@ export interface UndoableDoc<D> {
    *  already computed the state it wants to be able to come back to and is applying the change
    *  itself. `commit` cannot serve it: that decides for itself whether a step is owed, and this
    *  caller only finds out while folding (lib/useObjectStore · setBoard). */
-  checkpoint: (snapshot: D) => void
+  checkpoint: (snapshot: D) => string | null
 }
 
 /**
@@ -144,12 +144,14 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
     past.current = laid.past; future.current = laid.future
     docRef.current = next; setDoc(next); bump()
   }
+  const touches = useRef(shape ? touchesCache(shape) : null)
   const stepKeys = (id: string): RecordKey[] | null =>
-    shape ? historyStepKeys({ past: past.current, present: docRef.current, future: future.current }, id, shape) : null
-  const checkpoint = (snapshot: D) => {
-    if (readOnly) return
+    touches.current ? touches.current({ past: past.current, present: docRef.current, future: future.current }, id) : null
+  const checkpoint = (snapshot: D): string | null => {
+    if (readOnly) return null
     const id = lay(snapshot)
     onCheckpoint?.(id)
+    return id
   }
 
   return {

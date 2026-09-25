@@ -47,6 +47,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { approvedUntouched, BASELINE_WARN_M, fitSimilarity, hasAutoPairs, nudgePairsOnMap, realPairCount, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt, type SheetNudge } from './georef'
 import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
+import { sameValue } from './undoKeys'
 import { incidentBindingApproved, isIncidentGeorefKey, saveIncidentGeoref } from './incidentPlanBindings'
 import { isAdminGeorefKey, saveAdminGeoref } from './adminGeorefSink'
 import { useIsPhone } from './useIsPhone'
@@ -1087,6 +1088,13 @@ export function startGeorefMode(planId: string, aspect: number, opts?: { storage
  *  The way out is `acceptGeorefProposal` or «Verwerfen» (`end` — nothing was ever stored). */
 export function startGeorefProposal(planId: string, aspect: number, opts: { storageKey?: string; pairs: GeorefPair[]; previewUrl?: string | null; uncertain?: boolean }) {
   georefDispatch({ type: 'start', planId, storageKey: opts.storageKey ?? planId, pairs: opts.pairs, aspect, check: true, proposal: true, previewUrl: opts.previewUrl, uncertain: opts.uncertain })
+}
+
+/** Does the sheet's stored georeference still say exactly `pairs`? The «Übernehmen» toast asks
+ *  before its «Rückgängig» resets the sheet: once another device has corrected the reference (or
+ *  it moved any other way), the reset would wipe THEIR work, and the toast declines instead. */
+export function georefStillIs(georefKey: string, pairs: readonly GeorefPair[]): boolean {
+  return sameValue(georefForPlan(georefKey)?.pairs ?? [], pairs)
 }
 
 /** «Übernehmen» on a proposal: persist the (possibly nudged) pairs as the sheet's georeference
