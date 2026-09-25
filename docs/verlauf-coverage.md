@@ -30,9 +30,9 @@ Nachalarm, automatic archival.
 
 Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.
 ([`trupp-naming.md`](trupp-naming.md) §4): safety rows (angemeldet, Eintritt, Kontakt, Druck,
-Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names; housekeeping rows
-(platziert, Farbe, Leitung, bearbeitet, gelöscht, wiederhergestellt, nicht mehr gesetzt) name the
-leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
+Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names, and so do the edit
+rows («bearbeitet», since 25.09.2026); housekeeping rows (platziert, Farbe, Leitung, gelöscht,
+wiederhergestellt, nicht mehr gesetzt) name the leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
 that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
 
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
@@ -63,6 +63,15 @@ writes ONE row — «Trupp N (…): Kontakt – erste Druckmeldung 260 bar erset
 bar» (`logFirstPressure`) — resets the contact clock and appends a `contact` log row beside the
 corrected baseline. It used to be only an edit row («Eingangsdruck 300 → 260 bar») with no Kontakt.
 A double tap on «Kontakt» writes one row, not two.
+
+⚠️ **The crew reaches the Anwesenheit once, and the row names people** (2026-09-25, staging r2):
+the Gäste a Trupp form files at its save are filed quietly and named in the crew's ONE «Unter AS:
+…» row (never twice, never by id). A crew registered on the Atemschutz-Link writes no «erfasst»
+row there (the link cannot write the Anwesenheit); an editor device that sees the Trupp files the
+crew under derived ids and writes that one row under a derived row id (`atc-<truppId>-…`,
+lib/crewFiling), so several devices write it once. «Nicht eingesetzt» closes a Trupp with an
+`exit` log row that is LABELLED «Nicht eingesetzt» on the card and on the Rapport, never
+«Austritt» (lib/atemschutz · isStandDownExit).
 
 ⚠️ **Two contact kinds have been kinds of their own since 2026-08-19**, no longer «Kontakt»: the
 **exit** («Ausgerückt») and the **re-entry** after a Rückzug. The safety clock is untouched by
