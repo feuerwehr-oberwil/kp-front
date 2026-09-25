@@ -35,7 +35,7 @@ import { seedSymbolProps, symbolControls, symbolTitleOptions, symbolFieldOptions
 import { bboxSizeM, bearingDeg, circlePolygon, fmtLV95, fmtWGS, haversineM, midCoord, pathLengthM, polygonAreaM2 } from './lib/geo'
 import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
-import { unfiledTruppCrew } from './lib/crewFiling'
+import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
 import { useShiftActions } from './lib/useShiftActions'
 import { useBandActions } from './lib/useBandActions'
 import { editorPrintTransport, fetchPrintStatus, type PrintRelayStatus } from './lib/printRelay'
@@ -4120,21 +4120,28 @@ export function IncidentWorkspace({
      files what is missing under ids every device derives the same way (lib/crewFiling), so two
      tablets converge on one row per person and one Verlauf line per Trupp. A machine write: raw
      `setAttendance`, never the undo timeline, and idempotent — once filed, nothing is left to
-     file (AGENTS.md · a machine writer writes nothing when nothing changed). */
+     file (AGENTS.md · a machine writer writes nothing when nothing changed).
+     ⚠️ ONE-SHOT per (Trupp, person): the Trupp's `crewFiled` marker is stamped in the same pass,
+     for the people filed now AND those already on the list, so somebody taken OFF the Anwesenheit
+     later stays off on every device (types · Trupp.crewFiled). */
   useEffect(() => {
     if (!canWriteRecord || replayActive || incidentMeta.is_archived) return
     const todo = unfiledTruppCrew(allTrupps, attendance, (n) => personIdForName(rosterIdByName, n))
     if (!todo.length) return
-    setAttendance((cur) => {
-      let next = cur
-      for (const f of todo) for (const e of f.entries) {
-        if (next[e.id]) continue
-        next = next === cur ? { ...cur } : next
-        next[e.id] = { ...openPresence(undefined, incidentMeta.started_at, e.name), note: e.note }
-      }
-      return next
-    })
-    for (const f of todo) {
+    const files = todo.filter((f) => f.entries.length)
+    if (files.length) {
+      setAttendance((cur) => {
+        let next = cur
+        for (const f of files) for (const e of f.entries) {
+          if (next[e.id]) continue
+          next = next === cur ? { ...cur } : next
+          next[e.id] = { ...openPresence(undefined, incidentMeta.started_at, e.name), note: e.note }
+        }
+        return next
+      })
+    }
+    setTrupps((ts) => stampCrewFiled(ts, todo))
+    for (const f of files) {
       log('people', fillTemplate(f.groupTemplate, { role: f.role, list: f.entries.map((e) => e.name).join(', ') }), 'team',
         undefined, undefined, { rowId: f.rowId })
     }

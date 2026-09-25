@@ -24,6 +24,7 @@ import { noteOwnContact, recentOwnContact } from './contactEcho'
 import { nextTruppNo, resolveMarkerJoin } from './placedTrupps'
 import { floorLabel } from './whiteboard'
 import type { UndoTimeline } from './undoTimeline'
+import { keepCrewFiled } from './crewFiling'
 
 type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
@@ -335,7 +336,8 @@ export function useTruppActions(deps: Deps) {
     return undoTimeline.push({
       domain: 'trupps',
       label,
-      undo: () => step('undo', () => before),
+      // the crew-filing marker is a machine fact, not part of the edit — it stays (crewFiling)
+      undo: () => step('undo', (cur) => keepCrewFiled(before, cur)),
       redo: () => step('redo', apply),
     })
   }
@@ -1700,7 +1702,7 @@ export function useTruppActions(deps: Deps) {
       if (cur) {
         if (!cur.removedAt) return ts // already back — a double tap on «Rückgängig»
         restored = true
-        return ts.map((x) => (x.id === t.id ? { ...t, removedAt: undefined, annoId: undefined, planId: undefined, entityId: undefined } : x))
+        return ts.map((x) => (x.id === t.id ? keepCrewFiled({ ...t, removedAt: undefined, annoId: undefined, planId: undefined, entityId: undefined }, x) : x))
       }
       // …and a Trupp from a workspace written before the stamp existed is genuinely gone: re-add it
       restored = true
