@@ -169,12 +169,45 @@ describe('undoKeys — the merge bookkeeping, all or nothing', () => {
       { rebase: () => { throw new Error('boom') }, drop: () => dropped.push('karte') },
       { rebase: () => {}, drop: () => { dropped.push('slices'); throw new Error('also') } },
       { rebase: () => {}, drop: () => dropped.push('plans') },
-    ], (e) => errors.push(e))
+    ], { onFail: (e) => errors.push(e) })
     expect(changed).toBeNull()
     expect(t.canUndo()).toBe(false)
     expect(dropped).toEqual(['karte', 'slices', 'plans']) // every domain still took the merge
     expect(errors).toHaveLength(2)
     expect(w.ok()).toBe(false) // nothing is known, so no toast may act
+  })
+})
+
+describe('undoKeys — the ↶ that silently pointed at something else (F8, staging r3)', () => {
+  const entry = (label: string, keys: string[]) => ({ domain: 'karte' as const, label, touches: () => keys, undo: () => true, redo: () => true })
+
+  it('says so once when the merge took the step ↶ would have taken back', () => {
+    const t = createUndoTimeline()
+    t.push({ ...entry('Trupp 1: WBK', ['trupps:t1']), domain: 'trupps' })
+    t.push(entry('Gefahrentafel angedockt', ['objects:p', 'objects:h']))
+    const told: string[] = []
+    carryUndoThroughMerge(t, () => new Set(['objects:h']), [], { onTopDropped: (e) => told.push(e.label) })
+    expect(told).toEqual(['Gefahrentafel angedockt'])
+    expect(t.peekUndo()?.label).toBe('Trupp 1: WBK')
+  })
+
+  it('stays quiet when the top step stands — even if older ones went', () => {
+    const t = createUndoTimeline()
+    t.push(entry('old', ['objects:a']))
+    t.push(entry('top', ['objects:b']))
+    const told: string[] = []
+    carryUndoThroughMerge(t, () => new Set(['objects:a']), [], { onTopDropped: (e) => told.push(e.label) })
+    expect(told).toEqual([])
+    carryUndoThroughMerge(createUndoTimeline(), () => new Set(['objects:a']), [], { onTopDropped: (e) => told.push(e.label) })
+    expect(told).toEqual([]) // nothing to take back, nothing to say
+  })
+
+  it('says so on the fallback too, where everything went', () => {
+    const t = createUndoTimeline()
+    t.push(entry('top', ['objects:b']))
+    const told: string[] = []
+    carryUndoThroughMerge(t, () => { throw new Error('x') }, [], { onTopDropped: (e) => told.push(e.label) })
+    expect(told).toEqual(['top'])
   })
 })
 

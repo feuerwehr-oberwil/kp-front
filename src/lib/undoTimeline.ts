@@ -121,6 +121,19 @@ export interface UndoTimeline {
   subscribe: (fn: () => void) => () => void
 }
 
+/**
+ * What «Rückgängig: …» names for an entry: its action, with the SURFACE it happened on in front
+ * wherever the action does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK», but
+ * «Änderung auf der Karte» as it stands). Since a merge drops single steps (25.09.2026), the ↶
+ * can come to point at an older act on another surface after another device's save — and a tap
+ * meant for the Karte must not take back a Trupp edit unannounced. For the header's labels and
+ * the flash caption only; the Verlauf row keeps the bare action.
+ */
+export function undoCaption(entry: Pick<UndoEntry, 'domain' | 'label'>): string {
+  const surface = appConfig.copy.undoSurfaces[entry.domain]
+  return !surface || entry.label.includes(surface) ? entry.label : `${surface} · ${entry.label}`
+}
+
 export function createUndoTimeline(cap: number = appConfig.defaults.historyCap): UndoTimeline {
   let past: Recorded[] = []
   let future: Recorded[] = []

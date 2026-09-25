@@ -51,7 +51,7 @@ import { boardViewOf, useObjectStore } from './lib/useObjectStore'
 import { annoRefs, carryUndoThroughMerge, fieldsOf, listById, planViewChanges, recordByKey, recordKey, workspaceChanges, type RecordKey, type RecordShape } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
 import { useUndoTimeline } from './lib/useUndoTimeline'
-import type { Dropper, UndoDomain } from './lib/undoTimeline'
+import { undoCaption, type Dropper, type UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { pushSliceStep } from './lib/sliceUndoStep'
@@ -133,7 +133,7 @@ import { FabEntry } from './components/FabEntry'
 import { prewarmPlans } from './components/PdfViewport'
 import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
-import { amendBuilding } from './lib/buildingTransfer'
+import { amendBuilding, buildingPickStep } from './lib/buildingTransfer'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
 import { askStoreyRemoval } from './lib/storeyRemoval'
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
@@ -819,7 +819,7 @@ export function IncidentWorkspace({
     const r = dir === 'undo' ? undoHist.undo() : undoHist.redo()
     if (r.status === 'empty') return
     if (r.status === 'lost') { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
-    if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: r.entry.label }))
+    if (anchor) flashUndoCaption(anchor, fillTemplate(dir === 'undo' ? C_HIST.undoNamed : C_HIST.redoNamed, { action: undoCaption(r.entry) }))
   }
   /** …from a button, which anchors the caption at itself. Every ↶ ↷ in the app goes through this. */
   const onHistoryPress = (dir: 'undo' | 'redo') => (e: ReactMouseEvent<HTMLButtonElement>) => stepHistory(dir, e.currentTarget)
@@ -1661,7 +1661,11 @@ export function IncidentWorkspace({
       { rebase: (keep) => sliceRebase.current?.(next, keep), drop: () => sliceRebase.current?.(next, null) },
       // `keep` is a set captured by the merge — never re-read inside the lazy updater
       { rebase: (keep) => setPlanHistory((h) => keepPlanSteps(h, keep)), drop: () => setPlanHistory({}) },
-    ], (e) => console.error('undo bookkeeping failed on merge — history dropped', e))
+    ], {
+      onFail: (e) => console.error('undo bookkeeping failed on merge — history dropped', e),
+      // F8: ↶ must never quietly turn into an older act on another surface — say it once
+      onTopDropped: (e) => toast(fillTemplate(appConfig.copy.undoTopDropped, { what: appConfig.copy.undoDroppedWhat[e.domain] }), { icon: 'warn' }),
+    })
     // …and the ghost-trail reconciliation re-seeds instead of running: the store was REPLACED, so
     // every marker on it would read as «vanished» and the merge would ghost the whole picture.
     // Through a ref, because the hook that owns it is declared further down this component.
@@ -5685,25 +5689,21 @@ export function IncidentWorkspace({
             // a machine write (`gesture: false`): the amend re-anchors ink, nobody placed it
             setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false })
             setActivePlanId('gebaeude') // auto-jump to the floor-stack
-            if (hasWork) {
-              // confirm-with-undo: the previous stack (floors + markings) is restorable in place,
-              // and the toast repeats the counts — «Gebäude ersetzt» alone never said what happened.
-              const line = amend.legacy
-                ? (markCount > 0 ? fillTemplate(wb.buildingReplacedMarks, { n: markCount }) : wb.buildingReplaced)
-                : amend.dropped > 0 ? fillTemplate(wb.buildingReplacedCarriedDropped, { n: amend.carried, d: amend.dropped })
-                : markCount > 0 ? fillTemplate(wb.buildingReplacedCarried, { n: amend.carried })
-                : wb.buildingReplacedKept
-              const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
-              const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
-              // the stack, and the stack's OWN annos before and after (never a lent one:
-              // withOwnAnnos hands those back untouched) — plus the stack's whole view, so a merge
-              // that changed anything drawn on it drops the step rather than sweeping it
-              const wrote = () => [recordKey('building'), recordKey('planview', 'gebaeude'),
-                ...[...owned, ...prevGebaeude.map((a) => a.id), ...amend.annos.map((a) => a.id)].map((id) => recordKey('objects', id)),
-                ...[...prevGebaeude, ...amend.annos].flatMap(annoRefs)]
-              const drop = rememberGebaeudeStep(line, restore, reapply, wrote)
-              undoToast(line, () => { restore(); drop() }, drop.standing)
-            }
+            // ⚠️ EVERY pick is its own ↶ step — a first «Übernehmen» too (staging r3, 25.09.2026:
+            // ↶ stayed lit on an older Karte step, so the tap meant for the building took back
+            // something else). The toast only where work was at stake: it repeats the counts —
+            // «Gebäude ersetzt» alone never said what happened (lib/buildingTransfer · buildingPickStep).
+            const pick = buildingPickStep(prevBuilding, amend, markCount, hasWork, wb, fillTemplate)
+            const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
+            const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
+            // the stack, and the stack's OWN annos before and after (never a lent one:
+            // withOwnAnnos hands those back untouched) — plus the stack's whole view, so a merge
+            // that changed anything drawn on it drops the step rather than sweeping it
+            const wrote = () => [recordKey('building'), recordKey('planview', 'gebaeude'),
+              ...[...owned, ...prevGebaeude.map((a) => a.id), ...amend.annos.map((a) => a.id)].map((id) => recordKey('objects', id)),
+              ...[...prevGebaeude, ...amend.annos].flatMap(annoRefs)]
+            const drop = rememberGebaeudeStep(pick.label, restore, reapply, wrote)
+            if (pick.toast) undoToast(pick.label, () => { restore(); drop() }, drop.standing)
           }}
           // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
           // this only moves the active one, which is what makes the merged tile navigable at all

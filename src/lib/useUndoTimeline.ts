@@ -1,5 +1,5 @@
 import { useCallback, useRef, useSyncExternalStore } from 'react'
-import { createUndoTimeline, type UndoTimeline } from './undoTimeline'
+import { createUndoTimeline, undoCaption, type UndoTimeline } from './undoTimeline'
 
 /** What the header pair needs to paint itself: whether it can act, and WHAT it would take back –
  *  the label the hold-tooltip promises and the flash caption confirms. */
@@ -40,5 +40,8 @@ export function useUndoTimeline(): { timeline: UndoTimeline } & UndoTimelineStat
 }
 
 function read(t: UndoTimeline): UndoTimelineState {
-  return { canUndo: t.canUndo(), canRedo: t.canRedo(), undoLabel: t.peekUndo()?.label ?? null, redoLabel: t.peekRedo()?.label ?? null }
+  // with the surface in front where the action does not name it (undoCaption)
+  const u = t.peekUndo()
+  const r = t.peekRedo()
+  return { canUndo: t.canUndo(), canRedo: t.canRedo(), undoLabel: u ? undoCaption(u) : null, redoLabel: r ? undoCaption(r) : null }
 }

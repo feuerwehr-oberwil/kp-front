@@ -437,6 +437,15 @@ export const en: Localizable<Copy> = {
     zeitplan: 'Schedule',
     ansicht: 'View',
   },
+  undoSurfaces: {
+    karte: 'Map', plan: 'Plan', trupps: 'Crews', anwesenheit: 'Attendance', mittel: 'Resources', checkliste: 'Checklists',
+    gebaeude: 'Building', rapport: 'Report', zeitplan: 'Schedule', ansicht: 'Map', pendenz: 'Log',
+  },
+  undoTopDropped: 'Last step can no longer be undone – another device changed {what}',
+  undoDroppedWhat: {
+    karte: 'the map', plan: 'the plan', trupps: 'the crew', anwesenheit: 'the attendance', mittel: 'the resources', checkliste: 'the checklist',
+    gebaeude: 'the building', rapport: 'the report', zeitplan: 'the schedule', ansicht: 'the views', pendenz: 'the task',
+  },
   play: 'Play',
   clear: 'Clear search',
   mapTools: [
@@ -1665,6 +1674,7 @@ export const en: Localizable<Copy> = {
     buildingReplacedKept: 'Building changed – storeys kept',
     buildingReplacedCarried: 'Building changed – {n} markings carried over',
     buildingReplacedCarriedDropped: 'Building changed – {n} carried over, {d} dropped',
+    buildingTaken: 'Building adopted',
     replaceBuilding: 'Choose another building',
     replaceBuildingConfirm: 'The existing floor stack is discarded and replaced by the new outline.',
     replaceBuildingConfirmMarks: 'The floors carry {n} markings. They are anchored to the current outline and cannot be carried over to another one – they will be removed. «Undo» in the notice brings them back.',

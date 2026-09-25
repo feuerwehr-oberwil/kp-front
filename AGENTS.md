@@ -165,7 +165,12 @@ to prod.
     link to (or its entry is no longer `standing`); a toast whose target lives outside the
     workspace checks the target itself (`georefStillIs`, `mittel · tombstoneStands`). The whole
     bookkeeping runs through `carryUndoThroughMerge`: if any of it throws, the old rule applies
-    (timeline cleared, every history dropped, the merged state still lands). Add an entry ⇒ give
+    (timeline cleared, every history dropped, the merged state still lands). ⚠️ ↶ never turns
+    into an older act SILENTLY (staging r3, F8): when a merge drops the step ↶ would have taken
+    back, one line says so («Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät
+    hat … geändert», `onTopDropped`), and the header's label and flash caption name the SURFACE
+    in front of an action that does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK»,
+    `undoTimeline · undoCaption`, `copy.undoSurfaces`) — the Verlauf row keeps the bare action. Add an entry ⇒ give
     it a `touches` that covers EVERYTHING its undo and redo write, and every record those values
     link to; add an id-valued link field ⇒ add it to `objectRefs`.
   Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are

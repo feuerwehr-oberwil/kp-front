@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { createUndoTimeline, type UndoDomain, type UndoEntry } from './undoTimeline'
+import { createUndoTimeline, undoCaption, type UndoDomain, type UndoEntry } from './undoTimeline'
 
 /** A domain that keeps its own LIFO stack, exactly like the Karte doc or a Plan document. The
  *  timeline only ever tells it «one step back» – so this is the model the delegation has to keep
@@ -227,6 +227,16 @@ describe('undoTimeline', () => {
     t.push({ ...keyed('K2', ['objects:b']), step: 'k2' })
     t.rebase(['objects:a'])
     expect([...t.steps()]).toEqual(['k2'])
+  })
+
+  // F8 (staging r3): after a merge dropped the Karte steps, ↶ read «Trupp 1 (…): Ausrüstung: WBK»
+  // with nothing saying it was on another surface — a tap meant for the map took back a Trupp edit
+  it('names the SURFACE in front of an action that does not already say it', () => {
+    expect(undoCaption({ domain: 'trupps', label: 'Trupp 1 (Tst Anna): Ausrüstung: WBK' })).toBe('Trupps · Trupp 1 (Tst Anna): Ausrüstung: WBK')
+    expect(undoCaption({ domain: 'karte', label: 'Änderung auf der Karte' })).toBe('Änderung auf der Karte')
+    expect(undoCaption({ domain: 'anwesenheit', label: 'Anwesenheit' })).toBe('Anwesenheit')
+    expect(undoCaption({ domain: 'gebaeude', label: 'Gebäude übernommen' })).toBe('Gebäude übernommen')
+    expect(undoCaption({ domain: 'ansicht', label: 'Ansicht' })).toBe('Karte · Ansicht')
   })
 
   it('tells a toast whether its entry still stands on the ↶ side', () => {

@@ -1,6 +1,6 @@
 import type { Saved } from './workspace'
 import { GEBAEUDE_PLAN_ID } from './whiteboard'
-import type { UndoTimeline } from './undoTimeline'
+import type { UndoEntry, UndoTimeline } from './undoTimeline'
 
 /**
  * WHICH RECORDS an undo step writes, and which ones a remote merge changed — the two halves of
@@ -469,11 +469,23 @@ export interface MergeUndoDomain {
  * Returns what changed, or `null` after a fallback.
  */
 export function carryUndoThroughMerge(
-  timeline: Pick<UndoTimeline, 'rebase' | 'steps' | 'clear'>,
+  timeline: Pick<UndoTimeline, 'rebase' | 'steps' | 'clear' | 'peekUndo' | 'entries'>,
   changes: () => Set<RecordKey>,
   domains: readonly MergeUndoDomain[],
-  onFail?: (e: unknown) => void,
+  opts: {
+    onFail?: (e: unknown) => void
+    /** the step ↶ would have taken back is gone — the header now points at something older, and
+     *  the operator has to be told once rather than find out by the next tap (F8, 25.09.2026) */
+    onTopDropped?: (entry: UndoEntry) => void
+  } = {},
 ): Set<RecordKey> | null {
+  const { onFail, onTopDropped } = opts
+  const top = timeline.peekUndo()
+  const tell = () => {
+    if (top && !timeline.entries().past.includes(top)) {
+      try { onTopDropped?.(top) } catch (e) { onFail?.(e) }
+    }
+  }
   try {
     const changed = changes()
     timeline.rebase(changed)
@@ -481,6 +493,7 @@ export function carryUndoThroughMerge(
     const keep = (step: string) => live.has(step)
     for (const d of domains) d.rebase(keep)
     noteRemoteChanges(changed)
+    tell()
     return changed
   } catch (e) {
     onFail?.(e)
@@ -489,6 +502,7 @@ export function carryUndoThroughMerge(
       try { d.drop() } catch (inner) { onFail?.(inner) }
     }
     noteRemoteChanges(null)
+    tell()
     return null
   }
 }
