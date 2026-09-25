@@ -27,7 +27,11 @@ import type { BoardAnno, CameraView, Drawing, Entity, Incident, LayerDef, LayerI
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
-import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, sucheUebergabe } from './lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, lageGrundgeruestConfig, sucheUebergabe } from './lib/deploymentConfig'
+import { grundgeruestProgress, grundgeruestRows, isHydrantLayer, linePresetIdFor, ownLocation, placeable, slotsFor, takeOverKind, type GrundgeruestRow } from './lib/lageGrundgeruest'
+import { useHydrantPoints } from './lib/useHydrantPoints'
+import { resolveLinePreset } from './lib/lineStyle'
+import { LageGrundgeruestCard } from './components/LageGrundgeruestCard'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, fmtFileSize, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
@@ -62,7 +66,7 @@ import { toast, confirmDialog, undoToast } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay, Sheet } from './lib/overlays'
 import { apiDelete } from './lib/api'
-import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
+import { grundgeruestHidden, hideGrundgeruest, initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
@@ -580,7 +584,7 @@ export function IncidentWorkspace({
   // all of them would be a different change. The Tafel, Mittel and the Checklisten name their
   // action exactly, because there the timeline entry is written by hand anyway.
   const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, reanchorToKarte, beginDrag, endDrag, gestureOpen, rebake,
     undo: undoDoc, redo: redoDoc, replaceObjects,
   } = useObjectStore(
     init.objects,
@@ -1592,6 +1596,60 @@ export function IncidentWorkspace({
     window.open(url, '_blank', 'noopener,noreferrer')
   }, [incidentView.center])
 
+  // --- Lage-Grundgerüst (lib/lageGrundgeruest, components/LageGrundgeruestCard) ----------------
+  // The list follows the incident's Einsatzart as it stands NOW. ⚠️ Off the FRESHER of two copies:
+  // `incidentMeta` is replaced only on open and on this device's own PATCH, so a correction made
+  // on the el's phone reached this tablet only through the 30 s incidents watch (`qrMeta`) — and
+  // the card kept the old list. Whichever copy the server stamped later wins.
+  const ggMeta = (qrMeta.updated_at ?? '') > (incidentMeta.updated_at ?? '') ? qrMeta : incidentMeta
+  // Read off the config singleton every render (not memoised), so a config that lands after
+  // first paint is picked up like every other read site.
+  const ggSel = (() => {
+    const { config, presets } = lageGrundgeruestConfig()
+    return slotsFor(config, presets, ggMeta.type)
+  })()
+  // ⚠️ The incident's OWN location, never `incidentView.center`: that falls back to the station's
+  // default map centre, and «Hydrant Nr. 17 · 38 m» measured from the Feuerwehrmagazin is a
+  // confident answer about the wrong place. No location ⇒ no suggestions, the rows only arm the
+  // tool, and the card says why. The weather is the reading AT the incident, so it only counts
+  // while the map is centred where the incident is (a location set on another device is not yet).
+  const ggCenter = ownLocation(ggMeta.lng, ggMeta.lat)
+  const ggWeather = ggCenter && incidentView.center[0] === ggCenter[0] && incidentView.center[1] === ggCenter[1] ? displayWeather : null
+  // 'auto' = shown until complete; 'hidden' = «ausblenden»; 'shown' = asked for from the rail.
+  // «ausblenden» is remembered per DEVICE and per Einsatz (lib/prefs · grundgeruestHidden) — a
+  // device preference, never the synced workspace: one tablet putting the list away must not
+  // take it off another device. The rail / «+» entry brings it back and clears the flag.
+  const [ggMode, setGgModeState] = useState<'auto' | 'shown' | 'hidden'>(
+    () => (grundgeruestHidden(loadPrefs(), incidentMeta.id) ? 'hidden' : 'auto'))
+  const setGgMode = (next: 'auto' | 'shown' | 'hidden', remember = true) => {
+    setGgModeState(next)
+    if (!remember) return
+    const prefs = loadPrefs()
+    const updated = hideGrundgeruest(prefs, incidentMeta.id, next === 'hidden')
+    if (updated !== prefs) savePrefs(updated)
+  }
+  // a surface that cannot place anything gets no card: viewer, `el`, Führungsansicht, a link, replay
+  const ggUsable = !tacticalLocked && !asLink && !replayActive
+  const ggBaseRows = grundgeruestRows(ggSel.slots, objects, { center: ggCenter, weather: ggWeather, hydrants: null })
+  const ggProgress = grundgeruestProgress(ggBaseRows)
+  const ggVisible = ggUsable && (ggMode === 'shown' || (ggMode === 'auto' && ggSel.slots.length > 0 && !ggProgress.complete))
+  // «nächster Hydrant» — fetched only while the card is up AND a hydrant row is still open
+  const ggHydrantLayer = layers.find(isHydrantLayer)
+  const ggHydrantUrls = ggHydrantLayer?.geojson
+    ? (online ? [ggHydrantLayer.geojson, withGeoBbox(ggHydrantLayer.geojson)] : [withGeoBbox(ggHydrantLayer.geojson), ggHydrantLayer.geojson])
+    : null
+  const ggWantsHydrant = ggVisible && !!ggCenter && ggBaseRows.some((r) => !r.match.done && r.slot.vorschlag?.naechster === 'hydrant')
+  const ggHydrants = useHydrantPoints(ggHydrantUrls, ggWantsHydrant)
+  const ggRows = ggHydrants
+    ? grundgeruestRows(ggSel.slots, objects, { center: ggCenter, weather: ggWeather, hydrants: ggHydrants })
+    : ggBaseRows
+  /** the row whose place tool is armed — it lights while its tool is the live one */
+  const [ggArmedId, setGgArmedId] = useState<string | null>(null)
+  /** a plan object waiting for the Karte tap that takes it over («auf die Karte übernehmen») */
+  const [ggTakeOverId, setGgTakeOverId] = useState<string | null>(null)
+  /** PHONE: bumped by every «Grundgerüst» from the «+» sheet — the strip remounts OPEN */
+  const [ggOpenSeq, setGgOpenSeq] = useState(0)
+
   // Honest reporting for the workspace load gate — once per incident mount, so a persistently
   // malformed server blob (re-applied on every poll) nudges the operator once, not endlessly.
   const gateWarned = useRef(false)
@@ -2129,6 +2187,8 @@ export function IncidentWorkspace({
     // the Plan makes from its own magnet (Whiteboard · onLineAttached)
     onLineAttached: (lineId, attachment) => { linkLineToAttachedTrupp(lineId, attachment) },
     onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
+    // a drawn line/Fläche/Absperrkreis names its ↶ step the way its Verlauf row does
+    nameStep: (label) => { stepLabel.current = label },
   })
   const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
     if (!drawing) return
@@ -2289,7 +2349,7 @@ export function IncidentWorkspace({
     // settleDraft, not setDraft([]): leaving the map (or opening a dock) mid-draft used to be a
     // silent discard — a committable draft auto-commits with an undo toast, a fragment says so
     // (useMapDrawing · settleDraft; Escape stays the explicit discard).
-    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
+    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null); setGgTakeOverId(null)
     // the palette IS the arming UI for the symbol tool, so it goes with the tool it arms —
     // otherwise leaving the map with it open silently re-opened it on the way back
     setPanel(null); setViewsOpen(false); setPaletteOpen(false)
@@ -2586,6 +2646,15 @@ export function IncidentWorkspace({
   // so dismissing the palette without picking used to reveal the stale panel again.
   const pick = (id: string) => {
     if (id === 'symbol') { clearMapUi(); setPaletteOpen(true); return }
+    // Not a tool: it shows the Lage-Grundgerüst. ⚠️ No clearMapUi — showing a list must neither end
+    // the selection nor commit a half-drawn line. TABLET: the rail entry toggles the card (lit
+    // while shown). PHONE: the entry sits in the «+» sheet, which covers the strip, so a toggle
+    // there HID the folded strip nobody could see — it always shows, and remounts open.
+    if (id === 'grundgeruest') {
+      if (isPhone) { setPaletteOpen(false); setGgMode('shown'); setGgOpenSeq((n) => n + 1) }
+      else setGgMode(ggVisible ? 'hidden' : 'shown', !(ggVisible && ggProgress.complete))
+      return
+    }
     // Auswahl (select) is the default navigate state: one finger pans the map, a tap
     // selects, a drag on an object moves it. There is no separate pan mode any more —
     // panning is always available.
@@ -2611,6 +2680,37 @@ export function IncidentWorkspace({
     setSelectedDrawIds([]); setSelectedEntityIds([])
     setNotePanelId(null); setEditNoteId(null)
   }
+  /**
+   * Put a symbol on the Karte — THE placement, for a Karte tap with the symbol tool armed and for
+   * the Lage-Grundgerüst's «hier setzen» alike, so a suggestion taken is an ordinary placement:
+   * one undo step, the same Verlauf row, the same audit event, the new symbol selected to drag.
+   * `label` overrides the seeded one (a Wasserbezugsort set at a hydrant carries its number).
+   * `keepArmed` is the Karte tap's «Mehrfach setzen» (placeLock), passed in rather than read off
+   * `tool`: «hier setzen» disarms first, and this render's `tool` would still say the old one.
+   */
+  const placeSymbolAt = (s: string, c: LngLat, opts?: { label?: string; keepArmed?: boolean }) => {
+    const id = newId('p')
+    // shared seeding (label / subtitle / fields / vehicle rotation) — identical to
+    // the Plan placement path so a symbol carries the same structure on both surfaces
+    // A driven vehicle is stored on the Fahrzeuge layer, so it toggles with the live GPS
+    // glyphs rather than sitting among the tactical symbols. (Old incidents are handled by
+    // effectiveLayer at read time — this just means new data needs no shim.)
+    const layer = VEHICLE_SYMBOLS.has(s) ? appConfig.gps.layerId : appConfig.defaults.operationalLayerId
+    const entity: Entity = { id, kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols), ...(opts?.label ? { label: opts.label } : {}) }
+    // the ↶ names what it takes back («Rückgängig: KP Front gesetzt»), not «Änderung auf der Karte»
+    stepLabel.current = fillTemplate(C_HIST.undoDomains.symbolPlaced, { name: formatSymbolName(s) })
+    commit((d) => ({ ...d, entities: [...d.entities, entity] }))
+    addRecent(s)
+    setSelectedDrawIds([]); setSelectedEntityIds([])
+    if (opts?.keepArmed) { setSelectedId(null); setSelectedDrawingId(null) }
+    else { setPending(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
+    // a label given here is a DETAIL of what was placed («Hydrant H-7»), so the row still names
+    // the symbol first: «Symbol «Wasserbezugsort · Hydrant H-7» gesetzt»
+    const name = opts?.label ? `${formatSymbolName(s)} · ${opts.label}` : entity.label || formatSymbolName(s)
+    log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name }), 'symbol', undefined, id)
+    emit('entity.add', { id, symbol: s, entity })
+  }
+
   const onMapClick = (c: LngLat) => {
     // a map tap dismisses an open Ebenen panel first (parity with the phone backdrop) —
     // the panel is map chrome, so tapping the map behind it should just close it
@@ -2622,6 +2722,9 @@ export function IncidentWorkspace({
       setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       return
     }
+    // the Lage-Grundgerüst's «auf die Karte übernehmen» for a plan symbol with no ground position:
+    // THIS tap is where it stands — the same record moves over, nothing new is placed
+    if (ggTakeOverId && tool === 'select') { ggTakeOverAt(ggTakeOverId, c); return }
     if (tool === 'shape' && pendingShape) {
       const id = newId('sh'); const def = SHAPE_DEFS[pendingShape]
       const name = appConfig.copy.shapes.names[pendingShape]
@@ -2656,21 +2759,7 @@ export function IncidentWorkspace({
       log('area', fillTemplate(appConfig.copy.log.shapePlaced, { name }), 'symbol', undefined, id)
       emit('entity.add', { id, kind: 'shape', entity: { id, kind: 'shape', layer: appConfig.defaults.drawingLayerId, shape: pendingShape, color: def.defaultColor, label: name, ...geom } })
     } else if (tool === 'symbol' && pending) {
-      const id = newId('p'); const s = pending
-      // shared seeding (label / subtitle / fields / vehicle rotation) — identical to
-      // the Plan placement path so a symbol carries the same structure on both surfaces
-      // A driven vehicle is stored on the Fahrzeuge layer, so it toggles with the live GPS
-      // glyphs rather than sitting among the tactical symbols. (Old incidents are handled by
-      // effectiveLayer at read time — this just means new data needs no shim.)
-      const layer = VEHICLE_SYMBOLS.has(s) ? appConfig.gps.layerId : appConfig.defaults.operationalLayerId
-      const entity: Entity = { id, kind: 'symbol', layer, coord: c, ...seedSymbolProps(s, sym.symbols) }
-      commit((d) => ({ ...d, entities: [...d.entities, entity] }))
-      addRecent(s)
-      setSelectedDrawIds([]); setSelectedEntityIds([])
-      if (placeLock) { setSelectedId(null); setSelectedDrawingId(null) }
-      else { setPending(null); setTool('select'); setSelectedId(id); setSelectedDrawingId(null) }
-      log('hex', fillTemplate(appConfig.copy.log.symbolPlaced, { name: entity.label || formatSymbolName(s) }), 'symbol', undefined, id)
-      emit('entity.add', { id, symbol: s, entity })
+      placeSymbolAt(pending, c, { keepArmed: placeLock })
     } else if (tool === 'note') {
       const id = newId('n')
       commit((d) => ({ ...d, entities: [...d.entities, { id, kind: 'note', layer: appConfig.defaults.drawingLayerId, coord: c, label: '', subtitle: appConfig.copy.entities.noteSubtitle, noteW: autoNoteWPx('', noteDefaults.size === 'm' ? undefined : noteDefaults.size), noteAutoW: true, noteSize: noteDefaults.size === 'm' ? undefined : noteDefaults.size, notePlain: noteDefaults.plain || undefined, color: noteDefaults.color || undefined }] }))
@@ -4445,6 +4534,84 @@ export function IncidentWorkspace({
 
   const mapUI = mode === 'map'
 
+  // --- Lage-Grundgerüst: the card's four acts ----------------------------------------------------
+  // Three of them arm or perform an ORDINARY act — the same place tool, the same line tool, the
+  // same placement a Karte tap makes — with that act's own undo, Verlauf row and sync path. The
+  // fourth, «auf die Karte übernehmen», is the anchor flip a Karte drag makes, as one store step
+  // (useObjectStore · reanchorToKarte). Nothing is written until the operator acts.
+  const ggArmedSlot = ggRows.find((r) => r.slot.id === ggArmedId)?.slot
+  const ggArmedLive = !!ggArmedSlot && (
+    ggTakeOverId ? ggRows.some((r) => r.slot.id === ggArmedId && r.match.onPlan?.id === ggTakeOverId)
+      : ggArmedSlot.symbol ? tool === 'symbol' && pending === ggArmedSlot.symbol : tool === 'line')
+  /** «+ Wasserbezug»: arm the place tool (symbol) or the Linie with the slot's preset — the next
+   *  Karte tap places it. A second tap on the lit row puts the tool away again. */
+  const ggArm = (row: GrundgeruestRow) => {
+    if (tacticalLocked) return
+    const { slot } = row
+    if (ggArmedLive && ggArmedId === slot.id) { clearMapUi(); return }
+    clearMapUi()
+    if (slot.symbol) {
+      setTool('symbol'); setPending(slot.symbol)
+    } else if (slot.linie) {
+      // the preset's bundle seeds the next line, exactly as the line style the dock remembers
+      const p = resolveLinePreset(linePresetIdFor(slot.linie) ?? 'freihand', drawDashed)
+      setDrawArrow(!!p.arrow); setDrawMarker(p.marker ?? ''); setDrawDashed(!!p.dashed)
+      // ⚠️ «Punkte», not the remembered mode: a Zufahrt is laid along a road tap by tap, and the
+      // row says «Punkte … tippen» — in «Freihand» those taps did nothing (staging 3am, 25.09.)
+      setLineMode('nodes'); setDraft([])
+      setTool('line')
+    }
+    setGgArmedId(slot.id)
+  }
+  /** «hier setzen»: the symbol goes where the suggestion says — an ordinary placement, selected
+   *  and ready to drag, because a suggestion is only ever a starting point. */
+  const ggPlace = (row: GrundgeruestRow) => {
+    const { slot, suggestion } = row
+    if (tacticalLocked || !slot.symbol || !placeable(suggestion)) return
+    clearMapUi()
+    const label = suggestion.kind === 'hydrant' && suggestion.nr
+      ? fillTemplate(appConfig.copy.lageGrundgeruest.hydrantLabel, { nr: suggestion.nr })
+      : undefined
+    placeSymbolAt(slot.symbol, suggestion.coord, { label })
+    // a suggestion off-screen is placed where nobody is looking — bring it into view
+    const map = mapRef.current?.getMap()
+    if (map && !map.getBounds().contains(suggestion.coord)) map.easeTo({ center: suggestion.coord, duration: 400 })
+  }
+  /** Take a plan object over onto the Karte — the same record (no twin). One store step; the
+   *  flip's audit pair is reported by the store like a drag's, the Verlauf row is ours. */
+  const ggTakeOverAt = (id: string, coord?: LngLat) => {
+    const o = objects.find((x) => x.id === id)
+    setGgTakeOverId(null)
+    if (!o || tacticalLocked) return
+    const a = o.sheet?.anno
+    const name = o.entity?.label || a?.label || (a?.symbol ? formatSymbolName(a.symbol) : '') || appConfig.copy.lageGrundgeruest.title
+    stepLabel.current = fillTemplate(C_HIST.undoDomains.symbolToKarte, { name })
+    // nothing changed ⇒ no step was laid, so the label must not wait for the next one
+    if (!reanchorToKarte(id, coord)) { stepLabel.current = null; return }
+    log('hex', fillTemplate(appConfig.copy.log.symbolToKarte, { name }), 'symbol', undefined, id)
+    setSelectedDrawIds([]); setSelectedEntityIds([])
+    if (o.drawing) { setSelectedDrawingId(id); setSelectedId(null) } else { setSelectedId(id); setSelectedDrawingId(null) }
+  }
+  /** «auf die Karte übernehmen»: a baked body flips in place; a symbol on an unlinked sheet waits
+   *  for the Karte tap that says where it really is. A second tap on the waiting row cancels. */
+  const ggTakeOver = (row: GrundgeruestRow) => {
+    const o = row.match.onPlan
+    const kind = takeOverKind(o)
+    if (tacticalLocked || !o || !kind) return
+    if (kind === 'inPlace') { ggTakeOverAt(o.id); return }
+    if (ggTakeOverId === o.id) { setGgTakeOverId(null); return }
+    clearMapUi()
+    setGgTakeOverId(o.id); setGgArmedId(row.slot.id)
+  }
+  // PHONE: the strip shares its lane with the tool docks, the selection bar, the coordinate
+  // readout and the Ebenen sheet — it steps aside while any of them is up, rather than covering it
+  const ggLaneFree = !isPhone || (tool === 'select' && !selectedId && !selectedDrawingId
+    && selectedDrawIds.length === 0 && selectedEntityIds.length === 0 && panel === null && !coord.readout && !paletteOpen)
+  const ggSelectionUp = !!selectedId || !!selectedDrawingId || selectedDrawIds.length > 0 || selectedEntityIds.length > 0
+  // the coordinate readout owns the bottom-centre lane too: the card lifts over it, and stacked
+  // above Messen (much higher) it simply steps aside until the readout is closed
+  const ggCoordUp = !!coord.readout && !replayActive
+
   /* ── one fault line per view (SurfaceBoundary, 02.09.) ─────────────────────────────────────
    * A throw in ANY panel — a Mittel row without a label, a Verlauf text, a building without
    * floors when the Kroki opened — used to unmount the whole workspace, the Atemschutz alarm host
@@ -5193,6 +5360,27 @@ export function IncidentWorkspace({
             </div>
           )}
 
+          {/* the Lage-Grundgerüst — bottom-left on a tablet, a strip over the tool bar on a phone */}
+          {ggVisible && ggLaneFree && !(ggCoordUp && tool === 'measure') && (
+            <LageGrundgeruestCard
+              // PHONE: a fresh mount per «Grundgerüst» from the «+» sheet, so it arrives open
+              key={`gg-${ggOpenSeq}`}
+              rows={ggRows}
+              progress={ggProgress}
+              fallback={ggSel.fallback}
+              noLocation={!ggCenter}
+              armedSlotId={ggArmedLive ? ggArmedId : null}
+              phone={isPhone}
+              startOpen={ggMode === 'shown'}
+              raised={!isPhone && (ggSelectionUp || ggCoordUp)}
+              onArm={ggArm}
+              onPlace={ggPlace}
+              onToKarte={ggTakeOver}
+              // a complete card is gone by itself and needs no flag
+              onHide={() => setGgMode('hidden', !ggProgress.complete)}
+            />
+          )}
+
           {/* coordinate readout — bottom-centre; aiming follows the cursor, set is locked.
               hidden during replay so it never stacks under the bottom-centre scrubber. The ✕ on
               its right is the same exit in both states — the mode used to be leavable only from
@@ -5587,7 +5775,9 @@ export function IncidentWorkspace({
           // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
           // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
           // lives; new lines inherit the last-used style (the editor writes the defaults back)
-          [{ type: 'info', text: appConfig.copy.dockHints.line }],
+          // the hint for the mode that is ON: «Freihand» draws only with a drag, «Punkte» only
+          // with taps and ✓ — one sentence for both promised a tap that did nothing (staging 3am)
+          [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
       {mapUI && tool === 'area' && (
@@ -5692,6 +5882,7 @@ export function IncidentWorkspace({
              already stated where it is started: the TopBar +Eintrag button, and the FabEntry on a
              phone. */
           active={tool}
+          lit={ggVisible ? ['grundgeruest'] : undefined}
           onPick={pick}
           footer={(() => {
             const c = appConfig.copy.nav

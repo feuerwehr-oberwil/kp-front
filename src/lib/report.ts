@@ -843,6 +843,7 @@ export function describeDrawing(d: Drawing): string {
   if (d.kind === 'area') return d.label ? fillTemplate(r.drawAreaLabeled, { label: d.label }) : r.drawArea
   if (d.label) return d.label
   if (d.marker === 'R') return r.drawRescueAxis
+  if (d.marker === 'Z' && d.arrow) return r.drawAccessRoute
   if (d.showDistance) return r.drawMeasureArrow
   return r.drawLine
 }

@@ -82,6 +82,27 @@ so this file – not the log – is the record of what shipped up to that point.
   `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
   value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.
   *Automatic: no config change needed; the new doctrine value is optional.*
+
+- **Lage-Grundgerüst: the Karte asks for the handful of things every Lage needs.** A small card
+  on the Karte («Lage-Grundgerüst 2 / 6») lists them for the incident's Einsatzart – for a Brand:
+  KP · Zufahrt · Wasserbezug · Sammelplatz · Absperrung · Bereitstellungsraum. A row ticks itself
+  when its symbol (or line) exists on the Karte or on any plan; «+ Wasserbezug» arms the ordinary
+  place tool, and where the data has an answer the row suggests one – «Hydrant Nr. 17 · 38 m ·
+  hier setzen» from the station's hydrant layer, «Wind aus W · Vorschlag westlich, 80 m» from the
+  incident's weather. Taking a suggestion is an ordinary placement (undoable, its usual Verlauf
+  row), selected and ready to drag. The card can be hidden (remembered on that device for that
+  Einsatz), disappears once complete, and comes
+  back from the tool rail («Grundgerüst»; on a phone it is a strip above the tool bar and the
+  entry sits in the «+» sheet). Post-mortem 23.09.2026: after 65 minutes that Karte had no
+  Zufahrt, Absperrung, Wasserbezug or Bereitstellungsraum. Station doctrine, not a device
+  setting: the new `lageGrundgeruest` config section names a shipped preset (`fks-standard`, the
+  default, or `minimal`) and may replace single Einsatzarten; edited in `/admin › Lage-Grundgerüst`
+  or through `admin_config` (`presets lageGrundgeruest`, `example --section lageGrundgeruest
+  --preset …`). Symbols and line presets are validated with a did-you-mean
+  (docs/CONFIGURATION.md §1e).
+- **A «Zufahrt» line preset**, modelled on the Rettungsachse (an arrow with a «Z» along it,
+  solid): the Verlauf says «Zufahrt gezeichnet» and the Rapport legend «Zufahrt».
+
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the

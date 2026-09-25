@@ -836,6 +836,24 @@ export function anchorChanges(before: TacticalObject[], after: TacticalObject[])
   return out
 }
 
+/**
+ * The anchor flip a Karte drag makes, as a deliberate act («auf die Karte übernehmen», the
+ * Lage-Grundgerüst · 24.09.2026): the SAME record, sheet body dropped, so the Karte owns it from
+ * here on — never a second object beside the plan's (there are no twins).
+ *
+ * With a baked Karte body the object stays exactly where the fit put it. Without one (an
+ * unlinked sheet) a symbol takes `coord`, the Karte spot the operator tapped. Anything else —
+ * no sheet, a line with no ground position — comes back as `null`: nothing to do.
+ */
+export function reanchoredToKarte(o: TacticalObject, coord: LngLat | undefined, layer: Entity['layer']): TacticalObject | null {
+  if (!o.sheet) return null
+  if (o.entity) return { id: o.id, entity: coord ? { ...o.entity, coord } : o.entity }
+  if (o.drawing) return { id: o.id, drawing: o.drawing }
+  if (!coord) return null
+  const entity = boardSymbolToEntity(o.sheet.anno, coord, layer)
+  return entity ? { id: o.id, entity } : null
+}
+
 /** Map a bake over the store, giving the SAME array back when nothing moved — see `sameValue`.
  *  Everything that re-derives bodies goes through here, so «no change» never reaches the store. */
 function bakeEach(objects: TacticalObject[], of: (o: TacticalObject) => TacticalObject): TacticalObject[] {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SYMBOL_SCALE, clampSymbolScale, initialMode, legacySymbolMul, planSymbolScale, symbolScales, type Prefs } from './prefs'
+import { GRUNDGERUEST_HIDDEN_CAP, SYMBOL_SCALE, clampSymbolScale, grundgeruestHidden, hideGrundgeruest, initialMode, legacySymbolMul, planSymbolScale, symbolScales, type Prefs } from './prefs'
 
 // The Symbolgrösse rework: one global S/M/L pref became one multiplier PER SURFACE (Karte /
 // Module). Two things have to hold — the bands the sliders offer, and that nobody's stored
@@ -110,5 +110,29 @@ describe('initialMode', () => {
 
   it('an Atemschutz-Link session always lands on its one surface', () => {
     expect(initialMode({ mode: 'map', modeIncidentId: 'inc-1' }, 'inc-1', true)).toBe('atemschutz')
+  })
+})
+
+describe('Lage-Grundgerüst «ausblenden» — per device, per Einsatz', () => {
+  it('sets, reads and clears the flag for one Einsatz only', () => {
+    const p = hideGrundgeruest({}, 'inc-a', true)
+    expect(grundgeruestHidden(p, 'inc-a')).toBe(true)
+    expect(grundgeruestHidden(p, 'inc-b')).toBe(false)
+    expect(grundgeruestHidden(hideGrundgeruest(p, 'inc-a', false), 'inc-a')).toBe(false)
+  })
+
+  it('hands the same object back when nothing changes, so no cookie is written', () => {
+    const p = hideGrundgeruest({}, 'inc-a', true)
+    expect(hideGrundgeruest(p, 'inc-a', true)).toBe(p)
+    const empty: Prefs = {}
+    expect(hideGrundgeruest(empty, 'inc-a', false)).toBe(empty)
+  })
+
+  it('keeps only the newest Einsätze — it lives in a cookie', () => {
+    let p: Prefs = {}
+    for (let i = 0; i < GRUNDGERUEST_HIDDEN_CAP + 5; i++) p = hideGrundgeruest(p, `inc-${i}`, true)
+    expect(p.grundgeruestHidden).toHaveLength(GRUNDGERUEST_HIDDEN_CAP)
+    expect(grundgeruestHidden(p, 'inc-0')).toBe(false)
+    expect(grundgeruestHidden(p, `inc-${GRUNDGERUEST_HIDDEN_CAP + 4}`)).toBe(true)
   })
 })

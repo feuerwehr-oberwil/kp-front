@@ -705,6 +705,9 @@ export const de = {
    *  Atemschutz-Tafel, Mittel und die Checklisten benennen sie (dieselbe Zeile, die der Verlauf
    *  bekommen hat); Karte und Plan führen ein Dokument, das viele kleine Schritte kennt. */
   undoDomains: {
+    /** a Karte placement names what it placed (placeSymbolAt, the Lage-Grundgerüst) */
+    symbolPlaced: '{name} gesetzt',
+    symbolToKarte: '{name} auf die Karte übernommen',
     /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
     reference: 'Referenz angepasst',
     /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das
@@ -748,6 +751,11 @@ export const de = {
     { id: 'note', icon: 'type', label: 'Notiz', kind: 'tool' },
     { id: 'team', icon: 'flag', label: 'Trupp', kind: 'tool' },
     { id: 'measure', icon: 'measure', label: 'Messen', kind: 'tool' },
+    // Not a tool: it shows the Lage-Grundgerüst card again (IncidentWorkspace · pick intercepts
+    // it, the rail lights it while the card is open). On a phone it lives in the «+» sheet
+    // (lib/toolFold · ADD_TOOLS) — everything on that sheet puts something on the Karte, and so
+    // does every row of the card.
+    { id: 'grundgeruest', icon: 'grundgeruest', label: 'Grundgerüst' },
   ],
   // Plan/whiteboard tool list — mirrors mapTools' ordering (Auswahl · Symbol · then the create
   // tools) so the two shared tool rails read the same. Symbol leads the create group as a plain
@@ -813,6 +821,11 @@ export const de = {
     symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
+    /** …per input mode, because the two take different gestures: «Freihand» draws only with a
+     *  drag (a tap does nothing), «Punkte» only with taps and ✓. The Lage-Grundgerüst row armed
+     *  for a line says the Punkte sentence's first half word for word (lageGrundgeruest.armedLine). */
+    lineFreehand: 'Auf der Karte ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
+    lineNodes: 'Punkte auf die Karte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
@@ -1081,6 +1094,8 @@ export const de = {
   log: {
     audioNote: 'Audionotiz',
     symbolPlaced: 'Symbol «{name}» gesetzt',
+    /** «auf die Karte übernehmen» — a plan-anchored object re-anchored onto the Karte (Lage-Grundgerüst) */
+    symbolToKarte: '«{name}» vom Plan auf die Karte übernommen',
     shapePlaced: '{name} platziert',
     notePlaced: 'Notiz gesetzt',
     teamPlaced: '{name} auf der Karte gesetzt',
@@ -3372,6 +3387,42 @@ export const de = {
     hint: 'Auf die Karte tippen, um den Standort zu setzen',
     confirm: 'Standort übernehmen',
   },
+  // The Lage-Grundgerüst card on the Karte (components/LageGrundgeruestCard, lib/lageGrundgeruest).
+  lageGrundgeruest: {
+    title: 'Lage-Grundgerüst',
+    /** the phone strip's word — the rail entry's word, so the two doors read as one thing */
+    short: 'Grundgerüst',
+    /** «2 / 6» — optional rows count in neither half */
+    count: '{done} / {total}',
+    hide: 'ausblenden',
+    hideAria: 'Lage-Grundgerüst ausblenden',
+    expand: 'Lage-Grundgerüst aufklappen',
+    collapse: 'Lage-Grundgerüst zuklappen',
+    /** the card opened from the rail with everything in place */
+    complete: 'Alles gesetzt.',
+    /** a known Einsatzart the station gave no list */
+    empty: 'Für diese Einsatzart ist kein Grundgerüst eingerichtet.',
+    /** no Einsatzart known — the Brand list stands in (lib/lageGrundgeruest · slotsFor) */
+    fallback: 'Einsatzart unbekannt – Grundgerüst Brand',
+    optional: 'optional',
+    /** a row whose place tool is armed: the next Karte tap places it */
+    armed: 'Auf die Karte tippen',
+    armedLine: 'Punkte auf die Karte tippen, mit ✓ abschliessen',
+    placeHere: 'hier setzen',
+    hydrant: 'Hydrant Nr. {nr} · {dist}',
+    hydrantNoNr: 'Nächster Hydrant · {dist}',
+    wind: 'Wind {from} · Vorschlag {dir}, {m} m',
+    /** where an upwind suggestion lies, by the same eight sectors as `weather.cardinals` */
+    directions: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'] as string[],
+    /** ticked by an object that exists only on a plan with no Karte fit */
+    toKarte: 'auf die Karte übernehmen',
+    /** the label a Wasserbezugsort set at a hydrant carries (the layer's own number) */
+    hydrantLabel: 'Hydrant {nr}',
+    planOnly: 'auf dem Plan',
+    noHydrant: 'Kein Hydrant im Umkreis von {m} m',
+    windAt: '{from} ({time})',
+    noLocation: 'Vorschläge folgen, sobald der Einsatzort gesetzt ist.',
+  },
   // weather badge + popover (TopBar · WeatherBadge) — condition labels, cardinals, readout rows
   weather: {
     label: 'Wetter',
@@ -4232,6 +4283,7 @@ export const de = {
     drawAreaLabeled: 'Abschnitt «{label}»',
     drawArea: 'Fläche',
     drawRescueAxis: 'Rettungsachse',
+    drawAccessRoute: 'Zufahrt',
     drawMeasureArrow: 'Masspfeil',
     drawLine: 'Linie',
   },
@@ -5519,6 +5571,12 @@ export const de = {
         lede: 'Die Vorlagen hinter der Checkliste-Ansicht: Aufgabenlisten, Lagerapport und Merkblätter zum Nachschlagen – Letztere ohne Häkchen, nur zum Lesen.',
         tip: 'Eine Vorlage ist eine JSON-Datei mit einer eigenen «id» – die entscheidet, welche Vorlage ersetzt wird. Wird eine Vorlage unter neuem Namen hochgeladen, bleibt die alte bestehen und wird weiter an alle Geräte ausgeliefert, bis sie hier gelöscht wird.',
       },
+      grundgeruest: {
+        label: 'Lage-Grundgerüst',
+        title: 'Lage-Grundgerüst',
+        lede: 'Was in den ersten Minuten jedes Einsatzes auf die Karte gehört – pro Einsatzart.',
+        tip: 'Im Einsatz erscheint auf der Karte eine kleine Liste: KP, Zufahrt, Wasserbezug … Jede Zeile setzt ein Symbol oder eine Linie, wo möglich mit Vorschlag (nächster Hydrant, gegen den Wind), und hakt sich selbst ab, sobald das Symbol auf der Karte oder einem Plan steht. Nichts ist Pflicht, nichts wird ohne Tipp gesetzt.',
+      },
       mitglieder: { label: 'Mitglieder & Zugriff', title: 'Mitglieder & Zugriff', lede: 'Wer sich anmelden darf, mit welcher Rolle und welcher PIN.' },
       mannschaft: {
         label: 'Personal',
@@ -6052,6 +6110,77 @@ export const de = {
       printTip: 'Betrifft nur den Rapport, der an den Stationsdrucker geschickt wird. Ein heruntergeladenes PDF bleibt immer in Leserichtung.',
       reverseOrder: 'Seiten in umgekehrter Reihenfolge senden',
       reverseOrderHint: 'Für Drucker, die das Blatt mit der bedruckten Seite nach oben auswerfen: der Stapel liegt sonst verkehrt herum und muss von Hand sortiert werden. Wirft dein Drucker nach unten aus, schalte es ab.',
+    },
+    // /admin › Lage-Grundgerüst (admin/LageGrundgeruestSection)
+    lageGrundgeruest: {
+      presetTitle: 'Preset',
+      presetTip: 'Das mitgelieferte Grundgerüst gilt für jede Einsatzart, die hier nicht angepasst ist. «fks-standard» ist nach Einsatzart unterschieden, «minimal» setzt überall nur KP, Zufahrt und Sammelplatz.',
+      presetLabel: 'Mitgeliefertes Preset',
+      presetLabelTip: 'Eine angepasste Einsatzart ersetzt die Liste des Presets für diese eine Einsatzart; alle anderen folgen dem Preset.',
+      status: 'Preset: {preset} · {n}',
+      customizedNone: 'keine Einsatzart angepasst',
+      customizedOne: '1 Einsatzart angepasst',
+      customizedMany: '{n} Einsatzarten angepasst',
+      customizedMark: 'angepasst',
+      listTitle: 'Lage-Grundgerüst · {kategorie}',
+      listTip: 'Jede Zeile setzt im Einsatz ein Symbol oder eine Linie auf die Karte. «Vorschlag» bestimmt, wo die Karte das Symbol vorschlägt: beim nächsten Hydranten der Hydrantenebene oder so viele Meter gegen den Wind. Ein Vorschlag ist immer nur ein Startpunkt zum Verschieben.',
+      recordLabel: 'Element',
+      categoriesAria: 'Einsatzart',
+      fromPreset: 'Aus dem Preset «{preset}» – die erste Änderung übernimmt die Liste als eigene.',
+      customized: 'Angepasst – gilt für diese Einsatzart statt des Presets.',
+      reset: 'Auf Preset zurücksetzen',
+      resetConfirm: 'Die eigene Liste verwerfen und wieder dem Preset folgen?',
+      emptyList: 'Keine Elemente – im Einsatz erscheint für diese Einsatzart kein Grundgerüst.',
+      add: 'Element',
+      addCategory: 'Einsatzart hinzufügen …',
+      edit: 'Bearbeiten',
+      done: 'Fertig',
+      up: 'Nach oben',
+      down: 'Nach unten',
+      remove: 'Entfernen',
+      removeConfirm: 'Dieses Element entfernen?',
+      newLabel: 'Neues Element',
+      fieldLabel: 'Bezeichnung',
+      fieldLabelTip: 'So steht die Zeile im Einsatz auf der Karte: «+ Wasserbezug».',
+      fieldLabelPlaceholder: 'z. B. Wasserbezug',
+      fieldTarget: 'Symbol / Linie',
+      fieldTargetTip: 'Was die Zeile setzt – ein Symbol aus dem Symbolsatz oder eine Linie wie die Zufahrt. Abgehakt wird die Zeile, sobald genau dieses Symbol (oder diese Linie) auf der Karte oder einem Plan steht.',
+      targetPick: 'Symbol oder Linie wählen …',
+      targetLine: 'Linie · {linie}',
+      fieldVorschlag: 'Vorschlag',
+      fieldVorschlagTip: '«nächster Hydrant» schlägt den nächsten Punkt der Hydrantenebene vor (Luftlinie, das Symbol trägt dessen Nummer). «Wind aufwärts» schlägt einen Punkt so viele Meter gegen den aktuellen Wind vor. Ohne Wind- oder Hydrantendaten bleibt nur das Setzen von Hand.',
+      vorschlagNone: 'keiner',
+      vorschlagHydrant: 'nächster Hydrant',
+      vorschlagWind: 'Wind aufwärts',
+      fieldMetres: 'Meter gegen den Wind',
+      fieldMetresTip: 'Abstand vom Einsatzort, gegen die Windrichtung.',
+      fieldOptional: 'Optional',
+      fieldOptionalTip: 'Wird angezeigt, zählt aber nicht mit – die Liste gilt ohne sie als vollständig (z. B. Helilandeplatz).',
+      metaLine: 'Linie «{linie}»',
+      metaHydrant: 'Vorschlag: nächster Hydrant',
+      metaWind: 'Vorschlag: Wind aufwärts, {m} m',
+      metaOptional: 'optional',
+      metresInvalid: 'Meter: {min} bis {max} – noch nicht gespeichert.',
+      /** the tabs' short words, keyed by category */
+      tabShort: {
+        brandbekaempfung: 'Brand',
+        bma_unechte_alarme: 'BMA',
+        strassenrettung: 'Strassenrettung',
+        chemiewehr: 'Chemie',
+        oelwehr: 'Öl',
+        elementarereignis: 'Elementar',
+        technische_hilfeleistung: 'THL',
+        strahlenwehr: 'Strahlen',
+        einsatz_bahnanlagen: 'Bahn',
+        dienstleistungen: 'Dienstleistungen',
+        gerettete_tiere: 'Tiere',
+        diverse_einsaetze: 'Diverse',
+      } as Record<string, string>,
+      incomplete: 'Bezeichnung und Symbol/Linie fehlen – noch nicht gespeichert.',
+      incompleteLabel: 'Die Bezeichnung fehlt – noch nicht gespeichert.',
+      incompleteTarget: 'Symbol oder Linie fehlt – noch nicht gespeichert.',
+      labelTooLong: 'Bezeichnung: höchstens {max} Zeichen – noch nicht gespeichert.',
+      rejectedSlot: 'Element {n} ({kategorie})',
     },
     // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
     // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst

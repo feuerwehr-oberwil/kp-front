@@ -1,0 +1,62 @@
+{
+  "_readme": [
+    "The shipped Lage-Grundgerüst «fks-standard» — the handful of things every Lage needs in its",
+    "first minutes, per Einsatzart (the alarm keyword categories of ../alarm_keywords.json).",
+    "",
+    "Each slot places ONE thing on the Karte: `symbol` is a name out of public/tactical-symbols.json,",
+    "`linie` a line preset (appConfig.drawing.linePresets, by label). `vorschlag` is where the app",
+    "suggests putting it: { \"naechster\": \"hydrant\" } = the nearest hydrant of the station's",
+    "hydrant layer, { \"wind\": \"auf\", \"m\": N } = N metres upwind of the Einsatzort. A suggestion",
+    "is only ever a starting point to drag. `optional: true` shows the slot but does not count it.",
+    "",
+    "A station does not edit this file: it sets `lageGrundgeruest` in its deployment config",
+    "(docs/CONFIGURATION.md §1e), where `kategorien` replace single Einsatzarten of the preset.",
+    "Chemiewehr and Ölwehr carry the same list on purpose — one Grundgerüst for both.",
+    "The Absperrkreis is the Gefahrentafel: its UN-Nr. draws the ERG Schutzabstand rings",
+    "(src/lib/ergRings), which is the one Absperrkreis the app can place from data."
+  ],
+  "beschreibung": "Brand · BMA · Strassenrettung · Chemie/Öl · Elementar",
+  "kategorien": {
+    "brandbekaempfung": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front", "vorschlag": { "wind": "auf", "m": 40 } },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" },
+      { "id": "wasser", "label": "Wasserbezug", "symbol": "SI Wasserbezugsort", "vorschlag": { "naechster": "hydrant" } },
+      { "id": "sammel", "label": "Sammelplatz", "symbol": "FW Sammelplatz" },
+      { "id": "absperr", "label": "Absperrung", "symbol": "FW Absperrung" },
+      { "id": "bereit", "label": "Bereitstellungsraum", "symbol": "FW Warteraum", "vorschlag": { "wind": "auf", "m": 80 } }
+    ],
+    "bma_unechte_alarme": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "schluessel", "label": "Schlüsseldepot", "symbol": "GB Schluesseldepot" },
+      { "id": "bmz", "label": "Brandmeldezentrale / Tableau", "symbol": "GB Brandmeldezentrale" },
+      { "id": "zufahrt", "label": "Zufahrt", "linie": "Zufahrt" }
+    ],
+    "strassenrettung": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "absperr", "label": "Absperrung beidseitig", "symbol": "FW Absperrung" },
+      { "id": "patienten", "label": "Patientensammelstelle", "symbol": "VKF Patientensammelstelle" },
+      { "id": "bereit", "label": "Bereitstellungsraum", "symbol": "FW Warteraum" },
+      { "id": "heli", "label": "Helilandeplatz", "symbol": "VKF Helilandeplatz", "optional": true }
+    ],
+    "chemiewehr": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front", "vorschlag": { "wind": "auf", "m": 80 } },
+      { "id": "absperrkreis", "label": "Absperrkreis (Gefahrentafel, UN-Nr.)", "symbol": "FW Gefahr Tafel" },
+      { "id": "dekon", "label": "Dekontamination", "symbol": "ZS Dekontaminationsstelle" },
+      { "id": "bereit", "label": "Bereitstellungsraum", "symbol": "FW Warteraum", "vorschlag": { "wind": "auf", "m": 120 } },
+      { "id": "wasser", "label": "Wasserbezug", "symbol": "SI Wasserbezugsort", "vorschlag": { "naechster": "hydrant" } }
+    ],
+    "oelwehr": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front", "vorschlag": { "wind": "auf", "m": 80 } },
+      { "id": "absperrkreis", "label": "Absperrkreis (Gefahrentafel, UN-Nr.)", "symbol": "FW Gefahr Tafel" },
+      { "id": "dekon", "label": "Dekontamination", "symbol": "ZS Dekontaminationsstelle" },
+      { "id": "bereit", "label": "Bereitstellungsraum", "symbol": "FW Warteraum", "vorschlag": { "wind": "auf", "m": 120 } },
+      { "id": "wasser", "label": "Wasserbezug", "symbol": "SI Wasserbezugsort", "vorschlag": { "naechster": "hydrant" } }
+    ],
+    "elementarereignis": [
+      { "id": "kp", "label": "KP · Einsatzleitung", "symbol": "VKF KP Front" },
+      { "id": "material", "label": "Materialdepot", "symbol": "VKF Bereich Materialdepot" },
+      { "id": "absperr", "label": "Absperrung", "symbol": "FW Absperrung" },
+      { "id": "bereit", "label": "Bereitstellungsraum", "symbol": "FW Warteraum" }
+    ]
+  }
+}

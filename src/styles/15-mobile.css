@@ -619,6 +619,28 @@
   /* coordinate readout + selection bar sit above the bottom bar + home indicator */
   :is(.coord-read, .sel-bar) { bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
 
+  /* The Lage-Grundgerüst as a STRIP (03-map · .lgg): one row above the tool bar, in the lane
+     the FAB shares — so it stops short of the FAB's corner (--fab-safe) and never reaches down
+     over either bar. Folded it is the one pill with the count; opened, the list grows UPWARD from
+     it, capped under the top bar. The host drops it while a tool dock, the selection bar or a
+     panel needs this lane (IncidentWorkspace · ggLaneFree). */
+  .lgg.lgg-phone { left: max(8px, env(safe-area-inset-left)); width: auto;
+    right: calc(max(16px, env(safe-area-inset-right)) + var(--fab-safe));
+    bottom: calc(var(--rail-h) * 2 + 28px + env(safe-area-inset-bottom));
+    /* …and it stops under the wind chip (.phone-wx, top-right under the bar), not beside it */
+    max-height: calc(100dvh - var(--rail-h) * 2 - 172px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding: 4px; }
+  .lgg.lgg-phone.lgg-folded { right: auto; max-width: calc(100vw - 24px - var(--fab-safe)); }
+  .lgg-phone .lgg-head { min-height: var(--tap); padding: 0; }
+  .lgg-toggle { min-height: var(--tap); padding: 0 10px; border: none; background: transparent; border-radius: var(--r-ctl);
+    cursor: pointer; font: inherit; color: inherit; }
+  .lgg-toggle:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+  .lgg-chev { width: 16px; height: 16px; flex: none; color: var(--ink-dim); transform: rotate(180deg); }
+  .lgg-toggle[aria-expanded="true"] .lgg-chev { transform: none; }
+  .lgg-phone .lgg-hide-row { height: var(--tap); width: 100%; margin-top: 2px; border-top: 1px solid var(--border-soft);
+    border-radius: 0 0 var(--r-ctl) var(--r-ctl); }
+  .lgg-phone .lgg-sug { padding-left: 35px; }
+
   /* journal drawer → full-width bottom sheet (was a right-edge column too narrow on a
      phone); body scrolls, capped to the viewport with safe-area room top + bottom. The
      map rail is CSS-hidden here, so the scrim covers the full screen again (no rail strip
