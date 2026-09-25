@@ -205,6 +205,15 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
   entfernt», `groupDeleted` / `groupDeletedN` «Auswahl entfernt» / «{n} Objekte vom Plan
   entfernt». «gelöscht» is left to the extinguished Feuer. Rows written before keep «… gelöscht»
   – the journal is append-only, and the Rapport prints the row text as written.
+- **Audited app-wide after the second staging walk-through (2026-09-25).** Every other template
+  that takes something off the picture says «entfernt» too: `atemschutz.logRemoved` «Trupp {name}
+  entfernt» (the Trupp leaves the board; the Rapport already said «Von Tafel entfernt»),
+  `whiteboard.trailCleared` «{name}: Spur entfernt», `whiteboard.floorRemoved` «Geschoss
+  entfernt» (the ↶ label) plus the storey removal's own new row `floorRemovedLog` /
+  `floorRemovedLogMarks`; and the buttons and confirms before them («Spur entfernen», «Marker und
+  Spur entfernen», «Geschoss entfernen», «… entfernt oder gekürzt»). Kept on «gelöscht»: records
+  that are not on the picture – a Verlauf Eintrag, a Schicht, an Anwesenheits-Zeit, a Mittel
+  line, a saved Ansicht, an Übung. `config/copy/removalWords.test.ts` pins the picture's set.
 
 ## What a Verlauf row can carry since 17.08.
 
@@ -298,7 +307,9 @@ not operator actions. Ordered by operational impact.
 3. *(closed 2026-09-24, see «Gelöscht / erledigt» above)* ~~Deleting a single Plan annotation~~.
 4. **Rapport attachments** – adding/removing audit only, the image caption not at all
    (`src/IncidentWorkspace.tsx`, Rapport attachments block).
-5. **Driver of a GPS vehicle** and **creating a building/floor** have no channel.
+5. **Driver of a GPS vehicle** and **creating a building/floor** have no channel. *(Removing a
+   storey writes its own row since 2026-09-25 – «Geschoss 3. OG entfernt», with the markings it
+   took or cut short – where it used to write only its «… rückgängig gemacht».)*
 
 *(The file paths deliberately carry no line numbers: this file has gone stale twice because
 `IncidentWorkspace.tsx` moved, not because the behavior changed.)*

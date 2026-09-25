@@ -134,7 +134,7 @@ import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
-import { askStoreyRemoval } from './lib/storeyRemoval'
+import { askStoreyRemoval, storeyRemovedRow } from './lib/storeyRemoval'
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
 import { floorLabel } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -2106,7 +2106,7 @@ export function IncidentWorkspace({
         return a?.target.kind === 'line' && a.target.id === drawing.id && a.target.endpoint === 'end'
       }).map((endpoint) => ({ id: d.id, endpoint }))) : []
     if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     const resolvedTarget = resolvedMapDrawings.find((d) => d.id === drawing.id)
@@ -3592,7 +3592,7 @@ export function IncidentWorkspace({
     const ok = await confirmDialog({
       title: appConfig.copy.whiteboard.removeMarkerTrail,
       message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: e.label ?? '', n: e.trail.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return
     armTrailDrop(id, true)
@@ -3650,7 +3650,7 @@ export function IncidentWorkspace({
     } else {
       const ok = await confirmDialog({
         title: appConfig.copy.whiteboard.clearTrail, message,
-        confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+        confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
       })
       if (!ok) return
     }
@@ -5725,6 +5725,9 @@ export function IncidentWorkspace({
             const reapply = () => { setBuilding(nextBuilding); writeOwn(sweep.after) }
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
             undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
+            // …and the act's OWN row (staging 25.09.2026: the Verlauf held only «… rückgängig
+            // gemacht», never the removal it took back) — «entfernt», with what went with it
+            logPlan('close', storeyRemovedRow(floorLabel(floor), sweep.lost))
           }}
           sym={sym}
           rosterNames={rosterNames}

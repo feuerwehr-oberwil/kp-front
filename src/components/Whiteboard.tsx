@@ -1979,7 +1979,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const ok = await confirmDialog({
       title: appConfig.copy.whiteboard.clearTrail,
       message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: a.text ?? '', n: a.trail.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return
     patchCommit(a.id, { trail: [] })
@@ -2092,7 +2092,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const ok = await confirmDialog({
       title: appConfig.copy.whiteboard.removeMarkerTrail,
       message: fillTemplate(appConfig.copy.whiteboard.clearTrailConfirm, { name: a.text ?? '', n: a.trail.length }),
-      confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+      confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
     })
     if (!ok) return
     onTrailDrop?.(a.id, true)
@@ -2524,7 +2524,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       return rel?.target.kind === 'line' && rel.target.id === selDraw.id && rel.target.endpoint === 'end'
     }).map((endpoint) => ({ id: a.id, endpoint }))) : []
     if (incoming.length) {
-      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true })
+      const ok = await confirmDialog({ title: appConfig.copy.drawingEditor.endingTeilstueck, message: fillTemplate(appConfig.copy.drawingEditor.removeEMessage, { n: incoming.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
     const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts

@@ -18,6 +18,14 @@ export async function askStoreyRemoval(lost: number, storey: string): Promise<bo
     message: lost === 1
       ? fillTemplate(wb.removeFloorConfirmOne, { floor: storey })
       : fillTemplate(wb.removeFloorConfirm, { floor: storey, n: lost }),
-    confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+    confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true,
   })
+}
+
+/** The Verlauf row for the removal itself — «Geschoss 3. OG entfernt», with how many of the
+ *  storey's own markings went or were cut short when that is any (25.09.2026: only the ↶ used to
+ *  write a row). «entfernt», the word of every removal from the picture; «gelöscht» is a Feuer. */
+export function storeyRemovedRow(storey: string, lost: number): string {
+  const wb = appConfig.copy.whiteboard
+  return lost > 0 ? fillTemplate(wb.floorRemovedLogMarks, { floor: storey, n: lost }) : fillTemplate(wb.floorRemovedLog, { floor: storey })
 }

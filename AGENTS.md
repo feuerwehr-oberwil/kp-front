@@ -247,7 +247,7 @@ to prod.
     geo for the Karte; never projected across). The marker's bar has ONE trash (`deleteLocked` and
     the morphing trash are gone, and so is the short-lived footprint button beside it): with no
     trail it removes the marker outright, and with one it opens the app's `Menu` — «Marker
-    entfernen» (the ghost stays) · «Spur löschen» · «Marker und Spur löschen», the last two danger
+    entfernen» (the ghost stays) · «Spur entfernen» · «Marker und Spur entfernen», the last two danger
     rows, each confirming first. The combined row leaves NO ghost: the surface arms the
     reconciliation (`reconcileGhostTrails · dropped`, `IncidentWorkspace · armTrailDrop`) and the
     ghost is born `removedAt`-stamped rather than skipped — a skipped one is ghosted again by the
@@ -290,8 +290,12 @@ to prod.
   ⚠️ **The two acts never share a verb** (decided 25.09.2026): taking a tactical object off the
   picture is «Entfernen» / «… entfernt» — button, confirm and Verlauf row, Karte and Plan, every
   object kind (`copy · remove`, `log.objectDeleted` …) — so «gelöscht» only ever means an
-  extinguished Feuer. Rows already written keep their «gelöscht» (append-only). «Löschen» stays
-  for records that are not on the picture (an Ansicht, a Checkliste, a Trupp's Spur).
+  extinguished Feuer. That holds for EVERYTHING on the picture (audited 25.09.2026 after the second
+  staging walk-through): a Trupp taken off the board («Trupp N entfernt»), a marker's Spur, a
+  Gebäude storey («Geschoss 3. OG entfernt», now written by the act itself), a plan group — pinned
+  by `config/copy/removalWords.test.ts`. Rows already written keep their «gelöscht»
+  (append-only). «Löschen» stays for records that are not on the picture (an Ansicht, a Schicht,
+  a Checkliste, a Verlauf-Eintrag, a Mittel line).
   The one accepted maintenance exception is whole-incident hard deletion through `/admin`:
   `DELETE /api/incidents/{id}` is deployment-admin-only, and a real Einsatz must already be
   archived (an Übung may be deleted in any state). It deliberately removes the full record and
@@ -429,7 +433,7 @@ to prod.
     hinzufügen» (24.09.2026, `stackFloors · removeStorey` / `withoutOwnOnStorey`): a Karte object
     SHOWN on a storey is not the storey's, and swept out of the view it was deleted outright. It
     stays on the Karte and simply finds no tile. The removal's confirm asks only about what the
-    SAME sweep loses (`removeStorey · lost`, `lib/storeyRemoval`) — «n Markierungen … gelöscht oder
+    SAME sweep loses (`removeStorey · lost`, `lib/storeyRemoval`) — «n Markierungen … entfernt oder
     gekürzt» — and a storey showing only Karte objects goes without asking; the toast still undoes
     it. And the seam honours it per object: a lent anno
     handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
