@@ -31,8 +31,9 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
-- **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now opens with
-  «Gelöscht / erledigt»: the symbol stays on the Karte, the Plan and every Gebäude storey, greyed
+- **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now offers
+  «Gelöscht / erledigt» – as its first row on damage and hazard symbols (Feuer, Rauch, Rettung,
+  Gefahr …), near the bottom on everything else, so a reflex tap cannot grey a fresh KP Front: the symbol stays on the Karte, the Plan and every Gebäude storey, greyed
   and with the time in its corner, and it prints the same way on the Kroki and the Gebäude pages
   of the Rapport, its legend line ending «gelöscht 20:40» (a Feuer) or «erledigt 20:40»
   (everything else). «Wieder aktiv» takes it back; both are undoable and each writes one Verlauf

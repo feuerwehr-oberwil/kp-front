@@ -36,7 +36,7 @@ import { ApiError } from '../lib/api'
 import { Overlay, Popover } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
-import { doneAct, doneBadge, donePlace } from '../lib/objectDone'
+import { doneAct, doneBadge, doneFirst, donePlace } from '../lib/objectDone'
 import { annoLogName } from '../lib/drawingEdit'
 import { serverNowIso } from '../lib/serverClock'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -4013,6 +4013,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           onFocusLine={(id) => setSelId(id)}
           onDelete={() => void removeWithConnections(selSymbol)}
           onDone={!readOnly ? (on) => setAnnoDone(selSymbol, on) : undefined}
+          doneFirst={doneFirst(selSymbol.symbol, sym.symbols.find((x) => x.name === selSymbol.symbol)?.cat)}
         />
       )}
 

@@ -40,6 +40,13 @@ export function markDone(atIso: string, by?: string): ObjectDone {
 export const isFireFamily = (symbol: string | undefined): boolean =>
   !!symbol && appConfig.symbols.fireFamily.includes(symbol)
 
+/** Does this symbol's editor offer «Gelöscht / erledigt» FIRST? Damage and hazard categories
+ *  (appConfig.symbols.doneFirstCategories) and the fire family — elsewhere the row sits near the
+ *  bottom, where a reflex tap on a freshly opened editor cannot reach it. `cat` is the PACK's
+ *  category (useSymbols), never the symbol's editable subtitle. */
+export const doneFirst = (symbol: string | undefined, cat: string | undefined): boolean =>
+  isFireFamily(symbol) || (!!cat && appConfig.symbols.doneFirstCategories.includes(cat))
+
 /** The ONE word, by family (copy · objectDone.word). `title` opens a line, `inline` sits in one. */
 export function doneWord(symbol: string | undefined, form: 'title' | 'inline' = 'title'): string {
   const w = appConfig.copy.objectDone.word

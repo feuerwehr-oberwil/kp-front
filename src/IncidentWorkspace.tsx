@@ -186,7 +186,7 @@ import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
-import { canBeDone, doneAct, donePlace } from './lib/objectDone'
+import { canBeDone, doneAct, doneFirst, donePlace } from './lib/objectDone'
 import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
 import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
@@ -5137,6 +5137,7 @@ export function IncidentWorkspace({
           protectedKeys={selected.kind === 'symbol' ? new Set(symbolPresetFieldKeys(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)) : undefined}
           onDelete={() => deleteEntity(selected.id)}
           onDone={canBeDone(selected.kind) && !selected.live && !tacticalLocked ? (on) => setEntityDone(selected, on) : undefined}
+          doneFirst={doneFirst(selected.symbol, sym.symbols.find((x) => x.name === selected.symbol)?.cat)}
           hasOverride={vehicleOverrides[selected.id] != null}
           // Vehicles only. «GPS» undoes an operator's drag/rotate of a live symbol — a person
           // dot has neither (both are blocked in MapMarkers), so the button sat there

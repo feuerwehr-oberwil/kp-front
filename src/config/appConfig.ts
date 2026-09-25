@@ -215,6 +215,12 @@ const base = {
     // every other symbol «erledigt». Not the whole «Schadenlage» category — a Rettung, a Wasser
     // or an Unfall is never «gelöscht». Names are the pack's compatibility keys.
     fireFamily: ['VKF Feuer'] as string[],
+    // …and where «Gelöscht / erledigt» is the natural NEXT act (3am walk-through, 25.09.2026): the
+    // damage and hazard categories of the pack — Feuer, Rauch, Rettung, Wasser, Unfall, Explosion,
+    // Gefahrstoffe, the Gefahr signs. Their editor opens with the row on top. Every other symbol
+    // (a KP Front, a Fahrzeug, a Hydrant) has it near the bottom, above «Entfernen»: its editor
+    // opens by itself after placing, and a reflex tap on the first row greyed a new KP Front.
+    doneFirstCategories: ['Schadenlage', 'Gefahren'] as string[],
     // detail fields that offer the Mannschaft roster as a combobox (person pickers).
     // «Bedienung» (14.09.) = the person operating a placed device – Lüfter, Pumpe, Absperrung …
     // It is the LAST field of every manned preset below, so the existing caption/field order is

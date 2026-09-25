@@ -473,9 +473,14 @@ to prod.
     read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
     held-in-place override the Karte writes.
   - **A symbol whose matter is over is marked, never deleted** (24.09.2026, review item 21b,
-    `lib/objectDone`). «Gelöscht / erledigt», the first row of the symbol's editor sheet, sets
+    `lib/objectDone`). «Gelöscht / erledigt», a row of the symbol's editor sheet, sets
     `done {at, by?}` — a SymbolProps prop, so both bodies share it and every write-through and bake
     carries it (never `BAKE_PRESERVED`: that list would re-add a cleared value from the map body).
+    ⚠️ The row is FIRST only where «done» is the next act — the damage and hazard categories
+    (`appConfig.symbols.doneFirstCategories`) and the fire family (`objectDone · doneFirst`, decided
+    by the PACK's category, never the editable subtitle); every other symbol has it near the bottom,
+    above «Entfernen». An editor opens by itself after placing, and a reflex tap on the first row
+    greyed a brand-new KP Front (3am walk-through, 25.09.2026).
     The symbol stays, greyed with its HH:MM top-left, by ONE rule on the Karte, the Plan and the
     Gebäude (`TacticalSymbol` · `.ts-done`, the `--done-*` tokens) and on paper (`kroki ·
     _place_symbol`, `DONE_ALPHA`). «Wieder aktiv» clears it; both are ordinary undoable prop edits,

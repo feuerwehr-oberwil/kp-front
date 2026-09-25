@@ -682,8 +682,8 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
   const O = appConfig.copy.objectDone
   const AT = '2026-09-23T18:40:00.000Z'
 
-  it('offers the action as the first row, and the footer’s delete then reads «Entfernen»', () => {
-    const p = setup({ onDone: vi.fn() })
+  it('offers the action as the first row on a damage symbol, and the delete reads «Entfernen»', () => {
+    const p = setup({ onDone: vi.fn(), doneFirst: true })
     const row = screen.getAllByRole('button', { name: new RegExp(O.action) })[0]
     // the first thing in the body — above every property
     expect(row.closest('.ctx-body')?.firstElementChild).toBe(row)
@@ -691,6 +691,16 @@ describe('ContextPanel — «Gelöscht / erledigt»', () => {
     expect(p.onDone).toHaveBeenCalledWith(true)
     expect(screen.getAllByRole('button', { name: appConfig.copy.remove }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: appConfig.copy.delete })).toBeNull()
+  })
+
+  // 3am walk-through 25.09.2026: a placed KP Front opens its editor by itself, and a reflex tap on
+  // the first row greyed it. Everything that is not damage or hazard keeps the row near the bottom.
+  it('on any other symbol the row sits at the bottom of the body, right above the footer', () => {
+    setup({ onDone: vi.fn(), entity: { id: 'k1', symbol: 'VKF KP Front', label: 'KP Front' } })
+    const row = screen.getAllByRole('button', { name: new RegExp(O.action) })[0]
+    const body = row.closest('.ctx-body')!
+    expect(body.firstElementChild).not.toBe(row)
+    expect(row.nextElementSibling?.classList.contains('ctx-footer-inline')).toBe(true)
   })
 
   it('states a set one — «Gelöscht 20:40 · Wieder aktiv» — and «Wieder aktiv» takes it back', () => {
