@@ -1629,7 +1629,7 @@ export function IncidentWorkspace({
     // undoing into it would resurrect remotely-deleted content).
     replaceObjects(next.objects); setLayers(next.layers); journal.ingestLegacy(next.timeline)
     setRecent(next.recent); setBuilding(next.building)
-    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setTrails(next.trails); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setSuche(next.suche); sucheRemoteRef.current = true; setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
+    setVehicleOverrides(next.vehicleOverrides); setChecklists(next.checklists); setTrupps(next.trupps); setAttendance(next.attendance); setMittel(next.mittel); setShifts(next.shifts); setBands(next.bands); setCameraViews(next.cameraViews); setTrails(next.trails); setPlanScale(next.planScale); setReportMeta(next.reportMeta); setAttachments(next.attachments); setSuche(next.suche); sucheRemoteRef.current = true; setIncidentSettings(next.settings); setPlanBindings(next.planBindings); setPickedObjectId(next.pickedObjectId); setIntakeReviewedAt(next.intakeReviewedAt)
     // …and the Anwesenheit's own stack goes with it, for the same reason: it holds snapshots of a
     // list that no longer exists, and stepping into one would write this device's rows back over
     // what another device just merged in. The Plan's stacks go too — they now outlive the board's
