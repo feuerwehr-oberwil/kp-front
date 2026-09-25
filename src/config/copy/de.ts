@@ -2283,6 +2283,30 @@ export const de = {
     safetyNoneHint: 'Ein Trupp ist drin',
     safetyNoneHintMany: '{n} Trupps sind drin',
     safetyPick: 'Bestimmen',
+    /* ── Handy-Tafel, zweite Runde (24.09.2026, D1 ⑥ ⑦ ⑧a, Punkt 2) ─────────────────────────── */
+    // der leere Platz, solange noch niemand drin ist – ruhig, nicht amber
+    safetyNoneExpected: 'Ab dem 1. Trupp drin wird er erwartet',
+    // «Bestimmen» mit bereiten Trupps: einen davon nehmen oder einen neuen anmelden
+    safetyPickTitle: 'Sicherungstrupp bestimmen',
+    safetyPickNew: 'Neuen Trupp anmelden (Sichern)',
+    // die fälligen Trupps über dem Anmelde-Sheet (Bereichsname für Screenreader)
+    pinnedLabel: 'Fällige Trupps',
+    // Kontakt, den ein ANDERES Gerät vor weniger als 60 s schon bestätigt hat (lib/contactEcho)
+    contactEchoMsg: '{name}: Kontakt wurde vor {s} s schon bestätigt (anderes Gerät).',
+    contactEchoAgain: 'Nochmals',
+    contactEchoOk: 'OK',
+    // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
+    pressureLockedLabel: 'Eingangsdruck ({t})',
+    pressureLockedLabelPlain: 'Eingangsdruck',
+    pressureLocked: 'Trupp ist raus',
+    pressureLockedExit: 'Restdruck beim Austritt ({t}): {bar} bar',
+    pressureLockedHint: 'Nach dem Austritt gesperrt. Eine Korrektur gehört als Eintrag in den Verlauf.',
+    // …und die EINE Plausibilitätsfrage: ein Eingangsdruck unter dem Stationsminimum
+    // (doctrine.entryPressureMin). Die Zahl steht auf dem Knopf.
+    entryLowMsg: '{bar} bar ist für einen Eintritt tief (Station: ab {min}). Stimmt das, meldet der Trupp gleich einen Alarm bei ≤{alarm}.',
+    entryLowMsgNoAlarm: '{bar} bar ist für einen Eintritt tief (Station: ab {min}).',
+    entryLowConfirm: '{bar} bestätigen',
+    entryLowChange: 'Ändern',
     bottleAsk: 'Vor {min} min raus, zuletzt {bar} bar. Welche Flasche?',
     bottleAskNow: 'Gerade raus, zuletzt {bar} bar. Welche Flasche?',
     bottleSame: 'Gleiche Flasche',
