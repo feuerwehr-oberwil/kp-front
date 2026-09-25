@@ -46,6 +46,9 @@ interface PhotoReq { url: string; filename: string; caption?: string; download?:
 
 let toasts: Toast[] = []
 let confirmReq: ConfirmReq | null = null
+/** The id of the newest confirm — the card's React key, kept while it closes (so it animates out
+ *  as itself). See Overlays: every question is its own mount. */
+let lastConfirmId = 0
 let photoReq: PhotoReq | null = null
 const listeners = new Set<() => void>()
 let seq = 1
@@ -131,6 +134,7 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
   return new Promise((resolve) => {
     // a fresh request supersedes any pending one (resolve the old as cancelled)
     confirmReq?.resolve(false)
+    lastConfirmId = seq
     confirmReq = {
       id: seq++,
       title: opts.title,
@@ -392,7 +396,15 @@ export function Overlays() {
         {[...toasts].reverse().map((t) => <ToastRow key={t.id} t={t} />)}
       </div>
 
+      {/* ⚠️ KEYED per question (staging r3 F5). A chain of questions — the Abschluss asks «noch
+          drin», then «vermisst», then the paperwork — is answered and re-asked in ONE render
+          batch, so the card never closed in between: React kept the node, Base UI's initial
+          focus did not run again, and the focus of the «Trotzdem abschliessen» just tapped stood
+          on the same button of the next question. Enter then closed the Einsatz through «5
+          Personen noch vermisst». A fresh mount per question lands on ITS safe answer, for every
+          caller at once. */}
       <ConfirmCard
+        key={req?.id ?? lastConfirmId}
         open={!!req}
         title={req?.title}
         message={req?.message ?? ''}

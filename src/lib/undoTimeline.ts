@@ -78,6 +78,18 @@ export interface UndoTimeline {
   invalidate: (domain: UndoDomain, scope?: string) => void
   /** everything is gone (a different incident is loaded) */
   clear: () => void
+  /**
+   * ONE act that writes into several domains is ONE step (staging r3 F1). Everything pushed until
+   * the returned `end()` is gathered into a single entry: its undo takes the parts back newest
+   * first, its redo puts them back in order, and it carries the label of the part named by
+   * `primary` (the Trupp's «Trupp 2 … angemeldet», not the «Anwesenheit» its crew filing wrote
+   * after it). A registration with two Gäste used to leave «Rückgängig: Anwesenheit» on top — a
+   * ↶ that stripped the crew's AS-Funktion, kept them present and kept the Trupp.
+   *
+   * Re-entrant: a group opened while one is open joins it (its `end` does nothing). A group with
+   * one part pushes that part as it is; with none, nothing.
+   */
+  group: (primary?: UndoDomain) => () => void
   /** React glue – fires whenever the stacks change, so `canUndo`/the label re-render */
   subscribe: (fn: () => void) => () => void
 }
@@ -105,19 +117,73 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
     return { status: 'done', entry }
   }
 
+  const record = (entry: UndoEntry, id: string) => {
+    // A new action anywhere clears the ENTIRE global redo tail, not just its own domain's:
+    // the tail is a chronology, and re-doing into a past that has moved on is not «forward».
+    past = [...past, { ...entry, id }].slice(-cap)
+    future = []
+    notify()
+  }
+  const dropById = (id: string) => {
+    const before = past.length + future.length
+    past = past.filter((e) => e.id !== id)
+    future = future.filter((e) => e.id !== id)
+    if (past.length + future.length !== before) notify()
+  }
+
+  /** the open group: its parts, and — once it is recorded — the id each part now lives under */
+  let open: { parts: Recorded[]; primary?: UndoDomain } | null = null
+  const partOf = new Map<string, string>()
+
+  const compound = (parts: Recorded[], primary?: UndoDomain): UndoEntry => {
+    const head = parts.find((p) => p.domain === primary) ?? parts[0]
+    return {
+      domain: head.domain,
+      label: head.label,
+      scope: head.scope,
+      // newest first, like the separate steps would have run; a part that finds its target gone
+      // does not stop the others (they are still takeable), but the step reports the loss
+      undo: () => {
+        let ok = true
+        for (const p of [...parts].reverse()) if (p.undo() === false) ok = false
+        return ok
+      },
+      redo: () => {
+        let ok = true
+        for (const p of parts) if (p.redo() === false) ok = false
+        return ok
+      },
+    }
+  }
+
   return {
     push: (entry) => {
-      // A new action anywhere clears the ENTIRE global redo tail, not just its own domain's:
-      // the tail is a chronology, and re-doing into a past that has moved on is not «forward».
       const id = newId('u')
-      past = [...past, { ...entry, id }].slice(-cap)
-      future = []
-      notify()
+      if (open) {
+        const g = open
+        g.parts.push({ ...entry, id })
+        return () => {
+          if (open === g) { g.parts = g.parts.filter((p) => p.id !== id); return }
+          // dropped after the group closed: the part is inside a recorded step — drop that step
+          const host = partOf.get(id)
+          if (host) dropById(host)
+        }
+      }
+      record(entry, id)
+      return () => dropById(id)
+    },
+    group: (primary) => {
+      if (open) return () => {}
+      const g: { parts: Recorded[]; primary?: UndoDomain } = { parts: [], primary }
+      open = g
       return () => {
-        const before = past.length + future.length
-        past = past.filter((e) => e.id !== id)
-        future = future.filter((e) => e.id !== id)
-        if (past.length + future.length !== before) notify()
+        if (open !== g) return
+        open = null
+        if (!g.parts.length) return
+        if (g.parts.length === 1) { record(g.parts[0], g.parts[0].id); return }
+        const id = newId('u')
+        for (const p of g.parts) partOf.set(p.id, id)
+        record(compound(g.parts, g.primary), id)
       }
     },
     undo: () => step('past'),

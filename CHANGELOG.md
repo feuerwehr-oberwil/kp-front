@@ -57,7 +57,14 @@ so this file – not the log – is the record of what shipped up to that point.
   every removal can be undone from its toast; «Nicht eingesetzt» moved into ⋮ and no longer logs
   an «Austritt»; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
   numbers, the Link opens on the most urgent crew inside, the Eintrag «+» no longer covers a
-  crew's «Kontakt», and an edit row in the Verlauf names the whole crew. The
+  crew's «Kontakt», and an edit row in the Verlauf names the whole crew. A third walk-through
+  fixed: registering a Trupp with Gäste is one ↶ again (it used to undo only the crew's Funktion
+  and leave people and Trupp standing); the Abschluss questions each land on their own safe
+  answer, so Enter no longer closes through «vermisst»; closing over a crew inside writes «beim
+  Abschluss noch drin» and the Rapport ends that sortie at the close; identical Anwesenheit
+  entries from several tablets no longer raise «abweichende Angaben»; «Trupp anmelden» is the
+  one word for registering, and the Trupp menu says «Nach oben holen»; on the Tafel the
+  Meldeleiste folds to one row and the board stands below it. The
   Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
   `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
   value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.

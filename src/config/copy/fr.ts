@@ -196,7 +196,7 @@ export const fr: Localizable<Copy> = {
         id: 'atemschutz', title: 'Binômes et surveillance ARI', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Surveillance sans faille de chaque binôme ARI selon FKS – le signal de sécurité est le **temps depuis le dernier contact radio**, et non une autonomie restante estimée.' },
-          { kind: 'sub', text: 'Créer un binôme' },
+          { kind: 'sub', text: 'Annoncer le binôme' },
           { kind: 'list', items: [
             '**Qui entre** : trois emplacements, celui du haut est le **chef de binôme** – toucher une ligne le désigne, le **✕** le retire. Un binôme plus grand ajoute simplement des lignes.',
             'La **recherche de personne** atteint tout l’effectif, pas seulement les présents ; à côté de chaque nom figure ce qui s’y oppose (absent, au dépôt, déjà dans un binôme). **(+)** enregistre un invité (renfort voisin) – ajouté en même temps à la présence, comme la même personne.',
@@ -1068,7 +1068,7 @@ export const fr: Localizable<Copy> = {
     asMark: 'ARI',
     empty: 'Aucun binôme en surveillance.',
     emptyHint: 'Créez un binôme pour démarrer la surveillance.',
-    newTrupp: 'Créer un binôme',
+    newTrupp: 'Annoncer le binôme',
     shareLink: 'Transmettre la surveillance',
     shareLinkOn: 'Transmettre la surveillance – un lien est actif',
     linkReentryHint: 'Le lien ramène à ce tableau – si la page est fermée par mégarde, il suffit d’ouvrir à nouveau le code QR.',
@@ -1085,7 +1085,7 @@ export const fr: Localizable<Copy> = {
     // état sync/horloge dans l'en-tête du tableau (voir de.ts)
     syncStand: '{status} – état de {t}',
     clockSkewChip: 'Horloge de l\'appareil décalée ({d} min)',
-    formCreateTitle: 'Créer un binôme',
+    formCreateTitle: 'Annoncer le binôme',
     formEditTitle: 'Modifier le binôme',
     formRedeployTitle: 'Réengager',
     sectionTeam: 'Binôme',
@@ -1356,8 +1356,8 @@ export const fr: Localizable<Copy> = {
     orderManual: 'Tel que placé',
     orderAuftrag: 'Mission',
     orderName: 'Nom',
-    moveBack: 'Avancer la carte',
-    moveForward: 'Reculer la carte',
+    moveBack: 'Monter',
+    moveForward: 'Descendre',
     truppFallbackName: 'Binôme',
     editPressureLabel: 'Corriger la pression d\'entrée (bar)',
     editPressureHint: 'Corrige la pression d\'entrée saisie – ne compte pas comme contact radio.',
@@ -1430,6 +1430,8 @@ export const fr: Localizable<Copy> = {
     logPressureAlarm: 'Binôme {name} : pression {bar} bar – pression d\'alarme atteinte',
     logRemoved: 'Binôme {name} supprimé',
     logRestored: 'Binôme {name} rétabli',
+    logInsideAtClose: 'Binôme {name} encore engagé à la clôture',
+    cycleEndAtClose: '{t} (encore engagé à la clôture)',
   },
   lineDecor: {
     W: 'Eau',
@@ -2015,6 +2017,9 @@ export const fr: Localizable<Copy> = {
   },
   meldeleiste: {
     region: 'Messages',
+    more: '+{n} autre message',
+    moreMany: '+{n} autres messages',
+    less: 'Afficher moins',
   },
   session: {
     expiredTitle: 'Connexion expirée',

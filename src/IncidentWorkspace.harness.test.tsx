@@ -136,6 +136,8 @@ const mount = async (over: Partial<WsProps> = {}) => {
   await settle()
   return { ...utils, onCompleteRapport }
 }
+/** the form's own «Trupp anmelden» — the last of that name on the page (the door says it too) */
+const lastBtn = (name: string) => { const all = screen.getAllByRole('button', { name }); return all[all.length - 1] }
 const key = (k: string, o: KeyboardEventInit = {}) => {
   const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...o })
   act(() => { window.dispatchEvent(e) })
@@ -386,7 +388,7 @@ describe('(f) Gäste from the Trupp form reach the Anwesenheit once', () => {
       fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: name } })
       fireEvent.click(screen.getByRole('option', { name: new RegExp(`${name}.*als Gast`) }))
     }
-    fireEvent.click(screen.getByRole('button', { name: az.start }))
+    fireEvent.click(lastBtn(az.start))
     await settle(60)
     fireEvent.click(screen.getAllByRole('button', { name: 'Anwesenheit' })[0])
     await settle(300)
@@ -394,6 +396,38 @@ describe('(f) Gäste from the Trupp form reach the Anwesenheit once', () => {
     // the Anwesenheit's own head count (the roster list itself needs a network the harness has
     // not got): two people, not four
     expect(text).toMatch(/(?<!\d)2 anwesend/)
+  })
+})
+
+/* staging r3 F1: a registration with two Gäste left «Rückgängig: Anwesenheit» on top — it stripped
+   the crew's AS-Funktion, kept them present and kept the Trupp. One act, one ↶. */
+describe('(f2) a Trupp registration with its Gäste is ONE undo step', () => {
+  it('↶ reads «Trupp … angemeldet» and takes the Trupp and the Gäste it filed back together', async () => {
+    await mount()
+    key('a')
+    await settle()
+    const az = appConfig.copy.atemschutz
+    fireEvent.click(screen.getAllByRole('button', { name: az.newTrupp })[0])
+    await settle()
+    for (const name of ['Tst Anna', 'Tst Ben']) {
+      fireEvent.change(screen.getByLabelText(az.teamSearchPlaceholder), { target: { value: name } })
+      fireEvent.click(screen.getByRole('option', { name: new RegExp(`${name}.*als Gast`) }))
+    }
+    fireEvent.click(lastBtn(az.start))
+    await settle(60)
+    // the label ↶ promises is the Trupp's own, not «Anwesenheit»
+    const undoBtn = screen.getAllByRole('button').find((b) => (b.getAttribute('aria-label') ?? b.getAttribute('title') ?? '').startsWith('Rückgängig:'))
+    const promise = undoBtn?.getAttribute('aria-label') ?? undoBtn?.getAttribute('title') ?? ''
+    expect(promise).toContain('angemeldet')
+    expect(promise).not.toContain(appConfig.copy.undoDomains.anwesenheit)
+    key('z', { metaKey: true }); await settle(60)
+    // the Trupp is off the board…
+    expect(document.body.textContent ?? '').not.toContain('Tst Anna / Tst Ben')
+    // …and the two people it filed are off the Anwesenheit
+    fireEvent.click(screen.getAllByRole('button', { name: 'Anwesenheit' })[0])
+    await settle(300)
+    expect(document.body.textContent ?? '').not.toMatch(/(?<!\d)2 anwesend/)
+    expect(document.body.textContent ?? '').toMatch(/(?<!\d)0 anwesend/)
   })
 })
 

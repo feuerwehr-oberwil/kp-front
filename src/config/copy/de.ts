@@ -232,7 +232,7 @@ export const de = {
         id: 'atemschutz', title: 'Trupps & Atemschutzüberwachung', icon: 'stopwatch',
         blocks: [
           { kind: 'lead', text: 'Lückenlose Überwachung jedes Atemschutztrupps nach FKS – das Sicherheitssignal ist die **Zeit seit dem letzten Funkkontakt**, nicht eine geschätzte Restzeit.' },
-          { kind: 'sub', text: 'Trupp erstellen' },
+          { kind: 'sub', text: 'Trupp anmelden' },
           { kind: 'list', items: [
             '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
             'Über die **Personensuche** wird das ganze Personal gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
@@ -1608,7 +1608,7 @@ export const de = {
     asMark: 'AS',
     empty: 'Noch kein Trupp in Überwachung.',
     emptyHint: 'Lege einen Trupp an, um die Überwachung zu starten.',
-    newTrupp: 'Trupp erstellen',
+    newTrupp: 'Trupp anmelden',
     // «Überwachung abgeben» — der QR neben der Glocke: die Tafel dieses Einsatzes auf ein
     // fremdes Handy geben, damit jemand ohne Login nur den Atemschutz bedient. Nur für
     // Bearbeiter, und nicht auf der abgegebenen Tafel selbst.
@@ -1652,7 +1652,7 @@ export const de = {
     // Erfassungs-App (capture.clockSkew).
     clockSkewChip: 'Geräteuhr weicht ab ({d} Min.)',
     // create / edit / re-deploy form (one shared form, section labels + per-mode titles)
-    formCreateTitle: 'Trupp erstellen',
+    formCreateTitle: 'Trupp anmelden',
     formEditTitle: 'Trupp bearbeiten',
     // «in den Einsatz», nie «einrücken» (09.09.) – siehe die Notiz bei entryAskTitle
     formRedeployTitle: 'Wieder in den Einsatz',
@@ -1708,8 +1708,8 @@ export const de = {
     orderManual: 'Wie gesetzt',
     orderAuftrag: 'Auftrag',
     orderName: 'Name',
-    moveBack: 'Karte nach vorne schieben',
-    moveForward: 'Karte nach hinten schieben',
+    moveBack: 'Nach oben holen',
+    moveForward: 'Nach unten stellen',
     leaderLabel: 'Gruppenführer',
     // (`guestNamePlaceholder` / `teamAdd` / `typeName` sind mit dem zweiten Feld weg, zu dem sie
     //  gehörten – siehe `teamGuestAdd` unten. Seit 11.09. gilt das auch für PersonField: dort
@@ -2398,6 +2398,11 @@ export const de = {
     // all – the toast was gone and the Trupp had never existed.
     logRemoved: 'Trupp {name} gelöscht',
     logRestored: 'Trupp {name} wiederhergestellt',
+    // Der Einsatz wird abgeschlossen, während ein Trupp noch als drin geführt ist (staging r3 F4):
+    // eine Zeile pro Trupp, damit der Verlauf sagt, was beim Abschluss offen war – ein Austritt
+    // wird NICHT erfunden. Auf dem Rapport endet der Einsatz des Trupps mit dem Zusatz unten.
+    logInsideAtClose: 'Trupp {name} beim Abschluss noch drin',
+    cycleEndAtClose: '{t} (beim Abschluss noch drin)',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
@@ -3336,6 +3341,11 @@ export const de = {
   // Wörter sind für Screenreader und Tooltips da, nicht für die Zeile selbst.
   meldeleiste: {
     region: 'Meldungen',
+    // Auf der Trupp-Tafel steht nur die dringendste Meldung offen (staging r3): zwei Zeilen
+    // deckten am Telefon die Uhr des ersten Trupps zu. Der Rest ist eine Zahl, die aufklappt.
+    more: '+{n} weitere Meldung',
+    moreMany: '+{n} weitere Meldungen',
+    less: 'Weniger anzeigen',
   },
   // single-editor tab lock: a second browser tab on the SAME incident is read-only
   // the session cookie expired mid-Einsatz (api.ts · SESSION_EXPIRED_EVENT): every request 401s

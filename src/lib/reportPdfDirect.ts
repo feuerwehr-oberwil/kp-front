@@ -361,6 +361,8 @@ export function einsatzleiterForPdf(
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta
+  // the moment a CLOSED Einsatz was closed — ends the sorties nobody reported out (see trupps)
+  const closedAt = incident.is_archived ? incident.closed_at ?? undefined : undefined
 
   // journal photos: send the server-relative media URL — the composer loads the bytes
   // from its own media store (session-only blob: URLs can't be resolved there and are
@@ -528,7 +530,13 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         return {
           leader,
           cycles: cycles.map((c) => ({
-            entry: formatDateTime(c.entry), exit: c.exit ? formatDateTime(c.exit) : undefined,
+            entry: formatDateTime(c.entry),
+            // ⚠️ A sortie still open when the Einsatz was CLOSED ends at the close, and says so
+            // (staging r3 F4): «19:37 – 19:52 (beim Abschluss noch drin)», not an open «19:37»
+            // that reads as a crew still inside today. No Austritt is invented — the words say
+            // nobody reported one. While the Einsatz is open (or open again) it stays open.
+            exit: c.exit ? formatDateTime(c.exit)
+              : closedAt ? fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime(closedAt) }) : undefined,
             crew: c.crew.join(' / '),
             changes: c.changes.map((ch) => ({ t: formatDateTime(ch.t), text: ch.text })),
           })),
