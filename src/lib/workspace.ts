@@ -1,6 +1,6 @@
 import { nextTruppNo } from './placedTrupps'
 import type { TruppTrail } from './truppTrails'
-import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
+import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, SucheDoc, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
@@ -16,6 +16,7 @@ import { isIncidentPlanBinding, type IncidentPlanBinding } from './incidentPlanB
 import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
 import type { VehicleOverrides } from './useVehicleLayer'
+import { sanitizeSuche } from './suche'
 
 /** Per-plan distance calibration, keyed by PlanDocument id (see lib/planScale). */
 export type PlanScales = Record<string, PlanScale>
@@ -206,6 +207,9 @@ export interface Saved {
   reportMeta?: ReportMeta
   /** Beilagen: photos that belong to the Rapport (documents, damage) rather than to the Verlauf */
   attachments?: ReportAttachment[]
+  /** the Suche (24.09.2026, lib/suche): missing/found Personen and the search Bereiche, each
+   *  record with its own append-only log. Absent until somebody opens the Suche. */
+  suche?: SucheDoc
   /** the exact plan sheets this incident opened — dataset revision + approved fit, frozen at
    *  first open so a later station replacement/approval never moves an operational backdrop
    *  (lib/incidentPlanBindings). First binding per sheet wins; corrections ride `override`. */
@@ -525,6 +529,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     trails: arr<TruppTrail>(raw.trails, isTruppTrail),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     attachments: arr<ReportAttachment>(raw.attachments, hasId),
+    suche: sanitizeSuche(raw.suche),
     planBindings: arr<IncidentPlanBinding>(raw.planBindings, isIncidentPlanBinding),
     settings,
     intakeReviewedAt: str(raw.intakeReviewedAt),
@@ -547,6 +552,7 @@ export interface InitialState {
   cameraViews: CameraView[]
   trails: TruppTrail[]
   attachments: ReportAttachment[]
+  suche: SucheDoc
   planScale: PlanScales
   reportMeta: ReportMeta
   settings: IncidentSettings
@@ -768,6 +774,7 @@ export function deriveInitial(
     cameraViews: ws?.cameraViews ?? [],
     trails: ws?.trails ?? [],
     attachments: ws?.attachments ?? [],
+    suche: ws?.suche ?? { personen: [], bereiche: [] },
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},
     settings: ws?.settings ?? {},

@@ -28,6 +28,10 @@ interface Args {
   /** open the Rapport ON one Mindestangabe (IncidentWorkspace · requestReportStep, a stable
    *  module-level loader of the lazy ReportPreflight chunk) */
   requestReportStep: (step: AbschlussStep) => void
+  /** the Suche's state for the confirm: people still missing (asks «trotzdem beenden?») and the
+   *  Bereiche not abgesucht (a hint) — and where to answer them */
+  suche?: { vermisst: number; openBereiche: string[] }
+  openSuche?: () => void
 }
 
 /**
@@ -42,7 +46,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, suche, openSuche,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
@@ -89,7 +93,9 @@ export function useAbschluss({
        ⚠️ Pending media belongs here too. The Abschluss closes the incident, and a Foto or a
        Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
        about to walk away, so that is part of what they are confirming. */
-    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount)
+    // …and the Suche (24.09.2026): «2 Personen noch vermisst» makes the button «Trotzdem
+    // abschliessen»; an area nobody searched is only named
+    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount, suche)
     // …and it counts as an open point for the WORDING, the way a missing Angabe does: the message
     // and the button both have to say that something is being closed over.
     const anyOpen = points.some(countsAsOpen)
@@ -104,6 +110,7 @@ export function useAbschluss({
         step: (st) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
         trupps: () => { setMode('atemschutz'); setPanel(null) },
         media: () => setOfflineReadyOpen(true),
+        suche: openSuche,
       }),
       note: anyOpen ? A.confirmMsg : undefined,
       // the button names what is actually about to happen — closing an Einsatz with open points
@@ -121,7 +128,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport()
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, suche, openSuche])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

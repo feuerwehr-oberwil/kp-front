@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { activeReplayRange, activityMoments, findGaps, fractionAtTime, gapAt, journalMoments, layoutTrack, momentAt, segmentsFromGaps, stateAt, stepMoment, timeAtFraction, vehiclesAt } from './replay'
 import type { ReplayBundle, ReplayEvent, VehicleSampleRow } from './replay'
 import type { Saved } from './workspace'
+import { personView, sucheAt } from './suche'
 
 const iso = (ms: number) => new Date(ms).toISOString()
 
@@ -81,6 +82,24 @@ describe('stateAt — fold over a snapshot anchor', () => {
     const s = await stateAt(b, 1000)
     expect(s).not.toBeNull()
     expect(s?.entities).toEqual([])
+  })
+
+  it('carries the Suche from the anchor, and sucheAt folds it to the scrubbed instant', async () => {
+    // the slice rides the snapshot (lib/workspace · sanitizeWorkspace keeps it); the fold is
+    // VIEW-based — rows written after T are simply not part of the picture at T (lib/suche)
+    const snapWs = emptyWs()
+    snapWs.suche = {
+      personen: [{ id: 'p1', name: 'Tim Muster', createdAt: iso(500), log: [
+        { id: 'r1', op: 'vermisst', at: iso(500), text: 'Vermisst: Tim Muster' },
+        { id: 'r2', op: 'gefunden', at: iso(3000), text: 'Gefunden: Tim Muster' },
+      ] }],
+      bereiche: [],
+    }
+    const b = bundle([], () => ({ workspace: snapWs, occurredMs: 0 }))
+    const s = await stateAt(b, 2000)
+    expect(s?.suche?.personen.map((p) => p.id)).toEqual(['p1'])
+    expect(personView(sucheAt(s!.suche, 2000).personen[0]).status).toBe('vermisst')
+    expect(personView(sucheAt(s!.suche, 4000).personen[0]).status).toBe('gefunden')
   })
 
   it('folds entity.add events that occur in (snapshot, T]', async () => {

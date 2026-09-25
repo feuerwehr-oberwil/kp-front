@@ -311,6 +311,60 @@ function mergeReportMeta(
   return out
 }
 
+// --- Suche: records by id, and each record's `log` as a keyed union ----------------------------
+//
+// A Person or Bereich (types · SucheDoc) is a small record plus its append-only `log` — the one
+// list every state of the Suche is folded from (lib/suche). Whole-object LWW would lose a row: the
+// FU booking «Tim Muster gefunden» on the tablet while the phone books «übergeben an
+// Rettungsdienst» on the same person is exactly the concurrent case this slice exists for. So a
+// record both sides changed merges like a Trupp does — the plain fields three-way (the side that
+// changed one wins, both-changed stays LWW-mine), and the `log` as a union keyed by row id: a new
+// row from either side survives, a row in the ancestor that one side no longer has was taken back
+// by that side's ↶ and stays gone (delete wins, as everywhere in this file).
+
+interface Rowish { id: string; at?: string }
+
+function mergeLog(base: Rowish[], mine: Rowish[], theirs: Rowish[]): Rowish[] {
+  const b = new Set(base.map((r) => r.id))
+  const m = new Map(mine.map((r) => [r.id, r]))
+  const t = new Map(theirs.map((r) => [r.id, r]))
+  const out: Rowish[] = []
+  for (const id of new Set([...t.keys(), ...m.keys()])) {
+    if (m.has(id) && t.has(id)) out.push(m.get(id)!) // rows are immutable — either copy is the row
+    else if (!b.has(id)) out.push((m.get(id) ?? t.get(id))!) // a new row from one side
+    // in base but gone on one side → that side's ↶ removed it → stays gone
+  }
+  // chronological, stable for equal instants — every device converges on the same order
+  return out.map((r, i) => ({ r, i }))
+    .sort((x, y) => String(x.r.at ?? '').localeCompare(String(y.r.at ?? '')) || x.i - y.i)
+    .map((x) => x.r)
+}
+
+function mergeWithLog(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
+  const a = ancestor as unknown as Record<string, unknown>
+  const m = mine as unknown as Record<string, unknown>
+  const t = theirs as unknown as Record<string, unknown>
+  const fields = mergeRecord(
+    Object.fromEntries(Object.entries(a).filter(([k]) => k !== 'log')),
+    Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'log')),
+    Object.fromEntries(Object.entries(t).filter(([k]) => k !== 'log')),
+  )
+  const rows = (v: unknown): Rowish[] => (Array.isArray(v) ? v.filter(hasId) as Rowish[] : [])
+  return { ...fields, id: mine.id, log: mergeLog(rows(a.log), rows(m.log), rows(t.log)) } as unknown as HasId
+}
+
+/** The `suche` slice: `personen` and `bereiche` each by id, with the log union above for a
+ *  record both sides wrote. A slice absent on every side stays absent (an incident that never
+ *  opened the Suche carries no key). */
+export function mergeSuche(b: unknown, m: unknown, t: unknown): unknown {
+  if (b == null && m == null && t == null) return undefined
+  const list = (v: unknown, k: 'personen' | 'bereiche') => asList(asRecord(v)[k])
+  return {
+    personen: mergeById(list(b, 'personen'), list(m, 'personen'), list(t, 'personen'), mergeWithLog),
+    bereiche: mergeById(list(b, 'bereiche'), list(m, 'bereiche'), list(t, 'bereiche'), mergeWithLog),
+  }
+}
+
 // (per-plan board merging is gone — since schema 2 the board is a derived view of the merged
 // `objects` collection, so a plan's annos merge as whole objects like everything else)
 
@@ -375,6 +429,9 @@ export const MERGE_POLICY = {
   // Rapport-Beilagen (document/damage photos) — merge by id like any other collection: two
   // devices each adding one keeps both, and a delete beats a concurrent caption edit.
   attachments: byId,
+  // the Suche (Personen + Bereiche): records by id, each record's append-only log as a union —
+  // see mergeSuche above
+  suche: mergeSuche,
   board: (_b, _m, _t, cx) => cx.views.board,
   vehicleOverrides: byKey, // by entity id
   checklists: byKey, // by template id

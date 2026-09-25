@@ -516,7 +516,7 @@ describe('mergeWorkspace — every field of the blob has a declared merge policy
     board: true, activePlanId: true, activeModule: true, pickedObjectId: true, planScale: true,
     building: true, vehicleOverrides: true, checklists: true, trupps: true, attendance: true,
     mittel: true, shifts: true, bands: true, cameraViews: true, trails: true, reportMeta: true,
-    attachments: true, planBindings: true, settings: true, intakeReviewedAt: true, weather: true,
+    attachments: true, suche: true, planBindings: true, settings: true, intakeReviewedAt: true, weather: true,
     schemaVersion: true,
   }
   const keys = Object.keys(FIELDS) as (keyof Saved)[]

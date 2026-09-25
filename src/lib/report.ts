@@ -44,6 +44,10 @@ export interface ReportOptions {
    *  the long Einsatzjournal is a normal choice, and the outstanding items are the last thing
    *  that should go with it. */
   pendenzen: boolean
+  /** the Suche's «Personen» — its own section right after the Pendenzen (24.09.2026): one line
+   *  per person with its times, and the one «Suche: …» line. The payload carries nothing while
+   *  nobody was ever reported, so ON costs a Kaminbrand nothing. */
+  personen: boolean
   /** print the Rapport-Beilagen (document/damage photos) as full-width plates at the end */
   attachments: boolean
   detailedAudit: boolean
@@ -80,6 +84,7 @@ export const defaultReportOptions: ReportOptions = {
   // wrong twice over: suppressing the long Einsatzjournal is a common and reasonable choice, and
   // the one thing you would never want to drop with it is the list of what is still outstanding.
   pendenzen: true,
+  personen: true,
   attachments: true,
   detailedAudit: false,
 }
@@ -217,6 +222,9 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // in every existing record — which an append-only journal needs, because these rows can
   // never be rewritten to carry a new field.
   if (e.id.startsWith('sys')) return r.areaSystem
+  // ── a row about a Person or Bereich of the Suche (lib/suche) — the link says so, whoever wrote
+  // it: the list's own rows, their ↶, and a composer entry that changed a status on the way ──
+  if (e.suche) return r.areaSuche
   // ── hand-written first, whatever surface it was written on ──
   // a Checklisten-Haken is a documented decision, not a free note — and it is the only other
   // thing `journal` is written for besides the composer

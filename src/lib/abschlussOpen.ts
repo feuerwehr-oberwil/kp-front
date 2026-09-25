@@ -22,6 +22,11 @@ export type AbschlussOpenPoint =
   | { kind: 'trupps'; n: number }
   /** photos/audio still in this device's upload queue */
   | { kind: 'media'; n: number }
+  /** people the Suche still lists as missing (lib/suche · vermisstCount) — «2 Personen noch
+   *  vermisst: Einsatz trotzdem beenden?» (24.09.2026) */
+  | { kind: 'vermisst'; n: number }
+  /** Bereiche not abgesucht — a HINT only: an area nobody needed to search is no gap */
+  | { kind: 'bereiche'; names: string[] }
 
 /** Where each kind of open point is answered. Every kind has one — see the note on `media`. */
 export interface AbschlussOpenTargets {
@@ -33,15 +38,22 @@ export interface AbschlussOpenTargets {
    *  Bereitschaft sheet — the one place that says what is still outstanding and carries «Jetzt
    *  synchronisieren». There is nothing else to point at, and pointing at nothing was the bug. */
   media: () => void
+  /** the Suche, where a person is found or entwarnt and an area marked (optional: a caller that
+   *  has no Suche never produces these points) */
+  suche?: () => void
 }
 
 export function abschlussOpenPoints(
   missing: AbschlussStep[], truppsStillOut: number, pendingMedia: number,
+  suche?: { vermisst: number; openBereiche: string[] },
 ): AbschlussOpenPoint[] {
   return [
+    // the missing come FIRST: of everything on this list, it is the one that is about a person
+    ...(suche && suche.vermisst > 0 ? [{ kind: 'vermisst', n: suche.vermisst } as const] : []),
     ...missing.map((step): AbschlussOpenPoint => ({ kind: 'step', step })),
     ...(truppsStillOut > 0 ? [{ kind: 'trupps', n: truppsStillOut } as const] : []),
     ...(pendingMedia > 0 ? [{ kind: 'media', n: pendingMedia } as const] : []),
+    ...(suche && suche.openBereiche.length ? [{ kind: 'bereiche', names: suche.openBereiche } as const] : []),
   ]
 }
 
@@ -52,6 +64,8 @@ export function abschlussOpenLabel(p: AbschlussOpenPoint): string {
     case 'step': return appConfig.copy.abschluss.steps[p.step]
     case 'trupps': return fillTemplate(P.truppsDeployedConfirm, { n: p.n })
     case 'media': return fillTemplate(P.pendingMediaConfirm, { n: p.n })
+    case 'vermisst': return p.n === 1 ? appConfig.copy.suche.abschlussVermisstOne : fillTemplate(appConfig.copy.suche.abschlussVermisst, { n: p.n })
+    case 'bereiche': return fillTemplate(appConfig.copy.suche.abschlussBereiche, { list: p.names.join(', ') })
   }
 }
 
@@ -61,8 +75,10 @@ export function abschlussOpenLabel(p: AbschlussOpenPoint): string {
  * ⚠️ Pending media does NOT (unchanged): it is a fact about this device, not a gap in the
  * record, and the Abschluss drains the queue itself before it hands over. It is on the list
  * because the operator is about to walk away, not because something is missing.
+ * ⚠️ Nor does a Bereich not abgesucht (24.09.2026): a hint — a storey nobody had to search is no
+ * gap. A person still MISSING does, and first.
  */
-export const countsAsOpen = (p: AbschlussOpenPoint): boolean => p.kind !== 'media'
+export const countsAsOpen = (p: AbschlussOpenPoint): boolean => p.kind !== 'media' && p.kind !== 'bereiche'
 
 /** The rows the confirm renders. Tapping one resolves the ask `false` (going there is not going
  *  ahead) and then navigates — see overlays/ConfirmCard · ConfirmItem. */
@@ -72,6 +88,7 @@ export function abschlussOpenItems(points: AbschlussOpenPoint[], go: AbschlussOp
     onClick: () => {
       if (p.kind === 'step') go.step(p.step)
       else if (p.kind === 'trupps') go.trupps()
+      else if (p.kind === 'vermisst' || p.kind === 'bereiche') go.suche?.()
       else go.media()
     },
   }))

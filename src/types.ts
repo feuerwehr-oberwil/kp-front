@@ -542,6 +542,9 @@ export interface TimelineEvent {
    * something that no longer exists.
    */
   subjectId?: string
+  /** a «Suche» row (lib/suche): the Person or Bereich it is about — the Verlauf's Bereich column
+   *  reads «Suche» off it, and a tap opens the Suche on that record */
+  suche?: { personId?: string; bereichId?: string }
   // --- plan jump target ---
   planId?: string        // plan document the event belongs to
   px?: number            // plan-space x (0..1) to recenter on
@@ -1211,6 +1214,96 @@ export interface ShiftBand {
   from: string
   /** ISO end */
   to: string
+}
+
+/* ── «Suche» — Personen + Bereiche (step 1, 24.09.2026) ──────────────────────────────────────
+ *
+ * Übung 23.09.2026: the missing and the found existed only in eleven free-text notes, names spelt
+ * differently each time, and at 20:15 no screen could answer «wer fehlt noch, was ist abgesucht».
+ * One synced slice now holds both lists (lib/suche). Records merge by id like Mittel; what HAPPENED
+ * to a record is its own append-only `log`, and every state (vermisst → gefunden → übergeben, a
+ * Bereich's offen / in Arbeit / abgesucht) is FOLDED from it — never a mutable status field. Each
+ * row carries the sentence it wrote into the Verlauf («a row carries what was said»).
+ *
+ * Step 2 (drawn areas, person markers on the plan/Karte) adds `point` / `shape` — present in the
+ * type now and always empty in step 1, so that step needs no migration. */
+
+/** One thing that happened to a Person or a Bereich. Append-only: a correction is a ↶ of the step
+ *  (the slice's own undo), never an edit of a row. */
+export interface SucheRow {
+  id: string
+  /** ISO instant (the shared clock, lib/serverClock) */
+  at: string
+  /** Person: vermisst · gefunden · uebergeben · entwarnt. Bereich: status · fund · geteilt ·
+   *  umbenannt. */
+  op: 'vermisst' | 'gefunden' | 'uebergeben' | 'entwarnt' | 'status' | 'fund' | 'geteilt' | 'umbenannt'
+  /** the Verlauf sentence this row wrote — what the ↶ names, what the Rapport can quote */
+  text: string
+  /** a group's gefunden / übergeben row: how many people this row covers (absent = 1) */
+  n?: number
+  /** the Trupp that found / searches, as the row said it («T3») — and its id when it was picked */
+  trupp?: string
+  truppId?: string
+  /** gefunden: the storey (Gebäude stack index) and the place in words */
+  floor?: number
+  wo?: string
+  /** übergeben an («Rettungsdienst», «Sammelplatz», …) */
+  an?: string
+  /** Bereich `status` row: the new status */
+  status?: SucheBereichStatus
+  /** Bereich `fund` row: the Person found there, when the find was reported through the list */
+  personId?: string
+}
+
+export type SucheBereichStatus = 'offen' | 'inArbeit' | 'abgesucht' | 'nichtZugaenglich'
+
+/** Step 2: a position on a plan sheet or the Karte. Never written in step 1. */
+export interface SuchePoint {
+  planId?: string
+  x?: number
+  y?: number
+  floor?: number
+  coord?: LngLat
+}
+
+/** A missing person — or a group of them («Klasse 3c + Lehrerin», 22). */
+export interface SuchePerson {
+  id: string
+  /** «Tim Muster» · «Klasse 3c + Lehrerin» · «Mann, ca. 40» — free text, optional */
+  name?: string
+  /** a GROUP: how many people it stands for (≥ 2). Absent = one person. */
+  count?: number
+  /** zuletzt gesehen: storey index on the Gebäude stack; absent = unbekannt */
+  floor?: number
+  /** zuletzt gesehen, in words («Technikraum», «Z303») */
+  wo?: string
+  /** who reported it («Schulleitung», «Anrufer 144») */
+  quelle?: string
+  createdAt: string
+  /** step 2 — a marker on the plan/Karte; absent in step 1 */
+  point?: SuchePoint
+  log: SucheRow[]
+}
+
+/** A search area: a whole storey (`sbg<index>`, created by itself), a named part of one
+ *  («Trakt 3», «Technikraum»), or — with no Gebäude — a named area of its own. */
+export interface SucheBereich {
+  id: string
+  /** storey index on the Gebäude stack; absent = an area without storeys (no Gebäude) */
+  floor?: number
+  /** a part's name; ABSENT on a storey's own row («ganzes Geschoss» / «übriges Geschoss») */
+  name?: string
+  createdAt: string
+  /** the storey row only: its parts cover the whole storey, so no «übriges Geschoss» is left */
+  ohneRest?: boolean
+  /** step 2 — a drawn box/polygon on the storey or the Karte; absent in step 1 */
+  shape?: { planId?: string; pts?: BoardPoint[]; ring?: LngLat[] }
+  log: SucheRow[]
+}
+
+export interface SucheDoc {
+  personen: SuchePerson[]
+  bereiche: SucheBereich[]
 }
 
 /** One append-only Mittel (material-use) event: the running TOTAL used for a material+unit, from

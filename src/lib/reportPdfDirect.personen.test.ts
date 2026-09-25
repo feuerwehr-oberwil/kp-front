@@ -1,0 +1,35 @@
+import { describe, expect, it } from 'vitest'
+import { buildDirectReportPayload } from './reportPdfDirect'
+import type { SucheDoc } from '../types'
+
+/** The Suche's «Personen» (24.09.2026): one line per person, then the one Bereiche line — from
+ *  the same slice the app lists, with the building's own storey names. */
+describe('buildDirectReportPayload · personen', () => {
+  const suche: SucheDoc = {
+    personen: [{ id: 'p1', name: 'Tim Muster', floor: 1, createdAt: '2026-09-03T10:08:00.000Z', log: [
+      { id: 'r1', op: 'vermisst', at: '2026-09-03T10:08:00.000Z', text: 'Vermisst: Tim Muster' },
+      { id: 'r2', op: 'gefunden', at: '2026-09-03T10:16:00.000Z', text: 'Gefunden: Tim Muster', trupp: 'Trupp 3', floor: 1 },
+    ] }],
+    bereiche: [{ id: 'sbg1', floor: 1, createdAt: '', log: [{ id: 'r3', op: 'status', status: 'abgesucht', at: '2026-09-03T10:39:00.000Z', text: 'x' }] }],
+  }
+  const payload = (personen: boolean) => buildDirectReportPayload({
+    incident: { id: 'i1', title: 'Brand', started_at: '2026-09-03T09:50:00.000Z' } as never,
+    draft: { meta: {}, generatedAt: '2026-09-03T12:00:00.000Z', proof: {}, options: { personen } } as never,
+    trupps: [], attendance: {}, events: [], plans: [], suche,
+    building: { ring: [], ringAspect: 1, floors: [0, 1], floorNames: { 1: 'Hauptgeschoss' } },
+  }) as { personen: { name: string; gefunden?: string }[]; sucheLine?: string }
+
+  it('prints the person with its times and the Bereiche line, in the building\'s own storey names', () => {
+    const out = payload(true)
+    expect(out.personen.map((p) => p.name)).toEqual(['Tim Muster'])
+    expect(out.personen[0].gefunden).toContain('Hauptgeschoss')
+    expect(out.sucheLine).toContain('2 Bereiche')
+    expect(out.sucheLine).toContain('EG')
+  })
+
+  it('prints nothing of it when the section is switched off', () => {
+    const out = payload(false)
+    expect(out.personen).toEqual([])
+    expect(out.sucheLine).toBeUndefined()
+  })
+})

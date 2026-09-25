@@ -21,7 +21,7 @@ import { journalDisc } from './report'
  *  (`planLabel`: «M6 EG», «Tafel») is part of the key. */
 export type JournalCategoryKind =
   | 'manual' | 'auftrag' | 'sofort' | 'pendenz'
-  | 'map' | 'plan' | 'anwesenheit' | 'atemschutz' | 'mittel' | 'checklist' | 'rapport' | 'system'
+  | 'map' | 'plan' | 'anwesenheit' | 'atemschutz' | 'mittel' | 'checklist' | 'rapport' | 'system' | 'suche'
 
 /** The two groups of the menu. «Art» is what a PERSON wrote and how they meant it; «Bereich» is
  *  where in the app a row came from. */
@@ -76,6 +76,7 @@ function kindOf(disc: { label: string; surface: 'map' | 'plan' | null }): Journa
     case R.areaChecklist: return 'checklist'
     case R.areaRapport: return 'rapport'
     case R.areaSystem: return 'system'
+    case R.areaSuche: return 'suche'
   }
   // journalArea's own fallback for a plan row whose plan is gone (planFallback) arrives without
   // the tint — it is still a plan row, and says so under its own word
@@ -95,7 +96,7 @@ function kindLabel(kind: JournalCategoryKind): string {
   const words: Record<JournalCategoryKind, string> = {
     manual: R.areaManual, auftrag: J.entryTypes.auftrag, sofort: J.entryTypes.sofort, pendenz: J.noteChip,
     map: J.surfaceMap, plan: J.surfacePlan, anwesenheit: R.areaAnwesenheit, atemschutz: R.areaAtemschutz,
-    mittel: R.areaMittel, checklist: R.areaChecklist, rapport: R.areaRapport, system: R.areaSystem,
+    mittel: R.areaMittel, checklist: R.areaChecklist, rapport: R.areaRapport, system: R.areaSystem, suche: R.areaSuche,
   }
   return words[kind]
 }
