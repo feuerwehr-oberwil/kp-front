@@ -41,6 +41,10 @@ jobs:
       - name: Type-check (tsc --noEmit)
         run: pnpm exec tsc --noEmit
 
+      # The Playwright specs are Node code outside src/ — their own tsconfig (e2e/README.md).
+      - name: Type-check e2e (tsc -p tsconfig.e2e.json)
+        run: pnpm exec tsc -p tsconfig.e2e.json
+
       - name: Unit tests (vitest)
         run: pnpm test
 

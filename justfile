@@ -200,10 +200,11 @@ test:
     pnpm test
     cd backend && uv run pytest -q
 
-# Type-check the frontend without emitting.
+# Type-check the frontend and the e2e specs without emitting.
 [group('Quality')]
 check:
     pnpm exec tsc --noEmit
+    pnpm exec tsc -p tsconfig.e2e.json
 
 # --- Build & release  (tag a green main commit — see CHANGELOG.md) ------------
 
