@@ -280,7 +280,9 @@ async def test_closing_the_einsatz_ends_the_session_but_not_the_url(client, term
     assert (await client.get(f"/api/incidents/{incident.id}/journal")).status_code == 200
 
     await _close(db_session, incident)
-    assert (await client.get(f"/api/incidents/{incident.id}/journal")).status_code == 403
+    # the session is over — and, on the Einsatz's own route, says it is CLOSED (D1, 25.09.2026)
+    r = await client.get(f"/api/incidents/{incident.id}/journal")
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "incident_closed"
     # The standing URL survives — that is the point. It just has nothing to bind to.
     r = await _exchange(client, f"t{TERMINAL_KEY}")
     assert r.status_code == 200 and r.json() == {"status": "idle"}

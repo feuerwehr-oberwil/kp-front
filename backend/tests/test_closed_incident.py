@@ -523,3 +523,22 @@ async def test_rows_accepted_after_the_close_are_stamped_for_paper(client, edito
     rows = {e["row"]["id"]: e["row"] for e in (await client.get(f"/api/incidents/{inc}/journal")).json()["entries"]}
     assert rows["r-late"].get("receivedAfterClose") is True
     assert "receivedAfterClose" not in rows["r-on-time"]
+
+
+async def test_every_close_stamps_last_closed_at_and_the_first_stays_closed_at(client, editor):
+    """D2: after a reopen and a second close the Einsatzende is the SECOND close; the first
+    stays in `closed_at`, which only marks the Nachträge."""
+    from datetime import datetime
+
+    await _login(client, editor)
+    inc = await _incident(client)
+    await _close(client, inc)
+    first = (await client.get(f"/api/incidents/{inc}")).json()
+    assert first["last_closed_at"] == first["closed_at"]
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": True})).status_code == 200
+    second = (await client.get(f"/api/incidents/{inc}")).json()
+    assert second["closed_at"] == first["closed_at"]
+    assert datetime.fromisoformat(second["last_closed_at"]) > datetime.fromisoformat(first["closed_at"])
+    listed = next(i for i in (await client.get("/api/incidents")).json() if i["id"] == inc)
+    assert listed["last_closed_at"] == second["last_closed_at"]

@@ -131,8 +131,18 @@ to prod.
   Einsatzende, which marks the Nachträge — so the Einsatzuhr ignores it while the Einsatz runs),
   and writes its boundary row with `lifecycle: 'reopened'`; every crew still inside restarts its
   contact clock at that row's `at`, one `azro-<row>-<Trupp>` row each, and the alarm holds until
-  the row has arrived (`lib/reopenClocks`). The Atemschutz-Link of a closed Einsatz says «diese
-  Tafel zeigt nur noch an» and follows once a minute (`pollBackoff · minDelayMs`).
+  the row has arrived (`lib/reopenClocks`); the alarm that restart ends names the reopen
+  (`contactRestartedAt`), never a Funkkontakt. The Atemschutz-Link of a closed Einsatz says «diese
+  Tafel zeigt nur noch an» and follows once a minute (`pollBackoff · minDelayMs`): a link
+  session on a closed Einsatz is answered 409 `incident_closed` + `X-Incident-Open: 0` on the
+  Einsatz's own routes (before any key check — every close, the second too), and a link page
+  refused 403 on its workspace/Verlauf/events freezes read-only (`api · LINK_REFUSED_EVENT`). The
+  link KEY is not revoked by a close, on purpose: the QR panel shows it standing and a reopen
+  revives it. `closed_at` is the FIRST close (Nachträge only); `last_closed_at` is stamped on
+  every close and is the Einsatzende the clock, the Rapport and the Anwesenheit ends default to
+  (`api/incidents · closeTimeOf`); the PDF prints the Nachtrag mark under the row's time. A
+  closed Tafel alarms nothing (no badge, no red; «Stand beim Abschluss»), the lifecycle row
+  expires after two minutes and never covers the Rapport.
   A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,

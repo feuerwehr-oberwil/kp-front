@@ -143,6 +143,8 @@ class IncidentMeta(BaseModel):
     auto_opened: bool = False
     started_at: datetime
     closed_at: datetime | None = None
+    #: the CURRENT close (models · Incident.last_closed_at) — what the Einsatzende defaults to
+    last_closed_at: datetime | None = None
     is_archived: bool
     is_exercise: bool = False
     report_done_at: datetime | None = None

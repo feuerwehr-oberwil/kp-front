@@ -35,6 +35,8 @@ describe('clocksAfterReopen', () => {
   it('restarts the contact clock of every crew still inside at the reopen', () => {
     const out = clocksAfterReopen([trupp('a'), trupp('b')], reopen)
     expect(out.map((t) => t.lastContactTime)).toEqual([reopen.at, reopen.at])
+    // …and says it was a RESTART, not a Kontakt — the alarm's «beendet» row reads this (D5)
+    expect(out.map((t) => t.contactRestartedAt)).toEqual([reopen.at, reopen.at])
   })
 
   it('leaves a crew outside, a removed one, and a Kontakt given since the reopen alone', () => {

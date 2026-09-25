@@ -72,7 +72,8 @@ export function clocksAfterReopen(trupps: Trupp[], reopen: LifecycleBoundary | n
     const last = Date.parse(t.lastContactTime)
     if (Number.isFinite(last) && last >= at) return t
     changed = true
-    return { ...t, lastContactTime: reopen.at }
+    // …and says it was a RESTART, so the alarm this ends names the reopen, not a Funkkontakt (D5)
+    return { ...t, lastContactTime: reopen.at, contactRestartedAt: reopen.at }
   })
   return changed ? next : trupps
 }

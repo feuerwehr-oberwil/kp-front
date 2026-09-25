@@ -1612,7 +1612,11 @@ export function useTruppActions(deps: Deps) {
     const az = appConfig.copy.atemschutz
     // the last MEASURED or lifecycle row — a crew row says nothing about how the alarm ended
     const last = tr?.readings?.filter((r) => r.kind !== 'crew').slice(-1)[0]?.kind
-    const reason = (last && az.alarmClearedBy[last]) || az.alarmClearedOther
+    // ⚠️ …unless the clock was RESTARTED by «Wieder öffnen» (D5, 25.09.2026): then nobody reached
+    // the crew, and the last reading's «Funkkontakt» would put a radio call on paper that never
+    // happened. The restart says what it was.
+    const restarted = !!tr?.contactRestartedAt && tr.contactRestartedAt === tr.lastContactTime
+    const reason = restarted ? az.alarmClearedByReopen : (last && az.alarmClearedBy[last]) || az.alarmClearedOther
     const rowId = `azcl-${id}-${turnus}`
     log('radio', fillTemplate(az.logAlarmCleared, { name: tr ? truppLogName(tr) : '', reason }), 'team',
       undefined, undefined, { rowId, subjectId: id })

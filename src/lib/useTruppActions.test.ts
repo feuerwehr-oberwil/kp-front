@@ -1027,6 +1027,25 @@ describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Ei
       expect(rows[0].id).toBe('azcl-T1-2026-07-06T10:00:00Z')
     }
   })
+
+  it('names the REOPEN when «Wieder öffnen» restarted the clock — no Funkkontakt that never happened (D5)', () => {
+    const rows: { text: string; id?: string }[] = []
+    const reopenAt = '2026-07-06T11:00:00Z'
+    const { actions } = rowHarness(baseTrupp({
+      name: 'Fabich Mischa', readings: [{ t: 'x', bar: 200, kind: 'contact' }],
+      lastContactTime: reopenAt, contactRestartedAt: reopenAt,
+    }), rows)
+    actions.logTruppAlarmCleared('T1', '2026-07-06T10:00:00Z')
+    expect(rows[0].text).toBe('Atemschutz-Alarm beendet: Trupp Fabich Mischa – Kontaktuhr neu gestartet (wieder geöffnet)')
+    // …and a real Kontakt given since the restart is a Funkkontakt again
+    const later: { text: string; id?: string }[] = []
+    const { actions: a2 } = rowHarness(baseTrupp({
+      name: 'Fabich Mischa', readings: [{ t: 'x', bar: 200, kind: 'contact' }],
+      lastContactTime: '2026-07-06T11:05:00Z', contactRestartedAt: reopenAt,
+    }), later)
+    a2.logTruppAlarmCleared('T1', '2026-07-06T11:00:00Z')
+    expect(later[0].text).toBe('Atemschutz-Alarm beendet: Trupp Fabich Mischa – Funkkontakt')
+  })
 })
 
 /* The three lifecycle taps that touch the SAFETY CLOCK — «Eingerückt» starts it, «Rückzug» and

@@ -1974,6 +1974,8 @@ export const de = {
     readingNoAs: '{what} – ohne Atemschutz',
     // contact-clock state words (carry the state as TEXT, not colour alone — colourblind-safe)
     clockOk: 'Kontakt ok',
+    // R3: ein abgeschlossener Einsatz alarmiert nicht – die Uhr steht beim Abschluss
+    clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
@@ -2337,6 +2339,8 @@ export const de = {
     /** Fallback, wenn die letzte Messung nichts hergibt – der Alarm ist trotzdem beendet, und
      *  eine Zeile, die das sagt, ist mehr wert als gar keine. */
     alarmClearedOther: 'Kontakt wiederhergestellt',
+    // …und wenn die Kontaktuhr durch «Wieder öffnen» neu lief: kein Funkkontakt, sondern das (D5)
+    alarmClearedByReopen: 'Kontaktuhr neu gestartet (wieder geöffnet)',
     // The Alarmdruck used to be visible only on the card – the record was missing the moment the
     // Trupp had to turn back. Only on CROSSING it, not on every value below it.
     //
@@ -3945,6 +3949,8 @@ export const de = {
     rapportClosedHint: 'Einsatz abgeschlossen – Änderungen am Rapport erscheinen als Nachträge.',
     // …und die Atemschutz-Link-Tafel, deren Halter nichts wieder öffnen kann
     linkClosedTitle: 'Einsatz abgeschlossen – diese Tafel zeigt nur noch an',
+    // D1: der Link wurde für seinen eigenen Einsatz abgelehnt (widerrufen) – nichts mehr annehmen
+    linkRefusedTitle: 'Dieser Link gilt nicht mehr – diese Tafel zeigt nur noch an',
     reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
     // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
     reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt nachgesendet – als Nachtrag.',

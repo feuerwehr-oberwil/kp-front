@@ -525,7 +525,7 @@ export default function App() {
       if (!meta) return
       archiveReturnRef.current = null
       closedBySignalRef.current = meta.id
-      setLifecycleElsewhere({ id: meta.id, event: 'closed', at: closedNoticeAt(meta.closed_at, runningSinceRef.current, serverNow()) })
+      setLifecycleElsewhere({ id: meta.id, event: 'closed', at: closedNoticeAt(meta.last_closed_at ?? meta.closed_at, runningSinceRef.current, serverNow()) })
       setActiveMeta(meta)
       setIncidents((list) => (list ?? []).map((i) => (i.id === meta.id ? meta : i)))
     }

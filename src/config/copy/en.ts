@@ -1229,6 +1229,7 @@ export const en: Localizable<Copy> = {
     },
     readingNoAs: '{what} – without SCBA',
     clockOk: 'Contact ok',
+    clockFrozen: 'As at the close',
     clockWarn: 'Contact due',
     clockOverdue: 'Overdue',
     clockAlarmPressure: 'Alarm pressure',
@@ -1333,6 +1334,7 @@ export const en: Localizable<Copy> = {
       resume: 'deployment resumed',
     } as Record<string, string>,
     alarmClearedOther: 'contact re-established',
+    alarmClearedByReopen: 'contact clock restarted (reopened)',
 
     orderLabel: 'Order',
     orderUrgency: 'Urgency',
@@ -2421,6 +2423,7 @@ export const en: Localizable<Copy> = {
     reopenedElsewhere: 'Incident was reopened on another device ({t})',
     rapportClosedHint: 'Incident closed – changes to the report are printed as addenda.',
     linkClosedTitle: 'Incident closed – this board is display only',
+    linkRefusedTitle: 'This link is no longer valid – this board is display only',
     reopenedElsewhereSub: 'Editable again – later entries appear as addenda.',
     reopenedParkedOne: 'Editable again. 1 entry from this device that was not accepted after the close is being sent now – as an addendum.',
     reopenedParked: 'Editable again. {n} entries from this device that were not accepted after the close are being sent now – as addenda.',

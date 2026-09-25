@@ -95,7 +95,7 @@ export function closedMetaFor(
   if (closingLocally === signal.incidentId) return null
   if (fresh) return isIncidentRunning(fresh) ? null : fresh
   if (signal.source === 'list') return null
-  return { ...current, is_archived: true, closed_at: signal.closedAt ?? current.closed_at }
+  return { ...current, is_archived: true, closed_at: current.closed_at ?? signal.closedAt ?? null, last_closed_at: signal.closedAt ?? current.last_closed_at }
 }
 
 // --- …and the way back: «Wieder öffnen» on ANOTHER device ------------------------------------

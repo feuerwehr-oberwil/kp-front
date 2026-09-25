@@ -146,6 +146,10 @@ class Incident(Base):
     # them mean "not a real alarm". A consumer that treats NULL as suspicious is wrong.
     alarm_origin: Mapped[str | None] = mapped_column(String(32), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # When it was closed THIS time (D2, 25.09.2026): stamped on every close, where `closed_at`
+    # keeps the first. The Einsatzende, the Einsatzdauer and the end of the Anwesenheit default
+    # to this; `closed_at` only marks the Nachträge.
+    last_closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Übung — orthogonal to the VKF `type` (an exercise still has a category). Exercises are
     # excluded from the stats export by default and are the ONLY incidents that may be hard-

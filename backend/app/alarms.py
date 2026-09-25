@@ -311,6 +311,7 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
         inc.is_archived = True
         if inc.closed_at is None:
             inc.closed_at = now
+        inc.last_closed_at = now
         await audit.append_event(
             db,
             incident_id=inc.id,

@@ -1064,6 +1064,10 @@ export interface Trupp {
    *  pressure update; seeded to entryTime on Eingerückt. Empty while `angemeldet`. The contact
    *  clock (now − this) is the safety signal: overdue past the interval ⇒ überfällig alarm. */
   lastContactTime: string
+  /** The contact clock was RESTARTED here by «Wieder öffnen», not by a Kontakt (lib/reopenClocks,
+   *  D5): equal to `lastContactTime` while that restart is the last thing that moved the clock.
+   *  What lets the alarm's «beendet» row name the reopen instead of claiming a Funkkontakt. */
+  contactRestartedAt?: string
   /** last recorded cylinder pressure (bar) + when (ISO) — logged for the record, never predicted */
   lastPressureBar?: number
   lastPressureTime?: string

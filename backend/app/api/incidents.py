@@ -206,6 +206,10 @@ async def current_close(db: AsyncSession, incident_id: uuid.UUID, first_closed_a
     closed before those events existed. Only ever asked for a closed Einsatz (a handful of rows)."""
     from ..models import IncidentEvent
 
+    stamped = (await db.execute(select(Incident.last_closed_at).where(Incident.id == incident_id))).scalar_one_or_none()
+    if stamped is not None:
+        return stamped if first_closed_at is None else max(stamped, first_closed_at)
+    # …an Einsatz closed before the column existed, or by a status: the lifecycle events say
     rows = (
         await db.execute(
             select(IncidentEvent.occurred_at, IncidentEvent.payload_json)
@@ -789,8 +793,10 @@ async def patch_incident(
         from .journal import append_system_row
 
         if data["is_archived"]:
+            now = datetime.now(UTC)
             if inc.closed_at is None:
-                inc.closed_at = datetime.now(UTC)
+                inc.closed_at = now
+            inc.last_closed_at = now
             await append_system_row(db, inc.id, icon="flag", text="Einsatz abgeschlossen", lifecycle="closed")
         else:
             # A RUNNING Einsatz carries no «Rapport fertig» (staging r3, F3): the reopen is the

@@ -18,6 +18,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtSpanShort, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref } from '../lib/format'
 import type { IncidentMeta } from '../lib/incidents'
 import { getIncident, verifyChain } from '../lib/incidents'
+import { closeTimeOf } from '../lib/api/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
 import type { ZeitKind } from '../lib/alarmzeiten'
@@ -418,7 +419,7 @@ export function ReportPreflight({
   // field sitting on the seeded name is in agreement with the blob and must not count as an edit
   // this device has to defend (that is what `seededEinsatzleiter` below persists, once).
   const remoteEinsatzleiter = reportMeta.einsatzleiter ?? einsatzleiterFromScene(scene?.entities) ?? ''
-  const remoteEndedAt = dtLocalValue(reportMeta.endedAt ?? incident.closed_at ?? undefined)
+  const remoteEndedAt = dtLocalValue(reportMeta.endedAt ?? closeTimeOf(incident) ?? undefined)
   const remoteAusgerueckt = dtLocalValue(reportMeta.ausgeruecktAt)
   const remoteRemarks = reportMeta.remarks ?? ''
   const remoteLehren = reportMeta.lehren ?? ''

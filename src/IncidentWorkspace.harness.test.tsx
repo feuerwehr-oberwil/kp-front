@@ -330,6 +330,10 @@ describe('(f) closed on ANOTHER device while open here (N3, staging 25.09.2026)'
     const title = document.querySelector('.ml-title')?.textContent ?? ''
     expect(title).toBe(`Einsatz wurde auf einem anderen Gerät abgeschlossen (${String(closedAt.getHours()).padStart(2, '0')}:${String(closedAt.getMinutes()).padStart(2, '0')})`)
     expect(document.querySelector('.app')).toBeTruthy() // the same workspace, not a jump elsewhere
+    // …and never over the Rapport, whose head carries the page's own actions (V3)
+    key('r'); await settle()
+    expect([...document.querySelectorAll('.ml-title')].some((t) => t.textContent?.includes('anderen Gerät'))).toBe(false)
+    key('k'); await settle()
 
     // …and «Wieder öffnen» on another device: live again, in place, the alarm back, one row
     const reopenedAt = new Date()

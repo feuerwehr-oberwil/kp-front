@@ -47,3 +47,22 @@ export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss,
   })
   return null
 }
+
+/**
+ * The Atemschutz-Link was refused on its own Einsatz (D1): revoked, or dead for a reason the
+ * server does not tell a link holder. The Tafel is frozen read-only (IncidentWorkspace ·
+ * linkRefused) and this row says so — never «Sync-Fehler – lokal gespeichert» over entries that
+ * can never be delivered. No ✕: it stays true for as long as the page is open.
+ */
+export function LinkRefusedMeldung() {
+  const C = appConfig.copy.archived
+  useMeldung({
+    id: 'link-refused',
+    kind: 'lifecycle',
+    tone: 'warn',
+    icon: 'lock',
+    title: C.linkRefusedTitle,
+    wrap: true,
+  })
+  return null
+}

@@ -370,6 +370,17 @@ describe('an abgeschlossener Einsatz (frozenAt)', () => {
       vi.useRealTimers()
     }
   })
+
+  it('alarms nothing — no «Alarm» badge, no red card, the band says «Stand beim Abschluss» (R3)', () => {
+    // overdue AT the close: on a running Einsatz this is a red card and a «1 Alarm» badge
+    const entry = Date.now() - 60 * 60_000
+    const trupp = { ...aktivTrupp(), entryTime: new Date(entry).toISOString(), lastContactTime: new Date(entry).toISOString() }
+    mount({ trupps: [trupp], frozenAt: entry + 40 * 60_000 })
+    expect(document.querySelector(`.${s.overdueBadge}`)).toBeNull()
+    expect(document.querySelector(`.${s.bandCrit}`)).toBeNull()
+    expect(screen.getByText(az.clockFrozen)).toBeTruthy()
+    expect(screen.queryByText(az.clockOverdue)).toBeNull()
+  })
 })
 
 /* ⚠️ Field report, 04.09.: opening a Trupp on the phone moved the toggle's chevron from the right

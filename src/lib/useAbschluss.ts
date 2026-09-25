@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, MittelEntry, Trupp } from '../types'
-import { isIncidentRunning, type IncidentMeta } from './api/incidents'
+import { closeTimeOf, isIncidentRunning, type IncidentMeta } from './api/incidents'
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { missingSteps, type AbschlussStep } from './abschluss'
@@ -16,7 +16,7 @@ interface Args {
   mittel: MittelEntry[]
   /** the board's Trupps (removed ones already filtered out) */
   trupps: Trupp[]
-  incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at'>
+  incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at' | 'last_closed_at'>
   replayActive: boolean
   media: MediaQueueApi
   /** App's handover: stamp report_done_at + close. TRUE only when the close really happened. */
@@ -67,11 +67,13 @@ export function useAbschluss({
   // device closes the Einsatz (N3, 25.09.2026): the clocks freeze and the alarm stops on every
   // device, not only on the one that pressed «Abschliessen».
   const running = isIncidentRunning(incidentMeta)
+  const closeAt = closeTimeOf(incidentMeta)
   const azFrozenAt = useMemo(() => {
     if (running) return undefined
-    const at = Date.parse(reportMeta.endedAt ?? incidentMeta.closed_at ?? '')
+    // the CURRENT close, not the first (D2)
+    const at = Date.parse(reportMeta.endedAt ?? closeAt ?? '')
     return Number.isFinite(at) ? at : undefined
-  }, [running, incidentMeta.closed_at, reportMeta.endedAt])
+  }, [running, closeAt, reportMeta.endedAt])
   /* ⚠️ …and the ALARM stops with the clocks. It is not a display: it plays a tone and posts an OS
      notification, and it ran off the live clock regardless of the Einsatz's state — so opening a
      closed Akte with a Trupp that was never reported out started an überfällig alarm about a

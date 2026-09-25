@@ -14372,6 +14372,18 @@
             ],
             "title": "Closed At"
           },
+          "last_closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Closed At"
+          },
           "is_archived": {
             "type": "boolean",
             "title": "Is Archived"
@@ -14615,6 +14627,18 @@
               }
             ],
             "title": "Closed At"
+          },
+          "last_closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Closed At"
           },
           "is_archived": {
             "type": "boolean",

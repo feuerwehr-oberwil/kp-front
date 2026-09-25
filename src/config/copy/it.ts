@@ -1218,6 +1218,7 @@ export const it: Localizable<Copy> = {
     },
     readingNoAs: '{what} – senza ARA',
     clockOk: 'Contatto ok',
+    clockFrozen: 'Stato alla chiusura',
     clockWarn: 'Contatto in scadenza',
     clockOverdue: 'In ritardo',
     clockAlarmPressure: 'Pressione d’allarme',
@@ -1322,6 +1323,7 @@ export const it: Localizable<Copy> = {
       resume: 'impiego ripreso',
     } as Record<string, string>,
     alarmClearedOther: 'contatto ristabilito',
+    alarmClearedByReopen: 'orologio di contatto riavviato (riaperto)',
 
     orderLabel: 'Ordine',
     orderUrgency: 'Urgenza',
@@ -2417,6 +2419,7 @@ export const it: Localizable<Copy> = {
     reopenedElsewhere: 'L’intervento è stato riaperto su un altro dispositivo ({t})',
     rapportClosedHint: 'Intervento chiuso – le modifiche al rapporto appaiono come aggiunte.',
     linkClosedTitle: 'Intervento chiuso – questa tabella mostra soltanto',
+    linkRefusedTitle: 'Questo link non è più valido – questa tabella mostra soltanto',
     reopenedElsewhereSub: 'Di nuovo modificabile – le voci successive appaiono come aggiunte.',
     reopenedParkedOne: 'Di nuovo modificabile. 1 voce di questo dispositivo non ripresa dopo la chiusura viene inviata ora – come aggiunta.',
     reopenedParked: 'Di nuovo modificabile. {n} voci di questo dispositivo non riprese dopo la chiusura vengono inviate ora – come aggiunte.',

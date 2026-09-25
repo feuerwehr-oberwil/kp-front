@@ -60,7 +60,7 @@ import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
 import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay } from './lib/overlays'
-import { apiDelete } from './lib/api'
+import { apiDelete, LINK_REFUSED_EVENT } from './lib/api'
 import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
@@ -143,6 +143,8 @@ import {
   type IncidentMeta,
   isIncidentRunning,
 } from './lib/incidents'
+import { closeTimeOf } from './lib/api/incidents'
+import { useExpire } from './lib/useExpire'
 import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
@@ -180,7 +182,7 @@ import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen, latestLifecycle } from './lib/reopenClocks'
-import { IncidentClosedMeldung } from './components/IncidentClosedMeldung'
+import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
@@ -316,6 +318,9 @@ interface WorkspaceProps {
 }
 
 
+/** How long the «auf einem anderen Gerät abgeschlossen / wieder geöffnet» row stands (V2). */
+const LIFECYCLE_NOTICE_MS = 120_000
+
 /** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
 const REORIENT_FOLD_MS = 1500
 
@@ -348,8 +353,18 @@ export function IncidentWorkspace({
    *  on, and the sync pushes only the record slice, so a local doc write could never reach
    *  the server). Distinct from `elView` below, which is an EDITOR's hands-off mode. */
   const isEl = user?.role === 'el'
-  /** the session may write nothing at all (a viewer, a view link) */
-  const roleReadOnly = user?.role !== 'editor' && !asLink && !isEl
+  /** A LINK page whose own Einsatz answered 403 (api · LINK_REFUSED_EVENT, D1): nothing it takes
+   *  from here can ever be delivered, so it takes nothing — the Tafel freezes read-only and says
+   *  why. Permanent for this page: a revoked link does not come back. */
+  const [linkRefused, setLinkRefused] = useState(false)
+  useEffect(() => {
+    if (!asLink) return
+    const onRefused = (e: Event) => { if ((e as CustomEvent<string>).detail === incidentMeta.id) setLinkRefused(true) }
+    window.addEventListener(LINK_REFUSED_EVENT, onRefused)
+    return () => window.removeEventListener(LINK_REFUSED_EVENT, onRefused)
+  }, [asLink, incidentMeta.id])
+  /** the session may write nothing at all (a viewer, a view link, a refused Atemschutz-Link) */
+  const roleReadOnly = (user?.role !== 'editor' && !asLink && !isEl) || linkRefused
   const baseReadOnly = roleReadOnly || forceReadOnly || tabLockLost
   const isEditor = user?.role === 'editor'
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. Read-only is not
@@ -994,7 +1009,7 @@ export function IncidentWorkspace({
   // `legacy` seeds display + migration from an older incident's in-blob timeline.
   // the Atemschutz-Link of a CLOSED Einsatz is refused on every request until a reopen: it
   // follows once a minute (staging r3) — enough to notice the reopen, not a 403 every few seconds
-  const slowFollow = asLink && !running
+  const slowFollow = asLink && (!running || linkRefused)
   const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline, slowFollow })
   // pulled out by name: `journal` itself is a fresh object every render, so a callback that
   // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
@@ -1796,9 +1811,17 @@ export function IncidentWorkspace({
     downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)
     setExportedClosedRefused(closedRefusedTotal)
   }, [journal, auditDelivery, sync, incidentMeta.id, closedRefusedTotal])
+  const lifecycleRefused = lifecycleElsewhere?.event === 'closed' ? closedRefusedTotal : resentOnReopen
+  // ⚠️ …and it EXPIRES (V2, staging 25.09.2026): «wieder geöffnet» sat 110 px tall on a 360 phone
+  // until somebody found the ✕. Two minutes, like every notice that only informs — unless it
+  // carries entries this device still holds, whose «Einträge sichern» must not vanish unseen.
+  useExpire(lifecycleElsewhere?.at ?? null, LIFECYCLE_NOTICE_MS, lifecycleRefused > 0, setLifecycleHiddenAt)
   // the row matches the state on screen: a «closed» row never stands over a live Einsatz, nor a
-  // «reopened» one over a closed view; a new change shows again after an earlier ✕
+  // «reopened» one over a closed view; a new change shows again after an earlier ✕.
+  // ⚠️ Not over the Rapport (V3): the strip lay over its head and the «Einsatzrapport (PDF)»
+  // button at 820 and 1180, and the Rapport of a closed Einsatz says it itself (its own line).
   const closedMeldung = lifecycleElsewhere != null
+    && mode !== 'rapport'
     && (lifecycleElsewhere.event === 'closed') === !running
     && lifecycleHiddenAt !== lifecycleElsewhere.at && (
     <IncidentClosedMeldung
@@ -1806,7 +1829,7 @@ export function IncidentWorkspace({
       forLink={asLink}
       event={lifecycleElsewhere.event}
       at={lifecycleElsewhere.at}
-      refused={lifecycleElsewhere.event === 'closed' ? closedRefusedTotal : resentOnReopen}
+      refused={lifecycleRefused}
       onExport={exportEntries}
       onDismiss={() => setLifecycleHiddenAt(lifecycleElsewhere.at)}
     />
@@ -4489,6 +4512,7 @@ export function IncidentWorkspace({
           logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
         {closedMeldung}
+        {linkRefused && running && <LinkRefusedMeldung />}
         {guarded('atemschutz', atemschutzBoard, false)}
         {/* `onBoard` is unconditionally true here — the board IS the screen, and the strip's own
             rule (see AtemschutzAlarmMeldung's header) is that it steps aside for it. Mounted
@@ -4767,7 +4791,8 @@ export function IncidentWorkspace({
         // ⚠️ `closed_at` only while CLOSED (staging r3, F3): it is the FIRST Einsatzende and is
         // kept across «Wieder öffnen», so a reopened Einsatz's clock stood frozen at the close on
         // every device. The Rapport's own Einsatzende still stops it — that is a stated fact.
-        endedAt={reportMeta.endedAt ?? (running ? undefined : incidentMeta.closed_at)}
+        // …and the CURRENT close, not the first, once it is closed again (D2)
+        endedAt={reportMeta.endedAt ?? (running ? undefined : closeTimeOf(incidentMeta))}
         recording={voice.recording}
         recStartedAt={voice.recStartedAt}
         journalOpen={journalOpen}
