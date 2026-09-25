@@ -12,15 +12,19 @@ import { useEffect, useLayoutEffect, type RefObject } from 'react'
  * Abschluss and the other Einsätze.
  *
  * So the bar is MEASURED: from nothing collapsed, one step at a time, until it fits. The order is
- * the priority, lowest first — the weather, the Einsatzdauer, the «vermisst» words, the Verlauf
- * word, the alarm's name, the Einsatz title (the pill stays, as its glyph and marker), the chips'
- * icons (their numbers stay), ↷, and last the gaps. The pill is never the thing that gives: a
- * pill squeezed below a readable width counts as «does not fit» (`headCrowded`).
+ * the priority, lowest first — the weather, the Einsatzdauer, ↷ (grey and rarely wanted), the
+ * gaps, the Verlauf word, the «vermisst» words, the alarm's name, the Einsatz title (the pill
+ * stays, as its glyph and marker), and last the «1?» count (the «?» stays). The pill is never the
+ * thing that gives: a pill squeezed below a readable width counts as «does not fit»
+ * (`headCrowded`).
+ * ⚠️ A chip NEVER loses its icon (final walk-through, R1): at 360 px a bare red «5» said nothing
+ * about five of what, while ↷ still held its 44 px. Every chip keeps its glyph and its number,
+ * and is at least a tap wide (10-journal.css).
  * Each step is a class `fit-N` on the bar (10-journal.css); a higher step keeps the lower ones.
  */
 export const HEAD_FIT_STEPS = [
-  'weather-compact', 'weather', 'einsatzdauer', 'vermisst-words', 'verlauf-word',
-  'alarm-name', 'title', 'chip-icons', 'redo', 'gaps',
+  'weather-compact', 'weather', 'einsatzdauer', 'redo', 'gaps', 'verlauf-word',
+  'vermisst-words', 'alarm-name', 'title', 'ask-count',
 ] as const
 
 /** The title's floor: roughly eight characters, or the whole title if it is shorter. */

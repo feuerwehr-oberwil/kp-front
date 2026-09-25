@@ -339,7 +339,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
               {/* the words on a wide bar, the bare count on a phone's (15-mobile.css) — the bar there
                   also carries the Atemschutz chip, and two worded chips pushed the title under ↶ */}
               <span className="tb-suche-full">{words}</span>
-              <span className="tb-suche-short" aria-hidden>{sucheMissing > 0 ? sucheMissing : ''}{sucheAsks > 0 && <b className="tb-suche-ask">{sucheAsks}?</b>}</span>
+              <span className="tb-suche-short" aria-hidden>{sucheMissing > 0 ? sucheMissing : ''}{sucheAsks > 0 && <b className="tb-suche-ask"><span className="tb-suche-ask-n">{sucheAsks}</span>?</b>}</span>
             </button>
           )
         })()}

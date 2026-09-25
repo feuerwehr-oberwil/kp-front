@@ -3318,6 +3318,8 @@ export const en: Localizable<Copy> = {
     composerChangeNeu: '{name} missing',
     composerKnownGroup: '{name} · {n} of {of} found',
     composerChangeGefundenGroup: '{n} of {name} found',
+    // number words a sentence may count with («zwei Kinder der Klasse 4b»), 1 … 12, folded (no umlauts)
+    countWords: ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as string[],
     rowGefundenOrt: ' · found {wo}',
     korrigierenGefunden: 'Found (where)',
     korrigierenBtn: 'Correct …',

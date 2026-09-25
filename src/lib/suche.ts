@@ -988,18 +988,35 @@ function startsAWord(word: string, target: string): boolean {
   return norm(target).split(/[\s(/,.+-]+/).some((w) => w.startsWith(word))
 }
 
-/** Named people still missing that the words being typed ARE — offered as «Eva Beispiel · vermisst
- *  → gefunden». EVERY typed word of ≥ 2 letters must start a word of the name: «eva bei» finds
- *  «Eva Beispiel», «eva» alone does too, but «eva im Keller» and «va» do not. */
+/** A text's words, as the matching reads them: lower-case, accents folded, punctuation dropped. */
+const wordsOf = (text: string) => norm(text).split(/[\s()[\]/,.:;!?+·–—«»"'-]+/).filter(Boolean)
+
+/**
+ * Named people still missing that a sentence is ABOUT — offered as «Eva Beispiel · vermisst →
+ * gefunden» (a group: «Klasse 4b · 2 von 5 gefunden»). Either rule is enough:
+ * - TYPING: every typed word of ≥ 2 letters starts a word of the name — «eva bei» finds «Eva
+ *   Beispiel», «eva» alone does too, but «va» does not;
+ * - NAMED: every word of the name stands in the sentence, anywhere — «2 Kinder der Klasse 4b»,
+ *   «Klasse 4b: 3 gefunden», «Eva Beispiel am Sammelplatz» (walk-through 25.09.2026, R2: a group
+ *   was only offered for a text that was nothing but its name, so a count in the sentence could
+ *   never be used). «eva im Keller» still finds nobody: «Beispiel» is not in it.
+ * A record the sentence NAMES ranks before one it only begins to type.
+ */
 export function suggestSuchePersonen(text: string, personen: readonly PersonView[], limit = 2): PersonView[] {
-  const words = norm(text).split(/\s+/).filter((w) => w.length >= 2)
-  if (!words.length) return []
+  const typed = norm(text).split(/\s+/).filter((w) => w.length >= 2)
+  const said = new Set(wordsOf(text))
+  if (!typed.length && !said.size) return []
   const C = appConfig.copy.suche
   return personen
     .filter((p) => p.status === 'vermisst' && p.label !== C.unnamed && p.label !== C.groupUnnamed)
-    .filter((p) => words.every((w) => startsAWord(w, p.label)))
-    .map((p) => ({ p, score: words.reduce((s, w) => s + fuzzyScore(w, p.label), 0) }))
-    .sort((a, b) => b.score - a.score || a.p.firstAt.localeCompare(b.p.firstAt))
+    .map((p) => {
+      const nameWords = wordsOf(p.label)
+      const named = nameWords.length > 0 && nameWords.every((w) => said.has(w))
+      const typing = typed.length > 0 && typed.every((w) => startsAWord(w, p.label))
+      return { p, named, typing, score: typed.reduce((sum, w) => sum + fuzzyScore(w, p.label), 0) }
+    })
+    .filter((m) => m.named || m.typing)
+    .sort((a, b) => Number(b.named) - Number(a.named) || b.score - a.score || a.p.firstAt.localeCompare(b.p.firstAt))
     .slice(0, limit)
     .map((m) => m.p)
 }
@@ -1150,14 +1167,20 @@ export type SucheComposerLink =
 
 /**
  * The composer's «gefunden» offer for one person on the list (walk-through 25.09.2026, F6). For a
- * group it NAMES the count, never «all of them»: a number in the sentence that is not part of the
- * group's own name («2 Kinder am Sammelplatz») and fits what is still missing, else 1. Typing
+ * group it NAMES the count, never «all of them»: a number in the sentence — digits or a number word
+ * — that is not part of the group's own name («3 von Klasse 4b gefunden», «zwei Kinder der Klasse
+ * 4b») and fits what is still missing, else 1. Typing
  * «Klasse 4b» to say two children turned up had marked all five remaining found.
  */
 export function composerFoundLink(text: string, v: PersonView): SucheComposerLink {
   if (!v.group) return { kind: 'gefunden', personId: v.id, label: v.label }
-  const own = new Set((v.label.match(/\d+/g) ?? []))
-  const said = (text.match(/\b\d{1,3}\b/g) ?? []).filter((d) => !own.has(d)).map(Number).find((n) => n >= 1 && n <= v.missing)
+  // the sentence's numbers — digits, or a number word («zwei Kinder») — that are not the name's own
+  const own = new Set(wordsOf(v.label))
+  const words = appConfig.copy.suche.countWords
+  const said = wordsOf(text)
+    .filter((w) => !own.has(w))
+    .map((w) => (/^\d{1,3}$/.test(w) ? Number(w) : words.indexOf(w) + 1))
+    .find((n) => n >= 1 && n <= v.missing)
   return { kind: 'gefunden', personId: v.id, label: v.label, n: said ?? 1, of: v.missing }
 }
 

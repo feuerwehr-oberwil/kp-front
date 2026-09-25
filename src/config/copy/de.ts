@@ -5285,6 +5285,8 @@ export const de = {
     composerChangeNeu: '{name} vermisst',
     composerKnownGroup: '{name} · {n} von {of} gefunden',
     composerChangeGefundenGroup: '{n} von {name} gefunden',
+    // Zahlwörter 1 … 12, so wie der Abgleich sie liest (klein, ohne Umlaute: «funf», «zwolf»)
+    countWords: ['eins', 'zwei', 'drei', 'vier', 'funf', 'sechs', 'sieben', 'acht', 'neun', 'zehn', 'elf', 'zwolf'] as string[],
     rowGefundenOrt: ' · gefunden {wo}',
     korrigierenGefunden: 'Gefunden (wo)',
     korrigierenBtn: 'Korrigieren …',

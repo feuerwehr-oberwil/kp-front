@@ -5283,6 +5283,8 @@ export const fr: Localizable<Copy> = {
     composerChangeNeu: '{name} disparu',
     composerKnownGroup: '{name} · {n} sur {of} retrouvé(s)',
     composerChangeGefundenGroup: '{n} de {name} retrouvé(s)',
+    // number words a sentence may count with («zwei Kinder der Klasse 4b»), 1 … 12, folded (no umlauts)
+    countWords: ['un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze'] as string[],
     rowGefundenOrt: ' · retrouvé {wo}',
     korrigierenGefunden: 'Retrouvé (où)',
     korrigierenBtn: 'Corriger …',
