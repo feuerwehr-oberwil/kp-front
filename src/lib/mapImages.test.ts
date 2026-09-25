@@ -63,7 +63,41 @@ describe('pointIconRegistry — no icon is ever asked for in vain', () => {
     reg.sync(pointIconVariants(LAYERS, { Hydrant: SVG }))
     await new Promise((r) => setTimeout(r, 0))
     expect((images.get('icon-lk-hydrant') as { tag: string }).tag).toBe('late')
+    // the night variant was never asked for; when it is, the decoded picture answers at once
+    expect(images.has('icon-lk-hydrant-night')).toBe(false)
+    reg.answerMissing('icon-lk-hydrant-night')
     expect((images.get('icon-lk-hydrant-night') as { tag: string }).tag).toBe('late')
+  })
+
+  it('⚠️ after a style reload the real picture comes back, never the stand-in for good', async () => {
+    // review of #232: a registry that remembered «decoded, done» answered the reloaded style with
+    // a transparent stand-in that nothing ever replaced — the hydrants were gone for good
+    const { host, images } = fakeMap()
+    const reg = pointIconRegistry(host, async () => decoded('pic'))
+    reg.sync(pointIconVariants(LAYERS, { Hydrant: SVG }))
+    reg.answerMissing('icon-lk-hydrant')
+    await new Promise((r) => setTimeout(r, 0))
+    expect((images.get('icon-lk-hydrant') as { tag: string }).tag).toBe('pic')
+    images.clear() // setStyle / day-night swap drops every image
+    reg.answerMissing('icon-lk-hydrant')
+    expect((images.get('icon-lk-hydrant') as { tag: string }).tag).toBe('pic')
+    images.clear()
+    reg.restore() // …and `styledata` puts back what it has, asked or not
+    expect((images.get('icon-lk-hydrant') as { tag: string }).tag).toBe('pic')
+    expect((images.get('icon-lk-hydrant-night') as { tag: string }).tag).toBe('pic')
+  })
+
+  it('a changed tint replaces the picture in place', async () => {
+    const { host, images, log } = fakeMap()
+    const reg = pointIconRegistry(host, async (svg) => decoded(svg.includes('#0055ff') ? 'blue' : 'red'))
+    reg.sync(pointIconVariants(LAYERS, { Hydrant: SVG }).slice(0, 1))
+    await new Promise((r) => setTimeout(r, 0))
+    reg.answerMissing('icon-lk-hydrant')
+    expect((images.get('icon-lk-hydrant') as { tag: string }).tag).toBe('blue')
+    reg.sync(pointIconVariants([{ ...LAYERS[0], color: '#ff0000' }], { Hydrant: SVG }).slice(0, 1))
+    await new Promise((r) => setTimeout(r, 0))
+    expect((images.get('icon-lk-hydrant') as { tag: string }).tag).toBe('red')
+    expect(log.filter((l) => l.startsWith('add'))).toEqual(['add icon-lk-hydrant'])
   })
 
   it('leaves other image families to their own handlers', () => {

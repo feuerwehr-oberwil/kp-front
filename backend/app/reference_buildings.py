@@ -90,31 +90,63 @@ def _load_stored() -> dict | None:
         return None
 
 
-async def stored_answer(box: tuple[float, float, float, float]) -> dict | None:
-    """The snapshot's answer for (south, west, north, east) when the STORED snapshot covers the whole
-    box — or None, and the caller asks the mirrors. Read-only: it never fetches, never refreshes
-    (that stays the worker's `ensure_snapshot`), so a browser request costs no Overpass query at
-    all for an Einsatz inside the station's area.
+# ── The LIVE path's own copy (POST /overpass/buildings) ──────────────────────────────────────
+# ⚠️ Never `_cache` above: that one is the worker's, and `ensure_snapshot` returns it for ten
+# minutes WITHOUT looking at the station's objects — a copy parsed here from disk would hand the
+# worker a snapshot that does not cover objects pushed since, and it would store «kein Vorschlag»
+# for them (review of #232). The two paths read the same file and share nothing in memory.
+LIVE_MAX_AGE = timedelta(days=30)
+_live: tuple[float, dict] | None = None
+# a cold load in progress — an alarm is exactly when three or four devices open the Karte at
+# once, and each would otherwise parse the same multi-MB file
+_live_load: asyncio.Task | None = None
 
-    Why it exists (25.09.2026): every Karte/Gebäude open on staging answered 502 about half the
-    time — all three public mirrors 504 or stalled from Railway's shared egress — while the very
-    outlines sat in this snapshot beside the PDFs. A week-old outline is the same building.
-    """
-    global _cache
+
+def _fetched_at(snapshot: dict) -> datetime | None:
+    try:
+        at = datetime.fromisoformat(str(snapshot.get("fetched_at")))
+    except ValueError:
+        return None
+    return at if at.tzinfo else at.replace(tzinfo=UTC)
+
+
+async def _live_snapshot() -> dict | None:
+    global _live, _live_load
     now = time.monotonic()
-    stored: dict | None
-    if _cache and now - _cache[0] < _CACHE_S:
-        stored = _cache[1]
-    else:
-        # a multi-MB parse — off the event loop, and kept for the next caller
-        stored = await asyncio.to_thread(_load_stored)
-        if stored is None:
-            return None
-        _cache = (now, stored)
+    if _live and now - _live[0] < _CACHE_S:
+        return _live[1]
+    if _live_load is None or _live_load.done():
+        _live_load = asyncio.create_task(asyncio.to_thread(_load_stored))
+    task = _live_load
+    stored = await asyncio.shield(task)
+    if stored is not None and task is _live_load:
+        _live = (time.monotonic(), stored)
+    return stored
+
+
+async def stored_answer(box: tuple[float, float, float, float], *, any_age: bool = False) -> dict | None:
+    """The stored station snapshot's answer for (south, west, north, east), or None — then the
+    caller asks the mirrors. Only when the snapshot covers the WHOLE box, and only while it is
+    recent (`LIVE_MAX_AGE`, by its own `fetched_at`) unless `any_age` — the fallback for when every
+    mirror has failed, where a months-old outline still beats none. Read-only: it never fetches or
+    refreshes; that is the alignment worker's `ensure_snapshot`, and only when jobs run.
+
+    Why it exists (25.09.2026): about half of all Karte/Gebäude opens on staging answered 502 —
+    all three public mirrors 504'd or stalled from Railway's shared egress — while the very
+    outlines sat in this snapshot beside the PDFs.
+    """
+    stored = await _live_snapshot()
+    if stored is None:
+        return None
     bbox = stored.get("bbox")
     if not isinstance(bbox, list) or len(bbox) != 4 or not covers(tuple(bbox), box):
         return None
-    return clip_bbox(stored, box)
+    if not any_age:
+        at = _fetched_at(stored)
+        if at is None or datetime.now(UTC) - at > LIVE_MAX_AGE:
+            return None
+    # thousands of elements to test — off the event loop like the parse
+    return await asyncio.to_thread(clip_bbox, stored, box)
 
 
 async def station_bbox(db: AsyncSession) -> tuple[float, float, float, float] | None:

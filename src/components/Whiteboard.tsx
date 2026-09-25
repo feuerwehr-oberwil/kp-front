@@ -4277,14 +4277,15 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           a reading, never a shortcut into a second, competing manual calibration. The separate
           Verknüpft control beside it opens the Passung and its explicit correction actions.
           Hidden for the OSM live outline / blank sheet (no printed reference to measure against).
-          ⚠️ A LOCKED surface shows neither this chip nor «⌖ Karte» (25.09.2026, 3am test): both are
-          doors to settings a locked session cannot write — the manual chip was a disabled button
-          saying nothing about why, and «Ref. auto» opened the Passung with «Punkt hinzufügen /
-          Übertragen / Zurücksetzen» live for an `el` whose save 403s. The READING they carried is
-          where a locked session needs it: the Messen panel names the scale's source
-          (`scaleNote`) or says the plan is not calibrated. Same rule as the Einsatz-Link viewer
-          (linkViewer): the chips are the instruments of whoever may set them. */}
-      {!readOnly && !osm && !blank && !linkViewer && (
+          ⚠️ On a LOCKED surface (el, Führungsansicht, viewer, replay) this chip and «⌖ Karte» are
+          READ-OUTS (25.09.2026, 3am test + review of #232): the same words and the same tone, and
+          no tap — «Ref. auto» used to open the Passung with «Punkt hinzufügen / Übertragen /
+          Zurücksetzen» live for an `el` whose save 403s. They are not hidden, because what they
+          say is load-bearing: an unchecked automatic fit must never look like a checked one (the
+          «ungemessen» / amber rules above), and a locked device reads the plan too. Disabled in
+          the `.wb-object:disabled` recipe — not greyed. An Einsatz-Link viewer (linkViewer) gets
+          neither: the chips are the origin's instruments. */}
+      {(!readOnly || slimRail) && !osm && !blank && !linkViewer && (
         scaleAuto
           /* Still a reading, not a second calibration path – but a TAPPABLE one (29.08.): the
              hover title never fires on the field iPad, so the chip explains itself the same
@@ -4296,7 +4297,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           ? <button className="wb-scale-chip wb-scale-status wb-lamped on"
               title={georefFit || packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint}
               aria-label={appConfig.copy.whiteboard.scale.chipAuto}
-              aria-expanded={georefFit ? georefQuality : undefined}
+              aria-expanded={georefFit && !readOnly ? georefQuality : undefined}
+              disabled={readOnly}
               onClick={() => georefFit
                 ? setQualityFor(georefQuality ? null : activeId)
                 : toast(packMPerU ? appConfig.copy.whiteboard.scale.chipAutoHint : appConfig.copy.whiteboard.scale.chipAutoStackHint)}>
@@ -4311,8 +4313,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 : appConfig.copy.whiteboard.scale.chipUncalibrated
               return <button
                 className={`wb-scale-chip wb-lamped ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
-                title={appConfig.copy.whiteboard.scale.recalibrate}
+                title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
                 aria-label={label}
+                disabled={readOnly}
                 onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
               >
                 <Icon id="measure" />
@@ -4325,17 +4328,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           tied to the world, and how well. Same recipe and same corner as the Massstab beside it,
           and the same rule: never a hidden assumption. Blue, like Messen and Massstab — a
           georeference is not an alarm, so never the station's --accent.
-          A plan with no reference offers the verb. A locked session and an Einsatz-Link viewer
-          see neither — see the Maßstab chip above. */}
-      {canGeoref && !readOnly && !linkViewer && (
+          A locked session sees the linked reading as a read-out (tone intact, no tap — see the
+          Maßstab chip above); a plan with no reference offers the verb, to editors only. An
+          Einsatz-Link viewer sees neither. */}
+      {canGeoref && (!readOnly || georefState.kind === 'linked') && !linkViewer && (
         <button
           className={`wb-scale-chip wb-lamped ${georefState.kind === 'linked' ? (georefState.warn ? 'wb-georef-warn' : 'wb-georef-ok') : ''} ${georefQuality ? 'arm' : ''}`}
-          title={georefState.kind === 'linked' ? appConfig.copy.whiteboard.georef.openQuality
+          title={readOnly ? undefined
+            : georefState.kind === 'linked' ? appConfig.copy.whiteboard.georef.openQuality
             : appConfig.copy.whiteboard.georef.linkTitle}
           aria-label={georefState.kind === 'linked'
             ? appConfig.copy.whiteboard.georef.chipLinked
             : appConfig.copy.whiteboard.georef.chipUnlinked}
-          aria-expanded={georefState.kind === 'linked' ? georefQuality : undefined}
+          disabled={readOnly}
+          aria-expanded={georefState.kind === 'linked' && !readOnly ? georefQuality : undefined}
           onClick={() => {
             // linked ⇒ the chip opens the Passung; unlinked ⇒ the chooser when the matcher can
             // be asked, else the pairing straight away. A plan that has no reference has nothing

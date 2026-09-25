@@ -810,14 +810,26 @@ export function AtemschutzView({
     if (!compact || !openRow) { list.style.removeProperty('--az-open-pad'); return }
     const card = list.querySelector<HTMLElement>('[data-az-open]')
     if (!card) return
-    list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
-    // Parked, a card about a port tall ends in the FAB's corner: its foot row (Verlauf ·
-    // zuletzt · chevron) then keeps the FAB's column free (Atemschutz.module.css ·
-    // data-az-fab-foot). Measured, not assumed — a short card's foot is nowhere near the circle
-    // and keeps its full width.
-    const fab = document.querySelector('.fab-entry')?.getBoundingClientRect()
-    card.toggleAttribute('data-az-fab-foot', !!fab && port.getBoundingClientRect().top + card.offsetHeight > fab.top)
+    // Parked at the top of the port, a card about a port tall ends in the FAB's corner, and the
+    // circle sat on its Verlauf row's chevron (field checks 24.09.2026). That ROW — and only it —
+    // then keeps the FAB's column free (Atemschutz.module.css · data-az-fab-foot). Measured where
+    // the row will stand once parked, not assumed: a short card's row is nowhere near the circle.
+    // Re-measured whenever the card changes height (the Verlauf opening, a crew row, a warning),
+    // which moves both the spacer it needs and whether its row still reaches the corner.
+    const measure = () => {
+      list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
+      const row = card.querySelector<HTMLElement>('[data-az-foot]')
+      const fab = document.querySelector('.fab-entry')?.getBoundingClientRect()
+      if (!row) return
+      const top = port.getBoundingClientRect().top + (row.getBoundingClientRect().top - card.getBoundingClientRect().top)
+      row.toggleAttribute('data-az-fab-foot', !!fab && top < fab.bottom && top + row.offsetHeight > fab.top)
+    }
+    measure()
     card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    ro.observe(card)
+    return () => ro.disconnect()
   }, [compact, openRow])
 
   /* WHICH cards the current pointer marks — and which one the board scrolls to.
@@ -2456,7 +2468,7 @@ function TruppCard({
         )}
         {(lastReading || timesShown) && (
           <>
-            <button type="button" className={s.vrow} aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
+            <button type="button" className={s.vrow} data-az-foot="" aria-expanded={logOpen} onClick={() => setLogOpen((o) => !o)}>
               <Icon id="history" /><span className={s.vrowLbl}>{az.verlauf}</span>
               {/* ⚠️ The preview belongs to the CLOSED row only (09.09.). Its whole job is to
                   answer «und dann?» without opening anything — and open, it printed the newest

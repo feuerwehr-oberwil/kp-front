@@ -577,8 +577,14 @@ to prod.
   silently replaced.
 - **Building outlines come from the station's snapshot first** (25.09.2026). `POST
   /api/overpass/buildings` clips the box out of the stored station snapshot
-  (`reference_buildings · stored_answer`, read-only — the alignment worker keeps refreshing it)
-  whenever that covers the box, and only otherwise races the mirrors. The race itself is cached
+  (`reference_buildings · stored_answer`, read-only) whenever that covers the box AND its
+  `fetched_at` is at most 30 days old; otherwise it races the mirrors and falls back to the
+  snapshot at any age only when every mirror failed (also with no mirror configured, before the
+  503). Only the alignment worker refreshes the snapshot, and only while it has jobs to run, so
+  «recent» is not a given. ⚠️ The live path has its OWN parsed copy (`_live`, one shared load for
+  concurrent cold callers, parse and clip off the event loop): the worker's `_cache` is returned
+  for ten minutes without checking the station's objects, and fed from the live path it once
+  handed the worker a snapshot missing newly pushed objects. The race itself is cached
   per query (6 h, 64 entries, never a failure) and shared between concurrent callers — every
   device of an Einsatz asks for the same box from ONE egress address, which the public mirrors
   throttle — and its per-mirror guard (30 s) outlasts the query's own `[timeout:25]`. Staging
@@ -695,12 +701,16 @@ to prod.
   (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
   on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
   Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
-  through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026): a
-  locked session gets no «Anderes Gebäude wählen» (the locked picker has no «Übernehmen»; the pill
-  stays as the building's name, read-only), no Massstab / «⌖ Karte» chips on a plan (the Messen
-  panel names the scale's source), no «Gebäude drehen», and — for `el` — no saved-view writes, no
-  object switch, no «Weitergeben» section (`canShare` = `canShareLink`, so no GET for a link it may
-  not read either), no «Wieder öffnen», no transcription, no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
+  through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A
+  READ-OUT is not a door: it stays, disabled in the `.wb-object:disabled` recipe (full opacity,
+  its own words and tone, no tap). So a locked session (el, Führungsansicht, viewer, replay) keeps
+  the building's name, the Massstab and the linked «⌖ Karte» chip as read-outs — an unchecked
+  automatic fit must never look like a checked one, whoever is looking — but gets no «Anderes
+  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
+  session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
+  no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
+  saved-view writes, no vehicle override, no object switch, no «Wieder öffnen», no transcription
+  and no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:

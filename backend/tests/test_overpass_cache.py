@@ -8,6 +8,8 @@ outlines the station already keeps (app/reference_buildings).
 """
 
 import asyncio
+import json
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -116,11 +118,11 @@ def test_the_mirror_guard_outlasts_the_query_timeout():
 # --- the station snapshot answers first ------------------------------------------------------
 
 
-def _store_snapshot(monkeypatch, tmp_path, bbox, elements):
-    import json
-
+def _store_snapshot(monkeypatch, tmp_path, bbox, elements, age=timedelta(days=1)):
     monkeypatch.setattr(storage, "_ROOT", str(tmp_path))
-    storage.put_bytes(reference_buildings.SNAPSHOT_KEY, json.dumps({"bbox": bbox, "elements": elements}).encode())
+    fetched_at = (datetime.now(UTC) - age).isoformat()
+    body = {"fetched_at": fetched_at, "bbox": bbox, "elements": elements}
+    storage.put_bytes(reference_buildings.SNAPSHOT_KEY, json.dumps(body).encode())
 
 
 async def test_a_box_inside_the_snapshot_is_clipped_from_it(monkeypatch, tmp_path):
@@ -160,3 +162,85 @@ async def test_the_proxy_answers_from_the_snapshot_without_asking_a_mirror(clien
     )
     assert r.status_code == 200
     assert r.json() == {"elements": [inside]}
+
+
+async def test_an_old_snapshot_is_not_the_first_answer(monkeypatch, tmp_path):
+    """Past LIVE_MAX_AGE the mirrors are asked first; the old outlines are only the fallback."""
+    _store_snapshot(monkeypatch, tmp_path, [47.4, 7.4, 47.6, 7.6], [], age=timedelta(days=45))
+    box = (47.499, 7.499, 47.501, 7.501)
+    assert await reference_buildings.stored_answer(box) is None
+    assert await reference_buildings.stored_answer(box, any_age=True) == {"elements": []}
+
+
+async def test_concurrent_cold_loads_parse_the_file_once(monkeypatch, tmp_path):
+    """An alarm is when three or four devices open the Karte at once."""
+    _store_snapshot(monkeypatch, tmp_path, [47.4, 7.4, 47.6, 7.6], [])
+    real = reference_buildings._load_stored
+    loads: list[int] = []
+
+    def counting():
+        loads.append(1)
+        return real()
+
+    monkeypatch.setattr(reference_buildings, "_load_stored", counting)
+    box = (47.499, 7.499, 47.501, 7.501)
+    answers = await asyncio.gather(*(reference_buildings.stored_answer(box) for _ in range(4)))
+    assert all(a == {"elements": []} for a in answers)
+    assert len(loads) == 1
+
+
+async def test_the_live_path_never_feeds_the_workers_cache(monkeypatch, tmp_path, db_session):
+    """Review of #232: `ensure_snapshot` returns its `_cache` for ten minutes WITHOUT checking the
+    station's objects, so a stale disk copy parsed by a Karte open must never land there — the
+    worker would clip objects the snapshot does not cover and store «kein Vorschlag»."""
+    from app.models import ObjectSite
+
+    _store_snapshot(monkeypatch, tmp_path, [47.4, 7.4, 47.6, 7.6], [])
+    await reference_buildings.stored_answer((47.499, 7.499, 47.501, 7.501))
+    assert reference_buildings._cache is None
+    # an object outside the stored box: the worker must refresh, not reuse the live copy
+    db_session.add(ObjectSite(name="Neu", lat=47.9, lng=7.9))
+    await db_session.commit()
+    fetched: list[str] = []
+
+    async def fetch(query, timeout_s=20.0, **_kw):
+        fetched.append(query)
+        return {"elements": []}
+
+    monkeypatch.setattr(reference_buildings.overpass, "fetch_buildings", fetch)
+    snap = await reference_buildings.ensure_snapshot(db_session)
+    assert fetched, "the worker reused a snapshot that does not cover the new object"
+    assert reference_buildings.covers(tuple(snap["bbox"]), (47.9, 7.9, 47.9, 7.9))
+
+
+async def test_the_proxy_falls_back_to_an_old_snapshot_only_when_every_mirror_fails(
+    client, editor, monkeypatch, tmp_path
+):
+    inside = {"type": "way", "id": 7, "geometry": [{"lat": 47.5001, "lon": 7.5001}]}
+    _store_snapshot(monkeypatch, tmp_path, [47.4, 7.4, 47.6, 7.6], [inside], age=timedelta(days=60))
+    asked: list[int] = []
+
+    async def mirror_down(*_a, **_kw):
+        asked.append(1)
+        raise RuntimeError("all Overpass mirrors failed")
+
+    monkeypatch.setattr(overpass, "mirrors", lambda: ["https://only.example/api"])
+    monkeypatch.setattr(overpass, "fetch_buildings", mirror_down)
+    await _login(client, editor)
+    body = {"south": 47.499, "west": 7.499, "north": 47.501, "east": 7.501}
+    r = await client.post("/api/overpass/buildings", json=body)
+    assert asked == [1]  # the mirrors first — the snapshot is two months old
+    assert r.status_code == 200
+    assert r.json() == {"elements": [inside]}
+
+
+async def test_no_mirrors_configured_still_answers_from_the_snapshot(client, editor, monkeypatch, tmp_path):
+    _store_snapshot(monkeypatch, tmp_path, [47.4, 7.4, 47.6, 7.6], [], age=timedelta(days=60))
+    monkeypatch.setattr(overpass, "mirrors", list)
+    await _login(client, editor)
+    r = await client.post(
+        "/api/overpass/buildings", json={"south": 47.499, "west": 7.499, "north": 47.501, "east": 7.501}
+    )
+    assert r.status_code == 200
+    r = await client.post("/api/overpass/buildings", json={"south": 48.0, "west": 8.0, "north": 48.1, "east": 8.1})
+    assert r.status_code == 503  # outside it: the honest «not configured»

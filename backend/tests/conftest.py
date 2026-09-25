@@ -124,13 +124,16 @@ def _clean_overpass_caches():
     one's cache hit."""
     from app import overpass, reference_buildings
 
-    overpass._cache.clear()
-    overpass._inflight.clear()
-    reference_buildings._cache = None
+    def reset() -> None:
+        overpass._cache.clear()
+        overpass._inflight.clear()
+        reference_buildings._cache = None
+        reference_buildings._live = None
+        reference_buildings._live_load = None
+
+    reset()
     yield
-    overpass._cache.clear()
-    overpass._inflight.clear()
-    reference_buildings._cache = None
+    reset()
 
 
 @pytest.fixture(autouse=True)

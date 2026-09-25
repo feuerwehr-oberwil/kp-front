@@ -444,11 +444,11 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
   font-weight: 600; color: var(--ink-faint); }
 .logChev { color: var(--ink-faint); }
 /* An OPENED card on the phone list is parked at the top of the port (AtemschutzView · the
-   `--az-open-pad` effect), and a card about a port tall comes to rest with its foot — this row —
-   in the FAB's corner: the circle sat on the chevron and the end of «zuletzt: …» (field checks
-   24.09.2026). The effect measures that case and marks the card; the row then keeps the FAB's
+   `--az-open-pad` effect), and a card about a port tall comes to rest with this row in the FAB's
+   corner: the circle sat on the chevron and the end of «zuletzt: …» (field checks 24.09.2026).
+   The effect measures where the row stands and marks the ROW itself; it then keeps the FAB's
    column free, so the preview ellipsises a little earlier and the chevron stays tappable. */
-[data-az-fab-foot] .vrow { padding-right: calc(14px + var(--fab-safe, 0px)); }
+.vrow[data-az-fab-foot] { padding-right: calc(14px + var(--fab-safe, 0px)); }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`

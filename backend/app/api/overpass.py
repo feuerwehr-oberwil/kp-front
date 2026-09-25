@@ -8,12 +8,16 @@ Auth required (editor or viewer), same as the geocoder: without it this would be
 relay that anyone could point at Overpass using the station's address.
 """
 
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from .. import overpass as overpass_client
 from .. import reference_buildings
 from ..auth.dependencies import CurrentUser
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/overpass", tags=["overpass"])
 
@@ -41,20 +45,27 @@ async def buildings(_user: CurrentUser, box: BuildingsRequest) -> dict:
     if box.south >= box.north or box.west >= box.east:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "leere oder invertierte Bounding-Box")
 
-    if not overpass_client.mirrors():
-        # Configured off (or misconfigured to non-https only). The surface treats this the
-        # same as an upstream failure and offers a retry, which is the honest outcome.
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Overpass ist nicht konfiguriert")
-
     # The station's own snapshot first (reference_buildings): an Einsatz inside the station's
     # area is answered from storage, with no Overpass query at all — the public mirrors 504'd or
-    # stalled on about half the Karte opens on staging (25.09.2026). Outside it, the mirrors.
-    stored = await reference_buildings.stored_answer((box.south, box.west, box.north, box.east))
+    # stalled on about half the Karte opens on staging (25.09.2026). Only while it is recent;
+    # an older one is the fallback below, after the mirrors had their chance.
+    south_west_north_east = (box.south, box.west, box.north, box.east)
+    stored = await reference_buildings.stored_answer(south_west_north_east)
     if stored is not None:
         return stored
 
-    bbox = f"{box.south},{box.west},{box.north},{box.east}"
-    try:
-        return await overpass_client.fetch_buildings(overpass_client.BUILDINGS_QUERY.format(bbox=bbox))
-    except Exception as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Overpass nicht erreichbar") from exc
+    configured = bool(overpass_client.mirrors())
+    if configured:
+        bbox = f"{box.south},{box.west},{box.north},{box.east}"
+        try:
+            return await overpass_client.fetch_buildings(overpass_client.BUILDINGS_QUERY.format(bbox=bbox))
+        except Exception:  # noqa: BLE001 – any mirror failure falls through to the stored outlines
+            logger.info("Overpass unreachable for %s; trying the stored snapshot at any age", bbox)
+    stale = await reference_buildings.stored_answer(south_west_north_east, any_age=True)
+    if stale is not None:
+        return stale
+    if not configured:
+        # Configured off (or misconfigured to non-https only). The surface treats this the
+        # same as an upstream failure and offers a retry, which is the honest outcome.
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Overpass ist nicht konfiguriert")
+    raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Overpass nicht erreichbar")

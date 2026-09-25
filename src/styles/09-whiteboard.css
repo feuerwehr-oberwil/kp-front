@@ -937,8 +937,13 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-chip svg { width: 14px; height: 14px; flex: none; }
 .wb-scale-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (hover: hover) {
-  .wb-scale-chip:hover { border-color: var(--blue); color: var(--ink); }
+  .wb-scale-chip:hover:where(:not(:disabled)) { border-color: var(--blue); color: var(--ink); }
 }
+/* …and the same pills on a LOCKED plan are read-outs (Whiteboard · the Maßstab / «⌖ Karte»
+   chips, `disabled`): the `.wb-object:disabled` recipe — full opacity, their own words and tone,
+   no hover, no touch pad. The tone is the point: «ungemessen» amber must read as amber. */
+.wb-scale-chip:disabled { cursor: default; opacity: 1; }
+.wb-botleft > .wb-scale-chip:disabled::after { display: none; }
 .wb-scale-chip.on { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 /* A scale derived from the Karte link is a source/status, not another calibration affordance.
    It deliberately has no expanded touch pad or hover reaction; correction lives behind the
@@ -946,7 +951,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-status { cursor: default; }
 .wb-botleft > .wb-scale-status::after { display: none; }
 @media (hover: hover) {
-  .wb-scale-status:hover { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
+  .wb-scale-status:hover:where(:not(:disabled)) { color: var(--ink); border-color: color-mix(in srgb, var(--blue) 45%, var(--glass-edge)); }
 }
 /* --warn was never declared, so this rendered the DAY amber literal in both themes */
 .wb-scale-chip.stale { color: var(--amber-strong); border-color: var(--amber-strong); }
@@ -994,7 +999,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-chip.wb-georef-ok { color: var(--green-strong); border-color: color-mix(in srgb, var(--green) 45%, var(--glass-edge)); }
 .wb-scale-chip.wb-georef-warn { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 50%, var(--glass-edge)); }
 @media (hover: hover) {
-  .wb-scale-chip.wb-georef-ok:hover, .wb-scale-chip.wb-georef-warn:hover { border-color: currentColor; }
+  .wb-scale-chip.wb-georef-ok:hover:where(:not(:disabled)), .wb-scale-chip.wb-georef-warn:hover:where(:not(:disabled)) { border-color: currentColor; }
 }
 /* the chip stays in its own tone while its Passung is open — «open» is a fill, not a recolour,
    so the quality it reports is never overwritten by the state of a panel.
