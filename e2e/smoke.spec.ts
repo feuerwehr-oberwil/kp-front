@@ -102,8 +102,11 @@ test.describe(() => {
 
 test.describe(() => {
   // Offline, the Karte's basemap tiles fail to load and MapView reports each failure (onError →
-  // lib/reportError, kind «error», «Failed to fetch»). The drill takes the network away on
-  // purpose, so that one report is expected; any other still fails the test (./guard.ts).
+  // lib/reportError, kind «error», «Failed to fetch»). A real device is quiet about it:
+  // reportError drops a bare fetch failure while `navigator.onLine` is false. Chromium's offline
+  // EMULATION is not: a document reloaded while offline reads `navigator.onLine === true`
+  // (measured 24.09.2026), so the tiles of the reloaded Karte still report. That one report is
+  // expected here; any other still fails the test (./guard.ts).
   test.use({ expectedClientErrors: [/^error: Failed to fetch$/] })
 
   test('offline journal entries survive reload and reconnect', async ({ page, context, browserName }) => {
