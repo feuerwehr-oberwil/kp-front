@@ -1454,10 +1454,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    group they move together and hug the right edge, which is also where they sit on a tablet, so
    the arrangement does not change identity between devices. */
 .headActs { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
-  gap: var(--head-gap); flex: 0 1 auto; max-width: 100%; margin-left: auto; }
-/* ⚠️ `0 1` + `max-width`, not `0 0 auto` (staging r3, 820): the group never shrank, so on its own
-   row it ran past the surface's edge and «+ Trupp anmelden» was cut in half. Allowed to be as
-   wide as the head and no wider, its own `flex-wrap` puts the last button on a second line. */
+  gap: var(--head-gap); flex: 0 0 auto; margin-left: auto; }
+/* ⚠️ The FULL head's group may shrink to the head's width (staging r3, 820): it never shrank, so on
+   its own row it ran past the surface's edge and «+ Trupp anmelden» was cut in half; allowed to
+   be as wide as the head and no wider, its own `flex-wrap` puts the last button on a second line.
+   NOT the compact head (the handed-over phone board): there the group shares one row with the
+   Einsatz title, and a shrinkable group wrapped ↶ ↷ 🔔 into a column of three (caught in r4). */
+.head:not(.headCompact) .headActs { flex: 0 1 auto; max-width: 100%; }
 
 /* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
    ⚠️ mock 03 (maintainer correction, 03.09.): the kicker is DROPPED here rather than shrunk —
