@@ -5,7 +5,7 @@ import type { IncidentMeta } from './api/incidents'
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { missingSteps, type AbschlussStep } from './abschluss'
-import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen, registeredAbschlussMessage } from './abschlussOpen'
+import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
 import { truppStillDeployed, truppStillRegistered } from './atemschutz'
 import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
@@ -91,6 +91,23 @@ export function useAbschluss({
   const confirmAndComplete = useCallback(async (): Promise<boolean> => {
     const A = appConfig.copy.abschluss
     const P = appConfig.copy.preflight
+    /* ⚠️ Crews still INSIDE are their own, FIRST question (staging walk-through 25.09.2026). They
+       were the 7th grey row of the paperwork list under a filled, focused «Trotzdem abschliessen»,
+       and an Enter closed the Einsatz over three crews under PA who never got an Austritt. Now the
+       sentence names them, «Zur Tafel» is the filled, focused answer, and closing anyway is the
+       quiet one — and still writes nothing: an Austritt nobody reported is never invented. */
+    const inside = truppsRef.current.filter(truppStillDeployed)
+    if (inside.length > 0) {
+      const answer = await confirmDialog({
+        message: insideAbschlussMessage(inside),
+        confirmLabel: A.insideClose,
+        altLabel: A.registeredToBoard,
+        cancelLabel: appConfig.copy.cancel,
+        safeAnswer: 'alt',
+      })
+      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
+      if (answer !== true) return false
+    }
     /* ⚠️ A Trupp still ANGEMELDET is asked about FIRST, on its own (24.09.2026, D1 ⑦). On 23.09.
        the Sicherungstrupp T6 stood «angemeldet» to the end, and the confirm below counted only
        the crews inside, so the record closed with a crew neither sent in nor stood down. Three

@@ -2297,6 +2297,21 @@ export const de = {
     contactEchoMsg: '{name}: Kontakt wurde vor {s} s schon bestätigt (anderes Gerät).',
     contactEchoAgain: 'Nochmals',
     contactEchoOk: 'OK',
+    /* ── Staging-Durchgang 25.09.2026 ── */
+    // Bearbeiten als Patch: ein Feld, das inzwischen ein anderes Gerät geändert hat
+    editConflictOne: '{field} wurde inzwischen auf einem anderen Gerät geändert: {now} – trotzdem überschreiben?',
+    editConflictMany: '{fields} wurden inzwischen auf einem anderen Gerät geändert – trotzdem überschreiben?',
+    editConflictOverwrite: 'Überschreiben',
+    editConflictBack: 'Zurück zum Formular',
+    editFieldLabels: { crew: 'Mannschaft', auftrag: 'Auftrag', ziel: 'Ziel', lineNo: 'Leitung', funkkanal: 'Funkkanal', pressure: 'Eingangsdruck', kind: 'Art des Trupps', equipment: 'Ausrüstung' },
+    // die erste Druckmeldung nach dem Eintritt: ersetzt einen Eingangsdruck, den niemand gesetzt hat, und ist ein Kontakt
+    logFirstPressure: 'Trupp {name}: Kontakt – erste Druckmeldung {bar} bar ersetzt den Eingangsdruck {from} bar',
+    logFirstPressureSame: 'Trupp {name}: Kontakt – erste Druckmeldung {bar} bar (wie Eingangsdruck)',
+    pressureSheetFirst: 'Erste Druckmeldung – ersetzt den Eingangsdruck {bar} bar, zählt als Kontakt',
+    // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
+    newTruppShort: 'Trupp',
+    // kleine Marke am Sicherungstrupp, auch nachdem er eingesetzt ist
+    safetyChip: 'SiTr',
     contactDone: 'Bestätigt',
     // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
     pressureLockedLabel: 'Eingangsdruck ({t})',
@@ -4019,6 +4034,11 @@ export const de = {
     registeredSafety: '{name}, Sicherungstrupp',
     registeredToBoard: 'Zur Tafel',
     registeredStandDown: 'Als «nicht eingesetzt» schliessen',
+    // Trupps, die beim Abschluss noch DRIN sind: eine eigene, erste Frage
+    insideOne: '1 Trupp ist noch drin: {list}.',
+    insideMany: '{n} Trupps sind noch drin: {list}.',
+    insideTrupp: 'Trupp {name}',
+    insideClose: 'Trotzdem abschliessen',
     done: 'Rapport abgeschlossen',
     doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',

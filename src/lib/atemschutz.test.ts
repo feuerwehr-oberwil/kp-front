@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppFieldsOf, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
+import { EARLY_PRESSURE_CORRECTION_MS, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtElapsedFull, isAtemschutzTrupp, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppInField, truppLogName, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -453,6 +453,33 @@ describe('truppStillDeployed (the Abschluss question)', () => {
   })
 })
 
+describe('entryPressureConfirmed — an Eingangsdruck set on purpose', () => {
+  const at = (m: number) => new Date(REF + m * 60_000).toISOString()
+  it('is false for the untouched default, true for a measured run start or the Anmeldung before it', () => {
+    expect(entryPressureConfirmed({ readings: [{ t: at(0), bar: 300, kind: 'entry' }] })).toBe(false)
+    expect(entryPressureConfirmed({ readings: [{ t: at(0), bar: 250, kind: 'entry', measured: true }] })).toBe(true)
+    expect(entryPressureConfirmed({ readings: [
+      { t: at(0), bar: 250, kind: 'registered', measured: true },
+      { t: at(0), bar: 250, kind: 'crew', crew: { name: 'A', members: [] } },
+      { t: at(1), bar: 250, kind: 'entry' },
+    ] })).toBe(true)
+  })
+
+  it('belongs to the running deployment only', () => {
+    expect(entryPressureConfirmed({ readings: [
+      { t: at(0), bar: 250, kind: 'entry', measured: true },
+      { t: at(20), bar: 120, kind: 'exit' },
+      { t: at(30), bar: 300, kind: 'entry' },
+    ] })).toBe(false)
+  })
+
+  it('closes the early-correction window', () => {
+    const t: Trupp = { ...base, readings: [{ t: base.entryTime, bar: 250, kind: 'entry', measured: true }] }
+    expect(earlyEntryCorrection(t, REF + 60_000)).toBe(false)
+    expect(earlyEntryCorrection({ ...t, readings: [{ t: base.entryTime, bar: 300, kind: 'entry' }] }, REF + 60_000)).toBe(true)
+  })
+})
+
 describe('truppStillRegistered (the Abschluss asks about the crew that stood ready)', () => {
   const ready: Trupp = { ...base, status: 'angemeldet', entryTime: '', lastContactTime: '', auftrag: 'sichern' }
 
@@ -483,6 +510,28 @@ describe('truppFieldsOf — an edit that changes one thing', () => {
       name: 'Müller', members: ['Meier'], auftrag: 'sichern', ziel: '2. OG', lineNo: 3, funkkanal: 11,
       pressure: 300, leaderPersonId: undefined, memberPersonIds: undefined, kind: undefined, equipment: ['wbk'],
     })
+  })
+})
+
+describe('truppEditPatch / truppFieldGroupsChanged — an edit writes only what it touched', () => {
+  const t: Trupp = { ...base, members: ['Meier'], auftrag: 'loeschen', ziel: 'UG', lineNo: 2, funkkanal: 11, equipment: ['wbk'] }
+
+  it('names the groups that differ, reading absent, empty and whitespace as one', () => {
+    const f = truppFieldsOf(t)
+    expect(truppFieldGroupsChanged(f, { ...f })).toEqual([])
+    expect(truppFieldGroupsChanged(f, { ...f, ziel: ' UG ' })).toEqual([])
+    expect(truppFieldGroupsChanged(f, { ...f, auftrag: 'retten', equipment: [] })).toEqual(['auftrag', 'equipment'])
+    // the form re-linking a typed name to the roster is not a crew change
+    expect(truppFieldGroupsChanged(f, { ...f, leaderPersonId: 'p9' })).toEqual([])
+    expect(truppFieldGroupsChanged(f, { ...f, members: ['Meier', 'Huber'] })).toEqual(['crew'])
+    expect(truppFieldGroupsChanged({ ...f, kind: undefined }, { ...f, kind: 'atemschutz' })).toEqual([])
+  })
+
+  it('keeps a change another device made to a field this form did not touch', () => {
+    const now: Trupp = { ...t, auftrag: 'retten', ziel: 'UG West' } // saved on phone A
+    const form = { ...truppFieldsOf(t), equipment: ['wbk', 'retthaube'] } // phone B ticked a chip
+    const out = truppEditPatch(now, form, ['equipment'])
+    expect(out).toMatchObject({ auftrag: 'retten', ziel: 'UG West', equipment: ['wbk', 'retthaube'] })
   })
 })
 

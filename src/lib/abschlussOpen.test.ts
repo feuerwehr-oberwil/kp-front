@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, controlChipLabel, countsAsOpen, registeredAbschlussMessage } from './abschlussOpen'
+import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, controlChipLabel, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
 import type { Trupp } from '../types'
 import { ABSCHLUSS_STEPS } from './abschluss'
 import { appConfig } from '../config/appConfig'
@@ -117,5 +117,17 @@ describe('registeredAbschlussMessage — who is still angemeldet', () => {
   it('counts several, and leaves out a number the record does not have', () => {
     expect(registeredAbschlussMessage([t({ no: 6, auftrag: 'sichern' }), t({ id: 'y', name: 'Meier', auftrag: 'loeschen' })]))
       .toBe('2 Trupps noch angemeldet (#6 Muster Leo, Sicherungstrupp · Meier).')
+  })
+})
+
+describe('insideAbschlussMessage — the crews still inside, by name', () => {
+  const t = (over: Partial<Trupp>): Trupp => ({
+    id: 'x', name: 'Muster Leo', entryPressureBar: 300, entryTime: '2026-09-25T10:00:00Z', lastContactTime: '', status: 'aktiv', ...over,
+  })
+  it('names each Trupp with its number and whole crew', () => {
+    expect(insideAbschlussMessage([t({ no: 1, members: ['Graf Eva'] })]))
+      .toBe('1 Trupp ist noch drin: Trupp 1 (Muster Leo / Graf Eva).')
+    expect(insideAbschlussMessage([t({ no: 1 }), t({ id: 'y', no: 2, name: 'Frei Nora' })]))
+      .toBe('2 Trupps sind noch drin: Trupp 1 (Muster Leo), Trupp 2 (Frei Nora).')
   })
 })

@@ -57,6 +57,13 @@ Trupp still angemeldet. «Sicherungstrupp bestimmen» on an existing Trupp is an
 («Auftrag Sichern»). A double contact answered «OK» (another device confirmed it < 60 s ago)
 writes nothing at all.
 
+⚠️ **The first Druck after the Eintritt is a Kontakt that says what it replaced** (2026-09-25):
+within 3 min of the Eintritt, with no reading yet and an Eingangsdruck nobody set, a Druckmeldung
+writes ONE row — «Trupp N (…): Kontakt – erste Druckmeldung 260 bar ersetzt den Eingangsdruck 300
+bar» (`logFirstPressure`) — resets the contact clock and appends a `contact` log row beside the
+corrected baseline. It used to be only an edit row («Eingangsdruck 300 → 260 bar») with no Kontakt.
+A double tap on «Kontakt» writes one row, not two.
+
 ⚠️ **Two contact kinds have been kinds of their own since 2026-08-19**, no longer «Kontakt»: the
 **exit** («Ausgerückt») and the **re-entry** after a Rückzug. The safety clock is untouched by
 this – a re-entry resets it just like a contact does – but the printed Atemschutz journal now

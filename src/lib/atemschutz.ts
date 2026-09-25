@@ -277,6 +277,47 @@ export function truppFieldsOf(t: Trupp, over: Partial<TruppFields> = {}): TruppF
 }
 
 /**
+ * The questions the Trupp form asks, as the groups a save can change — one group per thing the
+ * operator can touch (the crew is ONE: its name, members and their ids move together).
+ */
+export type TruppFieldGroup = 'crew' | 'auftrag' | 'ziel' | 'lineNo' | 'funkkanal' | 'pressure' | 'kind' | 'equipment'
+export const TRUPP_FIELD_GROUPS: readonly TruppFieldGroup[] = ['crew', 'auftrag', 'ziel', 'lineNo', 'funkkanal', 'pressure', 'kind', 'equipment']
+const GROUP_KEYS: Record<TruppFieldGroup, (keyof TruppFields)[]> = {
+  crew: ['name', 'members', 'leaderPersonId', 'memberPersonIds'],
+  auftrag: ['auftrag'], ziel: ['ziel'], lineNo: ['lineNo'], funkkanal: ['funkkanal'],
+  pressure: ['pressure'], kind: ['kind'], equipment: ['equipment'],
+}
+/** One group's value as something `===` can compare: absent, empty and whitespace are one thing;
+ *  an absent Art is Atemschutz (types · TruppKind); ids do not decide whether the crew changed —
+ *  the form re-links typed names to the roster on its own, and that is not an edit. */
+function groupValue(f: TruppFields, g: TruppFieldGroup): string {
+  const norm = (v: unknown): unknown => (typeof v === 'string' ? v.trim() || null
+    : Array.isArray(v) ? (v.length ? v.map((x) => (typeof x === 'string' ? x.trim() : x)) : null)
+    : v ?? null)
+  if (g === 'crew') return JSON.stringify([norm(f.name), norm(f.members)])
+  if (g === 'kind') return f.kind ?? 'atemschutz'
+  return JSON.stringify(norm(f[GROUP_KEYS[g][0]]))
+}
+
+/** Which groups differ between two sets of form fields — «what did the operator touch» (form
+ *  against its own untouched values) and «what changed elsewhere» (the Trupp now against the Trupp
+ *  as the form opened it). */
+export function truppFieldGroupsChanged(a: TruppFields, b: TruppFields): TruppFieldGroup[] {
+  return TRUPP_FIELD_GROUPS.filter((g) => groupValue(a, g) !== groupValue(b, g))
+}
+
+/**
+ * An edit as a PATCH (staging walk-through 25.09.2026, two phones on one Trupp): the Trupp as it
+ * stands NOW, with only the groups this form touched taken from the form. A form opened before
+ * somebody else's save used to write every field back and quietly undo that save.
+ */
+export function truppEditPatch(current: Trupp, form: TruppFields, touched: readonly TruppFieldGroup[]): TruppFields {
+  const out: TruppFields = truppFieldsOf(current)
+  for (const g of touched) for (const k of GROUP_KEYS[g]) (out as Record<string, unknown>)[k] = form[k]
+  return out
+}
+
+/**
  * Does this Eingangsdruck earn the ONE plausibility question (24.09.2026, item 2)? Below the
  * station's minimum (`doctrine.entryPressureMin`), and never for the station's own default — a
  * doctrine that sets its minimum above its own fill pressure would otherwise ask on every
@@ -373,12 +414,38 @@ export const EARLY_PRESSURE_CORRECTION_MS = 3 * 60_000
  * `editTrupp` writes; a reading at or below the Alarmdruck is never a correction.
  */
 export function earlyEntryCorrection(t: Trupp, atMs: number): boolean {
-  if (!isAtemschutzTrupp(t)) return false
+  if (!isAtemschutzTrupp(t) || entryPressureConfirmed(t)) return false
   const entry = ms(t.entryTime)
   if (!entry || t.exitTime || atMs < entry || atMs - entry > EARLY_PRESSURE_CORRECTION_MS) return false
   const readings = t.readings ?? []
   const measuredSince = readings.slice(currentRunStart(readings)).some((r) => r.kind === 'pressure' || r.kind === 'alarm')
   return !measuredSince && t.lastPressureBar == null
+}
+
+/**
+ * Was the RUNNING deployment's Eingangsdruck set on purpose — typed or dialled in the form, a
+ * low value confirmed, a correction in «Bearbeiten», or the first Druckmeldung that already
+ * replaced it? (staging walk-through 25.09.2026: a confirmed 250 was silently «corrected» to 280
+ * by the first reading.) Only an Eingangsdruck nobody touched — the form's default — may be
+ * replaced by the first reading (earlyEntryCorrection).
+ *
+ * Read off the log, never a Trupp field: the run-start row (`registered` / `entry`) carries
+ * `measured: true`, and an Eintritt straight after a measured Anmeldung is the same cylinder —
+ * the entry row copies the bar, so the flag is looked for on the registered row just before it.
+ */
+export function entryPressureConfirmed(t: Pick<Trupp, 'readings'>): boolean {
+  const readings = t.readings ?? []
+  const from = currentRunStart(readings)
+  const start = readings[from]
+  if (!start || (start.kind !== 'entry' && start.kind !== 'registered')) return false
+  if (start.measured) return true
+  if (start.kind !== 'entry') return false
+  for (let i = from - 1; i >= 0; i--) {
+    const r = readings[i]
+    if (r.kind === 'crew') continue
+    return r.kind === 'registered' && !!r.measured
+  }
+  return false
 }
 
 export function contactSeverity(sinceContactSec: number | null, contactIntervalMin: number, contactGraceSec: number): 0 | 1 | 2 {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { CONTACT_ECHO_MS, foreignContactAgo, isOwnContact, noteOwnContact, resetOwnContacts } from './contactEcho'
+import { CONTACT_ECHO_MS, OWN_REPEAT_MS, foreignContactAgo, isOwnContact, noteOwnContact, recentOwnContact, resetOwnContacts } from './contactEcho'
 import type { TruppReading } from '../types'
 
 afterEach(resetOwnContacts)
@@ -54,6 +54,13 @@ describe('foreignContactAgo', () => {
   it('does not read a stamp from a skewed device, well in the future, as an echo', () => {
     expect(foreignContactAgo(trupp([{ t: at(-6), bar: 300, kind: 'contact' }]), NOW)).toBeNull()
     expect(foreignContactAgo(trupp([{ t: at(-40), bar: 300, kind: 'contact' }]), NOW)).toBeNull()
+  })
+
+  it('reads a second own contact on the same Trupp within 3 s as the same tap', () => {
+    noteOwnContact('t1', at(1))
+    expect(recentOwnContact('t1', NOW)).toBe(true)
+    expect(recentOwnContact('t2', NOW)).toBe(false)
+    expect(recentOwnContact('t1', Date.parse(at(1)) + OWN_REPEAT_MS)).toBe(false)
   })
 
   it('keeps the own-contact set per Trupp', () => {

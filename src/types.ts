@@ -887,7 +887,11 @@ export type TruppAuftrag = AtemschutzAuftrag | EinfachAuftrag
  *  while it is being edited, and asked again for each re-deployment — a crew that fought the fire
  *  under PA goes back in to clear up without it. `editTrupp` and `reactivateTrupp` each own what
  *  that change writes, because it starts or stops a safety watch (see Trupp.kind). */
-export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[] }
+export type TruppFields = { name: string; members?: string[]; auftrag?: Trupp['auftrag']; ziel?: string; lineNo?: number; funkkanal?: number; pressure: number; leaderPersonId?: string; memberPersonIds?: string[]; color?: string | null; kind?: TruppKind; equipment?: string[]
+  /** the Eingangsdruck was set ON PURPOSE in the form (dialled, typed, a bottle answer, a low value
+   *  confirmed) — its log row is marked `measured`, so the first Druckmeldung never «corrects» it
+   *  (lib/atemschutz · entryPressureConfirmed). Absent = the untouched default. */
+  pressureMeasured?: boolean }
 
 /**
  * One Beilage to the Einsatzrapport — a photo that belongs to the REPORT rather than to the
