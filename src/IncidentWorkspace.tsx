@@ -5677,8 +5677,7 @@ export function IncidentWorkspace({
               setBuilding(prevBuilding)
               setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
             }
-            // the act's own Verlauf row (3am test r3, 25.09.2026: «+ OG / + UG» wrote none)
-            logPlan('floors', fillTemplate(appConfig.copy.whiteboard.floorAddedLog, { floor: floorLabel(newFloor) }), { floor: newFloor })
+            // (the act's own Verlauf row «Geschoss 4. OG hinzugefügt» comes with PR #226)
             // the toast and the ↶ NAME the storey («2. OG hinzugefügt»), and a second «+ OG» replaces
             // the first toast instead of stacking another identical pill (3am test r4, 26.09.2026)
             const line = fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: floorLabel(newFloor) })

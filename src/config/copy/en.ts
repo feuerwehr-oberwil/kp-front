@@ -1660,7 +1660,6 @@ export const en: Localizable<Copy> = {
     climbDown: 'Continue one floor down',
     climbBack: 'Back to {floor}',
     addFloorDown: 'Add lower floor',
-    floorAddedLog: 'Floor {floor} added',
     floorAddedToast: '{floor} added',
     floorHide: 'Hide floor',
     floorShow: 'show',

@@ -347,7 +347,7 @@ describe('(d) the render budget', () => {
 describe('(e) acts on the picture that the Verlauf used to miss (3am test r3, 25.09.2026)', () => {
   const rows = async () => { key('r'); await settle(60); return (rec.report?.events ?? []).map((e) => e.text) }
 
-  it('«+ OG» writes «Geschoss 3. OG hinzugefügt»', async () => {
+  it('«+ OG» names the storey on its ↶ (its Verlauf row comes with #226)', async () => {
     const stack = {
       src: [[[0, 0], [1, 0], [1, 1], [0, 1]]], orientDeg: 0, northUp: false,
       rings: [[[0, 0], [1, 0], [1, 1], [0, 1]]], ring: [[0, 0], [1, 0], [1, 1], [0, 1]], ringAspect: 1,
@@ -360,8 +360,7 @@ describe('(e) acts on the picture that the Verlauf used to miss (3am test r3, 25
     act(() => (lastBoard() as BoardProps & { onAddFloor: (dir: 1 | -1) => void }).onAddFloor(1))
     await settle()
     expect((lastBoard() as BoardProps & { building: { floors: number[] } }).building.floors).toEqual([0, 1, 2, 3])
-    expect(await rows()).toContain(fillTemplate(appConfig.copy.whiteboard.floorAddedLog, { floor: '3. OG' }))
-    // …and the ↶ names the storey too (3am test r4, 26.09.2026: «Geschoss hinzugefügt» ×3)
+    // 3am test r4, 26.09.2026: three adds read «Geschoss hinzugefügt» ×3, naming no storey
     expect(screen.getByRole('button', { name: new RegExp(fillTemplate(appConfig.copy.whiteboard.floorAddedToast, { floor: '3. OG' })) })).toBeTruthy()
   })
 

@@ -2722,8 +2722,7 @@ export const de = {
     climbDown: 'Ein Geschoss tiefer weiter',
     climbBack: 'Zurück auf {floor}',
     addFloorDown: 'Untergeschoss hinzufügen',
-    // the Verlauf row of «+ OG / + UG» (the toast stays the short «Geschoss hinzugefügt»)
-    floorAddedLog: 'Geschoss {floor} hinzugefügt',
+    // the toast and ↶ of «+ OG / + UG», naming the storey (its Verlauf row comes with #226)
     floorAddedToast: '{floor} hinzugefügt',
     floorHide: 'Geschoss ausblenden',
     floorShow: 'einblenden',

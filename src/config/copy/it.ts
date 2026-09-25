@@ -1656,7 +1656,6 @@ export const it: Localizable<Copy> = {
     climbDown: 'Continua un piano più in basso',
     climbBack: 'Torna a {floor}',
     addFloorDown: 'Aggiungi piano inferiore',
-    floorAddedLog: 'Piano {floor} aggiunto',
     floorAddedToast: '{floor} aggiunto',
     floorHide: 'Nascondi piano',
     floorShow: 'mostra',
