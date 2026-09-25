@@ -49,16 +49,19 @@ so this file – not the log – is the record of what shipped up to that point.
   Rapport counts the Gerettete from the list and prints a «Personen» section with one line per
   person and «Suche: 8 Bereiche, alle abgesucht 20:39»; the Abschluss asks about people still
   missing as its own question, naming them, with «Zur Suche» focused. A group is never found all
-  at once by accident: the composer's chip names the count («Klasse 4b · 2 von 5 gefunden») and
+  at once by accident: the composer's chip names the count («Klasse 4b · 2 von 5 gefunden»,
+  taken from the sentence — «3 von Klasse 4b gefunden», «zwei Kinder der Klasse 4b» — the group
+  found by its name anywhere in it) and
   «Fund melden» starts at one, on the storey the Trupp is searching. «Korrigieren …» also corrects
   where somebody was found. The Suche opens beside the Karte or plan you are on, and the rail entry
   always opens it. The Meldeleiste, the Lage-Grundgerüst card and strip, and the storey ✕ keep
   clear of the dock, the peek line and the storey's progress badge.
 - **The top bar collapses by priority, measured.** When a bar runs out of room, it gives up the
-  weather first, then the Einsatzdauer, the Suche's words, the Verlauf word, the alarm's name, the
-  Einsatz title, the chips' icons and ↷ — one step at a time, only as far as needed. The Einsatz
-  pill never shrinks below a readable width (it was 20 px at 360 px with all chips up), and the
-  weather stays on a 1180 px bar with an alarm and the Suche chip up.
+  weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the Suche's words, the
+  alarm's name and the Einsatz title — one step at a time, only as far as needed. The Einsatz
+  pill never shrinks below a readable width (it was 20 px at 360 px with all chips up), no chip
+  is ever a bare number without its icon, and the weather stays on a 1180 px bar with an alarm
+  and the Suche chip up.
   Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
 
 - **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the

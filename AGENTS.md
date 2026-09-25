@@ -333,7 +333,9 @@ to prod.
     «Teilweise» is its own status (`teilweise`, keeps the Trupp), never «offen», and counts as
     not done everywhere.
   - A group is never found «all at once» by accident: the composer's chip names the count
-    («Klasse 4b · 2 von 5 gefunden», `composerFoundLink`), and «Fund melden» starts at ONE, on
+    («Klasse 4b · 2 von 5 gefunden», `composerFoundLink` — digits or a number word, never the
+    name's own), and it is offered when the sentence NAMES the record anywhere («2 Kinder der
+    Klasse 4b») as well as while the name is being typed (`suggestSuchePersonen`), and «Fund melden» starts at ONE, on
     the storey the Trupp is searching (`truppFloor`), never the group's «zuletzt gesehen».
     «Korrigieren …» also corrects where somebody was FOUND (the latest find; the «Fund» mark
     moves with it, `foundBereiche`).
@@ -436,10 +438,11 @@ to prod.
   on its own, but the signed-in row is not an action and the rule says «the list ends here»).
   What leaves the TOP BAR when it runs out of room is MEASURED, not ruled per breakpoint
   (`lib/useHeadFit`, 25.09.2026): one `fit-N` step at a time until it fits, lowest priority
-  first — weather, Einsatzdauer, the Suche's words, the Verlauf word, the alarm's name, the
-  Einsatz title (the pill stays: glyph + ÜBUNG), the chips' icons (numbers stay), ↷, the gaps.
-  The Einsatz pill never gives: squeezed below a readable width counts as «does not fit». A new
-  chip in the bar takes its place in that ladder, never a `:has(...)` rule that hides a neighbour.
+  first — weather, Einsatzdauer, ↷, the gaps, the Verlauf word, the Suche's words, the alarm's
+  name, the Einsatz title (the pill stays: glyph + ÜBUNG), the «1?» count. The Einsatz pill never
+  gives: squeezed below a readable width counts as «does not fit». A chip NEVER loses its icon —
+  a bare number says nothing — and is at least a tap wide. A new chip in the bar takes its place
+  in that ladder, never a `:has(...)` rule that hides a neighbour.
   A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
   in a `Menu`.
   And **no native form
