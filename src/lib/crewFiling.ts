@@ -18,6 +18,13 @@ import { truppRoleNote } from './roleAssignment'
  * row per person and one line in the Verlauf. Nobody is filed twice: a person already on the
  * Anwesenheit (by id, or — a Gast typed on an editor device — by the same name) is left alone,
  * and so is anybody who has ever been on it, even if they left since.
+ *
+ * ⚠️ And it is a ONE-SHOT per (Trupp, person), not a reconciliation (staging r2 review): the
+ * Trupp carries `crewFiled`, the keys of everybody the Anwesenheit has already been told about —
+ * filed here, or found already there when the Trupp was seen. A key on it is never filed again,
+ * so somebody taking a crew member OFF the Anwesenheit is a decision no device writes back. Built
+ * like the ghost trails (AGENTS.md): derived keys, and the marker merges as a union
+ * (mergeWorkspace · mergeTrupp), so two devices stamping the same crew converge.
  */
 
 /** FNV-1a, base 36 — only has to tell two inputs apart, never to be read */
@@ -32,6 +39,28 @@ export function derivedCrewGuestId(truppId: string, name: string): string {
   return `g-${truppId}-${shortHash(name.trim())}`
 }
 
+/** The `crewFiled` keys a Trupp carries — defensive: a stray value is read as nothing. */
+export function crewFiledOf(t: Pick<Trupp, 'crewFiled'> | undefined): string[] {
+  const v = (t as { crewFiled?: unknown } | undefined)?.crewFiled
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x !== '') : []
+}
+
+/** The union of two markers, sorted — the one shape every device writes, so equal sets compare
+ *  equal and a merge sees no divergence where there is none. `undefined` when empty. */
+export function unionCrewFiled(...sides: (readonly string[] | undefined)[]): string[] | undefined {
+  const all = [...new Set(sides.flatMap((s) => (Array.isArray(s) ? s.filter((x) => typeof x === 'string' && x !== '') : [])))].sort()
+  return all.length ? all : undefined
+}
+
+/** A restored Trupp (an undo) keeps the marker the live one carries — the marker is a machine
+ *  fact about the Anwesenheit, not part of the edit being taken back; dropping keys from it would
+ *  re-arm the filing for people somebody may have deliberately taken off the list since. */
+export function keepCrewFiled<T extends Pick<Trupp, 'crewFiled'>>(restored: T, live: Pick<Trupp, 'crewFiled'> | undefined): T {
+  const merged = unionCrewFiled(crewFiledOf(restored), crewFiledOf(live))
+  if (!merged) return restored
+  return { ...restored, crewFiled: merged }
+}
+
 export interface CrewToFile {
   truppId: string
   /** the «Unter AS: …» / «Im Trupp: …» template and the role word it takes */
@@ -40,6 +69,9 @@ export interface CrewToFile {
   /** the Verlauf row's derived id */
   rowId: string
   entries: { id: string; name: string; note: string }[]
+  /** the keys to add to the Trupp's `crewFiled` — those filed now AND those found already on the
+   *  Anwesenheit — so nobody of this crew is ever filed by a device again */
+  mark: string[]
 }
 
 export function unfiledTruppCrew(
@@ -61,24 +93,46 @@ export function unfiledTruppCrew(
       { name: t.name, id: t.leaderPersonId, note: leaderRole },
       ...members.map((name, i) => ({ name, id: aligned ? t.memberPersonIds![i] : undefined, note: role })),
     ]
+    const filed = new Set(crewFiledOf(t))
     const entries: CrewToFile['entries'] = []
+    const mark: string[] = []
     const seen = new Set<string>()
     for (const sl of slots) {
       const name = (sl.name ?? '').trim()
       if (!name || seen.has(name)) continue
       seen.add(name)
       const known = sl.id ?? resolve(name)
-      if (known) {
-        if (!attendance[known]) entries.push({ id: known, name, note: sl.note })
-        continue
-      }
-      if (namesOnList.has(name)) continue
-      const id = derivedCrewGuestId(t.id, name)
-      if (!attendance[id]) entries.push({ id, name, note: sl.note })
+      // the key is the id the person IS filed under when this code files them
+      const key = known ?? derivedCrewGuestId(t.id, name)
+      if (filed.has(key)) continue // told once — whatever became of that entry is a person's call
+      mark.push(key)
+      const onList = known ? !!attendance[known] : namesOnList.has(name) || !!attendance[key]
+      if (!onList) entries.push({ id: key, name, note: sl.note })
     }
-    if (entries.length) {
-      out.push({ truppId: t.id, groupTemplate, role, rowId: `atc-${t.id}-${shortHash(entries.map((e) => e.id).sort().join('|'))}`, entries })
+    if (mark.length) {
+      out.push({
+        truppId: t.id, groupTemplate, role,
+        rowId: `atc-${t.id}-${shortHash(entries.map((e) => e.id).sort().join('|'))}`,
+        entries, mark,
+      })
     }
   }
   return out
+}
+
+/** The Trupps with this pass's keys stamped on their `crewFiled` — the SAME array back when there
+ *  is nothing new, so the machine writer writes nothing when nothing changed. */
+export function stampCrewFiled<T extends Pick<Trupp, 'id' | 'crewFiled'>>(trupps: T[], todo: readonly CrewToFile[]): T[] {
+  const marks = new Map(todo.map((f) => [f.truppId, f.mark]))
+  let changed = false
+  const next = trupps.map((t) => {
+    const add = marks.get(t.id)
+    if (!add?.length) return t
+    const before = crewFiledOf(t)
+    const merged = unionCrewFiled(before, add)!
+    if (merged.length === before.length && merged.every((k, i) => k === before[i])) return t
+    changed = true
+    return { ...t, crewFiled: merged }
+  })
+  return changed ? next : trupps
 }

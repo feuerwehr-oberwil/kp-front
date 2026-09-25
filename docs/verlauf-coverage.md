@@ -69,7 +69,8 @@ the Gäste a Trupp form files at its save are filed quietly and named in the cre
 …» row (never twice, never by id). A crew registered on the Atemschutz-Link writes no «erfasst»
 row there (the link cannot write the Anwesenheit); an editor device that sees the Trupp files the
 crew under derived ids and writes that one row under a derived row id (`atc-<truppId>-…`,
-lib/crewFiling), so several devices write it once. «Nicht eingesetzt» closes a Trupp with an
+lib/crewFiling), so several devices write it once — and only once per (Trupp, person): the
+Trupp's `crewFiled` marker keeps a deliberate deletion from the Anwesenheit deleted. «Nicht eingesetzt» closes a Trupp with an
 `exit` log row that is LABELLED «Nicht eingesetzt» on the card and on the Rapport, never
 «Austritt» (lib/atemschutz · isStandDownExit).
 

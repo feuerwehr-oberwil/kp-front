@@ -1002,6 +1002,19 @@ export interface Trupp {
    * Cleared again by the delete's own «Rückgängig». */
   removedAt?: string
   /**
+   * Whom of this crew the Anwesenheit has already been told about — the crew filing's one-shot
+   * marker (lib/crewFiling). One key per person: the roster id, or the derived Gast id
+   * `g-<truppId>-<hash>`. Sorted, grow-only, and MERGED AS A UNION (mergeWorkspace · mergeTrupp).
+   *
+   * ⚠️ Without it the filing was a reconciliation that wrote a deliberate deletion straight back:
+   * somebody takes a crew member off the Anwesenheit, and the next device that observes the Trupp
+   * files them again (the ghost-trail trap, AGENTS.md). A key here means «filed once, or already
+   * there when the Trupp was seen» — whatever happens to that entry afterwards is a person's
+   * decision, and no device undoes it. A machine field: undo restores keep it (useTruppActions ·
+   * remember / restoreTrupp), and a merge that differs only here is not a Trupp conflict.
+   */
+  crewFiled?: string[]
+  /**
    * The Trupp's own number — «Trupp 3» — handed out at registration from ONE counter per Einsatz
    * that unlinked plan chips and map markers («Trupp N», lib/placedTrupps · nextTeamName) draw
    * from too, so two things on the same incident are never both called Trupp 1. Never reused,

@@ -16,6 +16,7 @@ import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } fro
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { BoardDoc, Drawing, Entity } from '../types'
 import type { Saved } from './workspace'
+import { unionCrewFiled } from './crewFiling'
 
 type Id = string
 interface HasId {
@@ -223,7 +224,7 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
   const t = theirs as unknown as Record<string, unknown>
   const out: Record<string, unknown> = {}
   for (const k of new Set([...Object.keys(m), ...Object.keys(t)])) {
-    if (k === 'readings') continue // merged below
+    if (k === 'readings' || k === 'crewFiled') continue // merged below
     const inA = k in a, inM = k in m, inT = k in t
     if (inA && (!inM || !inT)) continue // a shared field removed on either side → delete wins
     if (!inM) { out[k] = t[k]; continue } // their new field
@@ -268,7 +269,21 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
     const rows = (v: unknown): Readingish[] => (Array.isArray(v) ? (v.filter(isObj) as unknown as Readingish[]) : [])
     out.readings = mergeReadings(rows(a.readings), rows(m.readings), rows(t.readings))
   }
+  // The crew filing's one-shot marker (types · Trupp.crewFiled) is GROW-ONLY: a union of all
+  // three, never a delete — a key lost here would let a device file again somebody a person took
+  // off the Anwesenheit.
+  const filed = unionCrewFiled(asStrings(a.crewFiled), asStrings(m.crewFiled), asStrings(t.crewFiled))
+  if (filed) out.crewFiled = filed
   return out as unknown as HasId
+}
+
+const asStrings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+
+/** A Trupp minus its machine-only fields — what a human edited. Two devices that differ only in
+ *  the crew-filing marker did not both CHANGE the Trupp in any sense a person should check. */
+const humanTrupp = (o: HasId): unknown => {
+  const { crewFiled: _m, ...rest } = o as HasId & { crewFiled?: unknown }
+  return rest
 }
 
 /**
@@ -417,7 +432,10 @@ export const MERGE_POLICY = {
   timeline: byId,
   // field-level, not whole-object LWW: see mergeTrupp for why trupps are the exception
   trupps: (b, m, t, cx) => mergeById(asList(b), asList(m), asList(t), (ancestor, mi, th) => {
-    cx.onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
+    // reported only when both sides changed what a person edits — a marker stamped on each side
+    // (the crew filing, a machine write) is no conflict
+    const [ha, hm, ht] = [humanTrupp(ancestor), humanTrupp(mi), humanTrupp(th)]
+    if (!eq(hm, ht) && !eq(hm, ha) && !eq(ht, ha)) cx.onTruppConflict?.({ key: mi.id, mine: mi, theirs: th })
     return mergeTrupp(ancestor, mi, th)
   }),
   mittel: byId, // append-only material-use events — merge by event id like timeline

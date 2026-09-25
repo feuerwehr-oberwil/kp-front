@@ -321,6 +321,16 @@ describe('setTruppEquipment', () => {
     expect(state.trupps[0].equipment).toBeUndefined()
   })
 
+  it('an undo takes the edit back and KEEPS the crew-filing marker stamped since (a machine fact, crewFiling)', () => {
+    const { actions, state, timeline } = timed(baseTrupp({ no: 2, crewFiled: ['p1'] }))
+    actions.setTruppEquipment('T1', ['wbk'])
+    // an editor device's observer stamps a second key in between (IncidentWorkspace · crew filing)
+    state.trupps = state.trupps.map((t) => ({ ...t, crewFiled: ['p1', 'p2'] }))
+    timeline.undo()
+    expect(state.trupps[0].equipment).toBeUndefined()
+    expect(state.trupps[0].crewFiled).toEqual(['p1', 'p2'])
+  })
+
   it('says «keine» when the last item is taken off, and writes nothing when nothing changed', () => {
     const lines: string[] = []
     const { actions, state } = harness(baseTrupp({ equipment: ['wbk'] }), undefined, (_i, text) => lines.push(text))

@@ -1129,7 +1129,10 @@ to prod.
     knows them (`IncidentWorkspace · fileTruppGuest`) instead of reading a render-old Anwesenheit
     and filing them again. A session that cannot write the record (the Atemschutz-Link) files and
     logs nothing; every device that can OBSERVES the Trupps and files a missing crew under derived
-    ids (`lib/crewFiling`). «Entfernen» on a crew INSIDE asks first («Raus melden» focused), and
+    ids (`lib/crewFiling`) — ONCE per (Trupp, person): the Trupp's `crewFiled` marker (grow-only,
+    merged as a union, kept by every undo restore) records who was filed or already there, so a
+    person somebody takes OFF the Anwesenheit is never written back by another device (the
+    ghost-trail trap). «Entfernen» on a crew INSIDE asks first («Raus melden» focused), and
     every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a row of the ⋮, never
     the button beside «Im Einsatz», and its log row reads «Nicht eingesetzt», never «Austritt».
     The collapsed phone row carries the «#N» badge; the handed-over phone board opens on the most
