@@ -115,7 +115,11 @@
    time sits top-LEFT, the one corner still free, in the storey badge's chrome — anchored by its
    RIGHT edge just inside the glyph, so «20:40» grows OUTWARDS: at the Gebäude's 20px glyphs a
    chip laid over the symbol hid the very symbol it dates (the printed badge does the same). */
-.ts.ts-done > .ts-rot, .ts.ts-done > .sym-spread { filter: var(--done-filter); opacity: var(--done-opacity); }
+.ts.ts-done > .ts-rot, .ts.ts-done > .sym-spread, .ts.ts-done + .ts-boom { filter: var(--done-filter); opacity: var(--done-opacity); }
+/* …and clear of a storey badge on the other corner: on a Modul sheet's 20px glyph a «-1/+3»
+   reaches back past the left edge, so beside one the time steps fully outside (the print does
+   the same, kroki · _symbol_badges) */
+.ts:has(> .sym-floor) > .sym-done { right: calc(100% + 3px); }
 .sym-done { position: absolute; top: calc(var(--badge-out, 7px) * -1); right: calc(100% - 7px); z-index: 6; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink-dim); line-height: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: -.2px;
   font-variant-numeric: tabular-nums; white-space: nowrap;

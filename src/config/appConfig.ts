@@ -590,6 +590,9 @@ const base = {
     isolationColor: '#e8392b',
     protectColor: '#e2920a',
     isolationFillOpacity: 0.12,
+    /** a placard marked «Gelöscht / erledigt» (lib/objectDone) keeps its rings, GREY and unfilled —
+     *  the same «over, but it happened» the glyph says; a red wash would still order an evacuation */
+    doneColor: '#8a929e',
   },
   drawing: {
     colors: ['#1f6feb', '#e8392b', '#1f9d57', '#e2920a', '#1b2330', '#ffffff'],

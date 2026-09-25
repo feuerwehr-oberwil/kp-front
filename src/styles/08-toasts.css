@@ -658,16 +658,16 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    CONTROL on the right edge, and «Richtung umkehren» sat directly under «Abschluss» — whose
    Segmented pair holds that edge — as the one press starting at the far left. It is a full-width
    row so the whole 48px band stays tappable; only its glyph + word move to the controls' edge. */
-.draw-editor .de-action { display: flex; width: 100%; justify-content: flex-end; align-items: center;
+.de-action { display: flex; width: 100%; justify-content: flex-end; align-items: center;
   gap: 7px; min-height: 48px; padding: 2px 0;
   border: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 12.5px;
   font-weight: 700; cursor: pointer; }
-.draw-editor .de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }
+.de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }
 @media (hover: hover) {
-  .draw-editor .de-action:hover { color: var(--blue); }
-  .draw-editor .de-action:hover .i { color: var(--blue); }
+  .de-action:hover { color: var(--blue); }
+  .de-action:hover .i { color: var(--blue); }
 }
-.draw-editor .de-action:active { background-image: linear-gradient(var(--press), var(--press)); }
+.de-action:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* line-preset chips (Freihand · Messpfeil · Rettungsachse) — post-pick style switcher */
 .draw-editor .de-presets { display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .draw-editor .de-preset { padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);

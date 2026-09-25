@@ -99,6 +99,31 @@ export function doneRowText(name: string, place: string, symbol: string | undefi
   return fillTemplate(appConfig.copy.objectDone.logDone, { name: named(name, place), word: doneWord(symbol, 'inline') })
 }
 
+/**
+ * THE act, once for both surfaces (IncidentWorkspace · setEntityDone, Whiteboard · setAnnoDone):
+ * the new value, the Verlauf row, and the audit events for BOTH views — the replay folds views,
+ * so the act emits the pair the way an anchor flip does. `entity.edit` always (the Karte's own or
+ * baked body; a symbol without one folds to nothing there); `board.edit` for the sheet that draws
+ * it natively, when there is one. `done: null` for «Wieder aktiv»: JSON drops an `undefined`, and
+ * the replay would fold an empty patch and keep the symbol grey.
+ *
+ * Null when there is nothing to do — not a symbol, or already in that state.
+ */
+export function doneAct(
+  props: Pick<SymbolProps, 'done' | 'label' | 'symbol'> & { id: string; kind: string },
+  on: boolean,
+  opts: { atIso: string; by?: string; place: string; sheetPlanId?: string },
+): { done: ObjectDone | undefined; text: string; events: [op: string, payload: Record<string, unknown>][] } | null {
+  if (!canBeDone(props.kind) || on === !!doneOf(props)) return null
+  const done = on ? markDone(opts.atIso, opts.by) : undefined
+  const name = doneName(props)
+  const text = done ? doneRowText(name, opts.place, props.symbol) : reopenedRowText(name, opts.place)
+  const patch = { done: done ?? null }
+  const events: [string, Record<string, unknown>][] = [['entity.edit', { id: props.id, patch }]]
+  if (opts.sheetPlanId) events.push(['board.edit', { id: props.id, planId: opts.sheetPlanId, patch }])
+  return { done, text, events }
+}
+
 /** …and its counterpart, «Feuer EG wieder aktiv» — an appended correction, never an edit. */
 export function reopenedRowText(name: string, place: string): string {
   return fillTemplate(appConfig.copy.objectDone.logReopened, { name: named(name, place) })

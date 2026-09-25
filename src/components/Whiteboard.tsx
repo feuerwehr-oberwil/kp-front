@@ -36,7 +36,7 @@ import { ApiError } from '../lib/api'
 import { Overlay, Popover } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
-import { canBeDone, doneBadge, doneName, doneOf, donePlace, doneRowText, markDone, reopenedRowText } from '../lib/objectDone'
+import { doneAct, doneBadge, donePlace } from '../lib/objectDone'
 import { annoLogName } from '../lib/drawingEdit'
 import { serverNowIso } from '../lib/serverClock'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
@@ -2015,20 +2015,20 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * symbol stands on — on the Gebäude that is its tile (or its Von/Bis span).
    */
   const setAnnoDone = (a: BoardAnno, on: boolean) => {
-    if (readOnly || !canBeDone(a.kind) || on === !!doneOf(a)) return
-    const done = on ? markDone(serverNowIso(), authorName) : undefined
+    if (readOnly) return
     const from = stack ? a.floorFrom ?? a.floor ?? 0 : a.floorFrom ?? a.storey
-    const place = donePlace(from, stack ? a.floorTo ?? from : a.floorTo)
-    const name = doneName(a)
-    const text = done ? doneRowText(name, place, a.symbol) : reopenedRowText(name, place)
-    onStepLabel?.(text) // the ↶ says «Feuer EG gelöscht», the Karte's way, not «Plan …»
-    commit(annos.map((x) => (x.id === a.id ? { ...x, done } : x)))
-    emit('board.edit', { id: a.id, patch: { done: done ?? null }, planId: activeId })
-    // …and the Karte's view of the same object (its baked or its own map body) — the replay folds
-    // VIEWS, so a plan-side mark must reach the map view too; a symbol with no map body folds to
-    // nothing there, the answer every too-thin event gets (lib/replay)
-    emit('entity.edit', { id: a.id, patch: { done: done ?? null } })
-    log(on ? 'check' : 'undo', text, { annoId: a.id, x: a.x, y: a.y, floor: a.floor })
+    const act = doneAct(a, on, {
+      atIso: serverNowIso(), by: authorName,
+      place: donePlace(from, stack ? a.floorTo ?? from : a.floorTo),
+      // this sheet's view — a projected Karte symbol has no anno in the recorded board, and the
+      // event folds to nothing there, while its `entity.edit` greys the map view (lib/objectDone)
+      sheetPlanId: activeId,
+    })
+    if (!act) return
+    onStepLabel?.(act.text) // the ↶ says «Feuer EG gelöscht», the Karte's way, not «Plan …»
+    commit(annos.map((x) => (x.id === a.id ? { ...x, done: act.done } : x)))
+    for (const [op, payload] of act.events) emit(op, payload)
+    log(on ? 'check' : 'undo', act.text, { annoId: a.id, x: a.x, y: a.y, floor: a.floor })
   }
 
   // returns whether the object actually went — «Marker und Spur löschen» has to take its arming

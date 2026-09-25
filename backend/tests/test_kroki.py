@@ -952,6 +952,21 @@ def test_a_one_storey_span_prints_one_value_like_the_screen():
     assert 0 < single < span
 
 
+def test_the_done_time_never_touches_a_wide_storey_badge():
+    """On a Modul page's small glyph a «-1/+3» chip reaches back past the left edge; the time
+    steps outwards so a white gap stays between the two chips (review of #226)."""
+    from PIL import ImageDraw
+
+    img = Image.new("RGB", (300, 120), "white")
+    d = ImageDraw.Draw(img)
+    kk._symbol_badges(d, (150, 60), 20, 1.0, None, -1, 3, None, "20:40")
+    row = [img.getpixel((xx, 60 - 10)) for xx in range(300)]
+    ink = [xx for xx, px in enumerate(row) if min(px) < 235]
+    # two separate chips on that row: there is a white run between the left and the right one
+    gaps = [b - a for a, b in itertools.pairwise(ink) if b - a > 1]
+    assert gaps and max(gaps) >= 3
+
+
 def test_the_schemas_let_done_through():
     """pydantic drops an unknown field without a word — the sheet would simply print it red."""
     from app.report_pdf import KrokiEntityIn, PlanAnnoIn

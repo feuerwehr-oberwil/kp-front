@@ -382,24 +382,15 @@
 .ctx-caprow .useg-btn { padding: 4px 10px; }
 
 /* «Gelöscht / erledigt» (lib/objectDone, 24.09.2026) — the first row of a symbol's body. Unset it
-   is ONE press with no state to be in, so it wears the action-row grammar (08-toasts · .de-action:
-   a full-width 48px band, glyph + word, the --press wash) — never toggle chrome. Its glyph sits in
-   a ring so the row reads as «mark this», and the quiet hint says what the press will NOT do: the
-   symbol does not vanish. Set, the row STATES the answer («Erledigt 20:40», the same grey the
-   glyph now wears) and holds its one way back at the controls' edge. No hairline under it (the
-   sheets draw one only above a NAMED section, AGENTS · editor-sheet grammar): the row rhythm and
-   a few px of air keep it apart from the first property. */
-.ctx-done, .ctx-done-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 4px 0;
-  margin: 2px 0 4px; border: 0; background: transparent; font-family: inherit; }
-.ctx-done { cursor: pointer; color: var(--ink); font-size: 14px; font-weight: 700; text-align: left; }
-.ctx-done > .i { flex: none; width: 26px; height: 26px; padding: 5px; box-sizing: border-box; border-radius: 50%;
-  border: 1.5px solid var(--ink-faint); color: var(--ink-dim); stroke-width: 2.4; }
-.ctx-done-word { flex: none; white-space: nowrap; }
-.ctx-done-hint { margin-left: auto; padding-left: 8px; font-size: 12.5px; font-weight: 500; color: var(--ink-faint); text-align: right; }
-@media (hover: hover) {
-  .ctx-done:hover, .ctx-done:hover > .i { color: var(--blue); border-color: var(--blue); }
-}
-.ctx-done:active { background-image: linear-gradient(var(--press), var(--press)); }
+   is ONE press with no state to be in: the `.de-action` row (08-toasts), glyph + word at the
+   controls' edge, and the quiet hint at the label's edge says what the press will NOT do — the
+   symbol does not vanish. Set, the row STATES the answer («Erledigt 20:40», the grey the glyph
+   now wears) and holds its one way back at the controls' edge. No hairline under it (the sheets
+   draw one only above a NAMED section, AGENTS · editor-sheet grammar). */
+.ctx-done { margin: 2px 0 4px; }
+.ctx-done-hint { margin-right: auto; padding-right: 8px; font-size: 12.5px; font-weight: 500; color: var(--ink-faint); text-align: left; }
+.ctx-done-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 4px 0;
+  margin: 2px 0 4px; }
 .ctx-done-row { justify-content: space-between; flex-wrap: wrap; row-gap: 2px; }
 .ctx-done-state { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--ink-dim);
   font-variant-numeric: tabular-nums; }

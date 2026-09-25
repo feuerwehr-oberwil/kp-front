@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import { applyBoardToObjects, applyDocToObjects, bakeGeoBody, sheetAnnos, viewsOf, type TacticalObject } from './tacticalObjects'
 import {
-  canBeDone, doneBadge, doneName, doneOf, donePlace, doneRowText, doneStateText, doneStatusText, doneWord,
+  canBeDone, doneAct, doneBadge, doneName, doneOf, donePlace, doneRowText, doneStateText, doneStatusText, doneWord,
   isFireFamily, markDone, reopenedRowText,
 } from './objectDone'
 import { symbolLegendText } from './symbols'
 import { krokiEntity } from './krokiPayload'
 import { planAnnosForPdf } from './reportPdfDirect'
-import { annoLogName } from './drawingEdit'
+import { annoLogName, removalRowText } from './drawingEdit'
 import { formatTime } from './format'
 import { appConfig } from '../config/appConfig'
 import type { BoardAnno, Entity } from '../types'
@@ -156,5 +156,45 @@ describe('annoLogName — the plan names a removed object the way the Karte does
     expect(annoLogName({ id: 'a', kind: 'draw', pts: [], label: 'Leitung 1' })).toBe('Leitung 1')
     expect(annoLogName({ id: 'a', kind: 'text', text: 'Gasflaschen' })).toBe('Gasflaschen')
     expect(annoLogName({ id: 'a', kind: 'text', text: '  ' })).toBeNull()
+  })
+})
+
+describe('doneAct — the one act both surfaces perform (IncidentWorkspace · setEntityDone, Whiteboard · setAnnoDone)', () => {
+  const ent = { id: 'e1', kind: 'symbol', ...feuer }
+
+  it('a Karte symbol: the value, the row, and ONE event — it has no sheet of its own', () => {
+    const act = doneAct(ent, true, { atIso: AT, by: 'Muster Anna', place: '' })!
+    expect(act.done).toEqual({ at: AT, by: 'Muster Anna' })
+    expect(act.text).toBe('Feuer gelöscht')
+    expect(act.events).toEqual([['entity.edit', { id: 'e1', patch: { done: act.done } }]])
+  })
+
+  it('a sheet-anchored symbol marked on the Karte emits the PAIR, so both replayed views grey it', () => {
+    const act = doneAct(ent, true, { atIso: AT, place: 'EG', sheetPlanId: 'gebaeude' })!
+    expect(act.text).toBe('Feuer EG gelöscht')
+    expect(act.events.map(([op]) => op)).toEqual(['entity.edit', 'board.edit'])
+    expect(act.events[1][1]).toMatchObject({ planId: 'gebaeude' })
+  })
+
+  it('«Wieder aktiv» clears with `done: null` (JSON keeps it, the replay folds it) and says so', () => {
+    const act = doneAct({ ...ent, done: { at: AT } }, false, { atIso: AT, place: 'EG', sheetPlanId: 'gebaeude' })!
+    expect(act.done).toBeUndefined()
+    expect(act.text).toBe('Feuer EG wieder aktiv')
+    for (const [, payload] of act.events) expect(payload.patch).toEqual({ done: null })
+  })
+
+  it('does nothing twice, and nothing for what is not a symbol', () => {
+    expect(doneAct({ ...ent, done: { at: AT } }, true, { atIso: AT, place: '' })).toBeNull()
+    expect(doneAct(ent, false, { atIso: AT, place: '' })).toBeNull()
+    expect(doneAct({ ...ent, kind: 'note' }, true, { atIso: AT, place: '' })).toBeNull()
+  })
+})
+
+describe('removalRowText — the Karte selection row says «entfernt», never «gelöscht»', () => {
+  it('names one object, counts several', () => {
+    expect(removalRowText([], [{ symbol: 'VKF Feuer' }])).toBe('Feuer entfernt') // display name, not the pack key
+    expect(removalRowText([], [{ symbol: 'VKF Feuer', label: 'Brandherd' }])).toBe('Brandherd entfernt')
+    expect(removalRowText([{ id: 'd', kind: 'area', coords: [] }], [])).toBe('Fläche entfernt')
+    expect(removalRowText([{ id: 'd', kind: 'line', coords: [] }], [{ symbol: 'VKF Feuer' }])).toBe('2 Objekte entfernt')
   })
 })

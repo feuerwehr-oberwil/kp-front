@@ -186,9 +186,9 @@ import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
 import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
-import { canBeDone, doneName, doneOf, donePlace, doneRowText, markDone, reopenedRowText } from './lib/objectDone'
+import { canBeDone, doneAct, donePlace } from './lib/objectDone'
 import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
-import { drawingLogName } from './lib/drawingEdit'
+import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
@@ -3047,18 +3047,9 @@ export function IncidentWorkspace({
       emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
     })
     setSelectedDrawIds([]); setSelectedEntityIds([])
-    // «Zeichnung entfernt» after a lasso over eleven objects is not vague, it is wrong — the
-    // singular says one thing went. The count is right here; a reconstruction needs it. A single
-    // deletion is named like its creation row («Fläche gelöscht», «Einsatzleiter gelöscht»).
-    const gone = ids.length + ents.length
-    const lone = ids.length === 1 ? drawings.find((d) => d.id === ids[0]) : undefined
-    const loneEnt = ents.length === 1 ? entities.find((e) => e.id === ents[0]) : undefined
-    log('close', gone > 1
-      ? fillTemplate(appConfig.copy.log.selectionDeleted, { n: gone })
-      : lone ? fillTemplate(appConfig.copy.log.objectDeleted, { name: drawingLogName(lone) })
-      : loneEnt ? fillTemplate(appConfig.copy.log.objectDeleted, { name: entityLogName(loneEnt) })
-      : appConfig.copy.log.drawingDeleted,
-      // …named by WHAT was removed, so two «Feuerwehr gelöscht» seconds apart stay two rows
+    // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»
+    log('close', removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id))),
+      // …named by WHAT was removed, so two «Feuerwehr entfernt» seconds apart stay two rows
       undefined, undefined, undefined, { subjectId: ids[0] ?? ents[0] })
   }
 
@@ -3326,21 +3317,18 @@ export function IncidentWorkspace({
    * replay would then fold an empty patch and keep the symbol grey (lib/replay · entity.edit).
    */
   const setEntityDone = (ent: Entity, on: boolean) => {
-    if (tacticalLocked || !canBeDone(ent.kind)) return
-    if (on === !!doneOf(ent)) return
-    const done = on ? markDone(serverNowIso(), user?.display_name) : undefined
-    const name = doneName(ent)
-    const place = donePlace(ent.floorFrom ?? ent.floor, ent.floorTo)
-    const text = done ? doneRowText(name, place, ent.symbol) : reopenedRowText(name, place)
-    stepLabel.current = text // the ↶ names the act, not «Änderung auf der Karte»
-    commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === ent.id ? { ...e, done } : e)) }))
-    emit('entity.edit', { id: ent.id, patch: { done: done ?? null } })
-    // …and the view that OWNS it, when that is a sheet: the replay folds VIEWS, and a symbol drawn
-    // on a plan would otherwise stay red on the replayed plan until the next snapshot — the same
-    // «emit the pair» the anchor flip does (AGENTS · Replay stays VIEW-based)
-    const ownerPlan = objectsRef.current.find((o) => o.id === ent.id)?.sheet?.planId
-    if (ownerPlan) emit('board.edit', { id: ent.id, planId: ownerPlan, patch: { done: done ?? null } })
-    log(on ? 'check' : 'undo', text, 'symbol', undefined, ent.id)
+    if (tacticalLocked) return
+    const act = doneAct(ent, on, {
+      atIso: serverNowIso(), by: user?.display_name,
+      place: donePlace(ent.floorFrom ?? ent.floor, ent.floorTo),
+      // the sheet that draws it natively, if any — its view gets the event too (lib/objectDone)
+      sheetPlanId: objectsRef.current.find((o) => o.id === ent.id)?.sheet?.planId,
+    })
+    if (!act) return
+    stepLabel.current = act.text // the ↶ names the act, not «Änderung auf der Karte»
+    commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === ent.id ? { ...e, done: act.done } : e)) }))
+    for (const [op, payload] of act.events) emit(op, payload)
+    log(on ? 'check' : 'undo', act.text, 'symbol', undefined, ent.id)
   }
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({

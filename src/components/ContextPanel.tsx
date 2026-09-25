@@ -684,7 +684,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   /* ── «Gelöscht / erledigt» (review item 21b, 24.09.2026) ── the FIRST row of the body, above
      every property: it is the one question about a Feuer that is asked when the Feuer is out, and
      the answer used to be «Löschen», which took the fire off the record. Unset it is one press
-     (`.ctx-done`, the `.de-action` grammar: no state to be in yet); set it STATES «Erledigt 20:40»
+     (`.de-action`: no state to be in yet); set it STATES «Erledigt 20:40»
      and its one way back, «Wieder aktiv». A read-only panel still states it — who reads the
      Karte in the Führungsansicht wants to know that the fire was declared out, and when. */
   const doneState = !isNote ? doneStateText(entity) : null
@@ -699,8 +699,10 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
       )}
     </div>
   ) : onDone && !readOnly && !isNote ? (
-    <button type="button" className="ctx-done" onClick={() => onDone(true)}>
-      <Icon id="check" /><span className="ctx-done-word">{O.action}</span><span className="ctx-done-hint">{O.actionHint}</span>
+    // `.de-action`, the panel's one-press row (DrawEditor · «Richtung umkehren»): glyph + word at
+    // the controls' edge, and a bare check — never a ring, which read as an unticked checkbox
+    <button type="button" className="de-action ctx-done" onClick={() => onDone(true)}>
+      <span className="ctx-done-hint">{O.actionHint}</span><Icon id="check" />{O.action}
     </button>
   ) : null
 

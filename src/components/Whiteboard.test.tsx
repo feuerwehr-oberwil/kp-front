@@ -1684,6 +1684,15 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     expect(log.mock.calls[0][2]).toEqual({ subjectId: 'f1' })
   })
 
+  it('the Delete key writes the same removal row as the panel’s «Entfernen»', async () => {
+    const { onChange, log } = open([feuer])
+    await act(async () => { fireEvent.keyDown(window, { key: 'Delete' }) })
+    expect(lastSaved(onChange)).toEqual([])
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0][1]).toBe('Feuer entfernt')
+    expect(log.mock.calls[0][2]).toEqual({ subjectId: 'f1' })
+  })
+
   it('offers nothing on a read-only board — but still states that it is done', () => {
     open([{ ...feuer, done: { at: '2026-09-23T18:40:00.000Z' } }], { readOnly: true })
     expect(screen.queryByRole('button', { name: new RegExp(O.reopen) })).toBeNull()

@@ -808,22 +808,31 @@ def _symbol_badges(
     """
     x, y = xy
     bh = max(16.0 * u / 2, size * 0.46)
+    fnt = _font(int(bh * 0.72))
+    #: where the storey chip's LEFT edge lands, so the «erledigt» time below can keep clear of it
+    storey_left: float | None = None
+    storey_text: str | None = None
     if storey is not None:
-        _badge(draw, (x + size / 2, y - size / 2), floor_badge(storey), bh, "white", "#1b2330")
+        storey_text = floor_badge(storey)
     elif floor_from is not None or floor_to is not None:
         # a single storey said as a span (Von = Bis, the Gebäude's default) is ONE value — the
         # client's floorRangeBadge says «0», and «0/0» on paper read as two storeys
         ends = [v for v in (floor_from, floor_to) if v is not None]
-        rng = floor_badge(ends[0]) if len(set(ends)) == 1 else "/".join(floor_badge(v) for v in ends)
-        _badge(draw, (x + size / 2, y - size / 2), rng, bh, "white", "#1b2330")
+        storey_text = floor_badge(ends[0]) if len(set(ends)) == 1 else "/".join(floor_badge(v) for v in ends)
+    if storey_text is not None:
+        _badge(draw, (x + size / 2, y - size / 2), storey_text, bh, "white", "#1b2330")
+        storey_left = x + size / 2 - max(bh, draw.textlength(storey_text, font=fnt) + bh * 0.5) / 2
     if (count or 0) > 1:
         _badge(draw, (x + size / 2, y + size / 2), str(count), bh, "white", "#1b2330")
     if done:
         # anchored by its RIGHT edge a little inside the glyph's left side, so a wide «20:40» grows
-        # OUTWARDS, away from the storey badge — a printed glyph is small, and the two must not
-        # meet over it (the same width `_badge` computes)
-        w = max(bh, draw.textlength(done, font=_font(int(bh * 0.72))) + bh * 0.5)
+        # OUTWARDS, away from the storey badge — and never closer to that badge than a quarter
+        # chip: on a Modul page's small glyph a «-1/+3» reaches back past the left edge (the same
+        # width `_badge` computes)
+        w = max(bh, draw.textlength(done, font=fnt) + bh * 0.5)
         right = x - size / 2 + bh * 0.9
+        if storey_left is not None:
+            right = min(right, storey_left - bh * 0.25)
         _badge(draw, (right - w / 2, y - size / 2), done, bh, "white", "#4a5568")
 
 
