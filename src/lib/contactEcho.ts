@@ -37,11 +37,19 @@ const CONFIRMING: ReadonlySet<TruppReading['kind']> = new Set(['contact', 'press
 
 const own = new Set<string>()
 const key = (truppId: string, at: string) => `${truppId}|${at}`
+/** truppId → epoch ms of this device's latest confirmation (see `recentOwnContact`) */
+const lastOwn = new Map<string, number>()
+
+/** How long a second Kontakt on the SAME Trupp from THIS device is read as the same tap again
+ *  (staging walk-through 25.09.2026: a double tap wrote two contacts and two Verlauf rows). */
+export const OWN_REPEAT_MS = 3_000
 
 /** Record a confirmation this device wrote — called by every writer that stamps one
  *  (useTruppActions · recordContact / recordPressure / setTruppStatus). */
 export function noteOwnContact(truppId: string, at: string): void {
   own.add(key(truppId, at))
+  const ms = Date.parse(at)
+  if (Number.isFinite(ms)) lastOwn.set(truppId, ms)
   // bounded: a long Einsatz writes a few hundred of these, and only the last minute matters
   if (own.size > 500) own.delete(own.values().next().value as string)
 }
@@ -51,9 +59,18 @@ export function isOwnContact(truppId: string, at: string): boolean {
   return own.has(key(truppId, at))
 }
 
+/** Did THIS device confirm this Trupp within `OWN_REPEAT_MS` of `nowMs`? Then another Kontakt
+ *  tap is the same tap arriving twice (a double tap, a bounce, two boards on one screen) and
+ *  writes nothing (useTruppActions · recordContact). */
+export function recentOwnContact(truppId: string, nowMs: number): boolean {
+  const at = lastOwn.get(truppId)
+  return at != null && nowMs - at >= 0 && nowMs - at < OWN_REPEAT_MS
+}
+
 /** Tests only: forget every noted confirmation. */
 export function resetOwnContacts(): void {
   own.clear()
+  lastOwn.clear()
 }
 
 /**

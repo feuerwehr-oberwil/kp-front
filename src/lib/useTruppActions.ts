@@ -20,7 +20,7 @@ import { alarmBarFor, currentRunStart, earlyEntryCorrection, isAtemschutzTrupp, 
 // `serverNowIso()` is the device clock, so a station that has never reached the server is
 // unaffected.
 import { serverNowIso } from './serverClock'
-import { noteOwnContact } from './contactEcho'
+import { noteOwnContact, recentOwnContact } from './contactEcho'
 import { nextTruppNo, resolveMarkerJoin } from './placedTrupps'
 import { floorLabel } from './whiteboard'
 import type { UndoTimeline } from './undoTimeline'
@@ -832,6 +832,9 @@ export function useTruppActions(deps: Deps) {
    *     corrected entry cannot leave a «tiefster Druck» that was never measured,
    *   · it does NOT set lastContactTime. This is a correction of what was written down, not a
    *     Druckmeldung — a measured Druck is what resets the safety clock.
+   *   · it marks that row `measured` (25.09.2026): whoever corrected it read a gauge, and a
+   *     later first Druckmeldung must not «correct» it again (lib/atemschutz ·
+   *     entryPressureConfirmed).
    * Empty when nothing changes, so a caller can spread it unconditionally.
    */
   const correctEntryPressure = (t: Trupp, bar: number): Partial<Trupp> => {
@@ -842,7 +845,7 @@ export function useTruppActions(deps: Deps) {
     // and measured «tiefster Druck» across both.
     const from = currentRunStart(t.readings)
     const readings = (t.readings ?? []).map((r, i) =>
-      (i === from && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar } : r))
+      (i === from && (r.kind === 'entry' || r.kind === 'registered') ? { ...r, bar, measured: true as const } : r))
     // the lowest pressure of the running deployment: the corrected entry, plus every reading
     // actually taken since. Recomputed rather than min()'d against the old lowestBar, which
     // may itself be the wrong entry value.
@@ -854,6 +857,11 @@ export function useTruppActions(deps: Deps) {
   const recordContact = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
     const now = serverNowIso()
+    /* ⚠️ The SAME tap twice is one Kontakt (staging walk-through 25.09.2026: a double tap wrote two
+     * contacts and two Verlauf rows). A repeat on the same Trupp from this device within
+     * OWN_REPEAT_MS writes nothing — on every board, because it is decided here, where the
+     * contact is written. Another device's contact is the echo question (lib/contactEcho). */
+    if (recentOwnContact(id, Date.parse(now))) return
     const apply = (t: Trupp): Trupp => ({ ...t, lastContactTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'contact' }] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     // this device's own confirmation — what lets a second device's tap within a minute ask first
@@ -891,17 +899,26 @@ export function useTruppActions(deps: Deps) {
      * field writes (correctEntryPressure): baseline replaced, no `pressure` row, no contact
      * stamp — the trend starts from the corrected number. Never for a value at or below the
      * Alarmdruck: that IS the emergency, and the crossing row above has to name it. */
+    /* ⚠️ …and it IS a Kontakt (staging walk-through 25.09.2026). The sheet says «zählt als
+     * Kontakt», and the radio call happened: the correction used to leave lastContactTime at the
+     * Eintritt, so the Trupp fell due five minutes after going in although the operator had just
+     * spoken to it — and the Rapport had no Kontakt at that minute. Now it stamps the clock and
+     * appends a `contact` row carrying the new bar, beside the corrected baseline, in ONE Verlauf
+     * row that says both. It never touches an Eingangsdruck set on purpose
+     * (earlyEntryCorrection → entryPressureConfirmed); the PressureSheet names the rule. */
     if (tr && !crossed && earlyEntryCorrection(tr, Date.parse(now))) {
-      const apply = (t: Trupp): Trupp => ({ ...t, ...correctEntryPressure(t, bar) })
-      if (bar === tr.entryPressureBar) return // the same number again — nothing to correct
+      const apply = (t: Trupp): Trupp => {
+        const c = { ...t, ...correctEntryPressure(t, bar) }
+        return { ...c, lastContactTime: now, readings: [...(c.readings ?? []), { t: now, bar, kind: 'contact' as const }] }
+      }
       setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
+      noteOwnContact(id, now)
       const az = appConfig.copy.atemschutz
-      const line = fillTemplate(az.logEditFields, {
-        name: truppLogName(tr, 'leader'),
-        changes: fillTemplate(az.changePressure, { from: String(tr.entryPressureBar), to: String(bar) }),
-      })
-      log('pen', line, 'team', undefined, undefined, { subjectId: id })
-      emit('atemschutz.edit', { id })
+      const line = fillTemplate(bar === tr.entryPressureBar ? az.logFirstPressureSame : az.logFirstPressure,
+        { name: truppLogName(tr), bar, from: tr.entryPressureBar })
+      log('radio', line, 'team', undefined, undefined, { subjectId: id })
+      emit('atemschutz.contact', { id })
+      if (bar !== tr.entryPressureBar) emit('atemschutz.edit', { id })
       remember(id, line, tr, apply)
       return
     }
@@ -1278,7 +1295,10 @@ export function useTruppActions(deps: Deps) {
           // measured, positive value prints (report · readingBarShown).
           // …and the crew going back in, as its own row (crewRow): the re-entry is a new cycle,
           // and the Rapport reads each cycle's crew off the log
-          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry' },
+          // `measured` when the form's Eingangsdruck was set on purpose (a bottle answer, a
+          // dialled value) — the first Druckmeldung then never «corrects» it (entryPressureConfirmed)
+          readings: [...(t.readings ?? []), { t: now, bar: f.pressure, kind: standby ? 'registered' : 'entry',
+            ...(f.pressureMeasured && nowPa ? { measured: true as const } : {}) },
             crewRow({ name: f.name, members: f.members, entryPressureBar: f.pressure }, now)] })
     setTrupps((ts) => ts.map((t) => (t.id === id ? apply(t) : t)))
     if (tr && f.lineNo !== tr.lineNo && tr.lineId) clearLineAnchor(id)
