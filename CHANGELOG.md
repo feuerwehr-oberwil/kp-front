@@ -31,6 +31,19 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
+  phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
+  (at most two, most urgent first) stand above it with a live «Kontakt» that confirms without
+  leaving the form – which keeps every entry, also when pushed away. The Sicherungstrupp has one
+  fixed place, quiet until the first crew is inside and amber after; «Bestimmen» picks a waiting
+  Trupp or registers a new one on «Sichern», its Eintritt reads «Sicherungstrupp eingesetzt», and
+  «Einsatz abschliessen» asks about a Trupp still angemeldet («Zur Tafel» / «Als «nicht
+  eingesetzt» schliessen»). A Kontakt another device confirmed less than a minute ago asks
+  «… schon bestätigt (anderes Gerät). Nochmals / OK» instead of writing a second one. The
+  Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
+  `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
+  value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.
+  *Automatic: no config change needed; the new doctrine value is optional.*
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the

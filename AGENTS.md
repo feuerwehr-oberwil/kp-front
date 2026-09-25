@@ -662,7 +662,9 @@ to prod.
     on a control. ONE grab bar (`overlays/SheetGrab` → `.ui-sheet-grab`, the same 40×5px pill as the
     `.ctx` editors' `.sheet-grip`): `Sheet` draws it by default, a bespoke `Overlay` frame that IS
     a bottom sheet on a phone opts in with `grab` (composer, Verlauf, PlanPicker, audio player, …
-    — never a frame that is full-screen or centred there, like the Trupp form), and the one
+    — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
+    handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
+    wears the bar, see the Atemschutz bullet), and the one
     hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026). The
     gesture needs the frame FLUSH with the bottom edge — which is why the phone Verlauf is a real
     bottom sheet now and no longer a card floating 8px off it.
@@ -995,6 +997,28 @@ to prod.
   - Tried and thrown out the same day, so nobody rebuilds them: a «Zeichnen» tile with a flyout, the
     same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
     Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.
+- **The Atemschutz phone board of the full app** (`AtemschutzView · phoneMode` = phone and not the
+  handed-over Tafel; PR #212 and its follow-up, 24.09.2026, Übung 23.09.): sections Drin ·
+  Sicherungstrupp · Bereit · Draussen, «Drin» by urgency with the 2 s freeze, «Druck | Kontakt»
+  with words, one `PressureSheet`. The tablet grid and the Tafel are NOT this board. Four rules:
+  - *The Trupp form is a bottom sheet there, with the due clocks above it* (D1 ⑥): at most two
+    due/overdue Trupps, most urgent first, each with a live «Kontakt» that confirms without
+    leaving the form (the pinned set holds 2 s after a tap). The rows sit INSIDE the popup — under
+    the scrim they would be outside presses. Grab bar + swipe-to-close, which is «not now»: every
+    field of the form is a kept draft (`draftKeep`), only «Abbrechen» and the save drop it.
+  - *The Sicherungstrupp has ONE place* (D1 ⑦): between Drin and the rest, always — a quiet dashed
+    slot while nobody is inside, amber from the first crew in. «Bestimmen» = a waiting Trupp's
+    Auftrag becomes «Sichern» (an ordinary edit) or a new one registered on «Sichern». Its first
+    Eintritt writes «Sicherungstrupp eingesetzt». The Abschluss asks about every Atemschutz-Trupp
+    still angemeldet («Zur Tafel» / «Als «nicht eingesetzt» schliessen», the card's own stand-down).
+  - *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`): a
+    confirmation this JS realm did not write is «anderes Gerät» — no device names. «OK» and every
+    dismissal write nothing. Same-device double taps are unchanged. «Überwachung abgeben makes the
+    giver read-only» (⑧b) is still UNDECIDED — do not build it without a decision.
+  - *The Eingangsdruck is guarded, once* (item 2, every width): locked in «Bearbeiten» once the
+    Trupp is raus (pointing at the exit's Restdruck); below `doctrine.entryPressureMin` (default
+    270, `/admin › Doktrin`) the form asks ONE question with the value on the button. No upper
+    bound, no second plausibility rule.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for
