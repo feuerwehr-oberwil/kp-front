@@ -142,6 +142,7 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
       danger: opts.danger,
       altLabel: opts.altLabel,
       altDanger: opts.altDanger,
+      safeAnswer: opts.safeAnswer,
       resolve,
     }
     emit()
@@ -402,6 +403,7 @@ export function Overlays() {
         danger={req?.danger}
         altLabel={req?.altLabel}
         altDanger={req?.altDanger}
+        safeAnswer={req?.safeAnswer}
         onResolve={close}
       />
 
