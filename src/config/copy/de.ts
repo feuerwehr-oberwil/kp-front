@@ -2351,6 +2351,9 @@ export const de = {
     // all – the toast was gone and the Trupp had never existed.
     logRemoved: 'Trupp {name} gelöscht',
     logRestored: 'Trupp {name} wiederhergestellt',
+    // Nach «Wieder öffnen»: die Kontaktuhr eines Trupps, der noch drin steht, läuft ab dem
+    // Wiederöffnen neu – die geschlossene Zeit zählt nicht als Zeit ohne Kontakt (r3, F4).
+    logClockRestart: 'Trupp {name}: Kontaktuhr neu gestartet – Einsatz wieder geöffnet',
   },
   // FKS hose-line device-letter labels (line decoration editor + tooltips)
   lineDecor: {
@@ -3920,13 +3923,16 @@ export const de = {
   // was es beschreibt: die Liste.
   archived: {
     title: 'Einsatz abgeschlossen',
-    hint: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
+    // r3, F10: der Rapport bleibt nach dem Abschluss korrigierbar (Nachträge) – alles andere nicht
+    hint: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
+    // …und wer gar nichts wieder öffnen kann (Link-Sitzungen)
+    hintViewOnly: 'Nur ansehen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
     // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
     // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
     closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
-    closedElsewhereSub: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
+    closedElsewhereSub: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
     // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
     // offline): nicht übernommen, aber nicht verloren.
     closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
@@ -3935,6 +3941,10 @@ export const de = {
     closedDismiss: 'Hinweis ausblenden',
     // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
     reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
+    // r3, F10: der Rapport eines abgeschlossenen Einsatzes bleibt korrigierbar – und sagt es
+    rapportClosedHint: 'Einsatz abgeschlossen – Änderungen am Rapport erscheinen als Nachträge.',
+    // …und die Atemschutz-Link-Tafel, deren Halter nichts wieder öffnen kann
+    linkClosedTitle: 'Einsatz abgeschlossen – diese Tafel zeigt nur noch an',
     reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
     // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
     reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt nachgesendet – als Nachtrag.',

@@ -120,7 +120,7 @@ import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { isAtemschutzTrupp, type AtemschutzAlarmState } from './lib/atemschutz'
+import { isAtemschutzTrupp, type AtemschutzAlarmState, truppLogName } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
 import { bareText } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -144,7 +144,7 @@ import {
   isIncidentRunning,
 } from './lib/incidents'
 import { useAuditEvents } from './lib/useAuditEvents'
-import { eventScopeFor } from './lib/eventScope'
+import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { downloadBlob } from './lib/download'
 import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
@@ -179,6 +179,7 @@ import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rappo
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
+import { clockRestartRowId, clocksAfterReopen, latestLifecycle } from './lib/reopenClocks'
 import { IncidentClosedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
@@ -347,7 +348,9 @@ export function IncidentWorkspace({
    *  on, and the sync pushes only the record slice, so a local doc write could never reach
    *  the server). Distinct from `elView` below, which is an EDITOR's hands-off mode. */
   const isEl = user?.role === 'el'
-  const baseReadOnly = (user?.role !== 'editor' && !asLink && !isEl) || forceReadOnly || tabLockLost
+  /** the session may write nothing at all (a viewer, a view link) */
+  const roleReadOnly = user?.role !== 'editor' && !asLink && !isEl
+  const baseReadOnly = roleReadOnly || forceReadOnly || tabLockLost
   const isEditor = user?.role === 'editor'
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. Read-only is not
   // enough here — a plain viewer may still generate the Rapport/Zeitplan PDFs and drive the
@@ -395,8 +398,10 @@ export function IncidentWorkspace({
    *  over. A device that hears of the close with a Kontakt still in its outbox must send it, so
    *  the server can refuse it and the store park it as «refused» (kept, exported, said out loud);
    *  a read-only store would sit on it unclassified for ever. Nothing new is queued meanwhile:
-   *  every writer gates on the flags derived from `readOnly` above. */
-  const outboxReadOnly = baseReadOnly || replayActive
+   *  every writer gates on the flags derived from `readOnly` above — except the Rapport, which a
+   *  closed Einsatz still takes (`canEditRapport`), so an Einsatz opened closed out of «Alle
+   *  Einsätze» (forceReadOnly) delivers too. */
+  const outboxReadOnly = roleReadOnly || tabLockLost || replayActive
   // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
   // like a phone, but journal capture and read-only symbol details stay live. Device toggle
   // (Einstellungen), seeded by the login's server-side default (el_view_default) so a
@@ -424,6 +429,14 @@ export function IncidentWorkspace({
    *  backend enforces the same boundary (`workspace/record` · RECORD_WORKSPACE_KEYS), so this
    *  flag is presentation, not the protection. */
   const canEditRecord = (isEditor || isEl) && !readOnly
+  /** «may correct the RAPPORT» — the record surfaces, AND the Rapport of a CLOSED Einsatz
+   *  (staging r3, F10). The Abschluss promises «Spätere Korrekturen bleiben möglich und
+   *  erscheinen als Nachträge», and the server takes exactly that after the close (the record
+   *  keys, the `report.` events, the Verlauf rows that are not live — api/incidents ·
+   *  incident_closed). The Rapport therefore stays editable once the Einsatz is closed, its
+   *  changes printing as Nachträge; the Tafel, the Karte, the Anwesenheit/Mittel/Checklisten
+   *  surfaces stay read-only there (their unlock is «Wieder öffnen», as decided on 28.08.). */
+  const canEditRapport = canEditRecord || ((isEditor || isEl) && !running && !outboxReadOnly)
   /** «may correct the EINSATZDATEN» — the dispatch facts at the head of the record: Stichwort,
    *  Kategorie, Priorität, Ort, Alarmierungszeit, Alarmmeldung, Übung. The `el` role keeps the
    *  record, so it owns the head of it too (10.09.) — the asLink pattern again: not an editor,
@@ -979,7 +992,10 @@ export function IncidentWorkspace({
   // Verlauf rows live in the append-only journal store (server rows + offline outbox), NOT
   // in the synced blob — the one unbounded domain no longer re-syncs wholesale on every edit.
   // `legacy` seeds display + migration from an older incident's in-blob timeline.
-  const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline })
+  // the Atemschutz-Link of a CLOSED Einsatz is refused on every request until a reopen: it
+  // follows once a minute (staging r3) — enough to notice the reopen, not a 403 every few seconds
+  const slowFollow = asLink && !running
+  const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline, slowFollow })
   // pulled out by name: `journal` itself is a fresh object every render, so a callback that
   // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
   const { swapPhoto, overlaySession: overlayRow, appendPatch: patchRow } = journal
@@ -1580,7 +1596,11 @@ export function IncidentWorkspace({
   // there: an Ebene toggled on the closed view would otherwise be queued, refused and counted as
   // «nicht übernommen» — a refusal of something nobody meant to record. Nothing new is emitted
   // once the Einsatz is over; what was queued before still goes out and is classified.
-  const emit = useCallback<typeof emitAudit>((...args) => { if (running) emitAudit(...args) }, [emitAudit, running])
+  // …except the RECORD vocabulary, which a closed Einsatz still takes: a Rapport correction after
+  // the close emits its `report.` event like any other (canEditRapport).
+  const emit = useCallback<typeof emitAudit>((...args) => {
+    if (running || EL_EVENT_PREFIXES.some((p) => args[0].startsWith(p))) emitAudit(...args)
+  }, [emitAudit, running])
 
   // Weather for the incident location. Polled live; each NEW observation is recorded as a
   // `weather.observe` event so the replay fold can show the wind/condition as it stood at any
@@ -1711,7 +1731,10 @@ export function IncidentWorkspace({
   // persistence, teardown beacons, live-follow poll (with the tablet sync-race guard),
   // in-place auto-merge apply, and the reactive sync-status badge all live in useIncidentSync.
   const { syncStatus: workspaceSyncStatus, lastSyncedAt, syncNow: syncWorkspaceNow, clockSkewMs } = useIncidentSync({
-    sync, readOnly, incidentId: incidentMeta.id,
+    // `outboxReadOnly`, not `readOnly`: a closed Einsatz still saves the Rapport corrections made
+    // on it (canEditRapport); nothing else writes a slice on a closed view — every writer gates
+    // on the flags derived from `readOnly`
+    sync, readOnly: outboxReadOnly, incidentId: incidentMeta.id,
     buildPayload, applyWorkspace, flushEvents, flushEventsBeacon,
     // attendance-divergence note (both sides changed the same person → one Verlauf row)
     // Not for an Atemschutz-Link session: the server refuses every non-«team» row from it (403,
@@ -1723,6 +1746,7 @@ export function IncidentWorkspace({
     alarmUrgent: azAlarm.peak >= 2,
     // what this view shows — so a close/reopen elsewhere is answered at once (lib/incidentClosed)
     incidentOpen: running,
+    slowFollow,
     // a Karte drag, a plan step, or typing (the Rapport saves per keystroke): while one is open
     // and a push is owed, the save skips its whole-blob compare
     gestureOpen: () => gestureOpen() || isTypingTarget(document.activeElement),
@@ -1778,6 +1802,8 @@ export function IncidentWorkspace({
     && (lifecycleElsewhere.event === 'closed') === !running
     && lifecycleHiddenAt !== lifecycleElsewhere.at && (
     <IncidentClosedMeldung
+      // the Link holder cannot reopen anything: its row says what the board still does
+      forLink={asLink}
       event={lifecycleElsewhere.event}
       at={lifecycleElsewhere.at}
       refused={lifecycleElsewhere.event === 'closed' ? closedRefusedTotal : resentOnReopen}
@@ -1938,6 +1964,15 @@ export function IncidentWorkspace({
     // after it they would be judged against a closed Einsatz
     flushOutboxes: flushRecordOutboxes,
   })
+  // --- the Atemschutz clocks across «Wieder öffnen» (staging r3, F4; lib/reopenClocks) ----------
+  // The newest close/reopen boundary in the Verlauf, the server's own rows. Right after a reopen
+  // the meta can say «running» a moment before the Verlauf has the reopen row: the alarm HOLDS
+  // for that moment, and once the row is there it counts every crew still inside from the
+  // reopen — never across the closed interval, which rang «Überfällig» the instant it ran again.
+  const lifecycleBoundary = useMemo(() => latestLifecycle(journal.rows), [journal.rows])
+  const reopenPending = running && lifecycleBoundary?.kind === 'closed'
+  const alarmTrupps = useMemo(() => clocksAfterReopen(trupps, running ? lifecycleBoundary : null), [trupps, running, lifecycleBoundary])
+  const azAlarmActive = azMonitoring && !reopenPending
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
    *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
@@ -2236,6 +2271,26 @@ export function IncidentWorkspace({
     // three tablets on one login write ONE «hat den Einsatzort verlassen» (24.09.2026)
     rows: journal.rows,
   })
+
+  // …and the write that makes the reopen's restart part of the record: every crew still inside
+  // gets its contact clock set to the reopen, and ONE Verlauf row per crew under a derived id
+  // (three tablets, one row). Only where the Tafel may be written; idempotent, so it settles
+  // once the Trupps carry the new time (lib/reopenClocks · clocksAfterReopen).
+  useEffect(() => {
+    if (!running || replayActive || !canEditTrupps || lifecycleBoundary?.kind !== 'reopened') return
+    const next = clocksAfterReopen(allTrupps, lifecycleBoundary)
+    if (next === allTrupps) return
+    const moved = next.filter((t, i) => t !== allTrupps[i])
+    setTrupps((ts) => clocksAfterReopen(ts, lifecycleBoundary))
+    const logged = new Set(journal.rows.map((r) => r.id))
+    for (const t of moved) {
+      const rowId = clockRestartRowId(lifecycleBoundary.id, t.id)
+      if (logged.has(rowId)) continue
+      log('radio', fillTemplate(appConfig.copy.atemschutz.logClockRestart, { name: truppLogName(t) }), 'team', undefined, undefined, { rowId, subjectId: t.id })
+      emit('atemschutz.clock.restart', { id: t.id }, { observed: rowId })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, replayActive, canEditTrupps, lifecycleBoundary, allTrupps])
 
   const pausedGpsConnections = useMemo(() => drawings.flatMap((drawing) => (['start', 'end'] as const).flatMap((endpoint) => {
     const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
@@ -4430,7 +4485,7 @@ export function IncidentWorkspace({
             that looked read-only for no reason. The Meldeleiste is mounted at App root, so the
             row paints here too. */}
         {tabLockLost && <TabLockBanner onTakeOver={onTakeOverTab} />}
-        <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
+        <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
           logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
         {closedMeldung}
@@ -4531,7 +4586,7 @@ export function IncidentWorkspace({
   return (
     <div className={`app mode-${mode}${phoneTools ? ' phone-tools' : ''}${georefActive ? ' georef-mode' : ''}${phoneGeoref ? ' phone-georef' : ''}${mapUtility ? ' map-util' : ''}${mapUI ? ` maptool-${tool}` : ''} ${(tool === 'symbol' && pending) || (tool === 'shape' && pendingShape) ? 'placing' : ''}`}>
       <IconSprite />
-      <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
+      <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
       <RemindersHost {...reminders.host} />
@@ -4709,7 +4764,10 @@ export function IncidentWorkspace({
         startedAt={incidentMeta.started_at}
         // the declared Einsatzende wins over the server's closure stamp: it is what the EL said
         // the Einsatz ended, and it is what the Rapport prints
-        endedAt={reportMeta.endedAt ?? incidentMeta.closed_at}
+        // ⚠️ `closed_at` only while CLOSED (staging r3, F3): it is the FIRST Einsatzende and is
+        // kept across «Wieder öffnen», so a reopened Einsatz's clock stood frozen at the close on
+        // every device. The Rapport's own Einsatzende still stops it — that is a stated fact.
+        endedAt={reportMeta.endedAt ?? (running ? undefined : incidentMeta.closed_at)}
         recording={voice.recording}
         recStartedAt={voice.recStartedAt}
         journalOpen={journalOpen}
@@ -5938,14 +5996,16 @@ export function IncidentWorkspace({
           building={effBuilding}
           captureUsage={captureUsage}
           attachments={attachments}
-          onAddAttachments={canEditRecord ? addAttachments : undefined}
-          onCaptionAttachment={canEditRecord ? captionAttachment : undefined}
-          onRemoveAttachment={canEditRecord ? removeAttachment : undefined}
-          canEdit={canEditRecord}
+          onAddAttachments={canEditRapport ? addAttachments : undefined}
+          onCaptionAttachment={canEditRapport ? captionAttachment : undefined}
+          onRemoveAttachment={canEditRapport ? removeAttachment : undefined}
+          canEdit={canEditRapport}
+          // a closed Einsatz's Rapport says so at the top: the changes are Nachträge (F10)
+          closedHint={!running && canEditRapport}
           onRolePicked={assignRole}
           // the Einsatzleiter / Rückmeldung pickers: a typed name is a Gast, so the EL named on
           // the front page of the rapport is on the Anwesenheit behind it even for a Nachbarwehr
-          onAddGuest={canEditRecord ? assignTypedName : undefined}
+          onAddGuest={canEditRapport ? assignTypedName : undefined}
           onSaveMeta={saveReportMeta}
           // dispatch data + Abschluss stay incident-level: PATCH /incidents is editor-only,
           // and archiving an Einsatz is not record-keeping (the el role reads both).

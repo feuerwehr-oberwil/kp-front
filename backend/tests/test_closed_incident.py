@@ -479,3 +479,47 @@ async def test_frozen_plan_bindings_are_not_view_state(client, editor):
     _assert_closed_refusal(
         await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": rebound, "base_rev": rev})
     )
+
+
+# --- staging round 3 ------------------------------------------------------------------------------
+
+
+async def test_a_reopen_clears_the_rapport_stamp_and_names_its_boundary(client, editor):
+    """F3: a RUNNING Einsatz carries no «Rapport fertig»; the close stays in the record."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    await _close(client, inc)
+    r = await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["report_done_at"] is None
+    assert body["closed_at"] is not None  # the first Einsatzende — what marks the Nachträge
+    rows = [e["row"] for e in (await client.get(f"/api/incidents/{inc}/journal")).json()["entries"]]
+    assert [r.get("lifecycle") for r in rows if r.get("lifecycle")] == ["closed", "reopened"]
+    # …and closing again says «erneut», because there was a close before
+    assert (
+        await client.patch(f"/api/incidents/{inc}", json={"report_done_at": "2026-09-25T13:00:00Z"})
+    ).status_code == 200
+    rows = [e["row"] for e in (await client.get(f"/api/incidents/{inc}/journal")).json()["entries"]]
+    assert rows[-1]["text"].startswith("Rapport erneut abgeschlossen")
+
+
+async def test_rows_accepted_after_the_close_are_stamped_for_paper(client, editor):
+    """A Kontakt from before the close that reaches the server after it: recorded in its time
+    order, and marked as having come late, so the PDF prints it as a Nachtrag."""
+    from datetime import timedelta
+
+    await _login(client, editor)
+    inc = await _incident(client)
+    assert (
+        await client.post(f"/api/incidents/{inc}/journal", json={"entries": [{**KONTAKT_ROW, "id": "r-on-time"}]})
+    ).status_code == 201
+    await _close(client, inc)
+    early = ((await _closed_at(client, inc)) - timedelta(minutes=1)).isoformat()
+    r = await client.post(
+        f"/api/incidents/{inc}/journal", json={"entries": [{**KONTAKT_ROW, "id": "r-late", "at": early}]}
+    )
+    assert r.status_code == 201, r.text
+    rows = {e["row"]["id"]: e["row"] for e in (await client.get(f"/api/incidents/{inc}/journal")).json()["entries"]}
+    assert rows["r-late"].get("receivedAfterClose") is True
+    assert "receivedAfterClose" not in rows["r-on-time"]

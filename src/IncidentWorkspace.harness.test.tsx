@@ -19,6 +19,7 @@ import type { BoardAnno, Drawing, Entity } from './types'
  *       move that adds a memo, a state or an effect-order change shows up here first.
  *   (e) the two-device loop: a merge that changes nothing must write nothing back.
  *   (f) a close on ANOTHER device: the same mount goes read-only, the alarm stops, one row says so.
+ *   (g) a reopen with a crew inside: no instant «Überfällig» — the clock restarts at the reopen.
  *
  * The two heavy surfaces are prop recorders. The Plan's stand-in runs the REAL useBoardDoc, so
  * a plan step is exactly the checkpoint the Whiteboard lays down.
@@ -296,7 +297,9 @@ describe('(c) the Abschluss', () => {
     rec.answer = true
     rec.order.length = 0
     await pressAbschluss()
-    expect(onCompleteRapport).toHaveBeenCalledTimes(1)
+    // the Verlauf and audit outboxes drain between the media and the handover (review of #235) —
+    // an await more, which a loaded runner can stretch past the fixed settle
+    await waitFor(() => expect(onCompleteRapport).toHaveBeenCalledTimes(1))
     expect(rec.order.slice(-2)).toEqual(['flush', 'complete'])
   })
 })
@@ -346,6 +349,52 @@ describe('(f) closed on ANOTHER device while open here (N3, staging 25.09.2026)'
     await settle(60)
     expect(document.querySelector('.ml-title')?.textContent ?? '').not.toMatch(/anderen Gerät/)
   })
+})
+
+describe('(g) «Wieder öffnen» with a crew still inside (staging r3, F4)', () => {
+  it('holds the alarm until the reopen row is there, then restarts the clock at it — one row, no instant «Überfällig»', async () => {
+    const m = meta()
+    const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
+    const overdue = { id: 'tr-k', no: 1, name: 'Tst Karl', status: 'aktiv', entryPressureBar: 300, entryTime: longAgo, lastContactTime: longAgo }
+    const closedAt = new Date(Date.now() - 30 * 60_000).toISOString()
+    const reopenAt = new Date(Date.now() - 1_000).toISOString()
+    const closeRow = { id: 'sysclose', t: '', at: closedAt, icon: 'flag', text: 'Einsatz abgeschlossen', lifecycle: 'closed' }
+    const reopenRow = { id: 'sysreopen', t: '', at: reopenAt, icon: 'undo', text: 'Einsatz wiedereröffnet (Nachtrag)', lifecycle: 'reopened' }
+    let serverRows: unknown[] = [closeRow]
+    const posted: { id: string }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/journal') && (init?.method ?? 'GET') === 'GET') {
+        const entries = serverRows.map((row, i) => ({ seq: i + 1, row }))
+        return new Response(JSON.stringify({ entries, latest_seq: entries.length }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
+      if (url.includes('/journal') && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { entries: { id: string }[] }
+        posted.push(...body.entries)
+        return new Response(JSON.stringify({ entries: [], latest_seq: serverRows.length }), { status: 201, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })
+    }))
+    const sync = new WorkspaceSync(m.id)
+    const ws = { entities: [truck], trupps: [overdue] } as unknown as Saved
+    const tree = (im: IncidentMeta) => <><Meldeleiste />{workspaceTree(im, { sync, workspace: ws }).tree}</>
+    // the device opens it closed (a close heard earlier), then the reopen arrives by the poll…
+    const { rerender } = render(tree({ ...m, is_archived: true, closed_at: closedAt }))
+    await settle(60)
+    rerender(tree({ ...m, is_archived: false, closed_at: closedAt }))
+    await settle(60); await settle(1_100)
+    const rows = () => [...document.querySelectorAll('.ml-row')].map((r) => r.textContent ?? '')
+    // …before the Verlauf has the reopen row: the alarm HOLDS rather than ring across the closed hour
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false)
+
+    // the reopen row arrives (the journal loop's next round)
+    serverRows = [closeRow, reopenRow]
+    await settle(2_600); await settle(1_100)
+    // the clock restarted at the reopen: still no alarm, and ONE row under the derived id
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false)
+    const restart = posted.filter((r) => r.id === 'azro-sysreopen-tr-k')
+    expect(restart).toHaveLength(1)
+  }, 20_000)
 })
 
 describe('(e) a hydrate that changes nothing writes nothing', () => {

@@ -91,3 +91,23 @@ describe('ReportPreflight · Ausdrucken with missing Mindestangaben', () => {
     expect(enqueuePrint).not.toHaveBeenCalled()
   })
 })
+
+describe('ReportPreflight · a CLOSED Einsatz (staging r3, F10)', () => {
+  // The Abschluss promises «Spätere Korrekturen bleiben möglich und erscheinen als Nachträge», and
+  // the server takes Rapport writes after the close: the fields stay editable, and one line at
+  // the top says the changes are Nachträge — no fields that look open and do nothing.
+  it('stays editable and says so in one line at the top', async () => {
+    const closed = { ...incident, is_archived: true, closed_at: '2026-09-14T10:00:00.000Z' }
+    render(
+      <ReportPreflight
+        incident={closed} reportMeta={{}} events={[]} canEdit closedHint
+        annotatedPlanCount={0} truppCount={0} attendanceCount={1} mittelCount={1}
+        onSaveMeta={() => {}}
+      />,
+    )
+    expect(await screen.findByText(appConfig.copy.archived.rapportClosedHint)).toBeTruthy()
+    const fieldsets = [...document.querySelectorAll<HTMLFieldSetElement>('.report-fieldset')]
+    expect(fieldsets.length).toBeGreaterThan(0)
+    expect(fieldsets.every((f) => !f.disabled)).toBe(true)
+  })
+})

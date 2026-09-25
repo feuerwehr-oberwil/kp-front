@@ -756,9 +756,11 @@ async def patch_incident(
 
             # A re-completion after late corrections self-documents: the journal shows when
             # each Rapport version was declared complete.
+            # (a reopen clears report_done_at — see below — so an earlier close is what says
+            # «again»: closed_at keeps the first Einsatzende across «Wieder öffnen»)
             text = (
                 "Rapport abgeschlossen"
-                if report_done_before is None
+                if report_done_before is None and inc.closed_at is None
                 else "Rapport erneut abgeschlossen (ersetzt frühere Version)"
             )
             await append_system_row(db, inc.id, icon="check", text=text)
@@ -789,9 +791,25 @@ async def patch_incident(
         if data["is_archived"]:
             if inc.closed_at is None:
                 inc.closed_at = datetime.now(UTC)
-            await append_system_row(db, inc.id, icon="flag", text="Einsatz abgeschlossen")
+            await append_system_row(db, inc.id, icon="flag", text="Einsatz abgeschlossen", lifecycle="closed")
         else:
-            await append_system_row(db, inc.id, icon="undo", text="Einsatz wiedereröffnet (Nachtrag)")
+            # A RUNNING Einsatz carries no «Rapport fertig» (staging r3, F3): the reopen is the
+            # Rapport becoming unfinished again, and every device read the stamp as «done». The
+            # close stays in the record — the status.change event above and the Verlauf rows —
+            # and `closed_at` stays too: it is the first Einsatzende, which marks the Nachträge.
+            if inc.report_done_at is not None and "report_done_at" not in data:
+                inc.report_done_at = None
+                await audit.append_event(
+                    db,
+                    incident_id=inc.id,
+                    op_type="status.change",
+                    source="status",
+                    user_id=user.id,
+                    payload={"report_done": False, "reopened": True},
+                )
+            await append_system_row(
+                db, inc.id, icon="undo", text="Einsatz wiedereröffnet (Nachtrag)", lifecycle="reopened"
+            )
     # Self-reported crew positions live exactly as long as the Einsatz does — the promise
     # made on the phone when someone opted in. The link session that fed them is already
     # dead at this point (`_incident_still_open`), so the rows would only sit there going

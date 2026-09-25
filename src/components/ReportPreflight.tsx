@@ -253,7 +253,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -342,6 +342,10 @@ export function ReportPreflight({
   onComplete?: () => Promise<boolean>
   /** jump to the Verlauf to fill the still-missing audio transcripts */
   onFixTranscripts?: () => void
+  /** The Einsatz is CLOSED and this Rapport is still editable (staging r3, F10): one line at the
+   *  top says that the changes print as Nachträge — the Abschluss promised exactly that, and the
+   *  fields looking «open» on a closed Einsatz must not read as a mistake. */
+  closedHint?: boolean
 }) {
   // Defaults follow the data: a rapport-only incident (nothing drawn) prints without the
   // map/plan pages, no configuration needed; every toggle stays available as an override.
@@ -1605,6 +1609,12 @@ export function ReportPreflight({
             nobody performs unless they know it exists, so this is the app saying it once, at the
             one moment it is true — a line under the head, never a dialog. It blocks nothing:
             «Später» takes it off the screen and the two buttons above are untouched. */}
+        {closedHint && (
+          <div className="rp-band rp-band-open" role="note">
+            <Icon id="lock" className="rp-band-wait" />
+            <span className="rp-band-txt">{appConfig.copy.archived.rapportClosedHint}</span>
+          </div>
+        )}
         {showCloseBand && (
           <div className="rp-band">
             <Icon id="check" className="rp-band-ok" />

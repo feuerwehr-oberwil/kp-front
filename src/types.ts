@@ -471,6 +471,13 @@ export interface TimelineEvent {
    *  at display time and hides the patch row itself — rows are never edited in place
    *  (append-only record; same pattern as the reminder lifecycle above). */
   patchOf?: string
+  /** Stamped by the SERVER on a row it accepted while the Einsatz was closed (api/journal,
+   *  staging r3): a Kontakt from 14:44 that arrived at 14:47, after a 14:45 close, keeps its
+   *  place in time — and still prints as a Nachtrag, because it reached the record late. */
+  receivedAfterClose?: boolean
+  /** A server boundary row: the Einsatz was closed or reopened here (backend · append_system_row).
+   *  What the clients key the reopen's clock restart on — never the German sentence. */
+  lifecycle?: 'closed' | 'reopened'
   /** patch payload only: corrected text for the target row. Patch rows carry a filler
    *  `text: ''`, so a text correction needs its own field — the store folds it onto the
    *  target's `text` at display time (append-only correction, same as transcript). */

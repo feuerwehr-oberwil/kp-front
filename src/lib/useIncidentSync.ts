@@ -6,7 +6,7 @@ import { onReachable } from './connectivity'
 import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
-import { createLongPollLoop } from './pollBackoff'
+import { createLongPollLoop, SLOW_FOLLOW_MS } from './pollBackoff'
 import { createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
 import { toast } from './ui'
@@ -53,6 +53,9 @@ interface IncidentSyncDeps {
    *  elsewhere is answered at once instead of after the timeout (lib/incidentClosed). Read
    *  through a ref: it must not restart the loop by itself. Optional: omitted → not sent. */
   incidentOpen?: boolean
+  /** Follow once a minute instead of long-polling — the Atemschutz-Link of a CLOSED Einsatz,
+   *  whose every request is refused until a reopen (pollBackoff · minDelayMs). Read through a ref. */
+  slowFollow?: boolean
 }
 
 /**
@@ -63,9 +66,11 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent, gestureOpen, incidentOpen }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent, gestureOpen, incidentOpen, slowFollow }: IncidentSyncDeps) {
   const incidentOpenRef = useRef(incidentOpen)
   useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
+  const slowFollowRef = useRef(slowFollow)
+  useEffect(() => { slowFollowRef.current = slowFollow }, [slowFollow])
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
@@ -238,6 +243,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       baseMs: appConfig.sync.livePollMs,
       maxMs: appConfig.sync.livePollMaxMs,
       hiddenMs,
+      minDelayMs: () => (slowFollowRef.current ? SLOW_FOLLOW_MS : 0),
       round: async ({ hidden, signal }) => {
         // Demo follows the shared server too now (edits persist + sync across visitors, like a real
         // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being

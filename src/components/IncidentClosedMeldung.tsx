@@ -15,8 +15,11 @@ import { useMeldung } from '../lib/useMeldung'
  * dropped. The ✕ is legitimate: the chip beside the Einsatzname (or its absence) keeps saying
  * which state the Einsatz is in after the row is gone.
  */
-export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss }: {
+export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss, forLink = false }: {
   event: 'closed' | 'reopened'
+  /** the Atemschutz-Link page (staging r3): its holder cannot reopen the Einsatz, so the closed
+   *  row never says «zum Bearbeiten wieder öffnen» — it says what the board still is */
+  forLink?: boolean
   /** epoch ms of the change (incidentClosed · closedNoticeAt, or when the reopen was heard) */
   at: number
   /** entries of this device the closed Einsatz refused (journal + audit + workspace saves) */
@@ -36,8 +39,8 @@ export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss 
     kind: 'lifecycle',
     tone: closed && refused > 0 ? 'warn' : 'info',
     icon: closed ? 'lock' : 'pen',
-    title: fillTemplate(closed ? C.closedElsewhere : C.reopenedElsewhere, { t: formatTime(new Date(at)) }),
-    sub,
+    title: closed && forLink ? C.linkClosedTitle : fillTemplate(closed ? C.closedElsewhere : C.reopenedElsewhere, { t: formatTime(new Date(at)) }),
+    sub: closed && forLink && refused === 0 ? undefined : sub,
     actions: refused > 0 ? [{ label: C.closedExport, icon: 'download', onClick: onExport }] : undefined,
     dismiss: { label: C.closedDismiss, onClick: onDismiss },
     wrap: true,

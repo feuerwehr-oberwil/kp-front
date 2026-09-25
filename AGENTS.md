@@ -123,6 +123,16 @@ to prod.
   (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`), but only for an
   Einsatz a close SIGNAL made read-only here — one the operator opened closed on purpose stays
   read-only — with its own row. «Anhängen» is never offered onto a closed Einsatz.
+  After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
+  … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
+  until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
+  `receivedAfterClose` and prints as a Nachtrag whatever its time. A reopen clears
+  `report_done_at` (a running Einsatz is not «Rapport fertig»), keeps `closed_at` (the first
+  Einsatzende, which marks the Nachträge — so the Einsatzuhr ignores it while the Einsatz runs),
+  and writes its boundary row with `lifecycle: 'reopened'`; every crew still inside restarts its
+  contact clock at that row's `at`, one `azro-<row>-<Trupp>` row each, and the alarm holds until
+  the row has arrived (`lib/reopenClocks`). The Atemschutz-Link of a closed Einsatz says «diese
+  Tafel zeigt nur noch an» and follows once a minute (`pollBackoff · minDelayMs`).
   A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,
