@@ -286,14 +286,14 @@ a tap opens the Suche on that record):
 | + Gefunden (never reported) | ONE row «Gefunden: …» — no «Vermisst» with a time nobody reported |
 | Übergeben… | «Übergeben: {Name} an {Rettungsdienst}» |
 | Entwarnen (asks why and who said so first; «Abbrechen» holds the focus) | «Entwarnung: {Name} · {Grund} · Quelle {Wer}» — both parts optional |
-| Korrigieren… | «Korrigiert: {before} → {after}» (name, group size, zuletzt gesehen) |
+| Korrigieren… | «Korrigiert: {before} → {after}» (name, group size, zuletzt gesehen, and — once found — «gefunden {Ort}») |
 | Irrtümlich erfasst (the same short form) | «Irrtümlich erfasst: {Name} · {Grund} · Quelle {Wer}» — the record counts nowhere from here on |
 | an area's status | «1. OG Trakt 3 abgesucht · Trupp 4» / «in Arbeit» / «teilweise abgesucht» / «nicht zugänglich» / «offen»; «Fund: {Bereich}» for the area's own mark |
 | Teilen, Umbenennen, + Bereich | «1. OG geteilt: Trakt 1, Trakt 2» · «Bereich umbenannt: … → …» · «Bereich angelegt: Ufer Nord» |
 | a Trupp's Ziel under «Absuchen», on its way in | «{Bereich} in Arbeit · Trupp N» — written under an id derived from the Trupp, its sortie and its Ziel, so every editor device observing the same save writes the one row; a new Ziel or a removed Trupp writes «{old Bereich} offen» |
 | «Trupp N raus – abgesucht?» on the area's row or its Meldeleiste row | Ja → «… abgesucht · Trupp N», Teilweise → «… teilweise abgesucht · Trupp N» (its own status, not «offen»), Nein → «… offen»; a question nobody answers writes NOTHING |
 | ↶ / ↷ of any of these | «Zurückgenommen: {the row's own sentence}» for exactly the rows that step added / the sentence again |
-| Verlauf composer (Tür 2) | the WRITTEN sentence is the row, and it says the change: «… · Suche: {Name} gefunden» |
+| Verlauf composer (Tür 2) | the WRITTEN sentence is the row, and it says the change: «… · Suche: {Name} gefunden» (a group: «… · Suche: 2 von {Gruppe} gefunden» — the count the chip named) |
 
 Deliberately silent: the storeys becoming «ganzes Geschoss» on first open (a machine seed, no
 act of anybody's), and opening/closing the dock or the sheet.

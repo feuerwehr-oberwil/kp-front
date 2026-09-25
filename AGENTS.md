@@ -332,6 +332,15 @@ to prod.
     (`components/suche/SucheAskMeldungen`, kind `suche`) that goes by itself once answered.
     «Teilweise» is its own status (`teilweise`, keeps the Trupp), never «offen», and counts as
     not done everywhere.
+  - A group is never found «all at once» by accident: the composer's chip names the count
+    («Klasse 4b · 2 von 5 gefunden», `composerFoundLink`), and «Fund melden» starts at ONE, on
+    the storey the Trupp is searching (`truppFloor`), never the group's «zuletzt gesehen».
+    «Korrigieren …» also corrects where somebody was FOUND (the latest find; the «Fund» mark
+    moves with it, `foundBereiche`).
+  - The Suche opens where you are (`sucheSurfaceFor`); the rail entry always opens, never
+    toggles a dock that is out of sight. What else stands on the surface keeps clear of the dock
+    and the peek line (Meldeleiste, Grundgerüst card/strip, the storey ✕ — the storey's badge
+    has its own line under the label).
   - A record that ENDS without a find («Entwarnen», «Irrtümlich erfasst») is never one tap: a
     short form asks why and who said so (both optional, both in the row), «Abbrechen» focused.
     The Abschluss asks about people still missing as its own question after the crews
@@ -425,6 +434,12 @@ to prod.
   zoom) — a real seam, where «select vs. create» was noise; the map-utility cluster has air; and
   the Einsatz menu draws ONE hairline, above the identity row (the small-caps label heads «App»
   on its own, but the signed-in row is not an action and the rule says «the list ends here»).
+  What leaves the TOP BAR when it runs out of room is MEASURED, not ruled per breakpoint
+  (`lib/useHeadFit`, 25.09.2026): one `fit-N` step at a time until it fits, lowest priority
+  first — weather, Einsatzdauer, the Suche's words, the Verlauf word, the alarm's name, the
+  Einsatz title (the pill stays: glyph + ÜBUNG), the chips' icons (numbers stay), ↷, the gaps.
+  The Einsatz pill never gives: squeezed below a readable width counts as «does not fit». A new
+  chip in the bar takes its place in that ladder, never a `:has(...)` rule that hides a neighbour.
   A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
   in a `Menu`.
   And **no native form
