@@ -9,7 +9,7 @@ import { haversineM } from './geo'
 import {
   CATEGORY_LABELS, categoryKey, destinationPoint, grundgeruestProgress, grundgeruestRows,
   HYDRANT_MAX_M, hydrantNr, hydrantPoints, isHydrantLayer, linePresetIdFor, listFor, nearestHydrant,
-  ownLocation, placeable, slotMatch, slotsFor, suggestionFor, suggestionText, takeOverKind, upwindPoint,
+  ownLocation, panClearOf, placeable, slotMatch, slotsFor, suggestionFor, suggestionText, takeOverKind, upwindPoint,
   type LageGrundgeruestPresets, type LageSlot,
 } from './lageGrundgeruest'
 import type { TacticalObject } from './tacticalObjects'
@@ -260,5 +260,19 @@ describe('the vocabularies the backend restates', () => {
     // Freihand is the neutral line — a slot that places it would tick on every scribble
     expect(backend).toEqual(appConfig.drawing.linePresets.slice(1).map((p) => p.label))
     for (const label of backend) expect(linePresetIdFor(label)).toBeDefined()
+  })
+})
+
+describe('panClearOf — «hier setzen» never lands under the card', () => {
+  const card = { left: 100, top: 600, right: 440, bottom: 1060 }
+  it('a point clear of the card needs no pan', () => {
+    expect(panClearOf({ x: 600, y: 700 }, card)).toBeNull()
+    expect(panClearOf({ x: 300, y: 400 }, card)).toBeNull()
+  })
+  it('takes the shorter way out: sideways near the right edge, up near the top', () => {
+    // near the right edge: moving the content right by 440+48-420 = 68 px is shorter than up
+    expect(panClearOf({ x: 420, y: 900 }, card)).toEqual([-68, 0])
+    // near the top: up by 620-(600-48) = 68 px is shorter than right (440+48-150)
+    expect(panClearOf({ x: 150, y: 620 }, card)).toEqual([0, 68])
   })
 })

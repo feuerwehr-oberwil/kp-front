@@ -708,6 +708,8 @@ export const de = {
     /** a Karte placement names what it placed (placeSymbolAt, the Lage-Grundgerüst) */
     symbolPlaced: '{name} gesetzt',
     symbolToKarte: '{name} auf die Karte übernommen',
+    objectChanged: '{name} geändert',
+    objectsChanged: '{n} Objekte geändert',
     /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
     reference: 'Referenz angepasst',
     /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das

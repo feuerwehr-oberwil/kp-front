@@ -53,6 +53,11 @@ interface Recorded extends UndoEntry {
   id: string
 }
 
+/** What `push` hands back: the dropper (call it) and a way to NAME the entry once the writer
+ *  knows what it did — the Karte learns that only after its commit (its Verlauf row, or the
+ *  objects that changed), and the ↶ must not keep saying «Änderung auf der Karte». */
+export type UndoHandle = (() => void) & { rename: (label: string) => void }
+
 /** What a step did. `lost` is the soft failure: the entry could not act and has been dropped. */
 export type StepOutcome =
   | { status: 'empty' }
@@ -64,7 +69,7 @@ export interface UndoTimeline {
    *  needed where a confirm-with-undo toast still stands beside the header pair: the toast's
    *  «Rückgängig» does the inverse itself, and the entry it describes must not stay on the stack
    *  for the ↶ to do a second time. */
-  push: (entry: UndoEntry) => () => void
+  push: (entry: UndoEntry) => UndoHandle
   undo: () => StepOutcome
   redo: () => StepOutcome
   /** the entry ↶ would take back – the label the hold-tooltip reads */
@@ -113,12 +118,21 @@ export function createUndoTimeline(cap: number = appConfig.defaults.historyCap):
       past = [...past, { ...entry, id }].slice(-cap)
       future = []
       notify()
-      return () => {
+      const drop = () => {
         const before = past.length + future.length
         past = past.filter((e) => e.id !== id)
         future = future.filter((e) => e.id !== id)
         if (past.length + future.length !== before) notify()
       }
+      return Object.assign(drop, {
+        rename: (label: string) => {
+          let hit = false
+          const named = (e: Recorded) => { if (e.id !== id || e.label === label) return e; hit = true; return { ...e, label } }
+          past = past.map(named)
+          future = future.map(named)
+          if (hit) notify()
+        },
+      })
     },
     undo: () => step('past'),
     redo: () => step('future'),

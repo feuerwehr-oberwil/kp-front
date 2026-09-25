@@ -13,7 +13,7 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionPill, SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, carriedWorkspaceKeys, defaultLayers, deriveInitial, sanitizeWorkspace, WORKSPACE_SCHEMA_VERSION, type Doc, type ReportMeta, type Saved, type WorkspaceGate } from './lib/workspace'
-import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit } from './lib/tacticalObjects'
+import { sheetAnchoredIds, viewsOf, withOwnAnnos, type PlanFit, type TacticalObject } from './lib/tacticalObjects'
 import { saveLayerPrefs } from './lib/layerPrefs'
 import { useReplay } from './lib/useReplay'
 import { resolveHotkey, isTypingTarget } from './lib/hotkeys'
@@ -28,10 +28,11 @@ import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, lageGrundgeruestConfig, sucheUebergabe } from './lib/deploymentConfig'
-import { grundgeruestProgress, grundgeruestRows, isHydrantLayer, linePresetIdFor, ownLocation, placeable, slotsFor, takeOverKind, type GrundgeruestRow } from './lib/lageGrundgeruest'
+import { grundgeruestProgress, grundgeruestRows, isHydrantLayer, linePresetIdFor, ownLocation, panClearOf, placeable, slotsFor, takeOverKind, type GrundgeruestRow } from './lib/lageGrundgeruest'
 import { useHydrantPoints } from './lib/useHydrantPoints'
 import { resolveLinePreset } from './lib/lineStyle'
 import { LageGrundgeruestCard } from './components/LageGrundgeruestCard'
+import { karteStepLabel } from './lib/karteStepLabel'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, fmtFileSize, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
@@ -460,6 +461,17 @@ export function IncidentWorkspace({
   /** the caption the NEXT store checkpoint carries, when its writer knows a better word than
    *  the domain's — see `onCheckpoint` below */
   const stepLabel = useRef<string | null>(null)
+  /**
+   * The Karte step laid in THIS task that still wears the domain word, waiting to be named
+   * (lib/karteStepLabel): by the Verlauf row the same act writes (`log` renames it), else — once
+   * the task is over — by what changed in the store. `rowBefore` is a row written in this task
+   * BEFORE the commit, for the writers that log first.
+   */
+  const karteNaming = useRef<{ rename: (label: string) => void; before: TacticalObject[] } | null>(null)
+  const rowBefore = useRef<string | null>(null)
+  /** a Karte step was laid in this task already — a later row is not a «row before» anything */
+  const steppedThisTask = useRef(false)
+
   // On open, fit the map to the incident's existing map content (symbols + drawings) instead of
   // zooming onto the bare Einsatzort point — so a pre-filled Lage is framed ("eingepasst"). One
   // snapshot per incident (mirrors `init`), so it never snaps the view back while you draw.
@@ -585,7 +597,7 @@ export function IncidentWorkspace({
   // action exactly, because there the timeline entry is written by hand anyway.
   const {
     objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, reanchorToKarte, beginDrag, endDrag, gestureOpen, rebake,
-    undo: undoDoc, redo: redoDoc, replaceObjects,
+    undo: undoDoc, redo: redoDoc, replaceObjects, current: currentObjects,
   } = useObjectStore(
     init.objects,
     readOnly,
@@ -597,15 +609,30 @@ export function IncidentWorkspace({
        *  saying «Änderung auf der Karte» for a corrected georeference described the wrong act
        *  entirely. One-shot: a writer sets it just before its checkpoint, everything else keeps
        *  the domain word, which for a store step is honest (the object IS the Karte's). */
-      onCheckpoint: () => {
-        const label = stepLabel.current ?? C_HIST.undoDomains.karte
-        stepLabel.current = null
-        undoHist.push({
+      onCheckpoint: (before) => {
+        // Named, in this order (lib/karteStepLabel): by the writer (`stepLabel`), by the Verlauf
+        // row the same act writes, else by what changed. `step.label` is read when ↶ / ↷ run, so
+        // the «… rückgängig gemacht» row carries the name too (R3-3, 25.09.2026).
+        const explicit = stepLabel.current ?? rowBefore.current
+        stepLabel.current = null; rowBefore.current = null
+        if (!steppedThisTask.current) { steppedThisTask.current = true; setTimeout(() => { steppedThisTask.current = false }, 0) }
+        const step = { label: explicit ?? C_HIST.undoDomains.karte }
+        const handle = undoHist.push({
           domain: 'karte',
-          label,
-          undo: () => histStep(undoDocRef.current(), 'undo', label, ''),
-          redo: () => histStep(redoDocRef.current(), 'redo', label, ''),
+          label: step.label,
+          undo: () => histStep(undoDocRef.current(), 'undo', step.label, ''),
+          redo: () => histStep(redoDocRef.current(), 'redo', step.label, ''),
         })
+        if (explicit) return
+        const pending = { rename: (l: string) => { step.label = l; handle.rename(l) }, before }
+        karteNaming.current = pending
+        setTimeout(() => {
+          if (karteNaming.current !== pending) return
+          karteNaming.current = null
+          // `currentObjects` reads the store's live ref — safe to call from here, a task later
+          const named = karteStepLabel(pending.before, currentObjects())
+          if (named) pending.rename(named)
+        }, 0)
       },
       /**
        * An object changed SURFACE, and the audit stream is told both halves of it.
@@ -2158,8 +2185,14 @@ export function IncidentWorkspace({
   // logTruppAlarm), `subjectId` names the object it is ABOUT without making it a jump target
   // (see types · TimelineEvent.subjectId).
   const log = (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string,
-    opts?: { rowId?: string; subjectId?: string; suche?: TimelineEvent['suche'] }) =>
+    opts?: { rowId?: string; subjectId?: string; suche?: TimelineEvent['suche'] }) => {
+    // the Karte step this act just laid takes the row's words as its name (lib/karteStepLabel)…
+    const naming = karteNaming.current
+    if (naming) { karteNaming.current = null; naming.rename(text) }
+    // …and a row written BEFORE its commit is kept for the step that follows in this task
+    else if (!steppedThisTask.current) { rowBefore.current = text; setTimeout(() => { if (rowBefore.current === text) rowBefore.current = null }, 0) }
     pushEvent({ icon, text, kind, audioUrl, entityId, subjectId: opts?.subjectId, ...(opts?.suche ? { suche: opts.suche } : {}), surface: 'map' }, opts?.rowId)
+  }
   // plan events carry document + (optional) team / coordinate context for jump-back
   const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) =>
     pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor })
@@ -3267,9 +3300,10 @@ export function IncidentWorkspace({
       const map = mapRef.current
       let dockPatch: { dockedTo: string | undefined } | null = null
       let dockHost: Entity | undefined
-      if (isDockable(ent) && map) {
+      // an explicit `dock` from the Karte's closed ring needs no map; only the nearest-host search does
+      if (isDockable(ent) && (map || dock)) {
         const others = doc.entities.filter((e) => e.id !== id)
-        const near = () => nearestDockHost(c, others, (p) => map.project(p), dockRadiusFor(ent)) ?? undefined
+        const near = () => (map ? nearestDockHost(c, others, (p) => map.project(p), dockRadiusFor(ent)) ?? undefined : undefined)
         // a Trupp marker docks only through a CLOSED ring (MapView · trackDockAim); with the ring
         // still open the drop keeps an existing bond while it is in reach and lets go beyond it
         dockHost = dock === undefined ? near()
@@ -4582,9 +4616,17 @@ export function IncidentWorkspace({
       ? fillTemplate(appConfig.copy.lageGrundgeruest.hydrantLabel, { nr: suggestion.nr })
       : undefined
     placeSymbolAt(slot.symbol, suggestion.coord, { label })
-    // a suggestion off-screen is placed where nobody is looking — bring it into view
+    // a suggestion off-screen is placed where nobody is looking — bring it into view; one UNDER
+    // the card is placed where nobody can see it either (staging 3am V5) — pan it clear
     const map = mapRef.current?.getMap()
-    if (map && !map.getBounds().contains(suggestion.coord)) map.easeTo({ center: suggestion.coord, duration: 400 })
+    if (!map) return
+    if (!map.getBounds().contains(suggestion.coord)) { map.easeTo({ center: suggestion.coord, duration: 400 }); return }
+    const card = document.querySelector('section.lgg')?.getBoundingClientRect()
+    if (!card) return
+    const box = map.getContainer().getBoundingClientRect()
+    const at = map.project(suggestion.coord)
+    const pan = panClearOf({ x: box.left + at.x, y: box.top + at.y }, card)
+    if (pan) map.panBy(pan, { duration: 400 })
   }
   /** Take a plan object over onto the Karte — the same record (no twin). One store step; the
    *  flip's audit pair is reported by the store like a drag's, the Verlauf row is ours. */
@@ -4616,9 +4658,8 @@ export function IncidentWorkspace({
   // readout and the Ebenen sheet — it steps aside while any of them is up, rather than covering it
   const ggLaneFree = !isPhone || (tool === 'select' && !selectedId && !selectedDrawingId
     && selectedDrawIds.length === 0 && selectedEntityIds.length === 0 && panel === null && !coord.readout && !paletteOpen)
-  const ggSelectionUp = !!selectedId || !!selectedDrawingId || selectedDrawIds.length > 0 || selectedEntityIds.length > 0
-  // the coordinate readout owns the bottom-centre lane too: the card lifts over it, and stacked
-  // above Messen (much higher) it simply steps aside until the readout is closed
+  // the coordinate readout owns the bottom-centre lane too: the card stands above it (03-map ·
+  // .lgg), and stacked above Messen (much higher) it steps aside until the readout is closed
   const ggCoordUp = !!coord.readout && !replayActive
 
   /* ── one fault line per view (SurfaceBoundary, 02.09.) ─────────────────────────────────────
@@ -5383,7 +5424,6 @@ export function IncidentWorkspace({
               armedSlotId={ggArmedLive ? ggArmedId : null}
               phone={isPhone}
               startOpen={ggMode === 'shown'}
-              raised={!isPhone && (ggSelectionUp || ggCoordUp)}
               onArm={ggArm}
               onPlace={ggPlace}
               onToKarte={ggTakeOver}
