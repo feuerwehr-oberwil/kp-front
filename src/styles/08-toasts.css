@@ -155,6 +155,12 @@
 @media (hover: hover) {
   .ml-btn.prim:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--on-btn-primary); }
 }
+/* the green primary (MeldungAction · go): the safe «leave it as it is» move, the Atemschutz
+   «Eintritt» fill — `--on-fill` because the night green is bright (01-tokens) */
+.ml-btn.prim.go { background: var(--green); border-color: var(--green); color: var(--on-fill); }
+@media (hover: hover) {
+  .ml-btn.prim.go:hover { background: var(--green-solid-hover); border-color: var(--green-solid-hover); color: var(--on-fill); }
+}
 .ml-btn .i { width: 15px; height: 15px; flex: none; }
 /* the ✕ — and, on a row that may not be waved away (a due Wiedervorlage), an invisible stand-in
    holding the same 44px column open, so the buttons of all rows end on one vertical line. */
@@ -173,7 +179,9 @@
     left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
     max-height: calc(100dvh - var(--rail-h) - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .ml-row { flex-wrap: wrap; padding-bottom: 8px; }
-  .ml-act { order: 1; flex: 1 1 100%; justify-content: flex-end; }
+  /* …and a pair too long for one line (the GPS row's «Zurück auf Stand am Einsatzort» ·
+     «Weiter folgen») wraps onto two full-width buttons rather than running off the card */
+  .ml-act { order: 1; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; }
   .ml-act .ml-btn { flex: 1 1 auto; min-width: 0; }
 }
 

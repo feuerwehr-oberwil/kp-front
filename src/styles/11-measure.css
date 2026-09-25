@@ -209,6 +209,29 @@
 @media (hover: hover) {
   .draw-editor .de-conn-detach:hover { text-decoration: underline; }
 }
+/* The GPS block at the head of the line editor while an end follows a vehicle (DrawEditor, D3):
+   what it follows and how far off it is, the way back as the ONE filled button (green: it puts
+   the line back where it was safe — the Meldung's «Am Einsatzort lassen» wears the same fill,
+   08-toasts · .ml-btn.prim.go), and the two quiet moves side by side under it. */
+.draw-editor .de-gps { padding: 6px 0 8px; }
+.draw-editor .de-gps-head { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 4px 0; }
+.draw-editor .de-gps-head .i { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--amber-strong); }
+.draw-editor .de-gps-head b { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.draw-editor .de-gps-head span { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; color: var(--ink-dim); }
+.draw-editor .de-gps-back { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 48px;
+  margin-top: 6px; padding: 0 12px; border: 1px solid var(--green); border-radius: var(--r-sm);
+  background: var(--green); color: var(--on-fill); font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.draw-editor .de-gps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+/* three moves (stop/continue · on site · here): the odd one out takes the whole second line */
+.draw-editor .de-gps-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.draw-editor .de-gps-btn { min-height: 44px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--fill-soft); color: var(--ink); font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.draw-editor .de-gps-back:active:not(:disabled),
+.draw-editor .de-gps-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) {
+  .draw-editor .de-gps-back:hover { background: var(--green-solid-hover); border-color: var(--green-solid-hover); }
+  .draw-editor .de-gps-btn:hover { background: var(--surface); }
+}
 /* Verbundene Linien — flat rows in the sidebar idiom (hairline separators, chevron affordance),
    not floating cards; the row label uses the friendly line name, not the raw id. */
 .ctx-connections button { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px;

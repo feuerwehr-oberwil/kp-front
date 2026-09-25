@@ -16,6 +16,7 @@ import { useGpsFollow } from './useGpsFollow'
 import { useObjectStore } from './useObjectStore'
 import { objectsFromLegacy, type PlanFit, type TacticalObject } from './tacticalObjects'
 import { fitSimilarity } from './georef'
+import { gpsNotices } from './gpsReturn'
 import type { BoardAnno, Drawing, Entity, GpsFollowState, LngLat } from '../types'
 
 const VEHICLES = 40
@@ -44,7 +45,11 @@ function fixture(): TacticalObject[] {
     const at = home(i % VEHICLES)
     return {
       id: `hose${i}`, kind: 'line', coords: [[at[0] - 0.0002, at[1] - 0.0001], at],
-      endAttachment: { target: { kind: 'object', id: `gps-${i % VEHICLES}`, live: true }, routing: 'trace', gps: { state: STATES[i % 3], confirmedAt: at, lastSafe: at } },
+      endAttachment: { target: { kind: 'object', id: `gps-${i % VEHICLES}`, live: true }, routing: 'trace', gps: {
+        state: STATES[i % 3], confirmedAt: at, lastSafe: at,
+        // D3: every following line carries its on-site snapshot, and the pass must carry it along
+        ...(STATES[i % 3] === 'continuous' ? { before: snapshotOf(i, at) } : {}),
+      } },
     }
   })
   const symbols: Entity[] = Array.from({ length: OTHERS_MAP }, (_, i) => ({
@@ -53,6 +58,11 @@ function fixture(): TacticalObject[] {
   const annos: BoardAnno[] = Array.from({ length: OTHERS_SHEET }, (_, i) => ({ id: `anno${i}`, kind: 'symbol', symbol: 'VKF Feuer', x: (i % 10) / 10, y: Math.floor(i / 10) / 10 } as BoardAnno))
   return objectsFromLegacy(symbols, lines, { modul2: annos })
 }
+
+const snapshotOf = (i: number, at: LngLat) => ({
+  coords: [[at[0] - 0.0002, at[1] - 0.0001], at] as LngLat[], routing: 'direct' as const, state: 'paused' as const,
+  confirmedAt: at, lastSafe: at, at: `2026-09-23T20:${String(i % 60).padStart(2, '0')}:00.000Z`,
+})
 
 /** A deterministic poll schedule: which vehicles moved at each tick. */
 function schedule(): number[][] {
@@ -91,6 +101,8 @@ describe('useGpsFollow · LOAD — 40 vehicles, 60 couplings, 500 objects, 200 p
 
     const started = performance.now()
     const r = render(<Host vehicles={feed()} />)
+    const snapshots = new Map(seen.drawings.map((d) => [d.id, d.endAttachment!.gps!.before]))
+    let noticeMs = 0
     const settled = seen.renders
     expect(seen.writes).toBe(0) // every coupling already sits on its vehicle
     let expectedWrites = 0
@@ -101,6 +113,10 @@ describe('useGpsFollow · LOAD — 40 vehicles, 60 couplings, 500 objects, 200 p
       const before = seen.renders
       act(() => r.rerender(<Host vehicles={feed()} />))
       worstTick = Math.max(worstTick, seen.renders - before)
+      // the Meldeleiste's question is asked on every poll too (IncidentWorkspace · gpsNoticeList)
+      const t0 = performance.now()
+      gpsNotices(seen.drawings, feed())
+      noticeMs += performance.now() - t0
     }
     const elapsed = performance.now() - started
     spy.mockRestore()
@@ -123,5 +139,16 @@ describe('useGpsFollow · LOAD — 40 vehicles, 60 couplings, 500 objects, 200 p
       expect(d.coords.length).toBeLessThanOrEqual(2 + (STATES[i % 3] === 'continuous' ? moves[v] : 0))
     }
     expect(seen.objects).toHaveLength(LINES + OTHERS_MAP + OTHERS_SHEET)
+    // …the snapshots rode through every write by IDENTITY (the pass spreads gps, never rebuilds it)
+    for (const d of seen.drawings) expect(d.endAttachment!.gps!.before).toBe(snapshots.get(d.id))
+    // …and the Meldeleiste says NOTHING: the 20 paused ends' vehicles moved centimetres (below the
+    // 100 m notice threshold — GPS scatter raises no row), and the 20 following ends never went
+    // 300 m out, so none is «back» — 200 times over, well inside the frame budget
+    const notices = gpsNotices(seen.drawings, feed())
+    expect(notices).toEqual([])
+    // …until the paused ends' vehicles really leave: 150 m out, one «away» row per vehicle
+    const gone = feed().map((e) => ({ ...e, coord: [e.coord[0] + 0.002, e.coord[1]] as LngLat }))
+    expect(gpsNotices(seen.drawings, gone).filter((n) => n.kind === 'away')).toHaveLength(new Set(Array.from({ length: LINES }, (_, i) => i).filter((i) => STATES[i % 3] === 'paused').map((i) => i % VEHICLES)).size)
+    expect(noticeMs / TICKS).toBeLessThan(5)
   })
 })

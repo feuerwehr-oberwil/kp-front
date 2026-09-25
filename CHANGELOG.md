@@ -180,6 +180,19 @@ so this file – not the log – is the record of what shipped up to that point.
   it is offline is now not counted at all (`lib/reportError · isOfflineNetworkNoise`). Render
   throws, render storms and a failure while nominally online are still reported, so the
   post-Einsatz check reads only what broke.
+- **A Leitung coupled to a vehicle's GPS has a way back to the Einsatzort.** In the Übung on
+  23.09.2026 «Weiter folgen» was tapped for a TLF already back at its depot; the hose line traced
+  the drive (a 1.15 km spike, printed on the Rapport) and nothing remembered where it had ended on
+  site. Now the Meldung – one row per vehicle, naming its lines – says how far the vehicle is
+  («TLF fährt weg · 340 m vom Einsatzort», raised only from 100 m – a parked vehicle's GPS scatter
+  asks nothing) and leads with a green «Am Einsatzort lassen»;
+  «Weiter folgen» keeps the line as it stood (`gps.before`, ignored by older builds), and the line
+  editor, while an end follows or has stopped following, offers «Zurück auf Stand am Einsatzort
+  (hh:mm)», «Am Einsatzort lösen» and «Hier lösen (Spur behalten)» – a traced hose may be kept.
+  A vehicle back within 150 m after having been 300 m out gets the offer once more. «Zurück» and
+  a cut-back are one undo step with one Verlauf row, keep a plan-drawn hose on its sheet, and win
+  over another device's GPS poll in the sync. The printed Kroki no longer pulls a paused end to
+  wherever the vehicle is now.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched
