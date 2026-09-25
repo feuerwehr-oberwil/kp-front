@@ -424,21 +424,27 @@ to prod.
     it. And the seam honours it per object: a lent anno
     handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
     the bake — which lost a note's text and laid a store step for nothing.
-  - ⚠️ **A live-GPS Leitung end lets go ON SITE, and following keeps the way back** (24.09.2026,
-    D3, `lib/gpsReturn`). The first «Weiter folgen» / «Spur» on a GPS end stores the on-site line
-    in `gps.before` (geometry, coupling state, tap time). It is taken ONCE — never overwritten while
+  - ⚠️ **A live-GPS Leitung end keeps its way back to the Einsatzort** (24.09.2026, D3,
+    `lib/gpsReturn`). The first «Weiter folgen» / «Spur» on a GPS end stores the on-site line in
+    `gps.before` (geometry, coupling state, tap time). It is taken ONCE — never overwritten while
     the end follows or after «Folgen stoppen» — rides with the attachment through sync, merge, bake
-    and ↶, and is dropped only by detaching or a fresh confirmation («Direkt» out of a pause). An
-    older client spreads `gps`, so it carries the field without reading it. Every detach of a GPS
-    end (the Meldung's green «Am Einsatzort lassen», the editor's «Am Einsatzort lösen», the map's
-    × chip — all through `useMapDrawing · setDrawingAttachment`) ends the line where it stood on
-    site: a followed trace is cut back to its snapshot (`onSiteCoords`), never cut at the vehicle's
-    current position, which is what drew the depot → site → depot spike into the record on
-    23.09.2026. «Zurück auf Stand am Einsatzort» restores the snapshot exactly — one store
-    checkpoint, one Verlauf row (`log.gpsReverted`). The «back on site» offer (≤150 m while
-    following) is asked once per return, device-local, re-armed past 300 m. And the printed Kroki
-    names an attached end only while it SITS on its object (`lineAttachments · endOnTarget`): the
-    server couples every named end to the glyph where the vehicle is now.
+    and ↶, and is dropped by detaching or a fresh confirmation. It counts only while its
+    `confirmedAt` is the coupling's own (`freshBefore`): an older client spreads `gps`, carries the
+    field unread and may re-confirm the end under it. Three releases, each saying what it does:
+    «Zurück auf Stand am Einsatzort» restores the snapshot exactly; «Am Einsatzort lassen/lösen»
+    cuts a followed trace back to its on-site end (`onSiteCoords`, the cut vertex found by value),
+    offered only where that point is KNOWN (`onSiteKnown`); «Hier lösen (Spur behalten)» keeps the
+    traced hose — a traced line may be meant to stay. A hand dragging the end off lands at the drop
+    point. Restoring or cutting back is `commit(…, { gesture: false })`: not a placement, so a
+    plan-drawn hose keeps its sheet and storey. Either act that takes vertices out writes ONE
+    Verlauf row (`log.gpsReverted` / `log.gpsReleasedOnSite`). The Meldung is ONE row per vehicle
+    and question, acting on all of its ends; the «back on site» offer ARMS only once the vehicle
+    was ≥300 m out (live or in the trace) and is asked once per return; a «stopped» row can be
+    waved away — both device-local. The sync merge lets a hand's change of a hose beat a
+    follower-only change (`followerOnlyChange` in `mergeWorkspace`), or another device's poll puts
+    the drive back after a «Zurück». And the printed Kroki names an attached end only while it
+    SITS on its object (`lineAttachments · endOnTarget`): the server couples every named end to the
+    glyph where the vehicle is now.
   - ⚠️ **A machine writer is idempotent — writing an unchanged value is a render loop**
     (24.09.2026, post-mortem of the Übung on 23.09.2026). A pass that runs on a feed or an effect
     returns the document it was given (`cur` itself) when nothing changed BY VALUE; a copy with an

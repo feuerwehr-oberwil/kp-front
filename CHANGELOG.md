@@ -131,15 +131,17 @@ so this file – not the log – is the record of what shipped up to that point.
 ### Fixed
 
 - **A Leitung coupled to a vehicle's GPS has a way back to the Einsatzort.** In the Übung on
-  23.09.2026 «Weiter folgen» was tapped for a TLF already back at the Magazin; the hose line traced
+  23.09.2026 «Weiter folgen» was tapped for a TLF already back at its depot; the hose line traced
   the drive (a 1.15 km spike, printed on the Rapport) and nothing remembered where it had ended on
-  site. Now the Meldung says how far the vehicle is («TLF fährt weg · 340 m vom Einsatzort») and
-  leads with a green «Am Einsatzort lassen»; «Weiter folgen» keeps the line as it stood
-  (`gps.before`, ignored by older builds), and the line editor, while an end follows, offers
-  «Zurück auf Stand am Einsatzort (20:31)» – one undo step, one Verlauf row. The same offer comes
-  back once when the vehicle returns within 150 m. Every «Lösen» of a GPS end («Hier lösen» is now
-  «Am Einsatzort lösen») detaches on site, never at the vehicle's current position, and the
-  printed Kroki no longer pulls a paused end to wherever the vehicle is now.
+  site. Now the Meldung – one row per vehicle, naming its lines – says how far the vehicle is
+  («TLF fährt weg · 340 m vom Einsatzort») and leads with a green «Am Einsatzort lassen»;
+  «Weiter folgen» keeps the line as it stood (`gps.before`, ignored by older builds), and the line
+  editor, while an end follows or has stopped following, offers «Zurück auf Stand am Einsatzort
+  (hh:mm)», «Am Einsatzort lösen» and «Hier lösen (Spur behalten)» – a traced hose may be kept.
+  A vehicle back within 150 m after having been 300 m out gets the offer once more. «Zurück» and
+  a cut-back are one undo step with one Verlauf row, keep a plan-drawn hose on its sheet, and win
+  over another device's GPS poll in the sync. The printed Kroki no longer pulls a paused end to
+  wherever the vehicle is now.
 - **Zooming a sheet or a Gebäude pack no longer jetsams an iPhone.** One pixel budget for every
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched
