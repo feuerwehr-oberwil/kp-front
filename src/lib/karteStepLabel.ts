@@ -39,7 +39,7 @@ const movedOnly = (a: TacticalObject, b: TacticalObject): boolean => {
 }
 
 /**
- * Name a step by what it did to the store: one object set, drawn, moved, changed or deleted —
+ * Name a step by what it did to the store: one object set, drawn, moved, changed or removed —
  * «KP Front verschoben», «Zufahrt gezeichnet» — or «3 Objekte geändert». Null when nothing a
  * person would recognise changed (the caller keeps the domain word).
  */
@@ -58,7 +58,8 @@ export function karteStepLabel(before: readonly TacticalObject[], after: readonl
     const o = added[0]
     return fillTemplate(o.drawing ? L.shapeDrawn : U.symbolPlaced, { name: objectName(o) })
   }
-  if (removed.length) return fillTemplate(L.objectDeleted, { name: objectName(removed[0]) })
+  // «entfernt», never «gelöscht»: that word means extinguished on a fire-service Karte (#226)
+  if (removed.length) return fillTemplate(U.objectRemoved, { name: objectName(removed[0]) })
   const o = changed[0]
   const b = was.get(o.id)!
   return fillTemplate(movedOnly(b, o) ? L.objectMoved : U.objectChanged, { name: objectName(o) })

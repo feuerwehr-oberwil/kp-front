@@ -429,6 +429,7 @@ export const en: Localizable<Copy> = {
     symbolToKarte: '{name} taken over onto the map',
     objectChanged: '{name} changed',
     objectsChanged: '{n} objects changed',
+    objectRemoved: '{name} removed',
     reference: 'Reference adjusted',
     blattform: 'Sheet shape measured',
     karte: 'Change on the map',

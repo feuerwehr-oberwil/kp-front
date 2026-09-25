@@ -13,10 +13,11 @@ const line = { id: 'l', drawing: { id: 'l', kind: 'line', coords: [[8, 47], [8.0
 const moved = (o: TacticalObject): TacticalObject => ({ ...o, entity: { ...o.entity!, coord: [8.0005, 47.0005] } })
 
 describe('karteStepLabel', () => {
-  it('names one object set, drawn or deleted', () => {
+  it('names one object set, drawn or removed', () => {
     expect(karteStepLabel([], [kp])).toBe('KP Front gesetzt')
     expect(karteStepLabel([], [line])).toBe('Zufahrt gezeichnet')
-    expect(karteStepLabel([kp], [])).toBe('KP Front gelöscht')
+    // taken off the picture is «entfernt» — «gelöscht» means extinguished (#226)
+    expect(karteStepLabel([kp], [])).toBe('KP Front entfernt')
   })
 
   it('a position-only change is a move; anything else is a change', () => {

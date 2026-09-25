@@ -710,6 +710,8 @@ export const de = {
     symbolToKarte: '{name} auf die Karte übernommen',
     objectChanged: '{name} geändert',
     objectsChanged: '{n} Objekte geändert',
+    /** taken off the picture — «entfernt»; «gelöscht» only ever means extinguished (#226) */
+    objectRemoved: '{name} entfernt',
     /** Die Passung eines Plans wurde korrigiert — ein Schritt für alle neu verorteten Objekte. */
     reference: 'Referenz angepasst',
     /** ⚠️ Dieselbe Rückverortung, aber NIEMAND hat die Referenz angefasst: die App hat das

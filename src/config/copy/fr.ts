@@ -431,6 +431,7 @@ export const fr: Localizable<Copy> = {
     symbolToKarte: '{name} repris sur la carte',
     objectChanged: '{name} modifié',
     objectsChanged: '{n} objets modifiés',
+    objectRemoved: '{name} retiré',
     reference: 'Référence ajustée',
     blattform: 'Forme de la feuille mesurée',
     karte: 'Modification sur la carte',
