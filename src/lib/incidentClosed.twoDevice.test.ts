@@ -186,3 +186,35 @@ describe('a close on phone A reaches phone B, and B’s late Tafel writes are re
     off()
   })
 })
+
+describe('the refused slot is never overwritten blind', () => {
+  // CodeRabbit on #235: a failed read of the refused slot was taken for an empty one, and the next
+  // park wrote over what an earlier session had parked there. A failed IndexedDB read is not a miss.
+  it('a park after a failed read goes to its own slot, and the earlier saves stay', async () => {
+    const idb = await import('./idb')
+    const KEY = `kp-front-ws-${INC}::__refused__`
+    const earlier = [{ workspace: { trupps: [TRUPP] }, baseRev: 1, refusedAt: 1 }]
+    await idb.idbSet(KEY, earlier)
+    const realRead = idb.idbRead
+    const read = vi.spyOn(idb, 'idbRead').mockImplementation(((key: string) =>
+      key === KEY ? Promise.resolve({ ok: false, error: new Error('io') }) : realRead(key)) as typeof idb.idbRead)
+    try {
+      server.open = false
+      server.closedAt = '2026-09-25T12:45:00+00:00'
+      const write = vi.spyOn(idb, 'idbSet')
+      const sync = new WorkspaceSync(INC, { debounceMs: 60_000 })
+      await sync.init()
+      sync.save({ ...server.ws, trupps: [{ ...TRUPP, lastContactTime: '2026-09-25T12:50:00Z' }] })
+      await sync.flush()
+      expect(sync.hasUnsynced).toBe(false)
+      read.mockRestore()
+      expect(await idb.idbGet(KEY)).toEqual(earlier) // untouched
+      const parkedTo = write.mock.calls.map((c) => c[0]).filter((k) => k.startsWith(KEY))
+      expect(parkedTo).toHaveLength(1)
+      expect(parkedTo[0]).toMatch(new RegExp(`^${KEY}:\\d+$`))
+      expect(sync.refusedCount).toBe(1)
+      write.mockRestore()
+      sync.dispose()
+    } finally { read.mockRestore() }
+  })
+})

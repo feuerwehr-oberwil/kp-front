@@ -883,9 +883,14 @@ export class WorkspaceSync {
       workspace: this.entry.workspace, baseRev: this.entry.baseRev, refusedAt: Date.now(), owner: this.entry.owner,
     }
     const seqAtPark = this.saveSeq
-    await this.loadRefused()
+    const readable = await this.loadRefused()
     const next = [...this.refused, item]
-    const durable = await idbSet(refusedCacheKey(this.incidentId), next)
+    // ⚠️ A slot that could not be READ is not an empty one: writing `next` over it would destroy
+    // what an earlier session parked there (the idb rule — a failed read is not a miss). The save
+    // goes to a slot of its own instead, which nothing else writes; the main slot is left as is.
+    const durable = readable
+      ? await idbSet(refusedCacheKey(this.incidentId), next)
+      : await idbSet(`${refusedCacheKey(this.incidentId)}:${item.refusedAt}`, [item])
     reportIncidentClosed({ incidentId: this.incidentId, closedAt: refusalClosedAt(e), source: 'refusal' })
     if (this.disposed) return false
     if (!durable) {
@@ -928,16 +933,25 @@ export class WorkspaceSync {
 
   /** Read the refused slot once, merging with anything parked in this session meanwhile. Called
    *  on `subscribeRefused` and by `parkRefused` before it appends. */
-  private refusedLoad: Promise<void> | null = null
-  loadRefused(): Promise<void> {
+  /** Resolves true once the slot was READ (a miss included), false when the read failed — then
+   *  nothing is cached, so the next call reads again. */
+  private refusedLoad: Promise<boolean> | null = null
+  loadRefused(): Promise<boolean> {
     if (!this.refusedLoad) {
-      this.refusedLoad = idbRead<RefusedWorkspace[]>(refusedCacheKey(this.incidentId)).then((read) => {
-        const stored = read.ok && Array.isArray(read.value) ? read.value : []
-        if (!stored.length) return
-        const seen = new Set(this.refused.map((r) => r.refusedAt))
-        this.refused = [...stored.filter((r) => !seen.has(r.refusedAt)), ...this.refused]
-        this.emitRefused()
+      const loading = idbRead<RefusedWorkspace[]>(refusedCacheKey(this.incidentId)).then((read) => {
+        if (!read.ok) {
+          if (this.refusedLoad === loading) this.refusedLoad = null
+          return false
+        }
+        const stored = Array.isArray(read.value) ? read.value : []
+        if (stored.length) {
+          const seen = new Set(this.refused.map((r) => r.refusedAt))
+          this.refused = [...stored.filter((r) => !seen.has(r.refusedAt)), ...this.refused]
+          this.emitRefused()
+        }
+        return true
       })
+      this.refusedLoad = loading
     }
     return this.refusedLoad
   }
