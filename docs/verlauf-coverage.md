@@ -215,6 +215,28 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
   that are not on the picture – a Verlauf Eintrag, a Schicht, an Anwesenheits-Zeit, a Mittel
   line, a saved Ansicht, an Übung. `config/copy/removalWords.test.ts` pins the picture's set.
 
+## A taken-back act is two rows – on paper too (2026-09-25)
+
+Round 3 of the staging walk-through: the printed Einsatzjournal described things that had been
+taken back. Two causes, both closed:
+
+- **The Rapport now prints the ↶ / ↷ rows** (`lib/report · journalRows`, `kind: 'history'`, and
+  the plain «Aktion rückgängig gemacht» rows it used to omit by text). With only the first half,
+  «Symbol «Feuer» gesetzt» stood on paper next to a Kroki that showed no fire. The journal is
+  append-only, so both rows print, in order.
+- **Every undo that RESTORES something writes its counter-row, whichever door it came through.**
+  A confirm-with-undo toast is the same act as the header's ↶ (`IncidentWorkspace ·
+  oneShotUndoToast`): it writes the same row the timeline would, then drops the timeline entry.
+  - Gebäude storey removed: «Geschoss 3. OG entfernt» (with the markings it took, if any) →
+    «Geschoss 3. OG wiederhergestellt» from the toast or ↶ (`whiteboard.floorRestoredLog`), and
+    ↷ writes «entfernt» again.
+  - Storey added, Gebäude replaced: the toast writes the same «… rückgängig gemacht» the ↶
+    writes (it wrote nothing).
+  - A Trupp undocked from its host: the toast's re-dock writes «{name} bei «{host}»».
+  - An Anwesenheit row cleared: the toast writes «Anwesenheit wiederhergestellt: {name}».
+  Toasts that undo an act which wrote no row (a shift, a Rapport-Beilage, an attendance block)
+  still write none: there is nothing on the record for them to answer.
+
 ## What a Verlauf row can carry since 17.08.
 
 The row is no longer just text and a timestamp. Four properties have been added, and all four

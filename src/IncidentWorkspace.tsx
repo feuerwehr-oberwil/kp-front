@@ -134,7 +134,7 @@ import { prefetchOutlines } from './components/OsmOutline'
 import { buildView } from './lib/footprint'
 import { amendBuilding } from './lib/buildingTransfer'
 import { removeStorey, withoutOwnOnStorey } from './lib/stackFloors'
-import { askStoreyRemoval, storeyRemovedRow } from './lib/storeyRemoval'
+import { askStoreyRemoval, storeyRemovedRow, storeyRestoredRow } from './lib/storeyRemoval'
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
 import { floorLabel } from './lib/whiteboard'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -276,6 +276,9 @@ function isFreeText(el: HTMLElement): boolean {
 // (per incident). Keep the value in-memory so deriveInitial can import it once this session, then
 // clear the legacy cookie field so a later reset can't be resurrected from a stale cookie.
 if (prefs.pickedObject) savePrefs({ ...loadPrefs(), pickedObject: undefined })
+
+/** A one-shot's own counter-rows for ↶ and ↷ (IncidentWorkspace · rememberOneShot) */
+interface OneShotRows { undo: () => void; redo: () => void }
 
 interface WorkspaceProps {
   incidentMeta: IncidentMeta
@@ -3206,7 +3209,14 @@ export function IncidentWorkspace({
     })
     patchEntity(entityId, { dockedTo: undefined })
     log('select', line, 'team', undefined, entityId)
-    undoToast(line, () => patchEntity(entityId, { dockedTo: hostId }))
+    // …and the toast's way back says so too: the bond is restored, and the record has to hear it
+    undoToast(line, () => {
+      patchEntity(entityId, { dockedTo: hostId })
+      log('select', fillTemplate(L.teamDocked, {
+        name: ent.label || appConfig.copy.entities.fallbackObjectName,
+        host: doc.entities.find((e) => e.id === hostId)?.label || appConfig.copy.entities.fallbackObjectName,
+      }), 'team', undefined, entityId)
+    })
   }
   /**
    * A live Fahrzeug was dragged on a Modul — «hier ist es wirklich».
@@ -3535,15 +3545,31 @@ export function IncidentWorkspace({
    * drops its entry when it is used, so an act is never undoable twice. The label is the toast's
    * own sentence, so the header says «Rückgängig: Geschoss gelöscht» and not «… Gebäude».
    */
-  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void) => undoHist.push({
+  /** `rows` replaces the generic «… rückgängig gemacht / wiederhergestellt» with the act's own
+   *  counter-rows where it has better words («Geschoss 3. OG wiederhergestellt»). */
+  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, rows?: OneShotRows) => undoHist.push({
     domain,
     label,
-    undo: () => { restore(); logHistStep('undo', label, ''); return true },
-    redo: () => { reapply(); logHistStep('redo', label, ''); return true },
+    undo: () => { restore(); oneShotRow('undo', label, rows); return true },
+    redo: () => { reapply(); oneShotRow('redo', label, rows); return true },
   })
   rememberOneShotRef.current = rememberOneShot
-  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void) =>
-    rememberOneShot('gebaeude', label, restore, reapply)
+  const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, rows?: OneShotRows) =>
+    rememberOneShot('gebaeude', label, restore, reapply, rows)
+  /** The row a one-shot's step owes the record, in either direction — its own words, or the generic ones. */
+  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows) => {
+    if (!rows) { logHistStep(dir, label, ''); return }
+    rows[dir]()
+    histSide.current.emit(dir)
+  }
+  /**
+   * ⚠️ A one-shot's confirm-with-undo toast. Its «Rückgängig» is the SAME act as the header's ↶ —
+   * so it writes the SAME counter-row (staging walk-through, 25.09.2026: a storey restored from
+   * the toast left «Geschoss 3. OG entfernt» standing alone on the printed Einsatzjournal, about a
+   * storey that still existed) — and drops the timeline entry, so the act is never taken back twice.
+   */
+  const oneShotUndoToast = (text: string, label: string, restore: () => void, drop: () => void, rows?: OneShotRows) =>
+    undoToast(text, () => { restore(); drop(); oneShotRow('undo', label, rows) })
 
   /* ── «Spur»: der abgesuchte Bereich überlebt seinen Marker (18.09.2026) ─────────────────────
    *
@@ -5661,7 +5687,7 @@ export function IncidentWorkspace({
               const restore = () => { setBuilding(prevBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, prevGebaeude) }), { gesture: false }) }
               const reapply = () => { setBuilding(nextBuilding); setBoard((b) => ({ ...b, gebaeude: withOwnAnnos(b.gebaeude, owned, amend.annos) }), { gesture: false }) }
               const drop = rememberGebaeudeStep(line, restore, reapply)
-              undoToast(line, () => { restore(); drop() })
+              oneShotUndoToast(line, line, restore, drop)
             }
           }}
           // the two faces of the ONE «Gebäude» rail tile. Both plan ids stay real documents —
@@ -5698,7 +5724,7 @@ export function IncidentWorkspace({
               setBoard((b) => ({ ...b, gebaeude: withoutOwnOnStorey(b.gebaeude ?? [], sheetAnchoredIds(objectsRef.current, 'gebaeude'), newFloor) }), { gesture: false })
             }
             const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorAdded, restore, () => setBuilding(nextBuilding))
-            undoToast(appConfig.copy.whiteboard.floorAdded, () => { restore(); drop() })
+            oneShotUndoToast(appConfig.copy.whiteboard.floorAdded, appConfig.copy.whiteboard.floorAdded, restore, drop)
           }}
           onRemoveFloor={async (floor) => {
             if (building?.pack || floorPack?.tiles[floor]) return
@@ -5723,11 +5749,18 @@ export function IncidentWorkspace({
             // confirm-with-undo: the removed storey's annotations come back with it
             const restore = () => { setBuilding(prevBuilding); writeOwn(sweep.before) }
             const reapply = () => { setBuilding(nextBuilding); writeOwn(sweep.after) }
-            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply)
-            undoToast(appConfig.copy.whiteboard.floorRemoved, () => { restore(); drop() })
-            // …and the act's OWN row (staging 25.09.2026: the Verlauf held only «… rückgängig
-            // gemacht», never the removal it took back) — «entfernt», with what went with it
-            logPlan('close', storeyRemovedRow(floorLabel(floor), sweep.lost))
+            // …and the act's OWN rows (staging 25.09.2026: the Verlauf held only «… rückgängig
+            // gemacht», never the removal it took back, and the toast's undo wrote nothing at all)
+            // — «Geschoss 3. OG entfernt», and «… wiederhergestellt» when it comes back, by the
+            // toast or by ↶ alike; ↷ says «entfernt» again
+            const removedRow = storeyRemovedRow(floorLabel(floor), sweep.lost)
+            const rows: OneShotRows = {
+              undo: () => logPlan('undo', storeyRestoredRow(floorLabel(floor))),
+              redo: () => logPlan('close', removedRow),
+            }
+            const drop = rememberGebaeudeStep(appConfig.copy.whiteboard.floorRemoved, restore, reapply, rows)
+            oneShotUndoToast(appConfig.copy.whiteboard.floorRemoved, appConfig.copy.whiteboard.floorRemoved, restore, drop, rows)
+            logPlan('close', removedRow)
           }}
           sym={sym}
           rosterNames={rosterNames}

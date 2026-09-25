@@ -108,7 +108,12 @@ export function useAttendanceActions({ attendance, setAttendance: setAttendanceR
     log('people', fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), 'team')
     // confirm-with-undo: a mis-cycle to «frei» silently drops a corrected von/checkedInAt with
     // no way back — restore the exact prior entry (status + times) on undo.
-    undoToast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), () => setAttendance((cur) => ({ ...cur, [p.id]: prev })))
+    // …and the toast's way back writes its counter-row: the removal row above stays (append-only),
+    // and without this one the record said the person had gone while the list said present
+    undoToast(fillTemplate(appConfig.copy.abschluss.attendanceRemoved, { name: p.displayName }), () => {
+      setAttendance((cur) => ({ ...cur, [p.id]: prev }))
+      log('people', fillTemplate(appConfig.copy.anwesenheit.redone, { names: p.displayName }), 'team')
+    })
   }
   // Stunden editor (Abschluss-Assistent): correct ONE block's von–bis (`index` defaults to the
   // block the surface is showing). After the Rapport was declared complete, a correction

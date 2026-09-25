@@ -2756,6 +2756,7 @@ export const de = {
     /** the Verlauf row for the act itself (25.09.2026) — it used to write only its ↶ row */
     floorRemovedLog: 'Geschoss {floor} entfernt',
     floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
+    floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
     floorAdded: 'Geschoss hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',

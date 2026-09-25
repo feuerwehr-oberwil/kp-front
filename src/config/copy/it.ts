@@ -1671,6 +1671,7 @@ export const it: Localizable<Copy> = {
     floorRemoved: 'Piano rimosso',
     floorRemovedLog: 'Piano {floor} rimosso',
     floorRemovedLogMarks: 'Piano {floor} rimosso – {n} contrassegni rimossi o accorciati',
+    floorRestoredLog: 'Piano {floor} ripristinato',
     floorAdded: 'Piano aggiunto',
     buildingReplaced: 'Edificio sostituito',
     buildingReplacedMarks: 'Edificio sostituito – {n} contrassegni rimossi',

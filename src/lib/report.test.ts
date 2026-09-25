@@ -217,6 +217,18 @@ describe('report journal rows', () => {
     expect(rows[1].area).toBe('Manuell')
   })
 
+  // staging walk-through 25.09.2026: the paper printed «Symbol «Feuer» gesetzt» and dropped the
+  // ↶ row that withdrew it, so the journal described a fire the Kroki beside it did not show.
+  // Append-only means BOTH rows print.
+  it('prints the ↶ / ↷ rows too — a taken-back act is two rows, on paper as on screen', () => {
+    const events: TimelineEvent[] = [
+      { id: 'set', t: '09:00', at: '2026-06-23T07:00:00.000Z', icon: 'hex', text: 'Symbol «Feuer» gesetzt', kind: 'symbol' },
+      { id: 'undo', t: '09:01', at: '2026-06-23T07:01:00.000Z', icon: 'undo', text: 'Symbol «Feuer» gesetzt rückgängig gemacht', kind: 'history' },
+      { id: 'legacy', t: '09:02', at: '2026-06-23T07:02:00.000Z', icon: 'undo', text: appConfig.copy.log.undo, kind: 'history' },
+    ]
+    expect(journalRows(events, plans).map((r) => r.id)).toEqual(['set', 'undo', 'legacy'])
+  })
+
   it('names the Bereich each row actually came from', () => {
     const at = (n: number) => `2026-08-08T2${n}:00:00.000Z`
     const events: TimelineEvent[] = [

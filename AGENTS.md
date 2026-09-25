@@ -128,7 +128,10 @@ to prod.
     destroys something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's «Erledigt» —
     whose inverse is an APPENDED `reopened` row, since 23.09.2026). It does the inverse
     itself and **drops its timeline entry** (`push` returns the dropper), so an act is never
-    undoable twice.
+    undoable twice. ⚠️ …and it writes the SAME counter-row the ↶ would (25.09.2026,
+    `IncidentWorkspace · oneShotUndoToast`): a storey restored from the toast used to leave
+    «Geschoss 3. OG entfernt» alone on the printed Einsatzjournal. The Rapport prints the ↶ / ↷
+    rows as well (`report · journalRows`) — a taken-back act is two rows, on paper too.
   Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
   writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
   (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate drops the whole

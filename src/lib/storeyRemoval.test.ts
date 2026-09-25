@@ -5,7 +5,7 @@ import { useObjectStore } from './useObjectStore'
 import { bakeGeoBody, sheetAnchoredIds, withOwnAnnos, type AnchorChange, type PlanFit, type TacticalObject } from './tacticalObjects'
 import { fitSimilarity } from './georef'
 import { removeStorey, stackInstances, withoutOwnOnStorey } from './stackFloors'
-import { askStoreyRemoval, storeyRemovedRow } from './storeyRemoval'
+import { askStoreyRemoval, storeyRemovedRow, storeyRestoredRow } from './storeyRemoval'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import type { BoardAnno, Drawing, Entity } from '../types'
@@ -282,5 +282,11 @@ describe('the storey removal’s own Verlauf row', () => {
   it('names the storey, and what went with it when anything did — «entfernt»', () => {
     expect(storeyRemovedRow('3. OG', 0)).toBe('Geschoss 3. OG entfernt')
     expect(storeyRemovedRow('3. OG', 2)).toBe('Geschoss 3. OG entfernt – 2 Markierungen entfernt oder gekürzt')
+  })
+})
+
+describe('the storey’s counter-row when it comes back', () => {
+  it('says «wiederhergestellt», whether the toast or ↶ brought it back', () => {
+    expect(storeyRestoredRow('3. OG')).toBe('Geschoss 3. OG wiederhergestellt')
   })
 })

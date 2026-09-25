@@ -29,3 +29,8 @@ export function storeyRemovedRow(storey: string, lost: number): string {
   const wb = appConfig.copy.whiteboard
   return lost > 0 ? fillTemplate(wb.floorRemovedLogMarks, { floor: storey, n: lost }) : fillTemplate(wb.floorRemovedLog, { floor: storey })
 }
+
+/** …and its counter-row when the storey comes back — by the toast or by ↶ alike (25.09.2026). */
+export function storeyRestoredRow(storey: string): string {
+  return fillTemplate(appConfig.copy.whiteboard.floorRestoredLog, { floor: storey })
+}
