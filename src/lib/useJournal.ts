@@ -16,6 +16,9 @@ export function useJournal({ incidentId, readOnly, legacy }: {
   legacy: TimelineEvent[]
 }) {
   const [nonce, setNonce] = useState(0)
+  // rows the CLOSED Einsatz refused (journalStore · refused) — for the notice that says why.
+  // Carried as state, set from the store's change callback, never read off the store in render.
+  const [refusedCount, setRefusedCount] = useState(0)
   const storeRef = useRef<JournalStore | null>(null)
   if (!storeRef.current) storeRef.current = new JournalStore(incidentId, readOnly)
   const store = storeRef.current
@@ -26,7 +29,7 @@ export function useJournal({ incidentId, readOnly, legacy }: {
     // store drops every `append` on the floor without a word. In dev that meant: the composer
     // closed, the toast said «gespeichert», and no Verlaufszeile ever reached the server.
     if (store.isDisposed) store.revive()
-    store.onChange = () => setNonce((n) => n + 1)
+    store.onChange = () => { setNonce((n) => n + 1); setRefusedCount(store.refusedCount) }
     void store.init(legacy)
 
     // Same live-follow loop as the workspace sync — literally the same one (pollBackoff ·
@@ -94,5 +97,5 @@ export function useJournal({ incidentId, readOnly, legacy }: {
 
   return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy,
     retry, recoveryData, getStatus, syncStatus: store.syncStatus,
-    pendingCount: store.pendingCount, rejectedCount: store.rejectedCount }
+    pendingCount: store.pendingCount, rejectedCount: store.rejectedCount, refusedCount }
 }

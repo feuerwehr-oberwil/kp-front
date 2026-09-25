@@ -106,6 +106,9 @@
   align-self: center; text-align: left; }
 .ml-title { font: 700 13.5px var(--body); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ml-sub { font: 500 12.5px var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a row whose sentence IS the message (Meldung.wrap) — «Einsatz wurde auf einem anderen Gerät
+   abgeschlossen (14:45)» must not lose its end to the ellipsis on a phone */
+.ml-row.wrap .ml-title, .ml-row.wrap .ml-sub { white-space: normal; overflow-wrap: anywhere; }
 /* the title as the row's way in: a LINK, not a button. No border, no fill, the same type as an
    inert title — a title first and a destination second, which is what «In Verlauf öffnen» stopped
    being the moment it was a third button beside Erledigt and +10 min.

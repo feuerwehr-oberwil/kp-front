@@ -179,6 +179,7 @@ import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rappo
 import { TruppFinder } from './components/TruppFinder'
 import { markerOptions, markerSite, placedTrupps, type PlacedTrupp } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
+import { IncidentClosedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, mapGhostTrails, planGhostTrails, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
 import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './lib/report'
@@ -307,6 +308,9 @@ interface WorkspaceProps {
   /** leave the archived read-only view — back to the previously active incident, else the
    *  «Alle Einsätze» list it was entered from (everyone, not just editors) */
   onBackFromArchive?: () => void
+  /** When the Einsatz was closed on ANOTHER device while it was open here (N3, 25.09.2026) — App
+   *  sets it as it flips the meta (App · onIncidentClosed); the workspace says so in one row. */
+  closedElsewhereAt?: number | null
 }
 
 
@@ -316,7 +320,7 @@ const REORIENT_FOLD_MS = 1500
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta,
+  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, closedElsewhereAt,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -376,7 +380,22 @@ export function IncidentWorkspace({
   // …and the field you are actually typing in stays above it (one listener for the whole app)
   useScrollFocusIntoView()
   const { active: replayActive, setActive: setReplayActive, ws: replayWs, onState: onReplayState, onVehicles: onReplayVehicles, exit: exitReplay, entities: replayEntities, board: replayBoard, building: replayBuilding } = useReplay()
-  const readOnly = baseReadOnly || replayActive
+  /** The Einsatz is still RUNNING (`isIncidentRunning`, the twin of the backend's `is_open`).
+   *  ⚠️ Read LIVE off `incidentMeta`, not only at the open (N3, staging 25.09.2026): when another
+   *  device closes the Einsatz, App flips this meta in place (App · onIncidentClosed) and the
+   *  workspace turns into the closed view WITHOUT a remount — the operator stays on the surface
+   *  they were on, every editing affordance goes, the Atemschutz clocks freeze and the alarm, the
+   *  GPS pass, the presence log, the weather stamp and the Wiedervorlagen stop writing. An
+   *  Einsatz opened closed (forceReadOnly) lands in the same place. */
+  const running = isIncidentRunning(incidentMeta)
+  const readOnly = baseReadOnly || replayActive || !running
+  /** Who may DELIVER what this device already queued — the outboxes' own read-only, which is about
+   *  owning the per-incident slot (a viewer, a demoted tab, a replay), NOT about the Einsatz being
+   *  over. A device that hears of the close with a Kontakt still in its outbox must send it, so
+   *  the server can refuse it and the store park it as «refused» (kept, exported, said out loud);
+   *  a read-only store would sit on it unclassified for ever. Nothing new is queued meanwhile:
+   *  every writer gates on the flags derived from `readOnly` above. */
+  const outboxReadOnly = baseReadOnly || replayActive
   // Führungsansicht: an EDITOR's deliberate hands-off mode — tactical editing locked
   // like a phone, but journal capture and read-only symbol details stay live. Device toggle
   // (Einstellungen), seeded by the login's server-side default (el_view_default) so a
@@ -959,7 +978,7 @@ export function IncidentWorkspace({
   // Verlauf rows live in the append-only journal store (server rows + offline outbox), NOT
   // in the synced blob — the one unbounded domain no longer re-syncs wholesale on every edit.
   // `legacy` seeds display + migration from an older incident's in-blob timeline.
-  const journal = useJournal({ incidentId: incidentMeta.id, readOnly, legacy: init.timeline })
+  const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline })
   // pulled out by name: `journal` itself is a fresh object every render, so a callback that
   // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
   const { swapPhoto, overlaySession: overlayRow, appendPatch: patchRow } = journal
@@ -1554,7 +1573,7 @@ export function IncidentWorkspace({
   // the Atemschutz alarm engine like every device, and its `atemschutz.*` events 403'd into an
   // outbox that stayed red for the whole Einsatz.
   const auditScope = useMemo(() => eventScopeFor(user), [user?.role, user?.link_kind]) // eslint-disable-line react-hooks/exhaustive-deps
-  const auditDelivery = useAuditEvents(incidentMeta.id, readOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null, auditScope)
+  const auditDelivery = useAuditEvents(incidentMeta.id, outboxReadOnly, user ? `${user.id}:${user.link_kind ?? 'login'}` : null, auditScope)
   const { emit, flushEvents, flushEventsBeacon } = auditDelivery
 
   // Weather for the incident location. Polled live; each NEW observation is recorded as a
@@ -1703,6 +1722,38 @@ export function IncidentWorkspace({
   // The record outboxes alone — what the media drain waits for (below). The badge's status adds
   // the media queue to it once that exists (`syncStatus`, after useMediaQueue).
   const recordsSyncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
+
+  // --- closed on ANOTHER device while open here (N3, staging 25.09.2026) ----------------------
+  // App flips `incidentMeta` in place when the close is heard (App · onIncidentClosed) and hands
+  // the moment down (`closedElsewhereAt`); `running` above turns every writer off. Left for this
+  // mount: say so (one Meldeleiste row, with the time), hand what is still queued to the server
+  // once — so it is refused and PARKED rather than left pending in a read-only view — and count
+  // what was parked, because «nicht übernommen, aber gesichert» is the other half of the sentence.
+  const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
+  const [workspaceRefused, setWorkspaceRefused] = useState(() => sync.refusedCount)
+  useEffect(() => sync.subscribeRefused(setWorkspaceRefused), [sync])
+  useEffect(() => {
+    if (running) return
+    // the journal store drains on its own loop (outboxReadOnly keeps it delivering); these two
+    // wait for their next trigger otherwise. Both are no-ops with nothing queued.
+    void sync.flush()
+    void flushEvents()
+  }, [running, sync, flushEvents])
+  /** «Einträge sichern»: everything this device still holds that the server has not taken — owed
+   *  (outbox, rejected) and refused (the closed Einsatz, a role) alike. Exporting acknowledges
+   *  nothing. */
+  const exportEntries = useCallback(() => {
+    const data = { ...journal.recoveryData(), audit: auditDelivery.getRecoveryData(), workspaceRefused: sync.refusedRecoveryData() }
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)
+  }, [journal, auditDelivery, sync, incidentMeta.id])
+  const closedMeldung = closedElsewhereAt != null && !running && !closedNoticeHidden && (
+    <IncidentClosedMeldung
+      at={closedElsewhereAt}
+      refused={journal.refusedCount + auditDelivery.refusedCount + workspaceRefused}
+      onExport={exportEntries}
+      onDismiss={() => setClosedNoticeHidden(true)}
+    />
+  )
 
   // Publish this device's «Einsatzdaten geprüft» to the crew. The question belongs to the Einsatz,
   // not to the tablet it was answered on (lib/incidentAlerts), and this component is the only
@@ -2445,7 +2496,8 @@ export function IncidentWorkspace({
       pendenzDoneLog: appConfig.copy.journal.pendenzDoneLog, snoozeLog: appConfig.copy.journal.snoozeLog,
       reopenLog: appConfig.copy.journal.reopenLog, pendenzReopenLog: appConfig.copy.journal.pendenzReopenLog,
     },
-    !replayActive,
+    // …and a closed Einsatz rings no Wiedervorlage either (N3): nobody is there to act on it
+    !replayActive && running,
     incidentMeta.closed_at,
     // «Erledigt» is confirm-with-undo and joins the one timeline (useReminders · completeReminder)
     undoHist,
@@ -4336,6 +4388,7 @@ export function IncidentWorkspace({
         <AtemschutzAlarmHost trupps={trupps} muted={atemschutzMuted} active={azMonitoring}
           logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
+        {closedMeldung}
         {guarded('atemschutz', atemschutzBoard, false)}
         {/* `onBoard` is unconditionally true here — the board IS the screen, and the strip's own
             rule (see AtemschutzAlarmMeldung's header) is that it steps aside for it. Mounted
@@ -4437,6 +4490,7 @@ export function IncidentWorkspace({
         logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
       <RemindersHost {...reminders.host} />
+      {closedMeldung}
 
       {/* the map mounts once the pack has loaded OR failed for good — with an empty glyph table a
           symbol renders as its empty chip, which beats a splash that never ends (02.09.) */}
@@ -5872,8 +5926,9 @@ export function IncidentWorkspace({
             status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
             count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
             refused={auditDelivery.refusedCount}
+            closedRefused={journal.refusedCount + workspaceRefused}
             onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
-            onExport={() => downloadBlob(new Blob([JSON.stringify({ ...journal.recoveryData(), audit: auditDelivery.getRecoveryData() }, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)}
+            onExport={exportEntries}
           />}
           vocab={journalVocab}
           events={timeline}

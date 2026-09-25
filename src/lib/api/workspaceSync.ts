@@ -10,6 +10,7 @@ import {
   type Workspace,
 } from './workspace'
 import type { Trupp } from '../../types'
+import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from '../incidentClosed'
 
 // --- Workspace sync: offline cache + debounced save with three-way merge -------------
 // `base` is the last server revision we shared with everyone else — the common ancestor a
@@ -39,6 +40,19 @@ const ownerCacheKey = (id: string, owner: string) => `kp-front-ws-${id}::${owner
 // by hand from this key (there is deliberately no auto-restore — see loadReadableEntry). First
 // writer wins, so an already-parked orphan (the real pre-upgrade copy) is never clobbered.
 const orphanCacheKey = (id: string) => `kp-front-ws-${id}::__preupgrade__`
+// The REFUSED slot (N3, 25.09.2026): saves the server turned down because the Einsatz had been
+// closed by then — a Kontakt tapped on a device that had not heard yet, a Tafel edit queued
+// offline. Not owed (no retry can deliver them while the Einsatz stays closed), never dropped:
+// kept here as a list, newest last, and carried by «Einträge sichern» (refusedRecoveryData).
+const refusedCacheKey = (id: string) => `kp-front-ws-${id}::__refused__`
+
+/** One save the server refused because the Einsatz was closed — the blob as this device had it. */
+export interface RefusedWorkspace {
+  workspace: Workspace
+  baseRev: number
+  refusedAt: number
+  owner?: string
+}
 
 // --- Who may read this device's offline cache ----------------------------------------
 // The cache is the product's core promise, so exactly two things close it, and NEITHER of them
@@ -263,6 +277,12 @@ export class WorkspaceSync {
   private slotUnread = false
   private probing = false
   private probeTimer: ReturnType<typeof setTimeout> | null = null
+  /** Saves refused because the Einsatz is closed (see refusedCacheKey) — read at init(), kept in
+   *  step with the slot. Parked, not pending: they are not part of the sync status. */
+  private refused: RefusedWorkspace[] = []
+  /** Who wants to hear that the refused count changed (a save was just parked, or the slot held
+   *  some from an earlier session) — see `subscribeRefused`. */
+  private refusedListeners = new Set<(count: number) => void>()
 
   constructor(
     private readonly incidentId: string,
@@ -675,7 +695,11 @@ export class WorkspaceSync {
         this.flushCache() // the cache must carry what is about to become the ancestor
         await this.pushCurrent()
       } catch (e) {
-        if (e instanceof ApiError && e.status === 409) {
+        // ⚠️ BEFORE the 409 branch: this 409 is not a revision conflict — merging and retrying
+        // would only collect it again (N3). The save is parked and the view goes back to the record.
+        if (isIncidentClosedRefusal(e)) {
+          if (!(await this.parkRefused(e))) return
+        } else if (e instanceof ApiError && e.status === 409) {
           if (!(await this.resolveConflict())) return
         } else {
           // A revoked session closes cached reads device-wide while preserving dirty work.
@@ -826,6 +850,8 @@ export class WorkspaceSync {
         this.opts.onMerged?.()
         return true
       } catch (e) {
+        // the merge landed on a closed Einsatz — the same answer as a plain push gets (see drain)
+        if (isIncidentClosedRefusal(e)) return this.parkRefused(e)
         if (e instanceof ApiError && e.status === 409) continue // someone else landed too — re-merge
         if (e instanceof ApiError && e.status === 401) denyWorkspaceCache() // revoked mid-merge — deny device-wide, like flush()
         this.setStatus(e instanceof ApiError && e.status === 0 ? 'offline' : 'error')
@@ -836,6 +862,94 @@ export class WorkspaceSync {
     // retries exhausted — leave it dirty for a later flush to pick up
     this.setStatus('error')
     return false
+  }
+
+  /**
+   * The server refused the save because the Einsatz is CLOSED (lib/incidentClosed, N3). Three
+   * things, in this order:
+   *  1. PARK the blob in the refused slot — durably, or not at all: a failed IndexedDB write must
+   *     never claim local durability, so on failure the entry simply stays dirty in the main slot
+   *     (still this device's copy) and the status says `storage`.
+   *  2. Take it out of «owed»: the entry is clean, no retry is scheduled, the status is `synced`
+   *     — the save is not coming, and a red lamp would only say so for as long as the Einsatz
+   *     stays closed. The UI says it through the refused count instead.
+   *  3. Tell the app the Einsatz is closed, and put the RECORD back on screen: the server's blob,
+   *     applied in place like a merge, so the Tafel shows what was recorded rather than a
+   *     Kontakt that never reached it.
+   * Resolves true once parked (the entry is clean), false when the park itself failed.
+   */
+  private async parkRefused(e: unknown): Promise<boolean> {
+    const item: RefusedWorkspace = {
+      workspace: this.entry.workspace, baseRev: this.entry.baseRev, refusedAt: Date.now(), owner: this.entry.owner,
+    }
+    const seqAtPark = this.saveSeq
+    await this.loadRefused()
+    const next = [...this.refused, item]
+    const durable = await idbSet(refusedCacheKey(this.incidentId), next)
+    reportIncidentClosed({ incidentId: this.incidentId, closedAt: refusalClosedAt(e), source: 'refusal' })
+    if (this.disposed) return false
+    if (!durable) {
+      this.cacheDurable = false
+      this.setStatus('error')
+      return false
+    }
+    this.refused = next
+    this.emitRefused()
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
+    this.retryCount = 0
+    // a save made while the park was in flight is in the refused blob only if it came before it
+    if (this.saveSeq === seqAtPark) this.entry = { ...this.entry, dirty: false }
+    this.writeCache()
+    this.setStatus(this.entry.dirty ? 'pending' : 'synced')
+    try {
+      const server = await getWorkspace(this.incidentId)
+      if (this.disposed || this.entry.dirty) return true
+      const ws = server.workspace ?? {}
+      this.adoptServer(ws, server.workspace_rev)
+      if (this.onApplyMerged) this.onApplyMerged(ws, server.workspace_rev)
+      else this.opts.onServerWorkspace?.(ws, server.workspace_rev)
+    } catch { /* the live poll brings the record once it moves; the park itself stands */ }
+    return true
+  }
+
+  /** The refused count, as it changes — what the UI says «nicht übernommen» with. Subscribing reads
+   *  the slot (so a reload still counts and exports what an earlier session parked). Returns the
+   *  unsubscribe. */
+  subscribeRefused(listener: (count: number) => void): () => void {
+    this.refusedListeners.add(listener)
+    void this.loadRefused()
+    return () => { this.refusedListeners.delete(listener) }
+  }
+
+  private emitRefused() {
+    if (this.disposed) return
+    for (const l of [...this.refusedListeners]) l(this.refused.length)
+  }
+
+  /** Read the refused slot once, merging with anything parked in this session meanwhile. Called
+   *  on `subscribeRefused` and by `parkRefused` before it appends. */
+  private refusedLoad: Promise<void> | null = null
+  loadRefused(): Promise<void> {
+    if (!this.refusedLoad) {
+      this.refusedLoad = idbRead<RefusedWorkspace[]>(refusedCacheKey(this.incidentId)).then((read) => {
+        const stored = read.ok && Array.isArray(read.value) ? read.value : []
+        if (!stored.length) return
+        const seen = new Set(this.refused.map((r) => r.refusedAt))
+        this.refused = [...stored.filter((r) => !seen.has(r.refusedAt)), ...this.refused]
+        this.emitRefused()
+      })
+    }
+    return this.refusedLoad
+  }
+
+  /** Saves refused because the Einsatz was closed — parked, never re-sent (see parkRefused). */
+  get refusedCount(): number {
+    return this.refused.length
+  }
+
+  /** The refused saves for «Einträge sichern» — a copy; exporting acknowledges nothing. */
+  refusedRecoveryData(): RefusedWorkspace[] {
+    return structuredClone(this.refused)
   }
 
   /**

@@ -18,6 +18,7 @@ import type { BoardAnno, Drawing, Entity } from './types'
  *   (d) the render budget: how many commits mount + idle cost, against a recorded baseline — a
  *       move that adds a memo, a state or an effect-order change shows up here first.
  *   (e) the two-device loop: a merge that changes nothing must write nothing back.
+ *   (f) a close on ANOTHER device: the same mount goes read-only, the alarm stops, one row says so.
  *
  * The two heavy surfaces are prop recorders. The Plan's stand-in runs the REAL useBoardDoc, so
  * a plan step is exactly the checkpoint the Whiteboard lays down.
@@ -80,6 +81,7 @@ vi.mock('./lib/mediaQueue', async (importOriginal) => {
 })
 
 import { IncidentWorkspace } from './IncidentWorkspace'
+import { Meldeleiste } from './components/Meldeleiste'
 import { WorkspaceSync } from './lib/api/workspaceSync'
 import type { IncidentMeta } from './lib/api/incidents'
 import type { Saved } from './lib/workspace'
@@ -107,7 +109,7 @@ let seq = 0
 const meta = (): IncidentMeta => ({
   // a fresh id per test: the per-incident IndexedDB slots never leak between cases
   id: `inc-h${++seq}`, divera_id: null, title: 'Harness', type: null, priority: null, address: 'Teststrasse 1',
-  lat: 47.5, lng: 7.6, status: 'active', source: 'manual', source_ref: null, auto_opened: false,
+  lat: 47.5, lng: 7.6, status: 'offen', source: 'manual', source_ref: null, auto_opened: false,
   started_at: '2026-09-23T10:00:00Z', closed_at: null, is_archived: false, is_exercise: true,
   report_done_at: null, workspace_rev: 0, created_by: null, created_at: '2026-09-23T10:00:00Z', updated_at: '2026-09-23T10:00:00Z',
 })
@@ -296,6 +298,42 @@ describe('(c) the Abschluss', () => {
     await pressAbschluss()
     expect(onCompleteRapport).toHaveBeenCalledTimes(1)
     expect(rec.order.slice(-2)).toEqual(['flush', 'complete'])
+  })
+})
+
+describe('(f) closed on ANOTHER device while open here (N3, staging 25.09.2026)', () => {
+  // App flips the live meta when the close is heard (App · onIncidentClosed) and hands the moment
+  // down — no remount. The same mount must go read-only, stop the Atemschutz alarm (its Meldung is
+  // the audible alarm's own row) and say what happened, with the time.
+  it('the Karte locks, the alarm stops and one row says «auf einem anderen Gerät abgeschlossen»', async () => {
+    const m = meta()
+    const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
+    const overdue = { id: 'tr-k', name: 'Tst Karl', status: 'aktiv', entryPressureBar: 300, entryTime: longAgo, lastContactTime: longAgo }
+    const sync = new WorkspaceSync(m.id)
+    const ws = { entities: [truck], trupps: [overdue] } as unknown as Saved
+    const tree = (im: IncidentMeta, closedElsewhereAt?: number) => <><Meldeleiste />{workspaceTree(im, { sync, workspace: ws, closedElsewhereAt }).tree}</>
+    const { rerender } = render(tree(m))
+    await settle(60); await settle(1_100) // the 1 Hz alarm tick
+    const rows = () => [...document.querySelectorAll('.ml-row')].map((r) => r.textContent ?? '')
+    expect(lastMap().readOnly).toBe(false)
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(true) // überfällig — the alarm is on
+
+    const closedAt = new Date()
+    rerender(tree({ ...m, is_archived: true, closed_at: closedAt.toISOString() }, closedAt.getTime()))
+    await settle(60); await settle(1_100)
+
+    expect(lastMap().readOnly).toBe(true)
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(false) // the alarm stopped with the Einsatz
+    const title = document.querySelector('.ml-title')?.textContent ?? ''
+    expect(title).toBe(`Einsatz wurde auf einem anderen Gerät abgeschlossen (${String(closedAt.getHours()).padStart(2, '0')}:${String(closedAt.getMinutes()).padStart(2, '0')})`)
+    expect(document.querySelector('.app')).toBeTruthy() // the same workspace, not a jump elsewhere
+  })
+
+  it('an Einsatz OPENED closed says nothing of the kind — nobody saw it happen', async () => {
+    const m = { ...meta(), is_archived: true, closed_at: '2026-09-25T10:00:00Z' }
+    render(<><Meldeleiste />{workspaceTree(m, { forceReadOnly: true }).tree}</>)
+    await settle(60)
+    expect(document.querySelector('.ml-title')?.textContent ?? '').not.toMatch(/anderen Gerät/)
   })
 })
 

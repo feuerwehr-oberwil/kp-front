@@ -826,6 +826,9 @@ export const it: Localizable<Copy> = {
       refusedTitleOne: '1 evento di protocollo non previsto per questo ruolo',
       refusedTitle: '{n} eventi di protocollo non previsti per questo ruolo',
       refusedBody: 'Il server non accetta questi eventi da questo accesso. Restano su questo dispositivo e possono essere salvati; il diario non ne è interessato.',
+      closedTitleOne: '1 voce non ripresa dopo la chiusura',
+      closedTitle: '{n} voci non riprese dopo la chiusura',
+      closedBody: 'L’intervento era già chiuso quando queste voci hanno raggiunto il server. Non sono nel diario, ma restano su questo dispositivo e possono essere salvate.',
     },
     open: 'Diario',
     add: 'Voce',
@@ -2402,6 +2405,12 @@ export const it: Localizable<Copy> = {
     reactivate: 'Riapri',
 
     back: 'Indietro',
+    closedElsewhere: 'L’intervento è stato chiuso su un altro dispositivo ({t})',
+    closedElsewhereSub: 'Sola visualizzazione – riaprire per modificare.',
+    closedRefusedOne: '1 voce di questo dispositivo è arrivata dopo la chiusura e non è stata ripresa. Resta salvata su questo dispositivo.',
+    closedRefused: '{n} voci di questo dispositivo sono arrivate dopo la chiusura e non sono state riprese. Restano salvate su questo dispositivo.',
+    closedExport: 'Salva le voci',
+    closedDismiss: 'Nascondi avviso',
   },
   history: {
     title: 'Interventi',

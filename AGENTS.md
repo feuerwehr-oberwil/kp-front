@@ -93,6 +93,25 @@ to prod.
   journal has its own copy. The stores' own timers go through `run()` and request nothing. It is
   one re-run per request and never after an answer (401, refused, exhausted merge), so an offline
   device does not spin (`outboxReconnect.soak.test.ts`).
+  ⚠️ **A closed Einsatz keeps its RECORD, not its operation, and every device hears the close**
+  (25.09.2026, staging N3: two devices ran a closed Einsatz for minutes and wrote a Kontakt and
+  two «Überfällig» rows into it). Server (`api/incidents · incident_closed`): once `is_open` is
+  false, a live write is 409 `{code: 'incident_closed', closed_at}` — events outside the record
+  vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of kind `team`/`symbol`/`layer`/`vehicle`, the
+  trupps slice, and a full save that changes any key outside `RECORD_WORKSPACE_KEYS` (checked
+  AFTER the revision, so a stale device merges first). The record slice, record events,
+  Meldungen/patch rows (Nachträge), `PATCH`, media and «Wieder öffnen» are untouched. Every
+  workspace read — the 304 too — carries `X-Incident-Open`/`X-Incident-Closed-At`, and a lifecycle
+  `PATCH` wakes the parked followers. Client (`lib/incidentClosed`): the poll header, a refusal
+  and the list watch (a suspicion, verified) all `reportIncidentClosed`; App flips the meta IN
+  PLACE (`closedMetaFor`, never for the Einsatz this device is closing, never a jump elsewhere),
+  and `IncidentWorkspace` derives `readOnly` from `isIncidentRunning` live, so the alarm, the GPS
+  pass, the presence log, the weather stamp and the Wiedervorlagen stop, with one Meldeleiste row
+  («… auf einem anderen Gerät abgeschlossen (hh:mm)»). The outboxes keep DELIVERING on a closed
+  view (`outboxReadOnly`) so a queued write is refused and parked as `refused` — journal
+  `refused`, audit `refused`, the workspace's `::__refused__` slot — kept, exported by «Einträge
+  sichern», never re-sent, not part of the sync status. A plain 409 on the workspace is still the
+  revision conflict: test the code first.
   A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,

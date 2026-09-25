@@ -213,7 +213,14 @@ class Incident(Base):
         Verified against production 2026-08-05. Archiving it, or moving `status` off an active
         one, still ends it immediately.
         """
-        return not self.is_archived and self.status in INCIDENT_ACTIVE_STATUSES
+        return lifecycle_open(self.is_archived, self.status)
+
+
+def lifecycle_open(is_archived: bool, status: str) -> bool:
+    """`Incident.is_open` from the two columns alone — for a route that reads the lifecycle
+    without loading the row (the workspace long-poll, the closed-Einsatz refusal in
+    api/incidents · `incident_lifecycle`). One condition, so the two can never drift."""
+    return not is_archived and status in INCIDENT_ACTIVE_STATUSES
 
 
 # Partial-unique: only one incident per Divera alarm, but many manual incidents have

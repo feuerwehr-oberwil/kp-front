@@ -826,6 +826,9 @@ export const fr: Localizable<Copy> = {
       refusedTitleOne: '1 événement de protocole non prévu pour ce rôle',
       refusedTitle: '{n} événements de protocole non prévus pour ce rôle',
       refusedBody: 'Le serveur n’accepte pas ces événements de cette connexion. Ils restent sur cet appareil et peuvent être exportés ; le journal n’est pas concerné.',
+      closedTitleOne: '1 entrée non reprise après la clôture',
+      closedTitle: '{n} entrées non reprises après la clôture',
+      closedBody: 'L’intervention était déjà close lorsque ces entrées ont atteint le serveur. Elles ne figurent pas dans le journal, mais restent sur cet appareil et peuvent être exportées.',
     },
     open: 'Journal',
     add: 'Entrée',
@@ -2402,6 +2405,12 @@ export const fr: Localizable<Copy> = {
     reactivate: 'Rouvrir',
 
     back: 'Retour',
+    closedElsewhere: 'L’intervention a été close sur un autre appareil ({t})',
+    closedElsewhereSub: 'Consultation seule – rouvrir pour modifier.',
+    closedRefusedOne: '1 entrée de cet appareil est arrivée après la clôture et n’a pas été reprise. Elle reste enregistrée sur cet appareil.',
+    closedRefused: '{n} entrées de cet appareil sont arrivées après la clôture et n’ont pas été reprises. Elles restent enregistrées sur cet appareil.',
+    closedExport: 'Exporter les entrées',
+    closedDismiss: 'Masquer l’avis',
   },
   history: {
     title: 'Interventions',

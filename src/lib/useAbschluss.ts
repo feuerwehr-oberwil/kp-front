@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { appConfig } from '../config/appConfig'
 import type { AttendanceState, MittelEntry, Trupp } from '../types'
-import type { IncidentMeta } from './api/incidents'
+import { isIncidentRunning, type IncidentMeta } from './api/incidents'
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { missingSteps, type AbschlussStep } from './abschluss'
@@ -16,7 +16,7 @@ interface Args {
   mittel: MittelEntry[]
   /** the board's Trupps (removed ones already filtered out) */
   trupps: Trupp[]
-  incidentMeta: Pick<IncidentMeta, 'is_archived' | 'closed_at'>
+  incidentMeta: Pick<IncidentMeta, 'is_archived' | 'status' | 'closed_at'>
   replayActive: boolean
   media: MediaQueueApi
   /** App's handover: stamp report_done_at + close. TRUE only when the close really happened. */
@@ -60,18 +60,22 @@ export function useAbschluss({
    *  ⚠️ The EINSATZENDE, not `closed_at`: the record is often closed the morning after, and
    *  freezing on that would have counted the night as Einsatzzeit — the very number this fixes.
    *  `closed_at` is the fallback for an Einsatz archived without one ever being entered. */
+  // ⚠️ «closed» is `isIncidentRunning`, the backend's `is_open` — and it flips LIVE when another
+  // device closes the Einsatz (N3, 25.09.2026): the clocks freeze and the alarm stops on every
+  // device, not only on the one that pressed «Abschliessen».
+  const running = isIncidentRunning(incidentMeta)
   const azFrozenAt = useMemo(() => {
-    if (!incidentMeta.is_archived) return undefined
+    if (running) return undefined
     const at = Date.parse(reportMeta.endedAt ?? incidentMeta.closed_at ?? '')
     return Number.isFinite(at) ? at : undefined
-  }, [incidentMeta.is_archived, incidentMeta.closed_at, reportMeta.endedAt])
+  }, [running, incidentMeta.closed_at, reportMeta.endedAt])
   /* ⚠️ …and the ALARM stops with the clocks. It is not a display: it plays a tone and posts an OS
      notification, and it ran off the live clock regardless of the Einsatz's state — so opening a
      closed Akte with a Trupp that was never reported out started an überfällig alarm about a
      crew that went home hours ago. `active: false` stops the tone and reports a silent state, so
      the TopBar chip and the NavRail dot go quiet with it. Replay was already excluded for the
      same reason: a read-only past does not alarm. */
-  const azMonitoring = !replayActive && !incidentMeta.is_archived
+  const azMonitoring = !replayActive && running
   /** Resolves TRUE when the Einsatz was actually handed over for closing — the Rapport uses that
    *  to decide whether to forget its scroll position, and a cancelled confirm must not. */
   const confirmAndComplete = useCallback(async (): Promise<boolean> => {

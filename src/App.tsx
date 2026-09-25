@@ -32,6 +32,9 @@ import {
   migrateLegacyWorkspace, takeDiveraAlarm, patchIncident, attachDiveraAlarm, discardWorkspaceCache,
   type DiveraAlarm, type IncidentFull, type IncidentMeta,
 } from './lib/incidents'
+import { isIncidentRunning } from './lib/api/incidents'
+import { closedMetaFor, closedNoticeAt, onIncidentClosed, reportIncidentClosed, type IncidentClosedSignal } from './lib/incidentClosed'
+import { serverNow } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError } from './lib/api'
@@ -211,7 +214,18 @@ export default function App() {
   const archiveReturnRef = useRef<string | null>(null)
   const activeIdRef = useRef<string | null>(null)
   const forceReadOnlyRef = useRef(false)
+  /** the open Einsatz's meta, for the close signal (below) — it arrives from outside React */
+  const activeMetaRef = useRef<IncidentMeta | null>(null)
+  /** the Einsatz THIS device is closing right now (completeRapport): its own poll hears the close
+   *  before the handover finishes, and that is not «closed on another device» */
+  const closingLocallyRef = useRef<string | null>(null)
+  /** since when THIS device has had the open Einsatz on screen running — a `closed_at` older than
+   *  that is an earlier close, kept across «Wieder öffnen» (incidentClosed · closedNoticeAt) */
+  const runningSinceRef = useRef(0)
+  /** the Einsatz closed on ANOTHER device while it was open here, and when — for its one row */
+  const [closedElsewhere, setClosedElsewhere] = useState<{ id: string; at: number } | null>(null)
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
+  useEffect(() => { activeMetaRef.current = activeMeta }, [activeMeta])
   useEffect(() => { forceReadOnlyRef.current = forceReadOnly }, [forceReadOnly])
 
   // Night ergonomics: when the theme pref is 'auto', track daylight at the incident
@@ -260,6 +274,8 @@ export default function App() {
     const { workspace: ws, rev } = await sync.init()
     if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
     syncRef.current = sync
+    runningSinceRef.current = serverNow()
+    setClosedElsewhere(null)
     setActiveMeta(meta as IncidentMeta)
     // Make sure the open switcher list contains the one we just opened. Normally it already
     // does, but a just-reactivated incident was archived (hence absent) — without this the
@@ -481,6 +497,37 @@ export default function App() {
     setIncidents((list) => (list ?? []).map((i) => (i.id === updated.id ? updated : i)))
   }, [])
 
+  // --- closed on ANOTHER device (N3, staging 25.09.2026) ---------------------------------------
+  // The live poll, a refused write or the list watch says the open Einsatz is over (lib/
+  // incidentClosed). The answer is the same Einsatz, read-only, IN PLACE: the meta flips and
+  // IncidentWorkspace turns every writer off and says so (its IncidentClosedMeldung) — no
+  // remount, so the operator keeps the surface they were on, and NEVER a jump into another
+  // Einsatz. «Zurück» from here goes to «Alle Einsätze», not into whatever was open before.
+  // The server's own meta is asked for first; a signal the SERVER sent (poll header, refusal)
+  // stands on its own if that read fails, the list's mere absence does not.
+  useEffect(() => {
+    const handle = async (sig: IncidentClosedSignal) => {
+      if (!closedMetaFor(activeMetaRef.current, { ...sig, source: 'poll' }, null, closingLocallyRef.current)) return
+      const fresh = (await getIncident(sig.incidentId).catch(() => null)) as IncidentMeta | null
+      // re-read after the await: a switch, a local close or an earlier signal may have settled it
+      const meta = closedMetaFor(activeMetaRef.current, sig, fresh, closingLocallyRef.current)
+      if (!meta) return
+      archiveReturnRef.current = null
+      setClosedElsewhere({ id: meta.id, at: closedNoticeAt(meta.closed_at, runningSinceRef.current, serverNow()) })
+      setActiveMeta(meta)
+      setIncidents((list) => (list ?? []).map((i) => (i.id === meta.id ? meta : i)))
+    }
+    return onIncidentClosed((sig) => { void handle(sig) })
+  }, [])
+
+  // The open Einsatz is missing from the open list (the 30 s watch): it may have been closed
+  // elsewhere. Only a SUSPICION — the list is bounded, and an offline answer is a cache — so the
+  // handler above asks the server before it acts (lib/incidentClosed · closedMetaFor).
+  useEffect(() => {
+    if (!activeMeta || !isIncidentRunning(activeMeta) || !incidents?.length) return
+    if (!incidents.some((i) => i.id === activeMeta.id)) reportIncidentClosed({ incidentId: activeMeta.id, source: 'list' })
+  }, [incidents, activeMeta])
+
   // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
   // the Einsatz-Menü row) run their counting confirm in IncidentWorkspace and land here; «Alle
   // Einsätze» runs the plain confirm below and lands here too. Flush the last workspace edits,
@@ -491,6 +538,7 @@ export default function App() {
   // the outcome on (a failed handover must not look like an Abschluss to anyone upstream).
   const completeRapport = useCallback(async (id: string): Promise<boolean> => {
     if (isDemoMode()) { toast(appConfig.copy.demo.actionBlocked, { icon: 'info' }); return false }
+    closingLocallyRef.current = id
     try {
       if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
       await patchIncident(id, { report_done_at: new Date().toISOString() })
@@ -517,6 +565,8 @@ export default function App() {
     } catch (e) {
       toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
       return false
+    } finally {
+      if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
   }, [activeId, refreshList, selectIncident])
 
@@ -704,6 +754,7 @@ export default function App() {
           onCompleteRapport={() => completeRapport(activeMeta.id)}
           onReactivateActive={isEditor && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
+          closedElsewhereAt={closedElsewhere?.id === activeMeta.id ? closedElsewhere.at : null}
           needsReview={
             reviewPendingId === activeMeta.id ||
             // `intakeReviewedAt` = somebody already checked this Einsatz on another device. This

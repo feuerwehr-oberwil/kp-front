@@ -21,11 +21,24 @@ from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, JournalEntry
 from ..schemas import JournalAppendIn, JournalEntryOut, JournalPage
-from .incidents import INCIDENT_NOT_FOUND
+from .incidents import INCIDENT_NOT_FOUND, incident_closed, incident_lifecycle
 
 router = APIRouter(prefix="/incidents", tags=["journal"])
 
 MAX_BATCH = 500
+
+#: The Verlauf rows a CLOSED Einsatz no longer takes (N3, 25.09.2026 — see api/incidents ·
+#: `incident_closed`): what the running Einsatz writes about ITSELF. «team» is the whole
+#: Atemschutz-Tafel — Kontakt, Druck, Austritt and the alarm clock's own «Atemschutz-Alarm …
+#: Überfällig» (`azal-`/`azcl-`); «symbol»/«layer» are the Karte and the Pläne, whose workspace
+#: writes are refused beside them; «vehicle» is the live GPS feed. Everything else — a Meldung, a
+#: Foto, a Pendenz's lifecycle, a transcript or upload patch — is the record, and a late one is
+#: a Nachtrag, which the Verlauf and the Rapport already print as such.
+CLOSED_REFUSED_KINDS = frozenset({"team", "symbol", "layer", "vehicle"})
+
+
+def _live_row(row: dict) -> bool:
+    return row.get("kind") in CLOSED_REFUSED_KINDS
 
 
 async def _ensure(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> None:
@@ -152,6 +165,12 @@ async def append_journal(
             raise _Denied()
         for e in body.entries:
             e["via"] = atemschutz_link_source(user)
+    # Only a batch that carries a live row pays for the lifecycle read — under the incident row
+    # lock `append_rows` takes next, so a close cannot commit in between.
+    if any(_live_row(e) for e in body.entries):
+        lifecycle = await incident_lifecycle(db, incident_id, lock=True)
+        if not lifecycle.is_open:
+            raise incident_closed(lifecycle.closed_at)
     accepted = await append_rows(db, incident_id, body.entries)
     if accepted:
         latest = accepted[-1].seq

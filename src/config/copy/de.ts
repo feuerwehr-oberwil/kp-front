@@ -1213,6 +1213,10 @@ export const de = {
       refusedTitleOne: '1 Protokollereignis für diese Rolle nicht vorgesehen',
       refusedTitle: '{n} Protokollereignisse für diese Rolle nicht vorgesehen',
       refusedBody: 'Der Server nimmt diese Ereignisse von dieser Anmeldung nicht an. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
+      // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
+      closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
+      closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',
+      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge den Server erreichten. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und können gesichert werden.',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -3917,6 +3921,16 @@ export const de = {
     hint: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
+    // N3 (25.09.2026): das Einsatz wurde auf einem ANDEREN Gerät abgeschlossen, während es hier
+    // offen war — die Meldeleiste sagt, warum der Bildschirm eben nur-lesend geworden ist.
+    closedElsewhere: 'Einsatz wurde auf einem anderen Gerät abgeschlossen ({t})',
+    closedElsewhereSub: 'Nur ansehen – zum Bearbeiten wieder öffnen.',
+    // …und was dieses Gerät danach noch schicken wollte (ein Kontakt, eine Tafel-Änderung von
+    // offline): nicht übernommen, aber nicht verloren.
+    closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
+    closedRefused: '{n} Einträge dieses Geräts kamen nach dem Abschluss und wurden nicht mehr übernommen. Sie bleiben auf diesem Gerät gespeichert.',
+    closedExport: 'Einträge sichern',
+    closedDismiss: 'Hinweis ausblenden',
   },
   // Einsätze history list
   history: {

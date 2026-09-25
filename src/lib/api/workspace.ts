@@ -3,6 +3,7 @@
 // debounced merge-on-save engine live alongside in ./workspaceSync.
 import { ApiError, apiBeacon, apiGet, apiGetRaw, apiPut, LONG_POLL_TIMEOUT_MS } from '../api'
 import type { Trupp } from '../../types'
+import { reportIncidentClosed } from '../incidentClosed'
 
 export type Workspace = Record<string, unknown>
 
@@ -88,6 +89,12 @@ export async function pollWorkspaceSince(
   // quiet incident it is the ONLY answer — the skew watch must not depend on edits happening
   const serverTime = res.headers.get('X-Server-Time')
   if (serverTime) serverTimeListener?.(serverTime)
+  // …and whether the Einsatz is still running, on the 304 too (backend · _lifecycle_headers).
+  // A close never moves the revision, so this header is the only way a follower hears of it
+  // (N3, 25.09.2026). Absent (an older backend) → silent, as before.
+  if (res.headers.get('X-Incident-Open') === '0') {
+    reportIncidentClosed({ incidentId: id, closedAt: res.headers.get('X-Incident-Closed-At'), source: 'poll' })
+  }
   if (res.status === 304) return null
   if (!res.ok) throw new ApiError(res.status, 'Workspace-Poll fehlgeschlagen')
   return res.json()

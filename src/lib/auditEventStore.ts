@@ -3,6 +3,7 @@ import { ingestEvents, ingestEventsBeacon, type ClientEvent } from './api/events
 import { idbRead, idbSet } from './idb'
 import { ALL_EVENTS, type EventScope } from './eventScope'
 import type { SyncStatus } from './api/workspaceSync'
+import { isIncidentClosedRefusal, refusalClosedAt, reportIncidentClosed } from './incidentClosed'
 
 export type PendingAuditEvent = ClientEvent & { client_id: string }
 /**
@@ -13,6 +14,9 @@ export type PendingAuditEvent = ClientEvent & { client_id: string }
  * never dropped: persisted with the outbox and carried by `getRecoveryData` («Einträge
  * sichern»). A 403 for an op the role SHOULD be able to write stays `rejected` — that is a
  * real mismatch somebody has to see. Absent in caches written before the bucket existed.
+ * Since 25.09.2026 (N3) the bucket also takes what a CLOSED Einsatz refused — an
+ * `atemschutz.contact` from a device that had not heard of the Abschluss yet, the alarm clock's
+ * `atemschutz.alarm` — for the same reason: not owed while it stays closed, never dropped.
  */
 interface StoredAuditEvents { pending: PendingAuditEvent[]; rejected: PendingAuditEvent[]; refused?: PendingAuditEvent[] }
 const BATCH_SIZE = 100
@@ -279,8 +283,11 @@ export class AuditEventStore {
         // diagnosis and expose rejectedCount; never silently trim an offline backlog.
         if (batch.length > 1) { this.singleMode = true; continue }
         // …and a 403 for an op this role can never write is parked, not held red (see
-        // StoredAuditEvents · refused). Anything else refused stays a visible error.
-        const notOwed = error instanceof ApiError && error.status === 403 && !this.scope(batch[0].op_type)
+        // StoredAuditEvents · refused) — as is an op the CLOSED Einsatz no longer takes (N3).
+        // Anything else refused stays a visible error.
+        const closed = isIncidentClosedRefusal(error)
+        if (closed) reportIncidentClosed({ incidentId: this.incidentId, closedAt: refusalClosedAt(error), source: 'refusal' })
+        const notOwed = closed || (error instanceof ApiError && error.status === 403 && !this.scope(batch[0].op_type))
         this.state = {
           ...this.state,
           pending: this.state.pending.filter((e) => e.client_id !== batch[0].client_id),
