@@ -26,6 +26,26 @@ On top of that there is a third, small source: the server writes lifecycle rows 
 (`append_system_row`, `backend/app/api/journal.py:96`) – incident closed, reopened,
 Nachalarm, automatic archival.
 
+## What the server observes (since 24.09.2026)
+
+Observations of the outside world are written by the scheduler, never by a
+device (`docs/ARCHITECTURE.md` · «The server observes»). Their rows carry derived ids, `t: ""`
+(clients render the time from `at`) and German text, like the other server rows:
+
+| Row | Id | `at` | When |
+|---|---|---|---|
+| «TLF vor Ort» | `vps-<n>-scene-gps-<device>` | the tracker's FIRST report inside 150 m (Traccar `deviceTime`) | the vehicle's first arrival only; later arrivals are trips, counted in `reportMeta.fahrzeuge[].gps.fahrten` and printed as «3 Fahrten», never rows. No row when the external geofence already wrote «TLF vor Ort 19:23» for it (first writer wins) |
+| «TLF hat den Einsatzort verlassen» | `vps-<n>-away-gps-<device>` | the tracker's FIRST report beyond 300 m | the LAST departure only: written once the vehicle stayed away 20 min, or when observation ends — so it appears late but stands where it happened. A tracker the config cannot name writes no row where the external geofence is writing (it may name it differently) |
+| «Wind dreht: W → NO (286° → 66°) · Lüfter prüfen» | `wxd-<observed_at>` | the confirming reading | a turn ≥ 45° at ≥ 10 km/h, held over two readings on the same side, from one source + station; the devices show it once on the Meldeleiste for 30 min from the row's `writtenAt` (`WindShiftMeldung`, ✕ is remembered per device) |
+| «Automatische Beobachtung beendet (24 h ohne Eintrag) …» | `obs-end-<last activity>` | 24 h after the last human write | once per quiet spell of an OPEN, observed Einsatz; observation resumes at the next human write |
+
+Audit only (no row): `vehicle.presence` (every transition and the silent baseline, source
+`gps`) and `weather.observe` (every reading, source `weather`, id `wx:<incident>:<observed_at>`
+— the replay's wind badge). Rows written before the deploy by the devices (`vp-` rows stamped
+when a device noticed, `weather.observe` per device) stay as they are; the server's own `vps-`
+rows are written beside them, never swallowed by them. An older build's new ones are dropped at
+the endpoints.
+
 ## Atemschutz: the full cycle is on the record
 
 Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.

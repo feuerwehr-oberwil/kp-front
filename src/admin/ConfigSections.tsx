@@ -1196,8 +1196,8 @@ export function LayersSection() {
   // over the latest list instead, so an async one can only ever change its own row.
   // ⚠️ Assigned during render, not in an effect: an event can fire before the passive effect of
   // the render that produced the list has run (it does, in the Kartenebenen tests), and the
-  // updater would then be handed a list from before the config even loaded. Same escape hatch as
-  // `useVehiclePresenceLog · logRef`.
+  // updater would then be handed a list from before the config even loaded. The plain
+  // latest-value ref, assigned in render.
   const latest = useRef(all)
   latest.current = all
   const write = (next: LayerUpdate) => {

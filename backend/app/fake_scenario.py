@@ -133,6 +133,27 @@ class ScenarioPosition(BaseModel):
     speed: float | None = None  # km/h
     course: float | None = None
     address: str | None = None
+    #: the GPS fix time as an offset («-8m»); omitted = the moment of injection. Since
+    #: 24.09.2026 the server's GPS sweep reads the fake fleet too, and stamps «vor Ort» with the
+    #: FIX time — so a scenario can place an arrival in the past.
+    at: str | None = None
+
+    @model_validator(mode="after")
+    def _offsets(self) -> "ScenarioPosition":
+        if self.at is not None:
+            parse_offset(self.at)
+        return self
+
+
+def fake_positions_payload(positions: list[ScenarioPosition], now: datetime) -> list[dict[str, Any]]:
+    """`POST /api/traccar/fake` body: the offsets resolved to an absolute fix time `ts`."""
+    out = []
+    for p in positions:
+        d = p.model_dump(exclude_none=True, exclude={"at"})
+        if p.at is not None:
+            d["ts"] = (now + parse_offset(p.at)).isoformat()
+        out.append(d)
+    return out
 
 
 class Scenario(BaseModel):
@@ -311,7 +332,7 @@ def _run(scenario: Scenario, base: str, divera_secret: str, alarm_secret: str, w
             pr = c.post(
                 "/api/traccar/fake",
                 params={"secret": alarm_secret},
-                json=[p.model_dump(exclude_none=True) for p in scenario.positions],
+                json=fake_positions_payload(scenario.positions, now),
             )
             if pr.status_code == 200:
                 print(f"  🚒 {len(scenario.positions)} Fahrzeug-Position(en) injiziert (TRACCAR_FAKE).")

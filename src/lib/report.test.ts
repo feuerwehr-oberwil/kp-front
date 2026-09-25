@@ -541,6 +541,20 @@ describe('server-PDF payload extras', () => {
     ])
   })
 
+  // D2-a (24.09.2026): the shuttle trips are not Verlauf rows, so the paper is where they are
+  // counted — «3 Fahrten» beside a vehicle the server's GPS saw on scene more than once.
+  it('prints «n Fahrten» beside a vehicle that was on scene more than once', () => {
+    const out = metaExtrasForPdf({
+      fahrzeuge: [
+        { id: 'tlf', ausgerueckt: '2026-07-31T12:43:46', gps: { zone: 'scene', fahrten: 1 } },
+        { id: 'pio', gps: { zone: 'away', fahrten: 3 } },
+      ],
+    })
+    expect(out.zeiten.slice(2)).toEqual([['TLF', '12:43'], ['Pio', '3 Fahrten']])
+    const both = metaExtrasForPdf({ fahrzeuge: [{ id: 'tlf', ausgerueckt: '2026-07-31T12:43:46', gps: { zone: 'away', fahrten: 2 } }] })
+    expect(both.zeiten.find(([l]) => l === 'TLF')?.[1]).toBe('12:43 · 2 Fahrten')
+  })
+
   it('builds the Material worksheet: full catalogue with stubs, recorded amounts filled', () => {
     const catalogue = [
       { id: 'oel', label: 'Ölbinder', unit: 'Sack' },

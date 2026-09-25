@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint . --max-warnings=413",
+    "lint": "eslint . --max-warnings=412",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "preview": "vite preview --port 4173"
@@ -33,7 +33,6 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.0",
     "@testing-library/react": "^16.1.0",
-    "@types/node": "^24.13.6",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

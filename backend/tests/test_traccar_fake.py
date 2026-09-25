@@ -87,3 +87,100 @@ async def test_positions_still_503_when_fake_off_and_unconfigured(client, editor
     await _login_editor(client, editor)
     pos = await client.get("/api/traccar/positions")
     assert pos.status_code == 503
+
+
+# --- the one answer for every device (24.09.2026) ----------------------------------------
+
+
+async def test_every_device_is_answered_from_one_traccar_call_per_ten_seconds(monkeypatch):
+    """Each open device polls every 15 s; each poll used to be one Traccar LOGIN."""
+    import app.traccar as traccar_mod
+
+    calls: list[int] = []
+    clock = [100.0]
+
+    class _Client:
+        base_url = "https://traccar.example"
+        email = "kp@example"
+        password = "secret-1"
+
+        async def get_vehicle_positions(self):
+            calls.append(1)
+            return []
+
+    client = _Client()
+    monkeypatch.setattr(traccar_mod, "traccar_client", client)
+    monkeypatch.setattr(traccar_mod.time, "monotonic", lambda: clock[0])
+    traccar_mod.reset_positions_cache()
+    try:
+        for _ in range(3):
+            await traccar_mod.cached_vehicle_positions()
+        assert calls == [1]
+        clock[0] += 10.5
+        await traccar_mod.cached_vehicle_positions()
+        assert calls == [1, 1]
+        # a new password is a new identity — never the old account's answer
+        client.password = "secret-2"
+        await traccar_mod.cached_vehicle_positions()
+        assert calls == [1, 1, 1]
+    finally:
+        traccar_mod.reset_positions_cache()
+
+
+async def test_a_failure_is_shared_by_the_waiting_requests_but_never_cached(monkeypatch):
+    """Requests waiting on ONE fetch get its error (ten devices must not queue ten timeouts), but
+    the next poll asks Traccar again instead of replaying the failure for ten seconds."""
+    import asyncio
+
+    import httpx
+
+    import app.traccar as traccar_mod
+
+    calls: list[int] = []
+    gate = asyncio.Event()
+
+    class _Client:
+        base_url = "https://traccar.example"
+        email = "kp@example"
+        password = "p"
+
+        async def get_vehicle_positions(self):
+            calls.append(1)
+            if len(calls) == 1:
+                await gate.wait()
+                raise httpx.ConnectError("down")
+            return []
+
+    monkeypatch.setattr(traccar_mod, "traccar_client", _Client())
+    traccar_mod.reset_positions_cache()
+    try:
+        waiting = [asyncio.create_task(traccar_mod.cached_vehicle_positions()) for _ in range(3)]
+        await asyncio.sleep(0)
+        gate.set()
+        results = await asyncio.gather(*waiting, return_exceptions=True)
+        assert all(isinstance(r, httpx.ConnectError) for r in results)
+        assert len(calls) == 1  # one fetch for the three
+        assert await traccar_mod.cached_vehicle_positions() == []  # not cached: asked again
+        assert len(calls) == 2
+    finally:
+        traccar_mod.reset_positions_cache()
+
+
+async def test_a_fake_vehicle_keeps_its_id_whatever_the_order(client, fake_mode):
+    """The server's presence record is keyed by the tracker id — an id that followed the list
+    order would hand one vehicle's history to another."""
+    body = [{"name": "TLF", "lat": 46.948, "lng": 7.4474}, {"name": "ADL", "lat": 46.949, "lng": 7.4474}]
+    await client.post("/api/traccar/fake?secret=alarm-secret-123", json=body)
+    first = {p.device_name: p.device_id for p in _fake_positions}
+    await client.post("/api/traccar/fake?secret=alarm-secret-123", json=list(reversed(body)))
+    assert {p.device_name: p.device_id for p in _fake_positions} == first
+    assert len(set(first.values())) == 2
+
+
+async def test_an_injected_fix_time_is_kept(client, fake_mode, editor):
+    r = await client.post(
+        "/api/traccar/fake?secret=alarm-secret-123",
+        json=[{"name": "TLF", "lat": 46.948, "lng": 7.4474, "ts": "2026-09-23T17:23:10Z"}],
+    )
+    assert r.status_code == 200
+    assert _fake_positions[0].last_update.isoformat() == "2026-09-23T17:23:10+00:00"

@@ -8,6 +8,7 @@ deleted; lifecycle changes (reminder done/snoozed, corrections) are NEW rows, as
 else in the incident record.
 """
 
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -126,6 +127,21 @@ async def append_system_row(db: AsyncSession, incident_id: uuid.UUID, *, icon: s
     await append_rows(db, incident_id, [row])
 
 
+#: Verlauf rows only the SERVER writes (24.09.2026): «vor Ort» / «hat den Einsatzort verlassen»
+#: are observed by the scheduler's GPS sweep (app/vehicle_presence) and stamped with the fix
+#: time. A device still running the previous build keeps writing its own under the same id
+#: shape, stamped when IT noticed; those are acknowledged and dropped, so a mixed-version day
+#: converges on the server's record instead of adding the device's late copy beside it.
+#: `vp-` is what the previous client build wrote, `vps-` the server's own shape (25.09.2026) —
+#: a device writes neither.
+_OBSERVED_BY_SERVER = re.compile(r"^vps?-[0-9]+-(scene|away)-")
+
+
+def observed_by_server(entry: dict) -> bool:
+    rid = entry.get("id")
+    return isinstance(rid, str) and _OBSERVED_BY_SERVER.match(rid) is not None
+
+
 @router.post("/{incident_id}/journal", response_model=JournalPage, status_code=201)
 async def append_journal(
     incident_id: uuid.UUID,
@@ -152,7 +168,9 @@ async def append_journal(
             raise _Denied()
         for e in body.entries:
             e["via"] = atemschutz_link_source(user)
-    accepted = await append_rows(db, incident_id, body.entries)
+    # acknowledged (2xx, so the device's outbox lets go of them) and not stored — see below
+    entries = [e for e in body.entries if not observed_by_server(e)]
+    accepted = await append_rows(db, incident_id, entries) if entries else []
     if accepted:
         latest = accepted[-1].seq
     else:

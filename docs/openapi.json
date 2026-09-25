@@ -13423,6 +13423,18 @@
               }
             ],
             "title": "Address"
+          },
+          "ts": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts"
           }
         },
         "type": "object",

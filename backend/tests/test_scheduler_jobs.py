@@ -170,6 +170,97 @@ async def test_a_polled_alarm_is_committed_and_counted(db_session, run_job, fres
     assert "Divera poll: 1 new alarm(s)" in caplog.text
 
 
+@pytest.fixture
+def divera_clock(monkeypatch):
+    """The Divera cadence reads the event loop's clock; the test moves it by hand."""
+    now = [1000.0]
+    monkeypatch.setattr(scheduler, "_divera_now", lambda: now[0])
+    monkeypatch.setattr(scheduler, "_divera_last_poll", None)
+    monkeypatch.setattr(scheduler, "_divera_backoff_s", 0.0)
+    monkeypatch.setattr(scheduler, "_divera_backoff_until", 0.0)
+    return now
+
+
+async def test_the_server_polls_every_30s_while_nothing_runs_and_every_120s_while_something_does(
+    db_session, run_job, divera_clock, monkeypatch
+):
+    """D2 (24.09.2026): the devices stopped POSTing `/divera/pool/refresh` every 30 s each (469
+    Divera calls in one Übung). The server alone polls — fast while it is waiting for a dispatch,
+    slow once the Einsatz is running and the webhook carries it."""
+    polls: list[float] = []
+
+    async def _poll():
+        polls.append(divera_clock[0])
+
+    monkeypatch.setattr(scheduler, "_poll_divera", _poll)
+    monkeypatch.setattr(settings, "divera_poll_interval_seconds", 120)
+    assert scheduler.divera_tick_seconds() == 30
+    for _ in range(4):
+        await run_job(scheduler._divera_tick)
+        divera_clock[0] += 30
+    assert len(polls) == 4  # idle: every tick polls
+
+    await _incident(db_session, status="offen", started_at=datetime.now(UTC) - timedelta(minutes=5))
+    polls.clear()
+    for _ in range(8):
+        await run_job(scheduler._divera_tick)
+        divera_clock[0] += 30
+    assert len(polls) == 2  # running: every fourth tick
+
+    # an Einsatz that has been open for more than a day is not «running» for this question
+    await db_session.execute(Incident.__table__.update().values(started_at=datetime.now(UTC) - timedelta(hours=30)))
+    await db_session.commit()
+    polls.clear()
+    for _ in range(4):
+        await run_job(scheduler._divera_tick)
+        divera_clock[0] += 30
+    assert len(polls) == 4
+
+
+async def test_a_429_backs_the_poll_off_doubling_and_capped_and_a_success_resets_it(
+    run_job, divera_clock, monkeypatch, caplog
+):
+    import app.divera as divera_mod
+
+    answers: list[int] = []
+
+    async def _fetch(db):
+        status = answers.pop(0)
+        if status != 200:
+            err = divera_mod.DiveraApiError(f"Divera antwortete mit HTTP {status}")
+            err.status_code = status
+            raise err
+        return 0
+
+    monkeypatch.setattr(divera_mod, "fetch_and_upsert", _fetch)
+    monkeypatch.setattr(settings, "divera_access_key", "k")
+
+    waits = []
+    for _ in range(6):
+        answers.append(429)
+        await run_job(scheduler._poll_divera)
+        waits.append(scheduler._divera_backoff_s)
+    assert waits == [60.0, 120.0, 240.0, 480.0, 900.0, 900.0]
+    # while backed off, the tick does not reach Divera at all
+    polled: list[int] = []
+    real_poll = scheduler._poll_divera
+
+    async def _poll():
+        polled.append(1)
+
+    monkeypatch.setattr(scheduler, "_poll_divera", _poll)
+    await run_job(scheduler._divera_tick)
+    assert polled == []
+    divera_clock[0] += 901
+    await run_job(scheduler._divera_tick)
+    assert polled == [1]
+
+    monkeypatch.setattr(scheduler, "_poll_divera", real_poll)
+    answers.append(200)
+    await run_job(scheduler._poll_divera)
+    assert scheduler._divera_backoff_s == 0.0
+
+
 # --- push sweep -----------------------------------------------------------------------
 
 
@@ -626,6 +717,7 @@ async def test_the_credential_backed_jobs_are_registered_before_their_credential
         "push_sweep",
         "print_jobs_sweep",
         "vehicle_samples",
+        "weather_observe",
         "heartbeat",
         "credentials_refresh",
         "auto_archive",
@@ -637,6 +729,24 @@ async def test_the_credential_backed_jobs_are_registered_before_their_credential
     # not browser-settable, and a demo wipe is not something a station may switch on by accident.
     assert "plan_pull" not in ids
     assert "demo_reset" not in ids
+
+
+async def test_the_observers_run_late_rather_than_not_at_all(monkeypatch):
+    """APScheduler skips a run that starts >1 s late by default; on the live check (24.09.2026)
+    a busy dev worker dropped 9 of 55 GPS sweeps and two 10-minute weather readings."""
+    import app.plans as plans_mod
+
+    monkeypatch.setattr(plans_mod, "plans_pull_enabled", lambda: False)
+    monkeypatch.setattr(settings, "demo_reset_cron", "")
+    monkeypatch.setattr(settings, "demo_reset_seconds", 0)
+    try:
+        scheduler._start_scheduler_jobs()
+        grace = {j.id: j.misfire_grace_time for j in scheduler._scheduler.get_jobs()}
+    finally:
+        scheduler._stop_scheduler_jobs()
+    assert grace["vehicle_samples"] >= 15
+    assert grace["weather_observe"] >= 300
+    assert grace["divera_poll"] >= 15
 
 
 async def test_the_plan_pull_is_registered_once_a_plan_store_is_configured(monkeypatch):

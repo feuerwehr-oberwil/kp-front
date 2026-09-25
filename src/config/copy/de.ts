@@ -2876,10 +2876,8 @@ export const de = {
     pinGps: 'Festhalten',
     pinGpsTitle: 'Fahrzeug hier festhalten – es bleibt stehen, auch wenn es wegfährt',
     logPinned: '{name} festgehalten',
-    // Verlauf rows from the Fahrzeug feed. They answer «wann ist wer weggefahren» – the question
-    // nobody can answer from memory hours later.
-    logVehicleArrived: '{name} vor Ort',
-    logVehicleLeft: '{name} hat den Einsatzort verlassen',
+    // (The «vor Ort» / «hat den Einsatzort verlassen» rows are written by the SERVER since
+    // 25.09.2026, in German like every server-written row — backend · app/vehicle_presence.)
     // Remove a self-reported position from the Kommandoposten: somebody drives home with sharing
     // still on, or a phone dies on its last fix – the dot then claims a Kraft is somewhere it
     // is not.
@@ -3444,6 +3442,10 @@ export const de = {
       fog: 'Nebel', drizzle: 'Niesel', rain: 'Regen', snow: 'Schnee',
       rainShowers: 'Regenschauer', snowShowers: 'Schneeschauer', thunder: 'Gewitter', cloudy: 'Bewölkt',
     } as Record<string, string>,
+    // The wind-shift Meldung (24.09.2026, D2). Its words are the server's Verlauf row
+    // («Wind dreht: W → NO (286° → 66°) · Lüfter prüfen»); these two are its doors.
+    windShiftOpen: 'Im Verlauf öffnen',
+    windShiftDismiss: 'Ausblenden',
   },
   // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {
@@ -4373,6 +4375,24 @@ export const de = {
     ausgeruecktDerived: 'aus den Fahrzeugzeiten übernommen',
     vorOrtShort: 'vor Ort',
     zurueckShort: 'zurück',
+    // The vehicle table (24.09.2026, D2): what the SERVER observed from the GPS positions,
+    // display only. an = first arrival, ab = last departure, both GPS fix times.
+    gpsTableTitle: 'Fahrzeuge GPS · live',
+    gpsTableNote: 'Zeiten aus den GPS-Positionen, vom Server erfasst',
+    gpsColFzg: 'Fzg',
+    gpsColStatus: 'Status',
+    gpsColAn: 'an',
+    gpsColAb: 'ab',
+    gpsColFahrten: 'Fahrten',
+    gpsColPos: 'Pos.',
+    gpsStatusScene: 'vor Ort',
+    gpsStatusAway: 'unterwegs',
+    gpsAgeSec: 'vor {n} s',
+    gpsAgeMin: 'vor {n} min',
+    gpsAgeHour: 'vor {n} h',
+    gpsAgeStale: 'Position veraltet',
+    // …and on paper, where a vehicle was on scene more than once (a supply vehicle shuttling to the depot)
+    fahrtenCount: '{n} Fahrten',
     rueckmeldungLabel: 'Rückmeldung ELZ',
     rueckmeldungName: 'Name',
     // ⚠️ Nicht bloss «Zeit»: das Feld steht jetzt neben dem Einsatzende, und zwei Zeitfelder
