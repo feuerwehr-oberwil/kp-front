@@ -1264,6 +1264,7 @@ export const fr: Localizable<Copy> = {
     truppTerm: 'Binôme {name}',
     logRegister: 'Binôme {name} annoncé – pression d’entrée {bar} bar',
     logRegisterPlain: 'Binôme {name} annoncé',
+    logRenumbered: 'Binôme {name} devient Binôme {no}',
     logPlaced: 'Binôme {name} placé sur le plan',
     logPlacedMap: 'Binôme {name} placé sur la carte',
     placeLage: 'Carte',

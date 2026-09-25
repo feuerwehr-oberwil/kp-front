@@ -32,12 +32,14 @@ function makeSync() {
     adoptServer: vi.fn(),
     drainAttendanceConflicts: vi.fn().mockReturnValue([]),
     drainTruppConflicts: vi.fn().mockReturnValue([]),
+    drainTruppRenumbered: vi.fn().mockReturnValue([]),
     hasUnsynced: false,
     rev: 0,
     syncStatus: 'synced' as const,
     lastSyncedAt: null,
     onAttendanceConflicts: undefined,
     onTruppConflicts: undefined as ((conflicts: unknown[]) => void) | undefined,
+    onTruppRenumbered: undefined as ((changes: unknown[]) => void) | undefined,
     onApplyMerged: undefined,
     onStatus: undefined,
   }
@@ -209,6 +211,34 @@ describe('useIncidentSync — trupp conflict notes', () => {
     // a later sync cycle re-reporting the SAME divergence does not re-append
     sync.onTruppConflicts?.([conflict])
     expect(appendJournal).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useIncidentSync — renumbered Trupps', () => {
+  const trupp = { id: 'tr1', no: 3, name: 'Meier Anna', members: ['Müller Hans'], status: 'angemeldet' }
+  const change = { kind: 'trupp', id: 'tr1', from: 1, to: 3, trupp }
+
+  it('writes ONE Verlauf row per renumbering, under the id every device derives', () => {
+    const sync = makeSync()
+    sync.drainTruppRenumbered = vi.fn().mockReturnValue([change]) // init()'s cold-reopen merge
+    const appendJournal = vi.fn()
+    mount(sync, { appendJournal })
+    expect(appendJournal).toHaveBeenCalledTimes(1)
+    const row = appendJournal.mock.calls[0][0]
+    expect(row.id).toBe('trn-tr1-1-3')
+    expect(row.text).toBe('Trupp 1 (Meier Anna / Müller Hans) heisst jetzt Trupp 3')
+    expect(row).toMatchObject({ kind: 'team', subjectId: 'tr1' })
+    // the same change seen again (a later poll, a re-merge) adds nothing
+    sync.onTruppRenumbered?.([change])
+    expect(appendJournal).toHaveBeenCalledTimes(1)
+  })
+
+  it('a loose chip says its old and its new name', () => {
+    const sync = makeSync()
+    const appendJournal = vi.fn()
+    mount(sync, { appendJournal })
+    sync.onTruppRenumbered?.([{ kind: 'chip', id: 'trupp1758', from: 1, to: 2 }])
+    expect(appendJournal.mock.calls[0][0]).toMatchObject({ id: 'trn-trupp1758-1-2', text: 'Trupp 1 heisst jetzt Trupp 2', subjectId: 'trupp1758' })
   })
 })
 
@@ -391,8 +421,9 @@ describe('useIncidentSync — unmounting unhooks only its own sync callbacks', (
     expect(sync.onApplyMerged).toBeTypeOf('function')
     expect(sync.onAttendanceConflicts).toBeTypeOf('function')
     expect(sync.onTruppConflicts).toBeTypeOf('function')
+    expect(sync.onTruppRenumbered).toBeTypeOf('function')
     // …until a later subscriber takes them over
-    const later = { onStatus: vi.fn(), onApplyMerged: vi.fn(), onAttendanceConflicts: vi.fn(), onTruppConflicts: vi.fn() }
+    const later = { onStatus: vi.fn(), onApplyMerged: vi.fn(), onAttendanceConflicts: vi.fn(), onTruppConflicts: vi.fn(), onTruppRenumbered: vi.fn() }
     Object.assign(sync, later)
     unmount()
     expect(sync).toMatchObject(later)
@@ -406,5 +437,6 @@ describe('useIncidentSync — unmounting unhooks only its own sync callbacks', (
     expect(sync.onApplyMerged).toBeUndefined()
     expect(sync.onAttendanceConflicts).toBeUndefined()
     expect(sync.onTruppConflicts).toBeUndefined()
+    expect(sync.onTruppRenumbered).toBeUndefined()
   })
 })

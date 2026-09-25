@@ -1264,6 +1264,7 @@ export const it: Localizable<Copy> = {
     truppTerm: 'Squadra {name}',
     logRegister: 'Squadra {name} annunciata – pressione d’ingresso {bar} bar',
     logRegisterPlain: 'Squadra {name} annunciata',
+    logRenumbered: 'Squadra {name} diventa Squadra {no}',
     logPlaced: 'Squadra {name} posizionata sul piano',
     logPlacedMap: 'Squadra {name} posizionata sulla carta',
     placeLage: 'Mappa',

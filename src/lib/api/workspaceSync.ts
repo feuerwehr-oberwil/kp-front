@@ -5,6 +5,7 @@ import { ApiError, isDenial, isUnverifiable } from '../api'
 import { idbDel, idbGet, idbRead, idbSet, type IdbRead } from '../idb'
 import { withTileEviction } from '../tileEvict'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
+import { truppRenumberings, type TruppRenumbering } from '../truppNumbers'
 import {
   getWorkspace, putWorkspace, putWorkspaceBeacon, putWorkspaceRecord, putWorkspaceRecordBeacon, putWorkspaceTrupps, putWorkspaceTruppsBeacon,
   type Workspace,
@@ -241,6 +242,12 @@ export class WorkspaceSync {
    *  Verlauf note so a human checks. Buffers like the attendance channel until registration. */
   onTruppConflicts?: (conflicts: RecordConflict[]) => void
   private truppConflictBuf: RecordConflict[] = []
+  /** Registered by the live view (useIncidentSync): a Trupp or loose «Trupp N» chip this device
+   *  was showing under one number arrives under another — a merge settled a number two devices
+   *  minted at once (lib/truppNumbers). The caller writes the ONE Verlauf row. Reported only for
+   *  a state the view is actually handed; buffers like the conflict channels until registration. */
+  onTruppRenumbered?: (changes: TruppRenumbering[]) => void
+  private renumberBuf: TruppRenumbering[] = []
   /** the lifecycle state on its own, before the cache-durability overlay (effectiveSyncStatus) */
   private base: SyncStatus
   /** what the UI last saw — the overlaid value */
@@ -378,6 +385,9 @@ export class WorkspaceSync {
    *  edited since). The server ancestor and rev stay this session's, so the push goes at them. */
   private mergeFoundSlot(stored: CacheEntry) {
     const merged = this.mergeReporting(stored.base ?? {}, stored.workspace, this.entry.workspace)
+    // both halves were written under their numbers: this session's view, and the slot's offline work
+    this.reportRenumbered(this.entry.workspace, merged)
+    this.reportRenumbered(stored.workspace, merged)
     this.saveSeq++ // a push in flight carries the pre-merge state: it must not mark this clean
     this.entry = { ...this.entry, workspace: merged, dirty: true, owner: this.entry.owner ?? stored.owner ?? cacheOwner ?? undefined }
     if (this.onApplyMerged) this.onApplyMerged(merged, this.entry.baseRev)
@@ -402,6 +412,25 @@ export class WorkspaceSync {
       else this.truppConflictBuf.push(...truppConflicts)
     }
     return merged
+  }
+
+  /** Tell the view what changed its Trupp number between what it showed (`before`) and what it
+   *  is about to be handed (`after`) — see onTruppRenumbered. A diff rather than a report out of
+   *  the merge itself: a merge whose PUT 409s is merged again and may settle differently, and
+   *  only the state that reaches the view is true. The same diff also covers a renumbering
+   *  ANOTHER device's merge made, which arrives here through the live poll (adoptServer). */
+  private reportRenumbered(before: Workspace, after: Workspace) {
+    const changes = truppRenumberings(before, after)
+    if (!changes.length) return
+    if (this.onTruppRenumbered) this.onTruppRenumbered(changes)
+    else this.renumberBuf.push(...changes)
+  }
+
+  /** Renumberings seen before a listener registered (init()'s cold-reopen merge). */
+  drainTruppRenumbered(): TruppRenumbering[] {
+    const buf = this.renumberBuf
+    this.renumberBuf = []
+    return buf
   }
 
   /** Conflicts reported before a listener registered (init()'s cold-reopen merge) — the
@@ -570,6 +599,8 @@ export class WorkspaceSync {
         }
         const server = workspace ?? {}
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
+        // the offline work was written (and its Verlauf rows with it) under the cached numbers
+        this.reportRenumbered(cached.workspace, merged)
         this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: ownerAtStart ?? cached.owner }
         this.writeCache()
         this.opts.onRev?.(workspace_rev)
@@ -821,6 +852,8 @@ export class WorkspaceSync {
         // Apply BOTH branches to the live view. Its next edit is built from this state;
         // leaving the remerged union only in the cache would delete remote additions on
         // that next save, now at a current revision where no 409 can rescue them.
+        // `mine0` is what the view showed when this began — a number it wrote rows under.
+        this.reportRenumbered(mine0, this.entry.workspace)
         if (this.onApplyMerged) this.onApplyMerged(this.entry.workspace, workspace_rev)
         else this.opts.onServerWorkspace?.(this.entry.workspace, workspace_rev)
         this.opts.onMerged?.()
@@ -848,6 +881,7 @@ export class WorkspaceSync {
    */
   adoptServer(workspace: Workspace, rev: number) {
     if (this.disposed) return
+    this.reportRenumbered(this.entry.workspace, workspace)
     this.entry = { workspace, base: workspace, baseRev: rev, dirty: false, lastSyncedAt: Date.now(), owner: cacheOwner ?? this.entry.owner }
     this.writeCache()
     this.opts.onRev?.(rev)

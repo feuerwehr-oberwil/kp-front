@@ -35,6 +35,12 @@ Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names; 
 leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
 that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
 
+A Trupp or loose «Trupp N» marker whose number a merge gave to another device's Trupp
+(two devices minted it at once, [`trupp-naming.md`](trupp-naming.md) §7) writes ONE row,
+«Trupp {name} heisst jetzt Trupp {no}» (`lib/truppNumbers` · `renumberRow`, copy
+`atemschutz.logRenumbered`), under the derived id `trn-<id>-<from>-<to>`, so the devices that
+all noticed it leave one row between them.
+
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
 (`useTruppActions.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
 at the Verlauf while registering: Atemschutz is its own view.

@@ -1275,6 +1275,7 @@ export const en: Localizable<Copy> = {
     truppTerm: 'Team {name}',
     logRegister: 'Team {name} registered – entry pressure {bar} bar',
     logRegisterPlain: 'Team {name} registered',
+    logRenumbered: 'Team {name} is now Team {no}',
     logPlaced: 'Team {name} placed on plan',
     logPlacedMap: 'Team {name} placed on the map',
     placeLage: 'Map',

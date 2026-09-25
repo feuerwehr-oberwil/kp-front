@@ -6,7 +6,9 @@
 //   - edits to the SAME object are last-writer-wins (the device flushing later wins) — except
 //     Trupps, which merge field-level (mergeTrupp) because an SCBA record must never lose a
 //     pressure reading to a concurrent radio contact;
-//   - a delete BEATS a concurrent edit — the object stays gone, no resurrection.
+//   - a delete BEATS a concurrent edit — the object stays gone, no resurrection;
+//   - two devices that minted the same «Trupp N» at once end with ONE holder of the number, the
+//     others renumbered from the one counter (lib/truppNumbers — the last step of mergeWorkspace).
 //
 // The `base` ancestor is the crux: it lets us tell "I deleted X" (present in base, absent in
 // mine) apart from "I never had X" (absent in both base and mine). Without it a naive union
@@ -14,7 +16,8 @@
 
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
-import type { BoardDoc, Drawing, Entity } from '../types'
+import { resolveTruppNumbers } from './truppNumbers'
+import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
 import type { Saved } from './workspace'
 
 type Id = string
@@ -464,6 +467,21 @@ export function mergeWorkspace(
   const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {
     if (policy !== 'local') out[k] = policy(base[k], mine[k], theirs[k], cx)
+  }
+  // ⚠️ Two devices that minted the same «Trupp N» at the same moment (25.09.2026): the merge kept
+  // both records, as it must, and now settles the NUMBER — one keeps it, the others take the next
+  // ones (lib/truppNumbers). A chip that lost is relabelled in the objects, so the three legacy
+  // views are derived again from them.
+  const renumbered = resolveTruppNumbers(out.trupps as Trupp[], objects)
+  if (renumbered) {
+    out.trupps = renumbered.trupps
+    if (renumbered.objects.some((o, i) => o !== objects[i])) {
+      const views = viewsOf(renumbered.objects)
+      out.objects = renumbered.objects
+      out.entities = views.entities
+      out.drawings = views.drawings
+      out.board = views.board
+    }
   }
   return out
 }

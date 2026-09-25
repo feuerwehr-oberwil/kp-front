@@ -9,6 +9,8 @@ import type { RecordConflict } from './mergeWorkspace'
 import { createLongPollLoop } from './pollBackoff'
 import { createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
+import { serverNowIso } from './serverClock'
+import { renumberRow, type TruppRenumbering } from './truppNumbers'
 import { toast } from './ui'
 import type { Saved } from './workspace'
 import type { TimelineEvent } from '../types'
@@ -81,6 +83,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // the editing side appends the note.
   const seenConflicts = useRef(new Set<string>())
   const seenTruppConflicts = useRef(new Set<string>())
+  const seenRenumbered = useRef(new Set<string>())
   useEffect(() => {
     if (!appendJournal || readOnly) return
     const report = (conflicts: RecordConflict[]) => {
@@ -97,16 +100,31 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       for (const row of rows) appendJournal(row)
       if (rows.length > 0) recordTrouble('syncConflict')
     }
+    // A Trupp (or loose chip) that lost a number two devices minted at once — ONE row per change,
+    // under a derived id, so the other devices noticing the same change add nothing
+    // (lib/truppNumbers · renumberRow). The seen-set only saves the round-trip.
+    const reportRenumbered = (changes: TruppRenumbering[]) => {
+      const at = serverNowIso()
+      for (const c of changes) {
+        const row = renumberRow(c, at)
+        if (seenRenumbered.current.has(row.id)) continue
+        seenRenumbered.current.add(row.id)
+        appendJournal(row)
+      }
+    }
     sync.onAttendanceConflicts = report
     sync.onTruppConflicts = reportTrupps
+    sync.onTruppRenumbered = reportRenumbered
     report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge
     reportTrupps(sync.drainTruppConflicts())
+    reportRenumbered(sync.drainTruppRenumbered())
     // ⚠️ Each cleanup below clears only ITS OWN handler: WorkspaceSync's callbacks are single
     // slots, and an unconditional `= undefined` would silently unhook whoever registered after
     // this effect (the auditEventStore · subscribe rule).
     return () => {
       if (sync.onAttendanceConflicts === report) sync.onAttendanceConflicts = undefined
       if (sync.onTruppConflicts === reportTrupps) sync.onTruppConflicts = undefined
+      if (sync.onTruppRenumbered === reportRenumbered) sync.onTruppRenumbered = undefined
     }
   }, [sync, appendJournal, readOnly])
 

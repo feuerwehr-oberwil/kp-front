@@ -24,6 +24,8 @@ visible only as free text in the printed journal, and that text carries no Trupp
 - **One counter** across Atemschutz and `einfach` Trupps **and** unlinked Plan/Lage chips. Two
   things on the same incident are never both called `Trupp 1`.
 - Numbers are never reused, not after deletion, not after re-entry.
+- Two devices that mint the same number at the same moment are settled by the merge
+  (§7, 25.09.2026): one keeps it, the other takes the next free one, and the Verlauf says so.
 - Registering from an unlinked chip **inherits the chip's number**. Linking a chip to an
   already-numbered Trupp relabels the chip to the Trupp's number.
 - Field: `Trupp.no: number`. The chip's `text` stays a mirror copy, as today.
@@ -90,15 +92,58 @@ their first reading's timestamp (registration time) on load and the next write p
 Closed incidents render with the same rule and are not rewritten. Old journal rows stay as
 written; the printed journal is a record, not a view.
 
+### 7. Two devices, one number: the merge settles it (25.09.2026)
+
+The counter is not stored anywhere; every device derives the next number from what it can see
+(`nextTruppNo`). Three devices on one login that tap «Neuer Trupp» inside one second each see
+the same Einsatz, so each mints «Trupp 1», and the merge – per object – rightly keeps all three.
+The first version of this page accepted that duplicate for OFFLINE devices; the field scenario
+of 24.09.2026 (`e2e/field-scenario.spec.ts`) showed it with three devices ONLINE, and the fix
+covers both, because nothing short of a server round-trip can stop the mint and a Trupp has to
+be registrable offline.
+
+- **Where:** at the end of every `mergeWorkspace`, after `trupps` and `objects` are merged
+  (`lib/truppNumbers · resolveTruppNumbers`). The claimants of a number are the Trupps carrying
+  it (removed ones included) and the UNLINKED chips labelled «Trupp N»; a chip bound to a Trupp
+  is that Trupp's marker and wears its leader's name.
+- **Who keeps it:** the one with the most record behind it – a Trupp that went in (Eintritt) over
+  one that is only registered, a registered Trupp over a loose chip – then the one minted first
+  (registration time off its first log row, which is on the deployment's clock; a chip's id
+  timestamp), then the id.
+- **The others** take the next numbers of the ONE counter, above everything anybody holds, in
+  that same order – exactly as if they had been minted a moment later. A chip is relabelled on
+  both of its bodies («Trupp 1» → «Trupp 4»), and the Karte's legacy views are derived again.
+- **Convergence:** the function is pure over the merged record, so identical inputs give
+  identical numbers on every device, and its output has no duplicate left for a later merge to
+  act on – no ping-pong. Which number a loser gets can depend on the order the devices landed
+  in; who KEEPS the number cannot.
+- **The Verlauf:** ONE row per renumbering – «Trupp 1 (Meier Anna / Müller Hans) heisst jetzt
+  Trupp 3» through `truppLogName` (copy `atemschutz.logRenumbered`), «Trupp 1 heisst jetzt
+  Trupp 4» for a chip, `subjectId` = the Trupp / chip. No device can tell which of them minted a
+  Trupp (a record carries no device id), so every device that was SHOWING the old number says it
+  – `WorkspaceSync` diffs what the view held against what it is handed (a merge it resolved, a
+  cold-reopen merge, a revision the live poll adopts) and `useIncidentSync` writes the row under
+  the DERIVED id `trn-<id>-<from>-<to>`; the journal keeps the first and drops the rest. The diff
+  runs on the state that reaches the view, not inside the merge, because a merge whose PUT 409s
+  is merged again and may settle differently. A chip whose old number nobody holds afterwards
+  was renamed by hand, not renumbered, and stays quiet as a rename always has.
+- **What stays:** rows already written under the old number keep it (append-only); the renumber
+  row is what connects the two. The Rapport's Atemschutz page reads the Trupp's own record – its
+  readings and `crew` rows live inside it, keyed by nothing but the record – so it prints the
+  current number with the whole history under it, and the printed journal still recognises the
+  Trupp's rows by `subjectId`.
+- **Undo:** a renumbering is a merge outcome, not an act. It reaches the view only through a
+  hydrate, which drops the undo timeline (AGENTS.md · Undo/redo), and it pushes nothing on it.
+
 ## Out of scope
 
-An explicit «Zusammenlegen» action; a Rapport section for `einfach` Trupps; renumbering.
+An explicit «Zusammenlegen» action; a Rapport section for `einfach` Trupps; renumbering by
+hand.
 
-Two devices registering a Trupp concurrently while offline can both hand out the same number –
-the merge keeps both records (`mergeWorkspace` is per object) and the duplicate is visible on
-the board. Same class as the other same-object races in
-[`sync-limitations.md`](sync-limitations.md); not repaired automatically, because a number that
-changes after the Verlauf wrote it is worse than a duplicate somebody can see.
+Rows already written under the old number are not rewritten, and the Verlauf's vocabulary term
+«Trupp N» (§4) marks a range by its number: after a renumbering, a row written under «Trupp 1»
+is marked as whichever Trupp holds 1 NOW. The row's own crew in parentheses and the renumber row
+say which crew it was. Revisit only if the field reads the marks wrongly.
 
 «Registering from an unlinked chip inherits the chip's number» is not built. Since 14.09. a
 register-from-chip path exists («Neuer Trupp» on the loose marker's join sheet), but it runs the
@@ -114,6 +159,7 @@ for this door. Revisit only if the field asks for the chip's number to stick.
 | One counter, chip names included | `src/lib/placedTrupps.ts` · `nextTruppNo` / `nextTeamName`; fed from `IncidentWorkspace` (`placedTeamNames`) to `Whiteboard` and `useTeamMarkerActions` |
 | Numbering on registration, crew rows on register / edit / transfer / re-entry, leader-only rows | `src/lib/useTruppActions.ts` · `createTrupp`, `crewRow` |
 | Migration of unnumbered records | `src/lib/workspace.ts` · `numberTrupps`, applied in `deriveInitial` |
+| Two devices, one number (§7) | `src/lib/truppNumbers.ts` · `resolveTruppNumbers` (called at the end of `mergeWorkspace`), `truppRenumberings` (diffed in `WorkspaceSync` · `reportRenumbered` → `onTruppRenumbered`), `renumberRow` (written by `useIncidentSync`) |
 | Backend accepts `no` | `backend/app/alarm_validation.py` |
 | The one crew formatter, both forms | `src/lib/atemschutz.ts` · `truppLogName(t, 'crew' \| 'leader')` |
 | Vocabulary term `Trupp N` + legacy term, GF badge on the first person | `src/lib/journalLinks.ts` |

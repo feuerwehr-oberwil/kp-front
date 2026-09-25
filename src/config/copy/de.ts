@@ -2110,6 +2110,10 @@ export const de = {
     // Eingangsdruck – dieselbe Regel gilt für den erneuten Eintritt weiter unten.
     logRegister: 'Trupp {name} angemeldet – Eingangsdruck {bar} bar',
     logRegisterPlain: 'Trupp {name} angemeldet',
+    // Zwei Geräte haben im selben Moment dieselbe Nummer vergeben; die Zusammenführung lässt sie
+    // einem und gibt den anderen die nächste freie (lib/truppNumbers). EINE Zeile pro Wechsel –
+    // die früheren Zeilen bleiben unter der alten Nummer stehen, diese verbindet die beiden.
+    logRenumbered: 'Trupp {name} heisst jetzt Trupp {no}',
     // Verlauf row for when somebody changes the safety values. WITH old and new values:
     // «geändert» alone doesn't say whether the threshold got stricter or looser.
     logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',

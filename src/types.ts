@@ -997,8 +997,10 @@ export interface Trupp {
   /**
    * The Trupp's own number — «Trupp 3» — handed out at registration from ONE counter per Einsatz
    * that unlinked plan chips and map markers («Trupp N», lib/placedTrupps · nextTeamName) draw
-   * from too, so two things on the same incident are never both called Trupp 1. Never reused,
-   * never renumbered. Absent only on a record written before 12.09.; the load normaliser numbers
+   * from too, so two things on the same incident are never both called Trupp 1. Never reused.
+   * Changed ONLY by the merge, when two devices minted the same number at once (lib/truppNumbers,
+   * 25.09.2026 — one keeps it, the other takes the next, and the Verlauf says so); nothing else
+   * ever writes it after registration. Absent only on a record written before 12.09.; the load normaliser numbers
    * those by registration time (lib/workspace · numberTrupps) and the next write persists it.
    * Documentation, not identity: people call a Trupp by its Gruppenführer, so the leader stays
    * the face of the card and the marker, and this is the small badge beside it.

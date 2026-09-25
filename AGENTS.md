@@ -233,6 +233,18 @@ to prod.
   name – never the primary label. Every Verlauf row about a Trupp is `Trupp N (crew …)` through
   `truppLogName`, and the crew's history is `crew` rows in the Trupp's own log, which is what the
   Rapport prints per cycle. Add a crew-changing action ⇒ it writes a `crew` row.
+  - ⚠️ **Two devices that mint the same number at once are settled by the MERGE** (25.09.2026,
+    `lib/truppNumbers`, trupp-naming §7). Every device derives the next number from its own view,
+    so three online devices tapping «Neuer Trupp» in one second all minted «Trupp 1». At the end
+    of `mergeWorkspace`, every contested number stays with ONE claimant (a Trupp that went in >
+    a registered Trupp > an unlinked «Trupp N» chip, then registration time, then id), and the
+    others take the next numbers of the one counter. It is pure over the merged record: every
+    device reaches the same answer, and nothing is left to ping-pong. It is NOT an act: it reaches
+    the view by a hydrate (which drops the undo timeline) and writes ONE Verlauf row, «Trupp 1
+    (…) heisst jetzt Trupp 3», under the DERIVED id `trn-<id>-<from>-<to>`. Every device that
+    showed the old number writes that row (`WorkspaceSync · reportRenumbered` diffs what the view
+    held against what it is handed), and the journal keeps one. Rows written under the old number
+    stay as they are. `Trupp.no` changes nowhere else — don't add a second writer.
   - **A Trupp's marker says which STOREY it is on** (18.09.2026): the Gebäude chip — at rest
     (`.team-dot`) and selected (`TwinTeamPill`) — and the Karte marker whose body was baked off
     that chip wear the same signed badge a Leitung's `floorTag` wears (`.team-floor`,
