@@ -42,7 +42,15 @@ so this file – not the log – is the record of what shipped up to that point.
   «… schon bestätigt (anderes Gerät). Nochmals / OK» instead of writing a second one – on the
   tablet and the handed-over Tafel as well, with «OK» (writes nothing) as the default. A kept
   form draft now belongs to one sortie: an abandoned re-entry no longer hands its bottle answer
-  to the next one. The
+  to the next one. After a walk-through on staging (25.09.2026): an edit saves only the fields it
+  touched and says so when one of them changed on another device meanwhile; a Gast typed into the
+  Trupp form reaches the Anwesenheit only when the Trupp is saved (Enter no longer creates one,
+  «Abbrechen» leaves nothing behind); the first Druck after the Eintritt counts as a Kontakt, says
+  on the sheet that it replaces the Eingangsdruck, and never replaces one set on purpose; a double
+  tap on «Kontakt» writes one contact; «Einsatz abschliessen» asks about crews still inside first,
+  by name, with «Zur Tafel» as the default, and afterwards stays on the closed Einsatz instead of
+  opening another; the empty board has its own «Trupp anmelden», the phone head button carries a
+  word, a Sicherungstrupp wears «SiTr», and «Ändern» and a chip's ✕ are full 44 px targets. The
   Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
   `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
   value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.

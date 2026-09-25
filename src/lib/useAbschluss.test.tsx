@@ -112,15 +112,17 @@ describe('useAbschluss', () => {
 
     it('is not offered while a crew is still inside — the Abschluss asks about that one first', async () => {
       const ask = vi.mocked(confirmDialog)
-      ask.mockReset().mockResolvedValueOnce(false)
+      // «trotzdem» on the crews-inside question, then «Abbrechen» on the Abschluss itself
+      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false)
       const standDownTrupps = vi.fn()
       const a = args({
         trupps: [sich, { ...sich, id: 'in', no: 1, auftrag: 'loeschen', status: 'aktiv', entryTime: '2026-09-23T19:00:00Z' }],
         standDownTrupps,
       })
       await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
-      expect(ask).toHaveBeenCalledTimes(1)
-      expect(ask.mock.calls[0][0].message).not.toContain('angemeldet')
+      expect(ask).toHaveBeenCalledTimes(2)
+      expect(ask.mock.calls[1][0].message).not.toContain('angemeldet')
+      expect(standDownTrupps).not.toHaveBeenCalled()
     })
 
     it('asks nothing about a Trupp already out, a work squad at the vehicle, or a Reserve that was inside', async () => {
@@ -145,6 +147,49 @@ describe('useAbschluss', () => {
       const first = result.current.confirmAndComplete
       rerender({ ...a, trupps: [{ ...sich, lastContactTime: '2026-09-23T19:01:00Z' }] })
       expect(result.current.confirmAndComplete).toBe(first)
+    })
+  })
+
+  /* Crews still INSIDE (staging walk-through 25.09.2026): their own first question, naming them,
+     with «Zur Tafel» as the filled, focused answer — an Enter must never close over them. */
+  describe('crews still inside are asked about first, by name', () => {
+    const inside: Trupp = {
+      id: 'in', no: 1, name: 'Muster Leo', members: ['Graf Eva'], entryPressureBar: 300,
+      entryTime: '2026-09-25T10:00:00Z', lastContactTime: '2026-09-25T10:04:00Z', status: 'aktiv',
+    }
+
+    it('names them, focuses «Zur Tafel», and «Zur Tafel» closes nothing', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce('alt' as never)
+      const a = args({ trupps: [inside] })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
+      expect(ask.mock.calls[0][0]).toMatchObject({
+        message: '1 Trupp ist noch drin: Trupp 1 (Muster Leo / Graf Eva).',
+        altLabel: appConfig.copy.abschluss.registeredToBoard,
+        confirmLabel: appConfig.copy.abschluss.insideClose,
+        safeAnswer: 'alt',
+      })
+      expect(a.setMode).toHaveBeenCalledWith('atemschutz')
+      expect(a.onCompleteRapport).not.toHaveBeenCalled()
+    })
+
+    it('closing anyway goes on to the Abschluss itself — and writes no Austritt', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(true)
+      const standDownTrupps = vi.fn()
+      const a = args({ trupps: [inside], standDownTrupps })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(true)
+      expect(ask).toHaveBeenCalledTimes(2)
+      expect(standDownTrupps).not.toHaveBeenCalled()
+    })
+
+    it('dismissing it does nothing', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(false)
+      const a = args({ trupps: [inside] })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(false)
+      expect(ask).toHaveBeenCalledTimes(1)
+      expect(a.onCompleteRapport).not.toHaveBeenCalled()
     })
   })
 })

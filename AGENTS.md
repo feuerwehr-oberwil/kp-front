@@ -1008,10 +1008,23 @@ to prod.
     «✓ Bestätigt», disabled — it stays under the finger. The rows sit INSIDE the popup (under the
     scrim they would be outside presses). Grab bar + swipe-to-close, which is «not now».
   - *A kept draft belongs to ONE state of the Trupp* (`draftKeep`, every width): only «Abbrechen»
-    and the save drop it, but an edit / re-entry draft is keyed on the Trupp as the form opened
-    it (sortie + every field the form writes, `truppDraftStamp`) — a new sortie, or a Leitung
-    linked on the Karte meanwhile, opens a fresh form. «Gleiche / Neue Flasche» is never kept.
-    A door that answers a field (`presetAuftrag`: «Bestimmen» → «Sichern») beats a kept draft.
+    and a save the board CONFIRMED drop it (a «Zurück» on any question in front of the save
+    returns to a filled form), but an edit / re-entry draft is keyed on the Trupp as the form
+    opened it (sortie + every field the form writes, `truppDraftStamp`) — a new sortie, or a
+    Leitung linked on the Karte meanwhile, opens a fresh form. «Gleiche / Neue Flasche» is never
+    kept. A door that answers a field (`presetAuftrag`: «Bestimmen» → «Sichern») beats a draft.
+  - *An edit is a PATCH* (every width, 25.09.2026): only the field groups the form touched
+    (`truppFieldGroupsChanged` against the form's own untouched values) are written, onto the
+    Trupp as it stands NOW (`truppEditPatch`); a touched group another device changed since the
+    form opened is said in one line first, «Zurück zum Formular» focused. A Gast typed into the
+    form reaches the Anwesenheit only at the save (`fileGuests`, after every question) — never
+    from the picker, and Enter in «Person suchen» only takes a listed person.
+  - *Every Kontakt tap is ONE Kontakt*: a repeat on the same Trupp from this device within 3 s
+    writes nothing (`contactEcho · recentOwnContact`, in `recordContact`, so every board). The
+    first Druck within 3 min of the Eintritt replaces an Eingangsdruck NOBODY SET (the log's
+    run-start row carries `measured` when the form's value was dialled, a bottle answered, a low
+    value confirmed or a correction made — `entryPressureConfirmed`) and is still a Kontakt:
+    clock reset, `contact` row, one Verlauf row that says both; the sheet says so in words.
   - *The Sicherungstrupp has ONE place* (D1 ⑦): between Drin and the rest while anybody is in or
     waiting — a quiet dashed slot while nobody is inside, amber from the first crew in, gone once
     every Trupp is out. «Bestimmen» = a waiting Trupp's Auftrag becomes «Sichern» (an ordinary
@@ -1021,6 +1034,10 @@ to prod.
     cleared on a re-park): «Zur Tafel» (focused) / «Als «nicht eingesetzt» schliessen». Not while
     a crew is still inside, and the stand-down runs only after the FINAL «Abschliessen», re-checked
     against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
+    Crews still INSIDE are the Abschluss's own FIRST question, by name («2 Trupps sind noch drin:
+    Trupp 1 (…), Trupp 2 (…).»), «Zur Tafel» focused, closing anyway the quiet answer — and after
+    the Abschluss the app stays on the closed Einsatz (App · completeRapport), never opens another.
+    A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
   - *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`) — on EVERY
     board, tablet grid and handed-over Tafel included: it guards the act, not a layout. A
     confirmation this JS realm did not write is «anderes Gerät» — no device names; a stamp more
