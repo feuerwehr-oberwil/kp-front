@@ -97,3 +97,56 @@ export function closedMetaFor(
   if (signal.source === 'list') return null
   return { ...current, is_archived: true, closed_at: signal.closedAt ?? current.closed_at }
 }
+
+// --- …and the way back: «Wieder öffnen» on ANOTHER device ------------------------------------
+//
+// The mirror of the close, on the same channels: the workspace poll answers `X-Incident-Open: 1`
+// again (the reopen wakes the parked followers like the close does), and the list watch finds the
+// Einsatz back among the open ones — a suspicion, asked of the server. App flips the meta back in
+// place and the workspace is live again, with one Meldeleiste row — but ONLY for an Einsatz a
+// close SIGNAL switched to read-only on this device; one the operator opened closed on purpose,
+// out of «Alle Einsätze», stays the read-only view they asked for. What was PARKED while it was
+// closed is sent once it runs again (IncidentWorkspace · requeue): it prints as Nachträge.
+
+export interface IncidentReopenedSignal {
+  incidentId: string
+  /** `poll` is the server saying so; `list` is only a presence, to be checked */
+  source: 'poll' | 'list'
+}
+
+const reopenListeners = new Set<(s: IncidentReopenedSignal) => void>()
+
+/** Say that `incidentId` is (or may be) running again. Cheap: App acts only on a closed view. */
+export function reportIncidentReopened(signal: IncidentReopenedSignal): void {
+  for (const l of [...reopenListeners]) l(signal)
+}
+
+export function onIncidentReopened(listener: (s: IncidentReopenedSignal) => void): () => void {
+  reopenListeners.add(listener)
+  return () => { reopenListeners.delete(listener) }
+}
+
+/**
+ * The meta to show a CLOSED Einsatz with once it runs again, or `null` for «nothing» — the mirror
+ * of `closedMetaFor`: only the Einsatz on screen, only if a close SIGNAL made it read-only here
+ * (`closedBySignal`, review of #235), only while it reads as closed, never the one
+ * THIS device is reopening («Wieder öffnen» here remounts it editable anyway); the server's meta
+ * when it could be read, and only if it really says «running»; without it, only the poll header
+ * stands on its own, and only for an Einsatz closed by archiving (a status the client cannot
+ * guess stays closed).
+ */
+export function reopenedMetaFor(
+  current: IncidentMeta | null,
+  signal: IncidentReopenedSignal,
+  fresh: IncidentMeta | null,
+  reopeningLocally: string | null,
+  closedBySignal: string | null,
+): IncidentMeta | null {
+  if (!current || current.id !== signal.incidentId || isIncidentRunning(current)) return null
+  if (closedBySignal !== signal.incidentId) return null
+  if (reopeningLocally === signal.incidentId) return null
+  if (fresh) return isIncidentRunning(fresh) ? fresh : null
+  if (signal.source === 'list') return null
+  const guess = { ...current, is_archived: false }
+  return isIncidentRunning(guess) ? guess : null
+}

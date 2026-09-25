@@ -96,22 +96,33 @@ to prod.
   ⚠️ **A closed Einsatz keeps its RECORD, not its operation, and every device hears the close**
   (25.09.2026, staging N3: two devices ran a closed Einsatz for minutes and wrote a Kontakt and
   two «Überfällig» rows into it). Server (`api/incidents · incident_closed`): once `is_open` is
-  false, a live write is 409 `{code: 'incident_closed', closed_at}` — events outside the record
-  vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of kind `team`/`symbol`/`layer`/`vehicle`, the
-  trupps slice, and a full save that changes any key outside `RECORD_WORKSPACE_KEYS` (checked
-  AFTER the revision, so a stale device merges first). The record slice, record events,
-  Meldungen/patch rows (Nachträge), `PATCH`, media and «Wieder öffnen» are untouched. Every
-  workspace read — the 304 too — carries `X-Incident-Open`/`X-Incident-Closed-At`, and a lifecycle
-  `PATCH` wakes the parked followers. Client (`lib/incidentClosed`): the poll header, a refusal
-  and the list watch (a suspicion, verified) all `reportIncidentClosed`; App flips the meta IN
-  PLACE (`closedMetaFor`, never for the Einsatz this device is closing, never a jump elsewhere),
-  and `IncidentWorkspace` derives `readOnly` from `isIncidentRunning` live, so the alarm, the GPS
-  pass, the presence log, the weather stamp and the Wiedervorlagen stop, with one Meldeleiste row
-  («… auf einem anderen Gerät abgeschlossen (hh:mm)»). The outboxes keep DELIVERING on a closed
-  view (`outboxReadOnly`) so a queued write is refused and parked as `refused` — journal
-  `refused`, audit `refused`, the workspace's `::__refused__` slot — kept, exported by «Einträge
-  sichern», never re-sent, not part of the sync status. A plain 409 on the workspace is still the
-  revision conflict: test the code first.
+  false, a live write MADE AFTER THE CLOSE is 409 `{code: 'incident_closed', closed_at}` — judged
+  by when it happened (rows `at`, events `occurred_at`, saves `edited_at`, all on the
+  server-aligned clock, +120 s tolerance; no stamp ⇒ by arrival), never by when it arrived: a
+  Kontakt from before the close is a true fact and prints as a Nachtrag. Live = events outside
+  the record vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of kind `team`/`symbol`/`layer`/
+  `vehicle` without a `conflict` payload, the trupps slice, and a full save that changes a key
+  outside `RECORD_WORKSPACE_KEYS` and `VIEW_WORKSPACE_KEYS` (the revision check runs FIRST, and an
+  entry the server already holds is the idempotent success, not a refusal). The record slice,
+  record events, Meldungen/patch rows, `PATCH`, media and «Wieder öffnen» are untouched. Every
+  workspace read — the 304 too — carries `X-Incident-Open`/`X-Incident-Closed-At`; a lifecycle
+  `PATCH` and the auto-archive sweep wake the parked followers, and a poll carrying `open=` that
+  no longer matches is answered at once. Client (`lib/incidentClosed`): the poll header, a
+  refusal and the list watch (a suspicion, verified) all `reportIncidentClosed`; App flips the
+  meta IN PLACE (`closedMetaFor`, never for the Einsatz this device is closing, never a jump
+  elsewhere), and `IncidentWorkspace` derives `readOnly` from `isIncidentRunning` live, so the
+  alarm, the GPS pass, the presence log, the weather stamp and the Wiedervorlagen stop, with one
+  Meldeleiste row («… auf einem anderen Gerät abgeschlossen (hh:mm)»). The closing device drains
+  its Verlauf and audit outboxes before the archive `PATCH`. The outboxes keep DELIVERING on a
+  closed view (`outboxReadOnly`), and a refused write is parked — journal `refused`, audit
+  `closed` (apart from the role bucket `refused`), the workspace's `::__refused__` slots, whose
+  record part is re-saved at once through the record route and whose ancestor goes straight
+  back on screen. Parked entries are exported by «Einträge sichern», keep the lamp amber until
+  then, and are SENT again once the Einsatz runs again. A plain 409 on the workspace is still
+  the revision conflict: test the code first. «Wieder öffnen» elsewhere comes back the same way
+  (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`), but only for an
+  Einsatz a close SIGNAL made read-only here — one the operator opened closed on purpose stays
+  read-only — with its own row. «Anhängen» is never offered onto a closed Einsatz.
   A disposed journal store must never publish a late snapshot over its replacement.
   A Web Lock request rejected before a grant must not immediately requeue: an inactive
   document can reject forever and prevent navigation. Requeue only after a held lock is lost,

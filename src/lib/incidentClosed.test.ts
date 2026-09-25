@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from './api'
 import type { IncidentMeta } from './api/incidents'
-import { closedMetaFor, closedNoticeAt, isIncidentClosedRefusal, refusalClosedAt, type IncidentClosedSignal } from './incidentClosed'
+import { closedMetaFor, closedNoticeAt, isIncidentClosedRefusal, refusalClosedAt, reopenedMetaFor, type IncidentClosedSignal } from './incidentClosed'
 
 // How a device decides that the Einsatz on its screen was closed ELSEWHERE (N3, 25.09.2026), and
 // what it then shows. App acts on `closedMetaFor`'s answer and on nothing else.
@@ -65,5 +65,31 @@ describe('closedNoticeAt', () => {
   it('is the moment it was heard when `closed_at` is an OLDER close (kept across «Wieder öffnen»)', () => {
     expect(closedNoticeAt('2026-09-24T22:00:00Z', saw, heard)).toBe(heard)
     expect(closedNoticeAt(null, saw, heard)).toBe(heard)
+  })
+})
+
+describe('reopenedMetaFor — «Wieder öffnen» on another device', () => {
+  const reopened = meta({ closed_at: '2026-09-25T12:45:00Z', report_done_at: '2026-09-25T12:45:00Z' })
+  it('takes the server’s meta for a closed view once it says «running»', () => {
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'poll' }, reopened, null, 'inc')).toBe(reopened)
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'list' }, reopened, null, 'inc')).toBe(reopened)
+  })
+  it('the poll header stands on its own for an archived Einsatz; the list’s presence does not', () => {
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'poll' }, null, null, 'inc')).toMatchObject({ is_archived: false })
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'list' }, null, null, 'inc')).toBeNull()
+    // …and a status off the running ones is not something the client can guess back
+    expect(reopenedMetaFor(meta({ status: 'abgeschlossen' }), { incidentId: 'inc', source: 'poll' }, null, null, 'inc')).toBeNull()
+  })
+  it('never for a live view, another Einsatz, a server that says «closed», or this device’s own reopen', () => {
+    expect(reopenedMetaFor(meta(), { incidentId: 'inc', source: 'poll' }, reopened, null, 'inc')).toBeNull()
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'other', source: 'poll' }, reopened, null, 'other')).toBeNull()
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'list' }, closedFresh, null, 'inc')).toBeNull()
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'poll' }, reopened, 'inc', 'inc')).toBeNull()
+  })
+  it('never for an Einsatz the operator opened closed ON PURPOSE — only one a close signal switched', () => {
+    // review of #235: «Alle Einsätze» → an archived Einsatz is a read-only view the operator asked
+    // for; a colleague reopening it elsewhere must not turn it live under their hands
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'poll' }, reopened, null, null)).toBeNull()
+    expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'poll' }, reopened, null, 'another')).toBeNull()
   })
 })

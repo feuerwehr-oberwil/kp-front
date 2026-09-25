@@ -271,3 +271,142 @@ async def test_the_close_wakes_the_devices_parked_on_the_workspace(client, edito
     assert r.status_code == 304
     assert r.headers["X-Incident-Open"] == "0"
     assert not live_wait._waiters
+
+
+async def test_the_reopen_wakes_them_too_and_says_open(client, editor, monkeypatch):
+    """«Wieder öffnen» on phone A reaches the closed views the same way the close did."""
+    monkeypatch.setattr(live_wait, "LONG_POLL_TIMEOUT_S", 30.0)
+    await _login(client, editor)
+    inc = await _incident(client)
+    await _close(client, inc)
+    poll = asyncio.create_task(client.get(f"/api/incidents/{inc}/workspace?since=0&wait=1"))
+    deadline = time.perf_counter() + 2.0
+    while not live_wait._waiters:
+        assert time.perf_counter() < deadline, "the poll never parked"
+        await asyncio.sleep(0.005)
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+    r = await asyncio.wait_for(poll, timeout=2)
+    assert r.status_code == 304
+    assert r.headers["X-Incident-Open"] == "1" and "X-Incident-Closed-At" not in r.headers
+
+
+async def test_a_poll_that_believes_otherwise_is_answered_at_once(client, editor, monkeypatch):
+    """A reopen (or close) committed between a device's last answer and its next poll: that poll
+    must not park for the full timeout on a state the device does not show."""
+    monkeypatch.setattr(live_wait, "LONG_POLL_TIMEOUT_S", 30.0)
+    await _login(client, editor)
+    inc = await _incident(client)
+    await _close(client, inc)
+    r = await asyncio.wait_for(client.get(f"/api/incidents/{inc}/workspace?since=0&wait=1&open=1"), timeout=2)
+    assert r.status_code == 304 and r.headers["X-Incident-Open"] == "0"
+    assert (await client.patch(f"/api/incidents/{inc}", json={"is_archived": False})).status_code == 200
+    r = await asyncio.wait_for(client.get(f"/api/incidents/{inc}/workspace?since=0&wait=1&open=0"), timeout=2)
+    assert r.status_code == 304 and r.headers["X-Incident-Open"] == "1"
+
+
+# --- judged by WHEN IT HAPPENED, not by arrival (review of #235) ---------------------------------
+
+
+async def _closed_at(client, inc: str):
+    from datetime import datetime
+
+    return datetime.fromisoformat((await client.get(f"/api/incidents/{inc}")).json()["closed_at"])
+
+
+async def test_a_live_write_made_before_the_close_is_recorded(client, editor):
+    """A Kontakt tapped at 14:44 on a phone whose uplink came back at 14:47 is a true fact of the
+    Einsatz closed at 14:45 — recorded (a Nachtrag on paper), not refused."""
+    from datetime import timedelta
+
+    await _login(client, editor)
+    inc, rev = await _seeded(client)
+    closed = await _closed_at(client, inc)
+    before = (closed - timedelta(minutes=1)).isoformat()
+    within = (closed + timedelta(seconds=60)).isoformat()  # inside the clock-skew tolerance
+    after = (closed + timedelta(minutes=5)).isoformat()
+
+    r = await client.post(f"/api/incidents/{inc}/journal", json={"entries": [{**KONTAKT_ROW, "at": before}]})
+    assert r.status_code == 201, r.text
+    r = await client.post(f"/api/incidents/{inc}/journal", json={"entries": [{**ALARM_ROW, "at": within}]})
+    assert r.status_code == 201, r.text
+    _assert_closed_refusal(
+        await client.post(
+            f"/api/incidents/{inc}/journal", json={"entries": [{**KONTAKT_ROW, "id": "r-late", "at": after}]}
+        )
+    )
+
+    ev = {"op_type": "atemschutz.contact", "payload": {"id": "tr1"}}
+    r = await client.post(f"/api/incidents/{inc}/events", json={"events": [{**ev, "occurred_at": before}]})
+    assert r.status_code == 201, r.text
+    _assert_closed_refusal(
+        await client.post(f"/api/incidents/{inc}/events", json={"events": [{**ev, "occurred_at": after}]})
+    )
+
+    stored = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
+    kontakt = {**stored, "trupps": [{**TRUPP, "lastContactTime": before}]}
+    _assert_closed_refusal(
+        await client.put(
+            f"/api/incidents/{inc}/workspace", json={"workspace": kontakt, "base_rev": rev, "edited_at": after}
+        )
+    )
+    r = await client.put(
+        f"/api/incidents/{inc}/workspace", json={"workspace": kontakt, "base_rev": rev, "edited_at": before}
+    )
+    assert r.status_code == 200, r.text
+    rev = r.json()["workspace_rev"]
+    _assert_closed_refusal(
+        await client.put(
+            f"/api/incidents/{inc}/workspace/trupps", json={"trupps": [TRUPP], "base_rev": rev, "edited_at": after}
+        )
+    )
+    r = await client.put(
+        f"/api/incidents/{inc}/workspace/trupps", json={"trupps": [TRUPP], "base_rev": rev, "edited_at": before}
+    )
+    assert r.status_code == 200, r.text
+
+
+async def test_a_row_the_verlauf_already_holds_is_still_the_idempotent_success(client, editor):
+    """A retry whose answer was lost, arriving after the close: the row is in the record — the
+    answer is the success it always was, not a refusal that would park a row the Verlauf has."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    assert (await client.post(f"/api/incidents/{inc}/journal", json={"entries": [KONTAKT_ROW]})).status_code == 201
+    ev = {"client_id": "ev-1", "op_type": "atemschutz.contact", "payload": {"id": "tr1"}}
+    assert (await client.post(f"/api/incidents/{inc}/events", json={"events": [ev]})).status_code == 201
+    await _close(client, inc)
+    r = await client.post(f"/api/incidents/{inc}/journal", json={"entries": [KONTAKT_ROW]})
+    assert r.status_code == 201 and r.json()["entries"] == []
+    assert (await client.post(f"/api/incidents/{inc}/events", json={"events": [ev]})).status_code == 201
+
+
+async def test_a_conflict_row_is_record_keeping_closed_or_not(client, editor):
+    await _login(client, editor)
+    inc, _ = await _seeded(client)
+    row = {
+        "id": "tc-tr1-1",
+        "t": "15:00",
+        "icon": "warn",
+        "text": "Trupp 1 – gleichzeitig geändert",
+        "kind": "team",
+        "conflict": {"op": "resolved", "sig": "s1", "choice": 0},
+    }
+    r = await client.post(f"/api/incidents/{inc}/journal", json={"entries": [row]})
+    assert r.status_code == 201, r.text
+
+
+async def test_a_view_change_beside_a_rapport_edit_is_not_refused(client, editor):
+    """Which plan is open, the Ebenen, the saved views: a save carrying one of those beside a
+    Rapport correction must not take the correction down with it."""
+    await _login(client, editor)
+    inc, rev = await _seeded(client)
+    stored = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
+    view_only = {**stored, "activePlanId": "modul2", "layerState": [{"id": "hydranten", "visible": False}]}
+    r = await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": view_only, "base_rev": rev})
+    assert r.status_code == 200, r.text
+    rev = r.json()["workspace_rev"]
+    mixed = {**view_only, "recent": ["VKF Feuer"], "reportMeta": {"kurzbericht": "korrigiert"}}
+    r = await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": mixed, "base_rev": rev})
+    assert r.status_code == 200, r.text
+    assert (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]["reportMeta"] == {
+        "kurzbericht": "korrigiert"
+    }

@@ -308,9 +308,10 @@ interface WorkspaceProps {
   /** leave the archived read-only view — back to the previously active incident, else the
    *  «Alle Einsätze» list it was entered from (everyone, not just editors) */
   onBackFromArchive?: () => void
-  /** When the Einsatz was closed on ANOTHER device while it was open here (N3, 25.09.2026) — App
-   *  sets it as it flips the meta (App · onIncidentClosed); the workspace says so in one row. */
-  closedElsewhereAt?: number | null
+  /** The Einsatz was closed — or reopened — on ANOTHER device while it was open here (N3,
+   *  25.09.2026), and when. App sets it as it flips the meta in place (App · onIncidentClosed /
+   *  onIncidentReopened); the workspace says so in one Meldeleiste row. */
+  lifecycleElsewhere?: { event: 'closed' | 'reopened'; at: number } | null
 }
 
 
@@ -320,7 +321,7 @@ const REORIENT_FOLD_MS = 1500
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, closedElsewhereAt,
+  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere,
 }: WorkspaceProps) {
   // Identity + permissions. Viewers get a read-only picture: they can pan / zoom /
   // inspect, but every editing affordance is hidden and commit() is neutered so
@@ -1720,6 +1721,8 @@ export function IncidentWorkspace({
     // a ringing device polls fast even when hidden — the Funkkontakt that ends its alarm is
     // usually entered on another device and arrives via this very poll
     alarmUrgent: azAlarm.peak >= 2,
+    // what this view shows — so a close/reopen elsewhere is answered at once (lib/incidentClosed)
+    incidentOpen: running,
     // a Karte drag, a plan step, or typing (the Rapport saves per keystroke): while one is open
     // and a push is owed, the save skips its whole-blob compare
     gestureOpen: () => gestureOpen() || isTypingTarget(document.activeElement),
@@ -1728,15 +1731,19 @@ export function IncidentWorkspace({
   // the media queue to it once that exists (`syncStatus`, after useMediaQueue).
   const recordsSyncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
 
-  // --- closed on ANOTHER device while open here (N3, staging 25.09.2026) ----------------------
-  // App flips `incidentMeta` in place when the close is heard (App · onIncidentClosed) and hands
-  // the moment down (`closedElsewhereAt`); `running` above turns every writer off. Left for this
-  // mount: say so (one Meldeleiste row, with the time), hand what is still queued to the server
-  // once — so it is refused and PARKED rather than left pending in a read-only view — and count
-  // what was parked, because «nicht übernommen, aber gesichert» is the other half of the sentence.
-  const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
+  // --- closed (or reopened) on ANOTHER device while open here (N3, staging 25.09.2026) ---------
+  // App flips `incidentMeta` in place when the change is heard (App · onIncidentClosed /
+  // onIncidentReopened) and hands the moment down (`lifecycleElsewhere`); `running` above turns
+  // every writer off — or back on. Left for this mount: say so (one Meldeleiste row, with the
+  // time), hand what is still queued to the server once after a close — so it is refused and
+  // PARKED rather than left pending in a read-only view — and count what was parked, because
+  // «nicht übernommen, aber gesichert» is the other half of the sentence. Once the Einsatz runs
+  // again («Wieder öffnen», here or elsewhere), what was parked is SENT — it prints as Nachträge.
+  const [lifecycleHiddenAt, setLifecycleHiddenAt] = useState<number | null>(null)
   const [workspaceRefused, setWorkspaceRefused] = useState(() => sync.refusedCount)
   useEffect(() => sync.subscribeRefused(setWorkspaceRefused), [sync])
+  /** everything the CLOSED Einsatz refused and this device still holds (journal · audit · saves) */
+  const closedRefusedTotal = journal.refusedCount + auditDelivery.closedCount + workspaceRefused
   useEffect(() => {
     if (running) return
     // the journal store drains on its own loop (outboxReadOnly keeps it delivering); these two
@@ -1744,19 +1751,38 @@ export function IncidentWorkspace({
     void sync.flush()
     void flushEvents()
   }, [running, sync, flushEvents])
+  // …and once it RUNS again with anything parked — a reopen seen on screen, or a device opening
+  // an Einsatz that was reopened while it was away — the parked entries are owed again. How many
+  // went is remembered for the reopen's row («werden jetzt nachgesendet»).
+  const [resentOnReopen, setResentOnReopen] = useState(0)
+  const { requeueRefused: requeueJournal } = journal
+  const { requeueClosed: requeueAudit } = auditDelivery
+  useEffect(() => {
+    if (!running || outboxReadOnly || closedRefusedTotal === 0) return
+    const n = closedRefusedTotal
+    void Promise.all([requeueJournal(), requeueAudit(), sync.requeueRefused()]).catch(() => {}).then(() => setResentOnReopen(n))
+  }, [running, outboxReadOnly, closedRefusedTotal, requeueJournal, requeueAudit, sync])
   /** «Einträge sichern»: everything this device still holds that the server has not taken — owed
    *  (outbox, rejected) and refused (the closed Einsatz, a role) alike. Exporting acknowledges
-   *  nothing. */
+   *  nothing — but it is what lets the sync lamp stop saying «not everything is on the server»
+   *  about entries the closed Einsatz refused (see `syncStatus` below). */
+  const [exportedClosedRefused, setExportedClosedRefused] = useState(0)
   const exportEntries = useCallback(() => {
     const data = { ...journal.recoveryData(), audit: auditDelivery.getRecoveryData(), workspaceRefused: sync.refusedRecoveryData() }
     downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)
-  }, [journal, auditDelivery, sync, incidentMeta.id])
-  const closedMeldung = closedElsewhereAt != null && !running && !closedNoticeHidden && (
+    setExportedClosedRefused(closedRefusedTotal)
+  }, [journal, auditDelivery, sync, incidentMeta.id, closedRefusedTotal])
+  // the row matches the state on screen: a «closed» row never stands over a live Einsatz, nor a
+  // «reopened» one over a closed view; a new change shows again after an earlier ✕
+  const closedMeldung = lifecycleElsewhere != null
+    && (lifecycleElsewhere.event === 'closed') === !running
+    && lifecycleHiddenAt !== lifecycleElsewhere.at && (
     <IncidentClosedMeldung
-      at={closedElsewhereAt}
-      refused={journal.refusedCount + auditDelivery.refusedCount + workspaceRefused}
+      event={lifecycleElsewhere.event}
+      at={lifecycleElsewhere.at}
+      refused={lifecycleElsewhere.event === 'closed' ? closedRefusedTotal : resentOnReopen}
       onExport={exportEntries}
-      onDismiss={() => setClosedNoticeHidden(true)}
+      onDismiss={() => setLifecycleHiddenAt(lifecycleElsewhere.at)}
     />
   )
 
@@ -1877,7 +1903,12 @@ export function IncidentWorkspace({
   // ⚠️ The media queue is an operational outbox too (23.09.2026): a Foto or Sprachnotiz that has
   // not reached the server is not saved, and one this device could not even store is `storage`.
   // It used to be left out, so the badge said «gespeichert» over captures that lived only here.
-  const syncStatus = combinedSyncStatus(recordsSyncStatus, media.syncStatus)
+  // ⚠️ …and entries the CLOSED Einsatz refused keep the lamp amber (review of #235) until they
+  // are exported or sent after a reopen: not red — nobody can fix them by retrying — but not
+  // «gespeichert» either, because they are on this device only.
+  const closedRefusedUnexported = closedRefusedTotal > exportedClosedRefused
+  const baseSyncStatus = combinedSyncStatus(recordsSyncStatus, media.syncStatus)
+  const syncStatus = closedRefusedUnexported && baseSyncStatus === 'synced' ? 'pending' : baseSyncStatus
   const syncNow = async () => {
     await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
     await media.flush().catch(() => {})
@@ -1885,6 +1916,12 @@ export function IncidentWorkspace({
       throw new Error('Operational records have not all been acknowledged')
     }
   }
+
+  /** the closing device's own queue, drained before the archive PATCH (useAbschluss) */
+  const { flush: flushJournal } = journal
+  const flushRecordOutboxes = useCallback(async () => {
+    await Promise.all([flushJournal(), flushEvents()]).catch(() => {})
+  }, [flushJournal, flushEvents])
 
   // --- ONE «Einsatz abschliessen» ------------------------------------------------------------
   //
@@ -1897,6 +1934,9 @@ export function IncidentWorkspace({
   const { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete } = useAbschluss({
     reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
     setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+    // the Verlauf rows and audit events still queued go up BEFORE the close (review of #235) —
+    // after it they would be judged against a closed Einsatz
+    flushOutboxes: flushRecordOutboxes,
   })
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
@@ -4758,7 +4798,8 @@ export function IncidentWorkspace({
             incidents={incidents}
             isEditor={isEditor}
             syncStatus={syncStatus}
-            syncDetail={(journal.syncStatus === 'error' || auditDelivery.status === 'error') && syncStatus !== 'storage' ? appConfig.copy.journal.delivery.short : undefined}
+            syncDetail={(journal.syncStatus === 'error' || auditDelivery.status === 'error') && syncStatus !== 'storage' ? appConfig.copy.journal.delivery.short
+              : closedRefusedUnexported && baseSyncStatus === 'synced' ? appConfig.copy.journal.delivery.closedShort : undefined}
             lastSyncedAt={lastSyncedAt}
             user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
             onSettings={linkScoped ? undefined : () => setSettingsOpen(true)}
@@ -5931,7 +5972,7 @@ export function IncidentWorkspace({
             status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
             count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
             refused={auditDelivery.refusedCount}
-            closedRefused={journal.refusedCount + workspaceRefused}
+            closedRefused={closedRefusedTotal}
             onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
             onExport={exportEntries}
           />}

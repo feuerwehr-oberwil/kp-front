@@ -3,16 +3,21 @@ import { fillTemplate, formatTime } from '../lib/format'
 import { useMeldung } from '../lib/useMeldung'
 
 /**
- * «Einsatz wurde auf einem anderen Gerät abgeschlossen (14:45)» — published by the workspace when
- * the Einsatz it shows was closed ELSEWHERE while it was open here (N3, staging 25.09.2026). The
- * screen has just turned read-only under the operator's hands; without a word that reads as a
- * frozen app. The row names what happened and when; where this device still had entries on the
- * way that the closed Einsatz no longer took, it says so and offers «Einträge sichern» — they are
- * kept on the device, never dropped. The ✕ is legitimate: the ArchivedChip beside the Einsatzname
- * keeps saying «Einsatz abgeschlossen» after the row is gone.
+ * «Einsatz wurde auf einem anderen Gerät abgeschlossen (14:45)» — and its mirror, «… wieder
+ * geöffnet (15:10)». Published by the workspace when the Einsatz on screen changed its lifecycle
+ * ELSEWHERE while it was open here (N3, staging 25.09.2026). The screen has just turned read-only
+ * (or live again) under the operator's hands; without a word that reads as a frozen — or a
+ * suddenly unlocked — app.
+ *
+ * `refused` counts this device's entries the closed Einsatz did not take. After a close the row
+ * says so and offers «Einträge sichern»; after a reopen it says they STAY set aside — a reopen
+ * does not re-send them — and still offers the export. Kept on the device either way, never
+ * dropped. The ✕ is legitimate: the chip beside the Einsatzname (or its absence) keeps saying
+ * which state the Einsatz is in after the row is gone.
  */
-export function IncidentClosedMeldung({ at, refused, onExport, onDismiss }: {
-  /** epoch ms of the close (incidentClosed · closedNoticeAt) */
+export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss }: {
+  event: 'closed' | 'reopened'
+  /** epoch ms of the change (incidentClosed · closedNoticeAt, or when the reopen was heard) */
   at: number
   /** entries of this device the closed Einsatz refused (journal + audit + workspace saves) */
   refused: number
@@ -21,15 +26,18 @@ export function IncidentClosedMeldung({ at, refused, onExport, onDismiss }: {
 }) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.archived
+  const closed = event === 'closed'
+  const sub = closed
+    ? (refused > 0 ? (refused === 1 ? C.closedRefusedOne : fillTemplate(C.closedRefused, { n: refused })) : C.closedElsewhereSub)
+    : (refused > 0 ? (refused === 1 ? C.reopenedParkedOne : fillTemplate(C.reopenedParked, { n: refused })) : C.reopenedElsewhereSub)
   useMeldung({
-    id: 'incident-closed',
-    kind: 'closed',
-    tone: refused > 0 ? 'warn' : 'info',
-    icon: 'lock',
-    title: fillTemplate(C.closedElsewhere, { t: formatTime(new Date(at)) }),
-    sub: refused > 0
-      ? (refused === 1 ? C.closedRefusedOne : fillTemplate(C.closedRefused, { n: refused }))
-      : C.closedElsewhereSub,
+    // one id for both: a reopen replaces the close's row rather than standing under it
+    id: 'incident-lifecycle',
+    kind: 'lifecycle',
+    tone: closed && refused > 0 ? 'warn' : 'info',
+    icon: closed ? 'lock' : 'pen',
+    title: fillTemplate(closed ? C.closedElsewhere : C.reopenedElsewhere, { t: formatTime(new Date(at)) }),
+    sub,
     actions: refused > 0 ? [{ label: C.closedExport, icon: 'download', onClick: onExport }] : undefined,
     dismiss: { label: C.closedDismiss, onClick: onDismiss },
     wrap: true,

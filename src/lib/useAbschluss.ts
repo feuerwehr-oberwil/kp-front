@@ -28,6 +28,9 @@ interface Args {
   /** open the Rapport ON one Mindestangabe (IncidentWorkspace · requestReportStep, a stable
    *  module-level loader of the lazy ReportPreflight chunk) */
   requestReportStep: (step: AbschlussStep) => void
+  /** drain the Verlauf and audit outboxes — run after the media, before the handover, so what
+   *  this device recorded before the close is not judged against the closed Einsatz */
+  flushOutboxes?: () => Promise<void>
 }
 
 /**
@@ -42,7 +45,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, flushOutboxes,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps({ reportMeta, attendanceCount: Object.keys(attendance).length, mittelCount: mittelLineCount(mittel) }),
@@ -120,12 +123,13 @@ export function useAbschluss({
     // Verlauf row's blob: URL to the server one (useMediaQueue · onUploaded), which needs this
     // workspace and its journal store, both gone after the handover.
     await media.flush().catch(() => {})
+    await flushOutboxes?.().catch(() => {})
     // …and the answer is the REAL outcome, not the firing of the request: App reports whether
     // the close went through, so the Rapport's kept scroll position survives a failed Abschluss
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport()
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, flushOutboxes])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

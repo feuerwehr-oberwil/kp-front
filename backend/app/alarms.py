@@ -22,7 +22,7 @@ from weakref import WeakValueDictionary
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import audit
+from . import audit, live_wait
 from .config import settings
 from .geocode import geocode
 from .models import DeploymentConfig, Incident
@@ -320,5 +320,7 @@ async def auto_archive_sweep(db: AsyncSession) -> int:
             payload={"archived": True, "auto": True},
         )
         await append_system_row(db, inc.id, icon="flag", text=why)
+        # the devices following it hear the close at once, as for a hand close (lib/incidentClosed)
+        live_wait.notify_after_commit(db, live_wait.workspace_topic(inc.id))
     logger.info("Auto-archive sweep: %d incident(s) archived", len(rows))
     return len(rows)

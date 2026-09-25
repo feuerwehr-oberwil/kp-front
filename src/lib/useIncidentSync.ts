@@ -49,6 +49,10 @@ interface IncidentSyncDeps {
    *  Read on every save; see the persistence effect for what it buys. Optional: omitted → every
    *  save is compared, as before. */
   gestureOpen?: () => boolean
+  /** Whether the view shows the Einsatz as RUNNING — sent with the long poll so a close or reopen
+   *  elsewhere is answered at once instead of after the timeout (lib/incidentClosed). Read
+   *  through a ref: it must not restart the loop by itself. Optional: omitted → not sent. */
+  incidentOpen?: boolean
 }
 
 /**
@@ -59,7 +63,9 @@ interface IncidentSyncDeps {
  * the reactive sync-status badge. State writes stay in App via `applyWorkspace`/`buildPayload`; this
  * hook owns the sync-internal refs (skip/first/liveRev) + effects so the wiring is one unit.
  */
-export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent, gestureOpen }: IncidentSyncDeps) {
+export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, alarmUrgent, gestureOpen, incidentOpen }: IncidentSyncDeps) {
+  const incidentOpenRef = useRef(incidentOpen)
+  useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
   // re-hydrate flags one save to skip — otherwise an editor would immediately push the
   // just-pulled blob back, bumping the rev and triggering an endless pull→push→pull echo.
   const skipSave = useRef(false)
@@ -239,7 +245,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
         // nothing, so it reports "unanswered" and the loop eases off.
         if (!readOnly && sync.hasUnsynced) return false
         const since = Math.max(liveRev.current, sync.rev)
-        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal })
+        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: incidentOpenRef.current })
         // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
         // flight (with a held request that window is now the whole wait, so this guard matters
         // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the

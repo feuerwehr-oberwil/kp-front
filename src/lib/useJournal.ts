@@ -92,10 +92,12 @@ export function useJournal({ incidentId, readOnly, legacy }: {
   const ingestLegacy = useCallback((tl: TimelineEvent[]) => store.ingestLegacy(tl), [store])
 
   const retry = useCallback(() => store.retry(), [store])
+  const flush = useCallback(() => store.flush(), [store])
+  const requeueRefused = useCallback(() => store.requeueRefused(), [store])
   const recoveryData = useCallback(() => store.recoveryData(), [store])
   const getStatus = useCallback(() => store.syncStatus, [store])
 
   return { rows, blobTimeline, append, appendPatch, overlaySession, swapPhoto, ingestLegacy,
-    retry, recoveryData, getStatus, syncStatus: store.syncStatus,
+    retry, flush, requeueRefused, recoveryData, getStatus, syncStatus: store.syncStatus,
     pendingCount: store.pendingCount, rejectedCount: store.rejectedCount, refusedCount }
 }

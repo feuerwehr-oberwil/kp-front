@@ -25,6 +25,7 @@ const server = vi.hoisted(() => ({
   rows: [] as Row[],
   events: [] as { client_id: string; op_type: string }[],
   online: true,
+  recordPuts: 0,
 }))
 const RECORD_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments']
 const RECORD_EVENTS = ['attendance.', 'checklist.', 'mittel.', 'report.', 'journal.', 'reminder.', 'weather.', 'shift.']
@@ -34,6 +35,12 @@ const json = (status: number, body: unknown, headers: Record<string, string> = {
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } })
 const lifecycle = (): Record<string, string> =>
   server.open ? { 'X-Incident-Open': '1' } : { 'X-Incident-Open': '0', 'X-Incident-Closed-At': server.closedAt ?? '' }
+// the backend's rule (api/incidents · happened_after_close): after the close + 120 s, or no stamp
+const afterClose = (at: unknown) => {
+  const t = typeof at === 'string' ? Date.parse(at) : Number.NaN
+  return !Number.isFinite(t) || t > Date.parse(server.closedAt ?? '') + 120_000
+}
+const VIEW_KEYS = ['activePlanId', 'activeModule', 'layerState', 'recent', 'cameraViews', 'pickedObjectId', 'planBindings', 'intakeReviewedAt']
 const refused = () => json(409, { detail: { code: 'incident_closed', message: 'Einsatz ist abgeschlossen – nicht mehr übernommen', closed_at: server.closedAt } })
 
 async function fakeFetch(input: string, init: RequestInit = {}): Promise<Response> {
@@ -51,8 +58,8 @@ async function fakeFetch(input: string, init: RequestInit = {}): Promise<Respons
     if (body.base_rev !== server.rev) return json(409, { detail: { message: 'Workspace wurde zwischenzeitlich geändert', server_rev: server.rev } })
     if (!server.open) {
       const keys = new Set([...Object.keys(server.ws), ...Object.keys(body.workspace)])
-      const changed = [...keys].filter((k) => !RECORD_KEYS.includes(k) && JSON.stringify(server.ws[k]) !== JSON.stringify(body.workspace[k]))
-      if (changed.length) return refused()
+      const changed = [...keys].filter((k) => !RECORD_KEYS.includes(k) && !VIEW_KEYS.includes(k) && JSON.stringify(server.ws[k]) !== JSON.stringify(body.workspace[k]))
+      if (changed.length && afterClose(body.edited_at)) return refused()
     }
     server.ws = structuredClone(body.workspace)
     server.rev += 1
@@ -60,8 +67,8 @@ async function fakeFetch(input: string, init: RequestInit = {}): Promise<Respons
   }
   if (path === '/journal' && method === 'POST') {
     const entries = body.entries as Row[]
-    if (!server.open && entries.some((e) => LIVE_KINDS.includes(e.kind ?? ''))) return refused()
     const have = new Set(server.rows.map((r) => r.id))
+    if (!server.open && entries.some((e) => LIVE_KINDS.includes(e.kind ?? '') && !e.conflict && !have.has(e.id) && afterClose(e.at))) return refused()
     const accepted = entries.filter((e) => !have.has(e.id))
     server.rows.push(...accepted)
     return json(201, { entries: accepted.map((row) => ({ seq: server.rows.indexOf(row) + 1, row })), latest_seq: server.rows.length })
@@ -72,12 +79,20 @@ async function fakeFetch(input: string, init: RequestInit = {}): Promise<Respons
   }
   if (path === '/events' && method === 'POST') {
     const events = body.events as { client_id: string; op_type: string }[]
-    if (!server.open && events.some((e) => !RECORD_EVENTS.some((p) => e.op_type.startsWith(p)))) return refused()
+    if (!server.open && events.some((e) => !RECORD_EVENTS.some((p) => e.op_type.startsWith(p)) && afterClose((e as { occurred_at?: string }).occurred_at))) return refused()
     server.events.push(...events)
     return json(201, [])
   }
+  if (path === '/workspace/record' && method === 'PUT') {
+    if (body.base_rev !== server.rev) return json(409, { detail: { message: 'Workspace wurde zwischenzeitlich geändert', server_rev: server.rev } })
+    server.recordPuts++
+    server.ws = { ...server.ws, ...structuredClone(body.workspace) }
+    server.rev += 1
+    return json(200, { workspace: null, workspace_rev: server.rev })
+  }
   if (path === '' && method === 'PATCH') {
     if (body.is_archived === true && server.open) { server.open = false; server.closedAt = '2026-09-25T12:45:00+00:00' }
+    if (body.is_archived === false) server.open = true // «Wieder öffnen» — closed_at is kept, as on the server
     return json(200, { id: 'inc', is_archived: !server.open, status: 'offen', closed_at: server.closedAt })
   }
   return json(404, { detail: 'Einsatz nicht gefunden' })
@@ -86,19 +101,23 @@ async function fakeFetch(input: string, init: RequestInit = {}): Promise<Respons
 const { __resetIdbForTests } = await import('./idb')
 const { WorkspaceSync } = await import('./api/workspaceSync')
 const { pollWorkspaceSince } = await import('./api/workspace')
-const { archiveIncident } = await import('./api/incidents')
+const { archiveIncident, reactivateIncident } = await import('./api/incidents')
 const { JournalStore } = await import('./journalStore')
 const { AuditEventStore } = await import('./auditEventStore')
-const { onIncidentClosed } = await import('./incidentClosed')
+const { onIncidentClosed, onIncidentReopened } = await import('./incidentClosed')
 
 const INC = 'inc'
 const TRUPP = { id: 'tr2', name: 'Trupp 2', status: 'drin', lastContactTime: '2026-09-25T12:40:00Z' }
+/** made after the close (12:45) + the clock tolerance */
+const LATE = '2026-09-25T12:50:00Z'
+/** made before it — true, and recorded, however late it arrives */
+const EARLY = '2026-09-25T12:44:00Z'
 
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
   __resetIdbForTests()
   Object.assign(server, {
-    open: true, closedAt: null, rev: 1, rows: [], events: [], online: true,
+    open: true, closedAt: null, rev: 1, rows: [], events: [], online: true, recordPuts: 0,
     ws: { trupps: [TRUPP], reportMeta: { kurzbericht: 'Brand gelöscht' }, entities: [] },
   })
   vi.stubGlobal('fetch', vi.fn(fakeFetch))
@@ -123,11 +142,11 @@ describe('a close on phone A reaches phone B, and B’s late Tafel writes are re
 
     // …loses the network and taps «Kontakt» on Trupp 2, then writes a Meldung
     server.online = false
-    const kontakt = { ...TRUPP, lastContactTime: '2026-09-25T12:46:00Z' }
+    const kontakt = { ...TRUPP, lastContactTime: LATE }
     sync.save({ ...shown, trupps: [kontakt] })
-    journal.append({ id: 'r-kontakt', t: '14:46', at: '2026-09-25T12:46:00Z', icon: 'radio', text: 'Trupp 2 – Kontakt bestätigt', kind: 'team' })
+    journal.append({ id: 'r-kontakt', t: '14:50', at: LATE, icon: 'radio', text: 'Trupp 2 – Kontakt bestätigt', kind: 'team' })
     journal.append({ id: 'r-meldung', t: '14:47', at: '2026-09-25T12:47:00Z', icon: 'type', text: 'Hauswart informiert', kind: 'journal' })
-    audit.append({ client_id: 'ev-kontakt', op_type: 'atemschutz.contact', payload: { id: 'tr2' }, occurred_at: '2026-09-25T12:46:00Z' })
+    audit.append({ client_id: 'ev-kontakt', op_type: 'atemschutz.contact', payload: { id: 'tr2' }, occurred_at: LATE })
     await sync.flush()
     await journal.flush()
     await audit.flush()
@@ -162,8 +181,8 @@ describe('a close on phone A reaches phone B, and B’s late Tafel writes are re
     expect(sync.refusedRecoveryData()[0].workspace.trupps).toEqual([kontakt])
     expect(journal.refusedCount).toBe(1)
     expect(journal.recoveryData().refused.map((r) => r.id)).toEqual(['r-kontakt'])
-    expect(audit.refusedCount).toBe(1)
-    expect(audit.getRecoveryData().refused?.map((e) => e.client_id)).toEqual(['ev-kontakt'])
+    expect(audit.closedCount).toBe(1)
+    expect(audit.getRecoveryData().closed?.map((e) => e.client_id)).toEqual(['ev-kontakt'])
     expect(sync.syncStatus).toBe('synced')
     expect(journal.syncStatus).toBe('synced')
     expect(audit.status).toBe('synced')
@@ -216,5 +235,145 @@ describe('the refused slot is never overwritten blind', () => {
       write.mockRestore()
       sync.dispose()
     } finally { read.mockRestore() }
+  })
+})
+
+describe('«Wieder öffnen» on phone A reaches phone B the same way back', () => {
+  it('B hears the reopen and SENDS what was parked (as Nachträge); new writes land again', async () => {
+    const reopenedHeard: string[] = []
+    const offReopen = onIncidentReopened((s) => { if (s.incidentId === INC) reopenedHeard.push(s.source) })
+
+    // phone B: a Kontakt and its row made AFTER the close, queued offline
+    const sync = new WorkspaceSync(INC, { debounceMs: 60_000 })
+    const { workspace } = await sync.init()
+    const journal = new JournalStore(INC, false)
+    await journal.init([])
+    const audit = new AuditEventStore(INC, 'user-b:login', false)
+    audit.start()
+    server.online = false
+    sync.save({ ...(workspace ?? {}), trupps: [{ ...TRUPP, lastContactTime: LATE }] })
+    journal.append({ id: 'r-kontakt', t: '14:50', at: LATE, icon: 'radio', text: 'Trupp 2 – Kontakt bestätigt', kind: 'team' })
+    audit.append({ client_id: 'ev-kontakt', op_type: 'atemschutz.contact', payload: { id: 'tr2' }, occurred_at: LATE })
+    server.online = true
+    await archiveIncident(INC)
+    await sync.flush()
+    await journal.flush()
+    await audit.flush()
+    expect([sync.refusedCount, journal.refusedCount, audit.closedCount]).toEqual([1, 1, 1])
+
+    // phone A reopens it; phone B's poll answers «open» again
+    await reactivateIncident(INC)
+    expect(server.open).toBe(true)
+    expect(await pollWorkspaceSince(INC, sync.rev)).toBeNull()
+    expect(reopenedHeard).toContain('poll')
+
+    // the Einsatz runs again: what was parked is sent (IncidentWorkspace calls exactly these)
+    await journal.requeueRefused()
+    await audit.requeueClosed()
+    await sync.requeueRefused()
+    expect(server.rows.map((r) => r.id)).toContain('r-kontakt')
+    expect(server.events.map((e) => e.client_id)).toContain('ev-kontakt')
+    expect((server.ws.trupps as typeof TRUPP[])[0].lastContactTime).toBe(LATE)
+    expect([sync.refusedCount, journal.refusedCount, audit.closedCount]).toEqual([0, 0, 0])
+    // …and a reload finds nothing parked any more (the slots were emptied)
+    const again = new WorkspaceSync(INC)
+    await again.loadRefused()
+    expect(again.refusedCount).toBe(0)
+    again.dispose()
+
+    // a Kontakt tapped now lands like any other
+    sync.save({ ...server.ws, trupps: [{ ...TRUPP, lastContactTime: '2026-09-25T13:10:00Z' }] })
+    journal.append({ id: 'r-kontakt-2', t: '15:10', at: '2026-09-25T13:10:00Z', icon: 'radio', text: 'Trupp 2 – Kontakt bestätigt', kind: 'team' })
+    await sync.flush()
+    await journal.flush()
+    expect((server.ws.trupps as typeof TRUPP[])[0].lastContactTime).toBe('2026-09-25T13:10:00Z')
+    expect(server.rows.map((r) => r.id)).toContain('r-kontakt-2')
+    expect([sync.syncStatus, journal.syncStatus, audit.status]).toEqual(['synced', 'synced', 'synced'])
+
+    sync.dispose()
+    audit.stop()
+    journal.dispose()
+    offReopen()
+  })
+})
+
+describe('what a closed Einsatz still takes is never refused along with the rest (review of #235)', () => {
+  it('a Kontakt made BEFORE the close, delivered after it, is recorded — nothing is parked', async () => {
+    const sync = new WorkspaceSync(INC, { debounceMs: 60_000 })
+    const { workspace } = await sync.init()
+    const journal = new JournalStore(INC, false)
+    await journal.init([])
+    server.online = false
+    sync.save({ ...(workspace ?? {}), trupps: [{ ...TRUPP, lastContactTime: EARLY }] })
+    journal.append({ id: 'r-early', t: '14:44', at: EARLY, icon: 'radio', text: 'Trupp 2 – Kontakt bestätigt', kind: 'team' })
+    server.online = true
+    await archiveIncident(INC)
+    // the save's own clock says «now»: judged by that, it is after the close — so the SAVE
+    // is refused and parked, but its Verlauf row, stamped 14:44, is recorded
+    await journal.flush()
+    expect(server.rows.map((r) => r.id)).toEqual(['r-early'])
+    expect(journal.refusedCount).toBe(0)
+    sync.dispose()
+    journal.dispose()
+  })
+
+  it('a Rapport correction on the same save as a Tafel tap lands through the record route; only the rest is parked', async () => {
+    const sync = new WorkspaceSync(INC, { debounceMs: 60_000 })
+    let shown: Record<string, unknown> = (await sync.init()).workspace ?? {}
+    sync.onApplyMerged = (ws) => { shown = ws }
+    await archiveIncident(INC)
+    sync.save({ ...shown, trupps: [{ ...TRUPP, lastContactTime: LATE }], reportMeta: { kurzbericht: 'Brand gelöscht, Nachkontrolle 16:00' } })
+    await sync.flush()
+    // the record part is on the server, the Tafel is not
+    expect(server.ws.reportMeta).toEqual({ kurzbericht: 'Brand gelöscht, Nachkontrolle 16:00' })
+    expect((server.ws.trupps as typeof TRUPP[])[0].lastContactTime).toBe(TRUPP.lastContactTime)
+    expect(server.recordPuts).toBe(1)
+    expect(sync.refusedCount).toBe(1)
+    // the screen shows exactly what the server holds — at once, without another fetch
+    expect(shown.reportMeta).toEqual({ kurzbericht: 'Brand gelöscht, Nachkontrolle 16:00' })
+    expect((shown.trupps as typeof TRUPP[])[0].lastContactTime).toBe(TRUPP.lastContactTime)
+    expect(sync.rev).toBe(server.rev)
+    expect(sync.syncStatus).toBe('synced')
+    sync.dispose()
+  })
+
+  it('a save that changes only the VIEW (and the record) is taken whole', async () => {
+    const sync = new WorkspaceSync(INC, { debounceMs: 60_000 })
+    const { workspace } = await sync.init()
+    await archiveIncident(INC)
+    sync.save({ ...(workspace ?? {}), activePlanId: 'modul2', reportMeta: { kurzbericht: 'korrigiert' } })
+    await sync.flush()
+    expect(server.ws.activePlanId).toBe('modul2')
+    expect(server.ws.reportMeta).toEqual({ kurzbericht: 'korrigiert' })
+    expect(sync.refusedCount).toBe(0)
+    expect(server.recordPuts).toBe(0)
+    sync.dispose()
+  })
+
+  it('with no ancestor to put back and the fetch failing, the refused state is never shown as «synced»', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    try {
+      const sync = new WorkspaceSync(INC, { debounceMs: 60_000 })
+      await sync.init()
+      let shown: Record<string, unknown> | null = null
+      sync.onApplyMerged = (ws) => { shown = ws }
+      await archiveIncident(INC)
+      // an entry without `base` (a cache written before ancestors were kept)
+      ;(sync as unknown as { entry: { base?: unknown } }).entry.base = undefined
+      sync.save({ trupps: [{ ...TRUPP, lastContactTime: LATE }] })
+      let gets = 0
+      const real = vi.mocked(fetch).getMockImplementation()!
+      vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes('/workspace') && (init?.method ?? 'GET') === 'GET' && gets++ === 0) throw new TypeError('Failed to fetch')
+        return real(input as string, init)
+      })
+      await sync.flush()
+      expect(sync.refusedCount).toBe(1)
+      expect(sync.syncStatus).toBe('error') // not «synced» over a Kontakt the record does not hold
+      await vi.advanceTimersByTimeAsync(5_000)
+      expect(sync.syncStatus).toBe('synced')
+      expect((shown as Record<string, unknown> | null)?.trupps).toEqual([TRUPP])
+      sync.dispose()
+    } finally { vi.useRealTimers() }
   })
 })

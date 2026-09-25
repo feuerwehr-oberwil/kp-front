@@ -311,7 +311,7 @@ describe('(f) closed on ANOTHER device while open here (N3, staging 25.09.2026)'
     const overdue = { id: 'tr-k', name: 'Tst Karl', status: 'aktiv', entryPressureBar: 300, entryTime: longAgo, lastContactTime: longAgo }
     const sync = new WorkspaceSync(m.id)
     const ws = { entities: [truck], trupps: [overdue] } as unknown as Saved
-    const tree = (im: IncidentMeta, closedElsewhereAt?: number) => <><Meldeleiste />{workspaceTree(im, { sync, workspace: ws, closedElsewhereAt }).tree}</>
+    const tree = (im: IncidentMeta, lifecycleElsewhere?: WsProps['lifecycleElsewhere']) => <><Meldeleiste />{workspaceTree(im, { sync, workspace: ws, lifecycleElsewhere }).tree}</>
     const { rerender } = render(tree(m))
     await settle(60); await settle(1_100) // the 1 Hz alarm tick
     const rows = () => [...document.querySelectorAll('.ml-row')].map((r) => r.textContent ?? '')
@@ -319,7 +319,7 @@ describe('(f) closed on ANOTHER device while open here (N3, staging 25.09.2026)'
     expect(rows().some((t) => t.includes('Tst Karl'))).toBe(true) // überfällig — the alarm is on
 
     const closedAt = new Date()
-    rerender(tree({ ...m, is_archived: true, closed_at: closedAt.toISOString() }, closedAt.getTime()))
+    rerender(tree({ ...m, is_archived: true, closed_at: closedAt.toISOString() }, { event: 'closed', at: closedAt.getTime() }))
     await settle(60); await settle(1_100)
 
     expect(lastMap().readOnly).toBe(true)
@@ -327,6 +327,17 @@ describe('(f) closed on ANOTHER device while open here (N3, staging 25.09.2026)'
     const title = document.querySelector('.ml-title')?.textContent ?? ''
     expect(title).toBe(`Einsatz wurde auf einem anderen Gerät abgeschlossen (${String(closedAt.getHours()).padStart(2, '0')}:${String(closedAt.getMinutes()).padStart(2, '0')})`)
     expect(document.querySelector('.app')).toBeTruthy() // the same workspace, not a jump elsewhere
+
+    // …and «Wieder öffnen» on another device: live again, in place, the alarm back, one row
+    const reopenedAt = new Date()
+    rerender(tree({ ...m, is_archived: false, closed_at: closedAt.toISOString() }, { event: 'reopened', at: reopenedAt.getTime() }))
+    await settle(60); await settle(1_100)
+    expect(lastMap().readOnly).toBe(false)
+    expect(rows().some((t) => t.includes('Tst Karl'))).toBe(true) // the Tafel is watched again
+    const hhmm = `${String(reopenedAt.getHours()).padStart(2, '0')}:${String(reopenedAt.getMinutes()).padStart(2, '0')}`
+    const titles = [...document.querySelectorAll('.ml-title')].map((t) => t.textContent)
+    expect(titles).toContain(`Einsatz wurde auf einem anderen Gerät wieder geöffnet (${hhmm})`)
+    expect(titles.some((t) => t?.includes('abgeschlossen'))).toBe(false) // the close's row is gone
   })
 
   it('an Einsatz OPENED closed says nothing of the kind — nobody saw it happen', async () => {

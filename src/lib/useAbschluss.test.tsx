@@ -51,6 +51,19 @@ describe('useAbschluss', () => {
     expect(r.truppsStillOut).toBe(0)
   })
 
+  it('drains the Verlauf and audit outboxes BEFORE the handover (review of #235)', async () => {
+    // after the archive they would be judged against a closed Einsatz
+    vi.mocked(confirmDialog).mockResolvedValueOnce(true)
+    const order: string[] = []
+    const a = args({
+      flushOutboxes: vi.fn(async () => { order.push('outboxes') }),
+      onCompleteRapport: vi.fn(async () => { order.push('complete'); return true }),
+    })
+    const r = renderHook(() => useAbschluss(a)).result.current
+    await expect(r.confirmAndComplete()).resolves.toBe(true)
+    expect(order).toEqual(['outboxes', 'complete'])
+  })
+
   it('a cancelled confirm hands nothing over and drains nothing', async () => {
     vi.mocked(confirmDialog).mockResolvedValueOnce(false)
     const a = args()

@@ -289,6 +289,10 @@ def _scrub_drawing_props(workspace: dict[str, Any]) -> None:
 class WorkspacePut(BaseModel):
     workspace: dict[str, Any]
     base_rev: int
+    #: When the newest edit in this save was MADE (the client's server-aligned clock) — a closed
+    #: Einsatz takes a save made before its close (api/incidents · `happened_after_close`).
+    #: Absent (an older client) → judged by arrival.
+    edited_at: datetime | None = None
 
     @model_validator(mode="after")
     def _validate_workspace(self) -> "WorkspacePut":
@@ -313,6 +317,8 @@ class TruppsPut(BaseModel):
 
     trupps: list[dict[str, Any]]
     base_rev: int
+    #: see WorkspacePut.edited_at
+    edited_at: datetime | None = None
 
     @model_validator(mode="after")
     def _validate_trupps(self) -> "TruppsPut":

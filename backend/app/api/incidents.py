@@ -4,7 +4,7 @@ import logging
 import secrets
 import uuid
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import NamedTuple
 
@@ -125,6 +125,52 @@ async def get_incident_or_404(db: AsyncSession, incident_id: uuid.UUID, *, lock:
 #: `{code}` of the closed-Einsatz refusal — mirrored by src/lib/incidentClosed.ts.
 INCIDENT_CLOSED_CODE = "incident_closed"
 
+#: ⚠️ A write is judged by WHEN IT HAPPENED, not by when it arrived (review of #235): a Kontakt
+#: tapped at 14:44 on a phone whose uplink came back at 14:47 is a true fact of the Einsatz closed
+#: at 14:45 — it is recorded (and prints as a Nachtrag), and only what happened AFTER the close is
+#: refused. The stamp is the client's (rows `at`, events `occurred_at`, saves `edited_at` — all on
+#: the server-aligned clock, lib/serverClock), so it gets a tolerance for the skew that clock may
+#: still have. A write with no usable stamp is judged by arrival, i.e. refused.
+CLOSED_CLOCK_TOLERANCE = timedelta(seconds=120)
+
+#: Workspace keys that are the VIEW of the Einsatz, not an operation in it: which plan is open,
+#: the Ebenen, the recent symbols, the saved views, the picked object, the frozen plan bindings,
+#: the review stamp. A save that changes only these (and the record) is not refused on a closed
+#: Einsatz — refusing it took the Rapport edit riding in the same save down with it.
+VIEW_WORKSPACE_KEYS = frozenset(
+    {
+        "activePlanId",
+        "activeModule",
+        "layerState",
+        "recent",
+        "cameraViews",
+        "pickedObjectId",
+        "planBindings",
+        "intakeReviewedAt",
+    }
+)
+
+
+def _as_utc(at: object) -> datetime | None:
+    if isinstance(at, str):
+        try:
+            at = datetime.fromisoformat(at.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if not isinstance(at, datetime):
+        return None
+    return at if at.tzinfo is not None else at.replace(tzinfo=UTC)
+
+
+def happened_after_close(at: object, closed_at: datetime | None) -> bool:
+    """Did this write happen after the Einsatz was closed (see CLOSED_CLOCK_TOLERANCE)? No close
+    time (a status moved off the running ones) or no usable stamp → judged by arrival: yes."""
+    when = _as_utc(at)
+    close = _as_utc(closed_at)
+    if when is None or close is None:
+        return True
+    return when > close + CLOSED_CLOCK_TOLERANCE
+
 
 class IncidentLifecycle(NamedTuple):
     """The lifecycle columns alone — a closed check must not drag the workspace JSONB along."""
@@ -169,7 +215,7 @@ def operational_keys_changed(stored: dict, submitted: dict) -> list[str]:
     Einsatz refuses. Both sides are compared scrubbed (`_scrub_drawing_props`, the same pass the
     save applies), so an untouched legacy key resubmitted as-is compares equal. Deep copies,
     because the scrub mutates; this runs only for a closed Einsatz, never on the live save path."""
-    keys = (set(stored) | set(submitted)) - RECORD_WORKSPACE_KEYS
+    keys = (set(stored) | set(submitted)) - RECORD_WORKSPACE_KEYS - VIEW_WORKSPACE_KEYS
     before = deepcopy({k: stored[k] for k in keys if k in stored})
     after = deepcopy({k: submitted[k] for k in keys if k in submitted})
     _scrub_drawing_props(before)
@@ -316,9 +362,16 @@ async def get_workspace(
     response: Response,
     since: int | None = None,
     wait: bool = False,
+    open_: bool | None = Query(default=None, alias="open"),
     db: AsyncSession = Depends(get_db),
 ):
     """The workspace blob, or a 304 when the caller's `since` revision is still current.
+
+    `open` is what the CALLER believes about the lifecycle. When the Einsatz is no longer in that
+    state the poll is answered at once instead of parking — a close or a reopen that committed
+    between the device's last answer and this request would otherwise wait out the whole timeout
+    (the wake fires only for followers already parked). Absent (an older client) → parks as
+    before.
 
     `wait=1` (only meaningful together with `since`) makes that 304 a LONG POLL: instead of
     answering «unchanged» right away and being asked again two seconds later, the request parks
@@ -343,7 +396,7 @@ async def get_workspace(
             # device showing the closed Einsatz in a tight loop (the client goes straight into the
             # next round after an answer); the ones parked at the moment of the close are woken by
             # `patch_incident`, and a later poll hears it on its first answer.
-            if since == state.rev and wait:
+            if since == state.rev and wait and (open_ is None or open_ == state.lifecycle.is_open):
                 # Commit BEFORE parking. It persists the latch above and — the load-bearing half —
                 # hands the pooled DB connection back: a dozen followers asleep on a checked-out
                 # connection would drain the pool and stall every write in the station.
@@ -462,10 +515,11 @@ async def put_workspace(
         # A closed Einsatz takes the record and nothing else (see `incident_closed`). The revision
         # check stays FIRST: a device a save behind merges and comes back, and only a write that
         # still changes the Tafel, the Karte or the Pläne after that is refused — a late Rapport
-        # correction merged onto the current blob goes through.
-        inc = await get_incident_or_404(db, incident_id)
+        # correction merged onto the current blob goes through — and so does a save whose edits
+        # were all MADE before the close. Under the row lock, like the journal/audit appenders.
+        inc = await get_incident_or_404(db, incident_id, lock=True)
         stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
-        if operational_keys_changed(stored, body.workspace):
+        if operational_keys_changed(stored, body.workspace) and happened_after_close(body.edited_at, inc.closed_at):
             raise incident_closed(inc.closed_at)
     saved = await apply_workspace_put(db, incident_id, body, user_id=user.id, inc=inc)
     # `slim=1`: only the revision goes back — the caller sent the blob and reads nothing but
@@ -494,11 +548,11 @@ async def put_workspace_trupps(
     retries) rather than a silent overwrite. Editors may use it too — same route, same rules —
     and only they latch `editor_opened_at`; a link session is not «the KP has this incident».
     """
-    inc = await get_incident_or_404(db, incident_id)
-    # The Tafel ends with the Einsatz: no Kontakt, Druck or Austritt lands in a closed record
-    # (N3, 25.09.2026). An Atemschutz-LINK never gets here then — its session dies with the
-    # Einsatz (auth/incident_link) — so this is the editor on the slice route.
-    if not inc.is_open:
+    inc = await get_incident_or_404(db, incident_id, lock=True)
+    # The Tafel ends with the Einsatz: no Kontakt, Druck or Austritt made AFTER the close lands in
+    # the closed record (N3, 25.09.2026). An Atemschutz-LINK never gets here then — its session
+    # dies with the Einsatz (auth/incident_link) — so this is the editor on the slice route.
+    if not inc.is_open and happened_after_close(body.edited_at, inc.closed_at):
         raise incident_closed(inc.closed_at)
     link = is_atemschutz_link(user)
     if not link:

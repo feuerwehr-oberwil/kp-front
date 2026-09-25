@@ -14,18 +14,19 @@ export type PendingAuditEvent = ClientEvent & { client_id: string }
  * never dropped: persisted with the outbox and carried by `getRecoveryData` («Einträge
  * sichern»). A 403 for an op the role SHOULD be able to write stays `rejected` — that is a
  * real mismatch somebody has to see. Absent in caches written before the bucket existed.
- * Since 25.09.2026 (N3) the bucket also takes what a CLOSED Einsatz refused — an
- * `atemschutz.contact` from a device that had not heard of the Abschluss yet, the alarm clock's
- * `atemschutz.alarm` — for the same reason: not owed while it stays closed, never dropped.
+ * `closed` (25.09.2026, N3) is the same kind of bucket for what a CLOSED Einsatz refused — an
+ * `atemschutz.contact` made after the Abschluss on a device that had not heard of it yet. Not
+ * owed while it stays closed, never dropped — and, unlike a role refusal, owed again once the
+ * Einsatz runs again (`requeueClosed`, «Wieder öffnen»), which is why the two are kept apart.
  */
-interface StoredAuditEvents { pending: PendingAuditEvent[]; rejected: PendingAuditEvent[]; refused?: PendingAuditEvent[] }
+interface StoredAuditEvents { pending: PendingAuditEvent[]; rejected: PendingAuditEvent[]; refused?: PendingAuditEvent[]; closed?: PendingAuditEvent[] }
 const BATCH_SIZE = 100
 const RETRY_MS = 8_000
 
 /** A per-incident, per-actor outbox. Only acknowledged events leave it; beacons are hints.
  *  The incident tab lock grants write ownership, and another login uses another cache key. */
 export class AuditEventStore {
-  private state: StoredAuditEvents = { pending: [], rejected: [], refused: [] }
+  private state: StoredAuditEvents = { pending: [], rejected: [], refused: [], closed: [] }
   private loaded: Promise<void> | null = null
   private hydrated = false
   private writeSeq = 0
@@ -97,9 +98,10 @@ export class AuditEventStore {
           const pending = new Map([...(cached.pending ?? []), ...this.state.pending].map((e) => [e.client_id, e]))
           const rejected = new Map([...(cached.rejected ?? []), ...this.state.rejected].map((e) => [e.client_id, e]))
           const refused = new Map([...(cached.refused ?? []), ...(this.state.refused ?? [])].map((e) => [e.client_id, e]))
-          for (const key of refused.keys()) { pending.delete(key); rejected.delete(key) }
+          const closed = new Map([...(cached.closed ?? []), ...(this.state.closed ?? [])].map((e) => [e.client_id, e]))
+          for (const key of [...refused.keys(), ...closed.keys()]) { pending.delete(key); rejected.delete(key) }
           for (const key of rejected.keys()) pending.delete(key)
-          this.state = { pending: [...pending.values()], rejected: [...rejected.values()], refused: [...refused.values()] }
+          this.state = { pending: [...pending.values()], rejected: [...rejected.values()], refused: [...refused.values()], closed: [...closed.values()] }
         }
         const parked = this.park()
         if (this.loaded === opening) this.hydrated = true
@@ -287,13 +289,15 @@ export class AuditEventStore {
         // Anything else refused stays a visible error.
         const closed = isIncidentClosedRefusal(error)
         if (closed) reportIncidentClosed({ incidentId: this.incidentId, closedAt: refusalClosedAt(error), source: 'refusal' })
-        const notOwed = closed || (error instanceof ApiError && error.status === 403 && !this.scope(batch[0].op_type))
+        const notOwed = error instanceof ApiError && error.status === 403 && !this.scope(batch[0].op_type)
         this.state = {
           ...this.state,
           pending: this.state.pending.filter((e) => e.client_id !== batch[0].client_id),
-          ...(notOwed
-            ? { refused: [...(this.state.refused ?? []), batch[0]] }
-            : { rejected: [...this.state.rejected, batch[0]] }),
+          ...(closed
+            ? { closed: [...(this.state.closed ?? []), batch[0]] }
+            : notOwed
+              ? { refused: [...(this.state.refused ?? []), batch[0]] }
+              : { rejected: [...this.state.rejected, batch[0]] }),
         }
       }
       this.onChange?.()
@@ -337,13 +341,26 @@ export class AuditEventStore {
   get rejectedCount() { return this.state.rejected.length }
   /** parked, not owed — reported for export, never part of the sync status */
   get refusedCount() { return this.state.refused?.length ?? 0 }
+  /** what the CLOSED Einsatz refused — parked until it runs again (see StoredAuditEvents · closed) */
+  get closedCount() { return this.state.closed?.length ?? 0 }
+
+  /** The Einsatz runs again («Wieder öffnen»): what it refused while closed is owed again. */
+  async requeueClosed(): Promise<void> {
+    await this.hydrate()
+    if (!this.writable || !this.state.closed?.length) return
+    this.state = { ...this.state, pending: [...this.state.pending, ...this.state.closed], closed: [] }
+    this.singleMode = false
+    this.onChange?.()
+    await this.persist()
+    await this.flush()
+  }
   get cacheDurable() { return this.durable }
   get status(): SyncStatus {
     // an unread outbox may hold undelivered events: nothing can be called acknowledged yet
     if (this.readFailed && !this.readOnly) return 'storage'
     // a refused event still lives only here, so an undurable cache holding one IS the storage
     // warning — parking it takes it out of «not delivered», not out of «not safely kept»
-    if (!this.durable && (this.pendingCount || this.rejectedCount || this.refusedCount)) return 'storage'
+    if (!this.durable && (this.pendingCount || this.rejectedCount || this.refusedCount || this.closedCount)) return 'storage'
     if (this.rejectedCount) return 'error'
     return this.pendingCount ? (this.failure ?? 'pending') : 'synced'
   }

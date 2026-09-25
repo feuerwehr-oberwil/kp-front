@@ -323,12 +323,18 @@ describe('AuditEventStore · a 403 the role can never avoid is parked, not held 
     expect(ingestEvents).toHaveBeenCalledWith('incident', [event('rapport', 'report.edit')])
     expect(store.pendingCount).toBe(0)
     expect(store.rejectedCount).toBe(0)
-    expect(store.refusedCount).toBe(2)
+    expect(store.refusedCount).toBe(0) // not a ROLE refusal — its own bucket, owed again on a reopen
+    expect(store.closedCount).toBe(2)
     expect(store.status).toBe('synced')
     expect(heard).toContainEqual({ incidentId: 'incident', closedAt: '2026-09-25T12:45:00Z', source: 'refusal' })
     ingestEvents.mockClear()
     await store.retry()
     expect(ingestEvents).not.toHaveBeenCalled()
+    // …until the Einsatz runs again: then they are owed, and go out
+    ingestEvents.mockResolvedValue([])
+    await store.requeueClosed()
+    expect(ingestEvents.mock.calls.flatMap((c) => c[1]).map((e: PendingAuditEvent) => e.client_id).sort()).toEqual(['az-2', 'kontakt'].sort())
+    expect(store.closedCount).toBe(0)
     off()
   })
 

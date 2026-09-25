@@ -27,10 +27,10 @@ export const MELDUNG_RANK = {
   atemschutz: 1,
   /** a fresh dispatch, or an Einsatz that appeared without a human in the loop */
   alarm: 2,
-  /** the Einsatz on screen was closed on ANOTHER device (N3, 25.09.2026): the screen just became
-   *  read-only under the operator's hands, and the row says why — above everything that belongs
-   *  to the Einsatz that has now ended */
-  closed: 3,
+  /** the Einsatz on screen was closed — or reopened — on ANOTHER device (N3, 25.09.2026): the
+   *  screen just changed from live to read-only (or back) under the operator's hands, and the row
+   *  says why — above everything that belongs to the Einsatz itself */
+  lifecycle: 3,
   /** a Wiedervorlage that has come due — persists until erledigt, never expires silently */
   reminder: 4,
   /** a vehicle a drawn Leitung is attached to has driven off; its anchor is off-screen */

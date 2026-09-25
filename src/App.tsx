@@ -33,7 +33,7 @@ import {
   type DiveraAlarm, type IncidentFull, type IncidentMeta,
 } from './lib/incidents'
 import { isIncidentRunning } from './lib/api/incidents'
-import { closedMetaFor, closedNoticeAt, onIncidentClosed, reportIncidentClosed, type IncidentClosedSignal } from './lib/incidentClosed'
+import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './lib/incidentClosed'
 import { serverNow } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
@@ -222,8 +222,14 @@ export default function App() {
   /** since when THIS device has had the open Einsatz on screen running — a `closed_at` older than
    *  that is an earlier close, kept across «Wieder öffnen» (incidentClosed · closedNoticeAt) */
   const runningSinceRef = useRef(0)
-  /** the Einsatz closed on ANOTHER device while it was open here, and when — for its one row */
-  const [closedElsewhere, setClosedElsewhere] = useState<{ id: string; at: number } | null>(null)
+  /** …and the one THIS device is reopening («Wieder öffnen» here remounts it editable itself) */
+  const reopeningLocallyRef = useRef<string | null>(null)
+  /** the Einsatz this device switched to read-only because a close SIGNAL said so — the only one
+   *  a reopen elsewhere switches back to live (review of #235). An Einsatz the operator opened
+   *  closed on purpose, out of «Alle Einsätze», stays the read-only view they asked for. */
+  const closedBySignalRef = useRef<string | null>(null)
+  /** the Einsatz closed — or reopened — on ANOTHER device while it was open here, and when */
+  const [lifecycleElsewhere, setLifecycleElsewhere] = useState<{ id: string; event: 'closed' | 'reopened'; at: number } | null>(null)
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
   useEffect(() => { activeMetaRef.current = activeMeta }, [activeMeta])
   useEffect(() => { forceReadOnlyRef.current = forceReadOnly }, [forceReadOnly])
@@ -275,7 +281,8 @@ export default function App() {
     if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
     syncRef.current = sync
     runningSinceRef.current = serverNow()
-    setClosedElsewhere(null)
+    closedBySignalRef.current = null
+    setLifecycleElsewhere(null)
     setActiveMeta(meta as IncidentMeta)
     // Make sure the open switcher list contains the one we just opened. Normally it already
     // does, but a just-reactivated incident was archived (hence absent) — without this the
@@ -420,12 +427,15 @@ export default function App() {
   // (the take made it active) — no activeId dep, so the toast's captured closure can't go stale.
   const undoTake = useCallback(async (id: string) => {
     if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    // this device's own archive — not «auf einem anderen Gerät abgeschlossen» (lib/incidentClosed)
+    closingLocallyRef.current = id
     // ⚠️ SAY SO when the undo does not go through. A swallowed failure here left the incident on
     // the server, refreshed the list, and dropped the operator back onto it with no explanation —
     // an Einsatz that reappears by itself is how a tool stops being believed.
     try {
       await archiveIncident(id)
     } catch (e) {
+      closingLocallyRef.current = null
       toast(e instanceof ApiError ? e.detail : appConfig.copy.abschluss.failed, { icon: 'warn', tone: 'warn' })
       return
     }
@@ -433,6 +443,7 @@ export default function App() {
     // never have existed, so keeping its blobs would leave an orphan queue nothing ever drains.
     // Every other archive path keeps what is still pending (clearUploadedMedia).
     await clearIncidentMedia(id).catch(() => {})
+    if (closingLocallyRef.current === id) closingLocallyRef.current = null
     setReviewPendingId(null)
     const list = await refreshList() // returns non-archived only → the taken incident is gone
     setActiveId(null); setActiveMeta(null)
@@ -513,11 +524,36 @@ export default function App() {
       const meta = closedMetaFor(activeMetaRef.current, sig, fresh, closingLocallyRef.current)
       if (!meta) return
       archiveReturnRef.current = null
-      setClosedElsewhere({ id: meta.id, at: closedNoticeAt(meta.closed_at, runningSinceRef.current, serverNow()) })
+      closedBySignalRef.current = meta.id
+      setLifecycleElsewhere({ id: meta.id, event: 'closed', at: closedNoticeAt(meta.closed_at, runningSinceRef.current, serverNow()) })
       setActiveMeta(meta)
       setIncidents((list) => (list ?? []).map((i) => (i.id === meta.id ? meta : i)))
     }
     return onIncidentClosed((sig) => { void handle(sig) })
+  }, [])
+
+  // …and the way back: «Wieder öffnen» on ANOTHER device (same channels, lib/incidentClosed ·
+  // reopenedMetaFor). ONLY for the Einsatz a close signal switched to read-only here
+  // (closedBySignalRef) — one the operator opened closed on purpose stays read-only. The meta
+  // flips back in place and the workspace is live again; what was parked while it was closed is
+  // sent (IncidentWorkspace · requeue), and its row says so.
+  useEffect(() => {
+    const handle = async (sig: IncidentReopenedSignal) => {
+      if (!reopenedMetaFor(activeMetaRef.current, { ...sig, source: 'poll' }, null, reopeningLocallyRef.current, closedBySignalRef.current)) return
+      const fresh = (await getIncident(sig.incidentId).catch(() => null)) as IncidentMeta | null
+      // re-read after the await: a switch, a local reopen or an earlier signal may have settled it
+      const meta = reopenedMetaFor(activeMetaRef.current, sig, fresh, reopeningLocallyRef.current, closedBySignalRef.current)
+      if (!meta) return
+      closedBySignalRef.current = null
+      runningSinceRef.current = serverNow()
+      setLifecycleElsewhere({ id: meta.id, event: 'reopened', at: serverNow() })
+      setActiveMeta(meta)
+      setIncidents((list) => {
+        const arr = list ?? []
+        return arr.some((i) => i.id === meta.id) ? arr.map((i) => (i.id === meta.id ? meta : i)) : [meta, ...arr]
+      })
+    }
+    return onIncidentReopened((sig) => { void handle(sig) })
   }, [])
 
   // The open Einsatz is missing from the open list (the 30 s watch): it may have been closed
@@ -526,6 +562,13 @@ export default function App() {
   useEffect(() => {
     if (!activeMeta || !isIncidentRunning(activeMeta) || !incidents?.length) return
     if (!incidents.some((i) => i.id === activeMeta.id)) reportIncidentClosed({ incidentId: activeMeta.id, source: 'list' })
+  }, [incidents, activeMeta])
+  // …and the mirror: the CLOSED Einsatz on screen is back among the open ones — reopened elsewhere,
+  // or a stale list; the handler asks the server (lib/incidentClosed · reopenedMetaFor)
+  useEffect(() => {
+    if (!activeMeta || isIncidentRunning(activeMeta) || !incidents) return
+    const entry = incidents.find((i) => i.id === activeMeta.id)
+    if (entry && isIncidentRunning(entry)) reportIncidentReopened({ incidentId: activeMeta.id, source: 'list' })
   }, [incidents, activeMeta])
 
   // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
@@ -626,21 +669,28 @@ export default function App() {
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return 'cancelled'
-    // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
-    // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
-    // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+    // this device's own reopen: its poll hears «open» before the remount below, and that is not
+    // «auf einem anderen Gerät wieder geöffnet»
+    reopeningLocallyRef.current = id
     try {
-      await reactivateIncident(id)
-    } catch (e) {
-      toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
-      return 'failed'
-    }
-    await refreshList()
-    try {
-      await selectIncident(id, { readOnly: false })
-      return 'ok'
-    } catch {
-      return 'failed'
+      // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
+      // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
+      // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+      try {
+        await reactivateIncident(id)
+      } catch (e) {
+        toast(e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+        return 'failed'
+      }
+      await refreshList()
+      try {
+        await selectIncident(id, { readOnly: false })
+        return 'ok'
+      } catch {
+        return 'failed'
+      }
+    } finally {
+      if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
     }
   }, [refreshList, selectIncident])
 
@@ -754,7 +804,7 @@ export default function App() {
           onCompleteRapport={() => completeRapport(activeMeta.id)}
           onReactivateActive={isEditor && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
-          closedElsewhereAt={closedElsewhere?.id === activeMeta.id ? closedElsewhere.at : null}
+          lifecycleElsewhere={lifecycleElsewhere?.id === activeMeta.id ? lifecycleElsewhere : null}
           needsReview={
             reviewPendingId === activeMeta.id ||
             // `intakeReviewedAt` = somebody already checked this Einsatz on another device. This
@@ -913,9 +963,11 @@ export default function App() {
         <IncomingAlarmBanner
           alarms={poolAlarms}
           taking={taking}
-          attachFirst={activeMeta.source === 'manual'}
+          // ⚠️ «Anhängen» only onto an Einsatz that is RUNNING (review of #235): attached to a closed
+          // one, the dispatch's Zeiten and Meldung would land in a closed record
+          attachFirst={activeMeta.source === 'manual' && isIncidentRunning(activeMeta)}
           onTake={(a) => void takeAndOpen(a)}
-          onAttach={(a) => void attachToActive(a)}
+          onAttach={isIncidentRunning(activeMeta) ? (a) => void attachToActive(a) : undefined}
         />
       )}
 

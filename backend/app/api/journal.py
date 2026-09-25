@@ -21,7 +21,7 @@ from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, JournalEntry
 from ..schemas import JournalAppendIn, JournalEntryOut, JournalPage
-from .incidents import INCIDENT_NOT_FOUND, incident_closed, incident_lifecycle
+from .incidents import INCIDENT_NOT_FOUND, happened_after_close, incident_closed, incident_lifecycle
 
 router = APIRouter(prefix="/incidents", tags=["journal"])
 
@@ -38,7 +38,9 @@ CLOSED_REFUSED_KINDS = frozenset({"team", "symbol", "layer", "vehicle"})
 
 
 def _live_row(row: dict) -> bool:
-    return row.get("kind") in CLOSED_REFUSED_KINDS
+    # ⚠️ A row carrying a `conflict` is a record divergence and its answer (lib/attendanceConflict,
+    # the Trupp merge notes `tc…`) — settling one is record-keeping, closed or not.
+    return row.get("kind") in CLOSED_REFUSED_KINDS and not row.get("conflict")
 
 
 async def _ensure(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> None:
@@ -166,11 +168,26 @@ async def append_journal(
         for e in body.entries:
             e["via"] = atemschutz_link_source(user)
     # Only a batch that carries a live row pays for the lifecycle read — under the incident row
-    # lock `append_rows` takes next, so a close cannot commit in between.
-    if any(_live_row(e) for e in body.entries):
+    # lock `append_rows` takes next, so a close cannot commit in between. A row made BEFORE the
+    # close is recorded (a Nachtrag on paper); a row the Verlauf ALREADY holds (a retry whose
+    # answer was lost) is the idempotent success it always was — only a new row made after the
+    # close is refused.
+    live = [e for e in body.entries if _live_row(e)]
+    if live:
         lifecycle = await incident_lifecycle(db, incident_id, lock=True)
         if not lifecycle.is_open:
-            raise incident_closed(lifecycle.closed_at)
+            stored = set(
+                (
+                    await db.execute(
+                        select(JournalEntry.client_id).where(
+                            JournalEntry.incident_id == incident_id,
+                            JournalEntry.client_id.in_([e.get("id") for e in live]),
+                        )
+                    )
+                ).scalars()
+            )
+            if any(e.get("id") not in stored and happened_after_close(e.get("at"), lifecycle.closed_at) for e in live):
+                raise incident_closed(lifecycle.closed_at)
     accepted = await append_rows(db, incident_id, body.entries)
     if accepted:
         latest = accepted[-1].seq

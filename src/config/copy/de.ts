@@ -1216,7 +1216,9 @@ export const de = {
       // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
       closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
       closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',
-      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge den Server erreichten. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und können gesichert werden.',
+      closedBody: 'Der Einsatz war bereits abgeschlossen, als diese Einträge den Server erreichten. Sie stehen nicht im Verlauf, bleiben aber auf diesem Gerät und können gesichert werden. Wird der Einsatz wieder geöffnet, werden sie nachgesendet.',
+      // die Statusleuchte, solange solche Einträge nur auf dem Gerät liegen
+      closedShort: 'Einträge nach dem Abschluss nicht übernommen – sichern',
     },
     open: 'Verlauf',
     add: 'Eintrag',
@@ -3931,6 +3933,12 @@ export const de = {
     closedRefused: '{n} Einträge dieses Geräts kamen nach dem Abschluss und wurden nicht mehr übernommen. Sie bleiben auf diesem Gerät gespeichert.',
     closedExport: 'Einträge sichern',
     closedDismiss: 'Hinweis ausblenden',
+    // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
+    reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
+    reopenedElsewhereSub: 'Wieder bearbeitbar – spätere Einträge erscheinen als Nachträge.',
+    // was beim Abschluss zurückgestellt wurde, geht jetzt raus – als Nachtrag
+    reopenedParkedOne: 'Wieder bearbeitbar. 1 Eintrag dieses Geräts, der nach dem Abschluss nicht übernommen wurde, wird jetzt nachgesendet – als Nachtrag.',
+    reopenedParked: 'Wieder bearbeitbar. {n} Einträge dieses Geräts, die nach dem Abschluss nicht übernommen wurden, werden jetzt nachgesendet – als Nachträge.',
   },
   // Einsätze history list
   history: {
