@@ -1144,7 +1144,9 @@ export function AtemschutzView({
             aria-label={fillTemplate(az.overdueBadgeGo, { name: mostOverdue.name })}
             onClick={() => setSelfFocus({ id: mostOverdue.id, nonce: Date.now(), markAll: true })}
           >
-            <Icon id="warn" /><span>{az.overdueBadge(overdueCount)}</span>
+            <Icon id="warn" /><span className={s.overdueWord}>{az.overdueBadge(overdueCount)}</span>
+            {/* the phone's crowded head keeps only the number (Atemschutz.module.css) */}
+            <span className={s.overdueShort} aria-hidden="true">{overdueCount}</span>
           </button>
         )}
         {/* ⚠️ The way back that does not expire. Deleting a Trupp raises a «Rückgängig» toast for six

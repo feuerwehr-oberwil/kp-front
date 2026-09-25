@@ -1654,7 +1654,7 @@ export const it: Localizable<Copy> = {
     removeFloor: 'Elimina piano',
     removeFloorConfirm: '{floor}: {n} contrassegni di questo piano verranno eliminati o accorciati. Eliminare comunque il piano?',
     removeFloorConfirmOne: '{floor}: 1 contrassegno di questo piano verrà eliminato o accorciato. Eliminare comunque il piano?',
-    floorRemoved: 'Piano eliminato',
+    floorRemoved: 'Piano {name} rimosso',
     floorAdded: 'Piano aggiunto',
     buildingReplaced: 'Edificio sostituito',
     buildingReplacedMarks: 'Edificio sostituito – {n} contrassegni rimossi',

@@ -349,15 +349,19 @@
   flex-wrap: nowrap; white-space: nowrap;
   font-family: var(--body); font-weight: 700; font-size: 13px; line-height: 1; color: var(--ink-dim);
   background: var(--label-soft); border-radius: var(--r-xs); padding: var(--wb-floor-plate-pad); user-select: none; -webkit-user-select: none; }
-.wb-floor-x { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
+/* «Geschoss entfernen»: its own --tap square in the tile's top-RIGHT corner, on the label's plate
+   colour — the opposite end of the tile from the name and the fold eye (3am test r2, 25.09.2026:
+   an 18px ✕ beside the eye removed a storey for everybody on one stray tap). */
+.wb-floor-x { position: absolute; top: 2px; right: 2px; z-index: 1; width: var(--tap); height: var(--tap);
+  border: none; background: var(--label-soft); color: var(--ink-dim); cursor: pointer;
   display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
-.wb-floor-x::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
 @media (hover: hover) {
   .wb-floor-x:hover { background: var(--fill-soft); color: var(--red); }
 }
-.wb-floor-x .i { width: 12px; height: 12px; stroke-width: 2.4; }
-/* fold a storey away – device-local, so it is deliberately the QUIET control of the pair: the ✕
-   beside it deletes the Geschoss for everybody, this one only stops drawing it here. */
+.wb-floor-x:active { background-image: linear-gradient(var(--press), var(--press)); }
+.wb-floor-x .i { width: 16px; height: 16px; stroke-width: 2.2; }
+/* fold a storey away – device-local, so it is deliberately the QUIET control: the ✕ in the
+   tile's other corner removes the Geschoss for everybody, this one only stops drawing it here. */
 .wb-floor-eye { position: relative; width: 18px; height: 18px; border: none; background: none; color: var(--ink-faint); cursor: pointer;
   display: grid; place-items: center; padding: 0; border-radius: var(--r-sm); }
 .wb-floor-eye::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }

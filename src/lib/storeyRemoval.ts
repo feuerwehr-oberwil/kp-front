@@ -18,6 +18,6 @@ export async function askStoreyRemoval(lost: number, storey: string): Promise<bo
     message: lost === 1
       ? fillTemplate(wb.removeFloorConfirmOne, { floor: storey })
       : fillTemplate(wb.removeFloorConfirm, { floor: storey, n: lost }),
-    confirmLabel: appConfig.copy.delete, cancelLabel: appConfig.copy.cancel, danger: true,
+    confirmLabel: wb.removeFloor, cancelLabel: appConfig.copy.cancel, danger: true,
   })
 }

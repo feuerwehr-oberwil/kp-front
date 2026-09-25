@@ -250,10 +250,12 @@
   /* colours: a single full-size row (not a cramped 2-row grid) */
   .phone-tools .wb-dock .wb-sw-grid { display: flex; grid-template-columns: none; gap: 8px; }
   .phone-tools .wb-dock .wb-sw { width: 30px; height: 30px; }
-  /* UNIFORM button + icon size across the whole bar: tool buttons 44×40 (r-ctl), the round × 40×40,
-     every icon 18px — was a jumble (34/38 buttons, 16/17/18 icons). ℹ already matches (DockInfo). */
+  /* UNIFORM button + icon size across the whole bar: every control a full --tap square (the bar
+     is --rail-h 60 with 6px padding, so 44 fits without growing it — 3am test r2, 25.09.2026:
+     ✕ · Freihand · Punkte · ✓ · ⓘ measured 40px high), every icon 18px — was a jumble (34/38
+     buttons, 16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
-  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: 44px; min-width: 44px; height: 40px; border-radius: var(--r-sm); }
+  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: var(--tap); min-width: var(--tap); height: var(--tap); border-radius: var(--r-sm); }
   /* ⚠️ The ✕ is sticky at the bar's leading end, and the ring that hides the options sliding
      under it is a `box-shadow: 0 0 0 10px` — which reaches 10px past the button on EVERY side.
      This bar clips its own overflow on both axes and carries 12px of side padding, so that ring
@@ -262,7 +264,7 @@
      — one covering the leading padding, one the gap to the next control — both at the button's
      own height, so nothing has to reach outside the port to do its job. `z-index` because the
      ✕ has to paint over what it is hiding, whatever order the dock ends up in. */
-  .phone-tools .wb-dock .wb-dock-x { width: 40px; height: 40px; z-index: 2;
+  .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); z-index: 2;
     box-shadow: -14px 0 0 var(--ink-fill), 12px 0 0 var(--ink-fill); }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
@@ -439,8 +441,12 @@
      clock rendered at the inherited 16px — the largest text in the bar by a third, and ~10px of
      width the phone bar does not have. */
   .topbar .tb-einsatzuhr { font-size: 12.5px; padding: 6px 2px; }
-  /* the identity pill at phone spacing — the same 4px the action cluster already gives up */
-  .topbar .ip-switch-btn { padding: 6px 10px; gap: 6px; }
+  /* the identity pill at phone spacing — the same 4px the action cluster already gives up.
+     ⚠️ 7px sides and a 4px gap, not 10/6 (3am test r2, 25.09.2026): with ↶ ↷ Verlauf and the
+     Atemschutz chip up, a 360px bar left the ÜBUNG marker 49px of the 56 it needs and it read
+     «ÜBU…» or «Ü.». The 8px come out of the pill's own air, so the WORD survives; the ellipsis
+     below stays the last resort for a bar that is fuller still. */
+  .topbar .ip-switch-btn { padding: 6px 7px; gap: 4px; }
   .tb-act-add { display: none; }                    /* Eintrag handled by the FAB on phones */
   /* Verlauf goes icon-only. :not(.tb-rem-count) — the bare `span` selector also caught the
      reminder-count badge, so the number of due reminders vanished on exactly the device most

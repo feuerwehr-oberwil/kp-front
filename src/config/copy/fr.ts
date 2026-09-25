@@ -1654,7 +1654,7 @@ export const fr: Localizable<Copy> = {
     removeFloor: 'Supprimer l’étage',
     removeFloorConfirm: '{floor} : {n} marquages de cet étage seront supprimés ou raccourcis. Supprimer l’étage quand même ?',
     removeFloorConfirmOne: '{floor} : 1 marquage de cet étage sera supprimé ou raccourci. Supprimer l’étage quand même ?',
-    floorRemoved: 'Étage supprimé',
+    floorRemoved: 'Étage {name} retiré',
     floorAdded: 'Étage ajouté',
     buildingReplaced: 'Bâtiment remplacé',
     buildingReplacedMarks: 'Bâtiment remplacé – {n} marquages retirés',

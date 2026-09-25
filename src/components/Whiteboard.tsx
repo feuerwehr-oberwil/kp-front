@@ -2874,11 +2874,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                       <button className="wb-floor-eye" title={appConfig.copy.whiteboard.floorHide} aria-label={appConfig.copy.whiteboard.floorHide}
                         onPointerDown={(e) => e.stopPropagation()} onClick={() => toggleFloor(f)}><Icon id="eye" /></button>
                     )}
-                    {f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f] && (
-                      <button className="wb-floor-x" title={appConfig.copy.whiteboard.removeFloor} aria-label={appConfig.copy.whiteboard.removeFloor}
-                        onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="close" /></button>
-                    )}
                   </div>
+                  {/* «Geschoss entfernen» — NOT in the label any more (3am test r2, 25.09.2026): an
+                      18px ✕ right beside the fold eye, one tap took a storey away for everybody. It
+                      stands alone in the tile's opposite corner now, a full --tap square, so a press
+                      meant for the name or the eye can never land on it; the act is still
+                      confirm-with-undo and writes its own Verlauf row (IncidentWorkspace ·
+                      onRemoveFloor). */}
+                  {f !== 0 && !readOnly && !building.pack && !floorPack?.tiles[f] && (
+                    <button className="wb-floor-x"
+                      title={`${appConfig.copy.whiteboard.removeFloor}: ${building.floorNames?.[String(f)] ?? floorLabel(f)}`}
+                      aria-label={`${appConfig.copy.whiteboard.removeFloor}: ${building.floorNames?.[String(f)] ?? floorLabel(f)}`}
+                      onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFloor(f)}><Icon id="close" /></button>
+                  )}
                   {/* (the north dial used to be drawn on this tile, top-right. It now floats in
                       the viewport's corner — see <PlanCompass> below the board: inside the tile
                       it panned and zoomed away with the paper, taking the rotation control with

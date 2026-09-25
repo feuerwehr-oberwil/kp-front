@@ -1170,7 +1170,18 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .newBtn span { display: none; }
   /* the overdue badge is critical — keep it fully informative; the title truncates to make room */
   .overdueBadge { flex: none; padding: 7px 11px; }
+  /* ⚠️ ONE row of controls (3am test r2, 25.09.2026): «1 Alarm» arriving pushed the last square
+     onto a second row and the whole board dropped ~56px under the finger at the moment the alarm
+     fired. The squares sit 8px apart here (the badge + four 44px squares at the desktop's 16px
+     gaps is 346px, the 360px phone head has 316) and the row never wraps. */
+  .headActs { flex-wrap: nowrap; column-gap: 8px; }
+  /* …and only when all FIVE controls stand (the archive square is up too) does the badge drop its
+     word and keep «⚠ n» — the full sentence stays its aria-label, and the red is the message */
+  .headActs:has(> :nth-child(5)) .overdueWord { display: none; }
+  .headActs:has(> :nth-child(5)) .overdueShort { display: inline; }
+  .headActs:has(> :nth-child(5)) .overdueBadge { padding: 7px 10px; gap: 5px; }
 }
+.overdueShort { display: none; }
 
 /* respect reduced-motion: the überfällig signal is carried by colour + the state WORD + the
    badge, so dropping the pulse loses no information for users who opt out of animation */
