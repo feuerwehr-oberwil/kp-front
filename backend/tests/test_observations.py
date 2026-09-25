@@ -60,9 +60,11 @@ class _Weather:
     def __init__(self):
         self.readings: list[WeatherData] = []
         self.calls = 0
+        self.fresh: list[bool] = []
 
-    async def get_weather(self, lat, lng):
+    async def get_weather(self, lat, lng, *, fresh=False):
         self.calls += 1
+        self.fresh.append(fresh)
         return self.readings[-1] if self.readings else None
 
 
@@ -141,10 +143,38 @@ async def test_a_wind_shift_writes_one_row_and_the_readings_after_it_none(db_ses
             "id": "wxd-202609231740",
             "t": "",
             "at": confirm.isoformat(),
+            # when it was WRITTEN (the tick that confirmed it) — what the Meldeleiste times from
+            "writtenAt": (now + timedelta(minutes=20)).isoformat(),
             "icon": "wind",
             "text": "Wind dreht: W → NO (286° → 66°) · Lüfter prüfen",
         }
     ]
+    # the observer reads past the 10-min request cache every time
+    assert weather.fresh == [True] * 4
+
+
+def test_two_readings_on_opposite_sides_are_not_a_shift():
+    """286° established; 60° veered past it, 170° backed — both ≥ 45° away, but on opposite
+    sides: scatter, not a wind that turned. The second becomes the new candidate."""
+    assert obs.wind_shifts([_r("a", 286), _r("b", 60), _r("c", 170)]) == []
+    shifts = obs.wind_shifts([_r("a", 286), _r("b", 60), _r("c", 170), _r("d", 180)])
+    assert [(s.from_deg, s.to_deg, s.observed_at) for s in shifts] == [(286, 180, "d")]
+
+
+def test_a_new_instrument_starts_the_comparison_again():
+    """MeteoSwiss fell over to Open-Meteo (or a nearer station started reporting): two
+    instruments disagreeing is not the wind turning."""
+    ms = [
+        obs.Reading(observed_at=a, dir_deg=d, speed_kmh=15, source="meteoswiss", station="A")
+        for a, d in (("a", 286), ("b", 290))
+    ]
+    om = [obs.Reading(observed_at=a, dir_deg=d, speed_kmh=15, source="open-meteo") for a, d in (("c", 60), ("d", 66))]
+    assert obs.wind_shifts(ms + om) == []
+    station_b = [
+        obs.Reading(observed_at=a, dir_deg=d, speed_kmh=15, source="meteoswiss", station="B")
+        for a, d in (("c", 60), ("d", 66))
+    ]
+    assert obs.wind_shifts(ms + station_b) == []
 
 
 async def test_nothing_is_observed_without_an_active_einsatz(db_session, incident, weather):

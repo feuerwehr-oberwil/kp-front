@@ -15,11 +15,12 @@ same id and writes nothing. The client's emit is gone; an older build's copy is 
 ingest endpoint (`api/events · SERVER_OBSERVED_OPS`).
 
 Wind shift (D2-c): each observation is compared with the ESTABLISHED wind. A turn of at least
-``WIND_SHIFT_DEG`` at ``WIND_SHIFT_MIN_KMH`` or more, held over two consecutive observations,
-writes ONE Verlauf row «Wind dreht: W → NO (286° → 66°) · Lüfter prüfen» under a derived id
-(``wxd-<observed_at>`` of the confirming reading) — the devices show it once in their
-Meldeleiste (`src/components/WindShiftMeldung`). The fold is pure over the whole series of
-readings, so a restart or a second worker computes the same shift and the same id.
+``WIND_SHIFT_DEG`` at ``WIND_SHIFT_MIN_KMH`` or more, held over two consecutive observations on
+the same side, from the same source and station, writes ONE Verlauf row «Wind dreht: W → NO
+(286° → 66°) · Lüfter prüfen» under a derived id (``wxd-<observed_at>`` of the confirming
+reading) — the devices show it once in their Meldeleiste (`src/components/WindShiftMeldung`),
+timed from the row's `writtenAt`. The fold is pure over the whole series of readings, so a
+restart or a second worker computes the same shift and the same id.
 """
 
 from __future__ import annotations
@@ -59,6 +60,12 @@ def turn(a: float, b: float) -> float:
     return 360 - d if d > 180 else d
 
 
+def signed_turn(a: float, b: float) -> float:
+    """The turn from `a` to `b`, −180 < x ≤ 180 (positive = clockwise, veering)."""
+    d = (b - a) % 360
+    return d - 360 if d > 180 else d
+
+
 def event_id(incident_id: uuid.UUID | str, observed_at: str) -> str:
     return f"wx:{incident_id}:{observed_at}"
 
@@ -73,6 +80,10 @@ class Reading:
     observed_at: str
     dir_deg: float | None
     speed_kmh: float | None
+    #: where it came from — MeteoSwiss station or the Open-Meteo point; readings from two
+    #: sources are two instruments, and their difference is not the wind turning
+    source: str | None = None
+    station: str | None = None
 
 
 @dataclass(frozen=True)
@@ -97,15 +108,23 @@ def wind_shifts(readings: list[Reading]) -> list[Shift]:
 
     The ESTABLISHED direction is the first blowing reading, then whatever a shift confirmed. A
     blowing reading ≥ ``WIND_SHIFT_DEG`` away from it is a CANDIDATE; the next reading confirms
-    it if it, too, blows and stands ≥ ``WIND_SHIFT_DEG`` away from the established direction,
-    and the shift goes to that second reading's direction. Anything else (back inside, or calm)
-    drops the candidate. A slow veer therefore still reports once it has turned far enough,
-    and a single gust from elsewhere never does.
+    it if it, too, blows, stands ≥ ``WIND_SHIFT_DEG`` away from the established direction AND
+    on the SAME SIDE of it (veered both times, or backed both times — two readings flung to
+    opposite sides are scatter, not a wind that has turned), and the shift goes to that second
+    reading's direction. Anything else (back inside, or calm) drops the candidate. A slow veer
+    therefore still reports once it has turned far enough, and a single gust never does.
+
+    Only readings from ONE instrument are compared: when the source or the station changes
+    (MeteoSwiss failed over to Open-Meteo, a nearer station started reporting), the comparison
+    starts again from the new instrument's first reading.
     """
     out: list[Shift] = []
     established: float | None = None
     candidate: Reading | None = None
+    instrument: tuple[str | None, str | None] | None = None
     for r in readings:
+        if (r.source, r.station) != instrument:
+            instrument, established, candidate = (r.source, r.station), None, None
         if not _blowing(r) or r.dir_deg is None:
             candidate = None
             continue
@@ -115,8 +134,11 @@ def wind_shifts(readings: list[Reading]) -> list[Shift]:
         if turn(established, r.dir_deg) < WIND_SHIFT_DEG:
             candidate = None
             continue
-        if candidate is None:
+        if candidate is None or candidate.dir_deg is None:
             candidate = r
+            continue
+        if (signed_turn(established, candidate.dir_deg) > 0) != (signed_turn(established, r.dir_deg) > 0):
+            candidate = r  # the other side: this reading is the new candidate, not a confirmation
             continue
         out.append(Shift(from_deg=established, to_deg=r.dir_deg, observed_at=r.observed_at))
         established = r.dir_deg
@@ -148,6 +170,8 @@ async def _readings(db: AsyncSession, incident_id: uuid.UUID) -> list[Reading]:
             observed_at=at,
             dir_deg=float(w["wind_dir_deg"]) if isinstance(w.get("wind_dir_deg"), int | float) else None,
             speed_kmh=float(w["wind_speed_kmh"]) if isinstance(w.get("wind_speed_kmh"), int | float) else None,
+            source=w.get("source") if isinstance(w.get("source"), str) else None,
+            station=w.get("station") if isinstance(w.get("station"), str) else None,
         )
     return sorted(seen.values(), key=lambda r: _parse(r.observed_at))
 
@@ -172,8 +196,11 @@ async def observe_weather(db: AsyncSession, now: datetime) -> int:
     from .weather import weather_client
 
     written = 0
+    # id order, like the presence sweep — both hold incident row locks until their commit
     for inc in await active_incidents(db, now):
-        data = await weather_client.get_weather(inc.lat, inc.lng)
+        # `fresh`: past the 10-min request cache — a reading already 10 min old in the cache,
+        # behind MeteoSwiss' own publishing lag, would reach the Verlauf 20–30 min late
+        data = await weather_client.get_weather(inc.lat, inc.lng, fresh=True)
         if data is None or not data.observed_at:
             continue
         cid = event_id(inc.id, data.observed_at)
@@ -207,6 +234,9 @@ async def observe_weather(db: AsyncSession, now: datetime) -> int:
                 "id": shift_row_id(last.observed_at),
                 "t": "",
                 "at": _parse(last.observed_at).isoformat(),
+                # when the row was WRITTEN — the Meldeleiste times its «is this news» from here,
+                # not from `at` (the reading's own time, often 20–30 min old on arrival)
+                "writtenAt": now.isoformat(),
                 "icon": "wind",
                 "text": last.text(),
             }
