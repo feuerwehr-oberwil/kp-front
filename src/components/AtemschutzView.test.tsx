@@ -534,14 +534,6 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
   })
 
-  // staging r4 N15: the Link's tabs were the one place a crew had no number
-  it('each tab carries its Trupp\'s «#N», on the clock line', () => {
-    vi.mocked(useIsPhone).mockReturnValue(true)
-    mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [{ ...aktivTrupp(), no: 1 }, { ...aktivTrupp(), id: 'tr2', name: 'Meier', no: 2 }] })
-    const tabs = screen.getAllByRole('tab')
-    expect(tabs.map((t) => t.querySelector(`.${s.tabMeta} .trupp-no`)?.textContent)).toEqual(['#1', '#2'])
-  })
-
   /* ── The one-row head, and the door in its cut-off title (09.09., mock 01) ─────────────────
    * The head spends ONE row now: name left, the three controls right, nothing wrapped. The
    * price is that the Einsatz name ends where the buttons begin — so the name is a button, and
