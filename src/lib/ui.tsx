@@ -4,6 +4,7 @@ import { appConfig } from '../config/appConfig'
 import { ConfirmCard, type ConfirmSpec } from './overlays/ConfirmCard'
 import { Overlay } from './overlays'
 import { safeHref } from './mediaUrl'
+import { watchRecords, type RecordKey } from './undoKeys'
 
 // Lightweight app-wide toast + confirm host. Replaces native alert()/confirm()
 // so transient feedback and destructive confirmations stay inside the glass
@@ -104,8 +105,26 @@ export function toast(text: string, opts?: { icon?: string; tone?: Tone; toneSty
  * own icon (radio, drop, trash, pen, move, check) and that glyph is what names the edit; they
  * are not an unfinished sweep.
  */
-export function undoToast(text: string, onUndo: () => void): number {
-  return toast(text, { icon: 'undo', action: { label: appConfig.copy.undo, onClick: onUndo } })
+export function undoToast(text: string, onUndo: () => void, guard?: readonly RecordKey[] | (() => boolean)): number {
+  // ⚠️ `guard` — the toast outlives remote merges like any undo step does (25.09.2026). Given the
+  // records `onUndo` writes, a merge that changes one of them (lib/undoKeys · noteRemoteChanges)
+  // makes the button decline with «Nicht mehr rückgängig machbar» instead of writing a pre-merge
+  // value over another device's change; given a predicate (a timeline entry's `standing`), the
+  // entry's own fate decides. Without one the toast acts unguarded, as it always did.
+  const watch = Array.isArray(guard) ? watchRecords(guard) : null
+  const ok = typeof guard === 'function' ? guard : watch ? watch.ok : () => true
+  return toast(text, {
+    icon: 'undo',
+    action: {
+      label: appConfig.copy.undo,
+      onClick: () => {
+        watch?.release()
+        if (!ok()) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
+        onUndo()
+      },
+    },
+    onDismiss: () => watch?.release(),
+  })
 }
 
 /** Patch a live toast in place (text/icon/tone/action). Pass `duration` to auto-dismiss it

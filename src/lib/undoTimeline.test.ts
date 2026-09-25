@@ -155,4 +155,88 @@ describe('undoTimeline', () => {
     t.push(d.entry('K2'))
     expect(seen).toHaveBeenCalledTimes(4)
   })
+
+  // ── a remote merge drops what it invalidated and nothing else (25.09.2026) ────────────────────
+  const keyed = (label: string, keys: string[] | null, log: string[] = []): UndoEntry => ({
+    domain: 'karte', label, touches: keys === null ? undefined : () => keys,
+    undo: () => { log.push(`-${label}`) }, redo: () => { log.push(`+${label}`) },
+  })
+
+  it('a merge drops only the entries whose records it changed', () => {
+    const t = createUndoTimeline()
+    t.push(keyed('Symbol', ['objects:s1']))
+    t.push(keyed('Kontakt', ['trupps:t1']))
+    t.rebase(['trupps:t2']) // another device, another Trupp
+    expect(t.entries().past.map((e) => e.label)).toEqual(['Symbol', 'Kontakt'])
+    t.rebase(['trupps:t1'])
+    expect(t.entries().past.map((e) => e.label)).toEqual(['Symbol'])
+    expect(t.peekUndo()?.label).toBe('Symbol')
+  })
+
+  it('an echo (nothing changed) drops nothing, not even an entry of unknown reach', () => {
+    const t = createUndoTimeline()
+    t.push(keyed('?', null))
+    t.rebase([])
+    expect(t.canUndo()).toBe(true)
+  })
+
+  it('an older entry that writes what a dropped one wrote goes too — its effect is now permanent', () => {
+    const t = createUndoTimeline()
+    t.push(keyed('K1', ['objects:a']))
+    t.push(keyed('K2', ['objects:a', 'objects:b']))
+    t.push(keyed('K3', ['objects:c']))
+    t.rebase(['objects:b'])
+    expect(t.entries().past.map((e) => e.label)).toEqual(['K3'])
+  })
+
+  it('a NEWER entry sharing a record with a dropped older one stays: it is taken first', () => {
+    const t = createUndoTimeline()
+    t.push(keyed('K1', ['objects:a', 'objects:b']))
+    t.push(keyed('K2', ['objects:a']))
+    t.rebase(['objects:b'])
+    expect(t.entries().past.map((e) => e.label)).toEqual(['K2'])
+  })
+
+  it('an entry that cannot say what it writes is dropped by a real change, and everything older with it', () => {
+    const t = createUndoTimeline()
+    t.push(keyed('K1', ['objects:a']))
+    t.push(keyed('?', null))
+    t.push(keyed('K3', ['objects:c']))
+    t.rebase(['settings:x'])
+    expect(t.entries().past.map((e) => e.label)).toEqual(['K3'])
+    // …and so is one whose `touches` throws — rebase itself never does
+    const u = createUndoTimeline()
+    u.push({ ...keyed('boom', []), touches: () => { throw new Error('x') } })
+    expect(() => u.rebase(['objects:a'])).not.toThrow()
+    expect(u.canUndo()).toBe(false)
+  })
+
+  it('walks the redo side in the order it would be redone', () => {
+    const t = createUndoTimeline()
+    t.push(keyed('K1', ['objects:a']))
+    t.push(keyed('K2', ['objects:a', 'objects:b']))
+    t.push(keyed('K3', ['objects:c']))
+    t.undo(); t.undo(); t.undo() // future: K1, K2, K3
+    t.rebase(['objects:a'])
+    expect(t.entries().future.map((e) => e.label)).toEqual(['K3'])
+  })
+
+  it('names the domain steps still standing', () => {
+    const t = createUndoTimeline()
+    t.push({ ...keyed('K1', ['objects:a']), step: 'k1' })
+    t.push({ ...keyed('K2', ['objects:b']), step: 'k2' })
+    t.rebase(['objects:a'])
+    expect([...t.steps()]).toEqual(['k2'])
+  })
+
+  it('tells a toast whether its entry still stands on the ↶ side', () => {
+    const t = createUndoTimeline()
+    const drop = t.push(keyed('Geschoss', ['building:']))
+    expect(drop.standing()).toBe(true)
+    t.rebase(['building:'])
+    expect(drop.standing()).toBe(false)
+    const again = t.push(keyed('Geschoss', ['building:']))
+    t.undo()
+    expect(again.standing()).toBe(false) // already taken by ↶ — the toast must not do it twice
+  })
 })

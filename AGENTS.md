@@ -131,8 +131,28 @@ to prod.
     undoable twice.
   Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
   writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
-  (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate drops the whole
-  timeline plus every open fold window, because nothing on it describes anything real any more.
+  (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate closes every open
+  fold window.
+  - ⚠️ **A remote merge drops only the steps it INVALIDATED** (25.09.2026, `lib/undoKeys`,
+    `UndoTimeline.rebase`) — this REVERSES the 08.09. rule that dropped the whole timeline on
+    every hydrate, which with three devices greyed ↶ out within ~2 s of any save anywhere.
+    `applyWorkspace` diffs the live state against the merged one record by record, at the
+    MERGE's own granularity (`WORKSPACE_RECORDS`: an object/Trupp/Mittel row by id, an
+    Anwesenheit by person, a Rapport field by name, `building:` whole; `planview:<planId>` for a
+    sheet whose drawn view moved, `planview:*` when a fit field did). Every entry says which
+    records its inverse WRITES (`touches`): the merge drops each entry that writes a changed
+    record, plus — walking in the order the steps would be taken — every entry behind a dropped
+    one that writes a record the dropped one wrote (its effect is now permanent). An entry with
+    no `touches` is dropped by any real change, and so is everything older. An echo drops nothing.
+    The delegating domains then keep exactly the steps whose entries survived (`step`), RE-LAID
+    onto the merged state as a patch of the records each wrote (`rebaseHistory`) — the Karte
+    store per object, the slices per record — so no snapshot carries a pre-merge value of a
+    record the merge changed. A Plan's stack is whole-sheet VIEW snapshots (an absent anno is a
+    deletion), so it cannot be re-laid: it survives only WHOLE (`planStackTouches` names the
+    stack's every object plus its view; `trimPlanHistory`). The confirm-with-undo toasts are
+    guarded too: `undoToast(…, guard)` declines with «Nicht mehr rückgängig machbar» once a
+    merge changed a record it would write (or its entry is no longer `standing`). Add an
+    entry ⇒ give it a `touches` that covers EVERYTHING its undo and redo write.
   Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
   new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
   metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.

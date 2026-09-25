@@ -1,6 +1,8 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import { appConfig } from '../config/appConfig'
 import { confirmDialog } from '../lib/ui'
+import { recordKey, type RecordKey } from '../lib/undoKeys'
+import type { UndoEntry } from '../lib/undoTimeline'
 import type { BoardAnno } from '../types'
 
 const EMPTY_HIST = { past: [] as BoardAnno[][], future: [] as BoardAnno[][] }
@@ -23,6 +25,45 @@ export function pushBoardPast(hist: BoardHistory, planId: string, snapshot: Boar
  *  plan's history can never step into another's. Owned by the surface ABOVE the Whiteboard: see
  *  `hist`/`setHist` below. */
 export type BoardHistory = Record<string, { past: BoardAnno[][]; future: BoardAnno[][] }>
+
+/**
+ * The records ONE plan's history can write, for every entry of it alike: each object any of its
+ * snapshots or the sheet's live view holds, plus the view itself (`planview:<planId>`, which a
+ * merge reports for every sheet whose DRAWN picture it changed — undoKeys · planViewChanges).
+ *
+ * ⚠️ Deliberately the whole stack's set, not the step's own. The stack is whole-sheet VIEW
+ * snapshots restored through `setBoard`, where an absent anno is a deletion, so a step cannot be
+ * re-laid record by record the way the Karte's can: a projection the snapshot never held would be
+ * read as deleted. Every entry naming the same set makes the timeline drop a plan's steps together
+ * (a dropped one poisons all older ones), and a kept stack is one whose every snapshot the merge
+ * left true.
+ */
+export function planStackTouches(planId: string, hist: BoardHistory[string] | undefined, live: readonly BoardAnno[] | undefined): RecordKey[] {
+  const ids = new Set<string>()
+  for (const snap of [...(hist?.past ?? []), ...(hist?.future ?? []), live ?? []]) for (const a of snap) ids.add(a.id)
+  return [recordKey('planview', planId), ...[...ids].map((id) => recordKey('objects', id))]
+}
+
+/**
+ * Each plan's stacks cut down to the entries of them still on the timeline after a merge (the
+ * entries carry a `step`; the plan-binding entries share the scope and carry none). A plan's
+ * surviving entries are always its NEWEST on the ↶ side and its NEXT on the ↷ side — see
+ * `planStackTouches` — so the cut is from the far end of each stack.
+ */
+export function trimPlanHistory(hist: BoardHistory, entries: { past: readonly UndoEntry[]; future: readonly UndoEntry[] }): BoardHistory {
+  const count = (list: readonly UndoEntry[], planId: string) => list.filter((e) => e.domain === 'plan' && e.scope === planId && e.step).length
+  let out: BoardHistory | null = null
+  for (const [planId, h] of Object.entries(hist)) {
+    const kp = count(entries.past, planId)
+    const kf = count(entries.future, planId)
+    const past = kp ? h.past.slice(-kp) : []
+    const future = h.future.slice(0, kf)
+    if (past.length === h.past.length && future.length === h.future.length) continue
+    out ??= { ...hist }
+    out[planId] = { past, future }
+  }
+  return out ?? hist
+}
 
 interface BoardDocDeps {
   annos: BoardAnno[]

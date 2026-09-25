@@ -1,4 +1,4 @@
-import type { UndoDomain, UndoTimeline } from './undoTimeline'
+import type { Dropper, UndoDomain, UndoTimeline } from './undoTimeline'
 import type { UndoableSlice } from './useUndoableSlice'
 
 /**
@@ -12,6 +12,10 @@ import type { UndoableSlice } from './useUndoableSlice'
  * found an empty stack and was dropped as «lost», and a later one restored the state the write
  * had STARTED from — a re-tick «rückgängig gemacht» stayed ticked (found 23.09.2026). The entry
  * outlives the render that pushed it; only a ref reaches the render that is current.
+ *
+ * The entry names the slice step it stands for (`step`, the one the write just laid) and asks the
+ * slice which records that step writes (`touches`), so a remote merge drops it only when it
+ * changed one of those records (lib/undoTimeline · rebase).
  */
 export function pushSliceStep<T>(timeline: Pick<UndoTimeline, 'push'>, entry: {
   domain: UndoDomain
@@ -23,12 +27,15 @@ export function pushSliceStep<T>(timeline: Pick<UndoTimeline, 'push'>, entry: {
   /** say what the step did; `moved` is null when the slice had nothing to step. The return is
    *  the timeline's answer: `false` = the entry could not act and is dropped */
   record: (moved: { from: T; to: T } | null, dir: 'undo' | 'redo') => boolean
-}): () => void {
+}): Dropper {
   const { domain, label, histRef, onStep, record } = entry
+  const step = histRef.current.topStep() ?? undefined
   return timeline.push({
     domain,
     label,
-    undo: () => { onStep?.(); return record(histRef.current.undo(), 'undo') },
-    redo: () => { onStep?.(); return record(histRef.current.redo(), 'redo') },
+    step,
+    touches: () => (step ? histRef.current.stepKeys(step) : null),
+    undo: () => { onStep?.(); return record(histRef.current.undo(step), 'undo') },
+    redo: () => { onStep?.(); return record(histRef.current.redo(step), 'redo') },
   })
 }
