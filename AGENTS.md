@@ -209,6 +209,17 @@ to prod.
   `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
   as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
   `updatedAt` because it's pulled from Divera, not merged.)
+  - ⚠️ **A new slice survives the builds that do not know it yet** (25.09.2026, review of the
+    Suche). An older device rebuilds its save from the fields IT knows, and a save replaces the
+    blob — so one tablet that had not updated erased a whole new slice for everybody. Three
+    guards, one per layer, all generic: `sanitizeWorkspace` keeps every top-level key it does not
+    know and the save echoes it back (`workspace · carriedWorkspaceKeys`, IncidentWorkspace ·
+    `carriedKeys`); the merge treats such a key three-way as a value, and «absent on my side»
+    as «never knew it», never «deleted» (`mergeWorkspace · unknownWorkspaceKeys`); and the server
+    carries the stored value over when a save leaves the key out (`api/incidents ·
+    CARRIED_WORKSPACE_KEYS` — builds already in the field predate the first two). Adding a synced
+    slice therefore means: its `MERGE_POLICY` row, its entry in `CARRIED_WORKSPACE_KEYS`, and a
+    client that ALWAYS sends it (even empty — absence cannot say «emptied»).
   - ⚠️ **What every device OBSERVES is recorded under a DERIVED id, once** (24.09.2026). One
     login is routinely open on three devices, and each runs the same engines — the Atemschutz
     alarm clock, the Fahrzeug presence rings. A row or event such an engine writes must carry
@@ -297,25 +308,43 @@ to prod.
   `suche` link back (Bereich «Suche», a tap opens the record). Rules that fall out of it:
   - It merges by id, and a record both sides changed merges field-wise with its log as a union
     by row id (`mergeWorkspace · mergeSuche`) — two devices booking two things about one person
-    keep both; a row one side took back stays gone.
-  - A storey's own area is `sbg<index>` — DERIVED, so every device seeds the same record; the
-    seed on first open (and on the first Trupp sent to «Absuchen») is a machine write, idempotent
-    and no undo step (`ensureStoreyBereiche`, `keepSucheSeeds` on ↶). An unseeded storey renders
-    as a virtual «ganzes Geschoss · offen» so read-only devices see the same gaps.
-  - What a Trupp's save implies (its Ziel's area «in Arbeit · Trupp N», a new name creating the
-    part) is OBSERVED on every editor device and written under derived ids
-    (`useSucheActions · observe`, `lib/useSucheTrupps`); «abgesucht?» at Raus is asked only on the
-    device that saw the Raus happen, never after a merge.
-  - Undo is the slice's (`useUndoableSlice`); a step's Verlauf row quotes the rows it took back
-    («Zurückgenommen: …», `movedRows`). The composer's entry that changes a status IS that
-    change's Verlauf row (`silent`), never a second one.
+    keep both; a row one side took back stays gone. A record BOTH sides added under one derived id
+    (a storey both seeded) gets an empty ancestor and merges the same way, never «mine wins».
+  - A storey's own area is `sbg:<stack>:<index>` — DERIVED from the Gebäude (`stackKeyOf`: the
+    pack's binding, else the footprint) and the storey, so every device seeds the same record and a
+    REPLACED building starts fresh. The seed on first open (and on the first Trupp sent in on
+    «Absuchen») is a machine write, idempotent and no undo step. An unseeded storey renders as a
+    virtual «ganzes Geschoss · offen» so read-only devices see the same gaps.
+  - A find is ONE row (`gefunden`, with «weiter an» and the area it happened in on it — the area
+    wears «Fund» from it); «+ Gefunden» writes no «Vermisst». A person is corrected and withdrawn
+    by rows too (`korrigiert`, `irrtuemlich`) — a withdrawn record counts nowhere and is not
+    printed in «Personen» (the Einsatzjournal keeps both rows).
+  - What a Trupp's save implies is OBSERVED on every editor device and written under ids derived
+    from the Trupp, its SORTIE (`entryTime`) and its Ziel (`useSucheActions · observe`,
+    `lib/useSucheTrupps`): on the move into the field (or a new Ziel there) its Ziel's area turns
+    «in Arbeit · Trupp N» — a new name creating the part, a re-entry marking again; a new Ziel or a
+    removed Trupp releases the old area. A Trupp that never went in marks nothing.
+  - «Trupp N raus – abgesucht? Ja / Teilweise / Nein» is NOT a dialog: it is derived
+    (`pendingAsks` — an area «in Arbeit» whose Trupp is out) and stands on the area's own row, on
+    every editor device (the Raus may come from a handed-over board), until somebody answers; an
+    unanswered question writes nothing.
+  - Undo is the WRITER's, as patches (`diffSuche` / `applySuchePatch`): a step takes back exactly
+    the records, rows and fields it added — never a row the machine or another device wrote since,
+    which a whole-slice snapshot (`useUndoableSlice`) did. Its Verlauf row quotes each row it took
+    back («Zurückgenommen: …»). The composer's entry that changes a status IS that change's Verlauf
+    row (`silent`) and says the change in its text («… · Suche: Tim Muster gefunden»).
+  - Every write emits ONE audit event with its patch (`suche.step` / `suche.undo`), and replay
+    folds those forward from the snapshot anchor (`lib/replay`) — row by row, like the Karte.
   - EDITOR only in step 1 (`canEditIncident`): the `el` and viewers read; the record slice and the
     Atemschutz-Link routes do not carry `suche`, and «Fund melden» from a link session is not
-    offered. Replay folds the anchor's slice to the scrubbed instant (`sucheAt`).
-  - Tablet: a DOCK beside the Gebäude or the Karte (the stack fits itself into the room left,
+    offered.
+  - Doors: the rail entry with the red count and the head chip «n vermisst» (phone: a row of the
+    «Einsatz» chooser, which OPENS it). No toggle in the tool rails — three doors to one thing.
+    Tablet: a DOCK beside the Gebäude or the Karte (the stack fits itself into the room left,
     `Whiteboard · dockInset`), storey labels carry «2/4». Phone: `overlays/DetentSheet`, the one
-    NON-modal peek · half · full sheet — it stands on the nav bar and never covers it; the tool bar
-    steps aside while it is up.
+    NON-modal peek · half · full sheet — it stands on the nav bar and never covers it (on the
+    keyboard while that is up), the floor chips stand at every detent, and the tool bar steps
+    aside while it is up.
   - ⚠️ Step 2 (not built): drawn areas and person markers on the plan/Karte, and the Rettung
     symbol becoming a Person, fill the fields that are typed and empty today (`SuchePerson.point`,
     `SucheBereich.shape`) — no migration. A drawn area is its own kind «Suchbereich», never a line,

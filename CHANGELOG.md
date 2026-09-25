@@ -38,9 +38,11 @@ so this file – not the log – is the record of what shipped up to that point.
   On a tablet it docks beside the Gebäude or the Karte and the storey labels carry the progress
   («1. OG 2/4»); on a phone it is a peek · half · full sheet over the plan that never covers the
   nav bar, with floor chips and a Gebäude | Karte switch. Doors: the rail entry with the red count,
-  the «2 vermisst» head chip for everyone, the tool rail's toggle, the Verlauf composer («Name ·
-  vermisst → gefunden»), and «Fund melden» / «Bereich abgesucht» on a Trupp. A Trupp's Ziel picks
-  an area and marks it «in Arbeit»; «Raus» asks «… abgesucht? Ja / Teilweise / Nein». The Rapport
+  the «2 vermisst» head chip for everyone, the Verlauf composer («Name · vermisst → gefunden»),
+  and «Fund melden» / «Bereich abgesucht» on a Trupp. A Trupp's Ziel picks an area and marks it
+  «in Arbeit» on its way in; once it is out, «Trupp N raus – abgesucht? Ja / Teilweise / Nein»
+  stands on the area's row. A person can be corrected or withdrawn («irrtümlich erfasst»), and
+  ↶ takes back exactly one act. The Rapport
   counts the Gerettete from the list and prints a «Personen» section with one line per person and
   «Suche: 8 Bereiche, alle abgesucht 20:39»; the Abschluss asks about people still missing.
   Editors only; the Einsatzleiter and viewers read. Station config: `suche.uebergabe`.
@@ -159,6 +161,10 @@ so this file – not the log – is the record of what shipped up to that point.
   and coordinate both stand.
 
 ### Fixed
+
+- **A new synced slice survives an older device.** A build that does not know a top-level key
+  of the workspace now carries it through its load, its save and its merge, and the server keeps
+  a stored `suche` a save leaves out — one tablet that had not updated could erase the slice.
 
 - **Mittel from another device no longer vanish after a merge.** A remote merge refreshed every
   synced slice except the Mittel log, so this device's next save deleted the other device's

@@ -265,15 +265,18 @@ a tap opens the Suche on that record):
 | Act | Row |
 |---|---|
 | + Vermisst | «Vermisst: {Name} · zuletzt {Geschoss Ort} · Quelle {…}» |
-| Gefunden… | «Gefunden: {Name} · {Ort} · Trupp N» (a group: «Gefunden: 5 von {Gruppe} …»), plus «Fund: {Bereich} · {Name}» on the area it was found in |
-| weiter an / Übergeben… | «Übergeben: {Name} an {Rettungsdienst}» |
+| Gefunden… (with «weiter an» or not) | ONE row: «Gefunden: {Name} · {Ort} · Trupp N · an Rettungsdienst» (a group: «Gefunden: 5 von {Gruppe} …»); it names the area it happened in, which then wears «Fund» — no row of its own |
+| + Gefunden (never reported) | ONE row «Gefunden: …» — no «Vermisst» with a time nobody reported |
+| Übergeben… | «Übergeben: {Name} an {Rettungsdienst}» |
 | Entwarnen | «Entwarnung: {Name}» |
-| an area's status | «1. OG Trakt 3 abgesucht · Trupp 4» / «in Arbeit» / «nicht zugänglich» / «offen» |
-| Teilen, Umbenennen | «1. OG geteilt: Trakt 1, Trakt 2» · «Bereich umbenannt: … → …» |
-| a Trupp's Ziel under «Absuchen» | «{Bereich} in Arbeit · Trupp N» — written under a DERIVED id, so every editor device observing the same Trupp save writes the one row |
-| «abgesucht?» at Raus | Ja → «… abgesucht · Trupp N», Teilweise → «… teilweise abgesucht», Nein → «… offen» |
-| ↶ / ↷ of any of these | «Zurückgenommen: {the row's own sentence}» / the sentence again |
-| Verlauf composer (Tür 2) | the WRITTEN sentence is the row; the status changes on its way and writes no second one |
+| Korrigieren… | «Korrigiert: {before} → {after}» (name, group size, zuletzt gesehen) |
+| Irrtümlich erfasst | «Irrtümlich erfasst: {Name}» — the record counts nowhere from here on |
+| an area's status | «1. OG Trakt 3 abgesucht · Trupp 4» / «in Arbeit» / «nicht zugänglich» / «offen»; «Fund: {Bereich}» for the area's own mark |
+| Teilen, Umbenennen, + Bereich | «1. OG geteilt: Trakt 1, Trakt 2» · «Bereich umbenannt: … → …» · «Bereich angelegt: Ufer Nord» |
+| a Trupp's Ziel under «Absuchen», on its way in | «{Bereich} in Arbeit · Trupp N» — written under an id derived from the Trupp, its sortie and its Ziel, so every editor device observing the same save writes the one row; a new Ziel or a removed Trupp writes «{old Bereich} offen» |
+| «Trupp N raus – abgesucht?» on the area's row | Ja → «… abgesucht · Trupp N», Teilweise → «… teilweise abgesucht», Nein → «… offen»; a question nobody answers writes NOTHING |
+| ↶ / ↷ of any of these | «Zurückgenommen: {the row's own sentence}» for exactly the rows that step added / the sentence again |
+| Verlauf composer (Tür 2) | the WRITTEN sentence is the row, and it says the change: «… · Suche: {Name} gefunden» |
 
 Deliberately silent: the storeys becoming «ganzes Geschoss» on first open (a machine seed, no
 act of anybody's), and opening/closing the dock or the sheet.
