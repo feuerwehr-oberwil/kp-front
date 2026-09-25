@@ -250,6 +250,12 @@ def _workspace_revision_conflict(server_rev: int, base_rev: int) -> HTTPExceptio
     )
 
 
+#: Workspace keys a save may leave out without deleting them (see apply_workspace_put). Add a new
+#: synced slice here in the same change that adds it, so the builds already in the field — which
+#: do not know it — cannot erase it (AGENTS.md · «To add a synced field»).
+CARRIED_WORKSPACE_KEYS = frozenset({"suche"})
+
+
 async def apply_workspace_put(
     db: AsyncSession,
     incident_id: uuid.UUID,
@@ -276,6 +282,14 @@ async def apply_workspace_put(
         inc = await get_incident_or_404(db, incident_id)
     if inc.workspace_rev != body.base_rev:
         raise _workspace_revision_conflict(inc.workspace_rev, body.base_rev)
+    stored_ws = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
+    # A slice an OLDER build does not know is missing from its save — and the save replaces the
+    # blob, so one old tablet erased the slice for everybody. The keys below are carried over from
+    # the stored blob when a save leaves them out; a build that knows them always sends them (the
+    # client writes `suche` even when empty), so «absent» never means «deleted».
+    for key in CARRIED_WORKSPACE_KEYS:
+        if key in stored_ws and key not in body.workspace:
+            body.workspace[key] = stored_ws[key]
     _scrub_drawing_props(body.workspace)
     # The stored side of the comparison, scrubbed the same way so an unchanged legacy row still
     # compares equal to its scrubbed resubmission. Only the keys validate_alarm_workspace reads

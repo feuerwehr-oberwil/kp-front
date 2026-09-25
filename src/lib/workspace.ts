@@ -17,6 +17,7 @@ import type { KrokiView } from './report'
 import type { PlanScale } from './planScale'
 import type { VehicleOverrides } from './useVehicleLayer'
 import { sanitizeSuche } from './suche'
+import { unknownWorkspaceKeys } from './mergeWorkspace'
 
 /** Per-plan distance calibration, keyed by PlanDocument id (see lib/planScale). */
 export type PlanScales = Record<string, PlanScale>
@@ -535,7 +536,21 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     intakeReviewedAt: str(raw.intakeReviewedAt),
     schemaVersion: sv,
   }
+  // ⚠️ …and every top-level key this build does not know rides along UNTOUCHED — a slice a newer
+  // build added. Dropped here, it was missing from this device's next save, and the save replaced
+  // the server's blob: one older tablet erased the whole slice for everybody (the Suche's rollout,
+  // 24.09.2026). Kept, it goes back out as it came in (IncidentWorkspace · buildPayload, and the
+  // merge · unknownWorkspaceKeys).
+  for (const k of unknownWorkspaceKeys(raw)) (ws as unknown as Record<string, unknown>)[k] = raw[k]
   return { ws, dropped, newerSchema: sv != null && sv > WORKSPACE_SCHEMA_VERSION }
+}
+
+/** The keys of a sanitized blob this build does not know, with their values — what a save has
+ *  to hand back unchanged (see the carry above). */
+export function carriedWorkspaceKeys(ws: Saved | null | undefined): Record<string, unknown> {
+  if (!ws) return {}
+  const raw = ws as unknown as Record<string, unknown>
+  return Object.fromEntries(unknownWorkspaceKeys(raw).map((k) => [k, raw[k]]))
 }
 
 export interface InitialState {

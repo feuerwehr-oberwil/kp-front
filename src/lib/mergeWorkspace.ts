@@ -466,6 +466,12 @@ export const MERGE_POLICY = {
   schemaVersion: 'local',
 } satisfies Record<keyof Saved, FieldPolicy>
 
+/** The top-level keys of a blob that no MERGE_POLICY row names — a slice a newer build added.
+ *  The one place that says which keys this build does not know (sanitize, save, merge ask it). */
+export function unknownWorkspaceKeys(blob: Record<string, unknown>): string[] {
+  return Object.keys(blob).filter((k) => !(k in MERGE_POLICY))
+}
+
 /**
  * Three-way merge of whole workspace blobs, built for TASK-SCOPED multi-editor use: two operators
  * working DIFFERENT domains of one incident (e.g. Atemschutz on one device, Lage/Plan/report on
@@ -518,9 +524,18 @@ export function mergeWorkspace(
         )
   const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs))
   const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }
-  const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
+  const out: Record<string, unknown> = { ...mine } // the 'local' rows
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {
     if (policy !== 'local') out[k] = policy(base[k], mine[k], theirs[k], cx)
+  }
+  // …and a key this build does not know — a slice a NEWER build added. It is carried through
+  // untouched (lib/workspace · sanitizeWorkspace keeps it, the save echoes it back), so here it
+  // merges three-way as a value; and where this device's blob lacks it altogether, that is «never
+  // knew it», never «deleted it»: the other side's value stands. Without this an older device's
+  // save erased a whole new slice (the Suche, 24.09.2026).
+  for (const k of unknownWorkspaceKeys({ ...base, ...theirs, ...mine })) {
+    if (k in mine) out[k] = pick3(base[k], mine[k], theirs[k])
+    else if (k in theirs) out[k] = theirs[k]
   }
   return out
 }
