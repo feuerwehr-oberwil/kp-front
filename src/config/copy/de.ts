@@ -1179,6 +1179,12 @@ export const de = {
      *  vehicle off site, and was put back as it stood when following began. The row names the
      *  moment and the vehicle, because the Rapport's Kroki shows only the result. */
     gpsReverted: '{name}: zurück auf Stand am Einsatzort ({time}), von {vehicle} gelöst',
+    /** …the vehicle out of the feed: no placeholder in its place */
+    gpsRevertedBare: '{name}: zurück auf Stand am Einsatzort ({time})',
+    /** «Am Einsatzort lösen» that took a DRIVE out of the line — a change of the record, so a row;
+     *  a release that removes nothing stays silent like every other detach */
+    gpsReleasedOnSite: '{name}: am Einsatzort von {vehicle} gelöst, Fahrt entfernt',
+    gpsReleasedOnSiteBare: '{name}: am Einsatzort gelöst, Fahrt entfernt',
     // ⚠️ `line: 'Linie'`, not 'Zeichnung' (31.08.): the tool is called Linie everywhere else, and
     // «Zeichnung» named a shape by the fact that somebody drew it — which every row here already
     // says. A line that carries a preset reports THAT instead (lib/lineStyle · linePresetLabel).
@@ -3085,21 +3091,29 @@ export const de = {
      *  the line editor that is what it did — the depot spike of 23.09.2026. Letting go of a GPS end
      *  now always happens at the Einsatzort (lib/gpsReturn · onSiteCoords). */
     gpsDetachOnSite: 'Am Einsatzort lösen',
+    /** a traced hose may be KEPT (24.09.2026): let go where the end stands now, the drive stays
+     *  as the laid hose. Also the only release offered where the on-site point is not known. */
+    gpsDetachHere: 'Hier lösen (Spur behalten)',
+    /** the Meldung's ✕ on a «stopped» row */
+    gpsDismiss: 'Ausblenden',
     gpsPause: 'Folgen stoppen',
     // ── The Meldung when a coupled vehicle drives off / comes back (GpsFollowMeldung, D3) ──
     gpsAwayTitle: '{vehicle} fährt weg · {distance} vom Einsatzort',
     gpsAwayTitleBare: '{vehicle} fährt weg',
-    gpsAwaySub: 'Die Leitung endet noch am Einsatzort.',
+    /** ⚠️ The sub-line is ONE line on a 360px phone (~44 characters) — keep these short */
+    gpsAwaySub: '{lines} endet noch am Einsatzort.',
+    gpsAwaySubMany: '{lines} enden noch am Einsatzort.',
     /** the PRIMARY move of that Meldung: let go, with the end where it is — on site */
     gpsKeepOnSite: 'Am Einsatzort lassen',
     /** following was stopped after the line had traced the drive */
     gpsStoppedTitle: '{vehicle} · {distance} vom Einsatzort',
     gpsStoppedTitleBare: '{vehicle} · Folgen gestoppt',
-    /** ⚠️ The sub-line is ONE line on a 360px phone (~44 characters) — keep both short */
-    gpsStoppedSub: 'Folgen gestoppt · die Leitung zeigt die Fahrt.',
+    gpsStoppedSub: 'Folgen gestoppt · {lines} zeigt die Fahrt.',
+    gpsStoppedSubMany: 'Folgen gestoppt · {lines} zeigen die Fahrt.',
     /** the vehicle is on site again while the line still follows it (TLF went to refill) */
     gpsBackTitle: '{vehicle} wieder am Einsatzort',
-    gpsBackSub: 'Die Leitung zeigt die Fahrt seit {time}.',
+    gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',
+    gpsBackSubMany: '{lines} zeigen die Fahrt seit {time}.',
     gpsRevert: 'Zurück auf Stand am Einsatzort',
     gpsRevertAt: 'Zurück auf Stand am Einsatzort ({time})',
     /** the ↶ bubble's word for that step */

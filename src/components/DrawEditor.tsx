@@ -11,6 +11,7 @@ import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { useLineProfile } from '../lib/useLineProfile'
+import { onSiteKnown } from '../lib/gpsReturn'
 import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Stepper } from './Stepper'
@@ -173,14 +174,16 @@ interface Props {
   /** An end that follows a vehicle's GPS, or has followed one (lib/gpsReturn): the words for the
    *  GPS block at the head of the panel. `since` exists only when the line kept its on-site state
    *  (`gps.before`), and that is also what offers «Zurück auf Stand am Einsatzort». */
-  gpsInfo?: Partial<Record<LineEndpoint, { line: string; vehicle: string; since?: string; distance?: string }>>
+  gpsInfo?: Partial<Record<LineEndpoint, { line: string; vehicle: string; since?: string; distance?: string; stopped?: boolean; onSite?: boolean }>>
   /** «Zurück auf Stand am Einsatzort (hh:mm)» */
   onRevertGps?: (endpoint: LineEndpoint) => void
+  /** «Hier lösen (Spur behalten)»: let go where the end stands now, the drive kept as the hose */
+  onDetachHere?: (endpoint: LineEndpoint) => void
 }
 
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
-export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps }: Props) {
+export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
   // free-typed Abschnitt-Leiter draft (see the Combo below): null = not typing
   const [leiterDraft, setLeiterDraft] = useState<string | null>(null)
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
@@ -264,9 +267,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
           const a = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
           if (!info || !a?.gps) return null
           const C = appConfig.copy.drawingEditor
-          const following = a.gps.state === 'continuous'
-          const head = !following ? fillTemplate(C.gpsStoppedHead, info)
-            : info.since ? fillTemplate(C.gpsFollowingHead, { ...info, time: info.since }) : fillTemplate(C.gpsFollowingHeadBare, info)
+          const following = !info.stopped
+          const words = { line: info.line, vehicle: info.vehicle }
+          const head = !following ? fillTemplate(C.gpsStoppedHead, words)
+            : info.since ? fillTemplate(C.gpsFollowingHead, { ...words, time: info.since }) : fillTemplate(C.gpsFollowingHeadBare, words)
           return (
             <div key={endpoint} className="de-group de-gps">
               <div className="de-gps-head">
@@ -276,12 +280,16 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
               {!readOnly && info.since && onRevertGps && (
                 <button type="button" className="de-gps-back" onClick={() => onRevertGps(endpoint)}>{fillTemplate(C.gpsRevertAt, { time: info.since })}</button>
               )}
-              {!readOnly && (onRouting || onDetach) && (
+              {!readOnly && (onRouting || onDetach || onDetachHere) && (
                 <div className="de-gps-row">
                   {onRouting && (following
                     ? <button type="button" className="de-gps-btn" onClick={() => onRouting(endpoint, 'direct')}>{C.gpsPause}</button>
                     : <button type="button" className="de-gps-btn" onClick={() => onRouting(endpoint, 'trace')}>{C.gpsContinue}</button>)}
-                  {onDetach && <button type="button" className="de-gps-btn" onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</button>}
+                  {/* «Am Einsatzort» only where that point is known — a trace without a kept
+                      on-site line would let go at the vehicle, and the word would lie */}
+                  {onDetach && info.onSite && <button type="button" className="de-gps-btn" onClick={() => onDetach(endpoint)}>{C.gpsDetachOnSite}</button>}
+                  {/* a traced hose may be KEPT (24.09.2026): let go where it stands, drive and all */}
+                  {(onDetachHere ?? onDetach) && <button type="button" className="de-gps-btn" onClick={() => (onDetachHere ?? onDetach)!(endpoint)}>{C.gpsDetachHere}</button>}
                 </div>
               )}
             </div>
@@ -682,7 +690,7 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                     </span>
                   </div>
                 )}
-                {!readOnly && onDetach && !inGpsBlock && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{gps ? appConfig.copy.drawingEditor.gpsDetachOnSite : appConfig.copy.drawingEditor.detachConnection}</button>}
+                {!readOnly && onDetach && !inGpsBlock && <button type="button" className="de-conn-detach" onClick={() => onDetach(endpoint)}>{a.gps ? (onSiteKnown(a.gps) ? appConfig.copy.drawingEditor.gpsDetachOnSite : appConfig.copy.drawingEditor.gpsDetachHere) : appConfig.copy.drawingEditor.detachConnection}</button>}
               </Fragment>
             })}
           </div>
