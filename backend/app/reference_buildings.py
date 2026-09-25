@@ -13,6 +13,7 @@ per-object request only remains as the fallback for a station without a snapshot
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -61,7 +62,12 @@ def clip(snapshot: dict, lng: float, lat: float, radius_m: float) -> dict:
     vertex inside it (the bbox filter's own rule), unchanged otherwise."""
     dlat = radius_m / 111_320
     dlng = radius_m / (111_320 * math.cos(math.radians(lat)))
-    lat0, lat1, lng0, lng1 = lat - dlat, lat + dlat, lng - dlng, lng + dlng
+    return clip_bbox(snapshot, (lat - dlat, lng - dlng, lat + dlat, lng + dlng))
+
+
+def clip_bbox(snapshot: dict, box: tuple[float, float, float, float]) -> dict:
+    """`clip` for an explicit (south, west, north, east) box — the shape /overpass/buildings asks in."""
+    lat0, lng0, lat1, lng1 = box
 
     def inside(points: list[dict]) -> bool:
         return any(lat0 <= g.get("lat", 91) <= lat1 and lng0 <= g.get("lon", 181) <= lng1 for g in points)
@@ -82,6 +88,33 @@ def _load_stored() -> dict | None:
         return data if isinstance(data, dict) and isinstance(data.get("elements"), list) else None
     except (OSError, ValueError):
         return None
+
+
+async def stored_answer(box: tuple[float, float, float, float]) -> dict | None:
+    """The snapshot's answer for (south, west, north, east) when the STORED snapshot covers the whole
+    box — or None, and the caller asks the mirrors. Read-only: it never fetches, never refreshes
+    (that stays the worker's `ensure_snapshot`), so a browser request costs no Overpass query at
+    all for an Einsatz inside the station's area.
+
+    Why it exists (25.09.2026): every Karte/Gebäude open on staging answered 502 about half the
+    time — all three public mirrors 504 or stalled from Railway's shared egress — while the very
+    outlines sat in this snapshot beside the PDFs. A week-old outline is the same building.
+    """
+    global _cache
+    now = time.monotonic()
+    stored: dict | None
+    if _cache and now - _cache[0] < _CACHE_S:
+        stored = _cache[1]
+    else:
+        # a multi-MB parse — off the event loop, and kept for the next caller
+        stored = await asyncio.to_thread(_load_stored)
+        if stored is None:
+            return None
+        _cache = (now, stored)
+    bbox = stored.get("bbox")
+    if not isinstance(bbox, list) or len(bbox) != 4 or not covers(tuple(bbox), box):
+        return None
+    return clip_bbox(stored, box)
 
 
 async def station_bbox(db: AsyncSession) -> tuple[float, float, float, float] | None:
@@ -110,7 +143,7 @@ async def ensure_snapshot(db: AsyncSession) -> dict | None:
             "timeout:25", "timeout:90"
         )
         try:
-            data = await overpass.fetch_buildings(query, timeout_s=FETCH_TIMEOUT_S)
+            data = await overpass.fetch_buildings(query, timeout_s=FETCH_TIMEOUT_S, cache=False)
             stored = {
                 "fetched_at": datetime.now(UTC).isoformat(),
                 "bbox": list(wanted),

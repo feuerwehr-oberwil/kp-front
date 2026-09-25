@@ -41,6 +41,14 @@
   .chip { top: calc(80px + env(safe-area-inset-top)); right: calc(var(--vrail-w, 60px) + 26px); }
   :global(.wb-zoom-float) ~ .chip { top: calc(80px + env(safe-area-inset-top)); }
 }
+/* …but that line is ALSO where an object's editor (`.ctx`: right = the same rail inset, top 88px)
+   opens, so at 820px the dial sat on the editor's corner and its ✕ — a press meant to close the
+   sheet could open «Gebäude drehen» (3am test, 25.09.2026). While an editor is open the dial steps
+   left of it, same line, 10px of air; the editor's width is the tablet's `--plan-ctx-w`
+   (06-contextpanel / 15-mobile). A phone's editor is a bottom sheet, hence the lower bound. */
+@media (min-width: 601px) and (max-width: 860px) and (min-height: 521px) {
+  :global(.app:has(.ctx)) .chip { right: calc(var(--vrail-w, 60px) + 26px + var(--plan-ctx-w, 360px) + 10px); }
+}
 /* …and on a phone the tool rail IS the bottom bar, so the corner is free again — 80px already
    clears the floating zoom cluster that may sit in it. */
 @media (max-width: 600px), (orientation: landscape) and (max-height: 520px) and (max-width: 1000px) {

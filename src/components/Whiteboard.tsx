@@ -2736,7 +2736,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // that would put the mechanism back in the navigation it was just taken out of.
   // Only ever shown on the two surfaces it is about, and only once there is somewhere to go:
   // on the stack it opens the picker, on the picker (with a stack behind it) it goes back.
-  // ⚠️ Pure navigation, so a viewer/locked session gets it too — it changes nothing. Replacing
+  // Pure navigation — but only where the picker can be used (see `buildingChipLocked`). Replacing
   // the building is still the picker's own act, with its confirm-and-undo (IncidentWorkspace ·
   // onSelectBuilding); this chip only walks there.
   // ⚠️ On the STACK the pill reads the building's own NAME, not the verb (owner, 18.09.2026).
@@ -2754,17 +2754,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // the never-truncating treatment, rather than a pill reading «Kein Objekt» about a building
   // that is plainly there.
   const buildingChipName = stack ? objectAddress?.trim() || objectName?.trim() || null : null
-  const buildingChip = onBuildingFace && (stack || (osm && building)) ? (
+  // ⚠️ …but not for a session that cannot pick (25.09.2026, 3am test on staging): the picker face
+  // is non-interactive under the lock (OsmOutline · interactive), so «Anderes Gebäude wählen» led
+  // an `el` to outlines it could not tap and no «Übernehmen» — a door into a dead end. Locked, the
+  // stack's pill is only the building's NAME as a read-out (the `.wb-object` recipe: disabled, not
+  // greyed); with no name there is nothing to read and no pill. The picker face's «Zurück zum
+  // Gebäude» stays for everyone: it is the way OUT.
+  const buildingChipLocked = stack && readOnlyProp
+  const buildingChip = onBuildingFace && (stack || (osm && building)) && !(buildingChipLocked && !buildingChipName) ? (
     <button
       type="button"
       className={`wb-scale-chip wb-building${buildingChipName ? ' wb-building-named' : ''}`}
-      aria-label={buildingChipLabel}
-      title={buildingChipLabel}
+      aria-label={buildingChipLocked ? buildingChipName! : buildingChipLabel}
+      title={buildingChipLocked ? undefined : buildingChipLabel}
+      disabled={buildingChipLocked}
       onClick={() => onBuildingFace(stack ? 'pick' : 'stack')}
     >
       <Icon id={stack ? 'footprint' : 'floors'} />
       <span>{buildingChipName ?? buildingChipLabel}</span>
-      {buildingChipName && <Icon id="chevron" className="wb-chip-chev" />}
+      {buildingChipName && !buildingChipLocked && <Icon id="chevron" className="wb-chip-chev" />}
     </button>
   ) : null
 
@@ -3824,7 +3832,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               {/* Gebäude rotation — only on a floor-stack that was auto-rotated. The SAME
                   popover the north dial opens (30.08.): slider + named-angle chips; two doors,
                   one room, one visible control instead of a hidden drag. */}
-              {canOrient && (
+              {/* not under the lock: `reorientTo` refuses a locked surface, so the slider would
+                  preview a turn and snap back on release (the north dial below already gates) */}
+              {canOrient && !readOnly && (
                 <>
                   <div className="vrail-sep vrail-sep-foot" />
                   <Popover
@@ -4267,9 +4277,14 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           a reading, never a shortcut into a second, competing manual calibration. The separate
           Verknüpft control beside it opens the Passung and its explicit correction actions.
           Hidden for the OSM live outline / blank sheet (no printed reference to measure against).
-          A locked surface keeps the reading but cannot arm a manual calibration — and an
-          Einsatz-Link viewer (linkViewer) gets neither: the chips are the origin's instruments. */}
-      {(!readOnly || slimRail) && !osm && !blank && !linkViewer && (
+          ⚠️ A LOCKED surface shows neither this chip nor «⌖ Karte» (25.09.2026, 3am test): both are
+          doors to settings a locked session cannot write — the manual chip was a disabled button
+          saying nothing about why, and «Ref. auto» opened the Passung with «Punkt hinzufügen /
+          Übertragen / Zurücksetzen» live for an `el` whose save 403s. The READING they carried is
+          where a locked session needs it: the Messen panel names the scale's source
+          (`scaleNote`) or says the plan is not calibrated. Same rule as the Einsatz-Link viewer
+          (linkViewer): the chips are the instruments of whoever may set them. */}
+      {!readOnly && !osm && !blank && !linkViewer && (
         scaleAuto
           /* Still a reading, not a second calibration path – but a TAPPABLE one (29.08.): the
              hover title never fires on the field iPad, so the chip explains itself the same
@@ -4296,9 +4311,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 : appConfig.copy.whiteboard.scale.chipUncalibrated
               return <button
                 className={`wb-scale-chip wb-lamped ${calibrated ? 'on' : ''} ${scaleStale ? 'stale' : ''} ${tool === 'scale' ? 'arm' : ''}`}
-                title={readOnly ? undefined : appConfig.copy.whiteboard.scale.recalibrate}
+                title={appConfig.copy.whiteboard.scale.recalibrate}
                 aria-label={label}
-                disabled={readOnly}
                 onClick={() => setTool(tool === 'scale' ? 'pan' : 'scale')}
               >
                 <Icon id="measure" />
@@ -4311,18 +4325,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           tied to the world, and how well. Same recipe and same corner as the Massstab beside it,
           and the same rule: never a hidden assumption. Blue, like Messen and Massstab — a
           georeference is not an alarm, so never the station's --accent.
-          A viewer sees the reading but cannot arm it; a plan with no reference offers the verb.
-          An Einsatz-Link viewer sees neither — see linkViewer on the Maßstab chip above. */}
-      {canGeoref && (!readOnly || georefState.kind === 'linked') && !linkViewer && (
+          A plan with no reference offers the verb. A locked session and an Einsatz-Link viewer
+          see neither — see the Maßstab chip above. */}
+      {canGeoref && !readOnly && !linkViewer && (
         <button
           className={`wb-scale-chip wb-lamped ${georefState.kind === 'linked' ? (georefState.warn ? 'wb-georef-warn' : 'wb-georef-ok') : ''} ${georefQuality ? 'arm' : ''}`}
-          title={readOnly ? undefined
-            : georefState.kind === 'linked' ? appConfig.copy.whiteboard.georef.openQuality
+          title={georefState.kind === 'linked' ? appConfig.copy.whiteboard.georef.openQuality
             : appConfig.copy.whiteboard.georef.linkTitle}
           aria-label={georefState.kind === 'linked'
             ? appConfig.copy.whiteboard.georef.chipLinked
             : appConfig.copy.whiteboard.georef.chipUnlinked}
-          disabled={readOnly}
           aria-expanded={georefState.kind === 'linked' ? georefQuality : undefined}
           onClick={() => {
             // linked ⇒ the chip opens the Passung; unlinked ⇒ the chooser when the matcher can
@@ -4365,7 +4377,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           board that means the next tap on a symbol is eaten by the dismissal instead of
           selecting it. src/lib/overlays/Popover.tsx says exactly this in its own header: for
           surfaces that must stay live underneath, keep the hand-rolled dock. */}
-      {georefQuality && georefFit && !georefArmed && (
+      {georefQuality && georefFit && !georefArmed && !readOnly && (
         <div className="wb-georef-dock" role="group" aria-label={appConfig.copy.whiteboard.georef.qualityTitle}>
           <GeorefQuality
             fit={georefFit}

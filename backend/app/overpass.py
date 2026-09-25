@@ -18,6 +18,8 @@ never leaves the building. The https-only guard mirrors traccar.py / weather.py.
 
 import asyncio
 import logging
+import time
+from collections import OrderedDict
 from urllib.parse import urlsplit
 
 import httpx
@@ -26,9 +28,23 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
-# Per-mirror stall guard. Matches the timeout the browser used to apply, so the surface's
-# worst-case wait is unchanged by the move behind the proxy.
-FETCH_TIMEOUT_S = 20.0
+# Per-mirror stall guard. ⚠️ ABOVE the query's own `[timeout:25]` (25.09.2026): at 20 s the
+# backend hung up on a mirror the query had just given 25 s to answer, and staging logged
+# «ReadTimeout» from a mirror that was still working. The browser still gives up at its own 20 s,
+# but a late answer is not wasted any more — it lands in the cache below, and the next open (or
+# «Erneut laden», which joins the same in-flight fetch) gets it at once.
+FETCH_TIMEOUT_S = 30.0
+
+# Answers are kept per query: building outlines do not change on the operator's timescale, and
+# every device of an Einsatz asks for the SAME box (the surface is prefetched on every open). A
+# public mirror throttles per client address — all of a Railway deployment's traffic is one — so
+# four tablets opening one Einsatz used to be twelve concurrent queries, and the 504s that
+# followed were our own doing. Bounded in size and age; a failure is never cached.
+CACHE_TTL_S = 6 * 3600.0
+CACHE_MAX = 64
+_cache: OrderedDict[str, tuple[float, dict]] = OrderedDict()
+# identical queries in flight share ONE race (and its answer)
+_inflight: dict[str, asyncio.Task] = {}
 
 # Overpass rejects unfamiliar clients on some mirrors; be honest about who is calling.
 _USER_AGENT = "kp-front (+https://github.com/feuerwehr-oberwil/kp-front)"
@@ -56,15 +72,49 @@ def mirrors() -> list[str]:
     return out
 
 
-async def fetch_buildings(query: str, timeout_s: float = FETCH_TIMEOUT_S) -> dict:
-    """Race the configured mirrors; first success wins. Raises on total failure.
+async def fetch_buildings(query: str, timeout_s: float = FETCH_TIMEOUT_S, *, cache: bool = True) -> dict:
+    """The answer to `query`: from the cache, from a race already in flight for the same query,
+    or from a new mirror race. Raises on total failure (nothing is cached then).
 
-    The slower requests are left to finish and discarded — cancelling them buys nothing and
-    Overpass counts a cancelled query against the caller either way.
+    `cache=False` for a caller that keeps the answer itself (the station snapshot in
+    reference_buildings, megabytes that live in storage) — it always races afresh.
     """
     urls = mirrors()
     if not urls:
         raise RuntimeError("no Overpass mirrors configured")
+    if not cache:
+        return await _race(urls, query, timeout_s)
+    now = time.monotonic()
+    hit = _cache.get(query)
+    if hit and now - hit[0] < CACHE_TTL_S:
+        _cache.move_to_end(query)
+        return hit[1]
+    task = _inflight.get(query)
+    if task is None:
+        task = asyncio.create_task(_race(urls, query, timeout_s))
+        _inflight[query] = task
+
+        def settle(t: asyncio.Task, q: str = query) -> None:
+            if _inflight.get(q) is t:
+                del _inflight[q]
+            if not t.cancelled() and t.exception() is None:
+                _cache[q] = (time.monotonic(), t.result())
+                _cache.move_to_end(q)
+                while len(_cache) > CACHE_MAX:
+                    _cache.popitem(last=False)
+
+        task.add_done_callback(settle)
+    # shielded: a caller that goes away (the browser's own 20 s) must not cancel the race the
+    # other callers — and the cache — are waiting on
+    return await asyncio.shield(task)
+
+
+async def _race(urls: list[str], query: str, timeout_s: float) -> dict:
+    """Race the mirrors; first success wins. Raises on total failure.
+
+    The slower requests are left to finish and discarded — cancelling them buys nothing and
+    Overpass counts a cancelled query against the caller either way.
+    """
 
     async def one(url: str) -> dict:
         try:

@@ -204,11 +204,14 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.queryByRole('button', { name: /Automatisch ausrichten/ })).toBeNull()
   })
 
-  it('a viewer sees the reading but is given no way to arm it', () => {
+  // ⚠️ Reversed 25.09.2026 (3am test): a disabled chip said nothing about why, and its twin
+  // «Ref. auto» opened a Passung whose correction buttons a locked session cannot save. A locked
+  // plan shows neither; the Messen panel carries the scale's source.
+  it('a locked session is offered neither the chip nor the Massstab beside it', () => {
     store.pairs = TWO
     renderBoard('modul2', true)
-    const chip = screen.getByText('Verknüpft').closest('button')
-    expect(chip?.disabled).toBe(true)
+    expect(screen.queryByText('Verknüpft')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Ref\./ })).toBeNull()
   })
 })
 

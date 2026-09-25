@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from .. import overpass as overpass_client
+from .. import reference_buildings
 from ..auth.dependencies import CurrentUser
 
 router = APIRouter(prefix="/overpass", tags=["overpass"])
@@ -44,6 +45,13 @@ async def buildings(_user: CurrentUser, box: BuildingsRequest) -> dict:
         # Configured off (or misconfigured to non-https only). The surface treats this the
         # same as an upstream failure and offers a retry, which is the honest outcome.
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Overpass ist nicht konfiguriert")
+
+    # The station's own snapshot first (reference_buildings): an Einsatz inside the station's
+    # area is answered from storage, with no Overpass query at all — the public mirrors 504'd or
+    # stalled on about half the Karte opens on staging (25.09.2026). Outside it, the mirrors.
+    stored = await reference_buildings.stored_answer((box.south, box.west, box.north, box.east))
+    if stored is not None:
+        return stored
 
     bbox = f"{box.south},{box.west},{box.north},{box.east}"
     try:

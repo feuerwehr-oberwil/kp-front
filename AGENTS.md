@@ -575,6 +575,14 @@ to prod.
   Geschossplan» on every storey (prod, 20.09.2026). Floors that exist are never replaced. Bound sheets carry `incident:` georef keys, routed by
   `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
   silently replaced.
+- **Building outlines come from the station's snapshot first** (25.09.2026). `POST
+  /api/overpass/buildings` clips the box out of the stored station snapshot
+  (`reference_buildings · stored_answer`, read-only — the alignment worker keeps refreshing it)
+  whenever that covers the box, and only otherwise races the mirrors. The race itself is cached
+  per query (6 h, 64 entries, never a failure) and shared between concurrent callers — every
+  device of an Einsatz asks for the same box from ONE egress address, which the public mirrors
+  throttle — and its per-mirror guard (30 s) outlasts the query's own `[timeout:25]`. Staging
+  answered about half of all Karte opens with a 502 before.
 - **A plan PDF is downloaded ONCE per revision, and its pages are rendered once per width**
   (18.09.2026). pdf.js is never handed a URL: `lib/pdfBytes` does one plain `GET` and
   `PdfViewport · docEntry` opens the document from `data` (a COPY — pdf.js transfers, i.e.
@@ -686,7 +694,13 @@ to prod.
   everything tactical stay 403 for it), and `viewer`
   (read-only). Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
   on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
-  Einsatzdaten panel, and the sync pushing `slice: 'record'`. The legacy `commander` value has been migrated away: the stored role,
+  Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
+  through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026): a
+  locked session gets no «Anderes Gebäude wählen» (the locked picker has no «Übernehmen»; the pill
+  stays as the building's name, read-only), no Massstab / «⌖ Karte» chips on a plan (the Messen
+  panel names the scale's source), no «Gebäude drehen», and — for `el` — no saved-view writes, no
+  object switch, no «Weitergeben» section (`canShare` = `canShareLink`, so no GET for a link it may
+  not read either), no «Wieder öffnen», no transcription, no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:

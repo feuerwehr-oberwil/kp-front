@@ -806,10 +806,17 @@ export function AtemschutzView({
   useEffect(() => {
     const list = listRef.current, port = bodyRef.current
     if (!list || !port) return
+    for (const el of list.querySelectorAll('[data-az-fab-foot]')) el.removeAttribute('data-az-fab-foot')
     if (!compact || !openRow) { list.style.removeProperty('--az-open-pad'); return }
     const card = list.querySelector<HTMLElement>('[data-az-open]')
     if (!card) return
     list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
+    // Parked, a card about a port tall ends in the FAB's corner: its foot row (Verlauf ·
+    // zuletzt · chevron) then keeps the FAB's column free (Atemschutz.module.css ·
+    // data-az-fab-foot). Measured, not assumed — a short card's foot is nowhere near the circle
+    // and keeps its full width.
+    const fab = document.querySelector('.fab-entry')?.getBoundingClientRect()
+    card.toggleAttribute('data-az-fab-foot', !!fab && port.getBoundingClientRect().top + card.offsetHeight > fab.top)
     card.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [compact, openRow])
 

@@ -5116,7 +5116,9 @@ export function IncidentWorkspace({
           onStopSharing={selected.live && selected.kind === 'person' && canEditIncident && !readOnly
             ? () => { void stopPersonSharing(selected.id) }
             : undefined}
-          onResetGps={selected.live && selected.kind !== 'person'
+          // not for a session whose override never leaves the device (the el record slice,
+          // a viewer): «GPS» would clear it here and the next hydrate would put it back
+          onResetGps={selected.live && selected.kind !== 'person' && !readOnly && !isEl
             ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
             : undefined}
           // «Hier festhalten»: the Kroki is printed hours later, and a vehicle that has since
@@ -5135,7 +5137,7 @@ export function IncidentWorkspace({
           // A live vehicle's Fahrer: the GPS feed reports where a vehicle IS, never who is in
           // it, and that is the one thing the FU needs to reach it. Kept in the override map
           // because the entity itself is rebuilt from the feed on every poll.
-          driver={selected.live && selected.kind !== 'person' && !readOnly
+          driver={selected.live && selected.kind !== 'person' && !readOnly && !isEl
             ? {
               value: vehicleOverrides[selected.id]?.fahrer ?? '',
               options: rosterNames,
@@ -5430,8 +5432,9 @@ export function IncidentWorkspace({
                 <button className={`vrail-nbtn vrail-layers ${panel === 'layers' ? 'on' : ''}`} title={appConfig.copy.panels.layers} aria-label={appConfig.copy.panels.layers} aria-pressed={panel === 'layers'} onClick={() => togglePanel('layers')}><span className="vrail-glyph"><Icon id="layers" /></span><span className="vrail-label">{appConfig.copy.panels.layers}</span></button>
                 {/* multi-purpose compass: always shown, rotates to the live bearing, and opens the
                     saved-views menu (Nach Norden · Einpassen · Standort · Koordinaten · saved
-                    framings · Ansicht speichern). */}
-                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
+                    framings · Ansicht speichern). `|| isEl` as on MapUtility's twin: saved views
+                    live in the shared blob, which the el record slice never pushes. */}
+                <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly={readOnly || isEl} variant="rail" btnClassName="vrail-nbtn vrail-views" activeClassName="on" glyphClassName="vrail-compass" label={appConfig.copy.mapViews.title} open={viewsOpen && !(sharePick && shareParent === 'views')} onOpenChange={toggleViews} coordsOn={coord.mode !== 'off'} onToggleCoords={coord.cycle} />
                 {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px). Every touch form
                     factor pinches, and on a tablet the two buttons cost rail space that the
                     tools above need more. */}
@@ -5534,7 +5537,9 @@ export function IncidentWorkspace({
           // the anchor «Automatisch ausrichten» fetches its OSM reference box around: the active
           // object's own coordinate, else the Einsatzort (they coincide for a near object)
           georefAnchor={activeObjectPos ?? incidentView.center}
-          onObjectSwitch={linkScoped ? undefined : () => setPickerOpen(true)}
+          // not for el: the pick is `pickedObjectId` in the shared blob, which its record slice
+          // never pushes — the switch would hold on this device until the next hydrate
+          onObjectSwitch={linkScoped || isEl ? undefined : () => setPickerOpen(true)}
           // A georeferenced Modul has the Karte's real scale, so its tactical symbols follow the
           // Karte setting too. Standalone sheets keep the independent Modul preference.
           symMul={planSymbolScale(symbolScale, !!activeLinkedPlan)}
@@ -5767,6 +5772,8 @@ export function IncidentWorkspace({
           onTick={toggleTick}
           onBranch={setBranch}
           onAction={checklistAction}
+          // «Zeichnen» arms the Karte's line tool, which a locked device disarms on arrival
+          offersAction={(a) => a !== 'draw' || !tacticalLocked}
         />
       ))}
 
@@ -5842,6 +5849,7 @@ export function IncidentWorkspace({
           onCaptionAttachment={canEditRecord ? captionAttachment : undefined}
           onRemoveAttachment={canEditRecord ? removeAttachment : undefined}
           canEdit={canEditRecord}
+          canShare={canShareLink}
           onRolePicked={assignRole}
           // the Einsatzleiter / Rückmeldung pickers: a typed name is a Gast, so the EL named on
           // the front page of the rapport is on the Anwesenheit behind it even for a Nachbarwehr
@@ -5913,6 +5921,8 @@ export function IncidentWorkspace({
           row={player.row}
           events={timeline}
           readOnly={readOnly}
+          // transcribing and deciding its segments is editor-only on the server (api/media)
+          canTranscribe={isEditor}
           initialSeekSec={player.seekSec}
           // the same vocabulary the composer gets — «Eintrag an dieser Stelle» writes into the
           // same Verlauf, so it completes and marks names identically

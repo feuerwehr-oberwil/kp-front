@@ -443,6 +443,12 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .vrowLast { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-weight: 600; color: var(--ink-faint); }
 .logChev { color: var(--ink-faint); }
+/* An OPENED card on the phone list is parked at the top of the port (AtemschutzView · the
+   `--az-open-pad` effect), and a card about a port tall comes to rest with its foot — this row —
+   in the FAB's corner: the circle sat on the chevron and the end of «zuletzt: …» (field checks
+   24.09.2026). The effect measures that case and marks the card; the row then keeps the FAB's
+   column free, so the preview ellipsises a little earlier and the chevron stays tappable. */
+[data-az-fab-foot] .vrow { padding-right: calc(14px + var(--fab-safe, 0px)); }
 /* the expanded per-Trupp contact/pressure log, inside the footer */
 /* ⚠️ The seam under the look-up panel is this border (09.09., ex-`.readHead`): without it the
    first reading butts straight against «Schätzung …» and the two read as one list. `:first-child`
@@ -777,7 +783,9 @@ button.pValBtn:active:not(:disabled) { background-image: linear-gradient(var(--p
 .luftDefaults { display: flex; align-items: center; gap: 12px; min-height: var(--tap);
   padding: 4px 14px; background: var(--fill-soft); border-radius: var(--r-ctl); }
 .luftDefaultsText { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; color: var(--ink); }
-.luftDefaultsChange { flex: none; min-height: 36px; padding: 0 6px; border: none; background: transparent;
+/* the full --tap: the row is --tap tall with 4px padding, so the negative block margin lets the
+   button fill the row's whole height without growing it (it measured 60×36, 3am test 25.09.2026) */
+.luftDefaultsChange { flex: none; min-height: var(--tap); margin-block: -4px; padding: 0 8px; border: none; background: transparent;
   font: 700 13px var(--body); color: var(--blue); cursor: pointer; border-radius: var(--r-sm); }
 .luftDefaultsChange:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
@@ -1450,8 +1458,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    wraps — so each one wrapped on its own and they scattered across two rows at phone width. As a
    group they move together and hug the right edge, which is also where they sit on a tablet, so
    the arrangement does not change identity between devices. */
+/* ⚠️ `flex: 0 1 auto` + `min-width: 0`, not `0 0 auto`: a group that may not shrink is as wide as
+   all its controls in one line, so its own `flex-wrap` never fired — on the 820px tablet with the
+   «n Alarme» badge up, the group took a row of its own and ran «+ Trupp erstellen» off the card's
+   right edge. Allowed to shrink to the head's width, it wraps inside itself instead, and the
+   last controls drop to a second row right-aligned under the first (3am test, 25.09.2026). */
 .headActs { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end;
-  gap: var(--head-gap); flex: 0 0 auto; margin-left: auto; }
+  gap: var(--head-gap); flex: 0 1 auto; min-width: 0; margin-left: auto; }
 
 /* «Ein Trupp, ein Bildschirm» — the handed-over board on a phone (AtemschutzView · focusMode).
    ⚠️ mock 03 (maintainer correction, 03.09.): the kicker is DROPPED here rather than shrunk —

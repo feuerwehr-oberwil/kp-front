@@ -147,9 +147,9 @@
 .wb-lamp[data-tone='green'] { background: var(--green); }
 /* a read-out with nowhere to go (a link-scoped viewer is bound to ONE object) is not greyed out
    — it is still the answer to «which building am I looking at», it simply cannot be tapped */
-.wb-object:disabled { cursor: default; opacity: 1; }
+.wb-object:disabled, .wb-building:disabled { cursor: default; opacity: 1; }
 @media (hover: hover) {
-  .wb-object:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
+  .wb-object:disabled:hover, .wb-building:disabled:hover { border-color: var(--glass-edge); color: var(--ink-dim); }
   /* the warning keeps its tone under the pointer, tappable or not – hover must not read as «fine» */
   .wb-object.wb-object-nearby:hover, .wb-object.wb-object-nearby:disabled:hover {
     color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
