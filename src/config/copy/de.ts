@@ -2847,10 +2847,8 @@ export const de = {
     pinGps: 'Festhalten',
     pinGpsTitle: 'Fahrzeug hier festhalten – es bleibt stehen, auch wenn es wegfährt',
     logPinned: '{name} festgehalten',
-    // Verlauf rows from the Fahrzeug feed. They answer «wann ist wer weggefahren» – the question
-    // nobody can answer from memory hours later.
-    logVehicleArrived: '{name} vor Ort',
-    logVehicleLeft: '{name} hat den Einsatzort verlassen',
+    // (The «vor Ort» / «hat den Einsatzort verlassen» rows are written by the SERVER since
+    // 25.09.2026, in German like every server-written row — backend · app/vehicle_presence.)
     // Remove a self-reported position from the Kommandoposten: somebody drives home with sharing
     // still on, or a phone dies on its last fix – the dot then claims a Kraft is somewhere it
     // is not.

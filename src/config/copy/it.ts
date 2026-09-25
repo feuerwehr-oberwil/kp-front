@@ -1724,8 +1724,6 @@ export const it: Localizable<Copy> = {
     pinGps: 'Fissa qui',
     pinGpsTitle: 'Fissa il veicolo qui – il simbolo resta anche se riparte',
     logPinned: '{name} fissato',
-    logVehicleArrived: '{name} sul posto',
-    logVehicleLeft: '{name} ha lasciato il luogo dell’intervento',
     driverLabel: 'Conducente',
     driverPlaceholder: 'Nome dall’organico',
     rotateHint: 'Trascina la maniglia per orientare',

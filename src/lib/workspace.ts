@@ -144,14 +144,14 @@ export interface FahrzeugGps {
   zone: 'scene' | 'away'
   /** the Traccar device id — the live fix age comes from the positions feed under it */
   device?: number
-  /** first arrival on scene (GPS fix time) */
+  /** first arrival on scene (the tracker's report time, Traccar `deviceTime`) */
   an?: string
-  /** last departure from scene (GPS fix time) */
+  /** last departure from scene (same clock) — NOT `zurueck`, which is «back at the depot» */
   ab?: string
   /** stays on scene — 3 for a vehicle that shuttled to the depot twice */
   fahrten?: number
   /** the Rapport clocks the server stamped first (first writer wins against the geofence) */
-  owns?: ('vorOrt' | 'zurueck')[]
+  owns?: 'vorOrt'[]
 }
 
 /** Per-incident, SYNCED operational settings — part of the workspace blob, so they

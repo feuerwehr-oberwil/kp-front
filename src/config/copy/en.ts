@@ -1727,8 +1727,6 @@ export const en: Localizable<Copy> = {
     pinGps: 'Hold here',
     pinGpsTitle: 'Hold this vehicle here — the symbol stays put even once it drives off',
     logPinned: '{name} held in place',
-    logVehicleArrived: '{name} on scene',
-    logVehicleLeft: '{name} left the scene',
     driverLabel: 'Driver',
     driverPlaceholder: 'Name from the crew',
     rotateHint: 'Drag the handle to align',

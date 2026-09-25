@@ -60,6 +60,14 @@ describe('freshWindShift — the server row, once, while it is news', () => {
     })
   })
 
+  it('is timed from when the row ARRIVED, not from the reading it records', () => {
+    // MeteoSwiss lag + the 10-min cadence: the reading is 40 min old when the row is written
+    const late = { ...row('wxd-202609231800', '2026-09-23T18:00:00Z'), writtenAt: '2026-09-23T18:38:00Z' }
+    expect(freshWindShift([late], NOW, new Set())?.id).toBe('wxd-202609231800')
+    // …and the 30-min window runs from that arrival
+    expect(freshWindShift([late], Date.parse('2026-09-23T18:38:00Z') + WIND_SHIFT_FRESH_MS + 1, new Set())).toBeNull()
+  })
+
   it('stays down once waved away, and goes by itself once it is old', () => {
     const rows = [row('wxd-202609231830', '2026-09-23T18:30:00Z')]
     expect(freshWindShift(rows, NOW, new Set(['wxd-202609231830']))).toBeNull()
@@ -78,6 +86,13 @@ describe('devices never write observations', () => {
     expect(ws).not.toMatch(/emit\(\s*['"]weather\.observe['"]/)
     expect(ws).not.toMatch(/useVehiclePresenceLog/)
     expect(ws).not.toMatch(/rowId:\s*`vp-/)
+  })
+
+  it('the vehicle table ages a report on the SERVER clock, like the times it shows', () => {
+    // a device clock minutes off made a live tracker read «vor 4 min» (or stale) on one tablet
+    const table = src('../components/VehicleGpsTable.tsx')
+    expect(table).toMatch(/serverNow\(\)/)
+    expect(table).not.toMatch(/Date\.now\(\)/)
   })
 
   it('the Divera watch only reads the pool', () => {
