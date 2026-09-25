@@ -1302,6 +1302,7 @@ export const fr: Localizable<Copy> = {
     contactEchoMsg: '{name} : contact déjà confirmé il y a {s} s (autre appareil).',
     contactEchoAgain: 'Encore une fois',
     contactEchoOk: 'OK',
+    contactDone: 'Confirmé',
     pressureLockedLabel: 'Pression d’entrée ({t})',
     pressureLockedLabelPlain: 'Pression d’entrée',
     pressureLocked: 'Binôme sorti',

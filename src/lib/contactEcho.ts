@@ -23,6 +23,12 @@ import type { Trupp, TruppReading } from '../types'
 /** How long a confirmation from elsewhere answers a tap here with a question. */
 export const CONTACT_ECHO_MS = 60_000
 
+/** How far in the FUTURE a stamp may lie and still read as «just now». Two devices on the
+ *  deployment clock (lib/serverClock) agree to about a second; a stamp further ahead came from a
+ *  device whose clock is off, and answering it with «vor −40 s schon bestätigt» would be a
+ *  question about nothing — so it is not an echo at all. */
+export const CONTACT_ECHO_FUTURE_MS = 5_000
+
 /** The log rows that confirm a Funkkontakt — every row that resets the contact clock by a radio
  *  answer: a plain Kontakt, a Druckmeldung (and its Alarmdruck crossing), a Rückzug, a Fortsetzen.
  *  NOT the Eintritt: it starts the clock, and «Kontakt wurde schon bestätigt» over a crew that
@@ -72,8 +78,8 @@ export function foreignContactAgo(
   }
   if (!latest) return null
   const age = nowMs - latestMs
-  if (age >= CONTACT_ECHO_MS) return null
+  if (age >= CONTACT_ECHO_MS || age < -CONTACT_ECHO_FUTURE_MS) return null
   if (isOwn(t.id, latest.t)) return null
-  // a stamp a second ahead of this device's reading of the server clock is «just now», not «in −1 s»
+  // a stamp a second or two ahead of this device's reading of the server clock is «just now»
   return Math.max(0, Math.floor(age / 1000))
 }

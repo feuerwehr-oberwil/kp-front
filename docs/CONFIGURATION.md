@@ -436,6 +436,11 @@ and there is deliberately no upper bound: a low entry is sometimes simply true.
 | Shipped value | `270`, in the CLI template (`admin_config example`) and the frontend defaults (`src/config/appConfig.ts`) |
 | Never asked for | the station's own `defaultPressureBar`, and «Gleiche Flasche» on a re-entry (that bar is the Restdruck) |
 
+⚠️ **A station on 200-bar cylinders lowers it** – to about `180` – or sets `0`. The shipped 270 is
+sized for 300-bar bottles; left there, every full 200-bar cylinder typed in by hand would be
+questioned (the station's own `defaultPressureBar` is exempt, a corrected 190 is not), and a
+question asked every time is one nobody reads.
+
 Frontend only – the server stores it and never checks a reading against it. Set it on **Station ›
 Doktrin**, under the Eingangsdruck, or in the config file; read through `atemschutzDoctrine()`.
 

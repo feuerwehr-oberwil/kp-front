@@ -51,6 +51,11 @@ describe('foreignContactAgo', () => {
     expect(foreignContactAgo(trupp([{ t: at(-2), bar: 300, kind: 'contact' }]), NOW)).toBe(0)
   })
 
+  it('does not read a stamp from a skewed device, well in the future, as an echo', () => {
+    expect(foreignContactAgo(trupp([{ t: at(-6), bar: 300, kind: 'contact' }]), NOW)).toBeNull()
+    expect(foreignContactAgo(trupp([{ t: at(-40), bar: 300, kind: 'contact' }]), NOW)).toBeNull()
+  })
+
   it('keeps the own-contact set per Trupp', () => {
     noteOwnContact('t2', at(5))
     expect(foreignContactAgo(trupp([{ t: at(5), bar: 300, kind: 'contact' }]), NOW)).toBe(5)

@@ -31,6 +31,8 @@ const rec = vi.hoisted(() => ({
   planFit: vi.fn(),
   order: [] as string[],
   answer: false,
+  /** answers for the next confirms, in order — `answer` once they run out */
+  answers: [] as (boolean | 'alt')[],
   confirms: 0,
 }))
 type MapProps = Record<string, unknown> & {
@@ -72,7 +74,7 @@ vi.mock('./components/Whiteboard', async () => {
 vi.mock('./components/ReportPreflight', () => ({ ReportPreflight: () => null, requestReportStep: () => {} }))
 vi.mock('./lib/ui', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/ui')>()
-  return { ...mod, confirmDialog: () => { rec.confirms++; return Promise.resolve(rec.answer) } }
+  return { ...mod, confirmDialog: () => { rec.confirms++; return Promise.resolve(rec.answers.length ? rec.answers.shift()! : rec.answer) } }
 })
 vi.mock('./lib/mediaQueue', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/mediaQueue')>()
@@ -96,7 +98,7 @@ beforeAll(() => {
 })
 beforeEach(() => {
   rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null
-  rec.answer = false; rec.confirms = 0
+  rec.answer = false; rec.answers.length = 0; rec.confirms = 0
   vi.clearAllMocks()
   // every request the workspace makes (journal, audit, alignments, weather …) is simply absent
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -287,6 +289,38 @@ describe('(c) the Abschluss', () => {
     await pressAbschluss()
     expect(rec.confirms).toBe(1)
     expect(onCompleteRapport).not.toHaveBeenCalled()
+  })
+
+  /* A Sicherungstrupp still angemeldet (24.09.2026, D1 ⑦): the workspace wires the Abschluss's
+     «nicht eingesetzt» to the card's own stand-down, and only after the final «Abschliessen». */
+  const standing = {
+    id: 'sich', no: 6, name: 'Muster Leo', entryPressureBar: 280, entryTime: '', lastContactTime: '',
+    status: 'angemeldet', auftrag: 'sichern', readings: [],
+  }
+  const withSafety = () => ({ workspace: { entities: [truck], trupps: [standing] } as unknown as Saved })
+  const statusOnBoard = async () => {
+    key('a')
+    await settle()
+    return document.body.textContent ?? ''
+  }
+
+  it('«nicht eingesetzt», then «Abbrechen»: the Sicherungstrupp is still angemeldet', async () => {
+    const { onCompleteRapport } = await mount(withSafety())
+    rec.answers.push(true, false)
+    await pressAbschluss()
+    expect(rec.confirms).toBe(2)
+    expect(onCompleteRapport).not.toHaveBeenCalled()
+    // still at the door: its card offers «Im Einsatz», not the way back in of a closed Trupp
+    expect(await statusOnBoard()).not.toContain(appConfig.copy.atemschutz.actReenter)
+  })
+
+  it('«nicht eingesetzt», then «Abschliessen»: stood down through the card\'s own close-out, then handed over', async () => {
+    const { onCompleteRapport } = await mount(withSafety())
+    rec.answers.push(true, true)
+    await pressAbschluss()
+    // the stand-down takes one task before the handover (useAbschluss) — wait for it, not a clock
+    await waitFor(() => expect(onCompleteRapport).toHaveBeenCalledTimes(1), { timeout: 10_000 })
+    expect(await statusOnBoard()).toContain(appConfig.copy.atemschutz.actReenter)
   })
 
   it('OK drains the media queue FIRST, then hands the Einsatz over', async () => {
