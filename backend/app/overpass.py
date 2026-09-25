@@ -112,8 +112,9 @@ async def fetch_buildings(query: str, timeout_s: float = FETCH_TIMEOUT_S, *, cac
 async def _race(urls: list[str], query: str, timeout_s: float) -> dict:
     """Race the mirrors; first success wins. Raises on total failure.
 
-    The slower requests are left to finish and discarded — cancelling them buys nothing and
-    Overpass counts a cancelled query against the caller either way.
+    Once one mirror has answered, the requests still in flight are CANCELLED (the `finally`
+    below): nothing waits on them any more. That closes our connection only — a mirror that has
+    already started the query may still count it against this address.
     """
 
     async def one(url: str) -> dict:

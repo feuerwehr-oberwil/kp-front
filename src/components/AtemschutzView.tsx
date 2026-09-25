@@ -812,24 +812,38 @@ export function AtemschutzView({
     if (!card) return
     // Parked at the top of the port, a card about a port tall ends in the FAB's corner, and the
     // circle sat on its Verlauf row's chevron (field checks 24.09.2026). That ROW — and only it —
-    // then keeps the FAB's column free (Atemschutz.module.css · data-az-fab-foot). Measured where
-    // the row will stand once parked, not assumed: a short card's row is nowhere near the circle.
-    // Re-measured whenever the card changes height (the Verlauf opening, a crew row, a warning),
-    // which moves both the spacer it needs and whether its row still reaches the corner.
+    // then keeps the FAB's column free (Atemschutz.module.css · data-az-fab-foot), for exactly as
+    // long as it really stands under the circle: measured where it IS, never assumed. So it is
+    // re-measured on everything that moves one against the other — the card changing height (the
+    // Verlauf opening, a crew row, a warning; that also resizes the spacer), the port changing
+    // height or scrolling (the parking scroll itself is smooth, so its end arrives as scroll
+    // events), and the window or visual viewport resizing (the FAB is `position: fixed`). Scroll
+    // and resize are folded into one measurement per frame.
     const measure = () => {
       list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
       const row = card.querySelector<HTMLElement>('[data-az-foot]')
       const fab = document.querySelector('.fab-entry')?.getBoundingClientRect()
       if (!row) return
-      const top = port.getBoundingClientRect().top + (row.getBoundingClientRect().top - card.getBoundingClientRect().top)
-      row.toggleAttribute('data-az-fab-foot', !!fab && top < fab.bottom && top + row.offsetHeight > fab.top)
+      const r = row.getBoundingClientRect()
+      row.toggleAttribute('data-az-fab-foot', !!fab && r.top < fab.bottom && r.bottom > fab.top)
     }
+    let frame = 0
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() }) }
     measure()
     card.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(measure)
-    ro.observe(card)
-    return () => ro.disconnect()
+    port.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    window.visualViewport?.addEventListener('resize', schedule)
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
+    ro?.observe(card)
+    ro?.observe(port)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      port.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      window.visualViewport?.removeEventListener('resize', schedule)
+      ro?.disconnect()
+    }
   }, [compact, openRow])
 
   /* WHICH cards the current pointer marks — and which one the board scrolls to.

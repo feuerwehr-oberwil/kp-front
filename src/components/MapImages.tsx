@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useMap } from 'react-map-gl/maplibre'
 import { appConfig } from '../config/appConfig'
 import { ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
@@ -18,7 +18,11 @@ export function MapImages({ layers, byName }: { layers: readonly LayerDef[]; byN
   const variants = useMemo(() => pointIconVariants(layers, byName), [layers, byName])
   const registry = useRef<ReturnType<typeof pointIconRegistry> | null>(null)
 
-  useEffect(() => {
+  // ⚠️ A LAYOUT effect: it runs synchronously in the commit that mounts the <Layer> siblings,
+  // before any macrotask — so before the worker's first image request can arrive and find no
+  // listener. A passive effect runs after paint, from a scheduler task that could lose that race
+  // (CodeRabbit on #232). The listener then stays installed across style reloads.
+  useLayoutEffect(() => {
     if (!map) return
     const host = map as unknown as MapImageHost
     const icons = pointIconRegistry(host)
